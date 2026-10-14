@@ -9,25 +9,15 @@ import type { ITokenFiat } from '../../types/token';
 yarn jest packages/shared/src/utils/deriveTypeCollapseUtils.test.ts
 */
 
-function buildState(
-  deriveType: string,
-  overrides: Partial<IDeriveTypeAssetState> = {},
-): IDeriveTypeAssetState {
-  return {
-    deriveType,
-    hasAccount: true,
-    hasBalanceRecord: true,
-    hasAssets: false,
-    ...overrides,
-  };
-}
-
 function buildStates(
   overrides: Record<string, Partial<IDeriveTypeAssetState>> = {},
 ): IDeriveTypeAssetState[] {
-  return ['BIP86', 'default', 'BIP84', 'BIP44'].map((deriveType) =>
-    buildState(deriveType, overrides[deriveType]),
-  );
+  return ['BIP86', 'default', 'BIP84', 'BIP44'].map((deriveType) => ({
+    deriveType,
+    hasBalanceRecord: true,
+    hasAssets: false,
+    ...overrides[deriveType],
+  }));
 }
 
 function buildFiat(overrides: Partial<ITokenFiat> = {}): ITokenFiat {
@@ -41,100 +31,64 @@ function buildFiat(overrides: Partial<ITokenFiat> = {}): ITokenFiat {
 }
 
 describe('shouldCollapseDeriveTypes', () => {
-  it('collapses a new wallet that holds nothing', () => {
+  it.each<[string, string | undefined, IDeriveTypeAssetState[], boolean]>([
+    ['collapses a new wallet that holds nothing', 'BIP86', buildStates(), true],
+    [
+      'collapses when only the default type holds assets',
+      'BIP86',
+      buildStates({ BIP86: { hasAssets: true } }),
+      true,
+    ],
+    [
+      'collapses on a default type the user switched to',
+      'BIP84',
+      buildStates({ BIP84: { hasAssets: true } }),
+      true,
+    ],
+    [
+      'keeps every type when another type holds assets',
+      'BIP86',
+      buildStates({ default: { hasAssets: true } }),
+      false,
+    ],
+    [
+      'keeps every type when the assets stay on the previous default',
+      'BIP84',
+      buildStates({ BIP86: { hasAssets: true } }),
+      false,
+    ],
+    [
+      'treats a type whose balances were never read as unknown, not empty',
+      'BIP86',
+      buildStates({ BIP44: { hasBalanceRecord: false } }),
+      false,
+    ],
+    [
+      'requires a balance record for the default type too',
+      'BIP86',
+      buildStates({ BIP86: { hasBalanceRecord: false } }),
+      false,
+    ],
+    [
+      'does not collapse without a default type',
+      undefined,
+      buildStates(),
+      false,
+    ],
+    ['does not collapse without any state', 'BIP86', [], false],
+    [
+      'does not collapse when the default type is not one of the states',
+      'unknownType',
+      buildStates(),
+      false,
+    ],
+  ])('%s', (_name, defaultDeriveType, deriveTypeStates, expected) => {
     expect(
       deriveTypeCollapseUtils.shouldCollapseDeriveTypes({
-        defaultDeriveType: 'BIP86',
-        deriveTypeStates: buildStates(),
+        defaultDeriveType,
+        deriveTypeStates,
       }),
-    ).toBe(true);
-  });
-
-  it('collapses when only the default type holds assets', () => {
-    expect(
-      deriveTypeCollapseUtils.shouldCollapseDeriveTypes({
-        defaultDeriveType: 'BIP86',
-        deriveTypeStates: buildStates({ BIP86: { hasAssets: true } }),
-      }),
-    ).toBe(true);
-  });
-
-  it('collapses on a default type the user switched to', () => {
-    expect(
-      deriveTypeCollapseUtils.shouldCollapseDeriveTypes({
-        defaultDeriveType: 'BIP84',
-        deriveTypeStates: buildStates({ BIP84: { hasAssets: true } }),
-      }),
-    ).toBe(true);
-  });
-
-  it('keeps every type when another type holds assets', () => {
-    expect(
-      deriveTypeCollapseUtils.shouldCollapseDeriveTypes({
-        defaultDeriveType: 'BIP86',
-        deriveTypeStates: buildStates({ default: { hasAssets: true } }),
-      }),
-    ).toBe(false);
-  });
-
-  it('keeps every type when the assets stay on the previous default', () => {
-    expect(
-      deriveTypeCollapseUtils.shouldCollapseDeriveTypes({
-        defaultDeriveType: 'BIP84',
-        deriveTypeStates: buildStates({ BIP86: { hasAssets: true } }),
-      }),
-    ).toBe(false);
-  });
-
-  it('treats a type whose balances were never read as unknown, not empty', () => {
-    expect(
-      deriveTypeCollapseUtils.shouldCollapseDeriveTypes({
-        defaultDeriveType: 'BIP86',
-        deriveTypeStates: buildStates({ BIP44: { hasBalanceRecord: false } }),
-      }),
-    ).toBe(false);
-  });
-
-  it('requires a balance record for the default type too', () => {
-    expect(
-      deriveTypeCollapseUtils.shouldCollapseDeriveTypes({
-        defaultDeriveType: 'BIP86',
-        deriveTypeStates: buildStates({ BIP86: { hasBalanceRecord: false } }),
-      }),
-    ).toBe(false);
-  });
-
-  it('keeps every type when one of them has no account yet', () => {
-    expect(
-      deriveTypeCollapseUtils.shouldCollapseDeriveTypes({
-        defaultDeriveType: 'BIP86',
-        deriveTypeStates: buildStates({ BIP84: { hasAccount: false } }),
-      }),
-    ).toBe(false);
-  });
-
-  it('does not collapse without a default type or without any state', () => {
-    expect(
-      deriveTypeCollapseUtils.shouldCollapseDeriveTypes({
-        defaultDeriveType: undefined,
-        deriveTypeStates: buildStates(),
-      }),
-    ).toBe(false);
-    expect(
-      deriveTypeCollapseUtils.shouldCollapseDeriveTypes({
-        defaultDeriveType: 'BIP86',
-        deriveTypeStates: [],
-      }),
-    ).toBe(false);
-  });
-
-  it('does not collapse when the default type is not one of the states', () => {
-    expect(
-      deriveTypeCollapseUtils.shouldCollapseDeriveTypes({
-        defaultDeriveType: 'unknownType',
-        deriveTypeStates: buildStates(),
-      }),
-    ).toBe(false);
+    ).toBe(expected);
   });
 });
 

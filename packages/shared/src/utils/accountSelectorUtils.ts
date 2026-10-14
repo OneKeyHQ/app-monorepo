@@ -223,6 +223,38 @@ function hasOthersWalletAccountNetworkPair({
   );
 }
 
+// A selection's derive type is re-read from the network's default address
+// type when the one it carries cannot be trusted: after a network change it
+// still belongs to the previous network, and an imported or watching account
+// only holds a placeholder (`default`). Carried back to an HD or hardware
+// account, that placeholder would be saved as the app-wide default.
+function shouldResetDeriveTypeFromGlobal({
+  oldSelectedAccount,
+  newSelectedAccount,
+}: {
+  oldSelectedAccount: IAccountSelectorSelectedAccount | undefined;
+  newSelectedAccount: IAccountSelectorSelectedAccount | undefined;
+}): boolean {
+  const newNetworkId = newSelectedAccount?.networkId;
+  if (
+    !newNetworkId ||
+    newSelectedAccount?.deriveType !== oldSelectedAccount?.deriveType
+  ) {
+    return false;
+  }
+  if (newNetworkId !== oldSelectedAccount?.networkId) {
+    return true;
+  }
+  const oldWalletId = oldSelectedAccount?.walletId;
+  const newWalletId = newSelectedAccount?.walletId;
+  return Boolean(
+    oldWalletId &&
+    newWalletId &&
+    accountUtils.isOthersWallet({ walletId: oldWalletId }) &&
+    !accountUtils.isOthersWallet({ walletId: newWalletId }),
+  );
+}
+
 export default {
   isEqualAccountSelectorScene,
   hasOthersWalletAccountNetworkPair,
@@ -234,4 +266,5 @@ export default {
   isSceneCanPersist,
   isSceneUseGlobalDeriveType,
   isSceneAutoSaveToGlobalDeriveType,
+  shouldResetDeriveTypeFromGlobal,
 };

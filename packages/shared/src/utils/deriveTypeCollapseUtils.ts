@@ -1,12 +1,12 @@
 import BigNumber from 'bignumber.js';
 
-import { getNetworkIdsMap } from '../config/networkIds';
+import networkUtils from './networkUtils';
+import { isValidNumberValue } from './tokenValueUtils';
 
 import type { ITokenFiat } from '../../types/token';
 
 export type IDeriveTypeAssetState = {
   deriveType: string;
-  hasAccount: boolean;
   // false means the balances of this derive type have never been read. That is
   // unknown, which must not be treated as empty.
   hasBalanceRecord: boolean;
@@ -20,15 +20,11 @@ function isDeriveTypeCollapseSupportedNetwork({
 }: {
   networkId: string | undefined;
 }): boolean {
-  return !!networkId && networkId === getNetworkIdsMap().btc;
+  return networkUtils.isBTCMainnet(networkId);
 }
 
 function isPositiveAmount(value: string | undefined): boolean {
-  if (!value) {
-    return false;
-  }
-  const amount = new BigNumber(value);
-  return amount.isFinite() && amount.gt(0);
+  return isValidNumberValue(value) && new BigNumber(value).gt(0);
 }
 
 // Amounts decide, not fiat value: an unpriced holding is still a holding.
@@ -46,9 +42,10 @@ function hasAssetsInTokenListMap({
   );
 }
 
-// Collapsed means the account only shows its default address type. That is
-// allowed only when every derive type has an account, every one of them has a
-// balance record, and none except the default one holds assets.
+// Collapsed means the account only shows its default address type. Given the
+// state of every derive type (the caller makes sure each one has an account),
+// that is allowed only when the default type is among them, every one of them
+// has a balance record, and none except the default one holds assets.
 function shouldCollapseDeriveTypes({
   defaultDeriveType,
   deriveTypeStates,
@@ -56,15 +53,11 @@ function shouldCollapseDeriveTypes({
   defaultDeriveType: string | undefined;
   deriveTypeStates: IDeriveTypeAssetState[];
 }): boolean {
-  if (!defaultDeriveType || deriveTypeStates.length === 0) {
-    return false;
-  }
   if (!deriveTypeStates.some((item) => item.deriveType === defaultDeriveType)) {
     return false;
   }
   return deriveTypeStates.every(
     (item) =>
-      item.hasAccount &&
       item.hasBalanceRecord &&
       (item.deriveType === defaultDeriveType || !item.hasAssets),
   );

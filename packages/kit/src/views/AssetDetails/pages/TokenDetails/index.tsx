@@ -41,6 +41,7 @@ import {
 } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
+import { useDeriveTypesCollapseState } from '@onekeyhq/kit/src/hooks/useDeriveTypesCollapseState';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { openTokenDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import type {
@@ -540,6 +541,18 @@ function TokenDetailsView() {
     },
   );
 
+  // A collapsed account shows its default address type alone. The route's
+  // accountId is whichever derive type the merged Home row happened to carry,
+  // so the default type's account is used instead.
+  const {
+    isReady: isCollapseStateReady,
+    defaultNetworkAccount: collapsedNetworkAccount,
+  } = useDeriveTypesCollapseState({
+    networkId: tokenInfo.networkId ?? networkId,
+    walletId,
+    indexedAccountId,
+  });
+
   const listViewContentContainerStyle = useMemo(() => ({ pt: '$5' }), []);
 
   const overviewTabName = intl.formatMessage({
@@ -797,8 +810,11 @@ function TokenDetailsView() {
 
   const tokenDetailsViewElement = useMemo(() => {
     if (
-      isLoading ||
+      // That loader only builds the type Tabs, which a collapsed account
+      // never shows, so the single view does not wait for it.
+      (isLoading && !collapsedNetworkAccount) ||
       isLoadingTokens ||
+      !isCollapseStateReady ||
       // Keep aggregate tokens on the spinner until the group is resolved so
       // the aggregate descriptor never reaches the single-token fallback.
       (tokenInfo.isAggregateToken && isLoadingTokens !== false)
@@ -827,6 +843,23 @@ function TokenDetailsView() {
             })}
           />
         </Stack>
+      );
+    }
+    if (collapsedNetworkAccount) {
+      return (
+        <TokenDetailsViews
+          accountId={collapsedNetworkAccount.account.id}
+          networkId={tokenInfo.networkId ?? ''}
+          walletId={walletId}
+          deriveInfo={collapsedNetworkAccount.deriveInfo}
+          deriveType={collapsedNetworkAccount.deriveType}
+          tokenInfo={tokenInfo}
+          tokenMap={tokenMap}
+          allowTokenMapAsInitialDetails={false}
+          isAllNetworks={isAllNetworks}
+          indexedAccountId={indexedAccountId}
+          listViewContentContainerStyle={listViewContentContainerStyle}
+        />
       );
     }
     if (
@@ -875,6 +908,8 @@ function TokenDetailsView() {
   }, [
     isLoading,
     isLoadingTokens,
+    isCollapseStateReady,
+    collapsedNetworkAccount,
     isAggregateTokenUnavailable,
     walletId,
     vaultSettings?.mergeDeriveAssetsEnabled,

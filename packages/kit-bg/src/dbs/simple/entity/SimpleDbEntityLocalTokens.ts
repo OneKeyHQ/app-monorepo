@@ -84,6 +84,23 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     }
   }
 
+  // For readers of pending caches: an entry older than the write storage has
+  // already committed for its key is dropped on flush, so it is not current.
+  // Only reads the committed orders, so it needs no mutex.
+  isStaleAccountTokenListCacheEntry({
+    cache,
+    key,
+  }: {
+    cache: IAccountTokenListCache;
+    key: string;
+  }): boolean {
+    const writeOrder = cache.tokenListWriteOrder?.[key];
+    return (
+      writeOrder !== undefined &&
+      this.isStaleAccountTokenListWrite(key, writeOrder)
+    );
+  }
+
   // Bound the global token-metadata map. Applied on every write (here, on read it
   // re-fetches on miss) so growth is capped regardless of whether the periodic
   // orphan sweep runs. Object key order is insertion order, so the oldest entries

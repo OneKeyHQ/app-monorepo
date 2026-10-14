@@ -1,6 +1,6 @@
 import { CanceledError, isCancel } from 'axios';
 import BigNumber from 'bignumber.js';
-import { debounce, isNil, uniq, uniqBy } from 'lodash';
+import { debounce, isNil, maxBy, uniq, uniqBy } from 'lodash';
 
 import {
   backgroundClass,
@@ -40,6 +40,7 @@ import {
   getMergedTokenData,
   normalizeTokenSearchResults,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IBinancePreOrderParams,
@@ -78,7 +79,20 @@ import type {
   ISimpleDBLocalTokens,
 } from '../dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IRiskTokenManagementDBStruct } from '../dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
-import type { IAccountDeriveTypes } from '../vaults/types';
+import type { IAccountDeriveInfo, IAccountDeriveTypes } from '../vaults/types';
+
+export type IDeriveTypesCollapseState =
+  | { collapsed: false }
+  | {
+      collapsed: true;
+      // The default address type's account: the one every entry point uses
+      // while collapsed.
+      defaultNetworkAccount: {
+        account: INetworkAccount;
+        deriveInfo: IAccountDeriveInfo;
+        deriveType: IAccountDeriveTypes;
+      };
+    };
 
 type IFetchAccountTokensController = {
   controller: AbortController;
@@ -295,6 +309,9 @@ class ServiceToken extends ServiceBase {
   };
 
   private homeLocalAccountTokensCache: IAccountTokenListCache | undefined;
+
+  // The Home batch being written: no longer pending, not yet in storage.
+  private homeLocalAccountTokensFlushing: IAccountTokenListCache | undefined;
 
   // Returns `null` when the rate is missing or unusable so callers can skip
   // conversion and tag entries with the source currency instead — the cache
@@ -988,6 +1005,7 @@ class ServiceToken extends ServiceBase {
       // Detach before awaiting storage so completion cannot clear a newer batch.
       this.homeLocalAccountTokensCache = undefined;
       if (!pending) return;
+      this.homeLocalAccountTokensFlushing = pending;
       try {
         await this.backgroundApi.simpleDb.localTokens.updateAccountTokenListByCache(
           pending,
@@ -1001,6 +1019,10 @@ class ServiceToken extends ServiceBase {
               error instanceof Error ? error.message : String(error)
             }`,
           );
+        }
+      } finally {
+        if (this.homeLocalAccountTokensFlushing === pending) {
+          this.homeLocalAccountTokensFlushing = undefined;
         }
       }
     },
@@ -1688,75 +1710,136 @@ class ServiceToken extends ServiceBase {
   }: {
     networkId: string;
     indexedAccountId: string | undefined;
-  }): Promise<{
-    collapsed: boolean;
-    defaultDeriveType: IAccountDeriveTypes | undefined;
-  }> {
+  }): Promise<IDeriveTypesCollapseState> {
     if (
       !indexedAccountId ||
       !deriveTypeCollapseUtils.isDeriveTypeCollapseSupportedNetwork({
         networkId,
       })
     ) {
-      return { collapsed: false, defaultDeriveType: undefined };
+      return { collapsed: false };
     }
 
     const { serviceAccount, serviceNetwork, simpleDb } = this.backgroundApi;
-    let defaultDeriveType: IAccountDeriveTypes | undefined;
     try {
-      defaultDeriveType = await serviceNetwork.getGlobalDeriveTypeOfNetwork({
-        networkId,
-      });
+      const defaultDeriveType =
+        await serviceNetwork.getGlobalDeriveTypeOfNetwork({ networkId });
       const { networkAccounts } =
         await serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
           { networkId, indexedAccountId },
         );
-      // Cheap exit before the local tokens blob is read and parsed.
-      if (networkAccounts.some((item) => !item.account)) {
-        return { collapsed: false, defaultDeriveType };
+      const defaultNetworkAccount = networkAccounts.find(
+        (item) => item.deriveType === defaultDeriveType,
+      );
+      // Every address type needs an account before its balances can be known.
+      // Also a cheap exit before the local tokens blob is read and parsed.
+      if (
+        !defaultNetworkAccount?.account ||
+        networkAccounts.some((item) => !item.account)
+      ) {
+        return { collapsed: false };
       }
 
-      const rawData = await simpleDb.localTokens.getRawData();
-      const deriveTypeStates = await Promise.all(
-        networkAccounts.map(async (item) => {
-          const accountId = item.account?.id ?? '';
-          const [xpub, accountAddress] = await Promise.all([
-            serviceAccount.getAccountXpub({ accountId, networkId }),
-            serviceAccount.getAccountAddressForApi({ accountId, networkId }),
-          ]);
+      // Responses waiting for, or in the middle of, the debounced write are
+      // newer than storage unless storage has since committed a newer write
+      // for the key. Among them the newest write wins, as it does on flush.
+      const pendingSources = [
+        this.homeLocalAccountTokensCache,
+        this.homeLocalAccountTokensFlushing,
+        this.localAccountTokensCache,
+      ].filter((source): source is IAccountTokenListCache => !!source);
+      const storedSource = await simpleDb.localTokens.getRawData();
+      const hasRecord = (
+        source: { tokenList?: Record<string, unknown> } | null | undefined,
+        key: string,
+      ) => Object.prototype.hasOwnProperty.call(source?.tokenList ?? {}, key);
+      const collapsed = deriveTypeCollapseUtils.shouldCollapseDeriveTypes({
+        defaultDeriveType,
+        deriveTypeStates: networkAccounts.map((item) => {
           const key = accountUtils.buildAccountLocalAssetsKey({
             networkId,
-            accountAddress,
-            xpub,
+            accountAddress: item.account?.address,
+            xpub: accountUtils.pickXpubFromDBAccount(item.account),
           });
-          // A response waiting for the debounced write is newer than storage.
-          const record = [
-            this.homeLocalAccountTokensCache,
-            this.localAccountTokensCache,
-            rawData,
-          ].find((source) =>
-            Object.prototype.hasOwnProperty.call(source?.tokenList ?? {}, key),
+          const pendingRecord = maxBy(
+            pendingSources.filter(
+              (source) =>
+                hasRecord(source, key) &&
+                !simpleDb.localTokens.isStaleAccountTokenListCacheEntry({
+                  cache: source,
+                  key,
+                }),
+            ),
+            (source) => source.tokenListWriteOrder?.[key] ?? -1,
           );
+          const record =
+            pendingRecord ??
+            (hasRecord(storedSource, key) ? storedSource : undefined);
           return {
             deriveType: item.deriveType,
-            hasAccount: true,
             hasBalanceRecord: !!record,
             hasAssets: deriveTypeCollapseUtils.hasAssetsInTokenListMap({
               tokenListMap: record?.tokenListMap?.[key],
             }),
           };
         }),
-      );
-
-      return {
-        collapsed: deriveTypeCollapseUtils.shouldCollapseDeriveTypes({
-          defaultDeriveType,
-          deriveTypeStates,
-        }),
-        defaultDeriveType,
-      };
+      });
+      if (collapsed) {
+        return {
+          collapsed: true,
+          defaultNetworkAccount: {
+            ...defaultNetworkAccount,
+            account: defaultNetworkAccount.account,
+          },
+        };
+      }
     } catch (_error) {
-      return { collapsed: false, defaultDeriveType };
+      // Falls through to not collapsed.
+    }
+    return { collapsed: false };
+  }
+
+  // Exchange deposits take the account from a merged token row, which keeps
+  // whichever derive type answered first. On Bitcoin they always go to the
+  // default address type's account instead, collapsed or not.
+  @backgroundMethod()
+  public async getDefaultDeriveTypeAccountId({
+    networkId,
+    indexedAccountId,
+    accountId,
+  }: {
+    networkId: string;
+    indexedAccountId: string | undefined;
+    accountId: string;
+  }): Promise<string> {
+    if (
+      !indexedAccountId ||
+      !deriveTypeCollapseUtils.isDeriveTypeCollapseSupportedNetwork({
+        networkId,
+      })
+    ) {
+      return accountId;
+    }
+    const { serviceAccount, serviceNetwork } = this.backgroundApi;
+    try {
+      const defaultDeriveType =
+        await serviceNetwork.getGlobalDeriveTypeOfNetwork({ networkId });
+      const { networkAccounts } =
+        await serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+          { networkId, indexedAccountId },
+        );
+      // Callers may fall back to the Home account's indexedAccountId. Only an
+      // address type of that same account is swapped: an imported account or
+      // another wallet's account being topped up keeps its own address.
+      if (!networkAccounts.some((item) => item.account?.id === accountId)) {
+        return accountId;
+      }
+      return (
+        networkAccounts.find((item) => item.deriveType === defaultDeriveType)
+          ?.account?.id ?? accountId
+      );
+    } catch (_error) {
+      return accountId;
     }
   }
 

@@ -43,6 +43,7 @@ jest.mock('../vaults/settings', () => ({ getVaultSettings: jest.fn() }));
 const BTC = getNetworkIdsMap().btc;
 const INDEXED_ACCOUNT_ID = 'hd-1--0';
 const DERIVE_TYPES = ['BIP86', 'default', 'BIP84', 'BIP44'];
+const NOT_COLLAPSED = { collapsed: false };
 
 type ILocalRecords = Record<string, Record<string, ITokenFiat>>;
 
@@ -54,7 +55,33 @@ function keyOf(deriveType: string) {
   return `${BTC}_xpub-${deriveType}`.toLowerCase();
 }
 
-function buildCache(records: ILocalRecords): IAccountTokenListCache {
+function networkAccountOf(deriveType: string) {
+  return {
+    deriveType,
+    deriveInfo: { label: deriveType },
+    account: {
+      id: `account-${deriveType}`,
+      address: `address-${deriveType}`,
+      // Nested SegWit keeps the xpub its balances are stored under in
+      // `xpubSegwit`.
+      ...(deriveType === 'default'
+        ? { xpub: 'xpub-raw', xpubSegwit: `xpub-${deriveType}` }
+        : { xpub: `xpub-${deriveType}` }),
+    },
+  };
+}
+
+function collapsedOn(deriveType: string) {
+  return {
+    collapsed: true,
+    defaultNetworkAccount: networkAccountOf(deriveType),
+  };
+}
+
+function buildCache(
+  records: ILocalRecords,
+  writeOrder?: number,
+): IAccountTokenListCache {
   const keys = Object.keys(records);
   return {
     tokenList: Object.fromEntries(keys.map((key) => [key, []])),
@@ -63,8 +90,21 @@ function buildCache(records: ILocalRecords): IAccountTokenListCache {
     tokenListValue: {},
     tokenListMap: records,
     tokenListCurrency: {},
+    ...(writeOrder === undefined
+      ? undefined
+      : {
+          tokenListWriteOrder: Object.fromEntries(
+            keys.map((key) => [key, writeOrder]),
+          ),
+        }),
   };
 }
+
+type IPendingCaches = {
+  homeLocalAccountTokensCache?: IAccountTokenListCache;
+  homeLocalAccountTokensFlushing?: IAccountTokenListCache;
+  localAccountTokensCache?: IAccountTokenListCache;
+};
 
 function emptyRecords(deriveTypes: string[] = DERIVE_TYPES): ILocalRecords {
   return Object.fromEntries(
@@ -76,10 +116,18 @@ function makeService({
   defaultDeriveType = 'BIP86',
   missingAccountDeriveTypes = [],
   storedRecords = emptyRecords(),
+  pendingRecords,
+  pendingCaches,
+  staleKeys = [],
 }: {
   defaultDeriveType?: string;
   missingAccountDeriveTypes?: string[];
   storedRecords?: ILocalRecords;
+  // Responses still waiting for the debounced write.
+  pendingRecords?: ILocalRecords;
+  pendingCaches?: IPendingCaches;
+  // Pending entries older than what storage already committed.
+  staleKeys?: string[];
 } = {}) {
   const api = {
     serviceNetwork: {
@@ -89,129 +137,137 @@ function makeService({
       getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes: jest.fn(
         async () => ({
           networkAccounts: DERIVE_TYPES.map((deriveType) => ({
-            deriveType,
-            account: missingAccountDeriveTypes.includes(deriveType)
-              ? undefined
-              : { id: `account-${deriveType}` },
+            ...networkAccountOf(deriveType),
+            ...(missingAccountDeriveTypes.includes(deriveType)
+              ? { account: undefined }
+              : undefined),
           })),
         }),
       ),
-      getAccountXpub: jest.fn(async ({ accountId }: { accountId: string }) =>
-        accountId.replace('account-', 'xpub-'),
-      ),
-      getAccountAddressForApi: jest.fn(async () => ''),
     },
     simpleDb: {
       localTokens: {
         getRawData: jest.fn(async () => buildCache(storedRecords)),
+        isStaleAccountTokenListCacheEntry: jest.fn(({ key }: { key: string }) =>
+          staleKeys.includes(key),
+        ),
       },
     },
   };
   const service = new ServiceToken({ backgroundApi: api } as never);
-  return { api, service };
+  if (pendingRecords) {
+    (
+      service as unknown as {
+        homeLocalAccountTokensCache: IAccountTokenListCache;
+      }
+    ).homeLocalAccountTokensCache = buildCache(pendingRecords);
+  }
+  if (pendingCaches) {
+    Object.assign(service as unknown as IPendingCaches, pendingCaches);
+  }
+  const getState = (networkId: string = BTC) =>
+    service.getDeriveTypesCollapseState({
+      networkId,
+      indexedAccountId: INDEXED_ACCOUNT_ID,
+    });
+  return { api, service, getState };
 }
 
 describe('ServiceToken.getDeriveTypesCollapseState', () => {
   it('collapses when no other type holds assets', async () => {
-    const { service } = makeService({
+    const { getState } = makeService({
       storedRecords: {
         ...emptyRecords(),
         [keyOf('BIP86')]: { native: fiat('12500') },
       },
     });
-    await expect(
-      service.getDeriveTypesCollapseState({
-        networkId: BTC,
-        indexedAccountId: INDEXED_ACCOUNT_ID,
-      }),
-    ).resolves.toEqual({ collapsed: true, defaultDeriveType: 'BIP86' });
+    await expect(getState()).resolves.toEqual(collapsedOn('BIP86'));
   });
 
   it('keeps every type when another type holds assets', async () => {
-    const { service } = makeService({
+    const { getState } = makeService({
       storedRecords: {
         ...emptyRecords(),
         [keyOf('default')]: { native: fiat('3100') },
       },
     });
-    await expect(
-      service.getDeriveTypesCollapseState({
-        networkId: BTC,
-        indexedAccountId: INDEXED_ACCOUNT_ID,
-      }),
-    ).resolves.toEqual({ collapsed: false, defaultDeriveType: 'BIP86' });
+    await expect(getState()).resolves.toEqual(NOT_COLLAPSED);
   });
 
-  it('reads the Nested SegWit record under its own key', async () => {
-    const { service } = makeService({
+  it('reads the Nested SegWit record under its segwit xpub', async () => {
+    const { getState } = makeService({
       defaultDeriveType: 'default',
       storedRecords: {
         ...emptyRecords(),
         [keyOf('default')]: { native: fiat('3100') },
       },
     });
-    await expect(
-      service.getDeriveTypesCollapseState({
-        networkId: BTC,
-        indexedAccountId: INDEXED_ACCOUNT_ID,
-      }),
-    ).resolves.toEqual({ collapsed: true, defaultDeriveType: 'default' });
+    await expect(getState()).resolves.toEqual(collapsedOn('default'));
   });
 
   it('treats a type that was never read as unknown, not empty', async () => {
-    const { service } = makeService({
+    const { getState } = makeService({
       storedRecords: emptyRecords(['BIP86', 'default', 'BIP84']),
     });
-    await expect(
-      service.getDeriveTypesCollapseState({
-        networkId: BTC,
-        indexedAccountId: INDEXED_ACCOUNT_ID,
-      }),
-    ).resolves.toEqual({ collapsed: false, defaultDeriveType: 'BIP86' });
+    await expect(getState()).resolves.toEqual(NOT_COLLAPSED);
   });
 
   it('uses a response still waiting to be persisted', async () => {
-    const { service } = makeService({ storedRecords: {} });
-    (
-      service as unknown as {
-        homeLocalAccountTokensCache: IAccountTokenListCache;
-      }
-    ).homeLocalAccountTokensCache = buildCache(emptyRecords());
-    await expect(
-      service.getDeriveTypesCollapseState({
-        networkId: BTC,
-        indexedAccountId: INDEXED_ACCOUNT_ID,
-      }),
-    ).resolves.toEqual({ collapsed: true, defaultDeriveType: 'BIP86' });
+    const { getState } = makeService({
+      storedRecords: {},
+      pendingRecords: emptyRecords(),
+    });
+    await expect(getState()).resolves.toEqual(collapsedOn('BIP86'));
   });
 
   it('prefers a pending response over what storage holds', async () => {
-    const { service } = makeService();
-    (
-      service as unknown as {
-        homeLocalAccountTokensCache: IAccountTokenListCache;
-      }
-    ).homeLocalAccountTokensCache = buildCache({
-      [keyOf('BIP44')]: { native: fiat('546') },
+    const { getState } = makeService({
+      pendingRecords: { [keyOf('BIP44')]: { native: fiat('546') } },
     });
-    await expect(
-      service.getDeriveTypesCollapseState({
-        networkId: BTC,
-        indexedAccountId: INDEXED_ACCOUNT_ID,
-      }),
-    ).resolves.toEqual({ collapsed: false, defaultDeriveType: 'BIP86' });
+    await expect(getState()).resolves.toEqual(NOT_COLLAPSED);
+  });
+
+  it('reads the Home batch while it is being written to storage', async () => {
+    const { getState } = makeService({
+      pendingCaches: {
+        homeLocalAccountTokensFlushing: buildCache({
+          [keyOf('BIP44')]: { native: fiat('546') },
+        }),
+      },
+    });
+    await expect(getState()).resolves.toEqual(NOT_COLLAPSED);
+  });
+
+  it('ignores a pending response that storage has already superseded', async () => {
+    const { getState } = makeService({
+      storedRecords: {
+        ...emptyRecords(),
+        [keyOf('BIP44')]: { native: fiat('546') },
+      },
+      pendingRecords: { [keyOf('BIP44')]: {} },
+      staleKeys: [keyOf('BIP44')],
+    });
+    await expect(getState()).resolves.toEqual(NOT_COLLAPSED);
+  });
+
+  it('prefers the newest of several pending responses', async () => {
+    const { getState } = makeService({
+      pendingCaches: {
+        homeLocalAccountTokensCache: buildCache({ [keyOf('BIP44')]: {} }, 1),
+        localAccountTokensCache: buildCache(
+          { [keyOf('BIP44')]: { native: fiat('546') } },
+          2,
+        ),
+      },
+    });
+    await expect(getState()).resolves.toEqual(NOT_COLLAPSED);
   });
 
   it('skips reading balances when a type has no account yet', async () => {
-    const { api, service } = makeService({
+    const { api, getState } = makeService({
       missingAccountDeriveTypes: ['BIP44'],
     });
-    await expect(
-      service.getDeriveTypesCollapseState({
-        networkId: BTC,
-        indexedAccountId: INDEXED_ACCOUNT_ID,
-      }),
-    ).resolves.toEqual({ collapsed: false, defaultDeriveType: 'BIP86' });
+    await expect(getState()).resolves.toEqual(NOT_COLLAPSED);
     expect(api.simpleDb.localTokens.getRawData).not.toHaveBeenCalled();
   });
 
@@ -222,35 +278,97 @@ describe('ServiceToken.getDeriveTypesCollapseState', () => {
         networkId: BTC,
         indexedAccountId: undefined,
       }),
-    ).resolves.toEqual({ collapsed: false, defaultDeriveType: undefined });
+    ).resolves.toEqual(NOT_COLLAPSED);
     expect(
       api.serviceNetwork.getGlobalDeriveTypeOfNetwork,
     ).not.toHaveBeenCalled();
   });
 
   it('never collapses on networks outside the supported list', async () => {
-    const { api, service } = makeService();
-    await expect(
-      service.getDeriveTypesCollapseState({
-        networkId: getNetworkIdsMap().ltc,
-        indexedAccountId: INDEXED_ACCOUNT_ID,
-      }),
-    ).resolves.toEqual({ collapsed: false, defaultDeriveType: undefined });
+    const { api, getState } = makeService();
+    await expect(getState(getNetworkIdsMap().ltc)).resolves.toEqual(
+      NOT_COLLAPSED,
+    );
     expect(
       api.serviceNetwork.getGlobalDeriveTypeOfNetwork,
     ).not.toHaveBeenCalled();
   });
 
   it('falls back to not collapsed when a lookup fails', async () => {
-    const { api, service } = makeService();
-    api.serviceAccount.getAccountXpub.mockRejectedValueOnce(
-      new Error('lookup failed'),
+    const { api, getState } = makeService();
+    api.simpleDb.localTokens.getRawData.mockRejectedValueOnce(
+      new Error('read failed'),
     );
+    await expect(getState()).resolves.toEqual(NOT_COLLAPSED);
+  });
+});
+
+describe('ServiceToken.getDefaultDeriveTypeAccountId', () => {
+  const resolve = (
+    service: ServiceToken,
+    networkId: string,
+    accountId: string,
+  ) =>
+    service.getDefaultDeriveTypeAccountId({
+      networkId,
+      indexedAccountId: INDEXED_ACCOUNT_ID,
+      accountId,
+    });
+
+  it('uses the default type account while collapsed', async () => {
+    const { service } = makeService();
+    await expect(resolve(service, BTC, 'account-BIP44')).resolves.toBe(
+      'account-BIP86',
+    );
+  });
+
+  it('uses the default type account when another type holds assets too', async () => {
+    const { service } = makeService({
+      storedRecords: {
+        ...emptyRecords(),
+        [keyOf('BIP44')]: { native: fiat('546') },
+      },
+    });
+    await expect(resolve(service, BTC, 'account-BIP44')).resolves.toBe(
+      'account-BIP86',
+    );
+  });
+
+  it('follows a default type the user switched to', async () => {
+    const { service } = makeService({ defaultDeriveType: 'BIP84' });
+    await expect(resolve(service, BTC, 'account-BIP44')).resolves.toBe(
+      'account-BIP84',
+    );
+  });
+
+  it('keeps the given account when the default type has no account', async () => {
+    const { service } = makeService({ missingAccountDeriveTypes: ['BIP86'] });
+    await expect(resolve(service, BTC, 'account-BIP44')).resolves.toBe(
+      'account-BIP44',
+    );
+  });
+
+  it('keeps an account that is not an address type of this indexed account', async () => {
+    const { service } = makeService();
+    await expect(resolve(service, BTC, 'imported-account')).resolves.toBe(
+      'imported-account',
+    );
+    await expect(resolve(service, BTC, 'hd-2--account-BIP44')).resolves.toBe(
+      'hd-2--account-BIP44',
+    );
+  });
+
+  it('keeps the given account on other networks and without an indexed account', async () => {
+    const { service } = makeService();
     await expect(
-      service.getDeriveTypesCollapseState({
+      resolve(service, getNetworkIdsMap().ltc, 'account-ltc'),
+    ).resolves.toBe('account-ltc');
+    await expect(
+      service.getDefaultDeriveTypeAccountId({
         networkId: BTC,
-        indexedAccountId: INDEXED_ACCOUNT_ID,
+        indexedAccountId: undefined,
+        accountId: 'imported-account',
       }),
-    ).resolves.toEqual({ collapsed: false, defaultDeriveType: 'BIP86' });
+    ).resolves.toBe('imported-account');
   });
 });

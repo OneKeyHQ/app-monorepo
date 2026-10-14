@@ -1349,6 +1349,19 @@ function ReceiveToken() {
     const label = currentDeriveInfo.labelKey
       ? intl.formatMessage({ id: currentDeriveInfo.labelKey })
       : currentDeriveInfo.label;
+    // With no list to open this is a plain label, so it must not react to
+    // hover or press like a button.
+    if (disableSelector) {
+      return (
+        <SizableText
+          testID={ReceiveTestIDs.AddressTypeSelector}
+          size="$bodyMdMedium"
+          color="$textSubdued"
+        >
+          {label}
+        </SizableText>
+      );
+    }
     return (
       <Button
         testID={ReceiveTestIDs.AddressTypeSelector}
@@ -1360,13 +1373,7 @@ function ReceiveToken() {
           <SizableText size="$bodyMdMedium" color="$textSubdued">
             {label}
           </SizableText>
-          {disableSelector ? null : (
-            <Icon
-              name="ChevronDownSmallOutline"
-              size="$4"
-              color="$iconSubdued"
-            />
-          )}
+          <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
         </XStack>
       </Button>
     );
@@ -1504,6 +1511,7 @@ function ReceiveToken() {
         activeDeriveType={currentDeriveType}
         activeDeriveInfo={currentDeriveInfo}
         showTriggerWhenDisabled
+        whenCollapsed="hide"
         renderSelectorTrigger={deriveTypeTrigger}
         walletId={walletId}
         networkId={networkId}
