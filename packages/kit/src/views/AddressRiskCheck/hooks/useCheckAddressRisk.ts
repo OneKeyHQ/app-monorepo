@@ -147,24 +147,19 @@ export function useCheckAddressRisk() {
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
   const lastOpenedAtRef = useRef(0);
-  // Bumped per check and whenever the page loses focus (e.g. History opened
-  // over the input, which stays mounted): a pending check whose id moved on
-  // never opens its result.
+  // Bumped per check, on blur (e.g. History opened over the input, which
+  // stays mounted) and on unmount: a pending check whose id moved on never
+  // opens its result.
   const requestIdRef = useRef(0);
-  const isUnmountedRef = useRef(false);
   useEffect(() => {
-    isUnmountedRef.current = false;
+    const removeBlurListener = reactNavigation.addListener('blur', () => {
+      requestIdRef.current += 1;
+    });
     return () => {
-      isUnmountedRef.current = true;
+      removeBlurListener();
+      requestIdRef.current += 1;
     };
-  }, []);
-  useEffect(
-    () =>
-      reactNavigation.addListener('blur', () => {
-        requestIdRef.current += 1;
-      }),
-    [reactNavigation],
-  );
+  }, [reactNavigation]);
   const { getCachedAccess, ensureFeatureAccess } = usePrimeFeatureAccess();
 
   const checkRisk = useCallback(
@@ -196,9 +191,7 @@ export function useCheckAddressRisk() {
         return;
       }
       void (async () => {
-        // The page closed or lost focus, or another check started meanwhile.
-        const isStale = () =>
-          isUnmountedRef.current || requestIdRef.current !== requestId;
+        const isStale = () => requestIdRef.current !== requestId;
         if (!(await getHistoryResult({ networkId, address })) && !isStale()) {
           const gate = await ensureFeatureAccess({
             featureId: EPrimeFeatures.AddressRiskCheck,

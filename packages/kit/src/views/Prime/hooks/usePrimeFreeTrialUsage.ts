@@ -119,9 +119,11 @@ export function usePrimeFreeTrialUsage({
     }: {
       networkId?: string;
       // True once the page that starts has closed: a use granted meanwhile
-      // is released, and the caller is told not to run.
-      isCallerGone?: () => boolean;
-    } = {}): Promise<IPrimeFreeTrialUsageStartOutcome> => {
+      // is released, the caller is told not to run, and a rejection gives
+      // no feedback. Required so no caller forgets it.
+      isCallerGone: () => boolean;
+    }): Promise<IPrimeFreeTrialUsageStartOutcome> => {
+      const isContextValid = () => !isCallerGone();
       if (isPrimeSubscriptionActive) {
         return { status: 'notMetered' };
       }
@@ -152,7 +154,7 @@ export function usePrimeFreeTrialUsage({
             const access = await ensureFeatureAccess({
               featureId,
               networkId,
-              isContextValid: () => !isCallerGone?.(),
+              isContextValid,
             });
             if (!access.granted) {
               return { status: 'rejected' };
@@ -162,13 +164,7 @@ export function usePrimeFreeTrialUsage({
             }
             return await startOnce(false);
           }
-          // A page closed while start ran gets no feedback (no dashboard
-          // over the screen the user went to).
-          handleStartRejected({
-            result,
-            networkId,
-            isContextValid: () => !isCallerGone?.(),
-          });
+          handleStartRejected({ result, networkId, isContextValid });
           return { status: 'rejected' };
         } catch (error) {
           defaultLogger.prime.subscription.primeFreeTrialTrace({
@@ -188,7 +184,7 @@ export function usePrimeFreeTrialUsage({
       };
       const outcome = await startOnce(true);
       if (
-        isCallerGone?.() &&
+        isCallerGone() &&
         (outcome.status === 'granted' || outcome.status === 'notMetered')
       ) {
         if (outcome.status === 'granted') {
@@ -262,7 +258,7 @@ export function usePrimeFreeTrialUsage({
       usageId: string | undefined;
       succeededLocally: boolean;
       networkId?: string;
-      isCallerGone?: () => boolean;
+      isCallerGone: () => boolean;
     }): Promise<{
       proceed: boolean;
       usageId: string | undefined;
@@ -275,7 +271,7 @@ export function usePrimeFreeTrialUsage({
         // A reused usage is never released, but a page closed meanwhile
         // runs no retry.
         return {
-          proceed: !isCallerGone?.(),
+          proceed: !isCallerGone(),
           usageId,
           isNewUsage: false,
         };

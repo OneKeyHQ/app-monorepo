@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useIsMounted } from '@onekeyhq/kit/src/hooks/useIsMounted';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAddressRiskCheckDetails } from '@onekeyhq/shared/types/addressRiskCheck';
 
@@ -347,13 +348,7 @@ export function AddressRiskMoreAnalysis({
   const [details, setDetails] = useState<
     IAddressRiskCheckDetails | undefined
   >();
-  const isUnmountedRef = useRef(false);
-  useEffect(() => {
-    isUnmountedRef.current = false;
-    return () => {
-      isUnmountedRef.current = true;
-    };
-  }, []);
+  const isMountedRef = useIsMounted();
 
   const handleLoad = useCallback(async () => {
     setIsLoading(true);
@@ -372,12 +367,12 @@ export function AddressRiskMoreAnalysis({
       handleFreeTrialError({
         error,
         networkId,
-        isContextValid: () => !isUnmountedRef.current,
+        isContextValid: () => isMountedRef.current,
       });
     } finally {
       setIsLoading(false);
     }
-  }, [networkId, address, handleFreeTrialError]);
+  }, [networkId, address, handleFreeTrialError, isMountedRef]);
 
   if (!details) {
     return (

@@ -97,6 +97,21 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
   ]);
 }
 
+// A context check that fails counts as gone: nothing is shown or granted
+// over a page that may have closed.
+async function isContextStale(
+  isContextValid: (() => boolean | Promise<boolean>) | undefined,
+) {
+  if (!isContextValid) {
+    return false;
+  }
+  try {
+    return !(await isContextValid());
+  } catch {
+    return true;
+  }
+}
+
 export function usePrimeFeatureAccess() {
   const intl = useIntl();
   const { isPrimeSubscriptionActive, isLoggedIn, user, loginOneKeyId } =
@@ -242,15 +257,7 @@ export function usePrimeFeatureAccess() {
       // late rejection never opens the dashboard over another screen.
       isContextValid?: () => boolean | Promise<boolean>;
     }) => {
-      const isStale = async () => {
-        try {
-          return isContextValid ? !(await isContextValid()) : false;
-        } catch {
-          // A context that cannot be checked gets no feedback over a page
-          // that may be gone.
-          return true;
-        }
-      };
+      const isStale = () => isContextStale(isContextValid);
       const openDashboard = !isPrimeFreeTrialStayOnPageFeature(featureId);
       void (async () => {
         if (await isStale()) {
@@ -418,15 +425,24 @@ export function usePrimeFeatureAccess() {
       if (!freeTrialError) {
         return undefined;
       }
-      if (freeTrialError.code === PRIME_FREE_TRIAL_QUOTA_EXHAUSTED_CODE) {
+      const show = (
+        feedback: Pick<
+          Parameters<typeof showActiveRejectedFeedback>[0],
+          'featureId' | 'reason' | 'resetAt' | 'reservation' | 'notOpenReason'
+        >,
+      ) =>
         showActiveRejectedFeedback({
+          ...feedback,
+          networkId,
+          afterPageExit,
+          isContextValid,
+        });
+      if (freeTrialError.code === PRIME_FREE_TRIAL_QUOTA_EXHAUSTED_CODE) {
+        show({
           featureId: freeTrialError.data.featureId,
           reason: 'exhausted',
           resetAt: freeTrialError.data.resetAt ?? getResetAtOfSnapshot(),
-          networkId,
-          afterPageExit,
           reservation: freeTrialError.data,
-          isContextValid,
         });
         return freeTrialError;
       }
@@ -442,25 +458,15 @@ export function usePrimeFeatureAccess() {
           access.status === 'available' &&
           (access.featureQuota?.remaining ?? 0) > 0;
         if (!hasUsesLeft) {
-          showActiveRejectedFeedback({
+          show({
             featureId,
             reason: 'exhausted',
             resetAt: access.status === 'exhausted' ? access.resetAt : undefined,
-            networkId,
-            afterPageExit,
-            isContextValid,
           });
           return freeTrialError;
         }
       }
-      showActiveRejectedFeedback({
-        featureId,
-        reason: 'notOpen',
-        networkId,
-        afterPageExit,
-        notOpenReason: reason,
-        isContextValid,
-      });
+      show({ featureId, reason: 'notOpen', notOpenReason: reason });
       return freeTrialError;
     },
     [getCachedAccess, getResetAtOfSnapshot, showActiveRejectedFeedback],
@@ -572,8 +578,7 @@ export function usePrimeFeatureAccess() {
       // gone after any wait: a stale context gets no login, no grant and no
       // denied feedback. Checked before onDenied, so a gate that leaves the
       // page itself still hands off to the dashboard.
-      const isContextGone = async () =>
-        isContextValid ? !(await isContextValid()) : false;
+      const isContextGone = () => isContextStale(isContextValid);
       const grantIfContextValid = async (
         result: Extract<IPrimeFeatureAccessResult, { granted: true }>,
       ): Promise<IPrimeFeatureAccessResult> => {

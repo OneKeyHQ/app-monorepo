@@ -64,6 +64,8 @@ function renderUsageHook() {
   ).result;
 }
 
+const notGone = () => false;
+
 describe('usePrimeFreeTrialUsage.startUsage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -88,7 +90,7 @@ describe('usePrimeFreeTrialUsage.startUsage', () => {
     let startPromise: Promise<unknown> | undefined;
     await act(async () => {
       void resultPage.current.settleUsage('usage-old', 'failed');
-      startPromise = reviewPage.current.startUsage();
+      startPromise = reviewPage.current.startUsage({ isCallerGone: notGone });
       await Promise.resolve();
     });
     expect(mockStartUsage).not.toHaveBeenCalled();
@@ -110,7 +112,9 @@ describe('usePrimeFreeTrialUsage.startUsage', () => {
     const result = renderUsageHook();
 
     await act(async () => {
-      await expect(result.current.startUsage()).resolves.toEqual({
+      await expect(
+        result.current.startUsage({ isCallerGone: notGone }),
+      ).resolves.toEqual({
         status: 'notMetered',
       });
     });
@@ -157,7 +161,7 @@ describe('usePrimeFreeTrialUsage.startUsage', () => {
 
     let outcome: unknown;
     await act(async () => {
-      outcome = await result.current.startUsage();
+      outcome = await result.current.startUsage({ isCallerGone: notGone });
     });
     expect(outcome).toEqual({
       status: 'granted',
@@ -183,7 +187,7 @@ describe('usePrimeFreeTrialUsage.startUsage', () => {
 
     let outcome: { status: string } | undefined;
     await act(async () => {
-      outcome = await result.current.startUsage();
+      outcome = await result.current.startUsage({ isCallerGone: notGone });
     });
     expect(outcome?.status).toBe('granted');
     expect(mockEnsureFeatureAccess).toHaveBeenCalledTimes(1);
@@ -202,7 +206,9 @@ describe('usePrimeFreeTrialUsage.startUsage', () => {
     const result = renderUsageHook();
 
     await act(async () => {
-      await expect(result.current.startUsage()).resolves.toEqual({
+      await expect(
+        result.current.startUsage({ isCallerGone: notGone }),
+      ).resolves.toEqual({
         status: 'rejected',
       });
     });
@@ -213,7 +219,9 @@ describe('usePrimeFreeTrialUsage.startUsage', () => {
       entitlementSource: 'freeTrial',
     });
     await act(async () => {
-      await expect(result.current.startUsage()).resolves.toEqual({
+      await expect(
+        result.current.startUsage({ isCallerGone: notGone }),
+      ).resolves.toEqual({
         status: 'rejected',
       });
     });
@@ -228,7 +236,10 @@ describe('usePrimeFreeTrialUsage.startUsage', () => {
 
     await act(async () => {
       await expect(
-        result.current.startUsage({ networkId: 'evm--1' }),
+        result.current.startUsage({
+          networkId: 'evm--1',
+          isCallerGone: notGone,
+        }),
       ).resolves.toEqual({ status: 'rejected' });
     });
     expect(mockHandleStartRejected).toHaveBeenCalledWith({
@@ -262,8 +273,8 @@ describe('usePrimeFreeTrialUsage.startUsage', () => {
     const result = renderUsageHook();
 
     await act(async () => {
-      await result.current.startUsage();
-      await result.current.startUsage();
+      await result.current.startUsage({ isCallerGone: notGone });
+      await result.current.startUsage({ isCallerGone: notGone });
     });
     expect(mockToastError).toHaveBeenCalledTimes(1);
     expect(mockToastError).toHaveBeenCalledWith({ title: 'server says no' });
@@ -283,8 +294,8 @@ describe('usePrimeFreeTrialUsage.startUsage', () => {
     const result = renderUsageHook();
 
     await act(async () => {
-      await result.current.startUsage();
-      await result.current.startUsage();
+      await result.current.startUsage({ isCallerGone: notGone });
+      await result.current.startUsage({ isCallerGone: notGone });
     });
     expect(mockToastError.mock.calls).toEqual([
       [{ title: 'global.network_error' }],
@@ -305,6 +316,7 @@ describe('usePrimeFreeTrialUsage.prepareRetryUsage', () => {
     await act(async () => {
       await expect(
         result.current.prepareRetryUsage({
+          isCallerGone: notGone,
           usageId: undefined,
           succeededLocally: false,
         }),
@@ -328,6 +340,7 @@ describe('usePrimeFreeTrialUsage.prepareRetryUsage', () => {
     let prepared: { proceed: boolean; usageId?: string; isNewUsage: boolean };
     await act(async () => {
       prepared = await result.current.prepareRetryUsage({
+        isCallerGone: notGone,
         usageId: undefined,
         // Broadcasts of the Prime round do not make the retry free.
         succeededLocally: true,
@@ -353,6 +366,7 @@ describe('usePrimeFreeTrialUsage.prepareRetryUsage', () => {
     await act(async () => {
       await expect(
         result.current.prepareRetryUsage({
+          isCallerGone: notGone,
           usageId: undefined,
           succeededLocally: true,
         }),
@@ -372,6 +386,7 @@ describe('usePrimeFreeTrialUsage.prepareRetryUsage', () => {
     await act(async () => {
       await expect(
         result.current.prepareRetryUsage({
+          isCallerGone: notGone,
           usageId: 'usage-1',
           succeededLocally: false,
         }),
@@ -395,6 +410,7 @@ describe('usePrimeFreeTrialUsage.prepareRetryUsage', () => {
     let prepared: { proceed: boolean; usageId?: string; isNewUsage: boolean };
     await act(async () => {
       prepared = await result.current.prepareRetryUsage({
+        isCallerGone: notGone,
         usageId: 'usage-1',
         succeededLocally: false,
       });
@@ -464,6 +480,7 @@ describe('usePrimeFreeTrialUsage.prepareRetryUsage', () => {
     await act(async () => {
       await expect(
         result.current.prepareRetryUsage({
+          isCallerGone: notGone,
           usageId: 'usage-1',
           succeededLocally: false,
         }),
