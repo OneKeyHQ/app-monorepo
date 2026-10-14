@@ -12,7 +12,7 @@ import {
   mergeSwapNetworksWithCachedSort,
 } from '../utils/swapNetworkCacheUtils';
 
-const SWAP_NETWORK_SCHEMA_RETRY_DELAY = 30_000;
+const SWAP_NETWORK_RETRY_DELAY = 30_000;
 
 export function useSwapNetworks() {
   const [swapNetworks, setSwapNetworks] = useSwapNetworksAtom();
@@ -119,16 +119,19 @@ export function useSwapNetworks() {
   }, [setDefaultConfigStatus, setSwapNetworks]);
 
   useEffect(() => {
-    if (!swapNetworks.length || isSwapNetworkCacheCompatible(swapNetworks)) {
+    if (
+      defaultConfigStatus !== 'failed' &&
+      (!swapNetworks.length || isSwapNetworkCacheCompatible(swapNetworks))
+    ) {
       return;
     }
 
-    const timer = setTimeout(() => {
+    const timer = setInterval(() => {
       void fetchSwapNetworks();
-    }, SWAP_NETWORK_SCHEMA_RETRY_DELAY);
+    }, SWAP_NETWORK_RETRY_DELAY);
 
-    return () => clearTimeout(timer);
-  }, [fetchSwapNetworks, swapNetworks]);
+    return () => clearInterval(timer);
+  }, [defaultConfigStatus, fetchSwapNetworks, swapNetworks]);
 
   useEffect(() => {
     void fetchSwapNetworks();

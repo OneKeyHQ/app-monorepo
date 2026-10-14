@@ -21,6 +21,7 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap/atoms';
+import { jotaiContextStore } from '../../../states/jotai/utils/jotaiContextStore';
 import { useJotaiContextRootStore } from '../../../states/jotai/utils/useJotaiContextRootStore';
 import {
   SWAP_COLD_START_HOME_SCENE_NAME,
@@ -245,6 +246,7 @@ export const SwapRootProvider = memo(() => {
   const hasHydratedDefaultsRef = useRef(false);
   if (!hasHydratedDefaultsRef.current) {
     hasHydratedDefaultsRef.current = true;
+    jotaiContextStore.prepareStoreForImmediateUse(data);
     hydrateSwapDefaultTokensFromGlobalHomeSnapshot(store);
   }
   return (

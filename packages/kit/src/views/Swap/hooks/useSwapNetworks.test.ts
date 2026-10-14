@@ -109,6 +109,59 @@ describe('useSwapNetworks configuration lifecycle', () => {
     mockSetNetworkCache.mockResolvedValue(undefined);
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it.each([true, false])(
+    'retries repeated configuration failures with cache=%s until fresh configuration settles',
+    async (hasCache) => {
+      jest.useFakeTimers();
+      mockGetNetworkCache.mockResolvedValue(
+        hasCache ? { data: [cachedNetwork] } : null,
+      );
+      mockFetchNetworks
+        .mockRejectedValueOnce(new Error('offline'))
+        .mockResolvedValueOnce([])
+        .mockResolvedValue([freshNetwork]);
+      const { result } = renderHook(useSwapNetworks);
+      await act(async () => {});
+      expect(result.current.defaultConfigStatus).toBe('failed');
+      expect(result.current.swapNetworks).toEqual(
+        hasCache ? [cachedNetwork] : [],
+      );
+
+      await act(async () => jest.advanceTimersByTime(30_000));
+      expect(mockFetchNetworks).toHaveBeenCalledTimes(2);
+      expect(result.current.defaultConfigStatus).toBe('failed');
+
+      await act(async () => jest.advanceTimersByTime(30_000));
+      expect(mockFetchNetworks).toHaveBeenCalledTimes(3);
+      expect(result.current.defaultConfigStatus).toBe('success');
+      expect(result.current.swapNetworks).toEqual([freshNetwork]);
+
+      await act(async () => jest.advanceTimersByTime(90_000));
+      expect(mockFetchNetworks).toHaveBeenCalledTimes(3);
+    },
+  );
+
+  it('shares pending retry requests and stops retrying after unmount', async () => {
+    jest.useFakeTimers();
+    const retry = deferred<ISwapNetwork[]>();
+    mockFetchNetworks
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockReturnValue(retry.promise);
+    const { result, unmount } = renderHook(useSwapNetworks);
+    await act(async () => {});
+    await act(async () => jest.advanceTimersByTime(90_000));
+    expect(mockFetchNetworks).toHaveBeenCalledTimes(2);
+    expect(result.current.defaultConfigStatus).toBe('failed');
+    unmount();
+    await act(async () => retry.reject(new Error('still offline')));
+    await act(async () => jest.advanceTimersByTime(90_000));
+    expect(mockFetchNetworks).toHaveBeenCalledTimes(2);
+  });
+
   it('makes cached networks usable while fresh default configuration remains pending', async () => {
     const request = deferred<ISwapNetwork[]>();
     mockFetchNetworks.mockReturnValue(request.promise);
