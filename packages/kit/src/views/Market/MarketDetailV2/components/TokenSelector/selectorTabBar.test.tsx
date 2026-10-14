@@ -7,6 +7,9 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { SelectorTabBar } from './selectorTabBar';
 
 const mockSharedValues: { value: string }[] = [];
+// When set, the mocked bar keeps the focus it mounted with, like a bar that
+// dropped a focus update.
+let mockStaleFocus = false;
 
 jest.mock('react-native-reanimated', () => {
   const ReactModule = jest.requireActual<typeof import('react')>('react');
@@ -63,22 +66,27 @@ jest.mock('@onekeyhq/components', () => {
           },
           index: number,
         ) => ReactNode;
-      }) => (
-        <div>
-          {tabNames.map((name, index) => (
-            <span key={name}>
-              {renderItem(
-                {
-                  name,
-                  isFocused: focusedTab.value === name,
-                  onPress: onTabPress,
-                },
-                index,
-              )}
-            </span>
-          ))}
-        </div>
-      ),
+      }) => {
+        const ReactModule = jest.requireActual<typeof import('react')>('react');
+        const [mountedFocus] = ReactModule.useState(focusedTab.value);
+        const currentTab = mockStaleFocus ? mountedFocus : focusedTab.value;
+        return (
+          <div>
+            {tabNames.map((name, index) => (
+              <span key={name}>
+                {renderItem(
+                  {
+                    name,
+                    isFocused: currentTab === name,
+                    onPress: onTabPress,
+                  },
+                  index,
+                )}
+              </span>
+            ))}
+          </div>
+        );
+      },
     },
   };
 });
@@ -92,6 +100,7 @@ const TABS = [
 describe('SelectorTabBar', () => {
   beforeEach(() => {
     mockSharedValues.length = 0;
+    mockStaleFocus = false;
   });
 
   it('labels each tab and keys its test id by tab id', () => {
@@ -122,6 +131,34 @@ describe('SelectorTabBar', () => {
     );
     fireEvent.click(screen.getByTestId('tab-tokens'));
     expect(onChange).toHaveBeenCalledWith('tokens');
+  });
+
+  it('highlights the controlled tab even when the bar keeps a stale focus', () => {
+    // The real bar ignores focus writes within 300ms of a press; this bar
+    // never syncs after mount, the worst case of that.
+    mockStaleFocus = true;
+    const { rerender } = render(
+      <SelectorTabBar
+        tabs={[...TABS]}
+        value="stocks"
+        onChange={jest.fn()}
+        testIDPrefix="tab-"
+      />,
+    );
+    rerender(
+      <SelectorTabBar
+        tabs={[...TABS]}
+        value="all"
+        onChange={jest.fn()}
+        testIDPrefix="tab-"
+      />,
+    );
+    expect(screen.getByTestId('tab-all').getAttribute('aria-pressed')).toBe(
+      'true',
+    );
+    expect(screen.getByTestId('tab-stocks').getAttribute('aria-pressed')).toBe(
+      'false',
+    );
   });
 
   it('moves the focused label when the value changes', () => {

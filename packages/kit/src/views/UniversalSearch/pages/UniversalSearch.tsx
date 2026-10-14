@@ -411,8 +411,12 @@ export function UniversalSearch({
   // Results wait for the stock search too, so a stock section landing later
   // does not push the other results down; but a slow stock search holds them
   // for at most STOCK_FIRST_PAGE_WAIT_MS after the rest have arrived.
+  // The wait is tracked per search run, not per query, so searching the same
+  // query again waits again.
   const isAwaitingStockFirstPage = Boolean(stockQuery) && stockResult.isLoading;
-  const [stockWaitExpiredQuery, setStockWaitExpiredQuery] = useState('');
+  const searchRunRef = useRef(0);
+  const [searchRun, setSearchRun] = useState(0);
+  const [stockWaitExpiredRun, setStockWaitExpiredRun] = useState(-1);
   const isHoldingForStocks =
     searchStatus === ESearchStatus.done && isAwaitingStockFirstPage;
   useEffect(() => {
@@ -420,12 +424,13 @@ export function UniversalSearch({
       return;
     }
     const timer = setTimeout(() => {
-      setStockWaitExpiredQuery(stockQuery);
+      setStockWaitExpiredRun(searchRun);
     }, STOCK_FIRST_PAGE_WAIT_MS);
     return () => clearTimeout(timer);
-  }, [isHoldingForStocks, stockQuery]);
+  }, [isHoldingForStocks, searchRun]);
+  const isStockWaitExpired = stockWaitExpiredRun === searchRun;
   const resultStatus =
-    isHoldingForStocks && stockWaitExpiredQuery !== stockQuery
+    isHoldingForStocks && !isStockWaitExpired
       ? ESearchStatus.loading
       : searchStatus;
 
@@ -781,20 +786,27 @@ export function UniversalSearch({
   }, []);
 
   // The background results of the latest search, logged once the stock
-  // search has answered too so its count is included.
+  // search has answered too so its count is included, or once the results
+  // stop waiting for it.
   const [pendingAnalytics, setPendingAnalytics] = useState<
-    { input: string; sections: IUniversalSection[] } | undefined
+    { input: string; run: number; sections: IUniversalSection[] } | undefined
   >(undefined);
   useEffect(() => {
     if (!pendingAnalytics) {
       return;
     }
-    if (isSearchResultStale(pendingAnalytics.input)) {
+    // A superseded run, including an earlier run of the same query that
+    // answered late, is dropped so each search logs once.
+    if (
+      isSearchResultStale(pendingAnalytics.input) ||
+      pendingAnalytics.run !== searchRunRef.current
+    ) {
       setPendingAnalytics(undefined);
       return;
     }
     if (
       isStockSearchInScope &&
+      stockWaitExpiredRun !== pendingAnalytics.run &&
       (stockQuery !== pendingAnalytics.input || stockResult.isLoading)
     ) {
       return;
@@ -814,11 +826,15 @@ export function UniversalSearch({
     stockQuery,
     stockResult.isLoading,
     stockSection,
+    stockWaitExpiredRun,
   ]);
 
   const handleTextChange = useDebouncedCallback(async (val: string) => {
     console.log('[universalSearch] handleTextChange: ', val);
     const input = val?.trim?.() || '';
+    searchRunRef.current += 1;
+    const run = searchRunRef.current;
+    setSearchRun(run);
     setStockQuery(isStockSearchInScope ? input : '');
     if (input) {
       let primarySections: IUniversalSection[] = [];
@@ -896,7 +912,7 @@ export function UniversalSearch({
         );
         setSections(mergedSections);
         setSearchStatus(ESearchStatus.done);
-        setPendingAnalytics({ input, sections: mergedSections });
+        setPendingAnalytics({ input, run, sections: mergedSections });
       } catch (error) {
         if (isSearchResultStale(input)) {
           return;
@@ -905,7 +921,7 @@ export function UniversalSearch({
         if (primarySections.length > 0) {
           setSections(primarySections);
           setSearchStatus(ESearchStatus.done);
-          setPendingAnalytics({ input, sections: primarySections });
+          setPendingAnalytics({ input, run, sections: primarySections });
           return;
         }
         setSections([]);

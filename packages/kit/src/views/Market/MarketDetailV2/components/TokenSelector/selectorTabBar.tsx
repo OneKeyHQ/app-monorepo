@@ -44,10 +44,14 @@ export function SelectorTabBar<T extends string>({
     (props: ITabBarItemProps, index: number) => (
       <Tabs.TabBarItem
         {...props}
+        // The bar drops focus updates that land within 300ms of a tab press,
+        // so a reset right after one (e.g. a new query back to All) would
+        // leave its own highlight behind; the controlled value decides.
+        isFocused={props.name === focusedLabel}
         testID={`${testIDPrefix}${tabs[index]?.id ?? ''}`}
       />
     ),
-    [tabs, testIDPrefix],
+    [focusedLabel, tabs, testIDPrefix],
   );
 
   return (
