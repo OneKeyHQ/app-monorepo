@@ -14,7 +14,6 @@ const certChain = [
 ];
 const awsRegion = 'ap-southeast-1';
 const outputDir = path.join(desktopDir, 'build-electron');
-const helperDir = path.join(desktopDir, 'app/build/static/bin');
 
 function requiredEnv(name) {
   const value = process.env[name];
@@ -28,8 +27,33 @@ function runSignTool(args) {
   execFileSync(requiredEnv('WIN_SIGNTOOL_PATH'), args, { stdio: 'inherit' });
 }
 
+// SHA-1 thumbprint of the checked-in leaf, so a signature from any other
+// certificate (even one that chains to GlobalSign) fails verification.
+const expectedThumbprint = new X509Certificate(
+  fs.readFileSync(path.join(certDir, certChain[0])),
+).fingerprint
+  .replace(/:/g, '')
+  .toUpperCase();
+
 function verify(file) {
   runSignTool(['verify', '/pa', '/all', '/v', file]);
+  const thumbprint = execFileSync(
+    'powershell.exe',
+    [
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      '(Get-AuthenticodeSignature -LiteralPath $env:ONEKEY_SIGNED_FILE).SignerCertificate.Thumbprint',
+    ],
+    { env: { ...process.env, ONEKEY_SIGNED_FILE: file }, encoding: 'utf8' },
+  )
+    .trim()
+    .toUpperCase();
+  if (thumbprint !== expectedThumbprint) {
+    throw new Error(
+      `Unexpected signer certificate ${thumbprint} on ${file}, expected ${expectedThumbprint}`,
+    );
+  }
 }
 
 function certChainFile() {
@@ -76,6 +100,9 @@ function signFile(file) {
       'RFC3161',
       '--tsretries',
       '3',
+      // electron-builder may sign a file that is already signed; replace the
+      // existing signature instead of nesting a second one.
+      '--replace',
       file,
     ],
     { stdio: 'inherit' },
@@ -89,9 +116,6 @@ function signFile(file) {
 }
 
 function listExes(dir) {
-  if (!fs.existsSync(dir)) {
-    return [];
-  }
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const file = path.join(dir, entry.name);
     if (entry.isDirectory()) {
@@ -101,34 +125,6 @@ function listExes(dir) {
       ? [file]
       : [];
   });
-}
-
-function helperFiles() {
-  return ['bridge', 'ble-pair'].flatMap((name) =>
-    listExes(path.join(helperDir, name)),
-  );
-}
-
-function helperBackupDir() {
-  return path.join(requiredEnv('RUNNER_TEMP'), 'onekey-unsigned-win-helpers');
-}
-
-function signHelpers() {
-  for (const file of helperFiles()) {
-    const relative = path.relative(helperDir, file);
-    const backup = path.join(helperBackupDir(), relative);
-    fs.mkdirSync(path.dirname(backup), { recursive: true });
-    fs.copyFileSync(file, backup);
-    signFile(file);
-  }
-}
-
-function restoreHelpers() {
-  for (const backup of listExes(helperBackupDir())) {
-    const relative = path.relative(helperBackupDir(), backup);
-    fs.copyFileSync(backup, path.join(helperDir, relative));
-  }
-  fs.rmSync(helperBackupDir(), { recursive: true, force: true });
 }
 
 function verifyNsisOutput() {
@@ -165,6 +161,19 @@ function verifyNsisOutput() {
       throw new Error(`Unsigned NSIS installer: ${file}`);
     }
   }
+  // Every executable that ships in an unpacked app (OneKey.exe, elevate.exe,
+  // bridge and BLE helpers) must have gone through the signer.
+  const unpackedExes = fs
+    .readdirSync(outputDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && entry.name.endsWith('-unpacked'))
+    .flatMap((entry) => listExes(path.join(outputDir, entry.name)));
+  const normalize = (file) => path.resolve(file).toLowerCase();
+  const signedSet = new Set(signed.map(normalize));
+  for (const file of unpackedExes) {
+    if (!signedSet.has(normalize(file))) {
+      throw new Error(`Unsigned packaged executable: ${file}`);
+    }
+  }
   for (const file of signed) {
     if (fs.existsSync(file)) {
       verify(file);
@@ -181,11 +190,7 @@ module.exports = async function signWithAwsKms(configuration) {
 
 if (require.main === module) {
   const command = process.argv[2];
-  if (command === 'sign-helpers') {
-    signHelpers();
-  } else if (command === 'restore-helpers') {
-    restoreHelpers();
-  } else if (command === 'verify-nsis') {
+  if (command === 'verify-nsis') {
     verifyNsisOutput();
   } else {
     throw new Error(`Unknown Windows signing command: ${command}`);
