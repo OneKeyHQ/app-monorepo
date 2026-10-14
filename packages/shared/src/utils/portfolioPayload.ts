@@ -106,6 +106,8 @@ const PORTFOLIO_TOKEN_LIMIT = 5;
 const PORTFOLIO_TOKEN_SYMBOL_MAX_BYTES = 15;
 // Firmware uses char name[48], reserving one byte for the trailing null.
 const PORTFOLIO_TOKEN_NAME_MAX_BYTES = 47;
+// Firmware uses char account_label[48], reserving one byte for the trailing null.
+const PORTFOLIO_ACCOUNT_LABEL_MAX_BYTES = 47;
 // Token symbols must not carry contact details, URLs, or advertising copy.
 const PORTFOLIO_ADVERTISING_SYMBOL_PATTERN = /[\s@]|:\/\/|www\./iu;
 const PORTFOLIO_PERCENTAGE_DECIMAL_PLACES = 2;
@@ -567,7 +569,14 @@ export function buildPortfolioPayload({
   }));
 
   const payload = {
-    account,
+    account: {
+      ...account,
+      label: truncatePortfolioTokenText(
+        account.label,
+        PORTFOLIO_ACCOUNT_LABEL_MAX_BYTES,
+        '...',
+      ),
+    },
     tokenCount: payloadTokens.length,
     tokens: payloadTokens,
     otherTokens: {

@@ -269,6 +269,45 @@ describe('buildPortfolioPayload', () => {
     appLocale.setLocale(defaultLocale, defaultMessages);
   });
 
+  describe.each([1, 2] as const)('v%s account label', (schemaVersion) => {
+    test.each([
+      ['', ''],
+      ['1', '1'],
+      ['Account #1', 'Account #1'],
+      ['A'.repeat(47), 'A'.repeat(47)],
+      ['A'.repeat(48), `${'A'.repeat(44)}...`],
+      [`${'账'.repeat(15)}AB`, `${'账'.repeat(15)}AB`],
+      ['账'.repeat(16), `${'账'.repeat(14)}...`],
+      [`${'😀'.repeat(11)}ABC`, `${'😀'.repeat(11)}ABC`],
+      ['😀'.repeat(12), `${'😀'.repeat(11)}...`],
+    ])(
+      'bounds %s to 47 UTF-8 bytes without changing the source',
+      (label, expected) => {
+        const account = Object.freeze({ label, addressMasked: '0x12...ab' });
+        const payload = buildPortfolioPayload({
+          account,
+          currencyMap,
+          displayCurrency: { id: 'usd', symbol: '$' },
+          schemaVersion,
+          totalFiat: '0',
+          totalTokenCount: 0,
+          timestamp: 1_780_900_000,
+          tokenMap: {},
+          tokens: [],
+        });
+
+        expect(payload.account).toEqual({
+          label: expected,
+          addressMasked: account.addressMasked,
+        });
+        expect(
+          Buffer.byteLength(payload.account.label, 'utf8'),
+        ).toBeLessThanOrEqual(47);
+        expect(account.label).toBe(label);
+      },
+    );
+  });
+
   test.each([
     ['Short name', 'Short name'],
     ['A'.repeat(47), 'A'.repeat(47)],
