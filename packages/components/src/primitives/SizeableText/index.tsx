@@ -40,8 +40,21 @@ export function SizableText({
     // Preserve the cell height without a fixed text line height: iOS can otherwise
     // shrink to its minimum font size when pixel rounding makes the cell shorter.
     autoSizeProps.lineHeight = 'unset';
-    autoSizeProps.minHeight =
-      naturalLineHeightStyle.minHeight ?? props.minHeight ?? originalLineHeight;
+    // Only add default spacing when the caller leaves the height unconstrained.
+    if (
+      (naturalLineHeightStyle.height ??
+        props.height ??
+        props.h ??
+        naturalLineHeightStyle.maxHeight ??
+        props.maxHeight ??
+        props.mah ??
+        naturalLineHeightStyle.minHeight ??
+        props.minHeight ??
+        props.mih ??
+        null) === null
+    ) {
+      autoSizeProps.minHeight = originalLineHeight;
+    }
     mergedStyle = naturalLineHeightStyle;
   }
   // Tamagui silently drops the RN `fontVariant` prop, so numeric variants
