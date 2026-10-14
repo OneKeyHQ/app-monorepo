@@ -27,10 +27,12 @@ jest.mock('../../TradingViewV2/components/TradingViewV2ChartControls', () => ({
 }));
 
 const config: ITradingViewNativeChartControlsConfigData = {
-  intervals: ['1', '15', '1H', '4H', '1D'].map((value) => ({
-    label: value,
-    value,
-  })),
+  intervals: ['1', '3', '15', '1H', '2H', '4H', '8H', '12H', '1D', '3D'].map(
+    (value) => ({
+      label: value,
+      value,
+    }),
+  ),
   activeInterval: '1H',
   activeChartType: 1,
   chartTypes: [{ label: 'Candles', value: 1 }],
@@ -117,4 +119,44 @@ describe('Perps native chart controls', () => {
     expect(result.current.isRestoringInterval).toBe(false);
     expect(sendMessageViaInjectedScript).not.toHaveBeenCalled();
   });
+
+  it.each(['3', '2H', '8H', '12H', '3D'])(
+    'restores the last TradingView-only interval %s after remounting',
+    (interval) => {
+      const controls = renderControls();
+      act(() =>
+        controls.result.current.onNativeChartControlsConfigChange(config),
+      );
+      act(() => controls.result.current.controlsProps.onIntervalChange('15'));
+      act(() =>
+        controls.result.current.controlsProps.onIntervalChange(interval),
+      );
+      act(() =>
+        controls.result.current.onNativeChartControlsConfigChange(config),
+      );
+      expect(
+        controls.result.current.controlsProps.intervalConfig?.activeInterval,
+      ).toBe(interval);
+      controls.unmount();
+
+      const restored = renderControls();
+      act(() =>
+        restored.result.current.onNativeChartControlsConfigChange(config),
+      );
+      expect(restored.sendMessageViaInjectedScript).toHaveBeenLastCalledWith({
+        type: 'TRADINGVIEW_INTERVAL_CHANGE',
+        payload: { interval, resetPriceScaleRange: true },
+      });
+      act(() =>
+        restored.result.current.onIntervalConfigChange({
+          intervals: config.intervals ?? [],
+          activeInterval: interval,
+        }),
+      );
+      expect(restored.result.current.isRestoringInterval).toBe(false);
+      expect(
+        restored.result.current.controlsProps.intervalConfig?.activeInterval,
+      ).toBe(interval);
+    },
+  );
 });

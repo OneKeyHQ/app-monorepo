@@ -45,7 +45,7 @@ import type {
   ITradeEvent,
 } from './types';
 import type { IWebViewProps } from '../../WebView';
-import type { IWebViewRef } from '../../WebView/types';
+import type { IElectronWebViewEvents, IWebViewRef } from '../../WebView/types';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { WebViewProps } from 'react-native-webview';
 import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
@@ -759,7 +759,21 @@ export function TradingViewPerpsV2(
 
   const handleLoadStart = useCallback(() => {
     resetNativeChartControls();
+    hasPerpsReadyRef.current = false;
+    setChartLinesReadyWebviewKey(null);
+    setChartContentReadyWebviewKey(null);
   }, [resetNativeChartControls]);
+
+  const handleDidStartNavigation = useCallback<
+    NonNullable<IElectronWebViewEvents['onDidStartNavigation']>
+  >(
+    (event) => {
+      if (event.isMainFrame && !event.isInPlace) {
+        handleLoadStart();
+      }
+    },
+    [handleLoadStart],
+  );
 
   const onShouldStartLoadWithRequest = useCallback(
     (event: WebViewNavigation) => handleNavigation(event),
@@ -771,10 +785,13 @@ export function TradingViewPerpsV2(
 
   return (
     <Stack flex={1} minHeight={0} {...stackStyle}>
-      {enableNativeChartControls && controlsProps.nativeChartControlsConfig ? (
+      {enableNativeChartControls ? (
         <TradingViewV2ChartControlsContainer
           {...controlsProps}
-          isControlsReady={isChartContentReady}
+          isControlsReady={
+            isChartContentReady &&
+            Boolean(controlsProps.nativeChartControlsConfig)
+          }
           chartTypeControlMode="select"
           indicatorControlMode="popover"
           intervalControlMode="popover"
@@ -797,6 +814,7 @@ export function TradingViewPerpsV2(
           onWebViewRef={onWebViewRef}
           onLoadEnd={handleLoadEnd}
           onLoadStart={handleLoadStart}
+          onDidStartNavigation={handleDidStartNavigation}
           onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
           nativeInjectedJavaScriptBeforeContentLoaded={
             platformEnv.isNativeAndroid
