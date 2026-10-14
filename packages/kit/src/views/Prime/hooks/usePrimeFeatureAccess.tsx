@@ -228,6 +228,7 @@ export function usePrimeFeatureAccess() {
       afterPageExit,
       notOpenReason,
       reservation,
+      isContextValid,
     }: {
       featureId: IPrimeFreeTrialFeatureId;
       reason: 'exhausted' | 'notOpen';
@@ -237,7 +238,13 @@ export function usePrimeFeatureAccess() {
       notOpenReason?: IPrimeFreeTrialNotOpenReason;
       // Reservation fields of the rejection (90600 data or the quota).
       reservation?: IPrimeFreeTrialReservation;
+      // False once the calling page or input is gone: no feedback then, so a
+      // late rejection never opens the dashboard over another screen.
+      isContextValid?: () => boolean;
     }) => {
+      if (isContextValid && !isContextValid()) {
+        return;
+      }
       const openDashboard = !isPrimeFreeTrialStayOnPageFeature(featureId);
       if (reason === 'notOpen') {
         // The details case: the feature itself is open, so only the toast.
@@ -283,6 +290,9 @@ export function usePrimeFeatureAccess() {
                 );
             } catch {
               // Fall back to the exhausted feedback.
+            }
+            if (isContextValid && !isContextValid()) {
+              return;
             }
           }
           if (heldUntil) {
@@ -353,14 +363,17 @@ export function usePrimeFeatureAccess() {
     ({
       result,
       networkId,
+      isContextValid,
     }: {
       result: Extract<
         IPrimeFreeTrialStartResult,
         { status: 'exhausted' } | { status: 'notOpen' }
       >;
       networkId?: string;
+      isContextValid?: () => boolean;
     }) => {
       showActiveRejectedFeedback({
+        isContextValid,
         featureId: result.featureId,
         reason: result.status,
         resetAt:
@@ -553,13 +566,14 @@ export function usePrimeFeatureAccess() {
         return result;
       };
       const afterPageExit = Boolean(onDenied);
-      // Not open: the dashboard, logged in or not.
+      // Not open, logged in or not: the dashboard, or the toast for a
+      // feature that stays on its page (translate).
       const denyNotOpen = async (): Promise<IPrimeFeatureAccessResult> => {
         await onDenied?.('notOpen');
-        openPrimeDashboard({
+        showActiveRejectedFeedback({
           featureId,
+          reason: 'notOpen',
           networkId,
-          freeTrialReason: 'notOpen',
           afterPageExit,
         });
         return { granted: false };
@@ -757,6 +771,7 @@ export function usePrimeFeatureAccess() {
       loginOneKeyId,
       openPrimeDashboard,
       runWithEntryLoading,
+      showActiveRejectedFeedback,
       showRejectedFeedbackOfAccess,
     ],
   );

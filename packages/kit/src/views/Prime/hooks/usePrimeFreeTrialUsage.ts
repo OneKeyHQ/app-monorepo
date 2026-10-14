@@ -158,7 +158,13 @@ export function usePrimeFreeTrialUsage({
             }
             return await startOnce(false);
           }
-          handleStartRejected({ result, networkId });
+          // A page closed while start ran gets no feedback (no dashboard
+          // over the screen the user went to).
+          handleStartRejected({
+            result,
+            networkId,
+            isContextValid: () => !isCallerGone?.(),
+          });
           return { status: 'rejected' };
         } catch (error) {
           defaultLogger.prime.subscription.primeFreeTrialTrace({

@@ -146,6 +146,8 @@ const OPEN_RESULT_GUARD_MS = 1000;
 export function useCheckAddressRisk() {
   const navigation = useAppNavigation();
   const lastOpenedAtRef = useRef(0);
+  // Bumped per check: a slow earlier check never opens over a newer one.
+  const requestIdRef = useRef(0);
   const isUnmountedRef = useRef(false);
   useEffect(() => {
     isUnmountedRef.current = false;
@@ -170,6 +172,8 @@ export function useCheckAddressRisk() {
         return;
       }
       lastOpenedAtRef.current = now;
+      requestIdRef.current += 1;
+      const requestId = requestIdRef.current;
       const openResult = () => {
         navigation.push(EModalAddressRiskCheckRoutes.AddressRiskCheckResult, {
           checkRequest: { networkId, address, entryPoint },
@@ -182,21 +186,20 @@ export function useCheckAddressRisk() {
         return;
       }
       void (async () => {
-        const isPageGone = () => isUnmountedRef.current;
-        if (
-          !(await getHistoryResult({ networkId, address })) &&
-          !isPageGone()
-        ) {
+        // The page closed, or the user started another check meanwhile.
+        const isStale = () =>
+          isUnmountedRef.current || requestIdRef.current !== requestId;
+        if (!(await getHistoryResult({ networkId, address })) && !isStale()) {
           const gate = await ensureFeatureAccess({
             featureId: EPrimeFeatures.AddressRiskCheck,
             networkId,
-            isContextValid: () => !isPageGone(),
+            isContextValid: () => !isStale(),
           });
           if (!gate.granted) {
             return;
           }
         }
-        if (!isPageGone()) {
+        if (!isStale()) {
           openResult();
         }
       })();

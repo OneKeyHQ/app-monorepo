@@ -378,6 +378,54 @@ describe('useCheckAddressRisk', () => {
     });
   });
 
+  it('opens nothing for an older check once a newer one started', async () => {
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(50_000);
+    mockPush.mockClear();
+    let releaseGate: (value: { granted: boolean }) => void = () => {};
+    mockGetCachedAccess.mockReturnValueOnce({ status: 'exhausted' });
+    mockEnsureFeatureAccess.mockReturnValueOnce(
+      new Promise((resolve) => {
+        releaseGate = resolve;
+      }),
+    );
+    const { result } = renderHook(() => useCheckAddressRisk());
+
+    act(() => {
+      result.current.checkRisk({
+        networkId: riskResult.networkId,
+        address: '0xold',
+        entryPoint: 'inputManual',
+      });
+    });
+    await waitFor(() => {
+      expect(mockEnsureFeatureAccess).toHaveBeenCalled();
+    });
+
+    // A newer check with uses left opens right away.
+    nowSpy.mockReturnValue(52_000);
+    act(() => {
+      result.current.checkRisk({
+        networkId: riskResult.networkId,
+        address: riskResult.address,
+        entryPoint: 'inputManual',
+      });
+    });
+    expect(mockPush).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      releaseGate({ granted: true });
+      await Promise.resolve();
+    });
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    expect(mockPush).toHaveBeenLastCalledWith(
+      EModalAddressRiskCheckRoutes.AddressRiskCheckResult,
+      expect.objectContaining({
+        checkRequest: expect.objectContaining({ address: riskResult.address }),
+      }),
+    );
+    nowSpy.mockRestore();
+  });
+
   it('still opens the page of an address with a history result', async () => {
     mockPush.mockClear();
     mockEnsureFeatureAccess.mockClear();

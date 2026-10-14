@@ -234,7 +234,22 @@ describe('usePrimeFreeTrialUsage.startUsage', () => {
     expect(mockHandleStartRejected).toHaveBeenCalledWith({
       result: rejected,
       networkId: 'evm--1',
+      isContextValid: expect.any(Function),
     });
+  });
+
+  it('marks the rejection stale once the caller is gone', async () => {
+    const rejected = { status: 'exhausted', featureId: 'BulkSend', data: {} };
+    mockStartUsage.mockResolvedValue(rejected);
+    const result = renderUsageHook();
+
+    await act(async () => {
+      await result.current.startUsage({ isCallerGone: () => true });
+    });
+    const { isContextValid } = mockHandleStartRejected.mock.calls[0][0] as {
+      isContextValid: () => boolean;
+    };
+    expect(isContextValid()).toBe(false);
   });
 
   it('shows an error unless the background proxy already toasted it', async () => {

@@ -827,6 +827,23 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     expect(mockToastMessage).not.toHaveBeenCalled();
   });
 
+  it('keeps a logged-out user on the page when translate is not open', async () => {
+    mockIsLoggedIn.mockResolvedValue(false);
+    mockGetPublicConfig.mockResolvedValue({ enabled: false, features: [] });
+    const result = renderAccessHook();
+
+    await act(async () => {
+      await expect(
+        result.current.ensureFeatureAccess({
+          featureId: EPrimeFeatures.DAppTranslate,
+        }),
+      ).resolves.toEqual({ granted: false });
+    });
+    expect(mockLoginOneKeyId).not.toHaveBeenCalled();
+    expect(mockPushFullModal).not.toHaveBeenCalled();
+    expect(toastAt(0)?.title).toBe('AI 翻译暂未开放免费体验');
+  });
+
   it('still opens the dashboard on entry when the trial is not open', async () => {
     mockIsLoggedIn.mockResolvedValue(false);
     mockGetPublicConfig.mockResolvedValue({ enabled: false, features: [] });
@@ -903,6 +920,60 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
     expect(toastAt(0)?.title).toBe('AI 翻译暂未开放免费体验');
     expect(toastAt(0)?.actions).toBeTruthy();
     expect(mockPushFullModal).not.toHaveBeenCalled();
+  });
+
+  it('gives no feedback for a start rejected after its page closed', async () => {
+    const result = renderAccessHook();
+
+    act(() => {
+      result.current.handleStartRejected({
+        result: {
+          status: 'exhausted',
+          featureId: EPrimeFeatures.BulkCopyAddresses,
+          data: {
+            featureId: EPrimeFeatures.BulkCopyAddresses,
+            remaining: 0,
+            resetAt: RESET_AT,
+          },
+        },
+        isContextValid: () => false,
+      });
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockPushFullModal).not.toHaveBeenCalled();
+    expect(mockToastMessage).not.toHaveBeenCalled();
+  });
+
+  it('drops the feedback when the page closes while the hold is looked up', async () => {
+    let isValid = true;
+    mockGetHeldReservationEnd.mockImplementation(async () => {
+      isValid = false;
+      return undefined;
+    });
+    const result = renderAccessHook();
+
+    act(() => {
+      result.current.handleStartRejected({
+        result: {
+          status: 'exhausted',
+          featureId: EPrimeFeatures.BulkSend,
+          data: { featureId: EPrimeFeatures.BulkSend, remaining: 0 },
+        },
+        isContextValid: () => isValid,
+      });
+    });
+
+    await waitFor(() => {
+      expect(mockGetHeldReservationEnd).toHaveBeenCalled();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockPushFullModal).not.toHaveBeenCalled();
+    expect(mockToastMessage).not.toHaveBeenCalled();
   });
 
   describe('details of an address not checked this month', () => {
