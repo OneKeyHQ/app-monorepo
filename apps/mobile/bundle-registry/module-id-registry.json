@@ -23925,6 +23925,7 @@
     "packages/kit/src/views/Send/pages/SendDataInput/recipientSelectionUtils.ts": 4907,
     "packages/kit/src/views/Send/pages/SendDataInput/searchMatchUtils.ts": 21642,
     "packages/kit/src/views/Send/pages/SendDataInput/useRecentRecipientsData.ts": 15088,
+    "packages/kit/src/views/Send/pages/SendDataInput/useStableItemPress.ts": 12919,
     "packages/kit/src/views/Send/pages/SendDataInput/useWebDappRecipientOptions.ts": 9795,
     "packages/kit/src/views/Send/pages/SendReplaceTx/SendReplaceTxContainer.tsx": 18078,
     "packages/kit/src/views/Send/router/index.ts": 10836,
