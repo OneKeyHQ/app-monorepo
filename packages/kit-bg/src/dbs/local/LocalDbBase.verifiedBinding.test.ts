@@ -332,4 +332,45 @@ describe('LocalDbBase verified Ledger binding transaction guard', () => {
       }
     },
   );
+
+  it.each([
+    [EHardwareVendor.trezor, false],
+    [undefined, true],
+  ] as const)(
+    'binds BLE only when the record still matches unless it is OneKey (vendor=%s)',
+    async (vendor, shouldBind) => {
+      const db = Object.create(LocalDbBase.prototype) as LocalDbBase;
+      // OneKey's silent bind may resolve its record by connectId alone, so the
+      // stored deviceId can differ from the probed one.
+      const record = {
+        id: 'db',
+        deviceId: '',
+        connectId: 'usb-serial',
+        updatedAt: 1,
+        settingsRaw: JSON.stringify(vendor ? { vendor } : {}),
+      } as IDBDevice;
+      db.timeNow = async () => 2;
+      db.getDeviceSafe = jest.fn().mockResolvedValue({ ...record, vendor });
+      db.getAllDevices = jest.fn().mockResolvedValue({ devices: [] });
+      db.clearStoreCachedDataIfMatch = jest.fn();
+      db.withTransaction = async (bucketName, task) => task({ bucketName });
+      db.txUpdateRecords = async ({ updater }) => {
+        await (updater as (item: IDBDevice) => Promise<IDBDevice>)(record);
+      };
+      const update = db.updateDeviceBleConnectIdAndCleanStaleAliases({
+        dbDeviceId: 'db',
+        bleConnectId: 'live-ble',
+        verifiedDeviceId: 'probed-device',
+      });
+      if (shouldBind) {
+        await update;
+        expect(record.bleConnectId).toBe('live-ble');
+      } else {
+        await expect(update).rejects.toThrow(
+          'Verified BLE binding no longer matches the device record',
+        );
+        expect(record.bleConnectId).toBeUndefined();
+      }
+    },
+  );
 });

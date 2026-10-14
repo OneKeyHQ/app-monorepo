@@ -6384,6 +6384,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       ]),
     ];
     const keepVendor = keepDevice?.vendor ?? EHardwareVendor.onekey;
+    // OneKey's silent bind may resolve its record by connectId alone; keep its original behavior.
+    const shouldRecheckRecord = getVendorProfile(keepVendor).isThirdParty;
     let staleRecordIds: string[] = [];
     if (verifiedDeviceId) {
       const { devices } = await this.getAllDevices();
@@ -6408,9 +6410,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         updater: async (item) => {
           assertBindingActive?.();
           if (
-            item.deviceId !== verifiedDeviceId ||
-            (parseDeviceSettingsRaw(item.settingsRaw).vendor ??
-              EHardwareVendor.onekey) !== keepVendor
+            shouldRecheckRecord &&
+            (item.deviceId !== verifiedDeviceId ||
+              (parseDeviceSettingsRaw(item.settingsRaw).vendor ??
+                EHardwareVendor.onekey) !== keepVendor)
           ) {
             throw new OneKeyLocalError(
               'Verified BLE binding no longer matches the device record',
