@@ -48,6 +48,7 @@ import {
   getHardwareSDKInstance,
   resetHardwareSDKInstance,
 } from '@onekeyhq/shared/src/hardware/instance';
+import { probeUsbDeviceIdentities as probeDesktopUsbDeviceIdentities } from '@onekeyhq/shared/src/hardware/sdk-loader';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -4639,8 +4640,7 @@ class ServiceHardware extends ServiceBase {
     commType: UsbDeviceIdentity['commType'];
   }): Promise<UsbDeviceIdentity[]> {
     if (!platformEnv.isDesktop) return [];
-    const sdk = await import('@onekeyfe/hd-common-connect-sdk');
-    return sdk.probeUsbDeviceIdentities({ commType });
+    return probeDesktopUsbDeviceIdentities({ commType });
   }
 
   @backgroundMethod()
