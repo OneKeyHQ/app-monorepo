@@ -42,6 +42,7 @@ type IPro2Color = IPro2DeviceColor;
 
 export const HwWalletAvatarImages: Record<
   | IDeviceType
+  | `${EDeviceType.Classic1s | EDeviceType.ClassicPure}Transparent`
   | `${EDeviceType.Pro}${IProColor}`
   | `${EDeviceType.Pro2}${IPro2Color}`,
   ImageSourcePropType
@@ -50,6 +51,8 @@ export const HwWalletAvatarImages: Record<
   [EDeviceType.Classic]: require('../assets/wallet/avatar/Classic.png'),
   [EDeviceType.Classic1s]: require('../assets/wallet/avatar/Classic.png'),
   [EDeviceType.ClassicPure]: require('../assets/wallet/avatar/ClassicPure.png'),
+  [`${EDeviceType.Classic1s}Transparent`]: require('../assets/wallet/avatar/Classic1sPureBTC.png'),
+  [`${EDeviceType.ClassicPure}Transparent`]: require('../assets/wallet/avatar/Classic1sPureBTC.png'),
   [EDeviceType.Mini]: require('../assets/wallet/avatar/Mini.png'),
   [EDeviceType.Touch]: require('../assets/wallet/avatar/Touch.png'),
   [EDeviceType.Pro]: require('../assets/wallet/avatar/ProBlack.png'),
@@ -118,6 +121,15 @@ export function getDeviceAvatarImage(
   deviceType: IDeviceType,
   serialNo?: string,
 ): IHwWalletAvatarImageNames {
+  if (
+    (deviceType === EDeviceType.Classic1s ||
+      deviceType === EDeviceType.ClassicPure) &&
+    serialNo?.length === 11 &&
+    serialNo.startsWith(deviceType === EDeviceType.Classic1s ? 'CL' : 'CP') &&
+    serialNo.endsWith('C')
+  ) {
+    return `${deviceType}Transparent`;
+  }
   if (deviceType === EDeviceType.Pro) {
     if (serialNo && serialNo?.startsWith('PR') && serialNo?.endsWith('B')) {
       return `${EDeviceType.Pro}White`;
