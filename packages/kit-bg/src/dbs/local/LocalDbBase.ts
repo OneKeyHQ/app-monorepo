@@ -6384,7 +6384,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       ]),
     ];
     const keepVendor = keepDevice?.vendor ?? EHardwareVendor.onekey;
-    // OneKey's silent bind may resolve its record by connectId alone; keep its original behavior.
+    // Third-party bindings only; OneKey keeps its pre-existing behavior.
     const shouldRecheckRecord = getVendorProfile(keepVendor).isThirdParty;
     let staleRecordIds: string[] = [];
     if (verifiedDeviceId) {

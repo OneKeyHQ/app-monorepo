@@ -340,8 +340,7 @@ describe('LocalDbBase verified Ledger binding transaction guard', () => {
     'binds BLE only when the record still matches unless it is OneKey (vendor=%s)',
     async (vendor, shouldBind) => {
       const db = Object.create(LocalDbBase.prototype) as LocalDbBase;
-      // OneKey's silent bind may resolve its record by connectId alone, so the
-      // stored deviceId can differ from the probed one.
+      // The record no longer carries the probed deviceId.
       const record = {
         id: 'db',
         deviceId: '',
