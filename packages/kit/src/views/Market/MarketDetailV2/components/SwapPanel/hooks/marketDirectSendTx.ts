@@ -17,6 +17,11 @@ import {
   isSwapGasAccountCandidate,
   shouldRequestSwapGasAccount,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapGasUtils';
+import {
+  type ISwapReviewPreparation,
+  measureSwapReviewStage,
+  trackSwapReviewApi,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapReviewAnalytics';
 import type {
   IBuildUnsignedTxParams,
   ITransferInfo,
@@ -51,6 +56,7 @@ import type {
   IFetchQuoteResult,
   ISwapGasInfo,
   ISwapTokenBase,
+  ISwapTxInfo,
 } from '@onekeyhq/shared/types/swap/types';
 import { ESwapNetworkFeeLevel } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -70,6 +76,7 @@ export type IMarketGasInfoEntry = {
 };
 
 type IMarketDirectSendParams = {
+  shouldReportSendError?: (error: unknown) => boolean;
   accountAddress: string;
   accountId: string;
   networkId: string;
@@ -96,6 +103,12 @@ type IEstimateMarketDirectGasInfosParams = Omit<
   'gasInfos'
 > & {
   preparedUnsignedTx?: IUnsignedTxPro;
+  reviewPreparation?: ISwapReviewPreparation;
+};
+
+type IMarketEstimateAnalytics = {
+  analyticsSwapInfo?: ISwapTxInfo;
+  reviewPreparation?: ISwapReviewPreparation;
 };
 
 export type IMarketPresetFeeEstimateFakeTxToken = Pick<
@@ -265,6 +278,8 @@ export async function resolveMarketPresetNativeTokenPrice({
 }
 
 async function estimateUnsignedTxGasInfo({
+  analyticsSwapInfo,
+  reviewPreparation,
   accountAddress,
   accountId,
   networkId,
@@ -272,7 +287,7 @@ async function estimateUnsignedTxGasInfo({
   networkFeeLevel,
   customPriorityFee,
   quoteResult,
-}: {
+}: IMarketEstimateAnalytics & {
   accountAddress: string;
   accountId: string;
   networkId: string;
@@ -281,12 +296,16 @@ async function estimateUnsignedTxGasInfo({
   customPriorityFee?: IMarketPresetPriorityFeeOverride;
   quoteResult?: IFetchQuoteResult;
 }): Promise<Omit<IMarketGasInfoEntry, 'encodeTx'>> {
-  const estimateFeeParamsResult =
-    await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
-      networkId,
-      accountId,
-      encodedTx: unsignedTxItem.encodedTx,
-    });
+  const estimateFeeParamsResult = await measureSwapReviewStage(
+    reviewPreparation,
+    'estimateFee',
+    () =>
+      backgroundApiProxy.serviceGas.buildEstimateFeeParams({
+        networkId,
+        accountId,
+        encodedTx: unsignedTxItem.encodedTx,
+      }),
+  );
   // Gas Account sponsorship request (OK-62562): backend provider pre-check
   // carried on the unsigned tx, a single swap tx without approval, and no
   // custom RPC; estimate-fee still returns the real eligibility / quote.
@@ -295,21 +314,31 @@ async function estimateUnsignedTxGasInfo({
     swapInfo: unsignedTxItem.swapInfo,
     quoteResult,
   });
-  const gasRes = await backgroundApiProxy.serviceGas.estimateFee({
-    ...estimateFeeParamsResult,
-    accountAddress,
-    networkId,
-    accountId,
-    scenario: 'swap',
-    gasAccountEnabled,
-    transfersInfo: unsignedTxItem.transfersInfo,
-    // Bind the sponsor quote to the nonce that will actually broadcast (same
-    // unsignedTx is signed later), mirroring the transaction-confirm page.
-    lockedUserNonce:
-      typeof unsignedTxItem.nonce === 'number'
-        ? unsignedTxItem.nonce
-        : undefined,
-  });
+  const gasRes = await measureSwapReviewStage(
+    reviewPreparation,
+    'estimateFee',
+    () =>
+      trackSwapReviewApi(
+        'estimateFee',
+        unsignedTxItem.swapInfo ?? analyticsSwapInfo,
+        () =>
+          backgroundApiProxy.serviceGas.estimateFee({
+            ...estimateFeeParamsResult,
+            accountAddress,
+            networkId,
+            accountId,
+            scenario: 'swap',
+            gasAccountEnabled,
+            transfersInfo: unsignedTxItem.transfersInfo,
+            // Bind the sponsor quote to the nonce that will actually broadcast (same
+            // unsignedTx is signed later), mirroring the transaction-confirm page.
+            lockedUserNonce:
+              typeof unsignedTxItem.nonce === 'number'
+                ? unsignedTxItem.nonce
+                : undefined,
+          }),
+      ),
+  );
 
   return {
     gasInfo: buildGasInfo(
@@ -324,6 +353,8 @@ async function estimateUnsignedTxGasInfo({
 }
 
 async function resolveMarketGasInfosSequentially({
+  analyticsSwapInfo,
+  reviewPreparation,
   accountAddress,
   accountId,
   networkId,
@@ -332,7 +363,7 @@ async function resolveMarketGasInfosSequentially({
   networkFeeLevel,
   customPriorityFee,
   quoteResult,
-}: {
+}: IMarketEstimateAnalytics & {
   accountAddress: string;
   accountId: string;
   networkId: string;
@@ -412,6 +443,8 @@ async function resolveMarketGasInfosSequentially({
         });
       } else {
         const gasInfoEntry = await estimateUnsignedTxGasInfo({
+          analyticsSwapInfo: analyticsSwapInfo ?? unsignedTx.swapInfo,
+          reviewPreparation,
           accountAddress,
           accountId,
           networkId,
@@ -439,6 +472,8 @@ async function resolveMarketGasInfosSequentially({
     {
       encodeTx: unsignedTx.encodedTx,
       ...(await estimateUnsignedTxGasInfo({
+        analyticsSwapInfo,
+        reviewPreparation,
         accountAddress,
         accountId,
         networkId,
@@ -452,6 +487,8 @@ async function resolveMarketGasInfosSequentially({
 }
 
 async function resolveMarketGasInfos({
+  analyticsSwapInfo,
+  reviewPreparation,
   accountAddress,
   accountId,
   networkId,
@@ -460,7 +497,7 @@ async function resolveMarketGasInfos({
   networkFeeLevel,
   customPriorityFee,
   quoteResult,
-}: {
+}: IMarketEstimateAnalytics & {
   accountAddress: string;
   accountId: string;
   networkId: string;
@@ -483,24 +520,44 @@ async function resolveMarketGasInfos({
     approveUnsignedTxArr?.length &&
     vaultSettings.supportBatchEstimateFee?.[networkId]
   ) {
-    const estimateFeeParamsArr = await Promise.all(
-      unsignedTxArr.map((item) =>
-        backgroundApiProxy.serviceGas.buildEstimateFeeParams({
-          networkId,
-          accountId,
-          encodedTx: item.encodedTx,
-        }),
-      ),
+    const estimateFeeParamsArr = await measureSwapReviewStage(
+      reviewPreparation,
+      'estimateFee',
+      () =>
+        Promise.all(
+          unsignedTxArr.map((item) =>
+            backgroundApiProxy.serviceGas.buildEstimateFeeParams({
+              networkId,
+              accountId,
+              encodedTx: item.encodedTx,
+            }),
+          ),
+        ),
     );
 
-    const gasResArr = await backgroundApiProxy.serviceGas.batchEstimateFee({
-      networkId,
-      accountId,
-      encodedTxs: estimateFeeParamsArr.map((item) => item.encodedTx ?? {}),
-    });
+    const gasResArr = await measureSwapReviewStage(
+      reviewPreparation,
+      'estimateFee',
+      () =>
+        trackSwapReviewApi(
+          'estimateFee',
+          unsignedTx.swapInfo ?? analyticsSwapInfo,
+          () =>
+            backgroundApiProxy.serviceGas.batchEstimateFee({
+              networkId,
+              accountId,
+              encodedTxs: estimateFeeParamsArr.map(
+                (item) => item.encodedTx ?? {},
+              ),
+            }),
+          true,
+        ),
+    );
 
     if (gasResArr.txFees.length !== unsignedTxArr.length) {
       return resolveMarketGasInfosSequentially({
+        analyticsSwapInfo,
+        reviewPreparation,
         accountAddress,
         accountId,
         networkId,
@@ -526,6 +583,8 @@ async function resolveMarketGasInfos({
   }
 
   return resolveMarketGasInfosSequentially({
+    analyticsSwapInfo,
+    reviewPreparation,
     accountAddress,
     accountId,
     networkId,
@@ -538,13 +597,15 @@ async function resolveMarketGasInfos({
 }
 
 async function resolveExactUnsignedTxGasInfos({
+  analyticsSwapInfo,
+  reviewPreparation,
   accountAddress,
   accountId,
   networkId,
   unsignedTxArr,
   networkFeeLevel,
   customPriorityFee,
-}: {
+}: IMarketEstimateAnalytics & {
   accountAddress: string;
   accountId: string;
   networkId: string;
@@ -562,26 +623,47 @@ async function resolveExactUnsignedTxGasInfos({
     unsignedTxArr.length > 1 &&
     vaultSettings.supportBatchEstimateFee?.[networkId]
   ) {
-    const estimateFeeParamsArr = await Promise.all(
-      unsignedTxArr.map((item) =>
-        backgroundApiProxy.serviceGas.buildEstimateFeeParams({
-          networkId,
-          accountId,
-          encodedTx: item.encodedTx,
-        }),
-      ),
+    const estimateFeeParamsArr = await measureSwapReviewStage(
+      reviewPreparation,
+      'estimateFee',
+      () =>
+        Promise.all(
+          unsignedTxArr.map((item) =>
+            backgroundApiProxy.serviceGas.buildEstimateFeeParams({
+              networkId,
+              accountId,
+              encodedTx: item.encodedTx,
+            }),
+          ),
+        ),
     );
 
-    const gasResArr = await backgroundApiProxy.serviceGas.batchEstimateFee({
-      networkId,
-      accountId,
-      encodedTxs: estimateFeeParamsArr.map((item) => item.encodedTx ?? {}),
-    });
+    const gasResArr = await measureSwapReviewStage(
+      reviewPreparation,
+      'estimateFee',
+      () =>
+        trackSwapReviewApi(
+          'estimateFee',
+          analyticsSwapInfo ??
+            unsignedTxArr.find((item) => item.swapInfo)?.swapInfo,
+          () =>
+            backgroundApiProxy.serviceGas.batchEstimateFee({
+              networkId,
+              accountId,
+              encodedTxs: estimateFeeParamsArr.map(
+                (item) => item.encodedTx ?? {},
+              ),
+            }),
+          true,
+        ),
+    );
 
     if (gasResArr.txFees.length !== unsignedTxArr.length) {
       const fallbackGasInfos: IMarketGasInfoEntry[] = [];
       for (const unsignedTxItem of unsignedTxArr) {
         const gasInfoEntry = await estimateUnsignedTxGasInfo({
+          analyticsSwapInfo,
+          reviewPreparation,
           accountAddress,
           accountId,
           networkId,
@@ -614,6 +696,8 @@ async function resolveExactUnsignedTxGasInfos({
 
   for (const unsignedTxItem of unsignedTxArr) {
     const gasInfoEntry = await estimateUnsignedTxGasInfo({
+      analyticsSwapInfo,
+      reviewPreparation,
       accountAddress,
       accountId,
       networkId,
@@ -984,6 +1068,7 @@ export async function estimateMarketDirectGasInfos({
   quoteResult,
   gasAccountAnalytics,
   preparedUnsignedTx,
+  reviewPreparation,
 }: IEstimateMarketDirectGasInfosParams): Promise<{
   gasInfos: IMarketGasInfoEntry[];
   gasFeeFiatValue?: string;
@@ -997,14 +1082,18 @@ export async function estimateMarketDirectGasInfos({
 
   const unsignedTx =
     preparedUnsignedTx ??
-    (await prepareMarketDirectUnsignedTx({
-      accountId,
-      networkId,
-      buildUnsignedParams,
-      approveUnsignedTxArr,
-    }));
+    (await measureSwapReviewStage(reviewPreparation, 'prepareTx', () =>
+      prepareMarketDirectUnsignedTx({
+        accountId,
+        networkId,
+        buildUnsignedParams,
+        approveUnsignedTxArr,
+      }),
+    ));
 
   const gasInfos = await resolveMarketGasInfos({
+    analyticsSwapInfo: buildUnsignedParams.swapInfo,
+    reviewPreparation,
     accountAddress,
     accountId,
     networkId,
@@ -1025,12 +1114,14 @@ export async function estimateMarketDirectGasInfos({
       fromToken: unsignedTx.swapInfo.sender.token,
     });
     const latestNativeBalance = nativeToken
-      ? await checkSwapLatestBalanceSufficient({
-          token: nativeToken,
-          amount: '0',
-          accountAddress,
-          accountId,
-        })
+      ? await measureSwapReviewStage(reviewPreparation, 'balanceCheck', () =>
+          checkSwapLatestBalanceSufficient({
+            token: nativeToken,
+            amount: '0',
+            accountAddress,
+            accountId,
+          }),
+        )
       : undefined;
     gasAccountAnalyticsNativeBalance = latestNativeBalance?.balance;
     gasAccountAnalyticsContext = buildDirectSwapGasAccountAnalyticsContext({
@@ -1055,13 +1146,15 @@ export async function estimateMarketDirectGasInfos({
 }
 
 export async function estimateMarketApproveGasInfos({
+  analyticsSwapInfo,
+  reviewPreparation,
   accountAddress,
   accountId,
   networkId,
   approveUnsignedTxArr,
   networkFeeLevel,
   customPriorityFee,
-}: {
+}: IMarketEstimateAnalytics & {
   accountAddress: string;
   accountId: string;
   networkId: string;
@@ -1084,6 +1177,8 @@ export async function estimateMarketApproveGasInfos({
   }
 
   const gasInfos = await resolveExactUnsignedTxGasInfos({
+    analyticsSwapInfo,
+    reviewPreparation,
     accountAddress,
     accountId,
     networkId,
@@ -1099,6 +1194,7 @@ export async function estimateMarketApproveGasInfos({
 }
 
 async function updateUnsignedTxAndSendTx({
+  shouldReportSendError,
   accountId,
   networkId,
   unsignedTxItem,
@@ -1109,6 +1205,7 @@ async function updateUnsignedTxAndSendTx({
   onBeforeGasAccountFallback,
   gasAccountAnalytics,
 }: {
+  shouldReportSendError?: IMarketDirectSendParams['shouldReportSendError'];
   accountId: string;
   networkId: string;
   unsignedTxItem: IUnsignedTxPro;
@@ -1218,10 +1315,17 @@ async function updateUnsignedTxAndSendTx({
     context: gasAccountAnalyticsContext,
     gasAccountUiState,
     send: (uiState) =>
-      backgroundApiProxy.serviceSend.signAndSendTransaction({
-        ...sendTxParams,
-        gasAccountUiState: uiState,
-      }),
+      trackSwapReviewApi(
+        'sendTx',
+        updatedUnsignedTxItem.swapInfo,
+        () =>
+          backgroundApiProxy.serviceSend.signAndSendTransaction({
+            ...sendTxParams,
+            gasAccountUiState: uiState,
+          }),
+        undefined,
+        { shouldReportError: shouldReportSendError },
+      ),
     onGasAccountError: async (_error, entry) => {
       if (entry.strategy === EGasAccountErrorStrategy.Fallback) {
         await onBeforeGasAccountFallback?.();
@@ -1279,6 +1383,7 @@ async function updateUnsignedTxAndSendTx({
 }
 
 export async function sendMarketDirectUnsignedTxs({
+  shouldReportSendError,
   accountAddress,
   accountId,
   networkId,
@@ -1358,6 +1463,7 @@ export async function sendMarketDirectUnsignedTxs({
 
     results.push(
       await updateUnsignedTxAndSendTx({
+        shouldReportSendError,
         accountId,
         networkId,
         unsignedTxItem,

@@ -20,6 +20,11 @@ import {
   swapStockExecutionTokensAtom,
   swapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/atoms';
+import {
+  type ISwapReviewPreparation,
+  createSwapReviewAnalytics,
+  getSwapReviewOrderId,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapReviewAnalytics';
 import type {
   ISwapReviewGasInfoEntry,
   ISwapReviewState,
@@ -29,6 +34,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   ARC_ERC20_USDC_CONTRACT_ADDRESS,
   ARC_EURC_CONTRACT_ADDRESS,
@@ -49,6 +55,7 @@ import {
   ESwapTabSwitchType,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
+import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import {
   buildMarketReviewTokens,
@@ -120,6 +127,17 @@ const mockSendMarketDirectUnsignedTxs: jest.MockedFunction<
   (params: IMarketDirectSendValidationParams) => Promise<[]>
 > = jest.fn();
 const mockCloseReviewDialog = jest.fn();
+const mockSignMessage: jest.MockedFunction<
+  (params: unknown) => Promise<string>
+> = jest.fn();
+const mockAddSwapHistoryItem: jest.MockedFunction<
+  (params: unknown) => Promise<void>
+> = jest.fn();
+const mockSwapSendTx = jest.spyOn(defaultLogger.swap.swapSendTx, 'swapSendTx');
+const mockCreateOrder = jest.spyOn(
+  defaultLogger.swap.createSwapOrder,
+  'swapCreateOrder',
+);
 
 let mockUsePromiseResultCallCount = 0;
 let mockPaymentTokenPriceCache: Record<string, BigNumber> = {};
@@ -175,6 +193,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       },
     },
     serviceSwap: {
+      addSwapHistoryItem: (params: unknown) => mockAddSwapHistoryItem(params),
       fetchSwapTokenDetails: (params: IFetchSwapTokenDetailsParams) =>
         mockFetchSwapTokenDetails(params),
       fetchSwapNativeTokenConfig: (params: IFetchSwapNativeTokenConfigParams) =>
@@ -184,6 +203,9 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       closeApproving: () => mockCloseApproving(),
       cancelFetchQuoteEvents: (quoteRequestId?: string) =>
         mockCancelFetchQuoteEvents(quoteRequestId),
+    },
+    serviceSend: {
+      signMessage: (params: unknown) => mockSignMessage(params),
     },
   },
 }));
@@ -521,6 +543,10 @@ describe('isMarketQuoteResultForPair', () => {
 
 describe('useSpeedSwapActions', () => {
   beforeEach(() => {
+    mockSwapSendTx.mockClear();
+    mockCreateOrder.mockClear();
+    mockSignMessage.mockReset().mockResolvedValue('0xsigned');
+    mockAddSwapHistoryItem.mockReset().mockResolvedValue(undefined);
     mockFetchSwapTokenDetails.mockReset();
     mockFetchSwapNativeTokenConfig.mockReset();
     mockFetchQuotesEvents.mockReset();
@@ -1147,6 +1173,8 @@ describe('useSpeedSwapActions', () => {
 
     const quoteRequest = mockSwapStore.get(swapQuoteActionLockAtom());
     const signedQuote: IFetchQuoteResult = {
+      quoteId: 'synthetic-quote-id',
+      quoteResultCtx: { oneInchFusionOrderCtx: {} },
       protocol: EProtocolOfExchange.SWAP,
       info: {
         provider: 'oneInchFusion',
@@ -1185,8 +1213,13 @@ describe('useSpeedSwapActions', () => {
     });
 
     let reviewState: ISwapReviewState | undefined;
+    const reviewAnalytics = createSwapReviewAnalytics({
+      reviewSessionId: 'signed-session',
+    });
     await act(async () => {
-      reviewState = await result.current.prepareMarketSwapReview();
+      reviewState = await result.current.prepareMarketSwapReview({
+        reviewAnalytics,
+      });
     });
 
     expect(mockFetchBuildTx).not.toHaveBeenCalled();
@@ -1194,8 +1227,32 @@ describe('useSpeedSwapActions', () => {
       ESwapStepType.SIGN_MESSAGE,
     ]);
     expect(reviewState?.preSwapData.slippage).toBe(1.25);
+    expect(
+      reviewState?.preSwapData.swapBuildResultData?.swapInfo?.swapBuildResData
+        .orderId,
+    ).toBe('synthetic-quote-id');
+    expect(
+      getSwapReviewOrderId(
+        reviewState?.preSwapData.swapBuildResultData?.swapInfo,
+      ),
+    ).toBeUndefined();
+
+    const placeholderPreparation: ISwapReviewPreparation = {
+      timings: {},
+      fail: jest.fn(),
+      measure: async (_stage, action) => action(),
+    };
+    await act(async () => {
+      await result.current.prepareMarketSwapReview({
+        quoteResult: signedQuote,
+        reviewPreparation: placeholderPreparation,
+      });
+    });
+    expect(placeholderPreparation.timings.buildTxMs).toBeUndefined();
+    expect(mockFetchBuildTx).not.toHaveBeenCalled();
 
     mockFetchBuildTx.mockResolvedValue({
+      orderId: 'real-service-order',
       result: {
         ...signedQuote,
         slippage: 1,
@@ -1217,7 +1274,175 @@ describe('useSpeedSwapActions', () => {
       }),
     );
     expect(reviewState?.preSwapData.slippage).toBe(1);
+    expect(
+      getSwapReviewOrderId(
+        reviewState?.preSwapData.swapBuildResultData?.swapInfo,
+      ),
+    ).toBe('real-service-order');
+    expect(mockSwapSendTx).not.toHaveBeenCalled();
+
+    const historyError = new Error('history unavailable');
+    mockAddSwapHistoryItem.mockRejectedValue(historyError);
+    await act(async () => {
+      await expect(result.current.sendMarketSignMessage()).rejects.toBe(
+        historyError,
+      );
+    });
+    expect(mockSignMessage).toHaveBeenCalledTimes(1);
+    expect(mockSwapSendTx).toHaveBeenCalledTimes(1);
+    expect(mockSwapSendTx).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reviewSessionId: 'signed-session',
+        quoteId: 'synthetic-quote-id',
+        orderId: 'real-service-order',
+        status: 'success',
+      }),
+    );
+    expect(mockSendMarketDirectUnsignedTxs).not.toHaveBeenCalled();
   });
+
+  it.each([false, true])(
+    'preserves the build outcome when create-order logging throws: build failure %s',
+    async (buildFails) => {
+      mockFetchSwapTokenDetails.mockImplementation(({ accountId }) =>
+        Promise.resolve(
+          accountId ? createTokenDetail({ balanceParsed: '100' }) : [],
+        ),
+      );
+      const { result } = renderSwapHook(() =>
+        useSpeedSwapActions({
+          ...createHookProps(),
+          fromTokenAmount: '1',
+        }),
+      );
+      await waitFor(() => {
+        expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+        expect(result.current.fetchBalanceLoading).toBe(false);
+      });
+      const quoteRequest = mockSwapStore.get(swapQuoteActionLockAtom());
+      const quote: IFetchQuoteResult = {
+        quoteId: 'telemetry-failure-quote',
+        info: { provider: 'provider', providerName: 'Provider' },
+        fromTokenInfo: quoteRequest.fromToken ?? usdcToken,
+        toTokenInfo: quoteRequest.toToken ?? btcToken,
+        fromAmount: '1',
+        toAmount: '0.00001',
+      };
+      const buildFailure = new Error('Build RPC failed');
+      if (buildFails) {
+        mockFetchBuildTx.mockRejectedValueOnce(buildFailure);
+      } else {
+        mockFetchBuildTx.mockResolvedValueOnce({
+          orderId: 'service-order',
+          result: quote,
+          tx: { to: '0xrouter', value: '0', data: '0xswap' },
+        });
+      }
+      mockCreateOrder.mockImplementationOnce(() => {
+        throw new OneKeyLocalError('Telemetry unavailable');
+      });
+      act(() => {
+        mockSwapStore.set(swapQuoteListAtom(), [quote]);
+        mockSwapStore.set(swapQuoteFetchingAtom(), false);
+        mockSwapStore.set(swapQuoteEventCompletedAtom(), true);
+        mockSwapStore.set(swapQuoteActionLockAtom(), {
+          ...quoteRequest,
+          actionLock: false,
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.quoteReadyForReview).toBe(true);
+      });
+
+      await act(async () => {
+        if (buildFails) {
+          await expect(result.current.prepareMarketSwapReview()).rejects.toBe(
+            buildFailure,
+          );
+        } else {
+          const review = await result.current.prepareMarketSwapReview();
+          expect(review?.preSwapData.swapBuildResultData?.swapInfo).toEqual(
+            expect.objectContaining({
+              swapBuildResData: expect.objectContaining({
+                orderId: 'service-order',
+              }),
+            }),
+          );
+        }
+      });
+      expect(mockFetchBuildTx).toHaveBeenCalledTimes(1);
+      expect(mockCreateOrder).toHaveBeenCalledTimes(1);
+      expect(mockSendMarketDirectUnsignedTxs).not.toHaveBeenCalled();
+      expect(mockNavigationToTxConfirm).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([undefined, 25])(
+    'records cached build timing without replacing measured time: %s',
+    async (previousBuildTxMs) => {
+      mockFetchSwapTokenDetails.mockImplementation(({ accountId }) =>
+        Promise.resolve(
+          accountId ? createTokenDetail({ balanceParsed: '100' }) : [],
+        ),
+      );
+      const { result } = renderSwapHook(() =>
+        useSpeedSwapActions({
+          ...createHookProps(),
+          fromTokenAmount: '1',
+        }),
+      );
+      await waitFor(() => {
+        expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+        expect(result.current.fetchBalanceLoading).toBe(false);
+      });
+      const quoteRequest = mockSwapStore.get(swapQuoteActionLockAtom());
+      const quote: IFetchQuoteResult = {
+        quoteId: 'cached-quote',
+        info: { provider: 'provider', providerName: 'Provider' },
+        fromTokenInfo: quoteRequest.fromToken ?? usdcToken,
+        toTokenInfo: quoteRequest.toToken ?? btcToken,
+        fromAmount: '1',
+        toAmount: '0.00001',
+      };
+      mockFetchBuildTx.mockResolvedValue({
+        orderId: 'cached-order',
+        result: quote,
+        tx: { to: '0xrouter', value: '0', data: '0xswap' },
+      });
+      act(() => {
+        mockSwapStore.set(swapQuoteListAtom(), [quote]);
+        mockSwapStore.set(swapQuoteFetchingAtom(), false);
+        mockSwapStore.set(swapQuoteEventCompletedAtom(), true);
+        mockSwapStore.set(swapQuoteActionLockAtom(), {
+          ...quoteRequest,
+          actionLock: false,
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.quoteReadyForReview).toBe(true);
+      });
+      let reviewState: ISwapReviewState | undefined;
+      await act(async () => {
+        reviewState = await result.current.prepareMarketSwapReview();
+      });
+      expect(reviewState?.preSwapData.supportPreBuild).toBe(true);
+      expect(mockFetchBuildTx).toHaveBeenCalledTimes(1);
+
+      const reviewPreparation: ISwapReviewPreparation = {
+        timings: { buildTxMs: previousBuildTxMs },
+        fail: jest.fn(),
+        measure: async (_stage, action) => action(),
+      };
+      await act(async () => {
+        await result.current.prepareMarketSwapReview({
+          quoteResult: quote,
+          reviewPreparation,
+        });
+      });
+      expect(reviewPreparation.timings.buildTxMs).toBe(previousBuildTxMs ?? 0);
+      expect(mockFetchBuildTx).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('clears a previous token balance while the next balance is loading', async () => {
     const nextBalanceRequest = createDeferred<ISwapToken[]>();
@@ -1419,6 +1644,9 @@ describe('useSpeedSwapActions', () => {
 
     await act(async () => {
       await result.current.prepareMarketSwapReview({
+        reviewAnalytics: createSwapReviewAnalytics({
+          reviewSessionId: 'fallback-session',
+        }),
         fromAmount: '1',
         fromToken: ethToken,
         toToken: wethToken,
@@ -1428,6 +1656,26 @@ describe('useSpeedSwapActions', () => {
     });
 
     expect(calls).toEqual(['close-review', 'open-tx-confirm']);
+    expect(mockSwapSendTx).not.toHaveBeenCalled();
+    const confirmation = mockNavigationToTxConfirm.mock.calls[0][0] as {
+      onSuccess: (data: ISendTxOnSuccessData[]) => Promise<void>;
+    };
+    await act(async () => {
+      await confirmation.onSuccess([
+        {
+          signedTx: { txid: '0xfallback', rawTx: '', encodedTx: {} },
+          decodedTx: {} as ISendTxOnSuccessData['decodedTx'],
+        },
+      ]);
+    });
+    expect(mockSwapSendTx).toHaveBeenCalledTimes(1);
+    expect(mockSwapSendTx).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reviewSessionId: 'fallback-session',
+        status: 'success',
+        orderId: '',
+      }),
+    );
   });
 
   it('checks rebuilt amount plus gas before signing a wrapped transaction', async () => {

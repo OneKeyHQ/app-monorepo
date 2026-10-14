@@ -78,23 +78,34 @@ import {
   SwapReviewSlippageEditor,
 } from '../../components/SwapReviewSlippageEditor';
 import { resolveQuoteShowTip } from '../../utils/quoteShowTipUtils';
+import { getSwapReviewOrderId } from '../../utils/swapReviewAnalytics';
 import {
+  ESwapReviewRebuildPhase,
   isSwapReviewConfirmBlocked,
   isSwapReviewRebuildInProgress,
 } from '../../utils/swapReviewRebuildStateMachine';
 import {
+  type ISwapReviewState,
   NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
   invalidateSwapReviewForSlippageChange,
   shouldShowSwapReviewToAmountSkeleton,
 } from '../../utils/swapReviewState';
 import { reconcileSwapStepWithHistory } from '../../utils/swapStepHistory';
+import { getSwapAnalyticsCategoryFromSwapType } from '../../utils/swapStockAnalytics';
 import { buildSwapStockReviewDisplay } from '../../utils/swapStockReviewUtils';
 import { getSwapExecutionTypeFromQuoteResult } from '../../utils/swapTypeUtils';
 
 import type { ISwapReviewRebuildOptions } from '../../hooks/useSwapReviewActions';
+import type {
+  ISwapReviewAnalytics,
+  ISwapReviewPreparation,
+} from '../../utils/swapReviewAnalytics';
 import type { ISwapReviewRebuildState } from '../../utils/swapReviewRebuildStateMachine';
 
 interface IPreSwapDialogContentProps {
+  reviewAnalytics?: ISwapReviewAnalytics;
+  analyticsCreateFrom?: string;
+  analyticsInitialState?: ISwapReviewState;
   onConfirm: () => void;
   onDone: () => void;
   disableGlobalApproveSync?: boolean;
@@ -102,6 +113,7 @@ interface IPreSwapDialogContentProps {
     data?: IFetchQuoteResult,
     currentFromToken?: ISwapToken,
     currentToToken?: ISwapToken,
+    reviewPreparation?: ISwapReviewPreparation,
   ) => void | Promise<void>;
   preSwapStepsStart: (swapStepsValues?: {
     steps: ISwapStep[];
@@ -125,6 +137,9 @@ interface IPreSwapDialogContentProps {
 }
 
 const PreSwapDialogContent = ({
+  reviewAnalytics,
+  analyticsInitialState,
+  analyticsCreateFrom = 'swapPage',
   onDone,
   onConfirm,
   disableGlobalApproveSync = false,
@@ -149,6 +164,9 @@ const PreSwapDialogContent = ({
     ISwapReviewSlippageSaveScope | undefined
   >(undefined);
   const isMountedRef = useRef(true);
+  const analyticsPreparationCount = useRef(0);
+  const [analyticsPreparationRevision, setAnalyticsPreparationRevision] =
+    useState(0);
   const [swapSteps, setSwapSteps] = useSwapStepsAtom();
   const [swapStepNetFeeLevel, setSwapStepNetFeeLevel] =
     useSwapStepNetFeeLevelAtom();
@@ -461,12 +479,23 @@ const PreSwapDialogContent = ({
     if (isPrimaryButtonDisabled) {
       return;
     }
+    reviewAnalytics?.confirm(
+      quoteResult?.quoteId,
+      getSwapReviewOrderId(preSwapData.swapBuildResultData?.swapInfo),
+    );
     if (validatedQuoteShowTip) {
       setShowPreSwapTipInfo(validatedQuoteShowTip);
     } else {
       onConfirm();
     }
-  }, [isPrimaryButtonDisabled, onConfirm, validatedQuoteShowTip]);
+  }, [
+    isPrimaryButtonDisabled,
+    onConfirm,
+    validatedQuoteShowTip,
+    reviewAnalytics,
+    quoteResult?.quoteId,
+    preSwapData.swapBuildResultData?.swapInfo,
+  ]);
 
   const tipOnConfirm = useCallback(() => {
     if (isPrimaryButtonDisabled) {
@@ -575,15 +604,51 @@ const PreSwapDialogContent = ({
   ]);
 
   useLayoutEffect(() => {
+    const initialQuote = analyticsInitialState?.quoteResult ?? quoteResult;
+    const initialData = analyticsInitialState?.preSwapData ?? preSwapData;
+    reviewAnalytics?.open({
+      quoteId: initialQuote?.quoteId,
+      swapProvider: initialQuote?.info.provider ?? '',
+      swapType: getSwapAnalyticsCategoryFromSwapType(
+        getSwapExecutionTypeFromQuoteResult(initialQuote),
+      ),
+      sourceChain: initialData.fromToken?.networkId ?? '',
+      receivedChain: initialData.toToken?.networkId ?? '',
+      sourceTokenSymbol: initialData.fromToken?.symbol ?? '',
+      receivedTokenSymbol: initialData.toToken?.symbol ?? '',
+      createFrom: analyticsCreateFrom,
+      walletType: activeAccount?.wallet?.type ?? 'unknown',
+      supportPreBuild: !!initialData.supportPreBuild,
+      needApprove: !!initialQuote?.allowanceResult,
+    });
+  }, [
+    reviewAnalytics,
+    analyticsInitialState,
+    quoteResult,
+    preSwapData,
+    analyticsCreateFrom,
+    activeAccount?.wallet?.type,
+  ]);
+
+  useLayoutEffect(() => {
     if (
       swapStepsRef.current.preSwapData.supportNetworkFeeLevel &&
       swapStepsRef.current.preSwapData.supportPreBuild
     ) {
-      void preSwapBeforeStepActions(
-        swapStepsRef.current.quoteResult,
-        swapStepsRef.current.preSwapData.fromToken,
-        swapStepsRef.current.preSwapData.toToken,
-      );
+      analyticsPreparationCount.current += 1;
+      void Promise.resolve(
+        preSwapBeforeStepActions(
+          swapStepsRef.current.quoteResult,
+          swapStepsRef.current.preSwapData.fromToken,
+          swapStepsRef.current.preSwapData.toToken,
+          reviewAnalytics?.beginPreparation(),
+        ),
+      ).finally(() => {
+        analyticsPreparationCount.current -= 1;
+        if (isMountedRef.current) {
+          setAnalyticsPreparationRevision((value) => value + 1);
+        }
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -728,6 +793,46 @@ const PreSwapDialogContent = ({
   }, [handleSaveSlippage, setSwapSteps, supportSlippageRebuild]);
   const showMobileSlippageEditor =
     platformEnv.isNative && supportSlippageRebuild && slippageEditorOpen;
+
+  useEffect(() => {
+    if (!swapSteps.steps.length) return;
+    const loading =
+      analyticsPreparationCount.current > 0 ||
+      Boolean(
+        preSwapData.estimateNetworkFeeLoading ||
+        preSwapData.swapBuildLoading ||
+        preSwapData.stepBeforeActionsLoading ||
+        isSwapReviewRebuildInProgress(reviewRebuildState?.phase),
+      );
+    reviewAnalytics?.observe({
+      ready:
+        !loading &&
+        !isPrimaryButtonDisabled &&
+        swapSteps.steps[0]?.status === ESwapStepStatus.READY &&
+        !showResultContent &&
+        !showMobileSlippageEditor &&
+        !showPreSwapTipInfo,
+      error:
+        !!preSwapData.stepBeforeActionsError ||
+        reviewRebuildState?.phase === ESwapReviewRebuildPhase.Error,
+      loading,
+      fallback: !!preSwapData.shouldFallback,
+      supportPreBuild: !!preSwapData.supportPreBuild,
+      quoteId: quoteResult?.quoteId,
+      orderId: getSwapReviewOrderId(preSwapData.swapBuildResultData?.swapInfo),
+    });
+  }, [
+    analyticsPreparationRevision,
+    reviewAnalytics,
+    swapSteps.steps,
+    preSwapData,
+    quoteResult?.quoteId,
+    isPrimaryButtonDisabled,
+    showResultContent,
+    showMobileSlippageEditor,
+    showPreSwapTipInfo,
+    reviewRebuildState?.phase,
+  ]);
 
   const actionBtnTest = useMemo(() => {
     if (preSwapData?.isHWAndExBatchTransfer) {

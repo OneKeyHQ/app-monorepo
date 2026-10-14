@@ -7,6 +7,8 @@ export class SwapSendTxScene extends BaseScene {
   @LogToServer({ level: 'info' })
   @LogToLocal({ level: 'info' })
   public swapSendTx({
+    reviewSessionId,
+    quoteId,
     swapType,
     slippage,
     router,
@@ -32,6 +34,8 @@ export class SwapSendTxScene extends BaseScene {
     toAddress: _toAddress,
     quoteToTokenAmount,
   }: {
+    reviewSessionId?: string;
+    quoteId?: string;
     status: ESwapEventAPIStatus;
     message?: string;
     orderId: string;
@@ -54,6 +58,8 @@ export class SwapSendTxScene extends BaseScene {
     toAddress: string;
   }) {
     return {
+      reviewSessionId,
+      quoteId,
       status,
       message,
       swapType,
