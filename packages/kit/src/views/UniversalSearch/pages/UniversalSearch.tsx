@@ -136,7 +136,8 @@ interface IUniversalSection {
   showMore?: boolean;
 }
 
-const SEARCH_DEBOUNCE_MS = 300;
+// Matches the Market detail selector's search delay.
+const SEARCH_DEBOUNCE_MS = 500;
 // The modal width every other modal opens at.
 const DEFAULT_MODAL_CONTENT_MAX_WIDTH = 640;
 const LIQUID_GLASS_SEARCH_BAR_CONTAINER_PROPS = {
