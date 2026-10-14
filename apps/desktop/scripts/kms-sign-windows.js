@@ -57,18 +57,19 @@ function verify(file) {
       `Expected exactly one signature on ${file}, found ${signatureCount}`,
     );
   }
-  const thumbprint = execFileSync(
-    'powershell.exe',
-    [
-      '-NoProfile',
-      '-NonInteractive',
-      '-Command',
-      '(Get-AuthenticodeSignature -LiteralPath $env:ONEKEY_SIGNED_FILE).SignerCertificate.Thumbprint',
-    ],
-    { env: { ...process.env, ONEKEY_SIGNED_FILE: file }, encoding: 'utf8' },
-  )
-    .trim()
-    .toUpperCase();
+  // The signing chain is printed root first, so the last SHA1 hash before the
+  // timestamp section is the leaf that signed the file.
+  const chainStart = output.indexOf('Signing Certificate Chain:');
+  const timestampStart = output.indexOf('The signature is timestamped:');
+  if (chainStart === -1 || timestampStart < chainStart) {
+    throw new Error(`Missing signing chain or timestamp on ${file}`);
+  }
+  const chainHashes = [
+    ...output
+      .slice(chainStart, timestampStart)
+      .matchAll(/SHA1 hash:\s*([0-9A-Fa-f]{40})/g),
+  ];
+  const thumbprint = chainHashes.at(-1)?.[1].toUpperCase();
   if (thumbprint !== expectedThumbprint) {
     throw new Error(
       `Unexpected signer certificate ${thumbprint} on ${file}, expected ${expectedThumbprint}`,
