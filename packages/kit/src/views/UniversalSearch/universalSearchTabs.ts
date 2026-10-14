@@ -1,5 +1,18 @@
+import pLimit from 'p-limit';
+
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isMarketSearchStockListing } from '@onekeyhq/shared/src/utils/marketSearchStock';
+import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
+import { buildCoinFromSearchAssetType } from '@onekeyhq/shared/src/utils/perpsDexUtils';
+import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type {
+  IMarketAssetDetailData,
+  IMarketWatchListItemV2,
+} from '@onekeyhq/shared/types/market';
 import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
+import type { IUniversalSearchResultItem } from '@onekeyhq/shared/types/search';
+
+export const WATCHLIST_TAB_INDEX = 4;
 
 export function getUniversalSearchTabIndex(
   searchType: EUniversalSearchType,
@@ -10,11 +23,11 @@ export function getUniversalSearchTabIndex(
     [EUniversalSearchType.Address]: 1,
     [EUniversalSearchType.MarketStock]: 2,
     [EUniversalSearchType.V2MarketToken]: 3,
-    [EUniversalSearchType.Perp]: 4,
+    [EUniversalSearchType.Perp]: 5,
     [EUniversalSearchType.MarketToken]: 0,
-    [EUniversalSearchType.AccountAssets]: isWebDappMode ? 0 : 5,
-    [EUniversalSearchType.Dapp]: isWebDappMode ? 5 : 6,
-    [EUniversalSearchType.Settings]: isWebDappMode ? 6 : 7,
+    [EUniversalSearchType.AccountAssets]: isWebDappMode ? 0 : 6,
+    [EUniversalSearchType.Dapp]: isWebDappMode ? 6 : 7,
+    [EUniversalSearchType.Settings]: isWebDappMode ? 7 : 8,
   };
 
   return tabMapping[searchType];
@@ -72,7 +85,98 @@ export function prioritizeMarketFocusedSections<T extends { tabIndex: number }>(
     return sections;
   }
 
-  return [stocksSection, marketSection, perpSection, ...otherSections].filter(
+  return [marketSection, stocksSection, perpSection, ...otherSections].filter(
     (section): section is T => Boolean(section),
   );
+}
+
+export function getUniversalSearchWatchlistKey(
+  item: IUniversalSearchResultItem,
+): string | undefined {
+  if (item.type === EUniversalSearchType.MarketStock) {
+    return item.payload.stockId ? `stock:${item.payload.stockId}` : undefined;
+  }
+  if (item.type === EUniversalSearchType.V2MarketToken) {
+    if (isMarketSearchStockListing(item.payload) && item.payload.stockId) {
+      return `stock:${item.payload.stockId}`;
+    }
+    if (item.payload.assetId) {
+      return `asset:${item.payload.assetId}`;
+    }
+    if (item.payload.network) {
+      return `${item.payload.network}:${
+        normalizeTokenContractAddress({
+          networkId: item.payload.network,
+          contractAddress: item.payload.address,
+        }) || ''
+      }`;
+    }
+    return undefined;
+  }
+  if (item.type === EUniversalSearchType.Perp) {
+    const coin = buildCoinFromSearchAssetType({
+      assetType: item.payload.assetType,
+      name: item.payload.name,
+    });
+    return coin ? `perps:${coin}` : undefined;
+  }
+  return undefined;
+}
+
+export async function resolveUniversalSearchWatchlistKeys({
+  items,
+  fetchAssetDetail,
+}: {
+  items: IMarketWatchListItemV2[];
+  fetchAssetDetail: (
+    assetId: string,
+  ) => Promise<Pick<IMarketAssetDetailData, 'selectedVariant' | 'variants'>>;
+}): Promise<Set<string>> {
+  const keys = new Set(items.map(getMarketWatchlistKey));
+  const limit = pLimit(4);
+  await Promise.all(
+    [
+      ...new Set(items.flatMap((item) => (item.assetId ? [item.assetId] : []))),
+    ].map((assetId) =>
+      limit(async () => {
+        try {
+          const { selectedVariant, variants } = await fetchAssetDetail(assetId);
+          // Legacy search results identify assets by their chain variants.
+          for (const variant of [selectedVariant, ...variants]) {
+            keys.add(
+              getMarketWatchlistKey({
+                chainId: variant.networkId,
+                contractAddress: variant.tokenAddress,
+              }),
+            );
+          }
+        } catch {
+          // Retain direct identities when one asset cannot be resolved.
+        }
+      }),
+    ),
+  );
+  return keys;
+}
+
+export function isUniversalSearchItemInWatchlist(
+  item: IUniversalSearchResultItem,
+  keys: Set<string>,
+): boolean {
+  const key = getUniversalSearchWatchlistKey(item);
+  if (key && keys.has(key)) return true;
+  if (
+    item.type === EUniversalSearchType.V2MarketToken &&
+    item.payload.assetId &&
+    item.payload.network &&
+    !isMarketSearchStockListing(item.payload)
+  ) {
+    return keys.has(
+      getMarketWatchlistKey({
+        chainId: item.payload.network,
+        contractAddress: item.payload.address,
+      }),
+    );
+  }
+  return false;
 }
