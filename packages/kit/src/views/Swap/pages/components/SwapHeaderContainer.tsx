@@ -228,7 +228,7 @@ const SwapHeaderContainer = ({
       !defaultSwapType ||
       (pageType === 'modal' &&
         (enterFrom === ESwapSource.WALLET_HOME_TOKEN_LIST ||
-          (singleSwapBridgeTab && enterFrom === ESwapSource.MARKET)))
+          enterFrom === ESwapSource.MARKET))
     ) {
       return;
     }

@@ -50,6 +50,7 @@ import {
 import type { IMarketKLineDataFallback } from '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketKLineData';
 import { useMobileTabTouchScrollBridge } from '@onekeyhq/kit/src/hooks/useMobileTabTouchScrollBridge';
 import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
+import { useMarketPerpsInfoStatusAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import {
   EJotaiContextStoreNames,
   useMarketDetailChartDisplayModePersistAtom,
@@ -352,6 +353,7 @@ export function MobileLayout({
   active,
   isLayoutPending,
   isInitialContentPending,
+  disablePerpsBanner = false,
   disableTrade,
   isChartFullscreen,
   isTradingViewNative: preferredIsTradingViewNative,
@@ -396,8 +398,15 @@ export function MobileLayout({
     marketTokenCategory,
   });
   const { perpDisabled } = usePerpTabConfig();
+  const [marketPerpsInfoStatus] = useMarketPerpsInfoStatusAtom();
+  const isPerpsInfoPending =
+    !perpDisabled &&
+    !perpsInfo?.hlTicker &&
+    marketPerpsInfoStatus === 'pending';
   const footerMode = resolveMarketDetailFooterMode(
     !perpDisabled && Boolean(perpsInfo?.hlTicker),
+    isPerpsInfoPending,
+    disablePerpsBanner,
   );
   const { navigateToPerps } = usePerpsNavigation(
     EPerpPageEnterSource.MarketBanner,
@@ -1169,21 +1178,25 @@ export function MobileLayout({
     }
   };
 
-  // The footer keeps its place from the first frame: the buttons never move,
-  // they only go from disabled to enabled once the detail confirms both that
-  // this is the token on screen and that Swap has the decimals it needs.
-  const swapPanelFooter: ReactNode = disableTrade ? null : (
-    <LazySwapPanel
-      swapToken={toSwapPanelToken}
-      portfolioData={portfolioData}
-      onShowSwapDialog={showSwapDialog}
-      executionReady={isSwapTokenReady && isSwapExecutionReady}
-      footerMode={footerMode}
-      detailKind={detailKind}
-      onPerps={handleOpenPerps}
-      perpsDisabled={perpDisabled || !perpsInfo?.hlTicker}
-    />
-  );
+  // Resolve the complete button group before revealing it. Chart rendering
+  // remains independent, and unknown support never creates a phantom entry.
+  let swapPanelFooter: ReactNode = null;
+  if (!disableTrade) {
+    swapPanelFooter = footerMode ? (
+      <LazySwapPanel
+        swapToken={toSwapPanelToken}
+        portfolioData={portfolioData}
+        onShowSwapDialog={showSwapDialog}
+        executionReady={isSwapTokenReady && isSwapExecutionReady}
+        footerMode={footerMode}
+        detailKind={detailKind}
+        onPerps={handleOpenPerps}
+        perpsDisabled={perpDisabled || !perpsInfo?.hlTicker}
+      />
+    ) : (
+      <SwapPanelFooterSkeleton />
+    );
+  }
 
   // Reveal quotes and the chart only after the first detail request has
   // also determined whether the perps banner exists. Polling keeps them mounted.
