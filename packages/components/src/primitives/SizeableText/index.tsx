@@ -1,11 +1,16 @@
+import { createContext, useContext } from 'react';
+
 import { SizableText as TamaguiSizableText } from '@tamagui/text';
-import { StyleSheet } from 'react-native';
+import { PixelRatio, StyleSheet } from 'react-native';
 
 import { type SizableTextProps } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getFontToken } from '../../utils/getFontSize';
 import { TABULAR_NUMS, getFontVariantStyle } from '../../utils/tabularNums';
+
+// Nested text contributes its own line height to the same native paragraph.
+const SingleLineAutoSizeContext = createContext(false);
 
 export const StyledSizableText = TamaguiSizableText;
 
@@ -19,43 +24,30 @@ export function SizableText({
   style,
   ...props
 }: SizableTextProps) {
-  let mergedStyle = style;
-  const autoSizeProps: Pick<SizableTextProps, 'lineHeight' | 'minHeight'> = {};
-  if (
+  const inheritsAutoSize = useContext(SingleLineAutoSizeContext);
+  const isSingleLineAutoSize =
     platformEnv.isNativeIOS &&
-    props.adjustsFontSizeToFit &&
-    props.numberOfLines === 1
-  ) {
+    (inheritsAutoSize ||
+      (props.adjustsFontSizeToFit && props.numberOfLines === 1));
+  let mergedStyle = style;
+  if (isSingleLineAutoSize) {
     const flattenedStyle = StyleSheet.flatten(style);
-    const { lineHeight, ...naturalLineHeightStyle } =
-      typeof flattenedStyle === 'object' ? flattenedStyle : {};
     const fontToken = getFontToken(size);
-    const defaultLineHeight =
-      typeof fontToken === 'object' ? fontToken?.lineHeight : undefined;
-    const requestedLineHeight = lineHeight ?? props.lineHeight;
-    const originalLineHeight =
-      typeof requestedLineHeight === 'number'
-        ? requestedLineHeight
-        : defaultLineHeight;
-    // Preserve the cell height without a fixed text line height: iOS can otherwise
-    // shrink to its minimum font size when pixel rounding makes the cell shorter.
-    autoSizeProps.lineHeight = 'unset';
-    // Only add default spacing when the caller leaves the height unconstrained.
-    if (
-      (naturalLineHeightStyle.height ??
-        props.height ??
-        props.h ??
-        naturalLineHeightStyle.maxHeight ??
-        props.maxHeight ??
-        props.mah ??
-        naturalLineHeightStyle.minHeight ??
-        props.minHeight ??
-        props.mih ??
-        null) === null
-    ) {
-      autoSizeProps.minHeight = originalLineHeight;
+    const lineHeight =
+      (typeof flattenedStyle === 'object'
+        ? flattenedStyle?.lineHeight
+        : undefined) ??
+      props.lineHeight ??
+      (typeof fontToken === 'object' ? fontToken?.lineHeight : undefined);
+    if (typeof lineHeight === 'number' && lineHeight > 0) {
+      const scale = PixelRatio.get();
+      // RN rounds measured heights up to whole pixels. Leave half a pixel below
+      // that height so float rounding cannot trigger unnecessary font shrinking.
+      mergedStyle = {
+        ...(typeof flattenedStyle === 'object' ? flattenedStyle : {}),
+        lineHeight: (Math.ceil(lineHeight * scale) - 0.5) / scale,
+      };
     }
-    mergedStyle = naturalLineHeightStyle;
   }
   // Tamagui silently drops the RN `fontVariant` prop, so numeric variants
   // (tabular-nums etc.) never reach the renderer — re-route it through the
@@ -69,15 +61,21 @@ export function SizableText({
       mergedStyle = mergedStyle ? [variantStyle, mergedStyle] : variantStyle;
     }
   }
-  return (
+  const text = (
     <StyledSizableText
       allowFontScaling={false}
       maxFontSizeMultiplier={1}
       size={size}
       style={mergedStyle}
       {...props}
-      {...autoSizeProps}
     />
+  );
+  return isSingleLineAutoSize && !inheritsAutoSize ? (
+    <SingleLineAutoSizeContext.Provider value>
+      {text}
+    </SingleLineAutoSizeContext.Provider>
+  ) : (
+    text
   );
 }
 
