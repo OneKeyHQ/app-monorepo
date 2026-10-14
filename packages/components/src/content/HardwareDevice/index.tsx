@@ -171,6 +171,12 @@ export function HardwareDevice({
 }: IHardwareDeviceProps) {
   const Replica = deviceType ? REPLICAS[deviceType] : undefined;
   if (!Replica) return null;
+  const replicaColor =
+    color === 'Transparent' &&
+    deviceType !== 'classic1s' &&
+    deviceType !== 'classicpure'
+      ? undefined
+      : color;
   const replica = (
     <Replica
       width={width}
@@ -178,7 +184,7 @@ export function HardwareDevice({
       instantEntry={instantEntry}
       paused={paused}
       warmScenes={warmScenes}
-      color={color}
+      color={replicaColor}
     />
   );
   return shadow ? <View style={styles.shadow}>{replica}</View> : replica;
