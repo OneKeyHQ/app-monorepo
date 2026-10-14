@@ -347,18 +347,13 @@ export class HardwareConnectionManager {
           : EHardwareTransportType.WEBUSB;
       }
       const usbAvailable = await this.detectUSBDeviceAvailability(
-        mode === 'bridge' ? undefined : connectId,
+        undefined,
         connectProtocol,
       );
-      let targetOnUSB = usbAvailable && (!connectId || mode !== 'bridge');
-      if (
-        !targetOnUSB &&
-        connectId &&
-        (usbAvailable ||
-          (await this.detectUSBDeviceAvailability(undefined, connectProtocol)))
-      ) {
-        // Descriptor paths are routing keys. Let the SDK identify the device
-        // before falling back to BLE; Bridge paths are never physical serials.
+      let targetOnUSB = usbAvailable && !connectId;
+      if (usbAvailable && connectId) {
+        // Descriptor paths are routing keys, not proof of a OneKey identity.
+        // Always let the SDK confirm the target before selecting USB.
         try {
           const device =
             await this.backgroundApi.serviceHardware.getDeviceByConnectId({
@@ -383,6 +378,11 @@ export class HardwareConnectionManager {
                     known.deviceId,
                   ].some((id) => id?.trim().toLowerCase() === target),
               ).length === 1;
+          } else {
+            targetOnUSB = await this.detectUSBDeviceAvailability(
+              connectId,
+              connectProtocol,
+            );
           }
         } catch {
           targetOnUSB = false;

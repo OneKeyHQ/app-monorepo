@@ -908,6 +908,15 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
             setHardwareTransportType: jest.fn(),
           },
           serviceHardwareUI: { withHardwareProcessing },
+          serviceHardware: {
+            getDeviceByConnectId: jest.fn().mockResolvedValue(dbDevice),
+            searchDevices: jest.fn().mockResolvedValue({
+              success: true,
+              payload: [
+                { connectId: dbDevice.usbConnectId, commType: 'webusb' },
+              ],
+            }),
+          },
         } as unknown as IBackgroundApi,
       });
       jest
@@ -1552,7 +1561,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     ]);
   });
 
-  it('uses WebUSB only when the selected device serial is available', async () => {
+  it('uses WebUSB when the SDK confirms the selected device', async () => {
     const originalNavigator = Object.getOwnPropertyDescriptor(
       globalThis,
       'navigator',
@@ -1597,6 +1606,13 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
             getHardwareTransportType: jest
               .fn()
               .mockResolvedValue(EHardwareTransportType.WEBUSB),
+          },
+          serviceHardware: {
+            getDeviceByConnectId: jest.fn().mockResolvedValue(undefined),
+            searchDevices: jest.fn().mockResolvedValue({
+              success: true,
+              payload: [{ connectId: 'PRO2_USB_ID', commType: 'webusb' }],
+            }),
           },
         } as unknown as IBackgroundApi,
       });
@@ -1790,8 +1806,8 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
           }),
         ).resolves.toBe('AA:BB:CC:DD:EE:FF');
         if (usbCommunicationMode === 'webusb') {
-          expect(getDevices).toHaveBeenCalledTimes(3);
-          expect(detectWebUSBAvailability).toHaveBeenCalledWith('DEVICE_B_USB');
+          expect(getDevices).toHaveBeenCalledTimes(2);
+          expect(detectWebUSBAvailability).toHaveBeenCalledWith(undefined);
         } else {
           expect(getDevices).not.toHaveBeenCalled();
         }
@@ -2129,6 +2145,32 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       expect(bluetooth).toHaveBeenCalled();
     });
 
+    it('does not treat a descriptor path equal to the business serial as proof of the target identity', async () => {
+      getDevices.mockResolvedValue([
+        { ...descriptor, serialNumber: 'PHYSICAL_SERIAL' },
+      ]);
+      const { service, bluetooth } = createService();
+      const search = jest.spyOn(service, 'searchDevices').mockResolvedValue({
+        success: true,
+        payload: [
+          {
+            ...usbDevice,
+            connectId: 'OTHER_SERIAL',
+            serialNo: 'OTHER_SERIAL',
+          },
+        ],
+      });
+      await expect(
+        service.connectionManager.shouldSwitchTransportType({
+          connectId: 'PHYSICAL_SERIAL',
+        }),
+      ).resolves.toMatchObject({
+        targetType: EHardwareTransportType.DesktopWebBle,
+      });
+      expect(search).toHaveBeenCalledTimes(1);
+      expect(bluetooth).toHaveBeenCalled();
+    });
+
     it('uses BLE without searching USB when no USB descriptor is present', async () => {
       getDevices.mockResolvedValue([]);
       const { service, bluetooth } = createService();
@@ -2186,6 +2228,24 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
         connectId: 'TREZOR_SERIAL',
       });
       expect(search).not.toHaveBeenCalled();
+    });
+
+    it('preserves a third-party USB transport identifier without OneKey SDK discovery', async () => {
+      getDevices.mockResolvedValue([
+        { ...descriptor, serialNumber: 'TREZOR_SERIAL' },
+      ]);
+      const { service, bluetooth } = createService();
+      mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+        vendor: EHardwareVendor.trezor,
+      } as IDBDevice);
+      const search = jest.spyOn(service, 'searchDevices');
+      await expect(
+        service.connectionManager.shouldSwitchTransportType({
+          connectId: 'TREZOR_SERIAL',
+        }),
+      ).resolves.toMatchObject({ targetType: EHardwareTransportType.WEBUSB });
+      expect(search).not.toHaveBeenCalled();
+      expect(bluetooth).not.toHaveBeenCalled();
     });
 
     it('can search USB during automatic SDK lookup without waiting on its own lifecycle lock or resetting the identified USB SDK again', async () => {
@@ -2369,6 +2429,13 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
             .fn()
             .mockResolvedValue(EHardwareTransportType.Bridge),
         },
+        serviceHardware: {
+          getDeviceByConnectId: jest.fn().mockResolvedValue(undefined),
+          searchDevices: jest.fn().mockResolvedValue({
+            success: true,
+            payload: [{ connectId: 'PRO2_USB_ID', commType: 'webusb' }],
+          }),
+        },
       } as unknown as IBackgroundApi,
     });
     const detectWebUSBAvailability = jest
@@ -2389,7 +2456,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       shouldSwitch: true,
       targetType: EHardwareTransportType.WEBUSB,
     });
-    expect(detectWebUSBAvailability).toHaveBeenCalledWith('PRO2_USB_ID');
+    expect(detectWebUSBAvailability).toHaveBeenCalledWith(undefined);
     expect(detectBridgeAvailability).not.toHaveBeenCalled();
   });
 
@@ -2427,10 +2494,17 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
           },
           serviceHardware: {
             getDeviceByConnectId: jest.fn().mockResolvedValue(undefined),
-            searchDevices: jest.fn().mockResolvedValue({
-              success: true,
-              payload: [{ connectId: 'PRO2_USB_ID', commType: 'bridge' }],
-            }),
+            searchDevices: jest
+              .fn()
+              .mockImplementation(async ({ connectProtocol }) => ({
+                success: true,
+                payload: [
+                  {
+                    connectId: 'PRO2_USB_ID',
+                    commType: connectProtocol === 'V2' ? 'webusb' : 'bridge',
+                  },
+                ],
+              })),
           },
         } as unknown as IBackgroundApi,
       });

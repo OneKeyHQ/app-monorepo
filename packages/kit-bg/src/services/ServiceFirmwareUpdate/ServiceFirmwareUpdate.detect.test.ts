@@ -46,6 +46,7 @@ import ServiceFirmwareUpdate, {
   supportsFirmwareUpdateWorkflowV2,
 } from './ServiceFirmwareUpdate';
 
+import type { IUpdateFirmwareWorkflowParams } from './ServiceFirmwareUpdate';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBDevice } from '../../dbs/local/types';
 
@@ -169,6 +170,244 @@ jest.mock('../ServiceHardware/serviceHardwareUtils', () => ({
 }));
 
 const mockedLocalDb = jest.mocked(localDb);
+
+describe('ServiceFirmwareUpdate desktop USB target validation', () => {
+  const createFixture = (
+    transportType = EHardwareTransportType.WEBUSB,
+    deviceType = EDeviceType.Classic1s,
+  ) => {
+    const getDeviceState = jest.fn().mockResolvedValue({
+      identity: {
+        deviceType,
+        serialNo: 'TARGET_SERIAL',
+        deviceId: 'TARGET_WALLET',
+      },
+      status: { mode: 'normal' },
+    });
+    const backgroundApi = {
+      serviceHardware: {
+        getCurrentTransportType: jest.fn().mockResolvedValue(transportType),
+        getDeviceState,
+      },
+    } as unknown as IBackgroundApi;
+    const service = new ServiceFirmwareUpdate({ backgroundApi });
+    const params: IUpdateFirmwareWorkflowParams = {
+      backuped: true,
+      usbConnected: true,
+      releaseResult: {
+        deviceType,
+        deviceUUID: 'TARGET_SERIAL',
+        originalConnectId: 'BLE_ENDPOINT',
+        features: { serialNo: 'TARGET_SERIAL', device_id: 'TARGET_WALLET' },
+        updateInfos: {},
+      } as ICheckAllFirmwareReleaseResult,
+    };
+    return { service, params, getDeviceState, backgroundApi };
+  };
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it.each(
+    [EHardwareTransportType.WEBUSB, EHardwareTransportType.Bridge].flatMap(
+      (transportType) =>
+        [
+          EDeviceType.Classic,
+          EDeviceType.Classic1s,
+          EDeviceType.ClassicPure,
+          EDeviceType.Mini,
+          EDeviceType.Touch,
+          EDeviceType.Pro,
+          EDeviceType.Pro2,
+          EDeviceType.Neo,
+        ].map((deviceType) => ({ transportType, deviceType })),
+    ),
+  )(
+    'reads the selected $deviceType target over $transportType',
+    async ({ transportType, deviceType }) => {
+      const { service, params, getDeviceState } = createFixture(
+        transportType,
+        deviceType,
+      );
+      await expect(
+        service.validateUSBConnection(params),
+      ).resolves.toBeUndefined();
+      expect(getDeviceState).toHaveBeenCalledWith({
+        connectId: 'TARGET_SERIAL',
+        hardwareTransportType: transportType,
+        hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+        params: {
+          scope: 'firmware',
+          retryCount: 0,
+          skipWebDevicePrompt: true,
+          allowEmptyConnectId: false,
+          connectProtocol: [EDeviceType.Pro2, EDeviceType.Neo].includes(
+            deviceType,
+          )
+            ? 'V2'
+            : 'V1',
+        },
+      });
+    },
+  );
+
+  it.each(['OTHER_SERIAL', undefined])(
+    'rejects a USB target reporting serial %s despite a successful presence check',
+    async (serialNo) => {
+      const { service, params, getDeviceState } = createFixture();
+      getDeviceState.mockResolvedValue({
+        identity: {
+          deviceType: params.releaseResult.deviceType,
+          serialNo,
+          deviceId: 'TARGET_WALLET',
+        },
+        status: { mode: 'normal' },
+      });
+      await expect(service.validateUSBConnection(params)).rejects.toMatchObject(
+        { code: HardwareErrorCode.DeviceCheckDeviceIdError },
+      );
+    },
+  );
+
+  it.each([true, false])(
+    'validates the wallet identity of a legacy device without a serial (matches: %s)',
+    async (matches) => {
+      const { service, params, getDeviceState } = createFixture();
+      params.releaseResult.deviceUUID = '';
+      params.releaseResult.features = {
+        device_id: 'TARGET_WALLET',
+      } as IOneKeyDeviceFeatures;
+      getDeviceState.mockResolvedValue({
+        identity: {
+          deviceType: params.releaseResult.deviceType,
+          serialNo: '',
+          deviceId: matches ? 'TARGET_WALLET' : 'OTHER_WALLET',
+        },
+        status: { mode: 'normal' },
+      });
+      if (matches)
+        await expect(
+          service.validateUSBConnection(params),
+        ).resolves.toBeUndefined();
+      else
+        await expect(
+          service.validateUSBConnection(params),
+        ).rejects.toMatchObject({
+          code: HardwareErrorCode.DeviceCheckDeviceIdError,
+        });
+      expect(getDeviceState).toHaveBeenCalledWith(
+        expect.objectContaining({ connectId: undefined }),
+      );
+    },
+  );
+
+  it.each(['bootloader', 'romloader', 'normal'] as const)(
+    'requires loader mode for identity-less recovery (%s)',
+    async (mode) => {
+      const { service, params, getDeviceState } = createFixture();
+      params.releaseResult.deviceUUID = '';
+      params.releaseResult.features = undefined;
+      params.releaseResult.isBootloaderMode = true;
+      getDeviceState.mockResolvedValue({
+        identity: { deviceType: params.releaseResult.deviceType },
+        status: { mode },
+      });
+      if (mode === 'normal')
+        await expect(
+          service.validateUSBConnection(params),
+        ).rejects.toMatchObject({
+          code: HardwareErrorCode.DeviceCheckDeviceIdError,
+        });
+      else
+        await expect(
+          service.validateUSBConnection(params),
+        ).resolves.toBeUndefined();
+    },
+  );
+
+  it('rejects a different model even if it reports the expected serial', async () => {
+    const { service, params, getDeviceState } = createFixture();
+    getDeviceState.mockResolvedValue({
+      identity: { deviceType: EDeviceType.Pro, serialNo: 'TARGET_SERIAL' },
+      status: { mode: 'normal' },
+    });
+    await expect(service.validateUSBConnection(params)).rejects.toMatchObject({
+      code: HardwareErrorCode.DeviceCheckDeviceIdError,
+    });
+  });
+
+  it('rejects an identity-less normal target without acquiring a device', async () => {
+    const { service, params, getDeviceState } = createFixture();
+    params.releaseResult.deviceUUID = '';
+    params.releaseResult.features = undefined;
+    await expect(service.validateUSBConnection(params)).rejects.toMatchObject({
+      code: HardwareErrorCode.DeviceCheckDeviceIdError,
+    });
+    expect(getDeviceState).not.toHaveBeenCalled();
+  });
+
+  it('does not accept Bluetooth as the locked firmware transport', async () => {
+    const { service, params, getDeviceState } = createFixture(
+      EHardwareTransportType.DesktopWebBle,
+    );
+    await expect(service.validateUSBConnection(params)).rejects.toThrow();
+    expect(getDeviceState).not.toHaveBeenCalled();
+  });
+
+  it('propagates a failed live USB read', async () => {
+    const { service, params, getDeviceState } = createFixture();
+    getDeviceState.mockRejectedValue(new Error('USB disconnected'));
+    await expect(service.validateUSBConnection(params)).rejects.toThrow(
+      'USB disconnected',
+    );
+  });
+
+  it('stops the upgrade before artifact preparation when another USB device is attached', async () => {
+    const { service, params, getDeviceState, backgroundApi } = createFixture();
+    getDeviceState.mockResolvedValue({
+      identity: {
+        deviceType: params.releaseResult.deviceType,
+        serialNo: 'OTHER_SERIAL',
+      },
+      status: { mode: 'normal' },
+    });
+    backgroundApi.serviceHardware.resolveHardwareTransport = jest
+      .fn()
+      .mockResolvedValue({
+        connectId: 'TARGET_SERIAL',
+        transportType: EHardwareTransportType.WEBUSB,
+      });
+    const setForceTransportType = jest.fn();
+    const clearForceTransportType = jest.fn();
+    backgroundApi.serviceHardware.setForceTransportType = setForceTransportType;
+    backgroundApi.serviceHardware.clearForceTransportType =
+      clearForceTransportType;
+    backgroundApi.serviceHardwareUI = {
+      withHardwareProcessing: jest.fn(async (callback: () => Promise<void>) =>
+        callback(),
+      ),
+    } as unknown as IBackgroundApi['serviceHardwareUI'];
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    const runtime = jest.spyOn(
+      service as unknown as {
+        getFirmwareUpdateRuntimeHost: () => Promise<unknown>;
+      },
+      'getFirmwareUpdateRuntimeHost',
+    );
+    const update = jest.spyOn(
+      service,
+      'startUpdateFirmwareTaskForNewBootVersion',
+    );
+    await expect(service.runUpdateWorkflowV2(params, 1)).rejects.toMatchObject({
+      code: HardwareErrorCode.DeviceCheckDeviceIdError,
+    });
+    expect(runtime).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+    expect(setForceTransportType.mock.invocationCallOrder[0]).toBeLessThan(
+      getDeviceState.mock.invocationCallOrder[0],
+    );
+    expect(clearForceTransportType).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('ServiceFirmwareUpdate firmware manifest refresh', () => {
   it('forces an App-managed manifest refresh before a release check', async () => {

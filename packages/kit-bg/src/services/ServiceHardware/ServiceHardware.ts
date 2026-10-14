@@ -4607,8 +4607,8 @@ class ServiceHardware extends ServiceBase {
     connectId?: string;
     connectProtocol?: HardwareConnectProtocol;
   }) {
-    // This preflight checks USB presence. Target identity is validated by the
-    // SDK firmware workflow; a USB descriptor path is not a physical serial.
+    // This preflight checks USB presence. The update workflow validates the
+    // live target after selecting USB; descriptor paths are not physical serials.
     return this.connectionManager.detectUSBDeviceAvailability(
       undefined,
       params?.connectProtocol,

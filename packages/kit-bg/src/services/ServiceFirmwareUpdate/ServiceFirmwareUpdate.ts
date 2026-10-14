@@ -28,7 +28,10 @@ import {
   OneKeyLocalError,
   UseDesktopToUpdateFirmware,
 } from '@onekeyhq/shared/src/errors';
-import { FirmwareUpdateVersionMismatchError } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import {
+  DeviceNotSame,
+  FirmwareUpdateVersionMismatchError,
+} from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   convertDeviceResponse,
@@ -2585,7 +2588,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
               currentTransportType,
             );
 
-            // TODO verify current device is matched with params.connectId\params.updateFirmware\params.updateBle
             // pre checking
             await this.validateMnemonicBackuped(params);
             await this.validateUSBConnection(params);
@@ -3765,9 +3767,66 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }
 
   async validateUSBConnection(params: IUpdateFirmwareWorkflowParams) {
-    // TODO device is connected by USB
     if (!params.usbConnected) {
       throw new OneKeyLocalError('USB not connected');
+    }
+    if (!platformEnv.isDesktop) return;
+
+    const hardwareTransportType = await this.getActiveTransportType();
+    if (
+      hardwareTransportType !== EHardwareTransportType.WEBUSB &&
+      hardwareTransportType !== EHardwareTransportType.Bridge
+    ) {
+      throw new FirmwareUpdateRequiresUsbTransport();
+    }
+    const { releaseResult } = params;
+    const expectedSerial =
+      releaseResult.deviceUUID?.trim() ||
+      (await deviceUtils.buildDeviceUSBConnectId({
+        features: releaseResult.features,
+      }));
+    const expectedDeviceId = releaseResult.features?.device_id;
+    if (
+      !expectedSerial &&
+      !expectedDeviceId &&
+      !releaseResult.isBootloaderMode
+    ) {
+      throw new DeviceNotSame();
+    }
+
+    // Read the selected target over the locked USB transport, without cached
+    // features or BLE aliases. A presence check alone cannot authorize an update.
+    const state = await this.backgroundApi.serviceHardware.getDeviceState({
+      connectId: expectedSerial || undefined,
+      hardwareTransportType,
+      hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+      params: {
+        scope: 'firmware',
+        retryCount: 0,
+        skipWebDevicePrompt: true,
+        allowEmptyConnectId: !expectedSerial,
+        connectProtocol: isProtocolV2ProductType(releaseResult.deviceType)
+          ? 'V2'
+          : 'V1',
+      },
+    });
+    if (state.identity.deviceType !== releaseResult.deviceType) {
+      throw new DeviceNotSame();
+    }
+    if (expectedSerial) {
+      if (!equalsIgnoreCase(expectedSerial, state.identity.serialNo)) {
+        throw new DeviceNotSame();
+      }
+    } else if (expectedDeviceId) {
+      if (expectedDeviceId !== state.identity.deviceId) {
+        throw new DeviceNotSame();
+      }
+    } else if (
+      state.status.mode !== 'bootloader' &&
+      state.status.mode !== 'romloader'
+    ) {
+      // Identity-less recovery must remain in the selected model's loader mode.
+      throw new DeviceNotSame();
     }
   }
 
