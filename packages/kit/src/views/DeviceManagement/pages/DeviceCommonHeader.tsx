@@ -1,6 +1,12 @@
 import { useMemo } from 'react';
 
-import { NavBackButton, Page, XStack, useMedia } from '@onekeyhq/components';
+import {
+  NavBackButton,
+  Page,
+  XStack,
+  useIsModalPage,
+  useMedia,
+} from '@onekeyhq/components';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -13,6 +19,7 @@ interface IDeviceCommonHeaderProps {
 
 export function DeviceCommonHeader({ title }: IDeviceCommonHeaderProps) {
   const { gtMd } = useMedia();
+  const isModalPage = useIsModalPage();
   const { handleBackPress } = useDeviceBackNavigation();
 
   const customHeaderLeft = useMemo(
@@ -24,7 +31,7 @@ export function DeviceCommonHeader({ title }: IDeviceCommonHeaderProps) {
     [handleBackPress],
   );
 
-  if (gtMd) {
+  if (gtMd && !isModalPage) {
     return (
       <TabPageHeader
         sceneName={EAccountSelectorSceneName.home}
@@ -34,5 +41,5 @@ export function DeviceCommonHeader({ title }: IDeviceCommonHeaderProps) {
     );
   }
 
-  return <Page.Header title={title} />;
+  return <Page.Header title={gtMd ? '' : title} />;
 }

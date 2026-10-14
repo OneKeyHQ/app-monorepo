@@ -420,6 +420,8 @@ export function useSwapProAccount() {
     accountScope,
     accountStatus,
     hasConnectedAccount,
+    indexedAccountId,
+    accountId,
   };
 }
 
@@ -842,6 +844,8 @@ export function useSwapProTokenInfoSync() {
     syncSelectTokenNative,
     balanceLoading,
     netAccountRes,
+    indexedAccountId: netAccountRes.indexedAccountId,
+    accountId: netAccountRes.accountId,
   };
 }
 

@@ -1,3 +1,4 @@
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ENetworkStatus, type IServerNetwork } from '@onekeyhq/shared/types';
 import type { IMarketBasicConfigNetwork } from '@onekeyhq/shared/types/marketV2';
 
@@ -67,4 +68,29 @@ function resolveMarketNetworkFromConfig({
   };
 }
 
-export { buildMarketNetworkFromBasicConfig, resolveMarketNetworkFromConfig };
+function resolveMarketHomeNetworkSelection({
+  selectedNetworkId,
+  networkList,
+  isConfigLoading,
+}: {
+  selectedNetworkId: string;
+  networkList: IMarketBasicConfigNetwork[];
+  isConfigLoading?: boolean;
+}) {
+  const allNetworkId = getNetworkIdsMap().onekeyall;
+  if (
+    isConfigLoading === false &&
+    networkList.length > 0 &&
+    selectedNetworkId !== allNetworkId &&
+    !networkList.some((network) => network.networkId === selectedNetworkId)
+  ) {
+    return allNetworkId;
+  }
+  return selectedNetworkId;
+}
+
+export {
+  buildMarketNetworkFromBasicConfig,
+  resolveMarketHomeNetworkSelection,
+  resolveMarketNetworkFromConfig,
+};

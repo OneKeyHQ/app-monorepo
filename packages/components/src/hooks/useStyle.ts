@@ -11,6 +11,8 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { SHEET_AND_DIALOG_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
+import { useDeferredGuideBlocker } from './useDeferredGuideBlocker';
+
 export {
   getTokens,
   getTokenValue,
@@ -82,6 +84,7 @@ const getZIndex = (id: number) => {
 };
 
 export const useOverlayZIndex = (open = false, debugName?: string): number => {
+  useDeferredGuideBlocker(open);
   const overlayIdRef = useRef(0);
   const prevOpenRef = useRef<boolean | undefined>(undefined);
   useMemo(() => {

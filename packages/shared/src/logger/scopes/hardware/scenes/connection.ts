@@ -13,6 +13,17 @@ import type { IDeviceType, KnownDevice } from '@onekeyfe/hd-core';
 
 export class HardwareConnectionScene extends BaseScene {
   @LogToServer()
+  public bleMtuReady(params: {
+    transportType: 'ble';
+    blePlatform: 'ios' | 'android';
+    requestedMtu: number;
+    actualMtu?: number;
+    isDefaultMtu?: boolean;
+  }) {
+    return params;
+  }
+
+  @LogToServer()
   public hwDeviceConnected(params: {
     deviceType: IDeviceType;
     firmwareType: 'btconly' | 'universal';

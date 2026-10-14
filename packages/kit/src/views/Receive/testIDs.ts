@@ -13,6 +13,7 @@ export const ReceiveTestIDs = {
   CardHeaderNetworkTrigger: 'receive-card-network-trigger',
   SwitchPlaceholder: 'receive-switch-placeholder',
   ShareButton: 'receive-share-button',
+  DoneButton: 'receive-done-button',
 
   // Receive token / network selection (ReceiveSelectToken with secondaryTab)
   SelectSegment: 'receive-select-segment',

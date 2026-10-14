@@ -18,8 +18,8 @@ export const DEVICE_STAGE_DISCONNECTED_CODES = [
 ];
 
 /**
- * The failures a dedicated dialog already speaks for: the BLE re-pairing
- * guidance, the enable-passphrase prompt, the forced-update prompt, and
+ * The failures a dedicated dialog already speaks for: the enable-passphrase
+ * prompt, the forced-update prompt, and
  * the "Enable Bluetooth" family the SDK (and the Android pre-check) raise
  * for Bluetooth off / no BLE permission / location services off — the
  * stage stands down for these instead of landing a second notice under
@@ -28,12 +28,10 @@ export const DEVICE_STAGE_DISCONNECTED_CODES = [
  * "a dialog owns this" means the same thing on both sides.
  */
 export const DEVICE_STAGE_DEDICATED_DIALOG_CODES = [
-  HardwareErrorCode.BleDeviceBondError,
-  HardwareErrorCode.BlePeerRemovedPairingInformation,
-  HardwareErrorCode.BleBondInvalid,
   HardwareErrorCode.DeviceNotOpenedPassphrase,
   HardwareErrorCode.NewFirmwareForceUpdate,
   HardwareErrorCode.BlePermissionError,
+  HardwareErrorCode.BlePoweredOff,
   HardwareErrorCode.BleLocationError,
   HardwareErrorCode.BleLocationServicesDisabled,
 ];
