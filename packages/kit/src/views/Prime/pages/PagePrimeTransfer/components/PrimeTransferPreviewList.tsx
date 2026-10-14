@@ -250,7 +250,10 @@ export function PrimeTransferPreviewList({
   );
 
   const networksMap = usePrimeTransferPreviewNetworks(data);
-  const networkContext = useMemo(() => ({ networksMap }), [networksMap]);
+  const networkContext = useMemo(
+    () => ({ networksMap, networkMetadataProvided: true }),
+    [networksMap],
+  );
   const rows = useMemo(() => {
     const result: IPreviewRow[] = [];
     const addGroup = (type: IGroup, title: string, items: IPreviewRow[]) => {
@@ -316,16 +319,14 @@ export function PrimeTransferPreviewList({
         );
       }
       const account = item.kind === 'account' ? item.account : undefined;
-      // Do not mount per-row network lookups while the batch is pending or absent.
+      // The scoped cache suppresses metadata RPC; logo fallbacks still use this ID.
       const networkId = account?.createAtNetwork;
       return (
         <Stack pb={1}>
           <PreviewItem
             wallet={item.kind === 'wallet' ? item.wallet : undefined}
             account={account}
-            networkId={
-              networkId && networksMap[networkId] ? networkId : undefined
-            }
+            networkId={networkId}
             selectedItemMapInfo={selectedItemMap[item.type]}
             onSelect={(id) => onItemSelectChange?.({ type: item.type, id })}
           />
@@ -334,7 +335,6 @@ export function PrimeTransferPreviewList({
     },
     [
       getGroupSelectStatus,
-      networksMap,
       onGroupSelectChange,
       onItemSelectChange,
       selectedItemMap,

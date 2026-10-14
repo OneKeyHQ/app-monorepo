@@ -208,12 +208,12 @@ test('updates checked state and group action after rerender', () => {
   });
 });
 
-test('does not give avatars a network ID until batch metadata is available', () => {
+test('keeps avatar network IDs while batch metadata is pending or missing', () => {
   const props = fixture(1);
   const view = render(<PrimeTransferPreviewList {...props} />);
-  expect(
-    view.getByTestId('account-avatar').getAttribute('data-network'),
-  ).toBeNull();
+  expect(view.getByTestId('account-avatar').getAttribute('data-network')).toBe(
+    'evm--1',
+  );
   mockNetworks = { 'evm--1': { id: 'evm--1' } };
   view.rerender(<PrimeTransferPreviewList {...props} />);
   expect(view.getByTestId('account-avatar').getAttribute('data-network')).toBe(
