@@ -2,7 +2,12 @@ import { registerBalanceCommand } from '../commands/balance';
 import { apiClient } from '../infra';
 import { getSignerByImpl } from '../signer';
 
-import { createTestProgram, extractJson, runCommand } from './test-helpers';
+import {
+  createTestProgram,
+  extractJson,
+  runCommand,
+  stripDebugOutput,
+} from './test-helpers';
 
 jest.mock('../infra', () => ({
   apiClient: {
@@ -57,6 +62,31 @@ describe('balance BTC/TBTC read-only', () => {
       },
     );
     expect(result.stdout).toContain('0.00012345');
+  });
+
+  it('prints the balance value for explicit tbtc token in quiet mode', async () => {
+    mockGet.mockResolvedValueOnce({
+      address: 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx',
+      balance: '12345',
+      balanceParsed: '0.00012345',
+    });
+
+    const program = createTestProgram();
+    registerBalanceCommand(program);
+
+    const result = await runCommand(program, [
+      'balance',
+      '--chain',
+      'tbtc',
+      '--address',
+      'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx',
+      '--token',
+      'BTC',
+      '--quiet',
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    expect(stripDebugOutput(result.stdout)).toBe('0.00012345');
   });
 
   it('derives tbtc balance when address is omitted', async () => {
