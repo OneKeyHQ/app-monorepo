@@ -48,7 +48,10 @@ import type { IWebViewProps } from '../../WebView';
 import type { IElectronWebViewEvents, IWebViewRef } from '../../WebView/types';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { WebViewProps } from 'react-native-webview';
-import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
+import type {
+  WebViewNavigation,
+  WebViewNavigationEvent,
+} from 'react-native-webview/lib/WebViewTypes';
 
 interface IBaseTradingViewPerpsV2Props {
   symbol: string;
@@ -757,12 +760,19 @@ export function TradingViewPerpsV2(
     onLoadEndRef.current?.();
   }, []);
 
-  const handleLoadStart = useCallback(() => {
-    resetNativeChartControls();
-    hasPerpsReadyRef.current = false;
-    setChartLinesReadyWebviewKey(null);
-    setChartContentReadyWebviewKey(null);
-  }, [resetNativeChartControls]);
+  const handleLoadStart = useCallback(
+    (event?: WebViewNavigationEvent) => {
+      // Android emits load-start for same-document history updates, without a new chart-ready event.
+      if (platformEnv.isNativeAndroid && event?.nativeEvent.loading === false) {
+        return;
+      }
+      resetNativeChartControls();
+      hasPerpsReadyRef.current = false;
+      setChartLinesReadyWebviewKey(null);
+      setChartContentReadyWebviewKey(null);
+    },
+    [resetNativeChartControls],
+  );
 
   const handleDidStartNavigation = useCallback<
     NonNullable<IElectronWebViewEvents['onDidStartNavigation']>
