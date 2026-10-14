@@ -13,6 +13,8 @@ export type IPrimeTransferTransportMode = 'auto' | 'legacy';
 
 export type IPrimeTransferNetworkProgress = {
   indeterminate?: boolean;
+  // Set only after the final transfer confirmation succeeds.
+  completed?: boolean;
   transferId: string;
   direction: 'sending' | 'receiving';
   transferredBytes: number;
