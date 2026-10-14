@@ -431,6 +431,9 @@ jobs:
     # ("find VS unknown version undefined found at ...\Visual Studio\18"),
     # breaking every native module rebuild during `install-app-deps`.
     runs-on: windows-2022
+    # The AWS signing role trusts only this environment's OIDC subject.
+    # Other branches run without an environment and stay unsigned.
+    environment: ${{ github.repository == 'OneKeyHQ/app-monorepo' && (github.ref == 'refs/heads/x' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/hotfix/')) && 'windows-release-signing' || '' }}
     strategy:
       matrix:
         node-version: [24.x]
@@ -542,50 +545,34 @@ jobs:
           name: desktop-renderer-${{ github.sha }}
           path: ./apps/desktop/app/build/
 
-      - name: Authenticate to Google Cloud for Windows signing
+      - name: Authenticate to AWS for Windows signing
         if: env.WIN_HSM_SIGNING_ENABLED == 'true'
-        id: google_auth
-        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
-          project_id: onekey-uni
-          workload_identity_provider: projects/94391474021/locations/global/workloadIdentityPools/github-release/providers/onekey-windows-release
-          service_account: onekey-windows-codesign@onekey-uni.iam.gserviceaccount.com
-          create_credentials_file: true
+          role-to-assume: ${{ secrets.AWS_SIGNING_ROLE_ARN }}
+          aws-region: ap-southeast-1
+          mask-aws-account-id: true
 
-      - name: Keep temporary OIDC credentials outside package sources
+      - name: Install Jsign for AWS KMS signing
         if: env.WIN_HSM_SIGNING_ENABLED == 'true'
         shell: pwsh
+        env:
+          AWS_KMS_KEY_ID: ${{ secrets.AWS_KMS_KEY_ID }}
         run: |
-          $credentialFile = Join-Path $env:RUNNER_TEMP 'onekey-windows-wif.json'
-          Move-Item -LiteralPath '${{ steps.google_auth.outputs.credentials_file_path }}' -Destination $credentialFile
-          "GOOGLE_APPLICATION_CREDENTIALS=$credentialFile" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE=$credentialFile" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "GOOGLE_GHA_CREDS_PATH=$credentialFile" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-      - name: Install Google Cloud KMS CNG Provider
-        if: env.WIN_HSM_SIGNING_ENABLED == 'true'
-        shell: pwsh
-        run: |
-          $archive = Join-Path $env:RUNNER_TEMP 'kmscng-1.4-windows-amd64.zip'
-          Invoke-WebRequest 'https://github.com/GoogleCloudPlatform/kms-integrations/releases/download/cng-v1.4/kmscng-1.4-windows-amd64.zip' -OutFile $archive
-          $digest = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
-          if ($digest -ne '3c3570e4c7ff6e5ce21874b9cd595227e9e8bbe8183023f8121124c0e80738a3') {
-            throw 'Cloud KMS CNG Provider archive digest mismatch'
+          if (-not $env:AWS_KMS_KEY_ID) { throw 'AWS_KMS_KEY_ID secret is not configured' }
+          $jar = Join-Path $env:RUNNER_TEMP 'jsign-7.5.jar'
+          Invoke-WebRequest 'https://github.com/ebourg/jsign/releases/download/7.5/jsign-7.5.jar' -OutFile $jar
+          $digest = (Get-FileHash -LiteralPath $jar -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($digest -ne '602a51c3545a6dc4fb99bd2ea7152b26d1345916d0c93ddfbd5936cb735af91c') {
+            throw 'Jsign jar digest mismatch'
           }
-          Expand-Archive -LiteralPath $archive -DestinationPath $env:RUNNER_TEMP
-          $msi = Join-Path $env:RUNNER_TEMP 'kmscng-1.4-windows-amd64\kmscng.msi'
-          $install = Start-Process -FilePath msiexec.exe -ArgumentList "/i `"$msi`" /qn /norestart" -Wait -PassThru
-          if ($install.ExitCode -ne 0) { throw "Cloud KMS CNG Provider installation failed: $($install.ExitCode)" }
-          $configDir = Join-Path $env:windir 'KMSCNG'
-          New-Item -ItemType Directory -Force -Path $configDir | Out-Null
-          'resources:' | Set-Content -Path (Join-Path $configDir 'config.yaml') -Encoding ascii
-          '  - crypto_key_version: "projects/onekey-uni/locations/us/keyRings/win-sign/cryptoKeys/code-sign/cryptoKeyVersions/1"' | Add-Content -Path (Join-Path $configDir 'config.yaml') -Encoding ascii
           $signTool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter signtool.exe -Recurse |
             Where-Object { $_.DirectoryName -like '*\x64' } |
             Sort-Object FullName -Descending | Select-Object -First 1
           if (-not $signTool) { throw 'Windows SDK SignTool was not found' }
           "WIN_SIGNTOOL_PATH=$($signTool.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          'WIN_CODESIGN_KEY_VERSION=projects/onekey-uni/locations/us/keyRings/win-sign/cryptoKeys/code-sign/cryptoKeyVersions/1' | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "WIN_JSIGN_JAR=$jar" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "WIN_KMS_KEY_ID=$env:AWS_KMS_KEY_ID" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           Import-Certificate -FilePath apps/desktop/resources/windows/code-signing/globalsign-intermediate.cer -CertStoreLocation Cert:\CurrentUser\CA | Out-Null
           Import-Certificate -FilePath apps/desktop/resources/windows/code-signing/globalsign-cross.cer -CertStoreLocation Cert:\CurrentUser\CA | Out-Null
 
@@ -722,9 +709,18 @@ jobs:
           cd apps/desktop
           yarn build:main
 
+      - name: Refresh AWS credentials for Windows Store signing
+        id: phase2_aws
+        if: always() && env.WIN_HSM_SIGNING_ENABLED == 'true' && steps.phase2_restore.outcome == 'success' && steps.phase2_main.outcome == 'success'
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ secrets.AWS_SIGNING_ROLE_ARN }}
+          aws-region: ap-southeast-1
+          mask-aws-account-id: true
+
       - name: Sign bundled Windows Store helper executables
         id: phase2_helpers
-        if: always() && env.WIN_HSM_SIGNING_ENABLED == 'true' && steps.phase2_restore.outcome == 'success' && steps.phase2_main.outcome == 'success'
+        if: always() && env.WIN_HSM_SIGNING_ENABLED == 'true' && steps.phase2_aws.outcome == 'success'
         shell: pwsh
         run: |
           Remove-Item -LiteralPath (Join-Path $env:RUNNER_TEMP 'onekey-windows-signed.jsonl') -Force -ErrorAction SilentlyContinue
@@ -814,15 +810,11 @@ jobs:
           [[ "${{ steps.phase2_restore.outcome }}" == "failure" ]] && exit 1
           [[ "${{ steps.phase2_main.outcome }}" == "failure" ]] && exit 1
           [[ "${{ steps.phase2_winms.outcome }}" == "failure" ]] && exit 1
+          [[ "${{ steps.phase2_aws.outcome }}" == "failure" ]] && exit 1
           [[ "${{ steps.phase2_helpers.outcome }}" == "failure" ]] && exit 1
           [[ "${{ steps.phase2_signature.outcome }}" == "failure" ]] && exit 1
           [[ "${{ steps.phase2_runtime_integrity.outcome }}" == "failure" ]] && exit 1
           exit 0
-
-      - name: Remove temporary Windows signing credentials
-        if: always() && env.WIN_HSM_SIGNING_ENABLED == 'true'
-        shell: pwsh
-        run: Remove-Item -LiteralPath (Join-Path $env:RUNNER_TEMP 'onekey-windows-wif.json') -Force -ErrorAction SilentlyContinue
 
   # ═══════════════════════════════════════════════════
   # Linux runner: AppImage + Snap (amd64 + arm64)
