@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import {
   getPrimeFreeTrialError,
@@ -198,8 +199,10 @@ export function usePrimeFeatureAccess() {
   );
 
   // Feedback after the user actively tried a feature that is exhausted or
-  // not open: the dashboard opens right away, with a toast saying why. The
-  // details of an address not checked this month only get the toast. When
+  // not open: the dashboard opens right away, with a toast saying why.
+  // Translate never leaves the page being browsed: a toast with "Get Prime"
+  // only. The details of an address not checked this month only get the
+  // toast. When
   // the quota is only held by live reservations of earlier uses, the toast
   // says so instead, since nothing was used up and it comes back by itself.
   // The server's reservation fields cover every device; an older server
@@ -223,6 +226,7 @@ export function usePrimeFeatureAccess() {
       // Reservation fields of the rejection (90600 data or the quota).
       reservation?: IPrimeFreeTrialReservation;
     }) => {
+      const opensDashboard = featureId !== EPrimeFeatures.DAppTranslate;
       if (reason === 'notOpen') {
         // Details of an address not checked this month: the feature itself
         // is open, so only the toast.
@@ -235,18 +239,20 @@ export function usePrimeFeatureAccess() {
           });
           return;
         }
-        openPrimeDashboard({
-          featureId,
-          networkId,
-          freeTrialReason: 'notOpen',
-          afterPageExit,
-        });
+        if (opensDashboard) {
+          openPrimeDashboard({
+            featureId,
+            networkId,
+            freeTrialReason: 'notOpen',
+            afterPageExit,
+          });
+        }
         showFreeTrialNoticeToast({
           featureId,
           notice: { kind: 'notOpen' },
           networkId,
           afterPageExit,
-          withGetPrime: false,
+          withGetPrime: !opensDashboard,
         });
         return;
       }
@@ -280,18 +286,20 @@ export function usePrimeFeatureAccess() {
           featureId,
           trigger: 'active',
         });
-        openPrimeDashboard({
-          featureId,
-          networkId,
-          freeTrialReason: 'exhausted',
-          afterPageExit,
-        });
+        if (opensDashboard) {
+          openPrimeDashboard({
+            featureId,
+            networkId,
+            freeTrialReason: 'exhausted',
+            afterPageExit,
+          });
+        }
         showFreeTrialNoticeToast({
           featureId,
           notice: { kind: 'exhausted', resetAt },
           networkId,
           afterPageExit,
-          withGetPrime: false,
+          withGetPrime: !opensDashboard,
         });
       })();
     },

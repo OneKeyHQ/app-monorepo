@@ -822,6 +822,24 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
     expect(toastAt(0)?.actions).toBeUndefined();
   });
 
+  it('keeps translate on the page: a toast with Get Prime, no dashboard', async () => {
+    const result = renderAccessHook();
+
+    act(() => {
+      result.current.showActiveRejectedFeedback({
+        featureId: EPrimeFeatures.DAppTranslate,
+        reason: 'exhausted',
+        resetAt: RESET_AT,
+      });
+    });
+
+    await waitFor(() => {
+      expect(toastAt(0)?.title).toBe('AI 翻译本月免费额度已用完');
+    });
+    expect(toastAt(0)?.actions).toBeTruthy();
+    expect(mockPushFullModal).not.toHaveBeenCalled();
+  });
+
   describe('details of an address not checked this month', () => {
     const detailsNotEligibleError = {
       code: 90_601,
