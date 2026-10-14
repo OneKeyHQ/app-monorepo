@@ -27,7 +27,6 @@ import {
 } from '../../states/jotai/atoms/hardware';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
-import type { KnownDevice } from '@onekeyfe/hd-core';
 
 export class HardwareConnectionManager {
   private static instance: HardwareConnectionManager | null = null;
@@ -37,80 +36,6 @@ export class HardwareConnectionManager {
   private actualTransportType: EHardwareTransportType | null = null;
 
   private isRequestingBluetoothPermission = false;
-
-  private usbDevicesByPath = new Map<
-    string,
-    { path: string; commType: 'webusb' | 'bridge'; identities: string[] }
-  >();
-
-  rememberUSBDevice(device: KnownDevice | undefined) {
-    if (
-      !device?.path ||
-      (device.commType !== 'webusb' && device.commType !== 'bridge')
-    ) {
-      return;
-    }
-    const identities = [
-      device.connectId,
-      device.serialNo,
-      device.uuid,
-      device.deviceId,
-    ]
-      .filter((id): id is string => Boolean(id?.trim()))
-      .map((id) => id.trim().toLowerCase());
-    this.forgetUSBDevice(device);
-    this.usbDevicesByPath.set(`${device.commType}:${device.path}`, {
-      path: device.path,
-      commType: device.commType,
-      identities,
-    });
-  }
-
-  forgetUSBDevice(device: KnownDevice | undefined) {
-    if (!device) return;
-    for (const [key, known] of this.usbDevicesByPath) {
-      if (
-        known.commType === device.commType &&
-        (known.path === device.path ||
-          [
-            device.connectId,
-            device.serialNo,
-            device.uuid,
-            device.deviceId,
-          ].some(
-            (id) => id && known.identities.includes(id.trim().toLowerCase()),
-          ))
-      ) {
-        this.usbDevicesByPath.delete(key);
-      }
-    }
-  }
-
-  clearUSBDevices() {
-    this.usbDevicesByPath.clear();
-  }
-
-  private matchesUSBDevice(
-    path: string,
-    commType: 'webusb' | 'bridge',
-    connectId: string,
-  ) {
-    const target = connectId.trim().toLowerCase();
-    if (!target) return false;
-    if (path.toLowerCase() === target) return true;
-    // Shared bootloader and serial-less paths cannot establish device identity.
-    if (
-      commType === 'webusb' &&
-      (/^0+$/.test(path) || path.startsWith('usb-'))
-    ) {
-      return false;
-    }
-    return (
-      this.usbDevicesByPath
-        .get(`${commType}:${path}`)
-        ?.identities.includes(target) ?? false
-    );
-  }
 
   private constructor({ backgroundApi }: { backgroundApi: IBackgroundApi }) {
     this.backgroundApi = backgroundApi;
@@ -226,14 +151,14 @@ export class HardwareConnectionManager {
         const isOneKey = ONEKEY_WEBUSB_FILTER?.some(
           (d) => dev?.vendorId === d.vendorId && dev?.productId === d.productId,
         );
-        return isOneKey;
+        const path = resolveOneKeyUsbDevicePath(dev);
+        return Boolean(
+          isOneKey &&
+          path &&
+          (!connectId || path.toLowerCase() === connectId.trim().toLowerCase()),
+        );
       });
-      if (!connectId) return onekeyDevices.length > 0;
-      const matches = onekeyDevices.filter((device) => {
-        const path = resolveOneKeyUsbDevicePath(device);
-        return path && this.matchesUSBDevice(path, 'webusb', connectId);
-      });
-      return matches.length === 1;
+      return onekeyDevices.length > 0;
     } catch {
       return false;
     }
@@ -260,15 +185,9 @@ export class HardwareConnectionManager {
       if (devices.length === 0) {
         return false;
       }
-      if (!connectId) return true;
-      // Bridge paths belong to Bridge, not Chromium's WebUSB descriptors.
-      return (
-        devices.filter(
-          (device) =>
-            typeof device.path === 'string' &&
-            this.matchesUSBDevice(device.path, 'bridge', connectId),
-        ).length === 1
-      );
+      // Bridge paths are local IDs. Desktop USB enumeration can identify the
+      // selected serial without acquiring a device or switching SDK transports.
+      return connectId ? this.detectWebUSBAvailability(connectId) : true;
     } catch (_error) {
       return false;
     }

@@ -985,7 +985,6 @@ class ServiceHardware extends ServiceBase {
     identityKeys: string[];
     identityKeysChanged: boolean;
   } {
-    this.connectionManager.rememberUSBDevice(device);
     const identityKeys = this.getConnectedDeviceIdentityKeys(device);
     const connectionKey = device?.connectId || identityKeys[0];
     if (!connectionKey || identityKeys.length === 0) {
@@ -1007,7 +1006,6 @@ class ServiceHardware extends ServiceBase {
   }
 
   private clearTrackedConnectedDevices() {
-    this.connectionManager.clearUSBDevices();
     if (this.connectedDeviceIdentityKeysByConnection.size === 0) {
       return;
     }
@@ -1023,7 +1021,6 @@ class ServiceHardware extends ServiceBase {
   }
 
   private untrackConnectedDevice(device: KnownDevice | undefined) {
-    this.connectionManager.forgetUSBDevice(device);
     const disconnectedKeys = new Set(
       this.getConnectedDeviceIdentityKeys(device),
     );
@@ -4608,58 +4605,12 @@ class ServiceHardware extends ServiceBase {
     connectId?: string;
     connectProtocol?: HardwareConnectProtocol;
   }) {
-    if (!platformEnv.isSupportDesktopBle) return true;
-    const { connectId, connectProtocol } = params ?? {};
-    const available = await this.connectionManager.detectUSBDeviceAvailability(
-      connectId,
-      connectProtocol,
+    // This preflight checks USB presence. Target identity is validated by the
+    // SDK firmware workflow; a USB descriptor path is not a physical serial.
+    return this.connectionManager.detectUSBDeviceAvailability(
+      undefined,
+      params?.connectProtocol,
     );
-    const transportType =
-      await this.connectionManager.getTransportTypeForChannel({
-        transportType: 'usb',
-        connectProtocol,
-      });
-    // Bridge can reuse a local path for a different device after reconnecting.
-    if (
-      available &&
-      (!connectId || transportType !== EHardwareTransportType.Bridge)
-    ) {
-      return true;
-    }
-    if (
-      !connectId ||
-      !(await this.connectionManager.detectUSBDeviceAvailability(
-        undefined,
-        connectProtocol,
-      ))
-    ) {
-      return false;
-    }
-    // Firmware preflight may start from BLE or a cold SDK. Discover over USB
-    // explicitly: business serials and transport paths are different keys.
-    try {
-      const result = await this.searchDevices({
-        connectProtocol,
-        transportType: 'usb',
-      });
-      if (!result?.success) return false;
-      const target = connectId.trim().toLowerCase();
-      const commType =
-        transportType === EHardwareTransportType.Bridge ? 'bridge' : 'webusb';
-      const matches = result.payload.filter(
-        (device) =>
-          device.commType === commType &&
-          [
-            device.connectId,
-            device.serialNo,
-            device.uuid,
-            device.deviceId,
-          ].some((id) => id?.trim().toLowerCase() === target),
-      );
-      return matches.length === 1;
-    } catch {
-      return false;
-    }
   }
 
   @backgroundMethod()
