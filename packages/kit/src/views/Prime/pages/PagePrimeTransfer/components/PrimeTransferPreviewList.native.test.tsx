@@ -162,6 +162,18 @@ test('passes large grouped input to one native host without React account rows o
       .filter((row) => row.type === 'sectionHeader')
       .map((row) => row.sectionKey),
   ).toEqual(['wallet', 'importedAccount', 'watchingAccount']);
+  // Both locked native renderers bind the value action only for summary headers.
+  for (const row of snapshot.rows.filter(
+    (item) => item.type === 'sectionHeader',
+  )) {
+    expect(row).toMatchObject({
+      variant: 'summary',
+      valueActionKey: 'toggle-group',
+      height: 60,
+      style: { horizontalPadding: 12, verticalPadding: 12 },
+      valueActionTestID: `prime-transfer-${row.sectionKey}-select-all`,
+    });
+  }
   expect(snapshot.rows[3].key).toBe('importedAccount:imported-1999');
   expect(snapshot.selection?.selectedKeys).toHaveLength(2001);
   expect(snapshot.selection?.rowPressToggles).toBe(true);

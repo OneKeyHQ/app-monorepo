@@ -177,6 +177,8 @@ export function PrimeTransferPreviewList({
       allSelected.set(group.type, isAllSelected);
       rows.push({
         type: 'sectionHeader',
+        // NativeList binds valueActionKey only for summary headers.
+        variant: 'summary',
         key: `header:${group.type}`,
         sectionKey: group.type,
         title: group.title,
@@ -186,7 +188,9 @@ export function PrimeTransferPreviewList({
             : ETranslations.global_select_all,
         }),
         valueActionKey: 'toggle-group',
-        height: 48,
+        height: 60,
+        style: { horizontalPadding: 12, verticalPadding: 12 },
+        valueActionTestID: `prime-transfer-${group.type}-select-all`,
         sticky: false,
       });
       for (const { id, row } of group.items) {
