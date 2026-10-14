@@ -183,6 +183,28 @@ describe('scrubSensitiveErrorMessageText', () => {
 });
 
 describe('logOneKeyIdLoginFailureReason', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('passes the trigger and the error for IPC context to the logger', () => {
+    const consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const error = new Error('session read failed');
+
+    logOneKeyIdLoginFailureReason('SupabaseAuthProvider read failed', error, {
+      trigger: 'passive',
+    });
+
+    expect(mockOneKeyIdLoginFailedReason).toHaveBeenCalledWith({
+      reason: 'SupabaseAuthProvider read failed',
+      trigger: 'passive',
+      error,
+    });
+    consoleErrorSpy.mockRestore();
+  });
+
   test('logs a sanitized reason once for the same error object', () => {
     const consoleErrorSpy = jest
       .spyOn(console, 'error')
@@ -198,6 +220,7 @@ describe('logOneKeyIdLoginFailureReason', () => {
     expect(mockOneKeyIdLoginFailedReason).toHaveBeenCalledTimes(1);
     expect(mockOneKeyIdLoginFailedReason).toHaveBeenCalledWith({
       reason: 'OAuth failed for [email] with access_token=[redacted]',
+      error,
     });
     consoleErrorSpy.mockRestore();
   });
@@ -263,6 +286,8 @@ describe('showOneKeyIdLoginFailedToast', () => {
     expect(Toast.error).not.toHaveBeenCalled();
     expect(mockOneKeyIdLoginFailedReason).toHaveBeenCalledWith({
       reason: 'OneKey ID fallback toast skipped: OAuth session refresh failed',
+      trigger: 'interactive',
+      error,
     });
   });
 
@@ -281,6 +306,8 @@ describe('showOneKeyIdLoginFailedToast', () => {
     expect(mockOneKeyIdLoginFailedReason).toHaveBeenCalledWith({
       reason:
         'OneKey ID fallback toast skipped: Post-login continuation failed',
+      trigger: 'interactive',
+      error,
     });
   });
 });
@@ -516,6 +543,8 @@ describe('throwLocalizedOneKeyIdLoginError', () => {
     expect(mockOneKeyIdLoginFailedReason).toHaveBeenCalledWith({
       reason: 'OneKey ID OAuth sign-in failed: name=Error',
       step: 'provider',
+      trigger: 'interactive',
+      error: expect.objectContaining({ message: "Can't connect to Google" }),
     });
     consoleErrorSpy.mockRestore();
   });

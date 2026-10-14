@@ -1,3 +1,8 @@
+import {
+  getDesktopIpcCallContext,
+  isUnwrappedIpcError,
+} from '../errors/utils/electronIpcError';
+
 const MAX_SANITIZED_ERROR_MESSAGE_LENGTH = 200;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -10,6 +15,11 @@ export type IOneKeyIdAuthFailureLogSource =
 // Which hop of a OneKey ID login failed: the identity provider (Google /
 // Apple) or the Supabase auth service. Omitted when the hop is not known.
 export type IOneKeyIdAuthFailureStep = 'provider' | 'auth';
+
+// What started the failing work: a user action (login, OAuth, OTP, bind) or
+// a passive check (provider mount, session read, background prompt check).
+// Passive failures are not login attempts and must not count as such.
+export type IOneKeyIdAuthFailureTrigger = 'interactive' | 'passive';
 
 export type IOneKeyIdAuthFailureCategory =
   | 'alreadyLoggedIn'
@@ -46,6 +56,18 @@ export function scrubSensitiveErrorMessageText(text: string): string {
     scrubbed = `${scrubbed.slice(0, MAX_SANITIZED_ERROR_MESSAGE_LENGTH)}...`;
   }
   return scrubbed;
+}
+
+// The free-text reason sent with onekeyIdLoginFailedReason. On top of the
+// shared scrubber (credentials, URL query/hash, emails; capped at
+// MAX_SANITIZED_ERROR_MESSAGE_LENGTH), drop the OS user name that keychain
+// and file-store errors embed in home-directory paths.
+export function getOneKeyIdAuthFailureServerReason(reason: string): string {
+  return scrubSensitiveErrorMessageText(
+    reason
+      .replace(/(\/(?:Users|home)\/)[^/\s'"]+/g, '$1[user]')
+      .replace(/([a-z]:\\+Users\\+)[^\\\s'"]+/gi, '$1[user]'),
+  );
 }
 
 export function getSanitizedErrorLogText(error: unknown): string {
@@ -123,17 +145,7 @@ function getLastSafeLabeledValue({
   return value;
 }
 
-// Server telemetry uses only this strict allowlist. The scrubbed free-form
-// reason stays in local logs and never becomes a server event property.
-export function getOneKeyIdAuthFailureServerParams({
-  reason,
-  source,
-  step,
-}: {
-  reason: string;
-  source: IOneKeyIdAuthFailureLogSource;
-  step?: IOneKeyIdAuthFailureStep;
-}): {
+export type IOneKeyIdAuthFailureServerParams = {
   source: IOneKeyIdAuthFailureLogSource;
   step?: IOneKeyIdAuthFailureStep;
   category: IOneKeyIdAuthFailureCategory;
@@ -141,20 +153,42 @@ export function getOneKeyIdAuthFailureServerParams({
   errorCode?: string;
   httpStatusCode?: number;
   requestId?: string;
-} {
+  // Desktop API call that rejected, read from the error object (never from
+  // the reason text). Absent for non-IPC failures.
+  ipcModule?: string;
+  ipcMethod?: string;
+  // The failure crossed Desktop API IPC but its call context was lost.
+  ipcContextMissing?: true;
+};
+
+// Structured fields shared by the OneKey ID auth failure server events; each
+// event decides separately whether it also sends the scrubbed reason.
+// `error`, when given, is only read for its Desktop API IPC call context.
+export function getOneKeyIdAuthFailureServerParams({
+  reason,
+  source,
+  step,
+  error,
+}: {
+  reason: string;
+  source: IOneKeyIdAuthFailureLogSource;
+  step?: IOneKeyIdAuthFailureStep;
+  error?: unknown;
+}): IOneKeyIdAuthFailureServerParams {
   const status = getLastSafeLabeledValue({
     reason,
     label: 'status',
   });
   const parsedStatus = status && /^\d{3}$/.test(status) ? Number(status) : null;
-  return {
+  const errorName = getLastSafeLabeledValue({
+    reason,
+    label: 'name',
+  });
+  const params: IOneKeyIdAuthFailureServerParams = {
     source,
     step,
     category: getOneKeyIdAuthFailureCategory(reason),
-    errorName: getLastSafeLabeledValue({
-      reason,
-      label: 'name',
-    }),
+    errorName,
     errorCode: getLastSafeLabeledValue({
       reason,
       label: 'code',
@@ -165,4 +199,12 @@ export function getOneKeyIdAuthFailureServerParams({
       label: 'requestId',
     }),
   };
+  const ipcCallContext = getDesktopIpcCallContext(error);
+  if (ipcCallContext) {
+    params.ipcModule = ipcCallContext.ipcModule;
+    params.ipcMethod = ipcCallContext.ipcMethod;
+  } else if (isUnwrappedIpcError(error) || errorName === 'UnwrappedIpcError') {
+    params.ipcContextMissing = true;
+  }
+  return params;
 }

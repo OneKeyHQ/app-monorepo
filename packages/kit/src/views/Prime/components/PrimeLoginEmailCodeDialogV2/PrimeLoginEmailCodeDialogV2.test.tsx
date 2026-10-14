@@ -1526,6 +1526,10 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
     expect(mockOneKeyIdLoginFailedReason).toHaveBeenCalledWith({
       reason:
         'Prime email verification code request failed: name=OneKeyLocalError message=Please retry after 33 seconds. code=-99999 status= requestId=',
+      trigger: 'interactive',
+      error: expect.objectContaining({
+        message: 'Please retry after 33 seconds.',
+      }),
     });
   });
 
@@ -1692,6 +1696,10 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
       reason: expect.stringContaining(
         'Prime email OTP login failed before background diagnostics',
       ),
+      trigger: 'interactive',
+      error: expect.objectContaining({
+        message: 'Background bridge disconnected',
+      }),
     });
   });
   test('waits until sending is enabled and shows the normal error toast', async () => {

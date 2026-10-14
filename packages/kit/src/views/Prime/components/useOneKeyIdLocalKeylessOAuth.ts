@@ -123,6 +123,8 @@ export function useOneKeyIdLocalKeylessOAuth({
       if (!accessToken) {
         logOneKeyIdLoginFailureReason(
           `OneKey ID OAuth login failed: access token not found for ${provider}.`,
+          undefined,
+          { trigger: 'interactive' },
         );
         throw new OneKeyLocalError(missingTokenMessage);
       }
@@ -175,6 +177,8 @@ export function useOneKeyIdLocalKeylessOAuth({
         if (localSessionResult.status === 'retryable') {
           logOneKeyIdLoginFailureReason(
             'OneKey ID login could not reuse the local Keyless OAuth session because credential migration is retryable.',
+            undefined,
+            { trigger: 'interactive' },
           );
           throw new OneKeyLocalError(missingTokenMessage);
         }

@@ -424,6 +424,7 @@ function PrimeLoginOAuthDialog(props: {
             localKeylessLoginPrepareErrorMessage || '',
           )}`,
           error,
+          { trigger: 'interactive' },
         );
         Toast.error({
           title: intl.formatMessage({
