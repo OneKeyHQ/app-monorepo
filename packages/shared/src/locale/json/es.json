@@ -5479,6 +5479,7 @@
   "transfer.web_only_supports_watch_only_transfer": "La versión web solo admite transferencias para billeteras de solo lectura (Watch-Only).",
   "transfer_data_too_large__msg": "Los datos de la transferencia son demasiado grandes ({size}). El límite para esta transferencia es {limit}.",
   "transfer_exit_import__desc": "Salir puede interrumpir la importación. Los elementos ya importados permanecerán en este dispositivo.",
+  "transfer_import_some_accounts_failed__msg": "No se pudieron crear algunas cuentas.",
   "transfer_keep_foreground__desc": "Mantén el dispositivo desbloqueado y la aplicación OneKey abierta en primer plano hasta que finalice la transferencia.",
   "transfer_keep_unlocked__desc": "Mantén tu dispositivo desbloqueado y la aplicación OneKey abierta en primer plano hasta que se complete la importación.",
   "travel_mode__about__title": "¿Qué es el modo viaje?",
