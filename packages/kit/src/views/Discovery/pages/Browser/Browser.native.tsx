@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import * as ExpoDevice from 'expo-device';
 import { Freeze } from 'react-freeze';
-import { BackHandler, StyleSheet, View } from 'react-native';
+import { BackHandler, StyleSheet, View, findNodeHandle } from 'react-native';
 import Animated, { useSharedValue } from 'react-native-reanimated';
 
 import {
@@ -461,6 +461,9 @@ function MobileBrowser() {
     [tabs, navigation, activeTabId],
   );
 
+  // Only the legacy tablet layout requires display:none gating across panes;
+  // phone layouts keep Market, Earn, and Browser in the outer pager.
+  const useOuterPager = !isTabletMainView && !isTabletDetailView;
   const { top } = useSafeAreaInsets();
   // iOS 26: the Discover search bar opts into the Liquid Glass capsule (so it
   // matches the Wallet header's glass search bar) and is nudged down so its
@@ -468,6 +471,17 @@ function MobileBrowser() {
   // a 56pt row, i.e. ~6pt lower than this bar's safe-area-top anchor. Off iOS 26
   // / Android nothing changes.
   const searchGlassActive = isLiquidGlassAvailable();
+  const sharedScrollEdgeHeader = Boolean(
+    platformEnv.isNativeIOS &&
+    searchGlassActive &&
+    showDiscoveryPage &&
+    useOuterPager,
+  );
+  const sharedHeaderRef = useRef<View>(null);
+  const [sharedHeaderHeight, setSharedHeaderHeight] = useState(0);
+  const [sharedHeaderTag, setSharedHeaderTag] = useState(0);
+  const sharedHeaderReady =
+    sharedScrollEdgeHeader && sharedHeaderHeight > 0 && sharedHeaderTag > 0;
   let discoverSearchTop = top;
   if (platformEnv.isNativeAndroid) {
     discoverSearchTop = top + 5;
@@ -501,15 +515,6 @@ function MobileBrowser() {
   const earnTabsRef = useRef<ITabContainerRef>(null);
   const earnBorrowPagerRef = useRef<IEarnBorrowPagerViewRef>(null);
 
-  // Determine if outer PagerView should be used (phone-style layout).
-  // Only the legacy tablet layout requires display:none gating across panes;
-  // that layout is only meaningful when SplitView is actually active (the
-  // SplitViewContext provider wraps the routers). When the user disables
-  // enableSplitView on a foldable / dual-screen device, neither main nor sub
-  // view is set — fall back to the phone-style pager so Market/Earn/Browser
-  // can still render. Without this, dual-screen Android with split-screen
-  // off renders a blank Market/DeFi page.
-  const useOuterPager = !isTabletMainView && !isTabletDetailView;
   const handleExploreTabSwipe = useCallback(() => {
     exploreTabSwitchTypeRef.current = 'swipe';
   }, []);
@@ -562,9 +567,24 @@ function MobileBrowser() {
 
       {showDiscoveryPage ? (
         <YStack
-          bg="$bgApp"
-          // Keep the visible header and the space above the pager in the same
-          // layout tree, so async native measurement cannot move the page body.
+          ref={sharedHeaderRef}
+          collapsable={false}
+          onLayout={(event) => {
+            if (!sharedScrollEdgeHeader) return;
+            const height = event.nativeEvent.layout.height;
+            const tag = findNodeHandle(sharedHeaderRef.current) ?? 0;
+            if (height > 0 && height !== sharedHeaderHeight)
+              setSharedHeaderHeight(height);
+            if (tag > 0 && tag !== sharedHeaderTag) setSharedHeaderTag(tag);
+          }}
+          bg={sharedHeaderReady ? undefined : '$bgApp'}
+          position={sharedHeaderReady ? 'absolute' : undefined}
+          top={sharedHeaderReady ? 0 : undefined}
+          left={sharedHeaderReady ? 0 : undefined}
+          right={sharedHeaderReady ? 0 : undefined}
+          zIndex={sharedHeaderReady ? 10 : undefined}
+          // Keep the original layout until the native header tag and height are
+          // measured; then the other outer pages reserve the same fixed height.
           // iOS 26 needs 58pt for the lower 44pt glass search bar and its gap.
           pt={searchGlassActive ? 58 : '$12'}
           width="100%"
@@ -626,22 +646,38 @@ function MobileBrowser() {
                 <MarketHomeWithProvider
                   isFocused={selectedHeaderTab === ETranslations.global_market}
                   nestedPager={useOuterPager}
+                  externalTopOverlayTag={
+                    sharedHeaderReady ? sharedHeaderTag : undefined
+                  }
                   tabsRef={marketTabsRef}
                 />
               }
               earnContent={
-                <EarnHomeWithProvider
-                  showHeader={false}
-                  showContent={selectedHeaderTab === ETranslations.global_earn}
-                  isVisible={isEarnPageVisible}
-                  defaultTab={earnTab}
-                  tabsRef={earnTabsRef}
-                  useSwipePager={useOuterPager}
-                  earnBorrowPagerRef={earnBorrowPagerRef}
-                />
+                <View
+                  style={{
+                    flex: 1,
+                    paddingTop: sharedHeaderReady ? sharedHeaderHeight : 0,
+                  }}
+                >
+                  <EarnHomeWithProvider
+                    showHeader={false}
+                    showContent={
+                      selectedHeaderTab === ETranslations.global_earn
+                    }
+                    isVisible={isEarnPageVisible}
+                    defaultTab={earnTab}
+                    tabsRef={earnTabsRef}
+                    useSwipePager={useOuterPager}
+                    earnBorrowPagerRef={earnBorrowPagerRef}
+                  />
+                </View>
               }
               browserContent={
-                <Stack flex={1} zIndex={3}>
+                <Stack
+                  flex={1}
+                  zIndex={3}
+                  pt={sharedHeaderReady ? sharedHeaderHeight : 0}
+                >
                   <Stack flex={1}>
                     {browserDashboardContent}
                     {platformEnv.isNativeAndroid ? (

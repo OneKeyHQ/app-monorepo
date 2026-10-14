@@ -426,10 +426,12 @@ function BaseMarketHomeWithProvider({
   isFocused = true,
   tabsRef,
   nestedPager = false,
+  externalTopOverlayTag,
 }: {
   isFocused?: boolean;
   tabsRef?: React.RefObject<ITabContainerRef | null>;
   nestedPager?: boolean;
+  externalTopOverlayTag?: number;
 }) {
   const { layoutProps, shouldWaitForSpotCategoryReady } =
     useMarketHomeLayoutProps();
@@ -453,6 +455,7 @@ function BaseMarketHomeWithProvider({
       isFocused={isFocused}
       tabsRef={tabsRef}
       nestedPager={nestedPager}
+      {...(platformEnv.isNativeIOS ? { externalTopOverlayTag } : {})}
     />
   );
 }
@@ -461,10 +464,12 @@ export function MarketHomeWithProvider({
   isFocused = true,
   tabsRef,
   nestedPager = false,
+  externalTopOverlayTag,
 }: {
   isFocused?: boolean;
   tabsRef?: React.RefObject<ITabContainerRef | null>;
   nestedPager?: boolean;
+  externalTopOverlayTag?: number;
 }) {
   return (
     <AccountSelectorProviderMirror
@@ -483,6 +488,7 @@ export function MarketHomeWithProvider({
             isFocused={isFocused}
             tabsRef={tabsRef}
             nestedPager={nestedPager}
+            externalTopOverlayTag={externalTopOverlayTag}
           />
         </MarketBannerProvider>
       </MarketWatchListProviderMirrorV2>

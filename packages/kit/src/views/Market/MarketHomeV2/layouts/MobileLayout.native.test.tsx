@@ -123,6 +123,7 @@ jest.mock('@onekeyhq/components', () => ({
   useScrollContentTabBarOffset: () => 0,
   useTabBarHeight: () => 0,
   useTheme: () => mockTheme,
+  useThemeName: () => 'light',
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   isNative: true,

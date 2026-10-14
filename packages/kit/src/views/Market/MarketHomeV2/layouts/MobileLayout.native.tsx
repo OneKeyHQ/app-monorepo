@@ -23,6 +23,7 @@ import {
   YStack,
   useScrollContentTabBarOffset,
   useTheme,
+  useThemeName,
 } from '@onekeyhq/components';
 import type { ITabContainerRef } from '@onekeyhq/components';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
@@ -102,6 +103,7 @@ interface IMobileLayoutProps {
   tabsRef?: RefObject<ITabContainerRef | null>;
   isFocused?: boolean;
   nestedPager?: boolean;
+  externalTopOverlayTag?: number;
 }
 
 interface ITabBarDynamicContext {
@@ -144,6 +146,7 @@ interface IMarketHomeTabBarProps {
   onTabPress: (name: string) => void;
   useNativeTabBar: boolean;
   useNativeCategorySubHeader: boolean;
+  scrollEdgeEnabled: boolean;
 }
 
 function MarketHomeTabBar({
@@ -154,6 +157,7 @@ function MarketHomeTabBar({
   onTabPress,
   useNativeTabBar,
   useNativeCategorySubHeader,
+  scrollEdgeEnabled,
 }: IMarketHomeTabBarProps) {
   const ctx = useContext(TabBarDynamicContext)!;
   const currentFocusedTabName = ctx.activeTabName || tabNames[0] || '';
@@ -301,8 +305,14 @@ function MarketHomeTabBar({
   );
 
   return (
-    <YStack pointerEvents="box-none" bg="$bgApp">
-      <YStack bg="$bgApp" height={MARKET_TAB_BAR_HEIGHT}>
+    <YStack
+      pointerEvents="box-none"
+      bg={scrollEdgeEnabled ? undefined : '$bgApp'}
+    >
+      <YStack
+        bg={scrollEdgeEnabled ? undefined : '$bgApp'}
+        height={MARKET_TAB_BAR_HEIGHT}
+      >
         {useNativeTabBar ? null : (
           <Tabs.TabBar
             focusedTab={focusedTab}
@@ -350,6 +360,7 @@ function MobileLayoutComponent({
   tabsRef,
   isFocused = true,
   nestedPager = false,
+  externalTopOverlayTag,
 }: IMobileLayoutProps) {
   const intl = useIntl();
   const openMarketWatchlistEditDialog = useOpenMarketWatchlistEditDialog();
@@ -408,6 +419,11 @@ function MobileLayoutComponent({
   const [activeTabName, setActiveTabName] = useState(activeTabNameRef.current);
   const focusedTab = useSharedValue(activeTabNameRef.current);
   const theme = useTheme();
+  const themeName = useThemeName();
+  const [scrollEdgeAvailable, setScrollEdgeAvailable] = useState(false);
+  const scrollEdgeEnabled = Boolean(
+    platformEnv.isNativeIOS && scrollEdgeAvailable,
+  );
   const nativeTabBar = useMemo<CollapsiblePagerNativeTabBarConfig | undefined>(
     () =>
       platformEnv.isNative
@@ -427,7 +443,9 @@ function MobileLayoutComponent({
               itemSpacing: 8,
               fontSize: 16,
               fontFamily: 'Roobert-Medium',
-              backgroundColor: theme.bgApp.val,
+              backgroundColor: scrollEdgeEnabled
+                ? 'transparent'
+                : theme.bgApp.val,
               activeTextColor: theme.text.val,
               inactiveTextColor: theme.textSubdued.val,
               indicatorColor: theme.text.val,
@@ -436,7 +454,13 @@ function MobileLayoutComponent({
             },
           }
         : undefined,
-    [tabNames, theme.bgApp.val, theme.text.val, theme.textSubdued.val],
+    [
+      scrollEdgeEnabled,
+      tabNames,
+      theme.bgApp.val,
+      theme.text.val,
+      theme.textSubdued.val,
+    ],
   );
   const {
     bannerList,
@@ -840,6 +864,12 @@ function MobileLayoutComponent({
         scrollEnabled
         nestedScrollEnabled={nestedPager}
         nativeSmoothHeaderScrollEnabled={platformEnv.isNative}
+        topScrollEdgeEffect={scrollEdgeEnabled ? 'hard' : undefined}
+        topOverlayColorScheme={scrollEdgeEnabled ? themeName : undefined}
+        externalTopOverlayTag={externalTopOverlayTag}
+        onScrollEdgeCapability={(event) =>
+          setScrollEdgeAvailable(event.nativeEvent.available)
+        }
         testID="market-native-collapsible-pager"
         nativeTabBar={nativeTabBar}
         nativeTabPressAnimationEnabled={false}
@@ -855,7 +885,7 @@ function MobileLayoutComponent({
         }
         stickyHeader={
           <YStack
-            bg="$bgApp"
+            bg={scrollEdgeEnabled ? undefined : '$bgApp'}
             pointerEvents="box-none"
             onLayout={(event) =>
               handleStickyHeaderLayout(
@@ -871,6 +901,7 @@ function MobileLayoutComponent({
               onTabPress={handleTabPress}
               useNativeTabBar={Boolean(nativeTabBar)}
               useNativeCategorySubHeader={Boolean(nativeSubHeader)}
+              scrollEdgeEnabled={scrollEdgeEnabled}
             />
           </YStack>
         }

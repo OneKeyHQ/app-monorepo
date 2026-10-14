@@ -11,7 +11,7 @@ import { View } from 'react-native';
 import { CollapsiblePagerView } from 'react-native-pager-view';
 import { useSharedValue } from 'react-native-reanimated';
 
-import { useTheme } from '@onekeyhq/components';
+import { useTheme, useThemeName } from '@onekeyhq/components';
 
 import { SpotlightScrollStateContext } from '../../../components/Spotlight/SpotlightScrollStateContext';
 import { HomeNativeTabContext } from '../hooks/useHomeTab.native';
@@ -61,6 +61,7 @@ export function HomeNativePager({
   const focusedTab = useSharedValue(tabs[initialIndex]?.name ?? '');
   const indexDecimal = useSharedValue(initialIndex);
   const theme = useTheme();
+  const themeName = useThemeName();
   const selectedIndexRef = useRef(selectedIndex);
   const mountedPageKeysRef = useRef<{
     pageIdentity: string;
@@ -173,6 +174,7 @@ export function HomeNativePager({
       nestedScrollEnabled
       nativeSmoothHeaderScrollEnabled
       topScrollEdgeEffect={topOverlay ? 'hard' : undefined}
+      topOverlayColorScheme={topOverlay ? themeName : undefined}
       topOverlay={topOverlay}
       onScrollEdgeCapability={(event) =>
         onTopScrollEdgeCapability?.(event.nativeEvent.available)
