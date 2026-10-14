@@ -1,5 +1,6 @@
 import { UR, UREncoder } from '@ngraveio/bc-ur';
 import urWords from '@ngraveio/bc-ur/dist/bytewords';
+import { InvalidSchemeError } from '@ngraveio/bc-ur/dist/errors';
 
 import airGapUrUtils from './airGapUrUtils';
 import {
@@ -153,13 +154,52 @@ describe('checkUrPart', () => {
   });
 });
 
+/** Settles `run()` or fails the test, so a promise that never settles cannot pass. */
+async function settledWithin<T>(run: () => Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error('did not settle')), 1000);
+  });
+  try {
+    return await Promise.race([Promise.resolve().then(run), timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 describe('scanning with airGapUrUtils', () => {
-  it('drops a malformed frame and still decodes the code that follows', async () => {
-    const ur = await airGapUrUtils.qrcodeToUr([
-      `${singlePart('44deadbeef').slice(0, -2)}aa`,
-      singlePart('44deadbeef'),
-    ]);
+  it('drops a malformed frame on the live decoder and decodes the code that follows', async () => {
+    const { receivePart, promiseResultUR } =
+      airGapUrUtils.createAnimatedURDecoder();
+    receivePart?.(`${singlePart('44deadbeef').slice(0, -2)}aa`);
+    receivePart?.('0x1234abcd');
+    receivePart?.(singlePart('44deadbeef'));
+    const ur = await settledWithin(() => promiseResultUR);
     expect(ur.cbor.toString('hex')).toBe('44deadbeef');
+  });
+
+  it.each([
+    ['plain hex text', '0x1234abcd'],
+    ['a bitcoin address', 'bc1qxyz'],
+    ['a UR with a broken checksum', `${singlePart('44deadbeef').slice(0, -2)}aa`],
+  ])('fails one-shot decoding of %s as an invalid scheme', async (_case, qr) => {
+    await expect(
+      settledWithin(() => airGapUrUtils.qrcodeToUr(qr)),
+    ).rejects.toBeInstanceOf(InvalidSchemeError);
+  });
+
+  it('decodes a valid code in one shot', async () => {
+    const single = await settledWithin(() =>
+      airGapUrUtils.qrcodeToUr(singlePart('44deadbeef')),
+    );
+    expect(single.cbor.toString('hex')).toBe('44deadbeef');
+
+    const message = bytes(`5901f4${'ab'.repeat(500)}`);
+    const encoder = new UREncoder(new UR(message, 'bytes'), 100, 0, 10);
+    const multi = await settledWithin(() =>
+      airGapUrUtils.qrcodeToUr(encoder.encodeWhole().join('\n')),
+    );
+    expect(multi.cbor.equals(message)).toBe(true);
   });
 
   it('ends with an error for a code beyond the limits', async () => {

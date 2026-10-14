@@ -1,4 +1,5 @@
 import { decodeToDataItem } from '@keystonehq/bc-ur-registry';
+import { InvalidSchemeError } from '@ngraveio/bc-ur/dist/errors';
 import { isString } from 'lodash';
 
 import { AirGapUR, AirGapURDecoder, AirGapUREncoder } from './AirGapUR';
@@ -29,7 +30,13 @@ function jsonToUr({ ur }: { ur: IAirGapUrJson | AirGapUR }): AirGapUR {
 }
 
 // EQRCodeHandlerType.ANIMATION_CODE
-function createAnimatedURDecoder() {
+function createAnimatedURDecoder({
+  throwOnMalformed = false,
+}: {
+  /** One-shot decoding of a complete code: a malformed part fails the call, as the vendor
+   * decoder's parse did, instead of being dropped as a misread camera frame. */
+  throwOnMalformed?: boolean;
+} = {}) {
   const decoder = new AirGapURDecoder();
   let receivePart: ((data: string) => void) | undefined;
   let abort = () => undefined;
@@ -45,7 +52,10 @@ function createAnimatedURDecoder() {
         reject(urTooLargeError());
         return;
       }
-      if (verdict === 'malformed') return;
+      if (verdict === 'malformed') {
+        if (throwOnMalformed) throw new InvalidSchemeError();
+        return;
+      }
       decoder.receivePart(data);
       if (decoder.isComplete()) {
         const ur = decoder.resultUR();
@@ -114,7 +124,7 @@ function createAnimatedUREncoder({
 }
 
 function qrcodeToUr(qrcode: string | string[]): Promise<AirGapUR> {
-  const decoder = createAnimatedURDecoder();
+  const decoder = createAnimatedURDecoder({ throwOnMalformed: true });
   const empty: string[] = [];
   if (isString(qrcode)) {
     // eslint-disable-next-line no-param-reassign
