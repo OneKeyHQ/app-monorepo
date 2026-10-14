@@ -4173,6 +4173,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               device &&
               deviceType &&
               (deviceType === EDeviceType.Pro ||
+                deviceType === EDeviceType.Classic1s ||
+                deviceType === EDeviceType.ClassicPure ||
                 isProtocolV2ProductType(deviceType)) &&
               serialNo
             ) {
