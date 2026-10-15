@@ -1,89 +1,81 @@
-import { memo, useCallback, useMemo } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 
 import { useDatePickerContext } from '@rehookify/datepicker';
 
-import { SizableText, Stack } from '../../primitives';
+import { Stack } from '../../primitives';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '../../utils/animationConstants';
 
 import { CalendarHeader } from './CalendarHeader';
-import { callOnClick } from './utils';
-
-const activeHoverStyle = { bg: '$bgPrimary' } as const;
-const inactiveHoverStyle = { bg: '$bgHover' } as const;
-
-const YearCell = memo(
-  ({
-    year,
-    isActive,
-    onPress,
-  }: {
-    year: { $date: Date; year: number };
-    isActive: boolean;
-    onPress: (y: { $date: Date; year: number }) => void;
-  }) => {
-    const handlePress = useCallback(() => {
-      onPress(year);
-    }, [onPress, year]);
-
-    return (
-      <Stack
-        flexBasis="31%"
-        flexGrow={1}
-        height="$11"
-        alignItems="center"
-        justifyContent="center"
-        borderRadius="$2"
-        bg={isActive ? '$bgPrimary' : 'transparent'}
-        hoverStyle={isActive ? activeHoverStyle : inactiveHoverStyle}
-        onPress={handlePress}
-      >
-        <SizableText
-          size="$bodyMd"
-          color={isActive ? '$textInverse' : '$text'}
-          userSelect="none"
-        >
-          {year.year}
-        </SizableText>
-      </Stack>
-    );
-  },
-);
-
-YearCell.displayName = 'YearCell';
+import { PeriodCell } from './PeriodCell';
+import { getSlideEnterStyle, useSlideDirection } from './useSlideDirection';
+import { callOnClick, getCalendarYear } from './utils';
 
 export function YearGrid({
   onSelect,
   onYearSelect,
+  highlight = 'active',
 }: {
   onSelect?: () => void;
   onYearSelect?: (year: number) => void;
+  /**
+   * `active`: the year the calendar is showing (drill-down navigation).
+   * `selected`: the year holding the picked value (standalone year picker).
+   */
+  highlight?: 'active' | 'selected';
 }) {
   const { data, propGetters } = useDatePickerContext();
   const { years, calendars } = data;
   const { yearButton } = propGetters;
-  const selectedYear = calendars[0].year;
+  const shownYear = getCalendarYear(calendars[0]);
+
+  const yearsRef = useRef(years);
+  const yearButtonRef = useRef(yearButton);
+  useLayoutEffect(() => {
+    yearsRef.current = years;
+    yearButtonRef.current = yearButton;
+  });
 
   const handleYearPress = useCallback(
-    (y: { $date: Date; year: number }) => {
-      callOnClick(yearButton(y as any));
+    (date: Date) => {
+      const y = yearsRef.current.find(
+        (item) => item.$date.getTime() === date.getTime(),
+      );
+      const getter = y ? yearButtonRef.current(y) : undefined;
+      if (!y || !getter?.onClick) return;
+      callOnClick(getter);
       onYearSelect?.(y.year);
       onSelect?.();
     },
-    [yearButton, onYearSelect, onSelect],
+    [onYearSelect, onSelect],
   );
 
+  const firstYear = years[0]?.year ?? 0;
+  const direction = useSlideDirection(firstYear);
+
   return (
-    <Stack flexWrap="wrap" flexDirection="row" gap="$2" padding="$2">
-      {years.map((y) => {
-        const isActive = y.year === Number(selectedYear);
-        return (
-          <YearCell
-            key={y.$date.toString()}
-            year={y}
-            isActive={isActive}
-            onPress={handleYearPress}
-          />
-        );
-      })}
+    <Stack
+      key={firstYear}
+      flexWrap="wrap"
+      flexDirection="row"
+      gap="$2"
+      padding="$2"
+      transition="quick"
+      animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+      enterStyle={getSlideEnterStyle(direction)}
+    >
+      {years.map((y) => (
+        <PeriodCell
+          key={y.$date.toString()}
+          value={y.$date}
+          label={y.year}
+          selected={
+            highlight === 'selected' ? y.selected : y.year === shownYear
+          }
+          isNow={y.now}
+          disabled={y.disabled}
+          onPress={handleYearPress}
+        />
+      ))}
     </Stack>
   );
 }
@@ -97,6 +89,9 @@ export function YearRangeHeader() {
     () => `${years[0].year} - ${years[years.length - 1].year}`,
     [years],
   );
+
+  const prevGetter = previousYearsButton();
+  const nextGetter = nextYearsButton();
 
   const handlePrevYears = useCallback(
     () => callOnClick(previousYearsButton()),
@@ -114,6 +109,8 @@ export function YearRangeHeader() {
       year={yearRange}
       onPrevMonth={handlePrevYears}
       onNextMonth={handleNextYears}
+      isPrevDisabled={!!prevGetter.disabled}
+      isNextDisabled={!!nextGetter.disabled}
       mode="year"
     />
   );

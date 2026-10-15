@@ -2,6 +2,8 @@ import { memo, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 
 import { useDatePickerContext } from '@rehookify/datepicker';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { SizableText, Stack, YStack } from '../../primitives';
 
 import { DayCell } from './DayCell';
@@ -20,7 +22,12 @@ const DayCellWrapper = memo(
     range,
     hideOutOfMonth,
     fullWidth,
+    isRowStart,
+    isRowEnd,
+    isMonthStart,
+    isMonthEnd,
     onPress,
+    onHoverIn,
   }: {
     dateStr: string;
     dayLabel: string;
@@ -31,7 +38,12 @@ const DayCellWrapper = memo(
     range?: IDayCellProps['day']['range'];
     hideOutOfMonth?: boolean;
     fullWidth?: boolean;
+    isRowStart: boolean;
+    isRowEnd: boolean;
+    isMonthStart: boolean;
+    isMonthEnd: boolean;
     onPress: (date: string) => void;
+    onHoverIn?: (date: string) => void;
   }) => {
     const day = useMemo(
       () => ({
@@ -50,14 +62,21 @@ const DayCellWrapper = memo(
       <DayCell
         hideOutOfMonth={hideOutOfMonth}
         fullWidth={fullWidth}
+        isRowStart={isRowStart}
+        isRowEnd={isRowEnd}
+        isMonthStart={isMonthStart}
+        isMonthEnd={isMonthEnd}
         day={day}
         onPress={onPress}
+        onHoverIn={onHoverIn}
       />
     );
   },
 );
 
 DayCellWrapper.displayName = 'DayCellWrapper';
+
+const HOVER_PREVIEW_ENABLED = !platformEnv.isNative;
 
 export function WeekdayRow() {
   const { data } = useDatePickerContext();
@@ -119,12 +138,37 @@ export function MonthDaysGrid({
     }
   }, []);
 
+  // Rehookify only exposes onMouseEnter while a range is half picked; it sets
+  // the pending range end so cells render the will-be-in-range preview.
+  const handleDayHoverIn = useCallback((dateStr: string) => {
+    const matchedDay = calRef.current?.days.find(
+      (d) => d.$date.toString() === dateStr,
+    );
+    if (!matchedDay) return;
+    const getter = dayButtonRef.current(matchedDay) as {
+      onMouseEnter?: () => void;
+    };
+    getter.onMouseEnter?.();
+  }, []);
+
+  const monthEndDate = useMemo(() => {
+    const firstInMonth = cal?.days.find((d) => d.inCurrentMonth)?.$date;
+    return firstInMonth
+      ? new Date(
+          firstInMonth.getFullYear(),
+          firstInMonth.getMonth() + 1,
+          0,
+        ).getDate()
+      : 31;
+  }, [cal]);
+
   if (!cal) return null;
 
   return (
     <Stack flexWrap="wrap" flexDirection="row" rowGap="$1">
-      {cal.days.map((day) => {
+      {cal.days.map((day, index) => {
         const dateStr = day.$date.toString();
+        const dayOfMonth = day.$date.getDate();
         return (
           <DayCellWrapper
             key={dateStr}
@@ -137,7 +181,12 @@ export function MonthDaysGrid({
             range={day.range || undefined}
             hideOutOfMonth={hideOutOfMonth}
             fullWidth={fullWidth}
+            isRowStart={index % 7 === 0}
+            isRowEnd={index % 7 === 6}
+            isMonthStart={day.inCurrentMonth && dayOfMonth === 1}
+            isMonthEnd={day.inCurrentMonth && dayOfMonth === monthEndDate}
             onPress={handleDayPress}
+            onHoverIn={HOVER_PREVIEW_ENABLED ? handleDayHoverIn : undefined}
           />
         );
       })}

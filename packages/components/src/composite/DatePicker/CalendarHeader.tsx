@@ -51,10 +51,12 @@ export const CalendarHeader = memo(
     const titleSize = media.gtMd ? '$headingLg' : '$headingXl';
     const showMonthYear = mode !== 'month' && mode !== 'year';
 
-    const showPrevButton = onPrevMonth && !isPrevDisabled;
-    const showNextButton = onNextMonth && !isNextDisabled;
-    const showPrevYearButton = onPrevYear && !isPrevYearDisabled;
-    const showNextYearButton = onNextYear && !isNextYearDisabled;
+    // Bounded navigation stays visible but disabled: hiding a chevron at
+    // minDate/maxDate made the edge look like a rendering glitch.
+    const showPrevButton = !!onPrevMonth;
+    const showNextButton = !!onNextMonth;
+    const showPrevYearButton = !!onPrevYear;
+    const showNextYearButton = !!onNextYear;
     const yearClickable = showMonthYear && onYearClick;
 
     return (
@@ -108,6 +110,7 @@ export const CalendarHeader = memo(
                 icon="ChevronDoubleLeftOutline"
                 variant="tertiary"
                 size={iconSize}
+                disabled={!!isPrevYearDisabled}
                 hitSlop={HIT_SLOP_EXPAND_LEFT}
                 onPress={onPrevYear}
               />
@@ -121,6 +124,7 @@ export const CalendarHeader = memo(
                 icon="ChevronLeftSmallOutline"
                 variant="tertiary"
                 size={iconSize}
+                disabled={!!isPrevDisabled}
                 hitSlop={HIT_SLOP_EXPAND_RIGHT}
                 onPress={onPrevMonth}
               />
@@ -136,6 +140,7 @@ export const CalendarHeader = memo(
                 icon="ChevronRightSmallOutline"
                 variant="tertiary"
                 size={iconSize}
+                disabled={!!isNextDisabled}
                 hitSlop={HIT_SLOP_EXPAND_LEFT}
                 onPress={onNextMonth}
               />
@@ -149,6 +154,7 @@ export const CalendarHeader = memo(
                 icon="ChevronDoubleRightOutline"
                 variant="tertiary"
                 size={iconSize}
+                disabled={!!isNextYearDisabled}
                 hitSlop={HIT_SLOP_EXPAND_RIGHT}
                 onPress={onNextYear}
               />

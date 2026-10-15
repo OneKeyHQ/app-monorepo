@@ -8,7 +8,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { Popover } from '../../actions/Popover';
 import { useMedia } from '../../hooks';
-import { XStack, YStack } from '../../primitives';
+import { Button, XStack, YStack } from '../../primitives';
 import { withStaticProperties } from '../../shared/tamagui';
 
 import { Calendar } from './Calendar';
@@ -179,6 +179,46 @@ function renderPickerTrigger({
   );
 }
 
+function getToday() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+}
+
+function isDayWithinBounds(day: Date, minDate?: Date, maxDate?: Date) {
+  const dayTime = day.getTime();
+  if (minDate) {
+    const min = new Date(minDate);
+    min.setHours(0, 0, 0, 0);
+    if (dayTime < min.getTime()) return false;
+  }
+  if (maxDate) {
+    const max = new Date(maxDate);
+    max.setHours(0, 0, 0, 0);
+    if (dayTime > max.getTime()) return false;
+  }
+  return true;
+}
+
+function TodayShortcut({ onPress }: { onPress: () => void }) {
+  const intl = useIntl();
+  return (
+    <XStack
+      justifyContent="center"
+      marginTop="$2"
+      paddingTop="$2"
+      borderTopWidth={1}
+      borderTopColor="$neutral3"
+    >
+      {/* Internal calendar shortcut; QA targets the wrapping date picker. */}
+      {/* oxlint-disable-next-line onekey/require-testid */}
+      <Button size="small" variant="tertiary" onPress={onPress}>
+        {intl.formatMessage({ id: ETranslations.global_date_today })}
+      </Button>
+    </XStack>
+  );
+}
+
 const SINGLE_PANEL_PROPS = { w: 300, minWidth: 300 } as const;
 const GT_MD_PADDING_4 = { padding: '$4' } as const;
 
@@ -242,15 +282,25 @@ function BasicDatePicker({
     [floatingPanelProps],
   );
 
+  const handleSelectToday = useCallback(() => {
+    onChange?.(getToday());
+    close();
+  }, [onChange, close]);
+
+  // Re-evaluated every render (opening re-renders), so a picker left mounted
+  // past midnight still offers the right day.
+  const canSelectToday = isDayWithinBounds(getToday(), minDate, maxDate);
+
   const pickerContent = useMemo(
     () => (
       <YStack padding="$3" minWidth={280}>
         <DatePickerProvider config={config}>
           <Calendar mode="date" minDate={minDate} maxDate={maxDate} />
         </DatePickerProvider>
+        {canSelectToday ? <TodayShortcut onPress={handleSelectToday} /> : null}
       </YStack>
     ),
-    [config, minDate, maxDate],
+    [config, minDate, maxDate, canSelectToday, handleSelectToday],
   );
 
   return (
@@ -346,29 +396,50 @@ function RangePicker({
     titleProp,
     ETranslations.global_select_date_range,
   );
-  const { isOpen, handleOpenChange, close } = usePickerState({
+  const {
+    isOpen,
+    handleOpenChange: baseHandleOpenChange,
+    close: baseClose,
+  } = usePickerState({
     disabled,
     onOpenChange,
   });
   const media = useMedia();
   const hasPresets = presets && presets.length > 0 && media.gtMd;
 
-  const selectedDates = useMemo(
+  // A half-picked range lives only inside the open picker: onChange fires once
+  // both ends are chosen, and dismissing mid-pick restores the committed value
+  // instead of leaking `{ start, end: null }` to consumers.
+  const [draftDates, setDraftDates] = useState<Date[] | null>(null);
+
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      setDraftDates(null);
+      baseHandleOpenChange(open);
+    },
+    [baseHandleOpenChange],
+  );
+
+  const close = useCallback(() => {
+    setDraftDates(null);
+    baseClose();
+  }, [baseClose]);
+
+  const committedDates = useMemo(
     () =>
       [value?.start, value?.end].filter((d): d is Date => d instanceof Date),
     [value],
   );
+  const selectedDates = draftDates ?? committedDates;
 
   const handleDatesChange = useCallback(
     (dates: Date[]) => {
-      const range: IDateRange = {
-        start: dates[0] || null,
-        end: dates[1] || null,
-      };
-      onChange?.(range);
-      if (dates.length === 2) {
-        close();
+      if (dates.length < 2) {
+        setDraftDates(dates);
+        return;
       }
+      onChange?.({ start: dates[0], end: dates[1] });
+      close();
     },
     [onChange, close],
   );
@@ -517,11 +588,16 @@ function YearPicker({
     () => (
       <YStack padding="$3" minWidth={280}>
         <DatePickerProvider config={config}>
-          <Calendar mode="year" onYearSelect={handleYearSelect} />
+          <Calendar
+            mode="year"
+            minDate={minDate}
+            maxDate={maxDate}
+            onYearSelect={handleYearSelect}
+          />
         </DatePickerProvider>
       </YStack>
     ),
-    [config, handleYearSelect],
+    [config, minDate, maxDate, handleYearSelect],
   );
 
   return (
@@ -607,11 +683,16 @@ function MonthPicker({
     () => (
       <YStack padding="$3" minWidth={280}>
         <DatePickerProvider config={config}>
-          <Calendar mode="month" onMonthSelect={handleMonthSelect} />
+          <Calendar
+            mode="month"
+            minDate={minDate}
+            maxDate={maxDate}
+            onMonthSelect={handleMonthSelect}
+          />
         </DatePickerProvider>
       </YStack>
     ),
-    [config, handleMonthSelect],
+    [config, minDate, maxDate, handleMonthSelect],
   );
 
   return (

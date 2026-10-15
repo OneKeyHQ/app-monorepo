@@ -8,7 +8,7 @@ import { Stack, YStack } from '../../primitives';
 import { CalendarHeader } from './CalendarHeader';
 import { CalendarPanel } from './CalendarPanel';
 import { MonthGrid } from './MonthGrid';
-import { callOnClick } from './utils';
+import { callOnClick, getCalendarYear } from './utils';
 import { YearGrid, YearRangeHeader } from './YearGrid';
 
 import type { DatePickerMode } from './type';
@@ -48,6 +48,7 @@ export const Calendar = memo(
     );
 
     if (mode === 'month') {
+      const shownYear = getCalendarYear(calendars[0]);
       return (
         <YStack>
           <CalendarHeader
@@ -55,9 +56,15 @@ export const Calendar = memo(
             year={year}
             onPrevMonth={handlePrevYear}
             onNextMonth={handleNextYear}
+            isPrevDisabled={
+              minDate ? shownYear <= minDate.getFullYear() : false
+            }
+            isNextDisabled={
+              maxDate ? shownYear >= maxDate.getFullYear() : false
+            }
             mode={mode}
           />
-          <MonthGrid onMonthSelect={onMonthSelect} />
+          <MonthGrid onMonthSelect={onMonthSelect} highlight="selected" />
         </YStack>
       );
     }
@@ -66,7 +73,7 @@ export const Calendar = memo(
       return (
         <YStack>
           <YearRangeHeader />
-          <YearGrid onYearSelect={onYearSelect} />
+          <YearGrid onYearSelect={onYearSelect} highlight="selected" />
         </YStack>
       );
     }

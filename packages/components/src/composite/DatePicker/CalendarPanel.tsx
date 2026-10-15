@@ -2,7 +2,10 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useDatePickerContext } from '@rehookify/datepicker';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { YStack } from '../../primitives';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '../../utils/animationConstants';
 
 import { CalendarHeader } from './CalendarHeader';
 import { MonthGrid } from './MonthGrid';
@@ -14,6 +17,12 @@ import type { DatePickerMode } from './type';
 
 const dualPanelStyle = { flex: 1, flexBasis: 0 } as const;
 const emptyStyle = {} as const;
+// Drill-down (month/year) views zoom in slightly so the switch from the day
+// grid reads as going one level up. Android skips it, matching other
+// enterStyle usages in this package.
+const drillDownEnterStyle = platformEnv.isNativeAndroid
+  ? undefined
+  : ({ opacity: 0, scale: 0.96 } as const);
 
 type IViewMode = 'day' | 'month' | 'year';
 
@@ -127,6 +136,12 @@ export function CalendarPanel({
 
   const showPrevNav = showNav === 'both' || showNav === 'prev';
   const showNextNav = showNav === 'both' || showNav === 'next';
+  // The single chevrons step by month in the day view and by year in the
+  // month view (see getOffset), so their bounds follow the same unit.
+  const isPrevStepDisabled =
+    viewMode === 'day' ? isPrevDisabled : isPrevYearDisabled;
+  const isNextStepDisabled =
+    viewMode === 'day' ? isNextDisabled : isNextYearDisabled;
 
   return (
     <YStack {...(isDualPanel ? dualPanelStyle : emptyStyle)}>
@@ -144,8 +159,8 @@ export function CalendarPanel({
           onNextYear={
             showNextNav && viewMode === 'day' ? handleNextYear : undefined
           }
-          isPrevDisabled={showPrevNav ? isPrevDisabled : undefined}
-          isNextDisabled={showNextNav ? isNextDisabled : undefined}
+          isPrevDisabled={showPrevNav ? isPrevStepDisabled : undefined}
+          isNextDisabled={showNextNav ? isNextStepDisabled : undefined}
           isPrevYearDisabled={showPrevNav ? isPrevYearDisabled : undefined}
           isNextYearDisabled={showNextNav ? isNextYearDisabled : undefined}
           onMonthClick={
@@ -167,12 +182,26 @@ export function CalendarPanel({
           minDate={minDate}
         />
       ) : null}
-      {viewMode === 'month' ? (
-        <MonthGrid onSelect={setViewModeToDay} onMonthSelect={onMonthSelect} />
-      ) : null}
-      {viewMode === 'year' ? (
-        <YearGrid onSelect={setViewModeToMonth} onYearSelect={onYearSelect} />
-      ) : null}
+      {viewMode === 'day' ? null : (
+        <YStack
+          key={viewMode}
+          transition="quick"
+          animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+          enterStyle={drillDownEnterStyle}
+        >
+          {viewMode === 'month' ? (
+            <MonthGrid
+              onSelect={setViewModeToDay}
+              onMonthSelect={onMonthSelect}
+            />
+          ) : (
+            <YearGrid
+              onSelect={setViewModeToMonth}
+              onYearSelect={onYearSelect}
+            />
+          )}
+        </YStack>
+      )}
     </YStack>
   );
 }
