@@ -69,6 +69,7 @@ import {
 import {
   TWAP_MAX_DURATION_MINUTES,
   TWAP_MIN_DURATION_MINUTES,
+  TWAP_MIN_ORDER_NOTIONAL,
   formatTwapEstimatedSliceSize,
   isValidTwapDuration,
 } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
@@ -2498,6 +2499,45 @@ function PerpTradingForm({
     </XStack>
   );
 
+  const renderTwapChildOrderSizeRow = () => (
+    <XStack
+      width="100%"
+      alignItems="center"
+      justifyContent="space-between"
+      gap="$3"
+      mt={isMobile ? undefined : '$1'}
+    >
+      <XStack flex={1}>
+        <DashText
+          size={isMobile ? '$bodySm' : '$bodyMdMedium'}
+          color="$textSubdued"
+          dashColor="$textDisabled"
+          dashThickness={0.5}
+          numberOfLines={1}
+          tooltipDisplayMode={isMobile ? 'popover' : 'tooltip'}
+          tooltip={intl.formatMessage({
+            id: ETranslations.perp_twap_child_order_size__desc,
+          })}
+          tooltipTitle={intl.formatMessage({
+            id: ETranslations.perp_twap_child_order_size__title,
+          })}
+        >
+          {intl.formatMessage({
+            id: ETranslations.perp_twap_child_order_size__title,
+          })}
+        </DashText>
+      </XStack>
+      <SizableText
+        size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
+        color="$text"
+        numberOfLines={1}
+      >
+        {twapEstimatedSliceSizeDisplay ??
+          `-- ${activeBaseName || perpsSelectedDisplayName}`}
+      </SizableText>
+    </XStack>
+  );
+
   const renderBottomSection = () => {
     if (reserveMobileEnableTradingLayout) {
       return null;
@@ -2582,41 +2622,7 @@ function PerpTradingForm({
             </XStack>
           </YStack>
           {renderTwapDetailsSection()}
-          <XStack
-            width="100%"
-            alignItems="center"
-            justifyContent="space-between"
-            gap="$3"
-            mt="$1"
-          >
-            <XStack flex={1}>
-              <DashText
-                size={isMobile ? '$bodySm' : '$bodyMdMedium'}
-                color="$textSubdued"
-                dashColor="$textDisabled"
-                dashThickness={0.5}
-                numberOfLines={1}
-                tooltip={intl.formatMessage({
-                  id: ETranslations.perp_twap_child_order_size__desc,
-                })}
-                tooltipTitle={intl.formatMessage({
-                  id: ETranslations.perp_twap_child_order_size__title,
-                })}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.perp_twap_child_order_size__title,
-                })}
-              </DashText>
-            </XStack>
-            <SizableText
-              size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
-              color="$text"
-              numberOfLines={1}
-            >
-              {twapEstimatedSliceSizeDisplay ??
-                `-- ${activeBaseName || perpsSelectedDisplayName}`}
-            </SizableText>
-          </XStack>
+          {isMobile ? null : renderTwapChildOrderSizeRow()}
         </YStack>
       );
     }
@@ -2853,11 +2859,16 @@ function PerpTradingForm({
     </>
   );
 
+  const shouldShowMobileTwapSummary =
+    isMobile && isTwapMode && !reserveMobileEnableTradingLayout;
+  const shouldShowMobileTradeSummary =
+    (isMobile && isSpot) || shouldShowMobileTwapSummary;
+
   return (
     <YStack
       gap={isMobile ? '$2.5' : '$4'}
       pt={isMobile || isSpot ? '$0' : '$2.5'}
-      flex={isSpot && isMobile ? 1 : undefined}
+      flex={shouldShowMobileTradeSummary ? 1 : undefined}
     >
       {shouldShowIpRestrictionNotice ? (
         <PerpIpRestrictionNotice isMobile={isMobile} isSpot={isSpot} />
@@ -3153,7 +3164,10 @@ function PerpTradingForm({
       <SizeInput
         inputRef={sizeInputRef}
         minimumOrderActionRef={minimumOrderActionRef}
-        referencePrice={referencePriceString}
+        minimumOrderNotional={isTwapMode ? TWAP_MIN_ORDER_NOTIONAL : undefined}
+        referencePrice={
+          isTwapMode ? twapReferencePriceBN.toFixed() : referencePriceString
+        }
         side={formData.side}
         activeAsset={selectedTradeAsset}
         isAssetCtxReady={isSelectedTradeAssetCtxReady}
@@ -3190,9 +3204,10 @@ function PerpTradingForm({
 
       {renderBottomSection()}
 
-      {isSpot && isMobile ? (
+      {shouldShowMobileTradeSummary ? (
         <YStack gap="$0.5" pt="$0" pb="$1.5" mt="auto">
-          {renderSpotTradeSummaryRows()}
+          {shouldShowMobileTwapSummary ? renderTwapChildOrderSizeRow() : null}
+          {isSpot ? renderSpotTradeSummaryRows() : null}
         </YStack>
       ) : null}
     </YStack>

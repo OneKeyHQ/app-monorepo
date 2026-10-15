@@ -72,7 +72,7 @@ import {
 import {
   TWAP_MAX_DURATION_MINUTES,
   TWAP_MIN_DURATION_MINUTES,
-  TWAP_MIN_ORDER_NOTIONAL,
+  formatTwapMinimumOrderNotional,
   formatTwapPriceForOrder,
   getTwapTriggerAbove,
   isTwapStopPriceValid,
@@ -1094,12 +1094,30 @@ function SideButtonInternal({
             szDecimals: latestSzDecimals,
           })
         ) {
+          const minimumOrderAction = minimumOrderActionRef?.current;
           Toast.message({
-            title: intl.formatMessage(
-              { id: ETranslations.perp_twap_min_order_notional__msg },
-              { amount: TWAP_MIN_ORDER_NOTIONAL },
+            title: minimumOrderAction
+              ? intl.formatMessage(
+                  { id: ETranslations.perp_size_least },
+                  { amount: minimumOrderAction.amountLabel },
+                )
+              : intl.formatMessage(
+                  { id: ETranslations.perp_twap_min_order_notional__msg },
+                  {
+                    amount: formatTwapMinimumOrderNotional({
+                      price: latestTwapTriggerReferencePriceBN,
+                      szDecimals: latestSzDecimals,
+                    }),
+                  },
+                ),
+            ...getMinimumOrderToastActionProps(
+              minimumOrderAction,
+              intl.formatMessage({
+                id: ETranslations.fill_minimum_amount__action,
+              }),
             ),
           });
+          onRequestSizeInputFocus?.();
           return 'invalidTwapConfig' as const;
         }
       }

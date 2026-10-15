@@ -11,7 +11,10 @@ import {
   useTradingFormAtom,
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsActiveAccountAtom,
+  usePerpsTradingPreferencesAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   SCALE_ORDER_MAX_COUNT,
@@ -28,6 +31,7 @@ import {
   TWAP_MAX_DURATION_MINUTES,
   TWAP_MIN_DURATION_MINUTES,
   TWAP_MIN_ORDER_NOTIONAL,
+  formatTwapMinimumOrderNotional,
   formatTwapPriceForOrder,
   getTwapTriggerAbove,
   isTwapStopPriceValid,
@@ -40,6 +44,7 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import { getPerpsMinimumOrderSuggestion } from '../components/TradingPanel/inputs/sizeInputConversion';
 import {
   type IPerpsMarketDataFreshness,
   shouldBlockPerpsTradingForMarketData,
@@ -47,6 +52,7 @@ import {
 import { resolveTpSlTriggerPx } from '../utils/resolveTpSlTriggerPx';
 import { getScaleOrderValidationErrorMessage } from '../utils/scaleOrderValidation';
 
+import { useActiveTradeDisplay } from './useActiveTradeDisplay';
 import { useOrderPrice } from './useOrderPrice';
 import { usePerpsMarketDataFreshness } from './usePerpsMarketDataFreshness';
 import { useTradingCalculationsForSide } from './useTradingCalculationsForSide';
@@ -71,6 +77,8 @@ function useOrderConfirmWithMarketDataFreshness({
 }): IUseOrderConfirmReturn {
   const intl = useIntl();
   const [formData] = useTradingFormAtom();
+  const [tradingPreferences] = usePerpsTradingPreferencesAtom();
+  const { baseName } = useActiveTradeDisplay();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
   const [activePositionsValue] = usePerpsActivePositionAtom();
@@ -429,12 +437,32 @@ function useOrderConfirmWithMarketDataFreshness({
             szDecimals,
           })
         ) {
+          const rawInputMode = tradingPreferences.sizeInputUnit ?? 'usd';
+          const minimumOrderSuggestion = getPerpsMinimumOrderSuggestion({
+            price: twapReferencePriceBN,
+            szDecimals,
+            minimumNotional: TWAP_MIN_ORDER_NOTIONAL,
+            inputMode:
+              isSpotOrder && rawInputMode === 'margin' ? 'usd' : rawInputMode,
+            leverage: isSpotOrder ? 1 : (formDataSnapshot.leverage ?? 1),
+            symbol: baseName,
+          });
           Toast.error({
             title: intl.formatMessage({ id: ETranslations.global_failed }),
-            message: intl.formatMessage(
-              { id: ETranslations.perp_twap_min_order_notional__msg },
-              { amount: TWAP_MIN_ORDER_NOTIONAL },
-            ),
+            message: minimumOrderSuggestion
+              ? intl.formatMessage(
+                  { id: ETranslations.perp_size_least },
+                  { amount: minimumOrderSuggestion.label },
+                )
+              : intl.formatMessage(
+                  { id: ETranslations.perp_twap_min_order_notional__msg },
+                  {
+                    amount: formatTwapMinimumOrderNotional({
+                      price: twapReferencePriceBN,
+                      szDecimals,
+                    }),
+                  },
+                ),
           });
           return;
         }
@@ -593,6 +621,8 @@ function useOrderConfirmWithMarketDataFreshness({
       activePositionsValue,
       currentUser?.accountAddress,
       formData,
+      tradingPreferences.sizeInputUnit,
+      baseName,
       hyperliquidActions,
       options,
       longCalculations.computedSizeForSide,

@@ -1,6 +1,9 @@
+import BigNumber from 'bignumber.js';
+
 import {
   buildActiveTwapRuntimeInfoByKey,
   formatTwapEstimatedSliceSize,
+  formatTwapMinimumOrderNotional,
   formatTwapPriceForDisplay,
   formatTwapPriceForOrder,
   getActiveTwapRuntimeStatus,
@@ -14,6 +17,41 @@ import {
 } from './hyperliquidTwapUtils';
 
 describe('hyperliquidTwapUtils', () => {
+  it.each([
+    ['79.905', 2, '100.69'],
+    ['1843.5', 4, '100.11'],
+    ['80000', 5, '100.00'],
+  ])(
+    'suggests an amount that remains valid after size truncation at price %s',
+    (price, szDecimals, expectedAmount) => {
+      const amount = formatTwapMinimumOrderNotional({ price, szDecimals });
+      expect(amount).toBe(expectedAmount);
+      expect(
+        isTwapTotalNotionalValid({
+          size: new BigNumber(amount).dividedBy(price),
+          price,
+          szDecimals,
+        }),
+      ).toBe(true);
+      expect(
+        isTwapTotalNotionalValid({
+          size: new BigNumber(amount).minus('0.01').dividedBy(price),
+          price,
+          szDecimals,
+        }),
+      ).toBe(false);
+    },
+  );
+
+  it.each(['0', '-1', 'NaN', 'Infinity'])(
+    'keeps the base minimum in the error message for unavailable price %s',
+    (price) => {
+      expect(formatTwapMinimumOrderNotional({ price, szDecimals: 2 })).toBe(
+        '100',
+      );
+    },
+  );
+
   const estimate = {
     size: '1',
     midPrice: '10000',
