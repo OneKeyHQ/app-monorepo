@@ -36,7 +36,25 @@ const getJSReadyTimeAt = (): number => globalThis.$$onekeyJsReadyAt || 0;
 const getUIVisibleTimeAt = (): number => globalThis.$$onekeyUIVisibleAt || 0;
 
 const LaunchOptionsManager: ILaunchOptionsManagerInterface = {
-  reportStartupTiming: (_stage, report) => report(),
+  reportStartupTiming: (stage, report) => {
+    let claimed = false;
+    try {
+      claimed = globalThis.desktopApi.claimStartupTiming(stage);
+      if (!claimed) {
+        return;
+      }
+      report();
+    } catch (error) {
+      if (claimed) {
+        try {
+          globalThis.desktopApi.releaseStartupTiming(stage);
+        } catch (releaseError) {
+          console.error('Startup timing release failed', stage, releaseError);
+        }
+      }
+      console.error('Startup timing enqueue failed', stage, error);
+    }
+  },
   getLaunchOptions: () => Promise.resolve(null),
   clearLaunchOptions: () => Promise.resolve(true),
   getDeviceToken: () => Promise.resolve(null),
