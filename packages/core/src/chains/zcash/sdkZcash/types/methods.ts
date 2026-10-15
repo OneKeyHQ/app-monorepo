@@ -36,6 +36,7 @@ export const ZCASH_SDK_METHODS = [
   'buildTransparentTxWithAccountXprv',
   'createTransparentHardwarePczt',
   'finalizeTransparentHardwarePczt',
+  'redactPcztForHardwareSigner',
 
   // wallet side (watch-only)
   'prepareWalletAccounts',

@@ -111,9 +111,12 @@ export class KeyringHd extends KeyringHdBtc {
       try {
         const review = getZcashPcztReviewRequest(encodedTx, meta.ufvk);
         if (await isZcashHardwarePreviewEnabled(this.backgroundApi)) {
+          const api = await zcashVault.zcashGetApi();
           printZcashShieldedHardwarePreview({
             keys: meta,
-            unprovedPcztHex: pcztHex,
+            unprovedPcztHex: (
+              await api.redactPcztForHardwareSigner({ pcztHex })
+            ).pcztHex,
             review,
           });
           throw new OneKeyLocalError(ZCASH_HW_PREVIEW_STOP_MESSAGE);
@@ -251,7 +254,12 @@ export class KeyringHd extends KeyringHdBtc {
       accountXpub: xpub,
       seedFingerprintHex: keys.seedFingerprintHex,
     });
-    printZcashTransparentHardwarePreview({ keys, request, pcztHex });
+    const device = await api.redactPcztForHardwareSigner({ pcztHex });
+    printZcashTransparentHardwarePreview({
+      keys,
+      request,
+      pcztHex: device.pcztHex,
+    });
   }
 
   // Signs a proved PCZT hex with the USK re-derived from the seed.
