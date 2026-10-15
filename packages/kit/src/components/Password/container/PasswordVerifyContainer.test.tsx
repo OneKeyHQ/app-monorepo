@@ -197,7 +197,7 @@ describe('Windows Hello interrupted challenge handling', () => {
     },
   );
 
-  it.each(['native_failure', BIOLOGY_AUTH_CANCEL_ERROR])(
+  it.each(['BiologyAuthFailed', BIOLOGY_AUTH_CANCEL_ERROR])(
     'preserves the existing attempt protection for %s',
     async (name) => {
       jest

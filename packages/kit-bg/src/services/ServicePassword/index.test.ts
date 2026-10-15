@@ -151,7 +151,7 @@ describe('ServicePassword', () => {
       ) as ServicePassword;
       jest
         .spyOn(passwordBiologyAuthInfoAtom, 'get')
-        .mockResolvedValue({ authType: [], isSupport: true });
+        .mockResolvedValue(Promise.resolve({ authType: [], isSupport: true }));
       jest.spyOn(biologyAuthUtils, 'biologyAuthenticate').mockResolvedValue({
         success: false,
         error: BIOLOGY_AUTH_ABORTED_ERROR,
@@ -161,6 +161,39 @@ describe('ServicePassword', () => {
       await expect(service.getBiologyAuthPassword()).rejects.toMatchObject({
         name: BIOLOGY_AUTH_ABORTED_ERROR,
         message: '',
+        cause: biologyAuthNativeError,
+      });
+      expect(getPassword).not.toHaveBeenCalled();
+    } finally {
+      Object.assign(platformEnv, originalPlatform);
+    }
+  });
+
+  it('marks a real Windows verification failure for attempt protection', async () => {
+    const originalPlatform = {
+      isDesktopWin: platformEnv.isDesktopWin,
+      isDesktopMac: platformEnv.isDesktopMac,
+      isNativeIOS: platformEnv.isNativeIOS,
+    };
+    Object.assign(platformEnv, {
+      isDesktopWin: true,
+      isDesktopMac: false,
+      isNativeIOS: false,
+    });
+    try {
+      const service = Object.create(
+        ServicePassword.prototype,
+      ) as ServicePassword;
+      jest
+        .spyOn(passwordBiologyAuthInfoAtom, 'get')
+        .mockResolvedValue(Promise.resolve({ authType: [], isSupport: true }));
+      jest.spyOn(biologyAuthUtils, 'biologyAuthenticate').mockResolvedValue({
+        success: false,
+        error: 'unknown',
+      });
+      const getPassword = jest.spyOn(biologyAuthUtils, 'getPassword');
+      await expect(service.getBiologyAuthPassword()).rejects.toMatchObject({
+        name: 'BiologyAuthFailed',
         cause: biologyAuthNativeError,
       });
       expect(getPassword).not.toHaveBeenCalled();
