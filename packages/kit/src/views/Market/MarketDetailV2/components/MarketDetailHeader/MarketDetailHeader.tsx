@@ -187,8 +187,14 @@ export function MarketDetailHeader({
         gap="$2"
         flexShrink={1}
         minWidth={0}
-        width={nativeHeaderTitleMaxWidth}
-        maxWidth={nativeHeaderTitleMaxWidth}
+        // Android's custom row must fill the space between the back and action
+        // buttons instead of distributing it around an iOS-sized title.
+        {...(platformEnv.isNativeAndroid
+          ? { flex: 1 }
+          : {
+              width: nativeHeaderTitleMaxWidth,
+              maxWidth: nativeHeaderTitleMaxWidth,
+            })}
       >
         <Token
           size={platformEnv.isNativeIOS26Plus ? 'sm' : 'md'}
