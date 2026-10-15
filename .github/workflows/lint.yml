@@ -103,44 +103,6 @@ jobs:
         run: |
           mkdir -p ci-ai
           set +e
-          (
-            sample_cgroup() {
-              local scope="$1" directory="$2" file
-              for file in memory.current memory.max memory.peak memory.events memory.events.local; do
-                printf 'cgroup %s %s:\n' "$scope" "$file"
-                if [[ -r "$directory/$file" ]]; then
-                  cat "$directory/$file"
-                else
-                  printf 'unavailable\n'
-                fi
-              done
-            }
-            while true; do
-              {
-                printf 'UTC: %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-                if [[ -r /proc/meminfo ]]; then
-                  awk '/^(MemAvailable|SwapFree):/ { sub(/:/, "", $1); printf "%s=%s kB\n", $1, $2 }' /proc/meminfo
-                else
-                  printf 'MemAvailable/SwapFree: unavailable\n'
-                fi
-                if [[ -r /proc/pressure/memory ]]; then
-                  printf 'memory pressure:\n'
-                  cat /proc/pressure/memory
-                else
-                  printf 'memory pressure: unavailable\n'
-                fi
-                cgroup_relative=$(awk -F: '$1 == "0" { print $3; exit }' /proc/self/cgroup 2>/dev/null)
-                sample_cgroup current "/sys/fs/cgroup${cgroup_relative}"
-                sample_cgroup root /sys/fs/cgroup
-                printf 'process count: %s\n' "$(ps -e -o pid= | wc -l)"
-                printf 'top RSS (PID PPID COMM RSS_KB):\n'
-                ps -e -o pid=,ppid=,comm=,rss= | sort -k4,4nr | awk 'NR <= 10'
-              } 2>&1 | tee -a ci-ai/lint-resources.log
-              sleep 15
-            done
-          ) &
-          monitor_pid=$!
-          trap 'kill "$monitor_pid" 2>/dev/null || true; wait "$monitor_pid" 2>/dev/null || true' EXIT
           yarn lint 2>&1 | tee ci-ai/lint-output.log
           status=${PIPESTATUS[0]}
           set -e
@@ -169,7 +131,6 @@ jobs:
           path: |
             ci-ai/lint-ai-prompt.md
             ci-ai/lint-output.log
-            ci-ai/lint-resources.log
           if-no-files-found: warn
           retention-days: 14
 
