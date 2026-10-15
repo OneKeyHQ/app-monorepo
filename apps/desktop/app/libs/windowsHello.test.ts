@@ -242,7 +242,7 @@ describe('Windows Hello owner and foreground dispatch', () => {
     const pending = service.requestVerificationAsync('Unlock');
     reply(false, 'HRESULT 0x80004005');
     await expect(pending).resolves.toEqual({ success: false, error: '' });
-    expect(Logger.info).toHaveBeenCalledWith(
+    expect(jest.mocked(Logger).info).toHaveBeenCalledWith(
       'Windows Hello verification failed',
       'HRESULT 0x80004005',
     );
@@ -378,7 +378,7 @@ describe('Windows Hello utility results', () => {
       result: { success: false, error: '' },
     });
     expect(requestVerification).toHaveBeenCalledTimes(1);
-    expect(Logger.info).toHaveBeenCalledWith(
+    expect(jest.mocked(Logger).info).toHaveBeenCalledWith(
       'Windows Hello verification failed',
       expect.objectContaining({ message: 'HRESULT error' }),
     );
