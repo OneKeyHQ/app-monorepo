@@ -123,6 +123,7 @@ import {
 } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/marketPresetSettings';
 import { useMarketPresetSettings } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
 import { ESwapDirection } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
+import { resolveMarketStockId } from '../../../Market/MarketDetailV2/utils/resolveIsStockToken';
 import TransactionLossNetworkFeeExceedDialog from '../../components/TransactionLossNetworkFeeExceedDialog';
 import { registerMarketSwapApprovalFlow } from '../../hooks/swapNavigationUtils';
 import { useMarketPresetSwapOverridesEffect } from '../../hooks/useMarketPresetSwapOverridesEffect';
@@ -130,6 +131,7 @@ import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapInit } from '../../hooks/useSwapGlobal';
 import { useSwapLimitOrdersVisibilityRefresh } from '../../hooks/useSwapLimitOrdersVisibilityRefresh';
+import { useSwapMarketDetailToken } from '../../hooks/useSwapMarketDetailToken';
 import { useSwapModalAutoCloseOnBroadcast } from '../../hooks/useSwapModalAutoCloseOnBroadcast';
 import {
   useSwapPositionsSupportTokenListAction,
@@ -696,28 +698,32 @@ const SwapMainLoad = ({
     [navigation, storeName],
   );
 
-  const onProMarketDetail = useCallback(() => {
-    dismissKeyboard();
-    // Clear token detail before navigation to avoid stale data
-    tokenDetailActions.current.clearTokenDetail();
-    navigation.pushModal(EModalRoutes.SwapModal, {
-      screen: EModalSwapRoutes.SwapProMarketDetail,
-      params: {
-        tokenAddress: swapProSelectToken?.contractAddress ?? '',
-        network: swapProSelectToken?.networkId ?? '',
-        isNative: swapProSelectToken?.isNative,
-        from: EEnterWay.SwapPro,
-        disableTrade: true,
-        showFavoriteButton: false,
-      },
-    });
-  }, [
-    navigation,
-    tokenDetailActions,
-    swapProSelectToken?.contractAddress,
-    swapProSelectToken?.networkId,
-    swapProSelectToken?.isNative,
-  ]);
+  const openProMarketDetail = useCallback(
+    (resolvedToken: ISwapToken) => {
+      dismissKeyboard();
+      // Clear token detail before navigation to avoid stale data
+      tokenDetailActions.current.clearTokenDetail();
+      navigation.pushModal(EModalRoutes.SwapModal, {
+        screen: EModalSwapRoutes.SwapProMarketDetail,
+        params: {
+          tokenAddress: resolvedToken.contractAddress,
+          network: resolvedToken.networkId,
+          isNative: resolvedToken.isNative,
+          ...(resolvedToken.isStock
+            ? { stockId: resolveMarketStockId(resolvedToken) }
+            : undefined),
+          from: EEnterWay.SwapPro,
+          disableTrade: true,
+          showFavoriteButton: false,
+        },
+      });
+    },
+    [navigation, tokenDetailActions],
+  );
+  const { onOpenMarketDetail: onProMarketDetail } = useSwapMarketDetailToken({
+    token: swapProSelectToken,
+    onOpen: openProMarketDetail,
+  });
 
   const onSelectRecentTokenPairs = useCallback(
     ({
@@ -1873,26 +1879,31 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
     (pageType === EPageType.modal
       ? EJotaiContextStoreNames.swapModal
       : EJotaiContextStoreNames.swap);
-  const shouldSeedMarketEmbeddedPair = Boolean(
-    singleSwapBridgeHeader &&
+  const shouldSeedMarketPair = Boolean(
+    (singleSwapBridgeHeader || pageType === EPageType.modal) &&
     swapInitParams?.swapSource === ESwapSource.MARKET &&
-    swapInitParams.importFromToken &&
-    swapInitParams.importToToken,
+    (swapInitParams.importFromToken || swapInitParams.importToToken),
   );
+  const preserveMarketModalAmounts =
+    shouldSeedMarketPair && pageType === EPageType.modal;
   const initialSelectedTokensOnInit =
     (swapInitParams?.swapSource === ESwapSource.WALLET_HOME_TOKEN_LIST &&
       Boolean(swapInitParams?.importNetworkId)) ||
-    shouldSeedMarketEmbeddedPair
+    shouldSeedMarketPair
       ? {
           accountKey: swapInitParams?.importAccountKey,
           fromToken: swapInitParams?.importFromToken,
           toToken: swapInitParams?.importToToken,
-          inputAmountDraft: shouldSeedMarketEmbeddedPair
-            ? (initialInputAmountDraft ?? {
-                fromTokenAmount: { value: '', isInput: false },
-                toTokenAmount: { value: '', isInput: false },
-              })
+          inputAmountDraft: shouldSeedMarketPair
+            ? (initialInputAmountDraft ??
+              (preserveMarketModalAmounts
+                ? undefined
+                : {
+                    fromTokenAmount: { value: '', isInput: false },
+                    toTokenAmount: { value: '', isInput: false },
+                  }))
             : undefined,
+          preserveInputAmounts: preserveMarketModalAmounts,
           swapType:
             swapInitParams?.swapTabSwitchType ?? ESwapTabSwitchType.SWAP,
         }

@@ -3,13 +3,10 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 /**
- * The finishes the Pro 2 ships in — the only OneKey model that comes in
- * more than one color the app tells apart. The names are the suffixes of
- * the per-color avatar art (Pro2Silver) and the keys of the per-color
- * replica shells.
+ * The Pro 2 finishes, named by the avatar suffixes and replica shell keys.
  */
 export type IPro2DeviceColor = 'Black' | 'Silver' | 'Orange';
-export type IHardwareDeviceColor = IPro2DeviceColor;
+export type IHardwareDeviceColor = IPro2DeviceColor | 'Transparent';
 
 /**
  * A Pro 2 serial number ends in its color letter (hardware team,
@@ -42,6 +39,15 @@ export function getHardwareDeviceColor({
   deviceType: IDeviceType | string | null | undefined;
   serialNo: string | undefined;
 }): IHardwareDeviceColor | undefined {
+  if (
+    (deviceType === EDeviceType.Classic1s ||
+      deviceType === EDeviceType.ClassicPure) &&
+    serialNo?.length === 11 &&
+    serialNo.startsWith(deviceType === EDeviceType.Classic1s ? 'CL' : 'CP') &&
+    serialNo.endsWith('C')
+  ) {
+    return 'Transparent';
+  }
   if (deviceType === EDeviceType.Pro2) {
     return getPro2DeviceColor(serialNo);
   }

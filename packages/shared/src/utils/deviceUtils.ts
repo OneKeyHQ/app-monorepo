@@ -183,7 +183,7 @@ function isSamePhysicalDevice(
   );
 }
 
-/** The finish the serial number names — the Pro 2 only. */
+/** The finish the serial number names. */
 function getDeviceColorFromFeatures({
   deviceType,
   features,

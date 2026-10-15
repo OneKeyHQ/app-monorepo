@@ -44,6 +44,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AccountSelectorMirrorInspectorTestIDs } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorMirrorInspectorTestIDs';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useIdentityExitFlow } from '@onekeyhq/kit/src/components/OneKeyAuth/useIdentityExitFlow';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -671,6 +672,7 @@ const BaseDevSettingsSection = () => {
   const navigation = useAppNavigation();
   const { copyText } = useClipboard();
   const { loginOneKeyIdWithLegacyEmail } = useOneKeyAuth();
+  const { run: runIdentityExit } = useIdentityExitFlow();
   const localTradingViewUrlSubtitle = platformEnv.isNativeAndroid
     ? 'http://10.0.2.2:5173/'
     : 'http://localhost:5173/';
@@ -751,7 +753,17 @@ const BaseDevSettingsSection = () => {
   const handleDevModeOnChange = useCallback(() => {
     Dialog.show({
       title: '关闭开发者模式',
-      onConfirm: async () => {
+      onConfirm: async ({ close }) => {
+        await close();
+        if (devSettings.enabled && devSettings.settings?.enableTestEndpoint) {
+          const result = await runIdentityExit(
+            { type: 'switchEnvironment', scene: 'devSettings' },
+            { confirmButtonTestID: 'dev-settings-environment-logout-confirm' },
+          );
+          if (result.status !== 'completed') {
+            return;
+          }
+        }
         try {
           await backgroundApiProxy.serviceDevSetting.switchDevMode(false);
           if (devSettings.enabled && devSettings.settings?.enableTestEndpoint) {
@@ -772,7 +784,11 @@ const BaseDevSettingsSection = () => {
         }
       },
     });
-  }, [devSettings.enabled, devSettings.settings?.enableTestEndpoint]);
+  }, [
+    devSettings.enabled,
+    devSettings.settings?.enableTestEndpoint,
+    runIdentityExit,
+  ]);
 
   const handleOpenDevTools = useCallback(() => {
     showDevOnlyPasswordDialog({
@@ -1243,6 +1259,7 @@ const BaseDevSettingsSection = () => {
                       <SectionFieldItem
                         icon="ServerOutline"
                         name="enableTestEndpoint"
+                        testID="dev-settings-api-environment"
                         title="启用 OneKey 测试网络节点"
                         subtitle={
                           devSettings.settings?.enableTestEndpoint
@@ -1250,7 +1267,10 @@ const BaseDevSettingsSection = () => {
                             : ONEKEY_API_HOST
                         }
                       >
-                        <Switch size={ESwitchSize.small} />
+                        <Switch
+                          size={ESwitchSize.small}
+                          testID="dev-settings-api-environment-switch"
+                        />
                       </SectionFieldItem>
                       <SectionFieldItem
                         icon="CurrencyDollarOutline"

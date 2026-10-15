@@ -116,6 +116,23 @@ export function evaluateIdentityExitPolicy({
     // TODO: i18n
     'The OneKey ID and local Keyless session identities do not match.';
 
+  if (intent.type === 'switchEnvironment') {
+    return {
+      status: 'ready',
+      presentation: { type: 'switchEnvironment' },
+      confirmation: { type: 'keylessRemovalAcknowledgement' },
+      target: {
+        logoutOneKeyId: hasOneKeyId,
+        removeKeyless: Boolean(keyless),
+        clearKeylessSession:
+          Boolean(keyless) &&
+          (!hasOneKeyId || isLinked) &&
+          linkage !== 'unknown' &&
+          !isKeylessSessionIdentityUnknown,
+      },
+    };
+  }
+
   if (intent.type === 'recoverMalformedKeyless') {
     return blocked(
       'INTENT_NOT_APPLICABLE',

@@ -79,6 +79,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 }));
 
 const {
+  MarketDirectFeeOverflowError,
   buildMarketPresetFeeEstimateFakeTransferInfo,
   estimateMarketPresetGasFeeFiatValues,
   estimateMarketApproveGasInfos,
@@ -233,6 +234,85 @@ describe('marketDirectSendTx', () => {
     mockGetCustomRpcForNetwork.mockResolvedValue(undefined);
   });
 
+  it('uses the current nonce when building an approval after an earlier transaction', async () => {
+    const approveInfo = {
+      owner: '0xuser',
+      spender: '0xspender',
+      amount: '10',
+      isMax: false,
+      tokenInfo: {
+        address: '0xtoken',
+        decimals: 18,
+        symbol: 'DUST',
+        name: 'Dust',
+        isNative: false,
+      },
+    };
+    const unsignedTx = createUnsignedTx({ nonce: 12 });
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+    await sendMarketDirectUnsignedTxs({
+      accountId: 'account',
+      accountAddress: '0xuser',
+      networkId: 'evm--1',
+      buildUnsignedParams: {
+        accountId: 'account',
+        networkId: 'evm--1',
+        approveInfo,
+      },
+    });
+    expect(mockPrepareSendConfirmUnsignedTx).toHaveBeenCalledWith({
+      accountId: 'account',
+      networkId: 'evm--1',
+      approveInfo,
+      isInternalSwap: true,
+    });
+    expect(mockSignAndSendTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        unsignedTx: expect.objectContaining({ nonce: 12 }),
+      }),
+    );
+  });
+
+  it('estimates the approved swap instead of reusing its pre-approval provider gas limit', async () => {
+    const unsignedTx = createSponsoredUnsignedTx();
+    if (unsignedTx.swapInfo) {
+      unsignedTx.swapInfo.swapBuildResData.result.gasAccountEnabled = false;
+      unsignedTx.swapInfo.swapBuildResData.result.gasLimit = 243_000;
+    }
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+    const estimated = createEstimateFeeResult();
+    estimated.gas[1].gasLimit = '385198';
+    mockEstimateFee.mockResolvedValue(estimated);
+    await sendMarketDirectUnsignedTxs({
+      accountId: 'account',
+      accountAddress: '0xuser',
+      networkId: 'evm--4663',
+      buildUnsignedParams: {
+        accountId: 'account',
+        networkId: 'evm--4663',
+        unsignedTx,
+      },
+    });
+    expect(mockBatchEstimateFee).not.toHaveBeenCalled();
+    expect(mockEstimateFee).toHaveBeenCalledTimes(1);
+    expect(mockUpdateUnsignedTx).toHaveBeenCalledWith(
+      expect.objectContaining({
+        feeInfo: expect.objectContaining({
+          gas: expect.objectContaining({ gasLimit: '385198' }),
+        }),
+      }),
+    );
+    expect(mockSignAndSendTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stageFeeInfo: expect.objectContaining({
+          feeInfo: expect.objectContaining({
+            gas: expect.objectContaining({ gasLimit: '385198' }),
+          }),
+        }),
+      }),
+    );
+  });
+
   it('builds market preset fake transfer info as an isolated self-transfer', () => {
     const transferInfo = buildMarketPresetFeeEstimateFakeTransferInfo({
       accountAddress: '0xuser',
@@ -361,6 +441,140 @@ describe('marketDirectSendTx', () => {
     expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
     expect(mockSaveSendConfirmHistoryTxs).toHaveBeenCalledTimes(1);
     expect(mockBatchEstimateFee).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { checked: true, isFeeInfoOverflow: true },
+    { checked: false, skipReason: 'fee unavailable' },
+  ])(
+    'rejects unconfirmed fee verification before signing: %j',
+    async (feeResult) => {
+      const unsignedTx = createUnsignedTx();
+      mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+      mockVerifyTransaction.mockResolvedValue({
+        txFeeInfoVerifyResult: feeResult,
+      });
+      const onBeforeSignAndSend = jest.fn();
+      await expect(
+        sendMarketDirectUnsignedTxs({
+          accountAddress: '0xuser',
+          accountId: 'account-1',
+          networkId: 'evm--1',
+          buildUnsignedParams: {
+            accountId: 'account-1',
+            networkId: 'evm--1',
+            encodedTx: unsignedTx.encodedTx,
+          },
+          rejectFeeInfoOverflow: true,
+          onBeforeSignAndSend,
+        }),
+      ).rejects.toBeInstanceOf(MarketDirectFeeOverflowError);
+      expect(mockVerifyTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skipVerifyError: true,
+          verifyTxFeeInfoParams: expect.objectContaining({
+            doubleConfirm: false,
+          }),
+        }),
+      );
+      expect(onBeforeSignAndSend).not.toHaveBeenCalled();
+      expect(mockSignAndSendTransaction).not.toHaveBeenCalled();
+    },
+  );
+
+  it('sends a batch item only after its fees pass without additional confirmation', async () => {
+    const unsignedTx = createUnsignedTx();
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+    mockVerifyTransaction.mockResolvedValue({
+      txFeeInfoVerifyResult: { checked: true, isFeeInfoOverflow: false },
+    });
+    await sendMarketDirectUnsignedTxs({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      buildUnsignedParams: {
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        encodedTx: unsignedTx.encodedTx,
+      },
+      rejectFeeInfoOverflow: true,
+    });
+    expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('awaits the next signing guard after persisting a broadcast approval', async () => {
+    const unsignedTx = createUnsignedTx();
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+    let confirmApproval!: () => void;
+    const approvalConfirmed = new Promise<void>((resolve) => {
+      confirmApproval = resolve;
+    });
+    let enterSwapGuard!: () => void;
+    const swapGuardEntered = new Promise<void>((resolve) => {
+      enterSwapGuard = resolve;
+    });
+    const onBeforeSignAndSend = jest
+      .fn<Promise<void>, []>()
+      .mockResolvedValueOnce(undefined)
+      .mockImplementationOnce(async () => {
+        enterSwapGuard();
+        await approvalConfirmed;
+      });
+    const onBroadcast = jest.fn();
+    const operation = sendMarketDirectUnsignedTxs({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      buildUnsignedParams: {
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        encodedTx: unsignedTx.encodedTx,
+      },
+      approveUnsignedTxArr: [
+        createUnsignedTx({ encodedTx: { data: '0xapprove' } as never }),
+      ],
+      onBeforeSignAndSend,
+      onBroadcast,
+    });
+    await swapGuardEntered;
+    expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
+    expect(onBroadcast).toHaveBeenCalledTimes(1);
+    expect(mockSaveSendConfirmHistoryTxs).toHaveBeenCalledTimes(1);
+    confirmApproval();
+    await expect(operation).resolves.toHaveLength(2);
+    expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(2);
+    expect(onBroadcast).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not sign the next transaction if its asynchronous guard rejects', async () => {
+    const unsignedTx = createUnsignedTx();
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+    const approvalFailure = new Error('Approval failed');
+    const onBeforeSignAndSend = jest
+      .fn<Promise<void>, []>()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(approvalFailure);
+    const onBroadcast = jest.fn();
+    await expect(
+      sendMarketDirectUnsignedTxs({
+        accountAddress: '0xuser',
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        buildUnsignedParams: {
+          accountId: 'account-1',
+          networkId: 'evm--1',
+          encodedTx: unsignedTx.encodedTx,
+        },
+        approveUnsignedTxArr: [
+          createUnsignedTx({ encodedTx: { data: '0xapprove' } as never }),
+        ],
+        onBeforeSignAndSend,
+        onBroadcast,
+      }),
+    ).rejects.toBe(approvalFailure);
+    expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
+    expect(onBroadcast).toHaveBeenCalledTimes(1);
+    expect(mockSaveSendConfirmHistoryTxs).toHaveBeenCalledTimes(1);
   });
 
   it('tracks Gas Account submission success without repeating the review decision', async () => {
@@ -724,6 +938,55 @@ describe('marketDirectSendTx', () => {
     expect(mockBatchEstimateFee).toHaveBeenCalledTimes(1);
     expect(mockEstimateFee).toHaveBeenCalledTimes(1);
     expect(result.gasFeeFiatValue).toBeDefined();
+  });
+
+  it('preserves non-EVM fee fields when deriving the final sequential swap gas', async () => {
+    const approveUnsignedTx = createUnsignedTx({
+      encodedTx: {
+        data: '0xtron-approve',
+      } as never,
+      nonce: 1,
+    });
+    const swapUnsignedTx = createUnsignedTx({
+      encodedTx: {
+        raw_data_hex: '0xtron-swap',
+      } as never,
+      nonce: 2,
+    });
+
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(swapUnsignedTx);
+    mockEstimateFee.mockResolvedValueOnce({
+      common: {
+        feeDecimals: 6,
+        feeSymbol: 'TRX',
+        nativeDecimals: 6,
+        nativeSymbol: 'TRX',
+      },
+      feeTron: [
+        {
+          requiredEnergy: '20',
+          requiredBandwidth: '200',
+        },
+      ],
+    });
+
+    const result = await estimateMarketDirectGasInfos({
+      accountAddress: 'TUser',
+      accountId: 'account-tron',
+      networkId: 'tron--0x2b6653dc',
+      buildUnsignedParams: {
+        accountId: 'account-tron',
+        networkId: 'tron--0x2b6653dc',
+        encodedTx: swapUnsignedTx.encodedTx,
+        isInternalSwap: true,
+      },
+      approveUnsignedTxArr: [approveUnsignedTx],
+    });
+
+    expect(result.gasInfos[1].gasInfo.feeTron).toEqual({
+      requiredEnergy: '20',
+      requiredBandwidth: '200',
+    });
   });
 
   it('builds gas infos from the selected fee level', async () => {
