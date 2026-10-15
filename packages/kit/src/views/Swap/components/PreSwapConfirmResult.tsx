@@ -11,6 +11,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { SUPPORT_URL } from '@onekeyhq/shared/src/config/appConfig';
@@ -73,6 +74,7 @@ const PreSwapConfirmResult = ({
 }: IPreSwapConfirmResultProps) => {
   const [explorerUrl, setExplorerUrl] = useState<string>('');
   const intl = useIntl();
+  const { md } = useMedia();
   useEffect(() => {
     const fetchExplorerUrl = async () => {
       if (!lastStep.txHash || !fromToken?.networkId) {
@@ -199,7 +201,7 @@ const PreSwapConfirmResult = ({
           flexBasis={0}
           variant="primary"
           onPress={onConfirm}
-          size="medium"
+          size={md ? 'large' : 'medium'}
         >
           {intl.formatMessage({
             id:
