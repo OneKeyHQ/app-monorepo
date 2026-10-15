@@ -28,7 +28,6 @@ import {
   showReferralShareDialog,
 } from '@onekeyhq/kit/src/views/ReferFriends/components/ReferralShare';
 import { useRedirectWhenNotLoggedIn } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useRedirectWhenNotLoggedIn';
-import { BenefitsTabPlaceholder } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/BenefitsTabPlaceholder';
 import { useInviteLevelDetail } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/CurrentLevelCard/hooks/useCurrentLevelCard';
 import { getInviteEarningsState } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/getInviteEarningsState';
 import { InviteLevelPill } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/components/InviteLevelPill';
@@ -69,6 +68,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { ReferFriendsLoadError } from '../../components';
 import { ReferFriendsTestIDs } from '../../testIDs';
+import { MyRewardsContent } from '../MyRewards';
 import { useNavigateToRewardHistory } from '../RewardDistributionHistory/hooks/useNavigateToRewardHistory';
 
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
@@ -424,7 +424,8 @@ function InviteRewardPage() {
     ]),
   );
 
-  useRedirectWhenNotLoggedIn();
+  // Perks only needs a wallet address, so it stays open without OneKey ID.
+  useRedirectWhenNotLoggedIn({ tab: activeTab, enabled: isInviteTab });
 
   const [isFirstLoading, setIsFirstLoading] = useState(true);
   const [isRetrying, setIsRetrying] = useState(false);
@@ -575,7 +576,7 @@ function InviteRewardPage() {
               />
             </YStack>
           ) : null}
-          {isInviteTab ? null : <BenefitsTabPlaceholder />}
+          {isInviteTab ? null : <MyRewardsContent />}
         </Page.Container>
       </ScrollView>
     );

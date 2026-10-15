@@ -46,6 +46,7 @@ export type IModalReferFriendsParamList = {
   [EModalReferFriendsRoutes.ReferAFriend]: {
     utmSource?: string;
     code?: string;
+    tab?: IReferralPageTab;
   };
   [EModalReferFriendsRoutes.InvitedByFriend]: {
     code: string;

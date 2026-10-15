@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import type { IButtonProps } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ActivityHubAction } from '@onekeyhq/kit/src/components/ActivityHub/ActivityHubAction';
-import { useShowEarnInviteeReward } from '@onekeyhq/kit/src/views/Earn/components/InviteeReward/hooks/useShowEarnInviteeReward';
+import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -17,10 +17,10 @@ function EarnActivityHubAction({
   const isTravelMode =
     travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
     'travel-mode';
-  const { showEarnInviteeReward } = useShowEarnInviteeReward();
+  const { toReferFriendsPage } = useReferFriends();
   const handleOpenInviteeReward = useCallback(() => {
-    showEarnInviteeReward();
-  }, [showEarnInviteeReward]);
+    void toReferFriendsPage({ tab: 'benefits' });
+  }, [toReferFriendsPage]);
 
   return (
     <ActivityHubAction

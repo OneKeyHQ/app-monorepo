@@ -1,4 +1,7 @@
-import type { IInviteRewardRouteParams } from './referFriends';
+import type {
+  IInviteRewardRouteParams,
+  IReferralPageTab,
+} from './referFriends';
 
 export enum ETabReferFriendsRoutes {
   TabReferAFriend = 'TabReferAFriend',
@@ -16,6 +19,7 @@ export type ITabReferFriendsParamList = {
   TabReferAFriend: {
     utmSource?: string;
     code?: string;
+    tab?: IReferralPageTab;
   };
   TabInviteReward: IInviteRewardRouteParams | undefined;
   TabYourReferred: undefined;

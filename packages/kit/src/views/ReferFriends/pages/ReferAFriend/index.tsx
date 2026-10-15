@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useRoute } from '@react-navigation/core';
@@ -16,6 +16,7 @@ import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationCo
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { LazyPageContainer } from '@onekeyhq/kit/src/components/LazyPageContainer';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
@@ -23,7 +24,16 @@ import {
   EModalReferFriendsRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import type { IReferralPageTab } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+
+import { ReferralJobTabs } from '../InviteReward/components/ReferralJobTabs';
+import {
+  EReferralPageTab,
+  IS_BENEFITS_TAB_ENABLED,
+  resolveReferralPageTab,
+} from '../InviteReward/referralPageTab';
+import { MyRewardsContent } from '../MyRewards';
 
 import { InviteCodeStepImage } from './components/InviteCodeStepImage';
 import { ReferAFriendHowToPhase } from './components/ReferAFriendHowToPhase';
@@ -116,15 +126,42 @@ function ReferAFriendPage({
 
 function ReferAFriendPageWrapper() {
   const intl = useIntl();
-  const route = useRoute();
+  const route = useRoute<{
+    key: string;
+    name: string;
+    params?: { tab?: IReferralPageTab };
+  }>();
+  const navigation = useAppNavigation();
   const { md } = useMedia();
   const { postConfig } = useReferAFriendData();
   const [phaseState, setPhaseState] = useState<EPhaseState>(EPhaseState.next);
+  const activeTab = resolveReferralPageTab(route.params?.tab);
+  const isInviteTab = activeTab === EReferralPageTab.invite;
+  const setActiveTab = useCallback(
+    (tab: IReferralPageTab) => {
+      navigation.setParams({ tab });
+    },
+    [navigation],
+  );
+  const renderHeaderTitle = useCallback(
+    () => (
+      <ReferralJobTabs
+        variant="header"
+        value={activeTab}
+        onChange={setActiveTab}
+      />
+    ),
+    [activeTab, setActiveTab],
+  );
 
   // Check if opened as Modal (window mode) by route name
   const isModalMode = route.name === EModalReferFriendsRoutes.ReferAFriend;
   // Modal (native) pins actions to the footer; tab pages keep them under the text.
   const showInlineActions = !isModalMode;
+  const isCompactHeader = platformEnv.isNative || isModalMode || md;
+  // Mobile web keeps the global header actions (Connect, search), so the
+  // tabs only move into the navigation bar on native and in modals.
+  const showTabsInHeader = platformEnv.isNative || isModalMode;
   const actions = (
     <ReferAFriendPhaseActions
       phaseState={phaseState}
@@ -137,11 +174,16 @@ function ReferAFriendPageWrapper() {
       scrollEnabled
       scrollProps={{ contentContainerStyle: { flexGrow: 1 } }}
     >
-      {platformEnv.isNative || isModalMode || md ? (
+      {isCompactHeader ? (
         <Page.Header
           title={intl.formatMessage({
             id: ETranslations.sidebar_refer_a_friend,
           })}
+          // Pass headerTitle only when used: an explicit undefined makes
+          // mobile web render the title over the global header actions.
+          {...(IS_BENEFITS_TAB_ENABLED && showTabsInHeader
+            ? { headerTitle: renderHeaderTitle }
+            : undefined)}
         />
       ) : (
         <TabPageHeader
@@ -151,18 +193,33 @@ function ReferAFriendPageWrapper() {
         />
       )}
       <Page.Body>
-        <Page.Container layout="compact" flex={1}>
-          {postConfig ? (
-            <ReferAFriendPage
-              postConfig={postConfig}
-              phaseState={phaseState}
-              actions={showInlineActions ? actions : undefined}
-            />
-          ) : null}
-        </Page.Container>
+        {IS_BENEFITS_TAB_ENABLED && !showTabsInHeader ? (
+          // Same container width as the logged-in page, so the tabs do not
+          // move when the user signs in.
+          <Page.Container padded={false}>
+            <XStack px="$pagePadding" pt="$5" pb="$4">
+              <ReferralJobTabs value={activeTab} onChange={setActiveTab} />
+            </XStack>
+          </Page.Container>
+        ) : null}
+        {isInviteTab ? (
+          <Page.Container layout="compact" flex={1}>
+            {postConfig ? (
+              <ReferAFriendPage
+                postConfig={postConfig}
+                phaseState={phaseState}
+                actions={showInlineActions ? actions : undefined}
+              />
+            ) : null}
+          </Page.Container>
+        ) : (
+          <Page.Container padded={false}>
+            <MyRewardsContent />
+          </Page.Container>
+        )}
       </Page.Body>
 
-      {postConfig && !showInlineActions ? (
+      {isInviteTab && postConfig && !showInlineActions ? (
         <Page.Footer>
           <Stack px="$4" py="$4" bg="$bgApp">
             {actions}

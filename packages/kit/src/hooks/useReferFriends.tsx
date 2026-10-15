@@ -31,7 +31,10 @@ import {
   ETabReferFriendsRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
-import type { IInviteRewardRouteParams } from '@onekeyhq/shared/src/routes';
+import type {
+  IInviteRewardRouteParams,
+  IReferralPageTab,
+} from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
 import {
@@ -130,6 +133,7 @@ export function useReplaceToReferFriends() {
     async (params?: {
       utmSource?: string;
       code?: string;
+      tab?: IReferralPageTab;
       /** Skip isLoggedIn check when caller already knows login state */
       isLoggedIn?: boolean;
     }) => {
@@ -238,46 +242,52 @@ export const useReferFriends = () => {
     [toHardwareSalesRewardPage],
   );
 
-  const toReferFriendsPage = useCallback(async () => {
-    const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
-    const isVisited = await backgroundApiProxy.serviceSpotlight.isVisited(
-      ESpotlightTour.referAFriend,
-    );
-
-    const shouldShowInviteReward = isLogin && isVisited;
-
-    if (shouldOpenReferralInExtensionExpandTab) {
-      await openExtensionReferralInExpandTab(
-        shouldShowInviteReward
-          ? '/refer-friends/invite-reward'
-          : '/refer-friends',
+  const toReferFriendsPage = useCallback(
+    async (params?: { tab?: IReferralPageTab }) => {
+      const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
+      const isVisited = await backgroundApiProxy.serviceSpotlight.isVisited(
+        ESpotlightTour.referAFriend,
       );
-      return;
-    }
 
-    if (shouldUseReferralModalNav) {
-      // Native: use Modal
-      navigation.pushModal(EModalRoutes.ReferFriendsModal, {
-        screen: shouldShowInviteReward
-          ? EModalReferFriendsRoutes.InviteReward
-          : EModalReferFriendsRoutes.ReferAFriend,
-      });
-    } else {
-      // Web / desktop: use Tab
-      navigation.switchTab(ETabRoutes.ReferFriends);
-      await timerUtils.wait(50);
-      rootNavigationRef.current?.reset({
-        index: 0,
-        routes: [
-          {
-            name: shouldShowInviteReward
-              ? ETabReferFriendsRoutes.TabInviteReward
-              : ETabReferFriendsRoutes.TabReferAFriend,
-          },
-        ],
-      });
-    }
-  }, [navigation]);
+      const shouldShowInviteReward = isLogin && isVisited;
+
+      if (shouldOpenReferralInExtensionExpandTab) {
+        await openExtensionReferralInExpandTab(
+          shouldShowInviteReward
+            ? '/refer-friends/invite-reward'
+            : '/refer-friends',
+          params,
+        );
+        return;
+      }
+
+      if (shouldUseReferralModalNav) {
+        // Native: use Modal
+        navigation.pushModal(EModalRoutes.ReferFriendsModal, {
+          screen: shouldShowInviteReward
+            ? EModalReferFriendsRoutes.InviteReward
+            : EModalReferFriendsRoutes.ReferAFriend,
+          params,
+        });
+      } else {
+        // Web / desktop: use Tab
+        navigation.switchTab(ETabRoutes.ReferFriends);
+        await timerUtils.wait(50);
+        rootNavigationRef.current?.reset({
+          index: 0,
+          routes: [
+            {
+              name: shouldShowInviteReward
+                ? ETabReferFriendsRoutes.TabInviteReward
+                : ETabReferFriendsRoutes.TabReferAFriend,
+              params,
+            },
+          ],
+        });
+      }
+    },
+    [navigation],
+  );
 
   const { copyText } = useClipboard();
 
