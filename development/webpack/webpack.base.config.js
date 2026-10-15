@@ -22,6 +22,13 @@ const CANVASKIT_WASM_TEST =
   /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
 const ZXING_READER_WASM_TEST =
   /zxing-wasm[\\/]dist[\\/]reader[\\/]zxing_reader\.wasm$/;
+// The client-scanning chain runtimes ship wasm-pack `-t web` output whose wasm
+// imports (`wbg`) are supplied by the JS glue at runtime, so they must NOT be
+// parsed as webpack wasm modules. Emit them as URL assets — same treatment as
+// canvaskit / kaspa.
+const ZCASH_WASM_TEST = /onekey_zcash_(runtime|keys)_bg\.wasm$/;
+const MONERO_WASM_TEST = /onekey_monero_runtime_bg\.wasm$/;
+const CHAIN_RUNTIME_WASM_TEST = [ZCASH_WASM_TEST, MONERO_WASM_TEST];
 
 class BuildDoneNotifyPlugin {
   apply(compiler) {
@@ -305,8 +312,17 @@ module.exports = ({ platform, basePath, configName }) => {
               },
             },
             {
+              test: CHAIN_RUNTIME_WASM_TEST,
+              type: 'asset/resource',
+              generator: { filename: 'static/chain-wasm/[name][ext]' },
+            },
+            {
               test: /\.wasm$/,
-              exclude: [CANVASKIT_WASM_TEST, ZXING_READER_WASM_TEST],
+              exclude: [
+                CANVASKIT_WASM_TEST,
+                ZXING_READER_WASM_TEST,
+                ...CHAIN_RUNTIME_WASM_TEST,
+              ],
               type: 'webassembly/async',
             },
             {

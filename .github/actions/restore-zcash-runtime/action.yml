@@ -1,0 +1,26 @@
+name: Restore pinned Zcash runtime
+description: Verify an already downloaded immutable artifact and restore portals before Yarn install
+inputs:
+  artifact-root:
+    description: Directory containing pkg, pkg-keys and zcash-wasm-manifest.json
+    required: true
+  manifest-sha256:
+    description: SHA-256 recorded in the reviewed consumer pin
+    required: true
+  source-revision:
+    description: Exact app-modules source commit recorded in the reviewed consumer pin
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Verify and restore all Zcash WASM packages
+      shell: bash
+      env:
+        ONEKEY_ZCASH_ARTIFACT_ROOT: ${{ inputs.artifact-root }}
+        ONEKEY_ZCASH_MANIFEST_SHA256: ${{ inputs.manifest-sha256 }}
+        ONEKEY_ZCASH_SOURCE_REVISION: ${{ inputs.source-revision }}
+      run: |
+        python3 "${{ github.action_path }}/../../../development/scripts/restore-zcash-runtime.py" \
+          --artifact-root "$ONEKEY_ZCASH_ARTIFACT_ROOT" \
+          --manifest-sha256 "$ONEKEY_ZCASH_MANIFEST_SHA256" \
+          --source-revision "$ONEKEY_ZCASH_SOURCE_REVISION"
