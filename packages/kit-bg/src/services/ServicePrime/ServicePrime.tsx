@@ -5670,6 +5670,7 @@ class ServicePrime extends ServiceBase {
     const result = await client.post<
       IApiClientResponse<{
         resendAt: number;
+        canResendAt?: number;
         uuid: string;
       }>
     >('/prime/v1/general/emailOTP', {

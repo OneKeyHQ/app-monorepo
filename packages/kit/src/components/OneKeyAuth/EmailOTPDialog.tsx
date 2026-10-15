@@ -25,10 +25,20 @@ import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transien
 import { getEmailOtpRequestErrorMessage } from './emailOtpErrorUtils';
 import { getEmailOtpRateLimitRetryAfterSeconds } from './emailOtpRateLimitError';
 
+type IEmailOtpSendResult = { canResendAt?: number } | void;
+
+function getResendCountdownSeconds(result: IEmailOtpSendResult): number {
+  const canResendAt = result?.canResendAt;
+  if (typeof canResendAt === 'number' && Number.isSafeInteger(canResendAt)) {
+    return Math.max(0, Math.ceil((canResendAt - Date.now()) / 1000));
+  }
+  return EMAIL_OTP_COUNTDOWN_SECONDS;
+}
+
 export function EmailOTPDialog(props: {
   title: string;
   description: string;
-  sendCode: () => Promise<unknown>;
+  sendCode: () => Promise<IEmailOtpSendResult>;
   onConfirm: (code: string) => void | Promise<void>;
   hideResendButton?: boolean;
 }) {
@@ -55,26 +65,33 @@ export function EmailOTPDialog(props: {
       return;
     }
     didRequestInitialCodeRef.current = true;
-    void sendCode().catch((error) => {
-      logOneKeyIdLoginFailureReason(
-        `Email verification code request failed: ${getSanitizedAuthErrorText(
+    void sendCode()
+      .then((result) => {
+        if (isMountedRef.current) {
+          setCountdown(getResendCountdownSeconds(result));
+        }
+      })
+      .catch((error) => {
+        logOneKeyIdLoginFailureReason(
+          `Email verification code request failed: ${getSanitizedAuthErrorText(
+            error,
+          )}`,
           error,
-        )}`,
-        error,
-        { trigger: 'interactive' },
-      );
-      if (isMountedRef.current) {
-        setCountdown(0);
-        const retryAfterSeconds = getEmailOtpRateLimitRetryAfterSeconds(error);
-        if (retryAfterSeconds !== undefined) {
-          setCountdown(retryAfterSeconds);
+          { trigger: 'interactive' },
+        );
+        if (isMountedRef.current) {
+          setCountdown(0);
+          const retryAfterSeconds =
+            getEmailOtpRateLimitRetryAfterSeconds(error);
+          if (retryAfterSeconds !== undefined) {
+            setCountdown(retryAfterSeconds);
+          }
+          const errorMessage = getEmailOtpRequestErrorMessage({ error, intl });
+          if (errorMessage) {
+            Toast.error({ title: errorMessage });
+          }
         }
-        const errorMessage = getEmailOtpRequestErrorMessage({ error, intl });
-        if (errorMessage) {
-          Toast.error({ title: errorMessage });
-        }
-      }
-    });
+      });
   }, [intl, isMountedRef, sendCode]);
 
   const sendEmailVerificationCode = useCallback(async () => {
@@ -86,11 +103,11 @@ export function EmailOTPDialog(props: {
     setState({ status: 'initial' });
     setVerificationCode('');
     try {
-      await sendCode();
+      const result = await sendCode();
       if (!isMountedRef.current) {
         return;
       }
-      setCountdown(EMAIL_OTP_COUNTDOWN_SECONDS);
+      setCountdown(getResendCountdownSeconds(result));
     } catch (error) {
       logOneKeyIdLoginFailureReason(
         `Email verification code resend failed: ${getSanitizedAuthErrorText(
