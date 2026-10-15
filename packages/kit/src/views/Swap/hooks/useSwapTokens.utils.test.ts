@@ -1,9 +1,11 @@
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import { ETokenRiskLevel } from '@onekeyhq/shared/types/swap/types';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
   buildServerAuthoritativeSearchResults,
   isSwapSupportAllAccountsRequestCurrent,
+  mergeSwapSearchTokenBalance,
   releaseSwapTokenListFetchEffectKey,
   shouldLoadSwapAllNetworkTokenList,
 } from './useSwapTokens.utils';
@@ -140,5 +142,35 @@ describe('shouldLoadSwapAllNetworkTokenList', () => {
         hasAllNetworkTokenList: false,
       }),
     ).toBe(false);
+  });
+});
+
+describe('mergeSwapSearchTokenBalance', () => {
+  const searchToken = {
+    networkId: 'evm--10',
+    contractAddress: '0x0b2c639c533813f4aa9d7837caf62653d097ff85',
+    symbol: 'USDC',
+    decimals: 6,
+    price: '1.0001',
+    riskLevel: ETokenRiskLevel.MALICIOUS,
+  } as ISwapToken;
+  const cachedToken = {
+    ...searchToken,
+    price: '0.99',
+    riskLevel: undefined,
+    balanceParsed: '0.975765',
+    fiatValue: '0.98',
+    accountAddress: '0xowner',
+    networkLogoURI: 'https://logo/op.png',
+  } as ISwapToken;
+
+  it('keeps fresh metadata and only takes account-owned fields from the cache', () => {
+    const merged = mergeSwapSearchTokenBalance(searchToken, cachedToken);
+    expect(merged.riskLevel).toBe(ETokenRiskLevel.MALICIOUS);
+    expect(merged.price).toBe('1.0001');
+    expect(merged.balanceParsed).toBe('0.975765');
+    expect(merged.fiatValue).toBe('0.98');
+    expect(merged.accountAddress).toBe('0xowner');
+    expect(merged.networkLogoURI).toBe('https://logo/op.png');
   });
 });

@@ -65,6 +65,7 @@ import { shouldUseSwapAddressForTokenFetch } from './useSwapAccount.utils';
 import {
   buildServerAuthoritativeSearchResults,
   isSwapSupportAllAccountsRequestCurrent,
+  mergeSwapSearchTokenBalance,
   releaseSwapTokenListFetchEffectKey,
   shouldLoadSwapAllNetworkTokenList,
 } from './useSwapTokens.utils';
@@ -462,10 +463,7 @@ export function useSwapTokenList(
                 walletToken?.networkId === token?.networkId,
             );
             if (balanceToken) {
-              return {
-                ...balanceToken,
-                subtitles: token.subtitles ?? balanceToken.subtitles,
-              };
+              return mergeSwapSearchTokenBalance(token, balanceToken);
             }
 
             return token;

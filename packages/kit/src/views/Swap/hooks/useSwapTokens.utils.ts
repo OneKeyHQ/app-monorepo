@@ -1,4 +1,5 @@
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 export function isSwapSupportAllAccountsRequestCurrent({
   isCancelled,
@@ -58,4 +59,22 @@ export function shouldLoadSwapAllNetworkTokenList({
     allNetworkTokenListReady &&
     (!keywords || !hasAllNetworkTokenList)
   );
+}
+
+// Search results carry fresh token metadata (price, riskLevel, security
+// flags); the cached wallet list only contributes account-owned fields, so a
+// newly flagged risky token is never masked by a stale cached copy.
+export function mergeSwapSearchTokenBalance(
+  searchToken: ISwapToken,
+  balanceToken: ISwapToken,
+): ISwapToken {
+  return {
+    ...searchToken,
+    balanceParsed: balanceToken.balanceParsed,
+    fiatValue: balanceToken.fiatValue,
+    accountAddress: balanceToken.accountAddress,
+    reservationValue: balanceToken.reservationValue,
+    networkLogoURI: searchToken.networkLogoURI ?? balanceToken.networkLogoURI,
+    subtitles: searchToken.subtitles ?? balanceToken.subtitles,
+  };
 }

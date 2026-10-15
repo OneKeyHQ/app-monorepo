@@ -489,6 +489,9 @@ describe('isTokenContractAddressKeywords', () => {
       'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // Solana
       'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t', // Tron
       'EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs', // TON
+      '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1', // NEAR implicit
+      'usdt.tether-token.near', // NEAR named
+      'a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.factory.bridge.near',
     ].forEach((address) => {
       expect(isTokenContractAddressKeywords(address)).toBe(true);
     });
