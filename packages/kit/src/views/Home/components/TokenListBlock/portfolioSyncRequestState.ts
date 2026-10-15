@@ -63,3 +63,17 @@ export function resolvePortfolioSyncRequestTransition({
     clearFallbackTimer: phase !== 'settled',
   };
 }
+
+// A stage exit speaks only for the request whose own stage hold it closes.
+// One that lands before the hold has opened belongs to whatever stood on
+// the stage when the tap came — the previous attempt's ✗ retiring under a
+// page it no longer blocks (OK-64696) — and must not end the new request.
+export function shouldPortfolioSyncStandDownOnStageOff({
+  request,
+  stageOpenedForRequestId,
+}: {
+  request: IPortfolioSyncRequest | undefined;
+  stageOpenedForRequestId: number | undefined;
+}): boolean {
+  return request !== undefined && request.id === stageOpenedForRequestId;
+}

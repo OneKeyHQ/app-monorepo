@@ -1,6 +1,7 @@
 import {
   buildPortfolioSyncTargetKey,
   resolvePortfolioSyncRequestTransition,
+  shouldPortfolioSyncStandDownOnStageOff,
 } from './portfolioSyncRequestState';
 
 import type { IPortfolioSyncRequest } from './portfolioSyncRequestState';
@@ -151,5 +152,42 @@ describe('resolvePortfolioSyncRequestTransition', () => {
     });
 
     expect(transition.nextRequest?.minimumAllNetworksGeneration).toBe(7);
+  });
+});
+
+describe('shouldPortfolioSyncStandDownOnStageOff', () => {
+  it('ends the request whose own stage hold the exit closes', () => {
+    expect(
+      shouldPortfolioSyncStandDownOnStageOff({
+        request: requestAt(2, 'communicating'),
+        stageOpenedForRequestId: 2,
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps a request whose hold has not opened yet (OK-64696)', () => {
+    // A Sync tapped as the previous attempt's ✗ retires under the live
+    // page: that ✗'s exit lands before the new hold opens.
+    expect(
+      shouldPortfolioSyncStandDownOnStageOff({
+        request: requestAt(2, 'communicating'),
+        stageOpenedForRequestId: 1,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPortfolioSyncStandDownOnStageOff({
+        request: requestAt(1, 'communicating'),
+        stageOpenedForRequestId: undefined,
+      }),
+    ).toBe(false);
+  });
+
+  it('has nothing to end without a request', () => {
+    expect(
+      shouldPortfolioSyncStandDownOnStageOff({
+        request: undefined,
+        stageOpenedForRequestId: 1,
+      }),
+    ).toBe(false);
   });
 });

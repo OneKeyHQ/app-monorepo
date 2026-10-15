@@ -4,6 +4,8 @@ import { EHardwareUiStateAction } from '../../types/hardwareUi';
 import {
   attachDeviceStageEscapeOwner,
   isDeviceStageAnsweredStep,
+  isDeviceStageCarryingFailures,
+  isDeviceStageNewAppearance,
   isDeviceStageOwnedHardwareUiAction,
   resolveDeviceStageBackPress,
   resolveDeviceStageExitGrant,
@@ -92,6 +94,57 @@ describe('shouldEmitDeviceNotFoundDialogEvent', () => {
     setDeviceStageBurstActive(true);
     setDeviceStageBurstActive(false);
     expect(shouldEmitDeviceNotFoundDialogEvent({})).toBe(true);
+  });
+});
+
+describe('isDeviceStageCarryingFailures', () => {
+  it('lets the stage land the failures of a flow it is in the middle of', () => {
+    expect(isDeviceStageCarryingFailures('connecting')).toBe(true);
+    expect(isDeviceStageCarryingFailures('pinOnApp')).toBe(true);
+    expect(isDeviceStageCarryingFailures('deviceNotFound')).toBe(true);
+  });
+
+  it('leaves failures to the legacy surfaces off stage and under a resting ✗ (OK-64696)', () => {
+    // The page under the notice is live; a failure from a call started
+    // there is not one the stage will land.
+    expect(isDeviceStageCarryingFailures(undefined)).toBe(false);
+    expect(isDeviceStageCarryingFailures('off')).toBe(false);
+    expect(isDeviceStageCarryingFailures('error')).toBe(false);
+  });
+});
+
+describe('isDeviceStageNewAppearance', () => {
+  it('counts the stage rising from off', () => {
+    expect(
+      isDeviceStageNewAppearance({ prevStep: 'off', step: 'connecting' }),
+    ).toBe(true);
+  });
+
+  it('counts a new run taking over an outcome in place (OK-64696)', () => {
+    // A retry under the live ✗ notice never passes through off; its
+    // settle must still start fresh, or a press carried in from the
+    // failed attempt closes the retry at once.
+    expect(
+      isDeviceStageNewAppearance({ prevStep: 'error', step: 'connecting' }),
+    ).toBe(true);
+    expect(
+      isDeviceStageNewAppearance({ prevStep: 'done', step: 'connecting' }),
+    ).toBe(true);
+  });
+
+  it('keeps one appearance through a run and from outcome to outcome', () => {
+    expect(
+      isDeviceStageNewAppearance({ prevStep: 'connecting', step: 'pinOnApp' }),
+    ).toBe(false);
+    expect(
+      isDeviceStageNewAppearance({ prevStep: 'connecting', step: 'error' }),
+    ).toBe(false);
+    expect(
+      isDeviceStageNewAppearance({ prevStep: 'error', step: 'error' }),
+    ).toBe(false);
+    expect(isDeviceStageNewAppearance({ prevStep: 'error', step: 'off' })).toBe(
+      false,
+    );
   });
 });
 

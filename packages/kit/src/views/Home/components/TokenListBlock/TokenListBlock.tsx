@@ -168,6 +168,7 @@ import { getOwnerWorth, rememberOwnerWorth } from './ownerWorthCache';
 import {
   buildPortfolioSyncTargetKey,
   resolvePortfolioSyncRequestTransition,
+  shouldPortfolioSyncStandDownOnStageOff,
 } from './portfolioSyncRequestState';
 import {
   countFundedHardwarePortfolioTokens,
@@ -479,6 +480,9 @@ function TokenListBlock({
   const portfolioSyncRequestRef = useRef<IPortfolioSyncRequest | undefined>(
     undefined,
   );
+  const portfolioSyncStageOpenedRequestIdRef = useRef<number | undefined>(
+    undefined,
+  );
   const portfolioSyncAllNetworksFallbackTimerRef = useRef<
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
@@ -601,7 +605,13 @@ function TokenListBlock({
   useEffect(() => {
     const handleDeviceStageOff = () => {
       const request = portfolioSyncRequestRef.current;
-      if (request) {
+      if (
+        request &&
+        shouldPortfolioSyncStandDownOnStageOff({
+          request,
+          stageOpenedForRequestId: portfolioSyncStageOpenedRequestIdRef.current,
+        })
+      ) {
         finishPortfolioSyncRequest(request.id);
       }
     };
@@ -3553,6 +3563,7 @@ function TokenListBlock({
         if (portfolioSyncRequestRef.current?.id !== request.id) {
           return;
         }
+        portfolioSyncStageOpenedRequestIdRef.current = request.id;
 
         const portfolioSynced =
           await backgroundApiProxy.serviceHardwarePortfolioSync.syncPortfolio({

@@ -278,6 +278,21 @@ export interface IDeviceStageProps {
    */
   onClose?: () => void;
   /**
+   * The error notice's own exit, requested after its readable hold. Kept
+   * apart from `onClose` on purpose: the notice leaves the app live
+   * (OK-64696), so the hold can run out just as the person starts the
+   * next attempt from the page, and a close would end that attempt's
+   * call. The driver retires the notice only while it is still the step
+   * on stage. Absent, the notice stays until closed or replaced.
+   */
+  onErrorNoticeExpire?: () => void;
+  /**
+   * Which error outcome is on stage. A new one landing in place of the
+   * last, with no other step between, restarts the notice's readable hold
+   * — it is a different failure, owed its own read.
+   */
+  errorNoticeKey?: string;
+  /**
    * The confirm card's payload — parked: confirm rests as the capsule,
    * which has no seat for it, so none of these render today (see
    * CONFIRM_PAYLOAD_HIDDEN in kit-bg's DeviceStageBurst).
@@ -401,9 +416,8 @@ export interface IDeviceStageProps {
    * ask card. Without it the step plays as the notice, for the many
    * failures that have no honest retry: the stage rests as the capsule —
    * the failure ✗ beside the reason's title, no second line, no button —
-   * and after a readable hold requests its own exit through `onClose`, so
-   * a driver that means the error to leave by itself grants close along
-   * with it.
+   * and after a readable hold requests its own exit through
+   * `onErrorNoticeExpire`.
    */
   onErrorAction?: () => void;
   /** The pinOnApp entry, confirmed. The driver decides what follows. */

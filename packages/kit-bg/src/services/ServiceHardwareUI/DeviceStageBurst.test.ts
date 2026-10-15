@@ -1782,6 +1782,165 @@ describe('DeviceStageBurstScope', () => {
     expect(burstActiveFlag).toHaveBeenLastCalledWith(false);
     expect(stage?.step).toBe('off');
   });
+
+  // The ✗ notice leaves the app live, so its retire — the readable hold
+  // running out, or the person's close — can meet a retry the person
+  // started from the page (OK-64696).
+  describe('error outcome retire', () => {
+    const rejected = {
+      $isHardwareError: true,
+      code: HardwareErrorCode.ActionCancelled,
+    };
+
+    const landNotice = async (scope: DeviceStageBurstScope) => {
+      await scope.begin({ connectId: CONNECT_ID });
+      await paintOpeningBeat();
+      await scope.end({ error: rejected });
+      expect(stage?.step).toBe('error');
+    };
+
+    /** The outcome as the UI has it when the hold runs out or ✕ lands. */
+    const seenOnStage = () => ({
+      burstId: stage?.burstId,
+      activitySeq: stage?.activitySeq,
+    });
+
+    it('retires the ✗ the person saw and announces the exit', async () => {
+      const scope = new DeviceStageBurstScope();
+      await landNotice(scope);
+      const emit = jest.spyOn(appEventBus, 'emit');
+
+      await scope.retireErrorOutcome(seenOnStage());
+
+      expect(stage?.step).toBe('off');
+      expect(emit).toHaveBeenCalledWith(
+        EAppEventBusNames.DeviceStageOff,
+        undefined,
+      );
+      expect(scope.getLastOffAt()).toBeGreaterThan(0);
+    });
+
+    it('replaces the ✗ at once when a new burst begins', async () => {
+      const scope = new DeviceStageBurstScope();
+      await landNotice(scope);
+
+      await scope.begin({ connectId: CONNECT_ID });
+
+      // No opening defer: a stale ✗ over a retry reads as the retry
+      // failing too.
+      expect(stage?.step).toBe('connecting');
+    });
+
+    it('leaves a retry that already owns the stage alone, and its own failure still lands', async () => {
+      const scope = new DeviceStageBurstScope();
+      await landNotice(scope);
+      const seen = seenOnStage();
+      await scope.begin({ connectId: CONNECT_ID });
+      const emit = jest.spyOn(appEventBus, 'emit');
+
+      await scope.retireErrorOutcome(seen);
+
+      expect(stage?.step).toBe('connecting');
+      expect(emit).not.toHaveBeenCalledWith(
+        EAppEventBusNames.DeviceStageOff,
+        undefined,
+      );
+      await scope.end({ error: rejected });
+      expect(stage?.step).toBe('error');
+    });
+
+    it('leaves a newer ✗ to its own hold', async () => {
+      const scope = new DeviceStageBurstScope();
+      await landNotice(scope);
+      const first = seenOnStage();
+      await scope.noteStep('error', {
+        connectId: CONNECT_ID,
+        errorReason: 'pinInvalid',
+      });
+      const second = seenOnStage();
+      expect(second).not.toEqual(first);
+
+      await scope.retireErrorOutcome(first);
+      expect(stage?.errorReason).toBe('pinInvalid');
+
+      await scope.retireErrorOutcome(second);
+      expect(stage?.step).toBe('off');
+    });
+
+    it('never takes down an ask that lands while the retire is on its way', async () => {
+      const scope = new DeviceStageBurstScope();
+      await landNotice(scope);
+      const seen = seenOnStage();
+      stageAtom.set.mockImplementationOnce(async (next) => {
+        // The device asks for its PIN between the person's tap (or the
+        // timer) and the retire's own write.
+        stage = { ...(stage as IDeviceStageState), step: 'pinOnApp' };
+        stage = typeof next === 'function' ? next(stage) : next;
+      });
+
+      await scope.retireErrorOutcome(seen);
+
+      expect(stage?.step).toBe('pinOnApp');
+    });
+
+    it('keeps an explicit hold, so the device can ask again and the holder lands its outcome', async () => {
+      const scope = new DeviceStageBurstScope();
+      const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+      await paintOpeningBeat();
+      await scope.noteStep('error', {
+        connectId: CONNECT_ID,
+        errorReason: 'pinInvalid',
+      });
+
+      await scope.retireErrorOutcome(seenOnStage());
+      expect(stage?.step).toBe('off');
+
+      await scope.onHardwareUiEvent({
+        action: EHardwareUiStateAction.REQUEST_PIN,
+        connectId: CONNECT_ID,
+      });
+      expect(stage?.step).toBe('pinOnApp');
+      await scope.endExplicit({
+        token,
+        doneI18n: { key: ETranslations.global_done },
+      });
+      expect(stage?.step).toBe('done');
+    });
+
+    it('sends an off that never reached the UI again when the person acts on the ✗', async () => {
+      const scope = new DeviceStageBurstScope();
+      await landNotice(scope);
+      const seen = seenOnStage();
+      const emit = jest.spyOn(appEventBus, 'emit');
+      // The write lands here, then the broadcast to the UI fails: this
+      // side reads off while the ✗ stays on the person's screen.
+      stageAtom.set.mockImplementationOnce(async (next) => {
+        stage = typeof next === 'function' ? next(stage) : next;
+        throw new OneKeyLocalError('broadcast failed');
+      });
+
+      await scope.retireErrorOutcome(seen);
+      expect(stage?.step).toBe('off');
+      expect(emit).not.toHaveBeenCalledWith(
+        EAppEventBusNames.DeviceStageOff,
+        undefined,
+      );
+
+      await scope.retireErrorOutcome(seen);
+      expect(emit).toHaveBeenCalledWith(
+        EAppEventBusNames.DeviceStageOff,
+        undefined,
+      );
+
+      // Delivered now: a later retire has nothing left to send.
+      emit.mockClear();
+      await scope.retireErrorOutcome(seen);
+      expect(emit).not.toHaveBeenCalledWith(
+        EAppEventBusNames.DeviceStageOff,
+        undefined,
+      );
+    });
+  });
 });
 
 describe('createLatestStateFeed', () => {

@@ -685,9 +685,16 @@ describe('ServiceHardwareUI bootloader recovery handoff', () => {
             },
           ],
         ]);
-        expect(deviceStageAtom.set).toHaveBeenLastCalledWith(
-          expect.objectContaining({ step: 'off' }),
-        );
+        // The off is written through the atom's own update.
+        const writes = jest.mocked(deviceStageAtom.set).mock.calls;
+        const lastWrite = writes[writes.length - 1]?.[0];
+        const stageBefore = {
+          step: 'processing',
+          burstId: 1,
+        } as IDeviceStageState;
+        expect(
+          typeof lastWrite === 'function' ? lastWrite(stageBefore) : lastWrite,
+        ).toEqual(expect.objectContaining({ step: 'off' }));
       } finally {
         getStage.mockRestore();
       }
@@ -1318,11 +1325,13 @@ describe('ServiceHardwareUI.deviceStageUserClose', () => {
         serviceQrWallet: { cancelStageAirGapScan },
       } as never,
     });
-    jest.spyOn(service.deviceStageBurst, 'userClose').mockResolvedValue();
+    const userClose = jest
+      .spyOn(service.deviceStageBurst, 'userClose')
+      .mockResolvedValue();
     const close = jest
       .spyOn(service, 'closeHardwareUiStateDialogFn')
       .mockResolvedValue(undefined);
-    return { service, close, cancelDevice };
+    return { service, close, cancelDevice, cancelStageAirGapScan, userClose };
   };
 
   beforeEach(() => {
@@ -1391,6 +1400,30 @@ describe('ServiceHardwareUI.deviceStageUserClose', () => {
       skipDeviceCancel: true,
     });
     expect(cancelDevice).not.toHaveBeenCalled();
+  });
+
+  it('retires the ✗ the person saw without taking the close path (OK-64696)', async () => {
+    // The notice's page is live: a close of the ✗ must not cancel, reset
+    // or announce anything a retry started from that page depends on.
+    const { service, close, cancelDevice, cancelStageAirGapScan, userClose } =
+      createService();
+    const retire = jest
+      .spyOn(service.deviceStageBurst, 'retireErrorOutcome')
+      .mockResolvedValue();
+    const seen = { burstId: 3, activitySeq: 7 };
+
+    await service.hardwareProcessingManager.runExclusiveOneKeyOperation({
+      operation: async (lease) => {
+        await service.deviceStageRetireErrorOutcome(seen);
+        expect(lease.signal?.aborted).toBe(false);
+      },
+    });
+
+    expect(retire).toHaveBeenCalledWith(seen);
+    expect(cancelDevice).not.toHaveBeenCalled();
+    expect(userClose).not.toHaveBeenCalled();
+    expect(cancelStageAirGapScan).not.toHaveBeenCalled();
+    expect(close).not.toHaveBeenCalled();
   });
 });
 

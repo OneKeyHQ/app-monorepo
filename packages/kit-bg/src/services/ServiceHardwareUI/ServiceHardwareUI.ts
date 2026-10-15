@@ -862,6 +862,15 @@ class ServiceHardwareUI extends ServiceBase {
     await this.deviceStageBurst.registerConfirmContent(content);
   }
 
+  /** Not a close; see DeviceStageBurstScope.retireErrorOutcome. */
+  @backgroundMethod()
+  async deviceStageRetireErrorOutcome(seen: {
+    burstId?: number;
+    activitySeq?: number;
+  }) {
+    await this.deviceStageBurst.retireErrorOutcome(seen);
+  }
+
   @backgroundMethod()
   async deviceStageUserClose({
     connectId,
