@@ -1,6 +1,6 @@
 import { CanceledError, isCancel } from 'axios';
 import BigNumber from 'bignumber.js';
-import { debounce, isNil, maxBy, uniq, uniqBy } from 'lodash';
+import { debounce, isNil, uniq, uniqBy } from 'lodash';
 
 import {
   backgroundClass,
@@ -306,12 +306,14 @@ class ServiceToken extends ServiceBase {
     tokenListValue: {},
     tokenListMap: {},
     tokenListCurrency: {},
+    tokenListHasAssets: {},
   };
 
   private homeLocalAccountTokensCache: IAccountTokenListCache | undefined;
 
-  // The Home batch being written: no longer pending, not yet in storage.
-  private homeLocalAccountTokensFlushing: IAccountTokenListCache | undefined;
+  // Home batches being written: no longer pending, not yet in storage. A slow
+  // write can still be running when the next batch starts its own.
+  private homeLocalAccountTokensFlushing = new Set<IAccountTokenListCache>();
 
   // Returns `null` when the rate is missing or unusable so callers can skip
   // conversion and tag entries with the source currency instead — the cache
@@ -778,6 +780,15 @@ class ServiceToken extends ServiceBase {
         .plus(resp.data.data.tokens.fiatValue ?? '0')
         .plus(resp.data.data.smallBalanceTokens.fiatValue ?? '0');
 
+      const tokenListMap = {
+        ...resp.data.data.tokens.map,
+        ...resp.data.data.smallBalanceTokens.map,
+        ...resp.data.data.riskTokens.map,
+      };
+      // Read before the lists are capped: a holding beyond the cap counts.
+      const hasAssets = deriveTypeCollapseUtils.hasAssetsInTokenListMap({
+        tokenListMap,
+      });
       const {
         filteredTokenList,
         filteredSmallBalanceTokenList,
@@ -788,11 +799,7 @@ class ServiceToken extends ServiceBase {
         smallBalanceTokenList: resp.data.data.smallBalanceTokens.data,
         riskyTokenList: resp.data.data.riskTokens.data,
         limit: saveToLocalLimit,
-        tokenListMap: {
-          ...resp.data.data.tokens.map,
-          ...resp.data.data.smallBalanceTokens.map,
-          ...resp.data.data.riskTokens.map,
-        },
+        tokenListMap,
       });
 
       if (isAllNetworks) {
@@ -811,6 +818,7 @@ class ServiceToken extends ServiceBase {
             tokenListValue: {},
             tokenListMap: {},
             tokenListCurrency: {},
+            tokenListHasAssets: {},
           };
           cache = this.homeLocalAccountTokensCache;
         }
@@ -832,6 +840,7 @@ class ServiceToken extends ServiceBase {
           cache.tokenListValue[key] = tokenListValue.toFixed();
           cache.tokenListMap[key] = filteredTokenListMap;
           cache.tokenListCurrency[key] = resolvedCurrency;
+          cache.tokenListHasAssets[key] = hasAssets;
         }
 
         if (homeRequest) {
@@ -855,6 +864,7 @@ class ServiceToken extends ServiceBase {
           tokenListValue: tokenListValue.toFixed(),
           tokenListMap: filteredTokenListMap,
           currency: resolvedCurrency,
+          hasAssets,
         });
       }
     }
@@ -990,6 +1000,7 @@ class ServiceToken extends ServiceBase {
         tokenListValue: {},
         tokenListMap: {},
         tokenListCurrency: {},
+        tokenListHasAssets: {},
       };
     },
     3000,
@@ -1005,7 +1016,7 @@ class ServiceToken extends ServiceBase {
       // Detach before awaiting storage so completion cannot clear a newer batch.
       this.homeLocalAccountTokensCache = undefined;
       if (!pending) return;
-      this.homeLocalAccountTokensFlushing = pending;
+      this.homeLocalAccountTokensFlushing.add(pending);
       try {
         await this.backgroundApi.simpleDb.localTokens.updateAccountTokenListByCache(
           pending,
@@ -1021,9 +1032,7 @@ class ServiceToken extends ServiceBase {
           );
         }
       } finally {
-        if (this.homeLocalAccountTokensFlushing === pending) {
-          this.homeLocalAccountTokensFlushing = undefined;
-        }
+        this.homeLocalAccountTokensFlushing.delete(pending);
       }
     },
     3000,
@@ -1396,6 +1405,8 @@ class ServiceToken extends ServiceBase {
     tokenListMap: Record<string, ITokenFiat>;
     tokenListValue: string;
     currency: string;
+    // Whether the complete list held any amount; see tokenListHasAssets.
+    hasAssets: boolean;
   }) {
     const {
       dbAccount,
@@ -1407,6 +1418,7 @@ class ServiceToken extends ServiceBase {
       tokenListMap,
       tokenListValue,
       currency,
+      hasAssets,
       homeRequest,
     } = params;
     homeTokenRequestRegistry.assertCurrent(homeRequest);
@@ -1434,6 +1446,7 @@ class ServiceToken extends ServiceBase {
       tokenListMap,
       tokenListValue,
       currency,
+      hasAssets,
       homeRequest,
     });
   }
@@ -1740,37 +1753,51 @@ class ServiceToken extends ServiceBase {
         return { collapsed: false };
       }
 
-      // Responses waiting for, or in the middle of, the debounced write are
+      // Responses waiting for, or in the middle of, the debounced writes are
       // newer than storage unless storage has since committed a newer write
       // for the key. Among them the newest write wins, as it does on flush.
       const pendingSources = [
         this.homeLocalAccountTokensCache,
-        this.homeLocalAccountTokensFlushing,
+        ...this.homeLocalAccountTokensFlushing,
         this.localAccountTokensCache,
       ].filter((source): source is IAccountTokenListCache => !!source);
       const storedSource = await simpleDb.localTokens.getRawData();
       const hasRecord = (
-        source: { tokenList?: Record<string, unknown> } | null | undefined,
+        source:
+          | { tokenListHasAssets?: Record<string, boolean> }
+          | null
+          | undefined,
         key: string,
-      ) => Object.prototype.hasOwnProperty.call(source?.tokenList ?? {}, key);
-      const collapsed = deriveTypeCollapseUtils.shouldCollapseDeriveTypes({
-        defaultDeriveType,
-        deriveTypeStates: networkAccounts.map((item) => {
+      ) => source?.tokenListHasAssets?.[key] !== undefined;
+      const writeOrderOf = (source: IAccountTokenListCache, key: string) =>
+        source.tokenListWriteOrder?.[key] ?? -1;
+      const deriveTypeStates = await Promise.all(
+        networkAccounts.map(async (item) => {
           const key = accountUtils.buildAccountLocalAssetsKey({
             networkId,
             accountAddress: item.account?.address,
             xpub: accountUtils.pickXpubFromDBAccount(item.account),
           });
-          const pendingRecord = maxBy(
-            pendingSources.filter(
-              (source) =>
-                hasRecord(source, key) &&
-                !simpleDb.localTokens.isStaleAccountTokenListCacheEntry({
-                  cache: source,
-                  key,
-                }),
+          const currentSources = await Promise.all(
+            pendingSources.map(async (source) =>
+              hasRecord(source, key) &&
+              !(await simpleDb.localTokens.isStaleAccountTokenListCacheEntry({
+                cache: source,
+                key,
+              }))
+                ? source
+                : undefined,
             ),
-            (source) => source.tokenListWriteOrder?.[key] ?? -1,
+          );
+          const pendingRecord = currentSources.reduce<
+            IAccountTokenListCache | undefined
+          >(
+            (newest, source) =>
+              source &&
+              (!newest || writeOrderOf(source, key) > writeOrderOf(newest, key))
+                ? source
+                : newest,
+            undefined,
           );
           const record =
             pendingRecord ??
@@ -1778,11 +1805,13 @@ class ServiceToken extends ServiceBase {
           return {
             deriveType: item.deriveType,
             hasBalanceRecord: !!record,
-            hasAssets: deriveTypeCollapseUtils.hasAssetsInTokenListMap({
-              tokenListMap: record?.tokenListMap?.[key],
-            }),
+            hasAssets: !!record?.tokenListHasAssets?.[key],
           };
         }),
+      );
+      const collapsed = deriveTypeCollapseUtils.shouldCollapseDeriveTypes({
+        defaultDeriveType,
+        deriveTypeStates,
       });
       if (collapsed) {
         return {

@@ -133,10 +133,28 @@ describe('hasAssetsInTokenListMap', () => {
     ).toBe(true);
   });
 
-  it('ignores malformed amounts', () => {
+  it('counts a balance that failed upstream as a possible holding', () => {
+    [
+      'NaN',
+      'not-a-number',
+      '',
+      null as unknown as string,
+      undefined as unknown as string,
+    ].forEach((balance) => {
+      expect(
+        deriveTypeCollapseUtils.hasAssetsInTokenListMap({
+          tokenListMap: { native: buildFiat({ balance }) },
+        }),
+      ).toBe(true);
+    });
+  });
+
+  it('ignores malformed optional amounts', () => {
     expect(
       deriveTypeCollapseUtils.hasAssetsInTokenListMap({
-        tokenListMap: { native: buildFiat({ balance: 'NaN' }) },
+        tokenListMap: {
+          native: buildFiat({ frozenBalance: 'NaN', totalBalance: 'NaN' }),
+        },
       }),
     ).toBe(false);
   });

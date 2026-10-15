@@ -543,7 +543,8 @@ function TokenDetailsView() {
 
   // A collapsed account shows its default address type alone. The route's
   // accountId is whichever derive type the merged Home row happened to carry,
-  // so the default type's account is used instead.
+  // so the default type's account is used instead. An entry that passes no
+  // indexed account never gets one here, so it is never collapsed.
   const {
     isReady: isCollapseStateReady,
     defaultNetworkAccount: collapsedNetworkAccount,
@@ -551,6 +552,7 @@ function TokenDetailsView() {
     networkId: tokenInfo.networkId ?? networkId,
     walletId,
     indexedAccountId,
+    enabled: !!indexedAccountId,
   });
 
   const listViewContentContainerStyle = useMemo(() => ({ pt: '$5' }), []);

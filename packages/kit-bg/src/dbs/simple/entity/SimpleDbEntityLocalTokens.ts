@@ -34,6 +34,10 @@ export interface ISimpleDBLocalTokens {
   // pre-migration entries in the user's then-active display currency;
   // ServiceToken supplies the lazy fallback.
   tokenListCurrency?: Record<string, string>;
+  // Per-key: whether the complete response held any amount. The saved lists
+  // are capped, so a holding beyond the cap is missing from them. Missing keys
+  // predate this field: unknown.
+  tokenListHasAssets?: Record<string, boolean>;
 }
 
 // Pending per-key snapshots flushed in one write. `tokenListWriteOrder` holds
@@ -46,6 +50,7 @@ export interface IAccountTokenListCache {
   tokenListValue: Record<string, string>;
   tokenListMap: Record<string, Record<string, ITokenFiat>>;
   tokenListCurrency: Record<string, string>;
+  tokenListHasAssets: Record<string, boolean>;
   tokenListWriteOrder?: Record<string, number>;
 }
 
@@ -87,13 +92,13 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
   // For readers of pending caches: an entry older than the write storage has
   // already committed for its key is dropped on flush, so it is not current.
   // Only reads the committed orders, so it needs no mutex.
-  isStaleAccountTokenListCacheEntry({
+  async isStaleAccountTokenListCacheEntry({
     cache,
     key,
   }: {
     cache: IAccountTokenListCache;
     key: string;
-  }): boolean {
+  }): Promise<boolean> {
     const writeOrder = cache.tokenListWriteOrder?.[key];
     return (
       writeOrder !== undefined &&
@@ -144,6 +149,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
       tokenListMap: rawData?.tokenListMap ?? {},
       tokenListValue: rawData?.tokenListValue ?? {},
       tokenListCurrency: rawData?.tokenListCurrency ?? {},
+      tokenListHasAssets: rawData?.tokenListHasAssets ?? {},
     }));
   }
 
@@ -220,6 +226,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     tokenListMap,
     tokenListValue,
     currency,
+    hasAssets,
     homeRequest,
     writeOrder,
   }: {
@@ -234,6 +241,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     tokenListMap: Record<string, ITokenFiat>;
     tokenListValue: string;
     currency: string;
+    hasAssets: boolean;
   }) {
     if (!accountAddress && !xpub) {
       throw new OneKeyInternalError('accountAddress or xpub is required');
@@ -301,6 +309,10 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
             ...rawData?.tokenListCurrency,
             [key]: currency,
           },
+          tokenListHasAssets: {
+            ...rawData?.tokenListHasAssets,
+            [key]: hasAssets,
+          },
         }),
         assertCanCommit,
         writeOrder === undefined
@@ -352,6 +364,10 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
             ...rawData?.tokenListCurrency,
             ...tokenListCache.tokenListCurrency,
           },
+          tokenListHasAssets: {
+            ...rawData?.tokenListHasAssets,
+            ...tokenListCache.tokenListHasAssets,
+          },
         };
       },
       homeRequest
@@ -386,6 +402,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
       tokenListValue: omit(cache.tokenListValue, staleKeys),
       tokenListMap: omit(cache.tokenListMap, staleKeys),
       tokenListCurrency: omit(cache.tokenListCurrency, staleKeys),
+      tokenListHasAssets: omit(cache.tokenListHasAssets, staleKeys),
       tokenListWriteOrder: omit(writeOrders, staleKeys),
     };
   }
@@ -458,6 +475,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
       tokenListMap: {},
       tokenListValue: {},
       tokenListCurrency: {},
+      tokenListHasAssets: {},
     });
   }
 
@@ -503,6 +521,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
         tokenListMap: filterByOwner(base?.tokenListMap),
         tokenListValue: filterByOwner(base?.tokenListValue),
         tokenListCurrency: filterByOwner(base?.tokenListCurrency),
+        tokenListHasAssets: filterByOwner(base?.tokenListHasAssets),
       };
     });
   }

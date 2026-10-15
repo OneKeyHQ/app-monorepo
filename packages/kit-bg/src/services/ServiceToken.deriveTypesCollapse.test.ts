@@ -1,5 +1,4 @@
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import type { ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import ServiceToken from './ServiceToken';
 
@@ -45,11 +44,8 @@ const INDEXED_ACCOUNT_ID = 'hd-1--0';
 const DERIVE_TYPES = ['BIP86', 'default', 'BIP84', 'BIP44'];
 const NOT_COLLAPSED = { collapsed: false };
 
-type ILocalRecords = Record<string, Record<string, ITokenFiat>>;
-
-function fiat(balance: string): ITokenFiat {
-  return { balance, balanceParsed: balance, fiatValue: '0', price: 0 };
-}
+// Per key: whether the complete response held any amount.
+type ILocalRecords = Record<string, boolean>;
 
 function keyOf(deriveType: string) {
   return `${BTC}_xpub-${deriveType}`.toLowerCase();
@@ -88,8 +84,10 @@ function buildCache(
     smallBalanceTokenList: {},
     riskyTokenList: {},
     tokenListValue: {},
-    tokenListMap: records,
+    // Capped lists: never consulted for assets.
+    tokenListMap: Object.fromEntries(keys.map((key) => [key, {}])),
     tokenListCurrency: {},
+    tokenListHasAssets: records,
     ...(writeOrder === undefined
       ? undefined
       : {
@@ -102,13 +100,13 @@ function buildCache(
 
 type IPendingCaches = {
   homeLocalAccountTokensCache?: IAccountTokenListCache;
-  homeLocalAccountTokensFlushing?: IAccountTokenListCache;
+  homeLocalAccountTokensFlushing?: Set<IAccountTokenListCache>;
   localAccountTokensCache?: IAccountTokenListCache;
 };
 
 function emptyRecords(deriveTypes: string[] = DERIVE_TYPES): ILocalRecords {
   return Object.fromEntries(
-    deriveTypes.map((deriveType) => [keyOf(deriveType), {}]),
+    deriveTypes.map((deriveType) => [keyOf(deriveType), false]),
   );
 }
 
@@ -116,6 +114,7 @@ function makeService({
   defaultDeriveType = 'BIP86',
   missingAccountDeriveTypes = [],
   storedRecords = emptyRecords(),
+  storedSource = buildCache(storedRecords),
   pendingRecords,
   pendingCaches,
   staleKeys = [],
@@ -123,6 +122,7 @@ function makeService({
   defaultDeriveType?: string;
   missingAccountDeriveTypes?: string[];
   storedRecords?: ILocalRecords;
+  storedSource?: Partial<IAccountTokenListCache>;
   // Responses still waiting for the debounced write.
   pendingRecords?: ILocalRecords;
   pendingCaches?: IPendingCaches;
@@ -147,9 +147,10 @@ function makeService({
     },
     simpleDb: {
       localTokens: {
-        getRawData: jest.fn(async () => buildCache(storedRecords)),
-        isStaleAccountTokenListCacheEntry: jest.fn(({ key }: { key: string }) =>
-          staleKeys.includes(key),
+        getRawData: jest.fn(async () => storedSource),
+        // Async like every entity method behind the lazy service proxy.
+        isStaleAccountTokenListCacheEntry: jest.fn(
+          async ({ key }: { key: string }) => staleKeys.includes(key),
         ),
       },
     },
@@ -178,7 +179,7 @@ describe('ServiceToken.getDeriveTypesCollapseState', () => {
     const { getState } = makeService({
       storedRecords: {
         ...emptyRecords(),
-        [keyOf('BIP86')]: { native: fiat('12500') },
+        [keyOf('BIP86')]: true,
       },
     });
     await expect(getState()).resolves.toEqual(collapsedOn('BIP86'));
@@ -188,7 +189,7 @@ describe('ServiceToken.getDeriveTypesCollapseState', () => {
     const { getState } = makeService({
       storedRecords: {
         ...emptyRecords(),
-        [keyOf('default')]: { native: fiat('3100') },
+        [keyOf('default')]: true,
       },
     });
     await expect(getState()).resolves.toEqual(NOT_COLLAPSED);
@@ -199,7 +200,7 @@ describe('ServiceToken.getDeriveTypesCollapseState', () => {
       defaultDeriveType: 'default',
       storedRecords: {
         ...emptyRecords(),
-        [keyOf('default')]: { native: fiat('3100') },
+        [keyOf('default')]: true,
       },
     });
     await expect(getState()).resolves.toEqual(collapsedOn('default'));
@@ -222,17 +223,19 @@ describe('ServiceToken.getDeriveTypesCollapseState', () => {
 
   it('prefers a pending response over what storage holds', async () => {
     const { getState } = makeService({
-      pendingRecords: { [keyOf('BIP44')]: { native: fiat('546') } },
+      pendingRecords: { [keyOf('BIP44')]: true },
     });
     await expect(getState()).resolves.toEqual(NOT_COLLAPSED);
   });
 
-  it('reads the Home batch while it is being written to storage', async () => {
+  it('reads every Home batch while it is being written to storage', async () => {
     const { getState } = makeService({
       pendingCaches: {
-        homeLocalAccountTokensFlushing: buildCache({
-          [keyOf('BIP44')]: { native: fiat('546') },
-        }),
+        // An older write still running when a newer batch started its own.
+        homeLocalAccountTokensFlushing: new Set([
+          buildCache({ [keyOf('BIP44')]: true }, 1),
+          buildCache({ [keyOf('BIP84')]: false }, 2),
+        ]),
       },
     });
     await expect(getState()).resolves.toEqual(NOT_COLLAPSED);
@@ -242,9 +245,9 @@ describe('ServiceToken.getDeriveTypesCollapseState', () => {
     const { getState } = makeService({
       storedRecords: {
         ...emptyRecords(),
-        [keyOf('BIP44')]: { native: fiat('546') },
+        [keyOf('BIP44')]: true,
       },
-      pendingRecords: { [keyOf('BIP44')]: {} },
+      pendingRecords: { [keyOf('BIP44')]: false },
       staleKeys: [keyOf('BIP44')],
     });
     await expect(getState()).resolves.toEqual(NOT_COLLAPSED);
@@ -253,12 +256,17 @@ describe('ServiceToken.getDeriveTypesCollapseState', () => {
   it('prefers the newest of several pending responses', async () => {
     const { getState } = makeService({
       pendingCaches: {
-        homeLocalAccountTokensCache: buildCache({ [keyOf('BIP44')]: {} }, 1),
-        localAccountTokensCache: buildCache(
-          { [keyOf('BIP44')]: { native: fiat('546') } },
-          2,
-        ),
+        homeLocalAccountTokensCache: buildCache({ [keyOf('BIP44')]: false }, 1),
+        localAccountTokensCache: buildCache({ [keyOf('BIP44')]: true }, 2),
       },
+    });
+    await expect(getState()).resolves.toEqual(NOT_COLLAPSED);
+  });
+
+  it('treats a record saved without the has-assets flag as unknown', async () => {
+    const { getState } = makeService({
+      // Saved by an earlier version: lists and balances, no flag.
+      storedSource: { ...buildCache(emptyRecords()), tokenListHasAssets: {} },
     });
     await expect(getState()).resolves.toEqual(NOT_COLLAPSED);
   });
@@ -326,7 +334,7 @@ describe('ServiceToken.getDefaultDeriveTypeAccountId', () => {
     const { service } = makeService({
       storedRecords: {
         ...emptyRecords(),
-        [keyOf('BIP44')]: { native: fiat('546') },
+        [keyOf('BIP44')]: true,
       },
     });
     await expect(resolve(service, BTC, 'account-BIP44')).resolves.toBe(

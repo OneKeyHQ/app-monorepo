@@ -28,7 +28,8 @@ function isPositiveAmount(value: string | undefined): boolean {
 }
 
 // Amounts decide, not fiat value: an unpriced holding is still a holding.
-// Frozen balances (e.g. inscription-protected coins) count as well.
+// Frozen balances (e.g. inscription-protected coins) count as well. A balance
+// that failed upstream (null, NaN, ...) proves nothing, so it counts too.
 function hasAssetsInTokenListMap({
   tokenListMap,
 }: {
@@ -36,9 +37,10 @@ function hasAssetsInTokenListMap({
 }): boolean {
   return Object.values(tokenListMap ?? {}).some(
     (item) =>
-      isPositiveAmount(item?.balance) ||
-      isPositiveAmount(item?.frozenBalance) ||
-      isPositiveAmount(item?.totalBalance),
+      !isValidNumberValue(item?.balance) ||
+      isPositiveAmount(item.balance) ||
+      isPositiveAmount(item.frozenBalance) ||
+      isPositiveAmount(item.totalBalance),
   );
 }
 
