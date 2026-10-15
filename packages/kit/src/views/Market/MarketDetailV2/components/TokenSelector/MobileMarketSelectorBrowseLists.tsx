@@ -738,9 +738,12 @@ type IMobileStockSelectorListResult = ReturnType<
 export function MobileSelectorStockTable({
   result,
   onItemPress,
+  listHeader,
 }: {
   result: IMobileStockSelectorListResult;
   onItemPress: (item: IMarketStockPublicItem) => void;
+  // Scrolls with the rows, e.g. universal search's section title.
+  listHeader?: ReactElement;
 }) {
   const intl = useIntl();
   const {
@@ -792,16 +795,23 @@ export function MobileSelectorStockTable({
       data={items}
       keyExtractor={(item) => item.stockId}
       renderItem={renderItem}
-      getItemLayout={(_, index) => ({
-        length: ROW_HEIGHT,
-        offset: ROW_HEIGHT * index,
-        index,
-      })}
+      // A list header shifts every row, so the fixed row layout only holds
+      // without one.
+      getItemLayout={
+        listHeader
+          ? undefined
+          : (_, index) => ({
+              length: ROW_HEIGHT,
+              offset: ROW_HEIGHT * index,
+              index,
+            })
+      }
       initialNumToRender={12}
       maxToRenderPerBatch={20}
       windowSize={7}
       onEndReached={handleEndReached}
       onEndReachedThreshold={0.4}
+      ListHeaderComponent={listHeader}
       ListFooterComponent={
         <LoadMoreFooter
           isLoading={isLoadingMore}

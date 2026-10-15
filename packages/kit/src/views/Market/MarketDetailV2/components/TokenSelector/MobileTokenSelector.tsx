@@ -279,7 +279,8 @@ function MobileTokenSelectorContent() {
         title={intl.formatMessage({ id: ETranslations.global_search })}
       />
       <Page.Body>
-        <Stack px="$5" pb="$4">
+        {/* 10px to the tabs, as in the desktop popover and universal search. */}
+        <Stack px="$5" pb="$2.5">
           <SearchBar
             autoFocus
             placeholder={intl.formatMessage({
