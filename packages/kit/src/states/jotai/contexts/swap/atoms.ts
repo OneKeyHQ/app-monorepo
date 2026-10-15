@@ -6,6 +6,7 @@ import {
   EMPTY_SWAP_BALANCE_DISPLAY_CACHE,
   type ISwapBalanceDisplayCache,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceDisplayCacheUtils';
+import type { ISwapDefaultConfigStatus } from '@onekeyhq/kit/src/views/Swap/utils/swapColdStartTokenCacheUtils';
 import {
   EMPTY_SWAP_PRO_POSITIONS_CACHE,
   type ISwapProPositionsCache,
@@ -181,6 +182,12 @@ export const { atom: swapTypeSwitchAtom, use: useSwapTypeSwitchAtom } =
 export const { atom: swapNetworks, use: useSwapNetworksAtom } = contextAtom<
   ISwapNetwork[]
 >([]);
+
+// Cached networks make the selector usable before fresh default configuration arrives.
+export const {
+  atom: swapDefaultConfigStatusAtom,
+  use: useSwapDefaultConfigStatusAtom,
+} = contextAtom<ISwapDefaultConfigStatus>('pending');
 
 export const {
   atom: swapNetworksIncludeAllNetworkAtom,

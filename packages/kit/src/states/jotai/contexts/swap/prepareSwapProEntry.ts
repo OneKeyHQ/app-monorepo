@@ -84,12 +84,14 @@ export function prepareSwapProEntry({
 export function prepareStockSwapEntry({
   token,
   direction = 'to',
+  storeName = EJotaiContextStoreNames.swap,
 }: {
   token: ISwapToken;
   direction?: 'from' | 'to';
+  storeName?: EJotaiContextStoreNames.swap | EJotaiContextStoreNames.swapModal;
 }): IPreparedMarketSwapEntry {
   const store = jotaiContextStore.prepareStoreForImmediateUse({
-    storeName: EJotaiContextStoreNames.swap,
+    storeName,
   });
   const stockToken = token.isStock ? token : { ...token, isStock: true };
   const fromToken = store.get(swapSelectFromTokenAtom());
@@ -153,12 +155,14 @@ export function prepareStockSwapEntry({
 export function prepareTopCoinSwapEntry({
   token,
   direction = 'to',
+  storeName = EJotaiContextStoreNames.swap,
 }: {
   token: ISwapToken;
   direction?: 'from' | 'to';
+  storeName?: EJotaiContextStoreNames.swap | EJotaiContextStoreNames.swapModal;
 }): IPreparedMarketSwapEntry {
   const store = jotaiContextStore.prepareStoreForImmediateUse({
-    storeName: EJotaiContextStoreNames.swap,
+    storeName,
   });
   const fromToken = store.get(swapSelectFromTokenAtom());
   const toToken = store.get(swapSelectToTokenAtom());

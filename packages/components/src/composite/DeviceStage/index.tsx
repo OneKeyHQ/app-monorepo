@@ -535,8 +535,11 @@ export function DeviceStage({
   confirmCount,
   qrValue,
   qrValueUr,
+  qrSessionId,
+  qrRenderKey,
   qrScannerView,
   onQrNext,
+  onQrRenderReady,
   onQrBack,
   errorReason,
   errorMessage,
@@ -1787,7 +1790,13 @@ export function DeviceStage({
           />
         </View>
         <View onLayout={panelMeasureHandlers.showQr.tail}>
-          <QrPresent value={qrValue} valueUr={qrValueUr} onNext={onQrNext} />
+          <QrPresent
+            key={qrRenderKey ?? qrSessionId}
+            value={qrValue}
+            valueUr={qrValueUr}
+            onNext={onQrNext}
+            onRenderReady={onQrRenderReady}
+          />
         </View>
       </YStack>
     ),
@@ -1795,9 +1804,12 @@ export function DeviceStage({
       appStepSub.showQr,
       intl,
       onQrNext,
+      onQrRenderReady,
       panelMeasureHandlers,
       qrValue,
       qrValueUr,
+      qrSessionId,
+      qrRenderKey,
     ],
   );
   const scanQrPanel = useMemo(

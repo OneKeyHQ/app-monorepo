@@ -65,10 +65,16 @@ class ClientSol {
     return response;
   }
 
-  async getLatestBlockHash() {
+  async getLatestBlockHash(): Promise<{
+    recentBlockhash: string;
+    lastValidBlockHeight: number;
+    contextSlot?: number;
+    commitment?: 'confirmed';
+  }> {
     const [response] =
       await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
         value: { blockhash: string; lastValidBlockHeight: number };
+        context?: { slot?: number };
       }>({
         networkId: this.networkId,
         body: [
@@ -89,6 +95,8 @@ class ClientSol {
     return {
       recentBlockhash: response.value.blockhash,
       lastValidBlockHeight: response.value.lastValidBlockHeight,
+      contextSlot: response.context?.slot,
+      commitment: 'confirmed' as const,
     };
   }
 
