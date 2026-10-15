@@ -253,6 +253,22 @@ describe('ServiceToken.getDeriveTypesCollapseState', () => {
     await expect(getState()).resolves.toEqual(NOT_COLLAPSED);
   });
 
+  it('reads storage after dropping a pending response a newer write superseded', async () => {
+    let stored = buildCache(emptyRecords());
+    const { api, getState } = makeService({
+      pendingRecords: { [keyOf('BIP44')]: true },
+    });
+    api.simpleDb.localTokens.getRawData.mockImplementation(async () => stored);
+    // A newer write with assets commits while the pending entry is checked.
+    api.simpleDb.localTokens.isStaleAccountTokenListCacheEntry.mockImplementation(
+      async ({ key }) => {
+        stored = buildCache({ ...emptyRecords(), [keyOf('BIP44')]: true });
+        return key === keyOf('BIP44');
+      },
+    );
+    await expect(getState()).resolves.toEqual(NOT_COLLAPSED);
+  });
+
   it('prefers the newest of several pending responses', async () => {
     const { getState } = makeService({
       pendingCaches: {

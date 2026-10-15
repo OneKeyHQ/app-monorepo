@@ -1761,7 +1761,6 @@ class ServiceToken extends ServiceBase {
         ...this.homeLocalAccountTokensFlushing,
         this.localAccountTokensCache,
       ].filter((source): source is IAccountTokenListCache => !!source);
-      const storedSource = await simpleDb.localTokens.getRawData();
       const hasRecord = (
         source:
           | { tokenListHasAssets?: Record<string, boolean> }
@@ -1771,7 +1770,7 @@ class ServiceToken extends ServiceBase {
       ) => source?.tokenListHasAssets?.[key] !== undefined;
       const writeOrderOf = (source: IAccountTokenListCache, key: string) =>
         source.tokenListWriteOrder?.[key] ?? -1;
-      const deriveTypeStates = await Promise.all(
+      const pendingStates = await Promise.all(
         networkAccounts.map(async (item) => {
           const key = accountUtils.buildAccountLocalAssetsKey({
             networkId,
@@ -1799,19 +1798,26 @@ class ServiceToken extends ServiceBase {
                 : newest,
             undefined,
           );
-          const record =
-            pendingRecord ??
-            (hasRecord(storedSource, key) ? storedSource : undefined);
-          return {
-            deriveType: item.deriveType,
-            hasBalanceRecord: !!record,
-            hasAssets: !!record?.tokenListHasAssets?.[key],
-          };
+          return { deriveType: item.deriveType, key, pendingRecord };
         }),
       );
+      // Read only now: a write that made a pending entry stale has committed
+      // by then, so storage already holds it.
+      const storedSource = await simpleDb.localTokens.getRawData();
       const collapsed = deriveTypeCollapseUtils.shouldCollapseDeriveTypes({
         defaultDeriveType,
-        deriveTypeStates,
+        deriveTypeStates: pendingStates.map(
+          ({ deriveType, key, pendingRecord }) => {
+            const record =
+              pendingRecord ??
+              (hasRecord(storedSource, key) ? storedSource : undefined);
+            return {
+              deriveType,
+              hasBalanceRecord: !!record,
+              hasAssets: !!record?.tokenListHasAssets?.[key],
+            };
+          },
+        ),
       });
       if (collapsed) {
         return {
