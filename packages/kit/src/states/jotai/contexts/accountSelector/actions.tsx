@@ -2123,11 +2123,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         networkId: string | undefined;
         walletId: IDBWalletIdSingleton;
         othersWalletAccountId: string | undefined;
+        shouldCommit?: () => boolean;
       },
     ) => {
-      const { num, walletId, networkId, othersWalletAccountId } = payload;
+      const { num, walletId, networkId, othersWalletAccountId, shouldCommit } =
+        payload;
       await this.updateSelectedAccount.call(set, {
         num,
+        shouldCommit,
         reason: 'updateSelectedAccountForSingletonAccount',
         builder: (v) => ({
           ...v,

@@ -11,6 +11,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { SUPPORT_URL } from '@onekeyhq/shared/src/config/appConfig';
@@ -73,6 +74,8 @@ const PreSwapConfirmResult = ({
 }: IPreSwapConfirmResultProps) => {
   const [explorerUrl, setExplorerUrl] = useState<string>('');
   const intl = useIntl();
+  const { md } = useMedia();
+  const buttonSize = md ? 'large' : 'medium';
   useEffect(() => {
     const fetchExplorerUrl = async () => {
       if (!lastStep.txHash || !fromToken?.networkId) {
@@ -182,6 +185,7 @@ const PreSwapConfirmResult = ({
             flexGrow={1}
             flexBasis={0}
             variant="secondary"
+            size={buttonSize}
             onPress={() => {
               if (supportUrl?.includes(SUPPORT_URL)) {
                 void showIntercom();
@@ -199,7 +203,7 @@ const PreSwapConfirmResult = ({
           flexBasis={0}
           variant="primary"
           onPress={onConfirm}
-          size="medium"
+          size={buttonSize}
         >
           {intl.formatMessage({
             id:
