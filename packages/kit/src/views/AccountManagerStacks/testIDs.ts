@@ -20,4 +20,7 @@ export const AccountManagerTestIDs = {
   exportPrivateKey: (name: string) => `${exportPrivateKeyPrefix}${name}`,
   exportPublicKey: (name: string) => `${exportPublicKeyPrefix}${name}`,
   exportMnemonicKey: (name: string) => `${exportMnemonicKeyPrefix}${name}`,
+  privacyNetworksButton: 'account-manager-privacy-networks-button',
+  privacyNetworkAccount: (accountId: string) =>
+    `account-manager-privacy-network-account-${accountId}`,
 } as const;

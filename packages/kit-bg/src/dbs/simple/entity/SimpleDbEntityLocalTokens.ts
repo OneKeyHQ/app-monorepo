@@ -466,6 +466,42 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
   }
 
   @backgroundMethod()
+  // Drops one account's cached lists on one network (both key forms the
+  // writers use), e.g. after its local privacy data is deleted.
+  async removeAccountTokenList({
+    networkId,
+    accountAddress,
+    xpub,
+  }: {
+    networkId: string;
+    accountAddress?: string;
+    xpub?: string;
+  }) {
+    const keys = [
+      xpub ? accountUtils.buildAccountLocalAssetsKey({ networkId, xpub }) : '',
+      accountAddress
+        ? accountUtils.buildAccountLocalAssetsKey({ networkId, accountAddress })
+        : '',
+    ].filter(Boolean);
+    if (keys.length === 0) return;
+    const omit = <V>(map: Record<string, V> | undefined) => {
+      const result = { ...map };
+      keys.forEach((key) => {
+        delete result[key];
+      });
+      return result;
+    };
+    await this.setRawData((rawData) => ({
+      data: rawData?.data ?? {},
+      tokenList: omit(rawData?.tokenList),
+      smallBalanceTokenList: omit(rawData?.smallBalanceTokenList),
+      riskyTokenList: omit(rawData?.riskyTokenList),
+      tokenListMap: omit(rawData?.tokenListMap),
+      tokenListValue: omit(rawData?.tokenListValue),
+      tokenListCurrency: omit(rawData?.tokenListCurrency),
+    }));
+  }
+
   async clearTokens() {
     await this.setRawData({
       data: {},

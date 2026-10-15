@@ -114,6 +114,13 @@ class ServiceApp extends ServiceBase {
     //   v4migrationPersistData?.v4migrationAutoStartDisabled;
     // ----------------------------------------------
 
+    // Client-scanned chains keep decrypted state in their own databases,
+    // outside every store cleared below. Each chain wipes what it can and
+    // never needs the host index to do it.
+    const privacyChainDropFailed =
+      await this.backgroundApi.servicePrivacyChain.dropAllLocalWalletData();
+    defaultLogger.setting.page.clearDataStep('privacyChain-dropLocalData');
+
     // clean app storage
     try {
       await appStorage.clear();
@@ -319,6 +326,20 @@ class ServiceApp extends ServiceBase {
         }
       }
     }
+    // Written last on purpose: every store above is cleared, and on web,
+    // desktop and the extension that includes the IndexedDB holding this
+    // marker. The scan databases live in OPFS, which none of it touches, so
+    // the next reset must know to retry them.
+    if (privacyChainDropFailed.length > 0) {
+      try {
+        await this.backgroundApi.servicePrivacyChain.markLocalDataDropPending({
+          networkIds: privacyChainDropFailed,
+        });
+      } catch {
+        console.error('markLocalDataDropPending error');
+      }
+    }
+
     if (appStorageClearError) {
       return Promise.reject(
         appStorageClearError instanceof Error

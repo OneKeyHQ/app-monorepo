@@ -68,6 +68,7 @@ export type IModalReceiveParamList = {
     networkId: string;
   };
   [EModalReceiveRoutes.ReceiveToken]: {
+    localWalletAddressForm?: 'public' | 'private';
     networkId: string;
     accountId: string;
     walletId: string;

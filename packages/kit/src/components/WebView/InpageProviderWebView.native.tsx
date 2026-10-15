@@ -97,6 +97,7 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
       displayProgressBar,
       onProgress,
       webviewDebuggingEnabled,
+      recreateOnContentProcessTerminate,
       siteMode,
       mediaPermissionWhitelist,
       onMessage,
@@ -275,6 +276,7 @@ const InpageProviderWebView: FC<INativeInpageProviderWebViewProps> = forwardRef(
           pullToRefreshEnabled={pullToRefreshEnabled}
           scalesPageToFit={!isDesktopMode}
           webviewDebuggingEnabled={webviewDebuggingEnabled}
+          recreateOnContentProcessTerminate={recreateOnContentProcessTerminate}
           ref={setWebViewRef}
           src={src}
           onSrcChange={onSrcChange}

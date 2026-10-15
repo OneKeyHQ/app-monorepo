@@ -93,6 +93,7 @@ import type {
 } from '@onekeyhq/shared/types/tx';
 
 import { vaultFactory } from '../vaults/factory';
+import { isLocalWalletNetwork } from '../vaults/localWallet/isLocalWalletNetwork';
 
 import ServiceBase from './ServiceBase';
 import {
@@ -130,6 +131,7 @@ type IBatchBroadcastedTx =
       signedTx: IBatchSignedTx;
       unsignedTx: IUnsignedTxPro;
       feeInfo: ISendSelectedFeeInfo | undefined;
+      reviewedDecodedTx?: IDecodedTx;
     };
 
 const assertAccountCanSign = (accountId: string) => {
@@ -341,7 +343,10 @@ class ServiceSend extends ServiceBase {
       saveToLocalHistory,
     });
 
-    if (feeInfo) {
+    const isLocalWallet = await isLocalWalletNetwork({
+      networkId,
+    });
+    if (feeInfo && !isLocalWallet) {
       decodedTx.totalFeeInNative =
         feeInfo.totalNativeForDisplay ?? feeInfo.totalNative;
       decodedTx.totalFeeFiatValue =
@@ -367,6 +372,7 @@ class ServiceSend extends ServiceBase {
       prevNonce,
       feeInfo,
       swapInfo,
+      transferPayload,
     } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.buildUnsignedTx({
@@ -378,6 +384,7 @@ class ServiceSend extends ServiceBase {
       prevNonce,
       feeInfo,
       swapInfo,
+      transferPayload,
     });
   }
 
@@ -550,6 +557,28 @@ class ServiceSend extends ServiceBase {
       return true;
     }
 
+    if (
+      await isLocalWalletNetwork({
+        networkId: params.networkId,
+      })
+    ) {
+      try {
+        const tx =
+          await this.backgroundApi.servicePrivacyChain.reviewLocalWalletTransaction(
+            { networkId: params.networkId, encodedTx: params.encodedTx },
+          );
+        const fee = new BigNumber(tx.fee);
+        // Check the exact fee locally; never upload a private proposal. A
+        // mismatched fee or one at least as large as the payment needs review.
+        return (
+          !fee.shiftedBy(-tx.decimals).eq(params.feeAmount) ||
+          fee.gte(tx.amount)
+        );
+      } catch {
+        return true;
+      }
+    }
+
     try {
       const isCustomNetwork =
         await this.backgroundApi.serviceNetwork.isCustomNetwork({
@@ -628,6 +657,46 @@ class ServiceSend extends ServiceBase {
           params.diagnosticSendState.context = activeDiagnostic;
         }
       }
+      const requiresPrivacyReview = await isLocalWalletNetwork({ networkId });
+      let privacyStageConfirmContent:
+        | ReturnType<typeof buildStageConfirmContentForSignTx>
+        | undefined;
+      if (requiresPrivacyReview) {
+        const payment =
+          await this.backgroundApi.servicePrivacyChain.reviewLocalWalletTransaction(
+            { networkId, encodedTx: diagnosticUnsignedTx.encodedTx },
+          );
+        const toDisplay = (value: string) =>
+          new BigNumber(value).shiftedBy(-payment.decimals).toFixed();
+        diagnosticUnsignedTx = {
+          ...cloneDeep(diagnosticUnsignedTx),
+          encodedTx: payment.encodedTx,
+        };
+        const { symbol } = await vault.getNetwork();
+        privacyStageConfirmContent = {
+          details: [
+            {
+              label: appLocale.intl.formatMessage({
+                id: ETranslations.global_recipient,
+              }),
+              value: payment.to,
+              highlightEnds: true,
+            },
+            {
+              label: appLocale.intl.formatMessage({
+                id: ETranslations.content__amount,
+              }),
+              value: `${toDisplay(payment.amount)} ${symbol}`,
+            },
+            {
+              label: appLocale.intl.formatMessage({
+                id: ETranslations.global_est_network_fee,
+              }),
+              value: `${toDisplay(payment.fee)} ${symbol}`,
+            },
+          ],
+        };
+      }
       const { password, deviceParams } =
         params.prefetchedCredentials ??
         (await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount(
@@ -675,7 +744,10 @@ class ServiceSend extends ServiceBase {
               deviceParams,
               signOnly,
             });
-            if (process.env.NODE_ENV !== 'production') {
+            if (
+              process.env.NODE_ENV !== 'production' &&
+              !requiresPrivacyReview
+            ) {
               console.log('signTx@vault.signTransaction', signedTx);
             }
             return signedTx;
@@ -683,14 +755,13 @@ class ServiceSend extends ServiceBase {
           {
             deviceParams,
             debugMethodName: 'serviceSend.signTransaction',
-            stageConfirmContent: buildStageConfirmContentForSignTx(
-              unsignedTx,
-              stageFeeInfo,
-            ),
+            stageConfirmContent:
+              privacyStageConfirmContent ??
+              buildStageConfirmContentForSignTx(unsignedTx, stageFeeInfo),
           },
         );
 
-      if (process.env.NODE_ENV !== 'production') {
+      if (process.env.NODE_ENV !== 'production' && !requiresPrivacyReview) {
         console.log('signTx@serviceSend.signTransaction', tx);
       }
 
@@ -1603,6 +1674,9 @@ class ServiceSend extends ServiceBase {
     }
     const isPrivateSend = transferPayload?.isPrivateSend === true;
     const vault = await vaultFactory.getVault({ networkId, accountId });
+    const requiresPrivacyReview = await isLocalWalletNetwork({
+      networkId,
+    });
 
     // A Gas Account quote is bound to a single user tx (payloadHash + locked
     // nonce). In batch flows every iteration would otherwise reuse the same
@@ -1662,10 +1736,21 @@ class ServiceSend extends ServiceBase {
         let unsignedTx = unsignedTxs[i];
         let feeInfo = sendSelectedFeeInfos?.[i];
         let signedTx: IBatchSignedTx;
+        let reviewedDecodedTx: IDecodedTx | undefined;
+        const buildDecodedTx = () =>
+          this.buildDecodedTx({
+            networkId,
+            accountId,
+            unsignedTx,
+            feeInfo,
+            transferPayload,
+            saveToLocalHistory: true,
+          });
         if (broadcastedTx?.status === 'broadcasted') {
           // An earlier attempt broadcast this tx and then failed; finish the
           // remaining steps with what was actually broadcast.
-          ({ unsignedTx, feeInfo, signedTx } = broadcastedTx);
+          ({ unsignedTx, feeInfo, signedTx, reviewedDecodedTx } =
+            broadcastedTx);
         } else {
           if (progressEventId) {
             appEventBus.emit(EAppEventBusNames.BatchSignTxProgress, {
@@ -1676,6 +1761,10 @@ class ServiceSend extends ServiceBase {
           if (i > 0 || hasEarlierBroadcast) {
             unsignedTx =
               await vault.refreshUnsignedTxBeforeBatchSign(unsignedTx);
+          }
+          // Keep the verified history snapshot after signing consumes the approval.
+          if (requiresPrivacyReview) {
+            reviewedDecodedTx = cloneDeep(await buildDecodedTx());
           }
           const buildSignedTx = () =>
             signOnly && !beforeBroadcastAction && !replaceTxInfo
@@ -1731,6 +1820,7 @@ class ServiceSend extends ServiceBase {
               signedTx,
               unsignedTx,
               feeInfo,
+              reviewedDecodedTx,
             });
           }
           // Free-trial metering: this call just broadcast, so mark the usage
@@ -1743,14 +1833,10 @@ class ServiceSend extends ServiceBase {
             );
           }
         }
-        const decodedTx = await this.buildDecodedTx({
-          networkId,
-          accountId,
-          unsignedTx,
-          feeInfo,
-          transferPayload,
-          saveToLocalHistory: true,
-        });
+        const decodedTx = reviewedDecodedTx ?? (await buildDecodedTx());
+        if (signedTx?.broadcastOutcomeUnknown) {
+          decodedTx.broadcastOutcomeUnknown = true;
+        }
         if (isPrivateSend) {
           decodedTx.payload = {
             value:
@@ -1816,16 +1902,28 @@ class ServiceSend extends ServiceBase {
           sourceInfo,
         );
         if (signedTx && !signOnly) {
-          await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
-            networkId,
-            accountId,
-            data: {
-              signedTx,
-              decodedTx,
-            },
-            replaceTxInfo,
-            primeInfiniPayment: signedTx.primeInfiniPayment,
-          });
+          try {
+            await this.backgroundApi.serviceHistory.saveSendConfirmHistoryTxs({
+              networkId,
+              accountId,
+              data: {
+                signedTx,
+                decodedTx,
+              },
+              replaceTxInfo,
+              primeInfiniPayment: signedTx.primeInfiniPayment,
+            });
+          } catch (error) {
+            if (!requiresPrivacyReview || !signedTx.txid) {
+              throw error;
+            }
+            // The runtime retains the send; a history failure must not invite a second payment.
+            console.error('[privacy-chain] sent history not saved', {
+              networkId,
+              txid: signedTx.txid,
+              error: error instanceof Error ? error.message : '',
+            });
+          }
         }
 
         if (!signOnly && txUuid && broadcastedTxs) {
@@ -2145,6 +2243,7 @@ class ServiceSend extends ServiceBase {
       encodedTx,
       approveInfo,
       transfersInfo,
+      transferPayload,
       wrappedInfo,
       swapInfo,
       stakingInfo,
@@ -2174,6 +2273,7 @@ class ServiceSend extends ServiceBase {
         encodedTx,
         approveInfo,
         transfersInfo,
+        transferPayload,
         wrappedInfo,
         swapInfo,
         specifiedFeeRate,
@@ -2312,9 +2412,12 @@ class ServiceSend extends ServiceBase {
   async getRawTransactions({
     networkId,
     txids,
+    retries = 5,
   }: {
     networkId: string;
     txids: string[];
+    // Display reads ask for fewer: a page should not wait minutes on them.
+    retries?: number;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
 
@@ -2346,9 +2449,9 @@ class ServiceSend extends ServiceBase {
         return resp.data.data.transactionMap;
       };
 
-      // Retry configuration: 5 retries with 3s interval
+      // Retry configuration: 5 retries (by default) with 3s interval
       return pRetry(run, {
-        retries: 5,
+        retries,
         minTimeout: timerUtils.getTimeDurationMs({ seconds: 3 }),
         onFailedAttempt: (error) => {
           defaultLogger.transaction.send.rawTxFetchFailed({
@@ -2427,6 +2530,23 @@ class ServiceSend extends ServiceBase {
     }
   }
 
+  // Review page closed without sending: return whatever the build reserved.
+  @backgroundMethod()
+  async releaseUnsignedTxs({
+    networkId,
+    accountId,
+    unsignedTxs,
+  }: {
+    networkId: string;
+    accountId: string;
+    unsignedTxs: IUnsignedTxPro[];
+  }): Promise<void> {
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    await Promise.all(
+      unsignedTxs.map((unsignedTx) => vault.releaseUnsignedTx({ unsignedTx })),
+    );
+  }
+
   @backgroundMethod()
   @toastIfError()
   async precheckUnsignedTxs(params: {
@@ -2460,6 +2580,15 @@ class ServiceSend extends ServiceBase {
     accountAddress?: string;
   }) {
     const { networkId, accountId, encodedTx } = params;
+    if (
+      await isLocalWalletNetwork({
+        networkId,
+      })
+    ) {
+      throw new OneKeyLocalError(
+        'Privacy transactions must be reviewed locally',
+      );
+    }
     const vault = await vaultFactory.getVault({
       networkId,
       accountId,

@@ -1,6 +1,7 @@
 import {
   UNAVAILABLE_DISPLAY,
   displayOrUnavailable,
+  getTokenGroupsBalanceStatus,
   isUnavailableOrZeroFiatValue,
   isValidNumberValue,
   sumFiatValuesFromTokens,
@@ -252,5 +253,35 @@ describe('sumTokenGroupsFiatValueIgnoringUnavailable', () => {
         },
       }),
     ).toBe('12.5');
+  });
+});
+
+describe('explicit token balance completeness', () => {
+  it('preserves legacy price absence and known zero semantics', () => {
+    expect(
+      getTokenGroupsBalanceStatus({
+        tokens: {
+          map: {
+            a: { fiatValue: null },
+            b: { fiatValue: '0', balanceStatus: 'complete' },
+          },
+        },
+      }),
+    ).toBe('complete');
+  });
+  it('propagates incomplete balances from either token group without changing the subtotal', () => {
+    const groups = {
+      tokens: { map: { a: { fiatValue: '10' } } },
+      smallBalanceTokens: {
+        map: { z: { fiatValue: '', balanceStatus: 'partial' as const } },
+      },
+    };
+    expect(sumTokenGroupsFiatValueIgnoringUnavailable(groups)).toBe('10');
+    expect(getTokenGroupsBalanceStatus(groups)).toBe('partial');
+    expect(
+      getTokenGroupsBalanceStatus({
+        tokens: { map: { z: { fiatValue: '', balanceStatus: 'unavailable' } } },
+      }),
+    ).toBe('unavailable');
   });
 });

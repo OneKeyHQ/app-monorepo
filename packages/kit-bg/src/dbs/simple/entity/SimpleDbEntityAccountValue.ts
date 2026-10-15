@@ -164,6 +164,44 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
     });
   }
 
+  // Drops one account's worth on one network from both the single-network
+  // and All Networks maps (both key forms the writers use).
+  async removeAccountNetworkValue({
+    networkId,
+    accountAddress,
+    xpub,
+  }: {
+    networkId: string;
+    accountAddress?: string;
+    xpub?: string;
+  }) {
+    const owners = [xpub, accountAddress].filter((o): o is string => !!o);
+    if (owners.length === 0) return;
+    await this.setRawData((rawData) => {
+      const base = rawData ?? emptyData();
+      const byAddress = { ...base.byAddress };
+      const allByAddress = { ...base.allByAddress };
+      owners.forEach((owner) => {
+        delete byAddress[
+          accountUtils.buildAccountLocalAssetsKey({
+            networkId,
+            accountAddress: owner,
+          })
+        ];
+        const allKey = accountUtils.buildAccountLocalAssetsKey({
+          accountAddress: owner,
+        });
+        const entry = allByAddress[allKey];
+        if (entry && networkId in entry.value) {
+          const value = { ...entry.value };
+          delete value[networkId];
+          allByAddress[allKey] = { ...entry, value };
+        }
+      });
+      return { ...base, byAddress, allByAddress };
+    });
+  }
+
   async updateAllNetworkAccountValue({
     items,
     currency,
