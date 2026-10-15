@@ -1,8 +1,10 @@
 /* cspell:ignore Infini */
 /* eslint-disable import/first, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-var-requires */
 
+import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import type { IPrimeGiftVerifyV2Result } from '@onekeyhq/shared/types/prime/primeGiftTypes';
 
 import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
@@ -549,6 +551,106 @@ function createDeferred<T = void>() {
   });
   return { promise, resolve, reject };
 }
+
+describe('ServicePrime.sendEmailOTP', () => {
+  const serverTime = Date.parse('2026-10-15T12:00:00.000Z');
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test.each([-120_000, 0, 120_000])(
+    'uses the response clock with a %sms device clock offset',
+    async (clockOffset) => {
+      jest.spyOn(Date, 'now').mockReturnValue(serverTime + clockOffset);
+      const { service } = createService();
+      const post = jest.fn().mockResolvedValue({
+        data: {
+          data: {
+            canResendAt: serverTime + 60_001,
+            resendAt: 300,
+            uuid: 'otp-id',
+          },
+        },
+        headers: { date: new Date(serverTime).toUTCString() },
+      });
+      jest.spyOn(service, 'getOneKeyIdClient').mockResolvedValue({ post });
+
+      await expect(
+        service.sendEmailOTP(EPrimeEmailOTPScene.DeleteOneKeyId),
+      ).resolves.toMatchObject({
+        retryAfterSeconds: 61,
+        resendAt: 300,
+        uuid: 'otp-id',
+      });
+      expect(post).toHaveBeenCalledWith('/prime/v1/general/emailOTP', {
+        scene: EPrimeEmailOTPScene.DeleteOneKeyId,
+      });
+    },
+  );
+
+  test.each([26_500, 61_000, 300_000])(
+    'preserves and rounds up a %sms server interval',
+    async (delay) => {
+      const { service } = createService();
+      jest.spyOn(service, 'getOneKeyIdClient').mockResolvedValue({
+        post: jest.fn().mockResolvedValue({
+          data: { data: { canResendAt: serverTime + delay } },
+          headers: { date: new Date(serverTime).toUTCString() },
+        }),
+      });
+
+      await expect(
+        service.sendEmailOTP(EPrimeEmailOTPScene.DeleteOneKeyId),
+      ).resolves.toMatchObject({
+        retryAfterSeconds: Math.ceil(delay / 1000),
+      });
+    },
+  );
+
+  test.each([undefined, 'invalid date'])(
+    'uses the existing server time estimate when the response date is %s',
+    async (date) => {
+      jest
+        .spyOn(systemTimeUtils, 'getEstimatedServerTime')
+        .mockReturnValue(serverTime);
+      const { service } = createService();
+      jest.spyOn(service, 'getOneKeyIdClient').mockResolvedValue({
+        post: jest.fn().mockResolvedValue({
+          data: { data: { canResendAt: serverTime + 26_500 } },
+          headers: { date },
+        }),
+      });
+
+      await expect(
+        service.sendEmailOTP(EPrimeEmailOTPScene.DeleteOneKeyId),
+      ).resolves.toMatchObject({
+        retryAfterSeconds: 27,
+      });
+    },
+  );
+
+  test('leaves the delay unset when no reliable server time is available', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(serverTime + 120_000);
+    jest
+      .spyOn(systemTimeUtils, 'getEstimatedServerTime')
+      .mockReturnValue(undefined);
+    const { service } = createService();
+    jest.spyOn(service, 'getOneKeyIdClient').mockResolvedValue({
+      post: jest.fn().mockResolvedValue({
+        data: { data: { canResendAt: serverTime + 60_000, uuid: 'otp-id' } },
+        headers: {},
+      }),
+    });
+
+    await expect(
+      service.sendEmailOTP(EPrimeEmailOTPScene.DeleteOneKeyId),
+    ).resolves.toMatchObject({
+      retryAfterSeconds: undefined,
+      uuid: 'otp-id',
+    });
+  });
+});
 
 describe('ServicePrime.apiFetchPrimeUserInfo', () => {
   it('refreshes an expired legacy access token through the SDK before profile recovery', async () => {

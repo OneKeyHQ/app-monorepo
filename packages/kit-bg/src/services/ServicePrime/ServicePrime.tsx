@@ -64,6 +64,7 @@ import {
 } from '@onekeyhq/shared/src/utils/primeInfiniPaymentValidation';
 import { getSanitizedErrorLogText } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import { ETranslateEngine } from '@onekeyhq/shared/types/discovery';
@@ -5676,7 +5677,22 @@ class ServicePrime extends ServiceBase {
     >('/prime/v1/general/emailOTP', {
       scene,
     });
-    return result?.data?.data;
+    const data = result?.data?.data;
+    const headerDate = result?.headers?.date;
+    const responseTime =
+      typeof headerDate === 'string' ? Date.parse(headerDate) : NaN;
+    const serverTime = Number.isFinite(responseTime)
+      ? responseTime
+      : systemTimeUtils.getEstimatedServerTime();
+    // Convert to a relative delay before crossing the background bridge.
+    const retryAfterSeconds =
+      typeof data?.canResendAt === 'number' &&
+      Number.isSafeInteger(data.canResendAt) &&
+      typeof serverTime === 'number' &&
+      Number.isFinite(serverTime)
+        ? Math.ceil((data.canResendAt - serverTime) / 1000)
+        : undefined;
+    return { ...data, retryAfterSeconds };
   }
 
   @backgroundMethod()

@@ -25,15 +25,16 @@ import { isTransientNetworkLikeError } from '@onekeyhq/shared/src/utils/transien
 import { getEmailOtpRequestErrorMessage } from './emailOtpErrorUtils';
 import { getEmailOtpRateLimitRetryAfterSeconds } from './emailOtpRateLimitError';
 
-type IEmailOtpSendResult = { canResendAt?: number } | void;
+type IEmailOtpSendResult = { retryAfterSeconds?: number } | void;
 
 function getResendCountdownSeconds(result: IEmailOtpSendResult): number {
-  const canResendAt = result?.canResendAt;
-  if (typeof canResendAt === 'number' && Number.isSafeInteger(canResendAt)) {
-    return Math.min(
-      EMAIL_OTP_COUNTDOWN_SECONDS,
-      Math.max(0, Math.ceil((canResendAt - Date.now()) / 1000)),
-    );
+  const retryAfterSeconds = result?.retryAfterSeconds;
+  if (
+    typeof retryAfterSeconds === 'number' &&
+    Number.isSafeInteger(retryAfterSeconds) &&
+    retryAfterSeconds > 0
+  ) {
+    return retryAfterSeconds;
   }
   return EMAIL_OTP_COUNTDOWN_SECONDS;
 }
@@ -87,9 +88,7 @@ export function EmailOTPDialog(props: {
           const retryAfterSeconds =
             getEmailOtpRateLimitRetryAfterSeconds(error);
           if (retryAfterSeconds !== undefined) {
-            setCountdown(
-              Math.min(EMAIL_OTP_COUNTDOWN_SECONDS, retryAfterSeconds),
-            );
+            setCountdown(retryAfterSeconds);
           }
           const errorMessage = getEmailOtpRequestErrorMessage({ error, intl });
           if (errorMessage) {
@@ -123,9 +122,7 @@ export function EmailOTPDialog(props: {
       );
       if (isMountedRef.current) {
         const retryAfterSeconds = getEmailOtpRateLimitRetryAfterSeconds(error);
-        setCountdown(
-          Math.min(EMAIL_OTP_COUNTDOWN_SECONDS, retryAfterSeconds ?? 0),
-        );
+        setCountdown(retryAfterSeconds ?? 0);
         const errorMessage = getEmailOtpRequestErrorMessage({ error, intl });
         if (errorMessage) {
           Toast.error({ title: errorMessage });
@@ -157,7 +154,8 @@ export function EmailOTPDialog(props: {
     if (countdown > 0)
       return intl.formatMessage(
         { id: ETranslations.resend_code_countdown__action },
-        { seconds: countdown },
+        // Only cap the label; the button must wait for the full server cooldown.
+        { seconds: Math.min(EMAIL_OTP_COUNTDOWN_SECONDS, countdown) },
       );
 
     return intl.formatMessage({ id: ETranslations.prime_code_resend });
