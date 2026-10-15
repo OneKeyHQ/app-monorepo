@@ -23,6 +23,7 @@ import {
   inAppPurchase,
   ipcMain,
   nativeTheme,
+  net,
   powerMonitor,
   session,
   shell,
@@ -51,9 +52,12 @@ import {
 import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { sanitizeTrezorThpModuleLogData } from '@onekeyhq/shared/src/hardware/trezorThpLogRedact';
+import { createFetchStreamHandler } from '@onekeyhq/shared/src/utils/fetchStream';
+import { fetchBytesWithIdleTimeout } from '@onekeyhq/shared/src/utils/fetchWithIdleTimeout';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
+import type { IFetchStreamRequest } from '@onekeyhq/shared/types/fetchStream';
 
 import {
   checkFileHash,
@@ -1146,6 +1150,113 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       resetCpuWatchdogStateForTesting();
     });
   }
+
+  // Privacy-chain node requests.
+  //
+  // The chain runtime is wasm in the renderer, so its own fetch obeys CORS and
+  // mixed content. A Monero node sends no CORS headers unless it was proxied,
+  // which left exactly one of twelve public nodes reachable -- forcing every
+  // user of a privacy chain through one operator who then sees their IP, the
+  // ranges they sync and when they broadcast. The main process has neither
+  // rule, so this is what makes "use any node" real.
+  ipcMain.removeHandler(ipcMessageKeys.PRIVACY_CHAIN_NODE_REQUEST);
+  ipcMain.handle(
+    ipcMessageKeys.PRIVACY_CHAIN_NODE_REQUEST,
+    async (
+      event,
+      params: { url: string; contentType: string; body: Uint8Array },
+    ) => {
+      // Main window only: dApp webviews share the preload, and this is a
+      // POST-anywhere relay. Same gate as DESKTOP_API_CALL.
+      const currentMainWebContentsId =
+        getSafelyMainWindow()?.webContents.id ?? browserWindow.webContents.id;
+      if (event.sender.id !== currentMainWebContentsId) {
+        return { ok: false, error: 'not allowed' };
+      }
+      try {
+        const { url, contentType, body } = params;
+        // Only http(s). Without this the renderer could reach file:// and
+        // other schemes through us, which is a hole the browser would never
+        // have allowed it.
+        const parsed = new URL(url);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          return {
+            ok: false,
+            error: `unsupported protocol ${parsed.protocol}`,
+          };
+        }
+        // Same limits as FETCH_STREAM: no embedded credentials, no session
+        // credentials, no redirects to a host the user did not configure.
+        if (parsed.username || parsed.password) {
+          return { ok: false, error: 'URL credentials are not supported' };
+        }
+        const fetchStartedAt = Date.now();
+        // Fails only on silence, never on a slow-but-steady transfer: a
+        // wallet2-sized batch over a proxy can take minutes and be fine.
+        // `net.fetch` is Chromium's stack: it follows the system proxy like
+        // every other request the app makes. Node's fetch would not, and
+        // would expose the user's IP to the node behind their back.
+        const response = await fetchBytesWithIdleTimeout(
+          url,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': contentType },
+            credentials: 'omit',
+            redirect: 'error',
+            // A zero-length body is a GET-shaped call in Monero's binary API;
+            // some proxies reject an explicit empty buffer.
+            body: body.length > 0 ? Buffer.from(body) : undefined,
+          },
+          undefined,
+          (input, init) => net.fetch(String(input), init),
+        );
+        if (!response.ok) {
+          return {
+            ok: false,
+            error: `node answered HTTP ${response.status} ${response.statusText}`,
+          };
+        }
+        const { bytes } = response;
+        if (process.env.NODE_ENV !== 'production') {
+          // The node's own time, with no relay in it. Compare with the
+          // renderer Worker's `host fetch` line for the same route.
+          // eslint-disable-next-line no-console
+          console.log(
+            `[PRIV-PERF] node fetch (desktop main) ${JSON.stringify({
+              route: `${parsed.host}${parsed.pathname}`,
+              status: response.status,
+              reqBytes: body.length,
+              respBytes: bytes.length,
+              fetchMs: Date.now() - fetchStartedAt,
+            })}`,
+          );
+        }
+        return { ok: true, bytes };
+      } catch (error) {
+        // Carry the cause. "request failed" with no reason is what made a
+        // node outage, a wrong address and a TLS failure look identical.
+        return {
+          ok: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    },
+  );
+
+  const fetchStreamRequest = createFetchStreamHandler((input, init) =>
+    net.fetch(String(input), init),
+  );
+  ipcMain.removeHandler(ipcMessageKeys.FETCH_STREAM);
+  ipcMain.handle(
+    ipcMessageKeys.FETCH_STREAM,
+    async (event, request: IFetchStreamRequest) => {
+      const mainId =
+        getSafelyMainWindow()?.webContents.id ?? browserWindow.webContents.id;
+      if (event.sender.id !== mainId)
+        return { ok: false, error: 'not allowed' };
+      return fetchStreamRequest(request);
+    },
+  );
 
   // System Resources
   ipcMain.removeHandler(ipcMessageKeys.SYSTEM_GET_CPU_USAGE);

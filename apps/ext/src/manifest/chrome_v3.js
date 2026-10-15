@@ -1,11 +1,20 @@
 const isDev = process.env.NODE_ENV !== 'production';
 
 const {
+  XMR_BUILT_IN_NODE_URLS,
+} = require('../../../../packages/shared/src/config/xmrNodeConstants');
+const {
   KEYLESS_WEB_TAB_URL_PATTERNS,
 } = require('../../../../packages/shared/src/keylessWallet/keylessWebTabUrlPatterns');
 const excludeMatches = require('../content-script/excludeMatches');
 
 const common = require('./common');
+
+// Derived rather than written twice: the pattern and the URL the wallet
+// actually dials must not be able to drift apart.
+const XMR_BUILT_IN_NODE_ORIGIN_PATTERN = `${
+  new URL(XMR_BUILT_IN_NODE_URLS[0]).origin
+}/*`;
 
 module.exports = {
   'manifest_version': 3,
@@ -125,5 +134,20 @@ module.exports = {
     'sidePanel',
     'contextMenus',
   ],
-  'host_permissions': KEYLESS_WEB_TAB_URL_PATTERNS,
+  'host_permissions': [
+    ...KEYLESS_WEB_TAB_URL_PATTERNS,
+    // The privacy chains scan from a node the user picks. The runtime is wasm
+    // in the offscreen document, so its own fetch obeys CORS -- and a Monero
+    // node sends no CORS headers unless someone proxied it, which left exactly
+    // one of twelve public nodes reachable. The background relays those
+    // requests instead, and needs permission for the node this build ships.
+    XMR_BUILT_IN_NODE_ORIGIN_PATTERN,
+  ],
+  // Any other node the user chooses is asked for at the moment they choose it.
+  //
+  // Requested at runtime rather than up front on purpose: `<all_urls>` in
+  // `host_permissions` reads to a reviewer (and to the user at install) as
+  // "this wallet wants to read every site", which is not what it does. Asking
+  // when the user adds a node ties the prompt to the reason for it.
+  'optional_host_permissions': ['http://*/*', 'https://*/*'],
 };
