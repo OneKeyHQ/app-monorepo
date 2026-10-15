@@ -1,5 +1,6 @@
 import type { EModalBulkSendRoutes, IModalBulkSendParamList } from './bulkSend';
 import type { EBulkSendMode } from '../../types/bulkSend';
+import type { IDustSweepRouteParams } from '../../types/swap/dustSweep';
 import type { IToken, ITokenFiat } from '../../types/token';
 
 export enum ETabHomeRoutes {
@@ -10,14 +11,17 @@ export enum ETabHomeRoutes {
   TabHomeReferralLandingWithoutPage = 'TabHomeReferralLandingWithoutPage',
   TabHomeReferralLandingCodeOnly = 'TabHomeReferralLandingCodeOnly',
   TabHomeRedeemBitcoinVoucher = 'TabHomeRedeemBitcoinVoucher',
+  TabHomePrimeSubscription = 'TabHomePrimeSubscription',
   TabHomePrimeRedeem = 'TabHomePrimeRedeem',
   TabHomeBulkSendAddressesInput = 'TabHomeBulkSendAddressesInput',
   TabHomeBulkSendAmountsInput = 'TabHomeBulkSendAmountsInput',
   TabHomeBulkSendProcess = 'TabHomeBulkSendProcess',
   TabHomeApprovalList = 'TabHomeApprovalList',
+  TabHomeDustSweep = 'TabHomeDustSweep',
 }
 
 export const PRIME_REDEEM_LANDING_PATH = '/prime/redeem';
+export const PRIME_SUBSCRIPTION_LANDING_PATH = '/prime/subscription';
 
 export type ITabHomeUrlAccountParamList = {
   [ETabHomeRoutes.TabHomeUrlAccountPage]: {
@@ -28,6 +32,7 @@ export type ITabHomeUrlAccountParamList = {
 
 export type ITabHomeParamList = {
   [ETabHomeRoutes.TabHome]: undefined;
+  [ETabHomeRoutes.TabHomeDustSweep]: IDustSweepRouteParams | undefined;
   [ETabHomeRoutes.TabHomeUrlAccountLanding]: {
     networkId: string;
     address: string;
@@ -50,6 +55,7 @@ export type ITabHomeParamList = {
         code?: string;
       }
     | undefined;
+  [ETabHomeRoutes.TabHomePrimeSubscription]: undefined;
   [ETabHomeRoutes.TabHomePrimeRedeem]:
     | {
         code?: string;

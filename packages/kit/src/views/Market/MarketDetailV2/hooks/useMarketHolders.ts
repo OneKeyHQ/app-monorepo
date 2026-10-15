@@ -1,21 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { buildMarketHolderPercentages } from './useMarketHolders.utils';
+import { useMarketTokenListRequest } from './useMarketTokenListRequest';
 import { useTokenDetail } from './useTokenDetail';
 
 interface IUseMarketHoldersProps {
   tokenAddress: string;
   networkId: string;
+  isTabFocused?: boolean;
 }
 
 export function useMarketHolders({
   tokenAddress,
   networkId,
+  isTabFocused = true,
 }: IUseMarketHoldersProps) {
   const { tokenDetail } = useTokenDetail();
   const tokenKey = `${networkId}:${tokenAddress}`;
@@ -28,6 +29,12 @@ export function useMarketHolders({
   >();
 
   useEffect(() => {
+    if (!isTabFocused) {
+      setCachedTokenDetail((previous) =>
+        previous?.tokenKey === tokenKey ? previous : undefined,
+      );
+      return;
+    }
     if (
       tokenDetail?.fdv &&
       tokenDetail.price &&
@@ -44,23 +51,24 @@ export function useMarketHolders({
     setCachedTokenDetail((previous) =>
       previous?.tokenKey === tokenKey ? previous : undefined,
     );
-  }, [networkId, tokenAddress, tokenDetail, tokenKey]);
+  }, [isTabFocused, networkId, tokenAddress, tokenDetail, tokenKey]);
 
   const {
     result: holdersData,
     isLoading: isRefreshing,
+    isInitialPending,
     run: fetchHolders,
-  } = usePromiseResult(
+  } = useMarketTokenListRequest(
     async () => {
       return backgroundApiProxy.serviceMarketV2.fetchMarketTokenHolders({
         tokenAddress,
         networkId,
       });
     },
-    [tokenAddress, networkId],
     {
-      watchLoading: true,
-      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
+      tokenAddress,
+      networkId,
+      isTabFocused,
     },
   );
 
@@ -83,6 +91,7 @@ export function useMarketHolders({
     holders,
     fetchHolders,
     isRefreshing,
+    isInitialPending,
     onRefresh,
   };
 }

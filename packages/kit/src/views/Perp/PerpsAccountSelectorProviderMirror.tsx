@@ -4,8 +4,10 @@ import { AccountSelectorProviderMirror } from '../../components/AccountSelector/
 
 export function PerpsAccountSelectorProviderMirror({
   children,
+  perfDebugName,
 }: {
   children: React.ReactNode;
+  perfDebugName?: string;
 }) {
   return (
     <AccountSelectorProviderMirror
@@ -14,6 +16,7 @@ export function PerpsAccountSelectorProviderMirror({
         sceneUrl: '',
       }}
       enabledNum={[0]}
+      perfDebugName={perfDebugName}
     >
       {children}
     </AccountSelectorProviderMirror>

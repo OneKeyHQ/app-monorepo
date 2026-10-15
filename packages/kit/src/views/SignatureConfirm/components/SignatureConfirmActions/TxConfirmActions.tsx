@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -66,10 +67,12 @@ import { checkIsEmptyData } from '@onekeyhq/shared/src/utils/evmUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { getTxnType } from '@onekeyhq/shared/src/utils/txActionUtils';
+import type { IWcPayPreBroadcastRecord } from '@onekeyhq/shared/src/walletConnect/payTypes';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import type { IGasAccountScenario } from '@onekeyhq/shared/types/fee';
 import type { IEncodedTxLightning } from '@onekeyhq/shared/types/lightning';
+import type { IPrimeFreeTrialBroadcastUsage } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 import type { IPrimeInfiniBeforeBroadcastAction } from '@onekeyhq/shared/types/prime/primeTypes';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import {
@@ -106,6 +109,8 @@ type IProps = {
   onBeforeSend?: () => void | Promise<void>;
   broadcastDeadline?: number;
   beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
+  freeTrialUsage?: IPrimeFreeTrialBroadcastUsage;
+  wcPayPreBroadcastRecord?: IWcPayPreBroadcastRecord;
   sourceInfo?: IDappSourceInfo;
   signOnly?: boolean;
   transferPayload?: ITransferPayload;
@@ -140,6 +145,8 @@ function TxConfirmActions(props: IProps) {
     onBeforeSend,
     broadcastDeadline,
     beforeBroadcastAction,
+    freeTrialUsage,
+    wcPayPreBroadcastRecord,
     sourceInfo,
     signOnly,
     transferPayload,
@@ -156,6 +163,7 @@ function TxConfirmActions(props: IProps) {
   } = props;
   const intl = useIntl();
   const isSubmitted = useRef(false);
+  const isExitHandledRef = useRef(false);
 
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
@@ -185,7 +193,7 @@ function TxConfirmActions(props: IProps) {
     updateTxFeeInfoInit,
     updateUnsignedTxs,
   } = useSignatureConfirmActions().current;
-  const successfullySentTxs = useRef<string[]>([]);
+  const [sentTxsTrackingId] = useState(() => generateUUID());
   // Identifies the current submit attempt so the background retry loop can be
   // aborted from the cancel handler. Rotated on every fresh submit; cleared
   // once the attempt has terminated (success / failure / cancel).
@@ -591,12 +599,14 @@ function TxConfirmActions(props: IProps) {
           sourceInfo,
           replaceTxInfo,
           transferPayload,
-          successfullySentTxs: successfullySentTxs.current,
+          sentTxsTrackingId,
           tronResourceRentalInfo,
           gasAccountUiState,
           gasAccountSubmitId: submitId,
           broadcastDeadline,
           beforeBroadcastAction,
+          freeTrialUsage,
+          wcPayPreBroadcastRecord,
           useDefaultRpc: customRpcStatus?.useDefaultRpcOnce,
         });
 
@@ -632,7 +642,16 @@ function TxConfirmActions(props: IProps) {
       const swapInfo = newUnsignedTxs?.[0].swapInfo;
       const stakingInfo = newUnsignedTxs?.[0].stakingInfo;
       const isTronNetwork = networkUtils.isTronNetworkByNetworkId(networkId);
+      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      const [wallet, device] = await Promise.all([
+        serviceAccount.getWallet({ walletId }).catch(() => undefined),
+        serviceAccount
+          .getAccountDeviceSafe({ accountId })
+          .catch(() => undefined),
+      ]);
       defaultLogger.transaction.send.sendConfirm({
+        walletType: wallet?.type ?? 'unknown',
+        deviceType: device?.deviceType,
         network: networkId,
         txnType: getTxnType({
           actions: result?.[0].decodedTx.actions,
@@ -780,9 +799,25 @@ function TxConfirmActions(props: IProps) {
         gasAccountStrategy === EGasAccountErrorStrategy.Refresh ||
         gasAccountStrategy === EGasAccountErrorStrategy.Fallback
       ) {
+        const shouldReviewInfiniPayment =
+          beforeBroadcastAction?.type === 'primeInfiniPayment' &&
+          !transactionSubmitted &&
+          gasAccountSubmitIdRef.current === submitId;
         updateSendTxStatus({ isSubmitting: false });
         isSubmitted.current = false;
         gasAccountSubmitIdRef.current = null;
+        if (shouldReviewInfiniPayment) {
+          // Infini may already hold a durable send claim. Let its recovery
+          // screen offer waiting or a new payment instead of retrying here.
+          // Unmount must not report a second exit through onCancel.
+          isExitHandledRef.current = true;
+          onFail?.(e as Error);
+          if (popStack) {
+            navigation.popStack();
+          } else {
+            navigation.pop();
+          }
+        }
         return;
       }
       if (accountUtils.isQrAccount({ accountId })) {
@@ -819,6 +854,8 @@ function TxConfirmActions(props: IProps) {
     onBeforeSend,
     broadcastDeadline,
     beforeBroadcastAction,
+    freeTrialUsage,
+    wcPayPreBroadcastRecord,
     onFail,
     dappApprove,
     tronResourceRentalInfo,
@@ -829,6 +866,7 @@ function TxConfirmActions(props: IProps) {
     showFeeInfoOverflowConfirm,
     signOnly,
     transferPayload,
+    sentTxsTrackingId,
     handleGasAccountSubmitError,
     logGasAccountAction,
     logGasAccountSubmitFailed,
@@ -865,7 +903,6 @@ function TxConfirmActions(props: IProps) {
     transferPayload?.originalRecipient,
   ]);
 
-  const cancelCalledRef = useRef(false);
   // If a 90212 retry loop is in flight, tear it down before the flow
   // unwinds. Otherwise the background would keep sleeping/broadcasting
   // after the user already chose to abandon — with Prime idempotency it
@@ -883,10 +920,10 @@ function TxConfirmActions(props: IProps) {
     }
   }, []);
   const onCancelOnce = useCallback(() => {
-    if (cancelCalledRef.current) {
+    if (isExitHandledRef.current) {
       return;
     }
-    cancelCalledRef.current = true;
+    isExitHandledRef.current = true;
     if (!isSubmitted.current) {
       logGasAccountAction({ action: 'exited' });
     }

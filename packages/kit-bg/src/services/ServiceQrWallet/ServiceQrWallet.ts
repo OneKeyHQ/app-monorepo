@@ -24,13 +24,16 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { logSolanaTxDiagnostic } from '@onekeyhq/shared/src/logger/solanaTxDiagnostics';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { resolveQrWalletDeviceType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { getSolanaDiagnosticError } from '@onekeyhq/shared/src/utils/solanaTxDiagnostics';
 import type { IQrWalletDevice } from '@onekeyhq/shared/types/device';
+import type { ISolanaTxDiagnosticContext } from '@onekeyhq/shared/types/solanaTxDiagnostics';
 
 import { vaultFactory } from '../../vaults/factory';
 import { buildDefaultAddAccountNetworksForQrWallet } from '../ServiceAccount/defaultNetworkAccountsConfig';
@@ -83,7 +86,11 @@ class ServiceQrWallet extends ServiceBase {
    * (the legacy container's last-writer-wins).
    */
   private stageAirGapSession:
-    | { promiseId: number; sessionId: number }
+    | {
+        promiseId: number;
+        sessionId: number;
+        diagnostic?: ISolanaTxDiagnosticContext;
+      }
     | undefined;
 
   private stageAirGapSessionSeq = 0;
@@ -127,6 +134,10 @@ class ServiceQrWallet extends ServiceBase {
     ) {
       return;
     }
+    logSolanaTxDiagnostic(session.diagnostic, {
+      stage: 'qrScanAccepted',
+      status: 'succeeded',
+    });
     this.stageAirGapSession = undefined;
     // The wait paints before the flow resumes, so the card the person
     // answered never lingers behind the decode — but the paint is
@@ -168,10 +179,12 @@ class ServiceQrWallet extends ServiceBase {
     requestUr,
     appQrCodeModalTitle,
     allowPlainTextResponse,
+    diagnostic,
   }: {
     requestUr: AirGapUR;
     appQrCodeModalTitle?: string;
     allowPlainTextResponse?: boolean;
+    diagnostic?: ISolanaTxDiagnosticContext;
   }): Promise<{
     raw?: string;
     responseUr?: AirGapUR;
@@ -215,13 +228,26 @@ class ServiceQrWallet extends ServiceBase {
       // bracket whose finally clears it: registered ahead of a begin()
       // that rejected, the session and its callback stayed parked until
       // the next scan or the callback expiry.
-      this.stageAirGapSession = { promiseId, sessionId };
+      this.stageAirGapSession = { promiseId, sessionId, diagnostic };
       let stageError: unknown;
       try {
-        await deviceStageBurst.qrShowCode({ valueUr, sessionId });
+        logSolanaTxDiagnostic(diagnostic, {
+          stage: 'qrShowRequested',
+          status: 'started',
+          reason: 'stage',
+        });
+        await deviceStageBurst.qrShowCode({ valueUr, sessionId, diagnostic });
         appScanDeviceResult = await scanPromise;
       } catch (error) {
         stageError = error;
+        const details = getSolanaDiagnosticError(error);
+        logSolanaTxDiagnostic(diagnostic, {
+          stage: 'qrResponse',
+          status:
+            details.errorCategory === 'cancelled' ? 'cancelled' : 'failed',
+          reason: 'stage',
+          ...details,
+        });
         throw error;
       } finally {
         if (this.stageAirGapSession?.promiseId === promiseId) {
@@ -230,19 +256,36 @@ class ServiceQrWallet extends ServiceBase {
         await deviceStageBurst.end({ error: stageError });
       }
     } else {
-      appScanDeviceResult = await new Promise<
-        IQRCodeHandlerParseResult<IAnimationValue>
-      >((resolve, reject) => {
-        const promiseId = this.backgroundApi.servicePromise.createCallback({
-          resolve,
-          reject,
+      try {
+        appScanDeviceResult = await new Promise<
+          IQRCodeHandlerParseResult<IAnimationValue>
+        >((resolve, reject) => {
+          const promiseId = this.backgroundApi.servicePromise.createCallback({
+            resolve,
+            reject,
+          });
+          logSolanaTxDiagnostic(diagnostic, {
+            stage: 'qrShowRequested',
+            status: 'started',
+            reason: 'legacy',
+          });
+          appEventBus.emit(EAppEventBusNames.ShowAirGapQrcode, {
+            valueUr,
+            promiseId,
+            title: appQrCodeModalTitle,
+          });
         });
-        appEventBus.emit(EAppEventBusNames.ShowAirGapQrcode, {
-          valueUr,
-          promiseId,
-          title: appQrCodeModalTitle,
+      } catch (error) {
+        const details = getSolanaDiagnosticError(error);
+        logSolanaTxDiagnostic(diagnostic, {
+          stage: 'qrResponse',
+          status:
+            details.errorCategory === 'cancelled' ? 'cancelled' : 'failed',
+          reason: 'legacy',
+          ...details,
         });
-      });
+        throw error;
+      }
     }
 
     let responseUr: AirGapUR | undefined;
@@ -250,13 +293,24 @@ class ServiceQrWallet extends ServiceBase {
     try {
       raw = appScanDeviceResult.data.fullData || appScanDeviceResult.raw || '';
       responseUr = await airGapUrUtils.qrcodeToUr(raw);
-    } catch (error) {
-      console.error(error);
+    } catch {
+      // Plain text is permitted only by the existing caller opt-in below.
     }
 
     if (!responseUr && !allowPlainTextResponse) {
+      logSolanaTxDiagnostic(diagnostic, {
+        stage: 'qrResponse',
+        status: 'failed',
+        reason: stageOpened ? 'stage' : 'legacy',
+        errorCategory: 'invalidQrOrSignature',
+      });
       throw new OneKeyErrorAirGapInvalidQrCode();
     }
+    logSolanaTxDiagnostic(diagnostic, {
+      stage: 'qrResponse',
+      status: 'succeeded',
+      reason: stageOpened ? 'stage' : 'legacy',
+    });
     return { raw, responseUr };
   }
 

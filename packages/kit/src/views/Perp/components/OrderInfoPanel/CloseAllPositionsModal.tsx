@@ -14,6 +14,7 @@ import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/h
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useEnsureTradingEnabled } from '../../hooks/useEnableTradingWithDepositFallback';
 import { usePerpsAccountScopedCacheAddress } from '../../hooks/usePerpsAccountScopedCacheAddress';
@@ -145,18 +146,20 @@ function CloseAllPositionsContent({
         </XStack>
       </YStack>
 
-      <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
-        <Button
-          testID="perp-btn"
-          variant="primary"
-          size={PERP_DIALOG_BUTTON_SIZE}
-          disabled={isSubmitting || !canSubmit}
-          loading={isSubmitting}
-          onPress={handleConfirm}
-        >
-          {buttonText}
-        </Button>
-      </TradingGuardWrapper>
+      <YStack pt={platformEnv.isNative ? '$4' : 0}>
+        <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
+          <Button
+            testID="perp-btn"
+            variant="primary"
+            size={PERP_DIALOG_BUTTON_SIZE}
+            disabled={isSubmitting || !canSubmit}
+            loading={isSubmitting}
+            onPress={handleConfirm}
+          >
+            {buttonText}
+          </Button>
+        </TradingGuardWrapper>
+      </YStack>
     </YStack>
   );
 }

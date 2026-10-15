@@ -80,6 +80,12 @@ jest.mock('@onekeyhq/components', () => {
     YStack: Container,
     SizableText: Container,
     Icon: () => null,
+    HeightTransition: ({ children }: { children?: ReactNode }) =>
+      React.createElement(
+        'div',
+        { 'data-testid': 'prime-gift-offer-height-transition' },
+        children,
+      ),
     useThemeName: () => 'light',
   };
 });
@@ -149,6 +155,7 @@ const eligible: IPrimeGiftEligibility = {
   giftMonths: 12,
 };
 const offerTestId = 'prime-gift-offer-deviceDetails';
+const heightTransitionTestId = 'prime-gift-offer-height-transition';
 
 function renderOffer() {
   return render(<PrimeGiftOffer device={device} source="deviceDetails" />, {
@@ -226,6 +233,7 @@ describe('PrimeGiftOffer real server eligibility', () => {
       resolve(eligible);
     });
     expect(screen.getByText('领取 12 个月 Prime')).toBeTruthy();
+    expect(screen.getByTestId(heightTransitionTestId)).toBeTruthy();
     fireEvent.click(screen.getByTestId(offerTestId));
     expect(mockNavigate).toHaveBeenCalledTimes(1);
   });
@@ -265,6 +273,7 @@ describe('PrimeGiftOffer real server eligibility', () => {
       renderOffer();
     });
     expect(screen.queryByTestId(offerTestId)).toBeNull();
+    expect(screen.queryByTestId(heightTransitionTestId)).toBeNull();
     expect(mockNavigate).not.toHaveBeenCalled();
     expect(mockOfferShown).not.toHaveBeenCalled();
     expect(mockOfferClick).not.toHaveBeenCalled();
@@ -278,6 +287,7 @@ describe('PrimeGiftOffer real server eligibility', () => {
       renderOffer();
     });
     expect(screen.queryByTestId(offerTestId)).toBeNull();
+    expect(screen.queryByTestId(heightTransitionTestId)).toBeNull();
   });
 
   it('waits for the prefetch result and still refreshes after redemption', async () => {
@@ -297,6 +307,7 @@ describe('PrimeGiftOffer real server eligibility', () => {
       mockCacheListeners.forEach((listener) => listener());
     });
     expect(screen.getByTestId('prime-gift-offer-onboarding')).toBeTruthy();
+    expect(screen.getByTestId(heightTransitionTestId)).toBeTruthy();
     mockFetchEligibility.mockResolvedValue({
       ...eligible,
       hasUnclaimedGift: false,
@@ -305,6 +316,7 @@ describe('PrimeGiftOffer real server eligibility', () => {
       mockListeners.forEach((listener) => listener({ serialNo: device.uuid }));
     });
     expect(screen.queryByTestId('prime-gift-offer-onboarding')).toBeNull();
+    expect(screen.queryByTestId(heightTransitionTestId)).toBeNull();
     expect(servicePrime.apiGetPrimeGiftEligibility.mock.calls).toHaveLength(1);
   });
 
@@ -340,6 +352,7 @@ describe('PrimeGiftOffer real server eligibility', () => {
       resolve({ ...eligible, hasUnclaimedGift: false });
     });
     expect(screen.queryByTestId(offerTestId)).toBeNull();
+    expect(screen.queryByTestId(heightTransitionTestId)).toBeNull();
     expect(servicePrime.apiGetPrimeGiftEligibility.mock.calls).toHaveLength(2);
   });
 
@@ -348,11 +361,25 @@ describe('PrimeGiftOffer real server eligibility', () => {
     mockFetchEligibility.mockRejectedValue(new Error('Offline'));
     renderOffer();
     expect(screen.getByText('领取 12 个月 Prime')).toBeTruthy();
+    expect(screen.queryByTestId(heightTransitionTestId)).toBeNull();
     await act(async () => undefined);
     expect(screen.getByText('领取 12 个月 Prime')).toBeTruthy();
+    expect(screen.queryByTestId(heightTransitionTestId)).toBeNull();
     expect(servicePrime.apiGetPrimeGiftEligibility.mock.calls).toEqual([
       [{ serialNo: 'DEVICE-A' }],
     ]);
+  });
+
+  it('animates an onboarding offer that is already eligible on the first frame', () => {
+    mockCache = { 'DEVICE-A': eligible };
+    mockFetchEligibility.mockResolvedValue(eligible);
+    render(
+      <IntlProvider locale="zh-CN" messages={zhTranslations}>
+        <PrimeGiftOffer device={device} source="onboarding" />
+      </IntlProvider>,
+    );
+    expect(screen.getByTestId('prime-gift-offer-onboarding')).toBeTruthy();
+    expect(screen.getByTestId(heightTransitionTestId)).toBeTruthy();
   });
 
   it('retains the same offer on re-entry while a slow refresh updates its duration', async () => {

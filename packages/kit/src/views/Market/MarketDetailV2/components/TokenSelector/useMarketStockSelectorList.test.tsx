@@ -55,6 +55,7 @@ jest.mock('@onekeyhq/components', () => ({
   ),
   getCurrentVisibilityState: () => true,
   onVisibilityStateChange: () => () => undefined,
+  s: (value: number) => value,
   useDeferredPromise: () => ({
     promise: Promise.resolve(null),
     reset: jest.fn(),
@@ -64,6 +65,7 @@ jest.mock('@onekeyhq/components', () => ({
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => true,
+  useRouteIsFocusedWhenEnabled: () => true,
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
   useLocaleVariant: () => 'en-US',

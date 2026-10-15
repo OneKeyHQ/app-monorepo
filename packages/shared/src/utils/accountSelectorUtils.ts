@@ -137,6 +137,27 @@ function buildGlobalDeriveTypesMapKey({ networkId }: { networkId: string }) {
   // return key;
 }
 
+// The persisted map only holds derive types the user saved explicitly. BTC
+// defaults to Taproot (BIP86) without such an entry, and every reader of the
+// raw map must apply that same default, or a scene seeded from the raw map
+// ends up on Nested SegWit while home shows Taproot (OK-64269).
+// The derive type union lives in kit-bg, which shared must not import, so the
+// helper is typed by the caller's map instead.
+function getGlobalDeriveTypeFromMap<T extends string>({
+  networkId,
+  globalDeriveTypesMap,
+}: {
+  networkId: string;
+  globalDeriveTypesMap: Partial<Record<string, T | undefined>> | undefined;
+}): T | 'BIP86' | undefined {
+  const key = buildGlobalDeriveTypesMapKey({ networkId });
+  const deriveType = globalDeriveTypesMap?.[key];
+  if (deriveType === undefined && networkUtils.isBTCNetwork(networkId)) {
+    return 'BIP86'; // Taproot
+  }
+  return deriveType;
+}
+
 function isSceneCanPersist({
   sceneName,
 }: {
@@ -223,6 +244,38 @@ function hasOthersWalletAccountNetworkPair({
   );
 }
 
+// A selection's derive type is re-read from the network's default address
+// type when the one it carries cannot be trusted: after a network change it
+// still belongs to the previous network, and an imported or watching account
+// only holds a placeholder (`default`). Carried back to an HD or hardware
+// account, that placeholder would be saved as the app-wide default.
+function shouldResetDeriveTypeFromGlobal({
+  oldSelectedAccount,
+  newSelectedAccount,
+}: {
+  oldSelectedAccount: IAccountSelectorSelectedAccount | undefined;
+  newSelectedAccount: IAccountSelectorSelectedAccount | undefined;
+}): boolean {
+  const newNetworkId = newSelectedAccount?.networkId;
+  if (
+    !newNetworkId ||
+    newSelectedAccount?.deriveType !== oldSelectedAccount?.deriveType
+  ) {
+    return false;
+  }
+  if (newNetworkId !== oldSelectedAccount?.networkId) {
+    return true;
+  }
+  const oldWalletId = oldSelectedAccount?.walletId;
+  const newWalletId = newSelectedAccount?.walletId;
+  return Boolean(
+    oldWalletId &&
+    newWalletId &&
+    accountUtils.isOthersWallet({ walletId: oldWalletId }) &&
+    !accountUtils.isOthersWallet({ walletId: newWalletId }),
+  );
+}
+
 export default {
   isEqualAccountSelectorScene,
   hasOthersWalletAccountNetworkPair,
@@ -230,8 +283,10 @@ export default {
   buildAccountSelectorSceneId,
   buildMergedSelectedAccount,
   buildGlobalDeriveTypesMapKey,
+  getGlobalDeriveTypeFromMap,
   isSceneCanAutoSelect,
   isSceneCanPersist,
   isSceneUseGlobalDeriveType,
   isSceneAutoSaveToGlobalDeriveType,
+  shouldResetDeriveTypeFromGlobal,
 };

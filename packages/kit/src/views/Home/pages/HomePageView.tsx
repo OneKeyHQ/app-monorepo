@@ -1,4 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import type { MutableRefObject } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
 import { CanceledError } from 'axios';
@@ -7,7 +17,6 @@ import { useIntl } from 'react-intl';
 import type { ITabContainerRef } from '@onekeyhq/components';
 import {
   DelayedFreeze,
-  HeaderScrollGestureWrapper,
   Icon,
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   Keyboard,
@@ -21,6 +30,7 @@ import {
   useFocusedTab,
   useMedia,
   useScrollContentTabBarOffset,
+  useTabsScrollToTop,
   useTheme,
 } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
@@ -43,6 +53,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import { homeHeaderLayoutCache } from '@onekeyhq/shared/src/storage/uiSnapshotCaches';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -55,7 +66,6 @@ import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { NetworkAlert } from '../../../components/NetworkAlert';
 import { NotificationEnableAlert } from '../../../components/NotificationEnableAlert';
 import { NotificationPermissionRecoveryAlert } from '../../../components/NotificationPermissionRecoveryAlert';
-import { RiskApprovalAlert } from '../../../components/RiskApprovalAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { WatchOnlyAlert } from '../../../components/WatchOnlyAlert';
 import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
@@ -64,8 +74,8 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { runAfterTokensDone } from '../../../hooks/useRunAfterTokensDone';
 import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
 import {
+  buildOverviewOwnerKey,
   useAccountOverviewActions,
-  useApprovalsInfoAtom,
 } from '../../../states/jotai/contexts/accountOverview';
 import {
   useAccountSelectorStorageInitDoneAtom,
@@ -75,6 +85,7 @@ import {
 } from '../../../states/jotai/contexts/accountSelector';
 import { deferHeavyWorkUntilUIIdle } from '../../../utils/deferHeavyWork';
 import { NetworkUnsupportedWarning } from '../../Staking/components/ProtocolDetails/NetworkUnsupportedWarning';
+import { HomeHeaderGesture } from '../components/HomeHeaderGesture';
 import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
@@ -84,63 +95,54 @@ import { HomeTestIDs } from '../testIDs';
 
 import { DeFiContainerWithProvider } from './DeFiContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
+import { HomeNativePager } from './HomeNativePager';
 import { homePageContentMaxWidthSx } from './homePageContentMaxWidth';
 import {
   isWalletListResolvedNoWallet,
   shouldShowNoWalletContent,
 } from './homePageNoWalletContent';
-import { isHomeTabActive, useHomeTabFreeze } from './homeTabFreeze';
+import {
+  isHomeTabActive,
+  useHomeTabFreeze,
+  useHomeTabOwnerThaw,
+} from './homeTabFreeze';
 import { NFTListContainerWithProvider } from './NFTListContainer';
-import { PerpsContainer } from './PerpsContainer';
+import { debugPerpsChain } from './perpsChainTrace';
 import { PortfolioContainerWithProvider } from './PortfolioContainer';
 import { TabHeaderSettings } from './TabHeaderSettings';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
-import type { LayoutChangeEvent } from 'react-native';
+import type { LayoutChangeEvent, View } from 'react-native';
 
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
 const NATIVE_TAB_BAR_CONTAINER_STYLE = { position: 'relative' } as const;
-
-interface IAndroidScrollContainerProps {
-  children: React.ReactNode;
+const PerpsContainer = lazy(async () => {
+  debugPerpsChain('import.start');
+  const module = await import('./PerpsContainer');
+  debugPerpsChain('import.end');
+  return { default: module.PerpsContainer };
+});
+function PerpsSuspenseTrace() {
+  debugPerpsChain('suspense.render');
+  useLayoutEffect(() => {
+    debugPerpsChain('suspense.commit');
+    return () => debugPerpsChain('suspense.unmount');
+  }, []);
+  return null;
 }
-const AndroidScrollContainer = platformEnv.isNativeAndroid
-  ? ({ children }: IAndroidScrollContainerProps) => {
-      const [height, setHeight] = useState(0);
-      const heightRef = useRef(0);
-      const handleLayout = useCallback((event: LayoutChangeEvent) => {
-        const h = Math.round(event.nativeEvent.layout.height);
-        if (h !== heightRef.current) {
-          heightRef.current = h;
-          setHeight(h);
-        }
-      }, []);
-      const contentContainerStyle = useMemo(() => ({ height }), [height]);
-      return (
-        <YStack flex={1} onLayout={handleLayout}>
-          {height > 0 ? (
-            <ScrollView
-              nestedScrollEnabled
-              refreshControl={<PullToRefresh onRefresh={onHomePageRefresh} />}
-              contentContainerStyle={contentContainerStyle}
-            >
-              {children}
-            </ScrollView>
-          ) : null}
-        </YStack>
-      );
-    }
-  : ({ children }: IAndroidScrollContainerProps) => {
-      return children;
-    };
+// Seed for the collapsible header height before the first layout (the funded
+// layout with the banner band). Measured heights per header variant are kept
+// for the session so a later switch back paints with the exact height.
+const NATIVE_HEADER_HEIGHT_SEED = 292;
+// Header container height (alerts excluded) per layout variant.
+const learnedNativeHeaderHeights = new Map<string, number>();
 
 // Placement differs by platform — see the renderHeader comment in HomePageView.
 function HomeAlerts() {
   return (
     <>
-      <RiskApprovalAlert />
       <WatchOnlyAlert />
       <NetworkAlert />
       <NotificationPermissionRecoveryAlert
@@ -209,20 +211,55 @@ function HomeTabContentMaxWidth({ children }: { children: React.ReactNode }) {
 // frozen cannot take the tab view's scroll-offset sync (the header then
 // snaps to the wrong collapse state once it thaws). So the pressed target
 // thaws on the tab press itself, and blur only freezes after a delay.
+//
+// `ownerKey` is the account identity the container used to be keyed on. A
+// pane that feeds always-visible state (the wallet pane owns the token data
+// behind the header worth) passes it so an account switch made from another
+// tab thaws it for one commit; see useHomeTabOwnerThaw.
 function FreezeInactiveHomeTab({
   tabName,
   pressedTabName,
+  ownerKey,
+  keepActive,
   children,
 }: {
   tabName: string;
   pressedTabName: string;
+  ownerKey?: string;
+  keepActive: boolean;
   children: React.ReactNode;
 }) {
   const focusedTab = useFocusedTab();
+  const ownerThaw = useHomeTabOwnerThaw(ownerKey);
   const frozen = useHomeTabFreeze(
-    isHomeTabActive({ tabName, focusedTab, pressedTabName }),
+    keepActive ||
+      ownerThaw ||
+      isHomeTabActive({ tabName, focusedTab, pressedTabName }),
   );
   return <DelayedFreeze freeze={frozen}>{children}</DelayedFreeze>;
+}
+
+// Tabs.Container no longer remounts on an account switch (OK-63873), so the
+// panes keep their scroll offsets across it. The page still wants a switched
+// account to start at the top, the way the remount used to leave it. The pane
+// refs only exist inside the container, so this bridge, mounted in the
+// always-mounted wallet pane, hands the container-scoped scroll-to-top up to
+// HomePageView through a ref.
+function HomeTabsScrollToTopBridge({
+  scrollToTopRef,
+}: {
+  scrollToTopRef: MutableRefObject<(() => void) | undefined>;
+}) {
+  const scrollToTop = useTabsScrollToTop();
+  useLayoutEffect(() => {
+    scrollToTopRef.current = scrollToTop;
+    return () => {
+      if (scrollToTopRef.current === scrollToTop) {
+        scrollToTopRef.current = undefined;
+      }
+    };
+  }, [scrollToTop, scrollToTopRef]);
+  return null;
 }
 
 export function HomePageView({
@@ -292,10 +329,11 @@ export function HomePageView({
     },
   );
 
-  const [{ hasRiskApprovals }] = useApprovalsInfoAtom();
+  const approvalOwnerKey = buildOverviewOwnerKey(account?.id, network?.id);
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
   const tabsRef = useRef<ITabContainerRef | null>(null);
-  // Keep the measured native tab bar height outside the account-keyed container
+  const homeTabsScrollToTopRef = useRef<(() => void) | undefined>(undefined);
+  // Keep the measured native tab bar height outside the tab container
   // so remounts do not briefly reserve the library's default 48pt height.
   const nativeTabBarHeightRef = useRef<number | undefined>(undefined);
   const nativeTabBarContainerStyle = useMemo(
@@ -334,11 +372,6 @@ export function HomePageView({
       };
     }, []),
   );
-
-  const hasRiskApprovalsRef = useRef(hasRiskApprovals);
-  useEffect(() => {
-    hasRiskApprovalsRef.current = hasRiskApprovals;
-  }, [hasRiskApprovals]);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const addressType = deriveInfo?.labelKey
@@ -429,10 +462,11 @@ export function HomePageView({
   useEffect(() => {
     let cancelled = false;
 
-    // Keep the red-dot state from becoming stale across account/network switches.
-    if (hasRiskApprovalsRef.current) {
-      updateApprovalsInfo({ hasRiskApprovals: false, riskApprovalsCount: 0 });
-    }
+    // Keep the risk dot from becoming stale across account/network switches.
+    updateApprovalsInfo({
+      ownerKey: approvalOwnerKey,
+      showRiskApprovalsDot: false,
+    });
 
     const run = async (_trigger: string) => {
       if (!isBulkRevokeApprovalEnabled) return;
@@ -442,20 +476,17 @@ export function HomePageView({
       if (cancelled) return;
 
       try {
-        const resp =
-          await backgroundApiProxy.serviceApproval.fetchAccountApprovals({
+        const shouldShowDot =
+          await backgroundApiProxy.serviceApproval.shouldShowRiskApprovalsDot({
             networkId: network.id,
             accountId: account.id,
             indexedAccountId: indexedAccount?.id,
             accountAddress: account.address,
           });
         if (cancelled) return;
-        const riskApprovals = resp.contractApprovals.filter(
-          (i) => i.isRiskContract,
-        );
         updateApprovalsInfo({
-          hasRiskApprovals: riskApprovals.length > 0,
-          riskApprovalsCount: riskApprovals.length,
+          ownerKey: approvalOwnerKey,
+          showRiskApprovalsDot: shouldShowDot,
         });
       } catch (error) {
         if (error instanceof CanceledError) {
@@ -483,6 +514,7 @@ export function HomePageView({
   }, [
     account?.address,
     account?.id,
+    approvalOwnerKey,
     indexedAccount?.id,
     isBulkRevokeApprovalEnabled,
     network?.id,
@@ -543,18 +575,109 @@ export function HomePageView({
   // bottom edge (the banner card). That read as "the banner keeps occupying
   // the top" whenever an alert was showing (OK-62183). Inside the header the
   // alerts collapse away with everything else.
+  // Native header height hint (OK-63873). The collapsible tab container only
+  // learns the header height from onLayout, one or two frames after a layout
+  // change, and the tab content padding follows it, so a switch between a
+  // funded account (actions + banner band) and an empty one (add-money block)
+  // showed the list shifted for those frames. Remember the measured height of
+  // the header container per layout variant and hand the tab container the
+  // expected total in the same commit the variant changes; onLayout only
+  // corrects a wrong hint. Inner and alert measurements only predict variant
+  // changes; the complete header measurement remains authoritative.
+  const [nativeHeaderHeightHint, setNativeHeaderHeightHint] = useState(
+    NATIVE_HEADER_HEIGHT_SEED,
+  );
+  const nativeHeaderAlertsHeightRef = useRef(0);
+  const nativeHeaderRef = useRef<View>(null);
+  const nativeHeaderMeasureGenerationRef = useRef(0);
+  const handleFullHeaderLayout = useCallback((event: LayoutChangeEvent) => {
+    nativeHeaderMeasureGenerationRef.current += 1;
+    const height = Math.ceil(event.nativeEvent.layout.height);
+    if (height > 0) {
+      setNativeHeaderHeightHint(height);
+    }
+  }, []);
+  const handleHeaderAlertsLayout = useCallback((event: LayoutChangeEvent) => {
+    const height = Math.round(event.nativeEvent.layout.height);
+    nativeHeaderAlertsHeightRef.current = height;
+  }, []);
+  const handleHeaderVariantChange = useCallback((variant: string) => {
+    nativeHeaderMeasureGenerationRef.current += 1;
+    const generation = nativeHeaderMeasureGenerationRef.current;
+    let learned = learnedNativeHeaderHeights.get(variant);
+    if (!learned) {
+      // First time this launch: the height measured on an earlier launch.
+      try {
+        learned = homeHeaderLayoutCache.get(variant)?.data;
+      } catch {
+        learned = undefined;
+      }
+      if (learned) {
+        learnedNativeHeaderHeights.set(variant, learned);
+      }
+    }
+    if (learned) {
+      setNativeHeaderHeightHint(learned + nativeHeaderAlertsHeightRef.current);
+    }
+    // Equal-height variants may not emit another layout event. Measure the
+    // complete header after the variant commits, then discard older snapshots.
+    nativeHeaderRef.current?.measure((_x, _y, _width, rawHeight) => {
+      if (
+        generation === nativeHeaderMeasureGenerationRef.current &&
+        rawHeight > 0
+      ) {
+        setNativeHeaderHeightHint(Math.ceil(rawHeight));
+      }
+    });
+  }, []);
+  const handleHeaderContainerLayout = useCallback(
+    (variant: string, rawHeight: number) => {
+      const height = Math.round(rawHeight);
+      if (height <= 0) {
+        return;
+      }
+      if (learnedNativeHeaderHeights.get(variant) !== height) {
+        learnedNativeHeaderHeights.set(variant, height);
+        try {
+          homeHeaderLayoutCache.set(variant, height);
+        } catch {
+          // The hint is a paint optimization; failing to remember it is fine.
+        }
+      }
+    },
+    [],
+  );
+
   const renderHeader = useCallback(() => {
     return (
-      <Stack {...homePageContentMaxWidthSx}>
+      <Stack
+        {...homePageContentMaxWidthSx}
+        ref={platformEnv.isNative ? nativeHeaderRef : undefined}
+        onLayout={platformEnv.isNative ? handleFullHeaderLayout : undefined}
+      >
         {platformEnv.isNative ? (
-          <HeaderScrollGestureWrapper onRefresh={onHomePageRefresh}>
-            <HomeAlerts />
-          </HeaderScrollGestureWrapper>
+          <Stack onLayout={handleHeaderAlertsLayout}>
+            <HomeHeaderGesture onRefresh={onHomePageRefresh}>
+              <HomeAlerts />
+            </HomeHeaderGesture>
+          </Stack>
         ) : null}
-        <HomeHeaderContainer />
+        <HomeHeaderContainer
+          onHeaderVariantChange={
+            platformEnv.isNative ? handleHeaderVariantChange : undefined
+          }
+          onHeaderLayout={
+            platformEnv.isNative ? handleHeaderContainerLayout : undefined
+          }
+        />
       </Stack>
     );
-  }, []);
+  }, [
+    handleFullHeaderLayout,
+    handleHeaderAlertsLayout,
+    handleHeaderContainerLayout,
+    handleHeaderVariantChange,
+  ]);
 
   // react-native-collapsible-tab-view paints its header container white. In
   // dark mode that white showed through wherever the header content has no
@@ -578,6 +701,13 @@ export function HomePageView({
     [],
   );
 
+  const accountPaneKey = [
+    wallet?.id,
+    indexedAccount?.id,
+    account?.id,
+    network?.id,
+    activeAccount.deriveType,
+  ].join('|');
   const tabConfigs = useMemo(() => {
     return [
       {
@@ -597,7 +727,23 @@ export function HomePageView({
             testID: HomeTestIDs.tabPerps,
             component: (
               <HomeTabContentMaxWidth>
-                <PerpsContainer />
+                <Suspense
+                  fallback={
+                    platformEnv.isNative ? (
+                      <PerpsSuspenseTrace />
+                    ) : (
+                      <Stack
+                        flex={1}
+                        justifyContent="center"
+                        alignItems="center"
+                      >
+                        <Spinner size="large" />
+                      </Stack>
+                    )
+                  }
+                >
+                  <PerpsContainer />
+                </Suspense>
               </HomeTabContentMaxWidth>
             ),
           }
@@ -609,7 +755,7 @@ export function HomePageView({
               id: ETranslations.global_earn,
             }),
             testID: HomeTestIDs.tabDefi,
-            component: <DeFiContainerWithProvider />,
+            component: <DeFiContainerWithProvider key={accountPaneKey} />,
           }
         : undefined,
       isNFTEnabled
@@ -621,7 +767,7 @@ export function HomePageView({
             testID: HomeTestIDs.tabNFT,
             component: (
               <HomeTabContentMaxWidth>
-                <NFTListContainerWithProvider />
+                <NFTListContainerWithProvider key={accountPaneKey} />
               </HomeTabContentMaxWidth>
             ),
           }
@@ -634,12 +780,12 @@ export function HomePageView({
         testID: HomeTestIDs.tabHistory,
         component: (
           <HomeTabContentMaxWidth>
-            <TxHistoryListContainerWithProvider />
+            <TxHistoryListContainerWithProvider key={accountPaneKey} />
           </HomeTabContentMaxWidth>
         ),
       },
     ].filter(Boolean);
-  }, [intl, isDeFiEnabled, isNFTEnabled, isPerpsEnabled]);
+  }, [accountPaneKey, intl, isDeFiEnabled, isNFTEnabled, isPerpsEnabled]);
 
   const pagerTabConfigs = useMemo(
     () =>
@@ -709,6 +855,31 @@ export function HomePageView({
     Set<EHomeWalletTab>
   >(() => (initialTabId ? new Set([initialTabId]) : new Set()));
   const lastDisplayableTabNameRef = useRef(initialTabName);
+  debugPerpsChain('home.render', {
+    activeTabId,
+    perpsMounted: mountedHomeTabIds.has(EHomeWalletTab.Perps),
+  });
+  useLayoutEffect(() => {
+    debugPerpsChain('home.commit', {
+      activeTabId,
+      perpsMounted: mountedHomeTabIds.has(EHomeWalletTab.Perps),
+    });
+  }, [activeTabId, mountedHomeTabIds]);
+
+  const handleTabPrepare = useCallback(
+    ({ tabId }: { tabId: EHomeWalletTab }) => {
+      if (!pagerTabConfigs.some((tab) => tab.id === tabId)) return;
+      debugPerpsChain('home.tabPrepare', { tabId, activeTabId });
+      // Preparing a swipe target must not change the selected business tab.
+      setMountedHomeTabIds((prev) => {
+        if (prev.has(tabId)) return prev;
+        const next = new Set(prev);
+        next.add(tabId);
+        return next;
+      });
+    },
+    [activeTabId, pagerTabConfigs],
+  );
 
   useEffect(() => {
     setActiveTabName((prev) =>
@@ -739,6 +910,22 @@ export function HomePageView({
     }
   }, [activeTabId, perpTabShowWeb, pagerTabConfigs]);
 
+  // Tabs.Container is not remounted on a wallet / account switch (OK-63873),
+  // so a switch that lands on a network without the focused NFT / DeFi tab
+  // only drops that Tabs.Tab. The effect above moves `activeTabName` to the
+  // first tab, but neither pager follows on its own: the native pager keeps
+  // its index (now another pane), and the web container keeps the removed
+  // name (no highlight, stale page offset). Move the pager explicitly.
+  useEffect(() => {
+    if (pagerTabConfigs.some((tab) => tab.name === activeTabName)) {
+      return;
+    }
+    const fallbackTabName = pagerTabConfigs[0]?.name;
+    if (fallbackTabName) {
+      tabsRef.current?.jumpToTab(fallbackTabName);
+    }
+  }, [activeTabName, pagerTabConfigs]);
+
   useEffect(() => {
     if (!activeTabId) {
       return;
@@ -767,6 +954,7 @@ export function HomePageView({
       // Design: plain-text tabs on small screens only; pill elsewhere.
       const tabBarVariant = isSmallScreen ? 'text' : 'pill';
       const handleTabPress = (name: string) => {
+        debugPerpsChain('home.tabPress', { name });
         const nextTab = tabConfigs.find((tab) => tab.name === name);
         if (perpTabShowWeb && nextTab?.id === EHomeWalletTab.Perps) {
           switchToPerpsWebTab();
@@ -783,7 +971,10 @@ export function HomePageView({
         return (
           <Tabs.TabBar
             {...tabBarProps}
-            containerStyle={nativeTabBarContainerStyle}
+            containerStyle={{
+              ...nativeTabBarContainerStyle,
+              bg: tabBarProps.topEdgeActive ? 'transparent' : undefined,
+            }}
             tabNames={tabBarTabNames}
             indexDecimal={perpTabShowWeb ? undefined : tabBarProps.indexDecimal}
             onTabPress={handleTabPress}
@@ -849,6 +1040,7 @@ export function HomePageView({
 
   const handleTabChange = useCallback(
     (data: { tabName: string }) => {
+      debugPerpsChain('home.tabChange', { name: data.tabName });
       const nextTab = tabConfigs.find((tab) => tab.name === data.tabName);
       if (perpTabShowWeb && nextTab?.id === EHomeWalletTab.Perps) {
         switchToPerpsWebTab();
@@ -866,42 +1058,22 @@ export function HomePageView({
     [perpTabShowWeb, switchToPerpsWebTab, tabConfigs, pagerTabConfigs],
   );
 
-  // When the user switches network while NOT on the wallet (token list) tab,
-  // that tab is frozen (see FreezeInactiveHomeTab) so its own token-list
-  // refresh won't run until the user returns — leaving the always-visible
-  // header worth stuck on the previous network. Proactively refresh the wallet
-  // token list for the new network. The list resolves the request from the
-  // explicit account/network in the payload because its own closures are
-  // frozen on the previous network.
-  const prevNetworkIdRef = useRef(network?.id);
-  useEffect(() => {
-    const nextNetworkId = network?.id;
-    const prevNetworkId = prevNetworkIdRef.current;
-    prevNetworkIdRef.current = nextNetworkId;
-    if (!prevNetworkId || !nextNetworkId || prevNetworkId === nextNetworkId) {
+  // Start a switched account at the top of every pane. This is the same
+  // identity the container used to be keyed on (wallet + indexedAccountId,
+  // account.id for Others wallets), so a pure network switch keeps its scroll
+  // position exactly as before. Layout effect: the reset lands in the same
+  // frame as the replayed token list, not one frame after it.
+  const homeScrollOwnerKey = `${wallet?.id ?? ''}-${
+    account?.indexedAccountId ?? account?.id ?? ''
+  }`;
+  const prevHomeScrollOwnerKeyRef = useRef(homeScrollOwnerKey);
+  useLayoutEffect(() => {
+    if (prevHomeScrollOwnerKeyRef.current === homeScrollOwnerKey) {
       return;
     }
-    if (!activeTabId || activeTabId === EHomeWalletTab.Portfolio) {
-      return;
-    }
-    const accountId = account?.id;
-    if (!accountId) {
-      return;
-    }
-    appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
-      accounts: [
-        {
-          accountId,
-          networkId: nextNetworkId,
-          // Provide the fresh indexedAccountId so the frozen token list can
-          // resolve aggregate hidden/custom tokens correctly instead of
-          // falling back to its own (stale) closure.
-          indexedAccountId: indexedAccount?.id,
-        },
-      ],
-      refreshByProvidedAccounts: true,
-    });
-  }, [network?.id, activeTabId, account?.id, indexedAccount?.id]);
+    prevHomeScrollOwnerKeyRef.current = homeScrollOwnerKey;
+    homeTabsScrollToTopRef.current?.();
+  }, [homeScrollOwnerKey]);
 
   const stickyHeaderCtx = useMemo(
     () => ({
@@ -913,12 +1085,88 @@ export function HomePageView({
     [portalTarget, stickyHost, activeTabName, activeTabId],
   );
 
+  const [tabPageHeight, setTabPageHeight] = useState(
+    platformEnv.isNativeIOS ? 162 : 92,
+  );
+  const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
+    setTabPageHeight(e.nativeEvent.layout.height - 20);
+  }, []);
+  const { result: accountNetworkNotSupported } = usePromiseResult(
+    async () => {
+      if (!network?.id || (!wallet?.id && !account?.id)) return undefined;
+      const checkResult =
+        await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported(
+          {
+            walletId: wallet?.id,
+            accountId: account?.id,
+            accountImpl: account?.impl,
+            activeNetworkId: network.id,
+            featuresInfoCache: device?.featuresInfo,
+          },
+        );
+
+      return !!checkResult?.networkImpl;
+    },
+    [account?.id, account?.impl, wallet?.id, network?.id, device?.featuresInfo],
+    { initResult: undefined },
+  );
+  const hasNativePager =
+    platformEnv.isNative &&
+    !isWalletNotBackedUp &&
+    !accountNetworkNotSupported &&
+    !(
+      softwareAccountDisabled &&
+      accountUtils.isHdWallet({ walletId: wallet?.id ?? '' })
+    ) &&
+    !(
+      supportedDeviceTypes &&
+      device?.deviceType &&
+      !supportedDeviceTypes.includes(device.deviceType)
+    ) &&
+    !(
+      !account &&
+      (network?.isAllNetworks ||
+        !(
+          vaultSettings?.mergeDeriveAssetsEnabled &&
+          networkAccounts?.networkAccounts?.length
+        ))
+    );
+  const supportsIos26ScrollEdge = platformEnv.isNativeIOS26Plus === true;
+  const [topEdgeCapability, setTopEdgeCapability] = useState({
+    ownerKey: '',
+    available: false,
+  });
+  const carryTopEdgeCapability = Boolean(
+    supportsIos26ScrollEdge &&
+    topEdgeCapability.available &&
+    topEdgeCapability.ownerKey !== homeScrollOwnerKey &&
+    hasNativePager &&
+    ready &&
+    wallet?.id &&
+    account?.id &&
+    !isRequiredValidation,
+  );
+  if (carryTopEdgeCapability) {
+    // Native availability is unchanged by an account switch. Transfer it before
+    // committing the replacement pager so its fixed overlay stays mounted.
+    setTopEdgeCapability({ ownerKey: homeScrollOwnerKey, available: true });
+  }
+  const topEdgeActive =
+    supportsIos26ScrollEdge &&
+    topEdgeCapability.available &&
+    topEdgeCapability.ownerKey === homeScrollOwnerKey;
+
   const tabs = useMemo(() => {
     if (isWalletNotBackedUp) {
       return (
         <Keyboard.AwareScrollView
           style={{ flex: 1 }}
           nestedScrollEnabled={platformEnv.isNativeAndroid}
+          refreshControl={
+            platformEnv.isNative ? (
+              <PullToRefresh onRefresh={onHomePageRefresh} />
+            ) : undefined
+          }
           contentContainerStyle={{ paddingBottom: tabBarHeight }}
           bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
         >
@@ -927,33 +1175,21 @@ export function HomePageView({
         </Keyboard.AwareScrollView>
       );
     }
-    // Exclude isDeFiEnabled/isNFTEnabled from key to prevent Tabs.Container
-    // from being destroyed and recreated when these values change async.
-    // Tabs render conditionally inside the container instead.
+    // Tabs.Container is deliberately NOT keyed on the wallet / account /
+    // network (OK-53686, OK-63873). A remount destroys every pane (the token
+    // list, each Token image, TabHeaderSettings) and repaints them from
+    // scratch: a 3-row skeleton where the list was, icon skeletons, and the
+    // settings icon blinking out — the "home list jitter" on every account
+    // switch. All panes already track `account.id` / `network.id` changes
+    // through their own hooks (HD wallets change account.id on a network
+    // switch, which has run through this no-remount path since #11386), and
+    // the token list is re-stamped for the new owner synchronously by the
+    // cells producer's per-owner replay, so nothing here needs a fresh mount.
+    // isDeFiEnabled/isNFTEnabled stay out for the same reason: tabs render
+    // conditionally inside the container instead.
     //
-    // Also exclude `account?.id` and `network?.id`: for HD wallets the
-    // per-network account.id differs across networks even when the user is
-    // on the same indexedAccount, and including network.id forces a full
-    // remount of Tabs.Container (and the FlashList inside TokenListView) on
-    // every network switch. The remount produces a brief blank frame while
-    // FlashList re-measures, even when the target has cache. Keying on
-    // wallet + indexedAccountId (with account.id as the Others-wallet
-    // fallback, since those have no indexedAccountId) keeps the subtree
-    // mounted across pure network switches — the singleton token-list atoms
-    // are then driven by account/network changes via the per-owner cache
-    // hydration in TokenListBlock.
-    //
-    // Caveat: Others wallets (imported / watching / external) have no
-    // `indexedAccountId`, so they fall back to `account.id`, which IS
-    // network-scoped for those wallet types. Switching networks on an
-    // Others wallet therefore still remounts Tabs.Container — the
-    // optimization here is intentionally HD-only because Others wallets
-    // typically stay pinned to a single network and the cost of the
-    // occasional remount is not worth special-casing.
-    const key = `${wallet?.id ?? ''}-${
-      account?.indexedAccountId ?? account?.id ?? ''
-    }`;
-    // The remount key resets the pager to the first tab while HomePageView's
+    // The container still remounts when the not-backed-up branch above
+    // toggles, which resets the pager to the first tab while HomePageView's
     // activeTab state still points at the previously selected tab, so seed
     // the remounted container with that tab. But the new pagerTabConfigs and
     // the stale activeTabName can land in the same render (the reset effect
@@ -966,15 +1202,72 @@ export function HomePageView({
     )
       ? activeTabName
       : pagerTabConfigs[0]?.name;
+    if (platformEnv.isNative) {
+      return (
+        <HomeNativePager
+          // Native page offsets have no reset command; reset only for a new owner.
+          key={homeScrollOwnerKey}
+          ref={tabsRef}
+          tabs={pagerTabConfigs.map((tab) => ({
+            ...tab,
+            component:
+              tab.id === EHomeWalletTab.Portfolio ||
+              activeTabId === tab.id ||
+              mountedHomeTabIds.has(tab.id)
+                ? tab.component
+                : null,
+          }))}
+          initialTabName={seedTabName}
+          headerHeightHint={nativeHeaderHeightHint}
+          renderHeader={renderHeader}
+          topEdgeActive={topEdgeActive}
+          onTopScrollEdgeCapability={(available) =>
+            setTopEdgeCapability((current) => {
+              if (available) {
+                return { ownerKey: homeScrollOwnerKey, available: true };
+              }
+              return current.ownerKey === homeScrollOwnerKey
+                ? { ownerKey: homeScrollOwnerKey, available: false }
+                : current;
+            })
+          }
+          topOverlay={
+            topEdgeActive ? (
+              <Stack h={tabPageHeight}>
+                <YStack
+                  position="absolute"
+                  top={-20}
+                  left={0}
+                  bg="transparent"
+                  pt="$5"
+                  width="100%"
+                  onLayout={handleTabPageLayout}
+                >
+                  <TabPageHeader
+                    sceneName={sceneName}
+                    tabRoute={ETabRoutes.Home}
+                    disableHomeHeaderGlass
+                  />
+                </YStack>
+              </Stack>
+            ) : undefined
+          }
+          renderTabBar={renderTabBar}
+          onTabChange={handleTabChange}
+          onTabPrepare={handleTabPrepare}
+        />
+      );
+    }
     return (
       <Tabs.Container
         ref={tabsRef as any}
-        key={key}
         // Both implementations only read this prop at mount.
         initialTabName={seedTabName || undefined}
         allowHeaderOverscroll
         disableWebTabContentVisibility
-        headerHeight={platformEnv.isNative ? 292 : undefined}
+        // The native container applies a changed value before paint (patched
+        // react-native-collapsible-tab-view); see nativeHeaderHeightHint.
+        headerHeight={platformEnv.isNative ? nativeHeaderHeightHint : undefined}
         tabBarHeight={
           platformEnv.isNative ? nativeTabBarHeightRef.current : undefined
         }
@@ -999,11 +1292,25 @@ export function HomePageView({
             // FreezeInactiveHomeTab); other panes keep mounting lazily.
             startMounted={tab.id === EHomeWalletTab.Portfolio}
           >
+            {tab.id === EHomeWalletTab.Portfolio ? (
+              <HomeTabsScrollToTopBridge
+                scrollToTopRef={homeTabsScrollToTopRef}
+              />
+            ) : null}
             <FreezeInactiveHomeTab
               tabName={tab.name}
               pressedTabName={activeTabName}
+              // Portfolio owns the shared header's token requests, including
+              // All Networks; it must observe owner changes while off-tab.
+              keepActive={tab.id === EHomeWalletTab.Portfolio}
+              ownerKey={
+                tab.id === EHomeWalletTab.Portfolio
+                  ? homeScrollOwnerKey
+                  : undefined
+              }
             >
               {platformEnv.isNative ||
+              tab.id === EHomeWalletTab.Portfolio ||
               tab.id === EHomeWalletTab.Perps ||
               activeTabId === tab.id ||
               mountedHomeTabIds.has(tab.id) ? (
@@ -1019,9 +1326,6 @@ export function HomePageView({
   }, [
     tabBarHeight,
     tabContainerWidth,
-    wallet?.id,
-    account?.id,
-    account?.indexedAccountId,
     isWalletNotBackedUp,
     headerContainerStyle,
     renderHeader,
@@ -1032,6 +1336,13 @@ export function HomePageView({
     activeTabName,
     activeTabId,
     mountedHomeTabIds,
+    handleTabPrepare,
+    homeScrollOwnerKey,
+    nativeHeaderHeightHint,
+    topEdgeActive,
+    tabPageHeight,
+    handleTabPageLayout,
+    sceneName,
   ]);
 
   const handleSwitchWalletHomeTab = useCallback(
@@ -1118,26 +1429,6 @@ export function HomePageView({
     };
   }, [handleSwitchWalletHomeTab, refreshWalletList]);
 
-  const { result: accountNetworkNotSupported } = usePromiseResult(
-    async () => {
-      if (!network?.id || (!wallet?.id && !account?.id)) return undefined;
-      const checkResult =
-        await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported(
-          {
-            walletId: wallet?.id,
-            accountId: account?.id,
-            accountImpl: account?.impl,
-            activeNetworkId: network.id,
-            featuresInfoCache: device?.featuresInfo,
-          },
-        );
-
-      return !!checkResult?.networkImpl;
-    },
-    [account?.id, account?.impl, wallet?.id, network?.id, device?.featuresInfo],
-    { initResult: undefined },
-  );
-
   const homePageContent = useMemo(() => {
     if (accountNetworkNotSupported) {
       return (
@@ -1217,17 +1508,6 @@ export function HomePageView({
     tabs,
   ]);
 
-  // Initial heights based on measured header sizes on each platform.
-  // iOS measured: 162 (raw 182 - 20 offset). Must match actual layout
-  // to prevent content shift when onLayout fires.
-  const [tabPageHeight, setTabPageHeight] = useState(
-    platformEnv.isNativeIOS ? 162 : 92,
-  );
-  const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
-    const height = e.nativeEvent.layout.height - 20;
-    setTabPageHeight(height);
-  }, []);
-
   const hasNoUsableWallet = accountUtils.hasNoUsableWallet({
     wallet,
     account,
@@ -1236,15 +1516,7 @@ export function HomePageView({
   const walletListResolvedNoWallet = isWalletListResolvedNoWallet({
     wallets: walletListResult?.wallets,
   });
-  const walletPageContent = useMemo(
-    () =>
-      platformEnv.isNative ? (
-        <AndroidScrollContainer>{homePageContent}</AndroidScrollContainer>
-      ) : (
-        homePageContent
-      ),
-    [homePageContent],
-  );
+  const walletPageContent = homePageContent;
   const activeWalletId = wallet?.id;
   const activeWalletUnavailable =
     accountUtils.isWalletDeprecatedOrMocked(wallet);
@@ -1258,6 +1530,9 @@ export function HomePageView({
     activeWalletId,
     walletListWalletIds,
   });
+
+  const showIos26PagerOverlay =
+    topEdgeActive && hasNativePager && !showNoWalletContent && ready;
 
   const homePage = useMemo(() => {
     if (!ready && !isTravelModeRuntime) {
@@ -1278,11 +1553,12 @@ export function HomePageView({
       <>
         <Page.Body>
           <Page.Container flex={1} padded={false}>
-            {platformEnv.isNative ? (
+            {platformEnv.isNative && !showIos26PagerOverlay ? (
               <Stack h={tabPageHeight} />
-            ) : (
+            ) : null}
+            {!platformEnv.isNative ? (
               <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
-            )}
+            ) : null}
             {/* Native keeps the alerts inside the collapsible header (see
                 renderHeader), but that header only mounts with the wallet
                 content. Without a usable wallet fall back to the outer slot
@@ -1293,7 +1569,7 @@ export function HomePageView({
               </Stack>
             )}
             {content}
-            {platformEnv.isNative ? (
+            {platformEnv.isNative && !showIos26PagerOverlay ? (
               <YStack
                 position="absolute"
                 top={-20}
@@ -1319,6 +1595,7 @@ export function HomePageView({
     hasNoUsableWallet,
     showNoWalletContent,
     tabPageHeight,
+    showIos26PagerOverlay,
     sceneName,
     handleTabPageLayout,
     walletPageContent,

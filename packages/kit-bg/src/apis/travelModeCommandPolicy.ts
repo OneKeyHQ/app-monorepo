@@ -3,9 +3,13 @@ const TRAVEL_MODE_ALLOWED_METHODS: Readonly<
 > = {
   $root: new Set(['getAtomStates', 'setAtomValue']),
   accountSelector: new Set([
+    // These init guards only access background-owned in-memory counters.
+    'beginAccountSelectorStorageInit',
     'getRawData',
     'getSelectedAccount',
+    'getSelectedAccountWriteIntentEpoch',
     'getSelectedAccountsMap',
+    'isAccountSelectorStorageInitGenerationCurrent',
   ]),
   browserTabs: new Set(['getRawData']),
   marketTokenPreference: new Set(['getPreference']),
@@ -110,6 +114,7 @@ const TRAVEL_MODE_ALLOWED_METHODS: Readonly<
     'resolvePasswordPromptDialog',
     'unLockApp',
     'verifyPassword',
+    'verifyPasswordFromInput',
     'waitPasswordEncryptorReady',
   ]),
   servicePrimeTransfer: new Set(['isInTransferImportOrBackupRestoreFlow']),

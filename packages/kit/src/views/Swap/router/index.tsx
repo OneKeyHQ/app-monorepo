@@ -48,6 +48,10 @@ const SwapProMarketDetailModal = LazyLoadPage(
   () => import('../../Market/MarketDetailV2'),
 );
 
+const DustSweepPage = LazyLoadPage(
+  () => import('../../DustSweep/DustSweepPage'),
+);
+
 export const ModalSwapStack: IModalFlowNavigatorConfig<
   EModalSwapRoutes,
   IModalSwapParamList
@@ -55,6 +59,14 @@ export const ModalSwapStack: IModalFlowNavigatorConfig<
   {
     name: EModalSwapRoutes.SwapTokenSelect,
     component: SwapTokenSelectModal,
+    options: ({ route }) => {
+      const isSwapStockSelectTarget =
+        route.params?.selectTarget === 'swapStock';
+      return {
+        modalContentMaxWidth: isSwapStockSelectTarget ? undefined : 880,
+        modalContentMaxHeight: isSwapStockSelectTarget ? undefined : 700,
+      };
+    },
     translationId: ETranslations.token_selector_title,
   },
   {
@@ -116,5 +128,10 @@ export const ModalSwapStack: IModalFlowNavigatorConfig<
     name: EModalSwapRoutes.SwapProMarketDetail,
     component: SwapProMarketDetailModal,
     translationId: ETranslations.dexmarket_details_overview,
+  },
+  {
+    name: EModalSwapRoutes.DustSweep,
+    component: DustSweepPage,
+    translationId: ETranslations.title_dust_sweep,
   },
 ];

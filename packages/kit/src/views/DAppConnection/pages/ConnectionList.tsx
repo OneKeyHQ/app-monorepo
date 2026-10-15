@@ -1,8 +1,16 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Divider, Empty, ListView, Page } from '@onekeyhq/components';
+import {
+  Button,
+  Divider,
+  Empty,
+  ListView,
+  Page,
+  SizableText,
+} from '@onekeyhq/components';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IConnectionStorageType } from '@onekeyhq/shared/types/dappConnection';
@@ -12,6 +20,7 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useShouldUpdateConnectedAccount } from '../../Discovery/hooks/useDAppNotifyChanges';
 import { SETTINGS_PAGE_BODY_INSET_X } from '../../Setting/pages/Tab/settingsSurface';
 import ConnectionListItem from '../components/ConnectionList/ConnectionListItem';
+import { WalletConnectDiagnosticsPanel } from '../components/WalletConnectDiagnosticsPanel';
 import { DAppConnectionTestIDs } from '../testIDs';
 
 const ItemSeparatorComponent = () => <Divider />;
@@ -36,6 +45,20 @@ const { serviceDApp } = backgroundApiProxy;
 
 function ConnectionList() {
   const intl = useIntl();
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const renderHeaderTitle = useCallback(
+    () => (
+      <MultipleClickStack
+        testID="dapp-connection-diagnostics-trigger"
+        onPress={() => setShowDiagnostics(true)}
+      >
+        <SizableText size="$headingLg" numberOfLines={1}>
+          {intl.formatMessage({ id: ETranslations.explore_dapp_connections })}
+        </SizableText>
+      </MultipleClickStack>
+    ),
+    [intl],
+  );
   const { result: data, run } = usePromiseResult(
     async () => serviceDApp.getAllConnectedList(),
     [],
@@ -82,17 +105,21 @@ function ConnectionList() {
         title={intl.formatMessage({
           id: ETranslations.explore_dapp_connections,
         })}
+        headerTitle={renderHeaderTitle}
         headerRight={() => renderHeaderRight()}
       />
       <Page.Body px={SETTINGS_PAGE_BODY_INSET_X}>
         <ListView
           contentContainerStyle={{
-            flex: platformEnv.isNative ? undefined : 1,
+            flex: platformEnv.isNative || showDiagnostics ? undefined : 1,
             pb: '$10',
           }}
           estimatedItemSize={199}
           scrollEnabled
           data={data}
+          ListHeaderComponent={
+            showDiagnostics ? <WalletConnectDiagnosticsPanel /> : null
+          }
           ListEmptyComponent={ConnectionListEmpty}
           keyExtractor={(item) => item.origin}
           renderItem={({ item }) => (

@@ -512,7 +512,10 @@ function DeviceSetupPage({
             {setupState !== EDeviceSetupState.Error &&
             onboardingPhase === 'needsSetup' &&
             onboardingStatus ? (
-              <Pro2OnboardingStepper status={onboardingStatus} />
+              <Pro2OnboardingStepper
+                status={onboardingStatus}
+                deviceType={currentDevice?.deviceType}
+              />
             ) : null}
             {setupState !== EDeviceSetupState.Error &&
             onboardingPhase === 'ready' ? (

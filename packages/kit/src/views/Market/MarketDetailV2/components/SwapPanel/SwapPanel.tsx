@@ -19,30 +19,29 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { prepareSwapProEntry } from '@onekeyhq/kit/src/states/jotai/contexts/swap/prepareSwapProEntry';
 import {
-  ESwapProJumpTokenDirection,
-  useSwapProJumpTokenAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms/swap';
+  prepareStockSwapEntry,
+  prepareTopCoinSwapEntry,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap/prepareSwapProEntry';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
-import { ESwapDirection } from './hooks/useTradeType';
+import { MarketTestIDs } from '../../../testIDs';
+import {
+  type IMarketDetailFooterMode,
+  type IMarketMobileDetailKind,
+  resolveMarketMobileTradeDestination,
+} from '../../utils/marketMobileDetailKind';
+
 import SwapPanelFooterButtons from './SwapPanelFooterButtons';
-
-const SWAP_PRO_ENTRY_DIRECTION_MAP: Record<
-  ESwapProJumpTokenDirection,
-  ESwapDirection
-> = {
-  [ESwapProJumpTokenDirection.BUY]: ESwapDirection.BUY,
-  [ESwapProJumpTokenDirection.SELL]: ESwapDirection.SELL,
-};
 
 function TradeButton({
   swapToken,
@@ -101,6 +100,10 @@ export function SwapPanel({
   portfolioData,
   onShowSwapDialog,
   executionReady = true,
+  footerMode = 'buy-sell',
+  detailKind,
+  onPerps,
+  perpsDisabled,
 }: {
   swapToken: ISwapToken;
   disableTrade?: boolean;
@@ -109,6 +112,10 @@ export function SwapPanel({
   // False until the token detail confirms the token can be traded. The footer
   // keeps its place and shows the buttons disabled instead of appearing late.
   executionReady?: boolean;
+  footerMode?: IMarketDetailFooterMode;
+  detailKind?: IMarketMobileDetailKind;
+  onPerps?: () => void;
+  perpsDisabled?: boolean;
 }) {
   const intl = useIntl();
   // This footer is a plain flex sibling, not a Page.Footer, so it must claim the
@@ -149,38 +156,40 @@ export function SwapPanel({
     };
   }, [portfolioData, swapToken.contractAddress, swapToken.networkId]);
 
-  const [, setSwapProJumpTokenAtom] = useSwapProJumpTokenAtom();
+  const handleTrade = useCallback(
+    (direction: 'from' | 'to') => {
+      // Swap needs the token's decimals; the buttons are disabled until then,
+      // but Android's gesture layer can still deliver a tap.
+      if (!executionReady) {
+        return;
+      }
+      const tradeDestination = swapToken.isStock
+        ? 'stock'
+        : resolveMarketMobileTradeDestination(detailKind ?? 'trending');
+      const entryParams = {
+        token: swapToken,
+        direction,
+        storeName: EJotaiContextStoreNames.swapModal as const,
+      };
+      const swapEntry =
+        tradeDestination === 'stock'
+          ? prepareStockSwapEntry(entryParams)
+          : prepareTopCoinSwapEntry(entryParams);
+      navigation.pushModal(EModalRoutes.SwapModal, {
+        screen: EModalSwapRoutes.SwapMainLand,
+        params: {
+          importFromToken: swapEntry.fromToken,
+          importToToken: swapEntry.toToken,
+          swapTabSwitchType: swapEntry.swapType,
+          swapSource: ESwapSource.MARKET,
+        },
+      });
+    },
+    [detailKind, executionReady, swapToken, navigation],
+  );
 
-  const handleTrade = useCallback(() => {
-    // Swap needs the token's decimals; the buttons are disabled until then,
-    // but Android's gesture layer can still deliver a tap.
-    if (!executionReady) {
-      return;
-    }
-    const direction = ESwapProJumpTokenDirection.BUY;
-    setSwapProJumpTokenAtom({
-      token: swapToken,
-      direction,
-      marketPresetToken: {
-        networkId: swapToken.networkId,
-        contractAddress: swapToken.contractAddress,
-        isNative: swapToken.isNative,
-      },
-    });
-    prepareSwapProEntry({
-      direction: SWAP_PRO_ENTRY_DIRECTION_MAP[direction],
-      token: swapToken,
-    });
-    navigation.pop();
-    navigation.switchTab(ETabRoutes.Swap);
-  }, [executionReady, setSwapProJumpTokenAtom, swapToken, navigation]);
-
-  const handleInstant = useCallback(() => {
-    if (!executionReady) {
-      return;
-    }
-    onShowSwapDialog?.(swapToken);
-  }, [executionReady, onShowSwapDialog, swapToken]);
+  const handleBuy = useCallback(() => handleTrade('to'), [handleTrade]);
+  const handleSell = useCallback(() => handleTrade('from'), [handleTrade]);
 
   if (!swapToken) {
     return (
@@ -272,9 +281,12 @@ export function SwapPanel({
         </XStack>
         <Stack px="$5" pb={bottomInset || '$4'} pt="$2.5">
           <SwapPanelFooterButtons
-            onTrade={handleTrade}
-            onInstant={handleInstant}
-            disabled={!executionReady}
+            mode={footerMode}
+            onBuy={handleBuy}
+            onSell={handleSell}
+            onPerps={onPerps}
+            tradeDisabled={!executionReady}
+            perpsDisabled={perpsDisabled}
           />
         </Stack>
       </YStack>
@@ -282,12 +294,13 @@ export function SwapPanel({
   }
 
   return (
-    <View>
+    <View testID={MarketTestIDs.swapPanel}>
       <AccountSelectorProviderMirror
         config={{
           sceneName: EAccountSelectorSceneName.home,
           sceneUrl: '',
         }}
+        e2eContextProbeName="market-swap-panel"
         enabledNum={[0]}
       >
         <TradeButton

@@ -68,7 +68,7 @@ import {
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE,
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
 } from '@onekeyhq/shared/src/consts/walletConsts';
-import { IMPL_APTOS } from '@onekeyhq/shared/src/engine/engineConsts';
+import { IMPL_APTOS, IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
 import type {
   IOneKeyError,
   IOneKeyRpcError,
@@ -982,6 +982,25 @@ function TxFeeInfo(props: IProps) {
 
   const feeSelectorItems: IFeeSelectorItem[] = useMemo(() => {
     const items = [];
+    const useDappFeeAndNotEditFee =
+      vaultSettings?.editFeeEnabled && !feeInfoEditable && useFeeInTx;
+    // dApp-built SOL txs are passed through unmodified (OK-64196), so show the
+    // priority fee the tx actually carries instead of the server estimate. Also
+    // applied to the base-fee-only fallback so a missing server preset cannot
+    // hide that priority fee from the display and balance checks.
+    const applySolPriorityFeeInTx = (feeInfo: IFeeInfoUnit) => {
+      if (!useDappFeeAndNotEditFee || network?.impl !== IMPL_SOL) {
+        return;
+      }
+      const computeUnitPriceInTx =
+        estimateFeeParams?.estimateFeeParamsSol?.computeUnitPriceInTx;
+      if (!isNil(computeUnitPriceInTx)) {
+        feeInfo.feeSol = {
+          ...feeInfo.feeSol,
+          computeUnitPrice: computeUnitPriceInTx,
+        };
+      }
+    };
     if (txFee) {
       const feeLength =
         txFee.gasEIP1559?.length ||
@@ -1011,8 +1030,6 @@ function TxFeeInfo(props: IProps) {
           feeNeoN3: txFee.feeNeoN3?.[i],
         };
 
-        const useDappFeeAndNotEditFee =
-          vaultSettings?.editFeeEnabled && !feeInfoEditable && useFeeInTx;
         if (useDappFeeAndNotEditFee && network) {
           const { tip } = unsignedTxs[0].encodedTx as IEncodedTxDot;
           const feeDecimals = feeInfo.common?.feeDecimals;
@@ -1047,6 +1064,8 @@ function TxFeeInfo(props: IProps) {
               };
             }
           }
+
+          applySolPriorityFeeInTx(feeInfo);
         }
 
         items.push({
@@ -1070,15 +1089,17 @@ function TxFeeInfo(props: IProps) {
 
       // only have base fee fallback
       if (items.length === 0) {
+        const fallbackFeeInfo: IFeeInfoUnit = {
+          common: txFee.common,
+        };
+        applySolPriorityFeeInTx(fallbackFeeInfo);
         items.push({
           label: intl.formatMessage({
             id: getFeeLabel({ feeType: EFeeType.Standard, presetIndex: 0 }),
           }),
           icon: getFeeIcon({ feeType: EFeeType.Standard, presetIndex: 0 }),
           value: 1,
-          feeInfo: {
-            common: txFee.common,
-          },
+          feeInfo: fallbackFeeInfo,
           type: EFeeType.Standard,
         });
       }

@@ -9,6 +9,7 @@ import {
   UserCancelFromOutside,
 } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   isHardwareError,
   isHardwareErrorByCode,
@@ -134,14 +135,13 @@ const HARDWARE_CONNECTION_CANCEL_SKIP_CODES = [
   HardwareErrorCode.BleLocationServicesDisabled,
   HardwareErrorCode.BleTimeoutError,
   HardwareErrorCode.BleForceCleanRunPromise,
-  HardwareErrorCode.BleDeviceBondError,
-  HardwareErrorCode.BlePeerRemovedPairingInformation,
-  HardwareErrorCode.BleBondInvalid,
   HardwareErrorCode.BleUnavailableWhileUsbConnected,
   HardwareErrorCode.BleCharacteristicNotifyChangeFailure,
   HardwareErrorCode.BleDeviceDisconnected,
   HardwareErrorCode.BlePoweredOff,
   HardwareErrorCode.BleUnsupported,
+  HardwareErrorCode.BridgeNeedsPermission,
+  ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
 ];
 
 /** How long after the stage's off write its exit is still on screen —
@@ -308,6 +308,10 @@ class ServiceHardwareUI extends ServiceBase {
       void this.deviceStageBurst.mergeDeviceIdentity({
         connectId,
         deviceType: device.deviceType,
+        deviceColor: deviceUtils.getDeviceColorFromFeatures({
+          deviceType: device.deviceType,
+          features: device.featuresInfo,
+        }),
         deviceName: deviceUtils.buildDeviceStageName({
           features: device.featuresInfo,
           fallbackName: device.name,
@@ -723,11 +727,13 @@ class ServiceHardwareUI extends ServiceBase {
   async deviceStageShowPassphraseIntro(params: {
     connectId?: string;
     deviceType?: IDeviceStageState['deviceType'];
+    deviceColor?: IDeviceStageState['deviceColor'];
     deviceName?: string;
   }) {
     return this.deviceStageBurst.noteStep('passphraseIntro', {
       connectId: params.connectId,
       deviceType: params.deviceType,
+      deviceColor: params.deviceColor,
       deviceName: params.deviceName,
       passphraseMode: 'create',
     });
@@ -1540,6 +1546,10 @@ class ServiceHardwareUI extends ServiceBase {
         stageBurstOpened = await this.deviceStageBurst.begin({
           connectId,
           deviceType: device.deviceType,
+          deviceColor: deviceUtils.getDeviceColorFromFeatures({
+            deviceType: device.deviceType,
+            features: device.featuresInfo,
+          }),
           deviceName: deviceUtils.buildDeviceStageName({
             features: device.featuresInfo,
             fallbackName: device.name,
@@ -1675,6 +1685,31 @@ class ServiceHardwareUI extends ServiceBase {
           );
         }
       }
+      if (
+        isOuterCall &&
+        !isThirdPartyVendor &&
+        isHardwareErrorByCode({
+          error: error as IOneKeyError,
+          code: HardwareErrorCode.BlePoweredOff,
+        })
+      ) {
+        appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
+          uiRequestType: EHardwareUiStateAction.BLUETOOTH_PERMISSION,
+        });
+      }
+      if (isOuterCall && !isThirdPartyVendor && platformEnv.isDesktopLinux) {
+        try {
+          // Prepare USB permissions for the user's next attempt; never replay the operation.
+          await this.backgroundApi.serviceHardware.handleLinuxWebUsbAccessDeniedError(
+            { error },
+          );
+        } catch (permissionError) {
+          console.error(
+            'Failed to recover Linux USB permissions:',
+            permissionError,
+          );
+        }
+      }
       // OK-59934 hard rule #2 (失败不外溢): the stage lands hardware
       // failures as its error outcome, so the same failure must not also
       // toast. Cleared here in bg, before the error crosses the bridge —
@@ -1775,7 +1810,17 @@ class ServiceHardwareUI extends ServiceBase {
         }
       }
       if (stageBurstOpened) {
-        await this.deviceStageBurst.end({ error: stageBurstError });
+        try {
+          await this.deviceStageBurst.end({ error: stageBurstError });
+        } catch (stageError) {
+          // The stage is presentation: its failure to land an exit must
+          // not replace the error riding out of this finally, nor skip the
+          // bookkeeping below.
+          defaultLogger.hardware.sdkLog.consoleLog(
+            'deviceStageBurst.end failed',
+            stageError,
+          );
+        }
       }
       this.processingNestedNum -= 1;
       onFinally?.();

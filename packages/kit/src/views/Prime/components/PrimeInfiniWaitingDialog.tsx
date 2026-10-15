@@ -73,6 +73,7 @@ export type IPrimeInfiniWaitingContext =
       onekeyUserId: string;
       featureName?: EPrimeFeatures;
       checkoutUrl: string;
+      validateCheckout: () => Promise<boolean>;
       // Pass the current expiry when the dialog waits for a renewal payment of
       // a still-active subscription; success is then detected by expiry extension.
       renewalBaselineExpiresAt?: number;
@@ -112,6 +113,7 @@ function usePrimeInfiniPurchaseCompletion({
   checkoutType,
   subscriptionPeriod,
   beforeComplete,
+  validatePurchaseContext,
 }: {
   flowId?: string;
   plan: IPrimeInfiniSubscriptionPlan;
@@ -120,6 +122,7 @@ function usePrimeInfiniPurchaseCompletion({
   checkoutType: IPrimeInfiniWaitingContext['checkoutType'];
   subscriptionPeriod?: IInternalPaymentWaitingSession['selectedSubscriptionPeriod'];
   beforeComplete?: () => Promise<void>;
+  validatePurchaseContext?: () => Promise<boolean>;
 }) {
   const flowIdRef = useRef(flowId);
   const intl = useIntl();
@@ -162,6 +165,9 @@ function usePrimeInfiniPurchaseCompletion({
       stage: 'paymentPolling' | 'purchaseCompletion';
       paymentContext?: IPrimeInfiniCompletionPaymentContext;
     }) => {
+      if (validatePurchaseContext) {
+        return validatePurchaseContext();
+      }
       const currentUser =
         await backgroundApiProxy.servicePrime.getLocalUserInfo();
       if (currentUser.isLoggedIn && currentUser.onekeyUserId === onekeyUserId) {
@@ -170,7 +176,7 @@ function usePrimeInfiniPurchaseCompletion({
       await blockPurchaseUserMismatch({ stage, paymentContext });
       return false;
     },
-    [blockPurchaseUserMismatch, onekeyUserId],
+    [blockPurchaseUserMismatch, onekeyUserId, validatePurchaseContext],
   );
 
   const completePurchase = useCallback(
@@ -369,6 +375,7 @@ function PrimeInfiniExternalWaitingMonitor({
     onekeyUserId,
     featureName,
     checkoutType: 'externalWallet',
+    validatePurchaseContext: context.validateCheckout,
   });
 
   const handleSuccess = useCallback(
@@ -668,6 +675,7 @@ function PrimeInfiniInternalWaitingMonitor({
   const polling = usePrimeInfiniPaymentPolling({
     flowId: session.flowId,
     payment: session.payment,
+    paymentCacheKey: session.paymentCacheKey,
     asset,
     baseline,
     enabled: true,

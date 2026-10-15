@@ -6,12 +6,24 @@ import { act, renderHook } from '@testing-library/react';
 
 import { createTradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
+import { getTradingViewNativeIndicatorPriceRange } from '../utils/chartIndicators';
+import {
+  getTradingViewNativeChartLayout,
+  getTradingViewNativeChartWidth,
+} from '../utils/chartLayout';
+import {
+  clampTradingViewNativePanOffset,
+  getTradingViewNativeVisiblePointRange,
+} from '../utils/chartViewport';
+
 import { createTradingViewNativeChartRuntime } from './chartRuntime';
 import { useTradingViewNativePriceScale } from './useTradingViewNativePriceScale';
 
 import type { SharedValue } from 'react-native-reanimated';
 
 type IMockGestureHandler = (...args: unknown[]) => void;
+
+const mockPanGestureHandlers: Record<string, IMockGestureHandler>[] = [];
 
 function createMockSharedValue<T>(value: T): SharedValue<T> {
   const sharedValue: SharedValue<T> = {
@@ -25,7 +37,9 @@ function createMockSharedValue<T>(value: T): SharedValue<T> {
   return sharedValue;
 }
 
-function mockCreateGestureBuilder() {
+function mockCreateGestureBuilder(
+  handlers: Record<string, IMockGestureHandler> = {},
+) {
   const builder: Record<string, jest.Mock> = {};
   const methods = [
     'activeOffsetY',
@@ -39,14 +53,23 @@ function mockCreateGestureBuilder() {
     'onUpdate',
   ];
   methods.forEach((method) => {
-    builder[method] = jest.fn(() => builder);
+    builder[method] = jest.fn((argument: unknown) => {
+      if (method.startsWith('on') && typeof argument === 'function') {
+        handlers[method] = argument as IMockGestureHandler;
+      }
+      return builder;
+    });
   });
   return builder;
 }
 
 jest.mock('react-native-gesture-handler', () => ({
   Gesture: {
-    Pan: jest.fn(() => mockCreateGestureBuilder()),
+    Pan: jest.fn(() => {
+      const handlers: Record<string, IMockGestureHandler> = {};
+      mockPanGestureHandlers.push(handlers);
+      return mockCreateGestureBuilder(handlers);
+    }),
     Tap: jest.fn(() => mockCreateGestureBuilder()),
   },
 }));
@@ -68,7 +91,138 @@ jest.mock('../utils/subIndicatorRender', () => ({
   getTradingViewNativeVisibleSubIndicatorPaneCount: jest.fn(() => 0),
 }));
 
+function renderPriceScaleAtOffset(offset: number) {
+  const runtime = createTradingViewNativeChartRuntime({
+    candleIntervalSeconds: 60,
+    chartComponents: [],
+    chartSettings: createTradingViewNativeChartSettings(),
+    chartType: 'candlestick',
+    currentPriceLabel: '',
+    hasVolume: false,
+    indicatorSeries: [
+      {
+        indicator: 'MA',
+        key: 'ma-5',
+        kind: 'line',
+        paint: 'indicatorCyanStroke',
+        values: [1, 1000],
+      },
+    ],
+    points: [
+      { c: 12, h: 15, l: 10, o: 11, t: 1, v: 1 },
+      { c: 18, h: 20, l: 14, o: 15, t: 61, v: 1 },
+    ],
+    subIndicatorPanes: [],
+  });
+  runtime.size = { height: 300, width: 360 };
+  const chartWidth = getTradingViewNativeChartWidth(runtime.size.width, 52);
+  runtime.viewport.offset = clampTradingViewNativePanOffset({
+    ...runtime.viewport,
+    chartWidth,
+    offset,
+    pointCount: runtime.points.length,
+  });
+  const chartRuntime = createMockSharedValue(runtime);
+  const visiblePointRange = getTradingViewNativeVisiblePointRange({
+    ...runtime.viewport,
+    chartWidth,
+    pointCount: runtime.points.length,
+  });
+  expect(visiblePointRange.endIndex - visiblePointRange.startIndex).toBe(1);
+  const layout = getTradingViewNativeChartLayout({
+    additionalPriceRange: getTradingViewNativeIndicatorPriceRange({
+      ...visiblePointRange,
+      series: runtime.indicatorSeries,
+    }),
+    candleIntervalSeconds: 60,
+    hasVolume: false,
+    height: runtime.size.height,
+    minimumTimeTickIndexSpacing: 1,
+    points: runtime.points,
+    priceAxisWidth: 52,
+    visiblePointRange,
+    width: runtime.size.width,
+  });
+  const { result } = renderHook(() =>
+    useTradingViewNativePriceScale({
+      chartRuntime,
+      chartSize: runtime.size,
+      chartWidth,
+      decayOffset: createMockSharedValue(0),
+      isEnabled: true,
+      isLogScaleAvailable: true,
+      priceAxisWidth: createMockSharedValue(52),
+      subIndicatorPanes: [],
+      timeAxisHeight: 20,
+    }),
+  );
+  return { chartRuntime, layout, result };
+}
+
 describe('useTradingViewNativePriceScale', () => {
+  beforeEach(() => {
+    mockPanGestureHandlers.length = 0;
+  });
+
+  describe.each([
+    {
+      viewport: 'history',
+      offset: 1000,
+      expectedOffset: 7,
+      expectedRange: { minPrice: 1, maxPrice: 15 },
+    },
+    {
+      viewport: 'future',
+      offset: -1000,
+      expectedOffset: -302,
+      expectedRange: { minPrice: 14, maxPrice: 1000 },
+    },
+  ])(
+    'at the $viewport boundary',
+    ({ offset, expectedOffset, expectedRange }) => {
+      it('pins the displayed price range when switching to manual scale', () => {
+        const { chartRuntime, layout, result } =
+          renderPriceScaleAtOffset(offset);
+        expect(layout?.autoPriceRange).toEqual(expectedRange);
+
+        act(() => {
+          result.current.handleAutoScalePress();
+        });
+
+        expect(result.current.isAutoScale).toBe(false);
+        expect(chartRuntime.value.pinnedPriceRange).toEqual(
+          layout?.autoPriceRange,
+        );
+        expect(chartRuntime.value.viewport.offset).toBe(expectedOffset);
+
+        act(() => {
+          result.current.handleAutoScalePress();
+        });
+        expect(result.current.isAutoScale).toBe(true);
+        expect(chartRuntime.value.pinnedPriceRange).toBeNull();
+      });
+
+      it('scales the displayed price range when dragging the price axis', () => {
+        const { chartRuntime, layout, result } =
+          renderPriceScaleAtOffset(offset);
+        expect(layout?.autoPriceRange).toEqual(expectedRange);
+
+        act(() => {
+          mockPanGestureHandlers[0].onStart({ y: 100 });
+          mockPanGestureHandlers[0].onUpdate({ y: 150 });
+        });
+
+        expect(result.current.isAutoScale).toBe(false);
+        expect(chartRuntime.value.pinnedPriceRange).toEqual(
+          layout?.autoPriceRange,
+        );
+        expect(chartRuntime.value.priceRangeScale).not.toBe(1);
+        expect(Number.isFinite(chartRuntime.value.priceRangeScale)).toBe(true);
+        expect(chartRuntime.value.viewport.offset).toBe(expectedOffset);
+      });
+    },
+  );
+
   it('toggles Auto and resets the range only when Auto is re-enabled', () => {
     const runtime = createTradingViewNativeChartRuntime({
       candleIntervalSeconds: 60,

@@ -357,6 +357,7 @@ export function useDeviceConnect({
     async (
       previousDevice: SearchDevice,
       onConnectId?: (connectId: string) => void,
+      options?: { allowBootloaderRecovery: boolean },
     ) => {
       wasInBootloaderModeRef.current = true;
       await ensureStopScan();
@@ -380,11 +381,14 @@ export function useDeviceConnect({
             },
           }),
         onConnectId,
+        allowBootloaderRecovery: options?.allowBootloaderRecovery,
       });
       activeDeviceRef.current = { ...result.device };
       activeFeaturesRef.current = result.features;
-      wasInBootloaderModeRef.current = false;
-      await bootloaderModeDialogManager.close();
+      wasInBootloaderModeRef.current = Boolean(result.features.bootloader_mode);
+      if (!wasInBootloaderModeRef.current) {
+        await bootloaderModeDialogManager.close();
+      }
       setCurrentDevice?.(result.device);
       defaultLogger.hardware.sdkLog.log(
         'Firmware reconnect succeeded',
@@ -964,9 +968,12 @@ export function useDeviceConnect({
       isFirmwareVerified?: boolean,
       deviceState?: IOneKeyDeviceState,
       connectProtocol?: HardwareConnectProtocol,
+      skipFinalizeNavigation?: boolean,
     ) => {
       try {
-        navigation.push(EOnboardingPages.FinalizeWalletSetup);
+        if (!skipFinalizeNavigation) {
+          navigation.push(EOnboardingPages.FinalizeWalletSetup);
+        }
 
         const params: IDBCreateHwWalletParamsBase = {
           device,
@@ -1002,7 +1009,9 @@ export function useDeviceConnect({
         });
       } catch (error) {
         errorToastUtils.toastIfError(error);
-        navigation.pop();
+        if (!skipFinalizeNavigation) {
+          navigation.pop();
+        }
         await trackHardwareWalletConnection({
           status: 'failure',
           deviceType: device.deviceType,
@@ -1030,11 +1039,13 @@ export function useDeviceConnect({
       isFirmwareVerified,
       vendor,
       connectProtocol,
+      skipFinalizeNavigation,
     }: {
       device: SearchDevice;
       isFirmwareVerified?: boolean;
       vendor?: EHardwareVendor;
       connectProtocol?: HardwareConnectProtocol;
+      skipFinalizeNavigation?: boolean;
     }) => {
       // For third-party vendor devices (Ledger), skip OneKey SDK
       // connection/features flow and create wallet directly.
@@ -1108,6 +1119,7 @@ export function useDeviceConnect({
         isFirmwareVerified,
         deviceState,
         resolvedConnectProtocol,
+        skipFinalizeNavigation,
       );
     },
     [

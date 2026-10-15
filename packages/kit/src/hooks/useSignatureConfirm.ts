@@ -54,6 +54,7 @@ type IBuildUnsignedTxParams = {
   onFail?: (error: Error) => void;
   onCancel?: () => void;
   onBeforeSend?: () => void | Promise<void>;
+  isNavigationCurrent?: () => boolean;
   broadcastDeadline?: number;
   beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
   sameModal?: boolean;
@@ -135,6 +136,7 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
         onFail,
         onCancel,
         onBeforeSend,
+        isNavigationCurrent,
         broadcastDeadline,
         beforeBroadcastAction,
         transferPayload: transferPayloadBase,
@@ -151,6 +153,9 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
         ...rest
       } = params;
       let transferPayload = transferPayloadBase;
+      if (isNavigationCurrent && !isNavigationCurrent()) {
+        return;
+      }
       try {
         let unsignedTxs: IUnsignedTxPro[] = [];
         if (unsignedTxsFromParams?.length) {
@@ -245,6 +250,9 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
           noop();
         }
 
+        if (isNavigationCurrent && !isNavigationCurrent()) {
+          return;
+        }
         const gasAccountScenario = resolveGasAccountScenario(params);
 
         if (sameModal) {

@@ -198,7 +198,7 @@ describe('TradingViewNative trade marks', () => {
         width: 400,
       });
       expect(scene.commands).toContainEqual(
-        expect.objectContaining({ kind: 'text', text: 'B' }),
+        expect.objectContaining({ kind: 'tradeMarkLabel', label: 'B' }),
       );
       expect(scene.autoPriceRange?.maxPrice).toBeLessThan(1000);
     },

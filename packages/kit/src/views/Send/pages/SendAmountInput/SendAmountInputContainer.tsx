@@ -55,6 +55,7 @@ import { LightningUnitSwitch } from '@onekeyhq/kit/src/components/UnitSwitch';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
+import { useDeriveTypesCollapseState } from '@onekeyhq/kit/src/hooks/useDeriveTypesCollapseState';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
@@ -65,8 +66,13 @@ import {
 import { convertTokenFiatToCurrency } from '@onekeyhq/kit/src/utils/fiatConvert';
 import { tryOpenHeadlessBuy } from '@onekeyhq/kit/src/views/FiatCrypto/utils/openFiatCryptoOrHeadless';
 import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
+import SwapProviderInfoItem, {
+  SwapProviderInfoItemTitleContentMemo,
+} from '@onekeyhq/kit/src/views/Swap/components/SwapProviderInfoItem';
+import SwapQuoteResultRate from '@onekeyhq/kit/src/views/Swap/components/SwapQuoteResultRate';
 import { SwapRefreshButtonBase } from '@onekeyhq/kit/src/views/Swap/components/SwapRefreshButton';
 import {
+  EJotaiContextStoreNames,
   useCurrencyPersistAtom,
   useInscriptionProtectionStateAtom,
   useSettingsPersistAtom,
@@ -104,6 +110,7 @@ import {
   openUrlExternal,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { formatSwapQuoteDuration } from '@onekeyhq/shared/src/utils/swapQuoteDurationUtils';
+import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { UNAVAILABLE_DISPLAY } from '@onekeyhq/shared/src/utils/tokenValueUtils';
@@ -113,6 +120,7 @@ import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import {
+  ESwapProviderSort,
   privateSendHelpCenterUrl,
   privateSendProvider,
   swapDefaultSetTokens,
@@ -232,6 +240,13 @@ type IPrivateSendQuoteResult = {
   quoteError?: string;
 };
 
+type IPrivateSendProviderSelection = Pick<
+  IFetchQuoteInfo,
+  'provider' | 'providerName'
+> & {
+  scopeKey: string;
+};
+
 type IPrivateSendQuoteRecipientResult = {
   inputAddress: string;
   recipientAddress?: string;
@@ -240,7 +255,6 @@ type IPrivateSendQuoteRecipientResult = {
 
 type IPrivateSendBuildCtx = {
   rocketXOrderId?: unknown;
-  payinAddress?: unknown;
 };
 
 type IPrivateSendQuoteEvent = ISwapQuoteEventPayload;
@@ -367,14 +381,6 @@ function buildPrivateSendQuoteScopeKey({
     `${token?.decimals ?? ''}`,
     normalizedAmount,
   ].join('|');
-}
-
-function getPrivateSendRocketXOrderId(ctx: unknown) {
-  const rocketXOrderId = (ctx as IPrivateSendBuildCtx | undefined)
-    ?.rocketXOrderId;
-  return typeof rocketXOrderId === 'string' && rocketXOrderId
-    ? rocketXOrderId
-    : undefined;
 }
 
 function getPrivateSendValueDropPercent(quote?: IFetchQuoteResult) {
@@ -1069,11 +1075,52 @@ function SendAmountInputContainer() {
     isPrivateSendQuoteDetailsExpanded,
     setIsPrivateSendQuoteDetailsExpanded,
   ] = useState(false);
+  const [privateSendProviderSelection, setPrivateSendProviderSelection] =
+    useState<IPrivateSendProviderSelection>();
 
   const privateSendToken = useMemo(
     () => convertTokenToSwapToken({ networkId, tokenDetails }),
     [networkId, tokenDetails],
   );
+  // Token details are refreshed when the amount page regains focus. Keep the
+  // quote input stable across those balance/price updates so returning from
+  // the provider selector does not issue a duplicate quote request for the
+  // same token identity.
+  const privateSendQuoteTokenNetworkId = privateSendToken?.networkId;
+  const privateSendQuoteTokenContractAddress =
+    privateSendToken?.contractAddress;
+  const privateSendQuoteTokenIsNative = privateSendToken?.isNative;
+  const privateSendQuoteTokenSymbol = privateSendToken?.symbol;
+  const privateSendQuoteTokenDecimals = privateSendToken?.decimals;
+  const privateSendQuoteTokenName = privateSendToken?.name;
+  const privateSendQuoteTokenLogoURI = privateSendToken?.logoURI;
+  const privateSendQuoteToken = useMemo(() => {
+    if (
+      !privateSendQuoteTokenNetworkId ||
+      !privateSendQuoteTokenSymbol ||
+      privateSendQuoteTokenDecimals === undefined ||
+      (!privateSendQuoteTokenIsNative && !privateSendQuoteTokenContractAddress)
+    ) {
+      return undefined;
+    }
+    return {
+      networkId: privateSendQuoteTokenNetworkId,
+      contractAddress: privateSendQuoteTokenContractAddress ?? '',
+      isNative: privateSendQuoteTokenIsNative,
+      symbol: privateSendQuoteTokenSymbol,
+      decimals: privateSendQuoteTokenDecimals,
+      name: privateSendQuoteTokenName,
+      logoURI: privateSendQuoteTokenLogoURI,
+    };
+  }, [
+    privateSendQuoteTokenContractAddress,
+    privateSendQuoteTokenDecimals,
+    privateSendQuoteTokenIsNative,
+    privateSendQuoteTokenLogoURI,
+    privateSendQuoteTokenName,
+    privateSendQuoteTokenNetworkId,
+    privateSendQuoteTokenSymbol,
+  ]);
   const isPrivateSendNativeToken =
     sendMode === ESendMode.PRIVATE && privateSendToken?.isNative === true;
   const privateSendNativeTokenNetworkId = isPrivateSendNativeToken
@@ -1500,7 +1547,7 @@ function SendAmountInputContainer() {
     () =>
       sendMode === ESendMode.PRIVATE &&
       isPrivateSendSupported &&
-      !!privateSendToken &&
+      !!privateSendQuoteToken &&
       !!account?.address &&
       !!recipientAddress &&
       isPrivateSendNativeMaxAmountReady &&
@@ -1511,7 +1558,7 @@ function SendAmountInputContainer() {
       isPrivateSendNativeMaxAmountReady,
       isPrivateSendSupported,
       privateSendAmountBN,
-      privateSendToken,
+      privateSendQuoteToken,
       recipientAddress,
       sendMode,
     ],
@@ -1554,7 +1601,7 @@ function SendAmountInputContainer() {
       if (
         sendMode !== ESendMode.PRIVATE ||
         !isPrivateSendSupported ||
-        !privateSendToken ||
+        !privateSendQuoteToken ||
         !account?.address ||
         !privateSendQuoteRecipientAddress
       ) {
@@ -1568,8 +1615,8 @@ function SendAmountInputContainer() {
       try {
         const { quotes, quoteError } = await fetchPrivateSendQuotesEvents({
           request: {
-            fromToken: privateSendToken,
-            toToken: privateSendToken,
+            fromToken: privateSendQuoteToken,
+            toToken: privateSendQuoteToken,
             fromTokenAmount: amountBN.toFixed(),
             userAddress: account.address,
             receivingAddress: privateSendQuoteRecipientAddress,
@@ -1588,7 +1635,13 @@ function SendAmountInputContainer() {
           };
         }
         const selectedQuote =
-          quotes.find((item) => isPrivateSendQuoteUsable(item)) ??
+          sortSwapQuotes(
+            quotes.filter((item) => isPrivateSendQuoteUsable(item)),
+            {
+              sort: ESwapProviderSort.RECOMMENDED,
+              fromTokenAmount: amountBN.toFixed(),
+            },
+          )[0] ??
           quotes.find((item) => item.info.provider) ??
           quotes[0];
 
@@ -1613,7 +1666,7 @@ function SendAmountInputContainer() {
       currentAccountId,
       isPrivateSendSupported,
       privateSendAmount,
-      privateSendToken,
+      privateSendQuoteToken,
       privateSendQuoteRequestKey,
       privateSendQuoteRecipientAddress,
       sendMode,
@@ -1640,7 +1693,46 @@ function SendAmountInputContainer() {
     (isPrivateSendRecipientResolving ||
       isPrivateSendQuoteLoading ||
       (canFetchPrivateSendQuote && !isPrivateSendQuoteScopeMatched));
-  const privateSendQuote = scopedPrivateSendQuoteResult?.selectedQuote;
+  const privateSendQuote = useMemo(() => {
+    const quotes = scopedPrivateSendQuoteResult?.quotes ?? [];
+    const selectedQuote =
+      privateSendProviderSelection?.scopeKey === privateSendQuoteScopeKey
+        ? quotes.find(
+            (quote) =>
+              quote.info.provider === privateSendProviderSelection.provider &&
+              quote.info.providerName ===
+                privateSendProviderSelection.providerName &&
+              isPrivateSendQuoteUsable(quote),
+          )
+        : undefined;
+    return selectedQuote ?? scopedPrivateSendQuoteResult?.selectedQuote;
+  }, [
+    privateSendProviderSelection,
+    privateSendQuoteScopeKey,
+    scopedPrivateSendQuoteResult,
+  ]);
+  const privateSendProviderSelectorStateRef = useRef({
+    scopeKey: privateSendQuoteScopeKey,
+    quotes: scopedPrivateSendQuoteResult?.quotes ?? [],
+    selectedQuote: privateSendQuote,
+    fromToken: privateSendToken,
+    fromTokenAmount: privateSendAmount,
+    currencySymbol: settings.currencyInfo.symbol,
+    sendMode,
+    isRefreshing: isPrivateSendQuoteRefreshing,
+    isSubmitting,
+  });
+  privateSendProviderSelectorStateRef.current = {
+    scopeKey: privateSendQuoteScopeKey,
+    quotes: scopedPrivateSendQuoteResult?.quotes ?? [],
+    selectedQuote: privateSendQuote,
+    fromToken: privateSendToken,
+    fromTokenAmount: privateSendAmount,
+    currencySymbol: settings.currencyInfo.symbol,
+    sendMode,
+    isRefreshing: isPrivateSendQuoteRefreshing,
+    isSubmitting,
+  };
   useEffect(() => {
     if (
       sendMode !== ESendMode.PRIVATE ||
@@ -2510,6 +2602,53 @@ function SendAmountInputContainer() {
     await Keyboard.dismissWithDelay(80);
   }, []);
 
+  const openPrivateSendProviderSelector = useCallback(async () => {
+    const stateAtOpen = privateSendProviderSelectorStateRef.current;
+    if (
+      stateAtOpen.sendMode !== ESendMode.PRIVATE ||
+      stateAtOpen.quotes.length <= 1 ||
+      stateAtOpen.isRefreshing ||
+      stateAtOpen.isSubmitting
+    ) {
+      return;
+    }
+
+    await dismissAmountInputKeyboardBeforeOverlayOpen();
+
+    const currentState = privateSendProviderSelectorStateRef.current;
+    if (
+      currentState.scopeKey !== stateAtOpen.scopeKey ||
+      currentState.sendMode !== ESendMode.PRIVATE ||
+      currentState.quotes.length <= 1 ||
+      currentState.isRefreshing ||
+      currentState.isSubmitting
+    ) {
+      return;
+    }
+
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapProviderSelect,
+      params: {
+        storeName: EJotaiContextStoreNames.swapModal,
+        providerSelect: {
+          quotes: currentState.quotes,
+          fromToken: currentState.fromToken,
+          toToken: currentState.fromToken,
+          fromTokenAmount: currentState.fromTokenAmount,
+          selectedQuote: currentState.selectedQuote,
+          currencySymbol: currentState.currencySymbol,
+          onSelectQuote: (quote) => {
+            setPrivateSendProviderSelection({
+              scopeKey: currentState.scopeKey,
+              provider: quote.info.provider,
+              providerName: quote.info.providerName,
+            });
+          },
+        },
+      },
+    });
+  }, [dismissAmountInputKeyboardBeforeOverlayOpen, navigation]);
+
   const handleCoinControlPress = useCallback(() => {
     void (async () => {
       await dismissAmountInputKeyboardBeforeOverlayOpen();
@@ -3059,7 +3198,7 @@ function SendAmountInputContainer() {
                 toToken: privateSendToken,
                 toTokenAmount: privateSendToAmount,
                 fromTokenAmount: privateSendFromAmount,
-                provider: privateSendProvider,
+                provider: privateSendQuote.info.provider,
                 userAddress: account.address,
                 receivingAddress: submitRecipientAddress,
                 slippagePercentage: swapSlippageAutoValue,
@@ -3069,6 +3208,21 @@ function SendAmountInputContainer() {
                 kind: privateSendQuote.kind ?? ESwapQuoteKind.SELL,
                 tradeSource: ESwapTradeSource.UNKNOWN,
               });
+
+            const buildProvider = buildSwapRes?.result?.info?.provider;
+            const buildProviderName = buildSwapRes?.result?.info?.providerName;
+            if (
+              (buildProvider &&
+                buildProvider !== privateSendQuote.info.provider) ||
+              (buildProviderName &&
+                buildProviderName !== privateSendQuote.info.providerName)
+            ) {
+              throw new OneKeyLocalError(
+                intl.formatMessage({
+                  id: ETranslations.swap_page_alert_no_provider_supports_trade,
+                }),
+              );
+            }
 
             if (!buildSwapRes?.changellyOrder) {
               throw new OneKeyLocalError(
@@ -3099,15 +3253,21 @@ function SendAmountInputContainer() {
             }
             const privateSendProviderOrderId =
               buildSwapRes.changellyOrder.orderId;
-            const privateSendRocketXOrderId = getPrivateSendRocketXOrderId(
-              buildSwapRes.ctx,
-            );
             const privateSendBackendOrderId = buildSwapRes.orderId;
+            const privateSendRocketXOrderId = (
+              buildSwapRes.ctx as IPrivateSendBuildCtx | undefined
+            )?.rocketXOrderId;
+            const normalizedPrivateSendRocketXOrderId =
+              typeof privateSendRocketXOrderId === 'string' &&
+              privateSendRocketXOrderId
+                ? privateSendRocketXOrderId
+                : undefined;
             if (
               !privateSendProviderOrderId ||
-              !privateSendRocketXOrderId ||
-              privateSendProviderOrderId !== privateSendRocketXOrderId ||
-              !privateSendBackendOrderId
+              !privateSendBackendOrderId ||
+              (normalizedPrivateSendRocketXOrderId &&
+                normalizedPrivateSendRocketXOrderId !==
+                  privateSendProviderOrderId)
             ) {
               throw new OneKeyLocalError(
                 intl.formatMessage({
@@ -3128,11 +3288,11 @@ function SendAmountInputContainer() {
             const privateSendProviderInfo = {
               ...privateSendQuote.info,
               ...buildSwapRes.result.info,
-              provider: privateSendProvider,
+              provider: buildProvider || privateSendQuote.info.provider,
               providerName:
                 buildSwapRes.result.info.providerName ||
                 privateSendQuote.info.providerName ||
-                privateSendProvider,
+                privateSendQuote.info.provider,
             };
             const normalizedBuildSwapRes = {
               ...buildSwapRes,
@@ -3292,7 +3452,6 @@ function SendAmountInputContainer() {
                 },
                 ctx: {
                   ...normalizedBuildSwapRes.ctx,
-                  rocketXOrderId: privateSendRocketXOrderId,
                 },
               };
               try {
@@ -3338,7 +3497,9 @@ function SendAmountInputContainer() {
                 originalRecipient: submitRecipientAddress,
                 privateSend: {
                   orderId: privateSendOrderId,
-                  rocketXOrderId: privateSendRocketXOrderId,
+                  ...(normalizedPrivateSendRocketXOrderId
+                    ? { rocketXOrderId: normalizedPrivateSendRocketXOrderId }
+                    : {}),
                   payinAddress: privateSendPayinAddress,
                   provider: privateSendProviderInfo.provider,
                   providerName: privateSendProviderInfo.providerName,
@@ -3783,10 +3944,19 @@ function SendAmountInputContainer() {
     showPrivateSendModeSwitch,
   ]);
 
+  // An account that shows only its default address type has nothing to
+  // switch, so the page says nothing about address types at all.
+  const { isAddressTypeHidden } = useDeriveTypesCollapseState({
+    networkId,
+    walletId,
+    indexedAccountId: account?.indexedAccountId,
+    activeDeriveType: deriveType,
+  });
+
   const extraContent = useMemo(() => {
     const addons: React.ReactNode[] = [];
 
-    if (vaultSettings?.mergeDeriveAssetsEnabled) {
+    if (vaultSettings?.mergeDeriveAssetsEnabled && !isAddressTypeHidden) {
       addons.push(
         <AttentionPulse key="address-type-selector" signal={pulseSignal}>
           <AddressTypeSelector
@@ -3849,6 +4019,7 @@ function SendAmountInputContainer() {
     displayCoinControlButton,
     dismissAmountInputKeyboardBeforeOverlayOpen,
     handleCoinControlPress,
+    isAddressTypeHidden,
     networkId,
     pulseSignal,
     sendConfirmActions,
@@ -3885,7 +4056,13 @@ function SendAmountInputContainer() {
         />
       );
     }
-    if (allFormatsInsufficient && isInsufficientBalance) {
+    // Without address types on the page, the field's own insufficient balance
+    // error is enough.
+    if (
+      allFormatsInsufficient &&
+      isInsufficientBalance &&
+      !isAddressTypeHidden
+    ) {
       return (
         <Alert
           type="warning"
@@ -3902,6 +4079,7 @@ function SendAmountInputContainer() {
     autoSwitchInfo,
     dismissAutoSwitchInfo,
     intl,
+    isAddressTypeHidden,
     isInsufficientBalance,
   ]);
 
@@ -4328,75 +4506,6 @@ function SendAmountInputContainer() {
     );
   }, [isLoadingAssets, isNFT, maxBalance, renderBalanceRowContent]);
 
-  const renderPrivateSendProviderContent = useCallback(
-    ({
-      isLoading,
-      providerInfo,
-    }: {
-      isLoading?: boolean;
-      providerInfo?: IFetchQuoteInfo;
-    }) => {
-      const providerName = providerInfo?.providerName || providerInfo?.provider;
-      let providerContent: ReactNode = null;
-      if (providerName) {
-        providerContent = (
-          <XStack
-            alignItems="center"
-            justifyContent="flex-end"
-            gap="$1"
-            flexShrink={1}
-            minWidth={0}
-          >
-            {providerInfo?.providerLogo ? (
-              <Stack position="relative" w="$5" h="$5">
-                <Image
-                  source={{ uri: providerInfo.providerLogo }}
-                  w="$5"
-                  h="$5"
-                  borderRadius="$1"
-                />
-                <Stack
-                  position="absolute"
-                  top={0}
-                  left={0}
-                  right={0}
-                  bottom={0}
-                  borderRadius="$1"
-                  borderWidth="$px"
-                  borderColor="$borderSubdued"
-                  pointerEvents="none"
-                />
-              </Stack>
-            ) : null}
-            <SizableText
-              size="$bodyMdMedium"
-              color="$text"
-              numberOfLines={1}
-              maxWidth="$64"
-              flexShrink={1}
-            >
-              {providerName}
-            </SizableText>
-          </XStack>
-        );
-      } else if (!isLoading) {
-        providerContent = (
-          <SizableText size="$bodyMdMedium" color="$text">
-            --
-          </SizableText>
-        );
-      }
-
-      return (
-        <XStack alignItems="center" justifyContent="flex-end" gap="$1">
-          {isLoading ? <Skeleton h="$5" w="$32" borderRadius="$1" /> : null}
-          {providerContent}
-        </XStack>
-      );
-    },
-    [],
-  );
-
   const renderPrivateSendQuoteCard = useMemo(() => {
     if (sendMode !== ESendMode.PRIVATE) return null;
     const showPrivateSendQuoteSkeleton = isPrivateSendQuoteRefreshing;
@@ -4462,23 +4571,51 @@ function SendAmountInputContainer() {
             </SizableText>
           )}
         </XStack>
-        <XStack
-          h={privateSendQuoteDetailRowHeight}
-          alignItems="center"
-          justifyContent="space-between"
-        >
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.swap_history_detail_provider,
-            })}
-          </SizableText>
-          {renderPrivateSendProviderContent({
-            isLoading: isPrivateSendQuoteRefreshing,
-            providerInfo: isPrivateSendQuoteRefreshing
-              ? undefined
-              : privateSendQuote?.info,
-          })}
-        </XStack>
+        {isPrivateSendQuoteRefreshing ? (
+          <XStack
+            h={privateSendQuoteDetailRowHeight}
+            width="100%"
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <SwapProviderInfoItemTitleContentMemo />
+            <XStack flex={1} justifyContent="flex-end" minWidth={0}>
+              <SwapQuoteResultRate
+                isLoading
+                quoting
+                showLoadingText={false}
+                fromToken={privateSendToken}
+                toToken={privateSendToken}
+                refreshAction={refreshPrivateSendQuote}
+                canOpenResult={false}
+              />
+            </XStack>
+          </XStack>
+        ) : (
+          <YStack
+            h={privateSendQuoteDetailRowHeight}
+            width="100%"
+            justifyContent="center"
+          >
+            <SwapProviderInfoItem
+              isBest={privateSendQuote?.isBest}
+              providerIcon={privateSendQuote?.info.providerLogo ?? ''}
+              providerName={
+                privateSendQuote?.info.providerName ??
+                privateSendQuote?.info.provider ??
+                ''
+              }
+              fromToken={privateSendToken}
+              toToken={privateSendToken}
+              showEmptyPlaceholder
+              onPress={
+                (scopedPrivateSendQuoteResult?.quotes.length ?? 0) > 1
+                  ? openPrivateSendProviderSelector
+                  : undefined
+              }
+            />
+          </YStack>
+        )}
       </>
     );
 
@@ -4651,10 +4788,10 @@ function SendAmountInputContainer() {
     isSubmitting,
     maxBalance,
     privateSendQuote,
-    privateSendToken?.price,
-    privateSendToken?.symbol,
+    scopedPrivateSendQuoteResult?.quotes.length,
+    privateSendToken,
+    openPrivateSendProviderSelector,
     renderBalanceRowContent,
-    renderPrivateSendProviderContent,
     refreshPrivateSendQuote,
     sendMode,
     canFetchPrivateSendQuote,

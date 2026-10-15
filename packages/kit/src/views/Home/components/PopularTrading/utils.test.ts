@@ -9,6 +9,7 @@ import type {
 
 import {
   buildHomeMarketCategories,
+  buildHomeRecommendAddSortIndexes,
   getMarketTokenDisplayPrice,
   getMarketTokenDisplayPriceChange24h,
   getMarketTokenDisplayVolume24h,
@@ -17,6 +18,7 @@ import {
   mapMarketPerpsTokenToDisplay,
   mapMarketStockToDisplay,
   mapMarketTokenToDisplay,
+  shouldShowHomeRecommendCards,
 } from './utils';
 
 function buildServerPerpsToken(name: string): IMarketPerpsTokenFromServer {
@@ -223,6 +225,42 @@ describe('PopularTrading market token display utils', () => {
       perpsSubtitle: 'Unitree Robotics',
       perpsDexLabel: dexLabel,
     });
+  });
+
+  test('places home recommend adds above stored favorites in card order', () => {
+    expect(
+      buildHomeRecommendAddSortIndexes({
+        existingWatchlist: [],
+        count: 4,
+      }),
+    ).toEqual([996, 997, 998, 999]);
+    expect(
+      buildHomeRecommendAddSortIndexes({
+        existingWatchlist: [{ sortIndex: 0 }, { sortIndex: 1 }],
+        count: 4,
+      }),
+    ).toEqual([-4, -3, -2, -1]);
+  });
+
+  test('shows recommend cards when stored favorites have no visible rows', () => {
+    expect(
+      shouldShowHomeRecommendCards({
+        hasStoredFavorites: false,
+        visibleFavoriteCount: 0,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowHomeRecommendCards({
+        hasStoredFavorites: true,
+        visibleFavoriteCount: 0,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowHomeRecommendCards({
+        hasStoredFavorites: true,
+        visibleFavoriteCount: 2,
+      }),
+    ).toBe(false);
   });
 
   test('does not add a DEX source label to main DEX perps', () => {

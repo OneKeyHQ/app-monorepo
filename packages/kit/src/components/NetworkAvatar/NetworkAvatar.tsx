@@ -95,11 +95,11 @@ export function NetworkAvatar({
   allNetworksIconProps,
 }: INetworkAvatarProps) {
   const { serviceNetwork } = backgroundApiProxy;
-  const { networksMap } = useTokenListViewContext();
+  const { networksMap, networkMetadataProvided } = useTokenListViewContext();
   const cachedNetwork = networkId ? networksMap?.[networkId] : undefined;
   const res = usePromiseResult(
     () => {
-      if (cachedNetwork) {
+      if (cachedNetwork || networkMetadataProvided) {
         return Promise.resolve(cachedNetwork);
       }
       return networkId
@@ -110,7 +110,7 @@ export function NetworkAvatar({
             name: '',
           } as IServerNetwork);
     },
-    [networkId, serviceNetwork, cachedNetwork],
+    [networkId, serviceNetwork, cachedNetwork, networkMetadataProvided],
     {
       checkIsFocused: false,
       initResult: cachedNetwork,
@@ -122,10 +122,26 @@ export function NetworkAvatar({
   const effectiveLogoURI = useNetworkLogoUri({
     logoUri: network?.logoURI,
     networkId,
+    skipFetch: networkMetadataProvided,
   });
 
   if (isCustomNetwork) {
     return <LetterAvatar letter={name?.[0]} size={size} />;
+  }
+
+  // The id alone identifies All Networks. Waiting for the async network
+  // record's `isAllNetworks` painted the preset's colored logo (returned
+  // synchronously by useNetworkLogoUri) for the first frames after a switch
+  // to a watching wallet, whose header uses this avatar for All Networks.
+  if (isAllNetworks || networkUtils.isAllNetwork({ networkId })) {
+    return (
+      <NetworkAvatarBase
+        size={size}
+        isAllNetworks
+        logoURI=""
+        allNetworksIconProps={allNetworksIconProps}
+      />
+    );
   }
 
   if (networkUtils.isAggregateNetwork({ networkId })) {

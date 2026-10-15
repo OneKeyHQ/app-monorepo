@@ -233,7 +233,16 @@ export function useTradingViewNativePriceScale({
     [],
   );
 
+  const handlePriceRangePan = useCallback(
+    (priceRange: ITradingViewNativePriceRange) => {
+      modelRef.current.pinnedPriceRange = priceRange;
+      setIsAutoScale(false);
+    },
+    [modelRef],
+  );
+
   return {
+    handlePriceRangePan,
     finishPointerDrag,
     handleAutoScalePress,
     handleDoubleClick,

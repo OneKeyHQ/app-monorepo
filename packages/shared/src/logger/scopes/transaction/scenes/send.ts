@@ -1,8 +1,11 @@
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import { sanitizeSolanaTxDiagnosticEvent } from '@onekeyhq/shared/src/utils/solanaTxDiagnostics';
 import type { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
+import type { ISolanaTxDiagnosticEvent } from '@onekeyhq/shared/types/solanaTxDiagnostics';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
+import { NO_LOG_OUTPUT } from '../../../types';
 
 import type {
   IGasAccountActionParams,
@@ -10,6 +13,7 @@ import type {
   ISendCexDepositWarningActionParams,
   ISendCexDepositWarningContext,
 } from '../types';
+import type { IDeviceType } from '@onekeyfe/hd-core';
 
 type ISendMode = 'public' | 'private';
 type IPrivateSendQuoteStatus = 'success' | 'failed';
@@ -67,6 +71,11 @@ interface ISendPrivateOrderFinalStatusParams {
 }
 
 export class SendScene extends BaseScene {
+  @LogToLocal()
+  public solanaTxDiagnostic(params: ISolanaTxDiagnosticEvent) {
+    return sanitizeSolanaTxDiagnosticEvent(params) ?? NO_LOG_OUTPUT;
+  }
+
   private _sendFlowId: string | undefined;
 
   private _addressInputMethod: string | undefined;
@@ -187,6 +196,8 @@ export class SendScene extends BaseScene {
 
   @LogToServer()
   public sendConfirm({
+    walletType,
+    deviceType,
     network,
     txnType,
     interactContract,
@@ -206,6 +217,8 @@ export class SendScene extends BaseScene {
     tronUseRedemptionCode,
     tronIsCreditAutoClaimed,
   }: {
+    walletType: string;
+    deviceType: IDeviceType | undefined;
     network: string | undefined;
     txnType: string | undefined;
     txnParseType: string | undefined;
@@ -226,6 +239,8 @@ export class SendScene extends BaseScene {
     tronIsCreditAutoClaimed: boolean | undefined;
   }) {
     const result = {
+      walletType,
+      deviceType,
       sendFlowId: this._sendFlowId,
       network,
       txnType,

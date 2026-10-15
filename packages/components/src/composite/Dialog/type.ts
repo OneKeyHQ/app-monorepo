@@ -79,10 +79,14 @@ interface IBasicDialogProps extends TMDialogProps {
   isAsync?: boolean;
   /** Uses the platform-native sheet presentation on iOS and Android. */
   nativeSheet?: boolean;
+  /** Centers and bounds native dialogs on phone screens, overriding nativeSheet. */
+  nativeCentered?: boolean;
   onOpen?: () => void;
   /** Controls initial focus for both the floating panel and sheet on web. */
   onOpenAutoFocus?: TMDialogContentProps['onOpenAutoFocus'];
   onHeaderCloseButtonPress?: () => void;
+  /** Runs when dismissal starts, before the close animation. */
+  onCloseRequested?: () => void;
   onClose: (extra?: { flag?: string }) => Promise<void>;
   /** Return false to keep the dialog open before any dismissal or cleanup. */
   onBeforeClose?: (extra?: { flag?: string }) => boolean | Promise<boolean>;
@@ -160,6 +164,8 @@ export interface IDialogShowProps extends Omit<
    * @platform iOS, Web
    */
   isOverTopAllViews?: boolean;
+  /** Runs synchronously when closing starts, before the exit animation. */
+  onCloseStart?: () => void;
   /* Run it after dialog is closed */
   onClose?: (extra?: { flag?: string }) => void | Promise<void>;
 }

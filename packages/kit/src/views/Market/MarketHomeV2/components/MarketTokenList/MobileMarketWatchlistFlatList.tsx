@@ -409,7 +409,7 @@ function MobileMarketWatchlistFlatListImpl({
     return <Tabs.ScrollView />;
   }
 
-  if (watchlist.length === 0 && !showSkeleton) {
+  if (!showSkeleton && (watchlist.length === 0 || data.length === 0)) {
     return (
       <Tabs.ScrollView>
         <Stack

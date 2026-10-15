@@ -22,12 +22,14 @@ export function BorrowEModeMetric({
   eModeStatus,
   isError = false,
   isLoading = false,
+  isDisabled = false,
   widthMode,
   variant = 'metric',
 }: {
   eModeStatus?: IBorrowEModeStatus | null;
   isError?: boolean;
   isLoading?: boolean;
+  isDisabled?: boolean;
   widthMode?: IOverviewMetricProps['widthMode'];
   variant?: 'metric' | 'bar';
 }) {
@@ -45,12 +47,19 @@ export function BorrowEModeMetric({
     (c) => c.eModeId === eModeStatus.eModeId,
   );
   const hasEMode = (eModeStatus?.categories?.length ?? 0) > 0;
-  const showError = isError && !eModeStatus;
+  const showError = isError;
   const showInitialLoading = isLoading && !eModeStatus && !showError;
   const showPlaceholder = showInitialLoading || showError;
+  const canOpenEModeSwitch = !showPlaceholder && !isDisabled;
 
   const openEModeSwitch = useCallback(() => {
-    if (!networkId || !provider || !marketAddress || !earnAccountId) {
+    if (
+      showError ||
+      !networkId ||
+      !provider ||
+      !marketAddress ||
+      !earnAccountId
+    ) {
       return;
     }
     BorrowNavigation.pushToBorrowEModeSwitch(navigation, {
@@ -67,6 +76,7 @@ export function BorrowEModeMetric({
     navigation,
     networkId,
     provider,
+    showError,
   ]);
 
   if (!hasEMode && !showPlaceholder) {
@@ -125,7 +135,7 @@ export function BorrowEModeMetric({
         borderCurve="continuous"
         px="$4"
         py="$3"
-        {...(!showPlaceholder && {
+        {...(canOpenEModeSwitch && {
           onPress: openEModeSwitch,
           cursor: 'pointer',
           hoverStyle: { bg: '$bgHover' },
@@ -147,9 +157,9 @@ export function BorrowEModeMetric({
       title={{ text: title }}
       text={{ text: valueText }}
       isLoading={showInitialLoading}
-      onPress={showPlaceholder ? undefined : openEModeSwitch}
+      onPress={canOpenEModeSwitch ? openEModeSwitch : undefined}
       widthMode={widthMode}
-      action={showPlaceholder ? undefined : chevron}
+      action={canOpenEModeSwitch ? chevron : undefined}
     />
   );
 }

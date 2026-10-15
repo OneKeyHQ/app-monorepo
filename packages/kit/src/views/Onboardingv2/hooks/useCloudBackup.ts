@@ -436,8 +436,9 @@ export function useCloudBackup() {
   const doRestoreBackup = useThrottledCallback(
     async ({
       payload,
+      recordId,
     }: {
-      // recordID: string;
+      recordId?: string;
       payload: IBackupDataEncryptedPayload | undefined;
     }) => {
       const isAvailable = await checkIsAvailable();
@@ -445,82 +446,122 @@ export function useCloudBackup() {
         return;
       }
       let importProcessingDialog: IDialogInstance | null = null;
-      const verifyPasswordDialog = showCloudBackupPasswordDialog({
-        isRestoreAction: true,
-        intl,
-        onSubmit: async (password: string) => {
-          let importTaskUUID: string | undefined;
-          // Show progress dialog
-          try {
-            await cloudBackupExitPreventAtom.set(
-              (v): ICloudBackupExitPreventAtom => ({
-                ...v,
-                shouldPreventExit: true,
-              }),
-            );
-            setCheckLoading(true);
-            await backgroundApiProxy.serviceCloudBackupV2.restorePreparePrivateData(
-              {
-                password,
-                payload,
-              },
-            );
-            importTaskUUID = await errorToastUtils.withErrorAutoToast(() =>
-              backgroundApiProxy.servicePrimeTransfer.prepareImportTask(),
-            );
-            if (!importTaskUUID) return;
-            await verifyPasswordDialog?.close?.();
-            // Delay to ensure the dialog is closed before proceeding
-            if (platformEnv.isNative) {
-              await timerUtils.wait(350);
-            }
-            importProcessingDialog = showPrimeTransferImportProcessingDialog({
-              taskUUID: importTaskUUID,
-              intl,
-              navigation,
-            });
-            const result =
-              await backgroundApiProxy.serviceCloudBackupV2.restore({
-                taskUUID: importTaskUUID,
-                password,
-                payload,
-              });
-            // Dialog.debugMessage({
-            //   debugMessage: result,
-            // });
-            if (result?.success) {
-              Toast.success({
-                title: intl.formatMessage({
-                  id: ETranslations.backup_restored,
-                }),
-              });
-              navigation.pop();
-              navigation.navigate(ERootRoutes.Main, undefined, {
-                pop: true,
-              });
-            }
-            // eslint-disable-next-line no-useless-catch
-          } catch (error) {
-            // Failed imports should close without asking the user to cancel them.
-            if (importTaskUUID) {
-              await backgroundApiProxy.servicePrimeTransfer.resetImportProgress(
-                { taskUUID: importTaskUUID },
+      const restoreBackup = async (
+        password?: string,
+        verifyPasswordDialog?: IDialogInstance,
+      ): Promise<boolean> => {
+        let importTaskUUID: string | undefined;
+        // Show progress dialog
+        try {
+          await cloudBackupExitPreventAtom.set(
+            (v): ICloudBackupExitPreventAtom => ({
+              ...v,
+              shouldPreventExit: true,
+            }),
+          );
+          setCheckLoading(true);
+          let restoreId: string | undefined;
+          if (
+            (platformEnv.isNativeIOS || platformEnv.isNativeAndroid) &&
+            recordId
+          ) {
+            const prepared =
+              await backgroundApiProxy.serviceCloudBackupV2.prepareLocalRestore(
+                { recordId, password },
               );
-              await importProcessingDialog?.close();
-            }
-            throw error;
-          } finally {
-            setCheckLoading(false);
-            // void dialog.close();
-            await cloudBackupExitPreventAtom.set(
-              (v): ICloudBackupExitPreventAtom => ({
-                ...v,
-                shouldPreventExit: false,
-              }),
+            if (!prepared) return false;
+            restoreId = prepared.restoreId;
+          } else if (password !== undefined) {
+            await backgroundApiProxy.serviceCloudBackupV2.restorePreparePrivateData(
+              { password, payload, recordId },
             );
+          } else {
+            return false;
           }
-        },
-      });
+          importTaskUUID = await errorToastUtils.withErrorAutoToast(() =>
+            backgroundApiProxy.servicePrimeTransfer.prepareImportTask(),
+          );
+          if (!importTaskUUID) return true;
+          await verifyPasswordDialog?.close?.();
+          // Delay to ensure the dialog is closed before proceeding
+          if (platformEnv.isNative && verifyPasswordDialog) {
+            await timerUtils.wait(350);
+          }
+          importProcessingDialog = showPrimeTransferImportProcessingDialog({
+            taskUUID: importTaskUUID,
+            intl,
+            navigation,
+          });
+          const result = restoreId
+            ? await backgroundApiProxy.serviceCloudBackupV2.restorePreparedLocalBackup(
+                { restoreId, taskUUID: importTaskUUID },
+              )
+            : await backgroundApiProxy.serviceCloudBackupV2.restore({
+                taskUUID: importTaskUUID,
+                password: password ?? '',
+                payload,
+                recordId,
+              });
+          if (!result) {
+            await backgroundApiProxy.servicePrimeTransfer.resetImportProgress({
+              taskUUID: importTaskUUID,
+            });
+            await importProcessingDialog.close();
+            importProcessingDialog = null;
+            return false;
+          }
+          if (result?.success) {
+            Toast.success({
+              title: intl.formatMessage({
+                id: ETranslations.backup_restored,
+              }),
+            });
+            navigation.pop();
+            navigation.navigate(ERootRoutes.Main, undefined, {
+              pop: true,
+            });
+          }
+          return true;
+          // eslint-disable-next-line no-useless-catch
+        } catch (error) {
+          // Release this task before closing, without cancelling a newer import.
+          if (importTaskUUID) {
+            await backgroundApiProxy.servicePrimeTransfer.resetImportProgress({
+              taskUUID: importTaskUUID,
+            });
+            await importProcessingDialog?.close();
+          }
+          throw error;
+        } finally {
+          setCheckLoading(false);
+          // void dialog.close();
+          await cloudBackupExitPreventAtom.set(
+            (v): ICloudBackupExitPreventAtom => ({
+              ...v,
+              shouldPreventExit: false,
+            }),
+          );
+        }
+      };
+      const showPasswordDialog = () => {
+        const dialog = showCloudBackupPasswordDialog({
+          isRestoreAction: true,
+          intl,
+          onSubmit: async (password: string) => {
+            if (!(await restoreBackup(password, dialog))) {
+              await dialog.close();
+              showPasswordDialog();
+            }
+          },
+        });
+      };
+      if (
+        (platformEnv.isNativeIOS || platformEnv.isNativeAndroid) &&
+        recordId &&
+        (await restoreBackup())
+      )
+        return;
+      showPasswordDialog();
     },
     600,
     {

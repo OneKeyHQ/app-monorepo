@@ -37,6 +37,7 @@ import {
   prioritizeNameThenAddressMatches,
 } from './searchMatchUtils';
 import { useRecentRecipientsData } from './useRecentRecipientsData';
+import { useStableItemPress } from './useStableItemPress';
 
 interface IRecentRecipientsProps {
   accountId?: string;
@@ -76,12 +77,13 @@ function QuickSelectListItemBase({
   networkId,
 }: {
   item: IQuickItem;
-  onPress?: () => void;
+  onPress?: (item: IQuickItem) => void;
   formatRelativeTime?: (time: number) => string;
   intl: ReturnType<typeof useIntl>;
   networkId: string;
 }) {
   const navigation = useAppNavigation();
+  const handlePress = useCallback(() => onPress?.(item), [item, onPress]);
 
   // Determine display mode based on available info
   const hasName = !!item.name;
@@ -147,7 +149,7 @@ function QuickSelectListItemBase({
       address={item.address}
       walletId={item.walletId}
       wallet={item.wallet}
-      onPress={onPress}
+      onPress={handlePress}
       onLongPress={platformEnv.isNative ? handleLongPress : undefined}
       testID={`recent-item-${item.address}`}
       primary={
@@ -233,9 +235,13 @@ function QuickSelectListItemBase({
   );
 }
 
+// Rows compare by data plus the `onPress` identity: the parent passes one
+// stable handler (useStableItemPress), so a row only re-renders on real data
+// changes yet never holds on to a stale callback.
 const QuickSelectListItem = memo(
   QuickSelectListItemBase,
   (prevProps, nextProps) =>
+    prevProps.onPress === nextProps.onPress &&
     prevProps.item.id === nextProps.item.id &&
     prevProps.item.address === nextProps.item.address &&
     prevProps.item.name === nextProps.item.name &&
@@ -408,6 +414,34 @@ function RecentRecipients(props: IRecentRecipientsProps) {
       { initResult: new Set(), undefinedResultIfError: true },
     );
 
+  const handleRecipientPress = useStableItemPress(async (item: IQuickItem) => {
+    // Recents may include addresses that belong to a bot wallet
+    // which has since been deactivated. Block selection so we
+    // don't paste a dead address into the recipient input — show
+    // a toast so the user understands why the row is rejected.
+    // Fast path: recipients with a known walletId resolve via the
+    // precomputed set (no IPC). Recipients without a walletId
+    // (e.g. BTC fresh addresses) still need the async lookup.
+    if (item.walletId) {
+      if (deactivatedRecipientWalletIds.has(item.walletId)) {
+        showBotWalletDisabledToast('beReceiver');
+        return;
+      }
+    } else if (
+      await isAddressOwnedByDeactivatedBotWallet({
+        networkId,
+        address: item.address,
+      })
+    ) {
+      showBotWalletDisabledToast('beReceiver');
+      return;
+    }
+    onSelect?.({
+      address: item.address,
+      memo: item.memo,
+    });
+  });
+
   // Notify parent of match status and count.
   // Skip during debounce — parent resets tabMatchStatus to null on
   // searchKey change, so allReported stays false until we re-report.
@@ -448,33 +482,7 @@ function RecentRecipients(props: IRecentRecipientsProps) {
             intl={intl}
             networkId={networkId}
             formatRelativeTime={formatCompactTime}
-            onPress={async () => {
-              // Recents may include addresses that belong to a bot wallet
-              // which has since been deactivated. Block selection so we
-              // don't paste a dead address into the recipient input — show
-              // a toast so the user understands why the row is rejected.
-              // Fast path: recipients with a known walletId resolve via the
-              // precomputed set (no IPC). Recipients without a walletId
-              // (e.g. BTC fresh addresses) still need the async lookup.
-              if (recipient.walletId) {
-                if (deactivatedRecipientWalletIds.has(recipient.walletId)) {
-                  showBotWalletDisabledToast('beReceiver');
-                  return;
-                }
-              } else if (
-                await isAddressOwnedByDeactivatedBotWallet({
-                  networkId,
-                  address: canonicalAddress,
-                })
-              ) {
-                showBotWalletDisabledToast('beReceiver');
-                return;
-              }
-              onSelect?.({
-                address: canonicalAddress,
-                memo: recipient.recipientMemo,
-              });
-            }}
+            onPress={handleRecipientPress}
           />
         );
       });
@@ -509,9 +517,8 @@ function RecentRecipients(props: IRecentRecipientsProps) {
     isLoadingRecent,
     isSearchActive,
     networkId,
-    onSelect,
+    handleRecipientPress,
     recentWalletMap,
-    deactivatedRecipientWalletIds,
   ]);
 
   return (

@@ -23,15 +23,18 @@ import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { useNetworkRestore } from '../../../hooks/useNetworkRestore';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
+import { TRADING_VIEW_DISABLED_FEATURES } from '../constants';
 import {
   syncTradingViewTheme,
   useNavigationHandler,
   useTradingViewUrl,
 } from '../hooks';
 import { TradingViewChartLoadingMask } from '../TradingViewChartLoadingMask';
+import { TradingViewV2ChartControlsContainer } from '../TradingViewV2/components/TradingViewV2ChartControls';
 
 import { MESSAGE_TYPES } from './constants/messageTypes';
 import { useChartLines, useTradeUpdates } from './hooks';
+import { usePerpsNativeChartControls } from './hooks/usePerpsNativeChartControls';
 import { usePerpsTradingViewMessageHandler } from './messageHandlers';
 
 import type {
@@ -42,10 +45,13 @@ import type {
   ITradeEvent,
 } from './types';
 import type { IWebViewProps } from '../../WebView';
-import type { IWebViewRef } from '../../WebView/types';
+import type { IElectronWebViewEvents, IWebViewRef } from '../../WebView/types';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { WebViewProps } from 'react-native-webview';
-import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
+import type {
+  WebViewNavigation,
+  WebViewNavigationEvent,
+} from 'react-native-webview/lib/WebViewTypes';
 
 interface IBaseTradingViewPerpsV2Props {
   symbol: string;
@@ -54,6 +60,10 @@ interface IBaseTradingViewPerpsV2Props {
   displayCoin?: string;
   userAddress: IHex | undefined | null;
   enablePerpsTradingUi?: boolean;
+  enableNativeChartControls?: boolean;
+  isNativeChartFullscreen?: boolean;
+  onNativeChartFullscreenChange?: (isFullscreen: boolean) => void;
+  onChartSwitch?: () => void;
   webviewKey?: string;
   reloadOnSymbolChange?: boolean;
   collapseChartExpandSignal?: number;
@@ -65,6 +75,14 @@ interface IBaseTradingViewPerpsV2Props {
 
 export type ITradingViewPerpsV2Props = IBaseTradingViewPerpsV2Props &
   IStackStyle;
+
+const PERPS_NATIVE_CHART_CONTROL_DISABLED_FEATURES = [
+  TRADING_VIEW_DISABLED_FEATURES.TIMEFRAME_SELECTOR,
+  TRADING_VIEW_DISABLED_FEATURES.TIME_SCALE,
+  TRADING_VIEW_DISABLED_FEATURES.SETTINGS,
+  TRADING_VIEW_DISABLED_FEATURES.FULLSCREEN,
+  TRADING_VIEW_DISABLED_FEATURES.LAYOUT_TOGGLE,
+] as const;
 
 // Dynamic params sync hook - symbol changes sync via message instead of WebView reload
 const useSymbolSync = ({
@@ -269,6 +287,10 @@ export function TradingViewPerpsV2(
     displayCoin,
     userAddress,
     enablePerpsTradingUi = false,
+    enableNativeChartControls = false,
+    isNativeChartFullscreen,
+    onNativeChartFullscreenChange,
+    onChartSwitch,
     reloadOnSymbolChange = false,
     collapseChartExpandSignal,
     onLoadEnd,
@@ -280,6 +302,17 @@ export function TradingViewPerpsV2(
   } = props;
   const [, setMounted] = usePerpsCandlesWebviewMountedAtom();
   const webRef = useRef<IWebViewRef | null>(null);
+  const {
+    initialInterval,
+    isRestoringInterval,
+    reset: resetNativeChartControls,
+    onIntervalConfigChange,
+    onNativeChartControlsConfigChange,
+    controlsProps,
+  } = usePerpsNativeChartControls({
+    enabled: enableNativeChartControls,
+    webRef,
+  });
   const theme = useThemeVariant();
   const latestThemeRef = useRef(theme);
   latestThemeRef.current = theme;
@@ -360,9 +393,10 @@ export function TradingViewPerpsV2(
       hasPerpsReadyRef.current = false;
       setChartLinesReadyWebviewKey(null);
       setChartContentReadyWebviewKey(null);
+      resetNativeChartControls();
       prevWebviewKeyRef.current = _webviewKey;
     }
-  }, [_webviewKey]);
+  }, [_webviewKey, resetNativeChartControls]);
 
   useEffect(() => {
     setMounted({ mounted: true });
@@ -433,12 +467,22 @@ export function TradingViewPerpsV2(
       type: 'perps' as const,
       storageNamespace: 'perps' as const,
       enablePerpsTradingUi: enablePerpsTradingUi ? '1' : '0',
+      ...(enableNativeChartControls ? { nativeChartControls: '1' } : {}),
+      ...(initialInterval ? { initialResolution: initialInterval } : {}),
     }),
-    [enablePerpsTradingUi, urlSymbol],
+    [
+      enableNativeChartControls,
+      enablePerpsTradingUi,
+      initialInterval,
+      urlSymbol,
+    ],
   );
 
-  const { finalUrl: staticTradingViewUrl } = useTradingViewUrl({
+  const { finalUrl: staticTradingViewUrl, timezone } = useTradingViewUrl({
     additionalParams,
+    disabledFeatures: enableNativeChartControls
+      ? PERPS_NATIVE_CHART_CONTROL_DISABLED_FEATURES
+      : undefined,
     theme,
   });
   const isSpotDisplayNameSyncRequired =
@@ -680,6 +724,12 @@ export function TradingViewPerpsV2(
     onChartOrderIntent,
     onTouchScroll,
     onInteractionOverlayOpenChange: guardedInteractionOverlayOpenChange,
+    onIntervalConfigChange: enableNativeChartControls
+      ? onIntervalConfigChange
+      : undefined,
+    onNativeChartControlsConfigChange: enableNativeChartControls
+      ? onNativeChartControlsConfigChange
+      : undefined,
   });
 
   // Chart lines management (liquidation, position, orders)
@@ -710,54 +760,102 @@ export function TradingViewPerpsV2(
     onLoadEndRef.current?.();
   }, []);
 
+  const handleLoadStart = useCallback(
+    (event?: WebViewNavigationEvent) => {
+      // Android emits load-start for same-document history updates, without a new chart-ready event.
+      if (platformEnv.isNativeAndroid && event?.nativeEvent.loading === false) {
+        return;
+      }
+      resetNativeChartControls();
+      hasPerpsReadyRef.current = false;
+      setChartLinesReadyWebviewKey(null);
+      setChartContentReadyWebviewKey(null);
+    },
+    [resetNativeChartControls],
+  );
+
+  const handleDidStartNavigation = useCallback<
+    NonNullable<IElectronWebViewEvents['onDidStartNavigation']>
+  >(
+    (event) => {
+      if (event.isMainFrame && !event.isInPlace) {
+        handleLoadStart();
+      }
+    },
+    [handleLoadStart],
+  );
+
   const onShouldStartLoadWithRequest = useCallback(
     (event: WebViewNavigation) => handleNavigation(event),
     [handleNavigation],
   );
-  const showChartLoadingMask = !isChartContentReady;
+  const showChartLoadingMask =
+    !isChartContentReady ||
+    (Boolean(controlsProps.nativeChartControlsConfig) && isRestoringInterval);
 
   return (
-    <Stack position="relative" flex={1} {...stackStyle}>
-      <WebViewMemoized
-        key={_webviewKey}
-        src={staticTradingViewUrl}
-        containerProps={{ bg: '$bgApp' }}
-        containerStyle={tradingViewWebViewStyleProps.containerStyle}
-        style={tradingViewWebViewStyleProps.style}
-        customReceiveHandler={customReceiveHandler}
-        skipBackgroundBridge
-        onWebViewRef={onWebViewRef}
-        onLoadEnd={handleLoadEnd}
-        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-        nativeInjectedJavaScriptBeforeContentLoaded={
-          platformEnv.isNativeAndroid
-            ? hideTradingViewBuiltInLoadingScript
-            : undefined
-        }
-        allowsBackForwardNavigationGestures={false}
-        displayProgressBar={false}
-        pullToRefreshEnabled={false}
-        scrollEnabled={false}
-        bounces={false}
-        overScrollMode="never"
-        showsHorizontalScrollIndicator={false}
-        showsVerticalScrollIndicator={false}
-        decelerationRate="normal"
-      />
-
-      {showChartLoadingMask ? <TradingViewChartLoadingMask /> : null}
-
-      {platformEnv.isNativeIOS ? (
-        <Stack
-          position="absolute"
-          left={0}
-          top={0}
-          bottom={0}
-          width={12}
-          zIndex={1}
-          pointerEvents="auto"
+    <Stack flex={1} minHeight={0} {...stackStyle}>
+      {enableNativeChartControls ? (
+        <TradingViewV2ChartControlsContainer
+          {...controlsProps}
+          isControlsReady={
+            isChartContentReady &&
+            Boolean(controlsProps.nativeChartControlsConfig)
+          }
+          chartTypeControlMode="select"
+          indicatorControlMode="popover"
+          intervalControlMode="popover"
+          layoutMode="desktop"
+          chartTimezone={timezone}
+          isFullscreen={isNativeChartFullscreen}
+          onFullscreenChange={onNativeChartFullscreenChange}
+          onChartSwitch={onChartSwitch}
         />
       ) : null}
+      <Stack position="relative" flex={1} minHeight={0}>
+        <WebViewMemoized
+          key={_webviewKey}
+          src={staticTradingViewUrl}
+          containerProps={{ bg: '$bgApp' }}
+          containerStyle={tradingViewWebViewStyleProps.containerStyle}
+          style={tradingViewWebViewStyleProps.style}
+          customReceiveHandler={customReceiveHandler}
+          skipBackgroundBridge
+          onWebViewRef={onWebViewRef}
+          onLoadEnd={handleLoadEnd}
+          onLoadStart={handleLoadStart}
+          onDidStartNavigation={handleDidStartNavigation}
+          onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+          nativeInjectedJavaScriptBeforeContentLoaded={
+            platformEnv.isNativeAndroid
+              ? hideTradingViewBuiltInLoadingScript
+              : undefined
+          }
+          allowsBackForwardNavigationGestures={false}
+          displayProgressBar={false}
+          pullToRefreshEnabled={false}
+          scrollEnabled={false}
+          bounces={false}
+          overScrollMode="never"
+          showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
+          decelerationRate="normal"
+        />
+
+        {showChartLoadingMask ? <TradingViewChartLoadingMask /> : null}
+
+        {platformEnv.isNativeIOS ? (
+          <Stack
+            position="absolute"
+            left={0}
+            top={0}
+            bottom={0}
+            width={12}
+            zIndex={1}
+            pointerEvents="auto"
+          />
+        ) : null}
+      </Stack>
     </Stack>
   );
 }

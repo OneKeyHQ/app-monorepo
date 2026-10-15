@@ -180,6 +180,14 @@ const desktopApi = {
   totalMemoryBytes: platformInfo.totalMemoryBytes,
   isMas: platformInfo.isMas,
   processStartAt: platformInfo.processStartAt,
+  claimStartupTiming: (stage: 'jsReadyTime' | 'uiVisibleTime'): boolean =>
+    !isTrayWindow &&
+    ipcRenderer.sendSync(ipcMessageKeys.CLAIM_STARTUP_TIMING, stage) === true,
+  releaseStartupTiming: (stage: 'jsReadyTime' | 'uiVisibleTime'): void => {
+    if (!isTrayWindow) {
+      ipcRenderer.sendSync(ipcMessageKeys.RELEASE_STARTUP_TIMING, stage);
+    }
+  },
   supportsShareImageFile: platformInfo.supportsShareImageFile,
   isDev,
   channel: platformInfo.channel,

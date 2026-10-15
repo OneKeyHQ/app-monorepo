@@ -11,8 +11,8 @@ export enum EOneKeyDeepLinkPath {
   invite_share = 'invite_share',
   invited_by_friend = 'invited_by_friend',
   redeem_bitcoin_voucher = 'redeem_bitcoin_voucher',
+  prime_subscription = 'prime_subscription',
   cross_device_transfer = 'cross_device_transfer',
-  webview = 'webview',
   // Value MUST equal the on-wire URL segment (compared as a raw string in the
   // deeplink switch); hence the hyphenated literal, not an underscore alias.
   preview_featured_changelog = 'preview-featured-changelog',
@@ -36,6 +36,7 @@ export type IEOneKeyDeepLinkParams = {
   [EOneKeyDeepLinkPath.redeem_bitcoin_voucher]: {
     code?: string;
   };
+  [EOneKeyDeepLinkPath.prime_subscription]: undefined;
   [EOneKeyDeepLinkPath.cross_device_transfer]: {
     code?: string;
     server?: string;
@@ -43,17 +44,13 @@ export type IEOneKeyDeepLinkParams = {
     botWalletId?: string;
     defaultTab?: 'qr-code' | 'enter-link';
   };
-  [EOneKeyDeepLinkPath.webview]: {
-    url: string;
-    title?: string;
-    hideHeader?: '0' | '1';
-    /** Address bar is hidden by default; pass '1' to show it. */
-    showAddressBar?: '0' | '1';
-  };
   [EOneKeyDeepLinkPath.preview_featured_changelog]: {
     version?: string;
   };
 };
+
+export const PRIME_SUBSCRIPTION_EXT_HANDOFF_QUERY = 'prime_subscription';
+export const PRIME_SUBSCRIPTION_EXT_HANDOFF_VALUE = '1';
 
 // https://explorer-api.walletconnect.com/v3/all?projectId=2f05ae7f1116030fde2d36508f472bfb&entries=40&page=1&search=onekey&build=1710747625972
 export const ONEKEY_UNIVERSAL_LINK_HOST = 'app.onekey.so';

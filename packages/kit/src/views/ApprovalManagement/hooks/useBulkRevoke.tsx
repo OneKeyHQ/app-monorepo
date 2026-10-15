@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -16,9 +16,9 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
-import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
 import type { IAddressInfo } from '@onekeyhq/shared/types/address';
 import type {
@@ -31,16 +31,22 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { LinkedDeck } from '../../../hooks/useLinkedList';
 import { usePrimeAvailable } from '../../Prime/hooks/usePrimeAvailable';
+import { usePrimeFeatureAccess } from '../../Prime/hooks/usePrimeFeatureAccess';
 
 import type { IHasId } from '../../../hooks/useLinkedList';
 
 function useBulkRevoke() {
   const intl = useIntl();
   const { isPrimeAvailable } = usePrimeAvailable();
-  const { user } = useOneKeyAuth();
-  const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
+  const { isPrimeActive, isPrimeSubscriptionActive } = useOneKeyAuth();
+  // Drives the Prime badge; access (incl. free trial) is checked on press.
+  const isPrimeUser = Boolean(isPrimeSubscriptionActive);
+  const { ensureFeatureAccess } = usePrimeFeatureAccess();
 
   const [isBuildingRevokeTxs, setIsBuildingRevokeTxs] = useState(false);
+  // The method dialog hands the same pending close to every tap, so a double
+  // tap would otherwise start two usages and push two BulkRevoke pages.
+  const isStartingBulkRevokeRef = useRef(false);
   const navigation = useAppNavigation();
 
   const navigationToBulkRevoke = useCallback(
@@ -57,6 +63,53 @@ function useBulkRevoke() {
       });
     },
     [navigation],
+  );
+
+  // Only the access gate runs here (login, quota). The free-trial use is
+  // reserved on the BulkRevoke page, when the user presses start.
+  const startBulkRevokeWithAccess = useCallback(
+    async ({
+      unsignedTxs,
+      contractMap,
+    }: {
+      unsignedTxs: (IUnsignedTxPro & IHasId)[];
+      contractMap: Record<string, IAddressInfo>;
+    }) => {
+      if (isStartingBulkRevokeRef.current) {
+        return;
+      }
+      isStartingBulkRevokeRef.current = true;
+      if (!isPrimeUser) {
+        defaultLogger.prime.subscription.primeEntryClick({
+          featureName: EPrimeFeatures.BulkRevoke,
+          entryPoint: 'approvalBulkRevoke',
+          isPrimeActive,
+        });
+      }
+      // The revoke button keeps its loading state while access is checked.
+      setIsBuildingRevokeTxs(true);
+      try {
+        const access = await ensureFeatureAccess({
+          featureId: EPrimeFeatures.BulkRevoke,
+          networkId: unsignedTxs[0]?.networkId,
+          // The revoke button already shows its loading.
+          showLoading: false,
+          // The start button on the bulk revoke page checks the quota.
+          deferQuotaCheck: true,
+        });
+        if (!access.granted) {
+          return;
+        }
+      } finally {
+        isStartingBulkRevokeRef.current = false;
+        setIsBuildingRevokeTxs(false);
+      }
+      void navigationToBulkRevoke({
+        unsignedTxs,
+        contractMap,
+      });
+    },
+    [ensureFeatureAccess, isPrimeActive, isPrimeUser, navigationToBulkRevoke],
   );
 
   const navigationToOneByOneRevoke = useCallback(
@@ -278,19 +331,10 @@ function useBulkRevoke() {
                 await dialog.close();
 
                 if (isPrimeAvailable) {
-                  if (isPrimeUser) {
-                    void navigationToBulkRevoke({
-                      unsignedTxs,
-                      contractMap,
-                    });
-                  } else {
-                    navigation.pushModal(EModalRoutes.PrimeModal, {
-                      screen: EPrimePages.PrimeDashboard,
-                      params: {
-                        fromFeature: EPrimeFeatures.BulkRevoke,
-                      },
-                    });
-                  }
+                  void startBulkRevokeWithAccess({
+                    unsignedTxs,
+                    contractMap,
+                  });
                 } else {
                   void navigationToBulkRevoke({
                     unsignedTxs,
@@ -334,9 +378,9 @@ function useBulkRevoke() {
       intl,
       isPrimeAvailable,
       isPrimeUser,
-      navigation,
       navigationToBulkRevoke,
       navigationToOneByOneRevoke,
+      startBulkRevokeWithAccess,
     ],
   );
 

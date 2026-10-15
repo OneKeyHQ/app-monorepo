@@ -15,6 +15,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 
+import EmailOtpCaptchaTest from './emailOtpCaptcha/EmailOtpCaptchaTest';
 import { Layout } from './utils/Layout';
 
 function demoLog(data: any, apiName: string) {
@@ -266,6 +267,10 @@ const AuthGallery = () => (
     getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="AuthGallery"
     elements={[
+      {
+        title: 'Isolated Email OTP + CAPTCHA Test',
+        element: <EmailOtpCaptchaTest />,
+      },
       {
         title: 'Auth API Test',
         element: <AuthApiTests />,

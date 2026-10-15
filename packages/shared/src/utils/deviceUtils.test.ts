@@ -344,6 +344,24 @@ describe('buildDeviceStageName', () => {
     ).resolves.toBe('Renamed Pro 2');
   });
 
+  it('does not use the BLE connection name when the user label is missing', async () => {
+    await expect(
+      deviceUtils.buildDeviceName({
+        device: {
+          connectId: 'connect-id',
+          uuid: 'uuid',
+          deviceId: 'device-id',
+          deviceType: EDeviceType.Pro2,
+          name: 'Pro2 6136',
+        },
+        features: {
+          bleName: 'Pro2 6136',
+          deviceType: EDeviceType.Pro2,
+        } as never,
+      }),
+    ).resolves.toBe('OneKey Pro 2');
+  });
+
   it.each([
     ['normal', null, 'normal'],
     ['notInitialized', false, 'notInitialized'],

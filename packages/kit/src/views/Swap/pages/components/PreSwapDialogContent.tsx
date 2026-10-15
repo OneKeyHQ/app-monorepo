@@ -24,6 +24,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -91,6 +92,8 @@ import { reconcileSwapStepWithHistory } from '../../utils/swapStepHistory';
 import { buildSwapStockReviewDisplay } from '../../utils/swapStockReviewUtils';
 import { getSwapExecutionTypeFromQuoteResult } from '../../utils/swapTypeUtils';
 
+import SwapQuoteRiskAlert from './SwapQuoteRiskAlert';
+
 import type { ISwapReviewRebuildOptions } from '../../hooks/useSwapReviewActions';
 import type { ISwapReviewRebuildState } from '../../utils/swapReviewRebuildStateMachine';
 
@@ -141,6 +144,7 @@ const PreSwapDialogContent = ({
   disableSaveSlippageForFutureOrders,
 }: IPreSwapDialogContentProps) => {
   const intl = useIntl();
+  const { md } = useMedia();
   const [, setSettings] = useSettingsAtom();
   const [settingsPersist] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
@@ -931,6 +935,13 @@ const PreSwapDialogContent = ({
             </>
           ) : null}
 
+          <SwapQuoteRiskAlert
+            quote={quoteResult}
+            fromToken={preSwapData?.fromToken}
+            toToken={preSwapData?.toToken}
+            isLoading={preSwapData?.swapBuildLoading}
+          />
+
           {showMarketableFillTip ? (
             <Alert
               type="warning"
@@ -988,7 +999,7 @@ const PreSwapDialogContent = ({
                     testID="swap-btn"
                     variant="primary"
                     onPress={handleConfirmPress}
-                    size="medium"
+                    size={md ? 'large' : 'medium'}
                     disabled={isPrimaryButtonDisabled}
                   >
                     {actionBtnTest}

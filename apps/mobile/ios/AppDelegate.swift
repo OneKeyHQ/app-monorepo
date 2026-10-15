@@ -1042,6 +1042,9 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
         fatalError("Unable to construct the dev-vendor main entry or HMR URL")
       }
 
+      // Inspector is shared by both hosts and must use Metro, not common.hbc.
+      _ = RCTInspectorDevServerHelper.connect(withBundleURL: mainEntryURL)
+
       if isNativeBackgroundThreadEnabled() {
         guard
           let backgroundEntryURL = devVendorEntryBundleURL(

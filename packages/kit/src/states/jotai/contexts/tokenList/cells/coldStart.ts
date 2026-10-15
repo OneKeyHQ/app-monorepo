@@ -54,8 +54,10 @@ import {
 import { registerColdStartFlushTrigger } from '@onekeyhq/shared/src/storage/coldStartFlushTrigger';
 import {
   TOKEN_LIST_CLEANUP_VERSION_KEY,
+  buildTokenListOwnerSlimCacheKey,
   readContextAtomSnapshotRaw,
   tokenListMaintenanceCache,
+  tokenListOwnerSlimCache,
   writeContextAtomSnapshotRaw,
 } from '@onekeyhq/shared/src/storage/uiSnapshotCaches';
 import { parseColdStartSnapshotRaw } from '@onekeyhq/shared/src/utils/coldStartCacheSnapshotUtils';
@@ -205,6 +207,12 @@ export function persistSlimColdCache(params: {
   if (!currency) {
     return;
   }
+  // A provisional paint (cache seed, progressive paint, replay, boot bundle)
+  // is never the owner's last-known list; see
+  // `IStoreProjection.lastRoundProvisional`.
+  if (projection.lastRoundProvisional) {
+    return;
+  }
   const scopeKey = getColdStartScopeKey(store);
   if (!scopeKey) {
     return;
@@ -215,6 +223,107 @@ export function persistSlimColdCache(params: {
     scopedKey: buildSlimScopedKey(scopeKey),
     value: slim,
   });
+  persistOwnerSlimCache({ store, slim });
+}
+
+// --- PER-OWNER SLIM SLOT (OK-63873) ----------------------------------------
+
+/**
+ * Also keep the bundle in the per-owner namespace (bounded MRU, see
+ * `tokenListOwnerSlimCache`) so a switch BACK to this owner after a cold start
+ * can paint synchronously. Skipped for an unstamped bundle (no owner yet). An
+ * EMPTY bundle is written too: an owner that held tokens and later moved
+ * everything out must not replay its old rows on the next switch.
+ */
+function persistOwnerSlimCache({
+  store,
+  slim,
+}: {
+  store: IJotaiContextStore;
+  slim: ITokenListSlimColdCache;
+}): void {
+  const storeName = resolveStoreData(store)?.storeName;
+  if (!storeName || !slim.ownerKey) {
+    return;
+  }
+  try {
+    tokenListOwnerSlimCache.set(
+      buildTokenListOwnerSlimCacheKey({ storeName, ownerKey: slim.ownerKey }),
+      slim as unknown as Record<string, unknown>,
+    );
+  } catch {
+    /* best-effort: the owner slot is a paint hint, never authoritative */
+  }
+}
+
+/** Read the per-owner slim bundle, verifying it is stamped for `ownerKey`. */
+export function readOwnerSlimCache({
+  storeName,
+  ownerKey,
+}: {
+  storeName: string;
+  ownerKey: string;
+}): ITokenListSlimColdCache | undefined {
+  if (!storeName || !ownerKey) {
+    return undefined;
+  }
+  try {
+    const key = buildTokenListOwnerSlimCacheKey({ storeName, ownerKey });
+    const record = tokenListOwnerSlimCache.get(key);
+    const slim = record?.data as ITokenListSlimColdCache | undefined;
+    if (!slim || slim.ownerKey !== ownerKey) {
+      return undefined;
+    }
+    // A switch back to this owner: keep its slot resident (the count bound
+    // is by manifest timestamp, see `tokenListOwnerSlimCache`).
+    tokenListOwnerSlimCache.touch(key);
+    return slim;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Owner-switch hydrate from the per-owner slot (OK-63873). Same contract as
+ * `hydrateCellsFromColdStart` (currency gate, fan-out via apply, provisional
+ * generation) but keyed by the TARGET owner, so it never paints another
+ * owner's rows. Returns true when it painted.
+ */
+export function hydrateCellsFromOwnerSlimCache(params: {
+  store: IJotaiContextStore;
+  projection: IStoreProjection;
+  deps: IApplyDeps;
+  /** registry / cold-start name of the store (explicit for anonymous mounts). */
+  storeName: string;
+  /** identity stamp for apply's store guard. */
+  storeData: Parameters<IApplyDeps['resolveCurrentStore']>[0];
+  ownerKey: string;
+  currentCurrency: string;
+}): boolean {
+  const {
+    store,
+    projection,
+    deps,
+    storeName,
+    storeData,
+    ownerKey,
+    currentCurrency,
+  } = params;
+  const slim = readOwnerSlimCache({ storeName, ownerKey });
+  if (!shouldUseSlim(slim, currentCurrency)) {
+    return false;
+  }
+  if (isEmptySlimBundle(slim as ITokenListSlimColdCache)) {
+    return false;
+  }
+  fanOutSlimToApply({
+    store,
+    projection,
+    deps,
+    bundle: slim as ITokenListSlimColdCache,
+    storeData,
+  });
+  return true;
 }
 
 // --- DEBOUNCED PERSIST SCHEDULER -------------------------------------------
@@ -242,6 +351,30 @@ interface IPendingSlimPersist {
 const slimPersistPending = new Map<IJotaiContextStore, IPendingSlimPersist>();
 
 let slimPersistFlushTriggerRegistered = false;
+let slimPersistRemovalCancelRegistered = false;
+
+/**
+ * A wallet / account removal clears the per-owner slim namespace
+ * (`ownerCacheInvalidation`). A persist still pending for the removed owner
+ * would write its slot straight back: its own timer, or the flush the next
+ * owner switch runs for the outgoing owner. So a removal drops every pending
+ * persist; the surviving owner's next apply re-arms its own. Registered with
+ * the first schedule, since nothing can be pending before it. Idempotent.
+ */
+function ensureSlimPersistRemovalCancel(): void {
+  if (slimPersistRemovalCancelRegistered) {
+    return;
+  }
+  slimPersistRemovalCancelRegistered = true;
+  const cancelAll = () => {
+    for (const store of Array.from(slimPersistPending.keys())) {
+      cancelPendingSlimColdCache(store);
+    }
+  };
+  appEventBus.on(EAppEventBusNames.WalletRemove, cancelAll);
+  appEventBus.on(EAppEventBusNames.AccountRemove, cancelAll);
+  appEventBus.on(EAppEventBusNames.WalletClear, cancelAll);
+}
 
 /**
  * On app background / tab hide, force out any pending debounced persist so a
@@ -277,6 +410,7 @@ export function schedulePersistSlimColdCache(params: {
 }): void {
   const { store, projection, getCurrency } = params;
   ensureSlimPersistFlushTrigger();
+  ensureSlimPersistRemovalCancel();
   const existing = slimPersistPending.get(store);
   if (existing) {
     clearTimeout(existing.timer);
@@ -455,6 +589,9 @@ export function fanOutSlimToApply(params: {
   // reset so this session's first structure frame (BG VM starts at gen 0)
   // supersedes the hydrated paint instead of being dropped by apply's gen guard.
   projection.curGeneration = -1;
+  // A hydrated paint is provisional: it must not be written back as the
+  // owner's list (see `IStoreProjection.lastRoundProvisional`).
+  projection.lastRoundProvisional = true;
 }
 
 /**
@@ -468,8 +605,17 @@ export function hydrateCellsFromColdStart(params: {
   projection: IStoreProjection;
   deps: IApplyDeps;
   currentCurrency: string;
+  /**
+   * When given, the boot bundle must be stamped for this owner. The bundle
+   * belongs to whichever owner was on screen at the last flush, and the
+   * account-selector snapshot can restore a different one (selection changed
+   * after that flush, or off the home scene); painting the wrong owner's rows
+   * only to replace them with a skeleton via `ownerMismatch` is worse than a
+   * plain miss (the per-owner slim slot then covers the real owner).
+   */
+  ownerKey?: string;
 }): boolean {
-  const { store, projection, deps, currentCurrency } = params;
+  const { store, projection, deps, currentCurrency, ownerKey } = params;
 
   const slim = readSlimColdCache(store);
   // Merge gate (spec §11.4): currency mismatch / absent -> miss, do not paint.
@@ -478,6 +624,12 @@ export function hydrateCellsFromColdStart(params: {
   }
   // shouldUseSlim returning true guarantees `slim` is defined.
   const bundle = slim as ITokenListSlimColdCache;
+  if (ownerKey !== undefined && bundle.ownerKey !== ownerKey) {
+    return false;
+  }
+  if (isEmptySlimBundle(bundle)) {
+    return false;
+  }
 
   const storeData = resolveStoreData(store);
   if (!storeData) {
@@ -486,6 +638,20 @@ export function hydrateCellsFromColdStart(params: {
 
   fanOutSlimToApply({ store, projection, deps, bundle, storeData });
   return true;
+}
+
+/**
+ * An empty bundle is written (so a drained owner never replays its old rows)
+ * but never painted: for a funded owner it is a round that had not landed
+ * when the persist fired, and the empty state would show for a beat before
+ * the rows arrive. The skeleton until the PULL is the honest paint.
+ */
+function isEmptySlimBundle(bundle: ITokenListSlimColdCache): boolean {
+  return (
+    bundle.orderedIds.length === 0 &&
+    bundle.smallBalanceIds.length === 0 &&
+    Object.keys(bundle.aggMembership ?? {}).length === 0
+  );
 }
 
 // --- VERSION-FLAG CLEANUP --------------------------------------------------
@@ -605,24 +771,34 @@ export function useTokenListCellsColdStartHydrate(
     });
   }, [store]);
 
-  const hydratedKeyRef = useRef<string | undefined>(undefined);
+  // Once per STORE, not per owner (OK-63873): the boot bundle belongs to the
+  // owner that was on screen at the last flush. Re-applying it on every owner
+  // switch used to clearAll + paint the boot owner's rows under the new
+  // owner (then skeleton via ownerMismatch) for nothing; switches are served
+  // by the per-owner replay in the producer instead.
+  const hydratedStoreRef = useRef<IJotaiContextStore | undefined>(undefined);
 
   useLayoutEffect(() => {
     scheduleColdStartCleanupOnce();
     if (!store || !deps || !ownerKey || !currencyId) {
       return;
     }
-    const guardKey = ownerKey;
-    if (hydratedKeyRef.current === guardKey) {
+    if (hydratedStoreRef.current === store) {
       return;
     }
-    hydratedKeyRef.current = guardKey;
+    hydratedStoreRef.current = store;
     const projection = ensureStoreProjection(store);
+    // A live frame or replay already stamped this store for an owner: the
+    // boot bundle is older than what is on screen and must not replace it.
+    if (projection.curOwnerKey) {
+      return;
+    }
     hydrateCellsFromColdStart({
       store,
       projection,
       deps,
       currentCurrency: currencyId,
+      ownerKey,
     });
   }, [store, deps, ownerKey, currencyId]);
 }

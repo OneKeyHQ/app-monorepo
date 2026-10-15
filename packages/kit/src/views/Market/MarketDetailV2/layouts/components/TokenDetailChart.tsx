@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -30,6 +30,7 @@ import { MarketDetailProChartControls } from './MarketDetailProChartControls';
 import {
   MARKET_CHART_TOOLBAR_HEIGHT,
   MARKET_CHART_TOOLBAR_VERTICAL_INSET,
+  MARKET_SIMPLE_CHART_RANGE_LABEL_IDS,
   MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH,
 } from './marketSimpleChartConstants';
 
@@ -96,7 +97,7 @@ function TokenChartModeControl({
   );
 }
 
-export function TokenDetailChart({
+function TokenDetailChartBase({
   active,
   chartContainerTestID,
   fullscreenStyle,
@@ -198,9 +199,9 @@ export function TokenDetailChart({
                     borderRadius="$full"
                     onPress={() => setRange(item)}
                   >
-                    {item === 'All'
-                      ? intl.formatMessage({ id: ETranslations.global_all })
-                      : item}
+                    {intl.formatMessage({
+                      id: MARKET_SIMPLE_CHART_RANGE_LABEL_IDS[item],
+                    })}
                   </Button>
                 </Stack>
               );
@@ -264,3 +265,5 @@ export function TokenDetailChart({
     </MarketDesktopChartContainer>
   );
 }
+
+export const TokenDetailChart = memo(TokenDetailChartBase);

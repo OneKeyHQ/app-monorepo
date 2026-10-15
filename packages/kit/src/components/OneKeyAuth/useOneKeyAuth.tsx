@@ -14,7 +14,10 @@ import {
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { EExtOneKeyIdAuthFlow } from '@onekeyhq/shared/src/consts/authConsts';
 import type { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
-import { PrimeLoginDialogCancelError } from '@onekeyhq/shared/src/errors';
+import {
+  PrimeLoginDialogCancelError,
+  PrimeLoginHandedOffToExtExpandTabError,
+} from '@onekeyhq/shared/src/errors';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EOneKeyIdLoginWithLocalKeylessPrepareStatus,
@@ -132,9 +135,13 @@ export function useOneKeyAuth() {
   const showOneKeyIdLoginDialog = useCallback(
     async ({
       toOneKeyIdPageOnLoginSuccess,
+      keepFreeTrialPendingAction,
       renderContent,
     }: {
       toOneKeyIdPageOnLoginSuccess?: boolean;
+      // Extension popup only: the caller just saved the free-trial action
+      // the expand tab should continue after this login.
+      keepFreeTrialPendingAction?: boolean;
       renderContent: (params: {
         onComplete: () => Promise<void>;
         onLoginSuccess: () => Promise<void>;
@@ -158,13 +165,22 @@ export function useOneKeyAuth() {
       // The extension action popup dies on focus loss, which destroys the
       // pending launchWebAuthFlow OAuth flow (see extOneKeyIdAuthExpandTab).
       // Hand the whole login flow off to the expand tab before touching any
-      // local auth state, and settle this call as a user cancel.
+      // local auth state, and settle this call as a cancel subclass that
+      // callers can tell apart from a real user cancel.
       if (shouldRunOneKeyIdAuthInExtExpandTab()) {
+        if (!keepFreeTrialPendingAction) {
+          // This hand-off carries no free-trial action: drop one left by an
+          // abandoned earlier relay, or the expand tab would run it after
+          // this unrelated login.
+          await backgroundApiProxy.servicePrimeFreeTrial
+            .clearPendingActionCreatedBefore({ timestamp: Date.now() })
+            .catch(() => undefined);
+        }
         await redirectOneKeyIdAuthToExtExpandTab({
           flow: EExtOneKeyIdAuthFlow.Login,
           toOneKeyIdPageOnLoginSuccess,
         });
-        throw new PrimeLoginDialogCancelError();
+        throw new PrimeLoginHandedOffToExtExpandTabError();
       }
 
       return new Promise<void>((resolve, reject) => {
@@ -241,8 +257,10 @@ export function useOneKeyAuth() {
   const loginOneKeyId = useCallback(
     async ({
       toOneKeyIdPageOnLoginSuccess,
+      keepFreeTrialPendingAction,
     }: {
       toOneKeyIdPageOnLoginSuccess?: boolean;
+      keepFreeTrialPendingAction?: boolean;
     } = {}) => {
       let localKeylessLoginPrepareResult: IOneKeyIdLoginWithLocalKeylessPrepareResult;
       let localKeylessLoginPrepareErrorMessage: string | undefined;
@@ -264,6 +282,7 @@ export function useOneKeyAuth() {
             error,
           )}`,
           error,
+          { trigger: 'interactive' },
         );
         localKeylessLoginPrepareResult = {
           status:
@@ -273,6 +292,7 @@ export function useOneKeyAuth() {
       }
       return showOneKeyIdLoginDialog({
         toOneKeyIdPageOnLoginSuccess,
+        keepFreeTrialPendingAction,
         renderContent: ({
           onComplete,
           onLoginSuccess,
@@ -392,8 +412,14 @@ export function useOneKeyAuth() {
     // })
     () => {
       return {
-        sendCode: async ({ email }: { email: string }) => {
-          await supabaseSignInWithOtp({ email });
+        sendCode: async ({
+          email,
+          captchaToken,
+        }: {
+          email: string;
+          captchaToken?: string;
+        }) => {
+          await supabaseSignInWithOtp({ email, captchaToken });
         },
         loginWithCode: async ({
           code,

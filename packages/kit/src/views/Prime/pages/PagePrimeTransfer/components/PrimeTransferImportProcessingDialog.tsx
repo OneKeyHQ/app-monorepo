@@ -365,6 +365,19 @@ function PrimeTransferImportProcessingDialogContent({
                   });
                 })()}
               </SizableText>
+              {isDone && importProgress?.stats?.errorsInfo?.length ? (
+                <SizableText
+                  testID="prime-transfer-import-failure-hint"
+                  mt="$2"
+                  size="$bodySm"
+                  color="$textSubdued"
+                  textAlign="center"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.transfer_import_some_accounts_failed__msg,
+                  })}
+                </SizableText>
+              ) : null}
             </>
           </MultipleClickStack>
         }

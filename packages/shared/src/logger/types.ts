@@ -51,9 +51,12 @@ export interface IScope {
 }
 
 export type IMethodDecoratorMetadata = {
+  devOnly?: boolean;
   level: ILogLevel;
   type?: 'local' | 'server' | 'console';
   waitForServer?: boolean;
+  // A synchronous handoff to the existing queue, without waiting for the network.
+  enqueueImmediately?: boolean;
 };
 
 export interface IScene {

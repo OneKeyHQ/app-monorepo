@@ -28,6 +28,7 @@ import { ERookieTaskType } from '@onekeyhq/shared/types/rookieGuide';
 import {
   contextAtomMethod,
   isNativeAtom,
+  marketPerpsResolutionAtom,
   marketWatchListV2Atom,
   marketWatchListV2RefreshRequestIdAtom,
   networkIdAtom,
@@ -42,6 +43,13 @@ import {
   tokenDetailWebsocketAtom,
 } from './atoms';
 import { marketTokenDetailSnapshotCache } from './marketSnapshotCaches';
+import {
+  getMarketTokenConvertedPrice,
+  getMarketTokenPriceConversionRate,
+  isMarketChartPriceTarget,
+  isSameMarketTokenDetail,
+  mergeMarketTokenDetailPrice,
+} from './marketTokenDetailPrice';
 
 export const homeResettingFlags: Record<string, number> = {};
 
@@ -63,33 +71,6 @@ async function waitOp(key: string, add: boolean) {
   const op = watchOps.get(key)!;
   await (op[0] === add ? op[1] : op[1].catch(() => undefined));
   return op[0] === add;
-}
-
-const CHART_PRICE_FRESHNESS_MS = 10_000;
-
-function isSameMarketTokenDetail({
-  tokenDetail,
-  tokenAddress,
-  networkId,
-}: {
-  tokenDetail?: IMarketTokenDetail;
-  tokenAddress: string;
-  networkId: string;
-}) {
-  if (!tokenDetail) {
-    return false;
-  }
-
-  return equalTokenNoCaseSensitive({
-    token1: {
-      networkId,
-      contractAddress: tokenAddress,
-    },
-    token2: {
-      networkId: tokenDetail.networkId || '',
-      contractAddress: tokenDetail.address || '',
-    },
-  });
 }
 
 class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
@@ -264,7 +245,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   );
 
   // Fill an empty detail from the last response for this token so a revisit
-  // renders real values on its first frame; the running poll replaces it.
+  // renders real values on its first frame; the initial request replaces it.
   seedTokenDetailFromCache = contextAtomMethod(
     (
       get,
@@ -312,6 +293,12 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       set(tokenDetailAtom(), cached.data.token);
       set(tokenDetailWebsocketAtom(), cached.data.websocket);
       set(perpsInfoAtom(), cached.data.perpsInfo);
+      set(marketPerpsResolutionAtom(), {
+        networkId,
+        tokenAddress,
+        requestId: get(tokenDetailRequestIdAtom()),
+        status: 'resolved',
+      });
       set(tokenDetailSwrScopeAtom(), swrKey);
     },
   );
@@ -338,51 +325,30 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       }
 
       if (
-        payload.networkId &&
-        tokenDetail.networkId &&
-        tokenDetail.networkId !== payload.networkId
-      ) {
-        return;
-      }
-
-      const isNative = get(isNativeAtom()) || tokenDetail.isNative;
-      if (!payload.tokenAddress && !isNative) {
-        return;
-      }
-
-      if (
-        payload.tokenAddress &&
-        !equalTokenNoCaseSensitive({
-          token1: {
-            networkId: payload.networkId || tokenDetail.networkId || '',
-            contractAddress: payload.tokenAddress,
-          },
-          token2: {
-            networkId: tokenDetail.networkId || payload.networkId || '',
-            contractAddress: tokenDetail.address || '',
-          },
+        !isMarketChartPriceTarget({
+          tokenDetail,
+          networkId: payload.networkId,
+          tokenAddress: payload.tokenAddress,
+          isNative: get(isNativeAtom()),
         })
       ) {
         return;
       }
 
       const chartPriceUpdatedAt = Date.now();
-      const lastUpdated =
-        payload.lastUpdated ?? tokenDetail.lastUpdated ?? chartPriceUpdatedAt;
-
-      if (tokenDetail.price === payload.price) {
-        set(tokenDetailAtom(), {
-          ...tokenDetail,
-          lastUpdated,
-          chartPriceUpdatedAt,
-        });
-        return;
-      }
-
+      const priceConversionRate =
+        tokenDetail.priceConversionRate ??
+        getMarketTokenPriceConversionRate(tokenDetail);
       set(tokenDetailAtom(), {
         ...tokenDetail,
         price: payload.price,
-        lastUpdated,
+        priceConverted: getMarketTokenConvertedPrice(
+          payload.price,
+          priceConversionRate,
+        ),
+        priceConversionRate,
+        lastUpdated:
+          payload.lastUpdated ?? tokenDetail.lastUpdated ?? chartPriceUpdatedAt,
         chartPriceUpdatedAt,
       });
     },
@@ -400,6 +366,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       },
     ) => {
       const { tokenAddress, networkId, isNative, tokenDetailPreview } = payload;
+      const requestStartedAt = Date.now();
       const nextPreview =
         tokenDetailPreview?.address === tokenAddress &&
         tokenDetailPreview.networkId === networkId
@@ -441,6 +408,12 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         }
 
         const responseData = response as unknown as IMarketTokenDetailResponse;
+        set(marketPerpsResolutionAtom(), {
+          networkId,
+          tokenAddress,
+          requestId,
+          status: 'resolved',
+        });
         if (
           typeof responseData?.data?.token?.name === 'undefined' ||
           responseData.data.token.name === ''
@@ -451,10 +424,20 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           set(perpsInfoAtom(), undefined);
           return;
         }
-        set(tokenDetailAtom(), {
-          ...responseData.data.token,
-          networkId,
-        });
+        set(
+          tokenDetailAtom(),
+          mergeMarketTokenDetailPrice({
+            currentTokenDetail: get(tokenDetailAtom()),
+            tokenData: {
+              ...responseData.data.token,
+              firstTradeTime:
+                responseData.data.token.firstTradeTime ??
+                nextPreview?.firstTradeTime,
+              networkId,
+            },
+            requestStartedAt,
+          }),
+        );
         set(tokenDetailPreviewAtom(), undefined);
         set(tokenDetailWebsocketAtom(), responseData.data.websocket);
         set(perpsInfoAtom(), responseData.data.perpsInfo);
@@ -469,6 +452,12 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         ) {
           isStale = true;
         } else {
+          set(marketPerpsResolutionAtom(), {
+            networkId,
+            tokenAddress,
+            requestId,
+            status: 'error',
+          });
           set(tokenDetailAtom(), undefined);
           set(tokenDetailPreviewAtom(), undefined);
           set(tokenDetailWebsocketAtom(), undefined);
@@ -512,8 +501,28 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       networkId: string,
       options?: { swrKey?: string },
     ) => {
+      const requestStartedAt = Date.now();
       const requestId = get(tokenDetailRequestIdAtom()) + 1;
+      const previousResolution = get(marketPerpsResolutionAtom());
       set(tokenDetailRequestIdAtom(), requestId);
+      // A settled footer belongs to the token even when its detail is absent.
+      if (
+        previousResolution?.requestId === requestId - 1 &&
+        equalTokenNoCaseSensitive({
+          token1: {
+            networkId: previousResolution.networkId,
+            contractAddress: previousResolution.tokenAddress,
+          },
+          token2: { networkId, contractAddress: tokenAddress },
+        })
+      ) {
+        set(marketPerpsResolutionAtom(), {
+          networkId,
+          tokenAddress,
+          requestId,
+          status: previousResolution.status,
+        });
+      }
       let isStale = false;
       const isCurrentRequest = () =>
         get(tokenDetailRequestIdAtom()) === requestId;
@@ -546,6 +555,12 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
 
         // Assume new format with data.token and data.websocket
         const responseData = response as unknown as IMarketTokenDetailResponse;
+        set(marketPerpsResolutionAtom(), {
+          networkId,
+          tokenAddress,
+          requestId,
+          status: 'resolved',
+        });
 
         const currentTokenDetail = get(tokenDetailAtom());
 
@@ -577,37 +592,37 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           return;
         }
 
+        // First-trade time from the list must survive preview disposal and polling.
+        const currentPreview = get(tokenDetailPreviewAtom());
+        const matchingPreview =
+          currentPreview?.address === tokenAddress &&
+          currentPreview.networkId === networkId
+            ? currentPreview
+            : undefined;
+        const matchingDetail = isSameMarketTokenDetail({
+          tokenDetail: currentTokenDetail,
+          tokenAddress,
+          networkId,
+        })
+          ? currentTokenDetail
+          : undefined;
         // Extract token, websocket and perpsInfo from response format
         const tokenData = {
           ...responseData.data.token,
+          firstTradeTime:
+            responseData.data.token.firstTradeTime ??
+            matchingDetail?.firstTradeTime ??
+            matchingPreview?.firstTradeTime,
           networkId,
         };
         const websocketConfig = responseData.data.websocket;
         const perpsInfo = responseData.data.perpsInfo;
 
-        // Preserve chart-updated price only while it is fresh.
-        const isSameToken =
-          currentTokenDetail &&
-          isSameMarketTokenDetail({
-            tokenDetail: currentTokenDetail,
-            tokenAddress,
-            networkId,
-          });
-        const chartPriceUpdatedAt = currentTokenDetail?.chartPriceUpdatedAt;
-        const hasFreshKLinePrice =
-          isSameToken &&
-          typeof chartPriceUpdatedAt === 'number' &&
-          Number.isFinite(chartPriceUpdatedAt) &&
-          Date.now() - chartPriceUpdatedAt < CHART_PRICE_FRESHNESS_MS;
-
-        const finalTokenData = hasFreshKLinePrice
-          ? {
-              ...tokenData,
-              price: currentTokenDetail.price,
-              lastUpdated: currentTokenDetail.lastUpdated,
-              chartPriceUpdatedAt,
-            }
-          : tokenData;
+        const finalTokenData = mergeMarketTokenDetailPrice({
+          currentTokenDetail,
+          tokenData,
+          requestStartedAt,
+        });
 
         set(tokenDetailAtom(), finalTokenData);
         set(tokenDetailPreviewAtom(), undefined);
@@ -637,6 +652,12 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           (currentNetworkId === networkId || currentNetworkId === '')
         ) {
           // A failed refresh must not unmount the current quotes and chart.
+          set(marketPerpsResolutionAtom(), {
+            networkId,
+            tokenAddress,
+            requestId,
+            status: 'error',
+          });
           // Never retain details belonging to a different token or network.
           if (
             !isSameMarketTokenDetail({

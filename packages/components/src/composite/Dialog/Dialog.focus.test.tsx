@@ -118,6 +118,39 @@ jest.mock('./Header', () => {
 jest.mock('./DialogScrollView', () => ({}));
 jest.mock('./renderToContainer', () => ({}));
 
+it('notifies dismissal before waiting for the close animation', async () => {
+  const dialogRef = createRef<IDialogInstance>();
+  const closeOrder: string[] = [];
+  let finishAnimation = () => {};
+  const animation = new Promise<void>((resolve) => {
+    finishAnimation = resolve;
+  });
+  const onCloseRequested = jest.fn(() => {
+    closeOrder.push('requested');
+  });
+  const onClose = jest.fn(() => {
+    closeOrder.push('animation');
+    return animation;
+  });
+  render(
+    <DialogContainer
+      ref={dialogRef}
+      showHeader={false}
+      showFooter={false}
+      onCloseRequested={onCloseRequested}
+      onClose={onClose}
+    />,
+  );
+  act(() => {
+    void dialogRef.current?.close();
+  });
+  expect(closeOrder).toEqual(['requested', 'animation']);
+  await act(async () => {
+    finishAnimation();
+    await animation;
+  });
+});
+
 describe.each([false, true])('Dialog opening focus (sheet: %s)', (isSheet) => {
   beforeEach(() => {
     mockIsSheet = isSheet;
@@ -213,6 +246,7 @@ describe('Dialog close confirmation', () => {
   it('keeps content mounted and skips cleanup when closing is declined', async () => {
     const ref = createRef<IDialogInstance>();
     const onClose = jest.fn().mockResolvedValue(undefined);
+    const onCloseRequested = jest.fn();
     const onBeforeClose = jest.fn().mockResolvedValue(false);
     render(
       <DialogContainer
@@ -221,6 +255,7 @@ describe('Dialog close confirmation', () => {
         showFooter={false}
         onClose={onClose}
         onBeforeClose={onBeforeClose}
+        onCloseRequested={onCloseRequested}
         renderContent={mockPeriodInput}
       />,
     );
@@ -229,6 +264,7 @@ describe('Dialog close confirmation', () => {
     });
     expect(onBeforeClose).toHaveBeenCalledTimes(1);
     expect(onClose).not.toHaveBeenCalled();
+    expect(onCloseRequested).not.toHaveBeenCalled();
     expect(screen.getByRole('textbox')).toBeTruthy();
 
     onBeforeClose.mockResolvedValue(true);
@@ -236,6 +272,10 @@ describe('Dialog close confirmation', () => {
       await ref.current?.close();
     });
     expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onCloseRequested).toHaveBeenCalledTimes(1);
+    expect(onCloseRequested.mock.invocationCallOrder[0]).toBeLessThan(
+      onClose.mock.invocationCallOrder[0],
+    );
     expect(screen.queryByRole('textbox')).toBeNull();
   });
 
@@ -249,6 +289,7 @@ describe('Dialog close confirmation', () => {
         }),
     );
     const onClose = jest.fn().mockResolvedValue(undefined);
+    const onCloseRequested = jest.fn();
     render(
       <DialogContainer
         ref={ref}
@@ -256,6 +297,7 @@ describe('Dialog close confirmation', () => {
         showFooter={false}
         onClose={onClose}
         onBeforeClose={onBeforeClose}
+        onCloseRequested={onCloseRequested}
         renderContent={mockPeriodInput}
       />,
     );
@@ -265,9 +307,14 @@ describe('Dialog close confirmation', () => {
       expect(first).toBe(second);
       expect(onBeforeClose).toHaveBeenCalledTimes(1);
       expect(onClose).not.toHaveBeenCalled();
+      expect(onCloseRequested).not.toHaveBeenCalled();
       confirm(true);
       await first;
     });
     expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onCloseRequested).toHaveBeenCalledTimes(1);
+    expect(onCloseRequested.mock.invocationCallOrder[0]).toBeLessThan(
+      onClose.mock.invocationCallOrder[0],
+    );
   });
 });
