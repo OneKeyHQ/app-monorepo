@@ -55,8 +55,7 @@
     "electron-log": "5.4.4",
     "electron-store": "^8.2.0",
     "electron-updater": "6.8.9",
-    "passport-desktop": "0.1.2",
-    "passport-desktop-win32-x64-msvc": "0.1.2",
+    "electron-windows-hello": "0.1.0",
     "semver": "7.5.4"
   },
   "devDependencies": {

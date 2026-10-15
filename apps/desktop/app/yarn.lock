@@ -53,10 +53,9 @@ __metadata:
     adm-zip: "npm:0.5.17"
     electron-check-biometric-auth-changed: "npm:1.0.0"
     electron-updater: "npm:6.8.9"
+    electron-windows-hello: "npm:0.1.0"
     iconv-lite: "npm:0.6.3"
     mime-db: "npm:1.52.0"
-    passport-desktop: "npm:0.1.2"
-    passport-desktop-win32-x64-msvc: "npm:0.1.2"
     systeminformation: "npm:5.31.6"
     validator: "npm:13.15.23"
   languageName: unknown
@@ -1194,6 +1193,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"electron-windows-hello@npm:0.1.0":
+  version: 0.1.0
+  resolution: "electron-windows-hello@npm:0.1.0"
+  checksum: 10/8312ebab14e9c8e3cd0dae5bf441787f36ab9bd7bc7b5d906f6092a836dfafd1fc3c0be4f57d716f3c85d29871cd567f8261f026be950c98c5a855531df3885b
+  languageName: node
+  linkType: hard
+
 "env-paths@npm:^2.2.0":
   version: 2.2.1
   resolution: "env-paths@npm:2.2.1"
@@ -1698,36 +1704,6 @@ __metadata:
     is-docker: "npm:^2.0.0"
     is-wsl: "npm:^2.1.1"
   checksum: 10/4fc02ed3368dcd5d7247ad3566433ea2695b0713b041ebc0eeb2f0f9e5d4e29fc2068f5cdd500976b3464e77fe8b61662b1b059c73233ccc601fe8b16d6c1cd6
-  languageName: node
-  linkType: hard
-
-"passport-desktop-win32-ia32-msvc@npm:0.1.2":
-  version: 0.1.2
-  resolution: "passport-desktop-win32-ia32-msvc@npm:0.1.2"
-  conditions: os=win32 & cpu=ia32
-  languageName: node
-  linkType: hard
-
-"passport-desktop-win32-x64-msvc@npm:0.1.2":
-  version: 0.1.2
-  resolution: "passport-desktop-win32-x64-msvc@npm:0.1.2"
-  checksum: 10/3e90d6300f0a81bd528b388171e342aa68ec573753f3d75b37201cf70a7e017b5b64df99f67b6a3bc87fe556091d64a4ce7b42bafe1ac3dd3bda0f7c2cfc1400
-  conditions: os=win32 & cpu=x64
-  languageName: node
-  linkType: hard
-
-"passport-desktop@npm:0.1.2":
-  version: 0.1.2
-  resolution: "passport-desktop@npm:0.1.2"
-  dependencies:
-    passport-desktop-win32-ia32-msvc: "npm:0.1.2"
-    passport-desktop-win32-x64-msvc: "npm:0.1.2"
-  dependenciesMeta:
-    passport-desktop-win32-ia32-msvc:
-      optional: true
-    passport-desktop-win32-x64-msvc:
-      optional: true
-  checksum: 10/1898c46b4dd8a9a32fcd82abf6862c61da9551ba00f4c42bc53c7059394b72ebd94bdc3f11ed92e1a5afcffb611482c74ad8468eed36a1459a41a7be9243c436
   languageName: node
   linkType: hard
 

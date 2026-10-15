@@ -1,7 +1,9 @@
+import { randomUUID } from 'crypto';
 import path from 'path';
 
 import { utilityProcess } from 'electron';
 import Logger from 'electron-log/main';
+import { allowSetForegroundWindow } from 'electron-windows-hello';
 
 import {
   ECheckBiometricAuthChangedEventType,
@@ -39,6 +41,8 @@ const processConfig: Record<
   },
 };
 
+let cacheWindowsHelloSupported: boolean | null = null;
+
 const startService = (key: EServiceName) => {
   const config = processConfig[key];
   if (!config.platforms.includes(process.platform)) {
@@ -69,6 +73,10 @@ const startService = (key: EServiceName) => {
   });
   config.childProcess?.on('exit', (code) => {
     Logger.info(`${key}ChildProcess--onExit`, code);
+    if (key === EServiceName.WindowsHello) {
+      config.childProcess = null;
+      cacheWindowsHelloSupported = null;
+    }
   });
 };
 export const startServices = () => {
@@ -98,7 +106,7 @@ const checkServiceExist = (serviceName: EServiceName) => {
   return processConfig[serviceName].childProcess !== null;
 };
 
-let cacheWindowsHelloSupported: boolean | null = null;
+let windowsHelloVerificationPending = false;
 export const checkAvailabilityAsync = async () => {
   if (!checkServiceExist(EServiceName.WindowsHello)) {
     return false;
@@ -111,30 +119,121 @@ export const checkAvailabilityAsync = async () => {
       ),
       new Promise<boolean>((resolve) =>
         setTimeout(() => {
-          cacheWindowsHelloSupported = false;
-          resolve(cacheWindowsHelloSupported);
-        }, 500),
+          resolve(false);
+        }, 5000),
       ),
     ]);
   }
   return cacheWindowsHelloSupported;
 };
 
-export const requestVerificationAsync = async (message: string) => {
-  if (!checkServiceExist(EServiceName.WindowsHello)) {
+export const requestVerificationAsync = async (
+  message: string,
+): Promise<{ success: boolean; error?: string }> => {
+  const child = processConfig[EServiceName.WindowsHello].childProcess;
+  const processId = child?.pid;
+  if (!child || !processId) {
     return {
       success: false,
       error: 'Windows Hello service not found',
     };
   }
-  return postServiceMessage<{
-    success: boolean;
-    error?: string;
-  }>(
-    EServiceName.WindowsHello,
-    EWindowHelloEventType.RequestVerificationAsync,
-    message,
-  );
+  if (windowsHelloVerificationPending) {
+    return { success: false, error: 'device_busy' };
+  }
+  const owner = globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
+  if (!owner || owner.isDestroyed()) {
+    return { success: false, error: 'Windows Hello owner window not found' };
+  }
+  windowsHelloVerificationPending = true;
+  const requestId = randomUUID();
+  try {
+    return await new Promise<{ success: boolean; error?: string }>(
+      (resolve) => {
+        const ownerWindow = owner;
+        const helloProcess = child;
+        const helloProcessId = processId;
+        let dispatched = false;
+        let settled = false;
+        function finish(result: { success: boolean; error?: string }) {
+          if (settled) return;
+          settled = true;
+          ownerWindow.removeListener('focus', dispatch);
+          ownerWindow.removeListener('closed', onClosed);
+          helloProcess.removeListener('message', onMessage);
+          helloProcess.removeListener('exit', onExit);
+          resolve(result);
+        }
+        function onClosed() {
+          finish({
+            success: false,
+            error: 'Windows Hello owner window closed',
+          });
+        }
+        function onExit() {
+          finish({ success: false, error: 'Windows Hello service exited' });
+        }
+        function onMessage(event: {
+          type: EWindowHelloEventType;
+          requestId: string;
+          result: { success: boolean; error?: string };
+        }) {
+          if (
+            dispatched &&
+            event.requestId === requestId &&
+            event.type === EWindowHelloEventType.RequestVerificationAsync
+          ) {
+            finish(event.result);
+          }
+        }
+        function dispatch() {
+          if (settled || dispatched || !ownerWindow.isFocused()) return;
+          try {
+            if (!allowSetForegroundWindow(helloProcessId)) {
+              finish({
+                success: false,
+                error: 'Windows Hello foreground denied',
+              });
+              return;
+            }
+            dispatched = true;
+            helloProcess.postMessage({
+              type: EWindowHelloEventType.RequestVerificationAsync,
+              requestId,
+              params: {
+                message: `OneKey — ${message}`,
+                windowHandle: Array.from(ownerWindow.getNativeWindowHandle()),
+              },
+            });
+          } catch (error) {
+            finish({
+              success: false,
+              error:
+                error instanceof Error ? error.message : 'Windows Hello failed',
+            });
+          }
+        }
+        ownerWindow.once('closed', onClosed);
+        ownerWindow.once('focus', dispatch);
+        helloProcess.on('message', onMessage);
+        helloProcess.once('exit', onExit);
+        try {
+          if (ownerWindow.isMinimized()) ownerWindow.restore();
+          ownerWindow.show();
+          ownerWindow.focus();
+          dispatch();
+        } catch (error) {
+          finish({
+            success: false,
+            error:
+              error instanceof Error ? error.message : 'Windows Hello failed',
+          });
+        }
+      },
+    );
+  } finally {
+    windowsHelloVerificationPending = false;
+  }
 };
 
 export const checkBiometricAuthChanged = async () => {

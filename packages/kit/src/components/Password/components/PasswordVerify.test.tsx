@@ -125,7 +125,7 @@ jest.mock('../../../hooks/useBiometricAuthInfo', () => ({
 }));
 
 jest.mock('../../../hooks/useHandleAppStateActive', () => ({
-  useHandleAppStateActive: () => {},
+  useHandleAppStateActive: jest.fn(),
 }));
 
 jest.mock('../../../views/Setting/hooks/useLanguageSelector', () => ({}));
@@ -163,7 +163,10 @@ async function flush() {
   });
 }
 
-function renderVerify(props?: { inAppStateLock?: boolean }) {
+function renderVerify(props?: {
+  inAppStateLock?: boolean;
+  onBiologyAuth?: () => void;
+}) {
   return render(
     <PasswordVerify
       authType={[]}
@@ -180,6 +183,14 @@ function renderVerify(props?: { inAppStateLock?: boolean }) {
 
 describe('PasswordVerify biometric-changed warning', () => {
   beforeEach(() => {
+    Object.assign(
+      jest.requireMock('@onekeyhq/shared/src/platformEnv').default,
+      {
+        isNativeIOS: true,
+        isDesktopMac: false,
+        isDesktopWin: false,
+      },
+    );
     // `flush()` advances the clock from inside `act(async …)`. Faking
     // `queueMicrotask` too would drain React's own act bookkeeping early and
     // burn its one-shot "act without await" warning on a false positive.
@@ -222,5 +233,23 @@ describe('PasswordVerify biometric-changed warning', () => {
     // is — no window overlay of its own, which on iOS would also put it
     // above the lock screen and the toast layer.
     expect(props.isOverTopAllViews).toBeUndefined();
+  });
+
+  it('does not register Windows reactivation as an automatic Hello retry', async () => {
+    Object.assign(
+      jest.requireMock('@onekeyhq/shared/src/platformEnv').default,
+      {
+        isNativeIOS: false,
+        isDesktopWin: true,
+      },
+    );
+    const onBiologyAuth = jest.fn();
+    renderVerify({ onBiologyAuth });
+    await flush();
+    expect(onBiologyAuth).toHaveBeenCalledTimes(1);
+    const { useHandleAppStateActive } = jest.requireMock(
+      '../../../hooks/useHandleAppStateActive',
+    );
+    expect(useHandleAppStateActive).toHaveBeenLastCalledWith(undefined);
   });
 });

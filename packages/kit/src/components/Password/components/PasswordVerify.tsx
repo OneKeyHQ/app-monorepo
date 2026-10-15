@@ -318,7 +318,9 @@ function PasswordVerify({
     }
   }, [isEnable, passwordInput, status.value, manualLocking, onBiologyAuth]);
 
-  useHandleAppStateActive(isEnable ? onActive : undefined);
+  useHandleAppStateActive(
+    isEnable && !platformEnv.isDesktopWin ? onActive : undefined,
+  );
 
   const onPassCodeComplete = useCallback(() => {
     setTimeout(() => {
