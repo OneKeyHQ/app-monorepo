@@ -10,7 +10,23 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, ETestModalPages } from '@onekeyhq/shared/src/routes';
-import type { ITronClaimDemoScenario } from '@onekeyhq/shared/src/routes/testModal';
+import type {
+  ITestModalPagesParam,
+  ITronClaimDemoScenario,
+} from '@onekeyhq/shared/src/routes/testModal';
+
+const energyPackageScenarios: {
+  value: NonNullable<
+    ITestModalPagesParam[ETestModalPages.NetworkFeeSubsidy]['energyPackageScenario']
+  >;
+  label: string;
+}[] = [
+  { value: 'available', label: 'Prime · 能量包有余额' },
+  { value: 'exhausted', label: 'Prime · 本月能量包已用完' },
+  { value: 'notPrime', label: '普通用户 · 购买能量包' },
+  { value: 'purchased', label: '普通用户 · 已购 20 份' },
+  { value: 'mixed', label: 'Prime · 赠送与已购额度' },
+];
 
 const claimScenarios: { value: ITronClaimDemoScenario; label: string }[] = [
   { value: 'available', label: '可以领取' },
@@ -45,6 +61,27 @@ export default function NetworkFeeSubsidyGallery() {
                 }}
               >
                 {initialSignedIn ? '查看补贴（已登录）' : '查看补贴（未登录）'}
+              </Button>
+            ))}
+            <SizableText size="$headingMd">TRON 能量包</SizableText>
+            <SizableText size="$bodySm" color="$textSubdued">
+              以下为设计演示：每月 30 份、剩余 24
+              份、价格及有效期均为示例，非正式权益。购买仅更新本地演示余额，不会扣款。
+            </SizableText>
+            {energyPackageScenarios.map(({ value, label }) => (
+              <Button
+                key={value}
+                onPress={() => {
+                  navigation.pushModal(EModalRoutes.TestModal, {
+                    screen: ETestModalPages.NetworkFeeSubsidy,
+                    params: {
+                      initialSignedIn: true,
+                      energyPackageScenario: value,
+                    },
+                  });
+                }}
+              >
+                {label}
               </Button>
             ))}
             <SizableText size="$headingMd">TRON 领取状态</SizableText>

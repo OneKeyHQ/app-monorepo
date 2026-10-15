@@ -18,6 +18,12 @@ export type ITestModalPagesParam = {
   [ETestModalPages.NetworkFeeSubsidy]: {
     initialSignedIn: boolean;
     tronClaimScenario?: ITronClaimDemoScenario;
+    energyPackageScenario?:
+      | 'available'
+      | 'exhausted'
+      | 'notPrime'
+      | 'purchased'
+      | 'mixed';
   };
   [ETestModalPages.TestSimpleModal]: { question: string };
 };

@@ -29,6 +29,13 @@ import type {
 
 import { DemoOneKeyIdLoginContent } from './DemoOneKeyIdLoginContent';
 import { EnergyArtwork } from './EnergyArtwork';
+import {
+  createEnergyPackageDemo,
+  getPurchasedUnits,
+  purchaseLifetime,
+} from './energyPackageDemo';
+import { EnergyPackageRow } from './EnergyPackageRow';
+import { LoginRequiredBadge } from './LoginRequiredBadge';
 import { TronClaimContent } from './TronClaimContent';
 import {
   createTronClaimDemo,
@@ -147,12 +154,12 @@ const usageSteps = [
   {
     title: '领取或查看补贴',
     description:
-      'TRON 能量需选择账户领取，资源有效期为 10 分钟；多链网络费补贴无需领取。',
+      'TRON 免费资源需选择账户领取，有效期为 10 分钟；Prime 能量包每月自动到账，多链网络费补贴无需领取。',
   },
   {
     title: '发起交易并使用补贴',
     description:
-      '发起支持的转账或兑换，在交易确认页查看补贴和自付金额。TRON 交易需在资源有效期内完成。',
+      '发起支持的转账或兑换，在交易确认页查看补贴和自付金额。已领取的 TRON 免费资源需在有效期内使用。',
   },
 ];
 
@@ -200,7 +207,7 @@ function SubsidyRecordList({ items }: { items: ISubsidyRecord[] }) {
   );
 }
 
-function SubsidySummaryStats() {
+function SubsidySummaryStats({ availableCount }: { availableCount: number }) {
   const { width, fontScale } = useWindowDimensions();
   const [containerWidth, setContainerWidth] = useState(width);
   const stacked = containerWidth < 320 || fontScale > 1.3;
@@ -217,7 +224,7 @@ function SubsidySummaryStats() {
     >
       {[
         { label: '已补贴交易', value: '18 笔' },
-        { label: '可用补贴', value: '2 项' },
+        { label: '可用补贴', value: `${availableCount} 项` },
       ].map(({ label, value }, index) => (
         <Stack
           key={label}
@@ -425,11 +432,28 @@ function NetworkFeeSubsidy() {
       RouteProp<ITestModalPagesParam, ETestModalPages.NetworkFeeSubsidy>
     >();
   const [signedIn, setSignedIn] = useState(params?.initialSignedIn ?? true);
+  const [energyPackage, setEnergyPackage] = useState(() =>
+    createEnergyPackageDemo(params?.energyPackageScenario),
+  );
   const [tronClaim, setTronClaim] = useState(() =>
     createTronClaimDemo(params?.tronClaimScenario),
   );
   const now = useTronClaimClock(tronClaim);
   const tronStatus = getTronClaimStatus(tronClaim, now);
+  let freeEnergyNotice = '登录后查看领取资格';
+  let freeEnergyAction = '登录领取';
+  if (signedIn) {
+    freeEnergyAction = tronStatus.canClaim ? '领取' : '查看';
+    if (tronStatus.secondsLeft > 0) {
+      freeEnergyNotice = `有效期剩余 ${formatResourceTime(tronStatus.secondsLeft)}`;
+    } else if (tronStatus.claimedToday) {
+      freeEnergyNotice = '今日已领取 · 明日重置';
+    } else if (tronStatus.canClaim) {
+      freeEnergyNotice = '领取后 10 分钟内有效';
+    } else {
+      freeEnergyNotice = tronStatus.reason ?? '请查看领取资格';
+    }
+  }
   const benefits = benefitTemplates.map((benefit) =>
     benefit.id === 'tron'
       ? {
@@ -464,6 +488,10 @@ function NetworkFeeSubsidy() {
             [
               '领取与使用',
               'TRON 免费资源按所选地址领取，受资源余额、地址和 IP 月度限额约束；领取后 10 分钟内有效。多链补贴在符合条件的交易中使用。',
+            ],
+            [
+              '能量包',
+              '能量包绑定 OneKey ID。Prime 赠送额度按月重置，购买额度按各自有效期使用。仅支持 TRON USDT 转账，每次消耗 1–2 份，与免费资源独立计算。',
             ],
             [
               '费用确认',
@@ -667,7 +695,15 @@ function NetworkFeeSubsidy() {
                   )}
                 </YStack>
                 {signedIn ? (
-                  <SubsidySummaryStats />
+                  <SubsidySummaryStats
+                    availableCount={
+                      energyPackage.giftUnits +
+                        getPurchasedUnits(energyPackage) >
+                      0
+                        ? 3
+                        : 2
+                    }
+                  />
                 ) : (
                   <Button
                     testID="subsidy-mock-login"
@@ -685,58 +721,101 @@ function NetworkFeeSubsidy() {
               <SizableText size="$headingMd">
                 {signedIn ? '我的补贴' : '可享补贴'}
               </SizableText>
-              <YStack gap="$3" $gtMd={{ flexDirection: 'row' }}>
-                {benefits.map((benefit) => (
+              <YStack
+                bg="$bgSubdued"
+                borderRadius="$6"
+                borderCurve="continuous"
+                overflow="hidden"
+                testID="subsidy-tron-energy"
+              >
+                <YStack p="$4" gap="$4">
+                  <XStack alignItems="center" gap="$3">
+                    <SizableText size="$bodyXs" color="$textDisabled" flex={1}>
+                      TRON 能量
+                    </SizableText>
+                    <Button
+                      size="small"
+                      variant="tertiary"
+                      mx="$0"
+                      my="$0"
+                      px="$0"
+                      py="$0"
+                      borderWidth={0}
+                      hitSlop={12}
+                      childrenAsText={false}
+                      onPress={showRules}
+                    >
+                      <XStack alignItems="center" gap="$1">
+                        <SizableText size="$bodyXs" color="$textDisabled">
+                          规则
+                        </SizableText>
+                        <Icon
+                          name="ChevronRightSmallOutline"
+                          size="$3"
+                          color="$iconDisabled"
+                        />
+                      </XStack>
+                    </Button>
+                  </XStack>
+                  <XStack alignItems="center" gap="$3" flexWrap="wrap">
+                    <YStack flex={1} minWidth={160} gap="$2">
+                      <SizableText size="$bodyMdMedium">
+                        {signedIn && tronStatus.secondsLeft > 0
+                          ? '免费能量已到账'
+                          : '每日免费能量'}
+                      </SizableText>
+                      <SizableText
+                        size="$bodySm"
+                        color={
+                          signedIn && tronStatus.secondsLeft > 0
+                            ? '$textSuccess'
+                            : '$textSubdued'
+                        }
+                      >
+                        {freeEnergyNotice}
+                      </SizableText>
+                    </YStack>
+                    {signedIn ? (
+                      <Button
+                        testID="subsidy-tron-claim"
+                        size="small"
+                        variant="primary"
+                        flexShrink={0}
+                        onPress={showTronClaim}
+                      >
+                        {freeEnergyAction}
+                      </Button>
+                    ) : (
+                      <LoginRequiredBadge />
+                    )}
+                  </XStack>
+                </YStack>
+                <Stack height={1} bg="$bgApp" />
+                <EnergyPackageRow
+                  signedIn={signedIn}
+                  state={energyPackage}
+                  onLogin={showLogin}
+                  onPurchase={(units) =>
+                    setEnergyPackage((current) => ({
+                      ...current,
+                      purchases: [
+                        ...current.purchases,
+                        { units, expiresAt: Date.now() + purchaseLifetime },
+                      ],
+                    }))
+                  }
+                />
+              </YStack>
+              {benefits
+                .filter((benefit) => benefit.id !== 'tron')
+                .map((benefit) => (
                   <BenefitCard
                     key={benefit.id}
                     benefit={benefit}
                     signedIn={signedIn}
                     onPress={() => showDetails(benefit)}
-                    action={
-                      benefit.id === 'tron' ? (
-                        <Button
-                          testID="subsidy-tron-claim"
-                          size="small"
-                          variant={signedIn ? 'primary' : 'secondary'}
-                          {...(!signedIn && {
-                            borderRadius: '$1',
-                            borderWidth: 0,
-                            px: '$2',
-                            py: '$0.5',
-                            hitSlop: 12,
-                          })}
-                          childrenAsText={signedIn}
-                          disabled={
-                            signedIn &&
-                            (tronStatus.claimedToday ||
-                              tronClaim.remaining === 0 ||
-                              tronClaim.total === 0)
-                          }
-                          onPress={showTronClaim}
-                        >
-                          {signedIn ? (
-                            tronStatus.buttonText
-                          ) : (
-                            <SizableText
-                              size="$bodySmMedium"
-                              color="$textSubdued"
-                            >
-                              登录领取
-                            </SizableText>
-                          )}
-                        </Button>
-                      ) : undefined
-                    }
-                    claimNotice={
-                      signedIn &&
-                      benefit.id === 'tron' &&
-                      tronStatus.secondsLeft > 0
-                        ? `${tronStatus.account?.name} · 有效期剩余 ${formatResourceTime(tronStatus.secondsLeft)}`
-                        : undefined
-                    }
                   />
                 ))}
-              </YStack>
             </YStack>
 
             {signedIn ? (
