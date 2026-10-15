@@ -5,17 +5,31 @@ import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { getPrimeInfiniPaymentSafeLogParams } from '@onekeyhq/shared/src/utils/primeInfiniPaymentDiagnostics';
 import {
   getOneKeyIdAuthFailureServerParams,
+  getOneKeyIdAuthFailureSite,
   scrubSensitiveErrorMessageText,
 } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import type {
   IOneKeyIdAuthFailureLogSource,
   IOneKeyIdAuthFailureStep,
+  IOneKeyIdAuthFailureTrigger,
 } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import type { IPrimeInfiniPaymentSource } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
+import { NO_LOG_OUTPUT } from '../../../types';
+import {
+  getOneKeyIdAuthFailureSignature,
+  oneKeyIdAuthFailureLogLimiter,
+} from '../oneKeyIdAuthFailureLogLimiter';
 
+import type {
+  IOneKeyIdAuthFailureDueSummaries,
+  IOneKeyIdAuthFailureLogPayload,
+  IOneKeyIdAuthFailureLogTrigger,
+  IOneKeyIdAuthFailureOverflowSummary,
+  IOneKeyIdAuthFailureRepeatSummary,
+} from '../oneKeyIdAuthFailureLogLimiter';
 import type {
   IPrimeEntitlementSource,
   IPrimeFreeTrialExhaustedTrigger,
@@ -782,36 +796,142 @@ export class PrimeSubscriptionScene extends BaseScene {
     return getOneKeyIdAuthFailureServerParams({ source, reason });
   }
 
-  // A OneKey ID auth failure reason recorded at the throw site. The scrubbed
-  // cause stays in local logs while a strict structured subset reaches the
-  // server. Fires regardless of which toast (auto, fallback, or none)
-  // surfaces the failure — unlike onekeyIdLoginFailedToast above, which
-  // strictly means "the fallback toast was shown".
+  // A OneKey ID auth failure reason recorded at the throw site. Fires
+  // regardless of which toast (auto, fallback, or none) surfaces the
+  // failure — unlike onekeyIdLoginFailedToast above, which strictly means
+  // "the fallback toast was shown". It also fires from passive session
+  // checks, so `trigger` separates real login attempts from those.
+  // The scrubbed reason stays in local logs; the server gets structured
+  // fields plus the code-authored failure location, never error text.
+  // Every call, from logOneKeyIdLoginFailureReason or direct, goes through
+  // oneKeyIdAuthFailureLogLimiter: repeats of one failure inside its window
+  // are counted instead of written locally or sent, and reported later by
+  // onekeyIdLoginFailedReasonRepeated.
   @LogToServer()
   public onekeyIdLoginFailedReason({
     reason,
     step,
+    trigger,
+    error,
   }: {
     reason: string;
     step?: IOneKeyIdAuthFailureStep;
+    trigger?: IOneKeyIdAuthFailureTrigger;
+    // The caught error, if any. Only its Desktop API IPC call context
+    // (module/method) is read; the error itself is never logged.
+    error?: unknown;
   }) {
     const source = 'throwSite';
-    this.onekeyIdAuthFailureLocal({ source, reason });
-    return getOneKeyIdAuthFailureServerParams({ source, reason, step });
+    const payload: IOneKeyIdAuthFailureLogPayload = {
+      ...getOneKeyIdAuthFailureServerParams({ source, reason, step, error }),
+      trigger: trigger ?? 'unknown',
+      failureSite: getOneKeyIdAuthFailureSite(reason),
+    };
+    const { shouldReport, ...due } = oneKeyIdAuthFailureLogLimiter.consume({
+      signature: getOneKeyIdAuthFailureSignature(payload),
+      payload,
+    });
+    this.reportOneKeyIdAuthFailureSummaries(due);
+    this.scheduleOneKeyIdAuthFailureSummaryFlush();
+    if (!shouldReport) {
+      return NO_LOG_OUTPUT;
+    }
+    this.onekeyIdAuthFailureLocal({
+      source,
+      reason,
+      trigger: payload.trigger,
+      ipcModule: payload.ipcModule,
+      ipcMethod: payload.ipcMethod,
+    });
+    return payload;
+  }
+
+  // Occurrences of one onekeyIdLoginFailedReason failure that were held back
+  // during its window: how many, and the first/last time (epoch ms). Sent
+  // when the window ends, as its own event so it never inflates the failure
+  // count.
+  @LogToLocal({ level: 'warn' })
+  @LogToServer()
+  public onekeyIdLoginFailedReasonRepeated(
+    summary: IOneKeyIdAuthFailureRepeatSummary,
+  ) {
+    return summary;
+  }
+
+  // onekeyIdLoginFailedReason occurrences dropped untracked because every
+  // limiter slot was in use during the window.
+  @LogToLocal({ level: 'warn' })
+  @LogToServer()
+  public onekeyIdLoginFailedReasonOverflow(
+    summary: IOneKeyIdAuthFailureOverflowSummary,
+  ) {
+    return summary;
+  }
+
+  private reportOneKeyIdAuthFailureSummaries({
+    summaries,
+    overflow,
+  }: IOneKeyIdAuthFailureDueSummaries) {
+    summaries.forEach((summary) =>
+      this.onekeyIdLoginFailedReasonRepeated(summary),
+    );
+    if (overflow) {
+      this.onekeyIdLoginFailedReasonOverflow(overflow);
+    }
+  }
+
+  private oneKeyIdAuthFailureSummaryFlush:
+    | { dueAt: number; timer: ReturnType<typeof setTimeout> }
+    | undefined;
+
+  // Reports held-back repeats when their window ends, even if the failure
+  // never recurs. A runtime restart drops the timer; the persisted counts
+  // are then reported on the next OneKey ID auth failure of any kind.
+  private scheduleOneKeyIdAuthFailureSummaryFlush() {
+    const dueAt = oneKeyIdAuthFailureLogLimiter.getNextSummaryDueAt();
+    const scheduled = this.oneKeyIdAuthFailureSummaryFlush;
+    if (dueAt === undefined || (scheduled && scheduled.dueAt <= dueAt)) {
+      return;
+    }
+    if (scheduled) {
+      clearTimeout(scheduled.timer);
+    }
+    const timer = setTimeout(
+      () => {
+        this.oneKeyIdAuthFailureSummaryFlush = undefined;
+        this.reportOneKeyIdAuthFailureSummaries(
+          oneKeyIdAuthFailureLogLimiter.takeDueSummaries(),
+        );
+        this.scheduleOneKeyIdAuthFailureSummaryFlush();
+      },
+      Math.max(0, dueAt - Date.now()),
+    );
+    // Node-based runtimes (tests, tooling) must not stay alive for it.
+    (timer as { unref?: () => void }).unref?.();
+    this.oneKeyIdAuthFailureSummaryFlush = { dueAt, timer };
   }
 
   // Keeps the scrubbed diagnostic text on the device. The corresponding
-  // server events above receive only strict structured fields.
+  // server events above receive only structured fields.
   @LogToLocal({ level: 'error' })
   public onekeyIdAuthFailureLocal({
     source,
     reason,
+    trigger,
+    ipcModule,
+    ipcMethod,
   }: {
     source: IOneKeyIdAuthFailureLogSource;
     reason: string;
+    trigger?: IOneKeyIdAuthFailureLogTrigger;
+    ipcModule?: string;
+    ipcMethod?: string;
   }) {
     return {
       source,
+      trigger,
+      ipcModule,
+      ipcMethod,
       reason: scrubSensitiveErrorMessageText(reason),
     };
   }

@@ -121,12 +121,16 @@ export function usePerpsChartOrderMenu(enabled: boolean) {
         });
       };
       close();
+      const labelValues = { coin: baseName, price };
       menu.current = ActionList.show({
         title: `${displayName} · ${price}`,
         triggerPosition: { x: screenX, y: screenY },
         items: [
           {
-            label: intl.formatMessage({ id: ETranslations.perp_trade_limit }),
+            label: intl.formatMessage(
+              { id: ETranslations.perps_chart_limit_order__action },
+              labelValues,
+            ),
             onPress: (closeMenu) =>
               runAfterActionListClose(closeMenu, openLimit),
             testID: 'perps-chart-limit-order',
@@ -134,17 +138,19 @@ export function usePerpsChartOrderMenu(enabled: boolean) {
           ...(instrument.mode === 'perp' && hasPosition()
             ? [
                 {
-                  label: intl.formatMessage({
-                    id: ETranslations.perp_tp_sl_profit,
-                  }),
+                  label: intl.formatMessage(
+                    { id: ETranslations.perps_chart_take_profit__action },
+                    labelValues,
+                  ),
                   onPress: (closeMenu: () => void) =>
                     runAfterActionListClose(closeMenu, () => openTpsl('tp')),
                   testID: 'perps-chart-take-profit',
                 },
                 {
-                  label: intl.formatMessage({
-                    id: ETranslations.perp_tp_sl_loss,
-                  }),
+                  label: intl.formatMessage(
+                    { id: ETranslations.perps_chart_stop_loss__action },
+                    labelValues,
+                  ),
                   onPress: (closeMenu: () => void) =>
                     runAfterActionListClose(closeMenu, () => openTpsl('sl')),
                   testID: 'perps-chart-stop-loss',
