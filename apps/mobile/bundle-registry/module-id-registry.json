@@ -25583,6 +25583,7 @@
     "packages/shared/types/earn.ts": 19068,
     "packages/shared/types/earn/earnProvider.constants.ts": 8807,
     "packages/shared/types/endpoint.ts": 1106,
+    "packages/shared/types/exchange.ts": 7545,
     "packages/shared/types/fee.ts": 2171,
     "packages/shared/types/fiatCrypto.ts": 13483,
     "packages/shared/types/hardwareUi.ts": 2870,
