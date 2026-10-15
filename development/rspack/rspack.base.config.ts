@@ -140,6 +140,14 @@ const CANVASKIT_WASM_TEST =
   /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
 const ZXING_READER_WASM_TEST =
   /zxing-wasm[\\/]dist[\\/]reader[\\/]zxing_reader\.wasm$/;
+// The client-scanning chain runtimes ship wasm-pack `-t web` output whose wasm
+// imports (`wbg`) are supplied by the JS glue at runtime, so they must NOT be
+// parsed as webpack wasm modules (that fails with "Can't resolve 'wbg'"). Emit
+// them as URL assets and let the glue fetch them — same treatment as
+// canvaskit / kaspa's `.wasm.bin`.
+const ZCASH_WASM_TEST = /onekey_zcash_(runtime|keys)_bg\.wasm$/;
+const MONERO_WASM_TEST = /onekey_monero_runtime_bg\.wasm$/;
+const CHAIN_RUNTIME_WASM_TEST = [ZCASH_WASM_TEST, MONERO_WASM_TEST];
 const ICON_MODULE_TEST =
   /[\\/]packages[\\/]components[\\/]src[\\/]primitives[\\/]Icon[\\/]react[\\/]/;
 
@@ -290,6 +298,24 @@ const buildBasePlugins: (
     Buffer: ['buffer', 'Buffer'],
     process: require.resolve('process/browser'),
   }),
+  platform === 'web-embed' &&
+    new rspack.NormalModuleReplacementPlugin(
+      /worker-rspack-loader[\\/]dist[\\/]runtime[\\/]inline\.js$/,
+      (resource) => {
+        // Both client-scanning chains keep their Worker entry in a `sdk`
+        // directory and both reach OPFS through the Blob URL's origin.
+        if (
+          /[\\/](zcash[\\/]sdkZcash|xmr[\\/]sdkXmrRuntime)[\\/]sdk$/.test(
+            resource.context,
+          )
+        ) {
+          resource.request = path.join(
+            basePath,
+            '../../packages/core/src/chains/zcash/sdkZcash/sdk/inlineWorkerRuntime.js',
+          );
+        }
+      },
+    ),
   !isDev &&
     ['web', 'desktop', 'ext', 'web-embed'].includes(platform) &&
     new rspack.NormalModuleReplacementPlugin(
@@ -525,8 +551,26 @@ export function createBaseConfig({
           generator: { filename: 'static/zxing/[name].[contenthash:8][ext]' },
         },
         {
+          test: CHAIN_RUNTIME_WASM_TEST,
+          // web-embed runs from file:// in native WebViews, where fetch() cannot
+          // load file URLs — inline as a data: URI there (kaspa embeds base64
+          // for the same reason). Other platforms keep the fetchable file asset.
+          ...(platform === 'web-embed'
+            ? { type: 'asset/inline' as const }
+            : {
+                type: 'asset/resource' as const,
+                // One directory for both; the file names already say which
+                // chain each belongs to.
+                generator: { filename: 'static/chain-wasm/[name][ext]' },
+              }),
+        },
+        {
           test: /\.wasm$/,
-          exclude: [CANVASKIT_WASM_TEST, ZXING_READER_WASM_TEST],
+          exclude: [
+            CANVASKIT_WASM_TEST,
+            ZXING_READER_WASM_TEST,
+            ...CHAIN_RUNTIME_WASM_TEST,
+          ],
           type: 'webassembly/async',
         },
         {
@@ -855,7 +899,18 @@ export function createBaseConfig({
           use: ['html-loader', 'template-ejs-loader'],
         },
         {
+          // Both chains' inline Worker entries; the suffix is the contract.
+          test: /SdkInline\.worker\.js$/,
+          use: {
+            loader: 'worker-rspack-loader',
+            // WKWebView's file-backed page needs a self-contained Blob Worker.
+            // Do not also ship an unused copy of its embedded WASM assets.
+            options: { inline: 'no-fallback' },
+          },
+        },
+        {
           test: /\.worker\.(js|ts)$/,
+          exclude: /SdkInline\.worker\.js$/,
           use: {
             loader: 'worker-rspack-loader',
             options: {

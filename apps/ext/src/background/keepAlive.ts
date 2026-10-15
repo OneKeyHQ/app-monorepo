@@ -10,11 +10,19 @@ async function createOffscreen() {
     return;
   }
 
+  // WORKERS exists from Chrome 113; an unknown reason makes older browsers
+  // (manifest minimum is 111) reject the document entirely.
+  // @ts-ignore
+  const supportsWorkersReason = !!chrome.offscreen.Reason?.WORKERS;
   // @ts-ignore
   await chrome.offscreen.createDocument({
     url: 'offscreen.html',
-    reasons: ['BLOBS'] as chrome.offscreen.Reason[],
-    justification: 'keep background service worker running and alive',
+    reasons: (supportsWorkersReason
+      ? ['BLOBS', 'WORKERS']
+      : ['BLOBS']) as chrome.offscreen.Reason[],
+    justification: supportsWorkersReason
+      ? 'keep background alive and host wallet workers'
+      : 'keep background service worker running and alive',
   });
 }
 
