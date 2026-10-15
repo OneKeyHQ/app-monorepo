@@ -11,7 +11,7 @@ import {
   swapSelectToTokenAtom,
   swapToTokenAmountAtom,
 } from '../../../states/jotai/contexts/swap/atoms';
-import { prepareTopCoinSwapEntry } from '../../../states/jotai/contexts/swap/prepareSwapProEntry';
+import { prepareMarketSwapEntry } from '../../../states/jotai/contexts/swap/prepareSwapProEntry';
 import { jotaiContextStore } from '../../../states/jotai/utils/jotaiContextStore';
 import { getLatestHomeSelectedAccount } from '../utils/swapHomeSelectedAccountUtils';
 
@@ -48,11 +48,11 @@ describe('Market modal initial token selection', () => {
         symbol: 'MARKET',
         decimals: 18,
       };
-      prepareTopCoinSwapEntry({ direction: 'from', storeName, token });
+      prepareMarketSwapEntry({ direction: 'from', storeName, token });
       const store = jotaiContextStore.getOrCreateStore({ storeName });
       store.set(swapFromTokenAmountAtom(), { value: '12', isInput: true });
       store.set(swapToTokenAmountAtom(), { value: '24', isInput: false });
-      const entry = prepareTopCoinSwapEntry({
+      const entry = prepareMarketSwapEntry({
         direction: 'from',
         storeName,
         token: changed ? { ...token, contractAddress: '0xother' } : token,
@@ -120,7 +120,7 @@ describe('Market modal initial token selection', () => {
     'keeps the %s trade pair after the no-wallet cold-start read completes',
     async (direction) => {
       const storeName = EJotaiContextStoreNames.swapModal;
-      const entry = prepareTopCoinSwapEntry({
+      const entry = prepareMarketSwapEntry({
         direction,
         storeName,
         token: {

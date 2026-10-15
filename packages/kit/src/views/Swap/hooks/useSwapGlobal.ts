@@ -60,6 +60,7 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
+import { getMarketSwapDefaultPair } from '../utils/marketSwapDefaultPair';
 import {
   SWAP_COLD_START_HOME_SCENE_NAME,
   buildSwapDefaultSelectedTokensForNetwork,
@@ -1164,6 +1165,61 @@ export function useSwapInit(params?: ISwapInitParams) {
       if (!swapNetworksRef.current.length) {
         return;
       }
+      const marketToken =
+        params?.marketSwapDirection === 'from'
+          ? params.importFromToken
+          : params?.importToToken;
+      if (
+        params?.swapSource === ESwapSource.MARKET &&
+        params.marketSwapDirection &&
+        marketToken &&
+        !marketToken.isStock &&
+        !tokenRebaseUtils.isScalingBalanceMultiplier(
+          marketToken.balanceMultiplier,
+        )
+      ) {
+        // Resolve after Swap's existing network load, without entry-time probes.
+        const pair = getMarketSwapDefaultPair({
+          token: marketToken,
+          direction: params.marketSwapDirection,
+          isSupported: (token, type) => {
+            const network = swapNetworksRef.current.find(
+              (item) => item.networkId === token.networkId,
+            );
+            const supported =
+              type === ESwapTabSwitchType.BRIDGE
+                ? network?.supportCrossChainSwap
+                : network?.supportSingleSwap;
+            return (
+              Boolean(supported) &&
+              !tokenRebaseUtils.isScalingBalanceMultiplier(
+                token.balanceMultiplier,
+              )
+            );
+          },
+        });
+        if (
+          !equalTokenNoCaseSensitive({
+            token1: fromTokenRef.current,
+            token2: pair.fromToken,
+          }) ||
+          !equalTokenNoCaseSensitive({
+            token1: toTokenRef.current,
+            token2: pair.toToken,
+          })
+        ) {
+          setFromTokenAmount({ value: '', isInput: false });
+          setToTokenAmount({ value: '', isInput: false });
+        }
+        fromTokenRef.current = pair.fromToken;
+        toTokenRef.current = pair.toToken;
+        setSwapFromToken(pair.fromToken);
+        setToToken(pair.toToken);
+        switchSwapTypeIfNeeded(pair.swapType, pair.fromToken?.networkId);
+        void syncNetworksSort(marketToken.networkId);
+        finishSwapInitParamsSync();
+        return;
+      }
       const hasImportTokenNetwork =
         Boolean(
           params?.importFromToken &&
@@ -1530,6 +1586,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     params?.importToToken,
     params?.importNetworkId,
     params?.swapSource,
+    params?.marketSwapDirection,
     params?.swapTabSwitchType,
     normalizedSwapTabSwitchType,
     supportCheckSwapTabSwitchType,

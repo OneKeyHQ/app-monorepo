@@ -1,4 +1,5 @@
 import type { ISwapInputAmountDraft } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
@@ -26,11 +27,11 @@ const stockMarketToken: ISwapToken = {
 };
 
 describe('buildMarketEmbeddedSwapInitParams', () => {
-  it('does not initialize shared Swap before a complete pair exists', () => {
+  it('keeps stock initialization waiting for its payment candidates', () => {
     expect(
       buildMarketEmbeddedSwapInitParams({
-        defaultTokens: [marketToken],
-        swapToken: marketToken,
+        defaultTokens: [stockMarketToken],
+        swapToken: stockMarketToken,
       }),
     ).toBeUndefined();
   });
@@ -42,7 +43,7 @@ describe('buildMarketEmbeddedSwapInitParams', () => {
         swapToken: marketToken,
       }),
     ).toMatchObject({
-      importFromToken: bnb,
+      importFromToken: swapDefaultSetTokens[marketToken.networkId].toToken,
       importNetworkId: bnb.networkId,
       importToToken: marketToken,
       swapSource: ESwapSource.MARKET,
