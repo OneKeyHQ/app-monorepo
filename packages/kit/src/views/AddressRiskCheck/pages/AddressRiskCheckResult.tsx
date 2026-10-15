@@ -33,7 +33,6 @@ import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IAddressRiskCheckResult } from '@onekeyhq/shared/types/addressRiskCheck';
 import { EKytRiskLevel } from '@onekeyhq/shared/types/kyt';
 
-import { PRIME_FREE_TRIAL_COPY } from '../../Prime/utils/primeFreeTrialCopy';
 import { AddressRiskMoreAnalysis } from '../components/AddressRiskMoreAnalysis';
 import {
   CardRow,
@@ -191,7 +190,9 @@ function AddressRiskCheckResultContent({
                 </SizableText>
                 {isHistoryResult ? (
                   <SizableText size="$bodyMd" color="$textCaution" pt="$1.5">
-                    {PRIME_FREE_TRIAL_COPY.addressRiskCheckHistoryResult}
+                    {intl.formatMessage({
+                      id: ETranslations.address_risk_check_history_result__desc,
+                    })}
                   </SizableText>
                 ) : null}
               </YStack>
