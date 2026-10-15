@@ -317,19 +317,22 @@ export function SwapStockTickerSelector() {
     </XStack>
   );
   return (
-    <StockSelectorPopover
-      onOpenChange={(open) => {
-        if (open) selection?.cancelSelection();
-      }}
-      title={intl.formatMessage({
-        id: ETranslations.placeholder_stock_search,
-      })}
-      showHeader={false}
-      placement="bottom-start"
-      floatingPanelProps={{ width: 360, borderRadius: '$4' }}
-      sheetProps={{ snapPoints: [86], snapPointsMode: 'percent' }}
-      renderContent={StockTickerList}
-      renderTrigger={trigger}
-    />
+    // Keep the outer Popover trigger from stretching across the header row.
+    <Stack alignSelf="flex-start" maxWidth="100%">
+      <StockSelectorPopover
+        onOpenChange={(open) => {
+          if (open) selection?.cancelSelection();
+        }}
+        title={intl.formatMessage({
+          id: ETranslations.placeholder_stock_search,
+        })}
+        showHeader={false}
+        placement="bottom-start"
+        floatingPanelProps={{ width: 360, borderRadius: '$4' }}
+        sheetProps={{ snapPoints: [86], snapPointsMode: 'percent' }}
+        renderContent={StockTickerList}
+        renderTrigger={trigger}
+      />
+    </Stack>
   );
 }
