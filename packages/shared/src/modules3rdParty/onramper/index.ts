@@ -7,6 +7,7 @@ import type {
 } from './type';
 
 export * from './type';
+export * from './quotePricing';
 export * from './utils';
 
 // The Headless SDK is native-iOS-only. Web/desktop always report unsupported so

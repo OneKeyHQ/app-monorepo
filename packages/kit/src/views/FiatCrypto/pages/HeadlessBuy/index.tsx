@@ -241,31 +241,6 @@ function HeadlessBuyPage() {
     [networkId],
   );
 
-  // USD market price of the token, from OneKey's own feed — the review card
-  // prices the payout with it. Deliberately NOT derived from the Onramper
-  // quote: the SDK's `rate` is exactly payout/amount echoed back (verified on
-  // device 2026-07-17), so it can never reveal spread or a bad quote.
-  const { result: marketPrice } = usePromiseResult(async () => {
-    try {
-      const detail =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
-          // Route params, not activeToken: identical values (the token is
-          // matched by this address), and this endpoint is un-memoized — an
-          // activeToken dep would duplicate the HTTP call once the list
-          // resolves.
-          tokenAddress,
-          networkId,
-          { skipConvertCurrency: true, autoHandleError: false },
-        );
-      const price = Number(detail?.data?.token?.price);
-      return Number.isFinite(price) && price > 0 ? price : undefined;
-    } catch {
-      // No market price (long-tail token / endpoint hiccup): the card hides
-      // the parenthetical instead of substituting a different-meaning number.
-      return undefined;
-    }
-  }, [tokenAddress, networkId]);
-
   // The address actually used for quoting; also shown on the review card so
   // the user can confirm the destination before paying.
   const effectiveAddress = address;
@@ -301,6 +276,8 @@ function HeadlessBuyPage() {
                 networkId: activeToken?.networkId ?? networkId,
                 networkName: activeNetwork?.name,
                 payout: quoteRef.current?.payout,
+                networkFee: quoteRef.current?.networkFee,
+                transactionFee: quoteRef.current?.transactionFee,
                 providerName: selectedProvider ?? quoteRef.current?.ramp,
                 address: effectiveAddress,
                 transactionId: event.transactionId,
@@ -633,7 +610,7 @@ function HeadlessBuyPage() {
                   networkId={activeToken?.networkId ?? networkId}
                   networkName={activeNetwork?.name}
                   isQuoting={isQuoting}
-                  marketPrice={marketPrice}
+                  fiatAmount={amount}
                   payout={quote?.payout}
                   networkFee={quote?.networkFee}
                   transactionFee={quote?.transactionFee}
