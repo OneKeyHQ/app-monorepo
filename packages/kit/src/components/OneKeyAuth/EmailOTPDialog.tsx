@@ -30,7 +30,10 @@ type IEmailOtpSendResult = { canResendAt?: number } | void;
 function getResendCountdownSeconds(result: IEmailOtpSendResult): number {
   const canResendAt = result?.canResendAt;
   if (typeof canResendAt === 'number' && Number.isSafeInteger(canResendAt)) {
-    return Math.max(0, Math.ceil((canResendAt - Date.now()) / 1000));
+    return Math.min(
+      EMAIL_OTP_COUNTDOWN_SECONDS,
+      Math.max(0, Math.ceil((canResendAt - Date.now()) / 1000)),
+    );
   }
   return EMAIL_OTP_COUNTDOWN_SECONDS;
 }
@@ -84,7 +87,9 @@ export function EmailOTPDialog(props: {
           const retryAfterSeconds =
             getEmailOtpRateLimitRetryAfterSeconds(error);
           if (retryAfterSeconds !== undefined) {
-            setCountdown(retryAfterSeconds);
+            setCountdown(
+              Math.min(EMAIL_OTP_COUNTDOWN_SECONDS, retryAfterSeconds),
+            );
           }
           const errorMessage = getEmailOtpRequestErrorMessage({ error, intl });
           if (errorMessage) {
@@ -118,7 +123,9 @@ export function EmailOTPDialog(props: {
       );
       if (isMountedRef.current) {
         const retryAfterSeconds = getEmailOtpRateLimitRetryAfterSeconds(error);
-        setCountdown(retryAfterSeconds ?? 0);
+        setCountdown(
+          Math.min(EMAIL_OTP_COUNTDOWN_SECONDS, retryAfterSeconds ?? 0),
+        );
         const errorMessage = getEmailOtpRequestErrorMessage({ error, intl });
         if (errorMessage) {
           Toast.error({ title: errorMessage });

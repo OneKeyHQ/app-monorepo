@@ -264,4 +264,73 @@ describe('EmailOTPDialog', () => {
       );
     });
   });
+
+  test.each([60_001, 61_000, 300_000])(
+    'caps the successful send countdown at 60 seconds for a %sms deadline',
+    async (delay) => {
+      jest.useFakeTimers();
+      const sendCode = jest.fn().mockResolvedValue({
+        canResendAt: Date.now() + delay,
+      });
+
+      await act(async () => {
+        render(
+          <EmailOTPDialog
+            title="Enter verification code"
+            description="Sent to test@example.com"
+            sendCode={sendCode}
+            onConfirm={jest.fn()}
+          />,
+        );
+      });
+
+      expect(screen.getByRole('button').textContent).toBe(
+        `${ETranslations.resend_code_countdown__action} (60s)`,
+      );
+    },
+  );
+
+  test.each(['initial', 'resend'])(
+    'caps a 61-second server cooldown for the %s request',
+    async (trigger) => {
+      jest.useFakeTimers();
+      const error = toPlainErrorObject(
+        new OneKeyServerApiError({
+          code: 90_011,
+          autoToast: true,
+          message:
+            'Please wait 61 seconds before requesting a new verification code',
+          data: { retryAfterSec: 61 },
+        }),
+      );
+      const sendCode = jest.fn().mockRejectedValue(error);
+      if (trigger === 'resend') {
+        sendCode.mockResolvedValueOnce({ canResendAt: 0 });
+      }
+
+      await act(async () => {
+        render(
+          <EmailOTPDialog
+            title="Enter verification code"
+            description="Sent to test@example.com"
+            sendCode={sendCode}
+            onConfirm={jest.fn()}
+          />,
+        );
+      });
+      if (trigger === 'resend') {
+        await act(async () => {
+          fireEvent.click(screen.getByRole('button'));
+        });
+      }
+
+      expect(sendCode).toHaveBeenCalledTimes(trigger === 'resend' ? 2 : 1);
+      expect(screen.getByRole('button').textContent).toBe(
+        `${ETranslations.resend_code_countdown__action} (60s)`,
+      );
+      expect(screen.getByRole('button').getAttribute('aria-disabled')).toBe(
+        'true',
+      );
+    },
+  );
 });
