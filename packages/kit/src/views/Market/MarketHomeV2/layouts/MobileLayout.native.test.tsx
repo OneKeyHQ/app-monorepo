@@ -24,6 +24,10 @@ type IMockPagerProps = {
   children?: ReactNode;
   stickyHeader?: ReactNode;
   initialPage?: number;
+  externalTopOverlayTag?: number;
+  onScrollEdgeCapability?: (event: {
+    nativeEvent: { available: boolean };
+  }) => void;
   nativeTabPressAnimationEnabled?: boolean;
   nativeSubHeader?: CollapsiblePagerNativeSubHeaderConfig;
   onNativeSubHeaderPress?: (
@@ -38,6 +42,8 @@ type IMockCategorySelectorProps = {
   onSelectCategory: (categoryId: string) => void;
 };
 
+const mockInsetCommits: { padding: string | null | undefined; tag?: number }[] =
+  [];
 const mockSetPage = jest.fn();
 const mockSetPageWithoutAnimation = jest.fn();
 const mockHandleTabChange = jest.fn();
@@ -89,12 +95,20 @@ jest.mock('react-native-pager-view', () => {
     CollapsiblePagerView: React.forwardRef(
       (props: IMockPagerProps, ref: React.Ref<unknown>) => {
         mockPagerProps = props;
+        const hostRef = React.useRef<HTMLDivElement>(null);
+        React.useLayoutEffect(() => {
+          mockInsetCommits.push({
+            padding:
+              hostRef.current?.parentElement?.getAttribute('data-padding-top'),
+            tag: props.externalTopOverlayTag,
+          });
+        });
         React.useImperativeHandle(ref, () => ({
           setPage: mockSetPage,
           setPageWithoutAnimation: mockSetPageWithoutAnimation,
         }));
         return (
-          <div>
+          <div ref={hostRef}>
             {props.stickyHeader}
             {props.children}
           </div>
@@ -118,7 +132,9 @@ jest.mock('@onekeyhq/components', () => ({
   IconButton: () => null,
   Tabs: { TabBar: () => null },
   XStack: ({ children }: PropsWithChildren) => <div>{children}</div>,
-  YStack: ({ children }: PropsWithChildren) => <div>{children}</div>,
+  YStack: ({ children, pt }: PropsWithChildren<{ pt?: number }>) => (
+    <div data-padding-top={pt}>{children}</div>
+  ),
   s: (size: number) => size,
   useScrollContentTabBarOffset: () => 0,
   useTabBarHeight: () => 0,
@@ -279,6 +295,7 @@ function renderLayout(props: IMarketFilterBarProps = filterBarProps) {
 beforeEach(() => {
   jest.restoreAllMocks();
   jest.clearAllMocks();
+  mockInsetCommits.length = 0;
   mockPagerProps = undefined;
   mockCategorySelectorProps = undefined;
   mockSelection = { tab: 'trending' };
@@ -410,5 +427,61 @@ describe('native market home selection restoration', () => {
     expect(mockCategorySelectorProps?.selectedCategoryId).toBe('consumer-tech');
     expect(mockNativeSelections.stocks).toBe('consumer-tech');
     expect(mockSelection.selectedTopCoinsCategory).toBe('defi');
+  });
+});
+
+describe('external header inset ownership', () => {
+  it('reserves one header inset until native confirms support and on revocation', () => {
+    const { container, rerender } = render(
+      <MobileLayout
+        filterBarProps={filterBarProps}
+        selectedNetworkId="evm--1"
+        onTabChange={jest.fn()}
+        externalTopOverlayTag={123}
+        externalTopOverlayHeight={96}
+      />,
+    );
+    const padding = () =>
+      container.firstElementChild?.getAttribute('data-padding-top');
+    expect(padding()).toBe('96');
+    expect(mockPagerProps?.externalTopOverlayTag).toBeUndefined();
+    act(() =>
+      mockPagerProps?.onScrollEdgeCapability?.({
+        nativeEvent: { available: false },
+      }),
+    );
+    expect(padding()).toBe('96');
+    rerender(
+      <MobileLayout
+        filterBarProps={filterBarProps}
+        selectedNetworkId="evm--1"
+        onTabChange={jest.fn()}
+        externalTopOverlayTag={123}
+        externalTopOverlayHeight={104}
+      />,
+    );
+    expect(padding()).toBe('104');
+    act(() =>
+      mockPagerProps?.onScrollEdgeCapability?.({
+        nativeEvent: { available: true },
+      }),
+    );
+    expect(padding()).toBe('0');
+    expect(mockPagerProps?.externalTopOverlayTag).toBe(123);
+    act(() =>
+      mockPagerProps?.onScrollEdgeCapability?.({
+        nativeEvent: { available: false },
+      }),
+    );
+    expect(padding()).toBe('104');
+    expect(mockPagerProps?.externalTopOverlayTag).toBeUndefined();
+    expect(mockInsetCommits.length).toBeGreaterThanOrEqual(4);
+    for (const commit of mockInsetCommits) {
+      expect(commit).toEqual(
+        commit.tag === 123
+          ? { padding: '0', tag: 123 }
+          : { padding: expect.stringMatching(/^(96|104)$/), tag: undefined },
+      );
+    }
   });
 });

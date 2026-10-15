@@ -480,6 +480,13 @@ function MobileBrowser() {
   const sharedHeaderRef = useRef<View>(null);
   const [sharedHeaderHeight, setSharedHeaderHeight] = useState(0);
   const [sharedHeaderTag, setSharedHeaderTag] = useState(0);
+  const handleSharedHeaderRef = useCallback((view: View | null) => {
+    sharedHeaderRef.current = view;
+    if (view === null) {
+      setSharedHeaderTag(0);
+      setSharedHeaderHeight(0);
+    }
+  }, []);
   const sharedHeaderReady =
     sharedScrollEdgeHeader && sharedHeaderHeight > 0 && sharedHeaderTag > 0;
   let discoverSearchTop = top;
@@ -567,12 +574,18 @@ function MobileBrowser() {
 
       {showDiscoveryPage ? (
         <YStack
-          ref={sharedHeaderRef}
+          ref={handleSharedHeaderRef}
           collapsable={false}
           onLayout={(event) => {
             if (!sharedScrollEdgeHeader) return;
-            const height = event.nativeEvent.layout.height;
             const tag = findNodeHandle(sharedHeaderRef.current) ?? 0;
+            if (
+              tag <= 0 ||
+              !('target' in event.nativeEvent) ||
+              event.nativeEvent.target !== tag
+            )
+              return;
+            const height = event.nativeEvent.layout.height;
             if (height > 0 && height !== sharedHeaderHeight)
               setSharedHeaderHeight(height);
             if (tag > 0 && tag !== sharedHeaderTag) setSharedHeaderTag(tag);
@@ -648,6 +661,9 @@ function MobileBrowser() {
                   nestedPager={useOuterPager}
                   externalTopOverlayTag={
                     sharedHeaderReady ? sharedHeaderTag : undefined
+                  }
+                  externalTopOverlayHeight={
+                    sharedHeaderReady ? sharedHeaderHeight : undefined
                   }
                   tabsRef={marketTabsRef}
                 />

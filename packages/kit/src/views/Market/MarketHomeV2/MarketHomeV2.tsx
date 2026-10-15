@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { DelayedFreeze, Page, useMedia } from '@onekeyhq/components';
+import { DelayedFreeze, Page, YStack, useMedia } from '@onekeyhq/components';
 import type { ITabContainerRef } from '@onekeyhq/components';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
@@ -427,11 +427,13 @@ function BaseMarketHomeWithProvider({
   tabsRef,
   nestedPager = false,
   externalTopOverlayTag,
+  externalTopOverlayHeight,
 }: {
   isFocused?: boolean;
   tabsRef?: React.RefObject<ITabContainerRef | null>;
   nestedPager?: boolean;
   externalTopOverlayTag?: number;
+  externalTopOverlayHeight?: number;
 }) {
   const { layoutProps, shouldWaitForSpotCategoryReady } =
     useMarketHomeLayoutProps();
@@ -441,7 +443,11 @@ function BaseMarketHomeWithProvider({
     shouldWaitForSpotCategoryReady ||
     (platformEnv.isNative && isBannerPending)
   ) {
-    return platformEnv.isNative ? <MarketHomeLoadingFallback /> : null;
+    return platformEnv.isNative ? (
+      <YStack flex={1} pt={externalTopOverlayHeight ?? 0}>
+        <MarketHomeLoadingFallback />
+      </YStack>
+    ) : null;
   }
   // In nested outer pagers (Discovery: Market/Earn/Browser), keep Market mounted
   // and let Freeze control inactive-page performance. Unmounting here causes
@@ -455,7 +461,9 @@ function BaseMarketHomeWithProvider({
       isFocused={isFocused}
       tabsRef={tabsRef}
       nestedPager={nestedPager}
-      {...(platformEnv.isNativeIOS ? { externalTopOverlayTag } : {})}
+      {...(platformEnv.isNativeIOS
+        ? { externalTopOverlayTag, externalTopOverlayHeight }
+        : {})}
     />
   );
 }
@@ -465,11 +473,13 @@ export function MarketHomeWithProvider({
   tabsRef,
   nestedPager = false,
   externalTopOverlayTag,
+  externalTopOverlayHeight,
 }: {
   isFocused?: boolean;
   tabsRef?: React.RefObject<ITabContainerRef | null>;
   nestedPager?: boolean;
   externalTopOverlayTag?: number;
+  externalTopOverlayHeight?: number;
 }) {
   return (
     <AccountSelectorProviderMirror
@@ -489,6 +499,7 @@ export function MarketHomeWithProvider({
             tabsRef={tabsRef}
             nestedPager={nestedPager}
             externalTopOverlayTag={externalTopOverlayTag}
+            externalTopOverlayHeight={externalTopOverlayHeight}
           />
         </MarketBannerProvider>
       </MarketWatchListProviderMirrorV2>
