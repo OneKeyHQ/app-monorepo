@@ -61,8 +61,16 @@ jest.mock('react-native', () => ({
 }));
 
 jest.mock('@onekeyhq/components', () => {
-  const Container = ({ children }: { children?: ReactNode }) => (
-    <div>{children}</div>
+  const Container = ({
+    children,
+    onPress,
+  }: {
+    children?: ReactNode;
+    onPress?: () => void;
+  }) => (
+    <div role="presentation" onClick={onPress}>
+      {children}
+    </div>
   );
   return {
     Badge: Object.assign(Container, { Text: Container }),
@@ -471,6 +479,89 @@ describe('mobile selector recommendations', () => {
       mockListState = { isError: state === 'error' };
       render(<MobileSelectorWatchlistList onItemPress={jest.fn()} />);
       expect(screen.queryByTestId('recommendations')).toBeNull();
+    },
+  );
+});
+
+describe('mobile Favorites categories', () => {
+  beforeEach(() => {
+    mockListState = { isError: false };
+    mockIsMounted = true;
+    mockIsWatchlistLoading = false;
+    mockBrowseData = [
+      {
+        ...searchToken,
+        id: 'btc',
+        symbol: 'BTC',
+        assetId: 'bitcoin',
+        address: '',
+        networkId: '',
+      },
+      { ...searchToken, id: 'aapl', symbol: 'AAPL', stockId: 'AAPL' },
+      {
+        ...searchToken,
+        id: 'nvda',
+        symbol: 'NVDAx',
+        stock: { subtitle: 'NVIDIA', source: 'xstock', sourceLogoUri: '' },
+      },
+      { ...searchToken, id: 'eth', symbol: 'ETH', isNative: true, address: '' },
+      { ...searchToken, id: 'perp', symbol: 'PERP', perpsCoin: 'BTC' },
+    ];
+    mockWatchlistCount = mockBrowseData.length;
+  });
+
+  it.each([
+    ['all', ['BTC', 'AAPL', 'NVDAx', 'ETH']],
+    ['spot', ['BTC', 'ETH']],
+    ['stocks', ['AAPL', 'NVDAx']],
+  ] as const)(
+    'shows only %s favorites and keeps row navigation intact',
+    (filter, expected) => {
+      const onItemPress = jest.fn();
+      render(
+        <MobileSelectorWatchlistList
+          watchlistFilter={filter}
+          onItemPress={onItemPress}
+        />,
+      );
+      for (const item of mockBrowseData) {
+        expect(Boolean(screen.queryByText(item.symbol))).toBe(
+          expected.some((symbol) => symbol === item.symbol),
+        );
+      }
+      fireEvent.click(screen.getByText(expected[0]));
+      expect(onItemPress).toHaveBeenCalledWith(
+        mockBrowseData.find((item) => item.symbol === expected[0]),
+      );
+    },
+  );
+
+  it('shows an empty result rather than recommendations for an empty category', () => {
+    mockBrowseData = [mockBrowseData[0]];
+    render(
+      <MobileSelectorWatchlistList
+        watchlistFilter="stocks"
+        onItemPress={jest.fn()}
+      />,
+    );
+    expect(screen.queryByTestId('recommendations')).toBeNull();
+    expect(screen.getByText('global.no_results')).toBeTruthy();
+  });
+
+  it.each(['spot', 'stocks'] as const)(
+    'uses the correct %s empty state when no favorites exist',
+    (filter) => {
+      mockBrowseData = [];
+      mockWatchlistCount = 0;
+      render(
+        <MobileSelectorWatchlistList
+          watchlistFilter={filter}
+          onItemPress={jest.fn()}
+        />,
+      );
+      expect(Boolean(screen.queryByTestId('recommendations'))).toBe(
+        filter === 'spot',
+      );
     },
   );
 });

@@ -26,6 +26,7 @@ import { parseMarketStockNumber } from '@onekeyhq/kit/src/views/Market/MarketHom
 import { applyMarketTokenListLiveOverrides } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketHomeTokenListWebSocket';
 import { useMarketTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenList';
 import { useMarketWatchlistTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
+import { useWatchlistFilteredGroups } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useWatchlistFilteredGroups';
 import type { IMarketTokenListLiveOverride } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenListBase';
 import { getMarketWatchlistRowKind } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/utils/marketWatchlistRowKind';
 import type { IMarketTimeRangeValue } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/types';
@@ -60,6 +61,7 @@ import { SelectorTokenStar } from './selectorStar';
 import { SelectorWatchlistRecommendations } from './SelectorWatchlistRecommendations';
 import { useMarketStockSelectorList } from './useMarketStockSelectorList';
 
+import type { IDetailSelectorWatchlistFilter } from './detailSelectorBrowse';
 import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
 
 // Figma `Market / SearchModalList / Item` (26934:146096): a 64px row with 20px
@@ -497,12 +499,15 @@ function useLiveOverriddenTokens(
 
 /** Favorites: the watchlist in the user's own order, perps excluded. */
 export function MobileSelectorWatchlistList({
+  watchlistFilter = 'all',
   onItemPress,
   liveTokenOverride,
 }: {
+  watchlistFilter?: IDetailSelectorWatchlistFilter;
   onItemPress: (item: IMarketToken) => void;
   liveTokenOverride?: IMarketTokenListLiveOverride;
 }) {
+  const intl = useIntl();
   const [{ data: watchListData, isMounted }] = useMarketWatchListV2Atom();
   const watchListActions = useWatchListV2Actions();
   // Favorites changed elsewhere (home, another detail page) while the modal is
@@ -524,11 +529,11 @@ export function MobileSelectorWatchlistList({
     pageSize: Math.max(watchListData?.length ?? 0, 1),
     pollingInterval: TOKEN_SELECTOR_POLLING_INTERVAL,
   });
-  const spotData = useMemo(
-    () => data.filter((item) => !item.perpsCoin),
-    [data],
+  const groups = useWatchlistFilteredGroups(data, { hidePerps: true });
+  const rows = useLiveOverriddenTokens(
+    groups[watchlistFilter],
+    liveTokenOverride,
   );
-  const rows = useLiveOverriddenTokens(spotData, liveTokenOverride);
 
   if (!isMounted || (isLoading && rows.length === 0)) {
     return <CenteredSpinner />;
@@ -542,7 +547,16 @@ export function MobileSelectorWatchlistList({
     );
   }
   if (rows.length === 0) {
-    return <SelectorWatchlistRecommendations />;
+    if (groups.all.length === 0 && watchlistFilter !== 'stocks') {
+      return <SelectorWatchlistRecommendations />;
+    }
+    return (
+      <CenteredMessage>
+        <SizableText color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.global_no_results })}
+        </SizableText>
+      </CenteredMessage>
+    );
   }
   return (
     <TokenRowsList data={rows} tokenSubtitle="name" onItemPress={onItemPress} />

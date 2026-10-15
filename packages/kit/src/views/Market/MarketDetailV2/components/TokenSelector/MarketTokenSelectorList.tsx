@@ -15,6 +15,7 @@ import {
   type IMarketWatchlistDataCache,
   useMarketWatchlistTokenList,
 } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
+import { useWatchlistFilteredGroups } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useWatchlistFilteredGroups';
 import { isTrendingStyleSpotCategory } from '../../../MarketHomeV2/utils';
 import { buildMarketSearchTokenDetailPreview } from '../../utils/marketDetailPreview';
 
@@ -36,6 +37,7 @@ import type {
   IMarketTokenSelectorColumns,
   IMarketTokenSelectorMetricColumn,
 } from './constants';
+import type { IDetailSelectorWatchlistFilter } from './detailSelectorBrowse';
 import type { IMarketTokenSelectorSubtitleVariant } from './MarketTokenSelectorRow';
 import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import type { IMarketTimeRangeValue } from '../../../MarketHomeV2/types';
@@ -62,6 +64,7 @@ interface IMarketTokenSelectorListProps {
   onItemPress: (item: IMarketTokenSelectorItem) => void;
   pollingInterval?: number;
   isWatchlistMode?: boolean;
+  watchlistFilter?: IDetailSelectorWatchlistFilter;
   // Owned by the selector shell so favorites data survives a tab switch, which
   // unmounts this list.
   watchlistDataCacheRef?: RefObject<IMarketWatchlistDataCache | undefined>;
@@ -174,6 +177,7 @@ function TokenSelectorListView({
 
 const WatchlistTokenSelectorList = memo(
   ({
+    watchlistFilter = 'all',
     networkId,
     onItemPress,
     pollingInterval,
@@ -181,6 +185,7 @@ const WatchlistTokenSelectorList = memo(
     listHeader,
     dataCacheRef,
   }: {
+    watchlistFilter?: IDetailSelectorWatchlistFilter;
     networkId: string;
     onItemPress: (item: IMarketTokenSelectorItem) => void;
     pollingInterval?: number;
@@ -198,12 +203,16 @@ const WatchlistTokenSelectorList = memo(
       dataCacheRef,
     });
 
-    const filteredData = useMemo(
-      () => data.filter((item) => !item.perpsCoin),
-      [data],
-    );
+    const groups = useWatchlistFilteredGroups(data, { hidePerps: true });
+    const filteredData = groups[watchlistFilter];
 
-    if (isMounted && !isLoading && !isError && filteredData.length === 0) {
+    if (
+      isMounted &&
+      !isLoading &&
+      !isError &&
+      groups.all.length === 0 &&
+      watchlistFilter !== 'stocks'
+    ) {
       return <SelectorWatchlistRecommendations />;
     }
 
@@ -214,7 +223,7 @@ const WatchlistTokenSelectorList = memo(
         networkId={networkId}
         onItemPress={onItemPress}
         emptyMessage={intl.formatMessage({
-          id: ETranslations.market_favorites_empty,
+          id: ETranslations.global_no_results,
         })}
         columns={columns}
         listHeader={listHeader}
@@ -318,6 +327,7 @@ const SearchTokenSelectorList = memo(
 SearchTokenSelectorList.displayName = 'SearchTokenSelectorList';
 
 function ListContent({
+  watchlistFilter,
   searchQuery,
   searchResults,
   searchLoading,
@@ -353,6 +363,7 @@ function ListContent({
   if (isWatchlistMode) {
     return (
       <WatchlistTokenSelectorList
+        watchlistFilter={watchlistFilter}
         networkId={networkId}
         onItemPress={onItemPress}
         pollingInterval={pollingInterval}
@@ -391,6 +402,7 @@ function ListContent({
 
 const MarketTokenSelectorList = memo(
   ({
+    watchlistFilter,
     networkId,
     selectedCategory,
     timeRange,
@@ -478,6 +490,7 @@ const MarketTokenSelectorList = memo(
       // Fills the popover body below the tabs and chips.
       <YStack flex={1}>
         <ListContent
+          watchlistFilter={watchlistFilter}
           searchQuery={searchQuery}
           searchResults={searchResults}
           searchLoading={searchLoading}

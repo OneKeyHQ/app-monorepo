@@ -23,10 +23,10 @@ export type IDetailSelectorDefaultCategory =
   | 'stocks';
 
 export type IDetailSelectorBrowseTab = 'favorites' | 'stocks' | 'tokens';
+export type IDetailSelectorWatchlistFilter = 'all' | 'spot' | 'stocks';
 
 export const DETAIL_SELECTOR_TOKEN_CATEGORY = 'trending';
 const DETAIL_SELECTOR_STOCK_CATEGORY = 'all';
-const EMPTY_DETAIL_SELECTOR_CATEGORIES: IMarketCategoryItem[] = [];
 
 const BROWSE_TAB_LABELS: Record<IDetailSelectorBrowseTab, ETranslations> = {
   favorites: ETranslations.global_favorites,
@@ -154,18 +154,39 @@ export function useDetailSelectorBrowseState({
   const [stockCategoryId, setStockCategoryId] = useState(
     DETAIL_SELECTOR_STOCK_CATEGORY,
   );
+  const [watchlistFilter, setWatchlistFilter] =
+    useState<IDetailSelectorWatchlistFilter>('all');
+  const watchlistSubCategories = useMemo<IMarketCategoryItem[]>(
+    () => [
+      { id: 'all', name: intl.formatMessage({ id: ETranslations.global_all }) },
+      {
+        id: 'spot',
+        name: intl.formatMessage({
+          id: ETranslations.prime_crypto_payment__label,
+        }),
+      },
+      {
+        id: 'stocks',
+        name: intl.formatMessage({
+          id: ETranslations.perps_token_selector_stocks,
+        }),
+      },
+    ],
+    [intl],
+  );
   let subCategories = tokenSubCategories;
+  let selectedSubCategoryId: string = tokenCategoryId;
   if (isStockSelection) {
     subCategories = stockSubCategories;
+    selectedSubCategoryId = stockCategoryId;
   } else if (isFavoritesSelection) {
-    subCategories = EMPTY_DETAIL_SELECTOR_CATEGORIES;
+    subCategories = watchlistSubCategories;
+    selectedSubCategoryId = watchlistFilter;
   }
-  const selectedSubCategoryId = isStockSelection
-    ? stockCategoryId
-    : tokenCategoryId;
 
   useEffect(() => {
     if (
+      isFavoritesSelection ||
       isConfigLoading !== false ||
       subCategories.length === 0 ||
       subCategories.some((category) => category.id === selectedSubCategoryId)
@@ -181,7 +202,13 @@ export function useDetailSelectorBrowseState({
       return;
     }
     setTokenCategoryId(nextCategoryId);
-  }, [isConfigLoading, isStockSelection, selectedSubCategoryId, subCategories]);
+  }, [
+    isConfigLoading,
+    isFavoritesSelection,
+    isStockSelection,
+    selectedSubCategoryId,
+    subCategories,
+  ]);
 
   const isTopCoinsSelection =
     !isFavoritesSelection &&
@@ -200,13 +227,23 @@ export function useDetailSelectorBrowseState({
 
   const handleSubCategoryChange = useCallback(
     (categoryId: string) => {
+      if (isFavoritesSelection) {
+        if (
+          categoryId === 'all' ||
+          categoryId === 'spot' ||
+          categoryId === 'stocks'
+        ) {
+          setWatchlistFilter(categoryId);
+        }
+        return;
+      }
       if (isStockSelection) {
         setStockCategoryId(categoryId);
         return;
       }
       setTokenCategoryId(categoryId);
     },
-    [isStockSelection],
+    [isFavoritesSelection, isStockSelection],
   );
 
   return {
@@ -217,6 +254,7 @@ export function useDetailSelectorBrowseState({
     isTopCoinsSelection,
     tokenCategoryId,
     stockCategoryId,
+    watchlistFilter,
     subCategories,
     selectedSubCategoryId,
     selectorTimeRange,

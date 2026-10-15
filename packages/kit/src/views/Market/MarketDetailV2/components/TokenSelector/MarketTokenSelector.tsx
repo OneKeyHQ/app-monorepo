@@ -140,6 +140,7 @@ function BaseMarketTokenSelectorContent({
     isTopCoinsSelection,
     tokenCategoryId,
     stockCategoryId,
+    watchlistFilter,
     subCategories,
     selectedSubCategoryId,
     selectorTimeRange,
@@ -333,6 +334,7 @@ function BaseMarketTokenSelectorContent({
         onItemPress={handleSelectToken}
         pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
         isWatchlistMode={isFavoritesSelection}
+        watchlistFilter={watchlistFilter}
         watchlistDataCacheRef={watchlistDataCacheRef}
         dataOverride={isTopCoinsSelection ? topCoinsSelectorData : undefined}
         dataOverrideLoading={isTopCoinsLoading}

@@ -91,6 +91,7 @@ function MobileTokenSelectorContent() {
     isTopCoinsSelection,
     tokenCategoryId,
     stockCategoryId,
+    watchlistFilter,
     subCategories,
     selectedSubCategoryId,
     selectorTimeRange,
@@ -319,6 +320,7 @@ function MobileTokenSelectorContent() {
             )}
             {isFavoritesSelection ? (
               <MobileSelectorWatchlistList
+                watchlistFilter={watchlistFilter}
                 onItemPress={handleTokenSelect}
                 liveTokenOverride={liveTokenOverride}
               />

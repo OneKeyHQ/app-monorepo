@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 
 import {
+  act,
   fireEvent,
   render,
   renderHook,
@@ -195,7 +196,11 @@ jest.mock('./MobileMarketSelectorBrowseLists', () => ({
   MobileSelectorCategoryTokenList: () => null,
   MobileSelectorStockList: () => null,
   MobileSelectorTopCoinsList: () => null,
-  MobileSelectorWatchlistList: () => null,
+  MobileSelectorWatchlistList: ({
+    watchlistFilter,
+  }: {
+    watchlistFilter: string;
+  }) => <div data-testid="mobile-favorites" data-filter={watchlistFilter} />,
 }));
 jest.mock('./MobileMarketTokenSelectorSearchResults', () => ({
   MobileMarketTokenSelectorSearchResults: ({
@@ -311,7 +316,9 @@ jest.mock('./MarketTokenSelectorList', () => ({
     onItemPress,
     searchResults,
     selectedCategory,
+    watchlistFilter,
   }: {
+    watchlistFilter?: string;
     dataOverride?: (IMarketToken & { marketAssetId?: string })[];
     isWatchlistMode: boolean;
     onItemPress: (item: IMarketToken) => void;
@@ -324,6 +331,7 @@ jest.mock('./MarketTokenSelectorList', () => ({
         data-override-count={dataOverride?.length ?? 0}
         data-testid="token-list"
         data-watchlist={String(isWatchlistMode)}
+        data-filter={watchlistFilter}
       />
       {dataOverride?.[0] ? (
         <button
@@ -872,4 +880,79 @@ describe('MarketTokenSelector stock default category', () => {
     });
     expect(mockNavigateToMarketTokenDetail).not.toHaveBeenCalled();
   });
+});
+
+describe('Favorites category selection', () => {
+  beforeEach(() => {
+    mockConfigLoading = false;
+    mockSpotCategories = [
+      { type: 'trending', name: 'Trending' },
+      { type: 'robinhood_meme', name: 'Robinhood' },
+    ];
+    mockStockCategories = [
+      { category: 'all', name: 'All' },
+      { category: 'ai-chip', name: 'AI Tech' },
+    ];
+    mockRouteParams = undefined;
+    mockSearchTokenList = [];
+    mockMobileSearchTokenList = undefined;
+  });
+
+  it('keeps Favorites, Stocks, and Tokens categories independent across tab switches and config refreshes', () => {
+    const { result, rerender } = renderHook(() =>
+      useDetailSelectorBrowseState({
+        defaultCategory: 'trending',
+        isWatchlistMode: true,
+      }),
+    );
+    expect(result.current.watchlistFilter).toBe('all');
+    expect(result.current.subCategories.map(({ id }) => id)).toEqual([
+      'all',
+      'spot',
+      'stocks',
+    ]);
+    act(() => result.current.handleSubCategoryChange('stocks'));
+    expect(result.current.selectedSubCategoryId).toBe('stocks');
+    mockConfigLoading = true;
+    rerender();
+    expect(result.current.watchlistFilter).toBe('stocks');
+    act(() => result.current.handleBrowseTabChange('tokens'));
+    expect(result.current.selectedSubCategoryId).toBe('trending');
+    act(() => result.current.handleSubCategoryChange('robinhood_meme'));
+    act(() => result.current.handleBrowseTabChange('stocks'));
+    act(() => result.current.handleSubCategoryChange('ai-chip'));
+    act(() => result.current.handleBrowseTabChange('favorites'));
+    expect(result.current.selectedSubCategoryId).toBe('stocks');
+    expect(result.current.tokenCategoryId).toBe('robinhood_meme');
+    expect(result.current.stockCategoryId).toBe('ai-chip');
+    act(() => result.current.handleSubCategoryChange('perps'));
+    expect(result.current.watchlistFilter).toBe('stocks');
+  });
+
+  it.each(['desktop', 'mobile'])(
+    'passes the selected Favorites category to the %s list and keeps keyword search separate',
+    (platform) => {
+      if (platform === 'mobile') {
+        render(<MobileTokenSelector />);
+      } else {
+        render(<MarketTokenSelector />);
+        fireEvent.click(screen.getByTestId('market-token-selector-trigger'));
+      }
+      fireEvent.click(
+        screen.getByTestId('market-token-selector-tab-favorites'),
+      );
+      const listId = platform === 'mobile' ? 'mobile-favorites' : 'token-list';
+      expect(screen.getByTestId(listId).getAttribute('data-filter')).toBe(
+        'all',
+      );
+      fireEvent.click(screen.getByText('prime_crypto_payment__label'));
+      expect(screen.getByTestId(listId).getAttribute('data-filter')).toBe(
+        'spot',
+      );
+      fireEvent.change(screen.getByTestId('market-token-selector-search'), {
+        target: { value: 'btc' },
+      });
+      expect(screen.queryByTestId(listId)).toBeNull();
+    },
+  );
 });

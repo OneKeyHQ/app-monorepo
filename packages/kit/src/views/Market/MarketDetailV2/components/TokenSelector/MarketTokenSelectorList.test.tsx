@@ -343,4 +343,113 @@ describe('desktop selector recommendations', () => {
     expect(screen.queryByTestId('recommendations')).toBeNull();
     expect(screen.getByTestId('list').textContent).toBe('TOKEN100');
   });
+
+  const favorite = {
+    id: 'btc',
+    symbol: 'BTC',
+    name: 'Bitcoin',
+    stockId: undefined,
+    address: '',
+    networkId: '',
+    assetId: 'bitcoin',
+    decimals: 0,
+    price: 0,
+    change24h: 0,
+    marketCap: 0,
+    liquidity: 0,
+    transactions: 0,
+    uniqueTraders: 0,
+    holders: 0,
+    turnover: 0,
+    tokenImageUri: '',
+    networkLogoUri: '',
+  };
+
+  it.each([
+    ['all', 'BTC,AAPL,NVDAx,LEGACY,ETH'],
+    ['spot', 'BTC,ETH'],
+    ['stocks', 'AAPL,NVDAx,LEGACY'],
+  ] as const)(
+    'filters %s with the home watchlist rules while preserving order',
+    (filter, expected) => {
+      mockWatchlistResult.mockReturnValue({
+        data: [
+          favorite,
+          {
+            ...favorite,
+            id: 'aapl',
+            symbol: 'AAPL',
+            assetId: undefined,
+            stockId: 'AAPL',
+          },
+          {
+            ...favorite,
+            id: 'nvda',
+            symbol: 'NVDAx',
+            stock: { subtitle: 'NVIDIA', source: 'xstock', sourceLogoUri: '' },
+          },
+          {
+            ...favorite,
+            id: 'legacy',
+            symbol: 'LEGACY',
+            networkId: 'evm--1',
+            address: '0xlegacy',
+            stockId: 'AAPL',
+          },
+          {
+            ...favorite,
+            id: 'eth',
+            symbol: 'ETH',
+            assetId: undefined,
+            isNative: true,
+          },
+          { ...favorite, id: 'perps', symbol: 'PERP', perpsCoin: 'BTC' },
+        ],
+        isLoading: false,
+        isError: false,
+        refetch: jest.fn(),
+      });
+      render(
+        <MarketTokenSelectorList
+          networkId=""
+          isWatchlistMode
+          watchlistFilter={filter}
+          onItemPress={jest.fn()}
+        />,
+      );
+      expect(screen.getByTestId('list').textContent).toBe(expected);
+    },
+  );
+
+  it('does not replace an empty category with recommendations when other favorites exist', () => {
+    mockWatchlistResult.mockReturnValue({
+      data: [favorite],
+      isLoading: false,
+      isError: false,
+      refetch: jest.fn(),
+    });
+    render(
+      <MarketTokenSelectorList
+        networkId=""
+        isWatchlistMode
+        watchlistFilter="stocks"
+        onItemPress={jest.fn()}
+      />,
+    );
+    expect(screen.queryByTestId('recommendations')).toBeNull();
+    expect(screen.getByText('global.no_results')).toBeTruthy();
+  });
+
+  it('does not show crypto recommendations for an entirely empty Stocks category', () => {
+    render(
+      <MarketTokenSelectorList
+        networkId=""
+        isWatchlistMode
+        watchlistFilter="stocks"
+        onItemPress={jest.fn()}
+      />,
+    );
+    expect(screen.queryByTestId('recommendations')).toBeNull();
+    expect(screen.getByText('global.no_results')).toBeTruthy();
+  });
 });
