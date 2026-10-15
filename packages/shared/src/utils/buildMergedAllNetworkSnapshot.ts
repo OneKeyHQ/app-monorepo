@@ -15,12 +15,17 @@ import {
   sortTokensByOrder,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
+  getTokenGroupsBalanceStatus,
   isUnavailableOrZeroFiatValue,
   isValidNumberValue,
   sumFiatValuesFromTokens,
   sumTokenGroupsFiatValueIgnoringUnavailable,
 } from '@onekeyhq/shared/src/utils/tokenValueUtils';
-import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import type {
+  IAccountToken,
+  IBalanceStatus,
+  ITokenFiat,
+} from '@onekeyhq/shared/types/token';
 
 /**
  * One all-network fetch round (a single network's `fetchAccountTokens`
@@ -145,6 +150,7 @@ export interface IMergedAllNetworkSnapshot {
   aggregateTokenListMap: { [key: string]: { tokens: IAccountToken[] } };
   smallBalanceFiatValue: string;
   accountsWorth: Record<string, string>;
+  accountsWorthStatus: Record<string, IBalanceStatus>;
   createAtNetworkWorth: string;
   tokenKeys: string;
   smallBalanceKeys: string;
@@ -209,6 +215,7 @@ export function buildMergedAllNetworkSnapshot({
   const smallBalanceTokenListMap: Record<string, ITokenFiat> = {};
   const riskyTokenListMap: Record<string, ITokenFiat> = {};
   const accountsWorth: Record<string, string> = {};
+  const accountsWorthStatus: Record<string, IBalanceStatus> = {};
   let createAtNetworkWorth = new BigNumber(0);
   let smallBalanceTokensFiatValue = new BigNumber(0);
 
@@ -293,12 +300,12 @@ export function buildMergedAllNetworkSnapshot({
       ? r.accountWorth
       : sumTokenGroupsFiatValueIgnoringUnavailable(r);
 
-    accountsWorth[
-      accountUtils.buildAccountValueKey({
-        accountId: r.accountId ?? '',
-        networkId: r.networkId ?? '',
-      })
-    ] = accountWorth;
+    const worthKey = accountUtils.buildAccountValueKey({
+      accountId: r.accountId ?? '',
+      networkId: r.networkId ?? '',
+    });
+    accountsWorth[worthKey] = accountWorth;
+    accountsWorthStatus[worthKey] = getTokenGroupsBalanceStatus(r);
 
     if (
       accountId &&
@@ -378,6 +385,7 @@ export function buildMergedAllNetworkSnapshot({
     aggregateTokenListMap,
     smallBalanceFiatValue: smallBalanceTokensFiatValue.toFixed(),
     accountsWorth,
+    accountsWorthStatus,
     createAtNetworkWorth: createAtNetworkWorth.toFixed(),
     tokenKeys: tokenList.keys,
     smallBalanceKeys: smallBalanceTokenList.keys,

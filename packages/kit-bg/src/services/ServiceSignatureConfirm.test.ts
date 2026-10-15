@@ -28,9 +28,10 @@ jest.mock('./ServiceBase', () => ({
   },
 }));
 
+const mockGetVault = jest.fn();
 jest.mock('../vaults/factory', () => ({
   vaultFactory: {
-    getVault: jest.fn(),
+    getVault: (...args: unknown[]): unknown => mockGetVault(...args),
   },
 }));
 
@@ -44,6 +45,8 @@ jest.mock('../states/jotai/atoms/prime', () => ({
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 // eslint-disable-next-line import-js/order, import/first
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+// eslint-disable-next-line import-js/order, import/first
+import type { ISendSelectedFeeInfo } from '@onekeyhq/shared/types/fee';
 // eslint-disable-next-line import-js/order, import/first
 import {
   EParseTxComponentType,
@@ -63,8 +66,6 @@ import {
 } from '@onekeyhq/shared/types/tx';
 // eslint-disable-next-line import-js/order, import/first
 import { primePersistAtom } from '../states/jotai/atoms/prime';
-// eslint-disable-next-line import-js/order, import/first
-import { vaultFactory } from '../vaults/factory';
 // eslint-disable-next-line import-js/order, import/first
 import ServiceSignatureConfirm from './ServiceSignatureConfirm';
 
@@ -153,7 +154,7 @@ function buildService(parsedTx: IParseTransactionResp) {
   };
   const service = new ServiceSignatureConfirm({ backgroundApi });
   jest.spyOn(service, 'parseTransaction').mockResolvedValue(parsedTx);
-  (vaultFactory.getVault as unknown as jest.Mock).mockResolvedValue({
+  mockGetVault.mockResolvedValue({
     buildDecodedTx: jest.fn().mockResolvedValue(buildLocalDecodedTx()),
   });
   return service;
@@ -192,7 +193,7 @@ function buildTransactionSecurityService(
       'X-Onekey-Request-Token': 'prime-token',
     }),
   });
-  (vaultFactory.getVault as unknown as jest.Mock).mockResolvedValue({
+  mockGetVault.mockResolvedValue({
     buildParseTransactionParams: jest.fn(async ({ encodedTx }) => ({
       encodedTx,
     })),
@@ -204,6 +205,144 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
+
+  it.each(['xmr--0', 'zec--0'])(
+    '%s uses only verified local payment details and fees',
+    async (privacyNetworkId) => {
+      const post = jest.fn();
+      const backgroundApi = {
+        serviceNetwork: {
+          isCustomNetwork: jest.fn(async () => false),
+          getVaultSettings: jest.fn(async () => ({ isUtxo: false })),
+        },
+      };
+      const service = new ServiceSignatureConfirm({ backgroundApi });
+      const remoteParser = jest
+        .spyOn(service, 'parseTransaction')
+        .mockResolvedValue(
+          buildParsedTx({
+            components: [
+              {
+                type: EParseTxComponentType.Address,
+                label: 'Unverified recipient',
+                address: 'recipient-B',
+                tags: [],
+              },
+            ],
+          }),
+        );
+      const localDecodedTx: IDecodedTx = {
+        ...buildLocalDecodedTx(),
+        networkId: privacyNetworkId,
+        totalFeeInNative: '0.0001',
+        actions: [
+          {
+            type: EDecodedTxActionType.ASSET_TRANSFER,
+            assetTransfer: {
+              from: accountAddress,
+              to: 'recipient-A',
+              sends: [
+                {
+                  from: accountAddress,
+                  to: 'recipient-A',
+                  amount: '9007199254.740993',
+                  icon: '',
+                  name: 'Synthetic native token',
+                  symbol: 'TEST',
+                  tokenIdOnNetwork: '',
+                  isNative: true,
+                  isNFT: false,
+                },
+              ],
+              receives: [],
+            },
+          },
+        ],
+      };
+      mockGetVault.mockResolvedValue({
+        buildDecodedTx: jest.fn(async () => localDecodedTx),
+      });
+      Object.assign(service, { getClient: jest.fn(async () => ({ post })) });
+      const feeInfo: ISendSelectedFeeInfo = {
+        feeInfo: {
+          common: {
+            feeDecimals: 12,
+            feeSymbol: 'TEST',
+            nativeDecimals: 12,
+            nativeSymbol: 'TEST',
+          },
+        },
+        total: '1',
+        totalNative: '1',
+        totalNativeForDisplay: '1',
+        totalFiat: '1',
+        totalFiatForDisplay: '1',
+      };
+      const [decodedTx] = await service.buildDecodedTxs({
+        networkId: privacyNetworkId,
+        accountId,
+        accountAddress,
+        unsignedTxs: [buildUnsignedTx()],
+        feeInfo,
+        transferPayload: {
+          isPrivateSend: true,
+          isMaxSend: false,
+          isNFT: false,
+          originalRecipient: 'recipient-B',
+          amountToSend: '2',
+        },
+      });
+      expect(remoteParser).not.toHaveBeenCalled();
+      expect(post).not.toHaveBeenCalled();
+      expect(decodedTx.totalFeeInNative).toBe('0.0001');
+      expect(decodedTx.isLocalParsed).toBe(true);
+      expect(decodedTx.txDisplay?.title).toBe('global.send');
+      expect(decodedTx.txDisplay?.components).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: EParseTxComponentType.InternalAssets,
+            amountParsed: '9007199254.740993',
+          }),
+        ]),
+      );
+      const addressComponents = decodedTx.txDisplay?.components.filter(
+        (component) => component.type === EParseTxComponentType.Address,
+      );
+      expect(addressComponents).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ address: 'recipient-A' }),
+        ]),
+      );
+      expect(addressComponents).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ address: 'recipient-B' }),
+        ]),
+      );
+      expect(decodedTx.actions[0].assetTransfer?.sends[0].amount).toBe(
+        '9007199254.740993',
+      );
+    },
+  );
+
+  it.each(['xmr--0', 'zec--0'])(
+    '%s blocks the public remote parser before reading or posting the proposal',
+    async (privacyNetworkId) => {
+      const service = new ServiceSignatureConfirm({
+        backgroundApi: {},
+      });
+      const post = jest.fn();
+      Object.assign(service, { getClient: jest.fn(async () => ({ post })) });
+      await expect(
+        service.parseTransaction({
+          networkId: privacyNetworkId,
+          accountId,
+          encodedTx: {},
+        }),
+      ).rejects.toThrow('Privacy transactions must be reviewed locally');
+      expect(mockGetVault).not.toHaveBeenCalled();
+      expect(post).not.toHaveBeenCalled();
+    },
+  );
 
   it('keeps server simulation and alerts when an unknown staking tx uses local display', async () => {
     const simulation: IDisplayComponentSimulation = {
@@ -313,7 +452,7 @@ describe('ServiceSignatureConfirm.buildDecodedTx', () => {
       from: accountAddress,
       to: evmLowerAddress,
     };
-    (vaultFactory.getVault as unknown as jest.Mock).mockResolvedValue({
+    mockGetVault.mockResolvedValue({
       buildDecodedTx: jest.fn().mockResolvedValue(localDecodedTx),
     });
 
@@ -447,7 +586,7 @@ describe('ServiceSignatureConfirm.checkTransactionSecurity', () => {
         },
       },
     );
-    expect(vaultFactory.getVault).not.toHaveBeenCalled();
+    expect(mockGetVault).not.toHaveBeenCalled();
   });
 
   it('sends vault-normalized encodedTx and always attaches the Prime token', async () => {
@@ -468,7 +607,7 @@ describe('ServiceSignatureConfirm.checkTransactionSecurity', () => {
       data: '0x',
       value: '0x0',
     };
-    (vaultFactory.getVault as unknown as jest.Mock).mockResolvedValue({
+    mockGetVault.mockResolvedValue({
       buildParseTransactionParams: jest.fn(async () => ({
         encodedTx: encodedTxToCheck,
       })),
@@ -643,9 +782,7 @@ describe('ServiceSignatureConfirm.checkTransactionSecurity', () => {
   it('returns check_failed when request setup throws before the scan', async () => {
     const post = jest.fn();
     const service = buildTransactionSecurityService(post);
-    (vaultFactory.getVault as unknown as jest.Mock).mockRejectedValue(
-      new Error('no vault'),
-    );
+    mockGetVault.mockRejectedValue(new Error('no vault'));
 
     await expect(
       service.checkTransactionSecurity({
@@ -704,7 +841,7 @@ describe('ServiceSignatureConfirm.checkTransactionSecurity', () => {
   it('returns unable_to_assess when an attemptable payload is still unsubmittable after normalize', async () => {
     const post = jest.fn();
     const service = buildTransactionSecurityService(post);
-    (vaultFactory.getVault as unknown as jest.Mock).mockResolvedValue({
+    mockGetVault.mockResolvedValue({
       buildParseTransactionParams: jest.fn(async ({ encodedTx }) => ({
         encodedTx,
       })),

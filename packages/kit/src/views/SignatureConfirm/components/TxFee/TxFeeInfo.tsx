@@ -2584,6 +2584,13 @@ function TxFeeInfo(props: IProps) {
       );
     }
 
+    if (
+      vaultSettings?.localWallet &&
+      !new BigNumber(txFeeCommon?.nativeTokenPrice ?? '').gt(0)
+    ) {
+      return null;
+    }
+
     return (
       <SizableText size="$bodyMd" color="$textSubdued">
         (
@@ -2601,6 +2608,8 @@ function TxFeeInfo(props: IProps) {
       </SizableText>
     );
   }, [
+    vaultSettings?.localWallet,
+    txFeeCommon?.nativeTokenPrice,
     isPayerManagedByService,
     selectedFee?.totalFiatMinForDisplay,
     isResourceRentalNeeded,

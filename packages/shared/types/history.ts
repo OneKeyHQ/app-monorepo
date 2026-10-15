@@ -24,6 +24,7 @@ export enum EHistoryTxDetailsBlock {
 export enum EOnChainHistoryTransferType {
   Transfer,
   Approve,
+  Shielded = 'shielded',
 }
 
 export enum EOnChainHistoryTxStatus {
@@ -49,6 +50,7 @@ export type IOnChainHistoryTxApprove = {
 
 export type IOnChainHistoryTxTransfer = {
   type: EOnChainHistoryTransferType;
+  address?: string;
   from: string;
   to: string;
   token: string;
@@ -57,6 +59,7 @@ export type IOnChainHistoryTxTransfer = {
   label: string;
   isNative?: boolean;
   isOwn?: boolean; // for UTXO
+  isChange?: boolean; // Explicitly identified wallet change, not inferred from ownership.
   comment?: string; // TON
 };
 
@@ -95,6 +98,7 @@ export type IOnChainHistoryTx = {
   sends: IOnChainHistoryTxTransfer[];
   receives: IOnChainHistoryTxTransfer[];
   status: EOnChainHistoryTxStatus;
+  broadcastOutcomeUnknown?: boolean;
   from: string;
   to: string;
   timestamp: number;
@@ -151,6 +155,10 @@ export type IOnChainHistoryTx = {
 
   // Cosmos / Stellar
   memo?: string;
+  // Zcash: exact 512-byte memo fields (text or binary) and BLAKE2b-256 hashes.
+  binaryMemos?: { hex: string; hash: string }[];
+  // Shielded entries describe this account's decrypted notes, not full chain I/O.
+  inputOutputSource?: 'account' | 'public';
 
   // Dynex
   paymentId?: string;
@@ -171,6 +179,8 @@ export type IOnChainHistoryTx = {
   slicedData?: string;
 };
 
+export type IPrivacyChainHistorySide = 'public' | 'private' | 'mixed';
+
 export type IAccountHistoryTx = {
   id: string; // historyId
 
@@ -190,6 +200,15 @@ export type IAccountHistoryTx = {
   stakingInfo?: IStakingInfo;
   // Local invoice binding retained across fee replacements and indexer merges.
   primeInfiniPayment?: IPrimeInfiniBeforeBroadcastAction;
+
+  // Optional so cached rows created by older app versions remain readable.
+  // `mixed` appears in both public and private asset tabs.
+  privacyChainHistorySide?: IPrivacyChainHistorySide;
+  // Exact chain-defined pool identifiers. The side above is only a current UI
+  // grouping; preserving this list allows future pools to be shown separately.
+  privacyChainHistoryPoolIds?: number[];
+  // Signed display-unit balance delta for each exact pool ID.
+  privacyChainHistoryPoolDeltas?: Record<string, string>;
 
   originalId?: string; // for ton
 };
@@ -330,6 +349,9 @@ export type IFetchHistoryTxDetailsParams = {
   // caller holds), lets vaults narrow per-request extra params such as the
   // btc find-address `accountAddressArray`
   txInvolvedAddresses?: string[];
+  // Which pool tab the user opened this transaction from, for chains whose
+  // public and private sides are owned by different sources.
+  privacyChainPoolId?: number;
 };
 
 export type IFetchTxDetailsParams = {
@@ -378,6 +400,10 @@ export interface IServerFetchAccountHistoryDetailParams {
   // requests carry only the addresses the tx involves when the caller has
   // tx context; otherwise the full claimed set is sent as a safe superset.
   accountAddressArray?: string[];
+  // See IFetchHistoryTxDetailsParams.
+  privacyChainPoolId?: number;
+  // Internal detail mode; never included in a backend HTTP request.
+  withUTXOs?: boolean;
 }
 
 export interface IChangedPendingTxInfo {

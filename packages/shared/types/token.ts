@@ -58,9 +58,20 @@ export type IToken = {
   sharedBalanceWith?: string;
 };
 
+// notEnabled: the scanning this balance needs is off (never enabled, or privacy
+// paused). Not a failure, so it neither counts toward totals nor marks them
+// incomplete.
+export type IBalanceStatus =
+  | 'complete'
+  | 'partial'
+  | 'unavailable'
+  | 'notEnabled';
+
 export type ITokenFiat = {
   balance: string;
   balanceParsed: string;
+  // Explicit only when the source can distinguish a partial scan from a total.
+  balanceStatus?: IBalanceStatus;
   // See IToken.balanceMultiplier — mirrored here so display leaves that only
   // subscribe to the fiat map can compute the display balance. `balance` /
   // `balanceParsed` above stay RAW; `fiatValue` is already multiplied

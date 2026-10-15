@@ -52,6 +52,10 @@ export interface IWebViewProps
   displayProgressBar?: boolean;
   onProgress?: (progress: number) => void;
   webviewDebuggingEnabled?: boolean;
+  /** @platform ios
+   * @description Recreate the WebView when iOS kills its content process.
+   */
+  recreateOnContentProcessTerminate?: boolean;
   /** @platform native
    * @description Open website in desktop mode or mobile mode
    */

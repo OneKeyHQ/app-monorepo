@@ -23,6 +23,7 @@ import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
 import localDb from '../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../dbs/local/localDBStoreNames';
+import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
 
@@ -407,10 +408,40 @@ class ServiceSignature extends ServiceBase {
     sourceInfo?: IDappSourceInfo,
   ) {
     try {
+      // A chain that discovers funds locally keeps its private activity off
+      // this archive: deleting local privacy data is supposed to remove what
+      // ties this device to that activity, and an archive entry outlives it.
+      const settings = await getVaultSettings({
+        networkId: data.decodedTx.networkId,
+      });
+      if (settings.localWallet) {
+        return;
+      }
       await this.addSignedTransactionFromSend(data, sourceInfo);
     } catch (e) {
       console.error(e);
     }
+  }
+
+  // Everything this device recorded about what the account signed. The chain
+  // history stays: it is public and the backend owns it.
+  @backgroundMethod()
+  async removeSignedTransactionsForAccount({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }): Promise<void> {
+    const address =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        networkId,
+        accountId,
+      });
+    if (!address) {
+      return;
+    }
+    await localDb.removeSignedTransactionsByAddress({ networkId, address });
   }
 
   private async addSignMessageFromDapp(data: {
