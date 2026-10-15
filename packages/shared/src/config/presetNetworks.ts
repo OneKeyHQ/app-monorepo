@@ -1401,6 +1401,56 @@ const bch: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
+// Zcash remains dev-only via SUPPORTED_IMPLS (not PRODUCTION_IMPLS). The test
+// environment indexes zec--0; keep it disabled by default until transaction
+// verification is complete.
+const zec: IServerNetwork = {
+  'chainId': '0',
+  'code': 'zec',
+  'decimals': 8,
+  'id': 'zec--0',
+  'impl': 'zec',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/zcash.png',
+  'name': 'Zcash',
+  'shortcode': 'zec',
+  'shortname': 'ZEC',
+  'symbol': 'ZEC',
+  'feeMeta': {
+    'decimals': 8,
+    'symbol': 'ZEC',
+  },
+  'defaultEnabled': false,
+  'backendIndex': true,
+  'status': ENetworkStatus.LISTED,
+};
+
+// Monero: client-scanned privacy chain. Scanning is opt-in per account and
+// costs the user real bandwidth, so the network ships disabled by default
+// until the send path and the four carriers are wired.
+const xmr: IServerNetwork = {
+  'chainId': '0',
+  'code': 'xmr',
+  'decimals': 12,
+  'id': 'xmr--0',
+  'impl': 'xmr',
+  'isTestnet': false,
+  'logoURI': 'https://common.onekey-asset.com/chain/monero.png',
+  'name': 'Monero',
+  'shortcode': 'xmr',
+  'shortname': 'XMR',
+  'symbol': 'XMR',
+  'feeMeta': {
+    'decimals': 12,
+    'symbol': 'XMR',
+  },
+  'defaultEnabled': false,
+  // No third-party indexer covers Monero: the runtime is the only source of
+  // balances and history, so there is no backend index to point at.
+  'backendIndex': false,
+  'status': ENetworkStatus.LISTED,
+};
+
 const ltc: IServerNetwork = {
   'chainId': '0',
   'code': 'ltc',
@@ -2350,11 +2400,13 @@ const chainsOnlyEnabledInDev = [
 ];
 
 export const presetNetworksMap = {
+  xmr,
   // btc & btc fork
   btc,
   doge,
   bch,
   ltc,
+  zec,
   neurai,
   tbtc,
   sbtc,
@@ -2522,6 +2574,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     doge,
     bch,
     ltc,
+    zec,
     neurai,
     tbtc,
     sbtc,
@@ -2609,6 +2662,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     nexa,
     kaspa,
     dnx,
+    xmr,
     fil,
     algo,
     sui,

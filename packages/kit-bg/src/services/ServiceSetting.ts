@@ -325,6 +325,10 @@ class ServiceSetting extends ServiceBase {
       await this.backgroundApi.simpleDb.localHistory.clearRawData();
       await this.backgroundApi.simpleDb.addressInfo.clearRawData();
       await this.backgroundApi.simpleDb.transferRecipientsCache.clear();
+      appEventBus.emit(EAppEventBusNames.RefreshHistoryList, undefined);
+      // Privacy-chain scan data is not cache: clearing it means rescanning
+      // from the birthday, which can take days. Its own settings page offers
+      // that explicitly.
     }
     if (values.swapHistory) {
       // clear swap history

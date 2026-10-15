@@ -77,6 +77,7 @@ import type ServicePrimeCloudSync from '../services/ServicePrimeCloudSync';
 import type ServicePrimeFreeTrial from '../services/ServicePrimeFreeTrial';
 import type ServicePrimeTransfer from '../services/ServicePrimeTransfer';
 // import type ServiceCronJob from './services/ServiceCronJob';
+import type ServicePrivacyChain from '../services/ServicePrivacyChain';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceQrWallet from '../services/ServiceQrWallet';
 import type ServiceReferralCode from '../services/ServiceReferralCode';
@@ -463,6 +464,10 @@ class BackgroundApiProxy
 
   get serviceCustomRpc(): ServiceCustomRpc {
     return this.getProxyService<ServiceCustomRpc>('serviceCustomRpc');
+  }
+
+  get servicePrivacyChain(): ServicePrivacyChain {
+    return this.getProxyService<ServicePrivacyChain>('servicePrivacyChain');
   }
 
   get serviceSignatureConfirm(): ServiceSignatureConfirm {

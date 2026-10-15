@@ -36,6 +36,7 @@ function useReceiveToken({
   isMultipleDerive,
   indexedAccountId,
   exchangeSource,
+  localWalletAddressForm,
   isAllNetworks,
 }: {
   accountId: string;
@@ -50,6 +51,7 @@ function useReceiveToken({
   };
   isMultipleDerive?: boolean;
   exchangeSource?: EExchangeId;
+  localWalletAddressForm?: 'public' | 'private';
 }) {
   const intl = useIntl();
   const {
@@ -173,6 +175,7 @@ function useReceiveToken({
             token: receiveToken,
             indexedAccountId,
             disableSelector: true,
+            localWalletAddressForm,
             switchEntry: resolvedSwitchEntry,
             allowAddressTypeMenu,
             source,
@@ -188,6 +191,7 @@ function useReceiveToken({
               token: receiveToken,
               indexedAccountId,
               disableSelector: true,
+              localWalletAddressForm,
               switchEntry: resolvedSwitchEntry,
               allowAddressTypeMenu,
               source,
@@ -365,6 +369,7 @@ function useReceiveToken({
       vaultSettings?.mergeDeriveAssetsEnabled,
       walletId,
       exchangeSource,
+      localWalletAddressForm,
       wallet?.type,
       isAllNetworks,
     ],

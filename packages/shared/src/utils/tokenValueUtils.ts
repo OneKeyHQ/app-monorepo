@@ -1,5 +1,7 @@
 import BigNumber from 'bignumber.js';
 
+import type { IBalanceStatus } from '../../types/token';
+
 export const UNAVAILABLE_DISPLAY = '--';
 
 // Fields typed as `string`/`number` on ITokenFiat may arrive null/undefined
@@ -45,6 +47,7 @@ export function isUnavailableOrZeroFiatValue(
 }
 
 type ITokenFiatValueShape = {
+  balanceStatus?: IBalanceStatus;
   fiatValue?: string | null;
   // Resolved shared-balance decision (ITokenFiat.sharedBalanceExcludedFromTotal,
   // set by sharedBalanceUtils): the row is displayed but must not be counted
@@ -129,4 +132,24 @@ export function sumTokenGroupsFiatValueIgnoringUnavailable(r: {
   addAll(r.tokens?.map);
   addAll(r.smallBalanceTokens?.map);
   return acc.toFixed();
+}
+
+// Only explicit completeness metadata changes aggregate display semantics.
+// Legacy tokens without a price retain their existing subtotal behavior.
+export function getTokenGroupsBalanceStatus(r: {
+  tokens?: { map?: Record<string, ITokenFiatValueShape | undefined> };
+  smallBalanceTokens?: {
+    map?: Record<string, ITokenFiatValueShape | undefined>;
+  };
+}): IBalanceStatus {
+  const entries = [
+    ...Object.values(r.tokens?.map ?? {}),
+    ...Object.values(r.smallBalanceTokens?.map ?? {}),
+  ];
+  if (entries.some((entry) => entry?.balanceStatus === 'unavailable')) {
+    return 'unavailable';
+  }
+  return entries.some((entry) => entry?.balanceStatus === 'partial')
+    ? 'partial'
+    : 'complete';
 }

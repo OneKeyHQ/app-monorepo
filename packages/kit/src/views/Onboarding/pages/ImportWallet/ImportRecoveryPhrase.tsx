@@ -43,6 +43,8 @@ export function ImportRecoveryPhrase() {
         return;
       }
 
+      // Zcash recovery starts only when the user explicitly enables privacy
+      // mode, which is also where the required recovery month is collected.
       navigation.push(EOnboardingPages.FinalizeWalletSetup, {
         mnemonic: params.mnemonic,
         mnemonicType: params.mnemonicType,

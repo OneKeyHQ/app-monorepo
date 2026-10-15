@@ -366,6 +366,9 @@ describe('ServiceAccount Keyless removal phase', () => {
             .fn()
             .mockResolvedValue(true),
         },
+        servicePrivacyChain: {
+          onWalletCreated: jest.fn().mockResolvedValue(undefined),
+        },
       },
     });
     jest.spyOn(service, 'getKeylessWallet').mockResolvedValue(undefined);

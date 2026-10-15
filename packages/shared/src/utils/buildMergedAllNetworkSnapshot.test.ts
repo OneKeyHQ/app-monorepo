@@ -10,7 +10,15 @@ import BigNumber from 'bignumber.js';
 
 import { TOKEN_LIST_HIGH_VALUE_MAX } from '@onekeyhq/shared/src/consts/walletConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import {
+  getAccountTokensBalanceStatus,
+  hasUnavailableAccountTokens,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
+import type {
+  IAccountToken,
+  IBalanceStatus,
+  ITokenFiat,
+} from '@onekeyhq/shared/types/token';
 
 import { buildMergedAllNetworkSnapshot } from './buildMergedAllNetworkSnapshot';
 
@@ -559,4 +567,115 @@ describe('buildMergedAllNetworkSnapshot', () => {
     ]);
     expect(snap.smallBalanceFiatValue).toBe('1');
   });
+});
+
+it('carries incomplete balance status through cached worth and only masks included accounts', () => {
+  const round = makeRound({
+    networkId: 'zec--0',
+    accountWorth: '0',
+    tokens: {
+      data: [makeToken('zec')],
+      keys: 'zec',
+      map: { zec: makeFiat('', { balanceStatus: 'partial' }) },
+    },
+  });
+  const snapshot = buildMergedAllNetworkSnapshot({
+    rounds: [round],
+    accountId: 'acc1',
+    mergeDeriveAssetsByNetworkId: {},
+  });
+  const key = accountUtils.buildAccountValueKey({
+    accountId: 'acc1',
+    networkId: 'zec--0',
+  });
+  expect(snapshot.accountsWorthStatus[key]).toBe('partial');
+  const tokensWorth = {
+    worth: {
+      ...snapshot.accountsWorth,
+      [accountUtils.buildAccountValueKey({
+        accountId: 'acc1',
+        networkId: 'evm--1',
+      })]: '10',
+    },
+    worthStatus: snapshot.accountsWorthStatus,
+  };
+  const params = {
+    accountId: 'acc1',
+    networkId: 'zec--0',
+    tokensWorth,
+    mergeDeriveAssetsEnabled: false,
+  };
+  expect(getAccountTokensBalanceStatus(params)).toBe('partial');
+  expect(
+    getAccountTokensBalanceStatus({ ...params, networkId: 'evm--1' }),
+  ).toBe('complete');
+  expect(
+    getAccountTokensBalanceStatus({
+      ...params,
+      networkId: 'evm--1',
+      mergeDeriveAssetsEnabled: true,
+    }),
+  ).toBe('partial');
+});
+
+// "--" only when a network could not be read; a chain the user never enabled
+// is left out of the total without marking it.
+it('marks the all-network total by its worst readable status', () => {
+  const key = (networkId: string) =>
+    accountUtils.buildAccountValueKey({ accountId: 'acc1', networkId });
+  const status = (worthStatus: Record<string, IBalanceStatus>) =>
+    getAccountTokensBalanceStatus({
+      accountId: 'acc1',
+      networkId: 'onekeyall--0',
+      tokensWorth: {
+        worth: Object.fromEntries(
+          Object.keys(worthStatus).map((k) => [k, '1']),
+        ),
+        worthStatus,
+      },
+      mergeDeriveAssetsEnabled: false,
+    });
+
+  expect(
+    status({ [key('xmr--0')]: 'notEnabled', [key('evm--1')]: 'complete' }),
+  ).toBe('complete');
+  expect(
+    status({ [key('zec--0')]: 'partial', [key('evm--1')]: 'complete' }),
+  ).toBe('partial');
+  // One unreadable network leaves the rest of the total standing.
+  expect(
+    status({ [key('zec--0')]: 'partial', [key('evm--1')]: 'unavailable' }),
+  ).toBe('partial');
+  expect(
+    status({ [key('xmr--0')]: 'unavailable', [key('evm--1')]: 'complete' }),
+  ).toBe('complete');
+  expect(
+    status({ [key('xmr--0')]: 'unavailable', [key('zec--0')]: 'unavailable' }),
+  ).toBe('unavailable');
+});
+
+// A single network that could not be read still reads as "--".
+it('keeps a single unreadable network unavailable', () => {
+  const key = accountUtils.buildAccountValueKey({
+    accountId: 'acc1',
+    networkId: 'xmr--0',
+  });
+  const tokensWorth = {
+    worth: { [key]: '0' },
+    worthStatus: { [key]: 'unavailable' as IBalanceStatus },
+  };
+  expect(
+    getAccountTokensBalanceStatus({
+      accountId: 'acc1',
+      networkId: 'xmr--0',
+      tokensWorth,
+      mergeDeriveAssetsEnabled: false,
+    }),
+  ).toBe('unavailable');
+  expect(
+    hasUnavailableAccountTokens({ networkId: 'xmr--0', tokensWorth }),
+  ).toBe(false);
+  expect(
+    hasUnavailableAccountTokens({ networkId: 'onekeyall--0', tokensWorth }),
+  ).toBe(true);
 });
