@@ -15,11 +15,16 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { createTradingViewNativeIndicatorSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
-import { createTradingViewNativeIndicatorSettingsValue } from './indicatorSettingsAdapter';
+import {
+  createTradingViewNativeIndicatorSettingsValue,
+  getTradingViewNativeIndicatorSettings,
+  getTradingViewNativeIndicatorSettingsValue,
+} from './indicatorSettingsAdapter';
 import { TradingViewMobileIndicatorEditor } from './TradingViewMobileIndicatorEditor';
 import TradingViewMobileIndicatorSettingsPage from './TradingViewMobileIndicatorSettingsPage';
 
 import type { ITradingViewNativeStorageNamespace } from './types';
+import type { ITradingViewIndicatorSettingsItem } from '../TradingViewChartControls/chartSettings';
 
 const mockPagePop = jest.fn();
 const mockPageSetSettings = jest.fn();
@@ -217,6 +222,66 @@ describe('TradingViewMobileIndicatorEditor', () => {
       }),
     );
   });
+
+  it.each(['RSI', 'BOLL'])(
+    'saves and reopens %s fractional periods as integers and keeps integer steps',
+    async (id) => {
+      const catalog = createTradingViewNativeIndicatorSettingsValue();
+      let settings = createTradingViewNativeIndicatorSettings();
+      const onSave = jest.fn((next: ITradingViewIndicatorSettingsItem) => {
+        settings = getTradingViewNativeIndicatorSettings({
+          ...catalog,
+          indicators: catalog.indicators.map((indicator) =>
+            indicator.id === id ? next : indicator,
+          ),
+        });
+      });
+      const { unmount, onClose, indicator } = renderEditor(id, onSave);
+      const inputId = 'mobile-indicator-number-parameter:period';
+      fireEvent.change(screen.getByTestId(inputId), {
+        target: { value: '14.5' },
+      });
+      fireEvent.click(screen.getByTestId('mobile-indicator-save'));
+      await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+      expect(onSave).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          parameters: expect.arrayContaining([
+            expect.objectContaining({ id: 'period', value: 15 }),
+          ]),
+        }),
+      );
+      unmount();
+
+      const restored = getTradingViewNativeIndicatorSettingsValue(
+        settings,
+      ).indicators.find((item) => item.id === id);
+      if (!restored) {
+        throw new OneKeyLocalError(`Missing saved indicator ${id}`);
+      }
+      render(
+        <TradingViewMobileIndicatorEditor
+          indicator={restored}
+          defaultIndicator={indicator}
+          onSave={onSave}
+          onClose={onClose}
+        />,
+      );
+      const input = screen.getByTestId(inputId) as HTMLInputElement;
+      expect(input.value).toBe('15');
+      fireEvent.change(input, { target: { value: '14.5' } });
+      fireEvent.click(screen.getByTestId(`${inputId}-increment`));
+      expect(input.value).toBe('16');
+      fireEvent.click(screen.getByTestId('mobile-indicator-save'));
+      await waitFor(() => expect(onClose).toHaveBeenCalledTimes(2));
+      expect(onSave).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          parameters: expect.arrayContaining([
+            expect.objectContaining({ id: 'period', value: 16 }),
+          ]),
+        }),
+      );
+    },
+  );
 
   it('preserves existing fractional band thresholds when saving a color change', async () => {
     const defaultIndicator = getIndicator('RSI');

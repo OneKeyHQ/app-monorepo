@@ -12,6 +12,8 @@ import {
   mergeMobileIndicatorSettings,
   normalizeMobileIndicatorNumber,
 } from './mobileIndicatorSettingsUtils';
+import { TRADING_VIEW_NATIVE_SUB_INDICATORS } from './utils/chartIndicators';
+import { getTradingViewNativeSubIndicatorDefinition } from './utils/subIndicatorRender';
 
 import type { IMobileIndicatorNumberField } from './mobileIndicatorSettingsUtils';
 
@@ -32,6 +34,28 @@ describe('mobile indicator numeric drafts', () => {
     expect(getTradingViewNativeIndicatorSettings(next)).toEqual(
       getTradingViewNativeIndicatorSettings(value),
     );
+  });
+
+  it.each(
+    TRADING_VIEW_NATIVE_SUB_INDICATORS.flatMap((id) =>
+      getTradingViewNativeSubIndicatorDefinition(id)
+        .inputs.filter((input) => input.type === 'integer')
+        .map((input) => [id, input.id] as const),
+    ),
+  )('normalizes the integer %s %s input before saving', (id, inputId) => {
+    const indicator = value.indicators.find((item) => item.id === id);
+    if (!indicator) {
+      throw new OneKeyLocalError(`Missing indicator ${id}`);
+    }
+    const edited = applyMobileIndicatorNumberDrafts(indicator, {
+      ...createMobileIndicatorNumberDrafts(indicator),
+      [`parameter:${inputId}`]: '14.5',
+    });
+    const saved = getTradingViewNativeIndicatorSettings({
+      ...value,
+      indicators: [edited],
+    });
+    expect(saved.subIndicators[0]?.parameters[inputId]).toBe(15);
   });
 
   it.each(
