@@ -3786,9 +3786,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
       (await deviceUtils.buildDeviceUSBConnectId({
         features: releaseResult.features,
       }));
-    const deviceId = releaseResult.features?.device_id?.trim();
-    const expectedDeviceId =
-      deviceId && !/^0+$/.test(deviceId) ? deviceId : undefined;
+    const expectedDeviceId = [
+      releaseResult.features?.deviceId,
+      releaseResult.features?.device_id,
+    ]
+      .map((id) => id?.trim())
+      .find((id) => id && !/^0+$/.test(id));
     if (
       !expectedSerial &&
       !expectedDeviceId &&

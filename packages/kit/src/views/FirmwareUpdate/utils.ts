@@ -54,11 +54,17 @@ export async function getFirmwareUpdateUSBPreflightParams(
         features: result.features,
       })
     : result?.isBootloaderMode;
-  const deviceId = result?.features?.device_id?.trim();
+  const hasDeviceId = [
+    result?.features?.deviceId,
+    result?.features?.device_id,
+  ].some((id) => {
+    const value = id?.trim();
+    return value && !/^0+$/.test(value);
+  });
   const bootloaderRecoveryDeviceType =
     isBootloaderMode &&
     !usbConnectId &&
-    (!deviceId || /^0+$/.test(deviceId)) &&
+    !hasDeviceId &&
     result?.deviceType !== EDeviceType.Unknown
       ? result?.deviceType
       : undefined;

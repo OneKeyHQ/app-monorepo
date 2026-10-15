@@ -300,6 +300,36 @@ describe('ServiceFirmwareUpdate desktop USB target validation', () => {
     },
   );
 
+  it.each([true, false])(
+    'validates canonical wallet identity despite zero-filled legacy fields (matches: %s)',
+    async (matches) => {
+      const { service, params, getDeviceState } = createFixture();
+      params.releaseResult.deviceUUID = '000000';
+      params.releaseResult.features = {
+        serialNo: '000000',
+        device_id: '000000',
+        deviceId: 'TARGET_WALLET',
+      } as IOneKeyDeviceFeatures;
+      getDeviceState.mockResolvedValue({
+        identity: {
+          deviceType: params.releaseResult.deviceType,
+          deviceId: matches ? 'TARGET_WALLET' : 'OTHER_WALLET',
+        },
+        status: { mode: 'normal' },
+      });
+      if (matches)
+        await expect(
+          service.validateUSBConnection(params),
+        ).resolves.toBeUndefined();
+      else
+        await expect(
+          service.validateUSBConnection(params),
+        ).rejects.toMatchObject({
+          code: HardwareErrorCode.DeviceCheckDeviceIdError,
+        });
+    },
+  );
+
   it.each(
     (['bootloader', 'romloader', 'normal'] as const).flatMap((mode) =>
       ['', '000000000000000000000000'].map((identity) => ({ mode, identity })),
@@ -312,6 +342,7 @@ describe('ServiceFirmwareUpdate desktop USB target validation', () => {
       params.releaseResult.features = {
         serialNo: identity,
         device_id: identity,
+        deviceId: identity,
       } as IOneKeyDeviceFeatures;
       params.releaseResult.isBootloaderMode = true;
       getDeviceState.mockResolvedValue({
