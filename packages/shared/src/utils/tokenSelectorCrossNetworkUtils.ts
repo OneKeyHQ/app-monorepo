@@ -25,6 +25,13 @@ function isCjkCodePoint(codePoint: number): boolean {
   );
 }
 
+// A separator-free keyword of address-like length is treated as a pasted
+// contract address, which must reach the backend verbatim.
+export function isAddressLikeTokenSearchKeywords(keywords?: string) {
+  const trimmedKeywords = keywords?.trim() ?? '';
+  return trimmedKeywords.length >= 20 && !/\s/.test(trimmedKeywords);
+}
+
 // Splits a raw search string into lowercase words on whitespace, common
 // symbol-network separators (- _ / +), and ASCII↔CJK boundaries, so grassroots
 // spellings like "USDT-Trc20" or "usdt波场" become ['usdt', 'trc20'-like]

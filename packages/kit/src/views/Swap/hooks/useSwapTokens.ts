@@ -230,17 +230,13 @@ export function useSwapTokenList(
     swapSupportAllNetworks,
   ]);
 
-  const allNetworksId = useMemo(
-    () =>
-      swapSupportAllNetworks.find((network) => network.isAllNetworks)
-        ?.networkId,
-    [swapSupportAllNetworks],
-  );
   const searchNetworkId = resolveSwapTokenSearchNetworkId({
     selectedNetworkId: currentSelectNetwork?.networkId,
     keywords,
     swapType: from,
-    allNetworksId,
+    allNetworksId: swapSupportAllNetworks.find(
+      (network) => network.isAllNetworks,
+    )?.networkId,
   });
 
   const tokenFetchParams = useMemo(() => {
@@ -803,6 +799,8 @@ export function useSwapTokenList(
     fetchLoading,
     lpTokenRequestLoading,
     currentTokens,
+    // Differs from the selected network when an address search was widened.
+    searchNetworkId,
   };
 }
 

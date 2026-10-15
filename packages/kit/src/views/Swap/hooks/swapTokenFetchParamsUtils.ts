@@ -1,16 +1,10 @@
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
+import { isAddressLikeTokenSearchKeywords } from '@onekeyhq/shared/src/utils/tokenSelectorCrossNetworkUtils';
 import { swapStockTokenListMaxCount } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapTabSwitchType,
   type IFetchTokensParams,
 } from '@onekeyhq/shared/types/swap/types';
-
-// Mirrors the TokenSelector heuristic: a separator-free keyword of
-// address-like length is treated as a pasted contract address.
-export function isSwapAddressLikeKeywords(keywords?: string) {
-  const trimmedKeywords = keywords?.trim() ?? '';
-  return trimmedKeywords.length >= 20 && !/\s/.test(trimmedKeywords);
-}
 
 // A pasted contract address searches every network, because users often do
 // not know which chain the address belongs to. The selected network is kept
@@ -29,7 +23,7 @@ export function resolveSwapTokenSearchNetworkId({
   if (
     !allNetworksId ||
     swapType === ESwapTabSwitchType.STOCK ||
-    !isSwapAddressLikeKeywords(keywords)
+    !isAddressLikeTokenSearchKeywords(keywords)
   ) {
     return selectedNetworkId;
   }

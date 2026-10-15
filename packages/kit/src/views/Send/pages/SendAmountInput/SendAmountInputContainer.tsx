@@ -4552,8 +4552,16 @@ function SendAmountInputContainer() {
 
   // Heights that feed the mobile private amount padding below. Only measured
   // on phones; desktop, web and tablet never read them.
-  const [regularBalanceCardHeight, handleRegularBalanceCardLayout] =
-    useMeasuredHeight();
+  // The regular card height is read only when the private tab renders (which
+  // re-renders anyway), so a ref spares the regular tab an extra render of
+  // this page after every card layout.
+  const regularBalanceCardHeightRef = useRef<number | undefined>(undefined);
+  const handleRegularBalanceCardLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      regularBalanceCardHeightRef.current = event.nativeEvent.layout.height;
+    },
+    [],
+  );
   const [privateSendFooterHelpHeight, handlePrivateSendFooterHelpLayout] =
     useMeasuredHeight();
   const [privateSendQuoteCardHeight, handlePrivateSendQuoteCardLayout] =
@@ -4983,7 +4991,7 @@ function SendAmountInputContainer() {
     let regularCardHeight = 0;
     if (showBalanceCardRow) {
       regularCardHeight =
-        regularBalanceCardHeight ??
+        regularBalanceCardHeightRef.current ??
         sizeValue(BALANCE_CARD_ICON_SIZE_TOKEN) + cardPaddingY * 2;
     }
     return (
@@ -5005,7 +5013,6 @@ function SendAmountInputContainer() {
     isPrivateSendQuoteDetailsExpanded,
     privateSendFooterHelpHeight,
     privateSendQuoteCardHeight,
-    regularBalanceCardHeight,
     showBalanceCardRow,
   ]);
 

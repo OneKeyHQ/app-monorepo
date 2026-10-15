@@ -5,6 +5,7 @@ import {
   buildCrossNetworkSearchListData,
   extractCrossNetworkSearchQuery,
   getTokenNetworkAliasMap,
+  isAddressLikeTokenSearchKeywords,
   isTokenSelectorSyntheticRow,
   tokenizeTokenSearchKeywords,
 } from './tokenSelectorCrossNetworkUtils';
@@ -451,5 +452,28 @@ describe('getTokenNetworkAliasMap', () => {
     expect(map[networkIds.trx]).toEqual(['trc20', '波场', '波場']);
     expect(map[networkIds.eth]).toEqual(['erc20']);
     expect(map[networkIds.bsc]).toEqual(['bep20']);
+  });
+});
+
+describe('isAddressLikeTokenSearchKeywords', () => {
+  it('detects pasted contract addresses', () => {
+    expect(
+      isAddressLikeTokenSearchKeywords(
+        '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+      ),
+    ).toBe(true);
+    expect(
+      isAddressLikeTokenSearchKeywords(
+        ' EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v ',
+      ),
+    ).toBe(true);
+  });
+
+  it('ignores names, symbols and multi-word queries', () => {
+    expect(isAddressLikeTokenSearchKeywords(undefined)).toBe(false);
+    expect(isAddressLikeTokenSearchKeywords('USDC')).toBe(false);
+    expect(isAddressLikeTokenSearchKeywords('usd coin on arbitrum one')).toBe(
+      false,
+    );
   });
 });

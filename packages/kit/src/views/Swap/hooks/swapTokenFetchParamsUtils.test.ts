@@ -3,7 +3,6 @@ import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import {
   buildSwapTokenFetchParams,
-  isSwapAddressLikeKeywords,
   resolveSwapTokenSearchNetworkId,
 } from './swapTokenFetchParamsUtils';
 
@@ -139,25 +138,6 @@ describe('buildSwapTokenFetchParams', () => {
         shouldUseCurrentAccountAddress: false,
       }),
     ).not.toHaveProperty('onlySwapTokens');
-  });
-});
-
-describe('isSwapAddressLikeKeywords', () => {
-  it('detects pasted contract addresses', () => {
-    expect(
-      isSwapAddressLikeKeywords('0xaf88d065e77c8cC2239327C5EDb3A432268e5831'),
-    ).toBe(true);
-    expect(
-      isSwapAddressLikeKeywords(
-        ' EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v ',
-      ),
-    ).toBe(true);
-  });
-
-  it('ignores names, symbols and multi-word queries', () => {
-    expect(isSwapAddressLikeKeywords(undefined)).toBe(false);
-    expect(isSwapAddressLikeKeywords('USDC')).toBe(false);
-    expect(isSwapAddressLikeKeywords('usd coin on arbitrum one')).toBe(false);
   });
 });
 

@@ -90,7 +90,6 @@ import {
   SwapTokenSelectorDesktop,
   buildSwapTokenSelectorAssetNetworks,
 } from '../../components/SwapTokenSelectorDesktop';
-import { isSwapAddressLikeKeywords } from '../../hooks/swapTokenFetchParamsUtils';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapTokenRiskCheck } from '../../hooks/useSwapTokenRiskCheck';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
@@ -639,7 +638,7 @@ const SwapTokenSelectPage = ({
         : undefined,
     [isSwapStockSelectTarget],
   );
-  const { fetchLoading, currentTokens } = useSwapTokenList(
+  const { fetchLoading, currentTokens, searchNetworkId } = useSwapTokenList(
     type,
     currentSelectNetwork?.networkId,
     requestedSearchKeyword,
@@ -772,19 +771,39 @@ const SwapTokenSelectPage = ({
     stockSearchFallbackTokens.length > 0
       ? stockSearchFallbackTokens
       : currentTokens;
-  // Address searches span every network (see useSwapTokenList); group the
-  // results so the selected network's matches stay on top.
+  // useSwapTokenList widens pasted-address searches to all networks; group
+  // those results so the selected network's matches stay on top.
   const groupedSearchNetworkId =
-    !isSwapStockSelectTarget &&
-    !currentSelectNetwork?.isAllNetworks &&
-    isSwapAddressLikeKeywords(requestedSearchKeyword)
+    searchNetworkId !== currentSelectNetwork?.networkId
       ? currentSelectNetwork?.networkId
       : undefined;
-  const showSearchSectionTitles =
-    Boolean(requestedSearchKeyword) &&
-    !isSwapStockSelectTarget &&
-    Boolean(currentSelectNetwork?.name) &&
-    !currentSelectNetwork?.isAllNetworks;
+  // Search results on a concrete network are titled by scope.
+  const searchSectionTitles = useMemo(() => {
+    const networkName = currentSelectNetwork?.name;
+    if (
+      !requestedSearchKeyword ||
+      isSwapStockSelectTarget ||
+      currentSelectNetwork?.isAllNetworks ||
+      !networkName
+    ) {
+      return undefined;
+    }
+    return {
+      selectedNetwork: intl.formatMessage(
+        { id: ETranslations.title_tokens_on_network },
+        { network: networkName },
+      ),
+      otherNetworks: intl.formatMessage({
+        id: ETranslations.title_tokens_on_other,
+      }),
+    };
+  }, [
+    currentSelectNetwork?.isAllNetworks,
+    currentSelectNetwork?.name,
+    intl,
+    isSwapStockSelectTarget,
+    requestedSearchKeyword,
+  ]);
   const { tokens: displayTokens, otherNetworkStartIndex } = useMemo(
     () =>
       groupSwapSearchTokensBySelectedNetwork({
@@ -1038,20 +1057,11 @@ const SwapTokenSelectPage = ({
         ),
         badgeText,
       };
-      // Search results on a concrete network are titled by scope; address
-      // searches may add a second section for other-network matches.
       let sectionTitle: string | undefined;
-      if (showSearchSectionTitles) {
-        if (otherNetworkStartIndex === index) {
-          sectionTitle = intl.formatMessage({
-            id: ETranslations.title_tokens_on_other,
-          });
-        } else if (index === 0) {
-          sectionTitle = intl.formatMessage(
-            { id: ETranslations.title_tokens_on_network },
-            { network: currentSelectNetwork?.name ?? '' },
-          );
-        }
+      if (searchSectionTitles && index === otherNetworkStartIndex) {
+        sectionTitle = searchSectionTitles.otherNetworks;
+      } else if (searchSectionTitles && index === 0) {
+        sectionTitle = searchSectionTitles.selectedNetwork;
       }
       return (
         <>
@@ -1136,8 +1146,7 @@ const SwapTokenSelectPage = ({
     [
       alertIndex,
       otherNetworkStartIndex,
-      showSearchSectionTitles,
-      currentSelectNetwork?.name,
+      searchSectionTitles,
       copyText,
       disableNetworks,
       intl,
