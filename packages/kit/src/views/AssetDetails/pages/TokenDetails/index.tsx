@@ -851,7 +851,7 @@ function TokenDetailsView() {
       return (
         <TokenDetailsViews
           accountId={collapsedNetworkAccount.account.id}
-          networkId={tokenInfo.networkId ?? ''}
+          networkId={tokenInfo.networkId ?? networkId}
           walletId={walletId}
           deriveInfo={collapsedNetworkAccount.deriveInfo}
           deriveType={collapsedNetworkAccount.deriveType}
