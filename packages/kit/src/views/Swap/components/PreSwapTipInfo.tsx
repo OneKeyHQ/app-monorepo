@@ -38,6 +38,7 @@ const PreSwapTipInfo = ({
 }: IPreSwapTipInfoProps) => {
   const intl = useIntl();
   const { md } = useMedia();
+  const buttonSize = md ? 'large' : 'medium';
   const [checked, setChecked] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -176,7 +177,7 @@ const PreSwapTipInfo = ({
           <Button
             flex={1}
             variant="secondary"
-            size={md ? 'large' : 'medium'}
+            size={buttonSize}
             onPress={handleCancel}
             testID="swap-btn"
           >
@@ -187,7 +188,7 @@ const PreSwapTipInfo = ({
           testID="swap-btn"
           flex={1}
           variant="destructive"
-          size={md ? 'large' : 'medium'}
+          size={buttonSize}
           onPress={handleConfirm}
           disabled={isContinueDisabled}
         >
