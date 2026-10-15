@@ -41,6 +41,7 @@ import {
 } from '../utils/chartRuntime';
 import {
   getTradingViewNativeDataUpdateMetadata,
+  getTradingViewNativePanStartOffsetAfterViewportPreservation,
   getTradingViewNativeViewportPointRange,
 } from '../utils/chartViewport';
 import { getTradingViewNativeMainPriceRange } from '../utils/mainPriceRange';
@@ -978,6 +979,12 @@ export const TradingViewNativeChart = memo(
               zoomScale: dragState.zoomScale,
             },
           );
+          dragState.startOffset =
+            getTradingViewNativePanStartOffsetAfterViewportPreservation({
+              currentTranslationX: event.clientX - dragState.startClientX,
+              dragRatio: 1,
+              preservedOffset: nextRuntimeState.viewport.offset,
+            });
           runtimeStateRef.current = nextRuntimeState;
           renderChart();
           setViewportState((currentState) =>

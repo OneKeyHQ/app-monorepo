@@ -20,6 +20,7 @@ import { getTradingViewNativeChartWidth } from '../utils/chartLayout';
 import { reduceTradingViewNativeChartRuntime } from '../utils/chartRuntime';
 import {
   getTradingViewNativePanOffsetBounds,
+  getTradingViewNativePanStartOffsetAfterViewportPreservation,
   getTradingViewNativePointIndexAtX,
   getTradingViewNativeRelativePinchScale,
 } from '../utils/chartViewport';
@@ -278,7 +279,6 @@ export function useTradingViewNativeChartGestures({
     // Leave vertical drags available to the enclosing page.
     const panGesture = Gesture.Pan()
       .activeOffsetX([-4, 4])
-      .failOffsetY([-12, 12])
       .maxPointers(1)
       .onTouchesDown((event, stateManager) => {
         'worklet';
@@ -352,6 +352,12 @@ export function useTradingViewNativeChartGestures({
           ...nextRuntimeState,
           panGesture: {
             ...runtime.panGesture,
+            startOffset:
+              getTradingViewNativePanStartOffsetAfterViewportPreservation({
+                currentTranslationX: translationX,
+                dragRatio: TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
+                preservedOffset: nextOffset,
+              }),
             translationX,
           },
         };
@@ -391,7 +397,11 @@ export function useTradingViewNativeChartGestures({
       });
 
     if (shouldWaitForPageScroll) {
+      // The page already selects the direction. An independent Y failure could
+      // reject the same diagonal move that failed the page's X threshold.
       panGesture.requireExternalGestureToFail(...headerScrollGestures);
+    } else {
+      panGesture.failOffsetY([-12, 12]);
     }
 
     const timeAxisScaleGesture = Gesture.Pan()

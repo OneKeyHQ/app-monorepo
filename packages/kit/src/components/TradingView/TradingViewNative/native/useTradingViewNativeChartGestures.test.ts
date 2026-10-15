@@ -467,6 +467,35 @@ describe('horizontal chart panning', () => {
     ).not.toHaveBeenCalled();
   });
 
+  it.each([-1, 1])(
+    'continues a diagonal first move after the page rejects its horizontal direction (%i)',
+    (direction) => {
+      const headerScrollGesture = Gesture.Pan();
+      const { chartRuntime, contentPanGesture } = renderChartGestures({
+        headerScrollGestures: [headerScrollGesture],
+        prioritizePageScroll: true,
+      });
+
+      // Native recognizers check failure before activation. A first move of
+      // (30, 13) must not also fail the chart after the page rejects X > 12.
+      expect(contentPanGesture.failOffsetY).not.toHaveBeenCalled();
+      expect(contentPanGesture.activeOffsetX).toHaveBeenCalledWith([-4, 4]);
+      expect(
+        contentPanGesture.requireExternalGestureToFail,
+      ).toHaveBeenCalledWith(headerScrollGesture);
+      contentPanGesture.handlers.onStart?.({ translationX: direction * 30 });
+      contentPanGesture.handlers.onUpdate?.({
+        translationX: direction * 50,
+        translationY: 13,
+      });
+
+      expect(chartRuntime.value.viewport.offset).toBeCloseTo(
+        direction * 20 * TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
+      );
+      expect(chartRuntime.value.pinnedPriceRange).toBeNull();
+    },
+  );
+
   it.each([-24, 0, 24])(
     'keeps panning continuous after history preserves the viewport (activation at %i px)',
     (activationTranslationX) => {
@@ -549,6 +578,13 @@ describe('horizontal chart panning', () => {
         translationY: 0,
       });
       expect(chartRuntime.value.viewport.offset).toBe(boundaryOffset);
+      contentPanGesture.handlers.onUpdate?.({
+        translationX: direction * (200_000 - 20),
+        translationY: 0,
+      });
+      const reversedOffset =
+        boundaryOffset - direction * 20 * TRADING_VIEW_NATIVE_PAN_DRAG_RATIO;
+      expect(chartRuntime.value.viewport.offset).toBeCloseTo(reversedOffset);
       contentPanGesture.handlers.onFinalize?.();
       contentPanGesture.handlers.onStart?.();
       contentPanGesture.handlers.onUpdate?.({
@@ -556,7 +592,7 @@ describe('horizontal chart panning', () => {
         translationY: 0,
       });
       expect(chartRuntime.value.viewport.offset).toBeCloseTo(
-        boundaryOffset - direction * 20 * TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
+        reversedOffset - direction * 20 * TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
       );
     },
   );
