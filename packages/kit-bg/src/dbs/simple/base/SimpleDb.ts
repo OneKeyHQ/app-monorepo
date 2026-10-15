@@ -894,4 +894,17 @@ export class SimpleDb {
     Object.defineProperty(this, 'walletConnectPay', { value });
     return value;
   }
+
+  get binanceDeposit() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@binanceDeposit',
+      loader: () =>
+        import('../entity/SimpleDbEntityBinanceDeposit').then(
+          ({ SimpleDbEntityBinanceDeposit }) =>
+            new SimpleDbEntityBinanceDeposit(),
+        ),
+    });
+    Object.defineProperty(this, 'binanceDeposit', { value });
+    return value;
+  }
 }

@@ -15,6 +15,7 @@ import type { SimpleDbEntityAppCleanup } from '../entity/SimpleDbEntityAppCleanu
 import type { SimpleDbEntityApproval } from '../entity/SimpleDbEntityApproval';
 import type { SimpleDbEntityAppStatus } from '../entity/SimpleDbEntityAppStatus';
 import type { SimpleDbEntityBabylonSync } from '../entity/SimpleDbEntityBabylonSync';
+import type { SimpleDbEntityBinanceDeposit } from '../entity/SimpleDbEntityBinanceDeposit';
 import type { SimpleDbEntityBotWallet } from '../entity/SimpleDbEntityBotWallet';
 import type { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
 import type { SimpleDbEntityBrowserClosedTabs } from '../entity/SimpleDbEntityBrowserClosedTabs';
@@ -338,4 +339,8 @@ export class SimpleDbProxy
   walletConnectPay = this._createProxyService(
     'walletConnectPay',
   ) as SimpleDbEntityWalletConnectPay;
+
+  binanceDeposit = this._createProxyService(
+    'binanceDeposit',
+  ) as SimpleDbEntityBinanceDeposit;
 }

@@ -93,6 +93,11 @@ import { getAccountIdOnNetwork } from '../../../ScanQrCode/utils/getAccountIdOnN
 import { parseOnChainAmount } from '../../../ScanQrCode/utils/parseOnChainAmount';
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
 
+import {
+  BinanceDepositEntry,
+  BinanceDepositRecipientCard,
+} from './BinanceDeposit/BinanceDepositRecipient';
+import { useBinanceDepositRecipient } from './BinanceDeposit/useBinanceDepositRecipient';
 import RecipientQuickSelect from './RecipientQuickSelect';
 import {
   getSendAddressRiskCheckButtonState,
@@ -182,6 +187,16 @@ function SendDataInputContainer() {
     accountId,
     networkId,
   });
+  const binanceDeposit = useBinanceDepositRecipient({
+    networkId: currentAccount.networkId,
+    token: tokenInfo,
+    isNFT,
+  });
+  const binanceDepositSnapshot = binanceDeposit.snapshot;
+  const binanceDestination =
+    binanceDepositSnapshot?.phase === 'authorized'
+      ? binanceDepositSnapshot.destination
+      : undefined;
   const addressRiskContextRef = useRef<{
     networkId: string;
     address?: string;
@@ -861,6 +876,47 @@ function SendDataInputContainer() {
     onCancel,
     intl,
     network?.name,
+  ]);
+
+  // The recipient and its tag come from the released Binance destination
+  // only; nothing on this page can edit them.
+  const handleBinanceDepositNext = useCallback(() => {
+    if (!binanceDepositSnapshot || !binanceDestination) {
+      return;
+    }
+    pushAmountInput({
+      networkId: currentAccount.networkId,
+      accountId: currentAccount.accountId,
+      isNFT,
+      token: tokenInfo,
+      nfts,
+      recipientAddress: binanceDestination.address,
+      recipientMemo: binanceDestination.addressTag,
+      amount: sendAmount || undefined,
+      isAllNetworks,
+      binanceDeposit: {
+        localId: binanceDepositSnapshot.localId,
+        cryptoCurrency: binanceDestination.cryptoCurrency,
+        minAmount: binanceDestination.minAmount,
+      },
+      onSuccess,
+      onFail,
+      onCancel,
+    });
+  }, [
+    binanceDepositSnapshot,
+    binanceDestination,
+    currentAccount.accountId,
+    currentAccount.networkId,
+    isAllNetworks,
+    isNFT,
+    nfts,
+    onCancel,
+    onFail,
+    onSuccess,
+    pushAmountInput,
+    sendAmount,
+    tokenInfo,
   ]);
 
   const handleNavigateToAmountInput = useCallback(async () => {
@@ -1553,74 +1609,99 @@ function SendDataInputContainer() {
                 </ListItem>
               </Form.Field>
             ) : null}
-            <AddressInputField
-              name="to"
-              labelAddon={addressRiskCheckLabelAddon}
-              testID={SendTestIDs.recipientInput}
-              numberOfLines={
-                networkUtils.isLightningNetworkByNetworkId(
-                  currentAccount.networkId,
-                )
-                  ? 5
-                  : 2
-              }
-              actionsLayout="recipient"
-              placeholder={
-                // Lightning has its own placeholder ("Enter invoice, Lightning Address or LNURL")
-                networkUtils.isLightningNetworkByNetworkId(
-                  currentAccount.networkId,
-                )
-                  ? undefined
-                  : intl.formatMessage({
-                      id: ETranslations.search_or_paste_address__desc,
-                    })
-              }
-              onScanResult={onScanResult}
-              accountId={currentAccount.accountId}
-              networkId={currentAccount.networkId}
-              enableAddressBook
-              enableWalletName
-              enableVerifySendFundToSelf
-              enableAddressInteractionStatus
-              enableAddressContract
-              enableAllowListValidation={enableAllowListValidation}
-              onInputTypeChange={handleAddressInputChangeType}
-              hideNonBackedUpWallet
-              ignoreSimilarAddressInAddressBook
-              enableCheckSimilarAddressInAddressBook
-              hasQuickSelectMatches={hasQuickSelectMatches}
-              tokenAddress={badgeQueryTokenAddress}
-            />
-            {toSimilarAddress ? (
-              <Alert
-                type="warning"
-                title={intl.formatMessage({
-                  id: ETranslations.wallet_address_poisoning_alert,
-                })}
+            {binanceDepositSnapshot ? (
+              <BinanceDepositRecipientCard
+                snapshot={binanceDepositSnapshot}
+                isBusy={binanceDeposit.isBusy}
+                onOpenBinance={() => void binanceDeposit.reopenBinance()}
+                onRetry={() => void binanceDeposit.retryCreate()}
+                onRestart={() => void binanceDeposit.start()}
+                onExit={() => void binanceDeposit.exit()}
               />
-            ) : null}
-            {renderDataInput()}
-            <RecipientQuickSelect
-              accountId={currentAccount.accountId}
-              networkId={currentAccount.networkId}
-              senderDeriveType={senderDeriveType}
-              searchKey={toAddressRaw}
-              isSearchMode={!!toAddressRaw?.trim()}
-              activeTab={quickSelectActiveTab}
-              onActiveTabChange={setQuickSelectActiveTab}
-              onInputTypeChange={handleAddressInputChangeType}
-              onMatchStatusChange={setHasQuickSelectMatches}
-              onSelect={handleQuickSelectRecipient}
-              hideTabs={recipientHiddenTabs}
-              keylessWalletsOnly={keylessWalletsOnly}
-            />
+            ) : (
+              <>
+                <AddressInputField
+                  name="to"
+                  labelAddon={addressRiskCheckLabelAddon}
+                  testID={SendTestIDs.recipientInput}
+                  numberOfLines={
+                    networkUtils.isLightningNetworkByNetworkId(
+                      currentAccount.networkId,
+                    )
+                      ? 5
+                      : 2
+                  }
+                  actionsLayout="recipient"
+                  placeholder={
+                    // Lightning has its own placeholder ("Enter invoice, Lightning Address or LNURL")
+                    networkUtils.isLightningNetworkByNetworkId(
+                      currentAccount.networkId,
+                    )
+                      ? undefined
+                      : intl.formatMessage({
+                          id: ETranslations.search_or_paste_address__desc,
+                        })
+                  }
+                  onScanResult={onScanResult}
+                  accountId={currentAccount.accountId}
+                  networkId={currentAccount.networkId}
+                  enableAddressBook
+                  enableWalletName
+                  enableVerifySendFundToSelf
+                  enableAddressInteractionStatus
+                  enableAddressContract
+                  enableAllowListValidation={enableAllowListValidation}
+                  onInputTypeChange={handleAddressInputChangeType}
+                  hideNonBackedUpWallet
+                  ignoreSimilarAddressInAddressBook
+                  enableCheckSimilarAddressInAddressBook
+                  hasQuickSelectMatches={hasQuickSelectMatches}
+                  tokenAddress={badgeQueryTokenAddress}
+                />
+                {toSimilarAddress ? (
+                  <Alert
+                    type="warning"
+                    title={intl.formatMessage({
+                      id: ETranslations.wallet_address_poisoning_alert,
+                    })}
+                  />
+                ) : null}
+                {renderDataInput()}
+                {binanceDeposit.asset ? (
+                  <BinanceDepositEntry
+                    isLoading={binanceDeposit.isBusy}
+                    onPress={() => void binanceDeposit.start()}
+                  />
+                ) : null}
+                <RecipientQuickSelect
+                  accountId={currentAccount.accountId}
+                  networkId={currentAccount.networkId}
+                  senderDeriveType={senderDeriveType}
+                  searchKey={toAddressRaw}
+                  isSearchMode={!!toAddressRaw?.trim()}
+                  activeTab={quickSelectActiveTab}
+                  onActiveTabChange={setQuickSelectActiveTab}
+                  onInputTypeChange={handleAddressInputChangeType}
+                  onMatchStatusChange={setHasQuickSelectMatches}
+                  onSelect={handleQuickSelectRecipient}
+                  hideTabs={recipientHiddenTabs}
+                  keylessWalletsOnly={keylessWalletsOnly}
+                />
+              </>
+            )}
           </Form>
         </AccountSelectorProviderMirror>
       </Page.Body>
-      {(toResolved && !toPending) || isSubmitting ? (
+      {(binanceDepositSnapshot
+        ? !!binanceDestination
+        : toResolved && !toPending) || isSubmitting ? (
         <Page.Footer>
           <Page.FooterActions
-            onConfirm={handleNavigateToAmountInput}
+            onConfirm={
+              binanceDepositSnapshot
+                ? handleBinanceDepositNext
+                : handleNavigateToAmountInput
+            }
             onConfirmText={intl.formatMessage({
               id: ETranslations.global_next,
             })}
@@ -1632,7 +1713,7 @@ function SendDataInputContainer() {
               // Only disable for data-step field errors or in-flight validation.
               // handleNavigateToAmountInput still calls form.trigger() as a final
               // guard before navigating.
-              disabled: isNextDisabled,
+              disabled: binanceDepositSnapshot ? false : isNextDisabled,
             }}
           />
         </Page.Footer>

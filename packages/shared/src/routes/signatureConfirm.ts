@@ -18,6 +18,7 @@ import type {
 } from './assetSelector';
 import type { INetworkAccount } from '../../types/account';
 import type { EDeriveAddressActionType } from '../../types/address';
+import type { IBinanceDepositSendContext } from '../../types/exchange';
 import type { IGasAccountScenario } from '../../types/fee';
 import type { IAccountHistoryTx } from '../../types/history';
 import type {
@@ -91,6 +92,8 @@ export type IModalSignatureConfirmParamList = {
     isInvoiceAmountLocked?: boolean;
     isAllNetworks?: boolean;
     hasAcknowledgedCexDepositWarning?: boolean;
+    // Set when the recipient is the user's Binance deposit address.
+    binanceDeposit?: IBinanceDepositSendContext;
     onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
     onCancel?: () => void;

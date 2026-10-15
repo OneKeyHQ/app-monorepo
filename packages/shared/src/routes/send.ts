@@ -11,6 +11,7 @@ import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import type { ITokenSelectorParamList } from './assetSelector';
 import type { INetworkAccount } from '../../types/account';
 import type { EDeriveAddressActionType } from '../../types/address';
+import type { IBinanceDepositSendContext } from '../../types/exchange';
 import type { IAccountHistoryTx } from '../../types/history';
 import type { IPrimeInfiniBeforeBroadcastAction } from '../../types/prime/primeTypes';
 import type { EReplaceTxType, ISendTxOnSuccessData } from '../../types/tx';
@@ -60,6 +61,8 @@ export type IModalSendParamList = {
     isInvoiceAmountLocked?: boolean;
     isAllNetworks?: boolean;
     hasAcknowledgedCexDepositWarning?: boolean;
+    // Set when the recipient is the user's Binance deposit address.
+    binanceDeposit?: IBinanceDepositSendContext;
     onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
     onCancel?: () => void;

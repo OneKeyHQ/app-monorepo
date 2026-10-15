@@ -54,6 +54,7 @@ import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAc
 import { marketNavigation } from '../../../views/Market/marketUtils';
 import { captureAndReportLoggerUtmParamsFromUrl } from '../loggerUtmParams';
 
+import { isBinanceConnectDeepLink } from './binanceConnectDeepLink';
 import { registerHandler } from './handler';
 import {
   handleReferralLandingUrl,
@@ -685,6 +686,8 @@ const processDeepLinkUrl = memoizee(
   ): Promise<IDeepLinkUrlParsedResult | undefined> => {
     // handle deepLink URL
     if (!url) return;
+    // A Binance deposit return is consumed at the OS entry only.
+    if (isBinanceConnectDeepLink(url)) return;
 
     try {
       // An open SFSafariViewController would cover any navigation this deep
@@ -752,6 +755,11 @@ export const handleDeepLinkUrl = (data: IDesktopOpenUrlEventData) => {
     (item) => !!item && isString(item),
   );
   urls.forEach((url) => {
+    // A Binance deposit return carries a one-time nonce: drop it before it is
+    // logged or forwarded, whatever fed it in here.
+    if (isBinanceConnectDeepLink(url)) {
+      return;
+    }
     console.log('processDeepLinkUrl >>>>>> ', url);
     void processDeepLinkUrl(url);
   });

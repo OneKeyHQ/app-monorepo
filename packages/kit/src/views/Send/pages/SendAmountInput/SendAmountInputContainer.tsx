@@ -163,6 +163,10 @@ import {
   SendAutoSizeAmountInput,
 } from '../../components/SendAutoSizeAmountInput';
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
+import {
+  buildBinanceDepositSendHooks,
+  validateBinanceDepositAmount,
+} from '../SendDataInput/BinanceDeposit/binanceDepositSendHooks';
 
 import { AttentionPulse } from './components/AttentionPulse';
 import { showPrivateSendGuideDialog } from './components/PrivateSendGuideDialog';
@@ -862,6 +866,7 @@ function SendAmountInputContainer() {
     amount: prefillAmount,
     isInvoiceAmountLocked,
     hasAcknowledgedCexDepositWarning,
+    binanceDeposit,
   } = route.params;
 
   const nft = nfts?.[0];
@@ -1205,7 +1210,9 @@ function SendAmountInputContainer() {
     { watchLoading: true, alwaysSetState: true },
   );
 
-  const showPrivateSendModeSwitch = isPrivateSendSupported && !isNFT;
+  // A private send pays a swap provider, never the Binance deposit address.
+  const showPrivateSendModeSwitch =
+    isPrivateSendSupported && !isNFT && !binanceDeposit;
 
   useEffect(() => {
     if (!showPrivateSendModeSwitch && sendMode === ESendMode.PRIVATE) {
@@ -2179,6 +2186,14 @@ function SendAmountInputContainer() {
         });
       }
 
+      const binanceDepositAmountError = validateBinanceDepositAmount(
+        binanceDeposit,
+        tokenAmountBN,
+      );
+      if (binanceDepositAmountError) {
+        return binanceDepositAmountError;
+      }
+
       // Vault-specific validation
       try {
         // For Lightning, amountBNForValidation is always in sats.
@@ -2221,6 +2236,7 @@ function SendAmountInputContainer() {
       recipientAddress,
       rebaseMultiplier,
       convertDisplayAmountToRawAmount,
+      binanceDeposit,
     ],
   );
 
@@ -3561,10 +3577,21 @@ function SendAmountInputContainer() {
               : tokenInfo?.address,
           });
 
+          const binanceDepositHooks = binanceDeposit
+            ? buildBinanceDepositSendHooks({
+                context: binanceDeposit,
+                toAddress: submitRecipientAddress,
+                memo: recipientMemo,
+                senderAddress: account.address,
+                onSuccess,
+              })
+            : undefined;
+
           await signatureConfirm.navigationToTxConfirm({
             transfersInfo,
             sameModal: true,
-            onSuccess,
+            onSuccess: binanceDepositHooks?.onSuccess ?? onSuccess,
+            onBeforeSend: binanceDepositHooks?.onBeforeSend,
             onFail,
             onCancel,
             transferPayload: {
@@ -3639,6 +3666,7 @@ function SendAmountInputContainer() {
       intl,
       rebaseMultiplier,
       convertDisplayAmountToRawAmount,
+      binanceDeposit,
     ],
   );
 

@@ -23,6 +23,7 @@ import type ServiceApproval from '../services/ServiceApproval';
 import type ServiceAppUpdate from '../services/ServiceAppUpdate';
 import type ServiceBatchCreateAccount from '../services/ServiceBatchCreateAccount';
 import type ServiceBatchTxSign from '../services/ServiceBatchTxSign';
+import type ServiceBinanceDeposit from '../services/ServiceBinanceDeposit';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
 import type ServiceBulkSend from '../services/ServiceBulkSend';
 import type ServiceCloudBackup from '../services/ServiceCloudBackup';
@@ -194,6 +195,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceSend: ServiceSend;
   serviceSwap: ServiceSwap;
   serviceUnifoldDeposit: ILazyServiceProxy<ServiceUnifoldDeposit>;
+  serviceBinanceDeposit: ILazyServiceProxy<ServiceBinanceDeposit>;
   serviceBootstrap: ServiceBootstrap;
   serviceNetwork: ServiceNetwork;
   serviceAccount: ServiceAccount;
