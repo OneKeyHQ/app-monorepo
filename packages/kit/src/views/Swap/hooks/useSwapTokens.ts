@@ -66,6 +66,7 @@ import {
   buildServerAuthoritativeSearchResults,
   isSwapSupportAllAccountsRequestCurrent,
   releaseSwapTokenListFetchEffectKey,
+  shouldLoadSwapAllNetworkTokenList,
 } from './useSwapTokens.utils';
 
 const EMPTY_SWAP_SUPPORT_ALL_ACCOUNTS: IAllNetworkAccountInfo[] = [];
@@ -352,6 +353,7 @@ export function useSwapTokenList(
     () => swapAllNetworkTokenListMap[swapAllNetworkTokenListCacheKey],
     [swapAllNetworkTokenListMap, swapAllNetworkTokenListCacheKey],
   );
+  const hasAllNetworkTokenList = swapAllNetworkTokenList !== undefined;
   const sortAllNetworkTokens = useCallback((tokens: ISwapToken[]) => {
     const havePriceTokens = tokens
       .filter((token) => {
@@ -539,10 +541,13 @@ export function useSwapTokenList(
     void (async () => {
       try {
         await Promise.all([
-          tokenFetchParams.networkId &&
-          !keywords &&
-          isTokenFetchAllNetworks &&
-          allNetworkTokenListReady
+          shouldLoadSwapAllNetworkTokenList({
+            networkId: tokenFetchParams.networkId,
+            keywords,
+            isTokenFetchAllNetworks,
+            allNetworkTokenListReady,
+            hasAllNetworkTokenList,
+          })
             ? swapLoadAllNetworkTokenList(
                 indexedAccountId,
                 otherWalletTypeAccountId,
@@ -584,6 +589,7 @@ export function useSwapTokenList(
     indexedAccountId,
     otherWalletTypeAccountId,
     allNetworkTokenListReady,
+    hasAllNetworkTokenList,
     isFocused,
     isSwapSupportAllAccountsReady,
     isTokenFetchAllNetworks,
@@ -603,10 +609,13 @@ export function useSwapTokenList(
 
     const refreshTokenListAfterSwap = () => {
       void Promise.all([
-        tokenFetchParams.networkId &&
-        !keywords &&
-        isTokenFetchAllNetworks &&
-        allNetworkTokenListReady
+        shouldLoadSwapAllNetworkTokenList({
+          networkId: tokenFetchParams.networkId,
+          keywords,
+          isTokenFetchAllNetworks,
+          allNetworkTokenListReady,
+          hasAllNetworkTokenList,
+        })
           ? swapLoadAllNetworkTokenList(
               indexedAccountId,
               otherWalletTypeAccountId,
@@ -633,6 +642,7 @@ export function useSwapTokenList(
     };
   }, [
     allNetworkTokenListReady,
+    hasAllNetworkTokenList,
     indexedAccountId,
     isFocused,
     isSwapSupportAllAccountsReady,

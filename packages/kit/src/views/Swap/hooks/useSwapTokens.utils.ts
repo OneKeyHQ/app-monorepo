@@ -33,3 +33,29 @@ export function buildServerAuthoritativeSearchResults<T>(
     return matches ? { item, refIndex, matches } : { item, refIndex };
   });
 }
+
+// All-network results get balances from the cached all-network token list,
+// since the all-network request carries no account address. A keyword search
+// (e.g. a pasted address widened to All Networks) loads that list once when
+// it is missing, so held tokens still show balances; empty-keyword lists keep
+// reloading on every fetch as before.
+export function shouldLoadSwapAllNetworkTokenList({
+  networkId,
+  keywords,
+  isTokenFetchAllNetworks,
+  allNetworkTokenListReady,
+  hasAllNetworkTokenList,
+}: {
+  networkId?: string;
+  keywords?: string;
+  isTokenFetchAllNetworks: boolean;
+  allNetworkTokenListReady: boolean;
+  hasAllNetworkTokenList: boolean;
+}) {
+  return (
+    Boolean(networkId) &&
+    isTokenFetchAllNetworks &&
+    allNetworkTokenListReady &&
+    (!keywords || !hasAllNetworkTokenList)
+  );
+}

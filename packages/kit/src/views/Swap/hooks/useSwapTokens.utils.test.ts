@@ -5,6 +5,7 @@ import {
   buildServerAuthoritativeSearchResults,
   isSwapSupportAllAccountsRequestCurrent,
   releaseSwapTokenListFetchEffectKey,
+  shouldLoadSwapAllNetworkTokenList,
 } from './useSwapTokens.utils';
 
 describe('isSwapSupportAllAccountsRequestCurrent', () => {
@@ -88,5 +89,56 @@ describe('buildServerAuthoritativeSearchResults', () => {
 
   it('returns an empty list for empty server results', () => {
     expect(buildServerAuthoritativeSearchResults([])).toEqual([]);
+  });
+});
+
+describe('shouldLoadSwapAllNetworkTokenList', () => {
+  const base = {
+    networkId: 'onekeyall--0',
+    keywords: '',
+    isTokenFetchAllNetworks: true,
+    allNetworkTokenListReady: true,
+    hasAllNetworkTokenList: true,
+  };
+
+  it('reloads the list for every empty-keyword all-network fetch', () => {
+    expect(shouldLoadSwapAllNetworkTokenList(base)).toBe(true);
+  });
+
+  it('loads the missing list for a widened address search so balances show', () => {
+    expect(
+      shouldLoadSwapAllNetworkTokenList({
+        ...base,
+        keywords: '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1',
+        hasAllNetworkTokenList: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('reuses a loaded list while searching', () => {
+    expect(
+      shouldLoadSwapAllNetworkTokenList({
+        ...base,
+        keywords: '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1',
+      }),
+    ).toBe(false);
+  });
+
+  it('skips concrete-network fetches and lists that are not ready', () => {
+    expect(
+      shouldLoadSwapAllNetworkTokenList({
+        ...base,
+        networkId: 'evm--42161',
+        isTokenFetchAllNetworks: false,
+        hasAllNetworkTokenList: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldLoadSwapAllNetworkTokenList({
+        ...base,
+        allNetworkTokenListReady: false,
+        hasAllNetworkTokenList: false,
+      }),
+    ).toBe(false);
   });
 });
