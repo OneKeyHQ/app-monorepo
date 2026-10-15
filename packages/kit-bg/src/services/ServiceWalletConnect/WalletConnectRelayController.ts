@@ -12,7 +12,7 @@ import { RELAYER_EVENTS } from './walletConnectSdkEvents';
 
 import type { Relayer } from '@walletconnect/core';
 import type { IJsonRpcConnection } from '@walletconnect/jsonrpc-utils';
-import type { ICore, SubscriberTypes } from '@walletconnect/types';
+import type { ICore } from '@walletconnect/types';
 
 // Core makes up to five attempts per round. Limit only this invocation's
 // added fallback work; later SDK reconnect triggers receive a fresh budget.
@@ -136,8 +136,6 @@ export class WalletConnectRelayController {
 
   private initialSubscription?: Promise<string>;
 
-  private pendingSubscription?: SubscriberTypes.Params;
-
   private reconnectWanted = false;
 
   private connections = new Map<IJsonRpcConnection, IConnection>();
@@ -197,28 +195,15 @@ export class WalletConnectRelayController {
         await Promise.allSettled([this.initialSubscription, this.closing]);
       }
       const subscribing = (async () => {
-        const [topic, options] = args;
+        const [, options] = args;
         if (!options?.transportType || options.transportType === 'relay') {
           if (!options?.internal?.skipSubscribe) {
-            // Only the current socket waiter can hand a topic to the SDK.
-            // A failed caller may request socket recovery without replaying it.
-            this.pendingSubscription = {
-              ...options,
-              topic,
-              relay: options?.relay ?? { protocol: 'irn' },
-            };
-            this.reconnectWanted = !relayer.connected;
+            // Recover the socket without taking ownership of SDK subscriptions.
+            this.reconnectWanted ||= !relayer.connected;
           }
           // The subscription's 15s/60s timers must start after socket recovery,
           // so an old subscribe cannot time out and restart a newer retry.
-          const pending = this.pendingSubscription;
-          try {
-            await this.open(undefined, true);
-          } finally {
-            if (this.pendingSubscription === pending) {
-              this.pendingSubscription = undefined;
-            }
-          }
+          await this.open(undefined, true);
         }
         return subscribe(...args);
       })();
@@ -283,14 +268,6 @@ export class WalletConnectRelayController {
       Reflect.apply(warn, relayer.logger, args);
     };
     relayer.on(RELAYER_EVENTS.connect, () => {
-      if (this.pendingSubscription) {
-        relayer.subscriber.pending.set(
-          this.pendingSubscription.topic,
-          this.pendingSubscription,
-        );
-        this.pendingSubscription = undefined;
-      }
-      this.reconnectWanted = false;
       this.trackConnection()?.settle();
       this.attemptStarted = false;
       this.failed = false;
@@ -609,6 +586,7 @@ export class WalletConnectRelayController {
         }
         if (this.core.relayer.connected) {
           this.failed = false;
+          this.reconnectWanted = false;
           return;
         }
         throw new OneKeyLocalError('WalletConnect relay did not connect');

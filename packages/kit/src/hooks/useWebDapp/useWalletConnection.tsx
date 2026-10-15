@@ -77,12 +77,24 @@ export function useWalletConnection({
   }, [hideLoading, isWalletConnect, loading]);
 
   useEffect(() => {
-    const fn = async (state: { open: boolean }) => {
+    const fn = async (state: { open: boolean; attemptId?: number }) => {
       if (
         state.open === true &&
         (platformEnv.isNative || platformEnv.isDesktop) &&
         isWalletConnect
       ) {
+        const generation = connectionGenerationRef.current;
+        const progress = await backgroundApiProxy.serviceWalletConnect
+          .getDappSideConnectionProgress()
+          .catch(() => undefined);
+        if (
+          !isMountedRef.current ||
+          generation !== connectionGenerationRef.current ||
+          state.attemptId === undefined ||
+          state.attemptId !== progress?.attemptId
+        ) {
+          return;
+        }
         // Dialog component will cover the WalletConnectSDK modal, so we need to manually close the Dialog
         // search: zIndex: 99993173
         await closeDialogWithoutCancelling();
@@ -154,7 +166,7 @@ export function useWalletConnection({
         onClose() {
           if (generation !== connectionGenerationRef.current) return;
           if (
-            platformEnv.isNative &&
+            (platformEnv.isNative || platformEnv.isDesktop) &&
             isWalletConnect &&
             shouldCancelWalletConnectOnDialogCloseRef.current
           ) {

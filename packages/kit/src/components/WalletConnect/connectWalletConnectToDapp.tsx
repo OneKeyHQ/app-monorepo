@@ -34,7 +34,7 @@ function WalletConnectConnectionProgress({
   onFinished,
 }: {
   initial?: IConnectionProgress;
-  onFinished: () => Promise<void>;
+  onFinished: (reason?: 'exhausted') => Promise<void>;
 }) {
   const { result } = usePromiseResult(
     async () =>
@@ -61,22 +61,26 @@ function WalletConnectConnectionProgress({
       attemptsBeforeInteraction,
   );
 
+  const connected = Boolean(
+    result?.connected ||
+    (started &&
+      result &&
+      result.connectionSuccesses > started.connectionSuccesses),
+  );
+  const exhausted = Boolean(
+    result &&
+    (result.lastFailedConnectionAttempt - attemptsBeforeInteraction >=
+      WALLET_CONNECT_PROGRESS_MAX_ATTEMPTS ||
+      attempt > WALLET_CONNECT_PROGRESS_MAX_ATTEMPTS),
+  );
+
   useEffect(() => {
-    if (
-      result?.connected ||
-      (started &&
-        result &&
-        result.connectionSuccesses > started.connectionSuccesses) ||
-      (result &&
-        (result.lastFailedConnectionAttempt - attemptsBeforeInteraction >=
-          WALLET_CONNECT_PROGRESS_MAX_ATTEMPTS ||
-          attempt > WALLET_CONNECT_PROGRESS_MAX_ATTEMPTS))
-    ) {
+    if (connected || exhausted) {
       // Dismiss only the UI. SDK heartbeat, network recovery and relay fallback
       // continue independently, and cannot reopen this interaction's dialog.
-      void onFinished();
+      void onFinished(connected ? undefined : 'exhausted');
     }
-  }, [started, onFinished, result, attempt, attemptsBeforeInteraction]);
+  }, [connected, exhausted, onFinished]);
 
   return (
     <WalletConnectConnectionProgressView
@@ -90,7 +94,7 @@ function WalletConnectConnectionProgress({
 }
 
 type IConnectionDialog = {
-  close: () => Promise<void>;
+  close: (reason?: 'exhausted') => Promise<void>;
   onClose: () => void;
   pendingConnections: number;
   attemptsBeforeInteraction: number;
@@ -128,14 +132,16 @@ export async function connectWalletConnectToDapp(uri: string) {
     return backgroundApiProxy.walletConnect.connectToDapp(uri);
   }
 
+  const generation = progressGeneration;
   let progress = activeDialog;
   let initial: IConnectionProgress | undefined;
   if (progress) {
     initial = await backgroundApiProxy.serviceWalletConnect
       .getWalletSideDiagnostics()
       .catch(() => undefined);
+    progress = activeDialog;
     if (
-      progress === activeDialog &&
+      progress &&
       initial &&
       initial.lastFailedConnectionAttempt -
         progress.attemptsBeforeInteraction >=
@@ -143,12 +149,11 @@ export async function connectWalletConnectToDapp(uri: string) {
     ) {
       // A retry can arrive before the old dialog's next polling tick.
       // Give it a fresh counter instead of joining an exhausted interaction.
-      await progress.close();
+      await progress.close('exhausted');
       progress = activeDialog;
     }
   }
   if (!progress) {
-    const generation = progressGeneration;
     initial ??= await backgroundApiProxy.serviceWalletConnect
       .getWalletSideDiagnostics()
       .catch(() => undefined);
@@ -156,6 +161,7 @@ export async function connectWalletConnectToDapp(uri: string) {
     progress = activeDialog;
     if (!progress && !initial?.connected && generation === progressGeneration) {
       let closed = false;
+      let exhausted = false;
       const dialogRef: { current?: ReturnType<typeof Dialog.show> } = {};
       const connectionDialog: IConnectionDialog = {
         pendingConnections: 0,
@@ -163,12 +169,14 @@ export async function connectWalletConnectToDapp(uri: string) {
         onClose: () => {
           closed = true;
           if (activeDialog === connectionDialog) {
-            progressGeneration += 1;
+            // Exhaustion must not invalidate a new scan awaiting diagnostics.
+            if (!exhausted) progressGeneration += 1;
             activeDialog = undefined;
           }
         },
-        close: async () => {
+        close: async (reason) => {
           if (closed) return;
+          exhausted = reason === 'exhausted';
           // Release ownership before the UI callback, which may fail or stall.
           connectionDialog.onClose();
           try {

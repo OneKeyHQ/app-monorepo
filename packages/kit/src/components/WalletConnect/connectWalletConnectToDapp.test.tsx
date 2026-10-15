@@ -394,6 +394,29 @@ it('does not reopen an exhausted dialog dismissed during the retry diagnostics r
   expect(mockConnect).toHaveBeenCalledTimes(2);
 });
 
+it('opens fresh retry progress if the old display exhausts during its diagnostics read', async () => {
+  await connectWalletConnectToDapp(pairingUri);
+  const reading = deferred();
+  mockGetDiagnostics.mockImplementationOnce(async () => {
+    await reading.promise;
+    return mockSnapshot;
+  });
+  const retrying = connectWalletConnectToDapp(secondPairingUri);
+  mockSnapshot = {
+    ...mockSnapshot,
+    connectionAttempts: 22,
+    lastFailedConnectionAttempt: 22,
+  };
+  await act(async () => {
+    render(mockDialogs[0].options.renderContent);
+  });
+  expect(mockDialogs[0].close).toHaveBeenCalledTimes(1);
+  reading.resolve();
+  await retrying;
+  expect(mockDialogs).toHaveLength(2);
+  expect(mockConnect).toHaveBeenCalledTimes(2);
+});
+
 it.each(['manual', 'connected'] as const)(
   'invalidates pending diagnostics after %s dismissal and permits a new scan',
   async (dismissal) => {
