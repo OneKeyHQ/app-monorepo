@@ -619,6 +619,7 @@ export function useSwapTokenList(
           isTokenFetchAllNetworks,
           allNetworkTokenListReady,
           hasAllNetworkTokenList: hasAllNetworkTokenListRef.current,
+          forceRefresh: true,
         })
           ? swapLoadAllNetworkTokenList(
               indexedAccountId,

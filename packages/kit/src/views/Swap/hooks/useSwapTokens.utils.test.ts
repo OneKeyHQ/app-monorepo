@@ -117,6 +117,16 @@ describe('shouldLoadSwapAllNetworkTokenList', () => {
     ).toBe(true);
   });
 
+  it('always reloads a loaded list after a balance-changing event', () => {
+    expect(
+      shouldLoadSwapAllNetworkTokenList({
+        ...base,
+        keywords: '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1',
+        forceRefresh: true,
+      }),
+    ).toBe(true);
+  });
+
   it('reuses a loaded list while searching', () => {
     expect(
       shouldLoadSwapAllNetworkTokenList({
@@ -169,8 +179,17 @@ describe('mergeSwapSearchTokenBalance', () => {
     expect(merged.riskLevel).toBe(ETokenRiskLevel.MALICIOUS);
     expect(merged.price).toBe('1.0001');
     expect(merged.balanceParsed).toBe('0.975765');
-    expect(merged.fiatValue).toBe('0.98');
+    // Cached balance priced with the fresh search price.
+    expect(merged.fiatValue).toBe('0.9758625765');
     expect(merged.accountAddress).toBe('0xowner');
     expect(merged.networkLogoURI).toBe('https://logo/op.png');
+  });
+
+  it('keeps the cached fiat value when the search has no price', () => {
+    const merged = mergeSwapSearchTokenBalance(
+      { ...searchToken, price: undefined } as ISwapToken,
+      cachedToken,
+    );
+    expect(merged.fiatValue).toBe('0.98');
   });
 });

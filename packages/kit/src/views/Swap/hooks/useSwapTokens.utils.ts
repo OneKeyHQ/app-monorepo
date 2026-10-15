@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
@@ -39,25 +41,28 @@ export function buildServerAuthoritativeSearchResults<T>(
 // since the all-network request carries no account address. A keyword search
 // (e.g. a pasted address widened to All Networks) loads that list once when
 // it is missing, so held tokens still show balances; empty-keyword lists keep
-// reloading on every fetch as before.
+// reloading on every fetch as before. `forceRefresh` (balance-changing events
+// such as a finished swap) always reloads so cached balances are not reused.
 export function shouldLoadSwapAllNetworkTokenList({
   networkId,
   keywords,
   isTokenFetchAllNetworks,
   allNetworkTokenListReady,
   hasAllNetworkTokenList,
+  forceRefresh = false,
 }: {
   networkId?: string;
   keywords?: string;
   isTokenFetchAllNetworks: boolean;
   allNetworkTokenListReady: boolean;
   hasAllNetworkTokenList: boolean;
+  forceRefresh?: boolean;
 }) {
   return (
     Boolean(networkId) &&
     isTokenFetchAllNetworks &&
     allNetworkTokenListReady &&
-    (!keywords || !hasAllNetworkTokenList)
+    (forceRefresh || !keywords || !hasAllNetworkTokenList)
   );
 }
 
@@ -68,10 +73,17 @@ export function mergeSwapSearchTokenBalance(
   searchToken: ISwapToken,
   balanceToken: ISwapToken,
 ): ISwapToken {
+  // Price the cached balance with the fresh search price so the fiat value
+  // agrees with the displayed price; keep the cached value otherwise.
+  const freshFiatValue = new BigNumber(
+    balanceToken.balanceParsed ?? 'NaN',
+  ).times(searchToken.price ?? 'NaN');
   return {
     ...searchToken,
     balanceParsed: balanceToken.balanceParsed,
-    fiatValue: balanceToken.fiatValue,
+    fiatValue: freshFiatValue.isFinite()
+      ? freshFiatValue.toFixed()
+      : balanceToken.fiatValue,
     accountAddress: balanceToken.accountAddress,
     reservationValue: balanceToken.reservationValue,
     networkLogoURI: searchToken.networkLogoURI ?? balanceToken.networkLogoURI,
