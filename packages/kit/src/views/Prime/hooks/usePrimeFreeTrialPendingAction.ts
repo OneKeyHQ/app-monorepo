@@ -40,7 +40,11 @@ async function isPendingActionContextValid(
 // even when a relay arrives while an earlier login is still running.
 export function usePrimeFreeTrialPendingActionRunner() {
   const navigation = useAppNavigation();
-  const { ensureFeatureAccess } = usePrimeFeatureAccess();
+  // Runs from Home whatever screen the expand tab shows, so Home being
+  // unfocused does not drop the action.
+  const { ensureFeatureAccess } = usePrimeFeatureAccess({
+    bindToCallerScreen: false,
+  });
 
   return useCallback(async () => {
     const action =

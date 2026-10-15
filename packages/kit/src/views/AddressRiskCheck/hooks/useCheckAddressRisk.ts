@@ -253,8 +253,10 @@ export function useAddressRiskCheckRequest(
           // Only a page still on top handles the rejection. One the user
           // already left (mounted during its close animation) or covered gets
           // no feedback: popping would close another page, and the dashboard
-          // would open over the screen the user went to.
+          // would open over the screen the user went to. A covered page shows
+          // the failed state when the user comes back.
           if (!reactNavigation.isFocused()) {
+            setIsFailed(true);
             return;
           }
           // Leave this pending page first so the user is not left on it

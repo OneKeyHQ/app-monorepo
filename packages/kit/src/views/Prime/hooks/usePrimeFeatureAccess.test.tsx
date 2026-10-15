@@ -954,6 +954,25 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
       expect(onDenied).not.toHaveBeenCalled();
     });
 
+    it('ignores the screen for a caller not bound to it', async () => {
+      // The expand tab continuing a saved action from an unfocused Home.
+      screenState.focused = false;
+      setSnapshot(quotaWith(0));
+      mockRefreshQuota.mockResolvedValue(quotaWith(1));
+      const { result } = renderHook(
+        () => usePrimeFeatureAccess({ bindToCallerScreen: false }),
+        { wrapper: OnScreen },
+      );
+
+      await act(async () => {
+        await expect(
+          result.current.ensureFeatureAccess({
+            featureId: EPrimeFeatures.BulkSend,
+          }),
+        ).resolves.toEqual({ granted: true, entitlementSource: 'freeTrial' });
+      });
+    });
+
     it('drops a metered API rejection that lands after the screen was left', async () => {
       screenState.focused = false;
       const result = renderOnScreen();

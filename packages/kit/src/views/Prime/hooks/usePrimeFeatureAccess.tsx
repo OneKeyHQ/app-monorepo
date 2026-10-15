@@ -113,7 +113,13 @@ async function isContextStale(
   }
 }
 
-export function usePrimeFeatureAccess() {
+export function usePrimeFeatureAccess({
+  bindToCallerScreen = true,
+}: {
+  // false for a caller that is not a tap on its screen, e.g. the expand tab
+  // continuing an action saved by the extension popup.
+  bindToCallerScreen?: boolean;
+} = {}) {
   const intl = useIntl();
   // The screen this hook runs in (none inside a popover rendered outside the
   // screens). Once it is no longer focused (back, close — already during the
@@ -121,7 +127,8 @@ export function usePrimeFeatureAccess() {
   // they acted on: the gate grants nothing and no dashboard opens over the
   // page they went to. Dialogs such as the login dialog keep it focused. In a
   // split view each pane has its own screen, so only the acting pane counts.
-  const callerNavigation = useContext(NavigationContext);
+  const screenNavigation = useContext(NavigationContext);
+  const callerNavigation = bindToCallerScreen ? screenNavigation : undefined;
   const callerNavigationRef = useRef(callerNavigation);
   callerNavigationRef.current = callerNavigation;
   const isCallerScreenFocused = useCallback(
