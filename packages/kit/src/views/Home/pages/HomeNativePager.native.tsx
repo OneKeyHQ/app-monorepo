@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -62,6 +63,27 @@ export function HomeNativePager({
   const indexDecimal = useSharedValue(initialIndex);
   const theme = useTheme();
   const themeName = useThemeName();
+  const capabilityCallbackRef = useRef(onTopScrollEdgeCapability);
+  capabilityCallbackRef.current = onTopScrollEdgeCapability;
+  const capabilitySessionRef = useRef<{
+    active: boolean;
+    mounted: boolean;
+    lastAvailable: boolean | undefined;
+  }>({ active: false, mounted: false, lastAvailable: undefined });
+  useLayoutEffect(() => {
+    const session = capabilitySessionRef.current;
+    session.active = true;
+    session.mounted = true;
+    if (session.lastAvailable !== undefined) {
+      capabilityCallbackRef.current?.(session.lastAvailable);
+    }
+    return () => {
+      session.active = false;
+      if (session.lastAvailable === true) {
+        capabilityCallbackRef.current?.(false);
+      }
+    };
+  }, []);
   const selectedIndexRef = useRef(selectedIndex);
   const mountedPageKeysRef = useRef<{
     pageIdentity: string;
@@ -176,9 +198,14 @@ export function HomeNativePager({
       topScrollEdgeEffect={topOverlay ? 'hard' : undefined}
       topOverlayColorScheme={topOverlay ? themeName : undefined}
       topOverlay={topOverlay}
-      onScrollEdgeCapability={(event) =>
-        onTopScrollEdgeCapability?.(event.nativeEvent.available)
-      }
+      onScrollEdgeCapability={(event) => {
+        const session = capabilitySessionRef.current;
+        if (!session.active && session.mounted) return;
+        session.lastAvailable = event.nativeEvent.available;
+        if (session.active) {
+          capabilityCallbackRef.current?.(event.nativeEvent.available);
+        }
+      }}
       headerHeight={headerLayout.height}
       stickyHeaderHeight={stickyHeight}
       // Spot remains the owner of shared asset loading even while offscreen.

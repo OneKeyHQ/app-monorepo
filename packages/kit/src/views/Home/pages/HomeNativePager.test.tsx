@@ -19,11 +19,15 @@ import type { LayoutChangeEvent } from 'react-native';
 let mockRenderParentHeader = false;
 let mockMountedPageLifecycle = false;
 let mockReadyWithMapping = false;
+let mockEmitCapabilityOnMount = false;
 let mockParentComponentLookup: ((key: PropertyKey) => unknown) | undefined;
 const mockSetPage = jest.fn();
 const mockSetPageWithoutAnimation = jest.fn();
 const mockHeaderHeightCommits: number[] = [];
 const mockNativeEvents: {
+  onScrollEdgeCapability?: (event: {
+    nativeEvent: { available: boolean };
+  }) => void;
   onMountedPagesChanged?: (event: { pageKeys: readonly string[] }) => void;
   onCollapsibleStateChanged?: (event: {
     nativeEvent: {
@@ -66,6 +70,7 @@ jest.mock(
     new Proxy(
       {
         useTheme: () => ({ bgApp: { val: '#ffffff' } }),
+        useThemeName: () => 'light',
       },
       {
         get: (target, key): unknown =>
@@ -87,6 +92,9 @@ jest.mock('react-native-pager-view', () => ({
       jest.requireActual<typeof import('react')>('react');
     const mountSignature = useRef('');
     useLayoutEffect(() => {
+      if (mockEmitCapabilityOnMount) {
+        events.onScrollEdgeCapability?.({ nativeEvent: { available: true } });
+      }
       if (events.headerHeight !== undefined) {
         mockHeaderHeightCommits.push(events.headerHeight);
       }
@@ -132,6 +140,127 @@ const headerLayoutEvent = (height: number): LayoutChangeEvent =>
   ({
     nativeEvent: { layout: { x: 0, y: 0, width: 400, height } },
   }) as LayoutChangeEvent;
+
+it('replays a capability received before the parent layout effect and clears it on unmount', () => {
+  mockEmitCapabilityOnMount = true;
+  const onTopScrollEdgeCapability = jest.fn();
+  const screen = render(
+    <HomeNativePager
+      {...headerTestProps}
+      onTopScrollEdgeCapability={onTopScrollEdgeCapability}
+    />,
+  );
+  mockEmitCapabilityOnMount = false;
+  expect(onTopScrollEdgeCapability).toHaveBeenCalledWith(true);
+  screen.unmount();
+  expect(onTopScrollEdgeCapability).toHaveBeenLastCalledWith(false);
+});
+
+it('keeps the capability available after StrictMode effect reconnection', () => {
+  mockEmitCapabilityOnMount = true;
+  const onTopScrollEdgeCapability = jest.fn();
+  const screen = render(
+    <React.StrictMode>
+      <HomeNativePager
+        {...headerTestProps}
+        onTopScrollEdgeCapability={onTopScrollEdgeCapability}
+      />
+    </React.StrictMode>,
+  );
+  mockEmitCapabilityOnMount = false;
+  expect(onTopScrollEdgeCapability).toHaveBeenCalledTimes(3);
+  expect(onTopScrollEdgeCapability).toHaveBeenNthCalledWith(1, true);
+  expect(onTopScrollEdgeCapability).toHaveBeenNthCalledWith(2, false);
+  expect(onTopScrollEdgeCapability).toHaveBeenNthCalledWith(3, true);
+  screen.unmount();
+});
+
+it('ignores a stale native callback after same-owner remount', () => {
+  const onTopScrollEdgeCapability = jest.fn();
+  const first = render(
+    <HomeNativePager
+      {...headerTestProps}
+      onTopScrollEdgeCapability={onTopScrollEdgeCapability}
+    />,
+  );
+  const oldHandler = mockNativeEvents.onScrollEdgeCapability;
+  act(() => oldHandler?.({ nativeEvent: { available: true } }));
+  first.unmount();
+  const second = render(
+    <HomeNativePager
+      {...headerTestProps}
+      onTopScrollEdgeCapability={onTopScrollEdgeCapability}
+    />,
+  );
+  const callsBeforeStaleEvent = onTopScrollEdgeCapability.mock.calls.length;
+  act(() => oldHandler?.({ nativeEvent: { available: true } }));
+  expect(onTopScrollEdgeCapability).toHaveBeenCalledTimes(
+    callsBeforeStaleEvent,
+  );
+  act(() =>
+    mockNativeEvents.onScrollEdgeCapability?.({
+      nativeEvent: { available: true },
+    }),
+  );
+  expect(onTopScrollEdgeCapability).toHaveBeenLastCalledWith(true);
+  second.unmount();
+});
+
+it('does not let an old owner callback overwrite a replacement instance', () => {
+  const oldOwner = jest.fn();
+  const newOwner = jest.fn();
+  const first = render(
+    <HomeNativePager
+      {...headerTestProps}
+      onTopScrollEdgeCapability={oldOwner}
+    />,
+  );
+  const oldHandler = mockNativeEvents.onScrollEdgeCapability;
+  act(() => oldHandler?.({ nativeEvent: { available: true } }));
+  first.unmount();
+  const second = render(
+    <HomeNativePager
+      {...headerTestProps}
+      onTopScrollEdgeCapability={newOwner}
+    />,
+  );
+  act(() =>
+    mockNativeEvents.onScrollEdgeCapability?.({
+      nativeEvent: { available: true },
+    }),
+  );
+  const oldOwnerCallsBeforeStaleEvent = oldOwner.mock.calls.length;
+  act(() => oldHandler?.({ nativeEvent: { available: true } }));
+  expect(oldOwner).toHaveBeenCalledTimes(oldOwnerCallsBeforeStaleEvent);
+  expect(newOwner).toHaveBeenCalledTimes(1);
+  expect(newOwner).toHaveBeenLastCalledWith(true);
+  second.unmount();
+});
+
+it('does not report an unmount when the callback prop changes', () => {
+  const firstCallback = jest.fn();
+  const nextCallback = jest.fn();
+  const screen = render(
+    <HomeNativePager
+      {...headerTestProps}
+      onTopScrollEdgeCapability={firstCallback}
+    />,
+  );
+  act(() =>
+    mockNativeEvents.onScrollEdgeCapability?.({
+      nativeEvent: { available: true },
+    }),
+  );
+  screen.rerender(
+    <HomeNativePager
+      {...headerTestProps}
+      onTopScrollEdgeCapability={nextCallback}
+    />,
+  );
+  expect(nextCallback).not.toHaveBeenCalled();
+  screen.unmount();
+  expect(nextCallback).toHaveBeenCalledWith(false);
+});
 
 it.each([292, 236, undefined])(
   'starts with header hint %s or the default height',
@@ -449,6 +578,7 @@ describe('HomePageView complete header authority', () => {
     isNative: true,
     isNativeAndroid: true,
     isNativeIOS: false,
+    isNativeIOS26Plus: false,
   };
   let walletBackedUp = true;
   let refreshModule: typeof import('../components/PullToRefresh');
@@ -483,6 +613,7 @@ describe('HomePageView complete header authority', () => {
           useScrollContentTabBarOffset: () => 48,
           useMedia: () => ({ md: true }),
           useTheme: () => ({ bgApp: { val: '#ffffff' } }),
+          useThemeName: () => 'light',
           useFocusedTab: () => 'spot',
           useTabsScrollToTop: () => noop,
         },
@@ -684,6 +815,7 @@ describe('HomePageView complete header authority', () => {
       isNative: true,
       isNativeAndroid: true,
       isNativeIOS: false,
+      isNativeIOS26Plus: false,
     });
     walletBackedUp = true;
     measurements.length = 0;
@@ -746,6 +878,49 @@ describe('HomePageView complete header authority', () => {
       expect(screen.UNSAFE_getByType(HomeNativePager)).toBeTruthy();
     },
   );
+
+  it('clears capability when the pager unmounts and rejects its stale same-owner receipt', () => {
+    Object.assign(parentPlatform, {
+      isNative: true,
+      isNativeAndroid: false,
+      isNativeIOS: true,
+      isNativeIOS26Plus: true,
+    });
+    const screen = renderParent();
+    expect(screen.UNSAFE_getByType(HomeNativePager).props.topEdgeActive).toBe(
+      false,
+    );
+    const oldHandler = mockNativeEvents.onScrollEdgeCapability;
+    act(() => oldHandler?.({ nativeEvent: { available: true } }));
+    expect(screen.UNSAFE_getByType(HomeNativePager).props.topEdgeActive).toBe(
+      true,
+    );
+    walletBackedUp = false;
+    screen.rerender(
+      React.createElement(HomePage, {
+        sceneName: EAccountSelectorSceneName.home,
+      }),
+    );
+    expect(screen.UNSAFE_queryByType(HomeNativePager)).toBeNull();
+    act(() => oldHandler?.({ nativeEvent: { available: true } }));
+    walletBackedUp = true;
+    screen.rerender(
+      React.createElement(HomePage, {
+        sceneName: EAccountSelectorSceneName.home,
+      }),
+    );
+    expect(screen.UNSAFE_getByType(HomeNativePager).props.topEdgeActive).toBe(
+      false,
+    );
+    act(() =>
+      mockNativeEvents.onScrollEdgeCapability?.({
+        nativeEvent: { available: true },
+      }),
+    );
+    expect(screen.UNSAFE_getByType(HomeNativePager).props.topEdgeActive).toBe(
+      true,
+    );
+  });
 
   it('keeps a complete fractional measurement when the inner layout arrives later', () => {
     renderParent();

@@ -13,7 +13,6 @@ import type { MutableRefObject } from 'react';
 import { useFocusEffect } from '@react-navigation/core';
 import { CanceledError } from 'axios';
 import { useIntl } from 'react-intl';
-import { Platform } from 'react-native';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
 import {
@@ -1092,8 +1091,7 @@ export function HomePageView({
   const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
     setTabPageHeight(e.nativeEvent.layout.height - 20);
   }, []);
-  const supportsIos26ScrollEdge =
-    platformEnv.isNativeIOS && Number(Platform.Version) >= 26;
+  const supportsIos26ScrollEdge = platformEnv.isNativeIOS26Plus === true;
   const [topEdgeCapability, setTopEdgeCapability] = useState({
     ownerKey: '',
     available: false,
@@ -1169,7 +1167,14 @@ export function HomePageView({
           renderHeader={renderHeader}
           topEdgeActive={topEdgeActive}
           onTopScrollEdgeCapability={(available) =>
-            setTopEdgeCapability({ ownerKey: homeScrollOwnerKey, available })
+            setTopEdgeCapability((current) => {
+              if (available) {
+                return { ownerKey: homeScrollOwnerKey, available: true };
+              }
+              return current.ownerKey === homeScrollOwnerKey
+                ? { ownerKey: homeScrollOwnerKey, available: false }
+                : current;
+            })
           }
           topOverlay={
             topEdgeActive ? (
