@@ -1295,6 +1295,12 @@ export function useSpeedSwapActions(props: {
     }) => {
       try {
         const result = buildRes?.result ?? quoteResult;
+        const buildRoutes = result?.routesData;
+        const quoteRoutes = quoteResult?.routesData;
+        const routes =
+          !buildRoutes?.length && quoteRoutes?.length
+            ? quoteRoutes
+            : buildRoutes;
         defaultLogger.swap.createSwapOrder.swapCreateOrder({
           ...reviewAnalyticsContext,
           quoteId: reviewAnalyticsContext?.quoteId ?? quoteResult?.quoteId,
@@ -1322,7 +1328,7 @@ export function useSpeedSwapActions(props: {
           receivedTokenSymbol:
             result?.toTokenInfo.symbol ?? toToken.symbol ?? '',
           feeType: result?.fee?.percentageFee?.toString() ?? '0',
-          router: JSON.stringify(result?.routesData ?? ''),
+          router: JSON.stringify(routes ?? ''),
           isFirstTime: settingsAtom.isFirstTimeSwap,
           createFrom: 'marketDex',
           ...getStockTradeAnalyticsPayload({

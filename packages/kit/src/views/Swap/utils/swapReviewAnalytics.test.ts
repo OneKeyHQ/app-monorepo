@@ -401,6 +401,7 @@ describe('swap review API correlation', () => {
       'Network error',
     ],
     ['insufficient balance for private-account', 'Insufficient balance'],
+    ['checkLatestNativeTokenBalance failed', 'Insufficient balance'],
     [
       'User rejected request containing private-payload',
       'Transaction rejected',

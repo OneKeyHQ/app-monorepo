@@ -1305,6 +1305,98 @@ describe('useSpeedSwapActions', () => {
     expect(mockSendMarketDirectUnsignedTxs).not.toHaveBeenCalled();
   });
 
+  it.each([
+    {
+      buildRoutes: undefined,
+      quoteRoutes: [{ amount: '99' }],
+      expectedRouter: '[{"amount":"99"}]',
+    },
+    {
+      buildRoutes: [],
+      quoteRoutes: [{ amount: '99' }],
+      expectedRouter: '[{"amount":"99"}]',
+    },
+    {
+      buildRoutes: [{ amount: '98' }],
+      quoteRoutes: [{ amount: '99' }],
+      expectedRouter: '[{"amount":"98"}]',
+    },
+    { buildRoutes: undefined, quoteRoutes: undefined, expectedRouter: '""' },
+    { buildRoutes: [], quoteRoutes: [], expectedRouter: '[]' },
+  ])(
+    'retains Market create-order routes without mutating build or quote: %j',
+    async ({ buildRoutes, quoteRoutes, expectedRouter }) => {
+      mockFetchSwapTokenDetails.mockImplementation(({ accountId }) =>
+        Promise.resolve(
+          accountId ? createTokenDetail({ balanceParsed: '100' }) : [],
+        ),
+      );
+      const { result } = renderSwapHook(() =>
+        useSpeedSwapActions({
+          ...createHookProps(),
+          fromTokenAmount: '1',
+        }),
+      );
+      await waitFor(() => {
+        expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+        expect(result.current.fetchBalanceLoading).toBe(false);
+      });
+      const quoteRequest = mockSwapStore.get(swapQuoteActionLockAtom());
+      const quote: IFetchQuoteResult = {
+        quoteId: 'routes-quote',
+        info: { provider: 'provider', providerName: 'Provider' },
+        fromTokenInfo: quoteRequest.fromToken ?? usdcToken,
+        toTokenInfo: quoteRequest.toToken ?? btcToken,
+        fromAmount: '1',
+        toAmount: '0.00001',
+        routesData: quoteRoutes,
+      };
+      const buildResponse: IFetchBuildTxResponse = {
+        orderId: 'routes-order',
+        result: { ...quote, routesData: buildRoutes },
+        tx: { to: '0xrouter', value: '0', data: '0xswap' },
+      };
+      mockFetchBuildTx.mockResolvedValueOnce(buildResponse);
+      act(() => {
+        mockSwapStore.set(swapQuoteListAtom(), [quote]);
+        mockSwapStore.set(swapQuoteFetchingAtom(), false);
+        mockSwapStore.set(swapQuoteEventCompletedAtom(), true);
+        mockSwapStore.set(swapQuoteActionLockAtom(), {
+          ...quoteRequest,
+          actionLock: false,
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.quoteReadyForReview).toBe(true);
+      });
+      let review: ISwapReviewState | undefined;
+      await act(async () => {
+        review = await result.current.prepareMarketSwapReview();
+      });
+      const executionBuild =
+        review?.preSwapData.swapBuildResultData?.swapInfo?.swapBuildResData;
+      expect(executionBuild?.orderId).toBe('routes-order');
+      expect(JSON.stringify(executionBuild?.result.routesData ?? '')).toBe(
+        expectedRouter,
+      );
+      expect(mockCreateOrder).toHaveBeenCalledTimes(1);
+      expect(mockCreateOrder).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderId: 'routes-order',
+          quoteId: 'routes-quote',
+          status: 'success',
+          isPreBuild: true,
+          router: expectedRouter,
+        }),
+      );
+      expect(buildResponse.result.routesData).toBe(buildRoutes);
+      expect(quote.routesData).toBe(quoteRoutes);
+      expect(mockFetchBuildTx).toHaveBeenCalledTimes(1);
+      expect(mockSendMarketDirectUnsignedTxs).not.toHaveBeenCalled();
+      expect(mockNavigationToTxConfirm).not.toHaveBeenCalled();
+    },
+  );
+
   it.each([false, true])(
     'preserves the build outcome when create-order logging throws: build failure %s',
     async (buildFails) => {
