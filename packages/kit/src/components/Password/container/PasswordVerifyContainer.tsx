@@ -535,14 +535,9 @@ const PasswordVerifyContainer = ({
       const finalPassword =
         passwordMode === EPasswordMode.PASSWORD ? data.password : data.passCode;
       try {
-        const encodePassword =
-          await backgroundApiProxy.servicePassword.encodeSensitiveText({
-            text: finalPassword,
-            ...kdfParams,
-          });
         const verifiedPassword =
-          await backgroundApiProxy.servicePassword.verifyPassword({
-            password: encodePassword,
+          await backgroundApiProxy.servicePassword.verifyPasswordFromInput({
+            password: finalPassword,
             passwordMode,
             enforcePasswordErrorProtection,
             skipPostVerifyBackgroundTasks,
