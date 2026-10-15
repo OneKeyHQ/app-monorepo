@@ -123,13 +123,6 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   },
 }));
 
-jest.mock(
-  '@onekeyhq/shared/src/modules3rdParty/check-biometric-auth-changed',
-  () => ({
-    checkBiometricAuthChanged: jest.fn().mockResolvedValue(true),
-  }),
-);
-
 jest.mock('@onekeyhq/shared/src/platformEnv', () => {
   const platformEnv = {
     isNativeIOS: true,
@@ -153,13 +146,13 @@ jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
 }));
 
 jest.mock('../../../background/instance/backgroundApiProxy', () => {
-  const setBiologyAuthEnable = jest.fn().mockResolvedValue(undefined);
+  const checkBiometricAuthChanged = jest.fn().mockResolvedValue(false);
   return {
     __esModule: true,
-    __setBiologyAuthEnable: setBiologyAuthEnable,
+    __checkBiometricAuthChanged: checkBiometricAuthChanged,
     default: {
       serviceApp: { isAppLocked: jest.fn(), resetApp: jest.fn() },
-      servicePassword: { setBiologyAuthEnable },
+      servicePassword: { checkBiometricAuthChanged },
     },
   };
 });
@@ -197,10 +190,6 @@ function getMocks() {
   return {
     dialogConfirm: jest.requireMock<IComponentMocks>('@onekeyhq/components')
       .__dialogConfirm,
-    setBiologyAuthEnable: jest.requireMock<{
-      __setBiologyAuthEnable: jest.Mock<Promise<void>, [boolean]>;
-    }>('../../../background/instance/backgroundApiProxy')
-      .__setBiologyAuthEnable,
   };
 }
 
@@ -239,9 +228,7 @@ describe('PasswordVerify biometric-changed warning', () => {
     // burn its one-shot "act without await" warning on a false positive.
     jest.useFakeTimers({ doNotFake: ['queueMicrotask'] });
     jest.clearAllMocks();
-    supportCheck().mockResolvedValue(true);
-    sdkCheck().mockResolvedValue(true);
-    getMocks().setBiologyAuthEnable.mockResolvedValue(undefined);
+    bgCheck().mockResolvedValue(true);
   });
 
   afterEach(() => {
@@ -252,7 +239,7 @@ describe('PasswordVerify biometric-changed warning', () => {
     renderVerify({ inAppStateLock: true });
     await flush();
 
-    expect(getMocks().setBiologyAuthEnable).toHaveBeenCalledWith(false);
+    expect(bgCheck()).toHaveBeenCalledTimes(1);
     expect(getMocks().dialogConfirm).toHaveBeenCalledWith(
       expect.objectContaining(inAppStateLockDialogProps),
     );
@@ -262,7 +249,7 @@ describe('PasswordVerify biometric-changed warning', () => {
     renderVerify();
     await flush();
 
-    expect(getMocks().setBiologyAuthEnable).toHaveBeenCalledWith(false);
+    expect(bgCheck()).toHaveBeenCalledTimes(1);
     // The lock overlay container only exists while the lock screen is mounted,
     // so aiming any other PasswordVerify at it would drop the dialog.
     expect(getMocks().dialogConfirm).toHaveBeenCalledWith(
@@ -285,15 +272,10 @@ describe('PasswordVerify biometric-changed warning', () => {
 function captured(): ICaptured {
   return jest.requireMock<IComponentMocks>('@onekeyhq/components').__captured;
 }
-function sdkCheck(): IBooleanMock {
-  return jest.requireMock<{ checkBiometricAuthChanged: IBooleanMock }>(
-    '@onekeyhq/shared/src/modules3rdParty/check-biometric-auth-changed',
-  ).checkBiometricAuthChanged;
-}
-function supportCheck(): IBooleanMock {
-  return jest.requireMock<{ default: { isSupportBiologyAuth: IBooleanMock } }>(
-    '@onekeyhq/shared/src/biologyAuth',
-  ).default.isSupportBiologyAuth;
+function bgCheck(): IBooleanMock {
+  return jest.requireMock<{ __checkBiometricAuthChanged: IBooleanMock }>(
+    '../../../background/instance/backgroundApiProxy',
+  ).__checkBiometricAuthChanged;
 }
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -307,9 +289,7 @@ describe('PasswordVerify biometric safety guard', () => {
   beforeEach(() => {
     jest.useFakeTimers({ doNotFake: ['queueMicrotask'] });
     jest.clearAllMocks();
-    sdkCheck().mockResolvedValue(false);
-    supportCheck().mockResolvedValue(true);
-    getMocks().setBiologyAuthEnable.mockResolvedValue(undefined);
+    bgCheck().mockResolvedValue(false);
 
     jest.spyOn(console, 'error').mockImplementation(() => {});
   });
@@ -323,16 +303,7 @@ describe('PasswordVerify biometric safety guard', () => {
     async (failure) => {
       const onBiologyAuth = jest.fn();
       const onInputPasswordAuth = jest.fn();
-      if (failure === 'support')
-        supportCheck().mockRejectedValue(new Error('support failed'));
-      if (failure === 'sdk')
-        sdkCheck().mockRejectedValue(new Error('Keychain read failed'));
-      if (failure === 'disable') {
-        sdkCheck().mockResolvedValue(true);
-        getMocks().setBiologyAuthEnable.mockRejectedValue(
-          new Error('setting failed'),
-        );
-      }
+      bgCheck().mockRejectedValue(new Error(`${failure} failed`));
       const view = renderVerify({ onBiologyAuth, onInputPasswordAuth });
       const manual = captured().input.addOns[0].onPress;
       await flush();
@@ -343,9 +314,6 @@ describe('PasswordVerify biometric safety guard', () => {
       });
       await flush();
       expect(onBiologyAuth).not.toHaveBeenCalled();
-      expect(getMocks().setBiologyAuthEnable).toHaveBeenCalledTimes(
-        failure === 'disable' ? 1 : 0,
-      );
       expect(getMocks().dialogConfirm).not.toHaveBeenCalled();
       expect(view.getByText('auth_biometric_failed')).toBeTruthy();
       await act(async () => {
@@ -390,7 +358,7 @@ describe('PasswordVerify biometric safety guard', () => {
   it('coalesces check and entire authentication challenge across automatic and manual entrances', async () => {
     const check = deferred<boolean>();
     const challenge = deferred<void>();
-    sdkCheck().mockReturnValue(check.promise);
+    bgCheck().mockReturnValue(check.promise);
     const onBiologyAuth = jest.fn().mockReturnValue(challenge.promise);
     renderVerify({ onBiologyAuth });
     await act(async () => {
@@ -398,7 +366,7 @@ describe('PasswordVerify biometric safety guard', () => {
       captured().active?.();
       captured().visibility?.(true);
     });
-    expect(sdkCheck()).toHaveBeenCalledTimes(1);
+    expect(bgCheck()).toHaveBeenCalledTimes(1);
     await act(async () => {
       check.resolve(false);
     });
@@ -422,7 +390,7 @@ describe('PasswordVerify biometric safety guard', () => {
     await act(async () => {
       captured().visibility?.(true);
     });
-    expect(sdkCheck()).toHaveBeenCalledTimes(1);
+    expect(bgCheck()).toHaveBeenCalledTimes(1);
     expect(onBiologyAuth).not.toHaveBeenCalled();
   });
 
@@ -441,7 +409,7 @@ describe('PasswordVerify biometric safety guard', () => {
           await captured().input.addOns[0].onPress();
         else captured().icon.onPress();
       });
-      expect(sdkCheck()).toHaveBeenCalledTimes(1);
+      expect(bgCheck()).toHaveBeenCalledTimes(1);
       expect(onBiologyAuth).toHaveBeenCalledTimes(1);
     },
   );
@@ -469,7 +437,7 @@ describe('PasswordVerify biometric safety guard', () => {
     'blocks a pending pageMode %s request when verification completes',
     async (passwordMode) => {
       const check = deferred<boolean>();
-      sdkCheck().mockReturnValue(check.promise);
+      bgCheck().mockReturnValue(check.promise);
       const onBiologyAuth = jest.fn();
       const props: Omit<ComponentProps<typeof PasswordVerify>, 'status'> = {
         authType: [],
@@ -486,7 +454,7 @@ describe('PasswordVerify biometric safety guard', () => {
           void captured().input.addOns[0].onPress();
         else captured().icon.onPress();
       });
-      expect(sdkCheck()).toHaveBeenCalledTimes(1);
+      expect(bgCheck()).toHaveBeenCalledTimes(1);
       view.rerender(
         <PasswordVerify
           {...props}
@@ -504,7 +472,7 @@ describe('PasswordVerify biometric safety guard', () => {
     'does not authenticate after pending check becomes %s',
     async (change) => {
       const check = deferred<boolean>();
-      sdkCheck().mockReturnValue(check.promise);
+      bgCheck().mockReturnValue(check.promise);
       const onBiologyAuth = jest.fn();
       const view = renderVerify({ onBiologyAuth });
       await act(async () => {
@@ -542,20 +510,18 @@ describe('PasswordVerify biometric safety guard', () => {
     },
   );
   it('treats unsupported biometrics as unavailable without disabling the setting', async () => {
-    supportCheck().mockResolvedValue(false);
+    bgCheck().mockRejectedValue(new Error('unsupported'));
     const onBiologyAuth = jest.fn();
     const view = renderVerify({ onBiologyAuth });
     await flush();
-    expect(sdkCheck()).not.toHaveBeenCalled();
+    expect(bgCheck()).toHaveBeenCalledTimes(1);
     expect(onBiologyAuth).not.toHaveBeenCalled();
-    expect(getMocks().setBiologyAuthEnable).not.toHaveBeenCalled();
     expect(view.getByText('auth_biometric_failed')).toBeTruthy();
   });
 
-  it('latches changed state before settings persistence completes', async () => {
+  it('coalesces entrances while background settings persistence completes', async () => {
     const disabling = deferred<void>();
-    sdkCheck().mockResolvedValue(true);
-    getMocks().setBiologyAuthEnable.mockReturnValue(disabling.promise);
+    bgCheck().mockReturnValue(disabling.promise.then(() => true));
     const onBiologyAuth = jest.fn();
     renderVerify({ onBiologyAuth });
     const manual = captured().input.addOns[0].onPress;
@@ -568,8 +534,7 @@ describe('PasswordVerify biometric safety guard', () => {
       captured().active?.();
       captured().visibility?.(true);
     });
-    expect(sdkCheck()).toHaveBeenCalledTimes(1);
-    expect(getMocks().setBiologyAuthEnable).toHaveBeenCalledTimes(1);
+    expect(bgCheck()).toHaveBeenCalledTimes(1);
     expect(onBiologyAuth).not.toHaveBeenCalled();
     expect(getMocks().dialogConfirm).not.toHaveBeenCalled();
     await act(async () => {

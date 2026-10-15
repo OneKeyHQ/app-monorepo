@@ -25,10 +25,8 @@ import {
 } from '@onekeyhq/components';
 import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import { usePasswordPersistManualLockStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
-import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { checkBiometricAuthChanged } from '@onekeyhq/shared/src/modules3rdParty/check-biometric-auth-changed';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EPasswordMode,
@@ -193,17 +191,8 @@ function PasswordVerify({
       return biometricCheckPromiseRef.current;
     const checking = (async (): Promise<IBiometricCheckResult> => {
       try {
-        const isSupport = await biologyAuth.isSupportBiologyAuth();
-        defaultLogger.setting.page.biologyAuthDebug('checkAuthChanged:start', {
-          platform: platformEnv.symbol,
-          isSupport,
-        });
-        if (!isSupport) {
-          biometricCheckRef.current = 'unavailable';
-          if (mountedRef.current) setBiometricCheckResult('unavailable');
-          return 'unavailable';
-        }
-        const changed = await checkBiometricAuthChanged();
+        const changed =
+          await backgroundApiProxy.servicePassword.checkBiometricAuthChanged();
         defaultLogger.setting.page.biologyAuthDebug('checkAuthChanged:result', {
           platform: platformEnv.symbol,
           changed,
@@ -212,7 +201,6 @@ function PasswordVerify({
           // Latch before persistent settings work, so other entry points cannot race it.
           biometricCheckRef.current = 'changed';
           if (mountedRef.current) setBiometricCheckResult('changed');
-          await backgroundApiProxy.servicePassword.setBiologyAuthEnable(false);
           setTimeout(() => {
             if (!mountedRef.current) return;
             Dialog.confirm({
@@ -250,8 +238,11 @@ function PasswordVerify({
         biometricCheckRef.current = 'unchanged';
         if (mountedRef.current) setBiometricCheckResult('unchanged');
         return 'unchanged';
-      } catch (error) {
-        console.error(error);
+      } catch {
+        defaultLogger.setting.page.biologyAuthDebug(
+          'checkAuthChanged:unavailable',
+          { platform: platformEnv.symbol },
+        );
         if (biometricCheckRef.current !== 'changed')
           biometricCheckRef.current = 'unavailable';
         if (mountedRef.current) setBiometricCheckResult('unavailable');
