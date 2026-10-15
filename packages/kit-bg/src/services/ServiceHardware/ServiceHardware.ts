@@ -1103,34 +1103,40 @@ class ServiceHardware extends ServiceBase {
     ) {
       throw new OneKeyLocalError(HARDWARE_CONNECT_PROTOCOL_UNAVAILABLE_MESSAGE);
     }
-    if (
-      autoSelectTransport &&
-      hardwareCallContext === EHardwareCallContext.USER_INTERACTION
-    ) {
-      // Permission UI may wait for the user; never hold the SDK lock for it.
-      await this.connectionManager.shouldSwitchTransportType({
-        connectId: options.connectId,
-        connectProtocol,
-        hardwareCallContext,
+    const getInstance = (bluetoothPermissionResult?: boolean) =>
+      this.sdkInstanceMutex.runExclusive(async () => {
+        let resolvedOptions = options;
+        if (autoSelectTransport) {
+          // Resolve after acquiring the lock, without waiting for permission UI.
+          const { targetType } =
+            await this.connectionManager.shouldSwitchTransportType({
+              connectId: options.connectId,
+              connectProtocol,
+              hardwareCallContext,
+              allowBluetoothPermissionPrompt: false,
+              bluetoothPermissionResult,
+            });
+          resolvedOptions = { ...options, hardwareTransportType: targetType };
+        }
+        return this.getSDKInstanceWithLifecycleLock(resolvedOptions);
       });
-    }
-    return this.sdkInstanceMutex.runExclusive(async () => {
-      let resolvedOptions = options;
-      if (autoSelectTransport) {
-        // Revalidate queued selection without reopening a permission dialog.
-        const { targetType } =
-          await this.connectionManager.shouldSwitchTransportType({
-            connectId: options.connectId,
-            connectProtocol,
-            hardwareCallContext:
-              hardwareCallContext === EHardwareCallContext.USER_INTERACTION
-                ? EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG
-                : hardwareCallContext,
-          });
-        resolvedOptions = { ...options, hardwareTransportType: targetType };
+    try {
+      return await getInstance();
+    } catch (error) {
+      if (
+        !autoSelectTransport ||
+        !(error instanceof deviceErrors.NeedBluetoothPermissions)
+      ) {
+        throw error;
       }
-      return this.getSDKInstanceWithLifecycleLock(resolvedOptions);
-    });
+      // Only the permission interaction runs outside the lifecycle lock.
+      const permissionResult =
+        await this.connectionManager.detectBluetoothAvailability(
+          hardwareCallContext,
+        );
+      // USB connections can change during permission UI; select again.
+      return getInstance(permissionResult);
+    }
   }
 
   private async getSDKInstanceWithLifecycleLock(

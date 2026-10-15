@@ -6,6 +6,7 @@ import {
 } from '@onekeyfe/hd-shared';
 import axios from 'axios';
 
+import { NeedBluetoothPermissions } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
@@ -29,6 +30,11 @@ import {
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IOneKeyHardwareOperationLease } from '../ServiceHardwareUI/HardwareProcessingManager';
+
+type IBluetoothPermissionOptions = {
+  allowBluetoothPermissionPrompt?: boolean;
+  bluetoothPermissionResult?: boolean;
+};
 
 export class HardwareConnectionManager {
   private static instance: HardwareConnectionManager | null = null;
@@ -271,6 +277,7 @@ export class HardwareConnectionManager {
 
   async detectBluetoothAvailability(
     hardwareCallContext?: IHardwareCallContext,
+    permissionOptions: IBluetoothPermissionOptions = {},
   ): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) {
       return false;
@@ -290,11 +297,12 @@ export class HardwareConnectionManager {
     const desktopBluetoothSettings = await desktopBluetoothAtom.get();
 
     if (!desktopBluetoothSettings.isRequestedPermission) {
-      if (
-        hardwareCallContext ===
-        EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG
-      ) {
-        return false;
+      if (permissionOptions.allowBluetoothPermissionPrompt === false) {
+        if (permissionOptions.bluetoothPermissionResult !== undefined) {
+          return permissionOptions.bluetoothPermissionResult;
+        }
+        // The caller must release the SDK lock before requesting permission.
+        throw new NeedBluetoothPermissions({ payload: {}, autoToast: false });
       }
       console.log(
         'HardwareConnectionManager detectBluetoothAvailability desktopBluetoothSettings.isRequestedPermission -> :',
@@ -359,6 +367,15 @@ export class HardwareConnectionManager {
         hardwareCallContext !==
           EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG
       ) {
+        if (permissionOptions.allowBluetoothPermissionPrompt === false) {
+          if (permissionOptions.bluetoothPermissionResult === undefined) {
+            throw new NeedBluetoothPermissions({
+              payload: {},
+              autoToast: false,
+            });
+          }
+          return Boolean(bleAvailableState?.available);
+        }
         // Show bluetooth permission unauthorized dialog
         await hardwareUiStateAtom.set({
           action: EHardwareUiStateAction.DeviceChecking,
@@ -379,6 +396,7 @@ export class HardwareConnectionManager {
 
       return Boolean(bleAvailableState?.available);
     } catch (error) {
+      if (error instanceof NeedBluetoothPermissions) throw error;
       console.log('❌ detectBluetoothAvailability error: ', error);
       return false;
     }
@@ -389,6 +407,7 @@ export class HardwareConnectionManager {
     connectId?: string,
     connectProtocol?: HardwareConnectProtocol,
     vendor?: EHardwareVendor,
+    permissionOptions: IBluetoothPermissionOptions = {},
   ): Promise<EHardwareTransportType> {
     const currentSettingType =
       await this.backgroundApi.serviceSetting.getHardwareTransportType();
@@ -419,8 +438,10 @@ export class HardwareConnectionManager {
       }
 
       // The selected device was not identified over USB; consider BLE.
-      const bluetoothAvailable =
-        await this.detectBluetoothAvailability(hardwareCallContext);
+      const bluetoothAvailable = await this.detectBluetoothAvailability(
+        hardwareCallContext,
+        permissionOptions,
+      );
       if (bluetoothAvailable) {
         return EHardwareTransportType.DesktopWebBle;
       }
@@ -439,12 +460,14 @@ export class HardwareConnectionManager {
       connectProtocol,
       hardwareCallContext,
       vendor,
+      allowBluetoothPermissionPrompt,
+      bluetoothPermissionResult,
     }: {
       connectId?: string;
       connectProtocol?: HardwareConnectProtocol;
       hardwareCallContext?: IHardwareCallContext;
       vendor?: EHardwareVendor;
-    }): Promise<{
+    } & IBluetoothPermissionOptions): Promise<{
       shouldSwitch: boolean;
       targetType: EHardwareTransportType;
     }> => {
@@ -524,6 +547,7 @@ export class HardwareConnectionManager {
           connectId,
           connectProtocol,
           vendor,
+          { allowBluetoothPermissionPrompt, bluetoothPermissionResult },
         ));
       const shouldSwitch = this.actualTransportType !== optimalType;
 
@@ -549,6 +573,8 @@ export class HardwareConnectionManager {
           args[0].connectProtocol || '',
           args[0].connectId || '',
           args[0].vendor || '',
+          args[0].allowBluetoothPermissionPrompt ?? true,
+          args[0].bluetoothPermissionResult ?? null,
           this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.getOneKeyOperationGeneration(),
           this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.getOneKeyOperationTransport(),
         ]),

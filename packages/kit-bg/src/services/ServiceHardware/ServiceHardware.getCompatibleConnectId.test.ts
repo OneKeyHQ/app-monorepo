@@ -2538,7 +2538,43 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       });
     });
 
-    it('allows SDK calls and cancellation while Bluetooth permission is pending', async () => {
+    it.each([
+      [usbDevice, EHardwareTransportType.WEBUSB],
+      [
+        { ...usbDevice, serialNo: 'OTHER_SERIAL', deviceId: 'OTHER_WALLET' },
+        EHardwareTransportType.DesktopWebBle,
+      ],
+    ])(
+      'probes USB once when selecting %s for an unpinned SDK call',
+      async (identity, transport) => {
+        const { service } = createService();
+        const probe = jest
+          .spyOn(service, 'probeUsbDeviceIdentities')
+          .mockResolvedValue([identity]);
+        const sdk = { setDeviceConnectProtocol: jest.fn() };
+        mockedGetHardwareSDKInstance.mockResolvedValue(sdk as never);
+        service.checkSdkVersionValid = jest.fn();
+        jest.spyOn(service, 'registerSdkEvents').mockResolvedValue(undefined);
+
+        await expect(
+          service.getSDKInstance({
+            connectId: 'PHYSICAL_SERIAL',
+            connectProtocol: 'V1',
+          }),
+        ).resolves.toBe(sdk);
+        expect(probe).toHaveBeenCalledTimes(1);
+        expect(mockedGetHardwareSDKInstance).toHaveBeenCalledWith(
+          expect.objectContaining({
+            hardwareTransportType: transport,
+          }),
+        );
+      },
+    );
+
+    it.each([
+      EHardwareCallContext.USER_INTERACTION,
+      EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
+    ])('unblocks SDK calls during %s permission', async (context) => {
       const { service } = createService();
       const backgroundApi = (
         service as unknown as { backgroundApi: IBackgroundApi }
@@ -2578,6 +2614,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       const interactive = service.getSDKInstance({
         connectId: 'PHYSICAL_SERIAL',
         connectProtocol: 'V1',
+        hardwareCallContext: context,
       });
       await permissionStarted;
       let silentFinished = false;
