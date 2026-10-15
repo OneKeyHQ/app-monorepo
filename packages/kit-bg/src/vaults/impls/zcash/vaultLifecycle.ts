@@ -1,0 +1,1366 @@
+import { isEqual } from 'lodash';
+
+import {
+  ZCASH_LIGHTWALLETD_MAINNET,
+  ZCASH_NETWORK_MAIN,
+} from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
+import { fetchZcashChainTipDirect } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
+import { readZcashRuntimeError } from '@onekeyhq/core/src/chains/zcash/sdkZcash/runtimeError';
+import type {
+  IZcashSyncProgress,
+  IZcashWalletAccount,
+} from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
+
+import { getPrivacyModeResumeFromHeight } from '../../../services/PrivacyModeState';
+
+import {
+  clampZcashBirthdayHeight,
+  estimateZcashBirthdayHeight,
+} from './birthday';
+import { KeyringHardware } from './KeyringHardware';
+import {
+  ZCASH_PROCESS_STARTED_AT,
+  getZcashLifecycleMutex,
+  getZcashSyncMutex,
+} from './lifecycle';
+import { parseZcashTransaction } from './transactionReview';
+import {
+  ZCASH_WORKER_RESET_TIMEOUT_MS,
+  createZcashSetupIncompleteError,
+  isZcashRuntimeDatabaseBroken,
+  zcashDescribeError,
+  zcashLastPrivateHistory,
+  zcashUserOperationsActive,
+} from './vaultUtils';
+
+import type { KeyringHd } from './KeyringHd';
+import type Vault from './Vault';
+import type { IDBUtxoAccount } from '../../../dbs/local/types';
+import type {
+  IZcashBirthdaySource,
+  IZcashPendingRescan,
+  IZcashPrivacyModeStateView,
+} from '../../../dbs/simple/entity/SimpleDbEntityZcash';
+import type { ILocalWalletCapability } from '../../localWallet/types';
+import type { IRescanLocalWalletFrom } from '../../types';
+
+export function getLocalWalletCapability(vault: Vault): ILocalWalletCapability {
+  return {
+    reviewTransaction: (encodedTx) => {
+      const tx = parseZcashTransaction(encodedTx);
+      return {
+        encodedTx: tx,
+        to: tx.zcashTo,
+        amount: tx.zcashAmountValue,
+        fee: tx.fee,
+      };
+    },
+    syncPolicy: {
+      maxSyncDurationMs: timerUtils.getTimeDurationMs({ minute: 5 }),
+      foregroundBackfillDelayMs: 500,
+      backgroundBackfillDelayMs: {
+        desktop: timerUtils.getTimeDurationMs({ seconds: 5 }),
+        default: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      },
+    },
+    listAccounts: () => vault.listLocalWalletAccounts(),
+    listSendPools: (params) => vault.listLocalWalletSendPools(params),
+    prewarmSend: (params) => vault.prewarmLocalWalletSend(params),
+    getAccountAliases: (params) => vault.getLocalWalletAccountAliases(params),
+    getChainTip: () => vault.getLocalWalletChainTip(),
+    onWalletCreated: (params) => vault.onPrivacyWalletCreated(params),
+    resumePendingOperations: () => vault.resumePendingPrivacyOperations(),
+    gcWalletState: (params) => vault.gcPrivacyWalletState(params),
+    syncGroup: (params) => vault.syncLocalWalletGroup(params),
+    syncCompletionIsAuthoritative:
+      !platformEnv.isNative && !platformEnv.isExtension,
+    reset: (params) => vault.resetLocalWallet(params),
+    recoverFromTimeout: () => vault.recoverLocalWalletFromTimeout(),
+    isUserOperationActive: zcashUserOperationsActive,
+    getStorageUsage: async () => {
+      // Diagnostics checks existence first, so this can't create a database for an account that never enabled privacy.
+      const api = await vault.zcashGetApi();
+      const diagnostics = await api.diagnoseWalletDatabase({
+        network: ZCASH_NETWORK_MAIN,
+      });
+      if (!diagnostics.databaseExists) {
+        return { bytes: 0 };
+      }
+      return { bytes: diagnostics.storageStats?.sqlite.logicalBytes ?? null };
+    },
+    getSyncEndpoint: async () => {
+      const api = await vault.zcashGetApi();
+      const [health, url] = await Promise.all([
+        api.getEndpointHealth().catch(() => undefined),
+        vault.zcashResolveLightwalletdUrl(),
+      ]);
+      return {
+        url,
+        defaultUrl: ZCASH_LIGHTWALLETD_MAINNET,
+        health: health?.url === url ? health : undefined,
+      };
+    },
+    // Runtime state is removed before its host journal entry, so an empty
+    // journal means there is nothing to delete.
+    hasLocalData: async () =>
+      (await vault.backgroundApi.simpleDb.zcash.listCleanupAccountIds())
+        .length > 0,
+    dropLocalData: async () => {
+      const api = await vault.zcashGetApi();
+      await api.dropWalletDatabase(ZCASH_NETWORK_MAIN);
+      // Host journals describe the database just deleted; clear them too or they drift out of sync.
+      const accountIds =
+        await vault.backgroundApi.simpleDb.zcash.listCleanupAccountIds();
+      await Promise.all(
+        accountIds.map((accountId) =>
+          vault.backgroundApi.simpleDb.privacyChain.removeScanStartPrompted({
+            accountId,
+          }),
+        ),
+      );
+      await vault.backgroundApi.simpleDb.zcash.clearRawData();
+    },
+    setDiagnosticsEnabled: (params) => vault.zcashSetPerfTrace(params),
+    getSyncProgress: (params) => vault.getLocalWalletSyncProgress(params),
+    rescan: (params) => vault.rescanLocalWallet(params),
+    // ZcashPrivacyMode owns the mutexes/journal; this only maps its state into the chain-agnostic shape.
+    getAccountState: async ({ accountId }) => {
+      const state = await vault.zcashPrivacyMode().getPrivacyModeState({
+        accountId,
+      });
+      return {
+        enabled: state.intent === 'on' && state.operation === undefined,
+        // A pause keeps a resume position; a never-enabled account has none.
+        paused:
+          state.intent !== 'on' &&
+          state.operation === undefined &&
+          state.resumeFromHeight !== undefined,
+        pendingOperation: state.operation?.type,
+        birthdayHeight: state.birthdayHeight,
+        birthdaySource: state.birthdaySource,
+        birthdayTimestamp: state.birthdayTimestamp,
+        birthdayHintTimestamp: state.birthdayMonthHint?.timestamp,
+      };
+    },
+    getAccountBalance: ({ accountId }) =>
+      vault.getLocalWalletAccountBalance({ accountId }),
+    enableAccount: (params) =>
+      vault.zcashPrivacyMode().enablePrivacyMode({
+        networkId: vault.networkId,
+        ...params,
+      }),
+    disableAccount: ({ accountId }) =>
+      vault.zcashPrivacyMode().disablePrivacyMode({
+        networkId: vault.networkId,
+        accountId,
+      }),
+    retryAccountSetup: ({ accountId }) =>
+      vault.zcashPrivacyMode().enablePrivacyMode({
+        networkId: vault.networkId,
+        accountId,
+      }),
+    getAccountAddresses: async ({ accountId }) => {
+      // Transparent address is account backbone, not privacy material -- available even while Privacy Mode is paused.
+      const dbAccount = (await vault.backgroundApi.serviceAccount
+        .getDBAccountSafe({ accountId })
+        .catch(() => null)) as IDBUtxoAccount | null;
+      // Imported and watch-only accounts have no privacy material to read.
+      const meta = vault.supportsAccountWalletType({ accountId })
+        ? await vault.zcashPrivacyMode().getLocalWalletAccountMeta({
+            networkId: vault.networkId,
+            accountId,
+          })
+        : undefined;
+      const publicAddress = meta?.transparentAddress ?? dbAccount?.address;
+      if (!publicAddress) {
+        return undefined;
+      }
+      // No private address while not scanning: handing one out risks a payment landing where it can't be seen.
+      return { publicAddress, privateAddress: meta?.unifiedAddress };
+    },
+    deleteAccountData: ({ accountId }) =>
+      vault.zcashPrivacyMode().deleteLocalPrivacyData({
+        networkId: vault.networkId,
+        accountId,
+      }),
+    getDebugAccountMeta: ({ accountId }) =>
+      vault.zcashPrivacyMode().getLocalWalletAccountMeta({
+        networkId: vault.networkId,
+        accountId,
+      }),
+  };
+}
+
+// Only a freshly generated mnemonic can safely start scanning at the tip; anything else must assume older history exists.
+export async function onPrivacyWalletCreated(
+  vault: Vault,
+  {
+    walletId,
+    isFreshlyGeneratedMnemonic,
+    createdAt,
+  }: {
+    walletId: string;
+    isFreshlyGeneratedMnemonic: boolean;
+    createdAt: number;
+  },
+): Promise<void> {
+  await vault.backgroundApi.simpleDb.zcash.saveWalletCreationProvenance({
+    walletId,
+    isFreshlyGeneratedMnemonic,
+    createdAt,
+  });
+  if (isFreshlyGeneratedMnemonic) {
+    const accountIds = (
+      await vault.backgroundApi.simpleDb.zcash.listPrivacyModeAccountIds()
+    ).filter(
+      (accountId) =>
+        accountUtils.getWalletIdFromAccountId({ accountId }) === walletId,
+    );
+    await vault.backgroundApi.simpleDb.zcash.backfillPrivacyModeBirthdayMonthHint(
+      {
+        accountIds,
+        birthdayMonthHint: {
+          timestamp: createdAt,
+          source: 'created-wallet',
+        },
+      },
+    );
+  }
+}
+
+export async function resumePendingPrivacyOperations(
+  vault: Vault,
+): Promise<void> {
+  const requestedBefore = ZCASH_PROCESS_STARTED_AT;
+  await vault.zcashReleaseReservationsFromEarlierRuns();
+  await vault.backgroundApi.simpleDb.zcash.cancelPendingPrivacyModeEnables({
+    requestedBefore,
+  });
+  const accountIds =
+    await vault.backgroundApi.simpleDb.zcash.listPendingPrivacyModeDisables({
+      requestedBefore,
+    });
+  for (const accountId of accountIds) {
+    // eslint-disable-next-line no-await-in-loop
+    await vault.backgroundApi.simpleDb.zcash.completePrivacyModeDisable({
+      accountId,
+    });
+  }
+}
+
+// A review page left open when the app died never releases its PCZT.
+export async function zcashReleaseReservationsFromEarlierRuns(
+  vault: Vault,
+): Promise<void> {
+  const accountIds = await vault.backgroundApi.simpleDb.zcash.listAccountIds();
+  for (const accountId of accountIds) {
+    // eslint-disable-next-line no-await-in-loop
+    const reservations =
+      await vault.backgroundApi.simpleDb.zcash.listShieldedReservations({
+        accountId,
+      });
+    for (const { reservationId, state, createdAt } of reservations) {
+      if (state === 'unsigned' && (createdAt ?? 0) < ZCASH_PROCESS_STARTED_AT) {
+        // eslint-disable-next-line no-await-in-loop
+        await vault
+          .zcashAbandonPczt({ accountId, reservationId })
+          .catch((error: unknown) => {
+            console.error('[zcash] could not release a stale reservation', {
+              error: error instanceof Error ? error.message : String(error),
+            });
+          });
+      }
+    }
+  }
+}
+
+export async function gcPrivacyWalletState(
+  vault: Vault,
+  {
+    liveWalletIds,
+  }: {
+    liveWalletIds: string[];
+  },
+): Promise<void> {
+  const live = new Set(liveWalletIds);
+  const stored = await vault.backgroundApi.simpleDb.zcash.listWalletStateIds();
+  for (const walletId of stored) {
+    if (!live.has(walletId)) {
+      // eslint-disable-next-line no-await-in-loop
+      await vault.backgroundApi.simpleDb.zcash.removeWalletState({
+        walletId,
+      });
+    }
+  }
+}
+
+export async function listLocalWalletAccounts(vault: Vault): Promise<{
+  accounts: {
+    accountId: string;
+    runtimeKey: string;
+    accountRuntimeKey: string;
+    syncEnabled: boolean;
+    slotEnabled: boolean;
+  }[];
+  cleanupAccountIds: string[];
+}> {
+  const [accountIds, enabledAccountIds, { wallets }] = await Promise.all([
+    vault.backgroundApi.simpleDb.zcash.listAccountIds(),
+    vault.backgroundApi.simpleDb.zcash.listPrivacyModeEnabledAccountIds(),
+    vault.backgroundApi.serviceAccount.getWallets({
+      nestedHiddenWallets: false,
+    }),
+  ]);
+  const enabled = new Set(enabledAccountIds);
+  // A 'do not save' wallet's viewing key stays on disk even though it's hidden; stop scanning it but keep its admission slot.
+  const visibleWalletIds = new Set(wallets.map((wallet) => wallet.id));
+  const accounts: {
+    accountId: string;
+    runtimeKey: string;
+    accountRuntimeKey: string;
+    syncEnabled: boolean;
+    slotEnabled: boolean;
+  }[] = [];
+  for (const accountId of accountIds) {
+    // eslint-disable-next-line no-await-in-loop
+    const account = await vault.zcashGetWalletAccount({ accountId });
+    accounts.push({
+      accountId,
+      // One database per network across every seed; the scheduler key must match that domain for one tip to mean one scan turn.
+      runtimeKey: account.network,
+      accountRuntimeKey: account.ufvk,
+      slotEnabled: enabled.has(accountId),
+      syncEnabled:
+        enabled.has(accountId) &&
+        visibleWalletIds.has(
+          accountUtils.getWalletIdFromAccountId({ accountId }),
+        ),
+    });
+  }
+  return {
+    accounts,
+    cleanupAccountIds:
+      await vault.backgroundApi.simpleDb.zcash.listCleanupAccountIds(),
+  };
+}
+
+export async function getLocalWalletAccountAliases(
+  vault: Vault,
+  {
+    accountId,
+  }: {
+    accountId: string;
+  },
+): Promise<string[]> {
+  const targetMeta = await vault.backgroundApi.simpleDb.zcash.getAccountMeta({
+    accountId,
+  });
+  if (!targetMeta) {
+    return [accountId];
+  }
+  const metas = await vault.backgroundApi.simpleDb.zcash.listAccountMetas();
+  return metas.flatMap((item) =>
+    item.meta.ufvk === targetMeta.ufvk ? [item.accountId] : [],
+  );
+}
+
+export async function zcashPrepareAccounts(
+  vault: Vault,
+  {
+    accountIds,
+    chainTip,
+  }: {
+    accountIds: string[];
+    chainTip?: number | null;
+  },
+): Promise<IZcashWalletAccount[]> {
+  const accounts: IZcashWalletAccount[] = [];
+  for (const accountId of accountIds) {
+    // eslint-disable-next-line no-await-in-loop
+    accounts.push(await vault.zcashGetWalletAccount({ accountId }));
+  }
+  await vault.zcashHealOutOfRangeBirthdays({ accountIds, accounts, chainTip });
+  const api = await vault.zcashGetApi();
+  const owned = await vault.backgroundApi.simpleDb.zcash.listAccountMetas();
+  await api.prepareWalletAccounts(accounts, {
+    retainedUfvks: Array.from(new Set(owned.map(({ meta }) => meta.ufvk))),
+  });
+
+  // A later alias can register the same UFVK with an earlier birthday than already registered; detect and repair via the durable journal.
+  const groups = new Map<
+    string,
+    { accountId: string; account: IZcashWalletAccount; aliases: string[] }
+  >();
+  for (let index = 0; index < accounts.length; index += 1) {
+    const candidate = accounts[index];
+    const existing = groups.get(candidate.ufvk);
+    if (!existing) {
+      groups.set(candidate.ufvk, {
+        accountId: accountIds[index],
+        account: candidate,
+        aliases: [accountIds[index]],
+      });
+    } else {
+      existing.aliases.push(accountIds[index]);
+      if (
+        candidate.birthdayHeight !== undefined &&
+        (existing.account.birthdayHeight === undefined ||
+          candidate.birthdayHeight < existing.account.birthdayHeight)
+      ) {
+        existing.accountId = accountIds[index];
+        existing.account = candidate;
+      }
+    }
+  }
+  let repairedBirthday = false;
+  for (const group of groups.values()) {
+    const expectedBirthday = group.account.birthdayHeight;
+    if (expectedBirthday === undefined) {
+      // eslint-disable-next-line no-continue
+      continue;
+    }
+    // eslint-disable-next-line no-await-in-loop
+    const progress = await api.getSyncProgress(group.account);
+    if (
+      progress.birthdayHeight === null ||
+      progress.birthdayHeight <= expectedBirthday
+    ) {
+      // eslint-disable-next-line no-continue
+      continue;
+    }
+    // eslint-disable-next-line no-await-in-loop
+    const meta = await vault.zcashGetAccountMeta({
+      accountId: group.accountId,
+    });
+    const repair: IZcashPendingRescan = {
+      birthdayHeight: expectedBirthday,
+      birthdaySource: meta?.birthdaySource ?? 'automatic-recovery',
+      birthdayTimestamp: meta?.birthdayTimestamp,
+      requestedAt: Date.now(),
+    };
+    // eslint-disable-next-line no-await-in-loop
+    await vault.backgroundApi.simpleDb.zcash.savePendingRescan({
+      accountId: group.accountId,
+      repair,
+    });
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      await vault.applyPendingRescan({
+        accountId: group.accountId,
+        repair,
+      });
+      repairedBirthday = true;
+    } catch (e) {
+      // An active PCZT reservation deliberately returns WALLET_BUSY; keep the journal, retry after the send completes.
+      console.log('[zcash] earlier birthday repair deferred', {
+        accountId: group.accountId,
+        ...zcashDescribeError(e),
+      });
+    }
+  }
+  if (repairedBirthday) {
+    await api.prepareWalletAccounts(accounts);
+  }
+  return accounts;
+}
+
+// Clamping a birthday only ever costs scan time, never funds. Left
+// unclamped, one out-of-range birthday throws and stalls the whole batch.
+export async function zcashHealOutOfRangeBirthdays(
+  vault: Vault,
+  {
+    accountIds,
+    accounts,
+    chainTip,
+  }: {
+    accountIds: string[];
+    accounts: IZcashWalletAccount[];
+    chainTip?: number | null;
+  },
+): Promise<void> {
+  const persist = async (index: number, height: number, why: string) => {
+    const accountId = accountIds[index];
+    console.log('[zcash] healing out-of-range birthday', {
+      accountId,
+      storedBirthday: accounts[index].birthdayHeight,
+      healedTo: height,
+      why,
+    });
+    const meta = await vault.zcashGetAccountMeta({ accountId });
+    if (meta) {
+      await vault.backgroundApi.simpleDb.zcash.saveAccountMeta({
+        accountId,
+        meta: { ...meta, birthdayHeight: height },
+      });
+    }
+    // Mutate the in-flight copy too, so this registration already uses the healed value.
+    accounts[index].birthdayHeight = height;
+  };
+
+  // Lower bound first since it needs no chain tip, so it still heals when the network itself is misbehaving.
+  for (let i = 0; i < accounts.length; i += 1) {
+    const stored = accounts[i].birthdayHeight;
+    if (typeof stored === 'number') {
+      const clamped = clampZcashBirthdayHeight({ birthdayHeight: stored });
+      if (clamped === stored) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      // eslint-disable-next-line no-await-in-loop
+      await persist(i, clamped, 'below-sapling');
+    }
+  }
+
+  let tip = chainTip ?? undefined;
+  if (tip === undefined) {
+    try {
+      tip = (await vault.getLocalWalletChainTip()) ?? undefined;
+    } catch (e) {
+      console.log('[zcash] above-tip birthday heal skipped (no chain tip)', {
+        ...zcashDescribeError(e),
+      });
+      return;
+    }
+  }
+  if (typeof tip !== 'number') {
+    return;
+  }
+  for (let i = 0; i < accounts.length; i += 1) {
+    const stored = accounts[i].birthdayHeight;
+    if (typeof stored === 'number') {
+      const clamped = clampZcashBirthdayHeight({
+        birthdayHeight: stored,
+        chainTip: tip,
+      });
+      if (clamped === stored) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      // eslint-disable-next-line no-await-in-loop
+      await persist(i, clamped, 'above-chain-tip');
+    }
+  }
+}
+
+export async function recoverLocalWalletFromTimeout(
+  vault: Vault,
+): Promise<boolean> {
+  if (platformEnv.isNative) {
+    // The WebView is shared across chains (XMR, secret, ...); restart only this Worker before remounting the whole thing.
+    let resetTimer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        vault.resetLocalWalletCarrier(),
+        new Promise<never>((_resolve, reject) => {
+          resetTimer = setTimeout(
+            () =>
+              reject(
+                new OneKeyLocalError('zcash: WebEmbed did not answer reset'),
+              ),
+            ZCASH_WORKER_RESET_TIMEOUT_MS,
+          );
+        }),
+      ]);
+      return true;
+    } catch (error) {
+      console.warn('[zcash] worker reset failed; remounting WebEmbed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      clearTimeout(resetTimer);
+    }
+    const { default: webembedApiProxy } =
+      await import('../../../webembeds/instance/webembedApiProxy');
+    webembedApiProxy.rejectPendingCalls(
+      'zcash: WebEmbed was remounted before this call returned',
+    );
+    await new Promise<void>((resolve, reject) => {
+      const timerRef: {
+        current?: ReturnType<typeof setTimeout>;
+      } = {};
+      const onReady = () => {
+        clearTimeout(timerRef.current);
+        appEventBus.off(EAppEventBusNames.LoadWebEmbedWebViewComplete, onReady);
+        resolve();
+      };
+      timerRef.current = setTimeout(
+        () => {
+          appEventBus.off(
+            EAppEventBusNames.LoadWebEmbedWebViewComplete,
+            onReady,
+          );
+          reject(
+            new OneKeyLocalError(
+              'zcash: replacement WebEmbed did not become ready',
+            ),
+          );
+        },
+        timerUtils.getTimeDurationMs({ seconds: 45 }),
+      );
+      appEventBus.on(EAppEventBusNames.LoadWebEmbedWebViewComplete, onReady);
+      // The provider changes the component key even when visible, which destroys the old WebView and its wasm execution.
+      appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
+    });
+    return true;
+  }
+  if (platformEnv.isDesktop || platformEnv.isWeb) {
+    await vault.resetLocalWalletCarrier();
+    return true;
+  }
+  if (platformEnv.isExtension) {
+    await vault.resetLocalWalletCarrier();
+    // Probe must not depend on the node being reachable, or an offline moment keeps the chain quarantined all session.
+    await timerUtils.wait(250);
+    const api = await vault.zcashGetApi();
+    await api.capabilities();
+    return true;
+  }
+  return false;
+}
+
+export async function prewarmLocalWalletSend(
+  vault: Vault,
+  {
+    accountId,
+    sourcePool,
+    toAddress,
+  }: {
+    accountId: string;
+    sourcePool: string;
+    toAddress: string;
+  },
+): Promise<void> {
+  const privateSource = sourcePool === 'orchard' || sourcePool === 'ironwood';
+  const shielding = sourcePool === 'transparent' && toAddress.startsWith('u1');
+  if (!privateSource && !shielding) return;
+  if (privateSource && !(await vault.zcashPrivacyModeIsActive(accountId)))
+    return;
+  const chainTip = await fetchZcashChainTipDirect({
+    lightwalletdUrl: await vault.zcashResolveLightwalletdUrl(),
+  });
+  if (chainTip === null) return;
+  const api = await vault.zcashGetApi();
+  // Only public parameters are prewarmed; the actual send still performs every proof/signature check.
+  await api.prewarmPczt({
+    network: ZCASH_NETWORK_MAIN,
+    targetHeight: chainTip,
+  });
+}
+
+export async function syncLocalWalletGroup(
+  vault: Vault,
+  params: {
+    accountIds: string[];
+    rescanFrom?: { accountId: string; fromHeight: number };
+    chainTip?: number | null;
+  },
+): Promise<{
+  synced: boolean;
+  stateChanged?: boolean;
+  chainTip?: number | null;
+  backfillRemaining?: boolean;
+}> {
+  try {
+    return await vault.syncLocalWalletGroupImpl(params);
+  } catch (e) {
+    if (!isZcashRuntimeDatabaseBroken(e)) {
+      throw e;
+    }
+    console.error('[zcash] runtime database unusable, rebuilding', {
+      ...zcashDescribeError(e),
+    });
+    await vault.zcashRebuildRuntimeDatabase();
+    return { synced: false };
+  }
+}
+
+// Corrupted database is deleted and rescanned from birthdays -- but never
+// while a broadcast is unresolved, since the runtime holds that intent.
+export async function zcashRebuildRuntimeDatabase(vault: Vault): Promise<void> {
+  const { accounts } = await vault.listLocalWalletAccounts();
+  const chainTip = await vault.getLocalWalletChainTip().catch(() => null);
+  for (const { accountId } of accounts) {
+    // The broken database can't release anything; an unsigned/expired reservation has nothing left to hold.
+    // eslint-disable-next-line no-await-in-loop
+    const reservations =
+      await vault.backgroundApi.simpleDb.zcash.listShieldedReservations({
+        accountId,
+      });
+    const discarded = reservations.filter(
+      ({ state, expiryHeight }) =>
+        state === 'unsigned' ||
+        (expiryHeight !== undefined &&
+          chainTip !== null &&
+          expiryHeight < chainTip),
+    );
+    for (const { reservationId } of discarded) {
+      // eslint-disable-next-line no-await-in-loop
+      await vault.backgroundApi.simpleDb.zcash.removeShieldedReservation({
+        accountId,
+        reservationId,
+      });
+    }
+    // eslint-disable-next-line no-await-in-loop
+    await vault.zcashAssertNoUnresolvedBroadcast(accountId);
+  }
+  const api = await vault.zcashGetApi();
+  await api.dropWalletDatabase(ZCASH_NETWORK_MAIN);
+  console.log('[zcash] runtime database dropped for rebuild');
+}
+
+export async function zcashPreparePrivacyModeAccount(
+  vault: Vault,
+  {
+    accountId,
+    fromHeight,
+    birthday,
+    onPrepared,
+  }: {
+    accountId: string;
+    fromHeight: number;
+    birthday?: IRescanLocalWalletFrom;
+    onPrepared: () => Promise<void>;
+  },
+): Promise<void> {
+  const result = await vault.syncLocalWalletGroupImpl({
+    accountIds: [accountId],
+    rescanFrom: { accountId, fromHeight },
+    prepareAccountId: accountId,
+    prepareBirthday: birthday,
+    onPrepared,
+  });
+  if (!result.synced) {
+    throw new OneKeyLocalError(
+      'zcash: privacy runtime registration did not complete',
+    );
+  }
+}
+
+export async function syncLocalWalletGroupImpl(
+  vault: Vault,
+  {
+    chainTip,
+    rescanFrom,
+    prepareAccountId,
+    prepareBirthday,
+    onPrepared,
+  }: {
+    accountIds: string[];
+    rescanFrom?: { accountId: string; fromHeight: number };
+    chainTip?: number | null;
+    prepareAccountId?: string;
+    prepareBirthday?: IRescanLocalWalletFrom;
+    onPrepared?: () => Promise<void>;
+  },
+): Promise<{
+  synced: boolean;
+  stateChanged?: boolean;
+  chainTip?: number | null;
+  backfillRemaining?: boolean;
+}> {
+  return getZcashSyncMutex(ZCASH_NETWORK_MAIN).runExclusive(async () => {
+    // Enabling only touches the control plane (chain tip, birthday treestate); checked before the runtime loads.
+    if (
+      prepareAccountId === undefined &&
+      !(await vault.backgroundApi.servicePrivacyChain.isLocalWalletScanAllowed())
+    ) {
+      return { synced: false };
+    }
+    // Refresh inside the scan lane: queued snapshots can predate another account's enable.
+    const { accounts: registered } = await vault.listLocalWalletAccounts();
+    const activeAccountIds: string[] = [];
+    const activeViewingKeys = new Set<string>();
+    const states = new Map<string, IZcashPrivacyModeStateView>();
+    const excludedRescans: { accountId: string; fromHeight: number }[] = [];
+    for (const candidate of registered) {
+      // eslint-disable-next-line no-await-in-loop
+      const state =
+        await vault.backgroundApi.simpleDb.zcash.getPrivacyModeState({
+          accountId: candidate.accountId,
+        });
+      states.set(candidate.accountId, state);
+      if (
+        candidate.runtimeKey === ZCASH_NETWORK_MAIN &&
+        ((candidate.syncEnabled &&
+          state.intent === 'on' &&
+          state.operation === undefined) ||
+          (candidate.accountId === prepareAccountId &&
+            state.operation?.type === 'enable'))
+      ) {
+        activeAccountIds.push(candidate.accountId);
+        activeViewingKeys.add(candidate.accountRuntimeKey);
+      }
+    }
+    for (const candidate of registered) {
+      if (candidate.runtimeKey !== ZCASH_NETWORK_MAIN) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      const state = checkIsDefined(states.get(candidate.accountId));
+      // Aliases share scan progress; hiding one must not trigger recovery work while another alias is active.
+      if (activeViewingKeys.has(candidate.accountRuntimeKey)) {
+        if (state.scanExcludedFromHeight !== undefined) {
+          excludedRescans.push({
+            accountId: candidate.accountId,
+            fromHeight: state.scanExcludedFromHeight,
+          });
+        }
+      } else if (
+        state.intent === 'on' &&
+        state.operation === undefined &&
+        state.scanExcludedFromHeight === undefined
+      ) {
+        // Persist before another key can consume the shared scan queue; a failed
+        // progress read falls back to the birthday, never the tip.
+        // eslint-disable-next-line no-await-in-loop
+        const progress = await vault.getLocalWalletSyncProgress({
+          accountId: candidate.accountId,
+        });
+        // Persisted key metadata owns the resolved height even when the original enable input was only a timestamp.
+        // eslint-disable-next-line no-await-in-loop
+        const meta = await vault.backgroundApi.simpleDb.zcash.getAccountMeta({
+          accountId: candidate.accountId,
+        });
+        const birthdayHeight =
+          state.birthdayHeight ??
+          meta?.birthdayHeight ??
+          progress.birthdayHeight;
+        if (birthdayHeight === null || birthdayHeight === undefined) {
+          throw new OneKeyLocalError(
+            'zcash: hidden account is missing its recovery birthday',
+          );
+        }
+        // eslint-disable-next-line no-await-in-loop
+        await vault.backgroundApi.simpleDb.zcash.markPrivacyModeScanExcluded({
+          accountId: candidate.accountId,
+          fromHeight: getPrivacyModeResumeFromHeight({
+            progress,
+            birthdayHeight,
+          }),
+        });
+      }
+    }
+    const accountIds = Array.from(new Set(activeAccountIds));
+    if (!accountIds.length) {
+      return { synced: false };
+    }
+    // Crash-safety replay first: a birthday change journals before purging,
+    // so a death mid-repair is finished here before registration reads it.
+    await vault.zcashResumePendingRescans(prepareAccountId);
+    let effectiveRescanFrom = rescanFrom;
+    if (prepareAccountId !== undefined && prepareBirthday !== undefined) {
+      await vault.rescanLocalWallet({
+        accountId: prepareAccountId,
+        from: prepareBirthday,
+      });
+      const meta = await vault.backgroundApi.simpleDb.zcash.getAccountMeta({
+        accountId: prepareAccountId,
+      });
+      effectiveRescanFrom = {
+        accountId: prepareAccountId,
+        fromHeight: checkIsDefined(meta?.birthdayHeight),
+      };
+    }
+    const accounts = await vault.zcashPrepareAccounts({
+      accountIds,
+      chainTip,
+    });
+    // After registration: an account not yet registered (first enable, or just purged) can't be requeued.
+    if (effectiveRescanFrom) {
+      try {
+        await vault.queueLocalWalletRescanFrom(effectiveRescanFrom);
+      } catch (error) {
+        if (readZcashRuntimeError(error)?.code !== 'NOT_SYNCED') {
+          throw error;
+        }
+      }
+    }
+    for (const excluded of excludedRescans) {
+      // Registration must precede the requeue; a freshly rebuilt runtime has no account range until then.
+      // eslint-disable-next-line no-await-in-loop
+      await vault.queueLocalWalletRescanFrom(excluded);
+    }
+    // Enabling establishes viewing state and queues work; only the scheduler may start scanning after admission checks.
+    if (prepareAccountId !== undefined) {
+      // Registration/requeue and admission must be atomic to other scans; the
+      // callback stays in bg and must not reacquire the network mutex.
+      await onPrepared?.();
+      return { synced: true, backfillRemaining: true };
+    }
+    // The one metered-data gate: everything past it downloads block data.
+    if (
+      !(await vault.backgroundApi.servicePrivacyChain.isLocalWalletScanAllowed())
+    ) {
+      return { synced: false };
+    }
+    // The shared database trial-decrypts every registered key in one pass, so any account advances the whole group.
+    const accountId = accountIds[0];
+    const account = await vault.zcashGetWalletAccount({ accountId });
+    const api = await vault.zcashGetApi();
+    const result = await api.syncWallet(account, {
+      activeUfvks: Array.from(new Set(accounts.map((item) => item.ufvk))),
+      chainTip,
+    });
+    for (const excluded of excludedRescans) {
+      // A failed/interrupted scan leaves the durable cursor for retry.
+      // eslint-disable-next-line no-await-in-loop
+      await vault.backgroundApi.simpleDb.zcash.clearPrivacyModeScanExcluded({
+        accountId: excluded.accountId,
+        expectedFromHeight: excluded.fromHeight,
+      });
+    }
+    console.log('[zcash] syncLocalWalletGroup result', {
+      accountIds,
+      ...result,
+    });
+    return {
+      synced: true,
+      stateChanged: result.stateChanged,
+      chainTip: result.chainTip,
+      backfillRemaining: result.backfillRemaining,
+    };
+  });
+}
+
+export async function resetLocalWallet(
+  vault: Vault,
+  {
+    accountId,
+    scope,
+  }: {
+    accountId: string;
+    scope: 'cache' | 'all';
+  },
+): Promise<void> {
+  zcashLastPrivateHistory.delete(accountId);
+  if (scope === 'cache') {
+    const account = await vault.zcashGetWalletAccount({ accountId });
+    const lifecycleMutex = getZcashLifecycleMutex(account.ufvk);
+    await lifecycleMutex.runExclusive(async () => {
+      await vault.zcashAssertNoUnresolvedBroadcast(accountId);
+      const api = await vault.zcashGetApi();
+      await api.purgeWallet(account);
+    });
+    console.log('[zcash] local wallet cache reset', { accountId });
+    return;
+  }
+  const targetMeta = await vault.backgroundApi.simpleDb.zcash.getAccountMeta({
+    accountId,
+  });
+  if (targetMeta) {
+    const lifecycleMutex = getZcashLifecycleMutex(targetMeta.ufvk);
+    // The app account is gone; funds remain on chain and a re-import scans them back.
+    await lifecycleMutex.runExclusive(async () => {
+      const metas = await vault.backgroundApi.simpleDb.zcash.listAccountMetas();
+      for (const item of metas) {
+        if (
+          item.accountId === accountId ||
+          item.meta.ufvk !== targetMeta.ufvk
+        ) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+        // eslint-disable-next-line no-await-in-loop
+        const owner = await vault.backgroundApi.serviceAccount.getDBAccountSafe(
+          {
+            accountId: item.accountId,
+          },
+        );
+        if (owner) {
+          // Still referenced by another alias; runtime state keys by the shared UFVK, so removing this alias doesn't touch history.
+          await vault.backgroundApi.simpleDb.zcash.removeAccountState({
+            accountId,
+          });
+          return;
+        }
+      }
+      const account = await vault.zcashGetWalletAccount({ accountId });
+      const api = await vault.zcashGetApi();
+      await api.purgeWallet(account, { accountDeleted: true });
+      await vault.backgroundApi.simpleDb.zcash.removeAccountState({
+        accountId,
+      });
+    });
+    return;
+  }
+  // Nothing can locate a runtime account anymore; drop any orphaned host-only records found during cleanup.
+  await vault.backgroundApi.simpleDb.zcash.removeAccountState({ accountId });
+}
+
+export async function deleteLocalPrivacyData(
+  vault: Vault,
+  {
+    accountId,
+  }: {
+    accountId: string;
+  },
+): Promise<void> {
+  zcashLastPrivateHistory.delete(accountId);
+  const targetMeta = await vault.backgroundApi.simpleDb.zcash.getAccountMeta({
+    accountId,
+  });
+  if (!targetMeta) {
+    return;
+  }
+  const lifecycleMutex = getZcashLifecycleMutex(targetMeta.ufvk);
+  await lifecycleMutex.runExclusive(async () => {
+    const privacyModeState =
+      await vault.backgroundApi.simpleDb.zcash.getPrivacyModeState({
+        accountId,
+      });
+    if (
+      privacyModeState.intent !== 'off' ||
+      privacyModeState.operation !== undefined
+    ) {
+      throw new OneKeyLocalError(
+        'zcash: Privacy Mode changed while deleting local privacy data',
+      );
+    }
+    await vault.zcashAssertNoUnresolvedBroadcast(accountId);
+    const aliases = await vault.backgroundApi.simpleDb.zcash.listAccountMetas();
+    let hasLiveAlias = false;
+    for (const alias of aliases) {
+      if (
+        alias.accountId === accountId ||
+        alias.meta.ufvk !== targetMeta.ufvk
+      ) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      // eslint-disable-next-line no-await-in-loop
+      const [owner, aliasPrivacyModeState] = await Promise.all([
+        vault.backgroundApi.serviceAccount.getDBAccountSafe({
+          accountId: alias.accountId,
+        }),
+        vault.backgroundApi.simpleDb.zcash.getPrivacyModeState({
+          accountId: alias.accountId,
+        }),
+      ]);
+      // Pausing promises the cache stays, so a paused alias still owns it.
+      const aliasIsPaused =
+        aliasPrivacyModeState.intent !== 'on' &&
+        aliasPrivacyModeState.operation === undefined &&
+        aliasPrivacyModeState.resumeFromHeight !== undefined;
+      if (
+        owner &&
+        (aliasPrivacyModeState.intent === 'on' ||
+          aliasPrivacyModeState.operation !== undefined ||
+          aliasIsPaused)
+      ) {
+        hasLiveAlias = true;
+        break;
+      }
+    }
+    if (!hasLiveAlias) {
+      const account = await vault.zcashGetWalletAccount({ accountId });
+      const api = await vault.zcashGetApi();
+      await api.purgeWallet(account);
+    }
+    // removeAccountMeta deliberately keeps mode/birthday so a later enable can rederive the UFVK and reuse the recovery month.
+    await vault.backgroundApi.simpleDb.zcash.removeAccountMeta({ accountId });
+    // Locally recorded signed-tx history goes too, so no private activity trail remains; public chain history is unaffected.
+    await vault.backgroundApi.serviceSignature.removeSignedTransactionsForAccount(
+      { networkId: vault.networkId, accountId },
+    );
+  });
+}
+
+// Retries a shielded-meta derivation that never completed; only call on a full account-bound vault (has a keyring).
+export async function zcashRetryLocalWalletSetup(
+  vault: Vault,
+  {
+    password,
+    deviceParams,
+  }: {
+    password?: string;
+    deviceParams?: IDeviceSharedCallParams;
+  },
+): Promise<void> {
+  if (vault.keyring instanceof KeyringHardware) {
+    await vault.keyring.retryLocalWalletSetup({
+      deviceParams: checkIsDefined(deviceParams),
+    });
+    return;
+  }
+  await (vault.keyring as KeyringHd).retryLocalWalletSetup({
+    password: checkIsDefined(password),
+  });
+}
+
+export async function zcashTryAutoRepairLocalWalletSetupIfUnlocked(
+  vault: Vault,
+): Promise<boolean> {
+  // A hardware account needs the device in hand; never auto-prompt for it.
+  if (vault.keyring instanceof KeyringHardware) {
+    return false;
+  }
+  const hasCachedPassword =
+    await vault.backgroundApi.servicePassword.hasCachedPassword();
+  if (!hasCachedPassword) {
+    return false;
+  }
+  try {
+    // Never prompts: a balance poll must not open a password dialog or bypass 'always re-enter password'.
+    if (
+      await vault.backgroundApi.servicePassword.isAlwaysReenterPassword(
+        EReasonForNeedPassword.CreateTransaction,
+      )
+    ) {
+      return false;
+    }
+    const password =
+      await vault.backgroundApi.servicePassword.getCachedPassword();
+    if (!password) return false;
+    await vault.zcashRetryLocalWalletSetup({ password });
+    return true;
+  } catch (e) {
+    console.error('[zcash] auto repair local wallet setup failed', {
+      accountId: vault.accountId,
+      error: e instanceof Error ? e.message : String(e),
+    });
+    return false;
+  }
+}
+
+// Powers the sync-progress display by reading the wallet summary only; polling must never enqueue or join a scan job.
+export async function getLocalWalletSyncProgress(
+  vault: Vault,
+  {
+    accountId,
+  }: {
+    accountId: string;
+  },
+): Promise<IZcashSyncProgress> {
+  try {
+    if (!(await vault.zcashPrivacyModeIsActive(accountId))) {
+      throw createZcashSetupIncompleteError();
+    }
+    const account = await vault.zcashGetWalletAccount({ accountId });
+    const api = await vault.zcashGetApi();
+    return await api.getSyncProgress(account);
+  } catch (e) {
+    console.log('[zcash] getLocalWalletSyncProgress failed', {
+      accountId,
+      ...zcashDescribeError(e),
+    });
+    return {
+      birthdayHeight: null,
+      backfillScannedHeight: null,
+      backfillTargetHeight: null,
+      backfillProgress: null,
+      isBackfillComplete: false,
+      tipScannedHeight: null,
+      chainTip: null,
+      tipLag: null,
+      isTipCaughtUp: false,
+      isSyncing: false,
+    };
+  }
+}
+
+export async function applyPendingRescan(
+  vault: Vault,
+  {
+    accountId,
+    repair,
+  }: {
+    accountId: string;
+    repair: IZcashPendingRescan;
+  },
+): Promise<void> {
+  const meta = await vault.zcashGetAccountMeta({ accountId });
+  if (!meta) {
+    await vault.backgroundApi.simpleDb.zcash.removePendingRescan({
+      accountId,
+      expectedRepair: repair,
+    });
+    return;
+  }
+  const lifecycleMutex = getZcashLifecycleMutex(meta.ufvk);
+  await lifecycleMutex.runExclusive(async () => {
+    const [currentMeta, pendingRescans, owner] = await Promise.all([
+      vault.backgroundApi.simpleDb.zcash.getAccountMeta({ accountId }),
+      vault.backgroundApi.simpleDb.zcash.listPendingRescans(),
+      vault.backgroundApi.serviceAccount.getDBAccountSafe({ accountId }),
+    ]);
+    const pending = pendingRescans.find(
+      (candidate) => candidate.accountId === accountId,
+    )?.repair;
+    if (
+      !owner ||
+      !currentMeta ||
+      currentMeta.ufvk !== meta.ufvk ||
+      !isEqual(pending, repair)
+    ) {
+      return;
+    }
+    await vault.zcashAssertNoUnresolvedBroadcast(accountId);
+    // Save the corrected birthday BEFORE purging: purging first could wedge
+    // the account if the stored birthday never resolves. Crash-safe via the journal.
+    await vault.backgroundApi.simpleDb.zcash.saveAccountMeta({
+      accountId,
+      expectedMeta: currentMeta,
+      meta: {
+        ...currentMeta,
+        birthdayHeight: repair.birthdayHeight,
+        birthdaySource: repair.birthdaySource,
+        birthdayTimestamp: repair.birthdayTimestamp,
+      },
+    });
+    const account = await vault.zcashGetWalletAccount({ accountId });
+    const api = await vault.zcashGetApi();
+    await api.purgeWallet(account);
+    await vault.backgroundApi.simpleDb.zcash.removePendingRescan({
+      accountId,
+      expectedRepair: repair,
+    });
+  });
+}
+
+// Crash-safety replay for recorded birthday repairs; runs at the start of every sync turn (cheap when empty).
+export async function zcashResumePendingRescans(
+  vault: Vault,
+  requiredAccountId?: string,
+): Promise<void> {
+  const repairs = await vault.backgroundApi.simpleDb.zcash.listPendingRescans();
+  for (const { accountId, repair } of repairs) {
+    // eslint-disable-next-line no-await-in-loop
+    const owner = await vault.backgroundApi.serviceAccount.getDBAccountSafe({
+      accountId,
+    });
+    if (!owner) {
+      // eslint-disable-next-line no-await-in-loop
+      await vault.backgroundApi.simpleDb.zcash.removePendingRescan({
+        accountId,
+      });
+      // eslint-disable-next-line no-continue
+      continue;
+    }
+    // Runtime purge owns the active reservation/outgoing guard; busy throws and the journal remains for retry.
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      await vault.applyPendingRescan({ accountId, repair });
+    } catch (e) {
+      if (accountId === requiredAccountId) {
+        // Admission cannot finish while this identity's recovery is pending.
+        throw e;
+      }
+      // Keep the journal intact; a later scheduler tick can retry without the user reopening the repair dialog.
+      console.error('[zcash] pending rescan resume failed', {
+        accountId,
+        ...zcashDescribeError(e),
+      });
+    }
+  }
+}
+
+// Shared primitive behind every birthday-repair entry point: the journal
+// is written before the cache purge so a crash can't half-apply a birthday.
+export async function zcashRescanFromHeight(
+  vault: Vault,
+  {
+    accountId,
+    birthdayHeight,
+    birthdaySource,
+    birthdayTimestamp,
+  }: {
+    accountId: string;
+    birthdayHeight: number;
+    birthdaySource: IZcashBirthdaySource;
+    birthdayTimestamp?: number;
+  },
+): Promise<void> {
+  const meta = await vault.zcashGetAccountMeta({ accountId });
+  if (!meta) {
+    throw new OneKeyLocalError(
+      'zcash: no local wallet meta to rescan (run retryLocalWalletSetup first)',
+    );
+  }
+  // A birthday above the chain tip wedges the account permanently; clamp centrally here (best-effort if the tip can't be fetched).
+  let ceiling: number | undefined;
+  try {
+    const tip = await vault.getLocalWalletChainTip();
+    ceiling = tip ?? undefined;
+  } catch (e) {
+    console.log('[zcash] rescan tip clamp skipped (tip fetch failed)', {
+      accountId,
+      ...zcashDescribeError(e),
+    });
+  }
+  const effectiveHeight = clampZcashBirthdayHeight({
+    birthdayHeight,
+    chainTip: ceiling,
+  });
+  if (ceiling !== undefined && birthdayHeight > ceiling) {
+    console.log('[zcash] rescan birthday clamped to chain tip', {
+      accountId,
+      requested: birthdayHeight,
+      chainTip: ceiling,
+    });
+  }
+  const repair: IZcashPendingRescan = {
+    birthdayHeight: effectiveHeight,
+    birthdaySource,
+    birthdayTimestamp,
+    requestedAt: Date.now(),
+  };
+  await vault.backgroundApi.simpleDb.zcash.savePendingRescan({
+    accountId,
+    repair,
+  });
+  await vault.applyPendingRescan({ accountId, repair });
+  console.log('[zcash] rescanFromHeight', { accountId, birthdayHeight });
+}
+
+// Resolves the scan start from whichever form the caller gives, then clamps/persists/applies it.
+export async function rescanLocalWallet(
+  vault: Vault,
+  {
+    accountId,
+    from,
+    dryRun,
+  }: {
+    accountId: string;
+    from: IRescanLocalWalletFrom;
+    dryRun?: boolean;
+  },
+): Promise<{ fromHeight: number }> {
+  let birthdayHeight: number;
+  let birthdaySource: IZcashBirthdaySource = 'manual-height';
+  let birthdayTimestamp: number | undefined;
+  if (from.type === 'height') {
+    birthdayHeight = from.height;
+  } else {
+    birthdayTimestamp =
+      from.type === 'timestamp'
+        ? from.timestamp
+        : Date.now() - Math.max(0, from.daysAgo) * 24 * 60 * 60 * 1000;
+    birthdaySource = 'manual-month';
+    const tip = await vault.getLocalWalletChainTip();
+    birthdayHeight = estimateZcashBirthdayHeight({
+      birthdayTimestamp,
+      now: Date.now(),
+      chainTip: tip,
+    });
+  }
+  if (!dryRun) {
+    await vault.zcashRescanFromHeight({
+      accountId,
+      birthdayHeight,
+      birthdaySource,
+      birthdayTimestamp,
+    });
+  }
+  return { fromHeight: birthdayHeight };
+}
