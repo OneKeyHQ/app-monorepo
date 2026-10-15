@@ -134,7 +134,7 @@ export function useReferenceLineInteraction({
         ...component,
         props: {
           ...component.props,
-          ...(preview ? { pending: true } : {}),
+          ...(preview ? { pending: 'priceChange' as const } : {}),
           anchor: { ...component.props.anchor, price },
         },
       };

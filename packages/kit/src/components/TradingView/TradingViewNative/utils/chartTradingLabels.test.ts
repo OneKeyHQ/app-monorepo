@@ -11,7 +11,11 @@ import type {
 } from './chartScene';
 import type { ITradingViewNativeReferenceLineComponent } from '../types';
 
-function buildLabels(prices: number[], priceChartHeight = 200) {
+function buildLabels(
+  prices: number[],
+  priceChartHeight = 200,
+  pending?: ITradingViewNativeReferenceLineComponent['props']['pending'],
+) {
   const components: ITradingViewNativeReferenceLineComponent[] = prices.map(
     (price, index) => ({
       id: `order-${index}`,
@@ -22,6 +26,7 @@ function buildLabels(prices: number[], priceChartHeight = 200) {
         interactive: true,
         cancelable: true,
         draggable: true,
+        pending: index === 0 ? pending : undefined,
         style: 'dotted',
         title: `Limit ${price}`,
         label: {
@@ -62,6 +67,51 @@ function buildLabels(prices: number[], priceChartHeight = 200) {
 }
 
 describe('trading labels', () => {
+  it('replaces cancellation with a loading indicator without fading the label', () => {
+    const { labels, customPaintStyles, hitRegions, textLabelCommands } =
+      buildLabels([104, 100], 200, 'cancel');
+    expect(
+      customPaintStyles[
+        'chart.component.referenceLine.order-0.label.trading.body'
+      ].opacity,
+    ).toBe(1);
+    const loading = hitRegions.find(
+      (hit) => hit.id === 'order-0' && hit.action === 'cancel',
+    );
+    expect(loading).toMatchObject({
+      loadingColor: '#00aa00',
+      rect: { y: labels[0].y, height: labels[0].height },
+    });
+    expect(
+      hitRegions.some((hit) => hit.id === 'order-0' && hit.action === 'drag'),
+    ).toBe(false);
+    expect(
+      hitRegions.find((hit) => hit.id === 'order-1' && hit.action === 'cancel')
+        ?.loadingColor,
+    ).toBeUndefined();
+    expect(
+      textLabelCommands.filter(
+        (command) =>
+          command.kind === 'line' &&
+          command.customPaintId ===
+            'chart.component.referenceLine.order-0.label.trading.bodyText',
+      ),
+    ).toEqual([]);
+  });
+
+  it('keeps amendment previews distinct from cancellation loading', () => {
+    const { customPaintStyles, hitRegions } = buildLabels(
+      [104],
+      200,
+      'priceChange',
+    );
+    expect(
+      customPaintStyles[
+        'chart.component.referenceLine.order-0.label.trading.body'
+      ].opacity,
+    ).toBe(0.5);
+    expect(hitRegions).toEqual([]);
+  });
   it.each([
     [104, 103.9, 103.8],
     [100, 100, 100],

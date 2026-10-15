@@ -49,6 +49,7 @@ export interface ITradingViewNativeReferenceLineHitRegion {
   action: 'cancel' | 'drag';
   price: number;
   rect: ITradingViewNativeChartSceneRect;
+  loadingColor?: string;
 }
 
 function getReferenceLinePaintId(id: string, part: 'label' | 'line' | 'text') {
@@ -110,7 +111,8 @@ function appendTradingLineLabelCommands({
     ? ORDER_LINE_LABEL_FONT_SIZE
     : TRADING_LINE_LABEL_FONT_SIZE;
   const dragHandleWidth = isOrderLabel && interactive && draggable ? 8 : 0;
-  const opacity = pending ? 0.5 : 1;
+  const isCancelPending = pending === 'cancel';
+  const opacity = pending && !isCancelPending ? 0.5 : 1;
   const paintId = `${getReferenceLinePaintId(component.id, 'label')}.trading`;
   const bodyPaintId = `${paintId}.body`;
   const bodyTextPaintId = `${paintId}.bodyText`;
@@ -277,41 +279,43 @@ function appendTradingLineLabelCommands({
         customPaintId: cancelBackgroundPaintId,
       });
     }
-    commands.push(
-      {
-        kind: 'line',
-        paint: 'gridLine',
-        customPaintId: borderPaintId,
-        x1: cancelRect.x + 0.5,
-        x2: cancelRect.x + 0.5,
-        y1: top,
-        y2: top + TRADING_LINE_LABEL_HEIGHT,
-      },
-      {
-        kind: 'line',
-        paint: 'gridLine',
-        customPaintId: bodyTextPaintId,
-        x1: centerX - iconRadius,
-        x2: centerX + iconRadius,
-        y1: centerY - iconRadius,
-        y2: centerY + iconRadius,
-      },
-      {
-        kind: 'line',
-        paint: 'gridLine',
-        customPaintId: bodyTextPaintId,
-        x1: centerX - iconRadius,
-        x2: centerX + iconRadius,
-        y1: centerY + iconRadius,
-        y2: centerY - iconRadius,
-      },
-    );
-    if (!pending) {
+    commands.push({
+      kind: 'line',
+      paint: 'gridLine',
+      customPaintId: borderPaintId,
+      x1: cancelRect.x + 0.5,
+      x2: cancelRect.x + 0.5,
+      y1: top,
+      y2: top + TRADING_LINE_LABEL_HEIGHT,
+    });
+    if (!isCancelPending)
+      commands.push(
+        {
+          kind: 'line',
+          paint: 'gridLine',
+          customPaintId: bodyTextPaintId,
+          x1: centerX - iconRadius,
+          x2: centerX + iconRadius,
+          y1: centerY - iconRadius,
+          y2: centerY + iconRadius,
+        },
+        {
+          kind: 'line',
+          paint: 'gridLine',
+          customPaintId: bodyTextPaintId,
+          x1: centerX - iconRadius,
+          x2: centerX + iconRadius,
+          y1: centerY + iconRadius,
+          y2: centerY - iconRadius,
+        },
+      );
+    if (!pending || isCancelPending) {
       hitRegions.push({
         id: component.id,
         action: 'cancel',
         price: anchor.price,
         rect: cancelRect,
+        loadingColor: isCancelPending ? label.color : undefined,
       });
     }
   }
@@ -544,7 +548,10 @@ export function appendTradingViewNativeChartComponentCommands({
       dash,
       opacity: 1,
     };
-    customPaintStyles[labelPaintId] = { color, opacity: pending ? 0.5 : 1 };
+    customPaintStyles[labelPaintId] = {
+      color,
+      opacity: pending && pending !== 'cancel' ? 0.5 : 1,
+    };
     customPaintStyles[textPaintId] = {
       color: PRICE_LABEL_TEXT_COLOR,
       opacity: 1,
@@ -669,38 +676,40 @@ export function appendTradingViewNativeChartComponentCommands({
       };
       const centerX = rect.x + rect.width / 2;
       const centerY = rect.y + rect.height / 2;
-      textLabelCommands.push(
-        {
-          ...rect,
-          kind: 'rect',
-          customPaintId: labelPaintId,
-          paint: 'background',
-        },
-        {
-          kind: 'line',
-          customPaintId: textPaintId,
-          paint: 'gridLine',
-          x1: centerX - 3,
-          y1: centerY - 3,
-          x2: centerX + 3,
-          y2: centerY + 3,
-        },
-        {
-          kind: 'line',
-          customPaintId: textPaintId,
-          paint: 'gridLine',
-          x1: centerX - 3,
-          y1: centerY + 3,
-          x2: centerX + 3,
-          y2: centerY - 3,
-        },
-      );
-      if (!pending)
+      textLabelCommands.push({
+        ...rect,
+        kind: 'rect',
+        customPaintId: labelPaintId,
+        paint: 'background',
+      });
+      if (pending !== 'cancel')
+        textLabelCommands.push(
+          {
+            kind: 'line',
+            customPaintId: textPaintId,
+            paint: 'gridLine',
+            x1: centerX - 3,
+            y1: centerY - 3,
+            x2: centerX + 3,
+            y2: centerY + 3,
+          },
+          {
+            kind: 'line',
+            customPaintId: textPaintId,
+            paint: 'gridLine',
+            x1: centerX - 3,
+            y1: centerY + 3,
+            x2: centerX + 3,
+            y2: centerY - 3,
+          },
+        );
+      if (!pending || pending === 'cancel')
         hitRegions.push({
           id: component.id,
           action: 'cancel',
           price: anchor.price,
           rect,
+          loadingColor: pending === 'cancel' ? color : undefined,
         });
     }
 
