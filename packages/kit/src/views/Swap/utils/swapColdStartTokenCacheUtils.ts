@@ -32,6 +32,25 @@ export {
 export const SWAP_COLD_START_HOME_SCENE_NAME =
   'home' as EAccountSelectorSceneName;
 
+export type ISwapDefaultConfigStatus = 'pending' | 'success' | 'failed';
+
+export function shouldWaitForSwapDefaultConfig({
+  networkId,
+  swapType,
+  defaultConfigStatus = 'success',
+}: {
+  networkId?: string;
+  swapType?: ESwapTabSwitchType;
+  defaultConfigStatus?: ISwapDefaultConfigStatus;
+}) {
+  return Boolean(
+    defaultConfigStatus === 'pending' &&
+    networkId &&
+    !isSwapColdStartAllNetworkContextNetworkId(networkId) &&
+    (!swapType || swapType === ESwapTabSwitchType.SWAP),
+  );
+}
+
 export function resolveSwapTokenNetworkLogoURI({
   swapNetworks,
   token,
@@ -86,6 +105,33 @@ export function shouldPreserveSwapUserInputAmountOnAccountSwitch({
   return Boolean(
     !hasImportParams &&
     hasSwapUserInputAmount({
+      fromTokenAmount,
+      toTokenAmount,
+    }),
+  );
+}
+
+export function shouldDeferSwapAutomaticDefaultTokens({
+  cachedContext,
+  defaultConfigStatus,
+  fromTokenAmount,
+  swapType,
+  toTokenAmount,
+}: {
+  cachedContext?: ISwapSelectedTokensColdStartContext | null;
+  defaultConfigStatus: ISwapDefaultConfigStatus;
+  fromTokenAmount?: ISwapAmountInputState;
+  swapType?: ESwapTabSwitchType;
+  toTokenAmount?: ISwapAmountInputState;
+}) {
+  return Boolean(
+    cachedContext?.defaultTokenSeed &&
+    shouldWaitForSwapDefaultConfig({
+      defaultConfigStatus,
+      networkId: cachedContext.networkId,
+      swapType: cachedContext.swapType ?? swapType,
+    }) &&
+    !shouldPreserveSwapUserInputAmountOnAccountSwitch({
       fromTokenAmount,
       toTokenAmount,
     }),
@@ -467,20 +513,35 @@ export function buildSwapDefaultSelectedTokensForNetwork({
   networkId,
   swapType: preferredSwapType,
   swapNetworks = [],
+  defaultConfigStatus = 'success',
 }: {
   networkId?: string;
   swapType?: ESwapTabSwitchType;
   swapNetworks?: ISwapNetwork[];
+  defaultConfigStatus?: ISwapDefaultConfigStatus;
 }) {
   if (!networkId || preferredSwapType === ESwapTabSwitchType.STOCK) {
     return undefined;
   }
 
+  if (
+    shouldWaitForSwapDefaultConfig({
+      networkId,
+      swapType: preferredSwapType,
+      defaultConfigStatus,
+    })
+  ) {
+    return undefined;
+  }
+
   const defaultTokens = swapDefaultSetTokens[networkId];
   const useLimitDefaults = preferredSwapType === ESwapTabSwitchType.LIMIT;
-  const backendDefaultTokens = getSwapNetworkDefaultTokenPair(
-    swapNetworks.find((network) => network.networkId === networkId),
-  );
+  const backendDefaultTokens =
+    defaultConfigStatus === 'failed'
+      ? undefined
+      : getSwapNetworkDefaultTokenPair(
+          swapNetworks.find((network) => network.networkId === networkId),
+        );
   const fromToken = useLimitDefaults
     ? defaultTokens?.limitFromToken
     : (backendDefaultTokens?.fromToken ?? defaultTokens?.fromToken);
@@ -565,11 +626,13 @@ export function buildSwapDefaultSelectedTokensFromHomeAccount({
   homeSelectedAccount,
   swapType: preferredSwapType,
   swapNetworks,
+  defaultConfigStatus = 'success',
   now = Date.now(),
 }: {
   homeSelectedAccount?: ISwapHomeSelectedAccountForDefaults;
   swapType?: ESwapTabSwitchType;
   swapNetworks?: ISwapNetwork[];
+  defaultConfigStatus?: ISwapDefaultConfigStatus;
   now?: number;
 }) {
   const accountKey =
@@ -588,6 +651,7 @@ export function buildSwapDefaultSelectedTokensFromHomeAccount({
     networkId: homeNetworkId,
     swapType: preferredSwapType,
     swapNetworks,
+    defaultConfigStatus,
   });
   if (!selectedTokens) {
     return undefined;

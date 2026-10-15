@@ -4218,6 +4218,7 @@ describe('ServicePrime.apiEmailOtpLogin serialization', () => {
       reason: expect.stringContaining(
         'ServicePrime.apiEmailOtpLogin email OTP verification failed',
       ),
+      trigger: 'interactive',
     });
   });
 
@@ -4251,6 +4252,8 @@ describe('ServicePrime.apiEmailOtpLogin serialization', () => {
     expect(mockOneKeyIdLoginFailedReasonLog).toHaveBeenCalledTimes(1);
     expect(mockOneKeyIdLoginFailedReasonLog).toHaveBeenCalledWith({
       reason: expect.stringContaining('ServicePrime.apiEmailOtpLogin failed'),
+      trigger: 'interactive',
+      error: expect.objectContaining({ message: 'Prime login commit failed' }),
     });
   });
 
@@ -5450,6 +5453,7 @@ describe('ServicePrime.apiOAuthLogin keyless slot identity guard', () => {
     expect(mockToastIfErrorMethods).toContain('apiOAuthLogin');
     expect(mockOneKeyIdLoginFailedReasonLog).toHaveBeenCalledWith({
       reason: expect.stringContaining('OneKey ID is already logged in'),
+      trigger: 'interactive',
     });
     expect(
       simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions,

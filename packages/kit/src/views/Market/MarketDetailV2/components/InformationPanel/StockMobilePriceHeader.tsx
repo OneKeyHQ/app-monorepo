@@ -44,6 +44,7 @@ function PriceModeButton({
       height={26}
       m="$0"
       px="$1.5"
+      py="$0"
       borderWidth={0}
       flexShrink={0}
       size="small"

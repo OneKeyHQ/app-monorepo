@@ -1,10 +1,11 @@
-import { Children, cloneElement, useCallback } from 'react';
+import { Children, cloneElement, useCallback, useRef } from 'react';
 import type { PropsWithChildren, ReactElement } from 'react';
 
 import type { IPropsWithTestId } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useIdentityExitFlow } from '@onekeyhq/kit/src/components/OneKeyAuth/useIdentityExitFlow';
 import type { IDevSettingsKeys } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
@@ -35,6 +36,8 @@ export function SectionFieldItem({
   searchKeywords,
 }: IPropsWithTestId<ISectionFieldItem>) {
   const [devSetting] = useDevSettingsPersistAtom();
+  const { run: runIdentityExit } = useIdentityExitFlow();
+  const environmentChangeInProgress = useRef(false);
   const matches = useMatchesDevSearch(
     typeof title === 'string' ? title : undefined,
     typeof subtitle === 'string' ? subtitle : undefined,
@@ -45,14 +48,41 @@ export function SectionFieldItem({
   const handleChange = useCallback(
     async (v: any) => {
       if (name) {
-        if (onBeforeValueChange) {
-          await onBeforeValueChange();
+        const isEnvironmentChange = name === 'enableTestEndpoint';
+        if (isEnvironmentChange) {
+          if (
+            Boolean(v) === Boolean(value) ||
+            environmentChangeInProgress.current
+          ) {
+            return;
+          }
+          environmentChangeInProgress.current = true;
         }
-        await backgroundApiProxy.serviceDevSetting.updateDevSetting(name, v);
-        onValueChange?.(v);
+        const updateSetting = async () => {
+          await backgroundApiProxy.serviceDevSetting.updateDevSetting(name, v);
+          onValueChange?.(v);
+        };
+        try {
+          await onBeforeValueChange?.();
+          if (isEnvironmentChange) {
+            await runIdentityExit(
+              { type: 'switchEnvironment', scene: 'devSettings' },
+              {
+                confirmButtonTestID: 'dev-settings-environment-logout-confirm',
+                onCompletedReceipt: updateSetting,
+              },
+            );
+          } else {
+            await updateSetting();
+          }
+        } finally {
+          if (isEnvironmentChange) {
+            environmentChangeInProgress.current = false;
+          }
+        }
       }
     },
-    [name, onBeforeValueChange, onValueChange],
+    [name, onBeforeValueChange, onValueChange, runIdentityExit, value],
   );
   const field = child
     ? cloneElement(child, {

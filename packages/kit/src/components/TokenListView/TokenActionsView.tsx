@@ -7,6 +7,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
+import deriveTypeCollapseUtils from '@onekeyhq/shared/src/utils/deriveTypeCollapseUtils';
 import { buildSwapSelectedTokensColdStartAccountKey } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import { isSwapEntryDisabledToken } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
@@ -214,7 +215,14 @@ function TokenActionsView(props: IProps) {
           importAccountKey,
           importFromToken,
           importToToken,
-          importDeriveType: deriveType,
+          // A merged Bitcoin row carries whichever derive type answered
+          // first, so it must not decide the type Swap uses (or the default).
+          importDeriveType:
+            deriveTypeCollapseUtils.isDeriveTypeCollapseSupportedNetwork({
+              networkId,
+            })
+              ? undefined
+              : deriveType,
           swapTabSwitchType: ESwapTabSwitchType.SWAP,
           swapSource: ESwapSource.WALLET_HOME_TOKEN_LIST,
         },
