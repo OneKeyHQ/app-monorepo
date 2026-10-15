@@ -90,6 +90,7 @@ import {
   SwapTokenSelectorDesktop,
   buildSwapTokenSelectorAssetNetworks,
 } from '../../components/SwapTokenSelectorDesktop';
+import { isSwapAddressLikeKeywords } from '../../hooks/swapTokenFetchParamsUtils';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapTokenRiskCheck } from '../../hooks/useSwapTokenRiskCheck';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
@@ -112,6 +113,7 @@ import {
   buildSwapTokenSelectorDisableNetworks,
   buildSwapTokenSelectorNetworkView,
   getSwapStockTokenDisplayName,
+  groupSwapSearchTokensBySelectedNetwork,
   isSwapStockMetadataPending,
   isSwapStockTokenSearchMatch,
   isSwapTokenSelectorFromNetworkBridgeOnly,
@@ -770,9 +772,23 @@ const SwapTokenSelectPage = ({
     stockSearchFallbackTokens.length > 0
       ? stockSearchFallbackTokens
       : currentTokens;
-  const displayTokens = stockMetadataPending
-    ? EMPTY_SWAP_TOKEN_LIST
-    : tokensForDisplay;
+  // Address searches span every network (see useSwapTokenList); group the
+  // results so the selected network's matches stay on top.
+  const groupedSearchNetworkId =
+    !isSwapStockSelectTarget &&
+    !currentSelectNetwork?.isAllNetworks &&
+    isSwapAddressLikeKeywords(requestedSearchKeyword)
+      ? currentSelectNetwork?.networkId
+      : undefined;
+  const { tokens: displayTokens, otherNetworkStartIndex } = useMemo(
+    () =>
+      groupSwapSearchTokensBySelectedNetwork({
+        tokens: stockMetadataPending ? EMPTY_SWAP_TOKEN_LIST : tokensForDisplay,
+        selectedNetworkId: groupedSearchNetworkId,
+        getNetworkId: (item) => getRawSwapToken(item).networkId,
+      }),
+    [groupedSearchNetworkId, stockMetadataPending, tokensForDisplay],
+  );
   const tokenListLoading =
     fetchLoading || stockMetadataPending || isSearchKeywordSettling;
   const alertIndex = useMemo(
@@ -1019,6 +1035,17 @@ const SwapTokenSelectPage = ({
       };
       return (
         <>
+          {otherNetworkStartIndex === index ? (
+            <SizableText
+              size={useDesktopTokenSelector ? '$bodyMdMedium' : '$bodyMd'}
+              color="$textSubdued"
+              px="$5"
+              pt="$3"
+              pb="$1"
+            >
+              {intl.formatMessage({ id: ETranslations.title_tokens_on_other })}
+            </SizableText>
+          ) : null}
           {alertIndex === index ? (
             <Stack
               pt={useDesktopTokenSelector ? '$0' : '$3'}
@@ -1088,6 +1115,7 @@ const SwapTokenSelectPage = ({
     },
     [
       alertIndex,
+      otherNetworkStartIndex,
       copyText,
       disableNetworks,
       intl,
