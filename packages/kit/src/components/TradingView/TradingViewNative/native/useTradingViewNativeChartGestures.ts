@@ -483,6 +483,9 @@ export function useTradingViewNativeChartGestures({
           timeAxisScaleGesture: {
             ...gesture,
             currentX,
+            startOffset: nextRuntimeState.viewport.offset,
+            startX: currentX,
+            startZoomScale: nextRuntimeState.viewport.zoomScale,
           },
         };
       })
@@ -563,6 +566,9 @@ export function useTradingViewNativeChartGestures({
           pinchGesture: {
             ...runtime.pinchGesture,
             currentScale: event.scale,
+            scaleBaseline: event.scale,
+            startOffset: nextRuntimeState.viewport.offset,
+            startZoomScale: nextRuntimeState.viewport.zoomScale,
           },
         };
       })

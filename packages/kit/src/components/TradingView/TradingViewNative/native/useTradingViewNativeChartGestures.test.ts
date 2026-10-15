@@ -20,6 +20,7 @@ import { getTradingViewNativeChartWidth } from '../utils/chartLayout';
 import { reduceTradingViewNativeChartRuntime } from '../utils/chartRuntime';
 import {
   getTradingViewNativeCandleX,
+  getTradingViewNativeGestureStartOffsetAfterDataUpdate,
   getTradingViewNativePanStartOffsetAfterViewportPreservation,
 } from '../utils/chartViewport';
 import {
@@ -45,6 +46,7 @@ interface IMockGestureBuilder {
 
 const mockTapGestures: IMockGestureBuilder[] = [];
 const mockPanGestures: IMockGestureBuilder[] = [];
+const mockPinchGestures: IMockGestureBuilder[] = [];
 const mockScheduleOnRN = jest.mocked(scheduleOnRN);
 const mockGetSubIndicatorAtPoint = jest.mocked(
   getTradingViewNativeSubIndicatorLegendIndicatorAtPoint,
@@ -100,7 +102,11 @@ jest.mock('react-native-gesture-handler', () => ({
       mockPanGestures.push(gesture);
       return gesture;
     }),
-    Pinch: jest.fn(() => mockCreateGestureBuilder()),
+    Pinch: jest.fn(() => {
+      const gesture = mockCreateGestureBuilder();
+      mockPinchGestures.push(gesture);
+      return gesture;
+    }),
     Race: jest.fn((...gestures: unknown[]) => gestures[0]),
     Tap: jest.fn(() => {
       const gesture = mockCreateGestureBuilder();
@@ -252,6 +258,8 @@ function renderChartGestures({
     chartRuntime,
     decayOffset,
     contentPanGesture: mockPanGestures[initialPanGestureCount + 1],
+    pinchGesture: mockPinchGestures[mockPinchGestures.length - 1],
+    timeAxisScaleGesture: mockPanGestures[initialPanGestureCount + 2],
   };
 }
 
@@ -333,8 +341,9 @@ describe('useTradingViewNativeChartGestures', () => {
     expect(chartRuntime.value.timeAxisScaleGesture).toMatchObject({
       currentX: 150,
       isActive: true,
-      startX: 100,
-      startZoomScale: 1,
+      startX: 150,
+      startOffset: chartRuntime.value.viewport.offset,
+      startZoomScale: chartRuntime.value.viewport.zoomScale,
     });
 
     timeAxisScaleGesture.handlers.onFinalize?.();
@@ -412,6 +421,94 @@ describe('useTradingViewNativeChartGestures', () => {
 
     expect(fail).toHaveBeenCalledTimes(1);
   });
+});
+
+describe('zoom continuity at viewport boundaries', () => {
+  it.each(['pinch', 'timeAxis'] as const)(
+    'preserves an appended candle anchor during an active %s gesture',
+    (kind) => {
+      const { chartRuntime, pinchGesture, timeAxisScaleGesture } =
+        renderChartGestures();
+      const chartWidth = 276;
+      chartRuntime.value.viewport.offset = -150;
+      const currentX = 100 - (Math.log(2) * chartWidth) / 2;
+      const gesture = kind === 'pinch' ? pinchGesture : timeAxisScaleGesture;
+      gesture.handlers.onStart?.(
+        kind === 'pinch' ? { focalX: chartWidth, scale: 1 } : { x: 100 },
+      );
+      gesture.handlers.onUpdate?.(
+        kind === 'pinch' ? { scale: 2 } : { x: currentX },
+      );
+      expect(chartRuntime.value.viewport.zoomScale).toBeCloseTo(2);
+      expect(chartRuntime.value.viewport.offset).toBeCloseTo(-264);
+
+      const runtime = chartRuntime.value;
+      const nextRuntimeState = reduceTradingViewNativeChartRuntime(runtime, {
+        appendedPointCount: 1,
+        chartWidth,
+        pointCount: runtime.points.length + 1,
+        type: 'dataUpdated',
+      });
+      const offsetDelta =
+        nextRuntimeState.viewport.offset - runtime.viewport.offset;
+      // Apply the same active-gesture adjustment used by the native data update.
+      const rebase = (startOffset: number, startZoomScale: number) =>
+        getTradingViewNativeGestureStartOffsetAfterDataUpdate({
+          currentZoomScale: runtime.viewport.zoomScale,
+          offsetDelta,
+          startOffset,
+          startZoomScale,
+        });
+      chartRuntime.value = {
+        ...runtime,
+        ...nextRuntimeState,
+        points: [
+          ...runtime.points,
+          { ...runtime.points[99], t: runtime.points[99].t + 60 },
+        ],
+        pinchGesture: {
+          ...runtime.pinchGesture,
+          startOffset: rebase(
+            runtime.pinchGesture.startOffset,
+            runtime.pinchGesture.startZoomScale,
+          ),
+        },
+        timeAxisScaleGesture: {
+          ...runtime.timeAxisScaleGesture,
+          startOffset: rebase(
+            runtime.timeAxisScaleGesture.startOffset,
+            runtime.timeAxisScaleGesture.startZoomScale,
+          ),
+        },
+      };
+      const preservedViewport = chartRuntime.value.viewport;
+      expect(preservedViewport.offset).toBeCloseTo(-252);
+      gesture.handlers.onUpdate?.(
+        kind === 'pinch' ? { scale: 2 } : { x: currentX },
+      );
+      expect(chartRuntime.value.viewport.offset).toBeCloseTo(
+        preservedViewport.offset,
+      );
+
+      const nextZoomScale =
+        kind === 'pinch' ? 2.01 : 2 * Math.exp(2 / chartWidth);
+      const expected = reduceTradingViewNativeChartRuntime(chartRuntime.value, {
+        anchorX: chartWidth,
+        baseViewport: preservedViewport,
+        chartWidth,
+        nextZoomScale,
+        pointCount: chartRuntime.value.points.length,
+        type: 'zoomed',
+      });
+      gesture.handlers.onUpdate?.(
+        kind === 'pinch' ? { scale: 2.01 } : { x: currentX - 1 },
+      );
+      expect(chartRuntime.value.viewport.offset).toBeCloseTo(
+        expected.viewport.offset,
+      );
+      expect(chartRuntime.value.viewport.zoomScale).toBeCloseTo(nextZoomScale);
+    },
+  );
 });
 
 describe('horizontal chart panning', () => {

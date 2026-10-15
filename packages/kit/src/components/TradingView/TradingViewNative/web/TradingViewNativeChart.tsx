@@ -1170,6 +1170,9 @@ export const TradingViewNativeChart = memo(
             type: 'zoomed',
           },
         );
+        dragState.startOffset = nextRuntimeState.viewport.offset;
+        dragState.startX = currentX;
+        dragState.startZoomScale = nextRuntimeState.viewport.zoomScale;
         runtimeStateRef.current = nextRuntimeState;
         renderChart();
         setViewportState((currentState) =>
