@@ -139,6 +139,7 @@ export type ISignedTxResult = ISignedTx & {
   digest?: string; // hex string
   txKey?: string; // hex string for Monero
   pendingTx?: boolean; // It is used for Aptos to wait for the chain to get the transaction state
+  broadcastOutcomeUnknown?: boolean;
   // for lightning network
   nonce?: number;
   randomSeed?: number;

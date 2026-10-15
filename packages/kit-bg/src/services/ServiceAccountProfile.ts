@@ -46,6 +46,7 @@ import {
 } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 import { mergeClaimedUtxos } from '../vaults/impls/btc/sdkBtc/findAddressUtils';
+import { isLocalWalletNetwork } from '../vaults/localWallet/isLocalWalletNetwork';
 
 import ServiceBase from './ServiceBase';
 
@@ -536,6 +537,18 @@ class ServiceAccountProfile extends ServiceBase {
       input: rawAddress,
     };
 
+    // Start the combined local/server check before address normalization so a
+    // local WASM load cannot serialize the server round trip behind it.
+    const validation =
+      !skipValidateAddress &&
+      networkId &&
+      (await isLocalWalletNetwork({
+        networkId,
+      }))
+        ? serviceValidator.validateAddress({ networkId, address })
+        : undefined;
+    validation?.catch(() => undefined);
+
     let isLocalValid = false;
     try {
       const { displayAddress, isValid } =
@@ -585,10 +598,8 @@ class ServiceAccountProfile extends ServiceBase {
     }
 
     if (!skipValidateAddress) {
-      result.validStatus = await serviceValidator.validateAddress({
-        networkId,
-        address,
-      });
+      result.validStatus = await (validation ??
+        serviceValidator.validateAddress({ networkId, address }));
     }
 
     if (enableNameResolve) {

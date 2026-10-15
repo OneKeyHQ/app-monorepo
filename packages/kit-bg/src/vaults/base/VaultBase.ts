@@ -29,6 +29,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import {
+  getOnChainHistoryTransferDisplayAddress,
   getOnChainHistoryTxAssetInfo,
   getOnChainHistoryTxStatus,
 } from '@onekeyhq/shared/src/utils/historyUtils';
@@ -77,7 +78,10 @@ import type {
   IServerFetchAccountHistoryDetailParams,
   IServerFetchAccountHistoryDetailResp,
 } from '@onekeyhq/shared/types/history';
-import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
+import {
+  EOnChainHistoryTransferType,
+  EOnChainHistoryTxType,
+} from '@onekeyhq/shared/types/history';
 import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
@@ -113,6 +117,7 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import { VaultContext } from './VaultContext';
+import { keyringMapSupportsAccount } from './walletTypeSupport';
 
 import type { KeyringBase } from './KeyringBase';
 import type {
@@ -121,6 +126,7 @@ import type {
   IDBUtxoAccount,
   IDBWalletType,
 } from '../../dbs/local/types';
+import type { ILocalWalletCapability } from '../localWallet/types';
 import type {
   IBroadcastTransactionByCustomRpcParams,
   IBroadcastTransactionParams,
@@ -417,6 +423,20 @@ export abstract class VaultBaseChainOnly extends VaultContext {
       valid: false,
     });
   }
+
+  // Client-scanned chains expose one capability object instead of adding
+  // inert hooks to every vault. The capability is the complete scheduler and
+  // UI contract; server-indexed chains simply return undefined.
+  getLocalWalletCapability(): ILocalWalletCapability | undefined {
+    return undefined;
+  }
+
+  // Whether this chain has a keyring for the wallet that owns `accountId`.
+  // Overridden in VaultBase against the same keyringMap the keyring factory
+  // resolves, so the UI cannot offer a control the chain has nothing behind.
+  supportsAccountWalletType(_params: { accountId: string }): boolean {
+    return true;
+  }
 }
 
 // **** more VaultBase: VaultBaseEvmLike, VaultBaseUtxo, VaultBaseVariant
@@ -427,6 +447,17 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   keyring!: KeyringBase;
 
   abstract keyringMap: IKeyringMap;
+
+  override supportsAccountWalletType({
+    accountId,
+  }: {
+    accountId: string;
+  }): boolean {
+    return keyringMapSupportsAccount({
+      keyringMap: this.keyringMap,
+      accountId,
+    });
+  }
 
   async init(config: IVaultInitConfig) {
     await this.initKeyring(config);
@@ -508,6 +539,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return null;
   }
 
+  // The user left the review page without sending. Chains that reserve
+  // inputs while building (Zcash PCZTs) give them back here.
+  async releaseUnsignedTx(_params: { unsignedTx: IUnsignedTxPro }) {
+    return Promise.resolve();
+  }
+
   async precheckUnsignedTx(params: {
     unsignedTx: IUnsignedTxPro;
     precheckTiming: ESendPreCheckTimingEnum;
@@ -564,6 +601,34 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve({
       encodedTx,
     });
+  }
+
+  // Local-wallet chains whose scan is watch-only can finish work that needs
+  // the spend key while the app is unlocked (Monero: key images, which reveal
+  // spends made elsewhere). The scheduler asks after each sync turn and, only
+  // then, passes the unlocked session's password. Default: nothing to do.
+  async localWalletHasPasswordWork(): Promise<boolean> {
+    return false;
+  }
+
+  // Returns whether wallet state changed.
+  async localWalletDoPasswordWork(_params: {
+    password: string;
+  }): Promise<boolean> {
+    return false;
+  }
+
+  // Client-computed history source. Chains whose history the backend cannot
+  // index return their transactions here; a defined result
+  // replaces the server query in ServiceHistory entirely. Default: undefined
+  // = server-indexed chain, no behavior change.
+  async fetchAccountHistoryFromLocal(_params: {
+    accountId: string;
+    networkId: string;
+    accountAddress: string;
+    xpub?: string;
+  }): Promise<IAccountHistoryTx[] | undefined> {
+    return undefined;
   }
 
   async buildFetchHistoryListParams(params: {
@@ -927,21 +992,29 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     tokens: Record<string, IOnChainHistoryTxToken>;
     nfts: Record<string, IOnChainHistoryTxNFT>;
   }) {
+    const isShielded = transfer.type === EOnChainHistoryTransferType.Shielded;
     const { icon, symbol, name, isNFT, isNative, price } =
       getOnChainHistoryTxAssetInfo({
         key: transfer.key,
-        tokenAddress: transfer.token,
+        tokenAddress: isShielded ? '' : transfer.token,
         tokens,
         nfts,
       });
 
     return {
-      from: transfer.from,
-      to: transfer.to,
-      tokenIdOnNetwork: transfer.token,
+      from: getOnChainHistoryTransferDisplayAddress({
+        transfer,
+        endpoint: 'from',
+      }),
+      to: getOnChainHistoryTransferDisplayAddress({
+        transfer,
+        endpoint: 'to',
+      }),
+      tokenIdOnNetwork: isShielded ? '' : transfer.token,
       amount: transfer.amount,
       label: transfer.label,
       isOwn: transfer.isOwn,
+      isShielded,
       icon,
       name,
       symbol,
@@ -1550,7 +1623,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async fetchAccountHistoryDetailByApi(
     params: IServerFetchAccountHistoryDetailParams,
   ): Promise<IServerFetchAccountHistoryDetailResp> {
-    const { accountId, ...rest } = params;
+    const { accountId, withUTXOs: _withUTXOs, ...rest } = params;
     const client = await this.backgroundApi.serviceGas.getClient(
       EServiceEndpointEnum.Wallet,
     );

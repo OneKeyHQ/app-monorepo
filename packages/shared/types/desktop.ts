@@ -1,4 +1,5 @@
 import type { IDesktopApiGlobal } from './desktopApiPlatformInfo';
+import type { IFetchStreamRequester } from './fetchStream';
 import type { ILocaleSymbol } from '../src/locale';
 import type { ITrayAction, ITrayData } from '../src/types/desktop/tray';
 import type { EBleDisconnectReason } from '@onekeyfe/hd-shared';
@@ -110,6 +111,21 @@ export type IDesktopApiLegacy = IDesktopApiGlobal & {
   setSystemIdleTime: (idleTime: number, cb?: () => void) => void;
   testCrash: () => void;
   nobleBle: INobleBleApi;
+  /**
+   * Perform a privacy-chain node request from the main process.
+   *
+   * The chain runtimes are wasm in the renderer, so their own fetch obeys CORS
+   * and mixed content -- and a Monero node serves neither unless it was
+   * proxied. The main process has no such rules, which is what lets the user
+   * point the wallet at any node instead of the one that happens to serve
+   * browsers.
+   */
+  privacyChainNodeRequest: (params: {
+    url: string;
+    contentType: string;
+    body: Uint8Array;
+  }) => Promise<{ ok: true; bytes: Uint8Array } | { ok: false; error: string }>;
+  fetchStream: IFetchStreamRequester;
   getCpuUsage: () => Promise<{ usage: number }>;
   getMemoryUsage: () => Promise<{
     private: number;

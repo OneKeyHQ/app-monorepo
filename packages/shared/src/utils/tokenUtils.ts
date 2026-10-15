@@ -26,6 +26,7 @@ import type { IServerNetwork } from '../../types';
 import type {
   IAccountToken,
   IAggregateToken,
+  IBalanceStatus,
   IFetchAccountTokensResp,
   IFetchTokenDetailItem,
   IToken,
@@ -1856,6 +1857,67 @@ export function filterAccountTokenListByLimit({
     filteredRiskyTokenList,
     filteredTokenListMap,
   };
+}
+
+// The status the account's displayed total carries: unavailable when an
+// included network could not be read, partial while any is still backfilling.
+// All Networks is unavailable only when nothing could be read; otherwise the
+// readable networks' sum stands and hasUnavailableAccountTokens marks the gap.
+export function getAccountTokensBalanceStatus({
+  accountId,
+  networkId,
+  tokensWorth,
+  mergeDeriveAssetsEnabled,
+}: {
+  accountId: string;
+  networkId: string;
+  tokensWorth: {
+    worth: Record<string, string>;
+    worthStatus?: Record<string, IBalanceStatus>;
+  };
+  mergeDeriveAssetsEnabled: boolean;
+}): IBalanceStatus {
+  const keys = Object.keys(tokensWorth.worth);
+  const requestedKey = accountUtils.buildAccountValueKey({
+    accountId,
+    networkId,
+  });
+  const includedKeys =
+    networkUtils.isAllNetwork({ networkId }) || mergeDeriveAssetsEnabled
+      ? keys
+      : [
+          Object.prototype.hasOwnProperty.call(tokensWorth.worth, requestedKey)
+            ? requestedKey
+            : keys[0],
+        ];
+  const statuses = includedKeys.map((key) =>
+    key ? tokensWorth.worthStatus?.[key] : undefined,
+  );
+  if (statuses.includes('unavailable')) {
+    const othersReadable =
+      networkUtils.isAllNetwork({ networkId }) &&
+      statuses.some((status) => status !== 'unavailable');
+    if (!othersReadable) return 'unavailable';
+  }
+  if (statuses.includes('partial')) return 'partial';
+  return 'complete';
+}
+
+// All Networks only: some network could not be read, so the total leaves it out.
+export function hasUnavailableAccountTokens({
+  networkId,
+  tokensWorth,
+}: {
+  networkId: string;
+  tokensWorth: {
+    worth: Record<string, string>;
+    worthStatus?: Record<string, IBalanceStatus>;
+  };
+}): boolean {
+  if (!networkUtils.isAllNetwork({ networkId })) return false;
+  return Object.keys(tokensWorth.worth).some(
+    (key) => tokensWorth.worthStatus?.[key] === 'unavailable',
+  );
 }
 
 export function calculateAccountTokensValue({

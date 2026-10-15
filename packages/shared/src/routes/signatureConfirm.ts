@@ -30,6 +30,7 @@ import type { IPrimeInfiniBeforeBroadcastAction } from '../../types/prime/primeT
 import type { ISwapTxInfo } from '../../types/swap/types';
 import type { IToken, ITokenFiat } from '../../types/token';
 import type { EReplaceTxType, ISendTxOnSuccessData } from '../../types/tx';
+import type { IZcashMemoEncoding } from '../utils/zcashMemo';
 
 export enum EModalSignatureConfirmRoutes {
   TxDataInput = 'TxDataInput',
@@ -73,6 +74,7 @@ export type IModalSignatureConfirmParamList = {
     isAllNetworks?: boolean;
     disableAddressTypeSelector?: boolean;
     showAddressTypeSelectorWhenDisabled?: boolean;
+    localWalletSourcePool?: ITransferInfo['localWalletSourcePool'];
   };
   [EModalSignatureConfirmRoutes.TxAmountInput]: {
     networkId: string;
@@ -82,6 +84,7 @@ export type IModalSignatureConfirmParamList = {
     nfts?: IAccountNFT[];
     recipientAddress: string;
     recipientMemo?: string;
+    recipientMemoEncoding?: IZcashMemoEncoding;
     recipientPaymentId?: string;
     recipientNote?: string;
     recipientIsContract?: boolean;
@@ -89,6 +92,7 @@ export type IModalSignatureConfirmParamList = {
     isInvoiceAmountLocked?: boolean;
     isAllNetworks?: boolean;
     hasAcknowledgedCexDepositWarning?: boolean;
+    localWalletSourcePool?: ITransferInfo['localWalletSourcePool'];
     onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
     onFail?: (error: Error) => void;
     onCancel?: () => void;

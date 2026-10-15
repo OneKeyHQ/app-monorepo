@@ -91,6 +91,7 @@ import {
 } from '../components/AppUpdate';
 import { SplitViewPrompt } from '../components/SplitViewPrompt';
 import useAppNavigation from '../hooks/useAppNavigation';
+import { useHandleAppStateActive } from '../hooks/useHandleAppStateActive';
 import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
 import { useTrayDataProvider } from '../hooks/useTrayDataProvider';
@@ -107,6 +108,14 @@ const useOnLockCallback = platformEnv.isDesktop
 const useAppUpdateInfoCallback = platformEnv.isDesktop
   ? useAppUpdateInfo
   : () => ({}) as ReturnType<typeof useAppUpdateInfo>;
+
+function PrivacyChainForeground() {
+  const wakeSync = useCallback(() => {
+    void backgroundApiProxy.servicePrivacyChain.wakeLocalWalletSync();
+  }, []);
+  useHandleAppStateActive(wakeSync);
+  return null;
+}
 
 const LazyExtensionMarketTokenDetailHashNavigation =
   platformEnv.isExtensionUiExpandTab
@@ -1111,6 +1120,7 @@ export function Bootstrap() {
           per-mount useEffect that previously lived in
           UpdateReminder/hooks.tsx#useAppUpdateInfo. */}
       <AppUpdateForeground />
+      <PrivacyChainForeground />
       <SplitViewPrompt />
       {LazyExtensionMarketTokenDetailHashNavigation ? (
         <Suspense fallback={null}>

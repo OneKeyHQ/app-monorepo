@@ -55,6 +55,7 @@ import {
 import { TxConfirmActions } from '../../components/SignatureConfirmActions';
 import { TxAdvancedSettings } from '../../components/SignatureConfirmAdvanced';
 import { TxConfirmAlert } from '../../components/SignatureConfirmAlert';
+import PrivacyChainSyncStateAlert from '../../components/SignatureConfirmAlert/PrivacyChainSyncStateAlert';
 import { TxConfirmDetails } from '../../components/SignatureConfirmDetails';
 import { TxConfirmExtraInfo } from '../../components/SignatureConfirmExtraInfo';
 import {
@@ -513,6 +514,10 @@ function TxConfirm() {
 
     return (
       <YStack gap="$5">
+        <PrivacyChainSyncStateAlert
+          networkId={networkId}
+          accountId={accountId}
+        />
         <TxConfirmAlert
           networkId={networkId}
           accountId={accountId}

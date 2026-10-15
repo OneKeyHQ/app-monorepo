@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import type { IBalanceStatus } from '@onekeyhq/shared/types/token';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
@@ -45,6 +46,7 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
       set,
       payload: {
         worth: Record<string, string>;
+        worthStatus?: Record<string, IBalanceStatus>;
         createAtNetworkWorth?: string;
         initialized: boolean;
         accountId: string;
@@ -55,8 +57,21 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
     ) => {
       const currency = payload.currency ?? USD_CURRENCY_ID;
       if (payload.merge) {
-        const { worth, createAtNetworkWorth } = get(accountWorthAtom());
+        const { worth, worthStatus, createAtNetworkWorth } =
+          get(accountWorthAtom());
+        const nextWorthStatus = { ...worthStatus };
+        for (const key of Object.keys(payload.worth)) {
+          // Defaulting to 'complete' would let a caller that simply forgot the
+          // field assert, on a privacy chain's behalf, that its scan has
+          // finished -- the one claim this value exists to qualify. Keep what
+          // was already known instead; only an explicit status overwrites.
+          const status = payload.worthStatus?.[key];
+          if (status !== undefined) {
+            nextWorthStatus[key] = status;
+          }
+        }
         set(accountWorthAtom(), {
+          worthStatus: nextWorthStatus,
           worth: {
             ...worth,
             ...payload.worth,
@@ -74,6 +89,7 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
 
       set(accountWorthAtom(), {
         worth: payload.worth,
+        worthStatus: payload.worthStatus,
         createAtNetworkWorth: payload.createAtNetworkWorth ?? '0',
         initialized: payload.initialized,
         accountId: payload.accountId,

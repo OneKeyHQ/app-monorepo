@@ -4,6 +4,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -62,6 +63,7 @@ import {
 } from '../dbs/simple/entity/SimpleDbEntityRecentRecipients';
 import { primePersistAtom } from '../states/jotai/atoms/prime';
 import { vaultFactory } from '../vaults/factory';
+import { isLocalWalletNetwork } from '../vaults/localWallet/isLocalWalletNetwork';
 
 import ServiceBase from './ServiceBase';
 import { checksumDisplayComponentAddresses } from './utils/displayComponentAddressUtils';
@@ -255,6 +257,9 @@ class ServiceSignatureConfirm extends ServiceBase {
       },
   ) {
     const { unsignedTxs, accountId, networkId, ...rest } = params;
+    const requiresPrivacyReview = await isLocalWalletNetwork({
+      networkId,
+    });
 
     let accountAddress = params.accountAddress;
     if (!accountAddress) {
@@ -290,7 +295,7 @@ class ServiceSignatureConfirm extends ServiceBase {
 
       r[0].txDisplay.components.unshift(
         convertAddressToSignatureConfirmAddress({
-          address: accountAddress,
+          address: requiresPrivacyReview ? r[0].signer : accountAddress,
           showAccountName:
             networkUtils.isLightningNetworkByNetworkId(networkId),
         }),
@@ -305,12 +310,17 @@ class ServiceSignatureConfirm extends ServiceBase {
       r[0].txDisplay.title =
         convertDecodedTxActionsToSignatureConfirmTxDisplayTitle({
           decodedTxs: r,
-          unsignedTxs: params.unsignedTxs,
+          unsignedTxs: requiresPrivacyReview
+            ? unsignedTxs.map((unsignedTx) => ({
+                encodedTx: unsignedTx.encodedTx,
+              }))
+            : unsignedTxs,
         });
     }
 
     if (
       r[0]?.txDisplay &&
+      !requiresPrivacyReview &&
       params.unsignedTxs.some((unsignedTx) =>
         isPrivateSendTx({
           transferPayload: params.transferPayload,
@@ -345,7 +355,12 @@ class ServiceSignatureConfirm extends ServiceBase {
 
     let parsedTx: IParseTransactionResp | null = null;
 
-    let disableParseTxThroughApi = false;
+    const requiresPrivacyReview = await isLocalWalletNetwork({
+      networkId,
+    });
+    // The verified local proposal defines payment details and may contain
+    // private viewing material. It must never reach the server parser.
+    let disableParseTxThroughApi = requiresPrivacyReview;
 
     const swapInfo = unsignedTx.swapInfo;
 
@@ -430,7 +445,7 @@ class ServiceSignatureConfirm extends ServiceBase {
       isToContract: parsedTx?.parsedTx?.to?.isContract,
     });
 
-    if (feeInfo) {
+    if (feeInfo && !requiresPrivacyReview) {
       decodedTx.totalFeeInNative =
         feeInfo.totalNativeForDisplay ?? feeInfo.totalNative;
       decodedTx.totalFeeFiatValue =
@@ -470,7 +485,9 @@ class ServiceSignatureConfirm extends ServiceBase {
         convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
           decodedTx,
           isMultiTxs,
-          unsignedTx,
+          unsignedTx: requiresPrivacyReview
+            ? { encodedTx: decodedTx.encodedTx ?? unsignedTx.encodedTx }
+            : unsignedTx,
           isUTXO: vaultSettings.isUtxo,
         });
 
@@ -577,11 +594,13 @@ class ServiceSignatureConfirm extends ServiceBase {
       }
     }
 
-    fixPrivateSendRecipientDisplay({
-      decodedTx,
-      unsignedTx,
-      transferPayload,
-    });
+    if (!requiresPrivacyReview) {
+      fixPrivateSendRecipientDisplay({
+        decodedTx,
+        unsignedTx,
+        transferPayload,
+      });
+    }
 
     if (transferPayload?.isCustomHexData) {
       decodedTx.isCustomHexData = true;
@@ -603,6 +622,15 @@ class ServiceSignatureConfirm extends ServiceBase {
   @backgroundMethod()
   async parseTransaction(params: IParseTransactionParams) {
     const { accountId, networkId, encodedTx, origin } = params;
+    if (
+      await isLocalWalletNetwork({
+        networkId,
+      })
+    ) {
+      throw new OneKeyLocalError(
+        'Privacy transactions must be reviewed locally',
+      );
+    }
     const vault = await vaultFactory.getVault({
       networkId,
       accountId,

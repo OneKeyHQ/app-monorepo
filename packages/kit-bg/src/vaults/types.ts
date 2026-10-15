@@ -71,6 +71,11 @@ import type {
   IAccountDeriveInfoMapKaspa,
   IAccountDeriveTypesKaspa,
 } from './impls/kaspa/settings';
+import type {
+  IAccountDeriveInfoMapXmr,
+  IAccountDeriveTypesXmr,
+} from './impls/xmr/settings';
+import type { ILocalWalletPoolDescriptor } from './localWallet/types';
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { EDBAccountType } from '../dbs/local/consts';
 import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
@@ -142,12 +147,14 @@ export type IAccountDeriveInfoMap =
   | IAccountDeriveInfoMapEvm
   | IAccountDeriveInfoMapBtc
   | IAccountDeriveInfoMapCosmos
-  | IAccountDeriveInfoMapKaspa;
+  | IAccountDeriveInfoMapKaspa
+  | IAccountDeriveInfoMapXmr;
 export type IAccountDeriveTypes =
   | 'default'
   | IAccountDeriveTypesEvm
   | IAccountDeriveTypesBtc
-  | IAccountDeriveTypesKaspa;
+  | IAccountDeriveTypesKaspa
+  | IAccountDeriveTypesXmr;
 
 export type INetworkDeriveInfo = {
   deriveType: IAccountDeriveTypes;
@@ -227,6 +234,63 @@ export type IVaultSettings = {
   allowZeroFee?: boolean;
 
   onChainHistoryDisabled?: boolean;
+  localWallet?: {
+    // Some chains scan whenever the account exists; others require an
+    // explicit per-account opt-in because scanning has a material cost.
+    activation: 'always' | 'account-opt-in';
+    // Pooled chains expose distinct balances that users can move between.
+    balanceShape: 'single' | 'pooled';
+    // A vault-authoritative source may compose runtime and server history, but
+    // ServiceHistory must treat its returned snapshot as canonical.
+    historySource: 'server' | 'vault-authoritative';
+    // Blocks are chain-specific units. The generic UI must not assume that a
+    // fixed block count represents the same amount of elapsed time on every
+    // client-scanned chain.
+    tipLagWarningBlocks: number;
+    // Display order is tab order. Exactly one public pool is expected.
+    pools: ILocalWalletPoolDescriptor[];
+    accountSetup: {
+      // Enabling asks the user for a recovery month or height.
+      requiresBirthday: boolean;
+      // The earliest start that can hold this chain's private funds: the
+      // floor of the month picker and the "scan from the beginning" choice.
+      earliestBirthday: { height: number; timestamp: number };
+    };
+    // Labels for the receive forms one account exposes.
+    //
+    // `publicLabel` is absent on chains with no public pool at all (Monero:
+    // every output is private). The receive page must not offer a
+    // public/private switch in that case -- there is nothing to switch to.
+    addressForms: { publicLabel?: string; privateLabel: string };
+    // Addresses that may appear in a transaction's public flow, as a RegExp
+    // source (settings cross the background bridge as JSON). Absent: every
+    // address is public.
+    publicAddressPattern?: string;
+    // Formats of wallet-known private recipients; never a public-chain claim.
+    privateAddressPattern?: string;
+    // The token page shows no address; Receive is the only place to get one,
+    // as in mainstream Monero wallets.
+    hideAddressOnTokenDetails?: boolean;
+    // Turns a block lag into elapsed time for the sync status line.
+    blockTimeSeconds: number;
+    // Height ranges worth naming while the scanner is inside them.
+    scanRegionHints?: {
+      fromHeight: number;
+      toHeight: number;
+      // A translation id, like ILocalWalletPoolBalance.hintId: the chain names
+      // the region, the UI decides what language to say it in.
+      labelId: ETranslations;
+    }[];
+    // How long the account's viewing material (vaults/localWallet/
+    // viewingKeyStore.ts) is kept: until the account is removed, or also
+    // dropped when the user deletes the account's local privacy data.
+    viewingKeyRetention: 'until-account-removed' | 'with-local-data';
+    // Ceiling on concurrently scanning identities, for 'account-opt-in' chains.
+    // Trial decryption runs once per active viewing key per block, so this is
+    // the one number that multiplies scan cost. Aliases that share a viewing
+    // key count once: they add no decryption work.
+    maxEnabledAccounts?: number;
+  };
   saveConfirmedTxsEnabled?: boolean;
 
   cannotSendToSelf?: boolean;
@@ -287,6 +351,16 @@ export type IVaultSettings = {
 
   activateTokenRequired?: boolean;
   customRpcEnabled?: boolean;
+  // The nodes this build ships for the chain, best first. Chains that talk to
+  // the OneKey backend have none: "custom RPC" there is an override with no
+  // visible default to override. A chain that scans client-side must ship its
+  // own, because there is no backend behind it.
+  //
+  // [0] seeds the chain's custom-RPC record on first use, so from then on it
+  // is an ordinary record like any the user adds -- same store, same list,
+  // same edit and delete. The rest are what the transport rotates to when the
+  // one in use stops answering.
+  builtInRpcUrls?: string[];
   mergeDeriveAssetsEnabled?: boolean;
   sendZeroWithZeroTokenBalanceDisabled?: boolean;
 
@@ -376,6 +450,7 @@ export type IPrepareImportedAccountsParams = {
   debugCryptoProbeId?: string;
 } & IPbkdf2KdfParams;
 export type IPrepareHDOrHWAccountChainExtraParams = {
+  localWalletAddressForm?: 'public' | 'private';
   receiveAddressPath?: string;
 };
 export type IPrepareHdAccountsParamsBase = {
@@ -534,6 +609,14 @@ export type IBuildAccountAddressDetailParams = {
 };
 
 // Internal txInfo ----------------------------------------------
+// Scan-start selector for VaultBase.rescanLocalWallet: the same repair
+// expressed at three precisions ("exact block" / "around this date" /
+// "roughly N days ago").
+export type IRescanLocalWalletFrom =
+  | { type: 'height'; height: number }
+  | { type: 'timestamp'; timestamp: number }
+  | { type: 'daysAgo'; daysAgo: number };
+
 export type ITransferInfo = {
   from: string;
   to: string;
@@ -550,6 +633,7 @@ export type ITransferInfo = {
   useCustomAddressesBalance?: boolean;
   opReturn?: string;
   coinSelectAlgorithm?: ICoinSelectAlgorithm;
+  zcashMemoHex?: string; // Canonical ZIP 302 field; never EVM call data.
   memo?: string; // Ripple chain destination tag, Cosmos chain memo
   keepAlive?: boolean; // Polkadot chain keep alive
 
@@ -559,6 +643,15 @@ export type ITransferInfo = {
   lnurl?: string;
 
   paymentId?: string; // Dynex chain paymentId
+
+  // Local-wallet chains (settings.localWallet). Pool keys come from
+  // settings.localWallet.pools; the chain's vault validates them.
+  // Sweep the public balance into the account's own private pool.
+  localWalletShield?: boolean;
+  // Withdraw: restrict input selection to this private pool key.
+  localWalletSpendSource?: string;
+  // Pool key chosen on the pool screen or the send-pool picker.
+  localWalletSourcePool?: string;
 
   note?: string; // Algo chain note
 
@@ -663,6 +756,7 @@ export type INativeAmountInfo = {
 // Send ------------
 export interface IBuildEncodedTxParams {
   transfersInfo?: ITransferInfo[];
+  transferPayload?: ITransferPayload;
   approveInfo?: IApproveInfo;
   wrappedInfo?: IWrappedInfo;
   specifiedFeeRate?: string;

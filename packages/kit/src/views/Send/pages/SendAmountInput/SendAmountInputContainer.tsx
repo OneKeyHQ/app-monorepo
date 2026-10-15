@@ -22,6 +22,7 @@ import { InputAccessoryView } from 'react-native';
 import {
   Accordion,
   Alert,
+  Badge,
   Button,
   DashText,
   Dialog,
@@ -35,6 +36,7 @@ import {
   NumberSizeableText,
   Page,
   ScrollView,
+  Select,
   SizableText,
   Skeleton,
   Stack,
@@ -63,6 +65,7 @@ import {
   useSendConfirmActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { convertTokenFiatToCurrency } from '@onekeyhq/kit/src/utils/fiatConvert';
+import { LocalWalletPasswordAlert } from '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/LocalWalletPasswordAlert';
 import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
 import { SwapRefreshButtonBase } from '@onekeyhq/kit/src/views/Swap/components/SwapRefreshButton';
 import {
@@ -75,6 +78,7 @@ import type {
   ITransferInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { POLLING_INTERVAL_FOR_TOKEN } from '@onekeyhq/shared/src/consts/walletConsts';
+import { IMPL_ZCASH } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
@@ -102,10 +106,12 @@ import {
   openFiatCryptoUrl,
   openUrlExternal,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { PRIVACY_CHAIN_SYNC_POLL_MS } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
 import { formatSwapQuoteDuration } from '@onekeyhq/shared/src/utils/swapQuoteDurationUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { UNAVAILABLE_DISPLAY } from '@onekeyhq/shared/src/utils/tokenValueUtils';
+import { encodeZcashMemo } from '@onekeyhq/shared/src/utils/zcashMemo';
 import type { IAddressValidateStatus } from '@onekeyhq/shared/types/address';
 import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
@@ -165,8 +171,10 @@ import {
   calcPrivateSendNativeTokenMaxAmount,
   getMaxSendStateAfterModeChange,
 } from './privateSendMaxAmountUtils';
+import { useLocalWalletSendPool } from './useLocalWalletSendPool';
 
 import type { RouteProp } from '@react-navigation/core';
+import type { GestureResponderEvent } from 'react-native';
 
 export const amountInputAccessoryViewID = 'send-amount-input-accessory-view';
 
@@ -845,6 +853,7 @@ function SendAmountInputContainer() {
     nfts,
     recipientAddress,
     recipientMemo,
+    recipientMemoEncoding,
     recipientPaymentId,
     recipientNote,
     recipientIsContract,
@@ -854,6 +863,7 @@ function SendAmountInputContainer() {
     amount: prefillAmount,
     isInvoiceAmountLocked,
     hasAcknowledgedCexDepositWarning,
+    localWalletSourcePool,
   } = route.params;
 
   const nft = nfts?.[0];
@@ -869,6 +879,11 @@ function SendAmountInputContainer() {
       accountId: currentAccountId,
       networkId,
     });
+  // Binary memo input must not be saved as UTF-8 text in recent recipients.
+  const recipientTextMemo =
+    network?.impl === IMPL_ZCASH && recipientMemoEncoding === 'hex'
+      ? undefined
+      : recipientMemo;
   const badgeQueryTokenAddress = getBadgeQueryTokenAddress({
     isNFT,
     isNative: tokenInfo?.isNative,
@@ -1238,11 +1253,84 @@ function SendAmountInputContainer() {
     [tokenDetails],
   );
 
+  const {
+    pools: sendPools,
+    selectedPool: selectedSendPool,
+    selectPool: selectSendPool,
+    isReady: isSendPoolReady,
+    isPrivacyPaused,
+    isBalanceUnavailable: isSendPoolBalanceUnavailable,
+    reload: reloadSendPools,
+  } = useLocalWalletSendPool({
+    enabled: !isNFT && (vaultSettings?.localWallet?.pools.length ?? 0) > 1,
+    accountId: currentAccountId,
+    networkId,
+    recipientAddress,
+    initialPool:
+      currentAccountId === accountId ? localWalletSourcePool : undefined,
+    poolDescriptors: vaultSettings?.localWallet?.pools,
+  });
+  const hasLocalWallet = !isNFT && !!vaultSettings?.localWallet;
+  const sendSourcePool = selectedSendPool?.key;
+  useEffect(() => {
+    if (
+      !isRouteFocused ||
+      !hasLocalWallet ||
+      !currentAccountId ||
+      !sendSourcePool
+    ) {
+      return;
+    }
+    void backgroundApiProxy.servicePrivacyChain
+      .prewarmLocalWalletSend({
+        networkId,
+        accountId: currentAccountId,
+        sourcePool: sendSourcePool,
+        toAddress: recipientAddress,
+      })
+      // Warm-up is optional; the actual send builds any missing parameters.
+      .catch(() => undefined);
+  }, [
+    isRouteFocused,
+    hasLocalWallet,
+    currentAccountId,
+    sendSourcePool,
+    networkId,
+    recipientAddress,
+  ]);
+  const { result: sendReadiness } = usePromiseResult(
+    async () => {
+      if (!hasLocalWallet || !currentAccountId) return undefined;
+      return backgroundApiProxy.servicePrivacyChain.getLocalWalletSendReadiness(
+        { networkId, accountId: currentAccountId },
+      );
+    },
+    [hasLocalWallet, networkId, currentAccountId],
+    {
+      pollingInterval: hasLocalWallet ? PRIVACY_CHAIN_SYNC_POLL_MS : undefined,
+    },
+  );
+  const isWaitingForSync = sendReadiness?.canSend === false;
+  // Funds a view-only scan cannot prove unspent are not spendable until the
+  // password confirms them, so ask before the amount, not after it fails.
+  useEffect(() => {
+    if (!hasLocalWallet || !currentAccountId) return;
+    void backgroundApiProxy.servicePrivacyChain
+      .verifyLocalWalletWithPassword({ networkId, accountId: currentAccountId })
+      .catch(() => undefined);
+  }, [hasLocalWallet, networkId, currentAccountId]);
+  const sourcePoolSpendableParsed = isSendPoolReady
+    ? selectedSendPool?.spendableParsed
+    : '0';
+
   const maxBalance = useMemo(() => {
     if (!tokenDetails) return '0';
     // `??` (not `||`) so a genuine "0" subtotal is kept, not replaced by the
     // account balance.
-    const balance = selectedUtxoTotalAmount ?? tokenDetails.balanceParsed;
+    const balance =
+      selectedUtxoTotalAmount ??
+      sourcePoolSpendableParsed ??
+      tokenDetails.balanceParsed;
 
     // Lightning balanceParsed is already in sats (decimals=0)
     if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
@@ -1260,6 +1348,7 @@ function SendAmountInputContainer() {
     );
   }, [
     selectedUtxoTotalAmount,
+    sourcePoolSpendableParsed,
     isLightningNetwork,
     lnUnit,
     tokenDetails,
@@ -1270,17 +1359,19 @@ function SendAmountInputContainer() {
     if (!tokenDetails) return '0';
     // Backend may report "--" for an unknown price, which parses to NaN. Guard
     // the multiplication the same way the linkedAmount conversion does so the
-    // UTXO-selected fiat balance never renders as "NaN".
+    // Selected spendable fiat balance never renders as "NaN".
     const priceBN = new BigNumber(tokenDetails.price ?? 0);
+    const spendable = selectedUtxoTotalAmount ?? sourcePoolSpendableParsed;
     if (
-      selectedUtxoTotalAmount !== undefined &&
+      spendable !== undefined &&
       priceBN.isFinite() &&
       priceBN.isGreaterThan(0)
     ) {
-      return new BigNumber(selectedUtxoTotalAmount).times(priceBN).toFixed();
+      return new BigNumber(spendable).times(priceBN).toFixed();
     }
+    if (sourcePoolSpendableParsed !== undefined) return '0';
     return tokenDetails.fiatValue ?? '0';
-  }, [tokenDetails, selectedUtxoTotalAmount]);
+  }, [tokenDetails, selectedUtxoTotalAmount, sourcePoolSpendableParsed]);
 
   const privateSendMaxTokenAmount = useMemo(() => {
     if (!isPrivateSendNativeToken || !isPrivateSendNativeTokenConfigReady) {
@@ -2928,7 +3019,7 @@ function SendAmountInputContainer() {
       errorToastUtils.withErrorAutoToast(async () => {
         setIsSubmitting(true);
         try {
-          if (!account) return;
+          if (!account || !isSendPoolReady) return;
 
           let realAmount = amount;
 
@@ -3336,7 +3427,7 @@ function SendAmountInputContainer() {
                     privateSendHelpCenterUrl,
                 },
                 isToContract: submitRecipientIsContract,
-                memo: recipientMemo,
+                memo: recipientTextMemo,
                 paymentId: recipientPaymentId,
                 note: recipientNote,
                 tokenInfo: tokenDetails.info,
@@ -3369,12 +3460,20 @@ function SendAmountInputContainer() {
                     }
                   : undefined,
               tokenInfo: !isNFT && tokenDetails ? tokenDetails.info : undefined,
-              memo: recipientMemo,
+              memo: recipientTextMemo,
               paymentId: recipientPaymentId,
               note: recipientNote,
+              zcashMemoHex:
+                network?.impl === IMPL_ZCASH && tokenInfo?.isNative
+                  ? encodeZcashMemo(
+                      recipientMemo || '',
+                      recipientMemoEncoding || 'utf8',
+                    )
+                  : undefined,
               hexData: tokenDetails?.info.isNative ? hexData : undefined,
               selectedUtxoKeys: currentSelectedUtxoKeys,
               utxoSelectionStrategy: currentUtxoSelectionStrategy,
+              localWalletSourcePool: selectedSendPool?.key,
             },
           ];
 
@@ -3401,7 +3500,7 @@ function SendAmountInputContainer() {
               selectedUtxoTotalAmount,
               originalRecipient: submitRecipientAddress,
               isToContract: submitRecipientIsContract,
-              memo: recipientMemo,
+              memo: recipientTextMemo,
               paymentId: recipientPaymentId,
               note: recipientNote,
               tokenInfo: tokenDetails?.info,
@@ -3426,6 +3525,8 @@ function SendAmountInputContainer() {
       currentAccountId,
       currentSelectedUtxoKeys,
       currentUtxoSelectionStrategy,
+      selectedSendPool?.key,
+      isSendPoolReady,
       selectedUtxoTotalAmount,
       displayTxMessageForm,
       form,
@@ -3451,6 +3552,8 @@ function SendAmountInputContainer() {
       privateSendQuoteScopeKey,
       privateSendToken,
       recipientMemo,
+      recipientMemoEncoding,
+      recipientTextMemo,
       recipientNote,
       recipientPaymentId,
       settings.currencyInfo.symbol,
@@ -3470,7 +3573,8 @@ function SendAmountInputContainer() {
   );
 
   const isSubmitDisabled = useMemo(() => {
-    if (isSubmitting) return true;
+    if (isSubmitting || !isSendPoolReady) return true;
+    if (isWaitingForSync) return true;
     if (!form.formState.isValid) return true;
     if (!recipientAddress) return true;
     if (isInsufficientBalance) return true;
@@ -3498,6 +3602,8 @@ function SendAmountInputContainer() {
     return false;
   }, [
     isSubmitting,
+    isSendPoolReady,
+    isWaitingForSync,
     form.formState.isValid,
     recipientAddress,
     isInsufficientBalance,
@@ -3807,6 +3913,130 @@ function SendAmountInputContainer() {
       );
     }
 
+    if (isPrivacyPaused) {
+      addons.push(
+        <SizableText
+          key="send-pool-privacy-paused"
+          size="$bodySm"
+          color="$textSubdued"
+        >
+          {intl.formatMessage({
+            id: ETranslations.privacy_send_private_paused__msg,
+          })}
+        </SizableText>,
+      );
+    }
+
+    if (hasLocalWallet && currentAccountId) {
+      addons.push(
+        <YStack key="local-wallet-password" width="100%">
+          <LocalWalletPasswordAlert
+            networkId={networkId}
+            accountId={currentAccountId}
+          />
+        </YStack>,
+      );
+    }
+
+    if (isWaitingForSync) {
+      addons.push(
+        <SizableText
+          key="send-waiting-sync"
+          testID="send-waiting-sync"
+          size="$bodySm"
+          color="$textCaution"
+        >
+          {intl.formatMessage(
+            {
+              id: ETranslations.privacy_send_waiting_sync__msg,
+            },
+            { blocks: sendReadiness?.blocksLeft ?? '—' },
+          )}
+        </SizableText>,
+      );
+    }
+
+    if (isSendPoolBalanceUnavailable) {
+      addons.push(
+        <XStack
+          key="send-pool-balance-unavailable"
+          gap="$2"
+          alignItems="center"
+        >
+          <SizableText size="$bodySm" color="$textCritical">
+            {intl.formatMessage({
+              id: ETranslations.privacy_balance_unavailable__msg,
+            })}
+          </SizableText>
+          <Button
+            size="small"
+            variant="tertiary"
+            testID="send-pool-balance-retry"
+            onPress={() => {
+              void reloadSendPools();
+            }}
+          >
+            {intl.formatMessage({ id: ETranslations.global_retry })}
+          </Button>
+        </XStack>,
+      );
+    }
+
+    if (sendPools?.length && (sendPools.length > 1 || !selectedSendPool)) {
+      addons.push(
+        <Select
+          key="send-pool-picker"
+          testID="send-pool-picker"
+          disabled={isSubmitting}
+          title={intl.formatMessage({ id: ETranslations.global_from })}
+          placement="top-end"
+          value={selectedSendPool?.key ?? ''}
+          items={sendPools.map((pool) => ({
+            label: pool.label,
+            value: pool.key,
+            description: [
+              `${pool.spendableParsed ?? '—'} ${tokenSymbol}`.trim(),
+              pool.hintId ? intl.formatMessage({ id: pool.hintId }) : '',
+            ]
+              .filter(Boolean)
+              .join(' · '),
+          }))}
+          onChange={(value) => {
+            if (!isSubmitting && value !== selectedSendPool?.key) {
+              selectSendPool(value);
+              setIsMaxSend(false);
+            }
+          }}
+          renderTrigger={({ onPress }) => (
+            <Badge
+              testID="send-pool-picker-trigger"
+              role="button"
+              userSelect="none"
+              pr="$1"
+              gap="$0.5"
+              hoverStyle={{ bg: '$bgStrongHover' }}
+              onPress={async (event: GestureResponderEvent) => {
+                if (isSubmitting) return;
+                event.persist();
+                await dismissAmountInputKeyboardBeforeOverlayOpen();
+                onPress?.(event);
+              }}
+            >
+              <Badge.Text>
+                {selectedSendPool?.label ??
+                  intl.formatMessage({ id: ETranslations.global_from })}
+              </Badge.Text>
+              <Icon
+                size="$4"
+                name="ChevronDownSmallOutline"
+                color="$iconSubdued"
+              />
+            </Badge>
+          )}
+        />,
+      );
+    }
+
     if (displayCoinControlButton) {
       addons.push(
         <CoinControlBadge
@@ -3842,6 +4072,19 @@ function SendAmountInputContainer() {
     sendConfirmActions,
     vaultSettings?.mergeDeriveAssetsEnabled,
     walletId,
+    intl,
+    selectedSendPool,
+    isSubmitting,
+    sendPools,
+    selectSendPool,
+    tokenSymbol,
+    isPrivacyPaused,
+    isSendPoolBalanceUnavailable,
+    reloadSendPools,
+    isWaitingForSync,
+    sendReadiness?.blocksLeft,
+    hasLocalWallet,
+    currentAccountId,
   ]);
 
   const renderAutoSwitchAlert = useMemo(() => {
@@ -4147,7 +4390,8 @@ function SendAmountInputContainer() {
     // currentAccountId`, so they never re-trigger the skeleton.
     if (
       (isLoadingAssets && !tokenDetails && !nftDetails) ||
-      balanceAccountId !== currentAccountId
+      balanceAccountId !== currentAccountId ||
+      !isSendPoolReady
     ) {
       return (
         <>
@@ -4240,12 +4484,15 @@ function SendAmountInputContainer() {
           size="small"
           ml="$2"
           disabled={
-            isPrivateSendNativeToken && privateSendMaxInputAmount === undefined
+            isPrivateSendNativeToken
+              ? privateSendMaxInputAmount === undefined
+              : null
           }
           loading={
-            isPrivateSendNativeToken &&
-            (isPrivateSendNativeTokenConfigLoading ||
-              !isPrivateSendNativeTokenConfigReady)
+            isPrivateSendNativeToken
+              ? isPrivateSendNativeTokenConfigLoading ||
+                !isPrivateSendNativeTokenConfigReady
+              : null
           }
           onPress={() => {
             let maxInputAmount: string | undefined = isUseFiat
@@ -4274,6 +4521,7 @@ function SendAmountInputContainer() {
     form,
     intl,
     isLoadingAssets,
+    isSendPoolReady,
     isPrivateSendNativeToken,
     isPrivateSendNativeTokenConfigLoading,
     isPrivateSendNativeTokenConfigReady,

@@ -7,6 +7,7 @@ import {
   Button,
   IconButton,
   PROPORTIONAL_NUMS,
+  SizableText,
   Skeleton,
   XStack,
   YStack,
@@ -36,6 +37,8 @@ import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils'
 import {
   calculateAccountTokensValue,
   calculateAccountTotalValue,
+  getAccountTokensBalanceStatus,
+  hasUnavailableAccountTokens,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 
@@ -57,6 +60,7 @@ import {
 import { buildOverviewOwnerKey } from '../../../states/jotai/contexts/accountOverview/atoms';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { convertFiat } from '../../../utils/fiatConvert';
+import { LocalWalletPasswordAlert } from '../../AssetDetails/pages/TokenDetails/LocalWalletPasswordAlert';
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
 import { useHomeWalletTabSupport } from '../hooks/useHomeWalletTabSupport';
 import { HomeTestIDs } from '../testIDs';
@@ -676,6 +680,30 @@ function HomeOverviewContainer() {
       accountDeFiOverview.networkId,
     ) === currentOverviewOwnerKey;
 
+  const isCurrentAccountWorth =
+    accountWorth.accountId === account?.id ||
+    accountWorth.accountId === account?.indexedAccountId;
+  const currentBalanceStatus = isCurrentAccountWorth
+    ? getAccountTokensBalanceStatus({
+        accountId: account?.id ?? '',
+        networkId: network?.id ?? '',
+        tokensWorth: accountWorth,
+        mergeDeriveAssetsEnabled: !!vaultSettings?.mergeDeriveAssetsEnabled,
+      })
+    : 'complete';
+  // All Networks: a network that could not be read is left out of the total.
+  const hasUnavailableNetwork =
+    isCurrentAccountWorth &&
+    hasUnavailableAccountTokens({
+      networkId: network?.id ?? '',
+      tokensWorth: accountWorth,
+    });
+  // Unavailable reads as "--"; a backfilling or gapped total still shows what
+  // is known, marked, but is never remembered as the confirmed figure.
+  const isCurrentBalanceUnavailable = currentBalanceStatus === 'unavailable';
+  const isCurrentBalanceIncomplete =
+    currentBalanceStatus !== 'complete' || hasUnavailableNetwork;
+
   // Returns a USD-basis string. DeFi data arrives in display currency from
   // DeFiListBlock, so it's converted back to USD here before summing.
   const resolvedBalanceString = useMemo(() => {
@@ -774,6 +802,7 @@ function HomeOverviewContainer() {
 
   useEffect(() => {
     if (
+      !isCurrentBalanceIncomplete &&
       resolvedBalanceString !== undefined &&
       currentOverviewOwnerKey &&
       isCurrentAllNetworksBalanceFullyReady
@@ -790,6 +819,7 @@ function HomeOverviewContainer() {
   }, [
     currentOverviewOwnerKey,
     isCurrentAllNetworksBalanceFullyReady,
+    isCurrentBalanceIncomplete,
     resolvedBalanceString,
     setLastConfirmedOverviewBalance,
   ]);
@@ -961,7 +991,9 @@ function HomeOverviewContainer() {
   ]);
 
   const showSkeleton =
-    !hasDisplayableOverviewBalance && !shouldDisplayZeroBalancePlaceholder;
+    !isCurrentBalanceUnavailable &&
+    !hasDisplayableOverviewBalance &&
+    !shouldDisplayZeroBalancePlaceholder;
 
   const debouncedBalanceString =
     debouncedBalancePayload.ownerKey === currentOverviewOwnerKey
@@ -1099,6 +1131,7 @@ function HomeOverviewContainer() {
       try {
         const balanceToPersist = renderedBalanceString;
         if (
+          !isCurrentBalanceIncomplete &&
           balanceToPersist !== undefined &&
           balanceToPersist !== null &&
           currentOverviewOwnerKey
@@ -1133,6 +1166,7 @@ function HomeOverviewContainer() {
     }
   }, [
     balanceReady,
+    isCurrentBalanceIncomplete,
     currentOverviewOwnerKey,
     renderedBalanceString,
     setLastConfirmedOverviewBalance,
@@ -1184,10 +1218,19 @@ function HomeOverviewContainer() {
                 // Large hero balance reads better with the font's natural
                 // proportional figures than equal-width tabular ones.
                 fontVariant={PROPORTIONAL_NUMS}
-                {...numberFormatter}
+                {...(isCurrentBalanceUnavailable ? {} : numberFormatter)}
               >
-                {renderedBalanceStringDisplay ?? '0'}
+                {isCurrentBalanceUnavailable
+                  ? '--'
+                  : (renderedBalanceStringDisplay ?? '0')}
               </NumberSizeableTextWrapper>
+              {currentBalanceStatus === 'partial' ? (
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.global_syncing,
+                  })}
+                </SizableText>
+              ) : null}
             </XStack>
             {refreshButton}
           </XStack>
@@ -1206,6 +1249,17 @@ function HomeOverviewContainer() {
           })}
         </Button>
       ) : undefined}
+      {vaultSettings?.localWallet &&
+      account?.id &&
+      network?.id &&
+      !network.isAllNetworks ? (
+        <YStack w="100%">
+          <LocalWalletPasswordAlert
+            networkId={network.id}
+            accountId={account.id}
+          />
+        </YStack>
+      ) : null}
       {isWalletNotBackedUp && vaultSettings?.hasResource ? (
         <Button
           testID="home-btn"

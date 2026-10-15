@@ -27,6 +27,7 @@ import {
   formatTransferOverflowLabel,
 } from '@onekeyhq/kit/src/components/TxAction/consts';
 import { SpeedUpAction } from '@onekeyhq/kit/src/components/TxHistoryListView/SpeedUpAction';
+import { ZcashMemo } from '@onekeyhq/kit/src/components/ZcashMemo';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -42,7 +43,11 @@ import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_HISTORY,
 } from '@onekeyhq/shared/src/consts/walletConsts';
-import { IMPL_DOT, IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  IMPL_DOT,
+  IMPL_SOL,
+  IMPL_ZCASH,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -53,7 +58,15 @@ import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetail
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getHistoryFeeDisplayValues } from '@onekeyhq/shared/src/utils/historyFeeUtils';
 import { getHistoryTxDetailInfo } from '@onekeyhq/shared/src/utils/historyUtils';
-import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import {
+  getPrivacyChainPublicDisplayFlow,
+  getPrivacyChainWalletRecipientAddresses,
+} from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
+import {
+  swrCacheNamespaces,
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import {
   collectDecodedTxInvolvedAddresses,
   getStakingActionLabel,
@@ -87,6 +100,7 @@ import type { ColorValue } from 'react-native';
 
 function getTxStatusTextProps(
   status: EDecodedTxStatus | EOnChainHistoryTxStatus | undefined,
+  broadcastOutcomeUnknown = false,
 ): {
   key: ETranslations;
   color: ColorValue;
@@ -101,9 +115,11 @@ function getTxStatusTextProps(
   ) {
     // A broadcast on-chain tx is "confirming", not "pending" (OK-56372).
     return {
-      key: ETranslations.global_confirming,
+      key: broadcastOutcomeUnknown
+        ? ETranslations.global_unknown
+        : ETranslations.global_confirming,
       color: '$textCaution',
-      isConfirming: true,
+      isConfirming: !broadcastOutcomeUnknown,
     };
   }
 
@@ -393,10 +409,10 @@ function HistoryDetails() {
     notificationAccountId,
     allowClickAccountNameSwitch,
     historyTx: historyTxParam,
+    privacyChainPoolId,
     isAllNetworks,
     checkIsFocused = true,
   } = route.params;
-
   const historyInit = useRef(false);
   const historyConfirmed = useRef(false);
   const privateSendSwapDetailOpened = useRef(false);
@@ -409,6 +425,17 @@ function HistoryDetails() {
     accountId,
   });
 
+  const isLocalWalletHistory = !!vaultSettings?.localWallet;
+  useEffect(() => {
+    if (!isLocalWalletHistory) return;
+    // Detail snapshots can contain decrypted memos and private recipients,
+    // including one that landed before vault settings resolved.
+    // Keep these facts in wallet-owned storage, not the shared display cache.
+    swrCacheUtils.removeByPrefix(
+      `${swrCacheNamespaces.historyTxDetail}:v1:${networkId}:`,
+    );
+    swrCacheUtils.flushNow();
+  }, [isLocalWalletHistory, networkId]);
   const accountAddress = route.params?.accountAddress || account?.address;
   const txid = transactionHash || historyTxParam?.decodedTx.txid || '';
   const isInitialPrivateSendHistory = historyTxParam
@@ -473,6 +500,7 @@ function HistoryDetails() {
         networkId,
         accountAddress,
         txid,
+        privacyChainPoolId,
         fixConfirmedTxStatus: vaultSettings?.fixConfirmedTxEnabled,
         // narrow vault extra params (btc find-address) to the addresses the
         // tapped tx involves; deep links have no tx context and fall back
@@ -528,6 +556,7 @@ function HistoryDetails() {
       accountId,
       networkId,
       txid,
+      privacyChainPoolId,
       vaultSettings?.fixConfirmedTxEnabled,
       historyTxParam,
       isInitialPrivateSendHistory,
@@ -545,6 +574,7 @@ function HistoryDetails() {
       swrKey: txid
         ? swrKeys.historyTxDetail({ networkId, accountAddress, txid })
         : undefined,
+      swrShouldPersist: () => !isLocalWalletHistory,
       overrideIsFocused: (isPageFocused) =>
         isPageFocused &&
         !privateSendSwapDetailOpened.current &&
@@ -605,10 +635,23 @@ function HistoryDetails() {
       accountId,
       networkId,
       txId: txid,
-      inputs: historyTx?.decodedTx.actions[0]?.assetTransfer?.utxoFrom,
-      outputs: historyTx?.decodedTx.actions[0]?.assetTransfer?.utxoTo,
+      privacyChainPoolId,
+      inputs: isLocalWalletHistory
+        ? undefined
+        : historyTx?.decodedTx.actions[0]?.assetTransfer?.utxoFrom,
+      outputs: isLocalWalletHistory
+        ? undefined
+        : historyTx?.decodedTx.actions[0]?.assetTransfer?.utxoTo,
     });
-  }, [navigation, accountId, networkId, txid, historyTx?.decodedTx.actions]);
+  }, [
+    navigation,
+    accountId,
+    networkId,
+    txid,
+    historyTx?.decodedTx.actions,
+    privacyChainPoolId,
+    isLocalWalletHistory,
+  ]);
 
   const txAddresses = useMemo(() => {
     if (!historyTx) {
@@ -801,6 +844,7 @@ function HistoryDetails() {
     // indexer cannot parse return an empty label, and overwriting with it
     // wiped out the title derived above.
     if (
+      !isLocalWalletHistory &&
       label &&
       (!historyTx.isLocalCreated ||
         decodedTx.status !== EDecodedTxStatus.Pending)
@@ -834,7 +878,7 @@ function HistoryDetails() {
     }
 
     return title;
-  }, [historyTx, intl, isSendToSelf]);
+  }, [historyTx, intl, isSendToSelf, isLocalWalletHistory]);
 
   const transfersToRender = useMemo(() => {
     if (!historyTx) {
@@ -1058,25 +1102,38 @@ function HistoryDetails() {
   ]);
 
   const renderTxStatus = useCallback(() => {
-    const status = txDetails?.status ?? historyTx?.decodedTx.status;
-    const { key, color, isConfirming } = getTxStatusTextProps(status);
+    let status = txDetails?.status ?? historyTx?.decodedTx.status;
+    if (
+      isLocalWalletHistory &&
+      status === EOnChainHistoryTxStatus.Pending &&
+      historyTx?.decodedTx.status === EDecodedTxStatus.Dropped
+    )
+      status = EDecodedTxStatus.Dropped;
+    const { key, color, isConfirming } = getTxStatusTextProps(
+      status,
+      txDetails?.broadcastOutcomeUnknown ??
+        historyTx?.decodedTx.broadcastOutcomeUnknown,
+    );
 
     const broadcastTimeMs = txDetails?.timestamp
       ? txDetails.timestamp * 1000
       : (historyTx?.decodedTx.updatedAt ?? historyTx?.decodedTx.createdAt);
-    const subtitle = isConfirming
-      ? getTxConfirmSubtitle({
-          confirmationETASeconds: txDetails?.confirmationETASeconds,
-          confirmationETABlocks: txDetails?.confirmationETABlocks,
-          broadcastTimeMs,
-          nowMs: Date.now(),
-          // Mirror only the real speed-up entry (renderReplaceButtons requires
-          // canReplaceTx); the "Order inquiry" button is not an accelerate
-          // action, so checkSpeedUpStateEnabled must not unlock the nudge.
-          // Stays undefined until the async capability check resolves.
-          canSpeedUp: canReplaceTx,
-        })
-      : null;
+    const subtitle =
+      isConfirming &&
+      (!isLocalWalletHistory ||
+        !!(txDetails?.block ?? historyTx?.decodedTx.block))
+        ? getTxConfirmSubtitle({
+            confirmationETASeconds: txDetails?.confirmationETASeconds,
+            confirmationETABlocks: txDetails?.confirmationETABlocks,
+            broadcastTimeMs,
+            nowMs: Date.now(),
+            // Mirror only the real speed-up entry (renderReplaceButtons requires
+            // canReplaceTx); the "Order inquiry" button is not an accelerate
+            // action, so checkSpeedUpStateEnabled must not unlock the nudge.
+            // Stays undefined until the async capability check resolves.
+            canSpeedUp: canReplaceTx,
+          })
+        : null;
 
     return (
       <YStack gap="$1">
@@ -1106,12 +1163,17 @@ function HistoryDetails() {
       </YStack>
     );
   }, [
+    isLocalWalletHistory,
+    txDetails?.block,
+    historyTx?.decodedTx.block,
     historyTx?.decodedTx.status,
+    historyTx?.decodedTx.broadcastOutcomeUnknown,
     historyTx?.decodedTx.updatedAt,
     historyTx?.decodedTx.createdAt,
     intl,
     renderReplaceTxActions,
     txDetails?.status,
+    txDetails?.broadcastOutcomeUnknown,
     txDetails?.timestamp,
     txDetails?.confirmationETASeconds,
     txDetails?.confirmationETABlocks,
@@ -1119,8 +1181,126 @@ function HistoryDetails() {
     canReplaceTx,
   ]);
 
+  const localWalletHistoryFlow = useMemo(
+    () =>
+      isLocalWalletHistory
+        ? getPrivacyChainPublicDisplayFlow({
+            publicAddressPattern:
+              vaultSettings?.localWallet?.publicAddressPattern,
+            transfer: historyTx?.decodedTx.actions[0]?.assetTransfer,
+          })
+        : undefined,
+    [
+      historyTx?.decodedTx.actions,
+      isLocalWalletHistory,
+      vaultSettings?.localWallet?.publicAddressPattern,
+    ],
+  );
+  const isSentFromThisWallet =
+    !!historyTx?.decodedTx.signer &&
+    historyTx.decodedTx.signer === historyTx.decodedTx.owner;
+  const walletRecipients = useMemo(
+    () =>
+      isLocalWalletHistory
+        ? getPrivacyChainWalletRecipientAddresses({
+            privateAddressPattern:
+              vaultSettings?.localWallet?.privateAddressPattern,
+            outputTransfers: txDetails?.receives,
+            transfer: historyTx?.decodedTx.actions[0]?.assetTransfer,
+            isSent: isSentFromThisWallet,
+          })
+        : [],
+    [
+      isLocalWalletHistory,
+      vaultSettings?.localWallet?.privateAddressPattern,
+      txDetails?.receives,
+      historyTx?.decodedTx.actions,
+      isSentFromThisWallet,
+    ],
+  );
+  const hasWalletIO =
+    txDetails?.inputOutputSource === 'account' &&
+    !!(txDetails.sends?.length || txDetails.receives?.length);
+  const showUTXOs =
+    (!isLocalWalletHistory ||
+      new BigNumber(txDetails?.block ?? historyTx?.decodedTx.block ?? 0).gt(
+        0,
+      )) &&
+    (!localWalletHistoryFlow ||
+      hasWalletIO ||
+      localWalletHistoryFlow.from.length > 0 ||
+      localWalletHistoryFlow.to.length > 0);
+
   const renderTxFlow = useCallback(() => {
     const action = historyTx?.decodedTx.actions[0];
+
+    if (localWalletHistoryFlow) {
+      return (
+        <>
+          {!isSentFromThisWallet && !localWalletHistoryFlow.from.length ? (
+            <InfoItem
+              label={intl.formatMessage({ id: ETranslations.global_from })}
+              renderContent={intl.formatMessage({
+                id: ETranslations.global_unknown,
+              })}
+              description={
+                <SizableText color="$textSubdued" size="$bodySm">
+                  {intl.formatMessage({
+                    id: ETranslations.privacy_history_sender_unknown__desc,
+                  })}
+                </SizableText>
+              }
+            />
+          ) : null}
+          {walletRecipients.map((address) => (
+            <InfoItem
+              key={`wallet-recipient-${address}`}
+              label={intl.formatMessage({ id: ETranslations.global_to })}
+              renderContent={address}
+              showCopy
+              description={
+                <XStack gap="$1.5" alignItems="center">
+                  <Icon name="ShieldOutline" size="$4" color="$iconSubdued" />
+                  <SizableText
+                    color="$textSubdued"
+                    size="$bodySm"
+                    flexShrink={1}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.privacy_history_local_recipient__desc,
+                    })}
+                  </SizableText>
+                </XStack>
+              }
+            />
+          ))}
+          {(['from', 'to'] as const).flatMap((direction) =>
+            localWalletHistoryFlow[direction].map((address) => (
+              <InfoItem
+                key={`${direction}-${address}`}
+                label={intl.formatMessage({
+                  id:
+                    direction === 'from'
+                      ? ETranslations.global_from
+                      : ETranslations.global_to,
+                })}
+                renderContent={address}
+                showCopy
+                description={
+                  <AddressInfo
+                    address={address}
+                    networkId={networkId}
+                    accountId={accountId}
+                    allowClickAccountNameSwitch={allowClickAccountNameSwitch}
+                    addressMap={addressMap}
+                  />
+                }
+              />
+            )),
+          )}
+        </>
+      );
+    }
 
     if (action?.assetTransfer?.isInternalSwap) {
       const { from, to, swapReceivedAddress, swapReceivedNetworkId } =
@@ -1255,6 +1435,9 @@ function HistoryDetails() {
     accountId,
     allowClickAccountNameSwitch,
     addressMap,
+    localWalletHistoryFlow,
+    walletRecipients,
+    isSentFromThisWallet,
   ]);
 
   const renderTxApproveFor = useCallback(() => {
@@ -1315,8 +1498,16 @@ function HistoryDetails() {
     txDetails,
     historyTx,
   });
+  const hasHistoryDetailData = !!historyTx || !!txDetails;
 
   const renderFeeInfo = useCallback(() => {
+    if (isLocalWalletHistory && !txInfo?.gasFee) {
+      return (
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.global_unknown })}
+        </SizableText>
+      );
+    }
     const gasFeeDisplayValues = getHistoryFeeDisplayValues({
       gasFee: txInfo?.gasFee,
       gasFeeFiatValue: txInfo?.gasFeeFiatValue,
@@ -1368,6 +1559,7 @@ function HistoryDetails() {
     );
   }, [
     intl,
+    isLocalWalletHistory,
     nativeToken?.symbol,
     settings.currencyInfo.symbol,
     txInfo?.gasFee,
@@ -1389,6 +1581,14 @@ function HistoryDetails() {
         <Stack pt={240} justifyContent="center" alignItems="center">
           <Spinner size="large" />
         </Stack>
+      );
+    }
+
+    if (!hasHistoryDetailData && historyInit.current && isLoading === false) {
+      return (
+        <SizableText px="$5">
+          {intl.formatMessage({ id: ETranslations.global_not_available })}
+        </SizableText>
       );
     }
 
@@ -1484,6 +1684,15 @@ function HistoryDetails() {
           <Divider mx="$5" />
           <InfoItemGroup>
             {renderTxMetaInfo()}
+            {network?.impl === IMPL_ZCASH &&
+            (txDetails?.memo || txDetails?.binaryMemos?.length) ? (
+              <Stack p="$2.5" width="100%">
+                <ZcashMemo
+                  text={txDetails.memo}
+                  binaryMemos={txDetails.binaryMemos}
+                />
+              </Stack>
+            ) : null}
             <InfoItem
               label={intl.formatMessage({
                 id: ETranslations.global_transaction_id,
@@ -1543,7 +1752,8 @@ function HistoryDetails() {
               />
             ) : null}
 
-            {vaultSettings?.isUtxo &&
+            {showUTXOs &&
+            vaultSettings?.isUtxo &&
             (historyTx?.decodedTx.status !== EDecodedTxStatus.Pending ||
               !vaultSettings.hideTxUtxoListWhenPending) ? (
               <InfoItem
@@ -1555,13 +1765,7 @@ function HistoryDetails() {
                     variant="secondary"
                     iconAfter="ChevronRightSmallOutline"
                   >
-                    {intl.formatMessage({
-                      id: ETranslations.global_inputs,
-                    })}{' '}
-                    &{' '}
-                    {intl.formatMessage({
-                      id: ETranslations.global_outputs,
-                    })}
+                    {`${intl.formatMessage({ id: ETranslations.global_inputs })} & ${intl.formatMessage({ id: ETranslations.global_outputs })}`}
                   </Button>
                 }
               />
@@ -1572,6 +1776,7 @@ function HistoryDetails() {
     );
   }, [
     isLoading,
+    hasHistoryDetailData,
     historyTxParam,
     intl,
     renderTxStatus,
@@ -1584,11 +1789,15 @@ function HistoryDetails() {
     allowClickAccountNameSwitch,
     addressMap,
     renderTxMetaInfo,
+    txDetails?.memo,
+    txDetails?.binaryMemos,
+    network?.impl,
     txid,
     vaultSettings?.hideBlockExplorer,
     vaultSettings?.nonceRequired,
     vaultSettings?.isUtxo,
     vaultSettings?.hideTxUtxoListWhenPending,
+    showUTXOs,
     renderFeeInfo,
     network?.name,
     network?.id,

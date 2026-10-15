@@ -151,6 +151,7 @@ type IProps = {
   plainMode?: boolean;
   emptyTitle?: string;
   emptyDescription?: string;
+  emptyComponent?: ReactElement | null;
   onEndReached?: () => void;
   onEndReachedThreshold?: number;
   isLoadingMore?: boolean;
@@ -331,6 +332,14 @@ function TxHistoryListViewSectionHeader(
     }
   }, [data, inTabList, isTabFocused, recomputeLayout]);
 
+  const allBroadcastsUnknown = data.every(
+    (tx) => tx.decodedTx.broadcastOutcomeUnknown,
+  );
+  let pendingTitle = ETranslations.global_confirming;
+  if (allBroadcastsUnknown) pendingTitle = ETranslations.global_unknown;
+  else if (data.some((tx) => tx.decodedTx.broadcastOutcomeUnknown))
+    pendingTitle = ETranslations.global_pending;
+
   if (
     data[0] &&
     getHistoryTxDisplayStatus(data[0]) === EDecodedTxStatus.Pending
@@ -344,9 +353,13 @@ function TxHistoryListViewSectionHeader(
         gap="$2"
         mt={index === 0 ? '$0' : '$5'}
       >
-        <Spinner size="small" color="$textCaution" />
+        {allBroadcastsUnknown ? null : (
+          <Spinner size="small" color="$textCaution" />
+        )}
         <SizableText numberOfLines={1} size="$headingXs" color="$textCaution">
-          {intl.formatMessage({ id: ETranslations.global_confirming })}
+          {intl.formatMessage({
+            id: pendingTitle,
+          })}
         </SizableText>
       </XStack>
     );
@@ -384,6 +397,7 @@ function BaseTxHistoryListView(props: IProps) {
     tokenMap,
     ref,
     plainMode,
+    emptyComponent,
     onEndReached,
     onEndReachedThreshold,
     isLoadingMore,
@@ -551,6 +565,9 @@ function BaseTxHistoryListView(props: IProps) {
     if (!initialized) {
       return <HistoryLoadingView tableLayout={tableLayout} />;
     }
+    if (emptyComponent !== undefined) {
+      return emptyComponent ?? <Stack />;
+    }
     if (searchKey && data.length > 0) {
       return <EmptySearch />;
     }
@@ -577,6 +594,7 @@ function BaseTxHistoryListView(props: IProps) {
     tokenMap,
     tableLayout,
     plainMode,
+    emptyComponent,
   ]);
 
   if (plainMode) {

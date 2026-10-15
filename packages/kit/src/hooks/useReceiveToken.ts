@@ -29,6 +29,7 @@ function useReceiveToken({
   isMultipleDerive,
   indexedAccountId,
   exchangeSource,
+  localWalletAddressForm,
 }: {
   accountId: string;
   networkId: string;
@@ -42,6 +43,7 @@ function useReceiveToken({
   };
   isMultipleDerive?: boolean;
   exchangeSource?: EExchangeId;
+  localWalletAddressForm?: 'public' | 'private';
 }) {
   const intl = useIntl();
   const {
@@ -130,6 +132,7 @@ function useReceiveToken({
             token,
             indexedAccountId,
             disableSelector: true,
+            localWalletAddressForm,
           });
         } else {
           navigation.pushModal(EModalRoutes.ReceiveModal, {
@@ -141,6 +144,7 @@ function useReceiveToken({
               token,
               indexedAccountId,
               disableSelector: true,
+              localWalletAddressForm,
             },
           });
         }
@@ -253,6 +257,7 @@ function useReceiveToken({
       vaultSettings?.mergeDeriveAssetsEnabled,
       walletId,
       exchangeSource,
+      localWalletAddressForm,
     ],
   );
 
