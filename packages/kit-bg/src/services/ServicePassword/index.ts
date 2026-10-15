@@ -584,17 +584,39 @@ export default class ServicePassword extends ServiceBase {
       }
     }
     if (enable && (platformEnv.isNativeIOS || platformEnv.isDesktopMac)) {
-      await appStorage.setItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY, 'checking');
-      if (
-        runtimePersistenceAdapter.isUnavailable() ||
-        (await appStorage.getItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY)) !==
-          'checking'
-      ) {
-        throw new OneKeyErrors.BiologyAuthFailed();
-      }
-      const changed = await checkBiometricAuthChanged();
-      if (typeof changed !== 'boolean') {
-        throw new OneKeyErrors.BiologyAuthFailed();
+      const { isBiologyAuthSwitchOn: wasSwitchOn } =
+        await settingsPersistAtom.get();
+      let checkpointWritten = false;
+      try {
+        await appStorage.setItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY, 'checking');
+        checkpointWritten = true;
+        if (
+          runtimePersistenceAdapter.isUnavailable() ||
+          (await appStorage.getItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY)) !==
+            'checking'
+        ) {
+          throw new OneKeyErrors.BiologyAuthFailed();
+        }
+        const changed = await checkBiometricAuthChanged();
+        if (typeof changed !== 'boolean') {
+          throw new OneKeyErrors.BiologyAuthFailed();
+        }
+      } catch (error) {
+        if (checkpointWritten && !wasSwitchOn) {
+          try {
+            const { isBiologyAuthSwitchOn } = await settingsPersistAtom.get();
+            if (
+              !isBiologyAuthSwitchOn &&
+              (await appStorage.getItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY)) ===
+                'checking'
+            ) {
+              await appStorage.removeItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY);
+            }
+          } catch {
+            // Keep the checkpoint when storage cannot confirm a safe retry.
+          }
+        }
+        throw error;
       }
     }
     await this.backgroundApi.serviceSetting.setBiologyAuthSwitchOn(enable);
@@ -1162,12 +1184,10 @@ export default class ServicePassword extends ServiceBase {
           const pending = await appStorage.getItem(
             BIOMETRIC_AUTH_CHECK_PENDING_KEY,
           );
-          if (pending === 'changed') {
+          if (pending) {
             await this.backgroundApi.serviceSetting.setBiologyAuthSwitchOn(
               false,
             );
-          }
-          if (pending) {
             await appStorage.removeItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY);
           }
         });

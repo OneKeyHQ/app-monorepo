@@ -963,7 +963,42 @@ describe('ServicePassword biometric check recovery', () => {
     expect(encode).toHaveBeenCalledWith(
       expect.objectContaining({ text: 'fresh input' }),
     );
+    expect(setting).toHaveBeenLastCalledWith(false);
+    expect(switchOn).toBe(false);
+    expect(setting.mock.invocationCallOrder[0]).toBeLessThan(
+      jest.mocked(appStorage.removeItem).mock.invocationCallOrder[0],
+    );
     expect(persisted).toBeNull();
+  });
+
+  it('keeps an uncertain check pending when switch shutdown fails during manual recovery', async () => {
+    persisted = 'checking';
+    const service = makeService();
+    jest
+      .spyOn(service, 'encodeSensitiveText')
+      .mockResolvedValue('encoded-password');
+    jest
+      .spyOn(
+        service as unknown as { verifyPasswordInner: () => Promise<string> },
+        'verifyPasswordInner',
+      )
+      .mockResolvedValue('encoded-password');
+    setting.mockRejectedValueOnce(new Error('settings write failed'));
+    const params = {
+      password: 'fresh input',
+      passwordMode: EPasswordMode.PASSWORD,
+    };
+    await expect(service.verifyPasswordFromInput(params)).resolves.toBe(
+      'encoded-password',
+    );
+    expect(persisted).toBe('checking');
+    expect(switchOn).toBe(true);
+    await expect(service.verifyPasswordFromInput(params)).resolves.toBe(
+      'encoded-password',
+    );
+    expect(setting).toHaveBeenLastCalledWith(false);
+    expect(persisted).toBeNull();
+    expect(switchOn).toBe(false);
   });
 
   it('preserves password access if recovery storage is unavailable', async () => {
@@ -1128,7 +1163,7 @@ describe('ServicePassword biometric check recovery', () => {
     expect(setting).not.toHaveBeenCalled();
   });
 
-  it('does not enable after baseline sync fails and retains the checkpoint', async () => {
+  it('allows a fresh enable retry after baseline sync fails while the switch is off', async () => {
     switchOn = false;
     const service = makeService();
     jest.spyOn(biologyAuth, 'biologyAuthenticate').mockResolvedValue({
@@ -1143,7 +1178,94 @@ describe('ServicePassword biometric check recovery', () => {
       'native unavailable',
     );
     expect(setting).not.toHaveBeenCalled();
+    expect(persisted).toBeNull();
+    jest.mocked(checkBiometricAuthChanged).mockResolvedValue(false);
+    await expect(service.setBiologyAuthEnable(true)).resolves.toBeUndefined();
+    expect(checkBiometricAuthChanged).toHaveBeenCalledTimes(2);
+    expect(setting).toHaveBeenCalledWith(true);
+    expect(persisted).toBeNull();
+  });
+
+  it('retains the checkpoint if baseline sync fails while the switch was on', async () => {
+    const service = makeService();
+    jest.spyOn(biologyAuth, 'biologyAuthenticate').mockResolvedValue({
+      success: true,
+    });
+    jest.spyOn(service, 'getCachedPassword').mockResolvedValue('encoded');
+    jest.spyOn(service, 'saveBiologyAuthPassword').mockResolvedValue();
+    jest
+      .mocked(checkBiometricAuthChanged)
+      .mockRejectedValue(new Error('native unavailable'));
+    await expect(service.setBiologyAuthEnable(true)).rejects.toThrow(
+      'native unavailable',
+    );
     expect(persisted).toBe('checking');
+    expect(setting).not.toHaveBeenCalled();
+  });
+
+  it('retains the checkpoint if the switch turns on during baseline sync', async () => {
+    switchOn = false;
+    const service = makeService();
+    jest.spyOn(biologyAuth, 'biologyAuthenticate').mockResolvedValue({
+      success: true,
+    });
+    jest.spyOn(service, 'getCachedPassword').mockResolvedValue('encoded');
+    jest.spyOn(service, 'saveBiologyAuthPassword').mockResolvedValue();
+    jest.mocked(checkBiometricAuthChanged).mockImplementation(() => {
+      switchOn = true;
+      return Promise.reject(new Error('native unavailable'));
+    });
+    await expect(service.setBiologyAuthEnable(true)).rejects.toThrow(
+      'native unavailable',
+    );
+    expect(persisted).toBe('checking');
+  });
+
+  it('preserves the original baseline error if checkpoint cleanup fails', async () => {
+    switchOn = false;
+    const service = makeService();
+    jest.spyOn(biologyAuth, 'biologyAuthenticate').mockResolvedValue({
+      success: true,
+    });
+    jest.spyOn(service, 'getCachedPassword').mockResolvedValue('encoded');
+    jest.spyOn(service, 'saveBiologyAuthPassword').mockResolvedValue();
+    jest
+      .mocked(checkBiometricAuthChanged)
+      .mockRejectedValue(new Error('native unavailable'));
+    jest
+      .spyOn(appStorage, 'removeItem')
+      .mockRejectedValue(new Error('storage unavailable'));
+    await expect(service.setBiologyAuthEnable(true)).rejects.toThrow(
+      'native unavailable',
+    );
+    expect(persisted).toBe('checking');
+  });
+
+  it('never clears a checkpoint inherited from an earlier check', async () => {
+    switchOn = false;
+    persisted = 'checking';
+    const service = makeService();
+    await expect(service.setBiologyAuthEnable(true)).rejects.toThrow();
+    expect(persisted).toBe('checking');
+    expect(checkBiometricAuthChanged).not.toHaveBeenCalled();
+    expect(setting).not.toHaveBeenCalled();
+  });
+
+  it('retains the checkpoint when enabling the switch fails after baseline sync', async () => {
+    switchOn = false;
+    const service = makeService();
+    jest.spyOn(biologyAuth, 'biologyAuthenticate').mockResolvedValue({
+      success: true,
+    });
+    jest.spyOn(service, 'getCachedPassword').mockResolvedValue('encoded');
+    jest.spyOn(service, 'saveBiologyAuthPassword').mockResolvedValue();
+    jest.mocked(checkBiometricAuthChanged).mockResolvedValue(false);
+    setting.mockRejectedValueOnce(new Error('settings write failed'));
+    await expect(service.setBiologyAuthEnable(true)).rejects.toThrow(
+      'settings write failed',
+    );
+    expect(persisted).toBe('checking');
+    expect(switchOn).toBe(false);
   });
 
   it('does not consume the SDK baseline if checkpoint storage silently fails', async () => {
