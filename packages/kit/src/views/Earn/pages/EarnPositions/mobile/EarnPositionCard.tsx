@@ -140,6 +140,8 @@ function EarnPositionCardCmp({
     canOpen && action ? () => onManage?.(action.target) : undefined;
   // Redeem, or Sell early for a Pendle PT before maturity, as the detail
   // page's footer reads; the manage page sells the PT on its withdraw tab.
+  // Off, not gone, when the server says the page's own Redeem would be
+  // (withdrawals switched off, nothing withdrawable), as the page keeps it.
   const redeem: IEarnHoldingRedeem | undefined =
     onRedeem && canRedeemFromCard(position)
       ? {
@@ -148,6 +150,7 @@ function EarnPositionCardCmp({
               ? ETranslations.defi_sell_early
               : ETranslations.earn_redeem,
           }),
+          disabled: source.earn.redeem?.disabled,
           onPress: () => onRedeem(source.earn.manage),
         }
       : undefined;

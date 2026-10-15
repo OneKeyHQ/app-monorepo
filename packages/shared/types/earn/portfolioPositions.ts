@@ -176,6 +176,13 @@ export type IEarnPositionExtension = {
   /** claimable positions: the row's own claim button */
   claim?: IEarnActionIcon;
   /**
+   * The deposit row's Redeem (Sell early on a Pendle PT before maturity),
+   * off the way the detail page's withdraw action is: when the protocol has
+   * withdrawals switched off or nothing is withdrawable. Absent on a
+   * server that predates it, which keeps the button on.
+   */
+  redeem?: { disabled: boolean };
+  /**
    * The flow that runs `claim`: `investment` is the detail row's claim, the
    * one the wide layout runs on its rows; `airdrop` is the airdrop read's
    * (the USDe cooling down at Ethena, reached through Pendle).

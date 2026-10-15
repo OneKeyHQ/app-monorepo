@@ -23,6 +23,7 @@ import {
   hasPositionDetailPage,
   holdingRowActionOf,
   mergeRewardGroups,
+  positionMatured,
   positionPendingTag,
   sellsEarly,
   sumRewardsHeaderFiat,
@@ -539,5 +540,20 @@ describe('canRedeemFromCard', () => {
       }),
     ).toBe(false);
     expect(sellsEarly(byId('lido:evm--1:steth'))).toBe(false);
+  });
+
+  it('reads whether a dated position has matured from the flag, else its date, and nothing for an undated one', () => {
+    const pendle = byId('pendle:evm--1:0xusd3');
+    expect(positionMatured(pendle)).toBe(false);
+    expect(
+      positionMatured({ ...pendle, earn: { ...pendle.earn, matured: true } }),
+    ).toBe(true);
+    expect(
+      positionMatured({
+        ...pendle,
+        earn: { ...pendle.earn, matured: undefined, maturityAt: 1 },
+      }),
+    ).toBe(true);
+    expect(positionMatured(byId('lido:evm--1:steth'))).toBeUndefined();
   });
 });

@@ -105,6 +105,7 @@ import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation, EarnNetworkUtils } from '../../earnUtils';
 import { useStakingPendingTxs } from '../../hooks/useStakingPendingTxs';
+import { positionMatured } from '../EarnPositions/mobile/myPortfolio.utils';
 
 import { ActivityBanner } from './components/ActivityBanner';
 import { ApyChart } from './components/ApyChart';
@@ -1655,6 +1656,15 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
 
   const tabBarHeight = useScrollContentTabBarOffset();
 
+  // Whether a Pendle market has passed its maturity, which turns Sell early
+  // into Redeem and closes Buy. The detail response carries the flag on
+  // servers that send `maturity`; before that it only had the date text,
+  // and the positions read, which the card already keys on, says it.
+  const isMatured =
+    detailInfo?.maturity?.isMatured ??
+    (holding ? positionMatured(holding.source) : undefined) ??
+    false;
+
   // Per the design, Redeem shows once the user has a position and Deposit
   // stands alone before that (OK-64550): a Redeem with nothing to redeem
   // only ever sat there disabled. With a position, Redeem follows the
@@ -1673,7 +1683,6 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     if (!showRedeem) {
       return undefined;
     }
-    const isMatured = Boolean(detailInfo?.maturity?.isMatured);
     return {
       label: intl.formatMessage({
         id:
@@ -1692,7 +1701,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     hasPortfolio,
     redeemAction,
     redeemWithoutActions,
-    detailInfo?.maturity?.isMatured,
+    isMatured,
     handleOpenRedeem,
   ]);
 
@@ -1714,7 +1723,6 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     // mirror the manage page's pair: no buying after maturity, no selling
     // without a position.
     const isPendle = earnUtils.isPendleProvider({ providerName: provider });
-    const isMatured = Boolean(detailInfo?.maturity?.isMatured);
     const buttonText = isManageOnly
       ? intl.formatMessage({ id: ETranslations.global_manage })
       : intl.formatMessage({
@@ -1762,6 +1770,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     isMobileLayout,
     detailInfo,
     provider,
+    isMatured,
   ]);
 
   return (

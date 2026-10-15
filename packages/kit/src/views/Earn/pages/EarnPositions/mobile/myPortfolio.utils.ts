@@ -375,6 +375,23 @@ export function canRedeemFromCard(position: IEarnPositionView): boolean {
 }
 
 /**
+ * Whether a dated position (a Pendle market) has passed its maturity: the
+ * server's flag, else its date against the clock. Undefined for a position
+ * without a date, so a caller can fall through to another source.
+ */
+export function positionMatured(
+  position: IEarnPortfolioPosition,
+): boolean | undefined {
+  const { earn } = position;
+  if (earn.matured !== undefined) {
+    return earn.matured;
+  }
+  return earn.maturityAt !== undefined
+    ? earn.maturityAt <= Date.now()
+    : undefined;
+}
+
+/**
  * A Pendle PT before its market matures is sold rather than redeemed: the
  * detail page's footer reads Sell early until maturity, and so does the row.
  */
@@ -383,10 +400,7 @@ export function sellsEarly(position: IEarnPortfolioPosition): boolean {
   if (!earnUtils.isPendleProvider({ providerName: earn.manage.provider })) {
     return false;
   }
-  const matured =
-    earn.matured ??
-    (earn.maturityAt !== undefined && earn.maturityAt <= Date.now());
-  return !matured;
+  return !(positionMatured(position) ?? false);
 }
 
 /**
