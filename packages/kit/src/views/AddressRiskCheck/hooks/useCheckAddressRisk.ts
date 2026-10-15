@@ -250,19 +250,22 @@ export function useAddressRiskCheckRequest(
           return;
         }
         if (getPrimeFreeTrialError(error)) {
+          // Only a page still on top handles the rejection. One the user
+          // already left (mounted during its close animation) or covered gets
+          // no feedback: popping would close another page, and the dashboard
+          // would open over the screen the user went to.
+          if (!reactNavigation.isFocused()) {
+            return;
+          }
           // Leave this pending page first so the user is not left on it
           // behind the feedback: the Send page check closes the whole modal,
           // a check inside the feature goes back to the input / history page.
-          // Only a page still on top leaves: one already closing (mounted
-          // during its close animation) or covered would pop another page.
-          if (reactNavigation.isFocused()) {
-            if (entryPoint === 'sendAddressInput') {
-              navigation.popStack();
-            } else {
-              navigation.pop();
-            }
-            await timerUtils.wait(300);
+          if (entryPoint === 'sendAddressInput') {
+            navigation.popStack();
+          } else {
+            navigation.pop();
           }
+          await timerUtils.wait(300);
           handleFreeTrialError({ error, networkId, afterPageExit: true });
           return;
         }

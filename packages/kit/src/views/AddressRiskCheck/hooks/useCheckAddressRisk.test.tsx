@@ -562,7 +562,7 @@ describe('useAddressRiskCheckRequest', () => {
     expect(mockPop).not.toHaveBeenCalled();
   });
 
-  it('only gives the feedback when the page is already closing', async () => {
+  it('gives no feedback once the page is already closing', async () => {
     mockIsFocused = false;
     const freeTrialError = buildFreeTrialError();
     mockCheckAddressRisk.mockRejectedValueOnce(
@@ -570,13 +570,11 @@ describe('useAddressRiskCheckRequest', () => {
     );
     renderHook(() => useAddressRiskCheckRequest(historyRequest));
 
-    await waitFor(() =>
-      expect(mockHandleFreeTrialError).toHaveBeenCalledWith({
-        error: freeTrialError,
-        networkId: riskResult.networkId,
-        afterPageExit: true,
-      }),
-    );
+    await waitFor(() => expect(mockCheckAddressRisk).toHaveBeenCalled());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockHandleFreeTrialError).not.toHaveBeenCalled();
     expect(mockPop).not.toHaveBeenCalled();
     expect(mockPopStack).not.toHaveBeenCalled();
   });

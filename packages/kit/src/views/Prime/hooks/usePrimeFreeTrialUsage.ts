@@ -1,6 +1,7 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
@@ -76,6 +77,18 @@ export function usePrimeFreeTrialUsage({
   const intl = useIntl();
   const { isPrimeSubscriptionActive } = useOneKeyAuth();
   const { handleStartRejected, ensureFeatureAccess } = usePrimeFeatureAccess();
+  // Set as soon as the page starts leaving (back / close), before its close
+  // animation ends and it unmounts: the callers' own unmount refs lag behind
+  // by that animation. The bulk tool pages never prevent their removal.
+  const reactNavigation = useNavigation();
+  const isPageLeavingRef = useRef(false);
+  useEffect(
+    () =>
+      reactNavigation.addListener('beforeRemove', () => {
+        isPageLeavingRef.current = true;
+      }),
+    [reactNavigation],
+  );
 
   const settleUsage = useCallback(
     async (
@@ -123,7 +136,8 @@ export function usePrimeFreeTrialUsage({
       // no feedback. Required so no caller forgets it.
       isCallerGone: () => boolean;
     }): Promise<IPrimeFreeTrialUsageStartOutcome> => {
-      const isContextValid = () => !isCallerGone();
+      const isGone = () => isPageLeavingRef.current || isCallerGone();
+      const isContextValid = () => !isGone();
       if (isPrimeSubscriptionActive) {
         return { status: 'notMetered' };
       }
@@ -184,7 +198,7 @@ export function usePrimeFreeTrialUsage({
       };
       const outcome = await startOnce(true);
       if (
-        isCallerGone() &&
+        isGone() &&
         (outcome.status === 'granted' || outcome.status === 'notMetered')
       ) {
         if (outcome.status === 'granted') {
@@ -271,7 +285,7 @@ export function usePrimeFreeTrialUsage({
         // A reused usage is never released, but a page closed meanwhile
         // runs no retry.
         return {
-          proceed: !isCallerGone(),
+          proceed: !isPageLeavingRef.current && !isCallerGone(),
           usageId,
           isNewUsage: false,
         };

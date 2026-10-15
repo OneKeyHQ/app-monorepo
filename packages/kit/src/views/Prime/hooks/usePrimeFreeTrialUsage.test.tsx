@@ -14,6 +14,18 @@ const mockHandleStartRejected = jest.fn();
 const mockToastError = jest.fn();
 let mockIsPrimeSubscriptionActive = false;
 
+const mockBeforeRemoveListeners = new Set<() => void>();
+jest.mock('@react-navigation/core', () => ({
+  useNavigation: () => ({
+    addListener: (_event: 'beforeRemove', listener: () => void) => {
+      mockBeforeRemoveListeners.add(listener);
+      return () => {
+        mockBeforeRemoveListeners.delete(listener);
+      };
+    },
+  }),
+}));
+
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
@@ -247,6 +259,24 @@ describe('usePrimeFreeTrialUsage.startUsage', () => {
       networkId: 'evm--1',
       isContextValid: expect.any(Function),
     });
+  });
+
+  it('treats a page that started leaving as gone before it unmounts', async () => {
+    const rejected = { status: 'exhausted', featureId: 'BulkSend', data: {} };
+    mockStartUsage.mockResolvedValue(rejected);
+    const result = renderUsageHook();
+
+    // Back pressed: the page is still mounted during its close animation.
+    act(() => {
+      mockBeforeRemoveListeners.forEach((listener) => listener());
+    });
+    await act(async () => {
+      await result.current.startUsage({ isCallerGone: notGone });
+    });
+    const { isContextValid } = mockHandleStartRejected.mock.calls[0][0] as {
+      isContextValid: () => boolean;
+    };
+    expect(isContextValid()).toBe(false);
   });
 
   it('marks the rejection stale once the caller is gone', async () => {
