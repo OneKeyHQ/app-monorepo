@@ -337,8 +337,10 @@ function HoldingSection({
  * page's Portfolio tab (product 10-14: the two must be the same): Deposited
  * or Supplied with the effective deposit under it, Borrowed, Rewards,
  * Pending withdrawal and Claimable, each row with what can be done with it
- * right there. The card hands in its Redeem (`redeem`); the detail page
- * keeps Redeem in its footer and hands in none. Claims, Check and Cancel
+ * right there (product 10-15: every row the user can act on carries its
+ * action). The card hands in its Redeem (`redeem`), the detail page its
+ * footer's, so the row opens the position picker where the provider redeems
+ * per position. Claims, Check and Cancel
  * run through the buttons the server sent, and refresh through the
  * PortfolioPendingTxsProvider the page wraps this in.
  */

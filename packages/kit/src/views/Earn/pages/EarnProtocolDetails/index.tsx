@@ -869,6 +869,7 @@ const DetailsPartComponent = ({
   onRedeem,
   onActionSuccess,
   holding,
+  holdingRedeem,
 }: {
   detailInfo: IStakeEarnDetail | undefined;
   tokenInfo?: IEarnTokenInfo;
@@ -894,8 +895,10 @@ const DetailsPartComponent = ({
   // A claim, stake or withdraw broadcast from the Portfolio tab. Falls back
   // to onRefresh for callers that only have the plain reload.
   onActionSuccess?: () => void;
-  // phone: the holding as the My portfolio card shows it (product 10-14)
+  // phone: the holding as the My portfolio card shows it (product 10-14),
+  // and the footer's Redeem for its deposit row (product 10-15)
   holding?: IEarnPositionView;
+  holdingRedeem?: IEarnHoldingRedeem;
 }) => {
   const now = useMemo(() => Date.now(), []);
 
@@ -1033,6 +1036,7 @@ const DetailsPartComponent = ({
                         protocolInfo={protocolInfo}
                         tokenInfo={tokenInfo}
                         holding={holding}
+                        holdingRedeem={holdingRedeem}
                       />
                     ) : null
                   }
@@ -1804,6 +1808,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
             scrollToPortfolio={resolvedParams.scrollToPortfolio}
             onRedeem={handleOpenRedeem}
             holding={holding}
+            holdingRedeem={redeemControl}
           />
         </Stack>
         {gtMd ? (

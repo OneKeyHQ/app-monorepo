@@ -24,6 +24,7 @@ import {
   holdingRowActionOf,
   mergeRewardGroups,
   positionPendingTag,
+  sellsEarly,
   sumRewardsHeaderFiat,
   toLedgerClaimAsset,
   toPositionClaim,
@@ -447,7 +448,7 @@ describe('holding sections: row actions', () => {
     ]);
   });
 
-  it('leaves the deposit without Redeem where the page keeps it in its footer', () => {
+  it('leaves the deposit without Redeem where none is offered', () => {
     expect(actionsOf(holding('lido:evm--1:steth'), false)[0]).toEqual([
       'deposited',
       [null],
@@ -508,18 +509,14 @@ describe('canRedeemFromCard', () => {
     return found;
   };
 
-  it('redeems a holding with principal and a page to go to', () => {
+  it('redeems a holding with principal and a page to go to, a Pendle market included', () => {
     expect(canRedeemFromCard(cardOf([byId('lido:evm--1:steth')]))).toBe(true);
+    expect(canRedeemFromCard(cardOf([byId('pendle:evm--1:0xusd3')]))).toBe(
+      true,
+    );
   });
 
-  it("offers none for Pendle, which sells its PT on its own page, Ethena's USDe, a loan, or a holding with no principal left", () => {
-    const pendle = byId('pendle:evm--1:0xusd3');
-    expect(canRedeemFromCard(cardOf([pendle]))).toBe(false);
-    expect(
-      canRedeemFromCard(
-        cardOf([{ ...pendle, earn: { ...pendle.earn, matured: true } }]),
-      ),
-    ).toBe(false);
+  it("offers none for Ethena's USDe, a loan, or a holding with no principal left", () => {
     expect(canRedeemFromCard(cardOf([byId('ethena:evm--1:USDe')]))).toBe(false);
     expect(
       canRedeemFromCard(cardOf([byId('morpho:evm--1:market:weth-usdc')])),
@@ -527,5 +524,20 @@ describe('canRedeemFromCard', () => {
     expect(
       canRedeemFromCard(cardOf([byId('lido:evm--1:steth:claimable')])),
     ).toBe(false);
+  });
+
+  it('sells a Pendle PT early until its market matures, then redeems it', () => {
+    const pendle = byId('pendle:evm--1:0xusd3');
+    expect(sellsEarly(pendle)).toBe(true);
+    expect(
+      sellsEarly({ ...pendle, earn: { ...pendle.earn, matured: true } }),
+    ).toBe(false);
+    expect(
+      sellsEarly({
+        ...pendle,
+        earn: { ...pendle.earn, matured: undefined, maturityAt: 1 },
+      }),
+    ).toBe(false);
+    expect(sellsEarly(byId('lido:evm--1:steth'))).toBe(false);
   });
 });

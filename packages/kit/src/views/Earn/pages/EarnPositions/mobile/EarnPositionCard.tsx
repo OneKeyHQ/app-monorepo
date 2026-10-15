@@ -25,7 +25,11 @@ import type {
 import { EarnTestIDs } from '../../../testIDs';
 
 import { EarnHoldingSections } from './EarnHoldingSections';
-import { canRedeemFromCard, hasPositionDetailPage } from './myPortfolio.utils';
+import {
+  canRedeemFromCard,
+  hasPositionDetailPage,
+  sellsEarly,
+} from './myPortfolio.utils';
 
 import type { IEarnHoldingRedeem } from './EarnHoldingSections';
 import type { IEarnPositionView } from './earnPositionModel';
@@ -134,10 +138,16 @@ function EarnPositionCardCmp({
     Boolean(action) && Boolean(onManage) && hasPositionDetailPage(source);
   const openDetail =
     canOpen && action ? () => onManage?.(action.target) : undefined;
+  // Redeem, or Sell early for a Pendle PT before maturity, as the detail
+  // page's footer reads; the manage page sells the PT on its withdraw tab.
   const redeem: IEarnHoldingRedeem | undefined =
     onRedeem && canRedeemFromCard(position)
       ? {
-          label: intl.formatMessage({ id: ETranslations.earn_redeem }),
+          label: intl.formatMessage({
+            id: sellsEarly(source)
+              ? ETranslations.defi_sell_early
+              : ETranslations.earn_redeem,
+          }),
           onPress: () => onRedeem(source.earn.manage),
         }
       : undefined;

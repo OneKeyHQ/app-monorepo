@@ -34,6 +34,7 @@ import { EarnHoldingSections } from '../../EarnPositions/mobile/EarnHoldingSecti
 
 import { TransactionLink } from './TransactionLink';
 
+import type { IEarnHoldingRedeem } from '../../EarnPositions/mobile/EarnHoldingSections';
 import type { IEarnPositionView } from '../../EarnPositions/mobile/earnPositionModel';
 
 type IMobilePortfolio = NonNullable<IStakeEarnDetail['mobilePortfolio']>;
@@ -227,6 +228,7 @@ export function PortfolioTab({
   onRedeem,
   canRedeem,
   holding,
+  holdingRedeem,
 }: {
   portfolio: IMobilePortfolio;
   networkId: string;
@@ -246,9 +248,11 @@ export function PortfolioTab({
   canRedeem?: boolean;
   // The holding as the My portfolio card shows it (product 10-14). When
   // known, Balance and Rewards are that card's panels instead of the
-  // server's groups, so the two pages cannot disagree; Redeem stays in the
-  // page footer, so the deposit row carries none.
+  // server's groups, so the two pages cannot disagree.
   holding?: IEarnPositionView;
+  // The deposit row's Redeem: the page footer's, with its label and state
+  // (product 10-15), so a provider that redeems per position gets its picker.
+  holdingRedeem?: IEarnHoldingRedeem;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -326,7 +330,7 @@ export function PortfolioTab({
 
       {holding ? (
         <PortfolioPendingTxsProvider value={pendingTxsValue}>
-          <EarnHoldingSections position={holding} />
+          <EarnHoldingSections position={holding} redeem={holdingRedeem} />
         </PortfolioPendingTxsProvider>
       ) : (
         portfolio.groups.map((group) => (

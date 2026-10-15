@@ -357,11 +357,11 @@ export function holdingRowActionOf({
 }
 
 /**
- * Whether the card's deposit row offers Redeem, mirroring the detail page's
- * footer: a holding with principal and a page to go to. Pendle sells its PT
- * instead (Sell early, or Redeem once the market matured, on its own page),
- * Ethena's USDe is managed rather than redeemed, and a loan does not unfold
- * here.
+ * Whether the card's deposit row offers its way out, mirroring the detail
+ * page's footer (product 10-15: every row the user can act on carries its
+ * action): a holding with principal and a page to go to. Redeem, or Sell
+ * early for a Pendle PT before its market matures. Ethena's USDe is managed
+ * rather than redeemed, and a loan does not unfold here.
  */
 export function canRedeemFromCard(position: IEarnPositionView): boolean {
   const { source } = position;
@@ -369,9 +369,24 @@ export function canRedeemFromCard(position: IEarnPositionView): boolean {
   return (
     position.sections.some((section) => section.kind === 'deposited') &&
     hasPositionDetailPage(source) &&
-    !earnUtils.isPendleProvider({ providerName: manage.provider }) &&
-    manage.symbol.toUpperCase() !== 'USDE'
+    (earnUtils.isPendleProvider({ providerName: manage.provider }) ||
+      manage.symbol.toUpperCase() !== 'USDE')
   );
+}
+
+/**
+ * A Pendle PT before its market matures is sold rather than redeemed: the
+ * detail page's footer reads Sell early until maturity, and so does the row.
+ */
+export function sellsEarly(position: IEarnPortfolioPosition): boolean {
+  const { earn } = position;
+  if (!earnUtils.isPendleProvider({ providerName: earn.manage.provider })) {
+    return false;
+  }
+  const matured =
+    earn.matured ??
+    (earn.maturityAt !== undefined && earn.maturityAt <= Date.now());
+  return !matured;
 }
 
 /**
