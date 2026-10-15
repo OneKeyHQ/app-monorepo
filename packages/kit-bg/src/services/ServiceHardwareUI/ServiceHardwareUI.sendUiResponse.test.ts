@@ -7,6 +7,7 @@ import {
   OneKeyHardwareError,
   OneKeyLocalError,
   UserCancel,
+  UserCancelFromOutside,
 } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -24,7 +25,9 @@ import {
 
 import ServiceHardwareUI from './ServiceHardwareUI';
 
+import type { IOneKeyHardwareOperationLease } from './HardwareProcessingManager';
 import type { IWithHardwareProcessingOptions } from './ServiceHardwareUI';
+import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDeviceStageState } from '../../states/jotai/atoms';
 import type { UiResponseEvent } from '@onekeyfe/hd-core';
 
@@ -361,6 +364,11 @@ describe('ServiceHardwareUI.withHardwareProcessing stage ownership', () => {
             waitForUnlock: jest.fn(),
           },
         },
+        serviceFirmwareUpdate: {
+          delayShouldDetectTimeCheckWithDelay: jest.fn(),
+          delayShouldDetectTimeCheck: jest.fn(),
+        },
+        serviceAccount: { generateHwWalletsMissingXfp: jest.fn() },
       },
     });
   });
@@ -370,6 +378,97 @@ describe('ServiceHardwareUI.withHardwareProcessing stage ownership', () => {
     jest.mocked(deviceStageAtom.get).mockReset();
     jest.mocked(deviceStageAtom.set).mockReset();
   });
+
+  it.each([
+    [EHardwareTransportType.WEBUSB, false],
+    [EHardwareTransportType.DesktopWebBle, false],
+    [EHardwareTransportType.WEBUSB, true],
+    [EHardwareTransportType.DesktopWebBle, true],
+  ] as const)(
+    'pins hidden desktop operations to %s across availability changes (cancel: %s)',
+    async (initialTransport, cancel) => {
+      const originalSupport = platformEnv.isSupportDesktopBle;
+      Object.assign(platformEnv, { isSupportDesktopBle: true });
+      let availableTransport: EHardwareTransportType = initialTransport;
+      const manager = service.hardwareProcessingManager;
+      const prepare = jest.fn(
+        async ({
+          oneKeyOperationLease,
+        }: {
+          oneKeyOperationLease?: IOneKeyHardwareOperationLease;
+        }) => {
+          manager.rememberOneKeyOperationTransport(
+            availableTransport,
+            oneKeyOperationLease,
+          );
+          return availableTransport;
+        },
+      );
+      Object.assign(
+        (service as unknown as { backgroundApi: IBackgroundApi }).backgroundApi
+          .serviceHardware,
+        {
+          prepareHardwareTransport: prepare,
+        },
+      );
+      const dialog = jest
+        .spyOn(service, 'showCheckingDeviceDialog')
+        .mockResolvedValue(undefined);
+      const options: IWithHardwareProcessingOptions = {
+        hideCheckingDeviceLoading: true,
+        skipCloseHardwareUiStateDialog: true,
+        deviceParams: {
+          dbDevice: {
+            id: 'test-device',
+            name: 'Test device',
+            features: '',
+            connectId: 'DEVICE_ID',
+            uuid: 'test-device',
+            deviceId: 'test-device',
+            deviceType: EDeviceType.Pro,
+            connectProtocol: 'V1',
+            settingsRaw: '',
+            createdAt: 0,
+            updatedAt: 0,
+            vendor: EHardwareVendor.onekey,
+          },
+        },
+      };
+      try {
+        const operation = service.withHardwareProcessing(async (lease) => {
+          expect(manager.getOneKeyOperationTransport()).toBe(initialTransport);
+          availableTransport =
+            initialTransport === EHardwareTransportType.WEBUSB
+              ? EHardwareTransportType.DesktopWebBle
+              : EHardwareTransportType.WEBUSB;
+          await service.withHardwareProcessing(
+            async () => {
+              expect(manager.getOneKeyOperationTransport()).toBe(
+                initialTransport,
+              );
+            },
+            { ...options, oneKeyOperationLease: lease },
+          );
+          expect(prepare).toHaveBeenCalledTimes(1);
+          if (cancel && lease) manager.cancelOneKeyOperation(lease);
+        }, options);
+        if (cancel)
+          await expect(operation).rejects.toBeInstanceOf(UserCancelFromOutside);
+        else await operation;
+        expect(manager.getOneKeyOperationTransport()).toBeUndefined();
+        await service.withHardwareProcessing(async () => {
+          expect(manager.getOneKeyOperationTransport()).toBe(
+            availableTransport,
+          );
+        }, options);
+        expect(prepare).toHaveBeenCalledTimes(2);
+        expect(dialog).not.toHaveBeenCalled();
+        expect(manager.getOneKeyOperationTransport()).toBeUndefined();
+      } finally {
+        Object.assign(platformEnv, { isSupportDesktopBle: originalSupport });
+      }
+    },
+  );
 
   it.each([false, true])(
     'keeps the stage off while a non-hardware operation waits (rejects: %s)',

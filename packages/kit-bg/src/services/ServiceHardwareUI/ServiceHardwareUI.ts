@@ -1568,10 +1568,13 @@ class ServiceHardwareUI extends ServiceBase {
       }
 
       if (this.isOuterProcessing()) {
-        if (connectId && !hideCheckingDeviceLoading && !isThirdPartyVendor) {
+        if (
+          connectId &&
+          !isThirdPartyVendor &&
+          (!hideCheckingDeviceLoading || platformEnv.isSupportDesktopBle)
+        ) {
           assertActive();
-          // 先在统一连接管理器中确定本次实际传输，再显示动画，避免 BLE
-          // 通讯使用上一次持久化的 USB 弹窗。这里只选择传输，不发起设备通讯。
+          // Desktop transport ownership is independent of whether its checking UI is shown.
           await this.backgroundApi.serviceHardware.prepareHardwareTransport({
             connectId,
             connectProtocol: device?.connectProtocol,
@@ -1579,9 +1582,11 @@ class ServiceHardwareUI extends ServiceBase {
             oneKeyOperationLease: params.oneKeyOperationLease,
           });
           assertActive();
-          await this.showCheckingDeviceDialog({
-            connectId,
-          });
+          if (!hideCheckingDeviceLoading) {
+            await this.showCheckingDeviceDialog({
+              connectId,
+            });
+          }
         }
         // Third-party searching UI is driven by SDK ui-events.
 
