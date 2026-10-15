@@ -71,7 +71,6 @@ import {
   updateTradingViewNativeIndicatorActiveState,
 } from './indicatorSettingsAdapter';
 import { localizeTradingViewNativeIndicatorSettingsValue } from './indicatorSettingsLocalization';
-import { mergeMobileIndicatorSettings } from './mobileIndicatorSettingsUtils';
 import { showTradingViewNativeIndicatorSettingsDialog } from './showTradingViewNativeIndicatorSettingsDialog';
 import { TradingViewNativeChart } from './TradingViewNativeChart';
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
@@ -727,27 +726,22 @@ const TradingViewNativeContent = memo(
     }, [isNativeChartFullscreen, onNativeChartFullscreenChange]);
     const handleIndicatorSettingsPress = useCallback(
       (indicator?: ITradingViewNativeAnyIndicator) => {
-        if (nativeControlsLayoutMode !== 'desktop' && !indicator) {
+        if (nativeControlsLayoutMode !== 'desktop') {
           handleExitFullscreen();
           navigation.pushModal(EModalRoutes.MarketModal, {
             screen: EModalMarketRoutes.MarketIndicatorSettings,
             params: {
               storageNamespace: storageNamespace ?? 'market',
+              indicatorId: indicator,
             },
           });
           return;
         }
         showTradingViewNativeIndicatorSettingsDialog({
-          displayMode:
-            nativeControlsLayoutMode === 'desktop' ? 'full' : 'focused',
+          displayMode: 'full',
           initialIndicatorId: indicator,
           intl,
-          onConfirm: (nextValue) =>
-            nativeControlsLayoutMode !== 'desktop' && indicator
-              ? setIndicatorSettings((current) =>
-                  mergeMobileIndicatorSettings(current, nextValue, indicator),
-                )
-              : setIndicatorSettings(nextValue),
+          onConfirm: (nextValue) => setIndicatorSettings(nextValue),
           value: indicatorSettingsValue,
         });
       },

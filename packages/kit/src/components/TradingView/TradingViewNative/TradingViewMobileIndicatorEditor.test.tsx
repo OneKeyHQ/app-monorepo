@@ -1,0 +1,235 @@
+/** @jest-environment jsdom */
+
+import type { ReactNode } from 'react';
+
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+
+import { Toast } from '@onekeyhq/components';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
+import { createTradingViewNativeIndicatorSettingsValue } from './indicatorSettingsAdapter';
+import { TradingViewMobileIndicatorEditor } from './TradingViewMobileIndicatorEditor';
+
+type IMockProps = {
+  children?: ReactNode;
+  testID?: string;
+  onPress?: () => void;
+  disabled?: boolean;
+  loading?: boolean;
+};
+
+jest.mock('react-intl', () => ({
+  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+}));
+
+jest.mock('@onekeyhq/components', () => {
+  const View = ({ children, testID }: IMockProps) => (
+    <div data-testid={testID}>{children}</div>
+  );
+  const Button = ({
+    children,
+    testID,
+    onPress,
+    disabled,
+    loading,
+  }: IMockProps) => (
+    <button
+      type="button"
+      data-testid={testID}
+      disabled={disabled || loading}
+      onClick={onPress}
+    >
+      {children}
+    </button>
+  );
+  return {
+    Button,
+    IconButton: Button,
+    Page: Object.assign(View, { Header: () => null, Body: View, Footer: View }),
+    SizableText: View,
+    Stack: View,
+    XStack: View,
+    YStack: View,
+    Divider: () => null,
+    Keyboard: { dismiss: jest.fn() },
+    Toast: { error: jest.fn() },
+    Checkbox: ({
+      value,
+      onChange,
+      testID,
+    }: {
+      value: boolean;
+      onChange: (value: boolean) => void;
+      testID: string;
+    }) => (
+      <input
+        type="checkbox"
+        data-testid={testID}
+        checked={value}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+    ),
+    ColorPicker: ({
+      onChange,
+      testID,
+    }: {
+      onChange: (value: string) => void;
+      testID: string;
+    }) => (
+      <button
+        type="button"
+        data-testid={testID}
+        onClick={() => onChange('#abcdef')}
+      >
+        Color
+      </button>
+    ),
+    SegmentSlider: () => null,
+    Input: ({
+      value,
+      onChangeText,
+      onBlur,
+      testID,
+    }: {
+      value: string;
+      onChangeText: (value: string) => void;
+      onBlur: () => void;
+      testID: string;
+    }) => (
+      <input
+        data-testid={testID}
+        value={value}
+        onChange={(event) => onChangeText(event.target.value)}
+        onBlur={onBlur}
+      />
+    ),
+  };
+});
+
+function getIndicator(id: string) {
+  const indicator =
+    createTradingViewNativeIndicatorSettingsValue().indicators.find(
+      (item) => item.id === id,
+    );
+  if (!indicator) {
+    throw new OneKeyLocalError(`Missing indicator ${id}`);
+  }
+  return indicator;
+}
+
+function renderEditor(id: string, onSave = jest.fn(), onClose = jest.fn()) {
+  const indicator = getIndicator(id);
+  return {
+    ...render(
+      <TradingViewMobileIndicatorEditor
+        indicator={indicator}
+        defaultIndicator={indicator}
+        onSave={onSave}
+        onClose={onClose}
+      />,
+    ),
+    indicator,
+    onSave,
+    onClose,
+  };
+}
+
+describe('TradingViewMobileIndicatorEditor', () => {
+  it('saves the focused numeric text together with curve visibility, color and width', async () => {
+    const { onSave, onClose } = renderEditor('MA');
+    fireEvent.change(
+      screen.getByTestId('mobile-indicator-number-line:line:0'),
+      { target: { value: '27' } },
+    );
+    fireEvent.click(screen.getByTestId('mobile-indicator-enabled-line:0'));
+    fireEvent.click(screen.getByTestId('mobile-indicator-color-line:0'));
+    fireEvent.click(screen.getByTestId('mobile-indicator-advanced'));
+    fireEvent.click(screen.getByTestId('mobile-indicator-style-line:0-bold'));
+    fireEvent.click(screen.getByTestId('mobile-indicator-save'));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lines: expect.arrayContaining([
+          expect.objectContaining({
+            id: 'line:0',
+            period: 27,
+            enabled: false,
+            color: '#abcdef',
+            style: 'bold',
+          }),
+        ]),
+      }),
+    );
+  });
+
+  it('steps fractional SAR values and saves without a blur event', async () => {
+    const { onSave, onClose } = renderEditor('SAR');
+    fireEvent.click(
+      screen.getByTestId(
+        'mobile-indicator-number-parameter:accelerationStep-increment',
+      ),
+    );
+    fireEvent.click(screen.getByTestId('mobile-indicator-save'));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parameters: expect.arrayContaining([
+          expect.objectContaining({ id: 'accelerationStep', value: 0.03 }),
+        ]),
+      }),
+    );
+  });
+
+  it('resets only the draft and ignores the previous input when blur follows reset', async () => {
+    const { onSave, onClose, indicator } = renderEditor('BOLL');
+    const input = screen.getByTestId(
+      'mobile-indicator-number-parameter:period',
+    );
+    fireEvent.change(input, { target: { value: '45' } });
+    fireEvent.click(screen.getByTestId('mobile-indicator-reset'));
+    expect(onSave).not.toHaveBeenCalled();
+    fireEvent.blur(input);
+    expect((input as HTMLInputElement).value).toBe('20');
+    fireEvent.click(screen.getByTestId('mobile-indicator-save'));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(onSave).toHaveBeenCalledWith(indicator);
+  });
+
+  it('discards edits when leaving without Save', () => {
+    const { unmount, onSave, indicator } = renderEditor('MA');
+    fireEvent.change(
+      screen.getByTestId('mobile-indicator-number-line:line:0'),
+      { target: { value: '90' } },
+    );
+    fireEvent.click(screen.getByTestId('mobile-indicator-color-line:0'));
+    unmount();
+    expect(onSave).not.toHaveBeenCalled();
+    expect(indicator).toEqual(getIndicator('MA'));
+  });
+
+  it('retains the draft on save failure and allows retry', async () => {
+    const onSave = jest
+      .fn()
+      .mockRejectedValueOnce(new OneKeyLocalError('Save failed'))
+      .mockResolvedValueOnce(undefined);
+    const onClose = jest.fn();
+    renderEditor('MA', onSave, onClose);
+    fireEvent.change(
+      screen.getByTestId('mobile-indicator-number-line:line:0'),
+      { target: { value: '31' } },
+    );
+    fireEvent.click(screen.getByTestId('mobile-indicator-save'));
+    await waitFor(() => expect(Toast.error).toHaveBeenCalled());
+    expect(onClose).not.toHaveBeenCalled();
+    expect(
+      (
+        screen.getByTestId(
+          'mobile-indicator-number-line:line:0',
+        ) as HTMLInputElement
+      ).value,
+    ).toBe('31');
+    fireEvent.click(screen.getByTestId('mobile-indicator-save'));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(onSave).toHaveBeenCalledTimes(2);
+  });
+});
