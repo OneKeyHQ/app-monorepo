@@ -1422,8 +1422,6 @@ class ServiceWebviewPerp extends ServiceBase {
     };
   }
 
-  private tradeTargetRequestId: string | undefined;
-
   @backgroundMethod()
   async setTradeTarget({
     coin,
@@ -1435,7 +1433,11 @@ class ServiceWebviewPerp extends ServiceBase {
     const targetCoin = coin.trim();
     if (!targetCoin) throw new OneKeyError('Missing web Perps target');
     await webviewPerpTradeTargetAtom.set((previous) => {
-      this.tradeTargetRequestId = requestId;
+      // A Market entry is tentative until its source route has been validated.
+      // Keep mounted WebViews on their committed target while the RPC completes.
+      if (requestId) {
+        return { ...previous, pending: { coin: targetCoin, requestId } };
+      }
       return {
         coin: targetCoin,
         revision: previous.revision + 1,
@@ -1444,11 +1446,21 @@ class ServiceWebviewPerp extends ServiceBase {
   }
 
   @backgroundMethod()
+  async commitTradeTarget({ requestId }: { requestId: string }) {
+    await webviewPerpTradeTargetAtom.set((previous) => {
+      if (previous.pending?.requestId !== requestId) return previous;
+      return {
+        coin: previous.pending.coin,
+        revision: previous.revision + 1,
+      };
+    });
+  }
+
+  @backgroundMethod()
   async clearTradeTarget({ requestId }: { requestId: string }) {
     await webviewPerpTradeTargetAtom.set((previous) => {
-      if (this.tradeTargetRequestId !== requestId) return previous;
-      this.tradeTargetRequestId = undefined;
-      return { coin: undefined, revision: previous.revision + 1 };
+      if (previous.pending?.requestId !== requestId) return previous;
+      return { ...previous, pending: undefined };
     });
   }
 

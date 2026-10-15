@@ -9,7 +9,11 @@ import {
 
 import ServiceWebviewPerp from './ServiceWebviewPerp';
 
-let mockWebTarget: { coin?: string; revision: number } = { revision: 0 };
+let mockWebTarget: {
+  coin?: string;
+  revision: number;
+  pending?: { coin: string; requestId: string };
+} = { revision: 0 };
 
 let mockPerpsDepositTokensState: IPerpsDepositTokensAtom = { tokens: {} };
 
@@ -387,15 +391,19 @@ describe('web Perps navigation targets', () => {
   });
 });
 
-it('clears only the web target owned by a cancelled request', async () => {
-  mockWebTarget = { revision: 0 };
+it('cancels only its own preparation and preserves the committed market', async () => {
+  mockWebTarget = { coin: 'ETH', revision: 5 };
   const service = new ServiceWebviewPerp({ backgroundApi: {} });
   await service.setTradeTarget({ coin: 'BTC', requestId: 'first' });
   await service.setTradeTarget({ coin: 'BTC', requestId: 'second' });
   await service.clearTradeTarget({ requestId: 'first' });
-  expect(mockWebTarget).toEqual({ coin: 'BTC', revision: 2 });
+  expect(mockWebTarget).toEqual({
+    coin: 'ETH',
+    revision: 5,
+    pending: { coin: 'BTC', requestId: 'second' },
+  });
   await service.clearTradeTarget({ requestId: 'second' });
-  expect(mockWebTarget).toEqual({ coin: undefined, revision: 3 });
+  expect(mockWebTarget).toEqual({ coin: 'ETH', revision: 5 });
 });
 
 it('does not clear a web target written by a caller without a request owner', async () => {
@@ -404,5 +412,20 @@ it('does not clear a web target written by a caller without a request owner', as
   await service.setTradeTarget({ coin: 'BTC', requestId: 'first' });
   await service.setTradeTarget({ coin: 'ETH' });
   await service.clearTradeTarget({ requestId: 'first' });
-  expect(mockWebTarget).toEqual({ coin: 'ETH', revision: 2 });
+  expect(mockWebTarget).toEqual({ coin: 'ETH', revision: 1 });
+});
+
+it('publishes only an accepted preparation, including a repeat of the same coin', async () => {
+  mockWebTarget = { coin: 'BTC', revision: 1 };
+  const service = new ServiceWebviewPerp({ backgroundApi: {} });
+  await service.setTradeTarget({ coin: 'ETH', requestId: 'old' });
+  await service.setTradeTarget({ coin: 'BTC', requestId: 'new' });
+  await service.commitTradeTarget({ requestId: 'old' });
+  expect(mockWebTarget.coin).toBe('BTC');
+  expect(mockWebTarget.revision).toBe(1);
+  await service.commitTradeTarget({ requestId: 'new' });
+  expect(mockWebTarget).toEqual({ coin: 'BTC', revision: 2 });
+  await service.clearTradeTarget({ requestId: 'new' });
+  await service.commitTradeTarget({ requestId: 'old' });
+  expect(mockWebTarget).toEqual({ coin: 'BTC', revision: 2 });
 });

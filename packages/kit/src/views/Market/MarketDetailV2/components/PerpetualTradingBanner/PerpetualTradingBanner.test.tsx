@@ -41,8 +41,11 @@ const mockClearPendingInstrument = jest
 const mockClearWebTarget = jest
   .fn<Promise<void>, [{ requestId: string }]>()
   .mockResolvedValue(undefined);
+const mockCommitWebTarget = jest
+  .fn<Promise<void>, [{ requestId: string }]>()
+  .mockResolvedValue(undefined);
 const mockPendingInstrument = jest
-  .fn<Promise<void>, unknown[]>()
+  .fn<Promise<void>, [{ coin: string; mode: 'perp'; requestId: string }]>()
   .mockResolvedValue(undefined);
 const mockChangeAsset = jest
   .fn<Promise<void>, unknown[]>()
@@ -50,7 +53,7 @@ const mockChangeAsset = jest
 const mockEmit = jest.fn<void, unknown[]>();
 const mockLogError = jest.fn<void, unknown[]>();
 const mockWebTarget = jest
-  .fn<Promise<void>, unknown[]>()
+  .fn<Promise<void>, [{ coin: string; requestId: string }]>()
   .mockResolvedValue(undefined);
 jest.mock('@onekeyhq/kit/src/hooks/usePerpTabConfig', () => ({
   usePerpTabConfig: () => ({
@@ -82,13 +85,19 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     if (mockProxyUnavailable) throw new OneKeyLocalError('Chunk unavailable');
     return {
       serviceWebviewPerp: {
-        setTradeTarget: (...args: unknown[]) => mockWebTarget(...args),
+        setTradeTarget: (params: { coin: string; requestId: string }) =>
+          mockWebTarget(params),
         clearTradeTarget: (params: { requestId: string }) =>
           mockClearWebTarget(params),
+        commitTradeTarget: (params: { requestId: string }) =>
+          mockCommitWebTarget(params),
       },
       serviceHyperliquid: {
-        setPendingInitialTradeInstrument: (...args: unknown[]) =>
-          mockPendingInstrument(...args),
+        setPendingInitialTradeInstrument: (params: {
+          coin: string;
+          mode: 'perp';
+          requestId: string;
+        }) => mockPendingInstrument(params),
         clearPendingInitialTradeInstrument: (params: { requestId: string }) =>
           mockClearPendingInstrument(params),
         changeActiveAsset: (...args: unknown[]) => mockChangeAsset(...args),
@@ -164,6 +173,7 @@ beforeEach(() => {
   mockWebTarget.mockResolvedValue(undefined);
   mockClearPendingInstrument.mockResolvedValue(undefined);
   mockClearWebTarget.mockResolvedValue(undefined);
+  mockCommitWebTarget.mockResolvedValue(undefined);
 });
 
 it('does not insert a banner on retry after initial detail failed or had no mapping', () => {
@@ -266,6 +276,12 @@ it.each([false, true])(
       });
       expect(mockWebTarget.mock.invocationCallOrder[0]).toBeLessThan(
         mockSwitchTab.mock.invocationCallOrder[0],
+      );
+      expect(mockCommitWebTarget).toHaveBeenCalledWith({
+        requestId: mockWebTarget.mock.calls[0][0].requestId,
+      });
+      expect(mockSwitchTab.mock.invocationCallOrder[0]).toBeLessThan(
+        mockCommitWebTarget.mock.invocationCallOrder[0],
       );
       expect(mockPendingInstrument).not.toHaveBeenCalled();
       expect(mockChangeAsset).not.toHaveBeenCalled();
@@ -471,6 +487,29 @@ it('preserves native asset selection if initial target preparation fails', async
   expect(mockEmit).toHaveBeenCalled();
 });
 
+it('commits Web Perps after the source route loses focus and cleans up a failed commit', async () => {
+  jest.useFakeTimers();
+  mockTicker = 'BTC';
+  mockRouteKey = 'detail';
+  mockPerpTabShowWeb = true;
+  mockSwitchTab.mockImplementationOnce(() => {
+    mockRouteKey = 'web-perps';
+  });
+  mockCommitWebTarget.mockRejectedValueOnce(
+    new OneKeyLocalError('Commit unavailable'),
+  );
+  render(<PerpetualTradingBanner />);
+  await act(async () => {
+    mockPress?.();
+    await jest.advanceTimersByTimeAsync(80);
+  });
+  const { requestId } = mockWebTarget.mock.calls[0][0];
+  expect(mockCommitWebTarget).toHaveBeenCalledWith({ requestId });
+  expect(mockClearWebTarget).toHaveBeenCalledWith({ requestId });
+  expect(mockToastError).toHaveBeenCalledTimes(1);
+  expect(mockChangeAsset).not.toHaveBeenCalled();
+});
+
 it.each([false, true])(
   'does not prepare a target after leaving the source route (web: %s)',
   async (showWeb) => {
@@ -520,43 +559,73 @@ it.each([false, true])(
     ).toHaveBeenCalledWith({ requestId: params.requestId });
     expect(mockSwitchTab).not.toHaveBeenCalled();
     expect(mockChangeAsset).not.toHaveBeenCalled();
+    expect(mockCommitWebTarget).not.toHaveBeenCalled();
   },
 );
 
 it.each([false, true])(
-  'keeps a newer request when an older preparation finishes late (web: %s)',
+  'finishes the old write and rollback before preparing the newer request (web: %s)',
   async (showWeb) => {
     jest.useFakeTimers();
     mockTicker = 'BTC';
     mockRouteKey = 'detail';
     mockPerpTabShowWeb = showWeb;
     let finishFirst: (() => void) | undefined;
+    let finishRollback: (() => void) | undefined;
+    let writtenTarget: string | undefined;
     const setter = showWeb ? mockWebTarget : mockPendingInstrument;
-    setter.mockReturnValueOnce(
-      new Promise<void>((resolve) => {
-        finishFirst = resolve;
-      }),
+    const clearer = showWeb ? mockClearWebTarget : mockClearPendingInstrument;
+    setter.mockImplementationOnce(
+      ({ coin }: { coin: string }) =>
+        new Promise<void>((resolve) => {
+          finishFirst = () => {
+            writtenTarget = coin;
+            resolve();
+          };
+        }),
     );
-    render(<PerpetualTradingBanner />);
+    setter.mockImplementationOnce(async ({ coin }: { coin: string }) => {
+      writtenTarget = coin;
+    });
+    clearer.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishRollback = () => {
+            writtenTarget = undefined;
+            resolve();
+          };
+        }),
+    );
+    const { rerender } = render(<PerpetualTradingBanner />);
     await act(async () => {
       mockPress?.();
       await jest.advanceTimersByTimeAsync(80);
     });
+    mockTicker = 'ETH';
+    rerender(<PerpetualTradingBanner />);
     await act(async () => {
       mockPress?.();
       await jest.advanceTimersByTimeAsync(80);
     });
-    expect(mockSwitchTab).toHaveBeenCalledTimes(1);
-    const first = setter.mock.calls[0][0] as { requestId: string };
-    const second = setter.mock.calls[1][0] as { requestId: string };
-    expect(first.requestId).not.toBe(second.requestId);
+    expect(setter).toHaveBeenCalledTimes(1);
+    expect(mockSwitchTab).not.toHaveBeenCalled();
     await act(async () => {
       finishFirst?.();
     });
-    expect(
-      showWeb ? mockClearWebTarget : mockClearPendingInstrument,
-    ).toHaveBeenCalledWith({ requestId: first.requestId });
+    expect(writtenTarget).toBe('BTC');
+    expect(setter).toHaveBeenCalledTimes(1);
+    const first = setter.mock.calls[0][0] as { requestId: string };
+    expect(clearer).toHaveBeenCalledWith({ requestId: first.requestId });
+    await act(async () => {
+      finishRollback?.();
+    });
+    expect(writtenTarget).toBe('ETH');
+    const second = setter.mock.calls[1][0] as { requestId: string };
+    expect(first.requestId).not.toBe(second.requestId);
     expect(mockSwitchTab).toHaveBeenCalledTimes(1);
+    expect(clearer.mock.invocationCallOrder[0]).toBeLessThan(
+      setter.mock.invocationCallOrder[1],
+    );
   },
 );
 

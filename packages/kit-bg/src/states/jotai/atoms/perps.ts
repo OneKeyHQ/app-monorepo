@@ -70,7 +70,11 @@ export const {
 export const {
   target: webviewPerpTradeTargetAtom,
   use: useWebviewPerpTradeTargetAtom,
-} = globalAtom<{ coin?: string; revision: number }>({
+} = globalAtom<{
+  coin?: string;
+  revision: number;
+  pending?: { coin: string; requestId: string };
+}>({
   name: EAtomNames.webviewPerpTradeTargetAtom,
   initialValue: { revision: 0 },
 });
