@@ -218,4 +218,5 @@ export interface ITradingViewNativePriceSelection {
   price: number;
   screenX: number;
   screenY: number;
+  onClose?: () => void;
 }
