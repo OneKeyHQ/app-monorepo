@@ -1,7 +1,8 @@
 /** @jest-environment jsdom */
 
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
+import { NavigationContext } from '@react-navigation/core';
 import { act, renderHook, waitFor } from '@testing-library/react';
 
 import {
@@ -18,6 +19,8 @@ import type {
 import { EPrimeFreeTrialPendingActionType } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 
 import { usePrimeFeatureAccess } from './usePrimeFeatureAccess';
+
+import type { NavigationProp, ParamListBase } from '@react-navigation/core';
 
 const mockIsLoggedIn = jest.fn();
 const mockIsPrimeSubscriptionActive = jest.fn();
@@ -162,6 +165,19 @@ function toastAt(index: number) {
   return mockToastMessage.mock.calls[index]?.[0] as
     | { title?: string; message?: string; actions?: ReactElement }
     | undefined;
+}
+
+// The screen the hook runs in, for the leave-the-screen cases.
+const screenState = { focused: true };
+const screenNavigation = {
+  isFocused: () => screenState.focused,
+} as unknown as NavigationProp<ParamListBase>;
+function OnScreen({ children }: { children: ReactNode }) {
+  return (
+    <NavigationContext.Provider value={screenNavigation}>
+      {children}
+    </NavigationContext.Provider>
+  );
 }
 
 describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
@@ -856,30 +872,21 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     expect(mockToastMessage).not.toHaveBeenCalled();
   });
 
-  describe('the user leaves the page while the gate waits', () => {
-    let routeKey = 'page-a';
-    const { rootNavigationRef } = jest.requireMock<{
-      rootNavigationRef: { current: unknown };
-    }>('@onekeyhq/components');
+  describe('the user leaves the screen while the gate waits', () => {
+    const renderOnScreen = () =>
+      renderHook(() => usePrimeFeatureAccess(), { wrapper: OnScreen }).result;
 
     beforeEach(() => {
-      routeKey = 'page-a';
-      rootNavigationRef.current = {
-        getCurrentRoute: () => ({ key: routeKey }),
-      };
-    });
-
-    afterEach(() => {
-      rootNavigationRef.current = undefined;
+      screenState.focused = true;
     });
 
     it('gives no dashboard or toast for a used-up quota', async () => {
       setSnapshot(quotaWith(0));
       mockRefreshQuota.mockImplementation(async () => {
-        routeKey = 'page-b';
+        screenState.focused = false;
         return quotaWith(0);
       });
-      const result = renderAccessHook();
+      const result = renderOnScreen();
 
       await act(async () => {
         await expect(
@@ -898,10 +905,10 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     it('does not let the user in either', async () => {
       setSnapshot(quotaWith(0));
       mockRefreshQuota.mockImplementation(async () => {
-        routeKey = 'page-b';
+        screenState.focused = false;
         return quotaWith(1);
       });
-      const result = renderAccessHook();
+      const result = renderOnScreen();
 
       await act(async () => {
         await expect(
@@ -912,10 +919,10 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
       });
     });
 
-    it('still lets the user in when they stayed on the page', async () => {
+    it('still lets the user in when they stayed on the screen', async () => {
       setSnapshot(quotaWith(0));
       mockRefreshQuota.mockResolvedValue(quotaWith(1));
-      const result = renderAccessHook();
+      const result = renderOnScreen();
 
       await act(async () => {
         await expect(
@@ -923,6 +930,72 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
             featureId: EPrimeFeatures.BulkSend,
           }),
         ).resolves.toEqual({ granted: true, entitlementSource: 'freeTrial' });
+      });
+    });
+
+    it('leaves a caller with onDenied alone when its screen is only covered', async () => {
+      setSnapshot(quotaWith(0));
+      mockRefreshQuota.mockImplementation(async () => {
+        // A picker opened over the page.
+        screenState.focused = false;
+        return quotaWith(1);
+      });
+      const onDenied = jest.fn();
+      const result = renderOnScreen();
+
+      await act(async () => {
+        await expect(
+          result.current.ensureFeatureAccess({
+            featureId: EPrimeFeatures.BulkSend,
+            onDenied,
+          }),
+        ).resolves.toEqual({ granted: true, entitlementSource: 'freeTrial' });
+      });
+      expect(onDenied).not.toHaveBeenCalled();
+    });
+
+    it('drops a metered API rejection that lands after the screen was left', async () => {
+      screenState.focused = false;
+      const result = renderOnScreen();
+
+      act(() => {
+        result.current.handleFreeTrialError({
+          error: {
+            code: 90_600,
+            data: {
+              featureId: EPrimeFeatures.AddressRiskCheck,
+              remaining: 0,
+              resetAt: RESET_AT,
+            },
+          },
+        });
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(mockPushFullModal).not.toHaveBeenCalled();
+      expect(mockToastMessage).not.toHaveBeenCalled();
+    });
+
+    it('still hands off to the dashboard after the caller left its page itself', async () => {
+      screenState.focused = false;
+      const result = renderOnScreen();
+
+      act(() => {
+        result.current.handleFreeTrialError({
+          error: {
+            code: 90_600,
+            data: {
+              featureId: EPrimeFeatures.AddressRiskCheck,
+              remaining: 0,
+              resetAt: RESET_AT,
+            },
+          },
+          afterPageExit: true,
+        });
+      });
+      await waitFor(() => {
+        expect(mockToastMessage).toHaveBeenCalled();
       });
     });
   });

@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useContext, useMemo, useRef } from 'react';
 
+import { NavigationContext } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Button, Dialog, Toast } from '@onekeyhq/components';
@@ -41,7 +42,6 @@ import {
   resolvePrimeFreeTrialAccess,
 } from '../utils/primeFreeTrialAccess';
 import { getPrimeFreeTrialNoticeCopy } from '../utils/primeFreeTrialCopy';
-import { captureFreeTrialRoute } from '../utils/primeFreeTrialRouteGuard';
 
 import { usePrimeFreeTrialUpgrade } from './usePrimeFreeTrialUpgrade';
 
@@ -115,6 +115,19 @@ async function isContextStale(
 
 export function usePrimeFeatureAccess() {
   const intl = useIntl();
+  // The screen this hook runs in (none inside a popover rendered outside the
+  // screens). Once it is no longer focused (back, close — already during the
+  // close animation — or another page pushed over it) the user has left what
+  // they acted on: the gate grants nothing and no dashboard opens over the
+  // page they went to. Dialogs such as the login dialog keep it focused. In a
+  // split view each pane has its own screen, so only the acting pane counts.
+  const callerNavigation = useContext(NavigationContext);
+  const callerNavigationRef = useRef(callerNavigation);
+  callerNavigationRef.current = callerNavigation;
+  const isCallerScreenFocused = useCallback(
+    () => callerNavigationRef.current?.isFocused() ?? true,
+    [],
+  );
   const { isPrimeSubscriptionActive, isLoggedIn, user, loginOneKeyId } =
     useOneKeyAuth();
   const [freeTrial] = usePrimeFreeTrialAtom();
@@ -260,8 +273,11 @@ export function usePrimeFeatureAccess() {
     }) => {
       const isStale = () => isContextStale(isContextValid);
       const openDashboard = !isPrimeFreeTrialStayOnPageFeature(featureId);
+      // A page left meanwhile gets no feedback; a caller that left its page
+      // itself (afterPageExit) still hands off to the dashboard.
+      const isLeft = () => !afterPageExit && !isCallerScreenFocused();
       void (async () => {
-        if (await isStale()) {
+        if (isLeft() || (await isStale())) {
           return;
         }
         if (reason === 'notOpen') {
@@ -308,7 +324,7 @@ export function usePrimeFeatureAccess() {
             } catch {
               // Fall back to the exhausted feedback.
             }
-            if (await isStale()) {
+            if (isLeft() || (await isStale())) {
               return;
             }
           }
@@ -336,7 +352,7 @@ export function usePrimeFeatureAccess() {
         });
       })();
     },
-    [openPrimeDashboard, showFreeTrialNoticeToast],
+    [isCallerScreenFocused, openPrimeDashboard, showFreeTrialNoticeToast],
   );
 
   // Feedback for an access the gate resolved as used up or not open.
@@ -578,12 +594,13 @@ export function usePrimeFeatureAccess() {
       // The wallet, network or input the caller acts on, or its page, may be
       // gone after any wait: a stale context gets no login, no grant and no
       // denied feedback. Checked before onDenied, so a gate that leaves the
-      // page itself still hands off to the dashboard. The user leaving the
-      // page they acted on (back, close, another page) always counts, on top
-      // of the caller's own check.
-      const isOnSameRoute = captureFreeTrialRoute();
+      // page itself still hands off to the dashboard. The caller's screen
+      // losing focus counts too, except for callers with onDenied: they
+      // manage their own page (it may be covered meanwhile, e.g. by a
+      // picker), so only their own check applies.
       const isContextGone = async () =>
-        !isOnSameRoute() || isContextStale(isContextValid);
+        (!onDenied && !isCallerScreenFocused()) ||
+        isContextStale(isContextValid);
       const grantIfContextValid = async (
         result: Extract<IPrimeFeatureAccessResult, { granted: true }>,
       ): Promise<IPrimeFeatureAccessResult> => {
@@ -802,6 +819,7 @@ export function usePrimeFeatureAccess() {
     },
     [
       getPublicConfigWithRetry,
+      isCallerScreenFocused,
       isPrimeSubscriptionActive,
       loadQuotaOfLoggedInFreeUser,
       loginOneKeyId,
