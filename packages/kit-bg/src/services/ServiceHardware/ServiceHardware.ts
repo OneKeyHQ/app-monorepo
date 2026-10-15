@@ -1283,9 +1283,6 @@ class ServiceHardware extends ServiceBase {
       });
 
       this.activeHardwareTransportType = hardwareTransportType;
-      this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.rememberOneKeyOperationTransport(
-        hardwareTransportType,
-      );
 
       // TODO re-register events when hardwareConnectSrc or isPreRelease changed
       await this.registerSdkEvents(instance, { showSdkDebugLogs });
@@ -5072,6 +5069,7 @@ class ServiceHardware extends ServiceBase {
         const result = await this.connectionManager.resolveTransportType({
           connectId: device.connectId || connectId,
           hardwareCallContext,
+          vendor: device.vendor,
         });
         const preferredBle = await this.resolveTrezorPreferredBleConnectId({
           device,
@@ -5244,6 +5242,7 @@ class ServiceHardware extends ServiceBase {
     hardwareCallContext: EHardwareCallContext;
     persistTransportType?: boolean;
     requestedTransportType?: 'usb' | 'ble';
+    oneKeyOperationLease?: IOneKeyHardwareOperationLease;
   }): Promise<EHardwareTransportType> {
     const connectProtocol =
       params.connectProtocol ??
@@ -5258,6 +5257,7 @@ class ServiceHardware extends ServiceBase {
         await this.connectionManager.setCurrentTransportType(targetType);
         this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.rememberOneKeyOperationTransport(
           targetType,
+          params.oneKeyOperationLease,
         );
       }
       return targetType;
@@ -5266,6 +5266,7 @@ class ServiceHardware extends ServiceBase {
       connectId: params.connectId,
       hardwareCallContext: params.hardwareCallContext,
       connectProtocol,
+      oneKeyOperationLease: params.oneKeyOperationLease,
     };
     const result =
       params.persistTransportType === false

@@ -43,8 +43,15 @@ export class HardwareProcessingManager {
     return this.activeOneKeyOperationTransport;
   }
 
-  rememberOneKeyOperationTransport(transport: EHardwareTransportType) {
-    if (this.activeOneKeyOperationLease)
+  rememberOneKeyOperationTransport(
+    transport: EHardwareTransportType,
+    lease: IOneKeyHardwareOperationLease | undefined,
+  ) {
+    if (
+      lease &&
+      lease === this.activeOneKeyOperationLease &&
+      !lease.signal?.aborted
+    )
       this.activeOneKeyOperationTransport = transport;
   }
 

@@ -1576,6 +1576,7 @@ class ServiceHardwareUI extends ServiceBase {
             connectId,
             connectProtocol: device?.connectProtocol,
             hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+            oneKeyOperationLease: params.oneKeyOperationLease,
           });
           assertActive();
           await this.showCheckingDeviceDialog({

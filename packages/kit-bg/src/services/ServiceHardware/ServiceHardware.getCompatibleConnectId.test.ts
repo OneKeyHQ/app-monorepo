@@ -2241,17 +2241,48 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       });
     });
 
-    it('does not search through OneKey SDK for a third-party device', async () => {
-      const { service } = createService();
-      mockedLocalDb.getDeviceByQuery.mockResolvedValue({
-        vendor: EHardwareVendor.trezor,
-      } as IDBDevice);
-      const search = jest.spyOn(service, 'probeUsbDeviceIdentities');
-      await service.connectionManager.shouldSwitchTransportType({
-        connectId: 'TREZOR_SERIAL',
-      });
-      expect(search).not.toHaveBeenCalled();
-    });
+    it.each(['webusb', 'bridge'])(
+      'keeps the known Trezor vendor through %s routing with OneKey USB attached',
+      async (usbCommunicationMode) => {
+        const { service } = createService();
+        const device = {
+          connectId: 'TREZOR_SERIAL',
+          bleConnectId: 'TREZOR_BLE',
+          vendor: EHardwareVendor.trezor,
+        } as IDBDevice;
+        mockedLocalDb.getDeviceByQuery.mockImplementation(async ({ vendor }) =>
+          vendor === EHardwareVendor.trezor ? device : undefined,
+        );
+        const backgroundApi = (
+          service as unknown as { backgroundApi: IBackgroundApi }
+        ).backgroundApi;
+        jest
+          .spyOn(backgroundApi.serviceDevSetting, 'getDevSetting')
+          .mockResolvedValue({ settings: { usbCommunicationMode } } as Awaited<
+            ReturnType<typeof backgroundApi.serviceDevSetting.getDevSetting>
+          >);
+        mockedAxios.post.mockResolvedValue({
+          data: [{ path: 'ONEKEY_USB_PATH' }],
+        });
+        const search = jest.spyOn(service, 'probeUsbDeviceIdentities');
+        const sdkSearch = jest.spyOn(service, 'searchDevices');
+        await expect(
+          service.getCompatibleConnectId({
+            connectId: 'TREZOR_SERIAL',
+            vendor: EHardwareVendor.trezor,
+            hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+          }),
+        ).resolves.toBe('TREZOR_BLE');
+        expect(search).not.toHaveBeenCalled();
+        expect(sdkSearch).not.toHaveBeenCalled();
+        expect(mockedLocalDb.getDeviceByQuery.mock.calls).toContainEqual([
+          {
+            connectId: 'TREZOR_SERIAL',
+            vendor: EHardwareVendor.trezor,
+          },
+        ]);
+      },
+    );
 
     it('preserves a third-party USB transport identifier without OneKey SDK discovery', async () => {
       getDevices.mockResolvedValue([
@@ -2265,6 +2296,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       await expect(
         service.connectionManager.shouldSwitchTransportType({
           connectId: 'TREZOR_SERIAL',
+          vendor: EHardwareVendor.trezor,
         }),
       ).resolves.toMatchObject({ targetType: EHardwareTransportType.WEBUSB });
       expect(search).not.toHaveBeenCalled();
@@ -2306,6 +2338,75 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       expect(mockedResetHardwareSDKInstance).not.toHaveBeenCalled();
     });
 
+    it('keeps the operation USB transport when an earlier BLE SDK prewarm finishes', async () => {
+      const { service } = createService();
+      const processing = new HardwareProcessingManager();
+      (
+        service as unknown as { backgroundApi: IBackgroundApi }
+      ).backgroundApi.serviceHardwareUI = {
+        hardwareProcessingManager: processing,
+      } as IBackgroundApi['serviceHardwareUI'];
+      let finishPrewarm!: () => void;
+      const prewarmPending = new Promise<void>((resolve) => {
+        finishPrewarm = resolve;
+      });
+      let signalPrewarmStarted!: () => void;
+      const prewarmStarted = new Promise<void>((resolve) => {
+        signalPrewarmStarted = resolve;
+      });
+      const sdk = { setDeviceConnectProtocol: jest.fn() };
+      mockedGetHardwareSDKInstance.mockImplementation(async () => {
+        signalPrewarmStarted();
+        await prewarmPending;
+        return sdk as unknown as Awaited<
+          ReturnType<typeof getHardwareSDKInstance>
+        >;
+      });
+      service.checkSdkVersionValid = jest.fn();
+      jest
+        .spyOn(
+          service as unknown as { registerSdkEvents: () => Promise<void> },
+          'registerSdkEvents',
+        )
+        .mockResolvedValue(undefined);
+      const prewarm = service.getSDKInstance({
+        connectId: 'PHYSICAL_SERIAL',
+        connectProtocol: 'V1',
+        hardwareTransportType: EHardwareTransportType.DesktopWebBle,
+        hardwareCallContext: EHardwareCallContext.SILENT_CALL,
+      });
+      await prewarmStarted;
+      jest
+        .spyOn(service, 'probeUsbDeviceIdentities')
+        .mockResolvedValue([usbDevice]);
+      await processing.runExclusiveOneKeyOperation({
+        operation: async (lease) => {
+          await expect(
+            service.prepareHardwareTransport({
+              connectId: 'PHYSICAL_SERIAL',
+              connectProtocol: 'V1',
+              hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+              oneKeyOperationLease: lease,
+            }),
+          ).resolves.toBe(EHardwareTransportType.WEBUSB);
+          finishPrewarm();
+          await prewarm;
+          expect(processing.getOneKeyOperationTransport()).toBe(
+            EHardwareTransportType.WEBUSB,
+          );
+          await expect(
+            service.connectionManager.shouldSwitchTransportType({
+              connectId: 'PHYSICAL_SERIAL',
+              connectProtocol: 'V1',
+              hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+            }),
+          ).resolves.toMatchObject({
+            targetType: EHardwareTransportType.WEBUSB,
+          });
+        },
+      });
+    });
+
     it('pins a BLE operation across USB replug and chooses USB for the next operation, then BLE after unplug', async () => {
       const { service } = createService();
       const processing = new HardwareProcessingManager();
@@ -2324,16 +2425,22 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       };
       await processing.runExclusiveOneKeyOperation({
         deviceKey: 'PHYSICAL_SERIAL',
-        operation: async () => {
+        operation: async (lease) => {
           await expect(
-            service.connectionManager.resolveTransportType(route),
+            service.connectionManager.resolveTransportType({
+              ...route,
+              oneKeyOperationLease: lease,
+            }),
           ).resolves.toMatchObject({
             targetType: EHardwareTransportType.DesktopWebBle,
           });
           probe.mockResolvedValue([usbDevice]);
           service.connectionManager.shouldSwitchTransportType.clear();
           await expect(
-            service.connectionManager.resolveTransportType(route),
+            service.connectionManager.resolveTransportType({
+              ...route,
+              oneKeyOperationLease: lease,
+            }),
           ).resolves.toMatchObject({
             targetType: EHardwareTransportType.DesktopWebBle,
           });
@@ -2342,9 +2449,12 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       });
       await processing.runExclusiveOneKeyOperation({
         deviceKey: 'PHYSICAL_SERIAL',
-        operation: async () => {
+        operation: async (lease) => {
           await expect(
-            service.connectionManager.resolveTransportType(route),
+            service.connectionManager.resolveTransportType({
+              ...route,
+              oneKeyOperationLease: lease,
+            }),
           ).resolves.toMatchObject({
             targetType: EHardwareTransportType.WEBUSB,
           });
@@ -2354,9 +2464,12 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       getDevices.mockResolvedValue([]);
       await processing.runExclusiveOneKeyOperation({
         deviceKey: 'PHYSICAL_SERIAL',
-        operation: async () => {
+        operation: async (lease) => {
           await expect(
-            service.connectionManager.resolveTransportType(route),
+            service.connectionManager.resolveTransportType({
+              ...route,
+              oneKeyOperationLease: lease,
+            }),
           ).resolves.toMatchObject({
             targetType: EHardwareTransportType.DesktopWebBle,
           });
@@ -2380,22 +2493,29 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
         hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       };
       await processing.runExclusiveOneKeyOperation({
-        operation: async () => {
+        operation: async (lease) => {
           await expect(
-            service.connectionManager.resolveTransportType(route),
+            service.connectionManager.resolveTransportType({
+              ...route,
+              oneKeyOperationLease: lease,
+            }),
           ).resolves.toMatchObject({
             targetType: EHardwareTransportType.DesktopWebBle,
           });
           await expect(
             service.connectionManager.resolveTransportType({
               ...route,
+              oneKeyOperationLease: lease,
               hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
             }),
           ).resolves.toMatchObject({
             targetType: EHardwareTransportType.WEBUSB,
           });
           await expect(
-            service.connectionManager.resolveTransportType(route),
+            service.connectionManager.resolveTransportType({
+              ...route,
+              oneKeyOperationLease: lease,
+            }),
           ).resolves.toMatchObject({
             targetType: EHardwareTransportType.WEBUSB,
           });

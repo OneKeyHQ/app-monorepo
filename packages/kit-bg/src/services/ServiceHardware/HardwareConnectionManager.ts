@@ -28,6 +28,7 @@ import {
 } from '../../states/jotai/atoms/hardware';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+import type { IOneKeyHardwareOperationLease } from '../ServiceHardwareUI/HardwareProcessingManager';
 
 export class HardwareConnectionManager {
   private static instance: HardwareConnectionManager | null = null;
@@ -335,6 +336,7 @@ export class HardwareConnectionManager {
     hardwareCallContext?: IHardwareCallContext,
     connectId?: string,
     connectProtocol?: HardwareConnectProtocol,
+    vendor?: EHardwareVendor,
   ): Promise<EHardwareTransportType> {
     const currentSettingType =
       await this.backgroundApi.serviceSetting.getHardwareTransportType();
@@ -355,11 +357,11 @@ export class HardwareConnectionManager {
         // Descriptor paths are routing keys, not proof of a OneKey identity.
         // Always let the SDK confirm the target before selecting USB.
         try {
-          const device =
-            await this.backgroundApi.serviceHardware.getDeviceByConnectId({
-              connectId,
-            });
-          if (!device?.vendor || device.vendor === EHardwareVendor.onekey) {
+          if (!vendor || vendor === EHardwareVendor.onekey) {
+            const device =
+              await this.backgroundApi.serviceHardware.getDeviceByConnectId({
+                connectId,
+              });
             const result =
               await this.backgroundApi.serviceHardware.probeUsbDeviceIdentities(
                 { commType: mode === 'bridge' ? 'bridge' : 'webusb' },
@@ -423,10 +425,12 @@ export class HardwareConnectionManager {
       connectId,
       connectProtocol,
       hardwareCallContext,
+      vendor,
     }: {
       connectId?: string;
       connectProtocol?: HardwareConnectProtocol;
       hardwareCallContext?: IHardwareCallContext;
+      vendor?: EHardwareVendor;
     }): Promise<{
       shouldSwitch: boolean;
       targetType: EHardwareTransportType;
@@ -496,7 +500,8 @@ export class HardwareConnectionManager {
       }
 
       const pinnedTransport =
-        hardwareCallContext === EHardwareCallContext.UPDATE_FIRMWARE
+        hardwareCallContext === EHardwareCallContext.UPDATE_FIRMWARE ||
+        (vendor && vendor !== EHardwareVendor.onekey)
           ? undefined
           : this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.getOneKeyOperationTransport();
       const optimalType =
@@ -505,6 +510,7 @@ export class HardwareConnectionManager {
           hardwareCallContext,
           connectId,
           connectProtocol,
+          vendor,
         ));
       const shouldSwitch = this.actualTransportType !== optimalType;
 
@@ -529,6 +535,7 @@ export class HardwareConnectionManager {
           args[0].hardwareCallContext || 'default',
           args[0].connectProtocol || '',
           args[0].connectId || '',
+          args[0].vendor || '',
           this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.getOneKeyOperationGeneration(),
           this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.getOneKeyOperationTransport(),
         ]),
@@ -539,6 +546,8 @@ export class HardwareConnectionManager {
     connectId?: string;
     connectProtocol?: HardwareConnectProtocol;
     hardwareCallContext?: IHardwareCallContext;
+    vendor?: EHardwareVendor;
+    oneKeyOperationLease?: IOneKeyHardwareOperationLease;
   }): Promise<{
     shouldSwitch: boolean;
     targetType: EHardwareTransportType;
@@ -547,6 +556,7 @@ export class HardwareConnectionManager {
     await this.setCurrentTransportType(result.targetType);
     this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.rememberOneKeyOperationTransport(
       result.targetType,
+      params.oneKeyOperationLease,
     );
     return result;
   }
