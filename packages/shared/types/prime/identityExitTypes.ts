@@ -23,6 +23,10 @@ export type IExplicitLocalOneKeyIdLogoutProjection = {
 
 export type IIdentityExitIntent =
   | {
+      type: 'switchEnvironment';
+      scene: 'devSettings';
+    }
+  | {
       type: 'logoutOneKeyId';
       scene: 'profile' | 'referral' | 'devSettings';
     }
@@ -79,6 +83,7 @@ export type IIdentityExitPlan =
       expiresAt: number;
       presentation:
         | { type: 'oneKeyIdOnly' }
+        | { type: 'switchEnvironment' }
         | {
             type: 'keylessOnly';
             currentProvider: EOAuthSocialLoginProvider;

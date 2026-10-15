@@ -108,6 +108,10 @@ describe('EmailOTPDialog', () => {
     expect(mockOneKeyIdLoginFailedReason).toHaveBeenCalledWith({
       reason:
         'Email verification code request failed: name=OneKeyLocalError message=Please retry after 33 seconds. code=-99999 status= requestId=',
+      trigger: 'interactive',
+      error: expect.objectContaining({
+        message: 'Please retry after 33 seconds.',
+      }),
     });
   });
 

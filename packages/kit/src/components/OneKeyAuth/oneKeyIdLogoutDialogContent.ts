@@ -80,7 +80,10 @@ function getBaseOneKeyIdLogoutDialogContent({
     };
   }
 
-  if (presentation.type === 'linkedOneKeyIdAndKeyless') {
+  if (
+    presentation.type === 'linkedOneKeyIdAndKeyless' ||
+    presentation.type === 'switchEnvironment'
+  ) {
     return {
       icon: 'ErrorOutline',
       tone: 'destructive',
