@@ -6,11 +6,15 @@ import { act, renderHook } from '@testing-library/react';
 
 import { createTradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
+import { getTradingViewNativeIndicatorPriceRange } from '../utils/chartIndicators';
 import {
   getTradingViewNativeChartLayout,
   getTradingViewNativeChartWidth,
 } from '../utils/chartLayout';
-import { getTradingViewNativeVisiblePointRange } from '../utils/chartViewport';
+import {
+  clampTradingViewNativePanOffset,
+  getTradingViewNativeVisiblePointRange,
+} from '../utils/chartViewport';
 
 import { createTradingViewNativeChartRuntime } from './chartRuntime';
 import { useTradingViewNativePriceScale } from './useTradingViewNativePriceScale';
@@ -111,16 +115,25 @@ function renderPriceScaleAtOffset(offset: number) {
     subIndicatorPanes: [],
   });
   runtime.size = { height: 300, width: 360 };
-  runtime.viewport.offset = offset;
-  const chartRuntime = createMockSharedValue(runtime);
   const chartWidth = getTradingViewNativeChartWidth(runtime.size.width, 52);
+  runtime.viewport.offset = clampTradingViewNativePanOffset({
+    ...runtime.viewport,
+    chartWidth,
+    offset,
+    pointCount: runtime.points.length,
+  });
+  const chartRuntime = createMockSharedValue(runtime);
   const visiblePointRange = getTradingViewNativeVisiblePointRange({
     ...runtime.viewport,
     chartWidth,
     pointCount: runtime.points.length,
   });
-  expect(visiblePointRange.startIndex).toBe(visiblePointRange.endIndex);
+  expect(visiblePointRange.endIndex - visiblePointRange.startIndex).toBe(1);
   const layout = getTradingViewNativeChartLayout({
+    additionalPriceRange: getTradingViewNativeIndicatorPriceRange({
+      ...visiblePointRange,
+      series: runtime.indicatorSeries,
+    }),
     candleIntervalSeconds: 60,
     hasVolume: false,
     height: runtime.size.height,
@@ -155,53 +168,60 @@ describe('useTradingViewNativePriceScale', () => {
     {
       viewport: 'history',
       offset: 1000,
-      expectedRange: { minPrice: 10, maxPrice: 15 },
+      expectedOffset: 7,
+      expectedRange: { minPrice: 1, maxPrice: 15 },
     },
     {
       viewport: 'future',
       offset: -1000,
-      expectedRange: { minPrice: 14, maxPrice: 20 },
+      expectedOffset: -302,
+      expectedRange: { minPrice: 14, maxPrice: 1000 },
     },
-  ])('in an empty $viewport viewport', ({ offset, expectedRange }) => {
-    it('pins the displayed price range when switching to manual scale', () => {
-      const { chartRuntime, layout, result } = renderPriceScaleAtOffset(offset);
-      expect(layout?.autoPriceRange).toEqual(expectedRange);
+  ])(
+    'at the $viewport boundary',
+    ({ offset, expectedOffset, expectedRange }) => {
+      it('pins the displayed price range when switching to manual scale', () => {
+        const { chartRuntime, layout, result } =
+          renderPriceScaleAtOffset(offset);
+        expect(layout?.autoPriceRange).toEqual(expectedRange);
 
-      act(() => {
-        result.current.handleAutoScalePress();
+        act(() => {
+          result.current.handleAutoScalePress();
+        });
+
+        expect(result.current.isAutoScale).toBe(false);
+        expect(chartRuntime.value.pinnedPriceRange).toEqual(
+          layout?.autoPriceRange,
+        );
+        expect(chartRuntime.value.viewport.offset).toBe(expectedOffset);
+
+        act(() => {
+          result.current.handleAutoScalePress();
+        });
+        expect(result.current.isAutoScale).toBe(true);
+        expect(chartRuntime.value.pinnedPriceRange).toBeNull();
       });
 
-      expect(result.current.isAutoScale).toBe(false);
-      expect(chartRuntime.value.pinnedPriceRange).toEqual(
-        layout?.autoPriceRange,
-      );
-      expect(chartRuntime.value.viewport.offset).toBe(offset);
+      it('scales the displayed price range when dragging the price axis', () => {
+        const { chartRuntime, layout, result } =
+          renderPriceScaleAtOffset(offset);
+        expect(layout?.autoPriceRange).toEqual(expectedRange);
 
-      act(() => {
-        result.current.handleAutoScalePress();
+        act(() => {
+          mockPanGestureHandlers[0].onStart({ y: 100 });
+          mockPanGestureHandlers[0].onUpdate({ y: 150 });
+        });
+
+        expect(result.current.isAutoScale).toBe(false);
+        expect(chartRuntime.value.pinnedPriceRange).toEqual(
+          layout?.autoPriceRange,
+        );
+        expect(chartRuntime.value.priceRangeScale).not.toBe(1);
+        expect(Number.isFinite(chartRuntime.value.priceRangeScale)).toBe(true);
+        expect(chartRuntime.value.viewport.offset).toBe(expectedOffset);
       });
-      expect(result.current.isAutoScale).toBe(true);
-      expect(chartRuntime.value.pinnedPriceRange).toBeNull();
-    });
-
-    it('scales the displayed price range when dragging the price axis', () => {
-      const { chartRuntime, layout, result } = renderPriceScaleAtOffset(offset);
-      expect(layout?.autoPriceRange).toEqual(expectedRange);
-
-      act(() => {
-        mockPanGestureHandlers[0].onStart({ y: 100 });
-        mockPanGestureHandlers[0].onUpdate({ y: 150 });
-      });
-
-      expect(result.current.isAutoScale).toBe(false);
-      expect(chartRuntime.value.pinnedPriceRange).toEqual(
-        layout?.autoPriceRange,
-      );
-      expect(chartRuntime.value.priceRangeScale).not.toBe(1);
-      expect(Number.isFinite(chartRuntime.value.priceRangeScale)).toBe(true);
-      expect(chartRuntime.value.viewport.offset).toBe(offset);
-    });
-  });
+    },
+  );
 
   it('toggles Auto and resets the range only when Auto is re-enabled', () => {
     const runtime = createTradingViewNativeChartRuntime({
