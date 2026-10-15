@@ -107,9 +107,31 @@ describe('getFirmwareUpdateUSBPreflightParams', () => {
     },
   );
 
+  it.each(['serialNo', 'onekey_serial_no', 'onekey_serial', 'serial_no'])(
+    'treats zero-filled %s and wallet IDs as absent only for loader recovery',
+    async (serialKey) => {
+      const features = {
+        mode: 'bootloader',
+        device_id: '000000000000000000000000',
+      } as NonNullable<ICheckAllFirmwareReleaseResult['features']>;
+      Object.assign(features, { [serialKey]: '000000000000000000000000' });
+      const params = await getFirmwareUpdateUSBPreflightParams({
+        deviceType: EDeviceType.Classic1s,
+        features,
+        originalConnectId: 'USB_PATH',
+      });
+      expect(params).toEqual({
+        connectId: 'USB_PATH',
+        connectProtocol: 'V1',
+        bootloaderRecoveryDeviceType: EDeviceType.Classic1s,
+      });
+    },
+  );
+
   it('does not mark an ordinary or identified target as anonymous recovery', async () => {
     for (const features of [
       { mode: 'normal' },
+      { mode: 'normal', serialNo: '000000', device_id: '000000' },
       { mode: 'bootloader', device_id: 'KNOWN_WALLET' },
       { mode: 'bootloader', serialNo: 'KNOWN_SERIAL' },
     ]) {

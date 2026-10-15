@@ -2092,9 +2092,19 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       { commType: 'bridge', connectId: '000000000000000000000000' },
       { commType: 'webusb', connectId: 'SAVED_DB_SERIAL' },
       { commType: 'webusb', connectId: undefined },
+      {
+        commType: 'webusb',
+        connectId: 'USB_PATH',
+        identity: '000000000000000000000000',
+      },
+      {
+        commType: 'bridge',
+        connectId: 'USB_PATH',
+        identity: '000000000000000000000000',
+      },
     ])(
       'accepts explicit identity-less recovery over $commType with target $connectId',
-      async ({ commType, connectId }) => {
+      async ({ commType, connectId, identity }) => {
         mockedAxios.post.mockResolvedValue({ data: [{ path: '1' }] });
         const service = createService(commType);
         if (connectId === 'SAVED_DB_SERIAL') {
@@ -2107,8 +2117,8 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
           .mockResolvedValue([
             {
               path: '000000000000000000000000',
-              serialNo: null,
-              deviceId: null,
+              serialNo: identity ?? null,
+              deviceId: identity ?? null,
               deviceType: EDeviceType.Classic1s,
               connectProtocol: 'V1',
               commType,
@@ -2132,6 +2142,15 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
         reason: 'ordinary target without recovery mode',
         recoveryType: undefined,
         overrides: {},
+        duplicate: false,
+      },
+      {
+        reason: 'ordinary target matching only zero-filled identities',
+        recoveryType: undefined,
+        overrides: {
+          serialNo: '000000000000000000000000',
+          deviceId: '000000000000000000000000',
+        },
         duplicate: false,
       },
       {

@@ -229,7 +229,10 @@ export class HardwareConnectionManager {
         await this.backgroundApi.serviceHardware.probeUsbDeviceIdentities({
           commType: mode === 'bridge' ? 'bridge' : 'webusb',
         });
-      const normalize = (id?: string | null) => id?.trim().toLowerCase();
+      const normalize = (id?: string | null) => {
+        const value = id?.trim().toLowerCase();
+        return value && !/^0+$/.test(value) ? value : undefined;
+      };
       const candidates = result.filter(
         (known) =>
           known.commType === mode &&
@@ -249,14 +252,16 @@ export class HardwareConnectionManager {
         return true;
       }
       if (!connectId) return false;
-      const serial = normalize(
-        deviceUtils.getDeviceSerialNoFromDbDevice(device) ||
+      const serial =
+        normalize(deviceUtils.getDeviceSerialNoFromDbDevice(device)) ||
+        normalize(
           deviceUtils.getDeviceSerialNoFromFeatures(device?.featuresInfo),
-      );
-      const walletId = normalize(
-        device?.deviceStateInfo?.identity.deviceId || device?.deviceId,
-      );
+        );
+      const walletId =
+        normalize(device?.deviceStateInfo?.identity.deviceId) ||
+        normalize(device?.deviceId);
       const target = normalize(connectId);
+      if (!serial && !walletId && !target) return false;
       return (
         candidates.filter((known) => {
           if (serial) return normalize(known.serialNo) === serial;

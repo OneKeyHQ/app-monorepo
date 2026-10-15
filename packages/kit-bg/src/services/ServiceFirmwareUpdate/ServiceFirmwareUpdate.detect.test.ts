@@ -300,15 +300,26 @@ describe('ServiceFirmwareUpdate desktop USB target validation', () => {
     },
   );
 
-  it.each(['bootloader', 'romloader', 'normal'] as const)(
-    'requires loader mode for identity-less recovery (%s)',
-    async (mode) => {
+  it.each(
+    (['bootloader', 'romloader', 'normal'] as const).flatMap((mode) =>
+      ['', '000000000000000000000000'].map((identity) => ({ mode, identity })),
+    ),
+  )(
+    'requires loader mode for identity-less recovery ($mode, $identity)',
+    async ({ mode, identity }) => {
       const { service, params, getDeviceState } = createFixture();
-      params.releaseResult.deviceUUID = '';
-      params.releaseResult.features = undefined;
+      params.releaseResult.deviceUUID = identity;
+      params.releaseResult.features = {
+        serialNo: identity,
+        device_id: identity,
+      } as IOneKeyDeviceFeatures;
       params.releaseResult.isBootloaderMode = true;
       getDeviceState.mockResolvedValue({
-        identity: { deviceType: params.releaseResult.deviceType },
+        identity: {
+          deviceType: params.releaseResult.deviceType,
+          serialNo: identity,
+          deviceId: identity,
+        },
         status: { mode },
       });
       if (mode === 'normal')
@@ -321,6 +332,9 @@ describe('ServiceFirmwareUpdate desktop USB target validation', () => {
         await expect(
           service.validateUSBConnection(params),
         ).resolves.toBeUndefined();
+      expect(getDeviceState).toHaveBeenCalledWith(
+        expect.objectContaining({ connectId: undefined }),
+      );
     },
   );
 

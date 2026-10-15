@@ -3780,12 +3780,15 @@ class ServiceFirmwareUpdate extends ServiceBase {
       throw new FirmwareUpdateRequiresUsbTransport();
     }
     const { releaseResult } = params;
+    const deviceUUID = releaseResult.deviceUUID?.trim();
     const expectedSerial =
-      releaseResult.deviceUUID?.trim() ||
+      (deviceUUID && !/^0+$/.test(deviceUUID) ? deviceUUID : undefined) ||
       (await deviceUtils.buildDeviceUSBConnectId({
         features: releaseResult.features,
       }));
-    const expectedDeviceId = releaseResult.features?.device_id;
+    const deviceId = releaseResult.features?.device_id?.trim();
+    const expectedDeviceId =
+      deviceId && !/^0+$/.test(deviceId) ? deviceId : undefined;
     if (
       !expectedSerial &&
       !expectedDeviceId &&
