@@ -258,6 +258,27 @@ export function useFirmwareUpdateActions() {
             );
         } catch (error) {
           if (
+            isHardwareErrorByCode({
+              error: error as IOneKeyError,
+              code: HardwareErrorCode.DeviceNotFound,
+            })
+          ) {
+            (dialogHost ?? Dialog).show({
+              icon: 'TypeCoutline',
+              title: intl.formatMessage({
+                id: ETranslations.hardware_hardware_device_not_find_error,
+              }),
+              description: intl.formatMessage({
+                id: ETranslations.hardware_device_not_find_error,
+              }),
+              onConfirmText: intl.formatMessage({
+                id: ETranslations.global_got_it,
+              }),
+              showCancelButton: false,
+            });
+            return;
+          }
+          if (
             !isHardwareErrorByCode({
               error: error as IOneKeyError,
               code: HardwareErrorCode.BleUnavailableWhileUsbConnected,
@@ -294,7 +315,7 @@ export function useFirmwareUpdateActions() {
         });
       }
     },
-    [navigation, openChangeLogOfExtension, confirmUpdateViaBluetooth],
+    [navigation, openChangeLogOfExtension, confirmUpdateViaBluetooth, intl],
   );
 
   const closeUpdateModal = useCallback(() => {

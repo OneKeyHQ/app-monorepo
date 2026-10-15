@@ -188,6 +188,10 @@ describe('ServiceFirmwareUpdate desktop USB target validation', () => {
       serviceHardware: {
         getCurrentTransportType: jest.fn().mockResolvedValue(transportType),
         getDeviceState,
+        resolveHardwareTransport: jest.fn().mockResolvedValue({
+          connectId: 'USB_DESCRIPTOR_PATH',
+          transportType,
+        }),
       },
     } as unknown as IBackgroundApi;
     const service = new ServiceFirmwareUpdate({ backgroundApi });
@@ -232,14 +236,13 @@ describe('ServiceFirmwareUpdate desktop USB target validation', () => {
         service.validateUSBConnection(params),
       ).resolves.toBeUndefined();
       expect(getDeviceState).toHaveBeenCalledWith({
-        connectId: 'TARGET_SERIAL',
+        connectId: 'USB_DESCRIPTOR_PATH',
         hardwareTransportType: transportType,
-        hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
         params: {
           scope: 'firmware',
           retryCount: 0,
           skipWebDevicePrompt: true,
-          allowEmptyConnectId: false,
           connectProtocol: [EDeviceType.Pro2, EDeviceType.Neo].includes(
             deviceType,
           )
@@ -295,7 +298,7 @@ describe('ServiceFirmwareUpdate desktop USB target validation', () => {
           code: HardwareErrorCode.DeviceCheckDeviceIdError,
         });
       expect(getDeviceState).toHaveBeenCalledWith(
-        expect.objectContaining({ connectId: undefined }),
+        expect.objectContaining({ connectId: 'USB_DESCRIPTOR_PATH' }),
       );
     },
   );
@@ -364,7 +367,7 @@ describe('ServiceFirmwareUpdate desktop USB target validation', () => {
           service.validateUSBConnection(params),
         ).resolves.toBeUndefined();
       expect(getDeviceState).toHaveBeenCalledWith(
-        expect.objectContaining({ connectId: undefined }),
+        expect.objectContaining({ connectId: 'USB_DESCRIPTOR_PATH' }),
       );
     },
   );
@@ -1594,8 +1597,7 @@ describe('ServiceFirmwareUpdate Protocol V2 target-only checks', () => {
     if (!resolved) {
       expect(resolveHardwareTransport).toHaveBeenCalledWith({
         connectId,
-        hardwareCallContext:
-          EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
+        hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
       });
     }
     if (retryRead) {
@@ -2683,6 +2685,7 @@ describe('ServiceFirmwareUpdate legacy workflow running state', () => {
 
     expect(resolveHardwareTransport).toHaveBeenCalledWith({
       connectId: 'CLASSIC_BLE_ID',
+      features: releaseResult.features,
       hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
     });
     expect(setForceTransportType).toHaveBeenCalledWith({
@@ -2847,6 +2850,7 @@ describe('ServiceFirmwareUpdate Protocol V2 desktop transport', () => {
 
     expect(resolveHardwareTransport).toHaveBeenCalledWith({
       connectId: 'PRO2_BLE_ID',
+      features: releaseResult.features,
       hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
     });
     expect(setForceTransportType).toHaveBeenCalledWith({

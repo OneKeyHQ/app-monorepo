@@ -1,9 +1,12 @@
 import { useCallback } from 'react';
 
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Dialog } from '@onekeyhq/components';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
@@ -58,10 +61,36 @@ export function usePrepareUSBConnectForFirmwareUpdate() {
       const { connectId: connectIdToUse, connectProtocol } = usbPreflightParams;
 
       // Step 1: Check if USB device is available
-      const isUSBDeviceAvailable =
-        await backgroundApiProxy.serviceHardware.detectUSBDeviceAvailability(
-          usbPreflightParams,
-        );
+      let isUSBDeviceAvailable: boolean;
+      try {
+        isUSBDeviceAvailable =
+          await backgroundApiProxy.serviceHardware.detectUSBDeviceAvailability(
+            usbPreflightParams,
+          );
+      } catch (error) {
+        if (
+          !isHardwareErrorByCode({
+            error: error as IOneKeyError,
+            code: HardwareErrorCode.FirmwareUpdateLimitOneDevice,
+          })
+        ) {
+          throw error;
+        }
+        Dialog.show({
+          icon: 'TypeCoutline',
+          title: intl.formatMessage({
+            id: ETranslations.firmware_update_install_page__title,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.update_only_one_usb_device_supported_for_upgrade,
+          }),
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_got_it,
+          }),
+          showCancelButton: false,
+        });
+        return null;
+      }
 
       if (!isUSBDeviceAvailable) {
         Dialog.show({

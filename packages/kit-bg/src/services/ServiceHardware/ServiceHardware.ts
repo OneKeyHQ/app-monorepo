@@ -2,9 +2,12 @@ import {
   EDeviceType,
   EFirmwareType,
   HardwareErrorCode,
+  ONEKEY_WEBUSB_FILTER,
   isSameOnekeyBleName,
+  resolveOneKeyUsbDevicePath,
 } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
+import axios from 'axios';
 import { uniq } from 'lodash';
 import semver from 'semver';
 
@@ -3462,6 +3465,18 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async checkDeviceReachableForFirmwareUpdate(params: { connectId: string }) {
+    if (platformEnv.isDesktop) {
+      return this.backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(
+        async () => {
+          const transport = await this.resolveHardwareTransport({
+            connectId: params.connectId,
+            hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+          });
+          return transport.connectId;
+        },
+        { deviceKey: params.connectId },
+      );
+    }
     const dbDevice = await localDb.getDeviceByQuery({
       connectId: params.connectId,
     });
@@ -4644,14 +4659,65 @@ class ServiceHardware extends ServiceBase {
     connectId?: string;
     connectProtocol?: HardwareConnectProtocol;
     bootloaderRecoveryDeviceType?: IDeviceType;
+    expectedDeviceId?: string;
   }) {
+    if (platformEnv.isDesktop) {
+      try {
+        await this.getSingleFirmwareUsbDevice(params?.connectProtocol);
+      } catch (error) {
+        if (error instanceof deviceErrors.FirmwareUpdateLimitOneDevice)
+          throw error;
+        return false;
+      }
+    }
     // Preserve the selected target at the upgrade entry; the workflow checks
     // its live USB identity again before preparing artifacts or flashing.
     return this.connectionManager.detectUSBDeviceAvailability(
       params?.connectId,
       params?.connectProtocol,
       params?.bootloaderRecoveryDeviceType,
+      params?.expectedDeviceId,
     );
+  }
+
+  private async getSingleFirmwareUsbDevice(
+    connectProtocol?: HardwareConnectProtocol,
+  ) {
+    const transportType =
+      await this.connectionManager.getTransportTypeForChannel({
+        transportType: 'usb',
+        connectProtocol,
+      });
+    const usbDevices =
+      (await globalThis.navigator?.usb?.getDevices?.())?.filter((device) =>
+        ONEKEY_WEBUSB_FILTER.some(
+          (filter) =>
+            device.vendorId === filter.vendorId &&
+            device.productId === filter.productId,
+        ),
+      ) ?? [];
+    if (usbDevices.length > 1)
+      throw new deviceErrors.FirmwareUpdateLimitOneDevice();
+    if (transportType === EHardwareTransportType.Bridge) {
+      const { data } = await axios.post<unknown>(
+        'http://localhost:21320/enumerate',
+        null,
+        { timeout: 3000 },
+      );
+      if (!Array.isArray(data))
+        throw new deviceErrors.FirmwareUpdateRequiresUsbTransport();
+      if (data.length > 1)
+        throw new deviceErrors.FirmwareUpdateLimitOneDevice();
+      const descriptor = data[0] as { path?: unknown } | undefined;
+      if (typeof descriptor?.path !== 'string' || !descriptor.path) {
+        throw new deviceErrors.FirmwareUpdateRequiresUsbTransport();
+      }
+      return { path: descriptor.path, transportType, device: undefined };
+    }
+    const [device] = usbDevices;
+    const path = device && resolveOneKeyUsbDevicePath(device);
+    if (!path) throw new deviceErrors.FirmwareUpdateRequiresUsbTransport();
+    return { path, transportType, device };
   }
 
   @backgroundMethod()
@@ -5136,6 +5202,13 @@ class ServiceHardware extends ServiceBase {
           return persistedDesktopBleConnectId;
         }
       }
+      if (
+        (hardwareTransportType === EHardwareTransportType.WEBUSB ||
+          hardwareTransportType === EHardwareTransportType.Bridge) &&
+        device?.usbConnectId?.toLowerCase() === connectId.toLowerCase()
+      ) {
+        return connectId;
+      }
       // 后台任务不能发起 BLE 配对，也不应把缺少 BLE 绑定误判为设备离线。
       // 移除硬件钱包等纯本地操作仍需要读取设备参数，因此沿用已持久化的
       // USB connectId；真正需要连接的硬件调用会在后续传输层完成可达性校验。
@@ -5248,6 +5321,124 @@ class ServiceHardware extends ServiceBase {
     connectId: string;
     transportType: EHardwareTransportType;
   }> {
+    if (
+      platformEnv.isDesktop &&
+      params.hardwareCallContext === EHardwareCallContext.UPDATE_FIRMWARE
+    ) {
+      const device = params.connectId
+        ? await localDb.getDeviceByQuery({ connectId: params.connectId })
+        : undefined;
+      const connectProtocol =
+        (await this.getKnownDeviceProtocol(params.connectId)) ??
+        (params.features?.protocol === 'V1' ||
+        params.features?.protocol === 'V2'
+          ? params.features.protocol
+          : undefined);
+      const usb = await this.getSingleFirmwareUsbDevice(connectProtocol);
+      const identities = await this.probeUsbDeviceIdentities({
+        commType:
+          usb.transportType === EHardwareTransportType.Bridge
+            ? 'bridge'
+            : 'webusb',
+      });
+      if (identities.length > 1)
+        throw new deviceErrors.FirmwareUpdateLimitOneDevice();
+      const candidate = identities.find(
+        (identity) =>
+          identity.path === usb.path &&
+          identity.commType ===
+            (usb.transportType === EHardwareTransportType.Bridge
+              ? 'bridge'
+              : 'webusb'),
+      );
+      if (!candidate)
+        throw new deviceErrors.FirmwareUpdateRequiresUsbTransport();
+      const normalize = (value?: string | null) => {
+        const id = value?.trim().toLowerCase();
+        return id && !/^0+$/.test(id) ? id : undefined;
+      };
+      const target = normalize(params.connectId);
+      const isUsbEndpoint = target === normalize(candidate.path);
+      const expectedType = params.features?.deviceType ?? device?.deviceType;
+      const expectedSerial =
+        normalize(deviceUtils.getDeviceSerialNoFromFeatures(params.features)) ||
+        normalize(deviceUtils.getDeviceSerialNoFromDbDevice(device)) ||
+        (isUsbEndpoint ? normalize(candidate.serialNo) : undefined);
+      const expectedId =
+        normalize(params.features?.deviceId) ||
+        normalize(params.features?.device_id) ||
+        normalize(device?.deviceStateInfo?.identity.deviceId) ||
+        normalize(device?.deviceId) ||
+        (isUsbEndpoint ? normalize(candidate.deviceId) : undefined);
+      const matchesIdentity = (identity: {
+        serialNo: string | null;
+        deviceId: string | null;
+      }) => {
+        if (expectedSerial)
+          return normalize(identity.serialNo) === expectedSerial;
+        if (expectedId) return normalize(identity.deviceId) === expectedId;
+        return (
+          !target ||
+          normalize(identity.serialNo) === target ||
+          normalize(identity.deviceId) === target
+        );
+      };
+      if (
+        (connectProtocol && candidate.connectProtocol !== connectProtocol) ||
+        (expectedType &&
+          expectedType !== EDeviceType.Unknown &&
+          candidate.deviceType !== expectedType) ||
+        ((normalize(candidate.serialNo) || normalize(candidate.deviceId)) &&
+          !matchesIdentity(candidate)) ||
+        (!normalize(candidate.serialNo) &&
+          !normalize(candidate.deviceId) &&
+          target &&
+          (!expectedType || expectedType === EDeviceType.Unknown))
+      ) {
+        throw new deviceErrors.DeviceNotSame();
+      }
+      // SDK device lookup uses the verified business serial when available.
+      // Devices without a serial use the path, which also anchors USB rechecks.
+      const sdkConnectId =
+        candidate.serialNo && normalize(candidate.serialNo)
+          ? candidate.serialNo
+          : candidate.path;
+      await this.rememberDeviceProtocol({
+        connectIds: [candidate.path, sdkConnectId],
+        protocol: candidate.connectProtocol,
+      });
+      await this.connectionManager.setCurrentTransportType(usb.transportType);
+      const state = await this._getDeviceStateWithMutex({
+        connectId: sdkConnectId,
+        hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+        hardwareTransportType: usb.transportType,
+        silentMode: true,
+        params: {
+          scope: 'firmware',
+          connectProtocol: candidate.connectProtocol,
+          retryCount: 0,
+          skipWebDevicePrompt: true,
+        },
+      });
+      const hasIdentity =
+        normalize(state.identity.serialNo) ||
+        normalize(state.identity.deviceId);
+      const isLoader = ['bootloader', 'romloader'].includes(state.status.mode);
+      if (
+        state.protocol !== candidate.connectProtocol ||
+        state.identity.deviceType !== candidate.deviceType ||
+        (hasIdentity ? !matchesIdentity(state.identity) : !isLoader)
+      ) {
+        throw new deviceErrors.DeviceNotSame();
+      }
+      const currentUsb = await this.getSingleFirmwareUsbDevice(
+        candidate.connectProtocol,
+      );
+      if (currentUsb.path !== usb.path || currentUsb.device !== usb.device) {
+        throw new deviceErrors.DeviceNotSame();
+      }
+      return { connectId: sdkConnectId, transportType: usb.transportType };
+    }
     const resolvedConnectId = await this.getCompatibleConnectId(params);
     return {
       connectId: resolvedConnectId,

@@ -54,17 +54,17 @@ export async function getFirmwareUpdateUSBPreflightParams(
         features: result.features,
       })
     : result?.isBootloaderMode;
-  const hasDeviceId = [
+  const expectedDeviceId = [
     result?.features?.deviceId,
     result?.features?.device_id,
-  ].some((id) => {
+  ].find((id) => {
     const value = id?.trim();
     return value && !/^0+$/.test(value);
   });
   const bootloaderRecoveryDeviceType =
     isBootloaderMode &&
     !usbConnectId &&
-    !hasDeviceId &&
+    !expectedDeviceId &&
     result?.deviceType !== EDeviceType.Unknown
       ? result?.deviceType
       : undefined;
@@ -80,6 +80,7 @@ export async function getFirmwareUpdateUSBPreflightParams(
     connectId:
       usbConnectId ?? result?.updatingConnectId ?? result?.originalConnectId,
     connectProtocol,
+    ...(expectedDeviceId && !usbConnectId ? { expectedDeviceId } : {}),
     ...(bootloaderRecoveryDeviceType ? { bootloaderRecoveryDeviceType } : {}),
   };
 }

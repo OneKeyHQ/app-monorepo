@@ -43,7 +43,7 @@ export class HardwareConnectionManager {
 
   private actualTransportType: EHardwareTransportType | null = null;
 
-  private isRequestingBluetoothPermission = false;
+  private bluetoothPermissionPromise: Promise<boolean> | undefined;
 
   private constructor({ backgroundApi }: { backgroundApi: IBackgroundApi }) {
     this.backgroundApi = backgroundApi;
@@ -206,6 +206,7 @@ export class HardwareConnectionManager {
     connectId?: string,
     connectProtocol?: HardwareConnectProtocol,
     bootloaderRecoveryDeviceType?: EDeviceType,
+    expectedDeviceId?: string,
   ): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) return true;
     const mode = await this.getDesktopUsbSetting(connectProtocol);
@@ -213,7 +214,10 @@ export class HardwareConnectionManager {
       mode === 'bridge'
         ? await this.detectBridgeAvailability(undefined)
         : await this.detectWebUSBAvailability(undefined);
-    if (!usbAvailable || (!connectId && !bootloaderRecoveryDeviceType)) {
+    if (
+      !usbAvailable ||
+      (!connectId && !bootloaderRecoveryDeviceType && !expectedDeviceId)
+    ) {
       return usbAvailable;
     }
 
@@ -244,6 +248,7 @@ export class HardwareConnectionManager {
         bootloaderRecoveryDeviceType &&
         bootloaderRecoveryDeviceType !== EDeviceType.Unknown &&
         connectProtocol &&
+        !normalize(expectedDeviceId) &&
         candidates.length === 1 &&
         candidates[0].deviceType === bootloaderRecoveryDeviceType &&
         !normalize(candidates[0].serialNo) &&
@@ -251,13 +256,14 @@ export class HardwareConnectionManager {
       ) {
         return true;
       }
-      if (!connectId) return false;
+      if (!connectId && !expectedDeviceId) return false;
       const serial =
         normalize(deviceUtils.getDeviceSerialNoFromDbDevice(device)) ||
         normalize(
           deviceUtils.getDeviceSerialNoFromFeatures(device?.featuresInfo),
         );
       const walletId =
+        normalize(expectedDeviceId) ||
         normalize(device?.deviceStateInfo?.identity.deviceId) ||
         normalize(device?.deviceId);
       const target = normalize(connectId);
@@ -332,32 +338,28 @@ export class HardwareConnectionManager {
         desktopBluetoothSettings.isRequestedPermission,
       );
 
-      if (this.isRequestingBluetoothPermission) {
-        console.log(
-          '❌ detectBluetoothAvailability isRequestingBluetoothPermission -> :',
-          this.isRequestingBluetoothPermission,
-        );
-        return false;
-      }
-
-      this.isRequestingBluetoothPermission = true;
-
-      try {
-        const result = await this.requestBluetoothPermission();
-        return result;
-      } finally {
-        this.isRequestingBluetoothPermission = false;
-        // A dismissed permission prompt must not reopen the checking UI.
-        const state = await hardwareUiStateAtom.get();
-        if (
-          state?.payload?.eventType ===
-          EHardwareUiStateAction.DESKTOP_REQUEST_BLUETOOTH_PERMISSION
-        ) {
-          void this.backgroundApi.serviceHardwareUI.showCheckingDeviceDialog({
-            connectId: '',
+      if (!this.bluetoothPermissionPromise) {
+        this.bluetoothPermissionPromise =
+          this.requestBluetoothPermission().finally(async () => {
+            try {
+              // A dismissed permission prompt must not reopen the checking UI.
+              const state = await hardwareUiStateAtom.get();
+              if (
+                state?.payload?.eventType ===
+                EHardwareUiStateAction.DESKTOP_REQUEST_BLUETOOTH_PERMISSION
+              ) {
+                void this.backgroundApi.serviceHardwareUI.showCheckingDeviceDialog(
+                  {
+                    connectId: '',
+                  },
+                );
+              }
+            } finally {
+              this.bluetoothPermissionPromise = undefined;
+            }
           });
-        }
       }
+      return this.bluetoothPermissionPromise;
     }
 
     console.log('🔍 detectBluetoothAvailability');

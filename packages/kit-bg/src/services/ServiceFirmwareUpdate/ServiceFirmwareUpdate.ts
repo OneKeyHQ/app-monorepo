@@ -957,8 +957,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
         ? { connectId, transportType: resolvedTransportType }
         : await this.backgroundApi.serviceHardware.resolveHardwareTransport({
             connectId,
-            hardwareCallContext:
-              EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
+            hardwareCallContext: platformEnv.isDesktop
+              ? EHardwareCallContext.UPDATE_FIRMWARE
+              : EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
           });
     }
     const originalConnectId = resolvedTransport?.connectId ?? connectId;
@@ -2559,6 +2560,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
                     connectId:
                       params.releaseResult.originalConnectId ??
                       params.releaseResult.updatingConnectId,
+                    features: params.releaseResult.features,
                     hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
                   },
                 );
@@ -2916,6 +2918,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
                     connectId:
                       params.releaseResult.originalConnectId ??
                       params.releaseResult.updatingConnectId,
+                    features: params.releaseResult.features,
                     hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
                   },
                 );
@@ -3802,15 +3805,20 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
     // Read the selected target over the locked USB transport, without cached
     // features or BLE aliases. A presence check alone cannot authorize an update.
+    const transport =
+      await this.backgroundApi.serviceHardware.resolveHardwareTransport({
+        connectId: releaseResult.originalConnectId,
+        features: releaseResult.features,
+        hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+      });
     const state = await this.backgroundApi.serviceHardware.getDeviceState({
-      connectId: expectedSerial || undefined,
-      hardwareTransportType,
-      hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+      connectId: transport.connectId,
+      hardwareTransportType: transport.transportType,
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
       params: {
         scope: 'firmware',
         retryCount: 0,
         skipWebDevicePrompt: true,
-        allowEmptyConnectId: !expectedSerial,
         connectProtocol: isProtocolV2ProductType(releaseResult.deviceType)
           ? 'V2'
           : 'V1',

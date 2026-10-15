@@ -1,16 +1,22 @@
 /** @jest-environment jsdom */
 
-import { EDeviceType } from '@onekeyfe/hd-shared';
+import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { act, renderHook } from '@testing-library/react';
 
 import { Dialog, resetModalRouteByName } from '@onekeyhq/components';
 import { DOWNLOAD_DESKTOP_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalFirmwareUpdateRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 
+import { usePrepareUSBConnectForFirmwareUpdate } from '../../Onboardingv2/hooks/usePrepareUSBConnectForFirmwareUpdate';
+
+import { bootloaderModeDialogManager } from './bootloaderModeDialogManager';
 import { useFirmwareUpdateActions } from './useFirmwareUpdateActions';
+
+import type { SearchDevice } from '@onekeyfe/hd-core';
 
 let mockIsNative = false;
 const mockPushModal = jest.fn<void, [string, unknown]>();
@@ -19,6 +25,8 @@ const mockCheckDeviceReachable = jest.fn<
   [{ connectId: string }]
 >();
 const mockOpenUrlExternal = jest.fn<void, [string]>();
+const mockDetectUSBDeviceAvailability = jest.fn<Promise<boolean>, [unknown]>();
+const mockSetForceTransportType = jest.fn<Promise<void>, [unknown]>();
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -33,6 +41,9 @@ jest.mock('use-debounce', () => ({
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
+    get isDesktop() {
+      return !mockIsNative;
+    },
     get isNative() {
       return mockIsNative;
     },
@@ -70,6 +81,11 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
     serviceHardware: {
       checkDeviceReachableForFirmwareUpdate: (params: { connectId: string }) =>
         mockCheckDeviceReachable(params),
+      detectUSBDeviceAvailability: (params: unknown) =>
+        mockDetectUSBDeviceAvailability(params),
+      getCurrentForceTransportType: jest.fn(async () => undefined),
+      setForceTransportType: (params: unknown) =>
+        mockSetForceTransportType(params),
     },
   },
 }));
@@ -80,6 +96,15 @@ jest.mock('../components/FirmwareUpdateCheckList', () => ({
 
 jest.mock('../utils', () => ({
   getTargetFirmwareTypeLabel: () => '',
+  getFirmwareUpdateUSBPreflightParams: jest.fn(async () => ({
+    connectId: 'CLASSIC_USB_PATH',
+    connectProtocol: 'V1',
+    bootloaderRecoveryDeviceType: 'classic1s',
+  })),
+}));
+
+jest.mock('../../Onboardingv2/utils', () => ({
+  getDesktopForceUSBTransportType: jest.fn(async () => 'webusb'),
 }));
 
 jest.mock('./bootloaderModeDialogManager', () => ({
@@ -186,6 +211,57 @@ describe('useFirmwareUpdateActions', () => {
   });
 
   describe('openChangeLogModal', () => {
+    it.each([false, true])(
+      'shows a silent device-not-found failure and permits retry (page host: %s)',
+      async (usePageHost) => {
+        mockCheckDeviceReachable.mockRejectedValueOnce({
+          $isHardwareError: true,
+          code: HardwareErrorCode.DeviceNotFound,
+        });
+        const show = jest.fn();
+        const { result } = renderHook(() => useFirmwareUpdateActions());
+        const params = {
+          connectId: 'CLASSIC_SERIAL',
+          ...(usePageHost ? { dialogHost: { show } } : {}),
+        };
+        await act(async () => {
+          await result.current.openChangeLogModal(params);
+        });
+        expect(usePageHost ? show : mockDialogShow).toHaveBeenCalledWith(
+          expect.objectContaining({
+            description: ETranslations.hardware_device_not_find_error,
+            showCancelButton: false,
+          }),
+        );
+        expect(mockPushModal).not.toHaveBeenCalled();
+        await act(async () => {
+          await result.current.openChangeLogModal(params);
+        });
+        expect(mockPushModal).toHaveBeenCalledWith(
+          EModalRoutes.FirmwareUpdateModal,
+          changeLogRoute({ connectId: 'CLASSIC_SERIAL-resolved' }),
+        );
+      },
+    );
+
+    it.each([
+      HardwareErrorCode.ActionCancelled,
+      HardwareErrorCode.PinCancelled,
+    ])('keeps a cancelled entry silent (%s)', async (code) => {
+      mockCheckDeviceReachable.mockRejectedValueOnce({
+        $isHardwareError: true,
+        code,
+      });
+      const { result } = renderHook(() => useFirmwareUpdateActions());
+      await act(async () => {
+        await result.current.openChangeLogModal({
+          connectId: 'CLASSIC_SERIAL',
+        });
+      });
+      expect(mockDialogShow).not.toHaveBeenCalled();
+      expect(mockPushModal).not.toHaveBeenCalled();
+    });
+
     it('checks the device and opens the changelog when the update is not known yet', async () => {
       mockIsNative = true;
       const { result } = renderHook(() => useFirmwareUpdateActions());
@@ -473,5 +549,89 @@ describe('useFirmwareUpdateActions', () => {
         'usbSuggestionAcknowledged',
       );
     });
+  });
+});
+
+describe('bootloader update USB preparation', () => {
+  const device = {
+    connectId: 'CLASSIC_USB_PATH',
+    deviceType: EDeviceType.Classic1s,
+  } as SearchDevice;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockIsNative = false;
+    mockDetectUSBDeviceAvailability.mockReset();
+    mockSetForceTransportType.mockResolvedValue(undefined);
+    mockCheckDeviceReachable.mockImplementation(
+      async ({ connectId }) => `${connectId}-resolved`,
+    );
+  });
+
+  it('explains the multi-USB block and allows the update after unplugging the other device', async () => {
+    mockDetectUSBDeviceAvailability
+      .mockRejectedValueOnce({
+        $isHardwareError: true,
+        code: HardwareErrorCode.FirmwareUpdateLimitOneDevice,
+      })
+      .mockResolvedValue(true);
+    const { result } = renderHook(() => ({
+      actions: useFirmwareUpdateActions(),
+      usb: usePrepareUSBConnectForFirmwareUpdate(),
+    }));
+    act(() =>
+      result.current.actions.showBootloaderMode({
+        connectId: device.connectId ?? undefined,
+        existsFirmware: true,
+        onBeforeUpdate: async () =>
+          (
+            await result.current.usb.prepareUSBConnect({
+              device,
+              features: undefined,
+            })
+          )?.connectId,
+      }),
+    );
+    const update = jest.mocked(bootloaderModeDialogManager).show.mock
+      .calls[0][0].onUpdate;
+    await act(async () => {
+      await update();
+    });
+    expect(mockDialogShow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description:
+          ETranslations.update_only_one_usb_device_supported_for_upgrade,
+        showCancelButton: false,
+      }),
+    );
+    expect(mockSetForceTransportType).not.toHaveBeenCalled();
+    expect(mockCheckDeviceReachable).not.toHaveBeenCalled();
+    expect(mockPushModal).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await update();
+    });
+    expect(mockDetectUSBDeviceAvailability).toHaveBeenCalledTimes(2);
+    expect(mockDialogShow).toHaveBeenCalledTimes(1);
+    expect(mockSetForceTransportType).toHaveBeenCalledWith({
+      forceTransportType: 'webusb',
+    });
+    expect(mockPushModal).toHaveBeenCalledWith(
+      EModalRoutes.FirmwareUpdateModal,
+      changeLogRoute({ connectId: 'CLASSIC_USB_PATH-resolved' }),
+    );
+  });
+
+  it('preserves unrelated USB preflight errors', async () => {
+    const error = new Error('USB disconnected');
+    mockDetectUSBDeviceAvailability.mockRejectedValue(error);
+    const { result } = renderHook(() =>
+      usePrepareUSBConnectForFirmwareUpdate(),
+    );
+    await expect(
+      result.current.prepareUSBConnect({ device, features: undefined }),
+    ).rejects.toBe(error);
+    expect(mockDialogShow).not.toHaveBeenCalled();
+    expect(mockSetForceTransportType).not.toHaveBeenCalled();
   });
 });
