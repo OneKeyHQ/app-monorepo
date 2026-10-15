@@ -65,7 +65,15 @@ export function NativeMarketDetailContent({
   const renderHeaderTitle = useCallback(
     () => (
       <XStack gap="$2" alignItems="center">
-        <MarketTokenIcon uri={tokenImageUri || token?.image || ''} size="sm" />
+        <MarketTokenIcon
+          uri={tokenImageUri || token?.image || ''}
+          uris={
+            tokenImageUri && token?.image
+              ? [tokenImageUri, token.image]
+              : undefined
+          }
+          size="sm"
+        />
         <SizableText>{token?.symbol.toUpperCase()}</SizableText>
       </XStack>
     ),
