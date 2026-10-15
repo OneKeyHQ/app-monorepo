@@ -102,6 +102,7 @@ type IPendingCaches = {
   homeLocalAccountTokensCache?: IAccountTokenListCache;
   homeLocalAccountTokensFlushing?: Set<IAccountTokenListCache>;
   localAccountTokensCache?: IAccountTokenListCache;
+  localAccountTokensFlushing?: Set<IAccountTokenListCache>;
 };
 
 function emptyRecords(deriveTypes: string[] = DERIVE_TYPES): ILocalRecords {
@@ -235,6 +236,17 @@ describe('ServiceToken.getDeriveTypesCollapseState', () => {
         homeLocalAccountTokensFlushing: new Set([
           buildCache({ [keyOf('BIP44')]: true }, 1),
           buildCache({ [keyOf('BIP84')]: false }, 2),
+        ]),
+      },
+    });
+    await expect(getState()).resolves.toEqual(NOT_COLLAPSED);
+  });
+
+  it('reads a non-Home batch while it is being written to storage', async () => {
+    const { getState } = makeService({
+      pendingCaches: {
+        localAccountTokensFlushing: new Set([
+          buildCache({ [keyOf('BIP44')]: true }, 1),
         ]),
       },
     });

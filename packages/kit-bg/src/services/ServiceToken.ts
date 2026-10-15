@@ -309,6 +309,10 @@ class ServiceToken extends ServiceBase {
     tokenListHasAssets: {},
   };
 
+  // Batches of `localAccountTokensCache` being written: no longer pending, not
+  // yet in storage.
+  private localAccountTokensFlushing = new Set<IAccountTokenListCache>();
+
   private homeLocalAccountTokensCache: IAccountTokenListCache | undefined;
 
   // Home batches being written: no longer pending, not yet in storage. A slow
@@ -990,9 +994,9 @@ class ServiceToken extends ServiceBase {
 
   _updateAccountLocalTokensDebounced = debounce(
     async () => {
-      await this.backgroundApi.simpleDb.localTokens.updateAccountTokenListByCache(
-        this.localAccountTokensCache,
-      );
+      const pending = this.localAccountTokensCache;
+      // Detach before awaiting storage: responses arriving meanwhile start the
+      // next batch instead of being cleared with this one.
       this.localAccountTokensCache = {
         tokenList: {},
         smallBalanceTokenList: {},
@@ -1002,6 +1006,14 @@ class ServiceToken extends ServiceBase {
         tokenListCurrency: {},
         tokenListHasAssets: {},
       };
+      this.localAccountTokensFlushing.add(pending);
+      try {
+        await this.backgroundApi.simpleDb.localTokens.updateAccountTokenListByCache(
+          pending,
+        );
+      } finally {
+        this.localAccountTokensFlushing.delete(pending);
+      }
     },
     3000,
     {
@@ -1760,6 +1772,7 @@ class ServiceToken extends ServiceBase {
         this.homeLocalAccountTokensCache,
         ...this.homeLocalAccountTokensFlushing,
         this.localAccountTokensCache,
+        ...this.localAccountTokensFlushing,
       ].filter((source): source is IAccountTokenListCache => !!source);
       const hasRecord = (
         source:
