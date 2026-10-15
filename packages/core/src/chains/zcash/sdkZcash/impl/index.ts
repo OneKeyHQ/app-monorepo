@@ -27,6 +27,7 @@ import {
   getChainTip,
   parseTransparentTransactions,
   quoteTransparentTx,
+  redactPcztForHardwareSigner,
   signPczt,
   validateAddress,
   verifyPcztReview,
@@ -259,6 +260,7 @@ const api: IZcashSdkApi = {
 
   createTransparentHardwarePczt,
   finalizeTransparentHardwarePczt,
+  redactPcztForHardwareSigner,
 
   // Leased: every one of these opens or uses the wallet database.
   prepareWalletAccounts: leased(prepareWalletAccounts),

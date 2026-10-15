@@ -162,6 +162,19 @@ export async function signPczt(
   }
 }
 
+// The copy a hardware signer gets: firmware rejects Sapling data and proving
+// fields. Keep the original; combining the device's result into it restores them.
+export async function redactPcztForHardwareSigner(params: {
+  pcztHex: string;
+}): Promise<{ pcztHex: string }> {
+  const keys = await getKeys();
+  return {
+    pcztHex: bytesToHex(
+      keys.pcztRedactForHardwareSigner(zcashHexToBytes(params.pcztHex)),
+    ),
+  };
+}
+
 export async function verifyPcztReview(params: {
   pcztHex: string;
   review: IZcashPcztReviewRequest;
