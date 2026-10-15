@@ -102,6 +102,15 @@ function createKeyring({
   }) as KeyringHardware;
 }
 
+// The device gets a redacted copy; tagging it shows which copy went where.
+const redactPcztForHardwareSigner = async ({
+  pcztHex,
+}: {
+  pcztHex: string;
+}) => ({
+  pcztHex: `${pcztHex}-device`,
+});
+
 describe('Zcash KeyringHardware', () => {
   afterEach(() => {
     jest.restoreAllMocks();
@@ -131,6 +140,7 @@ describe('Zcash KeyringHardware', () => {
       }),
       zcashAbandonPczt: jest.fn(),
     };
+    mockGetZcashApi.mockResolvedValue({ redactPcztForHardwareSigner });
     const keyring = createKeyring({
       sdk: { zcashSignPczt },
       vault,
@@ -155,7 +165,7 @@ describe('Zcash KeyringHardware', () => {
     expect(calls).toEqual(['assert', 'device', 'combine', 'prove', 'commit']);
     expect(zcashSignPczt).toHaveBeenCalledWith('connect-1', 'device-1', {
       passphraseState: 'pp',
-      pczt: 'aabb',
+      pczt: 'aabb-device',
     });
     expect(vault.zcashCombineSignedPczt).toHaveBeenCalledWith({
       accountId: 'hw-1--acc',
@@ -266,6 +276,7 @@ describe('Zcash KeyringHardware', () => {
           .fn()
           .mockResolvedValue({ pcztHex: 'aabb' }),
         finalizeTransparentHardwarePczt: jest.fn().mockResolvedValue(build),
+        redactPcztForHardwareSigner,
       };
       mockGetZcashApi.mockResolvedValue(api);
       const simpleDbZcash = {
@@ -647,12 +658,14 @@ describe('Zcash KeyringHardware transparent signing', () => {
     const createTransparentHardwarePczt = jest.fn(async () => ({
       pcztHex: 'aabb',
     }));
+    const finalizeTransparentHardwarePczt = jest.fn(async () => result);
     mockGetZcashApi.mockResolvedValue({
       deriveTransparentXpubFromUfvk: jest.fn(async () => ({
         xpub: devicePubkeyXpub,
       })),
       createTransparentHardwarePczt,
-      finalizeTransparentHardwarePczt: jest.fn(async () => result),
+      finalizeTransparentHardwarePczt,
+      redactPcztForHardwareSigner,
     });
     const keyring = createKeyring({
       sdk: { zcashSignPczt },
@@ -704,6 +717,7 @@ describe('Zcash KeyringHardware transparent signing', () => {
       zcashSignPczt,
       fetchDeviceViewingKeys,
       createTransparentHardwarePczt,
+      finalizeTransparentHardwarePczt,
       fingerprintStore,
     };
   }
@@ -713,6 +727,7 @@ describe('Zcash KeyringHardware transparent signing', () => {
       sign,
       fetchDeviceViewingKeys,
       createTransparentHardwarePczt,
+      finalizeTransparentHardwarePczt,
       zcashSignPczt,
     } = createTransparentKeyring({ storedFingerprint: 'ab'.repeat(32) });
 
@@ -725,6 +740,17 @@ describe('Zcash KeyringHardware transparent signing', () => {
       seedFingerprintHex: 'ab'.repeat(32),
     });
     expect(zcashSignPczt).toHaveBeenCalledTimes(1);
+    expect(zcashSignPczt).toHaveBeenCalledWith(
+      'connect-1',
+      'device-1',
+      expect.objectContaining({ pczt: 'aabb-device' }),
+    );
+    expect(finalizeTransparentHardwarePczt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        originalPcztHex: 'aabb',
+        signedPcztHex: 'ccdd',
+      }),
+    );
   });
 
   it('asks the device once when no fingerprint is stored, then keeps it', async () => {

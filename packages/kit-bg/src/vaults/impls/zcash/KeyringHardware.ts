@@ -398,12 +398,14 @@ export class KeyringHardware extends KeyringHardwareBase {
           reservationId,
           encodedTx,
         });
-        // The device signs the UNPROVED PCZT (proof fields make it reject)
-        // and returns a redacted copy carrying only the signatures.
+        // The device signs a redacted copy of the UNPROVED PCZT and returns
+        // only signatures; the original keeps what proving needs.
+        const api = await zcashVault.zcashGetApi();
+        const device = await api.redactPcztForHardwareSigner({ pcztHex });
         const sdk = await this.getZcashSdk({ connectId });
         const response = await sdk.zcashSignPczt(connectId, deviceId, {
           ...deviceParams.deviceCommonParams,
-          pczt: pcztHex,
+          pczt: device.pcztHex,
         });
         if (!response.success) {
           throw convertDeviceError(response.payload);
@@ -528,11 +530,14 @@ export class KeyringHardware extends KeyringHardwareBase {
           accountXpub,
           seedFingerprintHex,
         });
+        const device = await api.redactPcztForHardwareSigner({
+          pcztHex: original.pcztHex,
+        });
         const { connectId, deviceId } = deviceParams.dbDevice;
         const sdk = await this.getZcashSdk({ connectId });
         const response = await sdk.zcashSignPczt(connectId, deviceId, {
           ...deviceParams.deviceCommonParams,
-          pczt: original.pcztHex,
+          pczt: device.pcztHex,
         });
         if (!response.success) {
           throw convertDeviceError(response.payload);
