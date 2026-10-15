@@ -24,6 +24,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -143,6 +144,7 @@ const PreSwapDialogContent = ({
   disableSaveSlippageForFutureOrders,
 }: IPreSwapDialogContentProps) => {
   const intl = useIntl();
+  const { md } = useMedia();
   const [, setSettings] = useSettingsAtom();
   const [settingsPersist] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
@@ -997,7 +999,7 @@ const PreSwapDialogContent = ({
                     testID="swap-btn"
                     variant="primary"
                     onPress={handleConfirmPress}
-                    size="medium"
+                    size={md ? 'large' : 'medium'}
                     disabled={isPrimaryButtonDisabled}
                   >
                     {actionBtnTest}
