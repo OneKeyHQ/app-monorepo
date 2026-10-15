@@ -160,16 +160,16 @@ const EARN_CATEGORIES: ReadonlySet<string> = new Set<IEarnPositionCategory>([
 
 // Pending withdrawal reuses the status the detail page prints on these very
 // rows ("Withdrawal requested"); a dedicated "Pending withdrawal" key is
-// still on the OK-61377 i18n list. The principal out of its cooldown reads
-// Claimable, the detail page's word for that row, so Redeem (the deposit's
-// button) only ever means starting a withdrawal (product 10-14).
+// still on the OK-61377 i18n list. The principal out of its withdrawal,
+// waiting to be claimed, reads Withdrawal ready (product 10-15): Redeemable
+// clashed with the deposit's Redeem, and Claimable with the rewards.
 const SECTION_TITLE_IDS: Record<IEarnPositionSectionKind, ETranslations> = {
   deposited: ETranslations.earn_deposited,
   supplied: ETranslations.wallet_defi_asset_type_supplied,
   borrowed: ETranslations.wallet_defi_asset_type_borrowed,
   rewards: ETranslations.wallet_defi_position_module_rewards,
   pendingWithdrawal: ETranslations.earn_withdrawal_requested,
-  claimable: ETranslations.earn_claimable,
+  claimable: ETranslations.defi_position_status_withdrawal_ready__title,
 };
 
 const SECTION_ASSET_TYPES: Record<

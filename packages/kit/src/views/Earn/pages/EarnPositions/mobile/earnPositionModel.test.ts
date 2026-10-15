@@ -188,7 +188,11 @@ describe('earn position model: one card per holding', () => {
         ETranslations.earn_withdrawal_requested,
         ['0.25', '0.3'],
       ],
-      ['claimable', ETranslations.earn_claimable, ['0.5']],
+      [
+        'claimable',
+        ETranslations.defi_position_status_withdrawal_ready__title,
+        ['0.5'],
+      ],
     ]);
     const pending = deposit.sections.find(
       (section) => section.kind === 'pendingWithdrawal',
