@@ -20,7 +20,6 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 import { useWebViewTranslate } from '@onekeyhq/kit/src/components/WebView/useWebViewTranslate';
 import type { IFreeTrialTranslateStopPayload } from '@onekeyhq/kit/src/components/WebView/useWebViewTranslate';
 import { DiscoveryTestIDs } from '@onekeyhq/kit/src/views/Discovery/testIDs';
-import { PrimeFreeTrialRemainingHint } from '@onekeyhq/kit/src/views/Prime/components/PrimeFreeTrialRemainingHint';
 import {
   isPrimeFreeTrialTravelMode,
   usePrimeFeatureAccess,
@@ -444,12 +443,6 @@ export function TranslatePopoverContent({
             />
           ) : null}
         </XStack>
-        {/* Also shown while translated: the page keeps using the quota. */}
-        <PrimeFreeTrialRemainingHint
-          featureId={EPrimeFeatures.DAppTranslate}
-          justifyContent="center"
-          beforeGetPrime={closePopoverBeforeNavigation}
-        />
       </YStack>
     </YStack>
   );
