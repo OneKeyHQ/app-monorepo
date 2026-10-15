@@ -1,7 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import { formatLocalizedNumberString, numberFormat } from './numberUtils';
-import { formatHlPrice, formatHlSize } from './perpsUtils';
+import { formatHlPrice, formatHlSize, getMinimumOrderSize } from './perpsUtils';
 
 export const TWAP_MIN_DURATION_MINUTES = 5;
 export const TWAP_MAX_DURATION_MINUTES = 7 * 24 * 60;
@@ -154,6 +154,25 @@ function getTwapTruncatedNotional({
     return undefined;
   }
   return sizeBN.multipliedBy(priceBN);
+}
+
+export function formatTwapMinimumOrderNotional({
+  price,
+  szDecimals,
+}: {
+  price: BigNumber.Value;
+  szDecimals: number;
+}): string {
+  const size = getMinimumOrderSize({
+    price,
+    szDecimals,
+    minimumNotional: TWAP_MIN_ORDER_NOTIONAL,
+  });
+  return formatLocalizedNumberString(
+    size
+      ? size.multipliedBy(price).toFixed(2, BigNumber.ROUND_CEIL)
+      : String(TWAP_MIN_ORDER_NOTIONAL),
+  );
 }
 
 export function isTwapTotalNotionalValid(params: {

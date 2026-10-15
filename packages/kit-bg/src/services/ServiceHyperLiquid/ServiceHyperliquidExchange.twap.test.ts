@@ -6,6 +6,7 @@ import ServiceHyperliquidExchange from './ServiceHyperliquidExchange';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
 const mockTwapOrder = jest.fn();
+const mockFormatMessage = jest.fn(({ id }: { id: string }) => id);
 jest.mock('@nktkas/hyperliquid', () => ({
   HttpTransport: jest.fn(),
   ExchangeClient: jest.fn().mockImplementation(() => ({
@@ -21,7 +22,12 @@ jest.mock('../../states/jotai/atoms', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
   appLocale: {
-    intl: { formatMessage: ({ id }: { id: string }) => id },
+    intl: {
+      formatNumber: (value: number, options?: Intl.NumberFormatOptions) =>
+        new Intl.NumberFormat('en-US', options).format(value),
+      formatMessage: (...args: Parameters<typeof mockFormatMessage>) =>
+        mockFormatMessage(...args),
+    },
     getLocale: () => 'en-US',
     onLocaleChange: () => () => {},
   },
@@ -89,6 +95,10 @@ describe('ServiceHyperliquidExchange TWAP notional', () => {
       ETranslations.perp_twap_min_order_notional__msg,
     );
     expect(mockTwapOrder).not.toHaveBeenCalled();
+    expect(mockFormatMessage).toHaveBeenCalledWith(
+      { id: ETranslations.perp_twap_min_order_notional__msg },
+      { amount: '100.11' },
+    );
     expect(recordTaskCompleted).not.toHaveBeenCalled();
   });
 
