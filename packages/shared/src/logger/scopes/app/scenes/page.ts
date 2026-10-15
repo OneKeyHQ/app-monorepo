@@ -68,7 +68,10 @@ export class PageScene extends BaseScene {
     return { test: 'test' };
   }
 
-  @LogToServer({ level: 'info', enqueueImmediately: platformEnv.isNative })
+  @LogToServer({
+    level: 'info',
+    enqueueImmediately: platformEnv.isNative || platformEnv.isDesktop,
+  })
   @LogToLocal()
   public jsReadyTime(duration: number) {
     return {
@@ -76,7 +79,10 @@ export class PageScene extends BaseScene {
     };
   }
 
-  @LogToServer({ level: 'info', enqueueImmediately: platformEnv.isNative })
+  @LogToServer({
+    level: 'info',
+    enqueueImmediately: platformEnv.isNative || platformEnv.isDesktop,
+  })
   @LogToLocal()
   public uiVisibleTime(duration: number) {
     return {

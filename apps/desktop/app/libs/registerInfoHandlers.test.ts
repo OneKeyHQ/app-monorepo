@@ -1,6 +1,23 @@
+import type { Analytics } from '@onekeyhq/shared/src/analytics';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { ipcMessageKeys } from '../config';
+
+let mockLoggerReady = true;
+
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: { isDesktop: true, isNative: false },
+}));
+
+jest.mock('@onekeyhq/shared/src/logger/loggerConfig', () => ({
+  loggerConfig: {
+    get isReady() {
+      return mockLoggerReady;
+    },
+    shouldLog: () => false,
+  },
+}));
 
 const mockListeners = new Map<
   string,
@@ -41,6 +58,21 @@ function loadRenderer() {
   ).default;
 }
 
+function loadPageLogger() {
+  const appGlobals = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/appGlobals')
+  >('@onekeyhq/shared/src/appGlobals').default;
+  const { PageScene } = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/logger/scopes/app/scenes/page')
+  >('@onekeyhq/shared/src/logger/scopes/app/scenes/page');
+  const { loggerRuntime } = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/logger/runtime/loggerRuntime')
+  >('@onekeyhq/shared/src/logger/runtime/loggerRuntime');
+  const trackEvent = jest.fn();
+  appGlobals.$analytics = { trackEvent } as unknown as Analytics;
+  return { appGlobals, scene: new PageScene(), loggerRuntime, trackEvent };
+}
+
 describe('desktop process startup timing claims', () => {
   const originalDesktopApi = Object.getOwnPropertyDescriptor(
     globalThis,
@@ -50,7 +82,9 @@ describe('desktop process startup timing claims', () => {
   let release: jest.Mock;
 
   beforeEach(() => {
+    jest.useFakeTimers();
     jest.resetModules();
+    mockLoggerReady = true;
     mockListeners.clear();
     register = jest.requireActual<typeof import('./registerInfoHandlers')>(
       './registerInfoHandlers',
@@ -71,6 +105,11 @@ describe('desktop process startup timing claims', () => {
   });
 
   afterEach(() => {
+    jest.requireActual<typeof import('@onekeyhq/shared/src/appGlobals')>(
+      '@onekeyhq/shared/src/appGlobals',
+    ).default.$analytics = undefined;
+    jest.clearAllTimers();
+    jest.useRealTimers();
     if (originalDesktopApi) {
       Object.defineProperty(globalThis, 'desktopApi', originalDesktopApi);
     } else {
@@ -135,6 +174,97 @@ describe('desktop process startup timing claims', () => {
     const report = jest.fn();
     manager.reportStartupTiming('uiVisibleTime', report);
     expect(report).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([true, false])(
+    'hands off real timing logs before reload when logger ready is %p',
+    (ready) => {
+      mockLoggerReady = ready;
+      const { scene, loggerRuntime, trackEvent } = loadPageLogger();
+      const handoff = jest.spyOn(loggerRuntime, 'enqueueOrProcess');
+      const manager = loadRenderer();
+      manager.reportStartupTiming('jsReadyTime', () => scene.jsReadyTime(100));
+      manager.reportStartupTiming('uiVisibleTime', () =>
+        scene.uiVisibleTime(200),
+      );
+      expect(handoff).toHaveBeenCalledTimes(2);
+      expect(jest.getTimerCount()).toBe(0);
+      if (!ready) {
+        expect(trackEvent).not.toHaveBeenCalled();
+        mockLoggerReady = true;
+        loggerRuntime.drain();
+      }
+      expect(trackEvent.mock.calls).toEqual([
+        ['jsReadyTime', { duration: 100 }],
+        ['uiVisibleTime', { duration: 200 }],
+      ]);
+
+      jest.clearAllTimers();
+      jest.resetModules();
+      register(true, () => true);
+      const reloaded = loadPageLogger();
+      const nextManager = loadRenderer();
+      nextManager.reportStartupTiming('jsReadyTime', () =>
+        reloaded.scene.jsReadyTime(300),
+      );
+      nextManager.reportStartupTiming('uiVisibleTime', () =>
+        reloaded.scene.uiVisibleTime(400),
+      );
+      expect(reloaded.trackEvent).not.toHaveBeenCalled();
+      expect(release).not.toHaveBeenCalled();
+    },
+  );
+
+  it('releases only the real timing log whose synchronous analytics handoff fails', () => {
+    const { scene, trackEvent } = loadPageLogger();
+    const manager = loadRenderer();
+    manager.reportStartupTiming('uiVisibleTime', () =>
+      scene.uiVisibleTime(200),
+    );
+    trackEvent.mockImplementationOnce(() => {
+      throw new OneKeyLocalError('enqueue failed');
+    });
+    manager.reportStartupTiming('jsReadyTime', () => scene.jsReadyTime(100));
+    expect(release.mock.calls).toEqual([['jsReadyTime']]);
+    manager.reportStartupTiming('jsReadyTime', () => scene.jsReadyTime(101));
+    manager.reportStartupTiming('uiVisibleTime', () =>
+      scene.uiVisibleTime(201),
+    );
+    expect(trackEvent.mock.calls).toEqual([
+      ['uiVisibleTime', { duration: 200 }],
+      ['jsReadyTime', { duration: 100 }],
+      ['jsReadyTime', { duration: 101 }],
+    ]);
+  });
+
+  it('releases real timing claims when analytics is unavailable so they can retry', () => {
+    const { appGlobals, scene, trackEvent } = loadPageLogger();
+    const manager = loadRenderer();
+    appGlobals.$analytics = undefined;
+    manager.reportStartupTiming('jsReadyTime', () => scene.jsReadyTime(100));
+    manager.reportStartupTiming('uiVisibleTime', () =>
+      scene.uiVisibleTime(200),
+    );
+    expect(release.mock.calls).toEqual([['jsReadyTime'], ['uiVisibleTime']]);
+    appGlobals.$analytics = { trackEvent } as unknown as Analytics;
+    manager.reportStartupTiming('jsReadyTime', () => scene.jsReadyTime(100));
+    manager.reportStartupTiming('uiVisibleTime', () =>
+      scene.uiVisibleTime(200),
+    );
+    expect(trackEvent).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps ordinary desktop activity logs deferred and repeatable', () => {
+    const { scene, trackEvent } = loadPageLogger();
+    scene.appStart();
+    scene.appStart();
+    expect(trackEvent).not.toHaveBeenCalled();
+    expect(jest.getTimerCount()).toBe(2);
+    jest.runOnlyPendingTimers();
+    expect(trackEvent.mock.calls).toEqual([
+      ['appStart', {}],
+      ['appStart', {}],
+    ]);
   });
 
   it.each([undefined, null, '', 'appStart', {}, []])(
