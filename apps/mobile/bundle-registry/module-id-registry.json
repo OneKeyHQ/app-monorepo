@@ -23946,6 +23946,7 @@
     "packages/kit/src/views/Send/pages/SendAmountInput/hooks/siblingBalanceUtils.ts": 24386,
     "packages/kit/src/views/Send/pages/SendAmountInput/hooks/useAutoSwitchDeriveType.ts": 15200,
     "packages/kit/src/views/Send/pages/SendAmountInput/hooks/useSiblingDeriveBalances.ts": 1136,
+    "packages/kit/src/views/Send/pages/SendAmountInput/privateSendAmountLayoutUtils.ts": 1481,
     "packages/kit/src/views/Send/pages/SendAmountInput/privateSendMaxAmountUtils.ts": 13928,
     "packages/kit/src/views/Send/pages/SendConfirm/SendConfirmActionsContainer.tsx": 682,
     "packages/kit/src/views/Send/pages/SendConfirm/SendConfirmContainer.tsx": 17506,
