@@ -971,7 +971,10 @@ export function HomePageView({
         return (
           <Tabs.TabBar
             {...tabBarProps}
-            containerStyle={nativeTabBarContainerStyle}
+            containerStyle={{
+              ...nativeTabBarContainerStyle,
+              bg: tabBarProps.topEdgeActive ? 'transparent' : undefined,
+            }}
             tabNames={tabBarTabNames}
             indexDecimal={perpTabShowWeb ? undefined : tabBarProps.indexDecimal}
             onTabPress={handleTabPress}
@@ -1082,6 +1085,77 @@ export function HomePageView({
     [portalTarget, stickyHost, activeTabName, activeTabId],
   );
 
+  const [tabPageHeight, setTabPageHeight] = useState(
+    platformEnv.isNativeIOS ? 162 : 92,
+  );
+  const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
+    setTabPageHeight(e.nativeEvent.layout.height - 20);
+  }, []);
+  const { result: accountNetworkNotSupported } = usePromiseResult(
+    async () => {
+      if (!network?.id || (!wallet?.id && !account?.id)) return undefined;
+      const checkResult =
+        await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported(
+          {
+            walletId: wallet?.id,
+            accountId: account?.id,
+            accountImpl: account?.impl,
+            activeNetworkId: network.id,
+            featuresInfoCache: device?.featuresInfo,
+          },
+        );
+
+      return !!checkResult?.networkImpl;
+    },
+    [account?.id, account?.impl, wallet?.id, network?.id, device?.featuresInfo],
+    { initResult: undefined },
+  );
+  const hasNativePager =
+    platformEnv.isNative &&
+    !isWalletNotBackedUp &&
+    !accountNetworkNotSupported &&
+    !(
+      softwareAccountDisabled &&
+      accountUtils.isHdWallet({ walletId: wallet?.id ?? '' })
+    ) &&
+    !(
+      supportedDeviceTypes &&
+      device?.deviceType &&
+      !supportedDeviceTypes.includes(device.deviceType)
+    ) &&
+    !(
+      !account &&
+      (network?.isAllNetworks ||
+        !(
+          vaultSettings?.mergeDeriveAssetsEnabled &&
+          networkAccounts?.networkAccounts?.length
+        ))
+    );
+  const supportsIos26ScrollEdge = platformEnv.isNativeIOS26Plus === true;
+  const [topEdgeCapability, setTopEdgeCapability] = useState({
+    ownerKey: '',
+    available: false,
+  });
+  const carryTopEdgeCapability = Boolean(
+    supportsIos26ScrollEdge &&
+    topEdgeCapability.available &&
+    topEdgeCapability.ownerKey !== homeScrollOwnerKey &&
+    hasNativePager &&
+    ready &&
+    wallet?.id &&
+    account?.id &&
+    !isRequiredValidation,
+  );
+  if (carryTopEdgeCapability) {
+    // Native availability is unchanged by an account switch. Transfer it before
+    // committing the replacement pager so its fixed overlay stays mounted.
+    setTopEdgeCapability({ ownerKey: homeScrollOwnerKey, available: true });
+  }
+  const topEdgeActive =
+    supportsIos26ScrollEdge &&
+    topEdgeCapability.available &&
+    topEdgeCapability.ownerKey === homeScrollOwnerKey;
+
   const tabs = useMemo(() => {
     if (isWalletNotBackedUp) {
       return (
@@ -1146,6 +1220,38 @@ export function HomePageView({
           initialTabName={seedTabName}
           headerHeightHint={nativeHeaderHeightHint}
           renderHeader={renderHeader}
+          topEdgeActive={topEdgeActive}
+          onTopScrollEdgeCapability={(available) =>
+            setTopEdgeCapability((current) => {
+              if (available) {
+                return { ownerKey: homeScrollOwnerKey, available: true };
+              }
+              return current.ownerKey === homeScrollOwnerKey
+                ? { ownerKey: homeScrollOwnerKey, available: false }
+                : current;
+            })
+          }
+          topOverlay={
+            topEdgeActive ? (
+              <Stack h={tabPageHeight}>
+                <YStack
+                  position="absolute"
+                  top={-20}
+                  left={0}
+                  bg="transparent"
+                  pt="$5"
+                  width="100%"
+                  onLayout={handleTabPageLayout}
+                >
+                  <TabPageHeader
+                    sceneName={sceneName}
+                    tabRoute={ETabRoutes.Home}
+                    disableHomeHeaderGlass
+                  />
+                </YStack>
+              </Stack>
+            ) : undefined
+          }
           renderTabBar={renderTabBar}
           onTabChange={handleTabChange}
           onTabPrepare={handleTabPrepare}
@@ -1233,6 +1339,10 @@ export function HomePageView({
     handleTabPrepare,
     homeScrollOwnerKey,
     nativeHeaderHeightHint,
+    topEdgeActive,
+    tabPageHeight,
+    handleTabPageLayout,
+    sceneName,
   ]);
 
   const handleSwitchWalletHomeTab = useCallback(
@@ -1319,26 +1429,6 @@ export function HomePageView({
     };
   }, [handleSwitchWalletHomeTab, refreshWalletList]);
 
-  const { result: accountNetworkNotSupported } = usePromiseResult(
-    async () => {
-      if (!network?.id || (!wallet?.id && !account?.id)) return undefined;
-      const checkResult =
-        await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported(
-          {
-            walletId: wallet?.id,
-            accountId: account?.id,
-            accountImpl: account?.impl,
-            activeNetworkId: network.id,
-            featuresInfoCache: device?.featuresInfo,
-          },
-        );
-
-      return !!checkResult?.networkImpl;
-    },
-    [account?.id, account?.impl, wallet?.id, network?.id, device?.featuresInfo],
-    { initResult: undefined },
-  );
-
   const homePageContent = useMemo(() => {
     if (accountNetworkNotSupported) {
       return (
@@ -1418,17 +1508,6 @@ export function HomePageView({
     tabs,
   ]);
 
-  // Initial heights based on measured header sizes on each platform.
-  // iOS measured: 162 (raw 182 - 20 offset). Must match actual layout
-  // to prevent content shift when onLayout fires.
-  const [tabPageHeight, setTabPageHeight] = useState(
-    platformEnv.isNativeIOS ? 162 : 92,
-  );
-  const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
-    const height = e.nativeEvent.layout.height - 20;
-    setTabPageHeight(height);
-  }, []);
-
   const hasNoUsableWallet = accountUtils.hasNoUsableWallet({
     wallet,
     account,
@@ -1452,6 +1531,9 @@ export function HomePageView({
     walletListWalletIds,
   });
 
+  const showIos26PagerOverlay =
+    topEdgeActive && hasNativePager && !showNoWalletContent && ready;
+
   const homePage = useMemo(() => {
     if (!ready && !isTravelModeRuntime) {
       return <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />;
@@ -1471,11 +1553,12 @@ export function HomePageView({
       <>
         <Page.Body>
           <Page.Container flex={1} padded={false}>
-            {platformEnv.isNative ? (
+            {platformEnv.isNative && !showIos26PagerOverlay ? (
               <Stack h={tabPageHeight} />
-            ) : (
+            ) : null}
+            {!platformEnv.isNative ? (
               <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />
-            )}
+            ) : null}
             {/* Native keeps the alerts inside the collapsible header (see
                 renderHeader), but that header only mounts with the wallet
                 content. Without a usable wallet fall back to the outer slot
@@ -1486,7 +1569,7 @@ export function HomePageView({
               </Stack>
             )}
             {content}
-            {platformEnv.isNative ? (
+            {platformEnv.isNative && !showIos26PagerOverlay ? (
               <YStack
                 position="absolute"
                 top={-20}
@@ -1512,6 +1595,7 @@ export function HomePageView({
     hasNoUsableWallet,
     showNoWalletContent,
     tabPageHeight,
+    showIos26PagerOverlay,
     sceneName,
     handleTabPageLayout,
     walletPageContent,
