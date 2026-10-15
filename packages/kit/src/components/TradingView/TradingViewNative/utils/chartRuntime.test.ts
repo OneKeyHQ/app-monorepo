@@ -5,6 +5,7 @@ import {
   getTradingViewNativeChartRuntimeVisiblePointRange,
   reduceTradingViewNativeChartRuntime,
 } from './chartRuntime';
+import { getTradingViewNativeCandleX } from './chartViewport';
 
 describe('TradingViewNative chart runtime', () => {
   it('starts at the newest candles with no active crosshair', () => {
@@ -107,6 +108,79 @@ describe('TradingViewNative chart runtime', () => {
 
     expect(nextState.viewport).toEqual({ offset: 36, zoomScale: 1 });
   });
+
+  it.each([
+    {
+      initialRightOffset: { type: 'chartWidthPercentage', value: 100 } as const,
+      liveOffset: 6,
+    },
+    {
+      initialRightOffset: { type: 'pointCount', value: 20 } as const,
+      liveOffset: 26,
+    },
+  ])(
+    'follows appended candles at a clamped live offset of $liveOffset until panned',
+    ({ initialRightOffset, liveOffset }) => {
+      const chartWidth = 100;
+      let state = reduceTradingViewNativeChartRuntime(
+        createTradingViewNativeChartRuntimeState({ initialRightOffset }),
+        {
+          appendedPointCount: 0,
+          chartWidth,
+          pointCount: 20,
+          type: 'dataUpdated',
+        },
+      );
+      expect(state.viewport.offset).toBe(liveOffset);
+
+      for (const pointCount of [21, 22]) {
+        state = reduceTradingViewNativeChartRuntime(state, {
+          appendedPointCount: 1,
+          chartWidth,
+          pointCount,
+          type: 'dataUpdated',
+        });
+        expect(state.viewport.offset).toBe(liveOffset);
+        expect(
+          getTradingViewNativeCandleX({
+            ...state.viewport,
+            index: pointCount - 1,
+            pointCount,
+            priceAxisX: chartWidth,
+          }),
+        ).toBe(2.5);
+      }
+
+      const pannedState = reduceTradingViewNativeChartRuntime(state, {
+        chartWidth,
+        offset: liveOffset + 12,
+        pointCount: 22,
+        type: 'panMoved',
+      });
+      const nextState = reduceTradingViewNativeChartRuntime(pannedState, {
+        appendedPointCount: 1,
+        chartWidth,
+        pointCount: 23,
+        type: 'dataUpdated',
+      });
+      expect(nextState.viewport.offset).toBe(liveOffset + 18);
+      expect(
+        getTradingViewNativeCandleX({
+          ...nextState.viewport,
+          index: 21,
+          pointCount: 23,
+          priceAxisX: chartWidth,
+        }),
+      ).toBe(
+        getTradingViewNativeCandleX({
+          ...pannedState.viewport,
+          index: 21,
+          pointCount: 22,
+          priceAxisX: chartWidth,
+        }),
+      );
+    },
+  );
 
   it('allows panning past the latest candle and hides the crosshair when requested', () => {
     const state = {

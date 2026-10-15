@@ -464,7 +464,20 @@ export function getTradingViewNativePanOffsetAfterDataUpdate({
   const safeAppendedPointCount = Number.isFinite(appendedPointCount)
     ? Math.max(Math.floor(appendedPointCount), 0)
     : 0;
-  if (clampedOffset === 0 || safeAppendedPointCount === 0) {
+  if (safeAppendedPointCount === 0) {
+    return clampedOffset;
+  }
+
+  // Clamping the initial right padding can move the live position away from zero.
+  const liveOffset = clampTradingViewNativePanOffset({
+    candleGap: resolvedCandleGap,
+    chartWidth,
+    initialRightOffset,
+    offset: 0,
+    pointCount,
+    zoomScale,
+  });
+  if (clampedOffset === liveOffset) {
     return clampedOffset;
   }
 
