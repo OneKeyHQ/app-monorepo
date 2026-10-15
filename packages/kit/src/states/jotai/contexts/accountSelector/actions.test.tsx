@@ -862,6 +862,27 @@ describe('useAccountSelectorActions', () => {
     expect(num1RenderCount).toBe(initialNum1RenderCount);
   });
 
+  it('drops a superseded singleton selection at the commit boundary', async () => {
+    const { store, Wrapper } = createWrapper();
+    const previous = store.get(selectedAccountsAtom())[0];
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+    let ownsSelection = true;
+    await act(async () => {
+      const updating = result.current.updateSelectedAccountForSingletonAccount({
+        num: 0,
+        walletId: WALLET_TYPE_IMPORTED,
+        networkId: 'evm--1',
+        othersWalletAccountId: 'imported--old-account',
+        shouldCommit: () => ownsSelection,
+      });
+      ownsSelection = false;
+      await updating;
+    });
+    expect(store.get(selectedAccountsAtom())[0]).toBe(previous);
+  });
+
   it('drops a selection update when its final commit guard is stale', async () => {
     const { store, Wrapper } = createWrapper();
     const previous = store.get(selectedAccountsAtom())[0];
