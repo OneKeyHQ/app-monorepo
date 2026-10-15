@@ -459,6 +459,9 @@ export type IZcashSdkApi = {
   finalizeTransparentHardwarePczt: (
     params: IZcashTransparentHardwareFinalizeParams,
   ) => Promise<IZcashTransparentTxBuildResult>;
+  redactPcztForHardwareSigner: (params: {
+    pcztHex: string;
+  }) => Promise<{ pcztHex: string }>;
 
   // wallet side (watch-only)
   prepareWalletAccounts: (
