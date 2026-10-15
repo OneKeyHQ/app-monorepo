@@ -98,6 +98,7 @@ import {
   normalizeMarketTradingViewSubIndicatorCountPersist,
   setMarketTradingViewSubIndicatorCount,
 } from '../utils/marketTradingViewSubIndicatorCount';
+import { buildMarketStockTokenMetadata } from '../utils/resolveIsStockToken';
 
 import type { SwapPanel } from '../components/SwapPanel/legacySwapPanel';
 import type { SwapPanelWrap } from '../components/SwapPanel/SwapPanelWrap';
@@ -1114,7 +1115,8 @@ export function MobileLayout({
       logoURI: tokenDetail?.logoUrl,
       price: tokenDetail?.price,
       isNative: Boolean(tokenDetail?.isNative) || isNative || !hasSwapContract,
-      isStock: isStockToken,
+      isStock: Boolean(isStockToken || isStockRoute),
+      stock: buildMarketStockTokenMetadata(tokenDetail?.stock, stockId),
     };
   }, [
     networkId,
@@ -1127,6 +1129,9 @@ export function MobileLayout({
     tokenDetail?.isNative,
     isNative,
     isStockToken,
+    isStockRoute,
+    stockId,
+    tokenDetail?.stock,
   ]);
   const isSwapTokenReady = Boolean(
     tokenDetail &&
