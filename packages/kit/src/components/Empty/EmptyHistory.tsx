@@ -70,6 +70,7 @@ function EmptyHistory({
       !accountUtils.isOthersWallet({ walletId: walletId ?? '' }) &&
       vaultSettings?.mergeDeriveAssetsEnabled ? (
       <AddressTypeSelector
+        whenCollapsed="skip"
         walletId={walletId ?? ''}
         networkId={networkId ?? ''}
         indexedAccountId={indexedAccountId ?? account?.indexedAccountId ?? ''}
