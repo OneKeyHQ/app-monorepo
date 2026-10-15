@@ -13,6 +13,11 @@ const mockEnsureFeatureAccess = jest.fn();
 const mockHandleStartRejected = jest.fn();
 const mockToastError = jest.fn();
 let mockIsPrimeSubscriptionActive = false;
+let mockIsPageFocused = true;
+
+jest.mock('@react-navigation/core', () => ({
+  useNavigation: () => ({ isFocused: () => mockIsPageFocused }),
+}));
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -68,6 +73,7 @@ describe('usePrimeFreeTrialUsage.startUsage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockIsPrimeSubscriptionActive = false;
+    mockIsPageFocused = true;
   });
 
   it('waits for a settle still being written, even from another page', async () => {
@@ -237,6 +243,22 @@ describe('usePrimeFreeTrialUsage.startUsage', () => {
     });
   });
 
+  it('gives no feedback to a rejection that comes back after the page was left', async () => {
+    mockStartUsage.mockImplementation(async () => {
+      // The user went back or opened another page meanwhile.
+      mockIsPageFocused = false;
+      return { status: 'exhausted', featureId: 'BulkSend', data: {} };
+    });
+    const result = renderUsageHook();
+
+    await act(async () => {
+      await expect(result.current.startUsage()).resolves.toEqual({
+        status: 'rejected',
+      });
+    });
+    expect(mockHandleStartRejected).not.toHaveBeenCalled();
+  });
+
   it('shows an error unless the background proxy already toasted it', async () => {
     mockStartUsage
       .mockRejectedValueOnce({
@@ -282,6 +304,7 @@ describe('usePrimeFreeTrialUsage.prepareRetryUsage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockIsPrimeSubscriptionActive = false;
+    mockIsPageFocused = true;
   });
 
   it('keeps an unmetered round unmetered for a Prime user', async () => {

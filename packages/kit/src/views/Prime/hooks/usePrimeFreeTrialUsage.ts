@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
@@ -74,6 +75,9 @@ export function usePrimeFreeTrialUsage({
   featureId: IPrimeFreeTrialUsageFeatureId;
 }) {
   const intl = useIntl();
+  // The page of the bulk tool: a rejection that comes back after the user
+  // left it gets no feedback, so the dashboard never opens over another page.
+  const navigation = useNavigation();
   const { isPrimeSubscriptionActive } = useOneKeyAuth();
   const { handleStartRejected, ensureFeatureAccess } = usePrimeFeatureAccess();
 
@@ -158,7 +162,9 @@ export function usePrimeFreeTrialUsage({
             }
             return await startOnce(false);
           }
-          handleStartRejected({ result, networkId });
+          if (navigation.isFocused()) {
+            handleStartRejected({ result, networkId });
+          }
           return { status: 'rejected' };
         } catch (error) {
           defaultLogger.prime.subscription.primeFreeTrialTrace({
@@ -194,6 +200,7 @@ export function usePrimeFreeTrialUsage({
       handleStartRejected,
       intl,
       isPrimeSubscriptionActive,
+      navigation,
       settleUsage,
     ],
   );

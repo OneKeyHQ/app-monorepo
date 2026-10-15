@@ -138,13 +138,17 @@ type IAddressRiskCheckResultRequest =
 const OPEN_RESULT_GUARD_MS = 1000;
 
 // Entry for running a check from the standalone input and history pages: opens
-// the result page right away, which shows the loading and runs the check.
+// the result page right away, which shows the loading and runs the check. A
+// free user whose local snapshot is used up or not open gets the feedback on
+// the press instead, unless the address has a history result to show.
 export function useCheckAddressRisk() {
   const navigation = useAppNavigation();
+  const { getCachedAccess, showActiveRejectedFeedback } =
+    usePrimeFeatureAccess();
   const lastOpenedAtRef = useRef(0);
 
   const checkRisk = useCallback(
-    ({
+    async ({
       networkId,
       address,
       entryPoint,
@@ -158,12 +162,25 @@ export function useCheckAddressRisk() {
         return;
       }
       lastOpenedAtRef.current = now;
+      const access = getCachedAccess(EPrimeFeatures.AddressRiskCheck);
+      if (
+        (access.status === 'exhausted' || access.status === 'notOpen') &&
+        !(await getHistoryResult({ networkId, address }))
+      ) {
+        showActiveRejectedFeedback({
+          featureId: EPrimeFeatures.AddressRiskCheck,
+          reason: access.status,
+          resetAt: access.status === 'exhausted' ? access.resetAt : undefined,
+          networkId,
+        });
+        return;
+      }
       navigation.push(EModalAddressRiskCheckRoutes.AddressRiskCheckResult, {
         checkRequest: { networkId, address, entryPoint },
         showMoreAnalysis: true,
       });
     },
-    [navigation],
+    [getCachedAccess, navigation, showActiveRejectedFeedback],
   );
 
   return { checkRisk };
@@ -205,20 +222,20 @@ export function useAddressRiskCheckRequest(
         if (!isActive) {
           return;
         }
-        if (getPrimeFreeTrialError(error)) {
+        // Only a page still on top handles the rejection. One the user
+        // already left (closing, or covered by another page) shows the failed
+        // state instead: popping would close another page, and the dashboard
+        // would open over the page the user went to.
+        if (getPrimeFreeTrialError(error) && reactNavigation.isFocused()) {
           // Leave this pending page first so the user is not left on it
           // behind the feedback: the Send page check closes the whole modal,
           // a check inside the feature goes back to the input / history page.
-          // Only a page still on top leaves: one already closing (mounted
-          // during its close animation) or covered would pop another page.
-          if (reactNavigation.isFocused()) {
-            if (entryPoint === 'sendAddressInput') {
-              navigation.popStack();
-            } else {
-              navigation.pop();
-            }
-            await timerUtils.wait(300);
+          if (entryPoint === 'sendAddressInput') {
+            navigation.popStack();
+          } else {
+            navigation.pop();
           }
+          await timerUtils.wait(300);
           handleFreeTrialError({ error, networkId, afterPageExit: true });
           return;
         }

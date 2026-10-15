@@ -217,10 +217,11 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     expect(dashboardReason()).toBe('notOpen');
   });
 
-  it('logs in when the config is unknown, then routes by the fresh quota', async () => {
+  it('logs in when the config is unknown, then lets the user in while the quota is still unknown', async () => {
     mockIsLoggedIn.mockResolvedValueOnce(false).mockResolvedValue(true);
     mockLoginOneKeyId.mockResolvedValue(undefined);
-    mockRefreshQuota.mockResolvedValue(quotaWith(0));
+    // The quota of the new login has not come back yet.
+    mockRefreshQuota.mockReturnValue(new Promise(() => {}));
     const result = renderAccessHook();
 
     await act(async () => {
@@ -228,20 +229,14 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
         result.current.ensureFeatureAccess({
           featureId: EPrimeFeatures.BulkSend,
         }),
-      ).resolves.toEqual({ granted: false });
+      ).resolves.toEqual({ granted: true, entitlementSource: 'freeTrial' });
     });
     // Retried once before falling back to "unknown".
     expect(mockGetPublicConfig).toHaveBeenCalledTimes(2);
     expect(mockLoginOneKeyId).toHaveBeenCalledTimes(1);
-    // Exhausted: a toast with a button, never an automatic dashboard.
+    // The page's remaining hint and start judge the quota.
     expect(mockPushFullModal).not.toHaveBeenCalled();
-    expect(mockToastMessage).toHaveBeenCalledTimes(1);
-    expect(mockToastMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: '批量转账本月免费次数已用完',
-        actions: expect.anything(),
-      }),
-    );
+    expect(mockToastMessage).not.toHaveBeenCalled();
   });
 
   describe('slow gate requests', () => {
@@ -283,98 +278,6 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
       expect(mockDialogClose.mock.invocationCallOrder[0]).toBeLessThan(
         mockLoginOneKeyId.mock.invocationCallOrder[0],
       );
-    });
-
-    it('shows no loading when the gate answers quickly', async () => {
-      setSnapshot(quotaWith(0));
-      mockRefreshQuota.mockImplementation(
-        () =>
-          new Promise((resolve) => {
-            setTimeout(() => resolve(quotaWith(1)), 100);
-          }),
-      );
-      const result = renderAccessHook();
-
-      let gate: Promise<unknown> | undefined;
-      act(() => {
-        gate = result.current.ensureFeatureAccess({
-          featureId: EPrimeFeatures.BulkSend,
-        });
-      });
-      await act(async () => {
-        await jest.advanceTimersByTimeAsync(1000);
-        await expect(gate).resolves.toMatchObject({ granted: true });
-      });
-      expect(mockDialogLoading).not.toHaveBeenCalled();
-    });
-
-    it('leaves the loading to a caller that shows its own', async () => {
-      setSnapshot(quotaWith(0));
-      mockRefreshQuota.mockImplementation(
-        () =>
-          new Promise((resolve) => {
-            setTimeout(() => resolve(quotaWith(1)), 2000);
-          }),
-      );
-      const result = renderAccessHook();
-
-      let gate: Promise<unknown> | undefined;
-      act(() => {
-        gate = result.current.ensureFeatureAccess({
-          featureId: EPrimeFeatures.BulkSend,
-          showLoading: false,
-        });
-      });
-      await act(async () => {
-        await jest.advanceTimersByTimeAsync(3000);
-        await expect(gate).resolves.toMatchObject({ granted: true });
-      });
-      expect(mockDialogLoading).not.toHaveBeenCalled();
-    });
-
-    it('lets the user in when the refresh of a cached 0 does not answer within 5s', async () => {
-      setSnapshot(quotaWith(0));
-      mockRefreshQuota.mockReturnValue(new Promise(() => {}));
-      const result = renderAccessHook();
-
-      let gate: Promise<unknown> | undefined;
-      act(() => {
-        gate = result.current.ensureFeatureAccess({
-          featureId: EPrimeFeatures.BulkSend,
-        });
-      });
-      await act(async () => {
-        await jest.advanceTimersByTimeAsync(5000);
-        await expect(gate).resolves.toEqual({
-          granted: true,
-          entitlementSource: 'freeTrial',
-        });
-      });
-      expect(mockToastMessage).not.toHaveBeenCalled();
-    });
-
-    it('shows the loading for a slow quota refresh and closes it', async () => {
-      setSnapshot(quotaWith(0));
-      mockRefreshQuota.mockImplementation(
-        () =>
-          new Promise((resolve) => {
-            setTimeout(() => resolve(quotaWith(1)), 2000);
-          }),
-      );
-      const result = renderAccessHook();
-
-      let gate: Promise<unknown> | undefined;
-      act(() => {
-        gate = result.current.ensureFeatureAccess({
-          featureId: EPrimeFeatures.BulkSend,
-        });
-      });
-      await act(async () => {
-        await jest.advanceTimersByTimeAsync(3000);
-        await expect(gate).resolves.toMatchObject({ granted: true });
-      });
-      expect(mockDialogLoading).toHaveBeenCalledTimes(1);
-      expect(mockDialogClose).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -515,9 +418,8 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
       expect(mockLoginOneKeyId).not.toHaveBeenCalled();
     });
 
-    it('shows no exhausted toast after the quota refresh', async () => {
+    it('shows no exhausted feedback', async () => {
       setSnapshot(quotaWith(0));
-      mockRefreshQuota.mockResolvedValue(quotaWith(0));
       const onDenied = jest.fn();
       const result = renderAccessHook();
 
@@ -532,6 +434,7 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
       });
       expect(onDenied).toHaveBeenCalledWith('contextChanged');
       expect(mockToastMessage).not.toHaveBeenCalled();
+      expect(mockPushFullModal).not.toHaveBeenCalled();
     });
 
     it('still hands off to the dashboard after the gate left its page', async () => {
@@ -573,26 +476,7 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
   });
 
   describe('context changed while a logged-in user waited', () => {
-    it('drops the grant after the quota refresh', async () => {
-      setSnapshot(quotaWith(0));
-      mockRefreshQuota.mockResolvedValue(quotaWith(1));
-      const onDenied = jest.fn();
-      const result = renderAccessHook();
-
-      await act(async () => {
-        await expect(
-          result.current.ensureFeatureAccess({
-            featureId: EPrimeFeatures.BulkSend,
-            isContextValid: () => false,
-            onDenied,
-          }),
-        ).resolves.toEqual({ granted: false });
-      });
-      expect(mockRefreshQuota).toHaveBeenCalled();
-      expect(onDenied).toHaveBeenCalledWith('contextChanged');
-    });
-
-    it('drops the grant on the fast path and on entry', async () => {
+    it('drops the grant, with or without the quota check', async () => {
       setSnapshot(quotaWith(1));
       mockRefreshQuota.mockReturnValue(new Promise(() => {}));
       const result = renderAccessHook();
@@ -640,9 +524,9 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     expect(mockRefreshQuota).toHaveBeenCalledWith({ dedupe: true });
   });
 
-  it('confirms a cached 0 with a refresh before blocking', async () => {
+  it('opens the dashboard with a toast for a used-up snapshot, without waiting', async () => {
     setSnapshot(quotaWith(0));
-    mockRefreshQuota.mockResolvedValue(quotaWith(1));
+    mockRefreshQuota.mockReturnValue(new Promise(() => {}));
     const result = renderAccessHook();
 
     await act(async () => {
@@ -650,14 +534,19 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
         result.current.ensureFeatureAccess({
           featureId: EPrimeFeatures.BulkSend,
         }),
-      ).resolves.toEqual({ granted: true, entitlementSource: 'freeTrial' });
+      ).resolves.toEqual({ granted: false });
     });
-    expect(mockPushFullModal).not.toHaveBeenCalled();
+    expect(mockDialogLoading).not.toHaveBeenCalled();
+    await waitFor(() => expect(dashboardReason()).toBe('exhausted'));
+    expect(toastAt(0)).toMatchObject({
+      title: '批量转账本月免费次数已用完',
+      message: expect.stringMatching(/^.+ 重置$/),
+      actions: undefined,
+    });
   });
 
   it('explains a quota held by an earlier use instead of opening the dashboard', async () => {
     setSnapshot(quotaWith(0));
-    mockRefreshQuota.mockResolvedValue(quotaWith(0));
     mockGetHeldReservationEnd.mockResolvedValue(Date.now() + 10 * 60 * 1000);
     const result = renderAccessHook();
 
@@ -692,25 +581,12 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     });
   });
 
-  it('lets the user in when the refresh of a cached 0 fails', async () => {
-    setSnapshot(quotaWith(0));
-    mockRefreshQuota.mockResolvedValue(undefined);
-    const result = renderAccessHook();
-
-    await act(async () => {
-      await expect(
-        result.current.ensureFeatureAccess({
-          featureId: EPrimeFeatures.BulkSend,
-        }),
-      ).resolves.toEqual({ granted: true, entitlementSource: 'freeTrial' });
-    });
-    expect(mockToastMessage).not.toHaveBeenCalled();
-    expect(mockPushFullModal).not.toHaveBeenCalled();
-  });
-
   it('treats a null quota with a closed feature as not open', async () => {
-    mockRefreshQuota.mockResolvedValue(null);
-    mockGetPublicConfig.mockResolvedValue({ enabled: false, features: [] });
+    setSnapshot(null);
+    mockAtom.config = {
+      status: 'success',
+      data: { enabled: false, features: [] },
+    };
     const result = renderAccessHook();
 
     await act(async () => {
@@ -720,16 +596,12 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
         }),
       ).resolves.toEqual({ granted: false });
     });
-    // Judged on the local quota: the client sentence, and no dashboard until
-    // "Get Prime" is pressed.
-    expect(mockPushFullModal).not.toHaveBeenCalled();
-    expect(toastAt(0)?.title).toBe('批量转账暂未开放免费体验');
-    expect(toastAt(0)?.message).toBeUndefined();
-    pressGetPrimeOf(0);
+    // Just the dashboard, no toast.
     expect(dashboardReason()).toBe('notOpen');
+    expect(mockToastMessage).not.toHaveBeenCalled();
   });
 
-  it('lets a logged-in user with no uses left into the page on entry', async () => {
+  it('lets a used-up user in with deferQuotaCheck to read the history', async () => {
     setSnapshot(quotaWith(0));
     const result = renderAccessHook();
 
@@ -741,29 +613,9 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
         }),
       ).resolves.toEqual({ granted: true, entitlementSource: 'freeTrial' });
     });
-    expect(mockRefreshQuota).not.toHaveBeenCalled();
     expect(mockToastMessage).not.toHaveBeenCalled();
     expect(mockPushFullModal).not.toHaveBeenCalled();
     expect(mockDialogLoading).not.toHaveBeenCalled();
-  });
-
-  it('still asks to log in on entry, then lets the user in without a quota check', async () => {
-    mockIsLoggedIn.mockResolvedValueOnce(false).mockResolvedValue(true);
-    mockLoginOneKeyId.mockResolvedValue(undefined);
-    mockRefreshQuota.mockResolvedValue(quotaWith(0));
-    const result = renderAccessHook();
-
-    await act(async () => {
-      await expect(
-        result.current.ensureFeatureAccess({
-          featureId: EPrimeFeatures.BulkSend,
-          deferQuotaCheck: true,
-        }),
-      ).resolves.toEqual({ granted: true, entitlementSource: 'freeTrial' });
-    });
-    expect(mockLoginOneKeyId).toHaveBeenCalledTimes(1);
-    expect(mockRefreshQuota).not.toHaveBeenCalled();
-    expect(mockToastMessage).not.toHaveBeenCalled();
   });
 
   it('still opens the dashboard on entry when the trial is not open', async () => {
@@ -792,7 +644,7 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
     setSnapshot(undefined);
   });
 
-  it('titles a not-open toast with the client sentence and no body', () => {
+  it('opens just the dashboard for a feature not open', () => {
     const result = renderAccessHook();
 
     act(() => {
@@ -807,11 +659,31 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
       });
     });
 
-    expect(mockPushFullModal).not.toHaveBeenCalled();
-    expect(toastAt(0)?.title).toBe('地址风险检查暂未开放免费体验');
-    expect(toastAt(0)?.message).toBeUndefined();
-    pressGetPrimeOf(0);
     expect(dashboardReason()).toBe('notOpen');
+    expect(mockToastMessage).not.toHaveBeenCalled();
+  });
+
+  it('keeps translate on its page: a toast with "Get Prime"', async () => {
+    const result = renderAccessHook();
+
+    act(() => {
+      result.current.showActiveRejectedFeedback({
+        featureId: EPrimeFeatures.DAppTranslate,
+        reason: 'exhausted',
+        resetAt: RESET_AT,
+      });
+      result.current.showActiveRejectedFeedback({
+        featureId: EPrimeFeatures.DAppTranslate,
+        reason: 'notOpen',
+      });
+    });
+
+    await waitFor(() => expect(mockToastMessage).toHaveBeenCalledTimes(2));
+    expect(mockPushFullModal).not.toHaveBeenCalled();
+    expect(toastAt(0)?.title).toBe('AI 翻译本月免费额度已用完');
+    expect(toastAt(1)?.title).toBe('AI 翻译暂未开放免费体验');
+    pressGetPrimeOf(0);
+    expect(dashboardReason()).toBe('exhausted');
   });
 
   describe('details of an address not checked this month', () => {
@@ -823,7 +695,7 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
       },
     };
 
-    it('shows the exhausted toast when the snapshot has no use left', async () => {
+    it('gives the exhausted feedback when the snapshot has no use left', async () => {
       setSnapshot(quotaWith(0, EPrimeFeatures.AddressRiskCheck));
       const result = renderAccessHook();
 
@@ -839,11 +711,11 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
           message: expect.stringMatching(/^.+ 重置$/),
         });
       });
-      pressGetPrimeOf(0);
       expect(dashboardReason()).toBe('exhausted');
+      expect(toastAt(0)?.actions).toBeUndefined();
     });
 
-    it('shows the exhausted toast, without a date, when the quota is unknown', async () => {
+    it('gives the exhausted feedback, without a date, when the quota is unknown', async () => {
       const result = renderAccessHook();
 
       act(() => {
@@ -856,8 +728,8 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
         expect(toastAt(0)?.title).toBe('地址风险检查本月免费次数已用完');
       });
       expect(toastAt(0)?.message).toBeUndefined();
-      pressGetPrimeOf(0);
       expect(dashboardReason()).toBe('exhausted');
+      expect(toastAt(0)?.actions).toBeUndefined();
     });
 
     it('keeps the details sentence while the snapshot has uses left', () => {
@@ -897,8 +769,8 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
         message: expect.stringMatching(/^.+ 重置$/),
       });
     });
-    pressGetPrimeOf(0);
     expect(dashboardReason()).toBe('exhausted');
+    expect(toastAt(0)?.actions).toBeUndefined();
   });
 
   it('explains a reservation the server reports, from any device', async () => {
@@ -925,8 +797,10 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
         message: expect.stringMatching(/^若已中断，.+ 前退回次数$/),
       });
     });
-    // The server knows every device's reservations: no local lookup.
+    // The server knows every device's reservations: no local lookup. Nothing
+    // was used up, so no dashboard.
     expect(mockGetHeldReservationEnd).not.toHaveBeenCalled();
+    expect(mockPushFullModal).not.toHaveBeenCalled();
   });
 
   it('trusts the server when it reports nothing held', async () => {

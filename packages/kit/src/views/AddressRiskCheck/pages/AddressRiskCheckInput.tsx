@@ -214,7 +214,7 @@ function AddressRiskCheckInput() {
 
   const handleRecentPress = useCallback(
     (item: IAddressRiskCheckRecentItem) => {
-      checkRisk({
+      void checkRisk({
         networkId: item.networkId,
         address: item.address,
         entryPoint: 'inputRecentList',
@@ -227,7 +227,7 @@ function AddressRiskCheckInput() {
     if (!networkId || !canCheck) {
       return;
     }
-    checkRisk({
+    void checkRisk({
       networkId,
       address: addressState.checkAddress ?? trimmedAddress,
       entryPoint: 'inputManual',
