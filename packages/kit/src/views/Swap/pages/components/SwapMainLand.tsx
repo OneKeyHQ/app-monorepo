@@ -91,6 +91,7 @@ import {
   equalTokenNoCaseSensitive,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { ISwapReviewCloseReason } from '@onekeyhq/shared/types/swap/reviewAnalytics';
 import type {
   IFetchLimitOrderRes,
   IFetchQuoteResult,
@@ -156,6 +157,10 @@ import {
 } from '../../utils/swapPositionPrefetchUtils';
 import { compareSwapProPositionNetworkIds } from '../../utils/swapProPositionsKeyUtils';
 import { buildSwapRateDifference } from '../../utils/swapRateDifferenceUtils';
+import {
+  type ISwapReviewAnalytics,
+  createSwapReviewAnalytics,
+} from '../../utils/swapReviewAnalytics';
 import {
   hasInFlightSwapReviewWork,
   shouldCloseSwapReviewOnFocusLoss,
@@ -253,6 +258,9 @@ const SwapMainLoad = ({
     onPopStack: onPopSwapModal,
     onBroadcast: swapInitParams?.onSwapBroadcast,
   });
+  const reviewAnalyticsRef = useRef<ISwapReviewAnalytics | undefined>(
+    undefined,
+  );
   const {
     preSwapStepsStart,
     preSwapBeforeStepActions,
@@ -261,6 +269,7 @@ const SwapMainLoad = ({
     endGasAccountReviewSession,
     markCurrentGasAccountReviewSubmitted,
   } = useSwapBuildTx({
+    reviewAnalyticsRef,
     onSwapBroadcast,
     marketSwapApprovalFlowId: isMarketEmbeddedSwap
       ? marketSwapApprovalFlowId
@@ -346,14 +355,20 @@ const SwapMainLoad = ({
       preSwapData: {},
     });
   }, [endGasAccountReviewSession, setSwapBuildTxFetching, setSwapSteps]);
-  const dialogClose = useCallback(() => {
-    if (reviewDialogTimerRef.current !== undefined) {
-      clearTimeout(reviewDialogTimerRef.current);
-      reviewDialogTimerRef.current = undefined;
-      resetPendingReview();
-    }
-    void dialogRef.current?.close();
-  }, [resetPendingReview]);
+  const dialogClose = useCallback(
+    (reason: ISwapReviewCloseReason = 'user') => {
+      if (reason !== 'user') {
+        reviewAnalyticsRef.current?.close(reason);
+      }
+      if (reviewDialogTimerRef.current !== undefined) {
+        clearTimeout(reviewDialogTimerRef.current);
+        reviewDialogTimerRef.current = undefined;
+        resetPendingReview();
+      }
+      void dialogRef.current?.close();
+    },
+    [resetPendingReview],
+  );
   const shouldCloseReviewOnFocusLoss = useCallback(
     () =>
       shouldCloseSwapReviewOnFocusLoss({
@@ -367,12 +382,12 @@ const SwapMainLoad = ({
   );
   useEffect(() => {
     if (shouldCloseReviewOnFocusLoss()) {
-      dialogClose();
+      dialogClose('focusLost');
     }
   }, [dialogClose, isAppLocked, isFocused, shouldCloseReviewOnFocusLoss]);
   useEffect(
     () => () => {
-      dialogClose();
+      dialogClose('reviewChanged');
     },
     [dialogClose],
   );
@@ -382,7 +397,7 @@ const SwapMainLoad = ({
     }
     return () => {
       reviewGenerationRef.current += 1;
-      dialogClose();
+      dialogClose('reviewChanged');
       resetPendingReview();
     };
   }, [dialogClose, resetPendingReview, reviewContextKey]);
@@ -1214,7 +1229,21 @@ const SwapMainLoad = ({
       reviewGenerationRef.current += 1;
     }
     const reviewGeneration = reviewGenerationRef.current;
-    const closeReview = () => onPreSwapClose(reviewGeneration);
+    const reviewAnalytics = createSwapReviewAnalytics();
+    reviewAnalyticsRef.current?.close('reviewChanged');
+    reviewAnalyticsRef.current = reviewAnalytics;
+    let analyticsCreateFrom = 'swapPage';
+    if (isMarketEmbeddedSwap) {
+      analyticsCreateFrom = 'marketDex';
+    } else if (focusSwapPro) {
+      analyticsCreateFrom = 'swapPro';
+    } else if (pageType === EPageType.modal) {
+      analyticsCreateFrom = 'modal';
+    }
+    const closeReview = () => {
+      reviewAnalytics.close('user');
+      onPreSwapClose(reviewGeneration);
+    };
     beginGasAccountReviewSession();
     parseQuoteResultToSteps();
     setSwapBuildTxFetching(true);
@@ -1243,6 +1272,8 @@ const SwapMainLoad = ({
           >
             <SwapProviderMirror storeName={storeName}>
               <PreSwapDialogContent
+                reviewAnalytics={reviewAnalytics}
+                analyticsCreateFrom={analyticsCreateFrom}
                 isSwapPro={focusSwapPro}
                 preSwapBeforeStepActions={preSwapBeforeStepActions}
                 preSwapStepsStart={preSwapStepsStart}
@@ -1287,6 +1318,8 @@ const SwapMainLoad = ({
     resetPendingReview,
     shouldCloseReviewOnFocusLoss,
     reviewContextKey,
+    isMarketEmbeddedSwap,
+    pageType,
   ]);
 
   const onOpenOrdersClick = useCallback(
