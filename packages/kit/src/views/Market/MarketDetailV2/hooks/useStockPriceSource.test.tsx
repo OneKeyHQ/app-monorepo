@@ -1,11 +1,14 @@
 /** @jest-environment jsdom */
 
+import { StrictMode, useCallback, useState } from 'react';
+
 import { act, renderHook } from '@testing-library/react';
 
 import type { IMarketPriceSource } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import {
   resolveDisplayedStockPriceMode,
+  useStockChartRenderer,
   useStockPriceSource,
 } from './useStockPriceSource';
 
@@ -23,8 +26,9 @@ jest.mock('./StockDetailContext', () => ({
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useMarketPriceSourceAtom: () => {
-    const { useState } = jest.requireActual<typeof import('react')>('react');
-    return useState<{ source: IMarketPriceSource }>({
+    const { useState: useActualState } =
+      jest.requireActual<typeof import('react')>('react');
+    return useActualState<{ source: IMarketPriceSource }>({
       source: mockInitialPriceSource,
     });
   },
@@ -180,3 +184,64 @@ describe.each(['share', 'token'] as const)(
     });
   },
 );
+
+describe('mobile share chart renderer ownership', () => {
+  it('synchronizes the fullscreen owner when Share replaces a legacy token chart', () => {
+    const onSwitch = jest.fn();
+    const { result, rerender } = renderHook(
+      ({ priceMode }: { priceMode: IMarketPriceSource }) => {
+        const [preferredIsTradingViewNative, setPreferred] = useState(false);
+        const [fullscreen, setFullscreen] = useState(false);
+        const onChartSwitch = useCallback(() => {
+          onSwitch();
+          setFullscreen(false);
+          setPreferred((native) => !native);
+        }, []);
+        const renderer = useStockChartRenderer({
+          priceMode,
+          preferredIsTradingViewNative,
+          onChartSwitch,
+        });
+        return {
+          renderer,
+          preferredIsTradingViewNative,
+          effectiveFullscreen: preferredIsTradingViewNative && fullscreen,
+          setFullscreen,
+        };
+      },
+      { initialProps: { priceMode: 'token' as IMarketPriceSource } },
+    );
+    expect(result.current.renderer).toBe(false);
+    rerender({ priceMode: 'share' });
+    expect(onSwitch).toHaveBeenCalledTimes(1);
+    expect(result.current.preferredIsTradingViewNative).toBe(true);
+    expect(result.current.renderer).toBe(true);
+    act(() => result.current.setFullscreen(true));
+    expect(result.current.effectiveFullscreen).toBe(true);
+    rerender({ priceMode: 'token' });
+    rerender({ priceMode: 'share' });
+    expect(onSwitch).toHaveBeenCalledTimes(1);
+    expect(result.current.effectiveFullscreen).toBe(true);
+  });
+});
+
+it('requests the share renderer only once when StrictMode replays layout effects', () => {
+  const onSwitch = jest.fn();
+  const { result } = renderHook(
+    () => {
+      const [preferredIsTradingViewNative, setPreferred] = useState(false);
+      const onChartSwitch = useCallback(() => {
+        onSwitch();
+        setPreferred((native) => !native);
+      }, []);
+      return useStockChartRenderer({
+        priceMode: 'share',
+        preferredIsTradingViewNative,
+        onChartSwitch,
+      });
+    },
+    { wrapper: StrictMode },
+  );
+  expect(result.current).toBe(true);
+  expect(onSwitch).toHaveBeenCalledTimes(1);
+});

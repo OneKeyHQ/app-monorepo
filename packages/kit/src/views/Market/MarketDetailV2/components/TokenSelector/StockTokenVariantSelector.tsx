@@ -409,13 +409,13 @@ function StockTokenVariantSelectorContent({
             selected={variant.tokenId === selectedTokenId}
             isPortfolioScope={variant.tokenId === portfolioScopeTokenId}
             portfolioData={portfolioData}
-            onSelect={(item) => {
+            onSelect={async (item) => {
               if (onSelect) {
-                void onSelect(item);
+                if (await onSelect(item)) closePopover();
               } else {
                 setSelectedTokenId(item.tokenId);
+                closePopover();
               }
-              closePopover();
             }}
           />
         ))}
@@ -462,16 +462,16 @@ export function StockTokenVariantSelector({
     () => new Set(resolvedVariantKeys ?? []),
     [resolvedVariantKeys],
   );
+  const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const [nativeSheetClosing, setNativeSheetClosing] = useState(false);
   const lastSelectedVariantRef = useRef(selectedTokenVariant);
   if (selectedTokenVariant)
     lastSelectedVariantRef.current = selectedTokenVariant;
-  // Keep the native sheet mounted until its exit animation finishes. Replacing
-  // the trigger with a skeleton while it closes would unmount the sheet.
+  // Keep pending selections dismissible and preserve the native exit animation
+  // when the trigger's loading state changes underneath an open selector.
   const preserveClosingSheet = Boolean(
-    compact &&
-    platformEnv.isNative &&
-    nativeSheetClosing &&
+    (isSelectorOpen ||
+      (compact && platformEnv.isNative && nativeSheetClosing)) &&
     lastSelectedVariantRef.current,
   );
   const renderedSelectedVariant =
@@ -576,6 +576,7 @@ export function StockTokenVariantSelector({
   const popover = (
     <SelectorPopover
       onOpenChange={(open) => {
+        setIsSelectorOpen(open);
         if (compact && platformEnv.isNative) setNativeSheetClosing(!open);
         onOpenChange?.(open);
       }}

@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 
 import type { IMarketStockTokenVariant } from '@onekeyhq/shared/types/marketV2';
 
@@ -184,6 +184,13 @@ jest.mock('@onekeyhq/components', () => {
       };
     }) => (
       <>
+        <button
+          type="button"
+          data-testid="open-selector"
+          onClick={() => onOpenChange?.(true)}
+        >
+          Open
+        </button>
         {renderTrigger}
         {typeof renderContent === 'function'
           ? renderContent({
@@ -286,14 +293,30 @@ describe('StockTokenVariantSelector', () => {
     expect(closePopoverMock).not.toHaveBeenCalled();
   });
 
-  it('closes before an asynchronous variant selection finishes', () => {
-    const onSelect = jest.fn(() => new Promise<boolean>(() => undefined));
+  it('keeps asynchronous selections open and closes only on success', async () => {
+    let finish: (success: boolean) => void = () => undefined;
+    const onSelect = jest.fn(
+      () =>
+        new Promise<boolean>((resolve) => {
+          finish = resolve;
+        }),
+    );
     render(<StockTokenVariantSelector onSelect={onSelect} />);
 
     fireEvent.click(screen.getByTestId('stock-token-variant-row-1'));
 
     expect(onSelect).toHaveBeenCalledWith(mockVariants[1]);
+    expect(closePopoverMock).not.toHaveBeenCalled();
+    await act(async () => finish(true));
     expect(closePopoverMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a failed async selection open for retry', async () => {
+    render(<StockTokenVariantSelector onSelect={async () => false} />);
+    await act(async () =>
+      fireEvent.click(screen.getByTestId('stock-token-variant-row-1')),
+    );
+    expect(closePopoverMock).not.toHaveBeenCalled();
   });
 
   it('shows a compact loading row while a new variant is being selected', () => {
@@ -307,13 +330,15 @@ describe('StockTokenVariantSelector', () => {
     ).toBeNull();
   });
 
-  it('keeps the native sheet mounted until its closing animation completes', () => {
-    const onSelect = jest.fn(() => new Promise<boolean>(() => undefined));
+  it('keeps the native sheet mounted until its closing animation completes', async () => {
+    const onSelect = jest.fn(async () => true);
     const view = render(
       <StockTokenVariantSelector compact onSelect={onSelect} />,
     );
 
-    fireEvent.click(screen.getByTestId('stock-token-variant-row-1'));
+    await act(async () =>
+      fireEvent.click(screen.getByTestId('stock-token-variant-row-1')),
+    );
     mockStockDetailState.selectedTokenId = 'pending-variant';
     view.rerender(
       <StockTokenVariantSelector compact forceLoading onSelect={onSelect} />,
@@ -331,6 +356,23 @@ describe('StockTokenVariantSelector', () => {
     expect(
       screen.getByTestId('stock-token-variant-selector-loading'),
     ).toBeTruthy();
+  });
+
+  it('keeps an open selector dismissible while the trade target is loading', () => {
+    const onSelect = jest.fn(() => new Promise<boolean>(() => undefined));
+    const view = render(
+      <StockTokenVariantSelector compact onSelect={onSelect} />,
+    );
+    fireEvent.click(screen.getByTestId('open-selector'));
+    fireEvent.click(screen.getByTestId('stock-token-variant-row-1'));
+    view.rerender(
+      <StockTokenVariantSelector compact forceLoading onSelect={onSelect} />,
+    );
+    expect(
+      screen.queryByTestId('stock-token-variant-selector-loading'),
+    ).toBeNull();
+    expect(screen.getByTestId('stock-token-variant-row-1')).toBeTruthy();
+    expect(closePopoverMock).not.toHaveBeenCalled();
   });
 
   describe('balance attribution', () => {

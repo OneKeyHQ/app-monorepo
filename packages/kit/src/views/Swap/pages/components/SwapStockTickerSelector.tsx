@@ -318,9 +318,7 @@ export function SwapStockTickerSelector() {
   );
   return (
     <StockSelectorPopover
-      onOpenChange={(open) => {
-        if (open) selection?.cancelSelection();
-      }}
+      onOpenChange={selection?.onSelectorOpenChange}
       title={intl.formatMessage({
         id: ETranslations.placeholder_stock_search,
       })}
