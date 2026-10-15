@@ -1913,10 +1913,15 @@ export function useSpeedSwapActions(props: {
       }
 
       if (snapshot.kind === 'wrap') {
-        await assertLatestWrappedExecutionBalancesSufficient({
-          snapshot,
-          gasInfos: netWorkFee?.gasInfos,
-        });
+        await measureSwapReviewStage(
+          options?.reviewPreparation,
+          'balanceCheck',
+          () =>
+            assertLatestWrappedExecutionBalancesSufficient({
+              snapshot,
+              gasInfos: netWorkFee?.gasInfos,
+            }),
+        );
       }
 
       return buildReviewStateWithFee({
@@ -2739,6 +2744,7 @@ export function useSpeedSwapActions(props: {
           ...prev,
           speedSwapApprovingTransaction: {
             ...(prev.speedSwapApprovingTransaction ?? approvingTransaction),
+            analyticsSwapInfo: approvingTransaction.analyticsSwapInfo,
             txId,
             amount: approveAmount,
             resetApproveIsMax: !!data[0]?.approveInfo?.isMax,
@@ -2802,6 +2808,7 @@ export function useSpeedSwapActions(props: {
         }));
 
         const data = await sendMarketDirectUnsignedTxs({
+          analyticsSwapInfo: approvingTransaction.analyticsSwapInfo,
           accountAddress,
           accountId,
           networkId,
@@ -3389,6 +3396,7 @@ export function useSpeedSwapActions(props: {
       try {
         if (snapshot?.shouldFallback) {
           const approvingTransaction = buildMarketSwapApprovingTransaction({
+            analyticsSwapInfo: snapshot?.swapInfo,
             quoteResult,
             amount,
             useAddress: userAddress,
@@ -3445,6 +3453,7 @@ export function useSpeedSwapActions(props: {
           networkId: quoteResult.fromTokenInfo.networkId,
           approveInfo,
           approvingTransaction: buildMarketSwapApprovingTransaction({
+            analyticsSwapInfo: snapshot?.swapInfo,
             quoteResult,
             amount,
             useAddress: userAddress,

@@ -386,6 +386,8 @@ export interface ISwapOrderHash {
 }
 
 export interface ISwapApproveTransaction {
+  // Keep the originating Review for estimates after reset approval completes.
+  analyticsSwapInfo?: ISwapTxInfo;
   fromToken: ISwapToken;
   toToken: ISwapToken;
   marketSwapApprovalFlowId?: string;

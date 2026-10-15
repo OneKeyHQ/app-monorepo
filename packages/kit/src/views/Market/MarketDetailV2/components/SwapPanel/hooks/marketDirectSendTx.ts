@@ -76,6 +76,7 @@ export type IMarketGasInfoEntry = {
 };
 
 type IMarketDirectSendParams = {
+  analyticsSwapInfo?: ISwapTxInfo;
   shouldReportSendError?: (error: unknown) => boolean;
   accountAddress: string;
   accountId: string;
@@ -1383,6 +1384,7 @@ async function updateUnsignedTxAndSendTx({
 }
 
 export async function sendMarketDirectUnsignedTxs({
+  analyticsSwapInfo,
   shouldReportSendError,
   accountAddress,
   accountId,
@@ -1437,6 +1439,7 @@ export async function sendMarketDirectUnsignedTxs({
     !unsignedTxArr.every((tx) => findGasInfo(gasInfosFinal, tx.encodedTx))
   ) {
     gasInfosFinal = await resolveMarketGasInfos({
+      analyticsSwapInfo,
       accountAddress,
       accountId,
       networkId,

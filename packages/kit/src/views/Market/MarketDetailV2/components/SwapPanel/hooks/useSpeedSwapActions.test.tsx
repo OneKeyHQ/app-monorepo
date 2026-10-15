@@ -25,10 +25,7 @@ import {
   createSwapReviewAnalytics,
   getSwapReviewOrderId,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewAnalytics';
-import type {
-  ISwapReviewGasInfoEntry,
-  ISwapReviewState,
-} from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
+import type { ISwapReviewState } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
 import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -43,12 +40,15 @@ import {
 import type {
   IFetchBuildTxResponse,
   IFetchQuoteResult,
+  ISwapApproveTransaction,
   ISwapToken,
   ISwapTokenBase,
   ISwapTxInfo,
 } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
+  ESwapApproveTransactionStatus,
+  ESwapNetworkFeeLevel,
   ESwapQuoteSource,
   ESwapSlippageSegmentKey,
   ESwapStepType,
@@ -66,6 +66,8 @@ import {
   useSpeedSwapActions,
 } from './useSpeedSwapActions';
 import { ESwapDirection } from './useTradeType';
+
+import type * as marketDirectSendTx from './marketDirectSendTx';
 
 type IFetchSwapTokenDetailsParams = {
   accountId?: string;
@@ -92,11 +94,9 @@ type IUsePaymentTokenPriceMock = (
   currencyId?: string,
 ) => IUsePaymentTokenPriceResult;
 
-type IMarketDirectSendValidationParams = {
-  validateFinalGasInfos?: (
-    gasInfos: ISwapReviewGasInfoEntry[],
-  ) => Promise<void>;
-};
+type IMarketDirectSendValidationParams = Parameters<
+  typeof marketDirectSendTx.sendMarketDirectUnsignedTxs
+>[0];
 
 const mockFetchSwapTokenDetails: jest.MockedFunction<
   (params: IFetchSwapTokenDetailsParams) => Promise<ISwapToken[]>
@@ -124,7 +124,7 @@ const mockMarketDeriveInfoRun = jest.fn();
 const mockUsePaymentTokenPrice: jest.MockedFunction<IUsePaymentTokenPriceMock> =
   jest.fn();
 const mockSendMarketDirectUnsignedTxs: jest.MockedFunction<
-  (params: IMarketDirectSendValidationParams) => Promise<[]>
+  (params: IMarketDirectSendValidationParams) => Promise<ISendTxOnSuccessData[]>
 > = jest.fn();
 const mockCloseReviewDialog = jest.fn();
 const mockSignMessage: jest.MockedFunction<
@@ -200,6 +200,9 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockFetchSwapNativeTokenConfig(params),
       fetchQuotesEvents: (params: unknown) => mockFetchQuotesEvents(params),
       fetchBuildTx: (params: unknown) => mockFetchBuildTx(params),
+      fetchApproveAllowance: jest
+        .fn()
+        .mockResolvedValue({ isApproved: false, shouldResetApprove: true }),
       closeApproving: () => mockCloseApproving(),
       cancelFetchQuoteEvents: (quoteRequestId?: string) =>
         mockCancelFetchQuoteEvents(quoteRequestId),
@@ -1574,6 +1577,328 @@ describe('useSpeedSwapActions', () => {
       }),
     ).rejects.toThrow('insufficient_balance_title');
   });
+
+  it.each([
+    { unwrap: false, insufficient: false },
+    { unwrap: false, insufficient: true },
+    { unwrap: true, insufficient: false },
+    { unwrap: true, insufficient: true },
+  ])(
+    'measures post-open wrapped balances: unwrap $unwrap, insufficient $insufficient',
+    async ({ unwrap, insufficient }) => {
+      let time = 0;
+      let opened = false;
+      const logger = {
+        swapReviewOpen: jest.fn(),
+        swapReviewReady: jest.fn(),
+        swapReviewConfirm: jest.fn(),
+        swapReviewClose: jest.fn(),
+      };
+      const analytics = createSwapReviewAnalytics({
+        clock: () => time,
+        logger,
+      });
+      const encodedTx = {
+        from: '0xuser',
+        to: '0xweth',
+        value: '0',
+        data: '0xwrap',
+      };
+      const directSend = jest.requireMock<typeof marketDirectSendTx>(
+        './marketDirectSendTx',
+      );
+      const prepare = jest
+        .spyOn(directSend, 'prepareMarketDirectUnsignedTx')
+        .mockResolvedValue({ encodedTx });
+      const estimate = jest
+        .spyOn(directSend, 'estimateMarketDirectGasInfos')
+        .mockResolvedValue({
+          preparedUnsignedTx: { encodedTx },
+          gasInfos: [
+            {
+              encodeTx: encodedTx,
+              gasInfo: {
+                common: {
+                  feeDecimals: 9,
+                  feeSymbol: 'Gwei',
+                  nativeDecimals: 18,
+                  nativeSymbol: 'ETH',
+                },
+                gas: { gasLimit: '21000', gasPrice: '10000' },
+              },
+            },
+          ],
+        });
+      mockFetchSwapTokenDetails.mockImplementation(
+        ({ accountId, contractAddress }) => {
+          if (opened && accountId) time += 40;
+          return Promise.resolve(
+            accountId
+              ? createTokenDetail({
+                  // For unwrap, let the token check pass and fail the subsequent native gas check.
+                  balanceParsed:
+                    opened && insufficient && !contractAddress ? '0' : '100',
+                })
+              : [],
+          );
+        },
+      );
+      try {
+        const { result } = renderSwapHook(() =>
+          useSpeedSwapActions({
+            ...createHookProps({
+              marketToken: wethToken,
+              tradeToken: ethToken,
+            }),
+            tradeType: unwrap ? ESwapDirection.SELL : ESwapDirection.BUY,
+          }),
+        );
+        await waitFor(() =>
+          expect(result.current.fetchBalanceLoading).toBe(false),
+        );
+        let review: ISwapReviewState | undefined;
+        await act(async () => {
+          review = await result.current.prepareMarketSwapReview({
+            reviewAnalytics: analytics,
+            fromAmount: '1',
+            fromToken: unwrap ? wethToken : ethToken,
+            toToken: unwrap ? ethToken : wethToken,
+            isWrap: true,
+          });
+        });
+        expect(analytics.beginPreparation()).toBeUndefined();
+        expect(logger.swapReviewReady).not.toHaveBeenCalled();
+        analytics.open({
+          quoteId: review?.quoteResult?.quoteId,
+          swapProvider: 'Wrap',
+          swapType: 'Swap',
+          sourceChain: 'evm--1',
+          receivedChain: 'evm--1',
+          sourceTokenSymbol: unwrap ? 'WETH' : 'ETH',
+          receivedTokenSymbol: unwrap ? 'ETH' : 'WETH',
+          createFrom: 'marketDex',
+          walletType: 'hd',
+          supportPreBuild: true,
+          needApprove: false,
+        });
+        opened = true;
+        const preparation = analytics.beginPreparation();
+        await act(async () => {
+          const preparing = result.current.prepareMarketSwapReview({
+            quoteResult: review?.quoteResult,
+            networkFeeLevel: ESwapNetworkFeeLevel.HIGH,
+            reviewPreparation: preparation,
+          });
+          if (insufficient)
+            await expect(preparing).rejects.toThrow(
+              'insufficient_balance_title',
+            );
+          else await preparing;
+        });
+        analytics.observe({
+          ready: !insufficient,
+          fallback: false,
+          error: insufficient,
+          loading: false,
+          supportPreBuild: true,
+        });
+        expect(logger.swapReviewReady).toHaveBeenCalledTimes(1);
+        expect(logger.swapReviewReady).toHaveBeenCalledWith(
+          expect.objectContaining({
+            status: insufficient ? 'error' : 'ready',
+            balanceCheckMs: unwrap ? 80 : 40,
+            totalMs: unwrap ? 80 : 40,
+            failedStage: insufficient ? 'balanceCheck' : undefined,
+            ...(insufficient
+              ? {
+                  message: expect.stringContaining(
+                    'insufficient_balance_title',
+                  ),
+                }
+              : {}),
+          }),
+        );
+        expect(prepare).toHaveBeenCalledTimes(2);
+        expect(estimate).toHaveBeenCalledTimes(2);
+        expect(mockSendMarketDirectUnsignedTxs).not.toHaveBeenCalled();
+      } finally {
+        prepare.mockRestore();
+        estimate.mockRestore();
+      }
+    },
+  );
+
+  it.each([false, true])(
+    'keeps approval estimates attached to the originating Review after reset: fallback %s',
+    async (fallback) => {
+      const subscribe = jest.spyOn(appEventBus, 'on');
+      mockFetchSwapTokenDetails.mockImplementation(({ accountId }) =>
+        Promise.resolve(
+          accountId ? createTokenDetail({ balanceParsed: '100' }) : [],
+        ),
+      );
+      let pendingApproval: ISwapApproveTransaction | undefined;
+      mockSetInAppNotificationAtom.mockImplementation(
+        (
+          update: (prev: object) => {
+            speedSwapApprovingTransaction?: ISwapApproveTransaction;
+          },
+        ) => {
+          pendingApproval = update({
+            speedSwapApprovingTransaction: pendingApproval,
+          }).speedSwapApprovingTransaction;
+        },
+      );
+      const { result } = renderSwapHook(() =>
+        useSpeedSwapActions({
+          ...createHookProps(),
+          fromTokenAmount: '1',
+          isCustomRpcUnavailable: fallback,
+        }),
+      );
+      await waitFor(() => {
+        expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
+        expect(result.current.fetchBalanceLoading).toBe(false);
+      });
+      const request = mockSwapStore.get(swapQuoteActionLockAtom());
+      const quote: IFetchQuoteResult = {
+        quoteId: 'approval-quote-A',
+        info: { provider: 'provider', providerName: 'Provider' },
+        fromTokenInfo: usdcToken,
+        toTokenInfo: btcToken,
+        fromAmount: '1',
+        toAmount: '0.001',
+        allowanceResult: { allowanceTarget: '0xspender', amount: '1' },
+      };
+      mockFetchBuildTx.mockResolvedValue({
+        orderId: 'approval-order-A',
+        result: quote,
+        tx: { to: '0xrouter', value: '0', data: '0xswap' },
+      });
+      act(() => {
+        mockSwapStore.set(swapQuoteListAtom(), [quote]);
+        mockSwapStore.set(swapQuoteFetchingAtom(), false);
+        mockSwapStore.set(swapQuoteEventCompletedAtom(), true);
+        mockSwapStore.set(swapQuoteActionLockAtom(), {
+          ...request,
+          actionLock: false,
+        });
+      });
+      await waitFor(() =>
+        expect(result.current.quoteReadyForReview).toBe(true),
+      );
+      await act(async () => {
+        await result.current.prepareMarketSwapReview({
+          reviewAnalytics: createSwapReviewAnalytics({
+            reviewSessionId: 'session-A',
+          }),
+        });
+        const delayedSend = createDeferred<ISendTxOnSuccessData[]>();
+        if (!fallback)
+          mockSendMarketDirectUnsignedTxs.mockReturnValueOnce(
+            delayedSend.promise,
+          );
+        const sending = result.current.sendMarketApproveTx({
+          quoteResult: quote,
+          amount: '1',
+          isResetApprove: true,
+        });
+        if (fallback) await sending;
+        const captured = pendingApproval;
+        if (!captured?.analyticsSwapInfo)
+          throw new OneKeyLocalError('Missing approval context');
+        pendingApproval = {
+          ...captured,
+          analyticsSwapInfo: {
+            ...captured.analyticsSwapInfo,
+            reviewAnalyticsContext: {
+              reviewSessionId: 'unrelated-pending-session',
+            },
+          },
+        };
+        const data: ISendTxOnSuccessData[] = [
+          {
+            signedTx: { txid: '0xreset', rawTx: '', encodedTx: {} },
+            decodedTx: {} as ISendTxOnSuccessData['decodedTx'],
+          },
+        ];
+        if (fallback) {
+          const confirmation = mockNavigationToTxConfirm.mock.calls[0][0] as {
+            onSuccess: (data: ISendTxOnSuccessData[]) => void;
+          };
+          confirmation.onSuccess(data);
+        } else {
+          delayedSend.resolve(data);
+          await sending;
+        }
+      });
+      expect(
+        pendingApproval?.analyticsSwapInfo?.reviewAnalyticsContext,
+      ).toEqual({
+        reviewSessionId: 'session-A',
+        quoteId: 'approval-quote-A',
+        orderId: 'approval-order-A',
+      });
+      const originalApproval = JSON.parse(
+        JSON.stringify(pendingApproval),
+      ) as ISwapApproveTransaction;
+      if (!fallback) {
+        expect(
+          mockSendMarketDirectUnsignedTxs.mock.calls[0][0].analyticsSwapInfo,
+        ).toEqual(originalApproval.analyticsSwapInfo);
+        expect(
+          mockSendMarketDirectUnsignedTxs.mock.calls[0][0].buildUnsignedParams
+            .swapInfo,
+        ).toBeUndefined();
+      }
+      await act(async () => {
+        await result.current.prepareMarketSwapReview({
+          reviewAnalytics: createSwapReviewAnalytics({
+            reviewSessionId: 'session-B',
+          }),
+        });
+      });
+      const resetHandler = subscribe.mock.calls
+        .filter(
+          ([event]) => event === EAppEventBusNames.SwapSpeedApprovingReset,
+        )
+        .at(-1)?.[1];
+      expect(resetHandler).toBeDefined();
+      mockSendMarketDirectUnsignedTxs.mockClear();
+      await act(async () => {
+        resetHandler?.({
+          approvedSwapInfo: {
+            ...originalApproval,
+            status: ESwapApproveTransactionStatus.SUCCESS,
+          },
+        });
+      });
+      expect(mockSendMarketDirectUnsignedTxs).toHaveBeenCalledTimes(1);
+      expect(
+        mockSendMarketDirectUnsignedTxs.mock.calls[0][0].analyticsSwapInfo
+          ?.reviewAnalyticsContext?.reviewSessionId,
+      ).toBe('session-A');
+      expect(
+        mockSendMarketDirectUnsignedTxs.mock.calls[0][0].buildUnsignedParams
+          .swapInfo,
+      ).toBeUndefined();
+      mockSendMarketDirectUnsignedTxs.mockClear();
+      await act(async () => {
+        resetHandler?.({
+          approvedSwapInfo: {
+            ...originalApproval,
+            analyticsSwapInfo: undefined,
+            status: ESwapApproveTransactionStatus.SUCCESS,
+          },
+        });
+      });
+      expect(mockSendMarketDirectUnsignedTxs).toHaveBeenCalledTimes(1);
+      expect(
+        mockSendMarketDirectUnsignedTxs.mock.calls[0][0].analyticsSwapInfo,
+      ).toBeUndefined();
+      expect(mockSwapSendTx).not.toHaveBeenCalled();
+    },
+  );
 
   it('checks the latest balance again before sending a wrapped transaction', async () => {
     let latestBalance = '2';
