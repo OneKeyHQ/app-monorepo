@@ -186,7 +186,7 @@ index 07f73fd..709de64 100644
                  if (mAllowsProtectedMedia) {
                    grantedPermissions.add(requestedResource);
 diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
-index 80c6803..8958637 100644
+index 80c6803..33c8e37 100644
 --- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
 +++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
 @@ -44,6 +44,8 @@ import com.reactnativecommunity.webview.events.TopMessageEvent;
@@ -198,7 +198,17 @@ index 80c6803..8958637 100644
  import java.util.List;
  import java.util.Map;
  import java.util.Set;
-@@ -78,6 +80,8 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
+@@ -67,6 +69,9 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
+     protected boolean injectedJavaScriptBeforeContentLoadedForMainFrameOnly = true;
+ 
+     protected boolean messagingEnabled = false;
++    // OneKey patch: the `source.uri` RN declared for this view. Lets an app-side
++    // request interceptor tell its own WebViews from arbitrary navigations.
++    public volatile @Nullable String mRncSourceUri = null;
+     protected @Nullable
+     String messagingModuleName;
+     protected @Nullable
+@@ -78,6 +83,8 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
      protected boolean hasScrollEvent = false;
      protected boolean nestedScrollEnabled = false;
      protected ProgressChangedFilter progressChangedFilter;
@@ -207,7 +217,7 @@ index 80c6803..8958637 100644
  
      /**
       * WebView must be created with an context of the current activity
-@@ -107,6 +111,34 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
+@@ -107,6 +114,34 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
          this.nestedScrollEnabled = nestedScrollEnabled;
      }
  
@@ -242,8 +252,49 @@ index 80c6803..8958637 100644
      @Override
      public void onHostResume() {
          // do nothing
+diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java
+index 0287e1c..0333f09 100644
+--- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java
++++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java
+@@ -49,6 +49,36 @@ public class RNCWebViewClient extends WebViewClient {
+         basicAuthCredential = credential;
+     }
+ 
++    // OneKey patch: app-level request interception hook. The library stays
++    // policy-free; behaviour lives in the app (so.onekey.app.wallet.webview).
++    public interface RequestInterceptor {
++        @Nullable WebResourceResponse intercept(WebView view, WebResourceRequest request);
++    }
++
++    private static volatile @Nullable RequestInterceptor requestInterceptor = null;
++
++    /** Registers the single app-level interceptor. A second, different one is a
++     *  wiring bug: fail here rather than silently disabling the first. */
++    public static void setRequestInterceptor(@Nullable RequestInterceptor interceptor) {
++        RequestInterceptor current = requestInterceptor;
++        if (current != null && interceptor != null && current != interceptor) {
++            throw new IllegalStateException("RNCWebViewClient request interceptor already registered");
++        }
++        requestInterceptor = interceptor;
++    }
++
++    @Override
++    public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
++        RequestInterceptor interceptor = requestInterceptor;
++        if (interceptor != null) {
++            WebResourceResponse response = interceptor.intercept(view, request);
++            if (response != null) {
++                return response;
++            }
++        }
++        return super.shouldInterceptRequest(view, request);
++    }
++
+     @Override
+     public void onPageFinished(WebView webView, String url) {
+         super.onPageFinished(webView, url);
 diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt
-index f83033b..e0b3c40 100644
+index f83033b..7102d77 100644
 --- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt
 +++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt
 @@ -27,6 +27,7 @@ import org.json.JSONObject
@@ -290,7 +341,16 @@ index f83033b..e0b3c40 100644
                  }
              }
              webChromeClient.setAllowsProtectedMedia(mAllowsProtectedMedia);
-@@ -721,4 +733,19 @@ class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
+@@ -399,6 +411,8 @@ class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
+             }
+             if (source.hasKey("uri")) {
+                 val url = source.getString("uri")
++                // OneKey patch: see RNCWebView.mRncSourceUri.
++                view.mRncSourceUri = url
+                 val previousUrl = view.url
+                 if (previousUrl != null && previousUrl == url) {
+                     return
+@@ -721,4 +735,19 @@ class RNCWebViewManagerImpl(private val newArch: Boolean = false) {
              WebSettingsCompat.setPaymentRequestEnabled(view.settings, enabled)
          }
      }
