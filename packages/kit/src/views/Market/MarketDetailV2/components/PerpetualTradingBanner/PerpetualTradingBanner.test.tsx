@@ -7,7 +7,11 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
+import { EModalMarketRoutes } from '../../../router/types';
+
 import { PerpetualTradingBanner } from './PerpetualTradingBanner';
+
+import type { NavigationState, PartialState } from '@react-navigation/routers';
 
 let mockProxyUnavailable = false;
 const mockToastError = jest.fn<void, unknown[]>();
@@ -18,8 +22,15 @@ let mockPerpDisabled = false;
 let mockPerpTabShowWeb = false;
 let mockPress: (() => void) | undefined;
 const mockSwitchTab = jest.fn();
-const mockDismissDiscoveryDetail = jest.fn<void, unknown[]>();
+const mockDismissDiscoveryDetail = jest
+  .fn<'ready' | 'cancelled', unknown[]>()
+  .mockReturnValue('ready');
+const mockGetRootState = jest.fn<
+  PartialState<NavigationState> | undefined,
+  []
+>();
 let mockRouteKey: string | undefined;
+let mockRouteName: string | undefined;
 const mockPendingInstrument = jest
   .fn<Promise<void>, unknown[]>()
   .mockResolvedValue(undefined);
@@ -98,7 +109,9 @@ jest.mock('../../../utils/marketDetailNavigation', () => ({
 jest.mock('@onekeyhq/components', () => ({
   rootNavigationRef: {
     current: {
-      getCurrentRoute: () => (mockRouteKey ? { key: mockRouteKey } : undefined),
+      getCurrentRoute: () =>
+        mockRouteKey ? { key: mockRouteKey, name: mockRouteName } : undefined,
+      getRootState: () => mockGetRootState(),
     },
   },
   Toast: { error: (...args: unknown[]) => mockToastError(...args) },
@@ -125,6 +138,9 @@ beforeEach(() => {
   mockPerpTabShowWeb = false;
   mockPress = undefined;
   mockRouteKey = undefined;
+  mockRouteName = undefined;
+  mockDismissDiscoveryDetail.mockReturnValue('ready');
+  mockGetRootState.mockReturnValue(undefined);
 });
 
 it('does not insert a banner on retry after initial detail failed or had no mapping', () => {
@@ -213,7 +229,10 @@ it.each([false, true])(
     expect(mockSwitchTab).toHaveBeenCalledWith(
       showWeb ? ETabRoutes.WebviewPerpTrade : ETabRoutes.Perp,
     );
-    expect(mockDismissDiscoveryDetail).toHaveBeenCalledWith('market-detail');
+    expect(mockDismissDiscoveryDetail).toHaveBeenCalledWith(
+      'market-detail',
+      showWeb ? ETabRoutes.WebviewPerpTrade : ETabRoutes.Perp,
+    );
     expect(mockDismissDiscoveryDetail.mock.invocationCallOrder[0]).toBeLessThan(
       mockSwitchTab.mock.invocationCallOrder[0],
     );
@@ -239,6 +258,110 @@ it.each([false, true])(
     }
   },
 );
+
+it.each([false, true])(
+  'prepares an atomic detail exit for the selected Perps tab (web: %s)',
+  async (showWeb) => {
+    jest.useFakeTimers();
+    mockTicker = 'BTC';
+    mockRouteKey = 'detail';
+    mockPerpTabShowWeb = showWeb;
+    render(<PerpetualTradingBanner />);
+    await act(async () => {
+      mockPress?.();
+      await jest.advanceTimersByTimeAsync(80);
+    });
+    const target = showWeb ? ETabRoutes.WebviewPerpTrade : ETabRoutes.Perp;
+    expect(mockDismissDiscoveryDetail).toHaveBeenCalledWith('detail', target);
+    expect(mockSwitchTab).toHaveBeenCalledWith(target);
+    expect(mockDismissDiscoveryDetail.mock.invocationCallOrder[0]).toBeLessThan(
+      mockSwitchTab.mock.invocationCallOrder[0],
+    );
+  },
+);
+
+it('does not switch tabs when the detail exit is cancelled', async () => {
+  jest.useFakeTimers();
+  mockTicker = 'BTC';
+  mockRouteKey = 'detail';
+  mockDismissDiscoveryDetail.mockReturnValueOnce('cancelled');
+  render(<PerpetualTradingBanner />);
+  await act(async () => {
+    mockPress?.();
+    await jest.advanceTimersByTimeAsync(80);
+  });
+  expect(mockSwitchTab).not.toHaveBeenCalled();
+  expect(mockChangeAsset).not.toHaveBeenCalled();
+  expect(mockToastError).not.toHaveBeenCalled();
+});
+
+it('captures the underlying detail when a token selector is closing', async () => {
+  jest.useFakeTimers();
+  mockTicker = 'BTC';
+  mockRouteKey = 'selector';
+  mockRouteName = EModalMarketRoutes.MobileTokenSelector;
+  mockGetRootState.mockReturnValue({
+    index: 1,
+    routes: [
+      {
+        name: 'main',
+        state: {
+          index: 1,
+          routes: [
+            { key: 'list', name: 'TabDiscovery' },
+            { key: 'detail', name: 'MarketDetailV2' },
+          ],
+        },
+      },
+      { key: 'selector', name: 'modal' },
+    ],
+  });
+  render(<PerpetualTradingBanner />);
+  await act(async () => {
+    mockPress?.();
+    await jest.advanceTimersByTimeAsync(80);
+  });
+  expect(mockDismissDiscoveryDetail).toHaveBeenCalledWith(
+    'detail',
+    ETabRoutes.Perp,
+  );
+  expect(mockSwitchTab).toHaveBeenCalledWith(ETabRoutes.Perp);
+});
+
+it('keeps a selector opened over SwapPro bound to that modal detail', async () => {
+  jest.useFakeTimers();
+  mockTicker = 'BTC';
+  mockRouteKey = 'selector';
+  mockRouteName = EModalMarketRoutes.MobileTokenSelector;
+  mockGetRootState.mockReturnValue({
+    index: 2,
+    routes: [
+      {
+        name: 'main',
+        state: {
+          routes: [{ key: 'background-detail', name: 'MarketDetailV2' }],
+        },
+      },
+      {
+        name: 'modal',
+        state: {
+          routes: [{ key: 'swap-detail', name: 'SwapProMarketDetail' }],
+        },
+      },
+      { key: 'selector', name: 'modal' },
+    ],
+  });
+  render(<PerpetualTradingBanner />);
+  await act(async () => {
+    mockPress?.();
+    await jest.advanceTimersByTimeAsync(80);
+  });
+  expect(mockDismissDiscoveryDetail).toHaveBeenCalledWith(
+    'swap-detail',
+    ETabRoutes.Perp,
+  );
+  expect(mockSwitchTab).toHaveBeenCalledWith(ETabRoutes.Perp);
+});
 
 it('hides the entry when Perps is disabled', () => {
   mockTicker = 'BTC';
@@ -281,7 +404,10 @@ it.each(['chunk', 'target'])(
     expect(mockWebTarget).toHaveBeenLastCalledWith({ coin: 'xyz:AAPL' });
     expect(mockSwitchTab).toHaveBeenCalledWith(ETabRoutes.WebviewPerpTrade);
     expect(mockToastError).toHaveBeenCalledTimes(1);
-    expect(mockDismissDiscoveryDetail).toHaveBeenCalledWith('market-detail');
+    expect(mockDismissDiscoveryDetail).toHaveBeenCalledWith(
+      'market-detail',
+      ETabRoutes.WebviewPerpTrade,
+    );
   },
 );
 

@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { findFocusedRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Toast, rootNavigationRef } from '@onekeyhq/components';
@@ -15,6 +16,7 @@ import {
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
+import { EModalMarketRoutes } from '../router/types';
 import { dismissDiscoveryMarketDetailForTrade } from '../utils/marketDetailNavigation';
 
 export function usePerpsNavigation(source?: EPerpPageEnterSource) {
@@ -25,7 +27,15 @@ export function usePerpsNavigation(source?: EPerpPageEnterSource) {
   const navigateToPerps = useCallback(
     (coin: string) => {
       if (!coin.trim() || perpDisabled) return;
-      const entryRouteKey = rootNavigationRef.current?.getCurrentRoute()?.key;
+      const entryRoute = rootNavigationRef.current?.getCurrentRoute();
+      const entryState =
+        entryRoute?.name === EModalMarketRoutes.MobileTokenSelector
+          ? rootNavigationRef.current?.getRootState()
+          : undefined;
+      const routeBelowSelector = entryState?.routes[entryState.index - 1];
+      const entryRouteKey = routeBelowSelector?.state
+        ? findFocusedRoute(routeBelowSelector.state)?.key
+        : (routeBelowSelector?.key ?? entryRoute?.key);
       setTimeout(async () => {
         setPerpPageEnterSource(source ?? EPerpPageEnterSource.MarketList);
         // Prepare the target before mounting the tab. Web Perps requires this
@@ -59,14 +69,33 @@ export function usePerpsNavigation(source?: EPerpPageEnterSource) {
             return;
           }
         }
+        const targetTab = perpTabShowWeb
+          ? ETabRoutes.WebviewPerpTrade
+          : ETabRoutes.Perp;
         if (entryRouteKey) {
-          dismissDiscoveryMarketDetailForTrade(entryRouteKey);
+          try {
+            const result = dismissDiscoveryMarketDetailForTrade(
+              entryRouteKey,
+              targetTab,
+            );
+            if (result === 'cancelled') return;
+          } catch (error) {
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.global_unknown_error_retry_message,
+              }),
+            });
+            defaultLogger.app.error.log(
+              `Failed to dismiss Market detail before Perps: ${String(error)}`,
+            );
+            return;
+          }
         }
         if (perpTabShowWeb) {
-          navigation.switchTab(ETabRoutes.WebviewPerpTrade);
+          navigation.switchTab(targetTab);
           return;
         }
-        navigation.switchTab(ETabRoutes.Perp);
+        navigation.switchTab(targetTab);
         if (!proxy) {
           return;
         }
