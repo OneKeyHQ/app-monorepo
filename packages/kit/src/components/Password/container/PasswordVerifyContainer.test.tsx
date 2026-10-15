@@ -184,10 +184,10 @@ describe('Windows Hello interrupted challenge handling', () => {
       });
       expect(verifyPassword).toHaveBeenCalledTimes(2);
       jest
-        .mocked(backgroundApiProxy.servicePassword.verifyPasswordFromInput)
+        .spyOn(backgroundApiProxy.servicePassword, 'verifyPasswordFromInput')
         .mockResolvedValue('verified-password');
       await act(async () => {
-        await captured().onInputPasswordAuth({
+        captured().onInputPasswordAuth({
           password: 'wallet-password',
           passCode: '',
         });
@@ -201,7 +201,7 @@ describe('Windows Hello interrupted challenge handling', () => {
     'preserves the existing attempt protection for %s',
     async (name) => {
       jest
-        .mocked(backgroundApiProxy.servicePassword.verifyPassword)
+        .spyOn(backgroundApiProxy.servicePassword, 'verifyPassword')
         .mockRejectedValue(
           Object.assign(new Error('Verification failed'), {
             name,
@@ -220,7 +220,7 @@ describe('Windows Hello interrupted challenge handling', () => {
   it('does not change interrupted biometric handling on other platforms', async () => {
     platformEnv.isDesktopWin = false;
     jest
-      .mocked(backgroundApiProxy.servicePassword.verifyPassword)
+      .spyOn(backgroundApiProxy.servicePassword, 'verifyPassword')
       .mockRejectedValue(
         Object.assign(new Error('Original native message'), {
           name: BIOLOGY_AUTH_ABORTED_ERROR,
