@@ -354,7 +354,14 @@ export function useSwapTokenList(
     () => swapAllNetworkTokenListMap[swapAllNetworkTokenListCacheKey],
     [swapAllNetworkTokenListMap, swapAllNetworkTokenListCacheKey],
   );
-  const hasAllNetworkTokenList = swapAllNetworkTokenList !== undefined;
+  // Read through a ref: the list filling in mid-load must not re-run the
+  // fetch effects, which would refetch the token list and log searches twice.
+  const hasAllNetworkTokenListRef = useRef(
+    swapAllNetworkTokenList !== undefined,
+  );
+  useEffect(() => {
+    hasAllNetworkTokenListRef.current = swapAllNetworkTokenList !== undefined;
+  }, [swapAllNetworkTokenList]);
   const sortAllNetworkTokens = useCallback((tokens: ISwapToken[]) => {
     const havePriceTokens = tokens
       .filter((token) => {
@@ -544,7 +551,7 @@ export function useSwapTokenList(
             keywords,
             isTokenFetchAllNetworks,
             allNetworkTokenListReady,
-            hasAllNetworkTokenList,
+            hasAllNetworkTokenList: hasAllNetworkTokenListRef.current,
           })
             ? swapLoadAllNetworkTokenList(
                 indexedAccountId,
@@ -587,7 +594,6 @@ export function useSwapTokenList(
     indexedAccountId,
     otherWalletTypeAccountId,
     allNetworkTokenListReady,
-    hasAllNetworkTokenList,
     isFocused,
     isSwapSupportAllAccountsReady,
     isTokenFetchAllNetworks,
@@ -612,7 +618,7 @@ export function useSwapTokenList(
           keywords,
           isTokenFetchAllNetworks,
           allNetworkTokenListReady,
-          hasAllNetworkTokenList,
+          hasAllNetworkTokenList: hasAllNetworkTokenListRef.current,
         })
           ? swapLoadAllNetworkTokenList(
               indexedAccountId,
@@ -640,7 +646,6 @@ export function useSwapTokenList(
     };
   }, [
     allNetworkTokenListReady,
-    hasAllNetworkTokenList,
     indexedAccountId,
     isFocused,
     isSwapSupportAllAccountsReady,
