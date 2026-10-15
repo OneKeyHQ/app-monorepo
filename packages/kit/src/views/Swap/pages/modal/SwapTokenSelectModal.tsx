@@ -1033,9 +1033,21 @@ const SwapTokenSelectPage = ({
         ),
         badgeText,
       };
+      // Section titles only appear once an address search is split by network.
+      let sectionTitle: string | undefined;
+      if (otherNetworkStartIndex === index) {
+        sectionTitle = intl.formatMessage({
+          id: ETranslations.title_tokens_on_other,
+        });
+      } else if (otherNetworkStartIndex > 0 && index === 0) {
+        sectionTitle = intl.formatMessage(
+          { id: ETranslations.title_tokens_on_network },
+          { network: currentSelectNetwork?.name ?? '' },
+        );
+      }
       return (
         <>
-          {otherNetworkStartIndex === index ? (
+          {sectionTitle ? (
             <SizableText
               size={useDesktopTokenSelector ? '$bodyMdMedium' : '$bodyMd'}
               color="$textSubdued"
@@ -1043,7 +1055,7 @@ const SwapTokenSelectPage = ({
               pt="$3"
               pb="$1"
             >
-              {intl.formatMessage({ id: ETranslations.title_tokens_on_other })}
+              {sectionTitle}
             </SizableText>
           ) : null}
           {alertIndex === index ? (
@@ -1116,6 +1128,7 @@ const SwapTokenSelectPage = ({
     [
       alertIndex,
       otherNetworkStartIndex,
+      currentSelectNetwork?.name,
       copyText,
       disableNetworks,
       intl,
