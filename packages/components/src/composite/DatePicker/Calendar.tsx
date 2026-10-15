@@ -8,7 +8,12 @@ import { Stack, YStack } from '../../primitives';
 import { CalendarHeader } from './CalendarHeader';
 import { CalendarPanel } from './CalendarPanel';
 import { MonthGrid } from './MonthGrid';
-import { callOnClick, getCalendarYear } from './utils';
+import {
+  callOnClick,
+  getCalendarMonthPosition,
+  getNavBounds,
+  useLatestRef,
+} from './utils';
 import { YearGrid, YearRangeHeader } from './YearGrid';
 
 import type { DatePickerMode } from './type';
@@ -33,35 +38,35 @@ export const Calendar = memo(
   }: ICalendarProps) => {
     const { data, propGetters } = useDatePickerContext();
     const { calendars } = data;
-    const { addOffset, subtractOffset } = propGetters;
+    const latest = useLatestRef(propGetters);
     const media = useMedia();
-    const { month, year } = calendars[0];
+    const { year } = calendars[0];
 
     const handlePrevYear = useCallback(
-      () => callOnClick(subtractOffset({ years: 1 })),
-      [subtractOffset],
+      () => callOnClick(latest.current.subtractOffset({ years: 1 })),
+      [latest],
     );
 
     const handleNextYear = useCallback(
-      () => callOnClick(addOffset({ years: 1 })),
-      [addOffset],
+      () => callOnClick(latest.current.addOffset({ years: 1 })),
+      [latest],
     );
 
     if (mode === 'month') {
-      const shownYear = getCalendarYear(calendars[0]);
+      const { isPrevYearDisabled, isNextYearDisabled } = getNavBounds(
+        getCalendarMonthPosition(calendars[0]),
+        minDate,
+        maxDate,
+      );
       return (
         <YStack>
           <CalendarHeader
-            month={month}
+            month=""
             year={year}
             onPrevMonth={handlePrevYear}
             onNextMonth={handleNextYear}
-            isPrevDisabled={
-              minDate ? shownYear <= minDate.getFullYear() : false
-            }
-            isNextDisabled={
-              maxDate ? shownYear >= maxDate.getFullYear() : false
-            }
+            isPrevDisabled={isPrevYearDisabled}
+            isNextDisabled={isNextYearDisabled}
             mode={mode}
           />
           <MonthGrid onMonthSelect={onMonthSelect} highlight="selected" />
@@ -90,14 +95,14 @@ export const Calendar = memo(
       const rightIndex = showPreviousMonth ? 0 : 1;
 
       return (
-        <Stack flexDirection="row" gap="$6">
+        <Stack flexDirection="row" gap="$4">
           <CalendarPanel
             calendarIndex={leftIndex}
             showNav="prev"
             isDualPanel
             {...panelProps}
           />
-          <Stack width={1} bg="$neutral3" alignSelf="stretch" />
+          <Stack width={1} bg="$borderSubdued" alignSelf="stretch" />
           <CalendarPanel
             calendarIndex={rightIndex}
             showNav="next"

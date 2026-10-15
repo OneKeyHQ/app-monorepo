@@ -2,19 +2,13 @@ import { memo, useCallback } from 'react';
 
 import { SizableText, Stack } from '../../primitives';
 
-const selectedHoverStyle = { bg: '$bgPrimaryHover' } as const;
-const idleHoverStyle = { bg: '$bgHover' } as const;
-const idlePressStyle = { bg: '$bgActive' } as const;
-
-function getHoverStyle(disabled: boolean, selected: boolean) {
-  if (disabled) return undefined;
-  return selected ? selectedHoverStyle : idleHoverStyle;
-}
+import { TodayDot } from './TodayDot';
+import { getCellStateStyles } from './utils';
 
 /**
- * Month / year cell shared by MonthGrid and YearGrid. `isNow` marks the
- * current period with a ring so it stays findable while another one is
- * selected; disabled periods (outside minDate/maxDate) are inert.
+ * Month / year cell shared by MonthGrid and YearGrid. Same height, radius,
+ * interaction states and "today" marker as DayCell so every drill-down level
+ * reads as one component.
  */
 export const PeriodCell = memo(
   ({
@@ -25,50 +19,44 @@ export const PeriodCell = memo(
     disabled,
     onPress,
   }: {
-    value: Date;
+    value: number;
     label: string | number;
     selected: boolean;
     isNow: boolean;
     disabled: boolean;
-    onPress: (value: Date) => void;
+    onPress: (value: number) => void;
   }) => {
     const handlePress = useCallback(() => {
       if (!disabled) onPress(value);
     }, [disabled, onPress, value]);
 
-    let textColor: '$text' | '$textDisabled' | '$textInverse' = '$text';
-    if (disabled) {
-      textColor = '$textDisabled';
-    } else if (selected) {
-      textColor = '$textInverse';
-    }
+    const { color, ...stateStyles } = getCellStateStyles({
+      disabled,
+      selected,
+    });
 
     return (
       <Stack
         flexBasis="31%"
         flexGrow={1}
-        height="$11"
+        height="$10"
         alignItems="center"
         justifyContent="center"
         borderRadius="$2"
-        borderWidth={1}
-        borderColor={isNow && !selected ? '$borderStrong' : 'transparent'}
-        bg={selected && !disabled ? '$bgPrimary' : 'transparent'}
-        cursor={disabled ? 'not-allowed' : 'pointer'}
-        hoverStyle={getHoverStyle(disabled, selected)}
-        pressStyle={disabled || selected ? undefined : idlePressStyle}
+        {...stateStyles}
         onPress={handlePress}
         aria-disabled={disabled}
         aria-selected={selected}
       >
         <SizableText
           size="$bodyMd"
-          fontWeight={selected ? '600' : '400'}
-          color={textColor}
+          fontWeight={selected || isNow ? '600' : '400'}
+          color={color}
           userSelect="none"
         >
           {label}
         </SizableText>
+        {isNow && !selected ? <TodayDot disabled={disabled} /> : null}
       </Stack>
     );
   },

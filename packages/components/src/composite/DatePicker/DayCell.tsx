@@ -1,56 +1,48 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback } from 'react';
 
 import { SizableText, Stack } from '../../primitives';
+
+import { TodayDot } from './TodayDot';
+import { getCellStateStyles } from './utils';
 
 import type { IDayCellProps } from './type';
 
 const CELL_SIZE = '$10'; // 40px
 const RANGE_RADIUS = '$2';
 
-const pressStyleValue = { bg: '$bgActive' } as const;
-
-type IBandShape = {
+interface IBandShape {
   left: '0%' | '50%';
   right: '0%' | '50%';
   roundLeft: boolean;
   roundRight: boolean;
-} | null;
+}
+
+const BAND_START: IBandShape = {
+  left: '50%',
+  right: '0%',
+  roundLeft: false,
+  roundRight: false,
+};
+const BAND_END: IBandShape = {
+  left: '0%',
+  right: '50%',
+  roundLeft: false,
+  roundRight: false,
+};
 
 /**
  * Background band that joins the selected (or previewed) range endpoints.
  * Endpoints only fill the half facing the range, so the band reads as one
  * continuous strip; it is rounded off at week-row and month edges.
  */
-function getBandShape({
-  isStart,
-  isEnd,
-  isMiddle,
-  isRowStart,
-  isRowEnd,
-  isMonthStart,
-  isMonthEnd,
-}: {
-  isStart: boolean;
-  isEnd: boolean;
-  isMiddle: boolean;
-  isRowStart: boolean;
-  isRowEnd: boolean;
-  isMonthStart: boolean;
-  isMonthEnd: boolean;
-}): IBandShape {
-  const capLeft = isRowStart || isMonthStart;
-  const capRight = isRowEnd || isMonthEnd;
-  if (isStart) {
-    return capRight
-      ? null
-      : { left: '50%', right: '0%', roundLeft: false, roundRight: false };
-  }
-  if (isEnd) {
-    return capLeft
-      ? null
-      : { left: '0%', right: '50%', roundLeft: false, roundRight: false };
-  }
-  if (isMiddle) {
+function getBandShape(
+  part: 'start' | 'end' | 'middle' | null,
+  capLeft: boolean,
+  capRight: boolean,
+): IBandShape | null {
+  if (part === 'start') return capRight ? null : BAND_START;
+  if (part === 'end') return capLeft ? null : BAND_END;
+  if (part === 'middle') {
     return {
       left: '0%',
       right: '0%',
@@ -68,10 +60,8 @@ export const DayCell = memo(
     onHoverIn,
     hideOutOfMonth,
     fullWidth,
-    isRowStart = false,
-    isRowEnd = false,
-    isMonthStart = false,
-    isMonthEnd = false,
+    capLeft = false,
+    capRight = false,
   }: IDayCellProps) => {
     const handlePress = useCallback(() => {
       if (!day.disabled) {
@@ -85,64 +75,6 @@ export const DayCell = memo(
       }
     }, [day.disabled, day.date, onHoverIn]);
 
-    const { range } = day;
-    const visible = day.inCurrentMonth;
-    const isSameDayRange = visible && range === 'range-start range-end';
-    const isRangeStart = visible && range === 'range-start';
-    const isRangeEnd = visible && range === 'range-end';
-    const isInRange = visible && range === 'in-range';
-    const isPreviewStart = visible && range === 'will-be-range-start';
-    const isPreviewEnd = visible && range === 'will-be-range-end';
-    const isPreviewMiddle = visible && range === 'will-be-in-range';
-    const isPreview = isPreviewStart || isPreviewEnd || isPreviewMiddle;
-
-    // The anchor day of an in-progress range is already `selected`; while
-    // previewing, rehookify re-labels it as a will-be endpoint.
-    const isSelected =
-      (day.selected && visible) || isSameDayRange || isRangeStart || isRangeEnd;
-    const isEndpoint = isRangeStart || isRangeEnd;
-    const isPreviewEndpoint = (isPreviewStart || isPreviewEnd) && !isSelected;
-
-    const band = useMemo(
-      () =>
-        getBandShape({
-          isStart: isRangeStart || isPreviewStart,
-          isEnd: isRangeEnd || isPreviewEnd,
-          // Hovering the anchor itself previews a one-day range: no band.
-          isMiddle: isInRange || (isPreviewMiddle && !isSelected),
-          isRowStart,
-          isRowEnd,
-          isMonthStart,
-          isMonthEnd,
-        }),
-      [
-        isRangeStart,
-        isPreviewStart,
-        isRangeEnd,
-        isPreviewEnd,
-        isInRange,
-        isPreviewMiddle,
-        isSelected,
-        isRowStart,
-        isRowEnd,
-        isMonthStart,
-        isMonthEnd,
-      ],
-    );
-
-    let textColor: '$text' | '$textDisabled' | '$textInverse' = '$text';
-    if (day.disabled || !day.inCurrentMonth) {
-      textColor = '$textDisabled';
-    } else if (isSelected) {
-      textColor = '$textInverse';
-    }
-
-    const hoverStyleValue = useMemo(() => {
-      if (day.disabled) return undefined;
-      if (isSelected) return { bg: '$bgPrimaryHover' } as const;
-      return { bg: '$bgHover' } as const;
-    }, [day.disabled, isSelected]);
-
     if (hideOutOfMonth && !day.inCurrentMonth) {
       return (
         <Stack
@@ -154,10 +86,47 @@ export const DayCell = memo(
       );
     }
 
+    // Range decoration only applies to in-month days.
+    const range = day.inCurrentMonth ? day.range : undefined;
+    const isRangeStart = range === 'range-start';
+    const isRangeEnd = range === 'range-end';
+    const isPreviewStart = range === 'will-be-range-start';
+    const isPreviewEnd = range === 'will-be-range-end';
+    const isPreview =
+      isPreviewStart || isPreviewEnd || range === 'will-be-in-range';
+
+    // The anchor of an in-progress range is already `selected`; while
+    // previewing, rehookify re-labels it as a will-be endpoint.
+    const isSelected =
+      (day.selected && day.inCurrentMonth) ||
+      range === 'range-start range-end' ||
+      isRangeStart ||
+      isRangeEnd;
+    const isEndpoint = isRangeStart || isRangeEnd;
+    const isPreviewEndpoint = (isPreviewStart || isPreviewEnd) && !isSelected;
+
+    let bandPart: 'start' | 'end' | 'middle' | null = null;
+    if (isRangeStart || isPreviewStart) bandPart = 'start';
+    else if (isRangeEnd || isPreviewEnd) bandPart = 'end';
+    // Hovering the anchor itself previews a one-day range: no band.
+    else if (
+      range === 'in-range' ||
+      (range === 'will-be-in-range' && !isSelected)
+    )
+      bandPart = 'middle';
+    const band = getBandShape(bandPart, capLeft, capRight);
+
+    const { color, bg, ...interactionStyles } = getCellStateStyles({
+      disabled: day.disabled,
+      selected: isSelected,
+      muted: !day.inCurrentMonth,
+    });
+
     // In full-width (range) layouts the endpoint stretches across the cell
     // and squares off the side that touches the band.
-    const squareRight = fullWidth && isEndpoint && band?.left === '50%';
-    const squareLeft = fullWidth && isEndpoint && band?.right === '50%';
+    const stretchEndpoint = !!fullWidth && isEndpoint;
+    const squareRight = stretchEndpoint && band === BAND_START;
+    const squareLeft = stretchEndpoint && band === BAND_END;
 
     return (
       <Stack
@@ -184,7 +153,7 @@ export const DayCell = memo(
           />
         ) : null}
         <Stack
-          width={fullWidth && isEndpoint ? '100%' : CELL_SIZE}
+          width={stretchEndpoint ? '100%' : CELL_SIZE}
           height={CELL_SIZE}
           alignItems="center"
           justifyContent="center"
@@ -197,12 +166,10 @@ export const DayCell = memo(
             borderTopLeftRadius: 0,
             borderBottomLeftRadius: 0,
           })}
-          bg={isSelected && !day.disabled ? '$bgPrimary' : 'transparent'}
-          borderWidth={1}
-          borderColor={isPreviewEndpoint ? '$borderStrong' : 'transparent'}
-          cursor={day.disabled ? 'not-allowed' : 'pointer'}
-          hoverStyle={hoverStyleValue}
-          pressStyle={day.disabled || isSelected ? undefined : pressStyleValue}
+          // The pending end of a previewed range gets a solid tint, distinct
+          // from the lighter preview band and from the today dot.
+          bg={isPreviewEndpoint ? '$bgStrong' : bg}
+          {...interactionStyles}
           onPress={handlePress}
           onHoverIn={onHoverIn ? handleHoverIn : undefined}
           aria-disabled={day.disabled}
@@ -210,22 +177,14 @@ export const DayCell = memo(
         >
           <SizableText
             size="$bodyMd"
-            color={textColor}
+            color={color}
             fontWeight={day.active || isSelected ? '600' : '400'}
             userSelect="none"
           >
             {day.day}
           </SizableText>
-          {/* Today dot indicator */}
           {day.active && !isSelected ? (
-            <Stack
-              position="absolute"
-              bottom="$0.5"
-              width="$1"
-              height="$1"
-              borderRadius="$full"
-              bg={day.disabled ? '$textDisabled' : '$bgPrimary'}
-            />
+            <TodayDot disabled={day.disabled} />
           ) : null}
         </Stack>
       </Stack>

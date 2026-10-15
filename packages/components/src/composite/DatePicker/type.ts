@@ -102,11 +102,12 @@ export interface IDayCellProps {
   onPress: (date: string) => void;
   /** Web only: previews the pending range while picking its second date. */
   onHoverIn?: (date: string) => void;
-  /** Column / month boundaries, used to round off the range band. */
-  isRowStart?: boolean;
-  isRowEnd?: boolean;
-  isMonthStart?: boolean;
-  isMonthEnd?: boolean;
+  /**
+   * The range band ends on this side (week-row edge or month edge) and is
+   * rounded off there.
+   */
+  capLeft?: boolean;
+  capRight?: boolean;
 }
 
 export interface IDateRangePreset {

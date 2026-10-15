@@ -4,11 +4,8 @@ import { YStack } from '../../primitives';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '../../utils/animationConstants';
 
 import { MonthDaysGrid, WeekdayRow } from './DayGrid';
-import {
-  getCalendarMonthPosition,
-  getSlideEnterStyle,
-  useSlideDirection,
-} from './useSlideDirection';
+import { useSlideDirection } from './useSlideDirection';
+import { getCalendarMonthPosition, getEnterStyle } from './utils';
 
 import type { ISwipeableDayGridProps } from './SwipeableDayGridTypes';
 
@@ -32,7 +29,7 @@ export function SwipeableDayGrid({
         key={position}
         transition="quick"
         animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-        enterStyle={getSlideEnterStyle(direction)}
+        enterStyle={getEnterStyle(direction)}
       >
         <MonthDaysGrid
           calendarIndex={calendarIndex}

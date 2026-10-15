@@ -13,7 +13,9 @@ function isSameDay(a: Date | null, b: Date | null): boolean {
   );
 }
 
-const activeHoverStyle = { backgroundColor: '$bgActive' } as const;
+export const PRESETS_SIDEBAR_WIDTH = 156;
+
+const activeHoverStyle = { backgroundColor: '$bgStrongHover' } as const;
 const inactiveHoverStyle = { backgroundColor: '$bgHover' } as const;
 const pressStyleConst = { backgroundColor: '$bgActive' } as const;
 
@@ -82,12 +84,14 @@ export const PresetsSidebar = memo(
     );
 
     return (
+      // Vertical padding centers the first item on the calendar header row
+      // ($4 panel padding + half the 24px nav row - half the 36px item).
       <YStack
-        width={156}
+        width={PRESETS_SIDEBAR_WIDTH}
         borderRightWidth={1}
-        borderRightColor="$neutral3"
-        paddingVertical="$1"
-        paddingHorizontal="$1"
+        borderRightColor="$borderSubdued"
+        paddingVertical="$2.5"
+        paddingHorizontal="$2"
         gap="$0.5"
       >
         {presets.map((preset, index) => (

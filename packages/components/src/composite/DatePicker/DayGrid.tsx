@@ -1,4 +1,4 @@
-import { memo, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useDatePickerContext } from '@rehookify/datepicker';
 
@@ -7,7 +7,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { SizableText, Stack, YStack } from '../../primitives';
 
 import { DayCell } from './DayCell';
-import { callOnClick } from './utils';
+import { callOnClick, useLatestRef } from './utils';
 
 import type { IDayCellProps } from './type';
 
@@ -22,10 +22,8 @@ const DayCellWrapper = memo(
     range,
     hideOutOfMonth,
     fullWidth,
-    isRowStart,
-    isRowEnd,
-    isMonthStart,
-    isMonthEnd,
+    capLeft,
+    capRight,
     onPress,
     onHoverIn,
   }: {
@@ -38,10 +36,8 @@ const DayCellWrapper = memo(
     range?: IDayCellProps['day']['range'];
     hideOutOfMonth?: boolean;
     fullWidth?: boolean;
-    isRowStart: boolean;
-    isRowEnd: boolean;
-    isMonthStart: boolean;
-    isMonthEnd: boolean;
+    capLeft: boolean;
+    capRight: boolean;
     onPress: (date: string) => void;
     onHoverIn?: (date: string) => void;
   }) => {
@@ -62,10 +58,8 @@ const DayCellWrapper = memo(
       <DayCell
         hideOutOfMonth={hideOutOfMonth}
         fullWidth={fullWidth}
-        isRowStart={isRowStart}
-        isRowEnd={isRowEnd}
-        isMonthStart={isMonthStart}
-        isMonthEnd={isMonthEnd}
+        capLeft={capLeft}
+        capRight={capRight}
         day={day}
         onPress={onPress}
         onHoverIn={onHoverIn}
@@ -117,50 +111,41 @@ export function MonthDaysGrid({
   const { dayButton } = propGetters;
   const cal = calendars[calendarIndex];
 
-  // Latest-value refs keep handleDayPress identity stable across rehookify
+  // Latest-value ref keeps the handlers' identity stable across rehookify
   // context updates (rehookify recreates cal/dayButton every render), so the
   // memoized day cells can bail out on unchanged primitive props.
-  const calRef = useRef(cal);
-  const dayButtonRef = useRef(dayButton);
-  // Commit-time-only updates: render-time writes could leak values from an
-  // abandoned concurrent render into a press that lands on the old committed UI.
-  useLayoutEffect(() => {
-    calRef.current = cal;
-    dayButtonRef.current = dayButton;
-  });
+  const latest = useLatestRef({ cal, dayButton });
 
-  const handleDayPress = useCallback((dateStr: string) => {
-    const matchedDay = calRef.current?.days.find(
-      (d) => d.$date.toString() === dateStr,
-    );
-    if (matchedDay) {
-      callOnClick(dayButtonRef.current(matchedDay));
-    }
-  }, []);
+  const getDayButton = useCallback(
+    (dateStr: string) => {
+      const { cal: current, dayButton: getButton } = latest.current;
+      const matchedDay = current?.days.find(
+        (d) => d.$date.toString() === dateStr,
+      );
+      return matchedDay ? getButton(matchedDay) : undefined;
+    },
+    [latest],
+  );
+
+  const handleDayPress = useCallback(
+    (dateStr: string) => {
+      const getter = getDayButton(dateStr);
+      if (getter) callOnClick(getter);
+    },
+    [getDayButton],
+  );
 
   // Rehookify only exposes onMouseEnter while a range is half picked; it sets
   // the pending range end so cells render the will-be-in-range preview.
-  const handleDayHoverIn = useCallback((dateStr: string) => {
-    const matchedDay = calRef.current?.days.find(
-      (d) => d.$date.toString() === dateStr,
-    );
-    if (!matchedDay) return;
-    const getter = dayButtonRef.current(matchedDay) as {
-      onMouseEnter?: () => void;
-    };
-    getter.onMouseEnter?.();
-  }, []);
-
-  const monthEndDate = useMemo(() => {
-    const firstInMonth = cal?.days.find((d) => d.inCurrentMonth)?.$date;
-    return firstInMonth
-      ? new Date(
-          firstInMonth.getFullYear(),
-          firstInMonth.getMonth() + 1,
-          0,
-        ).getDate()
-      : 31;
-  }, [cal]);
+  const handleDayHoverIn = useCallback(
+    (dateStr: string) => {
+      const getter = getDayButton(dateStr) as
+        | { onMouseEnter?: () => void }
+        | undefined;
+      getter?.onMouseEnter?.();
+    },
+    [getDayButton],
+  );
 
   if (!cal) return null;
 
@@ -168,7 +153,11 @@ export function MonthDaysGrid({
     <Stack flexWrap="wrap" flexDirection="row" rowGap="$1">
       {cal.days.map((day, index) => {
         const dateStr = day.$date.toString();
-        const dayOfMonth = day.$date.getDate();
+        // Out-of-month neighbors never draw a band, so a month edge caps it
+        // just like a week-row edge does.
+        const capLeft = index % 7 === 0 || !cal.days[index - 1]?.inCurrentMonth;
+        const capRight =
+          index % 7 === 6 || !cal.days[index + 1]?.inCurrentMonth;
         return (
           <DayCellWrapper
             key={dateStr}
@@ -181,10 +170,8 @@ export function MonthDaysGrid({
             range={day.range || undefined}
             hideOutOfMonth={hideOutOfMonth}
             fullWidth={fullWidth}
-            isRowStart={index % 7 === 0}
-            isRowEnd={index % 7 === 6}
-            isMonthStart={day.inCurrentMonth && dayOfMonth === 1}
-            isMonthEnd={day.inCurrentMonth && dayOfMonth === monthEndDate}
+            capLeft={capLeft}
+            capRight={capRight}
             onPress={handleDayPress}
             onHoverIn={HOVER_PREVIEW_ENABLED ? handleDayHoverIn : undefined}
           />
