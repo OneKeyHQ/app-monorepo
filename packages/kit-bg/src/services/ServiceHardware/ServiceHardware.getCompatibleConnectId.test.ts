@@ -2087,6 +2087,112 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       expect(probe).not.toHaveBeenCalled();
     });
 
+    it.each([
+      { commType: 'webusb', connectId: '000000000000000000000000' },
+      { commType: 'bridge', connectId: '000000000000000000000000' },
+      { commType: 'webusb', connectId: 'SAVED_DB_SERIAL' },
+      { commType: 'webusb', connectId: undefined },
+    ])(
+      'accepts explicit identity-less recovery over $commType with target $connectId',
+      async ({ commType, connectId }) => {
+        mockedAxios.post.mockResolvedValue({ data: [{ path: '1' }] });
+        const service = createService(commType);
+        if (connectId === 'SAVED_DB_SERIAL') {
+          jest
+            .spyOn(service, 'getDeviceByConnectId')
+            .mockResolvedValue({ uuid: connectId } as IDBDevice);
+        }
+        const probe = jest
+          .spyOn(service, 'probeUsbDeviceIdentities')
+          .mockResolvedValue([
+            {
+              path: '000000000000000000000000',
+              serialNo: null,
+              deviceId: null,
+              deviceType: EDeviceType.Classic1s,
+              connectProtocol: 'V1',
+              commType,
+            } as UsbDeviceIdentity,
+          ]);
+        await expect(
+          service.detectUSBDeviceAvailability({
+            connectId,
+            connectProtocol: 'V1',
+            bootloaderRecoveryDeviceType: EDeviceType.Classic1s,
+          }),
+        ).resolves.toBe(true);
+        expect(probe).toHaveBeenCalledWith({ commType });
+        expect(mockedGetHardwareSDKInstance).not.toHaveBeenCalled();
+        expect(mockedResetHardwareSDKInstance).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each([
+      {
+        reason: 'ordinary target without recovery mode',
+        recoveryType: undefined,
+        overrides: {},
+        duplicate: false,
+      },
+      {
+        reason: 'another model',
+        recoveryType: EDeviceType.Classic1s,
+        overrides: { deviceType: EDeviceType.Pro },
+        duplicate: false,
+      },
+      {
+        reason: 'another protocol',
+        recoveryType: EDeviceType.Classic1s,
+        overrides: { connectProtocol: 'V2' },
+        duplicate: false,
+      },
+      {
+        reason: 'multiple candidates',
+        recoveryType: EDeviceType.Classic1s,
+        overrides: {},
+        duplicate: true,
+      },
+      {
+        reason: 'another identified device',
+        recoveryType: EDeviceType.Classic1s,
+        overrides: { serialNo: 'OTHER_SERIAL' },
+        duplicate: false,
+      },
+      {
+        reason: 'unknown model',
+        recoveryType: EDeviceType.Unknown,
+        overrides: { deviceType: EDeviceType.Unknown },
+        duplicate: false,
+      },
+    ])(
+      'rejects recovery for $reason',
+      async ({ recoveryType, overrides, duplicate }) => {
+        const service = createService();
+        const candidate = {
+          path: '000000000000000000000000',
+          serialNo: null,
+          deviceId: null,
+          deviceType: EDeviceType.Classic1s,
+          connectProtocol: 'V1',
+          commType: 'webusb',
+          ...overrides,
+        } as UsbDeviceIdentity;
+        jest
+          .spyOn(service, 'probeUsbDeviceIdentities')
+          .mockResolvedValue([
+            candidate,
+            ...(duplicate ? [{ ...candidate, path: 'OTHER_PATH' }] : []),
+          ]);
+        await expect(
+          service.detectUSBDeviceAvailability({
+            connectId: '000000000000000000000000',
+            connectProtocol: 'V1',
+            bootloaderRecoveryDeviceType: recoveryType,
+          }),
+        ).resolves.toBe(false);
+      },
+    );
+
     beforeEach(() => {
       originalNavigator = Object.getOwnPropertyDescriptor(
         globalThis,

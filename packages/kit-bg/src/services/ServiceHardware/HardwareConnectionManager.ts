@@ -205,6 +205,7 @@ export class HardwareConnectionManager {
   async detectUSBDeviceAvailability(
     connectId?: string,
     connectProtocol?: HardwareConnectProtocol,
+    bootloaderRecoveryDeviceType?: EDeviceType,
   ): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) return true;
     const mode = await this.getDesktopUsbSetting(connectProtocol);
@@ -212,20 +213,42 @@ export class HardwareConnectionManager {
       mode === 'bridge'
         ? await this.detectBridgeAvailability(undefined)
         : await this.detectWebUSBAvailability(undefined);
-    if (!usbAvailable || !connectId) return usbAvailable;
+    if (!usbAvailable || (!connectId && !bootloaderRecoveryDeviceType)) {
+      return usbAvailable;
+    }
 
     // A selected target must be identified independently of descriptor paths
     // and the active SDK, including when this is an upgrade-entry preflight.
     try {
-      const device =
-        await this.backgroundApi.serviceHardware.getDeviceByConnectId({
-          connectId,
-        });
+      const device = connectId
+        ? await this.backgroundApi.serviceHardware.getDeviceByConnectId({
+            connectId,
+          })
+        : undefined;
       const result =
         await this.backgroundApi.serviceHardware.probeUsbDeviceIdentities({
           commType: mode === 'bridge' ? 'bridge' : 'webusb',
         });
       const normalize = (id?: string | null) => id?.trim().toLowerCase();
+      const candidates = result.filter(
+        (known) =>
+          known.commType === mode &&
+          (!connectProtocol || known.connectProtocol === connectProtocol),
+      );
+      // Only an explicit loader recovery may continue without business identity.
+      // The workflow still reads live USB state and verifies the model and mode.
+      if (
+        bootloaderRecoveryDeviceType &&
+        bootloaderRecoveryDeviceType !== EDeviceType.Unknown &&
+        connectProtocol &&
+        candidates.length === 1 &&
+        candidates[0].deviceType === bootloaderRecoveryDeviceType &&
+        !normalize(candidates[0].serialNo) &&
+        !normalize(candidates[0].deviceId)
+      ) {
+        return true;
+      }
+      if (!connectId) return false;
       const serial = normalize(
         deviceUtils.getDeviceSerialNoFromDbDevice(device) ||
           deviceUtils.getDeviceSerialNoFromFeatures(device?.featuresInfo),
@@ -235,12 +258,7 @@ export class HardwareConnectionManager {
       );
       const target = normalize(connectId);
       return (
-        result.filter((known) => {
-          if (
-            known.commType !== mode ||
-            (connectProtocol && known.connectProtocol !== connectProtocol)
-          )
-            return false;
+        candidates.filter((known) => {
           if (serial) return normalize(known.serialNo) === serial;
           if (walletId) return normalize(known.deviceId) === walletId;
           return (

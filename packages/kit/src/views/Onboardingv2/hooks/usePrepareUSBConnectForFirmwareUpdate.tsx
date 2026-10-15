@@ -6,12 +6,12 @@ import { useIntl } from 'react-intl';
 import { Dialog } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import type { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { getFirmwareUpdateUSBPreflightParams } from '../../FirmwareUpdate/utils';
 import { getDesktopForceUSBTransportType } from '../utils';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
@@ -36,29 +36,32 @@ export function usePrepareUSBConnectForFirmwareUpdate() {
       device: SearchDevice;
       features: IOneKeyDeviceFeatures | undefined;
     }): Promise<IUSBConnectPrepareResult | null> => {
-      const connectProtocol = isProtocolV2ProductType(device.deviceType)
-        ? 'V2'
-        : undefined;
-      let connectIdToUse = device.connectId;
-      if (platformEnv.isDesktop && features) {
+      let usbPreflightParams: Awaited<
+        ReturnType<typeof getFirmwareUpdateUSBPreflightParams>
+      > = {
+        connectId: device.connectId ?? undefined,
+        connectProtocol: isProtocolV2ProductType(device.deviceType)
+          ? 'V2'
+          : undefined,
+      };
+      if (platformEnv.isDesktop) {
         try {
-          const usbConnectId = await deviceUtils.buildDeviceUSBConnectId({
+          usbPreflightParams = await getFirmwareUpdateUSBPreflightParams({
             features,
+            deviceType: device.deviceType,
+            originalConnectId: device.connectId ?? undefined,
           });
-          if (!isNil(usbConnectId)) {
-            connectIdToUse = usbConnectId;
-          }
         } catch (error) {
           console.error('Failed to build USB connectId:', error);
         }
       }
+      const { connectId: connectIdToUse, connectProtocol } = usbPreflightParams;
 
       // Step 1: Check if USB device is available
       const isUSBDeviceAvailable =
-        await backgroundApiProxy.serviceHardware.detectUSBDeviceAvailability({
-          connectId: connectIdToUse ?? undefined,
-          connectProtocol,
-        });
+        await backgroundApiProxy.serviceHardware.detectUSBDeviceAvailability(
+          usbPreflightParams,
+        );
 
       if (!isUSBDeviceAvailable) {
         Dialog.show({

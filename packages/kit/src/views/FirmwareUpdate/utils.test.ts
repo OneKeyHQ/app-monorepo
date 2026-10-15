@@ -89,6 +89,40 @@ describe('getFirmwareUpdateUSBPreflightParams', () => {
     });
   });
 
+  it.each([EDeviceType.Classic1s, EDeviceType.Pro2])(
+    'marks an identity-less %s loader as explicit recovery',
+    async (deviceType) => {
+      await expect(
+        getFirmwareUpdateUSBPreflightParams({
+          deviceType,
+          features: { mode: 'bootloader' },
+          originalConnectId: '000000000000000000000000',
+          isBootloaderMode: true,
+        } as ICheckAllFirmwareReleaseResult),
+      ).resolves.toEqual({
+        connectId: '000000000000000000000000',
+        connectProtocol: deviceType === EDeviceType.Pro2 ? 'V2' : 'V1',
+        bootloaderRecoveryDeviceType: deviceType,
+      });
+    },
+  );
+
+  it('does not mark an ordinary or identified target as anonymous recovery', async () => {
+    for (const features of [
+      { mode: 'normal' },
+      { mode: 'bootloader', device_id: 'KNOWN_WALLET' },
+      { mode: 'bootloader', serialNo: 'KNOWN_SERIAL' },
+    ]) {
+      const params = await getFirmwareUpdateUSBPreflightParams({
+        deviceType: EDeviceType.Classic1s,
+        features,
+        originalConnectId: 'SAVED_CONNECT_ID',
+        isBootloaderMode: true,
+      } as ICheckAllFirmwareReleaseResult);
+      expect(params).not.toHaveProperty('bootloaderRecoveryDeviceType');
+    }
+  });
+
   it('prefers the USB serial resolved from release features', async () => {
     const buildDeviceUSBConnectId = jest
       .spyOn(deviceUtils, 'buildDeviceUSBConnectId')

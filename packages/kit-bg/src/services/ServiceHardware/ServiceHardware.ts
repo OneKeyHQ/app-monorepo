@@ -4643,12 +4643,14 @@ class ServiceHardware extends ServiceBase {
   async detectUSBDeviceAvailability(params?: {
     connectId?: string;
     connectProtocol?: HardwareConnectProtocol;
+    bootloaderRecoveryDeviceType?: IDeviceType;
   }) {
     // Preserve the selected target at the upgrade entry; the workflow checks
     // its live USB identity again before preparing artifacts or flashing.
     return this.connectionManager.detectUSBDeviceAvailability(
       params?.connectId,
       params?.connectProtocol,
+      params?.bootloaderRecoveryDeviceType,
     );
   }
 
