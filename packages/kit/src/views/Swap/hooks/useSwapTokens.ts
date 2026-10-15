@@ -616,6 +616,7 @@ export function useSwapTokenList(
               otherWalletTypeAccountId,
               lpToken,
               requestCurrency,
+              true,
             )
           : undefined,
         tokenListFetchAction(tokenFetchParams),
