@@ -35,6 +35,7 @@ function buildPlan(
 
 describe('getOneKeyIdLogoutDialogContent', () => {
   test.each<IReadyIdentityExitPlan['presentation']>([
+    { type: 'switchEnvironment' },
     {
       type: 'keylessOnly',
       currentProvider: EOAuthSocialLoginProvider.Google,
@@ -68,6 +69,23 @@ describe('getOneKeyIdLogoutDialogContent', () => {
       ).toHaveLength(2);
     },
   );
+
+  test('reuses the combined logout content for environment switches', () => {
+    expect(
+      getOneKeyIdLogoutDialogContent({
+        intl,
+        plan: buildPlan({ type: 'switchEnvironment' }),
+      }),
+    ).toEqual(
+      getOneKeyIdLogoutDialogContent({
+        intl,
+        plan: buildPlan({
+          type: 'linkedOneKeyIdAndKeyless',
+          currentProvider: EOAuthSocialLoginProvider.Google,
+        }),
+      }),
+    );
+  });
 
   test('does not add the Keyless recovery description to a normal logout', () => {
     const content = getOneKeyIdLogoutDialogContent({
