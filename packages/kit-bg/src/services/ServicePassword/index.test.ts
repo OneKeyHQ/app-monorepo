@@ -5,7 +5,7 @@ import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import { biologyAuthNativeError } from '@onekeyhq/shared/src/biologyAuth/error';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
-import { WrongPassword } from '@onekeyhq/shared/src/errors';
+import { BiologyAuthFailed, WrongPassword } from '@onekeyhq/shared/src/errors';
 import { checkBiometricAuthChanged } from '@onekeyhq/shared/src/modules3rdParty/check-biometric-auth-changed';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
@@ -192,8 +192,9 @@ describe('ServicePassword', () => {
         error: 'unknown',
       });
       const getPassword = jest.spyOn(biologyAuthUtils, 'getPassword');
-      await expect(service.getBiologyAuthPassword()).rejects.toMatchObject({
-        name: 'BiologyAuthFailed',
+      const verification = service.getBiologyAuthPassword();
+      await expect(verification).rejects.toBeInstanceOf(BiologyAuthFailed);
+      await expect(verification).rejects.toMatchObject({
         cause: biologyAuthNativeError,
       });
       expect(getPassword).not.toHaveBeenCalled();
