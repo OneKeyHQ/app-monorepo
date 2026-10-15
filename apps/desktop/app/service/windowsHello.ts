@@ -1,3 +1,4 @@
+import Logger from 'electron-log/main';
 import {
   Availability,
   VerificationResult,
@@ -12,7 +13,8 @@ async function checkWindowsHelloAvailability(
 ) {
   try {
     callback((await checkAvailability()) === Availability.Available);
-  } catch (_error) {
+  } catch (error) {
+    Logger.info('Windows Hello availability failed', error);
     callback(false);
   }
 }
@@ -29,18 +31,20 @@ async function requestVerificationAsync(
     if (verification === VerificationResult.Verified) {
       callback({ success: true });
     } else {
+      if (verification !== VerificationResult.Canceled) {
+        Logger.info('Windows Hello verification failed', verification);
+      }
       callback({
         success: false,
         error:
-          verification === VerificationResult.Canceled
-            ? 'user_cancel'
-            : verification,
+          verification === VerificationResult.Canceled ? 'user_cancel' : '',
       });
     }
   } catch (error) {
+    Logger.info('Windows Hello verification failed', error);
     callback({
       success: false,
-      error: error instanceof Error ? error.message : 'Windows Hello failed',
+      error: '',
     });
   }
 }

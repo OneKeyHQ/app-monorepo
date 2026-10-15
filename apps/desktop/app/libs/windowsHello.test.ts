@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 
 import { utilityProcess } from 'electron';
+import Logger from 'electron-log/main';
 import {
   Availability,
   VerificationResult,
@@ -133,7 +134,7 @@ describe('Windows Hello owner and foreground dispatch', () => {
     jest.mocked(allowSetForegroundWindow).mockReturnValue(false);
     await expect(service.requestVerificationAsync('Unlock')).resolves.toEqual({
       success: false,
-      error: 'Windows Hello foreground denied',
+      error: '',
     });
     expect(child.postMessage).not.toHaveBeenCalled();
     expect(child.listenerCount('message')).toBe(1);
@@ -143,7 +144,7 @@ describe('Windows Hello owner and foreground dispatch', () => {
     const first = service.requestVerificationAsync('Unlock');
     await expect(service.requestVerificationAsync('Reveal')).resolves.toEqual({
       success: false,
-      error: 'device_busy',
+      error: '',
     });
     reply(true);
     await expect(first).resolves.toMatchObject({ success: true });
@@ -156,7 +157,7 @@ describe('Windows Hello owner and foreground dispatch', () => {
     reply(false, 'retries_exhausted');
     await expect(pending).resolves.toMatchObject({
       success: false,
-      error: 'retries_exhausted',
+      error: '',
     });
     expect(child.postMessage).toHaveBeenCalledTimes(1);
   });
@@ -183,7 +184,7 @@ describe('Windows Hello owner and foreground dispatch', () => {
     reply(false, 'device_busy');
     await expect(second).resolves.toEqual({
       success: false,
-      error: 'device_busy',
+      error: '',
     });
   });
 
@@ -204,6 +205,74 @@ describe('Windows Hello owner and foreground dispatch', () => {
     await expect(pending).resolves.toBe(true);
     jest.advanceTimersByTime(5000);
     await expect(service.checkAvailabilityAsync()).resolves.toBe(true);
+  });
+
+  it('expires an unfocused request, removes listeners and permits an explicit new attempt', async () => {
+    focused = false;
+    const pending = service.requestVerificationAsync('Unlock');
+    jest.advanceTimersByTime(5000);
+    await expect(pending).resolves.toEqual({ success: false, error: '' });
+    expect(owner.listenerCount('focus')).toBe(0);
+    expect(owner.listenerCount('closed')).toBe(0);
+    expect(child.listenerCount('message')).toBe(1);
+    expect(child.listenerCount('exit')).toBe(1);
+    expect(jest.getTimerCount()).toBe(0);
+    focused = true;
+    owner.emit('focus');
+    expect(child.postMessage).not.toHaveBeenCalled();
+    const next = service.requestVerificationAsync('Unlock');
+    reply(true);
+    await expect(next).resolves.toEqual({ success: true });
+    expect(child.postMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a late focus even when the timeout callback has not run after suspension', async () => {
+    focused = false;
+    const pending = service.requestVerificationAsync('Unlock');
+    jest.setSystemTime(Date.now() + 300_000);
+    focused = true;
+    owner.emit('focus');
+    await expect(pending).resolves.toEqual({ success: false, error: '' });
+    expect(child.postMessage).not.toHaveBeenCalled();
+    expect(owner.listenerCount('focus')).toBe(0);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('logs internal utility errors without forwarding them to the lock screen', async () => {
+    const pending = service.requestVerificationAsync('Unlock');
+    reply(false, 'HRESULT 0x80004005');
+    await expect(pending).resolves.toEqual({ success: false, error: '' });
+    expect(Logger.info).toHaveBeenCalledWith(
+      'Windows Hello verification failed',
+      'HRESULT 0x80004005',
+    );
+  });
+
+  it('recovers a timed-out capability probe when its late result arrives', async () => {
+    const pending = service.checkAvailabilityAsync();
+    jest.advanceTimersByTime(5000);
+    await expect(pending).resolves.toBe(false);
+    child.emit('message', {
+      type: EWindowHelloEventType.CheckAvailabilityAsync,
+      result: true,
+    });
+    await Promise.resolve();
+    await expect(service.checkAvailabilityAsync()).resolves.toBe(true);
+    expect(child.postMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows a fresh capability probe after a timeout without a cached negative result', async () => {
+    const first = service.checkAvailabilityAsync();
+    jest.advanceTimersByTime(5000);
+    await expect(first).resolves.toBe(false);
+    const next = service.checkAvailabilityAsync();
+    expect(child.postMessage).toHaveBeenCalledTimes(2);
+    child.emit('message', {
+      type: EWindowHelloEventType.CheckAvailabilityAsync,
+      result: true,
+    });
+    await expect(next).resolves.toBe(true);
+    expect(jest.getTimerCount()).toBe(0);
   });
 });
 
@@ -277,22 +346,26 @@ describe('Windows Hello utility results', () => {
     });
   });
 
-  it.each(['canceled', 'device_busy', 'retries_exhausted'] as const)(
-    'returns %s without retrying',
-    async (result) => {
-      jest.mocked(requestVerification).mockResolvedValue(result);
-      await verify();
-      expect(port.postMessage).toHaveBeenCalledWith({
-        type: EWindowHelloEventType.RequestVerificationAsync,
-        requestId: 'request-1',
-        result: {
-          success: false,
-          error: result === 'canceled' ? 'user_cancel' : result,
-        },
-      });
-      expect(requestVerification).toHaveBeenCalledTimes(1);
-    },
-  );
+  it.each([
+    'canceled',
+    'device_busy',
+    'retries_exhausted',
+    'device_not_present',
+    'not_configured_for_user',
+    'disabled_by_policy',
+  ] as const)('returns %s without retrying', async (result) => {
+    jest.mocked(requestVerification).mockResolvedValue(result);
+    await verify();
+    expect(port.postMessage).toHaveBeenCalledWith({
+      type: EWindowHelloEventType.RequestVerificationAsync,
+      requestId: 'request-1',
+      result: {
+        success: false,
+        error: result === 'canceled' ? 'user_cancel' : '',
+      },
+    });
+    expect(requestVerification).toHaveBeenCalledTimes(1);
+  });
 
   it('settles native errors without retrying or authorizing', async () => {
     jest
@@ -302,8 +375,45 @@ describe('Windows Hello utility results', () => {
     expect(port.postMessage).toHaveBeenCalledWith({
       type: EWindowHelloEventType.RequestVerificationAsync,
       requestId: 'request-1',
-      result: { success: false, error: 'HRESULT error' },
+      result: { success: false, error: '' },
     });
     expect(requestVerification).toHaveBeenCalledTimes(1);
+    expect(Logger.info).toHaveBeenCalledWith(
+      'Windows Hello verification failed',
+      expect.objectContaining({ message: 'HRESULT error' }),
+    );
   });
+});
+
+describe('non-Windows service initialization', () => {
+  let service: typeof import('../service');
+
+  afterEach(() => {
+    jest.dontMock('electron-windows-hello');
+    jest.resetModules();
+    if (platformDescriptor) {
+      Object.defineProperty(process, 'platform', platformDescriptor);
+    }
+  });
+
+  it.each(['darwin', 'linux'] as const)(
+    'does not load the Hello module on %s',
+    async (platform) => {
+      jest.resetModules();
+      Object.defineProperty(process, 'platform', { value: platform });
+      const loadHello = jest.fn(() => ({}));
+      jest.doMock('electron-windows-hello', loadHello);
+      jest.isolateModules(() => {
+        service = jest.requireActual('../service');
+      });
+      service.startServices();
+      await expect(service.requestVerificationAsync('Unlock')).resolves.toEqual(
+        {
+          success: false,
+          error: '',
+        },
+      );
+      expect(loadHello).not.toHaveBeenCalled();
+    },
+  );
 });
