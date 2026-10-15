@@ -1,6 +1,6 @@
 import bulkSendUtils from './bulkSendUtils';
 
-const { chunkBulkSendTransfers, getBulkSendTxCount } = bulkSendUtils;
+const { chunkBulkSendTransfers } = bulkSendUtils;
 
 describe('chunkBulkSendTransfers', () => {
   const makeTransfers = (count: number) =>
@@ -26,11 +26,5 @@ describe('chunkBulkSendTransfers', () => {
     const chunks = chunkBulkSendTransfers(transfers, 200);
     expect(chunks.map((c) => c.length)).toEqual(sizes);
     expect(chunks.flat()).toEqual(transfers);
-    expect(getBulkSendTxCount(count, 200)).toBe(sizes.length);
-  });
-
-  it('counts a single tx when no limit is configured', () => {
-    expect(getBulkSendTxCount(0, 200)).toBe(0);
-    expect(getBulkSendTxCount(500)).toBe(1);
   });
 });

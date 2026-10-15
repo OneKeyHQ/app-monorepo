@@ -383,7 +383,6 @@ export interface IAppEventBusPayload {
     progressEventId: string;
     // 1-based index of the tx in the batch
     current: number;
-    total: number;
   };
   // TokenList cells Phase-2 BG frame transport (D2=A). The structure event
   // carries the FULL idempotent structure snapshot for an owner (generation is

@@ -184,12 +184,15 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
     vaultSettings?.nativeBatchTransferEnabled ?? false;
 
   // Tell users up front that a large list is split and signed per tx
-  const splitTxCount = isOneToMany
-    ? bulkSendUtils.getBulkSendTxCount(
-        transfersInfo.length,
-        vaultSettings?.bulkSendMaxTransfersPerTx,
-      )
-    : 0;
+  const maxTransfersPerTx = vaultSettings?.bulkSendMaxTransfersPerTx;
+  const splitTxCount = useMemo(
+    () =>
+      isOneToMany
+        ? bulkSendUtils.chunkBulkSendTransfers(transfersInfo, maxTransfersPerTx)
+            .length
+        : 0,
+    [isOneToMany, transfersInfo, maxTransfersPerTx],
+  );
 
   // Check if token needs approval (native tokens don't need approval)
   const needsApproval = useMemo(

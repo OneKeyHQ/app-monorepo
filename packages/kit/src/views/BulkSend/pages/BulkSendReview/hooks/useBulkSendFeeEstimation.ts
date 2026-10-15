@@ -63,9 +63,7 @@ function getFallbackGasMultiplier(
   return transferCount / (estimatedTx.transfersInfo?.length ?? 1);
 }
 
-// Scale gasLimit for bulk transfer txs when batch estimation is not available.
-// For transfer txs (non-approve), multiply gasLimit by (transfersInfo.length + 1)
-// to account for the higher gas consumption of multi-call contracts.
+// Scale gasLimit for bulk transfer txs when batch estimation is not available
 function scaleGasLimitForBulkTransfer(
   feeInfo: IFeeInfoUnit,
   multiplier: number,

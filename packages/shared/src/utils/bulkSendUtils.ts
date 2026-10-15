@@ -130,20 +130,8 @@ function chunkBulkSendTransfers<T>(
     : [transfersInfo];
 }
 
-// Tx count chunkBulkSendTransfers produces, without building the chunks.
-function getBulkSendTxCount(
-  transferCount: number,
-  maxTransfersPerTx?: number,
-): number {
-  if (transferCount === 0) return 0;
-  return maxTransfersPerTx && maxTransfersPerTx > 0
-    ? Math.ceil(transferCount / maxTransfersPerTx)
-    : 1;
-}
-
 export default {
   chunkBulkSendTransfers,
-  getBulkSendTxCount,
   fixBulkSendSupportedNetworkId,
   getBulkSendExcludedNetworkIds,
   getBulkSendSupportedEVMNetworkIds,

@@ -1667,7 +1667,6 @@ class ServiceSend extends ServiceBase {
             appEventBus.emit(EAppEventBusNames.BatchSignTxProgress, {
               progressEventId,
               current: i + 1,
-              total: len,
             });
           }
           if (isMultiTxs && i > 0) {
@@ -2562,18 +2561,22 @@ class ServiceSend extends ServiceBase {
         prevNonce: nonce,
         withUuid: true,
       });
-    // The first chunk resolves the base nonce; later chunks chain from it
-    // and can be built in parallel.
-    const firstTx = await prepareChunk(firstChunk, prevNonce);
-    const restTxs = await Promise.all(
+    // Nonces chain per chunk; only the build of the first one may need to
+    // fetch the base nonce, so with a known prevNonce all build in parallel.
+    const firstTxPromise = prepareChunk(firstChunk, prevNonce);
+    const baseNonce = isNil(prevNonce)
+      ? (await firstTxPromise).nonce
+      : prevNonce + 1;
+    const restTxs = Promise.all(
       restChunks.map((chunkTransfers, index) =>
         prepareChunk(
           chunkTransfers,
-          isNil(firstTx.nonce) ? undefined : firstTx.nonce + index,
+          isNil(baseNonce) ? undefined : baseNonce + index,
         ),
       ),
     );
-    return [firstTx, ...restTxs];
+    const [firstTx, otherTxs] = await Promise.all([firstTxPromise, restTxs]);
+    return [firstTx, ...otherTxs];
   }
 
   @backgroundMethod()

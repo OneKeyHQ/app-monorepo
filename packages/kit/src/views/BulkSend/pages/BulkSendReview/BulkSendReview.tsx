@@ -72,6 +72,9 @@ import { showStandaloneApproveEditor } from './components/StandaloneApproveEdito
 import { useApprovalRecheck } from './hooks/useApprovalRecheck';
 import { useBulkSendFeeEstimation } from './hooks/useBulkSendFeeEstimation';
 
+// Stable reference so the memoized BulkSendTxDetails skips progress renders
+const TX_DETAILS_CONTAINER_PROPS = { px: '$5' } as const;
+
 function BaseBulkSendReview({
   onSuccess,
   onFail,
@@ -151,22 +154,6 @@ function BaseBulkSendReview({
   // Fee overflow check hook
   const { checkFeeInfoIsOverflow, showFeeInfoOverflowConfirm } =
     usePreCheckFeeInfo();
-
-  // Split sends state the signature count; otherwise reflect approvals
-  const confirmButtonText = useMemo(() => {
-    if (receiverGroups) {
-      return intl.formatMessage(
-        { id: ETranslations.wallet_bulk_send_btn_confirm_and_sign },
-        { count: unsignedTxs.length },
-      );
-    }
-    return intl.formatMessage({
-      id:
-        approvesInfo.length > 0
-          ? ETranslations.wallet_bulk_send_btn_approve_and_confirm
-          : ETranslations.wallet_bulk_send_btn_confirm,
-    });
-  }, [intl, receiverGroups, unsignedTxs.length, approvesInfo.length]);
 
   // Handle editing approval amount
   const handleEditApproval = useCallback(
@@ -291,22 +278,19 @@ function BaseBulkSendReview({
     [forceRefreshFee],
   );
 
-  // Track how many txs were successfully sent (used by Tron one-by-one flow)
-  const sentTxCountRef = useRef(0);
   // Resolves once the Tron confirm page of the current tx is gone. A failed
   // send keeps that page open, and a retry there still broadcasts with the
   // round's free-trial usage.
   const tronConfirmPageExitRef = useRef<Promise<void>>(Promise.resolve());
 
-  // Lets the background skip already broadcast txs when the user retries
+  // Lets the background skip already broadcast txs when the user retries;
+  // also keys this page's signing progress events.
   const [sentTxsTrackingId] = useState(() => generateUUID());
 
-  // Uuids of txs this page knows went out: the Tron one-by-one flow records
-  // them itself; background batches are read back after a failure.
-  const sentTxUuidsRef = useRef<Set<string>>(new Set());
-  // Background txs that were broadcast and fully recorded; a retry has
-  // nothing left to do for them.
-  const recordedTxUuidsRef = useRef<Set<string>>(new Set());
+  // uuid → recorded, for txs this page knows went out. Background batches
+  // are read back after a failure. Tron signs each tx on its own confirm page
+  // (with that page's tracking id), so the Tron flow records them here.
+  const sentTxsRef = useRef<Map<string, boolean>>(new Map());
 
   // 1-based index of the tx being signed across approve + transfer txs;
   // 0 when idle. Shown on the confirm button for multi-tx submits.
@@ -315,65 +299,85 @@ function BaseBulkSendReview({
   const [partialSent, setPartialSent] = useState<
     { sent: number; total: number } | undefined
   >();
-  const [progressEventId] = useState(() => generateUUID());
   // Approve and transfer txs are sent in separate batches; offset the
   // transfer batch's per-batch index by the approve count.
   const progressOffsetRef = useRef(0);
 
   useEffect(() => {
     const onProgress = ({
-      progressEventId: eventId,
+      progressEventId,
       current,
     }: IAppEventBusPayload[EAppEventBusNames.BatchSignTxProgress]) => {
-      if (eventId !== progressEventId) return;
+      if (progressEventId !== sentTxsTrackingId) return;
       setSigningIndex(progressOffsetRef.current + current);
     };
     appEventBus.on(EAppEventBusNames.BatchSignTxProgress, onProgress);
     return () => {
       appEventBus.off(EAppEventBusNames.BatchSignTxProgress, onProgress);
     };
-  }, [progressEventId]);
+  }, [sentTxsTrackingId]);
 
-  const isTxSent = useCallback(
-    (tx: IUnsignedTxPro) => !!tx.uuid && sentTxUuidsRef.current.has(tx.uuid),
-    [],
-  );
-
-  const getPendingTransfersInfo = useCallback(
-    (transferTxs: IUnsignedTxPro[]) =>
-      transferTxs
-        .filter((tx) => !isTxSent(tx))
-        .flatMap((tx) => tx.transfersInfo ?? []),
-    [isTxSent],
-  );
+  // Multi-tx submits show signing progress; split sends state the signature
+  // count; otherwise reflect approvals
+  const confirmButtonText = useMemo(() => {
+    if (isSubmitting && isMultiTxs && signingIndex > 0) {
+      return intl.formatMessage(
+        { id: ETranslations.wallet_bulk_send_signing_progress },
+        { current: signingIndex, total: unsignedTxs.length },
+      );
+    }
+    if (receiverGroups) {
+      return intl.formatMessage(
+        { id: ETranslations.wallet_bulk_send_btn_confirm_and_sign },
+        { count: unsignedTxs.length },
+      );
+    }
+    return intl.formatMessage({
+      id:
+        approvesInfo.length > 0
+          ? ETranslations.wallet_bulk_send_btn_approve_and_confirm
+          : ETranslations.wallet_bulk_send_btn_confirm,
+    });
+  }, [
+    intl,
+    isSubmitting,
+    isMultiTxs,
+    signingIndex,
+    receiverGroups,
+    unsignedTxs.length,
+    approvesInfo.length,
+  ]);
 
   // After a failed submit: learn which txs went out, show the partial-send
-  // status, and drop finished txs so a retry neither re-signs nor
-  // pre-checks them.
+  // status, recheck the allowance if the approvals went out, and drop
+  // finished txs so a retry neither re-signs nor pre-checks them.
   const settleAfterFailure = useCallback(
-    async ({
-      txs,
-      approveCount,
-      approveTxsSent,
-    }: {
-      txs: IUnsignedTxPro[];
-      approveCount: number;
-      approveTxsSent: boolean;
-    }) => {
+    async (txs: IUnsignedTxPro[]) => {
       try {
         const broadcasted =
           await backgroundApiProxy.serviceSend.getBatchBroadcastedTxUuids({
             sentTxsTrackingId,
           });
         for (const { uuid, recorded } of broadcasted) {
-          sentTxUuidsRef.current.add(uuid);
-          if (recorded) recordedTxUuidsRef.current.add(uuid);
+          sentTxsRef.current.set(
+            uuid,
+            recorded || sentTxsRef.current.get(uuid) === true,
+          );
         }
       } catch {
         // Keep what this page already tracked
       }
+      const isTxSent = (tx: IUnsignedTxPro) =>
+        !!tx.uuid && sentTxsRef.current.has(tx.uuid);
+      // Broadcast-but-unrecorded txs stay so the background can finish them
+      const isTxDone = (tx: IUnsignedTxPro) =>
+        !!tx.uuid && sentTxsRef.current.get(tx.uuid) === true;
 
+      const approveCount = approvesInfo.length;
       const transferTxs = txs.slice(approveCount);
+      const approveTxsSent =
+        approveCount > 0 && txs.slice(0, approveCount).every(isTxSent);
+
       const sentTransferCount = transferTxs.filter(isTxSent).length;
       setPartialSent(
         sentTransferCount > 0 && sentTransferCount < transferTxs.length
@@ -381,12 +385,15 @@ function BaseBulkSendReview({
           : undefined,
       );
 
+      // Polling the allowance only makes sense once the approvals went out.
+      // It reads approvesInfo synchronously, before the reset below.
       if (approveTxsSent) {
-        startApprovalRecheck(getPendingTransfersInfo(transferTxs));
+        startApprovalRecheck(
+          transferTxs
+            .filter((tx) => !isTxSent(tx))
+            .flatMap((tx) => tx.transfersInfo ?? []),
+        );
       }
-      // Keep broadcast-but-unrecorded txs so the background can finish them
-      const isTxDone = (tx: IUnsignedTxPro) =>
-        !!tx.uuid && recordedTxUuidsRef.current.has(tx.uuid);
       if (txs.some(isTxDone)) {
         if (approveTxsSent) {
           setApprovesInfo([]);
@@ -397,8 +404,7 @@ function BaseBulkSendReview({
     },
     [
       sentTxsTrackingId,
-      isTxSent,
-      getPendingTransfersInfo,
+      approvesInfo.length,
       startApprovalRecheck,
       setApprovesInfo,
       setUnsignedTxs,
@@ -474,7 +480,6 @@ function BaseBulkSendReview({
       freeTrialUsage: IPrimeFreeTrialBroadcastUsage | undefined,
     ) => {
       const allResults: ISendTxOnSuccessData[] = [];
-      sentTxCountRef.current = 0;
       tronConfirmPageExitRef.current = Promise.resolve();
 
       for (let i = 0, len = txs.length; i < len; i += 1) {
@@ -494,9 +499,7 @@ function BaseBulkSendReview({
           await waitAsync(300);
         }
 
-        if (len > 1) {
-          setSigningIndex(i + 1);
-        }
+        setSigningIndex(i + 1);
         let markConfirmPageExited: () => void = () => {};
         tronConfirmPageExitRef.current = new Promise<void>((resolve) => {
           markConfirmPageExited = resolve;
@@ -532,11 +535,9 @@ function BaseBulkSendReview({
           },
         );
 
-        sentTxCountRef.current = i + 1;
         // Confirmed through its own confirm page, so also fully recorded
         if (unsignedTx.uuid) {
-          sentTxUuidsRef.current.add(unsignedTx.uuid);
-          recordedTxUuidsRef.current.add(unsignedTx.uuid);
+          sentTxsRef.current.set(unsignedTx.uuid, true);
         }
 
         // Collect results
@@ -777,16 +778,7 @@ function BaseBulkSendReview({
         await navigateAfterSuccess();
       } catch (e) {
         setIsSubmitting(false);
-        // Only recheck approval if all approve txs were already broadcast.
-        // If the error happened during the approve phase, nothing was sent
-        // to chain, so polling the allowance is pointless.
-        await settleAfterFailure({
-          txs: newUnsignedTxs,
-          approveCount: approvesInfo.length,
-          approveTxsSent:
-            approvesInfo.length > 0 &&
-            sentTxCountRef.current >= approvesInfo.length,
-        });
+        await settleAfterFailure(newUnsignedTxs);
         // Settled once the confirm page is gone: a retry on a page left open
         // by a failed send still broadcasts with this usage, and a settled
         // usage would not count that broadcast.
@@ -804,9 +796,7 @@ function BaseBulkSendReview({
 
     // Step 5: Sign and send transactions (for non-Tron networks)
     const approveCount = approvesInfo.length;
-    let approveTxsSent = false;
     progressOffsetRef.current = 0;
-    const batchProgressEventId = isMultiTxs ? progressEventId : undefined;
 
     // Step 5a: Send approve txs first (if any), so we can track whether
     // they were broadcast before the transfer phase
@@ -821,9 +811,8 @@ function BaseBulkSendReview({
           transferPayload: undefined,
           sentTxsTrackingId,
           freeTrialUsage,
-          progressEventId: batchProgressEventId,
+          progressEventId: sentTxsTrackingId,
         });
-        approveTxsSent = true;
       } catch (e: any) {
         // Approve txs failed — nothing was broadcast, no need to recheck
         if (accountUtils.isQrAccount({ accountId })) {
@@ -848,7 +837,7 @@ function BaseBulkSendReview({
         transferPayload: undefined,
         sentTxsTrackingId,
         freeTrialUsage,
-        progressEventId: batchProgressEventId,
+        progressEventId: sentTxsTrackingId,
       });
       // A resubmit that only finished broadcasts of an earlier attempt
       // (replayed through sentTxsTrackingId) used nothing, so this round's
@@ -881,12 +870,7 @@ function BaseBulkSendReview({
       }
       await settleFreeTrialRoundError(freeTrialUsageId, e);
       setIsSubmitting(false);
-      // Only recheck approval if approve txs were already broadcast
-      await settleAfterFailure({
-        txs: newUnsignedTxs,
-        approveCount,
-        approveTxsSent,
-      });
+      await settleAfterFailure(newUnsignedTxs);
       onFail?.(e as Error);
       throw e;
     }
@@ -919,8 +903,6 @@ function BaseBulkSendReview({
     settleFreeTrialRoundError,
     settleUsage,
     sentTxsTrackingId,
-    isMultiTxs,
-    progressEventId,
   ]);
 
   // Determine if confirm button should be disabled
@@ -994,23 +976,14 @@ function BaseBulkSendReview({
             transfersInfo={transfersInfo}
             bulkSendMode={bulkSendMode}
             receiverGroups={receiverGroups}
-            containerProps={{
-              px: '$5',
-            }}
+            containerProps={TX_DETAILS_CONTAINER_PROPS}
           />
         </YStack>
       </Page.Body>
       <Page.Footer>
         <YStack $md={{ pb: '$5' }}>
           <Page.FooterActions
-            onConfirmText={
-              isSubmitting && signingIndex > 0
-                ? intl.formatMessage(
-                    { id: ETranslations.wallet_bulk_send_signing_progress },
-                    { current: signingIndex, total: unsignedTxs.length },
-                  )
-                : confirmButtonText
-            }
+            onConfirmText={confirmButtonText}
             confirmButtonProps={{
               testID: BulkSendTestIDs.reviewConfirmBtn,
               onPress: handleConfirm,
