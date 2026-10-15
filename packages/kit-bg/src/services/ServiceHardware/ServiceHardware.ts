@@ -4638,10 +4638,10 @@ class ServiceHardware extends ServiceBase {
     connectId?: string;
     connectProtocol?: HardwareConnectProtocol;
   }) {
-    // This preflight checks USB presence. The update workflow validates the
-    // live target after selecting USB; descriptor paths are not physical serials.
+    // Preserve the selected target at the upgrade entry; the workflow checks
+    // its live USB identity again before preparing artifacts or flashing.
     return this.connectionManager.detectUSBDeviceAvailability(
-      undefined,
+      params?.connectId,
       params?.connectProtocol,
     );
   }

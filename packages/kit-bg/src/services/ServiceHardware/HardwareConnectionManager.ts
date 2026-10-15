@@ -202,10 +202,50 @@ export class HardwareConnectionManager {
   ): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) return true;
     const mode = await this.getDesktopUsbSetting(connectProtocol);
-    if (mode === 'bridge') {
-      return this.detectBridgeAvailability(connectId);
+    const usbAvailable =
+      mode === 'bridge'
+        ? await this.detectBridgeAvailability(undefined)
+        : await this.detectWebUSBAvailability(undefined);
+    if (!usbAvailable || !connectId) return usbAvailable;
+
+    // A selected target must be identified independently of descriptor paths
+    // and the active SDK, including when this is an upgrade-entry preflight.
+    try {
+      const device =
+        await this.backgroundApi.serviceHardware.getDeviceByConnectId({
+          connectId,
+        });
+      const result =
+        await this.backgroundApi.serviceHardware.probeUsbDeviceIdentities({
+          commType: mode === 'bridge' ? 'bridge' : 'webusb',
+        });
+      const normalize = (id?: string | null) => id?.trim().toLowerCase();
+      const serial = normalize(
+        deviceUtils.getDeviceSerialNoFromDbDevice(device) ||
+          deviceUtils.getDeviceSerialNoFromFeatures(device?.featuresInfo),
+      );
+      const walletId = normalize(
+        device?.deviceStateInfo?.identity.deviceId || device?.deviceId,
+      );
+      const target = normalize(connectId);
+      return (
+        result.filter((known) => {
+          if (
+            known.commType !== mode ||
+            (connectProtocol && known.connectProtocol !== connectProtocol)
+          )
+            return false;
+          if (serial) return normalize(known.serialNo) === serial;
+          if (walletId) return normalize(known.deviceId) === walletId;
+          return (
+            normalize(known.serialNo) === target ||
+            normalize(known.deviceId) === target
+          );
+        }).length === 1
+      );
+    } catch {
+      return false;
     }
-    return this.detectWebUSBAvailability(connectId);
   }
 
   // Trezor-scoped USB presence. The generic check uses OneKey USB filters and
@@ -360,56 +400,17 @@ export class HardwareConnectionManager {
           ? EHardwareTransportType.Bridge
           : EHardwareTransportType.WEBUSB;
       }
-      const usbAvailable = await this.detectUSBDeviceAvailability(
-        undefined,
-        connectProtocol,
-      );
-      let targetOnUSB = usbAvailable && !connectId;
-      if (usbAvailable && connectId) {
-        // Descriptor paths are routing keys, not proof of a OneKey identity.
-        // Always let the SDK confirm the target before selecting USB.
-        try {
-          if (!vendor || vendor === EHardwareVendor.onekey) {
-            const device =
-              await this.backgroundApi.serviceHardware.getDeviceByConnectId({
-                connectId,
-              });
-            const result =
-              await this.backgroundApi.serviceHardware.probeUsbDeviceIdentities(
-                { commType: mode === 'bridge' ? 'bridge' : 'webusb' },
-              );
-            const normalize = (id?: string | null) => id?.trim().toLowerCase();
-            const serial = normalize(
-              deviceUtils.getDeviceSerialNoFromDbDevice(device) ||
-                deviceUtils.getDeviceSerialNoFromFeatures(device?.featuresInfo),
-            );
-            const walletId = normalize(
-              device?.deviceStateInfo?.identity.deviceId || device?.deviceId,
-            );
-            const target = normalize(connectId);
-            targetOnUSB =
-              result.filter((known) => {
-                if (
-                  known.commType !== mode ||
-                  (connectProtocol && known.connectProtocol !== connectProtocol)
-                )
-                  return false;
-                if (serial) return normalize(known.serialNo) === serial;
-                if (walletId) return normalize(known.deviceId) === walletId;
-                return (
-                  normalize(known.serialNo) === target ||
-                  normalize(known.deviceId) === target
-                );
-              }).length === 1;
-          } else {
-            targetOnUSB = await this.detectUSBDeviceAvailability(
-              connectId,
-              connectProtocol,
-            );
-          }
-        } catch {
-          targetOnUSB = false;
-        }
+      let targetOnUSB: boolean;
+      if (vendor && vendor !== EHardwareVendor.onekey) {
+        targetOnUSB =
+          mode === 'bridge'
+            ? await this.detectBridgeAvailability(connectId)
+            : await this.detectWebUSBAvailability(connectId);
+      } else {
+        targetOnUSB = await this.detectUSBDeviceAvailability(
+          connectId,
+          connectProtocol,
+        );
       }
       if (targetOnUSB) {
         return mode === 'bridge'

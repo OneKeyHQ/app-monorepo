@@ -132,10 +132,9 @@ jest.mock('../hooks/useFirmwareVersionValid', () => ({
 }));
 
 jest.mock('../utils', () => ({
-  getFirmwareUpdateUSBPreflightParams: async () => ({
-    connectId: 'usb-connect-id',
-    connectProtocol: undefined,
-  }),
+  getFirmwareUpdateUSBPreflightParams:
+    jest.requireActual<typeof import('../utils')>('../utils')
+      .getFirmwareUpdateUSBPreflightParams,
   getProtocolV2FirmwareVersionDisplayItems: () => [],
   getProtocolV2FirmwareVersionTitle: () => '',
   shouldHidePro2FirmwareDebugInfo: () => false,
@@ -478,9 +477,20 @@ describe('FirmwareChangeLogView desktop USB suggestion', () => {
       expect(onConfirmClick).toHaveBeenCalledTimes(1);
     });
 
-    it('keeps the USB-required dialog when no USB device is found', async () => {
+    it('requires the selected Pro 2 USB target before opening the checklist or install page', async () => {
       mockDetectUSBDeviceAvailability.mockResolvedValue(false);
-      render(<FirmwareChangeLogView result={buildResult(EDeviceType.Pro2)} />);
+      const onConfirmClick = jest.fn();
+      const result = {
+        ...buildResult(EDeviceType.Pro2),
+        originalConnectId: 'PRO2_BLE_ENDPOINT',
+        features: { serialNo: 'PRO2_TARGET_SERIAL' },
+      } as ICheckAllFirmwareReleaseResult;
+      render(
+        <FirmwareChangeLogView
+          result={result}
+          onConfirmClick={onConfirmClick}
+        />,
+      );
 
       tapUpdateNow();
       await waitFor(() => {
@@ -495,11 +505,12 @@ describe('FirmwareChangeLogView desktop USB suggestion', () => {
         showCancelButton: false,
       });
       expect(mockDetectUSBDeviceAvailability).toHaveBeenCalledWith({
-        connectId: 'usb-connect-id',
-        connectProtocol: undefined,
+        connectId: 'PRO2_TARGET_SERIAL',
+        connectProtocol: 'V2',
       });
       expect(mockSetStepInfo).not.toHaveBeenCalled();
       expect(mockShowCheckList).not.toHaveBeenCalled();
+      expect(onConfirmClick).not.toHaveBeenCalled();
     });
   });
 });

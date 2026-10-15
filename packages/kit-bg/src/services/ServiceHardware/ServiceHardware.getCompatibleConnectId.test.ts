@@ -1955,7 +1955,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     }
   });
 
-  describe('USB firmware preflight presence', () => {
+  describe('USB firmware preflight target identity', () => {
     const getDevices = jest.fn();
     let originalNavigator: PropertyDescriptor | undefined;
     const descriptor = {
@@ -1963,16 +1963,129 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       productId: 0x4f_4c,
       serialNumber: 'USB_DESCRIPTOR_PATH',
     };
-    const createService = (usbCommunicationMode = 'webusb') =>
-      new ServiceHardware({
-        backgroundApi: {
-          serviceDevSetting: {
-            getDevSetting: jest.fn().mockResolvedValue({
-              settings: { usbCommunicationMode },
-            }),
-          },
-        } as unknown as IBackgroundApi,
-      });
+    const createService = (
+      usbCommunicationMode = 'webusb',
+      connectProtocol: 'V1' | 'V2' = 'V1',
+    ) => {
+      const backgroundApi = {
+        serviceDevSetting: {
+          getDevSetting: jest.fn().mockResolvedValue({
+            settings: { usbCommunicationMode },
+          }),
+        },
+      } as unknown as IBackgroundApi;
+      const service = new ServiceHardware({ backgroundApi });
+      backgroundApi.serviceHardware = service;
+      jest.spyOn(service, 'probeUsbDeviceIdentities').mockResolvedValue([
+        {
+          path: 'USB_DESCRIPTOR_PATH',
+          serialNo: 'PHYSICAL_SERIAL',
+          connectProtocol,
+          commType: usbCommunicationMode,
+        } as UsbDeviceIdentity,
+      ]);
+      return service;
+    };
+
+    it.each(['webusb', 'bridge'])(
+      'rejects another USB target over %s without changing the active BLE SDK',
+      async (commType) => {
+        mockedAxios.post.mockResolvedValue({ data: [{ path: '1' }] });
+        const service = createService(commType);
+        const probe = jest
+          .spyOn(service, 'probeUsbDeviceIdentities')
+          .mockResolvedValue([
+            {
+              path: 'OTHER_USB_PATH',
+              serialNo: 'OTHER_PHYSICAL_SERIAL',
+              deviceId: 'OTHER_WALLET',
+              connectProtocol: 'V1',
+              commType,
+            } as UsbDeviceIdentity,
+          ]);
+        const search = jest.spyOn(service, 'searchDevices');
+        const switchTransport = jest.spyOn(
+          service.connectionManager,
+          'setCurrentTransportType',
+        );
+
+        await expect(
+          service.detectUSBDeviceAvailability({
+            connectId: 'PHYSICAL_SERIAL',
+            connectProtocol: 'V1',
+          }),
+        ).resolves.toBe(false);
+        expect(probe).toHaveBeenCalledWith({ commType });
+        expect(search).not.toHaveBeenCalled();
+        expect(switchTransport).not.toHaveBeenCalled();
+        expect(mockedGetHardwareSDKInstance).not.toHaveBeenCalled();
+        expect(mockedResetHardwareSDKInstance).not.toHaveBeenCalled();
+      },
+    );
+
+    it('does not let a Classic 1S USB device satisfy a BLE Pro 2 firmware target', async () => {
+      const service = createService();
+      jest.spyOn(service, 'probeUsbDeviceIdentities').mockResolvedValue([
+        {
+          path: 'CLASSIC_1S_PATH',
+          serialNo: 'CLASSIC_1S_SERIAL',
+          connectProtocol: 'V1',
+          commType: 'webusb',
+        } as UsbDeviceIdentity,
+      ]);
+      await expect(
+        service.detectUSBDeviceAvailability({
+          connectId: 'PRO2_SERIAL',
+          connectProtocol: 'V2',
+        }),
+      ).resolves.toBe(false);
+      expect(mockedResetHardwareSDKInstance).not.toHaveBeenCalled();
+    });
+
+    it('accepts only the uniquely matching target among multiple USB devices', async () => {
+      const service = createService('webusb', 'V2');
+      const target = {
+        path: 'USB_DESCRIPTOR_PATH',
+        serialNo: 'PHYSICAL_SERIAL',
+        connectProtocol: 'V2',
+        commType: 'webusb',
+      } as UsbDeviceIdentity;
+      const probe = jest.spyOn(service, 'probeUsbDeviceIdentities');
+      probe.mockResolvedValue([
+        { ...target, path: 'OTHER_PATH', serialNo: 'OTHER_SERIAL' },
+        target,
+      ]);
+      await expect(
+        service.detectUSBDeviceAvailability({
+          connectId: 'PHYSICAL_SERIAL',
+          connectProtocol: 'V2',
+        }),
+      ).resolves.toBe(true);
+      probe.mockResolvedValue([target, { ...target, path: 'DUPLICATE_PATH' }]);
+      await expect(
+        service.detectUSBDeviceAvailability({
+          connectId: 'PHYSICAL_SERIAL',
+          connectProtocol: 'V2',
+        }),
+      ).resolves.toBe(false);
+    });
+
+    it('fails closed when USB identity probing fails', async () => {
+      const service = createService();
+      jest
+        .spyOn(service, 'probeUsbDeviceIdentities')
+        .mockRejectedValue(new Error('USB identity unavailable'));
+      await expect(
+        service.detectUSBDeviceAvailability({ connectId: 'PHYSICAL_SERIAL' }),
+      ).resolves.toBe(false);
+    });
+
+    it('keeps anonymous USB recovery as a presence check', async () => {
+      const service = createService();
+      const probe = jest.spyOn(service, 'probeUsbDeviceIdentities');
+      await expect(service.detectUSBDeviceAvailability()).resolves.toBe(true);
+      expect(probe).not.toHaveBeenCalled();
+    });
 
     beforeEach(() => {
       originalNavigator = Object.getOwnPropertyDescriptor(
@@ -1998,7 +2111,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       'accepts an SDK-routable USB descriptor without treating its path as a physical serial (%s)',
       async (serialNumber) => {
         getDevices.mockResolvedValue([{ ...descriptor, serialNumber }]);
-        const service = createService();
+        const service = createService('webusb', 'V2');
         const search = jest.spyOn(service, 'searchDevices');
         const switchTransport = jest.spyOn(
           service.connectionManager,
@@ -2017,7 +2130,7 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       },
     );
 
-    it('checks Bridge independently of WebUSB without acquiring a device or switching SDK transports', async () => {
+    it('checks the selected Bridge target without changing the active SDK transport', async () => {
       getDevices.mockResolvedValue([]);
       mockedAxios.post.mockResolvedValue({ data: [{ path: '1' }] });
       const service = createService('bridge');
