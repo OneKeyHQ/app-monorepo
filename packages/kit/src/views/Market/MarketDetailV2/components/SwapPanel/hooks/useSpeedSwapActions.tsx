@@ -1785,6 +1785,9 @@ export function useSpeedSwapActions(props: {
       });
 
       let netWorkFee: ISwapReviewState['preSwapData']['netWorkFee'];
+      const preparation = options?.reviewPreparation;
+      const previousFailedStage = preparation?.failedStage;
+      const previousMessage = preparation?.message;
       try {
         const approveUnsignedTxArr = await measureSwapReviewStage(
           snapshot.quoteResult.allowanceResult
@@ -1908,6 +1911,12 @@ export function useSpeedSwapActions(props: {
       } catch (error) {
         if (options?.throwOnEstimateError) {
           throw error;
+        }
+        if (preparation) {
+          // This error is recovered by the existing review flow. Keep its timing,
+          // but do not attribute a later blocking failure to the recovered stage.
+          preparation.failedStage = previousFailedStage;
+          preparation.message = previousMessage;
         }
         netWorkFee = undefined;
       }

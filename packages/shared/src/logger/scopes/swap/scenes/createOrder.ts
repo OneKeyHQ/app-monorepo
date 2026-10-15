@@ -1,3 +1,4 @@
+import { getSwapErrorMessage } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import type { ESwapAnalyticsCategory } from '@onekeyhq/shared/types/swap/types';
 
 import { BaseScene } from '../../../base/baseScene';
@@ -84,7 +85,7 @@ export class CreateOrderScene extends BaseScene {
       fromTokenAmount,
       toTokenAmount,
       status,
-      message,
+      message: message === undefined ? undefined : getSwapErrorMessage(message),
       isFirstTime,
       swapType,
       orderType,

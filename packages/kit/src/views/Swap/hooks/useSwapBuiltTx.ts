@@ -158,6 +158,7 @@ import { buildSwapRateDifference } from '../utils/swapRateDifferenceUtils';
 import {
   type ISwapReviewAnalytics,
   type ISwapReviewPreparation,
+  getSwapReviewErrorMessage,
   getSwapReviewOrderId,
   logSwapReviewApiResult,
   measureSwapReviewStage,
@@ -1209,7 +1210,10 @@ export function useSwapBuildTx({
       );
       defaultLogger.swap.swapEstimateFee.swapEstimateFee({
         status,
-        message,
+        message:
+          message === undefined
+            ? undefined
+            : getSwapReviewErrorMessage(message),
         ...swapInfo?.reviewAnalyticsContext,
         quoteId:
           swapInfo?.reviewAnalyticsContext?.quoteId ??
@@ -1254,7 +1258,10 @@ export function useSwapBuildTx({
         fromAddress: fromUserAddress ?? '',
         toAddress: toUserAddress ?? '',
         status,
-        message,
+        message:
+          message === undefined
+            ? undefined
+            : getSwapReviewErrorMessage(message),
         ...swapInfo?.reviewAnalyticsContext,
         quoteId:
           swapInfo?.reviewAnalyticsContext?.quoteId ??
@@ -2193,6 +2200,12 @@ export function useSwapBuildTx({
         const swapType = getSwapExecutionTypeFromQuoteResult(
           buildSwapRes.result,
         );
+        const buildRoutes = buildSwapRes.result?.routesData;
+        const quoteRoutes = quoteResult?.routesData;
+        const routes =
+          !buildRoutes?.length && quoteRoutes?.length
+            ? quoteRoutes
+            : buildRoutes;
         defaultLogger.swap.createSwapOrder.swapCreateOrder({
           ...reviewAnalyticsContext,
           quoteId: reviewAnalyticsContext?.quoteId ?? quoteResult?.quoteId,
@@ -2215,7 +2228,7 @@ export function useSwapBuildTx({
           sourceTokenSymbol: buildSwapRes.result?.fromTokenInfo.symbol ?? '',
           receivedTokenSymbol: buildSwapRes.result?.toTokenInfo.symbol ?? '',
           feeType: buildSwapRes.result?.fee?.percentageFee?.toString() ?? '0',
-          router: JSON.stringify(buildSwapRes.result?.routesData ?? ''),
+          router: JSON.stringify(routes ?? ''),
           isFirstTime: isFirstTimeSwap,
           createFrom: getSwapCreateFrom({
             isSwapPro: focusSwapPro,
@@ -2363,6 +2376,50 @@ export function useSwapBuildTx({
           };
         }
         let buildSwapRes: IFetchBuildTxResponse | undefined;
+        const logBuildFailure = (error: unknown) => {
+          try {
+            const swapType = getSwapExecutionTypeFromQuoteResult(data);
+            defaultLogger.swap.createSwapOrder.swapCreateOrder({
+              ...reviewAnalyticsContext,
+              quoteId: reviewAnalyticsContext?.quoteId ?? data?.quoteId,
+              isPreBuild,
+              fromTokenAmount: data?.fromAmount ?? '',
+              toTokenAmount: buildSwapRes?.result?.toAmount ?? '',
+              quoteToTokenAmount: data?.toAmount ?? '',
+              fromAddress: fromUserAddress ?? '',
+              toAddress: toUserAddress ?? '',
+              status: ESwapEventAPIStatus.FAIL,
+              walletType:
+                swapFromAddressInfo.accountInfo?.wallet?.type ?? 'unknown',
+              deviceType: swapFromAddressInfo.accountInfo?.device?.deviceType,
+              message: getSwapReviewErrorMessage(error),
+              swapProvider: data?.info.provider ?? '',
+              swapProviderName: data?.info.providerName ?? '',
+              swapType,
+              slippage: effectiveSlippagePercentage.toString(),
+              sourceChain: data?.fromTokenInfo.networkId ?? '',
+              receivedChain: data?.toTokenInfo.networkId ?? '',
+              sourceTokenSymbol: data?.fromTokenInfo.symbol ?? '',
+              receivedTokenSymbol: data?.toTokenInfo.symbol ?? '',
+              feeType: data?.fee?.percentageFee?.toString() ?? '0',
+              router: JSON.stringify(data?.routesData ?? ''),
+              isFirstTime: isFirstTimeSwap,
+              createFrom: getSwapCreateFrom({
+                isSwapPro: focusSwapPro,
+                isModalPage,
+              }),
+              orderId: buildSwapRes?.orderId ?? '',
+              orderType: getSwapAnalyticsCategoryFromSwapType(swapType),
+              ...getStockTradeAnalyticsPayload({
+                protocol: data?.protocol,
+                fromToken: data?.fromTokenInfo,
+                toToken: data?.toTokenInfo,
+              }),
+            });
+          } catch {
+            // Logging must not change the original build failure or empty response.
+          }
+        };
         try {
           if (!skipLoading && updateReviewState) {
             setSwapSteps((prev) => ({
@@ -2415,45 +2472,7 @@ export function useSwapBuildTx({
               },
             }));
           }
-          const swapType = getSwapExecutionTypeFromQuoteResult(data);
-          defaultLogger.swap.createSwapOrder.swapCreateOrder({
-            ...reviewAnalyticsContext,
-            quoteId: reviewAnalyticsContext?.quoteId ?? data?.quoteId,
-            isPreBuild,
-            fromTokenAmount: data?.fromAmount ?? '',
-            toTokenAmount: buildSwapRes?.result?.toAmount ?? '',
-            quoteToTokenAmount: data?.toAmount ?? '',
-            fromAddress: fromUserAddress ?? '',
-            toAddress: toUserAddress ?? '',
-            status: ESwapEventAPIStatus.FAIL,
-            walletType:
-              swapFromAddressInfo.accountInfo?.wallet?.type ?? 'unknown',
-            deviceType: swapFromAddressInfo.accountInfo?.device?.deviceType,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            message: e?.message ?? 'unknown error',
-            swapProvider: data?.info.provider ?? '',
-            swapProviderName: data?.info.providerName ?? '',
-            swapType,
-            slippage: effectiveSlippagePercentage.toString(),
-            sourceChain: data?.fromTokenInfo.networkId ?? '',
-            receivedChain: data?.toTokenInfo.networkId ?? '',
-            sourceTokenSymbol: data?.fromTokenInfo.symbol ?? '',
-            receivedTokenSymbol: data?.toTokenInfo.symbol ?? '',
-            feeType: data?.fee?.percentageFee?.toString() ?? '0',
-            router: JSON.stringify(data?.routesData ?? ''),
-            isFirstTime: isFirstTimeSwap,
-            createFrom: getSwapCreateFrom({
-              isSwapPro: focusSwapPro,
-              isModalPage,
-            }),
-            orderId: buildSwapRes?.orderId ?? '',
-            orderType: getSwapAnalyticsCategoryFromSwapType(swapType),
-            ...getStockTradeAnalyticsPayload({
-              protocol: data?.protocol,
-              fromToken: data?.fromTokenInfo,
-              toToken: data?.toTokenInfo,
-            }),
-          });
+          logBuildFailure(e);
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           const ne = new Error(e?.message ?? 'unknown error');
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -2468,6 +2487,10 @@ export function useSwapBuildTx({
             reviewAnalyticsContext,
             isPreBuild,
           );
+        } else {
+          const error = new OneKeyAppError('Empty build response');
+          reviewPreparation?.fail('buildTx', error);
+          logBuildFailure(error);
         }
         let skipSendTransAction = false;
         if (buildSwapRes) {

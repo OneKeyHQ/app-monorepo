@@ -197,11 +197,29 @@ describe('swap review analytics lifecycle', () => {
       expect.objectContaining({
         status: 'error',
         failedStage: 'buildTx',
-        message: 'Build failed',
+        message: 'Unknown error',
       }),
     );
     expect(logger.swapReviewConfirm).toHaveBeenCalledWith(
       expect.objectContaining({ sinceReadyMs: 60 }),
+    );
+  });
+
+  it('reports readiness from the usable UI after a recoverable preparation error', () => {
+    const { session, logger } = createHarness();
+    session.open(openParams);
+    session.beginPreparation()?.fail('estimateFee', new Error('RPC failure'));
+    session.observe(readyState);
+    session.close();
+    expect(logger.swapReviewReady).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'ready',
+        failedStage: undefined,
+        message: undefined,
+      }),
+    );
+    expect(logger.swapReviewClose).toHaveBeenCalledWith(
+      expect.objectContaining({ closeStage: 'ready' }),
     );
   });
 
@@ -332,7 +350,7 @@ describe('swap review analytics lifecycle', () => {
       expect.objectContaining({
         estimateFeeMs: 20,
         failedStage: 'estimateFee',
-        message: 'RPC failed',
+        message: 'Network error',
       }),
     );
   });
@@ -377,14 +395,34 @@ describe('swap review API correlation', () => {
     mockSendTx.mockClear();
   });
 
-  it('extracts bounded messages from errors serialized across runtimes', () => {
-    expect(getSwapReviewErrorMessage({ message: 'RPC unavailable' })).toBe(
-      'RPC unavailable',
-    );
+  it.each([
+    [
+      'RPC unavailable for 0x1111111111111111111111111111111111111111',
+      'Network error',
+    ],
+    ['insufficient balance for private-account', 'Insufficient balance'],
+    [
+      'User rejected request containing private-payload',
+      'Transaction rejected',
+    ],
+    [
+      'request timed out at https://private.invalid?token=secret',
+      'Request timed out',
+    ],
+    ['Empty build response', 'Empty build response'],
+    ['x'.repeat(400), 'Unknown error'],
+    ['private@example.invalid password=private', 'Unknown error'],
+  ])('only emits a fixed category for %s', (message, expected) => {
+    const error = new Error(message);
+    expect(getSwapReviewErrorMessage(error)).toBe(expected);
     expect(
-      getSwapReviewErrorMessage({ message: 'x'.repeat(400) }),
-    ).toHaveLength(300);
-    expect(getSwapReviewErrorMessage({ code: 1 })).toBe('Unknown error');
+      getSwapReviewErrorMessage(JSON.parse(JSON.stringify({ message }))),
+    ).toBe(expected);
+    expect(getSwapReviewErrorMessage({ message: expected })).toBe(expected);
+    expect(error.message).toBe(message);
+    expect(getSwapReviewErrorMessage({ name: message, code: message })).toBe(
+      'Unknown error',
+    );
   });
 
   it('uses only real service order IDs when analytics context is present', () => {
@@ -469,7 +507,7 @@ describe('swap review API correlation', () => {
       expect.objectContaining({
         status: 'fail',
         isBatch: true,
-        message: 'Service unavailable',
+        message: 'Network error',
       }),
     );
   });

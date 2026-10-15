@@ -1,6 +1,7 @@
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import { getSwapErrorMessage } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import type {
   ISwapReviewAnalyticsContext,
   ISwapReviewClose,
@@ -23,15 +24,7 @@ function duration(start: number, end: number) {
 }
 
 export function getSwapReviewErrorMessage(error: unknown) {
-  if (
-    error &&
-    typeof error === 'object' &&
-    'message' in error &&
-    typeof error.message === 'string'
-  ) {
-    return error.message.slice(0, 300);
-  }
-  return 'Unknown error';
+  return getSwapErrorMessage(error);
 }
 
 export function getSwapReviewOrderId(swapInfo?: ISwapTxInfo) {
@@ -199,8 +192,6 @@ export function createSwapReviewAnalytics({
         status = 'error';
       } else if (fallback) {
         status = 'fallback';
-      } else if (preparation?.failedStage) {
-        status = 'error';
       }
       safelyLogSwapReview(() => {
         logger.swapReviewReady({

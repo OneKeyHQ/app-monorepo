@@ -1,3 +1,5 @@
+import { getSwapErrorMessage } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
+
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
@@ -61,7 +63,7 @@ export class SwapSendTxScene extends BaseScene {
       reviewSessionId,
       quoteId,
       status,
-      message,
+      message: message === undefined ? undefined : getSwapErrorMessage(message),
       swapType,
       slippage,
       router,

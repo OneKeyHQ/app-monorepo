@@ -1312,27 +1312,27 @@ async function updateUnsignedTxAndSendTx({
       totalFiatForDisplay,
     },
   };
-  const signedTx = await sendDirectSwapWithGasAccountAnalytics({
-    context: gasAccountAnalyticsContext,
-    gasAccountUiState,
-    send: (uiState) =>
-      trackSwapReviewApi(
-        'sendTx',
-        updatedUnsignedTxItem.swapInfo,
-        () =>
+  const signedTx = await trackSwapReviewApi(
+    'sendTx',
+    updatedUnsignedTxItem.swapInfo,
+    () =>
+      sendDirectSwapWithGasAccountAnalytics({
+        context: gasAccountAnalyticsContext,
+        gasAccountUiState,
+        send: (uiState) =>
           backgroundApiProxy.serviceSend.signAndSendTransaction({
             ...sendTxParams,
             gasAccountUiState: uiState,
           }),
-        undefined,
-        { shouldReportError: shouldReportSendError },
-      ),
-    onGasAccountError: async (_error, entry) => {
-      if (entry.strategy === EGasAccountErrorStrategy.Fallback) {
-        await onBeforeGasAccountFallback?.();
-      }
-    },
-  });
+        onGasAccountError: async (_error, entry) => {
+          if (entry.strategy === EGasAccountErrorStrategy.Fallback) {
+            await onBeforeGasAccountFallback?.();
+          }
+        },
+      }),
+    undefined,
+    { shouldReportError: shouldReportSendError },
+  );
 
   const decodedTx = await backgroundApiProxy.serviceSend.buildDecodedTx({
     networkId,

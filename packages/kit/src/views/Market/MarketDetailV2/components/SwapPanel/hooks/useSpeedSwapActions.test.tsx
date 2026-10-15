@@ -24,6 +24,7 @@ import {
   type ISwapReviewPreparation,
   createSwapReviewAnalytics,
   getSwapReviewOrderId,
+  measureSwapReviewStage,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewAnalytics';
 import type { ISwapReviewState } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
 import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -1578,14 +1579,18 @@ describe('useSpeedSwapActions', () => {
     ).rejects.toThrow('insufficient_balance_title');
   });
 
-  it.each([
-    { unwrap: false, insufficient: false },
-    { unwrap: false, insufficient: true },
-    { unwrap: true, insufficient: false },
-    { unwrap: true, insufficient: true },
-  ])(
-    'measures post-open wrapped balances: unwrap $unwrap, insufficient $insufficient',
-    async ({ unwrap, insufficient }) => {
+  it.each(
+    [
+      { unwrap: false, insufficient: false },
+      { unwrap: false, insufficient: true },
+      { unwrap: true, insufficient: false },
+      { unwrap: true, insufficient: true },
+    ].flatMap((scenario) =>
+      [false, true].map((recoverFee) => ({ ...scenario, recoverFee })),
+    ),
+  )(
+    'measures post-open wrapped balances: unwrap $unwrap, insufficient $insufficient, recovered fee $recoverFee',
+    async ({ unwrap, insufficient, recoverFee }) => {
       let time = 0;
       let opened = false;
       const logger = {
@@ -1637,7 +1642,9 @@ describe('useSpeedSwapActions', () => {
               ? createTokenDetail({
                   // For unwrap, let the token check pass and fail the subsequent native gas check.
                   balanceParsed:
-                    opened && insufficient && !contractAddress ? '0' : '100',
+                    opened && insufficient && (recoverFee || !contractAddress)
+                      ? '0'
+                      : '100',
                 })
               : [],
           );
@@ -1683,6 +1690,20 @@ describe('useSpeedSwapActions', () => {
         });
         opened = true;
         const preparation = analytics.beginPreparation();
+        if (recoverFee) {
+          estimate.mockImplementationOnce(({ reviewPreparation }) =>
+            measureSwapReviewStage(
+              reviewPreparation,
+              'estimateFee',
+              async () => {
+                time += 25;
+                throw new OneKeyLocalError(
+                  'RPC failure with private transaction data',
+                );
+              },
+            ),
+          );
+        }
         await act(async () => {
           const preparing = result.current.prepareMarketSwapReview({
             quoteResult: review?.quoteResult,
@@ -1693,7 +1714,13 @@ describe('useSpeedSwapActions', () => {
             await expect(preparing).rejects.toThrow(
               'insufficient_balance_title',
             );
-          else await preparing;
+          else {
+            const prepared = await preparing;
+            expect(prepared.preSwapData.stepBeforeActionsError).toBeUndefined();
+            expect(prepared.preSwapData.estimateNetworkFeeLoading).toBe(false);
+            if (recoverFee)
+              expect(prepared.preSwapData.netWorkFee).toBeUndefined();
+          }
         });
         analytics.observe({
           ready: !insufficient,
@@ -1706,16 +1733,15 @@ describe('useSpeedSwapActions', () => {
         expect(logger.swapReviewReady).toHaveBeenCalledWith(
           expect.objectContaining({
             status: insufficient ? 'error' : 'ready',
-            balanceCheckMs: unwrap ? 80 : 40,
-            totalMs: unwrap ? 80 : 40,
+            balanceCheckMs: unwrap && !recoverFee ? 80 : 40,
+            totalMs: (unwrap && !recoverFee ? 80 : 40) + (recoverFee ? 25 : 0),
+            ...(recoverFee ? { estimateFeeMs: 25 } : { message: undefined }),
             failedStage: insufficient ? 'balanceCheck' : undefined,
             ...(insufficient
               ? {
-                  message: expect.stringContaining(
-                    'insufficient_balance_title',
-                  ),
+                  message: 'Insufficient balance',
                 }
-              : {}),
+              : { message: undefined }),
           }),
         );
         expect(prepare).toHaveBeenCalledTimes(2);

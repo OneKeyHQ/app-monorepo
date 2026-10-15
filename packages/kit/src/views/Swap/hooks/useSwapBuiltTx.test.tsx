@@ -41,7 +41,10 @@ import { createSwapReviewAnalytics } from '../utils/swapReviewAnalytics';
 
 import { useSwapBuildTx } from './useSwapBuiltTx';
 
-const mockFetchBuildTx = jest.fn<Promise<IFetchBuildTxResponse>, unknown[]>();
+const mockFetchBuildTx = jest.fn<
+  Promise<IFetchBuildTxResponse | undefined>,
+  unknown[]
+>();
 const mockPrepareUnsignedTx = jest.fn<
   Promise<IUnsignedTxPro>,
   [IBuildUnsignedTxParams]
@@ -418,6 +421,94 @@ function renderReview({
 }
 
 describe('useSwapBuildTx Review analytics', () => {
+  it.each([undefined, [], [{ amount: '98' }]])(
+    'retains the route fallback in create-order telemetry for build routes %j',
+    async (routesData) => {
+      const selectedQuote = { ...quote, routesData: [{ amount: '120' }] };
+      const response = buildResponse('98');
+      response.result.routesData = routesData;
+      mockFetchBuildTx.mockResolvedValueOnce(response);
+      const review = renderReview({ selectedQuote });
+      await review.prepare();
+      expect(mockLogCreateOrder).toHaveBeenCalledTimes(1);
+      expect(mockLogCreateOrder).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: ESwapEventAPIStatus.SUCCESS,
+          router: JSON.stringify(
+            routesData?.length ? routesData : selectedQuote.routesData,
+          ),
+        }),
+      );
+      expect(mockPrepareUnsignedTx).toHaveBeenCalledTimes(1);
+      expect(mockEstimateFee).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('preserves empty routes when neither response nor quote supplies a route', async () => {
+    const response = buildResponse('98');
+    response.result.routesData = [];
+    mockFetchBuildTx.mockResolvedValueOnce(response);
+    await renderReview().prepare();
+    expect(mockLogCreateOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ router: '[]' }),
+    );
+  });
+
+  it('reports an empty build response without changing the subsequent preparation path', async () => {
+    mockFetchBuildTx.mockResolvedValueOnce(undefined);
+    const prepareError = new Error('Missing transaction input');
+    mockPrepareUnsignedTx.mockImplementationOnce(async (params) => {
+      expect(params.encodedTx).toBeUndefined();
+      expect(params.transfersInfo).toBeUndefined();
+      throw prepareError;
+    });
+    const review = renderReview();
+    const analytics = review.reviewAnalyticsRef.current;
+    analytics.open({
+      quoteId: quote.quoteId,
+      swapProvider: quote.info.provider,
+      swapType: 'Bridge',
+      sourceChain: fromToken.networkId,
+      receivedChain: toToken.networkId,
+      sourceTokenSymbol: fromToken.symbol,
+      receivedTokenSymbol: toToken.symbol,
+      createFrom: 'swapPage',
+      walletType: 'hd',
+      supportPreBuild: true,
+      needApprove: false,
+    });
+    const preparation = analytics.beginPreparation();
+    await act(async () => {
+      await review.result.current.preSwapBeforeStepActions(
+        quote,
+        fromToken,
+        toToken,
+        preparation,
+      );
+    });
+    expect(mockFetchBuildTx).toHaveBeenCalledTimes(1);
+    expect(mockPrepareUnsignedTx).toHaveBeenCalledTimes(1);
+    expect(mockFetchBuildTx.mock.invocationCallOrder[0]).toBeLessThan(
+      mockPrepareUnsignedTx.mock.invocationCallOrder[0],
+    );
+    expect(mockEstimateFee).not.toHaveBeenCalled();
+    expect(mockSignAndSend).not.toHaveBeenCalled();
+    expect(
+      review.store.get(swapStepsAtom()).preSwapData.stepBeforeActionsError,
+    ).toBe(true);
+    expect(preparation?.failedStage).toBe('buildTx');
+    expect(mockLogCreateOrder).toHaveBeenCalledTimes(1);
+    expect(mockLogCreateOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: ESwapEventAPIStatus.FAIL,
+        message: 'Empty build response',
+        reviewSessionId: 'review-session-1',
+        quoteId: quote.quoteId,
+        isPreBuild: true,
+      }),
+    );
+  });
+
   it('prepares and sends successfully when create-order logging throws', async () => {
     mockLogCreateOrder.mockImplementationOnce(() => {
       throw new OneKeyLocalError('Telemetry unavailable');
@@ -545,7 +636,7 @@ describe('useSwapBuildTx Review analytics', () => {
         quoteId: quote.quoteId,
         orderId: 'review-repro-98',
         status: ESwapEventAPIStatus.FAIL,
-        message: 'signature rejected',
+        message: 'Transaction rejected',
       }),
     );
     expect(mockLogCreateOrder).toHaveBeenCalledWith(
@@ -606,7 +697,7 @@ describe('useSwapBuildTx Review analytics', () => {
       expect(mockLogSendTx).toHaveBeenCalledWith(
         expect.objectContaining({
           status: ESwapEventAPIStatus.FAIL,
-          message: 'swap RPC failed',
+          message: 'Network error',
           reviewSessionId: 'review-session-1',
           quoteId: quote.quoteId,
         }),

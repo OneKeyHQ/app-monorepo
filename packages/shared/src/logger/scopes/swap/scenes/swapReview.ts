@@ -1,3 +1,4 @@
+import { getSwapErrorMessage } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
 import type {
   ISwapReviewClose,
   ISwapReviewConfirm,
@@ -16,7 +17,13 @@ export class SwapReviewScene extends BaseScene {
 
   @LogToServer()
   public swapReviewReady(params: ISwapReviewReady) {
-    return params;
+    return {
+      ...params,
+      message:
+        params.message === undefined
+          ? undefined
+          : getSwapErrorMessage(params.message),
+    };
   }
 
   @LogToServer()

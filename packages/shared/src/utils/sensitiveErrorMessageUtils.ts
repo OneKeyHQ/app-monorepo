@@ -158,3 +158,32 @@ export function getOneKeyIdAuthFailureServerParams({
     }),
   };
 }
+
+/** Swap telemetry emits fixed categories only, never matched error text. */
+export function getSwapErrorMessage(error: unknown): string {
+  let message = '';
+  if (typeof error === 'string') {
+    message = error;
+  } else if (
+    error &&
+    typeof error === 'object' &&
+    'message' in error &&
+    typeof error.message === 'string'
+  ) {
+    message = error.message;
+  }
+  if (message === 'Empty build response') return 'Empty build response';
+  if (
+    /insufficient|余额不足|checkLatestFromTokenBalance|checkOtherFee/i.test(
+      message,
+    )
+  ) {
+    return 'Insufficient balance';
+  }
+  if (/reject|cancel/i.test(message)) return 'Transaction rejected';
+  if (/timeout|timed out/i.test(message)) return 'Request timed out';
+  if (/network|rpc|fetch|connection|service unavailable/i.test(message)) {
+    return 'Network error';
+  }
+  return 'Unknown error';
+}

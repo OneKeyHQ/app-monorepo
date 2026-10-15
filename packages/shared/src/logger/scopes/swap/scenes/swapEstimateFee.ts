@@ -1,3 +1,5 @@
+import { getSwapErrorMessage } from '@onekeyhq/shared/src/utils/sensitiveErrorMessageUtils';
+
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
@@ -60,7 +62,7 @@ export class SwapEstimateFeeScene extends BaseScene {
       quoteId,
       status,
       orderId,
-      message,
+      message: message === undefined ? undefined : getSwapErrorMessage(message),
       swapType,
       slippage,
       router,

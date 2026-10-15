@@ -338,7 +338,7 @@ describe('marketDirectSendTx', () => {
       expect.objectContaining({
         status: 'fail',
         reviewSessionId: 'market-session',
-        message: error.message,
+        message: 'Unknown error',
       }),
     );
   });
@@ -635,7 +635,7 @@ describe('marketDirectSendTx', () => {
             quoteId: 'quote-id',
             orderId: 'order-id',
             status: fails ? 'fail' : 'success',
-            ...(fails ? { message: error.message } : {}),
+            ...(fails ? { message: 'Unknown error' } : {}),
           }),
         );
       }
@@ -1432,6 +1432,84 @@ describe('marketDirectSendTx', () => {
     expect(mockUpdateUnsignedTx).not.toHaveBeenCalled();
     expect(mockSignAndSendTransaction).not.toHaveBeenCalled();
   });
+
+  it.each(['success', 'failure', 'cancel', 'validation failure'])(
+    'reports only the final sponsored fallback outcome: %s',
+    async (outcome) => {
+      const unsignedTx = createSponsoredUnsignedTx();
+      mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+      mockEstimateFee.mockResolvedValue(
+        createSponsoredEstimateFeeResult('gas-quote'),
+      );
+      const terminalError = new Error(`fallback ${outcome}`);
+      const order: string[] = [];
+      const validateFinalGasInfos = jest.fn(async () => {
+        order.push('validate');
+        if (outcome === 'validation failure' && order.length > 1)
+          throw terminalError;
+      });
+      mockSignAndSendTransaction
+        .mockImplementationOnce(async () => {
+          order.push('sponsor');
+          const sponsorError = Object.assign(new Error('Sponsor failed'), {
+            code: 40_213,
+          });
+          throw sponsorError;
+        })
+        .mockImplementationOnce(async () => {
+          order.push('user');
+          if (outcome !== 'success') throw terminalError;
+          return { txid: '0xfallback', rawTx: '0xraw' };
+        });
+      const sending = sendMarketDirectUnsignedTxs({
+        accountAddress: '0xuser',
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        buildUnsignedParams: {
+          accountId: 'account-1',
+          networkId: 'evm--1',
+          encodedTx: unsignedTx.encodedTx,
+          swapInfo: unsignedTx.swapInfo,
+          isInternalSwap: true,
+        },
+        validateFinalGasInfos,
+        shouldReportSendError: (error) =>
+          !(outcome === 'cancel' && error === terminalError),
+      });
+      if (outcome === 'success') expect(await sending).toHaveLength(1);
+      else await expect(sending).rejects.toBe(terminalError);
+      expect(order).toEqual(
+        outcome === 'validation failure'
+          ? ['validate', 'sponsor', 'validate']
+          : ['validate', 'sponsor', 'validate', 'user'],
+      );
+      expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(
+        outcome === 'validation failure' ? 1 : 2,
+      );
+      expect(
+        mockSignAndSendTransaction.mock.calls[0][0].gasAccountUiState,
+      ).toBeDefined();
+      if (outcome !== 'validation failure')
+        expect(
+          mockSignAndSendTransaction.mock.calls[1][0].gasAccountUiState,
+        ).toBeUndefined();
+      expect(mockSwapSendTx).toHaveBeenCalledTimes(
+        outcome === 'cancel' ? 0 : 1,
+      );
+      if (outcome !== 'cancel')
+        expect(mockSwapSendTx).toHaveBeenCalledWith(
+          expect.objectContaining({
+            status: outcome === 'success' ? 'success' : 'fail',
+            reviewSessionId: 'market-session',
+            quoteId: 'quote-id',
+            orderId: 'order-id',
+          }),
+        );
+      expect(mockSaveSendConfirmHistoryTxs).toHaveBeenCalledTimes(
+        outcome === 'success' ? 1 : 0,
+      );
+    },
+  );
 
   it('revalidates user-paid gas before retrying a failed sponsor send', async () => {
     const sponsoredUnsignedTx = createSponsoredUnsignedTx();

@@ -102,13 +102,7 @@ jest.mock(
   '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee',
   () => ({ ESwapEventAPIStatus: { SUCCESS: 'success', FAIL: 'fail' } }),
 );
-jest.mock('../../utils/swapTypeUtils', () => ({
-  getSwapExecutionTypeFromQuoteResult: () => 'swap',
-  getVisibleSwapTabSwitchType: (value: string) => value,
-}));
-jest.mock('../../utils/swapStockAnalytics', () => ({
-  getSwapAnalyticsCategoryFromSwapType: () => 'Swap',
-}));
+
 jest.mock('../../utils/swapStockReviewUtils', () => ({
   buildSwapStockReviewDisplay: () => undefined,
 }));
@@ -273,6 +267,41 @@ function createSession() {
 }
 
 describe('PreSwapDialogContent analytics integration', () => {
+  it.each([
+    { isSwapPro: true, protocol: EProtocolOfExchange.LIMIT, category: 'Pro' },
+    {
+      isSwapPro: false,
+      protocol: EProtocolOfExchange.LIMIT,
+      category: 'Limit',
+    },
+    { isSwapPro: true, protocol: EProtocolOfExchange.SWAP, category: 'Swap' },
+    { isSwapPro: true, protocol: EProtocolOfExchange.STOCK, category: 'Stock' },
+  ])(
+    'classifies Review as $category for $protocol, Pro=$isSwapPro',
+    ({ isSwapPro, protocol, category }) => {
+      const { session, logger } = createSession();
+      const initial = makeState();
+      initial.preSwapData.supportPreBuild = false;
+      initial.quoteResult = { ...initial.quoteResult!, protocol };
+      render(
+        <StateProvider initialState={initial}>
+          <PreSwapDialogContent
+            isSwapPro={isSwapPro}
+            reviewAnalytics={session}
+            onConfirm={jest.fn()}
+            onDone={jest.fn()}
+            preSwapBeforeStepActions={jest.fn()}
+            preSwapStepsStart={jest.fn()}
+          />
+        </StateProvider>,
+      );
+      expect(logger.swapReviewOpen).toHaveBeenCalledTimes(1);
+      expect(logger.swapReviewOpen).toHaveBeenCalledWith(
+        expect.objectContaining({ swapType: category }),
+      );
+    },
+  );
+
   it('continues the primary confirmation when lifecycle logging throws', () => {
     const { session, logger } = createSession();
     Object.values(logger).forEach((log) => {

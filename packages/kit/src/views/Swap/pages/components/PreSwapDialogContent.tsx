@@ -611,6 +611,7 @@ const PreSwapDialogContent = ({
       swapProvider: initialQuote?.info.provider ?? '',
       swapType: getSwapAnalyticsCategoryFromSwapType(
         getSwapExecutionTypeFromQuoteResult(initialQuote),
+        isSwapPro,
       ),
       sourceChain: initialData.fromToken?.networkId ?? '',
       receivedChain: initialData.toToken?.networkId ?? '',
@@ -627,6 +628,7 @@ const PreSwapDialogContent = ({
     quoteResult,
     preSwapData,
     analyticsCreateFrom,
+    isSwapPro,
     activeAccount?.wallet?.type,
   ]);
 
