@@ -856,6 +856,77 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     expect(mockToastMessage).not.toHaveBeenCalled();
   });
 
+  describe('the user leaves the page while the gate waits', () => {
+    let routeKey = 'page-a';
+    const { rootNavigationRef } = jest.requireMock<{
+      rootNavigationRef: { current: unknown };
+    }>('@onekeyhq/components');
+
+    beforeEach(() => {
+      routeKey = 'page-a';
+      rootNavigationRef.current = {
+        getCurrentRoute: () => ({ key: routeKey }),
+      };
+    });
+
+    afterEach(() => {
+      rootNavigationRef.current = undefined;
+    });
+
+    it('gives no dashboard or toast for a used-up quota', async () => {
+      setSnapshot(quotaWith(0));
+      mockRefreshQuota.mockImplementation(async () => {
+        routeKey = 'page-b';
+        return quotaWith(0);
+      });
+      const result = renderAccessHook();
+
+      await act(async () => {
+        await expect(
+          result.current.ensureFeatureAccess({
+            featureId: EPrimeFeatures.BulkSend,
+          }),
+        ).resolves.toEqual({ granted: false });
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(mockPushFullModal).not.toHaveBeenCalled();
+      expect(mockToastMessage).not.toHaveBeenCalled();
+    });
+
+    it('does not let the user in either', async () => {
+      setSnapshot(quotaWith(0));
+      mockRefreshQuota.mockImplementation(async () => {
+        routeKey = 'page-b';
+        return quotaWith(1);
+      });
+      const result = renderAccessHook();
+
+      await act(async () => {
+        await expect(
+          result.current.ensureFeatureAccess({
+            featureId: EPrimeFeatures.BulkSend,
+          }),
+        ).resolves.toEqual({ granted: false });
+      });
+    });
+
+    it('still lets the user in when they stayed on the page', async () => {
+      setSnapshot(quotaWith(0));
+      mockRefreshQuota.mockResolvedValue(quotaWith(1));
+      const result = renderAccessHook();
+
+      await act(async () => {
+        await expect(
+          result.current.ensureFeatureAccess({
+            featureId: EPrimeFeatures.BulkSend,
+          }),
+        ).resolves.toEqual({ granted: true, entitlementSource: 'freeTrial' });
+      });
+    });
+  });
+
   it('keeps a logged-out user on the page when translate is not open', async () => {
     mockIsLoggedIn.mockResolvedValue(false);
     mockGetPublicConfig.mockResolvedValue({ enabled: false, features: [] });

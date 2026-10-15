@@ -41,6 +41,7 @@ import {
   resolvePrimeFreeTrialAccess,
 } from '../utils/primeFreeTrialAccess';
 import { getPrimeFreeTrialNoticeCopy } from '../utils/primeFreeTrialCopy';
+import { captureFreeTrialRoute } from '../utils/primeFreeTrialRouteGuard';
 
 import { usePrimeFreeTrialUpgrade } from './usePrimeFreeTrialUpgrade';
 
@@ -577,8 +578,12 @@ export function usePrimeFeatureAccess() {
       // The wallet, network or input the caller acts on, or its page, may be
       // gone after any wait: a stale context gets no login, no grant and no
       // denied feedback. Checked before onDenied, so a gate that leaves the
-      // page itself still hands off to the dashboard.
-      const isContextGone = () => isContextStale(isContextValid);
+      // page itself still hands off to the dashboard. The user leaving the
+      // page they acted on (back, close, another page) always counts, on top
+      // of the caller's own check.
+      const isOnSameRoute = captureFreeTrialRoute();
+      const isContextGone = async () =>
+        !isOnSameRoute() || isContextStale(isContextValid);
       const grantIfContextValid = async (
         result: Extract<IPrimeFeatureAccessResult, { granted: true }>,
       ): Promise<IPrimeFeatureAccessResult> => {
@@ -592,7 +597,9 @@ export function usePrimeFeatureAccess() {
       // The rejection feedback re-checks the context after its own async
       // steps, unless the caller leaves its page itself (onDenied): that page
       // going away is expected, and the feedback still hands off to it.
-      const feedbackContextValid = onDenied ? undefined : isContextValid;
+      const feedbackContextValid = onDenied
+        ? undefined
+        : async () => !(await isContextGone());
       // Not open, logged in or not: the dashboard, or the toast for a
       // feature that stays on its page (translate).
       const denyNotOpen = async (): Promise<IPrimeFeatureAccessResult> => {

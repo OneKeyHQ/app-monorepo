@@ -20,6 +20,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAddressRiskCheckDetails } from '@onekeyhq/shared/types/addressRiskCheck';
 
 import { usePrimeFeatureAccess } from '../../Prime/hooks/usePrimeFeatureAccess';
+import { captureFreeTrialRoute } from '../../Prime/utils/primeFreeTrialRouteGuard';
 
 import { formatRiskCheckDate } from './RiskCheckShared';
 
@@ -351,6 +352,8 @@ export function AddressRiskMoreAnalysis({
   const isMountedRef = useIsMounted();
 
   const handleLoad = useCallback(async () => {
+    // The result page may be left (back / close) while details load.
+    const isOnSameRoute = captureFreeTrialRoute();
     setIsLoading(true);
     try {
       const data =
@@ -367,7 +370,7 @@ export function AddressRiskMoreAnalysis({
       handleFreeTrialError({
         error,
         networkId,
-        isContextValid: () => isMountedRef.current,
+        isContextValid: () => isMountedRef.current && isOnSameRoute(),
       });
     } finally {
       setIsLoading(false);
