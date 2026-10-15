@@ -2,6 +2,7 @@ import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2
 import { createTradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
 import {
+  TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH,
   TRADING_VIEW_NATIVE_CHART_DOWN_COLOR,
   TRADING_VIEW_NATIVE_CHART_UP_COLOR,
   TRADING_VIEW_NATIVE_MAX_ZOOM_SCALE,
@@ -1430,7 +1431,7 @@ describe('crosshair in empty chart space', () => {
     [600, 80],
     [600, 212],
   ])(
-    'renders time and price in empty space at offset %s and y %s',
+    'renders time and price in empty space after clamping offset %s and y %s',
     (offset, y) => {
       const scene = buildTradingViewNativeChartScene({
         candleIntervalSeconds: 3600,
@@ -1446,16 +1447,37 @@ describe('crosshair in empty chart space', () => {
         width: 320,
       });
       expect(scene.layout).not.toBeNull();
-      expect(scene.viewport.offset).toBe(offset);
+      expect(scene.viewport.offset).not.toBe(offset);
+      expect(
+        scene.visiblePointRange.endIndex - scene.visiblePointRange.startIndex,
+      ).toBe(1);
+      const candleBodies = scene.commands.filter(
+        (command) =>
+          command.kind === 'rect' &&
+          (command.paint === 'up' || command.paint === 'down') &&
+          command.width ===
+            TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH * scene.viewport.zoomScale,
+      );
+      expect(candleBodies).toHaveLength(1);
+      for (const command of candleBodies) {
+        if (command.kind === 'rect') {
+          expect(command.x).toBeGreaterThanOrEqual(0);
+          expect(command.x + command.width).toBeLessThanOrEqual(
+            scene.layout!.priceAxisX,
+          );
+        }
+      }
       expect(scene.crosshairPointIndex).toBeNull();
       const anchorIndex = offset > 0 ? 0 : POINTS.length - 1;
       const anchorX = getTradingViewNativeCandleX({
         index: anchorIndex,
-        offset,
+        offset: scene.viewport.offset,
         pointCount: POINTS.length,
         priceAxisX: scene.layout!.priceAxisX,
         zoomScale: 1,
       });
+      expect(anchorX).toBeGreaterThan(0);
+      expect(anchorX).toBeLessThan(scene.layout!.priceAxisX);
       const timestamp =
         POINTS[anchorIndex].t + Math.round((120 - anchorX) / 6) * 3600;
       const labels = scene.commands.filter(

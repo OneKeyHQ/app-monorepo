@@ -17,13 +17,21 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  useSwapDefaultConfigStatusAtom,
+  useSwapFromTokenAmountAtom,
+  useSwapSelectedTokensColdStartContextAtom,
+  useSwapToTokenAmountAtom,
+} from '../../../states/jotai/contexts/swap/atoms';
+import {
   type ISwapBalanceDisplayCache,
   areSwapBalanceDisplayAccountKeysEquivalent,
   resolveSwapBalanceDisplayCacheEntry,
 } from '../utils/swapBalanceDisplayCacheUtils';
 import {
+  type ISwapDefaultConfigStatus,
   buildSwapDefaultLimitSelectedTokens,
   buildSwapDefaultSelectedTokensFromHomeAccount,
+  shouldDeferSwapAutomaticDefaultTokens,
 } from '../utils/swapColdStartTokenCacheUtils';
 
 const COLD_START_SCOPED_KEY_SEPARATOR = '::';
@@ -397,13 +405,22 @@ function getRawSwapSelectedTokensFromSnapshot(
 
 function getDefaultSwapSelectedTokensFromHomeSnapshot(
   snapshot: Record<string, unknown>,
+  {
+    defaultConfigStatus,
+    swapType,
+  }: {
+    defaultConfigStatus: ISwapDefaultConfigStatus;
+    swapType?: ESwapTabSwitchType;
+  },
 ) {
   const homeSelectedAccount = getSelectedAccountFromSnapshot({
     snapshot,
     coldStartScopeKey: ACCOUNT_SELECTOR_HOME_SCOPE_KEY,
   });
   const defaultTokens = buildSwapDefaultSelectedTokensFromHomeAccount({
+    defaultConfigStatus,
     homeSelectedAccount,
+    swapType,
   });
 
   return {
@@ -414,10 +431,12 @@ function getDefaultSwapSelectedTokensFromHomeSnapshot(
 
 export function getSwapDefaultSelectedTokensFromGlobalHomeSnapshot({
   allNetworksOnly = false,
+  defaultConfigStatus = 'success',
   swapType,
   swapNetworks,
 }: {
   allNetworksOnly?: boolean;
+  defaultConfigStatus?: ISwapDefaultConfigStatus;
   swapType?: ESwapTabSwitchType;
   swapNetworks?: ISwapNetwork[];
 } = {}) {
@@ -431,6 +450,7 @@ export function getSwapDefaultSelectedTokensFromGlobalHomeSnapshot({
       isSwapColdStartAllNetworkContextNetworkId(homeSelectedAccount?.networkId);
     if (shouldUseSnapshot) {
       const defaultTokens = buildSwapDefaultSelectedTokensFromHomeAccount({
+        defaultConfigStatus,
         homeSelectedAccount,
         swapType,
         swapNetworks,
@@ -448,18 +468,53 @@ function hasDisplayToken(tokens: IDisplayTokens) {
   return Boolean(tokens.fromToken?.symbol || tokens.toToken?.symbol);
 }
 
-export function getSwapColdStartDisplayTokensFromGlobalSnapshot() {
+export function getSwapColdStartDisplayTokensFromGlobalSnapshot({
+  defaultConfigStatus = 'success',
+  deferAutomaticDefaults = false,
+  swapType,
+}: {
+  defaultConfigStatus?: ISwapDefaultConfigStatus;
+  deferAutomaticDefaults?: boolean;
+  swapType?: ESwapTabSwitchType;
+} = {}) {
+  // Concrete Swap defaults have one execution-state owner. A successful fetch
+  // can precede the account sync, so display snapshots must not reseed the old
+  // automatic pair in that gap.
+  const displayDefaultConfigStatus = deferAutomaticDefaults
+    ? 'pending'
+    : defaultConfigStatus;
   const displayTokens: {
     fromToken?: ISwapToken;
     toToken?: ISwapToken;
   } = {};
 
   for (const snapshot of getColdStartSnapshotCandidatesFromGlobal()) {
-    const normalizedTokens =
-      getSwapColdStartSelectedTokensFromSnapshot<ISwapToken>(snapshot);
-    const rawTokens = getRawSwapSelectedTokensFromSnapshot(snapshot);
-    const defaultTokens =
-      getDefaultSwapSelectedTokensFromHomeSnapshot(snapshot);
+    const cachedContext = getSnapshotValue<ISwapSelectedTokensColdStartContext>(
+      {
+        snapshot,
+        coldStartScopeKey: SWAP_STORE_SCOPE_KEY,
+        coldStartCacheKey:
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
+      },
+    );
+    const deferCachedDefaults = shouldDeferSwapAutomaticDefaultTokens({
+      cachedContext,
+      defaultConfigStatus: displayDefaultConfigStatus,
+      swapType,
+    });
+    const normalizedTokens = deferCachedDefaults
+      ? {}
+      : getSwapColdStartSelectedTokensFromSnapshot<ISwapToken>(snapshot);
+    const rawTokens = deferCachedDefaults
+      ? {}
+      : getRawSwapSelectedTokensFromSnapshot(snapshot);
+    const defaultTokens = getDefaultSwapSelectedTokensFromHomeSnapshot(
+      snapshot,
+      {
+        defaultConfigStatus: displayDefaultConfigStatus,
+        swapType,
+      },
+    );
     let candidateTokens: IDisplayTokens = defaultTokens;
     if (hasDisplayToken(normalizedTokens)) {
       candidateTokens = normalizedTokens;
@@ -570,6 +625,22 @@ export function useSwapColdStartDisplayTokens({
   swapType?: ESwapTabSwitchType;
   toToken?: ISwapToken;
 }) {
+  const [defaultConfigStatus] = useSwapDefaultConfigStatusAtom();
+  const [selectedTokensColdStartContext] =
+    useSwapSelectedTokensColdStartContextAtom();
+  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [toTokenAmount] = useSwapToTokenAmountAtom();
+  const deferSelectedDefaults = shouldDeferSwapAutomaticDefaultTokens({
+    cachedContext: selectedTokensColdStartContext,
+    defaultConfigStatus,
+    fromTokenAmount,
+    swapType,
+    toTokenAmount,
+  });
+  const currentFromToken = deferSelectedDefaults ? undefined : fromToken;
+  const currentToToken = deferSelectedDefaults ? undefined : toToken;
+  const selectedTokensSynced =
+    !deferSelectedDefaults && initialSelectedTokensSynced;
   const hasResolvedFromTokenRef = useRef(Boolean(fromToken?.symbol));
   const hasResolvedToTokenRef = useRef(Boolean(toToken?.symbol));
   const previousDisplayFromTokenRef = useRef<ISwapToken | undefined>(
@@ -582,29 +653,50 @@ export function useSwapColdStartDisplayTokens({
     | ReturnType<typeof getSwapColdStartDisplayTokensFromGlobalSnapshot>
     | undefined
   >(undefined);
+  const previousConfigStatusRef = useRef(defaultConfigStatus);
+  const previousSwapTypeRef = useRef(swapType);
+  const coldStartPresentationChanged =
+    previousConfigStatusRef.current !== defaultConfigStatus ||
+    previousSwapTypeRef.current !== swapType;
+  if (
+    deferSelectedDefaults ||
+    (coldStartPresentationChanged && defaultConfigStatus === 'pending')
+  ) {
+    previousDisplayFromTokenRef.current = undefined;
+    previousDisplayToTokenRef.current = undefined;
+    hasResolvedFromTokenRef.current = Boolean(currentFromToken?.symbol);
+    hasResolvedToTokenRef.current = Boolean(currentToToken?.symbol);
+  }
+  previousConfigStatusRef.current = defaultConfigStatus;
+  previousSwapTypeRef.current = swapType;
 
-  if (fromToken?.symbol) {
+  if (currentFromToken?.symbol) {
     hasResolvedFromTokenRef.current = true;
   }
-  if (toToken?.symbol) {
+  if (currentToToken?.symbol) {
     hasResolvedToTokenRef.current = true;
   }
-  if (initialSelectedTokensSynced) {
+  if (selectedTokensSynced) {
     hasResolvedFromTokenRef.current = true;
     hasResolvedToTokenRef.current = true;
   }
 
   if (
     !coldStartDisplayTokensRef.current ||
-    (!fromToken?.symbol &&
+    coldStartPresentationChanged ||
+    (!currentFromToken?.symbol &&
       !hasResolvedFromTokenRef.current &&
       !coldStartDisplayTokensRef.current.fromToken) ||
-    (!toToken?.symbol &&
+    (!currentToToken?.symbol &&
       !hasResolvedToTokenRef.current &&
       !coldStartDisplayTokensRef.current.toToken)
   ) {
     coldStartDisplayTokensRef.current =
-      getSwapColdStartDisplayTokensFromGlobalSnapshot();
+      getSwapColdStartDisplayTokensFromGlobalSnapshot({
+        defaultConfigStatus,
+        deferAutomaticDefaults: true,
+        swapType,
+      });
   }
   const coldStartDisplayTokens = coldStartDisplayTokensRef.current;
   const defaultDisplayTokens =
@@ -614,16 +706,16 @@ export function useSwapColdStartDisplayTokens({
 
   const displayFromToken = resolveSwapDisplayToken({
     allowFallback:
-      Boolean(defaultDisplayTokens?.fromToken) || !initialSelectedTokensSynced,
-    currentToken: fromToken,
+      Boolean(defaultDisplayTokens?.fromToken) || !selectedTokensSynced,
+    currentToken: currentFromToken,
     fallbackToken:
       defaultDisplayTokens?.fromToken ?? coldStartDisplayTokens.fromToken,
     previousDisplayToken: previousDisplayFromTokenRef.current,
   });
   const displayToToken = resolveSwapDisplayToken({
     allowFallback:
-      Boolean(defaultDisplayTokens?.toToken) || !initialSelectedTokensSynced,
-    currentToken: toToken,
+      Boolean(defaultDisplayTokens?.toToken) || !selectedTokensSynced,
+    currentToken: currentToToken,
     fallbackToken:
       defaultDisplayTokens?.toToken ?? coldStartDisplayTokens.toToken,
     previousDisplayToken: previousDisplayToTokenRef.current,

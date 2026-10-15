@@ -121,6 +121,7 @@ describe('Email OTP request security boundary', () => {
     expect(logOneKeyIdLoginFailureReason).toHaveBeenCalledWith(
       'OneKey ID email verification code request failed: sanitized error',
       expect.any(OneKeyLocalError),
+      { trigger: 'interactive' },
     );
     await expect(request).rejects.toMatchObject({
       data: { isEmailOtpSendFailure: true },
