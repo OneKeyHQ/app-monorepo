@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Button,
   Icon,
   NumberSizeableText,
@@ -181,14 +182,31 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
                   <SizableText size="$bodyLgMedium" numberOfLines={1}>
                     {stock.symbol}
                   </SizableText>
-                  <SizableText
-                    size={md ? '$bodyMd' : '$bodySm'}
-                    color="$textSubdued"
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                  >
-                    {stock.name}
-                  </SizableText>
+                  <XStack alignItems="center" gap="$1" minWidth={0}>
+                    {stock.tags?.filter(Boolean).map((tag) => (
+                      <Badge
+                        key={tag}
+                        badgeType="default"
+                        badgeSize="sm"
+                        px="$1"
+                        py="$0.5"
+                        flexShrink={0}
+                      >
+                        <Badge.Text size="$bodyXs" lineHeight={12}>
+                          {tag}
+                        </Badge.Text>
+                      </Badge>
+                    ))}
+                    <SizableText
+                      size={md ? '$bodyMd' : '$bodySm'}
+                      color="$textSubdued"
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                      flexShrink={1}
+                    >
+                      {stock.name}
+                    </SizableText>
+                  </XStack>
                 </YStack>
                 <YStack alignItems="flex-end">
                   <NumberSizeableText
@@ -317,19 +335,22 @@ export function SwapStockTickerSelector() {
     </XStack>
   );
   return (
-    <StockSelectorPopover
-      onOpenChange={(open) => {
-        if (open) selection?.cancelSelection();
-      }}
-      title={intl.formatMessage({
-        id: ETranslations.placeholder_stock_search,
-      })}
-      showHeader={false}
-      placement="bottom-start"
-      floatingPanelProps={{ width: 360, borderRadius: '$4' }}
-      sheetProps={{ snapPoints: [86], snapPointsMode: 'percent' }}
-      renderContent={StockTickerList}
-      renderTrigger={trigger}
-    />
+    // Keep the outer Popover trigger from stretching across the header row.
+    <Stack alignSelf="flex-start" maxWidth="100%">
+      <StockSelectorPopover
+        onOpenChange={(open) => {
+          if (open) selection?.cancelSelection();
+        }}
+        title={intl.formatMessage({
+          id: ETranslations.placeholder_stock_search,
+        })}
+        showHeader={false}
+        placement="bottom-start"
+        floatingPanelProps={{ width: 360, borderRadius: '$4' }}
+        sheetProps={{ snapPoints: [86], snapPointsMode: 'percent' }}
+        renderContent={StockTickerList}
+        renderTrigger={trigger}
+      />
+    </Stack>
   );
 }

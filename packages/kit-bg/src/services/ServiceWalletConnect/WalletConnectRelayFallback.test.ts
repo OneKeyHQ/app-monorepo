@@ -9,10 +9,12 @@ import { WALLET_CONNECT_RELAY_URLS } from '@onekeyhq/shared/src/walletConnect/co
 
 import walletConnectClient from './walletConnectClient';
 import {
+  WalletConnectDiagnostics,
   dappSideWalletConnectDiagnostics,
   walletConnectDiagnostics,
 } from './WalletConnectDiagnostics';
 import { WalletConnectRelayController } from './WalletConnectRelayController';
+import { RELAYER_EVENTS } from './walletConnectSdkEvents';
 
 const RELAYS = WALLET_CONNECT_RELAY_URLS;
 let coreNumber = 0;
@@ -50,6 +52,57 @@ describe('WalletConnect application relay controller with the SDK transport', ()
     jest.restoreAllMocks();
     jest.useRealTimers();
   });
+
+  it.each([0, 1])(
+    'routes initial and queued pairing retries through ten attempts each; initial=%s',
+    async (initial) => {
+      jest.useFakeTimers();
+      const core = createCore(RELAYS[initial]);
+      prepareCore(core);
+      const { relayer } = core;
+      jest
+        .spyOn(relayer.subscriber, 'hasAnyTopics', 'get')
+        .mockReturnValue(false);
+      WalletConnectRelayController.attach(core, RELAYS[initial]);
+      const diagnostics = new WalletConnectDiagnostics('wallet');
+      diagnostics.attachCore(core);
+      const subscribe = jest.spyOn(relayer.subscriber, 'subscribe');
+      const attempts: string[] = [];
+      jest
+        .spyOn(JsonRpcProvider.prototype, 'connect')
+        .mockImplementation(async function connect(this: JsonRpcProvider) {
+          if (!(this.connection instanceof WsConnection))
+            throw new OneKeyLocalError('Expected the SDK WebSocket transport');
+          mockClose(this.connection);
+          attempts.push(new URL(this.connection.url).origin);
+          throw new OneKeyLocalError('Synthetic connection failure');
+        });
+      const first = relayer
+        .subscribe('first-topic')
+        .catch((error: unknown) => error);
+      await jest.advanceTimersByTimeAsync(1000);
+      const retry = relayer
+        .subscribe('retry-topic')
+        .catch((error: unknown) => error);
+      await jest.advanceTimersByTimeAsync(80_000);
+      expect(await first).toBeInstanceOf(Error);
+      expect(await retry).toBeInstanceOf(Error);
+      expect(attempts).toEqual(
+        Array.from(
+          { length: 20 },
+          (_, index) => RELAYS[(initial + Math.floor(index / 5)) % 2],
+        ),
+      );
+      // No SDK subscription timer runs during connection recovery, so neither
+      // caller can leave a timed-out subscribe that cancels the newer cycle.
+      expect(subscribe).not.toHaveBeenCalled();
+      expect(diagnostics.getSnapshot()).toMatchObject({
+        connectionAttempts: 20,
+        lastFailedConnectionAttempt: 20,
+        relaySwitches: 3,
+      });
+    },
+  );
 
   it.each([
     { enabled: true, failures: 6, dapp: false, initial: 0 },
@@ -163,7 +216,7 @@ describe('WalletConnect application relay controller with the SDK transport', ()
     { firstPairing: true, initial: 0 },
     { firstPairing: true, initial: 1 },
   ])(
-    'exits after ten attempts and permits the SDK heartbeat to reconnect; firstPairing=$firstPairing, initial=$initial',
+    'requires an explicit retry after failed first pairing and preserves existing-topic recovery; firstPairing=$firstPairing, initial=$initial',
     async ({ firstPairing, initial }) => {
       jest.useFakeTimers();
       const core = createCore(RELAYS[initial]);
@@ -203,7 +256,10 @@ describe('WalletConnect application relay controller with the SDK transport', ()
         .spyOn(relayer.subscriber, 'subscribe')
         .mockImplementation(async (topic) => {
           hasTopics.mockReturnValue(true);
-          await relayer.request({ method: 'irn_subscribe', params: { topic } });
+          relayer.subscriber.events.emit(SUBSCRIBER_EVENTS.created, {
+            topic,
+            id: 'test-subscription',
+          });
           return 'test-subscription';
         });
 
@@ -213,6 +269,9 @@ describe('WalletConnect application relay controller with the SDK transport', ()
       ).catch((error: unknown) => error);
       await jest.advanceTimersByTimeAsync(40_000);
       expect(await connecting).toBeInstanceOf(Error);
+      if (firstPairing) {
+        expect(relayer.subscriber.pending.has('test-topic')).toBe(false);
+      }
       expect(attempts).toEqual([
         ...Array.from({ length: 5 }, () => RELAYS[initial]),
         ...Array.from({ length: 5 }, () => RELAYS[1 - initial]),
@@ -224,12 +283,256 @@ describe('WalletConnect application relay controller with the SDK transport', ()
       expect(attempts).toHaveLength(10);
       core.heartbeat.events.emit(HEARTBEAT_EVENTS.pulse);
       await jest.advanceTimersByTimeAsync(1000);
+      if (firstPairing) {
+        expect(attempts).toHaveLength(10);
+        expect(relayer.connected).toBe(false);
+        const retry = relayer.subscribe('retry-topic');
+        await jest.advanceTimersByTimeAsync(1000);
+        await expect(retry).resolves.toBe('test-subscription');
+      }
       expect(attempts).toHaveLength(11);
       expect(attempts[10]).toBe(RELAYS[initial]);
       expect(relayer.connected).toBe(true);
       expect(relayer.transportExplicitlyClosed).toBe(false);
+      if (firstPairing) {
+        // Socket recovery must not resurrect the rejected pairing request.
+        expect(relayer.subscriber.pending.has('test-topic')).toBe(false);
+      }
     },
   );
+
+  it.each([false, true])(
+    'does not retain a new topic when recovery disconnects after socket open; existing=%s',
+    async (existing) => {
+      jest.useFakeTimers();
+      const core = createCore();
+      prepareCore(core);
+      const { relayer } = core;
+      jest.spyOn(relayer.subscriber, 'hasAnyTopics', 'get').mockRestore();
+      jest.spyOn(relayer.subscriber, 'start').mockRestore();
+      jest.spyOn(relayer.subscriber, 'stop').mockRestore();
+      jest
+        .spyOn(core.crypto, 'getClientId')
+        .mockResolvedValue('test-client-id');
+      const getItem = jest
+        .spyOn(core.storage, 'getItem')
+        .mockResolvedValue(undefined);
+      jest.spyOn(core.storage, 'setItem').mockResolvedValue();
+      jest.spyOn(relayer.messages, 'init').mockResolvedValue();
+      WalletConnectRelayController.attach(core);
+      await relayer.init();
+      await jest.advanceTimersByTimeAsync(0);
+
+      getItem.mockResolvedValue(
+        existing
+          ? [
+              {
+                topic: 'existing-topic',
+                id: 'existing-subscription',
+                relay: { protocol: 'irn' },
+              },
+            ]
+          : undefined,
+      );
+      let disconnectFirstProvider: (() => Promise<void>) | undefined;
+      let attempts = 0;
+      jest
+        .spyOn(JsonRpcProvider.prototype, 'connect')
+        .mockImplementation(async function connect(this: JsonRpcProvider) {
+          if (!(this.connection instanceof WsConnection)) {
+            throw new OneKeyLocalError('Expected the SDK WebSocket transport');
+          }
+          mockClose(this.connection);
+          attempts += 1;
+          if (attempts > 1 && attempts <= 10) {
+            throw new OneKeyLocalError('Synthetic connection failure');
+          }
+          if (attempts === 1)
+            disconnectFirstProvider = async () => {
+              await this.connection.close();
+              this.events.emit('disconnect');
+            };
+          Object.assign(this.connection, { socket: { readyState: 1 } });
+          this.events.emit('connect');
+        });
+      let completeFirstRecovery: (ids: string[]) => void = () => {};
+      const firstRecovery = new Promise<string[]>((resolve) => {
+        completeFirstRecovery = resolve;
+      });
+      const request = jest.spyOn(JsonRpcProvider.prototype, 'request');
+      const disconnect = async () => {
+        if (!disconnectFirstProvider)
+          throw new OneKeyLocalError('Missing recovery provider');
+        await disconnectFirstProvider();
+      };
+      if (existing)
+        request.mockImplementationOnce(() => {
+          // This runs inside real rpcBatchSubscribe while Step B is awaiting it.
+          void disconnect();
+          return firstRecovery;
+        });
+      else
+        getItem.mockImplementationOnce(async () => {
+          // A first pairing can also disconnect during Subscriber.restore().
+          await disconnect();
+          return undefined;
+        });
+      request.mockImplementation(async (payload) =>
+        payload.method === 'irn_batchSubscribe'
+          ? ['existing-subscription']
+          : 'test-subscription',
+      );
+
+      const first = relayer
+        .subscribe('abandoned-topic')
+        .catch((error: unknown) => error);
+      await jest.advanceTimersByTimeAsync(40_000);
+      expect(await first).toBeInstanceOf(Error);
+      expect(attempts).toBe(10);
+      if (existing)
+        expect(request.mock.calls[0][0].method).toBe('irn_batchSubscribe');
+      else expect(request).not.toHaveBeenCalled();
+      expect(relayer.subscriber.pending.has('abandoned-topic')).toBe(false);
+      expect(await relayer.subscriber.isKnownTopic('abandoned-topic')).toBe(
+        false,
+      );
+
+      // Settle the old legitimate restore before its own 60-second timeout.
+      completeFirstRecovery(['existing-subscription']);
+      await jest.advanceTimersByTimeAsync(0);
+      core.heartbeat.events.emit(HEARTBEAT_EVENTS.pulse);
+      await jest.advanceTimersByTimeAsync(1000);
+      if (!existing) {
+        expect(attempts).toBe(10);
+        const retry = relayer.subscribe('retry-topic');
+        await jest.advanceTimersByTimeAsync(1000);
+        await expect(retry).resolves.toEqual(expect.any(String));
+      }
+      expect(attempts).toBe(11);
+      expect(relayer.connected).toBe(true);
+      expect(await relayer.subscriber.isKnownTopic('abandoned-topic')).toBe(
+        false,
+      );
+      if (existing)
+        expect(await relayer.subscriber.isSubscribed('existing-topic')).toBe(
+          true,
+        );
+      await relayer.transportClose();
+    },
+  );
+
+  it('waits for socket recovery before subscribing the queued pairing', async () => {
+    jest.useFakeTimers();
+    const core = createCore();
+    prepareCore(core);
+    const { relayer } = core;
+    jest.spyOn(relayer.subscriber, 'hasAnyTopics', 'get').mockRestore();
+    jest.spyOn(core.crypto, 'getClientId').mockResolvedValue('test-client-id');
+    jest.spyOn(core.storage, 'getItem').mockResolvedValue(undefined);
+    jest.spyOn(core.storage, 'setItem').mockResolvedValue();
+    jest.spyOn(relayer.messages, 'init').mockResolvedValue();
+    WalletConnectRelayController.attach(core);
+    await relayer.init();
+    await jest.advanceTimersByTimeAsync(0);
+
+    const connectedTopics: string[][] = [];
+    relayer.on(RELAYER_EVENTS.connect, () => {
+      connectedTopics.push([...relayer.subscriber.pending.keys()]);
+    });
+    let attempts = 0;
+    jest
+      .spyOn(JsonRpcProvider.prototype, 'connect')
+      .mockImplementation(async function connect(this: JsonRpcProvider) {
+        if (!(this.connection instanceof WsConnection)) {
+          throw new OneKeyLocalError('Expected the SDK WebSocket transport');
+        }
+        mockClose(this.connection);
+        attempts += 1;
+        if (attempts <= 10) {
+          throw new OneKeyLocalError('Synthetic connection failure');
+        }
+        Object.assign(this.connection, { socket: { readyState: 1 } });
+        this.events.emit('connect');
+      });
+    const request = jest
+      .spyOn(JsonRpcProvider.prototype, 'request')
+      .mockResolvedValue('test-subscription');
+    const first = relayer
+      .subscribe('abandoned-topic')
+      .catch((error: unknown) => error);
+    await jest.advanceTimersByTimeAsync(1000);
+    const retry = relayer.subscribe('current-topic');
+    await jest.advanceTimersByTimeAsync(40_000);
+    expect(await first).toBeInstanceOf(Error);
+    expect(await retry).toEqual(expect.any(String));
+    expect(attempts).toBe(11);
+    expect(connectedTopics).toEqual([[]]);
+    expect(relayer.subscriber.pending.has('abandoned-topic')).toBe(false);
+    expect(await relayer.subscriber.isSubscribed('current-topic')).toBe(true);
+
+    // Exercise the real pending checker beyond its stalled-RPC timeout window.
+    core.heartbeat.events.emit(HEARTBEAT_EVENTS.pulse);
+    await jest.advanceTimersByTimeAsync(61_000);
+    expect(request.mock.calls.map(([payload]) => payload.method)).toEqual([
+      'irn_subscribe',
+    ]);
+    expect(relayer.connected).toBe(true);
+    expect(attempts).toBe(11);
+    await relayer.transportClose();
+  });
+
+  it('does not revive a topic subscribed while connected after SDK cleanup and reconnect', async () => {
+    jest.useFakeTimers();
+    const core = createCore();
+    prepareCore(core);
+    const { relayer } = core;
+    jest.spyOn(relayer.subscriber, 'hasAnyTopics', 'get').mockRestore();
+    jest.spyOn(core.crypto, 'getClientId').mockResolvedValue('test-client-id');
+    jest.spyOn(core.storage, 'getItem').mockResolvedValue(undefined);
+    jest.spyOn(core.storage, 'setItem').mockResolvedValue();
+    jest.spyOn(relayer.messages, 'init').mockResolvedValue();
+    jest.spyOn(relayer.messages, 'del').mockResolvedValue();
+    WalletConnectRelayController.attach(core);
+    await relayer.init();
+    await jest.advanceTimersByTimeAsync(0);
+
+    jest
+      .spyOn(JsonRpcProvider.prototype, 'connect')
+      .mockImplementation(async function connect(this: JsonRpcProvider) {
+        if (!(this.connection instanceof WsConnection)) {
+          throw new OneKeyLocalError('Expected the SDK WebSocket transport');
+        }
+        mockClose(this.connection);
+        Object.assign(this.connection, { socket: { readyState: 1 } });
+        this.events.emit('connect');
+      });
+    jest
+      .spyOn(JsonRpcProvider.prototype, 'request')
+      .mockResolvedValue('test-subscription');
+
+    await relayer.request({ method: 'irn_ping', params: {} });
+    await relayer.subscribe('retired-topic');
+    expect(await relayer.subscriber.isSubscribed('retired-topic')).toBe(true);
+    // UniversalProvider retry cleanup calls the subscriber directly.
+    await relayer.subscriber.unsubscribe('retired-topic');
+    expect(await relayer.subscriber.isKnownTopic('retired-topic')).toBe(false);
+    await relayer.provider.connection.close();
+
+    const existing = { topic: 'sdk-owned-topic', relay: { protocol: 'irn' } };
+    relayer.subscriber.pending.set(existing.topic, existing);
+    const connectedTopics: string[][] = [];
+    relayer.on(RELAYER_EVENTS.connect, () => {
+      connectedTopics.push([...relayer.subscriber.pending.keys()]);
+    });
+    await relayer.subscribe('replacement-topic');
+    expect(connectedTopics).toEqual([['sdk-owned-topic']]);
+    expect(await relayer.subscriber.isKnownTopic('retired-topic')).toBe(false);
+    expect(await relayer.subscriber.isSubscribed('replacement-topic')).toBe(
+      true,
+    );
+    expect(relayer.subscriber.pending.get(existing.topic)).toBe(existing);
+    await relayer.transportClose();
+  });
 
   it.each([false, true])(
     'submits a concurrent pairing independently after the first fails; secondFails=%s',

@@ -38,10 +38,7 @@ import {
   getPrimeFreeTrialQuotaOfUser,
   resolvePrimeFreeTrialAccess,
 } from '../utils/primeFreeTrialAccess';
-import {
-  PRIME_FREE_TRIAL_COPY,
-  getPrimeFreeTrialNoticeCopy,
-} from '../utils/primeFreeTrialCopy';
+import { getPrimeFreeTrialNoticeCopy } from '../utils/primeFreeTrialCopy';
 
 import { usePrimeFreeTrialUpgrade } from './usePrimeFreeTrialUpgrade';
 
@@ -150,10 +147,10 @@ export function usePrimeFeatureAccess() {
           getPrime({ featureId, networkId, afterPageExit, freeTrialReason })
         }
       >
-        {PRIME_FREE_TRIAL_COPY.getPrime}
+        {intl.formatMessage({ id: ETranslations.prime_get_prime })}
       </Button>
     ),
-    [getPrime],
+    [getPrime, intl],
   );
 
   // A rejection toast: the notice copy (shared with the remaining hint) and a
@@ -174,6 +171,7 @@ export function usePrimeFeatureAccess() {
       afterPageExit?: boolean;
     }) => {
       const { toastTitle, toastMessage } = getPrimeFreeTrialNoticeCopy({
+        intl,
         featureId,
         notice,
       });
@@ -193,7 +191,7 @@ export function usePrimeFeatureAccess() {
         }),
       });
     },
-    [renderGetPrimeButton],
+    [intl, renderGetPrimeButton],
   );
 
   // Feedback after the user actively tried a feature that is exhausted or
