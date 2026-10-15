@@ -877,8 +877,8 @@ function BulkRevoke() {
           {isNotStarted ? (
             <PrimeFreeTrialRemainingHint
               featureId={EPrimeFeatures.BulkRevoke}
-              networkId={unsignedTxs[0]?.networkId}
-              $md={{ alignSelf: 'center' }}
+              $md={{ alignSelf: 'center', textAlign: 'center' }}
+              $gtMd={{ flex: 1 }}
             />
           ) : (
             <YStack
