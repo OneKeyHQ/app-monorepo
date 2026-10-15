@@ -174,6 +174,17 @@ describe('resolveSwapTokenSearchNetworkId', () => {
     ).toBe('evm--42161');
   });
 
+  it('keeps the selected network for long single-word token names', () => {
+    expect(
+      resolveSwapTokenSearchNetworkId({
+        selectedNetworkId: 'evm--42161',
+        keywords: 'WrappedStakedEthereumToken',
+        swapType: ESwapTabSwitchType.SWAP,
+        allNetworksId,
+      }),
+    ).toBe('evm--42161');
+  });
+
   it('keeps the selected network for Stock and when All Networks is unavailable', () => {
     const keywords = '0xaf88d065e77c8cC2239327C5EDb3A432268e5831';
     expect(

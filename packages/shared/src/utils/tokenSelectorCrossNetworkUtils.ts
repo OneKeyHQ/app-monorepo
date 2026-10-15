@@ -32,6 +32,25 @@ export function isAddressLikeTokenSearchKeywords(keywords?: string) {
   return trimmedKeywords.length >= 20 && !/\s/.test(trimmedKeywords);
 }
 
+// Contract address formats of the chains token search covers: EVM and other
+// 0x hex (incl. Move-style Sui/Aptos coin types), base58 (Solana/Tron) and TON. Stricter than
+// isAddressLikeTokenSearchKeywords, so a long single-word token name is not
+// mistaken for an address.
+const TOKEN_CONTRACT_ADDRESS_PATTERNS = [
+  /^0x[0-9a-f]{40,64}$/i,
+  /^0x[0-9a-f]{1,64}::\w+::\w+$/i,
+  // Real base58 addresses virtually always contain a digit; names rarely do.
+  /^(?=.*\d)[1-9A-HJ-NP-Za-km-z]{32,44}$/,
+  /^(?:[EU]Q[\w-]{46}|-?\d:[0-9a-f]{64})$/i,
+];
+
+export function isTokenContractAddressKeywords(keywords?: string) {
+  const trimmedKeywords = keywords?.trim() ?? '';
+  return TOKEN_CONTRACT_ADDRESS_PATTERNS.some((pattern) =>
+    pattern.test(trimmedKeywords),
+  );
+}
+
 // Splits a raw search string into lowercase words on whitespace, common
 // symbol-network separators (- _ / +), and ASCII↔CJK boundaries, so grassroots
 // spellings like "USDT-Trc20" or "usdt波场" become ['usdt', 'trc20'-like]

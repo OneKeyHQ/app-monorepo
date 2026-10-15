@@ -1,5 +1,5 @@
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
-import { isAddressLikeTokenSearchKeywords } from '@onekeyhq/shared/src/utils/tokenSelectorCrossNetworkUtils';
+import { isTokenContractAddressKeywords } from '@onekeyhq/shared/src/utils/tokenSelectorCrossNetworkUtils';
 import { swapStockTokenListMaxCount } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapTabSwitchType,
@@ -23,7 +23,7 @@ export function resolveSwapTokenSearchNetworkId({
   if (
     !allNetworksId ||
     swapType === ESwapTabSwitchType.STOCK ||
-    !isAddressLikeTokenSearchKeywords(keywords)
+    !isTokenContractAddressKeywords(keywords)
   ) {
     return selectedNetworkId;
   }
