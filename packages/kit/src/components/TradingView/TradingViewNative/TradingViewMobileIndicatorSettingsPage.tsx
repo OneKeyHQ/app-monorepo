@@ -83,7 +83,7 @@ function IndicatorSettingsPageContent({
           item.id === indicatorId ? indicator : item,
         ),
       });
-      setSettings((current) =>
+      return setSettings((current) =>
         mergeMobileIndicatorSettings(current, next, indicatorId),
       );
     },

@@ -104,6 +104,19 @@ describe('mobile indicator numeric drafts', () => {
       }),
     ).toBe(0.3);
   });
+
+  it.each([70.5, -80.25])(
+    'preserves the fractional threshold %s without an explicit step',
+    (threshold) => {
+      expect(
+        normalizeMobileIndicatorNumber(String(threshold), {
+          ...field,
+          min: -Infinity,
+          step: undefined,
+        }),
+      ).toBe(threshold);
+    },
+  );
 });
 
 describe('mergeMobileIndicatorSettings', () => {

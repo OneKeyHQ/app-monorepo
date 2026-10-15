@@ -2,13 +2,51 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 
 import { Toast } from '@onekeyhq/components';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
+import { createTradingViewNativeIndicatorSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
 import { createTradingViewNativeIndicatorSettingsValue } from './indicatorSettingsAdapter';
 import { TradingViewMobileIndicatorEditor } from './TradingViewMobileIndicatorEditor';
+import TradingViewMobileIndicatorSettingsPage from './TradingViewMobileIndicatorSettingsPage';
+
+import type { ITradingViewNativeStorageNamespace } from './types';
+
+const mockPagePop = jest.fn();
+const mockPageSetSettings = jest.fn();
+const mockPageSettings = createTradingViewNativeIndicatorSettings();
+let mockPageNamespace: ITradingViewNativeStorageNamespace = 'market';
+
+jest.mock('@react-navigation/native', () => ({
+  useRoute: () => ({
+    params: { storageNamespace: mockPageNamespace, indicatorId: 'MA' },
+  }),
+}));
+jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
+  __esModule: true,
+  default: () => ({ pop: mockPagePop }),
+}));
+jest.mock('./useTradingViewNativeSettings', () => ({
+  useTradingViewNativeIndicatorSettings: () => [
+    mockPageSettings,
+    mockPageSetSettings,
+  ],
+}));
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  useSwapTradingViewIndicatorSettingsPersistAtom: () => [
+    mockPageSettings,
+    mockPageSetSettings,
+  ],
+}));
 
 type IMockProps = {
   children?: ReactNode;
@@ -180,6 +218,60 @@ describe('TradingViewMobileIndicatorEditor', () => {
     );
   });
 
+  it('preserves existing fractional band thresholds when saving a color change', async () => {
+    const defaultIndicator = getIndicator('RSI');
+    const indicator = {
+      ...defaultIndicator,
+      parameters: defaultIndicator.parameters?.map((parameter) =>
+        parameter.id === 'band:upper'
+          ? { ...parameter, value: 70.5 }
+          : parameter,
+      ),
+    };
+    const onSave = jest.fn();
+    const onClose = jest.fn();
+    render(
+      <TradingViewMobileIndicatorEditor
+        indicator={indicator}
+        defaultIndicator={defaultIndicator}
+        onSave={onSave}
+        onClose={onClose}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('mobile-indicator-color-plot:rsi'));
+    fireEvent.click(screen.getByTestId('mobile-indicator-save'));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(onSave).toHaveBeenCalledWith({
+      ...indicator,
+      lines: indicator.lines.map((line) =>
+        line.id === 'plot:rsi' ? { ...line, color: '#abcdef' } : line,
+      ),
+    });
+  });
+
+  it('steps from an entered fractional threshold without rounding it', async () => {
+    const { onSave, onClose } = renderEditor('WR');
+    const input = screen.getByTestId(
+      'mobile-indicator-number-parameter:band:upper',
+    );
+    fireEvent.change(input, { target: { value: '-20.5' } });
+    fireEvent.click(
+      screen.getByTestId(
+        'mobile-indicator-number-parameter:band:upper-increment',
+      ),
+    );
+    expect((input as HTMLInputElement).value).toBe('-19.5');
+    fireEvent.click(screen.getByTestId('mobile-indicator-save'));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parameters: expect.arrayContaining([
+          expect.objectContaining({ id: 'band:upper', value: -19.5 }),
+        ]),
+      }),
+    );
+  });
+
   it('resets only the draft and ignores the previous input when blur follows reset', async () => {
     const { onSave, onClose, indicator } = renderEditor('BOLL');
     const input = screen.getByTestId(
@@ -233,3 +325,58 @@ describe('TradingViewMobileIndicatorEditor', () => {
     expect(onSave).toHaveBeenCalledTimes(2);
   });
 });
+
+describe.each(['market', 'swap', 'perps'] as const)(
+  '%s mobile indicator settings page persistence',
+  (storageNamespace) => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockPageSetSettings.mockReset();
+      mockPageNamespace = storageNamespace;
+    });
+
+    it('keeps the editor open until the settings setter resolves', async () => {
+      const pending = createPromiseTarget<void>();
+      mockPageSetSettings.mockReturnValue(pending.ready);
+      render(<TradingViewMobileIndicatorSettingsPage />);
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('mobile-indicator-save'));
+      });
+      expect(mockPageSetSettings).toHaveBeenCalledTimes(1);
+      expect(mockPagePop).not.toHaveBeenCalled();
+      expect(
+        (screen.getByTestId('mobile-indicator-save') as HTMLButtonElement)
+          .disabled,
+      ).toBe(true);
+      await act(async () => {
+        pending.resolveTarget(undefined);
+        await pending.ready;
+      });
+      expect(mockPagePop).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps the draft and permits retry when the settings setter rejects', async () => {
+      const pending = createPromiseTarget<void>();
+      mockPageSetSettings
+        .mockReturnValueOnce(pending.ready)
+        .mockResolvedValueOnce(undefined);
+      render(<TradingViewMobileIndicatorSettingsPage />);
+      const input = screen.getByTestId('mobile-indicator-number-line:line:0');
+      fireEvent.change(input, { target: { value: '31' } });
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('mobile-indicator-save'));
+      });
+      expect(mockPagePop).not.toHaveBeenCalled();
+      await act(async () => {
+        pending.rejectTarget(new OneKeyLocalError('Persistence failed'));
+        await expect(pending.ready).rejects.toThrow('Persistence failed');
+      });
+      expect(Toast.error).toHaveBeenCalledTimes(1);
+      expect(mockPagePop).not.toHaveBeenCalled();
+      expect((input as HTMLInputElement).value).toBe('31');
+      fireEvent.click(screen.getByTestId('mobile-indicator-save'));
+      await waitFor(() => expect(mockPagePop).toHaveBeenCalledTimes(1));
+      expect(mockPageSetSettings).toHaveBeenCalledTimes(2);
+    });
+  },
+);

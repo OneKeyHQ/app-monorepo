@@ -724,17 +724,69 @@ const TradingViewNativeContent = memo(
         onNativeChartFullscreenChange?.(false);
       }
     }, [isNativeChartFullscreen, onNativeChartFullscreenChange]);
+    const pendingIndicatorSettingsRef = useRef<{
+      dataProviderKey: string;
+      indicator?: ITradingViewNativeAnyIndicator;
+      storageNamespace: ITradingViewNativeProps['storageNamespace'];
+    }>(undefined);
+    const openMobileIndicatorSettings = useCallback(
+      (indicator?: ITradingViewNativeAnyIndicator) => {
+        navigation.pushModal(EModalRoutes.MarketModal, {
+          screen: EModalMarketRoutes.MarketIndicatorSettings,
+          params: {
+            storageNamespace: storageNamespace ?? 'market',
+            indicatorId: indicator,
+          },
+        });
+      },
+      [navigation, storageNamespace],
+    );
+    useEffect(() => {
+      const pending = pendingIndicatorSettingsRef.current;
+      if (!pending) {
+        return;
+      }
+      if (
+        pending.dataProviderKey !== dataProviderKey ||
+        pending.storageNamespace !== storageNamespace ||
+        nativeControlsLayoutMode === 'desktop'
+      ) {
+        pendingIndicatorSettingsRef.current = undefined;
+        return;
+      }
+      if (isNativeChartFullscreen) {
+        return;
+      }
+      // Let the fullscreen host's layout-effect teardown commit before navigation.
+      const frame = requestAnimationFrame(() => {
+        if (pendingIndicatorSettingsRef.current !== pending) {
+          return;
+        }
+        pendingIndicatorSettingsRef.current = undefined;
+        openMobileIndicatorSettings(pending.indicator);
+      });
+      return () => cancelAnimationFrame(frame);
+    }, [
+      dataProviderKey,
+      isNativeChartFullscreen,
+      nativeControlsLayoutMode,
+      openMobileIndicatorSettings,
+      storageNamespace,
+    ]);
     const handleIndicatorSettingsPress = useCallback(
       (indicator?: ITradingViewNativeAnyIndicator) => {
         if (nativeControlsLayoutMode !== 'desktop') {
-          handleExitFullscreen();
-          navigation.pushModal(EModalRoutes.MarketModal, {
-            screen: EModalMarketRoutes.MarketIndicatorSettings,
-            params: {
-              storageNamespace: storageNamespace ?? 'market',
-              indicatorId: indicator,
-            },
-          });
+          pendingIndicatorSettingsRef.current = undefined;
+          if (isNativeChartFullscreen) {
+            pendingIndicatorSettingsRef.current = {
+              dataProviderKey,
+              indicator,
+              storageNamespace,
+            };
+            handleExitFullscreen();
+          } else {
+            openMobileIndicatorSettings(indicator);
+          }
           return;
         }
         showTradingViewNativeIndicatorSettingsDialog({
@@ -746,11 +798,13 @@ const TradingViewNativeContent = memo(
         });
       },
       [
+        dataProviderKey,
         handleExitFullscreen,
         indicatorSettingsValue,
         intl,
+        isNativeChartFullscreen,
         nativeControlsLayoutMode,
-        navigation,
+        openMobileIndicatorSettings,
         setIndicatorSettings,
         storageNamespace,
       ],

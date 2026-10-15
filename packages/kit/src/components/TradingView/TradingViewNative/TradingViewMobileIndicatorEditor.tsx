@@ -101,7 +101,7 @@ export function TradingViewMobileIndicatorEditor({
       );
       if (direction) {
         value = normalizeMobileIndicatorNumber(
-          String(value + direction * field.step),
+          String(value + direction * (field.step ?? 1)),
           field,
         );
       }

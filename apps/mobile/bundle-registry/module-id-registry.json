@@ -20899,6 +20899,8 @@
     "packages/kit/src/components/TradingView/TradingViewChartLoadingMask.tsx": 11896,
     "packages/kit/src/components/TradingView/TradingViewNative/TradingViewLayoutSelector.native.tsx": 7933,
     "packages/kit/src/components/TradingView/TradingViewNative/TradingViewMobileChartSettingsDialogContent.tsx": 15509,
+    "packages/kit/src/components/TradingView/TradingViewNative/TradingViewMobileIndicatorEditor.tsx": 4987,
+    "packages/kit/src/components/TradingView/TradingViewNative/TradingViewMobileIndicatorFields.tsx": 6419,
     "packages/kit/src/components/TradingView/TradingViewNative/TradingViewMobileIndicatorSettingsPage.tsx": 10467,
     "packages/kit/src/components/TradingView/TradingViewNative/TradingViewNative.native.tsx": 9810,
     "packages/kit/src/components/TradingView/TradingViewNative/TradingViewNativeChart.native.tsx": 10255,

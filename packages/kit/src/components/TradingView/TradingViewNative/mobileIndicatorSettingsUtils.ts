@@ -18,7 +18,7 @@ export type IMobileIndicatorNumberField = {
   value: number;
   min: number;
   max: number;
-  step: number;
+  step?: number;
 };
 
 export function getMobileIndicatorNumberFields(
@@ -31,7 +31,7 @@ export function getMobileIndicatorNumberFields(
       target: 'parameter' as const,
       min: parameter.min ?? 0,
       max: parameter.max ?? Number.POSITIVE_INFINITY,
-      step: parameter.step ?? 1,
+      step: parameter.step,
     })),
     ...indicator.lines
       .filter((line) => line.showPeriod !== false)
@@ -91,7 +91,11 @@ export function normalizeMobileIndicatorNumber(
     return field.value;
   }
   const bounded = Math.min(field.max, Math.max(field.min, parsed));
-  if (!Number.isFinite(field.step) || field.step <= 0) {
+  if (
+    field.step === undefined ||
+    !Number.isFinite(field.step) ||
+    field.step <= 0
+  ) {
     return bounded;
   }
   const base = Number.isFinite(field.min) ? field.min : 0;
