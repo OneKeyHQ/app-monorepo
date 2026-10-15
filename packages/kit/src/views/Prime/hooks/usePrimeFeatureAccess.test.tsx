@@ -97,7 +97,7 @@ jest.mock('react-intl', () => {
     locale: 'zh-CN',
     messages: jest.requireActual('@onekeyhq/shared/src/locale/json/zh_CN.json'),
   });
-  return { useIntl: () => intl };
+  return { ...actual, useIntl: () => intl };
 });
 
 jest.mock('@onekeyhq/shared/src/travelMode', () => ({
