@@ -216,7 +216,7 @@ describe('WalletConnect application relay controller with the SDK transport', ()
     { firstPairing: true, initial: 0 },
     { firstPairing: true, initial: 1 },
   ])(
-    'exits after ten attempts and permits the SDK heartbeat to reconnect; firstPairing=$firstPairing, initial=$initial',
+    'requires an explicit retry after failed first pairing and preserves existing-topic recovery; firstPairing=$firstPairing, initial=$initial',
     async ({ firstPairing, initial }) => {
       jest.useFakeTimers();
       const core = createCore(RELAYS[initial]);
@@ -256,7 +256,10 @@ describe('WalletConnect application relay controller with the SDK transport', ()
         .spyOn(relayer.subscriber, 'subscribe')
         .mockImplementation(async (topic) => {
           hasTopics.mockReturnValue(true);
-          await relayer.request({ method: 'irn_subscribe', params: { topic } });
+          relayer.subscriber.events.emit(SUBSCRIBER_EVENTS.created, {
+            topic,
+            id: 'test-subscription',
+          });
           return 'test-subscription';
         });
 
@@ -280,6 +283,13 @@ describe('WalletConnect application relay controller with the SDK transport', ()
       expect(attempts).toHaveLength(10);
       core.heartbeat.events.emit(HEARTBEAT_EVENTS.pulse);
       await jest.advanceTimersByTimeAsync(1000);
+      if (firstPairing) {
+        expect(attempts).toHaveLength(10);
+        expect(relayer.connected).toBe(false);
+        const retry = relayer.subscribe('retry-topic');
+        await jest.advanceTimersByTimeAsync(1000);
+        await expect(retry).resolves.toBe('test-subscription');
+      }
       expect(attempts).toHaveLength(11);
       expect(attempts[10]).toBe(RELAYS[initial]);
       expect(relayer.connected).toBe(true);
@@ -392,6 +402,12 @@ describe('WalletConnect application relay controller with the SDK transport', ()
       await jest.advanceTimersByTimeAsync(0);
       core.heartbeat.events.emit(HEARTBEAT_EVENTS.pulse);
       await jest.advanceTimersByTimeAsync(1000);
+      if (!existing) {
+        expect(attempts).toBe(10);
+        const retry = relayer.subscribe('retry-topic');
+        await jest.advanceTimersByTimeAsync(1000);
+        await expect(retry).resolves.toEqual(expect.any(String));
+      }
       expect(attempts).toBe(11);
       expect(relayer.connected).toBe(true);
       expect(await relayer.subscriber.isKnownTopic('abandoned-topic')).toBe(

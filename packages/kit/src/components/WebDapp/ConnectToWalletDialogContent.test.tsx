@@ -128,27 +128,47 @@ it.each([
   { connected: true },
   { connectedDuringAttempt: true },
   { connected: undefined },
-  { attempt: 0 },
   { snapshotFailed: true },
   { attemptId: undefined },
 ])(
-  'shows preparation without a retry count when socket progress is not applicable: %j',
+  'shows connecting without a retry count when socket progress is not applicable: %j',
   (patch) => {
     mockProgress = { ...mockProgress!, ...patch };
     const onExhausted = jest.fn(async () => undefined);
     render(content(onExhausted));
-    expect(screen.getByText(ETranslations.global_preparing)).toBeTruthy();
+    expect(
+      screen.getByTestId('walletconnect-connection-status').textContent,
+    ).toBe(ETranslations.transfer_transfer_server_status_connecting);
     expect(screen.queryByTestId('walletconnect-connection-relay')).toBeNull();
     expect(onExhausted).not.toHaveBeenCalled();
   },
 );
+
+it('keeps the connection layout at zero and shows the count from the first attempt', () => {
+  mockProgress = { ...mockProgress!, attempt: 0 };
+  const view = render(content());
+  expect(
+    screen.getByTestId('walletconnect-connection-status').textContent,
+  ).toBe(ETranslations.transfer_transfer_server_status_connecting);
+  expect(screen.getByTestId('walletconnect-connection-relay').textContent).toBe(
+    mockProgress.relayUrl,
+  );
+
+  mockProgress = { ...mockProgress, attempt: 1 };
+  view.rerender(content());
+  expect(
+    screen.getByTestId('walletconnect-connection-status').textContent,
+  ).toBe(`${ETranslations.transfer_transfer_server_status_connecting} (1/10)`);
+});
 
 it('keeps preparation usable when the diagnostics RPC fails', async () => {
   mockProgress = undefined;
   mockGetDappProgress.mockRejectedValue(new Error('RPC unavailable'));
   render(content());
   await expect(mockPoll?.()).resolves.toBeUndefined();
-  expect(screen.getByText(ETranslations.global_preparing)).toBeTruthy();
+  expect(
+    screen.getByTestId('walletconnect-connection-status').textContent,
+  ).toBe(ETranslations.transfer_transfer_server_status_connecting);
   expect(screen.queryByTestId('walletconnect-connection-relay')).toBeNull();
 });
 

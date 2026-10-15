@@ -136,8 +136,6 @@ export class WalletConnectRelayController {
 
   private initialSubscription?: Promise<string>;
 
-  private reconnectWanted = false;
-
   private connections = new Map<IJsonRpcConnection, IConnection>();
 
   private readonly connectTransport: ISdkRelayer['connect'];
@@ -197,10 +195,6 @@ export class WalletConnectRelayController {
       const subscribing = (async () => {
         const [, options] = args;
         if (!options?.transportType || options.transportType === 'relay') {
-          if (!options?.internal?.skipSubscribe) {
-            // Recover the socket without taking ownership of SDK subscriptions.
-            this.reconnectWanted ||= !relayer.connected;
-          }
           // The subscription's 15s/60s timers must start after socket recovery,
           // so an old subscribe cannot time out and restart a newer retry.
           await this.open(undefined, true);
@@ -497,7 +491,9 @@ export class WalletConnectRelayController {
     if (this.opening) {
       return this.opening;
     }
-    if (!force && !relayer.subscriber.hasAnyTopics && !this.reconnectWanted) {
+    // Failed initial pairing has no SDK-owned topic to recover. A fresh user
+    // request can force a new cycle; heartbeat alone must not retry forever.
+    if (!force && !relayer.subscriber.hasAnyTopics) {
       return;
     }
     const generation = this.generation;
@@ -586,7 +582,6 @@ export class WalletConnectRelayController {
         }
         if (this.core.relayer.connected) {
           this.failed = false;
-          this.reconnectWanted = false;
           return;
         }
         throw new OneKeyLocalError('WalletConnect relay did not connect');
@@ -601,8 +596,8 @@ export class WalletConnectRelayController {
       }
     }
     this.diagnostic('relay_cycle_exhausted', {}, lastError);
-    // Return after two rounds without closing the transport or setting a stop
-    // flag. SDK heartbeat and network callbacks may start a fresh cycle.
+    // Return after two rounds. SDK recovery remains available for existing
+    // topics; failed initial pairing waits for a fresh explicit request.
     throw lastError;
   }
 }

@@ -240,7 +240,7 @@ it('counts only this interaction and updates the relay during fallback', async (
   const view = render(content);
   expect(
     screen.getByTestId('walletconnect-connection-status').textContent,
-  ).toBe('Connecting... (0/10)');
+  ).toBe('Connecting...');
 
   mockSnapshot = {
     ...mockSnapshot,
@@ -275,7 +275,7 @@ it('does not include a failed attempt while the previous round is backing off', 
   const view = render(content);
   expect(
     screen.getByTestId('walletconnect-connection-status').textContent,
-  ).toBe('Connecting... (0/10)');
+  ).toBe('Connecting...');
   mockSnapshot = { ...mockSnapshot, connectionAttempts: 13 };
   view.rerender(cloneElement(content));
   expect(
