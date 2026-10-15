@@ -32,6 +32,7 @@ const mockUnregister = jest.fn<Promise<void>, []>();
 const mockAuthState = jest.fn<Promise<'loggedIn' | 'loggedOut'>, []>();
 const mockAuthSessionSource = jest.fn<Promise<string | undefined>, []>();
 const mockBumpRevision = jest.fn<Promise<number>, []>();
+const mockKeylessWallet = jest.fn<Promise<{ id: string } | undefined>, []>();
 
 jest.mock('./ServiceBase', () => ({
   __esModule: true,
@@ -98,7 +99,7 @@ jest.mock('../states/jotai/atoms/devSettings', () => ({
   firmwareUpdateDevSettingsPersistAtom: { set: jest.fn() },
 }));
 jest.mock('./ServicePrime/primeAuthSessionAccess', () => ({
-  clearEmailAuthSessionsForEnvironmentChange: () => mockClearEmailSessions(),
+  clearIdentityAuthSessionsForEnvironmentChange: () => mockClearEmailSessions(),
 }));
 
 const readyPlan: IIdentityExitPlan = {
@@ -120,6 +121,9 @@ function createService() {
         executeIdentityExit: mockExecuteExit,
       },
       serviceNotification: { unregisterClient: mockUnregister },
+      serviceAccount: {
+        getIdentityManagedKeylessWalletCandidate: mockKeylessWallet,
+      },
       serviceApp: { restartApp: mockRestart, showToast: mockShowToast },
       simpleDb: {
         prime: {
@@ -145,6 +149,7 @@ describe('OneKey ID environment switching', () => {
     mockAuthState.mockResolvedValue('loggedOut');
     mockAuthSessionSource.mockResolvedValue(undefined);
     mockBumpRevision.mockResolvedValue(2);
+    mockKeylessWallet.mockResolvedValue(undefined);
     mockRestart.mockReset().mockResolvedValue(undefined);
     mockShowToast.mockReset().mockResolvedValue();
   });
@@ -511,6 +516,7 @@ describe('OneKey ID environment switching', () => {
   test.each([
     'state-changed',
     'session-source-changed',
+    'keyless-wallet-changed',
     'state-read-failed',
     'session-cleanup-failed',
     'identity-recovery-blocked',
@@ -521,6 +527,8 @@ describe('OneKey ID environment switching', () => {
         mockAuthState.mockResolvedValueOnce('loggedIn');
       if (failure === 'session-source-changed')
         mockAuthSessionSource.mockResolvedValueOnce('legacy-email');
+      if (failure === 'keyless-wallet-changed')
+        mockKeylessWallet.mockResolvedValueOnce({ id: 'new-keyless-wallet' });
       if (failure === 'state-read-failed')
         mockAuthState.mockRejectedValueOnce(new Error('state unavailable'));
       if (failure === 'session-cleanup-failed')

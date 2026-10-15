@@ -8,6 +8,7 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 import type {
+  ISwapNetwork,
   ISwapToken,
   ISwapTokenBase,
   ISwapTxHistory,
@@ -51,6 +52,115 @@ function buildSwapHistoryToken({
   };
 }
 
+export async function generateSwapHistoryItemForContext(
+  {
+    txId,
+    gasFeeInNative,
+    gasFeeFiatValue,
+    swapTxInfo,
+  }: {
+    txId?: string;
+    gasFeeInNative?: string;
+    gasFeeFiatValue?: string;
+    swapTxInfo: ISwapTxInfo;
+  },
+  context: {
+    swapNetworks: ISwapNetwork[];
+    currencyInfo: { id: string; symbol: string };
+  },
+) {
+  if (
+    swapTxInfo &&
+    (swapTxInfo.protocol === EProtocolOfExchange.SWAP ||
+      swapTxInfo.protocol === EProtocolOfExchange.PRIVATE_SEND ||
+      swapTxInfo.protocol === EProtocolOfExchange.STOCK ||
+      swapTxInfo.swapBuildResData.result.isWrapped)
+  ) {
+    const { orderId, serviceOrderId, useOrderId } = buildSwapHistoryIdentity({
+      buildRes: swapTxInfo.swapBuildResData,
+      protocol: swapTxInfo.protocol,
+      txId,
+    });
+    const fromToken = buildSwapHistoryToken({
+      buildToken: swapTxInfo.swapBuildResData.result?.fromTokenInfo,
+      selectedToken: swapTxInfo.sender.token,
+    });
+    const toToken = buildSwapHistoryToken({
+      buildToken: swapTxInfo.swapBuildResData.result?.toTokenInfo,
+      selectedToken: swapTxInfo.receiver.token,
+    });
+    const swapHistoryItem: ISwapTxHistory = {
+      protocol: swapTxInfo.protocol,
+      status: ESwapTxHistoryStatus.PENDING,
+      currency: context.currencyInfo?.symbol,
+      currencyId: context.currencyInfo?.id,
+      accountInfo: {
+        sender: {
+          accountId: swapTxInfo.sender.accountInfo?.accountId,
+          networkId: swapTxInfo.sender.accountInfo?.networkId,
+        },
+        receiver: {
+          accountId: swapTxInfo.receiver.accountInfo?.accountId,
+          networkId: swapTxInfo.receiver.accountInfo?.networkId,
+        },
+      },
+      baseInfo: {
+        toAmount: swapTxInfo.receiver.amount,
+        fromAmount: swapTxInfo.sender.amount,
+        fromToken,
+        toToken,
+        fromNetwork: context.swapNetworks.find(
+          (item) => item?.networkId === fromToken.networkId,
+        ),
+        toNetwork: context.swapNetworks.find(
+          (item) => item?.networkId === toToken.networkId,
+        ),
+      },
+      txInfo: {
+        txId,
+        useOrderId,
+        gasFeeFiatValue,
+        gasFeeInNative,
+        orderId,
+        sender: swapTxInfo.accountAddress,
+        receiver: swapTxInfo.receivingAddress,
+      },
+      date: {
+        created: Date.now(),
+        updated: Date.now(),
+      },
+      swapInfo: {
+        instantRate: swapTxInfo.swapBuildResData.result?.instantRate ?? '',
+        provider: swapTxInfo.swapBuildResData.result?.info,
+        socketBridgeScanUrl: swapTxInfo.swapBuildResData.socketBridgeScanUrl,
+        oneKeyFee: swapTxInfo.swapBuildResData.result?.fee?.percentageFee,
+        isFreeNetworkFee:
+          swapTxInfo.isNetworkFeeSponsored ??
+          swapTxInfo.swapBuildResData.result?.fee?.isFreeNetworkFee,
+        protocolFee: swapTxInfo.swapBuildResData.result?.fee?.protocolFees,
+        hideProtocolFee: true,
+        otherFeeInfos:
+          swapTxInfo.swapBuildResData.result?.fee?.otherFeeInfos ?? [],
+        orderId: serviceOrderId,
+        supportUrl: swapTxInfo.swapBuildResData.result?.supportUrl,
+        orderSupportUrl: swapTxInfo.swapBuildResData.result?.orderSupportUrl,
+        oneKeyFeeExtraInfo:
+          swapTxInfo.swapBuildResData.result?.oneKeyFeeExtraInfo,
+      },
+      ctx: swapTxInfo.swapBuildResData.ctx,
+    };
+    const persistResult =
+      await backgroundApiProxy.serviceSwap.addSwapHistoryItem(swapHistoryItem);
+    if (swapTxInfo.protocol === EProtocolOfExchange.SWAP) {
+      // Record SWAP task completion for rookie guide
+      void backgroundApiProxy.serviceRookieGuide.recordTaskCompleted(
+        ERookieTaskType.SWAP,
+      );
+    }
+    return persistResult;
+  }
+}
+
 export function useSwapTxHistoryActions() {
   const [swapNetworks] = useSwapNetworksAtom();
   const [, setFromToken] = useSwapSelectFromTokenAtom();
@@ -58,118 +168,12 @@ export function useSwapTxHistoryActions() {
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [settingsAtom] = useSettingsPersistAtom();
   const generateSwapHistoryItem = useCallback(
-    async ({
-      txId,
-      gasFeeInNative,
-      gasFeeFiatValue,
-      swapTxInfo,
-    }: {
-      txId?: string;
-      gasFeeInNative?: string;
-      gasFeeFiatValue?: string;
-      swapTxInfo: ISwapTxInfo;
-    }) => {
-      if (
-        swapTxInfo &&
-        (swapTxInfo.protocol === EProtocolOfExchange.SWAP ||
-          swapTxInfo.protocol === EProtocolOfExchange.PRIVATE_SEND ||
-          swapTxInfo.protocol === EProtocolOfExchange.STOCK ||
-          swapTxInfo.swapBuildResData.result.isWrapped)
-      ) {
-        const { orderId, serviceOrderId, useOrderId } =
-          buildSwapHistoryIdentity({
-            buildRes: swapTxInfo.swapBuildResData,
-            protocol: swapTxInfo.protocol,
-            txId,
-          });
-        const fromToken = buildSwapHistoryToken({
-          buildToken: swapTxInfo.swapBuildResData.result?.fromTokenInfo,
-          selectedToken: swapTxInfo.sender.token,
-        });
-        const toToken = buildSwapHistoryToken({
-          buildToken: swapTxInfo.swapBuildResData.result?.toTokenInfo,
-          selectedToken: swapTxInfo.receiver.token,
-        });
-        const swapHistoryItem: ISwapTxHistory = {
-          protocol: swapTxInfo.protocol,
-          status: ESwapTxHistoryStatus.PENDING,
-          currency: settingsAtom.currencyInfo?.symbol,
-          currencyId: settingsAtom.currencyInfo?.id,
-          accountInfo: {
-            sender: {
-              accountId: swapTxInfo.sender.accountInfo?.accountId,
-              networkId: swapTxInfo.sender.accountInfo?.networkId,
-            },
-            receiver: {
-              accountId: swapTxInfo.receiver.accountInfo?.accountId,
-              networkId: swapTxInfo.receiver.accountInfo?.networkId,
-            },
-          },
-          baseInfo: {
-            toAmount: swapTxInfo.receiver.amount,
-            fromAmount: swapTxInfo.sender.amount,
-            fromToken,
-            toToken,
-            fromNetwork: swapNetworks.find(
-              (item) => item?.networkId === fromToken.networkId,
-            ),
-            toNetwork: swapNetworks.find(
-              (item) => item?.networkId === toToken.networkId,
-            ),
-          },
-          txInfo: {
-            txId,
-            useOrderId,
-            gasFeeFiatValue,
-            gasFeeInNative,
-            orderId,
-            sender: swapTxInfo.accountAddress,
-            receiver: swapTxInfo.receivingAddress,
-          },
-          date: {
-            created: Date.now(),
-            updated: Date.now(),
-          },
-          swapInfo: {
-            instantRate: swapTxInfo.swapBuildResData.result?.instantRate ?? '',
-            provider: swapTxInfo.swapBuildResData.result?.info,
-            socketBridgeScanUrl:
-              swapTxInfo.swapBuildResData.socketBridgeScanUrl,
-            oneKeyFee: swapTxInfo.swapBuildResData.result?.fee?.percentageFee,
-            isFreeNetworkFee:
-              swapTxInfo.isNetworkFeeSponsored ??
-              swapTxInfo.swapBuildResData.result?.fee?.isFreeNetworkFee,
-            protocolFee: swapTxInfo.swapBuildResData.result?.fee?.protocolFees,
-            hideProtocolFee: true,
-            otherFeeInfos:
-              swapTxInfo.swapBuildResData.result?.fee?.otherFeeInfos ?? [],
-            orderId: serviceOrderId,
-            supportUrl: swapTxInfo.swapBuildResData.result?.supportUrl,
-            orderSupportUrl:
-              swapTxInfo.swapBuildResData.result?.orderSupportUrl,
-            oneKeyFeeExtraInfo:
-              swapTxInfo.swapBuildResData.result?.oneKeyFeeExtraInfo,
-          },
-          ctx: swapTxInfo.swapBuildResData.ctx,
-        };
-        const persistResult =
-          await backgroundApiProxy.serviceSwap.addSwapHistoryItem(
-            swapHistoryItem,
-          );
-        if (swapTxInfo.protocol === EProtocolOfExchange.SWAP) {
-          // Record SWAP task completion for rookie guide
-          void backgroundApiProxy.serviceRookieGuide.recordTaskCompleted(
-            ERookieTaskType.SWAP,
-          );
-        }
-        return persistResult;
-      }
-    },
-    [
-      settingsAtom.currencyInfo.id,
-      settingsAtom.currencyInfo.symbol,
-      swapNetworks,
-    ],
+    (params: Parameters<typeof generateSwapHistoryItemForContext>[0]) =>
+      generateSwapHistoryItemForContext(params, {
+        swapNetworks,
+        currencyInfo: settingsAtom.currencyInfo,
+      }),
+    [settingsAtom.currencyInfo, swapNetworks],
   );
 
   const swapAgainUseHistoryItem = useCallback(

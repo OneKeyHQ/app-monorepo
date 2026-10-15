@@ -79,6 +79,8 @@ interface IBasicDialogProps extends TMDialogProps {
   isAsync?: boolean;
   /** Uses the platform-native sheet presentation on iOS and Android. */
   nativeSheet?: boolean;
+  /** Centers and bounds native dialogs on phone screens, overriding nativeSheet. */
+  nativeCentered?: boolean;
   onOpen?: () => void;
   /** Controls initial focus for both the floating panel and sheet on web. */
   onOpenAutoFocus?: TMDialogContentProps['onOpenAutoFocus'];
