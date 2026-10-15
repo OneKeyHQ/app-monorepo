@@ -24,8 +24,22 @@ const mockClearTransport = jest.fn();
 const mockFlushToast = jest.fn();
 let mockSource: 'onboarding' | 'deviceDetails' = 'onboarding';
 let mockClaimState: 'success' | 'redeemed' = 'success';
+let mockClaimOverride:
+  | {
+      isLoggedIn?: boolean;
+      user?: { displayEmail?: string };
+      code?: string;
+      error?: string;
+      isQuerying?: boolean;
+      isSubmitting?: boolean;
+      verification?: { hasCode: boolean; status: string };
+      result?: { onekeyUserId: string; addedDays: number };
+    }
+  | undefined;
 const mockVerify = jest.fn();
 const mockRedeem = jest.fn();
+const mockConfirmLogout = jest.fn();
+let mockLogoutReason = '';
 
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual('react') as typeof import('react');
@@ -81,8 +95,16 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useNotificationsAtom: () => [{}],
 }));
 jest.mock('../../hooks/usePrimeGiftClaim', () => ({
-  usePrimeGiftClaim: () =>
-    mockClaimState === 'redeemed'
+  usePrimeGiftClaim: () => {
+    if (mockClaimOverride) {
+      return {
+        submit: mockVerify,
+        claim: mockRedeem,
+        login: jest.fn(),
+        ...mockClaimOverride,
+      };
+    }
+    return mockClaimState === 'redeemed'
       ? {
           isLoggedIn: true,
           verification: { hasCode: true, status: 'redeemed' },
@@ -92,21 +114,72 @@ jest.mock('../../hooks/usePrimeGiftClaim', () => ({
         }
       : {
           result: { onekeyUserId: 'user', addedDays: 180 },
-        },
+        };
+  },
 }));
 jest.mock('../../hooks/usePrimeGiftMessages', () => ({
-  usePrimeGiftReasonMessage: () => jest.fn(),
+  usePrimeGiftReasonMessage: () => (message?: string) => message,
 }));
+jest.mock(
+  '@onekeyhq/kit/src/components/OneKeyAuth/useConfirmOneKeyIdLogout',
+  () => ({
+    useConfirmOneKeyIdLogout: ({ reason }: { reason: string }) => {
+      mockLogoutReason = reason;
+      return mockConfirmLogout;
+    },
+  }),
+);
 jest.mock('../../components/PrimeGiftViews', () => {
   const React = jest.requireActual('react') as typeof import('react');
   return {
     PrimeGiftClaimView: ({
-      primaryLabel,
+      error,
+      isAccountReady,
+      isProcessing,
+      onLogout,
       onSubmit,
+      primaryLabel,
+      redemptionCode,
     }: {
-      primaryLabel: string;
+      error?: string;
+      isAccountReady?: boolean;
+      isProcessing?: boolean;
+      onLogout?: () => void;
       onSubmit: () => void;
-    }) => React.createElement('button', { onClick: onSubmit }, primaryLabel),
+      primaryLabel: string;
+      redemptionCode?: string;
+    }) =>
+      React.createElement(
+        'div',
+        null,
+        React.createElement('button', { onClick: onSubmit }, primaryLabel),
+        redemptionCode
+          ? React.createElement(
+              'span',
+              { 'data-testid': 'prime-gift-redemption-code' },
+              redemptionCode,
+            )
+          : null,
+        error
+          ? React.createElement(
+              'span',
+              { 'data-testid': 'prime-gift-error' },
+              error,
+            )
+          : null,
+        isAccountReady && onLogout
+          ? React.createElement(
+              'button',
+              {
+                'data-testid': 'prime-gift-logout',
+                disabled: isProcessing,
+                onClick: isProcessing ? undefined : onLogout,
+                type: 'button',
+              },
+              zhTranslations['prime.log_out'],
+            )
+          : null,
+      ),
     PrimeGiftSuccessView: ({
       onConfirm,
       confirmLabel,
@@ -144,6 +217,8 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockSource = 'onboarding';
   mockClaimState = 'success';
+  mockClaimOverride = undefined;
+  mockLogoutReason = '';
   getCreatedWallet.mockReturnValue(wallet);
   getReferralCheck.mockResolvedValue({ data: false, bindable: true });
   unregister = registerOnboardingCompletion('completion', {
@@ -288,4 +363,52 @@ it('can exit if the originating onboarding page is no longer mounted', async () 
   });
   expect(mockNavigation.switchTabAsync).toHaveBeenCalledWith(ETabRoutes.Home);
   expect(mockClearTransport).toHaveBeenCalledTimes(1);
+});
+
+it('returns to sign in after logout and drops the previous account code', () => {
+  mockClaimOverride = {
+    isLoggedIn: true,
+    user: { displayEmail: 'ada@example.com' },
+    code: 'OKP-OLD',
+    error: 'previous account error',
+    isQuerying: false,
+    isSubmitting: false,
+    verification: { hasCode: true, status: 'available' },
+  };
+  const view = render(
+    <IntlProvider locale="zh-CN" messages={zhTranslations}>
+      <PrimeGiftPage />
+    </IntlProvider>,
+  );
+
+  expect(screen.getByTestId('prime-gift-redemption-code').textContent).toBe(
+    'OKP-OLD',
+  );
+  expect(screen.getByTestId('prime-gift-error').textContent).toBe(
+    'previous account error',
+  );
+  expect(screen.getByText(zhTranslations['global.retry'])).toBeTruthy();
+  expect(mockLogoutReason).toBe('PrimeGift Logout Button');
+
+  fireEvent.click(screen.getByTestId('prime-gift-logout'));
+  expect(mockConfirmLogout).toHaveBeenCalledTimes(1);
+  expect(screen.getByTestId('prime-gift-redemption-code').textContent).toBe(
+    'OKP-OLD',
+  );
+
+  mockClaimOverride = {
+    isLoggedIn: false,
+    isQuerying: false,
+    isSubmitting: false,
+  };
+  view.rerender(
+    <IntlProvider locale="zh-CN" messages={zhTranslations}>
+      <PrimeGiftPage />
+    </IntlProvider>,
+  );
+
+  expect(screen.getByText(zhTranslations.global_sign_in)).toBeTruthy();
+  expect(screen.queryByTestId('prime-gift-redemption-code')).toBeNull();
+  expect(screen.queryByTestId('prime-gift-error')).toBeNull();
+  expect(screen.queryByTestId('prime-gift-logout')).toBeNull();
 });

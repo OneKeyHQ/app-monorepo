@@ -2099,10 +2099,13 @@ export class DeviceStageBurstScope {
         errorI18n: step === 'error' ? mergedExtras.errorI18n : undefined,
         doneI18n: step === 'done' ? mergedExtras.doneI18n : undefined,
         qrValueUr: pickQrScoped(step, mergedExtras.qrValueUr, base?.qrValueUr),
+        // qrShowCode always names the key, so a session without a trace
+        // clears the superseded one instead of inheriting it; only the
+        // showQr/scanQr hops within one session carry it.
         qrDiagnostic: pickQrScoped(
           step,
           mergedExtras.qrDiagnostic,
-          base?.qrDiagnostic,
+          'qrDiagnostic' in mergedExtras ? undefined : base?.qrDiagnostic,
         ),
         qrSessionId: pickQrScoped(
           step,

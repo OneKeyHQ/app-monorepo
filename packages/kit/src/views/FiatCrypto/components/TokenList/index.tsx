@@ -220,6 +220,7 @@ function ListItemFiatTokenBase({
   ) {
     return (
       <AddressTypeSelector
+        whenCollapsed="skip"
         walletId={walletId}
         networkId={item.networkId}
         indexedAccountId={account?.indexedAccountId || ''}

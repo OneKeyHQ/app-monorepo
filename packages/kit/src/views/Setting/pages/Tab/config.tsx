@@ -618,6 +618,18 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.settings_account_derivation_path,
                   }),
+                  // The only place to change the Bitcoin address type once
+                  // an account shows a single one, so it must be findable by
+                  // the words users know it by.
+                  keywords: [
+                    intl.formatMessage({ id: ETranslations.address_type }),
+                    'Taproot',
+                    'SegWit',
+                    'Legacy',
+                    'Nested',
+                    'bc1q',
+                    'bc1p',
+                  ],
                   settingRoute:
                     EModalSettingRoutes.SettingAccountDerivationModal,
                   onPress: (navigation) => {
