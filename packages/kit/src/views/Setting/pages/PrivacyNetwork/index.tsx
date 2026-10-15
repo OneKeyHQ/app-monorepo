@@ -1055,39 +1055,6 @@ export default function PrivacyNetworkSettings({
       <Page.Body>
         {entries ? (
           <ScrollView>
-            <Stack px="$5" pt="$4" pb="$2" gap="$1">
-              {slotUsages?.map(({ networkId, usage }) =>
-                usage.max === undefined ? null : (
-                  <SizableText
-                    key={networkId}
-                    testID={`privacy-slot-usage-${networkId}`}
-                    size="$bodySmMedium"
-                    color={
-                      usage.used >= usage.max ? '$textCaution' : '$textSubdued'
-                    }
-                  >
-                    {[
-                      intl.formatMessage(
-                        {
-                          id: ETranslations.privacy_slots_in_use__msg,
-                        },
-                        { used: usage.used, max: usage.max },
-                      ),
-                      usage.hiddenCount > 0
-                        ? intl.formatMessage(
-                            {
-                              id: ETranslations.privacy_slots_locked_wallets__msg,
-                            },
-                            { count: usage.hiddenCount },
-                          )
-                        : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </SizableText>
-                ),
-              )}
-            </Stack>
             {soleNetworkId ? (
               <PrivacyChainNetworkSections
                 networkId={soleNetworkId}
