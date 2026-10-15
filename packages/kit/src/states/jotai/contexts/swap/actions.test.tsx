@@ -1188,6 +1188,95 @@ describe('useSwapActions', () => {
     expect(store.get(swapAllNetworkActionLockAtom())).toEqual({});
   });
 
+  it('keeps a forced rerun when a normal same-scope call arrives before the active load ends', async () => {
+    const firstAccountsRequest = createDeferred<{
+      supportAccountsFetchFailed: boolean;
+      swapSupportAccounts: {
+        apiAddress: string;
+        networkId: string;
+        accountId: string;
+      }[];
+    }>();
+    const accounts = {
+      supportAccountsFetchFailed: false,
+      swapSupportAccounts: [
+        { apiAddress: '0xaaa', networkId: 'evm--1', accountId: 'account-eth' },
+      ],
+    };
+    mockGetSupportSwapAllAccounts
+      .mockImplementationOnce(() => firstAccountsRequest.promise)
+      .mockResolvedValueOnce(accounts);
+    let walletFetches = 0;
+    mockFetchSwapTokens.mockImplementation(async () => {
+      walletFetches += 1;
+      return [
+        {
+          ...stockTokenA,
+          networkId: 'evm--1',
+          balanceParsed: walletFetches === 1 ? '5' : '4',
+        },
+      ];
+    });
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+      storeInstance.set(swapNetworks(), [
+        { networkId: 'evm--1', name: 'Ethereum', symbol: 'ETH' },
+      ]);
+    });
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    const requests: Promise<void>[] = [];
+    act(() => {
+      requests.push(
+        result.current.swapLoadAllNetworkTokenList(
+          undefined,
+          'account-1',
+          false,
+          'usd',
+        ),
+      );
+    });
+    await waitFor(() =>
+      expect(mockGetSupportSwapAllAccounts).toHaveBeenCalledTimes(1),
+    );
+    act(() => {
+      requests.push(
+        result.current.swapLoadAllNetworkTokenList(
+          undefined,
+          'account-1',
+          false,
+          'usd',
+          true,
+        ),
+      );
+    });
+    act(() => {
+      requests.push(
+        result.current.swapLoadAllNetworkTokenList(
+          undefined,
+          'account-1',
+          false,
+          'usd',
+        ),
+      );
+    });
+
+    await act(async () => {
+      firstAccountsRequest.resolve(accounts);
+      await Promise.all(requests);
+    });
+
+    expect(mockGetSupportSwapAllAccounts).toHaveBeenCalledTimes(2);
+    expect(
+      Object.values(store.get(swapAllNetworkTokenListMapAtom()))
+        .flat()
+        .map((token) => token.balanceParsed),
+    ).toEqual(['4']);
+    expect(store.get(swapAllNetworkActionLockAtom())).toEqual({});
+  });
+
   it('pins selected token detail price fetches to USD for rate-difference math', async () => {
     mockFetchSwapTokenDetails.mockResolvedValue([
       {

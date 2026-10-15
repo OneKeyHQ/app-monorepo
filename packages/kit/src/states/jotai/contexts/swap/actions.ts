@@ -3183,7 +3183,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           !forceRefresh &&
           currentLock.activeRequestKey === requestContext.requestKey
         ) {
-          if (currentLock.pendingRequestKey) {
+          // Drop a pending request for another scope, but keep a same-scope
+          // pending key: that is a forced rerun and must survive.
+          if (
+            currentLock.pendingRequestKey &&
+            currentLock.pendingRequestKey !== currentLock.activeRequestKey
+          ) {
             set(swapAllNetworkActionLockAtom(), (value) => ({
               ...value,
               [tokenListCacheKey]: {
