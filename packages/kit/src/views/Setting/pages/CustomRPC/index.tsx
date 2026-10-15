@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -21,6 +22,7 @@ import {
   Spinner,
   Stack,
   Switch,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -29,6 +31,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  releaseNodeHostPermission,
+  requestNodeHostPermission,
+} from '@onekeyhq/kit/src/utils/requestNodeHostPermission';
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
 import {
   EAppEventBusNames,
@@ -37,12 +43,18 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type {
+  EModalSettingRoutes,
+  IModalSettingParamList,
+} from '@onekeyhq/shared/src/routes/setting';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { ICustomRpcItem } from '@onekeyhq/shared/types/customRpc';
 
 import { SettingTestIDs } from '../../testIDs';
 import { SETTINGS_PAGE_BODY_INSET_X } from '../Tab/settingsSurface';
+
+import type { RouteProp } from '@react-navigation/core';
 
 type IEditRpcParams = {
   network: IServerNetwork;
@@ -96,7 +108,10 @@ function ListEmptyComponent({
   );
 }
 
-function DialogContent({
+// Exported so a chain-specific settings page can open the editor for its own
+// network directly, instead of sending the user through the cross-chain list
+// and a network picker they already answered by being on that page.
+export function CustomRpcEditDialogContent({
   network,
   rpcInfo,
   onConfirm,
@@ -111,6 +126,20 @@ function DialogContent({
   const rpcValidRef = useRef(true);
   const [isLoading, setIsLoading] = useState(false);
   const intl = useIntl();
+  // Privacy chains reach their node through a host relay: the extension needs
+  // host permission for it, and phones refuse plain http.
+  const { result: isLocalWalletNetwork } = usePromiseResult(
+    async () =>
+      !!(
+        await backgroundApiProxy.serviceNetwork.getVaultSettings({
+          networkId: network.id,
+        })
+      ).localWallet,
+    [network.id],
+  );
+  const isCleartextPrivacyNode =
+    !!isLocalWalletNetwork &&
+    (form.watch('rpc') ?? '').trim().toLowerCase().startsWith('http://');
 
   return (
     <>
@@ -157,6 +186,13 @@ function DialogContent({
         >
           <Input autoFocus flex={1} testID="setting-trimmed-value-input" />
         </Form.Field>
+        {isCleartextPrivacyNode ? (
+          <SizableText size="$bodySm" color="$textCaution">
+            {intl.formatMessage({
+              id: ETranslations.privacy_node_cleartext__msg,
+            })}
+          </SizableText>
+        ) : null}
       </Form>
       <Dialog.Footer
         onConfirm={async ({ preventClose, close }) => {
@@ -165,6 +201,19 @@ function DialogContent({
             return;
           }
           if (!rpcUrl) {
+            preventClose();
+            return;
+          }
+          // Before any other await: the permission prompt needs the gesture.
+          if (
+            isLocalWalletNetwork &&
+            !(await requestNodeHostPermission(rpcUrl))
+          ) {
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.privacy_node_permission_denied__msg,
+              }),
+            });
             preventClose();
             return;
           }
@@ -211,15 +260,28 @@ function DialogContent({
 
 function CustomRPC() {
   const intl = useIntl();
+  const route =
+    useRoute<
+      RouteProp<IModalSettingParamList, EModalSettingRoutes.SettingCustomRPC>
+    >();
+  const scopedNetworkId = route.params?.networkId;
   const { result: customRpcData, run } = usePromiseResult(async () => {
     const { serviceNetwork, serviceCustomRpc } = backgroundApiProxy;
     const _supportNetworks = await serviceNetwork.getCustomRpcEnabledNetworks();
     const _customRpcNetworks = await serviceCustomRpc.getAllCustomRpc();
+    const scoped = (list: { networkId: string }[]) =>
+      scopedNetworkId
+        ? list.filter((item) => item.networkId === scopedNetworkId)
+        : list;
     return {
-      supportNetworks: _supportNetworks,
-      customRpcNetworks: _customRpcNetworks,
+      supportNetworks: scopedNetworkId
+        ? _supportNetworks.filter((item) => item.id === scopedNetworkId)
+        : _supportNetworks,
+      customRpcNetworks: scoped(
+        _customRpcNetworks,
+      ) as typeof _customRpcNetworks,
     };
-  }, []);
+  }, [scopedNetworkId]);
 
   useEffect(() => {
     appEventBus.on(EAppEventBusNames.RefreshCustomRpcList, run);
@@ -310,7 +372,11 @@ function CustomRPC() {
     ({ network, rpcInfo }: IEditRpcParams) => {
       Dialog.show({
         renderContent: (
-          <DialogContent network={network} rpcInfo={rpcInfo} onConfirm={run} />
+          <CustomRpcEditDialogContent
+            network={network}
+            rpcInfo={rpcInfo}
+            onConfirm={run}
+          />
         ),
       });
     },
@@ -336,9 +402,23 @@ function CustomRPC() {
     [showChainSelector, customRpcData?.supportNetworks, onAddOrEditRpc],
   );
 
+  // Scoped entry skips the chain selector: the page was opened from that
+  // chain's own settings, so asking again is a question already answered.
   const onAddCustomRpc = useCallback(() => {
+    const scopedNetwork = customRpcData?.supportNetworks?.find(
+      (item) => item.id === scopedNetworkId,
+    );
+    if (scopedNetwork) {
+      onAddOrEditRpc({ network: scopedNetwork });
+      return;
+    }
     onSelectNetwork();
-  }, [onSelectNetwork]);
+  }, [
+    customRpcData?.supportNetworks,
+    onAddOrEditRpc,
+    onSelectNetwork,
+    scopedNetworkId,
+  ]);
 
   const onDeleteCustomRpc = useCallback(
     async (item: ICustomRpcItem) => {
@@ -346,6 +426,18 @@ function CustomRPC() {
       await backgroundApiProxy.serviceCustomRpc.deleteCustomRpc({
         customRpc: item,
       });
+      const { localWallet } =
+        await backgroundApiProxy.serviceNetwork.getVaultSettings({
+          networkId: item.networkId,
+        });
+      if (localWallet) {
+        const remaining =
+          await backgroundApiProxy.serviceCustomRpc.getAllCustomRpc();
+        await releaseNodeHostPermission(
+          item.rpc,
+          remaining.map((other) => other.rpc),
+        );
+      }
       setTimeout(() => {
         void run();
       }, 200);
@@ -505,9 +597,13 @@ function CustomRPC() {
               />
             </ListItem>
           )}
-          ListHeaderComponent={<ListHeaderComponent />}
+          ListHeaderComponent={
+            <>
+              <ListHeaderComponent />
+            </>
+          }
           ListEmptyComponent={
-            <ListEmptyComponent onAddCustomRpc={() => onSelectNetwork()} />
+            <ListEmptyComponent onAddCustomRpc={() => onAddCustomRpc()} />
           }
         />
       </Page.Body>

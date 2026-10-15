@@ -41,7 +41,39 @@ const oneKeyIdOnlyValues: IClearCacheOnAppState = {
   signatureRecord: false,
 };
 
+const transactionHistoryOnlyValues: IClearCacheOnAppState = {
+  ...oneKeyIdOnlyValues,
+  oneKeyId: false,
+  transactionHistory: true,
+};
+
 describe('ServiceSetting.clearCacheOnApp', () => {
+  // Scan data is not cache: wiping it means rescanning for days.
+  it('clears history caches without touching privacy-chain scan data', async () => {
+    const clearTransactionHistoryCache = jest.fn().mockResolvedValue(undefined);
+    const clearLocalHistory = jest.fn().mockResolvedValue(undefined);
+    const clearAddressInfo = jest.fn().mockResolvedValue(undefined);
+    const clearTransferRecipients = jest.fn().mockResolvedValue(undefined);
+    const service = new ServiceSetting({
+      backgroundApi: {
+        simpleDb: {
+          appStatus: {},
+          localHistory: { clearRawData: clearLocalHistory },
+          addressInfo: { clearRawData: clearAddressInfo },
+          transferRecipientsCache: { clear: clearTransferRecipients },
+        },
+        servicePrivacyChain: { clearTransactionHistoryCache },
+      },
+    });
+
+    await service.clearCacheOnApp(transactionHistoryOnlyValues);
+
+    expect(clearTransactionHistoryCache).not.toHaveBeenCalled();
+    expect(clearLocalHistory).toHaveBeenCalledTimes(1);
+    expect(clearAddressInfo).toHaveBeenCalledTimes(1);
+    expect(clearTransferRecipients).toHaveBeenCalledTimes(1);
+  });
+
   it('marks OneKey ID logout failures for automatic toast and preserves the error', async () => {
     const error = new OneKeyLocalError('OneKey ID session read failed');
     const clearOneKeyIdLocalAuthCache = jest.fn().mockRejectedValue(error);

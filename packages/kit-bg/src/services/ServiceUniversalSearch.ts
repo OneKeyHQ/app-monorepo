@@ -603,11 +603,10 @@ class ServiceUniversalSearch extends ServiceBase {
     const networkIdList = await this.getUniversalValidateNetworkIds({
       networkId,
     });
-    const batchValidateResult =
-      await serviceValidator.serverBatchValidateAddress({
-        networkIdList,
-        accountAddress: trimmedInput,
-      });
+    const batchValidateResult = await serviceValidator.validateAddressBatch({
+      networkIdList,
+      accountAddress: trimmedInput,
+    });
 
     // Execute account name search in parallel
     const accountNameResults = await accountNameSearchPromise;
@@ -994,11 +993,10 @@ class ServiceUniversalSearch extends ServiceBase {
     const networkIdList = await this.getUniversalValidateNetworkIds({
       networkId,
     });
-    const batchValidateResult =
-      await serviceValidator.serverBatchValidateAddress({
-        networkIdList,
-        accountAddress: trimmedInput,
-      });
+    const batchValidateResult = await serviceValidator.validateAddressBatch({
+      networkIdList,
+      accountAddress: trimmedInput,
+    });
 
     if (!batchValidateResult.isValid) {
       return { items: [] } as IUniversalSearchSingleResult;

@@ -32,7 +32,9 @@ import {
   IMPL_TBTC,
   IMPL_TON,
   IMPL_TRON,
+  IMPL_XMR,
   IMPL_XRP,
+  IMPL_ZCASH,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -55,6 +57,8 @@ const settingsLoader: Record<
   [IMPL_TBTC]: () => import('./impls/tbtc/settings'),
   [IMPL_DOGE]: () => import('./impls/doge/settings'),
   [IMPL_BCH]: () => import('./impls/bch/settings'),
+  [IMPL_ZCASH]: () => import('./impls/zcash/settings'),
+  [IMPL_XMR]: () => import('./impls/xmr/settings'),
   [IMPL_LTC]: () => import('./impls/ltc/settings'),
   [IMPL_NEURAI]: () => import('./impls/neurai/settings'),
   [IMPL_ALGO]: () => import('./impls/algo/settings'),
@@ -123,6 +127,17 @@ const loadVaultSettingsByImpl = cacheUtils.memoizee(
     normalizer: (args) => args[0],
   },
 );
+
+/**
+ * Every impl that has vault settings.
+ *
+ * Exported so the registration guard can check that each one also has a
+ * network to select -- a chain with a vault but no network entry compiles,
+ * passes every other test, and is simply absent from the app.
+ */
+export function getVaultSettingsImpls(): string[] {
+  return Object.keys(settingsLoader);
+}
 
 export async function getVaultSettings({ networkId }: { networkId: string }) {
   if (!networkId) {
