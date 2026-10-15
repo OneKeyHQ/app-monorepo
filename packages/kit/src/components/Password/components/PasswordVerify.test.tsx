@@ -384,14 +384,78 @@ describe('PasswordVerify biometric safety guard', () => {
     expect(onBiologyAuth).toHaveBeenCalledTimes(2);
   });
 
-  it('visibility checks never issue an authentication challenge', async () => {
+  it('does not check or show errors when biometrics are disabled', async () => {
     const onBiologyAuth = jest.fn();
-    renderVerify({ onBiologyAuth, isEnable: false });
+    const view = renderVerify({ onBiologyAuth, isEnable: false });
     await act(async () => {
       captured().visibility?.(true);
     });
-    expect(bgCheck()).toHaveBeenCalledTimes(1);
+    expect(bgCheck()).not.toHaveBeenCalled();
     expect(onBiologyAuth).not.toHaveBeenCalled();
+    expect(view.queryByText('auth_biometric_failed')).toBeNull();
+  });
+
+  it('allows a new guarded attempt after manual verification clears an unavailable check', async () => {
+    bgCheck()
+      .mockRejectedValueOnce(new Error('temporary failure'))
+      .mockResolvedValue(false);
+    const onBiologyAuth = jest.fn();
+    const props = {
+      onBiologyAuth,
+      pageMode: true,
+    };
+    const view = renderVerify(props);
+    await flush();
+    expect(view.getByText('auth_biometric_failed')).toBeTruthy();
+    view.rerender(
+      <PasswordVerify
+        authType={[]}
+        isEnable
+        passwordMode={EPasswordMode.PASSWORD}
+        status={{ value: EPasswordVerifyStatus.VERIFIED }}
+        onPasswordChange={() => {}}
+        onInputPasswordAuth={() => {}}
+        {...props}
+      />,
+    );
+    expect(view.queryByText('auth_biometric_failed')).toBeNull();
+    await act(async () => {
+      void captured().input.addOns[0].onPress();
+    });
+    expect(bgCheck()).toHaveBeenCalledTimes(2);
+    expect(onBiologyAuth).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores an old check after manual verification starts a new generation', async () => {
+    const oldCheck = deferred<boolean>();
+    bgCheck().mockReturnValueOnce(oldCheck.promise).mockResolvedValue(false);
+    const onBiologyAuth = jest.fn();
+    const props = {
+      authType: [],
+      isEnable: true,
+      passwordMode: EPasswordMode.PASSWORD,
+      onPasswordChange: () => {},
+      onInputPasswordAuth: () => {},
+      onBiologyAuth,
+    };
+    const view = renderVerify(props);
+    view.rerender(
+      <PasswordVerify
+        {...props}
+        status={{ value: EPasswordVerifyStatus.VERIFIED }}
+      />,
+    );
+    await act(async () => {
+      void captured().input.addOns[0].onPress();
+    });
+    expect(bgCheck()).toHaveBeenCalledTimes(2);
+    expect(onBiologyAuth).not.toHaveBeenCalled();
+    await act(async () => {
+      oldCheck.resolve(true);
+    });
+    await flush();
+    expect(getMocks().dialogConfirm).not.toHaveBeenCalled();
+    expect(view.queryByText('auth_biometric_failed')).toBeNull();
   });
 
   it.each([EPasswordMode.PASSWORD, EPasswordMode.PASSCODE])(

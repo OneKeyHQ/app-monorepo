@@ -3,8 +3,6 @@ import path from 'path';
 import { utilityProcess } from 'electron';
 import Logger from 'electron-log/main';
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-
 import {
   ECheckBiometricAuthChangedEventType,
   EWindowHelloEventType,
@@ -77,7 +75,7 @@ const startService = (key: EServiceName) => {
         biometricRequests.delete(e.requestId);
         clearTimeout(pending.timer);
         if (e.error || typeof e.result !== 'boolean')
-          pending.reject(new OneKeyLocalError('Biometric state check failed'));
+          pending.reject(new Error('Biometric state check failed'));
         else pending.resolve(e.result);
         return;
       }
@@ -104,7 +102,7 @@ const startService = (key: EServiceName) => {
       config.childProcess = null;
       biometricRequests.forEach((pending) => {
         clearTimeout(pending.timer);
-        pending.reject(new OneKeyLocalError('Biometric state service exited'));
+        pending.reject(new Error('Biometric state service exited'));
       });
       biometricRequests.clear();
     }
@@ -179,13 +177,16 @@ export const requestVerificationAsync = async (message: string) => {
 export const checkBiometricAuthChanged = async () => {
   const child =
     processConfig[EServiceName.CheckBiometricAuthChanged].childProcess;
-  if (!child) throw new OneKeyLocalError('Biometric state service unavailable');
+  if (!child) {
+    // eslint-disable-next-line onekey/no-raw-error -- app error imports exceed the utility bundle budget.
+    throw new Error('Biometric state service unavailable');
+  }
   biometricRequestId += 1;
   const requestId = biometricRequestId;
   return new Promise<boolean>((resolve, reject) => {
     const timer = setTimeout(() => {
       biometricRequests.delete(requestId);
-      reject(new OneKeyLocalError('Biometric state check timed out'));
+      reject(new Error('Biometric state check timed out'));
     }, 500);
     biometricRequests.set(requestId, { resolve, reject, timer });
     try {

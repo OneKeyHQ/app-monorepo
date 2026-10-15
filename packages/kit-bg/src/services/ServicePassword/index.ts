@@ -43,6 +43,7 @@ import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { rejectTravelModeUnknownError } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { isEncodedSensitiveText } from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EHardwareCallContext,
@@ -454,15 +455,24 @@ export default class ServicePassword extends ServiceBase {
 
   async getBiologyAuthPassword(): Promise<string> {
     if (platformEnv.isNativeIOS || platformEnv.isDesktopMac) {
-      await biometricCheckMutex.runExclusive(async () => {
+      return biometricCheckMutex.runExclusive(async () => {
         if (await appStorage.getItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY)) {
           throw new OneKeyErrors.BiologyAuthFailed();
         }
+        const { isBiologyAuthSwitchOn } = await settingsPersistAtom.get();
+        if (!isBiologyAuthSwitchOn) {
+          throw new OneKeyErrors.BiologyAuthFailed();
+        }
+        return this.getBiologyAuthPasswordInner();
       });
     }
-    const isSupport = await passwordBiologyAuthInfoAtom.get();
+    return this.getBiologyAuthPasswordInner();
+  }
+
+  private async getBiologyAuthPasswordInner(): Promise<string> {
+    const { isSupport } = await passwordBiologyAuthInfoAtom.get();
     if (!isSupport) {
-      await this.setBiologyAuthEnable(false);
+      await this.setBiologyAuthEnableInner(false);
       throw new OneKeyErrors.OneKeyLocalError('biologyAuth not support');
     }
     const authRes = await biologyAuthUtils.biologyAuthenticate();
@@ -474,7 +484,7 @@ export default class ServicePassword extends ServiceBase {
       ensureSensitiveTextEncoded(pwd);
       return pwd;
     } catch (_e) {
-      await this.setBiologyAuthEnable(false);
+      await this.setBiologyAuthEnableInner(false);
       throw new OneKeyErrors.BiologyAuthFailed();
     }
   }
@@ -573,7 +583,24 @@ export default class ServicePassword extends ServiceBase {
         );
       }
     }
+    if (enable && (platformEnv.isNativeIOS || platformEnv.isDesktopMac)) {
+      await appStorage.setItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY, 'checking');
+      if (
+        runtimePersistenceAdapter.isUnavailable() ||
+        (await appStorage.getItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY)) !==
+          'checking'
+      ) {
+        throw new OneKeyErrors.BiologyAuthFailed();
+      }
+      const changed = await checkBiometricAuthChanged();
+      if (typeof changed !== 'boolean') {
+        throw new OneKeyErrors.BiologyAuthFailed();
+      }
+    }
     await this.backgroundApi.serviceSetting.setBiologyAuthSwitchOn(enable);
+    if (enable && (platformEnv.isNativeIOS || platformEnv.isDesktopMac)) {
+      await appStorage.removeItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY);
+    }
     if (platformEnv.isExtension && !enable) {
       await this.clearWebAuthCredentialId();
     }
@@ -1099,20 +1126,51 @@ export default class ServicePassword extends ServiceBase {
     const shouldEnforcePasswordErrorProtection =
       Boolean(params.enforcePasswordErrorProtection) ||
       runtimePersistenceAdapter.isUnavailable();
-    const verified = await (shouldEnforcePasswordErrorProtection
+    return shouldEnforcePasswordErrorProtection
       ? passwordErrorProtectionMutex.runExclusive(() =>
           this.verifyPasswordWithErrorProtection(params),
         )
-      : this.verifyPasswordInner(params));
+      : this.verifyPasswordInner(params);
+  }
+
+  @backgroundMethod()
+  async verifyPasswordFromInput({
+    password,
+    ...params
+  }: Omit<IVerifyPasswordParams, 'isBiologyAuth'>): Promise<string> {
+    if (isEncodedSensitiveText(password)) {
+      throw new OneKeyErrors.OneKeyLocalError(
+        'Expected unencoded password input',
+      );
+    }
+    const encoded = await this.encodeSensitiveText({
+      text: password,
+      kdfBackend: params.kdfBackend,
+      enablePbkdf2Cache: params.enablePbkdf2Cache,
+    });
+    const verified = await this.verifyPassword({
+      ...params,
+      password: encoded,
+      isBiologyAuth: false,
+    });
     if (
-      !params.isBiologyAuth &&
       (platformEnv.isNativeIOS || platformEnv.isDesktopMac) &&
       !runtimePersistenceAdapter.isUnavailable()
     ) {
       try {
-        await biometricCheckMutex.runExclusive(() =>
-          appStorage.removeItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY),
-        );
+        await biometricCheckMutex.runExclusive(async () => {
+          const pending = await appStorage.getItem(
+            BIOMETRIC_AUTH_CHECK_PENDING_KEY,
+          );
+          if (pending === 'changed') {
+            await this.backgroundApi.serviceSetting.setBiologyAuthSwitchOn(
+              false,
+            );
+          }
+          if (pending) {
+            await appStorage.removeItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY);
+          }
+        });
       } catch {
         // Password access must remain available even if biometric recovery cannot persist.
         defaultLogger.setting.page.biologyAuthDebug(

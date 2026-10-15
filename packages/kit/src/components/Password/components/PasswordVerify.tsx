@@ -141,6 +141,7 @@ function PasswordVerify({
   );
   const biometricCheckPromiseRef =
     useRef<Promise<IBiometricCheckResult> | null>(null);
+  const biometricCheckGenerationRef = useRef(0);
   const biometricAuthPromiseRef = useRef<Promise<void> | null>(null);
   const [biometricCheckResult, setBiometricCheckResult] =
     useState<IBiometricCheckResult>();
@@ -151,6 +152,15 @@ function PasswordVerify({
       mountedRef.current = false;
     };
   }, []);
+  useEffect(() => {
+    if (status.value === EPasswordVerifyStatus.VERIFIED) {
+      biometricCheckGenerationRef.current += 1;
+      biometricCheckRef.current = undefined;
+      biometricCheckPromiseRef.current = null;
+      biometricAuthPromiseRef.current = null;
+      setBiometricCheckResult(undefined);
+    }
+  }, [status.value]);
   const passwordInput = form.watch(
     passwordMode === EPasswordMode.PASSWORD ? 'password' : 'passCode',
   );
@@ -189,10 +199,13 @@ function PasswordVerify({
     }
     if (biometricCheckPromiseRef.current)
       return biometricCheckPromiseRef.current;
+    const generation = biometricCheckGenerationRef.current;
     const checking = (async (): Promise<IBiometricCheckResult> => {
       try {
         const changed =
           await backgroundApiProxy.servicePassword.checkBiometricAuthChanged();
+        if (generation !== biometricCheckGenerationRef.current)
+          return 'unavailable';
         defaultLogger.setting.page.biologyAuthDebug('checkAuthChanged:result', {
           platform: platformEnv.symbol,
           changed,
@@ -239,6 +252,8 @@ function PasswordVerify({
         if (mountedRef.current) setBiometricCheckResult('unchanged');
         return 'unchanged';
       } catch {
+        if (generation !== biometricCheckGenerationRef.current)
+          return 'unavailable';
         defaultLogger.setting.page.biologyAuthDebug(
           'checkAuthChanged:unavailable',
           { platform: platformEnv.symbol },
@@ -250,7 +265,8 @@ function PasswordVerify({
       }
     })();
     const tracked = checking.finally(() => {
-      biometricCheckPromiseRef.current = null;
+      if (biometricCheckPromiseRef.current === tracked)
+        biometricCheckPromiseRef.current = null;
     });
     biometricCheckPromiseRef.current = tracked;
     return tracked;
@@ -262,6 +278,7 @@ function PasswordVerify({
       passwordMode === EPasswordMode.PASSWORD ? 'password' : 'passCode';
     const inputBeforeCheck = form.getValues(field);
     const statusBeforeCheck = statusRef.current;
+    const generation = biometricCheckGenerationRef.current;
     const attempting = (async () => {
       const result =
         platformEnv.isNativeIOS || platformEnv.isDesktopMac
@@ -269,6 +286,7 @@ function PasswordVerify({
           : 'unchanged';
       if (
         result === 'unchanged' &&
+        generation === biometricCheckGenerationRef.current &&
         mountedRef.current &&
         isEnableRef.current &&
         form.getValues(field) === inputBeforeCheck &&
@@ -279,7 +297,8 @@ function PasswordVerify({
         await onBiologyAuth();
     })();
     const tracked = attempting.finally(() => {
-      biometricAuthPromiseRef.current = null;
+      if (biometricAuthPromiseRef.current === tracked)
+        biometricAuthPromiseRef.current = null;
     });
     biometricAuthPromiseRef.current = tracked;
     return tracked;
@@ -303,7 +322,7 @@ function PasswordVerify({
 
     if (platformEnv.isNativeIOS || platformEnv.isDesktopMac) {
       const handleVisibilityStateChange = (visible: boolean) => {
-        if (visible) {
+        if (visible && isEnableRef.current) {
           void checkAuthChanged();
         }
       };
@@ -501,7 +520,7 @@ function PasswordVerify({
           </>
         )}
       </Form>
-      {biometricCheckResult === 'unavailable' ? (
+      {isEnable && biometricCheckResult === 'unavailable' ? (
         <SizableText size="$bodyMd" color="$textCritical">
           {intl.formatMessage(
             { id: ETranslations.auth_biometric_failed },
