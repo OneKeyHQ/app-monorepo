@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import { isTokenContractAddressKeywords } from '@onekeyhq/shared/src/utils/tokenSelectorCrossNetworkUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 export function isSwapSupportAllAccountsRequestCurrent({
@@ -37,32 +38,30 @@ export function buildServerAuthoritativeSearchResults<T>(
   });
 }
 
-// All-network results get balances from the cached all-network token list,
-// since the all-network request carries no account address. A keyword search
-// (e.g. a pasted address widened to All Networks) loads that list once when
-// it is missing, so held tokens still show balances; empty-keyword lists keep
-// reloading on every fetch as before. `forceRefresh` (balance-changing events
-// such as a finished swap) always reloads so cached balances are not reused.
+// All-network results get balances from the all-network wallet list, since
+// the all-network request carries no account address. That list may be a
+// cold-start snapshot or stale, so a contract address search (pasted to find
+// a held token) refreshes it; name searches reuse it to avoid reloading every
+// network per keystroke. `forceRefresh` covers balance-changing events such
+// as a finished swap.
 export function shouldLoadSwapAllNetworkTokenList({
   networkId,
   keywords,
   isTokenFetchAllNetworks,
   allNetworkTokenListReady,
-  hasAllNetworkTokenList,
   forceRefresh = false,
 }: {
   networkId?: string;
   keywords?: string;
   isTokenFetchAllNetworks: boolean;
   allNetworkTokenListReady: boolean;
-  hasAllNetworkTokenList: boolean;
   forceRefresh?: boolean;
 }) {
   return (
     Boolean(networkId) &&
     isTokenFetchAllNetworks &&
     allNetworkTokenListReady &&
-    (forceRefresh || !keywords || !hasAllNetworkTokenList)
+    (forceRefresh || !keywords || isTokenContractAddressKeywords(keywords))
   );
 }
 

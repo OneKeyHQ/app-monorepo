@@ -100,40 +100,33 @@ describe('shouldLoadSwapAllNetworkTokenList', () => {
     keywords: '',
     isTokenFetchAllNetworks: true,
     allNetworkTokenListReady: true,
-    hasAllNetworkTokenList: true,
   };
+  const address = '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1';
 
   it('reloads the list for every empty-keyword all-network fetch', () => {
     expect(shouldLoadSwapAllNetworkTokenList(base)).toBe(true);
   });
 
-  it('loads the missing list for a widened address search so balances show', () => {
+  it('refreshes the wallet list for an address search so balances are current', () => {
     expect(
-      shouldLoadSwapAllNetworkTokenList({
-        ...base,
-        keywords: '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1',
-        hasAllNetworkTokenList: false,
-      }),
+      shouldLoadSwapAllNetworkTokenList({ ...base, keywords: address }),
     ).toBe(true);
   });
 
-  it('always reloads a loaded list after a balance-changing event', () => {
+  it('reuses the list for name searches', () => {
+    expect(
+      shouldLoadSwapAllNetworkTokenList({ ...base, keywords: 'USDC' }),
+    ).toBe(false);
+  });
+
+  it('always reloads after a balance-changing event', () => {
     expect(
       shouldLoadSwapAllNetworkTokenList({
         ...base,
-        keywords: '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1',
+        keywords: 'USDC',
         forceRefresh: true,
       }),
     ).toBe(true);
-  });
-
-  it('reuses a loaded list while searching', () => {
-    expect(
-      shouldLoadSwapAllNetworkTokenList({
-        ...base,
-        keywords: '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1',
-      }),
-    ).toBe(false);
   });
 
   it('skips concrete-network fetches and lists that are not ready', () => {
@@ -142,14 +135,14 @@ describe('shouldLoadSwapAllNetworkTokenList', () => {
         ...base,
         networkId: 'evm--42161',
         isTokenFetchAllNetworks: false,
-        hasAllNetworkTokenList: false,
+        keywords: address,
       }),
     ).toBe(false);
     expect(
       shouldLoadSwapAllNetworkTokenList({
         ...base,
         allNetworkTokenListReady: false,
-        hasAllNetworkTokenList: false,
+        keywords: address,
       }),
     ).toBe(false);
   });
