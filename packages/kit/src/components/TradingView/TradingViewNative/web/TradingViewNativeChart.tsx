@@ -978,6 +978,10 @@ export const TradingViewNativeChart = memo(
               zoomScale: dragState.zoomScale,
             },
           );
+          // Keep the origin inside the viewport bounds so a live data update
+          // cannot clamp away movement discarded at the edge.
+          dragState.startClientX = event.clientX;
+          dragState.startOffset = nextRuntimeState.viewport.offset;
           runtimeStateRef.current = nextRuntimeState;
           renderChart();
           setViewportState((currentState) =>
@@ -1166,6 +1170,9 @@ export const TradingViewNativeChart = memo(
             type: 'zoomed',
           },
         );
+        dragState.startOffset = nextRuntimeState.viewport.offset;
+        dragState.startX = currentX;
+        dragState.startZoomScale = nextRuntimeState.viewport.zoomScale;
         runtimeStateRef.current = nextRuntimeState;
         renderChart();
         setViewportState((currentState) =>
