@@ -488,6 +488,8 @@ describe('isTokenContractAddressKeywords', () => {
       '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC',
       'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // Solana
       'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t', // Tron
+      // Digit-free base58 that still decodes to a 32-byte Solana key.
+      'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstu',
       'EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs', // TON
       '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1', // NEAR implicit
       'usdt.tether-token.near', // NEAR named
