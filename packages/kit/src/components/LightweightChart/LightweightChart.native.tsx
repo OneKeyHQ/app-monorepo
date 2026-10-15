@@ -62,8 +62,10 @@ export function LightweightChart({
   crosshairVertLineColor,
   crosshairVertLineStyle,
   patternColor,
+  pulseLastPointColor,
   priceScaleMinimumWidth,
   priceFormatter,
+  priceFormatBase,
   compactPriceMaxCharacters,
   priceScaleFormat,
   priceFormatterPrecision,
@@ -84,6 +86,7 @@ export function LightweightChart({
   timeZone,
   locale,
   hideCrosshairPriceLabel,
+  pulseLastPoint,
   onHover,
 }: ILightweightChartProps) {
   const webViewRef = useRef<WebView>(null);
@@ -109,8 +112,10 @@ export function LightweightChart({
     crosshairVertLineColor,
     crosshairVertLineStyle,
     patternColor,
+    pulseLastPointColor,
     priceScaleMinimumWidth,
     priceFormatter,
+    priceFormatBase,
     compactPriceMaxCharacters,
     priceScaleFormat,
     priceFormatterPrecision,
@@ -136,8 +141,9 @@ export function LightweightChart({
       ...chartConfig,
       showLastValue: !!showLastValue,
       hideCrosshairPriceLabel,
+      pulseLastPoint: !!pulseLastPoint,
     }),
-    [chartConfig, hideCrosshairPriceLabel, showLastValue],
+    [chartConfig, hideCrosshairPriceLabel, pulseLastPoint, showLastValue],
   );
   const latestConfigRef = useRef(nativeConfig);
   latestConfigRef.current = nativeConfig;
