@@ -10,6 +10,7 @@ import {
   waitFor,
 } from '@testing-library/react';
 
+import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IMarketAssetListData,
@@ -20,6 +21,15 @@ import { useMarketTopCoins } from '../../../MarketHomeV2/components/MarketTopCoi
 
 import { MarketTokenSelectorList } from './MarketTokenSelectorList';
 
+import type { useMarketWatchlistTokenList } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList';
+
+const mockWatchlistResult = jest.fn<
+  Pick<
+    ReturnType<typeof useMarketWatchlistTokenList>,
+    'data' | 'isLoading' | 'isError' | 'refetch'
+  >,
+  Parameters<typeof useMarketWatchlistTokenList>
+>();
 const mockFetchTopCoins = jest.fn<Promise<IMarketAssetListData>, [string]>();
 const mockDeferred = {
   promise: Promise.resolve(),
@@ -90,8 +100,18 @@ jest.mock(
 );
 jest.mock(
   '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketWatchlistTokenList',
-  () => ({ useMarketWatchlistTokenList: jest.fn() }),
+  () => ({
+    useMarketWatchlistTokenList: (
+      ...args: Parameters<typeof useMarketWatchlistTokenList>
+    ) => mockWatchlistResult(...args),
+  }),
 );
+jest.mock('./SelectorWatchlistRecommendations', () => ({
+  SelectorWatchlistRecommendations: () => (
+    <div data-testid="recommendations">Recommend tokens</div>
+  ),
+}));
+
 jest.mock('./MarketTokenSelectorRow', () => ({
   MarketTokenSelectorRow: () => null,
 }));
@@ -218,5 +238,109 @@ describe('desktop Top Coins request states', () => {
     );
     expect(screen.getByTestId('loading')).toBeTruthy();
     expect(screen.queryByTestId('market-token-selector-list-retry')).toBeNull();
+  });
+});
+
+const mockWatchlistAtom = jest.mocked(useMarketWatchListV2Atom);
+
+describe('desktop selector recommendations', () => {
+  beforeEach(() => {
+    mockWatchlistAtom.mockReturnValue([
+      { data: [], isMounted: true },
+      jest.fn(),
+    ]);
+    mockWatchlistResult.mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      refetch: jest.fn(),
+    });
+  });
+
+  it('shows recommendations instead of a column header for empty Favorites', () => {
+    render(
+      <MarketTokenSelectorList
+        networkId=""
+        isWatchlistMode
+        onItemPress={jest.fn()}
+      />,
+    );
+    expect(screen.getByTestId('recommendations')).toBeTruthy();
+    expect(screen.queryByTestId('header')).toBeNull();
+    expect(mockWatchlistResult).toHaveBeenLastCalledWith(
+      expect.objectContaining({ pageSize: 1 }),
+    );
+  });
+
+  it.each(['initializing', 'loading', 'error'])(
+    'keeps %s separate from an empty watchlist',
+    (state) => {
+      mockWatchlistAtom.mockReturnValue([
+        { data: [], isMounted: state !== 'initializing' },
+        jest.fn(),
+      ]);
+      mockWatchlistResult.mockReturnValue({
+        data: [],
+        isLoading: state === 'loading',
+        isError: state === 'error',
+        refetch: jest.fn(),
+      });
+      render(
+        <MarketTokenSelectorList
+          networkId=""
+          isWatchlistMode
+          onItemPress={jest.fn()}
+        />,
+      );
+      expect(screen.queryByTestId('recommendations')).toBeNull();
+      expect(screen.getByTestId('header')).toBeTruthy();
+    },
+  );
+
+  it('does not truncate the selectable favorites after a page of perps', () => {
+    mockWatchlistAtom.mockReturnValue([
+      {
+        data: Array.from({ length: 101 }, () => ({
+          chainId: 'evm--1',
+          contractAddress: '',
+        })),
+        isMounted: true,
+      },
+      jest.fn(),
+    ]);
+    mockWatchlistResult.mockImplementation(({ pageSize = 20 }) => ({
+      data: Array.from({ length: 101 }, (_, i) => ({
+        id: String(i),
+        symbol: `TOKEN${i}`,
+        name: `Token ${i}`,
+        stockId: undefined,
+        address: '',
+        networkId: '',
+        decimals: 0,
+        price: 0,
+        change24h: 0,
+        marketCap: 0,
+        liquidity: 0,
+        transactions: 0,
+        uniqueTraders: 0,
+        holders: 0,
+        turnover: 0,
+        tokenImageUri: '',
+        networkLogoUri: '',
+        perpsCoin: i < 100 ? `PERP${i}` : undefined,
+      })).slice(0, pageSize),
+      isLoading: false,
+      isError: false,
+      refetch: jest.fn(),
+    }));
+    render(
+      <MarketTokenSelectorList
+        networkId=""
+        isWatchlistMode
+        onItemPress={jest.fn()}
+      />,
+    );
+    expect(screen.queryByTestId('recommendations')).toBeNull();
+    expect(screen.getByTestId('list').textContent).toBe('TOKEN100');
   });
 });

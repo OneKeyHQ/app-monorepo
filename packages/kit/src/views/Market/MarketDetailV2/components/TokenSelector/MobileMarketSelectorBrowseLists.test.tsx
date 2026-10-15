@@ -22,6 +22,8 @@ const mockLoadMore = jest.fn(() => Promise.resolve());
 let mockBrowseData: IMarketToken[] = [];
 let mockIsLoadMoreError = false;
 let mockWatchlistCount = 0;
+let mockIsMounted = true;
+let mockIsWatchlistLoading = false;
 const mockEventHandlers = new Map<string, () => Promise<void>>();
 const mockOn = jest.fn((name: string, handler: () => Promise<void>) => {
   mockEventHandlers.set(name, handler);
@@ -99,7 +101,10 @@ jest.mock('@onekeyhq/kit/src/hooks/useNetworkLogoUri', () => ({
 }));
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
   useMarketWatchListV2Atom: () => [
-    { data: Array.from({ length: mockWatchlistCount }, () => ({})) },
+    {
+      data: Array.from({ length: mockWatchlistCount }, () => ({})),
+      isMounted: mockIsMounted,
+    },
   ],
   useWatchListV2Actions: () => ({
     current: { refreshWatchListV2: mockRefreshWatchListV2 },
@@ -137,7 +142,7 @@ jest.mock(
   () => ({
     useMarketWatchlistTokenList: ({ pageSize }: { pageSize: number }) => ({
       data: mockBrowseData.slice(0, pageSize),
-      isLoading: false,
+      isLoading: mockIsWatchlistLoading,
       isError: mockListState.isError,
       refetch: mockRefetch,
     }),
@@ -168,6 +173,12 @@ jest.mock('../../utils/marketDetailImagePreload', () => ({
 jest.mock('./selectorStar', () => ({
   SelectorTokenStar: () => null,
 }));
+jest.mock('./SelectorWatchlistRecommendations', () => ({
+  SelectorWatchlistRecommendations: () => (
+    <div data-testid="recommendations">Recommend tokens</div>
+  ),
+}));
+
 jest.mock('./useMarketStockSelectorList', () => ({
   useMarketStockSelectorList: () => ({ items: [] }),
 }));
@@ -414,6 +425,52 @@ describe('mobile selector review regressions', () => {
       fireEvent.click(screen.getByText('Reach end'));
 
       expect(mockLoadMore).toHaveBeenCalledTimes(calls);
+    },
+  );
+});
+
+describe('mobile selector recommendations', () => {
+  beforeEach(() => {
+    mockBrowseData = [];
+    mockWatchlistCount = 0;
+    mockListState = { isError: false };
+    mockIsMounted = true;
+    mockIsWatchlistLoading = false;
+  });
+  afterEach(() => {
+    mockIsMounted = true;
+    mockIsWatchlistLoading = false;
+  });
+
+  it('shows recommendations for an empty Favorites tab and replaces them with added rows', () => {
+    const onItemPress = jest.fn();
+    const { rerender } = render(
+      <MobileSelectorWatchlistList onItemPress={onItemPress} />,
+    );
+    expect(screen.getByTestId('recommendations')).toBeTruthy();
+    mockWatchlistCount = 1;
+    mockBrowseData = [searchToken];
+    rerender(<MobileSelectorWatchlistList onItemPress={onItemPress} />);
+    expect(screen.queryByTestId('recommendations')).toBeNull();
+    expect(screen.getByText('AAPLx')).toBeTruthy();
+    expect(onItemPress).not.toHaveBeenCalled();
+  });
+
+  it('shows recommendations when the only favorites are excluded perps', () => {
+    mockWatchlistCount = 1;
+    mockBrowseData = [{ ...searchToken, perpsCoin: 'BTC' }];
+    render(<MobileSelectorWatchlistList onItemPress={jest.fn()} />);
+    expect(screen.getByTestId('recommendations')).toBeTruthy();
+  });
+
+  it.each(['initializing', 'loading', 'error'])(
+    'does not show recommendations while %s',
+    (state) => {
+      mockIsMounted = state !== 'initializing';
+      mockIsWatchlistLoading = state === 'loading';
+      mockListState = { isError: state === 'error' };
+      render(<MobileSelectorWatchlistList onItemPress={jest.fn()} />);
+      expect(screen.queryByTestId('recommendations')).toBeNull();
     },
   );
 });

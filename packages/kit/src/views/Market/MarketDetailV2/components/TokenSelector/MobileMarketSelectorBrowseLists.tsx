@@ -57,6 +57,7 @@ import {
   TOKEN_SELECTOR_STAR_COLUMN_WIDTH,
 } from './constants';
 import { SelectorTokenStar } from './selectorStar';
+import { SelectorWatchlistRecommendations } from './SelectorWatchlistRecommendations';
 import { useMarketStockSelectorList } from './useMarketStockSelectorList';
 
 import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
@@ -502,8 +503,7 @@ export function MobileSelectorWatchlistList({
   onItemPress: (item: IMarketToken) => void;
   liveTokenOverride?: IMarketTokenListLiveOverride;
 }) {
-  const intl = useIntl();
-  const [{ data: watchListData }] = useMarketWatchListV2Atom();
+  const [{ data: watchListData, isMounted }] = useMarketWatchListV2Atom();
   const watchListActions = useWatchListV2Actions();
   // Favorites changed elsewhere (home, another detail page) while the modal is
   // open: reload the watchlist so these rows do not go stale, as the Market
@@ -530,7 +530,7 @@ export function MobileSelectorWatchlistList({
   );
   const rows = useLiveOverriddenTokens(spotData, liveTokenOverride);
 
-  if (isLoading && rows.length === 0) {
+  if (!isMounted || (isLoading && rows.length === 0)) {
     return <CenteredSpinner />;
   }
   if (isError && rows.length === 0) {
@@ -542,13 +542,7 @@ export function MobileSelectorWatchlistList({
     );
   }
   if (rows.length === 0) {
-    return (
-      <CenteredMessage>
-        <SizableText color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.market_favorites_empty })}
-        </SizableText>
-      </CenteredMessage>
-    );
+    return <SelectorWatchlistRecommendations />;
   }
   return (
     <TokenRowsList data={rows} tokenSubtitle="name" onItemPress={onItemPress} />

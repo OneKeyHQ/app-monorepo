@@ -29,6 +29,7 @@ import {
 } from './constants';
 import { MarketTokenSelectorRow } from './MarketTokenSelectorRow';
 import { SelectorTableHeader } from './selectorTable';
+import { SelectorWatchlistRecommendations } from './SelectorWatchlistRecommendations';
 
 import type {
   IMarketTokenSelectorColumnVariant,
@@ -188,10 +189,11 @@ const WatchlistTokenSelectorList = memo(
     dataCacheRef?: RefObject<IMarketWatchlistDataCache | undefined>;
   }) => {
     const intl = useIntl();
-    const [{ data: watchListData }] = useMarketWatchListV2Atom();
+    const [{ data: watchListData, isMounted }] = useMarketWatchListV2Atom();
 
     const { data, isLoading, isError, refetch } = useMarketWatchlistTokenList({
       watchlist: watchListData ?? [],
+      pageSize: Math.max(watchListData?.length ?? 0, 1),
       pollingInterval: pollingInterval ?? TOKEN_SELECTOR_POLLING_INTERVAL,
       dataCacheRef,
     });
@@ -201,10 +203,14 @@ const WatchlistTokenSelectorList = memo(
       [data],
     );
 
+    if (isMounted && !isLoading && !isError && filteredData.length === 0) {
+      return <SelectorWatchlistRecommendations />;
+    }
+
     return (
       <TokenSelectorListView
         data={filteredData}
-        isLoading={isLoading}
+        isLoading={!isMounted || isLoading}
         networkId={networkId}
         onItemPress={onItemPress}
         emptyMessage={intl.formatMessage({
