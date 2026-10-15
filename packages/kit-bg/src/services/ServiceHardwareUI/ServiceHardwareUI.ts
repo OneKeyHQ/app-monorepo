@@ -1582,10 +1582,13 @@ class ServiceHardwareUI extends ServiceBase {
         if (
           connectId &&
           !isThirdPartyVendor &&
-          (!hideCheckingDeviceLoading || platformEnv.isSupportDesktopBle)
+          (!hideCheckingDeviceLoading ||
+            (platformEnv.isSupportDesktopBle &&
+              !params.allowDuringFirmwareUpdate))
         ) {
           assertActive();
-          // Desktop transport ownership is independent of whether its checking UI is shown.
+          // Hidden firmware workflows own USB selection, validation and transport locking.
+          // Other desktop calls still pin their transport even when the checking UI is hidden.
           await this.backgroundApi.serviceHardware.prepareHardwareTransport({
             connectId,
             connectProtocol: device?.connectProtocol,

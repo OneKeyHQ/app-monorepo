@@ -501,6 +501,66 @@ describe('ServiceHardwareUI.withHardwareProcessing stage ownership', () => {
     },
   );
 
+  it.each([
+    [EDeviceType.Pro, 'V1'],
+    [EDeviceType.Pro2, 'V2'],
+  ] as const)(
+    'lets the hidden %s firmware workflow select USB without interactive BLE preparation',
+    async (deviceType, connectProtocol) => {
+      const originalSupport = platformEnv.isSupportDesktopBle;
+      Object.assign(platformEnv, { isSupportDesktopBle: true });
+      const prepare = jest
+        .fn()
+        .mockRejectedValue(
+          new OneKeyLocalError('Bluetooth permission must not be requested'),
+        );
+      Object.assign(
+        (service as unknown as { backgroundApi: IBackgroundApi }).backgroundApi
+          .serviceHardware,
+        { prepareHardwareTransport: prepare },
+      );
+      const dialog = jest.spyOn(service, 'showCheckingDeviceDialog');
+      const workflow = jest.fn(async () => {
+        // The firmware callback owns USB resolution, target validation and transport locking.
+        expect(
+          service.hardwareProcessingManager.getOneKeyOperationTransport(),
+        ).toBeUndefined();
+        return 'usb-workflow';
+      });
+      try {
+        await expect(
+          service.withHardwareProcessing(workflow, {
+            allowDuringFirmwareUpdate: true,
+            hideCheckingDeviceLoading: true,
+            skipDeviceCancel: true,
+            skipCloseHardwareUiStateDialog: true,
+            deviceParams: {
+              dbDevice: {
+                id: 'firmware-device',
+                name: 'Firmware device',
+                features: '',
+                connectId: 'USB_LOADER_PATH',
+                uuid: 'firmware-device',
+                deviceId: 'firmware-device',
+                deviceType,
+                connectProtocol,
+                settingsRaw: '',
+                createdAt: 0,
+                updatedAt: 0,
+                vendor: EHardwareVendor.onekey,
+              },
+            },
+          }),
+        ).resolves.toBe('usb-workflow');
+        expect(workflow).toHaveBeenCalledTimes(1);
+        expect(prepare).not.toHaveBeenCalled();
+        expect(dialog).not.toHaveBeenCalled();
+      } finally {
+        Object.assign(platformEnv, { isSupportDesktopBle: originalSupport });
+      }
+    },
+  );
+
   it.each([false, true])(
     'keeps the stage off while a non-hardware operation waits (rejects: %s)',
     async (rejects) => {
