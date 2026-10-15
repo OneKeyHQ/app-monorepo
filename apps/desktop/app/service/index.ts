@@ -4,6 +4,8 @@ import path from 'path';
 import { utilityProcess } from 'electron';
 import Logger from 'electron-log/main';
 
+import { BIOLOGY_AUTH_ABORTED_ERROR } from '@onekeyhq/shared/types/password';
+
 import {
   ECheckBiometricAuthChangedEventType,
   EWindowHelloEventType,
@@ -57,20 +59,22 @@ const startService = (key: EServiceName) => {
   if (!config.platforms.includes(process.platform)) {
     return;
   }
-  if (!config.childProcess) {
-    config.childProcess = utilityProcess.fork(
-      path.join(__dirname, `./service/${key}.js`),
-    );
-  }
+  if (config.childProcess) return;
+  const child = utilityProcess.fork(
+    path.join(__dirname, `./service/${key}.js`),
+  );
+  config.childProcess = child;
 
-  config.childProcess?.on(
+  child.on(
     'message',
     (e: {
       type: string;
       result: boolean;
       requestId?: number;
       error?: boolean;
+      diagnostic?: string;
     }) => {
+      if (config.childProcess !== child) return;
       if (key === EServiceName.CheckBiometricAuthChanged) {
         if (e.requestId === undefined) return;
         const pending = biometricRequests.get(e.requestId);
@@ -99,11 +103,13 @@ const startService = (key: EServiceName) => {
       }
     },
   );
-  config.childProcess?.on('exit', (code) => {
+  child.on('exit', (code) => {
     Logger.info(`${key}ChildProcess--onExit`, code);
+    if (config.childProcess !== child) return;
     if (key === EServiceName.WindowsHello) {
       config.childProcess = null;
       cacheWindowsHelloSupported = null;
+      config.callbacks = [];
     }
     if (key === EServiceName.CheckBiometricAuthChanged) {
       config.childProcess = null;
@@ -144,7 +150,11 @@ const checkServiceExist = (serviceName: EServiceName) => {
 
 let windowsHelloVerificationPending = false;
 const WINDOWS_HELLO_FOCUS_TIMEOUT_MS = 5000;
+const WINDOWS_HELLO_VERIFICATION_TIMEOUT_MS = 5 * 60 * 1000;
 export const checkAvailabilityAsync = async () => {
+  if (process.platform === 'win32') {
+    startService(EServiceName.WindowsHello);
+  }
   if (!checkServiceExist(EServiceName.WindowsHello)) {
     return false;
   }
@@ -182,17 +192,26 @@ export const requestVerificationAsync = async (
   const child = processConfig[EServiceName.WindowsHello].childProcess;
   const processId = child?.pid;
   if (!child || !processId) {
+    Logger.info(
+      'Windows Hello verification interrupted',
+      'Service unavailable',
+    );
     return {
       success: false,
-      error: '',
+      error: BIOLOGY_AUTH_ABORTED_ERROR,
     };
   }
   if (windowsHelloVerificationPending) {
-    return { success: false, error: '' };
+    Logger.info(
+      'Windows Hello verification interrupted',
+      'Verification pending',
+    );
+    return { success: false, error: BIOLOGY_AUTH_ABORTED_ERROR };
   }
   const owner = globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
   if (!owner || owner.isDestroyed()) {
-    return { success: false, error: '' };
+    Logger.info('Windows Hello verification interrupted', 'Owner unavailable');
+    return { success: false, error: BIOLOGY_AUTH_ABORTED_ERROR };
   }
   windowsHelloVerificationPending = true;
   const requestId = randomUUID();
@@ -204,27 +223,33 @@ export const requestVerificationAsync = async (
         const helloProcessId = processId;
         let dispatched = false;
         let settled = false;
+        let completionTimer: ReturnType<typeof setTimeout> | undefined;
+        const completionDeadline =
+          Date.now() + WINDOWS_HELLO_VERIFICATION_TIMEOUT_MS;
         const focusDeadline = Date.now() + WINDOWS_HELLO_FOCUS_TIMEOUT_MS;
         const focusTimer = setTimeout(
-          () =>
-            finish({
-              success: false,
-              error: 'Windows Hello owner focus timed out',
-            }),
+          () => abort('Windows Hello owner focus timed out'),
           WINDOWS_HELLO_FOCUS_TIMEOUT_MS,
         );
-        function finish(result: { success: boolean; error?: string }) {
+        function finish(
+          result: { success: boolean; error?: string },
+          diagnostic?: string,
+        ) {
           if (settled) return;
           settled = true;
           clearTimeout(focusTimer);
+          clearTimeout(completionTimer);
           ownerWindow.removeListener('focus', dispatch);
           ownerWindow.removeListener('closed', onClosed);
           helloProcess.removeListener('message', onMessage);
           helloProcess.removeListener('exit', onExit);
-          if (
+          if (diagnostic) {
+            Logger.info('Windows Hello verification interrupted', diagnostic);
+          } else if (
             !result.success &&
             result.error &&
-            result.error !== 'user_cancel'
+            result.error !== 'user_cancel' &&
+            result.error !== BIOLOGY_AUTH_ABORTED_ERROR
           ) {
             Logger.info('Windows Hello verification failed', result.error);
           }
@@ -233,18 +258,37 @@ export const requestVerificationAsync = async (
               ? { success: true }
               : {
                   success: false,
-                  error: result.error === 'user_cancel' ? 'user_cancel' : '',
+                  error:
+                    result.error === 'user_cancel' ||
+                    result.error === BIOLOGY_AUTH_ABORTED_ERROR
+                      ? result.error
+                      : '',
                 },
           );
         }
+        function abort(diagnostic: string) {
+          if (settled) return;
+          finish(
+            { success: false, error: BIOLOGY_AUTH_ABORTED_ERROR },
+            diagnostic,
+          );
+          const config = processConfig[EServiceName.WindowsHello];
+          if (dispatched && config.childProcess === helloProcess) {
+            config.childProcess = null;
+            config.callbacks = [];
+            cacheWindowsHelloSupported = null;
+            try {
+              helloProcess.kill();
+            } catch (error) {
+              Logger.info('Windows Hello service termination failed', error);
+            }
+          }
+        }
         function onClosed() {
-          finish({
-            success: false,
-            error: 'Windows Hello owner window closed',
-          });
+          abort('Windows Hello owner window closed');
         }
         function onExit() {
-          finish({ success: false, error: 'Windows Hello service exited' });
+          abort('Windows Hello service exited');
         }
         function onMessage(event: {
           type: EWindowHelloEventType;
@@ -256,16 +300,17 @@ export const requestVerificationAsync = async (
             event.requestId === requestId &&
             event.type === EWindowHelloEventType.RequestVerificationAsync
           ) {
+            if (Date.now() >= completionDeadline) {
+              abort('Windows Hello verification timed out');
+              return;
+            }
             finish(event.result);
           }
         }
         function dispatch() {
           if (settled || dispatched) return;
           if (Date.now() >= focusDeadline) {
-            finish({
-              success: false,
-              error: 'Windows Hello owner focus timed out',
-            });
+            abort('Windows Hello owner focus timed out');
             return;
           }
           try {
@@ -273,14 +318,15 @@ export const requestVerificationAsync = async (
             const { allowSetForegroundWindow } =
               require('electron-windows-hello') as typeof import('electron-windows-hello');
             if (!allowSetForegroundWindow(helloProcessId)) {
-              finish({
-                success: false,
-                error: 'Windows Hello foreground denied',
-              });
+              abort('Windows Hello foreground denied');
               return;
             }
             dispatched = true;
             clearTimeout(focusTimer);
+            completionTimer = setTimeout(
+              () => abort('Windows Hello verification timed out'),
+              completionDeadline - Date.now(),
+            );
             helloProcess.postMessage({
               type: EWindowHelloEventType.RequestVerificationAsync,
               requestId,
@@ -290,11 +336,9 @@ export const requestVerificationAsync = async (
               },
             });
           } catch (error) {
-            finish({
-              success: false,
-              error:
-                error instanceof Error ? error.message : 'Windows Hello failed',
-            });
+            abort(
+              error instanceof Error ? error.message : 'Windows Hello failed',
+            );
           }
         }
         ownerWindow.once('closed', onClosed);
@@ -307,11 +351,9 @@ export const requestVerificationAsync = async (
           ownerWindow.focus();
           dispatch();
         } catch (error) {
-          finish({
-            success: false,
-            error:
-              error instanceof Error ? error.message : 'Windows Hello failed',
-          });
+          abort(
+            error instanceof Error ? error.message : 'Windows Hello failed',
+          );
         }
       },
     );

@@ -10,6 +10,8 @@ import {
   requestVerification,
 } from 'electron-windows-hello';
 
+import { BIOLOGY_AUTH_ABORTED_ERROR } from '@onekeyhq/shared/types/password';
+
 import { EWindowHelloEventType } from '../service/enum';
 
 jest.mock('electron', () => ({ utilityProcess: { fork: jest.fn() } }));
@@ -44,14 +46,24 @@ describe('Windows Hello owner and foreground dispatch', () => {
     focus: jest.Mock;
     getNativeWindowHandle: () => Buffer;
   };
-  let child: EventEmitter & { pid: number; postMessage: jest.Mock };
+  let child: EventEmitter & {
+    pid: number;
+    postMessage: jest.Mock;
+    kill: jest.Mock;
+  };
 
-  function reply(success: boolean, error?: string, requestId?: string) {
+  function reply(
+    success: boolean,
+    error?: string,
+    requestId?: string,
+    diagnostic?: string,
+  ) {
     child.emit('message', {
       type: EWindowHelloEventType.RequestVerificationAsync,
       requestId:
         requestId ?? child.postMessage.mock.calls.at(-1)?.[0].requestId,
       result: { success, error },
+      diagnostic,
     });
   }
 
@@ -72,6 +84,7 @@ describe('Windows Hello owner and foreground dispatch', () => {
     child = Object.assign(new EventEmitter(), {
       pid: 1234,
       postMessage: jest.fn(),
+      kill: jest.fn(() => true),
     });
     jest
       .mocked(utilityProcess)
@@ -134,7 +147,7 @@ describe('Windows Hello owner and foreground dispatch', () => {
     jest.mocked(allowSetForegroundWindow).mockReturnValue(false);
     await expect(service.requestVerificationAsync('Unlock')).resolves.toEqual({
       success: false,
-      error: '',
+      error: BIOLOGY_AUTH_ABORTED_ERROR,
     });
     expect(child.postMessage).not.toHaveBeenCalled();
     expect(child.listenerCount('message')).toBe(1);
@@ -144,7 +157,7 @@ describe('Windows Hello owner and foreground dispatch', () => {
     const first = service.requestVerificationAsync('Unlock');
     await expect(service.requestVerificationAsync('Reveal')).resolves.toEqual({
       success: false,
-      error: '',
+      error: BIOLOGY_AUTH_ABORTED_ERROR,
     });
     reply(true);
     await expect(first).resolves.toMatchObject({ success: true });
@@ -179,20 +192,46 @@ describe('Windows Hello owner and foreground dispatch', () => {
     const oldId = child.postMessage.mock.calls[0][0].requestId as string;
     owner.emit('closed');
     await expect(first).resolves.toMatchObject({ success: false });
+    const retiredChild = child;
+    expect(retiredChild.kill).toHaveBeenCalledTimes(1);
+    child = Object.assign(new EventEmitter(), {
+      pid: 5678,
+      postMessage: jest.fn(),
+      kill: jest.fn(() => true),
+    });
+    jest
+      .mocked(utilityProcess)
+      .fork.mockReturnValue(
+        child as unknown as ReturnType<typeof utilityProcess.fork>,
+      );
+    const available = service.checkAvailabilityAsync();
+    child.emit('message', {
+      type: EWindowHelloEventType.CheckAvailabilityAsync,
+      result: true,
+    });
+    await expect(available).resolves.toBe(true);
     const second = service.requestVerificationAsync('Reveal');
-    reply(true, undefined, oldId);
+    retiredChild.emit('message', {
+      type: EWindowHelloEventType.RequestVerificationAsync,
+      requestId: oldId,
+      result: { success: true },
+    });
+    retiredChild.emit('exit', 1);
     reply(false, 'device_busy');
     await expect(second).resolves.toEqual({
       success: false,
       error: '',
     });
+    await expect(service.checkAvailabilityAsync()).resolves.toBe(true);
   });
 
   it('settles on utility exit without restarting authentication', async () => {
     const pending = service.requestVerificationAsync('Unlock');
     child.emit('exit', 1);
-    await expect(pending).resolves.toMatchObject({ success: false });
-    await expect(service.checkAvailabilityAsync()).resolves.toBe(false);
+    await expect(pending).resolves.toEqual({
+      success: false,
+      error: BIOLOGY_AUTH_ABORTED_ERROR,
+    });
     expect(jest.mocked(utilityProcess).fork).toHaveBeenCalledTimes(1);
   });
 
@@ -211,7 +250,10 @@ describe('Windows Hello owner and foreground dispatch', () => {
     focused = false;
     const pending = service.requestVerificationAsync('Unlock');
     jest.advanceTimersByTime(5000);
-    await expect(pending).resolves.toEqual({ success: false, error: '' });
+    await expect(pending).resolves.toEqual({
+      success: false,
+      error: BIOLOGY_AUTH_ABORTED_ERROR,
+    });
     expect(owner.listenerCount('focus')).toBe(0);
     expect(owner.listenerCount('closed')).toBe(0);
     expect(child.listenerCount('message')).toBe(1);
@@ -232,7 +274,10 @@ describe('Windows Hello owner and foreground dispatch', () => {
     jest.setSystemTime(Date.now() + 300_000);
     focused = true;
     owner.emit('focus');
-    await expect(pending).resolves.toEqual({ success: false, error: '' });
+    await expect(pending).resolves.toEqual({
+      success: false,
+      error: BIOLOGY_AUTH_ABORTED_ERROR,
+    });
     expect(child.postMessage).not.toHaveBeenCalled();
     expect(owner.listenerCount('focus')).toBe(0);
     expect(jest.getTimerCount()).toBe(0);
@@ -247,6 +292,85 @@ describe('Windows Hello owner and foreground dispatch', () => {
       'Windows Hello verification failed',
       'HRESULT 0x80004005',
     );
+  });
+
+  it('records sanitized utility diagnostics in the main logger only', async () => {
+    const logInfo = jest.spyOn(Logger, 'info');
+    const available = service.checkAvailabilityAsync();
+    child.emit('message', {
+      type: EWindowHelloEventType.CheckAvailabilityAsync,
+      result: false,
+      diagnostic: 'E_NOINTERFACE',
+    });
+    await expect(available).resolves.toBe(false);
+    expect(logInfo).toHaveBeenCalledWith(
+      'windowsHelloChildProcess-onMessage',
+      expect.objectContaining({ diagnostic: 'E_NOINTERFACE' }),
+    );
+    const pending = service.requestVerificationAsync('Unlock');
+    reply(false, '', undefined, 'retries_exhausted');
+    await expect(pending).resolves.toEqual({ success: false, error: '' });
+    expect(logInfo).toHaveBeenCalledWith(
+      'windowsHelloChildProcess-onMessage',
+      expect.objectContaining({ diagnostic: 'retries_exhausted' }),
+    );
+  });
+
+  it('retires a stalled utility and recovers only on a new explicit attempt', async () => {
+    const pending = service.requestVerificationAsync('Unlock');
+    const retiredChild = child;
+    jest.advanceTimersByTime(300_000);
+    await expect(pending).resolves.toEqual({
+      success: false,
+      error: BIOLOGY_AUTH_ABORTED_ERROR,
+    });
+    expect(retiredChild.kill).toHaveBeenCalledTimes(1);
+    expect(retiredChild.listenerCount('message')).toBe(1);
+    expect(retiredChild.listenerCount('exit')).toBe(1);
+    expect(owner.listenerCount('focus')).toBe(0);
+    expect(owner.listenerCount('closed')).toBe(0);
+    expect(jest.getTimerCount()).toBe(0);
+    owner.emit('focus');
+    expect(retiredChild.postMessage).toHaveBeenCalledTimes(1);
+    expect(jest.mocked(utilityProcess).fork).toHaveBeenCalledTimes(1);
+    child = Object.assign(new EventEmitter(), {
+      pid: 5678,
+      postMessage: jest.fn(),
+      kill: jest.fn(() => true),
+    });
+    jest
+      .mocked(utilityProcess)
+      .fork.mockReturnValue(
+        child as unknown as ReturnType<typeof utilityProcess.fork>,
+      );
+    const available = service.checkAvailabilityAsync();
+    retiredChild.emit('message', {
+      type: EWindowHelloEventType.CheckAvailabilityAsync,
+      result: false,
+    });
+    retiredChild.emit('exit', 1);
+    child.emit('message', {
+      type: EWindowHelloEventType.CheckAvailabilityAsync,
+      result: true,
+    });
+    await expect(available).resolves.toBe(true);
+    const next = service.requestVerificationAsync('Unlock');
+    reply(true);
+    await expect(next).resolves.toEqual({ success: true });
+    expect(jest.mocked(utilityProcess).fork).toHaveBeenCalledTimes(2);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('rejects an expired native success before delayed timers run after suspension', async () => {
+    const pending = service.requestVerificationAsync('Unlock');
+    jest.setSystemTime(Date.now() + 300_000);
+    reply(true);
+    await expect(pending).resolves.toEqual({
+      success: false,
+      error: BIOLOGY_AUTH_ABORTED_ERROR,
+    });
+    expect(child.kill).toHaveBeenCalledTimes(1);
+    expect(jest.getTimerCount()).toBe(0);
   });
 
   it('recovers a timed-out capability probe when its late result arrives', async () => {
@@ -326,6 +450,7 @@ describe('Windows Hello utility results', () => {
     expect(port.postMessage).toHaveBeenCalledWith({
       type: EWindowHelloEventType.CheckAvailabilityAsync,
       result: false,
+      diagnostic: 'E_NOINTERFACE',
     });
     expect(requestVerification).not.toHaveBeenCalled();
   });
@@ -364,12 +489,12 @@ describe('Windows Hello utility results', () => {
         success: false,
         error: result === 'canceled' ? 'user_cancel' : '',
       },
+      diagnostic: result === 'canceled' ? undefined : result,
     });
     expect(requestVerification).toHaveBeenCalledTimes(1);
   });
 
   it('settles native errors without retrying or authorizing', async () => {
-    const logInfo = jest.spyOn(Logger, 'info');
     jest
       .mocked(requestVerification)
       .mockRejectedValue(new Error('HRESULT error'));
@@ -377,13 +502,10 @@ describe('Windows Hello utility results', () => {
     expect(port.postMessage).toHaveBeenCalledWith({
       type: EWindowHelloEventType.RequestVerificationAsync,
       requestId: 'request-1',
-      result: { success: false, error: '' },
+      result: { success: false, error: BIOLOGY_AUTH_ABORTED_ERROR },
+      diagnostic: 'HRESULT error',
     });
     expect(requestVerification).toHaveBeenCalledTimes(1);
-    expect(logInfo).toHaveBeenCalledWith(
-      'Windows Hello verification failed',
-      expect.objectContaining({ message: 'HRESULT error' }),
-    );
   });
 });
 
@@ -407,8 +529,11 @@ describe('non-Windows service initialization', () => {
       jest.doMock('electron-windows-hello', loadHello);
       jest.isolateModules(() => {
         service = jest.requireActual('../service');
+        jest
+          .requireMock<{ utilityProcess: { fork: jest.Mock } }>('electron')
+          .utilityProcess.fork.mockReturnValue(new EventEmitter());
+        service.startServices();
       });
-      service.startServices();
       await expect(service.requestVerificationAsync('Unlock')).resolves.toEqual(
         {
           success: false,

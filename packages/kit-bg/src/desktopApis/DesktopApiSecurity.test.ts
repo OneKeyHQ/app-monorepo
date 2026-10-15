@@ -100,7 +100,7 @@ describe('DesktopApiSecurity Windows Hello', () => {
     expect(service.requestVerificationAsync).not.toHaveBeenCalled();
   });
 
-  it.each(['user_cancel', 'retries_exhausted'])(
+  it.each(['user_cancel', 'app_cancel', 'retries_exhausted'])(
     'returns %s without another verification request',
     async (error) => {
       const service = jest.requireMock<

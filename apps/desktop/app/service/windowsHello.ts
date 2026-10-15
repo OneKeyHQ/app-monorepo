@@ -1,4 +1,3 @@
-import Logger from 'electron-log/main';
 import {
   Availability,
   VerificationResult,
@@ -6,22 +5,30 @@ import {
   requestVerification,
 } from 'electron-windows-hello';
 
+import { BIOLOGY_AUTH_ABORTED_ERROR } from '@onekeyhq/shared/types/password';
+
 import { EWindowHelloEventType } from './enum';
 
 async function checkWindowsHelloAvailability(
-  callback: (result: boolean) => void,
+  callback: (result: boolean, diagnostic?: string) => void,
 ) {
   try {
-    callback((await checkAvailability()) === Availability.Available);
+    const availability = await checkAvailability();
+    callback(
+      availability === Availability.Available,
+      availability === Availability.Available ? undefined : availability,
+    );
   } catch (error) {
-    Logger.info('Windows Hello availability failed', error);
-    callback(false);
+    callback(false, error instanceof Error ? error.message : String(error));
   }
 }
 
 async function requestVerificationAsync(
   params: { message: string; windowHandle: number[] },
-  callback: (params: { success: boolean; error?: string }) => void,
+  callback: (
+    params: { success: boolean; error?: string },
+    diagnostic?: string,
+  ) => void,
 ) {
   try {
     const verification = await requestVerification({
@@ -31,21 +38,20 @@ async function requestVerificationAsync(
     if (verification === VerificationResult.Verified) {
       callback({ success: true });
     } else {
-      if (verification !== VerificationResult.Canceled) {
-        Logger.info('Windows Hello verification failed', verification);
-      }
-      callback({
-        success: false,
-        error:
-          verification === VerificationResult.Canceled ? 'user_cancel' : '',
-      });
+      callback(
+        {
+          success: false,
+          error:
+            verification === VerificationResult.Canceled ? 'user_cancel' : '',
+        },
+        verification === VerificationResult.Canceled ? undefined : verification,
+      );
     }
   } catch (error) {
-    Logger.info('Windows Hello verification failed', error);
-    callback({
-      success: false,
-      error: '',
-    });
+    callback(
+      { success: false, error: BIOLOGY_AUTH_ABORTED_ERROR },
+      error instanceof Error ? error.message : String(error),
+    );
   }
 }
 
@@ -61,21 +67,23 @@ process.parentPort.on(
   }) => {
     switch (e.data.type) {
       case EWindowHelloEventType.CheckAvailabilityAsync:
-        void checkWindowsHelloAvailability((result) => {
+        void checkWindowsHelloAvailability((result, diagnostic) => {
           process.parentPort.postMessage({
             type: EWindowHelloEventType.CheckAvailabilityAsync,
             result,
+            diagnostic,
           });
         });
         break;
       case EWindowHelloEventType.RequestVerificationAsync:
         void requestVerificationAsync(
           e.data.params as { message: string; windowHandle: number[] },
-          (result) => {
+          (result, diagnostic) => {
             process.parentPort.postMessage({
               type: EWindowHelloEventType.RequestVerificationAsync,
               requestId: e.data.requestId,
               result,
+              diagnostic,
             });
           },
         );

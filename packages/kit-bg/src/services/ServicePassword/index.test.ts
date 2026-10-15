@@ -3,6 +3,7 @@ import ServicePassword, { shouldUseV4MigrationPasswordForPrompt } from '.';
 import { encodeSensitiveTextAsync } from '@onekeyhq/core/src/secret';
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
+import { biologyAuthNativeError } from '@onekeyhq/shared/src/biologyAuth/error';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import { WrongPassword } from '@onekeyhq/shared/src/errors';
 import { checkBiometricAuthChanged } from '@onekeyhq/shared/src/modules3rdParty/check-biometric-auth-changed';
@@ -15,6 +16,7 @@ import {
 } from '@onekeyhq/shared/src/travelMode';
 import { ENCODE_TEXT_PREFIX } from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
 import {
+  BIOLOGY_AUTH_ABORTED_ERROR,
   EPasswordMode,
   EPasswordVerifyStatus,
 } from '@onekeyhq/shared/types/password';
@@ -130,6 +132,41 @@ describe('ServicePassword', () => {
           update,
         );
       });
+  });
+
+  it('preserves an interrupted Windows challenge without reading the stored password', async () => {
+    const originalPlatform = {
+      isDesktopWin: platformEnv.isDesktopWin,
+      isDesktopMac: platformEnv.isDesktopMac,
+      isNativeIOS: platformEnv.isNativeIOS,
+    };
+    Object.assign(platformEnv, {
+      isDesktopWin: true,
+      isDesktopMac: false,
+      isNativeIOS: false,
+    });
+    try {
+      const service = Object.create(
+        ServicePassword.prototype,
+      ) as ServicePassword;
+      jest
+        .spyOn(passwordBiologyAuthInfoAtom, 'get')
+        .mockResolvedValue({ authType: [], isSupport: true });
+      jest.spyOn(biologyAuthUtils, 'biologyAuthenticate').mockResolvedValue({
+        success: false,
+        error: BIOLOGY_AUTH_ABORTED_ERROR,
+        warning: BIOLOGY_AUTH_ABORTED_ERROR,
+      });
+      const getPassword = jest.spyOn(biologyAuthUtils, 'getPassword');
+      await expect(service.getBiologyAuthPassword()).rejects.toMatchObject({
+        name: BIOLOGY_AUTH_ABORTED_ERROR,
+        message: '',
+        cause: biologyAuthNativeError,
+      });
+      expect(getPassword).not.toHaveBeenCalled();
+    } finally {
+      Object.assign(platformEnv, originalPlatform);
+    }
   });
 
   it('never substitutes a migration password for a manual prompt', () => {
