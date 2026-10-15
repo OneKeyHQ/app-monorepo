@@ -352,16 +352,6 @@ function useOrderConfirmWithMarketDataFreshness({
           side === 'long'
             ? longCalculations.computedSizeForSide
             : shortCalculations.computedSizeForSide;
-        if (!twapSize.isFinite() || twapSize.lte(0)) {
-          Toast.error({
-            title: intl.formatMessage({ id: ETranslations.global_failed }),
-            message: intl.formatMessage(
-              { id: ETranslations.perp_twap_min_order_notional__msg },
-              { amount: TWAP_MIN_ORDER_NOTIONAL },
-            ),
-          });
-          return;
-        }
         if (!twapReferencePriceBN.isFinite() || twapReferencePriceBN.lte(0)) {
           Toast.error({
             title: intl.formatMessage({
@@ -379,37 +369,26 @@ function useOrderConfirmWithMarketDataFreshness({
           szDecimals,
           assetType: isSpotOrder ? 'spot' : 'perp',
         });
-        let triggerAbove: boolean | undefined;
-        if (rawTriggerPrice) {
-          if (!triggerPrice) {
-            Toast.error({
-              title: intl.formatMessage({ id: ETranslations.global_failed }),
-              message: intl.formatMessage({
-                id: ETranslations.perps_input_trigger_price,
-              }),
-            });
-            return;
-          }
-          triggerAbove = getTwapTriggerAbove({
-            triggerPrice,
-            markPrice: twapReferencePriceBN,
+        const triggerAbove = rawTriggerPrice
+          ? getTwapTriggerAbove({
+              triggerPrice: triggerPrice ?? '',
+              markPrice: twapReferencePriceBN,
+            })
+          : undefined;
+        if (rawTriggerPrice && typeof triggerAbove !== 'boolean') {
+          Toast.error({
+            title: intl.formatMessage({ id: ETranslations.global_failed }),
+            message:
+              triggerPrice &&
+              new BigNumber(triggerPrice).eq(twapReferencePriceBN)
+                ? intl.formatMessage({
+                    id: ETranslations.perps_trigger_price_equal_current,
+                  })
+                : intl.formatMessage({
+                    id: ETranslations.perps_input_trigger_price,
+                  }),
           });
-          if (typeof triggerAbove !== 'boolean') {
-            const triggerPriceBN = new BigNumber(triggerPrice);
-            Toast.error({
-              title: intl.formatMessage({ id: ETranslations.global_failed }),
-              message:
-                triggerPriceBN.isFinite() &&
-                triggerPriceBN.eq(twapReferencePriceBN)
-                  ? intl.formatMessage({
-                      id: ETranslations.perps_trigger_price_equal_current,
-                    })
-                  : intl.formatMessage({
-                      id: ETranslations.perps_input_trigger_price,
-                    }),
-            });
-            return;
-          }
+          return;
         }
         const rawStopPrice = formDataSnapshot.twapStopPrice?.trim();
         const stopPrice = formatTwapPriceForOrder({

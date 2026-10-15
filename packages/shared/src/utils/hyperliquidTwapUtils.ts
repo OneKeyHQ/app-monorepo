@@ -103,21 +103,6 @@ export function getActiveTwapRuntimeStatus({
     : 'activated';
 }
 
-export function getTwapTriggerReferencePrice({
-  isSpot,
-  midPrice,
-  markPrice,
-}: {
-  isSpot: boolean;
-  midPrice: BigNumber.Value;
-  markPrice?: BigNumber.Value;
-}): BigNumber {
-  if (isSpot) {
-    return new BigNumber(midPrice);
-  }
-  return new BigNumber(markPrice ?? '');
-}
-
 export function formatTwapPriceForDisplay(price?: string | null): string {
   const priceBN = new BigNumber(price ?? '');
   if (!priceBN.isFinite() || priceBN.lte(0)) {
@@ -184,16 +169,23 @@ export function isTwapTotalNotionalValid(params: {
 // Mirrors app.hyperliquid.xyz: one slice per 30s plus the opening slice,
 // raised to $10 per slice and capped at the whole order. Randomize and
 // catch-up after unfilled slices make actual slices differ.
-export function getTwapEstimatedSliceNotional({
+export function getTwapEstimatedSliceSize({
+  size,
+  midPrice,
+  szDecimals,
   durationMinutes,
-  ...params
 }: {
   size: BigNumber.Value;
-  price: BigNumber.Value;
+  midPrice: BigNumber.Value;
   szDecimals: number;
   durationMinutes: number;
 }): BigNumber | undefined {
-  const notionalBN = getTwapTruncatedNotional(params);
+  const midPriceBN = new BigNumber(midPrice);
+  const notionalBN = getTwapTruncatedNotional({
+    size,
+    price: midPriceBN,
+    szDecimals,
+  });
   if (!notionalBN || !isValidTwapDuration(durationMinutes)) {
     return undefined;
   }
@@ -206,33 +198,7 @@ export function getTwapEstimatedSliceNotional({
       notionalBN.dividedBy(sliceCount),
       TWAP_ESTIMATED_MIN_SLICE_NOTIONAL,
     ),
-  );
-}
-
-export function formatTwapEstimatedSliceNotional(
-  params: Parameters<typeof getTwapEstimatedSliceNotional>[0],
-): string | undefined {
-  const sliceNotionalBN = getTwapEstimatedSliceNotional(params);
-  if (!sliceNotionalBN) {
-    return undefined;
-  }
-  return `≈ ${numberFormat(sliceNotionalBN.toFixed(), {
-    formatter: 'balance',
-  })} USDC`;
-}
-
-export function getTwapEstimatedSliceSize({
-  midPrice,
-  ...params
-}: Omit<Parameters<typeof getTwapEstimatedSliceNotional>[0], 'price'> & {
-  midPrice: BigNumber.Value;
-}): BigNumber | undefined {
-  const midPriceBN = new BigNumber(midPrice);
-  const notionalBN = getTwapEstimatedSliceNotional({
-    ...params,
-    price: midPriceBN,
-  });
-  return notionalBN?.dividedBy(midPriceBN);
+  ).dividedBy(midPriceBN);
 }
 
 export function formatTwapEstimatedSliceSize({

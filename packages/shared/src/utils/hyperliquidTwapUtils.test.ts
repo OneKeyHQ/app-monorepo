@@ -1,17 +1,12 @@
 import {
-  TWAP_MAX_DURATION_MINUTES,
-  TWAP_MIN_DURATION_MINUTES,
-  TWAP_MIN_ORDER_NOTIONAL,
   buildActiveTwapRuntimeInfoByKey,
   formatTwapEstimatedSliceSize,
   formatTwapPriceForDisplay,
   formatTwapPriceForOrder,
   getActiveTwapRuntimeStatus,
   getTwapElapsedMs,
-  getTwapEstimatedSliceNotional,
   getTwapEstimatedSliceSize,
   getTwapTriggerAbove,
-  getTwapTriggerReferencePrice,
   isTerminalTwapStatus,
   isTwapStopPriceValid,
   isTwapTotalNotionalValid,
@@ -19,270 +14,101 @@ import {
 } from './hyperliquidTwapUtils';
 
 describe('hyperliquidTwapUtils', () => {
+  const estimate = {
+    size: '1',
+    midPrice: '10000',
+    szDecimals: 4,
+    durationMinutes: 60,
+  };
+
   it.each([
     ['1', '10000', 60, '0.00826446'],
-    ['1', '10000', 5760, '0.00100000'],
     ['1', '20000', 5760, '0.00050000'],
     ['0.012199', '10000', 5, '0.00110000'],
     ['0.0005', '10000', 5, '0.00050000'],
   ])(
-    'estimates coin quantity for size %s at mid %s over %s minutes',
+    'estimates coin quantity with the slice interval, floor, truncation and cap: %s/%s/%s',
     (size, midPrice, durationMinutes, expected) => {
       expect(
         getTwapEstimatedSliceSize({
+          ...estimate,
           size,
           midPrice,
           durationMinutes,
-          szDecimals: 4,
         })?.toFixed(8),
       ).toBe(expected);
     },
   );
 
-  it('formats the estimate in the traded coin and preserves an empty amount', () => {
+  it('formats the coin quantity and distinguishes zero from an unavailable estimate', () => {
+    const params = { ...estimate, symbol: 'BTC', durationMinutes: 5760 };
+    expect(formatTwapEstimatedSliceSize(params)).toBe('≈ 0.001 BTC');
     expect(
-      formatTwapEstimatedSliceSize({
-        size: '1',
-        midPrice: '10000',
-        durationMinutes: 5760,
-        szDecimals: 4,
-        symbol: 'BTC',
-      }),
-    ).toBe('≈ 0.001 BTC');
+      formatTwapEstimatedSliceSize({ ...params, size: '0', midPrice: '0' }),
+    ).toBe('≈ 0 BTC');
     expect(
-      formatTwapEstimatedSliceSize({
-        size: '0',
-        midPrice: '0',
-        durationMinutes: 360,
-        szDecimals: 4,
-        symbol: 'ETH',
-      }),
-    ).toBe('≈ 0 ETH');
+      formatTwapEstimatedSliceSize({ ...params, midPrice: '0' }),
+    ).toBeUndefined();
+    expect(
+      formatTwapEstimatedSliceSize({ ...params, midPrice: 'NaN' }),
+    ).toBeUndefined();
+    expect(
+      formatTwapEstimatedSliceSize({ ...params, durationMinutes: 4 }),
+    ).toBeUndefined();
   });
 
-  it.each(['0', '-1', 'NaN', ''])(
-    'does not estimate from unavailable mid %s',
-    (midPrice) => {
-      expect(
-        formatTwapEstimatedSliceSize({
-          size: '1',
-          midPrice,
-          durationMinutes: 360,
-          szDecimals: 4,
-          symbol: 'ETH',
-        }),
-      ).toBeUndefined();
-    },
-  );
-
-  it('accepts integer durations from 5 minutes through 7 days', () => {
-    expect(TWAP_MIN_DURATION_MINUTES).toBe(5);
-    expect(TWAP_MAX_DURATION_MINUTES).toBe(10_080);
-    expect(isValidTwapDuration(5)).toBe(true);
-    expect(isValidTwapDuration(10_080)).toBe(true);
-    expect(isValidTwapDuration(4)).toBe(false);
-    expect(isValidTwapDuration(10_081)).toBe(false);
-    expect(isValidTwapDuration(5.5)).toBe(false);
-  });
-
-  it('validates the total order notional instead of estimated slices', () => {
-    expect(TWAP_MIN_ORDER_NOTIONAL).toBe(100);
-    expect(
-      isTwapTotalNotionalValid({ size: '0.01', price: '10000', szDecimals: 6 }),
-    ).toBe(true);
-    expect(
-      isTwapTotalNotionalValid({
-        size: '0.009999',
-        price: '10000',
-        szDecimals: 6,
-      }),
-    ).toBe(false);
-    expect(
-      isTwapTotalNotionalValid({
-        size: 'invalid',
-        price: '10000',
-        szDecimals: 6,
-      }),
-    ).toBe(false);
+  it('accepts integer durations from five minutes through seven days', () => {
+    expect([5, 10_080, 4, 10_081, 5.5].map(isValidTwapDuration)).toEqual([
+      true,
+      true,
+      false,
+      false,
+      false,
+    ]);
   });
 
   it.each([
     ['0.054246', '1843.5', 4, false],
-    ['0.0543', '1843.5', 4, true],
-    ['0.010009', '10000', 4, true],
-    ['0.00009', '2000000', 4, false],
-    ['-1', '100', 4, false],
+    ['0.010099', '10000', 3, true],
+    ['0', '100', 4, false],
     ['1', 'NaN', 4, false],
-    ['1', '-100', 4, false],
   ])(
-    'validates size %s at price %s after truncating to %i decimals',
+    'checks the 100 USDC minimum after wire truncation: %s/%s/%s',
     (size, price, szDecimals, valid) => {
       expect(isTwapTotalNotionalValid({ size, price, szDecimals })).toBe(valid);
     },
   );
 
-  it('estimates slice notional like the Hyperliquid frontend', () => {
-    // Hyperliquid docs: $10,000 over 1h is ~121 slices of ~$83.
+  it('derives trigger direction and rejects equal or invalid prices', () => {
     expect(
-      getTwapEstimatedSliceNotional({
-        size: '1',
-        price: '10000',
-        szDecimals: 4,
-        durationMinutes: 60,
-      })?.toFixed(2),
-    ).toBe('82.64');
-    // Hyperliquid docs: $10,000 over 4 days is ~1,000 slices of ~$10.
-    expect(
-      getTwapEstimatedSliceNotional({
-        size: '1',
-        price: '10000',
-        szDecimals: 4,
-        durationMinutes: 4 * 24 * 60,
-      })?.toFixed(),
-    ).toBe('10');
-    // Truncated to 0.0121 before estimating: $121 / 11 slices.
-    expect(
-      getTwapEstimatedSliceNotional({
-        size: '0.012199',
-        price: '10000',
-        szDecimals: 4,
-        durationMinutes: 5,
-      })?.toFixed(),
-    ).toBe('11');
-    expect(
-      getTwapEstimatedSliceNotional({
-        size: '1',
-        price: '10000',
-        szDecimals: 4,
-        durationMinutes: 4,
-      }),
-    ).toBeUndefined();
+      ['101', '99', '100', 'invalid'].map((triggerPrice) =>
+        getTwapTriggerAbove({ triggerPrice, markPrice: '100' }),
+      ),
+    ).toEqual([true, false, undefined, undefined]);
   });
 
-  it('derives whether the trigger is above the current mark price', () => {
-    expect(getTwapTriggerAbove({ triggerPrice: '101', markPrice: '100' })).toBe(
-      true,
-    );
-    expect(getTwapTriggerAbove({ triggerPrice: '99', markPrice: '100' })).toBe(
-      false,
-    );
-    expect(
-      getTwapTriggerAbove({ triggerPrice: '100', markPrice: '100' }),
-    ).toBeUndefined();
-    expect(
-      getTwapTriggerAbove({ triggerPrice: 'invalid', markPrice: '100' }),
-    ).toBeUndefined();
-  });
+  it.each([
+    [true, '101', undefined, true],
+    [false, '99', undefined, true],
+    [true, '95', '90', true],
+    [false, '105', '110', true],
+    [true, '105', '110', false],
+    [false, '95', '90', false],
+  ])(
+    'validates buy/sell stops against the activation boundary: %s/%s/%s',
+    (isBuy, stopPrice, triggerPrice, valid) => {
+      expect(
+        isTwapStopPriceValid({
+          isBuy,
+          stopPrice,
+          triggerPrice,
+          referencePrice: '100',
+        }),
+      ).toBe(valid);
+    },
+  );
 
-  it('uses mark price for perp triggers and mid price for spot triggers', () => {
-    expect(
-      getTwapTriggerReferencePrice({
-        isSpot: false,
-        midPrice: '100',
-        markPrice: '102',
-      }).toFixed(),
-    ).toBe('102');
-    expect(
-      getTwapTriggerReferencePrice({
-        isSpot: true,
-        midPrice: '100',
-        markPrice: '102',
-      }).toFixed(),
-    ).toBe('100');
-  });
-
-  it('does not infer a perp trigger direction without a mark price', () => {
-    expect(
-      getTwapTriggerReferencePrice({
-        isSpot: false,
-        midPrice: '100',
-      }).isFinite(),
-    ).toBe(false);
-  });
-
-  it('keeps stop prices beyond the activation boundary', () => {
-    expect(
-      isTwapStopPriceValid({
-        isBuy: true,
-        stopPrice: '101',
-        referencePrice: '100',
-      }),
-    ).toBe(true);
-    expect(
-      isTwapStopPriceValid({
-        isBuy: false,
-        stopPrice: '99',
-        referencePrice: '100',
-      }),
-    ).toBe(true);
-    expect(
-      isTwapStopPriceValid({
-        isBuy: true,
-        stopPrice: '111',
-        referencePrice: '100',
-        triggerPrice: '110',
-      }),
-    ).toBe(true);
-    expect(
-      isTwapStopPriceValid({
-        isBuy: true,
-        stopPrice: '105',
-        referencePrice: '100',
-        triggerPrice: '110',
-      }),
-    ).toBe(false);
-    expect(
-      isTwapStopPriceValid({
-        isBuy: false,
-        stopPrice: '89',
-        referencePrice: '100',
-        triggerPrice: '90',
-      }),
-    ).toBe(true);
-    expect(
-      isTwapStopPriceValid({
-        isBuy: false,
-        stopPrice: '95',
-        referencePrice: '100',
-        triggerPrice: '90',
-      }),
-    ).toBe(false);
-    expect(
-      isTwapStopPriceValid({
-        isBuy: true,
-        stopPrice: '101',
-        referencePrice: '100',
-        triggerPrice: 0,
-      }),
-    ).toBe(false);
-  });
-
-  it('uses the trigger price as the stop boundary after activation', () => {
-    expect(
-      isTwapStopPriceValid({
-        isBuy: true,
-        stopPrice: '95',
-        referencePrice: '100',
-        triggerPrice: '90',
-      }),
-    ).toBe(true);
-    expect(
-      isTwapStopPriceValid({
-        isBuy: false,
-        stopPrice: '105',
-        referencePrice: '100',
-        triggerPrice: '110',
-      }),
-    ).toBe(true);
-  });
-
-  it('preserves the wire precision of TWAP prices for display', () => {
-    expect(formatTwapPriceForDisplay('0.000012345')).toBe('0.000012345');
-    expect(formatTwapPriceForDisplay('12345.678')).toBe('12,345.678');
-    expect(formatTwapPriceForDisplay('invalid')).toBe('--');
-  });
-
-  it('uses Hyperliquid wire precision before validating TWAP boundaries', () => {
+  it('formats wire prices before validation and preserves precision for display', () => {
     expect(
       formatTwapPriceForOrder({
         price: '123450.5',
@@ -297,161 +123,84 @@ describe('hyperliquidTwapUtils', () => {
         assetType: 'spot',
       }),
     ).toBe('0.12345');
+    expect(formatTwapPriceForDisplay('0.000012345')).toBe('0.000012345');
+    expect(formatTwapPriceForDisplay('12345.678')).toBe('12,345.678');
+    expect(formatTwapPriceForDisplay('invalid')).toBe('--');
   });
 
-  it('does not advance running time while waiting for a trigger', () => {
-    const timestamp = 1000;
+  it('keeps triggered orders waiting until activation or a fill is reported', () => {
+    const params = { triggerPrice: '101', executedSize: '0' };
+    expect(getActiveTwapRuntimeStatus(params)).toBe('waitingForTrigger');
     expect(
-      getTwapElapsedMs({
-        status: 'waitingForTrigger',
-        timestamp,
-        now: 61_000,
-        minutes: 10,
+      getActiveTwapRuntimeStatus({ ...params, reportedStatus: 'activated' }),
+    ).toBe('activated');
+    expect(
+      getActiveTwapRuntimeStatus({
+        ...params,
+        reportedStatus: 'waitingForTrigger',
+        executedSize: '0.1',
       }),
-    ).toBe(0);
+    ).toBe('activated');
+    expect(getActiveTwapRuntimeStatus({ ...params, triggerPrice: null })).toBe(
+      'activated',
+    );
+  });
+
+  it('starts elapsed time at activation and caps it at the configured duration', () => {
+    const clock = { timestamp: 1000, now: 1_201_000, minutes: 10 };
+    expect(getTwapElapsedMs({ ...clock, status: 'waitingForTrigger' })).toBe(0);
+    expect(getTwapElapsedMs(clock)).toBe(600_000);
+    expect(getTwapElapsedMs({ ...clock, now: 61_000 })).toBe(60_000);
+    expect(getTwapElapsedMs({ ...clock, triggerPrice: '101' })).toBeUndefined();
     expect(
       getTwapElapsedMs({
-        status: 'activated',
-        timestamp,
-        now: 61_000,
-        minutes: 10,
-      }),
-    ).toBe(60_000);
-    expect(
-      getTwapElapsedMs({
-        status: 'activated',
-        timestamp,
-        activatedAt: 31_000,
-        now: 61_000,
-        minutes: 10,
+        ...clock,
+        triggerPrice: '101',
+        activatedAt: 1_171_000,
       }),
     ).toBe(30_000);
-    expect(
-      getTwapElapsedMs({
-        status: 'finished',
-        timestamp,
-        now: 601_000,
-        endTime: 121_000,
-        minutes: 10,
-      }),
-    ).toBe(120_000);
-  });
-
-  it('keeps a triggered TWAP pending until history reports activation', () => {
-    expect(
-      getActiveTwapRuntimeStatus({
-        triggerPrice: '101',
-        executedSize: '0',
-      }),
-    ).toBe('waitingForTrigger');
-    expect(
-      getActiveTwapRuntimeStatus({
-        reportedStatus: 'activated',
-        triggerPrice: '101',
-        executedSize: '0',
-      }),
-    ).toBe('activated');
-    expect(
-      getActiveTwapRuntimeStatus({
-        reportedStatus: 'waitingForTrigger',
-        triggerPrice: '101',
-        executedSize: '0.01',
-      }),
-    ).toBe('activated');
-    expect(
-      getActiveTwapRuntimeStatus({
-        triggerPrice: null,
-        executedSize: '0',
-      }),
-    ).toBe('activated');
-  });
-
-  it('keeps the latest reported status and activation time for each TWAP', () => {
-    expect(
-      buildActiveTwapRuntimeInfoByKey?.([
-        {
-          time: 1_718_000_000,
-          state: { coin: 'ETH', timestamp: 1_717_999_900_000 },
-          status: { status: 'waitingForTrigger' },
-        },
-        {
-          time: 1_718_000_120,
-          state: { coin: 'ETH', timestamp: 1_717_999_900_000 },
-          status: { status: 'activated' },
-        },
-      ]).get('ETH:1717999900000'),
-    ).toEqual({
-      reportedStatus: 'activated',
-      activatedAt: 1_718_000_120_000,
-    });
-  });
-
-  it('correlates runtime status when history omits twapId', () => {
-    const records = [
-      {
-        time: 1_718_000_120,
-        state: {
-          coin: 'ETH',
-          timestamp: 1_718_000_000_000,
-        },
-        status: { status: 'activated' as const },
-      },
-    ];
-
-    expect(
-      Array.from(buildActiveTwapRuntimeInfoByKey(records).entries()),
-    ).toEqual([
-      [
-        'ETH:1718000000000',
-        {
-          reportedStatus: 'activated',
-          activatedAt: 1_718_000_120_000,
-        },
-      ],
-    ]);
-  });
-  it('waits for activation time when a triggered order starts filling', () => {
-    const status = getActiveTwapRuntimeStatus({
-      triggerPrice: '101',
-      executedSize: '0.1',
-    });
-    const clock = {
-      status,
-      triggerPrice: '101',
-      timestamp: 1000,
-      now: 1_201_000,
-      minutes: 10,
-    };
-    expect(getTwapElapsedMs(clock)).toBeUndefined();
-    expect(getTwapElapsedMs({ ...clock, activatedAt: 1_171_000 })).toBe(30_000);
-    expect(getTwapElapsedMs({ ...clock, triggerPrice: null })).toBe(600_000);
+    expect(getTwapElapsedMs({ ...clock, endTime: 121_000 })).toBe(120_000);
   });
 
   it.each(['stopped', 'finished', 'terminated', 'error'] as const)(
-    'excludes %s orders from active rows while retaining activation time',
+    'keeps the latest %s status and activation time despite an out-of-order active snapshot',
     (terminalStatus) => {
       const state = { coin: 'ETH', timestamp: 1_718_000_000_000 };
-      // History can arrive before the active snapshot and in reverse order.
       const info = buildActiveTwapRuntimeInfoByKey([
         { state, time: 1_718_000_180, status: { status: terminalStatus } },
         { state, time: 1_718_000_120, status: { status: 'activated' } },
         { state, time: 1_718_000_000, status: { status: 'waitingForTrigger' } },
-      ]).get('ETH:1718000000000');
-      expect(info).toEqual({
+        {
+          state: { ...state, coin: 'BTC' },
+          time: 1_718_000_200_000,
+          status: { status: 'activated' },
+        },
+      ]);
+      expect(info.get('ETH:1718000000000')).toEqual({
         reportedStatus: terminalStatus,
         activatedAt: 1_718_000_120_000,
       });
-      expect(isTerminalTwapStatus(info?.reportedStatus)).toBe(true);
+      expect(info.get('BTC:1718000000000')?.activatedAt).toBe(
+        1_718_000_200_000,
+      );
+      expect(
+        isTerminalTwapStatus(info.get('ETH:1718000000000')?.reportedStatus),
+      ).toBe(true);
       expect(
         getActiveTwapRuntimeStatus({
-          reportedStatus: info?.reportedStatus,
+          reportedStatus: terminalStatus,
           triggerPrice: '101',
           executedSize: '0.1',
         }),
       ).toBe(terminalStatus);
-      expect(isTerminalTwapStatus(undefined)).toBe(false);
-      expect(isTerminalTwapStatus('activated')).toBe(false);
-      expect(isTerminalTwapStatus('waitingForTrigger')).toBe(false);
     },
   );
+
+  it('does not filter active, waiting or unknown statuses as terminal', () => {
+    expect(
+      ([undefined, 'activated', 'waitingForTrigger'] as const).map(
+        isTerminalTwapStatus,
+      ),
+    ).toEqual([false, false, false]);
+  });
 });

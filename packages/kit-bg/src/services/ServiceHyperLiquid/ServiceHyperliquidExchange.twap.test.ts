@@ -125,4 +125,23 @@ describe('ServiceHyperliquidExchange TWAP notional', () => {
     ).rejects.toThrow(ETranslations.target_market_data_changed__msg);
     expect(mockTwapOrder).not.toHaveBeenCalled();
   });
+
+  it('submits advanced details and rejects an invalid stop before calling the SDK', async () => {
+    const advanced = {
+      ...params,
+      size: '0.0543',
+      triggerPrice: '1900',
+      triggerAbove: true,
+      stopPrice: '2000',
+    };
+    await service.placeTwapOrder(advanced);
+    expect(mockTwapOrder).toHaveBeenCalledWith({
+      twap: { a: 1, b: true, s: '0.0543', r: false, m: 5, t: false },
+      details: { t: { p: '1900', a: true }, s: '2000' },
+    });
+    await expect(
+      service.placeTwapOrder({ ...advanced, stopPrice: '1800' }),
+    ).rejects.toThrow();
+    expect(mockTwapOrder).toHaveBeenCalledTimes(1);
+  });
 });

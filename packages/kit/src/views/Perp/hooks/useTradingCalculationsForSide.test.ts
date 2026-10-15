@@ -11,6 +11,7 @@ import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotai
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useTradingCalculationsForSide } from './useTradingCalculationsForSide';
+import { useTwapReferencePrice } from './useTwapReferencePrice';
 
 const mockFormData = {
   orderMode: 'twap' as 'twap' | 'standard',
@@ -20,26 +21,25 @@ const mockFormData = {
   scaleReduceOnly: false,
   twapReduceOnly: false,
 };
-let mockActiveAssetData:
-  | { leverage: { value: number }; markPx: string }
-  | undefined;
+let mockInstrumentMode: 'perp' | 'spot' = 'perp';
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
-  useActiveTradeInstrumentAtom: () => [{ coin: 'ETH', mode: 'perp' }],
+  useActiveTradeInstrumentAtom: () => [
+    { coin: 'ETH', mode: mockInstrumentMode },
+  ],
   useTradingFormCalculationParams: () => mockFormData,
 }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  ...jest.requireActual<
+    typeof import('@onekeyhq/kit-bg/src/states/jotai/atoms/perps')
+  >('@onekeyhq/kit-bg/src/states/jotai/atoms/perps'),
   usePerpsActiveAssetAtom: () => [
     {
       coin: 'ETH',
       universe: { maxLeverage: 20, szDecimals: 4 },
     },
   ],
-  usePerpsTwapMarkPrice: jest.requireActual<
-    typeof import('@onekeyhq/kit-bg/src/states/jotai/atoms/perps')
-  >('@onekeyhq/kit-bg/src/states/jotai/atoms/perps').usePerpsTwapMarkPrice,
-  usePerpsActiveAssetDataAtom: () => [mockActiveAssetData],
   useSpotBalancesAtom: () => [{ balances: [] }],
 }));
 
@@ -80,7 +80,6 @@ function setMarketContext(markPrice: string | undefined, fundingRate = '0') {
 }
 
 function setAccountMarkPrice() {
-  mockActiveAssetData = { leverage: { value: 2 }, markPx: '100' };
   jotaiDefaultStore.set(perpsActiveAssetDataAtom.atom(), {
     accountAddress: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     coin: 'ETH',
@@ -95,8 +94,8 @@ function setAccountMarkPrice() {
 describe('useTradingCalculationsForSide', () => {
   beforeEach(() => {
     mockFormData.orderMode = 'twap';
+    mockInstrumentMode = 'perp';
     setMarketContext('100');
-    mockActiveAssetData = undefined;
     jotaiDefaultStore.set(perpsActiveAssetDataAtom.atom(), undefined);
   });
 
@@ -105,6 +104,7 @@ describe('useTradingCalculationsForSide', () => {
 
     expect(result.current.computedSizeForSide.toFixed()).toBe('2');
     expect(result.current.orderValue.toFixed()).toBe('200');
+    expect(result.current.isNoEnoughMargin).toBe(false);
   });
 
   it('uses the account mark for all TWAP calculations while market context is loading', () => {
@@ -136,18 +136,35 @@ describe('useTradingCalculationsForSide', () => {
       return useTradingCalculationsForSide('long');
     });
     const initialRenders = renders;
-    for (let i = 1; i <= 20; i += 1) {
-      act(() => setMarketContext(String(100 + i), String(i)));
-    }
+    act(() => setMarketContext('101', '0.01'));
     expect(renders).toBe(initialRenders);
   });
 
-  it('does not report insufficient margin while account data is still loading', () => {
-    setMarketContext('100');
-    mockActiveAssetData = undefined;
-
-    const { result } = renderHook(() => useTradingCalculationsForSide('long'));
-
-    expect(result.current.isNoEnoughMargin).toBe(false);
+  it('uses spot mid and subscribes to the perp mark only while TWAP is enabled', () => {
+    mockInstrumentMode = 'spot';
+    let renders = 0;
+    const { result, rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) => {
+        renders += 1;
+        return useTwapReferencePrice({
+          midPriceBN: new BigNumber(95),
+          enabled,
+        });
+      },
+      { initialProps: { enabled: false } },
+    );
+    expect(result.current.toFixed()).toBe('95');
+    mockInstrumentMode = 'perp';
+    rerender({ enabled: false });
+    expect(result.current.isFinite()).toBe(false);
+    rerender({ enabled: true });
+    act(() => setMarketContext('102'));
+    expect(result.current.toFixed()).toBe('102');
+    act(() => setMarketContext(undefined));
+    expect(result.current.isFinite()).toBe(false);
+    rerender({ enabled: false });
+    const stoppedRenders = renders;
+    act(() => setMarketContext('103'));
+    expect(renders).toBe(stoppedRenders);
   });
 });

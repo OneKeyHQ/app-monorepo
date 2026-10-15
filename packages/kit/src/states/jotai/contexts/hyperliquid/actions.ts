@@ -59,10 +59,6 @@ import {
   TWAP_MAX_DURATION_MINUTES,
   TWAP_MIN_DURATION_MINUTES,
   TWAP_MIN_ORDER_NOTIONAL,
-  formatTwapPriceForOrder,
-  getTwapTriggerAbove,
-  getTwapTriggerReferencePrice,
-  isTwapStopPriceValid,
   isTwapTotalNotionalValid,
   isValidTwapDuration,
 } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
@@ -2936,15 +2932,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               );
             }
 
-            const markPriceBN = getTwapTriggerReferencePrice({
-              isSpot,
-              midPrice: params.price ?? env.markPrice ?? '',
-              markPrice:
-                activeAssetCtxValue?.ctx?.markPrice ??
-                activeAssetDataValue?.markPx ??
-                env.markPrice ??
-                '',
-            });
+            const markPriceBN = new BigNumber(
+              isSpot
+                ? (params.price ?? env.markPrice ?? '')
+                : (activeAssetCtxValue?.ctx?.markPrice ??
+                    activeAssetDataValue?.markPx ??
+                    env.markPrice ??
+                    ''),
+            );
             if (!markPriceBN.isFinite() || markPriceBN.lte(0)) {
               throw new OneKeyLocalError(
                 'Market price unavailable, please try again',
@@ -2956,59 +2951,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                 env.szDecimals ??
                 2)
               : (activeAssetValue?.universe?.szDecimals ?? env.szDecimals ?? 2);
-            const rawTriggerPrice = formData.twapTriggerPrice?.trim();
-            const triggerPrice = formatTwapPriceForOrder({
-              price: rawTriggerPrice,
-              szDecimals,
-              assetType: isSpot ? 'spot' : 'perp',
-            });
-            const rawStopPrice = formData.twapStopPrice?.trim();
-            const stopPrice = formatTwapPriceForOrder({
-              price: rawStopPrice,
-              szDecimals,
-              assetType: isSpot ? 'spot' : 'perp',
-            });
-            let triggerAbove: boolean | undefined;
-            if (rawTriggerPrice && !triggerPrice) {
-              throw new OneKeyLocalError(
-                'TWAP trigger price is too small for HL tick size',
-              );
-            }
-            if (triggerPrice) {
-              // Submit the confirmed direction; BG rejects it if the mark crossed.
-              triggerAbove =
-                params.triggerAbove ??
-                getTwapTriggerAbove({
-                  triggerPrice,
-                  markPrice: markPriceBN,
-                });
-              if (typeof triggerAbove !== 'boolean') {
-                throw new OneKeyLocalError(
-                  'TWAP trigger price must be positive and differ from the market price',
-                );
-              }
-            }
-            if (rawStopPrice && !stopPrice) {
-              throw new OneKeyLocalError(
-                'TWAP stop price is too small for HL tick size',
-              );
-            }
-            if (
-              stopPrice &&
-              !isTwapStopPriceValid({
-                isBuy: formData.side === 'long',
-                stopPrice,
-                referencePrice: markPriceBN,
-                triggerPrice,
-              })
-            ) {
-              throw new OneKeyLocalError(
-                formData.side === 'long'
-                  ? 'TWAP maximum price must be above the market and trigger price'
-                  : 'TWAP minimum price must be below the market and trigger price',
-              );
-            }
-
             const resolvedSize = resolveTradingSize({
               sizeInputMode: formData.sizeInputMode,
               manualSize: formData.size,
@@ -3084,9 +3026,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                   reduceOnly,
                   minutes,
                   randomize: formData.twapRandomize ?? true,
-                  triggerPrice,
-                  triggerAbove,
-                  stopPrice,
+                  triggerPrice: formData.twapTriggerPrice?.trim(),
+                  triggerAbove: params.triggerAbove,
+                  stopPrice: formData.twapStopPrice?.trim(),
                   referencePrice: markPriceBN.toFixed(),
                   szDecimals,
                 },
