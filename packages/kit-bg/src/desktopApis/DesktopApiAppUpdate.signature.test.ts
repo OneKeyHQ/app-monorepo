@@ -3,6 +3,11 @@ import path from 'path';
 
 import { generateKey } from 'openpgp';
 
+import {
+  EUpdateErrorCode,
+  UPDATE_ERROR_WIRE_PREFIX,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
+
 import DesktopApiAppUpdate from './DesktopApiAppUpdate';
 
 import type { IDesktopApi } from './base/types';
@@ -53,6 +58,10 @@ const fixture = fs.readFileSync(
 );
 const checksum =
   '8fb41055fafa2b19b90a50a2e177df30c9a88753c87932f5344025280c0f76fd';
+const integrityError = {
+  code: EUpdateErrorCode.integrityFailed,
+  step: 'verifyASC',
+};
 let api: DesktopApiAppUpdate;
 beforeEach(() => {
   mockASC = fixture;
@@ -66,17 +75,24 @@ test('verifies a real app-shell checksum signature with the production public ke
     checksum,
   );
   expect(await api.getSha256('OneKey-Wallet-6.5.0-mac-arm64.zip')).toBe('');
-  expect(await api.verifyASC()).toBe(true);
+  // An ASC alone is not a prepared package for the public verifyASC operation.
+  expect(await api.verifyASC()).toBe(false);
 });
 
 test('rejects a changed signed checksum', async () => {
   mockASC = fixture.replace(checksum, `0${checksum.slice(1)}`);
-  await expect(api.getSha256()).rejects.toThrow('Invalid update signature');
+  await expect(api.getSha256()).rejects.toMatchObject({
+    message: `${UPDATE_ERROR_WIRE_PREFIX}${JSON.stringify(integrityError)}`,
+    data: { updateError: integrityError },
+  });
 });
 
 test('rejects a changed armored signature', async () => {
   mockASC = fixture.replace('iQJeBAEBCABIFiEE', 'jQJeBAEBCABIFiEE');
-  await expect(api.verifyASC()).rejects.toThrow('Invalid update signature');
+  await expect(api.getSha256()).rejects.toMatchObject({
+    message: `${UPDATE_ERROR_WIRE_PREFIX}${JSON.stringify(integrityError)}`,
+    data: { updateError: integrityError },
+  });
 });
 
 test('rejects the real release signature under an unrelated public key', async () => {
@@ -87,5 +103,8 @@ test('rejects the real release signature under an unrelated public key', async (
     format: 'armored',
   });
   mockPublicKey = key.publicKey;
-  await expect(api.getSha256()).rejects.toThrow('Invalid update signature');
+  await expect(api.getSha256()).rejects.toMatchObject({
+    message: `${UPDATE_ERROR_WIRE_PREFIX}${JSON.stringify(integrityError)}`,
+    data: { updateError: integrityError },
+  });
 });

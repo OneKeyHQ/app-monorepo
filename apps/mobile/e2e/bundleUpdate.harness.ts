@@ -14,8 +14,21 @@ import { ReactNativeBundleUpdate as BundleUpdateModule } from '@onekeyfe/react-n
 import { describe, expect, test } from 'react-native-harness';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EUpdateErrorCode,
+  type TUpdateErrorStep,
+  getUpdateError,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 import mmkvDevSettingStorageInstance from '@onekeyhq/shared/src/storage/instance/mmkvDevSettingStorageInstance';
 import { EDevSettingSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
+
+function expectNativeUpdateError(
+  error: unknown,
+  step: TUpdateErrorStep,
+  code: EUpdateErrorCode,
+) {
+  expect(getUpdateError(error, step)).toEqual({ code, step });
+}
 
 // ---- Helpers ----
 
@@ -25,24 +38,6 @@ const RNFS = // eslint-disable-next-line @typescript-eslint/no-var-requires
 async function writeTestFile(filePath: string, content: string): Promise<void> {
   if (!RNFS) throw new OneKeyLocalError('RNFS unavailable');
   await RNFS.writeFile(filePath, content, 'utf8');
-}
-
-async function deleteIfExists(filePath: string): Promise<void> {
-  if (!RNFS) return;
-  const exists = await RNFS.exists(filePath);
-  if (exists) {
-    await RNFS.unlink(filePath);
-  }
-}
-
-async function getTempDir(): Promise<string> {
-  if (!RNFS) throw new OneKeyLocalError('RNFS unavailable');
-  const dir = `${RNFS.CachesDirectoryPath}/bundleUpdateTest`;
-  const exists = await RNFS.exists(dir);
-  if (!exists) {
-    await RNFS.mkdir(dir);
-  }
-  return dir;
 }
 
 const TEST_MAIN_BUNDLE_FILE = 'main.jsbundle.hbc';
@@ -368,7 +363,7 @@ describe('downloadBundle parameter validation', () => {
       // Should not reach here
       expect(true).toBe(false);
     } catch (e: any) {
-      expect(e.message || e.code || e).toBeTruthy();
+      expectNativeUpdateError(e, 'download', EUpdateErrorCode.invalidArgument);
     }
   });
 
@@ -383,8 +378,7 @@ describe('downloadBundle parameter validation', () => {
       });
       expect(true).toBe(false);
     } catch (e: any) {
-      const msg = String(e.message || e);
-      expect(msg).toMatch(/HTTPS/i);
+      expectNativeUpdateError(e, 'download', EUpdateErrorCode.securityRejected);
     }
   });
 });
@@ -393,27 +387,34 @@ describe('downloadBundle parameter validation', () => {
 // verifyBundle - Parameter validation
 // ---------------------------------------------------------------------------
 describe('verifyBundle parameter validation', () => {
-  test('rejects with missing filePath and sha256', async () => {
+  test('rejects with missing release identity and sha256', async () => {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await BundleUpdateModule.verifyBundle({} as any);
       expect(true).toBe(false);
     } catch (e: any) {
-      expect(e.message || e.code || e).toBeTruthy();
+      expectNativeUpdateError(
+        e,
+        'verifyPackage',
+        EUpdateErrorCode.invalidArgument,
+      );
     }
   });
 
-  test('rejects with non-existent file path', async () => {
+  test('rejects when the managed bundle ZIP is missing', async () => {
     try {
       await BundleUpdateModule.verifyBundle({
-        downloadedFile: '/non/existent/bundle.zip',
         sha256: 'abc123',
-        latestVersion: '1.0.0',
-        bundleVersion: '1',
+        latestVersion: '999.999.999',
+        bundleVersion: '99999999',
       });
       expect(true).toBe(false);
     } catch (e: any) {
-      expect(e.message || e.code || e).toBeTruthy();
+      expectNativeUpdateError(
+        e,
+        'verifyPackage',
+        EUpdateErrorCode.packageMissing,
+      );
     }
   });
 });
@@ -428,28 +429,22 @@ describe('verifyBundleASC parameter validation', () => {
       await BundleUpdateModule.verifyBundleASC({} as any);
       expect(true).toBe(false);
     } catch (e: any) {
-      expect(e.message || e.code || e).toBeTruthy();
+      expectNativeUpdateError(e, 'verifyASC', EUpdateErrorCode.invalidArgument);
     }
   });
 
-  test('rejects with wrong SHA256 for existing file', async () => {
-    const dir = await getTempDir();
-    const filePath = `${dir}/fake-bundle.zip`;
-    await writeTestFile(filePath, 'not a real zip');
+  test('rejects when the managed bundle ZIP is missing', async () => {
     try {
       await BundleUpdateModule.verifyBundleASC({
-        downloadedFile: filePath,
         sha256: 'wrong_hash_value',
-        latestVersion: '1.0.0',
-        bundleVersion: '999',
+        latestVersion: '999.999.999',
+        bundleVersion: '99999999',
         signature: 'invalid_signature',
       });
       expect(true).toBe(false);
     } catch (e: any) {
-      const msg = String(e.message || e);
-      expect(msg.length).toBeGreaterThan(0);
+      expectNativeUpdateError(e, 'verifyASC', EUpdateErrorCode.packageMissing);
     }
-    await deleteIfExists(filePath);
   });
 });
 
@@ -463,7 +458,11 @@ describe('downloadBundleASC parameter validation', () => {
       await BundleUpdateModule.downloadBundleASC({} as any);
       expect(true).toBe(false);
     } catch (e: any) {
-      expect(e.message || e.code || e).toBeTruthy();
+      expectNativeUpdateError(
+        e,
+        'downloadASC',
+        EUpdateErrorCode.invalidArgument,
+      );
     }
   });
 });
@@ -478,7 +477,7 @@ describe('installBundle parameter validation', () => {
       await BundleUpdateModule.installBundle({} as any);
       expect(true).toBe(false);
     } catch (e: any) {
-      expect(e.message || e.code || e).toBeTruthy();
+      expectNativeUpdateError(e, 'install', EUpdateErrorCode.invalidArgument);
     }
   });
 });

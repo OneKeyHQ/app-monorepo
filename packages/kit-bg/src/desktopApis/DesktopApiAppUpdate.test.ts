@@ -7,10 +7,8 @@ import path from 'path';
 import { PassThrough } from 'stream';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import {
-  EAppUpdatePackageAvailabilityStatus,
-  EAppUpdatePackageErrorCode,
-} from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
+import { UPDATE_ERROR_WIRE_PREFIX } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
+import { EAppUpdatePackageAvailabilityStatus } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 
 const mockPackage = Buffer.from('verified desktop package');
 const mockSha512 = crypto
@@ -77,6 +75,9 @@ jest.mock('child_process', () => ({
 }));
 jest.mock('./nodeDownload', () => ({
   downloadNodeFile: mockDownloadNodeFile,
+  classifyNodeError:
+    jest.requireActual<typeof import('./nodeDownload')>('./nodeDownload')
+      .classifyNodeError,
   stripSensitiveHeaders:
     jest.requireActual<typeof import('./nodeDownload')>('./nodeDownload')
       .stripSensitiveHeaders,
@@ -221,14 +222,18 @@ async function preparePackage(platform: NodeJS.Platform, channel?: string) {
     '6.0.0',
   );
   await api.downloadUpdate();
-  if (!artifact || !api.downloadedEvent?.downloadedFile)
+  const file = (
+    api as unknown as {
+      readRecord: () => { downloadedFile: string } | undefined;
+    }
+  ).readRecord()?.downloadedFile;
+  if (!artifact || !file || !api.downloadedEvent?.downloadUrl)
     throw new OneKeyLocalError('package not prepared');
   return {
     api,
-    file: api.downloadedEvent.downloadedFile,
+    file,
     params: {
       buildNumber: '123',
-      downloadedFile: api.downloadedEvent.downloadedFile,
       downloadUrl: artifact.url,
       latestVersion: '6.0.0',
       skipGPGVerification: true,
@@ -374,7 +379,7 @@ test('Linux x64 rejects feeds without a matching architecture', async () => {
     feed('6.6.1', ['OneKey-Wallet-6.6.1-linux-arm64.AppImage']),
   );
   await expect(api.checkForUpdates(false, {}, '6.6.1')).rejects.toThrow(
-    'App update feed artifact missing or ambiguous',
+    '"code":"PACKAGE_MISSING"',
   );
   expect(mockDownloadNodeFile).not.toHaveBeenCalled();
 });
@@ -388,27 +393,33 @@ test('Linux x64 rejects ambiguous matching AppImages', async () => {
     ]),
   );
   await expect(api.checkForUpdates(false, {}, '6.6.1')).rejects.toThrow(
-    'App update feed artifact is ambiguous',
+    '"code":"INVALID_ARGUMENT"',
   );
   expect(mockDownloadNodeFile).not.toHaveBeenCalled();
 });
 
-test('reuses a verified cache and rejects a renderer-supplied path or corrupt bytes', async () => {
+test('reuses a verified cache and rejects a mismatched release identity or corrupt bytes', async () => {
   const { api, file, params } = await preparePackage('darwin');
-  expect(await api.getDownloadedFileAvailability(file)).toEqual({
+  expect(await api.getDownloadedFileAvailability(params)).toEqual({
     status: EAppUpdatePackageAvailabilityStatus.available,
   });
   expect(
-    await api.checkDownloadedFileExists(path.join(mockTempDir, 'other.zip')),
+    await api.checkDownloadedFileExists({
+      latestVersion: params.latestVersion,
+      downloadUrl: 'https://example.com/other.zip',
+    }),
   ).toBe(false);
   await expect(
-    api.installPackage({ ...params, downloadedFile: '/tmp/forged.zip' }),
-  ).rejects.toThrow(EAppUpdatePackageErrorCode.packageMissing);
+    api.installPackage({
+      ...params,
+      downloadUrl: 'https://example.com/other.zip',
+    }),
+  ).rejects.toThrow('"code":"PACKAGE_MISSING"');
   const count = mockDownloadNodeFile.mock.calls.length;
   await api.downloadUpdate();
   expect(mockDownloadNodeFile).toHaveBeenCalledTimes(count);
   const restartedApi = createApi('darwin');
-  expect(await restartedApi.getDownloadedFileAvailability(file)).toEqual({
+  expect(await restartedApi.getDownloadedFileAvailability(params)).toEqual({
     status: EAppUpdatePackageAvailabilityStatus.available,
   });
   mockHttpsResponse(feed('6.0.0', [`OneKey-6.0.0-${process.arch}.zip`]));
@@ -416,11 +427,11 @@ test('reuses a verified cache and rejects a renderer-supplied path or corrupt by
   await restartedApi.downloadUpdate();
   expect(mockDownloadNodeFile).toHaveBeenCalledTimes(count);
   fs.writeFileSync(file, 'tampered');
-  expect(await api.getDownloadedFileAvailability(file)).toEqual({
+  expect(await api.getDownloadedFileAvailability(params)).toEqual({
     status: EAppUpdatePackageAvailabilityStatus.notPrepared,
   });
   await expect(api.installPackage(params)).rejects.toThrow(
-    EAppUpdatePackageErrorCode.packageMissing,
+    '"code":"PACKAGE_MISSING"',
   );
   expect(mockNativeUpdater.quitAndInstall).not.toHaveBeenCalled();
 });
@@ -437,7 +448,7 @@ test('rejects an ASC with a failed GPG signature', async () => {
     ],
   });
   await expect(api.verifyASC(params)).rejects.toThrow(
-    'update_signature_verification_failed_alert_text',
+    '"code":"INTEGRITY_FAILED"',
   );
 });
 
@@ -462,6 +473,37 @@ test('verifies ASC signature and streamed SHA-256 before install', async () => {
   expect(await api.verifyPackage(params)).toBe(false);
 });
 
+test.each(['installPackage', 'manualInstallPackage'] as const)(
+  '%s rehashes bytes changed without changing size or mtime',
+  async (method) => {
+    const { api, file, params } = await preparePackage('win32');
+    const signedParams = { ...params, skipGPGVerification: false };
+    mockStore.getASCFile.mockReturnValue('signed checksums');
+    mockReadKey.mockResolvedValue({});
+    mockReadCleartextMessage.mockResolvedValue({
+      getText: () => `${mockSha256}  ${path.basename(file)}`,
+      verify: async () => [{ verified: Promise.resolve(true) }],
+    });
+    const fixedTime = new Date('2025-01-01T00:00:00.000Z');
+    fs.utimesSync(file, fixedTime, fixedTime);
+    expect(await api.verifyFile(signedParams)).toBe(true);
+    const before = fs.statSync(file);
+    const tampered = Buffer.from(mockPackage);
+    tampered[0] ^= 1;
+    fs.writeFileSync(file, tampered);
+    fs.utimesSync(file, fixedTime, fixedTime);
+    const after = fs.statSync(file);
+    expect(after.size).toBe(before.size);
+    expect(after.mtimeMs).toBe(before.mtimeMs);
+
+    await expect(api[method](signedParams)).rejects.toThrow(
+      '"code":"INTEGRITY_FAILED"',
+    );
+    expect(mockSpawn).not.toHaveBeenCalled();
+    expect(mockOpenPath).not.toHaveBeenCalled();
+  },
+);
+
 test('macOS stages only after confirmation and verification', async () => {
   const api = createApi('darwin');
   mockHttpsResponse(feed('6.0.0', [`OneKey-6.0.0-${process.arch}.zip`]));
@@ -470,7 +512,6 @@ test('macOS stages only after confirmation and verification', async () => {
   expect(mockNativeUpdater.setFeedURL).not.toHaveBeenCalled();
   const params = {
     buildNumber: '123',
-    downloadedFile: api.downloadedEvent?.downloadedFile,
     downloadUrl: api.downloadedEvent?.downloadUrl,
     latestVersion: '6.0.0',
     skipGPGVerification: true,
@@ -541,7 +582,7 @@ test('clearing update cache cancels a stalled feed request', async () => {
   void check.catch(() => {});
   await requestStarted;
   await api.clearUpdateCache();
-  await expect(check).rejects.toThrow('Download cancelled');
+  await expect(check).rejects.toThrow('"code":"CANCELLED"');
   expect(signal?.aborted).toBe(true);
 });
 
@@ -570,10 +611,10 @@ test('a new update check waits for cache clearing to finish', async () => {
   expect(get).toHaveBeenCalledTimes(1);
   rejectOld(new OneKeyLocalError('Download cancelled'));
   await clear;
-  await expect(oldCheck).rejects.toThrow('Download cancelled');
+  await expect(oldCheck).rejects.toThrow('"code":"CANCELLED"');
   expect((await newCheck)?.version).toBe('6.0.0');
   await api.downloadUpdate();
-  expect(api.downloadedEvent?.downloadedFile).toBeTruthy();
+  expect(api.downloadedEvent?.downloadUrl).toBeTruthy();
 });
 
 test('clearing update cache cancels a stalled ASC request', async () => {
@@ -602,7 +643,7 @@ test('clearing update cache cancels a stalled ASC request', async () => {
   void asc.catch(() => {});
   await requestStarted;
   await api.clearUpdateCache();
-  await expect(asc).rejects.toThrow('Download cancelled');
+  await expect(asc).rejects.toThrow('"code":"CANCELLED"');
   expect(signal?.aborted).toBe(true);
   expect(mockStore.setASCFile).not.toHaveBeenCalled();
 });
@@ -611,7 +652,7 @@ test('macOS never stages when ASC verification fails', async () => {
   const { api, params } = await preparePackage('darwin');
   delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
   await expect(api.installPackage(params)).rejects.toThrow(
-    'update_installation_not_safe_alert_text',
+    '"code":"INTEGRITY_FAILED"',
   );
   expect(mockNativeUpdater.setFeedURL).not.toHaveBeenCalled();
   expect(mockNativeUpdater.quitAndInstall).not.toHaveBeenCalled();
@@ -647,7 +688,7 @@ test('macOS keeps running if native quit handoff throws after staging', async ()
     throw new OneKeyLocalError('native handoff failed');
   });
   await expect(api.installPackage(params)).rejects.toThrow(
-    'native handoff failed',
+    '"code":"INSTALL_FAILED"',
   );
   expect(mockNativeUpdater.setFeedURL).toHaveBeenCalledTimes(1);
   expect(window.close).toHaveBeenCalledTimes(1);
@@ -678,7 +719,7 @@ test('macOS does not reopen a surviving window on a later normal close', async (
     throw new OneKeyLocalError('native handoff failed');
   });
   await expect(api.installPackage(params)).rejects.toThrow(
-    'native handoff failed',
+    '"code":"INSTALL_FAILED"',
   );
   expect(window.show).toHaveBeenCalledTimes(1);
   expect(window.focus).toHaveBeenCalledTimes(1);
@@ -745,7 +786,7 @@ test('Windows rejects a concurrent install before a second confirmation and keep
   expect(mockShowMessageBox).toHaveBeenCalledTimes(1);
   expect(await api.installPackage(params)).toBe(false);
   await expect(api.clearUpdateCache()).rejects.toThrow(
-    'installation is in progress',
+    '"code":"INSTALL_FAILED"',
   );
   confirm({ response: 0 });
   expect(await first).toBe(true);
@@ -763,7 +804,9 @@ test('Windows releases the install lock after cancellation or launch failure', a
     setImmediate(() => child.emit('error', new Error('installer failed')));
     return child;
   });
-  await expect(api.installPackage(params)).rejects.toThrow('installer failed');
+  await expect(api.installPackage(params)).rejects.toThrow(
+    '"code":"INSTALL_FAILED"',
+  );
   expect(await api.installPackage(params)).toBe(true);
   expect(mockSpawn).toHaveBeenCalledTimes(2);
 });
@@ -853,7 +896,7 @@ test('rejects an ASC signed for a different artifact filename', async () => {
   expect(
     await api.verifyASC({
       ...params,
-      downloadedFile: '/tmp/OneKey-6.5.0-mac-arm64.zip',
+      downloadUrl: 'https://example.com/OneKey-6.5.0-mac-arm64.zip',
       skipGPGVerification: false,
     }),
   ).toBe(false);
@@ -863,7 +906,7 @@ test('rejects feed artifact filename that does not contain selectedVersion and g
   const api = createApi('darwin');
   mockHttpsResponse(feed('6.0.0', [`OneKey-5.9.9-${process.arch}.zip`]));
   await expect(api.checkForUpdates(false, {}, '6.0.0')).rejects.toThrow(
-    'App update feed version mismatch',
+    '"code":"INCOMPATIBLE"',
   );
 
   mockApp.isPackaged = true;
@@ -913,7 +956,9 @@ test('Linux restores the old AppImage when relaunch cannot be queued', async () 
   mockAppRelaunch.mockImplementationOnce(() => {
     throw new OneKeyLocalError('relaunch failed');
   });
-  await expect(api.installPackage(params)).rejects.toThrow('relaunch failed');
+  await expect(api.installPackage(params)).rejects.toThrow(
+    '"code":"INSTALL_FAILED"',
+  );
   expect(fs.readFileSync(current, 'utf8')).toBe('old app');
   expect(mockAppQuit).not.toHaveBeenCalled();
   expect(mockStore.setUpdateBuildNumber).not.toHaveBeenCalled();
@@ -975,8 +1020,8 @@ test.each([
     expect(
       await api.downloadASC({
         buildNumber: '123',
-        downloadedFile: api.downloadedEvent?.downloadedFile,
         downloadUrl: artifact?.url,
+        latestVersion: artifact?.version,
         skipGPGVerification: false,
       }),
     ).toBe(true);
@@ -1022,8 +1067,82 @@ test('concurrent downloadUpdate calls await activeDownload and emit UPDATE_DOWNL
   expect(mockMainWindow.webContents.send).toHaveBeenCalledWith(
     'UPDATE_DOWNLOADED',
     expect.objectContaining({
-      version: '6.0.0',
-      downloadedFile: expect.stringContaining('.zip'),
+      latestVersion: '6.0.0',
+      downloadUrl: expect.stringContaining('.zip'),
     }),
   );
+});
+
+test.each([
+  ['ENOENT', 'PACKAGE_MISSING'],
+  ['EACCES', 'STORAGE_ERROR'],
+])(
+  'normalizes a streamed package hash %s failure before IPC',
+  async (errno, code) => {
+    const { api, file, params } = await preparePackage('darwin');
+    delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+    mockStore.getASCFile.mockReturnValue('signed checksums');
+    mockReadKey.mockResolvedValue({});
+    mockReadCleartextMessage.mockResolvedValue({
+      getText: () => `${mockSha256}  ${path.basename(file)}`,
+      verify: async () => [{ verified: Promise.resolve(true) }],
+    });
+    const readStream = jest
+      .spyOn(fs, 'createReadStream')
+      .mockImplementationOnce(() => {
+        const stream = new PassThrough();
+        setImmediate(() =>
+          stream.destroy(
+            Object.assign(
+              new Error('/Users/private/package.zip?token=secret'),
+              { code: errno },
+            ),
+          ),
+        );
+        return stream as unknown as fs.ReadStream;
+      });
+    const dto = { code, step: 'verifyPackage' };
+    try {
+      await expect(api.verifyPackage(params)).rejects.toMatchObject({
+        code: expect.any(Number),
+        message: `${UPDATE_ERROR_WIRE_PREFIX}${JSON.stringify(dto)}`,
+        data: { updateError: dto },
+      });
+      expect(readStream).toHaveBeenCalledWith(file);
+    } finally {
+      readStream.mockRestore();
+    }
+  },
+);
+
+test('rebinds metadata HTTP failure to the public downloadASC step', async () => {
+  const { api, params } = await preparePackage('darwin');
+  delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+  mockHttpsResponse('', 429);
+  const dto = { code: 'HTTP_ERROR', step: 'downloadASC', httpStatus: 429 };
+  await expect(api.downloadASC(params)).rejects.toMatchObject({
+    code: expect.any(Number),
+    message: `${UPDATE_ERROR_WIRE_PREFIX}${JSON.stringify(dto)}`,
+    data: { updateError: dto },
+  });
+  expect(mockStore.setASCFile).not.toHaveBeenCalled();
+});
+
+test.each([
+  ['EACCES', 'STORAGE_ERROR'],
+  [undefined, 'UNKNOWN'],
+])('normalizes cleanup failure %s before IPC', async (errno, code) => {
+  const api = createApi('darwin');
+  mockStore.clearUpdateSettings.mockImplementationOnce(() => {
+    throw Object.assign(
+      new Error('/Users/private/update-settings?token=secret'),
+      { code: errno },
+    );
+  });
+  const dto = { code, step: 'cleanup' };
+  await expect(api.clearUpdateSettings()).rejects.toMatchObject({
+    code: expect.any(Number),
+    message: `${UPDATE_ERROR_WIRE_PREFIX}${JSON.stringify(dto)}`,
+    data: { updateError: dto },
+  });
 });

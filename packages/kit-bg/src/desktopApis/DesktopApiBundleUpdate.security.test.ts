@@ -11,6 +11,12 @@ import {
   getBundleExtractDir,
 } from '@onekeyhq/desktop/app/bundle';
 import { resolveBundlePath } from '@onekeyhq/desktop/app/libs/bundlePaths';
+import {
+  EUpdateErrorCode,
+  UPDATE_ERROR_WIRE_PREFIX,
+  getUpdateError,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
+import type { IUpdateErrorDTO } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 
 import DesktopApiBundleUpdate, {
   MAX_BUNDLE_ENTRY_COUNT,
@@ -100,6 +106,26 @@ let api: DesktopApiBundleUpdate;
 let restartSpy: jest.SpyInstance;
 let sentinel: string;
 
+async function expectUpdateError(
+  operation: Promise<unknown>,
+  expected: IUpdateErrorDTO,
+) {
+  const result = await operation.then(
+    () => ({ ok: true as const }),
+    (error: unknown) => ({ ok: false as const, error }),
+  );
+  expect(result.ok).toBe(false);
+  if (result.ok) return;
+  expect(getUpdateError(result.error, expected.step)).toEqual(expected);
+  expect(result.error).toMatchObject({
+    message: `${UPDATE_ERROR_WIRE_PREFIX}${JSON.stringify(expected)}`,
+    data: { updateError: expected },
+  });
+  expect(
+    (result.error as { data?: { updateError?: unknown } }).data?.updateError,
+  ).toEqual(expected);
+}
+
 function prepareValidExtractedBundle(
   appVersion: string,
   bundleVersion: string,
@@ -170,30 +196,32 @@ test.each([
     expect(() =>
       getBundleExtractDir({ appVersion: '6.6.0', bundleVersion: version }),
     ).toThrow('Invalid bundle version');
-    await expect(
+    await expectUpdateError(
       api.downloadBundle({
         latestVersion: version,
         bundleVersion: '123',
         downloadUrl: 'https://fixture.test/bundle',
         sha256: 'hash',
       }),
-    ).rejects.toThrow('Invalid bundle version');
-    await expect(
+      { code: EUpdateErrorCode.invalidArgument, step: 'download' },
+    );
+    await expectUpdateError(
       api.verifyBundleASC({
         latestVersion: '6.6.0',
         bundleVersion: version,
-        downloadedFile: sentinel,
         sha256: 'hash',
         signature: 'signature',
       }),
-    ).rejects.toThrow('Invalid bundle version');
-    await expect(
+      { code: EUpdateErrorCode.invalidArgument, step: 'verifyASC' },
+    );
+    await expectUpdateError(
       api.installBundle({
         latestVersion: version,
         bundleVersion: '123',
         signature: 'signature',
       }),
-    ).rejects.toThrow('Invalid bundle version');
+      { code: EUpdateErrorCode.invalidArgument, step: 'install' },
+    );
     expect(mockStore.setUpdateBundleData).not.toHaveBeenCalled();
     expect(mockDownload).not.toHaveBeenCalled();
     expect(fs.readFileSync(sentinel, 'utf8')).toBe('untouched');
@@ -232,18 +260,155 @@ test('accepts safe versions and derives the download and extraction destinations
   expect(fs.existsSync(extracted)).toBe(false);
 });
 
-test('rejects an outside downloadedFile before hashing, parsing or deleting it', async () => {
-  await expect(
+test.each(['current', 'fallback'])(
+  'reuses an installed %s bundle after checking real extracted files',
+  async (kind) => {
+    const identity = { appVersion: '6.6.0', bundleVersion: '123' };
+    const { extractDir, buildDir, metadataSha256 } =
+      prepareValidExtractedBundle(identity.appVersion, identity.bundleVersion);
+    jest.spyOn(openpgp, 'readCleartextMessage').mockResolvedValue({
+      verify: async () => [{ verified: Promise.resolve(true) }],
+      getText: () =>
+        JSON.stringify({
+          fileName: 'metadata.json',
+          sha256: metadataSha256,
+          appVersion: identity.appVersion,
+          bundleVersion: identity.bundleVersion,
+          appType: 'electron',
+        }),
+    } as unknown as openpgp.CleartextMessage);
+    const zipPath = path.join(api.getDownloadDir(), '6.6.0-123.zip');
+    fs.writeFileSync(zipPath, 'managed ZIP');
+    const zipSha256 = crypto
+      .createHash('sha256')
+      .update('managed ZIP')
+      .digest('hex');
+    const existingFile = path.join(buildDir, 'index.html');
+    const original = fs.readFileSync(existingFile);
+    if (kind === 'current') {
+      mockStore.getUpdateBundleData.mockReturnValue(identity);
+    } else {
+      mockStore.getFallbackUpdateBundleData.mockReturnValue([identity]);
+    }
+    const params = {
+      latestVersion: identity.appVersion,
+      bundleVersion: identity.bundleVersion,
+      sha256: zipSha256,
+      signature: 'signed metadata',
+    };
+    await expect(api.verifyBundleASC(params)).resolves.toBeUndefined();
+    expect(fs.readFileSync(existingFile)).toEqual(original);
+    expect(mockExtractAllToSpy).not.toHaveBeenCalled();
+    expect(mockStore.setUpdateBundleData).not.toHaveBeenCalled();
+
+    fs.writeFileSync(existingFile, Buffer.alloc(original.length, 0));
+    await expectUpdateError(api.verifyBundleASC(params), {
+      code: EUpdateErrorCode.integrityFailed,
+      step: 'verifyASC',
+    });
+    expect(fs.existsSync(extractDir)).toBe(true);
+    expect(fs.readFileSync(existingFile)).toEqual(
+      Buffer.alloc(original.length, 0),
+    );
+    expect(mockExtractAllToSpy).not.toHaveBeenCalled();
+  },
+);
+
+test('rejects a managed ZIP symlink escaping the download root', async () => {
+  const zipPath = path.join(api.getDownloadDir(), '6.6.0-123.zip');
+  fs.symlinkSync(sentinel, zipPath);
+  await expectUpdateError(
     api.verifyBundleASC({
       latestVersion: '6.6.0',
       bundleVersion: '123',
-      downloadedFile: sentinel,
       sha256: 'hash',
       signature: 'signature',
     }),
-  ).rejects.toThrow('Invalid bundle download path');
+    { code: EUpdateErrorCode.securityRejected, step: 'verifyASC' },
+  );
   expect(fs.readFileSync(sentinel, 'utf8')).toBe('untouched');
   expect(fs.existsSync(path.join(mockUserData, 'onekey-bundle'))).toBe(false);
+});
+
+test.each([false, true])(
+  'rejects an extracted destination symlink without touching its target (installed=%s)',
+  async (installed) => {
+    const identity = { appVersion: '6.6.0', bundleVersion: '123' };
+    const extractDir = getBundleExtractDir(identity);
+    fs.symlinkSync(path.dirname(sentinel), extractDir);
+    fs.writeFileSync(
+      path.join(api.getDownloadDir(), '6.6.0-123.zip'),
+      'managed ZIP',
+    );
+    if (installed) mockStore.getUpdateBundleData.mockReturnValue(identity);
+    const previous = process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+    process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION = 'true';
+    try {
+      await expectUpdateError(
+        api.verifyBundleASC({
+          latestVersion: identity.appVersion,
+          bundleVersion: identity.bundleVersion,
+          sha256: 'unused',
+          skipGPGVerification: true,
+        }),
+        { code: EUpdateErrorCode.securityRejected, step: 'verifyASC' },
+      );
+      expect(fs.readFileSync(sentinel, 'utf8')).toBe('untouched');
+      expect(mockExtractAllToSpy).not.toHaveBeenCalled();
+    } finally {
+      if (previous === undefined) {
+        delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+      } else {
+        process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION = previous;
+      }
+    }
+  },
+);
+
+test('replaces an inactive extraction directory before writing through a ZIP child path', async () => {
+  const identity = { appVersion: '6.6.0', bundleVersion: '123' };
+  const extractDir = getBundleExtractDir(identity);
+  fs.mkdirSync(extractDir, { recursive: true });
+  fs.symlinkSync(path.dirname(sentinel), path.join(extractDir, 'build'));
+
+  const content = 'new bundle file';
+  const metadata = JSON.stringify({
+    sentinel: crypto.createHash('sha512').update(content).digest('hex'),
+  });
+  const zip = new AdmZip();
+  zip.addFile('metadata.json', Buffer.from(metadata));
+  zip.addFile('build/sentinel', Buffer.from(content));
+  const zipPath = path.join(api.getDownloadDir(), '6.6.0-123.zip');
+  zip.writeZip(zipPath);
+
+  const previous = process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+  process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION = 'true';
+  try {
+    await expect(
+      api.verifyBundleASC({
+        latestVersion: identity.appVersion,
+        bundleVersion: identity.bundleVersion,
+        sha256: crypto
+          .createHash('sha256')
+          .update(fs.readFileSync(zipPath))
+          .digest('hex'),
+        skipGPGVerification: true,
+      }),
+    ).resolves.toBeUndefined();
+    expect(fs.readFileSync(sentinel, 'utf8')).toBe('untouched');
+    expect(fs.lstatSync(path.join(extractDir, 'build')).isDirectory()).toBe(
+      true,
+    );
+    expect(
+      fs.readFileSync(path.join(extractDir, 'build', 'sentinel'), 'utf8'),
+    ).toBe(content);
+  } finally {
+    if (previous === undefined) {
+      delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+    } else {
+      process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION = previous;
+    }
+  }
 });
 
 test.each([
@@ -336,12 +501,14 @@ test('keeps diagnostic methods available only in development builds', async () =
     false,
   );
   expect(isDesktopApiMethodAllowed('appUpdate', 'verifySha256')).toBe(false);
-  await expect(
+  await expectUpdateError(
     api.testDeleteJsRuntimeDir('6.6.0', '/../../outside'),
-  ).rejects.toThrow('unavailable');
-  await expect(api.getSha256FromFilePath(sentinel)).rejects.toThrow(
-    'unavailable',
+    { code: EUpdateErrorCode.invalidArgument, step: 'verifyASC' },
   );
+  await expectUpdateError(api.getSha256FromFilePath(sentinel), {
+    code: EUpdateErrorCode.invalidArgument,
+    step: 'verifyASC',
+  });
   expect(fs.readFileSync(sentinel, 'utf8')).toBe('untouched');
 });
 
@@ -373,14 +540,15 @@ test('passes URL-independent identity to downloadNodeFile and binds single-fligh
   const shaFixed = 'a'.repeat(64);
   const shaA = 'b'.repeat(64);
   const shaB = 'c'.repeat(64);
-  await expect(
+  await expectUpdateError(
     api.downloadBundle({
       latestVersion: '6.6.0',
       bundleVersion: '123',
       downloadUrl: 'https://fixture.test/bundle',
       sha256: 'not-a-valid-sha256',
     }),
-  ).rejects.toThrow('Invalid parameters');
+    { code: EUpdateErrorCode.invalidArgument, step: 'download' },
+  );
   expect(mockDownload).not.toHaveBeenCalled();
 
   await api.downloadBundle({
@@ -440,6 +608,12 @@ test('passes URL-independent identity to downloadNodeFile and binds single-fligh
 test('verifyBundleASC rejects zip bombs exceeding entry count or uncompressed byte quotas', async () => {
   const appVersion = '6.1.0';
   const bundleVersion = '7701116';
+  mockStore.getFallbackUpdateBundleData.mockReturnValue(
+    'malformed persisted fallback',
+  );
+  const inactiveDir = getBundleExtractDir({ appVersion, bundleVersion });
+  fs.mkdirSync(inactiveDir, { recursive: true });
+  fs.writeFileSync(path.join(inactiveDir, 'stale.txt'), 'stale');
   const destZip = path.join(
     api.getDownloadDir(),
     `${appVersion}-${bundleVersion}.zip`,
@@ -462,16 +636,17 @@ test('verifyBundleASC rejects zip bombs exceeding entry count or uncompressed by
       header: { size: 1, compressedSize: 1 },
     }) as unknown as AdmZip.IZipEntry[],
   );
-  await expect(
+  await expectUpdateError(
     api.verifyBundleASC({
       latestVersion: appVersion,
       bundleVersion,
-      downloadedFile: destZip,
       sha256: zipSha256,
       signature: TEST_SIGNATURE,
     }),
-  ).rejects.toThrow('Bundle zip contains too many entries');
+    { code: EUpdateErrorCode.securityRejected, step: 'verifyASC' },
+  );
   expect(mockExtractAllToSpy).not.toHaveBeenCalled();
+  expect(fs.existsSync(inactiveDir)).toBe(false);
 
   // 2. Single entry size > MAX_BUNDLE_UNCOMPRESSED_BYTES
   mockGetEntriesOverride.mockReturnValueOnce([
@@ -481,15 +656,15 @@ test('verifyBundleASC rejects zip bombs exceeding entry count or uncompressed by
       header: { size: MAX_BUNDLE_UNCOMPRESSED_BYTES + 1, compressedSize: 10 },
     },
   ] as unknown as AdmZip.IZipEntry[]);
-  await expect(
+  await expectUpdateError(
     api.verifyBundleASC({
       latestVersion: appVersion,
       bundleVersion,
-      downloadedFile: destZip,
       sha256: zipSha256,
       signature: TEST_SIGNATURE,
     }),
-  ).rejects.toThrow('Bundle zip entry exceeds maximum size');
+    { code: EUpdateErrorCode.securityRejected, step: 'verifyASC' },
+  );
   expect(mockExtractAllToSpy).not.toHaveBeenCalled();
 
   // 3. Total uncompressed size > MAX_BUNDLE_UNCOMPRESSED_BYTES
@@ -506,15 +681,15 @@ test('verifyBundleASC rejects zip bombs exceeding entry count or uncompressed by
       header: { size: halfPlusOne, compressedSize: 10 },
     },
   ] as unknown as AdmZip.IZipEntry[]);
-  await expect(
+  await expectUpdateError(
     api.verifyBundleASC({
       latestVersion: appVersion,
       bundleVersion,
-      downloadedFile: destZip,
       sha256: zipSha256,
       signature: TEST_SIGNATURE,
     }),
-  ).rejects.toThrow('Bundle zip exceeds maximum uncompressed size');
+    { code: EUpdateErrorCode.securityRejected, step: 'verifyASC' },
+  );
   expect(mockExtractAllToSpy).not.toHaveBeenCalled();
 
   // 4. Zero header.size with non-empty compressedSize > 2 (adm-zip maxOutputLength bypass)
@@ -530,19 +705,45 @@ test('verifyBundleASC rejects zip bombs exceeding entry count or uncompressed by
       header: { size: 0, compressedSize: 1024 },
     },
   ] as unknown as AdmZip.IZipEntry[]);
-  await expect(
+  await expectUpdateError(
     api.verifyBundleASC({
       latestVersion: appVersion,
       bundleVersion,
-      downloadedFile: destZip,
       sha256: zipSha256,
       signature: TEST_SIGNATURE,
     }),
-  ).rejects.toThrow('Bundle zip entry exceeds maximum size');
+    { code: EUpdateErrorCode.securityRejected, step: 'verifyASC' },
+  );
   expect(mockExtractAllToSpy).not.toHaveBeenCalled();
 });
 
-test('verifyBundleASC rejects invalid or replayed PGP signature before full zip extraction', async () => {
+test('verifyBundleASC reports a missing managed ZIP without extracting files', async () => {
+  const appVersion = '6.6.0';
+  const bundleVersion = '123';
+  const zipPath = path.join(
+    api.getDownloadDir(),
+    `${appVersion}-${bundleVersion}.zip`,
+  );
+  expect(fs.existsSync(zipPath)).toBe(false);
+
+  await expectUpdateError(
+    api.verifyBundleASC({
+      latestVersion: appVersion,
+      bundleVersion,
+      sha256: 'a'.repeat(64),
+      signature: TEST_SIGNATURE,
+    }),
+    { code: EUpdateErrorCode.packageMissing, step: 'verifyASC' },
+  );
+
+  expect(mockExtractAllToSpy).not.toHaveBeenCalled();
+  expect(
+    fs.existsSync(getBundleExtractDir({ appVersion, bundleVersion })),
+  ).toBe(false);
+  expect(fs.readFileSync(sentinel, 'utf8')).toBe('untouched');
+});
+
+test('verifyBundleASC rejects a replayed PGP signature as an integrity failure before full zip extraction', async () => {
   const appVersion = '6.6.0';
   const bundleVersion = '999';
   const destZip = path.join(
@@ -561,15 +762,15 @@ test('verifyBundleASC rejects invalid or replayed PGP signature before full zip 
   mockExtractAllToSpy.mockClear();
 
   // Replaying valid TEST_SIGNATURE (signed for 6.1.0 / 7701116) against 6.6.0 / 999
-  await expect(
+  await expectUpdateError(
     api.verifyBundleASC({
       latestVersion: appVersion,
       bundleVersion,
-      downloadedFile: destZip,
       sha256: zipSha256,
       signature: TEST_SIGNATURE,
     }),
-  ).rejects.toThrow('Signed metadata appVersion mismatch');
+    { code: EUpdateErrorCode.integrityFailed, step: 'verifyASC' },
+  );
 
   expect(mockExtractAllToSpy).not.toHaveBeenCalled();
   expect(
@@ -628,13 +829,14 @@ test('installBundle rolling back to a fallback entry does not delete the newly i
 
 test('installBundle rejects mismatched appVersion, missing files, invalid signature, and tampered extracted files before updating store', async () => {
   // 1. Mismatched appVersion
-  await expect(
+  await expectUpdateError(
     api.installBundle({
       latestVersion: '6.5.0',
       bundleVersion: '100',
       signature: 'signature',
     }),
-  ).rejects.toThrow('Bundle appVersion mismatch');
+    { code: EUpdateErrorCode.incompatible, step: 'install' },
+  );
   expect(mockStore.setUpdateBundleData).not.toHaveBeenCalled();
 
   // 2. Missing build/index.html
@@ -643,26 +845,28 @@ test('installBundle rejects mismatched appVersion, missing files, invalid signat
     bundleVersion: '100',
   });
   fs.mkdirSync(extractDir, { recursive: true });
-  await expect(
+  await expectUpdateError(
     api.installBundle({
       latestVersion: '6.6.0',
       bundleVersion: '100',
       signature: 'signature',
     }),
-  ).rejects.toThrow('Bundle index.html not found');
+    { code: EUpdateErrorCode.packageMissing, step: 'install' },
+  );
   expect(mockStore.setUpdateBundleData).not.toHaveBeenCalled();
 
   // 3. Missing metadata.json
   const buildDir = path.join(extractDir, 'build');
   fs.mkdirSync(buildDir, { recursive: true });
   fs.writeFileSync(path.join(buildDir, 'index.html'), '<html>ok</html>');
-  await expect(
+  await expectUpdateError(
     api.installBundle({
       latestVersion: '6.6.0',
       bundleVersion: '100',
       signature: 'signature',
     }),
-  ).rejects.toThrow('metadata.json not found in bundle');
+    { code: EUpdateErrorCode.packageMissing, step: 'install' },
+  );
   expect(mockStore.setUpdateBundleData).not.toHaveBeenCalled();
 
   // 4. Tampered file in extractDir (TOCTOU between verifyBundleASC and installBundle)
@@ -674,45 +878,49 @@ test('installBundle rejects mismatched appVersion, missing files, invalid signat
     path.join(validBuildDir, 'index.html'),
     '<html>tampered</html>',
   );
-  await expect(
+  await expectUpdateError(
     api.installBundle({
       latestVersion: '6.6.0',
       bundleVersion: '101',
       signature: 'signature',
     }),
-  ).rejects.toThrow('SHA512 mismatch for file index.html');
+    { code: EUpdateErrorCode.integrityFailed, step: 'install' },
+  );
   expect(mockStore.setUpdateBundleData).not.toHaveBeenCalled();
   expect(restartSpy).not.toHaveBeenCalled();
 });
 
 test('setCurrentUpdateBundleData rejects missing signature, mismatched appVersion, and tampered extracted files before updating store', async () => {
-  await expect(
+  await expectUpdateError(
     api.setCurrentUpdateBundleData({
       appVersion: '6.5.0',
       bundleVersion: '100',
       signature: 'signature',
     }),
-  ).rejects.toThrow('Bundle appVersion mismatch');
+    { code: EUpdateErrorCode.incompatible, step: 'install' },
+  );
   expect(mockStore.setUpdateBundleData).not.toHaveBeenCalled();
 
-  await expect(
+  await expectUpdateError(
     api.setCurrentUpdateBundleData({
       appVersion: '6.6.0',
       bundleVersion: '100',
       signature: '',
     }),
-  ).rejects.toThrow('Bundle signature is required');
+    { code: EUpdateErrorCode.invalidArgument, step: 'install' },
+  );
   expect(mockStore.setUpdateBundleData).not.toHaveBeenCalled();
 
   const { buildDir } = prepareValidExtractedBundle('6.6.0', '200');
   fs.writeFileSync(path.join(buildDir, 'index.html'), '<html>tampered</html>');
-  await expect(
+  await expectUpdateError(
     api.setCurrentUpdateBundleData({
       appVersion: '6.6.0',
       bundleVersion: '200',
       signature: 'signature',
     }),
-  ).rejects.toThrow('SHA512 mismatch for file index.html');
+    { code: EUpdateErrorCode.integrityFailed, step: 'install' },
+  );
   expect(mockStore.setUpdateBundleData).not.toHaveBeenCalled();
   expect(restartSpy).not.toHaveBeenCalled();
 

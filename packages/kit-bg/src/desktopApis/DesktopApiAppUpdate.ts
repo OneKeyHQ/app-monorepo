@@ -15,16 +15,23 @@ import { PUBLIC_KEY } from '@onekeyhq/desktop/app/constant/gpg';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { ElectronTranslations, i18nText } from '@onekeyhq/desktop/app/i18n';
 import * as store from '@onekeyhq/desktop/app/libs/store';
-import type { IInstallUpdateParams } from '@onekeyhq/desktop/app/preload';
+import type {
+  IInstallUpdateParams,
+  IVerifyUpdateParams,
+} from '@onekeyhq/desktop/app/preload';
 import {
   clearWindowProgressBar,
   updateWindowProgressBar,
 } from '@onekeyhq/desktop/app/windowProgressBar';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EUpdateErrorCode,
+  createUpdateError,
+  getUpdateError,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
+import type { TUpdateErrorStep } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 import {
   EAppUpdatePackageAvailabilityStatus,
-  EAppUpdatePackageErrorCode,
   type IAppUpdatePackageAvailability,
   type IUpdateDownloadedEvent,
   type IUpdateProgressUpdate,
@@ -34,9 +41,17 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { getDownloadedFileAvailability } from './appUpdatePackageAvailability';
 import { requestUpdateUrl } from './electronUpdateRequest';
-import { downloadNodeFile, stripSensitiveHeaders } from './nodeDownload';
+import {
+  classifyNodeError,
+  downloadNodeFile,
+  stripSensitiveHeaders,
+} from './nodeDownload';
 
 import type { IDesktopApi } from './base/types';
+
+function wrapAppUpdateOperationError(error: unknown, step: TUpdateErrorStep) {
+  return createUpdateError(getUpdateError(classifyNodeError(error), step));
+}
 
 export interface ILatestVersion {
   version: string;
@@ -124,7 +139,10 @@ function resolveArtifactUrl(fileUrl: string, feedBase: string): string {
   const resolved = new URL(fileUrl, base);
   if (!resolved.search && base.search) resolved.search = base.search;
   if (resolved.protocol !== 'https:') {
-    throw new OneKeyLocalError('App update artifact must use HTTPS');
+    throw createUpdateError({
+      code: EUpdateErrorCode.securityRejected,
+      step: 'download',
+    });
   }
   return resolved.toString();
 }
@@ -154,7 +172,10 @@ function selectArtifact(
   arch = getRuntimeArch(),
 ): IArtifact {
   if (feed.version !== selectedVersion || !Array.isArray(feed.files)) {
-    throw new OneKeyLocalError('App update feed version mismatch');
+    throw createUpdateError({
+      code: EUpdateErrorCode.incompatible,
+      step: 'download',
+    });
   }
   let extension = '.AppImage';
   if (isMac) extension = '.zip';
@@ -172,7 +193,10 @@ function selectArtifact(
     new URL(file.url, baseUrl).pathname.includes(archMarker),
   );
   if (matching.length > 1) {
-    throw new OneKeyLocalError('App update feed artifact is ambiguous');
+    throw createUpdateError({
+      code: EUpdateErrorCode.invalidArgument,
+      step: 'download',
+    });
   }
   let fallback: IFeedFile[] = [];
   if (matching.length === 0) {
@@ -191,25 +215,40 @@ function selectArtifact(
   }
   const selected = matching.length === 1 ? matching : fallback;
   if (selected.length !== 1) {
-    throw new OneKeyLocalError('App update feed artifact missing or ambiguous');
+    throw createUpdateError({
+      code: EUpdateErrorCode.packageMissing,
+      step: 'download',
+    });
   }
   const file = selected[0];
   if (!/^[A-Za-z0-9+/]{86}==$/.test(file.sha512)) {
-    throw new OneKeyLocalError('App update feed SHA-512 is invalid');
+    throw createUpdateError({
+      code: EUpdateErrorCode.integrityFailed,
+      step: 'download',
+    });
   }
   if (
     file.size !== undefined &&
     (!Number.isSafeInteger(file.size) || file.size <= 0)
   ) {
-    throw new OneKeyLocalError('App update feed size is invalid');
+    throw createUpdateError({
+      code: EUpdateErrorCode.invalidArgument,
+      step: 'download',
+    });
   }
   const url = resolveArtifactUrl(file.url, baseUrl);
   const fileName = path.basename(new URL(url).pathname);
   if (!fileName || fileName === '.' || fileName === '..') {
-    throw new OneKeyLocalError('App update artifact name is invalid');
+    throw createUpdateError({
+      code: EUpdateErrorCode.invalidArgument,
+      step: 'download',
+    });
   }
   if (!fileName.includes(selectedVersion)) {
-    throw new OneKeyLocalError('App update feed version mismatch');
+    throw createUpdateError({
+      code: EUpdateErrorCode.incompatible,
+      step: 'download',
+    });
   }
   return {
     version: feed.version,
@@ -233,10 +272,22 @@ async function requestText(
     headers,
     signal,
     METADATA_STALL_MS,
-  );
+  ).catch((error: unknown) => {
+    if (signal?.aborted) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.cancelled,
+        step: 'download',
+      });
+    }
+    throw classifyNodeError(error);
+  });
   if (response.statusCode !== 200) {
     response.destroy();
-    throw new OneKeyLocalError(`HTTP ${response.statusCode}`);
+    throw createUpdateError({
+      code: EUpdateErrorCode.httpError,
+      step: 'download',
+      httpStatus: response.statusCode,
+    });
   }
   const chunks: Buffer[] = [];
   let length = 0;
@@ -245,7 +296,10 @@ async function requestText(
     length += bytes.length;
     if (length > MAX_FEED_BYTES) {
       response.destroy();
-      throw new OneKeyLocalError('App update metadata too large');
+      throw createUpdateError({
+        code: EUpdateErrorCode.securityRejected,
+        step: 'download',
+      });
     }
     chunks.push(bytes);
   }
@@ -313,7 +367,6 @@ class DesktopApiAppUpdate {
     size: number;
     mtimeMs: number;
     sha512: string;
-    sha256?: string;
   };
 
   private isSkipGPGAllowed(skip?: boolean): boolean {
@@ -376,7 +429,10 @@ class DesktopApiAppUpdate {
             ))) ||
         (handoff.destination === handoff.current && !handoff.backup)
       ) {
-        throw new OneKeyLocalError('Invalid AppImage handoff');
+        throw createUpdateError({
+          code: EUpdateErrorCode.installFailed,
+          step: 'download',
+        });
       }
       if (app.getVersion() === handoff.version) {
         store.setUpdateBuildNumber(handoff.buildNumber);
@@ -462,12 +518,14 @@ class DesktopApiAppUpdate {
   }
 
   private async verifiedRecord(
-    downloadedFile?: string,
+    identity?: IVerifyUpdateParams,
   ): Promise<ICacheRecord | undefined> {
     const record = this.readRecord();
     if (
       !record ||
-      (downloadedFile && downloadedFile !== record.downloadedFile)
+      (identity &&
+        (identity.latestVersion !== record.version ||
+          identity.downloadUrl !== record.url))
     ) {
       return undefined;
     }
@@ -502,11 +560,14 @@ class DesktopApiAppUpdate {
   }
 
   private async assertVerifiedRecord(
-    downloadedFile?: string,
+    identity: IVerifyUpdateParams,
   ): Promise<ICacheRecord> {
-    const record = await this.verifiedRecord(downloadedFile);
+    const record = await this.verifiedRecord(identity);
     if (!record) {
-      throw new OneKeyLocalError(EAppUpdatePackageErrorCode.packageMissing);
+      throw createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'verifyPackage',
+      });
     }
     return record;
   }
@@ -531,34 +592,59 @@ class DesktopApiAppUpdate {
     return this.isDownloading;
   }
 
-  async checkDownloadedFileExists(downloadedFile: string): Promise<boolean> {
-    return Boolean(await this.verifiedRecord(downloadedFile));
+  async checkDownloadedFileExists(
+    identity: IVerifyUpdateParams,
+  ): Promise<boolean> {
+    return Boolean(await this.verifiedRecord(identity));
   }
 
   async getDownloadedFileAvailability(
-    downloadedFile?: string,
+    identity?: IVerifyUpdateParams,
   ): Promise<IAppUpdatePackageAvailability> {
-    if (!downloadedFile) {
+    try {
+      return await this.getDownloadedFileAvailabilityInternal(identity);
+    } catch (error) {
+      throw wrapAppUpdateOperationError(error, 'install');
+    }
+  }
+
+  private async getDownloadedFileAvailabilityInternal(
+    identity?: IVerifyUpdateParams,
+  ): Promise<IAppUpdatePackageAvailability> {
+    if (!identity?.latestVersion || !identity.downloadUrl) {
       return { status: EAppUpdatePackageAvailabilityStatus.missing };
     }
     const record = this.readRecord();
-    if (!record || record.downloadedFile !== downloadedFile) {
+    if (
+      !record ||
+      record.version !== identity.latestVersion ||
+      record.url !== identity.downloadUrl
+    ) {
       return { status: EAppUpdatePackageAvailabilityStatus.notPrepared };
     }
-    const availability = getDownloadedFileAvailability(downloadedFile);
+    const availability = getDownloadedFileAvailability(record.downloadedFile);
     if (availability.status !== EAppUpdatePackageAvailabilityStatus.available) {
       return availability;
     }
-    return (await this.verifiedRecord(downloadedFile))
+    return (await this.verifiedRecord(identity))
       ? availability
       : { status: EAppUpdatePackageAvailabilityStatus.notPrepared };
   }
 
   async clearUpdateCache(): Promise<void> {
     if (this.installInProgress) {
-      throw new OneKeyLocalError('App update installation is in progress');
+      throw createUpdateError({
+        code: EUpdateErrorCode.installFailed,
+        step: 'cleanup',
+      });
     }
-    if (this.cacheClearPromise) return this.cacheClearPromise;
+    if (this.cacheClearPromise) {
+      try {
+        return await this.cacheClearPromise;
+      } catch (error) {
+        throw wrapAppUpdateOperationError(error, 'cleanup');
+      }
+    }
     this.cacheClearPromise = (async () => {
       this.activeController?.abort();
       this.metadataGeneration += 1;
@@ -598,13 +684,19 @@ class DesktopApiAppUpdate {
     })();
     try {
       await this.cacheClearPromise;
+    } catch (error) {
+      throw wrapAppUpdateOperationError(error, 'cleanup');
     } finally {
       this.cacheClearPromise = undefined;
     }
   }
 
   async clearUpdateSettings(): Promise<void> {
-    store.clearUpdateSettings();
+    try {
+      store.clearUpdateSettings();
+    } catch (error) {
+      throw wrapAppUpdateOperationError(error, 'cleanup');
+    }
   }
 
   async checkForUpdates(
@@ -612,9 +704,28 @@ class DesktopApiAppUpdate {
     requestHeaders: Record<string, string> = {},
     latestVersion: string,
   ): Promise<IArtifact | null> {
+    try {
+      return await this.checkForUpdatesInternal(
+        isManual,
+        requestHeaders,
+        latestVersion,
+      );
+    } catch (error) {
+      throw wrapAppUpdateOperationError(error, 'download');
+    }
+  }
+
+  private async checkForUpdatesInternal(
+    isManual: boolean,
+    requestHeaders: Record<string, string>,
+    latestVersion: string,
+  ): Promise<IArtifact | null> {
     if (this.cacheClearPromise) await this.cacheClearPromise;
     if (this.installInProgress) {
-      throw new OneKeyLocalError('App update installation is in progress');
+      throw createUpdateError({
+        code: EUpdateErrorCode.installFailed,
+        step: 'download',
+      });
     }
     this.isManualCheck = isManual;
     const metadataGeneration = this.metadataGeneration;
@@ -623,7 +734,10 @@ class DesktopApiAppUpdate {
       !semver.valid(latestVersion) ||
       !semver.gt(latestVersion, app.getVersion())
     ) {
-      throw new OneKeyLocalError('App update target version is invalid');
+      throw createUpdateError({
+        code: EUpdateErrorCode.invalidArgument,
+        step: 'download',
+      });
     }
     const feedBase = buildFeedUrl(
       store.getUpdateSettings().useTestFeedUrl,
@@ -632,11 +746,17 @@ class DesktopApiAppUpdate {
     const feedUrl = makeFeedFileUrl(feedBase);
     const headers = await withCustomUAHeaders(feedUrl, requestHeaders);
     if (metadataGeneration !== this.metadataGeneration) {
-      throw new OneKeyLocalError('Download cancelled');
+      throw createUpdateError({
+        code: EUpdateErrorCode.cancelled,
+        step: 'download',
+      });
     }
     const raw = await this.requestMetadata(feedUrl, headers);
     if (metadataGeneration !== this.metadataGeneration) {
-      throw new OneKeyLocalError('Download cancelled');
+      throw createUpdateError({
+        code: EUpdateErrorCode.cancelled,
+        step: 'download',
+      });
     }
     const parsed = YAML.parse(raw) as IFeedData;
     const artifact = selectArtifact(
@@ -680,8 +800,7 @@ class DesktopApiAppUpdate {
 
   private emitDownloaded(record: ICacheRecord): void {
     this.downloadedEvent = {
-      version: record.version,
-      downloadedFile: record.downloadedFile,
+      latestVersion: record.version,
       downloadUrl: record.url,
     };
     this.emitDownloadedFromEvent();
@@ -697,7 +816,9 @@ class DesktopApiAppUpdate {
   }
 
   private emitError(error: unknown): void {
-    const message = error instanceof Error ? error.message : String(error);
+    const updateError = getUpdateError(classifyNodeError(error), 'download');
+    if (updateError.code === EUpdateErrorCode.cancelled) return;
+    const message = createUpdateError(updateError).message;
     logger.error('auto-updater', message);
     this.getMainWindow()?.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
       message,
@@ -707,7 +828,10 @@ class DesktopApiAppUpdate {
 
   async downloadUpdate(): Promise<void> {
     if (this.installInProgress) {
-      throw new OneKeyLocalError('App update installation is in progress');
+      throw createUpdateError({
+        code: EUpdateErrorCode.installFailed,
+        step: 'download',
+      });
     }
     if (this.isDownloading) {
       if (this.activeDownload) {
@@ -718,7 +842,10 @@ class DesktopApiAppUpdate {
     }
     const artifact = this.selectedArtifact;
     if (!artifact)
-      throw new OneKeyLocalError('App update artifact was not selected');
+      throw createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'download',
+      });
     this.isDownloading = true;
     this.downloadedEvent = undefined;
     this.activeController = new AbortController();
@@ -757,12 +884,10 @@ class DesktopApiAppUpdate {
         }
         this.emitDownloaded(record);
       } catch (error) {
-        if (
-          !(error instanceof Error && error.message === 'Download cancelled')
-        ) {
-          this.emitError(error);
-        }
-        throw error;
+        this.emitError(error);
+        throw createUpdateError(
+          getUpdateError(classifyNodeError(error), 'download'),
+        );
       } finally {
         this.isDownloading = false;
         this.activeController = undefined;
@@ -827,7 +952,10 @@ class DesktopApiAppUpdate {
     const address = server.address();
     if (!address || typeof address === 'string') {
       server.close();
-      throw new OneKeyLocalError('Mac update feed did not bind');
+      throw createUpdateError({
+        code: EUpdateErrorCode.installFailed,
+        step: 'install',
+      });
     }
     try {
       await new Promise<void>((resolve, reject) => {
@@ -853,7 +981,12 @@ class DesktopApiAppUpdate {
         };
         timer.id = setTimeout(() => {
           cleanup();
-          reject(new OneKeyLocalError('Squirrel.Mac staging timed out'));
+          reject(
+            createUpdateError({
+              code: EUpdateErrorCode.timeout,
+              step: 'install',
+            }),
+          );
         }, 120_000);
         autoUpdater.once('update-downloaded', onDownloaded);
         autoUpdater.once('error', onError);
@@ -877,15 +1010,27 @@ class DesktopApiAppUpdate {
   }
 
   async downloadASC(params: IInstallUpdateParams): Promise<boolean> {
+    try {
+      return await this.downloadASCInternal(params);
+    } catch (error) {
+      throw wrapAppUpdateOperationError(error, 'downloadASC');
+    }
+  }
+
+  private async downloadASCInternal(
+    params: IInstallUpdateParams,
+  ): Promise<boolean> {
     if (this.cacheClearPromise) await this.cacheClearPromise;
     if (this.installInProgress) {
-      throw new OneKeyLocalError('App update installation is in progress');
+      throw createUpdateError({
+        code: EUpdateErrorCode.installFailed,
+        step: 'downloadASC',
+      });
     }
     const metadataGeneration = this.metadataGeneration;
     store.clearASCFile();
+    const record = await this.assertVerifiedRecord(params);
     if (this.isSkipGPGAllowed(params.skipGPGVerification)) return true;
-    const record = await this.assertVerifiedRecord(params.downloadedFile);
-    if (params.downloadUrl !== record.url) return false;
     const ascUrl = new URL(record.url);
     ascUrl.pathname += '.SHA256SUMS.asc';
     const headers = await withCustomUAHeaders(
@@ -893,11 +1038,17 @@ class DesktopApiAppUpdate {
       this.getArtifactRequestHeaders(ascUrl.toString()),
     );
     if (metadataGeneration !== this.metadataGeneration) {
-      throw new OneKeyLocalError('Download cancelled');
+      throw createUpdateError({
+        code: EUpdateErrorCode.cancelled,
+        step: 'downloadASC',
+      });
     }
     const text = await this.requestMetadata(ascUrl.toString(), headers);
     if (metadataGeneration !== this.metadataGeneration) {
-      throw new OneKeyLocalError('Download cancelled');
+      throw createUpdateError({
+        code: EUpdateErrorCode.cancelled,
+        step: 'downloadASC',
+      });
     }
     if (!text) return false;
     store.setASCFile(text);
@@ -913,9 +1064,10 @@ class DesktopApiAppUpdate {
       const signatures = await message.verify([key]);
       const valid = Boolean(signatures[0]) && (await signatures[0].verified);
       if (!valid) {
-        throw new OneKeyLocalError(
-          ElectronTranslations.update_signature_verification_failed_alert_text,
-        );
+        throw createUpdateError({
+          code: EUpdateErrorCode.integrityFailed,
+          step: 'verifyASC',
+        });
       }
       const lines = message
         .getText()
@@ -940,27 +1092,23 @@ class DesktopApiAppUpdate {
       }
       return /^[a-fA-F0-9]{64}$/.test(checksum) ? checksum.toLowerCase() : '';
     } catch {
-      throw new OneKeyLocalError(
-        ElectronTranslations.update_signature_verification_failed_alert_text,
-      );
+      throw createUpdateError({
+        code: EUpdateErrorCode.integrityFailed,
+        step: 'verifyASC',
+      });
     }
   }
 
   async verifyASC(params?: IInstallUpdateParams): Promise<boolean> {
-    if (this.isSkipGPGAllowed(params?.skipGPGVerification)) return true;
-    const record = this.readRecord();
-    const paramFileName = params?.downloadedFile
-      ? path.basename(params.downloadedFile)
-      : undefined;
-    if (
-      record?.fileName &&
-      paramFileName &&
-      paramFileName !== record.fileName
-    ) {
-      return false;
+    try {
+      if (!params) return false;
+      const record = await this.verifiedRecord(params);
+      if (!record) return false;
+      if (this.isSkipGPGAllowed(params.skipGPGVerification)) return true;
+      return Boolean(await this.getSha256(record.fileName));
+    } catch (error) {
+      throw wrapAppUpdateOperationError(error, 'verifyASC');
     }
-    const expectedFileName = record?.fileName ?? paramFileName;
-    return Boolean(await this.getSha256(expectedFileName));
   }
 
   private async verifySha256(
@@ -968,39 +1116,21 @@ class DesktopApiAppUpdate {
     sha256: string,
   ): Promise<boolean> {
     const expected = sha256.toLowerCase();
-    const stat = fs.statSync(downloadedFile);
-    if (
-      this.lastVerifiedFile &&
-      this.lastVerifiedFile.filePath === downloadedFile &&
-      this.lastVerifiedFile.size === stat.size &&
-      this.lastVerifiedFile.mtimeMs === stat.mtimeMs &&
-      this.lastVerifiedFile.sha256 === expected
-    ) {
-      return true;
-    }
     const actual = await hashFile(downloadedFile, 'sha256');
-    if (actual !== expected) {
-      return false;
-    }
-    if (
-      this.lastVerifiedFile &&
-      this.lastVerifiedFile.filePath === downloadedFile &&
-      this.lastVerifiedFile.size === stat.size &&
-      this.lastVerifiedFile.mtimeMs === stat.mtimeMs
-    ) {
-      this.lastVerifiedFile.sha256 = actual;
-    }
-    return true;
+    return actual === expected;
   }
 
   async verifyFile(params: IInstallUpdateParams): Promise<boolean> {
-    const record = await this.assertVerifiedRecord(params.downloadedFile);
-    if (params.downloadUrl !== record.url) return false;
-    if (this.isSkipGPGAllowed(params.skipGPGVerification)) return true;
-    const sha256 = await this.getSha256(record.fileName);
-    return Boolean(
-      sha256 && (await this.verifySha256(record.downloadedFile, sha256)),
-    );
+    try {
+      const record = await this.assertVerifiedRecord(params);
+      if (this.isSkipGPGAllowed(params.skipGPGVerification)) return true;
+      const sha256 = await this.getSha256(record.fileName);
+      return Boolean(
+        sha256 && (await this.verifySha256(record.downloadedFile, sha256)),
+      );
+    } catch (error) {
+      throw wrapAppUpdateOperationError(error, 'verifyPackage');
+    }
   }
 
   async verifyPackage(params: IInstallUpdateParams): Promise<boolean> {
@@ -1010,18 +1140,22 @@ class DesktopApiAppUpdate {
   private async getInstallRecord(
     params: IInstallUpdateParams,
   ): Promise<ICacheRecord> {
-    const record = await this.assertVerifiedRecord(params.downloadedFile);
+    const record = await this.assertVerifiedRecord(params);
     if (
       !params.latestVersion ||
       params.latestVersion !== record.version ||
       params.downloadUrl !== record.url
     ) {
-      throw new OneKeyLocalError(EAppUpdatePackageErrorCode.packageNotPrepared);
+      throw createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'install',
+      });
     }
     if (!(await this.verifyFile(params))) {
-      throw new OneKeyLocalError(
-        ElectronTranslations.update_installation_not_safe_alert_text,
-      );
+      throw createUpdateError({
+        code: EUpdateErrorCode.integrityFailed,
+        step: 'install',
+      });
     }
     return record;
   }
@@ -1074,7 +1208,6 @@ class DesktopApiAppUpdate {
     if (!this.canAutoInstallAppImage() || !current) {
       await this.manualInstallPackage({
         buildNumber: '',
-        downloadedFile: record.downloadedFile,
         downloadUrl: record.url,
         latestVersion: record.version,
       });
@@ -1095,7 +1228,10 @@ class DesktopApiAppUpdate {
     let handoffQueued = false;
     const marker = this.getAppImageHandoffPath();
     if (fs.existsSync(marker)) {
-      throw new OneKeyLocalError('AppImage handoff is already pending');
+      throw createUpdateError({
+        code: EUpdateErrorCode.installFailed,
+        step: 'install',
+      });
     }
     this.appImageInstallInProgress = true;
     try {
@@ -1163,6 +1299,15 @@ class DesktopApiAppUpdate {
       this.metadataControllers.forEach((controller) => controller.abort());
       await Promise.allSettled(this.metadataRequests);
       return await this.installPackageLocked(params);
+    } catch (error) {
+      const classified = getUpdateError(classifyNodeError(error), 'install');
+      throw createUpdateError({
+        ...classified,
+        code:
+          classified.code === EUpdateErrorCode.unknown
+            ? EUpdateErrorCode.installFailed
+            : classified.code,
+      });
     } finally {
       // A successful handoff remains locked until this process exits.
       if (!this.installHandoffStarted) this.installInProgress = false;
@@ -1298,14 +1443,27 @@ class DesktopApiAppUpdate {
   }
 
   async manualInstallPackage(params: IInstallUpdateParams): Promise<void> {
-    const record = await this.assertVerifiedRecord(params.downloadedFile);
-    if (params.downloadUrl !== record.url || !(await this.verifyFile(params))) {
-      throw new OneKeyLocalError(
-        ElectronTranslations.update_installation_not_safe_alert_text,
+    try {
+      const record = await this.getInstallRecord(params);
+      const openError = await shell.openPath(
+        path.dirname(record.downloadedFile),
       );
+      if (openError) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.installFailed,
+          step: 'install',
+        });
+      }
+    } catch (error) {
+      const classified = getUpdateError(classifyNodeError(error), 'install');
+      throw createUpdateError({
+        ...classified,
+        code:
+          classified.code === EUpdateErrorCode.unknown
+            ? EUpdateErrorCode.installFailed
+            : classified.code,
+      });
     }
-    const openError = await shell.openPath(path.dirname(record.downloadedFile));
-    if (openError) throw new OneKeyLocalError(openError);
   }
 
   private isDevSettingsEnabled(): boolean {

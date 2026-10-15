@@ -4,6 +4,12 @@ import os from 'os';
 import path from 'path';
 import { Readable } from 'stream';
 
+import {
+  EUpdateErrorCode,
+  UPDATE_ERROR_WIRE_PREFIX,
+  getUpdateError,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
+
 import { downloadNodeFile } from './nodeDownload';
 
 import type { INodeDownloadOptions } from './nodeDownload';
@@ -202,7 +208,17 @@ describe('HTTP 416 recovery', () => {
     };
     const outcome = downloadNodeFile(opts).catch((error: unknown) => error);
     await jest.runAllTimersAsync();
-    expect(await outcome).toHaveProperty('message', 'HTTP 416');
+    const failure = await outcome;
+    const expected = {
+      code: EUpdateErrorCode.httpError,
+      step: 'download' as const,
+      httpStatus: 416,
+    };
+    expect(getUpdateError(failure, 'download')).toEqual(expected);
+    expect(failure).toHaveProperty(
+      'message',
+      `${UPDATE_ERROR_WIRE_PREFIX}${JSON.stringify(expected)}`,
+    );
     expect(resumed).toBe(4);
     expect(fs.readFileSync(`${opts.targetPath}.partial`)).toEqual(
       content.subarray(0, 12),
@@ -229,7 +245,15 @@ describe('HTTP 416 recovery', () => {
       }
       return { url, response: response(416, {}) };
     };
-    await expect(downloadNodeFile(opts)).rejects.toThrow('HTTP 404');
+    const expected = {
+      code: EUpdateErrorCode.httpError,
+      step: 'download' as const,
+      httpStatus: 404,
+    };
+    await expect(downloadNodeFile(opts)).rejects.toMatchObject({
+      message: `${UPDATE_ERROR_WIRE_PREFIX}${JSON.stringify(expected)}`,
+      data: { updateError: expected },
+    });
     expect(fs.readFileSync(`${opts.targetPath}.partial`)).toEqual(
       content.subarray(0, 12),
     );

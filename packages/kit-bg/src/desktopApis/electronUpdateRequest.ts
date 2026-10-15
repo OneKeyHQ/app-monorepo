@@ -1,13 +1,41 @@
 import { net } from 'electron';
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EUpdateErrorCode,
+  createUpdateError,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 
-import { stripSensitiveHeaders } from './nodeDownload';
+import { classifyNodeError, stripSensitiveHeaders } from './nodeDownload';
 
 import type { IncomingHttpHeaders } from 'http';
 import type { Readable } from 'stream';
 
 const MAX_REDIRECTS = 5;
+const electronNetErrors: Record<string, EUpdateErrorCode> = {
+  'net::ERR_NAME_NOT_RESOLVED': EUpdateErrorCode.networkError,
+  'net::ERR_INTERNET_DISCONNECTED': EUpdateErrorCode.networkError,
+  'net::ERR_CONNECTION_RESET': EUpdateErrorCode.networkError,
+  'net::ERR_CONNECTION_REFUSED': EUpdateErrorCode.networkError,
+  'net::ERR_NETWORK_CHANGED': EUpdateErrorCode.networkError,
+  'net::ERR_TIMED_OUT': EUpdateErrorCode.timeout,
+  'net::ERR_CONNECTION_TIMED_OUT': EUpdateErrorCode.timeout,
+  'net::ERR_CERT_DATE_INVALID': EUpdateErrorCode.securityRejected,
+  'net::ERR_CERT_AUTHORITY_INVALID': EUpdateErrorCode.securityRejected,
+  'net::ERR_CERT_COMMON_NAME_INVALID': EUpdateErrorCode.securityRejected,
+  'net::ERR_SSL_PROTOCOL_ERROR': EUpdateErrorCode.securityRejected,
+};
+
+function classifyElectronRequestError(error: Error) {
+  const code = Object.prototype.hasOwnProperty.call(
+    electronNetErrors,
+    error.message,
+  )
+    ? electronNetErrors[error.message]
+    : undefined;
+  return code
+    ? createUpdateError({ code, step: 'download' })
+    : classifyNodeError(error);
+}
 
 export interface IUpdateResponse {
   response: {
@@ -29,9 +57,16 @@ export async function requestUpdateUrl(
   let url = inputUrl;
   let requestHeaders = headers;
   for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
-    if (signal?.aborted) throw new OneKeyLocalError('Download cancelled');
+    if (signal?.aborted)
+      throw createUpdateError({
+        code: EUpdateErrorCode.cancelled,
+        step: 'download',
+      });
     if (new URL(url).protocol !== 'https:') {
-      throw new OneKeyLocalError('App update request must use HTTPS');
+      throw createUpdateError({
+        code: EUpdateErrorCode.securityRejected,
+        step: 'download',
+      });
     }
     const currentUrl = url;
     const currentHeaders = requestHeaders;
@@ -57,7 +92,10 @@ export async function requestUpdateUrl(
       const resetTimer = () => {
         clearTimeout(timer);
         timer = setTimeout(() => {
-          const error = new OneKeyLocalError('Download timeout');
+          const error = createUpdateError({
+            code: EUpdateErrorCode.timeout,
+            step: 'download',
+          });
           cleanup();
           stream?.destroy(error);
           abortRequest();
@@ -65,7 +103,10 @@ export async function requestUpdateUrl(
         }, stallMs);
       };
       onAbort = () => {
-        const error = new OneKeyLocalError('Download cancelled');
+        const error = createUpdateError({
+          code: EUpdateErrorCode.cancelled,
+          step: 'download',
+        });
         cleanup();
         stream?.destroy(error);
         abortRequest();
@@ -74,8 +115,9 @@ export async function requestUpdateUrl(
       signal?.addEventListener('abort', onAbort, { once: true });
       request.on('error', (error) => {
         cleanup();
-        if (!settled) reject(error);
-        else stream?.destroy(error);
+        const safeError = classifyElectronRequestError(error);
+        if (!settled) reject(safeError);
+        else stream?.destroy(safeError);
       });
       request.on('redirect', (_status, _method, redirectUrl) => {
         settled = true;
@@ -120,7 +162,12 @@ export async function requestUpdateUrl(
         });
         incoming.once('aborted', () => {
           cleanup();
-          response.destroy(new OneKeyLocalError('Download interrupted'));
+          response.destroy(
+            createUpdateError({
+              code: EUpdateErrorCode.networkError,
+              step: 'download',
+            }),
+          );
         });
         resetTimer();
         resolve({ response, url: currentUrl });
@@ -141,7 +188,10 @@ export async function requestUpdateUrl(
     if ('response' in outcome) return outcome;
     const next = new URL(outcome.redirectUrl, url);
     if (next.protocol !== 'https:') {
-      throw new OneKeyLocalError('App update redirect must use HTTPS');
+      throw createUpdateError({
+        code: EUpdateErrorCode.securityRejected,
+        step: 'download',
+      });
     }
     requestHeaders =
       next.origin === new URL(url).origin
@@ -149,5 +199,8 @@ export async function requestUpdateUrl(
         : stripSensitiveHeaders(requestHeaders);
     url = next.toString();
   }
-  throw new OneKeyLocalError('Too many update redirects');
+  throw createUpdateError({
+    code: EUpdateErrorCode.securityRejected,
+    step: 'download',
+  });
 }

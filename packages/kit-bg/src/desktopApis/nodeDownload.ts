@@ -3,7 +3,12 @@ import fs from 'fs';
 import https from 'https';
 import path from 'path';
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EUpdateErrorCode,
+  createUpdateError,
+  getUpdateError,
+  isRetryableUpdateError,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 
 import type { IUpdateResponse } from './electronUpdateRequest';
 
@@ -59,8 +64,70 @@ interface IManifest {
 
 type IResponse = IUpdateResponse;
 
+class RangeFallback extends Error {
+  constructor(
+    message: string,
+    readonly refreshMetadata = false,
+  ) {
+    super(message);
+  }
+}
+
+function failure(code: EUpdateErrorCode, httpStatus?: number) {
+  return createUpdateError({ code, step: 'download', httpStatus });
+}
+
+export function classifyNodeError(error: unknown) {
+  try {
+    if (error instanceof RangeFallback) {
+      return error.refreshMetadata
+        ? failure(EUpdateErrorCode.httpError, 416)
+        : failure(EUpdateErrorCode.integrityFailed);
+    }
+    const known = getUpdateError(error, 'download');
+    if (known.code !== EUpdateErrorCode.unknown)
+      return createUpdateError(known);
+    const code = (error as NodeJS.ErrnoException | undefined)?.code;
+    if (code === 'ENOENT' || code === 'ENOTDIR')
+      return failure(EUpdateErrorCode.packageMissing);
+    if (
+      ['ENOSPC', 'EACCES', 'EPERM', 'EIO', 'EBUSY', 'EROFS'].includes(
+        code ?? '',
+      )
+    )
+      return failure(EUpdateErrorCode.storageError);
+    if (['ETIMEDOUT', 'ESOCKETTIMEDOUT'].includes(code ?? ''))
+      return failure(EUpdateErrorCode.timeout);
+    if (
+      [
+        'ECONNRESET',
+        'ECONNREFUSED',
+        'ENETUNREACH',
+        'EHOSTUNREACH',
+        'EAI_AGAIN',
+        'ENOTFOUND',
+      ].includes(code ?? '')
+    )
+      return failure(EUpdateErrorCode.networkError);
+    if (
+      [
+        'CERT_HAS_EXPIRED',
+        'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+        'SELF_SIGNED_CERT_IN_CHAIN',
+        'ERR_TLS_CERT_ALTNAME_INVALID',
+      ].includes(code ?? '')
+    )
+      return failure(EUpdateErrorCode.securityRejected);
+    if ((error as Error | undefined)?.name === 'AbortError')
+      return failure(EUpdateErrorCode.cancelled);
+    return failure(EUpdateErrorCode.unknown);
+  } catch {
+    return failure(EUpdateErrorCode.unknown);
+  }
+}
+
 function cancelled(signal?: AbortSignal): void {
-  if (signal?.aborted) throw new OneKeyLocalError('Download cancelled');
+  if (signal?.aborted) throw failure(EUpdateErrorCode.cancelled);
 }
 
 function waitForRetry(delay: number, signal?: AbortSignal): Promise<void> {
@@ -70,7 +137,7 @@ function waitForRetry(delay: number, signal?: AbortSignal): Promise<void> {
     const onAbort = () => {
       clearTimeout(timer.id);
       signal?.removeEventListener('abort', onAbort);
-      reject(new OneKeyLocalError('Download cancelled'));
+      reject(failure(EUpdateErrorCode.cancelled));
     };
     timer.id = setTimeout(
       () => {
@@ -123,7 +190,7 @@ async function get(
   transport?: INodeDownloadOptions['transport'],
 ): Promise<IResponse> {
   cancelled(signal);
-  if (!isHttps(url)) throw new OneKeyLocalError('Download URL must use HTTPS');
+  if (!isHttps(url)) throw failure(EUpdateErrorCode.invalidArgument);
   if (transport) return transport(url, headers, signal);
   return new Promise((resolve, reject) => {
     const req = https.get(url, { headers, signal }, (response) => {
@@ -131,14 +198,12 @@ async function get(
       if ([301, 302, 303, 307, 308].includes(status)) {
         response.destroy();
         if (!response.headers.location || redirects >= MAX_REDIRECTS) {
-          reject(new OneKeyLocalError('Invalid download redirect'));
+          reject(failure(EUpdateErrorCode.securityRejected));
           return;
         }
         const next = new URL(response.headers.location, url).toString();
         if (!isHttps(next)) {
-          reject(
-            new OneKeyLocalError('Redirect to non-HTTPS URL is not allowed'),
-          );
+          reject(failure(EUpdateErrorCode.securityRejected));
           return;
         }
         const nextHeaders =
@@ -155,7 +220,7 @@ async function get(
     });
     req.on('error', reject);
     req.setTimeout(STALL_MS, () =>
-      req.destroy(new OneKeyLocalError('Download timeout')),
+      req.destroy(failure(EUpdateErrorCode.timeout)),
     );
   });
 }
@@ -176,14 +241,14 @@ async function probe(opts: INodeDownloadOptions) {
   }
   response.destroy();
   if (status !== 200 && status !== 206)
-    throw new OneKeyLocalError(`HTTP ${status}`);
+    throw failure(EUpdateErrorCode.httpError, status);
   if (!Number.isSafeInteger(size) || size < 0)
-    throw new OneKeyLocalError('Invalid download size');
+    throw failure(EUpdateErrorCode.integrityFailed);
   if (
     size > MAX_DOWNLOAD_BYTES ||
     (opts.expectedBytes && size && size !== opts.expectedBytes)
   )
-    throw new OneKeyLocalError('Download size mismatch or limit exceeded');
+    throw failure(EUpdateErrorCode.integrityFailed);
   return {
     url,
     size,
@@ -193,15 +258,8 @@ async function probe(opts: INodeDownloadOptions) {
 }
 
 function probeFailureIsTransient(error: unknown): boolean {
-  if (!(error instanceof Error)) return true;
-  const status = /^HTTP (\d+)$/.exec(error.message);
-  if (status)
-    return Number(status[1]) === 416 || retryableStatus(Number(status[1]));
-  return !(
-    error.message === 'Invalid download redirect' ||
-    error.message === 'Redirect to non-HTTPS URL is not allowed' ||
-    error.message === 'Download URL must use HTTPS' ||
-    error.message === 'Download size mismatch or limit exceeded'
+  return isRetryableUpdateError(
+    getUpdateError(classifyNodeError(error), 'download'),
   );
 }
 
@@ -220,7 +278,7 @@ async function probeWithRetry(opts: INodeDownloadOptions) {
       await waitForRetry(delay, opts.signal);
     }
   }
-  throw new OneKeyLocalError('Range probe retry exhausted');
+  throw failure(EUpdateErrorCode.unknown);
 }
 
 function isStrongEtag(etag: string | null | undefined): etag is string {
@@ -264,8 +322,7 @@ async function verify(
       cancelled(opts.signal);
       const hash = createHash(algorithm);
       const stream = fs.createReadStream(filePath);
-      const onAbort = () =>
-        stream.destroy(new OneKeyLocalError('Download cancelled'));
+      const onAbort = () => stream.destroy(failure(EUpdateErrorCode.cancelled));
       opts.signal?.addEventListener('abort', onAbort, { once: true });
       try {
         for await (const chunk of stream) {
@@ -407,15 +464,6 @@ function emit(
   });
 }
 
-class RangeFallback extends Error {
-  constructor(
-    message: string,
-    readonly refreshMetadata = false,
-  ) {
-    super(message);
-  }
-}
-
 function retryableStatus(status: number): boolean {
   return (
     status === 408 ||
@@ -486,7 +534,7 @@ async function downloadPart(
         if (!retryableStatus(status))
           throw new RangeFallback(`Permanent HTTP ${status}`);
         serverDelay = retryAfterMs(response.headers['retry-after']);
-        throw new OneKeyLocalError(`HTTP ${status}`);
+        throw failure(EUpdateErrorCode.httpError, status);
       }
       let sinceFlush = 0;
       for await (const chunk of response) {
@@ -505,19 +553,22 @@ async function downloadPart(
       }
       flush();
       if (part.done === part.end - part.start + 1) return;
-      throw new OneKeyLocalError('Range body incomplete');
+      throw failure(EUpdateErrorCode.networkError);
     } catch (error) {
       try {
         flush();
       } catch {
         /* ignore manifest flush errors during unwind */
       }
+      if (error instanceof RangeFallback) throw error;
       if (
-        error instanceof RangeFallback ||
         opts.signal?.aborted ||
-        retry === MAX_RETRIES
+        retry === MAX_RETRIES ||
+        !isRetryableUpdateError(
+          getUpdateError(classifyNodeError(error), 'download'),
+        )
       )
-        throw error;
+        throw classifyNodeError(error);
       const delay = serverDelay ?? Math.min(500 * 2 ** retry, 10_000);
       await waitForRetry(delay, opts.signal);
       serverDelay = null;
@@ -632,19 +683,19 @@ async function single(
   const status = response.statusCode ?? 0;
   if (status !== 200 && status !== 206) {
     response.destroy();
-    throw new OneKeyLocalError(`HTTP ${status}`);
+    throw failure(EUpdateErrorCode.httpError, status);
   }
   if (etag && response.headers.etag && response.headers.etag !== etag) {
     response.destroy();
     discard(partial, manifestPath);
-    throw new OneKeyLocalError('Download object changed');
+    throw failure(EUpdateErrorCode.integrityFailed);
   }
   if (status === 206) {
     const range = contentRange(response.headers['content-range']);
     if (!range || range.start !== offset || (size && range.total !== size)) {
       response.destroy();
       discard(partial, manifestPath);
-      throw new OneKeyLocalError('Invalid resume range');
+      throw failure(EUpdateErrorCode.integrityFailed);
     }
     manifest.size = range.total;
     part.end = range.total - 1;
@@ -664,7 +715,7 @@ async function single(
       manifest.size !== opts.expectedBytes)
   ) {
     response.destroy();
-    throw new OneKeyLocalError('Download size mismatch or limit exceeded');
+    throw failure(EUpdateErrorCode.integrityFailed);
   }
   const fd = fs.openSync(partial, 'r+');
   const flush = () => saveManifest(manifestPath, manifest, fd);
@@ -679,7 +730,7 @@ async function single(
         part.done + bytes.length > MAX_DOWNLOAD_BYTES ||
         (opts.expectedBytes && part.done + bytes.length > opts.expectedBytes)
       )
-        throw new OneKeyLocalError('Download body exceeds expected size');
+        throw failure(EUpdateErrorCode.integrityFailed);
       fs.writeSync(fd, bytes, 0, bytes.length, part.done);
       part.done += bytes.length;
       sinceFlush += bytes.length;
@@ -691,9 +742,9 @@ async function single(
     }
     flush();
     if (manifest.size && part.done !== manifest.size)
-      throw new OneKeyLocalError('Download incomplete');
+      throw failure(EUpdateErrorCode.networkError);
     if (opts.expectedBytes && part.done !== opts.expectedBytes)
-      throw new OneKeyLocalError('Download size mismatch');
+      throw failure(EUpdateErrorCode.integrityFailed);
     return part.done;
   } finally {
     try {
@@ -724,24 +775,14 @@ async function singleWithRetry(
         manifestPath,
       );
     } catch (error) {
+      const updateError = getUpdateError(classifyNodeError(error), 'download');
       if (
         opts.signal?.aborted ||
         retry === MAX_RETRIES ||
-        (error instanceof Error &&
-          (error.message === 'Download body exceeds expected size' ||
-            error.message === 'Download size mismatch or limit exceeded' ||
-            error.message === 'Download size mismatch'))
+        !isRetryableUpdateError(updateError)
       )
-        throw error;
-      const status =
-        error instanceof Error ? /^HTTP (\d+)$/.exec(error.message) : null;
-      if (
-        status &&
-        Number(status[1]) !== 416 &&
-        !retryableStatus(Number(status[1]))
-      )
-        throw error;
-      if (status && Number(status[1]) === 416) {
+        throw classifyNodeError(error);
+      if (updateError.httpStatus === 416) {
         // Revalidate the object before readManifest decides to keep/reset bytes.
         const refreshed = await probeWithRetry(opts);
         currentSize = refreshed.size;
@@ -750,7 +791,7 @@ async function singleWithRetry(
       await waitForRetry(Math.min(500 * 2 ** retry, 10_000), opts.signal);
     }
   }
-  throw new OneKeyLocalError('Download retry exhausted');
+  throw failure(EUpdateErrorCode.unknown);
 }
 
 async function parallelWithRecovery(
@@ -793,10 +834,10 @@ async function parallelWithRecovery(
       }
     }
   }
-  throw new OneKeyLocalError('Range recovery exhausted');
+  throw failure(EUpdateErrorCode.unknown);
 }
 
-export async function downloadNodeFile(
+async function downloadNodeFileInternal(
   input: INodeDownloadOptions,
 ): Promise<{ filePath: string; totalBytes: number }> {
   let highestPercent = 0;
@@ -809,16 +850,16 @@ export async function downloadNodeFile(
   };
   cancelled(opts.signal);
   if (!opts.identity || !isHttps(opts.url))
-    throw new OneKeyLocalError('Invalid download parameters');
+    throw failure(EUpdateErrorCode.invalidArgument);
   if (!opts.expectedSha512 && !opts.expectedSha256)
-    throw new OneKeyLocalError('Download checksum is required');
+    throw failure(EUpdateErrorCode.invalidArgument);
   if (
     opts.expectedBytes !== undefined &&
     (!Number.isSafeInteger(opts.expectedBytes) ||
       opts.expectedBytes <= 0 ||
       opts.expectedBytes > MAX_DOWNLOAD_BYTES)
   )
-    throw new OneKeyLocalError('Invalid expected download size');
+    throw failure(EUpdateErrorCode.invalidArgument);
   fs.mkdirSync(path.dirname(opts.targetPath), { recursive: true });
   const partial = `${opts.targetPath}.partial`;
   const manifestPath = `${partial}.progress.json`;
@@ -867,14 +908,24 @@ export async function downloadNodeFile(
     size > MAX_DOWNLOAD_BYTES ||
     (opts.expectedBytes && size !== opts.expectedBytes)
   ) {
-    throw new OneKeyLocalError('Download size mismatch or limit exceeded');
+    throw failure(EUpdateErrorCode.integrityFailed);
   }
   if (!(await verify(partial, opts))) {
     discard(partial, manifestPath);
-    throw new OneKeyLocalError('Downloaded file checksum mismatch');
+    throw failure(EUpdateErrorCode.integrityFailed);
   }
   cancelled(opts.signal);
   renameWithRetrySync(partial, opts.targetPath);
   fs.rmSync(manifestPath, { force: true });
   return { filePath: opts.targetPath, totalBytes: size };
+}
+
+export async function downloadNodeFile(
+  input: INodeDownloadOptions,
+): Promise<{ filePath: string; totalBytes: number }> {
+  try {
+    return await downloadNodeFileInternal(input);
+  } catch (error) {
+    throw classifyNodeError(error);
+  }
 }

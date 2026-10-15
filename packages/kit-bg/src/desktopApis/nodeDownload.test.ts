@@ -7,7 +7,12 @@ import path from 'path';
 // eslint-disable-next-line import/no-extraneous-dependencies
 import selfsigned from 'selfsigned';
 
-import { downloadNodeFile } from './nodeDownload';
+import {
+  EUpdateErrorCode,
+  getUpdateError,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
+
+import { classifyNodeError, downloadNodeFile } from './nodeDownload';
 
 import type { INodeDownloadOptions } from './nodeDownload';
 import type { AddressInfo } from 'net';
@@ -42,6 +47,56 @@ describe('nodeDownload', () => {
   afterEach(() => {
     https.globalAgent.options.rejectUnauthorized = priorTls;
     fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  test.each([
+    ['ENOTFOUND', EUpdateErrorCode.networkError],
+    ['ETIMEDOUT', EUpdateErrorCode.timeout],
+    ['CERT_HAS_EXPIRED', EUpdateErrorCode.securityRejected],
+    ['ENOSPC', EUpdateErrorCode.storageError],
+    ['NOT_A_KNOWN_ERRNO', EUpdateErrorCode.unknown],
+  ])('classifies transport errno %s at origin', (code, expected) => {
+    const error = Object.assign(new Error('private local path'), { code });
+    expect(getUpdateError(classifyNodeError(error), 'download')).toEqual({
+      code: expected,
+      step: 'download',
+    });
+  });
+
+  test('preserves HTTP status from the actual response without exposing its body', async () => {
+    const server = https.createServer(
+      { key: pems.private, cert: pems.cert },
+      (_req, res) => {
+        res.writeHead(404);
+        res.end('private server detail');
+      },
+    );
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    try {
+      const port = (server.address() as AddressInfo).port;
+      await expect(
+        downloadNodeFile({
+          url: `https://localhost:${port}/missing.zip`,
+          targetPath: path.join(dir, 'missing.zip'),
+          identity: 'missing',
+          transport: testTransport,
+          expectedSha512: crypto
+            .createHash('sha512')
+            .update('missing')
+            .digest('base64'),
+        }),
+      ).rejects.toMatchObject({
+        data: {
+          updateError: {
+            code: EUpdateErrorCode.httpError,
+            step: 'download',
+            httpStatus: 404,
+          },
+        },
+      });
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
   });
 
   test('assembles eight ranges through a supplied transport', async () => {
@@ -119,7 +174,7 @@ describe('nodeDownload', () => {
             .update(content)
             .digest('base64'),
         }),
-      ).rejects.toThrow('Download body exceeds expected size');
+      ).rejects.toThrow('"code":"INTEGRITY_FAILED"');
     } finally {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }

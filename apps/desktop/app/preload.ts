@@ -76,14 +76,13 @@ function isDesktopBleConnectedOnlyScopeActive(uuid: string) {
 }
 
 export interface IVerifyUpdateParams {
-  downloadedFile?: string;
   downloadUrl?: string;
+  latestVersion?: string;
   skipGPGVerification?: boolean;
 }
 
 export interface IInstallUpdateParams extends IVerifyUpdateParams {
   buildNumber: string;
-  latestVersion?: string;
 }
 
 export type IDesktopEventUnSubscribe = () => void;

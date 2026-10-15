@@ -1,8 +1,12 @@
-import { AppUpdate } from './index.desktop';
+import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
+
 import {
-  EAppUpdatePackageAvailabilityStatus,
-  EAppUpdatePackageErrorCode,
-} from './type';
+  EUpdateErrorCode,
+  UPDATE_ERROR_WIRE_PREFIX,
+  getUpdateError,
+} from './error';
+import { AppUpdate } from './index.desktop';
+import { EAppUpdatePackageAvailabilityStatus } from './type';
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -68,7 +72,7 @@ describe('desktop app update adapter', () => {
     jest.useRealTimers();
   });
 
-  test('downloadPackage resolves downloaded event even when downloadedFile is provided and ignores bundle events', async () => {
+  test('downloadPackage resolves the app identity and ignores bundle events', async () => {
     const unsubscribeDownloaded = jest.fn();
     let emitDownloaded: (params: any) => void = () => {};
     onDownloaded.mockImplementationOnce((callback) => {
@@ -80,24 +84,20 @@ describe('desktop app update adapter', () => {
       // Bundle event should be ignored
       emitDownloaded({
         bundleVersion: '100',
-        downloadedFile: '/tmp/bundle.zip',
       });
       // App update event should resolve
       emitDownloaded({
-        version: '6.6.0',
-        downloadedFile: '/tmp/app.zip',
+        latestVersion: '6.6.0',
         downloadUrl: 'https://example.com/app.zip',
       });
     });
 
     const result = await AppUpdate.downloadPackage({
-      downloadedFile: '/tmp/app.zip',
       latestVersion: '6.6.0',
     } as any);
 
     expect(result).toEqual({
-      version: '6.6.0',
-      downloadedFile: '/tmp/app.zip',
+      latestVersion: '6.6.0',
       downloadUrl: 'https://example.com/app.zip',
     });
     expect(unsubscribeDownloaded).toHaveBeenCalledTimes(1);
@@ -119,9 +119,55 @@ describe('desktop app update adapter', () => {
     } as any);
     await Promise.resolve();
     await Promise.resolve();
-    emitUpdateError(new Error('network error'));
+    emitUpdateError(
+      new Error(
+        `${UPDATE_ERROR_WIRE_PREFIX}{"code":"NETWORK_ERROR","step":"download"}`,
+      ),
+    );
 
-    await expect(promise).rejects.toThrow('network error');
+    const error = await promise.catch((reason: unknown) => reason);
+    expect(getUpdateError(error, 'download')).toEqual({
+      code: EUpdateErrorCode.networkError,
+      step: 'download',
+    });
+    expect(unsubscribeDownloaded).toHaveBeenCalledTimes(1);
+  });
+
+  test('one download error event plus rejected IPC promise yields one failure', async () => {
+    let emitUpdateError: (error: Error) => void = () => {};
+    let rejectDownload: (error: Error) => void = () => {};
+    const unsubscribeError = jest.fn();
+    const unsubscribeDownloaded = jest.fn();
+    onUpdateError.mockImplementationOnce((callback) => {
+      emitUpdateError = callback;
+      return unsubscribeError;
+    });
+    onDownloaded.mockReturnValueOnce(unsubscribeDownloaded);
+    checkForUpdates.mockResolvedValueOnce({ version: '6.6.0' });
+    downloadUpdate.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectDownload = reject;
+        }),
+    );
+    const failures: unknown[] = [];
+    const promise = AppUpdate.downloadPackage({
+      latestVersion: '6.6.0',
+    } as any).catch((error: unknown) => failures.push(error));
+    await Promise.resolve();
+    await Promise.resolve();
+    const wire = new Error(
+      `${UPDATE_ERROR_WIRE_PREFIX}{"code":"NETWORK_ERROR","step":"download"}`,
+    );
+    emitUpdateError(wire);
+    rejectDownload(wire);
+    await promise;
+    await Promise.resolve();
+    expect(failures).toHaveLength(1);
+    expect(getUpdateError(failures[0], 'download').code).toBe(
+      EUpdateErrorCode.networkError,
+    );
+    expect(unsubscribeError).toHaveBeenCalledTimes(1);
     expect(unsubscribeDownloaded).toHaveBeenCalledTimes(1);
   });
 
@@ -143,19 +189,30 @@ describe('desktop app update adapter', () => {
     expect(settled).toBe(true);
   });
 
-  test('propagates a main-process verification failure', async () => {
-    const error = new Error('APP_PACKAGE_UNAVAILABLE:EACCES');
+  test('normalizes an unknown main-process failure without leaking its path', async () => {
+    const error = new Error('EACCES /Users/private/installer.AppImage');
     manualInstallPackage.mockRejectedValue(error);
 
-    await expect(AppUpdate.manualInstallPackage({} as any)).rejects.toBe(error);
+    const rejected = await AppUpdate.manualInstallPackage({} as any).catch(
+      (reason: unknown) => reason,
+    );
+    expect(getUpdateError(rejected, 'install')).toEqual({
+      code: EUpdateErrorCode.unknown,
+      step: 'install',
+    });
+    expect((rejected as Error).message).not.toContain('/Users/private');
   });
 
   test('rejects a false package verification result', async () => {
     verifyPackage.mockResolvedValue(false);
 
-    await expect(AppUpdate.verifyPackage({} as any)).rejects.toThrow(
-      'APP_UPDATE_PACKAGE_VERIFICATION_FAILED',
+    const rejected = await AppUpdate.verifyPackage({} as any).catch(
+      (reason: unknown) => reason,
     );
+    expect(getUpdateError(rejected, 'verifyPackage')).toEqual({
+      code: EUpdateErrorCode.integrityFailed,
+      step: 'verifyPackage',
+    });
   });
 
   test('keeps the install error listener active after the IPC reply', async () => {
@@ -168,8 +225,9 @@ describe('desktop app update adapter', () => {
     const error = new Error('installer spawn failed');
 
     const promise = AppUpdate.installPackage({
+      latestVersion: '6.5.3',
       downloadedEvent: {
-        downloadedFile: '/tmp/app.zip',
+        latestVersion: '6.5.3',
         downloadUrl: 'https://example.com/app.zip',
       },
     } as any);
@@ -179,7 +237,11 @@ describe('desktop app update adapter', () => {
     expect(onUpdateError).toHaveBeenCalled();
     emitUpdateError(error);
 
-    await expect(promise).rejects.toBe(error);
+    const rejected = await promise.catch((reason: unknown) => reason);
+    expect(getUpdateError(rejected, 'install')).toEqual({
+      code: EUpdateErrorCode.unknown,
+      step: 'install',
+    });
     expect(unsubscribe).toHaveBeenCalled();
   });
 
@@ -191,7 +253,7 @@ describe('desktop app update adapter', () => {
       const promise = AppUpdate.installPackage({
         latestVersion: '6.5.3',
         downloadedEvent: {
-          downloadedFile: '/tmp/app.zip',
+          latestVersion: '6.5.3',
           downloadUrl: 'https://example.com/app.zip',
         },
       } as any);
@@ -209,14 +271,32 @@ describe('desktop app update adapter', () => {
       status: EAppUpdatePackageAvailabilityStatus.notPrepared,
     });
 
+    const rejected = await AppUpdate.installPackage({
+      latestVersion: '6.5.3',
+      downloadedEvent: {
+        latestVersion: '6.5.3',
+        downloadUrl: 'https://example.com/app.zip',
+      },
+    } as any).catch((reason: unknown) => reason);
+    expect(getUpdateError(rejected, 'install')).toEqual({
+      code: EUpdateErrorCode.packageMissing,
+      step: 'install',
+    });
+    expect(installPackage).not.toHaveBeenCalled();
+  });
+
+  test('does not report a stale downloaded release as available', async () => {
     await expect(
-      AppUpdate.installPackage({
+      AppUpdate.checkPackageAvailability({
+        latestVersion: '6.5.3',
         downloadedEvent: {
-          downloadedFile: '/tmp/app.zip',
+          latestVersion: '6.5.2',
           downloadUrl: 'https://example.com/app.zip',
         },
-      } as any),
-    ).rejects.toThrow(EAppUpdatePackageErrorCode.packageNotPrepared);
-    expect(installPackage).not.toHaveBeenCalled();
+      } as IAppUpdateInfo),
+    ).resolves.toEqual({
+      status: EAppUpdatePackageAvailabilityStatus.notPrepared,
+    });
+    expect(getDownloadedFileAvailability).not.toHaveBeenCalled();
   });
 });

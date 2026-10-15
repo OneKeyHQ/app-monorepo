@@ -4,7 +4,10 @@ import os from 'os';
 import path from 'path';
 import { Readable } from 'stream';
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EUpdateErrorCode,
+  UPDATE_ERROR_WIRE_PREFIX,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 
 import { downloadNodeFile } from './nodeDownload';
 
@@ -119,8 +122,11 @@ test.each([
           };
         const interrupted = async function* () {
           yield body.subarray(0, 1024);
-          throw new OneKeyLocalError(
-            fault === 'stall' ? 'Download timeout' : 'Connection dropped',
+          throw Object.assign(
+            new Error(
+              fault === 'stall' ? 'Download timeout' : 'Connection dropped',
+            ),
+            { code: fault === 'stall' ? 'ETIMEDOUT' : 'ECONNRESET' },
           );
         };
         return { url, response: response(206, rangeHeaders, interrupted()) };
@@ -262,7 +268,14 @@ test('rejects corrupted parallel assembly without publishing or retaining artifa
       ),
     };
   };
-  await expect(downloadNodeFile(opts)).rejects.toThrow('checksum mismatch');
+  const expected = {
+    code: EUpdateErrorCode.integrityFailed,
+    step: 'download',
+  };
+  await expect(downloadNodeFile(opts)).rejects.toMatchObject({
+    message: `${UPDATE_ERROR_WIRE_PREFIX}${JSON.stringify(expected)}`,
+    data: { updateError: expected },
+  });
   expect(requests).toBe(9);
   for (const suffix of ['', '.partial', '.partial.progress.json'])
     expect(fs.existsSync(`${opts.targetPath}${suffix}`)).toBe(false);
@@ -456,7 +469,14 @@ test('rethrows non-ENOENT read errors in verify without discarding partial progr
     );
   }) as typeof fs.createReadStream);
   try {
-    await expect(downloadNodeFile(opts)).rejects.toThrow('disk read failure');
+    const expected = {
+      code: EUpdateErrorCode.storageError,
+      step: 'download',
+    };
+    await expect(downloadNodeFile(opts)).rejects.toMatchObject({
+      message: `${UPDATE_ERROR_WIRE_PREFIX}${JSON.stringify(expected)}`,
+      data: { updateError: expected },
+    });
     expect(fs.existsSync(`${opts.targetPath}.partial`)).toBe(true);
     expect(fs.existsSync(`${opts.targetPath}.partial.progress.json`)).toBe(
       true,

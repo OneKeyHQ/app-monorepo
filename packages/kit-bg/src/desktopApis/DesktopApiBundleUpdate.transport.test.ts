@@ -3,6 +3,11 @@ import os from 'os';
 import path from 'path';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EUpdateErrorCode,
+  createUpdateError,
+  getUpdateError,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 
 import type { INodeDownloadOptions } from './nodeDownload';
 
@@ -92,14 +97,19 @@ test('bundle cancellation aborts the shared downloader', async () => {
       new Promise((_, reject) => {
         signal = opts.signal;
         opts.signal?.addEventListener('abort', () =>
-          reject(new OneKeyLocalError('Download cancelled')),
+          reject(
+            createUpdateError({
+              code: EUpdateErrorCode.cancelled,
+              step: 'download',
+            }),
+          ),
         );
       }),
   );
   const api = await createApi();
   const download = api.downloadBundle(params);
   const clear = api.clearDownload();
-  await expect(download).rejects.toThrow('Download cancelled');
+  await expect(download).rejects.toThrow('"code":"CANCELLED"');
   await clear;
   expect(signal?.aborted).toBe(true);
 });
@@ -109,7 +119,7 @@ function pendingDownload(opts: INodeDownloadOptions) {
     filePath: string;
     totalBytes: number;
   }) => void = () => {};
-  let reject: (error: OneKeyLocalError) => void = () => {};
+  let reject: (error: Error) => void = () => {};
   const promise = new Promise<{ filePath: string; totalBytes: number }>(
     (resolvePromise, rejectPromise) => {
       resolve = resolvePromise;
@@ -118,7 +128,13 @@ function pendingDownload(opts: INodeDownloadOptions) {
   );
   opts.signal?.addEventListener(
     'abort',
-    () => reject(new OneKeyLocalError('Download cancelled')),
+    () =>
+      reject(
+        createUpdateError({
+          code: EUpdateErrorCode.cancelled,
+          step: 'download',
+        }),
+      ),
     { once: true },
   );
   return {
@@ -142,10 +158,8 @@ test('same bundle destination joins the active download and releases it on compl
   expect(mockDownloadNodeFile).toHaveBeenCalledTimes(1);
   runs[0].complete();
   const [event, sameEvent] = await Promise.all([first, joined]);
-  expect(event).toHaveProperty(
-    'downloadedFile',
-    path.join(mockUserData, 'onekey-bundle-download', '6.0.0-123.zip'),
-  );
+  expect(event).toMatchObject({ latestVersion: '6.0.0', bundleVersion: '123' });
+  expect(event).not.toHaveProperty('downloadedFile');
   expect(sameEvent).toBe(event);
   expect(api.isDownloading).toBe(false);
   const retry = api.downloadBundle(params);
@@ -170,7 +184,9 @@ test('different destinations retain active state and cancellation after one comp
   expect(await first).toHaveProperty('bundleVersion', '123');
   expect(api.isDownloading).toBe(true);
   await api.clearDownload();
-  expect(await secondOutcome).toHaveProperty('message', 'Download cancelled');
+  expect(getUpdateError(await secondOutcome, 'download').code).toBe(
+    EUpdateErrorCode.cancelled,
+  );
   expect(runs[0].signal?.aborted).toBe(false);
   expect(runs[1].signal?.aborted).toBe(true);
   expect(api.isDownloading).toBe(false);
@@ -189,9 +205,8 @@ test('a failed destination can retry while another download remains active', asy
   const second = api.downloadBundle({ ...params, bundleVersion: '124' });
   expect(mockDownloadNodeFile).toHaveBeenCalledTimes(2);
   runs[0].fail();
-  expect(await firstOutcome).toHaveProperty(
-    'message',
-    'Fixture download failed',
+  expect(getUpdateError(await firstOutcome, 'download').code).toBe(
+    EUpdateErrorCode.unknown,
   );
   expect(api.isDownloading).toBe(true);
   const retry = api.downloadBundle(params);
@@ -217,7 +232,12 @@ test('downloads started during cache clearing wait until cancelled writers settl
           'abort',
           () => {
             releaseCancelled = () =>
-              reject(new OneKeyLocalError('Download cancelled'));
+              reject(
+                createUpdateError({
+                  code: EUpdateErrorCode.cancelled,
+                  step: 'download',
+                }),
+              );
           },
           { once: true },
         );
@@ -234,14 +254,20 @@ test('downloads started during cache clearing wait until cancelled writers settl
   const requestsDuringClear = mockDownloadNodeFile.mock.calls.length;
   releaseCancelled();
   await Promise.all([clear, joinedClear]);
-  expect(await oldDownload).toHaveProperty('message', 'Download cancelled');
+  expect(getUpdateError(await oldDownload, 'download').code).toBe(
+    EUpdateErrorCode.cancelled,
+  );
   const event = await nextDownload;
   expect(event).toHaveProperty('bundleVersion', '124');
   expect(requestsDuringClear).toBe(1);
   expect(mockDownloadNodeFile).toHaveBeenCalledTimes(2);
-  if (!event?.downloadedFile)
-    throw new OneKeyLocalError('New bundle was not published');
-  expect(fs.readFileSync(event.downloadedFile, 'utf8')).toBe('new bundle');
+  if (!event) throw new OneKeyLocalError('New bundle was not published');
+  expect(
+    fs.readFileSync(
+      path.join(mockUserData, 'onekey-bundle-download', '6.0.0-124.zip'),
+      'utf8',
+    ),
+  ).toBe('new bundle');
 });
 
 test('concurrent bundle progress identifies its destination versions', async () => {

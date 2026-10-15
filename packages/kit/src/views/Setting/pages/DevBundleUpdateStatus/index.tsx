@@ -134,16 +134,8 @@ function buildActiveDetails(
     }
   } else if (stageIdx >= 2 && stageIdx <= 4) {
     // Download/Verify ASC or Verify Package
-    if (info.downloadedEvent?.downloadedFile) {
-      rows.push({ label: 'File', value: info.downloadedEvent.downloadedFile });
-    }
     if (info.downloadedEvent?.sha256) {
       rows.push({ label: 'SHA256', value: info.downloadedEvent.sha256 });
-    }
-  } else if (stageIdx === 5) {
-    // Ready
-    if (info.downloadedEvent?.downloadedFile) {
-      rows.push({ label: 'File', value: info.downloadedEvent.downloadedFile });
     }
   }
 

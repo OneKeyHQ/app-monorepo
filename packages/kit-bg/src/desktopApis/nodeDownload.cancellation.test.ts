@@ -5,6 +5,10 @@ import path from 'path';
 import { Readable } from 'stream';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EUpdateErrorCode,
+  UPDATE_ERROR_WIRE_PREFIX,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 
 import { downloadNodeFile } from './nodeDownload';
 
@@ -20,6 +24,19 @@ function response(
     statusCode,
     headers,
   }) as IncomingMessage;
+}
+
+const cancelledError = {
+  code: EUpdateErrorCode.cancelled,
+  step: 'download',
+};
+
+function expectCancelled(error: unknown) {
+  expect(error).toBeInstanceOf(OneKeyLocalError);
+  expect(error).toMatchObject({
+    message: `${UPDATE_ERROR_WIRE_PREFIX}${JSON.stringify(cancelledError)}`,
+    data: { updateError: cancelledError },
+  });
 }
 
 describe('download cancellation boundaries', () => {
@@ -62,8 +79,7 @@ describe('download cancellation boundaries', () => {
       );
     }
     controller.abort();
-    expect(await outcome).toBeInstanceOf(OneKeyLocalError);
-    expect(await outcome).toHaveProperty('message', 'Download cancelled');
+    expectCancelled(await outcome);
     expect(jest.getTimerCount()).toBe(0);
     expect(fs.existsSync(path.join(dir, 'package'))).toBe(false);
   });
@@ -83,14 +99,16 @@ describe('download cancellation boundaries', () => {
           if (phase === 'single' && headers.Range === 'bytes=0-0') {
             return { url, response: response(200, { 'content-length': '16' }) };
           }
-          throw new OneKeyLocalError('temporary network failure');
+          throw Object.assign(new Error('temporary network failure'), {
+            code: 'ECONNRESET',
+          });
         },
       });
       const outcome = download.catch((error: unknown) => error);
       await new Promise<void>((resolve) => setImmediate(resolve));
       expect(jest.getTimerCount()).toBe(1);
       controller.abort();
-      expect(await outcome).toHaveProperty('message', 'Download cancelled');
+      expectCancelled(await outcome);
       expect(jest.getTimerCount()).toBe(0);
     },
   );
@@ -130,7 +148,10 @@ describe('download cancellation boundaries', () => {
           signal: controller.signal,
           transport,
         }),
-      ).rejects.toThrow('Download cancelled');
+      ).rejects.toMatchObject({
+        message: `${UPDATE_ERROR_WIRE_PREFIX}${JSON.stringify(cancelledError)}`,
+        data: { updateError: cancelledError },
+      });
       expect(hashRead).toBe(true);
       expect(fs.existsSync(targetPath)).toBe(cached);
       if (!cached) expect(fs.existsSync(`${targetPath}.partial`)).toBe(true);

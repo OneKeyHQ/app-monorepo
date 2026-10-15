@@ -4,6 +4,10 @@ import {
   EUpdateStrategy,
 } from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
+import {
+  EUpdateErrorCode,
+  createUpdateError,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 
 const INITIAL_APP_UPDATE_VALUE: IAppUpdateInfo = {
   latestVersion: '0.0.0',
@@ -78,7 +82,8 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => ({
       status: 'notApplicable',
     })),
     downloadPackage: jest.fn(async () => ({
-      downloadedFile: '/tmp/app.pkg',
+      latestVersion: '2.0.0',
+      downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
     })),
     verifyPackage: jest.fn(async () => undefined),
     verifyASC: jest.fn(async () => undefined),
@@ -88,7 +93,9 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => ({
   },
   BundleUpdate: {
     downloadBundle: jest.fn(async () => ({
-      downloadedFile: '/tmp/bundle.zip',
+      latestVersion: '1.0.0',
+      bundleVersion: '2',
+      downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
     })),
     verifyBundle: jest.fn(async () => undefined),
     verifyBundleASC: jest.fn(async () => undefined),
@@ -283,7 +290,8 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
         signature: 'sig-2',
       },
       downloadedEvent: {
-        downloadedFile: '/tmp/bundle-v2.zip',
+        latestVersion: '1.0.0',
+        bundleVersion: '2',
         downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         signature: 'sig-2',
         sha256: 'sha256-2',
@@ -351,7 +359,7 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
       jsBundleVersion: '1',
       downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
       downloadedEvent: {
-        downloadedFile: '/tmp/app-2.0.0.pkg',
+        latestVersion: '2.0.0',
         downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
       },
     });
@@ -384,7 +392,7 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
       jsBundleVersion: '1',
       downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
       downloadedEvent: {
-        downloadedFile: '/tmp/app-2.0.0.pkg',
+        latestVersion: '2.0.0',
         downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
       },
     });
@@ -434,7 +442,8 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
         signature: 'sig-3',
       },
       downloadedEvent: {
-        downloadedFile: '/tmp/bundle-v3.zip',
+        latestVersion: '1.0.0',
+        bundleVersion: '3',
         downloadUrl: 'https://cdn.onekey.so/bundle-v3.zip',
         signature: 'sig-3',
         sha256: 'sha256-3',
@@ -467,7 +476,8 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
       latestVersion: '1.0.0',
       jsBundleVersion: '2',
       downloadedEvent: {
-        downloadedFile: '/tmp/bundle-v2.zip',
+        latestVersion: '1.0.0',
+        bundleVersion: '2',
         downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         signature: 'sig-2',
         sha256: 'sha256-2',
@@ -538,7 +548,10 @@ describe('processPendingInstallTask', () => {
 
   test('pending -> running -> fail -> retry when retryCount < MAX_TASK_RETRY', async () => {
     autoUpdate.BundleUpdate.switchBundle.mockRejectedValueOnce(
-      new Error('switch_failed'),
+      createUpdateError({
+        code: EUpdateErrorCode.networkError,
+        step: 'install',
+      }),
     );
     resetPendingTask(makeSwitchTask({ retryCount: 0 }));
 
@@ -547,14 +560,14 @@ describe('processPendingInstallTask', () => {
     expect(pendingTaskValue).toMatchObject({
       status: 'pending',
       retryCount: 1,
-      lastError: 'switch_failed',
+      lastError: EUpdateErrorCode.networkError,
     });
     expect(pendingTaskValue.nextRetryAt).toBeGreaterThan(Date.now());
   });
 
   test('retry exhausted -> freezeAndIgnoreTarget', async () => {
     autoUpdate.BundleUpdate.switchBundle.mockRejectedValueOnce(
-      new Error('switch_failed'),
+      createUpdateError({ code: EUpdateErrorCode.timeout, step: 'install' }),
     );
     resetPendingTask(makeSwitchTask({ retryCount: 2 }));
 
@@ -565,6 +578,62 @@ describe('processPendingInstallTask', () => {
     expect(appUpdateState.ignoredTargets?.['1.0.0:2']).toMatchObject({
       reason: 'RETRY_EXHAUSTED',
     });
+  });
+
+  test.each([
+    EUpdateErrorCode.integrityFailed,
+    EUpdateErrorCode.securityRejected,
+    EUpdateErrorCode.unknown,
+  ])('%s ends the task without a network or full-flow retry', async (code) => {
+    resetAppUpdateState({
+      latestVersion: '1.0.0',
+      status: EAppUpdateStatus.ready,
+    });
+    autoUpdate.BundleUpdate.switchBundle.mockRejectedValueOnce(
+      createUpdateError({ code, step: 'install' }),
+    );
+    resetPendingTask(makeSwitchTask());
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.updateError).toMatchObject({ code, step: 'install' });
+    expect(appUpdateState.fullFlowRetryByTarget).toEqual({});
+    expect(appUpdateState.freezeUntil).toBeUndefined();
+    const logger = require('@onekeyhq/shared/src/logger/logger').defaultLogger
+      .app.appUpdate;
+    expect(logger.pendingRetryScheduled).not.toHaveBeenCalled();
+    expect(logger.fullFlowRetryTriggered).not.toHaveBeenCalled();
+  });
+
+  test('CANCELLED leaves a newer target task untouched', async () => {
+    const newerTask = makeSwitchTask({
+      taskId: 'jsbundle:1.0.0:3',
+      revision: 2,
+      targetBundleVersion: '3',
+      payload: {
+        appVersion: '1.0.0',
+        bundleVersion: '3',
+        signature: 'sig-3',
+      },
+    });
+    autoUpdate.BundleUpdate.switchBundle.mockImplementationOnce(async () => {
+      resetPendingTask(newerTask);
+      throw createUpdateError({
+        code: EUpdateErrorCode.cancelled,
+        step: 'install',
+      });
+    });
+    resetPendingTask(makeSwitchTask());
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toEqual(newerTask);
+    expect(appUpdateState.fullFlowRetryByTarget).toEqual({});
+    const logger = require('@onekeyhq/shared/src/logger/logger').defaultLogger
+      .app.appUpdate;
+    expect(logger.pendingRetryScheduled).not.toHaveBeenCalled();
+    expect(logger.fullFlowRetryTriggered).not.toHaveBeenCalled();
   });
 
   test('expired task is cleared', async () => {
@@ -626,7 +695,7 @@ describe('processPendingInstallTask', () => {
     expect(appUpdateState.fullFlowRetryByTarget?.['1.0.0:1']).toBeUndefined();
   });
 
-  test('applied_waiting_verify + target not aligned -> markTaskFailed', async () => {
+  test('applied_waiting_verify mismatch ends the task without retry', async () => {
     resetPendingTask(
       makeSwitchTask({
         status: 'applied_waiting_verify',
@@ -641,12 +710,8 @@ describe('processPendingInstallTask', () => {
 
     await service.processPendingInstallTask();
 
-    expect(pendingTaskValue).toMatchObject({
-      status: 'pending',
-      retryCount: 1,
-      lastError: 'VERIFY_AFTER_RESTART_MISMATCH',
-    });
-    expect(pendingTaskValue.nextRetryAt).toBeGreaterThan(Date.now());
+    expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.fullFlowRetryByTarget).toEqual({});
   });
 
   test('stale running task (>5m) marks interrupted and retries', async () => {
@@ -662,7 +727,7 @@ describe('processPendingInstallTask', () => {
     expect(pendingTaskValue).toMatchObject({
       status: 'pending',
       retryCount: 1,
-      lastError: 'INTERRUPTED',
+      lastError: EUpdateErrorCode.unknown,
     });
     expect(pendingTaskValue.nextRetryAt).toBeGreaterThan(Date.now());
   });
@@ -775,7 +840,7 @@ describe('processPendingInstallTask', () => {
     resetPendingTask(
       makeSwitchTask({
         status: 'failed',
-        lastError: 'switch_failed',
+        lastError: EUpdateErrorCode.networkError,
       }),
     );
 
@@ -784,31 +849,31 @@ describe('processPendingInstallTask', () => {
     expect(pendingTaskValue).toBeUndefined();
   });
 
-  test('VERIFY_EXTRACTED_FAILED triggers incrementFullFlowRetry instead of normal retry', async () => {
+  test('integrity failure during extracted-bundle verification is terminal', async () => {
     autoUpdate.BundleUpdate.isBundleExists.mockResolvedValue(true);
     autoUpdate.BundleUpdate.verifyExtractedBundle.mockRejectedValueOnce(
-      new Error('checksum mismatch'),
+      createUpdateError({
+        code: EUpdateErrorCode.integrityFailed,
+        step: 'verifyPackage',
+      }),
     );
     resetPendingTask(makeSwitchTask({ retryCount: 0 }));
 
     await service.processPendingInstallTask();
 
-    // Full flow retry clears the task (fallback to refetch) instead of setting retry state
     expect(pendingTaskValue).toBeUndefined();
     const logger = require('@onekeyhq/shared/src/logger/logger').defaultLogger
       .app.appUpdate;
-    expect(logger.fullFlowRetryTriggered).toHaveBeenCalledWith(
-      expect.objectContaining({
-        trigger: 'verify_failed',
-        fullFlowRetryCount: 1,
-      }),
-      'warn',
-    );
+    expect(logger.fullFlowRetryTriggered).not.toHaveBeenCalled();
+    expect(appUpdateState.fullFlowRetryByTarget).toEqual({});
   });
 
   test('stale running + retryCount=2 -> immediate exhaustion and freeze', async () => {
     autoUpdate.BundleUpdate.switchBundle.mockRejectedValueOnce(
-      new Error('switch_failed'),
+      createUpdateError({
+        code: EUpdateErrorCode.networkError,
+        step: 'install',
+      }),
     );
     resetPendingTask(
       makeSwitchTask({
@@ -825,7 +890,7 @@ describe('processPendingInstallTask', () => {
     expect(appUpdateState.freezeUntil).toBeGreaterThan(Date.now());
   });
 
-  test('appshell APP_INSTALL_CHANNEL_UNSUPPORTED for store channel triggers retry', async () => {
+  test('unsupported app-install channel is terminal', async () => {
     resetPendingTask({
       taskId: 'appShell:2.0.0:store',
       revision: 1,
@@ -848,11 +913,8 @@ describe('processPendingInstallTask', () => {
 
     await service.processPendingInstallTask();
 
-    expect(pendingTaskValue).toMatchObject({
-      status: 'pending',
-      retryCount: 1,
-      lastError: 'APP_INSTALL_CHANNEL_UNSUPPORTED',
-    });
+    expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.fullFlowRetryByTarget).toEqual({});
   });
 
   test('appshell APP_PACKAGE_MISSING triggers full-flow re-download', async () => {
@@ -889,7 +951,7 @@ describe('processPendingInstallTask', () => {
     expect(appUpdateState.fullFlowRetryByTarget?.['2.0.0:1']?.count).toBe(1);
   });
 
-  test('app-install in applied_waiting_verify immediately fails without grace period when target is not aligned', async () => {
+  test('app-install restart mismatch ends the task without retry', async () => {
     resetPendingTask({
       taskId: 'appShell:2.0.0:direct',
       revision: 1,
@@ -913,12 +975,8 @@ describe('processPendingInstallTask', () => {
 
     await service.processPendingInstallTask();
 
-    expect(pendingTaskValue).toMatchObject({
-      status: 'pending',
-      type: 'app-install',
-      retryCount: 1,
-      lastError: 'VERIFY_AFTER_RESTART_MISMATCH',
-    });
+    expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.fullFlowRetryByTarget).toEqual({});
   });
 });
 
@@ -938,7 +996,8 @@ describe('syncPendingInstallTaskWithReleaseInfo', () => {
         signature: 'sig-2',
       },
       downloadedEvent: {
-        downloadedFile: '/tmp/bundle-v2.zip',
+        latestVersion: '1.0.0',
+        bundleVersion: '2',
         downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         signature: 'sig-2',
         sha256: 'sha256-2',
@@ -1128,7 +1187,7 @@ describe('syncPendingInstallTaskWithReleaseInfo', () => {
       latestVersion: '2.0.0',
       updateStrategy: EUpdateStrategy.manual,
       downloadedEvent: {
-        downloadedFile: '/tmp/app-2.0.0.pkg',
+        latestVersion: '2.0.0',
         downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
       },
     });
@@ -1145,7 +1204,7 @@ describe('syncPendingInstallTaskWithReleaseInfo', () => {
       freezeUntil: Date.now() + 60_000,
       downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
       downloadedEvent: {
-        downloadedFile: '/tmp/app-2.0.0.pkg',
+        latestVersion: '2.0.0',
         downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
       },
     });
@@ -1287,7 +1346,8 @@ describe('executeBundleSwitchTask rollback to builtin', () => {
       latestVersion: '1.0.0',
       jsBundleVersion: '2',
       downloadedEvent: {
-        downloadedFile: '/tmp/bundle-v2.zip',
+        latestVersion: '1.0.0',
+        bundleVersion: '2',
         downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         signature: 'sig-2',
       },
@@ -1324,7 +1384,8 @@ describe('executeBundleSwitchTask rollback to builtin', () => {
         sha256: 'a'.repeat(64),
       },
       downloadedEvent: {
-        downloadedFile: '/tmp/bundle-v2.zip',
+        latestVersion: '1.0.0',
+        bundleVersion: '2',
         downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
       },
     } as any);

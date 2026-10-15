@@ -28,9 +28,16 @@ import {
   updateWindowProgressBar,
 } from '@onekeyhq/desktop/app/windowProgressBar';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EUpdateErrorCode,
+  createUpdateError,
+  getUpdateError,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
+import type { TUpdateErrorStep } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 import type {
   IDownloadPackageParams,
   IUpdateDownloadedEvent,
+  IUpdateOperationParams,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 import type { IDesktopStoreUpdateBundleData } from '@onekeyhq/shared/types/desktop';
 
@@ -63,11 +70,8 @@ export const MAX_BUNDLE_ENTRY_COUNT = 4096;
 //   4xx → permanent, EXCEPT 408 / 429 → transient
 //   5xx → transient, EXCEPT 501 / 505 → permanent
 //   anything else / unknown → permanent
-// NOTE: this set must stay in agreement with the shared-JS
-// UNRECOVERABLE_DOWNLOAD_ERROR_CODES taxonomy
-// (packages/kit/src/components/AppUpdate/updateErrorTaxonomy.ts). kit-bg must
-// not import from kit at runtime, so the relationship is duplicated here; the
-// test imports the real shared set and asserts the two stay in agreement.
+// The test keeps this classification aligned with the shared updater DTO
+// retry allowlist.
 // Exported so the test exercises the shipped code, not a re-implemented copy.
 export function classifyHttpStatus(status: number): 'permanent' | 'transient' {
   if (status >= 400 && status <= 499) {
@@ -185,25 +189,62 @@ export function contentRangeStart(
   return Number.isFinite(start) ? start : null;
 }
 
-// Wraps a Node.js fs/stream/http error into a sanitized OneKeyLocalError
-// before it can reach the analytics layer. Node's errno errors embed the
-// failing path (`ENOENT: no such file ... open '/Users/<name>/...'`) which
-// would otherwise leak the OS username through softwareUpdateResult's
-// errorMessage. The errno code itself is preserved as `IO_<errno>` so
-// downstream extractUpdateErrorCode can still split mixpanel buckets.
-// OneKeyLocalError instances pass through untouched — verifyAndResolve
-// already produces structured `Downloaded file is not valid: SHA256_<reason>`
-// payloads we want to keep verbatim.
-function wrapDownloadError(
-  error: unknown,
-  fallbackMessage: string,
-): OneKeyLocalError {
-  if (error instanceof OneKeyLocalError) return error;
-  const errno = (error as NodeJS.ErrnoException | null)?.code;
-  if (errno) {
-    return new OneKeyLocalError(`${fallbackMessage}: IO_${errno}`);
+// Keep the download boundary limited to the shared updater payload.
+function wrapDownloadError(error: unknown) {
+  return createUpdateError(getUpdateError(error, 'download'));
+}
+
+function assertUpdateBundleVersion(
+  value: unknown,
+  step: TUpdateErrorStep,
+): asserts value is string {
+  try {
+    assertSafeBundleVersion(value);
+  } catch {
+    throw createUpdateError({ code: EUpdateErrorCode.invalidArgument, step });
   }
-  return new OneKeyLocalError(fallbackMessage);
+}
+
+function wrapBundleError(error: unknown, step: TUpdateErrorStep) {
+  const known = getUpdateError(error, step);
+  if (known.code !== EUpdateErrorCode.unknown) return createUpdateError(known);
+  const errno = (error as NodeJS.ErrnoException | undefined)?.code;
+  if (errno === 'ENOENT' || errno === 'ENOTDIR') {
+    return createUpdateError({ code: EUpdateErrorCode.packageMissing, step });
+  }
+  if (['EACCES', 'EPERM', 'ENOSPC', 'EIO', 'EROFS'].includes(errno ?? '')) {
+    return createUpdateError({ code: EUpdateErrorCode.storageError, step });
+  }
+  if (error instanceof SyntaxError) {
+    return createUpdateError({ code: EUpdateErrorCode.integrityFailed, step });
+  }
+  return createUpdateError({ code: EUpdateErrorCode.unknown, step });
+}
+
+function wrapSignedMetadataError(error: unknown, step: TUpdateErrorStep) {
+  if (
+    error instanceof OneKeyLocalError &&
+    getUpdateError(error, step).code === EUpdateErrorCode.unknown
+  ) {
+    return createUpdateError({ code: EUpdateErrorCode.integrityFailed, step });
+  }
+  return wrapBundleError(error, step);
+}
+
+async function verifySignedMetadata(
+  params: Parameters<typeof verifyMetadataFileSha256>[0],
+  step: TUpdateErrorStep,
+) {
+  try {
+    if (
+      !fs.existsSync(path.join(getBundleExtractDir(params), 'metadata.json'))
+    ) {
+      throw createUpdateError({ code: EUpdateErrorCode.packageMissing, step });
+    }
+    await verifyMetadataFileSha256(params);
+  } catch (error) {
+    throw wrapSignedMetadataError(error, step);
+  }
 }
 
 class DesktopApiAppBundleUpdate {
@@ -265,11 +306,11 @@ class DesktopApiAppBundleUpdate {
           // OOM / IO_<code> / MISMATCH) that match the iOS/Android nitro
           // module subtypes so cross-platform funnels can compare apples-to-
           // apples.
-          const reason = lastSHA256FailureReason() ?? 'UNKNOWN';
           reject(
-            new OneKeyLocalError(
-              `Downloaded file is not valid: SHA256_${reason}`,
-            ),
+            createUpdateError({
+              code: EUpdateErrorCode.integrityFailed,
+              step: 'download',
+            }),
           );
           return;
         }
@@ -311,8 +352,20 @@ class DesktopApiAppBundleUpdate {
   async downloadBundle(
     params: IDownloadPackageParams,
   ): Promise<IUpdateDownloadedEvent> {
+    try {
+      return await this.downloadBundleInternal(params);
+    } catch (error) {
+      throw wrapBundleError(error, 'download');
+    }
+  }
+
+  private async downloadBundleInternal(
+    params: IDownloadPackageParams,
+  ): Promise<IUpdateDownloadedEvent> {
     while (this.cacheClearPromise) await this.cacheClearPromise;
     const safeParams = params || ({} as IDownloadPackageParams);
+    assertUpdateBundleVersion(safeParams.latestVersion, 'download');
+    assertUpdateBundleVersion(safeParams.bundleVersion, 'download');
     const destKey = this.getDestZipPath(safeParams);
     const inFlightDownloadKey =
       destKey &&
@@ -350,6 +403,7 @@ class DesktopApiAppBundleUpdate {
       bundleVersion,
       downloadUrl,
       sha256,
+      signature,
       fileSize,
       headers,
     } = params || {};
@@ -360,10 +414,17 @@ class DesktopApiAppBundleUpdate {
       typeof sha256 !== 'string' ||
       !/^[a-fA-F0-9]{64}$/.test(sha256)
     ) {
-      throw new OneKeyLocalError('Invalid parameters');
+      throw createUpdateError({
+        code: EUpdateErrorCode.invalidArgument,
+        step: 'download',
+      });
     }
     const filePath = this.getDestZipPath(params);
-    if (!filePath) throw new OneKeyLocalError('Invalid parameters');
+    if (!filePath)
+      throw createUpdateError({
+        code: EUpdateErrorCode.invalidArgument,
+        step: 'download',
+      });
     const controller = new AbortController();
     const cancel = () => controller.abort();
     this.cancelByDest.set(filePath, cancel);
@@ -393,21 +454,14 @@ class DesktopApiAppBundleUpdate {
         },
       });
       return {
-        downloadedFile: filePath,
         downloadUrl,
         latestVersion,
         bundleVersion,
+        sha256,
+        signature,
       };
     } catch (error) {
-      if (
-        error instanceof OneKeyLocalError &&
-        error.message === 'Downloaded file checksum mismatch'
-      ) {
-        throw new OneKeyLocalError(
-          'Downloaded file is not valid: SHA256_MISMATCH',
-        );
-      }
-      throw wrapDownloadError(error, 'Bundle download failed');
+      throw wrapDownloadError(error);
     } finally {
       this.cancelByDest.delete(filePath);
       if (!this.isDownloading) clearWindowProgressBar(this.getMainWindow());
@@ -440,39 +494,45 @@ class DesktopApiAppBundleUpdate {
     );
   }
 
-  async verifyBundle(params: IUpdateDownloadedEvent) {
+  async verifyBundle(params: IUpdateOperationParams) {
+    try {
+      await this.verifyBundleInternal(params);
+    } catch (error) {
+      throw wrapBundleError(error, 'verifyPackage');
+    }
+  }
+
+  private async verifyBundleInternal(params: IUpdateOperationParams) {
     const {
-      downloadedFile,
       sha256,
       latestVersion: appVersion,
       bundleVersion,
       signature,
       skipGPGVerification,
     } = params || {};
-    assertSafeBundleVersion(appVersion);
-    assertSafeBundleVersion(bundleVersion);
-    if (
-      downloadedFile !==
-      this.getDestZipPath({ latestVersion: appVersion, bundleVersion })
-    ) {
-      throw new OneKeyLocalError('Invalid bundle download path');
-    }
+    assertUpdateBundleVersion(appVersion, 'verifyPackage');
+    assertUpdateBundleVersion(bundleVersion, 'verifyPackage');
     const allowSkipGPG = this.isSkipGPGAllowed(skipGPGVerification);
     if (
-      !downloadedFile ||
       !sha256 ||
       !appVersion ||
       !bundleVersion ||
       (!signature && !allowSkipGPG)
     ) {
-      throw new OneKeyLocalError('Invalid parameters');
+      throw createUpdateError({
+        code: EUpdateErrorCode.invalidArgument,
+        step: 'verifyPackage',
+      });
     }
     if (!allowSkipGPG) {
-      await verifyMetadataFileSha256({
-        appVersion,
-        bundleVersion,
-        signature: signature!,
-      });
+      await verifySignedMetadata(
+        {
+          appVersion,
+          bundleVersion,
+          signature: signature!,
+        },
+        'verifyPackage',
+      );
     }
   }
 
@@ -481,55 +541,55 @@ class DesktopApiAppBundleUpdate {
    * This method validates the digital signature of the downloaded bundle
    * to ensure it comes from a trusted source and hasn't been tampered with
    *
-   * @param params - Bundle downloaded event containing file path and signature info
+   * @param params - Bundle release identity and signature info
    * @returns Promise that resolves when verification is complete
    */
-  async downloadBundleASC(params: IUpdateDownloadedEvent) {
+  async downloadBundleASC(params: IUpdateOperationParams) {
     const {
-      downloadedFile,
       sha256,
       latestVersion: appVersion,
       bundleVersion,
       signature,
       skipGPGVerification,
     } = params || {};
-    assertSafeBundleVersion(appVersion);
-    assertSafeBundleVersion(bundleVersion);
-    if (
-      downloadedFile !==
-      this.getDestZipPath({ latestVersion: appVersion, bundleVersion })
-    ) {
-      throw new OneKeyLocalError('Invalid bundle download path');
-    }
+    assertUpdateBundleVersion(appVersion, 'downloadASC');
+    assertUpdateBundleVersion(bundleVersion, 'downloadASC');
     const allowSkipGPG = this.isSkipGPGAllowed(skipGPGVerification);
     if (
-      !downloadedFile ||
       !sha256 ||
       !appVersion ||
       !bundleVersion ||
       (!signature && !allowSkipGPG)
     ) {
-      throw new OneKeyLocalError('Invalid parameters');
+      throw createUpdateError({
+        code: EUpdateErrorCode.invalidArgument,
+        step: 'downloadASC',
+      });
     }
   }
 
-  async verifyBundleASC(params: IUpdateDownloadedEvent) {
+  async verifyBundleASC(params: IUpdateOperationParams) {
+    try {
+      await this.verifyBundleASCInternal(params);
+    } catch (error) {
+      throw wrapBundleError(error, 'verifyASC');
+    }
+  }
+
+  private async verifyBundleASCInternal(params: IUpdateOperationParams) {
     const {
-      downloadedFile,
       sha256,
       latestVersion: appVersion,
       bundleVersion,
       signature,
       skipGPGVerification,
     } = params || {};
-    assertSafeBundleVersion(appVersion);
-    assertSafeBundleVersion(bundleVersion);
-    if (
-      downloadedFile !==
-      this.getDestZipPath({ latestVersion: appVersion, bundleVersion })
-    ) {
-      throw new OneKeyLocalError('Invalid bundle download path');
-    }
+    assertUpdateBundleVersion(appVersion, 'verifyASC');
+    assertUpdateBundleVersion(bundleVersion, 'verifyASC');
+    const downloadedFile = this.getDestZipPath({
+      latestVersion: appVersion,
+      bundleVersion,
+    });
     const allowSkipGPG = this.isSkipGPGAllowed(skipGPGVerification);
     if (
       !downloadedFile ||
@@ -547,39 +607,108 @@ class DesktopApiAppBundleUpdate {
         skipGPGVerification,
         allowSkipGPG,
       });
-      throw new OneKeyLocalError('Invalid parameters');
+      throw createUpdateError({
+        code: EUpdateErrorCode.invalidArgument,
+        step: 'verifyASC',
+      });
+    }
+    if (fs.existsSync(downloadedFile)) {
+      const resolvedRoot = fs.realpathSync(this.getDownloadDir());
+      const resolvedFile = fs.realpathSync(downloadedFile);
+      if (!resolvedFile.startsWith(`${resolvedRoot}${path.sep}`)) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.securityRejected,
+          step: 'verifyASC',
+        });
+      }
+    }
+    if (!fs.existsSync(downloadedFile)) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'verifyASC',
+      });
     }
     if (!allowSkipGPG) {
       const isBundleVerified = verifySha256(downloadedFile, sha256);
       if (!isBundleVerified) {
-        // Promote the SHA256 subtype (FILE_NOT_FOUND / IO_<errno> /
-        // OOM / MISMATCH) into the thrown message so JS-side
-        // extractUpdateErrorCode splits this verifyASC bucket the same
-        // way the download stage does.
+        // Keep detailed SHA failures local; the bridge reports one fixed code.
         const reason = lastSHA256FailureReason() ?? 'MISMATCH';
         logger.error(
           'bundle-verifyASC',
           `SHA256 verification failed (reason=${reason})`,
         );
-        throw new OneKeyLocalError(
-          `Bundle SHA256 verification failed: ${reason}`,
-        );
+        let code = EUpdateErrorCode.storageError;
+        if (reason === 'FILE_NOT_FOUND') {
+          code = EUpdateErrorCode.packageMissing;
+        } else if (reason === 'MISMATCH' || reason === 'FILE_EMPTY') {
+          code = EUpdateErrorCode.integrityFailed;
+        }
+        throw createUpdateError({
+          code,
+          step: 'verifyASC',
+        });
       }
-      await readMetadataFileSha256(signature!, {
-        appVersion,
-        bundleVersion,
-      });
+      try {
+        await readMetadataFileSha256(signature!, {
+          appVersion,
+          bundleVersion,
+        });
+      } catch (error) {
+        throw wrapSignedMetadataError(error, 'verifyASC');
+      }
     }
     const extractDir = getBundleExtractDir({
       appVersion,
       bundleVersion,
     });
+    if (fs.lstatSync(extractDir, { throwIfNoEntry: false })?.isSymbolicLink()) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.securityRejected,
+        step: 'verifyASC',
+      });
+    }
+    const activeBundle = store.getUpdateBundleData();
+    const fallbackBundles = store.getFallbackUpdateBundleData();
+    const isInstalled =
+      (activeBundle?.appVersion === appVersion &&
+        activeBundle.bundleVersion === bundleVersion) ||
+      (Array.isArray(fallbackBundles) &&
+        fallbackBundles.some(
+          (entry) =>
+            entry?.appVersion === appVersion &&
+            entry.bundleVersion === bundleVersion,
+        ));
+    if (isInstalled) {
+      const metadataFilePath = this.getMetadataFilePath({
+        appVersion,
+        bundleVersion,
+      });
+      if (!allowSkipGPG) {
+        await verifySignedMetadata(
+          {
+            appVersion,
+            expectedAppVersion: appVersion,
+            bundleVersion,
+            signature: signature!,
+          },
+          'verifyASC',
+        );
+      }
+      const metadata = JSON.parse(
+        fs.readFileSync(metadataFilePath, 'utf8'),
+      ) as Record<string, string>;
+      this.verifyAllExtractedFiles(extractDir, metadata, extractDir);
+      return;
+    }
 
     try {
       const zip = new AdmZip(downloadedFile);
       const entries = zip.getEntries();
       if (entries.length > MAX_BUNDLE_ENTRY_COUNT) {
-        throw new OneKeyLocalError('Bundle zip contains too many entries');
+        throw createUpdateError({
+          code: EUpdateErrorCode.securityRejected,
+          step: 'verifyASC',
+        });
       }
       const resolvedExtractDir = path.resolve(extractDir);
       let totalUncompressedBytes = 0;
@@ -594,9 +723,10 @@ class DesktopApiAppBundleUpdate {
             'bundle-verifyASC',
             `Path traversal detected in zip entry: ${entry.entryName}`,
           );
-          throw new OneKeyLocalError(
-            `Path traversal detected in zip entry: ${entry.entryName}`,
-          );
+          throw createUpdateError({
+            code: EUpdateErrorCode.securityRejected,
+            step: 'verifyASC',
+          });
         }
         const entrySize = entry.header.size;
         const compressedSize = entry.header.compressedSize;
@@ -605,26 +735,36 @@ class DesktopApiAppBundleUpdate {
           entrySize < 0 ||
           entrySize > MAX_BUNDLE_UNCOMPRESSED_BYTES
         ) {
-          throw new OneKeyLocalError('Bundle zip entry exceeds maximum size');
+          throw createUpdateError({
+            code: EUpdateErrorCode.securityRejected,
+            step: 'verifyASC',
+          });
         }
         if (
           !Number.isFinite(compressedSize) ||
           compressedSize < 0 ||
           compressedSize > MAX_BUNDLE_UNCOMPRESSED_BYTES
         ) {
-          throw new OneKeyLocalError('Bundle zip entry exceeds maximum size');
+          throw createUpdateError({
+            code: EUpdateErrorCode.securityRejected,
+            step: 'verifyASC',
+          });
         }
         // adm-zip only passes { maxOutputLength: expectedLength } to zlib.inflateRawSync
         // when expectedLength > 0. Reject deflated non-directory entries that claim size === 0
         // with non-empty compressed payload (> 2 bytes for empty deflate block).
         if (!entry.isDirectory && entrySize === 0 && compressedSize > 2) {
-          throw new OneKeyLocalError('Bundle zip entry exceeds maximum size');
+          throw createUpdateError({
+            code: EUpdateErrorCode.securityRejected,
+            step: 'verifyASC',
+          });
         }
         totalUncompressedBytes += entrySize;
         if (totalUncompressedBytes > MAX_BUNDLE_UNCOMPRESSED_BYTES) {
-          throw new OneKeyLocalError(
-            'Bundle zip exceeds maximum uncompressed size',
-          );
+          throw createUpdateError({
+            code: EUpdateErrorCode.securityRejected,
+            step: 'verifyASC',
+          });
         }
       }
       const metadataEntry = entries.find(
@@ -634,8 +774,12 @@ class DesktopApiAppBundleUpdate {
             'metadata.json',
       );
       if (!metadataEntry || !(metadataEntry.header.size > 0)) {
-        throw new OneKeyLocalError('metadata.json not found in bundle');
+        throw createUpdateError({
+          code: EUpdateErrorCode.packageMissing,
+          step: 'verifyASC',
+        });
       }
+      fs.rmSync(extractDir, { recursive: true, force: true });
       if (!allowSkipGPG) {
         if (typeof zip.extractEntryTo === 'function') {
           zip.extractEntryTo(metadataEntry, extractDir, false, true);
@@ -646,12 +790,15 @@ class DesktopApiAppBundleUpdate {
             metadataEntry.getData(),
           );
         }
-        await verifyMetadataFileSha256({
-          appVersion,
-          expectedAppVersion: appVersion,
-          bundleVersion,
-          signature: signature!,
-        });
+        await verifySignedMetadata(
+          {
+            appVersion,
+            expectedAppVersion: appVersion,
+            bundleVersion,
+            signature: signature!,
+          },
+          'verifyASC',
+        );
       }
       zip.extractAllTo(extractDir, true);
     } catch (error) {
@@ -670,17 +817,23 @@ class DesktopApiAppBundleUpdate {
       });
       logger.info('bundle-verifyBundleASC', metadataFilePath, allowSkipGPG);
       if (!allowSkipGPG) {
-        await verifyMetadataFileSha256({
-          appVersion,
-          expectedAppVersion: appVersion,
-          bundleVersion,
-          signature: signature!,
-        });
+        await verifySignedMetadata(
+          {
+            appVersion,
+            expectedAppVersion: appVersion,
+            bundleVersion,
+            signature: signature!,
+          },
+          'verifyASC',
+        );
       }
 
       // Verify all extracted files against metadata SHA256 hashes
       if (!fs.existsSync(metadataFilePath)) {
-        throw new OneKeyLocalError('metadata.json not found after extraction');
+        throw createUpdateError({
+          code: EUpdateErrorCode.packageMissing,
+          step: 'verifyASC',
+        });
       }
       const metadataContent = fs.readFileSync(metadataFilePath, 'utf8');
       const metadata = JSON.parse(metadataContent) as Record<string, string>;
@@ -710,9 +863,10 @@ class DesktopApiAppBundleUpdate {
           'bundle-verify',
           `File listed in metadata but missing on disk: ${key}`,
         );
-        throw new OneKeyLocalError(
-          `File ${key} listed in metadata but missing on disk`,
-        );
+        throw createUpdateError({
+          code: EUpdateErrorCode.integrityFailed,
+          step: 'verifyPackage',
+        });
       }
     }
   }
@@ -729,7 +883,10 @@ class DesktopApiAppBundleUpdate {
       // Security: Reject symbolic links to prevent symlink attacks
       if (entry.isSymbolicLink()) {
         logger.error('bundle-verify', `Symbolic link detected: ${entry.name}`);
-        throw new OneKeyLocalError(`Symbolic link detected: ${entry.name}`);
+        throw createUpdateError({
+          code: EUpdateErrorCode.securityRejected,
+          step: 'verifyPackage',
+        });
       }
       if (entry.isDirectory()) {
         this.walkAndVerifyFiles(fullPath, metadata, baseDir, verifiedFiles);
@@ -746,16 +903,18 @@ class DesktopApiAppBundleUpdate {
             'bundle-verify',
             `File on disk not found in metadata: ${relativePath}`,
           );
-          throw new OneKeyLocalError(
-            `File ${relativePath} not found in metadata`,
-          );
+          throw createUpdateError({
+            code: EUpdateErrorCode.integrityFailed,
+            step: 'verifyPackage',
+          });
         }
         const isSha512Matched = checkFileSha512(fullPath, expectedSha512);
         if (!isSha512Matched) {
           logger.error('bundle-verify', `SHA512 mismatch for ${relativePath}`);
-          throw new OneKeyLocalError(
-            `SHA512 mismatch for file ${relativePath}`,
-          );
+          throw createUpdateError({
+            code: EUpdateErrorCode.integrityFailed,
+            step: 'verifyPackage',
+          });
         }
         verifiedFiles.add(relativePath);
       }
@@ -944,13 +1103,27 @@ class DesktopApiAppBundleUpdate {
     appVersion: string,
     bundleVersion: string,
   ): Promise<void> {
+    try {
+      await this.verifyExtractedBundleInternal(appVersion, bundleVersion);
+    } catch (error) {
+      throw wrapBundleError(error, 'verifyPackage');
+    }
+  }
+
+  private async verifyExtractedBundleInternal(
+    appVersion: string,
+    bundleVersion: string,
+  ): Promise<void> {
     const extractDir = getBundleExtractDir({ appVersion, bundleVersion });
     if (!fs.existsSync(extractDir)) {
       logger.error(
         'bundle-verify',
         `verifyExtractedBundle: directory not found: ${extractDir}`,
       );
-      throw new OneKeyLocalError('Bundle directory not found');
+      throw createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'verifyPackage',
+      });
     }
     const metadataFilePath = path.join(extractDir, 'metadata.json');
     if (!fs.existsSync(metadataFilePath)) {
@@ -958,22 +1131,33 @@ class DesktopApiAppBundleUpdate {
         'bundle-verify',
         `verifyExtractedBundle: metadata.json not found in ${extractDir}`,
       );
-      throw new OneKeyLocalError('metadata.json not found');
+      throw createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'verifyPackage',
+      });
     }
     const metadataContent = fs.readFileSync(metadataFilePath, 'utf8');
     const metadata = JSON.parse(metadataContent) as Record<string, string>;
     this.verifyAllExtractedFiles(extractDir, metadata, extractDir);
   }
 
-  async installBundle(params: IUpdateDownloadedEvent) {
+  async installBundle(params: IUpdateOperationParams) {
+    try {
+      await this.installBundleInternal(params);
+    } catch (error) {
+      throw wrapBundleError(error, 'install');
+    }
+  }
+
+  private async installBundleInternal(params: IUpdateOperationParams) {
     const {
       latestVersion: appVersion,
       bundleVersion,
       signature,
       skipGPGVerification,
     } = params || {};
-    assertSafeBundleVersion(appVersion);
-    assertSafeBundleVersion(bundleVersion);
+    assertUpdateBundleVersion(appVersion, 'install');
+    assertUpdateBundleVersion(bundleVersion, 'install');
     const allowSkipGPG = this.isSkipGPGAllowed(skipGPGVerification);
     if (!appVersion || !bundleVersion || (!signature && !allowSkipGPG)) {
       logger.error('bundle-install', 'Invalid parameters', {
@@ -982,14 +1166,20 @@ class DesktopApiAppBundleUpdate {
         hasSignature: !!signature,
         allowSkipGPG,
       });
-      throw new OneKeyLocalError('Invalid parameters');
+      throw createUpdateError({
+        code: EUpdateErrorCode.invalidArgument,
+        step: 'install',
+      });
     }
     if (!semver.eq(appVersion, app.getVersion())) {
       logger.error('bundle-install', 'Bundle appVersion mismatch', {
         appVersion,
         currentAppVersion: app.getVersion(),
       });
-      throw new OneKeyLocalError('Bundle appVersion mismatch');
+      throw createUpdateError({
+        code: EUpdateErrorCode.incompatible,
+        step: 'install',
+      });
     }
     const isValidStoredBundle = (
       entry: IDesktopStoreUpdateBundleData | undefined,
@@ -1032,9 +1222,10 @@ class DesktopApiAppBundleUpdate {
         'bundle-install',
         `Bundle directory not found: ${appVersion}-${bundleVersion}`,
       );
-      throw new OneKeyLocalError(
-        `Bundle directory not found: ${appVersion}-${bundleVersion}`,
-      );
+      throw createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'install',
+      });
     }
     const indexHtmlPath = path.join(extractDir, 'build', 'index.html');
     if (!fs.existsSync(indexHtmlPath)) {
@@ -1042,7 +1233,10 @@ class DesktopApiAppBundleUpdate {
         'bundle-install',
         `Bundle index.html not found: ${indexHtmlPath}`,
       );
-      throw new OneKeyLocalError('Bundle index.html not found');
+      throw createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'install',
+      });
     }
     const metadataFilePath = this.getMetadataFilePath({
       appVersion,
@@ -1053,15 +1247,21 @@ class DesktopApiAppBundleUpdate {
         'bundle-install',
         `metadata.json not found in bundle: ${metadataFilePath}`,
       );
-      throw new OneKeyLocalError('metadata.json not found in bundle');
+      throw createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'install',
+      });
     }
     if (!allowSkipGPG) {
-      await verifyMetadataFileSha256({
-        appVersion,
-        expectedAppVersion: appVersion,
-        bundleVersion,
-        signature: signature!,
-      });
+      await verifySignedMetadata(
+        {
+          appVersion,
+          expectedAppVersion: appVersion,
+          bundleVersion,
+          signature: signature!,
+        },
+        'install',
+      );
     }
     const metadataContent = fs.readFileSync(metadataFilePath, 'utf8');
     const metadata = JSON.parse(metadataContent) as Record<string, string>;
@@ -1116,6 +1316,14 @@ class DesktopApiAppBundleUpdate {
   }
 
   async clearDownload() {
+    try {
+      await this.clearDownloadInternal();
+    } catch (error) {
+      throw wrapBundleError(error, 'cleanup');
+    }
+  }
+
+  private async clearDownloadInternal() {
     if (this.cacheClearPromise) return this.cacheClearPromise;
     // Publish the barrier before cancellation callbacks can start another run.
     const clear = Promise.resolve()
@@ -1139,40 +1347,66 @@ class DesktopApiAppBundleUpdate {
   async setCurrentUpdateBundleData(
     updateBundleData: IDesktopStoreUpdateBundleData,
   ) {
+    try {
+      await this.setCurrentUpdateBundleDataInternal(updateBundleData);
+    } catch (error) {
+      throw wrapBundleError(error, 'install');
+    }
+  }
+
+  private async setCurrentUpdateBundleDataInternal(
+    updateBundleData: IDesktopStoreUpdateBundleData,
+  ) {
     const { appVersion, bundleVersion, signature } = updateBundleData || {};
-    assertSafeBundleVersion(appVersion);
-    assertSafeBundleVersion(bundleVersion);
+    assertUpdateBundleVersion(appVersion, 'install');
+    assertUpdateBundleVersion(bundleVersion, 'install');
     if (!semver.valid(appVersion) || !semver.eq(appVersion, app.getVersion())) {
-      throw new OneKeyLocalError('Bundle appVersion mismatch');
+      throw createUpdateError({
+        code: EUpdateErrorCode.incompatible,
+        step: 'install',
+      });
     }
     const allowSkipGPG = this.isSkipGPGAllowed(false);
     if (!allowSkipGPG && !signature) {
-      throw new OneKeyLocalError('Bundle signature is required');
+      throw createUpdateError({
+        code: EUpdateErrorCode.invalidArgument,
+        step: 'install',
+      });
     }
     const extractDir = getBundleExtractDir({ appVersion, bundleVersion });
     if (!fs.existsSync(extractDir)) {
-      throw new OneKeyLocalError(
-        `Bundle directory not found: ${appVersion}-${bundleVersion}`,
-      );
+      throw createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'install',
+      });
     }
     const indexHtmlPath = path.join(extractDir, 'build', 'index.html');
     if (!fs.existsSync(indexHtmlPath)) {
-      throw new OneKeyLocalError('Bundle index.html not found');
+      throw createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'install',
+      });
     }
     const metadataFilePath = this.getMetadataFilePath({
       appVersion,
       bundleVersion,
     });
     if (!fs.existsSync(metadataFilePath)) {
-      throw new OneKeyLocalError('metadata.json not found in bundle');
+      throw createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'install',
+      });
     }
     if (!allowSkipGPG) {
-      await verifyMetadataFileSha256({
-        appVersion,
-        expectedAppVersion: appVersion,
-        bundleVersion,
-        signature: signature!,
-      });
+      await verifySignedMetadata(
+        {
+          appVersion,
+          expectedAppVersion: appVersion,
+          bundleVersion,
+          signature: signature!,
+        },
+        'install',
+      );
     }
     const metadataContent = fs.readFileSync(metadataFilePath, 'utf8');
     const metadata = JSON.parse(metadataContent) as Record<string, string>;
@@ -1206,10 +1440,14 @@ class DesktopApiAppBundleUpdate {
   }
 
   async resetToBuiltInBundle() {
-    store.clearUpdateBundleData();
-    logger.info(
-      'resetToBuiltInBundle: cleared update bundle data, app will use built-in bundle on next restart',
-    );
+    try {
+      store.clearUpdateBundleData();
+      logger.info(
+        'resetToBuiltInBundle: cleared update bundle data, app will use built-in bundle on next restart',
+      );
+    } catch (error) {
+      throw wrapBundleError(error, 'cleanup');
+    }
   }
 
   // Single choke point for "restart the app to load the just-written bundle".
@@ -1263,22 +1501,31 @@ class DesktopApiAppBundleUpdate {
   }
 
   async clearAllJSBundleData() {
-    await this.clearDownload();
-    await this.clearBundleExtract();
-    store.clearUpdateBundleData();
-    return new Promise<{ success: boolean; message: string }>((resolve) => {
-      setTimeout(() => {
-        resolve({
-          success: true,
-          message: 'Successfully cleared all JS bundle data',
-        });
-      }, 300);
-    });
+    try {
+      await this.clearDownload();
+      await this.clearBundleExtract();
+      store.clearUpdateBundleData();
+      return await new Promise<{ success: boolean; message: string }>(
+        (resolve) => {
+          setTimeout(() => {
+            resolve({
+              success: true,
+              message: 'Successfully cleared all JS bundle data',
+            });
+          }, 300);
+        },
+      );
+    } catch (error) {
+      throw wrapBundleError(error, 'cleanup');
+    }
   }
 
   private assertDevelopmentBuild() {
     if (process.env.NODE_ENV === 'production') {
-      throw new OneKeyLocalError('Development bundle API is unavailable');
+      throw createUpdateError({
+        code: EUpdateErrorCode.invalidArgument,
+        step: 'verifyASC',
+      });
     }
   }
 

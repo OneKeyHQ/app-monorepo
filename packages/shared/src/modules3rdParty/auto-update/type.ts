@@ -10,7 +10,6 @@ export interface IDownloadPackageParams {
   fileSize?: number;
   sha256?: string;
   signature?: string;
-  downloadedFile?: string;
   headers?: Record<string, string>;
   targetVersion?: string;
   /** Desktop only: effective only when ONEKEY_ALLOW_SKIP_GPG_VERIFICATION is enabled */
@@ -18,10 +17,10 @@ export interface IDownloadPackageParams {
 }
 
 export type IUpdateDownloadedEvent =
-  | (IDownloadPackageParams & {
-      downloadedFile?: string;
-      signature?: string;
-    })
+  | Pick<
+      IDownloadPackageParams,
+      'latestVersion' | 'downloadUrl' | 'bundleVersion' | 'sha256' | 'signature'
+    >
   | undefined;
 
 export type IDownloadPackage = (
@@ -66,11 +65,17 @@ export type ICheckPackageAvailability = (
   params: IAppUpdateInfo,
 ) => Promise<IAppUpdatePackageAvailability>;
 
-export type IDownloadASC = (params: IUpdateDownloadedEvent) => Promise<void>;
+export type IUpdateOperationParams =
+  | (NonNullable<IUpdateDownloadedEvent> & {
+      skipGPGVerification?: boolean;
+    })
+  | undefined;
 
-export type IVerifyASC = (params: IUpdateDownloadedEvent) => Promise<void>;
+export type IDownloadASC = (params: IUpdateOperationParams) => Promise<void>;
 
-export type IVerifyPackage = (params: IUpdateDownloadedEvent) => Promise<void>;
+export type IVerifyASC = (params: IUpdateOperationParams) => Promise<void>;
+
+export type IVerifyPackage = (params: IUpdateOperationParams) => Promise<void>;
 
 export type IDownloadProgressScope = Pick<
   IDownloadPackageParams,
@@ -131,19 +136,18 @@ export type IDownloadBundle = (
 ) => Promise<IUpdateDownloadedEvent>;
 
 export type IBundleUpdateDownloadedEvent = {
-  downloadedFile?: string;
   latestVersion?: string;
   downloadUrl?: string;
 };
 
-export type IVerifyBundle = (params: IUpdateDownloadedEvent) => Promise<void>;
+export type IVerifyBundle = (params: IUpdateOperationParams) => Promise<void>;
 export type IVerifyBundleASC = (
-  params: IUpdateDownloadedEvent,
+  params: IUpdateOperationParams,
 ) => Promise<void>;
 export type IDownloadBundleASC = (
-  params: IUpdateDownloadedEvent,
+  params: IUpdateOperationParams,
 ) => Promise<void>;
-export type IInstallBundle = (params: IUpdateDownloadedEvent) => Promise<void>;
+export type IInstallBundle = (params: IUpdateOperationParams) => Promise<void>;
 export type IClearBundle = () => Promise<void>;
 
 export type ITestDeleteJsBundle = (

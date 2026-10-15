@@ -160,8 +160,14 @@ describe('DesktopApiBundleUpdate public download integration', () => {
         'onekey-bundle-download',
         '6.0.0-124.zip',
       );
-      expect(resultA?.downloadedFile).toBe(pathA);
-      expect(resultB?.downloadedFile).toBe(pathB);
+      expect(resultA).toMatchObject({
+        latestVersion: '6.0.0',
+        bundleVersion: '123',
+      });
+      expect(resultB).toMatchObject({
+        latestVersion: '6.0.0',
+        bundleVersion: '124',
+      });
       expect(fs.readFileSync(pathA).equals(contentA)).toBe(true);
       expect(fs.readFileSync(pathB).equals(contentB)).toBe(true);
       expect(api.isDownloading).toBe(false);
@@ -187,7 +193,10 @@ describe('DesktopApiBundleUpdate public download integration', () => {
         'onekey-bundle-download',
         '6.0.0-123.zip',
       );
-      expect(result?.downloadedFile).toBe(finalPath);
+      expect(result).toMatchObject({
+        latestVersion: '6.0.0',
+        bundleVersion: '123',
+      });
       expect(fs.readFileSync(finalPath).equals(content)).toBe(true);
       expect(
         server.requests.filter((request) => request.range).length,
@@ -216,7 +225,10 @@ describe('DesktopApiBundleUpdate public download integration', () => {
         'onekey-bundle-download',
         '6.0.0-124.zip',
       );
-      expect(result?.downloadedFile).toBe(finalPath);
+      expect(result).toMatchObject({
+        latestVersion: '6.0.0',
+        bundleVersion: '124',
+      });
       expect(fs.readFileSync(finalPath).equals(content)).toBe(true);
       expect(server.requests.some((request) => request.range)).toBe(true);
       expect(server.requests.some((request) => !request.range)).toBe(true);
@@ -258,7 +270,10 @@ describe('DesktopApiBundleUpdate public download integration', () => {
         'onekey-bundle-download',
         '6.0.0-126.zip',
       );
-      expect(result?.downloadedFile).toBe(finalPath);
+      expect(result).toMatchObject({
+        latestVersion: '6.0.0',
+        bundleVersion: '126',
+      });
       expect(fs.readFileSync(finalPath).equals(content)).toBe(true);
       expect(
         server.requests
@@ -283,7 +298,7 @@ describe('DesktopApiBundleUpdate public download integration', () => {
           sha256: sha256(Buffer.from('expected bundle')),
           fileSize: content.length,
         }),
-      ).rejects.toThrow('SHA256_MISMATCH');
+      ).rejects.toThrow('"code":"INTEGRITY_FAILED"');
       expect(
         fs.existsSync(
           path.join(USERDATA, 'onekey-bundle-download', '6.0.0-125.zip'),
@@ -324,9 +339,13 @@ describe('bundle writer lifecycle through the public API', () => {
       ]);
       expect(first).toBe(joined);
       expect(server.requests).toHaveLength(9);
-      expect(fs.readFileSync(first!.downloadedFile!).equals(content)).toBe(
-        true,
-      );
+      expect(
+        fs
+          .readFileSync(
+            path.join(USERDATA, 'onekey-bundle-download', '6.6.0-123.zip'),
+          )
+          .equals(content),
+      ).toBe(true);
     } finally {
       await server.close();
     }

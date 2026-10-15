@@ -39,6 +39,13 @@ import {
   BundleUpdate,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import {
+  EUpdateErrorCode,
+  type IUpdateErrorDTO,
+  getUpdateErrorI18nKey,
+  isRetryableUpdateError,
+  normalizeUpdateErrorDTO,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
+import {
   EAppUpdatePackageAvailabilityStatus,
   type IAppUpdatePackageAvailability,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
@@ -72,7 +79,7 @@ let firstLaunch = true;
 // ---------------------------------------------------------------------------
 // Failed-recovery retry tracking
 // ---------------------------------------------------------------------------
-// When a download/verify fails, startFailedRecoveryTimer resets
+// When a retryable download/verify fails, startFailedRecoveryTimer resets
 // failed → notify after 2 hours so the user (or rollback auto-download)
 // gets another attempt.  To prevent infinite retries we count per-target
 // resets.  After MAX_FAILED_RECOVERY_RETRY the target is frozen & ignored.
@@ -351,7 +358,7 @@ class ServiceAppUpdate extends ServiceBase {
     );
   }
 
-  // After a download/verify failure the timer resets failed → notify so the
+  // After a retryable download/verify failure the timer resets failed → notify so the
   // user (or rollback auto-download) gets another chance.  A per-target retry
   // counter prevents infinite loops: after MAX_FAILED_RECOVERY_RETRY resets
   // the target is frozen and added to ignoredTargets.
@@ -363,7 +370,11 @@ class ServiceAppUpdate extends ServiceBase {
         defaultLogger.app.appUpdate.log(
           `Failed recovery timer fired, current status: ${appInfo.status}`,
         );
-        if (!ServiceAppUpdate.FAILED_STATUSES.includes(appInfo.status)) {
+        if (
+          !ServiceAppUpdate.FAILED_STATUSES.includes(appInfo.status) ||
+          !appInfo.updateError ||
+          !isRetryableUpdateError(appInfo.updateError)
+        ) {
           return;
         }
 
@@ -407,6 +418,7 @@ class ServiceAppUpdate extends ServiceBase {
         await appUpdatePersistAtom.set((p) => ({
           ...p,
           errorText: undefined,
+          updateError: undefined,
           status: EAppUpdateStatus.notify,
           downloadedEvent: shouldClearDownload ? undefined : p.downloadedEvent,
         }));
@@ -486,8 +498,13 @@ class ServiceAppUpdate extends ServiceBase {
         current.jsBundleVersion === snapshot.jsBundleVersion &&
         current.updateStrategy === snapshot.updateStrategy &&
         current.storeUrl === snapshot.storeUrl &&
-        current.downloadedEvent?.downloadedFile ===
-          snapshot.downloadedEvent?.downloadedFile;
+        current.downloadedEvent?.latestVersion ===
+          snapshot.downloadedEvent?.latestVersion &&
+        current.downloadedEvent?.bundleVersion ===
+          snapshot.downloadedEvent?.bundleVersion &&
+        current.downloadedEvent?.downloadUrl ===
+          snapshot.downloadedEvent?.downloadUrl &&
+        current.downloadedEvent?.sha256 === snapshot.downloadedEvent?.sha256;
       if (!isSamePackageState) {
         return current;
       }
@@ -511,6 +528,7 @@ class ServiceAppUpdate extends ServiceBase {
         ...current,
         status: nextStatus,
         errorText: undefined,
+        updateError: undefined,
         downloadedEvent: undefined,
         fullFlowRetryByTarget,
       };
@@ -868,11 +886,19 @@ class ServiceAppUpdate extends ServiceBase {
     // the second caller's check fails immediately and bails.
     const claimedAt = now;
     this.resumeStalledDownloadLastFiredAt = claimedAt;
-    const { status } = await appUpdatePersistAtom.get();
+    const { status, updateError } = await appUpdatePersistAtom.get();
     let step: 'downloadPackage' | 'downloadASC' | null = null;
-    if (status === EAppUpdateStatus.downloadPackageFailed) {
+    if (
+      status === EAppUpdateStatus.downloadPackageFailed &&
+      updateError &&
+      isRetryableUpdateError(updateError)
+    ) {
       step = 'downloadPackage';
-    } else if (status === EAppUpdateStatus.downloadASCFailed) {
+    } else if (
+      status === EAppUpdateStatus.downloadASCFailed &&
+      updateError &&
+      isRetryableUpdateError(updateError)
+    ) {
       step = 'downloadASC';
     }
     if (step === null) {
@@ -926,12 +952,17 @@ class ServiceAppUpdate extends ServiceBase {
         updateAt: 0,
         updateStrategy: EUpdateStrategy.manual,
         errorText: undefined,
+        updateError: undefined,
         status: EAppUpdateStatus.done,
         jsBundleVersion: undefined,
         jsBundle: undefined,
         downloadedEvent: undefined,
       }));
-    } else if (ServiceAppUpdate.FAILED_STATUSES.includes(appInfo.status)) {
+    } else if (
+      ServiceAppUpdate.FAILED_STATUSES.includes(appInfo.status) &&
+      appInfo.updateError &&
+      isRetryableUpdateError(appInfo.updateError)
+    ) {
       // Safety net: also subject to the same retry limit as
       // startFailedRecoveryTimer to prevent infinite resets.
       const targetKey = this.computeUpdateTargetKey(appInfo);
@@ -956,6 +987,7 @@ class ServiceAppUpdate extends ServiceBase {
       await appUpdatePersistAtom.set((prev) => ({
         ...prev,
         errorText: undefined,
+        updateError: undefined,
         status: EAppUpdateStatus.notify,
         downloadedEvent: shouldClearDownload ? undefined : prev.downloadedEvent,
       }));
@@ -1026,7 +1058,8 @@ class ServiceAppUpdate extends ServiceBase {
     downloadTimeoutId = setTimeout(
       async () => {
         await this.downloadPackageFailed({
-          message: ETranslations.update_download_timed_out_check_connection,
+          code: EUpdateErrorCode.timeout,
+          step: 'download',
         });
       },
       timerUtils.getTimeDurationMs({ minute: 30 }),
@@ -1060,12 +1093,18 @@ class ServiceAppUpdate extends ServiceBase {
     // not regress those healthy states back to downloadPackage.
     let healed = false;
     await appUpdatePersistAtom.set((prev) => {
-      if (prev.status !== EAppUpdateStatus.downloadPackageFailed) return prev;
+      if (
+        prev.status !== EAppUpdateStatus.downloadPackageFailed ||
+        !prev.updateError ||
+        !isRetryableUpdateError(prev.updateError)
+      )
+        return prev;
       healed = true;
       return {
         ...prev,
         status: EAppUpdateStatus.downloadPackage,
         errorText: undefined,
+        updateError: undefined,
       };
     });
     if (!healed) return;
@@ -1081,24 +1120,37 @@ class ServiceAppUpdate extends ServiceBase {
     downloadTimeoutId = setTimeout(
       async () => {
         await this.downloadPackageFailed({
-          message: ETranslations.update_download_timed_out_check_connection,
+          code: EUpdateErrorCode.timeout,
+          step: 'download',
         });
       },
       timerUtils.getTimeDurationMs({ minute: 30 }),
     );
   }
 
-  @backgroundMethod()
-  updateErrorText(status: EAppUpdateStatus, errorText: string) {
+  private updateErrorText(
+    status: EAppUpdateStatus,
+    updateError: IUpdateErrorDTO,
+  ) {
+    const safeError = normalizeUpdateErrorDTO(
+      updateError,
+      status === EAppUpdateStatus.downloadASCFailed
+        ? 'downloadASC'
+        : 'download',
+    );
     void appUpdatePersistAtom.set((prev) => ({
       ...prev,
-      errorText: errorText as ETranslations,
+      errorText:
+        getUpdateErrorI18nKey(safeError) ?? ETranslations.global_update_failed,
+      updateError: safeError,
       status,
     }));
   }
 
   @backgroundMethod()
-  public async downloadPackageFailed(e?: { message: string }) {
+  public async downloadPackageFailed(error?: IUpdateErrorDTO) {
+    const safeError = normalizeUpdateErrorDTO(error, 'download');
+    if (safeError.code === EUpdateErrorCode.cancelled) return;
     const { status } = await appUpdatePersistAtom.get();
     if (status !== EAppUpdateStatus.downloadPackage) {
       defaultLogger.app.appUpdate.log(
@@ -1107,25 +1159,9 @@ class ServiceAppUpdate extends ServiceBase {
       return;
     }
     clearTimeout(downloadTimeoutId);
-    // TODO: need replace by error code.
-    let errorText: ETranslations | string =
-      e?.message || ETranslations.update_network_exception_check_connection;
-    if (errorText.includes('Server not responding')) {
-      errorText = ETranslations.update_server_not_responding_try_later;
-    } else if (errorText.startsWith('Cannot download')) {
-      errorText = ETranslations.update_server_not_responding_try_later;
-    } else if (errorText.includes('Software caused connection abort')) {
-      errorText = ETranslations.update_network_instability_check_connection;
-    }
-    const statusNumber = e?.message ? Number(e.message) : undefined;
-    if (statusNumber === 500) {
-      errorText = ETranslations.update_server_not_responding_try_later;
-    } else if (statusNumber === 404 || statusNumber === 403) {
-      errorText = ETranslations.update_server_not_responding_try_later;
-    }
-    defaultLogger.app.error.log(e?.message || errorText);
-    this.updateErrorText(EAppUpdateStatus.downloadPackageFailed, errorText);
-    this.startFailedRecoveryTimer();
+    clearTimeout(failedRecoveryTimerId);
+    this.updateErrorText(EAppUpdateStatus.downloadPackageFailed, safeError);
+    if (isRetryableUpdateError(safeError)) this.startFailedRecoveryTimer();
   }
 
   // -------------------------------------------------------------------------
@@ -1466,6 +1502,7 @@ class ServiceAppUpdate extends ServiceBase {
       latestVersion,
       jsBundleVersion,
       errorText: undefined,
+      updateError: undefined,
       changeLog: '## Dev simulated update\n\n- This is a simulated changelog.',
       storeUrl:
         !isJsBundle && channel === 'store'
@@ -1555,7 +1592,9 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async verifyASCFailed(e?: { message: string }) {
+  public async verifyASCFailed(error?: IUpdateErrorDTO) {
+    const safeError = normalizeUpdateErrorDTO(error, 'verifyASC');
+    if (safeError.code === EUpdateErrorCode.cancelled) return;
     const { status } = await appUpdatePersistAtom.get();
     if (status !== EAppUpdateStatus.verifyASC) {
       defaultLogger.app.appUpdate.log(
@@ -1563,25 +1602,21 @@ class ServiceAppUpdate extends ServiceBase {
       );
       return;
     }
-    let errorText =
-      e?.message ||
-      ETranslations.update_signature_verification_failed_alert_text;
-    if (platformEnv.isNativeAndroid) {
-      if (errorText === 'UPDATE_SIGNATURE_VERIFICATION_FAILED_ALERT_TEXT')
-        errorText =
-          ETranslations.update_signature_verification_failed_alert_text;
-    }
-    defaultLogger.app.error.log(e?.message || errorText);
+    clearTimeout(failedRecoveryTimerId);
+    const errorText = getUpdateErrorI18nKey(safeError);
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
-      errorText: errorText as ETranslations,
+      errorText: errorText ?? ETranslations.global_update_failed,
+      updateError: safeError,
       status: EAppUpdateStatus.verifyASCFailed,
     }));
-    this.startFailedRecoveryTimer();
+    if (isRetryableUpdateError(safeError)) this.startFailedRecoveryTimer();
   }
 
   @backgroundMethod()
-  public async verifyPackageFailed(e?: { message: string }) {
+  public async verifyPackageFailed(error?: IUpdateErrorDTO) {
+    const safeError = normalizeUpdateErrorDTO(error, 'verifyPackage');
+    if (safeError.code === EUpdateErrorCode.cancelled) return;
     const { status } = await appUpdatePersistAtom.get();
     if (status !== EAppUpdateStatus.verifyPackage) {
       defaultLogger.app.appUpdate.log(
@@ -1589,26 +1624,21 @@ class ServiceAppUpdate extends ServiceBase {
       );
       return;
     }
-    let errorText =
-      e?.message || ETranslations.update_installation_not_safe_alert_text;
-    if (platformEnv.isNativeAndroid) {
-      if (errorText === 'PACKAGE_NAME_MISMATCH') {
-        errorText = ETranslations.update_package_name_mismatch;
-      } else if (errorText === 'UPDATE_INSTALLATION_NOT_SAFE_ALERT_TEXT') {
-        errorText = ETranslations.update_installation_not_safe_alert_text;
-      }
-    }
-    defaultLogger.app.error.log(e?.message || errorText);
+    clearTimeout(failedRecoveryTimerId);
+    const errorText = getUpdateErrorI18nKey(safeError);
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
-      errorText: errorText as ETranslations,
+      errorText: errorText ?? ETranslations.global_update_failed,
+      updateError: safeError,
       status: EAppUpdateStatus.verifyPackageFailed,
     }));
-    this.startFailedRecoveryTimer();
+    if (isRetryableUpdateError(safeError)) this.startFailedRecoveryTimer();
   }
 
   @backgroundMethod()
-  public async downloadASCFailed(e?: { message: string }) {
+  public async downloadASCFailed(error?: IUpdateErrorDTO) {
+    const safeError = normalizeUpdateErrorDTO(error, 'downloadASC');
+    if (safeError.code === EUpdateErrorCode.cancelled) return;
     const { status } = await appUpdatePersistAtom.get();
     if (status !== EAppUpdateStatus.downloadASC) {
       defaultLogger.app.appUpdate.log(
@@ -1616,18 +1646,9 @@ class ServiceAppUpdate extends ServiceBase {
       );
       return;
     }
-    const statusNumber = e?.message ? Number(e.message) : undefined;
-    let errorText = '';
-    if (statusNumber === 500) {
-      errorText = ETranslations.update_server_not_responding_try_later;
-    } else if (statusNumber === 404 || statusNumber === 403) {
-      errorText = ETranslations.update_server_not_responding_try_later;
-    } else {
-      errorText = ETranslations.update_network_instability_check_connection;
-    }
-    defaultLogger.app.error.log(e?.message || errorText);
-    this.updateErrorText(EAppUpdateStatus.downloadASCFailed, errorText);
-    this.startFailedRecoveryTimer();
+    clearTimeout(failedRecoveryTimerId);
+    this.updateErrorText(EAppUpdateStatus.downloadASCFailed, safeError);
+    if (isRetryableUpdateError(safeError)) this.startFailedRecoveryTimer();
   }
 
   @backgroundMethod()
@@ -1646,11 +1667,26 @@ class ServiceAppUpdate extends ServiceBase {
     clearTimeout(downloadTimeoutId);
     clearTimeout(failedRecoveryTimerId);
     const latest = appInfo;
-    if (!latest.latestVersion && !latest.jsBundleVersion) {
-      await appUpdatePersistAtom.set((prev) => ({
-        ...prev,
-        status: EAppUpdateStatus.ready,
-      }));
+    const downloadedEvent = latest.downloadedEvent;
+    const isMatchingDownload =
+      Boolean(latest.latestVersion) &&
+      downloadedEvent?.latestVersion === latest.latestVersion &&
+      (getUpdateFileType(latest) === EUpdateFileType.jsBundle
+        ? Boolean(
+            latest.jsBundleVersion &&
+            downloadedEvent?.bundleVersion === latest.jsBundleVersion &&
+            latest.jsBundle?.downloadUrl &&
+            downloadedEvent?.downloadUrl === latest.jsBundle.downloadUrl,
+          )
+        : Boolean(
+            downloadedEvent?.downloadUrl &&
+            (platformEnv.isDesktop ||
+              downloadedEvent.downloadUrl === latest.downloadUrl),
+          ));
+    if (!isMatchingDownload) {
+      defaultLogger.app.appUpdate.log(
+        'readyToInstall: downloaded release identity does not match target',
+      );
       return;
     }
     const traceId = generateUUID();
@@ -1678,8 +1714,12 @@ class ServiceAppUpdate extends ServiceBase {
           prev.status === EAppUpdateStatus.ready) &&
         prev.latestVersion === latest.latestVersion &&
         prev.jsBundleVersion === latest.jsBundleVersion &&
-        prev.downloadedEvent?.downloadedFile ===
-          latest.downloadedEvent?.downloadedFile;
+        prev.downloadedEvent?.latestVersion === latest.latestVersion &&
+        prev.downloadedEvent?.bundleVersion ===
+          latest.downloadedEvent?.bundleVersion &&
+        prev.downloadedEvent?.downloadUrl ===
+          latest.downloadedEvent?.downloadUrl &&
+        prev.downloadedEvent?.sha256 === latest.downloadedEvent?.sha256;
       if (!isSameVerifiedPackage) {
         return prev;
       }
@@ -1738,6 +1778,7 @@ class ServiceAppUpdate extends ServiceBase {
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       errorText: undefined,
+      updateError: undefined,
       status: EAppUpdateStatus.manualInstall,
     }));
   }
@@ -1747,6 +1788,7 @@ class ServiceAppUpdate extends ServiceBase {
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       errorText: undefined,
+      updateError: undefined,
       status: EAppUpdateStatus.updateIncomplete,
     }));
   }
@@ -1966,6 +2008,7 @@ class ServiceAppUpdate extends ServiceBase {
                 downloadedEvent: undefined,
                 isRollbackTarget: false,
                 errorText: undefined,
+                updateError: undefined,
               }
             : null),
           updateAt: Date.now(),
@@ -2047,6 +2090,7 @@ class ServiceAppUpdate extends ServiceBase {
                 downloadedEvent: undefined,
                 isRollbackTarget: false,
                 errorText: undefined,
+                updateError: undefined,
               }
             : null),
           updateAt: Date.now(),
@@ -2310,6 +2354,10 @@ class ServiceAppUpdate extends ServiceBase {
             shouldResetFailed || shouldPreemptReadyOrPendingTarget
               ? undefined
               : prev.errorText,
+          updateError:
+            shouldResetFailed || shouldPreemptReadyOrPendingTarget
+              ? undefined
+              : prev.updateError,
           downloadedEvent: shouldClearDownloadedEvent
             ? undefined
             : prev.downloadedEvent,

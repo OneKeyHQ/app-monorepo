@@ -1,6 +1,8 @@
 import { EventEmitter } from 'events';
 import { Readable } from 'stream';
 
+import { EUpdateErrorCode } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
+
 import { requestUpdateUrl } from './electronUpdateRequest';
 
 const mockRequest = jest.fn<ReturnType<typeof requestFor>, [{ url: string }]>();
@@ -83,7 +85,7 @@ test('times out a stalled request', async () => {
   );
   await expect(
     requestUpdateUrl('https://origin.test/stall', {}, undefined, 10),
-  ).rejects.toThrow('Download timeout');
+  ).rejects.toThrow('"code":"TIMEOUT"');
   expect(mockRequest.mock.results[0].value.abort).toHaveBeenCalledTimes(1);
 });
 
@@ -102,7 +104,7 @@ test('cancels an in-flight Electron request', async () => {
     controller.signal,
   );
   controller.abort();
-  await expect(request).rejects.toThrow('Download cancelled');
+  await expect(request).rejects.toThrow('"code":"CANCELLED"');
   expect(mockRequest.mock.results[0].value.abort).toHaveBeenCalledTimes(1);
 });
 
@@ -158,9 +160,29 @@ test('times out a response body that stalls after delivering its first chunk', a
       /* Wait for the body watchdog. */
     }
   };
-  await expect(consume()).rejects.toThrow('Download timeout');
+  await expect(consume()).rejects.toThrow('"code":"TIMEOUT"');
   expect(request.abort).toHaveBeenCalledTimes(1);
   expect(incoming.destroyed).toBe(true);
+});
+
+test.each([
+  ['net::ERR_NAME_NOT_RESOLVED', EUpdateErrorCode.networkError],
+  ['net::ERR_TIMED_OUT', EUpdateErrorCode.timeout],
+  ['net::ERR_CERT_AUTHORITY_INVALID', EUpdateErrorCode.securityRejected],
+  ['net::ERR_NOT_CLASSIFIED', EUpdateErrorCode.unknown],
+])('classifies actual Electron request error %s', async (token, code) => {
+  mockRequest.mockImplementation(() => {
+    const request = requestFor('https://fixture.test/package');
+    request.end.mockImplementation(() => {
+      setImmediate(() => request.emit('error', new Error(token)));
+    });
+    return request;
+  });
+  await expect(
+    requestUpdateUrl('https://fixture.test/package', {}),
+  ).rejects.toMatchObject({
+    data: { updateError: { code, step: 'download' } },
+  });
 });
 
 test.each([

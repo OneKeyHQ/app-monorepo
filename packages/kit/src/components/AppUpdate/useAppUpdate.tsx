@@ -273,11 +273,6 @@ export {
 } from './updateStrategy';
 export { useDownloadPackage } from './useDownloadPackage';
 export {
-  sanitizeUpdateErrorMessage,
-  extractUpdateErrorCode,
-  isUnrecoverableDownloadError,
-} from './updateErrorTaxonomy';
-export {
   computeDownloadRetryDelayMs,
   runDownloadWithRetry,
 } from './updateRetry';
