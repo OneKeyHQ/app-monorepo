@@ -1,0 +1,390 @@
+import bs58check from 'bs58check';
+
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+
+import { getZcashAccountIndexFromXpub } from '..';
+
+import {
+  buildTransparentTxWithAccountXprv,
+  buildTransparentTxWithSeed,
+  createTransparentHardwarePczt,
+  deriveAccount,
+  deriveTransparentXpubFromUfvk,
+  finalizeTransparentHardwarePczt,
+  getChainTip,
+  parseTransparentTransactions,
+  quoteTransparentTx,
+  validateAddress,
+} from './keys';
+
+const mockValidateAddress = jest.fn();
+const mockChainTipAt = jest.fn<Promise<number>, [string]>();
+const mockUfvkFromSeed = jest.fn();
+const mockSeedFingerprint = jest.fn();
+const mockUnifiedAddress = jest.fn();
+const mockTransparentAddressFromUfvk = jest.fn();
+const mockTransparentAccountPubKeyFromUfvk = jest.fn();
+const mockTransparentTxQuote = jest.fn();
+const mockParseTransparentTransactions = jest.fn();
+const mockTransparentTxBuildWithAccountXprv = jest.fn();
+const mockShieldCreate = jest.fn();
+const mockShieldSign = jest.fn();
+const mockHardwareCreate = jest.fn();
+const mockHardwareCombine = jest.fn();
+const mockProveAtHeight = jest.fn();
+const mockExtractStateless = jest.fn();
+const mockGetRuntime = jest.fn(async () => ({ chainTipAt: mockChainTipAt }));
+const mockGetRuntimeWasm = jest.fn(async () => ({
+  pcztProveAtHeight: mockProveAtHeight,
+  pcztExtractStateless: mockExtractStateless,
+}));
+const mockGetKeys = jest.fn(async () => ({
+  validateAddress: mockValidateAddress,
+  ufvkFromSeed: mockUfvkFromSeed,
+  seedFingerprint: mockSeedFingerprint,
+  unifiedAddress: mockUnifiedAddress,
+  transparentAddressFromUfvk: mockTransparentAddressFromUfvk,
+  transparentAccountPubKeyFromUfvk: mockTransparentAccountPubKeyFromUfvk,
+  transparentTxQuote: mockTransparentTxQuote,
+  parseTransparentTransactions: mockParseTransparentTransactions,
+  transparentShieldCreateWithSeed: mockShieldCreate,
+  transparentShieldSignWithSeed: mockShieldSign,
+  transparentTxCreateWithAccountXpub: mockHardwareCreate,
+  transparentTxCombineHardwareSigned: mockHardwareCombine,
+  transparentTxBuildWithAccountXprv: mockTransparentTxBuildWithAccountXprv,
+}));
+
+jest.mock('./carrier', () => ({
+  getKeys: () => mockGetKeys(),
+  getRuntime: () => mockGetRuntime(),
+  getRuntimeWasm: () => mockGetRuntimeWasm(),
+  getLightwalletdUrl: (url: string) => url,
+}));
+
+describe('deriveAccount', () => {
+  beforeEach(() => {
+    mockChainTipAt.mockReset().mockResolvedValue(3_500_000);
+    mockUfvkFromSeed.mockReset().mockReturnValue('ufvk');
+    mockSeedFingerprint.mockReset().mockReturnValue('fingerprint');
+    mockUnifiedAddress.mockReset().mockReturnValue('unified-address');
+    mockTransparentAddressFromUfvk
+      .mockReset()
+      .mockReturnValue('transparent-address');
+  });
+
+  it('reuses and clears one mutable seed copy before the network await', async () => {
+    let ufvkSeed: Uint8Array | undefined;
+    let fingerprintSeed: Uint8Array | undefined;
+    mockUfvkFromSeed.mockImplementation(
+      (_network: string, seed: Uint8Array) => {
+        ufvkSeed = seed;
+        return 'ufvk';
+      },
+    );
+    mockSeedFingerprint.mockImplementation((seed: Uint8Array) => {
+      fingerprintSeed = seed;
+      return 'fingerprint';
+    });
+    mockChainTipAt.mockImplementation(async () => {
+      expect(ufvkSeed).toBeDefined();
+      expect(Array.from(ufvkSeed ?? [])).toEqual(new Array(64).fill(0));
+      return 3_500_000;
+    });
+
+    await deriveAccount({
+      network: 'main',
+      seedHex: '11'.repeat(64),
+      hdIndex: 0,
+      lightwalletdUrl: 'https://lightwalletd.example',
+    });
+
+    expect(fingerprintSeed).toBe(ufvkSeed);
+    expect(Array.from(fingerprintSeed ?? [])).toEqual(new Array(64).fill(0));
+  });
+
+  it('clears the seed copy when wasm derivation fails', async () => {
+    let observedSeed: Uint8Array | undefined;
+    mockUfvkFromSeed.mockImplementation(
+      (_network: string, seed: Uint8Array) => {
+        observedSeed = seed;
+        throw new OneKeyLocalError('derive failed');
+      },
+    );
+
+    await expect(
+      deriveAccount({
+        network: 'main',
+        seedHex: '22'.repeat(64),
+        hdIndex: 0,
+        lightwalletdUrl: 'https://lightwalletd.example',
+      }),
+    ).rejects.toThrow('derive failed');
+
+    expect(Array.from(observedSeed ?? [])).toEqual(new Array(64).fill(0));
+    expect(mockSeedFingerprint).not.toHaveBeenCalled();
+    expect(mockChainTipAt).not.toHaveBeenCalled();
+  });
+});
+
+describe('transparent keys-only transaction API', () => {
+  const request = {
+    network: 'main' as const,
+    accountIndex: 0,
+    targetHeight: 3_500_000,
+    expiryHeight: 3_500_010,
+    utxos: [],
+    selectedOutpoints: [],
+    recipients: [{ address: 't1-recipient', amountZat: '50000' }],
+    sendMax: false,
+  };
+
+  it('quotes without loading the wallet runtime', async () => {
+    mockTransparentTxQuote.mockReturnValue(
+      JSON.stringify({
+        feeZat: '10000',
+        inputTotalZat: '100000',
+        sendAmountZat: '50000',
+        changeZat: '40000',
+        expiryHeight: request.expiryHeight,
+        spentOutpoints: [],
+      }),
+    );
+    await expect(quoteTransparentTx(request)).resolves.toMatchObject({
+      feeZat: '10000',
+    });
+    expect(mockTransparentTxQuote).toHaveBeenCalledWith(
+      stringUtils.stableStringify(request),
+    );
+  });
+
+  it.each([false, true])(
+    'keeps shielding proof computation independent of wallet storage and clears PCZT buffers (proof fails=%s)',
+    async (fails) => {
+      const original = new Uint8Array([1, 2]);
+      const proved = new Uint8Array([3, 4]);
+      const signed = new Uint8Array([5, 6]);
+      const order: string[] = [];
+      mockGetRuntime.mockClear();
+      mockShieldCreate.mockImplementation(() => {
+        order.push('create');
+        return original;
+      });
+      mockProveAtHeight.mockImplementation(() => {
+        order.push('prove');
+        if (fails) throw new OneKeyLocalError('proof failed');
+        return proved;
+      });
+      mockShieldSign.mockImplementation((_request, _seed, source, proof) => {
+        expect(source).toBe(original);
+        expect(proof).toBe(proved);
+        order.push('sign');
+        return signed;
+      });
+      mockExtractStateless.mockImplementation(() => {
+        order.push('extract');
+        return JSON.stringify({ rawTx: 'abcd', txid: '11'.repeat(32) });
+      });
+      mockTransparentTxQuote.mockReturnValue(
+        JSON.stringify({
+          feeZat: '15000',
+          expiryHeight: request.expiryHeight,
+          spentOutpoints: request.selectedOutpoints,
+        }),
+      );
+      const result = buildTransparentTxWithSeed({
+        ...request,
+        recipients: [{ address: 'u1-recipient', amountZat: '50000' }],
+        seedHex: '07'.repeat(32),
+      });
+      if (fails) {
+        await expect(result).rejects.toThrow('proof failed');
+        expect(order).toEqual(['create', 'prove']);
+      } else {
+        await expect(result).resolves.toMatchObject({
+          rawTx: 'abcd',
+          feeZat: '15000',
+        });
+        expect(order).toEqual(['create', 'prove', 'sign', 'extract']);
+        expect([...proved, ...signed]).toEqual([0, 0, 0, 0]);
+      }
+      expect([...original]).toEqual([0, 0]);
+      expect(mockGetRuntime).not.toHaveBeenCalled();
+      expect(mockShieldCreate.mock.calls.at(-1)?.[1]).toEqual(
+        new Uint8Array(32),
+      );
+    },
+  );
+
+  it.each([false, true])(
+    'finalizes device signatures without opening wallet storage (failure=%s)',
+    async (fails) => {
+      const order: string[] = [];
+      mockGetRuntime.mockClear();
+      mockGetRuntimeWasm.mockClear();
+      const original = new Uint8Array([1, 2]);
+      const combined = new Uint8Array([3, 4]);
+      const proved = new Uint8Array([5, 6]);
+      mockHardwareCreate.mockReturnValue(original);
+      const created = await createTransparentHardwarePczt({
+        request,
+        accountXpub: 'public',
+        seedFingerprintHex: '01'.repeat(32),
+      });
+      expect(created.pcztHex).toBe('0102');
+      expect([...original]).toEqual([0, 0]);
+      mockHardwareCombine.mockImplementation(() => {
+        order.push('verify');
+        if (fails) throw new OneKeyLocalError('signature rejected');
+        return combined;
+      });
+      mockProveAtHeight.mockImplementation(() => {
+        order.push('prove');
+        return proved;
+      });
+      mockExtractStateless.mockImplementation(() => {
+        order.push('extract');
+        return JSON.stringify({ rawTx: 'abcd', txid: '11'.repeat(32) });
+      });
+      mockTransparentTxQuote.mockReturnValue(
+        JSON.stringify({
+          feeZat: '10000',
+          expiryHeight: request.expiryHeight,
+          spentOutpoints: request.selectedOutpoints,
+        }),
+      );
+      const result = finalizeTransparentHardwarePczt({
+        request,
+        accountXpub: 'public',
+        originalPcztHex: created.pcztHex,
+        signedPcztHex: 'aabb',
+      });
+      if (fails) {
+        await expect(result).rejects.toThrow('signature rejected');
+        expect(order).toEqual(['verify']);
+        expect(mockGetRuntimeWasm).not.toHaveBeenCalled();
+      } else {
+        await expect(result).resolves.toMatchObject({
+          rawTx: 'abcd',
+          feeZat: '10000',
+        });
+        expect(order).toEqual(['verify', 'prove', 'extract']);
+        expect([...combined, ...proved]).toEqual([0, 0, 0, 0]);
+      }
+      expect(mockGetRuntime).not.toHaveBeenCalled();
+    },
+  );
+
+  it('converts the stored account-xprv bytes at the wasm boundary', async () => {
+    mockTransparentTxBuildWithAccountXprv.mockReturnValue(
+      JSON.stringify({
+        rawTx: '00',
+        txid: '11'.repeat(32),
+        feeZat: '10000',
+        expiryHeight: request.expiryHeight,
+        spentOutpoints: [],
+      }),
+    );
+    const accountXprv = Buffer.alloc(78, 7);
+    await buildTransparentTxWithAccountXprv({
+      ...request,
+      accountXprvHex: accountXprv.toString('hex'),
+    });
+    expect(mockTransparentTxBuildWithAccountXprv).toHaveBeenCalledWith(
+      stringUtils.stableStringify(request),
+      bs58check.encode(accountXprv),
+    );
+  });
+});
+
+describe('deriveTransparentXpubFromUfvk', () => {
+  it('rebuilds a depth-3 hardened account xpub around the UFVK key', async () => {
+    const chainCode = '11'.repeat(32);
+    const pubKey = `02${'22'.repeat(32)}`;
+    mockTransparentAccountPubKeyFromUfvk.mockReturnValue(chainCode + pubKey);
+
+    const { xpub } = await deriveTransparentXpubFromUfvk({
+      network: 'main',
+      ufvk: 'ufvk',
+      hdIndex: 7,
+    });
+
+    expect(xpub.startsWith('xpub')).toBe(true);
+    expect(getZcashAccountIndexFromXpub(xpub)).toBe(7);
+    const payload = Buffer.from(bs58check.decode(xpub));
+    expect(payload.subarray(13, 45).toString('hex')).toBe(chainCode);
+    expect(payload.subarray(45).toString('hex')).toBe(pubKey);
+  });
+
+  it('rejects a malformed account key', async () => {
+    mockTransparentAccountPubKeyFromUfvk.mockReturnValue('00'.repeat(10));
+    await expect(
+      deriveTransparentXpubFromUfvk({
+        network: 'main',
+        ufvk: 'ufvk',
+        hdIndex: 0,
+      }),
+    ).rejects.toThrow('account key length');
+  });
+});
+
+describe('getChainTip', () => {
+  beforeEach(() => {
+    mockChainTipAt.mockReset();
+  });
+
+  it('uses an isolated endpoint client', async () => {
+    mockChainTipAt.mockResolvedValue(3_500_000);
+
+    await expect(
+      getChainTip({
+        network: 'main',
+        lightwalletdUrl: 'https://lightwalletd.example',
+      }),
+    ).resolves.toBe(3_500_000);
+    expect(mockChainTipAt).toHaveBeenCalledWith('https://lightwalletd.example');
+  });
+
+  it('keeps the nullable probe contract on network failure', async () => {
+    mockChainTipAt.mockRejectedValue(new Error('offline'));
+
+    await expect(
+      getChainTip({
+        network: 'main',
+        lightwalletdUrl: 'https://lightwalletd.example',
+      }),
+    ).resolves.toBeNull();
+  });
+});
+
+describe('validateAddress', () => {
+  it('decodes through keys without opening the wallet or querying the network', async () => {
+    mockGetRuntime.mockClear();
+    mockGetRuntimeWasm.mockClear();
+    mockValidateAddress.mockReturnValueOnce(true).mockReturnValueOnce(false);
+    await expect(
+      validateAddress({ network: 'main', address: 'supported' }),
+    ).resolves.toBe(true);
+    await expect(
+      validateAddress({ network: 'main', address: 'unsupported' }),
+    ).resolves.toBe(false);
+    expect(mockValidateAddress).toHaveBeenCalledWith('main', 'supported');
+    expect(mockGetRuntime).not.toHaveBeenCalled();
+    expect(mockGetRuntimeWasm).not.toHaveBeenCalled();
+  });
+});
+
+describe('parseTransparentTransactions', () => {
+  it('uses only the stateless keys module', async () => {
+    mockGetRuntime.mockClear();
+    mockGetRuntimeWasm.mockClear();
+    const params = { transactions: [] };
+    mockParseTransparentTransactions.mockReturnValue('[]');
+    await expect(parseTransparentTransactions(params)).resolves.toEqual([]);
+    expect(mockParseTransparentTransactions).toHaveBeenCalledWith(
+      stringUtils.stableStringify(params),
+    );
+    expect(mockGetRuntime).not.toHaveBeenCalled();
+    expect(mockGetRuntimeWasm).not.toHaveBeenCalled();
+  });
+});
