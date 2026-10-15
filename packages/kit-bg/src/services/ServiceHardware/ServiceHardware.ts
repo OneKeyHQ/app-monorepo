@@ -1085,36 +1085,37 @@ class ServiceHardware extends ServiceBase {
 
   async getSDKInstance(options: IGetSDKInstanceOptions) {
     await this.assertOneKeySdkConnectId(options?.connectId);
-    let resolvedOptions = options;
-    if (
-      platformEnv.isSupportDesktopBle &&
-      options.hardwareTransportType === undefined
-    ) {
-      const connectProtocol = options.forceProtocolDetection
-        ? undefined
-        : (options.connectProtocol ??
-          (await this.getKnownDeviceProtocol(options.connectId)));
+    return this.sdkInstanceMutex.runExclusive(async () => {
+      let resolvedOptions = options;
       if (
-        options.connectId &&
-        !connectProtocol &&
-        options.forceProtocolDetection !== true
+        platformEnv.isSupportDesktopBle &&
+        options.hardwareTransportType === undefined
       ) {
-        throw new OneKeyLocalError(
-          HARDWARE_CONNECT_PROTOCOL_UNAVAILABLE_MESSAGE,
-        );
+        const connectProtocol = options.forceProtocolDetection
+          ? undefined
+          : (options.connectProtocol ??
+            (await this.getKnownDeviceProtocol(options.connectId)));
+        if (
+          options.connectId &&
+          !connectProtocol &&
+          options.forceProtocolDetection !== true
+        ) {
+          throw new OneKeyLocalError(
+            HARDWARE_CONNECT_PROTOCOL_UNAVAILABLE_MESSAGE,
+          );
+        }
+        // Resolve after acquiring the lifecycle lock so queued calls cannot
+        // reset the SDK using a transport selected before an operation began.
+        const { targetType } =
+          await this.connectionManager.shouldSwitchTransportType({
+            connectId: options.connectId,
+            connectProtocol,
+            hardwareCallContext: options.hardwareCallContext,
+          });
+        resolvedOptions = { ...options, hardwareTransportType: targetType };
       }
-      // Identity discovery uses an independent transport before SDK selection.
-      const { targetType } =
-        await this.connectionManager.shouldSwitchTransportType({
-          connectId: options.connectId,
-          connectProtocol,
-          hardwareCallContext: options.hardwareCallContext,
-        });
-      resolvedOptions = { ...options, hardwareTransportType: targetType };
-    }
-    return this.sdkInstanceMutex.runExclusive(() =>
-      this.getSDKInstanceWithLifecycleLock(resolvedOptions),
-    );
+      return this.getSDKInstanceWithLifecycleLock(resolvedOptions);
+    });
   }
 
   private async getSDKInstanceWithLifecycleLock(

@@ -2407,6 +2407,85 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       });
     });
 
+    it('reselects a queued silent prewarm after the operation chooses USB', async () => {
+      const { service } = createService();
+      const processing = new HardwareProcessingManager();
+      const backgroundApi = (
+        service as unknown as { backgroundApi: IBackgroundApi }
+      ).backgroundApi;
+      backgroundApi.serviceHardwareUI = {
+        hardwareProcessingManager: processing,
+      } as IBackgroundApi['serviceHardwareUI'];
+      let setting = EHardwareTransportType.DesktopWebBle;
+      jest
+        .spyOn(backgroundApi.serviceSetting, 'getHardwareTransportType')
+        .mockImplementation(async () => setting);
+      const persistTransport = jest
+        .spyOn(backgroundApi.serviceSetting, 'setHardwareTransportType')
+        .mockImplementation(async (transport) => {
+          setting = transport;
+        });
+      let finishInitialization!: () => void;
+      const initializationPending = new Promise<void>((resolve) => {
+        finishInitialization = resolve;
+      });
+      let signalInitializationStarted!: () => void;
+      const initializationStarted = new Promise<void>((resolve) => {
+        signalInitializationStarted = resolve;
+      });
+      const sdk = { setDeviceConnectProtocol: jest.fn() };
+      mockedGetHardwareSDKInstance.mockImplementation(async () => {
+        signalInitializationStarted();
+        await initializationPending;
+        return sdk as unknown as Awaited<
+          ReturnType<typeof getHardwareSDKInstance>
+        >;
+      });
+      service.checkSdkVersionValid = jest.fn();
+      jest.spyOn(service, 'registerSdkEvents').mockResolvedValue(undefined);
+      jest
+        .spyOn(service, 'probeUsbDeviceIdentities')
+        .mockResolvedValue([usbDevice]);
+      const initialization = service.getSDKInstance({
+        connectId: undefined,
+        connectProtocol: 'V1',
+        hardwareTransportType: EHardwareTransportType.WEBUSB,
+        persistTransportType: false,
+      });
+      await initializationStarted;
+      const prewarm = service.getSDKInstance({
+        connectId: 'PHYSICAL_SERIAL',
+        connectProtocol: 'V1',
+        hardwareCallContext: EHardwareCallContext.SILENT_CALL,
+      });
+      for (let index = 0; index < 20; index += 1) {
+        await Promise.resolve();
+      }
+      await processing.runExclusiveOneKeyOperation({
+        operation: async (lease) => {
+          await service.prepareHardwareTransport({
+            connectId: 'PHYSICAL_SERIAL',
+            connectProtocol: 'V1',
+            hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+            oneKeyOperationLease: lease,
+          });
+          persistTransport.mockClear();
+          finishInitialization();
+          await initialization;
+          await expect(prewarm).resolves.toBe(sdk);
+          expect(mockedResetHardwareSDKInstance).not.toHaveBeenCalled();
+          expect(persistTransport).not.toHaveBeenCalledWith(
+            EHardwareTransportType.DesktopWebBle,
+          );
+          expect(mockedGetHardwareSDKInstance).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+              hardwareTransportType: EHardwareTransportType.WEBUSB,
+            }),
+          );
+        },
+      });
+    });
+
     it('pins a BLE operation across USB replug and chooses USB for the next operation, then BLE after unplug', async () => {
       const { service } = createService();
       const processing = new HardwareProcessingManager();
