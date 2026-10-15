@@ -31,6 +31,16 @@ const mockGetRootState = jest.fn<
 >();
 let mockRouteKey: string | undefined;
 let mockRouteName: string | undefined;
+const mockNavigationListeners = new Set<() => void>();
+const mockEmitNavigationState = () => {
+  for (const listener of mockNavigationListeners) listener();
+};
+const mockClearPendingInstrument = jest
+  .fn<Promise<void>, [{ requestId: string }]>()
+  .mockResolvedValue(undefined);
+const mockClearWebTarget = jest
+  .fn<Promise<void>, [{ requestId: string }]>()
+  .mockResolvedValue(undefined);
 const mockPendingInstrument = jest
   .fn<Promise<void>, unknown[]>()
   .mockResolvedValue(undefined);
@@ -73,10 +83,14 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     return {
       serviceWebviewPerp: {
         setTradeTarget: (...args: unknown[]) => mockWebTarget(...args),
+        clearTradeTarget: (params: { requestId: string }) =>
+          mockClearWebTarget(params),
       },
       serviceHyperliquid: {
         setPendingInitialTradeInstrument: (...args: unknown[]) =>
           mockPendingInstrument(...args),
+        clearPendingInitialTradeInstrument: (params: { requestId: string }) =>
+          mockClearPendingInstrument(params),
         changeActiveAsset: (...args: unknown[]) => mockChangeAsset(...args),
       },
     };
@@ -112,6 +126,10 @@ jest.mock('@onekeyhq/components', () => ({
       getCurrentRoute: () =>
         mockRouteKey ? { key: mockRouteKey, name: mockRouteName } : undefined,
       getRootState: () => mockGetRootState(),
+      addListener: (_type: string, listener: () => void) => {
+        mockNavigationListeners.add(listener);
+        return () => mockNavigationListeners.delete(listener);
+      },
     },
   },
   Toast: { error: (...args: unknown[]) => mockToastError(...args) },
@@ -141,6 +159,11 @@ beforeEach(() => {
   mockRouteName = undefined;
   mockDismissDiscoveryDetail.mockReturnValue('ready');
   mockGetRootState.mockReturnValue(undefined);
+  mockNavigationListeners.clear();
+  mockPendingInstrument.mockResolvedValue(undefined);
+  mockWebTarget.mockResolvedValue(undefined);
+  mockClearPendingInstrument.mockResolvedValue(undefined);
+  mockClearWebTarget.mockResolvedValue(undefined);
 });
 
 it('does not insert a banner on retry after initial detail failed or had no mapping', () => {
@@ -237,7 +260,10 @@ it.each([false, true])(
       mockSwitchTab.mock.invocationCallOrder[0],
     );
     if (showWeb) {
-      expect(mockWebTarget).toHaveBeenCalledWith({ coin: 'BTC' });
+      expect(mockWebTarget).toHaveBeenCalledWith({
+        coin: 'BTC',
+        requestId: expect.any(String),
+      });
       expect(mockWebTarget.mock.invocationCallOrder[0]).toBeLessThan(
         mockSwitchTab.mock.invocationCallOrder[0],
       );
@@ -249,6 +275,7 @@ it.each([false, true])(
       expect(mockPendingInstrument).toHaveBeenCalledWith({
         coin: 'BTC',
         mode: 'perp',
+        requestId: expect.any(String),
       });
       expect(mockChangeAsset).toHaveBeenCalledWith({ coin: 'BTC' });
       expect(mockEmit).toHaveBeenCalled();
@@ -316,11 +343,20 @@ it('captures the underlying detail when a token selector is closing', async () =
       { key: 'selector', name: 'modal' },
     ],
   });
-  render(<PerpetualTradingBanner />);
+  const { unmount } = render(<PerpetualTradingBanner />);
   await act(async () => {
     mockPress?.();
     await jest.advanceTimersByTimeAsync(80);
   });
+  expect(mockPendingInstrument).not.toHaveBeenCalled();
+  expect(mockSwitchTab).not.toHaveBeenCalled();
+  unmount();
+  await act(async () => {
+    mockRouteKey = 'detail';
+    mockRouteName = 'MarketDetailV2';
+    mockEmitNavigationState();
+  });
+  expect(mockNavigationListeners.size).toBe(0);
   expect(mockDismissDiscoveryDetail).toHaveBeenCalledWith(
     'detail',
     ETabRoutes.Perp,
@@ -355,6 +391,13 @@ it('keeps a selector opened over SwapPro bound to that modal detail', async () =
   await act(async () => {
     mockPress?.();
     await jest.advanceTimersByTimeAsync(80);
+  });
+  expect(mockPendingInstrument).not.toHaveBeenCalled();
+  expect(mockSwitchTab).not.toHaveBeenCalled();
+  await act(async () => {
+    mockRouteKey = 'swap-detail';
+    mockRouteName = 'SwapProMarketDetail';
+    mockEmitNavigationState();
   });
   expect(mockDismissDiscoveryDetail).toHaveBeenCalledWith(
     'swap-detail',
@@ -401,7 +444,10 @@ it.each(['chunk', 'target'])(
       mockPress?.();
       await jest.advanceTimersByTimeAsync(80);
     });
-    expect(mockWebTarget).toHaveBeenLastCalledWith({ coin: 'xyz:AAPL' });
+    expect(mockWebTarget).toHaveBeenLastCalledWith({
+      coin: 'xyz:AAPL',
+      requestId: expect.any(String),
+    });
     expect(mockSwitchTab).toHaveBeenCalledWith(ETabRoutes.WebviewPerpTrade);
     expect(mockToastError).toHaveBeenCalledTimes(1);
     expect(mockDismissDiscoveryDetail).toHaveBeenCalledWith(
@@ -423,4 +469,142 @@ it('preserves native asset selection if initial target preparation fails', async
   expect(mockSwitchTab).toHaveBeenCalledWith(ETabRoutes.Perp);
   expect(mockChangeAsset).toHaveBeenCalledWith({ coin: 'xyz:AAPL' });
   expect(mockEmit).toHaveBeenCalled();
+});
+
+it.each([false, true])(
+  'does not prepare a target after leaving the source route (web: %s)',
+  async (showWeb) => {
+    jest.useFakeTimers();
+    mockTicker = 'BTC';
+    mockRouteKey = 'detail';
+    mockPerpTabShowWeb = showWeb;
+    render(<PerpetualTradingBanner />);
+    await act(async () => {
+      mockPress?.();
+      mockRouteKey = 'wallet';
+      await jest.advanceTimersByTimeAsync(80);
+    });
+    expect(mockPendingInstrument).not.toHaveBeenCalled();
+    expect(mockWebTarget).not.toHaveBeenCalled();
+    expect(mockSwitchTab).not.toHaveBeenCalled();
+  },
+);
+
+it.each([false, true])(
+  'clears its owned target when the user leaves during preparation (web: %s)',
+  async (showWeb) => {
+    jest.useFakeTimers();
+    mockTicker = 'BTC';
+    mockRouteKey = 'detail';
+    mockPerpTabShowWeb = showWeb;
+    let finishPreparation: (() => void) | undefined;
+    const setter = showWeb ? mockWebTarget : mockPendingInstrument;
+    setter.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finishPreparation = resolve;
+      }),
+    );
+    render(<PerpetualTradingBanner />);
+    await act(async () => {
+      mockPress?.();
+      await jest.advanceTimersByTimeAsync(80);
+    });
+    expect(setter).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      mockRouteKey = 'wallet';
+      finishPreparation?.();
+    });
+    const params = setter.mock.calls[0][0] as { requestId: string };
+    expect(
+      showWeb ? mockClearWebTarget : mockClearPendingInstrument,
+    ).toHaveBeenCalledWith({ requestId: params.requestId });
+    expect(mockSwitchTab).not.toHaveBeenCalled();
+    expect(mockChangeAsset).not.toHaveBeenCalled();
+  },
+);
+
+it.each([false, true])(
+  'keeps a newer request when an older preparation finishes late (web: %s)',
+  async (showWeb) => {
+    jest.useFakeTimers();
+    mockTicker = 'BTC';
+    mockRouteKey = 'detail';
+    mockPerpTabShowWeb = showWeb;
+    let finishFirst: (() => void) | undefined;
+    const setter = showWeb ? mockWebTarget : mockPendingInstrument;
+    setter.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finishFirst = resolve;
+      }),
+    );
+    render(<PerpetualTradingBanner />);
+    await act(async () => {
+      mockPress?.();
+      await jest.advanceTimersByTimeAsync(80);
+    });
+    await act(async () => {
+      mockPress?.();
+      await jest.advanceTimersByTimeAsync(80);
+    });
+    expect(mockSwitchTab).toHaveBeenCalledTimes(1);
+    const first = setter.mock.calls[0][0] as { requestId: string };
+    const second = setter.mock.calls[1][0] as { requestId: string };
+    expect(first.requestId).not.toBe(second.requestId);
+    await act(async () => {
+      finishFirst?.();
+    });
+    expect(
+      showWeb ? mockClearWebTarget : mockClearPendingInstrument,
+    ).toHaveBeenCalledWith({ requestId: first.requestId });
+    expect(mockSwitchTab).toHaveBeenCalledTimes(1);
+  },
+);
+
+it('cancels a selector request when another route takes focus', async () => {
+  jest.useFakeTimers();
+  mockTicker = 'BTC';
+  mockRouteKey = 'selector';
+  mockRouteName = EModalMarketRoutes.MobileTokenSelector;
+  mockGetRootState.mockReturnValue({
+    index: 1,
+    routes: [
+      { key: 'detail', name: 'MarketDetailV2' },
+      { key: 'selector', name: 'modal' },
+    ],
+  });
+  render(<PerpetualTradingBanner />);
+  await act(async () => {
+    mockPress?.();
+    await jest.advanceTimersByTimeAsync(80);
+  });
+  await act(async () => {
+    mockRouteKey = 'wallet';
+    mockEmitNavigationState();
+  });
+  expect(mockNavigationListeners.size).toBe(0);
+  expect(mockPendingInstrument).not.toHaveBeenCalled();
+  expect(mockSwitchTab).not.toHaveBeenCalled();
+});
+
+it('cleans up a selector wait that never completes', async () => {
+  jest.useFakeTimers();
+  mockTicker = 'BTC';
+  mockRouteKey = 'selector';
+  mockRouteName = EModalMarketRoutes.MobileTokenSelector;
+  mockGetRootState.mockReturnValue({
+    index: 1,
+    routes: [
+      { key: 'detail', name: 'MarketDetailV2' },
+      { key: 'selector', name: 'modal' },
+    ],
+  });
+  render(<PerpetualTradingBanner />);
+  await act(async () => {
+    mockPress?.();
+    await jest.advanceTimersByTimeAsync(1580);
+  });
+  expect(mockNavigationListeners.size).toBe(0);
+  expect(mockPendingInstrument).not.toHaveBeenCalled();
+  expect(mockSwitchTab).not.toHaveBeenCalled();
+  expect(jest.getTimerCount()).toBe(0);
 });

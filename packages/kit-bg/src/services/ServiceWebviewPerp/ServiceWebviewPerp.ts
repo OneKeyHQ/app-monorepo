@@ -1422,14 +1422,34 @@ class ServiceWebviewPerp extends ServiceBase {
     };
   }
 
+  private tradeTargetRequestId: string | undefined;
+
   @backgroundMethod()
-  async setTradeTarget({ coin }: { coin: string }) {
+  async setTradeTarget({
+    coin,
+    requestId,
+  }: {
+    coin: string;
+    requestId?: string;
+  }) {
     const targetCoin = coin.trim();
     if (!targetCoin) throw new OneKeyError('Missing web Perps target');
-    await webviewPerpTradeTargetAtom.set((previous) => ({
-      coin: targetCoin,
-      revision: previous.revision + 1,
-    }));
+    await webviewPerpTradeTargetAtom.set((previous) => {
+      this.tradeTargetRequestId = requestId;
+      return {
+        coin: targetCoin,
+        revision: previous.revision + 1,
+      };
+    });
+  }
+
+  @backgroundMethod()
+  async clearTradeTarget({ requestId }: { requestId: string }) {
+    await webviewPerpTradeTargetAtom.set((previous) => {
+      if (this.tradeTargetRequestId !== requestId) return previous;
+      this.tradeTargetRequestId = undefined;
+      return { coin: undefined, revision: previous.revision + 1 };
+    });
   }
 
   lastExtPerpTab: chrome.tabs.Tab | undefined;

@@ -386,3 +386,23 @@ describe('web Perps navigation targets', () => {
     expect(mockWebTarget).toEqual({ coin: 'BTC', revision: 1 });
   });
 });
+
+it('clears only the web target owned by a cancelled request', async () => {
+  mockWebTarget = { revision: 0 };
+  const service = new ServiceWebviewPerp({ backgroundApi: {} });
+  await service.setTradeTarget({ coin: 'BTC', requestId: 'first' });
+  await service.setTradeTarget({ coin: 'BTC', requestId: 'second' });
+  await service.clearTradeTarget({ requestId: 'first' });
+  expect(mockWebTarget).toEqual({ coin: 'BTC', revision: 2 });
+  await service.clearTradeTarget({ requestId: 'second' });
+  expect(mockWebTarget).toEqual({ coin: undefined, revision: 3 });
+});
+
+it('does not clear a web target written by a caller without a request owner', async () => {
+  mockWebTarget = { revision: 0 };
+  const service = new ServiceWebviewPerp({ backgroundApi: {} });
+  await service.setTradeTarget({ coin: 'BTC', requestId: 'first' });
+  await service.setTradeTarget({ coin: 'ETH' });
+  await service.clearTradeTarget({ requestId: 'first' });
+  expect(mockWebTarget).toEqual({ coin: 'ETH', revision: 2 });
+});
