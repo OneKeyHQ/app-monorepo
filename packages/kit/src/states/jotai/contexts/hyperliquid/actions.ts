@@ -2915,6 +2915,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             ]);
 
             const isSpot = activeTradeInstrument.mode === 'spot';
+            const spotActiveAssetCtxValue = isSpot
+              ? await spotActiveAssetCtxAtom.get()
+              : undefined;
             if (
               isSpot &&
               (typeof params.assetId !== 'number' ||
@@ -2934,13 +2937,22 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
             const markPriceBN = new BigNumber(
               isSpot
-                ? (params.price ?? env.markPrice ?? '')
+                ? (spotActiveAssetCtxValue?.ctx?.markPrice ?? '')
                 : (activeAssetCtxValue?.ctx?.markPrice ??
                     activeAssetDataValue?.markPx ??
                     env.markPrice ??
                     ''),
             );
-            if (!markPriceBN.isFinite() || markPriceBN.lte(0)) {
+            const sizePriceBN = isSpot
+              ? new BigNumber(params.price ?? env.markPrice ?? '')
+              : markPriceBN;
+            if (
+              !sizePriceBN.isFinite() ||
+              sizePriceBN.lte(0) ||
+              ((formData.twapTriggerPrice?.trim() ||
+                formData.twapStopPrice?.trim()) &&
+                (!markPriceBN.isFinite() || markPriceBN.lte(0)))
+            ) {
               throw new OneKeyLocalError(
                 'Market price unavailable, please try again',
               );
@@ -2956,8 +2968,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               manualSize: formData.size,
               sizePercent: formData.sizePercent,
               side: formData.side,
-              price: markPriceBN.toFixed(),
-              markPrice: markPriceBN.toFixed(),
+              price: sizePriceBN.toFixed(),
+              markPrice: sizePriceBN.toFixed(),
               maxTradeSzs: isSpot
                 ? env.maxTradeSzs
                 : activeAssetDataValue?.maxTradeSzs,
@@ -2975,7 +2987,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             if (
               !isTwapTotalNotionalValid({
                 size: resolvedSizeBN,
-                price: markPriceBN,
+                price: sizePriceBN,
                 szDecimals,
               })
             ) {
@@ -3029,7 +3041,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                   triggerPrice: formData.twapTriggerPrice?.trim(),
                   triggerAbove: params.triggerAbove,
                   stopPrice: formData.twapStopPrice?.trim(),
-                  referencePrice: markPriceBN.toFixed(),
+                  referencePrice: sizePriceBN.toFixed(),
+                  markPrice: markPriceBN.toFixed(),
                   szDecimals,
                 },
               );

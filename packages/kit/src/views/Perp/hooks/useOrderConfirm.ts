@@ -85,10 +85,11 @@ function useOrderConfirmWithMarketDataFreshness({
   const hyperliquidActions = useHyperliquidActions();
   const [isSubmitting] = useTradingLoadingAtom();
   const { midPrice, midPriceBN } = useTradingPrice();
-  const twapReferencePriceBN = useTwapReferencePrice({
-    midPriceBN,
-    enabled: formData.orderMode === 'twap',
-  });
+  const { sizePriceBN: twapReferencePriceBN, markPriceBN: twapMarkPriceBN } =
+    useTwapReferencePrice({
+      midPriceBN,
+      enabled: formData.orderMode === 'twap',
+    });
   const shouldBlockForMarketData =
     shouldBlockPerpsTradingForMarketData(marketDataFreshness);
 
@@ -360,7 +361,14 @@ function useOrderConfirmWithMarketDataFreshness({
           side === 'long'
             ? longCalculations.computedSizeForSide
             : shortCalculations.computedSizeForSide;
-        if (!twapReferencePriceBN.isFinite() || twapReferencePriceBN.lte(0)) {
+        const rawTriggerPrice = formDataSnapshot.twapTriggerPrice?.trim();
+        const rawStopPrice = formDataSnapshot.twapStopPrice?.trim();
+        if (
+          !twapReferencePriceBN.isFinite() ||
+          twapReferencePriceBN.lte(0) ||
+          ((rawTriggerPrice || rawStopPrice) &&
+            (!twapMarkPriceBN.isFinite() || twapMarkPriceBN.lte(0)))
+        ) {
           Toast.error({
             title: intl.formatMessage({
               id: ETranslations.provider_unavailable,
@@ -371,7 +379,6 @@ function useOrderConfirmWithMarketDataFreshness({
           });
           return;
         }
-        const rawTriggerPrice = formDataSnapshot.twapTriggerPrice?.trim();
         const triggerPrice = formatTwapPriceForOrder({
           price: rawTriggerPrice,
           szDecimals,
@@ -380,15 +387,14 @@ function useOrderConfirmWithMarketDataFreshness({
         const triggerAbove = rawTriggerPrice
           ? getTwapTriggerAbove({
               triggerPrice: triggerPrice ?? '',
-              markPrice: twapReferencePriceBN,
+              markPrice: twapMarkPriceBN,
             })
           : undefined;
         if (rawTriggerPrice && typeof triggerAbove !== 'boolean') {
           Toast.error({
             title: intl.formatMessage({ id: ETranslations.global_failed }),
             message:
-              triggerPrice &&
-              new BigNumber(triggerPrice).eq(twapReferencePriceBN)
+              triggerPrice && new BigNumber(triggerPrice).eq(twapMarkPriceBN)
                 ? intl.formatMessage({
                     id: ETranslations.perps_trigger_price_equal_current,
                   })
@@ -398,7 +404,6 @@ function useOrderConfirmWithMarketDataFreshness({
           });
           return;
         }
-        const rawStopPrice = formDataSnapshot.twapStopPrice?.trim();
         const stopPrice = formatTwapPriceForOrder({
           price: rawStopPrice,
           szDecimals,
@@ -410,7 +415,7 @@ function useOrderConfirmWithMarketDataFreshness({
             !isTwapStopPriceValid({
               isBuy: side === 'long',
               stopPrice,
-              referencePrice: twapReferencePriceBN,
+              referencePrice: twapMarkPriceBN,
               triggerPrice,
             })
           ) {
@@ -632,6 +637,7 @@ function useOrderConfirmWithMarketDataFreshness({
       intl,
       shouldBlockForMarketData,
       twapReferencePriceBN,
+      twapMarkPriceBN,
     ],
   );
 

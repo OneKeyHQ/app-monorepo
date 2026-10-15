@@ -40,6 +40,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
       universe: { maxLeverage: 20, szDecimals: 4 },
     },
   ],
+  useSpotActiveAssetCtxMarkPriceAtom: () => ['102'],
   useSpotBalancesAtom: () => [{ balances: [] }],
 }));
 
@@ -140,7 +141,7 @@ describe('useTradingCalculationsForSide', () => {
     expect(renders).toBe(initialRenders);
   });
 
-  it('uses spot mid and subscribes to the perp mark only while TWAP is enabled', () => {
+  it('separates spot sizing from mark conditions and subscribes to perp mark only for TWAP', () => {
     mockInstrumentMode = 'spot';
     let renders = 0;
     const { result, rerender } = renderHook(
@@ -153,15 +154,17 @@ describe('useTradingCalculationsForSide', () => {
       },
       { initialProps: { enabled: false } },
     );
-    expect(result.current.toFixed()).toBe('95');
+    expect(result.current.sizePriceBN.toFixed()).toBe('95');
+    expect(result.current.markPriceBN.toFixed()).toBe('102');
     mockInstrumentMode = 'perp';
     rerender({ enabled: false });
-    expect(result.current.isFinite()).toBe(false);
+    expect(result.current.markPriceBN.isFinite()).toBe(false);
     rerender({ enabled: true });
     act(() => setMarketContext('102'));
-    expect(result.current.toFixed()).toBe('102');
+    expect(result.current.markPriceBN.toFixed()).toBe('102');
+    expect(result.current.sizePriceBN.toFixed()).toBe('102');
     act(() => setMarketContext(undefined));
-    expect(result.current.isFinite()).toBe(false);
+    expect(result.current.markPriceBN.isFinite()).toBe(false);
     rerender({ enabled: false });
     const stoppedRenders = renders;
     act(() => setMarketContext('103'));

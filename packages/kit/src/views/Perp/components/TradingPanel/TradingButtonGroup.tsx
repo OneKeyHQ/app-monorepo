@@ -490,7 +490,10 @@ function SideButtonInternal({
   const [isSubmitting] = useTradingLoadingAtom();
   const { midPriceBN } = useTradingPrice();
   const getAggressiveLimitPriceWarning = useGetAggressiveLimitPriceWarning();
-  const twapTriggerReferencePriceBN = useTwapReferencePrice({
+  const {
+    sizePriceBN: twapReferencePriceBN,
+    markPriceBN: twapTriggerReferencePriceBN,
+  } = useTwapReferencePrice({
     midPriceBN,
     enabled: formData.orderMode === 'twap',
   });
@@ -828,6 +831,7 @@ function SideButtonInternal({
     side,
     shouldBlockForMarketData,
     szDecimals,
+    twapReferencePriceBN,
     twapTriggerReferencePriceBN,
   });
   latestOrderPanelStateRef.current = {
@@ -855,6 +859,7 @@ function SideButtonInternal({
     side,
     shouldBlockForMarketData,
     szDecimals,
+    twapReferencePriceBN,
     twapTriggerReferencePriceBN,
   };
 
@@ -884,6 +889,7 @@ function SideButtonInternal({
         priceError: latestPriceError,
         shouldBlockForMarketData: latestShouldBlockForMarketData,
         szDecimals: latestSzDecimals,
+        twapReferencePriceBN: latestTwapReferencePriceBN,
         twapTriggerReferencePriceBN: latestTwapTriggerReferencePriceBN,
       } = orderPanelState;
 
@@ -1021,9 +1027,14 @@ function SideButtonInternal({
           });
           return 'invalidTwapConfig' as const;
         }
+        const rawTriggerPrice = latestFormData.twapTriggerPrice?.trim();
+        const rawStopPrice = latestFormData.twapStopPrice?.trim();
         if (
-          !latestTwapTriggerReferencePriceBN.isFinite() ||
-          latestTwapTriggerReferencePriceBN.lte(0)
+          !latestTwapReferencePriceBN.isFinite() ||
+          latestTwapReferencePriceBN.lte(0) ||
+          ((rawTriggerPrice || rawStopPrice) &&
+            (!latestTwapTriggerReferencePriceBN.isFinite() ||
+              latestTwapTriggerReferencePriceBN.lte(0)))
         ) {
           Toast.error({
             title: intl.formatMessage({
@@ -1032,7 +1043,6 @@ function SideButtonInternal({
           });
           return 'marketDataUnavailable' as const;
         }
-        const rawTriggerPrice = latestFormData.twapTriggerPrice?.trim();
         const triggerPrice = formatTwapPriceForOrder({
           price: rawTriggerPrice,
           szDecimals: latestSzDecimals,
@@ -1053,7 +1063,6 @@ function SideButtonInternal({
           });
           return 'invalidTwapConfig' as const;
         }
-        const rawStopPrice = latestFormData.twapStopPrice?.trim();
         const stopPrice = formatTwapPriceForOrder({
           price: rawStopPrice,
           szDecimals: latestSzDecimals,
@@ -1090,7 +1099,7 @@ function SideButtonInternal({
         if (
           !isTwapTotalNotionalValid({
             size: latestComputedSizeForSide,
-            price: latestTwapTriggerReferencePriceBN,
+            price: latestTwapReferencePriceBN,
             szDecimals: latestSzDecimals,
           })
         ) {
@@ -1105,7 +1114,7 @@ function SideButtonInternal({
                   { id: ETranslations.perp_twap_min_order_notional__msg },
                   {
                     amount: formatTwapMinimumOrderNotional({
-                      price: latestTwapTriggerReferencePriceBN,
+                      price: latestTwapReferencePriceBN,
                       szDecimals: latestSzDecimals,
                     }),
                   },

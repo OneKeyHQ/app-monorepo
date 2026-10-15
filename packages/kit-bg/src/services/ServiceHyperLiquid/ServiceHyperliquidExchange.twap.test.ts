@@ -46,6 +46,7 @@ const params: IPlaceTwapOrderParams = {
   minutes: 5,
   randomize: false,
   referencePrice: '1843.5',
+  markPrice: '1843.5',
 };
 const recordTaskCompleted = jest.fn();
 
@@ -131,6 +132,7 @@ describe('ServiceHyperliquidExchange TWAP notional', () => {
         triggerPrice: '1900',
         triggerAbove: true,
         referencePrice: '1950',
+        markPrice: '1950',
       }),
     ).rejects.toThrow(ETranslations.target_market_data_changed__msg);
     expect(mockTwapOrder).not.toHaveBeenCalled();
@@ -154,4 +156,37 @@ describe('ServiceHyperliquidExchange TWAP notional', () => {
     ).rejects.toThrow();
     expect(mockTwapOrder).toHaveBeenCalledTimes(1);
   });
+
+  it('uses mark for spot trigger direction while keeping mid for the minimum', async () => {
+    await service.placeTwapOrder({
+      ...params,
+      assetId: 10_001,
+      size: '1',
+      referencePrice: '100',
+      markPrice: '102',
+      triggerPrice: '101',
+      triggerAbove: false,
+    });
+    expect(mockTwapOrder).toHaveBeenCalledWith({
+      twap: { a: 10_001, b: true, s: '1', r: false, m: 5, t: false },
+      details: { t: { p: '101', a: false }, s: null },
+    });
+  });
+
+  it.each(['102', ''])(
+    'rejects a buy stop below mark or without mark: %s',
+    async (markPrice) => {
+      await expect(
+        service.placeTwapOrder({
+          ...params,
+          assetId: 10_001,
+          size: '1',
+          referencePrice: '100',
+          markPrice,
+          stopPrice: '101',
+        }),
+      ).rejects.toThrow();
+      expect(mockTwapOrder).not.toHaveBeenCalled();
+    },
+  );
 });

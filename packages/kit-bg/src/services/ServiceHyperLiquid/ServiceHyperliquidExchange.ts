@@ -1619,7 +1619,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       triggerPrice &&
       getTwapTriggerAbove({
         triggerPrice,
-        markPrice: params.referencePrice,
+        markPrice: params.markPrice,
       }) !== params.triggerAbove
     ) {
       throw new OneKeyLocalError(
@@ -1633,7 +1633,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       !isTwapStopPriceValid({
         isBuy: params.isBuy,
         stopPrice,
-        referencePrice: params.referencePrice,
+        referencePrice: params.markPrice,
         triggerPrice,
       })
     ) {
@@ -1678,6 +1678,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         minutes: params.minutes,
         randomize: params.randomize,
         referencePrice: params.referencePrice,
+        markPrice: params.markPrice,
       },
       details,
     };

@@ -512,7 +512,7 @@ function PerpTradingForm({
     source: tradingPriceSource,
     allowSpotMarkPriceFallback: !isTwapMode,
   });
-  const twapReferencePriceBN = useTwapReferencePrice({
+  const { sizePriceBN: twapReferencePriceBN } = useTwapReferencePrice({
     midPriceBN,
     enabled: formData.orderMode === 'twap',
   });
