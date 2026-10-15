@@ -16,6 +16,7 @@ import { useDebouncedCallback } from 'use-debounce';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
+  Button,
   Empty,
   Icon,
   Page,
@@ -24,6 +25,7 @@ import {
   SectionList,
   SizableText,
   Skeleton,
+  Spinner,
   Stack,
   Tabs,
   View,
@@ -123,10 +125,10 @@ import { isSearchResponseCurrent } from '../universalSearchRun';
 import {
   WATCHLIST_TAB_INDEX,
   getUniversalSearchTabIndex,
-  isUniversalSearchItemInWatchlist,
+  getUniversalSearchWatchlistIdentity,
   prioritizeMarketFocusedSections,
   resolveUniversalSearchInitialTabName,
-  resolveUniversalSearchWatchlistKeys,
+  resolveUniversalSearchWatchlistIdentities,
   shouldPrioritizeMarketSearchSections,
 } from '../universalSearchTabs';
 
@@ -992,7 +994,7 @@ export function UniversalSearch({
     if (!isInWatchlistTab) return undefined;
     return {
       items: watchlistItems,
-      keys: await resolveUniversalSearchWatchlistKeys({
+      identities: await resolveUniversalSearchWatchlistIdentities({
         items: watchlistItems,
         fetchAssetDetail: (assetId) =>
           backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
@@ -1002,13 +1004,109 @@ export function UniversalSearch({
       }),
     };
   }, [isInWatchlistTab, watchlistItems]);
-  const watchlistKeys = useMemo(
+  const watchlistIdentities = useMemo(
     () =>
       resolvedWatchlist?.items === watchlistItems
-        ? resolvedWatchlist.keys
-        : new Set(watchlistItems.map((item) => getMarketWatchlistKey(item))),
+        ? resolvedWatchlist.identities
+        : new Map(
+            watchlistItems.map((item) => [getMarketWatchlistKey(item), item]),
+          ),
     [resolvedWatchlist, watchlistItems],
   );
+
+  const loadedStockIds = useMemo(
+    () => new Set(stockResult.items.map((stock) => stock.stockId)),
+    [stockResult.items],
+  );
+  const shouldCompleteWatchlistStocks =
+    isInWatchlistTab &&
+    isStockSearchInScope &&
+    Boolean(stockQuery) &&
+    stockQuery === searchValue.trim() &&
+    watchlistItems.some(
+      (item) => item.stockId && !loadedStockIds.has(item.stockId),
+    );
+  const isWatchlistStockError =
+    shouldCompleteWatchlistStocks &&
+    (stockResult.isError || stockResult.isLoadMoreError);
+  const isLoadingWatchlistStocks =
+    shouldCompleteWatchlistStocks &&
+    !isWatchlistStockError &&
+    (stockResult.isLoading ||
+      stockResult.isLoadingMore ||
+      stockResult.canLoadMore);
+
+  const {
+    canLoadMore: canLoadMoreWatchlistStocks,
+    isLoadingMore: isLoadingMoreWatchlistStocks,
+    isLoadMoreError: isLoadMoreWatchlistStocksError,
+    isError: isWatchlistFirstPageError,
+    loadMore: loadMoreWatchlistStocks,
+    refresh: refreshWatchlistStocks,
+  } = stockResult;
+  // Filtered-out pages cannot trigger a scroll event; keep searching until
+  // every saved stock is found or the query has no more pages.
+  useEffect(() => {
+    if (
+      shouldCompleteWatchlistStocks &&
+      canLoadMoreWatchlistStocks &&
+      !isLoadingMoreWatchlistStocks &&
+      !isLoadMoreWatchlistStocksError
+    ) {
+      void loadMoreWatchlistStocks();
+    }
+  }, [
+    shouldCompleteWatchlistStocks,
+    canLoadMoreWatchlistStocks,
+    isLoadingMoreWatchlistStocks,
+    isLoadMoreWatchlistStocksError,
+    loadMoreWatchlistStocks,
+  ]);
+
+  const renderWatchlistStockFooter = useCallback(() => {
+    if (isWatchlistStockError) {
+      return (
+        <YStack alignItems="center" gap="$2" py="$4">
+          <SizableText color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.global_connet_error_try_again,
+            })}
+          </SizableText>
+          <Button
+            size="small"
+            variant="tertiary"
+            testID="universal-search-watchlist-stock-retry"
+            onPress={() =>
+              void (isWatchlistFirstPageError
+                ? refreshWatchlistStocks()
+                : loadMoreWatchlistStocks())
+            }
+          >
+            {intl.formatMessage({ id: ETranslations.global_retry })}
+          </Button>
+        </YStack>
+      );
+    }
+    if (isLoadingWatchlistStocks) {
+      return (
+        <YStack
+          alignItems="center"
+          py="$4"
+          testID="universal-search-watchlist-stock-loading"
+        >
+          <Spinner />
+        </YStack>
+      );
+    }
+    return null;
+  }, [
+    intl,
+    isWatchlistStockError,
+    isWatchlistFirstPageError,
+    isLoadingWatchlistStocks,
+    refreshWatchlistStocks,
+    loadMoreWatchlistStocks,
+  ]);
 
   const filterSections = useMemo(() => {
     if (isInAllTab) {
@@ -1031,7 +1129,7 @@ export function UniversalSearch({
     if (isInWatchlistTab) {
       const data = displaySections.flatMap((section) =>
         section.data.filter((item) =>
-          isUniversalSearchItemInWatchlist(item, watchlistKeys),
+          getUniversalSearchWatchlistIdentity(item, watchlistIdentities),
         ),
       );
       if (data.length === 0) {
@@ -1055,7 +1153,7 @@ export function UniversalSearch({
     isFocusInMarketTab,
     isInAllTab,
     isInWatchlistTab,
-    watchlistKeys,
+    watchlistIdentities,
     watchlistTabTitle,
   ]);
 
@@ -1192,13 +1290,21 @@ export function UniversalSearch({
               source={source}
             />
           );
-        // Search results render through the Market selector's lists; only
-        // the trending list before typing reaches here.
+        // Watchlist and trending results use these rows; the type tabs
+        // render through the Market selector's lists.
         case EUniversalSearchType.MarketStock:
         case EUniversalSearchType.V2MarketToken:
           return (
             <UniversalSearchV2MarketTokenItem
               item={item}
+              watchlistIdentity={
+                isInWatchlistTab
+                  ? getUniversalSearchWatchlistIdentity(
+                      item,
+                      watchlistIdentities,
+                    )
+                  : undefined
+              }
               isTrending={searchStatus === ESearchStatus.init}
               getSearchInput={getSearchInput}
               source={source}
@@ -1243,6 +1349,8 @@ export function UniversalSearch({
     },
     [
       activeAccount?.network?.id,
+      isInWatchlistTab,
+      watchlistIdentities,
       searchStatus,
       allAggregateTokenMap,
       getSearchInput,
@@ -1554,11 +1662,21 @@ export function UniversalSearch({
               sections={filterSections}
               renderSectionHeader={renderSectionHeader}
               renderSectionFooter={renderSectionFooter}
-              ListEmptyComponent={noResultsComponent}
+              ListEmptyComponent={
+                isInWatchlistTab &&
+                (isLoadingWatchlistStocks || isWatchlistStockError)
+                  ? null
+                  : noResultsComponent
+              }
               renderItem={renderItem}
               keyExtractor={keyExtractor}
               estimatedItemSize="$16"
-              ListFooterComponent={<Stack h="$16" />}
+              ListFooterComponent={
+                <>
+                  {renderWatchlistStockFooter()}
+                  <Stack h="$16" />
+                </>
+              }
               keyboardShouldPersistTaps="handled"
             />
           );
@@ -1591,6 +1709,9 @@ export function UniversalSearch({
     }
   }, [
     resultStatus,
+    isLoadingWatchlistStocks,
+    isWatchlistStockError,
+    renderWatchlistStockFooter,
     isInWatchlistTab,
     watchlistItems.length,
     isTravelMode,

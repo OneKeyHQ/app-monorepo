@@ -1,7 +1,8 @@
 /** @jest-environment jsdom */
 
-import { act, fireEvent, render } from '@testing-library/react';
+import { act, fireEvent, render, waitFor } from '@testing-library/react';
 
+import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import {
   EUniversalSearchSource,
   EUniversalSearchType,
@@ -10,10 +11,20 @@ import {
 
 import { UniversalSearchV2MarketTokenItem } from './UniversalSearchV2MarketTokenItem';
 
+import type { IMarketStarV2Props } from '../../../Market/components/MarketStarV2.types';
+
 const mockToMarketDetailPage = jest.fn();
 const mockGoBack = jest.fn();
 const mockPush = jest.fn();
 const mockAddIntoRecentSearchList = jest.fn();
+jest.mock('react-intl', () => ({
+  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+}));
+
+let mockUseRealStar = false;
+let mockWatchlist: IMarketWatchListItemV2[] = [];
+const mockRemoveFavorite = jest.fn(async () => true);
+const mockAddFavorite = jest.fn(async () => true);
 
 jest.mock('@onekeyhq/components', () => {
   const ReactModule = jest.requireActual<typeof import('react')>('react');
@@ -21,7 +32,18 @@ jest.mock('@onekeyhq/components', () => {
     ReactModule.createElement('div', null, children);
 
   return {
-    IconButton: () => null,
+    IconButton: ({ icon, onPress }: { icon: string; onPress: () => void }) => (
+      <button
+        type="button"
+        aria-label="Toggle favorite"
+        data-testid="real-star"
+        data-icon={icon}
+        onClick={(event) => {
+          event.stopPropagation();
+          onPress();
+        }}
+      />
+    ),
     NumberSizeableText: Container,
     SizableText: Container,
     Stack: ({
@@ -100,14 +122,35 @@ jest.mock('@onekeyhq/kit/src/views/Market/components/TokenTagsPopover', () => ({
 jest.mock('../../../Market/components/MarketStarV2Deferred', () => {
   const ReactModule = jest.requireActual<typeof import('react')>('react');
   return {
-    MarketStarV2Deferred: (props: { stockId?: string; chainId: string }) =>
-      ReactModule.createElement('div', {
-        'data-testid': 'market-search-star',
-        'data-stock-id': props.stockId ?? '',
-        'data-chain-id': props.chainId,
-      }),
+    MarketStarV2Deferred: (props: IMarketStarV2Props) =>
+      mockUseRealStar
+        ? ReactModule.createElement(
+            jest.requireActual<
+              typeof import('../../../Market/components/MarketStarV2')
+            >('../../../Market/components/MarketStarV2').MarketStarV2,
+            props,
+          )
+        : ReactModule.createElement('div', {
+            'data-testid': 'market-search-star',
+            'data-stock-id': props.stockId ?? '',
+            'data-chain-id': props.chainId,
+          }),
   };
 });
+jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
+  useMarketWatchListV2Atom: () => [{ data: mockWatchlist, isMounted: true }],
+}));
+jest.mock('../../../Market/components/watchListHooksV2', () => ({
+  useWatchListV2Action: () => ({
+    removeFromWatchListV2: mockRemoveFavorite,
+    addIntoWatchListV2: mockAddFavorite,
+  }),
+}));
+jest.mock('@onekeyhq/shared/src/travelMode', () => ({
+  travelModeManager: {
+    getRuntimeEnvironmentSync: () => ({ profile: { kind: 'normal' } }),
+  },
+}));
 
 jest.mock('../../../Market/components/MarketTokenIcon', () => ({
   MarketTokenIcon: () => null,
@@ -119,6 +162,12 @@ jest.mock('../../../Market/components/MarketTokenPrice', () => ({
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
+    dex: {
+      watchlist: {
+        dexRemoveFromWatchlist: jest.fn(),
+        dexAddToWatchlist: jest.fn(),
+      },
+    },
     universalSearch: {
       search: { universalSearchClick: jest.fn() },
     },
@@ -140,6 +189,11 @@ const mockUniversalSearchClick = (
 
 jest.mock('@onekeyhq/shared/src/utils/tokenUtils', () => ({
   formatTokenSymbolForDisplay: (symbol: string) => symbol,
+  normalizeTokenContractAddress: ({
+    contractAddress,
+  }: {
+    contractAddress?: string;
+  }) => contractAddress?.toLowerCase(),
   getTokenPriceChangeStyle: () => ({
     changeColor: '$text',
     showPlusMinusSigns: false,
@@ -149,6 +203,8 @@ jest.mock('@onekeyhq/shared/src/utils/tokenUtils', () => ({
 describe('UniversalSearchV2MarketTokenItem', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseRealStar = false;
+    mockWatchlist = [];
     jest.useFakeTimers();
   });
 
@@ -433,4 +489,58 @@ describe('UniversalSearchV2MarketTokenItem', () => {
       }),
     });
   });
+});
+
+describe('Watchlist result star ownership', () => {
+  it.each([
+    { assetId: 'ethereum', chainId: '', contractAddress: '' },
+    { chainId: 'evm--1', contractAddress: '' },
+  ])(
+    'removes the original matched favorite %j without adding a new one',
+    async (identity) => {
+      jest.useRealTimers();
+      jest.clearAllMocks();
+      mockUseRealStar = true;
+      mockWatchlist = [identity];
+      const item: IUniversalSearchV2MarketToken = {
+        type: EUniversalSearchType.V2MarketToken,
+        payload: {
+          name: 'Ethereum',
+          symbol: 'ETH',
+          network: 'evm--1',
+          address: '',
+          logoUrl: '',
+          price: '1',
+          priceChange24hPercent: '0',
+          liquidity: '0',
+          volume_24h: '0',
+          isNative: true,
+          decimals: 18,
+          assetId: 'ethereum',
+        },
+      };
+      const view = render(
+        <UniversalSearchV2MarketTokenItem
+          item={item}
+          source={EUniversalSearchSource.Market}
+          watchlistIdentity={identity}
+        />,
+      );
+      expect(view.getByTestId('real-star').getAttribute('data-icon')).toBe(
+        'StarSolid',
+      );
+      fireEvent.click(view.getByTestId('real-star'));
+      await waitFor(() =>
+        expect(mockRemoveFavorite).toHaveBeenCalledWith(
+          identity.chainId,
+          identity.contractAddress,
+          {
+            assetId: 'assetId' in identity ? identity.assetId : undefined,
+            stockId: undefined,
+          },
+        ),
+      );
+      expect(mockAddFavorite).not.toHaveBeenCalled();
+    },
+  );
 });

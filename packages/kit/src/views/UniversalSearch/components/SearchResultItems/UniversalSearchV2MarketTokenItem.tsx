@@ -32,6 +32,7 @@ import {
   formatTokenSymbolForDisplay,
   getTokenPriceChangeStyle,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type {
   EUniversalSearchSource,
   IUniversalSearchMarketStock,
@@ -154,6 +155,7 @@ export function MarketTokenLiquidity({
 interface IUniversalSearchMarketTokenItemProps {
   item: IUniversalSearchV2MarketToken | IUniversalSearchMarketStock;
   isTrending?: boolean;
+  watchlistIdentity?: IMarketWatchListItemV2;
   getSearchInput?: () => string;
   source: EUniversalSearchSource;
 }
@@ -161,6 +163,7 @@ interface IUniversalSearchMarketTokenItemProps {
 export function UniversalSearchV2MarketTokenItem({
   item,
   isTrending,
+  watchlistIdentity,
   getSearchInput,
   source,
 }: IUniversalSearchMarketTokenItemProps) {
@@ -253,9 +256,10 @@ export function UniversalSearchV2MarketTokenItem({
       <XStack flex={1} minWidth={0} gap="$1" ai="center">
         <XStack w="$8" ai="center" jc="center">
           <MarketStarV2Deferred
-            stockId={listingStockId}
-            chainId={network}
-            contractAddress={address}
+            assetId={watchlistIdentity?.assetId}
+            stockId={watchlistIdentity?.stockId ?? listingStockId}
+            chainId={watchlistIdentity?.chainId ?? network}
+            contractAddress={watchlistIdentity?.contractAddress ?? address}
             from={EWatchlistFrom.Search}
             tokenSymbol={symbol}
             size="small"

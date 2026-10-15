@@ -123,7 +123,7 @@ export function getUniversalSearchWatchlistKey(
   return undefined;
 }
 
-export async function resolveUniversalSearchWatchlistKeys({
+export async function resolveUniversalSearchWatchlistIdentities({
   items,
   fetchAssetDetail,
 }: {
@@ -131,32 +131,79 @@ export async function resolveUniversalSearchWatchlistKeys({
   fetchAssetDetail: (
     assetId: string,
   ) => Promise<Pick<IMarketAssetDetailData, 'selectedVariant' | 'variants'>>;
-}): Promise<Set<string>> {
-  const keys = new Set(items.map(getMarketWatchlistKey));
+}): Promise<Map<string, IMarketWatchListItemV2>> {
+  const identities = new Map(
+    items.map((item) => [getMarketWatchlistKey(item), item]),
+  );
   const limit = pLimit(4);
-  await Promise.all(
+  const resolvedAssets = await Promise.all(
     [
-      ...new Set(items.flatMap((item) => (item.assetId ? [item.assetId] : []))),
-    ].map((assetId) =>
+      ...new Map(
+        items
+          .filter((item) => item.assetId)
+          .map((item) => [item.assetId, item]),
+      ),
+    ].map(([assetId, item]) =>
       limit(async () => {
-        try {
-          const { selectedVariant, variants } = await fetchAssetDetail(assetId);
-          // Legacy search results identify assets by their chain variants.
-          for (const variant of [selectedVariant, ...variants]) {
-            keys.add(
-              getMarketWatchlistKey({
-                chainId: variant.networkId,
-                contractAddress: variant.tokenAddress,
-              }),
-            );
+        const keys: string[] = [];
+        if (assetId) {
+          try {
+            const { selectedVariant, variants } =
+              await fetchAssetDetail(assetId);
+            // Legacy search results identify assets by their chain variants.
+            for (const variant of [selectedVariant, ...variants]) {
+              keys.push(
+                getMarketWatchlistKey({
+                  chainId: variant.networkId,
+                  contractAddress: variant.tokenAddress,
+                }),
+              );
+            }
+          } catch {
+            // Retain direct identities when one asset cannot be resolved.
           }
-        } catch {
-          // Retain direct identities when one asset cannot be resolved.
         }
+        return { item, keys };
       }),
     ),
   );
-  return keys;
+  // Preserve list order if multiple assets share a variant, regardless of
+  // request completion order. Direct chain favorites always take precedence.
+  for (const { item, keys } of resolvedAssets) {
+    for (const key of keys) {
+      if (!identities.has(key)) identities.set(key, item);
+    }
+  }
+  return identities;
+}
+
+export async function resolveUniversalSearchWatchlistKeys(
+  options: Parameters<typeof resolveUniversalSearchWatchlistIdentities>[0],
+): Promise<Set<string>> {
+  return new Set(
+    (await resolveUniversalSearchWatchlistIdentities(options)).keys(),
+  );
+}
+
+export function getUniversalSearchWatchlistIdentity(
+  item: IUniversalSearchResultItem,
+  identities: Map<string, IMarketWatchListItemV2>,
+): IMarketWatchListItemV2 | undefined {
+  if (
+    item.type === EUniversalSearchType.V2MarketToken &&
+    item.payload.network &&
+    !isMarketSearchStockListing(item.payload)
+  ) {
+    const chainIdentity = identities.get(
+      getMarketWatchlistKey({
+        chainId: item.payload.network,
+        contractAddress: item.payload.address,
+      }),
+    );
+    if (chainIdentity) return chainIdentity;
+  }
+  const key = getUniversalSearchWatchlistKey(item);
+  return key ? identities.get(key) : undefined;
 }
 
 export function isUniversalSearchItemInWatchlist(

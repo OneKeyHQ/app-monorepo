@@ -4,10 +4,12 @@ import type { IUniversalSearchResultItem } from '@onekeyhq/shared/types/search';
 
 import {
   getUniversalSearchTabIndex,
+  getUniversalSearchWatchlistIdentity,
   getUniversalSearchWatchlistKey,
   isUniversalSearchItemInWatchlist,
   prioritizeMarketFocusedSections,
   resolveUniversalSearchInitialTabName,
+  resolveUniversalSearchWatchlistIdentities,
   resolveUniversalSearchWatchlistKeys,
   shouldPrioritizeMarketSearchSections,
 } from './universalSearchTabs';
@@ -310,4 +312,50 @@ describe('asset watchlist search matching', () => {
       ]),
     );
   });
+});
+
+describe('Watchlist match ownership', () => {
+  const token = {
+    type: EUniversalSearchType.V2MarketToken,
+    payload: { assetId: 'ethereum', network: 'evm--1', address: '' },
+  } as IUniversalSearchResultItem;
+  const asset = { assetId: 'ethereum', chainId: '', contractAddress: '' };
+  const chain = { chainId: 'evm--1', contractAddress: '' };
+  const fetchAssetDetail = async () => ({
+    selectedVariant: {
+      variantId: 'eth',
+      networkId: 'evm--1',
+      tokenAddress: '',
+      networkName: 'Ethereum',
+      networkSymbol: 'ETH',
+      networkLogoUrl: '',
+      isNative: true,
+      isDefault: true,
+    },
+    variants: [],
+  });
+
+  it('retains the asset owner when matching a chain variant', async () => {
+    const identities = await resolveUniversalSearchWatchlistIdentities({
+      items: [asset],
+      fetchAssetDetail,
+    });
+    expect(getUniversalSearchWatchlistIdentity(token, identities)).toBe(asset);
+  });
+
+  it.each([
+    [asset, chain],
+    [chain, asset],
+  ])(
+    'prefers an explicit chain favorite regardless of list order: %j',
+    async (...items) => {
+      const identities = await resolveUniversalSearchWatchlistIdentities({
+        items,
+        fetchAssetDetail,
+      });
+      expect(getUniversalSearchWatchlistIdentity(token, identities)).toBe(
+        chain,
+      );
+    },
+  );
 });
