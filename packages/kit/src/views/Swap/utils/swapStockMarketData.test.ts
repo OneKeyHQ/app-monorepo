@@ -288,16 +288,17 @@ describe('resolveSwapStockSelectionToken', () => {
     expect(fetchVariantsMock).not.toHaveBeenCalled();
   });
 
-  it.each([{ items: [] }, { items: [stock, { ...stock, stockId: 'tesla' }] }])(
-    'rejects a missing or ambiguous stock identity %p',
-    async ({ items }) => {
-      searchStocksMock.mockResolvedValueOnce({ items, total: items.length });
-      await expect(
-        resolveSwapStockSelectionToken(positionToken),
-      ).rejects.toThrow('Stock token identity is unavailable');
-      expect(fetchVariantsMock).not.toHaveBeenCalled();
-    },
-  );
+  it.each([
+    { items: [] },
+    { items: [stock, { ...stock, stockId: 'tesla' }] },
+    { items: [{ ...stock, stockId: ' ' }] },
+  ])('rejects a missing or ambiguous stock identity %p', async ({ items }) => {
+    searchStocksMock.mockResolvedValueOnce({ items, total: items.length });
+    await expect(resolveSwapStockSelectionToken(positionToken)).rejects.toThrow(
+      'Stock token identity is unavailable',
+    );
+    expect(fetchVariantsMock).not.toHaveBeenCalled();
+  });
 
   it.each<Partial<IMarketStockTokenVariant>>([
     { networkId: 'evm--56' },

@@ -55,6 +55,7 @@ import { LightningUnitSwitch } from '@onekeyhq/kit/src/components/UnitSwitch';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
+import { useDeriveTypesCollapseState } from '@onekeyhq/kit/src/hooks/useDeriveTypesCollapseState';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
@@ -3943,10 +3944,19 @@ function SendAmountInputContainer() {
     showPrivateSendModeSwitch,
   ]);
 
+  // An account that shows only its default address type has nothing to
+  // switch, so the page says nothing about address types at all.
+  const { isAddressTypeHidden } = useDeriveTypesCollapseState({
+    networkId,
+    walletId,
+    indexedAccountId: account?.indexedAccountId,
+    activeDeriveType: deriveType,
+  });
+
   const extraContent = useMemo(() => {
     const addons: React.ReactNode[] = [];
 
-    if (vaultSettings?.mergeDeriveAssetsEnabled) {
+    if (vaultSettings?.mergeDeriveAssetsEnabled && !isAddressTypeHidden) {
       addons.push(
         <AttentionPulse key="address-type-selector" signal={pulseSignal}>
           <AddressTypeSelector
@@ -4009,6 +4019,7 @@ function SendAmountInputContainer() {
     displayCoinControlButton,
     dismissAmountInputKeyboardBeforeOverlayOpen,
     handleCoinControlPress,
+    isAddressTypeHidden,
     networkId,
     pulseSignal,
     sendConfirmActions,
@@ -4045,7 +4056,13 @@ function SendAmountInputContainer() {
         />
       );
     }
-    if (allFormatsInsufficient && isInsufficientBalance) {
+    // Without address types on the page, the field's own insufficient balance
+    // error is enough.
+    if (
+      allFormatsInsufficient &&
+      isInsufficientBalance &&
+      !isAddressTypeHidden
+    ) {
       return (
         <Alert
           type="warning"
@@ -4062,6 +4079,7 @@ function SendAmountInputContainer() {
     autoSwitchInfo,
     dismissAutoSwitchInfo,
     intl,
+    isAddressTypeHidden,
     isInsufficientBalance,
   ]);
 

@@ -47,6 +47,7 @@ import {
   isMarketTokenDecimalsReady,
   isMatchingMarketTokenIdentity,
 } from '../utils/marketTokenIdentity';
+import { buildMarketStockTokenMetadata } from '../utils/resolveIsStockToken';
 
 import { StockDesktopLayout } from './StockDesktopLayout';
 import { TokenDesktopLayout } from './TokenDesktopLayout';
@@ -302,6 +303,10 @@ export function DesktopLayout({
           isNative ||
           !genericHasSwapContract,
       isStock: shouldUseStockDesktopLayout,
+      stock: buildMarketStockTokenMetadata(
+        stockDisplayMatchesVariant ? displayTokenDetail?.stock : undefined,
+        shouldUseStockDesktopLayout ? stockId : undefined,
+      ),
     }),
     [
       networkId,
@@ -318,6 +323,8 @@ export function DesktopLayout({
       shouldUseStockDesktopLayout,
       stockDisplayMatchesVariant,
       stockSwapDecimals,
+      stockId,
+      displayTokenDetail?.stock,
     ],
   );
   // Keep the embedded Swap mounted while switching token variants of the

@@ -436,6 +436,33 @@ describe('ServiceHardwareUI.withHardwareProcessing stage ownership', () => {
     expect(stage?.step).toBe('off');
   });
 
+  it('does not carry a superseded QR session diagnostic into a newer session', async () => {
+    const diagnostic = { correlationId: 'previous-trace', startedAt: 1 };
+    await service.deviceStageBurst.begin({});
+    await service.deviceStageBurst.qrShowCode({
+      valueUr: { type: 'bytes', cbor: 'first' },
+      sessionId: 1,
+      diagnostic,
+    });
+    await service.deviceStageBurst.qrProceedToScan();
+    expect(stage?.step).toBe('scanQr');
+    expect(stage?.qrDiagnostic).toBe(diagnostic);
+
+    // A newer request without a trace joins the same burst while the
+    // previous session's scan step is still on screen.
+    await service.deviceStageBurst.begin({});
+    await service.deviceStageBurst.qrShowCode({
+      valueUr: { type: 'bytes', cbor: 'second' },
+      sessionId: 2,
+    });
+    expect(stage?.step).toBe('showQr');
+    expect(stage?.qrSessionId).toBe(2);
+    expect(stage?.qrDiagnostic).toBeUndefined();
+
+    await service.deviceStageBurst.end();
+    await service.deviceStageBurst.end();
+  });
+
   it('keeps a failed stage exit from replacing the result or skipping the wrapper bookkeeping', async () => {
     const deviceParams: IWithHardwareProcessingOptions['deviceParams'] = {
       dbDevice: {

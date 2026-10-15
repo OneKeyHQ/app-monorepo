@@ -122,6 +122,8 @@ const SwapAccountAddressContainer = ({
         !!toToken) ? (
         <AddressTypeSelector
           refreshOnOpen
+          whenCollapsed="hide"
+          revalidateCollapseOnFocus
           placement="bottom-start"
           networkId={
             type === ESwapDirectionType.FROM
