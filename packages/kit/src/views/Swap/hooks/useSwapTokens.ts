@@ -56,7 +56,10 @@ import {
   getSwapAnalyticsTokenRole,
 } from '../utils/swapStockAnalytics';
 
-import { buildSwapTokenFetchParams } from './swapTokenFetchParamsUtils';
+import {
+  buildSwapTokenFetchParams,
+  resolveSwapTokenSearchNetworkId,
+} from './swapTokenFetchParamsUtils';
 import { useSwapAddressInfo } from './useSwapAccount';
 import { shouldUseSwapAddressForTokenFetch } from './useSwapAccount.utils';
 import {
@@ -227,8 +230,21 @@ export function useSwapTokenList(
     swapSupportAllNetworks,
   ]);
 
+  const allNetworksId = useMemo(
+    () =>
+      swapSupportAllNetworks.find((network) => network.isAllNetworks)
+        ?.networkId,
+    [swapSupportAllNetworks],
+  );
+  const searchNetworkId = resolveSwapTokenSearchNetworkId({
+    selectedNetworkId: currentSelectNetwork?.networkId,
+    keywords,
+    swapType: from,
+    allNetworksId,
+  });
+
   const tokenFetchParams = useMemo(() => {
-    const targetNetworkId = currentSelectNetwork?.networkId ?? currentNetworkId;
+    const targetNetworkId = searchNetworkId ?? currentNetworkId;
     const findNetInfo = swapSupportAllAccounts.find(
       (net) => net.networkId === targetNetworkId,
     );
@@ -240,7 +256,7 @@ export function useSwapTokenList(
     });
     return buildSwapTokenFetchParams({
       currentNetworkId,
-      currentSelectNetworkId: currentSelectNetwork?.networkId,
+      currentSelectNetworkId: searchNetworkId,
       keywords,
       swapType: from,
       lpToken,
@@ -260,7 +276,7 @@ export function useSwapTokenList(
     swapAddressInfo?.accountInfo?.account?.id,
     swapSupportAllAccounts,
     keywords,
-    currentSelectNetwork?.networkId,
+    searchNetworkId,
     lpToken,
     requestCurrency,
   ]);
