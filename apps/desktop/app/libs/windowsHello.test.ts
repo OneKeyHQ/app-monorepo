@@ -239,10 +239,11 @@ describe('Windows Hello owner and foreground dispatch', () => {
   });
 
   it('logs internal utility errors without forwarding them to the lock screen', async () => {
+    const logInfo = jest.spyOn(Logger, 'info');
     const pending = service.requestVerificationAsync('Unlock');
     reply(false, 'HRESULT 0x80004005');
     await expect(pending).resolves.toEqual({ success: false, error: '' });
-    expect(jest.mocked(Logger).info).toHaveBeenCalledWith(
+    expect(logInfo).toHaveBeenCalledWith(
       'Windows Hello verification failed',
       'HRESULT 0x80004005',
     );
@@ -368,6 +369,7 @@ describe('Windows Hello utility results', () => {
   });
 
   it('settles native errors without retrying or authorizing', async () => {
+    const logInfo = jest.spyOn(Logger, 'info');
     jest
       .mocked(requestVerification)
       .mockRejectedValue(new Error('HRESULT error'));
@@ -378,7 +380,7 @@ describe('Windows Hello utility results', () => {
       result: { success: false, error: '' },
     });
     expect(requestVerification).toHaveBeenCalledTimes(1);
-    expect(jest.mocked(Logger).info).toHaveBeenCalledWith(
+    expect(logInfo).toHaveBeenCalledWith(
       'Windows Hello verification failed',
       expect.objectContaining({ message: 'HRESULT error' }),
     );
