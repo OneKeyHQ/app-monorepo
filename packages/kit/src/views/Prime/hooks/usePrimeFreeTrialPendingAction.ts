@@ -82,7 +82,7 @@ export function usePrimeFreeTrialPendingActionRunner() {
       const access = await ensureFeatureAccess({
         featureId: EPrimeFeatures.AddressRiskCheck,
         networkId: action.networkId,
-        deferQuotaCheck: true,
+        allowExhausted: true,
       });
       if (!access.granted) {
         return;

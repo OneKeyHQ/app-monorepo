@@ -49,8 +49,8 @@ import type { IPrimeFreeTrialNotice } from '../utils/primeFreeTrialCopy';
 // request must not block the entry: an unknown config still offers the login.
 // The request keeps running and fills the cache.
 const ENTRY_REQUEST_TIMEOUT_MS = 5000;
-// Gate requests answered within this (cached or fast) show no loading, so the
-// loading dialog never just flashes.
+// A public config answered within this (cached or fast) shows no loading, so
+// the loading dialog never just flashes.
 const ENTRY_LOADING_DELAY_MS = 300;
 
 export type IPrimeFeatureAccessResult =
@@ -152,9 +152,8 @@ export function usePrimeFeatureAccess() {
     [getPrime, intl],
   );
 
-  // A rejection toast with the notice copy (shared with the remaining hint).
-  // With `openDashboard` the dashboard opens right away and the toast tells
-  // why; otherwise the toast has a "Get Prime" button.
+  // A rejection toast with the notice copy (shared with the remaining hint)
+  // and, unless the dashboard is already open, a "Get Prime" button.
   const showFreeTrialNoticeToast = useCallback(
     ({
       featureId,
@@ -162,27 +161,15 @@ export function usePrimeFeatureAccess() {
       networkId,
       toastId,
       afterPageExit,
-      openDashboard = false,
+      showGetPrime = true,
     }: {
       featureId: IPrimeFreeTrialFeatureId;
       notice: IPrimeFreeTrialNotice;
       networkId?: string;
       toastId?: string;
       afterPageExit?: boolean;
-      openDashboard?: boolean;
+      showGetPrime?: boolean;
     }) => {
-      const freeTrialReason =
-        notice.kind === 'exhausted' || notice.kind === 'reservationHeld'
-          ? 'exhausted'
-          : 'notOpen';
-      if (openDashboard) {
-        openPrimeDashboard({
-          featureId,
-          networkId,
-          freeTrialReason,
-          afterPageExit,
-        });
-      }
       const { toastTitle, toastMessage } = getPrimeFreeTrialNoticeCopy({
         intl,
         featureId,
@@ -193,17 +180,20 @@ export function usePrimeFeatureAccess() {
         title: toastTitle,
         message: toastMessage,
         actionsAlign: 'left',
-        actions: openDashboard
-          ? undefined
-          : renderGetPrimeButton({
+        actions: showGetPrime
+          ? renderGetPrimeButton({
               featureId,
               networkId,
               afterPageExit,
-              freeTrialReason,
-            }),
+              freeTrialReason:
+                notice.kind === 'exhausted' || notice.kind === 'reservationHeld'
+                  ? 'exhausted'
+                  : 'notOpen',
+            })
+          : undefined,
       });
     },
-    [intl, openPrimeDashboard, renderGetPrimeButton],
+    [intl, renderGetPrimeButton],
   );
 
   // Feedback after the user actively tried a feature that is exhausted or
@@ -295,12 +285,20 @@ export function usePrimeFeatureAccess() {
           featureId,
           trigger: 'active',
         });
+        if (openDashboard) {
+          openPrimeDashboard({
+            featureId,
+            networkId,
+            freeTrialReason: 'exhausted',
+            afterPageExit,
+          });
+        }
         showFreeTrialNoticeToast({
           featureId,
           notice: { kind: 'exhausted', resetAt },
           networkId,
           afterPageExit,
-          openDashboard,
+          showGetPrime: !openDashboard,
         });
       })();
     },
@@ -453,7 +451,7 @@ export function usePrimeFeatureAccess() {
    *   moved on): exhausted -> the dashboard and a toast; not open -> the
    *   dashboard; uses left or unknown (e.g. right after a login) -> granted.
    *   The page's start or metered API is the final judge.
-   *   With `deferQuotaCheck` (address risk check entries) a used-up user is
+   *   With `allowExhausted` (address risk check entries) a used-up user is
    *   still let in to read the history; the check button decides.
    * Translate never leaves its page: a toast with "Get Prime" instead.
    */
@@ -465,16 +463,17 @@ export function usePrimeFeatureAccess() {
       extPopup,
       onDenied,
       showLoading = true,
-      deferQuotaCheck = false,
+      allowExhausted = false,
     }: {
       featureId: IPrimeFreeTrialFeatureId;
       networkId?: string;
       // false when the caller already shows its own loading, e.g. on the
-      // pressed button that stays on screen.
+      // pressed button that stays on screen. Only a logged-out user waits
+      // (for the public config).
       showLoading?: boolean;
       // Address risk check entries: a used-up user is let in to read the
       // history; the check button shows the exhausted feedback.
-      deferQuotaCheck?: boolean;
+      allowExhausted?: boolean;
       // Re-checked before granting after any async step (login, background
       // checks); false drops the continuation.
       isContextValid?: () => boolean | Promise<boolean>;
@@ -593,24 +592,11 @@ export function usePrimeFeatureAccess() {
           entitlementSource: 'prime',
         });
       }
-      // The local snapshot, read from the refs: the hook values may lag right
-      // after a login in this same call. Refreshed in the background for the
-      // page's remaining hint and the next press.
-      const localUser =
-        await backgroundApiProxy.servicePrime.getLocalUserInfo();
-      const access = resolvePrimeFreeTrialAccess({
-        featureId,
-        isPrimeSubscriptionActive: false,
-        isLoggedIn: true,
-        config: freeTrialRef.current.config.data,
-        quota: getPrimeFreeTrialQuotaOfUser({
-          quota: freeTrialRef.current.quota,
-          onekeyUserId: localUser.onekeyUserId,
-        }),
-      });
-      void backgroundApiProxy.servicePrimeFreeTrial.refreshQuota({
-        dedupe: true,
-      });
+      // The local snapshot as of the press. Right after a login in this call
+      // it still reads logged out (`loginRequired`): the quota of the new
+      // login is unknown then anyway, so the user is let in. The page's
+      // remaining hint refreshes the snapshot.
+      const access = getCachedAccess(featureId);
       if (await isContextGone()) {
         await onDenied?.('contextChanged');
         return { granted: false };
@@ -625,7 +611,7 @@ export function usePrimeFeatureAccess() {
         });
         return { granted: false };
       }
-      if (access.status === 'exhausted' && !deferQuotaCheck) {
+      if (access.status === 'exhausted' && !allowExhausted) {
         await onDenied?.('exhausted');
         showActiveRejectedFeedback({
           featureId,
@@ -640,6 +626,7 @@ export function usePrimeFeatureAccess() {
       return { granted: true, entitlementSource: 'freeTrial' };
     },
     [
+      getCachedAccess,
       getPublicConfigWithRetry,
       isPrimeSubscriptionActive,
       loginOneKeyId,

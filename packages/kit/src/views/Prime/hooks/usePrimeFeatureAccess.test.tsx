@@ -481,12 +481,12 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
       mockRefreshQuota.mockReturnValue(new Promise(() => {}));
       const result = renderAccessHook();
 
-      for (const deferQuotaCheck of [false, true]) {
+      for (const allowExhausted of [false, true]) {
         await act(async () => {
           await expect(
             result.current.ensureFeatureAccess({
               featureId: EPrimeFeatures.BulkSend,
-              deferQuotaCheck,
+              allowExhausted,
               isContextValid: () => false,
             }),
           ).resolves.toEqual({ granted: false });
@@ -521,7 +521,8 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
         }),
       ).resolves.toEqual({ granted: true, entitlementSource: 'freeTrial' });
     });
-    expect(mockRefreshQuota).toHaveBeenCalledWith({ dedupe: true });
+    // The page's remaining hint refreshes the snapshot, not the gate.
+    expect(mockRefreshQuota).not.toHaveBeenCalled();
   });
 
   it('opens the dashboard with a toast for a used-up snapshot, without waiting', async () => {
@@ -601,7 +602,7 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     expect(mockToastMessage).not.toHaveBeenCalled();
   });
 
-  it('lets a used-up user in with deferQuotaCheck to read the history', async () => {
+  it('lets a used-up user in with allowExhausted to read the history', async () => {
     setSnapshot(quotaWith(0));
     const result = renderAccessHook();
 
@@ -609,7 +610,7 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
       await expect(
         result.current.ensureFeatureAccess({
           featureId: EPrimeFeatures.BulkSend,
-          deferQuotaCheck: true,
+          allowExhausted: true,
         }),
       ).resolves.toEqual({ granted: true, entitlementSource: 'freeTrial' });
     });
@@ -627,7 +628,7 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
       await expect(
         result.current.ensureFeatureAccess({
           featureId: EPrimeFeatures.BulkSend,
-          deferQuotaCheck: true,
+          allowExhausted: true,
         }),
       ).resolves.toEqual({ granted: false });
     });
