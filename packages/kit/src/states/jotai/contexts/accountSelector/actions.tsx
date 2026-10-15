@@ -2804,17 +2804,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           //   console.log('updateSelectedAccount deriveType: ', newSelectedAccount);
           // }
 
-          const newNetworkId = newSelectedAccount?.networkId;
-          const oldNetworkId = oldSelectedAccount?.networkId;
-          const newDeriveType = newSelectedAccount?.deriveType;
-          const oldDeriveType = oldSelectedAccount?.deriveType;
-          // fix deriveType from global storage if change network only, as current deriveType is previous network's
+          // fix deriveType from global storage if change network only, as current deriveType is previous network's,
+          // or when leaving an imported/watching account, whose deriveType is only a placeholder
           // **** important: remove this logic will cause infinite loop
           // if you want to change networkId and driveType at same time, you should call updateSelectedAccount twice, first change networkId, then change deriveType
           if (
-            newNetworkId &&
-            newNetworkId !== oldNetworkId &&
-            newDeriveType === oldDeriveType
+            accountSelectorUtils.shouldResetDeriveTypeFromGlobal({
+              oldSelectedAccount,
+              newSelectedAccount,
+            })
           ) {
             const fixDeriveTypeByGlobal = async ({
               sceneName,
