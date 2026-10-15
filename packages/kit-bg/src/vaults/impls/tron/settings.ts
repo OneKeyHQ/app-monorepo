@@ -71,6 +71,8 @@ const settings: IVaultSettings = {
   resourceKey: ETranslations.global_energy_bandwidth,
 
   payWithTokenEnabled: true,
+
+  bulkSendMaxTransfersPerTx: 200,
 };
 
 export default Object.freeze(settings);

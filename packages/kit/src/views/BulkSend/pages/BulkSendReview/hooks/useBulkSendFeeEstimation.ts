@@ -49,6 +49,20 @@ type IUseBulkSendFeeEstimationParams = {
   isSubmitting?: boolean;
 };
 
+// Without batch estimation only unsignedTxs[0] is estimated. An approve
+// estimate stands in for a single transfer, so scale by the tx's transfer
+// count (+1 for contract overhead). A transfer-tx estimate (split send with
+// no approve) already covers its own transfers, so scale by the ratio only.
+function getFallbackGasMultiplier(
+  unsignedTxs: IUnsignedTxPro[],
+  unsignedTx: IUnsignedTxPro,
+): number {
+  const transferCount = unsignedTx.transfersInfo?.length ?? 1;
+  const estimatedTx = unsignedTxs[0];
+  if (!estimatedTx || estimatedTx.approveInfo) return transferCount + 1;
+  return transferCount / (estimatedTx.transfersInfo?.length ?? 1);
+}
+
 // Scale gasLimit for bulk transfer txs when batch estimation is not available.
 // For transfer txs (non-approve), multiply gasLimit by (transfersInfo.length + 1)
 // to account for the higher gas consumption of multi-call contracts.
@@ -330,11 +344,9 @@ export function useBulkSendFeeEstimation({
             };
           } else if (isMultiTxs && !unsignedTx.approveInfo) {
             // Fallback mode: scale gasLimit for transfer txs
-            // Gas scales with the number of transfers in this tx, not the number of txs
-            const transferCount = unsignedTx.transfersInfo?.length ?? 1;
             txFeeInfo = scaleGasLimitForBulkTransfer(
               txFeeInfo,
-              transferCount + 1,
+              getFallbackGasMultiplier(unsignedTxs, unsignedTx),
             );
           }
           const feeResult = calculateFeeForSend({
@@ -560,11 +572,9 @@ export function useBulkSendFeeEstimation({
           };
         } else if (isMultiTxs && !unsignedTx.approveInfo) {
           // Fallback mode: scale gasLimit for transfer txs
-          // Gas scales with the number of transfers in this tx, not the number of txs
-          const transferCount = unsignedTx.transfersInfo?.length ?? 1;
           txFeeInfo = scaleGasLimitForBulkTransfer(
             txFeeInfo,
-            transferCount + 1,
+            getFallbackGasMultiplier(unsignedTxs, unsignedTx),
           );
         }
         const feeResult = calculateFeeForSend({

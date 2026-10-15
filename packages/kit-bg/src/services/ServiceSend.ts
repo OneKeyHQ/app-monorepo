@@ -52,6 +52,7 @@ import {
   logSolanaTxDiagnostic,
 } from '@onekeyhq/shared/src/logger/solanaTxDiagnostics';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -170,6 +171,22 @@ class ServiceSend extends ServiceBase {
     max: 50,
     ttl: timerUtils.getTimeDurationMs({ day: 1 }),
   });
+
+  // Txs already broadcast under a tracking id, for UIs that must know which
+  // txs of a failed batch went out (they cannot see this map on split
+  // runtimes). `recorded: false` still needs a retry to finish its history.
+  @backgroundMethod()
+  async getBatchBroadcastedTxUuids({
+    sentTxsTrackingId,
+  }: {
+    sentTxsTrackingId: string;
+  }): Promise<Array<{ uuid: string; recorded: boolean }>> {
+    const broadcastedTxs = this.batchBroadcastedTxs.get(sentTxsTrackingId);
+    return Array.from(broadcastedTxs?.entries() ?? [], ([uuid, tx]) => ({
+      uuid,
+      recorded: tx.status === 'recorded',
+    }));
+  }
 
   private getBatchBroadcastedTxs(sentTxsTrackingId: string) {
     let broadcastedTxs = this.batchBroadcastedTxs.get(sentTxsTrackingId);
@@ -1553,6 +1570,7 @@ class ServiceSend extends ServiceBase {
       wcPayPreBroadcastRecord,
       useDefaultRpc,
       freeTrialUsage,
+      progressEventId,
     } = params;
     // Decided before any broadcast: nothing may throw after one. Developer
     // mode "always sign only" signs without broadcasting, so it uses nothing.
@@ -1645,6 +1663,13 @@ class ServiceSend extends ServiceBase {
           // remaining steps with what was actually broadcast.
           ({ unsignedTx, feeInfo, signedTx } = broadcastedTx);
         } else {
+          if (progressEventId) {
+            appEventBus.emit(EAppEventBusNames.BatchSignTxProgress, {
+              progressEventId,
+              current: i + 1,
+              total: len,
+            });
+          }
           if (isMultiTxs && i > 0) {
             unsignedTx =
               await vault.refreshUnsignedTxBeforeBatchSign(unsignedTx);
@@ -2508,6 +2533,47 @@ class ServiceSend extends ServiceBase {
       memo,
       tokenAddress,
     );
+  }
+
+  // Contract-based OneToMany bulk send (EVM/TRON): split recipients into
+  // chunks so each tx stays under per-tx gas/energy limits. Nonces chain from
+  // prevNonce (e.g. after approve txs); uuids let retries skip sent chunks.
+  @backgroundMethod()
+  @toastIfError()
+  async prepareBulkSendTransferTxs(params: {
+    networkId: string;
+    accountId: string;
+    transfersInfo: ITransferInfo[];
+    prevNonce?: number;
+  }): Promise<IUnsignedTxPro[]> {
+    const { networkId, accountId, transfersInfo, prevNonce } = params;
+    const { bulkSendMaxTransfersPerTx } =
+      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+    const [firstChunk, ...restChunks] = bulkSendUtils.chunkBulkSendTransfers(
+      transfersInfo,
+      bulkSendMaxTransfersPerTx,
+    );
+    if (!firstChunk) return [];
+    const prepareChunk = (chunkTransfers: ITransferInfo[], nonce?: number) =>
+      this.prepareSendConfirmUnsignedTx({
+        networkId,
+        accountId,
+        transfersInfo: chunkTransfers,
+        prevNonce: nonce,
+        withUuid: true,
+      });
+    // The first chunk resolves the base nonce; later chunks chain from it
+    // and can be built in parallel.
+    const firstTx = await prepareChunk(firstChunk, prevNonce);
+    const restTxs = await Promise.all(
+      restChunks.map((chunkTransfers, index) =>
+        prepareChunk(
+          chunkTransfers,
+          isNil(firstTx.nonce) ? undefined : firstTx.nonce + index,
+        ),
+      ),
+    );
+    return [firstTx, ...restTxs];
   }
 
   @backgroundMethod()

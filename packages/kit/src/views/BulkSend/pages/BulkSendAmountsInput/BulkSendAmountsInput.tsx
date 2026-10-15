@@ -42,6 +42,7 @@ import {
   EModalRoutes,
   type IModalBulkSendParamList,
 } from '@onekeyhq/shared/src/routes';
+import bulkSendUtils from '@onekeyhq/shared/src/utils/bulkSendUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { validateTokenAmount } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -59,6 +60,7 @@ import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import BulkSendBar from '../../components/BulkSendBar';
 import BulkSendContentWrapper from '../../components/BulkSendContentWrapper';
 import BulkSendHeader from '../../components/BulkSendHeader';
+import BulkSendSplitTxAlert from '../../components/BulkSendSplitTxAlert';
 import { useRedirectToBulkSendAddressesInput } from '../../hooks/useRedirectToBulkSendAddressesInput';
 import {
   DEFAULT_INTERVAL_SETTINGS,
@@ -180,6 +182,14 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
   );
   const isNativeBatchTransfer =
     vaultSettings?.nativeBatchTransferEnabled ?? false;
+
+  // Tell users up front that a large list is split and signed per tx
+  const splitTxCount = isOneToMany
+    ? bulkSendUtils.getBulkSendTxCount(
+        transfersInfo.length,
+        vaultSettings?.bulkSendMaxTransfersPerTx,
+      )
+    : 0;
 
   // Check if token needs approval (native tokens don't need approval)
   const needsApproval = useMemo(
@@ -450,17 +460,19 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
               accountId,
               approveInfo,
               prevNonce,
+              // Lets a retry skip an approve that was already broadcast
+              withUuid: true,
             });
           prevNonce = unsignedTx.nonce;
           unsignedTxs.push(unsignedTx);
         }
         unsignedTxs.push(
-          await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
+          ...(await backgroundApiProxy.serviceSend.prepareBulkSendTransferTxs({
             networkId,
             accountId,
             transfersInfo: rawTransfersInfo,
             prevNonce,
-          }),
+          })),
         );
       }
 
@@ -811,6 +823,9 @@ function BaseBulkSendAmountsInput({ isInModal }: { isInModal?: boolean }) {
       <Page.Body>
         <BulkSendContentWrapper>
           <BulkSendHeader bulkSendMode={bulkSendMode} />
+          {splitTxCount > 1 ? (
+            <BulkSendSplitTxAlert txCount={splitTxCount} mb="$2" />
+          ) : null}
           {media.gtMd ? <TableLayout /> : <MobileLayout />}
         </BulkSendContentWrapper>
       </Page.Body>

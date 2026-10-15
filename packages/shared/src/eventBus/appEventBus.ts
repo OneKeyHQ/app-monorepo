@@ -379,6 +379,12 @@ export interface IAppEventBusPayload {
     scheduledAt: number;
   };
   [EAppEventBusNames.GasAccountSubmitRetryCleared]: undefined;
+  [EAppEventBusNames.BatchSignTxProgress]: {
+    progressEventId: string;
+    // 1-based index of the tx in the batch
+    current: number;
+    total: number;
+  };
   // TokenList cells Phase-2 BG frame transport (D2=A). The structure event
   // carries the FULL idempotent structure snapshot for an owner (generation is
   // monotonic); the valuation event carries the FULL current fiat map for an

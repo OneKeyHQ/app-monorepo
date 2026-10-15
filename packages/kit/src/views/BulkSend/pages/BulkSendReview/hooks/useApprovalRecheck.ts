@@ -18,7 +18,6 @@ type IUseApprovalRecheckParams = {
   networkId: string;
   accountId: string | undefined;
   tokenInfo: IToken;
-  transfersInfo: ITransferInfo[];
   approvesInfo: IApproveInfo[];
   setApprovesInfo: React.Dispatch<React.SetStateAction<IApproveInfo[]>>;
   setUnsignedTxs: React.Dispatch<React.SetStateAction<IUnsignedTxPro[]>>;
@@ -29,7 +28,6 @@ export function useApprovalRecheck({
   networkId,
   accountId,
   tokenInfo,
-  transfersInfo,
   approvesInfo,
   setApprovesInfo,
   setUnsignedTxs,
@@ -67,109 +65,116 @@ export function useApprovalRecheck({
     };
   }, [clearTimers]);
 
-  const checkAllowance = useCallback(async (): Promise<boolean> => {
-    if (!accountId || !networkId) return false;
+  const checkAllowance = useCallback(
+    async (pendingTransfersInfo: ITransferInfo[]): Promise<boolean> => {
+      if (!accountId || !networkId) return false;
 
-    const bulkSendContractAddress = getBulkSendContractAddress()[networkId];
-    if (!bulkSendContractAddress) return false;
+      const bulkSendContractAddress = getBulkSendContractAddress()[networkId];
+      if (!bulkSendContractAddress) return false;
 
-    const sender = transfersInfo[0]?.from;
-    if (!sender) return false;
+      const sender = pendingTransfersInfo[0]?.from;
+      if (!sender) return false;
 
-    // The allowance to verify is the raw on-chain total the approve tx
-    // granted. transfersInfo amounts are raw here (scaled-UI display amounts
-    // were converted at submit), while the route's totalTokenAmount stays
-    // display-basis for the summary — summing transfers keeps this check on
-    // the same basis as the approval itself.
-    const rawTotalAmount = transfersInfo
-      .reduce(
-        (acc, transfer) => acc.plus(transfer.amount || '0'),
-        new BigNumber(0),
-      )
-      .toFixed();
+      // The allowance to verify is the raw on-chain total the approve tx
+      // granted. Transfer amounts are raw here (scaled-UI display amounts
+      // were converted at submit), while the route's totalTokenAmount stays
+      // display-basis for the summary — summing transfers keeps this check on
+      // the same basis as the approval itself.
+      const rawTotalAmount = pendingTransfersInfo
+        .reduce(
+          (acc, transfer) => acc.plus(transfer.amount || '0'),
+          new BigNumber(0),
+        )
+        .toFixed();
 
-    try {
-      const result = await backgroundApiProxy.serviceSwap.fetchApproveAllowance(
-        {
-          networkId,
-          tokenAddress: tokenInfo.address,
-          spenderAddress: bulkSendContractAddress,
-          walletAddress: sender,
-          accountId,
-          amount: rawTotalAmount,
-        },
-      );
-      return !!result?.isApproved;
-    } catch {
-      return false;
-    }
-  }, [accountId, networkId, transfersInfo, tokenInfo.address]);
+      try {
+        const result =
+          await backgroundApiProxy.serviceSwap.fetchApproveAllowance({
+            networkId,
+            tokenAddress: tokenInfo.address,
+            spenderAddress: bulkSendContractAddress,
+            walletAddress: sender,
+            accountId,
+            amount: rawTotalAmount,
+          });
+        return !!result?.isApproved;
+      } catch {
+        return false;
+      }
+    },
+    [accountId, networkId, tokenInfo.address],
+  );
 
-  const startApprovalRecheck = useCallback(() => {
-    // Skip if no approvals to recheck
-    if (approvesInfoRef.current.length === 0) return;
-    if (!accountId || !networkId) return;
+  const startApprovalRecheck = useCallback(
+    // Only transfers not yet broadcast: when a split send fails midway, the
+    // sent chunks already consumed part of the allowance and must not be rebuilt.
+    (pendingTransfersInfo: ITransferInfo[]) => {
+      // Skip if no approvals to recheck
+      if (approvesInfoRef.current.length === 0) return;
+      if (!accountId || !networkId) return;
+      if (pendingTransfersInfo.length === 0) return;
 
-    clearTimers();
-    isStoppedRef.current = false;
-    setIsRecheckingApproval(true);
+      clearTimers();
+      isStoppedRef.current = false;
+      setIsRecheckingApproval(true);
 
-    const runCheck = async () => {
-      const isApproved = await checkAllowance();
+      const runCheck = async () => {
+        const isApproved = await checkAllowance(pendingTransfersInfo);
 
-      if (!isMountedRef.current || isStoppedRef.current) return;
+        if (!isMountedRef.current || isStoppedRef.current) return;
 
-      if (isApproved) {
-        try {
-          // Rebuild transfer-only tx with fresh nonce from chain
-          const newTransferTx =
-            await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
-              networkId,
-              accountId,
-              transfersInfo,
-            });
+        if (isApproved) {
+          try {
+            // Rebuild pending transfer-only txs with fresh nonce from chain
+            const newTransferTxs =
+              await backgroundApiProxy.serviceSend.prepareBulkSendTransferTxs({
+                networkId,
+                accountId,
+                transfersInfo: pendingTransfersInfo,
+              });
 
-          if (!isMountedRef.current) return;
+            if (!isMountedRef.current) return;
 
-          setApprovesInfo([]);
-          setUnsignedTxs([newTransferTx]);
-          forceRefreshFee();
-        } catch {
-          // If rebuilding fails, just clear approve state anyway
-          // so the user can retry
-          setApprovesInfo([]);
+            setApprovesInfo([]);
+            setUnsignedTxs(newTransferTxs);
+            forceRefreshFee();
+          } catch {
+            // If rebuilding fails, just clear approve state anyway
+            // so the user can retry
+            setApprovesInfo([]);
+          }
+
+          clearTimers();
+          setIsRecheckingApproval(false);
+          return;
         }
 
+        // Schedule next check if still mounted and not stopped
+        if (isMountedRef.current && !isStoppedRef.current) {
+          pollingTimerRef.current = setTimeout(runCheck, POLLING_INTERVAL);
+        }
+      };
+
+      // Start the first check immediately
+      void runCheck();
+
+      // Set max timeout
+      timeoutTimerRef.current = setTimeout(() => {
+        if (!isMountedRef.current) return;
         clearTimers();
         setIsRecheckingApproval(false);
-        return;
-      }
-
-      // Schedule next check if still mounted and not stopped
-      if (isMountedRef.current && !isStoppedRef.current) {
-        pollingTimerRef.current = setTimeout(runCheck, POLLING_INTERVAL);
-      }
-    };
-
-    // Start the first check immediately
-    void runCheck();
-
-    // Set max timeout
-    timeoutTimerRef.current = setTimeout(() => {
-      if (!isMountedRef.current) return;
-      clearTimers();
-      setIsRecheckingApproval(false);
-    }, POLLING_TIMEOUT);
-  }, [
-    accountId,
-    networkId,
-    transfersInfo,
-    checkAllowance,
-    setApprovesInfo,
-    setUnsignedTxs,
-    forceRefreshFee,
-    clearTimers,
-  ]);
+      }, POLLING_TIMEOUT);
+    },
+    [
+      accountId,
+      networkId,
+      checkAllowance,
+      setApprovesInfo,
+      setUnsignedTxs,
+      forceRefreshFee,
+      clearTimers,
+    ],
+  );
 
   return {
     isRecheckingApproval,
