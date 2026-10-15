@@ -11,6 +11,8 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useLocaleVariant } from '../hooks/useLocaleVariant';
 import { useThemeVariant } from '../hooks/useThemeVariant';
 
+import { useNativeListFonts } from './useNativeListFonts';
+
 function logThemeProvider(message: string) {
   if (
     platformEnv.isNativeMainThread &&
@@ -25,6 +27,7 @@ function BasicThemeProvider({ children }: PropsWithChildren<unknown>) {
     useSettingsPersistAtom();
   const themeVariant = useThemeVariant();
   const localeVariant = useLocaleVariant();
+  const fontsReady = useNativeListFonts();
   logThemeProvider(
     `render themeSetting=${String(themeSetting)} themeVariant=${String(
       themeVariant,
@@ -40,6 +43,7 @@ function BasicThemeProvider({ children }: PropsWithChildren<unknown>) {
     }
   }, []);
   return useMemo(() => {
+    if (!fontsReady) return null;
     return (
       <ConfigProvider
         theme={themeVariant as any}
@@ -59,6 +63,7 @@ function BasicThemeProvider({ children }: PropsWithChildren<unknown>) {
     hapticFeedbackEnabled,
     handleLocalChange,
     children,
+    fontsReady,
   ]);
 }
 

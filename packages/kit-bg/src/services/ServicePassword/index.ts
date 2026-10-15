@@ -37,10 +37,13 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { checkBiometricAuthChanged } from '@onekeyhq/shared/src/modules3rdParty/check-biometric-auth-changed';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { rejectTravelModeUnknownError } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { isEncodedSensitiveText } from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EHardwareCallContext,
@@ -104,6 +107,9 @@ type IVerifyPasswordParams = IPasswordKdfParams & {
 // Keep LocalDB password existence and its persisted Jotai mirror in sync.
 const passwordExistenceMutex = new Semaphore(1);
 const passwordErrorProtectionMutex = new Semaphore(1);
+const biometricCheckMutex = new Semaphore(1);
+const BIOMETRIC_AUTH_CHECK_PENDING_KEY = 'biometricAuthCheckPending';
+let biometricCheckPromise: Promise<boolean> | undefined;
 
 export function shouldUseV4MigrationPasswordForPrompt({
   isProcessing,
@@ -448,9 +454,25 @@ export default class ServicePassword extends ServiceBase {
   }
 
   async getBiologyAuthPassword(): Promise<string> {
-    const isSupport = await passwordBiologyAuthInfoAtom.get();
+    if (platformEnv.isNativeIOS || platformEnv.isDesktopMac) {
+      return biometricCheckMutex.runExclusive(async () => {
+        if (await appStorage.getItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY)) {
+          throw new OneKeyErrors.BiologyAuthFailed();
+        }
+        const { isBiologyAuthSwitchOn } = await settingsPersistAtom.get();
+        if (!isBiologyAuthSwitchOn) {
+          throw new OneKeyErrors.BiologyAuthFailed();
+        }
+        return this.getBiologyAuthPasswordInner();
+      });
+    }
+    return this.getBiologyAuthPasswordInner();
+  }
+
+  private async getBiologyAuthPasswordInner(): Promise<string> {
+    const { isSupport } = await passwordBiologyAuthInfoAtom.get();
     if (!isSupport) {
-      await this.setBiologyAuthEnable(false);
+      await this.setBiologyAuthEnableInner(false);
       throw new OneKeyErrors.OneKeyLocalError('biologyAuth not support');
     }
     const authRes = await biologyAuthUtils.biologyAuthenticate();
@@ -462,13 +484,72 @@ export default class ServicePassword extends ServiceBase {
       ensureSensitiveTextEncoded(pwd);
       return pwd;
     } catch (_e) {
-      await this.setBiologyAuthEnable(false);
+      await this.setBiologyAuthEnableInner(false);
       throw new OneKeyErrors.BiologyAuthFailed();
     }
   }
 
   @backgroundMethod()
+  async checkBiometricAuthChanged(): Promise<boolean> {
+    if (!platformEnv.isNativeIOS && !platformEnv.isDesktopMac) return false;
+    if (runtimePersistenceAdapter.isUnavailable()) {
+      await rejectTravelModeUnknownError();
+    }
+    if (biometricCheckPromise) return biometricCheckPromise;
+    const checking = biometricCheckMutex.runExclusive(async () => {
+      const pending = await appStorage.getItem(
+        BIOMETRIC_AUTH_CHECK_PENDING_KEY,
+      );
+      if (pending === 'changed') {
+        await this.backgroundApi.serviceSetting.setBiologyAuthSwitchOn(false);
+        await appStorage.removeItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY);
+        return true;
+      }
+      if (pending) {
+        throw new OneKeyErrors.OneKeyLocalError(
+          'Biometric check requires password verification',
+        );
+      }
+      if (!(await biologyAuth.isSupportBiologyAuth())) {
+        throw new OneKeyErrors.BiologyAuthFailed();
+      }
+      // The SDK advances its baseline. Persist before calling it so a crash or
+      // failed settings write cannot turn the next check into a false success.
+      await appStorage.setItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY, 'checking');
+      if (
+        runtimePersistenceAdapter.isUnavailable() ||
+        (await appStorage.getItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY)) !==
+          'checking'
+      ) {
+        throw new OneKeyErrors.BiologyAuthFailed();
+      }
+      const changed = await checkBiometricAuthChanged();
+      if (typeof changed !== 'boolean')
+        throw new OneKeyErrors.BiologyAuthFailed();
+      if (changed) {
+        await appStorage.setItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY, 'changed');
+        await this.backgroundApi.serviceSetting.setBiologyAuthSwitchOn(false);
+      }
+      await appStorage.removeItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY);
+      return changed;
+    });
+    biometricCheckPromise = checking.finally(() => {
+      biometricCheckPromise = undefined;
+    });
+    return biometricCheckPromise;
+  }
+
+  @backgroundMethod()
   async setBiologyAuthEnable(
+    enable: boolean,
+    skipAuth?: boolean,
+  ): Promise<void> {
+    return biometricCheckMutex.runExclusive(() =>
+      this.setBiologyAuthEnableInner(enable, skipAuth),
+    );
+  }
+
+  private async setBiologyAuthEnableInner(
     enable: boolean,
     skipAuth?: boolean,
   ): Promise<void> {
@@ -481,6 +562,13 @@ export default class ServicePassword extends ServiceBase {
       skipAuth: !!skipAuth,
       stack: new Error('trace').stack?.split('\n').slice(1, 6).join(' | '),
     });
+    if (
+      enable &&
+      (platformEnv.isNativeIOS || platformEnv.isDesktopMac) &&
+      (await appStorage.getItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY))
+    ) {
+      throw new OneKeyErrors.BiologyAuthFailed();
+    }
     if (enable && !skipAuth) {
       const authRes = await biologyAuth.biologyAuthenticate();
       if (!authRes.success) {
@@ -495,7 +583,46 @@ export default class ServicePassword extends ServiceBase {
         );
       }
     }
+    if (enable && (platformEnv.isNativeIOS || platformEnv.isDesktopMac)) {
+      const { isBiologyAuthSwitchOn: wasSwitchOn } =
+        await settingsPersistAtom.get();
+      let checkpointWritten = false;
+      try {
+        await appStorage.setItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY, 'checking');
+        checkpointWritten = true;
+        if (
+          runtimePersistenceAdapter.isUnavailable() ||
+          (await appStorage.getItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY)) !==
+            'checking'
+        ) {
+          throw new OneKeyErrors.BiologyAuthFailed();
+        }
+        const changed = await checkBiometricAuthChanged();
+        if (typeof changed !== 'boolean') {
+          throw new OneKeyErrors.BiologyAuthFailed();
+        }
+      } catch (error) {
+        if (checkpointWritten && !wasSwitchOn) {
+          try {
+            const { isBiologyAuthSwitchOn } = await settingsPersistAtom.get();
+            if (
+              !isBiologyAuthSwitchOn &&
+              (await appStorage.getItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY)) ===
+                'checking'
+            ) {
+              await appStorage.removeItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY);
+            }
+          } catch {
+            // Keep the checkpoint when storage cannot confirm a safe retry.
+          }
+        }
+        throw error;
+      }
+    }
     await this.backgroundApi.serviceSetting.setBiologyAuthSwitchOn(enable);
+    if (enable && (platformEnv.isNativeIOS || platformEnv.isDesktopMac)) {
+      await appStorage.removeItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY);
+    }
     if (platformEnv.isExtension && !enable) {
       await this.clearWebAuthCredentialId();
     }
@@ -1021,12 +1148,58 @@ export default class ServicePassword extends ServiceBase {
     const shouldEnforcePasswordErrorProtection =
       Boolean(params.enforcePasswordErrorProtection) ||
       runtimePersistenceAdapter.isUnavailable();
-    if (!shouldEnforcePasswordErrorProtection) {
-      return this.verifyPasswordInner(params);
+    return shouldEnforcePasswordErrorProtection
+      ? passwordErrorProtectionMutex.runExclusive(() =>
+          this.verifyPasswordWithErrorProtection(params),
+        )
+      : this.verifyPasswordInner(params);
+  }
+
+  @backgroundMethod()
+  async verifyPasswordFromInput({
+    password,
+    ...params
+  }: Omit<IVerifyPasswordParams, 'isBiologyAuth'>): Promise<string> {
+    if (isEncodedSensitiveText(password)) {
+      throw new OneKeyErrors.OneKeyLocalError(
+        'Expected unencoded password input',
+      );
     }
-    return passwordErrorProtectionMutex.runExclusive(() =>
-      this.verifyPasswordWithErrorProtection(params),
-    );
+    const encoded = await this.encodeSensitiveText({
+      text: password,
+      kdfBackend: params.kdfBackend,
+      enablePbkdf2Cache: params.enablePbkdf2Cache,
+    });
+    const verified = await this.verifyPassword({
+      ...params,
+      password: encoded,
+      isBiologyAuth: false,
+    });
+    if (
+      (platformEnv.isNativeIOS || platformEnv.isDesktopMac) &&
+      !runtimePersistenceAdapter.isUnavailable()
+    ) {
+      try {
+        await biometricCheckMutex.runExclusive(async () => {
+          const pending = await appStorage.getItem(
+            BIOMETRIC_AUTH_CHECK_PENDING_KEY,
+          );
+          if (pending) {
+            await this.backgroundApi.serviceSetting.setBiologyAuthSwitchOn(
+              false,
+            );
+            await appStorage.removeItem(BIOMETRIC_AUTH_CHECK_PENDING_KEY);
+          }
+        });
+      } catch {
+        // Password access must remain available even if biometric recovery cannot persist.
+        defaultLogger.setting.page.biologyAuthDebug(
+          'biometricCheck:recoveryUnavailable',
+          { platform: platformEnv.symbol },
+        );
+      }
+    }
+    return verified;
   }
 
   private async prepareHyperLiquidAgentSecretSession({

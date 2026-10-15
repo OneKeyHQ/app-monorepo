@@ -73,8 +73,8 @@ describe('Windows Hello owner and foreground dispatch', () => {
       postMessage: jest.fn(),
     });
     jest
-      .mocked(utilityProcess.fork)
-      .mockReturnValue(
+      .mocked(utilityProcess)
+      .fork.mockReturnValue(
         child as unknown as ReturnType<typeof utilityProcess.fork>,
       );
     jest.mocked(allowSetForegroundWindow).mockReturnValue(true);
@@ -192,7 +192,7 @@ describe('Windows Hello owner and foreground dispatch', () => {
     child.emit('exit', 1);
     await expect(pending).resolves.toMatchObject({ success: false });
     await expect(service.checkAvailabilityAsync()).resolves.toBe(false);
-    expect(utilityProcess.fork).toHaveBeenCalledTimes(1);
+    expect(jest.mocked(utilityProcess).fork).toHaveBeenCalledTimes(1);
   });
 
   it('does not overwrite a successful capability probe when its timer expires', async () => {

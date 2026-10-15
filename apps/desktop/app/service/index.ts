@@ -17,6 +17,16 @@ enum EServiceName {
   CheckBiometricAuthChanged = 'checkBiometricAuthChanged',
 }
 
+let biometricRequestId = 0;
+const biometricRequests = new Map<
+  number,
+  {
+    resolve: (result: boolean) => void;
+    reject: (error: Error) => void;
+    timer: ReturnType<typeof setTimeout>;
+  }
+>();
+
 const processConfig: Record<
   EServiceName,
   {
@@ -54,28 +64,55 @@ const startService = (key: EServiceName) => {
     );
   }
 
-  config.childProcess?.on('message', (e: { type: string; result: boolean }) => {
-    Logger.info(`${key}ChildProcess-onMessage`, e);
-    const callbacks = processConfig[key].callbacks.filter(
-      (callbackItem) => callbackItem.type === e.type,
-    );
-    if (callbacks.length) {
-      callbacks.forEach((callbackItem) => {
-        // Callbacks older than 1 minute will not be executed
-        if (Date.now() - callbackItem.timestamp < 60 * 1000) {
-          callbackItem.callback(e.result);
-        }
-      });
-      config.callbacks = config.callbacks.filter(
-        (callbackItem) => !callbacks.includes(callbackItem),
+  config.childProcess?.on(
+    'message',
+    (e: {
+      type: string;
+      result: boolean;
+      requestId?: number;
+      error?: boolean;
+    }) => {
+      if (key === EServiceName.CheckBiometricAuthChanged) {
+        if (e.requestId === undefined) return;
+        const pending = biometricRequests.get(e.requestId);
+        if (!pending) return;
+        biometricRequests.delete(e.requestId);
+        clearTimeout(pending.timer);
+        if (e.error || typeof e.result !== 'boolean')
+          pending.reject(new Error('Biometric state check failed'));
+        else pending.resolve(e.result);
+        return;
+      }
+      Logger.info(`${key}ChildProcess-onMessage`, e);
+      const callbacks = processConfig[key].callbacks.filter(
+        (callbackItem) => callbackItem.type === e.type,
       );
-    }
-  });
+      if (callbacks.length) {
+        callbacks.forEach((callbackItem) => {
+          // Callbacks older than 1 minute will not be executed
+          if (Date.now() - callbackItem.timestamp < 60 * 1000) {
+            callbackItem.callback(e.result);
+          }
+        });
+        config.callbacks = config.callbacks.filter(
+          (callbackItem) => !callbacks.includes(callbackItem),
+        );
+      }
+    },
+  );
   config.childProcess?.on('exit', (code) => {
     Logger.info(`${key}ChildProcess--onExit`, code);
     if (key === EServiceName.WindowsHello) {
       config.childProcess = null;
       cacheWindowsHelloSupported = null;
+    }
+    if (key === EServiceName.CheckBiometricAuthChanged) {
+      config.childProcess = null;
+      biometricRequests.forEach((pending) => {
+        clearTimeout(pending.timer);
+        pending.reject(new Error('Biometric state service exited'));
+      });
+      biometricRequests.clear();
     }
   });
 };
@@ -237,19 +274,29 @@ export const requestVerificationAsync = async (
 };
 
 export const checkBiometricAuthChanged = async () => {
-  if (!checkServiceExist(EServiceName.CheckBiometricAuthChanged)) {
-    return false;
+  const child =
+    processConfig[EServiceName.CheckBiometricAuthChanged].childProcess;
+  if (!child) {
+    // eslint-disable-next-line onekey/no-raw-error -- app error imports exceed the utility bundle budget.
+    throw new Error('Biometric state service unavailable');
   }
-
-  return Promise.race<boolean>([
-    postServiceMessage<boolean>(
-      EServiceName.CheckBiometricAuthChanged,
-      ECheckBiometricAuthChangedEventType.CheckBiometricAuthChanged,
-    ),
-    new Promise<boolean>((resolve) =>
-      setTimeout(() => {
-        resolve(false);
-      }, 500),
-    ),
-  ]);
+  biometricRequestId += 1;
+  const requestId = biometricRequestId;
+  return new Promise<boolean>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      biometricRequests.delete(requestId);
+      reject(new Error('Biometric state check timed out'));
+    }, 500);
+    biometricRequests.set(requestId, { resolve, reject, timer });
+    try {
+      child.postMessage({
+        type: ECheckBiometricAuthChangedEventType.CheckBiometricAuthChanged,
+        requestId,
+      });
+    } catch (error) {
+      clearTimeout(timer);
+      biometricRequests.delete(requestId);
+      reject(error);
+    }
+  });
 };

@@ -108,13 +108,7 @@ class DesktopApiSecurity {
     if (!isMac) {
       return false;
     }
-    try {
-      const result = await checkBiometricAuthChanged();
-      return result;
-    } catch (error) {
-      logger.error('[CHECK_BIOMETRIC_AUTH_CHANGED] Error:', error);
-      return false;
-    }
+    return checkBiometricAuthChanged();
   }
 
   // Blanks the window in screenshots/recordings/screen shares while sensitive

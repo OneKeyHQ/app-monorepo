@@ -87,7 +87,9 @@ describe('DesktopApiSecurity Windows Hello', () => {
   });
 
   it('offers password authentication when the owned interface is unavailable', async () => {
-    const service = jest.requireMock('@onekeyhq/desktop/app/service');
+    const service = jest.requireMock<
+      jest.Mocked<typeof import('@onekeyhq/desktop/app/service')>
+    >('@onekeyhq/desktop/app/service');
     service.checkAvailabilityAsync.mockResolvedValue(false);
     const securityApi = buildWindowsSecurityApi();
     await expect(securityApi.canPromptTouchID()).resolves.toBe(false);
@@ -101,7 +103,9 @@ describe('DesktopApiSecurity Windows Hello', () => {
   it.each(['user_cancel', 'retries_exhausted'])(
     'returns %s without another verification request',
     async (error) => {
-      const service = jest.requireMock('@onekeyhq/desktop/app/service');
+      const service = jest.requireMock<
+        jest.Mocked<typeof import('@onekeyhq/desktop/app/service')>
+      >('@onekeyhq/desktop/app/service');
       service.checkAvailabilityAsync.mockResolvedValue(true);
       service.requestVerificationAsync.mockResolvedValue({
         success: false,
