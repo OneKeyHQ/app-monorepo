@@ -37,6 +37,17 @@ function installOffscreenApiProxyEarly() {
   return offscreenApiProxy;
 }
 
+function installPrivacyChainNodeRequestLate() {
+  // Lets the offscreen document reach nodes that do not serve browsers --
+  // see the module for why that is most of them.
+  void import('../background/privacyChainNodeRequest').then((m) =>
+    m.installPrivacyChainNodeRequestListener(),
+  );
+  void import('../background/fetchStream').then((m) =>
+    m.installFetchStreamListener(),
+  );
+}
+
 function installDevReloadListenerLate() {
   // extension reload() method expose to dapp
   if (process.env.NODE_ENV !== 'production') {
@@ -155,6 +166,7 @@ console.log(
 );
 setupServiceWorkerRuntimeLate();
 installDevReloadListenerLate();
+installPrivacyChainNodeRequestLate();
 setupManifestV2RedirectLate();
 
 if (process.env.NODE_ENV !== 'production') {
