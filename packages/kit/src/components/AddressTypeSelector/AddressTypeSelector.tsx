@@ -42,6 +42,7 @@ import {
   canDeriveTypesCollapse,
   useDeriveTypesCollapseState,
 } from '../../hooks/useDeriveTypesCollapseState';
+import { useIsMounted } from '../../hooks/useIsMounted';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { AccountSelectorProviderMirror } from '../AccountSelector/AccountSelectorProvider';
 import { useAccountSelectorCreateAddress } from '../AccountSelector/hooks/useAccountSelectorCreateAddress';
@@ -721,6 +722,14 @@ function AddressTypeSelector(props: IProps) {
   // On narrow web layouts the popover reports a single press twice, which
   // would run a skipped entry (open a page, start a purchase) twice.
   const isSkipPressPendingRef = useRef(false);
+  // A lookup answered after the selector left, or moved to another account,
+  // belongs to a press that no longer applies.
+  const isMountedRef = useIsMounted();
+  const accountKey = `${networkId}__${indexedAccountId}`;
+  const accountKeyRef = useRef(accountKey);
+  useEffect(() => {
+    accountKeyRef.current = accountKey;
+  }, [accountKey]);
 
   const handleOpenChange = async (open: boolean) => {
     if (
@@ -738,6 +747,9 @@ function AddressTypeSelector(props: IProps) {
           .getDeriveTypesCollapseState({ networkId, indexedAccountId })
           // A failed lookup falls through to the list, which is always safe.
           .catch(() => undefined);
+        if (!isMountedRef.current || accountKeyRef.current !== accountKey) {
+          return;
+        }
         if (state?.collapsed) {
           try {
             await onSelect?.(state.defaultNetworkAccount);

@@ -92,15 +92,31 @@ jest.mock('./AddressTypeSelectorTrigger', () => ({
 const DEFAULT_NETWORK_ACCOUNT = { deriveType: 'BIP86', account: { id: 'a1' } };
 
 function renderSkipSelector(onSelect: jest.Mock) {
-  render(
+  const renderFor = (indexedAccountId: string) => (
     <AddressTypeSelector
       walletId="hd-1"
       networkId="btc--0"
-      indexedAccountId="hd-1--0"
+      indexedAccountId={indexedAccountId}
       whenCollapsed="skip"
       onSelect={onSelect}
-    />,
+    />
   );
+  const view = render(renderFor('hd-1--0'));
+  return {
+    ...view,
+    switchAccount: (indexedAccountId: string) =>
+      view.rerender(renderFor(indexedAccountId)),
+  };
+}
+
+function deferCollapseState() {
+  let resolve: (value: unknown) => void = () => {};
+  mockGetDeriveTypesCollapseState.mockReturnValue(
+    new Promise((promiseResolve) => {
+      resolve = promiseResolve;
+    }),
+  );
+  return (value: unknown) => act(async () => resolve(value));
 }
 
 // Narrow web layouts report one press on the trigger twice in a row.
@@ -190,5 +206,36 @@ describe('AddressTypeSelector whenCollapsed="skip"', () => {
     await pressTriggerTwice();
 
     await waitFor(() => expect(onSelect).toHaveBeenCalledTimes(2));
+  });
+
+  it('drops a lookup answered after the account changed', async () => {
+    const answer = deferCollapseState();
+    const onSelect = jest.fn();
+    const { switchAccount } = renderSkipSelector(onSelect);
+
+    await pressTriggerTwice();
+    switchAccount('hd-1--1');
+    await answer({
+      collapsed: true,
+      defaultNetworkAccount: DEFAULT_NETWORK_ACCOUNT,
+    });
+
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(mockPopoverProps?.open).toBe(false);
+  });
+
+  it('drops a lookup answered after the selector unmounted', async () => {
+    const answer = deferCollapseState();
+    const onSelect = jest.fn();
+    const { unmount } = renderSkipSelector(onSelect);
+
+    await pressTriggerTwice();
+    unmount();
+    await answer({
+      collapsed: true,
+      defaultNetworkAccount: DEFAULT_NETWORK_ACCOUNT,
+    });
+
+    expect(onSelect).not.toHaveBeenCalled();
   });
 });
