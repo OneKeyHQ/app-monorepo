@@ -1091,15 +1091,70 @@ export function HomePageView({
   const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
     setTabPageHeight(e.nativeEvent.layout.height - 20);
   }, []);
+  const { result: accountNetworkNotSupported } = usePromiseResult(
+    async () => {
+      if (!network?.id || (!wallet?.id && !account?.id)) return undefined;
+      const checkResult =
+        await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported(
+          {
+            walletId: wallet?.id,
+            accountId: account?.id,
+            accountImpl: account?.impl,
+            activeNetworkId: network.id,
+            featuresInfoCache: device?.featuresInfo,
+          },
+        );
+
+      return !!checkResult?.networkImpl;
+    },
+    [account?.id, account?.impl, wallet?.id, network?.id, device?.featuresInfo],
+    { initResult: undefined },
+  );
+  const hasNativePager =
+    platformEnv.isNative &&
+    !isWalletNotBackedUp &&
+    !accountNetworkNotSupported &&
+    !(
+      softwareAccountDisabled &&
+      accountUtils.isHdWallet({ walletId: wallet?.id ?? '' })
+    ) &&
+    !(
+      supportedDeviceTypes &&
+      device?.deviceType &&
+      !supportedDeviceTypes.includes(device.deviceType)
+    ) &&
+    !(
+      !account &&
+      (network?.isAllNetworks ||
+        !(
+          vaultSettings?.mergeDeriveAssetsEnabled &&
+          networkAccounts?.networkAccounts?.length
+        ))
+    );
   const supportsIos26ScrollEdge = platformEnv.isNativeIOS26Plus === true;
   const [topEdgeCapability, setTopEdgeCapability] = useState({
     ownerKey: '',
     available: false,
   });
+  const carryTopEdgeCapability = Boolean(
+    supportsIos26ScrollEdge &&
+    topEdgeCapability.available &&
+    topEdgeCapability.ownerKey !== homeScrollOwnerKey &&
+    hasNativePager &&
+    ready &&
+    wallet?.id &&
+    account?.id &&
+    !isRequiredValidation,
+  );
+  if (carryTopEdgeCapability) {
+    // Native availability is unchanged by an account switch. Transfer it before
+    // committing the replacement pager so its fixed overlay stays mounted.
+    setTopEdgeCapability({ ownerKey: homeScrollOwnerKey, available: true });
+  }
   const topEdgeActive =
     supportsIos26ScrollEdge &&
-    topEdgeCapability.ownerKey === homeScrollOwnerKey &&
-    topEdgeCapability.available;
+    topEdgeCapability.available &&
+    topEdgeCapability.ownerKey === homeScrollOwnerKey;
 
   const tabs = useMemo(() => {
     if (isWalletNotBackedUp) {
@@ -1374,26 +1429,6 @@ export function HomePageView({
     };
   }, [handleSwitchWalletHomeTab, refreshWalletList]);
 
-  const { result: accountNetworkNotSupported } = usePromiseResult(
-    async () => {
-      if (!network?.id || (!wallet?.id && !account?.id)) return undefined;
-      const checkResult =
-        await backgroundApiProxy.serviceAccount.checkAccountNetworkNotSupported(
-          {
-            walletId: wallet?.id,
-            accountId: account?.id,
-            accountImpl: account?.impl,
-            activeNetworkId: network.id,
-            featuresInfoCache: device?.featuresInfo,
-          },
-        );
-
-      return !!checkResult?.networkImpl;
-    },
-    [account?.id, account?.impl, wallet?.id, network?.id, device?.featuresInfo],
-    { initResult: undefined },
-  );
-
   const homePageContent = useMemo(() => {
     if (accountNetworkNotSupported) {
       return (
@@ -1496,27 +1531,6 @@ export function HomePageView({
     walletListWalletIds,
   });
 
-  const hasNativePager =
-    platformEnv.isNative &&
-    !isWalletNotBackedUp &&
-    !accountNetworkNotSupported &&
-    !(
-      softwareAccountDisabled &&
-      accountUtils.isHdWallet({ walletId: wallet?.id ?? '' })
-    ) &&
-    !(
-      supportedDeviceTypes &&
-      device?.deviceType &&
-      !supportedDeviceTypes.includes(device.deviceType)
-    ) &&
-    !(
-      !account &&
-      (network?.isAllNetworks ||
-        !(
-          vaultSettings?.mergeDeriveAssetsEnabled &&
-          networkAccounts?.networkAccounts?.length
-        ))
-    );
   const showIos26PagerOverlay =
     topEdgeActive && hasNativePager && !showNoWalletContent && ready;
 

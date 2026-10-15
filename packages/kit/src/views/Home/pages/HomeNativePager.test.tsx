@@ -175,6 +175,26 @@ it('keeps the capability available after StrictMode effect reconnection', () => 
   screen.unmount();
 });
 
+it('replays inherited capability through StrictMode and clears it before a native receipt', () => {
+  const onTopScrollEdgeCapability = jest.fn();
+  const screen = render(
+    <React.StrictMode>
+      <HomeNativePager
+        {...headerTestProps}
+        topEdgeActive
+        onTopScrollEdgeCapability={onTopScrollEdgeCapability}
+      />
+    </React.StrictMode>,
+  );
+  expect(onTopScrollEdgeCapability.mock.calls).toEqual([
+    [true],
+    [false],
+    [true],
+  ]);
+  screen.unmount();
+  expect(onTopScrollEdgeCapability).toHaveBeenLastCalledWith(false);
+});
+
 it('ignores a stale native callback after same-owner remount', () => {
   const onTopScrollEdgeCapability = jest.fn();
   const first = render(
@@ -574,6 +594,7 @@ describe('HomePageView complete header authority', () => {
   };
 
   const awareScrollView = host('AwareScrollView');
+  const parentTabPageHeader = host('ParentTabPageHeader');
   const parentPlatform = {
     isNative: true,
     isNativeAndroid: true,
@@ -581,6 +602,9 @@ describe('HomePageView complete header authority', () => {
     isNativeIOS26Plus: false,
   };
   let walletBackedUp = true;
+  let accountId = 'test-account';
+  let validationRequired = false;
+  let softwareAccountDisabled = false;
   let refreshModule: typeof import('../components/PullToRefresh');
 
   beforeAll(() => {
@@ -668,6 +692,7 @@ describe('HomePageView complete header authority', () => {
           default: {
             hasNoUsableWallet: () => false,
             isWalletDeprecatedOrMocked: () => false,
+            isHdWallet: () => true,
           },
           __esModule: true,
         },
@@ -689,8 +714,9 @@ describe('HomePageView complete header authority', () => {
             activeAccount: {
               ready: true,
               wallet: { id: 'test-hd', type: 'hd', backuped: walletBackedUp },
-              account: { id: 'test-account' },
+              account: { id: accountId },
               network: { id: 'test-network' },
+              vaultSettings: { validationRequired, softwareAccountDisabled },
             },
           }),
           useAccountSelectorStorageInitDoneAtom: () => [true],
@@ -726,6 +752,14 @@ describe('HomePageView complete header authority', () => {
           },
         },
         './HomeNativePager': { HomeNativePager },
+        '../../../components/TabPageHeader': {
+          TabPageHeader: parentTabPageHeader,
+        },
+        './WalletContentWithAuth': {
+          __esModule: true,
+          default: ({ children }: { children?: React.ReactNode }) =>
+            validationRequired ? null : children,
+        },
       };
       const boundaries = [
         '@react-navigation/core',
@@ -818,6 +852,9 @@ describe('HomePageView complete header authority', () => {
       isNativeIOS26Plus: false,
     });
     walletBackedUp = true;
+    accountId = 'test-account';
+    validationRequired = false;
+    softwareAccountDisabled = false;
     measurements.length = 0;
     onFullLayout = undefined;
   });
@@ -920,6 +957,159 @@ describe('HomePageView complete header authority', () => {
     expect(screen.UNSAFE_getByType(HomeNativePager).props.topEdgeActive).toBe(
       true,
     );
+  });
+
+  it('keeps the fixed overlay on the first committed frame of an account switch', () => {
+    Object.assign(parentPlatform, {
+      isNative: true,
+      isNativeAndroid: false,
+      isNativeIOS: true,
+      isNativeIOS26Plus: true,
+    });
+    const committedOverlays: boolean[] = [];
+    const screenRef: { current?: ReturnType<typeof render> } = {};
+    const renderScene = () => (
+      <React.Profiler
+        id="home-owner-switch"
+        onRender={() => {
+          const pager = screenRef.current?.UNSAFE_queryByType(HomeNativePager);
+          if (pager) {
+            committedOverlays.push(
+              pager.props.topEdgeActive === true &&
+                Boolean(pager.props.topOverlay),
+            );
+          }
+        }}
+      >
+        <HomePage sceneName={EAccountSelectorSceneName.home} />
+      </React.Profiler>
+    );
+    const screen = render(renderScene());
+    screenRef.current = screen;
+    const oldHandler = mockNativeEvents.onScrollEdgeCapability;
+    act(() => oldHandler?.({ nativeEvent: { available: true } }));
+    expect(
+      screen.UNSAFE_getByType(HomeNativePager).props.topOverlay,
+    ).toBeDefined();
+
+    accountId = 'replacement-account';
+    committedOverlays.length = 0;
+    screen.rerender(renderScene());
+    expect(committedOverlays.length).toBeGreaterThan(0);
+    expect(committedOverlays.every(Boolean)).toBe(true);
+    expect(screen.UNSAFE_getByType(HomeNativePager).props.topEdgeActive).toBe(
+      true,
+    );
+    expect(
+      screen.UNSAFE_getByType(HomeNativePager).props.topOverlay,
+    ).toBeDefined();
+    const newHandler = mockNativeEvents.onScrollEdgeCapability;
+    act(() => {
+      oldHandler?.({ nativeEvent: { available: false } });
+      oldHandler?.({ nativeEvent: { available: true } });
+    });
+    expect(screen.UNSAFE_getByType(HomeNativePager).props.topEdgeActive).toBe(
+      true,
+    );
+    act(() => newHandler?.({ nativeEvent: { available: true } }));
+    expect(screen.UNSAFE_getByType(HomeNativePager).props.topEdgeActive).toBe(
+      true,
+    );
+  });
+
+  it('clears a transferred capability if the replacement unmounts before its native receipt', () => {
+    Object.assign(parentPlatform, {
+      isNative: true,
+      isNativeAndroid: false,
+      isNativeIOS: true,
+      isNativeIOS26Plus: true,
+    });
+    const screen = renderParent();
+    act(() =>
+      mockNativeEvents.onScrollEdgeCapability?.({
+        nativeEvent: { available: true },
+      }),
+    );
+    accountId = 'replacement-account';
+    screen.rerender(
+      React.createElement(HomePage, {
+        sceneName: EAccountSelectorSceneName.home,
+      }),
+    );
+    expect(screen.UNSAFE_getByType(HomeNativePager).props.topEdgeActive).toBe(
+      true,
+    );
+    walletBackedUp = false;
+    screen.rerender(
+      React.createElement(HomePage, {
+        sceneName: EAccountSelectorSceneName.home,
+      }),
+    );
+    walletBackedUp = true;
+    screen.rerender(
+      React.createElement(HomePage, {
+        sceneName: EAccountSelectorSceneName.home,
+      }),
+    );
+    expect(screen.UNSAFE_getByType(HomeNativePager).props.topEdgeActive).toBe(
+      false,
+    );
+  });
+
+  it('keeps the outer header when a switched owner awaits wallet validation', () => {
+    Object.assign(parentPlatform, {
+      isNative: true,
+      isNativeAndroid: false,
+      isNativeIOS: true,
+      isNativeIOS26Plus: true,
+    });
+    const screen = renderParent();
+    act(() =>
+      mockNativeEvents.onScrollEdgeCapability?.({
+        nativeEvent: { available: true },
+      }),
+    );
+    accountId = 'auth-required-account';
+    validationRequired = true;
+    screen.rerender(
+      React.createElement(HomePage, {
+        sceneName: EAccountSelectorSceneName.home,
+      }),
+    );
+    expect(screen.UNSAFE_queryByType(HomeNativePager)).toBeNull();
+    expect(screen.UNSAFE_getAllByType(parentTabPageHeader)).toHaveLength(1);
+  });
+
+  it('does not transfer capability to a switched owner without a native pager', () => {
+    Object.assign(parentPlatform, {
+      isNative: true,
+      isNativeAndroid: false,
+      isNativeIOS: true,
+      isNativeIOS26Plus: true,
+    });
+    const screen = renderParent();
+    act(() =>
+      mockNativeEvents.onScrollEdgeCapability?.({
+        nativeEvent: { available: true },
+      }),
+    );
+    accountId = 'unsupported-account';
+    softwareAccountDisabled = true;
+    screen.rerender(
+      React.createElement(HomePage, {
+        sceneName: EAccountSelectorSceneName.home,
+      }),
+    );
+    expect(screen.UNSAFE_queryByType(HomeNativePager)).toBeNull();
+    softwareAccountDisabled = false;
+    validationRequired = true;
+    screen.rerender(
+      React.createElement(HomePage, {
+        sceneName: EAccountSelectorSceneName.home,
+      }),
+    );
+    expect(screen.UNSAFE_queryByType(HomeNativePager)).toBeNull();
+    expect(screen.UNSAFE_getAllByType(parentTabPageHeader)).toHaveLength(1);
   });
 
   it('keeps a complete fractional measurement when the inner layout arrives later', () => {

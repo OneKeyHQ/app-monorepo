@@ -69,7 +69,11 @@ export function HomeNativePager({
     active: boolean;
     mounted: boolean;
     lastAvailable: boolean | undefined;
-  }>({ active: false, mounted: false, lastAvailable: undefined });
+  }>({
+    active: false,
+    mounted: false,
+    lastAvailable: topEdgeActive ? true : undefined,
+  });
   useLayoutEffect(() => {
     const session = capabilitySessionRef.current;
     session.active = true;
@@ -79,9 +83,7 @@ export function HomeNativePager({
     }
     return () => {
       session.active = false;
-      if (session.lastAvailable === true) {
-        capabilityCallbackRef.current?.(false);
-      }
+      capabilityCallbackRef.current?.(false);
     };
   }, []);
   const selectedIndexRef = useRef(selectedIndex);
