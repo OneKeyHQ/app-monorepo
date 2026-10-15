@@ -64,6 +64,7 @@ import { useSwapAddressInfo } from './useSwapAccount';
 import { shouldUseSwapAddressForTokenFetch } from './useSwapAccount.utils';
 import {
   buildServerAuthoritativeSearchResults,
+  findSwapWalletBalanceToken,
   isSwapSupportAllAccountsRequestCurrent,
   mergeSwapSearchTokenBalance,
   releaseSwapTokenListFetchEffectKey,
@@ -456,10 +457,9 @@ export function useSwapTokenList(
       if (swapSearchTokens) {
         const allNetSearchTokens = filterSupportedAllNetworkTokens(
           swapSearchTokens.map((token) => {
-            const balanceToken = haveBalanceTokenList.find(
-              (walletToken) =>
-                walletToken?.contractAddress === token?.contractAddress &&
-                walletToken?.networkId === token?.networkId,
+            const balanceToken = findSwapWalletBalanceToken(
+              haveBalanceTokenList,
+              token,
             );
             if (balanceToken) {
               return mergeSwapSearchTokenBalance(token, balanceToken);

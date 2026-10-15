@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { isTokenContractAddressKeywords } from '@onekeyhq/shared/src/utils/tokenSelectorCrossNetworkUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 export function isSwapSupportAllAccountsRequestCurrent({
@@ -62,6 +63,17 @@ export function shouldLoadSwapAllNetworkTokenList({
     isTokenFetchAllNetworks &&
     allNetworkTokenListReady &&
     (forceRefresh || !keywords || isTokenContractAddressKeywords(keywords))
+  );
+}
+
+// The search result and the wallet list may spell the same EVM contract in
+// checksum and lowercase forms, so match per network without case.
+export function findSwapWalletBalanceToken(
+  walletTokens: ISwapToken[],
+  searchToken: ISwapToken,
+) {
+  return walletTokens.find((walletToken) =>
+    equalTokenNoCaseSensitive({ token1: walletToken, token2: searchToken }),
   );
 }
 

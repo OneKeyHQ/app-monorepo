@@ -4,6 +4,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
   buildServerAuthoritativeSearchResults,
+  findSwapWalletBalanceToken,
   isSwapSupportAllAccountsRequestCurrent,
   mergeSwapSearchTokenBalance,
   releaseSwapTokenListFetchEffectKey,
@@ -184,5 +185,34 @@ describe('mergeSwapSearchTokenBalance', () => {
       cachedToken,
     );
     expect(merged.fiatValue).toBe('0.98');
+  });
+});
+
+describe('findSwapWalletBalanceToken', () => {
+  const walletToken = {
+    networkId: 'evm--10',
+    contractAddress: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85',
+    symbol: 'USDC',
+    decimals: 6,
+    balanceParsed: '0.975765',
+  } as ISwapToken;
+
+  it('matches checksum and lowercase forms of the same contract', () => {
+    expect(
+      findSwapWalletBalanceToken([walletToken], {
+        ...walletToken,
+        contractAddress: '0x0b2c639c533813f4aa9d7837caf62653d097ff85',
+        balanceParsed: undefined,
+      }),
+    ).toBe(walletToken);
+  });
+
+  it('does not match the same contract on another network', () => {
+    expect(
+      findSwapWalletBalanceToken([walletToken], {
+        ...walletToken,
+        networkId: 'evm--42161',
+      }),
+    ).toBeUndefined();
   });
 });
