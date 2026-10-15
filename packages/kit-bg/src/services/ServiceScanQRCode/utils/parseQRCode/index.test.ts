@@ -1,3 +1,5 @@
+import { parseQRCode } from '.';
+
 import { UR, UREncoder } from '@ngraveio/bc-ur';
 import urWords from '@ngraveio/bc-ur/dist/bytewords';
 
@@ -12,11 +14,8 @@ import {
 
 import { resetAnimationQrcodeScan } from './handlers/animation';
 
-import { parseQRCode } from '.';
-
 jest.mock('./handlers', () => {
-  const actual =
-    jest.requireActual<typeof import('./handlers')>('./handlers');
+  const actual = jest.requireActual<typeof import('./handlers')>('./handlers');
   return {
     ...actual,
     getParseHandler: (name: EQRCodeHandlerNames) =>
