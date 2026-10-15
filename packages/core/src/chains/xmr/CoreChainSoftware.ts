@@ -1,17 +1,15 @@
-import {
-  NotImplemented,
-  OneKeyInternalError,
-  OneKeyLocalError,
-} from '@onekeyhq/shared/src/errors';
-import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
-import { getMoneroApi } from './sdkXmr';
-import { EMoneroNetTypeEnum } from './sdkXmr/moneroUtil/moneroUtilTypes';
+import { deriveXmrAccount } from './sdkXmrRuntime/address';
+import {
+  deriveXmrSpendPrivateKey,
+  signXmrTransaction,
+} from './sdkXmrRuntime/sign';
+import { getXmrReviewRequest, parseXmrTransaction } from './transactionReview';
+import { serializeXmrViewingKeyPair } from './viewingKeys';
 
-import type { IEncodedTxXmr, ISendFundsArgs } from './types';
 import type {
   ICoreApiGetAddressItem,
   ICoreApiGetAddressQueryImported,
@@ -25,142 +23,176 @@ import type {
   ISignedTxPro,
 } from '../../types';
 
-const curve: ICurveName = 'ed25519';
+// Two derivations from one BIP-39 seed, picked by the account's path:
+// - Trezor (and OneKey Pro firmware, default): SLIP-10 ed25519 at m/44'/128'/a'.
+// - Cake Wallet: secp256k1 BIP-32 at m/44'/128'/a'/0/0.
+// Both then take the 32-byte key mod l as the spend key; neither hashes it.
+// ed25519 cannot derive a non-hardened segment, so a path with one is the
+// secp256k1 derivation -- the rule cannot be ambiguous.
+export function getXmrCurveForPath(path: string): ICurveName {
+  return path
+    .split('/')
+    .slice(1)
+    .some((segment) => !segment.endsWith("'"))
+    ? 'secp256k1'
+    : 'ed25519';
+}
 
+/**
+ * Monero key derivation.
+ *
+ * ## From a BIP-39 seed
+ *
+ * Monero natively uses its own 25-word seed; OneKey standardizes on BIP-39.
+ * The account's path picks the BIP-32 curve (see `getXmrCurveForPath`); after
+ * that, `spend = sc_reduce32(bip32_key)` and `view = keccak256(spend)`, which
+ * is what Trezor (default) and Cake Wallet (the second derive type) both do.
+ *
+ * The reduction itself lives in the Rust runtime (`keys::derive_from_bip32_key`)
+ * rather than being reimplemented here. Two implementations of the same
+ * derivation is exactly how two derivations drift apart.
+ *
+ * ## What leaves derivation
+ *
+ * `publicKey` carries `${spendPublicKeyHex}:${viewPrivateKeyHex}` — the
+ * viewing pair, which is what scanning needs and the direct analogue of a
+ * Zcash UFVK. The keyring moves it into the privacy-chain viewing key store
+ * and leaves only the spend public key on the account record. The spend key
+ * is **never** persisted; it is re-derived from the seed at signing time and
+ * discarded.
+ */
 export default class CoreChainSoftware extends CoreChainApiBase {
   override getExportedSecretKey(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    query: ICoreApiGetExportedSecretKey,
+    _query: ICoreApiGetExportedSecretKey,
   ): Promise<string> {
+    // Exporting a Monero spend key would hand over full control of the
+    // account, and there is no Monero-native format the ecosystem imports
+    // from that we could round-trip safely.
     throw new NotImplemented();
   }
 
   override async getPrivateKeys(
     payload: ICoreApiSignBasePayload,
   ): Promise<ICoreApiPrivateKeysMap> {
-    // throw new NotImplemented();;
     return this.baseGetPrivateKeys({
       payload,
-      curve,
+      curve: getXmrCurveForPath(payload.account.path),
     });
   }
 
+  /**
+   * Sign the transaction the user reviewed.
+   *
+   * Input selection, decoy draw, fee and change were all settled in the vault
+   * at review time — the fee cannot be known without doing them, and the
+   * number shown has to be the number paid. What arrives here is the finished
+   * transaction, so signing is pure: no wallet database, no node.
+   *
+   * The spend key never leaves this call. It is reduced from the account's
+   * BIP-32 key by the runtime, using the same `sc_reduce32` that produced the
+   * address, so the two can never disagree.
+   */
   override async signTransaction(
     payload: ICoreApiSignTxPayload,
   ): Promise<ISignedTxPro> {
-    const moneroApi = await getMoneroApi();
-    // throw new NotImplemented();;
     const { unsignedTx } = payload;
+    const encodedTx = parseXmrTransaction(unsignedTx.encodedTx);
+    if (encodedTx.from !== payload.account.address) {
+      throw new OneKeyLocalError(
+        'xmr: transaction sender does not match the signing account',
+      );
+    }
     const signer = await this.baseGetSingleSigner({
       payload,
-      curve,
+      curve: getXmrCurveForPath(payload.account.path),
     });
-    const rawPrivateKey = await signer.getPrvkey();
-
-    if (!rawPrivateKey) {
-      throw new OneKeyInternalError('Unable to get raw private key.');
-    }
-
-    const { publicSpendKey, privateViewKey, privateSpendKey } =
-      await moneroApi.getKeyPairFromRawPrivatekey({
-        rawPrivateKey: bufferUtils.bytesToHex(rawPrivateKey),
-      });
-
-    const encodedTx = unsignedTx.encodedTx as IEncodedTxXmr;
-
-    let destinations = [...encodedTx.destinations];
-
-    if (encodedTx.shouldSweep) {
-      destinations = destinations.map((destination) => ({
-        to_address: destination.to_address,
-        send_amount: '0',
-      }));
-    }
-
-    const sendFundsArgs: ISendFundsArgs = {
-      destinations,
-      from_address_string: encodedTx.address,
-      is_sweeping: encodedTx.shouldSweep,
-      nettype: encodedTx.nettype,
-      priority: encodedTx.priority,
-
-      pub_spendKey_string: publicSpendKey || '',
-      sec_spendKey_string: privateSpendKey,
-      sec_viewKey_string: privateViewKey,
-
-      fromWallet_didFailToBoot: false,
-      fromWallet_didFailToInitialize: false,
-      fromWallet_needsImport: false,
-      hasPickedAContact: false,
-      manuallyEnteredPaymentID: '',
-      manuallyEnteredPaymentID_fieldIsVisible: false,
-      requireAuthentication: false,
-      resolvedAddress: '',
-      resolvedAddress_fieldIsVisible: false,
-      resolvedPaymentID: '',
-      resolvedPaymentID_fieldIsVisible: false,
+    const signed = await signXmrTransaction({
+      signableHex: encodedTx.signableHex,
+      bip32PrivateKeyHex: await signer.getPrvkeyHex(),
+      review: getXmrReviewRequest(
+        encodedTx,
+        payload.networkInfo.isTestnet ? 'testnet' : 'mainnet',
+      ),
+    });
+    return {
+      // Deterministic at signing time, before any node sees the transaction.
+      txid: signed.txid,
+      rawTx: signed.rawHex,
+      encodedTx,
     };
-    const scanUrl = unsignedTx?.payload?.scanUrl;
-    const signedTx = await moneroApi.sendFunds(
-      sendFundsArgs,
-      checkIsDefined(scanUrl),
-    );
-    return { ...signedTx, encodedTx: unsignedTx.encodedTx };
+  }
+
+  /**
+   * The account's private spend key, for computing key images before a send.
+   * Taken the way signing takes it; the caller hands it to the runtime and
+   * keeps nothing.
+   */
+  async getSpendPrivateKeyHex(
+    payload: ICoreApiSignBasePayload,
+  ): Promise<string> {
+    const signer = await this.baseGetSingleSigner({
+      payload,
+      curve: getXmrCurveForPath(payload.account.path),
+    });
+    return deriveXmrSpendPrivateKey(await signer.getPrvkeyHex());
+  }
+
+  /**
+   * The account's viewing pair (`spendPub:viewPriv`), re-derived from the
+   * seed for an account whose stored copy is missing. Same derivation as the
+   * address, so the two can never disagree.
+   */
+  async getViewingKeyPair(payload: ICoreApiSignBasePayload): Promise<string> {
+    const signer = await this.baseGetSingleSigner({
+      payload,
+      curve: getXmrCurveForPath(payload.account.path),
+    });
+    const derived = await deriveXmrAccount({
+      network: payload.networkInfo.isTestnet ? 'testnet' : 'mainnet',
+      bip32PrivateKeyHex: await signer.getPrvkeyHex(),
+    });
+    return serializeXmrViewingKeyPair(derived);
   }
 
   override async signMessage(): Promise<string> {
+    // Monero has no signed-message format the ecosystem agrees on.
     throw new NotImplemented();
   }
 
   override async getAddressFromPrivate(
     query: ICoreApiGetAddressQueryImported,
   ): Promise<ICoreApiGetAddressItem> {
-    const moneroApi = await getMoneroApi();
-
     const { privateKeyRaw, networkInfo } = query;
-    // only support primary address for now
-    const index = 0;
-    const { publicSpendKey, publicViewKey } =
-      await moneroApi.getKeyPairFromRawPrivatekey({
-        rawPrivateKey: privateKeyRaw,
-        index,
-      });
-    if (!publicSpendKey || !publicViewKey) {
-      throw new OneKeyInternalError('Unable to get public spend/view key.');
-    }
+    const derived = await deriveXmrAccount({
+      network: networkInfo.isTestnet ? 'testnet' : 'mainnet',
+      bip32PrivateKeyHex: privateKeyRaw,
+    });
 
-    const address = moneroApi.pubKeysToAddress(
-      networkInfo.isTestnet
-        ? EMoneroNetTypeEnum.TestNet
-        : EMoneroNetTypeEnum.MainNet,
-      index !== 0,
-      bufferUtils.toBuffer(publicSpendKey),
-      bufferUtils.toBuffer(publicViewKey),
-    );
-
-    const pub = `${publicSpendKey},${publicViewKey}`;
     return {
-      publicKey: pub,
-      address: '',
+      // The viewing pair, not the spend key. Scanning needs both halves and
+      // neither one grants spending authority.
+      publicKey: serializeXmrViewingKeyPair(derived),
+      address: derived.primaryAddress,
       addresses: {
-        [networkInfo.networkId]: address,
+        [networkInfo.networkId]: derived.primaryAddress,
       },
       __hwExtraInfo__: undefined,
     };
   }
 
   override async getAddressFromPublic(): Promise<ICoreApiGetAddressItem> {
+    // A Monero address cannot be rebuilt from a public key alone: the view
+    // key is half of it, and that half is private.
     throw new OneKeyLocalError(
-      'Method not implemented, use getAddressFromPrivate instead.',
+      'xmr: an address cannot be derived from a public key; use getAddressFromPrivate',
     );
   }
 
   override async getAddressesFromHd(
     query: ICoreApiGetAddressesQueryHd,
   ): Promise<ICoreApiGetAddressesResult> {
-    // throw new NotImplemented();;
     return this.baseGetAddressesFromHd(query, {
-      curve,
+      curve: getXmrCurveForPath(query.template),
       generateFrom: 'privateKey',
     });
   }
