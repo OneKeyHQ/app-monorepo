@@ -782,6 +782,10 @@ function MobileLayoutComponent({
     ? (scrollContentTabBarOffset ?? 0)
     : tabBarHeight + 40;
 
+  const externalOverlayInset =
+    scrollEdgeEnabled && (externalTopOverlayTag ?? 0) > 0
+      ? (externalTopOverlayHeight ?? 0)
+      : 0;
   const listContainerProps = useMemo(
     () => ({
       emptyContentPaddingTop:
@@ -790,7 +794,10 @@ function MobileLayoutComponent({
       paddingBottom: contentPaddingBottom,
       emptyContentHeight: Math.max(
         0,
-        pagerHeight - stickyHeaderHeight - contentPaddingBottom,
+        pagerHeight -
+          externalOverlayInset -
+          stickyHeaderHeight -
+          contentPaddingBottom,
       ),
       // Android ScrollView only intercepts drags when its content exceeds the
       // viewport. The native pager extends that viewport by the header height.
@@ -798,7 +805,13 @@ function MobileLayoutComponent({
         ? pagerHeight + headerHeight + 1
         : undefined,
     }),
-    [contentPaddingBottom, headerHeight, pagerHeight, stickyHeaderHeight],
+    [
+      contentPaddingBottom,
+      externalOverlayInset,
+      headerHeight,
+      pagerHeight,
+      stickyHeaderHeight,
+    ],
   );
   const dynamicCtx = useMemo<ITabBarDynamicContext>(
     () => ({
