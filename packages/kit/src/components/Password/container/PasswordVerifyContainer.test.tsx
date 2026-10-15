@@ -159,8 +159,8 @@ describe('Windows Hello interrupted challenge handling', () => {
         ...protection(false),
         verifyPeriodBiologyAuthAttempts: attempts,
       });
-      jest
-        .mocked(backgroundApiProxy.servicePassword.verifyPassword)
+      const verifyPassword = jest
+        .spyOn(backgroundApiProxy.servicePassword, 'verifyPassword')
         .mockRejectedValue(
           Object.assign(new Error(''), {
             name: BIOLOGY_AUTH_ABORTED_ERROR,
@@ -178,15 +178,11 @@ describe('Windows Hello interrupted challenge handling', () => {
       expect(countAttempt).not.toHaveBeenCalled();
       expect(setBiologyEnabled).not.toHaveBeenCalled();
       expect(onVerifyRes).not.toHaveBeenCalled();
-      expect(
-        backgroundApiProxy.servicePassword.verifyPassword,
-      ).toHaveBeenCalledTimes(1);
+      expect(verifyPassword).toHaveBeenCalledTimes(1);
       await act(async () => {
         await captured().onBiologyAuth();
       });
-      expect(
-        backgroundApiProxy.servicePassword.verifyPassword,
-      ).toHaveBeenCalledTimes(2);
+      expect(verifyPassword).toHaveBeenCalledTimes(2);
       jest
         .mocked(backgroundApiProxy.servicePassword.verifyPasswordFromInput)
         .mockResolvedValue('verified-password');
