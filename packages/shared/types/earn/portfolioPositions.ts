@@ -179,9 +179,11 @@ export type IEarnPositionExtension = {
    * The deposit row's Redeem (Sell early on a Pendle PT before maturity),
    * off the way the detail page's withdraw action is: when the protocol has
    * withdrawals switched off or nothing is withdrawable. Absent on a
-   * server that predates it, which keeps the button on.
+   * server that predates it, which keeps the button on. `byOrder` marks a
+   * provider that withdraws an order rather than an amount (Stakefish
+   * SOL/ETH, Everstake SOL, Babylon): its Redeem opens the order picker.
    */
-  redeem?: { disabled: boolean };
+  redeem?: { disabled: boolean; byOrder?: true };
   /**
    * The flow that runs `claim`: `investment` is the detail row's claim, the
    * one the wide layout runs on its rows; `airdrop` is the airdrop read's

@@ -37,8 +37,15 @@ import type { IEarnPositionView } from './earnPositionModel';
 export type IEarnPositionCardHandlers = {
   /** opens the position's own Earn detail page (EarnNavigation.pushToEarnProtocolDetails) */
   onManage?: (target: IEarnPositionManageTarget) => void;
-  /** opens the withdrawal of the position's principal, where the detail page's Redeem goes */
-  onRedeem?: (target: IEarnPositionManageTarget) => void;
+  /**
+   * Opens the withdrawal of the position's principal, where the detail
+   * page's Redeem goes; `byOrder` for a provider that picks an order rather
+   * than an amount. May read first, and then returns the read.
+   */
+  onRedeem?: (
+    target: IEarnPositionManageTarget,
+    options: { byOrder: boolean },
+  ) => void | Promise<void>;
 };
 
 /**
@@ -151,7 +158,10 @@ function EarnPositionCardCmp({
               : ETranslations.earn_redeem,
           }),
           disabled: source.earn.redeem?.disabled,
-          onPress: () => onRedeem(source.earn.manage),
+          onPress: () =>
+            onRedeem(source.earn.manage, {
+              byOrder: Boolean(source.earn.redeem?.byOrder),
+            }),
         }
       : undefined;
 

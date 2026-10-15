@@ -1,3 +1,5 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
@@ -34,11 +36,15 @@ import type {
 } from './earnPositionModel';
 import type { IEarnHoldingRowAction } from './myPortfolio.utils';
 
-/** The deposit row's Redeem: the page decides where it goes and when it is off. */
+/**
+ * The deposit row's Redeem: the page decides where it goes and when it is
+ * off. A press that first reads what its page needs returns the read, and
+ * the button waits on it.
+ */
 export type IEarnHoldingRedeem = {
   label: string;
   disabled?: boolean;
-  onPress: () => void;
+  onPress: () => void | Promise<void>;
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -118,6 +124,28 @@ function RowAction({
   symbol: string;
   redeem?: IEarnHoldingRedeem;
 }) {
+  // A Redeem that reads the detail before it opens (the order picker's)
+  // shows the button busy until then, and never past this row's life.
+  const [isOpening, setIsOpening] = useState(false);
+  const mountedRef = useRef(true);
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+    },
+    [],
+  );
+  const handleRedeem = useCallback(() => {
+    const opening = redeem?.onPress();
+    if (!(opening instanceof Promise)) {
+      return;
+    }
+    setIsOpening(true);
+    void opening.finally(() => {
+      if (mountedRef.current) {
+        setIsOpening(false);
+      }
+    });
+  }, [redeem]);
   if (action.kind === 'redeem') {
     if (!redeem) {
       return null;
@@ -130,7 +158,8 @@ function RowAction({
         hitSlop={ROW_ACTION_HIT_SLOP}
         aria-label={`${redeem.label} ${symbol}`}
         disabled={redeem.disabled}
-        onPress={redeem.onPress}
+        loading={isOpening}
+        onPress={handleRedeem}
       >
         {redeem.label}
       </Button>

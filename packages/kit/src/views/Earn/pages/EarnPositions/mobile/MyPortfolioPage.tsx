@@ -11,8 +11,16 @@ import {
   YStack,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useActiveAccount,
+  useSelectedAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  buildEarnProtocolInfo,
+  buildEarnTokenInfo,
+} from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type { IEarnPositionManageTarget } from '@onekeyhq/shared/types/earn/portfolioPositions';
@@ -94,6 +102,7 @@ export function MyPortfolioPage() {
   // account when there is one, so changing the wallet's network alone keeps
   // the filter.
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const { selectedAccount } = useSelectedAccount({ num: 0 });
   const filterAccountKey =
     activeAccount.account?.indexedAccountId ||
     activeAccount.indexedAccount?.id ||
@@ -231,27 +240,102 @@ export function MyPortfolioPage() {
     [navigation],
   );
 
-  // A card's Redeem opens the withdrawal the detail page's Redeem opens:
-  // the manage page's withdraw tab, which hands per-position providers to
-  // their position picker itself. The card's provider refreshes once the
-  // withdrawal is sent.
+  // A card's Redeem opens the withdrawal the detail page's Redeem opens.
+  // Most providers take an amount on the manage page's withdraw tab. A
+  // provider that withdraws an order (Stakefish SOL/ETH, Everstake SOL,
+  // Babylon) picks it on WithdrawOptions, whose pages read the detail, so
+  // the detail is fetched first while the button waits (OK-64782); should
+  // that read fail, the manage page opens and hands off to the picker
+  // itself. The card's provider refreshes once the withdrawal is sent.
   const handleRedeem = useCallback(
-    (target: IEarnPositionManageTarget) => {
-      navigation.pushModal(EModalRoutes.StakingModal, {
-        screen: EModalStakingRoutes.ManagePosition,
-        params: {
-          networkId: target.networkId,
-          symbol: target.symbol,
-          provider: target.provider,
-          vault: target.vault,
-          tab: 'withdraw',
-          onStakeWithdrawSuccess: () => {
-            void refreshAll({ provider: target.provider });
+    async (
+      target: IEarnPositionManageTarget,
+      { byOrder }: { byOrder: boolean },
+    ) => {
+      const onSuccess = () => {
+        void refreshAll({ provider: target.provider });
+      };
+      const openManagePage = () =>
+        navigation.pushModal(EModalRoutes.StakingModal, {
+          screen: EModalStakingRoutes.ManagePosition,
+          params: {
+            networkId: target.networkId,
+            symbol: target.symbol,
+            provider: target.provider,
+            vault: target.vault,
+            tab: 'withdraw',
+            onStakeWithdrawSuccess: onSuccess,
           },
-        },
-      });
+        });
+      if (!byOrder) {
+        openManagePage();
+        return;
+      }
+      // The account the way the detail page resolves it: an imported or
+      // watched wallet's own account, else the indexed account.
+      const accountId = selectedAccount.othersWalletAccountId || '';
+      const indexedAccountId =
+        selectedAccount.indexedAccountId || activeAccount.indexedAccount?.id;
+      try {
+        const [detailInfo, earnAccount] = await Promise.all([
+          backgroundApiProxy.serviceStaking.getProtocolDetailsV2({
+            accountId,
+            indexedAccountId,
+            networkId: target.networkId,
+            symbol: target.symbol,
+            provider: target.provider,
+            vault: target.vault,
+          }),
+          backgroundApiProxy.serviceStaking.getEarnAccount({
+            accountId,
+            networkId: target.networkId,
+            indexedAccountId,
+            btcOnlyTaproot: true,
+          }),
+        ]);
+        const vault = detailInfo.protocol?.vault ?? target.vault;
+        const protocolInfo = earnAccount
+          ? buildEarnProtocolInfo({
+              detailInfo,
+              earnAccount,
+              provider: target.provider,
+              symbol: target.symbol,
+              vault,
+            })
+          : undefined;
+        if (!earnAccount || !protocolInfo) {
+          openManagePage();
+          return;
+        }
+        navigation.pushModal(EModalRoutes.StakingModal, {
+          screen: EModalStakingRoutes.WithdrawOptions,
+          params: {
+            accountId: earnAccount.accountId,
+            networkId: target.networkId,
+            protocolInfo,
+            tokenInfo: buildEarnTokenInfo({
+              detailInfo,
+              networkId: target.networkId,
+              provider: target.provider,
+              vault,
+              accountId: earnAccount.accountId,
+            }),
+            symbol: target.symbol,
+            provider: target.provider,
+            onSuccess,
+          },
+        });
+      } catch {
+        openManagePage();
+      }
     },
-    [navigation, refreshAll],
+    [
+      navigation,
+      refreshAll,
+      selectedAccount.othersWalletAccountId,
+      selectedAccount.indexedAccountId,
+      activeAccount.indexedAccount?.id,
+    ],
   );
 
   // Ledger paging: the next page loads as the Rewards tab nears the bottom
