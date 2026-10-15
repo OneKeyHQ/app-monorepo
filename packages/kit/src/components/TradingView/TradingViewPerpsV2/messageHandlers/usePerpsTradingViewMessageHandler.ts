@@ -102,6 +102,7 @@ export function usePerpsTradingViewMessageHandler({
   symbolRef.current = symbol;
   userAddressRef.current = userAddress;
 
+  const supportsAccountMarksResetRef = useRef(false);
   const marksLedgerRef = useRef(createPerpsChartMarksLedger());
   const marksLedgerInstanceKeyRef = useRef(chartInstanceKey);
 
@@ -189,6 +190,9 @@ export function usePerpsTradingViewMessageHandler({
           marks,
           symbol: marksSymbol,
           operation,
+          ...(supportsAccountMarksResetRef.current
+            ? { accountRevision: accountGenerationRef.current }
+            : {}),
         },
       });
     },
@@ -244,10 +248,10 @@ export function usePerpsTradingViewMessageHandler({
   const refreshWebviewMarksByApiRef = useRef(refreshWebviewMarksByApi);
   refreshWebviewMarksByApiRef.current = refreshWebviewMarksByApi;
 
-  // Handle legacy MARKS_RESPONSE for backward compatibility
+  // Preserve the request account revision while supporting legacy charts.
   const handleGetMarks = useCallback(
     async (request: IGetMarksRequest) => {
-      const { requestId } = request;
+      const { requestId, accountRevision } = request;
       // The chart caches the answer under the symbol it asked for, which can
       // lag behind the app symbol.
       const requestSymbol = request.symbol || symbolRef.current;
@@ -255,6 +259,8 @@ export function usePerpsTradingViewMessageHandler({
       const requestGeneration = accountGenerationRef.current;
       const requestLedger = marksLedgerRef.current;
       const isStaleRequest = () =>
+        (accountRevision !== undefined &&
+          accountRevision !== accountGenerationRef.current) ||
         requestGeneration !== accountGenerationRef.current ||
         normalizeAddress(userAddressRef.current) !== requestUserAddress ||
         symbolRef.current !== requestSymbol;
@@ -267,6 +273,7 @@ export function usePerpsTradingViewMessageHandler({
         const response: IGetMarksResponse = {
           marks,
           requestId,
+          ...(accountRevision !== undefined ? { accountRevision } : {}),
         };
         webRef.current?.sendMessageViaInjectedScript({
           type: MESSAGE_TYPES.MARKS_RESPONSE,
@@ -274,7 +281,11 @@ export function usePerpsTradingViewMessageHandler({
         });
       };
 
-      if (!requestUserAddress) {
+      if (
+        !requestUserAddress ||
+        (accountRevision !== undefined &&
+          accountRevision !== accountGenerationRef.current)
+      ) {
         respond([]);
         return;
       }
@@ -291,7 +302,9 @@ export function usePerpsTradingViewMessageHandler({
           respond([]);
           // The chart caches any answer to a live request id and wipes the
           // drawn marks, so the current symbol has to be redrawn.
-          void refreshWebviewMarksByApiRef.current();
+          if (accountRevision === undefined) {
+            void refreshWebviewMarksByApiRef.current();
+          }
           return;
         }
 
@@ -300,7 +313,7 @@ export function usePerpsTradingViewMessageHandler({
         console.error('Error fetching marks:', error);
         if (requestLedger !== marksLedgerRef.current) return;
         respond([]);
-        if (isStaleRequest()) {
+        if (isStaleRequest() && accountRevision === undefined) {
           void refreshWebviewMarksByApiRef.current();
         }
       }
@@ -368,6 +381,13 @@ export function usePerpsTradingViewMessageHandler({
             marksLedgerRef.current,
             chartReadyPayload?.symbol,
           );
+          supportsAccountMarksResetRef.current =
+            chartReadyPayload?.capabilities?.perpsAccountMarksReset === true;
+          if (supportsAccountMarksResetRef.current) {
+            // Re-establish the revision after a reload, even if the key is unchanged.
+            sendMarksUpdate([], EMarksUpdateOperationEnum.CLEAR);
+            void refreshWebviewMarksByApiRef.current();
+          }
           onChartReady?.(chartReadyPayload);
           break;
         }
@@ -420,6 +440,7 @@ export function usePerpsTradingViewMessageHandler({
     [
       handleGetMarks,
       handleGetHyperliquidPriceScale,
+      sendMarksUpdate,
       onChartReady,
       onChartLinesReady,
       onOrderCancel,
@@ -438,6 +459,7 @@ export function usePerpsTradingViewMessageHandler({
     if (marksLedgerInstanceKeyRef.current !== chartInstanceKey) {
       marksLedgerInstanceKeyRef.current = chartInstanceKey;
       marksLedgerRef.current = createPerpsChartMarksLedger();
+      supportsAccountMarksResetRef.current = false;
       previousSymbolRef.current = symbol;
     }
   }, [chartInstanceKey, symbol]);
@@ -463,10 +485,19 @@ export function usePerpsTradingViewMessageHandler({
     const currentSymbol = symbolRef.current;
     const action = getPerpsChartAccountSwitchAction({
       hasAccountLines: hasAccountLinesRef?.current,
+      supportsAccountMarksReset: supportsAccountMarksResetRef.current,
       markedSymbols: ledger.markedSymbols,
       chartSymbol: ledger.chartSymbol,
       symbol: currentSymbol,
     });
+    if (
+      action === EPerpsChartAccountSwitchAction.ResetAccountMarks &&
+      webRef.current
+    ) {
+      sendMarksUpdate([], EMarksUpdateOperationEnum.CLEAR);
+      ledger.markedSymbols.clear();
+      return;
+    }
     if (action === EPerpsChartAccountSwitchAction.KeepChart) {
       return;
     }
