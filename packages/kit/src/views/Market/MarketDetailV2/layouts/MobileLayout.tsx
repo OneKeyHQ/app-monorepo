@@ -890,7 +890,6 @@ export function MobileLayout({
               disabled={isChartFullscreen || isTradingViewScrollLocked}
               panActiveOffsetY={isTradingViewNative ? [-12, 12] : [-4, 4]}
               panFailOffsetX={chartAreaPanFailOffsetX}
-              verticalPanMinVelocity={isTradingViewNative ? 400 : undefined}
               excludeRightEdgeRatio={chartAreaExcludeRightEdgeRatio}
               excludeBottomEdgeHeight={
                 isTradingViewNative

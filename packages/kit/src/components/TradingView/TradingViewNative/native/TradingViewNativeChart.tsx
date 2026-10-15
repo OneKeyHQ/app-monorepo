@@ -915,7 +915,6 @@ export const TradingViewNativeChart = memo(
     ]);
 
     const {
-      handlePriceRangePan,
       handleAutoScalePress: handlePriceScaleAutoPress,
       handleLogScalePress: handlePriceScaleLogPress,
       handlePointerLeave: handleChartPointerLeave,
@@ -945,7 +944,6 @@ export const TradingViewNativeChart = memo(
 
     const chartGestures = useTradingViewNativeChartGestures({
       prioritizePageScroll,
-      onPriceRangePan: handlePriceRangePan,
       chartRuntime,
       decayOffset,
       isClickInteractionEnabled: chartSettings.options.clickInteraction,

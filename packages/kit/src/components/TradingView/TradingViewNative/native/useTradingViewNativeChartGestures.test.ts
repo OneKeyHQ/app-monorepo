@@ -7,12 +7,10 @@ import type { PropsWithChildren } from 'react';
 
 import { renderHook } from '@testing-library/react';
 import { Gesture } from 'react-native-gesture-handler';
+import { withDecay } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import {
-  HeaderScrollGestureChildPanContext,
-  HeaderScrollGestureContext,
-} from '@onekeyhq/components/src/composite/Tabs/HeaderScrollGestureContext';
+import { HeaderScrollGestureContext } from '@onekeyhq/components/src/composite/Tabs/HeaderScrollGestureContext';
 
 import {
   TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
@@ -20,7 +18,10 @@ import {
 } from '../chartConstants';
 import { getTradingViewNativeChartWidth } from '../utils/chartLayout';
 import { reduceTradingViewNativeChartRuntime } from '../utils/chartRuntime';
-import { getTradingViewNativePanStartOffsetAfterViewportPreservation } from '../utils/chartViewport';
+import {
+  getTradingViewNativeCandleX,
+  getTradingViewNativePanStartOffsetAfterViewportPreservation,
+} from '../utils/chartViewport';
 import {
   getTradingViewNativeSubIndicatorLegendHitRegions,
   getTradingViewNativeSubIndicatorLegendIndicatorAtPoint,
@@ -30,7 +31,6 @@ import { useTradingViewNativeChartGestures } from './useTradingViewNativeChartGe
 
 import type { ITradingViewNativePriceRange } from '../utils/chartViewport';
 import type { GestureType } from 'react-native-gesture-handler';
-import type { SharedValue } from 'react-native-reanimated';
 
 type IMockGestureHandler = (...args: unknown[]) => void;
 
@@ -38,6 +38,8 @@ interface IMockGestureBuilder {
   [key: string]: unknown;
   handlers: Record<string, IMockGestureHandler>;
   maxDistance: jest.Mock;
+  activeOffsetX: jest.Mock;
+  failOffsetY: jest.Mock;
   requireExternalGestureToFail: jest.Mock;
 }
 
@@ -57,9 +59,6 @@ jest.mock(
     HeaderScrollGestureContext: jest
       .requireActual<typeof import('react')>('react')
       .createContext<GestureType[]>([]),
-    HeaderScrollGestureChildPanContext: jest
-      .requireActual<typeof import('react')>('react')
-      .createContext<SharedValue<boolean> | undefined>(undefined),
   }),
 );
 
@@ -241,27 +240,17 @@ function renderChartGestures({
   } as unknown as Parameters<typeof useTradingViewNativeChartGestures>[0];
 
   const initialPanGestureCount = mockPanGestures.length;
-  const canChildHandlePan = { value: false } as SharedValue<boolean>;
-  const { unmount } = renderHook(
-    () => useTradingViewNativeChartGestures(props),
-    {
-      wrapper: ({ children }: PropsWithChildren) =>
-        createElement(
-          HeaderScrollGestureContext.Provider,
-          { value: headerScrollGestures },
-          createElement(
-            HeaderScrollGestureChildPanContext.Provider,
-            { value: canChildHandlePan },
-            children,
-          ),
-        ),
-    },
-  );
+  renderHook(() => useTradingViewNativeChartGestures(props), {
+    wrapper: ({ children }: PropsWithChildren) =>
+      createElement(
+        HeaderScrollGestureContext.Provider,
+        { value: headerScrollGestures },
+        children,
+      ),
+  });
   return {
     chartRuntime,
     decayOffset,
-    canChildHandlePan,
-    unmount,
     contentPanGesture: mockPanGestures[initialPanGestureCount + 1],
   };
 }
@@ -425,62 +414,11 @@ describe('useTradingViewNativeChartGestures', () => {
   });
 });
 
-describe('free chart panning', () => {
+describe('horizontal chart panning', () => {
   beforeEach(() => {
     mockPanGestures.length = 0;
     mockTapGestures.length = 0;
   });
-
-  it.each([
-    { x: 100, y: 120, canPan: true },
-    { x: 100, y: 280, canPan: false },
-    { x: 310, y: 120, canPan: false },
-  ])(
-    'reports whether a touch at ($x, $y) can pan the chart',
-    ({ x, y, canPan }) => {
-      const { canChildHandlePan, contentPanGesture } = renderChartGestures({
-        headerScrollGestures: [Gesture.Pan()],
-        prioritizePageScroll: true,
-      });
-      contentPanGesture.handlers.onTouchesDown?.(
-        { changedTouches: [{ x, y }] },
-        { fail: jest.fn() },
-      );
-      expect(canChildHandlePan.value).toBe(canPan);
-      contentPanGesture.handlers.onFinalize?.();
-      expect(canChildHandlePan.value).toBe(false);
-    },
-  );
-
-  it('leaves page scrolling available while the chart has no data', () => {
-    const { chartRuntime, canChildHandlePan, contentPanGesture } =
-      renderChartGestures({
-        headerScrollGestures: [Gesture.Pan()],
-        prioritizePageScroll: true,
-      });
-    chartRuntime.value.points = [];
-    contentPanGesture.handlers.onTouchesDown?.(
-      { changedTouches: [{ x: 100, y: 120 }] },
-      { fail: jest.fn() },
-    );
-    expect(canChildHandlePan.value).toBe(false);
-  });
-
-  it('clears touch eligibility when the chart is unmounted', () => {
-    const { canChildHandlePan, contentPanGesture, unmount } =
-      renderChartGestures({
-        headerScrollGestures: [Gesture.Pan()],
-        prioritizePageScroll: true,
-      });
-    contentPanGesture.handlers.onTouchesDown?.(
-      { changedTouches: [{ x: 100, y: 120 }] },
-      { fail: jest.fn() },
-    );
-    expect(canChildHandlePan.value).toBe(true);
-    unmount();
-    expect(canChildHandlePan.value).toBe(false);
-  });
-
   it('keeps other embedded charts independent of parent scroll thresholds', () => {
     const headerScrollGesture = Gesture.Pan();
     const { contentPanGesture } = renderChartGestures({
@@ -492,7 +430,7 @@ describe('free chart panning', () => {
     ).not.toHaveBeenCalled();
   });
 
-  it('waits for page gesture selection without jumping on activation', () => {
+  it('waits for page direction selection without jumping on activation', () => {
     const headerScrollGesture = Gesture.Pan();
     const { chartRuntime, contentPanGesture } = renderChartGestures({
       headerScrollGestures: [headerScrollGesture],
@@ -503,10 +441,7 @@ describe('free chart panning', () => {
       headerScrollGesture,
     );
     const startOffset = chartRuntime.value.viewport.offset;
-    contentPanGesture.handlers.onStart?.({
-      translationX: -12,
-      translationY: 0,
-    });
+    contentPanGesture.handlers.onStart?.({ translationX: -12 });
     contentPanGesture.handlers.onUpdate?.({
       translationX: -12,
       translationY: 0,
@@ -521,45 +456,6 @@ describe('free chart panning', () => {
       startOffset - 20 * TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
     );
   });
-
-  it.each([-18, 18])(
-    'starts slow vertical chart panning without a jump (activation at %i px)',
-    (activationTranslationY) => {
-      const { chartRuntime, contentPanGesture } = renderChartGestures({
-        headerScrollGestures: [Gesture.Pan()],
-        prioritizePageScroll: true,
-      });
-      contentPanGesture.handlers.onStart?.({
-        translationX: 0,
-        translationY: activationTranslationY,
-      });
-      contentPanGesture.handlers.onUpdate?.({
-        translationX: 0,
-        translationY: activationTranslationY,
-      });
-      expect(chartRuntime.value.pinnedPriceRange).toBeNull();
-
-      const direction = Math.sign(activationTranslationY);
-      contentPanGesture.handlers.onUpdate?.({
-        translationX: 0,
-        translationY: activationTranslationY + direction * 30,
-      });
-
-      const uninterrupted = renderChartGestures();
-      uninterrupted.contentPanGesture.handlers.onStart?.({
-        translationX: 0,
-        translationY: 0,
-      });
-      uninterrupted.contentPanGesture.handlers.onUpdate?.({
-        translationX: 0,
-        translationY: direction * 30,
-      });
-      expect(chartRuntime.value.pinnedPriceRange).not.toBeNull();
-      expect(chartRuntime.value.pinnedPriceRange).toEqual(
-        uninterrupted.chartRuntime.value.pinnedPriceRange,
-      );
-    },
-  );
 
   it('does not wait for a page when no enclosing scroll gesture exists', () => {
     const { contentPanGesture } = renderChartGestures({
@@ -582,7 +478,6 @@ describe('free chart panning', () => {
       const translationX = activationTranslationX + direction * 40;
       contentPanGesture.handlers.onStart?.({
         translationX: activationTranslationX,
-        translationY: 0,
       });
       contentPanGesture.handlers.onUpdate?.({ translationX, translationY: 0 });
 
@@ -622,62 +517,116 @@ describe('free chart panning', () => {
     },
   );
 
-  it('moves both axes and restores the vertical origin when a drag returns', () => {
-    const { chartRuntime } = renderChartGestures();
-    const pan = mockPanGestures[1];
-    pan.handlers.onStart?.();
-    pan.handlers.onUpdate?.({ translationX: -600, translationY: 50 });
-    expect(chartRuntime.value.viewport.offset).toBeLessThan(0);
-    expect(chartRuntime.value.pinnedPriceRange!.minPrice).toBeGreaterThan(80);
-    expect(
-      chartRuntime.value.pinnedPriceRange!.maxPrice -
-        chartRuntime.value.pinnedPriceRange!.minPrice,
-    ).toBeCloseTo(40);
-    pan.handlers.onUpdate?.({ translationX: -600, translationY: 0 });
-    expect(chartRuntime.value.pinnedPriceRange).toEqual({
-      minPrice: 80,
-      maxPrice: 120,
-    });
-    pan.handlers.onEnd?.({ velocityX: 0 });
-    expect(chartRuntime.value.viewport.offset).toBeLessThan(0);
-  });
-  it('anchors vertical panning to the range visible after a horizontal drag', () => {
-    const { chartRuntime } = renderChartGestures();
-    chartRuntime.value.points = chartRuntime.value.points.map(
-      (point, index) => ({
-        ...point,
-        l: index < 50 ? 10 : 100,
-        h: index < 50 ? 20 : 120,
-      }),
-    );
-    const pan = mockPanGestures[1];
-    pan.handlers.onStart?.();
-    pan.handlers.onUpdate?.({ translationX: 400, translationY: 2 });
-    expect(chartRuntime.value.pinnedPriceRange).toBeNull();
-    pan.handlers.onUpdate?.({ translationX: 400, translationY: 5 });
-    const range = chartRuntime.value.pinnedPriceRange!;
-    expect(range.minPrice).toBeGreaterThan(10);
-    expect(range.maxPrice).toBeLessThan(21);
-    expect(range.maxPrice - range.minPrice).toBeCloseTo(10);
-    pan.handlers.onUpdate?.({ translationX: 400, translationY: 2 });
-    expect(chartRuntime.value.pinnedPriceRange).toEqual({
-      minPrice: 10,
-      maxPrice: 20,
-    });
+  it('yields vertical drags before activating horizontal panning', () => {
+    const { contentPanGesture } = renderChartGestures();
+
+    expect(contentPanGesture.activeOffsetX).toHaveBeenCalledWith([-4, 4]);
+    expect(contentPanGesture.failOffsetY).toHaveBeenCalledWith([-12, 12]);
   });
 
-  it('gives a flat series a movable price range', () => {
-    const { chartRuntime } = renderChartGestures();
-    chartRuntime.value.points = chartRuntime.value.points.map((point) => ({
-      ...point,
-      l: 100,
-      h: 100,
-    }));
-    const pan = mockPanGestures[1];
-    pan.handlers.onStart?.();
-    pan.handlers.onUpdate?.({ translationX: 0, translationY: 50 });
-    expect(chartRuntime.value.pinnedPriceRange!.maxPrice).toBeGreaterThan(
-      chartRuntime.value.pinnedPriceRange!.minPrice,
-    );
-  });
+  it.each([-1, 1])(
+    'stops a horizontal drag before the final candle leaves the chart (direction %i)',
+    (direction) => {
+      const { chartRuntime, contentPanGesture } = renderChartGestures();
+      contentPanGesture.handlers.onStart?.();
+      contentPanGesture.handlers.onUpdate?.({
+        translationX: direction * 100_000,
+        translationY: 0,
+      });
+      const runtime = chartRuntime.value;
+      const chartWidth = getTradingViewNativeChartWidth(runtime.size.width, 44);
+      const center = getTradingViewNativeCandleX({
+        ...runtime.viewport,
+        index: direction < 0 ? runtime.points.length - 1 : 0,
+        pointCount: runtime.points.length,
+        priceAxisX: chartWidth,
+      });
+      expect(center).toBeGreaterThan(0);
+      expect(center).toBeLessThan(chartWidth);
+      const boundaryOffset = runtime.viewport.offset;
+      contentPanGesture.handlers.onUpdate?.({
+        translationX: direction * 200_000,
+        translationY: 0,
+      });
+      expect(chartRuntime.value.viewport.offset).toBe(boundaryOffset);
+      contentPanGesture.handlers.onFinalize?.();
+      contentPanGesture.handlers.onStart?.();
+      contentPanGesture.handlers.onUpdate?.({
+        translationX: -direction * 20,
+        translationY: 0,
+      });
+      expect(chartRuntime.value.viewport.offset).toBeCloseTo(
+        boundaryOffset - direction * 20 * TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
+      );
+    },
+  );
+
+  it.each([-1000, 1000])(
+    'bounds horizontal inertia to the same visible-candle limits (velocity %i)',
+    (velocityX) => {
+      const { contentPanGesture } = renderChartGestures();
+      contentPanGesture.handlers.onStart?.();
+      contentPanGesture.handlers.onUpdate?.({
+        translationX: -50,
+        translationY: 0,
+      });
+      contentPanGesture.handlers.onEnd?.({ velocityX });
+      expect(withDecay).toHaveBeenLastCalledWith({
+        clamp: [-270, 595],
+        deceleration: 0.9982,
+        velocity: velocityX * TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
+      });
+    },
+  );
+
+  it.each([-80, 80])(
+    'does not move or pin the price range for vertical movement (%i px)',
+    (translationY) => {
+      const { chartRuntime, contentPanGesture } = renderChartGestures();
+      const startOffset = chartRuntime.value.viewport.offset;
+      contentPanGesture.handlers.onStart?.();
+      contentPanGesture.handlers.onUpdate?.({ translationX: 0, translationY });
+
+      expect(chartRuntime.value.pinnedPriceRange).toBeNull();
+      expect(chartRuntime.value.viewport.offset).toBe(startOffset);
+    },
+  );
+
+  it.each([-60, 60])(
+    'keeps automatic price scaling during horizontal drags with vertical drift (%i px)',
+    (translationY) => {
+      const { chartRuntime, contentPanGesture } = renderChartGestures();
+      contentPanGesture.handlers.onStart?.();
+      contentPanGesture.handlers.onUpdate?.({
+        translationX: -100,
+        translationY,
+      });
+
+      expect(chartRuntime.value.viewport.offset).toBeCloseTo(
+        -100 * TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
+      );
+      expect(chartRuntime.value.pinnedPriceRange).toBeNull();
+    },
+  );
+
+  it.each([-60, 60])(
+    'preserves the range set by price-axis scaling during a drag (%i px vertical drift)',
+    (translationY) => {
+      const { chartRuntime, contentPanGesture } = renderChartGestures();
+      const priceRange = { minPrice: 75, maxPrice: 125 };
+      chartRuntime.value.pinnedPriceRange = priceRange;
+      chartRuntime.value.priceRangeScale = 1.5;
+      contentPanGesture.handlers.onStart?.();
+      contentPanGesture.handlers.onUpdate?.({
+        translationX: -100,
+        translationY,
+      });
+
+      expect(chartRuntime.value.viewport.offset).toBeCloseTo(
+        -100 * TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
+      );
+      expect(chartRuntime.value.pinnedPriceRange).toBe(priceRange);
+      expect(chartRuntime.value.priceRangeScale).toBe(1.5);
+    },
+  );
 });
