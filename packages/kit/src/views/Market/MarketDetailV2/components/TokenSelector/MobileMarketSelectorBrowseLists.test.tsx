@@ -380,4 +380,40 @@ describe('mobile selector review regressions', () => {
     );
     expect(mockLoadMore).toHaveBeenCalledTimes(1);
   });
+
+  it.each([
+    { isLoadingMore: false, isLoadMoreError: false, calls: 1 },
+    { isLoadingMore: true, isLoadMoreError: false, calls: 0 },
+    { isLoadingMore: false, isLoadMoreError: true, calls: 0 },
+  ])(
+    'queues cached stock pagination during revalidation: %j',
+    ({ isLoadingMore, isLoadMoreError, calls }) => {
+      const result: ReturnType<typeof useMarketStockSelectorList> = {
+        items: Array.from({ length: 20 }, (_, index) => ({
+          stockId: `stock-${index}`,
+          symbol: `STOCK${index}`,
+          name: `Stock ${index}`,
+          logoUrl: '',
+          assetType: 'stock',
+          currency: 'USD',
+        })),
+        total: 21,
+        isLoading: false,
+        isError: false,
+        isLoadingMore,
+        isLoadMoreError,
+        canLoadMore: false,
+        isRevalidatingFirstPage: true,
+        loadMore: mockLoadMore,
+        refresh: jest.fn(),
+      };
+      render(
+        <MobileSelectorStockTable result={result} onItemPress={jest.fn()} />,
+      );
+
+      fireEvent.click(screen.getByText('Reach end'));
+
+      expect(mockLoadMore).toHaveBeenCalledTimes(calls);
+    },
+  );
 });

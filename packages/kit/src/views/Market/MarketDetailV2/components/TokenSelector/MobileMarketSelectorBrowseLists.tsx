@@ -753,6 +753,7 @@ export function MobileSelectorStockTable({
     isLoadingMore,
     isLoadMoreError,
     canLoadMore,
+    isRevalidatingFirstPage,
     loadMore,
     refresh,
   } = result;
@@ -763,10 +764,20 @@ export function MobileSelectorStockTable({
     [onItemPress],
   );
   const handleEndReached = useCallback(() => {
-    if (canLoadMore && !isLoadingMore && !isLoadMoreError) {
+    if (
+      (canLoadMore || isRevalidatingFirstPage) &&
+      !isLoadingMore &&
+      !isLoadMoreError
+    ) {
       void loadMore();
     }
-  }, [canLoadMore, isLoadingMore, isLoadMoreError, loadMore]);
+  }, [
+    canLoadMore,
+    isLoadingMore,
+    isLoadMoreError,
+    isRevalidatingFirstPage,
+    loadMore,
+  ]);
 
   if (isLoading && items.length === 0) {
     return <CenteredSpinner />;

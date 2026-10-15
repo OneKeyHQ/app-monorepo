@@ -77,6 +77,7 @@ import type {
 } from '@onekeyhq/shared/src/routes/universalSearch';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { isMarketSearchStockListing } from '@onekeyhq/shared/src/utils/marketSearchStock';
+import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 import type {
@@ -95,6 +96,7 @@ import { ListItem } from '../../../components/ListItem';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { useMarketWatchListV2Atom } from '../../../states/jotai/contexts/marketV2';
 import { useHomeTokenListSnapshot } from '../../../states/jotai/contexts/tokenList/cells';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { MarketWatchListProviderMirror } from '../../Market/MarketWatchListProviderMirror';
@@ -119,9 +121,12 @@ import { useUniversalSearchMarketPress } from '../hooks/useUniversalSearchMarket
 import { UniversalSearchTestIDs } from '../testIDs';
 import { isSearchResponseCurrent } from '../universalSearchRun';
 import {
+  WATCHLIST_TAB_INDEX,
   getUniversalSearchTabIndex,
+  isUniversalSearchItemInWatchlist,
   prioritizeMarketFocusedSections,
   resolveUniversalSearchInitialTabName,
+  resolveUniversalSearchWatchlistKeys,
   shouldPrioritizeMarketSearchSections,
 } from '../universalSearchTabs';
 
@@ -273,6 +278,7 @@ export function UniversalSearch({
     initialTab,
   });
 
+  const [{ data: watchlistItems }] = useMarketWatchListV2Atom();
   const searchSettings = useSettingsSearch();
 
   // The set of result categories this search instance is allowed to surface.
@@ -294,6 +300,13 @@ export function UniversalSearch({
     !isTravelMode &&
     allowedSearchTypeSet.has(EUniversalSearchType.V2MarketToken);
 
+  const shouldIncludeWatchlist = PRIMARY_SEARCH_TYPES.some((type) =>
+    allowedSearchTypeSet.has(type),
+  );
+  const watchlistTabTitle = intl.formatMessage({
+    id: ETranslations.global_watchlist,
+  });
+
   const tabTitles = useMemo(() => {
     return [
       intl.formatMessage({
@@ -309,6 +322,7 @@ export function UniversalSearch({
       intl.formatMessage({
         id: ETranslations.global_universal_search_tabs_tokens,
       }),
+      watchlistTabTitle,
       intl.formatMessage({
         id: ETranslations.global_perp,
       }),
@@ -326,7 +340,7 @@ export function UniversalSearch({
           id: ETranslations.global_settings,
         }),
     ].filter(Boolean);
-  }, [intl]);
+  }, [intl, watchlistTabTitle]);
 
   const initialTabName = useMemo(
     () =>
@@ -405,9 +419,13 @@ export function UniversalSearch({
         .map((section) => section.title),
     );
     return tabTitles.filter(
-      (title, index) => index === 0 || sectionTitles.has(title),
+      (title, index) =>
+        index === 0 ||
+        (title === watchlistTabTitle
+          ? shouldIncludeWatchlist
+          : sectionTitles.has(title)),
     );
-  }, [displaySections, tabTitles]);
+  }, [displaySections, shouldIncludeWatchlist, tabTitles, watchlistTabTitle]);
 
   // Results wait for the stock search too, so a stock section landing later
   // does not push the other results down; but a slow stock search holds them
@@ -969,6 +987,29 @@ export function UniversalSearch({
     [handleTextChange],
   );
 
+  const isInWatchlistTab = activeTab === watchlistTabTitle;
+  const { result: resolvedWatchlist } = usePromiseResult(async () => {
+    if (!isInWatchlistTab) return undefined;
+    return {
+      items: watchlistItems,
+      keys: await resolveUniversalSearchWatchlistKeys({
+        items: watchlistItems,
+        fetchAssetDetail: (assetId) =>
+          backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
+            assetId,
+            autoHandleError: false,
+          }),
+      }),
+    };
+  }, [isInWatchlistTab, watchlistItems]);
+  const watchlistKeys = useMemo(
+    () =>
+      resolvedWatchlist?.items === watchlistItems
+        ? resolvedWatchlist.keys
+        : new Set(watchlistItems.map((item) => getMarketWatchlistKey(item))),
+    [resolvedWatchlist, watchlistItems],
+  );
+
   const filterSections = useMemo(() => {
     if (isInAllTab) {
       const sectionsWithSliceData = displaySections.map((i) => ({
@@ -987,8 +1028,36 @@ export function UniversalSearch({
 
       return sectionsWithSliceData;
     }
+    if (isInWatchlistTab) {
+      const data = displaySections.flatMap((section) =>
+        section.data.filter((item) =>
+          isUniversalSearchItemInWatchlist(item, watchlistKeys),
+        ),
+      );
+      if (data.length === 0) {
+        return [];
+      }
+      return [
+        {
+          tabIndex: WATCHLIST_TAB_INDEX,
+          title: watchlistTabTitle,
+          type: EUniversalSearchType.V2MarketToken,
+          data,
+          sliceData: data,
+          showMore: false,
+        },
+      ];
+    }
     return displaySections.filter((i) => i.title === activeTab);
-  }, [activeTab, displaySections, isFocusInMarketTab, isInAllTab]);
+  }, [
+    activeTab,
+    displaySections,
+    isFocusInMarketTab,
+    isInAllTab,
+    isInWatchlistTab,
+    watchlistKeys,
+    watchlistTabTitle,
+  ]);
 
   // Searches that cover stocks or tokens follow the Market detail selector on
   // both desktop and mobile: its skeleton under a tab bar that already shows
@@ -1368,7 +1437,10 @@ export function UniversalSearch({
       <Empty
         illustration="QuestionMark"
         title={intl.formatMessage({
-          id: ETranslations.global_no_results,
+          id:
+            isInWatchlistTab && watchlistItems.length === 0
+              ? ETranslations.market_empty_watchlist_title
+              : ETranslations.global_no_results,
         })}
         description={intl.formatMessage({
           id: ETranslations.global_search_no_results_desc,
@@ -1519,6 +1591,8 @@ export function UniversalSearch({
     }
   }, [
     resultStatus,
+    isInWatchlistTab,
+    watchlistItems.length,
     isTravelMode,
     renderSectionHeader,
     renderRecommendSectionHeader,
