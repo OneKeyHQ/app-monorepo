@@ -76,22 +76,20 @@ function appendTradingLineLabelCommands({
   commands,
   customPaintStyles,
   hitRegions,
-  lineY,
+  labelTop,
   maxX,
   measureTextWidth,
-  priceChartHeight,
 }: {
   component: ITradingViewNativeReferenceLineComponent;
   commands: ITradingViewNativeChartSceneCommand[];
   customPaintStyles: Record<string, ITradingViewNativeChartScenePaintStyle>;
   hitRegions: ITradingViewNativeReferenceLineHitRegion[];
-  lineY: number;
+  labelTop: number;
   maxX: number;
   measureTextWidth: (
     text: string,
     font: ITradingViewNativeChartSceneFont,
   ) => number;
-  priceChartHeight: number;
 }) {
   'worklet';
 
@@ -168,13 +166,7 @@ function appendTradingLineLabelCommands({
     availableWidth - titleWidth - cancelWidth >= preferredQuantityWidth
       ? preferredQuantityWidth
       : 0;
-  const top = Math.max(
-    CHART_TOP_PADDING,
-    Math.min(
-      lineY - TRADING_LINE_LABEL_HEIGHT / 2,
-      CHART_TOP_PADDING + priceChartHeight - TRADING_LINE_LABEL_HEIGHT,
-    ),
-  );
+  const top = labelTop;
   const labelRect = {
     x: left,
     y: top,
@@ -419,6 +411,22 @@ export function appendTradingViewNativeChartComponentCommands({
     });
     return priceLayout ? [{ component, priceLayout }] : [];
   });
+  const tradingLabelTops = getTradingViewNativePriceLabelPositions({
+    labels: referenceLines.flatMap(({ component, priceLayout }) =>
+      component.props.label
+        ? [
+            {
+              id: component.id,
+              price: component.props.anchor.price,
+              top: priceLayout.lineY - TRADING_LINE_LABEL_HEIGHT / 2,
+            },
+          ]
+        : [],
+    ),
+    labelHeight: TRADING_LINE_LABEL_HEIGHT,
+    minTop: CHART_TOP_PADDING,
+    maxBottom: CHART_TOP_PADDING + priceChartHeight,
+  });
   const drawingLabelCapacity = Math.max(
     0,
     Math.floor(priceChartHeight / PRICE_LABEL_HEIGHT) -
@@ -573,10 +581,9 @@ export function appendTradingViewNativeChartComponentCommands({
         commands: textLabelCommands,
         customPaintStyles,
         hitRegions,
-        lineY: priceLayout.lineY,
+        labelTop: tradingLabelTops[component.id] ?? priceLayout.labelTop,
         maxX: priceLabelLeft - REFERENCE_LINE_LABEL_SEPARATOR_WIDTH,
         measureTextWidth,
-        priceChartHeight,
       });
     }
 
