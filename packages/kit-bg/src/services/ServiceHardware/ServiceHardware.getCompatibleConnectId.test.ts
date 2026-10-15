@@ -24,7 +24,11 @@ import type { IOneKeyDeviceFeaturesWithAppParams } from '@onekeyhq/shared/types/
 
 import localDb from '../../dbs/local/localDb';
 import { hardwareForceTransportAtom } from '../../states/jotai/atoms';
-import { hardwareForceTransportAtom as desktopHardwareForceTransportAtom } from '../../states/jotai/atoms/desktopBluetooth';
+import {
+  desktopBluetoothAtom,
+  hardwareForceTransportAtom as desktopHardwareForceTransportAtom,
+} from '../../states/jotai/atoms/desktopBluetooth';
+import { hardwareUiStateAtom } from '../../states/jotai/atoms/hardware';
 import { getFirmwareManifestSnapshot } from '../ServiceFirmwareUpdate/FirmwareManifestProvider';
 import { HardwareProcessingManager } from '../ServiceHardwareUI/HardwareProcessingManager';
 
@@ -151,6 +155,16 @@ jest.mock('../../states/jotai/atoms/desktopBluetooth', () => ({
   },
 }));
 
+jest.mock('../../states/jotai/atoms/hardware', () => ({
+  EHardwareUiStateAction: jest.requireActual(
+    '@onekeyhq/shared/types/hardwareUi',
+  ).EHardwareUiStateAction,
+  hardwareUiStateAtom: {
+    get: jest.fn(),
+    set: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+
 const mockedLocalDb = jest.mocked(localDb);
 const mockedCheckBLEPermissions = jest.mocked(checkBLEPermissions);
 const mockedCheckBLEState = jest.mocked(checkBLEState);
@@ -187,6 +201,10 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
     mockedCheckBLEPermissions.mockResolvedValue(true);
     mockedCheckBLEState.mockResolvedValue(true);
     mockedAxios.post.mockReset();
+    jest.mocked(desktopBluetoothAtom.get).mockResolvedValue({
+      isRequestedPermission: true,
+    });
+    jest.mocked(hardwareUiStateAtom.get).mockResolvedValue(undefined);
     jest.mocked(hardwareForceTransportAtom.get).mockResolvedValue({
       forceTransportType: undefined,
     });
@@ -2405,6 +2423,72 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
           });
         },
       });
+    });
+
+    it('allows SDK calls and cancellation while Bluetooth permission is pending', async () => {
+      const { service } = createService();
+      const backgroundApi = (
+        service as unknown as { backgroundApi: IBackgroundApi }
+      ).backgroundApi;
+      let finishPermission!: (value: boolean) => void;
+      let signalPermissionStarted!: () => void;
+      const permissionStarted = new Promise<void>((resolve) => {
+        signalPermissionStarted = resolve;
+      });
+      const createCallback = jest.fn(({ resolve }) => {
+        finishPermission = resolve;
+        signalPermissionStarted();
+        return 123;
+      });
+      backgroundApi.servicePromise = {
+        createCallback,
+      } as unknown as IBackgroundApi['servicePromise'];
+      const showCheckingDeviceDialog = jest.fn().mockResolvedValue(undefined);
+      backgroundApi.serviceHardwareUI = {
+        deviceStageYieldToDialog: jest.fn().mockResolvedValue(undefined),
+        showCheckingDeviceDialog,
+      } as unknown as IBackgroundApi['serviceHardwareUI'];
+      backgroundApi.serviceSetting.getEnableDesktopBluetooth = jest
+        .fn()
+        .mockResolvedValue(true);
+      jest.mocked(desktopBluetoothAtom.get).mockResolvedValue({
+        isRequestedPermission: false,
+      });
+      getDevices.mockResolvedValue([]);
+      jest
+        .spyOn(service.connectionManager, 'detectBluetoothAvailability')
+        .mockRestore();
+      const sdk = { setDeviceConnectProtocol: jest.fn(), cancel: jest.fn() };
+      mockedGetHardwareSDKInstance.mockResolvedValue(sdk as never);
+      service.checkSdkVersionValid = jest.fn();
+      jest.spyOn(service, 'registerSdkEvents').mockResolvedValue(undefined);
+      const interactive = service.getSDKInstance({
+        connectId: 'PHYSICAL_SERIAL',
+        connectProtocol: 'V1',
+      });
+      await permissionStarted;
+      let silentFinished = false;
+      const silent = service
+        .getSDKInstance({
+          connectId: undefined,
+          hardwareCallContext: EHardwareCallContext.SILENT_CALL,
+        })
+        .then(() => {
+          silentFinished = true;
+        });
+      const cancellation = service.cancel({ immediate: true });
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      try {
+        expect(silentFinished).toBe(true);
+        expect(sdk.cancel).toHaveBeenCalledWith(undefined);
+      } finally {
+        finishPermission(false);
+        await interactive;
+        await silent;
+        await cancellation;
+      }
+      expect(createCallback).toHaveBeenCalledTimes(1);
+      expect(showCheckingDeviceDialog).not.toHaveBeenCalled();
     });
 
     it('reselects a queued silent prewarm after the operation chooses USB', async () => {

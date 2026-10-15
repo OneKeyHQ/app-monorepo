@@ -588,7 +588,18 @@ class ServiceHardwareUI extends ServiceBase {
   }: {
     hardClose?: boolean; // hard close dialog by event bus
   } = {}) {
+    const state = await hardwareUiStateAtom.get();
     await hardwareUiStateAtom.set(undefined);
+    if (
+      state?.payload?.eventType ===
+        EHardwareUiStateAction.DESKTOP_REQUEST_BLUETOOTH_PERMISSION &&
+      state.payload.promiseId
+    ) {
+      await this.backgroundApi.servicePromise.resolveCallback({
+        id: state.payload.promiseId,
+        data: false,
+      });
+    }
     if (hardClose) {
       // atom some times not work, emit event to hard close dialog
       appEventBus.emit(

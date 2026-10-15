@@ -250,6 +250,12 @@ export class HardwareConnectionManager {
     const desktopBluetoothSettings = await desktopBluetoothAtom.get();
 
     if (!desktopBluetoothSettings.isRequestedPermission) {
+      if (
+        hardwareCallContext ===
+        EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG
+      ) {
+        return false;
+      }
       console.log(
         'HardwareConnectionManager detectBluetoothAvailability desktopBluetoothSettings.isRequestedPermission -> :',
         desktopBluetoothSettings.isRequestedPermission,
@@ -270,10 +276,16 @@ export class HardwareConnectionManager {
         return result;
       } finally {
         this.isRequestingBluetoothPermission = false;
-        // Update state to show checking device step instead of calling showCheckingDeviceDialog
-        void this.backgroundApi.serviceHardwareUI.showCheckingDeviceDialog({
-          connectId: '',
-        });
+        // A dismissed permission prompt must not reopen the checking UI.
+        const state = await hardwareUiStateAtom.get();
+        if (
+          state?.payload?.eventType ===
+          EHardwareUiStateAction.DESKTOP_REQUEST_BLUETOOTH_PERMISSION
+        ) {
+          void this.backgroundApi.serviceHardwareUI.showCheckingDeviceDialog({
+            connectId: '',
+          });
+        }
       }
     }
 

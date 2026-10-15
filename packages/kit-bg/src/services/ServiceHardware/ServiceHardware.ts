@@ -1085,32 +1085,47 @@ class ServiceHardware extends ServiceBase {
 
   async getSDKInstance(options: IGetSDKInstanceOptions) {
     await this.assertOneKeySdkConnectId(options?.connectId);
+    const autoSelectTransport =
+      platformEnv.isSupportDesktopBle &&
+      options.hardwareTransportType === undefined;
+    const hardwareCallContext =
+      options.hardwareCallContext ?? EHardwareCallContext.USER_INTERACTION;
+    const connectProtocol =
+      !autoSelectTransport || options.forceProtocolDetection
+        ? undefined
+        : (options.connectProtocol ??
+          (await this.getKnownDeviceProtocol(options.connectId)));
+    if (
+      autoSelectTransport &&
+      options.connectId &&
+      !connectProtocol &&
+      options.forceProtocolDetection !== true
+    ) {
+      throw new OneKeyLocalError(HARDWARE_CONNECT_PROTOCOL_UNAVAILABLE_MESSAGE);
+    }
+    if (
+      autoSelectTransport &&
+      hardwareCallContext === EHardwareCallContext.USER_INTERACTION
+    ) {
+      // Permission UI may wait for the user; never hold the SDK lock for it.
+      await this.connectionManager.shouldSwitchTransportType({
+        connectId: options.connectId,
+        connectProtocol,
+        hardwareCallContext,
+      });
+    }
     return this.sdkInstanceMutex.runExclusive(async () => {
       let resolvedOptions = options;
-      if (
-        platformEnv.isSupportDesktopBle &&
-        options.hardwareTransportType === undefined
-      ) {
-        const connectProtocol = options.forceProtocolDetection
-          ? undefined
-          : (options.connectProtocol ??
-            (await this.getKnownDeviceProtocol(options.connectId)));
-        if (
-          options.connectId &&
-          !connectProtocol &&
-          options.forceProtocolDetection !== true
-        ) {
-          throw new OneKeyLocalError(
-            HARDWARE_CONNECT_PROTOCOL_UNAVAILABLE_MESSAGE,
-          );
-        }
-        // Resolve after acquiring the lifecycle lock so queued calls cannot
-        // reset the SDK using a transport selected before an operation began.
+      if (autoSelectTransport) {
+        // Revalidate queued selection without reopening a permission dialog.
         const { targetType } =
           await this.connectionManager.shouldSwitchTransportType({
             connectId: options.connectId,
             connectProtocol,
-            hardwareCallContext: options.hardwareCallContext,
+            hardwareCallContext:
+              hardwareCallContext === EHardwareCallContext.USER_INTERACTION
+                ? EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG
+                : hardwareCallContext,
           });
         resolvedOptions = { ...options, hardwareTransportType: targetType };
       }

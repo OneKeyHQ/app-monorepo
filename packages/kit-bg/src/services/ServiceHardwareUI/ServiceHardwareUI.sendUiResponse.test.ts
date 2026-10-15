@@ -19,8 +19,10 @@ import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import {
+  EHardwareUiStateAction as HardwareUiAction,
   deviceStageAtom,
   firmwareUpdateWorkflowRunningAtom,
+  hardwareUiStateAtom,
 } from '../../states/jotai/atoms';
 
 import ServiceHardwareUI from './ServiceHardwareUI';
@@ -151,6 +153,35 @@ describe('ServiceHardwareUI.sendUiResponse', () => {
     expect(sendUiResponseToActiveSdk).toHaveBeenCalledWith(response);
     expect(getSDKInstance).not.toHaveBeenCalled();
     expect(sdkUiResponse).not.toHaveBeenCalled();
+  });
+});
+
+describe('ServiceHardwareUI Bluetooth permission cleanup', () => {
+  it('settles the pending permission callback after clearing the dialog', async () => {
+    jest.clearAllMocks();
+    jest.mocked(hardwareUiStateAtom.get).mockResolvedValue({
+      action: HardwareUiAction.DeviceChecking,
+      connectId: '',
+      payload: {
+        eventType: HardwareUiAction.DESKTOP_REQUEST_BLUETOOTH_PERMISSION,
+        promiseId: 'permission-request',
+      },
+    } as Awaited<ReturnType<typeof hardwareUiStateAtom.get>>);
+    const resolveCallback = jest.fn().mockResolvedValue(undefined);
+    const service = new ServiceHardwareUI({
+      backgroundApi: { servicePromise: { resolveCallback } },
+    });
+
+    await service.cleanHardwareUiState();
+
+    expect(resolveCallback).toHaveBeenCalledWith({
+      id: 'permission-request',
+      data: false,
+    });
+    expect(
+      jest.mocked(hardwareUiStateAtom.set).mock.invocationCallOrder[0],
+    ).toBeLessThan(resolveCallback.mock.invocationCallOrder[0]);
+    jest.mocked(hardwareUiStateAtom.get).mockResolvedValue(undefined);
   });
 });
 
