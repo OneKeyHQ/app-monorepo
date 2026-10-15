@@ -80,16 +80,29 @@ export function usePerpsChartOrderMenu(enabled: boolean) {
       price: selectedPrice,
       screenX,
       screenY,
+      onClose,
     }: ITradingViewNativePriceSelection) => {
       const isCurrent = () =>
         mounted.current &&
         latest.current.scope === scope &&
         latest.current.ready;
-      if (!isCurrent() || !Number.isFinite(selectedPrice) || selectedPrice <= 0)
+      if (
+        !isCurrent() ||
+        !Number.isFinite(selectedPrice) ||
+        selectedPrice <= 0
+      ) {
+        onClose?.();
         return;
-      if (szDecimals === undefined) return;
+      }
+      if (szDecimals === undefined) {
+        onClose?.();
+        return;
+      }
       const price = formatHlPrice(selectedPrice, szDecimals, instrument.mode);
-      if (!price || Number(price) <= 0) return;
+      if (!price || Number(price) <= 0) {
+        onClose?.();
+        return;
+      }
       const getTpsl = () => {
         const position = latest.current.positions.find(
           (item) => item.position.coin === scope.coin,
@@ -142,6 +155,7 @@ export function usePerpsChartOrderMenu(enabled: boolean) {
       const labelValues = { coin: baseName, price };
       const tpsl = getTpsl();
       menu.current = ActionList.show({
+        onClose,
         title: `${displayName} · ${price}`,
         triggerPosition: { x: screenX, y: screenY },
         items: [

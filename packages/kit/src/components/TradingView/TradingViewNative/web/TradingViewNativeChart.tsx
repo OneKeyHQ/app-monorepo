@@ -243,6 +243,7 @@ export const TradingViewNativeChart = memo(
       }),
     );
     const priceSelection = useChartPriceSelection({
+      canvasRef,
       enabled:
         !isSwitchingInterval &&
         drawingController.state.tool === 'cursor' &&
@@ -251,7 +252,10 @@ export const TradingViewNativeChart = memo(
       label: priceSelectionLabel,
       onSelect: onPriceSelect,
       projectionRef: drawingProjectionRef,
+      redrawRef: drawingRedrawRef,
+      scopeKey: drawingStorageKey,
     });
+    const { getCrosshair: getPriceSelectionCrosshair } = priceSelection;
     const drawingInteraction =
       drawingsEnabled &&
       (drawingController.state.tool !== 'cursor' ||
@@ -549,7 +553,11 @@ export const TradingViewNativeChart = memo(
           priceScaleMode:
             referenceLinePriceRange?.priceScaleMode ??
             priceScaleModelRef.current.mode,
-          runtimeState: nextRuntimeState,
+          runtimeState: {
+            ...nextRuntimeState,
+            crosshair:
+              getPriceSelectionCrosshair() ?? nextRuntimeState.crosshair,
+          },
           showLegend,
           subIndicatorPanes: scaledSubIndicatorPanes,
           timeAxisFontSize,
@@ -621,6 +629,7 @@ export const TradingViewNativeChart = memo(
         line,
         candleLabels,
         points,
+        getPriceSelectionCrosshair,
         priceAxisFontSize,
         priceAxisLabels,
         priceAxisTickCount,
