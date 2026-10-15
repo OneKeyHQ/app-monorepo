@@ -39,6 +39,8 @@ export const ipcMessageKeys = {
   IS_DEV: 'IS_DEV',
   LOG_DIRECTORY: 'LOG_DIRECTORY',
   GET_PLATFORM_INFO: 'GET_PLATFORM_INFO',
+  CLAIM_STARTUP_TIMING: 'startup/claimTiming',
+  RELEASE_STARTUP_TIMING: 'startup/releaseTiming',
 
   // Updater
   UPDATE_AVAILABLE: 'update/available',
