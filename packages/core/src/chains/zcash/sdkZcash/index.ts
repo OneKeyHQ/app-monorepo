@@ -157,3 +157,25 @@ export function zcashTransparentScriptForAddress(
     return null;
   }
 }
+
+// Inverse of zcashTransparentScriptForAddress for P2PKH/P2SH output scripts;
+// null for any other script, or when the indexer omitted it.
+export function zcashTransparentAddressForScript(
+  scriptHex: string | undefined,
+): string | null {
+  if (!scriptHex) return null;
+  const script = scriptHex.toLowerCase();
+  const p2pkh = /^76a914([0-9a-f]{40})88ac$/.exec(script);
+  if (p2pkh) {
+    return bs58check.encode(
+      Buffer.concat([ZCASH_T1_PUBKEYHASH, Buffer.from(p2pkh[1], 'hex')]),
+    );
+  }
+  const p2sh = /^a914([0-9a-f]{40})87$/.exec(script);
+  if (p2sh) {
+    return bs58check.encode(
+      Buffer.concat([ZCASH_T3_SCRIPTHASH, Buffer.from(p2sh[1], 'hex')]),
+    );
+  }
+  return null;
+}

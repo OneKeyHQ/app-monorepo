@@ -8,6 +8,7 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { KeyringImported as KeyringImportedBtc } from '../btc/KeyringImported';
 
 import { signTransparentTransaction } from './signTransparentTransaction';
+import { zcashTrackUserOperation } from './vaultUtils';
 
 import type { IEncodedTxZcash } from './types';
 import type Vault from './Vault';
@@ -45,10 +46,12 @@ export class KeyringImported extends KeyringImportedBtc {
           ...getPbkdf2KdfParamsForNonDbTx(),
         });
         const api = await (this.vault as Vault).zcashGetApi();
-        return api.buildTransparentTxWithAccountXprv({
-          ...request,
-          accountXprvHex,
-        });
+        return zcashTrackUserOperation(() =>
+          api.buildTransparentTxWithAccountXprv({
+            ...request,
+            accountXprvHex,
+          }),
+        );
       },
     });
   }

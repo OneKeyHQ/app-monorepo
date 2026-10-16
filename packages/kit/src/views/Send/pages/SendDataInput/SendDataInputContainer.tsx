@@ -964,18 +964,13 @@ function SendDataInputContainer() {
       memoInputLines = memoValue?.length ? 2 : 1;
     }
     let memoDescription: string | undefined;
-    if (isZcashMemo) {
-      if (toResolved && !zcashMemoSupported) {
-        memoDescription = intl.formatMessage({
-          id: ETranslations.privacy_memo_shielded_only__msg,
-        });
-      } else {
-        const byteLength =
-          memoEncoding === 'hex'
-            ? Math.ceil((memoValue || '').replace(/^0x/i, '').length / 2)
-            : Buffer.byteLength(memoValue || '', 'utf8');
-        memoDescription = `${memoEncoding === 'hex' ? 'HEX · ' : ''}${byteLength} / 512 B`;
-      }
+    // Transparent recipients already show this via the validation error; avoid showing it twice.
+    if (isZcashMemo && !(toResolved && !zcashMemoSupported)) {
+      const byteLength =
+        memoEncoding === 'hex'
+          ? Math.ceil((memoValue || '').replace(/^0x/i, '').length / 2)
+          : Buffer.byteLength(memoValue || '', 'utf8');
+      memoDescription = `${memoEncoding === 'hex' ? 'HEX · ' : ''}${byteLength} / 512 B`;
     }
     return (
       <>

@@ -21,6 +21,7 @@ import { getZcashHardwareSdk } from './hardwareSdk';
 import { getZcashLifecycleMutex } from './lifecycle';
 import { signTransparentTransaction } from './signTransparentTransaction';
 import { parseZcashTransaction } from './transactionReview';
+import { zcashTrackUserOperation } from './vaultUtils';
 
 import type { IZcashHardwareAddress } from './hardwareSdk';
 import type { IEncodedTxZcash } from './types';
@@ -568,12 +569,15 @@ export class KeyringHardware extends KeyringHardwareBase {
         if (!response.success) {
           throw convertDeviceError(response.payload);
         }
-        const result = await api.finalizeTransparentHardwarePczt({
-          request,
-          accountXpub,
-          originalPcztHex: original.pcztHex,
-          signedPcztHex: response.payload.pczt,
-        });
+        // Proves locally (Orchard output on a shield), unlike the device step above.
+        const result = await zcashTrackUserOperation(() =>
+          api.finalizeTransparentHardwarePczt({
+            request,
+            accountXpub,
+            originalPcztHex: original.pcztHex,
+            signedPcztHex: response.payload.pczt,
+          }),
+        );
         if (
           !(await this.backgroundApi.serviceAccount.getDBAccountSafe({
             accountId,

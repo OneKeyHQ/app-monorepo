@@ -108,8 +108,8 @@ const settings: IVaultSettings = {
     // device can read the account's shielded history afterwards.
     viewingKeyRetention: 'with-local-data',
     addressForms: {
-      publicLabel: 'Transparent address',
-      privateLabel: 'Private address',
+      publicLabel: ETranslations.privacy_receive_transparent_address__title,
+      privateLabel: ETranslations.privacy_receive_private_address__title,
     },
     blockTimeSeconds: ZCASH_TARGET_BLOCK_SECONDS,
     scanRegionHints: [

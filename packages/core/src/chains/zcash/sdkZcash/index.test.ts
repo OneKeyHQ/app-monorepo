@@ -5,6 +5,7 @@ import {
   isShieldedAddress,
   isZcashTexAddress,
   validateZcashTransparentAddress,
+  zcashTransparentAddressForScript,
   zcashTransparentScriptForAddress,
 } from '.';
 
@@ -138,5 +139,25 @@ describe('TEX addresses', () => {
     expect(
       validateZcashTransparentAddress({ address: corrupted, network }).isValid,
     ).toBe(false);
+  });
+});
+
+describe('zcashTransparentAddressForScript', () => {
+  it('round-trips t1 and t3 through their output scripts', () => {
+    for (const address of [T1, T3]) {
+      const script = zcashTransparentScriptForAddress(address);
+      expect(script).not.toBeNull();
+      expect(zcashTransparentAddressForScript(script ?? '')).toBe(address);
+    }
+    expect(
+      zcashTransparentAddressForScript(`76A914${HASH160.toUpperCase()}88AC`),
+    ).toBe(T1);
+  });
+
+  it('returns null for non-standard scripts', () => {
+    expect(zcashTransparentAddressForScript('')).toBeNull();
+    expect(zcashTransparentAddressForScript(undefined)).toBeNull();
+    expect(zcashTransparentAddressForScript(`0014${HASH160}`)).toBeNull();
+    expect(zcashTransparentAddressForScript(`76a914${HASH160}88`)).toBeNull();
   });
 });

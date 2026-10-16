@@ -27,6 +27,7 @@ import { getZcashLifecycleMutex } from './lifecycle';
 import { getZcashPcztReviewRequest } from './pcztReview';
 import { signTransparentTransaction } from './signTransparentTransaction';
 import { parseZcashTransaction } from './transactionReview';
+import { zcashTrackUserOperation } from './vaultUtils';
 
 import type { IEncodedTxZcash } from './types';
 import type Vault from './Vault';
@@ -199,10 +200,13 @@ export class KeyringHd extends KeyringHdBtc {
             }
             throw new OneKeyLocalError(ZCASH_HW_PREVIEW_STOP_MESSAGE);
           }
-          return await api.buildTransparentTxWithSeed({
-            ...request,
-            seedHex: seedBuf.toString('hex'),
-          });
+          // A shield proves its Orchard output here; hold off background sync on the same Worker.
+          return await zcashTrackUserOperation(() =>
+            api.buildTransparentTxWithSeed({
+              ...request,
+              seedHex: seedBuf.toString('hex'),
+            }),
+          );
         } finally {
           seedBuf.fill(0);
         }

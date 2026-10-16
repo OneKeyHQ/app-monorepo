@@ -54,6 +54,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
 import { IMPL_ZCASH } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes/setting';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes/setting';
@@ -280,6 +281,9 @@ function PrivacyChainNetworkSections({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [busy, setBusy] = useState(false);
+  // Cellular toggle only applies to native mobile runtimes.
+  const showMobileDataRow = platformEnv.isNative;
+  const showNodeRow = Boolean(endpointUrl && endpointDefaultUrl);
   let endpointStatus = '';
   if (endpointHealth && !endpointHealth.ok) {
     endpointStatus = intl.formatMessage({
@@ -424,36 +428,40 @@ function PrivacyChainNetworkSections({
         </Stack>
       )}
 
-      <SectionTitle>
-        {intl.formatMessage({
-          id: ETranslations.global_network,
-        })}
-      </SectionTitle>
-      <ListItem
-        testID="privacy-sync-mobile-data"
-        icon="SignalOutline"
-        title={intl.formatMessage({
-          id: ETranslations.privacy_sync_mobile_data__title,
-        })}
-        subtitle={intl.formatMessage({
-          id: ETranslations.privacy_sync_mobile_data__desc,
-        })}
-      >
-        <Switch
-          testID="privacy-sync-allow-cellular-switch"
-          size={ESwitchSize.small}
-          value={allowCellular === true}
-          disabled={busy || allowCellular === undefined}
-          onChange={(next) =>
-            void run(async () => {
-              await backgroundApiProxy.servicePrivacyChain.setAllowCellularSync(
-                { allow: next },
-              );
-              await refreshAllowCellular();
-            })
-          }
-        />
-      </ListItem>
+      {showMobileDataRow || showNodeRow ? (
+        <SectionTitle>
+          {intl.formatMessage({
+            id: ETranslations.global_network,
+          })}
+        </SectionTitle>
+      ) : null}
+      {showMobileDataRow ? (
+        <ListItem
+          testID="privacy-sync-mobile-data"
+          icon="SignalOutline"
+          title={intl.formatMessage({
+            id: ETranslations.privacy_sync_mobile_data__title,
+          })}
+          subtitle={intl.formatMessage({
+            id: ETranslations.privacy_sync_mobile_data__desc,
+          })}
+        >
+          <Switch
+            testID="privacy-sync-allow-cellular-switch"
+            size={ESwitchSize.small}
+            value={allowCellular === true}
+            disabled={busy || allowCellular === undefined}
+            onChange={(next) =>
+              void run(async () => {
+                await backgroundApiProxy.servicePrivacyChain.setAllowCellularSync(
+                  { allow: next },
+                );
+                await refreshAllowCellular();
+              })
+            }
+          />
+        </ListItem>
+      ) : null}
       {endpointUrl && endpointDefaultUrl ? (
         <ListItem
           testID="privacy-sync-node"

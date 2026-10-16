@@ -63,6 +63,16 @@ let session: ISession | undefined;
 
 // The last chain tip any caller fetched; at most a turn old.
 let lastKnownChainTip: number | undefined;
+
+// Health shown in settings comes from the tip fetches scanning already makes,
+// not a separate probe. Keyed by url so a switch never shows the old node's.
+export type IXmrNodeHealth = {
+  url: string;
+  ok: boolean;
+  latencyMs: number | null;
+  atMs: number;
+};
+let nodeHealth: IXmrNodeHealth | undefined;
 let opening: Promise<ISession> | undefined;
 
 // One runtime call at a time: a read landing mid-step would otherwise fail as "not open",
@@ -74,6 +84,7 @@ export function resetXmrRuntimeSession() {
   session = undefined;
   opening = undefined;
   lastKnownChainTip = undefined;
+  nodeHealth = undefined;
 }
 
 async function openSession(params: {
@@ -292,8 +303,45 @@ export async function getXmrIdentityId(params: {
   return String(row.accountId);
 }
 
+function recordXmrNodeHealth(sample: {
+  url: string | undefined;
+  ok: boolean;
+  latencyMs: number | null;
+}) {
+  const { url, ok } = sample;
+  if (!url) return;
+  nodeHealth = {
+    url,
+    ok,
+    latencyMs:
+      sample.latencyMs ??
+      (nodeHealth?.url === url ? nodeHealth.latencyMs : null),
+    atMs: Date.now(),
+  };
+}
+
+export function getXmrNodeHealth(): IXmrNodeHealth | undefined {
+  return nodeHealth;
+}
+
 export async function getXmrChainTip(api: IXmrRuntimeApi): Promise<number> {
-  const tip = JSON.parse(await api.chainTip()) as { height: number };
+  // A failed connect leaves nodeUrl empty; the failure still belongs to the node tried.
+  const url = session?.nodeUrl || session?.nodeAttempt?.url;
+  // Queued behind a scan step, the round trip would include that step.
+  const timed = !isXmrRuntimeBusy();
+  const startedAt = Date.now();
+  let tip: { height: number };
+  try {
+    tip = JSON.parse(await api.chainTip()) as { height: number };
+  } catch (error) {
+    recordXmrNodeHealth({ url, ok: false, latencyMs: null });
+    throw error;
+  }
+  recordXmrNodeHealth({
+    url,
+    ok: true,
+    latencyMs: timed ? Date.now() - startedAt : null,
+  });
   lastKnownChainTip = tip.height;
   return tip.height;
 }

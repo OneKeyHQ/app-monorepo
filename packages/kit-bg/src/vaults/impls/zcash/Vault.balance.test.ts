@@ -282,7 +282,7 @@ describe('Zcash transparent balance on display', () => {
     expect(indexer).not.toHaveBeenCalled();
   });
 
-  it('answers unknown past the wait, then hands the late result over once', async () => {
+  it('answers unknown past the wait, then hands the late result over for a short window', async () => {
     jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
     const emit = jest.spyOn(appEventBus, 'emit');
     let finish: (value: { total: BigNumber }) => void = () => {};
@@ -306,13 +306,349 @@ describe('Zcash transparent balance on display', () => {
     await expect(
       zcashReadTransparentForDisplay(vault, { account }),
     ).resolves.toEqual({ total: new BigNumber(80) });
+    await expect(
+      zcashReadTransparentForDisplay(vault, { account }),
+    ).resolves.toEqual({ total: new BigNumber(80) });
     expect(read).toHaveBeenCalledTimes(1);
 
-    // Handed over once: the next read asks the backend again.
+    // Past the window the next read asks the backend again.
+    const now = Date.now();
+    jest.spyOn(Date, 'now').mockReturnValue(now + 60_000);
     read.mockResolvedValueOnce({ total: new BigNumber(90) });
     await expect(
       zcashReadTransparentForDisplay(vault, { account }),
     ).resolves.toEqual({ total: new BigNumber(90) });
     expect(read).toHaveBeenCalledTimes(2);
+  });
+});
+
+// A restart has no in-memory UTXOs; the Transparent tab shows the last pair
+// instead of waiting on the backend.
+describe('Zcash transparent balance saved for the next open', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  const saved = { total: '80', spendable: '50' };
+
+  async function createVault(
+    accountId: string,
+    read: jest.Mock,
+    seed?: typeof saved,
+  ) {
+    const privacyChainCache = memoryCache();
+    if (seed) {
+      await privacyChainCache.setLastPublicBalance({
+        accountId,
+        record: { networkId: 'zec--0', ...seed, savedAt: 1 },
+      });
+    }
+    const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
+      networkId: 'zec--0',
+      backgroundApi: {
+        simpleDb: {
+          privacyChain: {},
+          privacyChainCache,
+          zcash: {
+            getPrivacyModeState: jest.fn().mockResolvedValue({ intent: 'on' }),
+          },
+        },
+        serviceAccount: {
+          getDBAccount: jest.fn().mockResolvedValue({ id: accountId }),
+        },
+      },
+      zcashGetIndexerTransparentBalance: read,
+    });
+    const account = { id: accountId } as Parameters<
+      typeof zcashReadTransparentForDisplay
+    >[1]['account'];
+    return { vault, account, privacyChainCache };
+  }
+
+  function deferred<T>() {
+    let resolve: (value: T) => void = () => {};
+    const promise = new Promise<T>((done) => {
+      resolve = done;
+    });
+    return { promise, resolve };
+  }
+
+  const flush = () => new Promise((done) => setTimeout(done, 0));
+
+  it('shows the saved pair while the backend is slow, then hands the fresh one over', async () => {
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const slow = deferred<{ total: BigNumber; spendable: BigNumber }>();
+    const read = jest.fn().mockReturnValueOnce(slow.promise);
+    const { vault, account, privacyChainCache } = await createVault(
+      'cached-slow',
+      read,
+      saved,
+    );
+
+    await expect(
+      zcashReadTransparentForDisplay(vault, { account }),
+    ).resolves.toEqual({
+      total: new BigNumber(80),
+      spendable: new BigNumber(50),
+      stale: true,
+    });
+
+    slow.resolve({ total: new BigNumber(90), spendable: new BigNumber(60) });
+    await flush();
+    await expect(
+      privacyChainCache.getLastPublicBalance({ accountId: 'cached-slow' }),
+    ).resolves.toMatchObject({ total: '90', spendable: '60' });
+    expect(emit).toHaveBeenCalledWith(
+      EAppEventBusNames.LocalWalletBalanceLanded,
+      { networkId: 'zec--0', accountId: 'cached-slow' },
+    );
+    await expect(
+      zcashReadTransparentForDisplay(vault, { account }),
+    ).resolves.toEqual({
+      total: new BigNumber(90),
+      spendable: new BigNumber(60),
+    });
+    expect(read).toHaveBeenCalledTimes(1);
+  });
+
+  it('marks a late value that matches the saved pair as current without refreshing lists', async () => {
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const slow = deferred<{ total: BigNumber; spendable: BigNumber }>();
+    const read = jest.fn().mockReturnValueOnce(slow.promise);
+    const { vault, account } = await createVault('cached-same', read, saved);
+    await expect(
+      zcashReadTransparentForDisplay(vault, { account }),
+    ).resolves.toMatchObject({ stale: true });
+    slow.resolve({ total: new BigNumber(80), spendable: new BigNumber(50) });
+    await flush();
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit).toHaveBeenCalledWith(
+      EAppEventBusNames.LocalWalletBalanceLanded,
+      { networkId: 'zec--0', accountId: 'cached-same' },
+    );
+    await expect(
+      zcashReadTransparentForDisplay(vault, { account }),
+    ).resolves.toEqual({
+      total: new BigNumber(80),
+      spendable: new BigNumber(50),
+    });
+    expect(read).toHaveBeenCalledTimes(1);
+  });
+
+  // The password alert and the pool both read on the landed event; whichever
+  // goes first must not leave the other with the saved pair again.
+  it('hands a landed value to every reader in the window', async () => {
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    const slow = deferred<{ total: BigNumber; spendable: BigNumber }>();
+    const read = jest.fn().mockReturnValueOnce(slow.promise);
+    const { vault, account } = await createVault('cached-shared', read, saved);
+    await zcashReadTransparentForDisplay(vault, { account });
+    slow.resolve({ total: new BigNumber(90), spendable: new BigNumber(60) });
+    await flush();
+    const fresh = { total: new BigNumber(90), spendable: new BigNumber(60) };
+    await expect(
+      zcashReadTransparentForDisplay(vault, { account }),
+    ).resolves.toEqual(fresh);
+    await expect(
+      zcashReadTransparentForDisplay(vault, { account }),
+    ).resolves.toEqual(fresh);
+    expect(read).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the last fresh pair current while the next read is slow', async () => {
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const next = deferred<{ total: BigNumber; spendable: BigNumber }>();
+    const read = jest
+      .fn()
+      .mockResolvedValueOnce({
+        total: new BigNumber(90),
+        spendable: new BigNumber(60),
+      })
+      .mockReturnValueOnce(next.promise);
+    const { vault, account } = await createVault('cached-poll', read, saved);
+    await zcashReadTransparentForDisplay(vault, { account });
+    await flush();
+    const fresh = { total: new BigNumber(90), spendable: new BigNumber(60) };
+    await expect(
+      zcashReadTransparentForDisplay(vault, { account }),
+    ).resolves.toEqual(fresh);
+
+    // The poll after it: a new value still replaces the old one.
+    next.resolve({ total: new BigNumber(95), spendable: new BigNumber(65) });
+    await flush();
+    expect(emit).toHaveBeenCalledWith(
+      EAppEventBusNames.RefreshTokenList,
+      undefined,
+    );
+    await expect(
+      zcashReadTransparentForDisplay(vault, { account }),
+    ).resolves.toEqual({
+      total: new BigNumber(95),
+      spendable: new BigNumber(65),
+    });
+  });
+
+  it('keeps the saved pair over a late read that lost one half', async () => {
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const slow = deferred<{ total?: BigNumber; spendable?: BigNumber }>();
+    const { vault, account, privacyChainCache } = await createVault(
+      'cached-partial',
+      jest.fn().mockReturnValueOnce(slow.promise),
+      saved,
+    );
+    await zcashReadTransparentForDisplay(vault, { account });
+    slow.resolve({ total: new BigNumber(90) });
+    await flush();
+    expect(emit).not.toHaveBeenCalled();
+    await expect(
+      privacyChainCache.getLastPublicBalance({ accountId: 'cached-partial' }),
+    ).resolves.toMatchObject(saved);
+  });
+
+  it('saves a fresh pair that answers in time', async () => {
+    const read = jest.fn().mockResolvedValue({
+      total: new BigNumber(70),
+      spendable: new BigNumber(40),
+    });
+    const { vault, account, privacyChainCache } = await createVault(
+      'fresh-in-time',
+      read,
+    );
+    await expect(
+      zcashReadTransparentForDisplay(vault, { account }),
+    ).resolves.toEqual({
+      total: new BigNumber(70),
+      spendable: new BigNumber(40),
+    });
+    await flush();
+    await expect(
+      privacyChainCache.getLastPublicBalance({ accountId: 'fresh-in-time' }),
+    ).resolves.toMatchObject({ total: '70', spendable: '40' });
+  });
+
+  it('marks the transparent pool as not current while it shows the saved pair', async () => {
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    const { vault } = await createVault(
+      'cached-pool',
+      jest.fn().mockReturnValueOnce(new Promise(() => {})),
+      saved,
+    );
+    jest.spyOn(vault, 'getLocalWalletBalance').mockResolvedValue(balance);
+    const result = await vault.getLocalWalletAccountBalance({
+      accountId: 'cached-pool',
+    });
+    expect(result?.pools[0]).toMatchObject({
+      key: 'transparent',
+      balanceStatus: 'partial',
+      total: '80',
+      spendable: '50',
+    });
+    expect(result?.balanceStatus).toBe('partial');
+  });
+
+  // Shield sweeps the UTXOs it fetches itself, but it is only offered on a
+  // figure that is current.
+  it('offers shield only once the transparent figure is current', async () => {
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    const large = { total: '90000', spendable: '90000' };
+    const slow = deferred<{ total: BigNumber; spendable: BigNumber }>();
+    const { vault } = await createVault(
+      'cached-shield',
+      jest.fn().mockReturnValueOnce(slow.promise),
+      large,
+    );
+    jest.spyOn(vault, 'getLocalWalletBalance').mockResolvedValue(balance);
+    const before = await vault.getLocalWalletAccountBalance({
+      accountId: 'cached-shield',
+    });
+    expect(before?.pools[0].move).toMatchObject({
+      type: 'shield',
+      enabled: false,
+    });
+
+    slow.resolve({
+      total: new BigNumber(90_000),
+      spendable: new BigNumber(90_000),
+    });
+    await flush();
+    const after = await vault.getLocalWalletAccountBalance({
+      accountId: 'cached-shield',
+    });
+    expect(after?.pools[0]).toMatchObject({ balanceStatus: 'complete' });
+    expect(after?.pools[0].move).toMatchObject({
+      type: 'shield',
+      enabled: true,
+    });
+  });
+});
+
+// The amount page's available figure, Max and the insufficient-funds check
+// come from the send pools; a saved private balance must never stand in.
+describe('Zcash send pools read the private balance fresh', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  async function createVault(accountId: string, scannerFails: boolean) {
+    const privacyChainCache = memoryCache();
+    await privacyChainCache.setLastBalance({
+      accountId,
+      record: {
+        networkId: 'zec--0',
+        value: JSON.stringify(balance),
+        savedAt: 1,
+      },
+    });
+    const getBalance = scannerFails
+      ? jest.fn().mockRejectedValue(new OneKeyLocalError('scanner busy'))
+      : jest.fn().mockResolvedValue({
+          ...balance,
+          poolsDetail: { ...balance.poolsDetail, orchard: pool('70') },
+        });
+    return Object.assign(Object.create(Vault.prototype) as Vault, {
+      networkId: 'zec--0',
+      backgroundApi: {
+        simpleDb: {
+          privacyChainCache,
+          zcash: {
+            getPrivacyModeState: jest.fn().mockResolvedValue({ intent: 'on' }),
+          },
+        },
+        serviceAccount: {
+          getDBAccount: jest.fn().mockResolvedValue({ id: accountId }),
+        },
+      },
+      zcashGetWalletAccount: jest.fn().mockResolvedValue({}),
+      zcashGetApi: jest.fn().mockResolvedValue({ getBalance }),
+      zcashGetIndexerTransparentBalance: jest.fn().mockResolvedValue({
+        total: new BigNumber(80),
+        spendable: new BigNumber(50),
+      }),
+    });
+  }
+
+  it('leaves the private pools without a figure when the scanner fails', async () => {
+    const vault = await createVault('send-fails', true);
+    const pools = await vault.listLocalWalletSendPools({
+      accountId: 'send-fails',
+    });
+    expect(pools?.find((item) => item.key === 'orchard')?.spendable).toBe(
+      undefined,
+    );
+    // Display reads still fall back to the saved balance.
+    await expect(
+      vault.getLocalWalletBalance({ accountId: 'send-fails' }),
+    ).resolves.toMatchObject({ isComplete: false, shielded: '100' });
+  });
+
+  it('uses the scanner answer, not the saved balance', async () => {
+    const vault = await createVault('send-live', false);
+    const pools = await vault.listLocalWalletSendPools({
+      accountId: 'send-live',
+    });
+    expect(pools?.find((item) => item.key === 'orchard')?.spendable).toBe('70');
+    expect(pools?.find((item) => item.key === 'transparent')?.spendable).toBe(
+      '50',
+    );
   });
 });
