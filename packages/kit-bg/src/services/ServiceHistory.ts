@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import { isNil, unionBy, uniqBy } from 'lodash';
+import { isNil, unionBy, uniq, uniqBy } from 'lodash';
 
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type ILightningVault from '@onekeyhq/kit-bg/src/vaults/impls/lightning/Vault';
@@ -2644,12 +2644,15 @@ class ServiceHistory extends ServiceBase {
       extraParams = await this.buildFetchHistoryListParams(params);
       let extraRequestParams = extraParams;
       if (networkId === getNetworkIdsMap().onekeyall) {
-        extraRequestParams = {
-          allNetworkAccounts: (
+        const requestAccounts = await this.excludeAddressWithheldAccounts(
+          (
             extraParams as unknown as {
               allNetworkAccounts: IAllNetworkHistoryExtraItem[];
             }
-          ).allNetworkAccounts.map((i) => ({
+          ).allNetworkAccounts,
+        );
+        extraRequestParams = {
+          allNetworkAccounts: requestAccounts.map((i) => ({
             networkId: i.networkId,
             accountAddress: i.accountAddress,
             xpub: i.accountXpub,
@@ -2780,6 +2783,26 @@ class ServiceHistory extends ServiceBase {
     };
   }
 
+  private async isAddressWithheldFromBackend(networkId: string) {
+    const { localWallet } =
+      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+    return localWallet?.withholdAddressFromBackend === true;
+  }
+
+  private async excludeAddressWithheldAccounts<T extends { networkId: string }>(
+    accounts: T[],
+  ): Promise<T[]> {
+    const withheldNetworkIds = new Set<string>();
+    await Promise.all(
+      uniq(accounts.map((i) => i.networkId)).map(async (id) => {
+        if (await this.isAddressWithheldFromBackend(id)) {
+          withheldNetworkIds.add(id);
+        }
+      }),
+    );
+    return accounts.filter((i) => !withheldNetworkIds.has(i.networkId));
+  }
+
   @backgroundMethod()
   public async fetchTransferRecipients(params: {
     accountId: string;
@@ -2794,6 +2817,12 @@ class ServiceHistory extends ServiceBase {
     errored?: boolean;
   }> {
     const { accountId, networkId, limit = 10 } = params;
+
+    // Same shape as a server "unsupported" answer: the UI falls back to its
+    // locally stored recipients and never retries.
+    if (await this.isAddressWithheldFromBackend(networkId)) {
+      return { supported: false, data: [] };
+    }
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({

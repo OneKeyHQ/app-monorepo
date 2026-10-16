@@ -105,4 +105,27 @@ describe('Zcash hardware capability boundary', () => {
       payload: { code: 800, error: 'Cancelled' },
     });
   });
+  it('keeps object error params and drops non-object ones', async () => {
+    let params: unknown = { reason: 'busy' };
+    const sdk = getZcashHardwareSdk({
+      zcashSignPczt: async () => ({
+        success: false,
+        payload: { error: 'Failed', params },
+      }),
+      zcashGetAddress: async () => ({ success: true, payload: {} }),
+    });
+    await expect(
+      sdk.zcashSignPczt('connect', 'device', { pczt: 'aabb' }),
+    ).resolves.toEqual({
+      success: false,
+      payload: { error: 'Failed', params: { reason: 'busy' } },
+    });
+    params = 'busy';
+    await expect(
+      sdk.zcashSignPczt('connect', 'device', { pczt: 'aabb' }),
+    ).resolves.toEqual({
+      success: false,
+      payload: { error: 'Failed', params: undefined },
+    });
+  });
 });

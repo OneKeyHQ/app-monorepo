@@ -2,21 +2,19 @@ import { useIntl } from 'react-intl';
 
 import { ZcashMemo } from '@onekeyhq/kit/src/components/ZcashMemo';
 import { useDecodedTxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
-import type { IEncodedTxZcash } from '@onekeyhq/kit-bg/src/vaults/impls/zcash/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getZcashMemoDisplay } from '@onekeyhq/shared/src/utils/zcashMemo';
 
 import { SignatureConfirmItem } from '../../SignatureConfirmItem';
 
+import { getZcashConfirmFrom, getZcashEncodedTx } from './zcashConfirmDisplay';
+
 export default function TxExtraInfoZcash() {
   const intl = useIntl();
   const [{ decodedTxs }] = useDecodedTxsAtom();
-  const tx = decodedTxs?.[0]?.encodedTx as IEncodedTxZcash | undefined;
-  if (!tx?.zcashMode) return null;
-  let source = 'Shielded';
-  if (tx.zcashMode === 'transparent') source = 'Transparent';
-  else if (tx.zcashSpendSource === 'ironwood') source = 'Ironwood';
-  else if (tx.zcashSpendSource === 'orchard') source = 'Orchard';
+  const tx = getZcashEncodedTx(decodedTxs?.[0]?.encodedTx);
+  if (!tx) return null;
+  const from = getZcashConfirmFrom(tx);
   const memo = tx.zcashMemoHex
     ? getZcashMemoDisplay(tx.zcashMemoHex)
     : undefined;
@@ -26,7 +24,19 @@ export default function TxExtraInfoZcash() {
         <SignatureConfirmItem.Label>
           {intl.formatMessage({ id: ETranslations.global_from })}
         </SignatureConfirmItem.Label>
-        <SignatureConfirmItem.Value>{source}</SignatureConfirmItem.Value>
+        {from.kind === 'addresses' ? (
+          from.addresses.map((address) => (
+            <SignatureConfirmItem.Value
+              key={address}
+              style={{ wordBreak: 'break-all' }}
+              fontFamily="$monoMedium"
+            >
+              {address}
+            </SignatureConfirmItem.Value>
+          ))
+        ) : (
+          <SignatureConfirmItem.Value>{from.label}</SignatureConfirmItem.Value>
+        )}
       </SignatureConfirmItem>
       {memo ? (
         <SignatureConfirmItem>

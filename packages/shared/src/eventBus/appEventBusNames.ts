@@ -85,6 +85,7 @@ export enum EAppEventBusNames {
   TabListStateUpdate = 'TabListStateUpdate',
   RefreshTokenList = 'RefreshTokenList',
   LocalWalletAccountsChanged = 'LocalWalletAccountsChanged',
+  LocalWalletBalanceLanded = 'LocalWalletBalanceLanded',
   RefreshHistoryList = 'RefreshHistoryList',
   RefreshBookmarkList = 'RefreshBookmarkList',
   InvalidateDiscoveryHomeBookmarksPrefetch = 'InvalidateDiscoveryHomeBookmarksPrefetch',

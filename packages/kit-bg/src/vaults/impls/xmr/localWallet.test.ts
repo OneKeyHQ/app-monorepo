@@ -1,4 +1,7 @@
-import { XMR_SYNC_STEP_BLOCKS } from '@onekeyhq/shared/src/config/xmr';
+import {
+  XMR_BUILT_IN_NODE_URLS,
+  XMR_SYNC_STEP_BLOCKS,
+} from '@onekeyhq/shared/src/config/xmr';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { SimpleDbEntityPrivacyChainCache } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainCache';
@@ -53,6 +56,9 @@ const runtime = {
 // Stale-first is unit-tested in runtime.test.ts; here it passes through,
 // except when a test flips `mockBusy` to see what a UI read gets mid-step.
 let mockBusy = false;
+let mockNodeHealth:
+  | { url: string; ok: boolean; latencyMs: number | null; atMs: number }
+  | undefined;
 const mockGetIdentityId = jest.fn(async () => '3');
 const mockSetAccountState = jest.fn(async () => undefined);
 const mockDeleteXmrDatabase = jest.fn(async (_network: string) => undefined);
@@ -68,6 +74,7 @@ jest.mock('./runtime', () => ({
   getXmrIdentityId: () => mockGetIdentityId(),
   getXmrChainTip: async () => 3_767_827,
   getXmrChainTipForDisplay: async () => 3_767_827,
+  getXmrNodeHealth: () => mockNodeHealth,
   readXmrStaleFirst: async <T>(p: {
     read: () => Promise<T>;
     fallback: T;
@@ -96,9 +103,12 @@ beforeEach(() => {
   privacyChainCache = memoryCache();
 });
 
+let mockNodeUrl = 'https://node.example:18081';
+
 function capability(intent: 'on' | 'off' = 'on', birthdayHeight?: number) {
   const vault = {
     networkId: 'xmr--0',
+    resolveXmrNodeUrl: async () => mockNodeUrl,
     backgroundApi: {
       servicePrivacyChain: {
         publishLocalWalletSyncProgress: mockPublish,
@@ -652,5 +662,45 @@ describe('xmr chain tip for the next cold start', () => {
     await expect(
       privacyChainCache.getChainTip({ networkId: 'xmr--0' }),
     ).resolves.toBe(3_767_827);
+  });
+});
+
+describe('xmr sync endpoint', () => {
+  afterEach(() => {
+    mockNodeHealth = undefined;
+    mockNodeUrl = 'https://node.example:18081';
+  });
+
+  it('reports the node in use and the built-in default', async () => {
+    mockNodeUrl = XMR_BUILT_IN_NODE_URLS[0];
+    await expect(capability().getSyncEndpoint?.()).resolves.toEqual({
+      url: XMR_BUILT_IN_NODE_URLS[0],
+      defaultUrl: XMR_BUILT_IN_NODE_URLS[0],
+      health: undefined,
+    });
+  });
+
+  it('shows the last sample taken from that node', async () => {
+    mockNodeHealth = {
+      url: mockNodeUrl,
+      ok: true,
+      latencyMs: 120,
+      atMs: 5000,
+    };
+    const endpoint = await capability().getSyncEndpoint?.();
+    expect(endpoint?.url).toBe('https://node.example:18081');
+    expect(endpoint?.health).toEqual({ ok: true, latencyMs: 120, atMs: 5000 });
+  });
+
+  // After a switch the sample still describes the previous node.
+  it('hides a sample taken from a different node', async () => {
+    mockNodeHealth = {
+      url: 'https://old.example:18081',
+      ok: false,
+      latencyMs: null,
+      atMs: 5000,
+    };
+    const endpoint = await capability().getSyncEndpoint?.();
+    expect(endpoint?.health).toBeUndefined();
   });
 });

@@ -4,6 +4,7 @@ import {
 } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime';
 import { parseXmrTransaction } from '@onekeyhq/core/src/chains/xmr/transactionReview';
 import {
+  XMR_BUILT_IN_NODE_URLS,
   XMR_DECIMALS,
   XMR_HISTORY_PAGE_SIZE,
   XMR_SEND_MAX_BLOCKS_LEFT,
@@ -40,6 +41,7 @@ import {
   getXmrChainTipForDisplay,
   getXmrIdentityId,
   getXmrLocalRuntime,
+  getXmrNodeHealth,
   getXmrRuntime,
   isXmrRuntimeBusy,
   readXmrStaleFirst,
@@ -567,6 +569,19 @@ export function buildXmrLocalWalletCapability(
         height: tip,
       });
       return tip;
+    },
+
+    async getSyncEndpoint() {
+      const url = await vault.resolveXmrNodeUrl();
+      const health = getXmrNodeHealth();
+      return {
+        url,
+        defaultUrl: XMR_BUILT_IN_NODE_URLS[0],
+        health:
+          health?.url === url
+            ? { ok: health.ok, latencyMs: health.latencyMs, atMs: health.atMs }
+            : undefined,
+      };
     },
 
     async onWalletCreated() {

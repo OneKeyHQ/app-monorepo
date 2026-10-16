@@ -897,8 +897,7 @@ function ReceiveToken() {
   }, [network, arrivalTimeText]);
 
   const cardHeaderRight = useMemo(() => {
-    // Switch between the two receive forms of the same account
-    // (labels come from the chain's vault settings, not yet localized)
+    // Switch between the two receive forms of the same account.
     // A chain with no public pool (Monero) has nothing to switch to; showing
     // the control would offer a form that cannot produce an address.
     const publicFormLabel = localWalletAddressForms?.publicLabel;
@@ -912,8 +911,16 @@ function ReceiveToken() {
           value={receiveAddressForm}
           onChange={(v) => setReceiveAddressForm(v as 'public' | 'private')}
           options={[
-            { label: publicFormLabel, value: 'public' },
-            { label: localWalletAddressForms.privateLabel, value: 'private' },
+            {
+              label: intl.formatMessage({ id: publicFormLabel }),
+              value: 'public',
+            },
+            {
+              label: intl.formatMessage({
+                id: localWalletAddressForms.privateLabel,
+              }),
+              value: 'private',
+            },
           ]}
         />
       );
@@ -949,6 +956,7 @@ function ReceiveToken() {
       />
     );
   }, [
+    intl,
     localWalletAddressForms,
     localWalletPrivateAddress,
     receiveAddressForm,

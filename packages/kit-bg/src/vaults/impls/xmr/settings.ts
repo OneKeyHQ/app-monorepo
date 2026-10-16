@@ -12,6 +12,7 @@ import {
   IMPL_XMR,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
@@ -129,12 +130,15 @@ const settings: IVaultSettings = {
       },
     },
     // No `publicLabel`: no public pool to produce that address form.
-    addressForms: { privateLabel: 'Monero address' },
+    addressForms: {
+      privateLabel: ETranslations.privacy_receive_private_address__title,
+    },
     hideAddressOnTokenDetails: true,
     blockTimeSeconds: XMR_TARGET_BLOCK_SECONDS,
     maxEnabledAccounts: XMR_MAX_ENABLED_ACCOUNTS,
     // Receive needs the view key whether or not scanning is on.
     viewingKeyRetention: 'until-account-removed',
+    withholdAddressFromBackend: true,
   },
 
   // Watch-only wallets can't detect spent outputs (needs key images from the
