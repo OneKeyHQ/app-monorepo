@@ -16,6 +16,7 @@ import {
   type IIntervalSettings,
   type ITransferInfoErrors,
 } from '@onekeyhq/shared/types/bulkSend';
+import type { IFeesInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import type { IntlShape } from 'react-intl';
@@ -627,4 +628,15 @@ export function validateRangeInput({
   }
 
   return undefined;
+}
+
+// Bulk send offers 3 fee presets; keep low/medium/high of a 5-level response
+export function normalizeGasEIP1559Presets(
+  presets?: IFeesInfoUnit['gasEIP1559'],
+): IFeesInfoUnit['gasEIP1559'] {
+  if (!presets) return undefined;
+  if (presets.length === 5) {
+    return [presets[0], presets[2], presets[4]];
+  }
+  return presets.length > 3 ? presets.slice(0, 3) : presets;
 }
