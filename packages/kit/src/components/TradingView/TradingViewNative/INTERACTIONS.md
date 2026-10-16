@@ -17,6 +17,13 @@ under separate owners:
   edits update controls and history.
 - `indicatorPanes` owns per-chart order and preferred heights. Its handles use the
   same layout calculation as the rendered panes, legends, and price-axis hit tests.
+- Indicator Y axes pin their visible ranges independently by instance ID. Web
+  pointer handlers and native gestures use the main axis scaling calculation;
+  double-click/tap clears only the target pane's manual range. These transient
+  ranges override render metadata without changing settings or copying series.
+  Each axis has independent A/L controls. Resetting Auto preserves its scale mode;
+  logarithmic plots, ticks, and crosshair values share the main axis projection
+  and require a positive range.
 - `chartLocalStorage` serializes writes by key and waits for pending writes before
   restoring a chart. Completed queue entries are removed. Existing drawing keys
   remain compatible with drawings saved before the shared/native implementation.
