@@ -79,6 +79,65 @@ describe('ServiceHyperliquidSubscription Fast L2 lifecycle', () => {
   });
 });
 
+describe('ServiceHyperliquidSubscription ping measurement', () => {
+  it('cancels the old measurement and measures immediately on the same reconnected client', async () => {
+    const service = createService();
+    const internals = service as unknown as {
+      _client: { ping: (signal: AbortSignal) => Promise<void> };
+      _measurePing: () => Promise<void>;
+      _stopPingLoop: () => void;
+    };
+    const complete: (() => void)[] = [];
+    const signals: AbortSignal[] = [];
+    const ping = jest.fn((signal: AbortSignal) => {
+      signals.push(signal);
+      return new Promise<void>((resolve) => complete.push(resolve));
+    });
+    const publish = jest
+      .spyOn(perpsNetworkStatusAtom, 'set')
+      .mockResolvedValue(undefined);
+    try {
+      internals._client = { ping };
+      const oldMeasurement = internals._measurePing();
+      internals._stopPingLoop();
+      expect(signals[0].aborted).toBe(true);
+      const newMeasurement = internals._measurePing();
+      expect(ping).toHaveBeenCalledTimes(2);
+      complete[0]();
+      await oldMeasurement;
+      expect(publish).not.toHaveBeenCalled();
+      await internals._measurePing();
+      expect(ping).toHaveBeenCalledTimes(2);
+      complete[1]();
+      await newMeasurement;
+      expect(publish).toHaveBeenCalledTimes(1);
+    } finally {
+      publish.mockRestore();
+    }
+  });
+
+  it('keeps one ping in flight per client', async () => {
+    const service = createService();
+    const internals = service as unknown as {
+      _client: { ping: () => Promise<void> } | null;
+      _measurePing: () => Promise<void>;
+    };
+    let releasePing: (() => void) | undefined;
+    const pendingPing = new Promise<void>((resolve) => {
+      releasePing = resolve;
+    });
+    const ping = jest.fn(() => pendingPing);
+    internals._client = { ping };
+
+    const first = internals._measurePing();
+    const second = internals._measurePing();
+
+    expect(ping).toHaveBeenCalledTimes(1);
+    releasePing?.();
+    await Promise.all([first, second]);
+  });
+});
+
 describe('ServiceHyperliquidSubscription resume stream liveness', () => {
   type IResumeInternals = {
     _lastMessageAt: number | null;
@@ -113,6 +172,77 @@ describe('ServiceHyperliquidSubscription resume stream liveness', () => {
     if (typeof g.WebSocket === 'undefined') {
       g.WebSocket = { CONNECTING: 0, OPEN: 1, CLOSING: 2, CLOSED: 3 };
     }
+  });
+
+  it.each([0, 1, 3])(
+    'resumes a CONNECTING socket with retryCount=%s',
+    async (retryCount) => {
+      const { service, internals, force, reconcile } = setupOpenSocketService();
+      jest.spyOn(internals, 'getWebSocketClient').mockResolvedValue({
+        transport: { socket: { readyState: WebSocket.CONNECTING, retryCount } },
+      });
+
+      await service.resumeSubscriptions();
+
+      expect(force).toHaveBeenCalledTimes(retryCount > 0 ? 1 : 0);
+      expect(reconcile).not.toHaveBeenCalled();
+    },
+  );
+
+  it('recovers a retrying socket before a subscription update without waiting', async () => {
+    const { service, force } = setupOpenSocketService();
+    const internals = service as unknown as {
+      _client: unknown;
+      _recoverNotOpenSocketBeforeSubscriptionUpdate: (params: {
+        client: unknown;
+        reason: string;
+      }) => Promise<void>;
+      _waitForOpenSocket: () => Promise<boolean>;
+    };
+    const client = {
+      transport: {
+        socket: { readyState: WebSocket.CONNECTING, retryCount: 1 },
+      },
+    };
+    internals._client = client;
+    const wait = jest.spyOn(internals, '_waitForOpenSocket');
+
+    await internals._recoverNotOpenSocketBeforeSubscriptionUpdate({
+      client,
+      reason: 'test',
+    });
+
+    expect(force).toHaveBeenCalledTimes(1);
+    expect(wait).not.toHaveBeenCalled();
+  });
+
+  it('ignores recovery from a retrying socket that has already been replaced', async () => {
+    const { service, force, reconcile } = setupOpenSocketService();
+    const internals = service as unknown as {
+      _client: unknown;
+      _recoverNotOpenSocketBeforeSubscriptionUpdate: (params: {
+        client: unknown;
+        reason: string;
+      }) => Promise<void>;
+    };
+    const oldClient = {
+      transport: {
+        socket: { readyState: WebSocket.CONNECTING, retryCount: 1 },
+      },
+    };
+    const replacement = {
+      transport: { socket: { readyState: WebSocket.OPEN, retryCount: 0 } },
+    };
+    internals._client = replacement;
+
+    await internals._recoverNotOpenSocketBeforeSubscriptionUpdate({
+      client: oldClient,
+      reason: 'stale_update',
+    });
+
+    expect(force).not.toHaveBeenCalled();
+    expect(reconcile).not.toHaveBeenCalled();
+    expect(internals._client).toBe(replacement);
   });
 
   it('forces a reconnect when the open socket stream went stale', async () => {
@@ -340,13 +470,12 @@ describe('ServiceHyperliquidSubscription liveness recovery', () => {
 
 describe('ServiceHyperliquidSubscription public trades', () => {
   const unsubscribe = jest.fn<Promise<void>, []>();
-  const close = jest.fn<Promise<void>, []>();
+  const close = jest.fn<void, []>();
   const trades = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
     unsubscribe.mockResolvedValue(undefined);
-    close.mockResolvedValue(undefined);
     trades.mockResolvedValue({ unsubscribe });
     jest.mocked(WebSocketTransport).mockImplementation(
       () =>

@@ -20,8 +20,6 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
   type IPerpsActiveTwapOrder,
   useHyperliquidActions,
-  usePerpsActiveTwapOrdersAtom,
-  usePerpsTwapHistoryAtom,
   usePerpsTwapSliceFillsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -31,6 +29,12 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import {
+  formatTwapPriceForDisplay,
+  getActiveTwapRuntimeStatus,
+  getTwapElapsedMs,
+  getTwapRuntimeInfoKey,
+} from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   formatLocalizedNumberString,
@@ -53,6 +57,7 @@ import type {
 
 import { useEnsureTradingEnabled } from '../../../hooks/useEnableTradingWithDepositFallback';
 import { usePerpTwapHistoryViewAllUrl } from '../../../hooks/usePerpOrderInfoPanel';
+import { usePerpsAccountScopedActiveTwapOrders } from '../../../hooks/usePerpsAccountScopedActiveTwapOrders';
 import { OrderInfoSubTabs } from '../Components/OrderInfoSubTabs';
 import { PerpDesktopEmptyState } from '../Components/PerpDesktopEmptyState';
 import { PerpMobileEmptyState } from '../Components/PerpMobileEmptyState';
@@ -230,6 +235,8 @@ function getTwapBaseInfo({
   state,
   now,
   endTime,
+  activatedAt,
+  status,
   spotDisplayMap,
   spotPairDisplayNameMap,
   intl,
@@ -237,6 +244,8 @@ function getTwapBaseInfo({
   state: ITwapState;
   now: number;
   endTime?: number;
+  activatedAt?: number;
+  status?: ITwapHistoryRecord['status']['status'];
   spotDisplayMap: Record<string, string>;
   spotPairDisplayNameMap: Record<string, string>;
   intl: IntlShape;
@@ -266,11 +275,15 @@ function getTwapBaseInfo({
     executedSize.toFixed(),
     balanceFormatter,
   );
-  const totalMs = state.minutes * 60_000;
-  const elapsedMs = Math.min(
-    Math.max((endTime ?? now) - state.timestamp, 0),
-    totalMs,
-  );
+  const elapsedMs = getTwapElapsedMs({
+    status,
+    timestamp: state.timestamp,
+    activatedAt,
+    triggerPrice: state.trigger?.px,
+    now,
+    endTime,
+    minutes: state.minutes,
+  });
 
   return {
     assetSymbol,
@@ -281,10 +294,15 @@ function getTwapBaseInfo({
     avgPriceFormatted: avgPriceValue
       ? formatLocalizedNumberString(avgPriceValue)
       : '--',
-    runningTimeText: `${formatElapsedDuration(elapsedMs)} / ${formatTotalDuration(
-      state.minutes,
-      intl,
-    )}`,
+    triggerPriceFormatted: formatTwapPriceForDisplay(state.trigger?.px),
+    stopPriceFormatted: formatTwapPriceForDisplay(state.stopPx),
+    runningTimeText:
+      status === 'waitingForTrigger' || elapsedMs === undefined
+        ? '--'
+        : `${formatElapsedDuration(elapsedMs)} / ${formatTotalDuration(
+            state.minutes,
+            intl,
+          )}`,
     reduceOnlyText: state.reduceOnly
       ? intl.formatMessage({ id: ETranslations.perp_yes__title })
       : intl.formatMessage({ id: ETranslations.perp_no__title }),
@@ -358,6 +376,8 @@ function TwapEmptyState({ titleId }: { titleId: ETranslations }) {
 
 function TwapActiveRow({
   order,
+  status,
+  activatedAt,
   now,
   cellMinWidth,
   columnConfigs,
@@ -370,6 +390,8 @@ function TwapActiveRow({
   spotPairDisplayNameMap,
 }: {
   order: IPerpsActiveTwapOrder;
+  status: ITwapHistoryRecord['status']['status'];
+  activatedAt?: number;
   now: number;
   cellMinWidth: number;
   columnConfigs: IColumnConfig[];
@@ -388,12 +410,22 @@ function TwapActiveRow({
     () =>
       getTwapBaseInfo({
         state,
+        status,
+        activatedAt,
         now,
         spotDisplayMap,
         spotPairDisplayNameMap,
         intl,
       }),
-    [intl, now, spotDisplayMap, spotPairDisplayNameMap, state],
+    [
+      activatedAt,
+      intl,
+      now,
+      spotDisplayMap,
+      spotPairDisplayNameMap,
+      state,
+      status,
+    ],
   );
   const creationTime = useMemo(
     () => formatTwapDateTime(state.timestamp),
@@ -423,7 +455,11 @@ function TwapActiveRow({
             justifyContent="center"
             alignItems={calcCellAlign(columnConfigs[0].align)}
           >
-            <SizableText size="$bodySmMedium" color={sideInfo.color}>
+            <SizableText
+              size="$bodySmMedium"
+              fontWeight={600}
+              color={sideInfo.color}
+            >
               {baseInfo.assetSymbol}
             </SizableText>
           </YStack>
@@ -456,29 +492,56 @@ function TwapActiveRow({
           </XStack>
           <YStack
             {...getColumnStyle(columnConfigs[4])}
-            justifyContent="center"
+            justifyContent={calcCellAlign(columnConfigs[4].align)}
             alignItems={calcCellAlign(columnConfigs[4].align)}
+          >
+            <SizableText size="$bodySm">
+              {baseInfo.triggerPriceFormatted}
+            </SizableText>
+          </YStack>
+          <YStack
+            {...getColumnStyle(columnConfigs[5])}
+            justifyContent={calcCellAlign(columnConfigs[5].align)}
+            alignItems={calcCellAlign(columnConfigs[5].align)}
+          >
+            <SizableText size="$bodySm">
+              {baseInfo.stopPriceFormatted}
+            </SizableText>
+          </YStack>
+          <YStack
+            {...getColumnStyle(columnConfigs[6])}
+            justifyContent="center"
+            alignItems={calcCellAlign(columnConfigs[6].align)}
           >
             <SizableText size="$bodySm">{baseInfo.runningTimeText}</SizableText>
           </YStack>
           <XStack
-            {...getColumnStyle(columnConfigs[5])}
-            justifyContent={calcCellAlign(columnConfigs[5].align)}
+            {...getColumnStyle(columnConfigs[7])}
+            justifyContent={calcCellAlign(columnConfigs[7].align)}
+            alignItems="center"
+          >
+            <SizableText size="$bodySm">
+              {getTwapHistoryStatusText(status, intl)}
+            </SizableText>
+          </XStack>
+          <XStack
+            {...getColumnStyle(columnConfigs[8])}
+            justifyContent={calcCellAlign(columnConfigs[8].align)}
             alignItems="center"
           >
             <SizableText size="$bodySm">{baseInfo.reduceOnlyText}</SizableText>
           </XStack>
           <XStack
-            {...getColumnStyle(columnConfigs[6])}
-            justifyContent={calcCellAlign(columnConfigs[6].align)}
+            {...getColumnStyle(columnConfigs[9])}
+            justifyContent={calcCellAlign(columnConfigs[9].align)}
             alignItems="center"
           >
             <SizableText size="$bodySm">{baseInfo.randomizeText}</SizableText>
           </XStack>
           <YStack
-            {...getColumnStyle(columnConfigs[7])}
+            {...getColumnStyle(columnConfigs[10])}
             justifyContent="center"
-            alignItems={calcCellAlign(columnConfigs[7].align)}
+            alignItems={calcCellAlign(columnConfigs[10].align)}
           >
             <SizableText size="$bodySm">{creationTime.inline}</SizableText>
           </YStack>
@@ -486,8 +549,8 @@ function TwapActiveRow({
       ) : null}
       {shouldRenderRight ? (
         <XStack
-          {...getColumnStyle(columnConfigs[8])}
-          justifyContent={calcCellAlign(columnConfigs[8].align)}
+          {...getColumnStyle(columnConfigs[11])}
+          justifyContent={calcCellAlign(columnConfigs[11].align)}
           alignItems="center"
           cursor="pointer"
         >
@@ -536,23 +599,33 @@ function TwapHistoryRow({
   const intl = useIntl();
   const { state } = record;
   const statusValue = record.status.status;
-  // A trigger TWAP waiting to fire has not executed anything yet, so it shares
-  // the in-flight presentation with `activated`.
-  const isActivated =
-    statusValue === 'activated' || statusValue === 'waitingForTrigger';
-  const endTime = isActivated ? undefined : normalizeEpochMs(record.time);
+  const isActivated = record.status.status === 'activated';
+  const isWaitingForTrigger = record.status.status === 'waitingForTrigger';
+  const endTime =
+    isActivated || isWaitingForTrigger
+      ? undefined
+      : normalizeEpochMs(record.time);
   const sideInfo = useMemo(() => getTwapSideInfo(state, intl), [intl, state]);
   const baseInfo = useMemo(
     () =>
       getTwapBaseInfo({
         state,
+        status: record.status.status,
         now,
         endTime,
         spotDisplayMap,
         spotPairDisplayNameMap,
         intl,
       }),
-    [endTime, intl, now, spotDisplayMap, spotPairDisplayNameMap, state],
+    [
+      endTime,
+      intl,
+      now,
+      record.status.status,
+      spotDisplayMap,
+      spotPairDisplayNameMap,
+      state,
+    ],
   );
   const historyTime = useMemo(
     () => formatTwapDateTime(getTwapHistoryEventTimeMs(record)),
@@ -560,15 +633,22 @@ function TwapHistoryRow({
   );
   const historyDisplayInfo = useMemo(
     () => ({
-      executedSize: isActivated ? '--' : baseInfo.executedSizeWithSymbol,
-      averagePrice: isActivated ? '--' : baseInfo.avgPriceFormatted,
-      totalRuntime: formatTotalDuration(state.minutes, intl),
+      executedSize:
+        isActivated || isWaitingForTrigger
+          ? '--'
+          : baseInfo.executedSizeWithSymbol,
+      averagePrice:
+        isActivated || isWaitingForTrigger ? '--' : baseInfo.avgPriceFormatted,
+      totalRuntime: isWaitingForTrigger
+        ? '--'
+        : formatTotalDuration(state.minutes, intl),
     }),
     [
       baseInfo.avgPriceFormatted,
       baseInfo.executedSizeWithSymbol,
       intl,
       isActivated,
+      isWaitingForTrigger,
       state.minutes,
     ],
   );
@@ -680,6 +760,21 @@ function TwapHistoryRow({
           />
           <MobileTwapHistoryInfoRow
             label={intl.formatMessage({
+              id: ETranslations.dexmarket_pro_trigger_price,
+            })}
+            value={baseInfo.triggerPriceFormatted}
+          />
+          <MobileTwapHistoryInfoRow
+            label={intl.formatMessage({
+              id:
+                state.side === 'B'
+                  ? ETranslations.perp_scale_upper_price_label__title
+                  : ETranslations.perp_scale_lower_price_label__title,
+            })}
+            value={baseInfo.stopPriceFormatted}
+          />
+          <MobileTwapHistoryInfoRow
+            label={intl.formatMessage({
               id: ETranslations.perp_twap_running_time__title,
             })}
             value={historyDisplayInfo.totalRuntime}
@@ -769,19 +864,37 @@ function TwapHistoryRow({
             alignItems={calcCellAlign(columnConfigs[5].align)}
           >
             <SizableText size="$bodySm">
+              {baseInfo.triggerPriceFormatted}
+            </SizableText>
+          </YStack>
+          <YStack
+            {...getColumnStyle(columnConfigs[6])}
+            justifyContent="center"
+            alignItems={calcCellAlign(columnConfigs[6].align)}
+          >
+            <SizableText size="$bodySm">
+              {baseInfo.stopPriceFormatted}
+            </SizableText>
+          </YStack>
+          <YStack
+            {...getColumnStyle(columnConfigs[7])}
+            justifyContent="center"
+            alignItems={calcCellAlign(columnConfigs[7].align)}
+          >
+            <SizableText size="$bodySm">
               {historyDisplayInfo.totalRuntime}
             </SizableText>
           </YStack>
           <XStack
-            {...getColumnStyle(columnConfigs[6])}
-            justifyContent={calcCellAlign(columnConfigs[6].align)}
+            {...getColumnStyle(columnConfigs[8])}
+            justifyContent={calcCellAlign(columnConfigs[8].align)}
             alignItems="center"
           >
             <SizableText size="$bodySm">{baseInfo.reduceOnlyText}</SizableText>
           </XStack>
           <XStack
-            {...getColumnStyle(columnConfigs[7])}
-            justifyContent={calcCellAlign(columnConfigs[7].align)}
+            {...getColumnStyle(columnConfigs[9])}
+            justifyContent={calcCellAlign(columnConfigs[9].align)}
             alignItems="center"
           >
             <SizableText size="$bodySm">{baseInfo.randomizeText}</SizableText>
@@ -790,8 +903,8 @@ function TwapHistoryRow({
       ) : null}
       {shouldRenderRight ? (
         <XStack
-          {...getColumnStyle(columnConfigs[8])}
-          justifyContent={calcCellAlign(columnConfigs[8].align)}
+          {...getColumnStyle(columnConfigs[10])}
+          justifyContent={calcCellAlign(columnConfigs[10].align)}
           alignItems="center"
         >
           <SizableText
@@ -1143,11 +1256,6 @@ function PerpTwapList({
   const actions = useHyperliquidActions();
   const ensureTradingEnabled = useEnsureTradingEnabled();
   const intl = useIntl();
-  const [
-    { accountAddress: activeTwapAccountAddress, twapOrders: rawTwapOrders },
-  ] = usePerpsActiveTwapOrdersAtom();
-  const [{ accountAddress: historyAccountAddress, history: rawHistory }] =
-    usePerpsTwapHistoryAtom();
   const [{ accountAddress: fillsAccountAddress, fills: rawSliceFills }] =
     usePerpsTwapSliceFillsAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
@@ -1192,15 +1300,8 @@ function PerpTwapList({
 
   const currentAccountAddress = currentUser?.accountAddress?.toLowerCase();
 
-  const twapOrders = useMemo(() => {
-    if (
-      !currentAccountAddress ||
-      activeTwapAccountAddress?.toLowerCase() !== currentAccountAddress
-    ) {
-      return [];
-    }
-    return rawTwapOrders;
-  }, [activeTwapAccountAddress, currentAccountAddress, rawTwapOrders]);
+  const { twapOrders, historyRows, activeRuntimeInfoByKey } =
+    usePerpsAccountScopedActiveTwapOrders(currentAccountAddress);
 
   useEffect(() => {
     if (activeTab !== 'active' || twapOrders.length === 0) {
@@ -1209,16 +1310,6 @@ function PerpTwapList({
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, [activeTab, twapOrders.length]);
-
-  const historyRows = useMemo(() => {
-    if (
-      !currentAccountAddress ||
-      historyAccountAddress?.toLowerCase() !== currentAccountAddress
-    ) {
-      return [];
-    }
-    return rawHistory;
-  }, [currentAccountAddress, historyAccountAddress, rawHistory]);
 
   const sliceFills = useMemo(() => {
     if (
@@ -1271,11 +1362,38 @@ function PerpTwapList({
         align: 'left',
       },
       {
+        key: 'triggerPrice',
+        title: intl.formatMessage({
+          id: ETranslations.dexmarket_pro_trigger_price,
+        }),
+        minWidth: 130,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'stopPrice',
+        title: `${intl.formatMessage({
+          id: ETranslations.perp_scale_upper_price__title,
+        })} / ${intl.formatMessage({
+          id: ETranslations.perp_scale_lower_price__title,
+        })}`,
+        minWidth: 130,
+        flex: 1,
+        align: 'left',
+      },
+      {
         key: 'runningTime',
         title: intl.formatMessage({
           id: ETranslations.perp_twap_running_time_total__title,
         }),
         minWidth: 170,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'status',
+        title: intl.formatMessage({ id: ETranslations.global_status }),
+        minWidth: 130,
         flex: 1,
         align: 'left',
       },
@@ -1379,6 +1497,26 @@ function PerpTwapList({
           id: ETranslations.perp_average_price__title,
         }),
         minWidth: 140,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'triggerPrice',
+        title: intl.formatMessage({
+          id: ETranslations.dexmarket_pro_trigger_price,
+        }),
+        minWidth: 130,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'stopPrice',
+        title: `${intl.formatMessage({
+          id: ETranslations.perp_scale_upper_price__title,
+        })} / ${intl.formatMessage({
+          id: ETranslations.perp_scale_lower_price__title,
+        })}`,
+        minWidth: 130,
         flex: 1,
         align: 'left',
       },
@@ -1574,23 +1712,38 @@ function PerpTwapList({
       renderMode?: IRenderMode,
       isHovered?: boolean,
       onHoverChange?: (index: number | null) => void,
-    ) => (
-      <TwapActiveRow
-        order={item}
-        now={now}
-        cellMinWidth={activeMinWidth}
-        columnConfigs={activeColumns}
-        onTerminate={() => void handleTerminate(item)}
-        index={index}
-        renderMode={renderMode}
-        isHovered={isHovered}
-        onHoverChange={onHoverChange}
-        spotDisplayMap={spotDisplayMap}
-        spotPairDisplayNameMap={spotPairDisplayNameMap}
-      />
-    ),
+    ) => {
+      const runtimeInfo = activeRuntimeInfoByKey.get(
+        getTwapRuntimeInfoKey(item.state),
+      );
+      const status = getActiveTwapRuntimeStatus({
+        reportedStatus: runtimeInfo?.reportedStatus,
+        triggerPrice: item.state.trigger?.px,
+        executedSize: item.state.executedSz,
+      });
+      return (
+        <TwapActiveRow
+          order={item}
+          status={status}
+          activatedAt={
+            status === 'activated' ? runtimeInfo?.activatedAt : undefined
+          }
+          now={now}
+          cellMinWidth={activeMinWidth}
+          columnConfigs={activeColumns}
+          onTerminate={() => void handleTerminate(item)}
+          index={index}
+          renderMode={renderMode}
+          isHovered={isHovered}
+          onHoverChange={onHoverChange}
+          spotDisplayMap={spotDisplayMap}
+          spotPairDisplayNameMap={spotPairDisplayNameMap}
+        />
+      );
+    },
     [
       activeColumns,
+      activeRuntimeInfoByKey,
       activeMinWidth,
       handleTerminate,
       now,
