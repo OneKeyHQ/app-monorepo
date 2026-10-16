@@ -51,6 +51,22 @@ function budgetHooks(
 }
 
 describe('runDownloadWithRetry — OCDS §5.11 service-instance budget', () => {
+  test.each(['INTEGRITY_FAILED', 'CANCELLED'])(
+    'native %s is not retried',
+    async (code) => {
+      const error = new Error(
+        `ONEKEY_UPDATE_ERROR:${JSON.stringify({ code, step: 'download' })}`,
+      );
+      const operation = jest.fn(async () => {
+        throw error;
+      });
+      await expect(
+        runDownloadWithRetry(operation, 'native-update'),
+      ).rejects.toBe(error);
+      expect(operation).toHaveBeenCalledTimes(1);
+    },
+  );
+
   test.each([401, 403])(
     'native HTTP %i refreshes the signed URL and resumes successfully',
     async (httpStatus) => {

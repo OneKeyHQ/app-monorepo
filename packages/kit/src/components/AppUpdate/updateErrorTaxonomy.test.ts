@@ -156,6 +156,20 @@ describe('extractHttpStatusFromError', () => {
 
 describe('isUnrecoverableDownloadError — §4 + default rule', () => {
   test.each([
+    'INTEGRITY_FAILED',
+    'INCOMPATIBLE',
+    'INVALID_ARGUMENT',
+    'SECURITY_REJECTED',
+    'CANCELLED',
+  ])('native %s terminates the current download', (code) => {
+    const error = new Error(
+      `ONEKEY_UPDATE_ERROR:${JSON.stringify({ code, step: 'download' })}`,
+    );
+    expect(extractUpdateErrorCode(error)).toBe(code);
+    expect(isUnrecoverableDownloadError(error)).toBe(true);
+  });
+
+  test.each([
     'HTTP 401',
     'HTTP 403',
     'HTTP 404',

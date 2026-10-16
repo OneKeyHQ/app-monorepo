@@ -259,6 +259,11 @@ export function isPermanentThisUrlHttpStatus(status: number): boolean {
  * the current attempt, so they bail here too.
  */
 export const UNRECOVERABLE_DOWNLOAD_ERROR_CODES = new Set<string>([
+  'INTEGRITY_FAILED',
+  'INCOMPATIBLE',
+  'INVALID_ARGUMENT',
+  'SECURITY_REJECTED',
+  'CANCELLED',
   'SHA256_MISMATCH',
   'HTTP_401',
   'HTTP_403',
