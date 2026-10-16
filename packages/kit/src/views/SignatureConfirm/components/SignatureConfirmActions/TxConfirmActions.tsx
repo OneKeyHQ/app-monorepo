@@ -418,14 +418,33 @@ function TxConfirmActions(props: IProps) {
     // attempt this is and the cancel handler can target it precisely.
     const submitId = generateUUID();
     gasAccountSubmitIdRef.current = submitId;
+    const handleInfiniFailureExit = (error: unknown) => {
+      if (gasAccountSubmitIdRef.current !== submitId) return true;
+      if (beforeBroadcastAction?.type !== 'primeInfiniPayment') return false;
+      // Recovery owns the payment state, including ambiguous send outcomes.
+      // Mark exit before notifying it so a late unmount cannot cancel recovery.
+      isExitHandledRef.current = true;
+      updateSendTxStatus({ isSubmitting: false });
+      isSubmitted.current = false;
+      gasAccountSubmitIdRef.current = null;
+      onFail?.(error as Error);
+      if (popStack) {
+        navigation.popStack();
+      } else {
+        navigation.pop();
+      }
+      return true;
+    };
     // Pre-check before submit
 
-    const accountAddress =
-      await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-        accountId,
-        networkId,
-      });
+    let accountAddress: string;
     try {
+      accountAddress =
+        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId,
+        });
+      if (gasAccountSubmitIdRef.current !== submitId) return;
       if (
         unsignedTx?.isInternalTransfer &&
         networkId &&
@@ -451,6 +470,7 @@ function TxConfirmActions(props: IProps) {
         feeInfos: sendSelectedFeeInfo?.feeInfos,
       });
     } catch (e: any) {
+      if (handleInfiniFailureExit(e)) return;
       logGasAccountSubmitFailed(e, 'precheck');
       updateSendTxStatus({ isSubmitting: false });
       onFail?.(e as Error);
@@ -460,6 +480,7 @@ function TxConfirmActions(props: IProps) {
       throw e;
     }
 
+    if (gasAccountSubmitIdRef.current !== submitId) return;
     try {
       const resp =
         await backgroundApiProxy.serviceSignatureConfirm.preActionsBeforeSending(
@@ -475,6 +496,7 @@ function TxConfirmActions(props: IProps) {
         navigation.popStack();
       }
     } catch (e: any) {
+      if (handleInfiniFailureExit(e)) return;
       logGasAccountSubmitFailed(e, 'prepare');
       updateSendTxStatus({ isSubmitting: false });
       onFail?.(e as Error);
@@ -484,20 +506,22 @@ function TxConfirmActions(props: IProps) {
       throw e;
     }
 
+    if (gasAccountSubmitIdRef.current !== submitId) return;
     let newUnsignedTxs: IUnsignedTxPro[];
     let nonceInfo: undefined | { nonce: number };
 
-    if (isUndefined(unsignedTxs[0].nonce) && vaultSettings?.nonceRequired) {
-      nonceInfo = {
-        nonce: await serviceSend.getNextNonce({
-          accountId,
-          networkId,
-          accountAddress,
-        }),
-      };
-    }
-
     try {
+      if (isUndefined(unsignedTxs[0].nonce) && vaultSettings?.nonceRequired) {
+        nonceInfo = {
+          nonce: await serviceSend.getNextNonce({
+            accountId,
+            networkId,
+            accountAddress,
+          }),
+        };
+      }
+
+      if (gasAccountSubmitIdRef.current !== submitId) return;
       newUnsignedTxs = await serviceSend.updateUnSignedTxBeforeSending({
         accountId,
         networkId,
@@ -515,6 +539,7 @@ function TxConfirmActions(props: IProps) {
         tronResourceRentalInfo,
       });
     } catch (e: any) {
+      if (handleInfiniFailureExit(e)) return;
       logGasAccountSubmitFailed(e, 'prepare');
       updateSendTxStatus({ isSubmitting: false });
       onFail?.(e as Error);
@@ -524,35 +549,43 @@ function TxConfirmActions(props: IProps) {
       throw e;
     }
 
-    // fee info pre-check
-    if (
-      sendSelectedFeeInfo &&
-      gasAccountUiState.selectedPayer !== 'gasAccount'
-    ) {
-      const isFeeInfoOverflow = await checkFeeInfoIsOverflow({
-        accountId,
-        networkId,
-        feeAmount: sendSelectedFeeInfo.feeInfos?.[0]?.totalNative,
-        feeSymbol:
-          sendSelectedFeeInfo.feeInfos?.[0]?.feeInfo?.common?.nativeSymbol,
-        encodedTx: newUnsignedTxs[0].encodedTx,
-      });
+    if (gasAccountSubmitIdRef.current !== submitId) return;
+    try {
+      // fee info pre-check
+      if (
+        sendSelectedFeeInfo &&
+        gasAccountUiState.selectedPayer !== 'gasAccount'
+      ) {
+        const isFeeInfoOverflow = await checkFeeInfoIsOverflow({
+          accountId,
+          networkId,
+          feeAmount: sendSelectedFeeInfo.feeInfos?.[0]?.totalNative,
+          feeSymbol:
+            sendSelectedFeeInfo.feeInfos?.[0]?.feeInfo?.common?.nativeSymbol,
+          encodedTx: newUnsignedTxs[0].encodedTx,
+        });
 
-      if (isFeeInfoOverflow) {
-        const isConfirmed = await showFeeInfoOverflowConfirm();
-        if (!isConfirmed) {
-          isSubmitted.current = false;
-          gasAccountSubmitIdRef.current = null;
-          updateSendTxStatus({ isSubmitting: false });
-          return;
+        if (isFeeInfoOverflow) {
+          const isConfirmed = await showFeeInfoOverflowConfirm();
+          if (!isConfirmed) {
+            isSubmitted.current = false;
+            gasAccountSubmitIdRef.current = null;
+            updateSendTxStatus({ isSubmitting: false });
+            return;
+          }
         }
       }
+    } catch (error) {
+      if (handleInfiniFailureExit(error)) return;
+      throw error;
     }
 
+    if (gasAccountSubmitIdRef.current !== submitId) return;
     let transactionSubmitted = false;
     try {
       await onBeforeSend?.();
     } catch (error) {
+      if (handleInfiniFailureExit(error)) return;
       const sendError = error as Error;
       updateSendTxStatus({ isSubmitting: false });
       onFail?.(sendError);
@@ -562,6 +595,7 @@ function TxConfirmActions(props: IProps) {
       throw error;
     }
 
+    if (gasAccountSubmitIdRef.current !== submitId) return;
     try {
       let replaceTxInfo: IReplaceTxInfo | undefined;
       if (
@@ -799,25 +833,7 @@ function TxConfirmActions(props: IProps) {
         logGasAccountSubmitFailed(e, 'submit');
       }
       const gasAccountStrategy = handleGasAccountSubmitError(e);
-      const shouldReviewInfiniPayment =
-        beforeBroadcastAction?.type === 'primeInfiniPayment' &&
-        !transactionSubmitted &&
-        gasAccountSubmitIdRef.current === submitId;
-      if (shouldReviewInfiniPayment) {
-        // Reconcile against the server on the payment screen. A generic RPC
-        // failure can be ambiguous, so never clear its durable send claim here.
-        isExitHandledRef.current = true;
-        updateSendTxStatus({ isSubmitting: false });
-        isSubmitted.current = false;
-        gasAccountSubmitIdRef.current = null;
-        onFail?.(e as Error);
-        if (popStack) {
-          navigation.popStack();
-        } else {
-          navigation.pop();
-        }
-        return;
-      }
+      if (!transactionSubmitted && handleInfiniFailureExit(e)) return;
       // Ordinary sends can retry after fee refresh or payer fallback.
       if (
         gasAccountStrategy === EGasAccountErrorStrategy.Refresh ||

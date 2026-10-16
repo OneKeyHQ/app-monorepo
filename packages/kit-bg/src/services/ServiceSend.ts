@@ -200,8 +200,16 @@ class ServiceSend extends ServiceBase {
         networkId,
         historyId: replaceTxInfo.replaceHistoryId,
       });
+    // A stale confirmation must not turn a deleted Infini entry into an
+    // ordinary send. Without the original history, replacement is unverifiable.
+    if (!historyTx) {
+      throw new OneKeyLocalError({
+        key: ETranslations.prime_close_and_try_again__desc,
+        autoToast: true,
+      });
+    }
     // A speed-up of a cancel still sends zero to self, not the invoice.
-    if (!historyTx || historyTx.replacedType === EReplaceTxType.Cancel) {
+    if (historyTx.replacedType === EReplaceTxType.Cancel) {
       return undefined;
     }
     let action = historyTx.primeInfiniPayment;

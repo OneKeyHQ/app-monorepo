@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 
 import { act, cleanup, render } from '@testing-library/react';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IPrimeInfiniBeforeBroadcastAction } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import TxConfirmActions from './TxConfirmActions';
@@ -220,6 +221,103 @@ describe('TxConfirmActions Gas Account failure exit', () => {
       });
       expect(onCancel).not.toHaveBeenCalled();
       expect(onFail).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each(['address', 'precheck', 'preActions', 'update'] as const)(
+    'exits once after %s failure and ignores late cancellation',
+    async (phase) => {
+      const stages = {
+        address: jest.spyOn(
+          backgroundApiProxy.serviceAccount,
+          'getAccountAddressForApi',
+        ),
+        precheck: jest.spyOn(
+          backgroundApiProxy.serviceSend,
+          'precheckUnsignedTxs',
+        ),
+        preActions: jest.spyOn(
+          backgroundApiProxy.serviceSignatureConfirm,
+          'preActionsBeforeSending',
+        ),
+        update: jest.spyOn(
+          backgroundApiProxy.serviceSend,
+          'updateUnSignedTxBeforeSending',
+        ),
+      };
+      const error = new Error('Preparation failed');
+      jest.mocked(stages[phase]).mockRejectedValueOnce(error);
+      const onFail = jest.fn();
+      const onCancel = jest.fn();
+      const screen = render(
+        <TxConfirmActions
+          accountId="hd-1--0"
+          networkId="evm--1"
+          securityCheckConfirmation="none"
+          securityCheckAcknowledgementKey="tx-1"
+          beforeBroadcastAction={beforeBroadcastAction}
+          onFail={onFail}
+          onCancel={onCancel}
+        />,
+      );
+      await act(async () => {
+        await getFooterActions().onConfirm?.();
+      });
+      expect(onFail).toHaveBeenCalledWith(error);
+      expect(onFail).toHaveBeenCalledTimes(1);
+      expect(mockBatchSend).not.toHaveBeenCalled();
+      expect(mockNavigation.popStack).toHaveBeenCalledTimes(1);
+      screen.unmount();
+      act(() => {
+        jest.advanceTimersByTime(1000);
+      });
+      expect(onCancel).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['resolve', 'reject'] as const)(
+    'stops a cancelled precheck after late %s',
+    async (outcome) => {
+      let resolve: () => void = () => undefined;
+      let reject: (error: Error) => void = () => undefined;
+      jest
+        .mocked(
+          jest.spyOn(backgroundApiProxy.serviceSend, 'precheckUnsignedTxs'),
+        )
+        .mockImplementationOnce(
+          () =>
+            new Promise<void>((res, rej) => {
+              resolve = res;
+              reject = rej;
+            }),
+        );
+      const onFail = jest.fn();
+      const onCancel = jest.fn();
+      render(
+        <TxConfirmActions
+          accountId="hd-1--0"
+          networkId="evm--1"
+          securityCheckConfirmation="none"
+          securityCheckAcknowledgementKey="tx-1"
+          beforeBroadcastAction={beforeBroadcastAction}
+          onFail={onFail}
+          onCancel={onCancel}
+        />,
+      );
+      let pending: Promise<void> | undefined;
+      await act(async () => {
+        pending = getFooterActions().onConfirm?.();
+      });
+      getFooterActions().onCancel(jest.fn(), jest.fn());
+      await act(async () => {
+        if (outcome === 'resolve') resolve();
+        else reject(new Error('Late failure'));
+        await pending;
+      });
+      expect(onCancel).toHaveBeenCalledTimes(1);
+      expect(onFail).not.toHaveBeenCalled();
+      expect(mockBatchSend).not.toHaveBeenCalled();
+      expect(mockNavigation.pop).not.toHaveBeenCalled();
     },
   );
 

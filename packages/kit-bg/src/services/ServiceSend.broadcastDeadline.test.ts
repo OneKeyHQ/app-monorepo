@@ -1854,6 +1854,34 @@ describe('Infini Speed Up broadcast validation', () => {
     });
   });
 
+  test.each(['expired', 'failed'])(
+    'blocks a second speed-up after deleting a %s invoice history',
+    async (status) => {
+      const { service, vault, backgroundApi } = makeReplacement();
+      backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+        {
+          payment: { ...latestPayment, status, amountConfirming: '1' },
+          purchaseStatusSnapshot,
+        },
+      );
+      backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId.mockImplementation(
+        async () => {
+          backgroundApi.serviceHistory.getLocalHistoryTxById.mockResolvedValue(
+            undefined,
+          );
+          return true;
+        },
+      );
+      await expect(speedUp(service)).rejects.toThrow();
+      expect(
+        backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+      ).toHaveBeenCalledTimes(1);
+      await expect(speedUp(service)).rejects.toMatchObject({ autoToast: true });
+      expect(vault.signTransaction).toHaveBeenCalledTimes(1);
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+    },
+  );
+
   test('reports expired replacement invoices through the shared error toast', async () => {
     const { service, vault, backgroundApi } = makeReplacement();
     backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
