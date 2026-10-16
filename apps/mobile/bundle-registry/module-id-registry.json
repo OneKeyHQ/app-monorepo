@@ -21353,6 +21353,7 @@
     "packages/kit/src/routes/Modal/Navigator.tsx": 9108,
     "packages/kit/src/routes/Modal/router.tsx": 10788,
     "packages/kit/src/routes/Tab/DeviceManagement/router.ts": 18104,
+    "packages/kit/src/routes/Tab/Discovery/DiscoveryMarketRouteRedirect.tsx": 22514,
     "packages/kit/src/routes/Tab/Discovery/router.ts": 15260,
     "packages/kit/src/routes/Tab/Earn/router.ts": 20752,
     "packages/kit/src/routes/Tab/Marktet/MarketDetailV2LoadingFallback.tsx": 16334,
