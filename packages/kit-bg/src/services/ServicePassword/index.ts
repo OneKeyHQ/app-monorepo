@@ -185,7 +185,10 @@ export default class ServicePassword extends ServiceBase {
         throw nativeError;
       } else {
         const error = new OneKeyErrors.BiologyAuthFailed();
-        if (platformEnv.isDesktopWin) {
+        if (
+          platformEnv.isDesktopWin &&
+          authRes.error === 'biologyAuthenticate failed'
+        ) {
           error.cause = biologyAuthNativeError;
         }
         throw error;
