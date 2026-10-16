@@ -8,6 +8,8 @@ const path = require('path');
 
 const bs58check = require('bs58check');
 
+const { deriveAccountKeys } = require('./accountKeysFixture');
+
 async function load(packageName, stem) {
   const directory = path.dirname(
     require.resolve(`${packageName}/package.json`),
@@ -23,11 +25,19 @@ async function main() {
   const keys = await load('onekey-zcash-keys', 'onekey_zcash_keys');
   const runtime = await load('onekey-zcash-runtime', 'onekey_zcash_runtime');
   const seed = new Uint8Array(32).fill(7);
+  // Account-scoped keys only; the seed never enters the WASM.
+  const accountKeys = deriveAccountKeys(seed, 0);
+  const { accountXprv } = accountKeys;
   let original;
   let proved;
   let signed;
   try {
-    const ufvk = keys.ufvkFromSeed('main', seed, 0);
+    const ufvk = keys.ufvkFromAccountKeys(
+      'main',
+      accountKeys.orchardSk,
+      accountKeys.accountXpub,
+      0,
+    );
     const recipient = keys.unifiedAddress('main', ufvk, 'orchard');
     const transparent = keys.transparentAddressFromUfvk('main', ufvk);
     const hash = Buffer.from(bs58check.decode(transparent))
@@ -57,11 +67,14 @@ async function main() {
     const quote = JSON.parse(keys.transparentTxQuote(requestJson));
     assert.equal(quote.feeZat, '15000');
     assert.equal(quote.sendAmountZat, '85000');
-    original = keys.transparentShieldCreateWithSeed(requestJson, seed);
-    proved = runtime.pcztProveAtHeight(request.targetHeight, original);
-    signed = keys.transparentShieldSignWithSeed(
+    original = keys.transparentShieldCreateWithAccountXprv(
       requestJson,
-      seed,
+      accountXprv,
+    );
+    proved = runtime.pcztProveAtHeight(request.targetHeight, original);
+    signed = keys.transparentShieldSignWithAccountXprv(
+      requestJson,
+      accountXprv,
       original,
       proved,
     );
@@ -73,7 +86,12 @@ async function main() {
       expiryHeight: request.expiryHeight + 1,
     });
     assert.throws(() =>
-      keys.transparentShieldSignWithSeed(changed, seed, original, proved),
+      keys.transparentShieldSignWithAccountXprv(
+        changed,
+        accountXprv,
+        original,
+        proved,
+      ),
     );
     console.log(
       'PASS: installed WASM quotes, creates, proves, signs and verifies shielding without wallet/storage/scan; changed request rejected.',
@@ -105,7 +123,7 @@ async function main() {
         const hardwareOriginal = keys.transparentTxCreateWithAccountXpub(
           approved,
           accountXpub,
-          keys.seedFingerprint(seed),
+          accountKeys.seedFingerprintHex,
         );
         // The strict software signer finalizes spends. It is deliberately not
         // a device-signature simulator; native tests cover redacted signatures.
@@ -113,9 +131,9 @@ async function main() {
           request.targetHeight,
           hardwareOriginal,
         );
-        const softwareSigned = keys.transparentShieldSignWithSeed(
+        const softwareSigned = keys.transparentShieldSignWithAccountXprv(
           approved,
-          seed,
+          accountXprv,
           hardwareOriginal,
           softwareProved,
         );
@@ -145,6 +163,7 @@ async function main() {
     }
   } finally {
     seed.fill(0);
+    accountKeys.orchardSk.fill(0);
     original?.fill(0);
     proved?.fill(0);
     signed?.fill(0);

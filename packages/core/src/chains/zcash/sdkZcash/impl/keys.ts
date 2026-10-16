@@ -51,21 +51,20 @@ export async function deriveAccount(
   params: IZcashDeriveAccountParams,
 ): Promise<IZcashDeriveAccountResult> {
   const keys = await getKeys();
-  const { ufvk, seedFingerprintHex } = (() => {
-    const seed = zcashHexToBytes(params.seedHex);
-    try {
-      // Reuse one mutable seed copy for every derived value; never
-      // reconstruct the root seed after it's cleared.
-      return {
-        ufvk: keys.ufvkFromSeed(params.network, seed, params.hdIndex),
-        seedFingerprintHex: keys.seedFingerprint(seed),
-      };
-    } finally {
-      // Clear before any network await below, even if a wasm call throws.
-      // The wire-format string itself can't be cleared in JS.
-      seed.fill(0);
-    }
-  })();
+  const orchardSk = zcashHexToBytes(params.orchardSkHex);
+  let ufvk: string;
+  try {
+    ufvk = keys.ufvkFromAccountKeys(
+      params.network,
+      orchardSk,
+      params.accountXpub,
+      params.hdIndex,
+    );
+  } finally {
+    // Clear before any network await below, even if the wasm call throws.
+    // The wire-format string itself can't be cleared in JS.
+    orchardSk.fill(0);
+  }
 
   // Unified address omits Sapling (wallet can't spend it - would strand
   // funds) and transparent (would link transparent/shielded activity).
@@ -87,7 +86,6 @@ export async function deriveAccount(
 
   return {
     ufvk,
-    seedFingerprintHex,
     unifiedAddress,
     transparentAddress,
     chainTip,
@@ -144,20 +142,23 @@ export async function signPczt(
   const reviewJson = stringUtils.stableStringify(params.review);
   // Older signers ignore extra JS arguments; the verifier is a required capability.
   keys.pcztVerifyReview(pczt, reviewJson);
-  const seed = zcashHexToBytes(params.seedHex);
+  const orchardSk = zcashHexToBytes(params.orchardSkHex);
+  const accountXprvBytes = zcashHexToBytes(params.accountXprvHex);
   try {
-    const signed = keys.pcztSignWithSeed(
+    const signed = keys.pcztSignWithAccountKeys(
       params.network,
-      seed,
+      orchardSk,
+      bs58check.encode(accountXprvBytes),
       params.hdIndex,
       pczt,
       reviewJson,
     );
     return { pcztHex: bytesToHex(signed) };
   } finally {
-    // Only clears this copy; the caller's seedHex string stays until GC -
+    // Only clears these copies; the caller's hex strings stay until GC -
     // the host's problem to bound, not fixable at the wasm boundary.
-    seed.fill(0);
+    orchardSk.fill(0);
+    accountXprvBytes.fill(0);
     pczt.fill(0);
   }
 }
@@ -236,40 +237,6 @@ async function buildStatelessShielding({
     original.fill(0);
     proved?.fill(0);
     signed?.fill(0);
-  }
-}
-
-export async function buildTransparentTxWithSeed(
-  params: IZcashTransparentTxRequest & { seedHex: string },
-): Promise<IZcashTransparentTxBuildResult> {
-  const { seedHex, ...request } = params;
-  const keys = await getKeys();
-  const seed = zcashHexToBytes(seedHex);
-  try {
-    if (
-      request.recipients.some((recipient) => recipient.address.startsWith('u1'))
-    ) {
-      const requestJson = stringUtils.stableStringify(request);
-      return await buildStatelessShielding({
-        request,
-        create: () => keys.transparentShieldCreateWithSeed(requestJson, seed),
-        sign: (original, proved) =>
-          keys.transparentShieldSignWithSeed(
-            requestJson,
-            seed,
-            original,
-            proved,
-          ),
-      });
-    }
-    return JSON.parse(
-      keys.transparentTxBuildWithSeed(
-        stringUtils.stableStringify(request),
-        seed,
-      ),
-    ) as IZcashTransparentTxBuildResult;
-  } finally {
-    seed.fill(0);
   }
 }
 

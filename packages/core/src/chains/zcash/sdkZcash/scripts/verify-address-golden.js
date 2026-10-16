@@ -6,14 +6,17 @@
  * Run from the repo root whenever bumping the OneKey Zcash keys package:
  *   node packages/core/src/chains/zcash/sdkZcash/scripts/verify-address-golden.js
  *
- * It derives the fixed public test mnemonic's UFVK and addresses with the
- * installed keys WASM and compares them against the release derivation contract.
+ * It derives the fixed public test mnemonic's account keys in JS (the seed
+ * never enters the WASM), builds the UFVK and addresses with the installed
+ * keys WASM and compares them against the release derivation contract.
  * Any output change must be investigated before updating these fixtures.
  */
 const fs = require('fs');
 const path = require('path');
 
 const { mnemonicToSeedSync } = require('bip39');
+
+const { deriveAccountKeys } = require('./accountKeysFixture');
 
 const TEST_MNEMONIC =
   'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
@@ -37,12 +40,19 @@ const golden = {
   const seed = mnemonicToSeedSync(TEST_MNEMONIC);
   let unifiedAddress;
   let transparentAddress;
+  const accountKeys = deriveAccountKeys(seed, 0);
   try {
-    const ufvk = keys.ufvkFromSeed('main', seed, 0);
+    const ufvk = keys.ufvkFromAccountKeys(
+      'main',
+      accountKeys.orchardSk,
+      accountKeys.accountXpub,
+      0,
+    );
     unifiedAddress = keys.unifiedAddress('main', ufvk, 'orchard');
     transparentAddress = keys.transparentAddressFromUfvk('main', ufvk);
   } finally {
     seed.fill(0);
+    accountKeys.orchardSk.fill(0);
   }
 
   const failures = [];

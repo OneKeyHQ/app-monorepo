@@ -7,7 +7,6 @@ import { getZcashAccountIndexFromXpub } from '..';
 
 import {
   buildTransparentTxWithAccountXprv,
-  buildTransparentTxWithSeed,
   createTransparentHardwarePczt,
   deriveAccount,
   deriveTransparentXpubFromUfvk,
@@ -15,13 +14,15 @@ import {
   getChainTip,
   parseTransparentTransactions,
   quoteTransparentTx,
+  signPczt,
   validateAddress,
 } from './keys';
 
 const mockValidateAddress = jest.fn();
 const mockChainTipAt = jest.fn<Promise<number>, [string]>();
-const mockUfvkFromSeed = jest.fn();
-const mockSeedFingerprint = jest.fn();
+const mockUfvkFromAccountKeys = jest.fn();
+const mockPcztVerifyReview = jest.fn();
+const mockPcztSignWithAccountKeys = jest.fn();
 const mockUnifiedAddress = jest.fn();
 const mockTransparentAddressFromUfvk = jest.fn();
 const mockTransparentAccountPubKeyFromUfvk = jest.fn();
@@ -41,15 +42,16 @@ const mockGetRuntimeWasm = jest.fn(async () => ({
 }));
 const mockGetKeys = jest.fn(async () => ({
   validateAddress: mockValidateAddress,
-  ufvkFromSeed: mockUfvkFromSeed,
-  seedFingerprint: mockSeedFingerprint,
+  ufvkFromAccountKeys: mockUfvkFromAccountKeys,
+  pcztVerifyReview: mockPcztVerifyReview,
+  pcztSignWithAccountKeys: mockPcztSignWithAccountKeys,
   unifiedAddress: mockUnifiedAddress,
   transparentAddressFromUfvk: mockTransparentAddressFromUfvk,
   transparentAccountPubKeyFromUfvk: mockTransparentAccountPubKeyFromUfvk,
   transparentTxQuote: mockTransparentTxQuote,
   parseTransparentTransactions: mockParseTransparentTransactions,
-  transparentShieldCreateWithSeed: mockShieldCreate,
-  transparentShieldSignWithSeed: mockShieldSign,
+  transparentShieldCreateWithAccountXprv: mockShieldCreate,
+  transparentShieldSignWithAccountXprv: mockShieldSign,
   transparentTxCreateWithAccountXpub: mockHardwareCreate,
   transparentTxCombineHardwareSigned: mockHardwareCombine,
   transparentTxBuildWithAccountXprv: mockTransparentTxBuildWithAccountXprv,
@@ -62,52 +64,59 @@ jest.mock('./carrier', () => ({
   getLightwalletdUrl: (url: string) => url,
 }));
 
+const ACCOUNT_XPUB = 'xpub-account';
+
 describe('deriveAccount', () => {
   beforeEach(() => {
     mockChainTipAt.mockReset().mockResolvedValue(3_500_000);
-    mockUfvkFromSeed.mockReset().mockReturnValue('ufvk');
-    mockSeedFingerprint.mockReset().mockReturnValue('fingerprint');
+    mockUfvkFromAccountKeys.mockReset().mockReturnValue('ufvk');
     mockUnifiedAddress.mockReset().mockReturnValue('unified-address');
     mockTransparentAddressFromUfvk
       .mockReset()
       .mockReturnValue('transparent-address');
   });
 
-  it('reuses and clears one mutable seed copy before the network await', async () => {
-    let ufvkSeed: Uint8Array | undefined;
-    let fingerprintSeed: Uint8Array | undefined;
-    mockUfvkFromSeed.mockImplementation(
-      (_network: string, seed: Uint8Array) => {
-        ufvkSeed = seed;
+  it('derives from account keys and clears the Orchard key before the network await', async () => {
+    let observedSk: Uint8Array | undefined;
+    mockUfvkFromAccountKeys.mockImplementation(
+      (_network: string, sk: Uint8Array) => {
+        observedSk = sk;
+        expect(Array.from(sk)).toEqual(new Array(32).fill(0x11));
         return 'ufvk';
       },
     );
-    mockSeedFingerprint.mockImplementation((seed: Uint8Array) => {
-      fingerprintSeed = seed;
-      return 'fingerprint';
-    });
     mockChainTipAt.mockImplementation(async () => {
-      expect(ufvkSeed).toBeDefined();
-      expect(Array.from(ufvkSeed ?? [])).toEqual(new Array(64).fill(0));
+      expect(Array.from(observedSk ?? [])).toEqual(new Array(32).fill(0));
       return 3_500_000;
     });
 
-    await deriveAccount({
-      network: 'main',
-      seedHex: '11'.repeat(64),
-      hdIndex: 0,
-      lightwalletdUrl: 'https://lightwalletd.example',
+    await expect(
+      deriveAccount({
+        network: 'main',
+        orchardSkHex: '11'.repeat(32),
+        accountXpub: ACCOUNT_XPUB,
+        hdIndex: 2,
+        lightwalletdUrl: 'https://lightwalletd.example',
+      }),
+    ).resolves.toEqual({
+      ufvk: 'ufvk',
+      unifiedAddress: 'unified-address',
+      transparentAddress: 'transparent-address',
+      chainTip: 3_500_000,
     });
-
-    expect(fingerprintSeed).toBe(ufvkSeed);
-    expect(Array.from(fingerprintSeed ?? [])).toEqual(new Array(64).fill(0));
+    expect(mockUfvkFromAccountKeys).toHaveBeenCalledWith(
+      'main',
+      expect.any(Uint8Array),
+      ACCOUNT_XPUB,
+      2,
+    );
   });
 
-  it('clears the seed copy when wasm derivation fails', async () => {
-    let observedSeed: Uint8Array | undefined;
-    mockUfvkFromSeed.mockImplementation(
-      (_network: string, seed: Uint8Array) => {
-        observedSeed = seed;
+  it('clears the Orchard key copy when wasm derivation fails', async () => {
+    let observedSk: Uint8Array | undefined;
+    mockUfvkFromAccountKeys.mockImplementation(
+      (_network: string, sk: Uint8Array) => {
+        observedSk = sk;
         throw new OneKeyLocalError('derive failed');
       },
     );
@@ -115,16 +124,75 @@ describe('deriveAccount', () => {
     await expect(
       deriveAccount({
         network: 'main',
-        seedHex: '22'.repeat(64),
+        orchardSkHex: '22'.repeat(32),
+        accountXpub: ACCOUNT_XPUB,
         hdIndex: 0,
         lightwalletdUrl: 'https://lightwalletd.example',
       }),
     ).rejects.toThrow('derive failed');
 
-    expect(Array.from(observedSeed ?? [])).toEqual(new Array(64).fill(0));
-    expect(mockSeedFingerprint).not.toHaveBeenCalled();
+    expect(Array.from(observedSk ?? [])).toEqual(new Array(32).fill(0));
     expect(mockChainTipAt).not.toHaveBeenCalled();
   });
+});
+
+describe('signPczt', () => {
+  const review = {
+    network: 'main' as const,
+    ufvk: 'ufvk',
+    toAddress: 'u1-recipient',
+    amountZat: '1000',
+    feeZat: '10000',
+    spendSource: 'orchard' as const,
+    isMaxSend: false,
+  };
+
+  it.each([false, true])(
+    'signs with account keys and clears every copy (fails=%s)',
+    async (fails) => {
+      const accountXprv = Buffer.alloc(78, 9);
+      let observed: Uint8Array[] = [];
+      mockPcztVerifyReview.mockReset();
+      mockPcztSignWithAccountKeys
+        .mockReset()
+        .mockImplementation(
+          (
+            _network: string,
+            sk: Uint8Array,
+            xprv: string,
+            _index: number,
+            pczt: Uint8Array,
+          ) => {
+            observed = [sk, pczt];
+            expect(Array.from(sk)).toEqual(new Array(32).fill(0x33));
+            expect(xprv).toBe(bs58check.encode(accountXprv));
+            if (fails) throw new OneKeyLocalError('ufvk mismatch');
+            return new Uint8Array([0xab]);
+          },
+        );
+      const result = signPczt({
+        network: 'main',
+        orchardSkHex: '33'.repeat(32),
+        accountXprvHex: accountXprv.toString('hex'),
+        hdIndex: 1,
+        pcztHex: '0102',
+        review,
+      });
+      if (fails) {
+        await expect(result).rejects.toThrow('ufvk mismatch');
+      } else {
+        await expect(result).resolves.toEqual({ pcztHex: 'ab' });
+      }
+      expect(mockPcztVerifyReview).toHaveBeenCalledWith(
+        expect.any(Uint8Array),
+        stringUtils.stableStringify(review),
+      );
+      expect(mockPcztSignWithAccountKeys.mock.calls[0]?.[3]).toBe(1);
+      for (const bytes of observed) {
+        expect(bytes.every((b) => b === 0)).toBe(true);
+      }
+    },
+  );
 });
 
 describe('transparent keys-only transaction API', () => {
@@ -175,7 +243,7 @@ describe('transparent keys-only transaction API', () => {
         if (fails) throw new OneKeyLocalError('proof failed');
         return proved;
       });
-      mockShieldSign.mockImplementation((_request, _seed, source, proof) => {
+      mockShieldSign.mockImplementation((_request, _xprv, source, proof) => {
         expect(source).toBe(original);
         expect(proof).toBe(proved);
         order.push('sign');
@@ -192,10 +260,11 @@ describe('transparent keys-only transaction API', () => {
           spentOutpoints: request.selectedOutpoints,
         }),
       );
-      const result = buildTransparentTxWithSeed({
+      const accountXprv = Buffer.alloc(78, 7);
+      const result = buildTransparentTxWithAccountXprv({
         ...request,
         recipients: [{ address: 'u1-recipient', amountZat: '50000' }],
-        seedHex: '07'.repeat(32),
+        accountXprvHex: accountXprv.toString('hex'),
       });
       if (fails) {
         await expect(result).rejects.toThrow('proof failed');
@@ -210,8 +279,8 @@ describe('transparent keys-only transaction API', () => {
       }
       expect([...original]).toEqual([0, 0]);
       expect(mockGetRuntime).not.toHaveBeenCalled();
-      expect(mockShieldCreate.mock.calls.at(-1)?.[1]).toEqual(
-        new Uint8Array(32),
+      expect(mockShieldCreate.mock.calls.at(-1)?.[1]).toBe(
+        bs58check.encode(accountXprv),
       );
     },
   );
