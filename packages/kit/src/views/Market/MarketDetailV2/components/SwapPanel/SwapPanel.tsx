@@ -20,8 +20,8 @@ import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountS
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
+  prepareMarketSwapEntry,
   prepareStockSwapEntry,
-  prepareTopCoinSwapEntry,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/prepareSwapProEntry';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
@@ -174,7 +174,7 @@ export function SwapPanel({
       const swapEntry =
         tradeDestination === 'stock'
           ? prepareStockSwapEntry(entryParams)
-          : prepareTopCoinSwapEntry(entryParams);
+          : prepareMarketSwapEntry(entryParams);
       navigation.pushModal(EModalRoutes.SwapModal, {
         screen: EModalSwapRoutes.SwapMainLand,
         params: {
@@ -182,6 +182,8 @@ export function SwapPanel({
           importToToken: swapEntry.toToken,
           swapTabSwitchType: swapEntry.swapType,
           swapSource: ESwapSource.MARKET,
+          marketSwapDirection:
+            tradeDestination === 'stock' ? undefined : direction,
         },
       });
     },
