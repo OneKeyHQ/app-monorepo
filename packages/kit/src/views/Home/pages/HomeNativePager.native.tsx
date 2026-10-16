@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -11,7 +12,7 @@ import { View } from 'react-native';
 import { CollapsiblePagerView } from 'react-native-pager-view';
 import { useSharedValue } from 'react-native-reanimated';
 
-import { useTheme } from '@onekeyhq/components';
+import { useTheme, useThemeName } from '@onekeyhq/components';
 
 import { SpotlightScrollStateContext } from '../../../components/Spotlight/SpotlightScrollStateContext';
 import { HomeNativeTabContext } from '../hooks/useHomeTab.native';
@@ -27,6 +28,9 @@ export function HomeNativePager({
   initialTabName,
   headerHeightHint,
   renderHeader,
+  topOverlay,
+  onTopScrollEdgeCapability,
+  topEdgeActive,
   renderTabBar,
   onTabChange,
   onTabPrepare,
@@ -58,6 +62,30 @@ export function HomeNativePager({
   const focusedTab = useSharedValue(tabs[initialIndex]?.name ?? '');
   const indexDecimal = useSharedValue(initialIndex);
   const theme = useTheme();
+  const themeName = useThemeName();
+  const capabilityCallbackRef = useRef(onTopScrollEdgeCapability);
+  capabilityCallbackRef.current = onTopScrollEdgeCapability;
+  const capabilitySessionRef = useRef<{
+    active: boolean;
+    mounted: boolean;
+    lastAvailable: boolean | undefined;
+  }>({
+    active: false,
+    mounted: false,
+    lastAvailable: topEdgeActive ? true : undefined,
+  });
+  useLayoutEffect(() => {
+    const session = capabilitySessionRef.current;
+    session.active = true;
+    session.mounted = true;
+    if (session.lastAvailable !== undefined) {
+      capabilityCallbackRef.current?.(session.lastAvailable);
+    }
+    return () => {
+      session.active = false;
+      capabilityCallbackRef.current?.(false);
+    };
+  }, []);
   const selectedIndexRef = useRef(selectedIndex);
   const mountedPageKeysRef = useRef<{
     pageIdentity: string;
@@ -169,6 +197,17 @@ export function HomeNativePager({
       initialPage={initialIndex}
       nestedScrollEnabled
       nativeSmoothHeaderScrollEnabled
+      topScrollEdgeEffect={topOverlay ? 'hard' : undefined}
+      topOverlayColorScheme={topOverlay ? themeName : undefined}
+      topOverlay={topOverlay}
+      onScrollEdgeCapability={(event) => {
+        const session = capabilitySessionRef.current;
+        if (!session.active && session.mounted) return;
+        session.lastAvailable = event.nativeEvent.available;
+        if (session.active) {
+          capabilityCallbackRef.current?.(event.nativeEvent.available);
+        }
+      }}
       headerHeight={headerLayout.height}
       stickyHeaderHeight={stickyHeight}
       // Spot remains the owner of shared asset loading even while offscreen.
@@ -200,12 +239,14 @@ export function HomeNativePager({
       }
       stickyHeader={
         <View
-          style={{ backgroundColor: theme.bgApp.val }}
+          style={{
+            backgroundColor: topEdgeActive ? 'transparent' : theme.bgApp.val,
+          }}
           onLayout={(event) =>
             setStickyHeight(Math.ceil(event.nativeEvent.layout.height))
           }
         >
-          {renderTabBar(tabBarProps)}
+          {renderTabBar({ ...tabBarProps, topEdgeActive })}
         </View>
       }
       onMountedPagesChanged={({ pageKeys }) => {

@@ -264,6 +264,7 @@ function TokenListFooter(props: IProps) {
         accountId: account.id,
         networkId: network.id,
         walletId: wallet.id,
+        indexedAccountId: indexedAccount?.id,
         tokenList: {
           tokens: filteredSmallBalanceTokens,
           keys: smallBalanceTokenKeys,
@@ -286,6 +287,7 @@ function TokenListFooter(props: IProps) {
     account,
     network,
     wallet,
+    indexedAccount?.id,
     smallBalanceTokens.length,
     smallBalanceIds,
     store,
