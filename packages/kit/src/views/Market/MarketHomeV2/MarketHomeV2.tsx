@@ -28,6 +28,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { LazyPageContainer } from '../../../components/LazyPageContainer';
+import { TabletHomeContainer } from '../../../components/TabletHomeContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { LegacyUniversalSearchInput } from '../../../components/TabPageHeader/LegacyUniversalSearchInput';
 import { useWatchListV2Actions } from '../../../states/jotai/contexts/marketV2';
@@ -386,6 +387,7 @@ function MarketHomeLayoutContent({
       {md || platformEnv.isNative ? (
         <MobileLayout
           {...layoutProps}
+          isFocused={isFocused}
           {...(platformEnv.isNativeIOS
             ? { externalTopOverlayTag, externalTopOverlayHeight }
             : {})}
@@ -514,20 +516,22 @@ export function MarketHomeV2() {
     debugLandingLog('MarketHomeV2 render');
   }
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.home,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-      waitForStorageReady={!platformEnv.isWeb}
-    >
-      <MarketWatchListProviderMirrorV2
-        storeName={EJotaiContextStoreNames.marketWatchListV2}
+    <TabletHomeContainer>
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName: EAccountSelectorSceneName.home,
+          sceneUrl: '',
+        }}
+        enabledNum={[0]}
+        waitForStorageReady={!platformEnv.isWeb}
       >
-        <BaseMarketHome />
-      </MarketWatchListProviderMirrorV2>
-    </AccountSelectorProviderMirror>
+        <MarketWatchListProviderMirrorV2
+          storeName={EJotaiContextStoreNames.marketWatchListV2}
+        >
+          <BaseMarketHome />
+        </MarketWatchListProviderMirrorV2>
+      </AccountSelectorProviderMirror>
+    </TabletHomeContainer>
   );
 }
 

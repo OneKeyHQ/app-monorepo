@@ -195,7 +195,24 @@ export async function navigateToNotificationDetailByLocalParams({
       navigationParams.screen = ETabRoutes.Market;
     } else if (isLegacyDiscoveryMarketTab) {
       navigationParams.screen = ETabRoutes.Market;
-      delete navigationParams.params;
+      const rawNestedParams =
+        subScreen === ETabDiscoveryRoutes.TabDiscovery
+          ? navigationParams.params?.params
+          : navigationParams.params;
+      if (rawNestedParams && typeof rawNestedParams === 'object') {
+        const {
+          defaultTab: _defaultTab,
+          screen: _screen,
+          params: _params,
+          ...restParams
+        } = rawNestedParams as Record<string, unknown>;
+        navigationParams.params =
+          Object.keys(restParams).length > 0
+            ? { screen: ETabMarketRoutes.TabMarket, params: restParams }
+            : { screen: ETabMarketRoutes.TabMarket };
+      } else {
+        navigationParams.params = { screen: ETabMarketRoutes.TabMarket };
+      }
     }
   }
 
@@ -241,7 +258,8 @@ export async function navigateToNotificationDetailByLocalParams({
     if (
       appGlobals.$tabletMainViewNavigationRef?.current &&
       navigationParams?.screen &&
-      !navigationParams?.params?.screen
+      (!navigationParams?.params?.screen ||
+        navigationParams?.params?.screen === ETabMarketRoutes.TabMarket)
     ) {
       const redirectTab = createNativeTabRedirection();
       appGlobals.$tabletMainViewNavigationRef.current.navigate(

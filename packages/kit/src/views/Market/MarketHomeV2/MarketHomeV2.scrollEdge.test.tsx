@@ -7,6 +7,8 @@ import { MarketHomeV2, MarketHomeWithProvider } from './MarketHomeV2';
 
 let mockBannerLoading = true;
 let mockCategoryLoading = false;
+let mockSplitViewType: 'main' | 'sub' | undefined;
+let mockIsSplitView = false;
 const mockSetSelection = jest.fn();
 const mockActions = { current: { refreshWatchListV2: jest.fn() } };
 let mockLayoutProps:
@@ -33,6 +35,11 @@ jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   const Wrapper = ({ children }: PropsWithChildren) => <div>{children}</div>;
   return {
+    ESplitViewType: {
+      MAIN: 'main',
+      SUB: 'sub',
+    },
+    Icon: ({ name }: { name: string }) => <span data-testid={`icon-${name}`} />,
     Page: Object.assign(Wrapper, {
       Header: () => null,
       Body: Wrapper,
@@ -40,6 +47,9 @@ jest.mock('@onekeyhq/components', () => {
     DelayedFreeze: Wrapper,
     XStack: Wrapper,
     isLiquidGlassAvailable: () => true,
+    isNativeTablet: () => false,
+    useIsSplitView: () => mockIsSplitView,
+    useSplitViewType: () => mockSplitViewType,
     useSafeAreaInsets: () => ({ top: 44 }),
     useMedia: () => ({ md: false }),
     YStack: React.forwardRef<
@@ -212,6 +222,8 @@ it.each(['banner', 'category'])(
 it('renders the standalone native Market search header and forwards its measured overlay geometry to MobileLayout', () => {
   mockBannerLoading = false;
   mockCategoryLoading = false;
+  mockSplitViewType = undefined;
+  mockIsSplitView = false;
   mockLayoutProps = undefined;
   mockSearchInputProps = undefined;
 
@@ -235,4 +247,51 @@ it('renders the standalone native Market search header and forwards its measured
     externalTopOverlayTag: headerTag,
     externalTopOverlayHeight: 108,
   });
+});
+
+it('controls tablet split-view panes across landscape entry, detail back return, and portrait/landscape rotation', () => {
+  mockBannerLoading = false;
+  mockCategoryLoading = false;
+
+  // 1. Landscape entry on MAIN pane: renders interactive search bar and market list
+  mockIsSplitView = true;
+  mockSplitViewType = 'main';
+  const mainScreen = render(<MarketHomeV2 />);
+  expect(mainScreen.getByTestId('market-search-input')).toBeTruthy();
+  expect(mainScreen.getByTestId('pager')).toBeTruthy();
+  expect(mainScreen.queryByTestId('icon-OnekeyLogoMonoIllus')).toBeNull();
+  mainScreen.unmount();
+
+  // 2. Landscape entry or detail back-return on SUB pane: renders placeholder instead of duplicate list
+  mockIsSplitView = true;
+  mockSplitViewType = 'sub';
+  const subScreen = render(<MarketHomeV2 />);
+  expect(subScreen.getByTestId('icon-OnekeyLogoMonoIllus')).toBeTruthy();
+  expect(subScreen.queryByTestId('market-search-input')).toBeNull();
+  expect(subScreen.queryByTestId('pager')).toBeNull();
+
+  // 3. Rotate to portrait on SUB pane: placeholder is replaced by full Market home
+  mockIsSplitView = false;
+  subScreen.rerender(<MarketHomeV2 />);
+  expect(subScreen.queryByTestId('icon-OnekeyLogoMonoIllus')).toBeNull();
+  expect(subScreen.getByTestId('market-search-input')).toBeTruthy();
+  expect(subScreen.getByTestId('pager')).toBeTruthy();
+
+  // 4. Rotate back to landscape on SUB pane: returns to placeholder
+  mockIsSplitView = true;
+  subScreen.rerender(<MarketHomeV2 />);
+  expect(subScreen.getByTestId('icon-OnekeyLogoMonoIllus')).toBeTruthy();
+  expect(subScreen.queryByTestId('market-search-input')).toBeNull();
+  expect(subScreen.queryByTestId('pager')).toBeNull();
+  subScreen.unmount();
+
+  // 5. Portrait on MAIN pane: returns null so only SUB renders Market home
+  mockIsSplitView = false;
+  mockSplitViewType = 'main';
+  const portraitMainScreen = render(<MarketHomeV2 />);
+  expect(portraitMainScreen.queryByTestId('market-search-input')).toBeNull();
+  expect(portraitMainScreen.queryByTestId('pager')).toBeNull();
+  expect(
+    portraitMainScreen.queryByTestId('icon-OnekeyLogoMonoIllus'),
+  ).toBeNull();
 });

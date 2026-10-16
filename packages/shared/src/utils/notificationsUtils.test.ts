@@ -149,7 +149,7 @@ describe('navigateToNotificationDetailByLocalParams (Native Market & Discovery r
     expect(mockAppEventBus.emit).not.toHaveBeenCalled();
   });
 
-  it('redirects legacy Discovery defaultTab=global_market notification payloads to ETabRoutes.Market on native', async () => {
+  it('redirects legacy Discovery defaultTab=global_market notification payloads to ETabRoutes.Market -> TabMarket on native', async () => {
     await navigateToNotificationDetailByLocalParams({
       payload: {
         screen: ERootRoutes.Main,
@@ -171,11 +171,158 @@ describe('navigateToNotificationDetailByLocalParams (Native Market & Discovery r
       ERootRoutes.Main,
       {
         screen: ETabRoutes.Market,
+        params: {
+          screen: ETabMarketRoutes.TabMarket,
+        },
       },
       { pop: true },
     );
     expect(mockAppEventBus.emit).not.toHaveBeenCalled();
   });
+
+  it.each([
+    [ETabMarketRoutes.MarketDetailV2, { marketTokenId: 'bitcoin' }] as const,
+    [ETabMarketRoutes.MarketBannerDetail, { tokenListId: 'banner-1' }] as const,
+  ])(
+    'pops an existing %s route on the Market stack back to TabMarket when a legacy defaultTab=global_market notification is opened',
+    async (activeDetailRoute, activeDetailParams) => {
+      const {
+        CommonActions: RouterActions,
+        StackRouter,
+        TabRouter,
+      } = jest.requireActual<typeof import('@react-navigation/routers')>(
+        '@react-navigation/routers',
+      );
+      const tabRouteNames = [
+        ETabRoutes.Home,
+        ETabRoutes.Market,
+        ETabRoutes.Discovery,
+      ];
+      const marketRouteNames = [
+        ETabMarketRoutes.TabMarket,
+        ETabMarketRoutes.MarketDetailV2,
+        ETabMarketRoutes.MarketBannerDetail,
+      ];
+      const tabRouterConfig = {
+        routeNames: tabRouteNames,
+        routeParamList: {},
+        routeGetIdList: {},
+      };
+      const marketRouterConfig = {
+        routeNames: marketRouteNames,
+        routeParamList: {},
+        routeGetIdList: {},
+      };
+      const tabRouter = TabRouter({
+        backBehavior: 'initialRoute',
+      });
+      const marketStackRouter = StackRouter({});
+
+      const initialMarketStackState =
+        marketStackRouter.getInitialState(marketRouterConfig);
+      const navigatedMarketPartialState =
+        marketStackRouter.getStateForAction(
+          initialMarketStackState,
+          RouterActions.navigate({
+            name: activeDetailRoute,
+            params: activeDetailParams,
+          }),
+          marketRouterConfig,
+        ) ?? initialMarketStackState;
+      const marketStackState = marketStackRouter.getRehydratedState(
+        navigatedMarketPartialState,
+        marketRouterConfig,
+      );
+
+      expect(marketStackState.routes.map((r) => r.name)).toEqual([
+        ETabMarketRoutes.TabMarket,
+        activeDetailRoute,
+      ]);
+
+      let tabState = tabRouter.getInitialState(tabRouterConfig);
+      tabState = {
+        ...tabState,
+        routes: tabState.routes.map((route) =>
+          route.name === ETabRoutes.Market
+            ? { ...route, state: marketStackState }
+            : route,
+        ),
+      };
+
+      await navigateToNotificationDetailByLocalParams({
+        payload: {
+          screen: ERootRoutes.Main,
+          params: {
+            screen: ETabRoutes.Discovery,
+            params: {
+              screen: ETabDiscoveryRoutes.TabDiscovery,
+              params: { defaultTab: ETranslations.global_market },
+            },
+          },
+        },
+        localParams: {},
+        getEarnAccount: getEarnAccountMock,
+      });
+
+      jest.runAllTimers();
+
+      const [, mainParams, navigateOptions] = navigateMock.mock.calls[0] as [
+        string,
+        {
+          screen: string;
+          params?: { screen: string; params?: Record<string, unknown> };
+        },
+        { pop?: boolean },
+      ];
+
+      const nextTabPartialState =
+        tabRouter.getStateForAction(
+          tabState,
+          RouterActions.navigate(
+            mainParams.screen,
+            mainParams.params,
+            navigateOptions,
+          ),
+          tabRouterConfig,
+        ) ?? tabState;
+      const nextTabState = tabRouter.getRehydratedState(
+        nextTabPartialState,
+        tabRouterConfig,
+      );
+
+      const nextMarketRoute = nextTabState.routes.find(
+        (route) => route.name === ETabRoutes.Market,
+      );
+      expect(nextTabState.routes[nextTabState.index]?.name).toBe(
+        ETabRoutes.Market,
+      );
+      expect(nextMarketRoute?.params).toEqual({
+        screen: ETabMarketRoutes.TabMarket,
+      });
+
+      const finalMarketPartialState =
+        marketStackRouter.getStateForAction(
+          marketStackState,
+          RouterActions.navigate({
+            name: (nextMarketRoute?.params as { screen: string }).screen,
+            params: (
+              nextMarketRoute?.params as { params?: Record<string, unknown> }
+            ).params,
+            pop: navigateOptions?.pop,
+          }),
+          marketRouterConfig,
+        ) ?? marketStackState;
+      const finalMarketStackState = marketStackRouter.getRehydratedState(
+        finalMarketPartialState,
+        marketRouterConfig,
+      );
+
+      expect(finalMarketStackState.routes.map((r) => r.name)).toEqual([
+        ETabMarketRoutes.TabMarket,
+      ]);
+      expect(finalMarketStackState.index).toBe(0);
+    },
+  );
 
   it('still redirects ETabRoutes.Earn to ETabRoutes.Discovery and emits SwitchDiscoveryTabInNative(global_earn)', async () => {
     await navigateToNotificationDetailByLocalParams({
