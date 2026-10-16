@@ -20,6 +20,7 @@ import {
   useOrderFilterByCurrentTokenAtom,
   usePerpsActiveOpenOrdersAtom,
   usePerpsActiveTwapOrdersAtom,
+  usePerpsTwapHistoryAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   usePerpsActiveAccountAtom,
@@ -29,6 +30,12 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  buildActiveTwapRuntimeInfoByKey,
+  getActiveTwapRuntimeStatus,
+  getTwapRuntimeInfoKey,
+  isTerminalTwapStatus,
+} from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import {
   normalizePerpsAccountAddress,
   resolveBboOrderPrice,
@@ -206,6 +213,7 @@ function PerpOpenOrdersList({
   const [perpOpenOrdersState] = usePerpsActiveOpenOrdersAtom();
   const [spotOpenOrdersState] = useSpotActiveOpenOrdersAtom();
   const [twapOrdersState] = usePerpsActiveTwapOrdersAtom();
+  const [twapHistoryState] = usePerpsTwapHistoryAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
   const accountScopedAddress = usePerpsAccountScopedCacheAddress();
@@ -250,7 +258,7 @@ function PerpOpenOrdersList({
       spotOpenOrdersState.openOrders,
     ],
   );
-  const scopedTwapOrders = useMemo(
+  const rawScopedTwapOrders = useMemo(
     () =>
       getPerpsAccountScopedListData({
         activeAccountAddress: accountScopedAddress,
@@ -262,6 +270,34 @@ function PerpOpenOrdersList({
       twapOrdersState.accountAddress,
       twapOrdersState.twapOrders,
     ],
+  );
+  const scopedTwapHistory = useMemo(
+    () =>
+      getPerpsAccountScopedListData({
+        activeAccountAddress: accountScopedAddress,
+        dataAccountAddress: twapHistoryState.accountAddress,
+        data: twapHistoryState.history,
+      }),
+    [
+      accountScopedAddress,
+      twapHistoryState.accountAddress,
+      twapHistoryState.history,
+    ],
+  );
+  const activeTwapRuntimeInfoByKey = useMemo(
+    () => buildActiveTwapRuntimeInfoByKey(scopedTwapHistory),
+    [scopedTwapHistory],
+  );
+  const scopedTwapOrders = useMemo(
+    () =>
+      rawScopedTwapOrders.filter(
+        (order) =>
+          !isTerminalTwapStatus(
+            activeTwapRuntimeInfoByKey.get(getTwapRuntimeInfoKey(order.state))
+              ?.reportedStatus,
+          ),
+      ),
+    [rawScopedTwapOrders, activeTwapRuntimeInfoByKey],
   );
   const openOrders = useMemo(
     () =>
@@ -386,6 +422,12 @@ function PerpOpenOrdersList({
         : []),
     ];
   }, [activeOpenOrdersSubTab, filteredOrders, filteredTwapOrders, isMobile]);
+
+  const pageSize = isMobile ? 20 : 40;
+  const totalPages = Math.max(1, Math.ceil(displayRows.length / pageSize));
+  useEffect(() => {
+    setCurrentListPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
 
   const hasChaseAction = displayRows.some(
     (row) =>
@@ -710,9 +752,21 @@ function PerpOpenOrdersList({
     onHoverChange?: (index: number | null) => void,
   ) => {
     if (item.type === 'twap') {
+      const runtimeInfo = activeTwapRuntimeInfoByKey.get(
+        getTwapRuntimeInfoKey(item.order.state),
+      );
+      const status = getActiveTwapRuntimeStatus({
+        reportedStatus: runtimeInfo?.reportedStatus,
+        triggerPrice: item.order.state.trigger?.px,
+        executedSize: item.order.state.executedSz,
+      });
       return (
         <MobileTwapOpenOrdersRow
           order={item.order}
+          status={status}
+          activatedAt={
+            status === 'activated' ? runtimeInfo?.activatedAt : undefined
+          }
           onCancelOrder={() => void handleCancelTwapOrder(item.order)}
         />
       );
@@ -841,7 +895,7 @@ function PerpOpenOrdersList({
         useTabsList={useTabsList}
         disableListScroll={disableListScroll}
         enablePagination
-        pageSize={isMobile ? 20 : 40}
+        pageSize={pageSize}
         paginationToBottom={isMobile}
         currentListPage={currentListPage}
         setCurrentListPage={setCurrentListPage}
