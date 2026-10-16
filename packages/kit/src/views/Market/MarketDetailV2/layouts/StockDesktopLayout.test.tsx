@@ -208,6 +208,7 @@ describe('StockChart', () => {
     expect(mockStockSimpleChart).toHaveBeenLastCalledWith({
       priceMode: 'token',
       range: 'All',
+      priceScaleFormat: 'full',
     });
   });
 
@@ -237,6 +238,7 @@ describe('StockChart', () => {
     expect(mockStockSimpleChart).toHaveBeenLastCalledWith({
       priceMode: 'share',
       range: '5Y',
+      priceScaleFormat: 'full',
     });
 
     view.rerender(renderChart('token'));
@@ -244,12 +246,14 @@ describe('StockChart', () => {
     expect(mockStockSimpleChart).toHaveBeenLastCalledWith({
       priceMode: 'token',
       range: 'All',
+      priceScaleFormat: 'full',
     });
 
     view.rerender(renderChart('share'));
     expect(mockStockSimpleChart).toHaveBeenLastCalledWith({
       priceMode: 'share',
       range: '5Y',
+      priceScaleFormat: 'full',
     });
   });
 });

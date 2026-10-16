@@ -11,10 +11,14 @@ export type IHomeNativePagerProps = {
   initialTabName?: string;
   headerHeightHint?: number;
   renderHeader: () => ReactNode;
+  topOverlay?: ReactNode;
+  onTopScrollEdgeCapability?: (available: boolean) => void;
+  topEdgeActive?: boolean;
   renderTabBar: (props: {
     focusedTab: SharedValue<string>;
     indexDecimal: SharedValue<number>;
     onTabPress: (name: string) => void;
+    topEdgeActive?: boolean;
   }) => ReactNode;
   onTabChange: (data: { tabName: string }) => void;
   onTabPrepare?: (data: { tabId: EHomeWalletTab }) => void;

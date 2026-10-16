@@ -13,6 +13,7 @@ import { DeriveTypeSelectorTriggerIconRenderer } from '@onekeyhq/kit/src/compone
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
+import { getSelectedDeriveTypeForNetwork } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/marketDeriveType';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -44,7 +45,14 @@ export function BalanceDisplay({
   activeAccount,
 }: IBalanceDisplayProps) {
   const intl = useIntl();
-  const [, setSelectedDeriveType] = useSelectedDeriveTypeAtom();
+  const [selectedDeriveType, setSelectedDeriveType] =
+    useSelectedDeriveTypeAtom();
+  // The panel trades with the type picked here, which can differ from the
+  // app-wide default; the selector must show and judge that type.
+  const activeDeriveType = getSelectedDeriveTypeForNetwork(
+    selectedDeriveType,
+    token?.networkId,
+  );
 
   const onSelect = useCallback(
     async (value: { account: any; deriveInfo: any; deriveType: any }) => {
@@ -121,10 +129,13 @@ export function BalanceDisplay({
           {!!token && enableAddressTypeSelector ? (
             <AddressTypeSelector
               refreshOnOpen
+              whenCollapsed="hide"
+              revalidateCollapseOnFocus
               placement="bottom-start"
               networkId={token.networkId ?? ''}
               indexedAccountId={activeAccount?.indexedAccount?.id ?? ''}
               walletId={activeAccount?.wallet?.id ?? ''}
+              activeDeriveType={activeDeriveType}
               onSelect={onSelect}
               renderSelectorTrigger={selectorTrigger}
             />

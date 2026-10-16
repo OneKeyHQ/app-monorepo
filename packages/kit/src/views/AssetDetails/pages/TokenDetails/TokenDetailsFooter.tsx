@@ -82,6 +82,7 @@ function TokenDetailsFooter(props: {
     if (marketNavigationTarget?.type === 'detail') {
       navigation.push(EModalAssetDetailRoutes.MarketDetail, {
         token: marketNavigationTarget.token,
+        tokenImageUri,
         preferredToken:
           !isAggregateToken &&
           !networkUtils.isAllNetwork({ networkId }) &&
@@ -106,6 +107,7 @@ function TokenDetailsFooter(props: {
     navigation,
     networkId,
     tokenAddress,
+    tokenImageUri,
   ]);
 
   const priceChangeColor = useMemo(() => {

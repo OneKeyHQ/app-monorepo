@@ -13,8 +13,11 @@ import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import { LightweightChart } from '../LightweightChart';
 import {
   formatChartPrice,
+  formatChartPriceFull,
+  formatChartPriceFullTicks,
   formatStockChartPrice,
 } from '../LightweightChart/utils/formatChartPrice';
+import { getChartPriceFormatBase } from '../LightweightChart/utils/priceFormatBase';
 
 import type { ILightweightChartReferenceLine } from '../LightweightChart/types';
 
@@ -124,8 +127,10 @@ export function StockPriceLineChart({
   // Pins the latest price to the price axis on the line's full-strength color,
   // without the dashed price line lightweight-charts pairs it with.
   showCurrentPriceLabel?: boolean;
-  // Stock quotes keep two decimals on the axis and the last-price badge.
-  priceScaleFormat?: 'stock';
+  // `stock`: quotes keep two decimals on the axis and the last-price badge.
+  // `full`: desktop prints the whole figure up to $1M (`$2,377.04`, ticks
+  // `$2,540`) instead of the compact `$2.38K`.
+  priceScaleFormat?: 'stock' | 'full';
   testID?: string;
   // The hover card answers "when" and, by default, "how much". Hosts that must
   // not repeat the figure pass false to keep the card time-only.
@@ -140,11 +145,22 @@ export function StockPriceLineChart({
   const [hoverData, setHoverData] = useState<IChartHoverData | null>(null);
   const [chartWidth, setChartWidth] = useState(0);
   const priceFormatter = useCallback(
-    (price: number) =>
-      priceScaleFormat === 'stock'
-        ? formatStockChartPrice(price)
-        : formatChartPrice(price, PRICE_SCALE_MAX_CHARACTERS),
+    (price: number) => {
+      if (priceScaleFormat === 'full') return formatChartPriceFull(price);
+      if (priceScaleFormat === 'stock') return formatStockChartPrice(price);
+      return formatChartPrice(price, PRICE_SCALE_MAX_CHARACTERS);
+    },
     [priceScaleFormat],
+  );
+  const priceTickFormatter =
+    priceScaleFormat === 'full' ? formatChartPriceFullTicks : undefined;
+  const priceFormatBase = useMemo(
+    () =>
+      getChartPriceFormatBase([
+        ...data.map(([, price]) => price),
+        ...(previousClose !== undefined ? [previousClose] : []),
+      ]),
+    [data, previousClose],
   );
   const handleHover = useCallback(
     ({
@@ -352,8 +368,12 @@ export function StockPriceLineChart({
         priceScaleMinimumWidth={platformEnv.isNative ? 0 : PRICE_SCALE_WIDTH}
         timeScaleRightOffsetPixels={LAST_POINT_RIGHT_GAP}
         priceFormatter={priceFormatter}
+        priceTickFormatter={priceTickFormatter}
+        priceFormatBase={priceFormatBase}
         compactPriceMaxCharacters={PRICE_SCALE_MAX_CHARACTERS}
-        priceScaleFormat={priceScaleFormat}
+        // `full` relies on JS formatters, which only the web chart runs; the
+        // native WebView keeps its serializable compact form.
+        priceScaleFormat={priceScaleFormat === 'stock' ? 'stock' : undefined}
         fontSize={11}
         useTimeScaleTickMarkWithoutUnit
         onHover={handleHover}

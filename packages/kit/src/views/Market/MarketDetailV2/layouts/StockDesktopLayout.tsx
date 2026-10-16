@@ -610,6 +610,7 @@ export function StockChart({
             active={active}
             range={range}
             priceMode={priceMode}
+            priceScaleFormat="full"
           />
         ) : (
           <>

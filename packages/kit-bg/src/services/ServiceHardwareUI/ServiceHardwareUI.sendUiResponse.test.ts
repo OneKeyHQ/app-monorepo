@@ -436,6 +436,33 @@ describe('ServiceHardwareUI.withHardwareProcessing stage ownership', () => {
     expect(stage?.step).toBe('off');
   });
 
+  it('does not carry a superseded QR session diagnostic into a newer session', async () => {
+    const diagnostic = { correlationId: 'previous-trace', startedAt: 1 };
+    await service.deviceStageBurst.begin({});
+    await service.deviceStageBurst.qrShowCode({
+      valueUr: { type: 'bytes', cbor: 'first' },
+      sessionId: 1,
+      diagnostic,
+    });
+    await service.deviceStageBurst.qrProceedToScan();
+    expect(stage?.step).toBe('scanQr');
+    expect(stage?.qrDiagnostic).toBe(diagnostic);
+
+    // A newer request without a trace joins the same burst while the
+    // previous session's scan step is still on screen.
+    await service.deviceStageBurst.begin({});
+    await service.deviceStageBurst.qrShowCode({
+      valueUr: { type: 'bytes', cbor: 'second' },
+      sessionId: 2,
+    });
+    expect(stage?.step).toBe('showQr');
+    expect(stage?.qrSessionId).toBe(2);
+    expect(stage?.qrDiagnostic).toBeUndefined();
+
+    await service.deviceStageBurst.end();
+    await service.deviceStageBurst.end();
+  });
+
   it('keeps a failed stage exit from replacing the result or skipping the wrapper bookkeeping', async () => {
     const deviceParams: IWithHardwareProcessingOptions['deviceParams'] = {
       dbDevice: {
@@ -658,9 +685,16 @@ describe('ServiceHardwareUI bootloader recovery handoff', () => {
             },
           ],
         ]);
-        expect(deviceStageAtom.set).toHaveBeenLastCalledWith(
-          expect.objectContaining({ step: 'off' }),
-        );
+        // The off is written through the atom's own update.
+        const writes = jest.mocked(deviceStageAtom.set).mock.calls;
+        const lastWrite = writes[writes.length - 1]?.[0];
+        const stageBefore = {
+          step: 'processing',
+          burstId: 1,
+        } as IDeviceStageState;
+        expect(
+          typeof lastWrite === 'function' ? lastWrite(stageBefore) : lastWrite,
+        ).toEqual(expect.objectContaining({ step: 'off' }));
       } finally {
         getStage.mockRestore();
       }
@@ -1291,11 +1325,13 @@ describe('ServiceHardwareUI.deviceStageUserClose', () => {
         serviceQrWallet: { cancelStageAirGapScan },
       } as never,
     });
-    jest.spyOn(service.deviceStageBurst, 'userClose').mockResolvedValue();
+    const userClose = jest
+      .spyOn(service.deviceStageBurst, 'userClose')
+      .mockResolvedValue();
     const close = jest
       .spyOn(service, 'closeHardwareUiStateDialogFn')
       .mockResolvedValue(undefined);
-    return { service, close, cancelDevice };
+    return { service, close, cancelDevice, cancelStageAirGapScan, userClose };
   };
 
   beforeEach(() => {
@@ -1364,6 +1400,28 @@ describe('ServiceHardwareUI.deviceStageUserClose', () => {
       skipDeviceCancel: true,
     });
     expect(cancelDevice).not.toHaveBeenCalled();
+  });
+
+  it('retires the ✗ the person saw without taking the close path (OK-64696)', async () => {
+    // The notice's page is live: a close of the ✗ must not cancel, reset
+    // or announce anything a retry started from that page depends on.
+    const { service, close, cancelDevice, cancelStageAirGapScan, userClose } =
+      createService();
+    const retire = jest
+      .spyOn(service.deviceStageBurst, 'retireErrorOutcome')
+      .mockResolvedValue();
+    await service.hardwareProcessingManager.runExclusiveOneKeyOperation({
+      operation: async (lease) => {
+        await service.deviceStageRetireErrorOutcome({ outcomeKey: '3:7' });
+        expect(lease.signal?.aborted).toBe(false);
+      },
+    });
+
+    expect(retire).toHaveBeenCalledWith('3:7');
+    expect(cancelDevice).not.toHaveBeenCalled();
+    expect(userClose).not.toHaveBeenCalled();
+    expect(cancelStageAirGapScan).not.toHaveBeenCalled();
+    expect(close).not.toHaveBeenCalled();
   });
 });
 
