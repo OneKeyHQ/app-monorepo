@@ -4,6 +4,7 @@ import type { ComponentType, ReactNode } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -17,8 +18,16 @@ import {
   appRestart,
 } from '@onekeyhq/shared/src/modules3rdParty/appRestart';
 import { callNativeStorage } from '@onekeyhq/shared/src/storage/nativeStorageBridge';
+import {
+  dismissNativeStorageRecovery,
+  getRequestedNativeStorageRecovery,
+  subscribeNativeStorageRecovery,
+} from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
 import { getNativeStorageMigrationRecoveryTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
-import type { INativeStorageMigrationRecoveryTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
+import type {
+  INativeAppStorageRepairSummary,
+  INativeStorageMigrationRecoveryTarget,
+} from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
 import {
   bootstrapNativeStorage,
@@ -35,6 +44,10 @@ let bootstrapRecoveryTarget: INativeStorageMigrationRecoveryTarget | undefined;
 let bootstrapPromise: Promise<void> | undefined;
 let storageRepairPromise: Promise<void> | undefined;
 let recoveryRestartPromise: Promise<void> | undefined;
+let storageRepairInProgress = false;
+let storageRepairCanReset = false;
+let storageRepairError: string | undefined;
+let storageRepairSummary: INativeAppStorageRepairSummary | undefined;
 let bootstrapGeneration = 0;
 type IBootstrapFailureStage = 'app' | 'jotai' | 'runtime-launch' | 'storage';
 let bootstrapFailureStage: IBootstrapFailureStage | undefined;
@@ -160,12 +173,18 @@ function startBackgroundRuntimeReconciliation({
   })();
 }
 
-function writeBootstrapError(message: string) {
+function writeBootstrapError(
+  message: string,
+  level: 'info' | 'error' = 'error',
+) {
   try {
     const { NativeLogger, LogLevel } =
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-    NativeLogger.write(LogLevel.Error, message);
+    NativeLogger.write(
+      level === 'error' ? LogLevel.Error : LogLevel.Info,
+      message,
+    );
   } catch {
     // Logging is best-effort during bootstrap.
   }
@@ -376,30 +395,91 @@ function restartAfterBootstrapFailure({
   return recoveryRestartPromise;
 }
 
-function startStorageRepair(target: INativeStorageMigrationRecoveryTarget) {
+function startStorageRepair(
+  target: INativeStorageMigrationRecoveryTarget,
+  action: 'prepare' | 'complete' | 'reset' = 'prepare',
+  force = false,
+) {
   if (storageRepairPromise) {
     return storageRepairPromise;
   }
-  bootstrapError = undefined;
-  bootstrapRecoveryTarget = undefined;
+  // Invalidate the old reconciliation loop before touching the storage owner.
+  bootstrapGeneration += 1;
+  storageRepairInProgress = true;
+  storageRepairCanReset = false;
+  storageRepairError = undefined;
   notifySubscribers();
-  const nextPromise = callNativeStorage<void>({
-    scope: 'recovery',
-    operation: 'resetMigrationTarget',
-    target,
-  })
-    .then(() => startBootstrap(true))
+  writeBootstrapError(
+    `[NativeStorageRecovery] target=${target} phase=${action}-start`,
+    'info',
+  );
+  let restartScheduled = false;
+  const nextPromise = (async () => {
+    if (target === 'appStorage' && action === 'prepare') {
+      storageRepairSummary = undefined;
+      const summary = await callNativeStorage<
+        INativeAppStorageRepairSummary | undefined
+      >({
+        scope: 'recovery',
+        operation: 'prepareMigrationRepair',
+        target,
+      });
+      if (!summary)
+        throw new OneKeyLocalError(
+          'Storage repair is unavailable in this runtime',
+        );
+      storageRepairSummary = summary;
+      return;
+    }
+    if (target === 'appStorage' && action === 'complete') {
+      if (!storageRepairSummary)
+        throw new OneKeyLocalError('Please run storage repair again');
+      await callNativeStorage<void>({
+        scope: 'recovery',
+        operation: 'completeMigrationRepair',
+        target,
+        repairId: storageRepairSummary.repairId,
+        force,
+      });
+    } else if (action === 'reset') {
+      await callNativeStorage<void>({
+        scope: 'recovery',
+        operation: 'resetMigrationTarget',
+        target,
+      });
+    }
+    await bootstrapNativeStorage({ force: true });
+    await initializeJotaiFromBackground();
+    writeBootstrapError(
+      `[NativeStorageRecovery] target=${target} result=verified restarting=true`,
+      'info',
+    );
+    // Both heaps can retain values from the failed store. Restart both only
+    // after canonical storage and state hydration have passed verification.
+    await appRestart({
+      mode: EAppRestartMode.All,
+      reason: 'storage.migration.repaired',
+    });
+    restartScheduled = true;
+  })()
     .catch((error: unknown) => {
-      bootstrapError =
-        error instanceof Error ? error : new Error(String(error));
-      bootstrapErrorTitle = 'Storage repair failed';
-      bootstrapRecoveryTarget = getNativeStorageMigrationRecoveryTarget(error);
+      storageRepairCanReset =
+        target === 'jotai' &&
+        action !== 'reset' &&
+        getNativeStorageMigrationRecoveryTarget(error) === target;
+      storageRepairError = storageRepairCanReset
+        ? 'The storage could not be recovered. You can rebuild the affected local storage to continue.'
+        : 'Storage repair failed. Please retry or restart the app. See the device log for details.';
+      writeBootstrapError(
+        `[NativeStorageRecovery] target=${target} result=failed canReset=${storageRepairCanReset} errorType=${error instanceof Error ? error.name : typeof error}`,
+      );
       hideNativeStorageBootstrapSplash();
     })
     .finally(() => {
       if (storageRepairPromise === nextPromise) {
         storageRepairPromise = undefined;
       }
+      storageRepairInProgress = restartScheduled;
       notifySubscribers();
     });
   storageRepairPromise = nextPromise;
@@ -416,6 +496,12 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     backgroundColor: '#000',
+    flex: 1,
+  },
+  errorContent: {
+    alignItems: 'center',
+    flexGrow: 1,
+    justifyContent: 'center',
     padding: 24,
   },
   waitingDark: { backgroundColor: '#000' },
@@ -451,20 +537,36 @@ registerSwrCacheMutationInvalidation();
 
 export function NativeStorageBootstrapRoot() {
   useSyncExternalStore(subscribeBootstrapState, getBootstrapStateVersion);
+  const requestedRecoveryTarget = useSyncExternalStore(
+    subscribeNativeStorageRecovery,
+    getRequestedNativeStorageRecovery,
+  );
   const [repairConfirmationTarget, setRepairConfirmationTarget] = useState<
     INativeStorageMigrationRecoveryTarget | undefined
   >();
   const isDarkMode = useColorScheme() === 'dark';
 
-  if (AppComponent) {
+  if (AppComponent && !requestedRecoveryTarget) {
     const App = AppComponent;
     return <App />;
   }
-  if (bootstrapError) {
-    const recoveryTarget = bootstrapRecoveryTarget;
+  if (bootstrapError || requestedRecoveryTarget) {
+    const recoveryTarget = requestedRecoveryTarget ?? bootstrapRecoveryTarget;
     const isConfirmingRepair = repairConfirmationTarget === recoveryTarget;
+    let recoveryDescription = bootstrapError?.message;
+    if (recoveryTarget === 'appStorage') {
+      recoveryDescription =
+        'Repair keeps readable MMKV items and restores missing items from legacy storage, which may be outdated. The original legacy storage will be kept unchanged. Review the results before confirming completion.';
+    } else if (recoveryTarget === 'jotai') {
+      recoveryDescription =
+        'Retry loading local preferences. If that fails, you can choose to rebuild the affected preferences. The original legacy storage will be kept unchanged.';
+    }
     let recoveryAction: ReactNode;
-    if (!recoveryTarget && bootstrapFailureStage === 'runtime-launch') {
+    if (storageRepairInProgress) {
+      recoveryAction = (
+        <ActivityIndicator testID="native-storage-repair-progress" />
+      );
+    } else if (!recoveryTarget && bootstrapFailureStage === 'runtime-launch') {
       recoveryAction = (
         <Pressable
           accessibilityRole="button"
@@ -510,19 +612,28 @@ export function NativeStorageBootstrapRoot() {
       recoveryAction = (
         <>
           <Text style={styles.message}>
-            This removes the affected local state and its stale AsyncStorage
-            copy. Continue?
+            {recoveryTarget === 'appStorage'
+              ? 'Only successfully recovered items will be kept in MMKV. Failed or unscanned items may be unavailable. The original legacy storage will be kept unchanged. Force completion?'
+              : 'This resets the affected local preferences. The original legacy storage will be kept unchanged. Continue?'}
           </Text>
           <Pressable
             accessibilityRole="button"
             onPress={() => {
               setRepairConfirmationTarget(undefined);
-              void startStorageRepair(recoveryTarget);
+              void startStorageRepair(
+                recoveryTarget,
+                recoveryTarget === 'appStorage' ? 'complete' : 'reset',
+                true,
+              );
             }}
             style={styles.retryButton}
             testID="native-storage-migration-repair-confirm"
           >
-            <Text style={styles.retryText}>Confirm reset</Text>
+            <Text style={styles.retryText}>
+              {recoveryTarget === 'appStorage'
+                ? 'Confirm forced completion'
+                : 'Confirm rebuild'}
+            </Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -534,7 +645,36 @@ export function NativeStorageBootstrapRoot() {
           </Pressable>
         </>
       );
-    } else {
+    } else if (recoveryTarget === 'appStorage' && storageRepairSummary) {
+      const requiresForce =
+        storageRepairSummary.failedCount > 0 ||
+        !storageRepairSummary.scanComplete;
+      recoveryAction = (
+        <>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              if (requiresForce) setRepairConfirmationTarget(recoveryTarget);
+              else void startStorageRepair(recoveryTarget, 'complete');
+            }}
+            style={styles.retryButton}
+            testID="native-storage-repair-complete"
+          >
+            <Text style={styles.retryText}>
+              {requiresForce ? 'Force completion' : 'Confirm completion'}
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => void startStorageRepair(recoveryTarget)}
+            style={styles.restartButton}
+            testID="native-storage-repair-retry"
+          >
+            <Text style={styles.restartText}>Try repair again</Text>
+          </Pressable>
+        </>
+      );
+    } else if (storageRepairCanReset) {
       recoveryAction = (
         <Pressable
           accessibilityRole="button"
@@ -542,22 +682,62 @@ export function NativeStorageBootstrapRoot() {
           style={styles.retryButton}
           testID="native-storage-migration-repair"
         >
-          <Text style={styles.retryText}>Reset local storage</Text>
+          <Text style={styles.retryText}>Rebuild local storage</Text>
+        </Pressable>
+      );
+    } else {
+      recoveryAction = (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => void startStorageRepair(recoveryTarget)}
+          style={styles.retryButton}
+          testID="native-storage-migration-repair-attempt"
+        >
+          <Text style={styles.retryText}>Try repair</Text>
         </Pressable>
       );
     }
     return (
-      <View style={[styles.container, styles.errorContainer]}>
+      <ScrollView
+        style={styles.errorContainer}
+        contentContainerStyle={styles.errorContent}
+      >
         <Text style={styles.title}>
           {recoveryTarget ? 'Local storage needs repair' : bootstrapErrorTitle}
         </Text>
-        <Text style={styles.message}>
-          {recoveryTarget
-            ? 'The migrated local storage is incomplete and cannot be used safely.'
-            : bootstrapError.message}
-        </Text>
+        <Text style={styles.message}>{recoveryDescription}</Text>
+        {recoveryTarget === 'appStorage' && storageRepairSummary ? (
+          <>
+            <Text style={styles.message}>
+              {`Successful: ${storageRepairSummary.successfulCount}. Failed: ${storageRepairSummary.failedCount}. Kept from MMKV: ${storageRepairSummary.preservedCount}. Restored from legacy storage: ${storageRepairSummary.recoveredCount}.`}
+            </Text>
+            {!storageRepairSummary.scanComplete ? (
+              <Text style={styles.message}>
+                Some storage could not be scanned. These counts cover known
+                items only; additional items may be missing.
+              </Text>
+            ) : null}
+          </>
+        ) : null}
+        {storageRepairError ? (
+          <Text style={styles.message}>{storageRepairError}</Text>
+        ) : null}
         {recoveryAction}
-      </View>
+        {AppComponent && !storageRepairInProgress ? (
+          <Pressable
+            accessibilityRole="button"
+            style={styles.restartButton}
+            testID="native-storage-repair-back"
+            onPress={() => {
+              storageRepairError = undefined;
+              storageRepairCanReset = false;
+              dismissNativeStorageRecovery();
+            }}
+          >
+            <Text style={styles.restartText}>Back</Text>
+          </Pressable>
+        ) : null}
+      </ScrollView>
     );
   }
   return (

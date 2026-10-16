@@ -449,7 +449,8 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
       'jotai-storage-v1',
       'resetting-v1',
     );
-    expect(legacyData.has('g_states_v5:aAtom')).toBe(false);
+    expect(legacyData.get('g_states_v5:aAtom')).toBe('"stale"');
+    expect(legacyStorage.multiRemove).not.toHaveBeenCalled();
     expect(mmkvInstance.getString('g_states_v5:aAtom')).toBeUndefined();
     expect(mmkvInstance.getString(MIGRATION_KEY)).toBe('1');
     expect(migrationLedger.get('jotai-storage-v1')).toBe('complete-v1');
@@ -472,6 +473,26 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
       'jotai-storage-v1',
       'resetting-v1',
     );
+    expect(migrationLedger.get('jotai-storage-v1')).toBe('complete-v1');
+  });
+
+  it('retains the legacy copy when repair fails and when an interrupted repair resumes', async () => {
+    migrationLedger.set('jotai-storage-v1', 'complete-v1');
+    legacyData.set('g_states_v5:aAtom', '"keep-original"');
+    const storage = createStorage();
+    mockSyncNativeStorageMMKV.mockRejectedValueOnce(
+      new OneKeyLocalError('sync failed'),
+    );
+    await expect(storage.resetAfterMigrationMismatch()).rejects.toThrow(
+      'sync failed',
+    );
+    expect(legacyData.get('g_states_v5:aAtom')).toBe('"keep-original"');
+    expect(migrationLedger.get('jotai-storage-v1')).toBe('resetting-v1');
+    const restarted = createStorage();
+    await restarted.migrateFromAsyncStorage([], PROBE_KEY);
+    expect(legacyData.get('g_states_v5:aAtom')).toBe('"keep-original"');
+    expect(legacyStorage.multiRemove).not.toHaveBeenCalled();
+    expect(mmkvInstance.getString(LEGACY_RETENTION_KEY)).toBe('retained-v1');
     expect(migrationLedger.get('jotai-storage-v1')).toBe('complete-v1');
   });
 

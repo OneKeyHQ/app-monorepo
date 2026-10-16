@@ -12,9 +12,11 @@ import {
   NATIVE_STORAGE_MIGRATION_LEDGER_MIGRATING,
   NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING,
   acknowledgeNativeStorageRecoveryAction,
+  getNativeStorageFileDiagnostics,
   getNativeStorageMigrationCapacity,
   getNativeStorageMigrationLedger,
   peekNativeStorageRecoveryAction,
+  reloadNativeStorageMMKV,
   setNativeStorageMigrationLedger,
   setNativeStorageMigrationLedgerComplete,
   syncNativeStorageMMKV,
@@ -28,6 +30,7 @@ import { EAppSyncStorageKeys } from './syncStorageKeys';
 
 import type { ILegacyAsyncStorageNativeModule } from './legacyAsyncStorageMigration';
 import type {
+  INativeAppStorageRepairSummary,
   INativeAsyncStorageRequest,
   INativeStorageBootstrapSnapshot,
   INativeStorageRequest,
@@ -65,6 +68,10 @@ const APP_STORAGE_TRANSACTION_JOURNAL_KEY =
   '__onekey_internal_app_storage_batch_journal_v1__';
 const APP_STORAGE_MIGRATION_REPORT_KEY =
   '__onekey_internal_app_storage_migration_report_v1__';
+const APP_STORAGE_REPAIR_REPORT_KEY =
+  '__onekey_internal_app_storage_repair_report_v1__';
+const APP_STORAGE_REPAIR_PROBE_KEY =
+  '__onekey_internal_app_storage_repair_probe_v1__';
 const APP_STORAGE_JOURNAL_TRIM_THRESHOLD_CHARS = 1024 * 1024;
 const APP_STORAGE_MIGRATION_DISK_RESERVE_BYTES = 32 * 1024 * 1024;
 const APP_STORAGE_MIGRATION_SIZE_OVERHEAD_RATIO = 1.15;
@@ -136,6 +143,17 @@ type ILegacyAppStorageCopyResult = {
 };
 
 let appStorageMigrationPromise: Promise<void> | undefined;
+let appStorageFileDiagnosticsCaptured = false;
+let appStorageMismatchLogged = false;
+let appStorageRepairActive = false;
+let appStorageRepairSequence = 0;
+// Only bg retains key names. Main receives counts, never keys or values.
+let pendingAppStorageRepair:
+  | {
+      summary: INativeAppStorageRepairSummary;
+      verifiedKeys: Map<string, string>;
+    }
+  | undefined;
 let recoveryActionPromise: Promise<void> | undefined;
 let asyncStorageRequestChain: Promise<void> = Promise.resolve();
 // Main drains one request at a time per store, so only the latest acknowledgement
@@ -187,6 +205,86 @@ function logMigration(message: string) {
     NativeLogger.write(LogLevel.Info, `[NativeStorageMigration] ${message}`);
   } catch {
     // Migration correctness must not depend on diagnostics being available.
+  }
+}
+
+async function logAppStorageFiles(phase: string) {
+  try {
+    const diagnostics =
+      await getNativeStorageFileDiagnostics(APP_STORAGE_MMKV_ID);
+    if (!diagnostics) {
+      logMigration(
+        `diagnostic phase=${phase} target=appStorage nativeFiles=unsupported`,
+      );
+      return;
+    }
+    // Copy only the native contract's scalar metadata, never keys or values.
+    logMigration(
+      `diagnostic ${JSON.stringify({
+        phase,
+        target: 'appStorage',
+        runtime: 'background',
+        dataExists: diagnostics.dataExists === true,
+        dataReadable: diagnostics.dataReadable === true,
+        dataBytes: Number.isFinite(diagnostics.dataBytes)
+          ? diagnostics.dataBytes
+          : -1,
+        crcExists: diagnostics.crcExists === true,
+        crcReadable: diagnostics.crcReadable === true,
+        crcBytes: Number.isFinite(diagnostics.crcBytes)
+          ? diagnostics.crcBytes
+          : -1,
+        availableBytes: Number.isFinite(diagnostics.availableBytes)
+          ? diagnostics.availableBytes
+          : -1,
+      })}`,
+    );
+  } catch {
+    logMigration(
+      `diagnostic phase=${phase} target=appStorage nativeFiles=failed`,
+    );
+  }
+}
+
+function logAppStorageState(
+  mmkv: IMMKVInstance,
+  ledger: string | null,
+  phase: string,
+) {
+  try {
+    const marker = mmkv.getString(APP_STORAGE_MIGRATION_COMPLETE_KEY);
+    let ledgerState = 'unsupported';
+    if (ledger === null) {
+      ledgerState = 'missing';
+    } else if (
+      [
+        NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE,
+        NATIVE_STORAGE_MIGRATION_LEDGER_MIGRATING,
+        NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING,
+      ].includes(ledger)
+    ) {
+      ledgerState = ledger;
+    }
+    let markerState = 'invalid';
+    if (marker === '1') {
+      markerState = 'complete';
+    } else if (marker === undefined) {
+      markerState = 'missing';
+    }
+    logMigration(
+      `diagnostic ${JSON.stringify({
+        phase,
+        target: 'appStorage',
+        runtime: 'background',
+        ledger: ledgerState,
+        marker: markerState,
+        keyCount: mmkv.getAllKeys().length,
+      })}`,
+    );
+  } catch {
+    logMigration(
+      `diagnostic phase=${phase} target=appStorage state=unreadable`,
+    );
   }
 }
 
@@ -804,12 +902,21 @@ function persistAppStorageMigrationReport(
   }
 }
 
+function getAppStorageLedgerBeforeOpen() {
+  // Initialize Nitro first, then install native diagnostics before the target
+  // constructor can discard corrupt data. Do not depend on main being ready.
+  getSyncStorageMMKV('settings');
+  return getNativeStorageMigrationLedger(APP_STORAGE_MIGRATION_LEDGER_KEY);
+}
+
 async function migrateAppStorageFromLegacy() {
   const startedAt = Date.now();
+  if (!appStorageFileDiagnosticsCaptured) {
+    appStorageFileDiagnosticsCaptured = true;
+    await logAppStorageFiles('before-open');
+  }
+  const ledger = await getAppStorageLedgerBeforeOpen();
   const mmkv = getAppStorageMMKV();
-  const ledger = await getNativeStorageMigrationLedger(
-    APP_STORAGE_MIGRATION_LEDGER_KEY,
-  );
   if (
     ledger !== null &&
     ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE &&
@@ -851,6 +958,10 @@ async function migrateAppStorageFromLegacy() {
     return;
   }
   if (ledger === NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE) {
+    if (!appStorageMismatchLogged) {
+      appStorageMismatchLogged = true;
+      logAppStorageState(mmkv, ledger, 'migration-mismatch');
+    }
     throw new OneKeyLocalError(
       createNativeStorageMigrationInconsistentErrorMessage('appStorage'),
     );
@@ -988,6 +1099,11 @@ export function ensureNativeAppStorageMigrated() {
   const environment = travelModeManager.getRuntimeEnvironmentSync();
   return environment.persistence.run({
     operation: () => {
+      if (appStorageRepairActive) {
+        throw new OneKeyLocalError(
+          createNativeStorageMigrationInconsistentErrorMessage('appStorage'),
+        );
+      }
       appStorageMigrationPromise ??= migrateAppStorageFromLegacy().catch(
         (error: unknown) => {
           appStorageMigrationPromise = undefined;
@@ -1016,24 +1132,282 @@ async function resetAppStorageAfterMigrationMismatch() {
     );
   }
 
+  logAppStorageState(mmkv, ledger, 'reset-start');
+
   await setNativeStorageMigrationLedger(
     APP_STORAGE_MIGRATION_LEDGER_KEY,
     NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING,
   );
   await finishInterruptedAppStorageReset(mmkv);
-  appStorageMigrationPromise = Promise.resolve();
+  const reloaded = await reloadNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+  logMigration(
+    `repair target=appStorage phase=reset-verification nativeReload=${reloaded}`,
+  );
+  appStorageMigrationPromise = undefined;
+  appStorageMismatchLogged = false;
+  await ensureNativeAppStorageMigrated();
+  logAppStorageState(
+    mmkv,
+    NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE,
+    'reset-complete',
+  );
+}
+
+async function retryAppStorageMigration() {
+  await logAppStorageFiles('repair-before-reload');
+  await getAppStorageLedgerBeforeOpen();
+  const reloaded = await reloadNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+  logMigration(`repair target=appStorage phase=reload supported=${reloaded}`);
+  appStorageMigrationPromise = undefined;
+  appStorageMismatchLogged = false;
+  await ensureNativeAppStorageMigrated();
+  logMigration('repair target=appStorage result=recovered');
+}
+
+async function prepareAppStorageRepair(): Promise<INativeAppStorageRepairSummary> {
+  pendingAppStorageRepair = undefined;
+  appStorageRepairActive = true;
+  appStorageMigrationPromise = undefined;
+  await logAppStorageFiles('repair-before-reload');
+  const ledger = await getAppStorageLedgerBeforeOpen();
+  if (ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE) {
+    throw new OneKeyLocalError(
+      'App-storage migration repair is no longer applicable',
+    );
+  }
+  let scanComplete = true;
+  try {
+    await reloadNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+  } catch {
+    scanComplete = false;
+    logMigration('repair stage=reload result=failed');
+  }
+  const mmkv = getAppStorageMMKV();
+  try {
+    await recoverInterruptedAppStorageBatch(mmkv);
+  } catch {
+    scanComplete = false;
+    logMigration('repair stage=journal result=failed');
+  }
+  const currentKeys = new Set<string>();
+  try {
+    mmkv
+      .getAllKeys()
+      .filter((key) => key.startsWith(APP_STORAGE_KEY_PREFIX))
+      .forEach((key) => currentKeys.add(decodeAppStorageKey(key)));
+  } catch {
+    scanComplete = false;
+    logMigration('repair stage=target-enumeration result=failed');
+  }
+  // A successful reload needs no stale backup import. Otherwise, existing
+  // readable MMKV values win over the legacy snapshot, which may be outdated.
+  let needsLegacyRecovery = true;
+  try {
+    needsLegacyRecovery =
+      mmkv.getString(APP_STORAGE_MIGRATION_COMPLETE_KEY) !== '1';
+  } catch {
+    scanComplete = false;
+  }
+  let legacy: ILegacyAsyncStorageNativeModule | undefined;
+  let enumeration: ILegacyAppStorageEnumeration | undefined;
+  if (needsLegacyRecovery) {
+    const source = await getLegacyAppStorageSourceWithRetry();
+    legacy = source.ok ? source.value : undefined;
+    enumeration = legacy
+      ? await enumerateLegacyAppStorageKeys(legacy)
+      : undefined;
+    scanComplete =
+      scanComplete && enumeration?.enumerationStatus === 'complete';
+  }
+  const candidates = new Set([...currentKeys, ...(enumeration?.keys ?? [])]);
+  const verifiedKeys = new Map<string, string>();
+  // Transient checksums detect changed records without retaining a second
+  // copy of every value in bg. They are never logged or sent to main.
+  const checksum = (value: string) =>
+    `${value.length}:${getLegacyKeyDiagnosticFingerprint(value)}`;
+  let failedCount = enumeration?.invalidSourceKeyCount ?? 0;
+  let preservedCount = 0;
+  let recoveredCount = 0;
+  let index = 0;
+  for (const key of candidates) {
+    let succeeded = false;
+    let absentProbe = false;
+    try {
+      const current = mmkv.getString(encodeAppStorageKey(key));
+      if (typeof current === 'string') {
+        verifiedKeys.set(key, checksum(current));
+        preservedCount += 1;
+        succeeded = true;
+      }
+    } catch {
+      // A bad record must not prevent attempts on the remaining records.
+    }
+    if (!succeeded && legacy && enumeration) {
+      const read = await readLegacyAppStorageKey({
+        enumerated: enumeration.enumeratedKeys.has(key),
+        index,
+        key,
+        legacy,
+      });
+      if (read?.value === null && !currentKeys.has(key)) {
+        absentProbe = true;
+      }
+      if (read?.value !== null && read?.value !== undefined) {
+        succeeded = await writeAppStorageKeyWithRetry({
+          index,
+          key,
+          mmkv,
+          value: read.value,
+        });
+        if (succeeded) {
+          verifiedKeys.set(key, checksum(read.value));
+          recoveredCount += 1;
+        }
+      }
+    }
+    if (!succeeded && !absentProbe) failedCount += 1;
+    let result = 'failed';
+    if (succeeded) result = 'verified';
+    else if (absentProbe) result = 'absent-probe';
+    logMigration(`repair key index=${index} result=${result}`);
+    index += 1;
+  }
+  appStorageRepairSequence += 1;
+  const summary: INativeAppStorageRepairSummary = {
+    repairId: `${Date.now()}-${appStorageRepairSequence}`,
+    successfulCount: verifiedKeys.size,
+    failedCount,
+    preservedCount,
+    recoveredCount,
+    scanComplete,
+  };
+  pendingAppStorageRepair = { summary, verifiedKeys };
+  logMigration(
+    `repair phase=prepared successful=${summary.successfulCount} failed=${failedCount} scanComplete=${scanComplete} legacyBackup=retained awaitingConfirmation=true`,
+  );
+  return summary;
+}
+
+async function completeAppStorageRepair(repairId: string, force: boolean) {
+  const pending = pendingAppStorageRepair;
+  if (!pending || pending.summary.repairId !== repairId) {
+    throw new OneKeyLocalError(
+      'Storage repair results expired. Please run repair again.',
+    );
+  }
+  if (
+    (pending.summary.failedCount > 0 || !pending.summary.scanComplete) &&
+    force !== true
+  ) {
+    throw new OneKeyLocalError(
+      'Partial storage recovery requires explicit confirmation',
+    );
+  }
+  const mmkv = getAppStorageMMKV();
+  const verifyKeys = () => {
+    const allKeys = mmkv.getAllKeys();
+    if (allKeys.includes(APP_STORAGE_TRANSACTION_JOURNAL_KEY)) {
+      throw new OneKeyLocalError(
+        'App-storage batch journal could not be cleared',
+      );
+    }
+    const actual = allKeys.filter((key) =>
+      key.startsWith(APP_STORAGE_KEY_PREFIX),
+    );
+    if (
+      actual.length !== pending.verifiedKeys.size ||
+      actual.some((key) => !pending.verifiedKeys.has(decodeAppStorageKey(key)))
+    ) {
+      throw new OneKeyLocalError(
+        'Storage repair results changed. Please run repair again.',
+      );
+    }
+    for (const [key, expected] of pending.verifiedKeys) {
+      const value = mmkv.getString(encodeAppStorageKey(key));
+      if (
+        typeof value !== 'string' ||
+        `${value.length}:${getLegacyKeyDiagnosticFingerprint(value)}` !==
+          expected
+      ) {
+        throw new OneKeyLocalError(
+          'Recovered storage record verification failed',
+        );
+      }
+    }
+  };
+  try {
+    await reloadNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+    for (const key of mmkv.getAllKeys()) {
+      if (
+        key.startsWith(APP_STORAGE_KEY_PREFIX) &&
+        !pending.verifiedKeys.has(decodeAppStorageKey(key))
+      ) {
+        if (!force)
+          throw new OneKeyLocalError(
+            'Storage repair results changed. Please run repair again.',
+          );
+        mmkv.remove(key);
+      }
+    }
+    mmkv.remove(APP_STORAGE_TRANSACTION_JOURNAL_KEY);
+    verifyKeys();
+    pendingAppStorageRecovery = undefined;
+    mmkv.set(APP_STORAGE_REPAIR_PROBE_KEY, '1');
+    if (mmkv.getString(APP_STORAGE_REPAIR_PROBE_KEY) !== '1') {
+      throw new OneKeyLocalError('MMKV storage write verification failed');
+    }
+    mmkv.remove(APP_STORAGE_REPAIR_PROBE_KEY);
+    if (mmkv.getString(APP_STORAGE_REPAIR_PROBE_KEY) !== undefined) {
+      throw new OneKeyLocalError('MMKV storage remove verification failed');
+    }
+    await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+    await reloadNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+    verifyKeys();
+    const report = JSON.stringify({ ...pending.summary, force, version: 1 });
+    mmkv.set(APP_STORAGE_REPAIR_REPORT_KEY, report);
+    mmkv.set(
+      APP_STORAGE_LEGACY_RETENTION_POLICY_KEY,
+      APP_STORAGE_LEGACY_RETENTION_POLICY_RETAINED,
+    );
+    mmkv.set(APP_STORAGE_MIGRATION_COMPLETE_KEY, '1');
+    await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+    await reloadNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+    verifyKeys();
+    if (
+      mmkv.getString(APP_STORAGE_MIGRATION_COMPLETE_KEY) !== '1' ||
+      mmkv.getString(APP_STORAGE_REPAIR_REPORT_KEY) !== report ||
+      mmkv.getString(APP_STORAGE_LEGACY_RETENTION_POLICY_KEY) !==
+        APP_STORAGE_LEGACY_RETENTION_POLICY_RETAINED
+    ) {
+      throw new OneKeyLocalError(
+        'Storage repair completion verification failed',
+      );
+    }
+    await setNativeStorageMigrationLedgerComplete(
+      APP_STORAGE_MIGRATION_LEDGER_KEY,
+    );
+  } catch (error) {
+    // Do not leave a successful-looking marker after failed confirmation.
+    try {
+      mmkv.remove(APP_STORAGE_MIGRATION_COMPLETE_KEY);
+      await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+    } catch {
+      logMigration('repair phase=marker-rollback result=failed');
+    }
+    throw error;
+  }
+  pendingAppStorageRepair = undefined;
+  appStorageRepairActive = false;
+  appStorageMigrationPromise = undefined;
+  logMigration(
+    `repair phase=confirmed successful=${pending.summary.successfulCount} failed=${pending.summary.failedCount} force=${force} legacyBackup=retained`,
+  );
 }
 
 function enqueueAppStorageMigrationReset() {
-  const execution = asyncStorageRequestChain.then(
-    () => resetAppStorageAfterMigrationMismatch(),
-    () => resetAppStorageAfterMigrationMismatch(),
+  return enqueueAppStorageOperation(() =>
+    resetAppStorageAfterMigrationMismatch(),
   );
-  asyncStorageRequestChain = execution.then(
-    () => undefined,
-    () => undefined,
-  );
-  return execution;
 }
 
 function defineEnumerableValue(
@@ -1254,10 +1628,13 @@ async function executeAsyncStorageRequest(request: INativeAsyncStorageRequest) {
 }
 
 function enqueueAsyncStorageRequest(request: INativeAsyncStorageRequest) {
-  const execution = asyncStorageRequestChain.then(
-    () => executeAsyncStorageRequest(request),
-    () => executeAsyncStorageRequest(request),
-  );
+  return enqueueAppStorageOperation(() => executeAsyncStorageRequest(request));
+}
+
+function enqueueAppStorageOperation<T>(
+  operation: () => Promise<T>,
+): Promise<T> {
+  const execution = asyncStorageRequestChain.then(operation, operation);
   asyncStorageRequestChain = execution.then(
     () => undefined,
     () => undefined,
@@ -1494,6 +1871,26 @@ async function executeRealNativeStorageRequest(
     }
     case 'recovery':
       if (
+        request.operation === 'prepareMigrationRepair' &&
+        request.target === 'appStorage'
+      ) {
+        return enqueueAppStorageOperation(() => prepareAppStorageRepair());
+      }
+      if (
+        request.operation === 'completeMigrationRepair' &&
+        request.target === 'appStorage'
+      ) {
+        return enqueueAppStorageOperation(() =>
+          completeAppStorageRepair(request.repairId, request.force),
+        );
+      }
+      if (
+        request.operation === 'retryMigrationTarget' &&
+        request.target === 'appStorage'
+      ) {
+        return enqueueAppStorageOperation(() => retryAppStorageMigration());
+      }
+      if (
         request.operation === 'resetMigrationTarget' &&
         request.target === 'appStorage'
       ) {
@@ -1504,7 +1901,9 @@ async function executeRealNativeStorageRequest(
         'Jotai migration recovery must be handled by its storage owner',
       );
     case 'bootstrap': {
-      const result = await buildBootstrapSnapshot(request.stores);
+      const result = await enqueueAppStorageOperation(() =>
+        buildBootstrapSnapshot(request.stores),
+      );
       return result;
     }
     default: {

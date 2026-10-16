@@ -425,18 +425,23 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
   }
 
   private async finishInterruptedReset(): Promise<void> {
-    await this.clearLegacyJotaiData();
     this.mmkv.clearAll();
     this.mmkv.set(MMKV_MIGRATION_COMPLETE_KEY, '1');
-    this.mmkv.set(JOTAI_LEGACY_CLEANUP_COMPLETE_KEY, '1');
+    this.mmkv.set(
+      JOTAI_LEGACY_RETENTION_POLICY_KEY,
+      JOTAI_LEGACY_RETENTION_POLICY_RETAINED,
+    );
     if (this.mmkv.getString(MMKV_MIGRATION_COMPLETE_KEY) !== '1') {
       throw new OneKeyLocalError(
         'Jotai reset migration marker verification failed',
       );
     }
-    if (this.mmkv.getString(JOTAI_LEGACY_CLEANUP_COMPLETE_KEY) !== '1') {
+    if (
+      this.mmkv.getString(JOTAI_LEGACY_RETENTION_POLICY_KEY) !==
+      JOTAI_LEGACY_RETENTION_POLICY_RETAINED
+    ) {
       throw new OneKeyLocalError(
-        'Jotai reset legacy cleanup marker verification failed',
+        'Jotai reset legacy retention marker verification failed',
       );
     }
     await syncNativeStorageMMKV('onekey-jotai-states');
@@ -839,6 +844,9 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     this.migrationReady = false;
     this.migrationPromise = undefined;
     try {
+      // Explicit user data erasure still clears the legacy copy. Repair and
+      // interrupted resets never delete that copy as part of MMKV rebuilding.
+      await this.clearLegacyJotaiData();
       await setNativeStorageMigrationLedger(
         JOTAI_MIGRATION_LEDGER_KEY,
         NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING,
@@ -863,7 +871,14 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         'Jotai migration repair is no longer applicable',
       );
     }
-    await this.clearAllForReset();
+    this.migrationReady = false;
+    this.migrationPromise = undefined;
+    await setNativeStorageMigrationLedger(
+      JOTAI_MIGRATION_LEDGER_KEY,
+      NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING,
+    );
+    await this.finishInterruptedReset();
+    this.migrationPromise = Promise.resolve();
   }
 
   async getAllEntries(): Promise<Map<string, any> | null> {

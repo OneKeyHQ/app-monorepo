@@ -24,7 +24,21 @@ export type INativeStorageMMKVId =
   | 'onekey-app-dev-setting'
   | 'onekey-jotai-states';
 
+export type INativeStorageFileDiagnostics = {
+  dataExists: boolean;
+  dataBytes: number;
+  dataReadable: boolean;
+  crcExists: boolean;
+  crcBytes: number;
+  crcReadable: boolean;
+  availableBytes: number;
+};
+
 interface INativeStorageMigrationModule {
+  getMMKVFileDiagnostics?(
+    mmapId: INativeStorageMMKVId,
+  ): Promise<INativeStorageFileDiagnostics>;
+  reloadMMKV?(mmapId: INativeStorageMMKVId): Promise<void>;
   acknowledgeRecoveryAction(
     expectedAction: INativeStorageRecoveryAction,
   ): Promise<boolean>;
@@ -134,6 +148,21 @@ export function acknowledgeNativeStorageRecoveryAction(
 
 export function syncNativeStorageMMKV(mmapId: INativeStorageMMKVId) {
   return getNativeStorageMigrationModule().syncMMKV(mmapId);
+}
+
+export async function getNativeStorageFileDiagnostics(
+  mmapId: INativeStorageMMKVId,
+) {
+  return getNativeStorageMigrationModule().getMMKVFileDiagnostics?.(mmapId);
+}
+
+export async function reloadNativeStorageMMKV(mmapId: INativeStorageMMKVId) {
+  const module = getNativeStorageMigrationModule();
+  if (!module.reloadMMKV) {
+    return false;
+  }
+  await module.reloadMMKV(mmapId);
+  return true;
 }
 
 export function setNativeTravelModePushSuppressed(suppressed: boolean) {

@@ -1,0 +1,24 @@
+diff --git a/node_modules/react-native-mmkv/cpp/HybridMMKVFactory.cpp b/node_modules/react-native-mmkv/cpp/HybridMMKVFactory.cpp
+index e93be0b..44c287f 100644
+--- a/node_modules/react-native-mmkv/cpp/HybridMMKVFactory.cpp
++++ b/node_modules/react-native-mmkv/cpp/HybridMMKVFactory.cpp
+@@ -8,6 +8,7 @@
+ #include "HybridMMKVFactory.hpp"
+ #include "HybridMMKV.hpp"
+ #include "MMKVTypes.hpp"
++#include <mutex>
+
+ namespace margelo::nitro::mmkv {
+
+@@ -19,7 +20,10 @@ void HybridMMKVFactory::initializeMMKV(const std::string& rootPath) {
+   Logger::log(LogLevel::Info, TAG, "Initializing MMKV with rootPath=%s", rootPath.c_str());
+
+   MMKVLogLevel logLevel = static_cast<MMKVLogLevel>(MMKV_LOG_LEVEL);
+-  MMKV::initializeMMKV(rootPath, logLevel);
++  // OneKey patch: native main/bg share the Core configuration and diagnostics handler.
++  // MMKV::initializeMMKV(rootPath, logLevel);
++  static std::once_flag initialization;
++  std::call_once(initialization, [&] { MMKV::initializeMMKV(rootPath, logLevel); });
+ }
+
+ std::shared_ptr<HybridMMKVSpec> HybridMMKVFactory::createMMKV(const Configuration& configuration) {

@@ -84,6 +84,9 @@ jest.mock('./jotaiMainHydrationGate', () => ({
 }));
 
 jest.mock('react-native', () => ({
+  ScrollView: ({ children }: { children?: import('react').ReactNode }) => (
+    <div>{children}</div>
+  ),
   ActivityIndicator: ({ testID }: { testID?: string }) => (
     <div data-testid={testID} />
   ),
@@ -216,33 +219,14 @@ describe('NativeStorageBootstrapRoot', () => {
     expect(screen.getByTestId('native-storage-bootstrap-waiting')).toBeTruthy();
 
     await act(async () => {
-      mockBootstrapRejectors[1]?.(
-        new Error(
-          'Native storage migration target is inconsistent:appStorage; App-storage MMKV migration marker is missing after migration completed',
-        ),
-      );
+      mockBootstrapRejectors[1]?.(new Error('Initial storage RPC failed'));
       await Promise.resolve();
     });
-    expect(screen.getByText('Local storage needs repair')).toBeTruthy();
-    expect(screen.queryByTestId('native-storage-migration-retry')).toBeNull();
-    expect(
-      screen.queryByTestId('native-storage-bootstrap-restart-app'),
-    ).toBeNull();
-
-    fireEvent.click(screen.getByTestId('native-storage-migration-repair'));
-    expect(
-      screen.getByTestId('native-storage-migration-repair-confirm'),
-    ).toBeTruthy();
-    fireEvent.click(
-      screen.getByTestId('native-storage-migration-repair-confirm'),
-    );
+    expect(screen.getByText('Storage initialization failed')).toBeTruthy();
+    expect(screen.getByText('Initial storage RPC failed')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('native-storage-migration-retry'));
     await act(async () => {
       await Promise.resolve();
-    });
-    expect(mockCallNativeStorage).toHaveBeenCalledWith({
-      scope: 'recovery',
-      operation: 'resetMigrationTarget',
-      target: 'appStorage',
     });
     expect(mockBootstrapNativeStorage.mock.calls).toEqual([
       [{ force: false }],
