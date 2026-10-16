@@ -751,7 +751,7 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
       expect(sendCode).not.toHaveBeenCalled();
       expect(
         screen.getByTestId('prime-otp-code').hasAttribute('disabled'),
-      ).toBe(true);
+      ).toBe(false);
       expect(
         screen.getByText(
           'CAPTCHA could not load. Check your network connection and retry.',
@@ -842,7 +842,7 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
       })),
     ),
   )(
-    'CAPTCHA $failure keeps input locked and recovers on retry (native=$native)',
+    'CAPTCHA $failure allows manual input without autofocus and recovers on retry (native=$native)',
     async ({ native, failure }) => {
       mockIsNativePlatform = native;
       jest.useFakeTimers();
@@ -889,17 +889,19 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
         );
         await act(async () => {});
       }
-      expect(input.disabled).toBe(true);
-      expect(input.readOnly).toBe(true);
+      expect(input.disabled).toBe(false);
+      expect(input.readOnly).toBe(false);
       expect(focus).not.toHaveBeenCalled();
       expect(blur).toHaveBeenCalled();
       expect(dismiss.mock.calls.length > 0).toBe(native);
-      // A delayed native focus event must also be dismissed after failure.
+      // Failure must not prevent the user from deliberately focusing the input.
       blur.mockClear();
-      fireEvent.focus(input);
-      expect(blur).toHaveBeenCalled();
+      act(() => input.focus());
+      expect(document.activeElement).toBe(input);
+      expect(blur).not.toHaveBeenCalled();
       fireEvent.change(input, { target: { value: '123456' } });
-      expect(input.value).toBe('');
+      expect(input.value).toBe('123456');
+      focus.mockClear();
       fireEvent.click(
         screen.getByRole('button', { name: ETranslations.global_retry }),
       );
@@ -1115,7 +1117,7 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
   });
 
   test.each(['captcha load failure', 'server rejection'])(
-    'a failed resend (%s) only unlocks input after CAPTCHA passed',
+    'a failed resend (%s) allows submitting an earlier code without unwanted focus',
     async (failure) => {
       mockIsNativePlatform = true;
       const dismiss = jest
@@ -1158,7 +1160,7 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
       expect(blur).toHaveBeenCalled();
       expect(dismiss).toHaveBeenCalled();
       expect(document.activeElement).not.toBe(input);
-      expect(input.value).toBe('');
+      expect(input.value).toBe('123456');
       fireEvent.click(
         screen.getByText(
           failure === 'server rejection'
@@ -1170,19 +1172,18 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
       expect(sendCode).toHaveBeenCalledTimes(
         failure === 'server rejection' ? 2 : 1,
       );
-      expect(input.disabled).toBe(failure === 'captcha load failure');
+      expect(input.disabled).toBe(false);
+      if (failure === 'captcha load failure') {
+        expect(input.value).toBe('123456');
+        expect(document.activeElement).not.toBe(input);
+      }
       fireEvent.change(input, { target: { value: '123456' } });
       fireEvent.click(screen.getByRole('button', { name: 'confirm' }));
       await act(async () => {});
-      if (failure === 'captcha load failure') {
-        expect(loginWithCode).not.toHaveBeenCalled();
-        expect(document.activeElement).not.toBe(input);
-      } else {
-        expect(loginWithCode).toHaveBeenCalledWith({
-          email: 'test@example.com',
-          code: '123456',
-        });
-      }
+      expect(loginWithCode).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        code: '123456',
+      });
     },
   );
 
@@ -1398,7 +1399,7 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
   );
 
   test.each(['load failure', 'timeout', 'unavailable'])(
-    'reopening after CAPTCHA %s keeps code entry locked',
+    'reopening after CAPTCHA %s allows manual code entry without autofocus',
     async (failure) => {
       mockIsNativePlatform = true;
       jest.useFakeTimers();
@@ -1443,14 +1444,17 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
         Boolean(screen.queryByTestId('email-otp-captcha-network-diagnostics')),
       ).toBe(failure === 'load failure');
       const input = screen.getByTestId<HTMLInputElement>('prime-otp-code');
-      expect(input.disabled).toBe(true);
+      expect(input.disabled).toBe(false);
       expect(document.activeElement).not.toBe(input);
       expect(sendCode).toHaveBeenCalledTimes(1);
       expect(screen.queryByText(ETranslations.prime_sent_to)).toBeNull();
       fireEvent.change(input, { target: { value: '123456' } });
       fireEvent.click(screen.getByRole('button', { name: 'confirm' }));
       await act(async () => {});
-      expect(loginWithCode).not.toHaveBeenCalled();
+      expect(loginWithCode).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        code: '123456',
+      });
     },
   );
 
@@ -1689,7 +1693,7 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
         expect(sendCode).not.toHaveBeenCalled();
         expect(
           screen.getByTestId('prime-otp-code').hasAttribute('disabled'),
-        ).toBe(true);
+        ).toBe(false);
         const retry = screen.getByRole<HTMLButtonElement>('button', {
           name: ETranslations.global_retry,
         });

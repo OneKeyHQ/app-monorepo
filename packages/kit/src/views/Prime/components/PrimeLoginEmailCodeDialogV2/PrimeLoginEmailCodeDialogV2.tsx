@@ -125,6 +125,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   const didRequestInitialCodeRef = useRef(false);
   const previousRequestConfiguration = useRef(requestConfiguration);
   const didSendCodeSucceedRef = useRef(false);
+  const suppressCodeAutoFocusRef = useRef(false);
   const isMountedRef = useIsMounted();
   const [verificationCode, setVerificationCode] = useState('');
   const isVerificationCodeValid = /^\d+$/.test(verificationCode);
@@ -171,12 +172,12 @@ export function PrimeLoginEmailCodeDialogV2(props: {
 
   useEffect(() => {
     if (!active) return;
-    if (!isCodeInputEnabled || captchaErrorKey) {
+    if (!isCodeInputEnabled) {
       dismissCodeInput();
-    } else if (!sendAttemptRef.current) {
+    } else if (!sendAttemptRef.current && !suppressCodeAutoFocusRef.current) {
       codeInputRef.current?.focus();
     }
-  }, [active, captchaErrorKey, dismissCodeInput, isCodeInputEnabled]);
+  }, [active, dismissCodeInput, isCodeInputEnabled]);
 
   const cancelPendingCaptchaSend = useCallback(() => {
     const attempt = sendAttemptRef.current;
@@ -230,11 +231,11 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     setIsResending(true);
     setIsCodeInputEnabled(false);
     setState({ status: 'initial' });
-    setVerificationCode('');
     try {
       const captchaToken = await takeCaptchaToken();
       if (sendAttemptRef.current !== attempt || !isMountedRef.current) return;
       attempt.stage = 'sending';
+      setVerificationCode('');
       await sendCode({ email, ...(captchaToken ? { captchaToken } : {}) });
       if (sendAttemptRef.current !== attempt || !isMountedRef.current) return;
       didSendCodeSucceedRef.current = true;
@@ -246,6 +247,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
         return;
       }
       setIsApiReady(true);
+      suppressCodeAutoFocusRef.current = false;
       setIsCodeInputEnabled(true);
       setCountdown(EMAIL_OTP_COUNTDOWN_SECONDS);
     } catch (error) {
@@ -271,9 +273,10 @@ export function PrimeLoginEmailCodeDialogV2(props: {
         Toast.error({ title: errorMessage });
       }
       setIsApiReady(true);
-      // CAPTCHA failures must keep the input locked and the guidance visible.
-      // Once CAPTCHA passed, preserve existing-code entry on send API errors.
-      setIsCodeInputEnabled(attempt.stage === 'sending');
+      // Keep existing-code entry available without opening the keyboard over
+      // CAPTCHA troubleshooting guidance, including failures without an error key.
+      suppressCodeAutoFocusRef.current = attempt.stage === 'captcha';
+      setIsCodeInputEnabled(true);
       if (attempt.stage === 'captcha') dismissCodeInput();
       setState({ status: 'initial' });
       setCountdown(retryAfterSeconds ?? 0);
@@ -625,11 +628,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
           editable={isCodeInputEnabled && state.status !== 'done'}
           onFocus={() => {
             // Native focus events can arrive after a pending attempt was reset.
-            if (
-              !isCodeInputEnabled ||
-              captchaErrorKey ||
-              sendAttemptRef.current
-            )
+            if (!isCodeInputEnabled || sendAttemptRef.current)
               dismissCodeInput();
           }}
           value={verificationCode}
