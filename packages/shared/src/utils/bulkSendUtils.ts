@@ -1,3 +1,5 @@
+import { chunk } from 'lodash';
+
 import { EBulkSendMode } from '../../types/bulkSend';
 import { getNetworkIdsMap } from '../config/networkIds';
 import { ETranslations } from '../locale';
@@ -117,7 +119,19 @@ function getBulkSendModeLabel(bulkSendMode: EBulkSendMode) {
   }
 }
 
+// Split OneToMany recipients into per-tx chunks; no limit keeps a single tx.
+function chunkBulkSendTransfers<T>(
+  transfersInfo: T[],
+  maxTransfersPerTx?: number,
+): T[][] {
+  if (transfersInfo.length === 0) return [];
+  return maxTransfersPerTx && maxTransfersPerTx > 0
+    ? chunk(transfersInfo, maxTransfersPerTx)
+    : [transfersInfo];
+}
+
 export default {
+  chunkBulkSendTransfers,
   fixBulkSendSupportedNetworkId,
   getBulkSendExcludedNetworkIds,
   getBulkSendSupportedEVMNetworkIds,

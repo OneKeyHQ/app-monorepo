@@ -1,20 +1,43 @@
-import { DayGrid } from './DayGrid';
+import { useDatePickerContext } from '@rehookify/datepicker';
+
+import { YStack } from '../../primitives';
+import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '../../utils/animationConstants';
+
+import { MonthDaysGrid, WeekdayRow } from './DayGrid';
+import { useSlideDirection } from './useSlideDirection';
+import { getCalendarMonthPosition, getEnterStyle } from './utils';
 
 import type { ISwipeableDayGridProps } from './SwipeableDayGridTypes';
 
 /**
- * Web/desktop: no swipe navigation, plain day grid.
+ * Web/desktop: no swipe navigation. The day grid slides in from the side the
+ * user navigated to, so month changes read as movement rather than a swap.
  * The native implementation lives in SwipeableDayGrid.native.tsx.
  */
 export function SwipeableDayGrid({
   calendarIndex,
   fullWidth,
+  hideOutOfMonth = false,
 }: ISwipeableDayGridProps) {
+  const { data } = useDatePickerContext();
+  const position = getCalendarMonthPosition(data.calendars[calendarIndex]);
+  const direction = useSlideDirection(position);
+
   return (
-    <DayGrid
-      calendarIndex={calendarIndex}
-      hideOutOfMonth={false}
-      fullWidth={fullWidth}
-    />
+    <YStack>
+      <WeekdayRow />
+      <YStack
+        key={position}
+        transition="quick"
+        animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
+        enterStyle={getEnterStyle(direction)}
+      >
+        <MonthDaysGrid
+          calendarIndex={calendarIndex}
+          hideOutOfMonth={hideOutOfMonth}
+          fullWidth={fullWidth}
+        />
+      </YStack>
+    </YStack>
   );
 }

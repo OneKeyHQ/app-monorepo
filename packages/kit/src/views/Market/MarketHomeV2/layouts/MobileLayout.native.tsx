@@ -13,7 +13,10 @@ import type { RefObject } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
-import { CollapsiblePagerView } from 'react-native-pager-view';
+import {
+  CollapsiblePagerView,
+  ScrollEdgeEffect,
+} from 'react-native-pager-view';
 import { useSharedValue } from 'react-native-reanimated';
 
 import {
@@ -883,7 +886,9 @@ function MobileLayoutComponent({
           scrollEnabled
           nestedScrollEnabled={nestedPager}
           nativeSmoothHeaderScrollEnabled={platformEnv.isNative}
-          topScrollEdgeEffect={scrollEdgeEnabled ? 'hard' : undefined}
+          topScrollEdgeEffect={
+            scrollEdgeEnabled ? ScrollEdgeEffect.Hard : undefined
+          }
           topOverlayColorScheme={scrollEdgeEnabled ? themeName : undefined}
           externalTopOverlayTag={
             scrollEdgeEnabled ? externalTopOverlayTag : undefined

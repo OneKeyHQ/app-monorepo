@@ -1246,7 +1246,6 @@ export function HomePageView({
                   <TabPageHeader
                     sceneName={sceneName}
                     tabRoute={ETabRoutes.Home}
-                    disableHomeHeaderGlass
                   />
                 </YStack>
               </Stack>

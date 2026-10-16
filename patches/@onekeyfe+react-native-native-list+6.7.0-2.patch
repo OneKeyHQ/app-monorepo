@@ -1,5 +1,5 @@
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/NativeList.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/NativeList.js
-index 9803512..4452a66 100644
+index 62172f0..a170d07 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/lib/module/NativeList.js
 +++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/NativeList.js
 @@ -35,6 +35,8 @@ export const NativeList = /*#__PURE__*/forwardRef(function NativeList({
@@ -2804,10 +2804,10 @@ index e743d56..53cf043 100644
      const value = tagSlot(createElement(document, row.valueActionKey ? 'button' : 'span', row.valueActionKey ? 'ok-native-list-action-button ok-native-list-section-value' : 'ok-native-list-value ok-native-list-section-value', row.value), 'value');
      applyValueSegments(value, row.valueSegments);
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.types.d.ts b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.types.d.ts
-index 4b158e5..f513b17 100644
+index 7902d56..ce1ba74 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.types.d.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.types.d.ts
-@@ -42,6 +42,12 @@ export type ScrollToIndexFailedInfo = Readonly<{
+@@ -43,6 +43,12 @@ export type ScrollToIndexFailedInfo = Readonly<{
      averageItemLength: number;
      reason: 'index-out-of-range' | 'section-out-of-range' | 'item-out-of-range' | 'item-not-found';
  }>;
@@ -2820,7 +2820,7 @@ index 4b158e5..f513b17 100644
  type InitialScrollProps = Readonly<{
      initialScrollIndex?: never;
      initialScrollKey?: never;
-@@ -75,7 +81,7 @@ export type NativeListRef = Readonly<{
+@@ -76,7 +82,7 @@ export type NativeListRef = Readonly<{
  }>;
  export type NativeListProps = Omit<ViewProps, 'children'> & Readonly<{
      snapshot: NativeListSnapshot;
@@ -2829,8 +2829,8 @@ index 4b158e5..f513b17 100644
      listHeader?: ReactNode;
      listFooter?: ReactNode;
      listEmpty?: ReactNode;
-@@ -85,6 +91,10 @@ export type NativeListProps = Omit<ViewProps, 'children'> & Readonly<{
-     topScrollEdgeEffect?: 'hard';
+@@ -86,6 +92,10 @@ export type NativeListProps = Omit<ViewProps, 'children'> & Readonly<{
+     topScrollEdgeEffect?: `${ScrollEdgeEffect}`;
      /** Web only. Defaults to true and is ignored by the native host. */
      webVirtualizationEnabled?: boolean;
 +    /** Web only: undefined owns scrolling, null waits for a host element. */
@@ -3159,7 +3159,7 @@ index 1d4142b..39337f8 100644
          }>) => HTMLElement | undefined;
          textStyle: (element: HTMLElement, style: Readonly<{
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/NativeList.tsx b/node_modules/@onekeyfe/react-native-native-list/src/NativeList.tsx
-index d373a75..17076ea 100644
+index 1344a99..5834c4d 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/src/NativeList.tsx
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/NativeList.tsx
 @@ -106,6 +106,8 @@ export const NativeList = forwardRef<NativeListRef, NativeListProps>(
@@ -3172,10 +3172,10 @@ index d373a75..17076ea 100644
        keyboardDismissMode = 'none',
        keyboardShouldPersistTaps = 'never',
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/NativeList.types.ts b/node_modules/@onekeyfe/react-native-native-list/src/NativeList.types.ts
-index f9dd88f..8ee834b 100644
+index 885839f..599a206 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/src/NativeList.types.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/NativeList.types.ts
-@@ -70,6 +70,13 @@ export type ScrollToIndexFailedInfo = Readonly<{
+@@ -71,6 +71,13 @@ export type ScrollToIndexFailedInfo = Readonly<{
      | 'item-not-found';
  }>;
  
@@ -3189,7 +3189,7 @@ index f9dd88f..8ee834b 100644
  type InitialScrollProps =
    | Readonly<{
        initialScrollIndex?: never;
-@@ -119,7 +126,7 @@ export type NativeListRef = Readonly<{
+@@ -120,7 +127,7 @@ export type NativeListRef = Readonly<{
  export type NativeListProps = Omit<ViewProps, 'children'> &
    Readonly<{
      snapshot: NativeListSnapshot;
@@ -3198,8 +3198,8 @@ index f9dd88f..8ee834b 100644
      listHeader?: ReactNode;
      listFooter?: ReactNode;
      listEmpty?: ReactNode;
-@@ -129,6 +136,10 @@ export type NativeListProps = Omit<ViewProps, 'children'> &
-     topScrollEdgeEffect?: 'hard';
+@@ -130,6 +137,10 @@ export type NativeListProps = Omit<ViewProps, 'children'> &
+     topScrollEdgeEffect?: `${ScrollEdgeEffect}`;
      /** Web only. Defaults to true and is ignored by the native host. */
      webVirtualizationEnabled?: boolean;
 +    /** Web only: undefined owns scrolling, null waits for a host element. */

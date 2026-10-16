@@ -39,6 +39,7 @@ const mockNativeEvents: {
   }) => void;
   headerHeight?: number;
   header?: React.ReactElement<{ onLayout: (event: LayoutChangeEvent) => void }>;
+  topOverlay?: React.ReactNode;
   onPageScroll?: (event: {
     nativeEvent: { position: number; offset: number };
   }) => void;
@@ -80,6 +81,7 @@ jest.mock(
 );
 jest.mock('./perpsChainTrace', () => ({ debugPerpsChain: jest.fn() }));
 jest.mock('react-native-pager-view', () => ({
+  ScrollEdgeEffect: { Hard: 'hard', Soft: 'soft' },
   CollapsiblePagerView: ({
     ref,
     ...events
@@ -122,7 +124,12 @@ jest.mock('react-native-pager-view', () => ({
       setPage: mockSetPage,
       setPageWithoutAnimation: mockSetPageWithoutAnimation,
     }));
-    return mockRenderParentHeader ? events.header : null;
+    return mockRenderParentHeader ? (
+      <>
+        {events.header}
+        {events.topOverlay}
+      </>
+    ) : null;
   },
 }));
 jest.mock('react-native-reanimated', () => {
@@ -140,6 +147,15 @@ const headerLayoutEvent = (height: number): LayoutChangeEvent =>
   ({
     nativeEvent: { layout: { x: 0, y: 0, width: 400, height } },
   }) as LayoutChangeEvent;
+
+it('uses the hard edge for the fixed Home header', () => {
+  const screen = render(
+    <HomeNativePager {...headerTestProps} topOverlay={<React.Fragment />} />,
+  );
+  expect(mockNativeEvents).toHaveProperty('topScrollEdgeEffect', 'hard');
+  screen.rerender(<HomeNativePager {...headerTestProps} />);
+  expect(mockNativeEvents).toHaveProperty('topScrollEdgeEffect', undefined);
+});
 
 it('replays a capability received before the parent layout effect and clears it on unmount', () => {
   mockEmitCapabilityOnMount = true;
@@ -991,6 +1007,9 @@ describe('HomePageView complete header authority', () => {
     expect(
       screen.UNSAFE_getByType(HomeNativePager).props.topOverlay,
     ).toBeDefined();
+    expect(
+      screen.UNSAFE_getByType(parentTabPageHeader).props.disableHomeHeaderGlass,
+    ).toBeUndefined();
 
     accountId = 'replacement-account';
     committedOverlays.length = 0;
