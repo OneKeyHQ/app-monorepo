@@ -537,10 +537,10 @@ describe('navigateToMarketTokenDetail', () => {
         {
           name: 'main',
           state: {
-            key: 'discovery-stack',
+            key: 'market-stack',
             index: 2,
             routes: [
-              { key: 'list', name: 'TabDiscovery' },
+              { key: 'list', name: 'TabMarket' },
               { key: 'detail-a', name: 'MarketDetailV2' },
               { key: 'detail-b', name: 'MarketStockDetail' },
             ],
@@ -561,7 +561,7 @@ describe('navigateToMarketTokenDetail', () => {
     expect(dispatchMock).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'RESET',
-        target: 'discovery-stack',
+        target: 'market-stack',
       }),
     );
   });

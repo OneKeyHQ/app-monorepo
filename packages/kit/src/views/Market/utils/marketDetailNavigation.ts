@@ -237,12 +237,22 @@ function omitSwapProOwnedParams(params: Record<string, unknown>) {
 }
 
 function isMarketTabStack(state: INavigationStateNode) {
+  // Market is a standalone tab on every platform. A Discovery stack may still
+  // briefly hold a legacy Market route while it redirects, so never treat it
+  // as the Market stack; otherwise replacements land in the hidden Discovery
+  // stack instead of the Market tab.
+  if (
+    state.routes?.some(
+      (route) => route.name === ETabDiscoveryRoutes.TabDiscovery,
+    )
+  ) {
+    return false;
+  }
   return Boolean(
     state.key &&
     state.routes?.some(
       (route) =>
         route.name === ETabMarketRoutes.TabMarket ||
-        route.name === ETabDiscoveryRoutes.TabDiscovery ||
         isMarketHostRouteName(route.name),
     ),
   );
@@ -361,7 +371,6 @@ export function dismissDiscoveryMarketDetailForTrade(
   }
   if (
     routes[listIndex]?.name !== ETabMarketRoutes.TabMarket &&
-    routes[listIndex]?.name !== ETabDiscoveryRoutes.TabDiscovery &&
     routes[listIndex]?.name !== ETabMarketRoutes.MarketBannerDetail
   ) {
     return 'ready';

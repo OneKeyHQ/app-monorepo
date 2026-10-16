@@ -25,6 +25,8 @@ import {
   resolveMarketDetailBackAction,
 } from './marketDetailNavigation';
 
+import type { INavigationStateNode } from './marketDetailNavigation';
+
 const dispatchMock = jest.fn();
 const getRootStateMock = jest.fn();
 const getCurrentRouteMock = jest.fn();
@@ -94,10 +96,10 @@ const stackedTokenDetailsState = {
     {
       name: 'main',
       state: {
-        key: 'discovery-stack',
+        key: 'market-stack',
         index: 2,
         routes: [
-          { key: 'list', name: 'TabDiscovery' },
+          { key: 'list', name: 'TabMarket' },
           { key: 'detail-a', name: 'MarketDetailV2' },
           { key: 'detail-b', name: 'MarketStockDetail' },
         ],
@@ -177,19 +179,19 @@ describe('marketDetailNavigation', () => {
     platformEnv.isNative = false;
   });
 
-  describe('leaving Discovery detail for trading', () => {
-    const discoveryStack = {
-      key: 'discovery-stack',
+  describe('leaving Market detail for trading', () => {
+    const marketStack = {
+      key: 'market-stack',
       index: 1,
       routes: [
-        { key: 'list', name: 'TabDiscovery', params: { defaultTab: 'market' } },
+        { key: 'list', name: 'TabMarket', params: { category: 'top-coins' } },
         { key: 'detail', name: 'MarketDetailV2' },
       ],
     };
 
     beforeEach(() => {
-      getRootStateMock.mockReturnValue(discoveryStack);
-      getCurrentRouteMock.mockReturnValue(discoveryStack.routes[1]);
+      getRootStateMock.mockReturnValue(marketStack);
+      getCurrentRouteMock.mockReturnValue(marketStack.routes[1]);
     });
 
     it.each(['MarketDetailV2', 'MarketStockDetail', 'MarketNativeDetail'])(
@@ -201,7 +203,7 @@ describe('marketDetailNavigation', () => {
           type: 'POP',
           payload: { count: 1 },
           source: 'detail',
-          target: 'discovery-stack',
+          target: 'market-stack',
         });
       },
     );
@@ -214,18 +216,18 @@ describe('marketDetailNavigation', () => {
     it('returns to the existing list with its params preserved', () => {
       const router = StackRouter({});
       const config = {
-        routeNames: ['TabDiscovery', 'MarketDetailV2'],
+        routeNames: ['TabMarket', 'MarketDetailV2'],
         routeParamList: {},
         routeGetIdList: {},
       };
-      const stack = { ...router.getInitialState(config), ...discoveryStack };
+      const stack = { ...router.getInitialState(config), ...marketStack };
       void dismissDiscoveryMarketDetailForTrade('detail');
       const action = dispatchMock.mock.calls[0]?.[0] as Parameters<
         typeof router.getStateForAction
       >[1];
       const updated = router.getStateForAction(stack, action, config);
       expect(updated?.index).toBe(0);
-      expect(updated?.routes).toEqual([discoveryStack.routes[0]]);
+      expect(updated?.routes).toEqual([marketStack.routes[0]]);
     });
 
     it('returns past stacked details while preserving history below the list', () => {
@@ -233,7 +235,7 @@ describe('marketDetailNavigation', () => {
       const config = {
         routeNames: [
           'previous-screen',
-          'TabDiscovery',
+          'TabMarket',
           'MarketDetailV2',
           'MarketStockDetail',
         ],
@@ -242,13 +244,13 @@ describe('marketDetailNavigation', () => {
       };
       const routes = [
         { key: 'previous', name: 'previous-screen' },
-        discoveryStack.routes[0],
+        marketStack.routes[0],
         { key: 'older-detail', name: 'MarketStockDetail' },
-        discoveryStack.routes[1],
+        marketStack.routes[1],
       ];
       const stack = {
         ...router.getInitialState(config),
-        ...discoveryStack,
+        ...marketStack,
         index: 3,
         routes,
       };
@@ -261,7 +263,7 @@ describe('marketDetailNavigation', () => {
         type: 'POP',
         payload: { count: 2 },
         source: 'detail',
-        target: 'discovery-stack',
+        target: 'market-stack',
       });
       const updated = router.getStateForAction(stack, action, config);
       expect(updated?.index).toBe(1);
@@ -273,12 +275,12 @@ describe('marketDetailNavigation', () => {
       (detailCount) => {
         const router = StackRouter({});
         const config = {
-          routeNames: ['TabDiscovery', 'MarketBannerDetail', 'MarketDetailV2'],
+          routeNames: ['TabMarket', 'MarketBannerDetail', 'MarketDetailV2'],
           routeParamList: {},
           routeGetIdList: {},
         };
         const preservedRoutes = [
-          discoveryStack.routes[0],
+          marketStack.routes[0],
           {
             key: 'banner-list',
             name: 'MarketBannerDetail',
@@ -290,7 +292,7 @@ describe('marketDetailNavigation', () => {
         ];
         const stack = {
           ...router.getInitialState(config),
-          ...discoveryStack,
+          ...marketStack,
           index: preservedRoutes.length + detailCount - 1,
           routes: [
             ...preservedRoutes,
@@ -311,7 +313,7 @@ describe('marketDetailNavigation', () => {
           type: 'POP',
           payload: { count: detailCount },
           source: current.key,
-          target: 'discovery-stack',
+          target: 'market-stack',
         });
         const updated = router.getStateForAction(stack, action, config);
         expect(updated?.index).toBe(1);
@@ -321,12 +323,12 @@ describe('marketDetailNavigation', () => {
 
     it('does not remove unrelated screens between the list and detail', () => {
       getRootStateMock.mockReturnValue({
-        ...discoveryStack,
+        ...marketStack,
         index: 2,
         routes: [
-          discoveryStack.routes[0],
+          marketStack.routes[0],
           { key: 'other-screen', name: 'other-screen' },
-          discoveryStack.routes[1],
+          marketStack.routes[1],
         ],
       });
       void dismissDiscoveryMarketDetailForTrade('detail');
@@ -344,9 +346,9 @@ describe('marketDetailNavigation', () => {
 
     it('pops a detail in the standalone Market tab stack', () => {
       getRootStateMock.mockReturnValue({
-        ...discoveryStack,
+        ...marketStack,
         key: 'market-stack',
-        routes: [{ key: 'list', name: 'TabMarket' }, discoveryStack.routes[1]],
+        routes: [{ key: 'list', name: 'TabMarket' }, marketStack.routes[1]],
       });
       dismissDiscoveryMarketDetailForTrade();
       expect(dispatchMock).toHaveBeenCalledWith({
@@ -359,8 +361,8 @@ describe('marketDetailNavigation', () => {
 
     it('does not pop a detail in another stack', () => {
       getRootStateMock.mockReturnValue({
-        ...discoveryStack,
-        routes: [{ key: 'list', name: 'TabHome' }, discoveryStack.routes[1]],
+        ...marketStack,
+        routes: [{ key: 'list', name: 'TabHome' }, marketStack.routes[1]],
       });
       void dismissDiscoveryMarketDetailForTrade();
       expect(dispatchMock).not.toHaveBeenCalled();
@@ -378,7 +380,7 @@ describe('marketDetailNavigation', () => {
     const tabConfig = {
       routeNames: [
         ETabRoutes.Home,
-        ETabRoutes.Discovery,
+        ETabRoutes.Market,
         ETabRoutes.Perp,
         ETabRoutes.WebviewPerpTrade,
       ],
@@ -388,7 +390,7 @@ describe('marketDetailNavigation', () => {
     const stackRouter = StackRouter({});
     const stackConfig = {
       routeNames: [
-        'TabDiscovery',
+        'TabMarket',
         'MarketNativeDetail',
         'MarketDetailV2',
         'MarketStockDetail',
@@ -399,8 +401,8 @@ describe('marketDetailNavigation', () => {
     };
     const list = {
       key: 'list',
-      name: 'TabDiscovery',
-      params: { defaultTab: 'market', category: 'top-coins' },
+      name: 'TabMarket',
+      params: { category: 'top-coins' },
     };
     const createTabs = (
       routes: {
@@ -411,7 +413,7 @@ describe('marketDetailNavigation', () => {
     ) => {
       const stack = {
         ...stackRouter.getInitialState(stackConfig),
-        key: 'discovery-stack',
+        key: 'market-stack',
         index: routes.length - 1,
         routes,
       };
@@ -420,7 +422,7 @@ describe('marketDetailNavigation', () => {
         ...tabs,
         index: 1,
         routes: tabs.routes.map((route) =>
-          route.name === ETabRoutes.Discovery
+          route.name === ETabRoutes.Market
             ? {
                 ...route,
                 state: stack,
@@ -494,7 +496,7 @@ describe('marketDetailNavigation', () => {
     });
 
     it.each([ETabRoutes.Perp, ETabRoutes.WebviewPerpTrade])(
-      'selects %s and removes details without remounting Discovery or its list',
+      'selects %s and removes details without remounting Market or its list',
       (target) => {
         const tabs = createTabs();
         getRootStateMock.mockReturnValue({
@@ -525,9 +527,9 @@ describe('marketDetailNavigation', () => {
         expect(source.state?.routes[0]).toBe(list);
         expect(updated.preloadedRouteKeys).toEqual(tabs.preloadedRouteKeys);
         expect(
-          updated.routes.filter((route) => route.name !== ETabRoutes.Discovery),
+          updated.routes.filter((route) => route.name !== ETabRoutes.Market),
         ).toEqual(
-          tabs.routes.filter((route) => route.name !== ETabRoutes.Discovery),
+          tabs.routes.filter((route) => route.name !== ETabRoutes.Market),
         );
         expect(
           updated.history.every((item) =>
@@ -775,10 +777,10 @@ describe('marketDetailNavigation', () => {
         {
           name: 'main',
           state: {
-            key: 'discovery-stack',
+            key: 'market-stack',
             index: 1,
             routes: [
-              { key: 'list', name: 'TabDiscovery' },
+              { key: 'list', name: 'TabMarket' },
               {
                 key: 'stock-detail',
                 name: 'MarketStockDetail',
@@ -793,6 +795,91 @@ describe('marketDetailNavigation', () => {
 
     expect(getCurrentMarketStockDetailId()).toBe('AAPL');
     expect(getCurrentMarketStockDetailRoute()).toEqual({ stockId: 'AAPL' });
+  });
+
+  describe('with a legacy Market route still in the Discovery stack', () => {
+    const buildTabsState = (
+      marketRoutes: { key: string; name: string }[],
+    ): INavigationStateNode => ({
+      key: 'root',
+      index: 1,
+      routes: [
+        {
+          key: 'main',
+          name: 'main',
+          state: {
+            key: 'tabs',
+            index: 1,
+            routes: [
+              {
+                key: 'market-tab',
+                name: ETabRoutes.Market,
+                state: {
+                  key: 'market-stack',
+                  index: marketRoutes.length - 1,
+                  routes: marketRoutes,
+                },
+              },
+              {
+                key: 'discovery-tab',
+                name: ETabRoutes.Discovery,
+                state: {
+                  key: 'discovery-stack',
+                  index: 1,
+                  routes: [
+                    { key: 'discovery-home', name: 'TabDiscovery' },
+                    {
+                      key: 'legacy-detail',
+                      name: 'MarketStockDetail',
+                      params: { stockId: 'TSLA' },
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        },
+        { key: 'modal', name: 'MobileTokenSelector' },
+      ],
+    });
+
+    it('never picks the Discovery stack as the Market stack', () => {
+      expect(
+        findMarketTabStack(
+          buildTabsState([
+            { key: 'list', name: 'TabMarket' },
+            { key: 'detail', name: 'MarketDetailV2' },
+          ]),
+        )?.key,
+      ).toBe('market-stack');
+      expect(
+        findMarketTabStack(buildTabsState([{ key: 'list', name: 'TabMarket' }]))
+          ?.key,
+      ).toBe('market-stack');
+    });
+
+    it('replaces the selected stock on the Market stack, not the hidden Discovery stack', () => {
+      getRootStateMock.mockReturnValue(
+        buildTabsState([
+          { key: 'list', name: 'TabMarket' },
+          { key: 'detail', name: 'MarketDetailV2' },
+        ]),
+      );
+
+      expect(
+        openOrReplaceMarketDetailRoute({
+          routeName: 'MarketStockDetail',
+          params: { stockId: 'NVDA' },
+        }),
+      ).toBe(true);
+
+      expect(dispatchMock).toHaveBeenCalledTimes(1);
+      expect(dispatchMock).toHaveBeenCalledWith(
+        expect.objectContaining({ target: 'market-stack' }),
+      );
+      // The hidden Discovery stock detail must not be read as the current one.
+      expect(getCurrentMarketStockDetailId()).toBeUndefined();
+    });
   });
 
   it('clears stale identity params when replacing a detail route', () => {
@@ -858,7 +945,7 @@ describe('marketDetailNavigation', () => {
       payload: {
         index: 1,
         routes: [
-          { key: 'list', name: 'TabDiscovery' },
+          { key: 'list', name: 'TabMarket' },
           {
             name: 'MarketDetailV2',
             params: buildReplacedMarketDetailParams({
@@ -868,7 +955,7 @@ describe('marketDetailNavigation', () => {
           },
         ],
       },
-      target: 'discovery-stack',
+      target: 'market-stack',
     });
   });
 
@@ -1009,7 +1096,7 @@ describe('marketDetailNavigation', () => {
     expect(dispatchMock).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'RESET',
-        target: 'discovery-stack',
+        target: 'market-stack',
       }),
     );
   });
@@ -1058,16 +1145,16 @@ describe('marketDetailNavigation', () => {
     ({ params }) => {
       const router = StackRouter({});
       const config = {
-        routeNames: ['TabDiscovery', 'MarketDetailV2'],
+        routeNames: ['TabMarket', 'MarketDetailV2'],
         routeParamList: {},
         routeGetIdList: {},
       };
       const stack = {
         ...router.getInitialState(config),
-        key: 'discovery-stack',
+        key: 'market-stack',
         index: 1,
         routes: [
-          { key: 'list', name: 'TabDiscovery' },
+          { key: 'list', name: 'TabMarket' },
           {
             key: 'detail',
             name: 'MarketDetailV2',
@@ -1256,7 +1343,7 @@ describe('marketDetailNavigation', () => {
         isTabletDetailView: false,
         isNative: true,
         routes: [
-          { name: 'TabDiscovery' },
+          { name: 'TabMarket' },
           { name: 'MarketDetailV2' },
           { name: 'MarketStockDetail' },
         ],
@@ -1298,7 +1385,7 @@ describe('marketDetailNavigation', () => {
         isTabletDetailView: false,
         isNative: true,
         routes: [
-          { name: 'TabDiscovery' },
+          { name: 'TabMarket' },
           { name: 'MarketBannerDetail' },
           { name: 'MarketDetailV2' },
         ],
