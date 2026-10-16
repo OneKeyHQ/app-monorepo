@@ -192,6 +192,32 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const accounts = await this.basePrepareHdUtxoAccounts(params, {
       buildAddressesInfo: async ({ usedIndexes }) => {
+        const { dbDevice, deviceCommonParams } = params.deviceParams;
+        const { connectId, deviceId } = dbDevice;
+        const sdk = await this.getHardwareSDKInstance({ connectId });
+        // Match the root fingerprint used by the shared hardware account flow.
+        // Zcash's ZIP-32 seed fingerprint is a different identifier.
+        const rootResponse = await sdk.btcGetPublicKey(connectId, deviceId, {
+          ...deviceCommonParams,
+          path: "m/44'/1'/0'",
+          coin: 'Testnet',
+          scriptType: 'SPENDADDRESS',
+          showOnOneKey: false,
+        });
+        if (!rootResponse.success) {
+          throw convertDeviceError(rootResponse.payload);
+        }
+        const rootFingerprint = rootResponse.payload.root_fingerprint;
+        if (
+          typeof rootFingerprint !== 'number' ||
+          !Number.isInteger(rootFingerprint) ||
+          rootFingerprint < 0 ||
+          rootFingerprint > 0xff_ff_ff_ff
+        ) {
+          throw new OneKeyLocalError(
+            'zcash: device did not return a valid root fingerprint',
+          );
+        }
         const deviceItems = await this.baseGetDeviceAccountAddresses({
           params,
           usedIndexes,
@@ -232,7 +258,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             relPath: addressRelPath,
             xpub,
             addresses: { [addressRelPath]: addresses[addressRelPath] },
-            __hwExtraInfo__: undefined,
+            __hwExtraInfo__: { rootFingerprint },
           });
         }
         return ret;
