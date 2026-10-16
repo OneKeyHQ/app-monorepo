@@ -9,13 +9,17 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   ELogUploadStage,
   type ILogDigest,
+  type ILogExportScope,
   type ILogUploadResponse,
 } from '@onekeyhq/shared/src/logger/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 
+import { collectBrowserLogDigest } from './collectBrowserLogDigest';
+import { downloadLogDigest } from './downloadLogDigest';
 import { buildDefaultFileBaseName } from './utils';
 
 const LOG_MIME_TYPE = 'text/plain';
@@ -25,6 +29,7 @@ const EMPTY_SHA256_HEX =
 
 export const collectLogDigest = async (
   fileBaseName?: string,
+  scope: ILogExportScope = 'recent',
 ): Promise<ILogDigest> => {
   appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
     stage: ELogUploadStage.Collecting,
@@ -51,8 +56,9 @@ export const collectLogDigest = async (
   }
   await waitAsync(1000);
   await prepareLoggerExport();
+  if (platformEnv.isExtension || platformEnv.isWeb)
+    return collectBrowserLogDigest(baseName, scope);
   const messages = await backgroundApiProxy.serviceLogger.getAllMsg();
-  const content = messages.join('');
   const blob = new Blob(messages, {
     type: LOG_MIME_TYPE,
     endings: 'native',
@@ -68,28 +74,22 @@ export const collectLogDigest = async (
     sizeBytes,
     sha256: hashHex,
     bundle: {
-      type: 'text',
+      type: 'blob',
       fileName: `${baseName}.${LOG_FILE_EXTENSION}`,
       mimeType: LOG_MIME_TYPE,
       blob,
-      content,
     },
   };
 };
 
 export const disposeLogDigest = async (_digest: ILogDigest) => {};
 
-export const exportLogs = async (filename?: string) => {
-  const digest = await collectLogDigest(filename);
-  if (digest.bundle.type !== 'text') {
-    throw new OneKeyLocalError('Cannot export non-text log bundle');
-  }
-  const element = document.createElement('a');
-  element.href = URL.createObjectURL(digest.bundle.blob);
-  element.download = digest.bundle.fileName;
-  document.body.appendChild(element); // Required for this to work in FireFox
-  element.click();
-  element.remove();
+export const exportLogs = async (
+  filename?: string,
+  scope?: ILogExportScope,
+) => {
+  const digest = await collectLogDigest(filename, scope);
+  downloadLogDigest(digest);
 };
 
 export const uploadLogBundle = async ({
@@ -105,7 +105,7 @@ export const uploadLogBundle = async ({
   if (!digest || !digest.bundle || digest.sizeBytes <= 0) {
     throw new OneKeyLocalError('Log bundle is empty');
   }
-  if (digest.bundle.type !== 'text') {
+  if (digest.bundle.type !== 'blob') {
     throw new OneKeyLocalError(
       'File-based log bundle is not supported on this platform',
     );

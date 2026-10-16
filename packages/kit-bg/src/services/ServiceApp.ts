@@ -106,6 +106,7 @@ class ServiceApp extends ServiceBase {
   }
 
   private async resetData() {
+    await this.backgroundApi.serviceLogger.stopPersistenceForReset();
     let appStorageClearError: unknown;
     let nativeJotaiResetError: unknown;
     // const v4migrationPersistData = await v4migrationPersistAtom.get();
