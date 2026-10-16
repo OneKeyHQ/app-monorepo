@@ -966,6 +966,14 @@ class ServiceSend extends ServiceBase {
       } catch {
         // Preserve the validation error rather than replacing it with cleanup failure.
       }
+      // Terminal failures take precedence over warnings and cleanup failures.
+      // Replacement screens rely on the shared error toast for feedback.
+      if (!quoteFailure) {
+        throw new OneKeyLocalError({
+          key: ETranslations.prime_close_and_try_again__desc,
+          autoToast: true,
+        });
+      }
     }
     if (
       quoteFailure ||

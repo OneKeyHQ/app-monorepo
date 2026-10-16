@@ -103,6 +103,8 @@ import {
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 // eslint-disable-next-line import-js/order, import/first
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+// eslint-disable-next-line import-js/order, import/first
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 // eslint-disable-next-line import-js/order, import/first
 import { getPrimeInfiniPaymentWarningsFingerprint } from '@onekeyhq/shared/src/utils/primeInfiniPaymentWarnings';
@@ -1964,6 +1966,67 @@ describe('Infini Speed Up broadcast validation', () => {
       backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
     ).not.toHaveBeenCalled();
   });
+
+  test.each(
+    ['failed', 'cancelled', 'expired'].flatMap((status) =>
+      [false, true].flatMap((withWarning) =>
+        ['none', 'fence', 'history'].map((cleanupFailure) => ({
+          status,
+          withWarning,
+          cleanupFailure,
+        })),
+      ),
+    ),
+  )(
+    'shows terminal $status feedback with warning=$withWarning and cleanup=$cleanupFailure',
+    async ({ status, withWarning, cleanupFailure }) => {
+      const { service, vault, backgroundApi } = makeReplacement();
+      backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+        {
+          payment: {
+            ...latestPayment,
+            status,
+            warningMessages: withWarning ? ['New warning'] : [],
+          },
+          purchaseStatusSnapshot,
+        },
+      );
+      if (cleanupFailure === 'fence') {
+        backgroundApi.simpleDb.prime.blockInfiniReplacement.mockRejectedValue(
+          new Error('Fence write failed'),
+        );
+      }
+      if (cleanupFailure === 'history') {
+        backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId.mockRejectedValue(
+          new Error('History write failed'),
+        );
+      }
+      await expect(speedUp(service)).rejects.toMatchObject(
+        status === 'expired'
+          ? {
+              autoToast: true,
+              data: { paymentValidationFailure: 'quoteExpired' },
+            }
+          : {
+              autoToast: true,
+              key: ETranslations.prime_close_and_try_again__desc,
+            },
+      );
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+      expect(
+        backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+      ).not.toHaveBeenCalled();
+      if (cleanupFailure === 'fence') {
+        expect(
+          backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+        ).not.toHaveBeenCalled();
+      } else {
+        expect(
+          backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+        ).toHaveBeenCalledTimes(1);
+      }
+    },
+  );
 
   test('reports expired replacement invoices through the shared error toast', async () => {
     const { service, vault, backgroundApi } = makeReplacement();
