@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useReplaceToReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
@@ -13,7 +13,12 @@ import { useLoginStatusChange } from './useLoginStatusChange';
 
 export function useReferAFriendData() {
   const replaceToReferFriends = useReplaceToReferFriends();
-  const { postConfig } = useInvitePostConfig();
+  // Logged-in users are redirected to InviteReward, so only load (and render)
+  // the poster once logout is confirmed; otherwise it flashes before navigation.
+  const [isLoggedOutConfirmed, setIsLoggedOutConfirmed] = useState(false);
+  const { postConfig } = useInvitePostConfig({
+    enabled: isLoggedOutConfirmed,
+  });
 
   // Monitor login status changes and auto-navigate when user logs in
   useLoginStatusChange(() => {
@@ -25,9 +30,10 @@ export function useReferAFriendData() {
     async function checkLoginAndRedirect() {
       const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
       if (isLogin) {
-        void replaceToReferFriends();
+        void replaceToReferFriends({ isLoggedIn: true });
         return;
       }
+      setIsLoggedOutConfirmed(true);
 
       // Handle web-specific URL parameters
       if (
