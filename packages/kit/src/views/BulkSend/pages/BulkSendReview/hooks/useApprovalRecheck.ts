@@ -108,7 +108,9 @@ export function useApprovalRecheck({
   const startApprovalRecheck = useCallback(
     // Only transfers not yet broadcast: when a split send fails midway, the
     // sent chunks already consumed part of the allowance and must not be rebuilt.
-    (pendingTransfersInfo: ITransferInfo[]) => {
+    // keptTxs (broadcast but not yet recorded) stay ahead of the rebuilt txs
+    // so a retry can still finish their history.
+    (pendingTransfersInfo: ITransferInfo[], keptTxs: IUnsignedTxPro[] = []) => {
       // Skip if no approvals to recheck
       if (approvesInfoRef.current.length === 0) return;
       if (!accountId || !networkId) return;
@@ -136,12 +138,14 @@ export function useApprovalRecheck({
             if (!isMountedRef.current) return;
 
             setApprovesInfo([]);
-            setUnsignedTxs(newTransferTxs);
+            setUnsignedTxs([...keptTxs, ...newTransferTxs]);
             forceRefreshFee();
           } catch {
             // If rebuilding fails, just clear approve state anyway
-            // so the user can retry
+            // so the user can retry; drop the approve txs with it so the
+            // tx list keeps matching approvesInfo.
             setApprovesInfo([]);
+            setUnsignedTxs((prev) => prev.filter((tx) => !tx.approveInfo));
           }
 
           clearTimers();

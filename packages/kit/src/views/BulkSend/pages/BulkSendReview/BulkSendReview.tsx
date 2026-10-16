@@ -386,19 +386,20 @@ function BaseBulkSendReview({
       );
 
       // Polling the allowance only makes sense once the approvals went out.
-      // It reads approvesInfo synchronously, before the reset below.
+      // The approval state and approve txs stay until it confirms the
+      // allowance and installs the rebuilt transfers.
       if (approveTxsSent) {
         startApprovalRecheck(
           transferTxs
             .filter((tx) => !isTxSent(tx))
             .flatMap((tx) => tx.transfersInfo ?? []),
+          transferTxs.filter((tx) => isTxSent(tx) && !isTxDone(tx)),
         );
       }
-      if (txs.some(isTxDone)) {
-        if (approveTxsSent) {
-          setApprovesInfo([]);
-        }
-        setUnsignedTxs((prev) => prev.filter((tx) => !isTxDone(tx)));
+      if (transferTxs.some(isTxDone)) {
+        setUnsignedTxs((prev) =>
+          prev.filter((tx) => !!tx.approveInfo || !isTxDone(tx)),
+        );
         forceRefreshFee();
       }
     },
@@ -406,7 +407,6 @@ function BaseBulkSendReview({
       sentTxsTrackingId,
       approvesInfo.length,
       startApprovalRecheck,
-      setApprovesInfo,
       setUnsignedTxs,
       forceRefreshFee,
     ],
