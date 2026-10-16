@@ -63,7 +63,12 @@ jest.mock('../../states/jotai/atoms/cloudBackup', () => ({
 }));
 jest.mock('./localBackupPasswordCache', () => ({
   __esModule: true,
-  default: { get: jest.fn(), set: jest.fn(), remove: jest.fn() },
+  default: {
+    get: jest.fn(),
+    set: jest.fn(),
+    remove: jest.fn(),
+    prepareForReset: jest.fn(),
+  },
 }));
 
 const accountInfo: IBackupProviderAccountInfo = {
@@ -464,11 +469,7 @@ describe('local iCloud restore integration', () => {
   it('falls back for a wrong cached password, rejects wrong manual input, then refreshes after successful manual input', async () => {
     cached.get.mockResolvedValueOnce('wrong-cached-password');
     expect(await service.prepareLocalRestore({ recordId })).toBeNull();
-    expect(cached.remove).toHaveBeenCalledWith({
-      providerType: accountInfo.providerType,
-      accountId: accountInfo.userId,
-      recordId,
-    });
+    expect(cached.remove).not.toHaveBeenCalled();
     await expect(
       service.prepareLocalRestore({
         recordId,
@@ -489,25 +490,25 @@ describe('local iCloud restore integration', () => {
     });
   });
 
-  it('tries the current password after a stale record entry, but retains a current password that fails on an older backup', async () => {
-    cached.get
-      .mockResolvedValueOnce('stale-record-password')
-      .mockResolvedValueOnce(password);
-    expect(await service.prepareLocalRestore({ recordId })).not.toBeNull();
-    expect(cached.set).toHaveBeenCalledWith({
-      providerType: accountInfo.providerType,
-      accountId: accountInfo.userId,
-      recordId,
-      password,
-    });
-    cached.get
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce('new-current-password');
-    cached.remove.mockClear();
+  it('invalidates prepared handles and disables new recovery before reset', async () => {
+    const prepared = await prepareCached();
+    await service.prepareLocalRecoveryForReset({ preserve: true });
+    expect(cached.prepareForReset).toHaveBeenCalledWith({ preserve: true });
     expect(
-      await service.prepareLocalRestore({ recordId: 'older-backup' }),
+      await service.restorePreparedLocalBackup({
+        ...prepared,
+        taskUUID: 'import-task',
+      }),
     ).toBeNull();
+    expect(await service.prepareLocalRestore({ recordId })).toBeNull();
+  });
+
+  it('tries only the selected record once and preserves a failed pairing', async () => {
+    cached.get.mockResolvedValueOnce('stale-record-password');
+    expect(await service.prepareLocalRestore({ recordId })).toBeNull();
+    expect(cached.get).toHaveBeenCalledTimes(1);
     expect(cached.remove).not.toHaveBeenCalled();
+    expect(cached.set).not.toHaveBeenCalled();
   });
 
   it('treats cache failures as optional without hiding local authorization or import failures', async () => {
@@ -1049,7 +1050,7 @@ describe('local iCloud restore integration', () => {
     it('falls back after wrong cached passwords, rejects wrong manual input, and caches successful manual decryption', async () => {
       cached.get.mockResolvedValue('wrong-cached-password');
       expect(await service.prepareLocalRestore({ recordId })).toBeNull();
-      expect(cached.remove).toHaveBeenCalledWith(googleScope);
+      expect(cached.remove).not.toHaveBeenCalled();
       await expect(
         service.prepareLocalRestore({
           recordId,

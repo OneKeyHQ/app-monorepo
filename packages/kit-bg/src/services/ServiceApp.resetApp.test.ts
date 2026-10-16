@@ -117,6 +117,79 @@ describe('ServiceApp.resetApp', () => {
     jest.restoreAllMocks();
   });
 
+  test.each([undefined, false, true])(
+    'passes explicit recovery policy %s before wallet cleanup',
+    async (preserveBackupRecovery) => {
+      const originalIOS = platformEnv.isNativeIOS;
+      platformEnv.isNativeIOS = true;
+      try {
+        const prepareLocalRecoveryForReset = jest
+          .fn()
+          .mockResolvedValue(undefined);
+        const service = new ServiceApp({
+          backgroundApi: {
+            serviceCloudBackupV2: { prepareLocalRecoveryForReset },
+            serviceIdentityExit: { prepareIdentityAuthForAppReset: jest.fn() },
+            serviceNotification: { unregisterClient: jest.fn() },
+          },
+        });
+        const resetData = jest
+          .spyOn(
+            service as unknown as { resetData: () => Promise<void> },
+            'resetData',
+          )
+          .mockResolvedValue(undefined);
+        jest.spyOn(service, 'restartApp').mockResolvedValue(undefined);
+        jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+        await service.resetApp({ preserveBackupRecovery });
+        expect(prepareLocalRecoveryForReset).toHaveBeenCalledWith({
+          preserve: preserveBackupRecovery ?? false,
+        });
+        expect(
+          prepareLocalRecoveryForReset.mock.invocationCallOrder[0],
+        ).toBeLessThan(resetData.mock.invocationCallOrder[0]);
+      } finally {
+        platformEnv.isNativeIOS = originalIOS;
+      }
+    },
+  );
+
+  test('still wipes wallet data but reports a failed recovery erasure and does not restart', async () => {
+    const originalIOS = platformEnv.isNativeIOS;
+    platformEnv.isNativeIOS = true;
+    try {
+      const service = new ServiceApp({
+        backgroundApi: {
+          serviceCloudBackupV2: {
+            prepareLocalRecoveryForReset: jest
+              .fn()
+              .mockRejectedValue(new Error('unavailable')),
+          },
+          serviceIdentityExit: { prepareIdentityAuthForAppReset: jest.fn() },
+          serviceNotification: { unregisterClient: jest.fn() },
+        },
+      });
+      const resetData = jest
+        .spyOn(
+          service as unknown as { resetData: () => Promise<void> },
+          'resetData',
+        )
+        .mockResolvedValue(undefined);
+      const restart = jest
+        .spyOn(service, 'restartApp')
+        .mockResolvedValue(undefined);
+      jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      await expect(service.resetApp()).rejects.toThrow(
+        'Recovery cache erasure failed',
+      );
+      expect(resetData).toHaveBeenCalled();
+      expect(restart).not.toHaveBeenCalled();
+    } finally {
+      platformEnv.isNativeIOS = originalIOS;
+    }
+  });
+
   test('destroys both native LSE keys during App Reset', async () => {
     platformEnv.isNative = true;
     mockDeleteMmkvProfileKeyForLocalSecretEnvelope.mockResolvedValue(undefined);

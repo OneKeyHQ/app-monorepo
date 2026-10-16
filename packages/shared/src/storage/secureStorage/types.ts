@@ -48,11 +48,17 @@ export function buildSecureStoragePermanentReadErrorMessage(
 }
 
 export interface ISecureStorage {
+  supportSecureStorageWithBiometrics?(): Promise<boolean>;
+  getSecureItemWithBiometrics?(
+    key: string,
+    options?: { keychainService?: string },
+  ): Promise<string | null>;
   setSecureItemWithBiometrics(
     key: string,
     data: string,
     options?: {
       authenticationPrompt?: string;
+      keychainService?: string;
     },
   ): Promise<void>;
   setSecureItem(
@@ -61,7 +67,10 @@ export interface ISecureStorage {
     options?: ISecureStorageSetOptions,
   ): Promise<void>;
   getSecureItem(key: string): Promise<string | null>;
-  removeSecureItem(key: string): Promise<void>;
+  removeSecureItem(
+    key: string,
+    options?: { keychainService?: string },
+  ): Promise<void>;
   supportSecureStorage(): Promise<boolean>;
   supportSecureStorageWithoutInteraction(): Promise<boolean>;
   hasSecureItem?(key: string): Promise<boolean>;

@@ -331,7 +331,23 @@ class ServiceApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async resetApp() {
+  async resetApp({
+    preserveBackupRecovery = false,
+  }: { preserveBackupRecovery?: boolean } = {}) {
+    let recoveryErasureFailed = false;
+    // Unknown/programmatic callers retain the existing secure-erasure default.
+    if (platformEnv.isNativeIOS || platformEnv.isNativeAndroid) {
+      try {
+        await this.backgroundApi.serviceCloudBackupV2.prepareLocalRecoveryForReset(
+          {
+            preserve: preserveBackupRecovery,
+          },
+        );
+      } catch {
+        // Still erase wallet secrets if recovery storage is unavailable.
+        recoveryErasureFailed = true;
+      }
+    }
     defaultLogger.prime.subscription.onekeyIdLogout({
       reason: 'ServiceApp.resetApp',
     });
@@ -361,6 +377,9 @@ class ServiceApp extends ServiceBase {
       defaultLogger.setting.page.clearDataStep('resetData-start');
       await this.resetData();
       defaultLogger.setting.page.clearDataStep('resetData-end');
+      if (recoveryErasureFailed) {
+        throw new OneKeyLocalError('Recovery cache erasure failed');
+      }
     } catch (error) {
       console.error('resetData error', error);
       throw error;

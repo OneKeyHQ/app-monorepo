@@ -99,6 +99,21 @@ class ServiceCloudBackupV2 extends ServiceBase {
       }
     | undefined;
 
+  private localRecoveryResetting = false;
+
+  @backgroundMethod()
+  async prepareLocalRecoveryForReset({
+    preserve,
+  }: {
+    preserve: boolean;
+  }): Promise<void> {
+    if (!platformEnv.isNativeIOS && !platformEnv.isNativeAndroid) return;
+    this.localRecoveryResetting = true;
+    this.clearPreparedLocalRestore();
+    const { default: cache } = await import('./localBackupPasswordCache');
+    await cache.prepareForReset({ preserve });
+  }
+
   private clearPreparedLocalRestore(): void {
     if (this.preparedLocalRestore) {
       clearTimeout(this.preparedLocalRestore.timer);
@@ -122,7 +137,11 @@ class ServiceCloudBackupV2 extends ServiceBase {
     password: string;
     recordId?: string;
   }): Promise<void> {
-    if (!this.supportsLocalPasswordCache(params.accountInfo)) return;
+    if (
+      this.localRecoveryResetting ||
+      !this.supportsLocalPasswordCache(params.accountInfo)
+    )
+      return;
     try {
       const { default: cache } = await import('./localBackupPasswordCache');
       await cache.set({
@@ -595,6 +614,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     password?: string;
   }): Promise<{ restoreId: string } | null> {
     if (
+      this.localRecoveryResetting ||
       (!platformEnv.isNativeIOS && !platformEnv.isNativeAndroid) ||
       !params.recordId
     )
@@ -628,43 +648,25 @@ class ServiceCloudBackupV2 extends ServiceBase {
       } else {
         // This optional path must not emit a password-error toast on cache misses.
         const { default: cache } = await import('./localBackupPasswordCache');
-        for (const recordId of [params.recordId, undefined]) {
-          const password = await cache.get({
-            providerType: accountInfo.providerType,
-            accountId: accountInfo.userId,
-            recordId,
-          });
-          if (password) {
-            try {
-              privateData = await this.decryptBackupPrivateData(
-                { payload, password },
-                accountInfo,
-              );
-            } catch {
-              // The current password may legitimately fail on an older backup.
-              if (recordId)
-                await cache.remove({
-                  providerType: accountInfo.providerType,
-                  accountId: accountInfo.userId,
-                  recordId,
-                });
-            }
-            if (privateData) {
-              await this.assertBackupAccountUnchanged(accountInfo);
-              if (!recordId) {
-                await this.cacheBackupPassword({
-                  accountInfo,
-                  password,
-                  recordId: params.recordId,
-                });
-              }
-              break;
-            }
+        const password = await cache.get({
+          providerType: accountInfo.providerType,
+          accountId: accountInfo.userId,
+          recordId: params.recordId,
+        });
+        if (password) {
+          try {
+            privateData = await this.decryptBackupPrivateData(
+              { payload, password },
+              accountInfo,
+            );
+          } catch {
+            // Keep the pairing on any failure and offer this backup's password.
           }
         }
       }
       if (!privateData) return null;
       await this.assertBackupAccountUnchanged(accountInfo);
+      if (this.localRecoveryResetting) return null;
       // Keep decrypted data in bg. The UI receives a short-lived, one-use handle.
       const restoreId = stringUtils.generateUUID();
       this.clearPreparedLocalRestore();
