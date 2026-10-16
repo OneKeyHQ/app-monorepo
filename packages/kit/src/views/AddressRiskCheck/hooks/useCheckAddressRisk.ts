@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 
+import { rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
@@ -16,6 +17,7 @@ import {
 } from '@onekeyhq/shared/src/routes/addressRiskCheck';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { getPrimeFreeTrialError } from '@onekeyhq/shared/src/utils/primeFreeTrialUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IAddressRiskCheckResult } from '@onekeyhq/shared/types/addressRiskCheck';
 
 import { usePrimeFeatureAccess } from '../../Prime/hooks/usePrimeFeatureAccess';
@@ -197,15 +199,16 @@ export function useCheckAddressRisk() {
 }
 
 // Runs the check of the result page. A success is recorded into local "Recent
-// checks" (failures are never recorded). Any failure shows the failed state;
-// a free-trial rejection without a history result also gets the unified
-// feedback.
+// checks" (failures are never recorded); a free-trial rejection without a
+// history result leaves the page and shows the unified feedback; other
+// failures show the failed state on the page.
 export function useAddressRiskCheckRequest(
   checkRequest: IAddressRiskCheckResultRequest,
 ) {
   const [result, setResult] = useState<IAddressRiskCheckResult>();
   const [isHistoryResult, setIsHistoryResult] = useState(false);
   const [isFailed, setIsFailed] = useState(false);
+  const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
   const { handleFreeTrialError } = usePrimeFeatureAccess();
   const [primeUser] = usePrimePersistAtom();
@@ -227,17 +230,35 @@ export function useAddressRiskCheckRequest(
           setIsHistoryResult(outcome.isHistoryResult);
         }
       },
-      (error: unknown) => {
+      async (error: unknown) => {
         if (!isActive) {
           return;
         }
-        setIsFailed(true);
-        // The feedback opens right away over this page, and only while it is
-        // still on top: one the user already left keeps just the failed
-        // state, so the dashboard never opens over the page they went to.
-        if (getPrimeFreeTrialError(error) && reactNavigation.isFocused()) {
-          handleFreeTrialError({ error, networkId });
+        // Only a page still on top handles a free-trial rejection; one the
+        // user already left keeps the failed state.
+        if (!getPrimeFreeTrialError(error) || !reactNavigation.isFocused()) {
+          setIsFailed(true);
+          return;
         }
+        // Leave this page first so Prime does not close back onto a dead
+        // end: the Send page check closes its whole modal, a check inside
+        // the feature goes back to the input / history page. The dashboard
+        // waits for the close animation, and opens only if the user is still
+        // on the page this landed on.
+        if (entryPoint === 'sendAddressInput') {
+          navigation.popStack();
+        } else {
+          navigation.pop();
+        }
+        const landedRouteKey =
+          rootNavigationRef.current?.getCurrentRoute()?.key;
+        await timerUtils.wait(300);
+        if (
+          rootNavigationRef.current?.getCurrentRoute()?.key !== landedRouteKey
+        ) {
+          return;
+        }
+        handleFreeTrialError({ error, networkId, afterPageExit: true });
       },
     );
     return () => {

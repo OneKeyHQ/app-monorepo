@@ -74,6 +74,14 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
 }));
 
 let mockIsFocused = true;
+// The route the root navigator shows: the page the result page landed on.
+let mockCurrentRouteKey = 'input';
+const mockWait = jest.fn(() => Promise.resolve());
+jest.mock('@onekeyhq/components', () => ({
+  rootNavigationRef: {
+    current: { getCurrentRoute: () => ({ key: mockCurrentRouteKey }) },
+  },
+}));
 jest.mock('@react-navigation/core', () => ({
   ...jest.requireActual<typeof import('@react-navigation/core')>(
     '@react-navigation/core',
@@ -83,7 +91,7 @@ jest.mock('@react-navigation/core', () => ({
 
 jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
   __esModule: true,
-  default: { wait: () => Promise.resolve() },
+  default: { wait: () => mockWait() },
 }));
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
@@ -120,6 +128,8 @@ function buildFreeTrialError(code = 90_600) {
 beforeEach(() => {
   jest.clearAllMocks();
   mockIsFocused = true;
+  mockCurrentRouteKey = 'input';
+  mockWait.mockImplementation(() => Promise.resolve());
   mockCachedAccess = { status: 'available' };
   mockCheckAddressRisk.mockResolvedValue(riskResult);
   mockAddCheck.mockResolvedValue(undefined);
@@ -455,26 +465,56 @@ describe('useAddressRiskCheckRequest', () => {
     expect(mockHandleFreeTrialError).not.toHaveBeenCalled();
   });
 
-  it.each(['historyList', 'sendAddressInput'] as const)(
-    'gives the free-trial feedback right away over the %s result page',
-    async (entryPoint) => {
-      const freeTrialError = buildFreeTrialError();
-      mockCheckAddressRisk.mockRejectedValueOnce(
-        freeTrialError as unknown as Error,
-      );
-      const { result } = renderHook(() =>
-        useAddressRiskCheckRequest({ ...historyRequest, entryPoint }),
-      );
+  it('goes back to the list before the free-trial feedback inside the feature', async () => {
+    const freeTrialError = buildFreeTrialError();
+    mockCheckAddressRisk.mockRejectedValueOnce(
+      freeTrialError as unknown as Error,
+    );
+    renderHook(() => useAddressRiskCheckRequest(historyRequest));
 
-      await waitFor(() => expect(result.current.isFailed).toBe(true));
+    await waitFor(() =>
       expect(mockHandleFreeTrialError).toHaveBeenCalledWith({
         error: freeTrialError,
         networkId: riskResult.networkId,
-      });
-      expect(mockPop).not.toHaveBeenCalled();
-      expect(mockPopStack).not.toHaveBeenCalled();
-    },
-  );
+        afterPageExit: true,
+      }),
+    );
+    expect(mockPop).toHaveBeenCalledTimes(1);
+    expect(mockPopStack).not.toHaveBeenCalled();
+  });
+
+  it('closes the whole modal before the free-trial feedback of the Send page check', async () => {
+    mockCheckAddressRisk.mockRejectedValueOnce(
+      buildFreeTrialError() as unknown as Error,
+    );
+    renderHook(() =>
+      useAddressRiskCheckRequest({
+        ...historyRequest,
+        entryPoint: 'sendAddressInput',
+      }),
+    );
+
+    await waitFor(() => expect(mockHandleFreeTrialError).toHaveBeenCalled());
+    expect(mockPopStack).toHaveBeenCalledTimes(1);
+    expect(mockPop).not.toHaveBeenCalled();
+  });
+
+  it('gives no feedback when the user moved on during the close animation', async () => {
+    mockCheckAddressRisk.mockRejectedValueOnce(
+      buildFreeTrialError() as unknown as Error,
+    );
+    mockWait.mockImplementation(async () => {
+      // The user went back from the input page meanwhile.
+      mockCurrentRouteKey = 'home';
+    });
+    renderHook(() => useAddressRiskCheckRequest(historyRequest));
+
+    await waitFor(() => expect(mockPop).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockHandleFreeTrialError).not.toHaveBeenCalled();
+  });
 
   it('shows the failed state without feedback once the page is not on top', async () => {
     mockIsFocused = false;
