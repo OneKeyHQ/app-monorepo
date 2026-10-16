@@ -9941,14 +9941,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-range-downloader@npm:6.7.0-alpha.314":
-  version: 6.7.0-alpha.314
-  resolution: "@onekeyfe/react-native-range-downloader@npm:6.7.0-alpha.314"
+"@onekeyfe/react-native-range-downloader@npm:6.7.0-alpha.315":
+  version: 6.7.0-alpha.315
+  resolution: "@onekeyfe/react-native-range-downloader@npm:6.7.0-alpha.315"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/8019c47cd770d74eefb0daf8f43ef66583057907dd16efc8e7494781d7a12647c54c8f5d876c2e9b01d25f34f416b2053d9e430c5e97e7cbc5f9597b0288bbfa
+  checksum: 10/ec8f9b816ae53add45fabfe546ead7dfadc43c07c51810ef0a19cd3afb25b73b568ac372328776b7caed5ada81c5282ddcacf4b5f2b9a0233fa1623132201a5c
   languageName: node
   linkType: hard
 
@@ -10535,7 +10535,7 @@ __metadata:
     "@onekeyfe/react-native-perf-stats": "npm:3.0.180"
     "@onekeyfe/react-native-perp-depth-bar": "npm:3.0.180"
     "@onekeyfe/react-native-photo-library": "npm:3.0.180"
-    "@onekeyfe/react-native-range-downloader": "npm:6.7.0-alpha.314"
+    "@onekeyfe/react-native-range-downloader": "npm:6.7.0-alpha.315"
     "@onekeyfe/react-native-scroll-guard": "npm:3.0.180"
     "@onekeyfe/react-native-segment-slider": "npm:3.0.180"
     "@onekeyfe/react-native-skeleton": "npm:3.0.180"

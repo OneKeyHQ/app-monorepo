@@ -548,7 +548,15 @@ export const useDownloadPackage = () => {
         });
         await downloadASC();
       } catch (e) {
-        const error = getFailure(e, 'download');
+        const failureSource =
+          e instanceof DownloadGaveUpError &&
+          (e.reason === 'maxAttempts' || e.reason === 'deadline') &&
+          e.downloadCause === undefined &&
+          params.status === EAppUpdateStatus.downloadPackageFailed &&
+          params.updateError?.step === 'download'
+            ? createUpdateError(params.updateError)
+            : e;
+        const error = getFailure(failureSource, 'download');
         if (error.code === EUpdateErrorCode.cancelled) return;
         defaultLogger.app.appUpdate.softwareUpdateResult({
           ...softwareUpdateParams,

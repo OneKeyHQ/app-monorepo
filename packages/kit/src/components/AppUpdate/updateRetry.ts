@@ -204,6 +204,7 @@ export async function runDownloadWithRetry<T>(
 
   // Tracks whether we've already spent the one-shot 401/403 URL refresh.
   let urlRefreshed = false;
+  let lastError: Error | undefined;
 
   for (let attempt = 0; attempt <= DOWNLOAD_RETRY_MAX_ATTEMPTS; attempt += 1) {
     // §5.11 — record before running so every native operation counts against
@@ -219,6 +220,7 @@ export async function runDownloadWithRetry<T>(
         );
         throw new DownloadGaveUpError({
           reason: budget.reason ?? 'maxAttempts',
+          cause: lastError,
         });
       }
     }
@@ -237,6 +239,7 @@ export async function runDownloadWithRetry<T>(
       // signed URL ONCE and try again against the fresh one. If the refresh
       // yields no fresh URL, the URL is dead → terminal.
       const updateError = getUpdateError(e, 'download');
+      lastError = createUpdateError(updateError);
       if (updateError.code === EUpdateErrorCode.cancelled) {
         throw createUpdateError(updateError);
       }

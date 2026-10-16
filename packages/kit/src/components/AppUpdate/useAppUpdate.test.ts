@@ -844,6 +844,112 @@ describe('useDownloadPackage', () => {
       });
     });
 
+    test.each([
+      {
+        code: EUpdateErrorCode.networkError,
+        reason: 'maxAttempts',
+      },
+      { code: EUpdateErrorCode.timeout, reason: 'deadline' },
+      {
+        code: EUpdateErrorCode.httpError,
+        httpStatus: 429,
+        reason: 'maxAttempts',
+      },
+      { code: EUpdateErrorCode.integrityFailed, reason: 'maxAttempts' },
+      { code: EUpdateErrorCode.unknown, reason: 'maxAttempts' },
+      {
+        code: EUpdateErrorCode.httpError,
+        httpStatus: 404,
+        reason: 'maxAttempts',
+      },
+    ] as const)(
+      'entry budget reuses only the current failed-download cause: $code $httpStatus',
+      async ({ reason, ...dto }) => {
+        setAtom({
+          status: EAppUpdateStatus.downloadPackageFailed,
+          latestVersion: '2.0.0',
+          downloadUrl: 'https://example.com/app.zip',
+          updateError: { ...dto, step: 'download' },
+        });
+        svc.getDownloadAttemptBudget.mockResolvedValue({
+          givenUp: true,
+          reason,
+        });
+
+        const { result } = renderHook(() => useDownloadPackage());
+        await act(async () => {
+          await result.current.downloadPackage();
+        });
+
+        expect(appUpd.downloadPackage).not.toHaveBeenCalled();
+        expect(svc.downloadPackageFailed).toHaveBeenCalledWith({
+          ...dto,
+          step: 'download',
+        });
+      },
+    );
+
+    test('a new retryable cause wins over an old persisted permanent error', async () => {
+      setAtom({
+        status: EAppUpdateStatus.downloadPackageFailed,
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://example.com/app.zip',
+        updateError: {
+          code: EUpdateErrorCode.integrityFailed,
+          step: 'download',
+        },
+      });
+      svc.recordDownloadAttempt
+        .mockResolvedValueOnce({ givenUp: false })
+        .mockResolvedValueOnce({ givenUp: true, reason: 'maxAttempts' });
+      appUpd.downloadPackage.mockRejectedValue(
+        createUpdateError({
+          code: EUpdateErrorCode.networkError,
+          step: 'download',
+        }),
+      );
+
+      const { result } = renderHook(() => useDownloadPackage());
+      await act(async () => {
+        const download = result.current.downloadPackage();
+        for (let i = 0; i < 8; i += 1) {
+          // eslint-disable-next-line no-await-in-loop
+          await Promise.resolve();
+          jest.runOnlyPendingTimers();
+        }
+        await download;
+      });
+
+      expect(appUpd.downloadPackage).toHaveBeenCalledTimes(1);
+      expect(svc.downloadPackageFailed).toHaveBeenCalledWith({
+        code: EUpdateErrorCode.networkError,
+        step: 'download',
+      });
+    });
+
+    test('entry budget does not reuse an unrelated failure step', async () => {
+      setAtom({
+        status: EAppUpdateStatus.downloadPackageFailed,
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://example.com/app.zip',
+        updateError: { code: EUpdateErrorCode.networkError, step: 'verifyASC' },
+      });
+      svc.getDownloadAttemptBudget.mockResolvedValue({
+        givenUp: true,
+        reason: 'maxAttempts',
+      });
+
+      const { result } = renderHook(() => useDownloadPackage());
+      await act(async () => {
+        await result.current.downloadPackage();
+      });
+
+      expect(svc.downloadPackageFailed).toHaveBeenCalledWith({
+        code: EUpdateErrorCode.unknown,
+        step: 'download',
+      });
+    });
+
     test('rotates attemptId AND persists it via setCurrentUpdateAttemptId so the post-relaunch success event can re-emit the same id', async () => {
       svc.getUpdateInfo.mockResolvedValue({
         latestVersion: '2.0.0',

@@ -1454,6 +1454,37 @@ describe('ServiceAppUpdate state transitions', () => {
   // shouldResumeStalledDownload — pure eligibility query for AppState 'active'
   // =========================================================================
   describe('shouldResumeStalledDownload', () => {
+    test('a persisted retryable give-up resumes after a cold service restart with a fresh budget', async () => {
+      const targetKey = '2.0.0:appShell';
+      resetAtom({
+        status: EAppUpdateStatus.downloadPackage,
+        latestVersion: '2.0.0',
+      });
+      for (let i = 0; i < 8; i += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        await service.recordDownloadAttempt({ targetKey });
+      }
+      await service.downloadPackageFailed({
+        code: EUpdateErrorCode.networkError,
+        step: 'download',
+      });
+      await Promise.resolve();
+      expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackageFailed);
+      expect(atomValue.updateError).toEqual({
+        code: EUpdateErrorCode.networkError,
+        step: 'download',
+      });
+
+      const restartedService = createService();
+      expect(
+        (await restartedService.getDownloadAttemptBudget({ targetKey }))
+          .givenUp,
+      ).toBe(false);
+      expect(await restartedService.shouldResumeStalledDownload()).toBe(
+        'downloadPackage',
+      );
+    });
+
     test("returns 'downloadPackage' when status is 'downloadPackageFailed'", async () => {
       resetAtom({
         status: EAppUpdateStatus.downloadPackageFailed,

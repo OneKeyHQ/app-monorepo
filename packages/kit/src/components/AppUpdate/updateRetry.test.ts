@@ -11,6 +11,7 @@
 import {
   EUpdateErrorCode,
   createUpdateError,
+  getUpdateError,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 
 import { DownloadGaveUpError, runDownloadWithRetry } from './updateRetry';
@@ -89,8 +90,39 @@ describe('runDownloadWithRetry — OCDS §5.11 service-instance budget', () => {
     }
     expect(caught).toBeInstanceOf(DownloadGaveUpError);
     expect((caught as DownloadGaveUpError).reason).toBe('maxAttempts');
+    expect(getUpdateError(caught, 'download')).toEqual({
+      code: EUpdateErrorCode.networkError,
+      step: 'download',
+    });
     expect(store.count).toBe(8);
   });
+
+  test.each([
+    { code: EUpdateErrorCode.networkError },
+    { code: EUpdateErrorCode.timeout },
+    { code: EUpdateErrorCode.httpError, httpStatus: 429 },
+  ])(
+    'preserves the last retryable cause when the budget ends: $code',
+    async (dto) => {
+      const store = { count: 0 };
+      const op = jest
+        .fn()
+        .mockRejectedValue(createUpdateError({ ...dto, step: 'download' }));
+
+      const error = await runDownloadWithRetry(
+        op,
+        'ctx',
+        budgetHooks(store, 2),
+      ).catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(DownloadGaveUpError);
+      expect(getUpdateError(error, 'download')).toEqual({
+        ...dto,
+        step: 'download',
+      });
+      expect(op).toHaveBeenCalledTimes(1);
+    },
+  );
 
   test('success clears the service-instance budget so the next target starts fresh', async () => {
     const store = { count: 0 };
