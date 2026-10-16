@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/shared/types/qrCode';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { isInvalidQrCodeError } from '../utils/isInvalidQrCodeError';
 
 export default function useScanQrCodeLazy() {
   const navigation = useAppNavigation();
@@ -70,6 +71,8 @@ export default function useScanQrCodeLazy() {
                       { navigation, clipboard, intl },
                     );
                   } catch (error) {
+                    // Any other failure stays a dropped frame, as before; the page stays open.
+                    if (!isInvalidQrCodeError(error)) throw error;
                     // The parse closed the scan page; end the scan with its error.
                     reject(error);
                     return {};

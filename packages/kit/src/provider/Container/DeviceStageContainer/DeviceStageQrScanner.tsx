@@ -8,6 +8,7 @@ import {
 } from '@onekeyhq/shared/types/qrCode';
 
 import { ScanQrCode } from '../../../views/ScanQrCode/components';
+import { isInvalidQrCodeError } from '../../../views/ScanQrCode/utils/isInvalidQrCodeError';
 
 import { interpretAirGapScanFrame } from './airGapScanFrame';
 
@@ -64,7 +65,12 @@ export function DeviceStageQrScanner({
         qrWalletScene: true,
         autoExecuteParsedAction: false,
       });
-    } catch {
+    } catch (error) {
+      // Anything but an unacceptable code is a transient failure (a bridge
+      // hiccup): retry the frame, as a rejected submit does below.
+      if (!isInvalidQrCodeError(error)) {
+        return { retry: true };
+      }
       // A code the scan can never accept (its error toasts itself): end the
       // scan rather than fail every further frame of the same code.
       if (!submittedRef.current) {

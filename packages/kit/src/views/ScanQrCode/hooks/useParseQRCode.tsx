@@ -51,6 +51,7 @@ import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtil
 import { marketNavigation } from '../../Market/marketUtils';
 import { openWcPayDialog } from '../../WalletConnectPay/dialog/wcPayDialogStore';
 import { getAccountIdOnNetwork } from '../utils/getAccountIdOnNetwork';
+import { isInvalidQrCodeError } from '../utils/isInvalidQrCodeError';
 import { parseOnChainAmount } from '../utils/parseOnChainAmount';
 
 export { getAccountIdOnNetwork } from '../utils/getAccountIdOnNetwork';
@@ -129,7 +130,10 @@ export async function parseQRCodeWithDeps(
     result = await backgroundApiProxy.serviceScanQRCode.parse(value, options);
   } catch (error) {
     // A code the scan can never accept (the error toasts itself): end the scan.
-    await closeScanPage();
+    // Any other failure leaves the page open, as before, so the next frame retries.
+    if (isInvalidQrCodeError(error)) {
+      await closeScanPage();
+    }
     throw error;
   }
 
