@@ -2,84 +2,15 @@
 #import <MMKV/MMKV.h>
 #import <React/RCTBridgeModule.h>
 #import <UIKit/UIKit.h>
-#import <objc/message.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <unistd.h>
 
 static NSString *const OneKeyMigrationLedgerPrefix = @"onekey_native_storage_migration_";
 static NSString *const OneKeyMigrationLedgerComplete = @"complete-v1";
 static NSString *const OneKeyMigrationLedgerMigrating = @"migrating-v1";
 static NSString *const OneKeyMigrationLedgerResetting = @"resetting-v1";
-static NSString *const OneKeyMigrationLedgerErasing = @"erasing-v1";
 static NSString *const OneKeyRecoveryActionKey = @"onekey_recovery_action";
 static NSString *const OneKeyTravelModeControlKey = @"onekey_travel_mode_control_v1";
 static BOOL OneKeyTravelModePushSuppressionInitialized = NO;
 static BOOL OneKeyTravelModePushSuppressed = NO;
-
-static BOOL OneKeyIsStorageMMKVID(NSString *mmapID)
-{
-  return [@[@"onekey-app-storage-v1", @"onekey-app-setting",
-            @"onekey-app-dev-setting", @"onekey-jotai-states"] containsObject:mmapID];
-}
-
-static void OneKeyWriteStorageDiagnostic(NSString *message)
-{
-  Class logger = NSClassFromString(@"ReactNativeNativeLogger.OneKeyLog");
-  SEL selector = NSSelectorFromString(@"error::");
-  if (logger != Nil && [logger respondsToSelector:selector]) {
-    ((void (*)(id, SEL, id, id))objc_msgSend)(logger, selector, @"NativeStorage", message);
-  }
-}
-
-@interface OneKeyStorageMMKVHandler : NSObject <MMKVHandler>
-@end
-
-@implementation OneKeyStorageMMKVHandler
-- (MMKVRecoverStrategic)onMMKVCRCCheckFail:(NSString *)mmapID
-{
-  if (OneKeyIsStorageMMKVID(mmapID)) {
-    OneKeyWriteStorageDiagnostic([NSString stringWithFormat:@"event=crc_error store=%@ strategy=discard", mmapID]);
-  }
-  return MMKVOnErrorDiscard;
-}
-
-- (MMKVRecoverStrategic)onMMKVFileLengthError:(NSString *)mmapID
-{
-  if (OneKeyIsStorageMMKVID(mmapID)) {
-    OneKeyWriteStorageDiagnostic([NSString stringWithFormat:@"event=file_length_error store=%@ strategy=discard", mmapID]);
-  }
-  return MMKVOnErrorDiscard;
-}
-
-- (void)mmkvLogWithLevel:(MMKVLogLevel)level file:(const char *)file line:(int)line func:(const char *)funcname message:(NSString *)message
-{
-  if (level < MMKVLogError) {
-    return;
-  }
-  // MMKV diagnostics can contain paths or business keys. Forward only a fixed
-  // operation label; the durability bridge separately reports numeric errno.
-  for (NSString *operation in @[@"open", @"mmap", @"msync", @"truncate"]) {
-    if ([message containsString:[@"fail to " stringByAppendingString:operation]]) {
-      OneKeyWriteStorageDiagnostic([NSString stringWithFormat:@"event=io_error operation=%@", operation]);
-      return;
-    }
-  }
-}
-@end
-
-static void OneKeyInstallStorageDiagnostics(void)
-{
-  static OneKeyStorageMMKVHandler *handler;
-  static dispatch_once_t once;
-  dispatch_once(&once, ^{ handler = [OneKeyStorageMMKVHandler new]; });
-  // Install after Nitro's factory initialization, before reading migration
-  // markers. Nitro's process-wide initialization preserves this handler.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  [MMKV registerHandler:handler];
-#pragma clang diagnostic pop
-}
 
 static BOOL OneKeyReadTravelModeMaskingData(void)
 {
@@ -164,7 +95,10 @@ RCT_EXPORT_MODULE(OneKeyNativeStorageMigration)
 
 - (BOOL)isValidMMKVID:(NSString *)mmapID
 {
-  return OneKeyIsStorageMMKVID(mmapID);
+  return [mmapID isEqualToString:@"onekey-app-storage-v1"] ||
+         [mmapID isEqualToString:@"onekey-app-setting"] ||
+         [mmapID isEqualToString:@"onekey-app-dev-setting"] ||
+         [mmapID isEqualToString:@"onekey-jotai-states"];
 }
 
 - (unsigned long long)directorySizeAtPath:(NSString *)path
@@ -207,7 +141,6 @@ RCT_REMAP_METHOD(getMigrationLedger,
     return;
   }
   NSString *ledgerKey = [OneKeyMigrationLedgerPrefix stringByAppendingString:key];
-  OneKeyInstallStorageDiagnostics();
   resolve([[NSUserDefaults standardUserDefaults] stringForKey:ledgerKey]);
 }
 
@@ -219,8 +152,7 @@ RCT_REMAP_METHOD(setMigrationLedger,
 {
   BOOL isValidValue = [value isEqualToString:OneKeyMigrationLedgerComplete] ||
                       [value isEqualToString:OneKeyMigrationLedgerMigrating] ||
-                      [value isEqualToString:OneKeyMigrationLedgerResetting] ||
-                      [value isEqualToString:OneKeyMigrationLedgerErasing];
+                      [value isEqualToString:OneKeyMigrationLedgerResetting];
   if (![self isValidLedgerKey:key] || !isValidValue) {
     reject(@"MIGRATION_LEDGER_WRITE_FAILED", @"Unsupported migration ledger entry", nil);
     return;
@@ -283,69 +215,6 @@ RCT_REMAP_METHOD(syncMMKV,
     return;
   }
   [mmkv sync];
-  // MMKV's void sync API cannot report msync failures. Verify the files through
-  // an OS durability barrier before JS can advance its independent ledger.
-  for (NSString *suffix in @[@"", @".crc"]) {
-    NSString *path = [[MMKV mmkvBasePath] stringByAppendingPathComponent:
-        [mmapID stringByAppendingString:suffix]];
-    int fd = open(path.fileSystemRepresentation, O_RDWR | O_CLOEXEC);
-    int result = fd < 0 ? -1 : fsync(fd);
-    int failure = errno;
-    if (fd >= 0) {
-      close(fd);
-    }
-    if (result != 0) {
-      OneKeyWriteStorageDiagnostic([NSString stringWithFormat:@"event=durability_failed store=%@ errno=%d", mmapID, failure]);
-      reject(@"MMKV_SYNC_FAILED",
-             [NSString stringWithFormat:@"MMKV durability barrier failed; errno=%d", failure],
-             nil);
-      return;
-    }
-  }
-  resolve(nil);
-}
-
-RCT_REMAP_METHOD(getMMKVFileDiagnostics,
-                 getMMKVFileDiagnostics:(NSString *)mmapID
-                 resolver:(RCTPromiseResolveBlock)resolve
-                 rejecter:(RCTPromiseRejectBlock)reject)
-{
-  if (![self isValidMMKVID:mmapID]) {
-    reject(@"MMKV_DIAGNOSTICS_FAILED", @"Unsupported MMKV instance", nil);
-    return;
-  }
-  NSFileManager *manager = NSFileManager.defaultManager;
-  NSString *dataPath = [[MMKV mmkvBasePath] stringByAppendingPathComponent:mmapID];
-  NSString *crcPath = [dataPath stringByAppendingString:@".crc"];
-  NSDictionary *data = [manager attributesOfItemAtPath:dataPath error:nil];
-  NSDictionary *crc = [manager attributesOfItemAtPath:crcPath error:nil];
-  NSDictionary *capacity = [manager attributesOfFileSystemForPath:NSHomeDirectory() error:nil];
-  resolve(@{
-    @"dataExists": @([manager fileExistsAtPath:dataPath]),
-    @"dataBytes": data[NSFileSize] ?: @0,
-    @"dataReadable": @([manager isReadableFileAtPath:dataPath]),
-    @"crcExists": @([manager fileExistsAtPath:crcPath]),
-    @"crcBytes": crc[NSFileSize] ?: @0,
-    @"crcReadable": @([manager isReadableFileAtPath:crcPath]),
-    @"availableBytes": capacity[NSFileSystemFreeSize] ?: @(-1),
-  });
-}
-
-RCT_REMAP_METHOD(reloadMMKV,
-                 reloadMMKV:(NSString *)mmapID
-                 resolver:(RCTPromiseResolveBlock)resolve
-                 rejecter:(RCTPromiseRejectBlock)reject)
-{
-  if (![self isValidMMKVID:mmapID]) {
-    reject(@"MMKV_RELOAD_FAILED", @"Unsupported MMKV instance", nil);
-    return;
-  }
-  MMKV *mmkv = [MMKV mmkvWithID:mmapID];
-  if (mmkv == nil) {
-    reject(@"MMKV_RELOAD_FAILED", @"MMKV instance is unavailable", nil);
-    return;
-  }
-  [mmkv clearMemoryCache];
   resolve(nil);
 }
 

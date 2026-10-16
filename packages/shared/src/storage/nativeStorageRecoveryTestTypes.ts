@@ -1,5 +1,8 @@
 import type { INativeAppStorageRepairSummary } from './nativeStorageTypes';
 
+export const NATIVE_STORAGE_RECOVERY_TEST_LEGACY_KEY_PREFIX =
+  '$$test_native_storage_recovery/';
+
 export const NATIVE_STORAGE_RECOVERY_TEST_SCENARIOS = [
   'success',
   'partialFailure',

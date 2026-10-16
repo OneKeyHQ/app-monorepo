@@ -12,6 +12,7 @@ import {
   type INativeStorageRecoveryTestResult,
   type INativeStorageRecoveryTestScenario,
   type INativeStorageRecoveryTestSnapshot,
+  NATIVE_STORAGE_RECOVERY_TEST_LEGACY_KEY_PREFIX,
   NATIVE_STORAGE_RECOVERY_TEST_SCENARIOS,
 } from '@onekeyhq/shared/src/storage/nativeStorageRecoveryTestTypes';
 import {
@@ -19,7 +20,7 @@ import {
   createNativeStorageMigrationInconsistentErrorMessage,
 } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
-const LEGACY_PREFIX = '$$test_native_storage_recovery/';
+const LEGACY_PREFIX = NATIVE_STORAGE_RECOVERY_TEST_LEGACY_KEY_PREFIX;
 const KEYS = ['test:01-current', 'test:02-failure', 'test:03-after-failure'];
 const LEGACY_VALUES = ['legacy-old', 'legacy-two', 'legacy-three'];
 const CURRENT_VALUE = 'current-latest';
@@ -115,7 +116,6 @@ function getController() {
     getMMKV: () => target as IMMKVInstance,
     getLedger: async () => control.getString('ledger') ?? null,
     getLegacy: () => legacy,
-    reload: async () => target.trim(),
     sync: async () => {
       if (readScenario() === 'syncFailure' && control.getBoolean('faultActive'))
         fail('injected sync failure');
@@ -127,7 +127,6 @@ function getController() {
       control.set('ledger', 'complete-v1');
     },
     log,
-    logFiles: async () => {},
     onPrepare: () => {},
     onComplete: () => {},
     clearPendingRecovery: () => {},

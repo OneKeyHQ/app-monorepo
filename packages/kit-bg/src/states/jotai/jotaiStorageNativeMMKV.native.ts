@@ -15,7 +15,6 @@ import type { ISyncStorage } from '@onekeyhq/shared/src/storage/instance/createM
 import { retryLegacyAsyncStorageOperation } from '@onekeyhq/shared/src/storage/legacyAsyncStorageRetry';
 import {
   NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE,
-  NATIVE_STORAGE_MIGRATION_LEDGER_ERASING,
   NATIVE_STORAGE_MIGRATION_LEDGER_MIGRATING,
   NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING,
   getNativeStorageMigrationLedger,
@@ -425,25 +424,25 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     }
   }
 
-  private async finishInterruptedReset(eraseLegacy = false): Promise<void> {
-    if (eraseLegacy) await this.clearLegacyJotaiData();
+  private async finishInterruptedReset(retainLegacy = false): Promise<void> {
+    if (!retainLegacy) await this.clearLegacyJotaiData();
     this.mmkv.clearAll();
     this.mmkv.set(MMKV_MIGRATION_COMPLETE_KEY, '1');
-    this.mmkv.set(
-      JOTAI_LEGACY_RETENTION_POLICY_KEY,
-      JOTAI_LEGACY_RETENTION_POLICY_RETAINED,
-    );
+    const legacyStateKey = retainLegacy
+      ? JOTAI_LEGACY_RETENTION_POLICY_KEY
+      : JOTAI_LEGACY_CLEANUP_COMPLETE_KEY;
+    const legacyStateValue = retainLegacy
+      ? JOTAI_LEGACY_RETENTION_POLICY_RETAINED
+      : '1';
+    this.mmkv.set(legacyStateKey, legacyStateValue);
     if (this.mmkv.getString(MMKV_MIGRATION_COMPLETE_KEY) !== '1') {
       throw new OneKeyLocalError(
         'Jotai reset migration marker verification failed',
       );
     }
-    if (
-      this.mmkv.getString(JOTAI_LEGACY_RETENTION_POLICY_KEY) !==
-      JOTAI_LEGACY_RETENTION_POLICY_RETAINED
-    ) {
+    if (this.mmkv.getString(legacyStateKey) !== legacyStateValue) {
       throw new OneKeyLocalError(
-        'Jotai reset legacy retention marker verification failed',
+        'Jotai reset legacy state verification failed',
       );
     }
     await syncNativeStorageMMKV('onekey-jotai-states');
@@ -673,21 +672,15 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         ledger !== null &&
         ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE &&
         ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_MIGRATING &&
-        ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING &&
-        ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_ERASING
+        ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING
       ) {
         throw new OneKeyLocalError(
           'Jotai migration ledger has an unsupported version',
         );
       }
-      if (
-        ledger === NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING ||
-        ledger === NATIVE_STORAGE_MIGRATION_LEDGER_ERASING
-      ) {
+      if (ledger === NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING) {
         this.log('resuming interrupted reset');
-        await this.finishInterruptedReset(
-          ledger === NATIVE_STORAGE_MIGRATION_LEDGER_ERASING,
-        );
+        await this.finishInterruptedReset();
         this.log('interrupted reset complete');
         return;
       }
@@ -852,13 +845,11 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     this.migrationReady = false;
     this.migrationPromise = undefined;
     try {
-      // Record erase intent before deleting either copy. Repair uses the
-      // distinct resetting state and always retains its legacy source.
       await setNativeStorageMigrationLedger(
         JOTAI_MIGRATION_LEDGER_KEY,
-        NATIVE_STORAGE_MIGRATION_LEDGER_ERASING,
+        NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING,
       );
-      await this.finishInterruptedReset(true);
+      await this.finishInterruptedReset();
       this.migrationPromise = Promise.resolve();
       return clearedKeysCount;
     } catch (error) {
@@ -880,11 +871,10 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     }
     this.migrationReady = false;
     this.migrationPromise = undefined;
-    await setNativeStorageMigrationLedger(
-      JOTAI_MIGRATION_LEDGER_KEY,
-      NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING,
-    );
-    await this.finishInterruptedReset();
+    // Keep the complete ledger so interrupted manual repair is never resumed
+    // as an explicit user erase. A missing marker keeps storage blocked until
+    // another manual repair; its legacy source must remain available.
+    await this.finishInterruptedReset(true);
     this.migrationPromise = Promise.resolve();
   }
 

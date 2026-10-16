@@ -6,7 +6,6 @@ import platformEnv from '../platformEnv';
 export const NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE = 'complete-v1';
 export const NATIVE_STORAGE_MIGRATION_LEDGER_MIGRATING = 'migrating-v1';
 export const NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING = 'resetting-v1';
-export const NATIVE_STORAGE_MIGRATION_LEDGER_ERASING = 'erasing-v1';
 
 export type INativeStorageMigrationLedgerKey =
   | 'app-storage-v1'
@@ -17,8 +16,7 @@ export type INativeStorageRecoveryAction = 'auto_repair' | 'try_again';
 export type INativeStorageMigrationLedgerValue =
   | typeof NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE
   | typeof NATIVE_STORAGE_MIGRATION_LEDGER_MIGRATING
-  | typeof NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING
-  | typeof NATIVE_STORAGE_MIGRATION_LEDGER_ERASING;
+  | typeof NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING;
 
 export type INativeStorageMMKVId =
   | 'onekey-app-storage-v1'
@@ -26,21 +24,7 @@ export type INativeStorageMMKVId =
   | 'onekey-app-dev-setting'
   | 'onekey-jotai-states';
 
-export type INativeStorageFileDiagnostics = {
-  dataExists: boolean;
-  dataBytes: number;
-  dataReadable: boolean;
-  crcExists: boolean;
-  crcBytes: number;
-  crcReadable: boolean;
-  availableBytes: number;
-};
-
 interface INativeStorageMigrationModule {
-  getMMKVFileDiagnostics?(
-    mmapId: INativeStorageMMKVId,
-  ): Promise<INativeStorageFileDiagnostics>;
-  reloadMMKV?(mmapId: INativeStorageMMKVId): Promise<void>;
   acknowledgeRecoveryAction(
     expectedAction: INativeStorageRecoveryAction,
   ): Promise<boolean>;
@@ -150,21 +134,6 @@ export function acknowledgeNativeStorageRecoveryAction(
 
 export function syncNativeStorageMMKV(mmapId: INativeStorageMMKVId) {
   return getNativeStorageMigrationModule().syncMMKV(mmapId);
-}
-
-export async function getNativeStorageFileDiagnostics(
-  mmapId: INativeStorageMMKVId,
-) {
-  return getNativeStorageMigrationModule().getMMKVFileDiagnostics?.(mmapId);
-}
-
-export async function reloadNativeStorageMMKV(mmapId: INativeStorageMMKVId) {
-  const module = getNativeStorageMigrationModule();
-  if (!module.reloadMMKV) {
-    return false;
-  }
-  await module.reloadMMKV(mmapId);
-  return true;
 }
 
 export function setNativeTravelModePushSuppressed(suppressed: boolean) {

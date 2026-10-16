@@ -12,15 +12,14 @@ import {
   NATIVE_STORAGE_MIGRATION_LEDGER_MIGRATING,
   NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING,
   acknowledgeNativeStorageRecoveryAction,
-  getNativeStorageFileDiagnostics,
   getNativeStorageMigrationCapacity,
   getNativeStorageMigrationLedger,
   peekNativeStorageRecoveryAction,
-  reloadNativeStorageMMKV,
   setNativeStorageMigrationLedger,
   setNativeStorageMigrationLedgerComplete,
   syncNativeStorageMMKV,
 } from './nativeStorageMigrationModule';
+import { NATIVE_STORAGE_RECOVERY_TEST_LEGACY_KEY_PREFIX } from './nativeStorageRecoveryTestTypes';
 import {
   NATIVE_STORAGE_BOOTSTRAP_DEFAULT_STORES,
   createNativeStorageMigrationInconsistentErrorMessage,
@@ -143,19 +142,16 @@ type ILegacyAppStorageCopyResult = {
 };
 
 let appStorageMigrationPromise: Promise<void> | undefined;
-let appStorageFileDiagnosticsCaptured = false;
 let appStorageMismatchLogged = false;
 let appStorageRepairActive = false;
 export type INativeAppStorageRepairDependencies = {
   getMMKV: () => IMMKVInstance;
   getLedger: () => Promise<string | null>;
   getLegacy: () => ILegacyAsyncStorageNativeModule;
-  reload: () => Promise<unknown>;
   sync: () => Promise<unknown>;
   recoverJournal: (mmkv: IMMKVInstance) => Promise<void>;
   completeLedger: () => Promise<void>;
   log: (message: string) => void;
-  logFiles: (phase: string) => Promise<void>;
   onPrepare: () => void;
   onComplete: () => void;
   clearPendingRecovery: () => void;
@@ -167,6 +163,7 @@ type IAppStorageRepairContext = INativeAppStorageRepairDependencies & {
   pending?: {
     summary: INativeAppStorageRepairSummary;
     verifiedKeys: Map<string, string>;
+    failedKeys: Set<string>;
     markerWasComplete: boolean;
   };
 };
@@ -221,44 +218,6 @@ function logMigration(message: string) {
     NativeLogger.write(LogLevel.Info, `[NativeStorageMigration] ${message}`);
   } catch {
     // Migration correctness must not depend on diagnostics being available.
-  }
-}
-
-async function logAppStorageFiles(phase: string) {
-  try {
-    const diagnostics =
-      await getNativeStorageFileDiagnostics(APP_STORAGE_MMKV_ID);
-    if (!diagnostics) {
-      logMigration(
-        `diagnostic phase=${phase} target=appStorage nativeFiles=unsupported`,
-      );
-      return;
-    }
-    // Copy only the native contract's scalar metadata, never keys or values.
-    logMigration(
-      `diagnostic ${JSON.stringify({
-        phase,
-        target: 'appStorage',
-        runtime: 'background',
-        dataExists: diagnostics.dataExists === true,
-        dataReadable: diagnostics.dataReadable === true,
-        dataBytes: Number.isFinite(diagnostics.dataBytes)
-          ? diagnostics.dataBytes
-          : -1,
-        crcExists: diagnostics.crcExists === true,
-        crcReadable: diagnostics.crcReadable === true,
-        crcBytes: Number.isFinite(diagnostics.crcBytes)
-          ? diagnostics.crcBytes
-          : -1,
-        availableBytes: Number.isFinite(diagnostics.availableBytes)
-          ? diagnostics.availableBytes
-          : -1,
-      })}`,
-    );
-  } catch {
-    logMigration(
-      `diagnostic phase=${phase} target=appStorage nativeFiles=failed`,
-    );
   }
 }
 
@@ -446,8 +405,11 @@ async function enumerateLegacyAppStorageKeys(
     (key): key is string => typeof key === 'string',
   );
   const invalidSourceKeyCount = result.value.length - stringKeys.length;
-  const uniqueSourceKeys = [...new Set(stringKeys)].toSorted();
-  const duplicateSourceKeyCount = stringKeys.length - uniqueSourceKeys.length;
+  const sourceKeys = stringKeys.filter(
+    (key) => !key.startsWith(NATIVE_STORAGE_RECOVERY_TEST_LEGACY_KEY_PREFIX),
+  );
+  const uniqueSourceKeys = [...new Set(sourceKeys)].toSorted();
+  const duplicateSourceKeyCount = sourceKeys.length - uniqueSourceKeys.length;
   const enumeratedKeys = new Set(uniqueSourceKeys);
   const keys = [
     ...uniqueSourceKeys,
@@ -926,21 +888,12 @@ function persistAppStorageMigrationReport(
   }
 }
 
-function getAppStorageLedgerBeforeOpen() {
-  // Initialize Nitro first, then install native diagnostics before the target
-  // constructor can discard corrupt data. Do not depend on main being ready.
-  getSyncStorageMMKV('settings');
-  return getNativeStorageMigrationLedger(APP_STORAGE_MIGRATION_LEDGER_KEY);
-}
-
 async function migrateAppStorageFromLegacy() {
   const startedAt = Date.now();
-  if (!appStorageFileDiagnosticsCaptured) {
-    appStorageFileDiagnosticsCaptured = true;
-    await logAppStorageFiles('before-open');
-  }
-  const ledger = await getAppStorageLedgerBeforeOpen();
   const mmkv = getAppStorageMMKV();
+  const ledger = await getNativeStorageMigrationLedger(
+    APP_STORAGE_MIGRATION_LEDGER_KEY,
+  );
   if (
     ledger !== null &&
     ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE &&
@@ -1163,10 +1116,6 @@ async function resetAppStorageAfterMigrationMismatch() {
     NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING,
   );
   await finishInterruptedAppStorageReset(mmkv);
-  const reloaded = await reloadNativeStorageMMKV(APP_STORAGE_MMKV_ID);
-  logMigration(
-    `repair target=appStorage phase=reset-verification nativeReload=${reloaded}`,
-  );
   appStorageMigrationPromise = undefined;
   appStorageMismatchLogged = false;
   await ensureNativeAppStorageMigrated();
@@ -1178,10 +1127,6 @@ async function resetAppStorageAfterMigrationMismatch() {
 }
 
 async function retryAppStorageMigration() {
-  await logAppStorageFiles('repair-before-reload');
-  await getAppStorageLedgerBeforeOpen();
-  const reloaded = await reloadNativeStorageMMKV(APP_STORAGE_MMKV_ID);
-  logMigration(`repair target=appStorage phase=reload supported=${reloaded}`);
   appStorageMigrationPromise = undefined;
   appStorageMismatchLogged = false;
   await ensureNativeAppStorageMigrated();
@@ -1193,7 +1138,6 @@ async function prepareAppStorageRepairWithContext(
 ): Promise<INativeAppStorageRepairSummary> {
   context.pending = undefined;
   context.onPrepare();
-  await context.logFiles('repair-before-reload');
   const ledger = await context.getLedger();
   if (ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE) {
     throw new OneKeyLocalError(
@@ -1201,12 +1145,6 @@ async function prepareAppStorageRepairWithContext(
     );
   }
   let scanComplete = true;
-  try {
-    await context.reload();
-  } catch {
-    scanComplete = false;
-    context.log('repair stage=reload result=failed');
-  }
   const mmkv = context.getMMKV();
   try {
     await context.recoverJournal(mmkv);
@@ -1224,8 +1162,8 @@ async function prepareAppStorageRepairWithContext(
     scanComplete = false;
     context.log('repair stage=target-enumeration result=failed');
   }
-  // A successful reload needs no stale backup import. Otherwise, existing
-  // readable MMKV values win over the legacy snapshot, which may be outdated.
+  // A complete marker needs no stale backup import. Existing readable MMKV
+  // values take priority over the legacy snapshot, which may be outdated.
   let needsLegacyRecovery = true;
   try {
     needsLegacyRecovery =
@@ -1249,6 +1187,7 @@ async function prepareAppStorageRepairWithContext(
   }
   const candidates = new Set([...currentKeys, ...(enumeration?.keys ?? [])]);
   const verifiedKeys = new Map<string, string>();
+  const failedKeys = new Set<string>();
   // Transient checksums detect changed records without retaining a second
   // copy of every value in bg. They are never logged or sent to main.
   const checksum = (value: string) =>
@@ -1295,7 +1234,10 @@ async function prepareAppStorageRepairWithContext(
         }
       }
     }
-    if (!succeeded && !absentProbe) failedCount += 1;
+    if (!succeeded && !absentProbe) {
+      failedCount += 1;
+      failedKeys.add(key);
+    }
     let result = 'failed';
     if (succeeded) result = 'verified';
     else if (absentProbe) result = 'absent-probe';
@@ -1314,6 +1256,7 @@ async function prepareAppStorageRepairWithContext(
   context.pending = {
     summary,
     verifiedKeys,
+    failedKeys,
     markerWasComplete: !needsLegacyRecovery,
   };
   context.log(
@@ -1374,19 +1317,28 @@ async function completeAppStorageRepairWithContext(
     }
   };
   let markerWasComplete = pending.markerWasComplete;
+  let removedFailedRecords = false;
   try {
-    await context.reload();
     markerWasComplete =
       mmkv.getString(APP_STORAGE_MIGRATION_COMPLETE_KEY) === '1';
-    for (const key of mmkv.getAllKeys()) {
+    const targetKeys = mmkv.getAllKeys();
+    for (const key of targetKeys) {
       if (
         key.startsWith(APP_STORAGE_KEY_PREFIX) &&
-        !pending.verifiedKeys.has(decodeAppStorageKey(key))
+        !pending.verifiedKeys.has(decodeAppStorageKey(key)) &&
+        (!force || !pending.failedKeys.has(decodeAppStorageKey(key)))
       ) {
-        if (!force)
-          throw new OneKeyLocalError(
-            'Storage repair results changed. Please run repair again.',
-          );
+        throw new OneKeyLocalError(
+          'Storage repair results changed. Please run repair again.',
+        );
+      }
+    }
+    for (const key of targetKeys) {
+      if (
+        key.startsWith(APP_STORAGE_KEY_PREFIX) &&
+        pending.failedKeys.has(decodeAppStorageKey(key))
+      ) {
+        removedFailedRecords = true;
         mmkv.remove(key);
       }
     }
@@ -1402,7 +1354,6 @@ async function completeAppStorageRepairWithContext(
       throw new OneKeyLocalError('MMKV storage remove verification failed');
     }
     await context.sync();
-    await context.reload();
     verifyKeys();
     const report = JSON.stringify({ ...pending.summary, force, version: 1 });
     mmkv.set(APP_STORAGE_REPAIR_REPORT_KEY, report);
@@ -1412,7 +1363,6 @@ async function completeAppStorageRepairWithContext(
     );
     mmkv.set(APP_STORAGE_MIGRATION_COMPLETE_KEY, '1');
     await context.sync();
-    await context.reload();
     verifyKeys();
     if (
       mmkv.getString(APP_STORAGE_MIGRATION_COMPLETE_KEY) !== '1' ||
@@ -1426,9 +1376,9 @@ async function completeAppStorageRepairWithContext(
     }
     await context.completeLedger();
   } catch (error) {
-    // Roll back a newly published marker without deleting a healthy marker
-    // recovered by reload before this finalization attempt.
-    if (!markerWasComplete) {
+    // Preserve a healthy marker only when no failed business records were
+    // removed. A failed destructive attempt must stay blocked after restart.
+    if (!markerWasComplete || removedFailedRecords) {
       try {
         mmkv.remove(APP_STORAGE_MIGRATION_COMPLETE_KEY);
         await context.sync();
@@ -1467,15 +1417,14 @@ export function createNativeAppStorageRepairController(
 
 const appStorageRepairController = createNativeAppStorageRepairController({
   getMMKV: getAppStorageMMKV,
-  getLedger: getAppStorageLedgerBeforeOpen,
+  getLedger: () =>
+    getNativeStorageMigrationLedger(APP_STORAGE_MIGRATION_LEDGER_KEY),
   getLegacy: getLegacyAsyncStorageForMigration,
-  reload: () => reloadNativeStorageMMKV(APP_STORAGE_MMKV_ID),
   sync: () => syncNativeStorageMMKV(APP_STORAGE_MMKV_ID),
   recoverJournal: recoverInterruptedAppStorageBatch,
   completeLedger: () =>
     setNativeStorageMigrationLedgerComplete(APP_STORAGE_MIGRATION_LEDGER_KEY),
   log: logMigration,
-  logFiles: logAppStorageFiles,
   onPrepare: () => {
     appStorageRepairActive = true;
     appStorageMigrationPromise = undefined;

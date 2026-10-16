@@ -5,8 +5,6 @@ import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.StatFs;
-import android.system.Os;
-import android.system.OsConstants;
 
 import androidx.annotation.NonNull;
 
@@ -21,7 +19,6 @@ import com.tencent.mmkv.MMKV;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileDescriptor;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
@@ -49,8 +46,7 @@ public final class OneKeyNativeStorageMigrationModule extends ReactContextBaseJa
     private static final List<String> VALID_LEDGER_VALUES = Arrays.asList(
         "complete-v1",
         "migrating-v1",
-        "resetting-v1",
-        "erasing-v1"
+        "resetting-v1"
     );
     private static final List<String> VALID_RECOVERY_ACTIONS = Arrays.asList(
         "auto_repair",
@@ -179,57 +175,9 @@ public final class OneKeyNativeStorageMigrationModule extends ReactContextBaseJa
                     throw new IllegalStateException("MMKV instance is unavailable");
                 }
                 mmkv.sync();
-                for (String suffix : new String[] { "", ".crc" }) {
-                    File path = new File(MMKV.getRootDir(), mmapID + suffix);
-                    FileDescriptor descriptor = Os.open(path.getPath(), OsConstants.O_RDWR | OsConstants.O_CLOEXEC, 0);
-                    try {
-                        Os.fsync(descriptor);
-                    } finally {
-                        Os.close(descriptor);
-                    }
-                }
                 promise.resolve(null);
             } catch (Exception error) {
                 promise.reject("MMKV_SYNC_FAILED", error.getMessage(), error);
-            }
-        });
-    }
-
-    @ReactMethod
-    public void getMMKVFileDiagnostics(String mmapID, Promise promise) {
-        executor.execute(() -> {
-            try {
-                requireSupported(VALID_MMKV_IDS.contains(mmapID), "Unsupported MMKV instance");
-                File data = new File(MMKV.getRootDir(), mmapID);
-                File crc = new File(MMKV.getRootDir(), mmapID + ".crc");
-                WritableMap result = Arguments.createMap();
-                result.putBoolean("dataExists", data.exists());
-                result.putDouble("dataBytes", data.length());
-                result.putBoolean("dataReadable", data.canRead());
-                result.putBoolean("crcExists", crc.exists());
-                result.putDouble("crcBytes", crc.length());
-                result.putBoolean("crcReadable", crc.canRead());
-                result.putDouble("availableBytes", new StatFs(MMKV.getRootDir()).getAvailableBytes());
-                promise.resolve(result);
-            } catch (Exception error) {
-                promise.reject("MMKV_DIAGNOSTICS_FAILED", "MMKV file metadata is unavailable", error);
-            }
-        });
-    }
-
-    @ReactMethod
-    public void reloadMMKV(String mmapID, Promise promise) {
-        executor.execute(() -> {
-            try {
-                requireSupported(VALID_MMKV_IDS.contains(mmapID), "Unsupported MMKV instance");
-                MMKV mmkv = MMKV.mmkvWithID(mmapID);
-                if (mmkv == null) {
-                    throw new IllegalStateException("MMKV instance is unavailable");
-                }
-                mmkv.clearMemoryCache();
-                promise.resolve(null);
-            } catch (Exception error) {
-                promise.reject("MMKV_RELOAD_FAILED", "MMKV reload failed", error);
             }
         });
     }

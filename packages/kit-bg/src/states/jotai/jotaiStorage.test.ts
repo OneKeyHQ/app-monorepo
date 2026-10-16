@@ -51,7 +51,6 @@ jest.mock('@onekeyhq/shared/src/storage/nativeStorageMigrationModule', () => ({
   NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE: 'complete-v1',
   NATIVE_STORAGE_MIGRATION_LEDGER_MIGRATING: 'migrating-v1',
   NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING: 'resetting-v1',
-  NATIVE_STORAGE_MIGRATION_LEDGER_ERASING: 'erasing-v1',
   getNativeStorageMigrationLedger: jest.fn(
     async (key: string) => migrationLedger.get(key) ?? null,
   ),
@@ -446,10 +445,7 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
     ).rejects.toThrow('MMKV migration marker is missing');
     await mod.resetNativeJotaiStorageAfterMigrationMismatch();
 
-    expect(mockSetMigrationLedger).toHaveBeenCalledWith(
-      'jotai-storage-v1',
-      'resetting-v1',
-    );
+    expect(mockSetMigrationLedger).not.toHaveBeenCalled();
     expect(legacyData.get('g_states_v5:aAtom')).toBe('"stale"');
     expect(legacyStorage.multiRemove).not.toHaveBeenCalled();
     expect(mmkvInstance.getString('g_states_v5:aAtom')).toBeUndefined();
@@ -472,7 +468,7 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
     expect(mmkvInstance.getString(MIGRATION_KEY)).toBe('1');
     expect(mockSetMigrationLedger).toHaveBeenCalledWith(
       'jotai-storage-v1',
-      'erasing-v1',
+      'resetting-v1',
     );
     expect(migrationLedger.get('jotai-storage-v1')).toBe('complete-v1');
   });
@@ -488,13 +484,42 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
       'sync failed',
     );
     expect(legacyData.get('g_states_v5:aAtom')).toBe('"keep-original"');
-    expect(migrationLedger.get('jotai-storage-v1')).toBe('resetting-v1');
+    expect(migrationLedger.get('jotai-storage-v1')).toBe('complete-v1');
     const restarted = createStorage();
     await restarted.migrateFromAsyncStorage([], PROBE_KEY);
     expect(legacyData.get('g_states_v5:aAtom')).toBe('"keep-original"');
     expect(legacyStorage.multiRemove).not.toHaveBeenCalled();
     expect(mmkvInstance.getString(LEGACY_RETENTION_KEY)).toBe('retained-v1');
     expect(migrationLedger.get('jotai-storage-v1')).toBe('complete-v1');
+  });
+
+  it('keeps an interrupted manual rebuild separate from an explicit erase', async () => {
+    migrationLedger.set('jotai-storage-v1', 'complete-v1');
+    mmkvInstance.set('g_states_v5:aAtom', '"partial"');
+    legacyData.set('g_states_v5:aAtom', '"original"');
+    const storage = createStorage();
+    const clearSpy = jest
+      .spyOn(mmkvInstance, 'clearAll')
+      .mockImplementationOnce(() => {
+        throw new OneKeyLocalError('repair interrupted');
+      });
+    try {
+      await expect(storage.resetAfterMigrationMismatch()).rejects.toThrow(
+        'repair interrupted',
+      );
+      expect(migrationLedger.get('jotai-storage-v1')).toBe('complete-v1');
+      const restarted = createStorage();
+      await expect(
+        restarted.migrateFromAsyncStorage([], PROBE_KEY),
+      ).rejects.toThrow('MMKV migration marker is missing');
+      expect(legacyData.get('g_states_v5:aAtom')).toBe('"original"');
+      expect(legacyStorage.multiRemove).not.toHaveBeenCalled();
+      await restarted.resetAfterMigrationMismatch();
+      expect(legacyData.get('g_states_v5:aAtom')).toBe('"original"');
+      expect(mmkvInstance.getString(MIGRATION_KEY)).toBe('1');
+    } finally {
+      clearSpy.mockRestore();
+    }
   });
 
   it('resumes reset after legacy deletion but before MMKV clear', async () => {
@@ -511,7 +536,7 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
     await expect(storage.clearAllForReset()).rejects.toThrow(
       'process killed before MMKV clear',
     );
-    expect(migrationLedger.get('jotai-storage-v1')).toBe('erasing-v1');
+    expect(migrationLedger.get('jotai-storage-v1')).toBe('resetting-v1');
     expect(legacyData.has('g_states_v5:aAtom')).toBe(false);
     expect(mmkvInstance.getString('g_states_v5:aAtom')).toBe('"stale-mmkv"');
     clearSpy.mockRestore();
@@ -539,7 +564,7 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
     await expect(storage.clearAllForReset()).rejects.toThrow(
       'process killed before ledger completion',
     );
-    expect(migrationLedger.get('jotai-storage-v1')).toBe('erasing-v1');
+    expect(migrationLedger.get('jotai-storage-v1')).toBe('resetting-v1');
     expect(mmkvInstance.getString(MIGRATION_KEY)).toBe('1');
 
     const recoveredStorage = createStorage();
@@ -592,7 +617,7 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
         await expect(storage.clearAllForReset()).rejects.toThrow(
           failure.message,
         );
-        expect(migrationLedger.get('jotai-storage-v1')).toBe('erasing-v1');
+        expect(migrationLedger.get('jotai-storage-v1')).toBe('resetting-v1');
         expect(mockSetMigrationLedger.mock.invocationCallOrder[0]).toBeLessThan(
           legacyStorage.getAllKeys.mock.invocationCallOrder[0] ?? Infinity,
         );
