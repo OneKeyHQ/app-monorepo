@@ -24,7 +24,7 @@ describe('DiscoveryMarketRouteRedirect', () => {
     jest.clearAllMocks();
   });
 
-  it('pops the Discovery stack and forwards MarketDetailV2 to the standalone Market tab', () => {
+  it('pops the Discovery stack and forwards MarketDetailV2 to the standalone Market tab when the Discovery stack has back history', () => {
     render(
       <DiscoveryMarketRouteRedirect
         route={
@@ -36,6 +36,7 @@ describe('DiscoveryMarketRouteRedirect', () => {
         }
         navigation={
           {
+            getState: () => ({ index: 1 }),
             canGoBack: () => true,
             goBack: mockGoBack,
           } as never
@@ -53,6 +54,36 @@ describe('DiscoveryMarketRouteRedirect', () => {
     });
   });
 
+  it('does not call goBack when the legacy route is at index 0 of the Discovery stack even if a parent navigator can go back', () => {
+    render(
+      <DiscoveryMarketRouteRedirect
+        route={
+          {
+            key: 'detail-root',
+            name: ETabMarketRoutes.MarketDetailV2,
+            params: { marketTokenId: 'ethereum', network: 'eth' },
+          } as never
+        }
+        navigation={
+          {
+            getState: () => ({ index: 0 }),
+            canGoBack: () => true,
+            goBack: mockGoBack,
+          } as never
+        }
+      />,
+    );
+
+    expect(mockGoBack).not.toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+      screen: ETabRoutes.Market,
+      params: {
+        screen: ETabMarketRoutes.MarketDetailV2,
+        params: { marketTokenId: 'ethereum', network: 'eth' },
+      },
+    });
+  });
+
   it('forwards MarketBannerDetail without goBack when Discovery cannot pop', () => {
     render(
       <DiscoveryMarketRouteRedirect
@@ -65,6 +96,7 @@ describe('DiscoveryMarketRouteRedirect', () => {
         }
         navigation={
           {
+            getState: () => ({ index: 0 }),
             canGoBack: () => false,
             goBack: mockGoBack,
           } as never

@@ -30,7 +30,8 @@ export function DiscoveryMarketRouteRedirect({
     const routeName = route.name;
     const routeParams = route.params;
 
-    if (stackNavigation?.canGoBack?.()) {
+    const stackIndex = stackNavigation?.getState?.()?.index ?? 0;
+    if (stackIndex > 0 && stackNavigation?.canGoBack?.()) {
       stackNavigation.goBack();
     }
 
