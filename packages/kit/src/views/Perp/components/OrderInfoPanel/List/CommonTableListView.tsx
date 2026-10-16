@@ -317,6 +317,7 @@ const PaginationFooter = ({
     let isSheetOpen = false;
     let isClosing = false;
     let hasFocusedPageInput = false;
+    let hasPositionedPageInput = false;
     const focusPageInputWhenReady = () => {
       if (!isSheetOpen || !pageInput || isClosing || hasFocusedPageInput) {
         return;
@@ -367,6 +368,20 @@ const PaginationFooter = ({
               }}
               testID="perp-pagination-page-input"
               autoFocus={!shouldFocusAfterSheetOpen}
+              autoScrollToTop={false}
+              onFocus={() => {
+                if (!platformEnv.isNativeAndroid || hasPositionedPageInput) {
+                  return;
+                }
+                hasPositionedPageInput = true;
+                // Wait for the initial value to reach the native input.
+                requestAnimationFrame(() => {
+                  if (!isClosing) {
+                    const end = String(currentPage).length;
+                    pageInput?.setSelection?.(end, end);
+                  }
+                });
+              }}
               keyboardType="number-pad"
               size="large"
               maxLength={totalPages.toString().length}
