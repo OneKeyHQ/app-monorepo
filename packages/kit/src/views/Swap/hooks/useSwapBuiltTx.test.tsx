@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { createStore } from 'jotai';
 
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
@@ -15,9 +15,11 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type {
   IFetchBuildTxResponse,
   IFetchQuoteResult,
+  ISwapApproveAllowanceResponse,
   ISwapPreSwapData,
   ISwapToken,
   ISwapTxInfo,
@@ -49,6 +51,14 @@ const mockPrepareUnsignedTx = jest.fn<
   Promise<IUnsignedTxPro>,
   [IBuildUnsignedTxParams]
 >();
+const mockFetchAllowance = jest.fn<
+  Promise<ISwapApproveAllowanceResponse | undefined>,
+  unknown[]
+>();
+const mockUpdateUnsignedTx = jest.fn<
+  Promise<IUnsignedTxPro>,
+  [{ unsignedTx: IUnsignedTxPro; feeInfo: IFeeInfoUnit }]
+>();
 const mockEstimateFee = jest.fn<Promise<unknown>, unknown[]>();
 const mockBatchEstimateFee = jest.fn<Promise<unknown>, unknown[]>();
 const mockVaultSettings = jest.fn<
@@ -64,7 +74,8 @@ const mockNavigateTxConfirm = jest.fn<
   [
     {
       swapInfo?: ISwapTxInfo;
-      onSuccess?: (data: ISendTxOnSuccessData[]) => void;
+      onBeforeSend?: () => void | Promise<void>;
+      onSuccess?: (data: ISendTxOnSuccessData[]) => void | Promise<void>;
       onCancel?: () => void;
     },
   ]
@@ -177,6 +188,8 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   default: {
     serviceToken: { getNativeTokenAddress: async () => '' },
     serviceSwap: {
+      fetchApproveAllowanceForDisplay: (...args: unknown[]) =>
+        mockFetchAllowance(...args),
       fetchSwapTokenDetails: async () => [{ balanceParsed: '100' }],
       fetchBuildTx: (...args: unknown[]) => mockFetchBuildTx(...args),
       swapRecentTokenPairsUpdate: async () => undefined,
@@ -185,11 +198,8 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
       prepareSendConfirmUnsignedTx: (
         params: Parameters<typeof mockPrepareUnsignedTx>[0],
       ) => mockPrepareUnsignedTx(params),
-      updateUnsignedTx: async ({
-        unsignedTx,
-      }: {
-        unsignedTx: IUnsignedTxPro;
-      }) => unsignedTx,
+      updateUnsignedTx: (params: Parameters<typeof mockUpdateUnsignedTx>[0]) =>
+        mockUpdateUnsignedTx(params),
       precheckUnsignedTxs: async () => undefined,
       signAndSendTransaction: (params: Parameters<typeof mockSignAndSend>[0]) =>
         mockSignAndSend(params),
@@ -218,6 +228,12 @@ beforeEach(() => {
   jest.clearAllMocks();
   platformEnv.isNative = false;
   globalJotaiStorageReadyHandler.resolveReady(true);
+  mockFetchAllowance.mockReset().mockResolvedValue({
+    isApproved: true,
+    allowanceTarget: '0x0000000000000000000000000000000000000005',
+    approveAmounted: '1',
+    shouldApproveAmount: '0.1',
+  });
   mockFetchBuildTx.mockReset().mockResolvedValue(buildResponse('98'));
   mockPrepareUnsignedTx.mockReset().mockImplementation(async (params) => ({
     ...params,
@@ -228,6 +244,12 @@ beforeEach(() => {
       data: params.approveInfo ? '0xapprove' : '0xswap',
     },
   }));
+  mockUpdateUnsignedTx
+    .mockReset()
+    .mockImplementation(async ({ unsignedTx, feeInfo }) => ({
+      ...unsignedTx,
+      feeInfo,
+    }));
   mockEstimateFee.mockReset().mockResolvedValue({
     common: {
       feeDecimals: 9,
@@ -419,6 +441,360 @@ function renderReview({
     },
   };
 }
+
+describe('swap gas regressions', () => {
+  it('uses the build provider gas floor in the preview', async () => {
+    const response = buildResponse('98');
+    response.result.gasLimit = 240_996;
+    mockFetchBuildTx.mockResolvedValue(response);
+    const review = renderReview();
+    await review.prepare();
+    expect(
+      review.store.get(swapStepsAtom()).preSwapData.netWorkFee?.gasInfos?.[0]
+        .gasInfo.gas?.gasLimit,
+    ).toBe('240996');
+    await review.send();
+    expect(mockEstimateFee).toHaveBeenCalledTimes(1);
+    expect(mockUpdateUnsignedTx.mock.calls[0][0].feeInfo.gas).toEqual(
+      expect.objectContaining({
+        gasLimit: '240996',
+        gasLimitForDisplay: '240996',
+        gasPrice: '1',
+      }),
+    );
+  });
+
+  it('preserves a higher node estimate in both preview and cached send', async () => {
+    const response = buildResponse('98');
+    response.result.gasLimit = 240_996;
+    mockFetchBuildTx.mockResolvedValue(response);
+    mockEstimateFee.mockResolvedValue({
+      common: {
+        feeDecimals: 9,
+        feeSymbol: 'Gwei',
+        nativeDecimals: 18,
+        nativeSymbol: 'ETH',
+      },
+      gas: [{ gasLimit: '300000', gasPrice: '1' }],
+    });
+    const review = renderReview();
+    await review.prepare();
+    await review.send();
+    expect(mockUpdateUnsignedTx.mock.calls[0][0].feeInfo.gas?.gasLimit).toBe(
+      '300000',
+    );
+    expect(mockEstimateFee).toHaveBeenCalledTimes(1);
+  });
+  it.each(['execution reverted', 'estimate timeout'])(
+    'does not broadcast provider-only gas after node %s',
+    async (reason) => {
+      const response = buildResponse('98');
+      response.result.gasLimit = 240_996;
+      mockFetchBuildTx.mockResolvedValue(response);
+      mockEstimateFee.mockRejectedValue(new OneKeyLocalError(reason));
+      const review = renderReview();
+      await review.send();
+      expect(mockSignAndSend).not.toHaveBeenCalled();
+      expect(mockUpdateUnsignedTx).not.toHaveBeenCalled();
+    },
+  );
+  it('separates approval and swap when the vault cannot batch estimate', async () => {
+    const selectedQuote = {
+      ...quote,
+      allowanceResult: {
+        allowanceTarget: '0x0000000000000000000000000000000000000005',
+        amount: '0',
+      },
+    };
+    mockFetchBuildTx.mockResolvedValue({
+      ...buildResponse('98'),
+      result: selectedQuote,
+    });
+    const review = renderReview({
+      selectedQuote,
+      stepType: ESwapStepType.BATCH_APPROVE_SWAP,
+    });
+    await review.prepare();
+    expect(
+      review.store.get(swapStepsAtom()).steps.map((step) => step.type),
+    ).toEqual([ESwapStepType.APPROVE_TX, ESwapStepType.SEND_TX]);
+    expect(review.store.get(swapStepsAtom()).preSwapData.shouldFallback).toBe(
+      true,
+    );
+    expect(mockEstimateFee).not.toHaveBeenCalled();
+  });
+});
+
+describe('separate EVM approval lifecycle', () => {
+  const selectedQuote: IFetchQuoteResult = {
+    ...quote,
+    allowanceResult: {
+      allowanceTarget: '0x0000000000000000000000000000000000000005',
+      amount: '0',
+    },
+  };
+  function resumedReview(status = ESwapStepStatus.SUCCESS) {
+    const review = renderReview({
+      selectedQuote,
+      preSwapData: { shouldFallback: true, needFetchGas: true },
+    });
+    act(() =>
+      review.store.set(swapStepsAtom(), (previous) => ({
+        ...previous,
+        steps: [
+          { type: ESwapStepType.APPROVE_TX, status, txHash: 'approved-tx' },
+          { type: ESwapStepType.SEND_TX, status: ESwapStepStatus.READY },
+        ],
+      })),
+    );
+    mockFetchBuildTx.mockResolvedValue({
+      ...buildResponse('98'),
+      result: { ...selectedQuote, toAmount: '98' },
+    });
+    return review;
+  }
+  it.each([
+    ESwapStepStatus.PENDING,
+    ESwapStepStatus.FAILED,
+    ESwapStepStatus.LOADING,
+  ])('does not continue beyond an approval in %s', async (status) => {
+    const review = resumedReview(status);
+    await review.send();
+    expect(mockFetchAllowance).not.toHaveBeenCalled();
+    expect(mockSignAndSend).not.toHaveBeenCalled();
+    expect(mockNavigateTxConfirm).not.toHaveBeenCalled();
+    expect(review.store.get(swapStepsAtom()).steps[1].status).toBe(
+      ESwapStepStatus.READY,
+    );
+  });
+  it('rebuilds after confirmed allowance and opens an independent swap confirmation', async () => {
+    const review = resumedReview();
+    await review.prepare();
+    const before = mockFetchBuildTx.mock.calls.length;
+    act(() =>
+      review.store.set(swapStepsAtom(), (previous) => ({
+        ...previous,
+        steps: [
+          {
+            type: ESwapStepType.APPROVE_TX,
+            status: ESwapStepStatus.SUCCESS,
+            txHash: 'approved-tx',
+          },
+          { type: ESwapStepType.SEND_TX, status: ESwapStepStatus.READY },
+        ],
+      })),
+    );
+    await review.send();
+    expect(mockFetchAllowance).toHaveBeenCalledTimes(2);
+    expect(mockFetchBuildTx.mock.calls.length).toBe(before + 1);
+    expect(mockNavigateTxConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        swapInfo: expect.any(Object),
+        approvesInfo: undefined,
+      }),
+    );
+    expect(mockSignAndSend).not.toHaveBeenCalled();
+  });
+  it('rechecks the rebuilt swap allowance immediately before sending', async () => {
+    const review = resumedReview();
+    await review.send();
+    const confirmation = mockNavigateTxConfirm.mock.calls[0][0];
+    expect(mockFetchAllowance).toHaveBeenCalledTimes(2);
+
+    await confirmation.onBeforeSend?.();
+
+    expect(mockFetchAllowance).toHaveBeenCalledTimes(3);
+    expect(mockFetchAllowance).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        amount: selectedQuote.fromAmount,
+        spenderAddress: selectedQuote.allowanceResult?.allowanceTarget,
+      }),
+    );
+    expect(mockSignAndSend).not.toHaveBeenCalled();
+  });
+  it('blocks a swap when allowance is revoked while confirmation is open', async () => {
+    const review = resumedReview();
+    await review.send();
+    const confirmation = mockNavigateTxConfirm.mock.calls[0][0];
+    mockFetchAllowance.mockResolvedValueOnce({
+      isApproved: false,
+      allowanceTarget: '0x0000000000000000000000000000000000000005',
+      approveAmounted: '0',
+      shouldApproveAmount: '0.1',
+    });
+
+    await expect(confirmation.onBeforeSend?.()).rejects.toThrow(
+      'Swap allowance is not confirmed',
+    );
+    expect(mockSignAndSend).not.toHaveBeenCalled();
+  });
+  it('rejects a late send-time allowance result after the review changes', async () => {
+    const review = resumedReview();
+    await review.send();
+    const confirmation = mockNavigateTxConfirm.mock.calls[0][0];
+    let resolveAllowance:
+      | ((value: ISwapApproveAllowanceResponse) => void)
+      | undefined;
+    mockFetchAllowance.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveAllowance = resolve;
+        }),
+    );
+    const sending = confirmation.onBeforeSend?.();
+    act(() =>
+      review.store.set(swapStepsAtom(), (previous) => ({
+        ...previous,
+        quoteResult: { ...selectedQuote, quoteId: 'next-review' },
+      })),
+    );
+    resolveAllowance?.({
+      isApproved: true,
+      allowanceTarget: '0x0000000000000000000000000000000000000005',
+      approveAmounted: '1',
+      shouldApproveAmount: '0.1',
+    });
+
+    await expect(sending).rejects.toThrow(
+      'Swap review changed during approval',
+    );
+    expect(mockSignAndSend).not.toHaveBeenCalled();
+  });
+  it('ignores swap confirmation callbacks after the review changes', async () => {
+    const review = resumedReview();
+    await review.send();
+    const confirmation = mockNavigateTxConfirm.mock.calls[0][0];
+    act(() =>
+      review.store.set(swapStepsAtom(), (previous) => ({
+        ...previous,
+        quoteResult: { ...selectedQuote, quoteId: 'next-review' },
+      })),
+    );
+    const next = review.store.get(swapStepsAtom());
+    await expect(confirmation.onBeforeSend?.()).rejects.toThrow(
+      'Swap review changed during approval',
+    );
+    await act(async () => {
+      await confirmation.onSuccess?.([
+        {
+          signedTx: {
+            txid: 'late-swap',
+            rawTx: 'fixture-swap',
+            encodedTx: {},
+            swapInfo: confirmation.swapInfo,
+          },
+          decodedTx: {
+            totalFeeInNative: '0.000021',
+            totalFeeFiatValue: '0.021',
+          } as ISendTxOnSuccessData['decodedTx'],
+        },
+      ]);
+      confirmation.onCancel?.();
+    });
+    expect(review.store.get(swapStepsAtom())).toBe(next);
+    expect(mockLogSendTx).not.toHaveBeenCalled();
+  });
+  it.each([false, undefined])(
+    'stops when allowance has not propagated (%s)',
+    async (isApproved) => {
+      const review = resumedReview();
+      mockFetchAllowance.mockResolvedValue(
+        isApproved === undefined
+          ? undefined
+          : {
+              isApproved,
+              allowanceTarget: '0x0000000000000000000000000000000000000005',
+              approveAmounted: '0',
+              shouldApproveAmount: '0.1',
+            },
+      );
+      await review.send();
+      expect(mockFetchBuildTx).not.toHaveBeenCalled();
+      expect(mockNavigateTxConfirm).not.toHaveBeenCalled();
+      expect(mockSignAndSend).not.toHaveBeenCalled();
+    },
+  );
+  it('reconciles an already-approved failed step without approving twice', async () => {
+    const review = resumedReview(ESwapStepStatus.FAILED);
+    act(() =>
+      review.store.set(swapStepsAtom(), (previous) => ({
+        ...previous,
+        steps: [{ ...previous.steps[0], canRetry: true }, previous.steps[1]],
+      })),
+    );
+    await review.send();
+    expect(mockSignAndSend).not.toHaveBeenCalled();
+    expect(mockNavigateTxConfirm).toHaveBeenCalledTimes(1);
+    expect(mockNavigateTxConfirm.mock.calls[0][0].swapInfo).toBeDefined();
+    expect(review.store.get(swapStepsAtom()).steps[0].status).toBe(
+      ESwapStepStatus.SUCCESS,
+    );
+  });
+  it('keeps independent confirmation when retrying a lagged allowance', async () => {
+    const review = resumedReview();
+    mockFetchAllowance.mockResolvedValueOnce({
+      isApproved: false,
+      allowanceTarget: '0x0000000000000000000000000000000000000005',
+      approveAmounted: '0',
+      shouldApproveAmount: '0.1',
+    });
+    await review.send();
+    expect(review.store.get(swapStepsAtom()).preSwapData.shouldFallback).toBe(
+      true,
+    );
+    expect(review.store.get(swapStepsAtom()).steps[1].canRetry).toBe(true);
+    await review.send();
+    expect(mockNavigateTxConfirm).toHaveBeenCalledTimes(1);
+    expect(mockSignAndSend).not.toHaveBeenCalled();
+  });
+  it('does not approve again when the reset receipt is confirmed but allowance is nonzero', async () => {
+    const review = resumedReview();
+    act(() =>
+      review.store.set(swapStepsAtom(), (previous) => ({
+        ...previous,
+        steps: [
+          {
+            type: ESwapStepType.APPROVE_TX,
+            status: ESwapStepStatus.SUCCESS,
+            isResetApprove: true,
+            txHash: 'reset-tx',
+          },
+          { type: ESwapStepType.APPROVE_TX, status: ESwapStepStatus.READY },
+          { type: ESwapStepType.SEND_TX, status: ESwapStepStatus.READY },
+        ],
+      })),
+    );
+    await review.send();
+    expect(mockFetchAllowance).toHaveBeenCalledTimes(1);
+    expect(mockSignAndSend).not.toHaveBeenCalled();
+    expect(mockNavigateTxConfirm).not.toHaveBeenCalled();
+  });
+  it('ignores a late approval confirmation callback from an old review', async () => {
+    const review = renderReview({
+      selectedQuote,
+      stepType: ESwapStepType.BATCH_APPROVE_SWAP,
+    });
+    await review.prepare();
+    await review.send();
+    const callback = mockNavigateTxConfirm.mock.calls[0][0];
+    expect(() => callback.onBeforeSend?.()).not.toThrow();
+    act(() =>
+      review.store.set(swapStepsAtom(), (previous) => ({
+        ...previous,
+        quoteResult: { ...selectedQuote, quoteId: 'next-review' },
+      })),
+    );
+    const next = review.store.get(swapStepsAtom());
+    expect(() => callback.onBeforeSend?.()).toThrow('Stale approval review');
+    await act(async () => {
+      await callback.onSuccess?.([
+        { signedTx: { txid: 'late-approval' } } as ISendTxOnSuccessData,
+      ]);
+    });
+    act(() => callback.onCancel?.());
+    expect(review.store.get(swapStepsAtom())).toBe(next);
+  });
+});
 
 describe('useSwapBuildTx Review analytics', () => {
   it.each([undefined, [], [{ amount: '98' }]])(
@@ -685,6 +1061,17 @@ describe('useSwapBuildTx Review analytics', () => {
         stepType: ESwapStepType.BATCH_APPROVE_SWAP,
       });
       await review.send();
+      if (!supportBatchEstimateFee) {
+        expect(mockSignAndSend).not.toHaveBeenCalled();
+        expect(mockEstimateFee).not.toHaveBeenCalled();
+        await waitFor(() =>
+          expect(mockNavigateTxConfirm).toHaveBeenCalledTimes(1),
+        );
+        expect(review.store.get(swapStepsAtom()).steps[0].type).toBe(
+          ESwapStepType.APPROVE_TX,
+        );
+        return;
+      }
 
       expect(mockSignAndSend).toHaveBeenCalledTimes(2);
       expect(
@@ -731,7 +1118,7 @@ describe('useSwapBuildTx Review analytics', () => {
       error: new Error('User rejected the request'),
     },
   ])(
-    'does not report the new sequential swap failure event for $scenario',
+    'does not send non-batch transactions after confirmation $scenario',
     async ({ error }) => {
       const approvalQuote: IFetchQuoteResult = {
         ...quote,
@@ -762,19 +1149,15 @@ describe('useSwapBuildTx Review analytics', () => {
         selectedQuote: approvalQuote,
         stepType: ESwapStepType.BATCH_APPROVE_SWAP,
       });
+      mockNavigateTxConfirm.mockRejectedValueOnce(error);
+      await review.prepare();
       await review.send();
 
-      expect(mockSignAndSend).toHaveBeenCalledTimes(2);
-      expect(
-        mockSignAndSend.mock.calls[0][0].unsignedTx.approveInfo,
-      ).toBeDefined();
-      expect(
-        mockSignAndSend.mock.calls[1][0].unsignedTx.swapInfo,
-      ).toBeDefined();
-      expect(mockEstimateFee).toHaveBeenCalledTimes(1);
-      expect(mockLogEstimateFee).not.toHaveBeenCalled();
+      expect(mockSignAndSend).not.toHaveBeenCalled();
+      expect(mockBatchEstimateFee).not.toHaveBeenCalled();
+      expect(mockEstimateFee).not.toHaveBeenCalled();
       expect(mockLogSendTx).not.toHaveBeenCalled();
-      expect(mockNavigateTxConfirm).not.toHaveBeenCalled();
+      expect(mockNavigateTxConfirm).toHaveBeenCalledTimes(1);
       expect(review.store.get(swapStepsAtom()).steps[0].status).toBe(
         ESwapStepStatus.FAILED,
       );
@@ -830,7 +1213,7 @@ describe('useSwapBuildTx Review analytics', () => {
       totalFeeFiatValue: '0.021',
     } as ISendTxOnSuccessData['decodedTx'];
     await act(async () => {
-      fallback.onSuccess?.([
+      await fallback.onSuccess?.([
         {
           signedTx: {
             txid: 'approval-tx',

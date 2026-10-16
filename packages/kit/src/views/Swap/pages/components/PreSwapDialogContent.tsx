@@ -61,7 +61,6 @@ import {
   ESwapLimitOrderStatus,
   ESwapSlippageSegmentKey,
   ESwapStepStatus,
-  ESwapStepType,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -88,6 +87,7 @@ import {
   type ISwapReviewState,
   NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE,
   invalidateSwapReviewForSlippageChange,
+  resolveSwapApprovalNotification,
   shouldShowSwapReviewToAmountSkeleton,
 } from '../../utils/swapReviewState';
 import { reconcileSwapStepWithHistory } from '../../utils/swapStepHistory';
@@ -525,8 +525,6 @@ const PreSwapDialogContent = ({
       const trackedApproveTxId =
         approveTxIdFromNotification || latestApproveTxIdRef.current || '';
       const isResetApproveTransaction = approveTransaction.amount === '0';
-      const isFallbackTrackedApproveTxId =
-        !approveTxIdFromNotification && !!trackedApproveTxId;
       const approveStatusKey = `${trackedApproveTxId || 'no-tx'}:${
         isResetApproveTransaction ? 'reset' : 'approve'
       }:${approveTransaction.status}`;
@@ -541,37 +539,25 @@ const PreSwapDialogContent = ({
           : ESwapStepStatus.FAILED;
 
       const currentSwapSteps = swapStepsRef.current;
-      const stepIndex = currentSwapSteps.steps.findIndex((step) => {
-        if (
-          trackedApproveTxId &&
-          step.txHash === trackedApproveTxId &&
-          Boolean(step.isResetApprove) === isResetApproveTransaction
-        ) {
-          return (
-            !isFallbackTrackedApproveTxId ||
-            step.status === ESwapStepStatus.PENDING
-          );
-        }
-        return (
-          step.type === ESwapStepType.APPROVE_TX &&
-          step.status === ESwapStepStatus.PENDING &&
-          Boolean(step.isResetApprove) === isResetApproveTransaction &&
-          (!step.txHash || step.txHash === trackedApproveTxId)
-        );
+      const resolution = resolveSwapApprovalNotification({
+        reviewState: currentSwapSteps,
+        approval: { ...approveTransaction, txId: trackedApproveTxId },
       });
-
-      if (stepIndex === -1) {
-        setInAppNotificationAtom((prev) => ({
-          ...prev,
-          swapApprovingTransaction: undefined,
-        }));
-        return;
-      }
+      if (!resolution) return;
+      const { stepIndex, replaced } = resolution;
 
       const updatedSteps: ISwapStep[] = [...currentSwapSteps.steps];
       updatedSteps[stepIndex] = {
         ...updatedSteps[stepIndex],
-        status: approveStepStatus,
+        status: resolution.status,
+        ...(replaced
+          ? {
+              canRetry: false,
+              errorMessage: intl.formatMessage({
+                id: ETranslations.swap_page_toast_approve_failed,
+              }),
+            }
+          : undefined),
         txHash: approveTxIdFromNotification || updatedSteps[stepIndex].txHash,
         stepSubTitle: undefined,
       };
@@ -585,7 +571,7 @@ const PreSwapDialogContent = ({
         swapApprovingTransaction: undefined,
       }));
 
-      if (approveStepStatus !== ESwapStepStatus.SUCCESS) {
+      if (replaced || approveStepStatus !== ESwapStepStatus.SUCCESS) {
         return;
       }
 
@@ -596,6 +582,7 @@ const PreSwapDialogContent = ({
       });
     }
   }, [
+    intl,
     disableGlobalApproveSync,
     inAppNotificationAtom.swapApprovingTransaction,
     setSwapSteps,

@@ -56,6 +56,10 @@ import {
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { SignatureConfirmTestIDs } from '@onekeyhq/kit/src/views/SignatureConfirm/testIDs';
+import {
+  applySwapProviderGasLimit,
+  applySwapProviderGasLimitToEstimate,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapGasUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
@@ -69,6 +73,7 @@ import {
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP,
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import { IMPL_APTOS, IMPL_SOL } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyAppError } from '@onekeyhq/shared/src/errors';
 import type {
   IOneKeyError,
   IOneKeyRpcError,
@@ -88,6 +93,7 @@ import {
   getFeeIcon,
   getFeeLabel,
 } from '@onekeyhq/shared/src/utils/feeUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -277,13 +283,17 @@ function TxFeeInfo(props: IProps) {
     () =>
       unsignedTxs.length === 1 &&
       unsignedTxs[0].swapInfo &&
+      !networkUtils.isEvmNetwork({ networkId }) &&
       unsignedTxs[0].feeInfo,
-    [unsignedTxs],
+    [unsignedTxs, networkId],
   );
 
   const isSingleTxWithFeesInfo = useMemo(
-    () => unsignedTxs.length === 1 && unsignedTxs[0].feesInfo,
-    [unsignedTxs],
+    () =>
+      unsignedTxs.length === 1 &&
+      unsignedTxs[0].feesInfo &&
+      !(unsignedTxs[0].swapInfo && networkUtils.isEvmNetwork({ networkId })),
+    [unsignedTxs, networkId],
   );
 
   const isSecondApproveTxWithFeeInfo = useMemo(
@@ -407,13 +417,37 @@ function TxFeeInfo(props: IProps) {
               return {
                 r: undefined,
                 e: undefined,
-                m: multiTxsFeeResult,
+                m: {
+                  ...multiTxsFeeResult,
+                  txFees: multiTxsFeeResult.txFees.map((fee, index) =>
+                    applySwapProviderGasLimitToEstimate({
+                      feesInfo: fee,
+                      networkId,
+                      accountId,
+                      encodedTx: unsignedTxs[index].encodedTx,
+                      swapInfo: unsignedTxs[index].approveInfo
+                        ? undefined
+                        : unsignedTxs[index].swapInfo,
+                    }),
+                  ),
+                },
               };
             } catch (e) {
               console.error(e);
               // fallback to single tx estimate fee
             }
           }
+        }
+
+        if (
+          networkUtils.isEvmNetwork({ networkId }) &&
+          isMultiTxs &&
+          unsignedTxs.some((tx) => tx.approveInfo) &&
+          unsignedTxs.some((tx) => tx.swapInfo)
+        ) {
+          throw new OneKeyAppError(
+            'Confirm approval before estimating the swap transaction',
+          );
         }
 
         const accountAddress =
@@ -524,7 +558,7 @@ function TxFeeInfo(props: IProps) {
           ? lockedUserNonceValue
           : undefined;
 
-        const r = await backgroundApiProxy.serviceGas.estimateFee({
+        const estimatedFee = await backgroundApiProxy.serviceGas.estimateFee({
           accountId,
           networkId,
           encodedTx,
@@ -536,6 +570,15 @@ function TxFeeInfo(props: IProps) {
           scenario: gasAccountDisabledByScenario
             ? undefined
             : gasAccountScenario,
+        });
+        const r = applySwapProviderGasLimitToEstimate({
+          feesInfo: estimatedFee,
+          networkId,
+          accountId,
+          encodedTx: unsignedTxs[0].encodedTx,
+          swapInfo: unsignedTxs[0].approveInfo
+            ? undefined
+            : unsignedTxs[0].swapInfo,
         });
         // L3 scenario gate telemetry: surface frontend contract bugs. Both
         // reasons indicate a client-side mismatch with the backend enum; log
@@ -1552,6 +1595,7 @@ function TxFeeInfo(props: IProps) {
         (isLastSwapTxWithFeeInfo || !selectedFeeInfo) &&
         (isLastSwapTxWithFeeInfo || isMultiTxs) &&
         unsignedTx.swapInfo &&
+        !networkUtils.isEvmNetwork({ networkId }) &&
         (selectedFeeInfos[0].gas || selectedFeeInfos[0].gasEIP1559)
       ) {
         const swapInfo = unsignedTx.swapInfo;
@@ -1582,27 +1626,34 @@ function TxFeeInfo(props: IProps) {
 
       const baseSelectedFeeInfo = selectedFeeInfo ?? selectedFeeInfos[0];
 
-      const txFeeInfo = {
-        ...baseSelectedFeeInfo,
-        gas: baseSelectedFeeInfo.gas
-          ? {
-              ...baseSelectedFeeInfo.gas,
-              gasLimit: specialGasLimit ?? baseSelectedFeeInfo.gas?.gasLimit,
-              gasLimitForDisplay:
-                specialGasLimit ?? baseSelectedFeeInfo.gas?.gasLimitForDisplay,
-            }
-          : undefined,
-        gasEIP1559: baseSelectedFeeInfo.gasEIP1559
-          ? {
-              ...baseSelectedFeeInfo.gasEIP1559,
-              gasLimit:
-                specialGasLimit ?? baseSelectedFeeInfo.gasEIP1559?.gasLimit,
-              gasLimitForDisplay:
-                specialGasLimit ??
-                baseSelectedFeeInfo.gasEIP1559?.gasLimitForDisplay,
-            }
-          : undefined,
-      };
+      const txFeeInfo = applySwapProviderGasLimit({
+        networkId,
+        accountId,
+        encodedTx: unsignedTx.encodedTx,
+        swapInfo: unsignedTx.approveInfo ? undefined : unsignedTx.swapInfo,
+        gasInfo: {
+          ...baseSelectedFeeInfo,
+          gas: baseSelectedFeeInfo.gas
+            ? {
+                ...baseSelectedFeeInfo.gas,
+                gasLimit: specialGasLimit ?? baseSelectedFeeInfo.gas?.gasLimit,
+                gasLimitForDisplay:
+                  specialGasLimit ??
+                  baseSelectedFeeInfo.gas?.gasLimitForDisplay,
+              }
+            : undefined,
+          gasEIP1559: baseSelectedFeeInfo.gasEIP1559
+            ? {
+                ...baseSelectedFeeInfo.gasEIP1559,
+                gasLimit:
+                  specialGasLimit ?? baseSelectedFeeInfo.gasEIP1559?.gasLimit,
+                gasLimitForDisplay:
+                  specialGasLimit ??
+                  baseSelectedFeeInfo.gasEIP1559?.gasLimitForDisplay,
+              }
+            : undefined,
+        },
+      });
 
       const feeResult = calculateFeeForSend({
         feeInfo: txFeeInfo,
@@ -1703,6 +1754,8 @@ function TxFeeInfo(props: IProps) {
     sendSelectedFee.presetIndex,
     txFeeCommon?.nativeTokenPrice,
     unsignedTxs,
+    networkId,
+    accountId,
   ]);
 
   const handleApplyFeeInfo = useCallback(

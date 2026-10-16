@@ -568,6 +568,7 @@ export interface ISwapStep {
   errorMessage?: string;
   canRetry?: boolean;
   shouldWaitApproved?: boolean;
+  approvalOwner?: string;
   isResetApprove?: boolean;
   skipSendTransAction?: boolean;
 }

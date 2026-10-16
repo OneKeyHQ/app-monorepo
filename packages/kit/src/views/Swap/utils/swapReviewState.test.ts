@@ -1,4 +1,7 @@
 import {
+  EProtocolOfExchange,
+  ESwapApproveTransactionStatus,
+  ESwapQuoteKind,
   ESwapStepStatus,
   ESwapStepType,
   ESwapTabSwitchType,
@@ -6,6 +9,7 @@ import {
 import type {
   IFetchBuildTxResult,
   IFetchQuoteResult,
+  ISwapApproveTransaction,
   ISwapStep,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -18,6 +22,7 @@ import {
   hasInFlightSwapReviewWork,
   invalidateSwapReviewForSlippageChange,
   markSubmittedSwapApprovalsCompleted,
+  resolveSwapApprovalNotification,
   resolveSwapReviewNeedFetchGasAfterRebuild,
   shouldCloseSwapReviewOnFocusLoss,
   shouldFallbackSwapStep,
@@ -65,7 +70,7 @@ describe('shouldFallbackSwapStep', () => {
     },
   );
 
-  it('falls back to the remaining transaction after an approval succeeded', () => {
+  it('does not automatically resume after an approval was submitted without a receipt', () => {
     expect(
       shouldFallbackSwapStep({
         error: new Error('swap preparation failed'),
@@ -76,7 +81,7 @@ describe('shouldFallbackSwapStep', () => {
           succeededApproveCount: 1,
         },
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('does not fallback when the swap broadcast result is uncertain', () => {
@@ -689,5 +694,93 @@ describe('shouldShowSwapReviewToAmountSkeleton', () => {
         toTokenAmount: '',
       }),
     ).toBe(false);
+  });
+});
+
+describe('approval receipt notification identity', () => {
+  const token = {
+    networkId: 'evm--81457',
+    contractAddress: '0x1111111111111111111111111111111111111111',
+    symbol: 'TEST',
+    decimals: 18,
+  };
+  const quote: IFetchQuoteResult = {
+    quoteId: 'blast-review',
+    fromAmount: '1',
+    toAmount: '1',
+    fromTokenInfo: token,
+    toTokenInfo: token,
+    protocol: EProtocolOfExchange.SWAP,
+    kind: ESwapQuoteKind.SELL,
+    info: { provider: 'OKX', providerName: 'OKX' },
+    quoteResultCtx: {},
+    allowanceResult: {
+      allowanceTarget: '0x2222222222222222222222222222222222222222',
+      amount: '0',
+    },
+  };
+  const approval: ISwapApproveTransaction = {
+    fromToken: token,
+    toToken: token,
+    protocol: EProtocolOfExchange.SWAP,
+    swapType: ESwapTabSwitchType.SWAP,
+    provider: 'OKX',
+    providerName: 'OKX',
+    quoteId: quote.quoteId,
+    useAddress: '0x3333333333333333333333333333333333333333',
+    spenderAddress: '0x2222222222222222222222222222222222222222',
+    amount: '1',
+    status: ESwapApproveTransactionStatus.SUCCESS,
+    txId: 'original',
+  };
+  const reviewState: ISwapReviewState = {
+    quoteResult: quote,
+    preSwapData: {},
+    steps: [
+      {
+        type: ESwapStepType.APPROVE_TX,
+        status: ESwapStepStatus.PENDING,
+        txHash: 'original',
+        approvalOwner: approval.useAddress,
+      },
+    ],
+  };
+  it('accepts the exact confirmed approval hash', () => {
+    expect(resolveSwapApprovalNotification({ reviewState, approval })).toEqual({
+      stepIndex: 0,
+      replaced: false,
+      status: ESwapStepStatus.SUCCESS,
+    });
+  });
+  it.each([
+    ESwapApproveTransactionStatus.FAILED,
+    ESwapApproveTransactionStatus.CANCEL,
+  ])('keeps %s terminal without resuming swap', (status) => {
+    expect(
+      resolveSwapApprovalNotification({
+        reviewState,
+        approval: { ...approval, status },
+      })?.status,
+    ).toBe(ESwapStepStatus.FAILED);
+  });
+  it('terminates a replaced approval even without prebuild cache', () => {
+    expect(
+      resolveSwapApprovalNotification({
+        reviewState,
+        approval: { ...approval, txId: 'replacement' },
+      }),
+    ).toEqual({ stepIndex: 0, replaced: true, status: ESwapStepStatus.FAILED });
+  });
+  it.each([
+    { quoteId: 'another-review' },
+    { useAddress: '0x4444444444444444444444444444444444444444' },
+    { spenderAddress: '0x5555555555555555555555555555555555555555' },
+  ])('ignores unrelated replacement identity %j', (changed) => {
+    expect(
+      resolveSwapApprovalNotification({
+        reviewState,
+        approval: { ...approval, ...changed, txId: 'replacement' },
+      }),
+    ).toBeUndefined();
   });
 });

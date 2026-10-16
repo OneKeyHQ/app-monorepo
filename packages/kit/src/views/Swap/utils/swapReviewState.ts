@@ -5,6 +5,8 @@ import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   ESwapNetworkFeeLevel,
   IFetchBuildTxResult,
@@ -16,6 +18,7 @@ import type {
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import {
+  ESwapApproveTransactionStatus,
   ESwapStepStatus,
   ESwapStepType,
   ESwapTabSwitchType,
@@ -47,9 +50,7 @@ export function shouldFallbackSwapStep({
   const hasSubmittedNonApproveTx =
     signAndSendProgress.succeededCount >
     signAndSendProgress.succeededApproveCount;
-  const wouldReplaySubmittedTx =
-    signAndSendProgress.succeededCount > 0 &&
-    stepType !== ESwapStepType.BATCH_APPROVE_SWAP;
+  const wouldReplaySubmittedTx = signAndSendProgress.succeededCount > 0;
 
   if (
     signAndSendProgress.hasUncertainSend ||
@@ -477,4 +478,60 @@ export function getSwapReviewApproveTransaction({
   }
 
   return undefined;
+}
+
+export function resolveSwapApprovalNotification({
+  reviewState,
+  approval,
+}: {
+  reviewState: ISwapReviewState;
+  approval: ISwapApproveTransaction;
+}) {
+  const isReset = approval.amount === '0';
+  const pendingIndex = reviewState.steps.findIndex(
+    (step) =>
+      step.type === ESwapStepType.APPROVE_TX &&
+      step.status === ESwapStepStatus.PENDING &&
+      Boolean(step.isResetApprove) === isReset,
+  );
+  if (pendingIndex < 0 || !approval.txId) return undefined;
+  const step = reviewState.steps[pendingIndex];
+  if (step.txHash === approval.txId) {
+    return {
+      stepIndex: pendingIndex,
+      replaced: false,
+      status:
+        approval.status === ESwapApproveTransactionStatus.SUCCESS
+          ? ESwapStepStatus.SUCCESS
+          : ESwapStepStatus.FAILED,
+    };
+  }
+  const quote = reviewState.quoteResult;
+  const build = reviewState.preSwapData.swapBuildResultData?.swapInfo;
+  const owner = step.approvalOwner ?? build?.accountAddress;
+  if (
+    !step.txHash ||
+    !quote?.quoteId ||
+    quote.quoteId !== approval.quoteId ||
+    !equalTokenNoCaseSensitive({
+      token1: quote.fromTokenInfo,
+      token2: approval.fromToken,
+    }) ||
+    !equalTokenNoCaseSensitive({
+      token1: quote.toTokenInfo,
+      token2: approval.toToken,
+    }) ||
+    !equalsIgnoreCase(
+      quote.allowanceResult?.allowanceTarget,
+      approval.spenderAddress,
+    ) ||
+    !owner ||
+    !equalsIgnoreCase(owner, approval.useAddress)
+  )
+    return undefined;
+  return {
+    stepIndex: pendingIndex,
+    replaced: true,
+    status: ESwapStepStatus.FAILED,
+  };
 }

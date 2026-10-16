@@ -56,3 +56,43 @@ describe('EvmVault.buildUnsignedTx nonce chaining', () => {
     expect((unsignedTx.encodedTx as IEncodedTxEvm).nonce).toBeUndefined();
   });
 });
+
+describe('final swap fee attachment', () => {
+  const common = {
+    feeDecimals: 9,
+    feeSymbol: 'Gwei',
+    nativeDecimals: 18,
+    nativeSymbol: 'ETH',
+  };
+  it.each(['240996', '300000'])(
+    'serializes the selected legacy gas %s into both gas fields',
+    async (gasLimit) => {
+      const final = await buildVault()._attachFeeInfoToEncodedTx({
+        encodedTx: { ...baseEncodedTx, gas: '0x781c', gasLimit: '0x781c' },
+        feeInfo: { common, gas: { gasLimit, gasPrice: '2' } },
+      });
+      expect(BigInt(final.gas ?? '0')).toBe(BigInt(gasLimit));
+      expect(final.gasLimit).toBe(final.gas);
+      expect(BigInt(final.gasPrice ?? '0')).toBe(2_000_000_000n);
+    },
+  );
+  it('serializes the selected EIP-1559 gas without changing either fee rate', async () => {
+    const final = await buildVault()._attachFeeInfoToEncodedTx({
+      encodedTx: baseEncodedTx,
+      feeInfo: {
+        common,
+        gasEIP1559: {
+          gasLimit: '240996',
+          gasLimitForDisplay: '240996',
+          baseFeePerGas: '1',
+          maxFeePerGas: '3',
+          maxPriorityFeePerGas: '2',
+        },
+      },
+    });
+    expect(BigInt(final.gas ?? '0')).toBe(240_996n);
+    expect(final.gasLimit).toBe(final.gas);
+    expect(BigInt(final.maxFeePerGas ?? '0')).toBe(3_000_000_000n);
+    expect(BigInt(final.maxPriorityFeePerGas ?? '0')).toBe(2_000_000_000n);
+  });
+});
