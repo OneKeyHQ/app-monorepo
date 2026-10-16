@@ -15,6 +15,7 @@ const electronNetErrors: Record<string, EUpdateErrorCode> = {
   'net::ERR_NAME_NOT_RESOLVED': EUpdateErrorCode.networkError,
   'net::ERR_INTERNET_DISCONNECTED': EUpdateErrorCode.networkError,
   'net::ERR_CONNECTION_RESET': EUpdateErrorCode.networkError,
+  'net::ERR_CONNECTION_CLOSED': EUpdateErrorCode.networkError,
   'net::ERR_CONNECTION_REFUSED': EUpdateErrorCode.networkError,
   'net::ERR_NETWORK_CHANGED': EUpdateErrorCode.networkError,
   'net::ERR_TIMED_OUT': EUpdateErrorCode.timeout,

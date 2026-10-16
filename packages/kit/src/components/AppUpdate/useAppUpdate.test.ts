@@ -993,6 +993,37 @@ describe('useDownloadPackage', () => {
       mockPlatformEnv.isNative = false;
     });
 
+    test('native missing package enters failure handling when reconciliation declines', async () => {
+      mockPlatformEnv.isNative = true;
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.verifyPackage,
+        updateStrategy: EUpdateStrategy.seamless,
+      });
+      svc.reconcileAppShellPackage.mockResolvedValue({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.verifyPackage,
+      });
+      appUpd.verifyPackage.mockRejectedValue(
+        createUpdateError({
+          code: EUpdateErrorCode.packageMissing,
+          step: 'verifyPackage',
+        }),
+      );
+
+      const { result } = renderHook(() => useDownloadPackage());
+      await act(async () => {
+        await result.current.verifyPackage();
+      });
+
+      expect(svc.verifyPackageFailed).toHaveBeenCalledWith({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'verifyPackage',
+      });
+      expect(svc.resetToInComplete).not.toHaveBeenCalled();
+      mockPlatformEnv.isNative = false;
+    });
+
     test('download throws → calls downloadPackageFailed', async () => {
       svc.getUpdateInfo.mockResolvedValue({
         latestVersion: '2.0.0',
@@ -1764,7 +1795,7 @@ describe('useDownloadPackage', () => {
       expect(mockToastError).not.toHaveBeenCalled();
     });
 
-    test('unverified package reconciliation does not surface an install error', async () => {
+    test('unverified package reconciliation does not claim install recovery', async () => {
       const onSuccess = jest.fn();
       const onFail = jest.fn();
       mockPlatformEnv.isDesktop = true;
@@ -1790,9 +1821,8 @@ describe('useDownloadPackage', () => {
       });
 
       expect(svc.reconcileAppShellPackage).toHaveBeenCalled();
-      expect(onFail).not.toHaveBeenCalled();
+      expect(onFail).toHaveBeenCalledTimes(1);
       expect(onSuccess).not.toHaveBeenCalled();
-      expect(mockToastError).not.toHaveBeenCalled();
     });
   });
 

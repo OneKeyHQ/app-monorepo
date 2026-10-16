@@ -422,10 +422,9 @@ class DesktopApiAppUpdate {
         !semver.valid(handoff.version) ||
         path.dirname(handoff.current) !== path.dirname(handoff.destination) ||
         (handoff.backup !== undefined &&
-          (handoff.destination !== handoff.current ||
-            !handoff.backup.startsWith(handoff.current) ||
+          (!handoff.backup.startsWith(handoff.destination) ||
             !/^\.[0-9a-f]{16}\.old$/.test(
-              handoff.backup.slice(handoff.current.length),
+              handoff.backup.slice(handoff.destination.length),
             ))) ||
         (handoff.destination === handoff.current && !handoff.backup)
       ) {
@@ -434,24 +433,28 @@ class DesktopApiAppUpdate {
           step: 'download',
         });
       }
-      if (app.getVersion() === handoff.version) {
+      if (
+        app.getVersion() === handoff.version &&
+        process.env.APPIMAGE === handoff.destination
+      ) {
         store.setUpdateBuildNumber(handoff.buildNumber);
-        if (process.env.APPIMAGE === handoff.destination) {
-          if (handoff.destination !== handoff.current) {
-            fs.rmSync(handoff.current, { force: true });
-          } else if (handoff.backup) {
-            fs.rmSync(handoff.backup, { force: true });
-          }
+        if (handoff.destination !== handoff.current) {
+          fs.rmSync(handoff.current, { force: true });
+        }
+        if (handoff.backup) {
+          fs.rmSync(handoff.backup, { force: true });
         }
       } else if (
         process.env.APPIMAGE === handoff.current ||
         process.env.APPIMAGE === handoff.backup
       ) {
         if (handoff.backup && fs.existsSync(handoff.backup)) {
-          fs.renameSync(handoff.backup, handoff.current);
+          fs.renameSync(handoff.backup, handoff.destination);
         } else if (handoff.destination !== handoff.current) {
           fs.rmSync(handoff.destination, { force: true });
         }
+      } else {
+        return;
       }
       fs.rmSync(marker, { force: true });
     } catch (error) {
@@ -858,7 +861,6 @@ class DesktopApiAppUpdate {
           record.url !== artifact.url ||
           record.sha512 !== artifact.sha512
         ) {
-          this.cleanupStaleInstallers(artifact.fileName);
           const targetPath = this.getTargetPath(artifact);
           await downloadNodeFile({
             url: artifact.url,
@@ -1241,21 +1243,19 @@ class DesktopApiAppUpdate {
         fs.constants.COPYFILE_EXCL,
       );
       await fs.promises.chmod(staging, 0o755);
-      if (destination === current) {
+      if (fs.existsSync(destination)) {
         try {
-          await fs.promises.link(current, backup);
+          await fs.promises.link(destination, backup);
         } catch {
-          await fs.promises.copyFile(current, backup);
+          await fs.promises.copyFile(destination, backup);
         }
-      } else if (fs.existsSync(destination)) {
-        await fs.promises.rm(destination, { force: true });
       }
       await fs.promises.rename(staging, destination);
       renamed = true;
       const handoff: IAppImageHandoff = {
         current,
         destination,
-        backup: destination === current ? backup : undefined,
+        backup: fs.existsSync(backup) ? backup : undefined,
         version: record.version,
         buildNumber,
       };
@@ -1269,11 +1269,11 @@ class DesktopApiAppUpdate {
     } catch (error) {
       if (!handoffQueued) {
         fs.rmSync(marker, { force: true });
-        if (renamed && destination === current) {
-          await fs.promises.rename(backup, current);
+        if (renamed && fs.existsSync(backup)) {
+          await fs.promises.rename(backup, destination);
         } else if (renamed) {
           await fs.promises.rm(destination, { force: true });
-        } else if (destination === current) {
+        } else {
           await fs.promises.rm(backup, { force: true });
         }
       }

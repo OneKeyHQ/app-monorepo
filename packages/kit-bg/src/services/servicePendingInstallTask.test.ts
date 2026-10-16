@@ -260,6 +260,7 @@ describe('servicePendingInstallTask', () => {
         updateStrategy: EUpdateStrategy.seamless,
         jsBundle: {
           signature: 'sig-2',
+          sha256: 'a'.repeat(64),
           downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         },
       },
@@ -273,11 +274,13 @@ describe('servicePendingInstallTask', () => {
   test('ready_to_install stage creates pending jsbundle task', async () => {
     const service = createService();
     setState({
+      status: 'verifyPackage' as any,
       latestVersion: '1.0.0',
       jsBundleVersion: '2',
       updateStrategy: EUpdateStrategy.seamless,
       jsBundle: {
         signature: 'sig-2',
+        sha256: 'a'.repeat(64),
         downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
       },
       downloadedEvent: {
@@ -285,7 +288,7 @@ describe('servicePendingInstallTask', () => {
         bundleVersion: '2',
         downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         signature: 'sig-2',
-        sha256: 'sha256-2',
+        sha256: 'a'.repeat(64),
       },
     });
 
@@ -296,6 +299,7 @@ describe('servicePendingInstallTask', () => {
         updateStrategy: EUpdateStrategy.seamless,
         jsBundle: {
           signature: 'sig-2',
+          sha256: 'a'.repeat(64),
           downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         },
       },
@@ -313,11 +317,95 @@ describe('servicePendingInstallTask', () => {
     });
   });
 
+  test.each(['new target', 'incomplete status'])(
+    'does not persist an old target after native-version lookup overlaps %s',
+    async (change) => {
+      const service = createService();
+      const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      let lookupStarted!: () => void;
+      let finishLookup!: (version: string) => void;
+      const started = new Promise<void>((resolve) => {
+        lookupStarted = resolve;
+      });
+      autoUpdate.BundleUpdate.getNativeAppVersion.mockImplementationOnce(
+        () =>
+          new Promise<string>((resolve) => {
+            finishLookup = resolve;
+            lookupStarted();
+          }),
+      );
+      setState({
+        status: 'verifyPackage' as any,
+        latestVersion: '1.0.0',
+        jsBundleVersion: '2',
+        updateStrategy: EUpdateStrategy.seamless,
+        jsBundle: {
+          downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+          signature: 'sig-2',
+          sha256: 'a'.repeat(64),
+        },
+        downloadedEvent: {
+          latestVersion: '1.0.0',
+          bundleVersion: '2',
+          downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+          signature: 'sig-2',
+          sha256: 'a'.repeat(64),
+        },
+      });
+      const scheduling = service.syncPendingInstallTaskWithReleaseInfo({
+        releaseInfo: {
+          version: '1.0.0',
+          jsBundleVersion: '2',
+          updateStrategy: EUpdateStrategy.seamless,
+          jsBundle: {
+            downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+            signature: 'sig-2',
+            sha256: 'a'.repeat(64),
+          },
+        },
+        requestSeq: 2,
+        traceId: 'trace-old-ready',
+        stage: 'ready_to_install',
+        appInfo: appUpdateState,
+      });
+      await started;
+      setState({
+        status:
+          change === 'incomplete status'
+            ? ('updateIncomplete' as any)
+            : ('verifyPackage' as any),
+        latestVersion: '1.0.0',
+        jsBundleVersion: change === 'new target' ? '3' : '2',
+        updateStrategy: EUpdateStrategy.seamless,
+        jsBundle: {
+          downloadUrl: `https://cdn.onekey.so/bundle-v${change === 'new target' ? '3' : '2'}.zip`,
+          signature: change === 'new target' ? 'sig-3' : 'sig-2',
+          sha256: (change === 'new target' ? 'b' : 'a').repeat(64),
+        },
+        downloadedEvent:
+          change === 'new target'
+            ? undefined
+            : {
+                latestVersion: '1.0.0',
+                bundleVersion: '2',
+                downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+                signature: 'sig-2',
+                sha256: 'a'.repeat(64),
+              },
+      });
+      finishLookup('1.0.0');
+      await scheduling;
+
+      expect(pendingTaskValue).toBeUndefined();
+    },
+  );
+
   test('ready_to_install stage creates rollback jsbundle task when remote bundle is lower than local', async () => {
     const service = createService();
     const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
     platformEnvMock.bundleVersion = '3';
     setState({
+      status: 'verifyPackage' as any,
       latestVersion: '1.0.0',
       jsBundleVersion: '2',
       updateStrategy: EUpdateStrategy.seamless,
@@ -326,6 +414,7 @@ describe('servicePendingInstallTask', () => {
         bundleVersion: '2',
         downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         signature: 'sig-2',
+        sha256: 'a'.repeat(64),
       },
     });
 
@@ -336,6 +425,7 @@ describe('servicePendingInstallTask', () => {
         updateStrategy: EUpdateStrategy.seamless,
         jsBundle: {
           signature: 'sig-2',
+          sha256: 'a'.repeat(64),
           downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         },
       },
@@ -394,6 +484,7 @@ describe('servicePendingInstallTask', () => {
         bundleVersion: '2',
         downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         signature: 'sig-2',
+        sha256: 'a'.repeat(64),
       },
     });
 
@@ -404,6 +495,7 @@ describe('servicePendingInstallTask', () => {
         updateStrategy: EUpdateStrategy.manual,
         jsBundle: {
           signature: 'sig-2',
+          sha256: 'a'.repeat(64),
           downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         },
       },
@@ -429,6 +521,7 @@ describe('servicePendingInstallTask', () => {
       },
     });
     setState({
+      status: 'verifyPackage' as any,
       latestVersion: '1.0.0',
       jsBundleVersion: '0',
       updateStrategy: EUpdateStrategy.seamless,
@@ -437,6 +530,7 @@ describe('servicePendingInstallTask', () => {
         bundleVersion: '0',
         downloadUrl: 'https://cdn.onekey.so/bundle-v0.zip',
         signature: 'sig-0',
+        sha256: 'b'.repeat(64),
       },
     });
 
@@ -447,6 +541,7 @@ describe('servicePendingInstallTask', () => {
         updateStrategy: EUpdateStrategy.seamless,
         jsBundle: {
           signature: 'sig-0',
+          sha256: 'b'.repeat(64),
           downloadUrl: 'https://cdn.onekey.so/bundle-v0.zip',
         },
       },
@@ -798,6 +893,7 @@ describe('servicePendingInstallTask', () => {
   test('ignored target with expired expiresAt allows task creation', async () => {
     const service = createService();
     setState({
+      status: 'verifyPackage' as any,
       latestVersion: '1.0.0',
       jsBundleVersion: '2',
       updateStrategy: EUpdateStrategy.seamless,
@@ -806,6 +902,7 @@ describe('servicePendingInstallTask', () => {
         bundleVersion: '2',
         downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         signature: 'sig-2',
+        sha256: 'a'.repeat(64),
       },
       ignoredTargets: {
         '1.0.0:2': {
@@ -823,6 +920,7 @@ describe('servicePendingInstallTask', () => {
         updateStrategy: EUpdateStrategy.seamless,
         jsBundle: {
           signature: 'sig-2',
+          sha256: 'a'.repeat(64),
           downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         },
       },
@@ -850,6 +948,7 @@ describe('servicePendingInstallTask', () => {
         bundleVersion: '2',
         downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         signature: 'sig-2',
+        sha256: 'a'.repeat(64),
       },
     });
 
@@ -860,6 +959,7 @@ describe('servicePendingInstallTask', () => {
         updateStrategy: EUpdateStrategy.seamless,
         jsBundle: {
           signature: 'sig-2',
+          sha256: 'a'.repeat(64),
           downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         },
       },
@@ -1036,6 +1136,7 @@ describe('servicePendingInstallTask', () => {
     const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
     platformEnvMock.bundleVersion = '3';
     setState({
+      status: 'verifyPackage' as any,
       latestVersion: '1.0.0',
       jsBundleVersion: '2',
       updateStrategy: EUpdateStrategy.manual,
@@ -1044,6 +1145,7 @@ describe('servicePendingInstallTask', () => {
         bundleVersion: '2',
         downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         signature: 'sig-2',
+        sha256: 'a'.repeat(64),
       },
     });
 
@@ -1054,6 +1156,7 @@ describe('servicePendingInstallTask', () => {
         updateStrategy: EUpdateStrategy.manual,
         jsBundle: {
           signature: 'sig-2',
+          sha256: 'a'.repeat(64),
           downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         },
       },

@@ -70,6 +70,7 @@ import { findAllowedDeepLinkArg, isAllowedDeepLinkUrl } from './libs/deepLink';
 import {
   DESKTOP_API_ALLOWED_MODULES,
   isDesktopApiMethodAllowed,
+  isTrustedMainWindowUrl,
 } from './libs/desktopApiModuleAllowlist';
 import {
   applyDesktopNetworkThrottleToKnownSessions,
@@ -805,6 +806,10 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         appVersion: currentAppVersion,
       },
     );
+    store.revokePendingSwitchForFailedBundle(
+      currentAppVersion,
+      activeOtaBundleVersion,
+    );
     store.clearUpdateBundleData();
     store.resetConsecutiveBootFailCount();
     bootFailCount = store.incrementConsecutiveBootFailCount();
@@ -998,6 +1003,34 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
           slashes: true,
         });
   /* eslint-enable no-nested-ternary */
+
+  globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender = (
+    senderId,
+    senderFrame,
+    mainFrame,
+  ) => {
+    const currentMainWindow = getSafelyMainWindow() ?? getSafelyBrowserWindow();
+    return Boolean(
+      currentMainWindow?.webContents.id === senderId &&
+      senderFrame &&
+      senderFrame === mainFrame &&
+      isTrustedMainWindowUrl(src, senderFrame.url),
+    );
+  };
+
+  const guardMainWindowNavigation = (event: Electron.Event, url: string) => {
+    if (!isTrustedMainWindowUrl(src, url)) {
+      event.preventDefault();
+      logger.warn(
+        '[MainWindow] rejected navigation outside selected app shell',
+      );
+    }
+  };
+  browserWindow.webContents.on('will-navigate', guardMainWindowNavigation);
+  browserWindow.webContents.on('will-redirect', guardMainWindowNavigation);
+  browserWindow.webContents.on('will-frame-navigate', (event) => {
+    if (event.isMainFrame) guardMainWindowNavigation(event, event.url);
+  });
 
   if (isDevServer && !isDesktopE2EMode) {
     browserWindow.webContents.openDevTools();
@@ -1267,11 +1300,12 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       // window dynamically (not the closure-captured `browserWindow`) so a MAS
       // soft restart — which destroys and recreates the window — keeps the gate
       // pointed at the current renderer instead of the destroyed one.
-      const currentMainWebContentsId =
-        getSafelyMainWindow()?.webContents.id ?? browserWindow.webContents.id;
       if (
-        event.sender.id !== currentMainWebContentsId ||
-        event.senderFrame !== event.sender.mainFrame
+        !globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender?.(
+          event.sender.id,
+          event.senderFrame,
+          event.sender.mainFrame,
+        )
       ) {
         logger.warn(
           '[DESKTOP_API_CALL] Rejected call from non-main renderer',

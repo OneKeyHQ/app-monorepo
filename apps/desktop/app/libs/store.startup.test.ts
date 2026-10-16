@@ -182,6 +182,58 @@ describe('desktop startup with persisted state', () => {
     expect(store.getNativeBuildNumber()).toBe('100');
   });
 
+  it('revokes a pending switch for the failed OTA before clearing its boot pointer', () => {
+    seedUpdateState();
+    seedPendingTask();
+    const pendingPath = path.join(
+      mockProfileDir,
+      'mmkv-onekey-app-setting.json',
+    );
+    const profile = JSON.parse(fs.readFileSync(pendingPath, 'utf8')) as {
+      onekey_pending_install_task: string;
+    };
+    const task = JSON.parse(profile.onekey_pending_install_task) as {
+      targetAppVersion: string;
+      targetBundleVersion: string;
+      payload: { bundleVersion: string };
+    };
+    task.targetAppVersion = activeBundle.appVersion;
+    task.targetBundleVersion = activeBundle.bundleVersion;
+    task.payload.bundleVersion = activeBundle.bundleVersion;
+    writeProfile('mmkv-onekey-app-setting', {
+      onekey_pending_install_task: JSON.stringify(task),
+    });
+
+    const { store } = loadStartup();
+    expect(
+      store.revokePendingSwitchForFailedBundle(
+        activeBundle.appVersion,
+        activeBundle.bundleVersion,
+      ),
+    ).toBe(true);
+    store.clearUpdateBundleData();
+    expect(store.processPreLaunchPendingTask()).toBe(false);
+    expect(store.getUpdateBundleData()).toEqual({});
+    const after = JSON.parse(fs.readFileSync(pendingPath, 'utf8')) as Record<
+      string,
+      unknown
+    >;
+    expect(after.onekey_pending_install_task).toBeUndefined();
+  });
+
+  it('leaves a different pending target untouched during failed-bundle rollback', () => {
+    seedUpdateState();
+    seedPendingTask();
+    const { store } = loadStartup();
+    expect(
+      store.revokePendingSwitchForFailedBundle(
+        activeBundle.appVersion,
+        activeBundle.bundleVersion,
+      ),
+    ).toBe(false);
+    expect(store.processPreLaunchPendingTask()).toBe(true);
+  });
+
   it.each(['native-version', 'native-build'])(
     'rejects stale pending switches after a %s change',
     (change) => {

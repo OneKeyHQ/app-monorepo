@@ -68,6 +68,7 @@ import {
   PLACEHOLDER_SIGNATURE,
   clearPendingInstallTask,
   getPendingInstallTask,
+  isMatchingDownloadedRelease,
   setPendingInstallTask,
 } from './servicePendingInstallTask';
 
@@ -1664,31 +1665,58 @@ class ServiceAppUpdate extends ServiceBase {
       );
       return;
     }
-    clearTimeout(downloadTimeoutId);
-    clearTimeout(failedRecoveryTimerId);
     const latest = appInfo;
     const downloadedEvent = latest.downloadedEvent;
-    const isMatchingDownload =
-      Boolean(latest.latestVersion) &&
-      downloadedEvent?.latestVersion === latest.latestVersion &&
-      (getUpdateFileType(latest) === EUpdateFileType.jsBundle
-        ? Boolean(
-            latest.jsBundleVersion &&
-            downloadedEvent?.bundleVersion === latest.jsBundleVersion &&
-            latest.jsBundle?.downloadUrl &&
-            downloadedEvent?.downloadUrl === latest.jsBundle.downloadUrl,
-          )
-        : Boolean(
-            downloadedEvent?.downloadUrl &&
-            (platformEnv.isDesktop ||
-              downloadedEvent.downloadUrl === latest.downloadUrl),
-          ));
+    const isMatchingDownload = isMatchingDownloadedRelease({
+      event: downloadedEvent,
+      appVersion: latest.latestVersion,
+      bundleVersion: latest.jsBundleVersion,
+      sha256: latest.jsBundle?.sha256,
+      isJsBundle: getUpdateFileType(latest) === EUpdateFileType.jsBundle,
+    });
     if (!isMatchingDownload) {
       defaultLogger.app.appUpdate.log(
         'readyToInstall: downloaded release identity does not match target',
       );
+      let resetToNotify = false;
+      await appUpdatePersistAtom.set((prev) => {
+        if (
+          prev.status !== status ||
+          prev.latestVersion !== latest.latestVersion ||
+          prev.jsBundleVersion !== latest.jsBundleVersion ||
+          prev.jsBundle?.sha256 !== latest.jsBundle?.sha256 ||
+          prev.downloadedEvent?.latestVersion !==
+            downloadedEvent?.latestVersion ||
+          prev.downloadedEvent?.bundleVersion !==
+            downloadedEvent?.bundleVersion ||
+          prev.downloadedEvent?.downloadUrl !== downloadedEvent?.downloadUrl ||
+          prev.downloadedEvent?.sha256 !== downloadedEvent?.sha256
+        ) {
+          return prev;
+        }
+        resetToNotify = true;
+        return {
+          ...prev,
+          status: EAppUpdateStatus.notify,
+          downloadedEvent: undefined,
+        };
+      });
+      if (resetToNotify) {
+        clearTimeout(downloadTimeoutId);
+        clearTimeout(failedRecoveryTimerId);
+        if (
+          latest.latestVersion &&
+          isAutoUpdateStrategy(latest.updateStrategy)
+        ) {
+          appEventBus.emit(EAppEventBusNames.StartAutoDownloadUpdate, {
+            decision: 'downloadedReleaseMismatch',
+          });
+        }
+      }
       return;
     }
+    clearTimeout(downloadTimeoutId);
+    clearTimeout(failedRecoveryTimerId);
     const traceId = generateUUID();
     const requestSeq = await this.nextRequestSeq();
     await this.syncPendingInstallTaskWithReleaseInfo({
@@ -1714,12 +1742,20 @@ class ServiceAppUpdate extends ServiceBase {
           prev.status === EAppUpdateStatus.ready) &&
         prev.latestVersion === latest.latestVersion &&
         prev.jsBundleVersion === latest.jsBundleVersion &&
+        prev.jsBundle?.sha256 === latest.jsBundle?.sha256 &&
         prev.downloadedEvent?.latestVersion === latest.latestVersion &&
         prev.downloadedEvent?.bundleVersion ===
           latest.downloadedEvent?.bundleVersion &&
         prev.downloadedEvent?.downloadUrl ===
           latest.downloadedEvent?.downloadUrl &&
-        prev.downloadedEvent?.sha256 === latest.downloadedEvent?.sha256;
+        prev.downloadedEvent?.sha256 === latest.downloadedEvent?.sha256 &&
+        isMatchingDownloadedRelease({
+          event: prev.downloadedEvent,
+          appVersion: prev.latestVersion,
+          bundleVersion: prev.jsBundleVersion,
+          sha256: prev.jsBundle?.sha256,
+          isJsBundle: getUpdateFileType(prev) === EUpdateFileType.jsBundle,
+        });
       if (!isSameVerifiedPackage) {
         return prev;
       }
@@ -2185,6 +2221,7 @@ class ServiceAppUpdate extends ServiceBase {
         const isDifferentTarget =
           prev.latestVersion !== releaseInfo.version ||
           prevTargetBundle !== nextTargetBundle ||
+          prev.jsBundle?.sha256 !== effectiveJsBundle?.sha256 ||
           Boolean(prev.isRollbackTarget) !== isRollbackDecision;
 
         // Bug B: When !shouldUpdate, never overwrite an active update's state
@@ -2217,7 +2254,7 @@ class ServiceAppUpdate extends ServiceBase {
         }
 
         // Bug C (in-flight transfer): When an active download/verify is in
-        // flight for `prev` and a different non-force target arrives, preserve
+        // flight for `prev` and a different target arrives, preserve
         // `prev` unchanged (only updating `updateAt`) to prevent mid-download
         // metadata corruption.
         const isInFlightTransferOrVerify = [
@@ -2231,8 +2268,7 @@ class ServiceAppUpdate extends ServiceBase {
           isUpdating &&
           !isFailed &&
           isDifferentTarget &&
-          isInFlightTransferOrVerify &&
-          releaseInfo.updateStrategy !== EUpdateStrategy.force
+          isInFlightTransferOrVerify
         ) {
           defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
             traceId,

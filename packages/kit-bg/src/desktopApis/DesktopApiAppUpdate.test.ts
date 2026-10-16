@@ -923,7 +923,7 @@ test('rejects feed artifact filename that does not contain selectedVersion and g
   mockStore.getDevSettingsEnabled.mockReturnValue(false);
 });
 
-test('Linux AppImage handoff cleans up marker even if APPIMAGE moved and falls back to copyFile on EXDEV', async () => {
+test('Linux AppImage handoff keeps marker if an unrelated AppImage starts and falls back to copyFile on EXDEV', async () => {
   const current = path.join(mockTempDir, 'OneKey.AppImage');
   fs.writeFileSync(current, 'old app');
   process.env.APPIMAGE = current;
@@ -944,8 +944,9 @@ test('Linux AppImage handoff cleans up marker even if APPIMAGE moved and falls b
   process.env.APPIMAGE = path.join(mockTempDir, 'Moved-OneKey.AppImage');
   mockAppGetVersion.mockReturnValue('6.0.0');
   createApi('linux', 'appImage');
-  expect(mockStore.setUpdateBuildNumber).toHaveBeenCalledWith('123');
-  expect(fs.existsSync(marker)).toBe(false);
+  expect(mockStore.setUpdateBuildNumber).not.toHaveBeenCalled();
+  expect(fs.existsSync(marker)).toBe(true);
+  expect(fs.readFileSync(current)).toEqual(mockPackage);
 });
 
 test('Linux restores the old AppImage when relaunch cannot be queued', async () => {
@@ -962,6 +963,59 @@ test('Linux restores the old AppImage when relaunch cannot be queued', async () 
   expect(fs.readFileSync(current, 'utf8')).toBe('old app');
   expect(mockAppQuit).not.toHaveBeenCalled();
   expect(mockStore.setUpdateBuildNumber).not.toHaveBeenCalled();
+});
+
+test('Linux preserves an existing versioned destination when relaunch fails', async () => {
+  const current = path.join(mockTempDir, 'OneKey-5.9.0.AppImage');
+  const destination = path.join(mockTempDir, linuxArtifactName());
+  fs.writeFileSync(current, 'running app');
+  fs.writeFileSync(destination, 'previous destination');
+  process.env.APPIMAGE = current;
+  const { api, params } = await preparePackage('linux', 'appImage');
+  mockAppRelaunch.mockImplementationOnce(() => {
+    throw new OneKeyLocalError('relaunch failed');
+  });
+
+  await expect(api.installPackage(params)).rejects.toThrow(
+    '"code":"INSTALL_FAILED"',
+  );
+  expect(fs.readFileSync(current, 'utf8')).toBe('running app');
+  expect(fs.readFileSync(destination, 'utf8')).toBe('previous destination');
+  expect(
+    fs.readdirSync(mockTempDir).some((name) => name.endsWith('.old')),
+  ).toBe(false);
+});
+
+test('Linux restores an existing versioned destination when the old AppImage restarts', async () => {
+  const current = path.join(mockTempDir, 'OneKey-5.9.0.AppImage');
+  const destination = path.join(mockTempDir, linuxArtifactName());
+  fs.writeFileSync(current, 'running app');
+  fs.writeFileSync(destination, 'previous destination');
+  process.env.APPIMAGE = current;
+  const { api, params } = await preparePackage('linux', 'appImage');
+  expect(await api.installPackage(params)).toBe(true);
+  expect(fs.readFileSync(destination)).toEqual(mockPackage);
+
+  createApi('linux', 'appImage');
+  expect(fs.readFileSync(current, 'utf8')).toBe('running app');
+  expect(fs.readFileSync(destination, 'utf8')).toBe('previous destination');
+  expect(
+    fs.readdirSync(mockTempDir).some((name) => name.endsWith('.old')),
+  ).toBe(false);
+});
+
+test('a failed replacement download retains the last verified installer', async () => {
+  const { api, file } = await preparePackage('linux', 'appImage');
+  mockHttpsResponse(
+    feed('6.1.0', [linuxArtifactName().replace('6.0.0', '6.1.0')]),
+  );
+  await api.checkForUpdates(false, {}, '6.1.0');
+  mockDownloadNodeFile.mockRejectedValueOnce(
+    Object.assign(new Error('connection lost'), { code: 'ECONNRESET' }),
+  );
+
+  await expect(api.downloadUpdate()).rejects.toThrow('"code":"NETWORK_ERROR"');
+  expect(fs.readFileSync(file)).toEqual(mockPackage);
 });
 
 test('Linux retains the old package until startup and drops the candidate if the old version returns', async () => {

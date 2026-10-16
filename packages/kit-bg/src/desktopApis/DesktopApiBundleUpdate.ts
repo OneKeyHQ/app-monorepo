@@ -254,16 +254,15 @@ class DesktopApiAppBundleUpdate {
     return this.cancelByDest.size > 0;
   }
 
-  // OCDS §5.8 per-destination single-flight. Keyed on the destination zip path:
-  // a second download() for the same dest JOINS the in-flight run (returns the
-  // same promise) rather than co-writing the same artifacts; different-dest
-  // runs proceed independently. The entry is always deleted on settle (finally)
+  // OCDS §5.8 per-destination single-flight. A second request with the same
+  // content hash joins the writer; a different hash cannot write that ZIP.
+  // The entry is always deleted on settle (finally)
   // so a crashed/rejected run never permanently wedges a destination — the
   // in-memory map is the reclaimable lock (the process restarting clears it
   // entirely, which is the desktop equivalent of stale-lock recovery).
   private inflightDownloads = new Map<
     string,
-    Promise<IUpdateDownloadedEvent>
+    { sha256: string; run: Promise<IUpdateDownloadedEvent> }
   >();
 
   // OCDS §5.8: cancellation wired per-destination so cancelling one dest does
@@ -272,12 +271,11 @@ class DesktopApiAppBundleUpdate {
 
   private cacheClearPromise: Promise<void> | undefined;
 
-  private isSkipGPGAllowed(skipGPGVerification?: boolean) {
+  private isSkipGPGAllowed(_skipGPGVerification?: boolean) {
     return (
       process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION === 'true' &&
       Boolean(
-        skipGPGVerification ||
-        (store.getDevSettingsEnabled?.() && store.getSkipGPGVerification?.()),
+        store.getDevSettingsEnabled?.() && store.getSkipGPGVerification?.(),
       )
     );
   }
@@ -367,30 +365,35 @@ class DesktopApiAppBundleUpdate {
     assertUpdateBundleVersion(safeParams.latestVersion, 'download');
     assertUpdateBundleVersion(safeParams.bundleVersion, 'download');
     const destKey = this.getDestZipPath(safeParams);
-    const inFlightDownloadKey =
-      destKey &&
+    const validSha256 =
       typeof safeParams.sha256 === 'string' &&
       /^[a-fA-F0-9]{64}$/.test(safeParams.sha256)
-        ? `${safeParams.latestVersion}:${safeParams.bundleVersion}:${safeParams.sha256}`
+        ? safeParams.sha256.toLowerCase()
         : null;
     // No usable key (missing version/sha256 params): skip single-flight bookkeeping
     // and let the downstream validation produce the canonical error.
-    if (!destKey || !inFlightDownloadKey) {
+    if (!destKey || !validSha256) {
       return this.runDownloadBundle(safeParams);
     }
-    const existing = this.inflightDownloads.get(inFlightDownloadKey);
+    const existing = this.inflightDownloads.get(destKey);
     if (existing) {
+      if (existing.sha256 !== validSha256) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.incompatible,
+          step: 'download',
+        });
+      }
       logger.info(
         'bundle-download',
         'Joining in-flight download for same destination',
       );
-      return existing;
+      return existing.run;
     }
     const run = this.runDownloadBundle(safeParams).finally(() => {
-      this.inflightDownloads.delete(inFlightDownloadKey);
+      this.inflightDownloads.delete(destKey);
       this.cancelByDest.delete(destKey);
     });
-    this.inflightDownloads.set(inFlightDownloadKey, run);
+    this.inflightDownloads.set(destKey, { sha256: validSha256, run });
     return run;
   }
 
@@ -703,6 +706,12 @@ class DesktopApiAppBundleUpdate {
 
     try {
       const zip = new AdmZip(downloadedFile);
+      if (zip.getEntryCount() > MAX_BUNDLE_ENTRY_COUNT) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.securityRejected,
+          step: 'verifyASC',
+        });
+      }
       const entries = zip.getEntries();
       if (entries.length > MAX_BUNDLE_ENTRY_COUNT) {
         throw createUpdateError({
@@ -750,14 +759,22 @@ class DesktopApiAppBundleUpdate {
             step: 'verifyASC',
           });
         }
-        // adm-zip only passes { maxOutputLength: expectedLength } to zlib.inflateRawSync
-        // when expectedLength > 0. Reject deflated non-directory entries that claim size === 0
-        // with non-empty compressed payload (> 2 bytes for empty deflate block).
-        if (!entry.isDirectory && entrySize === 0 && compressedSize > 2) {
-          throw createUpdateError({
-            code: EUpdateErrorCode.securityRejected,
-            step: 'verifyASC',
-          });
+        // adm-zip does not cap inflation when the advertised size is zero.
+        if (!entry.isDirectory && entrySize === 0) {
+          const compressed = entry.getCompressedData();
+          const canonicalEmptyDeflate =
+            entry.header.method === 8 &&
+            compressed.length === 2 &&
+            compressed[0] === 0x03 &&
+            compressed[1] === 0x00;
+          const storedEmpty =
+            entry.header.method === 0 && compressed.length === 0;
+          if (!canonicalEmptyDeflate && !storedEmpty) {
+            throw createUpdateError({
+              code: EUpdateErrorCode.securityRejected,
+              step: 'verifyASC',
+            });
+          }
         }
         totalUncompressedBytes += entrySize;
         if (totalUncompressedBytes > MAX_BUNDLE_UNCOMPRESSED_BYTES) {
@@ -1329,7 +1346,9 @@ class DesktopApiAppBundleUpdate {
     const clear = Promise.resolve()
       .then(async () => {
         for (const cancel of this.cancelByDest.values()) cancel();
-        await Promise.allSettled(this.inflightDownloads.values());
+        await Promise.allSettled(
+          [...this.inflightDownloads.values()].map(({ run }) => run),
+        );
         fs.rmSync(this.getDownloadDir(), { recursive: true, force: true });
       })
       .finally(() => {

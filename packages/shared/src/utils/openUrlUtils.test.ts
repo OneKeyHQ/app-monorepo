@@ -242,6 +242,8 @@ describe('openUrlExternal (native)', () => {
     'chrome://settings',
     'chrome-extension://abcdef/popup.html',
     'intent://scan/#Intent;scheme=zxing;end',
+    // URL parsing removes embedded ASCII controls before interpreting the scheme.
+    'java\nscript:alert(1)',
   ])('blocks dangerous external scheme on native: %s', async (url) => {
     openUrlExternal(url);
     await flushPromises();
@@ -254,23 +256,40 @@ describe('openUrlExternal (native)', () => {
     'javascript:alert(1)',
     'data:text/html,<script>alert(1)</script>',
     'file:///etc/passwd',
+    'java\nscript:alert(1)',
+    'wc:abc123@2?relay-protocol=irn',
+    'mailto:hi@onekey.so',
+    'macappstore://itunes.apple.com/app/id1234567890',
   ])('blocks dangerous external scheme on desktop/web: %s', async (url) => {
     mockEnv.isNative = false;
-    const mockOpenUrl = jest.fn();
-    (
-      globalThis as unknown as { desktopApi?: { openUrl: jest.Mock } }
-    ).desktopApi = {
-      openUrl: mockOpenUrl,
+    const openSpy = jest.fn();
+    (globalThis as unknown as { window?: { open: jest.Mock } }).window = {
+      open: openSpy,
     };
     (mockEnv as unknown as { isDesktop: boolean }).isDesktop = true;
     try {
       openUrlExternal(url);
       await flushPromises();
-      expect(mockOpenUrl).not.toHaveBeenCalled();
+      expect(openSpy).not.toHaveBeenCalled();
       expect(mockOpenURL).not.toHaveBeenCalled();
     } finally {
+      delete (globalThis as unknown as { window?: unknown }).window;
       (mockEnv as unknown as { isDesktop: boolean }).isDesktop = false;
-      delete (globalThis as unknown as { desktopApi?: unknown }).desktopApi;
+    }
+  });
+
+  test('opens only HTTP(S) URLs outside native', () => {
+    mockEnv.isNative = false;
+    const openSpy = jest.fn();
+    (globalThis as unknown as { window?: { open: jest.Mock } }).window = {
+      open: openSpy,
+    };
+    try {
+      openUrlExternal('https://onekey.so/path');
+      openUrlExternal('http://onekey.so/path');
+      expect(openSpy).toHaveBeenCalledTimes(2);
+    } finally {
+      delete (globalThis as unknown as { window?: unknown }).window;
     }
   });
 });
@@ -358,6 +377,34 @@ describe('OneKey store deep links', () => {
     expect(mockOpenURL).toHaveBeenCalledWith(
       'itms-apps://apps.apple.com/app/id1609559473',
     );
+  });
+
+  test('Mac App Store handoff opens only the fixed OneKey listing', () => {
+    mockEnv.isNative = false;
+    mockEnv.isDesktopMac = true;
+    const openSpy = jest.fn();
+    (globalThis as unknown as { window?: { open: jest.Mock } }).window = {
+      open: openSpy,
+    };
+    try {
+      expect(
+        handleOneKeyStoreLink(
+          'macappstore://itunes.apple.com/app/id1609559473?ct=untrusted',
+        ),
+      ).toBe(true);
+      expect(openSpy).toHaveBeenCalledWith(
+        'macappstore://itunes.apple.com/app/id1609559473?mt=12',
+        '_blank',
+      );
+      expect(
+        handleOneKeyStoreLink(
+          'macappstore://itunes.apple.com/app/id1234567890',
+        ),
+      ).toBe(false);
+      expect(openSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      delete (globalThis as unknown as { window?: unknown }).window;
+    }
   });
 
   test('drops the link from an embedded frame without opening the store', () => {

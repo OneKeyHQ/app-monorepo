@@ -27,6 +27,7 @@ import {
   AppUpdate,
   BundleUpdate,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import {
   EUpdateErrorCode,
   type IUpdateErrorDTO,
@@ -45,6 +46,36 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { appUpdatePersistAtom } from '../states/jotai/atoms';
 
 export const PLACEHOLDER_SIGNATURE = 'dev-no-signature';
+
+export function isMatchingDownloadedRelease({
+  event,
+  appVersion,
+  bundleVersion,
+  sha256,
+  isJsBundle,
+}: {
+  event: IUpdateDownloadedEvent;
+  appVersion?: string;
+  bundleVersion?: string;
+  sha256?: string;
+  isJsBundle: boolean;
+}): boolean {
+  if (
+    !appVersion ||
+    event?.latestVersion !== appVersion ||
+    !event.downloadUrl?.trim()
+  ) {
+    return false;
+  }
+  if (!isJsBundle) return true;
+  return Boolean(
+    bundleVersion &&
+    event.bundleVersion === bundleVersion &&
+    sha256 &&
+    /^[a-fA-F0-9]{64}$/.test(sha256) &&
+    event.sha256?.toLowerCase() === sha256.toLowerCase(),
+  );
+}
 const MAX_TASK_RETRY = 3;
 export const MAX_FULL_FLOW_RETRY = 2;
 export const APP_SHELL_PACKAGE_RECOVERY_RETRY_KEY_PREFIX = 'recovery:';
@@ -441,10 +472,27 @@ class ServicePendingInstallTask {
     if (!p?.appVersion || !p.bundleVersion || !p.signature) {
       return false;
     }
-    if (p.bundleVersion !== '0' && p.signature === PLACEHOLDER_SIGNATURE) {
+    return true;
+  }
+
+  private async isUnsignedBundleAllowed(): Promise<boolean> {
+    try {
+      const service = this.backgroundApi?.serviceDevSetting as
+        | {
+            getDevSetting: () => Promise<{ enabled?: boolean }>;
+            getSkipBundleGPGVerification: () => Promise<boolean>;
+          }
+        | undefined;
+      if (!service) return false;
+      const devSettings = await service.getDevSetting();
+      return Boolean(
+        devSettings?.enabled &&
+        (await BundleUpdate.isSkipGpgVerificationAllowed()) &&
+        (await service.getSkipBundleGPGVerification()),
+      );
+    } catch {
       return false;
     }
-    return true;
   }
 
   private isValidAppShellInstallPayload(payload: unknown) {
@@ -551,8 +599,11 @@ class ServicePendingInstallTask {
     const downloadUrl = appInfo.downloadedEvent?.downloadUrl;
     if (
       !downloadUrl ||
-      (!platformEnv.isDesktop && downloadUrl !== appInfo.downloadUrl) ||
-      appInfo.downloadedEvent?.latestVersion !== appInfo.latestVersion
+      !isMatchingDownloadedRelease({
+        event: appInfo.downloadedEvent,
+        appVersion: appInfo.latestVersion,
+        isJsBundle: false,
+      })
     ) {
       return undefined;
     }
@@ -722,20 +773,13 @@ class ServicePendingInstallTask {
 
     const runtimeAppInfo = appInfo || (await appUpdatePersistAtom.get());
     const downloadedEvent = runtimeAppInfo.downloadedEvent;
-    const isMatchingDownload =
-      downloadedEvent?.latestVersion === releaseInfo.version &&
-      (decision.decision === 'appShellUpdate'
-        ? Boolean(
-            downloadedEvent?.downloadUrl &&
-            (platformEnv.isDesktop ||
-              downloadedEvent.downloadUrl === releaseInfo.downloadUrl),
-          )
-        : Boolean(
-            releaseInfo.jsBundleVersion &&
-            downloadedEvent?.bundleVersion === releaseInfo.jsBundleVersion &&
-            releaseInfo.jsBundle?.downloadUrl &&
-            downloadedEvent?.downloadUrl === releaseInfo.jsBundle.downloadUrl,
-          ));
+    const isMatchingDownload = isMatchingDownloadedRelease({
+      event: downloadedEvent,
+      appVersion: releaseInfo.version,
+      bundleVersion: releaseInfo.jsBundleVersion,
+      sha256: releaseInfo.jsBundle?.sha256,
+      isJsBundle: decision.decision !== 'appShellUpdate',
+    });
     if (!isMatchingDownload) {
       defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
         traceId,
@@ -776,13 +820,60 @@ class ServicePendingInstallTask {
       return;
     }
 
+    if (
+      task.type === EPendingInstallTaskType.jsBundleSwitch &&
+      task.payload.bundleVersion !== '0' &&
+      task.payload.signature === PLACEHOLDER_SIGNATURE &&
+      !(await this.isUnsignedBundleAllowed())
+    ) {
+      defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
+        traceId,
+        requestSeq,
+        upsertAction: 'drop',
+        reason: 'unsigned_bundle_not_allowed',
+        stage,
+      });
+      return;
+    }
+
     const targetKey = this.getTargetKey(task);
     if (await this.shouldSkipTargetByControl(targetKey, traceId, requestSeq)) {
       return;
     }
 
     const existingRaw = await getPendingInstallTask();
+    const isCurrentTarget = async () => {
+      const current = await appUpdatePersistAtom.get();
+      const sameTarget =
+        (current.status === EAppUpdateStatus.verifyPackage ||
+          current.status === EAppUpdateStatus.ready) &&
+        current.latestVersion === runtimeAppInfo.latestVersion &&
+        current.jsBundleVersion === runtimeAppInfo.jsBundleVersion &&
+        current.updateStrategy === runtimeAppInfo.updateStrategy &&
+        current.jsBundle?.sha256?.toLowerCase() ===
+          runtimeAppInfo.jsBundle?.sha256?.toLowerCase() &&
+        current.downloadedEvent?.downloadUrl === downloadedEvent?.downloadUrl &&
+        current.downloadedEvent?.signature === downloadedEvent?.signature &&
+        isMatchingDownloadedRelease({
+          event: current.downloadedEvent,
+          appVersion: releaseInfo.version,
+          bundleVersion: releaseInfo.jsBundleVersion,
+          sha256: releaseInfo.jsBundle?.sha256,
+          isJsBundle: decision.decision !== 'appShellUpdate',
+        });
+      if (!sameTarget) {
+        defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
+          traceId,
+          requestSeq,
+          upsertAction: 'drop',
+          reason: 'target_changed_during_scheduling',
+          stage,
+        });
+      }
+      return sameTarget;
+    };
     if (!existingRaw) {
+      if (!(await isCurrentTarget())) return;
       await setPendingInstallTask(task);
       defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
         traceId,
@@ -798,6 +889,7 @@ class ServicePendingInstallTask {
     }
 
     if (!this.isValidPendingInstallTask(existingRaw)) {
+      if (!(await isCurrentTarget())) return;
       defaultLogger.app.appUpdate.pendingTaskUnknownTypeDropped(
         {
           traceId,
@@ -813,6 +905,7 @@ class ServicePendingInstallTask {
         clearReason: 'replace_invalid_task',
         level: 'warn',
       });
+      if (!(await isCurrentTarget())) return;
       await setPendingInstallTask(task);
       defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
         traceId,
@@ -879,6 +972,7 @@ class ServicePendingInstallTask {
         });
         return;
       }
+      if (!(await isCurrentTarget())) return;
       await setPendingInstallTask({
         ...task,
         retryCount: existing.retryCount,
@@ -916,6 +1010,7 @@ class ServicePendingInstallTask {
       return;
     }
 
+    if (!(await isCurrentTarget())) return;
     await setPendingInstallTask(task);
     defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
       traceId,
@@ -1182,13 +1277,7 @@ class ServicePendingInstallTask {
     }
 
     if (!signature || signature === PLACEHOLDER_SIGNATURE) {
-      const skipAllowed = await Promise.resolve(
-        (
-          BundleUpdate as {
-            isSkipGpgVerificationAllowed?: () => boolean | Promise<boolean>;
-          }
-        ).isSkipGpgVerificationAllowed?.(),
-      ).catch(() => false);
+      const skipAllowed = await this.isUnsignedBundleAllowed();
       if (!skipAllowed) {
         throw createUpdateError({
           code: EUpdateErrorCode.integrityFailed,

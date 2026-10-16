@@ -137,6 +137,7 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => ({
     getNativeBuildNumber: jest.fn(async () => ''),
     getBuiltinBundleVersion: jest.fn(async () => ''),
     getJsBundlePath: jest.fn(async () => ''),
+    isSkipGpgVerificationAllowed: jest.fn(async () => false),
   },
 }));
 
@@ -286,7 +287,7 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
       jsBundle: {
         downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         fileSize: 1024,
-        sha256: 'sha256-2',
+        sha256: 'a'.repeat(64),
         signature: 'sig-2',
       },
       downloadedEvent: {
@@ -294,7 +295,7 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
         bundleVersion: '2',
         downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         signature: 'sig-2',
-        sha256: 'sha256-2',
+        sha256: 'a'.repeat(64),
       },
       ...overrides,
     } as any);
@@ -322,7 +323,7 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
       jsBundle: {
         downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         fileSize: 1024,
-        sha256: 'sha256-2',
+        sha256: 'a'.repeat(64),
         signature: 'sig-2',
       },
     });
@@ -353,6 +354,25 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
     });
   });
 
+  test('readyToInstall keeps a verified bundle ready when its signed download URL rotates', async () => {
+    setReadyState({
+      jsBundle: {
+        downloadUrl: 'https://cdn.onekey.so/re-signed-bundle-v2.zip',
+        fileSize: 1024,
+        sha256: 'a'.repeat(64),
+        signature: 'sig-2',
+      },
+    });
+
+    await service.readyToInstall();
+
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.ready);
+    expect(pendingTaskValue).toMatchObject({
+      type: 'jsbundle-switch',
+      targetBundleVersion: '2',
+    });
+  });
+
   test('readyToInstall creates appshell pending task for seamless app update', async () => {
     setReadyState({
       latestVersion: '2.0.0',
@@ -376,6 +396,35 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
         downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
       },
     });
+  });
+
+  test('native app-shell pending task keeps the verified URL after a feed re-sign', async () => {
+    const env = require('@onekeyhq/shared/src/platformEnv').default;
+    const previous = env.isDesktop;
+    env.isDesktop = false;
+    try {
+      setReadyState({
+        latestVersion: '2.0.0',
+        jsBundleVersion: '1',
+        downloadUrl: 'https://cdn.onekey.so/new-app-2.0.0.apk',
+        downloadedEvent: {
+          latestVersion: '2.0.0',
+          downloadUrl: 'https://cdn.onekey.so/verified-app-2.0.0.apk',
+        },
+      });
+
+      await service.readyToInstall();
+
+      expect(appUpdateState.status).toBe(EAppUpdateStatus.ready);
+      expect(pendingTaskValue).toMatchObject({
+        type: 'app-install',
+        payload: {
+          downloadUrl: 'https://cdn.onekey.so/verified-app-2.0.0.apk',
+        },
+      });
+    } finally {
+      env.isDesktop = previous;
+    }
   });
 
   test('readyToInstall publishes ready only after the pending task is durable', async () => {
@@ -438,7 +487,7 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
       jsBundle: {
         downloadUrl: 'https://cdn.onekey.so/bundle-v3.zip',
         fileSize: 1024,
-        sha256: 'sha256-3',
+        sha256: 'b'.repeat(64),
         signature: 'sig-3',
       },
       downloadedEvent: {
@@ -446,7 +495,7 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
         bundleVersion: '3',
         downloadUrl: 'https://cdn.onekey.so/bundle-v3.zip',
         signature: 'sig-3',
-        sha256: 'sha256-3',
+        sha256: 'b'.repeat(64),
       },
     });
 
@@ -480,7 +529,7 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
         bundleVersion: '2',
         downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         signature: 'sig-2',
-        sha256: 'sha256-2',
+        sha256: 'a'.repeat(64),
       },
     } as any);
 
@@ -992,7 +1041,7 @@ describe('syncPendingInstallTaskWithReleaseInfo', () => {
       jsBundle: {
         downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         fileSize: 1024,
-        sha256: 'sha256-2',
+        sha256: 'a'.repeat(64),
         signature: 'sig-2',
       },
       downloadedEvent: {
@@ -1000,7 +1049,7 @@ describe('syncPendingInstallTaskWithReleaseInfo', () => {
         bundleVersion: '2',
         downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
         signature: 'sig-2',
-        sha256: 'sha256-2',
+        sha256: 'a'.repeat(64),
       },
       ...overrides,
     } as any);
@@ -1387,11 +1436,47 @@ describe('executeBundleSwitchTask rollback to builtin', () => {
         latestVersion: '1.0.0',
         bundleVersion: '2',
         downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+        sha256: 'a'.repeat(64),
       },
     } as any);
 
     await service.readyToInstall();
 
     expect(pendingTaskValue).toBeUndefined();
+  });
+
+  test('readyToInstall allows a placeholder only with persisted QA skip enabled', async () => {
+    const {
+      BundleUpdate,
+    } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    BundleUpdate.isSkipGpgVerificationAllowed.mockResolvedValue(true);
+    service.backgroundApi.serviceDevSetting = {
+      getDevSetting: jest.fn(async () => ({ enabled: true })),
+      getSkipBundleGPGVerification: jest.fn(async () => true),
+    };
+    resetAppUpdateState({
+      status: EAppUpdateStatus.verifyPackage,
+      updateStrategy: EUpdateStrategy.seamless,
+      latestVersion: '1.0.0',
+      jsBundleVersion: '2',
+      jsBundle: {
+        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+        fileSize: 1024,
+        sha256: 'a'.repeat(64),
+      },
+      downloadedEvent: {
+        latestVersion: '1.0.0',
+        bundleVersion: '2',
+        downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+        sha256: 'a'.repeat(64),
+      },
+    } as any);
+
+    await service.readyToInstall();
+
+    expect(pendingTaskValue).toMatchObject({
+      type: 'jsbundle-switch',
+      payload: { signature: 'dev-no-signature' },
+    });
   });
 });

@@ -35,8 +35,11 @@ export class JsBridgeDesktopApiOfMain extends JsBridgeBase {
         globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
       if (
         !mainWindow ||
-        event.sender.id !== mainWindow.webContents.id ||
-        event.senderFrame !== event.sender.mainFrame
+        !globalThis.$desktopMainAppFunctions?.isTrustedMainWindowSender?.(
+          event.sender.id,
+          event.senderFrame,
+          event.sender.mainFrame,
+        )
       )
         return;
       const responsePayload = payload as IJsBridgeMessagePayload;

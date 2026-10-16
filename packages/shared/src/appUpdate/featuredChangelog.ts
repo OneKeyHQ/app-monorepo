@@ -166,9 +166,9 @@ export function normalizeFeaturedChangelog(
   }
 
   const features = src.features
-    .slice(0, 10)
     .map((f) => normalizeFeaturedItem(f))
-    .filter((f): f is IFeaturedItem => f !== undefined);
+    .filter((f): f is IFeaturedItem => f !== undefined)
+    .slice(0, 10);
 
   if (features.length === 0) return undefined;
 

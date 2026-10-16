@@ -377,6 +377,39 @@ export const clearMmkvRecoveryKeys = () => {
   mmkvAppSettingStore.delete('last_valid_local_time');
 };
 
+export const revokePendingSwitchForFailedBundle = (
+  appVersion: string,
+  bundleVersion: string,
+): boolean => {
+  try {
+    const taskJson = mmkvAppSettingStore.get('onekey_pending_install_task');
+    if (typeof taskJson !== 'string') return false;
+    const task = JSON.parse(taskJson) as {
+      status?: string;
+      type?: string;
+      action?: string;
+      targetAppVersion?: string;
+      targetBundleVersion?: string;
+      payload?: { appVersion?: string; bundleVersion?: string };
+    };
+    if (
+      task.status !== 'pending' ||
+      task.type !== 'jsbundle-switch' ||
+      task.action !== 'switch-bundle' ||
+      task.targetAppVersion !== appVersion ||
+      task.targetBundleVersion !== bundleVersion ||
+      task.payload?.appVersion !== appVersion ||
+      task.payload?.bundleVersion !== bundleVersion
+    ) {
+      return false;
+    }
+    mmkvAppSettingStore.delete('onekey_pending_install_task');
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 /**
  * Checks MMKV for a pending bundle-switch task and applies it before JS bundle loads.
  * Only handles the happy path (status=pending, bundle exists, env matches).

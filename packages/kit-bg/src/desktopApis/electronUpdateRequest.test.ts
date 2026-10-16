@@ -167,6 +167,7 @@ test('times out a response body that stalls after delivering its first chunk', a
 
 test.each([
   ['net::ERR_NAME_NOT_RESOLVED', EUpdateErrorCode.networkError],
+  ['net::ERR_CONNECTION_CLOSED', EUpdateErrorCode.networkError],
   ['net::ERR_TIMED_OUT', EUpdateErrorCode.timeout],
   ['net::ERR_CERT_AUTHORITY_INVALID', EUpdateErrorCode.securityRejected],
   ['net::ERR_NOT_CLASSIFIED', EUpdateErrorCode.unknown],

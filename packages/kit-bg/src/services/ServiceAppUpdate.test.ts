@@ -389,7 +389,7 @@ describe('ServiceAppUpdate state transitions', () => {
     test('readyToInstall rejects missing or stale release identity', async () => {
       resetAtom({ status: EAppUpdateStatus.verifyPackage });
       await service.readyToInstall();
-      expect(atomValue.status).toBe(EAppUpdateStatus.verifyPackage);
+      expect(atomValue.status).toBe(EAppUpdateStatus.notify);
 
       resetAtom({
         status: EAppUpdateStatus.verifyPackage,
@@ -400,11 +400,12 @@ describe('ServiceAppUpdate state transitions', () => {
         },
       });
       await service.readyToInstall();
-      expect(atomValue.status).toBe(EAppUpdateStatus.verifyPackage);
+      expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+      expect(atomValue.downloadedEvent).toBeUndefined();
     });
 
     test.each([true, false])(
-      'readyToInstall accepts an artifact URL differing from feed URL on desktop only (isDesktop=%s)',
+      'readyToInstall accepts a signed artifact URL differing from feed URL (isDesktop=%s)',
       async (isDesktop) => {
         const env = require('@onekeyhq/shared/src/platformEnv').default;
         const previous = env.isDesktop;
@@ -420,14 +421,88 @@ describe('ServiceAppUpdate state transitions', () => {
             },
           });
           await service.readyToInstall();
-          expect(atomValue.status).toBe(
-            isDesktop ? EAppUpdateStatus.ready : EAppUpdateStatus.verifyPackage,
-          );
+          expect(atomValue.status).toBe(EAppUpdateStatus.ready);
         } finally {
           env.isDesktop = previous;
         }
       },
     );
+
+    test('readyToInstall does not publish an old bundle after its release hash changes while scheduling', async () => {
+      resetAtom({
+        status: EAppUpdateStatus.verifyPackage,
+        latestVersion: '1.0.0',
+        jsBundleVersion: '2',
+        updateStrategy: EUpdateStrategy.seamless,
+        jsBundle: {
+          downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+          fileSize: 1024,
+          sha256: 'a'.repeat(64),
+          signature: 'sig-2',
+        },
+        downloadedEvent: {
+          latestVersion: '1.0.0',
+          bundleVersion: '2',
+          downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+          sha256: 'a'.repeat(64),
+        },
+      });
+      let started!: () => void;
+      let finish!: () => void;
+      const schedulingStarted = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      const schedulingHeld = new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      jest
+        .spyOn(
+          service.backgroundApi.servicePendingInstallTask,
+          'syncPendingInstallTaskWithReleaseInfo',
+        )
+        .mockImplementationOnce(async () => {
+          started();
+          await schedulingHeld;
+        });
+
+      const ready = service.readyToInstall();
+      await schedulingStarted;
+      atomValue = {
+        ...atomValue,
+        jsBundle: { ...atomValue.jsBundle!, sha256: 'b'.repeat(64) },
+      };
+      finish();
+      await ready;
+
+      expect(atomValue.status).toBe(EAppUpdateStatus.verifyPackage);
+      expect(atomValue.jsBundle?.sha256).toBe('b'.repeat(64));
+    });
+
+    test('readyToInstall clears a downloaded bundle with a different release hash', async () => {
+      resetAtom({
+        status: EAppUpdateStatus.verifyPackage,
+        latestVersion: '1.0.0',
+        jsBundleVersion: '2',
+        updateStrategy: EUpdateStrategy.seamless,
+        jsBundle: {
+          downloadUrl: 'https://cdn.onekey.so/bundle-v2.zip',
+          fileSize: 1024,
+          sha256: 'b'.repeat(64),
+          signature: 'sig-2',
+        },
+        downloadedEvent: {
+          latestVersion: '1.0.0',
+          bundleVersion: '2',
+          downloadUrl: 'https://cdn.onekey.so/old-bundle-v2.zip',
+          sha256: 'a'.repeat(64),
+        },
+      });
+
+      await service.readyToInstall();
+
+      expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+      expect(atomValue.downloadedEvent).toBeUndefined();
+    });
 
     test('full happy path: notify → downloadPackage → downloadASC → verifyASC → verifyPackage → ready', async () => {
       resetAtom({
@@ -2183,6 +2258,28 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(atomValue.latestVersion).toBe('2.0.0');
     });
 
+    test('does not overwrite an in-flight package for a different forced target', async () => {
+      resetAtom({
+        status: EAppUpdateStatus.downloadPackage,
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.dmg',
+        updateAt: 0,
+      });
+      mockLatestInfo({
+        version: '3.0.0',
+        downloadUrl: 'https://cdn.onekey.so/app-3.0.0.dmg',
+        updateStrategy: EUpdateStrategy.force,
+      });
+      jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+      jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
+
+      await service.fetchAppUpdateInfo(true);
+
+      expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
+      expect(atomValue.latestVersion).toBe('2.0.0');
+      expect(atomValue.downloadUrl).toBe('https://cdn.onekey.so/app-2.0.0.dmg');
+    });
+
     test('preempts ready state to notify and clears downloadedEvent when server returns a different target', async () => {
       resetAtom({
         status: EAppUpdateStatus.ready,
@@ -3041,7 +3138,7 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(result).toBe(true);
     });
 
-    test('metadata is updated during downloadPackage without changing status', async () => {
+    test('force metadata does not replace an in-flight package target', async () => {
       function mockLatestInfo(info: any) {
         jest.spyOn(service, 'getAppLatestInfo').mockResolvedValue(info);
       }
@@ -3061,11 +3158,8 @@ describe('ServiceAppUpdate state transitions', () => {
 
       await service.fetchAppUpdateInfo(true);
 
-      // Status preserved — download continues
       expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
-      // But latest info is silently updated for later use
-      expect(atomValue.latestVersion).toBe('999.0.0');
-      expect(atomValue.updateStrategy).toBe(EUpdateStrategy.force);
+      expect(atomValue.latestVersion).toBe('998.0.0');
     });
   });
 

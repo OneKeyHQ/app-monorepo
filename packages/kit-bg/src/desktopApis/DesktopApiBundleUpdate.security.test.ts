@@ -30,6 +30,8 @@ let mockUserData: string;
 const mockStore = {
   getUpdateBundleData: jest.fn<unknown, []>(),
   getFallbackUpdateBundleData: jest.fn<unknown, []>(),
+  getDevSettingsEnabled: jest.fn(() => false),
+  getSkipGPGVerification: jest.fn(() => false),
   setUpdateBundleData: jest.fn(),
   setFallbackUpdateBundleData: jest.fn(),
   setNativeVersion: jest.fn(),
@@ -53,6 +55,8 @@ jest.mock('electron-log/main', () => ({
 jest.mock('@onekeyhq/desktop/app/libs/store', () => ({
   getUpdateBundleData: () => mockStore.getUpdateBundleData(),
   getFallbackUpdateBundleData: () => mockStore.getFallbackUpdateBundleData(),
+  getDevSettingsEnabled: () => mockStore.getDevSettingsEnabled(),
+  getSkipGPGVerification: () => mockStore.getSkipGPGVerification(),
   setUpdateBundleData: (value: unknown) => {
     mockStore.setUpdateBundleData(value);
   },
@@ -171,6 +175,8 @@ beforeEach(() => {
   fs.writeFileSync(sentinel, 'untouched');
   mockStore.getUpdateBundleData.mockReturnValue(undefined);
   mockStore.getFallbackUpdateBundleData.mockReturnValue([]);
+  mockStore.getDevSettingsEnabled.mockReturnValue(false);
+  mockStore.getSkipGPGVerification.mockReturnValue(false);
   api = new DesktopApiBundleUpdate({ desktopApi: {} as IDesktopApi });
   restartSpy = jest.spyOn(api, 'restartAppForBundleUpdate').mockResolvedValue();
 });
@@ -330,6 +336,36 @@ test('rejects a managed ZIP symlink escaping the download root', async () => {
   expect(fs.existsSync(path.join(mockUserData, 'onekey-bundle'))).toBe(false);
 });
 
+test('request skip flag cannot authorize unsigned bundle verification', async () => {
+  const previous = process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+  process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION = 'true';
+  const params = {
+    latestVersion: '6.6.0',
+    bundleVersion: '123',
+    sha256: 'a'.repeat(64),
+    skipGPGVerification: true,
+  };
+  try {
+    await expectUpdateError(api.downloadBundleASC(params), {
+      code: EUpdateErrorCode.invalidArgument,
+      step: 'downloadASC',
+    });
+    mockStore.getDevSettingsEnabled.mockReturnValue(true);
+    await expectUpdateError(api.downloadBundleASC(params), {
+      code: EUpdateErrorCode.invalidArgument,
+      step: 'downloadASC',
+    });
+    mockStore.getSkipGPGVerification.mockReturnValue(true);
+    await expect(api.downloadBundleASC(params)).resolves.toBeUndefined();
+  } finally {
+    if (previous === undefined) {
+      delete process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
+    } else {
+      process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION = previous;
+    }
+  }
+});
+
 test.each([false, true])(
   'rejects an extracted destination symlink without touching its target (installed=%s)',
   async (installed) => {
@@ -343,6 +379,8 @@ test.each([false, true])(
     if (installed) mockStore.getUpdateBundleData.mockReturnValue(identity);
     const previous = process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
     process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION = 'true';
+    mockStore.getDevSettingsEnabled.mockReturnValue(true);
+    mockStore.getSkipGPGVerification.mockReturnValue(true);
     try {
       await expectUpdateError(
         api.verifyBundleASC({
@@ -383,6 +421,8 @@ test('replaces an inactive extraction directory before writing through a ZIP chi
 
   const previous = process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION;
   process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION = 'true';
+  mockStore.getDevSettingsEnabled.mockReturnValue(true);
+  mockStore.getSkipGPGVerification.mockReturnValue(true);
   try {
     await expect(
       api.verifyBundleASC({
@@ -536,7 +576,7 @@ test('keeps legal fallbacks and omits a poisoned active pointer during installat
   expect(fs.readFileSync(sentinel, 'utf8')).toBe('untouched');
 });
 
-test('passes URL-independent identity to downloadNodeFile and binds single-flight deduplication to sha256', async () => {
+test('uses URL-independent identity and prevents different hashes from writing one destination', async () => {
   const shaFixed = 'a'.repeat(64);
   const shaA = 'b'.repeat(64);
   const shaB = 'c'.repeat(64);
@@ -572,7 +612,7 @@ test('passes URL-independent identity to downloadNodeFile and binds single-fligh
     `bundle:6.6.0:123:${shaFixed}`,
   );
 
-  // Concurrent calls with different sha256 must not piggyback on the same in-flight promise
+  // A different hash cannot start a second writer against the same ZIP.
   let resolveFirst!: () => void;
   mockDownload.mockImplementationOnce(
     async (opts: { targetPath: string }) =>
@@ -593,15 +633,25 @@ test('passes URL-independent identity to downloadNodeFile and binds single-fligh
     downloadUrl: 'https://fixture.test/bundle',
     sha256: shaA,
   });
-  const differentHashRun = api.downloadBundle({
+  await expectUpdateError(
+    api.downloadBundle({
+      latestVersion: '6.6.0',
+      bundleVersion: '123',
+      downloadUrl: 'https://fixture.test/bundle',
+      sha256: shaB,
+    }),
+    { code: EUpdateErrorCode.incompatible, step: 'download' },
+  );
+  expect(mockDownload).toHaveBeenCalledTimes(3);
+  resolveFirst();
+  await Promise.all([firstRun, sameHashRun]);
+  await api.downloadBundle({
     latestVersion: '6.6.0',
     bundleVersion: '123',
     downloadUrl: 'https://fixture.test/bundle',
     sha256: shaB,
   });
-  resolveFirst();
-  await Promise.all([firstRun, sameHashRun, differentHashRun]);
-  // 2 from sequential calls + 1 for shaA + 1 for shaB = 4 calls total
+  // The new hash can start after the prior writer settles.
   expect(mockDownload).toHaveBeenCalledTimes(4);
 });
 
@@ -621,32 +671,36 @@ test('verifyBundleASC rejects zip bombs exceeding entry count or uncompressed by
   const dummyZip = new AdmZip();
   dummyZip.addFile('metadata.json', Buffer.from('{}'));
   dummyZip.writeZip(destZip);
+  const originalZip = fs.readFileSync(destZip);
   const zipSha256 = crypto
     .createHash('sha256')
-    .update(fs.readFileSync(destZip))
+    .update(originalZip)
     .digest('hex');
 
   mockExtractAllToSpy.mockClear();
 
-  // 1. Entry count > MAX_BUNDLE_ENTRY_COUNT
-  mockGetEntriesOverride.mockReturnValueOnce(
-    new Array(MAX_BUNDLE_ENTRY_COUNT + 1).fill({
-      entryName: 'build/file.js',
-      isDirectory: false,
-      header: { size: 1, compressedSize: 1 },
-    }) as unknown as AdmZip.IZipEntry[],
+  // 1. Reject an oversized central-directory count before getEntries allocates.
+  const oversizedZip = Buffer.from(originalZip);
+  const eocdOffset = oversizedZip.lastIndexOf(
+    Buffer.from([0x50, 0x4b, 0x05, 0x06]),
   );
+  expect(eocdOffset).toBeGreaterThanOrEqual(0);
+  oversizedZip.writeUInt16LE(MAX_BUNDLE_ENTRY_COUNT + 1, eocdOffset + 8);
+  oversizedZip.writeUInt16LE(MAX_BUNDLE_ENTRY_COUNT + 1, eocdOffset + 10);
+  fs.writeFileSync(destZip, oversizedZip);
   await expectUpdateError(
     api.verifyBundleASC({
       latestVersion: appVersion,
       bundleVersion,
-      sha256: zipSha256,
+      sha256: crypto.createHash('sha256').update(oversizedZip).digest('hex'),
       signature: TEST_SIGNATURE,
     }),
     { code: EUpdateErrorCode.securityRejected, step: 'verifyASC' },
   );
+  expect(mockGetEntriesOverride).not.toHaveBeenCalled();
   expect(mockExtractAllToSpy).not.toHaveBeenCalled();
   expect(fs.existsSync(inactiveDir)).toBe(false);
+  fs.writeFileSync(destZip, originalZip);
 
   // 2. Single entry size > MAX_BUNDLE_UNCOMPRESSED_BYTES
   mockGetEntriesOverride.mockReturnValueOnce([
@@ -692,7 +746,7 @@ test('verifyBundleASC rejects zip bombs exceeding entry count or uncompressed by
   );
   expect(mockExtractAllToSpy).not.toHaveBeenCalled();
 
-  // 4. Zero header.size with non-empty compressedSize > 2 (adm-zip maxOutputLength bypass)
+  // 4. Zero header.size with a non-empty deflate payload bypasses adm-zip's cap.
   mockGetEntriesOverride.mockReturnValueOnce([
     {
       entryName: 'metadata.json',
@@ -702,7 +756,8 @@ test('verifyBundleASC rejects zip bombs exceeding entry count or uncompressed by
     {
       entryName: 'build/bomb.js',
       isDirectory: false,
-      header: { size: 0, compressedSize: 1024 },
+      header: { size: 0, compressedSize: 2, method: 8 },
+      getCompressedData: () => Buffer.from([0x00, 0x00]),
     },
   ] as unknown as AdmZip.IZipEntry[]);
   await expectUpdateError(

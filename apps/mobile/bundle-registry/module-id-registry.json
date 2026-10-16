@@ -25102,6 +25102,7 @@
     "packages/shared/src/modules3rdParty/appRestart/index.native.ts": 24547,
     "packages/shared/src/modules3rdParty/appRestart/types.ts": 10681,
     "packages/shared/src/modules3rdParty/auto-update/electronUpdateListeners.ts": 1550,
+    "packages/shared/src/modules3rdParty/auto-update/error.ts": 18178,
     "packages/shared/src/modules3rdParty/auto-update/index.native.ts": 15281,
     "packages/shared/src/modules3rdParty/auto-update/type.ts": 10591,
     "packages/shared/src/modules3rdParty/auto-update/useJsBundle.native.ts": 15416,

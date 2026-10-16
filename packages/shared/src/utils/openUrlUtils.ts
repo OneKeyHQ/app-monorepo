@@ -127,16 +127,24 @@ const BLOCKED_EXTERNAL_SCHEMES = new Set([
 ]);
 
 export const isBlockedExternalScheme = (url: string): boolean => {
-  const match = url.trim().match(/^([a-zA-Z][a-zA-Z0-9+.-]*):/);
-  if (!match) {
+  try {
+    return BLOCKED_EXTERNAL_SCHEMES.has(
+      new URL(url.trim()).protocol.slice(0, -1),
+    );
+  } catch {
     return false;
   }
-  return BLOCKED_EXTERNAL_SCHEMES.has(match[1].toLowerCase());
 };
 
 const openUrlOutsideNative = (url: string): void => {
   const trimmedUrl = url.trim();
-  if (!trimmedUrl || isBlockedExternalScheme(trimmedUrl)) {
+  let protocol: string;
+  try {
+    protocol = new URL(trimmedUrl).protocol;
+  } catch {
+    return;
+  }
+  if (protocol !== 'http:' && protocol !== 'https:') {
     return;
   }
   if (platformEnv.isExtension) {
@@ -350,7 +358,14 @@ export const handleOneKeyStoreLink = (
     return false;
   }
   if (isTopFrame) {
-    openUrlExternal(handoffUrl, { useSystemBrowser: true });
+    if (
+      platformEnv.isDesktopMac &&
+      handoffUrl === MAC_APP_STORE_DOWNLOAD_LINK
+    ) {
+      window.open(MAC_APP_STORE_DOWNLOAD_LINK, '_blank');
+    } else {
+      openUrlExternal(handoffUrl, { useSystemBrowser: true });
+    }
   }
   return true;
 };

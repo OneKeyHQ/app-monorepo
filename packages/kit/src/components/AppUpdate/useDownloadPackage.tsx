@@ -16,7 +16,6 @@ import {
   EAppUpdateStatus,
   EUpdateFileType,
   getUpdateFileType,
-  isAutoUpdateStrategy,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
   EAppEventBusNames,
@@ -56,8 +55,6 @@ import { DownloadGaveUpError, runDownloadWithRetry } from './updateRetry';
 import { isShowToastError } from './updateStrategy';
 
 const MIN_EXECUTION_DURATION = 3000; // 3 seconds minimum execution time
-const PACKAGE_RECOVERY_RETRY_KEY_PREFIX = 'app-shell-package-recovery:';
-const MAX_FULL_FLOW_RETRY = 3;
 
 function getFailure(error: unknown, step: TUpdateErrorStep): IUpdateErrorDTO {
   return getUpdateError(error, step);
@@ -116,30 +113,11 @@ export const useDownloadPackage = () => {
               ? { forceMissing: true, allowJsBundle: true }
               : undefined,
           );
-        let recoveredStatus =
+        const recoveredStatus =
           info?.status === EAppUpdateStatus.updateIncomplete ||
-          info?.status === EAppUpdateStatus.notify ||
-          info?.status === EAppUpdateStatus.downloadPackage
+          info?.status === EAppUpdateStatus.notify
             ? info.status
             : undefined;
-        if (!recoveredStatus && isNativeMissingFile) {
-          const currentInfo =
-            await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
-          const isAuto = isAutoUpdateStrategy(currentInfo?.updateStrategy);
-          const targetKey = `${currentInfo?.latestVersion ?? ''}:${
-            currentInfo?.jsBundleVersion ||
-            String(platformEnv.bundleVersion || '')
-          }`;
-          const retryKey = `${PACKAGE_RECOVERY_RETRY_KEY_PREFIX}${targetKey}`;
-          const retryCount =
-            (currentInfo?.fullFlowRetryByTarget?.[retryKey]?.count ?? 0) + 1;
-          if (isAuto && retryCount <= MAX_FULL_FLOW_RETRY) {
-            recoveredStatus = EAppUpdateStatus.notify;
-          } else {
-            await backgroundApiProxy.serviceAppUpdate.resetToInComplete();
-            recoveredStatus = EAppUpdateStatus.updateIncomplete;
-          }
-        }
         if (
           showIncompleteDialog &&
           recoveredStatus === EAppUpdateStatus.updateIncomplete
