@@ -16,7 +16,7 @@ describe('getChartPriceFormatBase', () => {
     // Ticks from $1 up print cents only, so a finer step would repeat $1.00.
     expect(getChartPriceFormatBase([0.998, 1.003])).toBe(100);
     expect(getChartPriceFormatBase([0.012, 2])).toBe(100);
-    expect(getChartPriceFormatBase([0.999_9, 1])).toBe(100);
+    expect(getChartPriceFormatBase([0.9999, 1])).toBe(100);
   });
 
   it('ignores zero, negative sign and non-finite values', () => {
