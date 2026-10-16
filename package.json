@@ -15,6 +15,7 @@
     "skills:sync": "node development/scripts/skillshare/install.js",
     "postinstall": "node development/scripts/postinstall.js",
     "copy:inject": "node development/scripts/copy-injected.js",
+    "fonts:sync": "node development/scripts/fonts-sync.js",
     "app:desktop": "yarn workspace @onekeyhq/desktop start",
     "app:desktop:web": "yarn workspace @onekeyhq/desktop dev:renderer",
     "app:desktop:electron": "yarn workspace @onekeyhq/desktop build:main:dev && yarn workspace @onekeyhq/desktop dev:main",

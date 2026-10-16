@@ -70,6 +70,12 @@ jest.mock('react-native', () => ({
 }));
 
 jest.mock('@onekeyhq/components', () => ({
+  BRAND_FONT_NATIVE_FAMILY: {
+    regular: 'Inter-Regular',
+    medium: 'Inter-Medium',
+    semibold: 'Inter-SemiBold',
+    bold: 'Inter-Bold',
+  },
   DashText: () => <span>--</span>,
   DebugRenderTracker: ({ children }: { children?: ReactNode }) => (
     <>{children}</>

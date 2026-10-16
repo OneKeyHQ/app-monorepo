@@ -29,6 +29,7 @@ import {
   useThemeName,
 } from '@onekeyhq/components';
 import type { ITabContainerRef } from '@onekeyhq/components';
+import { BRAND_FONT_NATIVE_FAMILY } from '@onekeyhq/components/src/hocs/Provider/fonts/brandFont';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
@@ -447,7 +448,7 @@ function MobileLayoutComponent({
               contentPaddingHorizontal: 12,
               itemSpacing: 8,
               fontSize: 16,
-              fontFamily: 'Roobert-Medium',
+              fontFamily: BRAND_FONT_NATIVE_FAMILY.medium,
               backgroundColor: scrollEdgeEnabled
                 ? 'transparent'
                 : theme.bgApp.val,
