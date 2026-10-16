@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
-  "version": "44.0.1",
-  "sourceCommit": "dd0d77af34014934a4be5e86950e45607b0c0e2e",
-  "manifestSha256": "943873a898b5ab535ff34cd32914ce70cbe8cd09dea6e7a75b5a218a46de8d7a"
+  "version": "44.0.2-alpha.1",
+  "sourceCommit": "387d657b26089d27b3aace7f3cecc119e187811b",
+  "sourceRef": "refs/heads/codex/desktop-win-npm-release",
+  "manifestSha256": "fdbe339b2c333439b7f129d2d425c2c8c1a2b53122b5577f3509f81d98fa8354"
 }

@@ -1,14 +1,14 @@
 import { EventEmitter } from 'events';
 
-import { utilityProcess } from 'electron';
-import Logger from 'electron-log/main';
 import {
   Availability,
   VerificationResult,
   allowSetForegroundWindow,
   checkAvailability,
   requestVerification,
-} from 'electron-windows-hello';
+} from '@onekeyfe/electron-windows-hello';
+import { utilityProcess } from 'electron';
+import Logger from 'electron-log/main';
 
 import { BIOLOGY_AUTH_ABORTED_ERROR } from '@onekeyhq/shared/types/password';
 
@@ -19,7 +19,7 @@ jest.mock('electron-log/main', () => ({
   __esModule: true,
   default: { info: jest.fn() },
 }));
-jest.mock('electron-windows-hello', () => ({
+jest.mock('@onekeyfe/electron-windows-hello', () => ({
   Availability: { Available: 'available' },
   VerificationResult: { Verified: 'verified', Canceled: 'canceled' },
   allowSetForegroundWindow: jest.fn(),
@@ -513,7 +513,7 @@ describe('non-Windows service initialization', () => {
   let service: typeof import('../service');
 
   afterEach(() => {
-    jest.dontMock('electron-windows-hello');
+    jest.dontMock('@onekeyfe/electron-windows-hello');
     jest.resetModules();
     if (platformDescriptor) {
       Object.defineProperty(process, 'platform', platformDescriptor);
@@ -526,7 +526,7 @@ describe('non-Windows service initialization', () => {
       jest.resetModules();
       Object.defineProperty(process, 'platform', { value: platform });
       const loadHello = jest.fn(() => ({}));
-      jest.doMock('electron-windows-hello', loadHello);
+      jest.doMock('@onekeyfe/electron-windows-hello', loadHello);
       jest.isolateModules(() => {
         service = jest.requireActual('../service');
         jest

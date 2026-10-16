@@ -4,23 +4,55 @@ const assert = require('node:assert/strict');
 const { execFileSync } = require('node:child_process');
 const { createHash } = require('node:crypto');
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
 
 const repository = 'OneKeyHQ/app-modules';
 const workflow = `${repository}/.github/workflows/desktop-win-release.yml`;
 const versionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
+const releaseVersionPattern =
+  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-alpha\.[1-9]\d*)?$/;
 const digestPattern = /^[a-f0-9]{64}$/;
 const commitPattern = /^[a-f0-9]{40}$/;
+const proofFiles = ['desktop-win.json', 'desktop-win.sigstore.json'];
 
 function sha256(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
+function validateSourceRef(sourceRef) {
+  if (
+    typeof sourceRef !== 'string' ||
+    !/^refs\/heads\/[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(sourceRef) ||
+    sourceRef.includes('..') ||
+    sourceRef
+      .slice('refs/heads/'.length)
+      .split('/')
+      .some(
+        (part) =>
+          !part ||
+          part.startsWith('.') ||
+          part.endsWith('.') ||
+          part.endsWith('.lock'),
+      )
+  )
+    assert.fail('Invalid source branch ref');
+  return sourceRef;
+}
+
+function releaseChannel(version, sourceRef) {
+  validateSourceRef(sourceRef);
+  if (!releaseVersionPattern.test(version))
+    assert.fail('Invalid desktop release version');
+  if (version.includes('-alpha.')) return 'next';
+  if (sourceRef !== 'refs/heads/main')
+    assert.fail('Stable npm releases require main');
+  return 'latest';
+}
+
 function validateBaseline(baseline) {
   if (
     baseline.schemaVersion !== 1 ||
-    !versionPattern.test(baseline.version) ||
+    !releaseVersionPattern.test(baseline.version) ||
     !versionPattern.test(baseline.electronVersion) ||
     baseline.version.split('.')[0] !== baseline.electronVersion.split('.')[0] ||
     !versionPattern.test(baseline.rustToolchain) ||
@@ -38,25 +70,27 @@ function validateBaseline(baseline) {
 }
 
 function validatePin(pin) {
+  validateSourceRef(pin.sourceRef);
   if (
     pin.schemaVersion !== 1 ||
-    !versionPattern.test(pin.version) ||
+    !releaseVersionPattern.test(pin.version) ||
     !commitPattern.test(pin.sourceCommit) ||
     !digestPattern.test(pin.manifestSha256)
   ) {
     assert.fail('Invalid approved desktop release pin');
   }
+  releaseChannel(pin.version, pin.sourceRef);
   return pin;
 }
 
 function validateRelease(release) {
   validateBaseline(release.baseline);
+  validateSourceRef(release.sourceRef);
   if (
-    release.schemaVersion !== 1 ||
+    release.schemaVersion !== 2 ||
     release.repository !== repository ||
     release.workflow !== workflow ||
     !commitPattern.test(release.sourceCommit) ||
-    release.tag !== `desktop-win-v${release.baseline.version}` ||
     JSON.stringify(Object.keys(release.modules ?? {})) !==
       JSON.stringify(release.baseline.modules.win)
   ) {
@@ -74,8 +108,8 @@ function validateRelease(release) {
       `${name}.win32-arm64${nativeBinarySuffix}`,
     ].toSorted();
     if (
-      entry.asset !== `${name}-${release.baseline.version}.tgz` ||
-      !digestPattern.test(entry.sha256) ||
+      entry.packageName !== `@onekeyfe/${name}` ||
+      entry.asset !== `onekeyfe-${name}-${release.baseline.version}.tgz` ||
       JSON.stringify(Object.keys(entry.files ?? {}).toSorted()) !==
         JSON.stringify(expectedFiles) ||
       Object.values(entry.files).some((digest) => !digestPattern.test(digest))
@@ -86,8 +120,9 @@ function validateRelease(release) {
   return release;
 }
 
-function attestationArgs(file, sourceCommit, bundle) {
+function attestationArgs(file, sourceCommit, sourceRef, bundle) {
   if (!commitPattern.test(sourceCommit)) assert.fail('Invalid source commit');
+  validateSourceRef(sourceRef);
   return [
     'attestation',
     'verify',
@@ -101,14 +136,14 @@ function attestationArgs(file, sourceCommit, bundle) {
     '--signer-digest',
     sourceCommit,
     '--source-ref',
-    'refs/heads/main',
+    sourceRef,
     '--deny-self-hosted-runners',
     ...(bundle ? ['--bundle', bundle] : []),
   ];
 }
 
-function verifyAttestation(file, sourceCommit, bundle) {
-  execFileSync('gh', attestationArgs(file, sourceCommit, bundle), {
+function verifyAttestation(file, sourceCommit, sourceRef, bundle) {
+  execFileSync('gh', attestationArgs(file, sourceCommit, sourceRef, bundle), {
     stdio: 'inherit',
   });
 }
@@ -121,6 +156,7 @@ function readApprovedRelease(file, pin) {
   const release = validateRelease(JSON.parse(bytes));
   if (
     release.sourceCommit !== pin.sourceCommit ||
+    release.sourceRef !== pin.sourceRef ||
     release.baseline.version !== pin.version
   ) {
     assert.fail('Desktop manifest does not match the approved source/version');
@@ -128,12 +164,21 @@ function readApprovedRelease(file, pin) {
   return release;
 }
 
-function verifyRuntimeFiles(directory, files) {
+function verifyRuntimeFiles(directory, files, metadata = []) {
   const actual = fs.readdirSync(directory).toSorted();
   if (
-    JSON.stringify(actual) !== JSON.stringify(Object.keys(files).toSorted())
+    JSON.stringify(actual) !==
+    JSON.stringify([...Object.keys(files), ...metadata].toSorted())
   ) {
     assert.fail(`Unexpected or missing runtime files in ${directory}`);
+  }
+  for (const name of metadata) {
+    if (
+      path.basename(name) !== name ||
+      !fs.lstatSync(path.join(directory, name)).isFile()
+    ) {
+      assert.fail('Invalid runtime metadata file');
+    }
   }
   for (const [name, digest] of Object.entries(files)) {
     if (path.basename(name) !== name || !digestPattern.test(digest)) {
@@ -149,76 +194,55 @@ function verifyRuntimeFiles(directory, files) {
   }
 }
 
-async function download(url, destination) {
-  const response = await fetch(url, { signal: AbortSignal.timeout(90_000) });
-  if (!response.ok)
-    assert.fail(`Desktop release download failed: ${response.status}`);
-  const chunks = [];
-  let length = 0;
-  for await (const chunk of response.body) {
-    length += chunk.length;
-    if (length > 8 * 1024 * 1024)
-      assert.fail('Desktop release metadata exceeds size limit');
-    chunks.push(Buffer.from(chunk));
-  }
-  fs.writeFileSync(destination, Buffer.concat(chunks));
-}
-
-async function main() {
+function main() {
   if (process.platform !== 'win32') return;
   const desktopRoot = path.resolve(__dirname, '..');
   const pin = validatePin(
     JSON.parse(fs.readFileSync(path.join(desktopRoot, 'desktop-modules.json'))),
   );
-  const temporary = fs.mkdtempSync(
-    path.join(os.tmpdir(), 'onekey-desktop-verify-'),
+  const app = JSON.parse(
+    fs.readFileSync(path.join(desktopRoot, 'package.json')),
   );
-  try {
-    const url = `https://github.com/${repository}/releases/download/desktop-win-v${pin.version}`;
-    for (const name of ['desktop-win.json', 'desktop-win.sigstore.json']) {
-      await download(`${url}/${name}`, path.join(temporary, name));
+  const appDir = path.join(desktopRoot, 'app');
+  const runtimeManifest = JSON.parse(
+    fs.readFileSync(path.join(appDir, 'package.json')),
+  );
+  for (const name of ['electron-windows-hello']) {
+    const packageName = `@onekeyfe/${name}`;
+    if (
+      app.dependencies[packageName] !== pin.version ||
+      runtimeManifest.dependencies[packageName] !== pin.version
+    ) {
+      assert.fail(`Unpinned npm runtime dependency: ${packageName}`);
     }
-    const file = path.join(temporary, 'desktop-win.json');
+    const directory = path.join(appDir, 'node_modules', packageName);
+    const file = path.join(directory, 'desktop-win.json');
     const release = readApprovedRelease(file, pin);
-    verifyAttestation(
-      file,
-      pin.sourceCommit,
-      path.join(temporary, 'desktop-win.sigstore.json'),
-    );
-    const app = JSON.parse(
-      fs.readFileSync(path.join(desktopRoot, 'package.json')),
-    );
     if (app.devDependencies.electron !== release.baseline.electronVersion) {
       assert.fail(
         'Electron differs from the approved desktop validation baseline',
       );
     }
-    for (const [name, entry] of Object.entries(release.modules)) {
-      const expectedUrl = `https://github.com/${repository}/releases/download/${release.tag}/${entry.asset}`;
-      const appDir = path.join(desktopRoot, 'app');
-      const runtimeManifest = JSON.parse(
-        fs.readFileSync(path.join(appDir, 'package.json')),
-      );
-      if (
-        app.dependencies[name] !== expectedUrl ||
-        runtimeManifest.dependencies[name] !== expectedUrl
-      ) {
-        assert.fail(`Unpinned runtime dependency: ${name}`);
-      }
-      verifyRuntimeFiles(path.join(appDir, 'node_modules', name), entry.files);
-    }
-    console.log(
-      `Verified desktop Windows modules ${pin.version} from ${pin.sourceCommit}`,
+    verifyRuntimeFiles(directory, release.modules[name].files, proofFiles);
+    verifyAttestation(
+      file,
+      pin.sourceCommit,
+      pin.sourceRef,
+      path.join(directory, 'desktop-win.sigstore.json'),
     );
-  } finally {
-    fs.rmSync(temporary, { recursive: true, force: true });
   }
+  console.log(
+    `Verified desktop Windows npm modules ${pin.version} from ${pin.sourceCommit}`,
+  );
 }
 
 module.exports = {
   repository,
   workflow,
+  proofFiles,
   sha256,
+  validateSourceRef,
+  releaseChannel,
   validateBaseline,
   validatePin,
   validateRelease,
@@ -229,8 +253,10 @@ module.exports = {
 };
 
 if (require.main === module) {
-  main().catch((error) => {
+  try {
+    main();
+  } catch (error) {
     console.error(error.message);
     process.exitCode = 1;
-  });
+  }
 }

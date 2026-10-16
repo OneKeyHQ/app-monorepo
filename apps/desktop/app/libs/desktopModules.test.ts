@@ -31,23 +31,23 @@ describe('desktop module release verification', () => {
       ].map((file) => [file, policy.sha256(Buffer.from(file))]),
     );
     const release = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       repository: 'OneKeyHQ/app-modules',
       workflow:
         'OneKeyHQ/app-modules/.github/workflows/desktop-win-release.yml',
       sourceCommit,
-      tag: 'desktop-win-v44.0.1',
+      sourceRef: 'refs/heads/codex/desktop-win-npm-release',
       baseline: {
         schemaVersion: 1,
-        version: '44.0.1',
+        version: '44.0.2-alpha.1',
         electronVersion: '44.5.1',
         rustToolchain: '1.99.0',
         modules: { win: [name], mac: [], linux: [] },
       },
       modules: {
         [name]: {
-          asset: `${name}-44.0.1.tgz`,
-          sha256: 'b'.repeat(64),
+          packageName: `@onekeyfe/${name}`,
+          asset: `onekeyfe-${name}-44.0.2-alpha.1.tgz`,
           files,
         },
       },
@@ -57,8 +57,9 @@ describe('desktop module release verification', () => {
     fs.writeFileSync(manifest, bytes);
     const pin = {
       schemaVersion: 1,
-      version: '44.0.1',
+      version: '44.0.2-alpha.1',
       sourceCommit,
+      sourceRef: release.sourceRef,
       manifestSha256: policy.sha256(bytes),
     };
     return { release, manifest, pin };
@@ -74,7 +75,16 @@ describe('desktop module release verification', () => {
       });
     }).toThrow('approved source/version');
     expect(() => {
-      policy.readApprovedRelease(manifest, { ...pin, version: '44.0.2' });
+      policy.readApprovedRelease(manifest, {
+        ...pin,
+        version: '44.0.2-alpha.2',
+      });
+    }).toThrow('approved source/version');
+    expect(() => {
+      policy.readApprovedRelease(manifest, {
+        ...pin,
+        sourceRef: 'refs/heads/other',
+      });
     }).toThrow('approved source/version');
     fs.appendFileSync(manifest, '\n');
     expect(() => {
@@ -109,9 +119,12 @@ describe('desktop module release verification', () => {
     );
   });
 
-  it('requires proof from the pinned workflow, source, main ref and hosted runner', () => {
+  it('requires proof from the pinned workflow, commit, exact branch and hosted runner', () => {
     const sourceCommit = 'a'.repeat(40);
-    expect(policy.attestationArgs('artifact', sourceCommit, 'proof')).toEqual([
+    const sourceRef = 'refs/heads/codex/desktop-win-npm-release';
+    expect(
+      policy.attestationArgs('artifact', sourceCommit, sourceRef, 'proof'),
+    ).toEqual([
       'attestation',
       'verify',
       'artifact',
@@ -124,13 +137,38 @@ describe('desktop module release verification', () => {
       '--signer-digest',
       sourceCommit,
       '--source-ref',
-      'refs/heads/main',
+      sourceRef,
       '--deny-self-hosted-runners',
       '--bundle',
       'proof',
     ]);
     expect(() => {
-      policy.attestationArgs('artifact', 'main');
+      policy.attestationArgs('artifact', 'main', sourceRef);
     }).toThrow('source commit');
+    for (const invalid of ['main', 'refs/tags/latest', 'refs/heads/a..b']) {
+      expect(() => {
+        policy.attestationArgs('artifact', sourceCommit, invalid);
+      }).toThrow('source branch ref');
+    }
+  });
+
+  it('requires both packaged proof files and rejects extras or non-file metadata', () => {
+    const file = path.join(directory, 'index.cjs');
+    fs.writeFileSync(file, "throw new Error('must not execute')");
+    const inventory = { 'index.cjs': policy.sha256(fs.readFileSync(file)) };
+    expect(() =>
+      policy.verifyRuntimeFiles(directory, inventory, policy.proofFiles),
+    ).toThrow('missing');
+    for (const name of policy.proofFiles)
+      fs.writeFileSync(path.join(directory, name), '{}');
+    expect(() =>
+      policy.verifyRuntimeFiles(directory, inventory, policy.proofFiles),
+    ).not.toThrow();
+    const proof = path.join(directory, 'desktop-win.sigstore.json');
+    fs.unlinkSync(proof);
+    fs.mkdirSync(proof);
+    expect(() =>
+      policy.verifyRuntimeFiles(directory, inventory, policy.proofFiles),
+    ).toThrow('metadata');
   });
 });

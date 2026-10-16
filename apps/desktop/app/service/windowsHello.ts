@@ -3,7 +3,7 @@ import {
   VerificationResult,
   checkAvailability,
   requestVerification,
-} from 'electron-windows-hello';
+} from '@onekeyfe/electron-windows-hello';
 
 import { BIOLOGY_AUTH_ABORTED_ERROR } from '@onekeyhq/shared/types/password';
 

@@ -9016,6 +9016,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/electron-windows-hello@npm:44.0.2-alpha.1":
+  version: 44.0.2-alpha.1
+  resolution: "@onekeyfe/electron-windows-hello@npm:44.0.2-alpha.1"
+  checksum: 10/df71caeef45dbe6e0c47e534d83fc218970bba4cbf9f626da364773477ca2dba70ec7710add7570c81b67a11550474d77111e3c0411f635c033ccb3c61dcd183
+  languageName: node
+  linkType: hard
+
 "@onekeyfe/extension-bridge-hosted@npm:2.2.76":
   version: 2.2.76
   resolution: "@onekeyfe/extension-bridge-hosted@npm:2.2.76"
@@ -10419,6 +10426,7 @@ __metadata:
     "@electron/rebuild": "npm:4.0.1"
     "@electron/remote": "npm:^2.0.1"
     "@onekeyfe/electron-mac-icloud": "npm:1.2.6"
+    "@onekeyfe/electron-windows-hello": "npm:44.0.2-alpha.1"
     "@sentry/electron": "npm:7.8.0"
     "@stoprocent/noble": "npm:2.3.16"
     "@types/adm-zip": "npm:^0"
@@ -10434,7 +10442,6 @@ __metadata:
     electron-log: "npm:5.4.4"
     electron-store: "npm:^8.2.0"
     electron-updater: "npm:6.8.9"
-    electron-windows-hello: "https://github.com/OneKeyHQ/app-modules/releases/download/desktop-win-v44.0.1/electron-windows-hello-44.0.1.tgz"
     esbuild: "npm:0.27.2"
     glob: "npm:^7.2.0"
     rimraf: "npm:3.0.2"
@@ -29229,13 +29236,6 @@ __metadata:
     semver: "npm:~7.7.3"
     tiny-typed-emitter: "npm:^2.1.0"
   checksum: 10/656b7a276e2f2df48736de3df55b817f40f8252f10d94d594c98a880287ab495718d2db67f8ee3a84ea178e90283f1e0c0d2a199b3f282bafd020cff1bd67999
-  languageName: node
-  linkType: hard
-
-"electron-windows-hello@https://github.com/OneKeyHQ/app-modules/releases/download/desktop-win-v44.0.1/electron-windows-hello-44.0.1.tgz":
-  version: 44.0.1
-  resolution: "electron-windows-hello@https://github.com/OneKeyHQ/app-modules/releases/download/desktop-win-v44.0.1/electron-windows-hello-44.0.1.tgz"
-  checksum: 10/70c17ecd59b5853213196855e515af90fd6b66e1f65abd87cb3b75e6bf6f626104cdfe8db7392f5416a26df7a0cd490a350272f43565aee277e8094b264f23f0
   languageName: node
   linkType: hard
 

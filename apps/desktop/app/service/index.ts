@@ -316,7 +316,7 @@ export const requestVerificationAsync = async (
           try {
             if (!ownerWindow.isFocused()) return;
             const { allowSetForegroundWindow } =
-              require('electron-windows-hello') as typeof import('electron-windows-hello');
+              require('@onekeyfe/electron-windows-hello') as typeof import('@onekeyfe/electron-windows-hello');
             if (!allowSetForegroundWindow(helloProcessId)) {
               abort('Windows Hello foreground denied');
               return;
