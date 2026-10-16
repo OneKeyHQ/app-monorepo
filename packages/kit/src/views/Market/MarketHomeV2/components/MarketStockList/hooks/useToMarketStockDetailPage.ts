@@ -224,9 +224,7 @@ export function useToMarketStockDetailPage(
             : undefined),
         };
         if (isModalPage) {
-          const marketTab = platformEnv.isNative
-            ? ETabRoutes.Discovery
-            : ETabRoutes.Market;
+          const marketTab = ETabRoutes.Market;
           const replacedCurrentDetail = openOrReplaceMarketDetailRoute({
             routeName: ETabMarketRoutes.MarketStockDetail,
             params: stockDetailParams,
@@ -281,7 +279,7 @@ export function useToMarketStockDetailPage(
       }
 
       rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-        screen: platformEnv.isNative ? ETabRoutes.Discovery : ETabRoutes.Market,
+        screen: ETabRoutes.Market,
         params: {
           screen: ETabMarketRoutes.MarketStockDetail,
           params: {
