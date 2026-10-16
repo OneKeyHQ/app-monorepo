@@ -290,6 +290,10 @@ export type IVaultSettings = {
     // the one number that multiplies scan cost. Aliases that share a viewing
     // key count once: they add no decryption work.
     maxEnabledAccounts?: number;
+    // The fee follows from the transaction's shape under a protocol rule
+    // (Zcash ZIP-317), not a market rate: a fee at least the amount is just a
+    // small payment, not an overpay worth a warning.
+    feeSetByProtocol?: boolean;
   };
   saveConfirmedTxsEnabled?: boolean;
 

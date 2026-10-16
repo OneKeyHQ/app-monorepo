@@ -79,6 +79,7 @@ import type {
 
 import { vaultFactory } from '../vaults/factory';
 import { isLocalWalletNetwork } from '../vaults/localWallet/isLocalWalletNetwork';
+import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
 import {
@@ -327,11 +328,15 @@ class ServiceSend extends ServiceBase {
             { networkId: params.networkId, encodedTx: params.encodedTx },
           );
         const fee = new BigNumber(tx.fee);
+        const { localWallet } = await getVaultSettings({
+          networkId: params.networkId,
+        });
         // Check the exact fee locally; never upload a private proposal. A
-        // mismatched fee or one at least as large as the payment needs review.
+        // mismatched fee needs review; so does one at least as large as the
+        // payment, unless the protocol sets the fee.
         return (
           !fee.shiftedBy(-tx.decimals).eq(params.feeAmount) ||
-          fee.gte(tx.amount)
+          (!localWallet?.feeSetByProtocol && fee.gte(tx.amount))
         );
       } catch {
         return true;

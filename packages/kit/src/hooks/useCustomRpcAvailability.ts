@@ -21,6 +21,17 @@ export async function checkCustomRpcAvailability(
     };
   }
 
+  // A chain that ships its own node has no OneKey RPC behind it: the fallback
+  // would only disable its sole data source.
+  const { builtInRpcUrls } =
+    await backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId });
+  if (builtInRpcUrls?.length) {
+    return {
+      isCustomRpcUnavailable: false,
+      isCustomNetwork: false,
+    };
+  }
+
   const isCustomNetwork =
     await backgroundApiProxy.serviceNetwork.isCustomNetwork({ networkId });
   if (isCustomNetwork) {
