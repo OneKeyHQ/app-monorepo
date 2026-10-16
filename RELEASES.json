@@ -33,5 +33,21 @@
       "#13865"
     ],
     "notes": "feat: reuse Swap provider selector for private send (OK-64129) (#13765), fix: invalidate stale perps liquidation risk inputs (#13804), fix: stop privacy recipient quote loops (OK-64259) (#13815), feat: gate swap gas sponsor requests to single-tx swaps (OK-62562) (#13824), fix: recheck onboarding firmware after failed updates (#13830), fix: apply server withdrawal channel override(OK-63804) (#13834), fix: restore market selections OK-64314 (#13839), feat: Deposit to Trade (OK-63470) (#13842), feat: cut home All Networks DeFi positions requests to 10 chains per call(OK-63848 OK-63730) (#13861), feat: add portfolio update spotlight(OK-64455) (#13865)"
+  },
+  {
+    "seq": 3,
+    "commit": "48f04bcea56e5cc6a6b0755d8cb355cd9348cb9a",
+    "date": "2026-10-16T15:37:55Z",
+    "prs": [
+      "#13825",
+      "#13866",
+      "#13881",
+      "#13901",
+      "#13907",
+      "#13914",
+      "#13923",
+      "#13926"
+    ],
+    "notes": "feat(earn): phone My portfolio on the positions endpoint (OK-61377) (#13825), fix: batch Pendle portfolios and reserve Arc gas (OK-64509) (#13866), ci: enable release startup checks and align Native/Web names (#13881), fix: ellipsize long hardware portfolio names (#13901), fix: polish DeFi mobile banner copy, glass and loading (OK-64693) (#13907), fix: refresh vendored Stripe.js for Prime card checkout (#13914), fix: track swap review funnel and latency (OK-64692) (#13923), fix: prevent excessive iOS text auto-sizing (#13926)"
   }
 ]
