@@ -21018,6 +21018,7 @@
     "packages/kit/src/components/TradingView/TradingViewNative/utils/priceScale.ts": 8944,
     "packages/kit/src/components/TradingView/TradingViewNative/utils/priceScaleControls.ts": 15284,
     "packages/kit/src/components/TradingView/TradingViewNative/utils/primarySeriesScene.ts": 11306,
+    "packages/kit/src/components/TradingView/TradingViewNative/utils/subIndicatorPriceScale.ts": 12843,
     "packages/kit/src/components/TradingView/TradingViewNative/utils/subIndicatorRender/calculationCache.ts": 4893,
     "packages/kit/src/components/TradingView/TradingViewNative/utils/subIndicatorRender/calculators.ts": 20470,
     "packages/kit/src/components/TradingView/TradingViewNative/utils/subIndicatorRender/controllerAdapter.ts": 16315,
