@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import LiteCard, { CardErrors } from '@onekeyfe/react-native-lite-card';
 import { useIntl } from 'react-intl';
@@ -9,9 +9,8 @@ import {
   LottieView,
   RichSizeableText,
   SizableText,
-  Stack,
 } from '@onekeyhq/components';
-import type { IDialogInstance, ILottieViewProps } from '@onekeyhq/components';
+import type { IDialogInstance } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -21,35 +20,6 @@ enum ENFCEventCode {
   CONNECTED = 1,
   TRANSFERRING_DATA = 2,
   FINISHED = 3,
-}
-
-function NFCAnimation({ transferring = false }: { transferring?: boolean }) {
-  const [source, setSource] = useState<ILottieViewProps['source'] | null>(null);
-  const height = transferring ? 225 : 205;
-
-  useEffect(() => {
-    let cancelled = false;
-    setSource(null);
-    const loader = transferring
-      ? import('@onekeyhq/kit/assets/animations/connect_onekeylite_connecting.json')
-      : import('@onekeyhq/kit/assets/animations/connect_onekeylite_searching.json');
-    void loader
-      .then((module) => {
-        if (!cancelled) setSource(module.default);
-      })
-      .catch(() => {
-        // An optional animation must not interrupt the NFC operation.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [transferring]);
-
-  return source ? (
-    <LottieView source={source} height={height} />
-  ) : (
-    <Stack height={height} />
-  );
 }
 
 export default function useNFC() {
@@ -74,7 +44,12 @@ export default function useNFC() {
           id: ETranslations.hardware_device_connected_keep_card_in_place,
         }),
         showFooter: false,
-        renderContent: <NFCAnimation transferring />,
+        renderContent: (
+          <LottieView
+            source={require('@onekeyhq/kit/assets/animations/connect_onekeylite_connecting.json')}
+            height={225}
+          />
+        ),
       });
     },
     [intl],
@@ -296,7 +271,12 @@ export default function useNFC() {
             id: ETranslations.hardware_keep_lite_placed_until_found,
           }),
           showFooter: false,
-          renderContent: <NFCAnimation />,
+          renderContent: (
+            <LottieView
+              source={require('@onekeyhq/kit/assets/animations/connect_onekeylite_searching.json')}
+              height={205}
+            />
+          ),
         });
         callback();
         return;
@@ -308,7 +288,12 @@ export default function useNFC() {
         description: intl.formatMessage({
           id: ETranslations.hardware_place_onekey_lite_close_to_phone_desc,
         }),
-        renderContent: <NFCAnimation />,
+        renderContent: (
+          <LottieView
+            source={require('@onekeyhq/kit/assets/animations/connect_onekeylite_searching.json')}
+            height={205}
+          />
+        ),
         onConfirmText: intl.formatMessage({ id: ETranslations.global_connect }),
         onConfirm: ({ preventClose }) => {
           preventClose();

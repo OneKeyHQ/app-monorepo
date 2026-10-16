@@ -2,6 +2,7 @@
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { requestNativeStorageRecovery } from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
 
 const mockMismatch = new Error(
@@ -15,6 +16,38 @@ const mockStorageCall = jest.fn<Promise<unknown>, [unknown]>(
 );
 const mockRestart = jest.fn<Promise<void>, [unknown]>(async () => undefined);
 const mockHydrate = jest.fn(async () => undefined);
+const mockLoadErrorScreen = jest.fn();
+const SCREEN_SEGMENT_KEY =
+  'seg:apps.mobile.src.backgroundThread.NativeStorageBootstrapErrorScreen';
+
+jest.mock('./NativeStorageBootstrapErrorScreen', () => {
+  mockLoadErrorScreen();
+  return jest.requireActual<
+    typeof import('./NativeStorageBootstrapErrorScreen')
+  >('./NativeStorageBootstrapErrorScreen');
+});
+
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: { app: { bootstrap: { initDeferredStep: jest.fn() } } },
+}));
+jest.mock(
+  '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger',
+  () => ({
+    LogLevel: { Debug: 0, Info: 1, Warning: 2, Error: 3 },
+    NativeLogger: { write: jest.fn() },
+  }),
+);
+jest.mock('../splitBundle/segmentManifest', () => ({
+  getSegmentEntry: (key: string) => ({
+    id: 3297,
+    key,
+    runtime: 'main',
+    relativePath: 'segments/storage-repair.seg.hbc',
+    sha256: 'test',
+    dependsOn: [],
+  }),
+  isSegmentAllowedInRuntime: () => true,
+}));
 
 jest.mock('react-native', () => ({
   ScrollView: ({ children }: { children?: import('react').ReactNode }) => (
@@ -104,10 +137,73 @@ describe('native storage recovery after fast startup', () => {
   });
 
   it('requires force for incomplete results, automatically completes success, and only restarts on close', async () => {
+    const loader = jest.requireActual<
+      typeof import('../splitBundle/installProdBundleLoader')
+    >('../splitBundle/installProdBundleLoader');
+    const nativeLoad = jest.fn<Promise<void>, [unknown]>(async () => undefined);
+    nativeLoad.mockRejectedValueOnce(
+      new OneKeyLocalError('Recovery screen segment unavailable'),
+    );
+    loader.setNativeLoader({
+      getRuntimeBundleContext: async () => ({
+        runtimeKind: 'main',
+        sourceKind: 'builtin',
+        bundleRoot: '/app',
+        nativeVersion: '1.0',
+      }),
+      loadSegment: nativeLoad,
+    });
+    let cachedSegmentError: Error = new OneKeyLocalError(
+      'Expected the first segment load to fail',
+    );
+    try {
+      await loader.loadSegment(SCREEN_SEGMENT_KEY);
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw new OneKeyLocalError('Expected a segment load Error');
+      }
+      cachedSegmentError = error;
+    }
+    expect(cachedSegmentError).toEqual(
+      expect.objectContaining({ segmentKey: SCREEN_SEGMENT_KEY }),
+    );
+    // An ordinary import cannot dispatch native again after a fatal failure.
+    await expect(loader.loadSegment(SCREEN_SEGMENT_KEY)).rejects.toBe(
+      cachedSegmentError,
+    );
+    expect(nativeLoad).toHaveBeenCalledTimes(1);
+    mockLoadErrorScreen.mockImplementation(() => {
+      if (loader.getSegmentState(SCREEN_SEGMENT_KEY) === 'failed') {
+        throw cachedSegmentError;
+      }
+    });
     render(<NativeStorageBootstrapRoot />);
     await flush();
     expect(screen.getByTestId('business-app')).toBeTruthy();
+    expect(mockLoadErrorScreen).not.toHaveBeenCalled();
     act(() => requestNativeStorageRecovery('appStorage'));
+    await flush();
+    expect(mockLoadErrorScreen).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByText(/Could not load the storage repair screen/),
+    ).toBeTruthy();
+    expect(mockStorageCall).not.toHaveBeenCalled();
+    mockRestart.mockRejectedValueOnce(new Error('restart unavailable'));
+    fireEvent.click(screen.getByTestId('native-storage-error-screen-restart'));
+    await flush();
+    expect(mockRestart).toHaveBeenCalledWith({
+      mode: 'all',
+      reason: 'storage.recovery-screen.restart',
+    });
+    expect(
+      screen.getByTestId('native-storage-error-screen-retry'),
+    ).toBeTruthy();
+    mockRestart.mockClear();
+    fireEvent.click(screen.getByTestId('native-storage-error-screen-retry'));
+    await flush();
+    expect(mockLoadErrorScreen).toHaveBeenCalledTimes(2);
+    expect(nativeLoad).toHaveBeenCalledTimes(2);
+    expect(loader.getSegmentState(SCREEN_SEGMENT_KEY)).toBe('ready');
     expect(screen.queryByTestId('business-app')).toBeNull();
     expect(screen.queryByTestId('native-storage-repair-back')).toBeNull();
     const partial = {

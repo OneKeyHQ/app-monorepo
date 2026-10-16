@@ -127,6 +127,7 @@ describe('isolated recovery test screen', () => {
     render(<NativeStorageBootstrapRoot />);
     await flush();
     act(() => requestNativeStorageRecovery('appStorage', 'isolated-session'));
+    await flush();
     expect(screen.getByText(/Isolated storage recovery test/)).toBeTruthy();
     const summary = {
       repairId: 'test-repair-1',

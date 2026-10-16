@@ -29,6 +29,7 @@
     "apps/mobile/plugins/chunkModuleIdToHashMap.js": 9141,
     "apps/mobile/shims/reactNativeMMKVMainGuard.js": 24485,
     "apps/mobile/shims/revenueCatBrowserMappings.js": 16568,
+    "apps/mobile/src/backgroundThread/NativeStorageBootstrapErrorScreen.tsx": 3297,
     "apps/mobile/src/backgroundThread/NativeStorageBootstrapRoot.tsx": 5641,
     "apps/mobile/src/backgroundThread/backgroundMessageRouter.ts": 19197,
     "apps/mobile/src/backgroundThread/bootstrapNativeStorage.ts": 16241,

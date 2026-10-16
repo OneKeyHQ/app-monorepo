@@ -1,10 +1,9 @@
-import { useState, useSyncExternalStore } from 'react';
-import type { ComponentType, ReactNode } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
+import type { ComponentType } from 'react';
 
 import {
   ActivityIndicator,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -38,6 +37,8 @@ import {
 } from './bootstrapNativeStorage';
 import { runJotaiMainHydration } from './jotaiMainHydrationGate';
 import { hideNativeStorageBootstrapSplash } from './nativeStorageBootstrapSplash';
+
+import type { INativeStorageBootstrapErrorScreenProps } from './NativeStorageBootstrapErrorScreen';
 
 let AppComponent: ComponentType | undefined;
 let bootstrapError: Error | undefined;
@@ -589,43 +590,54 @@ function startStorageRepair(
 
 void startBootstrap();
 
+let ErrorScreenComponent:
+  | ComponentType<INativeStorageBootstrapErrorScreenProps>
+  | undefined;
+let errorScreenLoadPromise: Promise<void> | undefined;
+let errorScreenLoadFailed = false;
+let errorScreenFailedSegmentKey: string | undefined;
+
+function loadErrorScreen(retry = false) {
+  if (ErrorScreenComponent) return Promise.resolve();
+  if (errorScreenLoadPromise) return errorScreenLoadPromise;
+  errorScreenLoadFailed = false;
+  const nextPromise = (async () => {
+    if (retry && errorScreenFailedSegmentKey) {
+      const { retrySegment } =
+        await import('../splitBundle/installProdBundleLoader');
+      await retrySegment(errorScreenFailedSegmentKey);
+    }
+    const module = await import('./NativeStorageBootstrapErrorScreen');
+    ErrorScreenComponent = module.NativeStorageBootstrapErrorScreen;
+    errorScreenFailedSegmentKey = undefined;
+  })()
+    .catch((error: unknown) => {
+      errorScreenLoadFailed = true;
+      const segmentKey =
+        error && typeof error === 'object' && 'segmentKey' in error
+          ? error.segmentKey
+          : undefined;
+      errorScreenFailedSegmentKey =
+        typeof segmentKey === 'string' && segmentKey.startsWith('seg:')
+          ? segmentKey
+          : undefined;
+      writeBootstrapError('[NativeStorageRecovery] screen load failed');
+      hideNativeStorageBootstrapSplash();
+    })
+    .finally(() => {
+      errorScreenLoadPromise = undefined;
+      notifySubscribers();
+    });
+  errorScreenLoadPromise = nextPromise;
+  return nextPromise;
+}
+
 const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-  },
-  errorContainer: {
-    backgroundColor: '#000',
-    flex: 1,
-  },
-  errorContent: {
-    alignItems: 'center',
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: 24,
-  },
+  container: { alignItems: 'center', flex: 1, justifyContent: 'center' },
   waitingDark: { backgroundColor: '#000' },
   waitingLight: { backgroundColor: '#fff' },
-  title: { color: '#fff', fontSize: 18, fontWeight: '600' },
-  message: { color: '#aaa', marginTop: 12, textAlign: 'center' },
-  retryButton: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    marginTop: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-  },
-  retryText: { color: '#000', fontWeight: '600' },
-  restartButton: {
-    borderColor: '#fff',
-    borderRadius: 8,
-    borderWidth: 1,
-    marginTop: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-  },
-  restartText: { color: '#fff', fontWeight: '600' },
+  fallback: { backgroundColor: '#000', padding: 24 },
+  fallbackText: { color: '#fff', marginTop: 20, textAlign: 'center' },
 });
 
 // Registered here, in the module that awaits the background runtime, because
@@ -655,259 +667,86 @@ export function NativeStorageBootstrapRoot() {
     subscribeNativeStorageRecovery,
     getRequestedNativeStorageRecovery,
   );
-  const [repairConfirmationTarget, setRepairConfirmationTarget] = useState<
-    INativeStorageMigrationRecoveryTarget | undefined
-  >();
   const isDarkMode = useColorScheme() === 'dark';
+  const showError = Boolean(
+    (!AppComponent || requestedRecoveryTarget) &&
+    (bootstrapError || requestedRecoveryTarget),
+  );
+  useEffect(() => {
+    if (showError && !ErrorScreenComponent && !errorScreenLoadFailed) {
+      void loadErrorScreen();
+    }
+  }, [showError]);
 
   if (AppComponent && !requestedRecoveryTarget) {
     const App = AppComponent;
     return <App />;
   }
-  if (bootstrapError || requestedRecoveryTarget) {
-    const recoveryTarget = requestedRecoveryTarget ?? bootstrapRecoveryTarget;
-    const testSessionId = getRequestedNativeStorageRecoveryTestSessionId();
-    const isConfirmingRepair = repairConfirmationTarget === recoveryTarget;
-    const isRepairCompleted =
-      recoveryTarget === 'appStorage' && storageRepairCompleted;
-    let recoveryTitle = bootstrapErrorTitle;
-    if (recoveryTarget) {
-      recoveryTitle = isRepairCompleted
-        ? 'Storage repair complete'
-        : 'Local storage needs repair';
-    }
-    let recoveryDescription = bootstrapError?.message;
-    if (recoveryTarget === 'appStorage') {
-      recoveryDescription = isRepairCompleted
-        ? 'Repair completed. The original legacy storage has been kept unchanged. Close to restart the app.'
-        : 'Repair keeps readable MMKV items and restores missing items from legacy storage, which may be outdated. The original legacy storage will be kept unchanged. Repair finishes automatically when all items succeed.';
-    } else if (recoveryTarget === 'jotai') {
-      recoveryDescription =
-        'Retry loading local preferences. If that fails, you can choose to rebuild the affected preferences. The original legacy storage will be kept unchanged.';
-    }
-    let recoveryAction: ReactNode;
-    if (storageRepairInProgress) {
-      recoveryAction = (
-        <ActivityIndicator testID="native-storage-repair-progress" />
-      );
-    } else if (isRepairCompleted) {
-      recoveryAction = (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => void startStorageRepair(recoveryTarget, 'close')}
-          style={styles.retryButton}
-          testID="native-storage-repair-close"
-        >
-          <Text style={styles.retryText}>Close</Text>
-        </Pressable>
-      );
-    } else if (!recoveryTarget && bootstrapFailureStage === 'runtime-launch') {
-      recoveryAction = (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() =>
-            void restartAfterBootstrapFailure({
-              failureStage: 'runtime-launch',
-              reason: 'travel-mode.runtime-launch.restart',
-            })
-          }
-          style={styles.retryButton}
-          testID="travel-mode-runtime-launch-retry"
-        >
-          <Text style={styles.retryText}>Retry and restart</Text>
-        </Pressable>
-      );
-    } else if (!recoveryTarget) {
-      recoveryAction = (
-        <>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => void retryBootstrapAfterFailure()}
-            style={styles.retryButton}
-            testID="native-storage-migration-retry"
-          >
-            <Text style={styles.retryText}>Retry</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() =>
-              void restartAfterBootstrapFailure({
-                failureStage: bootstrapFailureStage ?? 'storage',
-                reason: 'storage.bootstrap.restart',
-              })
-            }
-            style={styles.restartButton}
-            testID="native-storage-bootstrap-restart-app"
-          >
-            <Text style={styles.restartText}>Restart App</Text>
-          </Pressable>
-        </>
-      );
-    } else if (isConfirmingRepair) {
-      recoveryAction = (
-        <>
-          <Text style={styles.message}>
-            {recoveryTarget === 'appStorage'
-              ? 'Only successfully recovered items will be kept in MMKV. Failed or unscanned items may be unavailable. The original legacy storage will be kept unchanged. Force completion?'
-              : 'This resets the affected local preferences. The original legacy storage will be kept unchanged. Continue?'}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              setRepairConfirmationTarget(undefined);
-              void startStorageRepair(
-                recoveryTarget,
-                recoveryTarget === 'appStorage' ? 'complete' : 'reset',
-                true,
-              );
-            }}
-            style={styles.retryButton}
-            testID="native-storage-migration-repair-confirm"
-          >
-            <Text style={styles.retryText}>
-              {recoveryTarget === 'appStorage'
-                ? 'Confirm forced completion'
-                : 'Confirm rebuild'}
-            </Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setRepairConfirmationTarget(undefined)}
-            style={styles.retryButton}
-            testID="native-storage-migration-repair-cancel"
-          >
-            <Text style={styles.retryText}>Cancel</Text>
-          </Pressable>
-        </>
-      );
-    } else if (recoveryTarget === 'appStorage' && storageRepairSummary) {
-      const requiresForce =
-        storageRepairSummary.failedCount > 0 ||
-        !storageRepairSummary.scanComplete;
-      recoveryAction = (
-        <>
-          {requiresForce ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setRepairConfirmationTarget(recoveryTarget)}
-              style={styles.retryButton}
-              testID="native-storage-repair-complete"
-            >
-              <Text style={styles.retryText}>Force completion</Text>
-            </Pressable>
-          ) : null}
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => void startStorageRepair(recoveryTarget)}
-            style={styles.restartButton}
-            testID="native-storage-repair-retry"
-          >
-            <Text style={styles.restartText}>Try repair again</Text>
-          </Pressable>
-        </>
-      );
-    } else if (storageRepairCanReset) {
-      recoveryAction = (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => setRepairConfirmationTarget(recoveryTarget)}
-          style={styles.retryButton}
-          testID="native-storage-migration-repair"
-        >
-          <Text style={styles.retryText}>Rebuild local storage</Text>
-        </Pressable>
-      );
-    } else {
-      recoveryAction = (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => void startStorageRepair(recoveryTarget)}
-          style={styles.retryButton}
-          testID="native-storage-migration-repair-attempt"
-        >
-          <Text style={styles.retryText}>Try repair</Text>
-        </Pressable>
+  if (showError) {
+    if (ErrorScreenComponent) {
+      return (
+        <ErrorScreenComponent
+          bootstrapErrorMessage={bootstrapError?.message}
+          bootstrapErrorTitle={bootstrapErrorTitle}
+          bootstrapFailureStage={bootstrapFailureStage}
+          recoveryTarget={requestedRecoveryTarget ?? bootstrapRecoveryTarget}
+          testSessionId={getRequestedNativeStorageRecoveryTestSessionId()}
+          storageRepairInProgress={storageRepairInProgress}
+          storageRepairCompleted={storageRepairCompleted}
+          storageRepairCanReset={storageRepairCanReset}
+          storageRepairError={storageRepairError}
+          storageRepairSummary={storageRepairSummary}
+          hasAppComponent={Boolean(AppComponent)}
+          startStorageRepair={startStorageRepair}
+          retryBootstrapAfterFailure={retryBootstrapAfterFailure}
+          restartAfterBootstrapFailure={restartAfterBootstrapFailure}
+          releaseStorageRecoveryTestFault={releaseStorageRecoveryTestFault}
+          onBack={() => {
+            storageRepairError = undefined;
+            storageRepairCanReset = false;
+            dismissNativeStorageRecovery();
+          }}
+        />
       );
     }
     return (
-      <ScrollView
-        style={styles.errorContainer}
-        contentContainerStyle={styles.errorContent}
-      >
-        <Text style={styles.title}>{recoveryTitle}</Text>
-        {testSessionId ? (
-          <Text
-            style={styles.message}
-            testID="native-storage-recovery-test-banner"
-          >
-            Isolated storage recovery test. Wallet storage is not part of this
-            scenario. After closing, reopen the developer test panel to verify
-            the result.
-          </Text>
-        ) : null}
-        <Text style={styles.message}>{recoveryDescription}</Text>
-        {recoveryTarget === 'appStorage' && storageRepairSummary ? (
+      <View style={[styles.container, styles.fallback]}>
+        {errorScreenLoadFailed ? (
           <>
-            <Text style={styles.message}>
-              {`Successful: ${storageRepairSummary.successfulCount}. Failed: ${storageRepairSummary.failedCount}. Kept from MMKV: ${storageRepairSummary.preservedCount}. Restored from legacy storage: ${storageRepairSummary.recoveredCount}.`}
+            <Text style={styles.fallbackText}>
+              Could not load the storage repair screen. Retry or restart the
+              app.
             </Text>
-            {!storageRepairSummary.scanComplete ? (
-              <Text style={styles.message}>
-                Some storage could not be scanned. These counts cover known
-                items only; additional items may be missing.
-              </Text>
-            ) : null}
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                void loadErrorScreen(true);
+                notifySubscribers();
+              }}
+              testID="native-storage-error-screen-retry"
+            >
+              <Text style={styles.fallbackText}>Retry</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() =>
+                void restartAfterBootstrapFailure({
+                  failureStage: bootstrapFailureStage ?? 'storage',
+                  reason: 'storage.recovery-screen.restart',
+                })
+              }
+              testID="native-storage-error-screen-restart"
+            >
+              <Text style={styles.fallbackText}>Restart App</Text>
+            </Pressable>
           </>
-        ) : null}
-        {storageRepairError ? (
-          <Text style={styles.message}>{storageRepairError}</Text>
-        ) : null}
-        {recoveryAction}
-        {recoveryTarget === 'appStorage' &&
-        !testSessionId &&
-        !storageRepairInProgress &&
-        !isRepairCompleted &&
-        (storageRepairSummary || storageRepairError) ? (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => void startStorageRepair(recoveryTarget, 'restart')}
-            style={styles.restartButton}
-            testID="native-storage-repair-restart"
-          >
-            <Text style={styles.restartText}>Restart App</Text>
-          </Pressable>
-        ) : null}
-        {testSessionId &&
-        storageRepairError &&
-        !storageRepairInProgress &&
-        !isRepairCompleted ? (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => void releaseStorageRecoveryTestFault()}
-            style={styles.restartButton}
-            testID="native-storage-recovery-test-release-fault"
-          >
-            <Text style={styles.restartText}>Clear simulated fault</Text>
-          </Pressable>
-        ) : null}
-        {AppComponent &&
-        (recoveryTarget !== 'appStorage' || testSessionId) &&
-        !storageRepairInProgress &&
-        !isRepairCompleted ? (
-          <Pressable
-            accessibilityRole="button"
-            style={styles.restartButton}
-            testID="native-storage-repair-back"
-            onPress={() => {
-              storageRepairError = undefined;
-              storageRepairCanReset = false;
-              dismissNativeStorageRecovery();
-            }}
-          >
-            <Text style={styles.restartText}>Back</Text>
-          </Pressable>
-        ) : null}
-      </ScrollView>
+        ) : (
+          <ActivityIndicator
+            color="#fff"
+            testID="native-storage-error-screen-loading"
+          />
+        )}
+      </View>
     );
   }
   return (
