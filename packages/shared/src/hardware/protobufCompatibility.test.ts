@@ -1,3 +1,5 @@
+import { execFileSync } from 'node:child_process';
+
 import { Reader, Root, util } from 'protobufjs/light';
 
 describe('protobuf runtime compatibility', () => {
@@ -29,5 +31,26 @@ describe('protobuf runtime compatibility', () => {
     } finally {
       Object.defineProperty(util, 'Long', { value: original });
     }
+  });
+
+  test('rejects an unterminated option without hanging', () => {
+    const output = execFileSync(
+      process.execPath,
+      [
+        '-e',
+        `
+const assert = require('node:assert/strict');
+const protobuf = require(process.argv[1]);
+assert.throws(
+  () => protobuf.parse('syntax = "proto3"; option foo'),
+  /illegal end of input/,
+);
+process.stdout.write('rejected');
+`,
+        require.resolve('protobufjs'),
+      ],
+      { encoding: 'utf8', timeout: 2000 },
+    );
+    expect(output).toBe('rejected');
   });
 });
