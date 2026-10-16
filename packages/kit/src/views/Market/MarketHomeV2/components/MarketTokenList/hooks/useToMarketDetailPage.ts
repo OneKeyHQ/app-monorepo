@@ -336,9 +336,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           }
         }
 
-        const targetTab = platformEnv.isNative
-          ? ETabRoutes.Discovery
-          : ETabRoutes.Market;
+        const targetTab = ETabRoutes.Market;
 
         await marketDetailShellPreloadPromise;
         if (navigationGenerationRef.current !== navigationGeneration) {
@@ -376,7 +374,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           splitViewType !== ESplitViewType.UNKNOWN &&
           !options?.replaceCurrentDetail
         ) {
-          navigation.switchTab(ETabRoutes.Discovery);
+          navigation.switchTab(ETabRoutes.Market);
           appEventBus.emit(
             EAppEventBusNames.CleanTokenDetailInTabletDetailView,
             undefined,

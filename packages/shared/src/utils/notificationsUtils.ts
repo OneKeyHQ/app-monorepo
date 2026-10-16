@@ -21,6 +21,8 @@ import {
   EModalAssetDetailRoutes,
   EModalReferFriendsRoutes,
   EModalRoutes,
+  ETabDiscoveryRoutes,
+  ETabMarketRoutes,
   ETabReferFriendsRoutes,
   ETabRoutes,
   EWebViewRoutes,
@@ -167,23 +169,44 @@ export async function navigateToNotificationDetailByLocalParams({
     targetParams.source = 'notification';
   }
 
-  // Handle Market/Earn tab redirection for native platforms
-  // On native, Market and Earn are sub-tabs within Discovery, not separate tabs
-  // Returns a function that performs the redirection when called
+  // Handle Earn tab redirection and legacy Discovery-embedded Market payload
+  // compatibility for native platforms. On native in 6.7+, Market is a
+  // standalone tab while Earn remains a sub-tab within Discovery.
+  if (
+    platformEnv.isNative &&
+    screen === ERootRoutes.Main &&
+    navigationParams?.screen === ETabRoutes.Discovery
+  ) {
+    const subScreen = navigationParams.params?.screen as string | undefined;
+    const isLegacyDiscoveryMarketSubRoute =
+      subScreen === ETabMarketRoutes.TabMarket ||
+      subScreen === ETabMarketRoutes.MarketDetail ||
+      subScreen === ETabMarketRoutes.MarketDetailV2 ||
+      subScreen === ETabMarketRoutes.MarketStockDetail ||
+      subScreen === ETabMarketRoutes.MarketNativeDetail ||
+      subScreen === ETabMarketRoutes.MarketBannerDetail;
+    const isLegacyDiscoveryMarketTab =
+      (!subScreen || subScreen === ETabDiscoveryRoutes.TabDiscovery) &&
+      (navigationParams.params?.params?.defaultTab ===
+        ETranslations.global_market ||
+        navigationParams.params?.defaultTab === ETranslations.global_market);
+
+    if (isLegacyDiscoveryMarketSubRoute) {
+      navigationParams.screen = ETabRoutes.Market;
+    } else if (isLegacyDiscoveryMarketTab) {
+      navigationParams.screen = ETabRoutes.Market;
+      delete navigationParams.params;
+    }
+  }
+
   const createNativeTabRedirection = () => {
     let tab:
       | ETranslations.global_browser
       | ETranslations.global_earn
-      | ETranslations.global_market
       | undefined;
-    if (platformEnv.isNative) {
-      if (navigationParams?.screen === ETabRoutes.Market) {
-        navigationParams.screen = ETabRoutes.Discovery;
-        tab = ETranslations.global_market;
-      } else if (navigationParams?.screen === ETabRoutes.Earn) {
-        navigationParams.screen = ETabRoutes.Discovery;
-        tab = ETranslations.global_earn;
-      }
+    if (platformEnv.isNative && navigationParams?.screen === ETabRoutes.Earn) {
+      navigationParams.screen = ETabRoutes.Discovery;
+      tab = ETranslations.global_earn;
     }
     // Return a function that emits the event after navigation completes
     return () => {
