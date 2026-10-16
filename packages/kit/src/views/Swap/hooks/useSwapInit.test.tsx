@@ -152,6 +152,18 @@ const freshNetwork: ISwapNetwork = {
   supportSingleSwap: true,
   supportCrossChainSwap: true,
 };
+const bnb: ISwapToken = {
+  networkId: 'evm--56',
+  contractAddress: '',
+  symbol: 'BNB',
+  decimals: 18,
+  isNative: true,
+};
+const cachedBsc: ISwapNetwork = {
+  ...cachedNetwork,
+  networkId: bnb.networkId,
+  supportCrossChainSwap: true,
+};
 const marketParams: ISwapInitParams = {
   swapSource: ESwapSource.MARKET,
   swapTabSwitchType: ESwapTabSwitchType.SWAP,
@@ -203,6 +215,7 @@ describe('Market import with cached network capabilities', () => {
     jest.clearAllMocks();
     mockFetchNetworks.mockReset();
     mockGetNetworkCache.mockResolvedValue({ data: [cachedNetwork] });
+    mockSwapActions.current.syncNetworksSort.mockReset();
     jest
       .mocked(getLatestHomeSelectedAccountInfo)
       .mockReset()
@@ -216,6 +229,141 @@ describe('Market import with cached network capabilities', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  it('replaces the cached bridge default with the refreshed same-chain default', async () => {
+    const request = deferred<ISwapNetwork[]>();
+    mockGetNetworkCache.mockResolvedValue({ data: [cachedBsc, freshNetwork] });
+    mockFetchNetworks.mockReturnValue(request.promise);
+    // The real sorting action writes a new array even if order is unchanged.
+    mockSwapActions.current.syncNetworksSort.mockImplementationOnce(() => {
+      mockStore.set(swapNetworks(), [...mockStore.get(swapNetworks())]);
+    });
+    renderMarket({ ...marketParams, importToToken: bnb });
+    await waitFor(() =>
+      expect(mockStore.get(swapSelectFromTokenAtom())?.networkId).toBe(
+        'evm--1',
+      ),
+    );
+    expect(mockStore.get(swapSelectToTokenAtom())).toEqual(bnb);
+    expect(mockSwapActions.current.syncNetworksSort).toHaveBeenCalledTimes(1);
+
+    await act(async () =>
+      request.resolve([
+        { ...cachedBsc, supportSingleSwap: true },
+        freshNetwork,
+      ]),
+    );
+
+    expect(mockStore.get(swapSelectFromTokenAtom())?.networkId).toBe('evm--56');
+    expectMarketPair(bnb);
+    expect(mockFetchNetworks).toHaveBeenCalledTimes(1);
+    expect(mockSwapActions.current.syncNetworksSort).toHaveBeenCalledTimes(2);
+  });
+
+  it('fills a cached single-sided pair when fresh capabilities provide a counterpart', async () => {
+    const request = deferred<ISwapNetwork[]>();
+    mockGetNetworkCache.mockResolvedValue({ data: [cachedBsc] });
+    mockFetchNetworks.mockReturnValue(request.promise);
+    renderMarket({ ...marketParams, importToToken: bnb });
+    await waitFor(() => expect(mockFetchNetworks).toHaveBeenCalledTimes(1));
+    expect(mockStore.get(swapSelectFromTokenAtom())).toBeUndefined();
+    expect(mockStore.get(swapSelectToTokenAtom())).toEqual(bnb);
+
+    await act(async () => request.resolve([cachedBsc, freshNetwork]));
+
+    expectMarketPair(bnb);
+    expect(mockStore.get(swapSelectFromTokenAtom())?.networkId).toBe('evm--1');
+  });
+
+  it.each(['from', 'to'] as const)(
+    'preserves a user %s amount on the provisional complete pair',
+    async (side) => {
+      const request = deferred<ISwapNetwork[]>();
+      mockGetNetworkCache.mockResolvedValue({
+        data: [cachedBsc, freshNetwork],
+      });
+      mockFetchNetworks.mockReturnValue(request.promise);
+      renderMarket({ ...marketParams, importToToken: bnb });
+      await waitFor(() => expect(mockFetchNetworks).toHaveBeenCalledTimes(1));
+      const amountAtom =
+        side === 'from' ? swapFromTokenAmountAtom() : swapToTokenAmountAtom();
+      act(() => mockStore.set(amountAtom, { value: '7', isInput: true }));
+
+      await act(async () =>
+        request.resolve([
+          { ...cachedBsc, supportSingleSwap: true },
+          freshNetwork,
+        ]),
+      );
+
+      expectMarketPair(bnb);
+      expect(mockStore.get(swapSelectFromTokenAtom())?.networkId).toBe(
+        'evm--1',
+      );
+      expect(mockStore.get(amountAtom)).toEqual({ value: '7', isInput: true });
+    },
+  );
+
+  it('preserves a manual token change on the provisional complete pair', async () => {
+    const request = deferred<ISwapNetwork[]>();
+    mockGetNetworkCache.mockResolvedValue({ data: [cachedBsc, freshNetwork] });
+    mockFetchNetworks.mockReturnValue(request.promise);
+    renderMarket({ ...marketParams, importToToken: bnb });
+    await waitFor(() => expect(mockFetchNetworks).toHaveBeenCalledTimes(1));
+    act(() => mockStore.set(swapSelectFromTokenAtom(), marketToken));
+
+    await act(async () =>
+      request.resolve([
+        { ...cachedBsc, supportSingleSwap: true },
+        freshNetwork,
+      ]),
+    );
+
+    expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(marketToken);
+    expect(mockStore.get(swapSelectToTokenAtom())).toEqual(bnb);
+  });
+
+  it('reconciles metadata updates and quote amounts without treating them as manual input', async () => {
+    const request = deferred<ISwapNetwork[]>();
+    mockGetNetworkCache.mockResolvedValue({ data: [cachedBsc, freshNetwork] });
+    mockFetchNetworks.mockReturnValue(request.promise);
+    renderMarket({ ...marketParams, importToToken: bnb });
+    await waitFor(() => expect(mockFetchNetworks).toHaveBeenCalledTimes(1));
+    act(() => {
+      mockStore.set(swapSelectToTokenAtom(), { ...bnb, price: '600' });
+      mockStore.set(swapToTokenAmountAtom(), { value: '7', isInput: false });
+    });
+
+    await act(async () =>
+      request.resolve([
+        { ...cachedBsc, supportSingleSwap: true },
+        freshNetwork,
+      ]),
+    );
+
+    expectMarketPair(bnb);
+    expect(mockStore.get(swapSelectFromTokenAtom())?.networkId).toBe('evm--56');
+    expect(mockStore.get(swapToTokenAmountAtom()).value).toBe('');
+  });
+
+  it('does not restore an older Market intent after Stock takes ownership during the Home await', async () => {
+    const request = deferred<ISwapNetwork[]>();
+    mockFetchNetworks.mockReturnValue(request.promise);
+    const { rerender } = renderMarket();
+    await waitFor(() => expect(mockFetchNetworks).toHaveBeenCalledTimes(1));
+    const homeAccountRequest =
+      deferred<Awaited<ReturnType<typeof getLatestHomeSelectedAccountInfo>>>();
+    jest
+      .mocked(getLatestHomeSelectedAccountInfo)
+      .mockReturnValueOnce(homeAccountRequest.promise);
+    await act(async () => request.resolve([freshNetwork]));
+    rerender({ ...marketParams, swapTabSwitchType: ESwapTabSwitchType.STOCK });
+    await act(async () => {});
+
+    await act(async () => homeAccountRequest.resolve(emptyHomeAccountInfo));
+
+    expectEmptyPair();
   });
 
   it.each([false, true])(

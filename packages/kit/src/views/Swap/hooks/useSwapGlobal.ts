@@ -183,6 +183,8 @@ export function useSwapInit(params?: ISwapInitParams) {
   );
   const swapInitParamsConsumptionKey =
     buildSwapInitParamsConsumptionKey(params);
+  const latestSwapInitParamsKeyRef = useRef(swapInitParamsConsumptionKey);
+  latestSwapInitParamsKeyRef.current = swapInitParamsConsumptionKey;
   const swapAddressInfoRef =
     useRef<ReturnType<typeof useSwapAddressInfo>>(undefined);
   const [, setInAppNotification] = useInAppNotificationAtom();
@@ -298,11 +300,18 @@ export function useSwapInit(params?: ISwapInitParams) {
   const hasSyncedSwapSelectedAccountFromHomeStorageRef = useRef(false);
   const appliedImportNetworkIdRef = useRef<string | undefined>(undefined);
   const consumedSwapInitParamsKeyRef = useRef<string | undefined>(undefined);
-  const deferredMarketInitKeyRef = useRef<string | undefined>(undefined);
+  const deferredMarketInitRef = useRef<
+    | {
+        key: string | undefined;
+        fromToken: ISwapToken | undefined;
+        toToken: ISwapToken | undefined;
+      }
+    | undefined
+  >(undefined);
   const markSwapInitParamsConsumed = useCallback(() => {
     if (swapInitParamsConsumptionKey) {
       consumedSwapInitParamsKeyRef.current = swapInitParamsConsumptionKey;
-      deferredMarketInitKeyRef.current = undefined;
+      deferredMarketInitRef.current = undefined;
     }
   }, [swapInitParamsConsumptionKey]);
   const shouldPreserveUserInputAmount = useCallback(() => {
@@ -997,14 +1006,33 @@ export function useSwapInit(params?: ISwapInitParams) {
       consumedSwapInitParamsKeyRef.current !== swapInitParamsConsumptionKey,
     );
     const preserveDeferredMarketSelection = () => {
+      const deferred = deferredMarketInitRef.current;
       if (
         hasUnconsumedSwapInitParams &&
-        deferredMarketInitKeyRef.current === swapInitParamsConsumptionKey &&
-        (fromTokenRef.current || toTokenRef.current)
+        deferred &&
+        deferred.key === swapInitParamsConsumptionKey
       ) {
-        // A manual selection takes ownership while the cached rejection is pending.
-        finishSwapInitParamsSync();
-        return true;
+        const matchesToken = (
+          current: ISwapToken | undefined,
+          provisional: ISwapToken | undefined,
+        ) =>
+          current === provisional ||
+          equalTokenNoCaseSensitive({ token1: current, token2: provisional });
+        const hasUserInput = [
+          fromTokenAmountRef.current,
+          toTokenAmountRef.current,
+        ].some((amount) => amount.isInput && amount.value !== '');
+        if (
+          !matchesToken(fromTokenRef.current, deferred.fromToken) ||
+          !matchesToken(toTokenRef.current, deferred.toToken) ||
+          hasUserInput
+        ) {
+          // A manual selection or amount takes ownership of the provisional pair.
+          finishSwapInitParamsSync();
+          return true;
+        }
+        // Sorting networks can trigger this sync again before the refresh settles.
+        return !hasRefreshedSwapNetworksRef.current;
       }
       return false;
     };
@@ -1152,7 +1180,10 @@ export function useSwapInit(params?: ISwapInitParams) {
     }
     const homeAccountSyncResult =
       await syncSwapSelectedAccountFromLatestHomeStorage();
-    if (homeAccountSyncResult.cancelled) {
+    if (
+      homeAccountSyncResult.cancelled ||
+      latestSwapInitParamsKeyRef.current !== swapInitParamsConsumptionKey
+    ) {
       return;
     }
     if (
@@ -1233,35 +1264,38 @@ export function useSwapInit(params?: ISwapInitParams) {
           setFromTokenAmount({ value: '', isInput: false });
           setToTokenAmount({ value: '', isInput: false });
           clearSelectedTokensColdStartCache();
-          // A cached rejection is provisional until this mount refreshes networks.
-          if (hasRefreshedSwapNetworksRef.current) {
-            finishSwapInitParamsSync();
-          } else {
-            deferredMarketInitKeyRef.current = swapInitParamsConsumptionKey;
-            markInitialSelectedTokensSynced();
+        } else {
+          if (
+            !equalTokenNoCaseSensitive({
+              token1: fromTokenRef.current,
+              token2: pair.fromToken,
+            }) ||
+            !equalTokenNoCaseSensitive({
+              token1: toTokenRef.current,
+              token2: pair.toToken,
+            })
+          ) {
+            setFromTokenAmount({ value: '', isInput: false });
+            setToTokenAmount({ value: '', isInput: false });
           }
-          return;
+          fromTokenRef.current = pair.fromToken;
+          toTokenRef.current = pair.toToken;
+          setSwapFromToken(pair.fromToken);
+          setToToken(pair.toToken);
+          switchSwapTypeIfNeeded(pair.swapType, pair.fromToken?.networkId);
+          void syncNetworksSort(marketToken.networkId);
         }
-        if (
-          !equalTokenNoCaseSensitive({
-            token1: fromTokenRef.current,
-            token2: pair.fromToken,
-          }) ||
-          !equalTokenNoCaseSensitive({
-            token1: toTokenRef.current,
-            token2: pair.toToken,
-          })
-        ) {
-          setFromTokenAmount({ value: '', isInput: false });
-          setToTokenAmount({ value: '', isInput: false });
+        // Every cached result is provisional, including a complete bridge pair.
+        if (hasRefreshedSwapNetworksRef.current) {
+          finishSwapInitParamsSync();
+        } else {
+          deferredMarketInitRef.current = {
+            key: swapInitParamsConsumptionKey,
+            fromToken: pair.fromToken,
+            toToken: pair.toToken,
+          };
+          markInitialSelectedTokensSynced();
         }
-        fromTokenRef.current = pair.fromToken;
-        toTokenRef.current = pair.toToken;
-        setSwapFromToken(pair.fromToken);
-        setToToken(pair.toToken);
-        switchSwapTypeIfNeeded(pair.swapType, pair.fromToken?.networkId);
-        void syncNetworksSort(marketToken.networkId);
-        finishSwapInitParamsSync();
         return;
       }
       const hasImportTokenNetwork =
@@ -1820,6 +1854,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     swapNetworks,
     defaultConfigStatus,
     swapAddressInfo.networkId,
+    swapInitParamsConsumptionKey,
     params?.importFromToken,
     params?.importToToken,
     params?.importNetworkId,

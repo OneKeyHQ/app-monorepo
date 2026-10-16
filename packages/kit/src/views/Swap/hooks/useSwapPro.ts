@@ -869,6 +869,7 @@ export function useSwapProTokenInit() {
   const [swapProTokenSupportLimit] = useSwapProTokenSupportLimitAtom();
   const [swapProJumpToken] = useSwapProJumpTokenAtom();
   const [swapProTradeType, setSwapProTradeType] = useSwapProTradeTypeAtom();
+  const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProSellToToken, setSwapProSellToToken] =
     useSwapProSellToTokenAtom();
   const [swapProUseSelectBuyTokenAtom, setSwapProUseSelectBuyTokenAtom] =
@@ -940,6 +941,36 @@ export function useSwapProTokenInit() {
     );
   }, [savedPreference, defaultTokensFromType, swapProSelectToken?.isStock]);
 
+  const updateDefaultBuyToken = useCallback(
+    (token: (typeof defaultTokensFromType)[number]) => {
+      if (
+        platformEnv.isNative &&
+        swapTypeSwitch === ESwapTabSwitchType.LIMIT &&
+        swapProTradeType === ESwapProTradeType.MARKET &&
+        swapProDirection === ESwapDirection.BUY &&
+        swapProUseSelectBuyTokenAtom &&
+        !equalTokenNoCaseSensitive({
+          token1: swapProUseSelectBuyTokenAtom,
+          token2: token,
+        })
+      ) {
+        // The input amount is denominated in the previous payment token.
+        setSwapProInputAmount('');
+        void resetQuoteAction();
+      }
+      setSwapProUseSelectBuyTokenAtom(token);
+    },
+    [
+      swapTypeSwitch,
+      swapProTradeType,
+      swapProDirection,
+      swapProUseSelectBuyTokenAtom,
+      setSwapProInputAmount,
+      resetQuoteAction,
+      setSwapProUseSelectBuyTokenAtom,
+    ],
+  );
+
   useEffect(() => {
     // Stock tokens must be paid with stable coins: drop the native coin from
     // the candidate pool so a previously selected native coin is forced back
@@ -986,7 +1017,7 @@ export function useSwapProTokenInit() {
       ) {
         selectedDefaultToken = candidateTokens[1] ?? candidateTokens[0];
       }
-      setSwapProUseSelectBuyTokenAtom(selectedDefaultToken);
+      updateDefaultBuyToken(selectedDefaultToken);
     } else if (
       swapProUseSelectBuyTokenAtom &&
       candidateTokens.length > 0 &&
@@ -1006,7 +1037,7 @@ export function useSwapProTokenInit() {
           }),
       );
       if (noEqualToken) {
-        setSwapProUseSelectBuyTokenAtom(noEqualToken);
+        updateDefaultBuyToken(noEqualToken);
       }
     }
   }, [
@@ -1020,6 +1051,7 @@ export function useSwapProTokenInit() {
     ownsActiveSwapProTradeState,
     defaultTokensFromType,
     findPreferredToken,
+    updateDefaultBuyToken,
   ]);
 
   useEffect(() => {
@@ -1198,9 +1230,7 @@ export function useSwapProTokenInit() {
         token2: swapProUseSelectBuyTokenAtom,
       })
     ) {
-      setSwapProUseSelectBuyTokenAtom(
-        preferred as (typeof defaultTokensFromType)[0],
-      );
+      updateDefaultBuyToken(preferred as (typeof defaultTokensFromType)[0]);
     }
     if (
       swapProSellToToken &&
