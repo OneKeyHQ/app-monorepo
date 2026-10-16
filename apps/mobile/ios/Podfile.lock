@@ -2808,7 +2808,7 @@ PODS:
     - React-perflogger (= 0.86.2)
     - React-utils (= 0.86.2)
     - ReactNativeDependencies
-  - ReactNativeAppUpdate (3.0.177):
+  - ReactNativeAppUpdate (6.7.0-alpha.311):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -2832,7 +2832,7 @@ PODS:
     - ReactNativeDependencies
     - ReactNativeNativeLogger
     - Yoga
-  - ReactNativeBundleCrypto (3.0.177):
+  - ReactNativeBundleCrypto (6.7.0-alpha.311):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -2856,7 +2856,7 @@ PODS:
     - ReactNativeDependencies
     - ReactNativeNativeLogger
     - Yoga
-  - ReactNativeBundleUpdate (3.0.177):
+  - ReactNativeBundleUpdate (6.7.0-alpha.311):
     - hermes-engine
     - MMKV (= 2.4.0)
     - NitroModules
@@ -3188,7 +3188,7 @@ PODS:
     - ReactNativeDependencies
     - ReactNativeNativeLogger
     - Yoga
-  - ReactNativeRangeDownloader (3.0.177):
+  - ReactNativeRangeDownloader (6.7.0-alpha.311):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -4632,9 +4632,9 @@ SPEC CHECKSUMS:
   ReactAppDependencyProvider: 0e13d430eadac8a2ef18515a860d5c59df05b475
   ReactCodegen: 5f06f18a986ad124808f4bdae7d4051fe157a5b1
   ReactCommon: df0928b8d2064de53c42645dcf684c6e7bdea48c
-  ReactNativeAppUpdate: 89e7c8ba24931e022b4f2ca9c27252cb8d1964d6
-  ReactNativeBundleCrypto: adad190696310b5473115a392e912981d1bab05b
-  ReactNativeBundleUpdate: cf25eef3c996cebdd38835c540e72bc9ee4b9bdb
+  ReactNativeAppUpdate: 734dd5140c102017bba4427af9c41134a2ca7a47
+  ReactNativeBundleCrypto: 0bb91f5ec4e75508d1aa1ec8aeacb456589f3e14
+  ReactNativeBundleUpdate: 177005d07b9acd2699f218dc88fbebae3d041dd1
   ReactNativeCameraKit: 21f6c85397cfcb494dfa453a6fb4c9933a7c1bef
   ReactNativeCaptureProtection: 1343c6b0b0482dd5d22173c05d2e949dd4b3ec7e
   ReactNativeCheckBiometricAuthChanged: b86cbfec0c82322d7b772e22fc6dea262038ad37
@@ -4650,7 +4650,7 @@ SPEC CHECKSUMS:
   ReactNativePerfMemory: 760182123b3e3af99c8d7523391c15a510499dfe
   ReactNativePerfStats: f61adf4b02df8ae565d97785e5b7f3d3482bde8a
   ReactNativePhotoLibrary: c0a109f2679236ac6b3f27772fcd1824c231ca8b
-  ReactNativeRangeDownloader: a1cfd6f4fa00c2e7858c8373615eb2649f83a69d
+  ReactNativeRangeDownloader: 3d7510bbd5150a89f19fcfb4df6cbc74cf56de20
   ReactNativeSplashScreen: cca8a8eb727b6a53896c9b13f3f9e06c064126d2
   ReactNativeVideo: 36938964abd84cb1355c5844d89feb501f3fbf93
   ReactNativeZipArchive: 7a09b1e6c11290aff35c0bead86ac310adf40cf8

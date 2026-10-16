@@ -9689,14 +9689,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-app-update@npm:3.0.177":
-  version: 3.0.177
-  resolution: "@onekeyfe/react-native-app-update@npm:3.0.177"
+"@onekeyfe/react-native-app-update@npm:6.7.0-alpha.311":
+  version: 6.7.0-alpha.311
+  resolution: "@onekeyfe/react-native-app-update@npm:6.7.0-alpha.311"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/f9044c0674369cbc5b76dbd460d80e10a7dc15605bd1996b0b55cd16c84baf719eb09842d15b5120b4518df99544a3e87c3ea9247ac8883c2f7cb7b2c06a6449
+  checksum: 10/6433c864899ad670e1ecdef49a0b20dae675ff724b04244048b718f7c2dcb94875ffabfc8094664fad3e00867c8422f8a34474f816bee7b89107e8f7cf21f6f4
   languageName: node
   linkType: hard
 
@@ -9732,25 +9732,25 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-bundle-crypto@npm:3.0.177":
-  version: 3.0.177
-  resolution: "@onekeyfe/react-native-bundle-crypto@npm:3.0.177"
+"@onekeyfe/react-native-bundle-crypto@npm:6.7.0-alpha.311":
+  version: 6.7.0-alpha.311
+  resolution: "@onekeyfe/react-native-bundle-crypto@npm:6.7.0-alpha.311"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/0b61166841ef44f1b6fa8ae4654eb3c8e2835ecf0bc49e31decaa1aeb6e128f517eb111fb25de46ef69fc80961e213f9d80290e070f16071123dc0f1842f9462
+  checksum: 10/cd20537ed8d062f8789d2ce7d67c0b91c1ede582aedf159622d09c3b75ba23ef6372b85c418b125645b4019099d91566769225b648f7eee7ebbf2c209af1539d
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-bundle-update@npm:3.0.177":
-  version: 3.0.177
-  resolution: "@onekeyfe/react-native-bundle-update@npm:3.0.177"
+"@onekeyfe/react-native-bundle-update@npm:6.7.0-alpha.311":
+  version: 6.7.0-alpha.311
+  resolution: "@onekeyfe/react-native-bundle-update@npm:6.7.0-alpha.311"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/3ad3dc5995aadc4cfec23cdaed9f8f1af0f13faabc8792afe0f33cce61f420aa5d28552dff2ffc24bcf3fac1cea7492914a99d71a5557cf4edff80929e25e69b
+  checksum: 10/d4eaa598df807576efc00306738af0fa6b97752913d016290c90d0e6df9ab91c9291f829b63e2e844d244521187d378c414ee0d01cbd4c4c27c07c8899461007
   languageName: node
   linkType: hard
 
@@ -9941,14 +9941,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-range-downloader@npm:3.0.177":
-  version: 3.0.177
-  resolution: "@onekeyfe/react-native-range-downloader@npm:3.0.177"
+"@onekeyfe/react-native-range-downloader@npm:6.7.0-alpha.311":
+  version: 6.7.0-alpha.311
+  resolution: "@onekeyfe/react-native-range-downloader@npm:6.7.0-alpha.311"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/c991852e1029d46620f73bb21a3af680ce06d7d501eaffb6861b44db7dc801a2496a337d70d7c96bba99148be894d8d1dfdcc742446c52e017a344cf114572fa
+  checksum: 10/e378847fb39946fd8dda9b3899a9747ab9471b175707adb1ff380e66f797f81d103cef5d0d7225daadfee14960bc00241d281b105f9cf34b71b11ceadd48c928
   languageName: node
   linkType: hard
 
@@ -10509,12 +10509,12 @@ __metadata:
     "@formatjs/intl-pluralrules": "npm:^4.3.3"
     "@gorhom/bottom-sheet": "npm:5.2.14"
     "@notifee/react-native": "npm:9.1.8"
-    "@onekeyfe/react-native-app-update": "npm:3.0.177"
+    "@onekeyfe/react-native-app-update": "npm:6.7.0-alpha.311"
     "@onekeyfe/react-native-auto-size-input": "npm:3.0.177"
     "@onekeyfe/react-native-background-thread": "npm:3.0.177"
     "@onekeyfe/react-native-ble-utils": "npm:0.1.9"
-    "@onekeyfe/react-native-bundle-crypto": "npm:3.0.177"
-    "@onekeyfe/react-native-bundle-update": "npm:3.0.177"
+    "@onekeyfe/react-native-bundle-crypto": "npm:6.7.0-alpha.311"
+    "@onekeyfe/react-native-bundle-update": "npm:6.7.0-alpha.311"
     "@onekeyfe/react-native-capture-protection": "npm:3.0.177"
     "@onekeyfe/react-native-chart-webview": "npm:3.0.177"
     "@onekeyfe/react-native-check-biometric-auth-changed": "npm:3.0.177"
@@ -10532,7 +10532,7 @@ __metadata:
     "@onekeyfe/react-native-perf-stats": "npm:3.0.177"
     "@onekeyfe/react-native-perp-depth-bar": "npm:3.0.177"
     "@onekeyfe/react-native-photo-library": "npm:3.0.177"
-    "@onekeyfe/react-native-range-downloader": "npm:3.0.177"
+    "@onekeyfe/react-native-range-downloader": "npm:6.7.0-alpha.311"
     "@onekeyfe/react-native-scroll-guard": "npm:3.0.177"
     "@onekeyfe/react-native-segment-slider": "npm:3.0.177"
     "@onekeyfe/react-native-skeleton": "npm:3.0.177"
