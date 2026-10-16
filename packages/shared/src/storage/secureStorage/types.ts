@@ -48,6 +48,8 @@ export function buildSecureStoragePermanentReadErrorMessage(
 }
 
 export interface ISecureStorage {
+  // Facades expose whether calls reach persistent storage rather than a mask.
+  isPersistenceAvailable?(): boolean;
   supportSecureStorageWithBiometrics?(): Promise<boolean>;
   getSecureItemWithBiometrics?(
     key: string,

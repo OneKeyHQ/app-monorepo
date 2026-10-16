@@ -2,6 +2,7 @@
 import { webcrypto } from 'crypto';
 
 import { ECloudBackupProviderType } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import secureStorage from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 
@@ -12,6 +13,7 @@ jest.mock(
   () => ({
     __esModule: true,
     default: {
+      isPersistenceAvailable: jest.fn(),
       getSecureItem: jest.fn(),
       setSecureItem: jest.fn(),
       removeSecureItem: jest.fn(),
@@ -23,6 +25,7 @@ jest.mock(
 );
 
 const MANIFEST = 'com.onekey.backup_v2.biometric_password.manifest';
+const ERASURE = 'com.onekey.backup_v2.biometric_password.erasure';
 
 describe.each([
   ECloudBackupProviderType.iCloud,
@@ -54,6 +57,7 @@ describe.each([
     keys.clear();
     jest.resetAllMocks();
     cache = new LocalBackupPasswordCache();
+    secure.isPersistenceAvailable?.mockReturnValue(true);
     secure.supportSecureStorageWithBiometrics?.mockResolvedValue(true);
     secure.getSecureItem.mockImplementation(
       async (key) => metadata.get(key) ?? null,
@@ -258,6 +262,114 @@ describe.each([
     expect(keys.size).toBe(0);
     expect(metadata.size).toBe(0);
     expect(secure.getSecureItemWithBiometrics).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])(
+    'finishes interrupted erasure on a cold reset with preserve=%s',
+    async (preserve) => {
+      await saveTwo();
+      secure.removeSecureItem.mockRejectedValueOnce(new Error('interrupted'));
+      await expect(
+        cache.prepareForReset({ preserve: false }),
+      ).rejects.toThrow();
+      cache = new LocalBackupPasswordCache();
+      await cache.prepareForReset({ preserve });
+      expect(keys.size).toBe(0);
+      expect(metadata.size).toBe(0);
+      expect(secure.getSecureItemWithBiometrics).not.toHaveBeenCalled();
+      cache.finishReset();
+      await cache.set({ ...scope, password: 'synthetic-new-password' });
+      expect(await cache.get(scope)).toBe('synthetic-new-password');
+    },
+  );
+
+  it('denies cold recovery when the manifest tombstone and a protected key deletion both fail', async () => {
+    await saveTwo();
+    secure.setSecureItem.mockImplementation(async (key, value) => {
+      if (key === MANIFEST) throw new OneKeyLocalError('manifest write failed');
+      metadata.set(key, value);
+    });
+    secure.removeSecureItem.mockRejectedValueOnce(
+      new Error('key delete failed'),
+    );
+    await expect(cache.prepareForReset({ preserve: false })).rejects.toThrow(
+      'Recovery cache erasure failed',
+    );
+    expect(keys.size).toBe(1);
+    cache = new LocalBackupPasswordCache();
+    expect(await cache.get(scope)).toBeUndefined();
+    expect(await cache.get(second)).toBeUndefined();
+    expect(secure.getSecureItemWithBiometrics).not.toHaveBeenCalled();
+    secure.setSecureItem.mockImplementation(async (key, value) => {
+      metadata.set(key, value);
+    });
+    await cache.prepareForReset({ preserve: true });
+    expect(keys.size).toBe(0);
+    expect(metadata.size).toBe(0);
+  });
+
+  it('retries intent cleanup after interruption following manifest deletion', async () => {
+    await saveTwo();
+    secure.removeSecureItem.mockImplementation(async (key) => {
+      if (key === ERASURE) throw new OneKeyLocalError('interrupted');
+      keys.delete(key);
+      metadata.delete(key);
+    });
+    await expect(cache.prepareForReset({ preserve: false })).rejects.toThrow();
+    expect(keys.size).toBe(0);
+    expect(metadata.has(MANIFEST)).toBe(false);
+    expect(metadata.get(ERASURE)).toBe('1');
+    cache = new LocalBackupPasswordCache();
+    await cache.set({ ...scope, password: 'must-not-enroll-during-erasure' });
+    expect(keys.size).toBe(0);
+    secure.removeSecureItem.mockImplementation(async (key) => {
+      keys.delete(key);
+      metadata.delete(key);
+    });
+    await cache.prepareForReset({ preserve: true });
+    expect(metadata.size).toBe(0);
+  });
+
+  it('reports simultaneous marker and key failure, blocks this runtime and retries on preserve reset', async () => {
+    await saveTwo();
+    const before = metadata.get(MANIFEST);
+    secure.setSecureItem.mockRejectedValue(new Error('write failed'));
+    secure.removeSecureItem.mockRejectedValueOnce(new Error('delete failed'));
+    await expect(cache.prepareForReset({ preserve: false })).rejects.toThrow(
+      'Recovery cache erasure failed',
+    );
+    expect(metadata.get(MANIFEST)).toBe(before);
+    expect(keys.size).toBe(1);
+    cache.finishReset();
+    expect(await cache.get(scope)).toBeUndefined();
+    await cache.set({ ...scope, password: 'must-not-replace' });
+    expect(secure.setSecureItemWithBiometrics).toHaveBeenCalledTimes(2);
+    // No durable deny state exists when every attempt to persist it fails.
+    // A cold process still requires successful biometrics for the surviving key.
+    const cold = new LocalBackupPasswordCache();
+    secure.getSecureItemWithBiometrics?.mockRejectedValueOnce(
+      new Error('authentication required'),
+    );
+    expect(await cold.get(scope)).toBeUndefined();
+    expect(await cold.get(scope)).toBe('synthetic-first-password');
+    expect(await cold.get(second)).toBeUndefined();
+    secure.setSecureItem.mockImplementation(async (key, value) => {
+      metadata.set(key, value);
+    });
+    await cache.prepareForReset({ preserve: true });
+    expect(keys.size).toBe(0);
+    expect(metadata.size).toBe(0);
+  });
+
+  it('reports a no-op manifest deletion and retains the deny state for a retry', async () => {
+    await saveTwo();
+    secure.removeSecureItem.mockImplementation(async (key) => {
+      keys.delete(key);
+    });
+    await expect(cache.prepareForReset({ preserve: false })).rejects.toThrow();
+    cache.finishReset();
+    expect(await cache.get(scope)).toBeUndefined();
+    expect(metadata.get(MANIFEST)).toContain('"erasing":true');
   });
 
   it('serializes concurrent creation without losing either backup', async () => {

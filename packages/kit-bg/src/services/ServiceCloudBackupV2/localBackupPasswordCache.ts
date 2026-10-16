@@ -15,6 +15,7 @@ import { encryptStringAsyncWithFormat } from '../../utils/secretEncryptFormat';
 // Dedicated device-only recovery material, outside all wallet/settings databases.
 // This item contains only scopes, key references and authenticated ciphertext.
 const MANIFEST_KEY = 'com.onekey.backup_v2.biometric_password.manifest';
+const ERASURE_KEY = 'com.onekey.backup_v2.biometric_password.erasure';
 const KEY_PREFIX = 'com.onekey.backup_v2.biometric_password.key.';
 const DATA_TYPE = 'cloud-backup-biometric-password-v1';
 
@@ -54,9 +55,26 @@ export class LocalBackupPasswordCache {
 
   private resetting = false;
 
+  private erasurePending = false;
+
+  private assertPersistenceAvailable(): void {
+    if (!secureStorage.isPersistenceAvailable?.()) {
+      throw new OneKeyLocalError('Recovery storage unavailable');
+    }
+  }
+
+  finishReset(): void {
+    this.resetting = false;
+  }
+
   private async readManifest(): Promise<IManifest> {
+    this.assertPersistenceAvailable();
+    const erasing =
+      this.erasurePending || (await secureStorage.getSecureItem(ERASURE_KEY));
+    this.assertPersistenceAvailable();
     const raw = await secureStorage.getSecureItem(MANIFEST_KEY);
-    if (!raw) return { entries: {} };
+    this.assertPersistenceAvailable();
+    if (!raw) return { entries: {}, erasing: Boolean(erasing) };
     const manifest = JSON.parse(raw) as IManifest;
     if (
       !manifest?.entries ||
@@ -76,14 +94,25 @@ export class LocalBackupPasswordCache {
         throw new OneKeyLocalError('Invalid recovery cache');
       }
     }
+    if (erasing) manifest.erasing = true;
     return manifest;
   }
 
   private async writeManifest(manifest: IManifest): Promise<void> {
+    this.assertPersistenceAvailable();
     await secureStorage.setSecureItem(
       MANIFEST_KEY,
       stringUtils.stableStringify(manifest),
     );
+    // Read only the unprotected manifest, never a protected key. This cannot
+    // trigger authentication and catches a write acknowledged without persistence.
+    if (
+      (await secureStorage.getSecureItem(MANIFEST_KEY)) !==
+      stringUtils.stableStringify(manifest)
+    ) {
+      throw new OneKeyLocalError('Recovery cache write failed');
+    }
+    this.assertPersistenceAvailable();
   }
 
   async get(scope: ICacheScope): Promise<string | undefined> {
@@ -91,7 +120,7 @@ export class LocalBackupPasswordCache {
       return undefined;
     try {
       return await this.mutex.runExclusive(async () => {
-        if (this.resetting) return undefined;
+        if (this.resetting || this.erasurePending) return undefined;
         const manifest = await this.readManifest();
         if (manifest.erasing) return undefined;
         const cacheKey = getCacheKey(scope);
@@ -136,6 +165,7 @@ export class LocalBackupPasswordCache {
       await this.mutex.runExclusive(async () => {
         if (
           this.resetting ||
+          this.erasurePending ||
           !(await secureStorage.supportSecureStorageWithBiometrics?.())
         )
           return;
@@ -180,7 +210,7 @@ export class LocalBackupPasswordCache {
     if (!isSupported(scope) || !scope.accountId || !scope.recordId) return;
     try {
       await this.mutex.runExclusive(async () => {
-        if (this.resetting) return;
+        if (this.resetting || this.erasurePending) return;
         const manifest = await this.readManifest();
         if (manifest.erasing) return;
         const cacheKey = getCacheKey(scope);
@@ -206,17 +236,37 @@ export class LocalBackupPasswordCache {
   }
 
   async prepareForReset({ preserve }: { preserve: boolean }): Promise<void> {
+    // Block queued operations immediately; the mutex drains existing cache work.
+    this.resetting = true;
+    if (!preserve) this.erasurePending = true;
     await this.mutex.runExclusive(async () => {
-      // Remain closed until restart, including if the wallet reset is interrupted.
-      this.resetting = true;
-      if (preserve) return;
       try {
+        let failed = false;
+        const persistErasureIntent = async () => {
+          this.erasurePending = true;
+          try {
+            this.assertPersistenceAvailable();
+            await secureStorage.setSecureItem(ERASURE_KEY, '1');
+            this.assertPersistenceAvailable();
+            if ((await secureStorage.getSecureItem(ERASURE_KEY)) !== '1') {
+              throw new OneKeyLocalError('Recovery erasure marker failed');
+            }
+            this.assertPersistenceAvailable();
+          } catch {
+            failed = true;
+          }
+        };
+        // Independent of manifest decoding/writing. If the tombstone and a key
+        // deletion fail, this marker still denies reads after a process restart.
+        if (this.erasurePending) await persistErasureIntent();
         const manifest = await this.readManifest();
+        // A normal reset must finish a previously requested security erasure.
+        if (preserve && !manifest.erasing && !this.erasurePending) return;
+        if (!this.erasurePending) await persistErasureIntent();
         // A durable tombstone denies recovery after an interrupted security wipe.
         // If it cannot be written, still attempt every key deletion. Never let
         // one unavailable item prevent erasure of the remaining credentials.
         manifest.erasing = true;
-        let failed = false;
         try {
           await this.writeManifest(manifest);
         } catch {
@@ -224,15 +274,31 @@ export class LocalBackupPasswordCache {
         }
         for (const { keyRef } of Object.values(manifest.entries)) {
           try {
+            this.assertPersistenceAvailable();
             await secureStorage.removeSecureItem(keyRef, {
               keychainService: keyRef,
             });
+            this.assertPersistenceAvailable();
           } catch {
             failed = true;
           }
         }
         if (failed) throw new OneKeyLocalError('Recovery cache erasure failed');
+        this.assertPersistenceAvailable();
         await secureStorage.removeSecureItem(MANIFEST_KEY);
+        this.assertPersistenceAvailable();
+        if (await secureStorage.getSecureItem(MANIFEST_KEY)) {
+          throw new OneKeyLocalError('Recovery cache erasure failed');
+        }
+        this.assertPersistenceAvailable();
+        // Keep the independent intent until every key and the manifest are gone.
+        await secureStorage.removeSecureItem(ERASURE_KEY);
+        this.assertPersistenceAvailable();
+        if (await secureStorage.getSecureItem(ERASURE_KEY)) {
+          throw new OneKeyLocalError('Recovery cache erasure failed');
+        }
+        this.assertPersistenceAvailable();
+        this.erasurePending = false;
       } catch {
         throw new OneKeyLocalError('Recovery cache erasure failed');
       }

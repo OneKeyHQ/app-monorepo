@@ -2,8 +2,9 @@
 
 ## Implementation and scope
 
-Targets iOS/Android only. The background runtime owns all recovery operations and
-serializes them; main accesses the service through the existing proxy. Keychain /
+Biometric recovery targets iOS/Android only. The background runtime owns all
+recovery operations and serializes them; main accesses the service through the
+existing proxy. Keychain /
 Keystore are shared native resources. No decrypted key is cached in either JS
 heap. The existing one-use, 60-second restore handle stays in bg and is invalidated
 when reset starts. An in-flight preparation cannot publish a handle after reset.
@@ -42,7 +43,7 @@ There is no current-password fallback, App-password fallback or system PIN path.
   after interruption and supports retry. Ordinary reset never snapshots/restores
   wallet data or copies secrets around the general storage clear.
 
-## Product decisions before readiness
+## Product follow-ups
 
 1. Existing manual reset confirmation uses `reset_app_desc`, with erase-oriented
    wording. Product/localization should explicitly explain that this device's
@@ -96,7 +97,7 @@ Use synthetic wallets only; do not use real user secrets.
   Android activity ownership with real app builds, plus native bundle budgets.
 - No promise of reinstall persistence, device migration, or new macOS support.
 
-## Automated validation
+## Initial implementation validation (before reset follow-up)
 
 The focused Jest validation passes 6 suites / 141 tests (the final cache-only
 rerun passes 42 tests, including corrupted cross-record reference deletion):
@@ -114,8 +115,8 @@ passes with 25,614 active modules and 2 tombstones; no new production module ID 
 needed. The native-storage compatibility and background-API contract checks pass.
 
 Full-repository `tsc:staged` passes. Native authentication remains unverified on
-physical devices; the PR must stay draft until the device matrix and product
-wording/reenrollment decisions above are resolved.
+physical devices. The PR is Ready for review at the user's explicit direction;
+readiness does not imply native acceptance or resolution of product follow-ups.
 
 The iOS union JS/Hermes build and bundle architecture check pass. Registry
 validation also passes against its fresh `dist/module-id-map.json` (one build
@@ -133,3 +134,76 @@ not physical-device biometric access or Android native runtime behavior.
 local gates, including full TypeScript. GitHub CLI PR detection receives HTTP
 403 in this environment, so remote PR creation/status uses the connected GitHub
 app instead; local gates are not evidence of remote CI completion.
+
+
+## Reset and import review follow-up
+
+Based on PR head `c8f3f2c2240a5eef1274bde1ddb4863cd1602df0` (same file contents
+as the original implementation commit; history was rewritten).
+
+- The SecureStore facade exposes whether persistence is real. Recovery operations
+  check it around asynchronous storage calls. Masked read/null and successful no-op
+  writes/deletes cannot count as successful erasure. No operation bypasses masking.
+  Normal UI/proxy reachability of the reported masked-reset chain is **not**
+  established: Travel Mode command policy denies `serviceApp.resetApp` and does
+  not allow `serviceCloudBackupV2`. This is a defensive invariant repair, not
+  evidence of an exploited or reachable critical vulnerability.
+- Security erasure first writes a separate device-only intent item, independent
+  of manifest parsing/writing. A successful intent write denies cold reads even
+  if both the manifest tombstone write and a protected-key deletion fail. Every
+  referenced key is still attempted. Unprotected marker/manifest writes and
+  deletions are read back; protected keys are never read to verify writes/deletes.
+  The intent is removed only after all referenced keys and the manifest are gone.
+- A later ordinary/preserve reset completes prior erasure intent or a tombstone;
+  it never treats interrupted security erasure as permission to retain recovery.
+  Failures are reported with a sanitized error and keep the retry state.
+- All persistence can fail. If intent **and** tombstone writes fail and a key
+  deletion fails, no durable deny state can be guaranteed across process death.
+  The current runtime blocks cached recovery and retains erasure intent in memory,
+  still wipes wallet data, and reports failure without automatic restart. After
+  a forced relaunch, a surviving pair still requires successful system biometrics.
+  This is not an authentication bypass. The tests explicitly document this limit.
+  Changing the requirement to stop wallet erasure in this case needs product /
+  security approval; this patch does not make that tradeoff.
+- bg owns a recovery generation and a mutex for actual import writes. Desktop/web
+  use the same ordering in their single JS runtime for existing manual cloud
+  restore; no biometric cache APIs are called there. Reset
+  invalidates handles and in-flight preparation immediately. Continuations check
+  generation after account lookup, selection, password verification and import
+  initialization. Reset also releases the old import task's ownership while its
+  password dialog is pending, so fresh recovery can start after a failed reset.
+  Reset drains an already-started import before wallet erasure;
+  account/network/App-password preparation outside the write barrier cannot hold
+  reset waiting for that dialog. No timeout releases a still-running writer into
+  an erased database. Slow active imports and already-pending native SecureStore
+  calls can delay reset; native interruption/latency needs device acceptance.
+- The entire ServiceApp reset is serialized. Failure releases the lifecycle only
+  after reset unwinds, enabling a fresh manual-password attempt without reviving
+  old continuations. Cache erasure failure remains blocked independently from
+  manual recovery. Successful reset stays closed until the cold restart.
+- App biometric-unlock preference and dedicated backup-recovery authentication
+  remain independent, per the approved design. No switch coupling, PIN fallback,
+  lock-screen preservation change or new macOS biometric support is introduced.
+
+Added regression coverage exercises the real Travel Mode storage facade with its
+actual runtime persistence policy and a mocked native store, simultaneous failures,
+cold instances, preserve-reset retries, late consumed handles, password-validation
+boundaries, in-progress import drain, overlapping resets and failed-reset release.
+These are simulation tests, not physical iOS/Android authentication validation.
+
+Follow-up Jest validation: 7 suites / 171 tests across the full 166-test run and
+final affected-suite reruns (cache 54, real persistence facade 3, restore service
+72, ServiceApp 15). The ServiceApp suite also connects the real cloud service's
+import barrier to reset and checks the last wallet write precedes the actual
+`resetData` call. No production wallet database is touched by these tests.
+
+The follow-up iOS union JS/Hermes build, architecture check and registry check
+against the new build map pass. Startup budgets remain main 2,725 modules /
+13.96 MB and background 2,286 / 17.69 MB; limits are unchanged. This is bundle
+validation, not real-device biometric validation.
+
+Follow-up `agent:check --profile commit` passes all checks, including full
+TypeScript (334.6 seconds). The PR profile also passes all local checks and its
+TypeScript rerun (47.4 seconds); GitHub CLI repository lookup fails with HTTP 403,
+so remote CI is unverified. An earlier concurrent type/lint run exhausted the
+16 GB environment and was discarded; the serialized reruns above are successful.

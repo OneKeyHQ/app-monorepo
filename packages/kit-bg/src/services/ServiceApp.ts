@@ -1,3 +1,5 @@
+import { Mutex } from 'async-mutex';
+
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import {
   backgroundClass,
@@ -330,23 +332,34 @@ class ServiceApp extends ServiceBase {
     }
   }
 
+  private resetAppMutex = new Mutex();
+
   @backgroundMethod()
-  async resetApp({
+  async resetApp(options: { preserveBackupRecovery?: boolean } = {}) {
+    return this.resetAppMutex.runExclusive(async () => {
+      try {
+        await this.resetAppInternal(options);
+      } catch (error) {
+        await this.backgroundApi.serviceCloudBackupV2.finishLocalRecoveryReset();
+        throw error;
+      }
+    });
+  }
+
+  private async resetAppInternal({
     preserveBackupRecovery = false,
   }: { preserveBackupRecovery?: boolean } = {}) {
     let recoveryErasureFailed = false;
     // Unknown/programmatic callers retain the existing secure-erasure default.
-    if (platformEnv.isNativeIOS || platformEnv.isNativeAndroid) {
-      try {
-        await this.backgroundApi.serviceCloudBackupV2.prepareLocalRecoveryForReset(
-          {
-            preserve: preserveBackupRecovery,
-          },
-        );
-      } catch {
-        // Still erase wallet secrets if recovery storage is unavailable.
-        recoveryErasureFailed = true;
-      }
+    try {
+      await this.backgroundApi.serviceCloudBackupV2.prepareLocalRecoveryForReset(
+        {
+          preserve: preserveBackupRecovery,
+        },
+      );
+    } catch {
+      // Still erase wallet secrets if recovery storage is unavailable.
+      recoveryErasureFailed = true;
     }
     defaultLogger.prime.subscription.onekeyIdLogout({
       reason: 'ServiceApp.resetApp',

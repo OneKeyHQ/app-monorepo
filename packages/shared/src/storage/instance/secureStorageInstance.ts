@@ -14,6 +14,11 @@ function getRealSecureStorageInstance(): ISecureStorage {
 }
 
 const travelModeSecureStorage: ISecureStorage = {
+  isPersistenceAvailable() {
+    return (
+      travelModeManager.getRuntimeEnvironmentSync().persistence.kind === 'real'
+    );
+  },
   async supportSecureStorageWithBiometrics() {
     return travelModeManager.getRuntimeEnvironmentSync().persistence.run({
       operation: async () =>
