@@ -103,7 +103,16 @@ type IPrimeInfiniSupersededPaymentSession =
     supersededReason: 'user-forced-replacement';
   };
 
+type IInfiniBlockedReplacement = {
+  accountId: string;
+  networkId: string;
+  historyId: string;
+};
+
 export interface ISimpleDBPrime {
+  // Independent of expiring payment sessions: stale confirmations must remain
+  // blocked after their original pending history has been removed.
+  infiniBlockedReplacements?: Record<string, true>;
   // Deprecated token copy. Supabase/OAuth session storage is the source of truth.
   authToken?: string;
   authSessionSource?: EPrimeAuthSessionSource;
@@ -2304,6 +2313,28 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       };
     });
     return latchedSession;
+  }
+
+  @backgroundMethod()
+  async blockInfiniReplacement(params: IInfiniBlockedReplacement) {
+    const key = stringUtils.stableStringify(params);
+    await this.setRawData((rawData) => ({
+      ...rawData,
+      infiniBlockedReplacements: {
+        ...rawData?.infiniBlockedReplacements,
+        [key]: true,
+      },
+    }));
+  }
+
+  @backgroundMethod()
+  async isInfiniReplacementBlocked(params: IInfiniBlockedReplacement) {
+    const rawData = await this.getRawData();
+    return (
+      rawData?.infiniBlockedReplacements?.[
+        stringUtils.stableStringify(params)
+      ] === true
+    );
   }
 
   @backgroundMethod()

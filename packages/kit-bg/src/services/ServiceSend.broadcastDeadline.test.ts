@@ -229,6 +229,7 @@ function buildTronEncodedTx(contractCount: number): IEncodedTxTron {
 }
 
 function makeService() {
+  const blockedHistoryIds = new Set<string>();
   const vault = {
     signTransaction: jest.fn().mockResolvedValue(signedTx),
     buildDecodedTx: jest.fn().mockResolvedValue(decodedTx),
@@ -289,6 +290,15 @@ function makeService() {
     simpleDb: {
       prime: {
         findInfiniPaymentForTransfer: jest.fn().mockResolvedValue(undefined),
+        isInfiniReplacementBlocked: jest.fn(
+          async ({ historyId }: { historyId: string }) =>
+            blockedHistoryIds.has(historyId),
+        ),
+        blockInfiniReplacement: jest.fn(
+          async ({ historyId }: { historyId: string }) => {
+            blockedHistoryIds.add(historyId);
+          },
+        ),
         markInfiniPendingPaymentSessionSendStarted: jest
           .fn()
           .mockResolvedValue({
@@ -1881,6 +1891,79 @@ describe('Infini Speed Up broadcast validation', () => {
       expect(vault.broadcastTransaction).not.toHaveBeenCalled();
     },
   );
+
+  test('allows an ordinary transfer speed-up with missing local history', async () => {
+    const { service, vault, backgroundApi } = makeReplacement();
+    backgroundApi.serviceHistory.getLocalHistoryTxById.mockResolvedValue(
+      undefined,
+    );
+    await expect(speedUp(service)).resolves.toMatchObject({ txid: '0xtxid' });
+    expect(
+      backgroundApi.simpleDb.prime.findInfiniPaymentForTransfer,
+    ).toHaveBeenCalledWith({
+      transferClaim: expect.objectContaining({
+        accountId,
+        networkId,
+        accountAddress: '0xaccount',
+      }),
+    });
+    expect(vault.buildDecodedTx).toHaveBeenCalledWith({
+      unsignedTx: expect.objectContaining({ encodedTx }),
+    });
+    expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  test.each([
+    'matched',
+    'ambiguous',
+    'decodeFailure',
+    'lookupFailure',
+    'fenceFailure',
+    'unknownShape',
+  ])('rejects missing history safely for %s', async (reason) => {
+    const { service, vault, backgroundApi } = makeReplacement();
+    backgroundApi.serviceHistory.getLocalHistoryTxById.mockResolvedValue(
+      undefined,
+    );
+    if (reason === 'matched')
+      backgroundApi.simpleDb.prime.findInfiniPaymentForTransfer.mockResolvedValue(
+        { paymentCacheKey },
+      );
+    if (reason === 'ambiguous' || reason === 'lookupFailure')
+      backgroundApi.simpleDb.prime.findInfiniPaymentForTransfer.mockRejectedValue(
+        new Error(reason),
+      );
+    if (reason === 'decodeFailure')
+      vault.buildDecodedTx.mockRejectedValue(new Error(reason));
+    if (reason === 'fenceFailure')
+      backgroundApi.simpleDb.prime.isInfiniReplacementBlocked.mockRejectedValue(
+        new Error(reason),
+      );
+    if (reason === 'unknownShape')
+      vault.buildDecodedTx.mockResolvedValue({ ...decodedTx, actions: [] });
+    await expect(speedUp(service)).rejects.toThrow();
+    expect(vault.signTransaction).not.toHaveBeenCalled();
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+  });
+
+  test('retains original history if the durable block cannot be persisted', async () => {
+    const { service, backgroundApi } = makeReplacement();
+    backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+      {
+        payment: { ...latestPayment, status: 'expired' },
+        purchaseStatusSnapshot,
+      },
+    );
+    backgroundApi.simpleDb.prime.blockInfiniReplacement.mockRejectedValue(
+      new Error('Storage failed'),
+    );
+    await expect(speedUp(service)).rejects.toMatchObject({
+      data: { paymentValidationFailure: 'quoteExpired' },
+    });
+    expect(
+      backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+    ).not.toHaveBeenCalled();
+  });
 
   test('reports expired replacement invoices through the shared error toast', async () => {
     const { service, vault, backgroundApi } = makeReplacement();

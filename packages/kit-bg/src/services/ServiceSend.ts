@@ -185,8 +185,10 @@ class ServiceSend extends ServiceBase {
     accountId,
     networkId,
     replaceTxInfo,
+    unsignedTxs,
   }: ISendTxBaseParams & {
     replaceTxInfo?: IReplaceTxInfo;
+    unsignedTxs: IUnsignedTxPro[];
   }) {
     if (
       replaceTxInfo?.replaceType !== EReplaceTxType.SpeedUp ||
@@ -194,19 +196,72 @@ class ServiceSend extends ServiceBase {
     ) {
       return undefined;
     }
+    const unavailable = () =>
+      new OneKeyLocalError({
+        key: ETranslations.prime_close_and_try_again__desc,
+        autoToast: true,
+      });
+    if (
+      await this.backgroundApi.simpleDb.prime.isInfiniReplacementBlocked({
+        accountId,
+        networkId,
+        historyId: replaceTxInfo.replaceHistoryId,
+      })
+    )
+      throw unavailable();
     const historyTx =
       await this.backgroundApi.serviceHistory.getLocalHistoryTxById({
         accountId,
         networkId,
         historyId: replaceTxInfo.replaceHistoryId,
       });
-    // A stale confirmation must not turn a deleted Infini entry into an
-    // ordinary send. Without the original history, replacement is unverifiable.
     if (!historyTx) {
-      throw new OneKeyLocalError({
-        key: ETranslations.prime_close_and_try_again__desc,
-        autoToast: true,
-      });
+      // Decode the actual candidate only to classify the missing binding, never
+      // as a substitute for the original nonce/payload verification.
+      const vault = await vaultFactory.getVault({ accountId, networkId });
+      const accountAddress =
+        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId,
+        });
+      if (!unsignedTxs.length) throw unavailable();
+      for (const unsignedTx of unsignedTxs) {
+        const decodedTx = await vault.buildDecodedTx({ unsignedTx });
+        const action = decodedTx.actions[0];
+        const transfer = action?.assetTransfer?.sends[0];
+        if (
+          decodedTx.networkId !== networkId ||
+          decodedTx.accountId !== accountId ||
+          !isSamePrimeInfiniNetworkAddress({
+            networkId,
+            first: decodedTx.signer,
+            second: accountAddress,
+          }) ||
+          decodedTx.actions.length !== 1 ||
+          action.type !== EDecodedTxActionType.ASSET_TRANSFER ||
+          action.assetTransfer?.sends.length !== 1 ||
+          !transfer ||
+          typeof transfer.tokenIdOnNetwork !== 'string' ||
+          !transfer.to ||
+          !transfer.from ||
+          !new BigNumber(transfer.amount).isFinite()
+        )
+          throw unavailable();
+        const session =
+          await this.backgroundApi.simpleDb.prime.findInfiniPaymentForTransfer({
+            transferClaim: {
+              accountId,
+              networkId,
+              accountAddress,
+              fromAddress: transfer.from,
+              toAddress: transfer.to,
+              contractAddress: transfer.tokenIdOnNetwork,
+              amount: transfer.amount,
+            },
+          });
+        if (session) throw unavailable();
+      }
+      return undefined;
     }
     // A speed-up of a cancel still sends zero to self, not the invoice.
     if (historyTx.replacedType === EReplaceTxType.Cancel) {
@@ -267,6 +322,7 @@ class ServiceSend extends ServiceBase {
       originalTx,
       nonce: historyTx.decodedTx.nonce,
       originalTxid: historyTx.decodedTx.txid,
+      originalHistoryId: historyTx.id,
     };
   }
 
@@ -740,6 +796,7 @@ class ServiceSend extends ServiceBase {
     ensureBroadcastDeadline,
     mode,
     originalTxid,
+    originalHistoryId,
   }: ISendTxBaseParams & {
     accountAddress: string;
     signedTx: ISignedTxPro;
@@ -749,6 +806,7 @@ class ServiceSend extends ServiceBase {
     ensureBroadcastDeadline: () => void;
     mode: 'initial' | 'speedUp';
     originalTxid?: string;
+    originalHistoryId?: string;
   }) {
     // Both paths originate from wallet-built transfers. Replacement callers
     // additionally verify the signed EVM payload against the original history.
@@ -874,6 +932,7 @@ class ServiceSend extends ServiceBase {
     if (
       mode === 'speedUp' &&
       originalTxid &&
+      originalHistoryId &&
       latestPayment.paymentId === paymentCacheKey.paymentId &&
       new BigNumber(transferClaim.amount).eq(latestPayment.amountDue) &&
       isSamePrimeInfiniNetworkAddress({
@@ -888,14 +947,25 @@ class ServiceSend extends ServiceBase {
       // Hide only the original local pending entry. Its transfer can still
       // confirm on-chain, so retain the durable payment claim and server history.
       // A storage failure must not replace the payment validation error.
-      await this.backgroundApi.serviceHistory
-        .clearLocalHistoryPendingTxByTxId({
+      try {
+        // Persist the fence before hiding history; if storage fails, keep the
+        // original binding available and still reject the payment below.
+        await this.backgroundApi.simpleDb.prime.blockInfiniReplacement({
           accountId,
           networkId,
-          accountAddress,
-          txid: originalTxid,
-        })
-        .catch(() => undefined);
+          historyId: originalHistoryId,
+        });
+        await this.backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId(
+          {
+            accountId,
+            networkId,
+            accountAddress,
+            txid: originalTxid,
+          },
+        );
+      } catch {
+        // Preserve the validation error rather than replacing it with cleanup failure.
+      }
     }
     if (
       quoteFailure ||
@@ -1040,6 +1110,7 @@ class ServiceSend extends ServiceBase {
       accountId,
       networkId,
       replaceTxInfo,
+      unsignedTxs: [unsignedTx],
     });
     const beforeBroadcastAction = replaceTxInfo
       ? replacementContext?.action
@@ -1234,6 +1305,7 @@ class ServiceSend extends ServiceBase {
             ensureBroadcastDeadline,
             mode: replacementContext ? 'speedUp' : 'initial',
             originalTxid: replacementContext?.originalTxid,
+            originalHistoryId: replacementContext?.originalHistoryId,
           });
         infiniPaymentExpiresAt = markedSession.payment.expiresAt;
         effectiveBroadcastDeadline = Math.min(
@@ -1620,6 +1692,7 @@ class ServiceSend extends ServiceBase {
           accountId,
           networkId,
           replaceTxInfo,
+          unsignedTxs,
         })))
     ) {
       throw new OneKeyLocalError({
