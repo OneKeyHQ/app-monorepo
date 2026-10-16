@@ -1872,6 +1872,71 @@ describe('DeviceStageBurstScope', () => {
       expect(scope.getExplicitBurstId(token)).toBe(stage?.burstId);
     });
 
+    it("opens a new burst when the ✗ leaves between a retry's choice and its paint", async () => {
+      // set() awaits before it writes, so the ✗'s retire can land after
+      // begin chose to rejoin its burst: that off named the burst, and the
+      // retry's hold must not stand in it.
+      const scope = new DeviceStageBurstScope();
+      await landNotice(scope);
+      const seen = seenOnStage();
+      const leftBurstId = stage?.burstId;
+      const emit = jest.spyOn(appEventBus, 'emit');
+      stageAtom.set.mockImplementationOnce(async (next) => {
+        await scope.retireErrorOutcome(seen);
+        expect(stage?.step).toBe('off');
+        stage = typeof next === 'function' ? next(stage) : next;
+      });
+
+      const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+
+      expect(emit).toHaveBeenCalledWith(EAppEventBusNames.DeviceStageOff, {
+        burstId: leftBurstId,
+      });
+      expect(stage?.step).toBe('connecting');
+      expect(stage?.burstId).not.toBe(leftBurstId);
+      expect(scope.getExplicitBurstId(token)).toBe(stage?.burstId);
+    });
+
+    it('counts an off at its write, before its broadcast reaches the UI', async () => {
+      // A wrapper's grace exit is on its way to the UI as a new hold reads
+      // the stage it is taking down. The hold is told its id before its
+      // opening paint, so it has to see that exit when it chooses.
+      const scope = new DeviceStageBurstScope();
+      await scope.begin({ connectId: CONNECT_ID });
+      await paintOpeningBeat();
+      await scope.end();
+      expect(stage?.step).toBe('connecting');
+      const leftBurstId = stage?.burstId;
+      let landOff: (() => void) | undefined;
+      let deliverOff: (() => void) | undefined;
+      stageAtom.set.mockImplementationOnce(
+        (next) =>
+          new Promise<void>((resolve) => {
+            landOff = () => {
+              stage = typeof next === 'function' ? next(stage) : next;
+            };
+            deliverOff = resolve;
+          }),
+      );
+      await letTheExitRun();
+      stageAtom.get.mockImplementationOnce(async () => {
+        const read = stage;
+        landOff?.();
+        return read;
+      });
+
+      const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+      // Read as deviceStageBeginBurst reads it: right after the hold opens.
+      const heldBurstId = scope.getExplicitBurstId(token);
+      deliverOff?.();
+      await paintOpeningBeat();
+
+      expect(heldBurstId).toBeDefined();
+      expect(heldBurstId).not.toBe(leftBurstId);
+      expect(stage?.step).toBe('connecting');
+      expect(stage?.burstId).toBe(heldBurstId);
+    });
+
     it('replaces the ✗ at once when a new burst begins', async () => {
       const scope = new DeviceStageBurstScope();
       await landNotice(scope);

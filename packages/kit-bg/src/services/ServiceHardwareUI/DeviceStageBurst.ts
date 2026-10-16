@@ -535,8 +535,9 @@ export class DeviceStageBurstScope {
    * after the exit keeps its beat for an off that just landed. */
   private lastOffAt = 0;
 
-  /** Counts the offs written, so a begin can tell that the stage it read
-   * left while it awaited. */
+  /** Counts the offs written, at the write itself (inside its update, not
+   * after the broadcast that follows), so a begin can tell that the stage
+   * it read has left. */
   private offSeq = 0;
 
   getLastOffAt() {
@@ -680,7 +681,8 @@ export class DeviceStageBurstScope {
         }
         // A stage that left while this begin awaited (the ✗ retiring on its
         // own) has already announced its burstId; rejoining it would let
-        // that exit read as this burst's (OK-64696).
+        // that exit read as this burst's (OK-64696). One that leaves after
+        // this check is caught by the opening paint itself (setStep).
         const stageStillOn =
           prev && prev.step !== 'off' && offSeq === this.offSeq;
         // A follow-up wrapper inside the grace window rejoins the visible
@@ -2003,6 +2005,7 @@ export class DeviceStageBurstScope {
         }
         wrote = true;
         leftBurstId = prev.burstId;
+        this.offSeq += 1;
         return offStateFrom(prev);
       });
     } catch {
@@ -2019,7 +2022,6 @@ export class DeviceStageBurstScope {
     }
     this.offBroadcastPending = false;
     this.lastOffAt = Date.now();
-    this.offSeq += 1;
     // Every exit announces itself: a flow awaiting a card's answer must
     // stop waiting on a card that is gone, whichever route took it. It
     // names the burst whose stage left: on split runtimes the event can
@@ -2109,6 +2111,18 @@ export class DeviceStageBurstScope {
       mergedExtras.confirmDescription,
     );
     await deviceStageAtom.set((prev): IDeviceStageState => {
+      // A burst's opening paint never lands in a burst whose exit is out:
+      // the ✗ can retire after begin chose to rejoin its burst and before
+      // this write (set() awaits first), and that off named the burst — on
+      // split runtimes it can reach a holder after this hold has opened
+      // (OK-64696). Decided here, against the value being replaced.
+      if (
+        mergedExtras.resetOutcome &&
+        prev?.step === 'off' &&
+        prev.burstId === this.burstSeq
+      ) {
+        this.burstSeq += 1;
+      }
       const base = mergedExtras.resetOutcome ? undefined : prev;
       const pickConfirm = <T>(
         explicit: T | undefined,
