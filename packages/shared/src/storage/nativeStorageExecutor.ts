@@ -41,7 +41,7 @@ import type {
   INativeSyncStorageRequest,
 } from './nativeStorageTypes';
 
-type IMMKVInstance = {
+export type IMMKVInstance = {
   readonly size?: number;
   getString(key: string): string | undefined;
   getNumber(key: string): number | undefined;
@@ -146,14 +146,29 @@ let appStorageMigrationPromise: Promise<void> | undefined;
 let appStorageFileDiagnosticsCaptured = false;
 let appStorageMismatchLogged = false;
 let appStorageRepairActive = false;
-let appStorageRepairSequence = 0;
-// Only bg retains key names. Main receives counts, never keys or values.
-let pendingAppStorageRepair:
-  | {
-      summary: INativeAppStorageRepairSummary;
-      verifiedKeys: Map<string, string>;
-    }
-  | undefined;
+export type INativeAppStorageRepairDependencies = {
+  getMMKV: () => IMMKVInstance;
+  getLedger: () => Promise<string | null>;
+  getLegacy: () => ILegacyAsyncStorageNativeModule;
+  reload: () => Promise<unknown>;
+  sync: () => Promise<unknown>;
+  recoverJournal: (mmkv: IMMKVInstance) => Promise<void>;
+  completeLedger: () => Promise<void>;
+  log: (message: string) => void;
+  logFiles: (phase: string) => Promise<void>;
+  onPrepare: () => void;
+  onComplete: () => void;
+  clearPendingRecovery: () => void;
+};
+
+type IAppStorageRepairContext = INativeAppStorageRepairDependencies & {
+  sequence: number;
+  // Only the storage owner retains keys and checksums; UI receives counts.
+  pending?: {
+    summary: INativeAppStorageRepairSummary;
+    verifiedKeys: Map<string, string>;
+  };
+};
 let recoveryActionPromise: Promise<void> | undefined;
 let asyncStorageRequestChain: Promise<void> = Promise.resolve();
 // Main drains one request at a time per store, so only the latest acknowledgement
@@ -388,6 +403,7 @@ function getLegacyOperationErrorType(error: unknown) {
 
 async function enumerateLegacyAppStorageKeys(
   legacy: ILegacyAsyncStorageNativeModule,
+  log = logMigration,
 ): Promise<ILegacyAppStorageEnumeration> {
   const result = await retryLegacyAsyncStorageOperation({
     operation: async () => {
@@ -400,7 +416,7 @@ async function enumerateLegacyAppStorageKeys(
       return [...rawKeys] as unknown[];
     },
     onRetry: ({ delayMs, error, retryCount }) => {
-      logMigration(
+      log(
         `source enumeration retry=${retryCount} delayMs=${delayMs} errorType=${getLegacyOperationErrorType(
           error,
         )}`,
@@ -409,7 +425,7 @@ async function enumerateLegacyAppStorageKeys(
   });
 
   if (!result.ok) {
-    logMigration(
+    log(
       `source enumeration result=failed attempts=${result.attemptCount} errorType=${getLegacyOperationErrorType(
         result.error,
       )}`,
@@ -439,7 +455,7 @@ async function enumerateLegacyAppStorageKeys(
     ),
   ];
 
-  logMigration(
+  log(
     `source enumeration result=complete attempts=${result.attemptCount} rawKeyCount=${result.value.length} sourceKeyCount=${uniqueSourceKeys.length} candidateKeyCount=${keys.length} duplicateKeyCount=${duplicateSourceKeyCount} invalidKeyCount=${invalidSourceKeyCount}`,
   );
   return {
@@ -453,11 +469,14 @@ async function enumerateLegacyAppStorageKeys(
   };
 }
 
-async function getLegacyAppStorageSourceWithRetry() {
+async function getLegacyAppStorageSourceWithRetry(
+  getLegacy = getLegacyAsyncStorageForMigration,
+  log = logMigration,
+) {
   const result = await retryLegacyAsyncStorageOperation({
-    operation: async () => getLegacyAsyncStorageForMigration(),
+    operation: async () => getLegacy(),
     onRetry: ({ delayMs, error, retryCount }) => {
-      logMigration(
+      log(
         `source module retry=${retryCount} delayMs=${delayMs} errorType=${getLegacyOperationErrorType(
           error,
         )}`,
@@ -465,7 +484,7 @@ async function getLegacyAppStorageSourceWithRetry() {
     },
   });
   if (!result.ok) {
-    logMigration(
+    log(
       `source module result=failed attempts=${result.attemptCount} errorType=${getLegacyOperationErrorType(
         result.error,
       )}`,
@@ -479,11 +498,13 @@ async function readLegacyAppStorageKey({
   index,
   key,
   legacy,
+  log = logMigration,
 }: {
   enumerated: boolean;
   index: number;
   key: string;
   legacy: ILegacyAsyncStorageNativeModule;
+  log?: (message: string) => void;
 }): Promise<ILegacyAppStorageReadResult | undefined> {
   const keyLabel = getLegacyKeyDiagnosticLabel(key);
   const result = await retryLegacyAsyncStorageOperation({
@@ -508,7 +529,7 @@ async function readLegacyAppStorageKey({
       return value;
     },
     onRetry: ({ delayMs, error, retryCount }) => {
-      logMigration(
+      log(
         `source key retry index=${index} key=${keyLabel} retry=${retryCount} delayMs=${delayMs} errorType=${getLegacyOperationErrorType(
           error,
         )}`,
@@ -517,7 +538,7 @@ async function readLegacyAppStorageKey({
   });
 
   if (!result.ok) {
-    logMigration(
+    log(
       `source key result=skipped index=${index} key=${keyLabel} stage=read attempts=${result.attemptCount} errorType=${getLegacyOperationErrorType(
         result.error,
       )}`,
@@ -527,7 +548,7 @@ async function readLegacyAppStorageKey({
 
   const valueBytes =
     result.value === null ? 0 : getUtf8ByteLength(result.value);
-  logMigration(
+  log(
     `source key result=read index=${index} key=${keyLabel} enumerated=${enumerated} present=${result.value !== null} attempts=${result.attemptCount} sourceBytes=${valueBytes}`,
   );
   return {
@@ -542,11 +563,13 @@ async function writeAppStorageKeyWithRetry({
   key,
   mmkv,
   value,
+  log = logMigration,
 }: {
   index: number;
   key: string;
   mmkv: IMMKVInstance;
   value: string;
+  log?: (message: string) => void;
 }) {
   const keyLabel = getLegacyKeyDiagnosticLabel(key);
   const sourceBytes = getUtf8ByteLength(value);
@@ -563,7 +586,7 @@ async function writeAppStorageKeyWithRetry({
       return getUtf8ByteLength(copiedValue);
     },
     onRetry: ({ delayMs, error, retryCount }) => {
-      logMigration(
+      log(
         `target key retry index=${index} key=${keyLabel} retry=${retryCount} delayMs=${delayMs} errorType=${getLegacyOperationErrorType(
           error,
         )}`,
@@ -577,7 +600,7 @@ async function writeAppStorageKeyWithRetry({
     } catch {
       // The exact target set is verified after every key has been attempted.
     }
-    logMigration(
+    log(
       `target key result=skipped index=${index} key=${keyLabel} stage=write attempts=${result.attemptCount} sourceBytes=${sourceBytes} errorType=${getLegacyOperationErrorType(
         result.error,
       )}`,
@@ -585,7 +608,7 @@ async function writeAppStorageKeyWithRetry({
     return false;
   }
 
-  logMigration(
+  log(
     `target key result=migrated index=${index} key=${keyLabel} attempts=${result.attemptCount} sourceBytes=${sourceBytes} targetBytes=${result.value}`,
   );
   return true;
@@ -1164,12 +1187,13 @@ async function retryAppStorageMigration() {
   logMigration('repair target=appStorage result=recovered');
 }
 
-async function prepareAppStorageRepair(): Promise<INativeAppStorageRepairSummary> {
-  pendingAppStorageRepair = undefined;
-  appStorageRepairActive = true;
-  appStorageMigrationPromise = undefined;
-  await logAppStorageFiles('repair-before-reload');
-  const ledger = await getAppStorageLedgerBeforeOpen();
+async function prepareAppStorageRepairWithContext(
+  context: IAppStorageRepairContext,
+): Promise<INativeAppStorageRepairSummary> {
+  context.pending = undefined;
+  context.onPrepare();
+  await context.logFiles('repair-before-reload');
+  const ledger = await context.getLedger();
   if (ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE) {
     throw new OneKeyLocalError(
       'App-storage migration repair is no longer applicable',
@@ -1177,17 +1201,17 @@ async function prepareAppStorageRepair(): Promise<INativeAppStorageRepairSummary
   }
   let scanComplete = true;
   try {
-    await reloadNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+    await context.reload();
   } catch {
     scanComplete = false;
-    logMigration('repair stage=reload result=failed');
+    context.log('repair stage=reload result=failed');
   }
-  const mmkv = getAppStorageMMKV();
+  const mmkv = context.getMMKV();
   try {
-    await recoverInterruptedAppStorageBatch(mmkv);
+    await context.recoverJournal(mmkv);
   } catch {
     scanComplete = false;
-    logMigration('repair stage=journal result=failed');
+    context.log('repair stage=journal result=failed');
   }
   const currentKeys = new Set<string>();
   try {
@@ -1197,7 +1221,7 @@ async function prepareAppStorageRepair(): Promise<INativeAppStorageRepairSummary
       .forEach((key) => currentKeys.add(decodeAppStorageKey(key)));
   } catch {
     scanComplete = false;
-    logMigration('repair stage=target-enumeration result=failed');
+    context.log('repair stage=target-enumeration result=failed');
   }
   // A successful reload needs no stale backup import. Otherwise, existing
   // readable MMKV values win over the legacy snapshot, which may be outdated.
@@ -1211,10 +1235,13 @@ async function prepareAppStorageRepair(): Promise<INativeAppStorageRepairSummary
   let legacy: ILegacyAsyncStorageNativeModule | undefined;
   let enumeration: ILegacyAppStorageEnumeration | undefined;
   if (needsLegacyRecovery) {
-    const source = await getLegacyAppStorageSourceWithRetry();
+    const source = await getLegacyAppStorageSourceWithRetry(
+      context.getLegacy,
+      context.log,
+    );
     legacy = source.ok ? source.value : undefined;
     enumeration = legacy
-      ? await enumerateLegacyAppStorageKeys(legacy)
+      ? await enumerateLegacyAppStorageKeys(legacy, context.log)
       : undefined;
     scanComplete =
       scanComplete && enumeration?.enumerationStatus === 'complete';
@@ -1248,6 +1275,7 @@ async function prepareAppStorageRepair(): Promise<INativeAppStorageRepairSummary
         index,
         key,
         legacy,
+        log: context.log,
       });
       if (read?.value === null && !currentKeys.has(key)) {
         absentProbe = true;
@@ -1258,6 +1286,7 @@ async function prepareAppStorageRepair(): Promise<INativeAppStorageRepairSummary
           key,
           mmkv,
           value: read.value,
+          log: context.log,
         });
         if (succeeded) {
           verifiedKeys.set(key, checksum(read.value));
@@ -1269,27 +1298,31 @@ async function prepareAppStorageRepair(): Promise<INativeAppStorageRepairSummary
     let result = 'failed';
     if (succeeded) result = 'verified';
     else if (absentProbe) result = 'absent-probe';
-    logMigration(`repair key index=${index} result=${result}`);
+    context.log(`repair key index=${index} result=${result}`);
     index += 1;
   }
-  appStorageRepairSequence += 1;
+  context.sequence += 1;
   const summary: INativeAppStorageRepairSummary = {
-    repairId: `${Date.now()}-${appStorageRepairSequence}`,
+    repairId: `${Date.now()}-${context.sequence}`,
     successfulCount: verifiedKeys.size,
     failedCount,
     preservedCount,
     recoveredCount,
     scanComplete,
   };
-  pendingAppStorageRepair = { summary, verifiedKeys };
-  logMigration(
+  context.pending = { summary, verifiedKeys };
+  context.log(
     `repair phase=prepared successful=${summary.successfulCount} failed=${failedCount} scanComplete=${scanComplete} legacyBackup=retained awaitingConfirmation=true`,
   );
   return summary;
 }
 
-async function completeAppStorageRepair(repairId: string, force: boolean) {
-  const pending = pendingAppStorageRepair;
+async function completeAppStorageRepairWithContext(
+  context: IAppStorageRepairContext,
+  repairId: string,
+  force: boolean,
+) {
+  const pending = context.pending;
   if (!pending || pending.summary.repairId !== repairId) {
     throw new OneKeyLocalError(
       'Storage repair results expired. Please run repair again.',
@@ -1303,7 +1336,7 @@ async function completeAppStorageRepair(repairId: string, force: boolean) {
       'Partial storage recovery requires explicit confirmation',
     );
   }
-  const mmkv = getAppStorageMMKV();
+  const mmkv = context.getMMKV();
   const verifyKeys = () => {
     const allKeys = mmkv.getAllKeys();
     if (allKeys.includes(APP_STORAGE_TRANSACTION_JOURNAL_KEY)) {
@@ -1336,7 +1369,7 @@ async function completeAppStorageRepair(repairId: string, force: boolean) {
     }
   };
   try {
-    await reloadNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+    await context.reload();
     for (const key of mmkv.getAllKeys()) {
       if (
         key.startsWith(APP_STORAGE_KEY_PREFIX) &&
@@ -1351,7 +1384,7 @@ async function completeAppStorageRepair(repairId: string, force: boolean) {
     }
     mmkv.remove(APP_STORAGE_TRANSACTION_JOURNAL_KEY);
     verifyKeys();
-    pendingAppStorageRecovery = undefined;
+    context.clearPendingRecovery();
     mmkv.set(APP_STORAGE_REPAIR_PROBE_KEY, '1');
     if (mmkv.getString(APP_STORAGE_REPAIR_PROBE_KEY) !== '1') {
       throw new OneKeyLocalError('MMKV storage write verification failed');
@@ -1360,8 +1393,8 @@ async function completeAppStorageRepair(repairId: string, force: boolean) {
     if (mmkv.getString(APP_STORAGE_REPAIR_PROBE_KEY) !== undefined) {
       throw new OneKeyLocalError('MMKV storage remove verification failed');
     }
-    await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
-    await reloadNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+    await context.sync();
+    await context.reload();
     verifyKeys();
     const report = JSON.stringify({ ...pending.summary, force, version: 1 });
     mmkv.set(APP_STORAGE_REPAIR_REPORT_KEY, report);
@@ -1370,8 +1403,8 @@ async function completeAppStorageRepair(repairId: string, force: boolean) {
       APP_STORAGE_LEGACY_RETENTION_POLICY_RETAINED,
     );
     mmkv.set(APP_STORAGE_MIGRATION_COMPLETE_KEY, '1');
-    await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
-    await reloadNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+    await context.sync();
+    await context.reload();
     verifyKeys();
     if (
       mmkv.getString(APP_STORAGE_MIGRATION_COMPLETE_KEY) !== '1' ||
@@ -1383,25 +1416,74 @@ async function completeAppStorageRepair(repairId: string, force: boolean) {
         'Storage repair completion verification failed',
       );
     }
-    await setNativeStorageMigrationLedgerComplete(
-      APP_STORAGE_MIGRATION_LEDGER_KEY,
-    );
+    await context.completeLedger();
   } catch (error) {
     // Do not leave a successful-looking marker after failed confirmation.
     try {
       mmkv.remove(APP_STORAGE_MIGRATION_COMPLETE_KEY);
-      await syncNativeStorageMMKV(APP_STORAGE_MMKV_ID);
+      await context.sync();
     } catch {
-      logMigration('repair phase=marker-rollback result=failed');
+      context.log('repair phase=marker-rollback result=failed');
     }
     throw error;
   }
-  pendingAppStorageRepair = undefined;
-  appStorageRepairActive = false;
-  appStorageMigrationPromise = undefined;
-  logMigration(
+  context.pending = undefined;
+  context.onComplete();
+  context.log(
     `repair phase=confirmed successful=${pending.summary.successfulCount} failed=${pending.summary.failedCount} force=${force} legacyBackup=retained`,
   );
+}
+
+/** Owns an independent repair attempt and queue for exactly one storage target. */
+export function createNativeAppStorageRepairController(
+  dependencies: INativeAppStorageRepairDependencies,
+) {
+  const context: IAppStorageRepairContext = { ...dependencies, sequence: 0 };
+  let chain: Promise<unknown> = Promise.resolve();
+  const enqueue = <T>(operation: () => Promise<T>) => {
+    const result = chain.then(operation, operation);
+    chain = result.catch(() => undefined);
+    return result;
+  };
+  return {
+    prepare: () => enqueue(() => prepareAppStorageRepairWithContext(context)),
+    complete: (repairId: string, force: boolean) =>
+      enqueue(() =>
+        completeAppStorageRepairWithContext(context, repairId, force),
+      ),
+  };
+}
+
+const appStorageRepairController = createNativeAppStorageRepairController({
+  getMMKV: getAppStorageMMKV,
+  getLedger: getAppStorageLedgerBeforeOpen,
+  getLegacy: getLegacyAsyncStorageForMigration,
+  reload: () => reloadNativeStorageMMKV(APP_STORAGE_MMKV_ID),
+  sync: () => syncNativeStorageMMKV(APP_STORAGE_MMKV_ID),
+  recoverJournal: recoverInterruptedAppStorageBatch,
+  completeLedger: () =>
+    setNativeStorageMigrationLedgerComplete(APP_STORAGE_MIGRATION_LEDGER_KEY),
+  log: logMigration,
+  logFiles: logAppStorageFiles,
+  onPrepare: () => {
+    appStorageRepairActive = true;
+    appStorageMigrationPromise = undefined;
+  },
+  onComplete: () => {
+    appStorageRepairActive = false;
+    appStorageMigrationPromise = undefined;
+  },
+  clearPendingRecovery: () => {
+    pendingAppStorageRecovery = undefined;
+  },
+});
+
+function prepareAppStorageRepair() {
+  return appStorageRepairController.prepare();
+}
+
+function completeAppStorageRepair(repairId: string, force: boolean) {
+  return appStorageRepairController.complete(repairId, force);
 }
 
 function enqueueAppStorageMigrationReset() {

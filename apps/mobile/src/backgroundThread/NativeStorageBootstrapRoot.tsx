@@ -21,8 +21,10 @@ import { callNativeStorage } from '@onekeyhq/shared/src/storage/nativeStorageBri
 import {
   dismissNativeStorageRecovery,
   getRequestedNativeStorageRecovery,
+  getRequestedNativeStorageRecoveryTestSessionId,
   subscribeNativeStorageRecovery,
 } from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
+import type { INativeStorageRecoveryTestRequest } from '@onekeyhq/shared/src/storage/nativeStorageRecoveryTestTypes';
 import { getNativeStorageMigrationRecoveryTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 import type {
   INativeAppStorageRepairSummary,
@@ -83,6 +85,32 @@ function initializeJotaiFromBackground() {
   return runJotaiMainHydration(() =>
     backgroundApiProxy.initializeJotaiFromBackground(),
   );
+}
+
+function callStorageRecoveryTest(request: INativeStorageRecoveryTestRequest) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { default: backgroundApiProxy } =
+    require('@onekeyhq/kit/src/background/instance/backgroundApiProxy') as typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
+  return backgroundApiProxy.serviceDevSetting.nativeStorageRecoveryTest(
+    request,
+  );
+}
+
+async function releaseStorageRecoveryTestFault() {
+  const sessionId = getRequestedNativeStorageRecoveryTestSessionId();
+  if (!sessionId || storageRepairInProgress) return;
+  storageRepairInProgress = true;
+  notifySubscribers();
+  try {
+    await callStorageRecoveryTest({ action: 'releaseFault', sessionId });
+    storageRepairError = 'Simulated fault cleared. Retry repair to continue.';
+  } catch {
+    storageRepairError =
+      'Could not clear the simulated fault. Reopen the test panel.';
+  } finally {
+    storageRepairInProgress = false;
+    notifySubscribers();
+  }
 }
 
 /** Each stage of the gate that holds the first frame, so a startup
@@ -411,8 +439,9 @@ function startStorageRepair(
   storageRepairCanReset = false;
   storageRepairError = undefined;
   notifySubscribers();
+  const testSessionId = getRequestedNativeStorageRecoveryTestSessionId();
   writeBootstrapError(
-    `[NativeStorageRecovery] target=${target} phase=${action}-start`,
+    `[NativeStorageRecovery] target=${target} phase=${action}-start test=${Boolean(testSessionId)}`,
     'info',
   );
   let restartScheduled = false;
@@ -424,20 +453,27 @@ function startStorageRepair(
       // Closing only refreshes the runtimes; storage was already committed.
       await appRestart({
         mode: EAppRestartMode.All,
-        reason: 'storage.migration.repaired',
+        reason: testSessionId
+          ? 'storage.migration.test.repaired'
+          : 'storage.migration.repaired',
       });
       restartScheduled = true;
       return;
     }
     if (target === 'appStorage' && action === 'prepare') {
       storageRepairSummary = undefined;
-      const summary = await callNativeStorage<
-        INativeAppStorageRepairSummary | undefined
-      >({
-        scope: 'recovery',
-        operation: 'prepareMigrationRepair',
-        target,
-      });
+      const summary = testSessionId
+        ? (
+            await callStorageRecoveryTest({
+              action: 'prepare',
+              sessionId: testSessionId,
+            })
+          ).summary
+        : await callNativeStorage<INativeAppStorageRepairSummary | undefined>({
+            scope: 'recovery',
+            operation: 'prepareMigrationRepair',
+            target,
+          });
       if (!summary)
         throw new OneKeyLocalError(
           'Storage repair is unavailable in this runtime',
@@ -448,13 +484,22 @@ function startStorageRepair(
     if (target === 'appStorage') {
       if (!storageRepairSummary)
         throw new OneKeyLocalError('Please run storage repair again');
-      await callNativeStorage<void>({
-        scope: 'recovery',
-        operation: 'completeMigrationRepair',
-        target,
-        repairId: storageRepairSummary.repairId,
-        force,
-      });
+      if (testSessionId) {
+        await callStorageRecoveryTest({
+          action: 'complete',
+          sessionId: testSessionId,
+          repairId: storageRepairSummary.repairId,
+          force,
+        });
+      } else {
+        await callNativeStorage<void>({
+          scope: 'recovery',
+          operation: 'completeMigrationRepair',
+          target,
+          repairId: storageRepairSummary.repairId,
+          force,
+        });
+      }
     } else if (action === 'reset') {
       await callNativeStorage<void>({
         scope: 'recovery',
@@ -462,12 +507,26 @@ function startStorageRepair(
         target,
       });
     }
-    await bootstrapNativeStorage({ force: true });
-    await initializeJotaiFromBackground();
+    if (testSessionId) {
+      const result = await callStorageRecoveryTest({
+        action: 'verify',
+        sessionId: testSessionId,
+      });
+      if (!result.snapshot.verification?.passed)
+        throw new OneKeyLocalError('Storage recovery test verification failed');
+    } else {
+      await bootstrapNativeStorage({ force: true });
+      await initializeJotaiFromBackground();
+    }
     if (target === 'appStorage') {
+      if (testSessionId !== getRequestedNativeStorageRecoveryTestSessionId()) {
+        throw new OneKeyLocalError(
+          'Storage repair request changed. Please retry.',
+        );
+      }
       storageRepairCompleted = true;
       writeBootstrapError(
-        `[NativeStorageRecovery] target=${target} result=verified awaitingClose=true`,
+        `[NativeStorageRecovery] target=${target} result=verified awaitingClose=true test=${Boolean(testSessionId)}`,
         'info',
       );
       return;
@@ -562,6 +621,19 @@ const styles = StyleSheet.create({
 // mount first.
 registerSwrCacheMutationInvalidation();
 
+let lastRecoveryTestSessionId: string | undefined;
+subscribeNativeStorageRecovery(() => {
+  const sessionId = getRequestedNativeStorageRecoveryTestSessionId();
+  if (sessionId !== lastRecoveryTestSessionId && !storageRepairInProgress) {
+    storageRepairSummary = undefined;
+    storageRepairCompleted = false;
+    storageRepairError = undefined;
+    storageRepairCanReset = false;
+  }
+  lastRecoveryTestSessionId = sessionId;
+  notifySubscribers();
+});
+
 export function NativeStorageBootstrapRoot() {
   useSyncExternalStore(subscribeBootstrapState, getBootstrapStateVersion);
   const requestedRecoveryTarget = useSyncExternalStore(
@@ -579,6 +651,7 @@ export function NativeStorageBootstrapRoot() {
   }
   if (bootstrapError || requestedRecoveryTarget) {
     const recoveryTarget = requestedRecoveryTarget ?? bootstrapRecoveryTarget;
+    const testSessionId = getRequestedNativeStorageRecoveryTestSessionId();
     const isConfirmingRepair = repairConfirmationTarget === recoveryTarget;
     const isRepairCompleted =
       recoveryTarget === 'appStorage' && storageRepairCompleted;
@@ -747,6 +820,16 @@ export function NativeStorageBootstrapRoot() {
         contentContainerStyle={styles.errorContent}
       >
         <Text style={styles.title}>{recoveryTitle}</Text>
+        {testSessionId ? (
+          <Text
+            style={styles.message}
+            testID="native-storage-recovery-test-banner"
+          >
+            Isolated storage recovery test. Wallet storage is not part of this
+            scenario. After closing, reopen the developer test panel to verify
+            the result.
+          </Text>
+        ) : null}
         <Text style={styles.message}>{recoveryDescription}</Text>
         {recoveryTarget === 'appStorage' && storageRepairSummary ? (
           <>
@@ -765,6 +848,19 @@ export function NativeStorageBootstrapRoot() {
           <Text style={styles.message}>{storageRepairError}</Text>
         ) : null}
         {recoveryAction}
+        {testSessionId &&
+        storageRepairError &&
+        !storageRepairInProgress &&
+        !isRepairCompleted ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => void releaseStorageRecoveryTestFault()}
+            style={styles.restartButton}
+            testID="native-storage-recovery-test-release-fault"
+          >
+            <Text style={styles.restartText}>Clear simulated fault</Text>
+          </Pressable>
+        ) : null}
         {AppComponent && !storageRepairInProgress && !isRepairCompleted ? (
           <Pressable
             accessibilityRole="button"

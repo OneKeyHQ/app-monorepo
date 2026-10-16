@@ -972,6 +972,76 @@ describe('nativeStorageExecutor', () => {
     expect(mockLegacyStorage.multiRemove).not.toHaveBeenCalled();
   });
 
+  it('keeps sandbox attempts independent from the production pending result and access gate', async () => {
+    mockMigrationLedger.set('app-storage-v1', 'complete-v1');
+    mockLegacyData.set('business', 'production-value');
+    const {
+      executeNativeStorageRequest,
+      createNativeAppStorageRepairController,
+    } = loadExecutor();
+    const production = (await executeNativeStorageRequest({
+      scope: 'recovery',
+      operation: 'prepareMigrationRepair',
+      target: 'appStorage',
+    })) as INativeAppStorageRepairSummary;
+    const sandbox = new FakeMMKV();
+    const controller = createNativeAppStorageRepairController({
+      getMMKV: () => sandbox,
+      getLedger: async () => 'complete-v1',
+      getLegacy: () => ({
+        getAllKeys: async () => ['sandbox'],
+        multiGet: async (keys) =>
+          keys.map(
+            (key) =>
+              [key, key === 'sandbox' ? 'sandbox-value' : null] as [
+                string,
+                string | null,
+              ],
+          ),
+        multiSet: async () => undefined,
+        multiRemove: async () => undefined,
+        reloadManifest: async () => undefined,
+      }),
+      reload: async () => false,
+      sync: async () => undefined,
+      recoverJournal: async () => undefined,
+      completeLedger: async () => undefined,
+      log: () => undefined,
+      logFiles: async () => undefined,
+      onPrepare: () => undefined,
+      onComplete: () => undefined,
+      clearPendingRecovery: () => undefined,
+    });
+    const fixture = await controller.prepare();
+    await controller.complete(fixture.repairId, false);
+    expect(sandbox.getString('app:sandbox')).toBe('sandbox-value');
+    expect(sandbox.getString('app:business')).toBeUndefined();
+    expect(mockAppMMKV.getString('app:sandbox')).toBeUndefined();
+    expect(mockAppMMKV.getString(MIGRATION_KEY)).toBeUndefined();
+    await expect(
+      executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'getItem',
+        key: 'business',
+      }),
+    ).rejects.toThrow('migration marker is missing');
+    await executeNativeStorageRequest({
+      scope: 'recovery',
+      operation: 'completeMigrationRepair',
+      target: 'appStorage',
+      repairId: production.repairId,
+      force: false,
+    });
+    await expect(
+      executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'getItem',
+        key: 'business',
+      }),
+    ).resolves.toBe('production-value');
+    expect(mockLegacyStorage.multiRemove).not.toHaveBeenCalled();
+  });
+
   it('labels an unavailable source as an incomplete scan and allows a confirmed empty writable target', async () => {
     mockMigrationLedger.set('app-storage-v1', 'complete-v1');
     mockLegacySourceError = new Error('legacy unavailable');

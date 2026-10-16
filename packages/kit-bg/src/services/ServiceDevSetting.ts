@@ -17,10 +17,15 @@ import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { devSettingSyncStorage } from '@onekeyhq/shared/src/storage/instance/devSettingSyncStorageInstance';
+import type {
+  INativeStorageRecoveryTestRequest,
+  INativeStorageRecoveryTestResult,
+} from '@onekeyhq/shared/src/storage/nativeStorageRecoveryTestTypes';
 import {
   EAppSyncStorageKeys,
   EDevSettingSyncStorageKeys,
 } from '@onekeyhq/shared/src/storage/syncStorageKeys';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import type { IPro2FirmwareUpdateTarget } from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
@@ -669,6 +674,33 @@ class ServiceDevSetting extends ServiceBase {
   public async demoAsyncStorageBgMultiRemove(keys: string[]): Promise<void> {
     this.assertAsyncStorageTestKeys(keys);
     await appStorage.multiRemove(keys);
+  }
+
+  @backgroundMethod()
+  public async nativeStorageRecoveryTest(
+    request: INativeStorageRecoveryTestRequest,
+  ): Promise<INativeStorageRecoveryTestResult> {
+    if (
+      !platformEnv.isNativeBackgroundThread ||
+      !(await devSettingsPersistAtom.get()).enabled
+    ) {
+      throw new OneKeyLocalError(
+        'Storage recovery tests require native background runtime and developer mode',
+      );
+    }
+    const environment = await travelModeManager.getRuntimeEnvironment();
+    return environment.persistence.run({
+      operation: async () => {
+        const { runNativeStorageRecoveryTest } =
+          await import('./ServiceDevSetting/nativeStorageRecoveryTest');
+        return runNativeStorageRecoveryTest(request);
+      },
+      onBlocked: () => {
+        throw new OneKeyLocalError(
+          'Storage recovery tests are unavailable in this runtime profile',
+        );
+      },
+    });
   }
 }
 
