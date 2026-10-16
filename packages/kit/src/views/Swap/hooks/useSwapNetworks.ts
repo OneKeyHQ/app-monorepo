@@ -147,6 +147,7 @@ export function useSwapNetworks() {
     defaultConfigStatus,
     defaultConfigStatusRef,
     fetchSwapNetworks,
+    hasRefreshedSwapNetworksRef,
     networkListFetching,
     swapNetworks,
     swapNetworksRef,

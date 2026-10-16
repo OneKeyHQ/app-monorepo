@@ -24548,6 +24548,7 @@
     "packages/kit/src/views/Swap/utils/buildSwapReviewState.ts": 3845,
     "packages/kit/src/views/Swap/utils/gasAccountAnalytics.ts": 9065,
     "packages/kit/src/views/Swap/utils/incognitoSettings.ts": 2919,
+    "packages/kit/src/views/Swap/utils/marketSwapDefaultPair.ts": 7561,
     "packages/kit/src/views/Swap/utils/privateSendHistory.ts": 15339,
     "packages/kit/src/views/Swap/utils/quoteShowTipUtils.ts": 16805,
     "packages/kit/src/views/Swap/utils/stockTokenDetailFreshness.ts": 3767,
