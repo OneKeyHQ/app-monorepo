@@ -635,6 +635,13 @@
     "baseline-browser-mapping@^2.10.44": "2.11.28",
     "caniuse-lite@^1.0.30001806": "1.0.30001815",
     "electron-to-chromium@^1.5.393": "1.5.452",
-    "node-releases@^2.0.51": "2.0.58"
+    "node-releases@^2.0.51": "2.0.58",
+    "browserslist@^4.25.0": "4.28.7",
+    "compression@^1.7.1": "1.8.2",
+    "compression@^1.7.4": "1.8.2",
+    "minimatch@^10.0.3": "10.2.6",
+    "minimatch@^10.1.1": "10.2.6",
+    "source-map-js@^1.2.1": "1.2.2",
+    "image-size@^1.0.2": "2.0.4"
   }
 }
