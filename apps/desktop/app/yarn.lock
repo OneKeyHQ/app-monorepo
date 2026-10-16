@@ -53,7 +53,7 @@ __metadata:
     adm-zip: "npm:0.5.17"
     electron-check-biometric-auth-changed: "npm:1.0.0"
     electron-updater: "npm:6.8.9"
-    electron-windows-hello: "npm:0.1.0"
+    electron-windows-hello: "https://github.com/OneKeyHQ/app-modules/releases/download/desktop-win-v44.0.1/electron-windows-hello-44.0.1.tgz"
     iconv-lite: "npm:0.6.3"
     mime-db: "npm:1.52.0"
     systeminformation: "npm:5.31.6"
@@ -1193,10 +1193,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron-windows-hello@npm:0.1.0":
-  version: 0.1.0
-  resolution: "electron-windows-hello@npm:0.1.0"
-  checksum: 10/8312ebab14e9c8e3cd0dae5bf441787f36ab9bd7bc7b5d906f6092a836dfafd1fc3c0be4f57d716f3c85d29871cd567f8261f026be950c98c5a855531df3885b
+"electron-windows-hello@https://github.com/OneKeyHQ/app-modules/releases/download/desktop-win-v44.0.1/electron-windows-hello-44.0.1.tgz":
+  version: 44.0.1
+  resolution: "electron-windows-hello@https://github.com/OneKeyHQ/app-modules/releases/download/desktop-win-v44.0.1/electron-windows-hello-44.0.1.tgz"
+  checksum: 10/70c17ecd59b5853213196855e515af90fd6b66e1f65abd87cb3b75e6bf6f626104cdfe8db7392f5416a26df7a0cd490a350272f43565aee277e8094b264f23f0
   languageName: node
   linkType: hard
 
