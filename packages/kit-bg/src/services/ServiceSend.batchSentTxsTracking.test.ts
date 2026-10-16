@@ -262,6 +262,54 @@ describe('ServiceSend.batchSignAndSendTransaction sentTxsTrackingId', () => {
     expect(saveSendConfirmHistoryTxs).toHaveBeenCalledTimes(2);
   });
 
+  test('bulk send rebuild starts above the nonce of a broadcast-but-unrecorded tx', async () => {
+    const { service, backgroundApi } = makeService();
+    backgroundApi.serviceHistory.saveSendConfirmHistoryTxs.mockRejectedValueOnce(
+      new Error('history write failed'),
+    );
+    await expect(
+      sendFromUi(service, {
+        accountId,
+        networkId,
+        unsignedTxs: [{ ...makeUnsignedTx('tx-1'), nonce: 6 }],
+        signOnly: false,
+        transferPayload: undefined,
+        sentTxsTrackingId: 'screen-1',
+      }),
+    ).rejects.toThrow('history write failed');
+
+    Object.assign(backgroundApi, {
+      serviceNetwork: {
+        getVaultSettings: jest
+          .fn()
+          .mockResolvedValue({ bulkSendMaxTransfersPerTx: 200 }),
+      },
+      serviceAccount: {
+        getAccount: jest.fn().mockResolvedValue({ address: '0xfrom' }),
+      },
+    });
+    // The pending tx is neither on chain nor in history yet
+    jest.spyOn(service, 'getNextNonce').mockResolvedValue(6);
+    const prepare = jest
+      .spyOn(service, 'prepareSendConfirmUnsignedTx')
+      .mockImplementation(
+        async ({ prevNonce }) =>
+          ({ nonce: (prevNonce ?? -1) + 1 }) as IUnsignedTxPro,
+      );
+
+    const txs = await service.prepareBulkSendTransferTxs({
+      accountId,
+      networkId,
+      transfersInfo: makeUnsignedTx('tx-2').transfersInfo ?? [],
+      sentTxsTrackingId: 'screen-1',
+    });
+
+    expect(prepare).toHaveBeenCalledWith(
+      expect.objectContaining({ prevNonce: 6 }),
+    );
+    expect(txs.map((tx) => tx.nonce)).toEqual([7]);
+  });
+
   test('tracking is scoped to its id and opt-in', async () => {
     const { service, signAndSend } = makeService();
     const params: IBatchParams = {

@@ -29,6 +29,8 @@ import {
 } from '@onekeyhq/shared/types/fee';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { normalizeGasEIP1559Presets } from '../../../utils';
+
 import type { IBulkSendFeeState } from '../components/Context';
 
 // Rent cost per ATA creation on Solana (from kit-bg/src/vaults/impls/sol/utils.ts)
@@ -49,21 +51,39 @@ type IUseBulkSendFeeEstimationParams = {
   isSubmitting?: boolean;
 };
 
-// Used when only unsignedTxs[0] could be estimated. An approve estimate
-// stands in for a single transfer, so scale by the tx's transfer count (+1 for
-// contract overhead). A transfer-tx estimate (split send whose per-tx
-// estimates failed) already covers its own transfers, so scale by the ratio.
-function getFallbackGasMultiplier(
-  unsignedTxs: IUnsignedTxPro[],
-  unsignedTx: IUnsignedTxPro,
-): number {
-  const transferCount = unsignedTx.transfersInfo?.length ?? 1;
-  const estimatedTx = unsignedTxs[0];
-  if (!estimatedTx || estimatedTx.approveInfo) return transferCount + 1;
-  return transferCount / (estimatedTx.transfersInfo?.length ?? 1);
+type IPerTxGasInfo = { gas?: IGasLegacy[]; gasEIP1559?: IGasEIP1559[] };
+
+// Fresh price presets with a tx's previously estimated gas limits
+function withCachedGasLimits(
+  fresh: IPerTxGasInfo,
+  cached: IPerTxGasInfo,
+): IPerTxGasInfo {
+  return {
+    gas: fresh.gas?.map((preset, index) => {
+      const limits = cached.gas?.[index];
+      return limits
+        ? {
+            ...preset,
+            gasLimit: limits.gasLimit,
+            gasLimitForDisplay: limits.gasLimitForDisplay,
+          }
+        : preset;
+    }),
+    gasEIP1559: fresh.gasEIP1559?.map((preset, index) => {
+      const limits = cached.gasEIP1559?.[index];
+      return limits
+        ? {
+            ...preset,
+            gasLimit: limits.gasLimit,
+            gasLimitForDisplay: limits.gasLimitForDisplay,
+          }
+        : preset;
+    }),
+  };
 }
 
-// Scale gasLimit for bulk transfer txs when batch estimation is not available
+// Without batch or per-tx estimation only unsignedTxs[0] (an approve tx) is
+// estimated; it stands in for one transfer, so scale by the transfer count.
 function scaleGasLimitForBulkTransfer(
   feeInfo: IFeeInfoUnit,
   multiplier: number,
@@ -109,6 +129,16 @@ export function useBulkSendFeeEstimation({
 }: IUseBulkSendFeeEstimationParams) {
   const intl = useIntl();
   const isEstimating = useRef(false);
+  // A forced estimate requested mid-estimate re-runs afterwards with the
+  // latest txs instead of being dropped.
+  const isForcedRerunPendingRef = useRef(false);
+  const latestEstimateFeeRef = useRef<
+    ((options?: { forceLoading?: boolean }) => Promise<unknown>) | undefined
+  >(undefined);
+  // Per-tx gas limits of split transfers; polling refreshes only prices.
+  const perTxGasCacheRef = useRef<
+    { txs: IUnsignedTxPro[]; infos: IPerTxGasInfo[] } | undefined
+  >(undefined);
   const isFocused = useIsFocused();
   const shouldPollFeeRef = useRef(isFocused && !isSubmitting);
 
@@ -138,6 +168,7 @@ export function useBulkSendFeeEstimation({
       }
 
       if (isEstimating.current) {
+        if (forceLoading) isForcedRerunPendingRef.current = true;
         return null;
       }
 
@@ -158,16 +189,16 @@ export function useBulkSendFeeEstimation({
         const isMultiTxs = unsignedTxs.length > 1;
         const isManyToManyOrManyToOne =
           bulkSendMode && bulkSendMode !== EBulkSendMode.OneToMany;
+        // OneToMany multi-tx sends price every tx separately
+        const isPerTxFee = isMultiTxs && !isManyToManyOrManyToOne;
 
         let txFee: IFeesInfoUnit | undefined;
         let estimateFeeParams: IEstimateFeeParams | undefined;
-        // Store per-tx fee info for batch estimation
-        let perTxFeeInfos:
-          | { gas?: IGasLegacy[]; gasEIP1559?: IGasEIP1559[] }[]
-          | undefined;
+        // Per-tx gas info from batch or per-tx estimation
+        let perTxFeeInfos: IPerTxGasInfo[] | undefined;
 
         // Try batch estimate for multi-txs
-        if (isMultiTxs && !isManyToManyOrManyToOne) {
+        if (isPerTxFee) {
           const vs = await backgroundApiProxy.serviceNetwork.getVaultSettings({
             networkId,
           });
@@ -197,7 +228,7 @@ export function useBulkSendFeeEstimation({
           }
         }
 
-        // Fallback to single tx estimate
+        // No batch estimate: estimate the first tx, plus each split transfer
         if (!txFee) {
           const accountAddress =
             await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
@@ -220,16 +251,7 @@ export function useBulkSendFeeEstimation({
               transfersInfo: unsignedTx.transfersInfo,
               scenario: 'send',
             });
-            // Handle 5-level EIP1559 fees
-            if (r.gasEIP1559 && r.gasEIP1559.length === 5) {
-              r.gasEIP1559 = [
-                r.gasEIP1559[0],
-                r.gasEIP1559[2],
-                r.gasEIP1559[4],
-              ];
-            } else if (r.gasEIP1559) {
-              r.gasEIP1559 = r.gasEIP1559.slice(0, 3);
-            }
+            r.gasEIP1559 = normalizeGasEIP1559Presets(r.gasEIP1559);
             return { fee: r, estimateFeeParams: e };
           };
 
@@ -241,12 +263,17 @@ export function useBulkSendFeeEstimation({
           // their gas differs per chunk (e.g. recipients without a token
           // balance cost more), so do not derive it from the first chunk.
           if (
-            isMultiTxs &&
-            !isManyToManyOrManyToOne &&
+            isPerTxFee &&
             (txFee.gas || txFee.gasEIP1559) &&
             !unsignedTxs.some((tx) => tx.approveInfo)
           ) {
-            try {
+            const cached = perTxGasCacheRef.current;
+            if (!forceLoading && cached?.txs === unsignedTxs) {
+              const freshFee = first.fee;
+              perTxFeeInfos = cached.infos.map((info) =>
+                withCachedGasLimits(freshFee, info),
+              );
+            } else {
               const restFees = await Promise.all(
                 unsignedTxs.slice(1).map(estimateTxFee),
               );
@@ -254,8 +281,10 @@ export function useBulkSendFeeEstimation({
                 gas: fee.gas,
                 gasEIP1559: fee.gasEIP1559,
               }));
-            } catch (e) {
-              console.error('Per-tx estimate fee failed, fallback to scale', e);
+              perTxGasCacheRef.current = {
+                txs: unsignedTxs,
+                infos: perTxFeeInfos,
+              };
             }
           }
         }
@@ -357,7 +386,7 @@ export function useBulkSendFeeEstimation({
 
         for (let i = 0; i < txCountForLoop; i += 1) {
           const unsignedTx = unsignedTxs[i];
-          // Use per-tx fee info if available (from batch estimation)
+          // Use per-tx fee info if available (batch or per-tx estimation)
           // Otherwise use the shared selectedFeeInfo
           let txFeeInfo = selectedFeeInfo;
           if (perTxFeeInfos && perTxFeeInfos[i]) {
@@ -371,7 +400,7 @@ export function useBulkSendFeeEstimation({
             // Fallback mode: scale gasLimit for transfer txs
             txFeeInfo = scaleGasLimitForBulkTransfer(
               txFeeInfo,
-              getFallbackGasMultiplier(unsignedTxs, unsignedTx),
+              (unsignedTx.transfersInfo?.length ?? 1) + 1,
             );
           }
           const feeResult = calculateFeeForSend({
@@ -514,6 +543,10 @@ export function useBulkSendFeeEstimation({
         return null;
       } finally {
         isEstimating.current = false;
+        if (isForcedRerunPendingRef.current) {
+          isForcedRerunPendingRef.current = false;
+          void latestEstimateFeeRef.current?.({ forceLoading: true });
+        }
       }
     },
     [
@@ -531,11 +564,14 @@ export function useBulkSendFeeEstimation({
     ],
   );
 
-  // Initial fee estimation (with loading state)
+  latestEstimateFeeRef.current = estimateFee;
+
+  // Initial fee estimation, and again whenever the txs change (e.g. after a
+  // partial failure prunes sent txs or an approval recheck rebuilds them)
   useEffect(() => {
     void estimateFee({ forceLoading: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [unsignedTxs]);
 
   // Polling for fee updates (silent, no loading state)
   useEffect(() => {
@@ -586,7 +622,7 @@ export function useBulkSendFeeEstimation({
 
       for (let i = 0; i < txCountForLoop; i += 1) {
         const unsignedTx = unsignedTxs[i];
-        // Use per-tx fee info if available (from batch estimation)
+        // Use per-tx fee info if available (batch or per-tx estimation)
         let txFeeInfo = selectedFeeInfo;
         if (perTxFeeInfos && perTxFeeInfos[i]) {
           const perTxFee = perTxFeeInfos[i];
@@ -599,7 +635,7 @@ export function useBulkSendFeeEstimation({
           // Fallback mode: scale gasLimit for transfer txs
           txFeeInfo = scaleGasLimitForBulkTransfer(
             txFeeInfo,
-            getFallbackGasMultiplier(unsignedTxs, unsignedTx),
+            (unsignedTx.transfersInfo?.length ?? 1) + 1,
           );
         }
         const feeResult = calculateFeeForSend({

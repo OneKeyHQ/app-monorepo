@@ -148,7 +148,6 @@ function BaseBulkSendReview({
     approvesInfo,
     setApprovesInfo,
     setUnsignedTxs,
-    forceRefreshFee,
   });
 
   // Fee overflow check hook
@@ -380,14 +379,23 @@ function BaseBulkSendReview({
       const approveTxsSent =
         approveCount > 0 && txs.slice(0, approveCount).every(isTxSent);
 
+      // done: recorded; kept: broadcast, history pending; pending: unsent
+      const keptTxs: IUnsignedTxPro[] = [];
+      const pendingTxs: IUnsignedTxPro[] = [];
+      let hasDoneTx = false;
       for (const tx of transferTxs) {
-        if (tx.uuid && isTxSent(tx)) sentTransferUuidsRef.current.add(tx.uuid);
+        if (!tx.uuid || !isTxSent(tx)) {
+          pendingTxs.push(tx);
+        } else {
+          sentTransferUuidsRef.current.add(tx.uuid);
+          if (isTxDone(tx)) hasDoneTx = true;
+          else keptTxs.push(tx);
+        }
       }
       const sentCount = sentTransferUuidsRef.current.size;
-      const remainingCount = transferTxs.filter((tx) => !isTxSent(tx)).length;
       setPartialSent(
-        sentCount > 0 && remainingCount > 0
-          ? { sent: sentCount, total: sentCount + remainingCount }
+        sentCount > 0 && pendingTxs.length > 0
+          ? { sent: sentCount, total: sentCount + pendingTxs.length }
           : undefined,
       );
 
@@ -395,18 +403,18 @@ function BaseBulkSendReview({
       // The approval state and approve txs stay until it confirms the
       // allowance and installs the rebuilt transfers.
       if (approveTxsSent) {
-        startApprovalRecheck(
-          transferTxs
-            .filter((tx) => !isTxSent(tx))
-            .flatMap((tx) => tx.transfersInfo ?? []),
-          transferTxs.filter((tx) => isTxSent(tx) && !isTxDone(tx)),
-        );
+        startApprovalRecheck({
+          pendingTransfersInfo: pendingTxs.flatMap(
+            (tx) => tx.transfersInfo ?? [],
+          ),
+          keptTxs,
+          sentTxsTrackingId,
+        });
       }
-      if (transferTxs.some(isTxDone)) {
+      if (hasDoneTx) {
         setUnsignedTxs((prev) =>
           prev.filter((tx) => !!tx.approveInfo || !isTxDone(tx)),
         );
-        forceRefreshFee();
       }
     },
     [
@@ -414,7 +422,6 @@ function BaseBulkSendReview({
       approvesInfo.length,
       startApprovalRecheck,
       setUnsignedTxs,
-      forceRefreshFee,
     ],
   );
 

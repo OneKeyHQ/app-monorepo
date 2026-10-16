@@ -1,6 +1,6 @@
 /* cspell:ignore Infini */
 import BigNumber from 'bignumber.js';
-import { cloneDeep, isNil } from 'lodash';
+import { cloneDeep, isNil, isNumber, max } from 'lodash';
 import pLimit from 'p-limit';
 import pRetry from 'p-retry';
 
@@ -1645,8 +1645,9 @@ class ServiceSend extends ServiceBase {
     const broadcastedTxs = sentTxsTrackingId
       ? this.getBatchBroadcastedTxs(sentTxsTrackingId)
       : undefined;
-    // A retry may drop already-sent txs, so its first tx was built alongside
-    // txs that are now on chain; refresh it like any later tx in a batch.
+    // Refresh every tx built before another tx of this tracking id went out:
+    // later txs of the batch, and the first one when a retry dropped txs
+    // that are already on chain.
     const hasEarlierBroadcast = (broadcastedTxs?.size ?? 0) > 0;
     const result: ISendTxOnSuccessData[] = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
@@ -1672,7 +1673,7 @@ class ServiceSend extends ServiceBase {
               current: i + 1,
             });
           }
-          if ((isMultiTxs && i > 0) || hasEarlierBroadcast) {
+          if (i > 0 || hasEarlierBroadcast) {
             unsignedTx =
               await vault.refreshUnsignedTxBeforeBatchSign(unsignedTx);
           }
@@ -2547,12 +2548,20 @@ class ServiceSend extends ServiceBase {
     accountId: string;
     transfersInfo: ITransferInfo[];
     prevNonce?: number;
-    // Highest nonce already taken by broadcast txs the next-nonce lookup may
-    // not see yet (e.g. broadcast but not recorded in history).
-    usedNonce?: number;
+    // Txs this tracking id broadcast but has not recorded in history hold
+    // nonces the next-nonce lookup cannot see; new txs start above them.
+    sentTxsTrackingId?: string;
   }): Promise<IUnsignedTxPro[]> {
-    const { networkId, accountId, transfersInfo, usedNonce } = params;
+    const { networkId, accountId, transfersInfo, sentTxsTrackingId } = params;
     let { prevNonce } = params;
+    const usedNonce = max(
+      Array.from(
+        (sentTxsTrackingId &&
+          this.batchBroadcastedTxs.get(sentTxsTrackingId)?.values()) ||
+          [],
+        (tx) => (tx.status === 'broadcasted' ? tx.unsignedTx.nonce : undefined),
+      ).filter(isNumber),
+    );
     if (isNil(prevNonce) && !isNil(usedNonce)) {
       const account = await this.backgroundApi.serviceAccount.getAccount({
         accountId,
@@ -2580,8 +2589,8 @@ class ServiceSend extends ServiceBase {
         prevNonce: nonce,
         withUuid: true,
       });
-    // Nonces chain per chunk; only the build of the first one may need to
-    // fetch the base nonce, so with a known prevNonce all build in parallel.
+    // Nonces chain per chunk; with a known prevNonce all chunks build in
+    // parallel, otherwise the first build fetches the base nonce.
     const firstTxPromise = prepareChunk(firstChunk, prevNonce);
     const baseNonce = isNil(prevNonce)
       ? (await firstTxPromise).nonce

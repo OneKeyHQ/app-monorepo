@@ -21,7 +21,6 @@ type IUseApprovalRecheckParams = {
   approvesInfo: IApproveInfo[];
   setApprovesInfo: React.Dispatch<React.SetStateAction<IApproveInfo[]>>;
   setUnsignedTxs: React.Dispatch<React.SetStateAction<IUnsignedTxPro[]>>;
-  forceRefreshFee: () => void;
 };
 
 export function useApprovalRecheck({
@@ -31,7 +30,6 @@ export function useApprovalRecheck({
   approvesInfo,
   setApprovesInfo,
   setUnsignedTxs,
-  forceRefreshFee,
 }: IUseApprovalRecheckParams) {
   const [isRecheckingApproval, setIsRecheckingApproval] = useState(false);
   const pollingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -110,7 +108,15 @@ export function useApprovalRecheck({
     // sent chunks already consumed part of the allowance and must not be rebuilt.
     // keptTxs (broadcast but not yet recorded) stay ahead of the rebuilt txs
     // so a retry can still finish their history.
-    (pendingTransfersInfo: ITransferInfo[], keptTxs: IUnsignedTxPro[] = []) => {
+    ({
+      pendingTransfersInfo,
+      keptTxs,
+      sentTxsTrackingId,
+    }: {
+      pendingTransfersInfo: ITransferInfo[];
+      keptTxs: IUnsignedTxPro[];
+      sentTxsTrackingId: string;
+    }) => {
       // Skip if no approvals to recheck
       if (approvesInfoRef.current.length === 0) return;
       if (!accountId || !networkId) return;
@@ -128,25 +134,19 @@ export function useApprovalRecheck({
         if (isApproved) {
           try {
             // Rebuild pending transfer-only txs with fresh nonce from chain
-            // Kept txs hold nonces the next-nonce lookup may not see yet
-            const keptNonces = keptTxs
-              .map((tx) => tx.nonce)
-              .filter((nonce): nonce is number => typeof nonce === 'number');
+            // The tracking id lets the rebuild start above kept txs' nonces
             const newTransferTxs =
               await backgroundApiProxy.serviceSend.prepareBulkSendTransferTxs({
                 networkId,
                 accountId,
                 transfersInfo: pendingTransfersInfo,
-                usedNonce: keptNonces.length
-                  ? Math.max(...keptNonces)
-                  : undefined,
+                sentTxsTrackingId,
               });
 
             if (!isMountedRef.current) return;
 
             setApprovesInfo([]);
             setUnsignedTxs([...keptTxs, ...newTransferTxs]);
-            forceRefreshFee();
           } catch {
             // If rebuilding fails, just clear approve state anyway
             // so the user can retry; drop the approve txs with it so the
@@ -182,7 +182,6 @@ export function useApprovalRecheck({
       checkAllowance,
       setApprovesInfo,
       setUnsignedTxs,
-      forceRefreshFee,
       clearTimers,
     ],
   );
