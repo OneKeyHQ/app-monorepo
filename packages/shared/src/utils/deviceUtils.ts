@@ -140,7 +140,10 @@ function getDeviceSerialNoFromFeatures(
     compatibleFeatures.onekey_serial,
     compatibleFeatures.serial_no,
   ].find(
-    (value): value is string => typeof value === 'string' && value.length > 0,
+    (value): value is string =>
+      typeof value === 'string' &&
+      value.trim().length > 0 &&
+      !/^0+$/.test(value.trim()),
   );
 }
 
