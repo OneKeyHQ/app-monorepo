@@ -7,9 +7,11 @@ import { useMedia } from '../../hooks';
 import { SizableText, Stack, XStack } from '../../primitives';
 
 import type { ICalendarHeaderProps } from './type';
+import type { IIconButtonProps } from '../../actions/IconButton';
+import type { IKeyOfIcons } from '../../primitives';
 
-const mdStyle = { marginTop: '$2' } as const;
-const hoverSubduedStyle = { color: '$textSubdued' } as const;
+const titleHoverStyle = { bg: '$bgHover' } as const;
+const titlePressStyle = { bg: '$bgActive' } as const;
 // Android reserves extra font padding above the ascent (large for CJK fonts),
 // which sinks the title below the visual center of the nav buttons row.
 const titleTextStyle = platformEnv.isNativeAndroid
@@ -26,8 +28,67 @@ const HIT_SLOP_EXPAND_RIGHT = platformEnv.isNative
   ? { top: 8, bottom: 8, right: 8 }
   : undefined;
 
-function NavSpacer() {
-  return <Stack width="$10" height="$6" />;
+/**
+ * Chevron, or a spacer with the same layout footprint when the header has no
+ * such navigation (IconButton's negative margin leaves a 24px footprint), so
+ * the remaining chevrons don't shift between drill-down levels.
+ */
+function NavButton({
+  icon,
+  onPress,
+  disabled,
+  hitSlop,
+}: {
+  icon: IKeyOfIcons;
+  onPress?: () => void;
+  disabled?: boolean;
+  hitSlop?: IIconButtonProps['hitSlop'];
+}) {
+  if (!onPress) return <Stack width="$6" height="$6" />;
+  return (
+    // Internal navigation control; QA targets the calendar root.
+    // oxlint-disable-next-line onekey/require-testid
+    <IconButton
+      icon={icon}
+      variant="tertiary"
+      size="medium"
+      disabled={!!disabled}
+      hitSlop={hitSlop}
+      onPress={onPress}
+    />
+  );
+}
+
+/** Month / year title; reads as a button when it opens a drill-down view. */
+function HeaderTitle({
+  text,
+  size,
+  onPress,
+}: {
+  text: string;
+  size: '$headingLg' | '$headingXl';
+  onPress?: () => void;
+}) {
+  return (
+    <Stack
+      paddingHorizontal="$1"
+      borderRadius="$2"
+      pointerEvents={onPress ? 'auto' : 'none'}
+      cursor="default"
+      hoverStyle={onPress ? titleHoverStyle : undefined}
+      pressStyle={onPress ? titlePressStyle : undefined}
+      onPress={onPress}
+    >
+      <SizableText
+        size={size}
+        color="$text"
+        userSelect="none"
+        style={titleTextStyle}
+      >
+        {text}
+      </SizableText>
+    </Stack>
+  );
 }
 
 export const CalendarHeader = memo(
@@ -47,18 +108,11 @@ export const CalendarHeader = memo(
     isNextYearDisabled,
   }: ICalendarHeaderProps) => {
     const media = useMedia();
-    const iconSize = 'medium' as const;
     const titleSize = media.gtMd ? '$headingLg' : '$headingXl';
     const showMonthYear = mode !== 'month' && mode !== 'year';
 
-    const showPrevButton = onPrevMonth && !isPrevDisabled;
-    const showNextButton = onNextMonth && !isNextDisabled;
-    const showPrevYearButton = onPrevYear && !isPrevYearDisabled;
-    const showNextYearButton = onNextYear && !isNextYearDisabled;
-    const yearClickable = showMonthYear && onYearClick;
-
     return (
-      <Stack paddingHorizontal="$2" marginBottom="$3" $md={mdStyle}>
+      <Stack paddingHorizontal="$2" marginBottom="$3">
         {/* Title - absolute center */}
         <XStack
           position="absolute"
@@ -68,93 +122,50 @@ export const CalendarHeader = memo(
           bottom={0}
           justifyContent="center"
           alignItems="center"
-          pointerEvents="none"
-          gap="$1"
+          pointerEvents="box-none"
         >
           {showMonthYear && month ? (
-            <SizableText
-              size={titleSize}
-              color="$text"
-              cursor="default"
-              userSelect="none"
-              pointerEvents="auto"
-              style={titleTextStyle}
-              onPress={onMonthClick}
-              hoverStyle={onMonthClick ? hoverSubduedStyle : undefined}
-            >
-              {month}
-            </SizableText>
+            <HeaderTitle text={month} size={titleSize} onPress={onMonthClick} />
           ) : null}
-          <SizableText
+          <HeaderTitle
+            text={year}
             size={titleSize}
-            color="$text"
-            cursor="default"
-            userSelect="none"
-            pointerEvents="auto"
-            style={titleTextStyle}
-            onPress={yearClickable ? onYearClick : undefined}
-            hoverStyle={yearClickable ? hoverSubduedStyle : undefined}
-          >
-            {year}
-          </SizableText>
+            onPress={showMonthYear ? onYearClick : undefined}
+          />
         </XStack>
         {/* Buttons */}
-        <XStack justifyContent="space-between" alignItems="center">
+        <XStack
+          justifyContent="space-between"
+          alignItems="center"
+          pointerEvents="box-none"
+        >
           <XStack alignItems="center">
-            {showPrevYearButton ? (
-              // Internal navigation control; QA targets the calendar root.
-              // oxlint-disable-next-line onekey/require-testid
-              <IconButton
-                icon="ChevronDoubleLeftOutline"
-                variant="tertiary"
-                size={iconSize}
-                hitSlop={HIT_SLOP_EXPAND_LEFT}
-                onPress={onPrevYear}
-              />
-            ) : (
-              <NavSpacer />
-            )}
-            {showPrevButton ? (
-              // Internal navigation control; QA targets the calendar root.
-              // oxlint-disable-next-line onekey/require-testid
-              <IconButton
-                icon="ChevronLeftSmallOutline"
-                variant="tertiary"
-                size={iconSize}
-                hitSlop={HIT_SLOP_EXPAND_RIGHT}
-                onPress={onPrevMonth}
-              />
-            ) : (
-              <NavSpacer />
-            )}
+            <NavButton
+              icon="ChevronDoubleLeftOutline"
+              onPress={onPrevYear}
+              disabled={isPrevYearDisabled}
+              hitSlop={HIT_SLOP_EXPAND_LEFT}
+            />
+            <NavButton
+              icon="ChevronLeftSmallOutline"
+              onPress={onPrevMonth}
+              disabled={isPrevDisabled}
+              hitSlop={HIT_SLOP_EXPAND_RIGHT}
+            />
           </XStack>
           <XStack alignItems="center">
-            {showNextButton ? (
-              // Internal navigation control; QA targets the calendar root.
-              // oxlint-disable-next-line onekey/require-testid
-              <IconButton
-                icon="ChevronRightSmallOutline"
-                variant="tertiary"
-                size={iconSize}
-                hitSlop={HIT_SLOP_EXPAND_LEFT}
-                onPress={onNextMonth}
-              />
-            ) : (
-              <NavSpacer />
-            )}
-            {showNextYearButton ? (
-              // Internal navigation control; QA targets the calendar root.
-              // oxlint-disable-next-line onekey/require-testid
-              <IconButton
-                icon="ChevronDoubleRightOutline"
-                variant="tertiary"
-                size={iconSize}
-                hitSlop={HIT_SLOP_EXPAND_RIGHT}
-                onPress={onNextYear}
-              />
-            ) : (
-              <NavSpacer />
-            )}
+            <NavButton
+              icon="ChevronRightSmallOutline"
+              onPress={onNextMonth}
+              disabled={isNextDisabled}
+              hitSlop={HIT_SLOP_EXPAND_LEFT}
+            />
+            <NavButton
+              icon="ChevronDoubleRightOutline"
+              onPress={onNextYear}
+              disabled={isNextYearDisabled}
+              hitSlop={HIT_SLOP_EXPAND_RIGHT}
+            />
           </XStack>
         </XStack>
       </Stack>
