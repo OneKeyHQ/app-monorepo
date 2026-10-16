@@ -69,6 +69,9 @@ export function getEmailOtpRequestErrorMessage({
   const oneKeyError = error as
     | IOneKeyError<{ rest?: string | number }>
     | undefined;
+  if (oneKeyError?.autoToast) {
+    return undefined;
+  }
   const retryAfterSeconds = getEmailOtpRateLimitRetryAfterSeconds(error);
   const rest = oneKeyError?.info?.rest ?? retryAfterSeconds;
   if (
@@ -80,9 +83,6 @@ export function getEmailOtpRequestErrorMessage({
       { id: ETranslations.email_verification_rate_limit },
       { rest },
     );
-  }
-  if (oneKeyError?.autoToast) {
-    return undefined;
   }
   switch (oneKeyError?.key) {
     case ETranslations.auth_captcha_unavailable__msg:

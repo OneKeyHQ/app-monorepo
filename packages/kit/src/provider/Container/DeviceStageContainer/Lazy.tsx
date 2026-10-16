@@ -29,8 +29,8 @@ const WARM_UP_DELAY_MS = 60_000;
 /**
  * A load that fails while a burst is waiting strands the interaction: the
  * stage is on, the legacy surfaces no longer own these actions, and every
- * forced exit (the close button, the error notice's timed close) lives in
- * the chunk that did not arrive. So a waiting burst gets a couple more
+ * exit (the close button, the error notice's timed retire) lives in the
+ * chunk that did not arrive. So a waiting burst gets a couple more
  * attempts before the shell cancels on its behalf.
  *
  * The realistic trigger is web / extension — a stale tab, or an extension

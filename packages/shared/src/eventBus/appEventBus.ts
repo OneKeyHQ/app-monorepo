@@ -330,8 +330,9 @@ export interface IAppEventBusPayload {
   };
   // The stage left — by any route, the person's close included. A flow
   // awaiting a card's answer ends its wait on this: a card that is gone
-  // can never be answered (OK-59934).
-  [EAppEventBusNames.DeviceStageOff]: undefined;
+  // can never be answered (OK-59934). `burstId` names the burst whose
+  // stage left (OK-64696).
+  [EAppEventBusNames.DeviceStageOff]: { burstId?: number } | undefined;
   [EAppEventBusNames.SwitchMarketHomeTab]: {
     tabIndex: number;
   };
