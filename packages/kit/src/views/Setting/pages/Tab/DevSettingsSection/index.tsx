@@ -86,7 +86,6 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
-import { requestNativeStorageRecovery } from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 import {
   isBgApiSerializableCheckingDisabled,
@@ -1533,18 +1532,10 @@ const BaseDevSettingsSection = () => {
                           subtitle="Simulate migration failures with isolated test data"
                           testID="native-storage-recovery-tests-menu"
                           onPress={() => {
-                            const dialog = Dialog.cancel({
+                            Dialog.cancel({
                               title: 'Storage recovery tests',
                               renderContent: (
-                                <LazyNativeStorageRecoveryTestPanel
-                                  onOpenRepair={async (sessionId: string) => {
-                                    await dialog.close();
-                                    requestNativeStorageRecovery(
-                                      'appStorage',
-                                      sessionId,
-                                    );
-                                  }}
-                                />
+                                <LazyNativeStorageRecoveryTestPanel />
                               ),
                             });
                           }}

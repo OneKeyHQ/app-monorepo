@@ -87,7 +87,13 @@ export function ErrorToastContainer() {
           )
         : undefined;
       if (recoveryTarget) {
-        const toastId = `native-storage-migration:${recoveryTarget}`;
+        const testSessionId =
+          recoveryTarget === 'appStorage'
+            ? p.nativeStorageRecoveryTestSessionId
+            : undefined;
+        const toastId = testSessionId
+          ? `native-storage-migration-test:${testSessionId}`
+          : `native-storage-migration:${recoveryTarget}`;
         Toast.error({
           title: 'Local storage needs repair',
           toastId,
@@ -98,7 +104,7 @@ export function ErrorToastContainer() {
               testID="native-storage-repair-toast-action"
               onPress={() => {
                 Toast.dismiss(toastId);
-                requestNativeStorageRecovery(recoveryTarget);
+                requestNativeStorageRecovery(recoveryTarget, testSessionId);
               }}
             >
               {intl.formatMessage({ id: ETranslations.global_retry })}

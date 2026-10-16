@@ -25,6 +25,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   dismissNativeStorageRecovery,
   getRequestedNativeStorageRecovery,
+  getRequestedNativeStorageRecoveryTestSessionId,
 } from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
 
 import { ErrorToastContainer } from './ErrorToastContainer';
@@ -145,6 +146,44 @@ describe('ErrorToastContainer', () => {
     expect(getRequestedNativeStorageRecovery()).toBe('appStorage');
     action.unmount();
     unmount();
+    dismissNativeStorageRecovery();
+  });
+
+  it('keeps simulated and real migration errors in separate recovery sessions', () => {
+    dismissNativeStorageRecovery();
+    const view = render(<ErrorToastContainer />);
+    const sessionId = 'storage-repair-test-toast';
+    const title =
+      'Native storage migration target is inconsistent:appStorage; migration marker is missing';
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.ShowToast, {
+        method: 'error',
+        title,
+        nativeStorageRecoveryTestSessionId: sessionId,
+      });
+    });
+    const simulated = mockedToast.error.mock.calls[0][0] as {
+      actions: import('react').ReactElement;
+      toastId: string;
+    };
+    expect(simulated.toastId).toBe(
+      `native-storage-migration-test:${sessionId}`,
+    );
+    const simulatedAction = render(simulated.actions);
+    fireEvent.click(simulatedAction.getByRole('button', { name: '重试' }));
+    expect(getRequestedNativeStorageRecoveryTestSessionId()).toBe(sessionId);
+    simulatedAction.unmount();
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.ShowToast, { method: 'error', title });
+    });
+    const real = mockedToast.error.mock.calls[1][0] as typeof simulated;
+    expect(real.toastId).toBe('native-storage-migration:appStorage');
+    const realAction = render(real.actions);
+    fireEvent.click(realAction.getByRole('button', { name: '重试' }));
+    expect(getRequestedNativeStorageRecovery()).toBe('appStorage');
+    expect(getRequestedNativeStorageRecoveryTestSessionId()).toBeUndefined();
+    realAction.unmount();
+    view.unmount();
     dismissNativeStorageRecovery();
   });
 

@@ -20,6 +20,8 @@ import {
   createNativeStorageMigrationInconsistentErrorMessage,
 } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
+import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
+
 const LEGACY_PREFIX = NATIVE_STORAGE_RECOVERY_TEST_LEGACY_KEY_PREFIX;
 const KEYS = ['test:01-current', 'test:02-failure', 'test:03-after-failure'];
 const LEGACY_VALUES = ['legacy-old', 'legacy-two', 'legacy-three'];
@@ -141,11 +143,16 @@ function readSummary(): INativeAppStorageRepairSummary | undefined {
     : undefined;
 }
 
-function readTestValue(key: string) {
+function readTestValue(key: string, sessionId?: string) {
   if (target.getString(MARKER) !== '1') {
-    throw new OneKeyLocalError(
-      createNativeStorageMigrationInconsistentErrorMessage('appStorage'),
-    );
+    throw new OneKeyLocalError({
+      message:
+        createNativeStorageMigrationInconsistentErrorMessage('appStorage'),
+      autoToast: false,
+      data: sessionId
+        ? { nativeStorageRecoveryTestSessionId: sessionId }
+        : undefined,
+    });
   }
   return target.getString(`app:${key}`);
 }
@@ -159,6 +166,8 @@ async function snapshot(): Promise<INativeStorageRecoveryTestSnapshot> {
   return {
     sessionId: control.getString('sessionId'),
     scenario: readScenario(),
+    homeFlowActive: control.getBoolean('homeFlowActive') ?? false,
+    homeReadPassed: control.getBoolean('homeReadPassed') ?? false,
     faultActive: control.getBoolean('faultActive') ?? false,
     markerComplete: target.getString(MARKER) === '1',
     newDataPersisted: target.getString(`app:${PROBE}`) === PROBE_VALUE,
@@ -227,9 +236,13 @@ async function execute(
   request: INativeStorageRecoveryTestRequest,
 ): Promise<INativeStorageRecoveryTestResult> {
   if (request.action === 'inspect') return { snapshot: await snapshot() };
-  if (request.action === 'clear' || request.action === 'create') {
+  if (
+    request.action === 'clear' ||
+    request.action === 'create' ||
+    request.action === 'reproduce'
+  ) {
     if (
-      request.action === 'create' &&
+      request.action !== 'clear' &&
       !NATIVE_STORAGE_RECOVERY_TEST_SCENARIOS.includes(request.scenario)
     )
       fail('unknown scenario');
@@ -239,7 +252,7 @@ async function execute(
     const legacy = getLegacyAsyncStorageForMigration();
     // This explicit reset is limited to our three synthetic legacy keys.
     await legacy.multiRemove(KEYS.map((key) => LEGACY_PREFIX + key));
-    if (request.action === 'create') {
+    if (request.action !== 'clear') {
       await legacy.multiSet(
         KEYS.map((key, index) => [LEGACY_PREFIX + key, LEGACY_VALUES[index]]),
       );
@@ -250,13 +263,33 @@ async function execute(
       );
       control.set('faultActive', true);
       control.set('ledger', 'complete-v1');
+      control.set('homeFlowActive', request.action === 'reproduce');
       if (request.scenario !== 'allFailed')
         target.set(`app:${KEYS[0]}`, CURRENT_VALUE);
       log(
         `phase=created scenario=${request.scenario} marker=missing syntheticKeyCount=3`,
       );
+      control.trim();
     }
     return { snapshot: await snapshot() };
+  }
+  if (request.action === 'homeRead') {
+    const sessionId = control.getString('sessionId');
+    if (!sessionId || !control.getBoolean('homeFlowActive')) {
+      return { snapshot: await snapshot() };
+    }
+    readTestValue(KEYS[0], sessionId);
+    const result = await verify();
+    if (!result.verification?.passed) {
+      fail('post-repair Home read/write verification failed');
+    }
+    control.set('homeFlowActive', false);
+    control.set('homeReadPassed', true);
+    control.trim();
+    log('phase=home-verified newDataWritable=true');
+    return {
+      snapshot: { ...result, homeFlowActive: false, homeReadPassed: true },
+    };
   }
   assertSession(request.sessionId);
   switch (request.action) {
@@ -297,7 +330,23 @@ async function execute(
 export function runNativeStorageRecoveryTest(
   request: INativeStorageRecoveryTestRequest,
 ) {
-  const result = queue.then(() => execute(request));
+  const result = queue.then(async () => {
+    const response = await execute(request);
+    const enabled = Boolean(response.snapshot.homeFlowActive);
+    const devSettings = await devSettingsPersistAtom.get();
+    if (
+      Boolean(devSettings.settings?.nativeStorageRecoveryTestOnHome) !== enabled
+    ) {
+      await devSettingsPersistAtom.set((previous) => ({
+        ...previous,
+        settings: {
+          ...previous.settings,
+          nativeStorageRecoveryTestOnHome: enabled,
+        },
+      }));
+    }
+    return response;
+  });
   queue = result.catch(() => undefined);
   return result;
 }

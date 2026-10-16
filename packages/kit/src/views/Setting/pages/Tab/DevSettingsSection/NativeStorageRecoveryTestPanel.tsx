@@ -9,6 +9,10 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
+  EAppRestartMode,
+  appRestart,
+} from '@onekeyhq/shared/src/modules3rdParty/appRestart';
+import {
   type INativeStorageRecoveryTestRequest,
   type INativeStorageRecoveryTestScenario,
   type INativeStorageRecoveryTestSnapshot,
@@ -51,11 +55,7 @@ const SCENARIOS: Record<
   },
 };
 
-export function NativeStorageRecoveryTestPanel({
-  onOpenRepair,
-}: {
-  onOpenRepair: (sessionId: string) => Promise<void>;
-}) {
+export function NativeStorageRecoveryTestPanel() {
   const [snapshot, setSnapshot] =
     useState<INativeStorageRecoveryTestSnapshot>();
   const [busy, setBusy] = useState(false);
@@ -74,11 +74,20 @@ export function NativeStorageRecoveryTestPanel({
             request,
           );
         if (mounted.current) setSnapshot(result.snapshot);
+        if (request.action === 'reproduce') {
+          await appRestart({
+            mode: EAppRestartMode.All,
+            reason: 'storage.migration.test.reproduce',
+          });
+        }
       } catch (e) {
-        if (mounted.current)
-          setError(
-            e instanceof Error ? e.message : 'Storage test request failed',
-          );
+        let message =
+          e instanceof Error ? e.message : 'Storage test request failed';
+        if (request.action === 'reproduce') {
+          message =
+            'The test could not restart. Retry, or close and reopen the app if the fault was created.';
+        }
+        if (mounted.current) setError(message);
       } finally {
         inFlight.current = false;
         if (mounted.current) setBusy(false);
@@ -104,17 +113,18 @@ export function NativeStorageRecoveryTestPanel({
           until you explicitly reset test data.
         </SizableText>
         <SizableText size="$bodySm" color="$textSubdued">
-          Choose a scenario, optionally test the blocked read, then open the
-          real repair screen. After closing/restarting, reopen this panel and
-          verify. Sync failures are injected; this does not simulate physical
-          disk corruption or prove OS durability.
+          Choose a scenario to create a fault and restart the app. After
+          unlocking on Home, use the storage error Toast to open repair. After
+          repair and restart, Home verifies the recovered data and new writes.
+          Reopen this panel to inspect the result. These are injected faults,
+          not physical disk corruption.
         </SizableText>
         {NATIVE_STORAGE_RECOVERY_TEST_SCENARIOS.map((scenario) => (
           <YStack key={scenario} gap="$1">
             <Button
               disabled={busy}
               testID={`storage-recovery-scenario-${scenario}`}
-              onPress={() => run({ action: 'create', scenario })}
+              onPress={() => run({ action: 'reproduce', scenario })}
             >
               {SCENARIOS[scenario].title}
             </Button>
@@ -135,6 +145,14 @@ export function NativeStorageRecoveryTestPanel({
               retained: {String(snapshot.legacyRetained)}; fault active:{' '}
               {String(snapshot.faultActive)}
             </SizableText>
+            <SizableText
+              size="$bodySm"
+              testID="storage-recovery-test-home-result"
+            >
+              Home restart verification:{' '}
+              {snapshot.homeReadPassed ? 'PASS' : 'not completed'}. Home fault
+              active: {String(Boolean(snapshot.homeFlowActive))}.
+            </SizableText>
             <Button
               disabled={busy}
               testID="storage-recovery-test-read"
@@ -143,28 +161,6 @@ export function NativeStorageRecoveryTestPanel({
               }
             >
               Read test key
-            </Button>
-            <Button
-              disabled={busy || snapshot.markerComplete}
-              testID="storage-recovery-test-open-repair"
-              onPress={async () => {
-                if (!snapshot.sessionId || inFlight.current) return;
-                inFlight.current = true;
-                setBusy(true);
-                try {
-                  await onOpenRepair(snapshot.sessionId);
-                } catch (e) {
-                  if (mounted.current)
-                    setError(
-                      e instanceof Error ? e.message : 'Could not open repair',
-                    );
-                } finally {
-                  inFlight.current = false;
-                  if (mounted.current) setBusy(false);
-                }
-              }}
-            >
-              Open repair screen
             </Button>
             <Button
               disabled={busy}

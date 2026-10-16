@@ -17,6 +17,8 @@ export type INativeStorageRecoveryTestScenario =
 
 export type INativeStorageRecoveryTestRequest =
   | { action: 'create'; scenario: INativeStorageRecoveryTestScenario }
+  | { action: 'reproduce'; scenario: INativeStorageRecoveryTestScenario }
+  | { action: 'homeRead' }
   | { action: 'inspect' }
   | { action: 'clear' }
   | { action: 'prepare'; sessionId: string }
@@ -33,6 +35,8 @@ export type INativeStorageRecoveryTestRequest =
 export type INativeStorageRecoveryTestSnapshot = {
   sessionId?: string;
   scenario?: INativeStorageRecoveryTestScenario;
+  homeFlowActive?: boolean;
+  homeReadPassed?: boolean;
   faultActive: boolean;
   markerComplete: boolean;
   newDataPersisted: boolean;

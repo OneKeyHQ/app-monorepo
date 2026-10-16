@@ -1,6 +1,8 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { INativeStorageRecoveryTestScenario } from '@onekeyhq/shared/src/storage/nativeStorageRecoveryTestTypes';
 
+import type { IDevSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
+
 type IScalar = string | boolean | number;
 class TestMMKV {
   constructor(readonly values: Map<string, IScalar>) {}
@@ -34,6 +36,17 @@ class TestMMKV {
 const mockStores = new Map<string, Map<string, IScalar>>();
 const mockLegacy = new Map<string, string>();
 const mockLegacyCalls: string[][] = [];
+let mockDevSettings: IDevSettingsPersistAtom;
+jest.mock('../../states/jotai/atoms/devSettings', () => ({
+  devSettingsPersistAtom: {
+    get: async () => mockDevSettings,
+    set: async (
+      update: (previous: IDevSettingsPersistAtom) => IDevSettingsPersistAtom,
+    ) => {
+      mockDevSettings = update(mockDevSettings);
+    },
+  },
+}));
 const mockProductionNativeAccess = jest.fn((..._args: unknown[]) => {
   throw new OneKeyLocalError(
     'Production native storage must not be used by fixtures',
@@ -114,6 +127,94 @@ describe('isolated native storage recovery scenarios', () => {
     mockLegacy.set('unrelated-business-key', 'untouched');
     mockLegacyCalls.length = 0;
     mockProductionNativeAccess.mockClear();
+    mockDevSettings = {
+      enabled: true,
+      settings: { enableTestEndpoint: false },
+    };
+  });
+
+  it.each<INativeStorageRecoveryTestScenario>([
+    'success',
+    'partialFailure',
+    'allFailed',
+    'incompleteScan',
+    'syncFailure',
+    'expiredAttempt',
+  ])(
+    '%s survives restart, faults on Home, and clears only after repaired Home verification',
+    async (scenario) => {
+      let run = load().runNativeStorageRecoveryTest;
+      const created = await run({ action: 'reproduce', scenario });
+      const sessionId = created.snapshot.sessionId ?? '';
+      expect(mockDevSettings.settings?.nativeStorageRecoveryTestOnHome).toBe(
+        true,
+      );
+      expect(created.snapshot.homeFlowActive).toBe(true);
+      jest.resetModules();
+      run = load().runNativeStorageRecoveryTest;
+      await expect(run({ action: 'homeRead' })).rejects.toMatchObject({
+        autoToast: false,
+        data: { nativeStorageRecoveryTestSessionId: sessionId },
+        message: expect.stringContaining('migration marker is missing'),
+      });
+      let prepared = await run({ action: 'prepare', sessionId });
+      const force =
+        scenario === 'partialFailure' ||
+        scenario === 'allFailed' ||
+        scenario === 'incompleteScan';
+      if (scenario === 'syncFailure' || scenario === 'expiredAttempt') {
+        await expect(
+          run({
+            action: 'complete',
+            sessionId,
+            repairId: prepared.summary?.repairId ?? '',
+            force,
+          }),
+        ).rejects.toThrow();
+        if (scenario === 'syncFailure')
+          await run({ action: 'releaseFault', sessionId });
+        prepared = await run({ action: 'prepare', sessionId });
+      }
+      await run({
+        action: 'complete',
+        sessionId,
+        repairId: prepared.summary?.repairId ?? '',
+        force,
+      });
+      expect(mockDevSettings.settings?.nativeStorageRecoveryTestOnHome).toBe(
+        true,
+      );
+      jest.resetModules();
+      run = load().runNativeStorageRecoveryTest;
+      const healthy = await run({ action: 'homeRead' });
+      expect(healthy.snapshot).toMatchObject({
+        markerComplete: true,
+        homeFlowActive: false,
+        homeReadPassed: true,
+        legacyRetained: true,
+        verification: { passed: true, newDataWritable: true },
+      });
+      expect(mockDevSettings.settings?.nativeStorageRecoveryTestOnHome).toBe(
+        false,
+      );
+      expect(mockDevSettings.settings?.enableTestEndpoint).toBe(false);
+      await expect(run({ action: 'homeRead' })).resolves.toBeDefined();
+      expect(mockLegacy.get('unrelated-business-key')).toBe('untouched');
+      expect(mockProductionNativeAccess).not.toHaveBeenCalled();
+    },
+  );
+
+  it('clears the pending Home flow when test data is explicitly reset', async () => {
+    const run = load().runNativeStorageRecoveryTest;
+    await run({ action: 'reproduce', scenario: 'success' });
+    await run({ action: 'clear' });
+    expect(mockDevSettings.settings?.nativeStorageRecoveryTestOnHome).toBe(
+      false,
+    );
+    await expect(run({ action: 'homeRead' })).resolves.toMatchObject({
+      snapshot: { homeFlowActive: false },
+    });
+    expect(mockLegacy.get('unrelated-business-key')).toBe('untouched');
   });
 
   it.each<[INativeStorageRecoveryTestScenario, number, number, boolean]>([
