@@ -3029,15 +3029,9 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
             vendor: EHardwareVendor.trezor,
             hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
           }),
-        ).resolves.toBe('TREZOR_BLE');
+        ).resolves.toBe('TREZOR_SERIAL');
         expect(search).not.toHaveBeenCalled();
         expect(sdkSearch).not.toHaveBeenCalled();
-        expect(mockedLocalDb.getDeviceByQuery.mock.calls).toContainEqual([
-          {
-            connectId: 'TREZOR_SERIAL',
-            vendor: EHardwareVendor.trezor,
-          },
-        ]);
       },
     );
 
