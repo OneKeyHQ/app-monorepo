@@ -573,21 +573,26 @@ export default class Vault extends VaultBase {
       const spendable = new BigNumber(balance.balance ?? NaN).minus(
         DUST_AMOUNT.toString(),
       );
+      // The largest amount that still leaves the maximal gas free for the
+      // estimate. NaN balances fail the dust check below.
+      const gasHeadroom = spendable.minus(MAX_GAS_AMOUNT);
       if (
         destination &&
-        spendable.isFinite() &&
-        new BigNumber(destination.attoAlphAmount.toString()).gte(spendable)
+        gasHeadroom.gte(DUST_AMOUNT.toString()) &&
+        new BigNumber(destination.attoAlphAmount.toString()).gt(gasHeadroom)
       ) {
-        // A max send leaves no room for the gas that is being estimated here,
-        // so estimate with a copy that keeps the maximal gas free. The tx
-        // that gets signed later must not carry this estimate-only amount.
-        const amount = spendable.minus(MAX_GAS_AMOUNT);
+        // A max or near-max send leaves no room for the gas that is being
+        // estimated here, so estimate with a copy that keeps the maximal gas
+        // free. The tx that gets signed later must not carry this
+        // estimate-only amount. A balance that cannot even fund the gas
+        // allowance is estimated as entered so the builder reports the real
+        // shortfall instead of a below-dust output.
         estimateParams = {
           ...params,
           destinations: [
             {
               ...destination,
-              attoAlphAmount: amount.gt(0) ? amount.toFixed(0) : '0',
+              attoAlphAmount: gasHeadroom.toFixed(0),
             },
             ...otherDestinations,
           ],

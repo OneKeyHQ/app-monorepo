@@ -328,7 +328,23 @@ describe('AlphVault change-output dust reserve (OK-64709)', () => {
       expect(destinationAmount(encodedTx.params)).toBe(alph('0.1'));
     });
 
-    it('estimates smaller amounts as they are', async () => {
+    it('keeps gas headroom for a near-max amount below the spendable balance', async () => {
+      const vault = createVault({ onChainBalance: alph('0.101') });
+      // 0.099 ALPH is below the 0.1 ALPH spendable balance, but the gas
+      // allowance no longer fits next to it
+      const encodedTx = transferTx(alph('0.099'));
+
+      const { encodedTx: estimateTx } = await vault.buildEstimateFeeParams({
+        encodedTx,
+      });
+
+      expect(destinationAmount(estimateTx)).toBe(
+        new BigNumber(alph('0.1')).minus(MAX_GAS_AMOUNT).toFixed(),
+      );
+      expect(destinationAmount(encodedTx.params)).toBe(alph('0.099'));
+    });
+
+    it('estimates amounts that leave the gas allowance free as they are', async () => {
       const vault = createVault({ onChainBalance: alph('0.101') });
 
       const { encodedTx: estimateTx } = await vault.buildEstimateFeeParams({
@@ -336,6 +352,17 @@ describe('AlphVault change-output dust reserve (OK-64709)', () => {
       });
 
       expect(destinationAmount(estimateTx)).toBe(alph('0.05'));
+    });
+
+    it('estimates as entered when the balance cannot fund the gas allowance', async () => {
+      // spendable 0.007 ALPH minus the 0.01 ALPH allowance leaves no valid output
+      const vault = createVault({ onChainBalance: alph('0.008') });
+
+      const { encodedTx: estimateTx } = await vault.buildEstimateFeeParams({
+        encodedTx: transferTx(alph('0.002')),
+      });
+
+      expect(destinationAmount(estimateTx)).toBe(alph('0.002'));
     });
   });
 });
