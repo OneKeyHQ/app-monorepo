@@ -9,7 +9,9 @@ import {
   EPendingInstallTaskAction,
   EPendingInstallTaskStatus,
   EPendingInstallTaskType,
+  EUpdateFileType,
   EUpdateStrategy,
+  getUpdateFileType,
   isAutoUpdateStrategy,
   resolveUpdateDecision,
 } from '@onekeyhq/shared/src/appUpdate';
@@ -334,6 +336,23 @@ class ServicePendingInstallTask {
     processStartedAt?: number;
   } = {}) {
     const now = Date.now();
+    const failedTarget = appStorage.syncStorage.getObject<{
+      appVersion?: unknown;
+      bundleVersion?: unknown;
+    }>(EAppSyncStorageKeys.onekey_failed_ota_bundle);
+    const failedAppVersion = failedTarget?.appVersion;
+    const failedBundleVersion = failedTarget?.bundleVersion;
+    const failedTargetKey =
+      typeof failedAppVersion === 'string' &&
+      failedAppVersion === platformEnv.version &&
+      typeof failedBundleVersion === 'string' &&
+      /^[A-Za-z0-9._-]+$/.test(failedBundleVersion) &&
+      !failedBundleVersion.includes('..')
+        ? this.getTargetKey({
+            targetAppVersion: failedAppVersion,
+            targetBundleVersion: failedBundleVersion,
+          })
+        : undefined;
     const activeTraceId = traceId || 'n/a';
     const activeRequestSeq = requestSeq ?? null;
     const activeProcessStartedAt = processStartedAt ?? now;
@@ -346,18 +365,63 @@ class ServicePendingInstallTask {
     });
     await appUpdatePersistAtom.set((prev) => {
       updaterInvoked = true;
+      const ignoredTargets = this.pruneIgnoredTargets(
+        prev.ignoredTargets || {},
+        now,
+      );
+      if (failedTargetKey) {
+        // Keep a crashed target quarantined for this native app version.
+        ignoredTargets[failedTargetKey] = {
+          reason: 'BOOT_FAILED',
+          createdAt: ignoredTargets[failedTargetKey]?.createdAt ?? now,
+          expiresAt: Number.MAX_SAFE_INTEGER,
+        };
+      }
+      const isFailedBundle =
+        failedTargetKey &&
+        prev.latestVersion === failedAppVersion &&
+        prev.jsBundleVersion === failedBundleVersion &&
+        getUpdateFileType(prev) === EUpdateFileType.jsBundle;
       return {
         ...prev,
-        ignoredTargets: this.pruneIgnoredTargets(
-          prev.ignoredTargets || {},
-          now,
-        ),
+        ...(isFailedBundle
+          ? {
+              latestVersion: platformEnv.version,
+              jsBundleVersion: platformEnv.bundleVersion,
+              status: EAppUpdateStatus.done,
+              updateStrategy: EUpdateStrategy.manual,
+              updateAt: 0,
+              jsBundle: undefined,
+              downloadUrl: undefined,
+              downloadedEvent: undefined,
+              previousAppVersion: undefined,
+              isRollbackTarget: undefined,
+              errorText: undefined,
+              updateError: undefined,
+              currentUpdateAttemptId: undefined,
+            }
+          : {}),
+        ignoredTargets,
         fullFlowRetryByTarget: this.pruneFullFlowRetryByTarget(
           prev.fullFlowRetryByTarget || {},
           now,
         ),
       };
     });
+    if (failedTargetKey) {
+      // Read and delete synchronously so a different task cannot replace it
+      // between the target check and the storage mutation.
+      const task = appStorage.syncStorage.getObject<IPendingInstallTask>(
+        EAppSyncStorageKeys.onekey_pending_install_task,
+      );
+      if (
+        task?.type === EPendingInstallTaskType.jsBundleSwitch &&
+        task.targetAppVersion === failedAppVersion &&
+        task.targetBundleVersion === failedBundleVersion
+      ) {
+        await clearPendingInstallTask();
+      }
+    }
     this.logPendingTaskTrace({
       traceId: activeTraceId,
       requestSeq: activeRequestSeq,

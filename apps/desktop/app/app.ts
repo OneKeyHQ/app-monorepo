@@ -812,6 +812,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         appVersion: currentAppVersion,
       },
     );
+    store.recordFailedOtaBundle(currentAppVersion, activeOtaBundleVersion);
     store.revokePendingSwitchForFailedBundle(
       currentAppVersion,
       activeOtaBundleVersion,

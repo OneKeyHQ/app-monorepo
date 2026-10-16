@@ -19,6 +19,7 @@ const INITIAL_APP_UPDATE_VALUE: IAppUpdateInfo = {
 
 let appUpdateState: IAppUpdateInfo = { ...INITIAL_APP_UPDATE_VALUE };
 let pendingTaskValue: any;
+let failedOtaTarget: unknown;
 
 const appUpdatePersistAtom = {
   get: jest.fn(async () => appUpdateState),
@@ -49,7 +50,9 @@ jest.mock('../states/jotai/atoms/devSettings', () => ({
 
 const appStorageMock = {
   syncStorage: {
-    getObject: jest.fn(async () => pendingTaskValue),
+    getObject: jest.fn((key: string) =>
+      key === 'onekey_failed_ota_bundle' ? failedOtaTarget : pendingTaskValue,
+    ),
     setObject: jest.fn(async (_key: string, task: any) => {
       pendingTaskValue = task;
       return pendingTaskValue;
@@ -303,6 +306,7 @@ describe('ServiceAppUpdate pendingInstallTask scheduling', () => {
 
   beforeEach(() => {
     jest.useFakeTimers();
+    failedOtaTarget = undefined;
     const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
     platformEnvMock.version = '1.0.0';
     platformEnvMock.bundleVersion = '1';
@@ -565,6 +569,7 @@ describe('processPendingInstallTask', () => {
 
   beforeEach(() => {
     jest.useFakeTimers();
+    failedOtaTarget = undefined;
     jest.setSystemTime(new Date('2026-03-12T00:00:00.000Z'));
     const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
     platformEnvMock.version = '1.0.0';
@@ -593,6 +598,53 @@ describe('processPendingInstallTask', () => {
       retryCount: 0,
     });
     expect(autoUpdate.BundleUpdate.switchBundle).toHaveBeenCalledTimes(1);
+  });
+
+  test('discards a crashed target before the splash pending-task processor can reinstall it', async () => {
+    failedOtaTarget = { appVersion: '1.0.0', bundleVersion: '2' };
+    resetPendingTask(makeSwitchTask());
+    resetAppUpdateState({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '2',
+      status: EAppUpdateStatus.ready,
+      updateStrategy: EUpdateStrategy.seamless,
+      downloadedEvent: { latestVersion: '1.0.0', bundleVersion: '2' },
+    });
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+    expect(autoUpdate.BundleUpdate.switchBundle).not.toHaveBeenCalled();
+    expect(autoUpdate.BundleUpdate.restart).not.toHaveBeenCalled();
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.done);
+    expect(appUpdateState.downloadedEvent).toBeUndefined();
+    expect(appUpdateState.ignoredTargets?.['1.0.0:2']?.reason).toBe(
+      'BOOT_FAILED',
+    );
+  });
+
+  test('allows a different pending bundle after quarantining the crashed target', async () => {
+    failedOtaTarget = { appVersion: '1.0.0', bundleVersion: '2' };
+    resetPendingTask(
+      makeSwitchTask({
+        targetBundleVersion: '3',
+        payload: {
+          appVersion: '1.0.0',
+          bundleVersion: '3',
+          signature: 'sig-3',
+        },
+      }),
+    );
+
+    await service.processPendingInstallTask();
+
+    expect(autoUpdate.BundleUpdate.switchBundle).toHaveBeenCalledWith({
+      appVersion: '1.0.0',
+      bundleVersion: '3',
+      signature: 'sig-3',
+    });
+    expect(pendingTaskValue.status).toBe('applied_waiting_verify');
+    expect(appUpdateState.freezeUntil).toBeUndefined();
   });
 
   test('pending -> running -> fail -> retry when retryCount < MAX_TASK_RETRY', async () => {

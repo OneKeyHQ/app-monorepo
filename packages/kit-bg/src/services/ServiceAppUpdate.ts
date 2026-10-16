@@ -1918,6 +1918,7 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAppUpdateInfo(forceUpdate = false) {
+    await this.cleanupUpdateControlState();
     const traceId = generateUUID();
     const requestSeq = await this.nextRequestSeq();
     defaultLogger.app.appUpdate.appUpdateFetchStart({
@@ -1972,7 +1973,6 @@ class ServiceAppUpdate extends ServiceBase {
       // ignore — proceed with normal flow
     }
 
-    await this.cleanupUpdateControlState();
     // NOTE: refreshUpdateStatus() was previously called here, but it resets
     // ANY failed status to notify unconditionally — including same-version
     // failures.  For rollback targets (which auto-download on notify) this

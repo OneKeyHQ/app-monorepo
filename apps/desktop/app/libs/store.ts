@@ -410,6 +410,18 @@ export const revokePendingSwitchForFailedBundle = (
   }
 };
 
+export const recordFailedOtaBundle = (
+  appVersion: string,
+  bundleVersion: string,
+) => {
+  assertSafeBundleVersion(appVersion);
+  assertSafeBundleVersion(bundleVersion);
+  mmkvAppSettingStore.set(
+    'onekey_failed_ota_bundle',
+    JSON.stringify({ appVersion, bundleVersion }),
+  );
+};
+
 /**
  * Checks MMKV for a pending bundle-switch task and applies it before JS bundle loads.
  * Only handles the happy path (status=pending, bundle exists, env matches).

@@ -225,6 +225,9 @@ class AppDelegate: ExpoAppDelegate {
     URLCache.shared.removeAllCachedResponses()
     URLCache.shared = URLCache(memoryCapacity: 4 * 1024 * 1024, diskCapacity: 0, diskPath: nil)
 
+    // The Objective-C MMKV wrapper has initialization separate from the JS factory.
+    MMKV.initialize(rootDir: nil)
+
     // === Recovery Check ===
     let defaults = UserDefaults.standard
 
@@ -250,15 +253,30 @@ class AppDelegate: ExpoAppDelegate {
     let isHarnessMode = defaults.bool(forKey: "onekey_harness_mode")
 
     if !isHarnessMode && newCount >= 3 {
+      var rolledBack = false
       if let activeOtaVersion = NitroModuleBridge.currentBundleVersion(), !activeOtaVersion.isEmpty {
-        NitroModuleBridge.clearUpdateBundleData()
-        defaults.set(1, forKey: BootRecoveryKeys.consecutiveBootFailCount)
-        defaults.synchronize()
-        NitroModuleBridge.logInfo(
-          "BootRecovery",
-          "Rolled back active OTA bundle (\(activeOtaVersion)) after \(newCount) consecutive boot failures; continuing normal boot with built-in bundle"
-        )
-      } else {
+        let prefix = currentVersion + "-"
+        if activeOtaVersion.hasPrefix(prefix),
+           activeOtaVersion.count > prefix.count,
+           let settings = MMKV(mmapID: "onekey-app-setting"),
+           let data = try? JSONSerialization.data(withJSONObject: [
+             "appVersion": currentVersion,
+             "bundleVersion": String(activeOtaVersion.dropFirst(prefix.count))
+           ]),
+           let failedTarget = String(data: data, encoding: .utf8),
+           settings.set(failedTarget, forKey: "onekey_failed_ota_bundle") {
+          settings.sync()
+          NitroModuleBridge.clearUpdateBundleData()
+          defaults.set(1, forKey: BootRecoveryKeys.consecutiveBootFailCount)
+          defaults.synchronize()
+          rolledBack = true
+          NitroModuleBridge.logInfo(
+            "BootRecovery",
+            "Rolled back active OTA bundle (\(activeOtaVersion)) after \(newCount) consecutive boot failures; continuing normal boot with built-in bundle"
+          )
+        }
+      }
+      if !rolledBack {
         // Skip super.application() and React Native initialization entirely.
         // Create our own window — this replaces the system launch storyboard.
         // Do NOT call super here: ExpoAppDelegate.super would start the RN engine
@@ -269,10 +287,6 @@ class AppDelegate: ExpoAppDelegate {
         return true
       }
     }
-
-    // The migration bridge uses MMKV's Objective-C wrapper, whose
-    // initialization state is separate from react-native-mmkv's C++ factory.
-    MMKV.initialize(rootDir: nil)
 
     let store = NitroModuleBridge.launchOptionsStore()
     store?.setValue(NSNumber(value: Date().timeIntervalSince1970), forKey: "startupTime")

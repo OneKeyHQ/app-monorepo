@@ -319,6 +319,10 @@ describe('desktop startup with persisted state', () => {
       unknown
     >;
     expect(after.onekey_pending_install_task).toBeUndefined();
+    expect(JSON.parse(after.onekey_failed_ota_bundle as string)).toEqual({
+      appVersion: activeBundle.appVersion,
+      bundleVersion: activeBundle.bundleVersion,
+    });
     expect(store.processPreLaunchPendingTask()).toBe(false);
   });
 
@@ -341,7 +345,10 @@ describe('desktop startup with persisted state', () => {
     writeProfile('mmkv-onekey-app-setting', {
       onekey_pending_install_task: JSON.stringify(task),
     });
-    const before = fs.readFileSync(pendingPath, 'utf8');
+    const before = JSON.parse(fs.readFileSync(pendingPath, 'utf8')) as Record<
+      string,
+      unknown
+    >;
     const { store } = loadStartup();
     store.setConsecutiveBootFailCount(2);
 
@@ -350,7 +357,17 @@ describe('desktop startup with persisted state', () => {
     expect(context.bootFailCount).toBe(1);
     expect(store.getUpdateBundleData()).toEqual({});
     expect(result).toBeNull();
-    expect(fs.readFileSync(pendingPath, 'utf8')).toBe(before);
+    const after = JSON.parse(fs.readFileSync(pendingPath, 'utf8')) as Record<
+      string,
+      unknown
+    >;
+    expect(after.onekey_pending_install_task).toBe(
+      before.onekey_pending_install_task,
+    );
+    expect(JSON.parse(after.onekey_failed_ota_bundle as string)).toEqual({
+      appVersion: activeBundle.appVersion,
+      bundleVersion: activeBundle.bundleVersion,
+    });
   });
 
   it('opens recovery on the third failed boot without an active OTA', () => {

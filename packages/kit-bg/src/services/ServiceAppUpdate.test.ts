@@ -45,6 +45,7 @@ let pendingInstallTaskValue: any;
 // Legacy MMKV key retained by ServiceAppUpdate only for stale-data cleanup.
 // The Map lets tests prove that stored values no longer drive the gate.
 const DOWNLOAD_ATTEMPT_BUDGET_KEY = 'onekey_app_update_download_attempt_budget';
+const FAILED_OTA_BUNDLE_KEY = 'onekey_failed_ota_bundle';
 const syncStorageBackingMap = new Map<string, any>();
 function resetSyncStorageBackingMap() {
   syncStorageBackingMap.clear();
@@ -84,13 +85,13 @@ const appStorageMock = {
     // backing Map; every other key keeps the legacy single-slot behavior used
     // by the pending-install-task tests.
     getObject: jest.fn((key: string) => {
-      if (key === DOWNLOAD_ATTEMPT_BUDGET_KEY) {
+      if ([DOWNLOAD_ATTEMPT_BUDGET_KEY, FAILED_OTA_BUNDLE_KEY].includes(key)) {
         return syncStorageBackingMap.get(key);
       }
       return pendingInstallTaskValue;
     }),
     setObject: jest.fn((key: string, value: any) => {
-      if (key === DOWNLOAD_ATTEMPT_BUDGET_KEY) {
+      if ([DOWNLOAD_ATTEMPT_BUDGET_KEY, FAILED_OTA_BUNDLE_KEY].includes(key)) {
         syncStorageBackingMap.set(key, value);
         return value;
       }
@@ -98,7 +99,7 @@ const appStorageMock = {
       return pendingInstallTaskValue;
     }),
     delete: jest.fn((key: string) => {
-      if (key === DOWNLOAD_ATTEMPT_BUDGET_KEY) {
+      if ([DOWNLOAD_ATTEMPT_BUDGET_KEY, FAILED_OTA_BUNDLE_KEY].includes(key)) {
         syncStorageBackingMap.delete(key);
         return;
       }
@@ -316,6 +317,126 @@ describe('ServiceAppUpdate state transitions', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  describe('failed OTA quarantine', () => {
+    const failedTarget = { appVersion: '1.0.0', bundleVersion: '5' };
+
+    test('clears a seamless ready target before cold-start dispatch and retains quarantine across restarts', async () => {
+      syncStorageBackingMap.set(FAILED_OTA_BUNDLE_KEY, failedTarget);
+      resetAtom({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '5',
+        updateStrategy: EUpdateStrategy.seamless,
+        status: EAppUpdateStatus.ready,
+        downloadedEvent: {
+          latestVersion: '1.0.0',
+          bundleVersion: '5',
+          sha256: 'a'.repeat(64),
+          signature: 'fixture-signature',
+        },
+      });
+
+      const info = await service.reconcileAppShellPackage();
+
+      expect(info.status).toBe(EAppUpdateStatus.done);
+      expect(info.downloadedEvent).toBeUndefined();
+      expect(info.jsBundleVersion).toBe(platformEnv.bundleVersion);
+      expect(info.ignoredTargets?.['1.0.0:5']).toMatchObject({
+        reason: 'BOOT_FAILED',
+        expiresAt: Number.MAX_SAFE_INTEGER,
+      });
+      expect(info.freezeUntil).toBeUndefined();
+
+      service = createService();
+      await service.reconcileAppShellPackage();
+      expect(
+        await service.backgroundApi.servicePendingInstallTask.shouldSkipTargetByControl(
+          '1.0.0:5',
+          'fixture',
+          1,
+        ),
+      ).toBe(true);
+      expect(
+        await service.backgroundApi.servicePendingInstallTask.shouldSkipTargetByControl(
+          '1.0.0:6',
+          'fixture',
+          1,
+        ),
+      ).toBe(false);
+    });
+
+    test('preserves a different ready target and downloaded package', async () => {
+      syncStorageBackingMap.set(FAILED_OTA_BUNDLE_KEY, failedTarget);
+      const downloadedEvent = {
+        latestVersion: '1.0.0',
+        bundleVersion: '6',
+        sha256: 'b'.repeat(64),
+      };
+      resetAtom({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '6',
+        status: EAppUpdateStatus.ready,
+        downloadedEvent,
+      });
+
+      const info = await service.reconcileAppShellPackage();
+
+      expect(info.status).toBe(EAppUpdateStatus.ready);
+      expect(info.downloadedEvent).toEqual(downloadedEvent);
+      expect(info.ignoredTargets?.['1.0.0:5']?.reason).toBe('BOOT_FAILED');
+    });
+
+    test.each(['5', '6'])(
+      'blocks the crashed remote target while allowing a new bundle %s',
+      async (bundleVersion) => {
+        syncStorageBackingMap.set(FAILED_OTA_BUNDLE_KEY, failedTarget);
+        resetAtom({ latestVersion: '1.0.0', status: EAppUpdateStatus.done });
+        jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+        jest.spyOn(service, 'getAppLatestInfo').mockResolvedValue({
+          version: '1.0.0',
+          jsBundleVersion: bundleVersion,
+          jsBundleCount: 1,
+          updateStrategy: EUpdateStrategy.seamless,
+          jsBundle: {
+            downloadUrl: 'https://cdn.onekey.so/fixture.zip',
+            fileSize: 1024,
+            sha256: 'a'.repeat(64),
+            signature: 'fixture-signature',
+          },
+        });
+
+        await service.fetchAppUpdateInfo(true);
+
+        expect(atomValue.status).toBe(
+          bundleVersion === '5'
+            ? EAppUpdateStatus.done
+            : EAppUpdateStatus.notify,
+        );
+        expect(atomValue.freezeUntil).toBeUndefined();
+      },
+    );
+
+    test.each([
+      { appVersion: '0.9.0', bundleVersion: '5' },
+      { appVersion: '1.0.0', bundleVersion: '../5' },
+      { appVersion: '1.0.0', bundleVersion: '' },
+    ])(
+      'does not quarantine an unrelated or malformed target %j',
+      async (target) => {
+        syncStorageBackingMap.set(FAILED_OTA_BUNDLE_KEY, target);
+        resetAtom({
+          latestVersion: '1.0.0',
+          jsBundleVersion: '5',
+          status: EAppUpdateStatus.ready,
+        });
+
+        const info = await service.reconcileAppShellPackage();
+
+        expect(info.status).toBe(EAppUpdateStatus.ready);
+        expect(info.ignoredTargets?.['1.0.0:5']).toBeUndefined();
+      },
+    );
   });
 
   // =========================================================================
