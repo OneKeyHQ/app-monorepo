@@ -883,7 +883,14 @@ export function MobileLayout({
               simultaneousWithNativeGesture
               cancelChildTouches={false}
             >
-              <MobileSimpleChart marketAssetId={marketTokenId} />
+              <MobileSimpleChart
+                marketAssetId={marketTokenId}
+                height={
+                  typeof tradingViewHeight === 'number'
+                    ? tradingViewHeight
+                    : undefined
+                }
+              />
             </HeaderScrollGestureWrapper>
           ) : null}
           {isSimpleChart ? null : (
@@ -1059,6 +1066,7 @@ export function MobileLayout({
     priceMode,
     tradingViewNativeSource,
     tradingViewChartHeight,
+    tradingViewHeight,
   ]);
 
   const renderInformationHeader = useCallback(

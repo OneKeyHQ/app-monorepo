@@ -85,7 +85,7 @@ type IStockSimpleChartProps = {
   marketAssetId?: string;
   range: IStockSimpleChartRange;
   priceMode: IMarketPriceSource;
-  priceScaleFormat?: 'stock';
+  priceScaleFormat?: 'stock' | 'full';
   onRequestRetry?: () => void;
   requestError?: boolean;
 };
