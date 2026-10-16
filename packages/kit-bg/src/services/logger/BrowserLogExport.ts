@@ -20,9 +20,10 @@ export class BrowserLogExport {
   }
 
   async begin(snapshot: (isCancelled: () => boolean) => Promise<Blob>) {
-    if (this.session && this.session.expiresAt > Date.now()) {
-      throw new OneKeyLocalError('Log export already in progress');
-    }
+    // The UI runtime that owned the previous session may have exited without
+    // closing it (e.g. a dismissed extension popup), so replace it instead of
+    // blocking until it expires.
+    this.close();
     // Reserve before the first await, including while the snapshot is preparing.
     const session: IExportSession = { id: generateUUID(), expiresAt: 0 };
     this.session = session;

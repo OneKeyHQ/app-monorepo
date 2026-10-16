@@ -61,6 +61,8 @@ and session expiration cancel compression between pages.
 
 A single export session reserves the snapshot before reading, expires after two
 minutes of inactivity, and transfers 256 KiB base64 pages of the completed ZIP.
+A new export replaces any unfinished or abandoned session, so a UI runtime that
+exits mid-export (for example a dismissed extension popup) cannot block retries.
 The UI hashes ZIP bytes incrementally and builds the download/upload Blob. Token
 size/hash and MIME describe the final ZIP, including its central directory.
 Web/extension upload retries and download fallback reuse this same digest; they do

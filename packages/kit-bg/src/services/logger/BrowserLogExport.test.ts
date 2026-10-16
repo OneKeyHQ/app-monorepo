@@ -30,7 +30,29 @@ describe('browser log export snapshots', () => {
     exporter.close();
   });
 
-  it('reserves the only snapshot before async preparation and cancels a late result on reset', async () => {
+  it('replaces abandoned or unfinished snapshots instead of blocking new exports', async () => {
+    const exporter = new BrowserLogExport();
+    const abandoned = await exporter.begin(async () => new Blob(['abandoned']));
+    let finish!: (blob: Blob) => void;
+    const pending = exporter.begin(
+      () =>
+        new Promise<Blob>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    await expect(
+      exporter.read({ id: abandoned.id, offset: 0 }),
+    ).rejects.toThrow('expired');
+    const next = await exporter.begin(async () => new Blob(['next']));
+    finish(new Blob(['late']));
+    await expect(pending).rejects.toThrow('cancelled');
+    expect((await exporter.read({ id: next.id, offset: 0 })).nextOffset).toBe(
+      4,
+    );
+    exporter.close();
+  });
+
+  it('reserves the snapshot before async preparation and cancels a late result on reset', async () => {
     const exporter = new BrowserLogExport();
     let finish!: (blob: Blob) => void;
     const first = exporter.begin(
@@ -38,9 +60,6 @@ describe('browser log export snapshots', () => {
         new Promise<Blob>((resolve) => {
           finish = resolve;
         }),
-    );
-    await expect(exporter.begin(async () => new Blob())).rejects.toThrow(
-      'already in progress',
     );
     exporter.close();
     finish(new Blob(['old']));
