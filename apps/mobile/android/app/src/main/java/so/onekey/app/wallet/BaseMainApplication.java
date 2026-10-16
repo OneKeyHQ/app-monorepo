@@ -319,6 +319,10 @@ public class BaseMainApplication extends Application implements ReactApplication
         return;
       }
 
+      // Select the main bundle only after MainLauncherActivity's OTA rollback check.
+      if (mReactHost == null) {
+        setupBackgroundThreadBootstrap();
+      }
       BackgroundThreadManager manager = BackgroundThreadManager.getInstance();
       String entryUrl = getBackgroundRunnerEntryUrl();
       BuildVariantBundleInfo bundleInfo = getBuildVariantBundleInfo();
@@ -536,20 +540,9 @@ public class BaseMainApplication extends Application implements ReactApplication
     // routes to RecoveryActivity without constructing a ReactActivity.
     int windowedFailures = BootRecoveryStore.readWindowedCount(prefs);
     String activeOtaVersion = BundleUpdateStoreAndroid.INSTANCE.getCurrentBundleVersion(this);
-    if (!isHarnessMode
-        && activeOtaVersion != null
-        && !activeOtaVersion.isEmpty()
-        && windowedFailures >= BootRecoveryKeys.RECOVERY_THRESHOLD - 1) {
-      BundleUpdateStoreAndroid.INSTANCE.clearUpdateBundleData(this);
-      BootRecoveryStore.reset(prefs);
-      windowedFailures = 0;
-      OneKeyLog.info(
-        "BootRecovery",
-        "Rolled back active OTA bundle (" + activeOtaVersion
-          + ") after consecutive boot failures; continuing normal boot with built-in bundle"
-      );
-    }
+    // An active OTA is rolled back only by the next recorded user launch.
     shouldShowRecovery = !isHarnessMode
+        && (activeOtaVersion == null || activeOtaVersion.isEmpty())
         && windowedFailures >= BootRecoveryKeys.RECOVERY_THRESHOLD;
 
     OneKeyLog.info(
@@ -612,7 +605,6 @@ public class BaseMainApplication extends Application implements ReactApplication
     // }
     long tBeforeBg = System.currentTimeMillis();
     registerBackgroundThreadActivityBridge();
-    setupBackgroundThreadBootstrap();
     long tAfterBg = System.currentTimeMillis();
     OneKeyLog.info(
       "StartupTiming",

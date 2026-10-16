@@ -512,7 +512,7 @@ export function parseNotificationPayload(
       }
       if (!isAllowedWebViewUrl(payload)) {
         defaultLogger.app.error.log(
-          `parseNotificationPayload: blocked unsafe url in openInDapp: ${payload}`,
+          'parseNotificationPayload: blocked unsafe url in openInDapp',
         );
         return false;
       }

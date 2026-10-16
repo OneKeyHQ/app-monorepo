@@ -11,6 +11,7 @@ import {
   EPendingInstallTaskAction,
   EPendingInstallTaskStatus,
   EPendingInstallTaskType,
+  EUpdateFileType,
   EUpdateStrategy,
 } from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
@@ -4771,6 +4772,96 @@ describe('computeUpdateTargetKey consistency', () => {
   describe('in-memory download attempt budget', () => {
     const TARGET_A = '1.0.0:10';
     const TARGET_B = '1.1.0:11'; // a new bundle version
+
+    describe.each(['timer', 'refresh'] as const)('%s recovery', (recovery) => {
+      test.each([
+        ['2.0.0', '30', EUpdateFileType.appShell, 'appShellUpdate'],
+        ['1.0.0', '5', '5', 'jsBundleUpgrade'],
+      ] as const)(
+        'reopens the exhausted budget for %s:%s before auto-download',
+        async (latestVersion, jsBundleVersion, budgetSuffix, decision) => {
+          const targetKey = `${latestVersion}:${budgetSuffix}`;
+          resetAtom({
+            status: EAppUpdateStatus.downloadPackage,
+            latestVersion,
+            jsBundleVersion,
+            updateStrategy: EUpdateStrategy.silent,
+            downloadUrl: 'https://cdn.onekey.so/app.zip',
+            jsBundle: { downloadUrl: 'https://cdn.onekey.so/bundle.zip' },
+          });
+          for (let i = 0; i < 8; i += 1) {
+            // eslint-disable-next-line no-await-in-loop
+            await service.recordDownloadAttempt({ targetKey });
+          }
+          expect(
+            (await service.getDownloadAttemptBudget({ targetKey })).givenUp,
+          ).toBe(true);
+          await service.downloadPackageFailed({
+            code: EUpdateErrorCode.networkError,
+            step: 'download',
+          });
+          if (recovery === 'timer') {
+            await jest.advanceTimersByTimeAsync(2 * 60 * 60 * 1000);
+          } else {
+            await service.refreshUpdateStatus();
+          }
+          expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+          expect(atomValue.updateError).toBeUndefined();
+          expect(
+            await service.getDownloadAttemptBudget({ targetKey }),
+          ).toMatchObject({ attemptCount: 0, givenUp: false });
+
+          jest
+            .spyOn(service, 'isNeedSyncAppUpdateInfo')
+            .mockResolvedValue(true);
+          jest.spyOn(service, 'getAppLatestInfo').mockResolvedValue({
+            version: latestVersion,
+            jsBundleVersion,
+            updateStrategy: EUpdateStrategy.silent,
+            downloadUrl: atomValue.downloadUrl,
+            jsBundle: atomValue.jsBundle,
+          });
+          const emitSpy = jest.spyOn(appEventBus, 'emit');
+          await service.fetchAppUpdateInfo(true);
+          await jest.advanceTimersByTimeAsync(0);
+          expect(emitSpy).toHaveBeenCalledWith(
+            EAppEventBusNames.StartAutoDownloadUpdate,
+            { decision },
+          );
+          await service.downloadPackage();
+          expect(
+            await service.recordDownloadAttempt({ targetKey }),
+          ).toMatchObject({ attemptCount: 1, givenUp: false });
+          expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
+        },
+      );
+
+      test.each([
+        [EUpdateErrorCode.networkError, 'different-target'],
+        [EUpdateErrorCode.integrityFailed, '2.0.0:1'],
+      ] as const)(
+        'preserves the budget for %s / %s',
+        async (code, targetKey) => {
+          resetAtom({
+            status: EAppUpdateStatus.downloadPackage,
+            latestVersion: '2.0.0',
+          });
+          for (let i = 0; i < 8; i += 1) {
+            // eslint-disable-next-line no-await-in-loop
+            await service.recordDownloadAttempt({ targetKey });
+          }
+          await service.downloadPackageFailed({ code, step: 'download' });
+          if (recovery === 'timer') {
+            await jest.advanceTimersByTimeAsync(2 * 60 * 60 * 1000);
+          } else {
+            await service.refreshUpdateStatus();
+          }
+          expect(
+            await service.getDownloadAttemptBudget({ targetKey }),
+          ).toMatchObject({ attemptCount: 8, givenUp: true });
+        },
+      );
+    });
 
     test('allows eight real attempts, then resets on service restart', async () => {
       // Fresh: no record yet → not given up.

@@ -412,6 +412,13 @@ class ServiceAppUpdate extends ServiceBase {
         }
 
         // --- reset failed → notify for another attempt ---
+        await this.resetDownloadAttemptBudget({
+          targetKey: `${appInfo.latestVersion ?? ''}:${
+            getUpdateFileType(appInfo) === EUpdateFileType.jsBundle
+              ? (appInfo.jsBundleVersion ?? EUpdateFileType.jsBundle)
+              : EUpdateFileType.appShell
+          }`,
+        });
         const shouldClearDownload =
           ServiceAppUpdate.VERIFY_FAILED_STATUSES.includes(appInfo.status) ||
           appInfo.status === EAppUpdateStatus.failed ||
@@ -981,6 +988,13 @@ class ServiceAppUpdate extends ServiceBase {
       defaultLogger.app.appUpdate.log(
         `refreshUpdateStatus: resetting failed status ${appInfo.status} to notify`,
       );
+      await this.resetDownloadAttemptBudget({
+        targetKey: `${appInfo.latestVersion ?? ''}:${
+          getUpdateFileType(appInfo) === EUpdateFileType.jsBundle
+            ? (appInfo.jsBundleVersion ?? EUpdateFileType.jsBundle)
+            : EUpdateFileType.appShell
+        }`,
+      });
       const shouldClearDownload =
         ServiceAppUpdate.VERIFY_FAILED_STATUSES.includes(appInfo.status) ||
         appInfo.status === EAppUpdateStatus.failed ||
@@ -1313,9 +1327,8 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   /**
-   * Clear the in-memory attempt budget. Called on a successful download or
-   * when a new target version supersedes the prior one, so the give-up state
-   * never outlives the target it was recorded for.
+   * Clear the in-memory attempt budget after success, a target change, or
+   * a bounded failed-recovery reset that grants another download round.
    */
   @backgroundMethod()
   public async resetDownloadAttemptBudget(params?: {
