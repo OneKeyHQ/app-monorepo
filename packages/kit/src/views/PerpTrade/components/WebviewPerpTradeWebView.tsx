@@ -1,12 +1,20 @@
 import type { ComponentProps } from 'react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
+import { useRoute } from '@react-navigation/native';
+
 import { WebViewWithFeatures } from '@onekeyhq/kit/src/components/WebView/WebViewWithFeatures';
 import { useWebviewPerpTradeTargetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   HYPER_LIQUID_WEBVIEW_TRADE_URL,
-  WEBVIEW_PERP_TRADE_TARGET_TTL_MS,
+  WEBVIEW_PERP_TRADE_INITIAL_WAIT_MS,
 } from '@onekeyhq/shared/src/consts/perp';
+import type {
+  ETabRoutes,
+  IWebviewPerpTradeParamList,
+} from '@onekeyhq/shared/src/routes';
+
+import type { RouteProp } from '@react-navigation/native';
 
 type IWebviewPerpTradeWebViewProps = Pick<
   ComponentProps<typeof WebViewWithFeatures>,
@@ -20,26 +28,37 @@ type IWebviewPerpTradeWebViewProps = Pick<
 
 export function WebviewPerpTradeWebView(props: IWebviewPerpTradeWebViewProps) {
   const [target] = useWebviewPerpTradeTargetAtom();
+  const { params } =
+    useRoute<
+      RouteProp<IWebviewPerpTradeParamList, ETabRoutes.WebviewPerpTrade>
+    >();
+  const tradeRequest = params?.tradeRequest;
   const hasRenderedWebView = useRef(false);
-  const initialRevision = useRef(target.revision);
   const [initialWaitExpired, setInitialWaitExpired] = useState(false);
   const waitingForInitialTarget =
     !hasRenderedWebView.current &&
     !initialWaitExpired &&
-    target.revision === initialRevision.current &&
-    Object.values(target.pendingRequests ?? {}).some(
-      (pending) => pending.expiresAt > Date.now(),
+    Boolean(
+      tradeRequest &&
+      tradeRequest.requestId !== target.requestId &&
+      tradeRequest.expiresAt > Date.now(),
     );
   useEffect(() => {
-    if (!waitingForInitialTarget) return;
-    // Bound this mount's wait even if BG is unavailable or other UIs keep
-    // preparing new requests. Metadata updates must not restart the timer.
+    if (!waitingForInitialTarget || !tradeRequest) return;
+    // Only this route's entry can delay its first load. Other windows' drafts
+    // are BG-owned and never participate in this UI's readiness.
     const timeout = setTimeout(
       () => setInitialWaitExpired(true),
-      WEBVIEW_PERP_TRADE_TARGET_TTL_MS,
+      Math.max(
+        0,
+        Math.min(
+          WEBVIEW_PERP_TRADE_INITIAL_WAIT_MS,
+          tradeRequest.expiresAt - Date.now(),
+        ),
+      ),
     );
     return () => clearTimeout(timeout);
-  }, [waitingForInitialTarget]);
+  }, [waitingForInitialTarget, tradeRequest]);
   useLayoutEffect(() => {
     if (!waitingForInitialTarget) hasRenderedWebView.current = true;
   }, [waitingForInitialTarget]);

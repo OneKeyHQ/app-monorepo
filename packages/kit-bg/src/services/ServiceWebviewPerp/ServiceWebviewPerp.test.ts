@@ -1,4 +1,4 @@
-import { WEBVIEW_PERP_TRADE_TARGET_TTL_MS } from '@onekeyhq/shared/src/consts/perp';
+import { WEBVIEW_PERP_TRADE_REQUEST_TTL_MS } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IFetchAccountTokensResp } from '@onekeyhq/shared/types/token';
 
@@ -13,6 +13,7 @@ import ServiceWebviewPerp from './ServiceWebviewPerp';
 
 let mockWebTarget: IWebviewPerpTradeTarget = { revision: 0 };
 let mockNextTargetWriteDelay: Promise<void> | undefined;
+let mockNextTargetReadyDelay: Promise<void> | undefined;
 
 let mockPerpsDepositTokensState: IPerpsDepositTokensAtom = { tokens: {} };
 
@@ -27,6 +28,9 @@ jest.mock('../../states/jotai/atoms', () => {
         async (
           update: (prev: typeof mockWebTarget) => typeof mockWebTarget,
         ) => {
+          const readyDelay = mockNextTargetReadyDelay;
+          mockNextTargetReadyDelay = undefined;
+          if (readyDelay) await readyDelay;
           mockWebTarget = update(mockWebTarget);
           const delay = mockNextTargetWriteDelay;
           mockNextTargetWriteDelay = undefined;
@@ -375,138 +379,127 @@ describe('ServiceWebviewPerp', () => {
 });
 
 describe('web Perps navigation targets', () => {
+  let service: ServiceWebviewPerp;
   beforeEach(() => {
     jest.useFakeTimers();
     mockNextTargetWriteDelay = undefined;
+    mockNextTargetReadyDelay = undefined;
+    mockWebTarget = { coin: 'SOL', revision: 3 };
+    service = new ServiceWebviewPerp({ backgroundApi: {} });
   });
   afterEach(() => {
     jest.clearAllTimers();
     jest.useRealTimers();
   });
-  it('records a new request for repeated coins without persisting native trading state', async () => {
-    mockWebTarget = { revision: 0 };
-    await ServiceWebviewPerp.prototype.setTradeTarget({ coin: ' BTC ' });
-    expect(mockWebTarget).toEqual({ coin: 'BTC', revision: 1 });
-    await ServiceWebviewPerp.prototype.setTradeTarget({ coin: 'BTC' });
-    expect(mockWebTarget).toEqual({ coin: 'BTC', revision: 2 });
-    await ServiceWebviewPerp.prototype.setTradeTarget({ coin: 'xyz:AAPL' });
-    expect(mockWebTarget).toEqual({ coin: 'xyz:AAPL', revision: 3 });
+
+  it('records explicit and repeated selections without persisting native state', async () => {
+    await service.setTradeTarget({ coin: ' BTC ' });
+    expect(mockWebTarget).toEqual({ coin: 'BTC', revision: 4 });
+    await service.setTradeTarget({ coin: 'BTC' });
+    expect(mockWebTarget).toEqual({ coin: 'BTC', revision: 5 });
   });
-  it('rejects an empty target without changing the previous request', async () => {
-    mockWebTarget = { coin: 'BTC', revision: 1 };
-    await expect(
-      ServiceWebviewPerp.prototype.setTradeTarget({ coin: ' ' }),
-    ).rejects.toThrow();
-    expect(mockWebTarget).toEqual({ coin: 'BTC', revision: 1 });
+
+  it('rejects an empty target without changing the previous selection', async () => {
+    await expect(service.setTradeTarget({ coin: ' ' })).rejects.toThrow();
+    expect(mockWebTarget).toEqual({ coin: 'SOL', revision: 3 });
   });
-  it('cancels only its own preparation and preserves the committed market', async () => {
-    mockWebTarget = { coin: 'ETH', revision: 5 };
-    const service = new ServiceWebviewPerp({ backgroundApi: {} });
-    await service.setTradeTarget({ coin: 'BTC', requestId: 'first' });
-    await service.setTradeTarget({ coin: 'BTC', requestId: 'second' });
-    await service.clearTradeTarget({ requestId: 'first' });
+
+  it('cancels only its own draft and leaves the other UI able to commit', async () => {
+    await service.setTradeTarget({ coin: 'BTC', requestId: 'ui-a' });
+    await service.setTradeTarget({ coin: 'ETH', requestId: 'ui-b' });
+    await service.clearTradeTarget({ requestId: 'ui-a' });
+    expect(await service.commitTradeTarget({ requestId: 'ui-a' })).toBe(false);
+    expect(await service.commitTradeTarget({ requestId: 'ui-b' })).toBe(true);
     expect(mockWebTarget).toEqual({
       coin: 'ETH',
-      revision: 5,
-      pendingRequests: {
-        second: { coin: 'BTC', expiresAt: expect.any(Number) },
-      },
+      revision: 4,
+      requestId: 'ui-b',
     });
-    await service.clearTradeTarget({ requestId: 'second' });
-    expect(mockWebTarget).toEqual({ coin: 'ETH', revision: 5 });
-  });
-
-  it('does not clear a web target written by a caller without a request owner', async () => {
-    mockWebTarget = { revision: 0 };
-    const service = new ServiceWebviewPerp({ backgroundApi: {} });
-    await service.setTradeTarget({ coin: 'BTC', requestId: 'first' });
-    await service.setTradeTarget({ coin: 'ETH' });
-    await service.clearTradeTarget({ requestId: 'first' });
-    expect(mockWebTarget).toEqual({ coin: 'ETH', revision: 1 });
-  });
-
-  it('commits a repeated coin without removing another UI preparation', async () => {
-    mockWebTarget = { coin: 'BTC', revision: 1 };
-    const service = new ServiceWebviewPerp({ backgroundApi: {} });
-    await service.setTradeTarget({ coin: 'ETH', requestId: 'old' });
-    await service.setTradeTarget({ coin: 'BTC', requestId: 'new' });
-    expect(await service.commitTradeTarget({ requestId: 'new' })).toBe(true);
-    expect(mockWebTarget.coin).toBe('BTC');
-    expect(mockWebTarget.revision).toBe(2);
-    expect(mockWebTarget.pendingRequests?.old.coin).toBe('ETH');
-    await service.clearTradeTarget({ requestId: 'old' });
-    expect(await service.commitTradeTarget({ requestId: 'old' })).toBe(false);
-    expect(mockWebTarget).toEqual({ coin: 'BTC', revision: 2 });
   });
 
   it('preserves UI A acceptance when UI B prepares and then cancels', async () => {
-    mockWebTarget = { coin: 'SOL', revision: 3 };
-    const service = new ServiceWebviewPerp({ backgroundApi: {} });
-    // Independent UI heaps have no shared mutex; only BG can isolate these calls.
     await Promise.all([
       service.setTradeTarget({ coin: 'BTC', requestId: 'ui-a' }),
       service.setTradeTarget({ coin: 'ETH', requestId: 'ui-b' }),
     ]);
     expect(await service.commitTradeTarget({ requestId: 'ui-a' })).toBe(true);
-    expect(mockWebTarget.pendingRequests?.['ui-b'].coin).toBe('ETH');
     await service.clearTradeTarget({ requestId: 'ui-b' });
-    expect(mockWebTarget).toEqual({ coin: 'BTC', revision: 4 });
+    expect(mockWebTarget).toEqual({
+      coin: 'BTC',
+      revision: 4,
+      requestId: 'ui-a',
+    });
   });
 
-  it('expires an orphaned preparation without changing the committed market', async () => {
-    mockWebTarget = { coin: 'SOL', revision: 3 };
-    const service = new ServiceWebviewPerp({ backgroundApi: {} });
-    await service.setTradeTarget({ coin: 'BTC', requestId: 'closed-popup' });
-    await jest.advanceTimersByTimeAsync(WEBVIEW_PERP_TRADE_TARGET_TTL_MS);
-    expect(mockWebTarget).toEqual({ coin: 'SOL', revision: 3 });
-    expect(await service.commitTradeTarget({ requestId: 'closed-popup' })).toBe(
-      false,
-    );
+  it('makes every old draft ineligible after a direct market selection', async () => {
+    await service.setTradeTarget({ coin: 'BTC', requestId: 'ui-a' });
+    await service.setTradeTarget({ coin: 'ETH', requestId: 'ui-b' });
+    await service.setTradeTarget({ coin: 'AVAX' });
+    expect(await service.commitTradeTarget({ requestId: 'ui-a' })).toBe(false);
+    expect(await service.commitTradeTarget({ requestId: 'ui-b' })).toBe(false);
+    expect(mockWebTarget).toEqual({ coin: 'AVAX', revision: 4 });
+    await service.setTradeTarget({ coin: 'DOGE', requestId: 'new' });
+    expect(await service.commitTradeTarget({ requestId: 'new' })).toBe(true);
+    expect(mockWebTarget).toEqual({
+      coin: 'DOGE',
+      revision: 5,
+      requestId: 'new',
+    });
   });
 
-  it('expires only the old UI lease while another UI can still commit', async () => {
-    mockWebTarget = { coin: 'SOL', revision: 3 };
-    const service = new ServiceWebviewPerp({ backgroundApi: {} });
-    await service.setTradeTarget({ coin: 'BTC', requestId: 'old-ui' });
-    await jest.advanceTimersByTimeAsync(WEBVIEW_PERP_TRADE_TARGET_TTL_MS / 2);
-    await service.setTradeTarget({ coin: 'ETH', requestId: 'new-ui' });
-    await jest.advanceTimersByTimeAsync(WEBVIEW_PERP_TRADE_TARGET_TTL_MS / 2);
-    expect(await service.commitTradeTarget({ requestId: 'old-ui' })).toBe(
-      false,
-    );
-    expect(await service.commitTradeTarget({ requestId: 'new-ui' })).toBe(true);
+  it('rejects an old commit waiting for atom readiness after a direct selection', async () => {
+    await service.setTradeTarget({ coin: 'BTC', requestId: 'old' });
+    let resume: (() => void) | undefined;
+    mockNextTargetReadyDelay = new Promise<void>((resolve) => {
+      resume = resolve;
+    });
+    const oldCommit = service.commitTradeTarget({ requestId: 'old' });
+    await service.setTradeTarget({ coin: 'ETH' });
+    resume?.();
+    expect(await oldCommit).toBe(false);
     expect(mockWebTarget).toEqual({ coin: 'ETH', revision: 4 });
   });
 
-  it('rejects an expired commit even if BG timers have not resumed yet', async () => {
-    mockWebTarget = { coin: 'SOL', revision: 3 };
-    const service = new ServiceWebviewPerp({ backgroundApi: {} });
-    await service.setTradeTarget({ coin: 'BTC', requestId: 'suspended-ui' });
-    jest.setSystemTime(Date.now() + WEBVIEW_PERP_TRADE_TARGET_TTL_MS + 1);
-    expect(await service.commitTradeTarget({ requestId: 'suspended-ui' })).toBe(
-      false,
-    );
-    expect(mockWebTarget).toEqual({ coin: 'SOL', revision: 3 });
-  });
-
-  it('expires in BG even while the original atom broadcast is still awaiting a UI', async () => {
-    mockWebTarget = { coin: 'SOL', revision: 3 };
-    const service = new ServiceWebviewPerp({ backgroundApi: {} });
+  it('does not expire live preparation because a target broadcast takes over two seconds', async () => {
     let finishBroadcast: (() => void) | undefined;
     mockNextTargetWriteDelay = new Promise<void>((resolve) => {
       finishBroadcast = resolve;
     });
-    const preparation = service.setTradeTarget({
-      coin: 'BTC',
-      requestId: 'closed-popup',
-    });
-    expect(mockWebTarget.pendingRequests?.['closed-popup'].coin).toBe('BTC');
-    await jest.advanceTimersByTimeAsync(WEBVIEW_PERP_TRADE_TARGET_TTL_MS);
+    // Preparation does not publish an atom or await a UI broadcast.
+    await service.setTradeTarget({ coin: 'BTC', requestId: 'live' });
     expect(mockWebTarget).toEqual({ coin: 'SOL', revision: 3 });
+    await jest.advanceTimersByTimeAsync(3000);
+    const commit = service.commitTradeTarget({ requestId: 'live' });
+    expect(mockWebTarget).toEqual({
+      coin: 'BTC',
+      revision: 4,
+      requestId: 'live',
+    });
+    await jest.advanceTimersByTimeAsync(WEBVIEW_PERP_TRADE_REQUEST_TTL_MS);
     finishBroadcast?.();
-    await preparation;
+    expect(await commit).toBe(true);
+    expect(mockWebTarget).toEqual({
+      coin: 'BTC',
+      revision: 4,
+      requestId: 'live',
+    });
+  });
+
+  it('reclaims an abandoned BG draft without changing the committed market', async () => {
+    await service.setTradeTarget({ coin: 'BTC', requestId: 'closed-popup' });
+    await jest.advanceTimersByTimeAsync(WEBVIEW_PERP_TRADE_REQUEST_TTL_MS);
     expect(await service.commitTradeTarget({ requestId: 'closed-popup' })).toBe(
       false,
     );
+    expect(mockWebTarget).toEqual({ coin: 'SOL', revision: 3 });
+  });
+
+  it('checks an expired draft even if BG timers have not resumed', async () => {
+    await service.setTradeTarget({ coin: 'BTC', requestId: 'suspended' });
+    jest.setSystemTime(Date.now() + WEBVIEW_PERP_TRADE_REQUEST_TTL_MS + 1);
+    expect(await service.commitTradeTarget({ requestId: 'suspended' })).toBe(
+      false,
+    );
+    expect(mockWebTarget).toEqual({ coin: 'SOL', revision: 3 });
   });
 });

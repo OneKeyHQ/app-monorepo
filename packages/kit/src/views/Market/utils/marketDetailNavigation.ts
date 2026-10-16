@@ -8,7 +8,10 @@ import { rootNavigationRef } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type {
+  ETabRoutes,
+  IWebviewPerpTradeParamList,
+} from '@onekeyhq/shared/src/routes';
 import {
   EModalSwapRoutes,
   ERootRoutes,
@@ -22,6 +25,7 @@ import {
 } from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
 
 import type {
+  NavigatorScreenParams,
   ParamListBase,
   TabNavigationState,
 } from '@react-navigation/native';
@@ -326,6 +330,7 @@ function findTabStackOwner(
 export function dismissDiscoveryMarketDetailForTrade(
   expectedRouteKey?: string,
   targetTab?: ETabRoutes,
+  targetParams?: NavigatorScreenParams<IWebviewPerpTradeParamList>,
 ): 'ready' | 'cancelled' {
   if (!platformEnv.isNative) return 'ready';
   const navigation = rootNavigationRef.current as INavigationLike | undefined;
@@ -377,18 +382,23 @@ export function dismissDiscoveryMarketDetailForTrade(
       return 'cancelled';
     const resetTabs: ITabStackOwner = {
       ...tabs,
-      routes: tabs.routes.map((route) =>
-        route === sourceTab
-          ? {
-              ...route,
-              state: {
-                ...sourceStack,
-                index: listIndex,
-                routes: sourceStack.routes.slice(0, listIndex + 1),
-              },
-            }
-          : route,
-      ),
+      routes: tabs.routes.map((route) => {
+        if (route === sourceTab) {
+          return {
+            ...route,
+            state: {
+              ...sourceStack,
+              index: listIndex,
+              routes: sourceStack.routes.slice(0, listIndex + 1),
+            },
+          };
+        }
+        if (route.name === targetTab && targetParams) {
+          // Replace stale nested state before a cold tab builds its first route.
+          return { ...route, params: targetParams };
+        }
+        return route;
+      }),
     };
     // Select Perps and trim only its source stack in the same commit. Keep the
     // tab and list keys so their components, loaded data and scroll state survive.

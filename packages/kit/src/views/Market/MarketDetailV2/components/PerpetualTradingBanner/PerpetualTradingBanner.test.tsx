@@ -13,6 +13,16 @@ import { PerpetualTradingBanner } from './PerpetualTradingBanner';
 
 import type { NavigationState, PartialState } from '@react-navigation/routers';
 
+const expectedWebTradeParams = expect.objectContaining({
+  screen: ETabRoutes.WebviewPerpTrade,
+  params: {
+    tradeRequest: {
+      requestId: expect.any(String),
+      expiresAt: expect.any(Number),
+    },
+  },
+});
+
 let mockProxyUnavailable = false;
 const mockToastError = jest.fn<void, unknown[]>();
 
@@ -260,12 +270,13 @@ it.each([false, true])(
       mockPress?.();
       await jest.advanceTimersByTimeAsync(80);
     });
-    expect(mockSwitchTab).toHaveBeenCalledWith(
-      showWeb ? ETabRoutes.WebviewPerpTrade : ETabRoutes.Perp,
-    );
+    const tabArgs = showWeb
+      ? [ETabRoutes.WebviewPerpTrade, expectedWebTradeParams]
+      : [ETabRoutes.Perp];
+    expect(mockSwitchTab).toHaveBeenCalledWith(...tabArgs);
     expect(mockDismissDiscoveryDetail).toHaveBeenCalledWith(
       'market-detail',
-      showWeb ? ETabRoutes.WebviewPerpTrade : ETabRoutes.Perp,
+      ...tabArgs,
     );
     expect(mockDismissDiscoveryDetail.mock.invocationCallOrder[0]).toBeLessThan(
       mockSwitchTab.mock.invocationCallOrder[0],
@@ -316,8 +327,12 @@ it.each([false, true])(
       await jest.advanceTimersByTimeAsync(80);
     });
     const target = showWeb ? ETabRoutes.WebviewPerpTrade : ETabRoutes.Perp;
-    expect(mockDismissDiscoveryDetail).toHaveBeenCalledWith('detail', target);
-    expect(mockSwitchTab).toHaveBeenCalledWith(target);
+    const tabArgs = showWeb ? [target, expectedWebTradeParams] : [target];
+    expect(mockDismissDiscoveryDetail).toHaveBeenCalledWith(
+      'detail',
+      ...tabArgs,
+    );
+    expect(mockSwitchTab).toHaveBeenCalledWith(...tabArgs);
     expect(mockDismissDiscoveryDetail.mock.invocationCallOrder[0]).toBeLessThan(
       mockSwitchTab.mock.invocationCallOrder[0],
     );
@@ -465,11 +480,15 @@ it.each(['chunk', 'target'])(
       coin: 'xyz:AAPL',
       requestId: expect.any(String),
     });
-    expect(mockSwitchTab).toHaveBeenCalledWith(ETabRoutes.WebviewPerpTrade);
+    expect(mockSwitchTab).toHaveBeenCalledWith(
+      ETabRoutes.WebviewPerpTrade,
+      expectedWebTradeParams,
+    );
     expect(mockToastError).toHaveBeenCalledTimes(1);
     expect(mockDismissDiscoveryDetail).toHaveBeenCalledWith(
       'market-detail',
       ETabRoutes.WebviewPerpTrade,
+      expectedWebTradeParams,
     );
   },
 );

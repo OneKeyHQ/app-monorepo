@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import { Toast, rootNavigationRef } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
+import { WEBVIEW_PERP_TRADE_INITIAL_WAIT_MS } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
@@ -17,10 +18,13 @@ import {
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type { IWebviewPerpTradeParamList } from '@onekeyhq/shared/src/routes';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { EModalMarketRoutes } from '../router/types';
 import { dismissDiscoveryMarketDetailForTrade } from '../utils/marketDetailNavigation';
+
+import type { NavigatorScreenParams } from '@react-navigation/native';
 
 let latestPerpsNavigationRequestId: string | undefined;
 // Await writes and their rollback before allowing another entry to write.
@@ -175,18 +179,34 @@ export function usePerpsNavigation(source?: EPerpPageEnterSource) {
           const targetTab = perpTabShowWeb
             ? ETabRoutes.WebviewPerpTrade
             : ETabRoutes.Perp;
+          const webTradeParams: NavigatorScreenParams<IWebviewPerpTradeParamList> =
+            {
+              screen: ETabRoutes.WebviewPerpTrade,
+              params: {
+                tradeRequest: {
+                  requestId,
+                  expiresAt: Date.now() + WEBVIEW_PERP_TRADE_INITIAL_WAIT_MS,
+                },
+              },
+            };
           let navigationCommitted = false;
           try {
             if (entryRouteKey) {
-              const result = dismissDiscoveryMarketDetailForTrade(
-                entryRouteKey,
-                targetTab,
-              );
+              const result = perpTabShowWeb
+                ? dismissDiscoveryMarketDetailForTrade(
+                    entryRouteKey,
+                    targetTab,
+                    webTradeParams,
+                  )
+                : dismissDiscoveryMarketDetailForTrade(
+                    entryRouteKey,
+                    targetTab,
+                  );
               if (result === 'cancelled') return;
             }
             setPerpPageEnterSource(source ?? EPerpPageEnterSource.MarketList);
-            navigation.switchTab(targetTab);
             if (perpTabShowWeb) {
+              navigation.switchTab(ETabRoutes.WebviewPerpTrade, webTradeParams);
               const committed =
                 await proxy?.serviceWebviewPerp.commitTradeTarget({
                   requestId,
@@ -199,6 +219,7 @@ export function usePerpsNavigation(source?: EPerpPageEnterSource) {
               navigationCommitted = true;
               return;
             }
+            navigation.switchTab(targetTab);
             navigationCommitted = true;
             if (!proxy) return;
             try {

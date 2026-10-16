@@ -11,13 +11,12 @@ import {
 import {
   HYPER_LIQUID_CUSTOM_LOCAL_STORAGE_V2_PRESET,
   HYPER_LIQUID_ORIGIN,
-  WEBVIEW_PERP_TRADE_TARGET_TTL_MS,
+  WEBVIEW_PERP_TRADE_REQUEST_TTL_MS,
 } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import thirdpartyLocaleConverter from '@onekeyhq/shared/src/locale/thirdpartyLocaleConverter';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale/type';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -1424,6 +1423,17 @@ class ServiceWebviewPerp extends ServiceBase {
     };
   }
 
+  private pendingTradeTargets = new Map<
+    string,
+    { coin: string; expiresAt: number; timer: ReturnType<typeof setTimeout> }
+  >();
+
+  private removePendingTradeTarget(requestId: string) {
+    const pending = this.pendingTradeTargets.get(requestId);
+    if (pending) clearTimeout(pending.timer);
+    this.pendingTradeTargets.delete(requestId);
+  }
+
   @backgroundMethod()
   async setTradeTarget({
     coin,
@@ -1434,68 +1444,28 @@ class ServiceWebviewPerp extends ServiceBase {
   }) {
     const targetCoin = coin.trim();
     if (!targetCoin) throw new OneKeyError('Missing web Perps target');
-    const expiresAt = Date.now() + WEBVIEW_PERP_TRADE_TARGET_TTL_MS;
     if (requestId) {
-      // Start the BG lease before awaiting atom broadcasts to a disappearing UI.
-      setTimeout(() => {
-        void this.finishTradeTarget(requestId, 'expire').catch((error) => {
-          defaultLogger.app.error.log(
-            `Failed to expire web Perps target: ${String(error)}`,
-          );
-        });
-      }, WEBVIEW_PERP_TRADE_TARGET_TTL_MS);
+      // Drafts belong to BG. Broadcasting them would make a live preparation
+      // depend on every UI acknowledging metadata it does not need.
+      this.removePendingTradeTarget(requestId);
+      this.pendingTradeTargets.set(requestId, {
+        coin: targetCoin,
+        expiresAt: Date.now() + WEBVIEW_PERP_TRADE_REQUEST_TTL_MS,
+        timer: setTimeout(
+          () => this.removePendingTradeTarget(requestId),
+          WEBVIEW_PERP_TRADE_REQUEST_TTL_MS,
+        ),
+      });
+      return;
     }
     await webviewPerpTradeTargetAtom.set((previous) => {
-      // A Market entry is tentative until its source route has been validated.
-      // Keep mounted WebViews on their committed target while the RPC completes.
-      if (requestId) {
-        return {
-          ...previous,
-          pendingRequests: {
-            ...previous.pendingRequests,
-            [requestId]: { coin: targetCoin, expiresAt },
-          },
-        };
+      // An explicit selection supersedes every older draft, including commits
+      // that are still awaiting atom readiness in another UI's RPC.
+      for (const id of this.pendingTradeTargets.keys()) {
+        this.removePendingTradeTarget(id);
       }
-      return {
-        ...previous,
-        coin: targetCoin,
-        revision: previous.revision + 1,
-      };
+      return { coin: targetCoin, revision: previous.revision + 1 };
     });
-  }
-
-  private async finishTradeTarget(
-    requestId: string,
-    action: 'commit' | 'cancel' | 'expire',
-  ): Promise<boolean> {
-    let committed = false;
-    await webviewPerpTradeTargetAtom.set((previous) => {
-      if (
-        !Object.prototype.hasOwnProperty.call(
-          previous.pendingRequests ?? {},
-          requestId,
-        )
-      )
-        return previous;
-      const pending = previous.pendingRequests?.[requestId];
-      if (!pending) return previous;
-      const expired = pending.expiresAt <= Date.now();
-      if (action === 'expire' && !expired) return previous;
-      const pendingRequests = { ...previous.pendingRequests };
-      delete pendingRequests[requestId];
-      committed = action === 'commit' && !expired;
-      return {
-        ...previous,
-        ...(committed
-          ? { coin: pending.coin, revision: previous.revision + 1 }
-          : {}),
-        pendingRequests: Object.keys(pendingRequests).length
-          ? pendingRequests
-          : undefined,
-      };
-    });
-    return committed;
   }
 
   @backgroundMethod()
@@ -1504,12 +1474,21 @@ class ServiceWebviewPerp extends ServiceBase {
   }: {
     requestId: string;
   }): Promise<boolean> {
-    return this.finishTradeTarget(requestId, 'commit');
+    let committed = false;
+    await webviewPerpTradeTargetAtom.set((previous) => {
+      const pending = this.pendingTradeTargets.get(requestId);
+      if (!pending) return previous;
+      this.removePendingTradeTarget(requestId);
+      if (pending.expiresAt <= Date.now()) return previous;
+      committed = true;
+      return { coin: pending.coin, revision: previous.revision + 1, requestId };
+    });
+    return committed;
   }
 
   @backgroundMethod()
   async clearTradeTarget({ requestId }: { requestId: string }) {
-    await this.finishTradeTarget(requestId, 'cancel');
+    this.removePendingTradeTarget(requestId);
   }
 
   lastExtPerpTab: chrome.tabs.Tab | undefined;

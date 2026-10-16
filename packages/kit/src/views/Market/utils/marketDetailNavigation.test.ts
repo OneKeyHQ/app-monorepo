@@ -430,6 +430,55 @@ describe('marketDetailNavigation', () => {
       });
     });
 
+    it('passes the owned Web Perps request in the same atomic tab reset', () => {
+      const previousTabs = createTabs();
+      const tabs = {
+        ...previousTabs,
+        routes: previousTabs.routes.map((route) =>
+          route.name === ETabRoutes.WebviewPerpTrade
+            ? {
+                ...route,
+                params: {
+                  state: {
+                    index: 0,
+                    routes: [
+                      {
+                        name: ETabRoutes.WebviewPerpTrade,
+                        params: { previous: true },
+                      },
+                    ],
+                  },
+                },
+              }
+            : route,
+        ),
+      };
+      getRootStateMock.mockReturnValue({
+        key: 'root',
+        routes: [{ name: 'main', state: tabs }],
+      });
+      const params = {
+        screen: ETabRoutes.WebviewPerpTrade,
+        params: { tradeRequest: { requestId: 'own-ui', expiresAt: 2000 } },
+      } as const;
+      expect(
+        dismissDiscoveryMarketDetailForTrade(
+          'detail',
+          ETabRoutes.WebviewPerpTrade,
+          params,
+        ),
+      ).toBe('ready');
+      const action = dispatchMock.mock.calls[0][0] as Parameters<
+        typeof tabRouter.getStateForAction
+      >[1];
+      const updated = tabRouter.getStateForAction(tabs, action, tabConfig);
+      expect(
+        updated?.routes.find(
+          (route) => route.name === ETabRoutes.WebviewPerpTrade,
+        )?.params,
+      ).toEqual(params);
+    });
+
     it.each([ETabRoutes.Perp, ETabRoutes.WebviewPerpTrade])(
       'selects %s and removes details without remounting Discovery or its list',
       (target) => {

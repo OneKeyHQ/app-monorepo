@@ -3,11 +3,15 @@ import { act, render, screen } from '@testing-library/react';
 
 import ServiceWebviewPerp from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/ServiceWebviewPerp';
 import type { IWebviewPerpTradeTarget } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { WEBVIEW_PERP_TRADE_TARGET_TTL_MS } from '@onekeyhq/shared/src/consts/perp';
+import { WEBVIEW_PERP_TRADE_INITIAL_WAIT_MS } from '@onekeyhq/shared/src/consts/perp';
 
 import { WebviewPerpTradeWebView } from './WebviewPerpTradeWebView';
 
 let mockTarget: IWebviewPerpTradeTarget = { revision: 0 };
+let mockTradeRequest: { requestId: string; expiresAt: number } | undefined;
+jest.mock('@react-navigation/native', () => ({
+  useRoute: () => ({ params: { tradeRequest: mockTradeRequest } }),
+}));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
   const actual = jest.requireActual<
     typeof import('@onekeyhq/kit-bg/src/states/jotai/atoms')
@@ -48,6 +52,7 @@ jest.mock('@onekeyhq/kit/src/components/WebView/WebViewWithFeatures', () => ({
 beforeEach(() => {
   jest.useFakeTimers();
   mockTarget = { revision: 0 };
+  mockTradeRequest = undefined;
 });
 afterEach(() => {
   jest.clearAllTimers();
@@ -131,9 +136,13 @@ it('updates an existing WebView only when navigation commits', async () => {
   );
 });
 
-it('waits on a cold mount and loads only the committed target', async () => {
+it('waits on its own cold entry and loads only that accepted target', async () => {
   const service = new ServiceWebviewPerp({ backgroundApi: {} });
   await service.setTradeTarget({ coin: 'BTC', requestId: 'accepted' });
+  mockTradeRequest = {
+    requestId: 'accepted',
+    expiresAt: Date.now() + WEBVIEW_PERP_TRADE_INITIAL_WAIT_MS,
+  };
   const { rerender } = render(<WebviewPerpTradeWebView />);
   expect(screen.queryByTestId('webview')).toBeNull();
   await service.commitTradeTarget({ requestId: 'accepted' });
@@ -143,47 +152,57 @@ it('waits on a cold mount and loads only the committed target', async () => {
   );
 });
 
-it('loads the previous target if preparation is cancelled during a cold mount', async () => {
-  const service = new ServiceWebviewPerp({ backgroundApi: {} });
-  await service.setTradeTarget({ coin: 'BTC', requestId: 'cancelled' });
-  const { rerender } = render(<WebviewPerpTradeWebView />);
-  expect(screen.queryByTestId('webview')).toBeNull();
-  await service.clearTradeTarget({ requestId: 'cancelled' });
-  rerender(<WebviewPerpTradeWebView />);
-  expect(screen.getByTestId('webview').getAttribute('data-src')).toBe(
-    'https://app.hyperliquid.xyz/trade?isOneKeyBuiltInPerpView=true',
-  );
-});
+it.each([false, true])(
+  'shows the accepted market immediately on a cold mount despite another window preparing (own accepted route: %s)',
+  async (ownRoute) => {
+    mockTarget = { coin: 'SOL', revision: 3 };
+    const service = new ServiceWebviewPerp({ backgroundApi: {} });
+    await service.setTradeTarget({ coin: 'BTC', requestId: 'ui-a' });
+    await service.setTradeTarget({ coin: 'ETH', requestId: 'ui-b' });
+    expect(await service.commitTradeTarget({ requestId: 'ui-a' })).toBe(true);
+    if (ownRoute)
+      mockTradeRequest = {
+        requestId: 'ui-a',
+        expiresAt: Date.now() + WEBVIEW_PERP_TRADE_INITIAL_WAIT_MS,
+      };
+    const { rerender } = render(<WebviewPerpTradeWebView />);
+    const accepted = screen.getByTestId('webview');
+    expect(accepted.getAttribute('data-src')).toContain('/trade/BTC?');
+    await service.clearTradeTarget({ requestId: 'ui-b' });
+    rerender(<WebviewPerpTradeWebView />);
+    expect(screen.getByTestId('webview')).toBe(accepted);
+  },
+);
 
-it('renders UI A committed market while UI B is still pending and preserves it on B cancellation', async () => {
-  mockTarget = { coin: 'SOL', revision: 3 };
+it('does not treat another window commit as completion of its own entry', async () => {
+  mockTradeRequest = {
+    requestId: 'ui-a',
+    expiresAt: Date.now() + WEBVIEW_PERP_TRADE_INITIAL_WAIT_MS,
+  };
   const service = new ServiceWebviewPerp({ backgroundApi: {} });
   await service.setTradeTarget({ coin: 'BTC', requestId: 'ui-a' });
   await service.setTradeTarget({ coin: 'ETH', requestId: 'ui-b' });
   const { rerender } = render(<WebviewPerpTradeWebView />);
+  await service.commitTradeTarget({ requestId: 'ui-b' });
+  rerender(<WebviewPerpTradeWebView />);
   expect(screen.queryByTestId('webview')).toBeNull();
-  expect(await service.commitTradeTarget({ requestId: 'ui-a' })).toBe(true);
+  await service.commitTradeTarget({ requestId: 'ui-a' });
   rerender(<WebviewPerpTradeWebView />);
-  const accepted = screen.getByTestId('webview');
-  expect(accepted.getAttribute('data-src')).toContain('/trade/BTC?');
-  await service.clearTradeTarget({ requestId: 'ui-b' });
-  rerender(<WebviewPerpTradeWebView />);
-  expect(screen.getByTestId('webview')).toBe(accepted);
-  expect(accepted.getAttribute('data-src')).toContain('/trade/BTC?');
+  expect(screen.getByTestId('webview').getAttribute('data-src')).toContain(
+    '/trade/BTC?',
+  );
 });
 
-it('bounds a cold mount wait when BG cannot clear an orphaned request', async () => {
-  mockTarget = {
-    coin: 'SOL',
-    revision: 3,
-    pendingRequests: {
-      orphaned: { coin: 'BTC', expiresAt: Date.now() + 10_000 },
-    },
+it('bounds its own cold wait when the requester disappears or BG cannot respond', async () => {
+  mockTarget = { coin: 'SOL', revision: 3 };
+  mockTradeRequest = {
+    requestId: 'orphan',
+    expiresAt: Date.now() + WEBVIEW_PERP_TRADE_INITIAL_WAIT_MS,
   };
   const { rerender } = render(<WebviewPerpTradeWebView />);
   expect(screen.queryByTestId('webview')).toBeNull();
   await act(async () => {
-    await jest.advanceTimersByTimeAsync(WEBVIEW_PERP_TRADE_TARGET_TTL_MS - 1);
+    await jest.advanceTimersByTimeAsync(WEBVIEW_PERP_TRADE_INITIAL_WAIT_MS - 1);
   });
   expect(screen.queryByTestId('webview')).toBeNull();
   await act(async () => {
@@ -191,43 +210,34 @@ it('bounds a cold mount wait when BG cannot clear an orphaned request', async ()
   });
   const recovered = screen.getByTestId('webview');
   expect(recovered.getAttribute('data-src')).toContain('/trade/SOL?');
-  mockTarget = { coin: 'SOL', revision: 3 };
+  mockTradeRequest = undefined;
   rerender(<WebviewPerpTradeWebView />);
   expect(screen.getByTestId('webview')).toBe(recovered);
 });
 
-it('does not restart the cold mount deadline when another UI prepares a request', async () => {
-  mockTarget = {
-    revision: 0,
-    pendingRequests: {
-      first: { coin: 'BTC', expiresAt: Date.now() + 10_000 },
-    },
+it('does not renew the route deadline when other windows publish targets', async () => {
+  mockTradeRequest = {
+    requestId: 'own',
+    expiresAt: Date.now() + WEBVIEW_PERP_TRADE_INITIAL_WAIT_MS,
   };
   const { rerender } = render(<WebviewPerpTradeWebView />);
   await act(async () => {
-    await jest.advanceTimersByTimeAsync(WEBVIEW_PERP_TRADE_TARGET_TTL_MS / 2);
+    await jest.advanceTimersByTimeAsync(WEBVIEW_PERP_TRADE_INITIAL_WAIT_MS / 2);
   });
-  mockTarget = {
-    ...mockTarget,
-    pendingRequests: {
-      second: { coin: 'ETH', expiresAt: Date.now() + 10_000 },
-    },
-  };
+  mockTarget = { coin: 'ETH', revision: 1, requestId: 'other-ui' };
   rerender(<WebviewPerpTradeWebView />);
+  expect(screen.queryByTestId('webview')).toBeNull();
   await act(async () => {
-    await jest.advanceTimersByTimeAsync(WEBVIEW_PERP_TRADE_TARGET_TTL_MS / 2);
+    await jest.advanceTimersByTimeAsync(WEBVIEW_PERP_TRADE_INITIAL_WAIT_MS / 2);
   });
-  expect(screen.getByTestId('webview').getAttribute('data-src')).toBe(
-    'https://app.hyperliquid.xyz/trade?isOneKeyBuiltInPerpView=true',
+  expect(screen.getByTestId('webview').getAttribute('data-src')).toContain(
+    '/trade/ETH?',
   );
 });
 
-it('does not wait for an already expired request after a UI restart', () => {
-  mockTarget = {
-    coin: 'SOL',
-    revision: 3,
-    pendingRequests: { expired: { coin: 'BTC', expiresAt: Date.now() - 1 } },
-  };
+it('ignores an expired route marker after a UI restart', () => {
+  mockTarget = { coin: 'SOL', revision: 3 };
+  mockTradeRequest = { requestId: 'expired', expiresAt: Date.now() - 1 };
   render(<WebviewPerpTradeWebView />);
   expect(screen.getByTestId('webview').getAttribute('data-src')).toContain(
     '/trade/SOL?',

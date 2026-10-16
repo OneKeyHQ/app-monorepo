@@ -70,7 +70,7 @@ export const {
 export type IWebviewPerpTradeTarget = {
   coin?: string;
   revision: number;
-  pendingRequests?: Record<string, { coin: string; expiresAt: number }>;
+  requestId?: string;
 };
 
 export const {
