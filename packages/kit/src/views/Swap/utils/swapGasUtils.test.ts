@@ -5,6 +5,7 @@ import type {
 
 import {
   canReuseSwapReviewGasInfo,
+  getSwapGasLimit,
   isSwapGasAccountCandidate,
   isSwapGasAccountSponsored,
   isSwapGasSponsored,
@@ -27,6 +28,78 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
     },
   },
 }));
+
+describe('getSwapGasLimit', () => {
+  const providerResult = {
+    originalGasLimit: 160_648,
+    gasLimitRate: 1.5,
+    gasLimit: 240_972,
+    gasAccountEnabled: true,
+  };
+  const swapInfo = {
+    swapBuildResData: {
+      result: providerResult,
+    },
+  } as unknown as ISwapTxInfo;
+  it.each(['evm--1', 'evm--8453', 'evm--42161'])(
+    'uses the buffered gasLimit without another buffer or requiring Thor on %s',
+    (networkId) => {
+      expect(getSwapGasLimit({ networkId, swapInfo })).toBe('240972');
+    },
+  );
+  it('rounds a fractional provider limit up without multiplying it again', () => {
+    expect(
+      getSwapGasLimit({
+        networkId: 'evm--1',
+        swapInfo: {
+          ...swapInfo,
+          swapBuildResData: {
+            ...swapInfo.swapBuildResData,
+            result: {
+              ...swapInfo.swapBuildResData.result,
+              gasLimit: 240_973.5,
+            },
+          },
+        },
+      }),
+    ).toBe('240974');
+  });
+  it.each([undefined, 0, -1, Number.NaN, Number.POSITIVE_INFINITY])(
+    'falls back when gasLimit is %s even if originalGasLimit is present',
+    (gasLimit) => {
+      expect(
+        getSwapGasLimit({
+          networkId: 'evm--1',
+          swapInfo: {
+            ...swapInfo,
+            swapBuildResData: {
+              ...swapInfo.swapBuildResData,
+              result: { ...swapInfo.swapBuildResData.result, gasLimit },
+            },
+          },
+        }),
+      ).toBeUndefined();
+    },
+  );
+  it('does not apply swap gas to approvals or non-EVM networks', () => {
+    expect(
+      getSwapGasLimit({
+        networkId: 'evm--1',
+        swapInfo,
+        isApprove: true,
+      }),
+    ).toBeUndefined();
+    expect(
+      getSwapGasLimit({ networkId: 'sol--101', swapInfo }),
+    ).toBeUndefined();
+  });
+  it('does not request a sponsor quote for a provider-priced transaction', async () => {
+    expect(
+      await shouldRequestSwapGasAccount({ networkId: 'evm--1', swapInfo }),
+    ).toBe(false);
+    expect(mockGetCustomRpcForNetwork).not.toHaveBeenCalled();
+  });
+});
 
 describe('isSwapGasSponsored', () => {
   it('recognizes final estimate-fee sponsorship signals', () => {

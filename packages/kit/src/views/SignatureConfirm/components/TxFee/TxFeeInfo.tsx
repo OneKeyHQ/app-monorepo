@@ -56,6 +56,7 @@ import {
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { SignatureConfirmTestIDs } from '@onekeyhq/kit/src/views/SignatureConfirm/testIDs';
+import { getSwapGasLimit } from '@onekeyhq/kit/src/views/Swap/utils/swapGasUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
@@ -103,6 +104,8 @@ import type {
   IFeeSelectorItem,
   IGasAccountDisabledScenario,
   IGasAccountScenario,
+  IGasEIP1559,
+  IGasLegacy,
   IGasPayer,
   IMultiTxsFeeSelectorItem,
 } from '@onekeyhq/shared/types/fee';
@@ -347,12 +350,25 @@ function TxFeeInfo(props: IProps) {
           errMessage: '',
         });
 
+        const gasLimits = unsignedTxs.map((tx) =>
+          getSwapGasLimit({
+            networkId,
+            swapInfo: tx.swapInfo,
+            isApprove: !!tx.approveInfo,
+          }),
+        );
         const presetMultiTxsFee =
           useFeeInTx && !feeInfoEditable
             ? buildPresetMultiTxsFee(unsignedTxs)
             : undefined;
 
-        if (presetMultiTxsFee) {
+        if (
+          presetMultiTxsFee &&
+          gasLimits.every((limit, index) => {
+            const fee = unsignedTxs[index].feeInfo;
+            return !limit || (fee?.gasEIP1559 ?? fee?.gas)?.gasLimit === limit;
+          })
+        ) {
           const { estimateFeeParams: e } =
             await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
               accountId,
@@ -395,6 +411,7 @@ function TxFeeInfo(props: IProps) {
                   accountId,
                   networkId,
                   encodedTxs: encodedTxList,
+                  gasLimits,
                 });
               if (getStaleResult()) {
                 return staleResult;
@@ -430,12 +447,13 @@ function TxFeeInfo(props: IProps) {
             accountId,
             networkId,
             encodedTx: unsignedTxs[0].encodedTx,
+            gasLimit: gasLimits[0],
           });
         if (getStaleResult()) {
           return staleResult;
         }
 
-        if (isSingleTxWithFeesInfo) {
+        if (isSingleTxWithFeesInfo && !gasLimits[0]) {
           const r = unsignedTxs[0].feesInfo;
           if (getStaleResult()) {
             return staleResult;
@@ -455,6 +473,7 @@ function TxFeeInfo(props: IProps) {
 
         if (
           (isLastSwapTxWithFeeInfo || isSecondApproveTxWithFeeInfo) &&
+          !gasLimits[0] &&
           unsignedTxs[0].feeInfo
         ) {
           const r = unsignedTxs[0].feeInfo;
@@ -528,15 +547,80 @@ function TxFeeInfo(props: IProps) {
           accountId,
           networkId,
           encodedTx,
+          gasLimit: gasLimits[0],
           accountAddress,
           transfersInfo: unsignedTxs[0].transfersInfo,
           lockedUserNonce,
           gasAccountEnabled:
-            !gasAccountDisabledByScenario && !gasAccountTemporarilyDisabled,
+            !gasLimits.some(Boolean) &&
+            !gasAccountDisabledByScenario &&
+            !gasAccountTemporarilyDisabled,
           scenario: gasAccountDisabledByScenario
             ? undefined
             : gasAccountScenario,
         });
+        if (isMultiTxs && gasLimits.some(Boolean)) {
+          const txFees = await Promise.all(
+            unsignedTxs.map(async (tx, index) => {
+              const gasLimit = gasLimits[index];
+              if (gasLimit) {
+                const fee = await backgroundApiProxy.serviceGas.estimateFee({
+                  accountId,
+                  networkId,
+                  accountAddress,
+                  encodedTx: tx.encodedTx,
+                  gasLimit,
+                  gasAccountEnabled: false,
+                });
+                return {
+                  gas: fee.gas,
+                  gasEIP1559: fee.gasEIP1559,
+                  baseFee: fee.common.baseFee,
+                };
+              }
+              // Preserve the existing reset-approval fallback on networks
+              // without batch simulation; price the known swap separately.
+              const ratio = tx.approveInfo
+                ? new BigNumber(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE).pow(
+                    index,
+                  )
+                : new BigNumber(1);
+              const adjust = <T extends IGasLegacy | IGasEIP1559>(
+                fee: T,
+              ): T => ({
+                ...fee,
+                gasLimit: new BigNumber(fee.gasLimit).times(ratio).toFixed(),
+                gasLimitForDisplay: new BigNumber(
+                  fee.gasLimitForDisplay ?? fee.gasLimit,
+                )
+                  .times(ratio)
+                  .toFixed(),
+              });
+              return {
+                gas: r.gas?.map((gas) =>
+                  adjust({
+                    ...gas,
+                    gasPrice: gas.originalGasPrice ?? gas.gasPrice,
+                  }),
+                ),
+                gasEIP1559: r.gasEIP1559?.map(adjust),
+                baseFee: r.common.baseFee,
+              };
+            }),
+          );
+          if (getStaleResult()) {
+            return staleResult;
+          }
+          updateEffectiveFeePayer('user');
+          resetGasAccountUiState();
+          resetMegafuelEligible();
+          updateSendFeeStatus({
+            status: ESendFeeStatus.Success,
+            errMessage: '',
+          });
+          updateTxFeeInfoInit(true);
+          return { r: undefined, e, m: { common: r.common, txFees } };
+        }
         // L3 scenario gate telemetry: surface frontend contract bugs. Both
         // reasons indicate a client-side mismatch with the backend enum; log
         // to console so it shows up in dev/staging. Backend already records
@@ -1432,7 +1516,10 @@ function TxFeeInfo(props: IProps) {
 
       for (let i = 0; i < feeLength; i += 1) {
         const feeInfos: IFeeInfoUnit[] = multiTxsFee.txFees.map((fee) => ({
-          common: multiTxsFee.common,
+          common: {
+            ...multiTxsFee.common,
+            baseFee: fee.baseFee ?? multiTxsFee.common.baseFee,
+          },
           gas: fee.gas?.[i],
           gasEIP1559: fee.gasEIP1559?.[i],
         }));
@@ -1534,7 +1621,17 @@ function TxFeeInfo(props: IProps) {
       const selectedFeeInfo = selectedFeeInfos[i];
 
       const unsignedTx = unsignedTxs[i];
-      let specialGasLimit: string | undefined;
+      const gasLimit = getSwapGasLimit({
+        networkId,
+        swapInfo: unsignedTx.swapInfo,
+        isApprove: !!unsignedTx.approveInfo,
+      });
+      const useCustomFee =
+        !isMultiTxs &&
+        feeInfoEditable &&
+        sendSelectedFee.feeType === EFeeType.Custom &&
+        !!selectedFeeInfo;
+      let specialGasLimit = useCustomFee ? undefined : gasLimit;
 
       // build second approve tx fee info base on first approve fee info
       if (
@@ -1549,6 +1646,8 @@ function TxFeeInfo(props: IProps) {
       }
       // build swap tx fee info base on first approve fee info
       else if (
+        !gasLimit &&
+        !specialGasLimit &&
         (isLastSwapTxWithFeeInfo || !selectedFeeInfo) &&
         (isLastSwapTxWithFeeInfo || isMultiTxs) &&
         unsignedTx.swapInfo &&
@@ -1694,9 +1793,11 @@ function TxFeeInfo(props: IProps) {
     };
   }, [
     estimateFeeParams,
+    feeInfoEditable,
     feeSelectorItems,
     isLastSwapTxWithFeeInfo,
     isMultiTxs,
+    networkId,
     isSecondApproveTxWithFeeInfo,
     multiTxsFeeSelectorItems,
     sendSelectedFee.feeType,

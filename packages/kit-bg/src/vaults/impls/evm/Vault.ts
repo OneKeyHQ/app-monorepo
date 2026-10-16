@@ -1730,6 +1730,64 @@ export default class Vault extends VaultBase {
     return resp;
   }
 
+  override async estimateFeeByApi(
+    params: IEstimateGasParams,
+  ): Promise<IServerEstimateFeeResponse> {
+    const { gasLimit, ...estimateParams } = params;
+    const limit = new BigNumber(gasLimit ?? 0);
+    if (!limit.isFinite() || !limit.isInteger() || !limit.isGreaterThan(0)) {
+      return super.estimateFeeByApi(estimateParams);
+    }
+    // Without encodedTx the server returns current fee rates only. Gas Account
+    // quotes require server-side estimation and cannot bind this provider limit.
+    const response = await super.estimateFeeByApi({
+      ...estimateParams,
+      encodedTx: undefined,
+      gasAccountEnabled: false,
+      lockedUserNonce: undefined,
+    });
+    const fee = response.data.data;
+    const network = await this.getNetwork();
+    let baseFee = fee.baseFee;
+    if (network.feeMeta.isWithL1BaseFee && params.encodedTx) {
+      const provider = new EvmApiProvider({
+        // Default networks access the L1 fee oracle through the wallet proxy.
+        url: '',
+        backgroundApi: this.backgroundApi,
+        networkId: this.networkId,
+      });
+      const extraFee = await provider.getGasFee({
+        networkId: this.networkId,
+        encodedTx: {
+          ...(params.encodedTx as IEncodedTxEvm),
+          gasLimit: toBigIntHex(limit),
+        },
+      });
+      baseFee = new BigNumber(extraFee.baseFee ?? 0)
+        .shiftedBy(-fee.feeDecimals)
+        .toFixed();
+    }
+    response.data.data = {
+      ...fee,
+      baseFee,
+      gas: fee.gas?.map((item) => ({
+        ...item,
+        gasLimit: limit.toFixed(),
+        gasLimitForDisplay: limit.toFixed(),
+      })),
+      gasEIP1559: fee.gasEIP1559?.map((item) => ({
+        ...item,
+        gasLimit: limit.toFixed(),
+        gasLimitForDisplay: limit.toFixed(),
+      })),
+      payer: 'user',
+      gasAccountEligible: false,
+      gasAccountQuote: undefined,
+      megafuelEligible: undefined,
+    };
+    return response;
+  }
+
   override async fetchAccountHistoryDetailByRpc(
     params: IServerFetchAccountHistoryDetailParams,
   ): Promise<IServerFetchAccountHistoryDetailResp> {

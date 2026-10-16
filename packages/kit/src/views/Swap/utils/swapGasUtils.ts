@@ -1,3 +1,6 @@
+import BigNumber from 'bignumber.js';
+
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   IFetchQuoteResult,
   ISwapGasInfo,
@@ -5,6 +8,25 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+
+export function getSwapGasLimit({
+  networkId,
+  swapInfo,
+  isApprove,
+}: {
+  networkId: string;
+  swapInfo?: ISwapTxInfo;
+  isApprove?: boolean;
+}) {
+  if (isApprove || !networkUtils.isEvmNetwork({ networkId })) {
+    return undefined;
+  }
+  const limit = new BigNumber(swapInfo?.swapBuildResData.result.gasLimit ?? 0);
+  // The provider has already applied its buffer; only round to whole gas units.
+  return limit.isFinite() && limit.isGreaterThan(0)
+    ? limit.integerValue(BigNumber.ROUND_CEIL).toFixed()
+    : undefined;
+}
 
 export function isSwapMegafuelSponsored(gasInfo?: ISwapGasInfo) {
   return Boolean(
@@ -95,6 +117,9 @@ export async function shouldRequestSwapGasAccount({
   quoteResult?: IFetchQuoteResult;
   hasApproveTx?: boolean;
 }) {
+  if (getSwapGasLimit({ networkId, swapInfo })) {
+    return false;
+  }
   if (!isSwapGasAccountCandidate({ swapInfo, quoteResult, hasApproveTx })) {
     return false;
   }

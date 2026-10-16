@@ -1,6 +1,8 @@
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import evmSettings from '@onekeyhq/kit-bg/src/vaults/impls/evm/settings';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { IEstimateGasParams } from '@onekeyhq/shared/types/fee';
 import {
   EProtocolOfExchange,
   ESwapNetworkFeeLevel,
@@ -194,6 +196,33 @@ function createSponsoredEstimateFeeResult(quoteId: string) {
       maxFee: '0.01',
       expiresAt: '2026-08-10T12:00:00.000Z',
     },
+  };
+}
+
+function createProviderGasUnsignedTx() {
+  const unsignedTx = createSponsoredUnsignedTx();
+  if (!unsignedTx.swapInfo) {
+    throw new OneKeyLocalError('Swap fixture requires swapInfo');
+  }
+  const providerResult = {
+    ...unsignedTx.swapInfo.swapBuildResData.result,
+    originalGasLimit: 160_648,
+    gasLimitRate: 1.5,
+    gasLimit: 240_972,
+  };
+  unsignedTx.swapInfo.swapBuildResData.result = providerResult;
+  return unsignedTx;
+}
+
+function createProviderGasFeeResult() {
+  const fee = createEstimateFeeResult();
+  return {
+    ...fee,
+    gas: fee.gas.map((tier) => ({
+      ...tier,
+      gasLimit: '240972',
+      gasLimitForDisplay: '240972',
+    })),
   };
 }
 
@@ -782,6 +811,199 @@ describe('marketDirectSendTx', () => {
     );
   });
 
+  describe('provider gas limit', () => {
+    beforeEach(() => {
+      mockBuildEstimateFeeParams.mockImplementation(
+        async ({
+          encodedTx,
+          gasLimit,
+        }: Pick<IEstimateGasParams, 'encodedTx' | 'gasLimit'>) => ({
+          encodedTx,
+          gasLimit,
+        }),
+      );
+    });
+
+    it('passes buffered provider gas unchanged through preview and final pricing without requesting Gas Account', async () => {
+      const unsignedTx = createProviderGasUnsignedTx();
+      mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+      mockEstimateFee.mockResolvedValue(createProviderGasFeeResult());
+      const params = {
+        accountAddress: '0xuser',
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        buildUnsignedParams: {
+          accountId: 'account-1',
+          networkId: 'evm--1',
+          encodedTx: unsignedTx.encodedTx,
+          swapInfo: unsignedTx.swapInfo,
+          isInternalSwap: true,
+        },
+      };
+
+      const preview = await estimateMarketDirectGasInfos(params);
+      expect(preview.gasInfos[0].gasInfo.gas?.gasLimit).toBe('240972');
+      await sendMarketDirectUnsignedTxs(params);
+
+      expect(mockBuildEstimateFeeParams).toHaveBeenCalledTimes(2);
+      expect(mockEstimateFee).toHaveBeenCalledTimes(2);
+      for (const call of [1, 2]) {
+        expect(mockBuildEstimateFeeParams).toHaveBeenNthCalledWith(
+          call,
+          expect.objectContaining({ gasLimit: '240972' }),
+        );
+        expect(mockEstimateFee).toHaveBeenNthCalledWith(
+          call,
+          expect.objectContaining({
+            gasLimit: '240972',
+            gasAccountEnabled: false,
+          }),
+        );
+      }
+      expect(mockBatchEstimateFee).not.toHaveBeenCalled();
+      expect(mockUpdateUnsignedTx).toHaveBeenCalledWith(
+        expect.objectContaining({
+          feeInfo: expect.objectContaining({
+            gas: expect.objectContaining({ gasLimit: '240972' }),
+          }),
+        }),
+      );
+      expect(mockSignAndSendTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({ gasAccountUiState: undefined }),
+      );
+    });
+
+    it('keeps normal estimation when the provider supplies only originalGasLimit', async () => {
+      const unsignedTx = createProviderGasUnsignedTx();
+      if (!unsignedTx.swapInfo) {
+        throw new OneKeyLocalError('Swap fixture requires swapInfo');
+      }
+      unsignedTx.swapInfo.swapBuildResData.result.gasLimit = undefined;
+      mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+      mockEstimateFee.mockResolvedValue(createEstimateFeeResult());
+      const params = {
+        accountAddress: '0xuser',
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        buildUnsignedParams: {
+          accountId: 'account-1',
+          networkId: 'evm--1',
+          encodedTx: unsignedTx.encodedTx,
+          swapInfo: unsignedTx.swapInfo,
+          isInternalSwap: true,
+        },
+      };
+
+      const preview = await estimateMarketDirectGasInfos(params);
+      expect(preview.gasInfos[0].gasInfo.gas?.gasLimit).toBe('22000');
+      await sendMarketDirectUnsignedTxs(params);
+
+      expect(mockEstimateFee).toHaveBeenCalledTimes(2);
+      for (const call of [1, 2]) {
+        expect(mockEstimateFee).toHaveBeenNthCalledWith(
+          call,
+          expect.objectContaining({ gasLimit: undefined }),
+        );
+      }
+      expect(mockUpdateUnsignedTx).toHaveBeenCalledWith(
+        expect.objectContaining({
+          feeInfo: expect.objectContaining({
+            gas: expect.objectContaining({ gasLimit: '22000' }),
+          }),
+        }),
+      );
+    });
+
+    it.each(['sequential', 'batch', 'batch fallback'])(
+      'excludes approvals from provider gas and preserves the final swap limit: %s',
+      async (mode) => {
+        const unsignedTx = createProviderGasUnsignedTx();
+        const approvals = ['0xreset', '0xapprove'].map((data, index) =>
+          createUnsignedTx({
+            encodedTx: { from: '0xuser', to: '0xtoken', value: '0x0', data },
+            nonce: index,
+            swapInfo: unsignedTx.swapInfo,
+            approveInfo: {
+              owner: '0xuser',
+              spender: '0xrouter',
+              amount: index === 0 ? '0' : '10',
+            },
+          }),
+        );
+        mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+        mockGetVaultSettings.mockResolvedValue({
+          supportBatchEstimateFee: { 'evm--1': mode !== 'sequential' },
+        });
+        const approvalFee = createEstimateFeeResult();
+        mockBatchEstimateFee.mockResolvedValue({
+          common: approvalFee.common,
+          txFees:
+            mode === 'batch fallback'
+              ? []
+              : [approvalFee, approvalFee, createProviderGasFeeResult()],
+        });
+        mockEstimateFee
+          .mockResolvedValueOnce(approvalFee)
+          .mockResolvedValueOnce(approvalFee)
+          .mockResolvedValueOnce(createProviderGasFeeResult());
+
+        const result = await estimateMarketDirectGasInfos({
+          accountAddress: '0xuser',
+          accountId: 'account-1',
+          networkId: 'evm--1',
+          networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
+          buildUnsignedParams: {
+            accountId: 'account-1',
+            networkId: 'evm--1',
+            encodedTx: unsignedTx.encodedTx,
+            swapInfo: unsignedTx.swapInfo,
+            isInternalSwap: true,
+          },
+          approveUnsignedTxArr: approvals,
+        });
+
+        expect(
+          result.gasInfos.map((item) => item.gasInfo.gas?.gasLimit),
+        ).toEqual(['22000', '22000', '240972']);
+        for (const approval of approvals) {
+          expect(mockBuildEstimateFeeParams).toHaveBeenCalledWith(
+            expect.objectContaining({
+              encodedTx: approval.encodedTx,
+              gasLimit: undefined,
+            }),
+          );
+        }
+        if (mode === 'sequential') {
+          expect(mockBatchEstimateFee).not.toHaveBeenCalled();
+        } else {
+          expect(mockBatchEstimateFee).toHaveBeenCalledWith(
+            expect.objectContaining({
+              gasLimits: [undefined, undefined, '240972'],
+            }),
+          );
+        }
+        if (mode === 'batch') {
+          expect(mockEstimateFee).not.toHaveBeenCalled();
+        } else {
+          expect(mockEstimateFee).toHaveBeenCalledTimes(3);
+          for (const call of [1, 2]) {
+            expect(mockEstimateFee).toHaveBeenNthCalledWith(
+              call,
+              expect.objectContaining({ gasLimit: undefined }),
+            );
+          }
+          expect(mockEstimateFee).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+              encodedTx: unsignedTx.encodedTx,
+              gasLimit: '240972',
+              gasAccountEnabled: false,
+            }),
+          );
+        }
+      },
+    );
+  });
+
   it('does not request Gas Account sponsorship while the review quote still needs an allowance', async () => {
     const sponsoredUnsignedTx = createSponsoredUnsignedTx();
     mockPrepareSendConfirmUnsignedTx.mockResolvedValue(sponsoredUnsignedTx);
@@ -943,6 +1165,27 @@ describe('marketDirectSendTx', () => {
     mockPrepareSendConfirmUnsignedTx.mockResolvedValue(swapUnsignedTx);
     mockGetVaultSettings.mockResolvedValue(evmSettings);
     mockBatchEstimateFee.mockRejectedValue(new Error('batch unavailable'));
+    mockBuildEstimateFeeParams.mockImplementation(
+      async ({
+        encodedTx,
+        gasLimit,
+      }: Pick<IEstimateGasParams, 'encodedTx' | 'gasLimit'>) => ({
+        encodedTx,
+        gasLimit,
+      }),
+    );
+    mockEstimateFee.mockImplementation(
+      async ({ gasLimit }: Pick<IEstimateGasParams, 'gasLimit'>) => {
+        const fee = createEstimateFeeResult();
+        return {
+          ...fee,
+          gas: fee.gas.map((tier) => ({
+            ...tier,
+            ...(gasLimit ? { gasLimit, gasLimitForDisplay: gasLimit } : {}),
+          })),
+        };
+      },
+    );
 
     const result = await estimateMarketDirectGasInfos({
       accountAddress: '0xuser',
@@ -960,17 +1203,29 @@ describe('marketDirectSendTx', () => {
     });
 
     expect(mockBatchEstimateFee).not.toHaveBeenCalled();
-    expect(mockEstimateFee).toHaveBeenCalledTimes(1);
-    expect(mockEstimateFee).toHaveBeenCalledWith(
+    expect(mockEstimateFee).toHaveBeenCalledTimes(2);
+    expect(mockEstimateFee).toHaveBeenNthCalledWith(
+      1,
       expect.objectContaining({
         networkId,
         encodedTx: approveUnsignedTx.encodedTx,
+        gasLimit: undefined,
+      }),
+    );
+    expect(mockEstimateFee).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        networkId,
+        encodedTx: swapUnsignedTx.encodedTx,
+        gasLimit: '145000',
+        gasAccountEnabled: false,
       }),
     );
     expect(result.gasInfos).toHaveLength(2);
     expect(result.gasInfos[1].gasInfo.gas).toEqual({
       gasPrice: '2',
       gasLimit: '145000',
+      gasLimitForDisplay: '145000',
     });
     expect(result.gasFeeFiatValue).toBeDefined();
   });

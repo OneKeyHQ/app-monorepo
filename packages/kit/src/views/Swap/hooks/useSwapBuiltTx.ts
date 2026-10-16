@@ -151,6 +151,7 @@ import {
 } from '../utils/swapBalanceUtils';
 import {
   canReuseSwapReviewGasInfo,
+  getSwapGasLimit,
   isSwapGasSponsored,
   shouldRequestSwapGasAccount,
 } from '../utils/swapGasUtils';
@@ -1672,6 +1673,11 @@ export function useSwapBuildTx({
                 networkId,
                 accountId,
                 encodedTx: o.encodedTx,
+                gasLimit: getSwapGasLimit({
+                  networkId,
+                  swapInfo: o.swapInfo,
+                  isApprove: !!o.approveInfo,
+                }),
               }),
             ),
           );
@@ -1682,6 +1688,13 @@ export function useSwapBuildTx({
                 networkId,
                 accountId,
                 encodedTxs: estimateFeeParamsArr.map((o) => o.encodedTx ?? {}),
+                gasLimits: unsignedTxArr.map((tx) =>
+                  getSwapGasLimit({
+                    networkId,
+                    swapInfo: tx.swapInfo,
+                    isApprove: !!tx.approveInfo,
+                  }),
+                ),
               });
             estimateSucceeded = true;
             if (!isApprove) {
@@ -1702,7 +1715,10 @@ export function useSwapBuildTx({
               const gasRes = gasResArr.txFees[i];
               const gasInfo = buildGasInfo(
                 gasRes,
-                gasResArr.common,
+                {
+                  ...gasResArr.common,
+                  baseFee: gasRes.baseFee ?? gasResArr.common.baseFee,
+                },
                 estimateFeeParamsArr[i].estimateFeeParams,
               );
               try {
@@ -1810,7 +1826,14 @@ export function useSwapBuildTx({
           let lastTxUseGasInfo: IFeeInfoUnit | undefined;
           for (let i = 0; i < unsignedTxArr.length; i += 1) {
             const unsignedTxItem = unsignedTxArr[i];
-            if (i === unsignedTxArr.length - 1) {
+            if (
+              i === unsignedTxArr.length - 1 &&
+              !getSwapGasLimit({
+                networkId,
+                swapInfo: unsignedTxItem.swapInfo,
+                isApprove: !!unsignedTxItem.approveInfo,
+              })
+            ) {
               let specialGasLimit: string | undefined;
               const unsignedTxSwapInfo = unsignedTxItem.swapInfo;
               const internalSwapGasLimit =
@@ -1895,6 +1918,11 @@ export function useSwapBuildTx({
                   networkId,
                   accountId,
                   encodedTx: unsignedTxItem.encodedTx,
+                  gasLimit: getSwapGasLimit({
+                    networkId,
+                    swapInfo: unsignedTxItem.swapInfo,
+                    isApprove: !!unsignedTxItem.approveInfo,
+                  }),
                 });
               const gasRes = await backgroundApiProxy.serviceGas.estimateFee({
                 ...estimateFeeParams,
@@ -1916,8 +1944,9 @@ export function useSwapBuildTx({
                 };
               }
               updateStepTitle(stepIndex, i, approveUnsignedTxArr);
-              await updateUnsignedTxAndSendTx({
-                isApprove: true,
+              const isApproval = i < unsignedTxArr.length - 1;
+              const result = await updateUnsignedTxAndSendTx({
+                isApprove: isApproval,
                 onSignAndSendProgress,
                 stepIndex,
                 networkId,
@@ -1925,7 +1954,11 @@ export function useSwapBuildTx({
                 unsignedTxItem,
                 gasInfo: gasParseInfo,
               });
-              void onApproveTxSuccess();
+              if (isApproval) {
+                void onApproveTxSuccess();
+              } else {
+                lastTxRes = result;
+              }
             }
           }
         }
@@ -1974,6 +2007,11 @@ export function useSwapBuildTx({
             networkId,
             accountId,
             encodedTx: unsignedTx.encodedTx,
+            gasLimit: getSwapGasLimit({
+              networkId,
+              swapInfo: unsignedTx.swapInfo,
+              isApprove: !!unsignedTx.approveInfo,
+            }),
           });
         let estimateSucceeded = false;
         try {
@@ -3467,6 +3505,11 @@ export function useSwapBuildTx({
                     networkId,
                     accountId,
                     encodedTx: o.encodedTx,
+                    gasLimit: getSwapGasLimit({
+                      networkId,
+                      swapInfo: o.swapInfo,
+                      isApprove: !!o.approveInfo,
+                    }),
                   }),
                 ),
               ),
@@ -3482,6 +3525,13 @@ export function useSwapBuildTx({
                   accountId,
                   encodedTxs: estimateFeeParamsArr.map(
                     (o) => o.encodedTx ?? {},
+                  ),
+                  gasLimits: unsignedTxArr.map((tx) =>
+                    getSwapGasLimit({
+                      networkId,
+                      swapInfo: tx.swapInfo,
+                      isApprove: !!tx.approveInfo,
+                    }),
                   ),
                 }),
             );
@@ -3502,7 +3552,10 @@ export function useSwapBuildTx({
               const gasRes = gasResArr.txFees[i];
               const gasInfo = buildGasInfo(
                 gasRes,
-                gasResArr.common,
+                {
+                  ...gasResArr.common,
+                  baseFee: gasRes.baseFee ?? gasResArr.common.baseFee,
+                },
                 estimateFeeParamsArr[i].estimateFeeParams,
               );
               gasFeeInfos.push({
@@ -3556,7 +3609,14 @@ export function useSwapBuildTx({
           let lastTxUseGasInfo: IFeeInfoUnit | undefined;
           for (let i = 0; i < unsignedTxArr.length; i += 1) {
             const unsignedTxItem = unsignedTxArr[i];
-            if (i === unsignedTxArr.length - 1) {
+            if (
+              i === unsignedTxArr.length - 1 &&
+              !getSwapGasLimit({
+                networkId,
+                swapInfo: unsignedTxItem.swapInfo,
+                isApprove: !!unsignedTxItem.approveInfo,
+              })
+            ) {
               let specialGasLimit: string | undefined;
               const unsignedTxSwapInfo = unsignedTxItem.swapInfo;
               const internalSwapGasLimit =
@@ -3621,6 +3681,11 @@ export function useSwapBuildTx({
                     networkId,
                     accountId,
                     encodedTx: unsignedTxItem.encodedTx,
+                    gasLimit: getSwapGasLimit({
+                      networkId,
+                      swapInfo: unsignedTxItem.swapInfo,
+                      isApprove: !!unsignedTxItem.approveInfo,
+                    }),
                   }),
               );
               const gasRes = await measureSwapReviewStage(
@@ -3663,6 +3728,11 @@ export function useSwapBuildTx({
                 networkId,
                 accountId,
                 encodedTx: unsignedTx.encodedTx,
+                gasLimit: getSwapGasLimit({
+                  networkId,
+                  swapInfo: unsignedTx.swapInfo,
+                  isApprove: !!unsignedTx.approveInfo,
+                }),
               }),
           );
           let estimateSucceeded = false;
