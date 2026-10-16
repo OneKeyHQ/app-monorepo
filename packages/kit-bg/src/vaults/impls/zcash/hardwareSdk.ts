@@ -6,11 +6,16 @@ import { zPrivacyHex } from '@onekeyhq/shared/src/utils/privacyTransactionReview
 const addressSchema = z.object({
   path: z.string().min(1),
   address: z.string().min(1),
-  ufvk: z.string().min(1).optional(),
+  ufvk: z
+    .string()
+    .min(1)
+    .nullish()
+    .transform((value) => value ?? undefined),
   seedFingerprint: z
     .string()
     .regex(/^[0-9a-fA-F]{64}$/)
-    .optional(),
+    .nullish()
+    .transform((value) => value ?? undefined),
 });
 const signedSchema = z.object({
   pczt: zPrivacyHex(48 * 1024),
