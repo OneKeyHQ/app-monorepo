@@ -1,10 +1,15 @@
-import { StackRouter } from '@react-navigation/routers';
+import { StackRouter, TabRouter } from '@react-navigation/routers';
 
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ERootRoutes, ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  ERootRoutes,
+  ETabMarketRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { isTabBarHiddenByRequest } from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
 
 import {
@@ -71,6 +76,9 @@ jest.mock('@react-navigation/native', () => ({
       payload: state,
     }),
   },
+  TabRouter: jest.requireActual<typeof import('@react-navigation/routers')>(
+    '@react-navigation/routers',
+  ).TabRouter,
   StackActions: {
     pop: (count: number) => ({ type: 'POP', payload: { count } }),
     replace: (name: string, params: unknown) => ({
@@ -158,6 +166,7 @@ describe('marketDetailNavigation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     platformEnv.isNative = true;
+    platformEnv.isNativeIOS = false;
     mockRootNavigationCurrent = rootNavigationMock;
     getRootStateMock.mockReturnValue(undefined);
     getCurrentRouteMock.mockReturnValue(undefined);
@@ -188,7 +197,7 @@ describe('marketDetailNavigation', () => {
       'pops only the current %s route',
       (name) => {
         getCurrentRouteMock.mockReturnValue({ key: 'detail', name });
-        dismissDiscoveryMarketDetailForTrade();
+        void dismissDiscoveryMarketDetailForTrade();
         expect(dispatchMock).toHaveBeenCalledWith({
           type: 'POP',
           payload: { count: 1 },
@@ -199,7 +208,7 @@ describe('marketDetailNavigation', () => {
     );
 
     it('keeps a newer detail when asynchronous Perps preparation finishes', () => {
-      dismissDiscoveryMarketDetailForTrade('previous-detail');
+      void dismissDiscoveryMarketDetailForTrade('previous-detail');
       expect(dispatchMock).not.toHaveBeenCalled();
     });
 
@@ -211,7 +220,7 @@ describe('marketDetailNavigation', () => {
         routeGetIdList: {},
       };
       const stack = { ...router.getInitialState(config), ...discoveryStack };
-      dismissDiscoveryMarketDetailForTrade('detail');
+      void dismissDiscoveryMarketDetailForTrade('detail');
       const action = dispatchMock.mock.calls[0]?.[0] as Parameters<
         typeof router.getStateForAction
       >[1];
@@ -245,7 +254,7 @@ describe('marketDetailNavigation', () => {
         routes,
       };
       getRootStateMock.mockReturnValue(stack);
-      dismissDiscoveryMarketDetailForTrade('detail');
+      void dismissDiscoveryMarketDetailForTrade('detail');
       const action = dispatchMock.mock.calls[0]?.[0] as Parameters<
         typeof router.getStateForAction
       >[1];
@@ -295,7 +304,7 @@ describe('marketDetailNavigation', () => {
         const current = stack.routes[stack.index];
         getRootStateMock.mockReturnValue(stack);
         getCurrentRouteMock.mockReturnValue(current);
-        dismissDiscoveryMarketDetailForTrade(current.key);
+        void dismissDiscoveryMarketDetailForTrade(current.key);
         const action = dispatchMock.mock.calls[0]?.[0] as Parameters<
           typeof router.getStateForAction
         >[1];
@@ -321,7 +330,7 @@ describe('marketDetailNavigation', () => {
           discoveryStack.routes[1],
         ],
       });
-      dismissDiscoveryMarketDetailForTrade('detail');
+      void dismissDiscoveryMarketDetailForTrade('detail');
       expect(dispatchMock).not.toHaveBeenCalled();
     });
 
@@ -329,7 +338,7 @@ describe('marketDetailNavigation', () => {
       'preserves history when the focused route is %s',
       (name) => {
         getCurrentRouteMock.mockReturnValue({ key: 'other', name });
-        dismissDiscoveryMarketDetailForTrade();
+        void dismissDiscoveryMarketDetailForTrade();
         expect(dispatchMock).not.toHaveBeenCalled();
       },
     );
@@ -339,13 +348,229 @@ describe('marketDetailNavigation', () => {
         ...discoveryStack,
         routes: [{ key: 'list', name: 'TabMarket' }, discoveryStack.routes[1]],
       });
-      dismissDiscoveryMarketDetailForTrade();
+      void dismissDiscoveryMarketDetailForTrade();
       expect(dispatchMock).not.toHaveBeenCalled();
     });
 
     it('preserves desktop and web detail navigation', () => {
       platformEnv.isNative = false;
-      dismissDiscoveryMarketDetailForTrade();
+      void dismissDiscoveryMarketDetailForTrade();
+      expect(dispatchMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('atomic iOS navigation from detail to Perps', () => {
+    const tabRouter = TabRouter({});
+    const tabConfig = {
+      routeNames: [
+        ETabRoutes.Home,
+        ETabRoutes.Discovery,
+        ETabRoutes.Perp,
+        ETabRoutes.WebviewPerpTrade,
+      ],
+      routeParamList: {},
+      routeGetIdList: {},
+    };
+    const stackRouter = StackRouter({});
+    const stackConfig = {
+      routeNames: [
+        'TabDiscovery',
+        'MarketNativeDetail',
+        'MarketDetailV2',
+        'MarketStockDetail',
+        'MarketBannerDetail',
+      ],
+      routeParamList: {},
+      routeGetIdList: {},
+    };
+    const list = {
+      key: 'list',
+      name: 'TabDiscovery',
+      params: { defaultTab: 'market', category: 'top-coins' },
+    };
+    const createTabs = (
+      routes: {
+        key: string;
+        name: string;
+        params?: Record<string, unknown>;
+      }[] = [list, { key: 'detail', name: 'MarketNativeDetail' }],
+    ) => {
+      const stack = {
+        ...stackRouter.getInitialState(stackConfig),
+        key: 'discovery-stack',
+        index: routes.length - 1,
+        routes,
+      };
+      const tabs = tabRouter.getInitialState(tabConfig);
+      return {
+        ...tabs,
+        index: 1,
+        routes: tabs.routes.map((route) =>
+          route.name === ETabRoutes.Discovery
+            ? {
+                ...route,
+                state: stack,
+                params: {
+                  retained: true,
+                  screen: 'MarketNativeDetail',
+                  params: { previous: 'BTC' },
+                  initial: true,
+                  state: stack,
+                },
+              }
+            : route,
+        ),
+      };
+    };
+    beforeEach(() => {
+      platformEnv.isNativeIOS = true;
+      getCurrentRouteMock.mockReturnValue({
+        key: 'detail',
+        name: 'MarketNativeDetail',
+      });
+    });
+
+    it('passes the owned Web Perps request in the same atomic tab reset', () => {
+      const previousTabs = createTabs();
+      const tabs = {
+        ...previousTabs,
+        routes: previousTabs.routes.map((route) =>
+          route.name === ETabRoutes.WebviewPerpTrade
+            ? {
+                ...route,
+                params: {
+                  state: {
+                    index: 0,
+                    routes: [
+                      {
+                        name: ETabRoutes.WebviewPerpTrade,
+                        params: { previous: true },
+                      },
+                    ],
+                  },
+                },
+              }
+            : route,
+        ),
+      };
+      getRootStateMock.mockReturnValue({
+        key: 'root',
+        routes: [{ name: 'main', state: tabs }],
+      });
+      const params = {
+        screen: ETabRoutes.WebviewPerpTrade,
+        params: { tradeRequest: { requestId: 'own-ui', expiresAt: 2000 } },
+      } as const;
+      expect(
+        dismissDiscoveryMarketDetailForTrade(
+          'detail',
+          ETabRoutes.WebviewPerpTrade,
+          params,
+        ),
+      ).toBe('ready');
+      const action = dispatchMock.mock.calls[0][0] as Parameters<
+        typeof tabRouter.getStateForAction
+      >[1];
+      const updated = tabRouter.getStateForAction(tabs, action, tabConfig);
+      expect(
+        updated?.routes.find(
+          (route) => route.name === ETabRoutes.WebviewPerpTrade,
+        )?.params,
+      ).toEqual(params);
+    });
+
+    it.each([ETabRoutes.Perp, ETabRoutes.WebviewPerpTrade])(
+      'selects %s and removes details without remounting Discovery or its list',
+      (target) => {
+        const tabs = createTabs();
+        getRootStateMock.mockReturnValue({
+          key: 'root',
+          routes: [{ name: 'main', state: tabs }],
+        });
+        expect(dismissDiscoveryMarketDetailForTrade('detail', target)).toBe(
+          'ready',
+        );
+        expect(dispatchMock).toHaveBeenCalledTimes(1);
+        const action = dispatchMock.mock.calls[0]?.[0] as Parameters<
+          typeof tabRouter.getStateForAction
+        >[1];
+        expect(action.type).toBe('RESET');
+        expect(action.target).toBe(tabs.key);
+        const partial = tabRouter.getStateForAction(tabs, action, tabConfig);
+        expect(partial).not.toBeNull();
+        if (!partial) throw new OneKeyLocalError('Tab reset was not handled');
+        const updated = tabRouter.getRehydratedState(partial, tabConfig);
+        expect(updated.key).toBe(tabs.key);
+        expect(updated.stale).toBe(false);
+        expect(updated.routes[updated.index].name).toBe(target);
+        const source = updated.routes[1];
+        expect(source.key).toBe(tabs.routes[1].key);
+        expect(source.params).toBe(tabs.routes[1].params);
+        expect(source.state?.routes).toEqual([list]);
+        expect(source.state?.index).toBe(0);
+        expect(source.state?.routes[0]).toBe(list);
+        expect(updated.preloadedRouteKeys).toEqual(tabs.preloadedRouteKeys);
+        expect(
+          updated.routes.filter((route) => route.name !== ETabRoutes.Discovery),
+        ).toEqual(
+          tabs.routes.filter((route) => route.name !== ETabRoutes.Discovery),
+        );
+        expect(
+          updated.history.every((item) =>
+            updated.routes.some((route) => route.key === item.key),
+          ),
+        ).toBe(true);
+      },
+    );
+
+    it('preserves the banner list and earlier routes while removing every stacked detail', () => {
+      const banner = {
+        key: 'banner',
+        name: 'MarketBannerDetail',
+        params: { tokenListId: 'featured' },
+      };
+      const tabs = createTabs([
+        list,
+        banner,
+        { key: 'older', name: 'MarketDetailV2' },
+        { key: 'detail', name: 'MarketStockDetail' },
+      ]);
+      getRootStateMock.mockReturnValue({
+        routes: [{ name: 'main', state: tabs }],
+      });
+      getCurrentRouteMock.mockReturnValue({
+        key: 'detail',
+        name: 'MarketStockDetail',
+      });
+      dismissDiscoveryMarketDetailForTrade('detail', ETabRoutes.Perp);
+      const action = dispatchMock.mock.calls[0]?.[0] as Parameters<
+        typeof tabRouter.getStateForAction
+      >[1];
+      const updated = tabRouter.getStateForAction(tabs, action, tabConfig);
+      expect(updated?.routes[1].state?.routes).toEqual([list, banner]);
+      expect(updated?.routes[1].state?.index).toBe(1);
+    });
+
+    it('cancels a stale request before changing any tab', () => {
+      getRootStateMock.mockReturnValue({
+        routes: [{ name: 'main', state: createTabs() }],
+      });
+      expect(
+        dismissDiscoveryMarketDetailForTrade('older-detail', ETabRoutes.Perp),
+      ).toBe('cancelled');
+      expect(dispatchMock).not.toHaveBeenCalled();
+    });
+
+    it('does not pop the visible stack when the target tab is unavailable', () => {
+      const tabs = createTabs();
+      getRootStateMock.mockReturnValue({
+        routes: [
+          { name: 'main', state: { ...tabs, routes: tabs.routes.slice(0, 2) } },
+        ],
+      });
+      expect(
+        dismissDiscoveryMarketDetailForTrade('detail', ETabRoutes.Perp),
+      ).toBe('cancelled');
       expect(dispatchMock).not.toHaveBeenCalled();
     });
   });

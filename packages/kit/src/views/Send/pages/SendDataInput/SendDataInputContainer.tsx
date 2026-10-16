@@ -425,7 +425,7 @@ function SendDataInputContainer() {
     EPrimeFeatures.AddressRiskCheck,
   ).status;
   // A logged-in free user with no uses left also presses to check (the press
-  // shows the exhausted toast), and a logged-out user logs in on the press
+  // shows the exhausted feedback), and a logged-out user logs in on the press
   // and is checked right after, so the button waits for an address as well.
   const canRunAddressRiskCheck =
     isPrimeUser ||

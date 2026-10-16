@@ -94,8 +94,6 @@ function useBulkRevoke() {
           networkId: unsignedTxs[0]?.networkId,
           // The revoke button already shows its loading.
           showLoading: false,
-          // The start button on the bulk revoke page checks the quota.
-          deferQuotaCheck: true,
         });
         if (!access.granted) {
           return;

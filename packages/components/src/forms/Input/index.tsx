@@ -77,6 +77,8 @@ export type IInputProps = {
   clearClipboardOnPaste?: boolean; // clear clipboard on paste
   autoFocusDelayMs?: number;
   selectTextOnFocus?: boolean;
+  /** Move the initial Android selection to the start. Defaults to true. */
+  autoScrollToTop?: boolean;
   /**
    * Auto scroll to top delay in milliseconds.
    * Default is 250ms, only works on Android.
@@ -97,6 +99,7 @@ export type IInputProps = {
 export type IInputRef = {
   focus: () => void;
   blur: () => void;
+  setSelection?: (start: number, end: number) => void;
   setNativeProps?: (props: Record<string, unknown>) => void;
 };
 
@@ -135,12 +138,16 @@ const SIZE_MAPPINGS = {
 };
 
 export const useAutoScrollToTop = platformEnv.isNativeAndroid
-  ? (ref: RefObject<TextInput | null>, waitMs = 250) => {
+  ? (ref: RefObject<TextInput | null>, waitMs = 250, enabled = true) => {
       useEffect(() => {
-        setTimeout(() => {
+        if (!enabled) {
+          return;
+        }
+        const timeout = setTimeout(() => {
           ref.current?.setSelection?.(0, 0);
         }, waitMs);
-      }, [ref, waitMs]);
+        return () => clearTimeout(timeout);
+      }, [ref, waitMs, enabled]);
     }
   : () => {};
 
@@ -281,6 +288,7 @@ function BaseInput(
     keyboardType,
     InputComponentStyle,
     autoFocusDelayMs,
+    autoScrollToTop,
     autoScrollTopDelayMs,
     secureTextEntry,
     onSecureTextEntryChange,
@@ -438,7 +446,7 @@ function BaseInput(
 
   useOnWebPaste(inputRef, onPaste);
 
-  useAutoScrollToTop(inputRef, autoScrollTopDelayMs);
+  useAutoScrollToTop(inputRef, autoScrollTopDelayMs, autoScrollToTop);
 
   useImperativeHandle(forwardedRef, () => ({
     focus: () => {
@@ -446,6 +454,9 @@ function BaseInput(
     },
     blur: () => {
       inputRef.current?.blur();
+    },
+    setSelection: (start: number, end: number) => {
+      inputRef.current?.setSelection?.(start, end);
     },
     measureLayout: (
       relativeToNativeComponentRef:
