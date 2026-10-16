@@ -152,7 +152,11 @@ export function AppStateLockContainer({
 
     const inertElements = new Set<HTMLElement>();
     const makeElementInert = (element: HTMLElement) => {
-      if (!element.contains(lockEl)) {
+      // The web update banner only offers refresh and dismiss while locked.
+      if (
+        !element.contains(lockEl) &&
+        !(platformEnv.isWeb && element.id === 'sw-update-banner')
+      ) {
         element.inert = true;
         inertElements.add(element);
       }
