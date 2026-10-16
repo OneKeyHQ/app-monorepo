@@ -31,6 +31,15 @@ export const NATIVE_STORAGE_BOOTSTRAP_DEFAULT_STORES: INativeSyncStorageName[] =
 
 export type INativeStorageMigrationRecoveryTarget = 'appStorage' | 'jotai';
 
+export type INativeAppStorageRepairSummary = {
+  repairId: string;
+  successfulCount: number;
+  failedCount: number;
+  preservedCount: number;
+  recoveredCount: number;
+  scanComplete: boolean;
+};
+
 const NATIVE_STORAGE_MIGRATION_INCONSISTENT_ERROR_PREFIX =
   'Native storage migration target is inconsistent:';
 
@@ -163,6 +172,23 @@ export type INativeStorageRequest =
       scope: 'recovery';
       operation: 'resetMigrationTarget';
       target: INativeStorageMigrationRecoveryTarget;
+    }
+  | {
+      scope: 'recovery';
+      operation: 'retryMigrationTarget';
+      target: 'appStorage';
+    }
+  | {
+      scope: 'recovery';
+      operation: 'prepareMigrationRepair';
+      target: 'appStorage';
+    }
+  | {
+      scope: 'recovery';
+      operation: 'completeMigrationRepair';
+      target: 'appStorage';
+      repairId: string;
+      force: boolean;
     }
   | { scope: 'bootstrap'; stores?: INativeSyncStorageName[] };
 
