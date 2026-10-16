@@ -164,14 +164,13 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
             name: ETabRoutes.Market,
             tabBarIcon: (focused?: boolean) =>
               focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
+            nativeTabBarIcon: nativeTabIcons.market,
             translationId: ETranslations.global_market,
             freezeOnBlur: Boolean(params?.freezeOnBlur),
             rewrite: '/market',
             exact: true,
             children: marketRouters,
             trackId: 'global-market',
-            // Hide Market tab on mobile (merged into Discovery)
-            hiddenIcon: platformEnv.isNative,
             // Only apply custom tab press handler for non-mobile platforms
             ...(platformEnv.isDesktop ||
             platformEnv.isWeb ||

@@ -5,7 +5,6 @@ import {
 } from '@react-navigation/native';
 
 import { rootNavigationRef } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -184,7 +183,7 @@ export type INavigationStateNode = {
 export type IMarketDetailBackAction =
   | { type: 'pop' }
   | { type: 'popToTop' }
-  | { type: 'popAndSwitchDiscovery' }
+  | { type: 'popAndSwitchMarket' }
   | { type: 'reset'; name: string; params?: Record<string, unknown> };
 
 type INavigationLike = {
@@ -210,13 +209,13 @@ export function isFocusedMarketDetailRouteName(name?: string) {
 }
 
 export function getMarketListRootName() {
-  return platformEnv.isNative
-    ? ETabDiscoveryRoutes.TabDiscovery
-    : ETabMarketRoutes.TabMarket;
+  return ETabMarketRoutes.TabMarket;
 }
 
-export function getNativeMarketListResetParams() {
-  return { defaultTab: ETranslations.global_market };
+export function getNativeMarketListResetParams():
+  | Record<string, unknown>
+  | undefined {
+  return undefined;
 }
 
 export function buildReplacedMarketDetailParams(
@@ -238,12 +237,22 @@ function omitSwapProOwnedParams(params: Record<string, unknown>) {
 }
 
 function isMarketTabStack(state: INavigationStateNode) {
+  // Market is a standalone tab on every platform. A Discovery stack may still
+  // briefly hold a legacy Market route while it redirects, so never treat it
+  // as the Market stack; otherwise replacements land in the hidden Discovery
+  // stack instead of the Market tab.
+  if (
+    state.routes?.some(
+      (route) => route.name === ETabDiscoveryRoutes.TabDiscovery,
+    )
+  ) {
+    return false;
+  }
   return Boolean(
     state.key &&
     state.routes?.some(
       (route) =>
         route.name === ETabMarketRoutes.TabMarket ||
-        route.name === ETabDiscoveryRoutes.TabDiscovery ||
         isMarketHostRouteName(route.name),
     ),
   );
@@ -361,7 +370,7 @@ export function dismissDiscoveryMarketDetailForTrade(
     listIndex -= 1;
   }
   if (
-    routes[listIndex]?.name !== ETabDiscoveryRoutes.TabDiscovery &&
+    routes[listIndex]?.name !== ETabMarketRoutes.TabMarket &&
     routes[listIndex]?.name !== ETabMarketRoutes.MarketBannerDetail
   ) {
     return 'ready';
@@ -643,10 +652,11 @@ export function replaceFocusedMarketDetailRoute({
 }
 
 function buildNativeListResetAction(): IMarketDetailBackAction {
+  const params = getNativeMarketListResetParams();
   return {
     type: 'reset',
-    name: ETabDiscoveryRoutes.TabDiscovery,
-    params: getNativeMarketListResetParams(),
+    name: ETabMarketRoutes.TabMarket,
+    ...(params ? { params } : {}),
   };
 }
 
@@ -663,7 +673,7 @@ function resolveEntryBackAction({
     if (!routes?.length || routes.length <= 1) {
       return buildNativeListResetAction();
     }
-    return { type: 'popAndSwitchDiscovery' };
+    return { type: 'popAndSwitchMarket' };
   }
   if (from === EEnterWay.SwapPro || from === EEnterWay.BannerList) {
     return { type: 'pop' };
@@ -693,9 +703,7 @@ export function resolveMarketDetailBackAction({
     return fromAction;
   }
 
-  const listRootName = isNative
-    ? ETabDiscoveryRoutes.TabDiscovery
-    : ETabMarketRoutes.TabMarket;
+  const listRootName = ETabMarketRoutes.TabMarket;
   if (!routes?.length || routes.length <= 1) {
     return isNative
       ? buildNativeListResetAction()

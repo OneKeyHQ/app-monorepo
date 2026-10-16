@@ -420,10 +420,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   // Always show 4 tokens in empty state
   const displayCount = 4;
 
-  // Market tab differs by platform
-  const marketTab = platformEnv.isNative
-    ? ETabRoutes.Discovery
-    : ETabRoutes.Market;
+  const marketTab = ETabRoutes.Market;
 
   const marketCategories = useMemo<IMarketCategoryItem[]>(() => {
     if (apiSpotCategories.length > 0) {
