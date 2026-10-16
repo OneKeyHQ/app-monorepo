@@ -34,18 +34,37 @@ public class MainLauncherActivity extends Activity {
         try {
           String prefix = BuildConfig.VERSION_NAME + "-";
           if (activeOtaVersion.startsWith(prefix) && activeOtaVersion.length() > prefix.length()) {
+            String failedBundleVersion = activeOtaVersion.substring(prefix.length());
             MMKV settings = MMKV.mmkvWithID("onekey-app-setting");
             JSONObject failedTarget = new JSONObject()
               .put("appVersion", BuildConfig.VERSION_NAME)
-              .put("bundleVersion", activeOtaVersion.substring(prefix.length()));
+              .put("bundleVersion", failedBundleVersion);
             recordedFailedTarget = settings != null
               && settings.encode("onekey_failed_ota_bundle", failedTarget.toString());
-            if (recordedFailedTarget) settings.sync();
+            if (recordedFailedTarget) {
+              String pendingJson = settings.decodeString("onekey_pending_install_task");
+              if (pendingJson != null) {
+                JSONObject task = new JSONObject(pendingJson);
+                JSONObject payload = task.optJSONObject("payload");
+                if ("pending".equals(task.opt("status"))
+                    && "jsbundle-switch".equals(task.opt("type"))
+                    && "switch-bundle".equals(task.opt("action"))
+                    && BuildConfig.VERSION_NAME.equals(task.opt("targetAppVersion"))
+                    && failedBundleVersion.equals(task.opt("targetBundleVersion"))
+                    && payload != null
+                    && BuildConfig.VERSION_NAME.equals(payload.opt("appVersion"))
+                    && failedBundleVersion.equals(payload.opt("bundleVersion"))) {
+                  settings.removeValueForKey("onekey_pending_install_task");
+                }
+              }
+              settings.sync();
+            }
           }
         } catch (Exception error) {
-          OneKeyLog.error("BootRecovery", "Failed to record crashed OTA target");
+          recordedFailedTarget = false;
+          OneKeyLog.error("BootRecovery", "Failed to persist OTA rollback state");
         }
-        // Keep recovery available if the failed target cannot be persisted.
+        // Keep recovery available unless the rollback state is durable.
         if (recordedFailedTarget) {
           BundleUpdateStoreAndroid.INSTANCE.clearUpdateBundleData(this);
           BootRecoveryStore.reset(prefs);
