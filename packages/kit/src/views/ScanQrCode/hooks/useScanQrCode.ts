@@ -19,7 +19,10 @@ import {
 } from '@onekeyhq/shared/types/qrCode';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { isInvalidQrCodeError } from '../utils/isInvalidQrCodeError';
+import {
+  isInvalidQrCodeError,
+  isRetryableQrParseFailure,
+} from '../utils/isInvalidQrCodeError';
 
 import useParseQRCode from './useParseQRCode';
 
@@ -60,7 +63,10 @@ export default function useScanQrCode() {
                       popNavigation,
                     });
                   } catch (error) {
-                    // Any other failure stays a dropped frame, as before; the page stays open.
+                    // A transient parse failure retries the frame; an action error stays
+                    // a dropped frame, as before. The page stays open for both.
+                    if (isRetryableQrParseFailure(error))
+                      return { retry: true };
                     if (!isInvalidQrCodeError(error)) throw error;
                     // The parse closed the scan page; end the scan with its error.
                     reject(error);

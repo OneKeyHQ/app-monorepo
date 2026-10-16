@@ -1,6 +1,8 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { isRetryableQrParseFailure } from '../utils/isInvalidQrCodeError';
+
 import { parseQRCodeWithDeps } from './useParseQRCode';
 
 import type { IParseQRCodeRuntimeDeps } from './useParseQRCode';
@@ -64,6 +66,7 @@ it('keeps the scan page open after a transient parse failure', async () => {
 
   await expect(parseFrame()).rejects.toBe(transient);
   expect(mockResetScanModalRoute).not.toHaveBeenCalled();
+  expect(isRetryableQrParseFailure(transient)).toBe(true);
 });
 
 it('closes the scan page for a code that can never be accepted', async () => {
@@ -72,4 +75,5 @@ it('closes the scan page for a code that can never be accepted', async () => {
 
   await expect(parseFrame()).rejects.toBe(invalid);
   expect(mockResetScanModalRoute).toHaveBeenCalledTimes(1);
+  expect(isRetryableQrParseFailure(invalid)).toBe(false);
 });
