@@ -57,6 +57,7 @@ import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
+  isPrimeInfiniPaymentExplicitlyFailedSnapshot,
   isPrimeInfiniPaymentPreBroadcastSnapshotSendable,
   isSamePrimeInfiniNetworkAddress,
   isValidPrimeInfiniPaymentContract,
@@ -253,7 +254,12 @@ class ServiceSend extends ServiceBase {
           ),
         )
       : (historyTx.decodedTx.encodedTx as IEncodedTxEvm);
-    return { action, originalTx, nonce: historyTx.decodedTx.nonce };
+    return {
+      action,
+      originalTx,
+      nonce: historyTx.decodedTx.nonce,
+      originalTxid: historyTx.decodedTx.txid,
+    };
   }
 
   private assertPrimeInfiniReplacementTransaction({
@@ -725,6 +731,7 @@ class ServiceSend extends ServiceBase {
     transferPayload,
     ensureBroadcastDeadline,
     mode,
+    originalTxid,
   }: ISendTxBaseParams & {
     accountAddress: string;
     signedTx: ISignedTxPro;
@@ -733,6 +740,7 @@ class ServiceSend extends ServiceBase {
     transferPayload?: IBatchSignTransactionParamsBase['transferPayload'];
     ensureBroadcastDeadline: () => void;
     mode: 'initial' | 'speedUp';
+    originalTxid?: string;
   }) {
     // Both paths originate from wallet-built transfers. Replacement callers
     // additionally verify the signed EVM payload against the original history.
@@ -855,6 +863,32 @@ class ServiceSend extends ServiceBase {
     const quoteFailure = getPrimeInfiniPaymentValidationFailure({
       payment: latestPayment,
     });
+    if (
+      mode === 'speedUp' &&
+      originalTxid &&
+      latestPayment.paymentId === paymentCacheKey.paymentId &&
+      new BigNumber(transferClaim.amount).eq(latestPayment.amountDue) &&
+      isSamePrimeInfiniNetworkAddress({
+        networkId,
+        first: transferClaim.toAddress,
+        second: latestPayment.address,
+      }) &&
+      (quoteFailure === 'quoteExpired' ||
+        (!quoteFailure &&
+          isPrimeInfiniPaymentExplicitlyFailedSnapshot(latestPayment)))
+    ) {
+      // Hide only the original local pending entry. Its transfer can still
+      // confirm on-chain, so retain the durable payment claim and server history.
+      // A storage failure must not replace the payment validation error.
+      await this.backgroundApi.serviceHistory
+        .clearLocalHistoryPendingTxByTxId({
+          accountId,
+          networkId,
+          accountAddress,
+          txid: originalTxid,
+        })
+        .catch(() => undefined);
+    }
     if (
       quoteFailure ||
       hasUnconfirmedPrimeInfiniPaymentWarnings({
@@ -1191,6 +1225,7 @@ class ServiceSend extends ServiceBase {
             transferPayload,
             ensureBroadcastDeadline,
             mode: replacementContext ? 'speedUp' : 'initial',
+            originalTxid: replacementContext?.originalTxid,
           });
         infiniPaymentExpiresAt = markedSession.payment.expiresAt;
         effectiveBroadcastDeadline = Math.min(

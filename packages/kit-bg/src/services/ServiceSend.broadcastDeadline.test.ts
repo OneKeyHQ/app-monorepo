@@ -274,6 +274,7 @@ function makeService() {
     serviceHistory: {
       saveSendConfirmHistoryTxs: jest.fn().mockResolvedValue(undefined),
       getLocalHistoryTxById: jest.fn(),
+      clearLocalHistoryPendingTxByTxId: jest.fn().mockResolvedValue(true),
     },
     servicePrime: {
       getLocalUserInfo: jest.fn().mockResolvedValue({
@@ -1782,7 +1783,7 @@ describe('Infini Speed Up broadcast validation', () => {
     });
   }
 
-  test.each(['expired', 'failed'])(
+  test.each(['expired', 'failed', 'cancelled'])(
     'never broadcasts a replacement for a %s invoice',
     async (status) => {
       const { service, vault, backgroundApi } = makeReplacement();
@@ -1794,8 +1795,64 @@ describe('Infini Speed Up broadcast validation', () => {
       );
       await expect(speedUp(service)).rejects.toThrow();
       expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+      expect(
+        backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+      ).toHaveBeenCalledWith({
+        accountId,
+        networkId,
+        accountAddress: '0xaccount',
+        txid: '0xoriginal',
+      });
+      expect(
+        backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+      ).not.toHaveBeenCalled();
     },
   );
+
+  test.each(['timeout', 'invalid', 'differentInvoice', 'differentAddress'])(
+    'preserves local history for %s validation results',
+    async (scenario) => {
+      const { service, vault, backgroundApi } = makeReplacement();
+      const api =
+        backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot;
+      if (scenario === 'timeout') {
+        api.mockRejectedValue(new Error('Request timeout'));
+      } else {
+        api.mockResolvedValue({
+          payment: {
+            ...latestPayment,
+            status: 'expired',
+            ...(scenario === 'invalid' ? { amountDue: 'invalid' } : {}),
+            ...(scenario === 'differentInvoice' ? { paymentId: 'other' } : {}),
+            ...(scenario === 'differentAddress' ? { address: '0xother' } : {}),
+          },
+          purchaseStatusSnapshot,
+        });
+      }
+      await expect(speedUp(service)).rejects.toThrow();
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+      expect(
+        backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+      ).not.toHaveBeenCalled();
+    },
+  );
+
+  test('still reports expiry if removing local history fails', async () => {
+    const { service, backgroundApi } = makeReplacement();
+    backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId.mockRejectedValue(
+      new Error('Storage unavailable'),
+    );
+    backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+      {
+        payment: { ...latestPayment, status: 'expired' },
+        purchaseStatusSnapshot,
+      },
+    );
+    await expect(speedUp(service)).rejects.toMatchObject({
+      autoToast: true,
+      data: { paymentValidationFailure: 'quoteExpired' },
+    });
+  });
 
   test('reports expired replacement invoices through the shared error toast', async () => {
     const { service, vault, backgroundApi } = makeReplacement();
@@ -1818,6 +1875,9 @@ describe('Infini Speed Up broadcast validation', () => {
       txid: '0xtxid',
       primeInfiniPayment: beforeBroadcastAction,
     });
+    expect(
+      backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+    ).not.toHaveBeenCalled();
     expect(
       backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot,
     ).toHaveBeenCalledWith(
