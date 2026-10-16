@@ -1,5 +1,9 @@
 import { formatTradingViewNativePriceTick } from '../chartLayout';
 import { formatTradingViewNativeVolume } from '../chartLegend';
+import {
+  getTradingViewNativePriceAtProgress,
+  getTradingViewNativePriceProgress,
+} from '../priceScale';
 
 import { getTradingViewNativeSubIndicatorValueRange } from './range';
 
@@ -73,7 +77,14 @@ export function getTradingViewNativeSubIndicatorY({
   if (!Number.isFinite(value) || height <= 0 || valueSpan <= 0) {
     return top + height / 2;
   }
-  return top + ((range.maxValue - value) / valueSpan) * height;
+  const progress = getTradingViewNativePriceProgress({
+    maxPrice: range.maxValue,
+    minPrice: range.minValue,
+    mode: range.mode ?? 'linear',
+    price: value,
+  });
+  // Non-positive values cannot be plotted on a logarithmic axis.
+  return progress === null ? bottom + height : top + progress * height;
 }
 
 export function getTradingViewNativeSubIndicatorValueAtY({
@@ -100,7 +111,12 @@ export function getTradingViewNativeSubIndicatorValueAtY({
   ) {
     return null;
   }
-  return range.maxValue - ((y - top) / height) * valueSpan;
+  return getTradingViewNativePriceAtProgress({
+    maxPrice: range.maxValue,
+    minPrice: range.minValue,
+    mode: range.mode ?? 'linear',
+    progress: (y - top) / height,
+  });
 }
 
 export function getTradingViewNativeSubIndicatorAxisLabel(
@@ -136,9 +152,16 @@ export function getTradingViewNativeSubIndicatorAxisLabel(
         startIndex: 0,
       });
       if (range) {
-        const valueSpan = range.maxValue - range.minValue;
         for (const progress of [0, 0.25, 0.5, 0.75, 1]) {
-          includeValue(range.maxValue - valueSpan * progress, pane.format);
+          includeValue(
+            getTradingViewNativePriceAtProgress({
+              maxPrice: range.maxValue,
+              minPrice: range.minValue,
+              mode: range.mode ?? 'linear',
+              progress,
+            }),
+            pane.format,
+          );
         }
         if (pane.format.type === 'volume') {
           const maxAbsoluteValue = Math.max(
