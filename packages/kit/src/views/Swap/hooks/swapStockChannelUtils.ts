@@ -629,6 +629,7 @@ export type IStockBalanceSnapshot = {
   ownerScope: string;
   balance: string;
   tokenDetail?: ISwapToken;
+  unverified: boolean;
 };
 
 export function resolveStockBalanceSnapshot({
@@ -636,6 +637,7 @@ export function resolveStockBalanceSnapshot({
   authoritativeTokenDetail,
   ownerScope,
   previousSnapshot,
+  requestSettled = false,
   seededBalance,
   seededTokenDetail,
 }: {
@@ -643,6 +645,7 @@ export function resolveStockBalanceSnapshot({
   authoritativeTokenDetail?: ISwapToken;
   ownerScope: string;
   previousSnapshot?: IStockBalanceSnapshot;
+  requestSettled?: boolean;
   seededBalance?: string;
   seededTokenDetail?: ISwapToken;
 }): IStockBalanceSnapshot | undefined {
@@ -651,16 +654,21 @@ export function resolveStockBalanceSnapshot({
       ownerScope,
       balance: authoritativeBalance,
       tokenDetail: authoritativeTokenDetail,
+      unverified: false,
     };
   }
   if (previousSnapshot?.ownerScope === ownerScope) {
-    return previousSnapshot;
+    if (!requestSettled || previousSnapshot.unverified) {
+      return previousSnapshot;
+    }
+    return { ...previousSnapshot, unverified: true };
   }
   if (seededBalance !== undefined) {
     return {
       ownerScope,
       balance: seededBalance,
       tokenDetail: seededTokenDetail,
+      unverified: true,
     };
   }
   return undefined;

@@ -253,6 +253,7 @@ export interface IPerpServerReferrerConfig {
 }
 
 export interface IPerpServerCommonConfig {
+  withdrawChannel?: 'cctp' | 'legacy';
   usePerpWeb?: boolean;
   disablePerp?: boolean;
   disablePerpActionPerp?: boolean;

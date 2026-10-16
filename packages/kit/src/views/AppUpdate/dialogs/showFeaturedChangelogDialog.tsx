@@ -16,6 +16,7 @@ import Animated, {
 
 import { Dialog, Toast } from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
+import { acquireDeferredGuideBlocker } from '@onekeyhq/components/src/hooks/useDeferredGuideBlocker';
 import {
   appUpdatePersistAtom,
   useAppUpdatePersistAtom,
@@ -201,12 +202,22 @@ function useFeaturedCta({
         if (status === EAppUpdateStatus.notify) {
           void downloadPackage();
         }
-        await closeDialog();
+        const release = acquireDeferredGuideBlocker();
+        try {
+          await closeDialog();
+        } catch (error) {
+          release();
+          throw error;
+        }
         setTimeout(() => {
-          navigation.pushModal(EModalRoutes.AppUpdateModal, {
-            screen: EAppUpdateRoutes.DownloadVerify,
-            params: { isForceUpdate: isLocked },
-          });
+          try {
+            navigation.pushModal(EModalRoutes.AppUpdateModal, {
+              screen: EAppUpdateRoutes.DownloadVerify,
+              params: { isForceUpdate: isLocked },
+            });
+          } finally {
+            release();
+          }
         }, 300);
         return;
       }

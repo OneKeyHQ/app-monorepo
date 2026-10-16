@@ -38,6 +38,8 @@ export type IModalReceiveParamList = {
         token: IToken;
         showSwapEntry?: boolean;
         onClose?: () => void;
+        // Forwarded to the receive QR page so it can close the whole modal.
+        showDoneButton?: boolean;
       }
     | undefined;
   [EModalReceiveRoutes.CreateInvoice]: {
@@ -55,6 +57,8 @@ export type IModalReceiveParamList = {
     btcUsedAddress?: string;
     btcUsedAddressPath?: string;
     exchangeSource?: EExchangeId;
+    // Shows a header Done button that pops the whole receive modal.
+    showDoneButton?: boolean;
   };
   [EModalReceiveRoutes.ReceiveInvoice]: {
     networkId: string;

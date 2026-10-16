@@ -1,3 +1,6 @@
+import { EServiceEndpointEnum } from '../../types/endpoint';
+import { buildServiceEndpoint } from '../config/appConfig';
+
 const _IS_DEV = process.env.NODE_ENV !== 'production';
 
 /**
@@ -149,6 +152,16 @@ export const MAC_DESKTOP_USE_NATIVE_APPLE_SIGNIN = false;
 // Email OTP
 export const EMAIL_OTP_COUNTDOWN_SECONDS = 60;
 
+export type IEmailOtpCaptchaConfig = {
+  enabled: boolean;
+  pageUrl: string;
+};
+
+export const EMAIL_OTP_CAPTCHA_CONFIG: IEmailOtpCaptchaConfig = {
+  enabled: true,
+  pageUrl: 'https://login.onekey.so/captcha',
+};
+
 // Default OAuth method selection (OneKeyAuth)
 export const DEFAULT_EXTENSION_OAUTH_METHOD: EExtensionOAuthMethod =
   EExtensionOAuthMethod.CHROME_IDENTITY_API;
@@ -199,13 +212,28 @@ export const GOOGLE_OAUTH_CLIENT_IDS = {
   IOS: GOOGLE_OAUTH_CLIENT_IOS,
 };
 
-// Supabase (OneKeyAuth)
-// Project URL at https://supabase.com/dashboard/project/_/settings/api
-export const SUPABASE_PROJECT_URL = 'https://bwgpgzbzdgkisozswlck.supabase.co';
+// Supabase (OneKeyAuth) through the OneKey relay.
+export const SUPABASE_RELAY_PATH = '/prime/v1/supabase-relay';
+export const SUPABASE_PROJECT_URL = `${buildServiceEndpoint({ serviceName: EServiceEndpointEnum.Prime, env: 'prod' })}${SUPABASE_RELAY_PATH}`;
 
-// Publishable key at https://supabase.com/dashboard/project/_/settings/api-keys/new
-export const SUPABASE_PUBLIC_API_KEY =
-  'sb_publishable_bnNx0b2QZENMm1OLNAyHeQ_FLagwrqN';
+// Public relay placeholder required by the client SDK, not a server secret.
+export const SUPABASE_PUBLIC_API_KEY = 'onekey-123-321-000-999-888';
+
+export const ONEKEY_ID_AUTH_CONFIG = {
+  prod: {
+    projectUrl: SUPABASE_PROJECT_URL,
+    publicKey: SUPABASE_PUBLIC_API_KEY,
+    captcha: EMAIL_OTP_CAPTCHA_CONFIG,
+  },
+  test: {
+    projectUrl: `${buildServiceEndpoint({ serviceName: EServiceEndpointEnum.Prime, env: 'test' })}${SUPABASE_RELAY_PATH}`,
+    publicKey: SUPABASE_PUBLIC_API_KEY,
+    captcha: {
+      ...EMAIL_OTP_CAPTCHA_CONFIG,
+      pageUrl: 'https://login.onekeytest.com/captcha',
+    },
+  },
+};
 
 // ================================================
 // Keyless Supabase
