@@ -199,6 +199,9 @@ export async function navigateToNotificationDetailByLocalParams({
         subScreen === ETabDiscoveryRoutes.TabDiscovery
           ? navigationParams.params?.params
           : navigationParams.params;
+      // The outer navigate `pop` option is not inherited by the nested Market
+      // stack; React Navigation reads `pop` from the nested params instead, so
+      // set it here to pop existing detail routes back to TabMarket.
       if (rawNestedParams && typeof rawNestedParams === 'object') {
         const {
           defaultTab: _defaultTab,
@@ -208,10 +211,17 @@ export async function navigateToNotificationDetailByLocalParams({
         } = rawNestedParams as Record<string, unknown>;
         navigationParams.params =
           Object.keys(restParams).length > 0
-            ? { screen: ETabMarketRoutes.TabMarket, params: restParams }
-            : { screen: ETabMarketRoutes.TabMarket };
+            ? {
+                screen: ETabMarketRoutes.TabMarket,
+                params: restParams,
+                pop: true,
+              }
+            : { screen: ETabMarketRoutes.TabMarket, pop: true };
       } else {
-        navigationParams.params = { screen: ETabMarketRoutes.TabMarket };
+        navigationParams.params = {
+          screen: ETabMarketRoutes.TabMarket,
+          pop: true,
+        };
       }
     }
   }

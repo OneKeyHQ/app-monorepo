@@ -147,7 +147,7 @@ describe('navigateToMarketTokenDetail', () => {
       jest.runAllTimers();
 
       expect(navigateMock).toHaveBeenCalledWith('main', {
-        screen: isNativePlatform ? 'Discovery' : 'Market',
+        screen: 'Market',
         params: {
           screen: 'MarketDetailV2',
           params: {
@@ -223,7 +223,7 @@ describe('navigateToMarketTokenDetail', () => {
       jest.runAllTimers();
 
       expect(navigateMock).toHaveBeenCalledWith('main', {
-        screen: isNativePlatform ? 'Discovery' : 'Market',
+        screen: 'Market',
         params: {
           screen: 'MarketStockDetail',
           params: {
@@ -445,7 +445,7 @@ describe('navigateToMarketTokenDetail', () => {
     jest.runAllTimers();
 
     expect(navigateMock).toHaveBeenCalledWith('main', {
-      screen: 'Discovery',
+      screen: 'Market',
       params: {
         screen: 'MarketDetailV2',
         params: {
@@ -659,7 +659,7 @@ describe('navigateToMarketTokenDetail', () => {
     expect(navigateMock).toHaveBeenCalledWith(
       'main',
       expect.objectContaining({
-        screen: 'Discovery',
+        screen: 'Market',
       }),
     );
   });

@@ -3,6 +3,7 @@ import { render } from '@testing-library/react';
 
 import {
   ERootRoutes,
+  ETabDiscoveryRoutes,
   ETabMarketRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -10,6 +11,11 @@ import {
 import { DiscoveryMarketRouteRedirect } from './DiscoveryMarketRouteRedirect';
 
 const mockGoBack = jest.fn();
+const mockDispatch = jest.fn();
+const replaceWithDiscoveryHome = {
+  type: 'REPLACE',
+  payload: { name: ETabDiscoveryRoutes.TabDiscovery },
+};
 const mockNavigate = jest.fn();
 
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
@@ -39,12 +45,14 @@ describe('DiscoveryMarketRouteRedirect', () => {
             getState: () => ({ index: 1 }),
             canGoBack: () => true,
             goBack: mockGoBack,
+            dispatch: mockDispatch,
           } as never
         }
       />,
     );
 
     expect(mockGoBack).toHaveBeenCalledTimes(1);
+    expect(mockDispatch).not.toHaveBeenCalled();
     expect(mockNavigate).toHaveBeenCalledWith(ERootRoutes.Main, {
       screen: ETabRoutes.Market,
       params: {
@@ -54,7 +62,7 @@ describe('DiscoveryMarketRouteRedirect', () => {
     });
   });
 
-  it('does not call goBack when the legacy route is at index 0 of the Discovery stack even if a parent navigator can go back', () => {
+  it('replaces the Discovery root with TabDiscovery instead of popping parent history when the legacy route is at index 0', () => {
     render(
       <DiscoveryMarketRouteRedirect
         route={
@@ -69,12 +77,16 @@ describe('DiscoveryMarketRouteRedirect', () => {
             getState: () => ({ index: 0 }),
             canGoBack: () => true,
             goBack: mockGoBack,
+            dispatch: mockDispatch,
           } as never
         }
       />,
     );
 
     expect(mockGoBack).not.toHaveBeenCalled();
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining(replaceWithDiscoveryHome),
+    );
     expect(mockNavigate).toHaveBeenCalledWith(ERootRoutes.Main, {
       screen: ETabRoutes.Market,
       params: {
@@ -84,7 +96,7 @@ describe('DiscoveryMarketRouteRedirect', () => {
     });
   });
 
-  it('forwards MarketBannerDetail without goBack when Discovery cannot pop', () => {
+  it('forwards MarketBannerDetail and restores the Discovery home when Discovery cannot pop', () => {
     render(
       <DiscoveryMarketRouteRedirect
         route={
@@ -99,12 +111,16 @@ describe('DiscoveryMarketRouteRedirect', () => {
             getState: () => ({ index: 0 }),
             canGoBack: () => false,
             goBack: mockGoBack,
+            dispatch: mockDispatch,
           } as never
         }
       />,
     );
 
     expect(mockGoBack).not.toHaveBeenCalled();
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining(replaceWithDiscoveryHome),
+    );
     expect(mockNavigate).toHaveBeenCalledWith(ERootRoutes.Main, {
       screen: ETabRoutes.Market,
       params: {
