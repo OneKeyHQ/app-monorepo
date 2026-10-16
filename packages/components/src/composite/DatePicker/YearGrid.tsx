@@ -1,119 +1,92 @@
-import { memo, useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useDatePickerContext } from '@rehookify/datepicker';
 
-import { SizableText, Stack } from '../../primitives';
-
 import { CalendarHeader } from './CalendarHeader';
-import { callOnClick } from './utils';
+import { PeriodGrid } from './PeriodGrid';
+import { callOnClick, getCalendarYear, useLatestRef } from './utils';
 
-const activeHoverStyle = { bg: '$bgPrimary' } as const;
-const inactiveHoverStyle = { bg: '$bgHover' } as const;
-
-const YearCell = memo(
-  ({
-    year,
-    isActive,
-    onPress,
-  }: {
-    year: { $date: Date; year: number };
-    isActive: boolean;
-    onPress: (y: { $date: Date; year: number }) => void;
-  }) => {
-    const handlePress = useCallback(() => {
-      onPress(year);
-    }, [onPress, year]);
-
-    return (
-      <Stack
-        flexBasis="31%"
-        flexGrow={1}
-        height="$11"
-        alignItems="center"
-        justifyContent="center"
-        borderRadius="$2"
-        bg={isActive ? '$bgPrimary' : 'transparent'}
-        hoverStyle={isActive ? activeHoverStyle : inactiveHoverStyle}
-        onPress={handlePress}
-      >
-        <SizableText
-          size="$bodyMd"
-          color={isActive ? '$textInverse' : '$text'}
-          userSelect="none"
-        >
-          {year.year}
-        </SizableText>
-      </Stack>
-    );
-  },
-);
-
-YearCell.displayName = 'YearCell';
+import type { IPeriodGridItem } from './PeriodGrid';
 
 export function YearGrid({
   onSelect,
   onYearSelect,
+  highlight = 'active',
 }: {
   onSelect?: () => void;
   onYearSelect?: (year: number) => void;
+  /**
+   * `active`: the year the calendar is showing (drill-down navigation).
+   * `selected`: the year holding the picked value (standalone year picker).
+   */
+  highlight?: 'active' | 'selected';
 }) {
   const { data, propGetters } = useDatePickerContext();
   const { years, calendars } = data;
-  const { yearButton } = propGetters;
-  const selectedYear = calendars[0].year;
+  const shownYear = getCalendarYear(calendars[0]);
+  const latest = useLatestRef({ years, yearButton: propGetters.yearButton });
 
-  const handleYearPress = useCallback(
-    (y: { $date: Date; year: number }) => {
-      callOnClick(yearButton(y as any));
+  const handlePress = useCallback(
+    (value: number) => {
+      const { years: list, yearButton } = latest.current;
+      const y = list.find((item) => item.$date.getTime() === value);
+      const getter = y ? yearButton(y) : undefined;
+      if (!y || !getter?.onClick) return;
+      callOnClick(getter);
       onYearSelect?.(y.year);
       onSelect?.();
     },
-    [yearButton, onYearSelect, onSelect],
+    [latest, onYearSelect, onSelect],
+  );
+
+  const items = useMemo<IPeriodGridItem[]>(
+    () =>
+      years.map((y) => ({
+        value: y.$date.getTime(),
+        label: y.year,
+        selected: highlight === 'selected' ? y.selected : y.year === shownYear,
+        isNow: y.now,
+        disabled: y.disabled,
+      })),
+    [years, highlight, shownYear],
   );
 
   return (
-    <Stack flexWrap="wrap" flexDirection="row" gap="$2" padding="$2">
-      {years.map((y) => {
-        const isActive = y.year === Number(selectedYear);
-        return (
-          <YearCell
-            key={y.$date.toString()}
-            year={y}
-            isActive={isActive}
-            onPress={handleYearPress}
-          />
-        );
-      })}
-    </Stack>
+    <PeriodGrid
+      items={items}
+      slidePosition={years[0]?.year ?? 0}
+      onPress={handlePress}
+    />
   );
 }
 
 export function YearRangeHeader() {
   const { data, propGetters } = useDatePickerContext();
   const { years } = data;
-  const { previousYearsButton, nextYearsButton } = propGetters;
+  const prevGetter = propGetters.previousYearsButton();
+  const nextGetter = propGetters.nextYearsButton();
+  const latest = useLatestRef({ prevGetter, nextGetter });
 
-  const yearRange = useMemo(
-    () => `${years[0].year} - ${years[years.length - 1].year}`,
-    [years],
-  );
-
+  // Stable handlers keep the memoized header from re-rendering on every
+  // rehookify update; the decade getters' `disabled` is exact, unlike the
+  // month/year offset getters (see getNavBounds).
   const handlePrevYears = useCallback(
-    () => callOnClick(previousYearsButton()),
-    [previousYearsButton],
+    () => callOnClick(latest.current.prevGetter),
+    [latest],
   );
-
   const handleNextYears = useCallback(
-    () => callOnClick(nextYearsButton()),
-    [nextYearsButton],
+    () => callOnClick(latest.current.nextGetter),
+    [latest],
   );
 
   return (
     <CalendarHeader
       month=""
-      year={yearRange}
+      year={`${years[0].year} - ${years[years.length - 1].year}`}
       onPrevMonth={handlePrevYears}
       onNextMonth={handleNextYears}
+      isPrevDisabled={!!prevGetter.disabled}
+      isNextDisabled={!!nextGetter.disabled}
       mode="year"
     />
   );
