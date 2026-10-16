@@ -6,6 +6,7 @@ import timerUtils from '../utils/timerUtils';
 
 export const HYPER_LIQUID_ORIGIN = 'https://app.hyperliquid.xyz';
 export const HYPER_LIQUID_WEBVIEW_TRADE_URL = `${HYPER_LIQUID_ORIGIN}/trade?isOneKeyBuiltInPerpView=true`;
+export const WEBVIEW_PERP_TRADE_TARGET_TTL_MS = 2000;
 
 export const PERPS_ROUTE_PATH = '/perps';
 export const PERP_USER_FUNDING_HISTORY_LIMIT = 2000;

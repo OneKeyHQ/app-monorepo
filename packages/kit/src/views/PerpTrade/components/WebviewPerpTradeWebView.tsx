@@ -1,9 +1,12 @@
 import type { ComponentProps } from 'react';
-import { useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { WebViewWithFeatures } from '@onekeyhq/kit/src/components/WebView/WebViewWithFeatures';
 import { useWebviewPerpTradeTargetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { HYPER_LIQUID_WEBVIEW_TRADE_URL } from '@onekeyhq/shared/src/consts/perp';
+import {
+  HYPER_LIQUID_WEBVIEW_TRADE_URL,
+  WEBVIEW_PERP_TRADE_TARGET_TTL_MS,
+} from '@onekeyhq/shared/src/consts/perp';
 
 type IWebviewPerpTradeWebViewProps = Pick<
   ComponentProps<typeof WebViewWithFeatures>,
@@ -18,8 +21,25 @@ type IWebviewPerpTradeWebViewProps = Pick<
 export function WebviewPerpTradeWebView(props: IWebviewPerpTradeWebViewProps) {
   const [target] = useWebviewPerpTradeTargetAtom();
   const hasRenderedWebView = useRef(false);
+  const initialRevision = useRef(target.revision);
+  const [initialWaitExpired, setInitialWaitExpired] = useState(false);
   const waitingForInitialTarget =
-    !hasRenderedWebView.current && Boolean(target.pending);
+    !hasRenderedWebView.current &&
+    !initialWaitExpired &&
+    target.revision === initialRevision.current &&
+    Object.values(target.pendingRequests ?? {}).some(
+      (pending) => pending.expiresAt > Date.now(),
+    );
+  useEffect(() => {
+    if (!waitingForInitialTarget) return;
+    // Bound this mount's wait even if BG is unavailable or other UIs keep
+    // preparing new requests. Metadata updates must not restart the timer.
+    const timeout = setTimeout(
+      () => setInitialWaitExpired(true),
+      WEBVIEW_PERP_TRADE_TARGET_TTL_MS,
+    );
+    return () => clearTimeout(timeout);
+  }, [waitingForInitialTarget]);
   useLayoutEffect(() => {
     if (!waitingForInitialTarget) hasRenderedWebView.current = true;
   }, [waitingForInitialTarget]);

@@ -42,8 +42,9 @@ const mockClearWebTarget = jest
   .fn<Promise<void>, [{ requestId: string }]>()
   .mockResolvedValue(undefined);
 const mockCommitWebTarget = jest
-  .fn<Promise<void>, [{ requestId: string }]>()
-  .mockResolvedValue(undefined);
+  .fn<Promise<boolean>, [{ requestId: string }]>()
+  .mockResolvedValue(true);
+const mockPageEnterSource = jest.fn<void, unknown[]>();
 const mockPendingInstrument = jest
   .fn<Promise<void>, [{ coin: string; mode: 'perp'; requestId: string }]>()
   .mockResolvedValue(undefined);
@@ -122,7 +123,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {},
 }));
 jest.mock('@onekeyhq/shared/src/logger/scopes/perp/perpPageSource', () => ({
-  setPerpPageEnterSource: jest.fn(),
+  setPerpPageEnterSource: (...args: unknown[]) => mockPageEnterSource(...args),
   EPerpPageEnterSource: {},
 }));
 jest.mock('../../../utils/marketDetailNavigation', () => ({
@@ -173,7 +174,7 @@ beforeEach(() => {
   mockWebTarget.mockResolvedValue(undefined);
   mockClearPendingInstrument.mockResolvedValue(undefined);
   mockClearWebTarget.mockResolvedValue(undefined);
-  mockCommitWebTarget.mockResolvedValue(undefined);
+  mockCommitWebTarget.mockResolvedValue(true);
 });
 
 it('does not insert a banner on retry after initial detail failed or had no mapping', () => {
@@ -509,6 +510,77 @@ it('commits Web Perps after the source route loses focus and cleans up a failed 
   expect(mockToastError).toHaveBeenCalledTimes(1);
   expect(mockChangeAsset).not.toHaveBeenCalled();
 });
+
+it('reports and cleans up an expired or missing Web Perps commit', async () => {
+  jest.useFakeTimers();
+  mockTicker = 'BTC';
+  mockRouteKey = 'detail';
+  mockPerpTabShowWeb = true;
+  mockCommitWebTarget.mockResolvedValueOnce(false);
+  render(<PerpetualTradingBanner />);
+  await act(async () => {
+    mockPress?.();
+    await jest.advanceTimersByTimeAsync(80);
+  });
+  expect(mockClearWebTarget).toHaveBeenCalledWith({
+    requestId: mockWebTarget.mock.calls[0][0].requestId,
+  });
+  expect(mockToastError).toHaveBeenCalledTimes(1);
+  expect(mockLogError).toHaveBeenCalled();
+});
+
+it('logs a failed cleanup RPC and releases the navigation lock for retry', async () => {
+  jest.useFakeTimers();
+  mockTicker = 'BTC';
+  mockRouteKey = 'detail';
+  mockPerpTabShowWeb = true;
+  mockCommitWebTarget.mockResolvedValueOnce(false);
+  mockClearWebTarget.mockRejectedValueOnce(
+    new OneKeyLocalError('RPC unavailable'),
+  );
+  render(<PerpetualTradingBanner />);
+  await act(async () => {
+    mockPress?.();
+    await jest.advanceTimersByTimeAsync(80);
+  });
+  expect(mockLogError).toHaveBeenCalledWith(
+    expect.stringContaining('Failed to clear cancelled Perps target'),
+  );
+  await act(async () => {
+    mockPress?.();
+    await jest.advanceTimersByTimeAsync(80);
+  });
+  expect(mockCommitWebTarget).toHaveBeenCalledTimes(2);
+  expect(mockClearWebTarget).toHaveBeenCalledTimes(1);
+  expect(mockToastError).toHaveBeenCalledTimes(1);
+});
+
+it.each(['source', 'switch', 'dismiss'])(
+  'cleans up preparation if the %s step throws before commit',
+  async (step) => {
+    jest.useFakeTimers();
+    mockTicker = 'BTC';
+    mockRouteKey = 'detail';
+    mockPerpTabShowWeb = true;
+    const fail = () => {
+      throw new OneKeyLocalError('Navigation unavailable');
+    };
+    if (step === 'source') mockPageEnterSource.mockImplementationOnce(fail);
+    if (step === 'switch') mockSwitchTab.mockImplementationOnce(fail);
+    if (step === 'dismiss')
+      mockDismissDiscoveryDetail.mockImplementationOnce(fail);
+    render(<PerpetualTradingBanner />);
+    await act(async () => {
+      mockPress?.();
+      await jest.advanceTimersByTimeAsync(80);
+    });
+    expect(mockCommitWebTarget).not.toHaveBeenCalled();
+    expect(mockClearWebTarget).toHaveBeenCalledWith({
+      requestId: mockWebTarget.mock.calls[0][0].requestId,
+    });
+    expect(mockToastError).toHaveBeenCalledTimes(1);
+  },
+);
 
 it.each([false, true])(
   'does not prepare a target after leaving the source route (web: %s)',

@@ -11,11 +11,13 @@ import {
 import {
   HYPER_LIQUID_CUSTOM_LOCAL_STORAGE_V2_PRESET,
   HYPER_LIQUID_ORIGIN,
+  WEBVIEW_PERP_TRADE_TARGET_TTL_MS,
 } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import thirdpartyLocaleConverter from '@onekeyhq/shared/src/locale/thirdpartyLocaleConverter';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale/type';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -1432,36 +1434,82 @@ class ServiceWebviewPerp extends ServiceBase {
   }) {
     const targetCoin = coin.trim();
     if (!targetCoin) throw new OneKeyError('Missing web Perps target');
+    const expiresAt = Date.now() + WEBVIEW_PERP_TRADE_TARGET_TTL_MS;
+    if (requestId) {
+      // Start the BG lease before awaiting atom broadcasts to a disappearing UI.
+      setTimeout(() => {
+        void this.finishTradeTarget(requestId, 'expire').catch((error) => {
+          defaultLogger.app.error.log(
+            `Failed to expire web Perps target: ${String(error)}`,
+          );
+        });
+      }, WEBVIEW_PERP_TRADE_TARGET_TTL_MS);
+    }
     await webviewPerpTradeTargetAtom.set((previous) => {
       // A Market entry is tentative until its source route has been validated.
       // Keep mounted WebViews on their committed target while the RPC completes.
       if (requestId) {
-        return { ...previous, pending: { coin: targetCoin, requestId } };
+        return {
+          ...previous,
+          pendingRequests: {
+            ...previous.pendingRequests,
+            [requestId]: { coin: targetCoin, expiresAt },
+          },
+        };
       }
       return {
+        ...previous,
         coin: targetCoin,
         revision: previous.revision + 1,
       };
     });
   }
 
-  @backgroundMethod()
-  async commitTradeTarget({ requestId }: { requestId: string }) {
+  private async finishTradeTarget(
+    requestId: string,
+    action: 'commit' | 'cancel' | 'expire',
+  ): Promise<boolean> {
+    let committed = false;
     await webviewPerpTradeTargetAtom.set((previous) => {
-      if (previous.pending?.requestId !== requestId) return previous;
+      if (
+        !Object.prototype.hasOwnProperty.call(
+          previous.pendingRequests ?? {},
+          requestId,
+        )
+      )
+        return previous;
+      const pending = previous.pendingRequests?.[requestId];
+      if (!pending) return previous;
+      const expired = pending.expiresAt <= Date.now();
+      if (action === 'expire' && !expired) return previous;
+      const pendingRequests = { ...previous.pendingRequests };
+      delete pendingRequests[requestId];
+      committed = action === 'commit' && !expired;
       return {
-        coin: previous.pending.coin,
-        revision: previous.revision + 1,
+        ...previous,
+        ...(committed
+          ? { coin: pending.coin, revision: previous.revision + 1 }
+          : {}),
+        pendingRequests: Object.keys(pendingRequests).length
+          ? pendingRequests
+          : undefined,
       };
     });
+    return committed;
+  }
+
+  @backgroundMethod()
+  async commitTradeTarget({
+    requestId,
+  }: {
+    requestId: string;
+  }): Promise<boolean> {
+    return this.finishTradeTarget(requestId, 'commit');
   }
 
   @backgroundMethod()
   async clearTradeTarget({ requestId }: { requestId: string }) {
-    await webviewPerpTradeTargetAtom.set((previous) => {
-      if (previous.pending?.requestId !== requestId) return previous;
-      return { ...previous, pending: undefined };
-    });
+    await this.finishTradeTarget(requestId, 'cancel');
   }
 
   lastExtPerpTab: chrome.tabs.Tab | undefined;

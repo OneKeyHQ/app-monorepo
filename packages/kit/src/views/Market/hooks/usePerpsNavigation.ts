@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import { Toast, rootNavigationRef } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -174,62 +175,53 @@ export function usePerpsNavigation(source?: EPerpPageEnterSource) {
           const targetTab = perpTabShowWeb
             ? ETabRoutes.WebviewPerpTrade
             : ETabRoutes.Perp;
-          if (entryRouteKey) {
-            try {
+          let navigationCommitted = false;
+          try {
+            if (entryRouteKey) {
               const result = dismissDiscoveryMarketDetailForTrade(
                 entryRouteKey,
                 targetTab,
               );
-              if (result === 'cancelled') {
-                await clearPreparedTarget();
-                return;
+              if (result === 'cancelled') return;
+            }
+            setPerpPageEnterSource(source ?? EPerpPageEnterSource.MarketList);
+            navigation.switchTab(targetTab);
+            if (perpTabShowWeb) {
+              const committed =
+                await proxy?.serviceWebviewPerp.commitTradeTarget({
+                  requestId,
+                });
+              if (!committed) {
+                throw new OneKeyLocalError(
+                  'Web Perps target was not committed',
+                );
               }
-            } catch (error) {
-              await clearPreparedTarget();
-              Toast.error({
-                title: intl.formatMessage({
-                  id: ETranslations.global_unknown_error_retry_message,
-                }),
-              });
-              defaultLogger.app.error.log(
-                `Failed to dismiss Market detail before Perps: ${String(error)}`,
-              );
+              navigationCommitted = true;
               return;
             }
-          }
-          setPerpPageEnterSource(source ?? EPerpPageEnterSource.MarketList);
-          if (perpTabShowWeb) {
-            navigation.switchTab(targetTab);
+            navigationCommitted = true;
+            if (!proxy) return;
             try {
-              await proxy?.serviceWebviewPerp.commitTradeTarget({ requestId });
-            } catch (error) {
-              await clearPreparedTarget();
-              Toast.error({
-                title: intl.formatMessage({
-                  id: ETranslations.global_unknown_error_retry_message,
-                }),
+              await proxy.serviceHyperliquid.changeActiveAsset({ coin });
+              if (!isCurrentRequest()) return;
+              appEventBus.emit(EAppEventBusNames.PerpSwitchActiveInstrument, {
+                mode: 'perp',
+                coin,
               });
-              defaultLogger.app.error.log(
-                `Failed to commit web Perps target: ${String(error)}`,
-              );
+            } catch (error) {
+              console.error('Failed to change active asset:', error);
             }
-            return;
-          }
-          navigation.switchTab(targetTab);
-          if (!proxy) {
-            return;
-          }
-          try {
-            await proxy.serviceHyperliquid.changeActiveAsset({
-              coin,
-            });
-            if (!isCurrentRequest()) return;
-            appEventBus.emit(EAppEventBusNames.PerpSwitchActiveInstrument, {
-              mode: 'perp',
-              coin,
-            });
           } catch (error) {
-            console.error('Failed to change active asset:', error);
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.global_unknown_error_retry_message,
+              }),
+            });
+            defaultLogger.app.error.log(
+              `Failed to complete Perps navigation: ${String(error)}`,
+            );
+          } finally {
+            if (!navigationCommitted) await clearPreparedTarget();
           }
         });
       }, 80);
