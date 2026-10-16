@@ -25166,6 +25166,7 @@
     "packages/kit/src/views/ScanQrCode/router/index.ts": 12028,
     "packages/kit/src/views/ScanQrCode/testIDs.ts": 16163,
     "packages/kit/src/views/ScanQrCode/utils/getAccountIdOnNetwork.ts": 21391,
+    "packages/kit/src/views/ScanQrCode/utils/isInvalidQrCodeError.ts": 3053,
     "packages/kit/src/views/ScanQrCode/utils/parseOnChainAmount.ts": 21975,
     "packages/kit/src/views/ScanQrCode/utils/scanFromURLAsync/index.ts": 16996,
     "packages/kit/src/views/Send/components/CoinControlBadge/index.tsx": 4927,
