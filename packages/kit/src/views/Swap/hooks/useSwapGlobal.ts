@@ -1110,7 +1110,11 @@ export function useSwapInit(params?: ISwapInitParams) {
         hasImportParams,
         hasSelectedTokens,
         initialSelectedTokensSynced: initialSelectedTokensSyncedRef.current,
-      })
+      }) ||
+      // An empty Market result is intentional; do not seed the Trade defaults.
+      (params?.marketSwapDirection &&
+        initialSelectedTokensSyncedRef.current &&
+        !hasImportParams)
     ) {
       if (
         hasSelectedTokens &&
@@ -1198,6 +1202,13 @@ export function useSwapInit(params?: ISwapInitParams) {
             );
           },
         });
+        if (!pair.fromToken && !pair.toToken) {
+          setFromTokenAmount({ value: '', isInput: false });
+          setToTokenAmount({ value: '', isInput: false });
+          clearSelectedTokensColdStartCache();
+          finishSwapInitParamsSync();
+          return;
+        }
         if (
           !equalTokenNoCaseSensitive({
             token1: fromTokenRef.current,

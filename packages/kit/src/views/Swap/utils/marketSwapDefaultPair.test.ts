@@ -107,6 +107,23 @@ describe('Market default pairs', () => {
     });
   });
   it.each(['from', 'to'] as const)(
+    'rejects the current token when neither Swap nor Bridge supports it (%s)',
+    (direction) => {
+      const token = other('unsupported--0');
+      expect(
+        getMarketSwapDefaultPair({
+          token,
+          direction,
+          isSupported: (candidate) => candidate !== token,
+        }),
+      ).toEqual({
+        fromToken: undefined,
+        toToken: undefined,
+        swapType: ESwapTabSwitchType.SWAP,
+      });
+    },
+  );
+  it.each(['from', 'to'] as const)(
     'keeps only the current token when no counterpart is supported (%s)',
     (direction) => {
       const token = other('btc--0');

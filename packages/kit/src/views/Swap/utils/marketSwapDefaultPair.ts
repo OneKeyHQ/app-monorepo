@@ -15,6 +15,17 @@ export function getMarketSwapDefaultPair({
   direction?: 'from' | 'to';
   isSupported?: (token: ISwapToken, type: ESwapTabSwitchType) => boolean;
 }) {
+  if (
+    isSupported &&
+    !isSupported(token, ESwapTabSwitchType.SWAP) &&
+    !isSupported(token, ESwapTabSwitchType.BRIDGE)
+  ) {
+    return {
+      fromToken: undefined,
+      toToken: undefined,
+      swapType: ESwapTabSwitchType.SWAP,
+    };
+  }
   const defaults = swapDefaultSetTokens[token.networkId];
   // Reuse Trade's configured pair, including non-USDC trading tokens such as KAT.
   const preferred = defaults?.[defaults.marketDefaultToken ?? 'toToken'];
