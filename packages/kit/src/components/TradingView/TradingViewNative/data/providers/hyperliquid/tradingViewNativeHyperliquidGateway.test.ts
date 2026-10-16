@@ -358,4 +358,58 @@ describe('TradingViewNative Hyperliquid gateway', () => {
       abortController.signal,
     );
   });
+  it('clamps mainnet BTC spot requests and normalizes the returned boundary day', async () => {
+    const gateway = new TradingViewNativeHyperliquidGateway();
+    const mocks = globalMockBag.__tradingViewNativeHyperliquidGatewayMocks;
+    mocks?.candleSnapshot.mockResolvedValue([
+      buildCandle({
+        s: '@142',
+        i: '1d',
+        t: 1_739_491_200_000,
+        T: 1_739_577_599_999,
+        o: '240000',
+        h: '240000',
+        l: '96000',
+        c: '97578',
+      }),
+    ]);
+    const result = await gateway.fetchCandles({
+      coin: '@142',
+      environment: 'mainnet',
+      interval: '1d',
+      timeFrom: 0,
+      timeTo: 1_740_000_000,
+    });
+    expect(mocks?.candleSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ startTime: 1_739_556_000_000 }),
+      undefined,
+    );
+    expect(result.points[0]).toMatchObject({
+      t: 1_739_491_200,
+      o: 98_998,
+      h: 98_998,
+      l: 96_000,
+      c: 97_578,
+    });
+  });
+
+  it('does not request pre-boundary history, while testnet keeps its original range', async () => {
+    const gateway = new TradingViewNativeHyperliquidGateway();
+    const mocks = globalMockBag.__tradingViewNativeHyperliquidGatewayMocks;
+    const request = {
+      coin: '@142',
+      interval: '1d',
+      timeFrom: 0,
+      timeTo: 1_739_556_000,
+    } as const;
+    await expect(
+      gateway.fetchCandles({ ...request, environment: 'mainnet' }),
+    ).resolves.toEqual({ points: [], total: 0 });
+    expect(mocks?.candleSnapshot).not.toHaveBeenCalled();
+    await gateway.fetchCandles({ ...request, environment: 'testnet' });
+    expect(mocks?.candleSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ startTime: 0, endTime: 1_739_556_000_000 }),
+      undefined,
+    );
+  });
 });
