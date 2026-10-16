@@ -146,6 +146,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     defaultConfigStatus,
     defaultConfigStatusRef,
     fetchSwapNetworks,
+    hasRefreshedSwapNetworksRef,
     networkListFetching,
     swapNetworks,
     swapNetworksRef,
@@ -297,9 +298,11 @@ export function useSwapInit(params?: ISwapInitParams) {
   const hasSyncedSwapSelectedAccountFromHomeStorageRef = useRef(false);
   const appliedImportNetworkIdRef = useRef<string | undefined>(undefined);
   const consumedSwapInitParamsKeyRef = useRef<string | undefined>(undefined);
+  const deferredMarketInitKeyRef = useRef<string | undefined>(undefined);
   const markSwapInitParamsConsumed = useCallback(() => {
     if (swapInitParamsConsumptionKey) {
       consumedSwapInitParamsKeyRef.current = swapInitParamsConsumptionKey;
+      deferredMarketInitKeyRef.current = undefined;
     }
   }, [swapInitParamsConsumptionKey]);
   const shouldPreserveUserInputAmount = useCallback(() => {
@@ -993,6 +996,21 @@ export function useSwapInit(params?: ISwapInitParams) {
       swapInitParamsConsumptionKey &&
       consumedSwapInitParamsKeyRef.current !== swapInitParamsConsumptionKey,
     );
+    const preserveDeferredMarketSelection = () => {
+      if (
+        hasUnconsumedSwapInitParams &&
+        deferredMarketInitKeyRef.current === swapInitParamsConsumptionKey &&
+        (fromTokenRef.current || toTokenRef.current)
+      ) {
+        // A manual selection takes ownership while the cached rejection is pending.
+        finishSwapInitParamsSync();
+        return true;
+      }
+      return false;
+    };
+    if (preserveDeferredMarketSelection()) {
+      return;
+    }
     const isStockDefaultTokenFlow =
       swapTypeSwitchRef.current === ESwapTabSwitchType.STOCK ||
       params?.swapTabSwitchType === ESwapTabSwitchType.STOCK;
@@ -1137,10 +1155,19 @@ export function useSwapInit(params?: ISwapInitParams) {
     if (homeAccountSyncResult.cancelled) {
       return;
     }
+    if (
+      hasUnconsumedSwapInitParams &&
+      consumedSwapInitParamsKeyRef.current === swapInitParamsConsumptionKey
+    ) {
+      return;
+    }
     if (shouldDeferForNativePro()) {
       return;
     }
     // Home synchronization can yield while the user selects a token.
+    if (preserveDeferredMarketSelection()) {
+      return;
+    }
     hasSelectedTokens = Boolean(fromTokenRef.current || toTokenRef.current);
     if (hasImportParams && params?.importNetworkId && !hasImportTokenParams) {
       if (!swapNetworksRef.current.length) {
@@ -1206,7 +1233,13 @@ export function useSwapInit(params?: ISwapInitParams) {
           setFromTokenAmount({ value: '', isInput: false });
           setToTokenAmount({ value: '', isInput: false });
           clearSelectedTokensColdStartCache();
-          finishSwapInitParamsSync();
+          // A cached rejection is provisional until this mount refreshes networks.
+          if (hasRefreshedSwapNetworksRef.current) {
+            finishSwapInitParamsSync();
+          } else {
+            deferredMarketInitKeyRef.current = swapInitParamsConsumptionKey;
+            markInitialSelectedTokensSynced();
+          }
           return;
         }
         if (
@@ -1619,6 +1652,8 @@ export function useSwapInit(params?: ISwapInitParams) {
     clearSelectedTokensColdStartCache,
     markSwapInitParamsConsumed,
     finishSwapInitParamsSync,
+    markInitialSelectedTokensSynced,
+    hasRefreshedSwapNetworksRef,
     getCurrentSelectedTokensColdStartContext,
     switchSwapTypeIfNeeded,
     syncSwapSelectedAccountFromLatestHomeStorage,

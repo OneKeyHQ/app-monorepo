@@ -2,7 +2,10 @@
 
 import { act, render } from '@testing-library/react';
 
+import type { ISwapInputAmountDraft } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import {
   swapFromTokenAmountAtom,
@@ -13,6 +16,7 @@ import {
 } from '../../../states/jotai/contexts/swap/atoms';
 import { prepareMarketSwapEntry } from '../../../states/jotai/contexts/swap/prepareSwapProEntry';
 import { jotaiContextStore } from '../../../states/jotai/utils/jotaiContextStore';
+import { buildMarketEmbeddedSwapInitParams } from '../../Market/MarketDetailV2/layouts/marketEmbeddedSwapUtils';
 import { getLatestHomeSelectedAccount } from '../utils/swapHomeSelectedAccountUtils';
 
 import { SwapProviderMirror } from './SwapProviderMirror';
@@ -36,6 +40,66 @@ describe('Market modal initial token selection', () => {
   afterEach(() => {
     jotaiContextStore.storeCache.clear();
     jotaiContextStore.storeResetRequests.clear();
+  });
+
+  it('keeps 0.1 BTC attached to BTC when an embedded bridge draft remounts', () => {
+    const storeName = EJotaiContextStoreNames.marketSwap;
+    const btc = {
+      networkId: 'btc--0',
+      contractAddress: '',
+      symbol: 'BTC',
+      decimals: 8,
+      isNative: true,
+    };
+    const usdc = swapDefaultSetTokens['evm--1'].toToken;
+    const first = render(
+      <SwapProviderMirror
+        storeName={storeName}
+        initialSelectedTokensOnInit={{
+          fromToken: usdc,
+          toToken: btc,
+          swapType: ESwapTabSwitchType.BRIDGE,
+        }}
+      />,
+    );
+    const store = jotaiContextStore.getOrCreateStore({ storeName });
+    act(() => {
+      store.set(swapSelectFromTokenAtom(), btc);
+      store.set(swapSelectToTokenAtom(), usdc);
+      store.set(swapFromTokenAmountAtom(), { value: '0.1', isInput: true });
+    });
+    const inputDraft: ISwapInputAmountDraft = {
+      fromToken: store.get(swapSelectFromTokenAtom()),
+      toToken: store.get(swapSelectToTokenAtom()),
+      fromTokenAmount: store.get(swapFromTokenAmountAtom()),
+      toTokenAmount: store.get(swapToTokenAmountAtom()),
+    };
+    first.unmount();
+
+    const entry = buildMarketEmbeddedSwapInitParams({
+      defaultTokens: [],
+      inputDraft,
+      swapToken: btc,
+    });
+    const reopened = render(
+      <SwapProviderMirror
+        storeName={storeName}
+        initialSelectedTokensOnInit={{
+          fromToken: entry?.importFromToken,
+          toToken: entry?.importToToken,
+          swapType: entry?.swapTabSwitchType,
+          inputAmountDraft: inputDraft,
+        }}
+      />,
+    );
+
+    expect(store.get(swapSelectFromTokenAtom())).toEqual(btc);
+    expect(store.get(swapSelectToTokenAtom())).toEqual(usdc);
+    expect(store.get(swapFromTokenAmountAtom())).toEqual({
+      value: '0.1',
+      isInput: true,
+    });
+    reopened.unmount();
   });
 
   it.each([false, true])(

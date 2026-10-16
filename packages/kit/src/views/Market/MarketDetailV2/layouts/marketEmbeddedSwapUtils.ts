@@ -27,7 +27,8 @@ export function buildMarketEmbeddedSwapInitParams({
     : (inputDraft?.toToken ?? swapToken);
   const draftFromToken =
     inputDraft?.fromToken &&
-    inputDraft.fromToken.networkId === importToToken.networkId &&
+    (!swapToken.isStock ||
+      inputDraft.fromToken.networkId === importToToken.networkId) &&
     !equalTokenNoCaseSensitive({
       token1: inputDraft.fromToken,
       token2: importToToken,
