@@ -264,7 +264,10 @@ export type IVaultSettings = {
     // `publicLabel` is absent on chains with no public pool at all (Monero:
     // every output is private). The receive page must not offer a
     // public/private switch in that case -- there is nothing to switch to.
-    addressForms: { publicLabel?: string; privateLabel: string };
+    addressForms: {
+      publicLabel?: ETranslations;
+      privateLabel: ETranslations;
+    };
     // Addresses that may appear in a transaction's public flow, as a RegExp
     // source (settings cross the background bridge as JSON). Absent: every
     // address is public.
@@ -297,6 +300,9 @@ export type IVaultSettings = {
     // (Zcash ZIP-317), not a market rate: a fee at least the amount is just a
     // small payment, not an overpay worth a warning.
     feeSetByProtocol?: boolean;
+    // The backend cannot index this chain's addresses, so address-scoped
+    // wallet endpoints never receive them (they would only leak the address).
+    withholdAddressFromBackend?: boolean;
   };
   saveConfirmedTxsEnabled?: boolean;
 

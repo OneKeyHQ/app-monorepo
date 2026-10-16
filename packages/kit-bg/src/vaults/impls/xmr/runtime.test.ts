@@ -5,6 +5,7 @@ import {
   getXmrChainTip,
   getXmrChainTipForDisplay,
   getXmrLocalRuntime,
+  getXmrNodeHealth,
   getXmrRuntime,
   isXmrRuntimeBusy,
   readXmrStaleFirst,
@@ -332,5 +333,47 @@ describe('xmr local reads', () => {
     await getXmrRuntime(vault);
     expect(raw.openWallet).toHaveBeenCalledTimes(1);
     expect(raw.setNodeUrl).toHaveBeenCalledWith('https://node.example:18081');
+  });
+});
+
+// Settings shows the node's health from the tip fetches scanning already makes.
+describe('xmr node health', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('records the tip round trip against the connected node', async () => {
+    const api = await getXmrRuntime(vault);
+    const now = jest.spyOn(Date, 'now');
+    now.mockReturnValueOnce(1000).mockReturnValue(1250);
+    await getXmrChainTip(api);
+    expect(getXmrNodeHealth()).toEqual({
+      url: 'https://node.example:18081',
+      ok: true,
+      latencyMs: 250,
+      atMs: 1250,
+    });
+  });
+
+  it('records a failed tip fetch as unhealthy', async () => {
+    const api = await getXmrRuntime(vault);
+    raw.chainTip.mockImplementationOnce(async () => {
+      throw runtimeError('NETWORK_ERROR');
+    });
+    await expect(getXmrChainTip(api)).rejects.toThrow();
+    expect(getXmrNodeHealth()).toMatchObject({
+      url: 'https://node.example:18081',
+      ok: false,
+    });
+  });
+
+  it('keys the sample by the node it came from', async () => {
+    await getXmrChainTip(await getXmrRuntime(vault));
+    const other = {
+      getXmrNetwork: async () => 'mainnet',
+      resolveXmrNodeUrl: async () => 'https://other.example:18081',
+    } as unknown as Vault;
+    await getXmrChainTip(await getXmrRuntime(other));
+    expect(getXmrNodeHealth()?.url).toBe('https://other.example:18081');
   });
 });

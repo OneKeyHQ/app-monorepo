@@ -457,6 +457,11 @@ export interface IAppEventBusPayload {
     networkId: string;
     accountIds: string[];
   };
+  // A display read gave up and showed a saved balance; the live one is in.
+  [EAppEventBusNames.LocalWalletBalanceLanded]: {
+    networkId: string;
+    accountId: string;
+  };
   [EAppEventBusNames.RefreshHistoryList]: undefined;
   [EAppEventBusNames.RefreshApprovalList]: undefined;
   [EAppEventBusNames.RefreshBookmarkList]: undefined;

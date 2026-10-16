@@ -223,6 +223,27 @@ describe('useLocalWalletPool address shows quickly', () => {
 
 // An outdated WebView never produces progress; without this the row would
 // read "— / —" forever.
+// The reads become possible only once the state lands; they used to wait a
+// whole poll interval after that before their first run.
+describe('useLocalWalletPool first balance read', () => {
+  async function flushMicrotasks() {
+    for (let index = 0; index < 5; index += 1) {
+      // oxlint-disable-next-line no-await-in-loop
+      await act(async () => {
+        await Promise.resolve();
+      });
+    }
+  }
+
+  it('reads the balance as soon as the state allows it, without a timer', async () => {
+    const { result } = renderHook(useLocalWalletPool, { initialProps: props });
+    await flushMicrotasks();
+    expect(result.current.enabled).toBe(true);
+    expect(mockGetBalance).toHaveBeenCalledTimes(1);
+    expect(result.current.balance?.pools[0]?.totalParsed).toBe('1');
+  });
+});
+
 describe('useLocalWalletPool on a device that cannot store the database', () => {
   afterEach(() => {
     mockStorageUnsupportedNetworkIds = [];
@@ -350,13 +371,15 @@ describe('useLocalWalletPool retained-page lifecycle', () => {
     const { result } = renderHook(useLocalWalletPool, { initialProps: props });
     await flushReads();
     const display = mockDisplay;
+    // The immediate first read plus the first poll, which flushReads fires.
+    const balanceReads = mockGetBalance.mock.calls.length;
     for (let index = 0; index < 5; index += 1) {
       emitPrivacyChange(undefined, EAppEventBusNames.RefreshTokenList);
       await flushReads();
     }
     expect(mockGetState).toHaveBeenCalledTimes(1);
     expect(mockGetAddresses).toHaveBeenCalledTimes(1);
-    expect(mockGetBalance).toHaveBeenCalledTimes(1);
+    expect(mockGetBalance).toHaveBeenCalledTimes(balanceReads);
     expect(result.current.hasAttemptedBalance).toBe(true);
     expect(mockDisplay).toBe(display);
   });

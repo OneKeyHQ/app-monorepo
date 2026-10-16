@@ -7,8 +7,11 @@ import {
 import { SimpleDbEntityPrivacyChainCache } from '../../dbs/simple/entity/SimpleDbEntityPrivacyChainCache';
 
 import {
+  readLastLocalWalletPublicBalance,
   readLocalWalletBalanceStaleFirst,
+  removeLastLocalWalletBalances,
   removeNetworkLastLocalWalletBalances,
+  saveLastLocalWalletPublicBalance,
 } from './privacyChainCacheStore';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
@@ -167,5 +170,77 @@ describe('saved privacy chain balance', () => {
     await expect(
       backgroundApi.simpleDb.privacyChainCache.listLastBalanceAccountIds(),
     ).resolves.toEqual(['hd-1--1']);
+  });
+});
+
+describe('saved public-side balance', () => {
+  const pair = { total: '80', spendable: '50' };
+
+  it('is read back only for the network it was saved under', async () => {
+    const backgroundApi = createBackgroundApi();
+    await saveLastLocalWalletPublicBalance({
+      backgroundApi,
+      ...owner,
+      value: pair,
+    });
+    await expect(
+      readLastLocalWalletPublicBalance({ backgroundApi, ...owner }),
+    ).resolves.toEqual(pair);
+    await expect(
+      readLastLocalWalletPublicBalance({
+        backgroundApi,
+        networkId: 'zec--0',
+        accountId: owner.accountId,
+      }),
+    ).resolves.toBeUndefined();
+    await expect(
+      readLastLocalWalletPublicBalance({
+        backgroundApi,
+        networkId: owner.networkId,
+        accountId: 'hd-1--1',
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('is cleared with the private balance', async () => {
+    const backgroundApi = createBackgroundApi();
+    await saveLastLocalWalletPublicBalance({
+      backgroundApi,
+      ...owner,
+      value: pair,
+    });
+    await expect(
+      backgroundApi.simpleDb.privacyChainCache.listLastBalanceAccountIds(),
+    ).resolves.toEqual([owner.accountId]);
+
+    await removeLastLocalWalletBalances({
+      backgroundApi,
+      accountIds: [owner.accountId],
+    });
+    await expect(
+      readLastLocalWalletPublicBalance({ backgroundApi, ...owner }),
+    ).resolves.toBeUndefined();
+
+    await saveLastLocalWalletPublicBalance({
+      backgroundApi,
+      ...owner,
+      value: pair,
+    });
+    await removeNetworkLastLocalWalletBalances({
+      backgroundApi,
+      networkId: owner.networkId,
+    });
+    await expect(
+      readLastLocalWalletPublicBalance({ backgroundApi, ...owner }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('reads as nothing saved when the store is unavailable', async () => {
+    await expect(
+      readLastLocalWalletPublicBalance({
+        backgroundApi: {} as IBackgroundApi,
+        ...owner,
+      }),
+    ).resolves.toBeUndefined();
   });
 });
