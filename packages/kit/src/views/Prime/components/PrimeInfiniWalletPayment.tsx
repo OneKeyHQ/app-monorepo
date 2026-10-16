@@ -4485,6 +4485,9 @@ function PrimeInfiniWalletPaymentRoot({
               );
             } else {
               const restoreResult = await resolvePrimeInfiniPaymentRestore({
+                sessionChangedMessage: intl.formatMessage({
+                  id: ETranslations.prime_close_and_try_again__desc,
+                }),
                 session: {
                   ...restoredSession,
                   asset: canonicalAsset,
@@ -4738,6 +4741,7 @@ function PrimeInfiniWalletPaymentRoot({
     [
       featureName,
       hasValidRouteParams,
+      intl,
       plan,
       primeUserInfo.onekeyUserId,
       selectedSubscriptionPeriod,

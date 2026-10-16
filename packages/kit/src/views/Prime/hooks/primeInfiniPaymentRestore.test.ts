@@ -1,5 +1,10 @@
 /* cspell:ignore Infini */
+import { createIntl } from 'react-intl';
+
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import enUS from '@onekeyhq/shared/src/locale/json/en_US.json';
+import zhCN from '@onekeyhq/shared/src/locale/json/zh_CN.json';
 import {
   buildPrimeInfiniPaymentCacheKey,
   getPrimeInfiniPaymentAssetKey,
@@ -10,7 +15,18 @@ import type {
   IPrimeInfiniPendingPaymentSession,
 } from '@onekeyhq/shared/types/prime/primeTypes';
 
+import { showPrimeInfiniPaymentErrorToast } from '../primeInfiniPaymentError';
+
 import { resolvePrimeInfiniPaymentRestore } from './primeInfiniPaymentRestore';
+
+const mockToastError = jest.fn();
+jest.mock('@onekeyhq/components', () => ({
+  Toast: {
+    error: (...args: unknown[]) => {
+      mockToastError(...args);
+    },
+  },
+}));
 
 const asset: IPrimeInfiniPaymentAsset = {
   key: getPrimeInfiniPaymentAssetKey({
@@ -71,6 +87,7 @@ function buildSession({
 }
 
 const baseParams = {
+  sessionChangedMessage: 'Close this window and try again.',
   supportedAssets: [asset],
   paymentOptionsLoaded: true,
   createNewPayment: false,
@@ -161,20 +178,47 @@ describe('resolvePrimeInfiniPaymentRestore', () => {
     expect(discardTerminalPaymentSession).not.toHaveBeenCalled();
   });
 
-  it('fails closed when a concurrent claim prevents terminal release', async () => {
-    const persistRestoredSession = jest.fn();
-    await expect(
-      resolvePrimeInfiniPaymentRestore({
+  it.each([
+    { locale: 'zh-CN', messages: zhCN, expected: '关闭此窗口后重试。' },
+    {
+      locale: 'en-US',
+      messages: enUS,
+      expected: 'Close this window and try again.',
+    },
+  ])(
+    'shows a localized recovery error for a concurrent claim in $locale',
+    async ({ locale, messages, expected }) => {
+      const intl = createIntl({
+        locale,
+        messages: messages as Record<string, string>,
+      });
+      const persistRestoredSession = jest.fn();
+      mockToastError.mockClear();
+      const error = await resolvePrimeInfiniPaymentRestore({
         ...baseParams,
+        sessionChangedMessage: intl.formatMessage({
+          id: ETranslations.prime_close_and_try_again__desc,
+        }),
         session: buildSession({ sendStarted: true }),
         fetchLatestPayment: async () => ({ ...payment, status: 'failed' }),
         discardPaymentSession: jest.fn(),
         discardTerminalPaymentSession: async () => false,
         persistRestoredSession,
-      }),
-    ).rejects.toThrow('session changed');
-    expect(persistRestoredSession).not.toHaveBeenCalled();
-  });
+      }).catch((reason: unknown) => reason);
+      expect(error).toBeInstanceOf(OneKeyLocalError);
+      expect(error).toMatchObject({
+        key: ETranslations.prime_close_and_try_again__desc,
+        message: expected,
+      });
+      showPrimeInfiniPaymentErrorToast({
+        error,
+        fallbackMessage: 'Fallback must not be used',
+      });
+      expect(mockToastError).toHaveBeenCalledWith({ title: expected });
+      expect(mockToastError).toHaveBeenCalledTimes(1);
+      expect(persistRestoredSession).not.toHaveBeenCalled();
+    },
+  );
 
   it('preserves the claim on a payment status timeout', async () => {
     const discardTerminalPaymentSession = jest.fn(async () => true);

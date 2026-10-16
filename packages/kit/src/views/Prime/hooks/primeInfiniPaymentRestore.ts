@@ -1,5 +1,6 @@
 /* cspell:ignore Infini */
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   isPrimeInfiniPaymentCacheKeyForContext,
   isPrimeInfiniPaymentClosedUnpaidSnapshot,
@@ -61,10 +62,12 @@ export async function resolvePrimeInfiniPaymentRestore({
   fetchPurchaseStatusSnapshot,
   discardPaymentSession,
   discardTerminalPaymentSession,
+  sessionChangedMessage,
   clearCompletedPaymentSession,
   persistRestoredSession,
 }: {
   session: IPrimeInfiniPendingPaymentSession;
+  sessionChangedMessage: string;
   supportedAssets: IPrimeInfiniPaymentAsset[];
   paymentOptionsLoaded: boolean;
   createNewPayment: boolean;
@@ -146,9 +149,10 @@ export async function resolvePrimeInfiniPaymentRestore({
     isPrimeInfiniPaymentClosedUnpaidSnapshot(paymentWithDurableProgress)
   ) {
     if (!(await discardTerminalPaymentSession(latestPayment))) {
-      throw new OneKeyLocalError(
-        'Infini payment session changed during restore',
-      );
+      throw new OneKeyLocalError({
+        key: ETranslations.prime_close_and_try_again__desc,
+        message: sessionChangedMessage,
+      });
     }
     return { type: 'discarded' };
   }
