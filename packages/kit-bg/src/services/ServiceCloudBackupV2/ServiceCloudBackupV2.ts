@@ -1,3 +1,4 @@
+import { Mutex } from 'async-mutex';
 import { cloneDeep } from 'lodash';
 
 import { decryptAsync } from '@onekeyhq/core/src/secret';
@@ -99,6 +100,63 @@ class ServiceCloudBackupV2 extends ServiceBase {
       }
     | undefined;
 
+  private localRecoveryResetting = false;
+
+  private recoveryGeneration = 0;
+
+  // bg owns both the lifecycle and this lock. Drain wallet mutations before reset.
+  private recoveryImportMutex = new Mutex();
+
+  private recoveryImportTasks = new Set<string>();
+
+  private isRecoveryActive(generation: number): boolean {
+    return (
+      !this.localRecoveryResetting && generation === this.recoveryGeneration
+    );
+  }
+
+  @backgroundMethod()
+  async prepareLocalRecoveryForReset({
+    preserve,
+  }: {
+    preserve: boolean;
+  }): Promise<void> {
+    this.localRecoveryResetting = true;
+    this.recoveryGeneration += 1;
+    this.clearPreparedLocalRestore();
+    let cancellationFailed = false;
+    for (const taskUUID of this.recoveryImportTasks) {
+      try {
+        // Release task ownership even if its password dialog never resolves.
+        // Outstanding writes are still drained by the barrier below.
+        await this.backgroundApi.servicePrimeTransfer.resetImportProgress({
+          taskUUID,
+        });
+      } catch {
+        cancellationFailed = true;
+      }
+    }
+    await this.recoveryImportMutex.runExclusive(async () => {
+      if (!platformEnv.isNativeIOS && !platformEnv.isNativeAndroid) return;
+      const { default: cache } = await import('./localBackupPasswordCache');
+      await cache.prepareForReset({ preserve });
+    });
+    if (cancellationFailed)
+      throw new OneKeyLocalError('Recovery import cancellation failed');
+  }
+
+  @backgroundMethod()
+  async finishLocalRecoveryReset(): Promise<void> {
+    if (platformEnv.isNativeIOS || platformEnv.isNativeAndroid) {
+      const { default: cache } = await import('./localBackupPasswordCache');
+      cache.finishReset();
+    }
+    // Old continuations remain invalid even after a failed reset releases the UI.
+    this.recoveryGeneration += 1;
+    this.clearPreparedLocalRestore();
+    this.localRecoveryResetting = false;
+  }
+
   private clearPreparedLocalRestore(): void {
     if (this.preparedLocalRestore) {
       clearTimeout(this.preparedLocalRestore.timer);
@@ -122,9 +180,15 @@ class ServiceCloudBackupV2 extends ServiceBase {
     password: string;
     recordId?: string;
   }): Promise<void> {
-    if (!this.supportsLocalPasswordCache(params.accountInfo)) return;
+    const generation = this.recoveryGeneration;
+    if (
+      this.localRecoveryResetting ||
+      !this.supportsLocalPasswordCache(params.accountInfo)
+    )
+      return;
     try {
       const { default: cache } = await import('./localBackupPasswordCache');
+      if (!this.isRecoveryActive(generation)) return;
       await cache.set({
         providerType: params.accountInfo.providerType,
         accountId: params.accountInfo.userId,
@@ -532,16 +596,19 @@ class ServiceCloudBackupV2 extends ServiceBase {
     password: string;
     recordId?: string;
   }) {
+    const generation = this.recoveryGeneration;
     const accountInfo = await this.getCloudAccountInfo();
     const privateData = await this.decryptBackupPrivateData(
       params,
       accountInfo,
     );
-    await this.cacheBackupPassword({
-      accountInfo,
-      password: params.password,
-      recordId: params.recordId,
-    });
+    if (this.isRecoveryActive(generation)) {
+      await this.cacheBackupPassword({
+        accountInfo,
+        password: params.password,
+        recordId: params.recordId,
+      });
+    }
     return privateData;
   }
 
@@ -594,7 +661,9 @@ class ServiceCloudBackupV2 extends ServiceBase {
     recordId: string;
     password?: string;
   }): Promise<{ restoreId: string } | null> {
+    const generation = this.recoveryGeneration;
     if (
+      this.localRecoveryResetting ||
       (!platformEnv.isNativeIOS && !platformEnv.isNativeAndroid) ||
       !params.recordId
     )
@@ -603,6 +672,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
     try {
       const provider = this.getProvider();
       const accountInfo = await provider.getCloudAccountInfo();
+      if (!this.isRecoveryActive(generation)) return null;
       if (!this.supportsLocalPasswordCache(accountInfo) || !accountInfo.userId)
         return null;
       // Resolve the selected record in bg before accessing its cached password.
@@ -612,6 +682,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
         throw new OneKeyLocalError('Backup data is empty');
       }
       await this.assertBackupAccountUnchanged(accountInfo);
+      if (!this.isRecoveryActive(generation)) return null;
       const { payload } = backup;
       let privateData: IPrimeTransferPrivateData | undefined;
       if (params.password !== undefined) {
@@ -620,6 +691,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
           accountInfo,
         );
         await this.assertBackupAccountUnchanged(accountInfo);
+        if (!this.isRecoveryActive(generation)) return null;
         await this.cacheBackupPassword({
           accountInfo,
           password: params.password,
@@ -628,43 +700,26 @@ class ServiceCloudBackupV2 extends ServiceBase {
       } else {
         // This optional path must not emit a password-error toast on cache misses.
         const { default: cache } = await import('./localBackupPasswordCache');
-        for (const recordId of [params.recordId, undefined]) {
-          const password = await cache.get({
-            providerType: accountInfo.providerType,
-            accountId: accountInfo.userId,
-            recordId,
-          });
-          if (password) {
-            try {
-              privateData = await this.decryptBackupPrivateData(
-                { payload, password },
-                accountInfo,
-              );
-            } catch {
-              // The current password may legitimately fail on an older backup.
-              if (recordId)
-                await cache.remove({
-                  providerType: accountInfo.providerType,
-                  accountId: accountInfo.userId,
-                  recordId,
-                });
-            }
-            if (privateData) {
-              await this.assertBackupAccountUnchanged(accountInfo);
-              if (!recordId) {
-                await this.cacheBackupPassword({
-                  accountInfo,
-                  password,
-                  recordId: params.recordId,
-                });
-              }
-              break;
-            }
+        if (!this.isRecoveryActive(generation)) return null;
+        const password = await cache.get({
+          providerType: accountInfo.providerType,
+          accountId: accountInfo.userId,
+          recordId: params.recordId,
+        });
+        if (password) {
+          try {
+            privateData = await this.decryptBackupPrivateData(
+              { payload, password },
+              accountInfo,
+            );
+          } catch {
+            // Keep the pairing on any failure and offer this backup's password.
           }
         }
       }
       if (!privateData) return null;
       await this.assertBackupAccountUnchanged(accountInfo);
+      if (!this.isRecoveryActive(generation)) return null;
       // Keep decrypted data in bg. The UI receives a short-lived, one-use handle.
       const restoreId = stringUtils.generateUUID();
       this.clearPreparedLocalRestore();
@@ -691,29 +746,41 @@ class ServiceCloudBackupV2 extends ServiceBase {
     restoreId: string;
   }): Promise<{ success: boolean } | null> {
     if (!platformEnv.isNativeIOS && !platformEnv.isNativeAndroid) return null;
+    const generation = this.recoveryGeneration;
+    if (!this.isRecoveryActive(generation)) return null;
     const prepared = this.preparedLocalRestore;
     if (!prepared || prepared.restoreId !== params.restoreId) return null;
     this.clearPreparedLocalRestore();
     if (prepared.expiresAt <= Date.now()) return null;
-    const accountInfo = await this.getCloudAccountInfo();
-    if (
-      !this.supportsLocalPasswordCache(accountInfo) ||
-      accountInfo.providerType !== prepared.providerType ||
-      accountInfo.userId !== prepared.accountId
-    )
-      return null;
+    this.recoveryImportTasks.add(params.taskUUID);
     // Authorization/import failures propagate, rather than retrying with a password.
     try {
+      const accountInfo = await this.getCloudAccountInfo();
+      if (
+        !this.isRecoveryActive(generation) ||
+        !this.supportsLocalPasswordCache(accountInfo) ||
+        accountInfo.providerType !== prepared.providerType ||
+        accountInfo.userId !== prepared.accountId
+      )
+        return null;
       const { success } = await this.importBackup({
         transferData: prepared.transferData,
         taskUUID: params.taskUUID,
+        generation,
       });
-      return { success };
+      return this.isRecoveryActive(generation) ? { success } : null;
     } catch (error) {
-      await this.backgroundApi.servicePrimeTransfer.resetImportProgress({
-        taskUUID: params.taskUUID,
-      });
+      if (this.isRecoveryActive(generation)) {
+        await this.recoveryImportMutex.runExclusive(async () => {
+          if (!this.isRecoveryActive(generation)) return;
+          await this.backgroundApi.servicePrimeTransfer.resetImportProgress({
+            taskUUID: params.taskUUID,
+          });
+        });
+      }
       throw error;
+    } finally {
+      this.recoveryImportTasks.delete(params.taskUUID);
     }
   }
 
@@ -725,6 +792,8 @@ class ServiceCloudBackupV2 extends ServiceBase {
     password: string;
     recordId?: string;
   }) {
+    const generation = this.recoveryGeneration;
+    this.recoveryImportTasks.add(params.taskUUID);
     try {
       if (!params?.payload) {
         throw new OneKeyLocalError('Payload is required for restore');
@@ -734,14 +803,16 @@ class ServiceCloudBackupV2 extends ServiceBase {
           params.taskUUID,
         );
       const cancelledResult = { success: false, errorsInfo: [] };
-      if (!(await isActive())) return cancelledResult;
+      if (!(await isActive()) || !this.isRecoveryActive(generation))
+        return cancelledResult;
       const privateData = await this.restorePreparePrivateData({
         password: params.password,
         payload: params.payload,
         recordId: params.recordId,
       });
 
-      if (!(await isActive())) return cancelledResult;
+      if (!(await isActive()) || !this.isRecoveryActive(generation))
+        return cancelledResult;
       const transferData: IPrimeTransferData = {
         ...params.payload,
         privateData,
@@ -749,33 +820,44 @@ class ServiceCloudBackupV2 extends ServiceBase {
       return await this.importBackup({
         transferData,
         taskUUID: params.taskUUID,
+        generation,
       });
     } catch (error) {
-      await this.backgroundApi.servicePrimeTransfer.resetImportProgress({
-        taskUUID: params.taskUUID,
-      });
+      if (this.isRecoveryActive(generation)) {
+        await this.recoveryImportMutex.runExclusive(async () => {
+          if (!this.isRecoveryActive(generation)) return;
+          await this.backgroundApi.servicePrimeTransfer.resetImportProgress({
+            taskUUID: params.taskUUID,
+          });
+        });
+      }
       throw error;
+    } finally {
+      this.recoveryImportTasks.delete(params.taskUUID);
     }
   }
 
   private async importBackup(params: {
     taskUUID: string;
     transferData: IPrimeTransferData;
+    generation: number;
   }) {
-    const { transferData } = params;
+    const { transferData, generation } = params;
     const isActive = () =>
       this.backgroundApi.servicePrimeTransfer.isImportTaskActive(
         params.taskUUID,
       );
     const cancelledResult = { success: false, errorsInfo: [] };
-    if (!(await isActive())) return cancelledResult;
+    if (!(await isActive()) || !this.isRecoveryActive(generation))
+      return cancelledResult;
     const selectedTransferData =
       await this.backgroundApi.servicePrimeTransfer.getSelectedTransferData({
         data: transferData,
         selectedItemMap: 'ALL',
       });
 
-    if (!(await isActive())) return cancelledResult;
+    if (!(await isActive()) || !this.isRecoveryActive(generation))
+      return cancelledResult;
     const firstWalletCredential = selectedTransferData.wallets.find(
       (item) => item.credentialDecrypted,
     )?.credentialDecrypted;
@@ -791,34 +873,40 @@ class ServiceCloudBackupV2 extends ServiceBase {
       localPassword = password;
     }
 
-    if (!(await isActive())) return cancelledResult;
-    await this.backgroundApi.servicePrimeTransfer.initImportProgress({
-      taskUUID: params.taskUUID,
-      selectedTransferData,
-      isFromCloudBackupRestore: true,
-    });
-
-    const { success, errorsInfo, taskUUID } =
-      await this.backgroundApi.servicePrimeTransfer.startImport({
+    return this.recoveryImportMutex.runExclusive(async () => {
+      if (!(await isActive()) || !this.isRecoveryActive(generation))
+        return cancelledResult;
+      await this.backgroundApi.servicePrimeTransfer.initImportProgress({
         taskUUID: params.taskUUID,
         selectedTransferData,
-        includingDefaultNetworks: true,
         isFromCloudBackupRestore: true,
-        password: localPassword,
-        localPassword,
       });
+      if (!(await isActive()) || !this.isRecoveryActive(generation))
+        return cancelledResult;
+      const { success, errorsInfo, taskUUID } =
+        await this.backgroundApi.servicePrimeTransfer.startImport({
+          taskUUID: params.taskUUID,
+          selectedTransferData,
+          includingDefaultNetworks: true,
+          isFromCloudBackupRestore: true,
+          password: localPassword,
+          localPassword,
+        });
 
-    await this.backgroundApi.servicePrimeTransfer.completeImportProgress({
-      errorsInfo,
-      taskUUID,
+      // Once writes start, reset waits for them to settle before erasing wallets.
+      if (!(await isActive()) || !this.isRecoveryActive(generation))
+        return cancelledResult;
+      await this.backgroundApi.servicePrimeTransfer.completeImportProgress({
+        errorsInfo,
+        taskUUID,
+      });
+      return {
+        success,
+        errorsInfo,
+        transferData,
+        selectedTransferData,
+      };
     });
-
-    return {
-      success,
-      errorsInfo,
-      transferData,
-      selectedTransferData,
-    };
   }
 
   @backgroundMethod()

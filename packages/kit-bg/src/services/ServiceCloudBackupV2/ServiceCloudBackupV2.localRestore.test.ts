@@ -63,7 +63,13 @@ jest.mock('../../states/jotai/atoms/cloudBackup', () => ({
 }));
 jest.mock('./localBackupPasswordCache', () => ({
   __esModule: true,
-  default: { get: jest.fn(), set: jest.fn(), remove: jest.fn() },
+  default: {
+    get: jest.fn(),
+    set: jest.fn(),
+    remove: jest.fn(),
+    prepareForReset: jest.fn(),
+    finishReset: jest.fn(),
+  },
 }));
 
 const accountInfo: IBackupProviderAccountInfo = {
@@ -464,11 +470,7 @@ describe('local iCloud restore integration', () => {
   it('falls back for a wrong cached password, rejects wrong manual input, then refreshes after successful manual input', async () => {
     cached.get.mockResolvedValueOnce('wrong-cached-password');
     expect(await service.prepareLocalRestore({ recordId })).toBeNull();
-    expect(cached.remove).toHaveBeenCalledWith({
-      providerType: accountInfo.providerType,
-      accountId: accountInfo.userId,
-      recordId,
-    });
+    expect(cached.remove).not.toHaveBeenCalled();
     await expect(
       service.prepareLocalRestore({
         recordId,
@@ -489,25 +491,221 @@ describe('local iCloud restore integration', () => {
     });
   });
 
-  it('tries the current password after a stale record entry, but retains a current password that fails on an older backup', async () => {
-    cached.get
-      .mockResolvedValueOnce('stale-record-password')
-      .mockResolvedValueOnce(password);
-    expect(await service.prepareLocalRestore({ recordId })).not.toBeNull();
-    expect(cached.set).toHaveBeenCalledWith({
-      providerType: accountInfo.providerType,
-      accountId: accountInfo.userId,
-      recordId,
-      password,
-    });
-    cached.get
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce('new-current-password');
-    cached.remove.mockClear();
+  it('invalidates prepared handles and disables new recovery before reset', async () => {
+    const prepared = await prepareCached();
+    await service.prepareLocalRecoveryForReset({ preserve: true });
+    expect(cached.prepareForReset).toHaveBeenCalledWith({ preserve: true });
     expect(
-      await service.prepareLocalRestore({ recordId: 'older-backup' }),
+      await service.restorePreparedLocalBackup({
+        ...prepared,
+        taskUUID: 'import-task',
+      }),
     ).toBeNull();
+    expect(await service.prepareLocalRestore({ recordId })).toBeNull();
+  });
+
+  it.each(['account', 'selection', 'authorization', 'initialization'])(
+    'invalidates consumed handles across reset during %s, even after lifecycle release',
+    async (stage) => {
+      const prepared = await prepareCached();
+      let pendingReset: Promise<void> | undefined;
+      const reset = async () => {
+        await service.prepareLocalRecoveryForReset({ preserve: false });
+        await service.finishLocalRecoveryReset();
+      };
+      if (stage === 'account') {
+        mockProvider.getCloudAccountInfo.mockImplementationOnce(async () => {
+          await reset();
+          return accountInfo;
+        });
+      } else if (stage === 'selection') {
+        transfer.getSelectedTransferData.mockImplementationOnce(async () => {
+          await reset();
+          return selectedTransferData;
+        });
+      } else if (stage === 'authorization') {
+        promptPasswordVerify.mockImplementationOnce(async () => {
+          await reset();
+          return { password: 'synthetic-local-password' };
+        });
+      } else {
+        // Initialization is inside the write barrier: reset must wait for it.
+        transfer.initImportProgress.mockImplementationOnce(async () => {
+          pendingReset = service.prepareLocalRecoveryForReset({
+            preserve: false,
+          });
+        });
+      }
+      const result = await service.restorePreparedLocalBackup({
+        ...prepared,
+        taskUUID: 'import-task',
+      });
+      expect(result === null || result.success === false).toBe(true);
+      expect(transfer.startImport).not.toHaveBeenCalled();
+      expect(transfer.completeImportProgress).not.toHaveBeenCalled();
+      if (stage === 'initialization') {
+        await pendingReset;
+        await service.finishLocalRecoveryReset();
+      }
+      expect(
+        await service.restorePreparedLocalBackup({
+          ...prepared,
+          taskUUID: 'import-task',
+        }),
+      ).toBeNull();
+    },
+  );
+
+  it('drains an in-progress wallet import before allowing reset to erase storage', async () => {
+    const prepared = await prepareCached();
+    let releaseImport: (() => void) | undefined;
+    let announceImport: (() => void) | undefined;
+    const importStarted = new Promise<void>((resolve) => {
+      announceImport = resolve;
+    });
+    const importFinished = new Promise<void>((resolve) => {
+      releaseImport = resolve;
+    });
+    const order: string[] = [];
+    transfer.startImport.mockImplementationOnce(async () => {
+      announceImport?.();
+      await importFinished;
+      order.push('last-wallet-write');
+      return { success: true, errorsInfo: [], taskUUID: 'import-task' };
+    });
+    const restoring = service.restorePreparedLocalBackup({
+      ...prepared,
+      taskUUID: 'import-task',
+    });
+    await importStarted;
+    const resetting = service
+      .prepareLocalRecoveryForReset({ preserve: false })
+      .then(() => {
+        order.push('wallet-wipe');
+      });
+    expect(cached.prepareForReset).not.toHaveBeenCalled();
+    releaseImport?.();
+    await Promise.all([restoring, resetting]);
+    expect(order).toEqual(['last-wallet-write', 'wallet-wipe']);
+    expect(transfer.completeImportProgress).not.toHaveBeenCalled();
+  });
+
+  it('allows fresh manual recovery after failed reset without reviving old preparation', async () => {
+    const prepared = await prepareCached();
+    cached.prepareForReset.mockRejectedValueOnce(new Error('unavailable'));
+    await expect(
+      service.prepareLocalRecoveryForReset({ preserve: false }),
+    ).rejects.toThrow();
+    await service.finishLocalRecoveryReset();
+    expect(cached.finishReset).toHaveBeenCalled();
+    expect(
+      await service.restorePreparedLocalBackup({
+        ...prepared,
+        taskUUID: 'old-task',
+      }),
+    ).toBeNull();
+    const fresh = await service.prepareLocalRestore({ recordId, password });
+    expect(fresh).not.toBeNull();
+    if (!fresh) throw new OneKeyLocalError('Expected fresh manual handle');
+    expect(
+      await service.restorePreparedLocalBackup({
+        ...fresh,
+        taskUUID: 'new-task',
+      }),
+    ).toEqual({ success: true });
+  });
+
+  it('releases the old import task during reset while its password dialog is still pending', async () => {
+    const prepared = await prepareCached();
+    let releasePassword: (() => void) | undefined;
+    let announcePassword: (() => void) | undefined;
+    const passwordPending = new Promise<void>((resolve) => {
+      releasePassword = resolve;
+    });
+    const passwordStarted = new Promise<void>((resolve) => {
+      announcePassword = resolve;
+    });
+    let activeTask: string | undefined = 'old-task';
+    transfer.isImportTaskActive.mockImplementation(
+      async (task: string) => task === activeTask,
+    );
+    transfer.resetImportProgress.mockImplementation(
+      async ({ taskUUID }: { taskUUID: string }) => {
+        if (taskUUID === activeTask) activeTask = undefined;
+      },
+    );
+    promptPasswordVerify.mockImplementationOnce(async () => {
+      announcePassword?.();
+      await passwordPending;
+      return { password: 'synthetic-local-password' };
+    });
+    const oldRestore = service.restorePreparedLocalBackup({
+      ...prepared,
+      taskUUID: 'old-task',
+    });
+    await passwordStarted;
+    cached.prepareForReset.mockRejectedValueOnce(new Error('erasure failed'));
+    await expect(
+      service.prepareLocalRecoveryForReset({ preserve: false }),
+    ).rejects.toThrow();
+    await service.finishLocalRecoveryReset();
+    expect(activeTask).toBeUndefined();
+    const fresh = await service.prepareLocalRestore({ recordId, password });
+    if (!fresh) throw new OneKeyLocalError('Expected fresh manual handle');
+    activeTask = 'fresh-task';
+    expect(
+      await service.restorePreparedLocalBackup({
+        ...fresh,
+        taskUUID: 'fresh-task',
+      }),
+    ).toEqual({ success: true });
+    releasePassword?.();
+    expect(await oldRestore).toBeNull();
+    expect(transfer.startImport).toHaveBeenCalledTimes(1);
+    expect(activeTask).toBe('fresh-task');
+  });
+
+  it('still drains writes and erases recovery when import-task cancellation fails', async () => {
+    const prepared = await prepareCached();
+    mockProvider.getCloudAccountInfo.mockImplementationOnce(async () => {
+      transfer.resetImportProgress.mockRejectedValueOnce(
+        new Error('task cleanup failed'),
+      );
+      await expect(
+        service.prepareLocalRecoveryForReset({ preserve: false }),
+      ).rejects.toThrow('Recovery import cancellation failed');
+      expect(cached.prepareForReset).toHaveBeenCalledWith({ preserve: false });
+      await service.finishLocalRecoveryReset();
+      return accountInfo;
+    });
+    expect(
+      await service.restorePreparedLocalBackup({
+        ...prepared,
+        taskUUID: 'old-task',
+      }),
+    ).toBeNull();
+    expect(transfer.startImport).not.toHaveBeenCalled();
+  });
+
+  it('does not publish a preparation that crossed a completed failed reset', async () => {
+    mockProvider.downloadData.mockImplementationOnce(async () => {
+      await service.prepareLocalRecoveryForReset({ preserve: true });
+      await service.finishLocalRecoveryReset();
+      return { payload };
+    });
+    expect(
+      await service.prepareLocalRestore({ recordId, password }),
+    ).toBeNull();
+    expect(cached.set).not.toHaveBeenCalled();
+    expect(cached.get).not.toHaveBeenCalled();
+  });
+
+  it('tries only the selected record once and preserves a failed pairing', async () => {
+    cached.get.mockResolvedValueOnce('stale-record-password');
+    expect(await service.prepareLocalRestore({ recordId })).toBeNull();
+    expect(cached.get).toHaveBeenCalledTimes(1);
     expect(cached.remove).not.toHaveBeenCalled();
+    expect(cached.set).not.toHaveBeenCalled();
   });
 
   it('treats cache failures as optional without hiding local authorization or import failures', async () => {
@@ -1049,7 +1247,7 @@ describe('local iCloud restore integration', () => {
     it('falls back after wrong cached passwords, rejects wrong manual input, and caches successful manual decryption', async () => {
       cached.get.mockResolvedValue('wrong-cached-password');
       expect(await service.prepareLocalRestore({ recordId })).toBeNull();
-      expect(cached.remove).toHaveBeenCalledWith(googleScope);
+      expect(cached.remove).not.toHaveBeenCalled();
       await expect(
         service.prepareLocalRestore({
           recordId,
