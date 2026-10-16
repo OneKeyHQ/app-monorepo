@@ -1,26 +1,71 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import type { ReactNode } from 'react';
 
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useSharedValue } from 'react-native-reanimated';
 import { useDebouncedCallback } from 'use-debounce';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
+  Button,
   Empty,
   Icon,
   Page,
+  ScrollView,
   SearchBar,
   SectionList,
   SizableText,
   Skeleton,
+  Spinner,
   Stack,
   Tabs,
   View,
   XStack,
   YStack,
   isLiquidGlassAvailable,
+  useMedia,
 } from '@onekeyhq/components';
 import { DiscoveryBrowserProviderMirror } from '@onekeyhq/kit/src/views/Discovery/components/DiscoveryBrowserProviderMirror';
+import {
+  TOKEN_SELECTOR_LIST_PADDING_BOTTOM,
+  TOKEN_SELECTOR_SEARCH_SECTION_GAP,
+  TOKEN_SELECTOR_SEARCH_SECTION_PREVIEW_ROWS,
+} from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/constants';
+import {
+  MarketSearchSectionTitle,
+  MarketSearchShowMoreButton,
+  MarketSearchStockSection,
+  MarketSearchTokenSection,
+  SearchResultsSkeleton,
+} from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/MarketTokenSelectorSearchResults';
+import {
+  MobileSelectorSearchSkeleton,
+  MobileSelectorStockTable,
+} from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/MobileMarketSelectorBrowseLists';
+import {
+  MobileMarketSearchAllList,
+  MobileMarketSearchSectionTitle,
+  MobileMarketSearchShowMoreButton,
+  MobileMarketSearchStockRows,
+  MobileMarketSearchTokenList,
+  MobileMarketSearchTokenRows,
+} from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/MobileMarketTokenSelectorSearchResults';
+import { useMarketStockSelectorList } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/useMarketStockSelectorList';
+import { useStockLoadMoreOnScrollEnd } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/useMarketTokenSelectorSearchState';
+import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
+import {
+  applyMarketSectionPreview,
+  isDetailSearchChainToken,
+} from '@onekeyhq/kit/src/views/Market/utils/marketSearchList';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { isGoogleSearchItem } from '@onekeyhq/shared/src/consts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -34,7 +79,9 @@ import type {
 } from '@onekeyhq/shared/src/routes/universalSearch';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { isMarketSearchStockListing } from '@onekeyhq/shared/src/utils/marketSearchStock';
+import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 import type {
   IUniversalSearchBatchResult,
   IUniversalSearchResultItem,
@@ -51,6 +98,7 @@ import { ListItem } from '../../../components/ListItem';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+import { useMarketWatchListV2Atom } from '../../../states/jotai/contexts/marketV2';
 import { useHomeTokenListSnapshot } from '../../../states/jotai/contexts/tokenList/cells';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { MarketWatchListProviderMirror } from '../../Market/MarketWatchListProviderMirror';
@@ -64,12 +112,23 @@ import {
   UniversalSearchSettingsItem,
   UniversalSearchV2MarketTokenItem,
 } from '../components/SearchResultItems';
-import { useSettingsSearch } from '../hooks/useSettingsSearch';
-import { UniversalSearchTestIDs } from '../testIDs';
 import {
+  UniversalSearchStockTab,
+  UniversalSearchTokenTab,
+  toUniversalSearchStockItem,
+  useUniversalSearchSelectorTokens,
+} from '../components/UniversalSearchMarketResults';
+import { useSettingsSearch } from '../hooks/useSettingsSearch';
+import { useUniversalSearchMarketPress } from '../hooks/useUniversalSearchMarketPress';
+import { UniversalSearchTestIDs } from '../testIDs';
+import { isSearchResponseCurrent } from '../universalSearchRun';
+import {
+  WATCHLIST_TAB_INDEX,
   getUniversalSearchTabIndex,
+  getUniversalSearchWatchlistIdentity,
   prioritizeMarketFocusedSections,
   resolveUniversalSearchInitialTabName,
+  resolveUniversalSearchWatchlistIdentities,
   shouldPrioritizeMarketSearchSections,
 } from '../universalSearchTabs';
 
@@ -85,7 +144,12 @@ interface IUniversalSection {
   showMore?: boolean;
 }
 
-const SEARCH_DEBOUNCE_MS = 300;
+// Matches the Market detail selector's search delay.
+const SEARCH_DEBOUNCE_MS = 500;
+// The longest the other results wait for the stock search's first page.
+const STOCK_FIRST_PAGE_WAIT_MS = 3000;
+// The modal width every other modal opens at.
+const DEFAULT_MODAL_CONTENT_MAX_WIDTH = 640;
 const LIQUID_GLASS_SEARCH_BAR_CONTAINER_PROPS = {
   h: 40,
   alignItems: 'center',
@@ -109,6 +173,12 @@ const PRIMARY_SEARCH_TYPES: EUniversalSearchType[] = [
   EUniversalSearchType.Perp,
 ];
 
+// Stocks come from the Market selector's paged stock search in the page, not
+// from the background search rounds, so they keep their market tags and can
+// load further pages.
+const isBackgroundSearchType = (type: EUniversalSearchType) =>
+  type !== EUniversalSearchType.MarketStock;
+
 // Default scope for the global universal search: every bg-searchable category
 // plus Settings, which is injected client-side rather than via the bg search
 // types. A caller can pass a narrower `filterTypes` (e.g. the browser tab uses
@@ -119,7 +189,8 @@ const getDefaultFilterTypes = (): EUniversalSearchType[] => [
 ];
 
 const DEFAULT_SLICE_LIMIT = 5;
-const MARKET_SLICE_LIMIT = 3;
+// All previews stocks and tokens like the Market detail selector.
+const MARKET_PREVIEW_LIMIT = TOKEN_SELECTOR_SEARCH_SECTION_PREVIEW_ROWS;
 const STOCK_TAB_INDEX = getUniversalSearchTabIndex(
   EUniversalSearchType.MarketStock,
 );
@@ -160,8 +231,6 @@ function ListEmptyComponent() {
 
 const isStockSection = (tabIndex: number) => tabIndex === STOCK_TAB_INDEX;
 const isMarketSection = (tabIndex: number) => tabIndex === MARKET_TAB_INDEX;
-const isMarketTableSection = (tabIndex: number) =>
-  isStockSection(tabIndex) || isMarketSection(tabIndex);
 
 export function UniversalSearch({
   filterTypes,
@@ -173,6 +242,7 @@ export function UniversalSearch({
   source: EUniversalSearchSource;
 }) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
   const isTravelMode =
     travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
     'travel-mode';
@@ -210,6 +280,7 @@ export function UniversalSearch({
     initialTab,
   });
 
+  const [{ data: watchlistItems }] = useMarketWatchListV2Atom();
   const searchSettings = useSettingsSearch();
 
   // The set of result categories this search instance is allowed to surface.
@@ -231,6 +302,13 @@ export function UniversalSearch({
     !isTravelMode &&
     allowedSearchTypeSet.has(EUniversalSearchType.V2MarketToken);
 
+  const shouldIncludeWatchlist = PRIMARY_SEARCH_TYPES.some((type) =>
+    allowedSearchTypeSet.has(type),
+  );
+  const watchlistTabTitle = intl.formatMessage({
+    id: ETranslations.global_watchlist,
+  });
+
   const tabTitles = useMemo(() => {
     return [
       intl.formatMessage({
@@ -244,8 +322,9 @@ export function UniversalSearch({
         id: ETranslations.perps_token_selector_stocks,
       }),
       intl.formatMessage({
-        id: ETranslations.global_market,
+        id: ETranslations.global_universal_search_tabs_tokens,
       }),
+      watchlistTabTitle,
       intl.formatMessage({
         id: ETranslations.global_perp,
       }),
@@ -263,7 +342,7 @@ export function UniversalSearch({
           id: ETranslations.global_settings,
         }),
     ].filter(Boolean);
-  }, [intl]);
+  }, [intl, watchlistTabTitle]);
 
   const initialTabName = useMemo(
     () =>
@@ -286,14 +365,95 @@ export function UniversalSearch({
     },
     [focusedTab],
   );
-  // Only surface tabs that actually have results for the current search. The
-  // leading "All" tab is always kept; module tabs with no results are hidden.
+  // The query of the paged stock search; empty when stocks are out of scope.
+  const [stockQuery, setStockQuery] = useState('');
+  const isStockSearchInScope = allowedSearchTypeSet.has(
+    EUniversalSearchType.MarketStock,
+  );
+  const stockResult = useMarketStockSelectorList({
+    query: stockQuery,
+    searchOnly: true,
+  });
+  const stockSection = useMemo<IUniversalSection | undefined>(() => {
+    // A failed first page keeps the section so it can offer a retry.
+    if (
+      !stockQuery ||
+      (stockResult.items.length === 0 && !stockResult.isError)
+    ) {
+      return undefined;
+    }
+    const data = stockResult.items.map(toUniversalSearchStockItem);
+    return {
+      tabIndex: STOCK_TAB_INDEX,
+      type: EUniversalSearchType.MarketStock,
+      title: intl.formatMessage({
+        id: ETranslations.perps_token_selector_stocks,
+      }),
+      // The All preview is applied with the token section below.
+      data,
+    };
+  }, [intl, stockQuery, stockResult.isError, stockResult.items]);
+  // The background results plus the stock section, in tab order.
+  const displaySections = useMemo(() => {
+    const merged = stockSection
+      ? [...sections, stockSection].toSorted((a, b) => a.tabIndex - b.tabIndex)
+      : sections;
+    return applyMarketSectionPreview(merged, {
+      stockTabIndex: STOCK_TAB_INDEX,
+      tokenTabIndex: MARKET_TAB_INDEX,
+      previewLimit: MARKET_PREVIEW_LIMIT,
+      stockCanLoadMore: stockResult.canLoadMore,
+    });
+  }, [sections, stockResult.canLoadMore, stockSection]);
+  const tokenSectionItems = useMemo(
+    () =>
+      displaySections.find((section) => section.tabIndex === MARKET_TAB_INDEX)
+        ?.data ?? [],
+    [displaySections],
+  );
+  const selectorTokens = useUniversalSearchSelectorTokens(tokenSectionItems);
+
+  // Tabs without results stay hidden.
   const visibleTabTitles = useMemo(() => {
-    const sectionTitles = new Set(sections.map((section) => section.title));
-    return tabTitles.filter(
-      (title, index) => index === 0 || sectionTitles.has(title),
+    const sectionTitles = new Set(
+      displaySections
+        .filter((section) => section.data.length > 0)
+        .map((section) => section.title),
     );
-  }, [sections, tabTitles]);
+    return tabTitles.filter(
+      (title, index) =>
+        index === 0 ||
+        (title === watchlistTabTitle
+          ? shouldIncludeWatchlist
+          : sectionTitles.has(title)),
+    );
+  }, [displaySections, shouldIncludeWatchlist, tabTitles, watchlistTabTitle]);
+
+  // Results wait for the stock search too, so a stock section landing later
+  // does not push the other results down; but a slow stock search holds them
+  // for at most STOCK_FIRST_PAGE_WAIT_MS after the rest have arrived.
+  // The wait is tracked per search run, not per query, so searching the same
+  // query again waits again.
+  const isAwaitingStockFirstPage = Boolean(stockQuery) && stockResult.isLoading;
+  const searchRunRef = useRef(0);
+  const [searchRun, setSearchRun] = useState(0);
+  const [stockWaitExpiredRun, setStockWaitExpiredRun] = useState(-1);
+  const isHoldingForStocks =
+    searchStatus === ESearchStatus.done && isAwaitingStockFirstPage;
+  useEffect(() => {
+    if (!isHoldingForStocks) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      setStockWaitExpiredRun(searchRun);
+    }, STOCK_FIRST_PAGE_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [isHoldingForStocks, searchRun]);
+  const isStockWaitExpired = stockWaitExpiredRun === searchRun;
+  const resultStatus =
+    isHoldingForStocks && !isStockWaitExpired
+      ? ESearchStatus.loading
+      : searchStatus;
 
   // The selected tab may have been hidden (e.g. an `initialTab` preset whose
   // module returned no results). Fall back to the "All" tab so the result list
@@ -335,7 +495,7 @@ export function UniversalSearch({
   // visible `activeTab`. This is a render-time fix (not a deferred write), so it
   // is applied at mount-seed time rather than being dropped by it.
   if (
-    searchStatus === ESearchStatus.done &&
+    resultStatus === ESearchStatus.done &&
     focusedTab.value !== activeTab &&
     !visibleTabTitles.includes(focusedTab.value)
   ) {
@@ -404,13 +564,18 @@ export function UniversalSearch({
   const getSearchInput = useCallback(() => searchInputRef.current, []);
 
   const effectivePrimaryTypes = useMemo(
-    () => PRIMARY_SEARCH_TYPES.filter((type) => allowedSearchTypeSet.has(type)),
+    () =>
+      PRIMARY_SEARCH_TYPES.filter(
+        (type) =>
+          isBackgroundSearchType(type) && allowedSearchTypeSet.has(type),
+      ),
     [allowedSearchTypeSet],
   );
   const effectiveDeferredTypes = useMemo(
     () =>
       getSearchTypes().filter(
         (type) =>
+          isBackgroundSearchType(type) &&
           !PRIMARY_SEARCH_TYPES.includes(type) &&
           allowedSearchTypeSet.has(type),
       ),
@@ -506,37 +671,27 @@ export function UniversalSearch({
         });
       }
 
-      if (result?.[EUniversalSearchType.MarketStock]?.items?.length) {
-        const data = result[EUniversalSearchType.MarketStock]
-          .items as IUniversalSearchResultItem[];
-        searchResultSections.push({
-          tabIndex: getUniversalSearchTabIndex(
-            EUniversalSearchType.MarketStock,
-          ),
-          type: EUniversalSearchType.MarketStock,
-          title: intl.formatMessage({
-            id: ETranslations.perps_token_selector_stocks,
-          }),
-          data,
-          sliceData: data.slice(0, MARKET_SLICE_LIMIT),
-          showMore: data.length > MARKET_SLICE_LIMIT,
-        });
-      }
-
-      if (result?.[EUniversalSearchType.V2MarketToken]?.items?.length) {
-        const data = result[EUniversalSearchType.V2MarketToken]
-          .items as IUniversalSearchResultItem[];
+      // Stock listings are left to the stock section, as in the Market
+      // detail selector.
+      const tokenData = (result?.[EUniversalSearchType.V2MarketToken]?.items ??
+        []) as IUniversalSearchResultItem[];
+      const chainTokenData = tokenData.filter(
+        (item) =>
+          item.type === EUniversalSearchType.V2MarketToken &&
+          isDetailSearchChainToken(item.payload),
+      );
+      if (chainTokenData.length) {
+        const data = chainTokenData;
         searchResultSections.push({
           tabIndex: getUniversalSearchTabIndex(
             EUniversalSearchType.V2MarketToken,
           ),
           type: EUniversalSearchType.V2MarketToken,
           title: intl.formatMessage({
-            id: ETranslations.global_market,
+            id: ETranslations.global_universal_search_tabs_tokens,
           }),
+          // The All preview is applied with the stock section.
           data,
-          sliceData: data.slice(0, MARKET_SLICE_LIMIT),
-          showMore: data.length > MARKET_SLICE_LIMIT,
         });
       }
 
@@ -651,9 +806,66 @@ export function UniversalSearch({
     return searchInputRef.current !== input;
   }, []);
 
+  // The background results of the latest search, logged once the stock
+  // search has answered too so its count is included, or once the results
+  // stop waiting for it.
+  const [pendingAnalytics, setPendingAnalytics] = useState<
+    { input: string; run: number; sections: IUniversalSection[] } | undefined
+  >(undefined);
+  useEffect(() => {
+    if (!pendingAnalytics) {
+      return;
+    }
+    // A superseded run, including an earlier run of the same query that
+    // answered late, is dropped so each search logs once.
+    if (
+      isSearchResultStale(pendingAnalytics.input) ||
+      pendingAnalytics.run !== searchRunRef.current
+    ) {
+      setPendingAnalytics(undefined);
+      return;
+    }
+    if (
+      isStockSearchInScope &&
+      stockWaitExpiredRun !== pendingAnalytics.run &&
+      (stockQuery !== pendingAnalytics.input || stockResult.isLoading)
+    ) {
+      return;
+    }
+    setPendingAnalytics(undefined);
+    logSearchAnalytics(
+      pendingAnalytics.input,
+      stockSection
+        ? [...pendingAnalytics.sections, stockSection]
+        : pendingAnalytics.sections,
+    );
+  }, [
+    isSearchResultStale,
+    isStockSearchInScope,
+    logSearchAnalytics,
+    pendingAnalytics,
+    stockQuery,
+    stockResult.isLoading,
+    stockSection,
+    stockWaitExpiredRun,
+  ]);
+
   const handleTextChange = useDebouncedCallback(async (val: string) => {
     console.log('[universalSearch] handleTextChange: ', val);
     const input = val?.trim?.() || '';
+    searchRunRef.current += 1;
+    const run = searchRunRef.current;
+    setSearchRun(run);
+    // Late responses of a superseded run, even of the same query, are dropped
+    // so they cannot overwrite this run's results or pending analytics.
+    const isResponseStale = () =>
+      !isSearchResponseCurrent({
+        run,
+        input,
+        currentRun: searchRunRef.current,
+        currentInput: searchInputRef.current,
+      });
+    setStockQuery(isStockSearchInScope ? input : '');
     if (input) {
       let primarySections: IUniversalSection[] = [];
       const searchParams = {
@@ -684,7 +896,7 @@ export function UniversalSearch({
               ...searchParams,
               searchTypes: effectivePrimaryTypes,
             });
-          if (isSearchResultStale(input)) {
+          if (isResponseStale()) {
             return;
           }
 
@@ -714,7 +926,7 @@ export function UniversalSearch({
               ...searchParams,
               searchTypes: effectiveDeferredTypes,
             });
-          if (isSearchResultStale(input)) {
+          if (isResponseStale()) {
             return;
           }
 
@@ -730,16 +942,16 @@ export function UniversalSearch({
         );
         setSections(mergedSections);
         setSearchStatus(ESearchStatus.done);
-        logSearchAnalytics(input, mergedSections);
+        setPendingAnalytics({ input, run, sections: mergedSections });
       } catch (error) {
-        if (isSearchResultStale(input)) {
+        if (isResponseStale()) {
           return;
         }
         console.error('[universalSearch] search failed', error);
         if (primarySections.length > 0) {
           setSections(primarySections);
           setSearchStatus(ESearchStatus.done);
-          logSearchAnalytics(input, primarySections);
+          setPendingAnalytics({ input, run, sections: primarySections });
           return;
         }
         setSections([]);
@@ -760,6 +972,7 @@ export function UniversalSearch({
       setSearchStatus(ESearchStatus.loading);
     } else {
       setSections([]);
+      setStockQuery('');
       setSearchStatus(ESearchStatus.init);
     }
   }, []);
@@ -776,6 +989,180 @@ export function UniversalSearch({
     [handleTextChange],
   );
 
+  const isInWatchlistTab = activeTab === watchlistTabTitle;
+  const { result: resolvedWatchlist } = usePromiseResult(async () => {
+    if (!isInWatchlistTab) return undefined;
+    return {
+      items: watchlistItems,
+      identities: await resolveUniversalSearchWatchlistIdentities({
+        items: watchlistItems,
+        fetchAssetDetail: (assetId) =>
+          backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
+            assetId,
+            autoHandleError: false,
+          }),
+      }),
+    };
+  }, [isInWatchlistTab, watchlistItems]);
+  const watchlistIdentities = useMemo(
+    () =>
+      resolvedWatchlist?.items === watchlistItems
+        ? resolvedWatchlist.identities
+        : new Map(
+            watchlistItems.map((item) => [getMarketWatchlistKey(item), item]),
+          ),
+    [resolvedWatchlist, watchlistItems],
+  );
+
+  const loadedStockIds = useMemo(
+    () => new Set(stockResult.items.map((stock) => stock.stockId)),
+    [stockResult.items],
+  );
+  const shouldCompleteWatchlistStocks =
+    isInWatchlistTab &&
+    isStockSearchInScope &&
+    Boolean(stockQuery) &&
+    stockQuery === searchValue.trim() &&
+    watchlistItems.some(
+      (item) => item.stockId && !loadedStockIds.has(item.stockId),
+    );
+  const isWatchlistStockError =
+    shouldCompleteWatchlistStocks &&
+    (stockResult.isError || stockResult.isLoadMoreError);
+  const isLoadingWatchlistStocks =
+    shouldCompleteWatchlistStocks &&
+    !isWatchlistStockError &&
+    (stockResult.isLoading ||
+      stockResult.isLoadingMore ||
+      stockResult.canLoadMore);
+
+  const {
+    canLoadMore: canLoadMoreWatchlistStocks,
+    isLoadingMore: isLoadingMoreWatchlistStocks,
+    isLoadMoreError: isLoadMoreWatchlistStocksError,
+    isError: isWatchlistFirstPageError,
+    loadMore: loadMoreWatchlistStocks,
+    refresh: refreshWatchlistStocks,
+  } = stockResult;
+  // Filtered-out pages cannot trigger a scroll event; keep searching until
+  // every saved stock is found or the query has no more pages.
+  useEffect(() => {
+    if (
+      shouldCompleteWatchlistStocks &&
+      canLoadMoreWatchlistStocks &&
+      !isLoadingMoreWatchlistStocks &&
+      !isLoadMoreWatchlistStocksError
+    ) {
+      void loadMoreWatchlistStocks();
+    }
+  }, [
+    shouldCompleteWatchlistStocks,
+    canLoadMoreWatchlistStocks,
+    isLoadingMoreWatchlistStocks,
+    isLoadMoreWatchlistStocksError,
+    loadMoreWatchlistStocks,
+  ]);
+
+  const renderWatchlistStockFooter = useCallback(() => {
+    if (isWatchlistStockError) {
+      return (
+        <YStack alignItems="center" gap="$2" py="$4">
+          <SizableText color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.global_connet_error_try_again,
+            })}
+          </SizableText>
+          <Button
+            size="small"
+            variant="tertiary"
+            testID="universal-search-watchlist-stock-retry"
+            onPress={() =>
+              void (isWatchlistFirstPageError
+                ? refreshWatchlistStocks()
+                : loadMoreWatchlistStocks())
+            }
+          >
+            {intl.formatMessage({ id: ETranslations.global_retry })}
+          </Button>
+        </YStack>
+      );
+    }
+    if (isLoadingWatchlistStocks) {
+      return (
+        <YStack
+          alignItems="center"
+          py="$4"
+          testID="universal-search-watchlist-stock-loading"
+        >
+          <Spinner />
+        </YStack>
+      );
+    }
+    return null;
+  }, [
+    intl,
+    isWatchlistStockError,
+    isWatchlistFirstPageError,
+    isLoadingWatchlistStocks,
+    refreshWatchlistStocks,
+    loadMoreWatchlistStocks,
+  ]);
+
+  const filterSections = useMemo(() => {
+    if (isInAllTab) {
+      const sectionsWithSliceData = displaySections.map((i) => ({
+        ...i,
+        data: i.sliceData ?? i.data,
+      }));
+
+      // When focused in Market tab, prioritize Stocks, then Tokens, then Perps.
+      if (isFocusInMarketTab) {
+        return prioritizeMarketFocusedSections(sectionsWithSliceData, {
+          stocks: STOCK_TAB_INDEX,
+          market: MARKET_TAB_INDEX,
+          perp: PRIORITIZED_SECONDARY_TAB_INDEX,
+        });
+      }
+
+      return sectionsWithSliceData;
+    }
+    if (isInWatchlistTab) {
+      const data = displaySections.flatMap((section) =>
+        section.data.filter((item) =>
+          getUniversalSearchWatchlistIdentity(item, watchlistIdentities),
+        ),
+      );
+      if (data.length === 0) {
+        return [];
+      }
+      return [
+        {
+          tabIndex: WATCHLIST_TAB_INDEX,
+          title: watchlistTabTitle,
+          type: EUniversalSearchType.V2MarketToken,
+          data,
+          sliceData: data,
+          showMore: false,
+        },
+      ];
+    }
+    return displaySections.filter((i) => i.title === activeTab);
+  }, [
+    activeTab,
+    displaySections,
+    isFocusInMarketTab,
+    isInAllTab,
+    isInWatchlistTab,
+    watchlistIdentities,
+    watchlistTabTitle,
+  ]);
+
+  // Searches that cover stocks or tokens follow the Market detail selector on
+  // both desktop and mobile: its skeleton under a tab bar that already shows
+  // All, its Stocks, Tokens and All lists, and a fixed 10px under the tab bar.
+  const isMarketSearch =
+    isStockSearchInScope ||
+    allowedSearchTypeSet.has(EUniversalSearchType.V2MarketToken);
   const renderSectionHeader = useCallback(
     ({ section }: { section: IUniversalSection }) => {
       return (
@@ -807,12 +1194,63 @@ export function UniversalSearch({
     [],
   );
 
+  const pressMarketItem = useUniversalSearchMarketPress({
+    source,
+    getSearchInput,
+  });
+  const handleStockRowPress = useCallback(
+    (stock: IMarketStockPublicItem) => {
+      pressMarketItem(toUniversalSearchStockItem(stock));
+    },
+    [pressMarketItem],
+  );
+  const { itemByTokenId } = selectorTokens;
+  const handleTokenRowPress = useCallback(
+    (token: IMarketToken) => {
+      const item = itemByTokenId.get(token.id);
+      if (item) {
+        pressMarketItem(item);
+      }
+    },
+    [itemByTokenId, pressMarketItem],
+  );
+
+  const stocksTabTitle = useMemo(
+    () => intl.formatMessage({ id: ETranslations.perps_token_selector_stocks }),
+    [intl],
+  );
+  const tokensTabTitle = useMemo(
+    () =>
+      intl.formatMessage({
+        id: ETranslations.global_universal_search_tabs_tokens,
+      }),
+    [intl],
+  );
+  const isInStocksTab = activeTab === stocksTabTitle;
+  const isInTokensTab = activeTab === tokensTabTitle;
+  // Stocks list every page where they are the only results.
+  const isLoneStockSection =
+    stockResult.items.length > 0 &&
+    displaySections.every(
+      (section) =>
+        section.tabIndex === STOCK_TAB_INDEX || section.data.length === 0,
+    );
+  // All pages through the selector's scroll hook when stocks stand alone.
+  const handleMarketAllScroll = useStockLoadMoreOnScrollEnd(
+    stockResult,
+    isInAllTab && isLoneStockSection,
+  );
+  const {
+    isError: isStockError,
+    isLoadingMore: isLoadingMoreStocks,
+    isLoadMoreError: isLoadMoreStocksError,
+    loadMore: loadMoreStocks,
+    refresh: refreshStocks,
+  } = stockResult;
+
   const renderSectionFooter = useCallback(
     ({ section }: { section: IUniversalSection }) => {
-      if (!isInAllTab) {
-        return null;
-      }
-      if (section.showMore) {
+      if (isInAllTab && section.showMore) {
         return (
           <ListItem
             testID={UniversalSearchTestIDs.showMoreBtn}
@@ -841,15 +1279,7 @@ export function UniversalSearch({
   );
 
   const renderItem = useCallback(
-    ({
-      item,
-      section,
-      index,
-    }: {
-      item: IUniversalSearchResultItem;
-      section: IUniversalSection;
-      index: number;
-    }) => {
+    ({ item }: { item: IUniversalSearchResultItem }) => {
       switch (item.type) {
         case EUniversalSearchType.Address:
           return (
@@ -860,29 +1290,25 @@ export function UniversalSearch({
               source={source}
             />
           );
+        // Watchlist and trending results use these rows; the type tabs
+        // render through the Market selector's lists.
         case EUniversalSearchType.MarketStock:
         case EUniversalSearchType.V2MarketToken:
           return (
-            <>
-              {index === 0 &&
-              isMarketTableSection(section.tabIndex) &&
-              searchStatus !== ESearchStatus.init ? (
-                <MarketTableHeader
-                  metric={
-                    isStockSection(section.tabIndex) ? 'marketCap' : 'liquidity'
-                  }
-                  changeTitle={
-                    isStockSection(section.tabIndex) ? 'change' : '24h'
-                  }
-                />
-              ) : null}
-              <UniversalSearchV2MarketTokenItem
-                item={item}
-                isTrending={searchStatus === ESearchStatus.init}
-                getSearchInput={getSearchInput}
-                source={source}
-              />
-            </>
+            <UniversalSearchV2MarketTokenItem
+              item={item}
+              watchlistIdentity={
+                isInWatchlistTab
+                  ? getUniversalSearchWatchlistIdentity(
+                      item,
+                      watchlistIdentities,
+                    )
+                  : undefined
+              }
+              isTrending={searchStatus === ESearchStatus.init}
+              getSearchInput={getSearchInput}
+              source={source}
+            />
           );
         case EUniversalSearchType.AccountAssets:
           return (
@@ -923,6 +1349,8 @@ export function UniversalSearch({
     },
     [
       activeAccount?.network?.id,
+      isInWatchlistTab,
+      watchlistIdentities,
       searchStatus,
       allAggregateTokenMap,
       getSearchInput,
@@ -964,34 +1392,163 @@ export function UniversalSearch({
     [],
   );
 
-  const filterSections = useMemo(() => {
-    if (isInAllTab) {
-      const sectionsWithSliceData = sections.map((i) => ({
-        ...i,
-        data: i.sliceData,
-      }));
+  // The selector's 10px between its search field and its tabs.
+  const searchBarGap = isMarketSearch ? '$2.5' : '$2';
+  const loadingTabTitles = useMemo(() => [tabTitles[0]], [tabTitles]);
+  const loadingFocusedTab = useSharedValue(tabTitles[0]);
 
-      // When focused in Market tab, prioritize stocks then market tokens.
-      if (isFocusInMarketTab) {
-        return prioritizeMarketFocusedSections(sectionsWithSliceData, {
-          stocks: STOCK_TAB_INDEX,
-          market: MARKET_TAB_INDEX,
-          perp: PRIORITIZED_SECONDARY_TAB_INDEX,
-        });
-      }
+  // All builds its stock and token sections from the Market detail
+  // selector's own All sections (desktop or mobile), so both entries share
+  // one implementation; the other result types follow with the same titles.
+  // Every All section's Show more, like the selector's stock and token ones.
+  const ShowMoreButton = gtMd
+    ? MarketSearchShowMoreButton
+    : MobileMarketSearchShowMoreButton;
+  const renderMarketAll = useCallback(() => {
+    const stockLoadMore = isLoneStockSection
+      ? {
+          isLoadingMore: isLoadingMoreStocks,
+          isLoadMoreError: isLoadMoreStocksError,
+          onRetry: () => void loadMoreStocks(),
+        }
+      : undefined;
+    const getStockProps = (section: IUniversalSection) => ({
+      items: stockResult.items.slice(0, section.data.length),
+      isError: isStockError,
+      showMore: Boolean(section.showMore),
+      onShowMore: () => handleTabPress(section.title),
+      onRetry: () => void refreshStocks(),
+      onPress: handleStockRowPress,
+      loadMore: stockLoadMore,
+    });
+    // Any other result type: its own rows under the selector's Show more.
+    const renderOtherRows = (section: IUniversalSection) => (
+      <>
+        {section.data.map((item, index) => (
+          <Fragment key={keyExtractor(item, index)}>
+            {renderItem({ item })}
+          </Fragment>
+        ))}
+        {section.showMore ? (
+          <ShowMoreButton
+            testID={UniversalSearchTestIDs.showMoreBtn}
+            onPress={() => handleTabPress(section.title)}
+          />
+        ) : null}
+      </>
+    );
 
-      return sectionsWithSliceData;
+    if (!gtMd) {
+      return (
+        <MobileMarketSearchAllList
+          sections={filterSections.map((section) => {
+            let body: ReactNode;
+            if (isStockSection(section.tabIndex)) {
+              body = (
+                <MobileMarketSearchStockRows {...getStockProps(section)} />
+              );
+            } else if (isMarketSection(section.tabIndex)) {
+              body = (
+                <MobileMarketSearchTokenRows
+                  entries={selectorTokens.entries.slice(0, section.data.length)}
+                  showMore={Boolean(section.showMore)}
+                  onShowMore={() => handleTabPress(section.title)}
+                  onPress={pressMarketItem}
+                />
+              );
+            } else {
+              body = renderOtherRows(section);
+            }
+            return {
+              key: String(section.tabIndex),
+              title: section.title,
+              body,
+            };
+          })}
+          onScroll={handleMarketAllScroll}
+        />
+      );
     }
-    const filtered = sections.filter((i) => i.title === activeTab);
-    return filtered;
-  }, [activeTab, isInAllTab, sections, isFocusInMarketTab]);
+
+    return (
+      <ScrollView
+        flex={1}
+        contentContainerStyle={{
+          paddingBottom: TOKEN_SELECTOR_LIST_PADDING_BOTTOM,
+        }}
+        onScroll={handleMarketAllScroll}
+        scrollEventThrottle={64}
+        keyboardShouldPersistTaps="handled"
+      >
+        {filterSections.map((section, sectionIndex) => {
+          let content: ReactNode;
+          if (isStockSection(section.tabIndex)) {
+            content = (
+              <MarketSearchStockSection
+                {...getStockProps(section)}
+                titleBg="$bgApp"
+              />
+            );
+          } else if (isMarketSection(section.tabIndex)) {
+            content = (
+              <MarketSearchTokenSection
+                items={selectorTokens.tokens.slice(0, section.data.length)}
+                showMore={Boolean(section.showMore)}
+                onShowMore={() => handleTabPress(section.title)}
+                onPress={handleTokenRowPress}
+                titleBg="$bgApp"
+              />
+            );
+          } else {
+            content = (
+              <YStack>
+                <MarketSearchSectionTitle title={section.title} bg="$bgApp" />
+                {renderOtherRows(section)}
+              </YStack>
+            );
+          }
+          return (
+            <Fragment key={section.tabIndex}>
+              {sectionIndex > 0 ? (
+                <Stack h={TOKEN_SELECTOR_SEARCH_SECTION_GAP} />
+              ) : null}
+              {content}
+            </Fragment>
+          );
+        })}
+      </ScrollView>
+    );
+  }, [
+    filterSections,
+    gtMd,
+    handleMarketAllScroll,
+    handleStockRowPress,
+    handleTabPress,
+    handleTokenRowPress,
+    isLoadMoreStocksError,
+    isLoadingMoreStocks,
+    isLoneStockSection,
+    isStockError,
+    keyExtractor,
+    loadMoreStocks,
+    pressMarketItem,
+    refreshStocks,
+    renderItem,
+    ShowMoreButton,
+    selectorTokens.entries,
+    selectorTokens.tokens,
+    stockResult.items,
+  ]);
 
   const renderResult = useCallback(() => {
     const noResultsComponent = (
       <Empty
         illustration="QuestionMark"
         title={intl.formatMessage({
-          id: ETranslations.global_no_results,
+          id:
+            isInWatchlistTab && watchlistItems.length === 0
+              ? ETranslations.market_empty_watchlist_title
+              : ETranslations.global_no_results,
         })}
         description={intl.formatMessage({
           id: ETranslations.global_search_no_results_desc,
@@ -999,7 +1556,7 @@ export function UniversalSearch({
       />
     );
 
-    switch (searchStatus) {
+    switch (resultStatus) {
       case ESearchStatus.init:
         if (isTravelMode) {
           return noResultsComponent;
@@ -1027,6 +1584,24 @@ export function UniversalSearch({
         );
 
       case ESearchStatus.loading:
+        if (isMarketSearch) {
+          return (
+            <>
+              <Tabs.TabBar
+                key="search-tabs-loading"
+                scrollable
+                tabNames={loadingTabTitles}
+                onTabPress={noop}
+                focusedTab={loadingFocusedTab}
+              />
+              {gtMd ? (
+                <SearchResultsSkeleton />
+              ) : (
+                <MobileSelectorSearchSkeleton />
+              )}
+            </>
+          );
+        }
         return (
           <YStack px="$5" pt="$5">
             <SkeletonItem />
@@ -1035,40 +1610,110 @@ export function UniversalSearch({
           </YStack>
         );
 
-      case ESearchStatus.done:
+      case ESearchStatus.done: {
+        let content: ReactNode;
+        if (isMarketSearch && isInStocksTab && stockResult.items.length > 0) {
+          content = gtMd ? (
+            <UniversalSearchStockTab
+              result={stockResult}
+              onPress={pressMarketItem}
+            />
+          ) : (
+            // Mobile lists carry no column header, so the tab keeps its
+            // section title like the other type tabs.
+            <MobileSelectorStockTable
+              result={stockResult}
+              onItemPress={handleStockRowPress}
+              listHeader={
+                <MobileMarketSearchSectionTitle title={stocksTabTitle} />
+              }
+            />
+          );
+        } else if (
+          isMarketSearch &&
+          isInTokensTab &&
+          selectorTokens.tokens.length > 0
+        ) {
+          content = gtMd ? (
+            <UniversalSearchTokenTab
+              tokens={selectorTokens.tokens}
+              itemByTokenId={selectorTokens.itemByTokenId}
+              onPress={pressMarketItem}
+            />
+          ) : (
+            <MobileMarketSearchTokenList
+              entries={selectorTokens.entries}
+              onPress={pressMarketItem}
+              listHeader={
+                <MobileMarketSearchSectionTitle title={tokensTabTitle} />
+              }
+            />
+          );
+        } else if (isMarketSearch && isInAllTab && filterSections.length > 0) {
+          content = renderMarketAll();
+        } else {
+          content = (
+            <SectionList
+              key={`search-results-${isInAllTab ? 'all' : activeTab}`}
+              // In a stock or token search this list only serves a single-type
+              // tab, whose section title just repeats the tab name, so it
+              // scrolls away.
+              stickySectionHeadersEnabled={!isMarketSearch}
+              sections={filterSections}
+              renderSectionHeader={renderSectionHeader}
+              renderSectionFooter={renderSectionFooter}
+              ListEmptyComponent={
+                isInWatchlistTab &&
+                (isLoadingWatchlistStocks || isWatchlistStockError)
+                  ? null
+                  : noResultsComponent
+              }
+              renderItem={renderItem}
+              keyExtractor={keyExtractor}
+              estimatedItemSize="$16"
+              ListFooterComponent={
+                <>
+                  {renderWatchlistStockFooter()}
+                  <Stack h="$16" />
+                </>
+              }
+              keyboardShouldPersistTaps="handled"
+            />
+          );
+        }
         return (
           <>
-            {visibleTabTitles.length > 1 ? (
+            {visibleTabTitles.length > 1 || isMarketSearch ? (
               <Tabs.TabBar
+                key="search-tabs-done"
                 scrollable
                 tabNames={visibleTabTitles}
                 onTabPress={handleTabPress}
                 focusedTab={focusedTab}
-                tabItemStyle={{
-                  h: 44,
-                }}
               />
             ) : null}
-            <SectionList
-              key={`search-results-${isInAllTab ? 'all' : activeTab}`}
-              stickySectionHeadersEnabled
-              sections={filterSections}
-              renderSectionHeader={renderSectionHeader}
-              renderSectionFooter={renderSectionFooter}
-              ListEmptyComponent={noResultsComponent}
-              renderItem={renderItem}
-              keyExtractor={keyExtractor}
-              estimatedItemSize="$16"
-              ListFooterComponent={<Stack h="$16" />}
-              keyboardShouldPersistTaps="handled"
-            />
+            {isMarketSearch ? (
+              // Every tab keeps the selector's fixed 10px under the tab bar;
+              // only the list below it scrolls.
+              <YStack flex={1} pt="$2.5">
+                {content}
+              </YStack>
+            ) : (
+              content
+            )}
           </>
         );
+      }
       default:
         break;
     }
   }, [
-    searchStatus,
+    resultStatus,
+    isLoadingWatchlistStocks,
+    isWatchlistStockError,
+    renderWatchlistStockFooter,
+    isInWatchlistTab,
+    watchlistItems.length,
     isTravelMode,
     renderSectionHeader,
     renderRecommendSectionHeader,
@@ -1086,6 +1731,21 @@ export function UniversalSearch({
     renderSectionFooter,
     intl,
     shouldIncludeMarketTrending,
+    isMarketSearch,
+    loadingTabTitles,
+    loadingFocusedTab,
+    gtMd,
+    isInStocksTab,
+    isInTokensTab,
+    stockResult,
+    selectorTokens.tokens,
+    selectorTokens.entries,
+    selectorTokens.itemByTokenId,
+    pressMarketItem,
+    stocksTabTitle,
+    tokensTabTitle,
+    renderMarketAll,
+    handleStockRowPress,
   ]);
 
   return (
@@ -1094,7 +1754,7 @@ export function UniversalSearch({
         title={intl.formatMessage({ id: ETranslations.global_search })}
       />
       <Page.Body>
-        <View px="$5" pb="$2">
+        <View px="$5" pb={searchBarGap}>
           <SearchBar
             autoFocus
             testID={UniversalSearchTestIDs.searchBar}
@@ -1122,6 +1782,7 @@ export function UniversalSearch({
 
 const UniversalSearchWithHomeTokenListProvider = ({
   route,
+  navigation,
 }: IPageScreenProps<
   IUniversalSearchParamList,
   EUniversalSearchPages.UniversalSearch
@@ -1137,6 +1798,21 @@ const UniversalSearchWithHomeTokenListProvider = ({
     () => routeFilterTypes || getDefaultFilterTypes(),
     [routeFilterTypes],
   );
+  // The route opens at the Market selector's width for its stock and token
+  // tables; a search without either (the Discovery dApp search) keeps the
+  // regular modal width.
+  const hasMarketResults = filterTypes.some(
+    (type) =>
+      type === EUniversalSearchType.MarketStock ||
+      type === EUniversalSearchType.V2MarketToken,
+  );
+  useLayoutEffect(() => {
+    if (!hasMarketResults) {
+      navigation.setOptions({
+        modalContentMaxWidth: DEFAULT_MODAL_CONTENT_MAX_WIDTH,
+      });
+    }
+  }, [hasMarketResults, navigation]);
 
   return (
     <HomeTokenListProviderMirrorWrapper
