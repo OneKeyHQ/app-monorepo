@@ -71,7 +71,7 @@ describe('zcashUserMessage', () => {
   it('explains a broken local cache instead of showing its code', () => {
     // DATABASE_ERROR used to be treated as internal. It is reachable in normal
     // use (corrupt or full storage) and it HAS a recovery action -- the wallet
-    // db is a rebuildable cache (docs/05 D4) and Resync rebuilds it -- so the
+    // db is a rebuildable cache and Resync rebuilds it -- so the
     // user gets the action. The machine-readable `code` still rides along on
     // the error object for diagnostics.
     const message = zcashUserMessage(

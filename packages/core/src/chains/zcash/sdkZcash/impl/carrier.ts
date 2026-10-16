@@ -209,7 +209,7 @@ export async function getKeys(): Promise<IKeysModule> {
 }
 
 // One database per network; every account across every wallet shares it (scanning trial-decrypts for all keys in one pass).
-// Safe to mix seeds: note selection is account-scoped and the db holds viewing keys only, never spending keys (D14).
+// Safe to mix seeds: note selection is account-scoped and the db holds viewing keys only, never spending keys.
 function getDatabaseLocation(): IZcashDatabaseDiagnostics['location'] {
   const origin = globalThis.location?.origin || null;
   if (platformEnv.isDesktop) {
