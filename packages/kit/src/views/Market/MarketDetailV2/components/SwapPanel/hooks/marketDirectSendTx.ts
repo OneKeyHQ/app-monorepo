@@ -14,8 +14,8 @@ import {
   checkSwapLatestBalanceSufficient,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
 import {
-  getSwapGasLimit,
   isSwapGasAccountCandidate,
+  resolveEvmThorSwapGasInfo,
   shouldRequestSwapGasAccount,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapGasUtils';
 import {
@@ -306,11 +306,6 @@ async function estimateUnsignedTxGasInfo({
         networkId,
         accountId,
         encodedTx: unsignedTxItem.encodedTx,
-        gasLimit: getSwapGasLimit({
-          networkId,
-          swapInfo: unsignedTxItem.swapInfo,
-          isApprove: !!unsignedTxItem.approveInfo,
-        }),
       }),
   );
   // Gas Account sponsorship request (OK-62562): backend provider pre-check
@@ -392,14 +387,7 @@ async function resolveMarketGasInfosSequentially({
     for (let i = 0; i < unsignedTxArr.length; i += 1) {
       const unsignedTxItem = unsignedTxArr[i];
 
-      if (
-        i === unsignedTxArr.length - 1 &&
-        !getSwapGasLimit({
-          networkId,
-          swapInfo: unsignedTxItem.swapInfo,
-          isApprove: !!unsignedTxItem.approveInfo,
-        })
-      ) {
+      if (i === unsignedTxArr.length - 1) {
         const internalSwapGasLimit =
           unsignedTxItem.swapInfo?.swapBuildResData.result.gasLimit;
         const internalSwapRoutes =
@@ -544,11 +532,6 @@ async function resolveMarketGasInfos({
               networkId,
               accountId,
               encodedTx: item.encodedTx,
-              gasLimit: getSwapGasLimit({
-                networkId,
-                swapInfo: item.swapInfo,
-                isApprove: !!item.approveInfo,
-              }),
             }),
           ),
         ),
@@ -567,13 +550,6 @@ async function resolveMarketGasInfos({
               accountId,
               encodedTxs: estimateFeeParamsArr.map(
                 (item) => item.encodedTx ?? {},
-              ),
-              gasLimits: unsignedTxArr.map((tx) =>
-                getSwapGasLimit({
-                  networkId,
-                  swapInfo: tx.swapInfo,
-                  isApprove: !!tx.approveInfo,
-                }),
               ),
             }),
           true,
@@ -599,10 +575,7 @@ async function resolveMarketGasInfos({
       encodeTx: unsignedTxItem.encodedTx,
       gasInfo: buildGasInfo(
         gasResArr.txFees[index],
-        {
-          ...gasResArr.common,
-          baseFee: gasResArr.txFees[index].baseFee ?? gasResArr.common.baseFee,
-        },
+        gasResArr.common,
         networkFeeLevel,
         customPriorityFee,
         estimateFeeParamsArr[index].estimateFeeParams,
@@ -662,11 +635,6 @@ async function resolveExactUnsignedTxGasInfos({
               networkId,
               accountId,
               encodedTx: item.encodedTx,
-              gasLimit: getSwapGasLimit({
-                networkId,
-                swapInfo: item.swapInfo,
-                isApprove: !!item.approveInfo,
-              }),
             }),
           ),
         ),
@@ -686,13 +654,6 @@ async function resolveExactUnsignedTxGasInfos({
               accountId,
               encodedTxs: estimateFeeParamsArr.map(
                 (item) => item.encodedTx ?? {},
-              ),
-              gasLimits: unsignedTxArr.map((tx) =>
-                getSwapGasLimit({
-                  networkId,
-                  swapInfo: tx.swapInfo,
-                  isApprove: !!tx.approveInfo,
-                }),
               ),
             }),
           true,
@@ -726,10 +687,7 @@ async function resolveExactUnsignedTxGasInfos({
       encodeTx: unsignedTxItem.encodedTx,
       gasInfo: buildGasInfo(
         gasResArr.txFees[index],
-        {
-          ...gasResArr.common,
-          baseFee: gasResArr.txFees[index].baseFee ?? gasResArr.common.baseFee,
-        },
+        gasResArr.common,
         networkFeeLevel,
         customPriorityFee,
         estimateFeeParamsArr[index].estimateFeeParams,
@@ -1113,6 +1071,7 @@ export async function estimateMarketDirectGasInfos({
   gasAccountAnalytics,
   preparedUnsignedTx,
   reviewPreparation,
+  useDefaultRpc,
 }: IEstimateMarketDirectGasInfosParams): Promise<{
   gasInfos: IMarketGasInfoEntry[];
   gasFeeFiatValue?: string;
@@ -1151,6 +1110,16 @@ export async function estimateMarketDirectGasInfos({
   let gasAccountAnalyticsContext: IGasAccountAnalyticsContext | undefined;
   let gasAccountAnalyticsNativeBalance: string | undefined;
   const swapGasInfo = findGasInfo(gasInfos, unsignedTx.encodedTx);
+  if (swapGasInfo) {
+    swapGasInfo.gasInfo = await resolveEvmThorSwapGasInfo({
+      accountId,
+      networkId,
+      swapInfo: unsignedTx.swapInfo,
+      isApprove: !!unsignedTx.approveInfo,
+      gasInfo: swapGasInfo.gasInfo,
+      useDefaultRpc,
+    });
+  }
   if (gasAccountAnalytics && swapGasInfo && unsignedTx.swapInfo) {
     const nativeToken = buildNativeTokenFromGasInfo({
       gasInfo: swapGasInfo.gasInfo,
@@ -1494,6 +1463,20 @@ export async function sendMarketDirectUnsignedTxs({
     });
   }
 
+  const swapGasInfo = findGasInfo(gasInfosFinal, unsignedTx.encodedTx);
+  if (swapGasInfo) {
+    const gasInfo = await resolveEvmThorSwapGasInfo({
+      accountId,
+      networkId,
+      swapInfo: unsignedTx.swapInfo,
+      isApprove: !!unsignedTx.approveInfo,
+      gasInfo: swapGasInfo.gasInfo,
+      useDefaultRpc,
+    });
+    gasInfosFinal = gasInfosFinal.map((entry) =>
+      entry === swapGasInfo ? { ...entry, gasInfo } : entry,
+    );
+  }
   await validateFinalGasInfos?.(gasInfosFinal);
 
   for (const [unsignedTxIndex, unsignedTxItem] of unsignedTxArr.entries()) {

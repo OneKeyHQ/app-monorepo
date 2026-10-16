@@ -171,7 +171,6 @@ export type IBatchEstimateFeeParams = {
   accountId: string;
   networkId: string;
   encodedTxs: IEncodedTx[];
-  gasLimits?: (string | undefined)[];
 };
 
 // Gas Account scenario codes maintained as a frontend contract enum.
@@ -202,8 +201,6 @@ export type IEstimateGasParams = {
   networkId: string;
   accountAddress: string;
   encodedTx?: IEncodedTx;
-  // Client-only EVM limit supplied by a Swap provider; skip gas-limit estimation.
-  gasLimit?: string;
   transfersInfo?: ITransferInfo[];
   lockedUserNonce?: number;
   gasAccountEnabled?: boolean;
@@ -349,8 +346,6 @@ export type IServerBatchEstimateFeeResponse = {
     result: {
       gas: IGasLegacy[];
       gasEIP1559: IGasEIP1559[];
-      // Individually priced transactions may have different L1 data fees.
-      baseFee?: string;
     }[];
   };
 };

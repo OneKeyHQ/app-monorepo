@@ -8,7 +8,6 @@ import type {
 type IPresetMultiTxFee = {
   gas?: IGasLegacy[];
   gasEIP1559?: IGasEIP1559[];
-  baseFee?: string;
 };
 
 export function buildPresetMultiTxsFee(unsignedTxs: IUnsignedTxPro[]) {
@@ -26,7 +25,6 @@ export function buildPresetMultiTxsFee(unsignedTxs: IUnsignedTxPro[]) {
   const txFees: IPresetMultiTxFee[] = feeInfos.map((feeInfo) => ({
     gas: feeInfo?.gas ? [feeInfo.gas] : undefined,
     gasEIP1559: feeInfo?.gasEIP1559 ? [feeInfo.gasEIP1559] : undefined,
-    baseFee: feeInfo?.common.baseFee,
   }));
 
   if (txFees.some((fee) => !fee.gas && !fee.gasEIP1559)) {

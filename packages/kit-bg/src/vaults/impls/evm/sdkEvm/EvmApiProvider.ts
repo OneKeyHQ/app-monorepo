@@ -132,10 +132,7 @@ export const compareList = [
 class EvmApiProvider extends BaseApiProvider {
   public defaultFeeRates = [1, 1.25, 1.5];
 
-  public l2PriceOracleAddress =
-    this.networkId === 'evm--534352'
-      ? '0x5300000000000000000000000000000000000002'
-      : '0x420000000000000000000000000000000000000f';
+  public l2PriceOracleAddress = '0x420000000000000000000000000000000000000f';
 
   public override async validateTokenAddress(params: {
     networkId: string;
@@ -313,11 +310,6 @@ class EvmApiProvider extends BaseApiProvider {
   override async estimateFeeFromRpc(
     params: IEstimateGasParams,
   ): Promise<IServerEstimateFeeResponse['data']['data']> {
-    const limit = new B(params.gasLimit ?? 0);
-    const gasLimit =
-      limit.isFinite() && limit.isInteger() && limit.isGreaterThan(0)
-        ? limit.toFixed()
-        : undefined;
     const [network, [nativeToken], gasPriceInfo, gasFeeInfo] =
       await Promise.all([
         this.backgroundApi.serviceNetwork.getNetwork({
@@ -330,12 +322,7 @@ class EvmApiProvider extends BaseApiProvider {
         this.getGasPrice(params),
         this.getGasFee({
           networkId: params.networkId,
-          encodedTx: gasLimit
-            ? {
-                ...(params.encodedTx as IEncodedTxEvm),
-                gasLimit,
-              }
-            : (params.encodedTx ?? ({} as IEncodedTx)),
+          encodedTx: params.encodedTx ?? ({} as IEncodedTx),
         }),
       ]);
 
@@ -363,15 +350,10 @@ class EvmApiProvider extends BaseApiProvider {
     };
 
     if (params.encodedTx) {
-      const gasLimitInfo = gasLimit
-        ? {
-            gasLimit,
-            estimateGasLimit: gasLimit,
-          }
-        : await this.getGasLimit({
-            networkId: params.networkId,
-            encodedTx: params.encodedTx ?? {},
-          });
+      const gasLimitInfo = await this.getGasLimit({
+        networkId: params.networkId,
+        encodedTx: params.encodedTx ?? {},
+      });
 
       res.gas = res.gas?.map((item) => ({
         gasPrice: item.gasPrice,
@@ -588,38 +570,15 @@ class EvmApiProvider extends BaseApiProvider {
     });
     const bytes = unsignedTx.unsignedSerialized;
 
-    const callParams = [
+    const l1Fee = await this.client.call<string>('eth_call', [
       {
         to: this.l2PriceOracleAddress,
         data: INTERFACE.getL1Fee(bytes).data,
       },
       'latest',
-    ];
-    let l1Fee: unknown;
-    if (this.client.url) {
-      l1Fee = await this.client.call<string>('eth_call', callParams);
-    } else {
-      const [result] =
-        await this.backgroundApi.serviceDApp.proxyRPCCall<string>({
-          networkId: params.networkId,
-          request: {
-            jsonrpc: '2.0',
-            id: 0,
-            method: 'eth_call',
-            params: callParams,
-          },
-          origin: 'onekey://swap',
-        });
-      l1Fee = await result;
-    }
-    if (typeof l1Fee !== 'string') {
-      throw new OneKeyLocalError('Invalid L1 data fee');
-    }
-    const fee = new B(l1Fee);
-    if (!fee.isFinite() || fee.isNegative()) {
-      throw new OneKeyLocalError('Invalid L1 data fee');
-    }
-    return fee.times(BASE_FEE_RATE).toFixed(0);
+    ]);
+
+    return new B(l1Fee.toString()).times(BASE_FEE_RATE).toFixed(0);
   }
 
   override async getGasLimit(

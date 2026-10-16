@@ -151,8 +151,8 @@ import {
 } from '../utils/swapBalanceUtils';
 import {
   canReuseSwapReviewGasInfo,
-  getSwapGasLimit,
   isSwapGasSponsored,
+  resolveEvmThorSwapGasInfo,
   shouldRequestSwapGasAccount,
 } from '../utils/swapGasUtils';
 import { buildSwapRateDifference } from '../utils/swapRateDifferenceUtils';
@@ -958,7 +958,7 @@ export function useSwapBuildTx({
       networkId,
       accountId,
       unsignedTxItem,
-      gasInfo,
+      gasInfo: estimatedGasInfo,
       isApprove,
       onSignAndSendProgress,
     }: {
@@ -970,6 +970,14 @@ export function useSwapBuildTx({
       isApprove: boolean;
       onSignAndSendProgress?: ISwapSignAndSendProgressCallback;
     }) => {
+      const gasInfo = await resolveEvmThorSwapGasInfo({
+        accountId,
+        networkId,
+        swapInfo: unsignedTxItem.swapInfo,
+        isApprove,
+        gasInfo: estimatedGasInfo,
+        customPriorityFee: swapNetWorkFeeLevel?.customPriorityFee,
+      });
       if (!gasInfo.common) {
         throw new OneKeyError('gasInfo.common is required');
       }
@@ -1189,6 +1197,7 @@ export function useSwapBuildTx({
     [
       checkLatestNativeTokenBalance,
       getSwapBtcOutputValidationToast,
+      swapNetWorkFeeLevel?.customPriorityFee,
       intl,
       persistSettings.currencyInfo.id,
       persistSettings.useGasAccountByDefault,
@@ -1673,11 +1682,6 @@ export function useSwapBuildTx({
                 networkId,
                 accountId,
                 encodedTx: o.encodedTx,
-                gasLimit: getSwapGasLimit({
-                  networkId,
-                  swapInfo: o.swapInfo,
-                  isApprove: !!o.approveInfo,
-                }),
               }),
             ),
           );
@@ -1688,13 +1692,6 @@ export function useSwapBuildTx({
                 networkId,
                 accountId,
                 encodedTxs: estimateFeeParamsArr.map((o) => o.encodedTx ?? {}),
-                gasLimits: unsignedTxArr.map((tx) =>
-                  getSwapGasLimit({
-                    networkId,
-                    swapInfo: tx.swapInfo,
-                    isApprove: !!tx.approveInfo,
-                  }),
-                ),
               });
             estimateSucceeded = true;
             if (!isApprove) {
@@ -1715,10 +1712,7 @@ export function useSwapBuildTx({
               const gasRes = gasResArr.txFees[i];
               const gasInfo = buildGasInfo(
                 gasRes,
-                {
-                  ...gasResArr.common,
-                  baseFee: gasRes.baseFee ?? gasResArr.common.baseFee,
-                },
+                gasResArr.common,
                 estimateFeeParamsArr[i].estimateFeeParams,
               );
               try {
@@ -1826,14 +1820,7 @@ export function useSwapBuildTx({
           let lastTxUseGasInfo: IFeeInfoUnit | undefined;
           for (let i = 0; i < unsignedTxArr.length; i += 1) {
             const unsignedTxItem = unsignedTxArr[i];
-            if (
-              i === unsignedTxArr.length - 1 &&
-              !getSwapGasLimit({
-                networkId,
-                swapInfo: unsignedTxItem.swapInfo,
-                isApprove: !!unsignedTxItem.approveInfo,
-              })
-            ) {
+            if (i === unsignedTxArr.length - 1) {
               let specialGasLimit: string | undefined;
               const unsignedTxSwapInfo = unsignedTxItem.swapInfo;
               const internalSwapGasLimit =
@@ -1918,11 +1905,6 @@ export function useSwapBuildTx({
                   networkId,
                   accountId,
                   encodedTx: unsignedTxItem.encodedTx,
-                  gasLimit: getSwapGasLimit({
-                    networkId,
-                    swapInfo: unsignedTxItem.swapInfo,
-                    isApprove: !!unsignedTxItem.approveInfo,
-                  }),
                 });
               const gasRes = await backgroundApiProxy.serviceGas.estimateFee({
                 ...estimateFeeParams,
@@ -1944,9 +1926,8 @@ export function useSwapBuildTx({
                 };
               }
               updateStepTitle(stepIndex, i, approveUnsignedTxArr);
-              const isApproval = i < unsignedTxArr.length - 1;
-              const result = await updateUnsignedTxAndSendTx({
-                isApprove: isApproval,
+              await updateUnsignedTxAndSendTx({
+                isApprove: true,
                 onSignAndSendProgress,
                 stepIndex,
                 networkId,
@@ -1954,11 +1935,7 @@ export function useSwapBuildTx({
                 unsignedTxItem,
                 gasInfo: gasParseInfo,
               });
-              if (isApproval) {
-                void onApproveTxSuccess();
-              } else {
-                lastTxRes = result;
-              }
+              void onApproveTxSuccess();
             }
           }
         }
@@ -2007,11 +1984,6 @@ export function useSwapBuildTx({
             networkId,
             accountId,
             encodedTx: unsignedTx.encodedTx,
-            gasLimit: getSwapGasLimit({
-              networkId,
-              swapInfo: unsignedTx.swapInfo,
-              isApprove: !!unsignedTx.approveInfo,
-            }),
           });
         let estimateSucceeded = false;
         try {
@@ -3505,11 +3477,6 @@ export function useSwapBuildTx({
                     networkId,
                     accountId,
                     encodedTx: o.encodedTx,
-                    gasLimit: getSwapGasLimit({
-                      networkId,
-                      swapInfo: o.swapInfo,
-                      isApprove: !!o.approveInfo,
-                    }),
                   }),
                 ),
               ),
@@ -3525,13 +3492,6 @@ export function useSwapBuildTx({
                   accountId,
                   encodedTxs: estimateFeeParamsArr.map(
                     (o) => o.encodedTx ?? {},
-                  ),
-                  gasLimits: unsignedTxArr.map((tx) =>
-                    getSwapGasLimit({
-                      networkId,
-                      swapInfo: tx.swapInfo,
-                      isApprove: !!tx.approveInfo,
-                    }),
                   ),
                 }),
             );
@@ -3552,10 +3512,7 @@ export function useSwapBuildTx({
               const gasRes = gasResArr.txFees[i];
               const gasInfo = buildGasInfo(
                 gasRes,
-                {
-                  ...gasResArr.common,
-                  baseFee: gasRes.baseFee ?? gasResArr.common.baseFee,
-                },
+                gasResArr.common,
                 estimateFeeParamsArr[i].estimateFeeParams,
               );
               gasFeeInfos.push({
@@ -3609,14 +3566,7 @@ export function useSwapBuildTx({
           let lastTxUseGasInfo: IFeeInfoUnit | undefined;
           for (let i = 0; i < unsignedTxArr.length; i += 1) {
             const unsignedTxItem = unsignedTxArr[i];
-            if (
-              i === unsignedTxArr.length - 1 &&
-              !getSwapGasLimit({
-                networkId,
-                swapInfo: unsignedTxItem.swapInfo,
-                isApprove: !!unsignedTxItem.approveInfo,
-              })
-            ) {
+            if (i === unsignedTxArr.length - 1) {
               let specialGasLimit: string | undefined;
               const unsignedTxSwapInfo = unsignedTxItem.swapInfo;
               const internalSwapGasLimit =
@@ -3681,11 +3631,6 @@ export function useSwapBuildTx({
                     networkId,
                     accountId,
                     encodedTx: unsignedTxItem.encodedTx,
-                    gasLimit: getSwapGasLimit({
-                      networkId,
-                      swapInfo: unsignedTxItem.swapInfo,
-                      isApprove: !!unsignedTxItem.approveInfo,
-                    }),
                   }),
               );
               const gasRes = await measureSwapReviewStage(
@@ -3728,11 +3673,6 @@ export function useSwapBuildTx({
                 networkId,
                 accountId,
                 encodedTx: unsignedTx.encodedTx,
-                gasLimit: getSwapGasLimit({
-                  networkId,
-                  swapInfo: unsignedTx.swapInfo,
-                  isApprove: !!unsignedTx.approveInfo,
-                }),
               }),
           );
           let estimateSucceeded = false;
@@ -3792,6 +3732,17 @@ export function useSwapBuildTx({
 
             throw e;
           }
+        }
+        const swapFee = findGasInfo(gasFeeInfos, unsignedTx.encodedTx);
+        if (swapFee) {
+          swapFee.gasInfo = await resolveEvmThorSwapGasInfo({
+            accountId,
+            networkId,
+            swapInfo: unsignedTx.swapInfo,
+            isApprove: !!unsignedTx.approveInfo,
+            gasInfo: swapFee.gasInfo,
+            customPriorityFee: swapNetWorkFeeLevel?.customPriorityFee,
+          });
         }
         const checkLatestNativeBalanceRes = await measureSwapReviewStage(
           reviewPreparation,
@@ -3886,6 +3837,7 @@ export function useSwapBuildTx({
     },
     [
       buildGasInfo,
+      swapNetWorkFeeLevel?.customPriorityFee,
       fromToken,
       setSwapSteps,
       swapEstimateFeeEvent,

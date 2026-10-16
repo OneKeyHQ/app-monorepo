@@ -2,14 +2,12 @@ import BigNumber from 'bignumber.js';
 import { isArray } from 'lodash';
 
 import type { IEncodedTxCkb } from '@onekeyhq/core/src/chains/ckb/types';
-import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IBatchEstimateFeeParams,
@@ -41,58 +39,11 @@ class ServiceGas extends ServiceBase {
   }
 
   @backgroundMethod()
-  async batchEstimateFee(params: IBatchEstimateFeeParams): Promise<{
-    common: IFeeInfoUnit['common'];
-    txFees: IServerBatchEstimateFeeResponse['data']['result'];
-  }> {
-    const { accountId, networkId, encodedTxs, gasLimits } = params;
-    if (networkUtils.isEvmNetwork({ networkId }) && gasLimits?.some(Boolean)) {
-      // Keep approval/reset-approval simulation in order, excluding swaps whose
-      // provider already supplied their gas limit.
-      const estimatedTxs = encodedTxs.filter((_, index) => !gasLimits[index]);
-      const estimated = estimatedTxs.length
-        ? await this.batchEstimateFee({
-            accountId,
-            networkId,
-            encodedTxs: estimatedTxs,
-          })
-        : undefined;
-      let estimateIndex = 0;
-      const fees = await Promise.all(
-        encodedTxs.map(async (encodedTx, index) => {
-          const gasLimit = gasLimits[index];
-          if (!gasLimit && estimated) {
-            const fee = estimated.txFees[estimateIndex];
-            estimateIndex += 1;
-            return { common: estimated.common, ...fee };
-          }
-          const fee = await this.estimateFee({
-            accountId,
-            networkId,
-            accountAddress: (encodedTx as IEncodedTxEvm).from ?? '',
-            encodedTx,
-            gasLimit,
-            gasAccountEnabled: false,
-          });
-          return {
-            common: fee.common,
-            gas: fee.gas ?? [],
-            gasEIP1559: fee.gasEIP1559 ?? [],
-            baseFee: fee.common.baseFee,
-          };
-        }),
-      );
-      return {
-        common: fees[0].common,
-        txFees: fees.map(({ common, ...fee }) => ({
-          ...fee,
-          baseFee: fee.baseFee ?? common.baseFee,
-        })),
-      };
-    }
+  async batchEstimateFee(params: IBatchEstimateFeeParams) {
     const controller = new AbortController();
     this._estimateFeeController = controller;
 
+    const { accountId, networkId, encodedTxs } = params;
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
 
     const resp = await client.post<IServerBatchEstimateFeeResponse>(
@@ -257,14 +208,10 @@ class ServiceGas extends ServiceBase {
     networkId: string;
     accountId: string;
     encodedTx: IEncodedTx | undefined;
-    gasLimit?: string;
   }) {
     const { networkId, accountId, encodedTx } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
-    const result = await vault.buildEstimateFeeParams({ encodedTx });
-    return params.gasLimit && networkUtils.isEvmNetwork({ networkId })
-      ? { ...result, encodedTx, gasLimit: params.gasLimit }
-      : { ...result, gasLimit: undefined };
+    return vault.buildEstimateFeeParams({ encodedTx });
   }
 
   @backgroundMethod()

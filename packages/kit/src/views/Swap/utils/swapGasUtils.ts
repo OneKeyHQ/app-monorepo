@@ -1,6 +1,11 @@
 import BigNumber from 'bignumber.js';
 
+import { FailedToEstimatedGasError } from '@onekeyhq/shared/src/errors';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { ICustomPriorityFeeOverride } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
+import { applyCustomPriorityFeeToGasInfo } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IGasEIP1559, IGasLegacy } from '@onekeyhq/shared/types/fee';
 import type {
   IFetchQuoteResult,
   ISwapGasInfo,
@@ -9,7 +14,7 @@ import type {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
-export function getSwapGasLimit({
+export function getEvmThorSwapGasLimit({
   networkId,
   swapInfo,
   isApprove,
@@ -18,14 +23,141 @@ export function getSwapGasLimit({
   swapInfo?: ISwapTxInfo;
   isApprove?: boolean;
 }) {
-  if (isApprove || !networkUtils.isEvmNetwork({ networkId })) {
+  if (
+    isApprove ||
+    !networkUtils.isEvmNetwork({ networkId }) ||
+    !swapInfo?.swapBuildResData.thorSwapCallData
+  ) {
     return undefined;
   }
-  const limit = new BigNumber(swapInfo?.swapBuildResData.result.gasLimit ?? 0);
-  // The provider has already applied its buffer; only round to whole gas units.
+  const limit = new BigNumber(swapInfo.swapBuildResData.result.gasLimit ?? 0);
+  // The build response already includes the provider's gas buffer.
   return limit.isFinite() && limit.isGreaterThan(0)
     ? limit.integerValue(BigNumber.ROUND_CEIL).toFixed()
     : undefined;
+}
+
+export function applyEvmThorSwapGasLimit<
+  T extends {
+    gas?: IGasLegacy | IGasLegacy[];
+    gasEIP1559?: IGasEIP1559 | IGasEIP1559[];
+  } & Pick<ISwapGasInfo, 'payer' | 'gasAccountQuote' | 'megafuelEligible'>,
+>({
+  gasInfo,
+  isSponsored,
+  ...params
+}: Parameters<typeof getEvmThorSwapGasLimit>[0] & {
+  gasInfo: T;
+  isSponsored?: boolean;
+}): T {
+  const gasLimit = getEvmThorSwapGasLimit(params);
+  if (!gasLimit) {
+    return gasInfo;
+  }
+  const legacyFees = Array.isArray(gasInfo.gas) ? gasInfo.gas : [gasInfo.gas];
+  // Keep the estimate used by sponsorship. Some callers only retain MegaFuel's
+  // zero-price fee tier, so preserve that tier even without the sponsor flags.
+  if (
+    isSponsored ??
+    (gasInfo.payer === 'gasAccount' ||
+      gasInfo.payer === 'megafuel' ||
+      gasInfo.megafuelEligible?.sponsorable ||
+      legacyFees.some(
+        (fee) => fee?.originalGasPrice && new BigNumber(fee.gasPrice).isZero(),
+      ))
+  ) {
+    return gasInfo;
+  }
+  const applyLimit = <G extends IGasLegacy | IGasEIP1559>(fee: G): G => ({
+    ...fee,
+    gasLimit,
+    gasLimitForDisplay: gasLimit,
+  });
+  return {
+    ...gasInfo,
+    gas: Array.isArray(gasInfo.gas)
+      ? gasInfo.gas.map(applyLimit)
+      : gasInfo.gas && applyLimit(gasInfo.gas),
+    gasEIP1559: Array.isArray(gasInfo.gasEIP1559)
+      ? gasInfo.gasEIP1559.map(applyLimit)
+      : gasInfo.gasEIP1559 && applyLimit(gasInfo.gasEIP1559),
+  };
+}
+
+export async function resolveEvmThorSwapGasInfo({
+  accountId,
+  gasInfo,
+  useDefaultRpc,
+  customPriorityFee,
+  ...params
+}: Parameters<typeof getEvmThorSwapGasLimit>[0] & {
+  accountId: string;
+  gasInfo: ISwapGasInfo;
+  useDefaultRpc?: boolean;
+  customPriorityFee?: ICustomPriorityFeeOverride;
+}): Promise<ISwapGasInfo> {
+  if (
+    params.isApprove ||
+    !networkUtils.isEvmNetwork({ networkId: params.networkId }) ||
+    !params.swapInfo?.swapBuildResData.thorSwapCallData
+  ) {
+    return gasInfo;
+  }
+  const isExternalAccount = accountUtils.isExternalAccount({ accountId });
+  // A positive legacy price is paid by the user even if the estimate originally
+  // offered MegaFuel. Gas Account uses normal prices and remains independent.
+  const isPaidMegafuelOverride =
+    !gasInfo.gasEIP1559 &&
+    isSwapMegafuelSponsored(gasInfo) &&
+    !isSwapGasAccountSponsored(gasInfo) &&
+    new BigNumber(gasInfo.gas?.gasPrice ?? 0).isGreaterThan(0);
+  const customRpcInfo =
+    useDefaultRpc || isExternalAccount || isPaidMegafuelOverride
+      ? undefined
+      : await backgroundApiProxy.serviceCustomRpc.getCustomRpcForNetwork(
+          params.networkId,
+        );
+  if (
+    !isExternalAccount &&
+    !isPaidMegafuelOverride &&
+    (!customRpcInfo?.rpc || !customRpcInfo.enabled)
+  ) {
+    return applyEvmThorSwapGasLimit({ ...params, gasInfo });
+  }
+
+  let gas = gasInfo.gas;
+  // External wallets and custom RPC broadcasts cannot honor sponsorship.
+  // Preserve a selected nonzero custom price when restoring the regular price.
+  if (
+    gas &&
+    new BigNumber(gas.gasPrice).isZero() &&
+    (gas.originalGasPrice !== undefined || isSwapGasSponsored(gasInfo))
+  ) {
+    const originalGasPrice = new BigNumber(gas.originalGasPrice ?? Number.NaN);
+    if (!originalGasPrice.isFinite() || !originalGasPrice.isGreaterThan(0)) {
+      throw new FailedToEstimatedGasError();
+    }
+    gas = { ...gas, gasPrice: originalGasPrice.toFixed() };
+  }
+  const userPaidGasInfo: ISwapGasInfo = {
+    ...gasInfo,
+    gas,
+    payer: 'user',
+    megafuelEligible: undefined,
+    gasAccountEligible: false,
+    gasAccountQuote: undefined,
+  };
+  return applyEvmThorSwapGasLimit({
+    ...params,
+    isSponsored: false,
+    // Apply the external wallet's selection after restoring the regular fee.
+    gasInfo: isExternalAccount
+      ? applyCustomPriorityFeeToGasInfo({
+          gasInfo: userPaidGasInfo,
+          customPriorityFee,
+        })
+      : userPaidGasInfo,
+  });
 }
 
 export function isSwapMegafuelSponsored(gasInfo?: ISwapGasInfo) {
@@ -117,9 +249,6 @@ export async function shouldRequestSwapGasAccount({
   quoteResult?: IFetchQuoteResult;
   hasApproveTx?: boolean;
 }) {
-  if (getSwapGasLimit({ networkId, swapInfo })) {
-    return false;
-  }
   if (!isSwapGasAccountCandidate({ swapInfo, quoteResult, hasApproveTx })) {
     return false;
   }

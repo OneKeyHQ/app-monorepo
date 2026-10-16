@@ -7,7 +7,6 @@ import { AppState } from 'react-native';
 import { Page, Spinner, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { getSwapGasLimit } from '@onekeyhq/kit/src/views/Swap/utils/swapGasUtils';
 import type {
   EModalSendRoutes,
   IModalSendParamList,
@@ -15,7 +14,11 @@ import type {
 import { EModalSignatureConfirmRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
-import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type {
+  IFeeInfoUnit,
+  IGasEIP1559,
+  IGasLegacy,
+} from '@onekeyhq/shared/types/fee';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -41,9 +44,20 @@ function SendConfirmFromSwap() {
   const handleConfirmMultiTxsOnHwOrExternal = useCallback(
     async (
       multiTxsFeeResult:
-        | Awaited<
-            ReturnType<typeof backgroundApiProxy.serviceGas.batchEstimateFee>
-          >
+        | {
+            common: {
+              baseFee: string | undefined;
+              feeDecimals: number;
+              feeSymbol: string;
+              nativeDecimals: number;
+              nativeSymbol: string;
+              nativeTokenPrice: number | undefined;
+            };
+            txFees: {
+              gas: IGasLegacy[];
+              gasEIP1559: IGasEIP1559[];
+            }[];
+          }
         | undefined,
     ) => {
       let prevTxFeeInfo: IFeeInfoUnit | undefined;
@@ -52,12 +66,7 @@ function SendConfirmFromSwap() {
         const unsignedTx = unsignedTxs[i];
         if (multiTxsFeeResult) {
           unsignedTx.feesInfo = {
-            common: {
-              ...multiTxsFeeResult.common,
-              baseFee:
-                multiTxsFeeResult.txFees[i].baseFee ??
-                multiTxsFeeResult.common.baseFee,
-            },
+            common: multiTxsFeeResult.common,
             gas: multiTxsFeeResult.txFees[i].gas,
             gasEIP1559: multiTxsFeeResult.txFees[i].gasEIP1559,
           };
@@ -132,13 +141,6 @@ function SendConfirmFromSwap() {
               accountId,
               networkId,
               encodedTxs: encodedTxList,
-              gasLimits: unsignedTxs.map((tx) =>
-                getSwapGasLimit({
-                  networkId,
-                  swapInfo: tx.swapInfo,
-                  isApprove: !!tx.approveInfo,
-                }),
-              ),
             });
           navigationToNext.current = true;
           if (multiTxsFeeResult.txFees.length === unsignedTxs.length) {

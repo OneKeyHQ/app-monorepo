@@ -63,7 +63,6 @@ import type { ISendTxBaseParams } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { getSwapGasLimit } from '../../Swap/utils/swapGasUtils';
 import { getPerpDepositErrorCode } from '../utils/perpDepositAnalytics';
 
 import { shouldWaitForPerpsDepositQuoteAccount } from './usePerpDepositUtils';
@@ -676,11 +675,6 @@ const usePerpDeposit = (
               networkId: token.networkId,
               accountId,
               encodedTx: o.encodedTx,
-              gasLimit: getSwapGasLimit({
-                networkId: token.networkId,
-                swapInfo: o.swapInfo,
-                isApprove: !!o.approveInfo,
-              }),
             }),
           ),
         );
@@ -688,21 +682,11 @@ const usePerpDeposit = (
           networkId: token.networkId,
           accountId,
           encodedTxs: estimateFeeParamsArr.map((o) => o.encodedTx ?? {}),
-          gasLimits: unsignedTxArr.map((tx) =>
-            getSwapGasLimit({
-              networkId: token.networkId,
-              swapInfo: tx.swapInfo,
-              isApprove: !!tx.approveInfo,
-            }),
-          ),
         });
         for (let i = 0; i < unsignedTxArr.length; i += 1) {
           const unsignedTxItem = unsignedTxArr[i];
           const gasRes = gasResArr.txFees[i];
-          const gasInfo = buildGasInfo(gasRes, {
-            ...gasResArr.common,
-            baseFee: gasRes.baseFee ?? gasResArr.common.baseFee,
-          });
+          const gasInfo = buildGasInfo(gasRes, gasResArr.common);
           gasFeeInfos.push({
             encodeTx: unsignedTxItem.encodedTx ?? {},
             gasInfo,
@@ -716,14 +700,7 @@ const usePerpDeposit = (
         let lastTxUseGasInfo: IFeeInfoUnit | undefined;
         for (let i = 0; i < unsignedTxArr.length; i += 1) {
           const unsignedTxItem = unsignedTxArr[i];
-          if (
-            i === unsignedTxArr.length - 1 &&
-            !getSwapGasLimit({
-              networkId: token.networkId,
-              swapInfo: unsignedTxItem.swapInfo,
-              isApprove: !!unsignedTxItem.approveInfo,
-            })
-          ) {
+          if (i === unsignedTxArr.length - 1) {
             let specialGasLimit: string | undefined;
             const unsignedTxSwapInfo = unsignedTxItem.swapInfo;
             const internalSwapGasLimit =
@@ -782,11 +759,6 @@ const usePerpDeposit = (
                 networkId: token.networkId,
                 accountId,
                 encodedTx: unsignedTxItem.encodedTx,
-                gasLimit: getSwapGasLimit({
-                  networkId: token.networkId,
-                  swapInfo: unsignedTxItem.swapInfo,
-                  isApprove: !!unsignedTxItem.approveInfo,
-                }),
               });
             const gasRes = await backgroundApiProxy.serviceGas.estimateFee({
               ...estimateFeeParams,
@@ -815,11 +787,6 @@ const usePerpDeposit = (
             networkId: token.networkId,
             accountId,
             encodedTx: unsignedTx.encodedTx,
-            gasLimit: getSwapGasLimit({
-              networkId: token.networkId,
-              swapInfo: unsignedTx.swapInfo,
-              isApprove: !!unsignedTx.approveInfo,
-            }),
           });
         const gasRes = await backgroundApiProxy.serviceGas.estimateFee({
           ...estimateFeeParams,
@@ -1043,11 +1010,6 @@ const usePerpDeposit = (
                 networkId: token.networkId,
                 accountId,
                 encodedTx: o.encodedTx,
-                gasLimit: getSwapGasLimit({
-                  networkId: token.networkId,
-                  swapInfo: o.swapInfo,
-                  isApprove: !!o.approveInfo,
-                }),
               }),
             ),
           );
@@ -1056,21 +1018,11 @@ const usePerpDeposit = (
               networkId: token.networkId,
               accountId,
               encodedTxs: estimateFeeParamsArr.map((o) => o.encodedTx ?? {}),
-              gasLimits: unsignedTxArr.map((tx) =>
-                getSwapGasLimit({
-                  networkId: token.networkId,
-                  swapInfo: tx.swapInfo,
-                  isApprove: !!tx.approveInfo,
-                }),
-              ),
             });
           for (let i = 0; i < unsignedTxArr.length; i += 1) {
             const unsignedTxItem = unsignedTxArr[i];
             const gasRes = gasResArr.txFees[i];
-            const gasInfo = buildGasInfo(gasRes, {
-              ...gasResArr.common,
-              baseFee: gasRes.baseFee ?? gasResArr.common.baseFee,
-            });
+            const gasInfo = buildGasInfo(gasRes, gasResArr.common);
             const res = await updateUnsignedTxAndSendTx({
               networkId: token.networkId,
               accountId,
@@ -1116,14 +1068,7 @@ const usePerpDeposit = (
           let lastTxUseGasInfo: IFeeInfoUnit | undefined;
           for (let i = 0; i < unsignedTxArr.length; i += 1) {
             const unsignedTxItem = unsignedTxArr[i];
-            if (
-              i === unsignedTxArr.length - 1 &&
-              !getSwapGasLimit({
-                networkId: token.networkId,
-                swapInfo: unsignedTxItem.swapInfo,
-                isApprove: !!unsignedTxItem.approveInfo,
-              })
-            ) {
+            if (i === unsignedTxArr.length - 1) {
               let specialGasLimit: string | undefined;
               const unsignedTxSwapInfo = unsignedTxItem.swapInfo;
               const internalSwapGasLimit =
@@ -1185,11 +1130,6 @@ const usePerpDeposit = (
                   networkId: token.networkId,
                   accountId,
                   encodedTx: unsignedTxItem.encodedTx,
-                  gasLimit: getSwapGasLimit({
-                    networkId: token.networkId,
-                    swapInfo: unsignedTxItem.swapInfo,
-                    isApprove: !!unsignedTxItem.approveInfo,
-                  }),
                 });
               const gasRes = await backgroundApiProxy.serviceGas.estimateFee({
                 ...estimateFeeParams,
@@ -1206,17 +1146,13 @@ const usePerpDeposit = (
                 };
               }
               const gasParseInfo = buildGasInfo(gasRes, gasRes.common);
-              const sentTx = await updateUnsignedTxAndSendTx({
+              await updateUnsignedTxAndSendTx({
                 networkId: token.networkId,
                 accountId,
                 unsignedTxItem,
                 gasInfo: gasParseInfo,
               });
-              if (i === unsignedTxArr.length - 1) {
-                lastTxRes = sentTx;
-              } else {
-                void onApproveTxSuccess();
-              }
+              void onApproveTxSuccess();
             }
           }
         }
@@ -1239,11 +1175,6 @@ const usePerpDeposit = (
             networkId: token.networkId,
             accountId,
             encodedTx: unsignedTx.encodedTx,
-            gasLimit: getSwapGasLimit({
-              networkId: token.networkId,
-              swapInfo: unsignedTx.swapInfo,
-              isApprove: !!unsignedTx.approveInfo,
-            }),
           });
         const gasRes = await backgroundApiProxy.serviceGas.estimateFee({
           ...estimateFeeParams,

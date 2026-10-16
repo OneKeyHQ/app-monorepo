@@ -2,7 +2,6 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import evmSettings from '@onekeyhq/kit-bg/src/vaults/impls/evm/settings';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import type { IEstimateGasParams } from '@onekeyhq/shared/types/fee';
 import {
   EProtocolOfExchange,
   ESwapNetworkFeeLevel,
@@ -199,30 +198,51 @@ function createSponsoredEstimateFeeResult(quoteId: string) {
   };
 }
 
-function createProviderGasUnsignedTx() {
+function createThorSwapFixture({
+  gasAccountEnabled = false,
+  networkId = 'evm--1',
+} = {}) {
   const unsignedTx = createSponsoredUnsignedTx();
-  if (!unsignedTx.swapInfo) {
+  const { swapInfo } = unsignedTx;
+  if (!swapInfo) {
     throw new OneKeyLocalError('Swap fixture requires swapInfo');
   }
-  const providerResult = {
-    ...unsignedTx.swapInfo.swapBuildResData.result,
-    originalGasLimit: 160_648,
-    gasLimitRate: 1.5,
-    gasLimit: 240_972,
+  unsignedTx.encodedTx = {
+    from: '0xuser',
+    to: '0xtoken',
+    value: '0x0',
+    data: '0xtransfer',
   };
-  unsignedTx.swapInfo.swapBuildResData.result = providerResult;
-  return unsignedTx;
-}
-
-function createProviderGasFeeResult() {
-  const fee = createEstimateFeeResult();
+  swapInfo.swapBuildResData.thorSwapCallData = {
+    depositWithExpiry: '',
+    vault: '0xvault',
+    asset: '0xtoken',
+    amount: '10000000',
+    memo: '',
+    memoStreamingSwap: '',
+    expiration: '',
+    fromAsset: 'ETH.USDC',
+    amountIn: '10000000',
+  };
+  swapInfo.swapBuildResData.result.gasLimit = 240_972;
+  swapInfo.swapBuildResData.result.gasAccountEnabled = gasAccountEnabled;
+  swapInfo.swapBuildResData.result.fromTokenInfo.networkId = networkId;
   return {
-    ...fee,
-    gas: fee.gas.map((tier) => ({
-      ...tier,
-      gasLimit: '240972',
-      gasLimitForDisplay: '240972',
-    })),
+    unsignedTx,
+    swapInfo,
+    params: {
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      networkId,
+      networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
+      buildUnsignedParams: {
+        accountId: 'account-1',
+        networkId,
+        encodedTx: unsignedTx.encodedTx,
+        swapInfo,
+        isInternalSwap: true,
+      },
+    },
   };
 }
 
@@ -596,6 +616,494 @@ describe('marketDirectSendTx', () => {
   });
 
   it.each([
+    {
+      mode: 'cached',
+      networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
+      feeIndex: 1,
+    },
+    {
+      mode: 'fresh',
+      networkFeeLevel: ESwapNetworkFeeLevel.HIGH,
+      feeIndex: 2,
+    },
+  ])(
+    'uses the Thor build limit for review and $mode send while keeping estimated prices',
+    async ({ mode, networkFeeLevel, feeIndex }) => {
+      const { unsignedTx, params } = createThorSwapFixture();
+      params.networkFeeLevel = networkFeeLevel;
+      const estimatedFee = createEstimateFeeResult();
+      mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+      mockEstimateFee.mockResolvedValue(estimatedFee);
+
+      const preview = await estimateMarketDirectGasInfos(params);
+      const expectedGas = {
+        ...estimatedFee.gas[feeIndex],
+        gasLimit: '240972',
+        gasLimitForDisplay: '240972',
+      };
+      expect(preview.gasInfos[0].gasInfo.gas).toEqual(expectedGas);
+      expect(mockEstimateFee).toHaveBeenCalledTimes(1);
+      expect(estimatedFee.gas[feeIndex]).toEqual(
+        createEstimateFeeResult().gas[feeIndex],
+      );
+      const validateFinalGasInfos = jest.fn().mockResolvedValue(undefined);
+
+      const sent = await sendMarketDirectUnsignedTxs({
+        ...params,
+        gasInfos: mode === 'cached' ? preview.gasInfos : undefined,
+        validateFinalGasInfos,
+      });
+
+      expect(mockEstimateFee).toHaveBeenCalledTimes(mode === 'cached' ? 1 : 2);
+      expect(mockEstimateFee).toHaveBeenLastCalledWith({
+        accountAddress: '0xuser',
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        encodedTx: unsignedTx.encodedTx,
+        scenario: 'swap',
+        gasAccountEnabled: false,
+        transfersInfo: undefined,
+        lockedUserNonce: 1,
+      });
+      expect(validateFinalGasInfos).toHaveBeenCalledWith([
+        expect.objectContaining({
+          gasInfo: expect.objectContaining({ gas: expectedGas }),
+        }),
+      ]);
+      expect(mockUpdateUnsignedTx).toHaveBeenCalledWith(
+        expect.objectContaining({
+          feeInfo: expect.objectContaining({ gas: expectedGas }),
+        }),
+      );
+      expect(sent[0].feeInfo?.gas).toEqual(expectedGas);
+      expect(mockBatchEstimateFee).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps Thor Gas Account requests and fresh quote limits unchanged', async () => {
+    const { unsignedTx, params } = createThorSwapFixture({
+      gasAccountEnabled: true,
+    });
+    const previewFee = createSponsoredEstimateFeeResult('thor-preview');
+    const freshFee = createSponsoredEstimateFeeResult('thor-fresh');
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+    mockEstimateFee
+      .mockResolvedValueOnce(previewFee)
+      .mockResolvedValueOnce(freshFee);
+
+    const preview = await estimateMarketDirectGasInfos(params);
+    expect(preview.gasInfos[0].gasInfo).toEqual(
+      expect.objectContaining({
+        payer: 'gasAccount',
+        gasAccountEligible: true,
+        gasAccountQuote: previewFee.gasAccountQuote,
+        gas: previewFee.gas[1],
+      }),
+    );
+
+    const sent = await sendMarketDirectUnsignedTxs({
+      ...params,
+      gasInfos: preview.gasInfos,
+    });
+
+    expect(mockEstimateFee).toHaveBeenCalledTimes(2);
+    for (const call of [1, 2]) {
+      expect(mockEstimateFee).toHaveBeenNthCalledWith(call, {
+        accountAddress: '0xuser',
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        encodedTx: unsignedTx.encodedTx,
+        scenario: 'swap',
+        gasAccountEnabled: true,
+        transfersInfo: undefined,
+        lockedUserNonce: 1,
+      });
+    }
+    expect(sent[0].feeInfo?.gas).toEqual(freshFee.gas[1]);
+    expect(mockSignAndSendTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gasAccountUiState: expect.objectContaining({
+          payer: 'gasAccount',
+          gasAccountQuote: freshFee.gasAccountQuote,
+        }),
+      }),
+    );
+  });
+
+  it('preserves the Thor MegaFuel zero-price tier and bound limit through cached send', async () => {
+    const { unsignedTx, params } = createThorSwapFixture({
+      networkId: 'evm--56',
+    });
+    const sponsoredGas = {
+      gasPrice: '0',
+      originalGasPrice: '2',
+      gasLimit: '50000',
+      gasLimitForDisplay: '49000',
+    };
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+    mockEstimateFee.mockResolvedValue({
+      ...createEstimateFeeResult(),
+      gas: [sponsoredGas],
+      megafuelEligible: { sponsorable: true, sponsorName: 'MegaFuel' },
+    });
+
+    const preview = await estimateMarketDirectGasInfos(params);
+    expect(preview.gasInfos[0].gasInfo.gas).toEqual(sponsoredGas);
+
+    const sent = await sendMarketDirectUnsignedTxs({
+      ...params,
+      gasInfos: preview.gasInfos,
+    });
+
+    expect(mockEstimateFee).toHaveBeenCalledTimes(1);
+    expect(sent[0].feeInfo?.gas).toEqual(sponsoredGas);
+    expect(mockUpdateUnsignedTx).toHaveBeenCalledWith(
+      expect.objectContaining({
+        feeInfo: expect.objectContaining({ gas: sponsoredGas }),
+      }),
+    );
+  });
+
+  it.each(['cached', 'fresh'])(
+    'restores paid Thor fees on custom RPC for review and %s send',
+    async (mode) => {
+      const { unsignedTx, params } = createThorSwapFixture({
+        networkId: 'evm--56',
+      });
+      const sponsoredGas = {
+        gasPrice: '0',
+        originalGasPrice: '2',
+        gasLimit: '50000',
+        gasLimitForDisplay: '49000',
+      };
+      const expectedGas = {
+        ...sponsoredGas,
+        gasPrice: '2',
+        gasLimit: '240972',
+        gasLimitForDisplay: '240972',
+      };
+      mockGetCustomRpcForNetwork.mockResolvedValue({
+        rpc: 'https://custom-rpc.example',
+        enabled: true,
+      });
+      mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+      mockEstimateFee.mockResolvedValue({
+        ...createEstimateFeeResult(),
+        gas: [sponsoredGas],
+        payer: 'megafuel',
+        megafuelEligible: { sponsorable: true, sponsorName: 'MegaFuel' },
+      });
+
+      const preview = await estimateMarketDirectGasInfos(params);
+      expect(preview.gasInfos[0].gasInfo).toEqual(
+        expect.objectContaining({
+          gas: expectedGas,
+          payer: 'user',
+          megafuelEligible: undefined,
+          gasAccountEligible: false,
+          gasAccountQuote: undefined,
+        }),
+      );
+      expect(Number(preview.gasFeeFiatValue)).toBeGreaterThan(0);
+      const validateFinalGasInfos = jest.fn().mockResolvedValue(undefined);
+
+      const sent = await sendMarketDirectUnsignedTxs({
+        ...params,
+        gasInfos: mode === 'cached' ? preview.gasInfos : undefined,
+        validateFinalGasInfos,
+      });
+
+      expect(mockEstimateFee).toHaveBeenCalledTimes(mode === 'cached' ? 1 : 2);
+      expect(validateFinalGasInfos).toHaveBeenCalledWith([
+        expect.objectContaining({
+          gasInfo: expect.objectContaining({
+            gas: expectedGas,
+            payer: 'user',
+          }),
+        }),
+      ]);
+      expect(sent[0].feeInfo?.gas).toEqual(expectedGas);
+      expect(mockUpdateUnsignedTx).toHaveBeenCalledWith(
+        expect.objectContaining({
+          feeInfo: expect.objectContaining({ gas: expectedGas }),
+        }),
+      );
+      expect(mockSignAndSendTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({ gasAccountUiState: undefined }),
+      );
+      expect(sponsoredGas.gasPrice).toBe('0');
+      expect(sponsoredGas.gasLimit).toBe('50000');
+    },
+  );
+
+  it.each([
+    { payer: 'megafuel', cached: true },
+    { payer: 'megafuel', cached: false },
+    { payer: 'gasAccount', cached: true },
+    { payer: 'gasAccount', cached: false },
+  ])(
+    'uses paid Thor fees for external wallets: $payer, cached=$cached',
+    async ({ payer, cached }) => {
+      const { unsignedTx, params } = createThorSwapFixture();
+      params.accountId = 'external--review';
+      params.buildUnsignedParams.accountId = params.accountId;
+      const fee = createSponsoredEstimateFeeResult('external-quote');
+      mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+      mockEstimateFee.mockResolvedValue({
+        ...fee,
+        payer,
+        gas: [{ gasPrice: '0', originalGasPrice: '2', gasLimit: '50000' }],
+        megafuelEligible: { sponsorable: true, sponsorName: 'MegaFuel' },
+      });
+      const preview = await estimateMarketDirectGasInfos({
+        ...params,
+        useDefaultRpc: true,
+      });
+      const expectedGas = {
+        gasPrice: '2',
+        originalGasPrice: '2',
+        gasLimit: '240972',
+        gasLimitForDisplay: '240972',
+      };
+      expect(preview.gasInfos[0].gasInfo.gas).toEqual(expectedGas);
+      expect(preview.gasInfos[0].gasInfo.gasAccountQuote).toBeUndefined();
+      expect(preview.gasInfos[0].gasInfo.payer).toBe('user');
+      const sent = await sendMarketDirectUnsignedTxs({
+        ...params,
+        useDefaultRpc: true,
+        gasInfos: cached ? preview.gasInfos : undefined,
+      });
+      expect(sent[0].feeInfo?.gas).toEqual(expectedGas);
+      expect(mockSignAndSendTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({ gasAccountUiState: undefined }),
+      );
+    },
+  );
+
+  it('drops Thor Gas Account quotes before custom RPC review and send', async () => {
+    const { unsignedTx, params } = createThorSwapFixture({
+      gasAccountEnabled: true,
+    });
+    const sponsoredFee = createSponsoredEstimateFeeResult('custom-rpc-quote');
+    mockGetCustomRpcForNetwork.mockResolvedValue({
+      rpc: 'https://custom-rpc.example',
+      enabled: true,
+    });
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+    mockEstimateFee.mockResolvedValue(sponsoredFee);
+    const expectedGas = {
+      ...sponsoredFee.gas[1],
+      gasLimit: '240972',
+      gasLimitForDisplay: '240972',
+    };
+    const expectedGasInfo = expect.objectContaining({
+      gas: expectedGas,
+      payer: 'user',
+      megafuelEligible: undefined,
+      gasAccountEligible: false,
+      gasAccountQuote: undefined,
+    });
+
+    const preview = await estimateMarketDirectGasInfos(params);
+    expect(preview.gasInfos[0].gasInfo).toEqual(expectedGasInfo);
+    const validateFinalGasInfos = jest.fn().mockResolvedValue(undefined);
+    const sent = await sendMarketDirectUnsignedTxs({
+      ...params,
+      gasInfos: preview.gasInfos,
+      validateFinalGasInfos,
+    });
+
+    expect(mockEstimateFee).toHaveBeenCalledTimes(2);
+    for (const call of [1, 2]) {
+      expect(mockEstimateFee).toHaveBeenNthCalledWith(
+        call,
+        expect.objectContaining({ gasAccountEnabled: false }),
+      );
+    }
+    expect(validateFinalGasInfos).toHaveBeenCalledWith([
+      expect.objectContaining({ gasInfo: expectedGasInfo }),
+    ]);
+    expect(sent[0].feeInfo?.gas).toEqual(expectedGas);
+    expect(mockSignAndSendTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ gasAccountUiState: undefined }),
+    );
+  });
+
+  it.each([false, true])(
+    'rechecks custom RPC after Thor review and honors useDefaultRpc=%s',
+    async (useDefaultRpc) => {
+      const { unsignedTx, params } = createThorSwapFixture({
+        networkId: 'evm--56',
+      });
+      const sponsoredGas = {
+        gasPrice: '0',
+        originalGasPrice: '2',
+        gasLimit: '50000',
+        gasLimitForDisplay: '49000',
+      };
+      mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+      mockEstimateFee.mockResolvedValue({
+        ...createEstimateFeeResult(),
+        gas: [sponsoredGas],
+        payer: 'megafuel',
+        megafuelEligible: { sponsorable: true, sponsorName: 'MegaFuel' },
+      });
+      const preview = await estimateMarketDirectGasInfos(params);
+      expect(preview.gasInfos[0].gasInfo.gas).toEqual(sponsoredGas);
+      mockGetCustomRpcForNetwork.mockResolvedValue({
+        rpc: 'https://custom-rpc.example',
+        enabled: true,
+      });
+
+      const sent = await sendMarketDirectUnsignedTxs({
+        ...params,
+        gasInfos: preview.gasInfos,
+        useDefaultRpc,
+      });
+
+      const expectedGas = useDefaultRpc
+        ? sponsoredGas
+        : {
+            ...sponsoredGas,
+            gasPrice: '2',
+            gasLimit: '240972',
+            gasLimitForDisplay: '240972',
+          };
+      expect(mockEstimateFee).toHaveBeenCalledTimes(1);
+      expect(sent[0].feeInfo?.gas).toEqual(expectedGas);
+      expect(mockSignAndSendTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          useDefaultRpc,
+          stageFeeInfo: expect.objectContaining({
+            feeInfo: expect.objectContaining({ gas: expectedGas }),
+          }),
+        }),
+      );
+      expect(preview.gasInfos[0].gasInfo.gas).toEqual(sponsoredGas);
+    },
+  );
+
+  it.each([false, true])(
+    'uses the selected paid Thor price instead of MegaFuel with custom RPC=%s',
+    async (customRpcEnabled) => {
+      const { unsignedTx, params } = createThorSwapFixture({
+        networkId: 'evm--56',
+      });
+      const fee = createEstimateFeeResult();
+      mockGetCustomRpcForNetwork.mockResolvedValue({
+        rpc: 'https://custom-rpc.example',
+        enabled: customRpcEnabled,
+      });
+      mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+      mockEstimateFee.mockResolvedValue({
+        ...fee,
+        common: { ...fee.common, feeDecimals: 9 },
+        gas: [
+          {
+            gasPrice: '0',
+            originalGasPrice: '7',
+            gasLimit: '50000',
+          },
+        ],
+        payer: 'megafuel',
+        megafuelEligible: { sponsorable: true, sponsorName: 'MegaFuel' },
+      });
+      const customPriorityFee = { customValue: '12' };
+      const preview = await estimateMarketDirectGasInfos({
+        ...params,
+        customPriorityFee,
+      });
+      const sent = await sendMarketDirectUnsignedTxs({
+        ...params,
+        customPriorityFee,
+        gasInfos: preview.gasInfos,
+      });
+      const expectedGas = {
+        gasPrice: '12',
+        originalGasPrice: '7',
+        gasLimit: '240972',
+        gasLimitForDisplay: '240972',
+      };
+
+      expect(preview.gasInfos[0].gasInfo.gas).toEqual(expectedGas);
+      expect(sent[0].feeInfo?.gas).toEqual(expectedGas);
+      expect(mockEstimateFee).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('keeps Thor MegaFuel sponsorship for default RPC review and send while custom RPC is enabled', async () => {
+    const { unsignedTx, params } = createThorSwapFixture({
+      networkId: 'evm--56',
+    });
+    const sponsoredGas = {
+      gasPrice: '0',
+      originalGasPrice: '2',
+      gasLimit: '50000',
+      gasLimitForDisplay: '49000',
+    };
+    mockGetCustomRpcForNetwork.mockResolvedValue({
+      rpc: 'https://custom-rpc.example',
+      enabled: true,
+    });
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+    mockEstimateFee.mockResolvedValue({
+      ...createEstimateFeeResult(),
+      gas: [sponsoredGas],
+      payer: 'megafuel',
+      megafuelEligible: { sponsorable: true, sponsorName: 'MegaFuel' },
+    });
+
+    const preview = await estimateMarketDirectGasInfos({
+      ...params,
+      useDefaultRpc: true,
+    });
+    expect(preview.gasInfos[0].gasInfo).toEqual(
+      expect.objectContaining({ gas: sponsoredGas, payer: 'megafuel' }),
+    );
+    const sent = await sendMarketDirectUnsignedTxs({
+      ...params,
+      gasInfos: preview.gasInfos,
+      useDefaultRpc: true,
+    });
+
+    expect(mockEstimateFee).toHaveBeenCalledTimes(1);
+    expect(sent[0].feeInfo?.gas).toEqual(sponsoredGas);
+    expect(mockSignAndSendTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        useDefaultRpc: true,
+        stageFeeInfo: expect.objectContaining({
+          feeInfo: expect.objectContaining({ gas: sponsoredGas }),
+        }),
+      }),
+    );
+  });
+
+  it.each(['approval', 'non-Thor swap'])(
+    'keeps the estimated limit for %s review and send',
+    async (kind) => {
+      const { unsignedTx, swapInfo, params } = createThorSwapFixture();
+      if (kind === 'approval') {
+        unsignedTx.approveInfo = {
+          owner: '0xuser',
+          spender: '0xspender',
+          amount: '10',
+        };
+      } else {
+        swapInfo.swapBuildResData.thorSwapCallData = undefined;
+      }
+      mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+      const preview = await estimateMarketDirectGasInfos(params);
+      const sent = await sendMarketDirectUnsignedTxs(params);
+
+      expect(preview.gasInfos[0].gasInfo.gas).toEqual(
+        createEstimateFeeResult().gas[1],
+      );
+      expect(sent[0].feeInfo?.gas).toEqual(createEstimateFeeResult().gas[1]);
+      expect(mockEstimateFee).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it.each([
     { cache: 'missing', fails: false },
     { cache: 'mismatched', fails: false },
     { cache: 'missing', fails: true },
@@ -811,199 +1319,6 @@ describe('marketDirectSendTx', () => {
     );
   });
 
-  describe('provider gas limit', () => {
-    beforeEach(() => {
-      mockBuildEstimateFeeParams.mockImplementation(
-        async ({
-          encodedTx,
-          gasLimit,
-        }: Pick<IEstimateGasParams, 'encodedTx' | 'gasLimit'>) => ({
-          encodedTx,
-          gasLimit,
-        }),
-      );
-    });
-
-    it('passes buffered provider gas unchanged through preview and final pricing without requesting Gas Account', async () => {
-      const unsignedTx = createProviderGasUnsignedTx();
-      mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
-      mockEstimateFee.mockResolvedValue(createProviderGasFeeResult());
-      const params = {
-        accountAddress: '0xuser',
-        accountId: 'account-1',
-        networkId: 'evm--1',
-        buildUnsignedParams: {
-          accountId: 'account-1',
-          networkId: 'evm--1',
-          encodedTx: unsignedTx.encodedTx,
-          swapInfo: unsignedTx.swapInfo,
-          isInternalSwap: true,
-        },
-      };
-
-      const preview = await estimateMarketDirectGasInfos(params);
-      expect(preview.gasInfos[0].gasInfo.gas?.gasLimit).toBe('240972');
-      await sendMarketDirectUnsignedTxs(params);
-
-      expect(mockBuildEstimateFeeParams).toHaveBeenCalledTimes(2);
-      expect(mockEstimateFee).toHaveBeenCalledTimes(2);
-      for (const call of [1, 2]) {
-        expect(mockBuildEstimateFeeParams).toHaveBeenNthCalledWith(
-          call,
-          expect.objectContaining({ gasLimit: '240972' }),
-        );
-        expect(mockEstimateFee).toHaveBeenNthCalledWith(
-          call,
-          expect.objectContaining({
-            gasLimit: '240972',
-            gasAccountEnabled: false,
-          }),
-        );
-      }
-      expect(mockBatchEstimateFee).not.toHaveBeenCalled();
-      expect(mockUpdateUnsignedTx).toHaveBeenCalledWith(
-        expect.objectContaining({
-          feeInfo: expect.objectContaining({
-            gas: expect.objectContaining({ gasLimit: '240972' }),
-          }),
-        }),
-      );
-      expect(mockSignAndSendTransaction).toHaveBeenCalledWith(
-        expect.objectContaining({ gasAccountUiState: undefined }),
-      );
-    });
-
-    it('keeps normal estimation when the provider supplies only originalGasLimit', async () => {
-      const unsignedTx = createProviderGasUnsignedTx();
-      if (!unsignedTx.swapInfo) {
-        throw new OneKeyLocalError('Swap fixture requires swapInfo');
-      }
-      unsignedTx.swapInfo.swapBuildResData.result.gasLimit = undefined;
-      mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
-      mockEstimateFee.mockResolvedValue(createEstimateFeeResult());
-      const params = {
-        accountAddress: '0xuser',
-        accountId: 'account-1',
-        networkId: 'evm--1',
-        buildUnsignedParams: {
-          accountId: 'account-1',
-          networkId: 'evm--1',
-          encodedTx: unsignedTx.encodedTx,
-          swapInfo: unsignedTx.swapInfo,
-          isInternalSwap: true,
-        },
-      };
-
-      const preview = await estimateMarketDirectGasInfos(params);
-      expect(preview.gasInfos[0].gasInfo.gas?.gasLimit).toBe('22000');
-      await sendMarketDirectUnsignedTxs(params);
-
-      expect(mockEstimateFee).toHaveBeenCalledTimes(2);
-      for (const call of [1, 2]) {
-        expect(mockEstimateFee).toHaveBeenNthCalledWith(
-          call,
-          expect.objectContaining({ gasLimit: undefined }),
-        );
-      }
-      expect(mockUpdateUnsignedTx).toHaveBeenCalledWith(
-        expect.objectContaining({
-          feeInfo: expect.objectContaining({
-            gas: expect.objectContaining({ gasLimit: '22000' }),
-          }),
-        }),
-      );
-    });
-
-    it.each(['sequential', 'batch', 'batch fallback'])(
-      'excludes approvals from provider gas and preserves the final swap limit: %s',
-      async (mode) => {
-        const unsignedTx = createProviderGasUnsignedTx();
-        const approvals = ['0xreset', '0xapprove'].map((data, index) =>
-          createUnsignedTx({
-            encodedTx: { from: '0xuser', to: '0xtoken', value: '0x0', data },
-            nonce: index,
-            swapInfo: unsignedTx.swapInfo,
-            approveInfo: {
-              owner: '0xuser',
-              spender: '0xrouter',
-              amount: index === 0 ? '0' : '10',
-            },
-          }),
-        );
-        mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
-        mockGetVaultSettings.mockResolvedValue({
-          supportBatchEstimateFee: { 'evm--1': mode !== 'sequential' },
-        });
-        const approvalFee = createEstimateFeeResult();
-        mockBatchEstimateFee.mockResolvedValue({
-          common: approvalFee.common,
-          txFees:
-            mode === 'batch fallback'
-              ? []
-              : [approvalFee, approvalFee, createProviderGasFeeResult()],
-        });
-        mockEstimateFee
-          .mockResolvedValueOnce(approvalFee)
-          .mockResolvedValueOnce(approvalFee)
-          .mockResolvedValueOnce(createProviderGasFeeResult());
-
-        const result = await estimateMarketDirectGasInfos({
-          accountAddress: '0xuser',
-          accountId: 'account-1',
-          networkId: 'evm--1',
-          networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
-          buildUnsignedParams: {
-            accountId: 'account-1',
-            networkId: 'evm--1',
-            encodedTx: unsignedTx.encodedTx,
-            swapInfo: unsignedTx.swapInfo,
-            isInternalSwap: true,
-          },
-          approveUnsignedTxArr: approvals,
-        });
-
-        expect(
-          result.gasInfos.map((item) => item.gasInfo.gas?.gasLimit),
-        ).toEqual(['22000', '22000', '240972']);
-        for (const approval of approvals) {
-          expect(mockBuildEstimateFeeParams).toHaveBeenCalledWith(
-            expect.objectContaining({
-              encodedTx: approval.encodedTx,
-              gasLimit: undefined,
-            }),
-          );
-        }
-        if (mode === 'sequential') {
-          expect(mockBatchEstimateFee).not.toHaveBeenCalled();
-        } else {
-          expect(mockBatchEstimateFee).toHaveBeenCalledWith(
-            expect.objectContaining({
-              gasLimits: [undefined, undefined, '240972'],
-            }),
-          );
-        }
-        if (mode === 'batch') {
-          expect(mockEstimateFee).not.toHaveBeenCalled();
-        } else {
-          expect(mockEstimateFee).toHaveBeenCalledTimes(3);
-          for (const call of [1, 2]) {
-            expect(mockEstimateFee).toHaveBeenNthCalledWith(
-              call,
-              expect.objectContaining({ gasLimit: undefined }),
-            );
-          }
-          expect(mockEstimateFee).toHaveBeenLastCalledWith(
-            expect.objectContaining({
-              encodedTx: unsignedTx.encodedTx,
-              gasLimit: '240972',
-              gasAccountEnabled: false,
-            }),
-          );
-        }
-      },
-    );
-  });
-
   it('does not request Gas Account sponsorship while the review quote still needs an allowance', async () => {
     const sponsoredUnsignedTx = createSponsoredUnsignedTx();
     mockPrepareSendConfirmUnsignedTx.mockResolvedValue(sponsoredUnsignedTx);
@@ -1165,27 +1480,6 @@ describe('marketDirectSendTx', () => {
     mockPrepareSendConfirmUnsignedTx.mockResolvedValue(swapUnsignedTx);
     mockGetVaultSettings.mockResolvedValue(evmSettings);
     mockBatchEstimateFee.mockRejectedValue(new Error('batch unavailable'));
-    mockBuildEstimateFeeParams.mockImplementation(
-      async ({
-        encodedTx,
-        gasLimit,
-      }: Pick<IEstimateGasParams, 'encodedTx' | 'gasLimit'>) => ({
-        encodedTx,
-        gasLimit,
-      }),
-    );
-    mockEstimateFee.mockImplementation(
-      async ({ gasLimit }: Pick<IEstimateGasParams, 'gasLimit'>) => {
-        const fee = createEstimateFeeResult();
-        return {
-          ...fee,
-          gas: fee.gas.map((tier) => ({
-            ...tier,
-            ...(gasLimit ? { gasLimit, gasLimitForDisplay: gasLimit } : {}),
-          })),
-        };
-      },
-    );
 
     const result = await estimateMarketDirectGasInfos({
       accountAddress: '0xuser',
@@ -1203,29 +1497,17 @@ describe('marketDirectSendTx', () => {
     });
 
     expect(mockBatchEstimateFee).not.toHaveBeenCalled();
-    expect(mockEstimateFee).toHaveBeenCalledTimes(2);
-    expect(mockEstimateFee).toHaveBeenNthCalledWith(
-      1,
+    expect(mockEstimateFee).toHaveBeenCalledTimes(1);
+    expect(mockEstimateFee).toHaveBeenCalledWith(
       expect.objectContaining({
         networkId,
         encodedTx: approveUnsignedTx.encodedTx,
-        gasLimit: undefined,
-      }),
-    );
-    expect(mockEstimateFee).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        networkId,
-        encodedTx: swapUnsignedTx.encodedTx,
-        gasLimit: '145000',
-        gasAccountEnabled: false,
       }),
     );
     expect(result.gasInfos).toHaveLength(2);
     expect(result.gasInfos[1].gasInfo.gas).toEqual({
       gasPrice: '2',
       gasLimit: '145000',
-      gasLimitForDisplay: '145000',
     });
     expect(result.gasFeeFiatValue).toBeDefined();
   });
