@@ -1,3 +1,5 @@
+import { seedFromHdCredentialAsync } from '@onekeyhq/core/src/secret';
+
 import { KeyringHd as KeyringHdBtc } from '../btc/KeyringHd';
 
 import { KeyringHd } from './KeyringHd';
@@ -52,6 +54,8 @@ describe('Zcash KeyringHd privacy mode setup', () => {
     ]);
 
     expect(prepareAccounts).toHaveBeenCalledTimes(1);
+    // Account creation never decrypts the seed for Zcash key material.
+    expect(seedFromHdCredentialAsync).not.toHaveBeenCalled();
     expect(getWalletFreshMnemonic).toHaveBeenCalledWith({ walletId: 'hd-1' });
     expect(initializePrivacyModeOff).toHaveBeenCalledWith({
       accountId: account.id,

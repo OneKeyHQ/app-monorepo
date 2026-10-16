@@ -18,7 +18,6 @@ import {
 } from './carrier';
 import {
   buildTransparentTxWithAccountXprv,
-  buildTransparentTxWithSeed,
   createTransparentHardwarePczt,
   deriveAccount,
   deriveAddressFromUfvk,
@@ -255,7 +254,6 @@ const api: IZcashSdkApi = {
   prewarmPczt,
   parseTransparentTransactions,
   quoteTransparentTx,
-  buildTransparentTxWithSeed,
   buildTransparentTxWithAccountXprv,
 
   createTransparentHardwarePczt,
