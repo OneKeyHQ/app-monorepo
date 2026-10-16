@@ -62,6 +62,7 @@ export function getMinimumOrderToastActionProps(
 ) {
   if (platformEnv.isNativeIOS || !action || !actionLabel) return {};
   return {
+    duration: 3000,
     actionsAlign: 'left' as const,
     actions: (
       <Button

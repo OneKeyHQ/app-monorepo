@@ -45,6 +45,7 @@ import {
 import {
   formatTwapMinimumOrderNotional,
   formatTwapPriceForOrder,
+  getTwapStopPriceErrorKey,
   getTwapTriggerAbove,
   isTwapStopPriceValid,
   isTwapTotalNotionalValid,
@@ -1639,15 +1640,12 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       })
     ) {
       throw new OneKeyLocalError(
-        `${appLocale.intl.formatMessage({
-          id: params.isBuy
-            ? ETranslations.perp_scale_upper_price_label__title
-            : ETranslations.perp_scale_lower_price_label__title,
-        })} ${params.isBuy ? '>' : '<'} ${appLocale.intl.formatMessage({
-          id: ETranslations.perp_market_price,
-        })} / ${appLocale.intl.formatMessage({
-          id: ETranslations.dexmarket_pro_trigger_price,
-        })}`,
+        appLocale.intl.formatMessage({
+          id: getTwapStopPriceErrorKey({
+            isBuy: params.isBuy,
+            triggerPrice,
+          }),
+        }),
       );
     }
     const twap = {
