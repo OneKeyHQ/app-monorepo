@@ -74,6 +74,58 @@ export const EMPTY_POSITIONS_RESPONSE: IEarnPortfolioPositionsResponse = {
   errors: [],
 };
 
+/**
+ * A scope response with the vaults whose read failed (`errors`) filled in
+ * from what the scope showed before: a vault that fails to read keeps its
+ * last positions on the page and in the cache instead of vanishing until
+ * it reads again. Its protocol summary comes along when the new response
+ * lost it with the vault.
+ */
+export function keepFailedVaultPositions({
+  previous,
+  response,
+}: {
+  previous: IEarnPortfolioPositionsResponse;
+  response: IEarnPortfolioPositionsResponse;
+}): IEarnPortfolioPositionsResponse {
+  if (!response.errors.length) {
+    return response;
+  }
+  const failed = (position: IEarnPortfolioPosition) =>
+    response.errors.some(
+      (error) =>
+        sameKey(error.symbol, position.earn.symbol) &&
+        (error.vault
+          ? sameKey(error.vault, position.earn.vault)
+          : !position.earn.vault),
+    );
+  const kept = Object.entries(previous.positions).flatMap(
+    ([networkId, positions]) =>
+      positions
+        .filter(failed)
+        .map((position) => [networkId, position] as const),
+  );
+  if (!kept.length) {
+    return response;
+  }
+  const positions = { ...response.positions };
+  kept.forEach(([networkId, position]) => {
+    positions[networkId] = [...(positions[networkId] ?? []), position];
+  });
+  const keptProtocols = new Set(kept.map(([, position]) => position.protocol));
+  const present = new Set(
+    response.protocolSummaries.map((summary) => summary.protocol),
+  );
+  const protocolSummaries = [
+    ...response.protocolSummaries,
+    ...previous.protocolSummaries.filter(
+      (summary) =>
+        keptProtocols.has(summary.protocol) && !present.has(summary.protocol),
+    ),
+  ];
+  return { ...response, positions, protocolSummaries };
+}
+
 /** The per-scope responses as one wallet response, positions still keyed by network. */
 export function mergePortfolioPositionsResponses(
   responses: IEarnPortfolioPositionsResponse[],

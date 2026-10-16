@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useIsFocused } from '@react-navigation/native';
@@ -198,9 +198,31 @@ export function MyPortfolioPage() {
     () => countEarnPositionsByNetwork(view.protocols),
     [view.protocols],
   );
+  // The chip offers every network the wallet holds on or has ledger rewards
+  // on: a network with rewards but no position would otherwise never be
+  // selectable. The ledger's networks accumulate as its reads land (a read
+  // under a filter lists the filtered networks only) and start over with
+  // the account.
+  const [ledgerNetworkIds, setLedgerNetworkIds] = useState<string[]>([]);
+  useEffect(() => {
+    setLedgerNetworkIds([]);
+  }, [filterAccountKey]);
+  useEffect(() => {
+    if (!rewards) {
+      return;
+    }
+    setLedgerNetworkIds((prev) => {
+      const next = new Set(prev);
+      rewards.groups.forEach((group) => next.add(group.networkId));
+      return next.size === prev.length ? prev : Array.from(next);
+    });
+  }, [rewards]);
   const availableNetworkIds = useMemo(
-    () => Object.keys(networkAssetCounts),
-    [networkAssetCounts],
+    () =>
+      Array.from(
+        new Set([...Object.keys(networkAssetCounts), ...ledgerNetworkIds]),
+      ),
+    [networkAssetCounts, ledgerNetworkIds],
   );
   const visibleProtocols = useMemo(
     () => filterEarnProtocolsByNetworks(view.protocols, selectedNetworkIds),
@@ -240,13 +262,19 @@ export function MyPortfolioPage() {
     [navigation],
   );
 
+  // The account the page is on, read after an await: a Redeem whose read
+  // outlived an account switch opens nothing of the account it left.
+  const filterAccountKeyRef = useRef(filterAccountKey);
+  filterAccountKeyRef.current = filterAccountKey;
+
   // A card's Redeem opens the withdrawal the detail page's Redeem opens.
   // Most providers take an amount on the manage page's withdraw tab. A
   // provider that withdraws an order (Stakefish SOL/ETH, Everstake SOL,
   // Babylon) picks it on WithdrawOptions, whose pages read the detail, so
   // the detail is fetched first while the button waits (OK-64782); should
-  // that read fail, the manage page opens and hands off to the picker
-  // itself. The card's provider refreshes once the withdrawal is sent.
+  // that read fail, or leave the picker without the token it lists orders
+  // by, the manage page opens and hands off to the picker itself. The
+  // card's provider refreshes once the withdrawal is sent.
   const handleRedeem = useCallback(
     async (
       target: IEarnPositionManageTarget,
@@ -276,6 +304,7 @@ export function MyPortfolioPage() {
       const accountId = selectedAccount.othersWalletAccountId || '';
       const indexedAccountId =
         selectedAccount.indexedAccountId || activeAccount.indexedAccount?.id;
+      const accountKeyAtPress = filterAccountKeyRef.current;
       try {
         const [detailInfo, earnAccount] = await Promise.all([
           backgroundApiProxy.serviceStaking.getProtocolDetailsV2({
@@ -293,6 +322,9 @@ export function MyPortfolioPage() {
             btcOnlyTaproot: true,
           }),
         ]);
+        if (filterAccountKeyRef.current !== accountKeyAtPress) {
+          return;
+        }
         const vault = detailInfo.protocol?.vault ?? target.vault;
         const protocolInfo = earnAccount
           ? buildEarnProtocolInfo({
@@ -303,7 +335,14 @@ export function MyPortfolioPage() {
               vault,
             })
           : undefined;
-        if (!earnAccount || !protocolInfo) {
+        const tokenInfo = buildEarnTokenInfo({
+          detailInfo,
+          networkId: target.networkId,
+          provider: target.provider,
+          vault,
+          accountId: earnAccount?.accountId ?? '',
+        });
+        if (!earnAccount || !protocolInfo || !tokenInfo) {
           openManagePage();
           return;
         }
@@ -313,20 +352,16 @@ export function MyPortfolioPage() {
             accountId: earnAccount.accountId,
             networkId: target.networkId,
             protocolInfo,
-            tokenInfo: buildEarnTokenInfo({
-              detailInfo,
-              networkId: target.networkId,
-              provider: target.provider,
-              vault,
-              accountId: earnAccount.accountId,
-            }),
+            tokenInfo,
             symbol: target.symbol,
             provider: target.provider,
             onSuccess,
           },
         });
       } catch {
-        openManagePage();
+        if (filterAccountKeyRef.current === accountKeyAtPress) {
+          openManagePage();
+        }
       }
     },
     [

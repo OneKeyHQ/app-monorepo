@@ -5,6 +5,7 @@ import type { IEarnPortfolioPositionsResponse } from '@onekeyhq/shared/types/ear
 import {
   buildPositionsRequests,
   holdingPositionsOf,
+  keepFailedVaultPositions,
   mergePortfolioPositionsResponses,
   positionsScopeKey,
 } from './earnPortfolioPositions.utils';
@@ -104,6 +105,111 @@ describe('mergePortfolioPositionsResponses', () => {
     expect(merged.positions['evm--8453']).toEqual([]);
     expect(merged.protocolSummaries).toHaveLength(2);
     expect(merged.errors).toHaveLength(1);
+  });
+});
+
+describe('keepFailedVaultPositions', () => {
+  const position = (vault: string, symbol: string, amount: string) =>
+    ({
+      networkId: 'evm--1',
+      owner: '0xme',
+      protocol: 'morpho',
+      protocolName: 'Morpho',
+      chain: 'evm',
+      category: 'yield',
+      groupId: `morpho:evm--1:${symbol}:${vault}`,
+      name: `Morpho ${symbol}`,
+      assets: [
+        {
+          symbol,
+          address: '',
+          amount,
+          value: Number(amount),
+          price: 1,
+          category: 'deposit',
+          meta: { decimals: 6, isVerified: true },
+        },
+      ],
+      debts: [],
+      rewards: [],
+      metrics: { healthFactor: null },
+      source: {
+        provider: 'onekey-earn',
+        fetchedAt: '2026-09-28T00:00:00.000Z',
+        ttl: 60,
+        cached: false,
+      },
+      earn: {
+        manage: { networkId: 'evm--1', provider: 'morpho', symbol, vault },
+        symbol,
+        vault,
+        network: { networkId: 'evm--1', name: 'Ethereum', logoURI: '' },
+        investment: { totalFiatValue: amount, earnings24hFiatValue: '0' },
+        action: 'manage',
+      },
+    }) as unknown as IEarnPortfolioPositionsResponse['positions'][string][number];
+  const summary = (protocol: string) =>
+    ({
+      protocol,
+      protocolName: protocol,
+      networkIds: ['evm--1'],
+      logoURI: '',
+      totalValue: 0,
+      positionCount: 1,
+    }) as unknown as IEarnPortfolioPositionsResponse['protocolSummaries'][number];
+  const previous: IEarnPortfolioPositionsResponse = {
+    positions: {
+      'evm--1': [position('0xA', 'USDC', '1'), position('0xB', 'USDT', '2')],
+    },
+    protocolSummaries: [summary('morpho')],
+    errors: [],
+  };
+
+  it('keeps the positions of a vault whose read failed, from what the scope showed before', () => {
+    const response: IEarnPortfolioPositionsResponse = {
+      positions: { 'evm--1': [position('0xB', 'USDT', '3')] },
+      protocolSummaries: [summary('morpho')],
+      errors: [{ vault: '0xa', symbol: 'USDC', errorCode: 'READ_FAILED' }],
+    };
+    const kept = keepFailedVaultPositions({ previous, response });
+    expect(
+      kept.positions['evm--1'].map((p) => [p.earn.vault, p.assets[0].amount]),
+    ).toEqual([
+      ['0xB', '3'],
+      ['0xA', '1'],
+    ]);
+    expect(kept.protocolSummaries).toHaveLength(1);
+  });
+
+  it('brings the protocol summary along when every vault of the protocol failed', () => {
+    const response: IEarnPortfolioPositionsResponse = {
+      positions: {},
+      protocolSummaries: [],
+      errors: [
+        { vault: '0xA', symbol: 'USDC', errorCode: 'READ_FAILED' },
+        { vault: '0xB', symbol: 'USDT', errorCode: 'READ_FAILED' },
+      ],
+    };
+    const kept = keepFailedVaultPositions({ previous, response });
+    expect(kept.positions['evm--1']).toHaveLength(2);
+    expect(kept.protocolSummaries.map((s) => s.protocol)).toEqual(['morpho']);
+  });
+
+  it('leaves a response without errors, or without matching positions before, as it is', () => {
+    const clean: IEarnPortfolioPositionsResponse = {
+      positions: {},
+      protocolSummaries: [],
+      errors: [],
+    };
+    expect(keepFailedVaultPositions({ previous, response: clean })).toBe(clean);
+    const unknown: IEarnPortfolioPositionsResponse = {
+      positions: {},
+      protocolSummaries: [],
+      errors: [{ vault: '0xC', symbol: 'DAI', errorCode: 'READ_FAILED' }],
+    };
+    expect(keepFailedVaultPositions({ previous, response: unknown })).toBe(
+      unknown,
+    );
   });
 });
 
