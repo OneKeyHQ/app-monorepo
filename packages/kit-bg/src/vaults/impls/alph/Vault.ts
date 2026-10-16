@@ -109,6 +109,48 @@ function splitChangeOutputReserve({
   };
 }
 
+// The server prices the whole balance, so `fiatValue` has to shrink together
+// with `balance`: the amount page turns fiat Max back into tokens through
+// `price`, so a total-based `fiatValue` lands above the spendable balance and
+// trips the insufficient-balance check. Derive the split from `price` when it
+// is usable (so fiat Max converts back to exactly the spendable amount) and
+// pro-rate the server value otherwise so the three fiat fields still add up.
+function splitFiatValue({
+  fiatValue,
+  price,
+  spendableParsed,
+  frozenParsed,
+  totalParsed,
+}: {
+  fiatValue: string | undefined;
+  price: number | string | undefined;
+  spendableParsed: string;
+  frozenParsed: string;
+  totalParsed: string;
+}) {
+  const totalFiat = new BigNumber(fiatValue ?? NaN);
+  if (!totalFiat.isFinite()) {
+    return undefined;
+  }
+  const priceBn = new BigNumber(price ?? NaN);
+  if (priceBn.isFinite() && priceBn.isGreaterThan(0)) {
+    return {
+      fiatValue: priceBn.times(spendableParsed).toFixed(),
+      frozenBalanceFiatValue: priceBn.times(frozenParsed).toFixed(),
+      totalBalanceFiatValue: priceBn.times(totalParsed).toFixed(),
+    };
+  }
+  const total = new BigNumber(totalParsed);
+  const frozenFiat = total.isZero()
+    ? new BigNumber(0)
+    : totalFiat.times(frozenParsed).div(total);
+  return {
+    fiatValue: totalFiat.minus(frozenFiat).toFixed(),
+    frozenBalanceFiatValue: frozenFiat.toFixed(),
+    totalBalanceFiatValue: totalFiat.toFixed(),
+  };
+}
+
 export default class Vault extends VaultBase {
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
@@ -149,7 +191,17 @@ export default class Vault extends VaultBase {
         balance: token.balance,
         decimals: token.info.decimals,
       });
-      return reserve ? { ...token, ...reserve } : token;
+      if (!reserve) {
+        return token;
+      }
+      const fiat = splitFiatValue({
+        fiatValue: token.fiatValue,
+        price: token.price,
+        spendableParsed: reserve.balanceParsed,
+        frozenParsed: reserve.frozenBalanceParsed,
+        totalParsed: reserve.totalBalanceParsed,
+      });
+      return { ...token, ...reserve, ...fiat };
     });
   }
 

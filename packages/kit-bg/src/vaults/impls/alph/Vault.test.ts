@@ -76,7 +76,13 @@ function createVault({
   return vault;
 }
 
-function nativeTokenDetail(balance: string): IFetchTokenDetailItem {
+function nativeTokenDetail(
+  balance: string,
+  { price = 0 }: { price?: number } = {},
+): IFetchTokenDetailItem {
+  const balanceParsed = new BigNumber(balance)
+    .shiftedBy(-NETWORK.decimals)
+    .toFixed();
   return {
     info: {
       address: '',
@@ -87,11 +93,10 @@ function nativeTokenDetail(balance: string): IFetchTokenDetailItem {
       networkId: NETWORK.id,
     } as IToken,
     balance,
-    balanceParsed: new BigNumber(balance)
-      .shiftedBy(-NETWORK.decimals)
-      .toFixed(),
-    fiatValue: '0',
-    price: 0,
+    balanceParsed,
+    // the server prices the whole balance
+    fiatValue: new BigNumber(balanceParsed).times(price).toFixed(),
+    price,
   };
 }
 
@@ -157,6 +162,64 @@ describe('AlphVault change-output dust reserve (OK-64709)', () => {
         totalBalance: alph('0.0004'),
         totalBalanceParsed: '0.0004',
       });
+    });
+
+    it('prices the spendable balance so fiat Max converts back to the spendable amount', async () => {
+      const vault = createVault();
+      const price = 0.3;
+
+      const [native] = await vault.fillTokensDetails({
+        tokensDetails: [nativeTokenDetail(alph('0.101'), { price })],
+      });
+
+      expect(native).toMatchObject({
+        balanceParsed: '0.1',
+        fiatValue: '0.03',
+        frozenBalanceFiatValue: '0.0003',
+        totalBalanceFiatValue: '0.0303',
+        price,
+      });
+      // what the amount page does with fiat Max: fiat / price must not exceed
+      // the spendable balance, otherwise the send is blocked as insufficient
+      expect(
+        new BigNumber(native.fiatValue)
+          .div(native.price)
+          .isGreaterThan(native.balanceParsed),
+      ).toBe(false);
+    });
+
+    it('pro-rates the server fiat value when the price is unusable', async () => {
+      const vault = createVault();
+      const token = nativeTokenDetail(alph('0.101'));
+      // the API reports "--" for an unknown price
+      token.price = '--' as unknown as number;
+      token.fiatValue = '0.0303';
+
+      const [native] = await vault.fillTokensDetails({
+        tokensDetails: [token],
+      });
+
+      expect(native).toMatchObject({
+        balanceParsed: '0.1',
+        fiatValue: '0.03',
+        frozenBalanceFiatValue: '0.0003',
+        totalBalanceFiatValue: '0.0303',
+      });
+    });
+
+    it('leaves the fiat fields alone when the server sends none', async () => {
+      const vault = createVault();
+      const token = nativeTokenDetail(alph('0.101'));
+      token.fiatValue = undefined as unknown as string;
+
+      const [native] = await vault.fillTokensDetails({
+        tokensDetails: [token],
+      });
+
+      expect(native.balanceParsed).toBe('0.1');
+      expect(native.fiatValue).toBeUndefined();
+      expect(native.frozenBalanceFiatValue).toBeUndefined();
+      expect(native.totalBalanceFiatValue).toBeUndefined();
     });
   });
 
