@@ -9,6 +9,7 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Keyboard } from 'react-native';
 
 import {
   Alert,
@@ -163,9 +164,19 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     void backgroundApiProxy.serviceNetworkDoctor.runNetworkDiagnostics();
   }, [dialogInstance, navigation]);
 
+  const dismissCodeInput = useCallback(() => {
+    codeInputRef.current?.blur();
+    if (platformEnv.isNative) Keyboard.dismiss();
+  }, []);
+
   useEffect(() => {
-    if (active && isCodeInputEnabled) codeInputRef.current?.focus();
-  }, [active, isCodeInputEnabled]);
+    if (!active) return;
+    if (!isCodeInputEnabled || captchaErrorKey) {
+      dismissCodeInput();
+    } else if (!sendAttemptRef.current) {
+      codeInputRef.current?.focus();
+    }
+  }, [active, captchaErrorKey, dismissCodeInput, isCodeInputEnabled]);
 
   const cancelPendingCaptchaSend = useCallback(() => {
     const attempt = sendAttemptRef.current;
@@ -215,6 +226,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       allowPreviousCode: isCodeInputEnabled,
     };
     sendAttemptRef.current = attempt;
+    dismissCodeInput();
     setIsResending(true);
     setIsCodeInputEnabled(false);
     setState({ status: 'initial' });
@@ -259,9 +271,10 @@ export function PrimeLoginEmailCodeDialogV2(props: {
         Toast.error({ title: errorMessage });
       }
       setIsApiReady(true);
-      // Only the server can validate an existing code. A failed CAPTCHA or
-      // send request must not prevent the user from submitting one.
-      setIsCodeInputEnabled(true);
+      // CAPTCHA failures must keep the input locked and the guidance visible.
+      // Once CAPTCHA passed, preserve existing-code entry on send API errors.
+      setIsCodeInputEnabled(attempt.stage === 'sending');
+      if (attempt.stage === 'captcha') dismissCodeInput();
       setState({ status: 'initial' });
       setCountdown(retryAfterSeconds ?? 0);
       return;
@@ -274,6 +287,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     }
     if (!isolatedTest) defaultLogger.referral.page.signupOneKeyID();
   }, [
+    dismissCodeInput,
     email,
     intl,
     isCodeInputEnabled,
@@ -608,6 +622,16 @@ export function PrimeLoginEmailCodeDialogV2(props: {
           textContentType={platformEnv.isDesktop ? undefined : 'oneTimeCode'}
           autoComplete={platformEnv.isDesktop ? 'off' : otpAutoComplete}
           disabled={!isCodeInputEnabled || state.status === 'done'}
+          editable={isCodeInputEnabled && state.status !== 'done'}
+          onFocus={() => {
+            // Native focus events can arrive after a pending attempt was reset.
+            if (
+              !isCodeInputEnabled ||
+              captchaErrorKey ||
+              sendAttemptRef.current
+            )
+              dismissCodeInput();
+          }}
           value={verificationCode}
           onChangeText={(value) => {
             if (!isCodeInputEnabled || state.status === 'done') return;

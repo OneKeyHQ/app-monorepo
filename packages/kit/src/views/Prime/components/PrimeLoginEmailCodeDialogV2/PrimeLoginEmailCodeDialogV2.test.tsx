@@ -10,6 +10,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
+import { Keyboard } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 import { Toast } from '@onekeyhq/components';
@@ -40,6 +41,9 @@ let mockTestEndpointEnabled = false;
 
 let mockCaptchaFrameMode: 'provider' | 'web' | 'native' | 'desktop' =
   'provider';
+let mockProviderResult:
+  | import('@onekeyhq/kit/src/components/Captcha/captchaMessage').ICaptchaFrameProps
+  | undefined;
 const originalDesktopApi = globalThis.desktopApiProxy;
 let mockIsNativePlatform = false;
 const mockNavigation = { pushModal: jest.fn() };
@@ -75,6 +79,11 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => {
   };
 });
 
+jest.mock('react-native', () => ({
+  ...jest.requireActual<typeof import('react-native')>('react-native'),
+  Keyboard: { dismiss: jest.fn() },
+}));
+
 jest.mock('react-native-webview', () => ({
   WebView: jest.fn(() => null),
 }));
@@ -96,6 +105,7 @@ jest.mock('@onekeyhq/kit/src/components/Captcha/CaptchaFrame', () => ({
       );
       return <Frame {...props} />;
     }
+    mockProviderResult = props;
     const { requestId, onResult } = props;
     return (
       <div data-testid="test-captcha-frame" data-url={props.url}>
@@ -304,9 +314,11 @@ jest.mock('@onekeyhq/components', () => {
       {
         autoFocus?: boolean;
         disabled?: boolean;
+        editable?: boolean;
         error?: boolean;
         maxLength?: number;
         onChangeText?: (value: string) => void;
+        onFocus?: () => void;
         placeholder?: string;
         testID?: string;
         value?: string;
@@ -316,9 +328,11 @@ jest.mock('@onekeyhq/components', () => {
         {
           autoFocus,
           disabled,
+          editable,
           error,
           maxLength,
           onChangeText,
+          onFocus,
           placeholder,
           testID,
           value,
@@ -329,6 +343,8 @@ jest.mock('@onekeyhq/components', () => {
           ref,
           autoFocus,
           disabled,
+          onFocus,
+          readOnly: editable === false,
           'data-error': String(error),
           'data-testid': testID,
           maxLength,
@@ -460,6 +476,7 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+    jest.restoreAllMocks();
     Object.defineProperty(globalThis, 'desktopApiProxy', {
       configurable: true,
       value: originalDesktopApi,
@@ -734,7 +751,7 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
       expect(sendCode).not.toHaveBeenCalled();
       expect(
         screen.getByTestId('prime-otp-code').hasAttribute('disabled'),
-      ).toBe(false);
+      ).toBe(true);
       expect(
         screen.getByText(
           'CAPTCHA could not load. Check your network connection and retry.',
@@ -816,6 +833,119 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
     expect(mockRunNetworkDiagnostics).toHaveBeenCalledTimes(1);
     expect(sendCode).not.toHaveBeenCalled();
   });
+
+  test.each(
+    [false, true].flatMap((native) =>
+      ['load-error', 'timeout', 'terminal'].map((failure) => ({
+        native,
+        failure,
+      })),
+    ),
+  )(
+    'CAPTCHA $failure keeps input locked and recovers on retry (native=$native)',
+    async ({ native, failure }) => {
+      mockIsNativePlatform = native;
+      jest.useFakeTimers();
+      const dismiss = jest
+        .spyOn(Keyboard, 'dismiss')
+        .mockImplementation(() => {});
+      const focus = jest.spyOn(HTMLInputElement.prototype, 'focus');
+      const blur = jest.spyOn(HTMLInputElement.prototype, 'blur');
+      let finishSend!: () => void;
+      const sendCode = jest.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            finishSend = resolve;
+          }),
+      );
+      const loginWithCode = jest.fn();
+      render(
+        <PrimeLoginEmailCodeDialogV2
+          email="test@example.com"
+          sendCode={sendCode}
+          loginWithCode={loginWithCode}
+          captchaConfig={{
+            enabled: true,
+            pageUrl: 'https://captcha.example.com',
+          }}
+        />,
+      );
+      const input = screen.getByTestId<HTMLInputElement>('prime-otp-code');
+      const oldProvider = mockProviderResult;
+      expect(oldProvider).toBeDefined();
+      expect(input.disabled).toBe(true);
+      expect(input.readOnly).toBe(true);
+      blur.mockClear();
+      dismiss.mockClear();
+      if (failure === 'timeout') {
+        await act(async () => jest.advanceTimersByTime(120_000));
+      } else {
+        fireEvent.click(
+          screen.getByText(
+            failure === 'terminal'
+              ? 'Provider cannot recover'
+              : 'Provider could not load',
+          ),
+        );
+        await act(async () => {});
+      }
+      expect(input.disabled).toBe(true);
+      expect(input.readOnly).toBe(true);
+      expect(focus).not.toHaveBeenCalled();
+      expect(blur).toHaveBeenCalled();
+      expect(dismiss.mock.calls.length > 0).toBe(native);
+      // A delayed native focus event must also be dismissed after failure.
+      blur.mockClear();
+      fireEvent.focus(input);
+      expect(blur).toHaveBeenCalled();
+      fireEvent.change(input, { target: { value: '123456' } });
+      expect(input.value).toBe('');
+      fireEvent.click(
+        screen.getByRole('button', { name: ETranslations.global_retry }),
+      );
+      expect(input.disabled).toBe(true);
+      expect(input.readOnly).toBe(true);
+      await act(async () => {
+        oldProvider?.onResult({
+          type: 'onekey-test-captcha',
+          requestId: oldProvider.requestId,
+          status: 'success',
+          token: 'stale-token',
+        });
+      });
+      expect(sendCode).not.toHaveBeenCalled();
+      expect(focus).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByText('Provider ready'));
+      expect(input.disabled).toBe(true);
+      expect(input.readOnly).toBe(true);
+      fireEvent.click(screen.getByText('Complete provider verification'));
+      await act(async () => {});
+      expect(sendCode).toHaveBeenCalledTimes(1);
+      expect(input.disabled).toBe(true);
+      expect(input.readOnly).toBe(true);
+      await act(async () => finishSend());
+      expect(input.disabled).toBe(false);
+      expect(input.readOnly).toBe(false);
+      expect(document.activeElement).toBe(input);
+      await act(async () => {
+        oldProvider?.onResult({
+          type: 'onekey-test-captcha',
+          requestId: oldProvider.requestId,
+          status: 'load-error',
+        });
+      });
+      expect(input.disabled).toBe(false);
+      expect(input.readOnly).toBe(false);
+      expect(document.activeElement).toBe(input);
+      fireEvent.change(input, { target: { value: '123456' } });
+      fireEvent.click(screen.getByRole('button', { name: 'confirm' }));
+      await act(async () => {});
+      expect(loginWithCode).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        code: '123456',
+      });
+    },
+  );
 
   test('a terminal provider error offers Retry and only a fresh token sends OTP', async () => {
     const sendCode = jest.fn().mockResolvedValue(undefined);
@@ -985,8 +1115,12 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
   });
 
   test.each(['captcha load failure', 'server rejection'])(
-    'a failed resend (%s) still allows submitting an earlier code',
+    'a failed resend (%s) only unlocks input after CAPTCHA passed',
     async (failure) => {
+      mockIsNativePlatform = true;
+      const dismiss = jest
+        .spyOn(Keyboard, 'dismiss')
+        .mockImplementation(() => {});
       jest.useFakeTimers();
       const sendCode = jest
         .fn()
@@ -1010,6 +1144,9 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
       fireEvent.click(screen.getByText('Complete provider verification'));
       await act(async () => {});
       expect(input.disabled).toBe(false);
+      expect(document.activeElement).toBe(input);
+      const blur = jest.spyOn(input, 'blur');
+      dismiss.mockClear();
       fireEvent.change(input, { target: { value: '123456' } });
       for (let second = 0; second < 60; second += 1) {
         await act(async () => jest.advanceTimersByTime(1000));
@@ -1018,6 +1155,9 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
         screen.getByRole('button', { name: ETranslations.prime_code_resend }),
       );
       expect(input.disabled).toBe(true);
+      expect(blur).toHaveBeenCalled();
+      expect(dismiss).toHaveBeenCalled();
+      expect(document.activeElement).not.toBe(input);
       expect(input.value).toBe('');
       fireEvent.click(
         screen.getByText(
@@ -1030,14 +1170,19 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
       expect(sendCode).toHaveBeenCalledTimes(
         failure === 'server rejection' ? 2 : 1,
       );
-      expect(input.disabled).toBe(false);
+      expect(input.disabled).toBe(failure === 'captcha load failure');
       fireEvent.change(input, { target: { value: '123456' } });
       fireEvent.click(screen.getByRole('button', { name: 'confirm' }));
       await act(async () => {});
-      expect(loginWithCode).toHaveBeenCalledWith({
-        email: 'test@example.com',
-        code: '123456',
-      });
+      if (failure === 'captcha load failure') {
+        expect(loginWithCode).not.toHaveBeenCalled();
+        expect(document.activeElement).not.toBe(input);
+      } else {
+        expect(loginWithCode).toHaveBeenCalledWith({
+          email: 'test@example.com',
+          code: '123456',
+        });
+      }
     },
   );
 
@@ -1253,7 +1398,7 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
   );
 
   test.each(['load failure', 'timeout', 'unavailable'])(
-    'reopening after CAPTCHA %s allows submitting the earlier code without sending another',
+    'reopening after CAPTCHA %s keeps code entry locked',
     async (failure) => {
       mockIsNativePlatform = true;
       jest.useFakeTimers();
@@ -1298,16 +1443,14 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
         Boolean(screen.queryByTestId('email-otp-captcha-network-diagnostics')),
       ).toBe(failure === 'load failure');
       const input = screen.getByTestId<HTMLInputElement>('prime-otp-code');
-      expect(input.disabled).toBe(false);
+      expect(input.disabled).toBe(true);
+      expect(document.activeElement).not.toBe(input);
       expect(sendCode).toHaveBeenCalledTimes(1);
       expect(screen.queryByText(ETranslations.prime_sent_to)).toBeNull();
       fireEvent.change(input, { target: { value: '123456' } });
       fireEvent.click(screen.getByRole('button', { name: 'confirm' }));
       await act(async () => {});
-      expect(loginWithCode).toHaveBeenCalledWith({
-        email: 'test@example.com',
-        code: '123456',
-      });
+      expect(loginWithCode).not.toHaveBeenCalled();
     },
   );
 
@@ -1546,7 +1689,7 @@ describe('PrimeLoginEmailCodeDialogV2', () => {
         expect(sendCode).not.toHaveBeenCalled();
         expect(
           screen.getByTestId('prime-otp-code').hasAttribute('disabled'),
-        ).toBe(false);
+        ).toBe(true);
         const retry = screen.getByRole<HTMLButtonElement>('button', {
           name: ETranslations.global_retry,
         });
