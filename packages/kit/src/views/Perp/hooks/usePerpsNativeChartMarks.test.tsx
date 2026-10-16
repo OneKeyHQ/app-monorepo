@@ -84,6 +84,9 @@ it('relocalizes loaded and live fills immediately without reloading history', as
     fill('Open Short', 'A', 2),
     fill('Close Long', 'A', 3),
     fill('Close Short', 'B', 4),
+    fill('Long > Short', 'A', 5),
+    fill('Short > Long', 'B', 6),
+    fill('Liquidated Cross Long', 'A', 7),
   ];
   loadHistory.mockResolvedValue(fills);
   const { result, rerender } = renderHook(usePerpsNativeChartMarks, {
@@ -102,6 +105,9 @@ it('relocalizes loaded and live fills immediately without reloading history', as
     'Short\n1.25 @ 146.75',
     'Close Long\n1.25 @ 146.75',
     'Close Short\n1.25 @ 146.75',
+    'Long > Short\n1.25 @ 146.75',
+    'Short > Long\n1.25 @ 146.75',
+    'Liquidated Cross Long\n1.25 @ 146.75',
   ]);
 
   locale = 'zh-CN';
@@ -112,19 +118,41 @@ it('relocalizes loaded and live fills immediately without reloading history', as
     '做空\n1.25 @ 146.75',
     '平多\n1.25 @ 146.75',
     '平空\n1.25 @ 146.75',
+    'Long > Short\n1.25 @ 146.75',
+    'Short > Long\n1.25 @ 146.75',
+    'Liquidated Cross Long\n1.25 @ 146.75',
   ]);
   expect(
     result.current[0].props.marks.map(({ text, ...mark }) => mark),
   ).toEqual(originalMarks.map(({ text, ...mark }) => mark));
-  const liveFill = fill('Open Long', 'B', 5);
+  const liveFills = [
+    fill('Open Long', 'B', 8),
+    fill('Long > Short', 'A', 9),
+    fill('Short > Long', 'B', 10),
+    fill('Liquidated Cross Long', 'A', 11),
+  ];
   act(() => {
     appEventBus.emit(EAppEventBusNames.HyperliquidDataUpdate, {
       type: EPerpsSubscriptionCategory.ACCOUNT,
       subType: ESubscriptionType.USER_FILLS,
-      data: { user: mockAccountAddress, fills: [fills[3], liveFill] },
+      data: { user: mockAccountAddress, fills: [fills[3], ...liveFills] },
     });
   });
-  expect(result.current[0].props.marks).toHaveLength(5);
-  expect(result.current[0].props.marks[4].text).toBe('做多\n1.25 @ 146.75');
+  expect(result.current[0].props.marks).toHaveLength(11);
+  expect(result.current[0].props.marks.slice(-4)).toEqual([
+    expect.objectContaining({ label: 'B', text: '做多\n1.25 @ 146.75' }),
+    expect.objectContaining({
+      label: 'S',
+      text: 'Long > Short\n1.25 @ 146.75',
+    }),
+    expect.objectContaining({
+      label: 'B',
+      text: 'Short > Long\n1.25 @ 146.75',
+    }),
+    expect.objectContaining({
+      label: 'S',
+      text: 'Liquidated Cross Long\n1.25 @ 146.75',
+    }),
+  ]);
   expect(loadHistory).toHaveBeenCalledTimes(1);
 });
