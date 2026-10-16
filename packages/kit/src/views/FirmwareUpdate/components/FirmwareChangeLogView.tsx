@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { EFirmwareType } from '@onekeyfe/hd-shared';
+import { EFirmwareType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import type {
@@ -30,6 +30,8 @@ import {
   useFirmwareUpdateStepInfoAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -476,10 +478,36 @@ export function FirmwareChangeLogView({
     if (platformEnv.isDesktop) {
       const usbPreflightParams =
         await getFirmwareUpdateUSBPreflightParams(result);
-      const isUSBDeviceAvailable =
-        await backgroundApiProxy.serviceHardware.detectUSBDeviceAvailability(
-          usbPreflightParams,
-        );
+      let isUSBDeviceAvailable: boolean;
+      try {
+        isUSBDeviceAvailable =
+          await backgroundApiProxy.serviceHardware.detectUSBDeviceAvailability(
+            usbPreflightParams,
+          );
+      } catch (error) {
+        if (
+          !isHardwareErrorByCode({
+            error: error as IOneKeyError,
+            code: HardwareErrorCode.FirmwareUpdateLimitOneDevice,
+          })
+        ) {
+          throw error;
+        }
+        Dialog.show({
+          icon: 'TypeCoutline',
+          title: intl.formatMessage({
+            id: ETranslations.firmware_update_install_page__title,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.update_only_one_usb_device_supported_for_upgrade,
+          }),
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_got_it,
+          }),
+          showCancelButton: false,
+        });
+        return;
+      }
       if (!isUSBDeviceAvailable) {
         Dialog.show({
           icon: 'TypeCoutline',

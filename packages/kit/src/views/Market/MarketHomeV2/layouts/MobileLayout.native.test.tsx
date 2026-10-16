@@ -36,6 +36,7 @@ type IMockPagerProps = {
   initialPage?: number;
   onLayout?: (event: IMockLayoutEvent) => void;
   externalTopOverlayTag?: number;
+  topScrollEdgeEffect?: 'hard' | 'soft';
   onScrollEdgeCapability?: (event: {
     nativeEvent: { available: boolean };
   }) => void;
@@ -105,6 +106,7 @@ const mockIntl = { formatMessage: ({ id }: { id: string }) => id };
 jest.mock('react-native-pager-view', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {
+    ScrollEdgeEffect: { Hard: 'hard', Soft: 'soft' },
     CollapsiblePagerView: React.forwardRef(
       (props: IMockPagerProps, ref: React.Ref<unknown>) => {
         mockPagerProps = props;
@@ -498,6 +500,7 @@ describe('external header inset ownership', () => {
     );
     expect(padding()).toBe('0');
     expect(mockPagerProps?.externalTopOverlayTag).toBe(123);
+    expect(mockPagerProps?.topScrollEdgeEffect).toBe('hard');
     act(() =>
       mockPagerProps?.onScrollEdgeCapability?.({
         nativeEvent: { available: false },
@@ -505,6 +508,7 @@ describe('external header inset ownership', () => {
     );
     expect(padding()).toBe('104');
     expect(mockPagerProps?.externalTopOverlayTag).toBeUndefined();
+    expect(mockPagerProps?.topScrollEdgeEffect).toBeUndefined();
     expect(mockInsetCommits.length).toBeGreaterThanOrEqual(4);
     for (const commit of mockInsetCommits) {
       expect(commit).toEqual(
