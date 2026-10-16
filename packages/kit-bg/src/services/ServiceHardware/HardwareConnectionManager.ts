@@ -2,11 +2,15 @@ import {
   EDeviceType,
   type HardwareConnectProtocol,
   ONEKEY_WEBUSB_FILTER,
+  isKnownTrezorWebUsbDevice,
   resolveOneKeyUsbDevicePath,
 } from '@onekeyfe/hd-shared';
 import axios from 'axios';
 
-import { NeedBluetoothPermissions } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import {
+  FirmwareUpdateLimitOneDevice,
+  NeedBluetoothPermissions,
+} from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
@@ -242,6 +246,33 @@ export class HardwareConnectionManager {
           known.commType === mode &&
           (!connectProtocol || known.connectProtocol === connectProtocol),
       );
+      // A loader's descriptor path can be all zeros. It routes an explicitly
+      // selected USB endpoint, but must never identify an arbitrary BLE target.
+      const loaderEndpoint = candidates.find(
+        (known) =>
+          mode === 'webusb' &&
+          known.mode === 'bootloader' &&
+          connectId?.trim().toLowerCase() === known.path.toLowerCase() &&
+          known.deviceType !== EDeviceType.Unknown &&
+          !normalize(known.serialNo) &&
+          !normalize(known.deviceId),
+      );
+      if (loaderEndpoint) {
+        const usbDevices = (await globalThis.navigator.usb.getDevices()).filter(
+          (usb) =>
+            ONEKEY_WEBUSB_FILTER.some(
+              (filter) =>
+                usb.vendorId === filter.vendorId &&
+                usb.productId === filter.productId,
+            ) && !isKnownTrezorWebUsbDevice(usb),
+        );
+        if (usbDevices.length > 1) throw new FirmwareUpdateLimitOneDevice();
+        return (
+          candidates.length === 1 &&
+          usbDevices.length === 1 &&
+          resolveOneKeyUsbDevicePath(usbDevices[0]) === loaderEndpoint.path
+        );
+      }
       // Only an explicit loader recovery may continue without business identity.
       // The workflow still reads live USB state and verifies the model and mode.
       if (
@@ -278,7 +309,8 @@ export class HardwareConnectionManager {
           );
         }).length === 1
       );
-    } catch {
+    } catch (error) {
+      if (error instanceof FirmwareUpdateLimitOneDevice) throw error;
       return false;
     }
   }

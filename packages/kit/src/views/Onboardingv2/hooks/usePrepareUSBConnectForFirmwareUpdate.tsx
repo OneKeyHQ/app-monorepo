@@ -62,11 +62,26 @@ export function usePrepareUSBConnectForFirmwareUpdate() {
 
       // Step 1: Check if USB device is available
       let isUSBDeviceAvailable: boolean;
+      let resolvedConnectId = connectIdToUse;
       try {
         isUSBDeviceAvailable =
           await backgroundApiProxy.serviceHardware.detectUSBDeviceAvailability(
             usbPreflightParams,
           );
+        // A BLE loader entry needs its observed model to resolve the single
+        // USB endpoint, because loader firmware has no business serial.
+        if (
+          isUSBDeviceAvailable &&
+          platformEnv.isDesktop &&
+          connectIdToUse &&
+          features &&
+          usbPreflightParams.bootloaderRecoveryDeviceType
+        ) {
+          resolvedConnectId =
+            await backgroundApiProxy.serviceHardware.checkDeviceReachableForFirmwareUpdate(
+              { connectId: connectIdToUse, features },
+            );
+        }
       } catch (error) {
         if (
           !isHardwareErrorByCode({
@@ -122,12 +137,12 @@ export function usePrepareUSBConnectForFirmwareUpdate() {
         }
       }
 
-      if (isNil(connectIdToUse)) {
+      if (isNil(resolvedConnectId)) {
         return null;
       }
 
       return {
-        connectId: connectIdToUse,
+        connectId: resolvedConnectId,
         originalTransport: globalOriginalTransport,
         needsRestore: globalOriginalTransport !== undefined,
       };

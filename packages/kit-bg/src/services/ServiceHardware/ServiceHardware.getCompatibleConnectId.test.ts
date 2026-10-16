@@ -2089,6 +2089,58 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       expect(probe).not.toHaveBeenCalled();
     });
 
+    it.each([EDeviceType.Classic1s, EDeviceType.ClassicPure])(
+      'keeps a selected %s loader USB endpoint on USB without a business identity',
+      async (deviceType) => {
+        const path = '000000000000000000000000';
+        getDevices.mockResolvedValue([{ ...descriptor, serialNumber: path }]);
+        const service = createService();
+        const probe = jest
+          .spyOn(service, 'probeUsbDeviceIdentities')
+          .mockResolvedValue([
+            {
+              path,
+              serialNo: null,
+              deviceId: null,
+              deviceType,
+              mode: 'bootloader',
+              connectProtocol: 'V1',
+              commType: 'webusb',
+            } as UsbDeviceIdentity,
+          ]);
+        await expect(
+          service.detectUSBDeviceAvailability({ connectId: path }),
+        ).resolves.toBe(true);
+        await expect(
+          service.detectUSBDeviceAvailability({ connectId: 'OTHER_BLE_ID' }),
+        ).resolves.toBe(false);
+        getDevices.mockResolvedValue([
+          { ...descriptor, serialNumber: path },
+          { ...descriptor, serialNumber: 'SECOND_USB_PATH' },
+        ]);
+        await expect(
+          service.connectionManager.detectUSBDeviceAvailability(path),
+        ).rejects.toMatchObject({
+          code: HardwareErrorCode.FirmwareUpdateLimitOneDevice,
+        });
+        getDevices.mockResolvedValue([{ ...descriptor, serialNumber: path }]);
+        probe.mockResolvedValue([
+          {
+            path,
+            serialNo: null,
+            deviceId: null,
+            deviceType,
+            mode: 'normal',
+            connectProtocol: 'V1',
+            commType: 'webusb',
+          } as UsbDeviceIdentity,
+        ]);
+        await expect(
+          service.detectUSBDeviceAvailability({ connectId: path }),
+        ).resolves.toBe(false);
+      },
+    );
+
     it.each([
       { commType: 'webusb', connectId: '000000000000000000000000' },
       { commType: 'bridge', connectId: '000000000000000000000000' },
@@ -2450,6 +2502,62 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
           if (selected) expect(read).not.toHaveBeenCalled();
           else expect(read).toHaveBeenCalledTimes(1);
         }
+      },
+    );
+
+    it.each([EDeviceType.Classic1s, EDeviceType.ClassicPure])(
+      'verifies the observed %s BLE loader model before resolving its USB endpoint',
+      async (deviceType) => {
+        const path = '000000000000000000000000';
+        getDevices.mockResolvedValue([{ ...descriptor, serialNumber: path }]);
+        const service = createService();
+        const backgroundApi = (
+          service as unknown as { backgroundApi: IBackgroundApi }
+        ).backgroundApi;
+        backgroundApi.serviceHardwareUI = {
+          runExclusiveOneKeyOperation: jest.fn(
+            (operation: () => Promise<unknown>) => operation(),
+          ),
+        } as unknown as IBackgroundApi['serviceHardwareUI'];
+        jest.spyOn(service, 'probeUsbDeviceIdentities').mockResolvedValue([
+          {
+            path,
+            deviceType,
+            mode: 'bootloader',
+            serialNo: null,
+            deviceId: null,
+            connectProtocol: 'V1',
+            commType: 'webusb',
+          } as UsbDeviceIdentity,
+        ]);
+        const read = jest.spyOn(service, '_getDeviceStateWithMutex');
+        read.mockResolvedValue({
+          protocol: 'V1',
+          identity: { deviceType, serialNo: '', deviceId: null },
+          status: { mode: 'bootloader' },
+        } as IOneKeyDeviceState);
+        const features = {
+          protocol: 'V1',
+          deviceType,
+          mode: 'bootloader',
+          serialNo: '',
+          deviceId: null,
+        } as IOneKeyDeviceFeaturesWithAppParams;
+        await expect(
+          service.checkDeviceReachableForFirmwareUpdate({
+            connectId: 'LOADER_BLE_ID',
+            features,
+          }),
+        ).resolves.toBe(path);
+        await expect(
+          service.checkDeviceReachableForFirmwareUpdate({
+            connectId: 'LOADER_BLE_ID',
+            features: { ...features, deviceType: EDeviceType.Pro },
+          }),
+        ).rejects.toMatchObject({
+          code: HardwareErrorCode.DeviceCheckDeviceIdError,
+        });
+        expect(read).toHaveBeenCalledTimes(1);
       },
     );
 

@@ -3465,12 +3465,16 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async checkDeviceReachableForFirmwareUpdate(params: { connectId: string }) {
+  async checkDeviceReachableForFirmwareUpdate(params: {
+    connectId: string;
+    features?: IOneKeyDeviceFeatures;
+  }) {
     if (platformEnv.isDesktop) {
       return this.backgroundApi.serviceHardwareUI.runExclusiveOneKeyOperation(
         async () => {
           const transport = await this.resolveHardwareTransport({
             connectId: params.connectId,
+            features: params.features,
             hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
           });
           return transport.connectId;
@@ -5360,7 +5364,10 @@ class ServiceHardware extends ServiceBase {
         return id && !/^0+$/.test(id) ? id : undefined;
       };
       const target = normalize(params.connectId);
-      const isUsbEndpoint = target === normalize(candidate.path);
+      const isUsbEndpoint =
+        Boolean(params.connectId) &&
+        params.connectId?.trim().toLowerCase() ===
+          candidate.path.trim().toLowerCase();
       const expectedType = params.features?.deviceType ?? device?.deviceType;
       const expectedSerial =
         normalize(deviceUtils.getDeviceSerialNoFromFeatures(params.features)) ||

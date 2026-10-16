@@ -12,6 +12,7 @@ import {
   EModalFirmwareUpdateRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
 
 import { usePrepareUSBConnectForFirmwareUpdate } from '../../Onboardingv2/hooks/usePrepareUSBConnectForFirmwareUpdate';
 
@@ -24,7 +25,7 @@ let mockIsNative = false;
 const mockPushModal = jest.fn<void, [string, unknown]>();
 const mockCheckDeviceReachable = jest.fn<
   Promise<string>,
-  [{ connectId: string }]
+  [{ connectId: string; features?: IOneKeyDeviceFeatures }]
 >();
 const mockOpenUrlExternal = jest.fn<void, [string]>();
 const mockDetectUSBDeviceAvailability = jest.fn<Promise<boolean>, [unknown]>();
@@ -656,6 +657,34 @@ describe('bootloader update USB preparation', () => {
     );
   });
 
+  it.each([EDeviceType.Classic1s, EDeviceType.ClassicPure])(
+    'resolves a first %s BLE loader entry to verified USB using its observed features',
+    async (deviceType) => {
+      mockDetectUSBDeviceAvailability.mockResolvedValue(true);
+      mockCheckDeviceReachable.mockResolvedValue('000000000000000000000000');
+      const features = {
+        protocol: 'V1',
+        deviceType,
+        mode: 'bootloader',
+        serialNo: '',
+        deviceId: null,
+      } as IOneKeyDeviceFeatures;
+      const { result } = renderHook(() =>
+        usePrepareUSBConnectForFirmwareUpdate(),
+      );
+      await expect(
+        result.current.prepareUSBConnect({
+          device: { ...device, connectId: 'LOADER_BLE_ID', deviceType },
+          features,
+        }),
+      ).resolves.toMatchObject({ connectId: '000000000000000000000000' });
+      expect(mockCheckDeviceReachable).toHaveBeenCalledWith({
+        connectId: 'CLASSIC_USB_PATH',
+        features,
+      });
+    },
+  );
+
   it('explains the multi-USB block and allows the update after unplugging the other device', async () => {
     mockDetectUSBDeviceAvailability
       .mockRejectedValueOnce({
@@ -720,6 +749,34 @@ describe('bootloader update USB preparation', () => {
       result.current.prepareUSBConnect({ device, features: undefined }),
     ).rejects.toBe(error);
     expect(mockDialogShow).not.toHaveBeenCalled();
+    expect(mockSetForceTransportType).not.toHaveBeenCalled();
+  });
+
+  it('explains a second USB device attached during loader verification', async () => {
+    mockDetectUSBDeviceAvailability.mockResolvedValue(true);
+    mockCheckDeviceReachable.mockRejectedValue({
+      $isHardwareError: true,
+      code: HardwareErrorCode.FirmwareUpdateLimitOneDevice,
+    });
+    const { result } = renderHook(() =>
+      usePrepareUSBConnectForFirmwareUpdate(),
+    );
+    await expect(
+      result.current.prepareUSBConnect({
+        device,
+        features: {
+          protocol: 'V1',
+          deviceType: EDeviceType.Classic1s,
+          mode: 'bootloader',
+        } as IOneKeyDeviceFeatures,
+      }),
+    ).resolves.toBeNull();
+    expect(mockDialogShow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description:
+          ETranslations.update_only_one_usb_device_supported_for_upgrade,
+      }),
+    );
     expect(mockSetForceTransportType).not.toHaveBeenCalled();
   });
 });

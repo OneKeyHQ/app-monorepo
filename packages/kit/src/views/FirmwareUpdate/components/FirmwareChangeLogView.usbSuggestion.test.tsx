@@ -84,6 +84,11 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceHardware: {
       detectUSBDeviceAvailability: (params: unknown) =>
         mockDetectUSBDeviceAvailability(params),
+      checkDeviceReachableForFirmwareUpdate: ({
+        connectId,
+      }: {
+        connectId: string;
+      }) => Promise.resolve(connectId),
     },
   },
 }));
