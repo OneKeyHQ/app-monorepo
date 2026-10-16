@@ -408,31 +408,36 @@ class DesktopApiAppUpdate {
     return path.join(this.getCacheDir(), 'appimage-handoff.json');
   }
 
+  private readValidatedAppImageHandoff(marker: string): IAppImageHandoff {
+    const handoff = JSON.parse(
+      fs.readFileSync(marker, 'utf8'),
+    ) as IAppImageHandoff;
+    if (
+      !path.isAbsolute(handoff.current) ||
+      !path.isAbsolute(handoff.destination) ||
+      (handoff.backup && !path.isAbsolute(handoff.backup)) ||
+      !semver.valid(handoff.version) ||
+      path.dirname(handoff.current) !== path.dirname(handoff.destination) ||
+      (handoff.backup !== undefined &&
+        (!handoff.backup.startsWith(handoff.destination) ||
+          !/^\.[0-9a-f]{16}\.old$/.test(
+            handoff.backup.slice(handoff.destination.length),
+          ))) ||
+      (handoff.destination === handoff.current && !handoff.backup)
+    ) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.installFailed,
+        step: 'install',
+      });
+    }
+    return handoff;
+  }
+
   private reconcileAppImageHandoff(): void {
     const marker = this.getAppImageHandoffPath();
     if (!fs.existsSync(marker)) return;
     try {
-      const handoff = JSON.parse(
-        fs.readFileSync(marker, 'utf8'),
-      ) as IAppImageHandoff;
-      if (
-        !path.isAbsolute(handoff.current) ||
-        !path.isAbsolute(handoff.destination) ||
-        (handoff.backup && !path.isAbsolute(handoff.backup)) ||
-        !semver.valid(handoff.version) ||
-        path.dirname(handoff.current) !== path.dirname(handoff.destination) ||
-        (handoff.backup !== undefined &&
-          (!handoff.backup.startsWith(handoff.destination) ||
-            !/^\.[0-9a-f]{16}\.old$/.test(
-              handoff.backup.slice(handoff.destination.length),
-            ))) ||
-        (handoff.destination === handoff.current && !handoff.backup)
-      ) {
-        throw createUpdateError({
-          code: EUpdateErrorCode.installFailed,
-          step: 'download',
-        });
-      }
+      const handoff = this.readValidatedAppImageHandoff(marker);
       if (
         app.getVersion() === handoff.version &&
         process.env.APPIMAGE === handoff.destination
@@ -1230,10 +1235,18 @@ class DesktopApiAppUpdate {
     let handoffQueued = false;
     const marker = this.getAppImageHandoffPath();
     if (fs.existsSync(marker)) {
-      throw createUpdateError({
-        code: EUpdateErrorCode.installFailed,
-        step: 'install',
-      });
+      const handoff = this.readValidatedAppImageHandoff(marker);
+      if (
+        current === handoff.current ||
+        current === handoff.destination ||
+        current === handoff.backup
+      ) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.installFailed,
+          step: 'install',
+        });
+      }
+      fs.rmSync(marker);
     }
     this.appImageInstallInProgress = true;
     try {

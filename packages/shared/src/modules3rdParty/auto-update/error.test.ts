@@ -1,4 +1,11 @@
+import fs from 'fs';
+import path from 'path';
+import vm from 'vm';
+
+import ts from 'typescript';
+
 import { OneKeyLocalError } from '../../errors';
+import { unwrapElectronIpcError } from '../../errors/utils/electronIpcError';
 
 import {
   EUpdateErrorCode,
@@ -11,6 +18,47 @@ import {
 
 const wire = (payload: unknown) =>
   `${UPDATE_ERROR_WIRE_PREFIX}${JSON.stringify(payload)}`;
+
+const appSource = ts.createSourceFile(
+  'app.ts',
+  fs.readFileSync(
+    path.resolve(__dirname, '../../../../../apps/desktop/app/app.ts'),
+    'utf8',
+  ),
+  ts.ScriptTarget.Latest,
+  true,
+);
+const ipcSafeErrorDeclaration = appSource.statements.find(
+  (node): node is ts.FunctionDeclaration =>
+    ts.isFunctionDeclaration(node) && node.name?.text === 'makeIpcSafeError',
+);
+if (!ipcSafeErrorDeclaration) {
+  throw new OneKeyLocalError('makeIpcSafeError declaration missing');
+}
+const ipcSafeErrorSource = ts.transpileModule(
+  ipcSafeErrorDeclaration.getText(appSource),
+  { compilerOptions: { target: ts.ScriptTarget.ES2022 } },
+).outputText;
+
+const makeProductionIpcSafeError = (inputError: Error): Error => {
+  const result: unknown = vm.runInNewContext(
+    `${ipcSafeErrorSource}\nmakeIpcSafeError(inputError, 'DESKTOP_API_CALL failed')`,
+    { Error, inputError, UPDATE_ERROR_WIRE_PREFIX },
+  );
+  if (!(result instanceof Error)) {
+    throw new OneKeyLocalError('makeIpcSafeError did not return an Error');
+  }
+  return result;
+};
+
+const invokeError = (error: Error) => {
+  const safeError = makeProductionIpcSafeError(error);
+  return unwrapElectronIpcError(
+    new Error(
+      `Error invoking remote method 'DESKTOP_API_CALL': ${safeError.name}: ${safeError.message}`,
+    ),
+  );
+};
 
 test('accepts a fixed update error and drops unrecognized fields', () => {
   expect(
@@ -127,6 +175,62 @@ test('keeps OneKeyError numeric code and only a safe DTO in data', () => {
   expect(getUpdateError(error, 'verifyPackage')).toEqual({
     code: EUpdateErrorCode.packageMissing,
     step: 'verifyPackage',
+  });
+});
+
+test.each([
+  {
+    code: EUpdateErrorCode.httpError,
+    step: 'download' as const,
+    httpStatus: 401,
+  },
+  {
+    code: EUpdateErrorCode.httpError,
+    step: 'download' as const,
+    httpStatus: 429,
+  },
+  { code: EUpdateErrorCode.integrityFailed, step: 'verifyASC' as const },
+  { code: EUpdateErrorCode.cancelled, step: 'download' as const },
+])('preserves $code through Electron invoke error serialization', (dto) => {
+  const mainError = createUpdateError(dto);
+  expect(mainError.name).toBe('OneKeyLocalError');
+  const rendererError = invokeError(mainError);
+  expect(getUpdateError(rendererError, dto.step)).toEqual(dto);
+});
+
+test('rebinds a controlled inner step before Electron invoke serialization', () => {
+  const mainError = createUpdateError(
+    getUpdateError(
+      createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'verifyPackage',
+      }),
+      'install',
+    ),
+  );
+  const rendererError = invokeError(mainError);
+  expect(getUpdateError(rendererError, 'install')).toEqual({
+    code: EUpdateErrorCode.packageMissing,
+    step: 'install',
+  });
+  expect(getUpdateError(rendererError, 'verifyPackage')).toEqual({
+    code: EUpdateErrorCode.unknown,
+    step: 'verifyPackage',
+  });
+});
+
+test('does not decode arbitrary Electron invoke error text', () => {
+  expect(
+    makeProductionIpcSafeError(new OneKeyLocalError('ordinary')).name,
+  ).toBe('OneKeyLocalError');
+  const error = unwrapElectronIpcError(
+    new Error(
+      "Error invoking remote method 'DESKTOP_API_CALL': OneKeyLocalError: /Users/private/update.zip",
+    ),
+  );
+  expect(getUpdateError(error, 'download')).toEqual({
+    code: EUpdateErrorCode.unknown,
+    step: 'download',
   });
 });
 

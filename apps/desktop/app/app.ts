@@ -51,6 +51,7 @@ import {
 import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { sanitizeTrezorThpModuleLogData } from '@onekeyhq/shared/src/hardware/trezorThpLogRedact';
+import { UPDATE_ERROR_WIRE_PREFIX } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
@@ -120,8 +121,11 @@ import type { IpcMainLike } from '@onekeyfe/hwk-trezor-connector-electron-ble/ma
 // can still recover any `{ message, code, data }` payload encoded in it.
 function makeIpcSafeError(error: unknown, fallbackMessage: string): Error {
   if (error instanceof Error) {
-    const safeError = new Error(error.message || fallbackMessage);
-    safeError.name = error.name || 'Error';
+    const message = error.message || fallbackMessage;
+    const safeError = new Error(message);
+    if (!message.startsWith(UPDATE_ERROR_WIRE_PREFIX)) {
+      safeError.name = error.name || 'Error';
+    }
     safeError.stack = error.stack;
     return safeError;
   }
@@ -1004,6 +1008,8 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         });
   /* eslint-enable no-nested-ternary */
 
+  let selectedShellDocumentCommitted = false;
+  let trustedSameDocumentRouteUrl: string | undefined;
   globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender = (
     senderId,
     senderFrame,
@@ -1014,9 +1020,23 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       currentMainWindow?.webContents.id === senderId &&
       senderFrame &&
       senderFrame === mainFrame &&
-      isTrustedMainWindowUrl(src, senderFrame.url),
+      selectedShellDocumentCommitted &&
+      isTrustedMainWindowUrl(src, senderFrame.url, trustedSameDocumentRouteUrl),
     );
   };
+
+  browserWindow.webContents.on('did-navigate', (_event, url) => {
+    selectedShellDocumentCommitted = isTrustedMainWindowUrl(src, url);
+    trustedSameDocumentRouteUrl = undefined;
+  });
+  browserWindow.webContents.on(
+    'did-navigate-in-page',
+    (_event, url, isMainFrame) => {
+      if (isMainFrame && selectedShellDocumentCommitted) {
+        trustedSameDocumentRouteUrl = url;
+      }
+    },
+  );
 
   const guardMainWindowNavigation = (event: Electron.Event, url: string) => {
     if (!isTrustedMainWindowUrl(src, url)) {
@@ -1690,6 +1710,8 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
                 slashes: true,
               });
         /* eslint-enable no-nested-ternary */
+        selectedShellDocumentCommitted = false;
+        trustedSameDocumentRouteUrl = undefined;
       }
     }
     uninterceptFileProtocolIfNeeded();

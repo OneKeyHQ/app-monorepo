@@ -7,13 +7,18 @@ export {
 export function isTrustedMainWindowUrl(
   selectedAppShellUrl: string,
   frameUrl: string,
+  sameDocumentRouteUrl?: string,
 ): boolean {
   try {
     const selected = new URL(selectedAppShellUrl);
     const frame = new URL(frameUrl);
     selected.hash = '';
     frame.hash = '';
-    return selected.href === frame.href;
+    if (selected.href === frame.href) return true;
+    if (!sameDocumentRouteUrl) return false;
+    const route = new URL(sameDocumentRouteUrl);
+    route.hash = '';
+    return route.href === frame.href;
   } catch {
     return false;
   }

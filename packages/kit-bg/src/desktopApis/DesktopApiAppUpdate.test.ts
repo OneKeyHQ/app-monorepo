@@ -949,6 +949,54 @@ test('Linux AppImage handoff keeps marker if an unrelated AppImage starts and fa
   expect(fs.readFileSync(current)).toEqual(mockPackage);
 });
 
+test('Linux permits a later verified update after the candidate AppImage is moved', async () => {
+  const current = path.join(mockTempDir, 'OneKey-5.9.0.AppImage');
+  const firstDestination = path.join(mockTempDir, linuxArtifactName());
+  fs.writeFileSync(current, 'old running app');
+  fs.writeFileSync(firstDestination, 'previous destination');
+  process.env.APPIMAGE = current;
+  const { api, params } = await preparePackage('linux', 'appImage');
+  expect(await api.installPackage(params)).toBe(true);
+
+  const marker = path.join(
+    mockTempDir,
+    'app-shell-updater',
+    'appimage-handoff.json',
+  );
+  const firstHandoff = JSON.parse(fs.readFileSync(marker, 'utf8')) as {
+    backup: string;
+  };
+  const moved = path.join(mockTempDir, 'Moved-OneKey-6.0.0.AppImage');
+  fs.renameSync(firstDestination, moved);
+  process.env.APPIMAGE = moved;
+  mockAppGetVersion.mockReturnValue('6.0.0');
+  const nextApi = createApi('linux', 'appImage');
+  expect(fs.existsSync(marker)).toBe(true);
+
+  mockHttpsResponse(
+    feed('6.1.0', [linuxArtifactName().replace('6.0.0', '6.1.0')]),
+  );
+  const nextArtifact = await nextApi.checkForUpdates(false, {}, '6.1.0');
+  await nextApi.downloadUpdate();
+  expect(
+    await nextApi.installPackage({
+      buildNumber: '124',
+      downloadUrl: nextArtifact?.url || '',
+      latestVersion: '6.1.0',
+      skipGPGVerification: true,
+    }),
+  ).toBe(true);
+  expect(fs.readFileSync(current, 'utf8')).toBe('old running app');
+  expect(fs.readFileSync(firstHandoff.backup, 'utf8')).toBe(
+    'previous destination',
+  );
+  expect(fs.readFileSync(moved)).toEqual(mockPackage);
+  expect(JSON.parse(fs.readFileSync(marker, 'utf8'))).toMatchObject({
+    current: moved,
+    version: '6.1.0',
+  });
+});
+
 test('Linux restores the old AppImage when relaunch cannot be queued', async () => {
   const current = path.join(mockTempDir, 'OneKey.AppImage');
   fs.writeFileSync(current, 'old app');
