@@ -147,6 +147,12 @@ const LazyAsyncStorageDevSettings = LazyLoad(async () => {
   return { default: AsyncStorageDevSettings };
 });
 
+const LazyNativeStorageRecoveryTestPanel = LazyLoad(async () => {
+  const { NativeStorageRecoveryTestPanel } =
+    await import('./NativeStorageRecoveryTestPanel');
+  return { default: NativeStorageRecoveryTestPanel };
+});
+
 export { showDevOnlyPasswordDialog } from './showDevOnlyPasswordDialog';
 
 type ILocalSecretEnvelopeSimulatedKeyLossResult = {
@@ -848,7 +854,7 @@ const BaseDevSettingsSection = () => {
         title: 'Dev Tools & Dev Settings',
         description: '开发者工具 开发环境设置',
         keywords:
-          '开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Native iOS Android Network Throttle latency 弱网 慢网 禁用IP直连 强制使用IP请求 SNI Queue Abort QA Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
+          '开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Native iOS Android Network Throttle latency 弱网 慢网 禁用IP直连 强制使用IP请求 SNI Queue Abort QA Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings NativeStorageRecoveryTests MMKV Storage recovery migration repair AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
       },
       {
         key: 'appUpdate',
@@ -1519,6 +1525,22 @@ const BaseDevSettingsSection = () => {
                           });
                         }}
                       />
+                      {platformEnv.isNative ? (
+                        <SectionPressItem
+                          icon="StorageOutline"
+                          title="Storage recovery tests"
+                          subtitle="Simulate migration failures with isolated test data"
+                          testID="native-storage-recovery-tests-menu"
+                          onPress={() => {
+                            Dialog.cancel({
+                              title: 'Storage recovery tests',
+                              renderContent: (
+                                <LazyNativeStorageRecoveryTestPanel />
+                              ),
+                            });
+                          }}
+                        />
+                      ) : null}
                       {platformEnv.isNative ? (
                         <SectionPressItem
                           icon="BagOutline"

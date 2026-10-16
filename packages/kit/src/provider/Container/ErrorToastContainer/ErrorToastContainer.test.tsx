@@ -22,12 +22,28 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  dismissNativeStorageRecovery,
+  getRequestedNativeStorageRecovery,
+  getRequestedNativeStorageRecoveryTestSessionId,
+} from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
 
 import { ErrorToastContainer } from './ErrorToastContainer';
 import { getErrorAction } from './ErrorToasts';
 
 const mockSubscribeNativeStorageContractViolations = jest.fn();
 const mockOpenChangeLogModal = jest.fn();
+
+jest.mock('@onekeyhq/shared/src/platformEnv', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/platformEnv')
+  >('@onekeyhq/shared/src/platformEnv');
+  return {
+    ...actual,
+    __esModule: true,
+    default: { ...actual.default, isNative: true },
+  };
+});
 
 jest.mock(
   '../../../views/FirmwareUpdate/hooks/useFirmwareUpdateActions',
@@ -63,6 +79,7 @@ jest.mock('@onekeyhq/components', () => ({
     onPress: () => void;
   }) => <button onClick={onPress}>{children}</button>,
   Toast: {
+    dismiss: jest.fn(),
     error: jest.fn(),
     message: jest.fn(),
     success: jest.fn(),
@@ -106,6 +123,68 @@ describe('ErrorToastContainer', () => {
     mockedGlobalNetInfo.currentState.mockReturnValue({
       isInternetReachable: true,
     });
+  });
+
+  it('offers a deduplicated recovery action without mutating storage', () => {
+    dismissNativeStorageRecovery();
+    const { unmount } = render(<ErrorToastContainer />);
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.ShowToast, {
+        method: 'error',
+        title:
+          'Native storage migration target is inconsistent:appStorage; App-storage MMKV migration marker is missing after migration completed',
+      });
+    });
+    const toast = mockedToast.error.mock.calls[0][0] as {
+      actions: import('react').ReactElement;
+      toastId: string;
+    };
+    expect(toast.toastId).toBe('native-storage-migration:appStorage');
+    expect(getRequestedNativeStorageRecovery()).toBeUndefined();
+    const action = render(toast.actions);
+    fireEvent.click(action.getByRole('button', { name: '重试' }));
+    expect(getRequestedNativeStorageRecovery()).toBe('appStorage');
+    action.unmount();
+    unmount();
+    dismissNativeStorageRecovery();
+  });
+
+  it('keeps simulated and real migration errors in separate recovery sessions', () => {
+    dismissNativeStorageRecovery();
+    const view = render(<ErrorToastContainer />);
+    const sessionId = 'storage-repair-test-toast';
+    const title =
+      'Native storage migration target is inconsistent:appStorage; migration marker is missing';
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.ShowToast, {
+        method: 'error',
+        title,
+        nativeStorageRecoveryTestSessionId: sessionId,
+      });
+    });
+    const simulated = mockedToast.error.mock.calls[0][0] as {
+      actions: import('react').ReactElement;
+      toastId: string;
+    };
+    expect(simulated.toastId).toBe(
+      `native-storage-migration-test:${sessionId}`,
+    );
+    const simulatedAction = render(simulated.actions);
+    fireEvent.click(simulatedAction.getByRole('button', { name: '重试' }));
+    expect(getRequestedNativeStorageRecoveryTestSessionId()).toBe(sessionId);
+    simulatedAction.unmount();
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.ShowToast, { method: 'error', title });
+    });
+    const real = mockedToast.error.mock.calls[1][0] as typeof simulated;
+    expect(real.toastId).toBe('native-storage-migration:appStorage');
+    const realAction = render(real.actions);
+    fireEvent.click(realAction.getByRole('button', { name: '重试' }));
+    expect(getRequestedNativeStorageRecovery()).toBe('appStorage');
+    expect(getRequestedNativeStorageRecoveryTestSessionId()).toBeUndefined();
+    realAction.unmount();
+    view.unmount();
+    dismissNativeStorageRecovery();
   });
 
   it('shows the Portfolio firmware guidance and opens updates for that device', async () => {
