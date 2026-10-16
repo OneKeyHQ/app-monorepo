@@ -21895,6 +21895,7 @@
     "packages/kit/src/views/BulkSend/components/BulkSendContentWrapper.tsx": 19996,
     "packages/kit/src/views/BulkSend/components/BulkSendHeader.tsx": 5866,
     "packages/kit/src/views/BulkSend/components/BulkSendMobileHeader.tsx": 11523,
+    "packages/kit/src/views/BulkSend/components/BulkSendSplitTxAlert.tsx": 7174,
     "packages/kit/src/views/BulkSend/components/BulkSendTxDetails.tsx": 16796,
     "packages/kit/src/views/BulkSend/components/IntervalSettingsContent.tsx": 17720,
     "packages/kit/src/views/BulkSend/hooks/useBulkSendBackNavigation.ts": 5401,

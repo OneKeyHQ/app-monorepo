@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
   Page,
   Toast,
   YStack,
@@ -17,6 +18,11 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -48,6 +54,7 @@ import {
   usePrimeFreeTrialUsage,
 } from '../../../Prime/hooks/usePrimeFreeTrialUsage';
 import { usePreCheckFeeInfo } from '../../../SignatureConfirm/hooks/usePreCheckFeeInfo';
+import BulkSendSplitTxAlert from '../../components/BulkSendSplitTxAlert';
 import BulkSendTxDetails from '../../components/BulkSendTxDetails';
 import { useRedirectToBulkSendAddressesInput } from '../../hooks/useRedirectToBulkSendAddressesInput';
 import { BulkSendTestIDs } from '../../testIDs';
@@ -64,6 +71,9 @@ import {
 import { showStandaloneApproveEditor } from './components/StandaloneApproveEditor';
 import { useApprovalRecheck } from './hooks/useApprovalRecheck';
 import { useBulkSendFeeEstimation } from './hooks/useBulkSendFeeEstimation';
+
+// Stable reference so the memoized BulkSendTxDetails skips progress renders
+const TX_DETAILS_CONTAINER_PROPS = { px: '$5' } as const;
 
 function BaseBulkSendReview({
   onSuccess,
@@ -135,24 +145,14 @@ function BaseBulkSendReview({
     networkId,
     accountId,
     tokenInfo,
-    transfersInfo,
     approvesInfo,
     setApprovesInfo,
     setUnsignedTxs,
-    forceRefreshFee,
   });
 
   // Fee overflow check hook
   const { checkFeeInfoIsOverflow, showFeeInfoOverflowConfirm } =
     usePreCheckFeeInfo();
-
-  // Determine button text based on whether approvals are needed
-  const confirmButtonText =
-    approvesInfo.length > 0
-      ? intl.formatMessage({
-          id: ETranslations.wallet_bulk_send_btn_approve_and_confirm,
-        })
-      : intl.formatMessage({ id: ETranslations.wallet_bulk_send_btn_confirm });
 
   // Handle editing approval amount
   const handleEditApproval = useCallback(
@@ -277,15 +277,153 @@ function BaseBulkSendReview({
     [forceRefreshFee],
   );
 
-  // Track how many txs were successfully sent (used by Tron one-by-one flow)
-  const sentTxCountRef = useRef(0);
   // Resolves once the Tron confirm page of the current tx is gone. A failed
   // send keeps that page open, and a retry there still broadcasts with the
   // round's free-trial usage.
   const tronConfirmPageExitRef = useRef<Promise<void>>(Promise.resolve());
 
-  // Lets the background skip already broadcast txs when the user retries
+  // Lets the background skip already broadcast txs when the user retries;
+  // also keys this page's signing progress events.
   const [sentTxsTrackingId] = useState(() => generateUUID());
+
+  // uuid → recorded, for txs this page knows went out. Background batches
+  // are read back after a failure. Tron signs each tx on its own confirm page
+  // (with that page's tracking id), so the Tron flow records them here.
+  const sentTxsRef = useRef<Map<string, boolean>>(new Map());
+
+  // 1-based index of the tx being signed across approve + transfer txs;
+  // 0 when idle. Shown on the confirm button for multi-tx submits.
+  const [signingIndex, setSigningIndex] = useState(0);
+  // Transfer txs sent / total across all attempts after a partial failure.
+  // Sent txs are pruned from unsignedTxs, so the count is kept cumulatively.
+  const [partialSent, setPartialSent] = useState<
+    { sent: number; total: number } | undefined
+  >();
+  const sentTransferUuidsRef = useRef<Set<string>>(new Set());
+  // Approve and transfer txs are sent in separate batches; offset the
+  // transfer batch's per-batch index by the approve count.
+  const progressOffsetRef = useRef(0);
+
+  useEffect(() => {
+    const onProgress = ({
+      progressEventId,
+      current,
+    }: IAppEventBusPayload[EAppEventBusNames.BatchSignTxProgress]) => {
+      if (progressEventId !== sentTxsTrackingId) return;
+      setSigningIndex(progressOffsetRef.current + current);
+    };
+    appEventBus.on(EAppEventBusNames.BatchSignTxProgress, onProgress);
+    return () => {
+      appEventBus.off(EAppEventBusNames.BatchSignTxProgress, onProgress);
+    };
+  }, [sentTxsTrackingId]);
+
+  // Multi-tx submits show signing progress; split sends state the signature
+  // count; otherwise reflect approvals
+  const confirmButtonText = useMemo(() => {
+    if (isSubmitting && isMultiTxs && signingIndex > 0) {
+      return intl.formatMessage(
+        { id: ETranslations.wallet_bulk_send_signing_progress },
+        { current: signingIndex, total: unsignedTxs.length },
+      );
+    }
+    if (receiverGroups) {
+      return intl.formatMessage(
+        { id: ETranslations.wallet_bulk_send_btn_confirm_and_sign },
+        { count: unsignedTxs.length },
+      );
+    }
+    return intl.formatMessage({
+      id:
+        approvesInfo.length > 0
+          ? ETranslations.wallet_bulk_send_btn_approve_and_confirm
+          : ETranslations.wallet_bulk_send_btn_confirm,
+    });
+  }, [
+    intl,
+    isSubmitting,
+    isMultiTxs,
+    signingIndex,
+    receiverGroups,
+    unsignedTxs.length,
+    approvesInfo.length,
+  ]);
+
+  // After a failed submit: learn which txs went out, show the partial-send
+  // status, recheck the allowance if the approvals went out, and drop
+  // finished txs so a retry neither re-signs nor pre-checks them.
+  const settleAfterFailure = useCallback(
+    async (txs: IUnsignedTxPro[]) => {
+      try {
+        const broadcasted =
+          await backgroundApiProxy.serviceSend.getBatchBroadcastedTxUuids({
+            sentTxsTrackingId,
+          });
+        for (const { uuid, recorded } of broadcasted) {
+          sentTxsRef.current.set(
+            uuid,
+            recorded || sentTxsRef.current.get(uuid) === true,
+          );
+        }
+      } catch {
+        // Keep what this page already tracked
+      }
+      const isTxSent = (tx: IUnsignedTxPro) =>
+        !!tx.uuid && sentTxsRef.current.has(tx.uuid);
+      // Broadcast-but-unrecorded txs stay so the background can finish them
+      const isTxDone = (tx: IUnsignedTxPro) =>
+        !!tx.uuid && sentTxsRef.current.get(tx.uuid) === true;
+
+      const approveCount = approvesInfo.length;
+      const transferTxs = txs.slice(approveCount);
+      const approveTxsSent =
+        approveCount > 0 && txs.slice(0, approveCount).every(isTxSent);
+
+      // done: recorded; kept: broadcast, history pending; pending: unsent
+      const keptTxs: IUnsignedTxPro[] = [];
+      const pendingTxs: IUnsignedTxPro[] = [];
+      let hasDoneTx = false;
+      for (const tx of transferTxs) {
+        if (!tx.uuid || !isTxSent(tx)) {
+          pendingTxs.push(tx);
+        } else {
+          sentTransferUuidsRef.current.add(tx.uuid);
+          if (isTxDone(tx)) hasDoneTx = true;
+          else keptTxs.push(tx);
+        }
+      }
+      const sentCount = sentTransferUuidsRef.current.size;
+      setPartialSent(
+        sentCount > 0 && pendingTxs.length > 0
+          ? { sent: sentCount, total: sentCount + pendingTxs.length }
+          : undefined,
+      );
+
+      // Polling the allowance only makes sense once the approvals went out.
+      // The approval state and approve txs stay until it confirms the
+      // allowance and installs the rebuilt transfers.
+      if (approveTxsSent) {
+        startApprovalRecheck({
+          pendingTransfersInfo: pendingTxs.flatMap(
+            (tx) => tx.transfersInfo ?? [],
+          ),
+          keptTxs,
+          sentTxsTrackingId,
+        });
+      }
+      if (hasDoneTx) {
+        setUnsignedTxs((prev) =>
+          prev.filter((tx) => !!tx.approveInfo || !isTxDone(tx)),
+        );
+      }
+    },
+    [
+      sentTxsTrackingId,
+      approvesInfo.length,
+      startApprovalRecheck,
+      setUnsignedTxs,
+    ],
+  );
 
   // Free trial: the usage of this Review page instance. OneToMany keeps it
   // for a resubmit (e.g. transfer failed after the approve went through)
@@ -355,7 +493,6 @@ function BaseBulkSendReview({
       freeTrialUsage: IPrimeFreeTrialBroadcastUsage | undefined,
     ) => {
       const allResults: ISendTxOnSuccessData[] = [];
-      sentTxCountRef.current = 0;
       tronConfirmPageExitRef.current = Promise.resolve();
 
       for (let i = 0, len = txs.length; i < len; i += 1) {
@@ -375,6 +512,8 @@ function BaseBulkSendReview({
           await waitAsync(300);
         }
 
+        setSigningIndex(i + 1);
+        let lastError: Error | undefined;
         let markConfirmPageExited: () => void = () => {};
         tronConfirmPageExitRef.current = new Promise<void>((resolve) => {
           markConfirmPageExited = resolve;
@@ -397,20 +536,26 @@ function BaseBulkSendReview({
                   markConfirmPageExited();
                   resolve(data);
                 },
+                // A failed send keeps the confirm page open for a retry, so
+                // only remember the error; settle on success or exit so an
+                // in-page retry is recorded and the batch continues.
                 onFail: (error: Error) => {
-                  reject(error);
+                  lastError = error;
                 },
                 // Also called when the page unmounts without a success.
                 onCancel: () => {
                   markConfirmPageExited();
-                  reject(new Error('User cancelled'));
+                  reject(lastError ?? new Error('User cancelled'));
                 },
               },
             });
           },
         );
 
-        sentTxCountRef.current = i + 1;
+        // Confirmed through its own confirm page, so also fully recorded
+        if (unsignedTx.uuid) {
+          sentTxsRef.current.set(unsignedTx.uuid, true);
+        }
 
         // Collect results
         if (result && result.length > 0) {
@@ -445,10 +590,13 @@ function BaseBulkSendReview({
 
   const handleConfirm = useCallback(async () => {
     if (!accountId) return;
+    // feeInfos are matched to txs by index; wait for the re-estimate
+    if (feeState.estimatedTxs !== unsignedTxs) return;
 
     const { serviceSend } = backgroundApiProxy;
 
     setIsSubmitting(true);
+    setSigningIndex(0);
 
     // Step 1: Pre-check unsigned transactions
     // For multi-sender modes, pre-check per accountId group
@@ -648,15 +796,7 @@ function BaseBulkSendReview({
         await navigateAfterSuccess();
       } catch (e) {
         setIsSubmitting(false);
-        // Only recheck approval if all approve txs were already broadcast.
-        // If the error happened during the approve phase, nothing was sent
-        // to chain, so polling the allowance is pointless.
-        if (
-          approvesInfo.length > 0 &&
-          sentTxCountRef.current >= approvesInfo.length
-        ) {
-          startApprovalRecheck();
-        }
+        await settleAfterFailure(newUnsignedTxs);
         // Settled once the confirm page is gone: a retry on a page left open
         // by a failed send still broadcasts with this usage, and a settled
         // usage would not count that broadcast.
@@ -674,7 +814,7 @@ function BaseBulkSendReview({
 
     // Step 5: Sign and send transactions (for non-Tron networks)
     const approveCount = approvesInfo.length;
-    let approveTxsSent = false;
+    progressOffsetRef.current = 0;
 
     // Step 5a: Send approve txs first (if any), so we can track whether
     // they were broadcast before the transfer phase
@@ -689,8 +829,8 @@ function BaseBulkSendReview({
           transferPayload: undefined,
           sentTxsTrackingId,
           freeTrialUsage,
+          progressEventId: sentTxsTrackingId,
         });
-        approveTxsSent = true;
       } catch (e: any) {
         // Approve txs failed — nothing was broadcast, no need to recheck
         if (accountUtils.isQrAccount({ accountId })) {
@@ -704,6 +844,7 @@ function BaseBulkSendReview({
     }
 
     // Step 5b: Send transfer tx(s)
+    progressOffsetRef.current = approveCount;
     try {
       const result = await serviceSend.batchSignAndSendTransaction({
         accountId,
@@ -714,6 +855,7 @@ function BaseBulkSendReview({
         transferPayload: undefined,
         sentTxsTrackingId,
         freeTrialUsage,
+        progressEventId: sentTxsTrackingId,
       });
       // A resubmit that only finished broadcasts of an earlier attempt
       // (replayed through sentTxsTrackingId) used nothing, so this round's
@@ -746,10 +888,7 @@ function BaseBulkSendReview({
       }
       await settleFreeTrialRoundError(freeTrialUsageId, e);
       setIsSubmitting(false);
-      // Only recheck approval if approve txs were already broadcast
-      if (approveTxsSent) {
-        startApprovalRecheck();
-      }
+      await settleAfterFailure(newUnsignedTxs);
       onFail?.(e as Error);
       throw e;
     }
@@ -758,6 +897,7 @@ function BaseBulkSendReview({
     networkId,
     unsignedTxs,
     feeState.feeInfos,
+    feeState.estimatedTxs,
     feeState.selectedFee.presetIndex,
     setIsSubmitting,
     onFail,
@@ -768,7 +908,7 @@ function BaseBulkSendReview({
     navigation,
     handleTronTxsOneByOne,
     navigateAfterSuccess,
-    startApprovalRecheck,
+    settleAfterFailure,
     approvesInfo.length,
     bulkSendMode,
     transfersInfo,
@@ -792,6 +932,7 @@ function BaseBulkSendReview({
   // 4. Currently submitting
   const isConfirmDisabled =
     !feeState.isInitialized ||
+    feeState.estimatedTxs !== unsignedTxs ||
     (feeState.feeStatus === ESendFeeStatus.Loading &&
       !feeState.isInitialized) ||
     feeState.feeStatus === ESendFeeStatus.Error ||
@@ -808,8 +949,26 @@ function BaseBulkSendReview({
       />
       <Page.Body>
         <YStack gap="$8">
-          {/* Fee Error Alert - Top Section */}
-          <BulkSendReviewAlert onRetry={handleRetryFeeEstimation} />
+          {/* Notices: fee error, then partial-send status (replaces the
+              split notice once some txs went out) or the split notice */}
+          {feeState.errMessage || partialSent || receiverGroups ? (
+            <YStack px="$5" gap="$3">
+              <BulkSendReviewAlert onRetry={handleRetryFeeEstimation} />
+              {partialSent ? (
+                <Alert
+                  icon="InfoCircleOutline"
+                  type="warning"
+                  title={intl.formatMessage(
+                    { id: ETranslations.wallet_bulk_send_partial_sent },
+                    partialSent,
+                  )}
+                />
+              ) : null}
+              {!partialSent && receiverGroups ? (
+                <BulkSendSplitTxAlert txCount={receiverGroups.length} />
+              ) : null}
+            </YStack>
+          ) : null}
 
           {/* Grand Summary - Top Section */}
           <BulkSendReviewGrandSummary />
@@ -837,9 +996,7 @@ function BaseBulkSendReview({
             transfersInfo={transfersInfo}
             bulkSendMode={bulkSendMode}
             receiverGroups={receiverGroups}
-            containerProps={{
-              px: '$5',
-            }}
+            containerProps={TX_DETAILS_CONTAINER_PROPS}
           />
         </YStack>
       </Page.Body>
