@@ -15,8 +15,9 @@ function isSameDay(a: Date | null, b: Date | null): boolean {
 
 export const PRESETS_SIDEBAR_WIDTH = 156;
 
-const activeHoverStyle = { backgroundColor: '$bgStrongHover' } as const;
-const inactiveHoverStyle = { backgroundColor: '$bgHover' } as const;
+// Menu-item styling shared with the app's sidebars: one text style for every
+// item, the active one marked by its background only.
+const hoverStyleConst = { backgroundColor: '$bgHover' } as const;
 const pressStyleConst = { backgroundColor: '$bgActive' } as const;
 
 function PresetItem({
@@ -39,17 +40,13 @@ function PresetItem({
       paddingHorizontal="$3"
       paddingVertical="$2"
       borderRadius="$2"
-      cursor="pointer"
+      cursor="default"
       backgroundColor={isActive ? '$bgActive' : 'transparent'}
-      hoverStyle={isActive ? activeHoverStyle : inactiveHoverStyle}
+      hoverStyle={isActive ? undefined : hoverStyleConst}
       pressStyle={pressStyleConst}
       onPress={handlePress}
     >
-      <SizableText
-        size="$bodyMd"
-        color={isActive ? '$text' : '$textSubdued'}
-        userSelect="none"
-      >
+      <SizableText size="$bodyMdMedium" color="$text" userSelect="none">
         {label}
       </SizableText>
     </Stack>

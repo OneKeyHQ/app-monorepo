@@ -10,7 +10,6 @@ import type { ICalendarHeaderProps } from './type';
 import type { IIconButtonProps } from '../../actions/IconButton';
 import type { IKeyOfIcons } from '../../primitives';
 
-const mdStyle = { marginTop: '$2' } as const;
 const titleHoverStyle = { bg: '$bgHover' } as const;
 const titlePressStyle = { bg: '$bgActive' } as const;
 // Android reserves extra font padding above the ascent (large for CJK fonts),
@@ -75,7 +74,7 @@ function HeaderTitle({
       paddingHorizontal="$1"
       borderRadius="$2"
       pointerEvents={onPress ? 'auto' : 'none'}
-      cursor={onPress ? 'pointer' : 'default'}
+      cursor="default"
       hoverStyle={onPress ? titleHoverStyle : undefined}
       pressStyle={onPress ? titlePressStyle : undefined}
       onPress={onPress}
@@ -113,7 +112,7 @@ export const CalendarHeader = memo(
     const showMonthYear = mode !== 'month' && mode !== 'year';
 
     return (
-      <Stack paddingHorizontal="$2" marginBottom="$3" $md={mdStyle}>
+      <Stack paddingHorizontal="$2" marginBottom="$3">
         {/* Title - absolute center */}
         <XStack
           position="absolute"

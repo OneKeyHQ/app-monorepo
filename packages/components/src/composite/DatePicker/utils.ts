@@ -102,7 +102,9 @@ export function getCellStateStyles({
   return {
     color,
     bg: selected && !disabled ? '$bgPrimary' : 'transparent',
-    cursor: disabled ? 'not-allowed' : 'pointer',
+    // App buttons keep the default cursor and signal interactivity through
+    // their hover background (see shared/src/web/index.css).
+    cursor: 'default',
     hoverStyle: getHoverStyle(disabled, selected),
     pressStyle: disabled || selected ? undefined : idlePressStyle,
   } as const;

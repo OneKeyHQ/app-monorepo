@@ -227,6 +227,13 @@ const SINGLE_PANEL_PROPS = {
   minWidth: SINGLE_PANEL_WIDTH,
 } as const;
 const GT_MD_PADDING_4 = { padding: '$4' } as const;
+// Mobile sheet card (24px radius, like other popover sheets' $5 content
+// padding): $5 top/bottom, $4 sides so 7 x 40px columns still fit a 360pt
+// screen inside the sheet's $5 side margins.
+const MD_SHEET_PADDING = {
+  paddingHorizontal: '$4',
+  paddingVertical: '$5',
+} as const;
 
 function BasicDatePicker({
   value,
@@ -299,7 +306,11 @@ function BasicDatePicker({
 
   const pickerContent = useMemo(
     () => (
-      <YStack padding="$3" minWidth={SINGLE_PANEL_CONTENT_WIDTH}>
+      <YStack
+        padding="$3"
+        minWidth={SINGLE_PANEL_CONTENT_WIDTH}
+        $md={MD_SHEET_PADDING}
+      >
         <DatePickerProvider config={config}>
           <Calendar mode="date" minDate={minDate} maxDate={maxDate} />
         </DatePickerProvider>
@@ -421,6 +432,7 @@ function RangePickerContent({
         padding="$3"
         minWidth={SINGLE_PANEL_CONTENT_WIDTH}
         flex={1}
+        $md={MD_SHEET_PADDING}
         $gtMd={GT_MD_PADDING_4}
       >
         <DatePickerProvider config={config}>
@@ -588,7 +600,11 @@ function YearPicker({
 
   const yearContent = useMemo(
     () => (
-      <YStack padding="$3" minWidth={SINGLE_PANEL_CONTENT_WIDTH}>
+      <YStack
+        padding="$3"
+        minWidth={SINGLE_PANEL_CONTENT_WIDTH}
+        $md={MD_SHEET_PADDING}
+      >
         <DatePickerProvider config={config}>
           <Calendar
             mode="year"
@@ -683,7 +699,11 @@ function MonthPicker({
 
   const monthContent = useMemo(
     () => (
-      <YStack padding="$3" minWidth={SINGLE_PANEL_CONTENT_WIDTH}>
+      <YStack
+        padding="$3"
+        minWidth={SINGLE_PANEL_CONTENT_WIDTH}
+        $md={MD_SHEET_PADDING}
+      >
         <DatePickerProvider config={config}>
           <Calendar
             mode="month"
@@ -768,7 +788,11 @@ function MultiSelectPicker({
 
   const multiContent = useMemo(
     () => (
-      <YStack padding="$3" minWidth={SINGLE_PANEL_CONTENT_WIDTH}>
+      <YStack
+        padding="$3"
+        minWidth={SINGLE_PANEL_CONTENT_WIDTH}
+        $md={MD_SHEET_PADDING}
+      >
         <DatePickerProvider config={config}>
           <Calendar mode="multiple" minDate={minDate} maxDate={maxDate} />
         </DatePickerProvider>
