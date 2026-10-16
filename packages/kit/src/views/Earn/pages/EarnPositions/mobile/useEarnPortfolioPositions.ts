@@ -67,6 +67,13 @@ export function useEarnPortfolioPositions({ isActive }: { isActive: boolean }) {
   // stale. A partial refresh rides alongside whatever is in flight, so a
   // claim's refresh of one provider never cancels a full load.
   const requestIdRef = useRef(0);
+  // Reads of one scope land in the order they were sent: a read takes the
+  // next number as it goes out, and a scope records the number of the read
+  // it shows. A read sent earlier than the one shown is dropped, so a full
+  // load's slow read of a provider never puts back the balance a claim's
+  // later partial read has already replaced.
+  const sentSeqRef = useRef(0);
+  const shownSeqRef = useRef(new Map<string, number>());
   const loadedAccountKeyRef = useRef<string | undefined>(undefined);
 
   const publish = useCallback(() => {
@@ -141,6 +148,7 @@ export function useEarnPortfolioPositions({ isActive }: { isActive: boolean }) {
           Array.from(resultsRef.current.keys()).forEach((key) => {
             if (!wanted.has(key)) {
               resultsRef.current.delete(key);
+              shownSeqRef.current.delete(key);
               pruned = true;
             }
           });
@@ -168,14 +176,20 @@ export function useEarnPortfolioPositions({ isActive }: { isActive: boolean }) {
               if (isStale()) {
                 return;
               }
+              sentSeqRef.current += 1;
+              const seq = sentSeqRef.current;
               try {
                 const response =
                   await backgroundApiProxy.serviceStaking.getPortfolioPositions(
                     request,
                   );
-                if (isStale()) {
+                if (
+                  isStale() ||
+                  (shownSeqRef.current.get(request.key) ?? 0) > seq
+                ) {
                   return;
                 }
+                shownSeqRef.current.set(request.key, seq);
                 // A vault whose read failed inside the scope keeps what it
                 // showed before; the vaults that read update.
                 const previous = resultsRef.current.get(request.key);
@@ -211,6 +225,8 @@ export function useEarnPortfolioPositions({ isActive }: { isActive: boolean }) {
       // refresh replaces each one in place as it lands.
       const seed = cachedRef.current;
       resultsRef.current = new Map(Object.entries(seed));
+      // The seed predates every read to come: any of them may replace it.
+      shownSeqRef.current = new Map();
       setResultsState({ accountKey, results: Object.values(seed) });
       setIsLoadingState(Object.keys(seed).length === 0);
     }

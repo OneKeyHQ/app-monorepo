@@ -70,6 +70,11 @@ export function useRewardsPortfolio({
     '|',
   );
   const lastReadRef = useRef<IRewardsRead | undefined>(undefined);
+  // The scope the page is on, read as a request lands: a read of a scope
+  // the page has since left must not stand in as the last read, or a
+  // failed refresh of the current scope would show it empty.
+  const scopeKeyRef = useRef(scopeKey);
+  scopeKeyRef.current = scopeKey;
 
   const { result, isLoading, run } = usePromiseResult<IRewardsRead | undefined>(
     async () => {
@@ -86,7 +91,9 @@ export function useRewardsPortfolio({
             networkIds,
           });
         const read = { scopeKey, response };
-        lastReadRef.current = read;
+        if (scopeKeyRef.current === scopeKey) {
+          lastReadRef.current = read;
+        }
         return read;
       } catch {
         // A failed read of the scope in hand keeps what it showed; a failed
