@@ -48,6 +48,7 @@ const mockFetchWalletBanner = jest.fn<
   Promise<unknown[]>,
   [{ accountId?: string }]
 >(async () => []);
+const mockHandleBannerOnPress = jest.fn<void, [unknown]>();
 
 const NETWORKS: Record<string, { id: string; name: string; logoURI: string }> =
   {
@@ -365,9 +366,36 @@ jest.mock('../../../components/HighlightAddress', () => {
   };
 });
 
-jest.mock('../../../components/HyperlinkText', () => ({
-  FormatHyperlinkText: () => null,
-}));
+jest.mock('../../../components/HyperlinkText', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    // Stands in for the <url> chunk of the real component: a press hands
+    // the link to onAction and, with autoExecuteParsedAction off, opens
+    // nothing itself. The press does not reach the card either (Tamagui
+    // stops propagation on web, the Text claims the responder on native).
+    FormatHyperlinkText: ({
+      children,
+      autoExecuteParsedAction = true,
+      onAction,
+    }: {
+      children?: string;
+      autoExecuteParsedAction?: boolean;
+      onAction?: (url: string) => void;
+    }) =>
+      React.createElement(
+        'span',
+        {
+          'data-testid': 'receive-banner-link',
+          'data-auto-execute': String(autoExecuteParsedAction),
+          onClick: (event: { stopPropagation: () => void }) => {
+            event.stopPropagation();
+            onAction?.('https://help.onekey.so/articles/12620219');
+          },
+        },
+        children,
+      ),
+  };
+});
 
 jest.mock('../../../components/NetworkAvatar', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -455,7 +483,9 @@ jest.mock('../../../hooks/usePromiseResult', () => {
 });
 
 jest.mock('../../../hooks/useWalletBanner', () => ({
-  useWalletBanner: () => ({ handleBannerOnPress: jest.fn() }),
+  useWalletBanner: () => ({
+    handleBannerOnPress: (item: unknown) => mockHandleBannerOnPress(item),
+  }),
 }));
 
 jest.mock('../components/ReceiveCard', () => {
@@ -644,6 +674,7 @@ describe('ReceiveToken network switch', () => {
     mockFindAggregateGroup.mockResolvedValue(undefined);
     mockFetchWalletBanner.mockReset();
     mockFetchWalletBanner.mockResolvedValue([]);
+    mockHandleBannerOnPress.mockReset();
     mockGetVaultSettings.mockReset();
     mockGetVaultSettings.mockResolvedValue({ mergeDeriveAssetsEnabled: false });
     mockAppEventBusOn.mockReset();
@@ -901,6 +932,55 @@ describe('ReceiveToken network switch', () => {
       ]);
     });
     await waitFor(() => expect(getByTestId('receive-banner')).not.toBeNull());
+  });
+
+  // OK-64672: the BTC fresh-address banner carries its action as
+  // mode/payload and names it again as a <url> link inside the title.
+  it('hands an inline banner link to the banner action', async () => {
+    mockFetchWalletBanner.mockResolvedValue([
+      {
+        id: 'help-link',
+        position: 'receive',
+        networkId: 'evm--1',
+        src: '',
+        mode: 3,
+        payload: 'https://help.onekey.so/articles/12620219',
+        title:
+          '<url>https://help.onekey.so/articles/12620219<text>Learn more</text></url>',
+      },
+    ]);
+    mockRouteParams = buildParams('hd');
+    const { getByTestId } = render(<ReceiveToken />);
+    await waitFor(() => expect(getByTestId('receive-banner')).not.toBeNull());
+
+    const link = getByTestId('receive-banner-link');
+    // The card owns the tap, so the link must not also open its own URL.
+    expect(link.getAttribute('data-auto-execute')).toBe('false');
+    fireEvent.click(link);
+    expect(mockHandleBannerOnPress).toHaveBeenCalledTimes(1);
+    expect(mockHandleBannerOnPress).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'help-link' }),
+    );
+  });
+
+  it('leaves an inline link to itself when the banner has no action', async () => {
+    mockFetchWalletBanner.mockResolvedValue([
+      {
+        id: 'note',
+        position: 'receive',
+        networkId: 'evm--1',
+        src: '',
+        title: '<url>https://help.onekey.so/articles/1<text>More</text></url>',
+      },
+    ]);
+    mockRouteParams = buildParams('hd');
+    const { getByTestId } = render(<ReceiveToken />);
+    await waitFor(() => expect(getByTestId('receive-banner')).not.toBeNull());
+
+    const link = getByTestId('receive-banner-link');
+    expect(link.getAttribute('data-auto-execute')).toBe('true');
+    fireEvent.click(link);
+    expect(mockHandleBannerOnPress).not.toHaveBeenCalled();
   });
 
   it('verifies the new network and derive type on a hardware wallet after a switch', async () => {

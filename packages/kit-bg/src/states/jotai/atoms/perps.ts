@@ -67,10 +67,16 @@ export const {
 });
 
 // Shared by Market entries and Web Perps, including expanded extension windows.
+export type IWebviewPerpTradeTarget = {
+  coin?: string;
+  revision: number;
+  requestId?: string;
+};
+
 export const {
   target: webviewPerpTradeTargetAtom,
   use: useWebviewPerpTradeTargetAtom,
-} = globalAtom<{ coin?: string; revision: number }>({
+} = globalAtom<IWebviewPerpTradeTarget>({
   name: EAtomNames.webviewPerpTradeTargetAtom,
   initialValue: { revision: 0 },
 });

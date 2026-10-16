@@ -1,63 +1,45 @@
-# Trade / Swap Validation
+# Prove The Changed Trade Contract
 
-## Focused Checks
+Select the reported transition and the adjacent transitions affected by the
+same owner. Do not run every provider and platform scenario for a small change.
 
-Discover tests beside the changed owner instead of relying on a frozen list:
+## Find Focused Tests
+
+Search beside the actual owner, including lowercase utilities and services:
 
 ```bash
 rg --files packages/kit packages/kit-bg packages/shared | \
-  rg '(Swap|Market|Stock|Bridge|Limit).*(test|spec)\.'
+  rg -i '(swap|market|stock|bridge|limit|dustsweep).*(test|spec)\.'
 yarn jest <focused-test-files> --runInBand
 ```
 
-Add a focused test when the changed identity resolver, stale-result guard,
-quote selection, frozen review, history merge, or persistence transition is
-not covered. Before committing product code, run:
+Add regression coverage where a wrong identity, merge, or execution transition
+would escape existing tests. Follow `AGENTS.md` for commit/PR checks. If a change
+crosses native runtime bundles, include the owning registration/startup-graph
+checks; desktop rendering does not prove native bundle readiness.
 
-```bash
-yarn agent:check --profile commit
-```
+## Match Evidence To The Change
 
-## Runtime Proof By Failure Class
+| Changed contract | A useful adversarial check |
+| --- | --- |
+| Initialization | Delay configuration, edit the pair or amount, retry configuration, and compare first/settled frames. |
+| Quote lifecycle | Race provider success/error, change an input, open/close a picker, and leave one of two active tickets. |
+| Market entry | Compare the actual wide/compact and native/non-native routes that share the changed owner. |
+| Review lifetime | Close during preparation, continue a confirmed execution, then reopen for another trade; results remain isolated. |
+| Retry/fallback | Distinguish approval-only progress, business submission, uncertain broadcast, and user rejection; no submitted step is replayed. |
+| Amount/fees | Compare Max/percentage amounts, same-asset extra costs, approval and payer changes, and sponsor validity at send. |
+| Stock/cache | Change asset variant, account/address, network, or locale during refresh; retained display never becomes stale spend authority. |
+| History | Restart after submission, disconnect/reconnect, merge hash-only updates, and exercise the channel's terminal/refund states. |
+| Bulk execution | Cancel before and after submission, vary final payload value, and verify partial results and resumability under that flow's contract. |
 
-- Quote/provider: change amount, token, network, or provider while requests are
-  in flight; prove only the current actionable quote wins.
-- Review/build: enter review, change outer page state, and prove the confirmed
-  snapshot and build payload remain frozen and consistent.
-- Handoff: start from the real source entry, record its one-shot params, then
-  prove Swap owns settled selection and execution after mount.
-- Cold start/flicker: capture first meaningful and settled frames, including
-  visible tab, internal type, selected assets, icons, readiness, and quote.
-- History/status: capture submit result, persisted identity, pending row,
-  status source, terminal state, and detail display.
-- Disconnect/restart: distinguish hidden UI from retained persisted rows; on
-  reconnect, the same identities must return and repair may resume.
-- New channel: prove happy path, one provider failure/stale response, one
-  terminal status, and restart/replay behavior.
-- Identity transitions: change the asset, variant, network, or provider while
-  work is in flight; prove stale results and incompatible selections cannot
-  leak into the next trade.
-- Readiness and fallback: distinguish transient loading, provider failure,
-  terminal unsupported, and an actionable fallback; prove the terminal path is
-  explicit rather than an endless skeleton or disabled action.
-- Amount semantics: for a native pay token with a gas reserve, verify Max and
-  percentage presets subtract the reserve exactly once.
-- History lifecycle: verify provider-specific terminal states preserve the
-  right source/replacement/refund identity, stop polling/replacement actions,
-  and refresh balances only for statuses that change them.
-- Native/shared bundle changes: when a route or module crosses runtime bundles,
-  run the owning registration and startup-graph checks in addition to focused
-  tests; desktop-only rendering is not sufficient proof.
+## Report The Proof Boundary
 
-## Platform Proof
+Use the host that owns the issue: route, modal, extension popup/sidebar, or
+native page/bottom sheet. Capture relevant selection, quote/request identity,
+confirmed snapshot, build payload, execution result, persisted row, and terminal
+state; a rendered element is not enough for those claims.
 
-Use the platform and host that own the bug: desktop/web route or modal,
-extension popup/sidebar, or native page/dialog/bottom sheet. For native or
-extension cross-runtime paths, inspect the relevant main state, serialized
-service payload, background result, and persisted row. For desktop/web, treat
-the App as single-runtime while preserving service ownership.
-
-A settled screenshot, rendered element, or passing utility test is not enough
-when the bug concerns first-frame state, quote identity, build/send, pending,
-persistence, or status repair. Report checks actually run and unavailable
-runtime or provider evidence.
+Separate static tracing, test results, actual UI interaction, and real
+provider/signing/broadcast evidence. For layout-only work, first and settled
+screens plus interaction evidence may be sufficient. State unavailable layers
+instead of extending a utility test or screenshot into an end-to-end claim.

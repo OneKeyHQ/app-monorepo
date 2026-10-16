@@ -1,4 +1,7 @@
-import type { INativeSyncStorageName } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
+import type {
+  INativeSyncStorageLocalMutation,
+  INativeSyncStorageName,
+} from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 import type { IWalletConnectConnectionLog } from '@onekeyhq/shared/src/walletConnect/diagnostics';
 
 import { BaseScene } from '../../../base/baseScene';
@@ -32,6 +35,19 @@ export class BackgroundScene extends BaseScene {
     stallDurationMs: number;
     stallThresholdMs?: number;
     store: INativeSyncStorageName;
+    operation?: INativeSyncStorageLocalMutation['operation'];
+  }) {
+    return params;
+  }
+
+  /** Tracks a failed or recovered UI-runtime refresh of the bg snapshot. */
+  @LogToLocal({ level: 'warn' })
+  public nativeStorageSnapshotState(params: {
+    cooldownMs: number;
+    eventCount: number;
+    eventType: 'failed' | 'recovered';
+    failedAttemptCount: number;
+    pendingMutationCount: number;
   }) {
     return params;
   }

@@ -5,8 +5,10 @@ import {
   type IJsBridgeMessagePayload,
 } from '@onekeyfe/cross-inpage-provider-types';
 import { noop } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { getFillDirectionDisplayInfo } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/utils';
 import {
   usePerpsCustomSettingsAtom,
   usePerpsLayoutStateAtom,
@@ -88,6 +90,7 @@ export function usePerpsTradingViewMessageHandler({
     config: ITradingViewNativeChartControlsConfigData,
   ) => void;
 }) {
+  const intl = useIntl();
   const previousUserAddressRef = useRef<IHex | null | undefined>(userAddress);
   const marksRequestIdRef = useRef(0);
   const [{ refreshHook }] = usePerpsTradesHistoryRefreshHookAtom();
@@ -108,36 +111,39 @@ export function usePerpsTradingViewMessageHandler({
   );
 
   // Shared utility to convert fill data to TradingView mark
-  const convertFillToMark = useCallback((fill: IFill): ITradingMark => {
-    const isLong = fill.side === 'B'; // B = Buy, A = Sell (Ask)
-    const isOpenPosition = fill.dir.includes('Open');
+  const convertFillToMark = useCallback(
+    (fill: IFill): ITradingMark => {
+      const isLong = fill.side === 'B'; // B = Buy, A = Sell (Ask)
+      const isOpenPosition = fill.dir.includes('Open');
 
-    const getTradeLabel = () => {
-      if (isOpenPosition) {
-        return isLong ? 'B' : 'S'; // Buy Long or Sell Short
-      }
-      return isLong ? 'B' : 'S'; // Close position
-    };
+      const getTradeLabel = () => {
+        if (isOpenPosition) {
+          return isLong ? 'B' : 'S'; // Buy Long or Sell Short
+        }
+        return isLong ? 'B' : 'S'; // Close position
+      };
 
-    const getTradeText = () => {
-      return `${fill.dir} at ${fill.px}`;
-    };
+      const getTradeText = () => {
+        return `${getFillDirectionDisplayInfo({ fill, intl }).text} @ ${fill.px}`;
+      };
 
-    const getTradeColor = () => {
-      if (isOpenPosition) {
-        return isLong ? '#00C853' : '#FF1744'; // Green for long open, red for short open
-      }
-      return isLong ? '#4CAF50' : '#F44336'; // Lighter colors for close positions
-    };
+      const getTradeColor = () => {
+        if (isOpenPosition) {
+          return isLong ? '#00C853' : '#FF1744'; // Green for long open, red for short open
+        }
+        return isLong ? '#4CAF50' : '#F44336'; // Lighter colors for close positions
+      };
 
-    return {
-      id: `trade_${fill.tid || fill.oid}`,
-      time: Math.floor(fill.time / 1000), // Convert milliseconds to seconds
-      text: getTradeText(),
-      label: getTradeLabel(),
-      color: getTradeColor(),
-    };
-  }, []);
+      return {
+        id: `trade_${fill.tid || fill.oid}`,
+        time: Math.floor(fill.time / 1000), // Convert milliseconds to seconds
+        text: getTradeText(),
+        label: getTradeLabel(),
+        color: getTradeColor(),
+      };
+    },
+    [intl],
+  );
 
   // Extract shared logic for fetching and formatting marks
   const fetchAndFormatMarks = useCallback(

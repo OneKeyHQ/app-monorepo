@@ -270,7 +270,7 @@
     "react-native": "0.86.2",
     "react-native-confirmation-code-field": "9.0.0",
     "react-native-draggable-flatlist": "4.0.3",
-    "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@3.0.177",
+    "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@6.7.0-2",
     "react-native-reanimated": "4.5.5",
     "react-native-screens": "~4.26.0",
     "react-native-web": "0.21.2",
@@ -433,6 +433,7 @@
     "yaml": "^2.8.0"
   },
   "resolutions": {
+    "hermes-compiler": "250829098.0.19",
     "reselect@^5.2.0": "5.2.0",
     "react-native-nitro-modules": "0.37.0",
     "@cspell/dict-data-science": "2.0.13",
@@ -550,7 +551,7 @@
     "react-native-reanimated": "4.5.5",
     "react-native-worklets": "0.10.1",
     "react-native-screens": "4.26.0",
-    "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@3.0.177",
+    "react-native-get-random-values": "npm:@onekeyfe/react-native-get-random-values@6.7.0-2",
     "@onekeyfe/react-native-ble-utils": "0.1.9",
     "@isaacs/brace-expansion": "5.0.1",
     "minimatch@^10.2.2": "10.2.6",

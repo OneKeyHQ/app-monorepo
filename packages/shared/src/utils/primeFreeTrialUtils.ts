@@ -94,7 +94,7 @@ function formatPrimeFreeTrialTime(time: number | undefined, pattern: string) {
 }
 
 export function formatPrimeFreeTrialResetDate(resetAt: number | undefined) {
-  return formatPrimeFreeTrialTime(resetAt, 'PPp');
+  return formatPrimeFreeTrialTime(resetAt, 'PP');
 }
 
 // A reservation ends at most 30 minutes later, so the time alone is enough.

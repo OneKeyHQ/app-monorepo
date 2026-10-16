@@ -89,6 +89,42 @@ function YearDemo({ onChange }: { onChange?: (date: Date | null) => void }) {
   return <DatePicker.Year value={value} onChange={handleChange} />;
 }
 
+// Bounds sit inside the initial month so disabled days, months and years
+// (and the disabled navigation chevrons) are visible without navigating.
+const BOUNDED_MIN_DATE = new Date(2026, 5, 10);
+const BOUNDED_MAX_DATE = new Date(2026, 6, 20);
+
+function BoundedRangeDemo() {
+  const [value, setValue] = useState<IDateRange>(INITIAL_RANGE);
+  return (
+    <DatePicker.Range
+      value={value}
+      minDate={BOUNDED_MIN_DATE}
+      maxDate={BOUNDED_MAX_DATE}
+      onChange={setValue}
+    />
+  );
+}
+
+function BoundedMonthDemo() {
+  const [value, setValue] = useState<Date | null>(INITIAL_DATE);
+  return (
+    <DatePicker.Month
+      value={value}
+      minDate={BOUNDED_MIN_DATE}
+      maxDate={BOUNDED_MAX_DATE}
+      onChange={setValue}
+    />
+  );
+}
+
+const INITIAL_MULTI_DATES = [new Date(2026, 6, 3), new Date(2026, 6, 9)];
+
+function MultiSelectDemo() {
+  const [value, setValue] = useState<Date[]>(INITIAL_MULTI_DATES);
+  return <DatePicker.MultiSelect value={value} onChange={setValue} />;
+}
+
 // Controlled popover pickers over a pure-JS calendar hook library (see the
 // DatePickerProvider import in the component). The overlay is the same
 // Popover/portal contract the Dialog stories verify; intl supplies the trigger
@@ -127,4 +163,16 @@ export const Month: Story = {
 
 export const Year: Story = {
   render: () => <YearDemo />,
+};
+
+export const MultiSelect: Story = {
+  render: () => <MultiSelectDemo />,
+};
+
+export const BoundedRange: Story = {
+  render: () => <BoundedRangeDemo />,
+};
+
+export const BoundedMonth: Story = {
+  render: () => <BoundedMonthDemo />,
 };
