@@ -14,6 +14,7 @@ import {
   UNRECOVERABLE_DOWNLOAD_ERROR_CODES,
   classifyHttpStatus,
   extractHttpStatusFromError,
+  extractUpdateErrorCode,
   isPermanentThisUrlDownloadError,
   isPermanentThisUrlHttpStatus,
   isUnrecoverableDownloadError,
@@ -106,6 +107,37 @@ describe('UNRECOVERABLE_DOWNLOAD_ERROR_CODES', () => {
 });
 
 describe('extractHttpStatusFromError', () => {
+  test.each([401, 403, 404, 429, 503])(
+    'parses native structured HTTP %i',
+    (status) => {
+      const message = `ONEKEY_UPDATE_ERROR:${JSON.stringify({ code: 'HTTP_ERROR', step: 'download', httpStatus: status })}`;
+      expect(extractHttpStatusFromError(new Error(message))).toBe(status);
+      expect(extractUpdateErrorCode(message)).toBe(`HTTP_${status}`);
+    },
+  );
+
+  test.each(['403', -1, 600, 403.5, null])(
+    'does not coerce invalid native HTTP status %s',
+    (httpStatus) => {
+      expect(
+        extractHttpStatusFromError(
+          new Error(
+            `ONEKEY_UPDATE_ERROR:${JSON.stringify({ code: 'HTTP_ERROR', step: 'download', httpStatus })}`,
+          ),
+        ),
+      ).toBeUndefined();
+    },
+  );
+
+  test.each(['{', 'null', '[]', '{"code":"arbitrary private text"}'])(
+    'rejects malformed or unknown native payload %s',
+    (payload) => {
+      expect(
+        extractUpdateErrorCode(`ONEKEY_UPDATE_ERROR:${payload}`),
+      ).toBeUndefined();
+    },
+  );
+
   test.each([
     ['HTTP 416', 416],
     ['HTTP error 504', 504],

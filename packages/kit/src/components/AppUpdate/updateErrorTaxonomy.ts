@@ -31,6 +31,21 @@ import { EAppUpdatePackageErrorCode } from '@onekeyhq/shared/src/modules3rdParty
  * inflate event payloads.
  */
 const MAX_ERROR_MESSAGE_LENGTH = 240;
+const NATIVE_UPDATE_ERROR_PREFIX = 'ONEKEY_UPDATE_ERROR:';
+const NATIVE_UPDATE_ERROR_CODES = new Set([
+  'NETWORK_ERROR',
+  'TIMEOUT',
+  'HTTP_ERROR',
+  'PACKAGE_MISSING',
+  'STORAGE_ERROR',
+  'INTEGRITY_FAILED',
+  'INCOMPATIBLE',
+  'INSTALL_FAILED',
+  'CANCELLED',
+  'UNKNOWN',
+  'INVALID_ARGUMENT',
+  'SECURITY_REJECTED',
+]);
 export function sanitizeUpdateErrorMessage(error: unknown): string | undefined {
   const raw =
     typeof error === 'string'
@@ -90,6 +105,37 @@ export function extractUpdateErrorCode(error: unknown): string | undefined {
       ? error
       : ((error as { message?: string } | null)?.message ?? '');
   if (!msg) return undefined;
+
+  const nativePayloadIndex = msg.indexOf(NATIVE_UPDATE_ERROR_PREFIX);
+  if (nativePayloadIndex >= 0) {
+    try {
+      const payload: unknown = JSON.parse(
+        msg.slice(nativePayloadIndex + NATIVE_UPDATE_ERROR_PREFIX.length),
+      );
+      if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+        return undefined;
+      }
+      const { code, httpStatus } = payload as {
+        code?: unknown;
+        httpStatus?: unknown;
+      };
+      if (typeof code !== 'string' || !NATIVE_UPDATE_ERROR_CODES.has(code)) {
+        return undefined;
+      }
+      if (
+        code === 'HTTP_ERROR' &&
+        typeof httpStatus === 'number' &&
+        Number.isInteger(httpStatus) &&
+        httpStatus >= 100 &&
+        httpStatus <= 599
+      ) {
+        return `HTTP_${httpStatus}`;
+      }
+      return code;
+    } catch {
+      return undefined;
+    }
+  }
 
   if (/\bAPP_PACKAGE_NOT_PREPARED\b/i.test(msg)) {
     return EAppUpdatePackageErrorCode.packageNotPrepared;
