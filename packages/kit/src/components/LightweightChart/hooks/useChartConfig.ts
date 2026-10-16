@@ -44,6 +44,8 @@ interface IUseChartConfigProps {
   pulseLastPointColor?: string;
   priceScaleMinimumWidth?: number;
   priceFormatter?: (price: number) => string;
+  priceTickFormatter?: (prices: number[]) => string[];
+  priceFormatBase?: number;
   compactPriceMaxCharacters?: number;
   priceScaleFormat?: 'stock';
   priceFormatterPrecision?: number;
@@ -88,6 +90,8 @@ export function useChartConfig({
   pulseLastPointColor,
   priceScaleMinimumWidth,
   priceFormatter,
+  priceTickFormatter,
+  priceFormatBase,
   compactPriceMaxCharacters,
   priceScaleFormat,
   priceFormatterPrecision,
@@ -175,6 +179,8 @@ export function useChartConfig({
       secondaryLineWidth,
       priceScaleMinimumWidth,
       priceFormatter,
+      priceTickFormatter,
+      priceFormatBase,
       priceFormatterType,
       compactPriceMaxCharacters,
       priceScaleFormat,
@@ -221,6 +227,8 @@ export function useChartConfig({
       pulseLastPointColor,
       priceScaleMinimumWidth,
       priceFormatter,
+      priceTickFormatter,
+      priceFormatBase,
       priceFormatterType,
       compactPriceMaxCharacters,
       priceScaleFormat,
