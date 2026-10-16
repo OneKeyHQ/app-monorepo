@@ -872,6 +872,14 @@ class ServiceSend extends ServiceBase {
         failureReason: quoteFailure ?? 'transferSnapshotChanged',
         remainingMs: latestPayment.expiresAt - Date.now(),
       });
+      // Replacement confirmations have no Prime payment screen to display
+      // validation failures. Let the shared send error handler show expiry.
+      if (mode === 'speedUp' && quoteFailure === 'quoteExpired') {
+        throw new InvoiceExpiredError({
+          autoToast: true,
+          data: { paymentValidationFailure: quoteFailure },
+        });
+      }
       throw createPrimeInfiniPaymentValidationError(
         quoteFailure ?? 'transferSnapshotChanged',
       );

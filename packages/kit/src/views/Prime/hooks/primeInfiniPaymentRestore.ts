@@ -2,6 +2,9 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   isPrimeInfiniPaymentCacheKeyForContext,
+  isPrimeInfiniPaymentClosedUnpaidSnapshot,
+  isPrimeInfiniPaymentExplicitlyExpiredSnapshot,
+  isPrimeInfiniPaymentExplicitlyFailedSnapshot,
   isPrimeInfiniPurchaseCompletedSnapshot,
   isSamePrimeInfiniPaymentAssetIdentity,
   isSamePrimeInfiniPaymentTransferSnapshot,
@@ -57,6 +60,7 @@ export async function resolvePrimeInfiniPaymentRestore({
   fetchLatestPayment,
   fetchPurchaseStatusSnapshot,
   discardPaymentSession,
+  discardTerminalPaymentSession,
   clearCompletedPaymentSession,
   persistRestoredSession,
 }: {
@@ -71,6 +75,9 @@ export async function resolvePrimeInfiniPaymentRestore({
   fetchPurchaseStatusSnapshot: () => Promise<IPrimeInfiniPurchaseStatusSnapshot>;
   discardPaymentSession: (
     paymentCacheKey: IPrimeInfiniPaymentCacheKey,
+  ) => Promise<boolean>;
+  discardTerminalPaymentSession: (
+    latestPayment: IPrimeInfiniPayment,
   ) => Promise<boolean>;
   clearCompletedPaymentSession: (
     paymentCacheKey: IPrimeInfiniPaymentCacheKey,
@@ -128,6 +135,23 @@ export async function resolvePrimeInfiniPaymentRestore({
     previous: session.payment,
     latest: latestPayment,
   });
+  // Only recover a fresh, explicitly failed unpaid invoice. Expiry alone
+  // cannot prove that an already broadcast transfer will not arrive later.
+  if (
+    transferSnapshotUnchanged &&
+    paymentMatchesAsset &&
+    isPrimeInfiniPaymentExplicitlyFailedSnapshot(latestPayment) &&
+    !isPrimeInfiniPaymentExplicitlyExpiredSnapshot(latestPayment) &&
+    isPrimeInfiniPaymentClosedUnpaidSnapshot(latestPayment) &&
+    isPrimeInfiniPaymentClosedUnpaidSnapshot(paymentWithDurableProgress)
+  ) {
+    if (!(await discardTerminalPaymentSession(latestPayment))) {
+      throw new OneKeyLocalError(
+        'Infini payment session changed during restore',
+      );
+    }
+    return { type: 'discarded' };
+  }
   const supportedAsset = supportedAssets.find((asset) =>
     isSamePaymentAssetMetadata(asset, session.asset),
   );

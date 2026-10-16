@@ -1797,6 +1797,21 @@ describe('Infini Speed Up broadcast validation', () => {
     },
   );
 
+  test('reports expired replacement invoices through the shared error toast', async () => {
+    const { service, vault, backgroundApi } = makeReplacement();
+    backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+      {
+        payment: { ...latestPayment, status: 'expired' },
+        purchaseStatusSnapshot,
+      },
+    );
+    await expect(speedUp(service)).rejects.toMatchObject({
+      autoToast: true,
+      data: { paymentValidationFailure: 'quoteExpired' },
+    });
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+  });
+
   test('validates an active invoice using replacement admission and preserves its history binding', async () => {
     const { service, backgroundApi } = makeReplacement();
     await expect(speedUp(service)).resolves.toMatchObject({

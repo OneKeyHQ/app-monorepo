@@ -410,6 +410,9 @@ function TxConfirmActions(props: IProps) {
       }
     }
 
+    if (gasAccountSubmitIdRef.current || isExitHandledRef.current) {
+      return;
+    }
     updateSendTxStatus({ isSubmitting: true });
     // Rotate the submit token so the background retry loop knows which
     // attempt this is and the cancel handler can target it precisely.
@@ -787,37 +790,42 @@ function TxConfirmActions(props: IProps) {
         gasAccountSubmitIdRef.current = null;
         return;
       }
+      // Cancellation or another completed exit owns the UI now. A late RPC
+      // rejection must not report a second failure or close a newer screen.
+      if (!transactionSubmitted && gasAccountSubmitIdRef.current !== submitId) {
+        return;
+      }
       if (!transactionSubmitted) {
         logGasAccountSubmitFailed(e, 'submit');
       }
       const gasAccountStrategy = handleGasAccountSubmitError(e);
-      // Refresh and Fallback both keep the user on the confirm page with a
-      // fresh estimate in flight, so the dApp caller should also keep waiting.
-      // Hint is terminal for this attempt — propagate to onFail / dApp reject
-      // so callers aren't left pending indefinitely.
+      const shouldReviewInfiniPayment =
+        beforeBroadcastAction?.type === 'primeInfiniPayment' &&
+        !transactionSubmitted &&
+        gasAccountSubmitIdRef.current === submitId;
+      if (shouldReviewInfiniPayment) {
+        // Reconcile against the server on the payment screen. A generic RPC
+        // failure can be ambiguous, so never clear its durable send claim here.
+        isExitHandledRef.current = true;
+        updateSendTxStatus({ isSubmitting: false });
+        isSubmitted.current = false;
+        gasAccountSubmitIdRef.current = null;
+        onFail?.(e as Error);
+        if (popStack) {
+          navigation.popStack();
+        } else {
+          navigation.pop();
+        }
+        return;
+      }
+      // Ordinary sends can retry after fee refresh or payer fallback.
       if (
         gasAccountStrategy === EGasAccountErrorStrategy.Refresh ||
         gasAccountStrategy === EGasAccountErrorStrategy.Fallback
       ) {
-        const shouldReviewInfiniPayment =
-          beforeBroadcastAction?.type === 'primeInfiniPayment' &&
-          !transactionSubmitted &&
-          gasAccountSubmitIdRef.current === submitId;
         updateSendTxStatus({ isSubmitting: false });
         isSubmitted.current = false;
         gasAccountSubmitIdRef.current = null;
-        if (shouldReviewInfiniPayment) {
-          // Infini may already hold a durable send claim. Let its recovery
-          // screen offer waiting or a new payment instead of retrying here.
-          // Unmount must not report a second exit through onCancel.
-          isExitHandledRef.current = true;
-          onFail?.(e as Error);
-          if (popStack) {
-            navigation.popStack();
-          } else {
-            navigation.pop();
-          }
-        }
         return;
       }
       if (accountUtils.isQrAccount({ accountId })) {

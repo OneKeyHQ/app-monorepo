@@ -184,6 +184,8 @@ describe('TxConfirmActions Gas Account failure exit', () => {
     { code: 40_202, popStack: false },
     { code: 40_213, popStack: true },
     { code: 40_213, popStack: false },
+    { code: 50_000, popStack: true },
+    { code: 50_000, popStack: false },
   ])(
     'reports Infini failure once after error $code and popStack=$popStack',
     async ({ code, popStack }) => {
@@ -255,6 +257,62 @@ describe('TxConfirmActions Gas Account failure exit', () => {
         jest.advanceTimersByTime(1000);
       });
       expect(onCancel).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each(['resolve', 'reject'] as const)(
+    'ignores a late %s after cancellation and blocks concurrent confirmation',
+    async (outcome) => {
+      let resolveSend: (value: unknown) => void = () => undefined;
+      let rejectSend: (error: Error) => void = () => undefined;
+      mockBatchSend.mockImplementation(
+        () =>
+          new Promise((resolve, reject) => {
+            resolveSend = resolve;
+            rejectSend = reject;
+          }),
+      );
+      const onFail = jest.fn();
+      const onCancel = jest.fn();
+      const onSuccess = jest.fn();
+      const screen = render(
+        <TxConfirmActions
+          accountId="hd-1--0"
+          networkId="evm--1"
+          securityCheckConfirmation="none"
+          securityCheckAcknowledgementKey="tx-1"
+          beforeBroadcastAction={beforeBroadcastAction}
+          onFail={onFail}
+          onCancel={onCancel}
+          onSuccess={onSuccess}
+        />,
+      );
+      let pending: Promise<void> | undefined;
+      await act(async () => {
+        pending = getFooterActions().onConfirm?.();
+      });
+      await act(async () => {
+        await getFooterActions().onConfirm?.();
+      });
+      expect(mockBatchSend).toHaveBeenCalledTimes(1);
+      getFooterActions().onCancel(jest.fn(), jest.fn());
+      await act(async () => {
+        if (outcome === 'resolve') {
+          resolveSend([]);
+        } else {
+          rejectSend(new Error('RPC timeout'));
+        }
+        await pending;
+      });
+      screen.unmount();
+      act(() => {
+        jest.advanceTimersByTime(1000);
+      });
+      expect(onCancel).toHaveBeenCalledTimes(1);
+      expect(onFail).not.toHaveBeenCalled();
+      expect(onSuccess).not.toHaveBeenCalled();
+      expect(mockNavigation.pop).not.toHaveBeenCalled();
+      expect(mockNavigation.popStack).not.toHaveBeenCalled();
     },
   );
 

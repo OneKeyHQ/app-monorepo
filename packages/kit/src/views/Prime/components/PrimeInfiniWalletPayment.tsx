@@ -4519,6 +4519,17 @@ function PrimeInfiniWalletPaymentRoot({
                       expectedPaymentCacheIdentity,
                     },
                   ),
+                discardTerminalPaymentSession: (latestPayment) =>
+                  backgroundApiProxy.simpleDb.prime.discardTerminalInfiniPendingPaymentSession(
+                    {
+                      onekeyUserId,
+                      expectedPaymentCacheIdentity:
+                        restoredSession.paymentCacheKey,
+                      expectedUpdatedAt: restoredSession.updatedAt,
+                      expectedSendStarted: restoredSession.sendStarted,
+                      latestPayment,
+                    },
+                  ),
                 clearCompletedPaymentSession: (expectedPaymentCacheIdentity) =>
                   backgroundApiProxy.simpleDb.prime.clearInfiniPendingPaymentSession(
                     {
