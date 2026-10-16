@@ -188,13 +188,12 @@ describe('native storage recovery after fast startup', () => {
       screen.getByText(/Could not load the storage repair screen/),
     ).toBeTruthy();
     expect(mockStorageCall).not.toHaveBeenCalled();
-    mockRestart.mockRejectedValueOnce(new Error('restart unavailable'));
     fireEvent.click(screen.getByTestId('native-storage-error-screen-restart'));
     await flush();
-    expect(mockRestart).toHaveBeenCalledWith({
-      mode: 'all',
-      reason: 'storage.recovery-screen.restart',
-    });
+    expect(screen.getByTestId('business-app')).toBeTruthy();
+    expect(mockRestart).not.toHaveBeenCalled();
+    act(() => requestNativeStorageRecovery('appStorage'));
+    await flush();
     expect(
       screen.getByTestId('native-storage-error-screen-retry'),
     ).toBeTruthy();

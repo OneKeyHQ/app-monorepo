@@ -729,15 +729,21 @@ export function NativeStorageBootstrapRoot() {
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              onPress={() =>
+              onPress={() => {
+                if (AppComponent) {
+                  dismissNativeStorageRecovery();
+                  return;
+                }
                 void restartAfterBootstrapFailure({
                   failureStage: bootstrapFailureStage ?? 'storage',
                   reason: 'storage.recovery-screen.restart',
-                })
-              }
+                });
+              }}
               testID="native-storage-error-screen-restart"
             >
-              <Text style={styles.fallbackText}>Restart App</Text>
+              <Text style={styles.fallbackText}>
+                {AppComponent ? 'Back' : 'Restart App'}
+              </Text>
             </Pressable>
           </>
         ) : (

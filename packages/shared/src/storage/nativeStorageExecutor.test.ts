@@ -172,6 +172,8 @@ const LEGACY_RETENTION_KEY =
 const MIGRATION_REPORT_KEY =
   '__onekey_internal_app_storage_migration_report_v1__';
 const BATCH_JOURNAL_KEY = '__onekey_internal_app_storage_batch_journal_v1__';
+const REPAIR_JOURNAL_BACKUP_PREFIX =
+  '__onekey_internal_app_storage_repair_journal_backup_v1__:';
 const nativeStorageGlobal = globalThis as typeof globalThis & {
   __onekeyNativeSyncStorageBroadcast?: jest.Mock;
 };
@@ -231,6 +233,256 @@ describe('nativeStorageExecutor', () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
+
+  it.each(['ledger read failure', 'inapplicable ledger'])(
+    'releases the repair guard after %s',
+    async (failure) => {
+      markAppStorageMigrated();
+      mockAppMMKV.set('app:healthy', 'current');
+      if (failure === 'ledger read failure')
+        mockNativeModule.getMigrationLedger.mockRejectedValueOnce(
+          new Error('ledger unavailable'),
+        );
+      else mockMigrationLedger.set('app-storage-v1', 'migrating-v1');
+      const { executeNativeStorageRequest } = loadExecutor();
+      await expect(
+        executeNativeStorageRequest({
+          scope: 'recovery',
+          operation: 'prepareMigrationRepair',
+          target: 'appStorage',
+        }),
+      ).rejects.toThrow();
+      mockMigrationLedger.set('app-storage-v1', 'complete-v1');
+      await expect(
+        executeNativeStorageRequest({
+          scope: 'asyncStorage',
+          operation: 'getItem',
+          key: 'healthy',
+        }),
+      ).resolves.toBe('current');
+    },
+  );
+
+  it('preserves an unreadable current value during preparation and requires rescan if it becomes readable', async () => {
+    mockMigrationLedger.set('app-storage-v1', 'complete-v1');
+    mockLegacyData.set('newer', 'stale-legacy');
+    mockLegacyData.set('later', 'recover-later');
+    mockAppMMKV.set('app:newer', 'newer-current');
+    const get = mockAppMMKV.getString.bind(mockAppMMKV);
+    const read = jest
+      .spyOn(mockAppMMKV, 'getString')
+      .mockImplementation((key) => {
+        if (key === 'app:newer') throw new Error('temporary read failure');
+        return get(key);
+      });
+    const originalSet = mockAppMMKV.set.bind(mockAppMMKV);
+    const set = jest
+      .spyOn(mockAppMMKV, 'set')
+      .mockImplementation((key, value) => {
+        if (key === 'app:newer') throw new Error('copy write failure');
+        originalSet(key, value);
+      });
+    const remove = jest.spyOn(mockAppMMKV, 'remove');
+    const { executeNativeStorageRequest } = loadExecutor();
+    const summary = (await executeNativeStorageRequest({
+      scope: 'recovery',
+      operation: 'prepareMigrationRepair',
+      target: 'appStorage',
+    })) as INativeAppStorageRepairSummary;
+    expect(summary).toMatchObject({ successfulCount: 1, failedCount: 1 });
+    expect(mockAppMMKV.values.get('app:newer')).toBe('newer-current');
+    expect(set.mock.calls.some(([key]) => key === 'app:newer')).toBe(false);
+    expect(remove).not.toHaveBeenCalledWith('app:newer');
+    expect(get('app:later')).toBe('recover-later');
+    read.mockImplementation(get);
+    await expect(
+      executeNativeStorageRequest({
+        scope: 'recovery',
+        operation: 'completeMigrationRepair',
+        target: 'appStorage',
+        repairId: summary.repairId,
+        force: true,
+      }),
+    ).rejects.toThrow('results changed');
+    expect(get('app:newer')).toBe('newer-current');
+    expect(mockLegacyData.get('newer')).toBe('stale-legacy');
+    const nextSummary = (await executeNativeStorageRequest({
+      scope: 'recovery',
+      operation: 'prepareMigrationRepair',
+      target: 'appStorage',
+    })) as INativeAppStorageRepairSummary;
+    expect(nextSummary).toMatchObject({ failedCount: 0, preservedCount: 2 });
+    await executeNativeStorageRequest({
+      scope: 'recovery',
+      operation: 'completeMigrationRepair',
+      target: 'appStorage',
+      repairId: nextSummary.repairId,
+      force: false,
+    });
+    expect(get('app:newer')).toBe('newer-current');
+  });
+
+  it.each([
+    'both',
+    'pending only',
+    'backup write fails',
+    'backup sync fails',
+    'backup verification fails',
+    'backup already exists',
+  ])(
+    'preserves unfinished rollback evidence before forced completion: %s',
+    async (mode) => {
+      const { createNativeAppStorageRepairController } = loadExecutor();
+      const target = new FakeMMKV();
+      target.set('app:half-applied', 'current-partial');
+      if (mode !== 'pending only')
+        target.set(BATCH_JOURNAL_KEY, 'disk-rollback-evidence');
+      let pending: string | undefined = 'heap-rollback-evidence';
+      const clearPending = jest.fn(() => {
+        pending = undefined;
+      });
+      const sync = jest.fn(async () => {
+        if (mode === 'backup sync fails') throw new Error('backup sync failed');
+      });
+      const controller = createNativeAppStorageRepairController({
+        getMMKV: () => target,
+        getLedger: async () => 'complete-v1',
+        getLegacy: () => ({
+          ...mockLegacyStorage,
+          multiSet: async () => undefined,
+          reloadManifest: async () => undefined,
+        }),
+        sync,
+        recoverJournal: async () => {
+          throw new Error('rollback failed');
+        },
+        getPendingRecovery: () => pending,
+        completeLedger: async () => undefined,
+        log: () => {},
+        onPrepare: () => {},
+        onComplete: () => {},
+        clearPendingRecovery: clearPending,
+      });
+      const prepared = await controller.prepare();
+      expect(prepared.scanComplete).toBe(false);
+      const key = REPAIR_JOURNAL_BACKUP_PREFIX + prepared.repairId;
+      if (mode === 'backup write fails') target.failOnSetKey = key;
+      if (mode === 'backup already exists') target.set(key, 'previous-archive');
+      if (mode === 'backup verification fails') {
+        const get = target.getString.bind(target);
+        jest
+          .spyOn(target, 'getString')
+          .mockImplementation((input) =>
+            input === key ? undefined : get(input),
+          );
+      }
+      if (mode.includes('fails') || mode === 'backup already exists') {
+        await expect(
+          controller.complete(prepared.repairId, true),
+        ).rejects.toThrow();
+        expect(target.values.get(BATCH_JOURNAL_KEY)).toBe(
+          'disk-rollback-evidence',
+        );
+        expect(pending).toBe('heap-rollback-evidence');
+        expect(clearPending).not.toHaveBeenCalled();
+        expect(target.getString(MIGRATION_KEY)).toBeUndefined();
+        if (mode === 'backup already exists')
+          expect(target.getString(key)).toBe('previous-archive');
+      } else {
+        await controller.complete(prepared.repairId, true);
+        expect(JSON.parse(target.getString(key) ?? '')).toEqual({
+          version: 1,
+          ...(mode === 'both' ? { journal: 'disk-rollback-evidence' } : {}),
+          pendingRecovery: 'heap-rollback-evidence',
+        });
+        expect(sync).toHaveBeenCalled();
+        expect(target.getString(BATCH_JOURNAL_KEY)).toBeUndefined();
+        expect(pending).toBeUndefined();
+        expect(target.getString(MIGRATION_KEY)).toBe('1');
+      }
+    },
+  );
+
+  it('keeps rollback archives out of normal reads and removes them only on explicit app clear', async () => {
+    markAppStorageMigrated();
+    const key = `${REPAIR_JOURNAL_BACKUP_PREFIX}historical-attempt`;
+    mockAppMMKV.set(key, 'retained-rollback');
+    mockAppMMKV.set('app:healthy', 'new-data');
+    const { executeNativeStorageRequest } = loadExecutor();
+    await expect(
+      executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'getAllKeys',
+      }),
+    ).resolves.toEqual(['healthy']);
+    expect(mockAppMMKV.getString(key)).toBe('retained-rollback');
+    await executeNativeStorageRequest({
+      scope: 'asyncStorage',
+      operation: 'clear',
+    });
+    expect(mockAppMMKV.getString(key)).toBeUndefined();
+  });
+
+  it.each(['rollback write', 'journal deletion sync'])(
+    'archives actual interrupted batch recovery after %s fails and does not replay it after restart',
+    async (failure) => {
+      mockMigrationLedger.set('app-storage-v1', 'complete-v1');
+      mockLegacyData.set('source-check', 'legacy-kept');
+      const journal = JSON.stringify({
+        version: 1,
+        previousValues: [
+          ['app:first', 'old-one'],
+          ['app:second', 'old-two'],
+        ],
+      });
+      mockAppMMKV.set(BATCH_JOURNAL_KEY, journal);
+      mockAppMMKV.set('app:first', 'partial-one');
+      mockAppMMKV.set('app:second', 'partial-two');
+      if (failure === 'rollback write') mockAppMMKV.failOnSetKey = 'app:second';
+      else
+        mockSyncNativeStorageMMKV
+          .mockResolvedValueOnce(undefined)
+          .mockRejectedValueOnce(new Error('journal deletion sync failed'));
+      let { executeNativeStorageRequest } = loadExecutor();
+      const prepared = (await executeNativeStorageRequest({
+        scope: 'recovery',
+        operation: 'prepareMigrationRepair',
+        target: 'appStorage',
+      })) as INativeAppStorageRepairSummary;
+      expect(prepared.scanComplete).toBe(false);
+      await executeNativeStorageRequest({
+        scope: 'recovery',
+        operation: 'completeMigrationRepair',
+        target: 'appStorage',
+        repairId: prepared.repairId,
+        force: true,
+      });
+      const key = REPAIR_JOURNAL_BACKUP_PREFIX + prepared.repairId;
+      expect(JSON.parse(mockAppMMKV.getString(key) ?? '')).toEqual({
+        version: 1,
+        ...(failure === 'rollback write' ? { journal } : {}),
+        pendingRecovery: journal,
+      });
+      expect(mockLegacyData.get('source-check')).toBe('legacy-kept');
+      jest.resetModules();
+      ({ executeNativeStorageRequest } = loadExecutor());
+      await executeNativeStorageRequest({
+        scope: 'asyncStorage',
+        operation: 'setItem',
+        key: 'second',
+        value: 'new-after-repair',
+      });
+      await expect(
+        executeNativeStorageRequest({
+          scope: 'asyncStorage',
+          operation: 'getItem',
+          key: 'second',
+        }),
+      ).resolves.toBe('new-after-repair');
+      expect(mockAppMMKV.getString(key)).toBeDefined();
+      expect(mockLegacyStorage.multiRemove).not.toHaveBeenCalled();
+    },
+  );
 
   it('holds business reads behind one migration promise', async () => {
     mockLegacyData.set('business-key', 'legacy-value');
