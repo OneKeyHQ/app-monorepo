@@ -386,6 +386,7 @@ function MonthPager({
 export function SwipeableDayGrid({
   calendarIndex,
   fullWidth,
+  hideOutOfMonth = false,
   isPrevDisabled,
   isNextDisabled,
   minDate,
@@ -410,7 +411,7 @@ export function SwipeableDayGrid({
     return (
       <DayGrid
         calendarIndex={calendarIndex}
-        hideOutOfMonth={false}
+        hideOutOfMonth={hideOutOfMonth}
         fullWidth={fullWidth}
       />
     );

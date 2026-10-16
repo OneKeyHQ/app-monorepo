@@ -88,14 +88,16 @@ export function getCellStateStyles({
 }: {
   disabled: boolean;
   selected: boolean;
-  /** Out-of-month days: interactive but de-emphasized. */
+  /** Outside days: interactive but de-emphasized unless selected. */
   muted?: boolean;
 }) {
   let color: '$text' | '$textDisabled' | '$textInverse' = '$text';
-  if (disabled || muted) {
+  if (disabled) {
     color = '$textDisabled';
   } else if (selected) {
     color = '$textInverse';
+  } else if (muted) {
+    color = '$textDisabled';
   }
   return {
     color,

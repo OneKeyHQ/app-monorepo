@@ -153,11 +153,14 @@ export function MonthDaysGrid({
     <Stack flexWrap="wrap" flexDirection="row" rowGap="$1">
       {cal.days.map((day, index) => {
         const dateStr = day.$date.toString();
-        // Out-of-month neighbors never draw a band, so a month edge caps it
-        // just like a week-row edge does.
-        const capLeft = index % 7 === 0 || !cal.days[index - 1]?.inCurrentMonth;
+        // The band breaks at week-row edges, and at month edges only when the
+        // outside days it would continue onto are hidden.
+        const capLeft =
+          index % 7 === 0 ||
+          (!!hideOutOfMonth && !cal.days[index - 1]?.inCurrentMonth);
         const capRight =
-          index % 7 === 6 || !cal.days[index + 1]?.inCurrentMonth;
+          index % 7 === 6 ||
+          (!!hideOutOfMonth && !cal.days[index + 1]?.inCurrentMonth);
         return (
           <DayCellWrapper
             key={dateStr}

@@ -126,6 +126,7 @@ export function CalendarPanel({
         <SwipeableDayGrid
           calendarIndex={calendarIndex}
           fullWidth={mode === 'range'}
+          hideOutOfMonth={!!isDualPanel}
           isPrevDisabled={isPrevDisabled}
           isNextDisabled={isNextDisabled}
           minDate={minDate}

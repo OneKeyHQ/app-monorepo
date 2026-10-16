@@ -17,6 +17,7 @@ import type { ISwipeableDayGridProps } from './SwipeableDayGridTypes';
 export function SwipeableDayGrid({
   calendarIndex,
   fullWidth,
+  hideOutOfMonth = false,
 }: ISwipeableDayGridProps) {
   const { data } = useDatePickerContext();
   const position = getCalendarMonthPosition(data.calendars[calendarIndex]);
@@ -33,7 +34,7 @@ export function SwipeableDayGrid({
       >
         <MonthDaysGrid
           calendarIndex={calendarIndex}
-          hideOutOfMonth={false}
+          hideOutOfMonth={hideOutOfMonth}
           fullWidth={fullWidth}
         />
       </YStack>

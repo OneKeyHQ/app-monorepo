@@ -86,28 +86,22 @@ export const DayCell = memo(
       );
     }
 
-    // Range decoration only applies to in-month days.
-    const range = day.inCurrentMonth ? day.range : undefined;
-    const isRangeStart = range === 'range-start';
-    const isRangeEnd = range === 'range-end';
-    const isPreviewStart = range === 'will-be-range-start';
-    const isPreviewEnd = range === 'will-be-range-end';
-    const isPreview =
-      isPreviewStart || isPreviewEnd || range === 'will-be-in-range';
-
-    // The anchor of an in-progress range is already `selected`; while
-    // previewing, rehookify re-labels it as a will-be endpoint.
+    // Outside (adjacent-month) days carry the same selection and range
+    // decoration as in-month days, so a range crossing a month edge reads as
+    // one continuous band; they only differ by their muted text.
+    const { range } = day;
+    // While picking the second date, rehookify relabels the anchor and the
+    // hovered day as will-be endpoints: render them exactly like the final
+    // range so the preview is what the user gets.
+    const isStart = range === 'range-start' || range === 'will-be-range-start';
+    const isEnd = range === 'range-end' || range === 'will-be-range-end';
+    const isEndpoint = isStart || isEnd;
     const isSelected =
-      (day.selected && day.inCurrentMonth) ||
-      range === 'range-start range-end' ||
-      isRangeStart ||
-      isRangeEnd;
-    const isEndpoint = isRangeStart || isRangeEnd;
-    const isPreviewEndpoint = (isPreviewStart || isPreviewEnd) && !isSelected;
+      day.selected || isEndpoint || range === 'range-start range-end';
 
     let bandPart: 'start' | 'end' | 'middle' | null = null;
-    if (isRangeStart || isPreviewStart) bandPart = 'start';
-    else if (isRangeEnd || isPreviewEnd) bandPart = 'end';
+    if (isStart) bandPart = 'start';
+    else if (isEnd) bandPart = 'end';
     // Hovering the anchor itself previews a one-day range: no band.
     else if (
       range === 'in-range' ||
@@ -116,7 +110,7 @@ export const DayCell = memo(
       bandPart = 'middle';
     const band = getBandShape(bandPart, capLeft, capRight);
 
-    const { color, bg, ...interactionStyles } = getCellStateStyles({
+    const { color, bg, hoverStyle, ...interactionStyles } = getCellStateStyles({
       disabled: day.disabled,
       selected: isSelected,
       muted: !day.inCurrentMonth,
@@ -144,7 +138,7 @@ export const DayCell = memo(
             bottom={0}
             left={band.left}
             right={band.right}
-            bg={isPreview ? '$bgHover' : '$bgStrong'}
+            bg="$bgStrong"
             borderTopLeftRadius={band.roundLeft ? RANGE_RADIUS : 0}
             borderBottomLeftRadius={band.roundLeft ? RANGE_RADIUS : 0}
             borderTopRightRadius={band.roundRight ? RANGE_RADIUS : 0}
@@ -166,9 +160,10 @@ export const DayCell = memo(
             borderTopLeftRadius: 0,
             borderBottomLeftRadius: 0,
           })}
-          // The pending end of a previewed range gets a solid tint, distinct
-          // from the lighter preview band and from the today dot.
-          bg={isPreviewEndpoint ? '$bgStrong' : bg}
+          bg={bg}
+          // Band tokens are translucent: a hover fill on a band cell would
+          // stack on the band and darken only the half it overlaps.
+          hoverStyle={band && !isSelected ? undefined : hoverStyle}
           {...interactionStyles}
           onPress={handlePress}
           onHoverIn={onHoverIn ? handleHoverIn : undefined}
