@@ -257,11 +257,14 @@ function main() {
     // Keep enough headroom for expected route and chunk growth while the total
     // output size budget continues to guard against broader regressions.
     jsFiles: readBudget('EXT_BUILD_MAX_JS_FILES', 1000),
-    // The x baseline after #13208 is 39849351 bytes in Linux CI, already
-    // above 38 MiB. Restore about 2.6% headroom for incremental growth.
+    // Translation growth raised the x baseline to 40933513 bytes in Linux CI
+    // (run 38020508845), above 39 MiB, and x moved its budget to 40 MiB
+    // (#12590, #13771). This release branch follows: its background bundle
+    // is 41050258 bytes after the OK-61377 locale pull (run 38729380954),
+    // so 40 MiB leaves about 2.1% headroom for incremental growth.
     backgroundBytes: readBudget(
       'EXT_BUILD_MAX_BACKGROUND_BYTES',
-      39 * 1024 * 1024,
+      40 * 1024 * 1024,
     ),
   };
 

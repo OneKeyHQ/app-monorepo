@@ -133,13 +133,13 @@ describe('buildHeadlineApyParts', () => {
   it('splits base and bonus the way the design draws them', () => {
     expect(
       buildHeadlineApyParts([
-        { kind: 'base', rate: '5.10', color: '$textSuccess' },
-        { kind: 'campaign', rate: '2.12', color: '$textCaution' },
+        { kind: 'base', rate: '5.10', color: '$success10' },
+        { kind: 'campaign', rate: '2.12', color: '$orange10' },
       ] as any),
     ).toEqual({
       base: '5.10%',
       bonus: '+2.12%',
-      bonusColor: '$textCaution',
+      bonusColor: '$orange10',
     });
   });
 
@@ -150,8 +150,8 @@ describe('buildHeadlineApyParts', () => {
     expect(
       buildHeadlineApyParts(
         [
-          { kind: 'base', rate: '3.25', color: '$textSuccess' },
-          { kind: 'campaign', rate: '20.00', color: '$textCaution' },
+          { kind: 'base', rate: '3.25', color: '$success10' },
+          { kind: 'campaign', rate: '20.00', color: '$orange10' },
           { kind: 'fee', rate: '-0.16' },
         ] as any,
         '23.09% APY',
@@ -159,7 +159,7 @@ describe('buildHeadlineApyParts', () => {
     ).toEqual({
       base: '3.09%',
       bonus: '+20.00%',
-      bonusColor: '$textCaution',
+      bonusColor: '$orange10',
       unit: 'APY',
     });
   });
@@ -176,8 +176,8 @@ describe('buildHeadlineApyParts', () => {
   it('sums several bonus rows into one figure', () => {
     expect(
       buildHeadlineApyParts([
-        { kind: 'base', rate: '3.52', color: '$textSuccess' },
-        { kind: 'campaign', rate: '20', color: '$textCaution' },
+        { kind: 'base', rate: '3.52', color: '$success10' },
+        { kind: 'campaign', rate: '20', color: '$orange10' },
         { kind: 'reward', rate: '1.5', color: '$textInfo' },
       ] as any),
     ).toMatchObject({ base: '3.52%', bonus: '+21.50%' });
@@ -186,27 +186,36 @@ describe('buildHeadlineApyParts', () => {
   it('keeps the reward color when there is no campaign', () => {
     expect(
       buildHeadlineApyParts([
-        { kind: 'base', rate: '6.10', color: '$textSuccess' },
+        { kind: 'base', rate: '6.10', color: '$success10' },
         { kind: 'reward', rate: '2.12', color: '$textInfo' },
       ] as any),
     ).toMatchObject({ bonusColor: '$textInfo' });
   });
 
+  it('falls back to the design orange when the server sends no color', () => {
+    expect(
+      buildHeadlineApyParts([
+        { kind: 'base', rate: '3.61' },
+        { kind: 'campaign', rate: '20' },
+      ] as any),
+    ).toMatchObject({ bonusColor: '$orange10' });
+  });
+
   it('lets the campaign color win when both are present', () => {
     expect(
       buildHeadlineApyParts([
-        { kind: 'base', rate: '1', color: '$textSuccess' },
+        { kind: 'base', rate: '1', color: '$success10' },
         { kind: 'reward', rate: '1', color: '$textInfo' },
-        { kind: 'campaign', rate: '1', color: '$textCaution' },
+        { kind: 'campaign', rate: '1', color: '$orange10' },
       ] as any),
-    ).toMatchObject({ bonusColor: '$textCaution' });
+    ).toMatchObject({ bonusColor: '$orange10' });
   });
 
   it('drops the bonus half when there is none', () => {
     // The fee still folds into base: 4.00 - 0.50.
     expect(
       buildHeadlineApyParts([
-        { kind: 'base', rate: '4.00', color: '$textSuccess' },
+        { kind: 'base', rate: '4.00', color: '$success10' },
         { kind: 'fee', rate: '-0.5' },
       ] as any),
     ).toEqual({ base: '3.50%' });
