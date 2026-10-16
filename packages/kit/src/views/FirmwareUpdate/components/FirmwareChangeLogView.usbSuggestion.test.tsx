@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 
-import { EDeviceType } from '@onekeyfe/hd-shared';
+import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import {
   act,
   fireEvent,
@@ -461,6 +461,31 @@ describe('FirmwareChangeLogView desktop USB suggestion', () => {
     beforeEach(() => {
       mockIsNative = false;
       mockIsDesktop = true;
+    });
+
+    it('shows the single-device warning before the checklist and allows retry', async () => {
+      mockDetectUSBDeviceAvailability.mockRejectedValueOnce({
+        $isHardwareError: true,
+        code: HardwareErrorCode.FirmwareUpdateLimitOneDevice,
+      });
+      const result = buildResult(EDeviceType.Classic1s);
+      render(<FirmwareChangeLogView result={result} />);
+      tapUpdateNow();
+      await waitFor(() =>
+        expect(mockDialogShow).toHaveBeenCalledWith(
+          expect.objectContaining({
+            description:
+              ETranslations.update_only_one_usb_device_supported_for_upgrade,
+            showCancelButton: false,
+          }),
+        ),
+      );
+      expect(mockShowCheckList).not.toHaveBeenCalled();
+      expect(mockSetStepInfo).not.toHaveBeenCalled();
+      tapUpdateNow();
+      await waitFor(() =>
+        expect(mockShowCheckList).toHaveBeenCalledWith({ result }),
+      );
     });
 
     it('opens the checklist without the suggestion when USB is available', async () => {

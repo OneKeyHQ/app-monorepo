@@ -5,6 +5,8 @@ import { act, renderHook } from '@testing-library/react';
 
 import { Dialog, resetModalRouteByName } from '@onekeyhq/components';
 import { DOWNLOAD_DESKTOP_APP_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { ECustomOneKeyHardwareError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalFirmwareUpdateRoutes,
@@ -36,6 +38,11 @@ jest.mock('react-intl', () => ({
 
 jest.mock('use-debounce', () => ({
   useThrottledCallback: (callback: unknown) => callback,
+}));
+
+jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
+  __esModule: true,
+  default: { showToastOfError: jest.fn() },
 }));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -211,6 +218,86 @@ describe('useFirmwareUpdateActions', () => {
   });
 
   describe('openChangeLogModal', () => {
+    it.each(
+      [
+        {
+          code: ECustomOneKeyHardwareError.FirmwareUpdateRequiresUsbTransport,
+          description: ETranslations.upgrade_recommend_usb,
+        },
+        {
+          code: HardwareErrorCode.FirmwareUpdateLimitOneDevice,
+          description:
+            ETranslations.update_only_one_usb_device_supported_for_upgrade,
+        },
+        {
+          code: HardwareErrorCode.DeviceCheckDeviceIdError,
+          description:
+            ETranslations.hardware_device_information_is_inconsistent_it_may_be_caused_by_device_reset,
+        },
+      ].flatMap((item) =>
+        [false, true].map((pageHost) => ({ ...item, pageHost })),
+      ),
+    )(
+      'shows firmware rejection $code and permits retry (page host: $pageHost)',
+      async ({ code, description, pageHost }) => {
+        mockCheckDeviceReachable.mockRejectedValueOnce({
+          $isHardwareError: true,
+          code,
+        });
+        const show = jest.fn();
+        const { result } = renderHook(() => useFirmwareUpdateActions());
+        const params = {
+          connectId: 'CLASSIC_SERIAL',
+          ...(pageHost ? { dialogHost: { show } } : {}),
+        };
+        await act(async () => {
+          await result.current.openChangeLogModal(params);
+        });
+        expect(pageHost ? show : mockDialogShow).toHaveBeenCalledWith(
+          expect.objectContaining({ description, showCancelButton: false }),
+        );
+        expect(mockPushModal).not.toHaveBeenCalled();
+        await act(async () => {
+          await result.current.openChangeLogModal(params);
+        });
+        expect(mockPushModal).toHaveBeenCalledWith(
+          EModalRoutes.FirmwareUpdateModal,
+          changeLogRoute({ connectId: 'CLASSIC_SERIAL-resolved' }),
+        );
+      },
+    );
+
+    it.each([
+      {
+        $isHardwareError: true,
+        code: HardwareErrorCode.DeviceCheckDeviceIdError,
+      },
+      new Error('Native preflight failure'),
+    ])('preserves native entry failure handling (%p)', async (error) => {
+      mockIsNative = true;
+      mockCheckDeviceReachable.mockRejectedValueOnce(error);
+      const { result } = renderHook(() => useFirmwareUpdateActions());
+      await act(async () => {
+        await result.current.openChangeLogModal({ connectId: 'NATIVE_DEVICE' });
+      });
+      expect(mockDialogShow).not.toHaveBeenCalled();
+      expect(errorToastUtils.showToastOfError).not.toHaveBeenCalled();
+      expect(mockPushModal).not.toHaveBeenCalled();
+    });
+
+    it('surfaces an unknown preflight failure', async () => {
+      const error = new Error('Unexpected preflight failure');
+      mockCheckDeviceReachable.mockRejectedValueOnce(error);
+      const { result } = renderHook(() => useFirmwareUpdateActions());
+      await act(async () => {
+        await result.current.openChangeLogModal({
+          connectId: 'CLASSIC_SERIAL',
+        });
+      });
+      expect(errorToastUtils.showToastOfError).toHaveBeenCalledWith(error);
+      expect(mockPushModal).not.toHaveBeenCalled();
+    });
+
     it.each([false, true])(
       'shows a silent device-not-found failure and permits retry (page host: %s)',
       async (usePageHost) => {
@@ -260,6 +347,7 @@ describe('useFirmwareUpdateActions', () => {
       });
       expect(mockDialogShow).not.toHaveBeenCalled();
       expect(mockPushModal).not.toHaveBeenCalled();
+      expect(errorToastUtils.showToastOfError).not.toHaveBeenCalled();
     });
 
     it('checks the device and opens the changelog when the update is not known yet', async () => {

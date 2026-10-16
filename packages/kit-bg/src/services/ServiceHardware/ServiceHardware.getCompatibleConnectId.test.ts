@@ -2361,6 +2361,147 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       });
     });
 
+    it.each([
+      {
+        serialNumber: '000000000000000000000000',
+        path: '000000000000000000000000',
+        mode: 'bootloader',
+        selected: undefined,
+      },
+      {
+        serialNumber: undefined,
+        path: 'usb-1209-53c0-classic',
+        mode: 'bootloader',
+        selected: undefined,
+      },
+      {
+        serialNumber: 'LOADER_PATH',
+        path: 'LOADER_PATH',
+        mode: 'bootloader',
+        selected: undefined,
+      },
+      {
+        serialNumber: undefined,
+        path: 'usb-1209-53c0-classic',
+        mode: 'normal',
+        selected: undefined,
+      },
+      {
+        serialNumber: undefined,
+        path: 'usb-1209-53c0-classic',
+        mode: 'bootloader',
+        selected: 'OTHER_SELECTED_DEVICE',
+      },
+    ] as const)(
+      'validates a first loader entry on $path in $mode mode (selected: $selected)',
+      async ({ serialNumber, path, mode, selected }) => {
+        const usb = {
+          ...descriptor,
+          productId: 0x53_c0,
+          productName: 'Classic',
+          serialNumber,
+        };
+        getDevices.mockResolvedValue([usb]);
+        const service = createService();
+        const backgroundApi = (
+          service as unknown as { backgroundApi: IBackgroundApi }
+        ).backgroundApi;
+        backgroundApi.serviceHardwareUI = {
+          runExclusiveOneKeyOperation: jest.fn(
+            (operation: () => Promise<unknown>) => operation(),
+          ),
+        } as unknown as IBackgroundApi['serviceHardwareUI'];
+        jest.spyOn(service, 'probeUsbDeviceIdentities').mockResolvedValue([
+          {
+            path,
+            deviceType: EDeviceType.Classic1s,
+            serialNo: null,
+            deviceId: null,
+            connectProtocol: 'V1',
+            commType: 'webusb',
+          },
+        ]);
+        const read = jest
+          .spyOn(service, '_getDeviceStateWithMutex')
+          .mockResolvedValue({
+            protocol: 'V1',
+            identity: {
+              deviceType: EDeviceType.Classic1s,
+              serialNo: '',
+              deviceId: null,
+            },
+            status: { mode },
+          } as IOneKeyDeviceState);
+        const result = service.checkDeviceReachableForFirmwareUpdate({
+          connectId: selected ?? path,
+        });
+        if (mode === 'bootloader' && !selected) {
+          await expect(result).resolves.toBe(path);
+          expect(read).toHaveBeenCalledWith(
+            expect.objectContaining({
+              connectId: path,
+              params: expect.objectContaining({ scope: 'firmware' }),
+            }),
+          );
+        } else {
+          await expect(result).rejects.toMatchObject({
+            code: HardwareErrorCode.DeviceCheckDeviceIdError,
+          });
+          if (selected) expect(read).not.toHaveBeenCalled();
+          else expect(read).toHaveBeenCalledTimes(1);
+        }
+      },
+    );
+
+    it('counts only OneKey devices when a Trezor with a shared USB ID is connected', async () => {
+      const trezor = {
+        ...descriptor,
+        productId: 0x53_c1,
+        manufacturerName: 'TREZOR',
+        serialNumber: 'TREZOR_PATH',
+      };
+      getDevices.mockResolvedValue([descriptor, trezor]);
+      const service = createService();
+      jest.spyOn(service, 'probeUsbDeviceIdentities').mockResolvedValue([
+        {
+          path: descriptor.serialNumber,
+          serialNo: 'PHYSICAL_SERIAL',
+          deviceId: 'WALLET_ID',
+          deviceType: EDeviceType.Classic1s,
+          connectProtocol: 'V1',
+          commType: 'webusb',
+        },
+      ]);
+      jest.spyOn(service, '_getDeviceStateWithMutex').mockResolvedValue({
+        protocol: 'V1',
+        identity: {
+          deviceType: EDeviceType.Classic1s,
+          serialNo: 'PHYSICAL_SERIAL',
+          deviceId: 'WALLET_ID',
+        },
+        status: { mode: 'normal' },
+      } as IOneKeyDeviceState);
+      await expect(
+        service.detectUSBDeviceAvailability({ connectId: 'PHYSICAL_SERIAL' }),
+      ).resolves.toBe(true);
+      await expect(
+        service.resolveHardwareTransport({
+          connectId: 'PHYSICAL_SERIAL',
+          hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+        }),
+      ).resolves.toEqual({
+        connectId: 'PHYSICAL_SERIAL',
+        transportType: EHardwareTransportType.WEBUSB,
+      });
+      getDevices.mockResolvedValue([trezor]);
+      await expect(
+        service.resolveHardwareTransport({
+          connectId: 'PHYSICAL_SERIAL',
+          hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+        }),
+      ).rejects.toThrow('FirmwareUpdateRequiresUsbTransport');
+    });
+
     it.each(
       [
         EDeviceType.Classic,

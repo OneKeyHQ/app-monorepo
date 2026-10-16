@@ -3,6 +3,7 @@ import {
   EFirmwareType,
   HardwareErrorCode,
   ONEKEY_WEBUSB_FILTER,
+  isKnownTrezorWebUsbDevice,
   isSameOnekeyBleName,
   resolveOneKeyUsbDevicePath,
 } from '@onekeyfe/hd-shared';
@@ -4689,12 +4690,13 @@ class ServiceHardware extends ServiceBase {
         connectProtocol,
       });
     const usbDevices =
-      (await globalThis.navigator?.usb?.getDevices?.())?.filter((device) =>
-        ONEKEY_WEBUSB_FILTER.some(
-          (filter) =>
-            device.vendorId === filter.vendorId &&
-            device.productId === filter.productId,
-        ),
+      (await globalThis.navigator?.usb?.getDevices?.())?.filter(
+        (device) =>
+          ONEKEY_WEBUSB_FILTER.some(
+            (filter) =>
+              device.vendorId === filter.vendorId &&
+              device.productId === filter.productId,
+          ) && !isKnownTrezorWebUsbDevice(device),
       ) ?? [];
     if (usbDevices.length > 1)
       throw new deviceErrors.FirmwareUpdateLimitOneDevice();
@@ -5393,6 +5395,7 @@ class ServiceHardware extends ServiceBase {
         (!normalize(candidate.serialNo) &&
           !normalize(candidate.deviceId) &&
           target &&
+          !isUsbEndpoint &&
           (!expectedType || expectedType === EDeviceType.Unknown))
       ) {
         throw new deviceErrors.DeviceNotSame();
