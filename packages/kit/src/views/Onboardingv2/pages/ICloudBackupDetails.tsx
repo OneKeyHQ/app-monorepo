@@ -57,19 +57,24 @@ export default function ICloudBackupDetails({
   const hideRestoreButton = route.params?.hideRestoreButton;
   const {
     doBackup,
+    prepareBackup,
     doDeleteBackup,
     doRestoreBackup,
     checkLoading,
     goToPageBackupList,
   } = useCloudBackup();
 
-  const { result: backupData, isLoading: fetchLoading } = usePromiseResult<
+  const {
+    result: backupData,
+    isLoading: fetchLoading,
+    run: reloadBackupData,
+  } = usePromiseResult<
     IPrimeTransferData | IBackupDataEncryptedPayload | undefined
   >(
     async () => {
       await timerUtils.wait(300);
       if (actionType === 'backup') {
-        return backgroundApiProxy.serviceCloudBackupV2.buildBackupData();
+        return prepareBackup();
       }
       if (actionType === 'restore') {
         if (!route.params?.backupId) {
@@ -85,7 +90,7 @@ export default function ICloudBackupDetails({
       }
       return undefined;
     },
-    [actionType, route.params?.backupId],
+    [actionType, route.params?.backupId, prepareBackup],
     {
       watchLoading: true,
     },
@@ -184,6 +189,16 @@ export default function ICloudBackupDetails({
   const renderContent = () => {
     if (fetchLoading) {
       return <CloudBackupLoadingSkeleton />;
+    }
+    if (actionType === 'backup' && !backupData) {
+      return (
+        <Button
+          testID={OnboardingTestIDs.iCloudBackupDetailsRetryBtn}
+          onPress={() => reloadBackupData()}
+        >
+          {intl.formatMessage({ id: ETranslations.global_retry })}
+        </Button>
+      );
     }
     if (!walletData?.length) {
       return <CloudBackupDetailsEmptyView />;
