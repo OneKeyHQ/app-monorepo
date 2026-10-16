@@ -4,18 +4,20 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
-  applySwapProviderGasLimit,
-  applySwapProviderGasLimitToEstimate,
   canReuseSwapReviewGasInfo,
-  isSwapBuildForQuote,
   isSwapGasAccountCandidate,
   isSwapGasAccountSponsored,
   isSwapGasSponsored,
   isSwapMegafuelSponsored,
-  parseSwapGasLimit,
-  selectSwapGasLimit,
   shouldRequestSwapGasAccount,
 } from './swapGasUtils';
+import {
+  applySwapProviderGasLimit,
+  applySwapProviderGasLimitToEstimate,
+  isSwapBuildForQuote,
+  parseSwapGasLimit,
+  selectSwapGasLimit,
+} from './swapProviderGasUtils';
 
 const mockGetCustomRpcForNetwork: jest.MockedFunction<
   (

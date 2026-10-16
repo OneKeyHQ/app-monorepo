@@ -152,13 +152,15 @@ import {
   validateSwapBtcOutputs,
 } from '../utils/swapBalanceUtils';
 import {
-  applySwapProviderGasLimit,
   canReuseSwapReviewGasInfo,
-  isSwapBuildForQuote,
   isSwapGasSponsored,
-  parseSwapGasLimit,
   shouldRequestSwapGasAccount,
 } from '../utils/swapGasUtils';
+import {
+  applySwapProviderGasLimit,
+  isSwapBuildForQuote,
+  parseSwapGasLimit,
+} from '../utils/swapProviderGasUtils';
 import { buildSwapRateDifference } from '../utils/swapRateDifferenceUtils';
 import {
   type ISwapReviewAnalytics,

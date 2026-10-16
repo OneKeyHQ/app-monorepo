@@ -59,7 +59,7 @@ import { SignatureConfirmTestIDs } from '@onekeyhq/kit/src/views/SignatureConfir
 import {
   applySwapProviderGasLimit,
   applySwapProviderGasLimitToEstimate,
-} from '@onekeyhq/kit/src/views/Swap/utils/swapGasUtils';
+} from '@onekeyhq/kit/src/views/Swap/utils/swapProviderGasUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
