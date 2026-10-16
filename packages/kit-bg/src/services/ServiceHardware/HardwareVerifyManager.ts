@@ -22,6 +22,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 import type {
@@ -76,13 +77,15 @@ type IHardwareVerifyV2Data = {
 
 function getFirmwareVerifyPayload({
   instanceId,
+  timestamp,
 }: {
   instanceId: string;
+  timestamp: number;
 }): FirmwareVerifyPayload {
   // Same challenge as Pro/Classic: wallet splits `data` on '_' and requires
   // a UUID v4 instanceId. Device gets the UTF-8 bytes; Pro2/Neo firmware
   // must accept this variable-length message the same way Pro does.
-  const data = `${instanceId}_${Date.now()}_${stringUtils.randomString(12)}`;
+  const data = `${instanceId}_${timestamp}_${stringUtils.randomString(12)}`;
   return {
     data,
     dataHex: bufferUtils.textToHex(data, 'utf-8'),
@@ -216,7 +219,6 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     unlockBeforeVerify?: boolean;
   }): Promise<IFirmwareVerifyResult['payload']> {
     const { instanceId } = await settingsPersistAtom.get();
-    const { data, dataHex } = getFirmwareVerifyPayload({ instanceId });
     if (
       unlockBeforeVerify &&
       (deviceType === EDeviceType.Pro2 || deviceType === EDeviceType.Neo)
@@ -246,6 +248,19 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     if (oneKeyOperationLease?.signal?.aborted) {
       throw new UserCancelFromOutside();
     }
+    const timestamp = await systemTimeUtils.getHardwareVerificationTime();
+    if (timestamp === undefined) {
+      throw new OneKeyLocalError({
+        key: ETranslations.global_connet_error_try_again,
+      });
+    }
+    if (oneKeyOperationLease?.signal?.aborted) {
+      throw new UserCancelFromOutside();
+    }
+    const { data, dataHex } = getFirmwareVerifyPayload({
+      instanceId,
+      timestamp,
+    });
     const { cert, signature } = await this.getDeviceCertWithSig({
       connectId,
       dataHex,

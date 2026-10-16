@@ -4,7 +4,7 @@ import { isNaN, isNil, isNumber, throttle } from 'lodash';
 import { EServiceEndpointEnum } from '../../types/endpoint';
 import { appApiClient } from '../appApiClient/appApiClient';
 import { ONEKEY_HEALTH_CHECK_URL } from '../config/appConfig';
-import { getEndpointByServiceName } from '../config/endpointsMap';
+import { endpointsMap, getEndpointByServiceName } from '../config/endpointsMap';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
@@ -12,6 +12,7 @@ import requestHelper from '../request/requestHelper';
 import appStorage from '../storage/appStorage';
 import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 
+import stringUtils from './stringUtils';
 import timerUtils from './timerUtils';
 
 import type { IAxiosResponse } from '../appApiClient/appApiClient';
@@ -754,6 +755,81 @@ class SystemTimeUtils {
     );
 
     return true;
+  }
+
+  async getHardwareVerificationTime(): Promise<number | undefined> {
+    // Attestation must not reuse a persisted or pre-suspend time sample. Refresh
+    // in the signing runtime on every attempt, independently of the UI clock.
+    const endpoint = await getEndpointByServiceName(
+      EServiceEndpointEnum.Wallet,
+    );
+    if (
+      !endpoint.startsWith('https://') ||
+      ![endpointsMap.prod.wallet, endpointsMap.test.wallet].includes(
+        endpoint,
+      ) ||
+      !(await requestHelper.checkIsOneKeyDomain(endpoint))
+    ) {
+      return undefined;
+    }
+    const client = await appApiClient.getClient({
+      endpoint,
+      name: EServiceEndpointEnum.Wallet,
+    });
+    const start = getMonotonicTimeNow();
+    const wallStart = Date.now();
+    if (start === undefined || !Number.isFinite(start)) {
+      return undefined;
+    }
+    const response = await client.get(`${endpoint}${ONEKEY_HEALTH_CHECK_URL}`, {
+      params: {
+        _: 'hardware_verification',
+        nonce: stringUtils.randomString(12),
+      },
+      headers: { 'Cache-Control': 'no-cache, no-store' },
+      timeout: refreshServerTimeTimeout,
+      maxRedirects: 0,
+    });
+    const end = getMonotonicTimeNow();
+    const wallElapsed = Date.now() - wallStart;
+    const elapsed = end === undefined ? NaN : end - start;
+    // A paused monotonic clock during sleep or a wall-clock adjustment requires
+    // a new request. This only rejects uncertainty; wall time never sets UTC.
+    if (
+      !Number.isFinite(elapsed) ||
+      !Number.isFinite(wallElapsed) ||
+      elapsed < 0 ||
+      elapsed > refreshServerTimeTimeout ||
+      Math.abs(wallElapsed - elapsed) > 1000
+    ) {
+      return undefined;
+    }
+    const headerDate: unknown = response.headers.date ?? response.headers.Date;
+    const age: unknown = response.headers.age ?? response.headers.Age;
+    // XHR follows redirects independently of Axios's maxRedirects option.
+    const finalUrl = (response.request as { responseURL?: unknown } | undefined)
+      ?.responseURL;
+    if (
+      response.status !== 200 ||
+      (typeof finalUrl === 'string' &&
+        finalUrl.length > 0 &&
+        !finalUrl.startsWith(`${endpoint}/`)) ||
+      typeof headerDate !== 'string' ||
+      (age !== undefined && Number(age) !== 0)
+    ) {
+      return undefined;
+    }
+    const timestamp = Date.parse(headerDate);
+    if (
+      !Number.isFinite(timestamp) ||
+      !this.isTimeValid({ time: timestamp }) ||
+      new Date(timestamp).toUTCString() !== headerDate
+    ) {
+      return undefined;
+    }
+    // Date has one-second resolution. Midpoint compensation bounds network
+    // uncertainty by half the accepted round trip; never change signed data.
+    return Math.floor(timestamp + elapsed / 2);
   }
 
   increaseTimeCache = throttle(
