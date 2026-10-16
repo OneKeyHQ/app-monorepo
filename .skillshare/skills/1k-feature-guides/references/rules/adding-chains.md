@@ -119,7 +119,8 @@ export async function buildTransaction(params: TxParams): Promise<UnsignedTx> {
 Privacy chains break the "backend serves account data" assumption: shielded
 balances are cryptographically invisible to any server (viewing keys required),
 so balance/history/state must be computed client-side. Reference
-implementation: `packages/kit-bg/src/vaults/impls/zcash/` (+ its README).
+implementation: `packages/kit-bg/src/vaults/impls/zcash/`; design rationale and
+known pitfalls: `packages/core/src/chains/zcash/ARCHITECTURE.md`.
 
 ### Where the standard flows break, and the established seams
 
@@ -130,7 +131,7 @@ implementation: `packages/kit-bg/src/vaults/impls/zcash/` (+ its README).
 | Fee comes from backend | override `vault.estimateFee` |
 | Broadcast returns a txid | set `withoutBroadcastTxId: true` if the protocol yields none pre-broadcast |
 | BTC-style precheck (blockbook UTXO list) | override `precheckUnsignedTx` when inheriting a UTXO vault |
-| UI needs chain-specific data (viewing addresses, sync state) | a per-chain Service (`ServiceLightning`/`ServiceNostr`/`ServiceZcash` precedent) + a per-chain SimpleDb entity for identifiers and scan state; viewing keys go through `vaults/localWallet/viewingKeyStore.ts` (see below) |
+| UI needs chain-specific data (sync state, pools, receive forms) | no per-chain service: return an `ILocalWalletCapability` from `vault.getLocalWalletCapability()` and declare `settings.localWallet`; `ServicePrivacyChain` owns scheduling, GC and UI entry points. Identifiers and scan state go in a per-chain SimpleDb entity; viewing keys go through `vaults/localWallet/viewingKeyStore.ts` (see below) |
 | Heavy crypto (wasm/proving) | platform carrier pattern: `sdkXxx/sdk/index.{web,ext-bg-v3,native}.ts` + offscreen/webembed delegates (kaspa/zcash precedent) |
 
 ### Settings inheritance is a trap
@@ -139,7 +140,7 @@ When spreading another chain's settings (`{...settingsBtc}`), audit EVERY
 inherited `true` flag: each one is a UI entry point promising a code path you
 may not have implemented (bulk send, coin control, custom RPC, hardware,
 imported/watching accounts...). Rule: an account type or feature ships enabled
-only when its full flow works — "用不了就不搞".
+only when its full flow works; otherwise disable it.
 
 ### Address scheme versioning (wallet-owned)
 

@@ -863,7 +863,7 @@ export async function zcashParseTransparentOutputs(
 }
 
 // Cleanup for a PCZT that never got signed. Once journaled as signed,
-// inputs stay reserved (ADR 0002) until the outcome is known or it expires.
+// inputs stay reserved until the outcome is known or it expires.
 export async function releaseUnsignedTx(
   vault: Vault,
   {
