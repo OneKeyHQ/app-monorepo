@@ -158,6 +158,7 @@ const settings: IVaultSettings = {
   createAllDeriveTypeAccountsByDefault: true,
   enabledInternalSignAndVerify: true,
   nativeBatchTransferEnabled: true,
+  bulkSendMaxTransfersPerTx: 200,
 };
 
 export default Object.freeze(settings);
