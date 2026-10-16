@@ -1328,7 +1328,7 @@ const MoreActionWalletGrid = () => {
     const access = await ensureFeatureAccess({
       featureId: EPrimeFeatures.AddressRiskCheck,
       networkId: network?.id,
-      allowExhausted: true,
+      loginOnly: true,
       isContextValid: isSameActiveContext({
         walletId: wallet?.id,
         networkId: network?.id,

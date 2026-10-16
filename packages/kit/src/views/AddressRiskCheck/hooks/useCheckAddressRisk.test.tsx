@@ -362,9 +362,25 @@ describe('useCheckAddressRisk', () => {
     },
   );
 
+  it('opens the history result of a manually entered address', async () => {
+    mockCachedAccess = { status: 'notOpen' };
+    mockGetCheck.mockResolvedValueOnce({ result: historyResult });
+    const { result } = renderHook(() => useCheckAddressRisk());
+
+    await act(async () => {
+      await result.current.checkRisk({
+        networkId: riskResult.networkId,
+        address: riskResult.address,
+        entryPoint: 'inputManual',
+      });
+    });
+
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    expect(mockShowActiveRejectedFeedback).not.toHaveBeenCalled();
+  });
+
   it('still opens the history result of a used-up user', async () => {
     mockCachedAccess = { status: 'exhausted' };
-    mockGetCheck.mockResolvedValueOnce({ result: historyResult });
     const { result } = renderHook(() => useCheckAddressRisk());
 
     await act(async () => {
@@ -376,6 +392,28 @@ describe('useCheckAddressRisk', () => {
     });
 
     expect(mockPush).toHaveBeenCalledTimes(1);
+    expect(mockShowActiveRejectedFeedback).not.toHaveBeenCalled();
+    // Picked from the history: no lookup needed.
+    expect(mockGetCheck).not.toHaveBeenCalled();
+  });
+
+  it('does nothing when the user left the page during the history lookup', async () => {
+    mockCachedAccess = { status: 'exhausted' };
+    mockGetCheck.mockImplementationOnce(async () => {
+      mockIsFocused = false;
+      return undefined;
+    });
+    const { result } = renderHook(() => useCheckAddressRisk());
+
+    await act(async () => {
+      await result.current.checkRisk({
+        networkId: riskResult.networkId,
+        address: riskResult.address,
+        entryPoint: 'inputManual',
+      });
+    });
+
+    expect(mockPush).not.toHaveBeenCalled();
     expect(mockShowActiveRejectedFeedback).not.toHaveBeenCalled();
   });
 });
@@ -417,39 +455,26 @@ describe('useAddressRiskCheckRequest', () => {
     expect(mockHandleFreeTrialError).not.toHaveBeenCalled();
   });
 
-  it('goes back to the list before the free-trial feedback inside the feature', async () => {
-    const freeTrialError = buildFreeTrialError();
-    mockCheckAddressRisk.mockRejectedValueOnce(
-      freeTrialError as unknown as Error,
-    );
-    renderHook(() => useAddressRiskCheckRequest(historyRequest));
+  it.each(['historyList', 'sendAddressInput'] as const)(
+    'gives the free-trial feedback right away over the %s result page',
+    async (entryPoint) => {
+      const freeTrialError = buildFreeTrialError();
+      mockCheckAddressRisk.mockRejectedValueOnce(
+        freeTrialError as unknown as Error,
+      );
+      const { result } = renderHook(() =>
+        useAddressRiskCheckRequest({ ...historyRequest, entryPoint }),
+      );
 
-    await waitFor(() =>
+      await waitFor(() => expect(result.current.isFailed).toBe(true));
       expect(mockHandleFreeTrialError).toHaveBeenCalledWith({
         error: freeTrialError,
         networkId: riskResult.networkId,
-        afterPageExit: true,
-      }),
-    );
-    expect(mockPop).toHaveBeenCalledTimes(1);
-    expect(mockPopStack).not.toHaveBeenCalled();
-  });
-
-  it('closes the whole modal before the free-trial feedback of the Send page check', async () => {
-    mockCheckAddressRisk.mockRejectedValueOnce(
-      buildFreeTrialError() as unknown as Error,
-    );
-    renderHook(() =>
-      useAddressRiskCheckRequest({
-        ...historyRequest,
-        entryPoint: 'sendAddressInput',
-      }),
-    );
-
-    await waitFor(() => expect(mockHandleFreeTrialError).toHaveBeenCalled());
-    expect(mockPopStack).toHaveBeenCalledTimes(1);
-    expect(mockPop).not.toHaveBeenCalled();
-  });
+      });
+      expect(mockPop).not.toHaveBeenCalled();
+      expect(mockPopStack).not.toHaveBeenCalled();
+    },
+  );
 
   it('shows the failed state without feedback once the page is not on top', async () => {
     mockIsFocused = false;

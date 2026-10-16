@@ -481,12 +481,12 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
       mockRefreshQuota.mockReturnValue(new Promise(() => {}));
       const result = renderAccessHook();
 
-      for (const allowExhausted of [false, true]) {
+      for (const loginOnly of [false, true]) {
         await act(async () => {
           await expect(
             result.current.ensureFeatureAccess({
               featureId: EPrimeFeatures.BulkSend,
-              allowExhausted,
+              loginOnly,
               isContextValid: () => false,
             }),
           ).resolves.toEqual({ granted: false });
@@ -546,27 +546,50 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     });
   });
 
-  it('explains a quota held by an earlier use instead of opening the dashboard', async () => {
-    setSnapshot(quotaWith(0));
-    mockGetHeldReservationEnd.mockResolvedValue(Date.now() + 10 * 60 * 1000);
+  it.each([
+    ['live', 10 * 60 * 1000],
+    ['expired', -60 * 1000],
+  ])(
+    'lets the user in while uses are held by an earlier one (%s): they may come back',
+    async (_label, expiresIn) => {
+      const quota = quotaWith(0);
+      quota.features[0] = {
+        ...quota.features[0],
+        reserved: 1,
+        reservationExpiresAt: Date.now() + expiresIn,
+      };
+      setSnapshot(quota);
+      const result = renderAccessHook();
+
+      await act(async () => {
+        await expect(
+          result.current.ensureFeatureAccess({
+            featureId: EPrimeFeatures.BulkSend,
+          }),
+        ).resolves.toEqual({ granted: true, entitlementSource: 'freeTrial' });
+      });
+      expect(mockPushFullModal).not.toHaveBeenCalled();
+      expect(mockToastMessage).not.toHaveBeenCalled();
+    },
+  );
+
+  it('lets a not-open user in with loginOnly to read the history', async () => {
+    setSnapshot(null);
+    mockAtom.config = {
+      status: 'success',
+      data: { enabled: false, features: [] },
+    };
     const result = renderAccessHook();
 
     await act(async () => {
       await expect(
         result.current.ensureFeatureAccess({
-          featureId: EPrimeFeatures.BulkSend,
+          featureId: EPrimeFeatures.AddressRiskCheck,
+          loginOnly: true,
         }),
-      ).resolves.toEqual({ granted: false });
-    });
-    expect(mockGetHeldReservationEnd).toHaveBeenCalledWith({
-      featureId: EPrimeFeatures.BulkSend,
+      ).resolves.toEqual({ granted: true, entitlementSource: 'freeTrial' });
     });
     expect(mockPushFullModal).not.toHaveBeenCalled();
-    expect(mockToastMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: '批量转账上次使用未结束',
-      }),
-    );
   });
 
   it('never reads a failed quota load as exhausted', async () => {
@@ -602,7 +625,7 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     expect(mockToastMessage).not.toHaveBeenCalled();
   });
 
-  it('lets a used-up user in with allowExhausted to read the history', async () => {
+  it('lets a used-up user in with loginOnly to read the history', async () => {
     setSnapshot(quotaWith(0));
     const result = renderAccessHook();
 
@@ -610,7 +633,7 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
       await expect(
         result.current.ensureFeatureAccess({
           featureId: EPrimeFeatures.BulkSend,
-          allowExhausted: true,
+          loginOnly: true,
         }),
       ).resolves.toEqual({ granted: true, entitlementSource: 'freeTrial' });
     });
@@ -628,7 +651,7 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
       await expect(
         result.current.ensureFeatureAccess({
           featureId: EPrimeFeatures.BulkSend,
-          allowExhausted: true,
+          loginOnly: true,
         }),
       ).resolves.toEqual({ granted: false });
     });

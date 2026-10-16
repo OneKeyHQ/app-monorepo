@@ -203,7 +203,7 @@ function AddressRiskCheckInput() {
       const access = await ensureFeatureAccess({
         featureId: EPrimeFeatures.AddressRiskCheck,
         networkId: activeNetworkId,
-        allowExhausted: true,
+        loginOnly: true,
       });
       if (!access.granted) {
         return;
