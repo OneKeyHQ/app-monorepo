@@ -3,6 +3,7 @@ import { useSyncExternalStore } from 'react';
 
 import { ThirdPartyHardwareUiStateContainer } from '.';
 
+import { UI_RESPONSE } from '@onekeyfe/hwk-adapter-core/ui-events';
 import { act, render } from '@testing-library/react';
 
 import { Dialog } from '@onekeyhq/components';
@@ -28,6 +29,7 @@ const mockSubscribe = (listener: () => void) => {
   };
 };
 const mockCancel = jest.fn(async () => undefined);
+const mockUiResponse = jest.fn(async (_params: unknown) => undefined);
 const mockIntl = { formatMessage: ({ id }: { id: string }) => id };
 const mockStartScan = jest.fn(() => new Promise<never>(() => undefined));
 const mockScanHook = { start: mockStartScan };
@@ -46,7 +48,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceThirdPartyHardware: {
-      thirdPartyHardwareUiResponse: jest.fn().mockResolvedValue(undefined),
+      thirdPartyHardwareUiResponse: (params: unknown) => mockUiResponse(params),
       thirdPartyHardwareCancel: () => mockCancel(),
       clearThirdPartyHardwareUiStateIfCurrent: jest
         .fn()
@@ -190,6 +192,45 @@ it('does not open a selection that ended while the stage was leaving', async () 
   view.rerender(<ThirdPartyHardwareUiStateContainer />);
   await release();
   expect(showThirdPartyDeviceSelectionDialog).not.toHaveBeenCalled();
+});
+
+function publishState(state: IThirdPartyHardwareUiState | undefined) {
+  act(() => {
+    mockUiState = state;
+    mockUiListeners.forEach((listener) => listener());
+  });
+}
+
+it('cancels an unanswered selection that another request replaced', async () => {
+  mockUiState = selectionState(EHardwareVendor.ledger);
+  const view = render(<ThirdPartyHardwareUiStateContainer />);
+  await flush();
+  expect(showThirdPartyDeviceSelectionDialog).toHaveBeenCalledTimes(1);
+
+  publishState(qrState(false));
+  view.rerender(<ThirdPartyHardwareUiStateContainer />);
+  await flush();
+
+  expect(mockUiResponse).toHaveBeenCalledWith({
+    vendor: EHardwareVendor.ledger,
+    response: {
+      type: UI_RESPONSE.RECEIVE_SELECT_DEVICE,
+      payload: { requestId: 'sdk-selection', cancelled: true },
+    },
+  });
+});
+
+it('keeps an unanswered selection open when the same request is republished', async () => {
+  mockUiState = selectionState(EHardwareVendor.ledger);
+  const view = render(<ThirdPartyHardwareUiStateContainer />);
+  await flush();
+
+  publishState(selectionState(EHardwareVendor.ledger));
+  view.rerender(<ThirdPartyHardwareUiStateContainer />);
+  await flush();
+
+  expect(mockUiResponse).not.toHaveBeenCalled();
+  expect(showThirdPartyDeviceSelectionDialog).toHaveBeenCalledTimes(2);
 });
 
 it('waits before opening the Keystone scanner', async () => {

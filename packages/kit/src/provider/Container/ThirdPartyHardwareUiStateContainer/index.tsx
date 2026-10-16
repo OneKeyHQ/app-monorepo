@@ -950,12 +950,33 @@ function ThirdPartyHardwareUiStateContainerCmp() {
       localDialogRef.current = instance;
     })();
     return () => {
+      const unansweredRequestId = settledRef.current
+        ? undefined
+        : selection?.requestId;
       settledRef.current = true;
       const instance = localDialogRef.current;
       if (thirdPartyDeviceSelectionDialogInstanceRef.current === instance) {
         thirdPartyDeviceSelectionDialogInstanceRef.current = null;
       }
       void instance?.close();
+      // Replaced by another request: answer now so the SDK does not wait out its timeout. A
+      // re-render of the same request (e.g. a language change) reopens it instead.
+      if (
+        vendor &&
+        unansweredRequestId &&
+        uiStateRef.current?.payload?.deviceSelection?.requestId !==
+          unansweredRequestId
+      ) {
+        void backgroundApiProxy.serviceThirdPartyHardware
+          .thirdPartyHardwareUiResponse({
+            vendor,
+            response: {
+              type: UI_RESPONSE.RECEIVE_SELECT_DEVICE,
+              payload: { requestId: unansweredRequestId, cancelled: true },
+            },
+          })
+          .catch(() => undefined);
+      }
     };
   }, [intl, isThirdPartyDeviceSelection, uiState]);
 
