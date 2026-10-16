@@ -147,6 +147,16 @@ export function MonthDaysGrid({
     [getDayButton],
   );
 
+  // Hovering back onto the range anchor sets rehookify's pending end to the
+  // anchor itself: its strict isBetween then labels only the anchor, as
+  // `will-be-range-start`, with no end anywhere. Scan every calendar (the end
+  // may sit in the other panel) and render that case as a one-day range.
+  const isOneDayPreview =
+    calendars.some((c) =>
+      c.days.some((d) => d.range === 'will-be-range-start'),
+    ) &&
+    !calendars.some((c) => c.days.some((d) => d.range === 'will-be-range-end'));
+
   if (!cal) return null;
 
   return (
@@ -170,7 +180,11 @@ export function MonthDaysGrid({
             inCurrentMonth={day.inCurrentMonth}
             selected={day.selected}
             disabled={day.disabled}
-            range={day.range || undefined}
+            range={
+              isOneDayPreview && day.range === 'will-be-range-start'
+                ? 'range-start range-end'
+                : day.range || undefined
+            }
             hideOutOfMonth={hideOutOfMonth}
             fullWidth={fullWidth}
             capLeft={capLeft}

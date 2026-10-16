@@ -367,6 +367,18 @@ function RangePickerContent({
   // stays untouched (no `{ start, end: null }` leaks to consumers).
   const [draftDates, setDraftDates] = useState<Date[] | null>(null);
 
+  // A value pushed from outside while the picker is open supersedes the draft.
+  // Compared by timestamps: consumers often rebuild the range object on every
+  // render, which must not wipe an in-progress pick.
+  const valueKey = `${value?.start?.getTime() ?? ''}-${
+    value?.end?.getTime() ?? ''
+  }`;
+  const [draftValueKey, setDraftValueKey] = useState(valueKey);
+  if (draftValueKey !== valueKey) {
+    setDraftValueKey(valueKey);
+    setDraftDates(null);
+  }
+
   const committedDates = useMemo(
     () =>
       [value?.start, value?.end].filter((d): d is Date => d instanceof Date),

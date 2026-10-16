@@ -102,11 +102,8 @@ export const DayCell = memo(
     let bandPart: 'start' | 'end' | 'middle' | null = null;
     if (isStart) bandPart = 'start';
     else if (isEnd) bandPart = 'end';
-    // Hovering the anchor itself previews a one-day range: no band.
-    else if (
-      range === 'in-range' ||
-      (range === 'will-be-in-range' && !isSelected)
-    )
+    // A hovered anchor arrives as 'range-start range-end' (see MonthDaysGrid).
+    else if (range === 'in-range' || range === 'will-be-in-range')
       bandPart = 'middle';
     const band = getBandShape(bandPart, capLeft, capRight);
 
