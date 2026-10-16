@@ -356,6 +356,7 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.RefreshMarketWatchList]: undefined;
   [EAppEventBusNames.RefreshCustomRpcList]: undefined;
+  [EAppEventBusNames.CustomRpcChanged]: { networkIds: string[] };
   [EAppEventBusNames.ClearLocalHistoryPendingTxs]: undefined;
   [EAppEventBusNames.TxFeeInfoChanged]: {
     feeSelectorItems: IFeeSelectorItem[];

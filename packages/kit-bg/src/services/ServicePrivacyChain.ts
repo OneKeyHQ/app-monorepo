@@ -146,6 +146,14 @@ class ServicePrivacyChain extends ServiceBase {
       void this.gcRemovedAccounts();
       this.scheduleBackgroundSync(0);
     });
+    // A node edit must never fail or wait on privacy-chain work.
+    appEventBus.on(EAppEventBusNames.CustomRpcChanged, ({ networkIds }) => {
+      void this.onLocalWalletNodeChanged({ networkIds }).catch((error) => {
+        console.error('[privacy-chain] node change handling failed', {
+          ...describePrivacyChainError(error),
+        });
+      });
+    });
   }
 
   // Fans an event out to every opted-in chain; this service has no opinion
