@@ -760,7 +760,7 @@ export async function getEndpointHealth(): Promise<
 }
 
 // Removes the ACCOUNT, not the database — every account of every mnemonic shares one database
-// per network (D14), so deleting the file would wipe every other account's scan state too.
+// per network, so deleting the file would wipe every other account's scan state too.
 // Everything dropped here is derived cache (rebuildable from UFVK + birthday); nothing unrecoverable is lost.
 export async function purgeWallet(
   account: IZcashWalletAccount,
