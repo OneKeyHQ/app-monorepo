@@ -9,7 +9,10 @@ import {
 } from 'react';
 
 import { View } from 'react-native';
-import { CollapsiblePagerView } from 'react-native-pager-view';
+import {
+  CollapsiblePagerView,
+  ScrollEdgeEffect,
+} from 'react-native-pager-view';
 import { useSharedValue } from 'react-native-reanimated';
 
 import { useTheme, useThemeName } from '@onekeyhq/components';
@@ -197,7 +200,7 @@ export function HomeNativePager({
       initialPage={initialIndex}
       nestedScrollEnabled
       nativeSmoothHeaderScrollEnabled
-      topScrollEdgeEffect={topOverlay ? 'hard' : undefined}
+      topScrollEdgeEffect={topOverlay ? ScrollEdgeEffect.Hard : undefined}
       topOverlayColorScheme={topOverlay ? themeName : undefined}
       topOverlay={topOverlay}
       onScrollEdgeCapability={(event) => {
