@@ -1,83 +1,97 @@
-import { useCallback, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
+import { useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
-  Button,
-  Empty,
+  Dialog,
   Icon,
+  Illustration,
   NumberSizeableText,
   SizableText,
   Skeleton,
   Stack,
   XStack,
   YStack,
+  useInTabDialog,
+  useMedia,
 } from '@onekeyhq/components';
-import type { FontSizeTokens } from '@onekeyhq/components/src/shared/tamagui';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector';
-import { Token } from '@onekeyhq/kit/src/components/Token';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
+import { EarnInviteeRewardContent } from '@onekeyhq/kit/src/views/Earn/components/InviteeReward/EarnInviteeRewardContent';
+import { InviteeRewardContent as PerpsInviteeRewardContent } from '@onekeyhq/kit/src/views/Perp/components/InviteeReward/InviteeRewardContent';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
+import { SwapInviteeRewardContent } from '@onekeyhq/kit/src/views/Swap/components/InviteeReward/SwapInviteeRewardContent';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteeRewardsOverview } from '@onekeyhq/shared/src/referralCode/type';
-import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
-import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
-import type {
-  IEarnAlert,
-  IEarnSummaryV2,
-  IEarnText,
-} from '@onekeyhq/shared/types/staking';
+import type { IEarnSummaryV2, IEarnText } from '@onekeyhq/shared/types/staking';
 
 import { InviteeRewardNoWallet } from '../../components/InviteeRewardNoWallet';
+import { ReferralCardEmpty } from '../../components/ReferralCardEmpty';
 import { BenefitsTabPlaceholder } from '../InviteReward/components/BenefitsTabPlaceholder';
+import { INVITE_REWARD_SUBJECT_ICON } from '../InviteReward/components/getInviteRewardRows';
+import {
+  COMPACT_ENTRY_TITLE_PROPS,
+  COMPACT_ROW_BLEED_PROPS,
+  COMPACT_ROW_ICON_PROPS,
+  PRESSABLE_SURFACE_PROPS,
+  useInviteHomeCardStyle,
+} from '../InviteReward/components/useInviteCardStyle';
 
 type IRewardModule = keyof IInviteeRewardsOverview;
 
 // Hardcoded English until i18n keys are added in Lokalise.
 const MY_REWARDS_COPY = {
-  addressScope: (address: string) => `Showing rewards for ${address} only`,
+  addressLabel: 'Rewards address',
+  addressScope: 'Only this address is counted',
+  noWalletTitle: 'Connect a wallet to view rewards',
   unsupportedTitle: 'This account has no EVM address',
   unsupportedDescription: 'Switch to an EVM account to view rewards',
-  loadFailed: 'Unable to load rewards',
-  noRewards: 'No rewards yet',
+  loadFailed: 'Unable to load',
   moreTokens: (count: number) => `+${count} more`,
-  moduleHistory: (module: string) => `${module} history`,
-  pendingSuffix: 'pending',
-  noWalletTitle: 'Connect a wallet to view rewards',
-  viewHistory: 'View history',
 };
 
-const HISTORY_PAGE_SIZE = 10;
+const MODULE_ICON: Record<IRewardModule, IKeyOfIcons> = {
+  perps: INVITE_REWARD_SUBJECT_ICON.perps,
+  swap: INVITE_REWARD_SUBJECT_ICON.swap,
+  earn: INVITE_REWARD_SUBJECT_ICON.defi,
+};
 
-// Perps rebates are paid on Arbitrum; the API does not return a network id.
-const PERPS_EXPLORER_TX_URL = 'https://arbiscan.io/tx/';
+// Same product names as the invite tab's breakdown.
+const MODULE_TITLE: Record<IRewardModule, ETranslations> = {
+  perps: ETranslations.perps_perps,
+  swap: ETranslations.global_swap,
+  earn: ETranslations.referral_referred_type_2,
+};
 
-interface IHistoryRow {
-  key: string;
-  date: string;
-  amount: string;
-  tokenSymbol: string;
-  tokenLogoURI?: string;
-  onPress?: () => void;
-}
+const MODULES: IRewardModule[] = ['perps', 'swap', 'earn'];
 
-interface IModuleSummary {
-  amount?: string;
-  pending?: string;
-  tokenSymbol?: string;
-  // Earn amounts come pre-formatted (and possibly marked up) from the server.
-  earnText?: IEarnText;
-  extraTokenCount?: number;
+// Desktop rows bleed 12px past the text, like the invite tab's breakdown, so
+// the text lines up with the section title.
+const DESKTOP_ROW_BLEED_PROPS = {
+  mx: '$-3',
+  px: '$3',
+  borderRadius: '$3',
+} as const;
+
+// A paid or unpaid figure: a token amount, or the server-formatted Earn text.
+type IRewardValue =
+  | { kind: 'amount'; amount: string; symbol: string }
+  | { kind: 'text'; text: IEarnText; extraCount: number };
+
+interface IModuleRow {
+  module: IRewardModule;
+  status: 'loading' | 'error' | 'ready';
+  paid?: IRewardValue;
+  unpaid?: IRewardValue;
 }
 
 function getEarnTokens(data: IEarnSummaryV2) {
@@ -105,533 +119,395 @@ function hasNoRewards(overview?: IInviteeRewardsOverview) {
   );
 }
 
-function getModuleSummary(
-  module: IRewardModule,
-  overview?: IInviteeRewardsOverview,
-): IModuleSummary | undefined {
-  if (!overview) {
+function getEarnValue(
+  items: IEarnSummaryV2['distributed'] | IEarnSummaryV2['undistributed'],
+): IRewardValue | undefined {
+  if (!items.length) {
     return undefined;
   }
+  return { kind: 'text', text: items[0].title, extraCount: items.length - 1 };
+}
+
+function getModuleRow(
+  module: IRewardModule,
+  isLoading: boolean,
+  overview?: IInviteeRewardsOverview,
+): IModuleRow {
+  if (isLoading || !overview) {
+    return { module, status: 'loading' };
+  }
   if (module === 'earn') {
-    if (overview.earn.status !== 'success') {
-      return undefined;
+    const result = overview.earn;
+    if (result.status !== 'success') {
+      return { module, status: 'error' };
     }
-    const tokens = getEarnTokens(overview.earn.data);
-    if (!tokens.length) {
-      return { amount: '0' };
-    }
-    const extraTokenCount = tokens.length - 1;
-    // Split plain "<amount> <symbol>" titles so they match the other modules;
-    // anything else (e.g. marked-up text) is rendered as is.
-    const match = /^([\d.,]+)\s+([A-Za-z0-9.]+)$/.exec(
-      tokens[0].title.text.trim(),
-    );
-    if (match) {
-      return {
-        amount: match[1].replace(/,/g, ''),
-        tokenSymbol: match[2],
-        extraTokenCount,
-      };
-    }
-    return { earnText: tokens[0].title, extraTokenCount };
+    return {
+      module,
+      status: 'ready',
+      paid: getEarnValue(result.data.distributed),
+      unpaid: getEarnValue(result.data.undistributed),
+    };
   }
   const result = overview[module];
   if (result.status !== 'success') {
-    return undefined;
+    return { module, status: 'error' };
   }
   const { totalBonus, undistributed, token } = result.data;
+  const unpaid = new BigNumber(undistributed);
+  const paid = new BigNumber(totalBonus).minus(unpaid);
   return {
-    amount: totalBonus,
-    pending: new BigNumber(undistributed).gt(0) ? undistributed : undefined,
-    tokenSymbol: token.symbol,
+    module,
+    status: 'ready',
+    paid: paid.gt(0)
+      ? { kind: 'amount', amount: paid.toFixed(), symbol: token.symbol }
+      : undefined,
+    unpaid: unpaid.gt(0)
+      ? { kind: 'amount', amount: unpaid.toFixed(), symbol: token.symbol }
+      : undefined,
   };
 }
 
-// Cards are only used in wide containers (see MODULE_CARDS_MIN_WIDTH).
-const MODULE_CARDS_MIN_WIDTH = 600;
-
-function getValueSize(cardWidth: number): FontSizeTokens {
-  return cardWidth >= 260 ? '$heading3xl' : '$heading2xl';
-}
-
-function ModuleValue({
-  summary,
-  isLoading,
+function RewardValue({
+  value,
   size,
-  showSymbol,
+  color,
 }: {
-  summary?: IModuleSummary;
-  isLoading: boolean;
-  size: FontSizeTokens;
-  showSymbol: boolean;
+  value: IRewardValue;
+  size: '$bodyLgMedium' | '$bodyMdMedium' | '$bodySm';
+  color?: '$textSubdued';
 }) {
-  if (isLoading) {
-    return <Skeleton width={80} height={28} />;
-  }
-  if (!summary) {
+  if (value.kind === 'amount') {
     return (
-      <SizableText size={size} color="$textDisabled">
-        -
-      </SizableText>
-    );
-  }
-  if (summary.earnText) {
-    return (
-      <EarnText
-        numberOfLines={1}
-        text={{ ...summary.earnText, size, color: '$text' }}
-      />
-    );
-  }
-  // The symbol is set smaller so the amount keeps the visual weight and
-  // does not get truncated in narrow cards.
-  return (
-    <XStack ai="baseline" gap="$1" minWidth={0}>
       <NumberSizeableText
         size={size}
+        color={color}
         formatter="value"
+        formatterOptions={{ tokenSymbol: value.symbol }}
         numberOfLines={1}
-        flexShrink={1}
       >
-        {summary.amount ?? '0'}
+        {value.amount}
       </NumberSizeableText>
-      {showSymbol && summary.tokenSymbol ? (
-        <SizableText size="$bodyLgMedium" color="$textSubdued">
-          {summary.tokenSymbol}
-        </SizableText>
-      ) : null}
-    </XStack>
-  );
-}
-
-function ModuleCaption({
-  summary,
-  isLoading,
-  showSymbol,
-}: {
-  summary?: IModuleSummary;
-  isLoading: boolean;
-  showSymbol: boolean;
-}) {
-  if (isLoading || !summary) {
-    return null;
-  }
-  if (summary.extraTokenCount) {
-    return (
-      <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-        {MY_REWARDS_COPY.moreTokens(summary.extraTokenCount)}
-      </SizableText>
     );
-  }
-  const symbol = showSymbol ? summary.tokenSymbol : undefined;
-  if (!symbol && !summary.pending) {
-    return null;
   }
   return (
     <XStack ai="center" gap="$1" minWidth={0}>
-      {symbol ? (
-        <SizableText size="$bodySmMedium" color="$textSubdued">
-          {symbol}
+      <EarnText
+        numberOfLines={1}
+        text={{ ...value.text, size, color: color ?? '$text' }}
+      />
+      {value.extraCount ? (
+        <SizableText size="$bodySm" color="$textSubdued" flexShrink={0}>
+          {MY_REWARDS_COPY.moreTokens(value.extraCount)}
         </SizableText>
-      ) : null}
-      {symbol && summary.pending ? (
-        <SizableText size="$bodySm" color="$textDisabled">
-          ·
-        </SizableText>
-      ) : null}
-      {summary.pending ? (
-        <>
-          <NumberSizeableText
-            size="$bodySm"
-            color="$textSubdued"
-            formatter="value"
-            numberOfLines={1}
-            flexShrink={1}
-          >
-            {summary.pending}
-          </NumberSizeableText>
-          <SizableText size="$bodySm" color="$textSubdued" flexShrink={0}>
-            {MY_REWARDS_COPY.pendingSuffix}
-          </SizableText>
-        </>
       ) : null}
     </XStack>
   );
 }
 
-interface IModuleCardProps {
-  module: IRewardModule;
-  label: string;
-  icon: IKeyOfIcons;
-  summary?: IModuleSummary;
-  isLoading: boolean;
-  isSelected: boolean;
-  onPress: () => void;
+function SubduedNote({ children }: { children: string }) {
+  return (
+    <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+      {children}
+    </SizableText>
+  );
 }
 
-const selectableStyle = (isSelected: boolean) =>
-  ({
-    borderRadius: '$4',
-    borderCurve: 'continuous',
-    borderWidth: 1,
-    borderColor: isSelected ? '$borderActive' : '$borderSubdued',
-    bg: isSelected ? '$bgStrong' : '$bgSubdued',
-    cursor: 'pointer',
-    hoverStyle: { bg: '$bgStrong' },
-    pressStyle: { bg: '$bgActive' },
-  }) as const;
-
-function ModuleLabel({ label, icon }: { label: string; icon: IKeyOfIcons }) {
+// The rewards address leads the tab like the earnings card leads the invite
+// tab: the label, the address as the figure, the account switch under it,
+// and the brand line art in the room the address leaves.
+function RewardsAddressCard({ address }: { address?: string }) {
+  const { md } = useMedia();
+  const cardStyle = useInviteHomeCardStyle();
   return (
-    <XStack ai="center" gap="$2" minWidth={0}>
-      <Stack p="$1.5" borderRadius="$full" bg="$bgApp">
-        <Icon name={icon} size="$4" color="$iconSubdued" />
-      </Stack>
-      <SizableText size="$bodyMdMedium" color="$textSubdued" numberOfLines={1}>
-        {label}
+    <YStack p={md ? '$4' : '$5'} gap="$1" {...cardStyle}>
+      <SizableText size="$bodyLgMedium" color="$textSubdued">
+        {MY_REWARDS_COPY.addressLabel}
       </SizableText>
-    </XStack>
+      <XStack ai="flex-start" gap="$4">
+        <YStack flex={1} minWidth={0} ai="flex-start" gap="$2">
+          <SizableText
+            size={md ? '$heading3xl' : '$heading4xl'}
+            numberOfLines={1}
+          >
+            {address
+              ? // Compact cards fit the address at figure size only when
+                // shorter, like the header account chip.
+                accountUtils.shortenAddress({
+                  address,
+                  ...(md ? { leadingLength: 6, trailingLength: 4 } : null),
+                })
+              : '-'}
+          </SizableText>
+          <AccountSelectorTriggerHome num={0} hideAddress />
+          <SubduedNote>{MY_REWARDS_COPY.addressScope}</SubduedNote>
+        </YStack>
+        <Illustration
+          name="BlockPercentage"
+          size={md ? 64 : 80}
+          flexShrink={0}
+        />
+      </XStack>
+    </YStack>
   );
 }
 
-function ModuleCard({
-  module,
-  label,
-  icon,
-  summary,
-  isLoading,
-  isSelected,
-  onPress,
-}: IModuleCardProps) {
-  const [cardWidth, setCardWidth] = useState(0);
+// One cell of the desktop table; rows and the header share the flex basis,
+// so the columns line up.
+function DesktopCell({
+  children,
+  first,
+  span = 1,
+}: {
+  children?: ReactNode;
+  first?: boolean;
+  span?: number;
+}) {
   return (
-    <YStack
-      testID={`my-rewards-module-${module}`}
-      role="button"
-      flex={1}
+    <XStack
+      flex={first ? 1.4 : span}
       flexBasis={0}
       minWidth={0}
-      gap="$3"
-      p="$4"
-      onLayout={(event) => setCardWidth(event.nativeEvent.layout.width)}
-      onPress={onPress}
-      {...selectableStyle(isSelected)}
-    >
-      <ModuleLabel label={label} icon={icon} />
-      <YStack gap="$1">
-        <ModuleValue
-          summary={summary}
-          isLoading={isLoading}
-          size={getValueSize(cardWidth)}
-          showSymbol
-        />
-        {/* Reserve the caption line so all cards keep the same height. */}
-        <XStack minHeight="$5" ai="center">
-          <ModuleCaption
-            summary={summary}
-            isLoading={isLoading}
-            showSymbol={false}
-          />
-        </XStack>
-      </YStack>
-    </YStack>
-  );
-}
-
-// Three columns are too narrow in compact containers, so modules become list
-// rows there.
-function ModuleRow({
-  module,
-  label,
-  icon,
-  summary,
-  isLoading,
-  isSelected,
-  onPress,
-}: IModuleCardProps) {
-  return (
-    <XStack
-      testID={`my-rewards-module-${module}`}
-      role="button"
       ai="center"
-      jc="space-between"
-      gap="$3"
-      px="$4"
-      py="$3"
-      onPress={onPress}
-      {...selectableStyle(isSelected)}
+      gap={first ? '$3' : '$1'}
     >
-      <ModuleLabel label={label} icon={icon} />
-      <YStack ai="flex-end" flexShrink={1} minWidth={0}>
-        <ModuleValue
-          summary={summary}
-          isLoading={isLoading}
-          size="$headingMd"
-          showSymbol
-        />
-        <ModuleCaption
-          summary={summary}
-          isLoading={isLoading}
-          showSymbol={false}
-        />
-      </YStack>
+      {children}
     </XStack>
   );
 }
 
-function HistoryRow({ row }: { row: IHistoryRow }) {
+// The product's icon on a round neutral tile, as in the invite breakdown.
+function ProductTile({ module }: { module: IRewardModule }) {
   return (
-    <XStack
+    <Stack
+      w="$10"
+      h="$10"
+      borderRadius="$full"
+      bg="$bgStrong"
       ai="center"
-      gap="$3"
-      py="$2.5"
-      px="$3"
-      mx="$-3"
-      borderRadius="$3"
-      borderCurve="continuous"
-      cursor={row.onPress ? 'pointer' : undefined}
-      hoverStyle={row.onPress ? { bg: '$bgHover' } : undefined}
-      pressStyle={row.onPress ? { bg: '$bgActive' } : undefined}
-      onPress={row.onPress}
+      jc="center"
+      flexShrink={0}
     >
-      <Token size="sm" tokenImageUri={row.tokenLogoURI} />
-      <SizableText flex={1} size="$bodyLg" numberOfLines={1}>
-        {row.date}
-      </SizableText>
-      <NumberSizeableText
-        size="$bodyLgMedium"
-        color="$textSuccess"
-        formatter="value"
-        formatterOptions={{
-          tokenSymbol: row.tokenSymbol,
-          showPlusMinusSigns: true,
-        }}
-      >
-        {row.amount}
-      </NumberSizeableText>
-      {row.onPress ? (
-        <Icon name="OpenOutline" size="$4" color="$iconSubdued" />
-      ) : null}
-    </XStack>
+      <Icon name={MODULE_ICON[module]} size="$5" />
+    </Stack>
   );
 }
 
-function StateBlock({
-  illustration,
+function DesktopRow({
+  row,
   title,
-  description,
-  action,
+  noRewardLabel,
+  onPress,
 }: {
-  illustration: 'Coins' | 'GlobeError' | 'WalletAdd';
+  row: IModuleRow;
   title: string;
-  description?: string;
-  action?: { label: string; onPress: () => void; testID: string };
+  noRewardLabel: string;
+  onPress: () => void;
 }) {
+  const hasReward = Boolean(row.paid || row.unpaid);
+  const renderValues = () => {
+    if (row.status === 'loading') {
+      return (
+        <>
+          <DesktopCell>
+            <Skeleton width={72} height={16} />
+          </DesktopCell>
+          <DesktopCell>
+            <Skeleton width={72} height={16} />
+          </DesktopCell>
+        </>
+      );
+    }
+    // A note rather than figures spans both value columns.
+    if (row.status === 'error' || !hasReward) {
+      return (
+        <DesktopCell span={2}>
+          <SubduedNote>
+            {row.status === 'error'
+              ? MY_REWARDS_COPY.loadFailed
+              : noRewardLabel}
+          </SubduedNote>
+        </DesktopCell>
+      );
+    }
+    return (
+      <>
+        <DesktopCell>
+          {row.paid ? (
+            <RewardValue value={row.paid} size="$bodyLgMedium" />
+          ) : null}
+        </DesktopCell>
+        <DesktopCell>
+          {row.unpaid ? (
+            <RewardValue value={row.unpaid} size="$bodyLgMedium" />
+          ) : null}
+        </DesktopCell>
+      </>
+    );
+  };
   return (
-    <YStack py="$8" ai="center" jc="center">
-      <Empty
-        illustration={illustration}
-        title={title}
-        description={description}
+    <XStack
+      testID={`my-rewards-module-${row.module}`}
+      ai="center"
+      gap="$4"
+      {...DESKTOP_ROW_BLEED_PROPS}
+      py="$3"
+      {...PRESSABLE_SURFACE_PROPS}
+      onPress={onPress}
+    >
+      <DesktopCell first>
+        <ProductTile module={row.module} />
+        <SizableText flex={1} size="$bodyLgMedium" numberOfLines={1}>
+          {title}
+        </SizableText>
+      </DesktopCell>
+      {renderValues()}
+      <Icon
+        name={
+          row.status === 'error'
+            ? 'RefreshCcwOutline'
+            : 'ChevronRightSmallOutline'
+        }
+        size="$5"
+        color="$iconSubdued"
       />
-      {action ? (
-        <Button
-          testID={action.testID}
-          mt="$1"
-          size="small"
-          variant="secondary"
-          onPress={action.onPress}
-        >
-          {action.label}
-        </Button>
-      ) : null}
-    </YStack>
+    </XStack>
   );
 }
 
-function HistorySkeleton() {
-  return (
-    <YStack gap="$1">
-      {[0, 1, 2].map((index) => (
-        <XStack key={index} ai="center" gap="$3" py="$2.5">
-          <Skeleton width={32} height={32} radius="round" />
-          <Stack flex={1}>
-            <Skeleton width={96} height={16} />
-          </Stack>
-          <Skeleton width={72} height={16} />
-        </XStack>
-      ))}
-    </YStack>
-  );
-}
-
-function HistoryList({ rows }: { rows: IHistoryRow[] }) {
-  const intl = useIntl();
-  const [displayCount, setDisplayCount] = useState(HISTORY_PAGE_SIZE);
-
-  if (!rows.length) {
-    return (
-      <StateBlock illustration="Coins" title={MY_REWARDS_COPY.noRewards} />
-    );
-  }
-
-  return (
-    <YStack>
-      {rows.slice(0, displayCount).map((row) => (
-        <HistoryRow key={row.key} row={row} />
-      ))}
-      {displayCount < rows.length ? (
-        <Button
-          testID="my-rewards-show-more"
-          mt="$2"
-          variant="tertiary"
-          alignSelf="center"
-          onPress={() => setDisplayCount((count) => count + HISTORY_PAGE_SIZE)}
-        >
-          {intl.formatMessage({ id: ETranslations.global_show_more })}
-        </Button>
-      ) : null}
-    </YStack>
-  );
-}
-
-function EarnHistory({
-  data,
-  earnAccountId,
+function CompactRow({
+  row,
+  title,
+  labels,
+  onPress,
 }: {
-  data: IEarnSummaryV2;
-  earnAccountId: string;
+  row: IModuleRow;
+  title: string;
+  labels: { unpaid: string; noReward: string };
+  onPress: () => void;
+}) {
+  const renderValue = () => {
+    if (row.status === 'loading') {
+      return <Skeleton width={72} height={16} />;
+    }
+    if (row.status === 'error') {
+      return <SubduedNote>{MY_REWARDS_COPY.loadFailed}</SubduedNote>;
+    }
+    if (!row.paid && !row.unpaid) {
+      return <SubduedNote>{labels.noReward}</SubduedNote>;
+    }
+    return (
+      <YStack ai="flex-end" gap="$0.5">
+        {row.paid ? (
+          <RewardValue value={row.paid} size="$bodyMdMedium" />
+        ) : null}
+        {row.unpaid ? (
+          <XStack ai="center" gap="$1">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {labels.unpaid}
+            </SizableText>
+            <RewardValue
+              value={row.unpaid}
+              size="$bodySm"
+              color="$textSubdued"
+            />
+          </XStack>
+        ) : null}
+      </YStack>
+    );
+  };
+  return (
+    <ListItem
+      testID={`my-rewards-module-${row.module}`}
+      {...COMPACT_ROW_BLEED_PROPS}
+      icon={MODULE_ICON[row.module]}
+      iconProps={COMPACT_ROW_ICON_PROPS}
+      titleProps={COMPACT_ENTRY_TITLE_PROPS}
+      title={title}
+      drillIn
+      onPress={onPress}
+    >
+      {renderValue()}
+    </ListItem>
+  );
+}
+
+// Each product row opens that product's existing invitee reward detail
+// (summary and history) for the address shown on this tab.
+function useShowModuleDetail({
+  walletAddress,
+  earnAccountId,
+  accountId,
+  indexedAccountId,
+}: {
+  walletAddress?: string;
+  earnAccountId?: string;
+  accountId?: string;
+  indexedAccountId?: string;
 }) {
   const intl = useIntl();
-  const navigation = useAppNavigation();
-  const tokens = getEarnTokens(data);
-
-  const handleViewHistory = useCallback(() => {
-    navigation.pushModal(EModalRoutes.StakingModal, {
-      screen: EModalStakingRoutes.HistoryList,
-      params: {
-        title: intl.formatMessage({
-          id: ETranslations.referral_reward_history,
-        }),
-        alerts: [
-          {
-            key: ESpotlightTour.earnRewardHistory,
-            badge: 'info',
-            alert: intl.formatMessage({
-              id: ETranslations.earn_reward_distribution_schedule,
-            }),
-          } as IEarnAlert,
-        ],
-        accountId: earnAccountId,
-        networkId: getNetworkIdsMap().eth,
-        filterType: 'rebate',
-      },
-    });
-  }, [earnAccountId, intl, navigation]);
-
-  if (!tokens.length) {
-    return (
-      <StateBlock illustration="Coins" title={MY_REWARDS_COPY.noRewards} />
-    );
-  }
-
-  return (
-    <YStack>
-      {data.distributed.map((item, index) => (
-        <XStack key={`distributed-${index}`} ai="center" gap="$3" py="$2.5">
-          <Token size="sm" tokenImageUri={item.token.logoURI} />
-          <Stack flex={1} minWidth={0}>
-            <EarnText
-              numberOfLines={1}
-              text={{ ...item.title, size: '$bodyLgMedium', color: '$text' }}
-            />
-          </Stack>
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.referral_distributed })}
-          </SizableText>
-        </XStack>
-      ))}
-      {data.undistributed.map((item, index) => (
-        <XStack key={`undistributed-${index}`} ai="center" gap="$3" py="$2.5">
-          <Token size="sm" tokenImageUri={item.token.logoURI} />
-          <Stack flex={1} minWidth={0}>
-            <EarnText
-              numberOfLines={1}
-              text={{ ...item.title, size: '$bodyLgMedium', color: '$text' }}
-            />
-          </Stack>
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.referral_pending })}
-          </SizableText>
-        </XStack>
-      ))}
-      {data.distributed.length ? (
-        <Button
-          testID="my-rewards-earn-history"
-          mt="$2"
-          variant="tertiary"
-          alignSelf="center"
-          iconAfter="ChevronRightSmallOutline"
-          onPress={handleViewHistory}
-        >
-          {MY_REWARDS_COPY.viewHistory}
-        </Button>
-      ) : null}
-    </YStack>
+  const { gtMd } = useMedia();
+  const dialogInTab = useInTabDialog();
+  return useCallback(
+    (module: IRewardModule) => {
+      if (!walletAddress) {
+        return;
+      }
+      let title: string;
+      let content: ReactNode;
+      if (module === 'perps') {
+        title = intl.formatMessage({ id: ETranslations.perps_trade_reward });
+        content = <PerpsInviteeRewardContent walletAddress={walletAddress} />;
+      } else if (module === 'swap') {
+        title = intl.formatMessage({ id: ETranslations.global_swap });
+        content = (
+          <SwapInviteeRewardContent
+            accountId={earnAccountId}
+            currentEvmAddress={walletAddress}
+          />
+        );
+      } else {
+        title = intl.formatMessage({ id: ETranslations.earn_referral_bonus });
+        content = (
+          <EarnInviteeRewardContent
+            accountId={accountId}
+            indexedAccountId={indexedAccountId}
+          />
+        );
+      }
+      const dialogProps = {
+        title,
+        floatingPanelProps: { width: 480 },
+        renderContent: content,
+        showFooter: false,
+      };
+      if (!platformEnv.isNative && gtMd) {
+        dialogInTab.show(dialogProps);
+        return;
+      }
+      Dialog.show(dialogProps);
+    },
+    [
+      accountId,
+      dialogInTab,
+      earnAccountId,
+      gtMd,
+      indexedAccountId,
+      intl,
+      walletAddress,
+    ],
   );
-}
-
-function useHistoryRows(
-  module: IRewardModule,
-  overview?: IInviteeRewardsOverview,
-): IHistoryRow[] {
-  const { formatDate } = useFormatDate();
-  return useMemo(() => {
-    if (module === 'perps' && overview?.perps.status === 'success') {
-      const { history, token } = overview.perps.data;
-      return history.map((item, index) => ({
-        key: `${item.tx}-${index}`,
-        date: formatDate(item.date, { hideTimeForever: true }),
-        amount: item.amount,
-        tokenSymbol: token.symbol,
-        tokenLogoURI: token.logoURI,
-        onPress: item.tx
-          ? () =>
-              openUrlUtils.openUrlExternal(`${PERPS_EXPLORER_TX_URL}${item.tx}`)
-          : undefined,
-      }));
-    }
-    if (module === 'swap' && overview?.swap.status === 'success') {
-      return overview.swap.data.history.map((item, index) => ({
-        key: `${item.tx}-${index}`,
-        date: formatDate(item.date, { hideTimeForever: true }),
-        amount: item.amount,
-        tokenSymbol: item.token.symbol,
-        tokenLogoURI: item.token.logoURI,
-        onPress: item.tx
-          ? () => {
-              void openTransactionDetailsUrl({
-                networkId: item.token.networkId,
-                txid: item.tx,
-              });
-            }
-          : undefined,
-      }));
-    }
-    return [];
-  }, [formatDate, module, overview]);
 }
 
 export function MyRewardsContent() {
   const intl = useIntl();
+  const { md } = useMedia();
+  const cardStyle = useInviteHomeCardStyle();
   const {
     activeAccount: { account, indexedAccount },
   } = useActiveAccount({ num: 0 });
   const accountId = account?.id;
   const indexedAccountId = indexedAccount?.id;
   const hasAccount = Boolean(accountId || indexedAccountId);
-
-  const [selectedModule, setSelectedModule] = useState<IRewardModule>('perps');
 
   // Perps, Swap and Earn rewards are all keyed by the account's EVM address
   // (Perps uses the master address, not the agent wallet).
@@ -677,14 +553,12 @@ export function MyRewardsContent() {
     { watchLoading: true, undefinedResultIfReRun: true },
   );
 
-  const historyRows = useHistoryRows(selectedModule, overview);
-  const [containerWidth, setContainerWidth] = useState(0);
-  const useCards = containerWidth >= MODULE_CARDS_MIN_WIDTH;
-  const ModuleItem = useCards ? ModuleCard : ModuleRow;
-
-  const handleRetry = useCallback(() => {
-    void reloadOverview();
-  }, [reloadOverview]);
+  const showModuleDetail = useShowModuleDetail({
+    walletAddress,
+    earnAccountId: earnAccount?.accountId,
+    accountId,
+    indexedAccountId,
+  });
 
   if (!hasAccount) {
     return (
@@ -699,126 +573,113 @@ export function MyRewardsContent() {
   const isResolving = isResolvingAccount !== false && earnAccount === undefined;
   const isUnsupported = !isResolving && !earnAccount;
   const isLoading = isResolving || Boolean(isLoadingOverview || !overview);
-
-  const modules: { module: IRewardModule; label: string; icon: IKeyOfIcons }[] =
-    [
-      {
-        module: 'perps',
-        label: intl.formatMessage({ id: ETranslations.global_perp }),
-        icon: 'TradeOutline',
-      },
-      {
-        module: 'swap',
-        label: intl.formatMessage({ id: ETranslations.global_swap }),
-        icon: 'SwitchHorOutline',
-      },
-      {
-        module: 'earn',
-        label: intl.formatMessage({ id: ETranslations.global_earn }),
-        icon: 'CoinsOutline',
-      },
-    ];
-
-  const renderHistory = () => {
-    if (isLoading) {
-      return <HistorySkeleton />;
+  const rows = MODULES.map((module) =>
+    getModuleRow(module, isLoading, overview),
+  );
+  const handleRowPress = (row: IModuleRow) => {
+    if (row.status === 'error') {
+      void reloadOverview();
+      return;
     }
-    const moduleResult = overview?.[selectedModule];
-    if (moduleResult?.status !== 'success') {
-      return (
-        <StateBlock
-          illustration="GlobeError"
-          title={MY_REWARDS_COPY.loadFailed}
-          action={{
-            testID: 'my-rewards-retry',
-            label: intl.formatMessage({ id: ETranslations.global_retry }),
-            onPress: handleRetry,
-          }}
-        />
-      );
+    if (row.status === 'ready') {
+      showModuleDetail(row.module);
     }
-    if (selectedModule === 'earn' && earnAccount) {
-      return (
-        <EarnHistory
-          data={moduleResult.data as IEarnSummaryV2}
-          earnAccountId={earnAccount.accountId}
-        />
-      );
-    }
-    return <HistoryList key={selectedModule} rows={historyRows} />;
+  };
+  const titleFor = (module: IRewardModule) =>
+    intl.formatMessage({ id: MODULE_TITLE[module] });
+  const sectionTitle = intl.formatMessage({
+    id: ETranslations.referral_earnings_by_product__title,
+  });
+  const labels = {
+    product: intl.formatMessage({ id: ETranslations.referral_product__title }),
+    paid: intl.formatMessage({ id: ETranslations.referral_distributed }),
+    unpaid: intl.formatMessage({ id: ETranslations.referral_undistributed }),
+    noReward: intl.formatMessage({ id: ETranslations.referral_no_reward }),
   };
 
-  const renderMain = () => {
-    if (!isLoading && hasNoRewards(overview)) {
-      return <BenefitsTabPlaceholder />;
-    }
+  const renderBreakdown = () => {
     if (isUnsupported) {
       return (
-        <StateBlock
-          illustration="WalletAdd"
+        <ReferralCardEmpty
+          {...cardStyle}
           title={MY_REWARDS_COPY.unsupportedTitle}
           description={MY_REWARDS_COPY.unsupportedDescription}
         />
       );
     }
-    return (
-      <>
-        <Stack
-          flexDirection={useCards ? 'row' : 'column'}
-          gap={useCards ? '$4' : '$2'}
-          onLayout={(event) =>
-            setContainerWidth(event.nativeEvent.layout.width)
-          }
-        >
-          {modules.map((item) => (
-            <ModuleItem
-              key={item.module}
-              module={item.module}
-              label={item.label}
-              icon={item.icon}
-              summary={getModuleSummary(item.module, overview)}
-              isLoading={isLoading}
-              isSelected={selectedModule === item.module}
-              onPress={() => setSelectedModule(item.module)}
+    if (!isLoading && hasNoRewards(overview)) {
+      return <BenefitsTabPlaceholder />;
+    }
+    if (md) {
+      return (
+        <YStack px="$4" py="$1" {...cardStyle}>
+          {rows.map((row) => (
+            <CompactRow
+              key={row.module}
+              row={row}
+              title={titleFor(row.module)}
+              labels={labels}
+              onPress={() => handleRowPress(row)}
             />
           ))}
-        </Stack>
-
-        <YStack gap="$2">
-          <SizableText size="$headingMd">
-            {MY_REWARDS_COPY.moduleHistory(
-              modules.find((item) => item.module === selectedModule)?.label ??
-                '',
-            )}
-          </SizableText>
-          {renderHistory()}
         </YStack>
-      </>
+      );
+    }
+    return (
+      <YStack>
+        <XStack ai="center" gap="$4" {...DESKTOP_ROW_BLEED_PROPS} pb="$2">
+          <DesktopCell first>
+            <SubduedNote>{labels.product}</SubduedNote>
+          </DesktopCell>
+          <DesktopCell>
+            <SubduedNote>{labels.paid}</SubduedNote>
+          </DesktopCell>
+          <DesktopCell>
+            <SubduedNote>{labels.unpaid}</SubduedNote>
+          </DesktopCell>
+          {/* Chevron-wide spacer, so the header lines up with the rows. */}
+          <Stack w="$5" />
+        </XStack>
+        {rows.map((row) => (
+          <DesktopRow
+            key={row.module}
+            row={row}
+            title={titleFor(row.module)}
+            noRewardLabel={labels.noReward}
+            onPress={() => handleRowPress(row)}
+          />
+        ))}
+      </YStack>
     );
   };
 
-  return (
-    <YStack
-      gap="$6"
-      px="$pagePadding"
-      py="$5"
-      // Wide layouts already have the tab row right above.
-      $gtMd={{ pt: '$1' }}
-    >
-      <YStack gap="$1.5">
-        <XStack>
-          <AccountSelectorTriggerHome num={0} hideAddress />
-        </XStack>
-        {walletAddress ? (
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {MY_REWARDS_COPY.addressScope(
-              accountUtils.shortenAddress({ address: walletAddress }),
-            )}
+  if (md) {
+    // Compact: the address card, then the breakdown under a quiet caption
+    // inset like the cards' text, as on the invite tab.
+    return (
+      <YStack px="$pagePadding" pt="$2" pb="$6" gap="$5">
+        <RewardsAddressCard address={walletAddress} />
+        <YStack gap="$2">
+          <SizableText size="$bodyMdMedium" color="$textSubdued" px="$4">
+            {sectionTitle}
           </SizableText>
-        ) : null}
+          {renderBreakdown()}
+        </YStack>
       </YStack>
+    );
+  }
 
-      {renderMain()}
+  return (
+    <YStack pb="$6">
+      <YStack px="$pagePadding">
+        <RewardsAddressCard address={walletAddress} />
+      </YStack>
+      {/* A wider gap splits the address card from the breakdown, and the
+          section title matches the invite tab's. */}
+      <YStack px="$pagePadding" pt="$10" gap="$3">
+        <SizableText size="$headingLg">{sectionTitle}</SizableText>
+        {renderBreakdown()}
+      </YStack>
     </YStack>
   );
 }

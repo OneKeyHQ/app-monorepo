@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 
 const mockReloadOverview = jest.fn();
+const mockShowDialog = jest.fn();
 let mockActiveAccount: {
   account?: { id: string };
   indexedAccount?: { id: string };
@@ -45,30 +46,21 @@ jest.mock('@onekeyhq/components', () => {
       children,
     );
 
+  const showDialog = (props: unknown) => {
+    mockShowDialog(props);
+  };
   return {
-    Button: ({
-      children,
-      onPress,
-      testID,
-    }: {
-      children?: ReactNode;
-      onPress?: () => void;
-      testID?: string;
-    }) =>
-      React.createElement(
-        'button',
-        { onClick: onPress, 'data-testid': testID },
-        children,
-      ),
-    Empty: ({ title }: { title?: ReactNode }) =>
-      React.createElement('div', null, title),
+    Dialog: { show: showDialog },
     Icon: () => null,
+    Illustration: () => null,
     NumberSizeableText: Primitive,
     SizableText: Primitive,
     Skeleton: () => null,
     Stack: Primitive,
     XStack: Primitive,
     YStack: Primitive,
+    useInTabDialog: () => ({ show: showDialog }),
+    useMedia: () => ({ md: false, gtMd: true }),
   };
 });
 
@@ -90,32 +82,28 @@ jest.mock('@onekeyhq/kit/src/components/AccountSelector', () => ({
   AccountSelectorTriggerHome: () => null,
 }));
 
-jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
-  __esModule: true,
-  default: () => ({ pushModal: jest.fn() }),
+jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({
+  ListItem: () => null,
 }));
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
   useActiveAccount: () => ({ activeAccount: mockActiveAccount }),
 }));
 
-jest.mock('@onekeyhq/kit/src/components/Token', () => ({
-  Token: () => null,
-}));
+jest.mock(
+  '@onekeyhq/kit/src/views/Earn/components/InviteeReward/EarnInviteeRewardContent',
+  () => ({ EarnInviteeRewardContent: () => null }),
+);
 
-jest.mock('@onekeyhq/kit/src/hooks/useFormatDate', () => ({
-  __esModule: true,
-  default: () => ({ formatDate: (date: string) => date }),
-}));
+jest.mock(
+  '@onekeyhq/kit/src/views/Perp/components/InviteeReward/InviteeRewardContent',
+  () => ({ InviteeRewardContent: () => null }),
+);
 
-jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
-  __esModule: true,
-  default: { openUrlExternal: jest.fn() },
-}));
-
-jest.mock('@onekeyhq/kit/src/utils/explorerUtils', () => ({
-  openTransactionDetailsUrl: jest.fn(),
-}));
+jest.mock(
+  '@onekeyhq/kit/src/views/Swap/components/InviteeReward/SwapInviteeRewardContent',
+  () => ({ SwapInviteeRewardContent: () => null }),
+);
 
 jest.mock(
   '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText',
@@ -126,12 +114,32 @@ jest.mock(
   }),
 );
 
+jest.mock('../../components/InviteeRewardNoWallet', () => ({
+  InviteeRewardNoWallet: () => <div data-testid="no-wallet" />,
+}));
+
+jest.mock('../../components/ReferralCardEmpty', () => ({
+  ReferralCardEmpty: ({ title }: { title?: string }) => <div>{title}</div>,
+}));
+
 jest.mock('../InviteReward/components/BenefitsTabPlaceholder', () => ({
   BenefitsTabPlaceholder: () => <div data-testid="perks-placeholder" />,
 }));
 
-jest.mock('../../components/InviteeRewardNoWallet', () => ({
-  InviteeRewardNoWallet: () => <div data-testid="no-wallet" />,
+jest.mock('../InviteReward/components/getInviteRewardRows', () => ({
+  INVITE_REWARD_SUBJECT_ICON: {
+    perps: 'TradeOutline',
+    swap: 'SwitchHorOutline',
+    defi: 'CoinsOutline',
+  },
+}));
+
+jest.mock('../InviteReward/components/useInviteCardStyle', () => ({
+  COMPACT_ENTRY_TITLE_PROPS: {},
+  COMPACT_ROW_BLEED_PROPS: {},
+  COMPACT_ROW_ICON_PROPS: {},
+  PRESSABLE_SURFACE_PROPS: {},
+  useInviteHomeCardStyle: () => ({}),
 }));
 
 import { MyRewardsContent } from './MyRewardsContent';
@@ -139,6 +147,7 @@ import { MyRewardsContent } from './MyRewardsContent';
 describe('MyRewardsContent', () => {
   beforeEach(() => {
     mockReloadOverview.mockReset();
+    mockShowDialog.mockReset();
     mockActiveAccount = {
       account: { id: 'hd-1--account' },
       indexedAccount: { id: 'hd-1--0' },
@@ -155,7 +164,7 @@ describe('MyRewardsContent', () => {
             totalBonus: '5',
             undistributed: '1',
             token: { symbol: 'USDC', logoURI: '' },
-            history: [{ date: '2026-01-10', tx: '0x1', amount: '1' }],
+            history: [],
           },
         },
         swap: {
@@ -163,7 +172,7 @@ describe('MyRewardsContent', () => {
           data: {
             totalBonus: '12',
             undistributed: '3',
-            token: { symbol: 'USDC' },
+            token: { symbol: 'USDC', logoURI: '' },
             history: [],
           },
         },
@@ -185,20 +194,24 @@ describe('MyRewardsContent', () => {
     expect(screen.getByText('This account has no EVM address')).toBeTruthy();
   });
 
-  it('summarizes every module and isolates a failing one', () => {
+  it('splits each product into paid and unpaid and isolates a failure', () => {
     render(<MyRewardsContent />);
-    expect(screen.getByTestId('my-rewards-module-perps').textContent).toContain(
-      '5',
-    );
+    const perps = screen.getByTestId('my-rewards-module-perps').textContent;
+    expect(perps).toContain('4');
+    expect(perps).toContain('1');
     expect(screen.getByTestId('my-rewards-module-swap').textContent).toContain(
-      '12',
+      '9',
     );
-    expect(screen.getByText('global.perp history')).toBeTruthy();
-    expect(screen.getByText('2026-01-10')).toBeTruthy();
+    expect(screen.getByTestId('my-rewards-module-earn').textContent).toContain(
+      'Unable to load',
+    );
+
+    fireEvent.click(screen.getByTestId('my-rewards-module-swap'));
+    expect(mockShowDialog).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'global.swap' }),
+    );
 
     fireEvent.click(screen.getByTestId('my-rewards-module-earn'));
-    expect(screen.getByText('Unable to load rewards')).toBeTruthy();
-    fireEvent.click(screen.getByTestId('my-rewards-retry'));
     expect(mockReloadOverview).toHaveBeenCalledTimes(1);
   });
 
