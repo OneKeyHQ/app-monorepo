@@ -124,6 +124,7 @@ export function MobileMarketSearchAllList({
       style={LIST_STYLE}
       contentContainerStyle={ALL_CONTENT_STYLE}
       stickyHeaderIndices={stickyHeaderIndices}
+      keyboardDismissMode="on-drag"
       keyboardShouldPersistTaps="handled"
       onScroll={onScroll}
       scrollEventThrottle={64}
@@ -293,6 +294,7 @@ export function MobileMarketSearchTokenList<T>({
       initialNumToRender={10}
       maxToRenderPerBatch={20}
       windowSize={7}
+      keyboardDismissMode="on-drag"
       keyboardShouldPersistTaps="handled"
       ListHeaderComponent={listHeader}
       style={LIST_STYLE}

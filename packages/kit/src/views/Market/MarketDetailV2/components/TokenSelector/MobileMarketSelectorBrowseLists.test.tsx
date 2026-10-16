@@ -94,7 +94,7 @@ jest.mock('@onekeyhq/components', () => {
       <span>{children}</span>
     ),
     Skeleton: () => null,
-    Spinner: () => null,
+    Spinner: () => <div role="progressbar" />,
     Stack: Container,
     XStack: Container,
     YStack: Container,
@@ -546,6 +546,55 @@ describe('mobile Favorites categories', () => {
     );
     expect(screen.queryByTestId('recommendations')).toBeNull();
     expect(screen.getByText('global.no_results')).toBeTruthy();
+  });
+
+  it.each([
+    ['stocks', 0],
+    ['spot', 1],
+  ] as const)(
+    'keeps an empty %s category visible while other favorites refresh',
+    (filter, itemIndex) => {
+      mockBrowseData = [mockBrowseData[itemIndex]];
+      mockWatchlistCount = mockBrowseData.length;
+      const onItemPress = jest.fn();
+      const content = (
+        <MobileSelectorWatchlistList
+          watchlistFilter={filter}
+          onItemPress={onItemPress}
+        />
+      );
+      const { rerender } = render(content);
+      expect(screen.getByText('global.no_results')).toBeTruthy();
+
+      mockIsWatchlistLoading = true;
+      rerender(
+        <MobileSelectorWatchlistList
+          watchlistFilter={filter}
+          onItemPress={onItemPress}
+        />,
+      );
+      expect(screen.getByText('global.no_results')).toBeTruthy();
+      expect(screen.queryByRole('progressbar')).toBeNull();
+      expect(screen.queryByTestId('recommendations')).toBeNull();
+
+      mockIsWatchlistLoading = false;
+      rerender(content);
+      expect(screen.getByText('global.no_results')).toBeTruthy();
+    },
+  );
+
+  it('shows loading before any favorites have been loaded', () => {
+    mockBrowseData = [];
+    mockIsWatchlistLoading = true;
+    render(
+      <MobileSelectorWatchlistList
+        watchlistFilter="stocks"
+        onItemPress={jest.fn()}
+      />,
+    );
+    expect(screen.getByRole('progressbar')).toBeTruthy();
+    expect(screen.queryByText('global.no_results')).toBeNull();
+    expect(screen.queryByTestId('recommendations')).toBeNull();
   });
 
   it.each(['spot', 'stocks'] as const)(

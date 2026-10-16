@@ -475,6 +475,7 @@ function TokenRowsList({
       onEndReached={onEndReached}
       onEndReachedThreshold={0.4}
       ListFooterComponent={footer}
+      keyboardDismissMode="on-drag"
       keyboardShouldPersistTaps="handled"
       style={LIST_STYLE}
     />
@@ -535,7 +536,7 @@ export function MobileSelectorWatchlistList({
     liveTokenOverride,
   );
 
-  if (!isMounted || (isLoading && rows.length === 0)) {
+  if (!isMounted || (isLoading && data.length === 0)) {
     return <CenteredSpinner />;
   }
   if (isError && rows.length === 0) {
@@ -704,6 +705,7 @@ export function MobileSelectorTopCoinsList({
       initialNumToRender={12}
       maxToRenderPerBatch={20}
       windowSize={7}
+      keyboardDismissMode="on-drag"
       keyboardShouldPersistTaps="handled"
       style={LIST_STYLE}
     />
@@ -839,6 +841,7 @@ export function MobileSelectorStockTable({
           onRetry={() => void loadMore()}
         />
       }
+      keyboardDismissMode="on-drag"
       keyboardShouldPersistTaps="handled"
       style={LIST_STYLE}
     />
