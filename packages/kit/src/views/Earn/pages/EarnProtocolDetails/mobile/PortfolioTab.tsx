@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import type { IBadgeType } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
+import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -172,15 +173,26 @@ function HoldingInvestment({ holding }: { holding: IEarnPositionView }) {
             text: intl.formatMessage({ id: ETranslations.global_balance }),
           }}
           descriptionComponent={
-            <NumberSizeableTextWrapper
-              hideValue
+            // As the card prints it: a holding no price is known for reads
+            // "price unavailable", never a zero that says it is empty.
+            <ProtocolValueCell
+              value={holding.value.value}
+              currencySymbol={currencyInfo.symbol}
+              priceUnavailableLabel={intl.formatMessage({
+                id: ETranslations.wallet_price_unavailable,
+              })}
+              partialPriceUnavailableLabel={intl.formatMessage({
+                id: ETranslations.wallet_partial_price_unavailable,
+              })}
+              isUnavailable={!holding.value.hasAvailableValue}
+              showPriceUnavailableTooltip={
+                holding.value.hasAvailableValue &&
+                holding.value.hasUnavailableValue
+              }
               size="$bodyLgMedium"
-              formatter="value"
-              formatterOptions={{ currency: currencyInfo.symbol }}
+              justifyContent="flex-start"
               numberOfLines={1}
-            >
-              {String(holding.value.value)}
-            </NumberSizeableTextWrapper>
+            />
           }
         />
         <GridItem

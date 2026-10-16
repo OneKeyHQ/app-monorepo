@@ -113,10 +113,44 @@ function filterByTimeWindow<T extends IChartPoint>(
   );
 }
 
+/**
+ * aggregateByPeriod for a line with gaps: a bucket keeps the last point's
+ * moment, as the base line does, but takes its value from the last valued
+ * point of the bucket, so a campaign that stopped before the bucket's last
+ * snapshot still shows on that day or week; a bucket without a valued
+ * point stays a gap.
+ */
+function aggregateByPeriodWithGaps(
+  history: IApyChartGapPoint[],
+  period: '1d' | '1w',
+): IApyChartGapPoint[] {
+  const bucket = new Map<
+    string,
+    { last: IApyChartGapPoint; apy: number | null }
+  >();
+
+  history.forEach((item) => {
+    const key =
+      period === '1d'
+        ? toUtcDateKey(item.timestamp)
+        : toUtcWeekKey(item.timestamp);
+    const current = bucket.get(key);
+    bucket.set(key, {
+      last: item,
+      apy: item.apy ?? current?.apy ?? null,
+    });
+  });
+
+  return Array.from(bucket.values())
+    .map(({ last, apy }) => ({ timestamp: last.timestamp, apy }))
+    .toSorted((a, b) => a.timestamp - b.timestamp);
+}
+
 function windowByPeriod<T extends IChartPoint>(
   normalized: T[],
   period: IApyChartTimePeriod,
   anchorTimestamp?: number,
+  aggregate: (history: T[], period: '1d' | '1w') => T[] = aggregateByPeriod,
 ): T[] {
   if (!normalized.length) {
     return [];
@@ -128,7 +162,7 @@ function windowByPeriod<T extends IChartPoint>(
 
   if (period === '1d') {
     return filterByTimeWindow(
-      aggregateByPeriod(normalized, '1d'),
+      aggregate(normalized, '1d'),
       THIRTY_DAYS_MS,
       anchorTimestamp,
     );
@@ -136,7 +170,7 @@ function windowByPeriod<T extends IChartPoint>(
 
   if (period === '1w') {
     return filterByTimeWindow(
-      aggregateByPeriod(normalized, '1w'),
+      aggregate(normalized, '1w'),
       ONE_YEAR_MS,
       anchorTimestamp,
     );
@@ -157,8 +191,9 @@ export function buildChartHistory(
  * buildChartHistory for a line that may stop and resume, such as a campaign
  * that ran in August and again in October: points without a value stay as
  * gaps, so the chart breaks the line there instead of drawing one straight
- * segment across the weeks in between. The daily and weekly buckets keep the
- * same last-point-of-the-bucket rule, so both lines sample the same moments.
+ * segment across the weeks in between. The daily and weekly buckets sample
+ * the same moments as the base line and carry the bucket's last value, so
+ * a campaign shorter than a bucket is not lost to the gap that follows it.
  */
 export function buildChartHistoryWithGaps(
   history: IApyChartHistoryItem[] | null | undefined,
@@ -169,5 +204,6 @@ export function buildChartHistoryWithGaps(
     normalizeHistoryWithGaps(history),
     period,
     anchorTimestamp,
+    aggregateByPeriodWithGaps,
   );
 }

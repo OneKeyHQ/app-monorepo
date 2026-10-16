@@ -51,14 +51,18 @@ export function useDetailHoldingPosition({
     enabled && accountId && accountAddress
       ? positionsScopeKey({ networkId, provider, accountAddress, publicKey })
       : undefined;
-  // The account or the page can change while a read is in flight.
+  // The account or the page can change while a read is in flight, and two
+  // reads of one scope can overlap: only the latest read may land.
   const scopeKeyRef = useRef(scopeKey);
   scopeKeyRef.current = scopeKey;
+  const readIdRef = useRef(0);
 
   const refresh = useCallback(async () => {
     if (!scopeKey || !accountId || !accountAddress) {
       return;
     }
+    readIdRef.current += 1;
+    const readId = readIdRef.current;
     try {
       const response =
         await backgroundApiProxy.serviceStaking.getPortfolioPositions({
@@ -68,7 +72,7 @@ export function useDetailHoldingPosition({
           provider,
           ...(publicKey ? { publicKey } : {}),
         });
-      if (scopeKeyRef.current !== scopeKey) {
+      if (scopeKeyRef.current !== scopeKey || readId !== readIdRef.current) {
         return;
       }
       setFresh({ scopeKey, response });
@@ -96,10 +100,19 @@ export function useDetailHoldingPosition({
     if (!enabled) {
       return undefined;
     }
-    const responses =
-      fresh && fresh.scopeKey === scopeKey
-        ? [fresh.response]
-        : Object.values((earnAccountKey && cache[earnAccountKey]) || {});
+    // Before the page's account resolves, every scope the wallet cached
+    // stands in, so the page opens on the card at once; once it has, only
+    // this scope's cache does, so an address the wallet moved away from (a
+    // derive path change) never fills in for the one the page is on.
+    const scopes = (earnAccountKey && cache[earnAccountKey]) || {};
+    let responses: IEarnPortfolioPositionsResponse[];
+    if (fresh && fresh.scopeKey === scopeKey) {
+      responses = [fresh.response];
+    } else if (scopeKey) {
+      responses = scopes[scopeKey] ? [scopes[scopeKey]] : [];
+    } else {
+      responses = Object.values(scopes);
+    }
     return buildHoldingView({
       sources: holdingPositionsOf(responses, identity),
       provider,
