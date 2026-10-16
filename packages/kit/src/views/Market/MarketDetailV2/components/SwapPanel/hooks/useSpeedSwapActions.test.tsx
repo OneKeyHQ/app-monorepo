@@ -209,9 +209,6 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       fetchApproveAllowance: (params: unknown) =>
         mockFetchApproveAllowance(params),
       fetchBuildTx: (params: unknown) => mockFetchBuildTx(params),
-      fetchApproveAllowance: jest
-        .fn()
-        .mockResolvedValue({ isApproved: false, shouldResetApprove: true }),
       closeApproving: () => mockCloseApproving(),
       cancelFetchQuoteEvents: (quoteRequestId?: string) =>
         mockCancelFetchQuoteEvents(quoteRequestId),

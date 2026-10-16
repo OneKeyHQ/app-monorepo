@@ -1349,7 +1349,6 @@ const SwapMainLoad = ({
     shouldCloseReviewOnFocusLoss,
     beginSwapReview,
     invalidateSwapReview,
-    reviewContextKey,
     isMarketEmbeddedSwap,
     pageType,
   ]);

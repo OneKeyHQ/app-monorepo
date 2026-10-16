@@ -7,6 +7,7 @@ import { createStore } from 'jotai';
 
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { globalJotaiStorageReadyHandler } from '@onekeyhq/kit-bg/src/states/jotai/jotaiStorage';
+import type { IBuildUnsignedTxParams } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   OneKeyLocalError,
   PasswordPromptDialogCancel,
@@ -46,7 +47,10 @@ import { createSwapReviewAnalytics } from '../utils/swapReviewAnalytics';
 
 import { useSwapBuildTx } from './useSwapBuiltTx';
 
-const mockFetchBuildTx = jest.fn<Promise<IFetchBuildTxResponse>, unknown[]>();
+const mockFetchBuildTx = jest.fn<
+  Promise<IFetchBuildTxResponse | undefined>,
+  unknown[]
+>();
 const mockPrepareSwapBuildTxContext = jest.fn(
   async ({
     accountId,
@@ -63,7 +67,7 @@ const mockPrepareSwapBuildTxContext = jest.fn(
 );
 const mockPrepareUnsignedTx = jest.fn<
   Promise<unknown>,
-  [{ transfersInfo?: Array<{ to: string }>; approveInfo?: unknown }]
+  [IBuildUnsignedTxParams]
 >();
 const mockEstimateFee = jest.fn<Promise<unknown>, unknown[]>();
 const mockBatchEstimateFee = jest.fn<Promise<unknown>, unknown[]>();
@@ -98,7 +102,10 @@ const mockUpdateUnsignedTx = jest.fn(
 const mockPrecheckUnsignedTxs = jest.fn<Promise<void>, unknown[]>(
   async () => undefined,
 );
-const mockSignAndSendTransaction = jest.fn<Promise<ISignedTxPro>, unknown[]>();
+const mockSignAndSendTransaction = jest.fn<
+  Promise<ISignedTxPro>,
+  [{ unsignedTx: IUnsignedTxPro }]
+>();
 const mockSignMessage = jest.fn<Promise<string>, unknown[]>();
 const mockSaveSendHistory = jest.fn(async () => undefined);
 const mockGenerateSwapHistory = jest.fn(async () => undefined);
@@ -229,8 +236,9 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
         mockUpdateUnsignedTx(params),
       precheckUnsignedTxs: (...args: unknown[]) =>
         mockPrecheckUnsignedTxs(...args),
-      signAndSendTransaction: (...args: unknown[]) =>
-        mockSignAndSendTransaction(...args),
+      signAndSendTransaction: (
+        params: Parameters<typeof mockSignAndSendTransaction>[0],
+      ) => mockSignAndSendTransaction(params),
       signMessage: (...args: unknown[]) => mockSignMessage(...args),
       buildDecodedTx: async () => ({}),
       prepareSendConfirmUnsignedTx: (

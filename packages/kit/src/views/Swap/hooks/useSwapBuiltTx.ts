@@ -2702,10 +2702,19 @@ export function useSwapBuildTx({
               : data.fromTokenInfo;
           const requestToToken =
             forceRebuild && currentToToken ? currentToToken : data.toTokenInfo;
-          const settledBuildContext = await buildContextResult;
-          if (settledBuildContext?.status === 'rejected') {
-            throw settledBuildContext.reason;
-          }
+          // The prefetched build context carries the referral lookup, so the
+          // remaining wait for it is part of the build stage.
+          const settledBuildContext = await measureSwapReviewStage(
+            reviewPreparation,
+            'buildTx',
+            async () => {
+              const result = await buildContextResult;
+              if (result?.status === 'rejected') {
+                throw result.reason;
+              }
+              return result;
+            },
+          );
           assertSwapReviewExecutionAllowed(reviewGuard);
           buildSwapRes = await measureSwapReviewStage(
             reviewPreparation,

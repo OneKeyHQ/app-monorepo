@@ -192,6 +192,7 @@ jest.mock('@onekeyhq/components', () => {
     Stack: Container,
     XStack: Container,
     YStack: Container,
+    useMedia: () => ({ md: false }),
   };
 });
 
