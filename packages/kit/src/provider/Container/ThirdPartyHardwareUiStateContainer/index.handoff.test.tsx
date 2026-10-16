@@ -30,6 +30,7 @@ const mockSubscribe = (listener: () => void) => {
 };
 const mockCancel = jest.fn(async () => undefined);
 const mockUiResponse = jest.fn(async (_params: unknown) => undefined);
+const mockClearUiState = jest.fn(async (_params: unknown) => true);
 const mockIntl = { formatMessage: ({ id }: { id: string }) => id };
 const mockStartScan = jest.fn(() => new Promise<never>(() => undefined));
 const mockScanHook = { start: mockStartScan };
@@ -50,9 +51,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceThirdPartyHardware: {
       thirdPartyHardwareUiResponse: (params: unknown) => mockUiResponse(params),
       thirdPartyHardwareCancel: () => mockCancel(),
-      clearThirdPartyHardwareUiStateIfCurrent: jest
-        .fn()
-        .mockResolvedValue(true),
+      clearThirdPartyHardwareUiStateIfCurrent: (params: unknown) =>
+        mockClearUiState(params),
     },
   },
 }));
@@ -82,9 +82,14 @@ jest.mock('../../../components/Hardware/HardwareDialog', () => ({
 jest.mock(
   '../../../components/Hardware/ThirdPartyDeviceSelectionDialog',
   () => ({
-    showThirdPartyDeviceSelectionDialog: jest.fn(() => ({
-      close: jest.fn().mockResolvedValue(undefined),
-    })),
+    // Like the real dialog, closing it runs its onClose.
+    showThirdPartyDeviceSelectionDialog: jest.fn(
+      (params: { onClose?: () => Promise<void> }) => ({
+        close: jest.fn(async () => {
+          await params.onClose?.();
+        }),
+      }),
+    ),
   }),
 );
 jest.mock('../../../components/SecureQRToast', () => ({
@@ -220,7 +225,7 @@ it('cancels an unanswered selection that another request replaced', async () => 
   });
 });
 
-it('keeps an unanswered selection open when the same request is republished', async () => {
+it('keeps an unanswered selection open when the same request is republished (e.g. a language change)', async () => {
   mockUiState = selectionState(EHardwareVendor.ledger);
   const view = render(<ThirdPartyHardwareUiStateContainer />);
   await flush();
@@ -230,6 +235,8 @@ it('keeps an unanswered selection open when the same request is republished', as
   await flush();
 
   expect(mockUiResponse).not.toHaveBeenCalled();
+  expect(mockCancel).not.toHaveBeenCalled();
+  expect(mockClearUiState).not.toHaveBeenCalled();
   expect(showThirdPartyDeviceSelectionDialog).toHaveBeenCalledTimes(2);
 });
 

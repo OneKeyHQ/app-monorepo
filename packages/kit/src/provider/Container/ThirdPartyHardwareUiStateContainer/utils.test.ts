@@ -233,8 +233,33 @@ describe('ThirdPartyHardwareUiStateContainer utils', () => {
       },
     });
     expect(cancel).not.toHaveBeenCalled();
-    expect(clearState).toHaveBeenCalledTimes(2);
+    // The selection cleared the state; closing the dialog afterwards does not clear it again.
+    expect(clearState).toHaveBeenCalledTimes(1);
     expect(dialogInstanceRef.current).toBeNull();
+  });
+
+  it('leaves the request alone when the host closed the dialog itself', async () => {
+    const uiResponse = jest.fn(async () => undefined);
+    const cancel = jest.fn(async () => undefined);
+    const clearState = jest.fn(async () => undefined);
+    const settledRef = { current: false };
+    const callbacks = createThirdPartyDeviceSelectionDialogCallbacks({
+      vendor: EHardwareVendor.ledger,
+      requestId: 'selection-1',
+      dialogInstanceRef: { current: {} },
+      settledRef,
+      uiResponse,
+      cancel,
+      clearState,
+    });
+
+    // The host's effect cleanup settles before closing, e.g. to reopen after a language change.
+    settledRef.current = true;
+    await callbacks.onClose();
+
+    expect(uiResponse).not.toHaveBeenCalled();
+    expect(cancel).not.toHaveBeenCalled();
+    expect(clearState).not.toHaveBeenCalled();
   });
 
   it('cancels the SDK wait when operation-first selection closes', async () => {

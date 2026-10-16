@@ -58,19 +58,21 @@ export function createThirdPartyDeviceSelectionDialogCallbacks({
     },
     onClose: async () => {
       dialogInstanceRef.current = null;
+      // Already settled: a selection cleared the state itself, or the host
+      // closed the dialog and may reopen it for the same request (e.g. after a
+      // language change), so clearing here would drop a live request.
+      if (settledRef.current) return;
+      settledRef.current = true;
       try {
-        if (!settledRef.current) {
-          settledRef.current = true;
-          if (requestId) {
-            await uiResponse({
-              vendor,
-              response: {
-                type: UI_RESPONSE.RECEIVE_SELECT_DEVICE,
-                payload: { requestId, cancelled: true },
-              },
-            });
-          } else await cancel({ vendor });
-        }
+        if (requestId) {
+          await uiResponse({
+            vendor,
+            response: {
+              type: UI_RESPONSE.RECEIVE_SELECT_DEVICE,
+              payload: { requestId, cancelled: true },
+            },
+          });
+        } else await cancel({ vendor });
       } finally {
         await clearState();
       }
