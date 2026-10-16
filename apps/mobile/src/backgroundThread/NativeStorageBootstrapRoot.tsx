@@ -45,6 +45,7 @@ let bootstrapPromise: Promise<void> | undefined;
 let storageRepairPromise: Promise<void> | undefined;
 let recoveryRestartPromise: Promise<void> | undefined;
 let storageRepairInProgress = false;
+let storageRepairCompleted = false;
 let storageRepairCanReset = false;
 let storageRepairError: string | undefined;
 let storageRepairSummary: INativeAppStorageRepairSummary | undefined;
@@ -397,7 +398,7 @@ function restartAfterBootstrapFailure({
 
 function startStorageRepair(
   target: INativeStorageMigrationRecoveryTarget,
-  action: 'prepare' | 'complete' | 'reset' = 'prepare',
+  action: 'prepare' | 'complete' | 'reset' | 'close' = 'prepare',
   force = false,
 ) {
   if (storageRepairPromise) {
@@ -406,6 +407,7 @@ function startStorageRepair(
   // Invalidate the old reconciliation loop before touching the storage owner.
   bootstrapGeneration += 1;
   storageRepairInProgress = true;
+  if (action !== 'close') storageRepairCompleted = false;
   storageRepairCanReset = false;
   storageRepairError = undefined;
   notifySubscribers();
@@ -415,6 +417,18 @@ function startStorageRepair(
   );
   let restartScheduled = false;
   const nextPromise = (async () => {
+    if (action === 'close') {
+      if (target !== 'appStorage' || !storageRepairCompleted) {
+        throw new OneKeyLocalError('Storage repair has not completed');
+      }
+      // Closing only refreshes the runtimes; storage was already committed.
+      await appRestart({
+        mode: EAppRestartMode.All,
+        reason: 'storage.migration.repaired',
+      });
+      restartScheduled = true;
+      return;
+    }
     if (target === 'appStorage' && action === 'prepare') {
       storageRepairSummary = undefined;
       const summary = await callNativeStorage<
@@ -429,9 +443,9 @@ function startStorageRepair(
           'Storage repair is unavailable in this runtime',
         );
       storageRepairSummary = summary;
-      return;
+      if (summary.failedCount > 0 || !summary.scanComplete) return;
     }
-    if (target === 'appStorage' && action === 'complete') {
+    if (target === 'appStorage') {
       if (!storageRepairSummary)
         throw new OneKeyLocalError('Please run storage repair again');
       await callNativeStorage<void>({
@@ -450,6 +464,14 @@ function startStorageRepair(
     }
     await bootstrapNativeStorage({ force: true });
     await initializeJotaiFromBackground();
+    if (target === 'appStorage') {
+      storageRepairCompleted = true;
+      writeBootstrapError(
+        `[NativeStorageRecovery] target=${target} result=verified awaitingClose=true`,
+        'info',
+      );
+      return;
+    }
     writeBootstrapError(
       `[NativeStorageRecovery] target=${target} result=verified restarting=true`,
       'info',
@@ -467,9 +489,14 @@ function startStorageRepair(
         target === 'jotai' &&
         action !== 'reset' &&
         getNativeStorageMigrationRecoveryTarget(error) === target;
-      storageRepairError = storageRepairCanReset
-        ? 'The storage could not be recovered. You can rebuild the affected local storage to continue.'
-        : 'Storage repair failed. Please retry or restart the app. See the device log for details.';
+      if (storageRepairCompleted) {
+        storageRepairError =
+          'Storage repair is complete, but the app could not restart. Please close and reopen the app.';
+      } else {
+        storageRepairError = storageRepairCanReset
+          ? 'The storage could not be recovered. You can rebuild the affected local storage to continue.'
+          : 'Storage repair failed. Please retry or restart the app. See the device log for details.';
+      }
       writeBootstrapError(
         `[NativeStorageRecovery] target=${target} result=failed canReset=${storageRepairCanReset} errorType=${error instanceof Error ? error.name : typeof error}`,
       );
@@ -553,10 +580,19 @@ export function NativeStorageBootstrapRoot() {
   if (bootstrapError || requestedRecoveryTarget) {
     const recoveryTarget = requestedRecoveryTarget ?? bootstrapRecoveryTarget;
     const isConfirmingRepair = repairConfirmationTarget === recoveryTarget;
+    const isRepairCompleted =
+      recoveryTarget === 'appStorage' && storageRepairCompleted;
+    let recoveryTitle = bootstrapErrorTitle;
+    if (recoveryTarget) {
+      recoveryTitle = isRepairCompleted
+        ? 'Storage repair complete'
+        : 'Local storage needs repair';
+    }
     let recoveryDescription = bootstrapError?.message;
     if (recoveryTarget === 'appStorage') {
-      recoveryDescription =
-        'Repair keeps readable MMKV items and restores missing items from legacy storage, which may be outdated. The original legacy storage will be kept unchanged. Review the results before confirming completion.';
+      recoveryDescription = isRepairCompleted
+        ? 'Repair completed. The original legacy storage has been kept unchanged. Close to restart the app.'
+        : 'Repair keeps readable MMKV items and restores missing items from legacy storage, which may be outdated. The original legacy storage will be kept unchanged. Repair finishes automatically when all items succeed.';
     } else if (recoveryTarget === 'jotai') {
       recoveryDescription =
         'Retry loading local preferences. If that fails, you can choose to rebuild the affected preferences. The original legacy storage will be kept unchanged.';
@@ -565,6 +601,17 @@ export function NativeStorageBootstrapRoot() {
     if (storageRepairInProgress) {
       recoveryAction = (
         <ActivityIndicator testID="native-storage-repair-progress" />
+      );
+    } else if (isRepairCompleted) {
+      recoveryAction = (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => void startStorageRepair(recoveryTarget, 'close')}
+          style={styles.retryButton}
+          testID="native-storage-repair-close"
+        >
+          <Text style={styles.retryText}>Close</Text>
+        </Pressable>
       );
     } else if (!recoveryTarget && bootstrapFailureStage === 'runtime-launch') {
       recoveryAction = (
@@ -651,19 +698,16 @@ export function NativeStorageBootstrapRoot() {
         !storageRepairSummary.scanComplete;
       recoveryAction = (
         <>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => {
-              if (requiresForce) setRepairConfirmationTarget(recoveryTarget);
-              else void startStorageRepair(recoveryTarget, 'complete');
-            }}
-            style={styles.retryButton}
-            testID="native-storage-repair-complete"
-          >
-            <Text style={styles.retryText}>
-              {requiresForce ? 'Force completion' : 'Confirm completion'}
-            </Text>
-          </Pressable>
+          {requiresForce ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setRepairConfirmationTarget(recoveryTarget)}
+              style={styles.retryButton}
+              testID="native-storage-repair-complete"
+            >
+              <Text style={styles.retryText}>Force completion</Text>
+            </Pressable>
+          ) : null}
           <Pressable
             accessibilityRole="button"
             onPress={() => void startStorageRepair(recoveryTarget)}
@@ -702,9 +746,7 @@ export function NativeStorageBootstrapRoot() {
         style={styles.errorContainer}
         contentContainerStyle={styles.errorContent}
       >
-        <Text style={styles.title}>
-          {recoveryTarget ? 'Local storage needs repair' : bootstrapErrorTitle}
-        </Text>
+        <Text style={styles.title}>{recoveryTitle}</Text>
         <Text style={styles.message}>{recoveryDescription}</Text>
         {recoveryTarget === 'appStorage' && storageRepairSummary ? (
           <>
@@ -723,7 +765,7 @@ export function NativeStorageBootstrapRoot() {
           <Text style={styles.message}>{storageRepairError}</Text>
         ) : null}
         {recoveryAction}
-        {AppComponent && !storageRepairInProgress ? (
+        {AppComponent && !storageRepairInProgress && !isRepairCompleted ? (
           <Pressable
             accessibilityRole="button"
             style={styles.restartButton}
