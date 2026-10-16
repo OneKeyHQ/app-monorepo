@@ -1,3 +1,4 @@
+import { EDBAccountType } from '../../../dbs/local/consts';
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
 import { KeyringHardware } from './KeyringHardware';
@@ -116,6 +117,81 @@ describe('Zcash KeyringHardware', () => {
     jest.restoreAllMocks();
     mockGetZcashApi.mockReset();
   });
+
+  it.each([0, 0x12_34_56_78, undefined])(
+    'requires the device root fingerprint and preserves it on created accounts (%s)',
+    async (rootFingerprint) => {
+      const btcGetPublicKey = jest.fn().mockResolvedValue({
+        success: true,
+        payload: { root_fingerprint: rootFingerprint },
+      });
+      const zcashGetAddress = jest.fn().mockResolvedValue({
+        success: true,
+        payload: [0, 1].map(() => ({
+          path: "m/32'/133'/0'",
+          address: 'u1-account',
+          ufvk: 'viewing-key',
+          seedFingerprint: 'ab'.repeat(32),
+        })),
+      });
+      const initializePrivacyModeOff = jest.fn();
+      const keyring = createKeyring({
+        sdk: { btcGetPublicKey, zcashGetAddress },
+        simpleDbZcash: { initializePrivacyModeOff },
+      });
+      Object.assign(keyring, {
+        walletId: 'hw-1',
+        getCoreApiNetworkInfo: jest.fn().mockResolvedValue({
+          networkChainCode: 'zec',
+        }),
+        getVaultSettings: jest.fn().mockResolvedValue({
+          accountType: EDBAccountType.UTXO,
+          impl: 'zec',
+        }),
+        coreApi: {
+          getAddressFromXpub: jest.fn().mockResolvedValue({
+            addresses: { '0/0': 't1-account' },
+            publicKeys: { '0/0': 'public-key' },
+          }),
+        },
+      });
+      mockGetZcashApi.mockResolvedValue({
+        deriveTransparentXpubFromUfvk: jest.fn().mockResolvedValue({
+          xpub: 'transparent-xpub',
+        }),
+      });
+      const result = keyring.prepareAccounts({
+        indexes: [0, 1],
+        deriveInfo: {
+          template: "m/44'/133'/$$INDEX$$'/0/0",
+          coinType: '133',
+          namePrefix: 'ZEC',
+        },
+        deviceParams,
+      } as Parameters<KeyringHardware['prepareAccounts']>[0]);
+      if (rootFingerprint === undefined) {
+        await expect(result).rejects.toThrow('valid root fingerprint');
+        expect(zcashGetAddress).not.toHaveBeenCalled();
+        expect(initializePrivacyModeOff).not.toHaveBeenCalled();
+      } else {
+        const accounts = await result;
+        expect(accounts).toHaveLength(2);
+        for (const account of accounts) {
+          expect(account.__hwExtraInfo__).toEqual({ rootFingerprint });
+        }
+        expect(btcGetPublicKey).toHaveBeenCalledTimes(1);
+        expect(btcGetPublicKey).toHaveBeenCalledWith(
+          'connect-1',
+          'device-1',
+          expect.objectContaining({
+            ...deviceParams.deviceCommonParams,
+            path: "m/44'/1'/0'",
+            showOnOneKey: false,
+          }),
+        );
+      }
+    },
+  );
 
   it('signs the unproved PCZT on the device, then combines, proves and commits', async () => {
     const calls: string[] = [];
