@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method -- Jest spies do not use this binding. */
 /* eslint-disable import/first */
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
@@ -64,20 +65,26 @@ jest.mock(
     __esModule: true,
     default: {
       removeSecureItem: jest.fn(),
+      getSecureItem: jest.fn(),
+      setSecureItem: jest.fn(),
+      isPersistenceAvailable: jest.fn(),
     },
   }),
 );
 
+import { ECloudBackupProviderType } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EAppRestartMode } from '@onekeyhq/shared/src/modules3rdParty/appRestart/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import secureStorage from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import localDb from '../dbs/local/localDb';
 
 import ServiceApp from './ServiceApp';
+import { LocalBackupPasswordCache } from './ServiceCloudBackupV2/localBackupPasswordCache';
 import ServiceCloudBackupV2 from './ServiceCloudBackupV2/ServiceCloudBackupV2';
 import { biologyAuthUtils } from './ServicePassword/biologyAuthUtils';
 
@@ -554,3 +561,229 @@ describe('ServiceApp.resetApp', () => {
     expect(restartApp).not.toHaveBeenCalled();
   });
 });
+
+describe.each([true, false])(
+  'preserved recovery failures with preserve=%s',
+  (preserve) => {
+    const originalNative = platformEnv.isNative;
+    const originalIOS = platformEnv.isNativeIOS;
+    const manifestKey = 'com.onekey.backup_v2.biometric_password.manifest';
+    const erasureKey = 'com.onekey.backup_v2.biometric_password.erasure';
+    const keyRef = `com.onekey.backup_v2.biometric_password.key.${'a'.repeat(64)}`;
+    const validManifest = JSON.stringify({
+      entries: { scope: { keyRef, ciphertext: 'synthetic-ciphertext' } },
+    });
+    const secure = jest.mocked(secureStorage);
+    let storage: Map<string, string>;
+    let cache: LocalBackupPasswordCache;
+    let service: ServiceApp;
+    let restart: jest.SpyInstance;
+    let wipe: jest.SpyInstance;
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      platformEnv.isNative = true;
+      platformEnv.isNativeIOS = true;
+      storage = new Map([
+        [manifestKey, validManifest],
+        [keyRef, 'synthetic-protected-key'],
+      ]);
+      secure.isPersistenceAvailable?.mockReturnValue(true);
+      secure.getSecureItem.mockImplementation(
+        async (key) => storage.get(key) ?? null,
+      );
+      secure.setSecureItem.mockImplementation(async (key, value) => {
+        storage.set(key, value);
+      });
+      secure.removeSecureItem.mockImplementation(async (key) => {
+        storage.delete(key);
+      });
+      cache = new LocalBackupPasswordCache();
+      service = new ServiceApp({
+        backgroundApi: {
+          serviceCloudBackupV2: {
+            prepareLocalRecoveryForReset: (options: { preserve: boolean }) =>
+              cache.prepareForReset(options),
+            finishLocalRecoveryReset: async () => {
+              cache.finishReset();
+            },
+          },
+          serviceIdentityExit: { prepareIdentityAuthForAppReset: jest.fn() },
+          serviceNotification: { unregisterClient: jest.fn() },
+        },
+      });
+      wipe = jest
+        .spyOn(
+          service as unknown as { resetData: () => Promise<void> },
+          'resetData',
+        )
+        .mockResolvedValue(undefined);
+      restart = jest.spyOn(service, 'restartApp').mockResolvedValue(undefined);
+      jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    });
+    afterEach(() => {
+      platformEnv.isNative = originalNative;
+      platformEnv.isNativeIOS = originalIOS;
+      jest.restoreAllMocks();
+    });
+
+    test.each([
+      'corrupt JSON',
+      'invalid schema',
+      'native manifest read',
+      'native reads',
+    ])(
+      'handles %s without changing ordinary preservation into erasure',
+      async (failure) => {
+        if (failure === 'corrupt JSON') storage.set(manifestKey, '{broken');
+        if (failure === 'invalid schema')
+          storage.set(
+            manifestKey,
+            JSON.stringify({
+              entries: {
+                scope: { keyRef, ciphertext: 'still-retained' },
+                bad: {},
+              },
+            }),
+          );
+        if (failure.startsWith('native'))
+          secure.getSecureItem.mockImplementation(async (key) => {
+            if (key === manifestKey || failure === 'native reads')
+              throw new OneKeyLocalError('temporarily unavailable');
+            return storage.get(key) ?? null;
+          });
+        const before = [...storage];
+        const resetting = service.resetApp({
+          preserveBackupRecovery: preserve,
+        });
+        if (preserve) {
+          await expect(resetting).resolves.toBeUndefined();
+          expect(restart).toHaveBeenCalledTimes(1);
+          expect([...storage]).toEqual(before);
+          expect(secure.setSecureItem).not.toHaveBeenCalled();
+          expect(secure.removeSecureItem).not.toHaveBeenCalled();
+        } else {
+          await expect(resetting).rejects.toThrow(
+            'Recovery cache erasure failed',
+          );
+          expect(restart).not.toHaveBeenCalled();
+          expect(storage.get(erasureKey)).toBe('1');
+          expect(storage.get(manifestKey)).toBe(before[0][1]);
+        }
+        expect(wipe).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    test.each([
+      'marker with corrupt JSON',
+      'marker with invalid schema',
+      'marker with read failure',
+      'tombstone with invalid schema',
+      'tombstone with marker read failure',
+    ])(
+      'does not restart after known pending erase fails: %s',
+      async (pending) => {
+        if (pending.startsWith('marker')) storage.set(erasureKey, '1');
+        if (pending.includes('corrupt JSON'))
+          storage.set(manifestKey, '{broken');
+        if (pending.includes('invalid schema'))
+          storage.set(
+            manifestKey,
+            JSON.stringify({
+              erasing: pending.startsWith('tombstone'),
+              entries: { bad: {} },
+            }),
+          );
+        if (pending === 'marker with read failure')
+          secure.getSecureItem.mockImplementation(async (key) => {
+            if (key === manifestKey) throw new OneKeyLocalError('read failed');
+            return storage.get(key) ?? null;
+          });
+        if (pending === 'tombstone with marker read failure') {
+          storage.set(
+            manifestKey,
+            JSON.stringify({ erasing: true, entries: { scope: { keyRef } } }),
+          );
+          secure.getSecureItem.mockImplementation(async (key) => {
+            if (key === erasureKey) throw new OneKeyLocalError('read failed');
+            return storage.get(key) ?? null;
+          });
+        }
+        await expect(
+          service.resetApp({ preserveBackupRecovery: preserve }),
+        ).rejects.toThrow('Recovery cache erasure failed');
+        expect(wipe).toHaveBeenCalledTimes(1);
+        expect(restart).not.toHaveBeenCalled();
+        expect(storage.get(erasureKey)).toBe('1');
+        expect(storage.has(manifestKey)).toBe(true);
+      },
+    );
+
+    test('does not forget erasure observed by an earlier cache read when storage later becomes unreadable', async () => {
+      storage.set(erasureKey, '1');
+      expect(
+        await cache.get({
+          providerType: ECloudBackupProviderType.iCloud,
+          accountId: 'synthetic-account',
+          recordId: 'synthetic-record',
+        }),
+      ).toBeUndefined();
+      secure.getSecureItem.mockRejectedValue(
+        new OneKeyLocalError('temporarily unavailable'),
+      );
+      await expect(
+        service.resetApp({ preserveBackupRecovery: preserve }),
+      ).rejects.toThrow('Recovery cache erasure failed');
+      expect(wipe).toHaveBeenCalledTimes(1);
+      expect(restart).not.toHaveBeenCalled();
+      expect(storage.get(erasureKey)).toBe('1');
+    });
+
+    test('preserves unknown intent during a transient read failure and honors it on the next cold reset', async () => {
+      storage.set(erasureKey, '1');
+      const before = [...storage];
+      secure.getSecureItem.mockRejectedValue(
+        new OneKeyLocalError('temporarily unavailable'),
+      );
+      if (preserve) {
+        await service.resetApp({ preserveBackupRecovery: true });
+        expect(restart).toHaveBeenCalledTimes(1);
+        expect([...storage]).toEqual(before);
+        expect(secure.setSecureItem).not.toHaveBeenCalled();
+        expect(secure.removeSecureItem).not.toHaveBeenCalled();
+      } else {
+        await expect(service.resetApp()).rejects.toThrow(
+          'Recovery cache erasure failed',
+        );
+        expect(restart).not.toHaveBeenCalled();
+      }
+      cache = new LocalBackupPasswordCache();
+      secure.getSecureItem.mockImplementation(
+        async (key) => storage.get(key) ?? null,
+      );
+      await service.resetApp({ preserveBackupRecovery: preserve });
+      expect(storage.size).toBe(0);
+      expect(restart).toHaveBeenCalledTimes(preserve ? 2 : 1);
+    });
+
+    test.each(['marker', 'tombstone'])(
+      'completes readable pending %s before restart',
+      async (pending) => {
+        if (pending === 'marker') storage.set(erasureKey, '1');
+        else
+          storage.set(
+            manifestKey,
+            JSON.stringify({ erasing: true, entries: { scope: { keyRef } } }),
+          );
+        await service.resetApp({ preserveBackupRecovery: preserve });
+        expect(storage.size).toBe(0);
+        expect(wipe).toHaveBeenCalledTimes(1);
+        expect(restart).toHaveBeenCalledTimes(1);
+        expect(wipe.mock.invocationCallOrder[0]).toBeLessThan(
+          restart.mock.invocationCallOrder[0],
+        );
+      },
+    );
+  },
+);

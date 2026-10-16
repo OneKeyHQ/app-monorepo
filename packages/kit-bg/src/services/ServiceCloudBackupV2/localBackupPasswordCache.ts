@@ -72,10 +72,12 @@ export class LocalBackupPasswordCache {
     const erasing =
       this.erasurePending || (await secureStorage.getSecureItem(ERASURE_KEY));
     this.assertPersistenceAvailable();
+    if (erasing) this.erasurePending = true;
     const raw = await secureStorage.getSecureItem(MANIFEST_KEY);
     this.assertPersistenceAvailable();
     if (!raw) return { entries: {}, erasing: Boolean(erasing) };
     const manifest = JSON.parse(raw) as IManifest;
+    if (manifest?.erasing) this.erasurePending = true;
     if (
       !manifest?.entries ||
       typeof manifest.entries !== 'object' ||
@@ -235,12 +237,41 @@ export class LocalBackupPasswordCache {
     }
   }
 
+  private async inspectPreservedErasureIntent(): Promise<void> {
+    this.assertPersistenceAvailable();
+    try {
+      if (await secureStorage.getSecureItem(ERASURE_KEY)) {
+        this.erasurePending = true;
+      }
+    } catch {
+      // An unreadable optional cache is not a new request to erase it.
+    }
+    this.assertPersistenceAvailable();
+    try {
+      const raw = await secureStorage.getSecureItem(MANIFEST_KEY);
+      // Inspect the envelope before validating entries: a broken entry must not
+      // hide a readable tombstone, including when the separate marker is absent.
+      const manifest = raw
+        ? (JSON.parse(raw) as { erasing?: unknown } | null)
+        : null;
+      if (manifest?.erasing) this.erasurePending = true;
+    } catch {
+      // Preserve every byte on read/parse failure. Unknown is not erased/absent;
+      // future cache access still checks both markers and validates the manifest.
+    }
+    this.assertPersistenceAvailable();
+  }
+
   async prepareForReset({ preserve }: { preserve: boolean }): Promise<void> {
     // Block queued operations immediately; the mutex drains existing cache work.
     this.resetting = true;
     if (!preserve) this.erasurePending = true;
     await this.mutex.runExclusive(async () => {
       try {
+        if (preserve && !this.erasurePending) {
+          await this.inspectPreservedErasureIntent();
+          if (!this.erasurePending) return;
+        }
         let failed = false;
         const persistErasureIntent = async () => {
           this.erasurePending = true;
@@ -258,11 +289,8 @@ export class LocalBackupPasswordCache {
         };
         // Independent of manifest decoding/writing. If the tombstone and a key
         // deletion fail, this marker still denies reads after a process restart.
-        if (this.erasurePending) await persistErasureIntent();
+        await persistErasureIntent();
         const manifest = await this.readManifest();
-        // A normal reset must finish a previously requested security erasure.
-        if (preserve && !manifest.erasing && !this.erasurePending) return;
-        if (!this.erasurePending) await persistErasureIntent();
         // A durable tombstone denies recovery after an interrupted security wipe.
         // If it cannot be written, still attempt every key deletion. Never let
         // one unavailable item prevent erasure of the remaining credentials.

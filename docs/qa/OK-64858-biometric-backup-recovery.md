@@ -207,3 +207,37 @@ TypeScript (334.6 seconds). The PR profile also passes all local checks and its
 TypeScript rerun (47.4 seconds); GitHub CLI repository lookup fails with HTTP 403,
 so remote CI is unverified. An earlier concurrent type/lint run exhausted the
 16 GB environment and was discarded; the serialized reruns above are successful.
+
+
+## Preserve-reset metadata failure follow-up
+
+Based on user head `607572117f`. Ordinary preservation inspects the independent
+intent item and the manifest's erasure envelope without requiring usable cache
+entries. Corrupt JSON, invalid entries or native read errors do not turn that
+ordinary preservation into erasure and do not block the cold restart. The cache
+is left byte-for-byte unchanged: no automatic manifest deletion, marker clearing,
+replacement, repair or new erasure intent.
+
+Observed intent is sticky in the bg-owned cache instance, including intent seen
+by an earlier cache read. An independent marker or readable manifest tombstone
+therefore still requires completion of erasure even when entries are invalid or
+later reads fail. Those failures keep the existing wallet-wipe/error/no-restart
+behavior, for both preserve and security resets. Masked persistence is still an
+explicit failure, not a successful erase.
+
+Unreadable is unknown, not absent: if both reads fail before any intent has been
+observed, ordinary preservation can restart without claiming any erasure. All
+existing bytes/markers remain, and a later readable cold reset honors them. A
+readable tombstone is inspected even if the independent marker read fails, and a
+readable independent marker is honored even if the manifest read/parse fails.
+The unresolved policy for simultaneous failure of all persistent writes and key
+deletion is unchanged by this follow-up.
+
+ServiceApp/cache regression tests verify `resetData` and `restartApp` behavior
+for corrupt JSON, invalid schema (including otherwise retained entries), native
+read failures, independent markers, manifest tombstones, sticky observed intent,
+and a transient outage followed by a cold retry, with preserve true and false.
+
+Targeted final regression run: 3 suites / 98 tests pass (ServiceApp 41, encrypted
+cache 54, actual persistence facade 3). Native storage/authentication remain
+mocked; no real-device authentication claim is made by this follow-up.
