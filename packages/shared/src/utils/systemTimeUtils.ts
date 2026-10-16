@@ -776,15 +776,44 @@ class SystemTimeUtils {
       endpoint,
       name: EServiceEndpointEnum.Wallet,
     });
+    // The client is cached by service name. Do not silently use a stale endpoint
+    // or trust an arbitrary HTTP base URL when requesting attestation time.
+    let responseOrigin = endpoint;
+    if (platformEnv.isDev && process.env.ONEKEY_PROXY) {
+      const proxyBaseURL = platformEnv.isExtension
+        ? 'http://localhost:3180'
+        : '/';
+      const proxyTarget =
+        client.defaults.headers['X-OneKey-Dev-Proxy'] ??
+        client.defaults.headers['x-onekey-dev-proxy'];
+      if (
+        client.defaults.baseURL !== proxyBaseURL ||
+        proxyTarget !== endpoint
+      ) {
+        return undefined;
+      }
+      const proxyOrigin = platformEnv.isExtension
+        ? proxyBaseURL
+        : globalThis.location?.origin;
+      if (!proxyOrigin || !/^https?:\/\//.test(proxyOrigin)) {
+        return undefined;
+      }
+      responseOrigin = proxyOrigin;
+    } else if (client.defaults.baseURL !== endpoint) {
+      return undefined;
+    }
     const start = getMonotonicTimeNow();
     const wallStart = Date.now();
     if (start === undefined || !Number.isFinite(start)) {
       return undefined;
     }
-    const response = await client.get(`${endpoint}${ONEKEY_HEALTH_CHECK_URL}`, {
+    const nonce = stringUtils.randomString(12);
+    // Relative paths preserve the configured dev proxy and let the selected-IP
+    // adapter serialize params into the actual SNI request path.
+    const response = await client.get(ONEKEY_HEALTH_CHECK_URL, {
       params: {
         _: 'hardware_verification',
-        nonce: stringUtils.randomString(12),
+        nonce,
       },
       headers: { 'Cache-Control': 'no-cache, no-store' },
       timeout: refreshServerTimeTimeout,
@@ -809,11 +838,24 @@ class SystemTimeUtils {
     // XHR follows redirects independently of Axios's maxRedirects option.
     const finalUrl = (response.request as { responseURL?: unknown } | undefined)
       ?.responseURL;
+    if (typeof finalUrl === 'string' && finalUrl.length > 0) {
+      try {
+        const responseUrl = new URL(finalUrl);
+        if (
+          responseUrl.origin !== responseOrigin ||
+          responseUrl.pathname !== ONEKEY_HEALTH_CHECK_URL ||
+          responseUrl.searchParams.getAll('nonce').length !== 1 ||
+          responseUrl.searchParams.get('nonce') !== nonce ||
+          responseUrl.searchParams.get('_') !== 'hardware_verification'
+        ) {
+          return undefined;
+        }
+      } catch {
+        return undefined;
+      }
+    }
     if (
       response.status !== 200 ||
-      (typeof finalUrl === 'string' &&
-        finalUrl.length > 0 &&
-        !finalUrl.startsWith(`${endpoint}/`)) ||
       typeof headerDate !== 'string' ||
       (age !== undefined && Number(age) !== 0)
     ) {

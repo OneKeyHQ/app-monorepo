@@ -9,7 +9,10 @@ const mockGet = jest.fn<
 const mockEmit = jest.fn<void, [string, unknown]>();
 const mockTimeCheckLog = jest.fn();
 const mockTimeRefreshLog = jest.fn();
-const mockGetClient = jest.fn(async () => ({ get: mockGet }));
+const mockGetClient = jest.fn(async () => ({
+  get: mockGet,
+  defaults: { baseURL: 'https://wallet.onekeycn.com', headers: {} },
+}));
 const mockTrustedDomain = jest.fn(async () => true);
 const mockGetEndpoint = jest.fn(async () => 'https://wallet.onekeycn.com');
 
@@ -86,7 +89,10 @@ describe('system time error notifications', () => {
     jest.clearAllMocks();
     mockGet.mockReset();
     mockGetClient.mockReset();
-    mockGetClient.mockImplementation(async () => ({ get: mockGet }));
+    mockGetClient.mockImplementation(async () => ({
+      get: mockGet,
+      defaults: { baseURL: 'https://wallet.onekeycn.com', headers: {} },
+    }));
     jest.useFakeTimers({ doNotFake: ['performance'] });
     jest.setSystemTime(BASE_TIME);
     monotonicTime = 1000;
@@ -353,7 +359,10 @@ describe('system time error notifications', () => {
     mockGetClient.mockImplementation(async () => {
       jest.setSystemTime(Date.now() + 20_000);
       monotonicTime += 20_000;
-      return { get: mockGet };
+      return {
+        get: mockGet,
+        defaults: { baseURL: 'https://wallet.onekeycn.com', headers: {} },
+      };
     });
     mockGet.mockImplementation(async () => {
       jest.setSystemTime(Date.now() + 11_000);
@@ -506,7 +515,10 @@ describe('hardware verification time', () => {
     mockGet.mockReset();
     mockTrustedDomain.mockResolvedValue(true);
     mockGetEndpoint.mockResolvedValue('https://wallet.onekeycn.com');
-    mockGetClient.mockImplementation(async () => ({ get: mockGet }));
+    mockGetClient.mockImplementation(async () => ({
+      get: mockGet,
+      defaults: { baseURL: 'https://wallet.onekeycn.com', headers: {} },
+    }));
     jest.useFakeTimers({ doNotFake: ['performance'] });
     jest.setSystemTime(BASE_TIME);
     monotonicTime = 1000;
@@ -632,11 +644,15 @@ describe('hardware verification time', () => {
   });
 
   it('accepts case-insensitive HTTP headers', async () => {
-    mockGet.mockResolvedValue({
+    mockGet.mockImplementation(async (url, config) => ({
       status: 200,
       headers: { Date: new Date(BASE_TIME).toUTCString() },
-      request: { responseURL: 'https://wallet.onekeycn.com/wallet/v1/health' },
-    });
+      request: {
+        responseURL: `https://wallet.onekeycn.com${url}?${new URLSearchParams(
+          (config as { params: Record<string, string> }).params,
+        ).toString()}`,
+      },
+    }));
     expect(await systemTimeUtils.getHardwareVerificationTime()).toBe(BASE_TIME);
   });
 
