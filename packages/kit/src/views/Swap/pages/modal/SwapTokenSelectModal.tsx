@@ -112,6 +112,7 @@ import {
   buildSwapTokenSelectorDisableNetworks,
   buildSwapTokenSelectorNetworkView,
   getSwapStockTokenDisplayName,
+  groupSwapSearchTokensBySelectedNetwork,
   isSwapStockMetadataPending,
   isSwapStockTokenSearchMatch,
   isSwapTokenSelectorFromNetworkBridgeOnly,
@@ -637,7 +638,7 @@ const SwapTokenSelectPage = ({
         : undefined,
     [isSwapStockSelectTarget],
   );
-  const { fetchLoading, currentTokens } = useSwapTokenList(
+  const { fetchLoading, currentTokens, searchNetworkId } = useSwapTokenList(
     type,
     currentSelectNetwork?.networkId,
     requestedSearchKeyword,
@@ -770,9 +771,48 @@ const SwapTokenSelectPage = ({
     stockSearchFallbackTokens.length > 0
       ? stockSearchFallbackTokens
       : currentTokens;
-  const displayTokens = stockMetadataPending
-    ? EMPTY_SWAP_TOKEN_LIST
-    : tokensForDisplay;
+  // useSwapTokenList widens pasted-address searches to all networks; group
+  // those results so the selected network's matches stay on top.
+  const groupedSearchNetworkId =
+    searchNetworkId !== currentSelectNetwork?.networkId
+      ? currentSelectNetwork?.networkId
+      : undefined;
+  // Search results on a concrete network are titled by scope.
+  const searchSectionTitles = useMemo(() => {
+    const networkName = currentSelectNetwork?.name;
+    if (
+      !requestedSearchKeyword ||
+      isSwapStockSelectTarget ||
+      currentSelectNetwork?.isAllNetworks ||
+      !networkName
+    ) {
+      return undefined;
+    }
+    return {
+      selectedNetwork: intl.formatMessage(
+        { id: ETranslations.title_tokens_on_network },
+        { network: networkName },
+      ),
+      otherNetworks: intl.formatMessage({
+        id: ETranslations.title_tokens_on_other,
+      }),
+    };
+  }, [
+    currentSelectNetwork?.isAllNetworks,
+    currentSelectNetwork?.name,
+    intl,
+    isSwapStockSelectTarget,
+    requestedSearchKeyword,
+  ]);
+  const { tokens: displayTokens, otherNetworkStartIndex } = useMemo(
+    () =>
+      groupSwapSearchTokensBySelectedNetwork({
+        tokens: stockMetadataPending ? EMPTY_SWAP_TOKEN_LIST : tokensForDisplay,
+        selectedNetworkId: groupedSearchNetworkId,
+        getNetworkId: (item) => getRawSwapToken(item).networkId,
+      }),
+    [groupedSearchNetworkId, stockMetadataPending, tokensForDisplay],
+  );
   const tokenListLoading =
     fetchLoading || stockMetadataPending || isSearchKeywordSettling;
   const alertIndex = useMemo(
@@ -1017,8 +1057,25 @@ const SwapTokenSelectPage = ({
         ),
         badgeText,
       };
+      let sectionTitle: string | undefined;
+      if (searchSectionTitles && index === otherNetworkStartIndex) {
+        sectionTitle = searchSectionTitles.otherNetworks;
+      } else if (searchSectionTitles && index === 0) {
+        sectionTitle = searchSectionTitles.selectedNetwork;
+      }
       return (
         <>
+          {sectionTitle ? (
+            <SizableText
+              size={useDesktopTokenSelector ? '$bodyMdMedium' : '$bodyMd'}
+              color="$textSubdued"
+              px="$5"
+              pt="$3"
+              pb="$1"
+            >
+              {sectionTitle}
+            </SizableText>
+          ) : null}
           {alertIndex === index ? (
             <Stack
               pt={useDesktopTokenSelector ? '$0' : '$3'}
@@ -1088,6 +1145,8 @@ const SwapTokenSelectPage = ({
     },
     [
       alertIndex,
+      otherNetworkStartIndex,
+      searchSectionTitles,
       copyText,
       disableNetworks,
       intl,

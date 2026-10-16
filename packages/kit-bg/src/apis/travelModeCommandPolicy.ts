@@ -114,6 +114,7 @@ const TRAVEL_MODE_ALLOWED_METHODS: Readonly<
     'resolvePasswordPromptDialog',
     'unLockApp',
     'verifyPassword',
+    'verifyPasswordFromInput',
     'waitPasswordEncryptorReady',
   ]),
   servicePrimeTransfer: new Set(['isInTransferImportOrBackupRestoreFlow']),

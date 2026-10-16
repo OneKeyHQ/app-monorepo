@@ -75,6 +75,7 @@ describe('travelModeCommandPolicy', () => {
     ['servicePassword', 'checkLockStatus'],
     ['servicePassword', 'promptPasswordVerify'],
     ['servicePassword', 'verifyPassword'],
+    ['servicePassword', 'verifyPasswordFromInput'],
     ['servicePassword', 'waitPasswordEncryptorReady'],
     ['servicePassword', 'refreshHyperLiquidAgentPasswordStatus'],
     ['servicePassword', 'resolvePasswordPromptDialog'],

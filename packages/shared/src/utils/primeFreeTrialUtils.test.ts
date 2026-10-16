@@ -22,19 +22,15 @@ describe('primeFreeTrialUtils time formatting', () => {
     setLocale('en-US');
   });
 
-  it('formats the reset date in the app language', () => {
+  it('formats the reset date, without the time, in the app language', () => {
     setLocale('en-US');
-    expect(formatPrimeFreeTrialResetDate(RESET_AT)).toBe(
-      'Nov 1, 2026, 8:00 AM',
-    );
+    expect(formatPrimeFreeTrialResetDate(RESET_AT)).toBe('Nov 1, 2026');
 
     setLocale('zh-CN');
-    expect(formatPrimeFreeTrialResetDate(RESET_AT)).toBe(
-      '2026-11-01 上午 8:00',
-    );
+    expect(formatPrimeFreeTrialResetDate(RESET_AT)).toBe('2026-11-01');
 
     setLocale('ja-JP');
-    expect(formatPrimeFreeTrialResetDate(RESET_AT)).toBe('2026/11/01 8:00');
+    expect(formatPrimeFreeTrialResetDate(RESET_AT)).toBe('2026/11/01');
   });
 
   it('formats the reservation end time in the app language', () => {

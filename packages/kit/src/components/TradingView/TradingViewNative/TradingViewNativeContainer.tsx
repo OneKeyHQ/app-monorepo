@@ -71,7 +71,6 @@ import {
   updateTradingViewNativeIndicatorActiveState,
 } from './indicatorSettingsAdapter';
 import { localizeTradingViewNativeIndicatorSettingsValue } from './indicatorSettingsLocalization';
-import { mergeMobileIndicatorSettings } from './mobileIndicatorSettingsUtils';
 import { showTradingViewNativeIndicatorSettingsDialog } from './showTradingViewNativeIndicatorSettingsDialog';
 import { TradingViewNativeChart } from './TradingViewNativeChart';
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
@@ -725,38 +724,87 @@ const TradingViewNativeContent = memo(
         onNativeChartFullscreenChange?.(false);
       }
     }, [isNativeChartFullscreen, onNativeChartFullscreenChange]);
+    const pendingIndicatorSettingsRef = useRef<{
+      dataProviderKey: string;
+      indicator?: ITradingViewNativeAnyIndicator;
+      storageNamespace: ITradingViewNativeProps['storageNamespace'];
+    }>(undefined);
+    const openMobileIndicatorSettings = useCallback(
+      (indicator?: ITradingViewNativeAnyIndicator) => {
+        navigation.pushModal(EModalRoutes.MarketModal, {
+          screen: EModalMarketRoutes.MarketIndicatorSettings,
+          params: {
+            storageNamespace: storageNamespace ?? 'market',
+            indicatorId: indicator,
+          },
+        });
+      },
+      [navigation, storageNamespace],
+    );
+    useEffect(() => {
+      const pending = pendingIndicatorSettingsRef.current;
+      if (!pending) {
+        return;
+      }
+      if (
+        pending.dataProviderKey !== dataProviderKey ||
+        pending.storageNamespace !== storageNamespace ||
+        nativeControlsLayoutMode === 'desktop'
+      ) {
+        pendingIndicatorSettingsRef.current = undefined;
+        return;
+      }
+      if (isNativeChartFullscreen) {
+        return;
+      }
+      // Let the fullscreen host's layout-effect teardown commit before navigation.
+      const frame = requestAnimationFrame(() => {
+        if (pendingIndicatorSettingsRef.current !== pending) {
+          return;
+        }
+        pendingIndicatorSettingsRef.current = undefined;
+        openMobileIndicatorSettings(pending.indicator);
+      });
+      return () => cancelAnimationFrame(frame);
+    }, [
+      dataProviderKey,
+      isNativeChartFullscreen,
+      nativeControlsLayoutMode,
+      openMobileIndicatorSettings,
+      storageNamespace,
+    ]);
     const handleIndicatorSettingsPress = useCallback(
       (indicator?: ITradingViewNativeAnyIndicator) => {
-        if (nativeControlsLayoutMode !== 'desktop' && !indicator) {
-          handleExitFullscreen();
-          navigation.pushModal(EModalRoutes.MarketModal, {
-            screen: EModalMarketRoutes.MarketIndicatorSettings,
-            params: {
-              storageNamespace: storageNamespace ?? 'market',
-            },
-          });
+        if (nativeControlsLayoutMode !== 'desktop') {
+          pendingIndicatorSettingsRef.current = undefined;
+          if (isNativeChartFullscreen) {
+            pendingIndicatorSettingsRef.current = {
+              dataProviderKey,
+              indicator,
+              storageNamespace,
+            };
+            handleExitFullscreen();
+          } else {
+            openMobileIndicatorSettings(indicator);
+          }
           return;
         }
         showTradingViewNativeIndicatorSettingsDialog({
-          displayMode:
-            nativeControlsLayoutMode === 'desktop' ? 'full' : 'focused',
+          displayMode: 'full',
           initialIndicatorId: indicator,
           intl,
-          onConfirm: (nextValue) =>
-            nativeControlsLayoutMode !== 'desktop' && indicator
-              ? setIndicatorSettings((current) =>
-                  mergeMobileIndicatorSettings(current, nextValue, indicator),
-                )
-              : setIndicatorSettings(nextValue),
+          onConfirm: (nextValue) => setIndicatorSettings(nextValue),
           value: indicatorSettingsValue,
         });
       },
       [
+        dataProviderKey,
         handleExitFullscreen,
         indicatorSettingsValue,
         intl,
+        isNativeChartFullscreen,
         nativeControlsLayoutMode,
-        navigation,
+        openMobileIndicatorSettings,
         setIndicatorSettings,
         storageNamespace,
       ],

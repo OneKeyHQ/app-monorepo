@@ -188,6 +188,7 @@ export function TabPageHeader({
   customToolbarItems,
   hideSearch = false,
   hideHeaderLeft = false,
+  disableHomeHeaderGlass = false,
   headerPx,
   pageScrollPosition,
 }: ITabPageHeaderProp) {
@@ -220,6 +221,7 @@ export function TabPageHeader({
         customHeaderRightItems={customHeaderRightItems}
         renderCustomHeaderRightItems={renderCustomHeaderRightItems}
         headerPx={headerPx}
+        disableHomeHeaderGlass={disableHomeHeaderGlass}
         pageScrollPosition={pageScrollPosition}
       />
     );
