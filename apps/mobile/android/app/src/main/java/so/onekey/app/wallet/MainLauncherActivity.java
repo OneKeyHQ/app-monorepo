@@ -9,6 +9,7 @@ import com.margelo.nitro.nativelogger.OneKeyLog;
 import com.margelo.nitro.reactnativebundleupdate.BundleUpdateStoreAndroid;
 import com.tencent.mmkv.MMKV;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import so.onekey.app.wallet.travelmode.OneKeyTravelModeSplashScreen;
@@ -44,9 +45,16 @@ public class MainLauncherActivity extends Activity {
             if (recordedFailedTarget) {
               String pendingJson = settings.decodeString("onekey_pending_install_task");
               if (pendingJson != null) {
-                JSONObject task = new JSONObject(pendingJson);
-                JSONObject payload = task.optJSONObject("payload");
-                if ("pending".equals(task.opt("status"))
+                JSONObject task = null;
+                try {
+                  task = new JSONObject(pendingJson);
+                } catch (JSONException error) {
+                  // An unreadable task cannot be executed and must not block rollback.
+                  settings.removeValueForKey("onekey_pending_install_task");
+                }
+                JSONObject payload = task != null ? task.optJSONObject("payload") : null;
+                if (task != null
+                    && "pending".equals(task.opt("status"))
                     && "jsbundle-switch".equals(task.opt("type"))
                     && "switch-bundle".equals(task.opt("action"))
                     && BuildConfig.VERSION_NAME.equals(task.opt("targetAppVersion"))
