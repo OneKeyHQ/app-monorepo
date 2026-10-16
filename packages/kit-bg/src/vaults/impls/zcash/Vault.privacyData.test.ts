@@ -467,7 +467,7 @@ describe('Zcash unresolved-broadcast gate without the scanner', () => {
   });
 });
 
-// ADR 0002: once signed, a failure later in the flow must not free the inputs.
+// Once signed, a failure later in the flow must not free the inputs.
 describe('Zcash PCZT failure cleanup', () => {
   function createVault(state: 'unsigned' | 'signed') {
     const zcashReleasePczt = jest.fn(async () => undefined);

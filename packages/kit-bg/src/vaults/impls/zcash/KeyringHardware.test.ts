@@ -509,7 +509,7 @@ describe('Zcash KeyringHardware', () => {
         ufvk: 'uview1device',
         unifiedAddress: 'u1device',
         // The app's own derivation is kept beside the device's, so the
-        // firmware's P2PKH drop (docs/05 D17) becomes checkable later.
+        // firmware's P2PKH drop (Orchard-only UA) becomes checkable later.
         derivedUnifiedAddress: 'u1app',
         transparentAddress: 't1account',
         seedFingerprintHex: 'ab'.repeat(32),
