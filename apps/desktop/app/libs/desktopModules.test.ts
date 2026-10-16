@@ -67,25 +67,25 @@ describe('desktop module release verification', () => {
   it('requires the approved manifest bytes, source, version and release identity', () => {
     const { release, manifest, pin } = fixture();
     expect(policy.readApprovedRelease(manifest, pin)).toEqual(release);
-    expect(() =>
+    expect(() => {
       policy.readApprovedRelease(manifest, {
         ...pin,
         sourceCommit: 'b'.repeat(40),
-      }),
-    ).toThrow('approved source/version');
-    expect(() =>
-      policy.readApprovedRelease(manifest, { ...pin, version: '44.0.2' }),
-    ).toThrow('approved source/version');
+      });
+    }).toThrow('approved source/version');
+    expect(() => {
+      policy.readApprovedRelease(manifest, { ...pin, version: '44.0.2' });
+    }).toThrow('approved source/version');
     fs.appendFileSync(manifest, '\n');
-    expect(() => policy.readApprovedRelease(manifest, pin)).toThrow(
-      'digest mismatch',
-    );
-    expect(() =>
+    expect(() => {
+      policy.readApprovedRelease(manifest, pin);
+    }).toThrow('digest mismatch');
+    expect(() => {
       policy.validateRelease({
         ...release,
         repository: 'unexpected/repository',
-      }),
-    ).toThrow('identity');
+      });
+    }).toThrow('identity');
   });
 
   it('verifies the exact installed inventory without loading package code', () => {
@@ -129,8 +129,8 @@ describe('desktop module release verification', () => {
       '--bundle',
       'proof',
     ]);
-    expect(() => policy.attestationArgs('artifact', 'main')).toThrow(
-      'source commit',
-    );
+    expect(() => {
+      policy.attestationArgs('artifact', 'main');
+    }).toThrow('source commit');
   });
 });
