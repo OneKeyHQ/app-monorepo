@@ -22,9 +22,11 @@ export type IZcashGetChainTipParams = {
 
 export type IZcashDeriveAccountParams = {
   network: IZcashNetwork;
-  // BIP39 64-byte seed (JSON-safe wire format); enters only the keys wasm to derive USK -> UFVK.
-  // Must never be logged or persisted — the wallet runtime receives only the viewing-level result.
-  seedHex: string;
+  // 32-byte Orchard account spending key (m/32'/133'/hdIndex'), hex. The
+  // BIP39 seed never crosses the carrier; never log or persist this.
+  orchardSkHex: string;
+  // Transparent account xpub (m/44'/133'/hdIndex').
+  accountXpub: string;
   hdIndex: number;
   // Full wallet carriers use this to query the chain tip; keys-only carriers derive addresses offline and return a null tip.
   lightwalletdUrl: string;
@@ -32,7 +34,6 @@ export type IZcashDeriveAccountParams = {
 
 export type IZcashDeriveAccountResult = {
   ufvk: string; // encoded UnifiedFullViewingKey (viewing capability, like xpub)
-  seedFingerprintHex: string;
   unifiedAddress: string;
   transparentAddress: string; // t1... derived from the UFVK
   // Chain tip at derivation time; callers persist it as a fixed birthday for freshly created accounts (null if the tip fetch failed/offline).
@@ -67,7 +68,10 @@ export type IZcashCombinePcztParams = {
 
 export type IZcashSignPcztParams = {
   network: IZcashNetwork;
-  seedHex: string; // re-derives USK inside the wasm at sign time, then discarded
+  // Orchard account spending key and raw 78-byte transparent account xprv,
+  // both hex; the wasm rebuilds the UFVK from them and requires review.ufvk.
+  orchardSkHex: string;
+  accountXprvHex: string;
   hdIndex: number;
   pcztHex: string;
   review: IZcashPcztReviewRequest;
@@ -447,9 +451,6 @@ export type IZcashSdkApi = {
   quoteTransparentTx: (
     params: IZcashTransparentTxRequest,
   ) => Promise<IZcashTransparentTxQuote>;
-  buildTransparentTxWithSeed: (
-    params: IZcashTransparentTxRequest & { seedHex: string },
-  ) => Promise<IZcashTransparentTxBuildResult>;
   buildTransparentTxWithAccountXprv: (
     params: IZcashTransparentTxRequest & { accountXprvHex: string },
   ) => Promise<IZcashTransparentTxBuildResult>;

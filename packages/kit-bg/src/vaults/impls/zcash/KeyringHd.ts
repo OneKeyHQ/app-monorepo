@@ -1,5 +1,10 @@
 import bs58check from 'bs58check';
 
+import {
+  deriveZcashAccountSecrets,
+  deriveZcashAccountViewingSecrets,
+} from '@onekeyhq/core/src/chains/zcash/accountSecrets';
+import type { IZcashAccountViewingSecrets } from '@onekeyhq/core/src/chains/zcash/accountSecrets';
 import { ZCASH_NETWORK_MAIN } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 import { fetchZcashChainTipDirect } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
 import type {
@@ -52,6 +57,12 @@ function isSameAccountXpubKey(a: string, b: string): boolean {
   return keyBytes(left).equals(keyBytes(right));
 }
 
+function bytesToHex(bytes: Uint8Array): string {
+  return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.length).toString(
+    'hex',
+  );
+}
+
 export class KeyringHd extends KeyringHdBtc {
   override coreApi = coreChainApi.zec.hd;
 
@@ -69,9 +80,9 @@ export class KeyringHd extends KeyringHdBtc {
 
   // PCZT signing path. The vault built and locked the PCZT at review time
   // (Vault.zcashAttachPczt); this keyring only proves it and signs with the
-  // USK re-derived from the seed. A hardware keyring runs the same three
-  // vault steps with the device as the signer. Never routes through the BTC
-  // sighash path (core signTransaction throws).
+  // account keys re-derived from the seed in the background. A hardware
+  // keyring runs the same three vault steps with the device as the signer.
+  // Never routes through the BTC sighash path (core signTransaction throws).
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
@@ -176,42 +187,88 @@ export class KeyringHd extends KeyringHdBtc {
       encodedTx,
       request,
       parseOutputs: (result) => zcashVault.zcashParseTransparentOutputs(result),
-      sign: async () => {
-        const credentials = await this.baseGetCredentialsInfo({ password });
-        const seedBuf = await seedFromHdCredentialAsync({
-          hdCredential: checkIsDefined(credentials.hd),
-          password,
-          ...getPbkdf2KdfParamsForNonDbTx(),
-        });
-        try {
-          const api = await zcashVault.zcashGetApi();
-          if (await isZcashHardwarePreviewEnabled(this.backgroundApi)) {
-            try {
-              await this.printTransparentHardwarePreview({
-                request,
-                seedHex: seedBuf.toString('hex'),
-              });
-            } catch (e) {
-              const reason = e instanceof Error ? e.message : String(e);
-              console.error('[zcash-hw-preview] transparent preview failed', e);
-              throw new OneKeyLocalError(
-                `Zcash hardware request preview failed: ${reason}`,
-              );
+      sign: () =>
+        this.withAccountSecrets(
+          {
+            password,
+            derive: (seed) =>
+              deriveZcashAccountSecrets({
+                seed,
+                accountIndex: request.accountIndex,
+              }),
+          },
+          async (secrets) => {
+            if (await isZcashHardwarePreviewEnabled(this.backgroundApi)) {
+              try {
+                await this.printTransparentHardwarePreview({
+                  request,
+                  secrets,
+                });
+              } catch (e) {
+                const reason = e instanceof Error ? e.message : String(e);
+                console.error(
+                  '[zcash-hw-preview] transparent preview failed',
+                  e,
+                );
+                throw new OneKeyLocalError(
+                  `Zcash hardware request preview failed: ${reason}`,
+                );
+              }
+              throw new OneKeyLocalError(ZCASH_HW_PREVIEW_STOP_MESSAGE);
             }
-            throw new OneKeyLocalError(ZCASH_HW_PREVIEW_STOP_MESSAGE);
-          }
-          // A shield proves its Orchard output here; hold off background sync on the same Worker.
-          return await zcashTrackUserOperation(() =>
-            api.buildTransparentTxWithSeed({
-              ...request,
-              seedHex: seedBuf.toString('hex'),
-            }),
-          );
-        } finally {
-          seedBuf.fill(0);
-        }
-      },
+            const api = await zcashVault.zcashGetApi();
+            // A shield proves its Orchard output here; hold off background sync on the same Worker.
+            return zcashTrackUserOperation(() =>
+              api.buildTransparentTxWithAccountXprv({
+                ...request,
+                accountXprvHex: secrets.accountXprvHex,
+              }),
+            );
+          },
+        ),
     });
+  }
+
+  // Derives account-scoped keys from the seed in the background and wipes the
+  // seed before any SDK call: the Zcash SDK never receives the seed.
+  private async withAccountSecrets<S extends IZcashAccountViewingSecrets, T>(
+    {
+      password,
+      derive,
+    }: {
+      password: string;
+      derive: (seed: Uint8Array) => S;
+    },
+    fn: (secrets: S) => Promise<T>,
+  ): Promise<T> {
+    const account = await this.backgroundApi.serviceAccount.getDBAccount({
+      accountId: this.vault.accountId,
+    });
+    if (!('xpub' in account) || !account.xpub) {
+      throw new OneKeyLocalError('zcash: account xpub missing');
+    }
+    const credentials = await this.baseGetCredentialsInfo({ password });
+    const seedBuf = await seedFromHdCredentialAsync({
+      hdCredential: checkIsDefined(credentials.hd),
+      password,
+      ...getPbkdf2KdfParamsForNonDbTx(),
+    });
+    let secrets: S;
+    try {
+      secrets = derive(seedBuf);
+    } finally {
+      seedBuf.fill(0);
+    }
+    try {
+      if (!isSameAccountXpubKey(account.xpub, secrets.accountXpub)) {
+        throw new OneKeyLocalError(
+          'zcash: derived account key does not match this account',
+        );
+      }
+      return await fn(secrets);
+    } finally {
+      secrets.orchardSk.fill(0);
+    }
   }
 
   // Dev-only. Mirrors KeyringHardware.signTransparentTransaction: viewing key
@@ -219,10 +276,10 @@ export class KeyringHd extends KeyringHdBtc {
   // that UFVK, then the same PCZT the device would be asked to sign.
   private async printTransparentHardwarePreview({
     request,
-    seedHex,
+    secrets,
   }: {
     request: IZcashTransparentTxRequest;
-    seedHex: string;
+    secrets: IZcashAccountViewingSecrets;
   }): Promise<void> {
     const vault = this.vault as Vault;
     const api = await vault.zcashGetApi();
@@ -232,10 +289,12 @@ export class KeyringHd extends KeyringHdBtc {
     const keys = meta ?? {
       ...(await api.deriveAccount({
         network: ZCASH_NETWORK_MAIN,
-        seedHex,
+        orchardSkHex: bytesToHex(secrets.orchardSk),
+        accountXpub: secrets.accountXpub,
         hdIndex: request.accountIndex,
         lightwalletdUrl: await vault.zcashResolveLightwalletdUrl(),
       })),
+      seedFingerprintHex: secrets.seedFingerprintHex,
       hdIndex: request.accountIndex,
     };
     const { xpub } = await api.deriveTransparentXpubFromUfvk({
@@ -266,7 +325,7 @@ export class KeyringHd extends KeyringHdBtc {
     });
   }
 
-  // Signs a proved PCZT hex with the USK re-derived from the seed.
+  // Signs a proved PCZT hex with the account keys re-derived from the seed.
   private async signPcztHex({
     password,
     hdIndex,
@@ -278,24 +337,24 @@ export class KeyringHd extends KeyringHdBtc {
     pcztHex: string;
     review: IZcashPcztReviewRequest;
   }): Promise<{ pcztHex: string }> {
-    const credentials = await this.baseGetCredentialsInfo({ password });
-    const seedBuf = await seedFromHdCredentialAsync({
-      hdCredential: checkIsDefined(credentials.hd),
-      password,
-      ...getPbkdf2KdfParamsForNonDbTx(),
-    });
-    try {
-      const api = await (this.vault as Vault).zcashGetApi();
-      return await api.signPczt({
-        network: ZCASH_NETWORK_MAIN,
-        seedHex: seedBuf.toString('hex'),
-        hdIndex,
-        pcztHex,
-        review,
-      });
-    } finally {
-      seedBuf.fill(0);
-    }
+    return this.withAccountSecrets(
+      {
+        password,
+        derive: (seed) =>
+          deriveZcashAccountSecrets({ seed, accountIndex: hdIndex }),
+      },
+      async (secrets) => {
+        const api = await (this.vault as Vault).zcashGetApi();
+        return api.signPczt({
+          network: ZCASH_NETWORK_MAIN,
+          orchardSkHex: bytesToHex(secrets.orchardSk),
+          accountXprvHex: secrets.accountXprvHex,
+          hdIndex,
+          pcztHex,
+          review,
+        });
+      },
+    );
   }
 
   override async prepareAccounts(
@@ -355,33 +414,38 @@ export class KeyringHd extends KeyringHdBtc {
     const account = await this.backgroundApi.serviceAccount.getDBAccount({
       accountId,
     });
-    const credentials = await this.baseGetCredentialsInfo({ password });
-    const seedBuf = await seedFromHdCredentialAsync({
-      hdCredential: checkIsDefined(credentials.hd),
-      password,
-      ...getPbkdf2KdfParamsForNonDbTx(),
-    });
-    try {
-      await this.zcashDeriveAndSaveOneAccountMeta({
-        account,
-        seedHex: seedBuf.toString('hex'),
-      });
-    } finally {
-      seedBuf.fill(0);
-    }
+    await this.withAccountSecrets(
+      {
+        password,
+        derive: (seed) =>
+          deriveZcashAccountViewingSecrets({
+            seed,
+            accountIndex: checkIsDefined(account.pathIndex),
+          }),
+      },
+      (secrets) =>
+        this.zcashDeriveAndSaveOneAccountMeta({
+          account,
+          secrets,
+        }),
+    );
   }
 
   private async zcashDeriveAndSaveOneAccountMeta({
     account,
-    seedHex,
+    secrets,
   }: {
     account: IDBAccount;
-    seedHex: string;
+    secrets: IZcashAccountViewingSecrets;
   }) {
+    const secretsHdIndex = checkIsDefined(account.pathIndex);
     await resolveAndSaveZcashAccountMeta({
       backgroundApi: this.backgroundApi,
       account,
       derive: async ({ hdIndex }) => {
+        if (hdIndex !== secretsHdIndex) {
+          throw new OneKeyLocalError('zcash: account index mismatch');
+        }
         const vault = this.vault as Vault;
         const api = await vault.zcashGetApi();
         const lightwalletdUrl = await vault.zcashResolveLightwalletdUrl();
@@ -394,13 +458,18 @@ export class KeyringHd extends KeyringHdBtc {
             // eslint-disable-next-line no-await-in-loop
             const derived = await api.deriveAccount({
               network: ZCASH_NETWORK_MAIN,
-              seedHex,
+              orchardSkHex: bytesToHex(secrets.orchardSk),
+              accountXpub: secrets.accountXpub,
               hdIndex,
               lightwalletdUrl,
             });
-            if (derived.chainTip !== null) return derived;
-            return {
+            const viewing = {
               ...derived,
+              seedFingerprintHex: secrets.seedFingerprintHex,
+            };
+            if (viewing.chainTip !== null) return viewing;
+            return {
+              ...viewing,
               // eslint-disable-next-line no-await-in-loop
               chainTip: await fetchZcashChainTipDirect({
                 lightwalletdUrl,

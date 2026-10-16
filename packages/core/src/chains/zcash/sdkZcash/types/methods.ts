@@ -32,7 +32,6 @@ export const ZCASH_SDK_METHODS = [
   'combinePczt',
   'parseTransparentTransactions',
   'quoteTransparentTx',
-  'buildTransparentTxWithSeed',
   'buildTransparentTxWithAccountXprv',
   'createTransparentHardwarePczt',
   'finalizeTransparentHardwarePczt',
