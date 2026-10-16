@@ -30,6 +30,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import type {
   IAddressValidation,
+  IFetchAccountDetailsResp,
   IGeneralInputValidation,
   INetworkAccountAddressDetail,
   IPrivateKeyValidation,
@@ -41,7 +42,10 @@ import type {
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
 import type { IEstimateFeeParams } from '@onekeyhq/shared/types/fee';
-import type { IToken } from '@onekeyhq/shared/types/token';
+import type {
+  IFetchTokenDetailItem,
+  IToken,
+} from '@onekeyhq/shared/types/token';
 import {
   EDecodedTxActionType,
   EDecodedTxDirection,
@@ -76,6 +80,35 @@ import type {
 } from '../../types';
 import type { SignTransferTxParams } from '@alephium/web3';
 
+// The Alephium node's `/transactions/build` reserves one dust amount
+// (0.001 ALPH) for the sender's ALPH change output while selecting UTXOs and
+// rejects the build otherwise ("Not enough balance"), so that reserve can never
+// be spent through a normal transfer (only `sweep-address` moves it). Report it
+// as frozen so Max, the confirm page and the balance checks all exclude it.
+function splitChangeOutputReserve({
+  balance,
+  decimals,
+}: {
+  balance: string | undefined;
+  decimals: number;
+}) {
+  const total = new BigNumber(balance ?? NaN);
+  if (!total.isFinite()) {
+    return undefined;
+  }
+  const frozen = BigNumber.min(total, DUST_AMOUNT.toString());
+  const spendable = total.minus(frozen);
+  const toAmount = (value: BigNumber) => value.shiftedBy(-decimals).toFixed();
+  return {
+    balance: spendable.toFixed(),
+    balanceParsed: toAmount(spendable),
+    frozenBalance: frozen.toFixed(),
+    frozenBalanceParsed: toAmount(frozen),
+    totalBalance: total.toFixed(),
+    totalBalanceParsed: toAmount(total),
+  };
+}
+
 export default class Vault extends VaultBase {
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
@@ -101,6 +134,36 @@ export default class Vault extends VaultBase {
       isValid: true,
       allowEmptyAddress: false,
     };
+  }
+
+  override async fillTokensDetails({
+    tokensDetails,
+  }: {
+    tokensDetails: IFetchTokenDetailItem[];
+  }): Promise<IFetchTokenDetailItem[]> {
+    return tokensDetails.map((token) => {
+      if (!token.info.isNative) {
+        return token;
+      }
+      const reserve = splitChangeOutputReserve({
+        balance: token.balance,
+        decimals: token.info.decimals,
+      });
+      return reserve ? { ...token, ...reserve } : token;
+    });
+  }
+
+  override async fillAccountDetails({
+    accountDetails,
+  }: {
+    accountDetails: IFetchAccountDetailsResp;
+  }): Promise<IFetchAccountDetailsResp> {
+    const network = await this.getNetwork();
+    const reserve = splitChangeOutputReserve({
+      balance: accountDetails.balance,
+      decimals: network.decimals,
+    });
+    return reserve ? { ...accountDetails, ...reserve } : accountDetails;
   }
 
   override async buildEncodedTx(
@@ -325,14 +388,15 @@ export default class Vault extends VaultBase {
       const txParams = encodedTx.params as SignTransferTxParams;
       if (txParams.destinations[0].attoAlphAmount.toString() !== '0') {
         const network = await this.getNetwork();
+        // `maxSendAmount` is the spendable balance minus the fee; the
+        // change-output dust reserve is already excluded from the spendable
+        // balance (see `fillTokensDetails`), so it must not be taken off again.
         txParams.destinations[0].attoAlphAmount = new BigNumber(
           chainValueUtils.convertAmountToChainValue({
             value: params.nativeAmountInfo.maxSendAmount,
             network,
           }),
-        )
-          .minus(DUST_AMOUNT.toString())
-          .toFixed();
+        ).toFixed(0, BigNumber.ROUND_FLOOR);
       } else {
         if (!txParams.destinations[0].tokens) {
           throw new OneKeyInternalError('No tokens found');
@@ -425,6 +489,7 @@ export default class Vault extends VaultBase {
   }> {
     const account = await this.getAccount();
     defaultLogger.account.account.printAccount({ account });
+    let estimateParams = encodedTx?.params;
     if (encodedTx?.type === EAlphTxType.Transfer) {
       const balance =
         await this.backgroundApi.serviceAccountProfile.fetchAccountNativeBalance(
@@ -434,13 +499,31 @@ export default class Vault extends VaultBase {
           },
         );
       const params = encodedTx.params as SignTransferTxParams;
-      if (balance.balance === params.destinations[0].attoAlphAmount) {
-        const amount = new BigNumber(params.destinations[0].attoAlphAmount)
-          .minus(MAX_GAS_AMOUNT)
-          .minus(DUST_AMOUNT.toString());
-        params.destinations[0].attoAlphAmount = amount.gt(0)
-          ? amount.toFixed(0)
-          : '0';
+      const [destination, ...otherDestinations] = params.destinations;
+      // `fetchAccountNativeBalance` returns the raw on-chain balance, so the
+      // change-output dust reserve still has to come off here.
+      const spendable = new BigNumber(balance.balance ?? NaN).minus(
+        DUST_AMOUNT.toString(),
+      );
+      if (
+        destination &&
+        spendable.isFinite() &&
+        new BigNumber(destination.attoAlphAmount.toString()).gte(spendable)
+      ) {
+        // A max send leaves no room for the gas that is being estimated here,
+        // so estimate with a copy that keeps the maximal gas free. The tx
+        // that gets signed later must not carry this estimate-only amount.
+        const amount = spendable.minus(MAX_GAS_AMOUNT);
+        estimateParams = {
+          ...params,
+          destinations: [
+            {
+              ...destination,
+              attoAlphAmount: amount.gt(0) ? amount.toFixed(0) : '0',
+            },
+            ...otherDestinations,
+          ],
+        };
       }
     }
 
@@ -453,7 +536,7 @@ export default class Vault extends VaultBase {
 
     return {
       encodedTx: {
-        ...encodedTx?.params,
+        ...estimateParams,
         type,
         networkId: 'mainnet',
         fromPublicKey: account.pub,
