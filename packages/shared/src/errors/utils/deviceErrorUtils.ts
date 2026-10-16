@@ -138,6 +138,13 @@ export function convertDeviceError(
       });
     case HardwareErrorCode.DeviceInitializeFailed:
       return new HardwareErrors.DeviceInitializeFailed({ payload });
+    case HardwareErrorCode.TransportProtocolProbeFailed:
+    case HardwareErrorCode.TransportProtocolMismatch:
+      return new HardwareErrors.OneKeyHardwareError({
+        payload,
+        code,
+        key: ETranslations.hardware_communication_error,
+      });
     case HardwareErrorCode.DeviceDetectInBootloaderMode:
       return new HardwareErrors.DeviceDetectInBootloaderMode({ payload });
     case HardwareErrorCode.DeviceInterruptedFromOutside:
