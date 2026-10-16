@@ -133,6 +133,18 @@ export function isDeviceStageCarryingFailures(
 }
 
 /**
+ * Names one painted step of the stage: every step write bumps
+ * `activitySeq` within a burst, and a new burst after an off takes a new
+ * `burstId`. The error notice's retire carries the key of the outcome it
+ * was armed for, so it never takes down one painted since (OK-64696).
+ */
+export function deviceStageOutcomeKey(
+  state: { burstId?: number; activitySeq?: number } | undefined,
+): string | undefined {
+  return state ? `${state.burstId ?? 0}:${state.activitySeq ?? 0}` : undefined;
+}
+
+/**
  * Whether the legacy popup surfaces the DeviceStage replaced are still in
  * play.
  *

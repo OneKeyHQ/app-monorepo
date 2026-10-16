@@ -988,8 +988,9 @@ export function DeviceStage({
 
   // The notice's exit: after a readable hold — counted from the words
   // landing on show, and again for each new outcome (errorNoticeKey) —
-  // the stage asks the driver to retire it. Ref-called so a driver
-  // re-creating its handler never restarts the hold.
+  // the stage asks the driver to retire the outcome the hold was armed
+  // for, never one that replaced it as the timer ran out. Ref-called so
+  // a driver re-creating its handler never restarts the hold.
   const errorNoticeShown = shownStep === 'error' && errorNoticeForm;
   const onErrorNoticeExpireRef = useRef(onErrorNoticeExpire);
   onErrorNoticeExpireRef.current = onErrorNoticeExpire;
@@ -998,7 +999,7 @@ export function DeviceStage({
       return undefined;
     }
     const id = setTimeout(
-      () => onErrorNoticeExpireRef.current?.(),
+      () => onErrorNoticeExpireRef.current?.(errorNoticeKey),
       ERROR_NOTICE_EXIT_MS,
     );
     return () => clearTimeout(id);

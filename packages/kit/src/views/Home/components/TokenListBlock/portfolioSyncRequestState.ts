@@ -64,16 +64,28 @@ export function resolvePortfolioSyncRequestTransition({
   };
 }
 
-// A stage exit speaks only for the request whose own stage hold it closes.
-// One that lands before the hold has opened belongs to whatever stood on
-// the stage when the tap came — the previous attempt's ✗ retiring under a
-// page it no longer blocks (OK-64696) — and must not end the new request.
+export type IPortfolioSyncStageHold = {
+  requestId: number;
+  burstId: number | undefined;
+};
+
+// A stage exit speaks only for the request whose own stage hold it closes,
+// matched by the burst the exit names. Arrival order proves nothing: on
+// split runtimes the previous attempt's exit (its ✗ retiring under a page
+// it no longer blocks, OK-64696) can land after the new hold has opened.
 export function shouldPortfolioSyncStandDownOnStageOff({
   request,
-  stageOpenedForRequestId,
+  stageHold,
+  offBurstId,
 }: {
   request: IPortfolioSyncRequest | undefined;
-  stageOpenedForRequestId: number | undefined;
+  stageHold: IPortfolioSyncStageHold | undefined;
+  offBurstId: number | undefined;
 }): boolean {
-  return request !== undefined && request.id === stageOpenedForRequestId;
+  return (
+    request !== undefined &&
+    stageHold?.requestId === request.id &&
+    stageHold.burstId !== undefined &&
+    stageHold.burstId === offBurstId
+  );
 }

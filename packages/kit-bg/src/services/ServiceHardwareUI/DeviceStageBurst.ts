@@ -27,6 +27,7 @@ import {
   DEVICE_STAGE_DISCONNECTED_CODES,
 } from '@onekeyhq/shared/src/hardware/deviceStageErrorCodes';
 import {
+  deviceStageOutcomeKey,
   isDeviceStageMachineWaitStep,
   isDeviceStageOwnedHardwareUiAction,
   isFirmwareConfirmTip,
@@ -534,6 +535,10 @@ export class DeviceStageBurstScope {
    * after the exit keeps its beat for an off that just landed. */
   private lastOffAt = 0;
 
+  /** Counts the offs written, so a begin can tell that the stage it read
+   * left while it awaited. */
+  private offSeq = 0;
+
   getLastOffAt() {
     return this.lastOffAt;
   }
@@ -661,6 +666,7 @@ export class DeviceStageBurstScope {
         // A new burst owns the stage; a nested wrapper joining mid-dwell
         // (depth >= 2) is not a new narrative and must not disarm it.
         this.clearAuthHold();
+        const offSeq = this.offSeq;
         const prev = await deviceStageAtom.get();
         const stillEnabled = await this.isEnabled();
         // Re-checked after the awaits: the firmware workflow can take the
@@ -672,7 +678,11 @@ export class DeviceStageBurstScope {
           rollback();
           return false;
         }
-        const stageStillOn = prev && prev.step !== 'off';
+        // A stage that left while this begin awaited (the ✗ retiring on its
+        // own) has already announced its burstId; rejoining it would let
+        // that exit read as this burst's (OK-64696).
+        const stageStillOn =
+          prev && prev.step !== 'off' && offSeq === this.offSeq;
         // A follow-up wrapper inside the grace window rejoins the visible
         // stage: keep the burstId so the container's close grant stays armed.
         this.burstSeq = stageStillOn ? prev.burstId : this.burstSeq + 1;
@@ -1789,8 +1799,9 @@ export class DeviceStageBurstScope {
   /**
    * Retires the error outcome the person saw (OK-64696) — when the
    * notice's readable hold runs out, and when they close the ✗: closing
-   * an outcome leaves no call to cancel. `seen` names that outcome as the
-   * UI last had it. The ✗ leaves only while it is still that outcome,
+   * an outcome leaves no call to cancel. `outcomeKey` names that outcome
+   * (deviceStageOutcomeKey) as the UI had it when the hold was armed or
+   * the ✕ was pressed. The ✗ leaves only while it is still that outcome,
    * decided inside the atom's own update, so a step painted since (a
    * retry's opening, an ask, a newer ✗) is never taken down; an off that
    * never reached the UI is sent again, since the ✗ the person acted on
@@ -1799,10 +1810,10 @@ export class DeviceStageBurstScope {
    * running behind the notice still lands its own outcome), nothing is
    * cancelled, and no close is announced.
    */
-  async retireErrorOutcome(seen: { burstId?: number; activitySeq?: number }) {
+  async retireErrorOutcome(outcomeKey: string | undefined) {
     await this.writeOff((prev) =>
       prev.step === 'error'
-        ? prev.burstId === seen.burstId && prev.activitySeq === seen.activitySeq
+        ? deviceStageOutcomeKey(prev) === outcomeKey
         : prev.step === 'off' && this.offBroadcastPending,
     );
   }
@@ -1984,12 +1995,14 @@ export class DeviceStageBurstScope {
     shouldWrite: (prev: IDeviceStageState) => boolean = () => true,
   ): Promise<boolean> {
     let wrote = false;
+    let leftBurstId: number | undefined;
     try {
       await deviceStageAtom.set((prev) => {
         if (!prev || !shouldWrite(prev)) {
           return prev;
         }
         wrote = true;
+        leftBurstId = prev.burstId;
         return offStateFrom(prev);
       });
     } catch {
@@ -2006,10 +2019,25 @@ export class DeviceStageBurstScope {
     }
     this.offBroadcastPending = false;
     this.lastOffAt = Date.now();
+    this.offSeq += 1;
     // Every exit announces itself: a flow awaiting a card's answer must
-    // stop waiting on a card that is gone, whichever route took it.
-    appEventBus.emit(EAppEventBusNames.DeviceStageOff, undefined);
+    // stop waiting on a card that is gone, whichever route took it. It
+    // names the burst whose stage left: on split runtimes the event can
+    // land after a flow has already opened its next hold, which must not
+    // take the earlier stage's exit for its own (OK-64696).
+    appEventBus.emit(EAppEventBusNames.DeviceStageOff, {
+      burstId: leftBurstId,
+    });
     return true;
+  }
+
+  /** The burst a live explicit hold stands in, the id DeviceStageOff names
+   * when that stage leaves. Undefined for a stale token, and for a hold
+   * that opened no stage (minted while the stage was silenced). */
+  getExplicitBurstId(token: number) {
+    return token === this.explicitToken && this.explicitOpened
+      ? this.burstSeq
+      : undefined;
   }
 
   private async setStep(

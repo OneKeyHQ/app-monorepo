@@ -179,6 +179,7 @@ import { useTokenListReactivePipeline } from './useTokenListReactivePipeline';
 import type {
   IPortfolioSyncRequest,
   IPortfolioSyncRequestPhase,
+  IPortfolioSyncStageHold,
 } from './portfolioSyncRequestState';
 
 const networkIdsMap = getNetworkIdsMap();
@@ -480,7 +481,7 @@ function TokenListBlock({
   const portfolioSyncRequestRef = useRef<IPortfolioSyncRequest | undefined>(
     undefined,
   );
-  const portfolioSyncStageOpenedRequestIdRef = useRef<number | undefined>(
+  const portfolioSyncStageHoldRef = useRef<IPortfolioSyncStageHold | undefined>(
     undefined,
   );
   const portfolioSyncAllNetworksFallbackTimerRef = useRef<
@@ -603,13 +604,16 @@ function TokenListBlock({
   }, [finishPortfolioSyncRequest, portfolioSyncTargetKey]);
 
   useEffect(() => {
-    const handleDeviceStageOff = () => {
+    const handleDeviceStageOff = (
+      payload: IAppEventBusPayload[EAppEventBusNames.DeviceStageOff],
+    ) => {
       const request = portfolioSyncRequestRef.current;
       if (
         request &&
         shouldPortfolioSyncStandDownOnStageOff({
           request,
-          stageOpenedForRequestId: portfolioSyncStageOpenedRequestIdRef.current,
+          stageHold: portfolioSyncStageHoldRef.current,
+          offBurstId: payload?.burstId,
         })
       ) {
         finishPortfolioSyncRequest(request.id);
@@ -3559,11 +3563,11 @@ function TokenListBlock({
       deviceName: device?.name,
       deviceType: portfolioSyncDeviceType,
     })
-      .then(async () => {
+      .then(async (burstId) => {
         if (portfolioSyncRequestRef.current?.id !== request.id) {
           return;
         }
-        portfolioSyncStageOpenedRequestIdRef.current = request.id;
+        portfolioSyncStageHoldRef.current = { requestId: request.id, burstId };
 
         const portfolioSynced =
           await backgroundApiProxy.serviceHardwarePortfolioSync.syncPortfolio({

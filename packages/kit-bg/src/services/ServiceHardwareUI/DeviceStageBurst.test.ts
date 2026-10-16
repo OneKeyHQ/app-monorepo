@@ -9,7 +9,10 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { setDeviceStageBurstActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
+import {
+  deviceStageOutcomeKey,
+  setDeviceStageBurstActive,
+} from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EFirmwareUpdateTipMessages,
@@ -343,6 +346,22 @@ describe('DeviceStageBurstScope', () => {
     });
 
     expect(stage?.step).toBe('off');
+  });
+
+  it('names the burst a live hold stands in, and none for a stale or unopened one', async () => {
+    const scope = new DeviceStageBurstScope();
+    const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+    await paintOpeningBeat();
+    expect(scope.getExplicitBurstId(token)).toBe(stage?.burstId);
+
+    await scope.endExplicit({ token });
+    expect(scope.getExplicitBurstId(token)).toBeUndefined();
+
+    // Minted while the firmware workflow silences the stage: no stage
+    // opened for it, so no exit is this hold's.
+    firmwareWorkflowAtom.get.mockResolvedValue(true);
+    const silenced = await scope.beginExplicit({ connectId: CONNECT_ID });
+    expect(scope.getExplicitBurstId(silenced)).toBeUndefined();
   });
 
   it('replaces a previous success as soon as a new explicit burst begins', async () => {
@@ -1212,7 +1231,7 @@ describe('DeviceStageBurstScope', () => {
     expect(stage?.step).toBe('off');
     expect(emit).not.toHaveBeenCalledWith(
       EAppEventBusNames.DeviceStageOff,
-      undefined,
+      expect.anything(),
     );
 
     // The dialog's UI-side yield: the off goes out again, and announces
@@ -1220,10 +1239,9 @@ describe('DeviceStageBurstScope', () => {
     const writes = stageAtom.set.mock.calls.length;
     await expect(scope.silence()).resolves.toBe(true);
     expect(stageAtom.set.mock.calls.length).toBe(writes + 1);
-    expect(emit).toHaveBeenCalledWith(
-      EAppEventBusNames.DeviceStageOff,
-      undefined,
-    );
+    expect(emit).toHaveBeenCalledWith(EAppEventBusNames.DeviceStageOff, {
+      burstId: 1,
+    });
     // Delivered: a further exit has nothing left to send.
     await expect(scope.silence()).resolves.toBe(false);
     expect(stageAtom.set.mock.calls.length).toBe(writes + 1);
@@ -1760,10 +1778,9 @@ describe('DeviceStageBurstScope', () => {
     await paintOpeningBeat();
     await scope.userClose();
     expect(stage?.step).toBe('off');
-    expect(emit).toHaveBeenCalledWith(
-      EAppEventBusNames.DeviceStageOff,
-      undefined,
-    );
+    expect(emit).toHaveBeenCalledWith(EAppEventBusNames.DeviceStageOff, {
+      burstId: 1,
+    });
     emit.mockRestore();
   });
 
@@ -1799,11 +1816,8 @@ describe('DeviceStageBurstScope', () => {
       expect(stage?.step).toBe('error');
     };
 
-    /** The outcome as the UI has it when the hold runs out or ✕ lands. */
-    const seenOnStage = () => ({
-      burstId: stage?.burstId,
-      activitySeq: stage?.activitySeq,
-    });
+    /** The outcome as the UI keyed it when the hold armed or ✕ landed. */
+    const seenOnStage = () => deviceStageOutcomeKey(stage);
 
     it('retires the ✗ the person saw and announces the exit', async () => {
       const scope = new DeviceStageBurstScope();
@@ -1813,11 +1827,49 @@ describe('DeviceStageBurstScope', () => {
       await scope.retireErrorOutcome(seenOnStage());
 
       expect(stage?.step).toBe('off');
-      expect(emit).toHaveBeenCalledWith(
-        EAppEventBusNames.DeviceStageOff,
-        undefined,
-      );
+      expect(emit).toHaveBeenCalledWith(EAppEventBusNames.DeviceStageOff, {
+        burstId: 1,
+      });
       expect(scope.getLastOffAt()).toBeGreaterThan(0);
+    });
+
+    it('names the burst that left, and a hold opened after it stands in a new one', async () => {
+      const scope = new DeviceStageBurstScope();
+      await landNotice(scope);
+      const emit = jest.spyOn(appEventBus, 'emit');
+      const leftBurstId = stage?.burstId;
+
+      await scope.retireErrorOutcome(seenOnStage());
+      expect(emit).toHaveBeenCalledWith(EAppEventBusNames.DeviceStageOff, {
+        burstId: leftBurstId,
+      });
+
+      const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+      expect(scope.getExplicitBurstId(token)).toBeDefined();
+      expect(scope.getExplicitBurstId(token)).not.toBe(leftBurstId);
+    });
+
+    it('opens a new burst when the ✗ leaves while a begin is reading it', async () => {
+      // The hold runs out as the person taps the page's retry: that exit
+      // already announced the ✗'s burst, so the retry must not stand in
+      // it — on split runtimes the announcement can land after the
+      // retry's hold has opened.
+      const scope = new DeviceStageBurstScope();
+      await landNotice(scope);
+      const seen = seenOnStage();
+      const leftBurstId = stage?.burstId;
+      stageAtom.get.mockImplementationOnce(async () => {
+        const read = stage;
+        await scope.retireErrorOutcome(seen);
+        expect(stage?.step).toBe('off');
+        return read;
+      });
+
+      const token = await scope.beginExplicit({ connectId: CONNECT_ID });
+
+      expect(stage?.step).toBe('connecting');
+      expect(stage?.burstId).not.toBe(leftBurstId);
+      expect(scope.getExplicitBurstId(token)).toBe(stage?.burstId);
     });
 
     it('replaces the ✗ at once when a new burst begins', async () => {
@@ -1843,7 +1895,7 @@ describe('DeviceStageBurstScope', () => {
       expect(stage?.step).toBe('connecting');
       expect(emit).not.toHaveBeenCalledWith(
         EAppEventBusNames.DeviceStageOff,
-        undefined,
+        expect.anything(),
       );
       await scope.end({ error: rejected });
       expect(stage?.step).toBe('error');
@@ -1923,21 +1975,20 @@ describe('DeviceStageBurstScope', () => {
       expect(stage?.step).toBe('off');
       expect(emit).not.toHaveBeenCalledWith(
         EAppEventBusNames.DeviceStageOff,
-        undefined,
+        expect.anything(),
       );
 
       await scope.retireErrorOutcome(seen);
-      expect(emit).toHaveBeenCalledWith(
-        EAppEventBusNames.DeviceStageOff,
-        undefined,
-      );
+      expect(emit).toHaveBeenCalledWith(EAppEventBusNames.DeviceStageOff, {
+        burstId: 1,
+      });
 
       // Delivered now: a later retire has nothing left to send.
       emit.mockClear();
       await scope.retireErrorOutcome(seen);
       expect(emit).not.toHaveBeenCalledWith(
         EAppEventBusNames.DeviceStageOff,
-        undefined,
+        expect.anything(),
       );
     });
   });

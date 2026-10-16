@@ -1410,16 +1410,14 @@ describe('ServiceHardwareUI.deviceStageUserClose', () => {
     const retire = jest
       .spyOn(service.deviceStageBurst, 'retireErrorOutcome')
       .mockResolvedValue();
-    const seen = { burstId: 3, activitySeq: 7 };
-
     await service.hardwareProcessingManager.runExclusiveOneKeyOperation({
       operation: async (lease) => {
-        await service.deviceStageRetireErrorOutcome(seen);
+        await service.deviceStageRetireErrorOutcome({ outcomeKey: '3:7' });
         expect(lease.signal?.aborted).toBe(false);
       },
     });
 
-    expect(retire).toHaveBeenCalledWith(seen);
+    expect(retire).toHaveBeenCalledWith('3:7');
     expect(cancelDevice).not.toHaveBeenCalled();
     expect(userClose).not.toHaveBeenCalled();
     expect(cancelStageAirGapScan).not.toHaveBeenCalled();

@@ -282,10 +282,11 @@ export interface IDeviceStageProps {
    * apart from `onClose` on purpose: the notice leaves the app live
    * (OK-64696), so the hold can run out just as the person starts the
    * next attempt from the page, and a close would end that attempt's
-   * call. The driver retires the notice only while it is still the step
-   * on stage. Absent, the notice stays until closed or replaced.
+   * call. Called with the `errorNoticeKey` the hold was armed for: the
+   * driver retires that outcome only, never one that has replaced it.
+   * Absent, the notice stays until closed or replaced.
    */
-  onErrorNoticeExpire?: () => void;
+  onErrorNoticeExpire?: (noticeKey: string | undefined) => void;
   /**
    * Which error outcome is on stage. A new one landing in place of the
    * last, with no other step between, restarts the notice's readable hold

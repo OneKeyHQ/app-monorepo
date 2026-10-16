@@ -160,24 +160,39 @@ describe('shouldPortfolioSyncStandDownOnStageOff', () => {
     expect(
       shouldPortfolioSyncStandDownOnStageOff({
         request: requestAt(2, 'communicating'),
-        stageOpenedForRequestId: 2,
+        stageHold: { requestId: 2, burstId: 5 },
+        offBurstId: 5,
       }),
     ).toBe(true);
   });
 
-  it('keeps a request whose hold has not opened yet (OK-64696)', () => {
+  it("keeps a request when the exit is an earlier burst's (OK-64696)", () => {
     // A Sync tapped as the previous attempt's ✗ retires under the live
-    // page: that ✗'s exit lands before the new hold opens.
+    // page: on split runtimes that exit can land after the new hold opened.
     expect(
       shouldPortfolioSyncStandDownOnStageOff({
         request: requestAt(2, 'communicating'),
-        stageOpenedForRequestId: 1,
+        stageHold: { requestId: 2, burstId: 5 },
+        offBurstId: 4,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps a request whose hold has not opened a stage', () => {
+    // Not yet answered (the hold is still the previous request's), or
+    // minted while the stage was silenced.
+    expect(
+      shouldPortfolioSyncStandDownOnStageOff({
+        request: requestAt(2, 'communicating'),
+        stageHold: { requestId: 1, burstId: 4 },
+        offBurstId: 4,
       }),
     ).toBe(false);
     expect(
       shouldPortfolioSyncStandDownOnStageOff({
-        request: requestAt(1, 'communicating'),
-        stageOpenedForRequestId: undefined,
+        request: requestAt(2, 'communicating'),
+        stageHold: { requestId: 2, burstId: undefined },
+        offBurstId: undefined,
       }),
     ).toBe(false);
   });
@@ -186,7 +201,8 @@ describe('shouldPortfolioSyncStandDownOnStageOff', () => {
     expect(
       shouldPortfolioSyncStandDownOnStageOff({
         request: undefined,
-        stageOpenedForRequestId: 1,
+        stageHold: { requestId: 1, burstId: 4 },
+        offBurstId: 4,
       }),
     ).toBe(false);
   });

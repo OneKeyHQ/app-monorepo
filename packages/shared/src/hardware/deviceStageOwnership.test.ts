@@ -3,6 +3,7 @@ import { EHardwareUiStateAction } from '../../types/hardwareUi';
 
 import {
   attachDeviceStageEscapeOwner,
+  deviceStageOutcomeKey,
   isDeviceStageAnsweredStep,
   isDeviceStageCarryingFailures,
   isDeviceStageNewAppearance,
@@ -145,6 +146,23 @@ describe('isDeviceStageNewAppearance', () => {
     expect(isDeviceStageNewAppearance({ prevStep: 'error', step: 'off' })).toBe(
       false,
     );
+  });
+});
+
+describe('deviceStageOutcomeKey', () => {
+  it('tells apart a newer outcome in the same burst and the next burst', () => {
+    const shown = deviceStageOutcomeKey({ burstId: 3, activitySeq: 7 });
+    expect(deviceStageOutcomeKey({ burstId: 3, activitySeq: 8 })).not.toBe(
+      shown,
+    );
+    expect(deviceStageOutcomeKey({ burstId: 4, activitySeq: 7 })).not.toBe(
+      shown,
+    );
+    expect(deviceStageOutcomeKey({ burstId: 3, activitySeq: 7 })).toBe(shown);
+  });
+
+  it('names nothing without a stage', () => {
+    expect(deviceStageOutcomeKey(undefined)).toBeUndefined();
   });
 });
 
