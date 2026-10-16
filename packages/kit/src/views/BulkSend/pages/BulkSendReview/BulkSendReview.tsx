@@ -513,6 +513,7 @@ function BaseBulkSendReview({
         }
 
         setSigningIndex(i + 1);
+        let lastError: Error | undefined;
         let markConfirmPageExited: () => void = () => {};
         tronConfirmPageExitRef.current = new Promise<void>((resolve) => {
           markConfirmPageExited = resolve;
@@ -535,13 +536,16 @@ function BaseBulkSendReview({
                   markConfirmPageExited();
                   resolve(data);
                 },
+                // A failed send keeps the confirm page open for a retry, so
+                // only remember the error; settle on success or exit so an
+                // in-page retry is recorded and the batch continues.
                 onFail: (error: Error) => {
-                  reject(error);
+                  lastError = error;
                 },
                 // Also called when the page unmounts without a success.
                 onCancel: () => {
                   markConfirmPageExited();
-                  reject(new Error('User cancelled'));
+                  reject(lastError ?? new Error('User cancelled'));
                 },
               },
             });
@@ -586,6 +590,8 @@ function BaseBulkSendReview({
 
   const handleConfirm = useCallback(async () => {
     if (!accountId) return;
+    // feeInfos are matched to txs by index; wait for the re-estimate
+    if (feeState.estimatedTxs !== unsignedTxs) return;
 
     const { serviceSend } = backgroundApiProxy;
 
@@ -891,6 +897,7 @@ function BaseBulkSendReview({
     networkId,
     unsignedTxs,
     feeState.feeInfos,
+    feeState.estimatedTxs,
     feeState.selectedFee.presetIndex,
     setIsSubmitting,
     onFail,
@@ -925,6 +932,7 @@ function BaseBulkSendReview({
   // 4. Currently submitting
   const isConfirmDisabled =
     !feeState.isInitialized ||
+    feeState.estimatedTxs !== unsignedTxs ||
     (feeState.feeStatus === ESendFeeStatus.Loading &&
       !feeState.isInitialized) ||
     feeState.feeStatus === ESendFeeStatus.Error ||

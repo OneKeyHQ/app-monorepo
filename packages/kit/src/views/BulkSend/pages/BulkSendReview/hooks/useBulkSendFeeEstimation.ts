@@ -501,6 +501,7 @@ export function useBulkSendFeeEstimation({
           totalFeeFiat: totalFiat.toFixed(),
           nativeSymbol: txFee.common?.nativeSymbol ?? '',
           feeInfos,
+          estimatedTxs: unsignedTxs,
           perTxFeeInfos,
           ataRentFeeNative,
           insufficientSol,
