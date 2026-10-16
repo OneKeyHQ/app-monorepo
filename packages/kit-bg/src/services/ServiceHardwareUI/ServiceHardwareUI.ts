@@ -588,7 +588,18 @@ class ServiceHardwareUI extends ServiceBase {
   }: {
     hardClose?: boolean; // hard close dialog by event bus
   } = {}) {
+    const state = await hardwareUiStateAtom.get();
     await hardwareUiStateAtom.set(undefined);
+    if (
+      state?.payload?.eventType ===
+        EHardwareUiStateAction.DESKTOP_REQUEST_BLUETOOTH_PERMISSION &&
+      state.payload.promiseId
+    ) {
+      await this.backgroundApi.servicePromise.resolveCallback({
+        id: state.payload.promiseId,
+        data: false,
+      });
+    }
     if (hardClose) {
       // atom some times not work, emit event to hard close dialog
       appEventBus.emit(
@@ -1580,19 +1591,28 @@ class ServiceHardwareUI extends ServiceBase {
       }
 
       if (this.isOuterProcessing()) {
-        if (connectId && !hideCheckingDeviceLoading && !isThirdPartyVendor) {
+        if (
+          connectId &&
+          !isThirdPartyVendor &&
+          (!hideCheckingDeviceLoading ||
+            (platformEnv.isSupportDesktopBle &&
+              !params.allowDuringFirmwareUpdate))
+        ) {
           assertActive();
-          // 先在统一连接管理器中确定本次实际传输，再显示动画，避免 BLE
-          // 通讯使用上一次持久化的 USB 弹窗。这里只选择传输，不发起设备通讯。
+          // Hidden firmware workflows own USB selection, validation and transport locking.
+          // Other desktop calls still pin their transport even when the checking UI is hidden.
           await this.backgroundApi.serviceHardware.prepareHardwareTransport({
             connectId,
             connectProtocol: device?.connectProtocol,
             hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+            oneKeyOperationLease: params.oneKeyOperationLease,
           });
           assertActive();
-          await this.showCheckingDeviceDialog({
-            connectId,
-          });
+          if (!hideCheckingDeviceLoading) {
+            await this.showCheckingDeviceDialog({
+              connectId,
+            });
+          }
         }
         // Third-party searching UI is driven by SDK ui-events.
 
