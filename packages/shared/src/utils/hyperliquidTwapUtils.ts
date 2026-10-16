@@ -1,5 +1,7 @@
 import BigNumber from 'bignumber.js';
 
+import { ETranslations } from '../locale/enum/translations';
+
 import { formatLocalizedNumberString, numberFormat } from './numberUtils';
 import { formatHlPrice, formatHlSize, getMinimumOrderSize } from './perpsUtils';
 
@@ -291,6 +293,23 @@ export function isTwapStopPriceValid({
   return isBuy
     ? stopPriceBN.gt(activationBoundary)
     : stopPriceBN.lt(activationBoundary);
+}
+
+export function getTwapStopPriceErrorKey({
+  isBuy,
+  triggerPrice,
+}: {
+  isBuy: boolean;
+  triggerPrice?: string;
+}): ETranslations {
+  if (triggerPrice) {
+    return isBuy
+      ? ETranslations.perp_twap_max_price_above_trigger__msg
+      : ETranslations.perp_twap_min_price_below_trigger__msg;
+  }
+  return isBuy
+    ? ETranslations.perp_twap_max_price_above_mark__msg
+    : ETranslations.perp_twap_min_price_below_mark__msg;
 }
 
 export function getTwapElapsedMs({

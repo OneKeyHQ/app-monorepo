@@ -33,6 +33,7 @@ import {
   TWAP_MIN_ORDER_NOTIONAL,
   formatTwapMinimumOrderNotional,
   formatTwapPriceForOrder,
+  getTwapStopPriceErrorKey,
   getTwapTriggerAbove,
   isTwapStopPriceValid,
   isTwapTotalNotionalValid,
@@ -421,16 +422,12 @@ function useOrderConfirmWithMarketDataFreshness({
           ) {
             Toast.error({
               title: intl.formatMessage({ id: ETranslations.global_failed }),
-              message: `${intl.formatMessage({
-                id:
-                  side === 'long'
-                    ? ETranslations.perp_scale_upper_price_label__title
-                    : ETranslations.perp_scale_lower_price_label__title,
-              })} ${side === 'long' ? '>' : '<'} ${intl.formatMessage({
-                id: ETranslations.perp_market_price,
-              })} / ${intl.formatMessage({
-                id: ETranslations.dexmarket_pro_trigger_price,
-              })}`,
+              message: intl.formatMessage({
+                id: getTwapStopPriceErrorKey({
+                  isBuy: side === 'long',
+                  triggerPrice,
+                }),
+              }),
             });
             return;
           }

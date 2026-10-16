@@ -74,6 +74,7 @@ import {
   TWAP_MIN_DURATION_MINUTES,
   formatTwapMinimumOrderNotional,
   formatTwapPriceForOrder,
+  getTwapStopPriceErrorKey,
   getTwapTriggerAbove,
   isTwapStopPriceValid,
   isTwapTotalNotionalValid,
@@ -1078,17 +1079,13 @@ function SideButtonInternal({
               triggerPrice,
             }))
         ) {
-          Toast.message({
-            title: `${intl.formatMessage({
-              id:
-                validationSide === 'long'
-                  ? ETranslations.perp_scale_upper_price_label__title
-                  : ETranslations.perp_scale_lower_price_label__title,
-            })} ${validationSide === 'long' ? '>' : '<'} ${intl.formatMessage({
-              id: ETranslations.perp_market_price,
-            })} / ${intl.formatMessage({
-              id: ETranslations.dexmarket_pro_trigger_price,
-            })}`,
+          Toast.error({
+            title: intl.formatMessage({
+              id: getTwapStopPriceErrorKey({
+                isBuy: validationSide === 'long',
+                triggerPrice,
+              }),
+            }),
           });
           return 'invalidTwapConfig' as const;
         }

@@ -153,9 +153,51 @@ describe('ServiceHyperliquidExchange TWAP notional', () => {
     });
     await expect(
       service.placeTwapOrder({ ...advanced, stopPrice: '1800' }),
-    ).rejects.toThrow();
+    ).rejects.toThrow(ETranslations.perp_twap_max_price_above_trigger__msg);
     expect(mockTwapOrder).toHaveBeenCalledTimes(1);
   });
+
+  it.each([
+    [
+      true,
+      undefined,
+      '1843.5',
+      ETranslations.perp_twap_max_price_above_mark__msg,
+    ],
+    [
+      false,
+      undefined,
+      '1843.5',
+      ETranslations.perp_twap_min_price_below_mark__msg,
+    ],
+    [
+      true,
+      '1900',
+      '1850',
+      ETranslations.perp_twap_max_price_above_trigger__msg,
+    ],
+    [
+      false,
+      '1800',
+      '1820',
+      ETranslations.perp_twap_min_price_below_trigger__msg,
+    ],
+  ] as const)(
+    'reports the actual stop boundary and rejects submission: buy=%s, trigger=%s',
+    async (isBuy, triggerPrice, stopPrice, errorKey) => {
+      await expect(
+        service.placeTwapOrder({
+          ...params,
+          size: '0.0543',
+          isBuy,
+          triggerPrice,
+          triggerAbove: triggerPrice ? isBuy : undefined,
+          stopPrice,
+        }),
+      ).rejects.toThrow(errorKey);
+      expect(mockTwapOrder).not.toHaveBeenCalled();
+    },
+  );
 
   it('uses mark for spot trigger direction while keeping mid for the minimum', async () => {
     await service.placeTwapOrder({

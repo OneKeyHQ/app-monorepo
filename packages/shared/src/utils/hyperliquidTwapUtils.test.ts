@@ -125,6 +125,19 @@ describe('hyperliquidTwapUtils', () => {
     ).toEqual([true, false, undefined, undefined]);
   });
 
+  it('uses the submitted price precision and follows changes to mark price', () => {
+    const triggerPrice = formatTwapPriceForOrder({
+      price: '123450.5',
+      szDecimals: 5,
+      assetType: 'perp',
+    });
+    expect(
+      ['123449', '123450', '123451', '', '0', 'NaN'].map((markPrice) =>
+        getTwapTriggerAbove({ triggerPrice: triggerPrice ?? '', markPrice }),
+      ),
+    ).toEqual([true, undefined, false, undefined, undefined, undefined]);
+  });
+
   it.each([
     [true, '101', undefined, true],
     [false, '99', undefined, true],

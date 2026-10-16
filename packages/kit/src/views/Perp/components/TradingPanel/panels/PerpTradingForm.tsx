@@ -71,6 +71,8 @@ import {
   TWAP_MIN_DURATION_MINUTES,
   TWAP_MIN_ORDER_NOTIONAL,
   formatTwapEstimatedSliceSize,
+  formatTwapPriceForOrder,
+  getTwapTriggerAbove,
   isValidTwapDuration,
 } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -512,10 +514,11 @@ function PerpTradingForm({
     source: tradingPriceSource,
     allowSpotMarkPriceFallback: !isTwapMode,
   });
-  const { sizePriceBN: twapReferencePriceBN } = useTwapReferencePrice({
-    midPriceBN,
-    enabled: formData.orderMode === 'twap',
-  });
+  const { sizePriceBN: twapReferencePriceBN, markPriceBN: twapMarkPriceBN } =
+    useTwapReferencePrice({
+      midPriceBN,
+      enabled: formData.orderMode === 'twap',
+    });
   const { price: orderPriceBN } = useOrderPrice(formData.side, {
     priceSource: tradingPriceSource,
   });
@@ -2188,11 +2191,33 @@ function PerpTradingForm({
     }
 
     const isBuy = formData.side === 'long';
+    const triggerAbove = getTwapTriggerAbove({
+      triggerPrice:
+        formatTwapPriceForOrder({
+          price: formData.twapTriggerPrice,
+          szDecimals: sizeSzDecimals,
+          assetType: isSpot ? 'spot' : 'perp',
+        }) ?? '',
+      markPrice: twapMarkPriceBN,
+    });
+    const triggerLabel = intl.formatMessage({
+      id: ETranslations.dexmarket_pro_trigger_price,
+    });
+    const triggerDirection =
+      typeof triggerAbove === 'boolean'
+        ? intl.formatMessage({
+            id: triggerAbove
+              ? ETranslations.perps_above
+              : ETranslations.perps_below,
+          })
+        : undefined;
     return (
       <YStack gap={isMobile ? '$2.5' : '$3'}>
         <PriceInput
-          label={intl.formatMessage({
-            id: ETranslations.dexmarket_pro_trigger_price,
+          label={triggerLabel}
+          labelSuffix={triggerDirection ? `(${triggerDirection})` : undefined}
+          labelTooltip={intl.formatMessage({
+            id: ETranslations.perp_twap_trigger_price__desc,
           })}
           placeholder={intl.formatMessage({
             id: ETranslations.perps_input_tirgger_price_place_holder,
@@ -2209,6 +2234,9 @@ function PerpTradingForm({
             id: isBuy
               ? ETranslations.perp_scale_upper_price_label__title
               : ETranslations.perp_scale_lower_price_label__title,
+          })}
+          labelTooltip={intl.formatMessage({
+            id: ETranslations.perp_twap_stop_price__desc,
           })}
           placeholder={intl.formatMessage({
             id: isBuy

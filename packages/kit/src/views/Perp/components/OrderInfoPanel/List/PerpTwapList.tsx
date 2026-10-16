@@ -458,7 +458,11 @@ function TwapActiveRow({
             justifyContent="center"
             alignItems={calcCellAlign(columnConfigs[0].align)}
           >
-            <SizableText size="$bodySmMedium" color={sideInfo.color}>
+            <SizableText
+              size="$bodySmMedium"
+              fontWeight={600}
+              color={sideInfo.color}
+            >
               {baseInfo.assetSymbol}
             </SizableText>
           </YStack>
