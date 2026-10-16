@@ -15,6 +15,7 @@ import type { ISyncStorage } from '@onekeyhq/shared/src/storage/instance/createM
 import { retryLegacyAsyncStorageOperation } from '@onekeyhq/shared/src/storage/legacyAsyncStorageRetry';
 import {
   NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE,
+  NATIVE_STORAGE_MIGRATION_LEDGER_ERASING,
   NATIVE_STORAGE_MIGRATION_LEDGER_MIGRATING,
   NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING,
   getNativeStorageMigrationLedger,
@@ -424,7 +425,8 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     }
   }
 
-  private async finishInterruptedReset(): Promise<void> {
+  private async finishInterruptedReset(eraseLegacy = false): Promise<void> {
+    if (eraseLegacy) await this.clearLegacyJotaiData();
     this.mmkv.clearAll();
     this.mmkv.set(MMKV_MIGRATION_COMPLETE_KEY, '1');
     this.mmkv.set(
@@ -671,15 +673,21 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         ledger !== null &&
         ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_COMPLETE &&
         ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_MIGRATING &&
-        ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING
+        ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING &&
+        ledger !== NATIVE_STORAGE_MIGRATION_LEDGER_ERASING
       ) {
         throw new OneKeyLocalError(
           'Jotai migration ledger has an unsupported version',
         );
       }
-      if (ledger === NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING) {
+      if (
+        ledger === NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING ||
+        ledger === NATIVE_STORAGE_MIGRATION_LEDGER_ERASING
+      ) {
         this.log('resuming interrupted reset');
-        await this.finishInterruptedReset();
+        await this.finishInterruptedReset(
+          ledger === NATIVE_STORAGE_MIGRATION_LEDGER_ERASING,
+        );
         this.log('interrupted reset complete');
         return;
       }
@@ -844,14 +852,13 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
     this.migrationReady = false;
     this.migrationPromise = undefined;
     try {
-      // Explicit user data erasure still clears the legacy copy. Repair and
-      // interrupted resets never delete that copy as part of MMKV rebuilding.
-      await this.clearLegacyJotaiData();
+      // Record erase intent before deleting either copy. Repair uses the
+      // distinct resetting state and always retains its legacy source.
       await setNativeStorageMigrationLedger(
         JOTAI_MIGRATION_LEDGER_KEY,
-        NATIVE_STORAGE_MIGRATION_LEDGER_RESETTING,
+        NATIVE_STORAGE_MIGRATION_LEDGER_ERASING,
       );
-      await this.finishInterruptedReset();
+      await this.finishInterruptedReset(true);
       this.migrationPromise = Promise.resolve();
       return clearedKeysCount;
     } catch (error) {

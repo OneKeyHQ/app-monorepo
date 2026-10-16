@@ -11,6 +11,7 @@ static NSString *const OneKeyMigrationLedgerPrefix = @"onekey_native_storage_mig
 static NSString *const OneKeyMigrationLedgerComplete = @"complete-v1";
 static NSString *const OneKeyMigrationLedgerMigrating = @"migrating-v1";
 static NSString *const OneKeyMigrationLedgerResetting = @"resetting-v1";
+static NSString *const OneKeyMigrationLedgerErasing = @"erasing-v1";
 static NSString *const OneKeyRecoveryActionKey = @"onekey_recovery_action";
 static NSString *const OneKeyTravelModeControlKey = @"onekey_travel_mode_control_v1";
 static BOOL OneKeyTravelModePushSuppressionInitialized = NO;
@@ -218,7 +219,8 @@ RCT_REMAP_METHOD(setMigrationLedger,
 {
   BOOL isValidValue = [value isEqualToString:OneKeyMigrationLedgerComplete] ||
                       [value isEqualToString:OneKeyMigrationLedgerMigrating] ||
-                      [value isEqualToString:OneKeyMigrationLedgerResetting];
+                      [value isEqualToString:OneKeyMigrationLedgerResetting] ||
+                      [value isEqualToString:OneKeyMigrationLedgerErasing];
   if (![self isValidLedgerKey:key] || !isValidValue) {
     reject(@"MIGRATION_LEDGER_WRITE_FAILED", @"Unsupported migration ledger entry", nil);
     return;

@@ -426,7 +426,7 @@ function restartAfterBootstrapFailure({
 
 function startStorageRepair(
   target: INativeStorageMigrationRecoveryTarget,
-  action: 'prepare' | 'complete' | 'reset' | 'close' = 'prepare',
+  action: 'prepare' | 'complete' | 'reset' | 'close' | 'restart' = 'prepare',
   force = false,
 ) {
   if (storageRepairPromise) {
@@ -446,16 +446,21 @@ function startStorageRepair(
   );
   let restartScheduled = false;
   const nextPromise = (async () => {
-    if (action === 'close') {
-      if (target !== 'appStorage' || !storageRepairCompleted) {
+    if (action === 'close' || action === 'restart') {
+      if (
+        action === 'close' &&
+        (target !== 'appStorage' || !storageRepairCompleted)
+      ) {
         throw new OneKeyLocalError('Storage repair has not completed');
       }
       // Closing only refreshes the runtimes; storage was already committed.
+      let restartReason = testSessionId
+        ? 'storage.migration.test.repaired'
+        : 'storage.migration.repaired';
+      if (action === 'restart') restartReason = 'storage.migration.incomplete';
       await appRestart({
         mode: EAppRestartMode.All,
-        reason: testSessionId
-          ? 'storage.migration.test.repaired'
-          : 'storage.migration.repaired',
+        reason: restartReason,
       });
       restartScheduled = true;
       return;
@@ -499,6 +504,9 @@ function startStorageRepair(
           repairId: storageRepairSummary.repairId,
           force,
         });
+        // Native finalization has verified storage. A later state-refresh
+        // failure must still allow a restart without repeating finalization.
+        storageRepairCompleted = true;
       }
     } else if (action === 'reset') {
       await callNativeStorage<void>({
@@ -550,11 +558,18 @@ function startStorageRepair(
         getNativeStorageMigrationRecoveryTarget(error) === target;
       if (storageRepairCompleted) {
         storageRepairError =
-          'Storage repair is complete, but the app could not restart. Please close and reopen the app.';
+          action === 'close'
+            ? 'Storage repair is complete, but the app could not restart. Please close and reopen the app.'
+            : 'Storage repair is complete, but app state could not be refreshed. Close to restart the app.';
+      } else if (action === 'restart') {
+        storageRepairError =
+          'The app could not restart. Storage still needs repair. Please retry or close and reopen the app.';
+      } else if (storageRepairCanReset) {
+        storageRepairError =
+          'The storage could not be recovered. You can rebuild the affected local storage to continue.';
       } else {
-        storageRepairError = storageRepairCanReset
-          ? 'The storage could not be recovered. You can rebuild the affected local storage to continue.'
-          : 'Storage repair failed. Please retry or restart the app. See the device log for details.';
+        storageRepairError =
+          'Storage repair failed. Please retry or restart the app. See the device log for details.';
       }
       writeBootstrapError(
         `[NativeStorageRecovery] target=${target} result=failed canReset=${storageRepairCanReset} errorType=${error instanceof Error ? error.name : typeof error}`,
@@ -848,6 +863,20 @@ export function NativeStorageBootstrapRoot() {
           <Text style={styles.message}>{storageRepairError}</Text>
         ) : null}
         {recoveryAction}
+        {recoveryTarget === 'appStorage' &&
+        !testSessionId &&
+        !storageRepairInProgress &&
+        !isRepairCompleted &&
+        (storageRepairSummary || storageRepairError) ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => void startStorageRepair(recoveryTarget, 'restart')}
+            style={styles.restartButton}
+            testID="native-storage-repair-restart"
+          >
+            <Text style={styles.restartText}>Restart App</Text>
+          </Pressable>
+        ) : null}
         {testSessionId &&
         storageRepairError &&
         !storageRepairInProgress &&
@@ -861,7 +890,10 @@ export function NativeStorageBootstrapRoot() {
             <Text style={styles.restartText}>Clear simulated fault</Text>
           </Pressable>
         ) : null}
-        {AppComponent && !storageRepairInProgress && !isRepairCompleted ? (
+        {AppComponent &&
+        (recoveryTarget !== 'appStorage' || testSessionId) &&
+        !storageRepairInProgress &&
+        !isRepairCompleted ? (
           <Pressable
             accessibilityRole="button"
             style={styles.restartButton}

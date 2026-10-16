@@ -109,6 +109,7 @@ describe('native storage recovery after fast startup', () => {
     expect(screen.getByTestId('business-app')).toBeTruthy();
     act(() => requestNativeStorageRecovery('appStorage'));
     expect(screen.queryByTestId('business-app')).toBeNull();
+    expect(screen.queryByTestId('native-storage-repair-back')).toBeNull();
     const partial = {
       repairId: 'attempt-1',
       successfulCount: 3,
@@ -131,6 +132,19 @@ describe('native storage recovery after fast startup', () => {
     expect(screen.getByText(/counts cover known items only/)).toBeTruthy();
     expect(mockRestart).not.toHaveBeenCalled();
     expect(mockBootstrap).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId('native-storage-repair-back')).toBeNull();
+    mockRestart.mockRejectedValueOnce(new Error('restart unavailable'));
+    fireEvent.click(screen.getByTestId('native-storage-repair-restart'));
+    await flush();
+    expect(mockRestart).toHaveBeenCalledWith({
+      mode: 'all',
+      reason: 'storage.migration.incomplete',
+    });
+    expect(screen.queryByTestId('business-app')).toBeNull();
+    expect(screen.queryByTestId('native-storage-repair-back')).toBeNull();
+    expect(screen.getByTestId('native-storage-repair-restart')).toBeTruthy();
+    expect(mockStorageCall).toHaveBeenCalledTimes(1);
+    mockRestart.mockClear();
     fireEvent.click(screen.getByTestId('native-storage-repair-complete'));
     expect(screen.getByText(/Force completion\?/)).toBeTruthy();
     fireEvent.click(
@@ -155,6 +169,8 @@ describe('native storage recovery after fast startup', () => {
     expect(screen.getByText(/Storage repair failed/)).toBeTruthy();
     expect(mockRestart).not.toHaveBeenCalled();
     expect(screen.getByText(/Successful: 3. Failed: 2/)).toBeTruthy();
+    expect(screen.queryByTestId('native-storage-repair-back')).toBeNull();
+    expect(screen.queryByTestId('business-app')).toBeNull();
 
     const complete = {
       ...partial,
@@ -202,6 +218,7 @@ describe('native storage recovery after fast startup', () => {
           }),
       );
     mockBootstrap.mockResolvedValueOnce(undefined);
+    mockHydrate.mockRejectedValueOnce(new Error('state hydration failed'));
     fireEvent.click(screen.getByTestId('native-storage-repair-retry'));
     await flush();
     expect(mockStorageCall).toHaveBeenLastCalledWith({
@@ -218,6 +235,7 @@ describe('native storage recovery after fast startup', () => {
     finishCompletion?.(undefined);
     await flush();
     expect(screen.getByText('Storage repair complete')).toBeTruthy();
+    expect(screen.getByText(/app state could not be refreshed/)).toBeTruthy();
     expect(
       screen.getByText(/legacy storage has been kept unchanged/),
     ).toBeTruthy();

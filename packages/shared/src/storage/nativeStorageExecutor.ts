@@ -167,6 +167,7 @@ type IAppStorageRepairContext = INativeAppStorageRepairDependencies & {
   pending?: {
     summary: INativeAppStorageRepairSummary;
     verifiedKeys: Map<string, string>;
+    markerWasComplete: boolean;
   };
 };
 let recoveryActionPromise: Promise<void> | undefined;
@@ -1310,7 +1311,11 @@ async function prepareAppStorageRepairWithContext(
     recoveredCount,
     scanComplete,
   };
-  context.pending = { summary, verifiedKeys };
+  context.pending = {
+    summary,
+    verifiedKeys,
+    markerWasComplete: !needsLegacyRecovery,
+  };
   context.log(
     `repair phase=prepared successful=${summary.successfulCount} failed=${failedCount} scanComplete=${scanComplete} legacyBackup=retained awaitingConfirmation=true`,
   );
@@ -1368,8 +1373,11 @@ async function completeAppStorageRepairWithContext(
       }
     }
   };
+  let markerWasComplete = pending.markerWasComplete;
   try {
     await context.reload();
+    markerWasComplete =
+      mmkv.getString(APP_STORAGE_MIGRATION_COMPLETE_KEY) === '1';
     for (const key of mmkv.getAllKeys()) {
       if (
         key.startsWith(APP_STORAGE_KEY_PREFIX) &&
@@ -1418,12 +1426,15 @@ async function completeAppStorageRepairWithContext(
     }
     await context.completeLedger();
   } catch (error) {
-    // Do not leave a successful-looking marker after failed confirmation.
-    try {
-      mmkv.remove(APP_STORAGE_MIGRATION_COMPLETE_KEY);
-      await context.sync();
-    } catch {
-      context.log('repair phase=marker-rollback result=failed');
+    // Roll back a newly published marker without deleting a healthy marker
+    // recovered by reload before this finalization attempt.
+    if (!markerWasComplete) {
+      try {
+        mmkv.remove(APP_STORAGE_MIGRATION_COMPLETE_KEY);
+        await context.sync();
+      } catch {
+        context.log('repair phase=marker-rollback result=failed');
+      }
     }
     throw error;
   }
