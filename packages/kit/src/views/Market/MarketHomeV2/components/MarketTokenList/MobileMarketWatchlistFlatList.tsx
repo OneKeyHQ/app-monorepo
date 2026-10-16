@@ -24,6 +24,9 @@ import {
   useWatchListV2Actions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
+import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailImagePreload';
+import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
+import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -34,6 +37,8 @@ import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
 import { usePerpsNavigation } from '../../../hooks/usePerpsNavigation';
 import { getMarketEmptyWatchlistContainerProps } from '../../layouts/mobileLayoutUtils';
+import { buildTokenMarketRow } from '../MarketNativeList/marketNativeListRows';
+import { WebMarketCompactList } from '../MarketNativeList/WebMarketCompactList';
 import { MarketRecommendList } from '../MarketRecommendList';
 
 import { InlineActionBar } from './components/InlineActionBar';
@@ -46,6 +51,7 @@ import { DEFAULT_WATCHLIST_FILTER } from './MarketWatchlistCategorySelector';
 
 import type { IMarketToken } from './MarketTokenData';
 import type { IWatchlistFilterType } from './MarketWatchlistCategorySelector';
+import type { IMarketNativeListPresentation } from '../MarketNativeList/marketNativeListRows';
 
 interface IMobileMarketWatchlistFlatListProps {
   selectedFilter?: IWatchlistFilterType;
@@ -404,6 +410,44 @@ function MobileMarketWatchlistFlatListImpl({
     [listContainerProps.paddingBottom, tabBarHeight],
   );
 
+  const buildWebRow = useCallback(
+    ({
+      item,
+      presentation,
+    }: {
+      item: IMarketToken;
+      presentation: IMarketNativeListPresentation;
+    }) => buildTokenMarketRow({ item, presentation, watchlist: true }),
+    [],
+  );
+  const handleWebPressIn = useCallback((item: IMarketToken) => {
+    const token = item;
+    void preloadMarketDetailV2Page({
+      includeBodyModules: true,
+      includeHeavyModules: true,
+      isStockRoute: Boolean(resolveMarketStockId(token)),
+      layout: 'mobile',
+    });
+    prewarmMarketTokenImages(token);
+  }, []);
+  const handleWebPress = useCallback(
+    (item: IMarketToken) => {
+      if (shouldSuppressItemPress?.()) return;
+      if (item.perpsCoin) {
+        navigateToPerps(item.perpsCoin);
+        return;
+      }
+      void toMarketDetailPage({
+        ...item,
+        symbol: item.symbol,
+        tokenAddress: item.address,
+        networkId: item.networkId,
+        isNative: item.isNative,
+      });
+    },
+    [navigateToPerps, shouldSuppressItemPress, toMarketDetailPage],
+  );
+
   // Wait for data to be loaded
   if (!watchlistState.isMounted) {
     return <Tabs.ScrollView />;
@@ -426,6 +470,21 @@ function MobileMarketWatchlistFlatListImpl({
           />
         </Stack>
       </Tabs.ScrollView>
+    );
+  }
+
+  if (!platformEnv.isNative) {
+    return (
+      <WebMarketCompactList<IMarketToken>
+        data={showSkeleton ? EMPTY_DATA : filteredData}
+        buildRow={buildWebRow}
+        onPress={handleWebPress}
+        onPressIn={handleWebPressIn}
+        onLongPress={handleShowContextMenu}
+        onScrollBegin={dismissInlineActionBar}
+        empty={ListEmptyComponent}
+        contentPaddingBottom={tabBarHeight}
+      />
     );
   }
 

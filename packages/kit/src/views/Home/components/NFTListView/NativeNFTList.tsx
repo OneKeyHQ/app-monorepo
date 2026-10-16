@@ -3,7 +3,11 @@ import { useCallback, useMemo } from 'react';
 import { NativeList } from '@onekeyfe/react-native-native-list';
 import BigNumber from 'bignumber.js';
 
-import { useMedia, useScrollContentTabBarOffset } from '@onekeyhq/components';
+import {
+  useMedia,
+  useScrollContentTabBarOffset,
+  useTheme,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EmptyNFT, EmptySearch } from '@onekeyhq/kit/src/components/Empty';
 import { NFTListLoadingView } from '@onekeyhq/kit/src/components/Loading';
@@ -39,6 +43,13 @@ type IProps = {
   initialized?: boolean;
   onRefresh?: () => void;
   isAllNetworks?: boolean;
+  webScrollHost?: HTMLElement | null;
+  webContentWidth?: number;
+  webContentPadding?: {
+    horizontal: number;
+    top: number;
+    bottom: number;
+  };
 };
 
 export function NFTListView({
@@ -47,6 +58,9 @@ export function NFTListView({
   initialized,
   onRefresh: refresh,
   isAllNetworks,
+  webScrollHost,
+  webContentWidth,
+  webContentPadding,
 }: IProps) {
   const [searchKey] = useSearchKeyAtom();
   const navigation = useAppNavigation();
@@ -63,7 +77,19 @@ export function NFTListView({
   }, [media.gt2xl, media.gtXl, media.gtLg, media.gtSm]);
   const bottom = useScrollContentTabBarOffset();
   const { refreshing, onRefresh } = useHomeNativeRefresh(refresh);
-  const theme = useHomeNativeListTheme();
+  const nativeListTheme = useHomeNativeListTheme();
+  const componentTheme = useTheme();
+  const theme = useMemo(
+    () =>
+      webScrollHost === undefined
+        ? nativeListTheme
+        : {
+            ...nativeListTheme,
+            disabledText: componentTheme.iconDisabled.val,
+            accent: componentTheme.focusRing.val,
+          },
+    [nativeListTheme, componentTheme, webScrollHost],
+  );
   const filteredNfts = useMemo(
     () => getFilteredNftsBySearchKey({ nfts: data, searchKey }),
     [data, searchKey],
@@ -100,6 +126,20 @@ export function NFTListView({
     () => buildNativeNFTRowsByKey(filteredNfts, account?.id, network?.id),
     [filteredNfts, account?.id, network?.id],
   );
+  const webRowHeight =
+    webContentWidth && webScrollHost !== undefined
+      ? (webContentWidth - 2 * (webContentPadding?.horizontal ?? 10)) /
+          numColumns +
+        60
+      : undefined;
+  const contentPaddingBottom = useMemo(() => {
+    if (!webContentPadding) return bottom ?? 24;
+    if (!itemsByKey.size) return webContentPadding.bottom;
+    // Preserve the old Web measured-content padding and complete-row clearance.
+    const trailingRowHeight =
+      itemsByKey.size % numColumns === 0 ? (webRowHeight ?? 0) : 0;
+    return webContentPadding.bottom * 2 + trailingRowHeight;
+  }, [webContentPadding, bottom, itemsByKey.size, numColumns, webRowHeight]);
   const handlePress = useCallback(
     (nft: IAccountNFT) => {
       if (!account || !network || !wallet) return;
@@ -130,9 +170,9 @@ export function NFTListView({
       layout: {
         kind: 'grid',
         gridColumns: numColumns,
-        contentPaddingHorizontal: 10,
-        contentPaddingTop: 12,
-        contentPaddingBottom: bottom ?? 24,
+        contentPaddingHorizontal: webContentPadding?.horizontal ?? 10,
+        contentPaddingTop: webContentPadding?.top ?? 12,
+        contentPaddingBottom,
       },
       theme,
       capabilities: {
@@ -148,6 +188,7 @@ export function NFTListView({
         return {
           key,
           type: 'mediaTile',
+          height: webRowHeight,
           variant: 'gallery',
           title: nft.metadata?.name || '-',
           subtitle: nft.collectionName || '-',
@@ -181,7 +222,9 @@ export function NFTListView({
     }),
     [
       numColumns,
-      bottom,
+      contentPaddingBottom,
+      webContentPadding,
+      webRowHeight,
       theme,
       refreshing,
       itemsByKey,
@@ -204,8 +247,20 @@ export function NFTListView({
     <NativeList
       key={identity}
       testID="home-nft-list"
-      style={{ flex: 1 }}
+      style={
+        webScrollHost === undefined
+          ? { flex: 1 }
+          : {
+              flexGrow: 0,
+              flexShrink: 0,
+              // Match the legacy empty list's extent without moving its content.
+              marginBottom: itemsByKey.size
+                ? 0
+                : -(webContentPadding?.top ?? 12),
+            }
+      }
       snapshot={preparedSnapshot}
+      webScrollHost={webScrollHost}
       listEmpty={empty}
       onRefresh={onRefresh}
       onRowAction={handleRowAction}

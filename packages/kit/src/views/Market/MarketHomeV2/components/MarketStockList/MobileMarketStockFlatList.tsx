@@ -17,6 +17,8 @@ import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketTestIDs } from '../../../testIDs';
 import { getMarketNativeCompactListStyle } from '../../layouts/mobileLayoutUtils';
+import { buildStockMarketRow } from '../MarketNativeList/marketNativeListRows';
+import { WebMarketCompactList } from '../MarketNativeList/WebMarketCompactList';
 import { TokenListSkeleton } from '../MarketTokenList/components/TokenListSkeleton';
 
 import { useMarketStockList } from './hooks/useMarketStockList';
@@ -152,6 +154,21 @@ function MobileMarketStockFlatListImpl({
   );
 
   const tabBarHeight = useScrollContentTabBarOffset();
+  if (!platformEnv.isNative) {
+    return (
+      <WebMarketCompactList<IMarketStockPublicItem>
+        data={showSkeleton ? EMPTY_DATA : items}
+        buildRow={buildStockMarketRow}
+        onPress={handleItemPress}
+        empty={ListEmptyComponent}
+        contentPaddingBottom={tabBarHeight}
+        onEndReached={handleEndReached}
+        footer={ListFooterComponent}
+        testID={MarketTestIDs.stockList}
+      />
+    );
+  }
+
   return (
     <Tabs.FlatList<IMarketStockPublicItem>
       testID={MarketTestIDs.stockList}

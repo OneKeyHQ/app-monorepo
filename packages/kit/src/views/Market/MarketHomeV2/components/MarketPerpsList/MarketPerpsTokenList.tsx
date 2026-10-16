@@ -26,6 +26,7 @@ import { MARKET_LIST_ROW_HEIGHT } from '../../../marketDesktopLayoutConstants';
 import { MarketTestIDs } from '../../../testIDs';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
 import { MarketDesktopStickyHeader } from '../MarketDesktopStickyHeader';
+import { WebMarketPerpsList } from '../MarketNativeList/WebMarketTokenList';
 import { sortMarketTokenListData } from '../MarketTokenList/utils/tokenListHelpers';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 import { useMarketDesktopResponsiveColumns } from '../useMarketDesktopResponsiveColumns';
@@ -203,6 +204,36 @@ function MarketPerpsTokenListImpl({
         paddingBottom: platformEnv.isNativeAndroid ? 104 : tabBarHeight,
       };
 
+  const listContent = webTabIntegrated ? (
+    <WebMarketPerpsList
+      items={sortedTokens}
+      columns={perpsColumns}
+      onPress={handleTokenPress}
+      footer={TableFooterComponent}
+      empty={TableEmptyComponent}
+      contentPaddingBottom={integratedContentPaddingBottom}
+    />
+  ) : (
+    <Table<IMarketPerpsToken>
+      contentContainerStyle={tableContentContainerStyle}
+      stickyHeader
+      showHeader={!useDesktopPortal}
+      tabIntegrated={tabIntegrated}
+      scrollEnabled={!webTabIntegrated}
+      columns={perpsColumns}
+      dataSource={sortedTokens}
+      keyExtractor={(item) => item.name}
+      rowProps={{ height: MARKET_LIST_ROW_HEIGHT }}
+      estimatedItemSize={MARKET_LIST_ROW_HEIGHT}
+      extraData={hasRealTimeData}
+      TableEmptyComponent={TableEmptyComponent}
+      TableFooterComponent={TableFooterComponent}
+      onRow={(item) => ({
+        onPress: () => handleTokenPress(item.name),
+      })}
+    />
+  );
+
   return (
     <Stack
       flex={1}
@@ -228,24 +259,7 @@ function MarketPerpsTokenListImpl({
               rowProps={{ height: MARKET_LIST_ROW_HEIGHT }}
             />
           ) : (
-            <Table<IMarketPerpsToken>
-              contentContainerStyle={tableContentContainerStyle}
-              stickyHeader
-              showHeader={!useDesktopPortal}
-              tabIntegrated={tabIntegrated}
-              scrollEnabled={!webTabIntegrated}
-              columns={perpsColumns}
-              dataSource={sortedTokens}
-              keyExtractor={(item) => item.name}
-              rowProps={{ height: MARKET_LIST_ROW_HEIGHT }}
-              estimatedItemSize={MARKET_LIST_ROW_HEIGHT}
-              extraData={hasRealTimeData}
-              TableEmptyComponent={TableEmptyComponent}
-              TableFooterComponent={TableFooterComponent}
-              onRow={(item) => ({
-                onPress: () => handleTokenPress(item.name),
-              })}
-            />
+            listContent
           )}
         </Stack>
       </Stack>

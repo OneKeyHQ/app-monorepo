@@ -36,6 +36,7 @@ import {
   MARKET_CELL_SUBTITLE_LINE_HEIGHT,
   MARKET_CELL_SUBTITLE_SIZE,
 } from '../MarketListCell';
+import { WebMarketTopCoinsList } from '../MarketNativeList/WebMarketTokenList';
 import { MarketStockCategorySelector } from '../MarketTokenList/MarketStockCategorySelector';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 import { useMarketDesktopResponsiveColumns } from '../useMarketDesktopResponsiveColumns';
@@ -423,6 +424,33 @@ export function MarketTopCoinsList({
   const contentPaddingBottom =
     listContainerProps?.paddingBottom ?? tabBarHeight;
 
+  const listContent =
+    webTabIntegrated && (!isLoading || data.length > 0) ? (
+      <WebMarketTopCoinsList
+        items={sortedData}
+        columns={columns}
+        onRow={onRow}
+        contentPaddingBottom={contentPaddingBottom}
+      />
+    ) : (
+      <Table<IMarketAssetListItem>
+        contentContainerStyle={{ paddingBottom: contentPaddingBottom }}
+        columns={columns}
+        dataSource={sortedData}
+        estimatedItemSize={TOP_COINS_DESKTOP_ROW_HEIGHT}
+        headerRowProps={{ height: 36 }}
+        keyExtractor={(item) => item.assetId}
+        onHeaderRow={onHeaderRow}
+        onRow={onRow}
+        rowProps={{ height: TOP_COINS_DESKTOP_ROW_HEIGHT }}
+        scrollEnabled={!webTabIntegrated}
+        showHeader={!useDesktopPortal}
+        showSkeleton={isLoading ? data.length === 0 : false}
+        skeletonCount={12}
+        tabIntegrated={tabIntegrated}
+      />
+    );
+
   return (
     <Stack
       flex={1}
@@ -443,22 +471,7 @@ export function MarketTopCoinsList({
       ) : null}
       {hasDesktopPortal ? null : categorySelector}
       <Stack flex={1} style={{ overflowX: 'auto', overflowY: 'hidden' }}>
-        <Table<IMarketAssetListItem>
-          contentContainerStyle={{ paddingBottom: contentPaddingBottom }}
-          columns={columns}
-          dataSource={sortedData}
-          estimatedItemSize={TOP_COINS_DESKTOP_ROW_HEIGHT}
-          headerRowProps={{ height: 36 }}
-          keyExtractor={(item) => item.assetId}
-          onHeaderRow={onHeaderRow}
-          onRow={onRow}
-          rowProps={{ height: TOP_COINS_DESKTOP_ROW_HEIGHT }}
-          scrollEnabled={!webTabIntegrated}
-          showHeader={!useDesktopPortal}
-          showSkeleton={isLoading ? data.length === 0 : false}
-          skeletonCount={12}
-          tabIntegrated={tabIntegrated}
-        />
+        {listContent}
       </Stack>
     </Stack>
   );

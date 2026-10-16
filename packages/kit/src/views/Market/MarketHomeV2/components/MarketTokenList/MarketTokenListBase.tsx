@@ -47,6 +47,7 @@ import { MarketTestIDs } from '../../../testIDs';
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
 import { MarketDesktopStickyHeader } from '../MarketDesktopStickyHeader';
 import { MARKET_TOKEN_ROW_GROUP_NAME } from '../MarketHoverRevealLine';
+import { WebMarketTokenList } from '../MarketNativeList/WebMarketTokenList';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 import { useMarketDesktopResponsiveColumns } from '../useMarketDesktopResponsiveColumns';
 
@@ -1014,6 +1015,53 @@ function MarketTokenListBase({
     };
   }, [isWatchlistMode, md, rowBg, webTabIntegrated]);
 
+  const tableList =
+    webTabIntegrated &&
+    (useTrendingDesktopColumns || useWatchlistDesktopColumns) ? (
+      <WebMarketTokenList
+        data={data}
+        columns={marketTokenColumns}
+        onRow={stableOnRow}
+        footer={TableFooterComponent}
+        empty={TableEmptyComponent}
+        networkId={networkId}
+        contentPaddingBottom={integratedContentPaddingBottom}
+        watchlistFrom={watchlistFrom}
+        copyFrom={copyFrom}
+        watchlistMode={useWatchlistDesktopColumns}
+        draggable={draggable}
+        onDragEnd={onDragEnd}
+        onScrollBegin={onScrollBegin}
+      />
+    ) : (
+      <Table<IMarketToken>
+        deferOffscreenRows={webTabIntegrated && useTrendingDesktopColumns}
+        contentContainerStyle={tableContentContainerStyle}
+        stickyHeader
+        showHeader={showTableHeader ? !useDesktopPortal : false}
+        scrollEnabled={!webTabIntegrated}
+        draggable={draggable}
+        tabIntegrated={tabIntegrated}
+        onDragEnd={onDragEnd}
+        columns={marketTokenColumns}
+        headerRowProps={md ? undefined : { height: 36 }}
+        onEndReached={webTabIntegrated ? undefined : handleEndReached}
+        dataSource={data}
+        keyExtractor={(item) => item.id}
+        extraData={networkId}
+        onHeaderRow={stableHandleHeaderRow}
+        TableEmptyComponent={TableEmptyComponent}
+        TableFooterComponent={TableFooterComponent}
+        estimatedItemSize={
+          md
+            ? MARKET_HOME_MOBILE_ROW_HEIGHT_PX
+            : MARKET_HOME_DESKTOP_ROW_HEIGHT_PX
+        }
+        onRow={stableOnRow}
+        rowProps={tableRowProps}
+      />
+    );
+
   return (
     <Stack
       ref={listRootRef as any}
@@ -1057,32 +1105,7 @@ function MarketTokenListBase({
               }}
             />
           ) : (
-            <Table<IMarketToken>
-              deferOffscreenRows={webTabIntegrated && useTrendingDesktopColumns}
-              contentContainerStyle={tableContentContainerStyle}
-              stickyHeader
-              showHeader={showTableHeader ? !useDesktopPortal : false}
-              scrollEnabled={!webTabIntegrated}
-              draggable={draggable}
-              tabIntegrated={tabIntegrated}
-              onDragEnd={onDragEnd}
-              columns={marketTokenColumns}
-              headerRowProps={md ? undefined : { height: 36 }}
-              onEndReached={webTabIntegrated ? undefined : handleEndReached}
-              dataSource={data}
-              keyExtractor={(item) => item.id}
-              extraData={networkId}
-              onHeaderRow={stableHandleHeaderRow}
-              TableEmptyComponent={TableEmptyComponent}
-              TableFooterComponent={TableFooterComponent}
-              estimatedItemSize={
-                md
-                  ? MARKET_HOME_MOBILE_ROW_HEIGHT_PX
-                  : MARKET_HOME_DESKTOP_ROW_HEIGHT_PX
-              }
-              onRow={stableOnRow}
-              rowProps={tableRowProps}
-            />
+            tableList
           )}
           {/* Render end indicator outside the Table for draggable lists
               so it doesn't participate in absolute positioning during drag. */}
