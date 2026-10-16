@@ -24,11 +24,10 @@ import {
   getTradingViewNativePointIndexAtX,
   getTradingViewNativeRelativePinchScale,
 } from '../utils/chartViewport';
-import { isTradingViewNativeMainPriceAxisTouch } from '../utils/priceAxisScale';
+import { isTradingViewNativePriceAxisTouch } from '../utils/priceAxisScale';
 import {
   getTradingViewNativeSubIndicatorLegendHitRegions,
   getTradingViewNativeSubIndicatorLegendIndicatorAtPoint,
-  getTradingViewNativeVisibleSubIndicatorPaneCount,
 } from '../utils/subIndicatorRender';
 import {
   getTradingViewNativeTimeAxisZoomScaleAfterDrag,
@@ -92,19 +91,13 @@ export function useTradingViewNativeChartGestures({
       if (onInteractionChange && Boolean(previous) !== Boolean(next))
         scheduleOnRN(onInteractionChange, Boolean(next));
     };
-    const isMainPriceAxisTouch = (x: number, y: number) => {
+    const isPriceAxisTouch = (x: number, y: number) => {
       'worklet';
 
       const runtime = chartRuntime.value;
-      const paneCount = getTradingViewNativeVisibleSubIndicatorPaneCount(
-        runtime.subIndicatorPanes,
-      );
-      return isTradingViewNativeMainPriceAxisTouch({
-        height: runtime.size.height,
-        paneCount,
-        panes: runtime.subIndicatorPanes,
+      return isTradingViewNativePriceAxisTouch({
+        priceAxisHeight: runtime.size.height - timeAxisHeight,
         priceAxisWidth: priceAxisWidth.value,
-        timeAxisHeight,
         width: runtime.size.width,
         x,
         y,
@@ -197,7 +190,11 @@ export function useTradingViewNativeChartGestures({
         'worklet';
 
         const touch = event.changedTouches[0];
-        if (touch && isTimeAxisTouch(touch.x, touch.y)) {
+        if (
+          touch &&
+          (isPriceAxisTouch(touch.x, touch.y) ||
+            isTimeAxisTouch(touch.x, touch.y))
+        ) {
           stateManager.fail();
         }
       })
@@ -236,7 +233,11 @@ export function useTradingViewNativeChartGestures({
         'worklet';
 
         const touch = event.changedTouches[0];
-        if (touch && isTimeAxisTouch(touch.x, touch.y)) {
+        if (
+          touch &&
+          (isPriceAxisTouch(touch.x, touch.y) ||
+            isTimeAxisTouch(touch.x, touch.y))
+        ) {
           stateManager.fail();
         }
       })
@@ -286,7 +287,7 @@ export function useTradingViewNativeChartGestures({
         const touch = event.changedTouches[0];
         if (
           touch &&
-          (isMainPriceAxisTouch(touch.x, touch.y) ||
+          (isPriceAxisTouch(touch.x, touch.y) ||
             isTimeAxisTouch(touch.x, touch.y))
         ) {
           stateManager.fail();
