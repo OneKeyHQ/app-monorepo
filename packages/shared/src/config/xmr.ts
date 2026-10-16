@@ -39,16 +39,13 @@ export const XMR_SEND_MAX_BLOCKS_LEFT = 100;
 export const XMR_RING_SIZE = 16;
 
 /**
- * The node this build ships with. Must be HTTPS and CORS-enabled: every
- * carrier is a browser context, so plain HTTP is blocked as mixed content
- * and a response without `Access-Control-Allow-Origin` is discarded.
+ * The node this build ships with. Must be HTTPS and send CORS headers: every
+ * carrier is a browser context, and the extension declares no host permission
+ * for it.
  */
-// Sourced from the plain-JS module beside this one, which the extension
-// manifest also reads (built by a Node `require`, cannot import TypeScript).
-// eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
-export const XMR_BUILT_IN_NODE_URLS: string[] = (
-  require('./xmrNodeConstants') as { XMR_BUILT_IN_NODE_URLS: string[] }
-).XMR_BUILT_IN_NODE_URLS;
+export const XMR_BUILT_IN_NODE_URLS: string[] = [
+  'https://xmr-node.cakewallet.com:18081',
+];
 
 /** Fee tier used when the user has not chosen one; `normal` is monerod's own default. */
 export const XMR_DEFAULT_FEE_PRIORITY = 'normal';

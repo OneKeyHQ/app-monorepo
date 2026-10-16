@@ -138,7 +138,7 @@ class ServiceCustomRpc extends ServiceBase {
       items: syncItems,
       fn,
     });
-    await this.backgroundApi.servicePrivacyChain.onLocalWalletNodeChanged({
+    appEventBus.emit(EAppEventBusNames.CustomRpcChanged, {
       networkIds: customRpcItems.map((item) => item.networkId),
     });
   }

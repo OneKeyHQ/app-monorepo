@@ -497,6 +497,8 @@ describe('privacy fee checks stay local', () => {
           feeAmount: '0.00001',
         }),
       ).resolves.toBe(true);
+      // A fee as large as the payment: Monero's fee floats, so it warns;
+      // Zcash's follows from the transaction's shape (ZIP-317), so it does not.
       const highFee = networkId === 'xmr--0' ? '1000000000000' : '100000000';
       await expect(
         service.preCheckIsFeeInfoOverflow({
@@ -504,7 +506,7 @@ describe('privacy fee checks stay local', () => {
           encodedTx: privacyProposal(networkId, highFee),
           feeAmount: '1',
         }),
-      ).resolves.toBe(true);
+      ).resolves.toBe(networkId === 'xmr--0');
       await expect(
         service.preCheckIsFeeInfoOverflow({
           ...params,
