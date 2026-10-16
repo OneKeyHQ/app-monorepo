@@ -604,10 +604,15 @@ export function usePrimeFeatureAccess() {
         });
         return { granted: false };
       }
-      // Blocked only when nothing can come back: held uses let the user in.
+      // Blocked only when nothing can come back. A bulk tool's uses may be
+      // held by an earlier one (released elsewhere or expired later), so it
+      // is blocked only when the server says nothing is held; an older
+      // server without the fields is unknown and lets the user in too.
       if (
         access.status === 'exhausted' &&
-        !(Number(access.featureQuota.reserved) > 0)
+        (!isPrimeFreeTrialUsageFeatureId(featureId) ||
+          (hasPrimeFreeTrialReservationInfo(access.featureQuota) &&
+            !(Number(access.featureQuota.reserved) > 0)))
       ) {
         await onDenied?.('exhausted');
         showActiveRejectedFeedback({

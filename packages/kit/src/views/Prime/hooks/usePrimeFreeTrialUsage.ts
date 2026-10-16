@@ -10,6 +10,7 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import { hasPrimeFreeTrialReservationInfo } from '@onekeyhq/shared/src/utils/primeFreeTrialUtils';
 import type {
   IPrimeFreeTrialUsageFeatureId,
   IPrimeFreeTrialUsageResult,
@@ -162,8 +163,31 @@ export function usePrimeFreeTrialUsage({
             }
             return await startOnce(false);
           }
+          // An older server sends no reservation fields: this device's own
+          // records tell whether an earlier use still holds the quota. Read
+          // before the focus check, so the feedback right after it never
+          // lands on another page.
+          let rejected = result;
+          if (
+            result.status === 'exhausted' &&
+            !hasPrimeFreeTrialReservationInfo(result.data)
+          ) {
+            const heldUntil = await backgroundApiProxy.servicePrimeFreeTrial
+              .getHeldReservationEnd({ featureId })
+              .catch(() => undefined);
+            if (heldUntil) {
+              rejected = {
+                ...result,
+                data: {
+                  ...result.data,
+                  reserved: 1,
+                  reservationExpiresAt: heldUntil,
+                },
+              };
+            }
+          }
           if (navigation.isFocused()) {
-            handleStartRejected({ result, networkId });
+            handleStartRejected({ result: rejected, networkId });
           }
           return { status: 'rejected' };
         } catch (error) {

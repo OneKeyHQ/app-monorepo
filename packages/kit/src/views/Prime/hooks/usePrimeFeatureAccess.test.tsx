@@ -130,6 +130,8 @@ function quotaWith(
         monthlyQuota: 1,
         used: 1 - remaining,
         remaining,
+        // The server reports nothing held.
+        reserved: 0,
       },
     ],
   };
@@ -572,6 +574,23 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
       expect(mockToastMessage).not.toHaveBeenCalled();
     },
   );
+
+  it('lets the user in when an older server sends no reservation fields', async () => {
+    const quota = quotaWith(0);
+    const { reserved: _reserved, ...withoutReservation } = quota.features[0];
+    quota.features[0] = withoutReservation;
+    setSnapshot(quota);
+    const result = renderAccessHook();
+
+    await act(async () => {
+      await expect(
+        result.current.ensureFeatureAccess({
+          featureId: EPrimeFeatures.BulkSend,
+        }),
+      ).resolves.toEqual({ granted: true, entitlementSource: 'freeTrial' });
+    });
+    expect(mockPushFullModal).not.toHaveBeenCalled();
+  });
 
   it('lets a not-open user in with loginOnly to read the history', async () => {
     setSnapshot(null);
