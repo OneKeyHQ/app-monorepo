@@ -193,6 +193,9 @@ function MarketEmbeddedSwapContent({
   const { defaultTokens, speedConfigReady, speedSwapConfig } = useSpeedSwapInit(
     swapTokenSeed.networkId,
     true,
+    swapTokenSeed.isStock
+      ? swapTokenSeed
+      : (initialInputAmountDraft?.toToken ?? swapTokenSeed),
   );
   const swapInitParams = useMemo<ISwapInitParams | undefined>(
     () =>

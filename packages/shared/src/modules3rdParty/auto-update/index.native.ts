@@ -260,7 +260,7 @@ export const AppUpdate: IAppUpdate = {
 
 export const BundleUpdate: IBundleUpdate = {
   downloadBundle: async (params) => {
-    const result = await ReactNativeBundleUpdate.downloadBundle({
+    await ReactNativeBundleUpdate.downloadBundle({
       downloadUrl: toNativeString(params.downloadUrl),
       latestVersion: toNativeString(params.latestVersion),
       bundleVersion: toNativeString(params.bundleVersion),
@@ -269,19 +269,16 @@ export const BundleUpdate: IBundleUpdate = {
     });
     return {
       ...params,
-      downloadedFile: result.downloadedFile,
     };
   },
   verifyBundle: (params) =>
     ReactNativeBundleUpdate.verifyBundle({
-      downloadedFile: toNativeString(params?.downloadedFile),
       sha256: toNativeString(params?.sha256),
       latestVersion: toNativeString(params?.latestVersion),
       bundleVersion: toNativeString(params?.bundleVersion),
     }),
   verifyBundleASC: (params) =>
     ReactNativeBundleUpdate.verifyBundleASC({
-      downloadedFile: toNativeString(params?.downloadedFile),
       sha256: toNativeString(params?.sha256),
       latestVersion: toNativeString(params?.latestVersion),
       bundleVersion: toNativeString(params?.bundleVersion),
@@ -290,7 +287,6 @@ export const BundleUpdate: IBundleUpdate = {
   downloadBundleASC: (params) =>
     ReactNativeBundleUpdate.downloadBundleASC({
       downloadUrl: toNativeString(params?.downloadUrl),
-      downloadedFile: toNativeString(params?.downloadedFile),
       signature: toNativeString(params?.signature),
       latestVersion: toNativeString(params?.latestVersion),
       bundleVersion: toNativeString(params?.bundleVersion),
@@ -298,7 +294,6 @@ export const BundleUpdate: IBundleUpdate = {
     }),
   installBundle: async (params) => {
     await ReactNativeBundleUpdate.installBundle({
-      downloadedFile: toNativeString(params?.downloadedFile),
       latestVersion: toNativeString(params?.latestVersion),
       bundleVersion: toNativeString(params?.bundleVersion),
       signature: toNativeString(params?.signature),

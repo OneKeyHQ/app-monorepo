@@ -34,8 +34,8 @@ const RESERVATION_END_GRACE_MS = 2000;
 // Remaining free uses of a feature. Rendered only for logged-in free users
 // with a known quota of a feature open for a free trial, never for
 // translate. Used up or held by live reservations, it shows the same notice
-// as the toast a submit would get. No "Get Prime" here: pressing the main
-// button shows that toast, which has it.
+// as the toast a submit would get. No "Get Prime" here: the main button
+// already leads to the dashboard.
 // Reads the Prime atom directly (not useOneKeyAuth) so it also works inside
 // dialogs rendered outside the auth providers.
 export function PrimeFreeTrialRemainingHint({
