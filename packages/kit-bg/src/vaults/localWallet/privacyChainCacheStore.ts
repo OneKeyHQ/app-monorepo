@@ -146,11 +146,75 @@ export async function readLocalWalletBalanceStaleFirst<T>({
   void settled.then(({ failed, value }) => {
     if (!failed && value !== null && JSON.stringify(value) !== saved) {
       appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+      appEventBus.emit(EAppEventBusNames.LocalWalletBalanceLanded, {
+        networkId,
+        accountId,
+      });
     }
   });
   return savedRead;
 }
 
+// The public side's last backend figures (base units), for display only.
+export type ILocalWalletLastPublicBalance = {
+  total: string;
+  spendable: string;
+};
+
+// A cache miss or a failing store reads as nothing saved; display never
+// breaks on it.
+export async function readLastLocalWalletPublicBalance({
+  backgroundApi,
+  networkId,
+  accountId,
+}: {
+  backgroundApi: IBackgroundApi;
+  networkId: string;
+  accountId: string;
+}): Promise<ILocalWalletLastPublicBalance | undefined> {
+  try {
+    const record =
+      await backgroundApi.simpleDb.privacyChainCache.getLastPublicBalance({
+        accountId,
+      });
+    return record?.networkId === networkId
+      ? { total: record.total, spendable: record.spendable }
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export async function saveLastLocalWalletPublicBalance({
+  backgroundApi,
+  networkId,
+  accountId,
+  value,
+}: {
+  backgroundApi: IBackgroundApi;
+  networkId: string;
+  accountId: string;
+  value: ILocalWalletLastPublicBalance;
+}): Promise<void> {
+  try {
+    const saved = await readLastLocalWalletPublicBalance({
+      backgroundApi,
+      networkId,
+      accountId,
+    });
+    if (saved?.total === value.total && saved.spendable === value.spendable) {
+      return;
+    }
+    await backgroundApi.simpleDb.privacyChainCache.setLastPublicBalance({
+      accountId,
+      record: { networkId, ...value, savedAt: Date.now() },
+    });
+  } catch (e) {
+    console.error('[privacyChain] save last public balance failed', e);
+  }
+}
+
+// Clears the saved public balance too.
 export async function removeLastLocalWalletBalances({
   backgroundApi,
   accountIds,

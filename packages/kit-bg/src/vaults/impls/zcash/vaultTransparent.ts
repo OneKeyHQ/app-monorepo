@@ -5,6 +5,7 @@ import type { IUtxoInfo } from '@onekeyhq/core/src/chains/btc/types';
 import {
   encodeAddress as encodeZcashAddress,
   getZcashAccountIndexFromXpub,
+  zcashTransparentAddressForScript,
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash';
 import { ZCASH_DECIMALS } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 import { toUserFacingZcashError } from '@onekeyhq/core/src/chains/zcash/sdkZcash/errorCopy';
@@ -634,7 +635,8 @@ export async function zcashBuildTransparentEncodedTx(
       txid: utxo.txid,
       vout: utxo.vout,
       value: utxo.valueZat,
-      address: '',
+      // Display only (confirm page "From"); signing keys off path/outpoint.
+      address: zcashTransparentAddressForScript(utxo.scriptPubKey) ?? '',
       path: utxo.derivationPath,
     })),
     outputs: [{ address: transferInfo.to, value: quote.sendAmountZat }],

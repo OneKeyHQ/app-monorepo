@@ -575,6 +575,7 @@ export default class Vault extends VaultBtc {
   async getLocalWalletBalance(params: {
     accountId: string;
     liveWaitMs?: number;
+    fresh?: boolean;
   }): Promise<IZcashBalance | null> {
     return zcashBalance.getLocalWalletBalance(this, params);
   }

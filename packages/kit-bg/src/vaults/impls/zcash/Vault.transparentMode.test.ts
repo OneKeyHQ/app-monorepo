@@ -579,17 +579,25 @@ describe('Zcash private history detail routing', () => {
   it('does not probe the backend when local detail fails', async () => {
     const { vault, getTxDetails, backend, publicHistory } = createVault();
     getTxDetails.mockRejectedValue(new Error('local database unavailable'));
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
 
     await expect(vault.fetchAccountHistoryDetail(params)).rejects.toThrow(
       'local database unavailable',
     );
     expect(backend).not.toHaveBeenCalled();
     expect(publicHistory).not.toHaveBeenCalled();
+    // A genuine runtime failure is still worth a console error.
+    expect(consoleError).toHaveBeenCalled();
   });
 
   it('does not disclose a txid that is absent from both histories', async () => {
     const { vault, getHistory, backend, publicHistory } = createVault();
     getHistory.mockResolvedValue([]);
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
 
     await expect(vault.fetchAccountHistoryDetail(params)).rejects.toThrow(
       'transaction not found',
@@ -601,6 +609,8 @@ describe('Zcash private history detail routing', () => {
       xpub: undefined,
     });
     expect(backend).not.toHaveBeenCalled();
+    // A pending (not yet indexed) tx is the normal state, not a runtime error.
+    expect(consoleError).not.toHaveBeenCalled();
   });
 
   it('allows backend detail only for an association already in public history', async () => {
@@ -620,12 +630,16 @@ describe('Zcash private history detail routing', () => {
   it('does not probe the backend when the local history lookup fails', async () => {
     const { vault, getHistory, backend, publicHistory } = createVault();
     getHistory.mockRejectedValue(new Error('local history unavailable'));
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
 
     await expect(vault.fetchAccountHistoryDetail(params)).rejects.toThrow(
       'local history unavailable',
     );
     expect(publicHistory).not.toHaveBeenCalled();
     expect(backend).not.toHaveBeenCalled();
+    expect(consoleError).toHaveBeenCalled();
   });
 
   it('does not send the target txid when public history lookup fails', async () => {
