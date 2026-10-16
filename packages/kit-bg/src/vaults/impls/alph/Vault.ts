@@ -43,6 +43,7 @@ import type {
 } from '@onekeyhq/shared/types/customRpc';
 import type { IEstimateFeeParams } from '@onekeyhq/shared/types/fee';
 import type {
+  IFetchTokenDetailBatchResp,
   IFetchTokenDetailItem,
   IToken,
 } from '@onekeyhq/shared/types/token';
@@ -203,6 +204,21 @@ export default class Vault extends VaultBase {
       });
       return { ...token, ...reserve, ...fiat };
     });
+  }
+
+  // The change-output reserve is a node rule, not an account property, so the
+  // same split applies to every sender that bulk send looks up in one batch.
+  override async fillTokensDetailsBatch({
+    tokensDetailsBatch,
+  }: {
+    tokensDetailsBatch: IFetchTokenDetailBatchResp;
+  }): Promise<IFetchTokenDetailBatchResp> {
+    return Promise.all(
+      tokensDetailsBatch.map(async (item) => ({
+        ...item,
+        tokens: await this.fillTokensDetails({ tokensDetails: item.tokens }),
+      })),
+    );
   }
 
   override async fillAccountDetails({

@@ -223,6 +223,52 @@ describe('AlphVault change-output dust reserve (OK-64709)', () => {
     });
   });
 
+  describe('fillTokensDetailsBatch', () => {
+    it('applies the change reserve to every sender of a bulk-send batch', async () => {
+      const vault = createVault();
+      const other: IFetchTokenDetailItem = {
+        info: {
+          address: 'vT49PY8ksoUL6NcXiZ1t2wAmC7tTPRfFfER8n3UCLvXy',
+          isNative: false,
+          decimals: 6,
+          symbol: 'TKN',
+          name: 'Token',
+        } as IToken,
+        balance: '5',
+        balanceParsed: '0.000005',
+        fiatValue: '0',
+        price: 0,
+      };
+
+      const [first, second] = await vault.fillTokensDetailsBatch({
+        tokensDetailsBatch: [
+          {
+            accountAddress: SENDER,
+            tokens: [nativeTokenDetail(alph('0.101'))],
+          },
+          {
+            accountAddress: RECIPIENT,
+            tokens: [nativeTokenDetail(alph('2.5')), other],
+          },
+        ],
+      });
+
+      expect(first.accountAddress).toBe(SENDER);
+      expect(first.tokens[0]).toMatchObject({
+        balanceParsed: '0.1',
+        frozenBalanceParsed: '0.001',
+        totalBalanceParsed: '0.101',
+      });
+      expect(second.accountAddress).toBe(RECIPIENT);
+      expect(second.tokens[0]).toMatchObject({
+        balanceParsed: '2.499',
+        frozenBalanceParsed: '0.001',
+        totalBalanceParsed: '2.5',
+      });
+      expect(second.tokens[1]).toEqual(other);
+    });
+  });
+
   describe('fillAccountDetails', () => {
     it('reports spendable, frozen and total balance', async () => {
       const vault = createVault();
