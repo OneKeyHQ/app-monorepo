@@ -78,6 +78,8 @@ export interface ILightweightChartConfig {
   patternColor?: string;
   pulseLastPointColor?: string;
   priceFormatter?: (price: number) => string;
+  priceTickFormatter?: (prices: number[]) => string[];
+  priceFormatBase?: number;
   priceScaleMinimumWidth?: number;
   priceFormatterType?: ILightweightChartPriceFormatterType;
   compactPriceMaxCharacters?: number;
@@ -101,6 +103,7 @@ export interface ILightweightChartConfig {
   timeZone?: string;
   locale?: string;
   hideCrosshairPriceLabel?: boolean;
+  pulseLastPoint?: boolean;
 }
 
 export interface ILightweightChartProps {
@@ -138,6 +141,12 @@ export interface ILightweightChartProps {
   // the line is dimmed but the live marker should stay at full strength.
   pulseLastPointColor?: string;
   priceFormatter?: (price: number) => string;
+  // Web/desktop only. Formats the axis ticks as a set, so a whole-dollar step
+  // can drop the decimals the last-value label keeps.
+  priceTickFormatter?: (prices: number[]) => string[];
+  // lightweight-charts price base (1 / smallest tick step). Defaults to 100,
+  // which leaves sub-cent quotes with a single $0 tick.
+  priceFormatBase?: number;
   // Native WebView only. Custom formatter functions cannot cross the WebView
   // boundary, so callers can opt into a serializable percent precision.
   compactPriceMaxCharacters?: number;
@@ -170,8 +179,8 @@ export interface ILightweightChartProps {
   // with its own tooltip explicitly opts out.
   hideCrosshairPriceLabel?: boolean;
   // When true, overlays an animated "breathing" dot on the last data point to
-  // signal the chart is live. Web/desktop only; toggling it does not recreate
-  // the chart.
+  // signal the chart is live. Toggling it does not recreate the chart; the
+  // native WebView draws the same dot inside its page.
   pulseLastPoint?: boolean;
   // Web/desktop only. Keep the chart instance alive when only data changes,
   // then update series data in place to avoid axis/marker flicker.

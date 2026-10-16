@@ -44,6 +44,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IHardwareErrorDialogPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
+  isDeviceStageCarryingFailures,
   isDeviceStageOwnedHardwareUiAction,
   isLegacyHardwareUiActive,
   shouldLegacyContainerRaiseHardwareErrorDialog,
@@ -491,10 +492,10 @@ function HardwareUiStateContainerCmpControlled() {
   // OK-62087), and the permission popups below (whose listeners always
   // stay live). One shared table decides, so an action is never shown
   // twice or by nobody.
-  // Whether the stage is on stage right now — the failure it is mid-flow
-  // on is the failure it will land.
+  // Whether the stage is mid-flow right now — the failure it is mid-flow
+  // on is the failure it will land (isDeviceStageCarryingFailures).
   const [deviceStage] = useDeviceStageAtom();
-  const stageIsShowing = Boolean(deviceStage && deviceStage.step !== 'off');
+  const stageIsShowing = isDeviceStageCarryingFailures(deviceStage?.step);
   const stageIsShowingRef = useRef(stageIsShowing);
   stageIsShowingRef.current = stageIsShowing;
   const stageOwnsAction =
