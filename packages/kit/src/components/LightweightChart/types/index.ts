@@ -5,6 +5,7 @@ import type {
   LineData,
   SingleValueData,
   UTCTimestamp,
+  WhitespaceData,
 } from 'lightweight-charts';
 
 export type ILightweightChartPriceFormatterType = 'usd' | 'percent' | 'number';
@@ -56,13 +57,20 @@ export interface ILightweightChartTheme {
 }
 
 export type ILightweightChartData = SingleValueData & { color?: string };
-export type ILightweightSecondaryLineData = LineData;
+// A point without a value is a gap in the overlay line; see
+// buildSecondaryLineSeries for how the line is kept from bridging it.
+export type ILightweightSecondaryLineData = LineData | WhitespaceData;
 export type ILightweightChartTime = UTCTimestamp;
+// [time, value] pairs for the overlay line; a null value is a gap.
+export type ILightweightSecondaryLineChart = [number, number | null][];
 
 export interface ILightweightChartConfig {
   theme: ILightweightChartTheme;
   data: ILightweightChartData[];
   secondaryLineData?: ILightweightSecondaryLineData[];
+  // Overlay points with a gap (or nothing) on both sides. A line series draws
+  // no segment for them, so they are drawn as dots instead.
+  secondaryPointData?: LineData[];
   secondaryLineColor?: string;
   secondaryLineWidth?: number;
   lineWidth: number;
@@ -113,7 +121,7 @@ export interface ILightweightChartProps {
   topColor?: string;
   bottomColor?: string;
   textSubduedColor?: string;
-  secondaryLineData?: IMarketTokenChart;
+  secondaryLineData?: ILightweightSecondaryLineChart;
   secondaryLineColor?: string;
   secondaryLineWidth?: number;
   lineWidth?: number;
