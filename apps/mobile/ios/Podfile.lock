@@ -3188,7 +3188,7 @@ PODS:
     - ReactNativeDependencies
     - ReactNativeNativeLogger
     - Yoga
-  - ReactNativeRangeDownloader (6.7.0-alpha.311):
+  - ReactNativeRangeDownloader (6.7.0-alpha.313):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -4650,7 +4650,7 @@ SPEC CHECKSUMS:
   ReactNativePerfMemory: d489178759da8ddc4a20f7e552404436e3f0f591
   ReactNativePerfStats: 377c302e5476969a1d7e11f5d6a25c8189836292
   ReactNativePhotoLibrary: 368d3b0a7b89cefe96b2d4bb47526cad1a20c427
-  ReactNativeRangeDownloader: 3d7510bbd5150a89f19fcfb4df6cbc74cf56de20
+  ReactNativeRangeDownloader: a8cd3bbc75ae4a57888171cb31eff30041f5a74b
   ReactNativeSplashScreen: 34152cf8d14e7648be67d45b2d59167d194a33a3
   ReactNativeVideo: 36938964abd84cb1355c5844d89feb501f3fbf93
   ReactNativeZipArchive: d968f6c30cc400df5163389add114a76f2da35c3
