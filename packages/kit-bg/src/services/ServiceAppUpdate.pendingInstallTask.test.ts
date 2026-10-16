@@ -1000,7 +1000,7 @@ describe('processPendingInstallTask', () => {
     expect(appUpdateState.fullFlowRetryByTarget?.['2.0.0:1']?.count).toBe(1);
   });
 
-  test('app-install restart mismatch ends the task without retry', async () => {
+  test('app-install restart mismatch waits during external installer grace period', async () => {
     resetPendingTask({
       taskId: 'appShell:2.0.0:direct',
       revision: 1,
@@ -1024,7 +1024,11 @@ describe('processPendingInstallTask', () => {
 
     await service.processPendingInstallTask();
 
-    expect(pendingTaskValue).toBeUndefined();
+    expect(pendingTaskValue).toMatchObject({
+      status: 'applied_waiting_verify',
+      retryCount: 0,
+    });
+    expect(autoUpdate.AppUpdate.installPackage).not.toHaveBeenCalled();
     expect(appUpdateState.fullFlowRetryByTarget).toEqual({});
   });
 });

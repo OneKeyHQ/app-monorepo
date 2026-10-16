@@ -84,6 +84,9 @@ const RETRY_BASE_DELAY_MS = 30 * 1000;
 const RETRY_JITTER_MS = 5 * 1000;
 const TASK_FUSE_DURATION_MS = 24 * 60 * 60 * 1000;
 const RUNNING_TASK_STALE_MS = timerUtils.getTimeDurationMs({ minute: 5 });
+const APPLIED_APP_INSTALL_GRACE_MS = timerUtils.getTimeDurationMs({
+  minute: 10,
+});
 const PROCESS_LOCK_TIMEOUT_MS = timerUtils.getTimeDurationMs({ seconds: 30 });
 const IGNORED_TARGET_TTL_MS = timerUtils.getTimeDurationMs({ day: 30 });
 const FULL_FLOW_RETRY_TTL_MS = timerUtils.getTimeDurationMs({ day: 7 });
@@ -1624,6 +1627,22 @@ class ServicePendingInstallTask {
           });
           return;
         }
+        const isUnconfirmedAppInstall =
+          task.type === EPendingInstallTaskType.appInstall;
+        if (
+          isUnconfirmedAppInstall &&
+          now - (task.runningStartedAt ?? task.createdAt) <
+            APPLIED_APP_INSTALL_GRACE_MS
+        ) {
+          defaultLogger.app.appUpdate.pendingTaskValidation({
+            traceId,
+            requestSeq,
+            isValid: true,
+            invalidReason: 'applied_verify_grace_period',
+            ...this.buildTaskLogFields(task),
+          });
+          return;
+        }
         defaultLogger.app.appUpdate.pendingVerifyAfterRestart(
           {
             traceId,
@@ -1637,9 +1656,15 @@ class ServicePendingInstallTask {
         );
         await this.markTaskFailed(
           task,
-          { code: EUpdateErrorCode.incompatible, step: 'install' },
+          {
+            code: isUnconfirmedAppInstall
+              ? EUpdateErrorCode.unknown
+              : EUpdateErrorCode.incompatible,
+            step: 'install',
+          },
           traceId,
           undefined,
+          isUnconfirmedAppInstall,
         );
         return;
       }

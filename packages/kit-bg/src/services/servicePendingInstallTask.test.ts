@@ -1131,6 +1131,132 @@ describe('servicePendingInstallTask', () => {
     expect(appUpdateState.fullFlowRetryByTarget).toEqual({});
   });
 
+  test('unconfirmed app install stays in its verification grace period', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    setState({
+      latestVersion: '2.0.0',
+      status: EAppUpdateStatus.ready,
+      downloadedEvent: {
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+    pendingTaskValue = makeAppShellInstallTask({
+      status: 'applied_waiting_verify',
+      runningStartedAt: undefined,
+      createdAt: Date.now() - 60_000,
+    });
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toMatchObject({
+      status: 'applied_waiting_verify',
+      retryCount: 0,
+    });
+    expect(autoUpdate.AppUpdate.installPackage).not.toHaveBeenCalled();
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.ready);
+    expect(appUpdateState.downloadedEvent?.downloadUrl).toBe(
+      'https://cdn.onekey.so/app-2.0.0.pkg',
+    );
+  });
+
+  test('unconfirmed app install retries after grace without reopening the installer immediately', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    setState({
+      latestVersion: '2.0.0',
+      status: EAppUpdateStatus.ready,
+      downloadedEvent: {
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/app-2.0.0.pkg',
+      },
+    });
+    pendingTaskValue = makeAppShellInstallTask({
+      status: 'applied_waiting_verify',
+      runningStartedAt: Date.now() - 11 * 60_000,
+    });
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toMatchObject({
+      status: 'pending',
+      retryCount: 1,
+      lastError: EUpdateErrorCode.unknown,
+    });
+    expect(pendingTaskValue.nextRetryAt).toBeGreaterThan(Date.now());
+    expect(autoUpdate.AppUpdate.installPackage).not.toHaveBeenCalled();
+    expect(appUpdateState.status).toBe(EAppUpdateStatus.ready);
+    expect(appUpdateState.downloadedEvent?.downloadUrl).toBe(
+      'https://cdn.onekey.so/app-2.0.0.pkg',
+    );
+
+    await service.processPendingInstallTask();
+    expect(autoUpdate.AppUpdate.installPackage).not.toHaveBeenCalled();
+  });
+
+  test('unconfirmed app install exhausts its retry budget without looping', async () => {
+    const service = createService();
+    const autoUpdate = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    pendingTaskValue = makeAppShellInstallTask({
+      status: 'applied_waiting_verify',
+      runningStartedAt: Date.now() - 11 * 60_000,
+      retryCount: 2,
+    });
+
+    await service.processPendingInstallTask();
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+    expect(appUpdateState.ignoredTargets?.['2.0.0:1']).toMatchObject({
+      reason: 'RETRY_EXHAUSTED',
+    });
+    expect(autoUpdate.AppUpdate.installPackage).not.toHaveBeenCalled();
+  });
+
+  test('aligned app install clears without waiting for its grace period', async () => {
+    const service = createService();
+    const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
+    platformEnvMock.version = '2.0.0';
+    pendingTaskValue = makeAppShellInstallTask({
+      status: 'applied_waiting_verify',
+      runningStartedAt: Date.now(),
+    });
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toBeUndefined();
+  });
+
+  test('unconfirmed old app install cannot overwrite a replacement task', async () => {
+    const service = createService();
+    const { defaultLogger } = require('@onekeyhq/shared/src/logger/logger');
+    const replacement = makeAppShellInstallTask({
+      taskId: 'appShell:3.0.0:direct',
+      revision: 2,
+      targetAppVersion: '3.0.0',
+      payload: {
+        latestVersion: '3.0.0',
+        updateStrategy: EUpdateStrategy.seamless,
+        channel: 'direct',
+        downloadUrl: 'https://cdn.onekey.so/app-3.0.0.pkg',
+      },
+    });
+    pendingTaskValue = makeAppShellInstallTask({
+      status: 'applied_waiting_verify',
+      runningStartedAt: Date.now() - 11 * 60_000,
+    });
+    defaultLogger.app.appUpdate.pendingVerifyAfterRestart.mockImplementationOnce(
+      () => {
+        pendingTaskValue = replacement;
+      },
+    );
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toEqual(replacement);
+  });
+
   test('rollback with non-seamless strategy still creates pending task', async () => {
     const service = createService();
     const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;

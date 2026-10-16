@@ -759,6 +759,8 @@ const minWidth = 1024;
 const minHeight = 800;
 let bleQuitStarted = false;
 let bleQuitReady = false;
+let appQuitStarted = false;
+let mainRendererBootFailed = false;
 let nobleBleInitialization = Promise.resolve();
 let trezorBleWindowCleanup = Promise.resolve();
 // Retain retired handlers so recovery-created native instances survive until app quit.
@@ -801,7 +803,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   let bootFailCount = store.incrementConsecutiveBootFailCount();
   logger.info('Boot fail count:', bootFailCount, { isSoftRestart });
   const activeOtaBundleVersion = store.getUpdateBundleData()?.bundleVersion;
-  if (bootFailCount >= 2 && activeOtaBundleVersion) {
+  if (bootFailCount >= 3 && activeOtaBundleVersion) {
     logger.warn(
       'Consecutive boot failures detected with active OTA bundle, rolling back to built-in bundle',
       {
@@ -1083,9 +1085,15 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   });
 
   browserWindow.webContents.on('render-process-gone', (_event, details) => {
-    if (details.reason === 'clean-exit' || bleQuitStarted || softRestarting) {
+    if (
+      details.reason === 'clean-exit' ||
+      appQuitStarted ||
+      bleQuitStarted ||
+      softRestarting
+    ) {
       return;
     }
+    mainRendererBootFailed = true;
     const now = Date.now();
     mainRendererReloadTimestamps = mainRendererReloadTimestamps.filter(
       (timestamp) => now - timestamp < MAIN_RENDERER_RELOAD_WINDOW_MS,
@@ -1109,7 +1117,12 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     // Start the reload after Electron finishes dispatching this event.
     setImmediate(() => {
       const safelyBrowserWindow = getSafelyBrowserWindow();
-      if (!safelyBrowserWindow || bleQuitStarted || softRestarting) {
+      if (
+        !safelyBrowserWindow ||
+        appQuitStarted ||
+        bleQuitStarted ||
+        softRestarting
+      ) {
         return;
       }
       // Deep links received while the page reboots wait for dom-ready.
@@ -1292,6 +1305,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   ipcMain.removeAllListeners(ipcMessageKeys.MARK_BOOT_SUCCESS);
   ipcMain.on(ipcMessageKeys.MARK_BOOT_SUCCESS, () => {
     store.resetConsecutiveBootFailCount();
+    mainRendererBootFailed = false;
     logger.info('Boot success confirmed, crash counter reset');
   });
 
@@ -1825,6 +1839,14 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       'did-fail-load',
       (_, errorCode, __, validatedURL, isMainFrame) => {
         if (
+          !appQuitStarted &&
+          isMainFrame &&
+          errorCode !== -3 &&
+          isTrustedMainWindowUrl(src, validatedURL)
+        ) {
+          mainRendererBootFailed = true;
+        }
+        if (
           !shouldReloadAppShellAfterFailedLoad({
             validatedURL,
             isMainFrame,
@@ -2083,6 +2105,7 @@ app.on('activate', async () => {
 });
 
 app.on('before-quit', (event) => {
+  appQuitStarted = true;
   unregisterShortcuts();
   if (isMac && !bleQuitReady) {
     event.preventDefault();
@@ -2143,6 +2166,10 @@ app.on('before-quit', (event) => {
 
   if (isMac) {
     destroyTrayManager();
+  }
+
+  if (!mainRendererBootFailed && store.getConsecutiveBootFailCount() < 3) {
+    store.resetConsecutiveBootFailCount();
   }
 
   if (systemIdleInterval) {
