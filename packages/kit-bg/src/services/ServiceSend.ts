@@ -1645,6 +1645,9 @@ class ServiceSend extends ServiceBase {
     const broadcastedTxs = sentTxsTrackingId
       ? this.getBatchBroadcastedTxs(sentTxsTrackingId)
       : undefined;
+    // A retry may drop already-sent txs, so its first tx was built alongside
+    // txs that are now on chain; refresh it like any later tx in a batch.
+    const hasEarlierBroadcast = (broadcastedTxs?.size ?? 0) > 0;
     const result: ISendTxOnSuccessData[] = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
       const txUuid = unsignedTxs[i].uuid;
@@ -1669,7 +1672,7 @@ class ServiceSend extends ServiceBase {
               current: i + 1,
             });
           }
-          if (isMultiTxs && i > 0) {
+          if ((isMultiTxs && i > 0) || hasEarlierBroadcast) {
             unsignedTx =
               await vault.refreshUnsignedTxBeforeBatchSign(unsignedTx);
           }
@@ -2544,8 +2547,24 @@ class ServiceSend extends ServiceBase {
     accountId: string;
     transfersInfo: ITransferInfo[];
     prevNonce?: number;
+    // Highest nonce already taken by broadcast txs the next-nonce lookup may
+    // not see yet (e.g. broadcast but not recorded in history).
+    usedNonce?: number;
   }): Promise<IUnsignedTxPro[]> {
-    const { networkId, accountId, transfersInfo, prevNonce } = params;
+    const { networkId, accountId, transfersInfo, usedNonce } = params;
+    let { prevNonce } = params;
+    if (isNil(prevNonce) && !isNil(usedNonce)) {
+      const account = await this.backgroundApi.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
+      const nextNonce = await this.getNextNonce({
+        accountId,
+        networkId,
+        accountAddress: account.address,
+      });
+      prevNonce = Math.max(usedNonce, nextNonce - 1);
+    }
     const { bulkSendMaxTransfersPerTx } =
       await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
     const [firstChunk, ...restChunks] = bulkSendUtils.chunkBulkSendTransfers(

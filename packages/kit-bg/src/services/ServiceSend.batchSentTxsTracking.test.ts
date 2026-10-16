@@ -158,6 +158,39 @@ describe('ServiceSend.batchSignAndSendTransaction sentTxsTrackingId', () => {
     ]);
   });
 
+  test('retry with sent txs pruned still refreshes the first remaining tx', async () => {
+    const { service, signAndSend } = makeService();
+    const vault = (await (vaultFactory.getVault as unknown as jest.Mock)()) as {
+      refreshUnsignedTxBeforeBatchSign: jest.Mock;
+    };
+    signAndSend
+      .mockImplementationOnce(async ({ unsignedTx }) =>
+        makeSignedTx(unsignedTx),
+      )
+      .mockRejectedValueOnce(new Error('device disconnected'));
+    const params: IBatchParams = {
+      accountId,
+      networkId,
+      unsignedTxs: [makeUnsignedTx('tx-1'), makeUnsignedTx('tx-2')],
+      signOnly: false,
+      transferPayload: undefined,
+      sentTxsTrackingId: 'screen-1',
+    };
+
+    await expect(sendFromUi(service, params)).rejects.toThrow(
+      'device disconnected',
+    );
+    vault.refreshUnsignedTxBeforeBatchSign.mockClear();
+    // The page drops the recorded tx-1, so tx-2 is now the only tx
+    await sendFromUi(service, {
+      ...params,
+      unsignedTxs: [makeUnsignedTx('tx-2')],
+    });
+
+    expect(vault.refreshUnsignedTxBeforeBatchSign).toHaveBeenCalledTimes(1);
+    expect(sentUuids(signAndSend)).toEqual(['tx-1', 'tx-2', 'tx-2']);
+  });
+
   test('retry after a lost response replays results without sending', async () => {
     const { service, backgroundApi, signAndSend } = makeService();
     const params: IBatchParams = {

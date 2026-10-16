@@ -295,10 +295,12 @@ function BaseBulkSendReview({
   // 1-based index of the tx being signed across approve + transfer txs;
   // 0 when idle. Shown on the confirm button for multi-tx submits.
   const [signingIndex, setSigningIndex] = useState(0);
-  // Transfer txs sent / total after a partially failed submit
+  // Transfer txs sent / total across all attempts after a partial failure.
+  // Sent txs are pruned from unsignedTxs, so the count is kept cumulatively.
   const [partialSent, setPartialSent] = useState<
     { sent: number; total: number } | undefined
   >();
+  const sentTransferUuidsRef = useRef<Set<string>>(new Set());
   // Approve and transfer txs are sent in separate batches; offset the
   // transfer batch's per-batch index by the approve count.
   const progressOffsetRef = useRef(0);
@@ -378,10 +380,14 @@ function BaseBulkSendReview({
       const approveTxsSent =
         approveCount > 0 && txs.slice(0, approveCount).every(isTxSent);
 
-      const sentTransferCount = transferTxs.filter(isTxSent).length;
+      for (const tx of transferTxs) {
+        if (tx.uuid && isTxSent(tx)) sentTransferUuidsRef.current.add(tx.uuid);
+      }
+      const sentCount = sentTransferUuidsRef.current.size;
+      const remainingCount = transferTxs.filter((tx) => !isTxSent(tx)).length;
       setPartialSent(
-        sentTransferCount > 0 && sentTransferCount < transferTxs.length
-          ? { sent: sentTransferCount, total: transferTxs.length }
+        sentCount > 0 && remainingCount > 0
+          ? { sent: sentCount, total: sentCount + remainingCount }
           : undefined,
       );
 
@@ -578,7 +584,6 @@ function BaseBulkSendReview({
 
     setIsSubmitting(true);
     setSigningIndex(0);
-    setPartialSent(undefined);
 
     // Step 1: Pre-check unsigned transactions
     // For multi-sender modes, pre-check per accountId group

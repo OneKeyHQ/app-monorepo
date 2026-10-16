@@ -128,11 +128,18 @@ export function useApprovalRecheck({
         if (isApproved) {
           try {
             // Rebuild pending transfer-only txs with fresh nonce from chain
+            // Kept txs hold nonces the next-nonce lookup may not see yet
+            const keptNonces = keptTxs
+              .map((tx) => tx.nonce)
+              .filter((nonce): nonce is number => typeof nonce === 'number');
             const newTransferTxs =
               await backgroundApiProxy.serviceSend.prepareBulkSendTransferTxs({
                 networkId,
                 accountId,
                 transfersInfo: pendingTransfersInfo,
+                usedNonce: keptNonces.length
+                  ? Math.max(...keptNonces)
+                  : undefined,
               });
 
             if (!isMountedRef.current) return;

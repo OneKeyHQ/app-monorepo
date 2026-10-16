@@ -49,10 +49,10 @@ type IUseBulkSendFeeEstimationParams = {
   isSubmitting?: boolean;
 };
 
-// Without batch estimation only unsignedTxs[0] is estimated. An approve
-// estimate stands in for a single transfer, so scale by the tx's transfer
-// count (+1 for contract overhead). A transfer-tx estimate (split send with
-// no approve) already covers its own transfers, so scale by the ratio only.
+// Used when only unsignedTxs[0] could be estimated. An approve estimate
+// stands in for a single transfer, so scale by the tx's transfer count (+1 for
+// contract overhead). A transfer-tx estimate (split send whose per-tx
+// estimates failed) already covers its own transfers, so scale by the ratio.
 function getFallbackGasMultiplier(
   unsignedTxs: IUnsignedTxPro[],
   unsignedTx: IUnsignedTxPro,
@@ -205,32 +205,59 @@ export function useBulkSendFeeEstimation({
               accountId,
             });
 
-          const { encodedTx, estimateFeeParams: e } =
-            await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
+          const estimateTxFee = async (unsignedTx: IUnsignedTxPro) => {
+            const { encodedTx, estimateFeeParams: e } =
+              await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
+                accountId,
+                networkId,
+                encodedTx: unsignedTx.encodedTx,
+              });
+            const r = await backgroundApiProxy.serviceGas.estimateFee({
               accountId,
               networkId,
-              encodedTx: unsignedTxs[0].encodedTx,
+              encodedTx,
+              accountAddress,
+              transfersInfo: unsignedTx.transfersInfo,
+              scenario: 'send',
             });
+            // Handle 5-level EIP1559 fees
+            if (r.gasEIP1559 && r.gasEIP1559.length === 5) {
+              r.gasEIP1559 = [
+                r.gasEIP1559[0],
+                r.gasEIP1559[2],
+                r.gasEIP1559[4],
+              ];
+            } else if (r.gasEIP1559) {
+              r.gasEIP1559 = r.gasEIP1559.slice(0, 3);
+            }
+            return { fee: r, estimateFeeParams: e };
+          };
 
-          estimateFeeParams = e;
+          const first = await estimateTxFee(unsignedTxs[0]);
+          estimateFeeParams = first.estimateFeeParams;
+          txFee = first.fee;
 
-          const r = await backgroundApiProxy.serviceGas.estimateFee({
-            accountId,
-            networkId,
-            encodedTx,
-            accountAddress,
-            transfersInfo: unsignedTxs[0].transfersInfo,
-            scenario: 'send',
-          });
-
-          // Handle 5-level EIP1559 fees
-          if (r.gasEIP1559 && r.gasEIP1559.length === 5) {
-            r.gasEIP1559 = [r.gasEIP1559[0], r.gasEIP1559[2], r.gasEIP1559[4]];
-          } else if (r.gasEIP1559) {
-            r.gasEIP1559 = r.gasEIP1559.slice(0, 3);
+          // Split transfers without approvals can each be estimated now;
+          // their gas differs per chunk (e.g. recipients without a token
+          // balance cost more), so do not derive it from the first chunk.
+          if (
+            isMultiTxs &&
+            !isManyToManyOrManyToOne &&
+            (txFee.gas || txFee.gasEIP1559) &&
+            !unsignedTxs.some((tx) => tx.approveInfo)
+          ) {
+            try {
+              const restFees = await Promise.all(
+                unsignedTxs.slice(1).map(estimateTxFee),
+              );
+              perTxFeeInfos = [first, ...restFees].map(({ fee }) => ({
+                gas: fee.gas,
+                gasEIP1559: fee.gasEIP1559,
+              }));
+            } catch (e) {
+              console.error('Per-tx estimate fee failed, fallback to scale', e);
+            }
           }
-
-          txFee = r;
         }
 
         if (!txFee) {
