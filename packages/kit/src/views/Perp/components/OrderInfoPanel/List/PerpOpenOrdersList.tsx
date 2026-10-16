@@ -20,7 +20,6 @@ import {
   useOrderFilterByCurrentTokenAtom,
   usePerpsActiveOpenOrdersAtom,
   usePerpsActiveTwapOrdersAtom,
-  usePerpsTwapHistoryAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   usePerpsActiveAccountAtom,
@@ -31,10 +30,8 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
-  buildActiveTwapRuntimeInfoByKey,
   getActiveTwapRuntimeStatus,
   getTwapRuntimeInfoKey,
-  isTerminalTwapStatus,
 } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import {
   normalizePerpsAccountAddress,
@@ -43,6 +40,7 @@ import {
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { useEnsureTradingEnabled } from '../../../hooks/useEnableTradingWithDepositFallback';
+import { usePerpsAccountScopedActiveTwapOrders } from '../../../hooks/usePerpsAccountScopedActiveTwapOrders';
 import { usePerpsAccountScopedCacheAddress } from '../../../hooks/usePerpsAccountScopedCacheAddress';
 import {
   getPerpsAccountScopedListData,
@@ -213,7 +211,6 @@ function PerpOpenOrdersList({
   const [perpOpenOrdersState] = usePerpsActiveOpenOrdersAtom();
   const [spotOpenOrdersState] = useSpotActiveOpenOrdersAtom();
   const [twapOrdersState] = usePerpsActiveTwapOrdersAtom();
-  const [twapHistoryState] = usePerpsTwapHistoryAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
   const accountScopedAddress = usePerpsAccountScopedCacheAddress();
@@ -258,47 +255,10 @@ function PerpOpenOrdersList({
       spotOpenOrdersState.openOrders,
     ],
   );
-  const rawScopedTwapOrders = useMemo(
-    () =>
-      getPerpsAccountScopedListData({
-        activeAccountAddress: accountScopedAddress,
-        dataAccountAddress: twapOrdersState.accountAddress,
-        data: twapOrdersState.twapOrders,
-      }),
-    [
-      accountScopedAddress,
-      twapOrdersState.accountAddress,
-      twapOrdersState.twapOrders,
-    ],
-  );
-  const scopedTwapHistory = useMemo(
-    () =>
-      getPerpsAccountScopedListData({
-        activeAccountAddress: accountScopedAddress,
-        dataAccountAddress: twapHistoryState.accountAddress,
-        data: twapHistoryState.history,
-      }),
-    [
-      accountScopedAddress,
-      twapHistoryState.accountAddress,
-      twapHistoryState.history,
-    ],
-  );
-  const activeTwapRuntimeInfoByKey = useMemo(
-    () => buildActiveTwapRuntimeInfoByKey(scopedTwapHistory),
-    [scopedTwapHistory],
-  );
-  const scopedTwapOrders = useMemo(
-    () =>
-      rawScopedTwapOrders.filter(
-        (order) =>
-          !isTerminalTwapStatus(
-            activeTwapRuntimeInfoByKey.get(getTwapRuntimeInfoKey(order.state))
-              ?.reportedStatus,
-          ),
-      ),
-    [rawScopedTwapOrders, activeTwapRuntimeInfoByKey],
-  );
+  const {
+    twapOrders: scopedTwapOrders,
+    activeRuntimeInfoByKey: activeTwapRuntimeInfoByKey,
+  } = usePerpsAccountScopedActiveTwapOrders(accountScopedAddress);
   const openOrders = useMemo(
     () =>
       [...scopedPerpOpenOrders, ...scopedSpotOpenOrders].toSorted(

@@ -22698,6 +22698,7 @@
     "packages/kit/src/views/Perp/hooks/usePerpTokenSelector.ts": 14752,
     "packages/kit/src/views/Perp/hooks/usePerpsAccountDisplayState.ts": 23384,
     "packages/kit/src/views/Perp/hooks/usePerpsAccountScopedActivePositions.ts": 10196,
+    "packages/kit/src/views/Perp/hooks/usePerpsAccountScopedActiveTwapOrders.ts": 18832,
     "packages/kit/src/views/Perp/hooks/usePerpsAccountScopedCacheAddress.ts": 2320,
     "packages/kit/src/views/Perp/hooks/usePerpsAccountScopedOpenOrdersByCoin.ts": 9027,
     "packages/kit/src/views/Perp/hooks/usePerpsActiveAssetCtxDisplay.ts": 9723,

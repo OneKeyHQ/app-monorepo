@@ -20,8 +20,6 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
   type IPerpsActiveTwapOrder,
   useHyperliquidActions,
-  usePerpsActiveTwapOrdersAtom,
-  usePerpsTwapHistoryAtom,
   usePerpsTwapSliceFillsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -32,12 +30,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
-  buildActiveTwapRuntimeInfoByKey,
   formatTwapPriceForDisplay,
   getActiveTwapRuntimeStatus,
   getTwapElapsedMs,
   getTwapRuntimeInfoKey,
-  isTerminalTwapStatus,
 } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
@@ -61,6 +57,7 @@ import type {
 
 import { useEnsureTradingEnabled } from '../../../hooks/useEnableTradingWithDepositFallback';
 import { usePerpTwapHistoryViewAllUrl } from '../../../hooks/usePerpOrderInfoPanel';
+import { usePerpsAccountScopedActiveTwapOrders } from '../../../hooks/usePerpsAccountScopedActiveTwapOrders';
 import { OrderInfoSubTabs } from '../Components/OrderInfoSubTabs';
 import { PerpDesktopEmptyState } from '../Components/PerpDesktopEmptyState';
 import { PerpMobileEmptyState } from '../Components/PerpMobileEmptyState';
@@ -1259,11 +1256,6 @@ function PerpTwapList({
   const actions = useHyperliquidActions();
   const ensureTradingEnabled = useEnsureTradingEnabled();
   const intl = useIntl();
-  const [
-    { accountAddress: activeTwapAccountAddress, twapOrders: rawTwapOrders },
-  ] = usePerpsActiveTwapOrdersAtom();
-  const [{ accountAddress: historyAccountAddress, history: rawHistory }] =
-    usePerpsTwapHistoryAtom();
   const [{ accountAddress: fillsAccountAddress, fills: rawSliceFills }] =
     usePerpsTwapSliceFillsAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
@@ -1308,41 +1300,8 @@ function PerpTwapList({
 
   const currentAccountAddress = currentUser?.accountAddress?.toLowerCase();
 
-  const historyRows = useMemo(() => {
-    if (
-      !currentAccountAddress ||
-      historyAccountAddress?.toLowerCase() !== currentAccountAddress
-    ) {
-      return [];
-    }
-    return rawHistory;
-  }, [currentAccountAddress, historyAccountAddress, rawHistory]);
-
-  const activeRuntimeInfoByKey = useMemo(
-    () => buildActiveTwapRuntimeInfoByKey(historyRows),
-    [historyRows],
-  );
-
-  const twapOrders = useMemo(() => {
-    if (
-      !currentAccountAddress ||
-      activeTwapAccountAddress?.toLowerCase() !== currentAccountAddress
-    ) {
-      return [];
-    }
-    return rawTwapOrders.filter(
-      (order) =>
-        !isTerminalTwapStatus(
-          activeRuntimeInfoByKey.get(getTwapRuntimeInfoKey(order.state))
-            ?.reportedStatus,
-        ),
-    );
-  }, [
-    activeRuntimeInfoByKey,
-    activeTwapAccountAddress,
-    currentAccountAddress,
-    rawTwapOrders,
-  ]);
+  const { twapOrders, historyRows, activeRuntimeInfoByKey } =
+    usePerpsAccountScopedActiveTwapOrders(currentAccountAddress);
 
   useEffect(() => {
     if (activeTab !== 'active' || twapOrders.length === 0) {
