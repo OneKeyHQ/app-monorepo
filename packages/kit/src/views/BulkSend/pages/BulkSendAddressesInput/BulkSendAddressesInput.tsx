@@ -691,9 +691,10 @@ function BaseBulkSendAddressesInput({
       values: form.getValues(),
     });
   }, [form]);
-  // The entry lets a free user in whatever the quota, so "Next" checks it:
-  // a user without uses left gets the exhausted toast before filling in the
-  // amounts. Start on the Review page stays the final judge.
+  // The entry lets a free user in while the quota is unknown (e.g. right
+  // after a login), so "Next" checks it again: a user without uses left gets
+  // the exhausted feedback before filling in the amounts. Start on the
+  // Review page stays the final judge.
   const checkBulkSendAccess = useCallback(async () => {
     if (platformEnv.isE2E) {
       return true;

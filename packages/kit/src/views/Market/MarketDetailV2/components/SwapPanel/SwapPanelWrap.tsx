@@ -132,7 +132,10 @@ function SwapPanelWrapContent({
     onlySupportCrossChain,
     defaultTokens,
     swapMevNetConfig,
-  } = useSpeedSwapInit(networkId || '', true);
+  } = useSpeedSwapInit(networkId || '', true, {
+    networkId: networkId || '',
+    contractAddress: tokenAddress ?? tokenDetail?.address ?? '',
+  });
   const marketPresetSettings = useMarketPresetSettings({
     networkId: networkId || '',
     defaultSlippage: speedConfig?.slippage,

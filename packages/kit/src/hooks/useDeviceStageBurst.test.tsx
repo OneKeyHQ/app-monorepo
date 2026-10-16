@@ -18,7 +18,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceHardwareUI: {
-      deviceStageBeginBurst: jest.fn(async () => 1),
+      deviceStageBeginBurst: jest.fn(async () => ({ token: 1, burstId: 4 })),
       deviceStageEndBurst: jest.fn(async () => undefined),
     },
   },
@@ -82,6 +82,18 @@ describe('useDeviceStageBurst error transport', () => {
       error: undefined,
       doneI18n: { key: ETranslations.portfolio_updated__title },
     });
+    unmount();
+  });
+
+  it('resolves to the burst its hold stands in', async () => {
+    const { result, unmount } = renderHook(() => useDeviceStageBurst());
+
+    let burstId: number | undefined;
+    await act(async () => {
+      burstId = await result.current.beginBurst();
+    });
+
+    expect(burstId).toBe(4);
     unmount();
   });
 });

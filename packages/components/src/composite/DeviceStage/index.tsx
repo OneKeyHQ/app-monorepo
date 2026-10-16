@@ -144,10 +144,12 @@ import type { ImageSourcePropType, LayoutChangeEvent } from 'react-native';
  * The stage is modal, and undimmed for asks and waits: while it is there
  * the app behind takes no touch — the person stays with the device — and
  * nothing dims (the design leaves the overlay layer off here). The
- * terminal failure cards are the exception (OK-62072): a bright app
- * under an unnoticed error card read as "still tappable", so those
- * three arrangements wear the scrim. Dismissal is the
- * container's (close button, drag, tap outside) behind one grant —
+ * terminal failure cards add the scrim (OK-62072): a bright app under an
+ * unnoticed error card read as "still tappable", so those three
+ * arrangements dim it. The error notice is the one surface that leaves
+ * the app live (OK-64696): the device is off duty by then, and the
+ * page's own next step (retry, support) must answer the first tap.
+ * Dismissal is the container's (close button, drag) behind one grant —
  * `onClose` — that the driver times; see IDeviceStageProps.
  *
  * Still out of scope until ratified: presence in/out for real
@@ -204,10 +206,8 @@ const WORDS_ESTIMATED_HEIGHT = 72;
 const PANEL_WARM_MS = 475;
 
 /** The actionless error is a notice — it informs, holds long enough to
- * read, then leaves on its own. The exit is a request through the same
- * close grant the ✕ fires, so the driver keeps the last word (and
- * answers with `off`, as ever). Measured from the words landing on
- * show, not from the step change. */
+ * read, then leaves on its own through `onErrorNoticeExpire`. Measured
+ * from the words landing on show, not from the step change. */
 const ERROR_NOTICE_EXIT_MS = 3000;
 
 /** The replica's exit and return around the notice's capsule seat — its
@@ -528,6 +528,8 @@ export function DeviceStage({
   connectionType,
   waitStalled,
   onClose,
+  onErrorNoticeExpire,
+  errorNoticeKey,
   confirmDetails,
   confirmMessage,
   confirmDescription,
@@ -985,21 +987,23 @@ export function DeviceStage({
   });
 
   // The notice's exit: after a readable hold — counted from the words
-  // landing on show — the stage requests close. Ref-called so a driver
-  // re-creating its handler never restarts the hold; gated on the grant
-  // existing at all — a driver that means the error to auto-leave grants
-  // close with it (the notice is terminal, nothing to protect).
+  // landing on show, and again for each new outcome (errorNoticeKey) —
+  // the stage asks the driver to retire the outcome the hold was armed
+  // for, never one that replaced it as the timer ran out. Ref-called so
+  // a driver re-creating its handler never restarts the hold.
   const errorNoticeShown = shownStep === 'error' && errorNoticeForm;
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-  const closeGranted = Boolean(onClose);
+  const onErrorNoticeExpireRef = useRef(onErrorNoticeExpire);
+  onErrorNoticeExpireRef.current = onErrorNoticeExpire;
   useEffect(() => {
-    if (!errorNoticeShown || !closeGranted) {
+    if (!errorNoticeShown) {
       return undefined;
     }
-    const id = setTimeout(() => onCloseRef.current?.(), ERROR_NOTICE_EXIT_MS);
+    const id = setTimeout(
+      () => onErrorNoticeExpireRef.current?.(errorNoticeKey),
+      ERROR_NOTICE_EXIT_MS,
+    );
     return () => clearTimeout(id);
-  }, [closeGranted, errorNoticeShown]);
+  }, [errorNoticeShown, errorNoticeKey]);
 
   // The capsule seat is the standing replica's — except under the
   // notice, whose seat is the failure glyph instead. The gate fades the
@@ -2310,7 +2314,7 @@ export function DeviceStage({
       onDismiss={onClose}
       dismissLabel={dismissLabel}
       onGeometrySettled={handleGeometrySettled}
-      modal
+      modal={!errorNotice}
       scrim={scrim}
       capsuleKey={capsuleText.title}
       capsule={capsule}

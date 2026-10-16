@@ -1,9 +1,17 @@
-import { CommonActions, StackActions } from '@react-navigation/native';
+import {
+  CommonActions,
+  StackActions,
+  TabRouter,
+} from '@react-navigation/native';
 
 import { rootNavigationRef } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type {
+  ETabRoutes,
+  IWebviewPerpTradeParamList,
+} from '@onekeyhq/shared/src/routes';
 import {
   EModalSwapRoutes,
   ERootRoutes,
@@ -15,6 +23,12 @@ import {
   releaseHideTabBar,
   requestHideTabBar,
 } from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
+
+import type {
+  NavigatorScreenParams,
+  ParamListBase,
+  TabNavigationState,
+} from '@react-navigation/native';
 
 // The request only bridges the gap between dispatching the navigation and
 // MarketDetailV2 claiming ownership in its focus effect, which is a couple of
@@ -161,6 +175,7 @@ export type INavigationRouteNode = {
 };
 
 export type INavigationStateNode = {
+  type?: string;
   key?: string;
   index?: number;
   routes?: INavigationRouteNode[];
@@ -290,18 +305,42 @@ export function getCurrentMarketStockDetailId() {
   return typeof stockId === 'string' ? stockId : undefined;
 }
 
+type ITabStackOwner = TabNavigationState<ParamListBase>;
+
+function findTabStackOwner(
+  state: INavigationStateNode | undefined,
+  stackKey: string,
+): ITabStackOwner | undefined {
+  if (!state?.routes) return undefined;
+  if (
+    state.type === 'tab' &&
+    state.key &&
+    state.routes.every((route) => route.key && route.name) &&
+    state.routes.some((route) => route.state?.key === stackKey)
+  ) {
+    return state as ITabStackOwner;
+  }
+  for (const route of state.routes) {
+    const owner = findTabStackOwner(route.state, stackKey);
+    if (owner) return owner;
+  }
+  return undefined;
+}
+
 export function dismissDiscoveryMarketDetailForTrade(
   expectedRouteKey?: string,
-) {
-  if (!platformEnv.isNative) return;
+  targetTab?: ETabRoutes,
+  targetParams?: NavigatorScreenParams<IWebviewPerpTradeParamList>,
+): 'ready' | 'cancelled' {
+  if (!platformEnv.isNative) return 'ready';
   const navigation = rootNavigationRef.current as INavigationLike | undefined;
+  if (!navigation) return 'ready';
   const current = navigation?.getCurrentRoute?.();
-  if (
-    !current?.key ||
-    !isReplaceableMarketDetailRouteName(current.name) ||
-    (expectedRouteKey !== undefined && current.key !== expectedRouteKey)
-  ) {
-    return;
+  if (expectedRouteKey !== undefined && current?.key !== expectedRouteKey) {
+    return 'cancelled';
+  }
+  if (!current?.key || !isReplaceableMarketDetailRouteName(current.name)) {
+    return 'ready';
   }
   const stack = findMarketTabStack(navigation?.getRootState?.());
   const routes = stack?.routes;
@@ -312,7 +351,7 @@ export function dismissDiscoveryMarketDetailForTrade(
     index <= 0 ||
     routes[index]?.key !== current.key
   ) {
-    return;
+    return 'ready';
   }
   let listIndex = index - 1;
   while (
@@ -325,14 +364,61 @@ export function dismissDiscoveryMarketDetailForTrade(
     routes[listIndex]?.name !== ETabDiscoveryRoutes.TabDiscovery &&
     routes[listIndex]?.name !== ETabMarketRoutes.MarketBannerDetail
   ) {
-    return;
+    return 'ready';
   }
-  // Remove consecutive details above the list, preserving its params and history.
-  navigation?.dispatch({
+  if (platformEnv.isNativeIOS) {
+    const tabs = findTabStackOwner(navigation.getRootState?.(), stack.key);
+    const targetIndex = tabs?.routes.findIndex(
+      (route) => route.name === targetTab,
+    );
+    if (!tabs || targetIndex === undefined || targetIndex < 0) {
+      return 'cancelled';
+    }
+    const sourceTab = tabs.routes.find(
+      (route) => route.state?.key === stack.key,
+    );
+    const sourceStack = sourceTab?.state;
+    if (!sourceTab || !sourceStack || sourceStack.stale !== false)
+      return 'cancelled';
+    const resetTabs: ITabStackOwner = {
+      ...tabs,
+      routes: tabs.routes.map((route) => {
+        if (route === sourceTab) {
+          return {
+            ...route,
+            state: {
+              ...sourceStack,
+              index: listIndex,
+              routes: sourceStack.routes.slice(0, listIndex + 1),
+            },
+          };
+        }
+        if (route.name === targetTab && targetParams) {
+          // Replace stale nested state before a cold tab builds its first route.
+          return { ...route, params: targetParams };
+        }
+        return route;
+      }),
+    };
+    // Select Perps and trim only its source stack in the same commit. Keep the
+    // tab and list keys so their components, loaded data and scroll state survive.
+    navigation.dispatch({
+      ...CommonActions.reset(
+        TabRouter({}).getStateForRouteFocus(
+          resetTabs,
+          tabs.routes[targetIndex].key,
+        ),
+      ),
+      target: tabs.key,
+    });
+    return 'ready';
+  }
+  navigation.dispatch({
     ...StackActions.pop(index - listIndex),
     source: current.key,
     target: stack.key,
   });
+  return 'ready';
 }
 
 function containsStack(

@@ -69,6 +69,7 @@ import {
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   extractCrossNetworkSearchQuery,
+  isAddressLikeTokenSearchKeywords,
   tokenizeTokenSearchKeywords,
 } from '@onekeyhq/shared/src/utils/tokenSelectorCrossNetworkUtils';
 import {
@@ -1299,11 +1300,9 @@ function TokenSelector() {
         // fetched here rather than on mount (getAllNetworks is memoized in the
         // background service).
         const trimmedKeywords = keywords.trim();
-        const isAddressLikeKeywords =
-          trimmedKeywords.length >= 20 && !/\s/.test(trimmedKeywords);
         const keywordStrippingEnabled =
           (crossNetworkSearchEnabled || allNetworksCrossSearchEnabled) &&
-          !isAddressLikeKeywords &&
+          !isAddressLikeTokenSearchKeywords(trimmedKeywords) &&
           tokenizeTokenSearchKeywords(trimmedKeywords).length >= 2;
         const crossNetworkQuery = keywordStrippingEnabled
           ? extractCrossNetworkSearchQuery({

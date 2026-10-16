@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { useNavigation } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
@@ -9,6 +10,7 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import { hasPrimeFreeTrialReservationInfo } from '@onekeyhq/shared/src/utils/primeFreeTrialUtils';
 import type {
   IPrimeFreeTrialUsageFeatureId,
   IPrimeFreeTrialUsageResult,
@@ -74,6 +76,9 @@ export function usePrimeFreeTrialUsage({
   featureId: IPrimeFreeTrialUsageFeatureId;
 }) {
   const intl = useIntl();
+  // The page of the bulk tool: a rejection that comes back after the user
+  // left it gets no feedback, so the dashboard never opens over another page.
+  const navigation = useNavigation();
   const { isPrimeSubscriptionActive } = useOneKeyAuth();
   const { handleStartRejected, ensureFeatureAccess } = usePrimeFeatureAccess();
 
@@ -158,7 +163,32 @@ export function usePrimeFreeTrialUsage({
             }
             return await startOnce(false);
           }
-          handleStartRejected({ result, networkId });
+          // An older server sends no reservation fields: this device's own
+          // records tell whether an earlier use still holds the quota. Read
+          // before the focus check, so the feedback right after it never
+          // lands on another page.
+          let rejected = result;
+          if (
+            result.status === 'exhausted' &&
+            !hasPrimeFreeTrialReservationInfo(result.data)
+          ) {
+            const heldUntil = await backgroundApiProxy.servicePrimeFreeTrial
+              .getHeldReservationEnd({ featureId })
+              .catch(() => undefined);
+            if (heldUntil) {
+              rejected = {
+                ...result,
+                data: {
+                  ...result.data,
+                  reserved: 1,
+                  reservationExpiresAt: heldUntil,
+                },
+              };
+            }
+          }
+          if (navigation.isFocused()) {
+            handleStartRejected({ result: rejected, networkId });
+          }
           return { status: 'rejected' };
         } catch (error) {
           defaultLogger.prime.subscription.primeFreeTrialTrace({
@@ -194,6 +224,7 @@ export function usePrimeFreeTrialUsage({
       handleStartRejected,
       intl,
       isPrimeSubscriptionActive,
+      navigation,
       settleUsage,
     ],
   );

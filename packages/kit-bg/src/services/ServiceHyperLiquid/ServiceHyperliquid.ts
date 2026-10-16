@@ -611,6 +611,8 @@ export default class ServiceHyperliquid extends ServiceBase {
     | { coin: string; mode: ITradingMode }
     | undefined;
 
+  private _pendingInitialTradeInstrumentRequestId: string | undefined;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
     void this.init();
@@ -633,6 +635,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   async setPendingInitialTradeInstrument(params: {
     coin: string;
     mode: ITradingMode;
+    requestId?: string;
   }): Promise<void> {
     if (!params.coin || this._initialSymbolSelectClaimed) {
       return;
@@ -641,6 +644,19 @@ export default class ServiceHyperliquid extends ServiceBase {
       coin: params.coin,
       mode: params.mode,
     };
+    this._pendingInitialTradeInstrumentRequestId = params.requestId;
+  }
+
+  @backgroundMethod()
+  async clearPendingInitialTradeInstrument({
+    requestId,
+  }: {
+    requestId: string;
+  }): Promise<void> {
+    if (this._pendingInitialTradeInstrumentRequestId === requestId) {
+      this._pendingInitialTradeInstrument = undefined;
+      this._pendingInitialTradeInstrumentRequestId = undefined;
+    }
   }
 
   // Three sequential proxy hops used to sit between the first Perp frame and
@@ -669,6 +685,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       ? this._pendingInitialTradeInstrument
       : undefined;
     this._pendingInitialTradeInstrument = undefined;
+    this._pendingInitialTradeInstrumentRequestId = undefined;
     const instrumentTarget = await this.getActiveTradeInstrumentTarget();
     const tradingUniverse = claimed
       ? await this.getTradingUniverse()

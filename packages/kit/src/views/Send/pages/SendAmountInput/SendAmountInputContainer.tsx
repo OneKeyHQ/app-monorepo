@@ -17,7 +17,7 @@ import {
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
-import { InputAccessoryView } from 'react-native';
+import { InputAccessoryView, type LayoutChangeEvent } from 'react-native';
 
 import {
   Accordion,
@@ -42,6 +42,8 @@ import {
   TextAreaInput,
   XStack,
   YStack,
+  getFontToken,
+  getTokenValue,
   useMedia,
 } from '@onekeyhq/components';
 import { useForm } from '@onekeyhq/components/src/hooks/useForm';
@@ -172,6 +174,10 @@ import {
   useSiblingDeriveBalances,
 } from './hooks/useSiblingDeriveBalances';
 import {
+  estimatePrivateSendQuoteCardHeight,
+  getMobilePrivateSendAmountTopOffset,
+} from './privateSendAmountLayoutUtils';
+import {
   calcPrivateSendNativeTokenMaxAmount,
   getMaxSendStateAfterModeChange,
 } from './privateSendMaxAmountUtils';
@@ -181,6 +187,54 @@ import type { RouteProp } from '@react-navigation/core';
 export const amountInputAccessoryViewID = 'send-amount-input-accessory-view';
 
 const IOS_AUTO_FOCUS_FALLBACK_MS = 500;
+
+// Layout tokens shared by the regular and private mobile amount skeletons.
+// The mobile private amount padding derives its numbers from these same
+// tokens (see privateSendAmountLayoutUtils.ts), so JSX and math cannot drift.
+const MOBILE_AMOUNT_BODY_PADDING_Y_TOKEN = '$5';
+// Regular mobile only: gap between the centered amount area and bottom info.
+const MOBILE_AMOUNT_BODY_GAP_TOKEN = '$5';
+// Gap inside the bottom info stack (regular body) and the private footer info
+// stack. In the regular stack the hidden hex-data `HeightTransition` still
+// renders a zero-height container, so this gap always sits above the card.
+const MOBILE_AMOUNT_BOTTOM_INFO_GAP_TOKEN = '$3';
+const AMOUNT_INFO_CARD_PADDING_Y_TOKEN = '$2.5';
+// Fallback for the regular balance card height before it has been measured:
+// the token icon is its tallest child.
+const BALANCE_CARD_ICON_SIZE_TOKEN = '$10';
+const PRIVATE_SEND_FOOTER_ACTIONS_GAP_TOKEN = '$2.5';
+const PRIVATE_SEND_QUOTE_DIVIDER_HEIGHT_TOKEN = '$px';
+const PRIVATE_SEND_QUOTE_DIVIDER_MARGIN_Y_TOKEN = '$2';
+const PRIVATE_SEND_QUOTE_SUMMARY_ROW_MIN_HEIGHT = 48;
+const PRIVATE_SEND_QUOTE_DETAIL_ROW_HEIGHT = 28;
+const PRIVATE_SEND_QUOTE_DETAIL_ROW_COUNT = 2;
+const PRIVATE_SEND_QUOTE_BALANCE_ROW_HEIGHT = 48;
+
+type ILayoutToken = Parameters<typeof getTokenValue>[0];
+// Read lazily: the tamagui config is not available at module evaluation.
+const spaceValue = (token: ILayoutToken) =>
+  getTokenValue(token, 'space') as number;
+const sizeValue = (token: ILayoutToken) =>
+  getTokenValue(token, 'size') as number;
+
+// Line height of the "How it works" link, used only before its first
+// onLayout. Read from the font token so it follows the platform text scale.
+function getPrivateSendFooterHelpFallbackHeight() {
+  const token = getFontToken('$bodyMd');
+  return typeof token === 'object' && typeof token?.lineHeight === 'number'
+    ? token.lineHeight
+    : 20;
+}
+
+// Measures a node's laid-out height. The handler is stable, so it can live in
+// memo dependency lists without invalidating them.
+function useMeasuredHeight() {
+  const [height, setHeight] = useState<number>();
+  const onLayout = useCallback((event: LayoutChangeEvent) => {
+    setHeight(event.nativeEvent.layout.height);
+  }, []);
+  return [height, onLayout] as const;
+}
 
 // Neutral, non-empty hint used to keep the amount error suppressed while the
 // user is typing on chains/tokens that have no min-amount hint (most EVM
@@ -1891,6 +1945,11 @@ function SendAmountInputContainer() {
   useEffect(() => {
     if (sendModeRef.current !== sendMode) {
       sendModeRef.current = sendMode;
+      // An empty amount has nothing mode-specific to re-validate. Running the
+      // `required` rule here only surfaces the deferred (blank) hint row under
+      // the input, which grows the centered amount block and shifts it up on
+      // the very first tab toggle (OK-63409). Leave the field state as-is.
+      if (!form.getValues('amount')) return;
       form.clearErrors('amount');
       void form.trigger('amount');
     }
@@ -4341,7 +4400,12 @@ function SendAmountInputContainer() {
     ) {
       return (
         <>
-          <Skeleton w="$10" h="$10" radius="round" mr="$3" />
+          <Skeleton
+            w={BALANCE_CARD_ICON_SIZE_TOKEN}
+            h={BALANCE_CARD_ICON_SIZE_TOKEN}
+            radius="round"
+            mr="$3"
+          />
           <YStack flex={1} gap="$1.5">
             <Skeleton h="$3" w="$10" />
             <Skeleton h="$4" w="$24" />
@@ -4357,7 +4421,7 @@ function SendAmountInputContainer() {
           {tokenInfo?.logoURI ? (
             <Stack>
               <Image
-                size="$10"
+                size={BALANCE_CARD_ICON_SIZE_TOKEN}
                 borderRadius="$full"
                 source={{ uri: tokenInfo.logoURI }}
               />
@@ -4380,8 +4444,8 @@ function SendAmountInputContainer() {
             </Stack>
           ) : (
             <Stack
-              w="$10"
-              h="$10"
+              w={BALANCE_CARD_ICON_SIZE_TOKEN}
+              h={BALANCE_CARD_ICON_SIZE_TOKEN}
               borderRadius="$full"
               bg="$gray5"
               alignItems="center"
@@ -4479,18 +4543,44 @@ function SendAmountInputContainer() {
     tokenSymbol,
   ]);
 
+  const isPrivateSendMode = sendMode === ESendMode.PRIVATE;
+  const isMobileAmountLayout = platformEnv.isNative && !media.gtMd;
+  const isMobilePrivateSendLayout = isPrivateSendMode && isMobileAmountLayout;
+  // Shared by the regular balance card, the private quote card's balance row
+  // and the mobile private amount padding, so the three cannot disagree.
+  const showBalanceCardRow = !isNFT && (isLoadingAssets || !!maxBalance);
+
+  // Heights that feed the mobile private amount padding below. Only measured
+  // on phones; desktop, web and tablet never read them.
+  // The regular card height is read only when the private tab renders (which
+  // re-renders anyway), so a ref spares the regular tab an extra render of
+  // this page after every card layout.
+  const regularBalanceCardHeightRef = useRef<number | undefined>(undefined);
+  const handleRegularBalanceCardLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      regularBalanceCardHeightRef.current = event.nativeEvent.layout.height;
+    },
+    [],
+  );
+  const [privateSendFooterHelpHeight, handlePrivateSendFooterHelpLayout] =
+    useMeasuredHeight();
+  const [privateSendQuoteCardHeight, handlePrivateSendQuoteCardLayout] =
+    useMeasuredHeight();
+
   const renderBalanceCard = useMemo(() => {
-    if (isNFT) return null;
-    if (!isLoadingAssets && !maxBalance) return null;
+    if (!showBalanceCardRow) return null;
 
     return (
       <XStack
         bg="$bgStrong"
         borderRadius="$3"
         px="$3"
-        py="$2.5"
+        py={AMOUNT_INFO_CARD_PADDING_Y_TOKEN}
         alignItems="center"
         width="100%"
+        onLayout={
+          isMobileAmountLayout ? handleRegularBalanceCardLayout : undefined
+        }
         {...(platformEnv.isNativeIOS
           ? {
               // Keep the card on one native layer while its ancestors follow
@@ -4504,14 +4594,16 @@ function SendAmountInputContainer() {
         {renderBalanceRowContent()}
       </XStack>
     );
-  }, [isLoadingAssets, isNFT, maxBalance, renderBalanceRowContent]);
+  }, [
+    handleRegularBalanceCardLayout,
+    isMobileAmountLayout,
+    renderBalanceRowContent,
+    showBalanceCardRow,
+  ]);
 
   const renderPrivateSendQuoteCard = useMemo(() => {
     if (sendMode !== ESendMode.PRIVATE) return null;
     const showPrivateSendQuoteSkeleton = isPrivateSendQuoteRefreshing;
-    const privateSendQuoteSummaryRowMinHeight = 48;
-    const privateSendQuoteDetailRowHeight = 28;
-    const privateSendQuoteBalanceRowHeight = 48;
     const toTokenSymbol =
       privateSendQuote?.toTokenInfo.symbol ?? privateSendToken?.symbol ?? '';
     const toAmount = privateSendQuote?.toAmount ?? '0';
@@ -4526,8 +4618,6 @@ function SendAmountInputContainer() {
             .multipliedBy(toTokenPrice)
             .toFixed()
         : undefined;
-    const showPrivateSendBalanceRow =
-      !isNFT && (isLoadingAssets || !!maxBalance);
     const estimatedReceivedTitle = intl.formatMessage({
       id: ETranslations.private_send_estimated_received,
     });
@@ -4552,7 +4642,7 @@ function SendAmountInputContainer() {
     const renderPrivateSendQuoteDetails = (
       <>
         <XStack
-          h={privateSendQuoteDetailRowHeight}
+          h={PRIVATE_SEND_QUOTE_DETAIL_ROW_HEIGHT}
           alignItems="center"
           justifyContent="space-between"
         >
@@ -4573,7 +4663,7 @@ function SendAmountInputContainer() {
         </XStack>
         {isPrivateSendQuoteRefreshing ? (
           <XStack
-            h={privateSendQuoteDetailRowHeight}
+            h={PRIVATE_SEND_QUOTE_DETAIL_ROW_HEIGHT}
             width="100%"
             alignItems="center"
             justifyContent="space-between"
@@ -4593,7 +4683,7 @@ function SendAmountInputContainer() {
           </XStack>
         ) : (
           <YStack
-            h={privateSendQuoteDetailRowHeight}
+            h={PRIVATE_SEND_QUOTE_DETAIL_ROW_HEIGHT}
             width="100%"
             justifyContent="center"
           >
@@ -4620,9 +4710,20 @@ function SendAmountInputContainer() {
     );
 
     return (
-      <YStack bg="$bgSubdued" borderRadius="$3" px="$4" py="$2.5" width="100%">
+      <YStack
+        bg="$bgSubdued"
+        borderRadius="$3"
+        px="$4"
+        py={AMOUNT_INFO_CARD_PADDING_Y_TOKEN}
+        width="100%"
+        onLayout={
+          isMobilePrivateSendLayout
+            ? handlePrivateSendQuoteCardLayout
+            : undefined
+        }
+      >
         <XStack
-          minHeight={privateSendQuoteSummaryRowMinHeight}
+          minHeight={PRIVATE_SEND_QUOTE_SUMMARY_ROW_MIN_HEIGHT}
           alignItems="center"
           justifyContent="space-between"
           gap="$3"
@@ -4762,11 +4863,15 @@ function SendAmountInputContainer() {
             </Accordion.HeightAnimator>
           </Accordion.Item>
         </Accordion>
-        {showPrivateSendBalanceRow ? (
+        {showBalanceCardRow ? (
           <>
-            <Stack h="$px" bg="$borderSubdued" my="$2" />
+            <Stack
+              h={PRIVATE_SEND_QUOTE_DIVIDER_HEIGHT_TOKEN}
+              bg="$borderSubdued"
+              my={PRIVATE_SEND_QUOTE_DIVIDER_MARGIN_Y_TOKEN}
+            />
             <XStack
-              h={privateSendQuoteBalanceRowHeight}
+              h={PRIVATE_SEND_QUOTE_BALANCE_ROW_HEIGHT}
               alignItems="center"
               width="100%"
             >
@@ -4779,14 +4884,13 @@ function SendAmountInputContainer() {
   }, [
     currencySymbol,
     dismissAmountInputKeyboardBeforeOverlayOpen,
+    handlePrivateSendQuoteCardLayout,
     intl,
-    isLoadingAssets,
-    isNFT,
+    isMobilePrivateSendLayout,
     isPrivateSendQuoteRefreshing,
     isPrivateSendQuoteDetailsExpanded,
     isRouteFocused,
     isSubmitting,
-    maxBalance,
     privateSendQuote,
     scopedPrivateSendQuoteResult?.quotes.length,
     privateSendToken,
@@ -4794,12 +4898,10 @@ function SendAmountInputContainer() {
     renderBalanceRowContent,
     refreshPrivateSendQuote,
     sendMode,
+    showBalanceCardRow,
     canFetchPrivateSendQuote,
   ]);
 
-  const isPrivateSendMode = sendMode === ESendMode.PRIVATE;
-  const isMobilePrivateSendLayout =
-    isPrivateSendMode && platformEnv.isNative && !media.gtMd;
   const shouldUseScrollablePrivateSendBody =
     isPrivateSendMode && !isMobilePrivateSendLayout;
   // Normal (non-private) send on small native screens: the auto-switch alert,
@@ -4812,7 +4914,7 @@ function SendAmountInputContainer() {
   // keyboard-aware scrollable body used by tablet private send so the content
   // can reflow/scroll instead of overlapping.
   const isMobileNormalSendScrollable =
-    !isPrivateSendMode && platformEnv.isNative && !media.gtMd;
+    !isPrivateSendMode && isMobileAmountLayout;
   const shouldUseScrollableAmountBody =
     shouldUseScrollablePrivateSendBody || isMobileNormalSendScrollable;
   const shouldHidePrivateSendFooterHelp =
@@ -4830,6 +4932,11 @@ function SendAmountInputContainer() {
           width: 'auto',
           justifyContent: 'flex-start',
         }}
+        onLayout={
+          isMobilePrivateSendLayout
+            ? handlePrivateSendFooterHelpLayout
+            : undefined
+        }
       >
         <DashText
           testID="private-send-how-it-works"
@@ -4848,7 +4955,66 @@ function SendAmountInputContainer() {
         </DashText>
       </XStack>
     );
-  }, [intl, openPrivateSendGuide, sendMode, shouldHidePrivateSendFooterHelp]);
+  }, [
+    handlePrivateSendFooterHelpLayout,
+    intl,
+    isMobilePrivateSendLayout,
+    openPrivateSendGuide,
+    sendMode,
+    shouldHidePrivateSendFooterHelp,
+  ]);
+
+  // Mobile private send keeps the amount where the regular tab shows it; the
+  // geometry lives in privateSendAmountLayoutUtils.ts (OK-63409). Private-only
+  // pieces are measured so wrapped copy or an expanded quote card stay exact.
+  // The regular balance card is measured while the regular tab is shown and
+  // falls back to its token-derived height when the page opens in private mode.
+  // While the keyboard is up the body is only a few hundred points tall, so the
+  // padding is dropped and the amount simply centers in what is left.
+  const mobilePrivateSendAmountColumnPaddingTop = useMemo(() => {
+    const bodyPaddingY = spaceValue(MOBILE_AMOUNT_BODY_PADDING_Y_TOKEN);
+    if (!isMobilePrivateSendLayout || isAmountInputFocused) return bodyPaddingY;
+    const cardPaddingY = spaceValue(AMOUNT_INFO_CARD_PADDING_Y_TOKEN);
+    const quoteCardHeight =
+      privateSendQuoteCardHeight ??
+      estimatePrivateSendQuoteCardHeight({
+        cardPaddingY,
+        summaryRowMinHeight: PRIVATE_SEND_QUOTE_SUMMARY_ROW_MIN_HEIGHT,
+        detailRowHeight: PRIVATE_SEND_QUOTE_DETAIL_ROW_HEIGHT,
+        detailRowCount: PRIVATE_SEND_QUOTE_DETAIL_ROW_COUNT,
+        isDetailsExpanded: isPrivateSendQuoteDetailsExpanded,
+        showBalanceRow: showBalanceCardRow,
+        dividerHeight: sizeValue(PRIVATE_SEND_QUOTE_DIVIDER_HEIGHT_TOKEN),
+        dividerMarginY: spaceValue(PRIVATE_SEND_QUOTE_DIVIDER_MARGIN_Y_TOKEN),
+        balanceRowHeight: PRIVATE_SEND_QUOTE_BALANCE_ROW_HEIGHT,
+      });
+    let regularCardHeight = 0;
+    if (showBalanceCardRow) {
+      regularCardHeight =
+        regularBalanceCardHeightRef.current ??
+        sizeValue(BALANCE_CARD_ICON_SIZE_TOKEN) + cardPaddingY * 2;
+    }
+    return (
+      bodyPaddingY +
+      getMobilePrivateSendAmountTopOffset({
+        footerHelpHeight:
+          privateSendFooterHelpHeight ??
+          getPrivateSendFooterHelpFallbackHeight(),
+        footerActionsGap: spaceValue(PRIVATE_SEND_FOOTER_ACTIONS_GAP_TOKEN),
+        quoteCardHeight,
+        regularBalanceCardHeight: regularCardHeight,
+        bodyGap: spaceValue(MOBILE_AMOUNT_BODY_GAP_TOKEN),
+        bottomInfoGap: spaceValue(MOBILE_AMOUNT_BOTTOM_INFO_GAP_TOKEN),
+      })
+    );
+  }, [
+    isAmountInputFocused,
+    isMobilePrivateSendLayout,
+    isPrivateSendQuoteDetailsExpanded,
+    privateSendFooterHelpHeight,
+    privateSendQuoteCardHeight,
+    showBalanceCardRow,
+  ]);
 
   const footerConfirmText = isInsufficientBalance
     ? intl.formatMessage({
@@ -4967,7 +5133,7 @@ function SendAmountInputContainer() {
     renderFooterActions = (
       <Stack
         p="$5"
-        gap="$2.5"
+        gap={PRIVATE_SEND_FOOTER_ACTIONS_GAP_TOKEN}
         bg="$bgApp"
         $gtMd={{ flexDirection: 'row', alignItems: 'center' }}
       >
@@ -5144,7 +5310,14 @@ function SendAmountInputContainer() {
           flex={1}
           contentContainerStyle={{ flexGrow: 1 }}
         >
-          <YStack flexGrow={1} justifyContent="center" px="$5" py="$5" gap="$3">
+          <YStack
+            flexGrow={1}
+            justifyContent="center"
+            px="$5"
+            pt={mobilePrivateSendAmountColumnPaddingTop}
+            pb={MOBILE_AMOUNT_BODY_PADDING_Y_TOKEN}
+            gap="$3"
+          >
             {renderMobilePrivateSendAmountBodyContent}
           </YStack>
         </ScrollView>
@@ -5161,7 +5334,12 @@ function SendAmountInputContainer() {
           contentContainerStyle={{ flexGrow: 1 }}
           bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
         >
-          <YStack px="$5" py="$5" gap="$5" flexGrow={1}>
+          <YStack
+            px="$5"
+            py={MOBILE_AMOUNT_BODY_PADDING_Y_TOKEN}
+            gap={MOBILE_AMOUNT_BODY_GAP_TOKEN}
+            flexGrow={1}
+          >
             {/* Do NOT wrap the amount input in an onPress handler to dismiss
                 the keyboard: the input is a Nitro HybridView that does not
                 claim the RN touch responder, so a parent onPress also fires
@@ -5171,7 +5349,9 @@ function SendAmountInputContainer() {
             <YStack flex={1} justifyContent="center">
               {renderAmountFormContent}
             </YStack>
-            <YStack gap="$3">{renderBottomInfoContent}</YStack>
+            <YStack gap={MOBILE_AMOUNT_BOTTOM_INFO_GAP_TOKEN}>
+              {renderBottomInfoContent}
+            </YStack>
           </YStack>
         </Keyboard.AwareScrollView>
       </Page.Body>
@@ -5198,7 +5378,7 @@ function SendAmountInputContainer() {
 
       <Page.Footer>
         {shouldUseScrollableAmountBody ? null : (
-          <Stack px="$5" gap="$3">
+          <Stack px="$5" gap={MOBILE_AMOUNT_BOTTOM_INFO_GAP_TOKEN}>
             {isMobilePrivateSendLayout
               ? renderMobilePrivateSendFooterInfoContent
               : renderBottomInfoContent}

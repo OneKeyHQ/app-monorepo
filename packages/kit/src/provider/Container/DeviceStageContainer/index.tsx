@@ -31,6 +31,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
+  deviceStageOutcomeKey,
   isDeviceStageMachineWaitStep,
   resolveDeviceStageBackPress,
 } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
@@ -178,6 +179,18 @@ function DeviceStageContainerCmp() {
     [serviceThirdPartyHardware],
   );
 
+  // The ✗ leaves through its own retire, named by the outcome the person
+  // saw (the ✕ reads it at the press, the readable hold at its arming):
+  // an outcome has no call left to cancel, and the page under the notice
+  // is live (OK-64696), so the full close could end the attempt they just
+  // started from it. See DeviceStageBurstScope.retireErrorOutcome.
+  const retireErrorOutcome = useCallback(
+    (outcomeKey: string | undefined) => {
+      void serviceHardwareUI.deviceStageRetireErrorOutcome({ outcomeKey });
+    },
+    [serviceHardwareUI],
+  );
+
   const handleExit = useCallback(
     (via: IDeviceStageExitViaValue) => {
       Keyboard.dismiss();
@@ -194,7 +207,11 @@ function DeviceStageContainerCmp() {
         stalled,
         afterAnswer: onWait && clocks.afterAnswer,
       });
-      if (current?.vendor && current.step !== 'error') {
+      if (current?.step === 'error') {
+        retireErrorOutcome(deviceStageOutcomeKey(current));
+        return;
+      }
+      if (current?.vendor) {
         // Third-party cancel semantics: decline the open request when it
         // takes a decline response, otherwise cancel the adapter call.
         sendVendorUiResponse(false);
@@ -209,6 +226,7 @@ function DeviceStageContainerCmp() {
       clocksRef,
       connectionType,
       stalled,
+      retireErrorOutcome,
       sendVendorUiResponse,
       serviceHardwareUI,
     ],
@@ -217,7 +235,8 @@ function DeviceStageContainerCmp() {
 
   // Android back (and Escape) while the stage is up: the close once the
   // exit is allowed, swallowed before that — never the screen underneath,
-  // which the stage's wall already hides. See resolveDeviceStageBackPress.
+  // not even under the error notice, whose page stays live. See
+  // resolveDeviceStageBackPress.
   const handleBackPress = useCallback(
     (via: IDeviceStageExitViaValue) => {
       const outcome = resolveDeviceStageBackPress({
@@ -539,7 +558,7 @@ function DeviceStageContainerCmp() {
   );
 
   // Errors play the notice form by default (no onErrorAction): the ✗
-  // capsule informs and leaves on its own through the close grant above.
+  // capsule informs and leaves on its own (retireErrorOutcome).
   // The ask form (retry / reconnect) is granted per flow, only where an
   // honest retry exists — wired when those flows land.
 
@@ -609,6 +628,10 @@ function DeviceStageContainerCmp() {
       onQrRenderReady={handleQrRenderReady}
       onQrBack={handleQrBack}
       onClose={closable ? handleClose : undefined}
+      onErrorNoticeExpire={retireErrorOutcome}
+      errorNoticeKey={
+        step === 'error' ? deviceStageOutcomeKey(stage) : undefined
+      }
       onPinSubmit={handlePinSubmit}
       onSwitchPinInputToApp={
         // Eligibility is stamped bg-side on the on-device route only
