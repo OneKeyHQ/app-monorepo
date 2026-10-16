@@ -16,7 +16,9 @@ import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/m
 import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
 import {
   getCurrentMarketStockDetailRoute,
+  openOrReplaceMarketDetailRoute,
   prepareMarketDetailTabBarTransition,
+  replaceFocusedMarketDetailRoute,
 } from '@onekeyhq/kit/src/views/Market/utils/marketDetailNavigation';
 import {
   EAppEventBusNames,
@@ -225,7 +227,20 @@ export function useToMarketStockDetailPage(
           const marketTab = platformEnv.isNative
             ? ETabRoutes.Discovery
             : ETabRoutes.Market;
+          const replacedCurrentDetail = openOrReplaceMarketDetailRoute({
+            routeName: ETabMarketRoutes.MarketStockDetail,
+            params: stockDetailParams,
+          });
           await switchTabAsync(marketTab);
+          if (
+            replacedCurrentDetail ||
+            replaceFocusedMarketDetailRoute({
+              routeName: ETabMarketRoutes.MarketStockDetail,
+              params: stockDetailParams,
+            })
+          ) {
+            return;
+          }
           rootNavigationRef.current?.navigate(ERootRoutes.Main, {
             screen: marketTab,
             params: {

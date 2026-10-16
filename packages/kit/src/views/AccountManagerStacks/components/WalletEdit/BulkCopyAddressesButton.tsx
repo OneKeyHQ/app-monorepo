@@ -87,7 +87,6 @@ export function BulkCopyAddressesButton({
         const access = await ensureFeatureAccess({
           featureId: EPrimeFeatures.BulkCopyAddresses,
           networkId,
-          deferQuotaCheck: true,
           // The wallet may be removed while the user logs in.
           isContextValid: async () =>
             !wallet?.id ||

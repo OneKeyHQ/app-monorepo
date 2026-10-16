@@ -1380,6 +1380,19 @@ function ReceiveToken() {
     const label = currentDeriveInfo.labelKey
       ? intl.formatMessage({ id: currentDeriveInfo.labelKey })
       : currentDeriveInfo.label;
+    // With no list to open this is a plain label, so it must not react to
+    // hover or press like a button.
+    if (disableSelector) {
+      return (
+        <SizableText
+          testID={ReceiveTestIDs.AddressTypeSelector}
+          size="$bodyMdMedium"
+          color="$textSubdued"
+        >
+          {label}
+        </SizableText>
+      );
+    }
     return (
       <Button
         testID={ReceiveTestIDs.AddressTypeSelector}
@@ -1391,13 +1404,7 @@ function ReceiveToken() {
           <SizableText size="$bodyMdMedium" color="$textSubdued">
             {label}
           </SizableText>
-          {disableSelector ? null : (
-            <Icon
-              name="ChevronDownSmallOutline"
-              size="$4"
-              color="$iconSubdued"
-            />
-          )}
+          <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
         </XStack>
       </Button>
     );
@@ -1535,6 +1542,7 @@ function ReceiveToken() {
         activeDeriveType={currentDeriveType}
         activeDeriveInfo={currentDeriveInfo}
         showTriggerWhenDisabled
+        whenCollapsed="hide"
         renderSelectorTrigger={deriveTypeTrigger}
         walletId={walletId}
         networkId={networkId}
@@ -1793,7 +1801,17 @@ function ReceiveToken() {
               <FormatHyperlinkText
                 size="$bodyMd"
                 flex={1}
-                autoExecuteParsedAction={false}
+                // A pressable card owns the tap: an inline <url> link hands
+                // it over instead of opening its own URL, so one tap never
+                // opens two pages. The link's press does not reach the card
+                // (Tamagui stops propagation on web, the Text claims the
+                // responder on native), so without the handoff the link
+                // was a dead tap (OK-64672). A card with no action of its
+                // own leaves the link to open itself.
+                autoExecuteParsedAction={!isPressable}
+                onAction={
+                  isPressable ? () => handleBannerOnPress(banner) : undefined
+                }
               >
                 {banner.title}
               </FormatHyperlinkText>

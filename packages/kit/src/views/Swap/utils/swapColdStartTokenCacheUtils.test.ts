@@ -2404,6 +2404,21 @@ describe('swap cold-start selected token context', () => {
     ).toEqual({ type: 'preserve' });
   });
 
+  it('distinguishes Market intent when the same directed pair has a different current token', () => {
+    const pair = {
+      importFromToken: buildSwapToken('evm--1'),
+      importToToken: buildSwapToken('btc--0'),
+    };
+    expect(
+      buildSwapInitParamsConsumptionKey({
+        ...pair,
+        marketSwapDirection: 'from',
+      }),
+    ).not.toBe(
+      buildSwapInitParamsConsumptionKey({ ...pair, marketSwapDirection: 'to' }),
+    );
+  });
+
   it('builds one-shot consumption keys only for swap init handoff params', () => {
     expect(buildSwapInitParamsConsumptionKey()).toBeUndefined();
     expect(

@@ -217,13 +217,13 @@ export function useAddHiddenWallet() {
           deviceType: device?.deviceType,
           features: device?.featuresInfo,
         });
-        stageToken =
+        ({ token: stageToken } =
           await backgroundApiProxy.serviceHardwareUI.deviceStageBeginBurst({
             connectId: device?.connectId,
             deviceType: device?.deviceType,
             deviceColor: stageDeviceColor,
             deviceName: stageDeviceName,
-          });
+          }));
         // Listening starts before the card is asked for: the paint is an
         // RPC, and an exit the background announces while it is in flight
         // would otherwise reach a main runtime that is not listening yet.

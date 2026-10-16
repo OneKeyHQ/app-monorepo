@@ -27,24 +27,6 @@ async function writeTestFile(filePath: string, content: string): Promise<void> {
   await RNFS.writeFile(filePath, content, 'utf8');
 }
 
-async function deleteIfExists(filePath: string): Promise<void> {
-  if (!RNFS) return;
-  const exists = await RNFS.exists(filePath);
-  if (exists) {
-    await RNFS.unlink(filePath);
-  }
-}
-
-async function getTempDir(): Promise<string> {
-  if (!RNFS) throw new OneKeyLocalError('RNFS unavailable');
-  const dir = `${RNFS.CachesDirectoryPath}/bundleUpdateTest`;
-  const exists = await RNFS.exists(dir);
-  if (!exists) {
-    await RNFS.mkdir(dir);
-  }
-  return dir;
-}
-
 const TEST_MAIN_BUNDLE_FILE = 'main.jsbundle.hbc';
 const TEST_BACKGROUND_BUNDLE_FILE = 'background.bundle';
 const TEST_WEB_EMBED_INDEX_FILE = 'web-embed/index.html';
@@ -393,7 +375,7 @@ describe('downloadBundle parameter validation', () => {
 // verifyBundle - Parameter validation
 // ---------------------------------------------------------------------------
 describe('verifyBundle parameter validation', () => {
-  test('rejects with missing filePath and sha256', async () => {
+  test('rejects with missing versions and sha256', async () => {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await BundleUpdateModule.verifyBundle({} as any);
@@ -403,10 +385,9 @@ describe('verifyBundle parameter validation', () => {
     }
   });
 
-  test('rejects with non-existent file path', async () => {
+  test('rejects without a managed bundle download', async () => {
     try {
       await BundleUpdateModule.verifyBundle({
-        downloadedFile: '/non/existent/bundle.zip',
         sha256: 'abc123',
         latestVersion: '1.0.0',
         bundleVersion: '1',
@@ -432,13 +413,9 @@ describe('verifyBundleASC parameter validation', () => {
     }
   });
 
-  test('rejects with wrong SHA256 for existing file', async () => {
-    const dir = await getTempDir();
-    const filePath = `${dir}/fake-bundle.zip`;
-    await writeTestFile(filePath, 'not a real zip');
+  test('rejects without a managed bundle download', async () => {
     try {
       await BundleUpdateModule.verifyBundleASC({
-        downloadedFile: filePath,
         sha256: 'wrong_hash_value',
         latestVersion: '1.0.0',
         bundleVersion: '999',
@@ -449,7 +426,6 @@ describe('verifyBundleASC parameter validation', () => {
       const msg = String(e.message || e);
       expect(msg.length).toBeGreaterThan(0);
     }
-    await deleteIfExists(filePath);
   });
 });
 

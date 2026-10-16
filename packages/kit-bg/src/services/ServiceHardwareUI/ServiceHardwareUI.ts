@@ -807,13 +807,15 @@ class ServiceHardwareUI extends ServiceBase {
    * Opens a UI-held burst for a whole flow (onboarding above all): every
    * wrapper that runs inside it joins by depth, so the stage stays put
    * across the seams instead of closing and reopening. The returned token
-   * closes it — see deviceStageEndBurst.
+   * closes it — see deviceStageEndBurst. `burstId` names the burst the hold
+   * stands in, the one DeviceStageOff reports when that stage leaves.
    */
   @backgroundMethod()
   async deviceStageBeginBurst(
     params: IDeviceStageBurstBeginParams & { reuseToken?: number } = {},
-  ) {
-    return this.deviceStageBurst.beginExplicit(params);
+  ): Promise<{ token: number; burstId: number | undefined }> {
+    const token = await this.deviceStageBurst.beginExplicit(params);
+    return { token, burstId: this.deviceStageBurst.getExplicitBurstId(token) };
   }
 
   @backgroundMethod()
@@ -871,6 +873,16 @@ class ServiceHardwareUI extends ServiceBase {
     content: IDeviceStageConfirmContent | undefined;
   }) {
     await this.deviceStageBurst.registerConfirmContent(content);
+  }
+
+  /** Not a close; see DeviceStageBurstScope.retireErrorOutcome. */
+  @backgroundMethod()
+  async deviceStageRetireErrorOutcome({
+    outcomeKey,
+  }: {
+    outcomeKey: string | undefined;
+  }) {
+    await this.deviceStageBurst.retireErrorOutcome(outcomeKey);
   }
 
   @backgroundMethod()
