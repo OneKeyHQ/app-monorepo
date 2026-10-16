@@ -3136,6 +3136,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       otherWalletTypeAccountId?: string,
       lpToken?: boolean,
       currency?: string,
+      forceRefresh?: boolean,
     ) => {
       const swapTypeSwitchValue = get(swapTypeSwitchAtom());
       const tokenListCacheKey = buildSwapAllNetworkTokenListCacheKey({
@@ -3175,8 +3176,19 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         tokenListCacheKey
       ];
       if (currentLock) {
-        if (currentLock.activeRequestKey === requestContext.requestKey) {
-          if (currentLock.pendingRequestKey) {
+        // A forced refresh (balance-changing event) must not reuse an
+        // in-flight request that may predate the event: it falls through and
+        // queues one more run of the same scope after the active one.
+        if (
+          !forceRefresh &&
+          currentLock.activeRequestKey === requestContext.requestKey
+        ) {
+          // Drop a pending request for another scope, but keep a same-scope
+          // pending key: that is a forced rerun and must survive.
+          if (
+            currentLock.pendingRequestKey &&
+            currentLock.pendingRequestKey !== currentLock.activeRequestKey
+          ) {
             set(swapAllNetworkActionLockAtom(), (value) => ({
               ...value,
               [tokenListCacheKey]: {
