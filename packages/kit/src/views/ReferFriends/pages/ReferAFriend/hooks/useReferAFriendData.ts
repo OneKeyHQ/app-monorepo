@@ -28,7 +28,12 @@ export function useReferAFriendData() {
 
   useEffect(() => {
     async function checkLoginAndRedirect() {
-      const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
+      let isLogin = false;
+      try {
+        isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
+      } catch {
+        // Fall back to the poster rather than leaving the page blank.
+      }
       if (isLogin) {
         void replaceToReferFriends({ isLoggedIn: true });
         return;
