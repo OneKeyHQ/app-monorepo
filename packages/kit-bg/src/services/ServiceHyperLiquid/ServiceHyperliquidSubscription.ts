@@ -79,6 +79,10 @@ import ServiceBase from '../ServiceBase';
 
 import hyperLiquidCache from './hyperLiquidCache';
 import {
+  invalidatePerpsLiquidationRiskInputs,
+  setPerpsAbstractionModeWithRiskInvalidation,
+} from './liquidationRiskInputs';
+import {
   FastL2Book,
   type IFastL2Frame,
   isFastL2RecoveryCurrent,
@@ -1571,6 +1575,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   @backgroundMethod()
   async disconnect(): Promise<void> {
+    await invalidatePerpsLiquidationRiskInputs();
     this.backgroundApi.serviceHyperliquidCache.flushPendingL2BookSnapshotCache();
     this._subscriptionLifecycleVersion += 1;
     this._resetFastL2Book();
@@ -1617,6 +1622,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   // Skip per-subscription unsubscribe to avoid async race where stale
   // _destroySubscription completion deletes newly created tracking entries
   private async _forceReconnectTransport(): Promise<void> {
+    await invalidatePerpsLiquidationRiskInputs();
     this.backgroundApi.serviceHyperliquidCache.flushPendingL2BookSnapshotCache();
     this._subscriptionLifecycleVersion += 1;
     this._resetFastL2Book();
@@ -1829,6 +1835,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     this._lastReadyState = readyState;
     void perpsWebSocketReadyStateAtom.set({ readyState });
     // WS close event — readyState tracked via perpsWebSocketReadyStateAtom
+    void invalidatePerpsLiquidationRiskInputs();
     this._forgetTransportSubscriptions();
     this._invalidateFastL2RecoveryTask();
     this._resetFastL2Book();
@@ -2366,6 +2373,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   private async _closeClient(): Promise<void> {
+    await invalidatePerpsLiquidationRiskInputs();
     this._invalidateFastL2RecoveryTask();
     this._unwatchSubscriptionAtoms();
     this._clearActiveL2BookSpec();
@@ -2642,6 +2650,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   private async _cleanupAllSubscriptions(): Promise<void> {
+    await invalidatePerpsLiquidationRiskInputs();
     const allSpecsByKey = new Map<
       string,
       ISubscriptionSpec<ESubscriptionType>
@@ -2670,6 +2679,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       );
       await this._closeClient();
     }
+    // Frames can arrive while unsubscribe is pending; none survive the rebuild.
+    await invalidatePerpsLiquidationRiskInputs();
     this.allSubSpecsMap = {};
     this.pendingSubSpecsMap = {};
     this._activeSubscriptions.clear();
@@ -2830,7 +2841,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
                 userAddress.toLowerCase() ||
               currentAbstraction?.source !== 'live'
             ) {
-              await perpsAbstractionModeAtom.set({
+              await setPerpsAbstractionModeWithRiskInvalidation({
                 accountAddress: userAddress.toLowerCase() as IHex,
                 mode: wsAbstraction as EHyperLiquidAbstractionMode,
                 source: 'live',
@@ -3109,6 +3120,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   private _markNetworkStatusOffline(): void {
+    void invalidatePerpsLiquidationRiskInputs();
     void perpsNetworkStatusAtom.set(
       (prev): IPerpsNetworkStatus => ({
         ...prev,

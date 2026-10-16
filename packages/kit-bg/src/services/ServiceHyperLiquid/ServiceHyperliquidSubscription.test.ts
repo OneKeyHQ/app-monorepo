@@ -48,6 +48,9 @@ function createService() {
 }
 
 describe('ServiceHyperliquidSubscription Fast L2 lifecycle', () => {
+  beforeAll(() => {
+    globalJotaiStorageReadyHandler.resolveReady(true);
+  });
   it('invalidates delayed recovery when the socket closes', () => {
     const service = createService();
     const internals = service as unknown as {

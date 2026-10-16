@@ -169,6 +169,12 @@ import { resolvePerpsDepositSelectedToken } from '../ServiceWebviewPerp/utils/de
 
 import { hyperLiquidApiClients } from './hyperLiquidApiClients';
 import hyperLiquidCache from './hyperLiquidCache';
+import {
+  getLiquidationRiskGeneration,
+  invalidatePerpsLiquidationRiskInputs,
+  setPerpsAbstractionModeWithRiskInvalidation,
+  updatePerpsLiquidationRiskInputs,
+} from './liquidationRiskInputs';
 import { shouldRefreshMarketPerpsUniverse } from './marketPerpsUniverse';
 import {
   createFetchUserAbstractionRawWithCache,
@@ -871,6 +877,8 @@ export default class ServiceHyperliquid extends ServiceBase {
               ipDisablePerp: commonConfig.ipDisablePerp === true,
               unifoldDepositEnabled:
                 commonConfig.unifoldDepositEnabled === true,
+              withdrawChannel:
+                commonConfig.withdrawChannel === 'legacy' ? 'legacy' : 'cctp',
             }),
             perpBannerConfig: options?.fromServerConfig
               ? bannerConfig
@@ -954,8 +962,25 @@ export default class ServiceHyperliquid extends ServiceBase {
     await this.disposeExchangeClients();
   }
 
+  private _perpsConfigRequest:
+    | Promise<IApiClientResponse<IPerpServerConfigResponse>>
+    | undefined;
+
   @backgroundMethod()
   async updatePerpsConfigByServer() {
+    // Focus, modal polling and submission must share one request so an older
+    // response cannot overwrite a newer emergency withdrawal policy.
+    if (!this._perpsConfigRequest) {
+      this._perpsConfigRequest = this._fetchPerpsConfigByServer().finally(
+        () => {
+          this._perpsConfigRequest = undefined;
+        },
+      );
+    }
+    return this._perpsConfigRequest;
+  }
+
+  private async _fetchPerpsConfigByServer() {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const resp = await client.get<
       IApiClientResponse<IPerpServerConfigResponse>
@@ -963,6 +988,10 @@ export default class ServiceHyperliquid extends ServiceBase {
       params: { assetTypeVersion: PERPS_ASSET_TYPE_VERSION },
     });
     const resData = resp.data;
+
+    if (!resData?.data?.referrerConfig) {
+      throw new OneKeyLocalError('Invalid Perps configuration response');
+    }
 
     if (process.env.NODE_ENV !== 'production') {
       // TODO devSettings ignore server config 11
@@ -2268,6 +2297,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   async updateActiveAccountSummaryFromClearinghouseState(
     data: IWsAllDexsClearinghouseState,
   ) {
+    const generation = getLiquidationRiskGeneration();
     const activeAccount = await perpsActiveAccountAtom.get();
     const activeAddress = activeAccount?.accountAddress?.toLowerCase();
     const dataUser = data?.user?.toLowerCase();
@@ -2288,11 +2318,11 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
 
     const crossMarginByDex = buildPerpsCrossMarginByDex(clearinghouseStates);
-    await perpsLiquidationRiskInputsAtom.set((prev) => ({
-      ...(prev?.accountAddress === activeAddress ? prev : {}),
+    await updatePerpsLiquidationRiskInputs({
+      generation,
       accountAddress: activeAddress as IHex,
       crossMarginByDex,
-    }));
+    });
 
     // Aggregate all DEXs (HL perps + xyz) using BigNumber
     const aggregated = clearinghouseStates.reduce(
@@ -2387,6 +2417,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   async updateSpotBalances(spotStateData: IWsSpotStateWithAvailability) {
+    const generation = getLiquidationRiskGeneration();
     const activeAccount = await perpsActiveAccountAtom.get();
     const activeAddress = activeAccount?.accountAddress?.toLowerCase();
     const dataUser = spotStateData?.user?.toLowerCase();
@@ -2398,11 +2429,11 @@ export default class ServiceHyperliquid extends ServiceBase {
       buildTokenAvailableAfterMaintenanceMap(
         spotStateData.spotState?.tokenToAvailableAfterMaintenance,
       );
-    await perpsLiquidationRiskInputsAtom.set((prev) => ({
-      ...(prev?.accountAddress === activeAddress ? prev : {}),
+    await updatePerpsLiquidationRiskInputs({
+      generation,
       accountAddress: activeAddress as IHex,
       tokenToAvailableAfterMaintenance,
-    }));
+    });
 
     const allBalances = spotStateData?.spotState?.balances || [];
     const balances = allBalances.filter(
@@ -2926,6 +2957,10 @@ export default class ServiceHyperliquid extends ServiceBase {
       previousAddress === newAddress;
 
     if (!isSameAddress) {
+      await invalidatePerpsLiquidationRiskInputs();
+      if (!this.isLatestActivePerpsAccountChange(requestId)) {
+        return undefined;
+      }
       await perpsAbstractionModeAtom.set((prev) =>
         this.isLatestActivePerpsAccountChange(requestId) ? undefined : prev,
       );
@@ -3272,7 +3307,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         ) {
           return undefined;
         }
-        await perpsAbstractionModeAtom.set(undefined);
+        await setPerpsAbstractionModeWithRiskInvalidation(undefined);
         return undefined;
       }
 
@@ -3280,7 +3315,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         userAddress,
         mode,
       );
-      await perpsAbstractionModeAtom.set({
+      await setPerpsAbstractionModeWithRiskInvalidation({
         accountAddress: lowerUserAddress,
         mode: mode as EHyperLiquidAbstractionMode,
         source: 'live',
@@ -3312,7 +3347,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         return undefined;
       }
       if (cached) {
-        await perpsAbstractionModeAtom.set({
+        await setPerpsAbstractionModeWithRiskInvalidation({
           accountAddress: lowerUserAddress,
           mode: cached as EHyperLiquidAbstractionMode,
           source: 'cache',
@@ -3347,7 +3382,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       lowerUserAddress,
       confirmedMode,
     );
-    await perpsAbstractionModeAtom.set({
+    await setPerpsAbstractionModeWithRiskInvalidation({
       accountAddress: lowerUserAddress,
       mode: confirmedMode as EHyperLiquidAbstractionMode,
       source: 'live',

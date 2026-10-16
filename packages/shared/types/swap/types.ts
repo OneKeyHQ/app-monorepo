@@ -18,6 +18,7 @@ import type {
   IEventSourceTimeoutEvent,
 } from '@onekeyhq/shared/src/eventSource';
 
+import type { ISwapReviewAnalyticsContext } from './reviewAnalytics';
 import type {
   IEstimateGasResp,
   IFeeAlgo,
@@ -385,6 +386,8 @@ export interface ISwapOrderHash {
 }
 
 export interface ISwapApproveTransaction {
+  // Keep the originating Review for estimates after reset approval completes.
+  analyticsSwapInfo?: ISwapTxInfo;
   fromToken: ISwapToken;
   toToken: ISwapToken;
   marketSwapApprovalFlowId?: string;
@@ -826,6 +829,9 @@ export interface ISwapState {
   isRefreshQuote?: boolean;
   isWaitingAutoSlippage?: boolean;
   shouldEnterRecipient?: boolean;
+  // From-token balance is a loaded zero: the action button becomes the
+  // deposit entry instead of a disabled "insufficient balance" label.
+  shouldDepositToTrade?: boolean;
 }
 
 export interface ISwapApproveAllowanceResponse {
@@ -877,6 +883,13 @@ export interface ISwapAlertState {
   alertLevel?: ESwapAlertLevel;
   inputShowError?: boolean;
   noConnectWallet?: boolean;
+  isAccountNetworkUnsupported?: boolean;
+  accountNetworkUnsupportedContext?: {
+    accountId?: string;
+    walletId?: IDBWalletId;
+    networkId?: string;
+    directionType?: ESwapDirectionType;
+  };
   action?: {
     actionType: ESwapAlertActionType;
     actionLabel?: string;
@@ -1026,6 +1039,7 @@ export interface ISwapInfoSide {
   };
 }
 export interface ISwapTxInfo {
+  reviewAnalyticsContext?: ISwapReviewAnalyticsContext;
   protocol: EProtocolOfExchange;
   sender: ISwapInfoSide;
   receiver: ISwapInfoSide;
