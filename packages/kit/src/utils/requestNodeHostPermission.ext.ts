@@ -20,8 +20,7 @@ export async function requestNodeHostPermission(
 }
 
 // Deleting a node gives back its host permission, unless another configured
-// node still lives on that origin. Built-in nodes are required permissions and
-// cannot be removed; that refusal is expected.
+// node still lives on that origin.
 export async function releaseNodeHostPermission(
   nodeUrl: string,
   remainingNodeUrls: string[],

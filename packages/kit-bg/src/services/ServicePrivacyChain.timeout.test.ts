@@ -568,4 +568,31 @@ describe('Privacy sync backoff after a user action', () => {
     expect([...service.syncFailureBackoff.keys()]).toEqual(['xmr--0|main']);
     expect(service.scheduleBackgroundSync).toHaveBeenCalledWith(0);
   });
+
+  // Custom RPC saves only announce the change; a failure here must not reach them.
+  it('handles node changes from the custom RPC event without throwing', async () => {
+    const { appEventBus, EAppEventBusNames } = jest.requireActual<
+      typeof import('@onekeyhq/shared/src/eventBus/appEventBus')
+    >('@onekeyhq/shared/src/eventBus/appEventBus');
+    const handled = jest
+      .spyOn(ServicePrivacyChain.prototype, 'onLocalWalletNodeChanged')
+      .mockRejectedValue(new Error('vault settings unavailable'));
+    const logged = jest.spyOn(console, 'error').mockImplementation(() => {});
+    // eslint-disable-next-line no-new
+    new ServicePrivacyChain({ backgroundApi: {} as never });
+
+    expect(() =>
+      appEventBus.emit(EAppEventBusNames.CustomRpcChanged, {
+        networkIds: ['evm--1'],
+      }),
+    ).not.toThrow();
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+
+    expect(handled).toHaveBeenCalledWith({ networkIds: ['evm--1'] });
+    expect(logged).toHaveBeenCalled();
+    handled.mockRestore();
+    logged.mockRestore();
+  });
 });
