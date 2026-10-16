@@ -5,6 +5,8 @@ import {
   buildCrossNetworkSearchListData,
   extractCrossNetworkSearchQuery,
   getTokenNetworkAliasMap,
+  isAddressLikeTokenSearchKeywords,
+  isTokenContractAddressKeywords,
   isTokenSelectorSyntheticRow,
   tokenizeTokenSearchKeywords,
 } from './tokenSelectorCrossNetworkUtils';
@@ -451,5 +453,62 @@ describe('getTokenNetworkAliasMap', () => {
     expect(map[networkIds.trx]).toEqual(['trc20', '波场', '波場']);
     expect(map[networkIds.eth]).toEqual(['erc20']);
     expect(map[networkIds.bsc]).toEqual(['bep20']);
+  });
+});
+
+describe('isAddressLikeTokenSearchKeywords', () => {
+  it('detects pasted contract addresses', () => {
+    expect(
+      isAddressLikeTokenSearchKeywords(
+        '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+      ),
+    ).toBe(true);
+    expect(
+      isAddressLikeTokenSearchKeywords(
+        ' EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v ',
+      ),
+    ).toBe(true);
+  });
+
+  it('ignores names, symbols and multi-word queries', () => {
+    expect(isAddressLikeTokenSearchKeywords(undefined)).toBe(false);
+    expect(isAddressLikeTokenSearchKeywords('USDC')).toBe(false);
+    expect(isAddressLikeTokenSearchKeywords('usd coin on arbitrum one')).toBe(
+      false,
+    );
+  });
+});
+
+describe('isTokenContractAddressKeywords', () => {
+  it('detects contract addresses of supported chains', () => {
+    [
+      '0xaf88d065e77c8cC2239327C5EDb3A432268e5831', // EVM
+      ' 0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1 ',
+      '0x2::sui::SUI', // Sui coin type
+      '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC',
+      'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // Solana
+      'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t', // Tron
+      // Digit-free base58 that still decodes to a 32-byte Solana key.
+      'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstu',
+      'EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs', // TON
+      '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1', // NEAR implicit
+      'usdt.tether-token.near', // NEAR named
+      'a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.factory.bridge.near',
+    ].forEach((address) => {
+      expect(isTokenContractAddressKeywords(address)).toBe(true);
+    });
+  });
+
+  it('keeps long single-word token names and symbols out', () => {
+    [
+      undefined,
+      'USDC',
+      'WrappedStakedEthereumToken',
+      'SuperLongMemeTokenNameForTesting',
+      '0x123',
+      'usd coin on arbitrum one',
+    ].forEach((keywords) => {
+      expect(isTokenContractAddressKeywords(keywords)).toBe(false);
+    });
   });
 });

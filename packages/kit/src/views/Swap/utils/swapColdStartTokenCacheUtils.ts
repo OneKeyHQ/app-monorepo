@@ -846,6 +846,7 @@ export function buildSwapInitParamsConsumptionKey(params?: ISwapInitParams) {
     params.importNetworkId ?? '',
     params.swapTabSwitchType ?? '',
     params.swapSource ?? '',
+    params.marketSwapDirection ?? '',
   ].join('|');
 }
 

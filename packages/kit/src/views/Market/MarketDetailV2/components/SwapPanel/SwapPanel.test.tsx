@@ -5,8 +5,8 @@ import type { ComponentProps, PropsWithChildren } from 'react';
 import { act, render } from '@testing-library/react';
 
 import {
+  prepareMarketSwapEntry,
   prepareStockSwapEntry,
-  prepareTopCoinSwapEntry,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/prepareSwapProEntry';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
@@ -69,7 +69,7 @@ jest.mock(
   '@onekeyhq/kit/src/states/jotai/contexts/swap/prepareSwapProEntry',
   () => ({
     prepareStockSwapEntry: jest.fn(),
-    prepareTopCoinSwapEntry: jest.fn(),
+    prepareMarketSwapEntry: jest.fn(),
   }),
 );
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -109,12 +109,12 @@ describe('Market mobile Buy / Sell modal entry', () => {
         toToken: direction === 'to' ? token : payToken,
         swapType: ESwapTabSwitchType.SWAP,
       };
-      jest.mocked(prepareTopCoinSwapEntry).mockReturnValue(entry);
+      jest.mocked(prepareMarketSwapEntry).mockReturnValue(entry);
       render(<SwapPanel swapToken={token} />);
       const footer = mockFooter.mock.calls[0][0];
       act(direction === 'to' ? footer.onBuy : footer.onSell);
 
-      expect(prepareTopCoinSwapEntry).toHaveBeenCalledWith({
+      expect(prepareMarketSwapEntry).toHaveBeenCalledWith({
         token,
         direction,
         storeName: EJotaiContextStoreNames.swapModal,
@@ -126,6 +126,7 @@ describe('Market mobile Buy / Sell modal entry', () => {
           importToToken: entry.toToken,
           swapTabSwitchType: ESwapTabSwitchType.SWAP,
           swapSource: ESwapSource.MARKET,
+          marketSwapDirection: direction,
         },
       });
       expect(mockSwitchTab).not.toHaveBeenCalled();
@@ -134,7 +135,7 @@ describe('Market mobile Buy / Sell modal entry', () => {
   );
 
   it('preserves the prepared Bridge mode', () => {
-    jest.mocked(prepareTopCoinSwapEntry).mockReturnValue({
+    jest.mocked(prepareMarketSwapEntry).mockReturnValue({
       fromToken: { ...payToken, networkId: 'evm--56' },
       toToken: token,
       swapType: ESwapTabSwitchType.BRIDGE,
@@ -163,7 +164,7 @@ describe('Market mobile Buy / Sell modal entry', () => {
         direction,
         storeName: EJotaiContextStoreNames.swapModal,
       });
-      expect(prepareTopCoinSwapEntry).not.toHaveBeenCalled();
+      expect(prepareMarketSwapEntry).not.toHaveBeenCalled();
       expect(mockPushModal.mock.calls[0][1].params.swapTabSwitchType).toBe(
         ESwapTabSwitchType.STOCK,
       );
@@ -176,7 +177,7 @@ describe('Market mobile Buy / Sell modal entry', () => {
     expect(footer.tradeDisabled).toBe(true);
     act(footer.onBuy);
     act(footer.onSell);
-    expect(prepareTopCoinSwapEntry).not.toHaveBeenCalled();
+    expect(prepareMarketSwapEntry).not.toHaveBeenCalled();
     expect(prepareStockSwapEntry).not.toHaveBeenCalled();
     expect(mockPushModal).not.toHaveBeenCalled();
   });
