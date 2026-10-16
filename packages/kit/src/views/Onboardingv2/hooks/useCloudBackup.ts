@@ -29,6 +29,7 @@ import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTrans
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useIsMounted } from '../../../hooks/useIsMounted';
 import { showPrimeTransferImportProcessingDialog } from '../../Prime/pages/PagePrimeTransfer/components/PrimeTransferImportProcessingDialog';
 import {
   showCloudBackupDeleteDialog,
@@ -41,6 +42,7 @@ export function useCloudBackup() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [checkLoading, setCheckLoading] = useState(false);
+  const isMountedRef = useIsMounted();
 
   const [cloudBackupStatus] = useCloudBackupStatusAtom();
 
@@ -230,7 +232,7 @@ export function useCloudBackup() {
       backupTimes?: number;
     }) => {
       const isAvailable = await checkIsAvailable();
-      if (!isAvailable) {
+      if (!isAvailable || !isMountedRef.current) {
         return;
       }
       let verifyPasswordDialog: IDialogInstance | null = null;
@@ -238,6 +240,9 @@ export function useCloudBackup() {
       let loadingDialog: IDialogInstance | null = null;
 
       function handleBackupError(error: unknown) {
+        if (!isMountedRef.current) {
+          throw error;
+        }
         const e = error as Error | undefined;
         const errorMessage = e?.message;
         if (
@@ -355,6 +360,10 @@ export function useCloudBackup() {
         setCheckLoading(true);
         const isPasswordSet =
           await backgroundApiProxy.serviceCloudBackupV2.isBackupPasswordSet();
+        // Drive consent can outlive the page that started the backup.
+        if (!isMountedRef.current) {
+          return;
+        }
         const resetPasswordAndBackup = async ({
           isFirstTimeSetPassword,
         }: { isFirstTimeSetPassword?: boolean } = {}) => {
@@ -412,7 +421,9 @@ export function useCloudBackup() {
           });
         }
       } finally {
-        setCheckLoading(false);
+        if (isMountedRef.current) {
+          setCheckLoading(false);
+        }
       }
     },
     600,
@@ -579,6 +590,9 @@ export function useCloudBackup() {
       if (isAvailable) {
         if (platformEnv.isNativeAndroid) {
           await backgroundApiProxy.serviceCloudBackupV2.loginCloudIfNeed();
+        }
+        if (!isMountedRef.current) {
+          return;
         }
 
         if (platformEnv.isNativeAndroid || alwaysGoToBackupDetail) {
