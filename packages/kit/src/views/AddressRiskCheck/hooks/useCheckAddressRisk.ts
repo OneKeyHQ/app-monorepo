@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 
+import { rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
@@ -138,13 +139,21 @@ type IAddressRiskCheckResultRequest =
 const OPEN_RESULT_GUARD_MS = 1000;
 
 // Entry for running a check from the standalone input and history pages: opens
-// the result page right away, which shows the loading and runs the check.
+// the result page right away, which shows the loading and runs the check. A
+// manually entered address of a free user whose local snapshot is used up or
+// not open gets the feedback on the press instead, unless it has a history
+// result to show. Addresses picked from the history or recent list always
+// have one.
 export function useCheckAddressRisk() {
   const navigation = useAppNavigation();
+  // The input or history page the press came from.
+  const reactNavigation = useNavigation();
+  const { getCachedAccess, showActiveRejectedFeedback } =
+    usePrimeFeatureAccess();
   const lastOpenedAtRef = useRef(0);
 
   const checkRisk = useCallback(
-    ({
+    async ({
       networkId,
       address,
       entryPoint,
@@ -158,12 +167,32 @@ export function useCheckAddressRisk() {
         return;
       }
       lastOpenedAtRef.current = now;
+      const access = getCachedAccess(EPrimeFeatures.AddressRiskCheck);
+      if (
+        entryPoint === 'inputManual' &&
+        (access.status === 'exhausted' || access.status === 'notOpen')
+      ) {
+        const historyResult = await getHistoryResult({ networkId, address });
+        // The user may have left the page during the lookup.
+        if (!reactNavigation.isFocused()) {
+          return;
+        }
+        if (!historyResult) {
+          showActiveRejectedFeedback({
+            featureId: EPrimeFeatures.AddressRiskCheck,
+            reason: access.status,
+            resetAt: access.status === 'exhausted' ? access.resetAt : undefined,
+            networkId,
+          });
+          return;
+        }
+      }
       navigation.push(EModalAddressRiskCheckRoutes.AddressRiskCheckResult, {
         checkRequest: { networkId, address, entryPoint },
         showMoreAnalysis: true,
       });
     },
-    [navigation],
+    [getCachedAccess, navigation, reactNavigation, showActiveRejectedFeedback],
   );
 
   return { checkRisk };
@@ -205,24 +234,31 @@ export function useAddressRiskCheckRequest(
         if (!isActive) {
           return;
         }
-        if (getPrimeFreeTrialError(error)) {
-          // Leave this pending page first so the user is not left on it
-          // behind the feedback: the Send page check closes the whole modal,
-          // a check inside the feature goes back to the input / history page.
-          // Only a page still on top leaves: one already closing (mounted
-          // during its close animation) or covered would pop another page.
-          if (reactNavigation.isFocused()) {
-            if (entryPoint === 'sendAddressInput') {
-              navigation.popStack();
-            } else {
-              navigation.pop();
-            }
-            await timerUtils.wait(300);
-          }
-          handleFreeTrialError({ error, networkId, afterPageExit: true });
+        // Only a page still on top handles a free-trial rejection; one the
+        // user already left keeps the failed state.
+        if (!getPrimeFreeTrialError(error) || !reactNavigation.isFocused()) {
+          setIsFailed(true);
           return;
         }
-        setIsFailed(true);
+        // Leave this page first so Prime does not close back onto a dead
+        // end: the Send page check closes its whole modal, a check inside
+        // the feature goes back to the input / history page. The dashboard
+        // waits for the close animation, and opens only if the user is still
+        // on the page this landed on.
+        if (entryPoint === 'sendAddressInput') {
+          navigation.popStack();
+        } else {
+          navigation.pop();
+        }
+        const landedRouteKey =
+          rootNavigationRef.current?.getCurrentRoute()?.key;
+        await timerUtils.wait(300);
+        if (
+          rootNavigationRef.current?.getCurrentRoute()?.key !== landedRouteKey
+        ) {
+          return;
+        }
+        handleFreeTrialError({ error, networkId, afterPageExit: true });
       },
     );
     return () => {

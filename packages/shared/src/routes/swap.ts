@@ -37,6 +37,7 @@ export enum EModalSwapRoutes {
 export type IModalSwapParamList = {
   [EModalSwapRoutes.DustSweep]: IDustSweepRouteParams | undefined;
   [EModalSwapRoutes.SwapMainLand]: {
+    marketSwapDirection?: 'from' | 'to';
     importFromToken?: ISwapToken;
     importToToken?: ISwapToken;
     importAccountKey?: string;

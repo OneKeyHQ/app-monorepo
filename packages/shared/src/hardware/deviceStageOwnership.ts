@@ -121,6 +121,30 @@ export function shouldLegacyContainerRaiseHardwareErrorDialog({
 }
 
 /**
+ * Whether a failure arriving now is the stage's to land: it is on, and
+ * mid-flow. A resting error outcome is not — its call has ended, and the
+ * page under the ✗ notice is live (OK-64696), so a failure from behind it
+ * is the legacy surfaces' to show.
+ */
+export function isDeviceStageCarryingFailures(
+  step: IDeviceStageStepValue | undefined,
+): boolean {
+  return step !== undefined && step !== 'off' && step !== 'error';
+}
+
+/**
+ * Names one painted step of the stage: every step write bumps
+ * `activitySeq` within a burst, and a new burst after an off takes a new
+ * `burstId`. The error notice's retire carries the key of the outcome it
+ * was armed for, so it never takes down one painted since (OK-64696).
+ */
+export function deviceStageOutcomeKey(
+  state: { burstId?: number; activitySeq?: number } | undefined,
+): string | undefined {
+  return state ? `${state.burstId ?? 0}:${state.activitySeq ?? 0}` : undefined;
+}
+
+/**
  * Whether the legacy popup surfaces the DeviceStage replaced are still in
  * play.
  *
@@ -255,6 +279,34 @@ export function isDeviceStageAnsweredStep(
   step: IDeviceStageStepValue,
 ): boolean {
   return EXIT_RULE[step].answered;
+}
+
+/** The steps that end a run: its failure, its success, no device found. */
+const OUTCOME_STEPS: ReadonlySet<IDeviceStageStepValue> =
+  new Set<IDeviceStageStepValue>(['error', 'done', 'deviceNotFound']);
+
+/**
+ * Whether moving from `prevStep` to `step` is a fresh appearance of the
+ * stage — the start of its exit settle (resolveDeviceStageExitGrant). The
+ * stage rising from off is one. So is a new run taking over an outcome in
+ * place: the page under the ✗ notice is live (OK-64696), a retry replaces
+ * the ✗ without passing through off, and a press carried in from the
+ * failed attempt must not close the new one at once.
+ */
+export function isDeviceStageNewAppearance({
+  prevStep,
+  step,
+}: {
+  prevStep: IDeviceStageStepValue;
+  step: IDeviceStageStepValue;
+}): boolean {
+  if (step === 'off') {
+    return false;
+  }
+  return (
+    prevStep === 'off' ||
+    (OUTCOME_STEPS.has(prevStep) && !OUTCOME_STEPS.has(step))
+  );
 }
 
 /**

@@ -192,6 +192,8 @@ export interface IMarketPresetTokenContext {
 }
 
 export interface ISwapInitParams {
+  // The current Market token side; resolved using Swap's loaded capabilities.
+  marketSwapDirection?: 'from' | 'to';
   importFromToken?: ISwapToken;
   importToToken?: ISwapToken;
   importAccountKey?: string;
