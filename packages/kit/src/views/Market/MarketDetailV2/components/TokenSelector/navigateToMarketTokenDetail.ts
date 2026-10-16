@@ -106,9 +106,7 @@ export async function navigateToMarketTokenDetail(
     });
   }
 
-  const targetTab = platformEnv.isNative
-    ? ETabRoutes.Discovery
-    : ETabRoutes.Market;
+  const targetTab = ETabRoutes.Market;
   const tokenParams = {
     ...(token.assetId
       ? {
