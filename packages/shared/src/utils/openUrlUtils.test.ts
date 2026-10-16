@@ -258,7 +258,6 @@ describe('openUrlExternal (native)', () => {
     'file:///etc/passwd',
     'java\nscript:alert(1)',
     'wc:abc123@2?relay-protocol=irn',
-    'mailto:hi@onekey.so',
     'macappstore://itunes.apple.com/app/id1234567890',
   ])('blocks dangerous external scheme on desktop/web: %s', async (url) => {
     mockEnv.isNative = false;
@@ -278,8 +277,12 @@ describe('openUrlExternal (native)', () => {
     }
   });
 
-  test('opens only HTTP(S) URLs outside native', () => {
+  test.each([
+    { platform: 'web', isDesktop: false },
+    { platform: 'desktop', isDesktop: true },
+  ])('opens HTTP(S) and mailto URLs on $platform', ({ isDesktop }) => {
     mockEnv.isNative = false;
+    (mockEnv as unknown as { isDesktop: boolean }).isDesktop = isDesktop;
     const openSpy = jest.fn();
     (globalThis as unknown as { window?: { open: jest.Mock } }).window = {
       open: openSpy,
@@ -287,9 +290,12 @@ describe('openUrlExternal (native)', () => {
     try {
       openUrlExternal('https://onekey.so/path');
       openUrlExternal('http://onekey.so/path');
-      expect(openSpy).toHaveBeenCalledTimes(2);
+      openUrlExternal('mailto:hi@onekey.so');
+      expect(openSpy).toHaveBeenCalledTimes(3);
+      expect(openSpy).toHaveBeenCalledWith('mailto:hi@onekey.so', '_blank');
     } finally {
       delete (globalThis as unknown as { window?: unknown }).window;
+      (mockEnv as unknown as { isDesktop: boolean }).isDesktop = false;
     }
   });
 });

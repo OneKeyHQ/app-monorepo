@@ -144,7 +144,7 @@ const openUrlOutsideNative = (url: string): void => {
   } catch {
     return;
   }
-  if (protocol !== 'http:' && protocol !== 'https:') {
+  if (protocol !== 'http:' && protocol !== 'https:' && protocol !== 'mailto:') {
     return;
   }
   if (platformEnv.isExtension) {

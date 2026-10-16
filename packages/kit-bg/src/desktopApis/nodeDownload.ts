@@ -627,6 +627,7 @@ async function parallel(
   opts.signal?.addEventListener('abort', onAbort, { once: true });
   if (opts.signal?.aborted) controller.abort();
   const terminalHttpError: { current?: Error } = {};
+  const rangeFallback: { current?: RangeFallback } = {};
   try {
     emit(opts, manifest, 0);
     const outcomes = await Promise.allSettled(
@@ -641,6 +642,14 @@ async function parallel(
             flush,
           );
         } catch (error) {
+          if (
+            error instanceof RangeFallback &&
+            !error.refreshMetadata &&
+            !rangeFallback.current
+          ) {
+            rangeFallback.current = error;
+            controller.abort();
+          }
           const updateError = getUpdateError(error, 'download');
           if (
             updateError.code === EUpdateErrorCode.httpError &&
@@ -659,6 +668,7 @@ async function parallel(
     );
     cancelled(opts.signal);
     if (terminalHttpError.current) throw terminalHttpError.current;
+    if (rangeFallback.current) throw rangeFallback.current;
     const rejected =
       outcomes.find(
         (outcome) =>

@@ -162,6 +162,83 @@ test.each([
   },
 );
 
+test('aborts sibling segments before falling back to a single stream', async () => {
+  const opts = options();
+  let releaseBadSegment: (() => void) | undefined;
+  const siblingsStarted = new Promise<void>((resolve) => {
+    releaseBadSegment = resolve;
+  });
+  let siblingRequests = 0;
+  let abortedSiblings = 0;
+  let settledSiblings = 0;
+  let singleRequests = 0;
+  opts.transport = async (url, headers, signal) => {
+    if (headers.Range === 'bytes=0-0') return { url, response: probe() };
+    if (!headers.Range) {
+      singleRequests += 1;
+      expect(abortedSiblings).toBe(7);
+      expect(settledSiblings).toBe(7);
+      return {
+        url,
+        response: response(
+          200,
+          { 'content-length': String(content.length), etag: '"fixture"' },
+          [content],
+        ),
+      };
+    }
+    const range = /^bytes=(\d+)-(\d+)$/.exec(headers.Range);
+    expect(range).not.toBeNull();
+    const start = Number(range?.[1]);
+    const end = Number(range?.[2]);
+    if (start === 0) {
+      await siblingsStarted;
+      return { url, response: response(200, {}, [content]) };
+    }
+    siblingRequests += 1;
+    if (siblingRequests === 7) releaseBadSegment?.();
+    const delayed: AsyncIterable<Buffer> = {
+      [Symbol.asyncIterator]() {
+        return {
+          async next() {
+            try {
+              await new Promise<void>((resolve) => {
+                const onAbort = () => {
+                  abortedSiblings += 1;
+                  resolve();
+                };
+                if (signal?.aborted) onAbort();
+                else signal?.addEventListener('abort', onAbort, { once: true });
+              });
+              return { done: true as const, value: undefined };
+            } finally {
+              settledSiblings += 1;
+            }
+          },
+        };
+      },
+    };
+    return {
+      url,
+      response: response(
+        206,
+        {
+          'content-range': `bytes ${start}-${end}/${content.length}`,
+          etag: '"fixture"',
+        },
+        delayed,
+      ),
+    };
+  };
+
+  await downloadNodeFile(opts);
+  expect(siblingRequests).toBe(7);
+  expect(singleRequests).toBe(1);
+  expect(fs.readFileSync(opts.targetPath)).toEqual(content);
+  expect(fs.existsSync(`${opts.targetPath}.partial`)).toBe(false);
+  expect(fs.existsSync(`${opts.targetPath}.partial.progress.json`)).toBe(false);
+});
+
 test('destroys a large unsupported probe before consuming its body', async () => {
   const opts = options();
   let consumed = 0;

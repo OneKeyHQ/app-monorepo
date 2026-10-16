@@ -1030,6 +1030,22 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   browserWindow.webContents.on('did-navigate', (_event, url) => {
     selectedShellDocumentCommitted = isTrustedMainWindowUrl(src, url);
     trustedSameDocumentRouteUrl = undefined;
+    if (!selectedShellDocumentCommitted) {
+      try {
+        if (
+          new URL(src).protocol === 'file:' &&
+          new URL(url).protocol === 'file:'
+        ) {
+          void getSafelyBrowserWindow()
+            ?.loadURL(src)
+            .catch((error) =>
+              logger.error('Failed to reload app shell:', error),
+            );
+        }
+      } catch {
+        // Invalid URLs cannot be recovered as local app-shell routes.
+      }
+    }
   });
   browserWindow.webContents.on(
     'did-navigate-in-page',
