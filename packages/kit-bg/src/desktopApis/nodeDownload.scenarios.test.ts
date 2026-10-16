@@ -211,6 +211,214 @@ function seedSingle(opts: INodeDownloadOptions, bytes: Buffer, done: number) {
   );
 }
 
+test('resumes an unknown-size single download after a transient probe failure', async () => {
+  const opts = options();
+  let probes = 0;
+  const ranges: Array<string | undefined> = [];
+  opts.transport = async (url, headers) => {
+    if (headers.Range === 'bytes=0-0') {
+      probes += 1;
+      throw Object.assign(new Error('probe connection lost'), {
+        code: 'ECONNRESET',
+      });
+    }
+    ranges.push(headers.Range);
+    if (!headers.Range) {
+      const interrupted = async function* () {
+        yield content.subarray(0, 1024);
+        throw Object.assign(new Error('download connection lost'), {
+          code: 'ECONNRESET',
+        });
+      };
+      return {
+        url,
+        response: response(
+          200,
+          { 'content-length': String(content.length), etag: '"fixture"' },
+          interrupted(),
+        ),
+      };
+    }
+    expect(headers.Range).toBe('bytes=1024-');
+    expect(headers['If-Range']).toBe('"fixture"');
+    expect(
+      JSON.parse(
+        fs.readFileSync(`${opts.targetPath}.partial.progress.json`, 'utf8'),
+      ),
+    ).toMatchObject({
+      size: content.length,
+      etag: '"fixture"',
+      mode: 'single',
+      parts: [{ done: 1024 }],
+    });
+    return {
+      url,
+      response: response(
+        206,
+        {
+          'content-range': `bytes 1024-${content.length - 1}/${content.length}`,
+          etag: '"fixture"',
+        },
+        [content.subarray(1024)],
+      ),
+    };
+  };
+
+  await downloadNodeFile(opts);
+  expect(probes).toBe(4);
+  expect(ranges).toEqual([undefined, 'bytes=1024-']);
+  expect(fs.readFileSync(opts.targetPath)).toEqual(content);
+});
+
+test('keeps a verified single partial when the next probe supports parallel ranges', async () => {
+  const controller = new AbortController();
+  const firstOpts: INodeDownloadOptions = {
+    ...options(),
+    signal: controller.signal,
+    onProgress: ({ transferred }) => {
+      if (transferred === 1024) controller.abort();
+    },
+  };
+  let probes = 0;
+  firstOpts.transport = async (url, headers) => {
+    if (headers.Range === 'bytes=0-0') {
+      probes += 1;
+      throw Object.assign(new Error('probe connection lost'), {
+        code: 'ECONNRESET',
+      });
+    }
+    expect(headers.Range).toBeUndefined();
+    return {
+      url,
+      response: response(
+        200,
+        { 'content-length': String(content.length), etag: '"fixture"' },
+        [content.subarray(0, 1024), content.subarray(1024)],
+      ),
+    };
+  };
+  await expect(downloadNodeFile(firstOpts)).rejects.toBeTruthy();
+  expect(probes).toBe(4);
+  expect(fs.statSync(`${firstOpts.targetPath}.partial`).size).toBe(1024);
+
+  const resumedOpts = options();
+  const ranges: string[] = [];
+  resumedOpts.transport = async (url, headers) => {
+    ranges.push(headers.Range ?? '');
+    if (headers.Range === 'bytes=0-0') return { url, response: probe() };
+    expect(headers.Range).toBe('bytes=1024-');
+    expect(headers['If-Range']).toBe('"fixture"');
+    return {
+      url,
+      response: response(
+        206,
+        {
+          'content-range': `bytes 1024-${content.length - 1}/${content.length}`,
+          etag: '"fixture"',
+        },
+        [content.subarray(1024)],
+      ),
+    };
+  };
+  await downloadNodeFile(resumedOpts);
+  expect(ranges).toEqual(['bytes=0-0', 'bytes=1024-']);
+  expect(fs.readFileSync(resumedOpts.targetPath)).toEqual(content);
+});
+
+test('rejects a changed total after learning the size from a single response', async () => {
+  const opts = options();
+  let probes = 0;
+  opts.transport = async (url, headers) => {
+    if (headers.Range === 'bytes=0-0') {
+      probes += 1;
+      throw Object.assign(new Error('probe connection lost'), {
+        code: 'ECONNRESET',
+      });
+    }
+    if (!headers.Range) {
+      const interrupted = async function* () {
+        yield content.subarray(0, 1024);
+        throw Object.assign(new Error('download connection lost'), {
+          code: 'ECONNRESET',
+        });
+      };
+      return {
+        url,
+        response: response(
+          200,
+          { 'content-length': String(content.length), etag: '"fixture"' },
+          interrupted(),
+        ),
+      };
+    }
+    expect(headers.Range).toBe('bytes=1024-');
+    expect(headers['If-Range']).toBe('"fixture"');
+    return {
+      url,
+      response: response(206, {
+        'content-range': `bytes 1024-${content.length}/${content.length + 1}`,
+        etag: '"fixture"',
+      }),
+    };
+  };
+  await expect(downloadNodeFile(opts)).rejects.toMatchObject({
+    data: {
+      updateError: {
+        code: EUpdateErrorCode.integrityFailed,
+        step: 'download',
+      },
+    },
+  });
+  expect(probes).toBe(4);
+  for (const suffix of ['', '.partial', '.partial.progress.json']) {
+    expect(fs.existsSync(`${opts.targetPath}${suffix}`)).toBe(false);
+  }
+});
+
+test.each(['identity', 'checksum', 'etag', 'size'] as const)(
+  'does not reuse a single partial when %s changes',
+  async (changed) => {
+    const opts = options();
+    seedSingle(opts, content, 1024);
+    const manifestPath = `${opts.targetPath}.partial.progress.json`;
+    const manifest = JSON.parse(
+      fs.readFileSync(manifestPath, 'utf8'),
+    ) as Record<string, unknown>;
+    if (changed === 'size') {
+      manifest[changed] = content.length - 1;
+    } else if (changed === 'etag') {
+      manifest[changed] = '"older"';
+    } else {
+      manifest[changed] = 'different';
+    }
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest));
+    const ranges: string[] = [];
+    opts.transport = async (url, headers) => {
+      ranges.push(headers.Range ?? '');
+      if (headers.Range === 'bytes=0-0') return { url, response: probe() };
+      const range = /^bytes=(\d+)-(\d+)$/.exec(headers.Range ?? '');
+      expect(range).not.toBeNull();
+      const start = Number(range?.[1]);
+      const end = Number(range?.[2]);
+      return {
+        url,
+        response: response(
+          206,
+          {
+            'content-range': `bytes ${start}-${end}/${content.length}`,
+            etag: '"fixture"',
+          },
+          [content.subarray(start, end + 1)],
+        ),
+      };
+    };
+    await downloadNodeFile(opts);
+    expect(ranges).not.toContain('bytes=1024-');
+    expect(ranges.some((range) => range.startsWith('bytes=0-'))).toBe(true);
+    expect(fs.readFileSync(opts.targetPath)).toEqual(content);
+  },
+);
+
 test('restarts a single stream cleanly when an existing partial gets a 200 resume response', async () => {
   const bytes = Buffer.from('a complete artifact after resume');
   const opts = options(bytes);

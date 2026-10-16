@@ -167,16 +167,29 @@ const verifyASC: IVerifyASC = async (params) => {
   );
 };
 
+const verifyNativeApk = async (
+  nativeUpdate: IReactNativeAppUpdateNative,
+  fileParams: { downloadUrl: string },
+): Promise<void> => {
+  // A fresh native instance has no in-memory ASC or package proof.
+  await runUpdateOperation('verifyASC', () =>
+    nativeUpdate.verifyASC(fileParams),
+  );
+  await runUpdateOperation('verifyPackage', () =>
+    nativeUpdate.verifyAPK(fileParams),
+  );
+};
+
 const verifyPackage: IVerifyPackage = async (params) => {
   const nativeDownloadUrl = toNativeString(params?.downloadUrl).trim();
   if (!nativeDownloadUrl) {
     return;
   }
-  await runUpdateOperation('verifyPackage', () =>
-    getReactNativeAppUpdate().verifyAPK({
-      downloadUrl: nativeDownloadUrl,
-    }),
-  );
+  await runUpdateOperation('verifyPackage', async () => {
+    const nativeUpdate = getReactNativeAppUpdate();
+    const fileParams = { downloadUrl: nativeDownloadUrl };
+    await verifyNativeApk(nativeUpdate, fileParams);
+  });
 };
 
 // Android will provide a native APK availability check in a follow-up.
@@ -195,11 +208,12 @@ const installPackage: IInstallPackage = async ({
   if (!nativeLatestVersion) {
     return false;
   }
-  await runUpdateOperation('install', () =>
-    getReactNativeAppUpdate().installAPK({
-      downloadUrl: toNativeString(downloadUrl),
-    }),
-  );
+  await runUpdateOperation('install', async () => {
+    const nativeUpdate = getReactNativeAppUpdate();
+    const fileParams = { downloadUrl: toNativeString(downloadUrl) };
+    await verifyNativeApk(nativeUpdate, fileParams);
+    await nativeUpdate.installAPK(fileParams);
+  });
   return true;
 };
 

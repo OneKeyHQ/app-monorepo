@@ -390,7 +390,12 @@ function readManifest(
       (opts.identity
         ? manifest.identity === opts.identity
         : manifest.url === opts.url) &&
-      manifest.size === size &&
+      (manifest.size === size ||
+        (mode === 'single' &&
+          size === 0 &&
+          Number.isSafeInteger(manifest.size) &&
+          manifest.size >= 0 &&
+          manifest.size <= MAX_DOWNLOAD_BYTES)) &&
       manifest.etag === (etag ?? manifest.etag) &&
       manifest.checksum === checksumKey(opts) &&
       manifest.mode === mode &&
@@ -405,7 +410,8 @@ function readManifest(
           p.start < 0 ||
           p.end < p.start ||
           p.done < 0 ||
-          ((mode === 'parallel' || size > 0) && p.done > p.end - p.start + 1),
+          ((mode === 'parallel' || manifest.size > 0) &&
+            p.done > p.end - p.start + 1),
       )
     )
       return null;
@@ -699,11 +705,13 @@ async function single(
   }
   const part = manifest.parts[0];
   let offset = part.done;
-  if (size && offset === size) return size;
+  const knownSize = manifest.size || size;
+  const knownEtag = manifest.etag ?? etag;
+  if (knownSize && offset === knownSize) return knownSize;
   const headers = {
     ...opts.headers,
     ...(offset ? { Range: `bytes=${offset}-` } : {}),
-    ...(offset && isStrongEtag(etag) ? { 'If-Range': etag } : {}),
+    ...(offset && isStrongEtag(knownEtag) ? { 'If-Range': knownEtag } : {}),
   };
   const { response } = await get(
     opts.url,
@@ -717,14 +725,22 @@ async function single(
     response.destroy();
     throw failure(EUpdateErrorCode.httpError, status);
   }
-  if (etag && response.headers.etag && response.headers.etag !== etag) {
+  if (
+    knownEtag &&
+    response.headers.etag &&
+    response.headers.etag !== knownEtag
+  ) {
     response.destroy();
     discard(partial, manifestPath);
     throw failure(EUpdateErrorCode.integrityFailed);
   }
   if (status === 206) {
     const range = contentRange(response.headers['content-range']);
-    if (!range || range.start !== offset || (size && range.total !== size)) {
+    if (
+      !range ||
+      range.start !== offset ||
+      (knownSize && range.total !== knownSize)
+    ) {
       response.destroy();
       discard(partial, manifestPath);
       throw failure(EUpdateErrorCode.integrityFailed);
@@ -739,6 +755,9 @@ async function single(
   if (!manifest.size) {
     manifest.size = Number(response.headers['content-length']) || 0;
     part.end = Math.max(0, manifest.size - 1);
+  }
+  if (!manifest.etag && response.headers.etag) {
+    manifest.etag = response.headers.etag;
   }
   if (
     manifest.size > MAX_DOWNLOAD_BYTES ||
@@ -924,7 +943,10 @@ async function downloadNodeFileInternal(
     info = { url: opts.url, size: 0, etag: null, parallel: false };
   }
   let size: number;
-  if (info.parallel) {
+  if (
+    info.parallel &&
+    !readManifest(opts, partial, manifestPath, info.size, info.etag, 'single')
+  ) {
     size = await parallelWithRecovery(opts, info, partial, manifestPath);
   } else {
     size = await singleWithRetry(

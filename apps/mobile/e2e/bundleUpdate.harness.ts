@@ -44,6 +44,7 @@ const TEST_MAIN_BUNDLE_FILE = 'main.jsbundle.hbc';
 const TEST_BACKGROUND_BUNDLE_FILE = 'background.bundle';
 const TEST_WEB_EMBED_INDEX_FILE = 'web-embed/index.html';
 const TEST_BACKGROUND_PROTOCOL_VERSION = '1';
+const TEST_STORAGE_SCHEMA_VERSION = 'mmkv-v1';
 
 function parseMetadataPathFromMessage(message: string): string {
   const marker = 'Created empty metadata.json: ';
@@ -167,6 +168,7 @@ async function createBundlePairFixture({
     ? 'true'
     : 'false';
   metadata.backgroundProtocolVersion = backgroundProtocolVersion;
+  metadata.storageSchemaVersion = TEST_STORAGE_SCHEMA_VERSION;
 
   await writeBundleMetadata(metadataPath, metadata);
 
@@ -184,6 +186,37 @@ async function clearBundlePairFixture(
 ): Promise<void> {
   await BundleUpdateModule.clearAllJSBundleData();
   await BundleUpdateModule.testDeleteJsRuntimeDir(appVersion, bundleVersion);
+}
+
+async function expectIncompatibleBundleSwitch(
+  appVersion: string,
+  bundleVersion: string,
+): Promise<void> {
+  const previousMainPath = BundleUpdateModule.getJsBundlePath();
+  const previousBackgroundPath = BundleUpdateModule.getBackgroundJsBundlePath();
+  const previousWebEmbedPath = await BundleUpdateModule.getWebEmbedPathAsync();
+  let rejectedError: unknown;
+  try {
+    await BundleUpdateModule.setCurrentUpdateBundleData({
+      appVersion,
+      bundleVersion,
+      signature: '',
+    });
+  } catch (error) {
+    rejectedError = error;
+  }
+  expectNativeUpdateError(
+    rejectedError,
+    'install',
+    EUpdateErrorCode.incompatible,
+  );
+  expect(BundleUpdateModule.getJsBundlePath()).toBe(previousMainPath);
+  expect(BundleUpdateModule.getBackgroundJsBundlePath()).toBe(
+    previousBackgroundPath,
+  );
+  expect(await BundleUpdateModule.getWebEmbedPathAsync()).toBe(
+    previousWebEmbedPath,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -707,16 +740,7 @@ describe('bundle pair compatibility', () => {
         bundleVersion,
         includeMain: false,
       });
-
-      await BundleUpdateModule.setCurrentUpdateBundleData({
-        appVersion,
-        bundleVersion,
-        signature: '',
-      });
-
-      expect(BundleUpdateModule.getJsBundlePath()).toBe('');
-      expect(BundleUpdateModule.getBackgroundJsBundlePath()).toBe('');
-      expect(await BundleUpdateModule.getWebEmbedPathAsync()).toBe('');
+      await expectIncompatibleBundleSwitch(appVersion, bundleVersion);
     } finally {
       await clearBundlePairFixture(appVersion, bundleVersion);
       await setSkipGpgVerificationForTests(false);
@@ -739,16 +763,7 @@ describe('bundle pair compatibility', () => {
         bundleVersion,
         includeBackground: false,
       });
-
-      await BundleUpdateModule.setCurrentUpdateBundleData({
-        appVersion,
-        bundleVersion,
-        signature: '',
-      });
-
-      expect(BundleUpdateModule.getJsBundlePath()).toBe('');
-      expect(BundleUpdateModule.getBackgroundJsBundlePath()).toBe('');
-      expect(await BundleUpdateModule.getWebEmbedPathAsync()).toBe('');
+      await expectIncompatibleBundleSwitch(appVersion, bundleVersion);
     } finally {
       await clearBundlePairFixture(appVersion, bundleVersion);
       await setSkipGpgVerificationForTests(false);
@@ -771,16 +786,7 @@ describe('bundle pair compatibility', () => {
         bundleVersion,
         backgroundProtocolVersion: '999',
       });
-
-      await BundleUpdateModule.setCurrentUpdateBundleData({
-        appVersion,
-        bundleVersion,
-        signature: '',
-      });
-
-      expect(BundleUpdateModule.getJsBundlePath()).toBe('');
-      expect(BundleUpdateModule.getBackgroundJsBundlePath()).toBe('');
-      expect(await BundleUpdateModule.getWebEmbedPathAsync()).toBe('');
+      await expectIncompatibleBundleSwitch(appVersion, bundleVersion);
     } finally {
       await clearBundlePairFixture(appVersion, bundleVersion);
       await setSkipGpgVerificationForTests(false);
