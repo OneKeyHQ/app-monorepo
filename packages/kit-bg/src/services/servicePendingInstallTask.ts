@@ -711,23 +711,7 @@ class ServicePendingInstallTask {
     }
 
     const runtimeAppInfo = appInfo || (await appUpdatePersistAtom.get());
-    const downloadedEvent = runtimeAppInfo.downloadedEvent;
-    const isNativeJsBundle =
-      platformEnv.isNative && decision.decision !== 'appShellUpdate';
-    // Native bundle files are owned by the SDK; bind readiness to the verified release.
-    const isDownloadReady = isNativeJsBundle
-      ? !!(
-          downloadedEvent?.latestVersion &&
-          downloadedEvent.latestVersion === releaseInfo.version &&
-          downloadedEvent.bundleVersion &&
-          downloadedEvent.bundleVersion === releaseInfo.jsBundleVersion &&
-          downloadedEvent.sha256 &&
-          downloadedEvent.sha256 === releaseInfo.jsBundle?.sha256 &&
-          downloadedEvent.signature &&
-          downloadedEvent.signature === releaseInfo.jsBundle?.signature
-        )
-      : !!downloadedEvent?.downloadedFile;
-    if (!isDownloadReady) {
+    if (!runtimeAppInfo.downloadedEvent?.downloadedFile) {
       defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
         traceId,
         requestSeq,

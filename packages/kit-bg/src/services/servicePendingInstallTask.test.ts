@@ -199,8 +199,6 @@ describe('servicePendingInstallTask', () => {
     const platformEnvMock = require('@onekeyhq/shared/src/platformEnv').default;
     platformEnvMock.version = '1.0.0';
     platformEnvMock.bundleVersion = '1';
-    platformEnvMock.isNative = false;
-    platformEnvMock.isDesktop = true;
     pendingTaskValue = undefined;
     setState({});
   });
@@ -295,130 +293,6 @@ describe('servicePendingInstallTask', () => {
       targetBundleVersion: '2',
     });
   });
-
-  test.each([
-    [EUpdateStrategy.silent, '1'],
-    [EUpdateStrategy.seamless, '1'],
-    [EUpdateStrategy.manual, '3'],
-  ] as const)(
-    'native managed download queues and switches with strategy %s from bundle %s',
-    async (strategy, currentBundle) => {
-      const platformEnvMock =
-        require('@onekeyhq/shared/src/platformEnv').default;
-      platformEnvMock.isNative = true;
-      platformEnvMock.isDesktop = false;
-      platformEnvMock.bundleVersion = currentBundle;
-      const service = createService();
-      const releaseInfo = {
-        version: '1.0.0',
-        jsBundleVersion: '2',
-        updateStrategy: strategy,
-        jsBundle: { sha256: 'sha256-2', signature: 'sig-2' },
-      };
-      setState({
-        latestVersion: '1.0.0',
-        jsBundleVersion: '2',
-        updateStrategy: strategy,
-        jsBundle: releaseInfo.jsBundle,
-        downloadedEvent: {
-          latestVersion: '1.0.0',
-          bundleVersion: '2',
-          sha256: 'sha256-2',
-          signature: 'sig-2',
-        },
-      });
-
-      await service.syncPendingInstallTaskWithReleaseInfo({
-        releaseInfo,
-        requestSeq: 2,
-        traceId: 'trace-native-managed',
-        stage: 'ready_to_install',
-        appInfo: appUpdateState,
-      });
-      expect(pendingTaskValue).toMatchObject({
-        type: 'jsbundle-switch',
-        targetAppVersion: '1.0.0',
-        targetBundleVersion: '2',
-      });
-
-      await service.processPendingInstallTask();
-      const {
-        BundleUpdate,
-      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
-      expect(BundleUpdate.verifyExtractedBundle).toHaveBeenCalledWith(
-        '1.0.0',
-        '2',
-      );
-      expect(BundleUpdate.switchBundle).toHaveBeenCalledWith({
-        appVersion: '1.0.0',
-        bundleVersion: '2',
-        signature: 'sig-2',
-      });
-    },
-  );
-
-  test.each(['latestVersion', 'bundleVersion', 'sha256', 'signature'] as const)(
-    'native managed download rejects a stale %s even with a legacy file marker',
-    async (field) => {
-      const platformEnvMock =
-        require('@onekeyhq/shared/src/platformEnv').default;
-      platformEnvMock.isNative = true;
-      platformEnvMock.isDesktop = false;
-      const service = createService();
-      setState({
-        downloadedEvent: {
-          downloadedFile: '/tmp/stale.zip',
-          latestVersion: '1.0.0',
-          bundleVersion: '2',
-          sha256: 'sha256-2',
-          signature: 'sig-2',
-          [field]: 'stale',
-        },
-      });
-      await service.syncPendingInstallTaskWithReleaseInfo({
-        releaseInfo: {
-          version: '1.0.0',
-          jsBundleVersion: '2',
-          updateStrategy: EUpdateStrategy.silent,
-          jsBundle: { sha256: 'sha256-2', signature: 'sig-2' },
-        },
-        requestSeq: 2,
-        traceId: 'trace-stale-native',
-        stage: 'ready_to_install',
-        appInfo: appUpdateState,
-      });
-      expect(pendingTaskValue).toBeUndefined();
-    },
-  );
-
-  test.each([false, true])(
-    'app shell still requires a downloaded file on native=%s',
-    async (isNative) => {
-      const platformEnvMock =
-        require('@onekeyhq/shared/src/platformEnv').default;
-      platformEnvMock.isNative = isNative;
-      platformEnvMock.isDesktop = !isNative;
-      const service = createService();
-      setState({
-        latestVersion: '2.0.0',
-        downloadedEvent: {
-          latestVersion: '2.0.0',
-          downloadUrl: 'https://cdn.onekey.so/app.pkg',
-        },
-      });
-      await service.syncPendingInstallTaskWithReleaseInfo({
-        releaseInfo: {
-          version: '2.0.0',
-          updateStrategy: EUpdateStrategy.silent,
-        },
-        requestSeq: 2,
-        traceId: 'trace-shell-missing-path',
-        stage: 'ready_to_install',
-        appInfo: appUpdateState,
-      });
-      expect(pendingTaskValue).toBeUndefined();
-    },
-  );
 
   test('ready_to_install stage creates rollback jsbundle task when remote bundle is lower than local', async () => {
     const service = createService();
