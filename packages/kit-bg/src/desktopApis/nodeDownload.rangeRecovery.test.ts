@@ -7,6 +7,7 @@ import { Readable } from 'stream';
 import {
   EUpdateErrorCode,
   UPDATE_ERROR_WIRE_PREFIX,
+  createUpdateError,
   getUpdateError,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 
@@ -322,4 +323,114 @@ describe('HTTP 416 recovery', () => {
     expect(ranges.some((range) => range.startsWith('bytes=0-'))).toBe(false);
     expect(fs.readFileSync(opts.targetPath).equals(content)).toBe(true);
   });
+
+  test.each([401, 403, 404, 410])(
+    'parallel HTTP %i preserves completed ranges for a refreshed signed URL',
+    async (status) => {
+      const content = Buffer.alloc(3 * 1024 * 1024, 83);
+      const opts = options(content);
+      opts.url = 'https://fixture.test/expired-package';
+      const chunk = content.length / 8;
+      let firstRangeCompleted!: () => void;
+      const firstRangeDone = new Promise<void>((resolve) => {
+        firstRangeCompleted = resolve;
+      });
+      let siblingAborted = false;
+      opts.onProgress = ({ transferred }) => {
+        if (transferred >= chunk) firstRangeCompleted();
+      };
+      opts.transport = async (url, headers, signal) => {
+        if (headers.Range === 'bytes=0-0') {
+          return { url, response: probeResponse(content.length) };
+        }
+        const match = /^bytes=(\d+)-(\d+)$/.exec(headers.Range)!;
+        const start = Number(match[1]);
+        const end = Number(match[2]);
+        if (start === chunk * 2) {
+          return new Promise<never>((_resolve, reject) => {
+            signal?.addEventListener(
+              'abort',
+              () => {
+                siblingAborted = true;
+                reject(
+                  createUpdateError({
+                    code: EUpdateErrorCode.cancelled,
+                    step: 'download',
+                  }),
+                );
+              },
+              { once: true },
+            );
+          });
+        }
+        if (start === chunk) {
+          await firstRangeDone;
+          return { url, response: response(status, {}) };
+        }
+        return {
+          url,
+          response: response(
+            206,
+            {
+              'content-range': `bytes ${start}-${end}/${content.length}`,
+              etag: '"v1"',
+            },
+            content.subarray(start, end + 1),
+          ),
+        };
+      };
+
+      await expect(downloadNodeFile(opts)).rejects.toMatchObject({
+        data: {
+          updateError: {
+            code: EUpdateErrorCode.httpError,
+            step: 'download',
+            httpStatus: status,
+          },
+        },
+      });
+      expect(siblingAborted).toBe(true);
+      const manifest = JSON.parse(
+        fs.readFileSync(`${opts.targetPath}.partial.progress.json`, 'utf8'),
+      ) as {
+        parts: Array<{ start: number; end: number; done: number }>;
+      };
+      const completedRanges = manifest.parts
+        .filter((part) => part.done === part.end - part.start + 1)
+        .map((part) => `bytes=${part.start}-${part.end}`);
+      expect(completedRanges).toContain(`bytes=0-${chunk - 1}`);
+      expect(completedRanges).not.toContain(`bytes=${chunk}-${chunk * 2 - 1}`);
+      expect(fs.existsSync(`${opts.targetPath}.partial`)).toBe(true);
+
+      opts.url = 'https://fixture.test/refreshed-package';
+      const resumedRanges: string[] = [];
+      opts.transport = async (url, headers) => {
+        expect(url).toBe(opts.url);
+        if (headers.Range === 'bytes=0-0') {
+          return { url, response: probeResponse(content.length) };
+        }
+        resumedRanges.push(headers.Range);
+        const match = /^bytes=(\d+)-(\d+)$/.exec(headers.Range)!;
+        const start = Number(match[1]);
+        const end = Number(match[2]);
+        return {
+          url,
+          response: response(
+            206,
+            {
+              'content-range': `bytes ${start}-${end}/${content.length}`,
+              etag: '"v1"',
+            },
+            content.subarray(start, end + 1),
+          ),
+        };
+      };
+      await downloadNodeFile(opts);
+      expect(resumedRanges).toContain(`bytes=${chunk}-${chunk * 2 - 1}`);
+      for (const range of completedRanges) {
+        expect(resumedRanges).not.toContain(range);
+      }
+      expect(fs.readFileSync(opts.targetPath)).toEqual(content);
+    },
+  );
 });

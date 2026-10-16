@@ -532,7 +532,7 @@ async function downloadPart(
         if (status === 200 || status === 206)
           throw new RangeFallback('Range response changed');
         if (!retryableStatus(status))
-          throw new RangeFallback(`Permanent HTTP ${status}`);
+          throw failure(EUpdateErrorCode.httpError, status);
         serverDelay = retryAfterMs(response.headers['retry-after']);
         throw failure(EUpdateErrorCode.httpError, status);
       }
@@ -613,15 +613,46 @@ async function parallel(
     };
     saveManifest(manifestPath, manifest);
   }
+  cancelled(opts.signal);
   const fd = fs.openSync(partial, 'r+');
   const flush = () => saveManifest(manifestPath, manifest, fd);
+  const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  opts.signal?.addEventListener('abort', onAbort, { once: true });
+  if (opts.signal?.aborted) controller.abort();
+  const terminalHttpError: { current?: Error } = {};
   try {
     emit(opts, manifest, 0);
     const outcomes = await Promise.allSettled(
-      manifest.parts.map((part) =>
-        downloadPart(opts, manifest, part, fd, finalUrl, flush),
-      ),
+      manifest.parts.map(async (part) => {
+        try {
+          await downloadPart(
+            { ...opts, signal: controller.signal },
+            manifest,
+            part,
+            fd,
+            finalUrl,
+            flush,
+          );
+        } catch (error) {
+          const updateError = getUpdateError(error, 'download');
+          if (
+            updateError.code === EUpdateErrorCode.httpError &&
+            !isRetryableUpdateError(updateError) &&
+            !terminalHttpError.current
+          ) {
+            terminalHttpError.current =
+              error instanceof Error
+                ? error
+                : failure(EUpdateErrorCode.httpError, updateError.httpStatus);
+            controller.abort();
+          }
+          throw error;
+        }
+      }),
     );
+    cancelled(opts.signal);
+    if (terminalHttpError.current) throw terminalHttpError.current;
     const rejected =
       outcomes.find(
         (outcome) =>
@@ -632,6 +663,7 @@ async function parallel(
     if (rejected?.status === 'rejected') throw rejected.reason;
     flush();
   } finally {
+    opts.signal?.removeEventListener('abort', onAbort);
     fs.closeSync(fd);
   }
 }

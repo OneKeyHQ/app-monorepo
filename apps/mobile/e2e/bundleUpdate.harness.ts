@@ -356,13 +356,18 @@ describe('testVerification', () => {
 // downloadBundle - Parameter validation (no actual download)
 // ---------------------------------------------------------------------------
 describe('downloadBundle parameter validation', () => {
-  test('rejects with missing required params', async () => {
+  test('rejects an empty release version', async () => {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await BundleUpdateModule.downloadBundle({} as any);
+      await BundleUpdateModule.downloadBundle({
+        downloadUrl: 'https://example.com/bundle.zip',
+        latestVersion: '',
+        bundleVersion: '1',
+        fileSize: 1000,
+        sha256: 'a'.repeat(64),
+      });
       // Should not reach here
       expect(true).toBe(false);
-    } catch (e: any) {
+    } catch (e: unknown) {
       expectNativeUpdateError(e, 'download', EUpdateErrorCode.invalidArgument);
     }
   });
@@ -387,12 +392,15 @@ describe('downloadBundle parameter validation', () => {
 // verifyBundle - Parameter validation
 // ---------------------------------------------------------------------------
 describe('verifyBundle parameter validation', () => {
-  test('rejects with missing release identity and sha256', async () => {
+  test('rejects an empty release version', async () => {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await BundleUpdateModule.verifyBundle({} as any);
+      await BundleUpdateModule.verifyBundle({
+        sha256: 'a'.repeat(64),
+        latestVersion: '',
+        bundleVersion: '1',
+      });
       expect(true).toBe(false);
-    } catch (e: any) {
+    } catch (e: unknown) {
       expectNativeUpdateError(
         e,
         'verifyPackage',
@@ -423,12 +431,16 @@ describe('verifyBundle parameter validation', () => {
 // verifyBundleASC - Parameter validation
 // ---------------------------------------------------------------------------
 describe('verifyBundleASC parameter validation', () => {
-  test('rejects with missing params', async () => {
+  test('rejects an empty release version', async () => {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await BundleUpdateModule.verifyBundleASC({} as any);
+      await BundleUpdateModule.verifyBundleASC({
+        sha256: 'a'.repeat(64),
+        latestVersion: '',
+        bundleVersion: '1',
+        signature: 'invalid_signature',
+      });
       expect(true).toBe(false);
-    } catch (e: any) {
+    } catch (e: unknown) {
       expectNativeUpdateError(e, 'verifyASC', EUpdateErrorCode.invalidArgument);
     }
   });
@@ -452,12 +464,17 @@ describe('verifyBundleASC parameter validation', () => {
 // downloadBundleASC - Parameter validation
 // ---------------------------------------------------------------------------
 describe('downloadBundleASC parameter validation', () => {
-  test('rejects with missing required params', async () => {
+  test('rejects an empty release version', async () => {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await BundleUpdateModule.downloadBundleASC({} as any);
+      await BundleUpdateModule.downloadBundleASC({
+        downloadUrl: 'https://example.com/metadata.asc',
+        signature: 'invalid_signature',
+        latestVersion: '',
+        bundleVersion: '1',
+        sha256: 'a'.repeat(64),
+      });
       expect(true).toBe(false);
-    } catch (e: any) {
+    } catch (e: unknown) {
       expectNativeUpdateError(
         e,
         'downloadASC',
@@ -471,12 +488,15 @@ describe('downloadBundleASC parameter validation', () => {
 // installBundle - Parameter validation & version downgrade prevention
 // ---------------------------------------------------------------------------
 describe('installBundle parameter validation', () => {
-  test('rejects with missing required params', async () => {
+  test('rejects an empty release version', async () => {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await BundleUpdateModule.installBundle({} as any);
+      await BundleUpdateModule.installBundle({
+        latestVersion: '',
+        bundleVersion: '1',
+        signature: 'invalid_signature',
+      });
       expect(true).toBe(false);
-    } catch (e: any) {
+    } catch (e: unknown) {
       expectNativeUpdateError(e, 'install', EUpdateErrorCode.invalidArgument);
     }
   });

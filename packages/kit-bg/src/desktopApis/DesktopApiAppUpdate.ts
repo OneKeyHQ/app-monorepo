@@ -133,11 +133,12 @@ function makeFeedFileUrl(baseUrl: string): string {
   return feed.toString();
 }
 
-function resolveArtifactUrl(fileUrl: string, feedBase: string): string {
-  const base = new URL(feedBase);
-  if (!base.pathname.endsWith('/')) base.pathname += '/';
+function resolveArtifactUrl(fileUrl: string, feedUrl: string): string {
+  const base = new URL(feedUrl);
   const resolved = new URL(fileUrl, base);
-  if (!resolved.search && base.search) resolved.search = base.search;
+  if (!resolved.search && base.search && resolved.origin === base.origin) {
+    resolved.search = base.search;
+  }
   if (resolved.protocol !== 'https:') {
     throw createUpdateError({
       code: EUpdateErrorCode.securityRejected,
@@ -266,8 +267,8 @@ async function requestText(
   inputUrl: string,
   headers: Record<string, string>,
   signal?: AbortSignal,
-): Promise<string> {
-  const { response } = await requestUpdateUrl(
+): Promise<{ text: string; url: string }> {
+  const { response, url } = await requestUpdateUrl(
     inputUrl,
     headers,
     signal,
@@ -303,7 +304,7 @@ async function requestText(
     }
     chunks.push(bytes);
   }
-  return Buffer.concat(chunks).toString('utf8');
+  return { text: Buffer.concat(chunks).toString('utf8'), url };
 }
 
 async function hashFile(
@@ -342,7 +343,7 @@ class DesktopApiAppUpdate {
 
   private metadataControllers = new Set<AbortController>();
 
-  private metadataRequests = new Set<Promise<string>>();
+  private metadataRequests = new Set<Promise<{ text: string; url: string }>>();
 
   private metadataGeneration = 0;
 
@@ -583,7 +584,7 @@ class DesktopApiAppUpdate {
   private async requestMetadata(
     url: string,
     headers: Record<string, string>,
-  ): Promise<string> {
+  ): Promise<{ text: string; url: string }> {
     const controller = new AbortController();
     const request = requestText(url, headers, controller.signal);
     this.metadataControllers.add(controller);
@@ -759,7 +760,10 @@ class DesktopApiAppUpdate {
         step: 'download',
       });
     }
-    const raw = await this.requestMetadata(feedUrl, headers);
+    const { text: raw, url: finalFeedUrl } = await this.requestMetadata(
+      feedUrl,
+      headers,
+    );
     if (metadataGeneration !== this.metadataGeneration) {
       throw createUpdateError({
         code: EUpdateErrorCode.cancelled,
@@ -770,7 +774,7 @@ class DesktopApiAppUpdate {
     const artifact = selectArtifact(
       parsed,
       latestVersion,
-      feedBase,
+      finalFeedUrl,
       this.getRuntimeArch(),
     );
     this.selectedArtifact = artifact;
@@ -1050,7 +1054,7 @@ class DesktopApiAppUpdate {
         step: 'downloadASC',
       });
     }
-    const text = await this.requestMetadata(ascUrl.toString(), headers);
+    const { text } = await this.requestMetadata(ascUrl.toString(), headers);
     if (metadataGeneration !== this.metadataGeneration) {
       throw createUpdateError({
         code: EUpdateErrorCode.cancelled,

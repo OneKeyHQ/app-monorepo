@@ -50,15 +50,20 @@ beforeEach(() => {
 test('follows Electron manual redirect and strips cross-origin credentials', async () => {
   mockRequest.mockImplementation(({ url }: { url: string }) => requestFor(url));
   const { response: body, url } = await requestUpdateUrl(
-    'https://origin.test/start',
-    { Authorization: 'secret', Range: 'bytes=0-0', 'User-Agent': 'OneKey' },
+    'https://origin.test/start?source_secret=fixture',
+    {
+      Authorization: 'secret',
+      Cookie: 'private-cookie',
+      Range: 'bytes=0-0',
+      'User-Agent': 'OneKey',
+    },
   );
   const chunks: Buffer[] = [];
   for await (const chunk of body) chunks.push(chunk);
   expect(Buffer.concat(chunks).toString()).toBe('package');
   expect(url).toBe('https://cdn.test/package.zip');
   expect(mockRequest).toHaveBeenNthCalledWith(1, {
-    url: 'https://origin.test/start',
+    url: 'https://origin.test/start?source_secret=fixture',
     redirect: 'manual',
   });
   expect(mockRequest).toHaveBeenNthCalledWith(2, {
@@ -72,7 +77,41 @@ test('follows Electron manual redirect and strips cross-origin credentials', asy
     'Authorization',
     'secret',
   );
+  expect(redirected.setHeader).not.toHaveBeenCalledWith(
+    'Cookie',
+    'private-cookie',
+  );
   expect(redirected.setHeader).toHaveBeenCalledWith('Range', 'bytes=0-0');
+});
+
+test('rejects an HTTPS feed redirect to HTTP before requesting the destination', async () => {
+  mockRequest.mockImplementation(({ url }) => {
+    const request = requestFor(url);
+    request.end.mockImplementation(() => {
+      setImmediate(() =>
+        request.emit(
+          'redirect',
+          302,
+          'GET',
+          'http://cdn.fixture.test/latest.yml',
+          {},
+        ),
+      );
+    });
+    return request;
+  });
+
+  await expect(
+    requestUpdateUrl('https://updates.onekey.test/latest.yml', {}),
+  ).rejects.toMatchObject({
+    data: {
+      updateError: {
+        code: EUpdateErrorCode.securityRejected,
+        step: 'download',
+      },
+    },
+  });
+  expect(mockRequest).toHaveBeenCalledTimes(1);
 });
 
 test('times out a stalled request', async () => {

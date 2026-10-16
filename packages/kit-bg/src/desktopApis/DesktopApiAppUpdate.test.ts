@@ -144,14 +144,14 @@ function feed(version: string, files: string[]): string {
   return `version: ${version}\nfiles:\n${files.map((file) => `  - url: ${file}\n    sha512: ${mockSha512}`).join('\n')}\n`;
 }
 
-function mockHttpsResponse(body: string, statusCode = 200) {
+function mockHttpsResponse(body: string, statusCode = 200, finalUrl?: string) {
   mockRequestUpdateUrl.mockImplementation(async (url: string) => {
     const response = Object.assign(new PassThrough(), {
       statusCode,
       headers: {},
     });
     setImmediate(() => response.end(body));
-    return { response, url };
+    return { response, url: finalUrl ?? url };
   });
   return mockRequestUpdateUrl;
 }
@@ -324,6 +324,64 @@ test('selects the chosen-version macOS ZIP and keeps feed headers for same-origi
   );
   expect(mockNativeUpdater.setFeedURL).not.toHaveBeenCalled();
 });
+
+test.each([
+  [
+    'relative CDN artifact',
+    `OneKey-6.0.0-${process.arch}.zip`,
+    `https://cdn.fixture.test/releases/6.0.0/OneKey-6.0.0-${process.arch}.zip?feed_token=fixture`,
+    false,
+  ],
+  [
+    'absolute original-origin artifact',
+    `https://updates.onekey.test/OneKey-6.0.0-${process.arch}.zip`,
+    `https://updates.onekey.test/OneKey-6.0.0-${process.arch}.zip`,
+    true,
+  ],
+  [
+    'absolute same-CDN-origin artifact',
+    `https://cdn.fixture.test/packages/OneKey-6.0.0-${process.arch}.zip`,
+    `https://cdn.fixture.test/packages/OneKey-6.0.0-${process.arch}.zip?feed_token=fixture`,
+    false,
+  ],
+  [
+    'absolute cross-origin artifact with its own query',
+    `https://artifact.fixture.test/OneKey-6.0.0-${process.arch}.zip?artifact_token=own`,
+    `https://artifact.fixture.test/OneKey-6.0.0-${process.arch}.zip?artifact_token=own`,
+    false,
+  ],
+])(
+  'resolves %s from the redirected feed without leaking headers',
+  async (_label, fileUrl, expectedUrl, sameOrigin) => {
+    const api = createApi('darwin');
+    const get = mockHttpsResponse(
+      feed('6.0.0', [fileUrl]),
+      200,
+      'https://cdn.fixture.test/releases/6.0.0/latest.yml?feed_token=fixture',
+    );
+    const artifact = await api.checkForUpdates(
+      false,
+      { Authorization: 'private-fixture' },
+      '6.0.0',
+    );
+    expect(get).toHaveBeenCalledWith(
+      expect.stringContaining('https://updates.onekey.test/'),
+      { Authorization: 'private-fixture', 'User-Agent': 'OneKey-test' },
+      expect.any(AbortSignal),
+      30_000,
+    );
+    expect(artifact?.url).toBe(expectedUrl);
+    await api.downloadUpdate();
+    expect(mockDownloadNodeFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: expectedUrl,
+        headers: sameOrigin
+          ? { Authorization: 'private-fixture', 'User-Agent': 'OneKey-test' }
+          : { 'User-Agent': 'OneKey-test' },
+      }),
+    );
+  },
+);
 
 test.each([
   ['version mismatch', feed('6.0.1', [`OneKey-6.0.1-${process.arch}.zip`])],
