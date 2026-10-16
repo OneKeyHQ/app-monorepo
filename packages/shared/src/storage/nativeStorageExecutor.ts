@@ -163,7 +163,7 @@ type IAppStorageRepairContext = INativeAppStorageRepairDependencies & {
   pending?: {
     summary: INativeAppStorageRepairSummary;
     verifiedKeys: Map<string, string>;
-    failedKeys: Set<string>;
+    failedKeys: Map<string, string | undefined>;
     markerWasComplete: boolean;
   };
 };
@@ -343,6 +343,20 @@ function getLegacyKeyDiagnosticFingerprint(key: string) {
     hash = Math.imul(hash, 16_777_619);
   }
   return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+function getFailedAppStorageRecordChecksum(
+  mmkv: IMMKVInstance,
+  targetKey: string,
+) {
+  try {
+    const value = mmkv.getString(targetKey);
+    return typeof value === 'string'
+      ? `${value.length}:${getLegacyKeyDiagnosticFingerprint(value)}`
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function getLegacyKeyDiagnosticLabel(key: string) {
@@ -1187,7 +1201,7 @@ async function prepareAppStorageRepairWithContext(
   }
   const candidates = new Set([...currentKeys, ...(enumeration?.keys ?? [])]);
   const verifiedKeys = new Map<string, string>();
-  const failedKeys = new Set<string>();
+  const failedKeys = new Map<string, string | undefined>();
   // Transient checksums detect changed records without retaining a second
   // copy of every value in bg. They are never logged or sent to main.
   const checksum = (value: string) =>
@@ -1236,7 +1250,13 @@ async function prepareAppStorageRepairWithContext(
     }
     if (!succeeded && !absentProbe) {
       failedCount += 1;
-      failedKeys.add(key);
+      failedKeys.set(
+        key,
+        getFailedAppStorageRecordChecksum(
+          mmkv,
+          `${APP_STORAGE_KEY_PREFIX}${key}`,
+        ),
+      );
     }
     let result = 'failed';
     if (succeeded) result = 'verified';
@@ -1326,7 +1346,10 @@ async function completeAppStorageRepairWithContext(
       if (
         key.startsWith(APP_STORAGE_KEY_PREFIX) &&
         !pending.verifiedKeys.has(decodeAppStorageKey(key)) &&
-        (!force || !pending.failedKeys.has(decodeAppStorageKey(key)))
+        (!force ||
+          !pending.failedKeys.has(decodeAppStorageKey(key)) ||
+          pending.failedKeys.get(decodeAppStorageKey(key)) !==
+            getFailedAppStorageRecordChecksum(mmkv, key))
       ) {
         throw new OneKeyLocalError(
           'Storage repair results changed. Please run repair again.',
