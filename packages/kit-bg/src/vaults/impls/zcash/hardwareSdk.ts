@@ -25,7 +25,8 @@ const errorSchema = z.object({
   code: z.union([z.number(), z.string()]).optional(),
   error: z.string(),
   message: z.string().optional(),
-  params: z.unknown().optional(),
+  // Matches hd-core Unsuccessful.payload.params; non-object params are dropped.
+  params: z.record(z.string(), z.unknown()).optional().catch(undefined),
   connectId: z.string().optional(),
   deviceId: z.string().optional(),
 });

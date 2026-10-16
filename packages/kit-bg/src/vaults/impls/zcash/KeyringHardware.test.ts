@@ -2,6 +2,7 @@ import { EDBAccountType } from '../../../dbs/local/consts';
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
 import { KeyringHardware } from './KeyringHardware';
+import { zcashUserOperationsActive } from './vaultUtils';
 
 import type { IEncodedTxZcash } from './types';
 
@@ -827,6 +828,25 @@ describe('Zcash KeyringHardware transparent signing', () => {
         signedPcztHex: 'ccdd',
       }),
     );
+  });
+
+  it('tracks the local proving step as a user operation, not the device wait', async () => {
+    const { sign, finalizeTransparentHardwarePczt, zcashSignPczt } =
+      createTransparentKeyring({ storedFingerprint: 'ab'.repeat(32) });
+    const activeDuring: Record<string, boolean> = {};
+    zcashSignPczt.mockImplementation(async () => {
+      activeDuring.device = zcashUserOperationsActive();
+      return { success: true, payload: { pczt: 'ccdd' } };
+    });
+    finalizeTransparentHardwarePczt.mockImplementation(async () => {
+      activeDuring.finalize = zcashUserOperationsActive();
+      return buildResult;
+    });
+
+    await expect(sign()).resolves.toMatchObject({ txid: buildResult.txid });
+
+    expect(activeDuring).toEqual({ device: false, finalize: true });
+    expect(zcashUserOperationsActive()).toBe(false);
   });
 
   it('asks the device once when no fingerprint is stored, then keeps it', async () => {

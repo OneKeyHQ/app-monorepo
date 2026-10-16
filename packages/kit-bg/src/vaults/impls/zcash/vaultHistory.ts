@@ -111,27 +111,39 @@ export async function fetchAccountHistoryDetail(
   }
   // Resolve local history before disclosing a txid to the indexer; a failed local lookup isn't evidence it's public.
   let item: IZcashHistoryItem | null;
-  let details: IZcashTxDetails;
-  let chainTip: number | null | undefined;
+  let account: Awaited<ReturnType<typeof vault.zcashGetWalletAccount>>;
+  let api: Awaited<ReturnType<typeof vault.zcashGetApi>>;
   try {
-    const account = await vault.zcashGetWalletAccount({ accountId });
-    const api = await vault.zcashGetApi();
+    account = await vault.zcashGetWalletAccount({ accountId });
+    api = await vault.zcashGetApi();
     item = await findZcashLocalHistoryItem({
       txid: params.txid,
       fetchPage: (pagination) => api.getHistory(account, pagination),
     });
-    if (!item) {
-      return await vault.zcashFetchBackendHistoryDetail(params);
-    }
-    // No pool tab in the request: a row the runtime knows only as transparent is the backend's to describe.
-    if (
-      params.privacyChainPoolId === undefined &&
-      !(item.poolIds ?? []).some(
-        (poolId) => poolId !== PRIVACY_CHAIN_PUBLIC_POOL_ID,
-      )
-    ) {
-      return await vault.zcashFetchBackendHistoryDetail(params);
-    }
+  } catch (e) {
+    // Only the runtime lookups above land here; a backend "not found" below is
+    // the normal pending-tx state, not a runtime failure, so it isn't logged here.
+    console.error('[zcash] runtime history detail failed', {
+      txid: params.txid,
+      ...zcashDescribeError(e),
+    });
+    throw e;
+  }
+  if (!item) {
+    return vault.zcashFetchBackendHistoryDetail(params);
+  }
+  // No pool tab in the request: a row the runtime knows only as transparent is the backend's to describe.
+  if (
+    params.privacyChainPoolId === undefined &&
+    !(item.poolIds ?? []).some(
+      (poolId) => poolId !== PRIVACY_CHAIN_PUBLIC_POOL_ID,
+    )
+  ) {
+    return vault.zcashFetchBackendHistoryDetail(params);
+  }
+  let details: IZcashTxDetails;
+  let chainTip: number | null | undefined;
+  try {
     // Account-view I/O from local note tables; shielded entries have no on-chain address, so they're labeled by pool.
     details = await api.getTxDetails(account, { txid: params.txid });
     chainTip = (await api.getSyncProgress(account).catch(() => undefined))

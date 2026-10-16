@@ -43,7 +43,9 @@ import type { ITokenData, ITokenFiat } from '@onekeyhq/shared/types/token';
 import { sumLocalWalletFrozen } from '../../localWallet/frozen';
 import {
   LOCAL_WALLET_DISPLAY_WAIT_MS,
+  readLastLocalWalletPublicBalance,
   readLocalWalletBalanceStaleFirst,
+  saveLastLocalWalletPublicBalance,
 } from '../../localWallet/privacyChainCacheStore';
 
 import {
@@ -81,7 +83,7 @@ export async function listLocalWalletSendPools(
   const privacyActive = await vault.zcashPrivacyModeIsActive(accountId);
   // Null while privacy is active means the scanner couldn't answer; private pools stay listed with no balance.
   const balance = privacyActive
-    ? await vault.getLocalWalletBalance({ accountId })
+    ? await vault.getLocalWalletBalance({ accountId, fresh: true })
     : null;
   // Transparent spendable comes from the indexer's UTXO set, the same input the transparent builder selects from.
   let transparentSpendable: string | undefined;
@@ -194,21 +196,61 @@ export async function listLocalWalletSendPools(
 // as long as its backend requests took, retries included.
 const ZCASH_TRANSPARENT_DISPLAY_WAIT_MS = 3000;
 const ZCASH_TRANSPARENT_DISPLAY_RAW_TX_RETRIES = 1;
+// A late result serves every read in this window, so whichever page asks
+// first does not take it from the others.
+const ZCASH_TRANSPARENT_LANDED_REUSE_MS = 5000;
+// While the next read is slow, a result this recent stays on screen as
+// current instead of the saved pair coming back as not current.
+const ZCASH_TRANSPARENT_LAST_READ_MAX_AGE_MS = 60_000;
 
 type IZcashTransparentDisplay = {
   total?: BigNumber;
   spendable?: BigNumber;
+  // Saved from an earlier read; the fresh one has not answered yet.
+  stale?: boolean;
 };
 
-// accountId -> a read still running, or one that landed after its page gave
-// up on it (handed to the next read once, never reused beyond that).
+type IZcashTransparentDisplayRead = {
+  value: IZcashTransparentDisplay;
+  at: number;
+};
+
+// Keyed by network, account and read kind.
 const zcashTransparentDisplayReads = new Map<
   string,
   {
     running?: Promise<IZcashTransparentDisplay>;
-    landed?: IZcashTransparentDisplay;
+    // A result that answered after its page gave up on it.
+    landed?: IZcashTransparentDisplayRead;
+    // The last complete result, late or not.
+    lastRead?: IZcashTransparentDisplayRead;
   }
 >();
+
+function zcashTransparentPair(value: IZcashTransparentDisplay) {
+  return value.total && value.spendable
+    ? { total: value.total.toFixed(0), spendable: value.spendable.toFixed(0) }
+    : undefined;
+}
+
+function zcashTransparentDisplayComplete(
+  value: IZcashTransparentDisplay,
+  spendableOnly: boolean,
+): boolean {
+  return spendableOnly
+    ? value.spendable !== undefined
+    : zcashTransparentPair(value) !== undefined;
+}
+
+function zcashTransparentDisplaySame(
+  left: IZcashTransparentDisplay,
+  right: IZcashTransparentDisplay,
+): boolean {
+  return (
+    left.total?.toFixed(0) === right.total?.toFixed(0) &&
+    left.spendable?.toFixed(0) === right.spendable?.toFixed(0)
+  );
+}
 
 export async function zcashReadTransparentForDisplay(
   vault: Vault,
@@ -226,10 +268,13 @@ export async function zcashReadTransparentForDisplay(
     spendableOnly ? 'spendable' : 'all'
   }`;
   const previous = zcashTransparentDisplayReads.get(key);
-  if (previous?.landed) {
-    zcashTransparentDisplayReads.delete(key);
-    return previous.landed;
+  if (
+    previous?.landed &&
+    Date.now() - previous.landed.at < ZCASH_TRANSPARENT_LANDED_REUSE_MS
+  ) {
+    return previous.landed.value;
   }
+  const lastRead = previous?.lastRead;
   let running = previous?.running;
   if (!running) {
     running = spendableOnly
@@ -248,7 +293,45 @@ export async function zcashReadTransparentForDisplay(
           account,
           rawTxRetries: ZCASH_TRANSPARENT_DISPLAY_RAW_TX_RETRIES,
         });
-    zcashTransparentDisplayReads.set(key, { running });
+    if (!spendableOnly) {
+      // Saved beside the read, not in front of it. Only a complete pair is
+      // saved, so a saved total and spendable always come from one read.
+      void running.then(
+        async (value) => {
+          const pair = zcashTransparentPair(value);
+          if (!pair) return;
+          await saveLastLocalWalletPublicBalance({
+            backgroundApi: vault.backgroundApi,
+            networkId: vault.networkId,
+            accountId: account.id,
+            value: pair,
+          });
+        },
+        () => undefined,
+      );
+    }
+    zcashTransparentDisplayReads.set(key, { running, lastRead });
+  }
+  // Full reads only (the pool view); the composed balance keeps waiting.
+  let shown: IZcashTransparentDisplay | undefined;
+  if (!spendableOnly) {
+    if (
+      lastRead &&
+      Date.now() - lastRead.at <= ZCASH_TRANSPARENT_LAST_READ_MAX_AGE_MS
+    ) {
+      shown = lastRead.value;
+    } else {
+      const savedRecord = await readLastLocalWalletPublicBalance({
+        backgroundApi: vault.backgroundApi,
+        networkId: vault.networkId,
+        accountId: account.id,
+      });
+      shown = savedRecord && {
+        total: new BigNumber(savedRecord.total),
+        spendable: new BigNumber(savedRecord.spendable),
+        stale: true,
+      };
+    }
   }
   const outcome = await Promise.race([
     running.then(
@@ -261,30 +344,62 @@ export async function zcashReadTransparentForDisplay(
       },
     ),
     timerUtils
-      .wait(ZCASH_TRANSPARENT_DISPLAY_WAIT_MS)
+      .wait(
+        shown
+          ? LOCAL_WALLET_DISPLAY_WAIT_MS
+          : ZCASH_TRANSPARENT_DISPLAY_WAIT_MS,
+      )
       .then(() => ({ settled: false as const })),
   ]);
   if (outcome.settled) {
-    if (zcashTransparentDisplayReads.get(key)?.running === running) {
-      zcashTransparentDisplayReads.delete(key);
+    const current = zcashTransparentDisplayReads.get(key);
+    if (current?.running === running) {
+      zcashTransparentDisplayReads.set(key, {
+        lastRead: zcashTransparentDisplayComplete(outcome.value, spendableOnly)
+          ? { value: outcome.value, at: Date.now() }
+          : current.lastRead,
+      });
     }
     return outcome.value;
   }
-  // Shown as unknown for now; the next read gets the result.
+  // Shown as before or unknown for now; the next read gets the result.
   const pending = running;
   void pending.then(
     (value) => {
-      if (zcashTransparentDisplayReads.get(key)?.running !== pending) return;
-      zcashTransparentDisplayReads.set(key, { landed: value });
-      appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+      const current = zcashTransparentDisplayReads.get(key);
+      if (current?.running !== pending) return;
+      // A partial read is worse than a complete pair already on screen.
+      if (shown && !zcashTransparentDisplayComplete(value, spendableOnly)) {
+        zcashTransparentDisplayReads.set(key, { lastRead: current.lastRead });
+        return;
+      }
+      const landed = { value, at: Date.now() };
+      zcashTransparentDisplayReads.set(key, {
+        landed,
+        lastRead: zcashTransparentDisplayComplete(value, spendableOnly)
+          ? landed
+          : current.lastRead,
+      });
+      const changed = !shown || !zcashTransparentDisplaySame(shown, value);
+      if (changed) {
+        appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+      }
+      // Even an unchanged value replaces a saved one marked not current.
+      if (changed || shown?.stale) {
+        appEventBus.emit(EAppEventBusNames.LocalWalletBalanceLanded, {
+          networkId: vault.networkId,
+          accountId: account.id,
+        });
+      }
     },
     () => {
-      if (zcashTransparentDisplayReads.get(key)?.running === pending) {
-        zcashTransparentDisplayReads.delete(key);
+      const current = zcashTransparentDisplayReads.get(key);
+      if (current?.running === pending) {
+        zcashTransparentDisplayReads.set(key, { lastRead: current.lastRead });
       }
     },
   );
-  return {};
+  return shown ?? {};
 }
 
 export async function getLocalWalletAccountBalance(
@@ -336,6 +451,7 @@ export async function getLocalWalletAccountBalance(
 
   const transparentSpendable = transparent.spendable;
   const transparentTotal = transparent.total;
+  const transparentStatus = transparent.stale ? 'partial' : 'complete';
   const transparentFrozen =
     transparentTotal && transparentSpendable
       ? frozenPart('confirming', transparentTotal.minus(transparentSpendable))
@@ -371,7 +487,7 @@ export async function getLocalWalletAccountBalance(
     {
       key: 'transparent',
       balanceStatus:
-        transparentTotal === undefined ? 'unavailable' : 'complete',
+        transparentTotal === undefined ? 'unavailable' : transparentStatus,
       total: transparentTotal?.toFixed(0),
       totalParsed:
         transparentTotal === undefined
@@ -389,9 +505,11 @@ export async function getLocalWalletAccountBalance(
         amountParsed: transparentSpendable?.gt(0)
           ? parsed(transparentSpendable.toFixed(0))
           : undefined,
-        // Dust below the threshold is rejected by the sweep proposer.
+        // Dust below the threshold is rejected by the sweep proposer. A saved
+        // pair is display only: shielding waits for a current read.
         enabled:
-          transparentSpendable?.gte(ZCASH_SHIELDING_THRESHOLD_ZAT) ?? false,
+          !transparent.stale &&
+          (transparentSpendable?.gte(ZCASH_SHIELDING_THRESHOLD_ZAT) ?? false),
       },
     },
     privatePool(
@@ -409,7 +527,9 @@ export async function getLocalWalletAccountBalance(
   ];
   return {
     balanceStatus:
-      balance?.isComplete && transparentTotal !== undefined
+      balance?.isComplete &&
+      transparentTotal !== undefined &&
+      !transparent.stale
         ? 'complete'
         : incompleteStatus,
     total: balance?.isComplete
@@ -440,9 +560,12 @@ export async function getLocalWalletBalance(
   {
     accountId,
     liveWaitMs,
+    fresh = false,
   }: {
     accountId: string;
     liveWaitMs?: number;
+    // Send paths: a failed scanner read is unavailable, never the saved value.
+    fresh?: boolean;
   },
 ): Promise<IZcashBalance | null> {
   try {
@@ -450,7 +573,7 @@ export async function getLocalWalletBalance(
       backgroundApi: vault.backgroundApi,
       networkId: vault.networkId,
       accountId,
-      liveWaitMs,
+      liveWaitMs: fresh ? undefined : liveWaitMs,
       read: async () => {
         try {
           const account = await vault.zcashGetWalletAccount({ accountId });
@@ -465,6 +588,7 @@ export async function getLocalWalletBalance(
         }
       },
     });
+    if (fresh && result?.stale) return null;
     return zcashBalanceFromRead(result);
   } catch {
     return null;

@@ -477,8 +477,15 @@ function TokenDetailsHeaderContent({
   const shouldUsePoolBalance =
     hasSelectedPool &&
     (!isPrivatePool || (isLocalWalletReady && isLocalWalletEnabled));
+  // The balance alone does not wait for the rest of the private UI: a saved
+  // one shows at once, marked as syncing until the scanner answers.
+  const shouldShowPoolBalance =
+    shouldUsePoolBalance ||
+    (isPrivatePool &&
+      isLocalWalletEnabled &&
+      localWalletPool.balance !== undefined);
   let balanceParsed: string | undefined;
-  if (shouldUsePoolBalance) {
+  if (shouldShowPoolBalance) {
     balanceParsed = poolDisplay?.balanceParsed;
   } else if (!hasSelectedPool) {
     balanceParsed = tokenRebaseUtils.applyBalanceMultiplier({
@@ -487,7 +494,7 @@ function TokenDetailsHeaderContent({
     });
   }
   let fiatValue = tokenDetails?.fiatValue;
-  if (shouldUsePoolBalance) {
+  if (shouldShowPoolBalance) {
     const price = new BigNumber(tokenDetails?.price ?? NaN);
     fiatValue =
       balanceParsed !== undefined && price.isFinite() && price.isGreaterThan(0)
@@ -509,7 +516,7 @@ function TokenDetailsHeaderContent({
     fiatValue = undefined;
   }
   let isBalanceLoading = showLoadingState;
-  if (shouldUsePoolBalance) {
+  if (shouldShowPoolBalance) {
     isBalanceLoading = !poolDisplay?.balanceSettled;
   } else if (isPrivatePool) {
     // Stay in the loading state until the gate opens rather than render an
@@ -651,6 +658,19 @@ function TokenDetailsHeaderContent({
         ? { localWalletSpendSource: poolAction.spendSource }
         : {}),
     };
+    // These moves skip the amount page, which is where sends normally prewarm.
+    const prewarmSourcePool =
+      poolAction.type === 'shield' ? 'transparent' : poolAction.spendSource;
+    if (prewarmSourcePool) {
+      void backgroundApiProxy.servicePrivacyChain
+        .prewarmLocalWalletSend({
+          networkId,
+          accountId,
+          sourcePool: prewarmSourcePool,
+          toAddress: poolAction.toAddress,
+        })
+        .catch(() => undefined);
+    }
     void navigationToTxConfirm({
       transfersInfo: [transfer],
       transferPayload: {
@@ -662,7 +682,7 @@ function TokenDetailsHeaderContent({
       isInternalTransfer: true,
       onSuccess: poolAction.onDone,
     });
-  }, [navigationToTxConfirm, poolAction]);
+  }, [navigationToTxConfirm, poolAction, networkId, accountId]);
 
   const { hideAccountAddress } = useDisplayAccountAddress({ networkId });
   const shouldShowAddressBlock = useMemo(() => {
@@ -821,7 +841,7 @@ function TokenDetailsHeaderContent({
               fiatValue={fiatValue}
               balanceParsed={balanceParsed}
             />
-            {(shouldUsePoolBalance
+            {(shouldShowPoolBalance
               ? poolDisplay?.balanceStatus
               : detailsBalanceStatus) === 'partial' ? (
               <SizableText size="$bodySm" color="$textSubdued">

@@ -320,6 +320,21 @@ export function useLocalWalletPool({
     canReadBalance && balanceResult?.scope === readScope
       ? balanceResult.balance
       : undefined;
+  // A balance that landed after its read gave up; the poll alone would leave
+  // the saved one up for a full interval.
+  useEffect(() => {
+    if (!canReadBalance) return;
+    const onLanded = (payload: { networkId: string; accountId: string }) => {
+      if (payload.networkId !== networkId || payload.accountId !== accountId) {
+        return;
+      }
+      void refreshBalance();
+    };
+    appEventBus.on(EAppEventBusNames.LocalWalletBalanceLanded, onLanded);
+    return () => {
+      appEventBus.off(EAppEventBusNames.LocalWalletBalanceLanded, onLanded);
+    };
+  }, [accountId, canReadBalance, networkId, refreshBalance]);
 
   // The chain only reports a private address while scanning is on, so nothing is exposed early.
   const canReadAddresses = isActive && hasPooledBalance && !!accountId;
@@ -392,6 +407,20 @@ export function useLocalWalletPool({
     canRead && progressResult?.scope === readScope
       ? progressResult.progress
       : undefined;
+
+  // Turning the interval on schedules the first polled run one interval
+  // out; read once right away instead of leaving the page empty until then.
+  const readableRef = useRef({ canReadBalance, canRead });
+  useEffect(() => {
+    const previous = readableRef.current;
+    readableRef.current = { canReadBalance, canRead };
+    if (canReadBalance && !previous.canReadBalance) {
+      void refreshBalance();
+    }
+    if (canRead && !previous.canRead) {
+      void refreshSyncProgress();
+    }
+  }, [canRead, canReadBalance, refreshBalance, refreshSyncProgress]);
 
   const refresh = useCallback(() => {
     void refreshState();
