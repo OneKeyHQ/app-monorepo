@@ -23178,6 +23178,7 @@
     "packages/kit/src/views/Onboardingv2/components/setupMotion.ts": 10873,
     "packages/kit/src/views/Onboardingv2/components/useSuggestion.ts": 16351,
     "packages/kit/src/views/Onboardingv2/deviceLabel.ts": 4045,
+    "packages/kit/src/views/Onboardingv2/hooks/checkCloudBackupAvailability.ts": 638,
     "packages/kit/src/views/Onboardingv2/hooks/firmwareReconnectUtils.ts": 1931,
     "packages/kit/src/views/Onboardingv2/hooks/useAutoStartKeylessProvider.ts": 6338,
     "packages/kit/src/views/Onboardingv2/hooks/useCloudBackup.ts": 7000,

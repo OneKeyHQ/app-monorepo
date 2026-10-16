@@ -234,6 +234,19 @@ describe.each(['Android', 'iOS', 'desktop'])(
       expect(Dialog.confirm).not.toHaveBeenCalled();
     });
 
+    it('does not start availability work after exit while authorization code loads', async () => {
+      const source = renderHook(() => useCloudBackup());
+      const pending = source.result.current.prepareBackup();
+      source.unmount();
+      await act(async () => {
+        await pending;
+      });
+      expect(service.getCloudAccountInfo).not.toHaveBeenCalled();
+      expect(service.loginCloudIfNeed).not.toHaveBeenCalled();
+      expect(service.buildBackupData).not.toHaveBeenCalled();
+      expect(Dialog.confirm).not.toHaveBeenCalled();
+    });
+
     it.each(['doBackup', 'prepareBackup'] as const)(
       'suppresses prompts after teardown during %s availability',
       async (operation) => {
