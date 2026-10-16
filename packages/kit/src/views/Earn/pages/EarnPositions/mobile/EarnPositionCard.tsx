@@ -3,18 +3,12 @@ import { memo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import {
-  Badge,
-  Icon,
-  NumberSizeableText,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Badge, Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { DeFiPositionHealthFactorRow } from '@onekeyhq/kit/src/components/DeFi/DeFiPositionHealthFactorRow';
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
+import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
@@ -57,6 +51,7 @@ export type IEarnPositionCardHandlers = {
 function PositionPnlLine({ position }: { position: IEarnPortfolioPosition }) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
+  const [{ hideValue }] = useSettingsValuePersistAtom();
   const { pnl, investment } = position.earn;
   if (pnl) {
     const fiat = new BigNumber(pnl.fiatValue);
@@ -73,20 +68,22 @@ function PositionPnlLine({ position }: { position: IEarnPortfolioPosition }) {
             formatter: 'priceChange',
             formatterOptions: { showPlusMinusSigns: true },
           });
+    // The value formatter reads every negative as "under a cent", so a
+    // loss is formatted as its size and signed here: "-$1.20", and under a
+    // cent either way "< +$0.01" / "< -$0.01". Hidden with the balances.
+    const size = numberFormat(fiat.abs().toFixed(), {
+      formatter: 'value',
+      formatterOptions: { currency: currencyInfo.symbol },
+    });
+    const sign = fiat.lt(0) ? '-' : '+';
+    const fiatText = size.startsWith('< ')
+      ? `< ${sign}${size.slice(2)}`
+      : `${sign}${size}`;
     return (
       <XStack ai="center" gap="$1">
-        <NumberSizeableText
-          size="$bodySm"
-          color={color}
-          formatter="value"
-          formatterOptions={{
-            currency: currencyInfo.symbol,
-            showPlusMinusSigns: true,
-          }}
-          numberOfLines={1}
-        >
-          {pnl.fiatValue}
-        </NumberSizeableText>
+        <SizableText size="$bodySm" color={color} numberOfLines={1}>
+          {hideValue ? '****' : fiatText}
+        </SizableText>
         {percent ? (
           <SizableText size="$bodySm" color={color} numberOfLines={1}>
             {`(${percent})`}

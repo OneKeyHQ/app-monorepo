@@ -1,14 +1,11 @@
 import { useIntl } from 'react-intl';
 
-import {
-  NumberSizeableText,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
+import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type {
@@ -17,6 +14,9 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import { TransactionLink } from '../../EarnProtocolDetails/mobile/TransactionLink';
+
+/** What a server-formatted amount reads as under the hide-balances switch. */
+const HIDDEN_AMOUNT = { text: '****' };
 
 function FactRow({
   label,
@@ -51,6 +51,7 @@ export function LedgerRewardCard({
 }) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
+  const [{ hideValue }] = useSettingsValuePersistAtom();
   const isDistributed = item.stage === 'distributed';
   const time = isDistributed ? item.distributedAt : item.availableAt;
   const timeLabel = intl.formatMessage({
@@ -82,17 +83,19 @@ export function LedgerRewardCard({
       <FactRow label={intl.formatMessage({ id: ETranslations.earn_rewards })}>
         <YStack ai="flex-end" flexShrink={1}>
           {item.fiatValue ? (
-            <NumberSizeableText
+            <NumberSizeableTextWrapper
+              hideValue
               size="$bodySmMedium"
               formatter="value"
               formatterOptions={{ currency: currencyInfo.symbol }}
               numberOfLines={1}
             >
               {item.fiatValue}
-            </NumberSizeableText>
+            </NumberSizeableTextWrapper>
           ) : null}
+          {/* the amount comes formatted from the server: hidden as a whole */}
           <EarnText
-            text={item.title}
+            text={hideValue ? HIDDEN_AMOUNT : item.title}
             size={item.fiatValue ? '$bodySm' : '$bodySmMedium'}
             color={item.fiatValue ? '$textSubdued' : '$textSuccess'}
             numberOfLines={1}

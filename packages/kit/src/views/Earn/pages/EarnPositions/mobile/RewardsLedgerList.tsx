@@ -1,7 +1,8 @@
 import BigNumber from 'bignumber.js';
 
-import { NumberSizeableText, YStack } from '@onekeyhq/components';
+import { YStack } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import type { IEarnRewardsPortfolioGroup } from '@onekeyhq/shared/types/staking';
 
 import { GroupRow } from './GroupRow';
@@ -18,25 +19,27 @@ function LedgerGroupTotal({ group }: { group: IEarnRewardsPortfolioGroup }) {
   const hasFiat = new BigNumber(group.total.fiatValue || '0').gt(0);
   if (!hasFiat && group.total.amount && group.total.symbol) {
     return (
-      <NumberSizeableText
+      <NumberSizeableTextWrapper
+        hideValue
         size="$bodyLgMedium"
         formatter="balance"
         formatterOptions={{ tokenSymbol: group.total.symbol }}
         numberOfLines={1}
       >
         {group.total.amount}
-      </NumberSizeableText>
+      </NumberSizeableTextWrapper>
     );
   }
   return (
-    <NumberSizeableText
+    <NumberSizeableTextWrapper
+      hideValue
       size="$bodyLgMedium"
       formatter="value"
       formatterOptions={{ currency: currencyInfo.symbol }}
       numberOfLines={1}
     >
       {group.total.fiatValue}
-    </NumberSizeableText>
+    </NumberSizeableTextWrapper>
   );
 }
 

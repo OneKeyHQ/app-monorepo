@@ -1,10 +1,6 @@
-import {
-  NumberSizeableText,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 
 /**
@@ -59,7 +55,8 @@ export function ClaimableRewardRow({
       </XStack>
       <XStack ai="center" gap="$2" flexShrink={0}>
         {fiatValue !== undefined && fiatValue !== '' ? (
-          <NumberSizeableText
+          <NumberSizeableTextWrapper
+            hideValue
             size="$bodyMd"
             color="$textSubdued"
             formatter="value"
@@ -67,7 +64,7 @@ export function ClaimableRewardRow({
             numberOfLines={1}
           >
             {fiatValue}
-          </NumberSizeableText>
+          </NumberSizeableTextWrapper>
         ) : null}
         {action}
       </XStack>

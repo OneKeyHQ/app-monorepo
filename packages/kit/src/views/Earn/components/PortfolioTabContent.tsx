@@ -33,6 +33,7 @@ import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import {
   EEarnLabels,
+  EStakingActionType,
   type IEarnActionIcon,
   type IEarnClaimType,
   type IEarnPortfolioAirdropAsset,
@@ -211,8 +212,14 @@ const WrappedActionButtonCmp = ({
       if (!stakeTag) {
         return false;
       }
+      // A cancel of a withdrawal (the positions card's Cancel) is recorded
+      // as a withdrawal, a claim as a claim: the button waits on its own.
+      const pendingLabel =
+        reward.button.type === EStakingActionType.CancelWithdrawal
+          ? EEarnLabels.Withdraw
+          : EEarnLabels.Claim;
       if (
-        ![EEarnLabels.Claim].includes(tx.stakingInfo.label) ||
+        tx.stakingInfo.label !== pendingLabel ||
         !tx.stakingInfo.tags?.includes(stakeTag)
       ) {
         return false;
@@ -228,7 +235,7 @@ const WrappedActionButtonCmp = ({
       }
       return true;
     },
-    [stakeTag, rewardSymbol],
+    [stakeTag, rewardSymbol, reward.button.type],
   );
   const { filteredTxs: pendingTxs = [] } = useStakingPendingTxsByInfo({
     filter: pendingTxsFilter,
@@ -245,10 +252,13 @@ const WrappedActionButtonCmp = ({
     previousIsPendingRef.current = isPending;
   }, [isPending, handleActionSuccess]);
 
+  // The indexed account the way the positions are read: a wallet without a
+  // network account (all networks on an HD or hardware wallet) still claims.
+  const indexedAccountId = account?.indexedAccountId || indexedAccount?.id;
   const { loading, handleAction } = usePortfolioAction({
     accountId: account?.id || '',
     networkId: asset.metadata.network.networkId,
-    indexedAccountId: indexedAccount?.id,
+    indexedAccountId,
     symbol: symbolForConfig,
     provider: asset.metadata.protocol.providerDetail.code,
     vault: vaultForConfig,
@@ -279,7 +289,7 @@ const WrappedActionButtonCmp = ({
       token: getRewardButtonToken(reward.button),
       rewardTokenAddress,
       claimRequestType,
-      indexedAccountId: indexedAccount?.id,
+      indexedAccountId,
       stakedSymbol: stakedSymbolForRefresh,
       rewardSymbol,
     });
@@ -288,7 +298,7 @@ const WrappedActionButtonCmp = ({
     reward,
     asset,
     isMorphoProvider,
-    indexedAccount?.id,
+    indexedAccountId,
     stakedSymbolForRefresh,
     rewardSymbol,
     isClaimIdentityUnavailable,

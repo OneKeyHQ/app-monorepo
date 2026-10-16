@@ -16,6 +16,7 @@ import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolVal
 import { isProtocolAssetValueUnavailable } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
+import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnPortfolioPosition } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import type { IEarnRewardsPortfolioGroup } from '@onekeyhq/shared/types/staking';
@@ -144,6 +145,8 @@ export function RewardsClaimableList({
   emptyTitle: string;
 } & IEarnPositionCardHandlers) {
   const expansion = useGroupExpansion();
+  // A ledger amount comes formatted from the server: hidden as a whole.
+  const [{ hideValue }] = useSettingsValuePersistAtom();
   const candidates = useMemo(
     () => buildClaimSourceCandidates(positions),
     [positions],
@@ -230,7 +233,7 @@ export function RewardsClaimableList({
                   logoURI={item.token.info.logoURI}
                   title={
                     <EarnText
-                      text={item.title}
+                      text={hideValue ? { text: '****' } : item.title}
                       size="$bodyMdMedium"
                       numberOfLines={1}
                     />
@@ -255,6 +258,7 @@ export function RewardsClaimableList({
                           {
                             networkId: ledgerGroup.networkId,
                             providerName: ledgerGroup.provider,
+                            vault: item.vault,
                             candidates,
                           },
                         )}

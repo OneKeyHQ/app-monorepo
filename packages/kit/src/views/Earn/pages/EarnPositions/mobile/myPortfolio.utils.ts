@@ -376,19 +376,22 @@ export function canRedeemFromCard(position: IEarnPositionView): boolean {
 
 /**
  * Whether a dated position (a Pendle market) has passed its maturity: the
- * server's flag, else its date against the clock. Undefined for a position
- * without a date, so a caller can fall through to another source.
+ * server's flag, or its date against the clock, whichever says so first (a
+ * cached position flagged before its date passed matures on the clock).
+ * Undefined for a position without either, so a caller can fall through to
+ * another source.
  */
 export function positionMatured(
   position: IEarnPortfolioPosition,
 ): boolean | undefined {
   const { earn } = position;
-  if (earn.matured !== undefined) {
-    return earn.matured;
+  if (earn.matured) {
+    return true;
   }
-  return earn.maturityAt !== undefined
-    ? earn.maturityAt <= Date.now()
-    : undefined;
+  if (earn.maturityAt !== undefined) {
+    return earn.maturityAt <= Date.now();
+  }
+  return earn.matured;
 }
 
 /**

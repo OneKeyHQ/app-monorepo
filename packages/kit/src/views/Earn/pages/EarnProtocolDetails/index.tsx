@@ -1690,7 +1690,11 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
             ? ETranslations.defi_sell_early
             : ETranslations.earn_redeem,
       }),
-      disabled: isPendle ? !hasPortfolio : Boolean(redeemAction?.disabled),
+      // Pendle sends no actions: its Redeem follows the holding's flag from
+      // the positions read, the same the card greys on.
+      disabled: isPendle
+        ? !hasPortfolio || Boolean(holding?.source.earn.redeem?.disabled)
+        : Boolean(redeemAction?.disabled),
       onPress: handleOpenRedeem,
     };
   }, [
@@ -1699,6 +1703,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     isMobileLayout,
     hasDeposit,
     hasPortfolio,
+    holding?.source.earn.redeem?.disabled,
     redeemAction,
     redeemWithoutActions,
     isMatured,

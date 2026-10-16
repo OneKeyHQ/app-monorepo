@@ -2,14 +2,9 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  NumberSizeableText,
-  SizableText,
-  Stack,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { DottedUnderlineText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/DottedUnderline';
 import { EarnTooltip } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnTooltip';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -54,14 +49,15 @@ function TotalCell({
           {label}
         </SizableText>
       )}
-      <NumberSizeableText
+      <NumberSizeableTextWrapper
+        hideValue
         size="$heading2xl"
         formatter="value"
         formatterOptions={{ currency: currencyInfo.symbol }}
         numberOfLines={1}
       >
         {value}
-      </NumberSizeableText>
+      </NumberSizeableTextWrapper>
     </YStack>
   );
 }
