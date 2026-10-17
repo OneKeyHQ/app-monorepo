@@ -80,7 +80,9 @@ function MobileMarketStockFlatListImpl({
   const handleEndReached = useCallback(() => {
     if (canLoadMore && !isLoadingMore && !isLoadMoreError && !isRefreshError) {
       void loadMore();
+      return true;
     }
+    return false;
   }, [canLoadMore, isLoadMoreError, isRefreshError, isLoadingMore, loadMore]);
 
   const ListFooterComponent = useMemo(() => {

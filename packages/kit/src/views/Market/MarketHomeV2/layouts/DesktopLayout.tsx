@@ -19,6 +19,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components';
+import { WebCollapsiblePager } from '@onekeyhq/kit/src/components/WebCollapsiblePager';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -423,7 +424,7 @@ export function DesktopLayout({
   const tabElements = [
     ...(showWatchlistTab
       ? [
-          <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
+          <Tabs.Tab key="watchlist" name={watchlistTabName}>
             <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} px="$3" flex={1}>
               {hasActivated(watchlistTabName) ? (
                 <Suspense fallback={<MarketDesktopTableLoadingFallback />}>
@@ -513,7 +514,7 @@ export function DesktopLayout({
     }),
     ...(showPerpsTab
       ? [
-          <Tabs.Tab key={perpsTabName} name={perpsTabName}>
+          <Tabs.Tab key="perps" name={perpsTabName}>
             <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} px="$3" flex={1}>
               {hasActivated(perpsTabName) ? (
                 <Suspense fallback={null}>
@@ -533,7 +534,7 @@ export function DesktopLayout({
   return (
     <DesktopStickyHeaderContext.Provider value={stickyHeaderCtx}>
       <YStack flex={1}>
-        <Tabs.Container
+        <WebCollapsiblePager
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           ref={tabsRef as any}
           renderTabBar={renderTabBar}
@@ -543,7 +544,7 @@ export function DesktopLayout({
           {...containerProps}
         >
           {tabElements}
-        </Tabs.Container>
+        </WebCollapsiblePager>
       </YStack>
     </DesktopStickyHeaderContext.Provider>
   );

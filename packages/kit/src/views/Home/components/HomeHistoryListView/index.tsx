@@ -21,11 +21,17 @@ const SharedHistoryList = withBrowserProvider(NativeHistoryList);
 
 function WebHistoryPaginationObserver({
   enabled,
+  hasMore,
+  isLoadingMore,
+  progressKey,
   onEndReached,
   onEndReachedThreshold,
   padding,
 }: Pick<IHomeHistoryListViewProps, 'onEndReached' | 'onEndReachedThreshold'> & {
   enabled: boolean;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
+  progressKey: string;
   padding: { top: number; bottom: number };
 }) {
   const { scrollTop, height } = useTabsScrollContext();
@@ -33,22 +39,33 @@ function WebHistoryPaginationObserver({
   const tabName = useTabNameContext();
   const isFocusedTab = useIsFocusedTab();
   const previousScrollTop = useRef(scrollTop);
+  const attemptedShortPage = useRef<string | undefined>(undefined);
   useEffect(() => {
     const changed = previousScrollTop.current !== scrollTop;
     previousScrollTop.current = scrollTop;
-    if (!changed || !enabled || !isFocusedTab || !onEndReached) return;
+    if (!enabled || !isFocusedTab || !onEndReached || !hasMore || isLoadingMore)
+      return;
     const content = scrollTabElementsRef.current?.[tabName]?.element;
     const scrollHeight =
       (content?.scrollHeight ?? 0) - padding.top - padding.bottom;
     if (scrollHeight <= 0) return;
+    const shortPage =
+      height >= scrollHeight && attemptedShortPage.current !== progressKey;
+    if (!changed && !shortPage) return;
     // Match the old virtual list's origin and total rows, excluding padding.
     const top = Math.max(0, scrollTop - padding.top);
     const threshold = (onEndReachedThreshold ?? 0.2) || 0.5;
-    if ((top + height) / scrollHeight >= 1 - threshold) onEndReached();
+    if ((top + height) / scrollHeight >= 1 - threshold) {
+      attemptedShortPage.current = progressKey;
+      onEndReached();
+    }
   }, [
     scrollTop,
     height,
     enabled,
+    hasMore,
+    isLoadingMore,
+    progressKey,
     isFocusedTab,
     onEndReached,
     onEndReachedThreshold,
@@ -111,6 +128,9 @@ function WebHistoryList(props: IHomeHistoryListViewProps) {
     <>
       <WebHistoryPaginationObserver
         enabled={!!props.initialized && props.data.length > 0}
+        hasMore={props.hasMore}
+        isLoadingMore={props.isLoadingMore}
+        progressKey={`${props.data.length}:${props.data.at(-1)?.id ?? ''}`}
         onEndReached={props.onEndReached}
         onEndReachedThreshold={props.onEndReachedThreshold}
         padding={webContentPadding}

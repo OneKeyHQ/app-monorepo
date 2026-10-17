@@ -125,7 +125,9 @@ function MobileMarketTokenFlatListBase({
   const handleEndReached = useCallback(() => {
     if (canLoadMore && !isLoadingMore && !isProvisionalFirstPageResult) {
       void loadMore();
+      return true;
     }
+    return false;
   }, [canLoadMore, isLoadingMore, isProvisionalFirstPageResult, loadMore]);
 
   // List footer - loading spinner or end indicator

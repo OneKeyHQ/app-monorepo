@@ -490,7 +490,7 @@ index 14b455b..6708707 100644
        ...row,
        ...patch.changes,
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
-index c361205..786c8d0 100644
+index c361205..4704590 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
 +++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
 @@ -5,6 +5,7 @@ import { applyRowContainerStyle, resetRowContainerStyle } from "./templates/RowC
@@ -684,9 +684,34 @@ index c361205..786c8d0 100644
      identity: [],
      sectionHeader: []
    };
-@@ -1267,7 +1310,13 @@ export class NativeListWebEngine {
+@@ -1255,19 +1298,31 @@ export class NativeListWebEngine {
+   measuredRendererHeights = new Map();
+   notifyScrollCommandAccepted() {
+     if (this.destroyed) return;
+-    const EventConstructor = this.viewport.ownerDocument.defaultView?.Event;
+-    if (EventConstructor) this.viewport.dispatchEvent(new EventConstructor('ok-native-list-scroll-command-accepted'));
++    const owner = this.externalScrollHost ?? this.viewport;
++    const EventConstructor = owner.ownerDocument.defaultView?.Event;
++    if (EventConstructor) owner.dispatchEvent(new EventConstructor('ok-native-list-scroll-command-accepted'));
+   }
+   handlePagerScrollCommandCancel = event => {
+-    if (this.destroyed || event.target !== this.viewport) return;
++    const owner = this.externalScrollHost ?? this.viewport;
++    if (this.destroyed || event.target !== owner) return;
+     this.pendingScroll = undefined;
+-    this.viewport.scrollTo({
+-      left: this.viewport.scrollLeft,
+-      top: this.viewport.scrollTop,
++    const options = {
++      left: owner.scrollLeft,
++      top: owner.scrollTop,
        behavior: 'instant'
-     });
+-    });
++    };
++    if (this.externalScrollHost) {
++      const scrollTo = owner.ownerDocument.defaultView?.Element.prototype.scrollTo ?? owner.scrollTo;
++      scrollTo.call(owner, options);
++    } else this.viewport.scrollTo(options);
    };
 -  constructor(host, snapshot, callbacks, virtualizationEnabled = true, sectionIndexContainer, fontFamiliesJson = '{}') {
 +  constructor(host, snapshot, callbacks, virtualizationEnabled = true, sectionIndexContainer, fontFamiliesJson = '{}', scrollOptions = {}) {
@@ -699,7 +724,7 @@ index c361205..786c8d0 100644
      this.document = host.ownerDocument;
      this.snapshot = validateSnapshot(snapshot);
      this.callbacks = callbacks;
-@@ -1276,10 +1325,12 @@ export class NativeListWebEngine {
+@@ -1276,10 +1331,12 @@ export class NativeListWebEngine {
      this.previousHostPosition = host.style.position;
      if (!host.style.position) host.style.position = 'relative';
      this.root = createElement(this.document, 'div', 'ok-native-list-root');
@@ -712,10 +737,11 @@ index c361205..786c8d0 100644
      this.viewport.setAttribute('role', 'list');
      this.content = createElement(this.document, 'div', 'ok-native-list-content');
      this.footer = createElement(this.document, 'div', 'ok-native-list-footer');
-@@ -1300,18 +1351,47 @@ export class NativeListWebEngine {
+@@ -1300,18 +1357,47 @@ export class NativeListWebEngine {
      this.viewportFrame.append(this.viewport, this.sticky, this.indexRail, this.refreshIndicator);
      this.root.append(style, this.viewportFrame, this.footer);
      host.appendChild(this.root);
+-    this.viewport.addEventListener('ok-collapsible-pager-cancel-scroll-command', this.handlePagerScrollCommandCancel);
 +    if (this.externalScrollHost) {
 +      Object.assign(this.root.style, {
 +        position: 'relative',
@@ -739,11 +765,12 @@ index c361205..786c8d0 100644
 +        capture: true
 +      });
 +    }
-     this.viewport.addEventListener('ok-collapsible-pager-cancel-scroll-command', this.handlePagerScrollCommandCancel);
++    (this.externalScrollHost ?? this.viewport).addEventListener('ok-collapsible-pager-cancel-scroll-command', this.handlePagerScrollCommandCancel);
      this.viewport.addEventListener('scroll', this.handleScroll, {
        passive: true
      });
-     this.viewport.addEventListener('ok-collapsible-pager-insets-changed', this.handleCollapsiblePagerInsetsChanged);
+-    this.viewport.addEventListener('ok-collapsible-pager-insets-changed', this.handleCollapsiblePagerInsetsChanged);
++    (this.externalScrollHost ?? this.viewport).addEventListener('ok-collapsible-pager-insets-changed', this.handleCollapsiblePagerInsetsChanged);
      this.root.addEventListener('click', this.handleClick);
 +    this.root.addEventListener('contextmenu', this.handleMarketContextMenu);
      this.root.addEventListener('pointerdown', this.handleMarketPointerDown);
@@ -760,7 +787,7 @@ index c361205..786c8d0 100644
      this.root.addEventListener('pointerout', this.handleTitlePointerOut);
      this.root.addEventListener('keydown', this.handleKeyDown);
      this.viewport.addEventListener('pointerdown', this.handleReorderPointerDown, {
-@@ -1334,25 +1414,68 @@ export class NativeListWebEngine {
+@@ -1334,25 +1420,68 @@ export class NativeListWebEngine {
      this.indexRail.addEventListener('pointerup', this.handleIndexPointerEnd);
      this.indexRail.addEventListener('pointercancel', this.handleIndexPointerEnd);
      this.indexRail.addEventListener('click', this.handleIndexClick);
@@ -833,7 +860,7 @@ index c361205..786c8d0 100644
    fontFamiliesJson = '{}';
    applyFontFamilies(json) {
      const families = JSON.parse(json);
-@@ -1385,9 +1508,16 @@ export class NativeListWebEngine {
+@@ -1385,9 +1514,16 @@ export class NativeListWebEngine {
    }
    applySnapshot(snapshot) {
      const validated = validateSnapshot(snapshot);
@@ -850,7 +877,7 @@ index c361205..786c8d0 100644
    applyPatches(patches) {
      if (patches.length === 0) return;
      const next = applyRowPatches(this.snapshot, patches);
-@@ -1396,7 +1526,13 @@ export class NativeListWebEngine {
+@@ -1396,7 +1532,13 @@ export class NativeListWebEngine {
        const selected = 'selected' in patch.changes ? patch.changes.selected : undefined;
        if (selected === true) selection.add(patch.key);else if (selected === false) selection.delete(patch.key);
      });
@@ -865,7 +892,7 @@ index c361205..786c8d0 100644
        this.snapshot = next;
        this.rows = effectiveRows(next);
        this.selectedKeys = selection;
-@@ -1405,11 +1541,11 @@ export class NativeListWebEngine {
+@@ -1405,11 +1547,11 @@ export class NativeListWebEngine {
          const row = this.rows[index];
          const element = this.mounted.get(index);
          if (row?.type === 'market' && element) {
@@ -879,7 +906,7 @@ index c361205..786c8d0 100644
            this.sticky.dataset.renderSignature = webRowRenderSignature(row);
          }
        });
-@@ -1479,7 +1615,10 @@ export class NativeListWebEngine {
+@@ -1479,7 +1621,10 @@ export class NativeListWebEngine {
        };
        return;
      }
@@ -891,7 +918,7 @@ index c361205..786c8d0 100644
    }
    scrollToEnd(animated) {
      this.notifyScrollCommandAccepted();
-@@ -1490,7 +1629,10 @@ export class NativeListWebEngine {
+@@ -1490,7 +1635,10 @@ export class NativeListWebEngine {
        };
        return;
      }
@@ -903,7 +930,7 @@ index c361205..786c8d0 100644
    }
    scrollToLocation(params, scroll) {
      const index = resolveLocationIndex(this.snapshot.rows, params);
-@@ -1539,6 +1681,8 @@ export class NativeListWebEngine {
+@@ -1539,19 +1687,25 @@ export class NativeListWebEngine {
      if (this.sectionIndexTransformFrame !== undefined) this.cancelFrame(this.sectionIndexTransformFrame);
      if (this.reorderMovementTimer !== undefined) this.document.defaultView?.clearTimeout(this.reorderMovementTimer);
      this.resizeObserver?.disconnect();
@@ -912,9 +939,11 @@ index c361205..786c8d0 100644
      this.sectionIndexTransformObserver?.disconnect();
      this.document.defaultView?.removeEventListener('resize', this.handleWindowResize);
      this.pendingScroll = undefined;
-@@ -1546,12 +1690,16 @@ export class NativeListWebEngine {
+-    this.viewport.removeEventListener('ok-collapsible-pager-cancel-scroll-command', this.handlePagerScrollCommandCancel);
++    (this.externalScrollHost ?? this.viewport).removeEventListener('ok-collapsible-pager-cancel-scroll-command', this.handlePagerScrollCommandCancel);
      this.viewport.removeEventListener('scroll', this.handleScroll);
-     this.viewport.removeEventListener('ok-collapsible-pager-insets-changed', this.handleCollapsiblePagerInsetsChanged);
+-    this.viewport.removeEventListener('ok-collapsible-pager-insets-changed', this.handleCollapsiblePagerInsetsChanged);
++    (this.externalScrollHost ?? this.viewport).removeEventListener('ok-collapsible-pager-insets-changed', this.handleCollapsiblePagerInsetsChanged);
      this.root.removeEventListener('click', this.handleClick);
 +    this.root.removeEventListener('contextmenu', this.handleMarketContextMenu);
      this.cancelMarketPointer();
@@ -929,7 +958,7 @@ index c361205..786c8d0 100644
      this.root.removeEventListener('pointerout', this.handleTitlePointerOut);
      this.root.removeEventListener('keydown', this.handleKeyDown);
      this.cancelPointerReorder(true);
-@@ -1567,10 +1715,10 @@ export class NativeListWebEngine {
+@@ -1567,10 +1721,10 @@ export class NativeListWebEngine {
      this.indexRail.removeEventListener('pointerup', this.handleIndexPointerEnd);
      this.indexRail.removeEventListener('pointercancel', this.handleIndexPointerEnd);
      this.indexRail.removeEventListener('click', this.handleIndexClick);
@@ -944,7 +973,7 @@ index c361205..786c8d0 100644
      const host = this.root.parentElement;
      disposeWebImageRetries(this.root);
      Object.values(this.pool).forEach(elements => elements.forEach(disposeWebImageRetries));
-@@ -1607,6 +1755,7 @@ export class NativeListWebEngine {
+@@ -1607,6 +1761,7 @@ export class NativeListWebEngine {
        '--nl-pressed': theme.rowPressedBackground,
        '--nl-subdued': theme.subduedBackground,
        '--nl-strong': theme.strongBackground,
@@ -952,7 +981,7 @@ index c361205..786c8d0 100644
        '--nl-primary': theme.primaryText,
        '--nl-secondary': theme.secondaryText,
        '--nl-disabled': theme.disabledText,
-@@ -1653,8 +1802,47 @@ export class NativeListWebEngine {
+@@ -1653,8 +1808,47 @@ export class NativeListWebEngine {
        if (value === undefined) this.root.style.removeProperty(name);else this.root.style.setProperty(name, value);
      });
    }
@@ -1000,7 +1029,7 @@ index c361205..786c8d0 100644
      const viewportWidth = this.viewport.clientWidth;
      const viewportHeight = this.snapshot.layout.orientation === 'horizontal' ? this.viewport.clientHeight : this.verticalScrollMetrics().viewportLength;
      const stickyInset = this.snapshot.layout.orientation === 'horizontal' ? 0 : this.collapsiblePagerInsets().sticky;
-@@ -1672,16 +1860,13 @@ export class NativeListWebEngine {
+@@ -1672,16 +1866,13 @@ export class NativeListWebEngine {
      this.lastViewportWidth = viewportWidth;
      this.lastViewportHeight = viewportHeight;
      const previousHorizontal = this.layout.horizontal;
@@ -1022,7 +1051,7 @@ index c361205..786c8d0 100644
      this.renderSectionIndex(this.viewport.clientHeight <= 0 ? DEFAULT_VIEWPORT_HEIGHT : Math.max(1, viewportHeight), stickyInset);
      if (previousHorizontal !== this.layout.horizontal) {
        this.viewport.scrollLeft = 0;
-@@ -1691,6 +1876,11 @@ export class NativeListWebEngine {
+@@ -1691,6 +1882,11 @@ export class NativeListWebEngine {
      this.performPendingScroll();
    };
    updateAvatarWindow() {
@@ -1034,7 +1063,7 @@ index c361205..786c8d0 100644
      const offset = this.currentOffset();
      if (offset !== this.avatarOffset) this.avatarDirection = Math.sign(offset - this.avatarOffset);
      this.avatarOffset = offset;
-@@ -1729,7 +1919,7 @@ export class NativeListWebEngine {
+@@ -1729,7 +1925,7 @@ export class NativeListWebEngine {
    renderWindow() {
      this.updateAvatarWindow();
      const viewportLength = this.viewportLength();
@@ -1043,7 +1072,7 @@ index c361205..786c8d0 100644
      const desired = new Set(visible.map(item => item.index));
      this.mounted.forEach((element, index) => {
        const nextRow = this.rows[index];
-@@ -1799,6 +1989,7 @@ export class NativeListWebEngine {
+@@ -1799,6 +1995,7 @@ export class NativeListWebEngine {
      const bindingEpoch = String(++this.bindingEpochCounter);
      element.className = overlay ? 'ok-native-list-item ok-native-list-sticky' : 'ok-native-list-item';
      setData(element, 'nativeListRowKey', row.key);
@@ -1051,7 +1080,7 @@ index c361205..786c8d0 100644
      setData(element, 'nativeListBindingEpoch', bindingEpoch);
      setData(element, 'nativeListRowIndex', index);
      setData(element, 'nativeListDisabled', Boolean(row.disabled));
-@@ -2075,7 +2266,7 @@ export class NativeListWebEngine {
+@@ -2075,7 +2272,7 @@ export class NativeListWebEngine {
      if (!Number.isNaN(stickyIndex)) update(this.sticky, this.rows[stickyIndex]);
    }
    updateVisibleState() {
@@ -1060,7 +1089,7 @@ index c361205..786c8d0 100644
      const first = visible[0];
      const last = visible.at(-1);
      const signature = String(first?.index ?? -1) + ':' + String(last?.index ?? -1) + ':' + (first?.key ?? '') + ':' + (last?.key ?? '');
-@@ -2126,6 +2317,7 @@ export class NativeListWebEngine {
+@@ -2126,6 +2323,7 @@ export class NativeListWebEngine {
      this.sticky.style.right = 'auto';
      this.sticky.style.width = String(item.width) + 'px';
      this.sticky.style.height = String(item.height) + 'px';
@@ -1068,7 +1097,7 @@ index c361205..786c8d0 100644
      let nextIndex = -1;
      for (let cursor = index + 1; cursor < this.rows.length; cursor += 1) {
        const candidate = this.rows[cursor];
-@@ -2146,7 +2338,7 @@ export class NativeListWebEngine {
+@@ -2146,7 +2344,7 @@ export class NativeListWebEngine {
      this.indexRail.querySelectorAll('[data-section-key]').forEach(button => setData(button, 'active', button.dataset.sectionKey === activeKey));
    }
    checkEndReached(lastVisibleIndex) {
@@ -1077,7 +1106,7 @@ index c361205..786c8d0 100644
      const threshold = Math.max(1, Math.ceil(this.rows.length * (this.snapshot.capabilities.endReachedThreshold ?? 0.2)));
      if (lastVisibleIndex < this.rows.length - threshold) return;
      this.reachedGeneration = this.snapshot.generation;
-@@ -2160,6 +2352,7 @@ export class NativeListWebEngine {
+@@ -2160,6 +2358,7 @@ export class NativeListWebEngine {
      this.callbacks.onScrollToIndexFailed?.(scrollFailure(this.rows, index, reason, average));
    }
    canScroll() {
@@ -1085,7 +1114,7 @@ index c361205..786c8d0 100644
      const viewportLength = this.layout.horizontal ? this.viewport.clientWidth : this.viewport.clientHeight;
      return viewportLength > 0 && this.layout.items.length > 0;
    }
-@@ -2167,16 +2360,25 @@ export class NativeListWebEngine {
+@@ -2167,16 +2366,25 @@ export class NativeListWebEngine {
      if (this.layout.horizontal) {
        return this.viewport.clientWidth || DEFAULT_VIEWPORT_WIDTH;
      }
@@ -1111,7 +1140,7 @@ index c361205..786c8d0 100644
      const readInset = name => {
        const parsed = Number.parseFloat(this.viewport.style.getPropertyValue(name));
        return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
-@@ -2187,13 +2389,28 @@ export class NativeListWebEngine {
+@@ -2187,13 +2395,29 @@ export class NativeListWebEngine {
      };
    }
    verticalScrollMetrics() {
@@ -1125,7 +1154,8 @@ index c361205..786c8d0 100644
 +  writeExternalOffset(rawOffset, animated) {
 +    this.externalGeometryCache = undefined;
 +    const host = this.externalScrollHost;
-+    host.scrollTo({
++    const scrollTo = host.ownerDocument.defaultView?.Element.prototype.scrollTo ?? host.scrollTo;
++    scrollTo.call(host, {
 +      top: Math.max(0, Math.min(host.scrollHeight - host.clientHeight, rawOffset)),
 +      behavior: animated ? 'smooth' : 'auto'
 +    });
@@ -1140,7 +1170,7 @@ index c361205..786c8d0 100644
      const resolved = Math.min(Math.max(0, offset), Math.max(0, this.contentLength() - this.viewportLength()));
      const rawOffset = this.layout.horizontal ? resolved : resolveWebCollapsiblePagerRawOffset(resolved, this.collapsiblePagerInsets().header);
      this.viewport.scrollTo(this.layout.horizontal ? {
-@@ -2242,13 +2459,16 @@ export class NativeListWebEngine {
+@@ -2242,13 +2466,16 @@ export class NativeListWebEngine {
      this.renderFooter();
      this.callbacks.onSelectionDelta?.(result.delta);
    }
@@ -1159,7 +1189,7 @@ index c361205..786c8d0 100644
      });
    }
    createActionAnchor(actionElement, rowElement, sourceOverride) {
-@@ -2329,6 +2549,23 @@ export class NativeListWebEngine {
+@@ -2329,6 +2556,23 @@ export class NativeListWebEngine {
      this.document.defaultView?.clearTimeout(state.timer);
      this.marketPointer = undefined;
    }
@@ -1183,7 +1213,7 @@ index c361205..786c8d0 100644
    handleMarketPointerDown = event => {
      if (event.button !== 0 || !(event.target instanceof Element)) return;
      this.marketLongPressFired = false;
-@@ -2340,16 +2577,24 @@ export class NativeListWebEngine {
+@@ -2340,16 +2584,24 @@ export class NativeListWebEngine {
      if (row.pressInActionKey) this.emitRowAction(row, row.pressInActionKey, rowElement ?? undefined, rowElement ?? undefined);
      if (!row.longPressActionKey || !rowElement) return;
      markActionAnchorSource(rowElement, 'row');
@@ -1209,7 +1239,7 @@ index c361205..786c8d0 100644
        rowKey: row.key,
        startX: event.clientX,
        startY: event.clientY,
-@@ -2359,7 +2604,21 @@ export class NativeListWebEngine {
+@@ -2359,7 +2611,21 @@ export class NativeListWebEngine {
    handleMarketPointerMove = event => {
      const state = this.marketPointer;
      if (!state || state.pointerId !== event.pointerId) return;
@@ -1232,7 +1262,7 @@ index c361205..786c8d0 100644
    };
    handleMarketPointerEnd = event => {
      if (this.marketPointer?.pointerId === event.pointerId) this.cancelMarketPointer();
-@@ -2371,6 +2630,7 @@ export class NativeListWebEngine {
+@@ -2371,6 +2637,7 @@ export class NativeListWebEngine {
      if (!(target instanceof Element)) return;
      const action = target.closest('[data-native-list-hover-action]');
      if (!action || event.relatedTarget instanceof Node && action.contains(event.relatedTarget)) return;
@@ -1240,7 +1270,7 @@ index c361205..786c8d0 100644
      const rowElement = action.closest('[data-native-list-row-key]');
      const row = this.rowAtElement(rowElement);
      const memberKey = action.closest('[data-native-list-group-member-key]')?.dataset.nativeListGroupMemberKey;
-@@ -2516,7 +2776,12 @@ export class NativeListWebEngine {
+@@ -2516,7 +2783,12 @@ export class NativeListWebEngine {
        preventScroll: true
      });
    }
@@ -1253,7 +1283,7 @@ index c361205..786c8d0 100644
      this.cancelMarketPointer();
      this.invalidateActionAnchor('scroll');
      this.scheduleFrame();
-@@ -2530,6 +2795,8 @@ export class NativeListWebEngine {
+@@ -2530,6 +2802,8 @@ export class NativeListWebEngine {
      if (this.frameHandle !== undefined || this.destroyed) return;
      this.frameHandle = this.requestFrame(() => {
        this.frameHandle = undefined;
@@ -1262,7 +1292,7 @@ index c361205..786c8d0 100644
        if (this.virtualizationEnabled) this.renderWindow();else {
          this.updateAvatarWindow();
          this.updateVisibleState();
-@@ -2592,7 +2859,7 @@ export class NativeListWebEngine {
+@@ -2592,7 +2866,7 @@ export class NativeListWebEngine {
      this.selectIndexPosition(entry.position);
    };
    handlePullStart = event => {
@@ -1271,7 +1301,7 @@ index c361205..786c8d0 100644
      this.pullStartY = event.clientY;
      this.pullDistance = 0;
    };
-@@ -2668,6 +2935,7 @@ export class NativeListWebEngine {
+@@ -2668,6 +2942,7 @@ export class NativeListWebEngine {
      if (this.pointerReorder !== state) return;
      this.clearReorderLongPress(state);
      state.active = true;
@@ -1279,7 +1309,7 @@ index c361205..786c8d0 100644
      state.activatedAt = Date.now();
      state.viewportRect = this.reorderViewportRect();
      this.captureReorderPointer(state);
-@@ -2744,6 +3012,10 @@ export class NativeListWebEngine {
+@@ -2744,6 +3019,10 @@ export class NativeListWebEngine {
      this.cancelPointerReorder(true);
    };
    setCurrentOffset(offset) {
@@ -1290,7 +1320,7 @@ index c361205..786c8d0 100644
      const maximum = Math.max(0, this.contentLength() - this.viewportLength());
      const next = Math.max(0, Math.min(maximum, offset));
      if (this.layout.horizontal) this.viewport.scrollLeft = next;else {
-@@ -2801,7 +3073,7 @@ export class NativeListWebEngine {
+@@ -2801,7 +3080,7 @@ export class NativeListWebEngine {
      const viewportRect = this.viewport.getBoundingClientRect();
      const insets = this.collapsiblePagerInsets();
      const left = viewportRect.left + destinationLayout.x - this.viewport.scrollLeft;
@@ -1299,7 +1329,7 @@ index c361205..786c8d0 100644
      this.reorderPreview.getBoundingClientRect();
      this.reorderPreview.style.transition = 'transform ' + String(REORDER_DROP_TRANSITION_MS) + 'ms ' + WEB_REORDER_ANIMATION.dropTimingFunction + ', box-shadow ' + String(REORDER_DROP_TRANSITION_MS) + 'ms ' + WEB_REORDER_ANIMATION.dropTimingFunction;
      this.reorderPreview.style.boxShadow = 'none';
-@@ -2851,6 +3123,18 @@ export class NativeListWebEngine {
+@@ -2851,6 +3130,18 @@ export class NativeListWebEngine {
      this.reorderPreview.style.transform = 'translate3d(' + String(x) + 'px,' + String(y) + 'px,0)';
    }
    reorderViewportRect() {
@@ -4136,7 +4166,7 @@ index 119815f..d3ba985 100644
        ...row,
        ...patch.changes,
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
-index 9ab232c..701963a 100644
+index 9ab232c..71c2dcc 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
 @@ -6,6 +6,10 @@ import {
@@ -4378,7 +4408,44 @@ index 9ab232c..701963a 100644
          rowKey: string;
          startX: number;
          startY: number;
-@@ -2051,8 +2123,31 @@ export class NativeListWebEngine {
+@@ -2028,21 +2100,29 @@ export class NativeListWebEngine {
+ 
+   private notifyScrollCommandAccepted() {
+     if (this.destroyed) return;
+-    const EventConstructor = this.viewport.ownerDocument.defaultView?.Event;
++    const owner = this.externalScrollHost ?? this.viewport;
++    const EventConstructor = owner.ownerDocument.defaultView?.Event;
+     if (EventConstructor)
+-      this.viewport.dispatchEvent(
++      owner.dispatchEvent(
+         new EventConstructor('ok-native-list-scroll-command-accepted')
+       );
+   }
+ 
+   private readonly handlePagerScrollCommandCancel = (event: Event) => {
+-    if (this.destroyed || event.target !== this.viewport) return;
++    const owner = this.externalScrollHost ?? this.viewport;
++    if (this.destroyed || event.target !== owner) return;
+     this.pendingScroll = undefined;
+-    this.viewport.scrollTo({
+-      left: this.viewport.scrollLeft,
+-      top: this.viewport.scrollTop,
++    const options: ScrollToOptions = {
++      left: owner.scrollLeft,
++      top: owner.scrollTop,
+       behavior: 'instant',
+-    });
++    };
++    if (this.externalScrollHost) {
++      const scrollTo: (options: ScrollToOptions) => void =
++        owner.ownerDocument.defaultView?.Element.prototype.scrollTo ??
++        owner.scrollTo;
++      scrollTo.call(owner, options);
++    } else this.viewport.scrollTo(options);
+   };
+ 
+   constructor(
+@@ -2051,8 +2131,31 @@ export class NativeListWebEngine {
      callbacks: NativeListWebCallbacks,
      virtualizationEnabled = true,
      sectionIndexContainer?: HTMLElement | null,
@@ -4411,7 +4478,7 @@ index 9ab232c..701963a 100644
      this.document = host.ownerDocument;
      this.snapshot = validateSnapshot(snapshot);
      this.callbacks = callbacks;
-@@ -2062,6 +2157,7 @@ export class NativeListWebEngine {
+@@ -2062,6 +2165,7 @@ export class NativeListWebEngine {
      if (!host.style.position) host.style.position = 'relative';
  
      this.root = createElement(this.document, 'div', 'ok-native-list-root');
@@ -4419,7 +4486,7 @@ index 9ab232c..701963a 100644
      const style = this.document.createElement('style');
      style.textContent = WEB_LIST_CSS;
      this.viewportFrame = createElement(
-@@ -2074,6 +2170,10 @@ export class NativeListWebEngine {
+@@ -2074,6 +2178,10 @@ export class NativeListWebEngine {
        'div',
        'ok-native-list-viewport'
      );
@@ -4430,7 +4497,7 @@ index 9ab232c..701963a 100644
      this.viewport.setAttribute('role', 'list');
      this.content = createElement(
        this.document,
-@@ -2120,6 +2220,33 @@ export class NativeListWebEngine {
+@@ -2120,25 +2228,58 @@ export class NativeListWebEngine {
      );
      this.root.append(style, this.viewportFrame, this.footer);
      host.appendChild(this.root);
@@ -4462,9 +4529,17 @@ index 9ab232c..701963a 100644
 +      );
 +    }
  
-     this.viewport.addEventListener(
+-    this.viewport.addEventListener(
++    (this.externalScrollHost ?? this.viewport).addEventListener(
        'ok-collapsible-pager-cancel-scroll-command',
-@@ -2133,12 +2260,18 @@ export class NativeListWebEngine {
+       this.handlePagerScrollCommandCancel
+     );
+     this.viewport.addEventListener('scroll', this.handleScroll, {
+       passive: true,
+     });
+-    this.viewport.addEventListener(
++    (this.externalScrollHost ?? this.viewport).addEventListener(
+       'ok-collapsible-pager-insets-changed',
        this.handleCollapsiblePagerInsetsChanged
      );
      this.root.addEventListener('click', this.handleClick);
@@ -4483,7 +4558,7 @@ index 9ab232c..701963a 100644
      this.root.addEventListener('pointerout', this.handleTitlePointerOut);
      this.root.addEventListener('keydown', this.handleKeyDown);
      this.viewport.addEventListener(
-@@ -2174,14 +2307,14 @@ export class NativeListWebEngine {
+@@ -2174,14 +2315,14 @@ export class NativeListWebEngine {
        this.handleIndexPointerEnd
      );
      this.indexRail.addEventListener('click', this.handleIndexClick);
@@ -4502,7 +4577,7 @@ index 9ab232c..701963a 100644
  
      const ResizeObserverConstructor = this.document.defaultView?.ResizeObserver;
      if (ResizeObserverConstructor) {
-@@ -2189,17 +2322,78 @@ export class NativeListWebEngine {
+@@ -2189,17 +2330,78 @@ export class NativeListWebEngine {
          this.recomputeLayout()
        );
        this.resizeObserver.observe(this.viewport);
@@ -4581,7 +4656,7 @@ index 9ab232c..701963a 100644
    private fontFamiliesJson = '{}';
  
    private applyFontFamilies(json: string) {
-@@ -2238,10 +2432,23 @@ export class NativeListWebEngine {
+@@ -2238,10 +2440,23 @@ export class NativeListWebEngine {
  
    applySnapshot(snapshot: NativeListSnapshot) {
      const validated = validateSnapshot(snapshot);
@@ -4605,7 +4680,7 @@ index 9ab232c..701963a 100644
    applyPatches(patches: readonly RowPatch[]) {
      if (patches.length === 0) return;
      const next = applyRowPatches(this.snapshot, patches);
-@@ -2252,7 +2459,21 @@ export class NativeListWebEngine {
+@@ -2252,7 +2467,21 @@ export class NativeListWebEngine {
        if (selected === true) selection.add(patch.key);
        else if (selected === false) selection.delete(patch.key);
      });
@@ -4628,7 +4703,7 @@ index 9ab232c..701963a 100644
        this.snapshot = next;
        this.rows = effectiveRows(next);
        this.selectedKeys = selection;
-@@ -2261,14 +2482,16 @@ export class NativeListWebEngine {
+@@ -2261,14 +2490,16 @@ export class NativeListWebEngine {
          const row = this.rows[index];
          const element = this.mounted.get(index);
          if (row?.type === 'market' && element) {
@@ -4647,7 +4722,7 @@ index 9ab232c..701963a 100644
            this.sticky.dataset.renderSignature = webRowRenderSignature(row);
          }
        });
-@@ -2332,7 +2555,10 @@ export class NativeListWebEngine {
+@@ -2332,7 +2563,10 @@ export class NativeListWebEngine {
        this.pendingScroll = { kind: 'offset', offset, animated };
        return;
      }
@@ -4659,7 +4734,7 @@ index 9ab232c..701963a 100644
    }
  
    scrollToEnd(animated: boolean) {
-@@ -2341,10 +2567,17 @@ export class NativeListWebEngine {
+@@ -2341,10 +2575,17 @@ export class NativeListWebEngine {
        this.pendingScroll = { kind: 'end', animated };
        return;
      }
@@ -4681,7 +4756,7 @@ index 9ab232c..701963a 100644
    }
  
    scrollToLocation(
-@@ -2410,6 +2643,15 @@ export class NativeListWebEngine {
+@@ -2410,28 +2651,41 @@ export class NativeListWebEngine {
      if (this.reorderMovementTimer !== undefined)
        this.document.defaultView?.clearTimeout(this.reorderMovementTimer);
      this.resizeObserver?.disconnect();
@@ -4697,7 +4772,18 @@ index 9ab232c..701963a 100644
      this.sectionIndexTransformObserver?.disconnect();
      this.document.defaultView?.removeEventListener(
        'resize',
-@@ -2426,12 +2668,16 @@ export class NativeListWebEngine {
+       this.handleWindowResize
+     );
+     this.pendingScroll = undefined;
+-    this.viewport.removeEventListener(
++    (this.externalScrollHost ?? this.viewport).removeEventListener(
+       'ok-collapsible-pager-cancel-scroll-command',
+       this.handlePagerScrollCommandCancel
+     );
+     this.viewport.removeEventListener('scroll', this.handleScroll);
+-    this.viewport.removeEventListener(
++    (this.externalScrollHost ?? this.viewport).removeEventListener(
+       'ok-collapsible-pager-insets-changed',
        this.handleCollapsiblePagerInsetsChanged
      );
      this.root.removeEventListener('click', this.handleClick);
@@ -4714,7 +4800,7 @@ index 9ab232c..701963a 100644
      this.root.removeEventListener('pointerout', this.handleTitlePointerOut);
      this.root.removeEventListener('keydown', this.handleKeyDown);
      this.cancelPointerReorder(true);
-@@ -2465,10 +2711,10 @@ export class NativeListWebEngine {
+@@ -2465,10 +2719,10 @@ export class NativeListWebEngine {
        this.handleIndexPointerEnd
      );
      this.indexRail.removeEventListener('click', this.handleIndexClick);
@@ -4729,7 +4815,7 @@ index 9ab232c..701963a 100644
      const host = this.root.parentElement;
      disposeWebImageRetries(this.root);
      Object.values(this.pool).forEach((elements) =>
-@@ -2514,6 +2760,8 @@ export class NativeListWebEngine {
+@@ -2514,6 +2768,8 @@ export class NativeListWebEngine {
        '--nl-pressed': theme.rowPressedBackground,
        '--nl-subdued': theme.subduedBackground,
        '--nl-strong': theme.strongBackground,
@@ -4738,7 +4824,7 @@ index 9ab232c..701963a 100644
        '--nl-primary': theme.primaryText,
        '--nl-secondary': theme.secondaryText,
        '--nl-disabled': theme.disabledText,
-@@ -2566,8 +2814,79 @@ export class NativeListWebEngine {
+@@ -2566,8 +2822,79 @@ export class NativeListWebEngine {
      });
    }
  
@@ -4818,7 +4904,7 @@ index 9ab232c..701963a 100644
      const viewportWidth = this.viewport.clientWidth;
      const viewportHeight =
        this.snapshot.layout.orientation === 'horizontal'
-@@ -2595,28 +2914,18 @@ export class NativeListWebEngine {
+@@ -2595,28 +2922,18 @@ export class NativeListWebEngine {
      this.lastViewportWidth = viewportWidth;
      this.lastViewportHeight = viewportHeight;
      const previousHorizontal = this.layout.horizontal;
@@ -4857,7 +4943,7 @@ index 9ab232c..701963a 100644
      this.renderSectionIndex(
        this.viewport.clientHeight <= 0
          ? DEFAULT_VIEWPORT_HEIGHT
-@@ -2632,6 +2941,11 @@ export class NativeListWebEngine {
+@@ -2632,6 +2949,11 @@ export class NativeListWebEngine {
    };
  
    private updateAvatarWindow() {
@@ -4869,7 +4955,7 @@ index 9ab232c..701963a 100644
      const offset = this.currentOffset();
      if (offset !== this.avatarOffset)
        this.avatarDirection = Math.sign(offset - this.avatarOffset);
-@@ -2688,13 +3002,16 @@ export class NativeListWebEngine {
+@@ -2688,13 +3010,16 @@ export class NativeListWebEngine {
    private renderWindow() {
      this.updateAvatarWindow();
      const viewportLength = this.viewportLength();
@@ -4893,7 +4979,7 @@ index 9ab232c..701963a 100644
      const desired = new Set(visible.map((item) => item.index));
      this.mounted.forEach((element, index) => {
        const nextRow = this.rows[index];
-@@ -2797,6 +3114,11 @@ export class NativeListWebEngine {
+@@ -2797,6 +3122,11 @@ export class NativeListWebEngine {
        ? 'ok-native-list-item ok-native-list-sticky'
        : 'ok-native-list-item';
      setData(element, 'nativeListRowKey', row.key);
@@ -4905,7 +4991,7 @@ index 9ab232c..701963a 100644
      setData(element, 'nativeListBindingEpoch', bindingEpoch);
      setData(element, 'nativeListRowIndex', index);
      setData(element, 'nativeListDisabled', Boolean(row.disabled));
-@@ -3221,11 +3543,14 @@ export class NativeListWebEngine {
+@@ -3221,11 +3551,14 @@ export class NativeListWebEngine {
    }
  
    private updateVisibleState() {
@@ -4925,7 +5011,7 @@ index 9ab232c..701963a 100644
      const first = visible[0];
      const last = visible.at(-1);
      const signature =
-@@ -3295,6 +3620,8 @@ export class NativeListWebEngine {
+@@ -3295,6 +3628,8 @@ export class NativeListWebEngine {
      this.sticky.style.right = 'auto';
      this.sticky.style.width = String(item.width) + 'px';
      this.sticky.style.height = String(item.height) + 'px';
@@ -4934,7 +5020,7 @@ index 9ab232c..701963a 100644
      let nextIndex = -1;
      for (let cursor = index + 1; cursor < this.rows.length; cursor += 1) {
        const candidate = this.rows[cursor];
-@@ -3333,6 +3660,7 @@ export class NativeListWebEngine {
+@@ -3333,6 +3668,7 @@ export class NativeListWebEngine {
  
    private checkEndReached(lastVisibleIndex: number) {
      if (
@@ -4942,7 +5028,7 @@ index 9ab232c..701963a 100644
        !this.snapshot.capabilities?.loadMore ||
        this.reachedGeneration === this.snapshot.generation ||
        this.rows.length === 0
-@@ -3371,6 +3699,11 @@ export class NativeListWebEngine {
+@@ -3371,6 +3707,11 @@ export class NativeListWebEngine {
    }
  
    private canScroll(): boolean {
@@ -4954,7 +5040,7 @@ index 9ab232c..701963a 100644
      const viewportLength = this.layout.horizontal
        ? this.viewport.clientWidth
        : this.viewport.clientHeight;
-@@ -3381,11 +3714,19 @@ export class NativeListWebEngine {
+@@ -3381,11 +3722,19 @@ export class NativeListWebEngine {
      if (this.layout.horizontal) {
        return this.viewport.clientWidth || DEFAULT_VIEWPORT_WIDTH;
      }
@@ -4974,7 +5060,7 @@ index 9ab232c..701963a 100644
      return this.layout.horizontal
        ? this.layout.contentWidth
        : this.layout.contentHeight;
-@@ -3401,6 +3742,8 @@ export class NativeListWebEngine {
+@@ -3401,6 +3750,8 @@ export class NativeListWebEngine {
      header: number;
      sticky: number;
    }> {
@@ -4983,7 +5069,7 @@ index 9ab232c..701963a 100644
      const readInset = (name: string) => {
        const parsed = Number.parseFloat(
          this.viewport.style.getPropertyValue(name)
-@@ -3414,6 +3757,7 @@ export class NativeListWebEngine {
+@@ -3414,6 +3765,7 @@ export class NativeListWebEngine {
    }
  
    private verticalScrollMetrics(): WebCollapsiblePagerScrollMetrics {
@@ -4991,14 +5077,17 @@ index 9ab232c..701963a 100644
      const insets = this.collapsiblePagerInsets();
      return resolveWebCollapsiblePagerScrollMetrics(
        this.viewport.scrollTop,
-@@ -3427,7 +3771,28 @@ export class NativeListWebEngine {
+@@ -3427,7 +3779,31 @@ export class NativeListWebEngine {
      this.recomputeLayout();
    };
  
 +  private writeExternalOffset(rawOffset: number, animated: boolean) {
 +    this.externalGeometryCache = undefined;
 +    const host = this.externalScrollHost!;
-+    host.scrollTo({
++    const scrollTo: (options: ScrollToOptions) => void =
++      host.ownerDocument.defaultView?.Element.prototype.scrollTo ??
++      host.scrollTo;
++    scrollTo.call(host, {
 +      top: Math.max(
 +        0,
 +        Math.min(host.scrollHeight - host.clientHeight, rawOffset)
@@ -5020,7 +5109,7 @@ index 9ab232c..701963a 100644
      const resolved = Math.min(
        Math.max(0, offset),
        Math.max(0, this.contentLength() - this.viewportLength())
-@@ -3507,7 +3872,8 @@ export class NativeListWebEngine {
+@@ -3507,7 +3883,8 @@ export class NativeListWebEngine {
      row: RowModel,
      actionKey: string,
      actionElement?: HTMLElement,
@@ -5030,7 +5119,7 @@ index 9ab232c..701963a 100644
    ) {
      const anchor =
        actionElement && rowElement
-@@ -3518,6 +3884,11 @@ export class NativeListWebEngine {
+@@ -3518,6 +3895,11 @@ export class NativeListWebEngine {
        actionKey,
        sectionKey: row.sectionKey,
        anchor,
@@ -5042,7 +5131,7 @@ index 9ab232c..701963a 100644
      });
    }
  
-@@ -3654,6 +4025,38 @@ export class NativeListWebEngine {
+@@ -3654,6 +4036,38 @@ export class NativeListWebEngine {
      this.marketPointer = undefined;
    }
  
@@ -5081,7 +5170,7 @@ index 9ab232c..701963a 100644
    private handleMarketPointerDown = (event: PointerEvent) => {
      if (event.button !== 0 || !(event.target instanceof Element)) return;
      this.marketLongPressFired = false;
-@@ -3673,16 +4076,35 @@ export class NativeListWebEngine {
+@@ -3673,16 +4087,35 @@ export class NativeListWebEngine {
        );
      if (!row.longPressActionKey || !rowElement) return;
      markActionAnchorSource(rowElement, 'row');
@@ -5118,7 +5207,7 @@ index 9ab232c..701963a 100644
        rowKey: row.key,
        startX: event.clientX,
        startY: event.clientY,
-@@ -3693,9 +4115,41 @@ export class NativeListWebEngine {
+@@ -3693,9 +4126,41 @@ export class NativeListWebEngine {
    private handleMarketPointerMove = (event: PointerEvent) => {
      const state = this.marketPointer;
      if (!state || state.pointerId !== event.pointerId) return;
@@ -5126,9 +5215,7 @@ index 9ab232c..701963a 100644
 +    const row = this.rows.find((item) => item.key === state.rowKey);
 +    const threshold =
 +      row?.type === 'market' && !row.webTable ? 3 : MARKET_MOVE_CANCEL_PX;
-     if (
--      Math.abs(event.clientX - state.startX) > MARKET_MOVE_CANCEL_PX ||
--      Math.abs(event.clientY - state.startY) > MARKET_MOVE_CANCEL_PX
++    if (
 +      Math.abs(event.clientX - state.startX) > threshold ||
 +      Math.abs(event.clientY - state.startY) > threshold
 +    )
@@ -5156,13 +5243,15 @@ index 9ab232c..701963a 100644
 +      !Number.isFinite(touch.clientY)
 +    )
 +      return;
-+    if (
+     if (
+-      Math.abs(event.clientX - state.startX) > MARKET_MOVE_CANCEL_PX ||
+-      Math.abs(event.clientY - state.startY) > MARKET_MOVE_CANCEL_PX
 +      Math.abs(touch.clientX - state.startX) > 3 ||
 +      Math.abs(touch.clientY - state.startY) > 3
      )
        this.cancelMarketPointer();
    };
-@@ -3706,7 +4160,7 @@ export class NativeListWebEngine {
+@@ -3706,7 +4171,7 @@ export class NativeListWebEngine {
    };
  
    // OneKey patch: hover opens the same anchored help action as native taps.
@@ -5171,7 +5260,7 @@ index 9ab232c..701963a 100644
      const target = event.target;
      if (!(target instanceof Element)) return;
      const action = target.closest<HTMLElement>(
-@@ -3718,6 +4172,11 @@ export class NativeListWebEngine {
+@@ -3718,6 +4183,11 @@ export class NativeListWebEngine {
          action.contains(event.relatedTarget))
      )
        return;
@@ -5183,7 +5272,7 @@ index 9ab232c..701963a 100644
      const rowElement = action.closest<HTMLElement>(
        '[data-native-list-row-key]'
      );
-@@ -3741,7 +4200,7 @@ export class NativeListWebEngine {
+@@ -3741,7 +4211,7 @@ export class NativeListWebEngine {
        this.emitRowAction(sourceRow, actionKey, action, rowElement ?? undefined);
    };
  
@@ -5192,7 +5281,7 @@ index 9ab232c..701963a 100644
      const target = event.target;
      if (!(target instanceof Element)) return;
      const action = target.closest<HTMLElement>(
-@@ -3934,7 +4393,20 @@ export class NativeListWebEngine {
+@@ -3934,7 +4404,20 @@ export class NativeListWebEngine {
        ?.focus({ preventScroll: true });
    }
  
@@ -5213,7 +5302,7 @@ index 9ab232c..701963a 100644
      this.cancelMarketPointer();
      this.invalidateActionAnchor('scroll');
      this.scheduleFrame();
-@@ -3950,6 +4422,9 @@ export class NativeListWebEngine {
+@@ -3950,6 +4433,9 @@ export class NativeListWebEngine {
      if (this.frameHandle !== undefined || this.destroyed) return;
      this.frameHandle = this.requestFrame(() => {
        this.frameHandle = undefined;
@@ -5223,7 +5312,7 @@ index 9ab232c..701963a 100644
        if (this.virtualizationEnabled) this.renderWindow();
        else {
          this.updateAvatarWindow();
-@@ -4050,7 +4525,8 @@ export class NativeListWebEngine {
+@@ -4050,7 +4536,8 @@ export class NativeListWebEngine {
      if (
        this.pointerReorder?.pointerId === event.pointerId ||
        !this.snapshot.capabilities?.pullToRefresh ||
@@ -5233,7 +5322,7 @@ index 9ab232c..701963a 100644
        (event.pointerType !== 'touch' && event.pointerType !== 'pen')
      )
        return;
-@@ -4149,6 +4625,7 @@ export class NativeListWebEngine {
+@@ -4149,6 +4636,7 @@ export class NativeListWebEngine {
      if (this.pointerReorder !== state) return;
      this.clearReorderLongPress(state);
      state.active = true;
@@ -5241,7 +5330,7 @@ index 9ab232c..701963a 100644
      state.activatedAt = Date.now();
      state.viewportRect = this.reorderViewportRect();
      this.captureReorderPointer(state);
-@@ -4247,6 +4724,10 @@ export class NativeListWebEngine {
+@@ -4247,6 +4735,10 @@ export class NativeListWebEngine {
    };
  
    private setCurrentOffset(offset: number) {
@@ -5252,7 +5341,7 @@ index 9ab232c..701963a 100644
      const maximum = Math.max(0, this.contentLength() - this.viewportLength());
      const next = Math.max(0, Math.min(maximum, offset));
      if (this.layout.horizontal) this.viewport.scrollLeft = next;
-@@ -4339,12 +4820,13 @@ export class NativeListWebEngine {
+@@ -4339,12 +4831,13 @@ export class NativeListWebEngine {
      const insets = this.collapsiblePagerInsets();
      const left =
        viewportRect.left + destinationLayout.x - this.viewport.scrollLeft;
@@ -5272,7 +5361,7 @@ index 9ab232c..701963a 100644
      this.reorderPreview.getBoundingClientRect();
      this.reorderPreview.style.transition =
        'transform ' +
-@@ -4416,6 +4898,18 @@ export class NativeListWebEngine {
+@@ -4416,6 +4909,18 @@ export class NativeListWebEngine {
    }
  
    private reorderViewportRect() {

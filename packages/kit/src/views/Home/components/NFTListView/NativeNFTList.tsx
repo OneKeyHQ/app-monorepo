@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { NativeList } from '@onekeyfe/react-native-native-list';
 import BigNumber from 'bignumber.js';
@@ -36,6 +36,7 @@ import type {
   NativeListSnapshot,
   RowActionEvent,
 } from '@onekeyfe/react-native-native-list';
+import type { LayoutChangeEvent } from 'react-native';
 
 type IProps = {
   data: IAccountNFT[];
@@ -126,9 +127,15 @@ export function NFTListView({
     () => buildNativeNFTRowsByKey(filteredNfts, account?.id, network?.id),
     [filteredNfts, account?.id, network?.id],
   );
+  const [webLayoutWidth, setWebLayoutWidth] = useState(0);
+  const handleWebLayout = useCallback((event: LayoutChangeEvent) => {
+    const width = event.nativeEvent.layout.width;
+    setWebLayoutWidth((previous) => (previous === width ? previous : width));
+  }, []);
+  const measuredContentWidth = webLayoutWidth || webContentWidth;
   const webRowHeight =
-    webContentWidth && webScrollHost !== undefined
-      ? (webContentWidth - 2 * (webContentPadding?.horizontal ?? 10)) /
+    measuredContentWidth && webScrollHost !== undefined
+      ? (measuredContentWidth - 2 * (webContentPadding?.horizontal ?? 10)) /
           numColumns +
         60
       : undefined;
@@ -247,6 +254,7 @@ export function NFTListView({
     <NativeList
       key={identity}
       testID="home-nft-list"
+      onLayout={webScrollHost === undefined ? undefined : handleWebLayout}
       style={
         webScrollHost === undefined
           ? { flex: 1 }

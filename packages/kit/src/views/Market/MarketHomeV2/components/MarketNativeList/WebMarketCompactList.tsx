@@ -43,24 +43,42 @@ type ICompactHelp = {
 function WebCompactEndObserver({
   height: contentHeight,
   active,
+  progressKey,
+  paddingTop,
   onEndReached,
 }: {
   height: number;
   active: boolean;
-  onEndReached?: () => void;
+  progressKey: string;
+  paddingTop: number;
+  onEndReached?: () => boolean | void;
 }) {
   const { scrollTop, height } = useTabsScrollContext();
   const previousScrollTop = useRef(scrollTop);
+  const attemptedShortPage = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (previousScrollTop.current === scrollTop) return;
+    const changed = previousScrollTop.current !== scrollTop;
     previousScrollTop.current = scrollTop;
+    const shortPage =
+      height >= contentHeight && attemptedShortPage.current !== progressKey;
     if (
       active &&
+      onEndReached &&
       contentHeight > 0 &&
-      (scrollTop + height) / contentHeight >= 0.8
-    )
-      onEndReached?.();
-  }, [scrollTop, height, contentHeight, active, onEndReached]);
+      (changed || shortPage) &&
+      (Math.max(0, scrollTop - paddingTop) + height) / contentHeight >= 0.8
+    ) {
+      if (onEndReached() !== false) attemptedShortPage.current = progressKey;
+    }
+  }, [
+    scrollTop,
+    height,
+    contentHeight,
+    active,
+    onEndReached,
+    progressKey,
+    paddingTop,
+  ]);
   return null;
 }
 
@@ -91,7 +109,7 @@ export function WebMarketCompactList<T>({
     point: { x: number; y: number },
   ) => void;
   onScrollBegin?: () => void;
-  onEndReached?: () => void;
+  onEndReached?: () => boolean | void;
   empty?: ReactNode;
   footer?: ReactNode;
   contentPaddingTop?: number;
@@ -365,6 +383,8 @@ export function WebMarketCompactList<T>({
         <WebCompactEndObserver
           height={virtualHeight}
           active={isFocusedTab}
+          progressKey={rowKeys}
+          paddingTop={contentPaddingTop}
           onEndReached={onEndReached}
         />
         {help ? (

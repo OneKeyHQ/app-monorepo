@@ -12,6 +12,7 @@ import type { RefObject } from 'react';
 import { IconButton, Tabs, XStack, YStack } from '@onekeyhq/components';
 import type { ITabContainerRef } from '@onekeyhq/components';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
+import { WebCollapsiblePager } from '@onekeyhq/kit/src/components/WebCollapsiblePager';
 import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
@@ -154,6 +155,7 @@ function MarketHomeTabBar({
     <YStack bg="$bgApp" position={'sticky' as any} top={0} zIndex={10}>
       <Tabs.TabBar
         {...tabBarProps}
+        scrollable
         containerStyle={{ position: 'relative' as any }}
       />
       <YStack height={secondaryHeaderHeight} position="relative">
@@ -476,7 +478,7 @@ function MobileLayoutComponent({
   const tabElements = [
     ...(showWatchlistTab
       ? [
-          <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
+          <Tabs.Tab key="watchlist" name={watchlistTabName}>
             <MobileMarketWatchlistFlatList
               selectedFilter={watchlistFilter}
               listContainerProps={listContainerProps}
@@ -523,7 +525,7 @@ function MobileLayoutComponent({
     }),
     ...(showPerpsTab
       ? [
-          <Tabs.Tab key={perpsTabName} name={perpsTabName}>
+          <Tabs.Tab key="perps" name={perpsTabName}>
             <MobileMarketPerpsFlatList
               selectedCategoryId={selectedCategoryId}
               listContainerProps={listContainerProps}
@@ -535,23 +537,21 @@ function MobileLayoutComponent({
 
   return (
     <TabBarDynamicContext.Provider value={dynamicCtx}>
-      <Tabs.Container
+      <WebCollapsiblePager
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ref={currentTabsRef as any}
         width={platformEnv.isNative ? tabContainerWidth : undefined}
         renderTabBar={renderTabBar}
         initialTabName={selectedTabName}
+        isRouteFocused={isFocused}
         onTabChange={onTabChangeHandler}
         useNativeHeaderAnimation={
           platformEnv.isNativeAndroid ? !nestedPager : false
         }
-        pagerProps={
-          nestedPager ? ({ nestedScrollEnabled: true } as any) : undefined
-        }
         {...containerProps}
       >
         {tabElements}
-      </Tabs.Container>
+      </WebCollapsiblePager>
     </TabBarDynamicContext.Provider>
   );
 }
