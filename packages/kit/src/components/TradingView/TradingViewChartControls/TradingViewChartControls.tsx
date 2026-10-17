@@ -267,6 +267,8 @@ export const TradingViewChartControls = memo(
     const hasHistoryControls = Boolean(isDesktopLayout && onUndo && onRedo);
     const desktopFullscreenHeader =
       isDesktopLayout && isFullscreen ? fullscreenHeader : null;
+    const mobileFullscreenHeader =
+      !isDesktopLayout && isFullscreen ? fullscreenHeader : null;
     let desktopControlsPaddingX = '$4';
     if (desktopFullscreenHeader) {
       desktopControlsPaddingX = '$2';
@@ -466,7 +468,8 @@ export const TradingViewChartControls = memo(
       !hasHistoryControls &&
       !rightControl &&
       !chartSwitchControl &&
-      !desktopFullscreenHeader
+      !desktopFullscreenHeader &&
+      !mobileFullscreenHeader
     ) {
       return null;
     }
@@ -649,6 +652,8 @@ export const TradingViewChartControls = memo(
             hasCompactChartCloseControl ? [{ translateY: 2 }] : undefined
           }
         >
+          {mobileFullscreenHeader}
+
           <XStack
             testID="trading-view-chart-ready-controls"
             flex={shouldStretchReadyControls ? 1 : undefined}

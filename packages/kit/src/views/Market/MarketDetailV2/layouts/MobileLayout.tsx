@@ -41,6 +41,7 @@ import {
 import { TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/chartConstants';
 import { getTradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
 import type { ITradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
+import { TradingViewNativeTokenHeader } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/TradingViewNativeTokenHeader';
 import { shouldReserveTradingViewNativeIndicatorQuickBar } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import type { ITradingViewNativeIndicatorQuickBarState } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import {
@@ -435,6 +436,9 @@ export function MobileLayout({
       ? routeIsNative
       : storeIsNative;
   const tokenSymbol = tokenDetail?.symbol;
+  const tokenName = tokenDetail?.name;
+  const tokenLogoUrl = tokenDetail?.logoUrl;
+  const tokenLogoUrls = tokenDetail?.logoUrls;
   const isStockDetailChart = isStockRoute && Boolean(stockId);
   const stockPreviousClose = isStockDetailChart
     ? getMarketStockChartPreviousClose({
@@ -945,6 +949,15 @@ export function MobileLayout({
                         nativeControlsLayoutMode="mobile"
                         mobileToolbarExtra={<MobileChartModeControl />}
                         isNativeChartFullscreen={isChartFullscreen}
+                        nativeChartFullscreenHeader={
+                          platformEnv.isNative && (tokenSymbol || tokenName) ? (
+                            <TradingViewNativeTokenHeader
+                              name={tokenSymbol || tokenName || ''}
+                              tokenImageUri={tokenLogoUrl}
+                              tokenImageUris={tokenLogoUrls}
+                            />
+                          ) : undefined
+                        }
                         isChartSwitchDisabled={
                           priceMode === 'share' || !marketTradingViewParams
                         }
@@ -1064,6 +1077,10 @@ export function MobileLayout({
     onChartSwitch,
     stockPreviousClose,
     priceMode,
+    tokenLogoUrl,
+    tokenLogoUrls,
+    tokenName,
+    tokenSymbol,
     tradingViewNativeSource,
     tradingViewChartHeight,
     tradingViewHeight,
