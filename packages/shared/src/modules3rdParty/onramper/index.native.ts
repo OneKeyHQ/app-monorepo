@@ -12,6 +12,7 @@ import {
 import type { ICreateOnramperClientParams, IOnramperClient } from './type';
 
 export * from './type';
+export * from './quotePricing';
 export * from './utils';
 export { getOnramperConfig } from './realClient.native';
 

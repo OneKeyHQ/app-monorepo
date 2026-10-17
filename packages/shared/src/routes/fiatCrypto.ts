@@ -52,6 +52,10 @@ export type IModalFiatCryptoParamList = {
     networkId: string;
     networkName?: string;
     payout?: number;
+    // Quote fees in the source fiat — with fiatAmount they price the payout
+    // (getOnramperQuotePricing) exactly as the review card did.
+    networkFee?: number;
+    transactionFee?: number;
     providerName?: string;
     address?: string;
     // Durable Onramper transaction id (shown as "Order ID"); the per-attempt

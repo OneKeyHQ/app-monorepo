@@ -16,6 +16,7 @@ import {
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { getOnramperQuotePricing } from '@onekeyhq/shared/src/modules3rdParty/onramper';
 import type {
   EModalFiatCryptoRoutes,
   IModalFiatCryptoParamList,
@@ -27,6 +28,7 @@ import {
   ProviderLogo,
   getProviderDisplayName,
 } from '../../components/Headless/ProviderLogo';
+import { RateRow } from '../../components/Headless/RateRow';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -52,10 +54,26 @@ function HeadlessBuySuccessPage() {
     networkId,
     networkName,
     payout,
+    networkFee,
+    transactionFee,
     providerName,
     address,
     transactionId,
   } = route.params;
+
+  // Same pricing as the review card (provider rate, not market price), so the
+  // figures the user confirmed are the figures they see after paying.
+  const pricing =
+    payout !== undefined &&
+    networkFee !== undefined &&
+    transactionFee !== undefined
+      ? getOnramperQuotePricing({
+          amount: fiatAmount,
+          payout,
+          networkFee,
+          transactionFee,
+        })
+      : undefined;
 
   const handleDone = useCallback(() => {
     navigation.popStack();
@@ -116,14 +134,29 @@ function HeadlessBuySuccessPage() {
               </DetailRow>
               {payout !== undefined ? (
                 <DetailRow label="Est. receive">
-                  <NumberSizeableText
-                    size="$bodyMdMedium"
-                    formatter="balance"
-                    formatterOptions={{ tokenSymbol }}
-                  >
-                    {payout}
-                  </NumberSizeableText>
+                  <XStack ai="center" gap="$1">
+                    <NumberSizeableText
+                      size="$bodyMdMedium"
+                      formatter="balance"
+                      formatterOptions={{ tokenSymbol }}
+                    >
+                      {payout}
+                    </NumberSizeableText>
+                    {pricing ? (
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        {`(≈${formatPrice(pricing.payoutFiatValue)})`}
+                      </SizableText>
+                    ) : null}
+                  </XStack>
                 </DetailRow>
+              ) : null}
+              {pricing ? (
+                <RateRow
+                  tokenSymbol={tokenSymbol}
+                  impliedPrice={pricing.impliedPrice}
+                  providerName={providerName}
+                  size="$bodyMdMedium"
+                />
               ) : null}
               {providerName ? (
                 <DetailRow label="Provider">
