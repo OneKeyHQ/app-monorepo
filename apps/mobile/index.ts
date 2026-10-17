@@ -23,6 +23,12 @@ const { markRuntimePolyfillsReady } =
   require('@onekeyhq/shared/src/polyfills/runtimeCapabilities') as typeof import('@onekeyhq/shared/src/polyfills/runtimeCapabilities');
 markRuntimePolyfillsReady();
 
+// Function tracing is compiled in only by the *-function-trace EAS
+// profiles. Install it right after the polyfill bootstrap to keep the entry contract.
+const startupProfile =
+  require('./src/startupProfile') as typeof import('./src/startupProfile');
+startupProfile.installFunctionTrace();
+
 // ── On-device Storybook workbench: independent top-level entry ──
 //
 // Registered before the wallet bootstrap in the else branch so a wallet-init

@@ -15,12 +15,18 @@
 
 const GLOBAL_FLAG_KEY = '__ONEKEY_STARTUP_PROFILE__';
 const GLOBAL_ID_TO_PATH_KEY = '__ONEKEY_MODULE_ID_TO_PATH__';
+const FUNCTION_TRACE_FLAG_KEY = '__ONEKEY_FUNCTION_TRACE__';
 
 function isStartupProfileEnabled(env) {
   const e = env || process.env;
   return (
     e.ONEKEY_STARTUP_PROFILE === '1' || e.ONEKEY_STARTUP_PROFILE === 'true'
   );
+}
+
+function isFunctionTraceEnabled(env) {
+  const e = env || process.env;
+  return e.ONEKEY_FUNCTION_TRACE === '1';
 }
 
 function trimMonorepoPrefix(filePath) {
@@ -97,6 +103,9 @@ function buildStartupProfilePrologue(opts) {
   return [
     '// --- ONEKEY_STARTUP_PROFILE prologue ---',
     `globalThis.${GLOBAL_FLAG_KEY} = true;`,
+    ...(isFunctionTraceEnabled(env)
+      ? [`globalThis.${FUNCTION_TRACE_FLAG_KEY} = true;`]
+      : []),
     `globalThis.${GLOBAL_ID_TO_PATH_KEY} = ${mapJson};`,
     defineWrapper,
   ].join('\n');
@@ -105,7 +114,9 @@ function buildStartupProfilePrologue(opts) {
 module.exports = {
   buildStartupProfilePrologue,
   isStartupProfileEnabled,
+  isFunctionTraceEnabled,
   GLOBAL_FLAG_KEY,
   GLOBAL_ID_TO_PATH_KEY,
+  FUNCTION_TRACE_FLAG_KEY,
   _internal: { trimMonorepoPrefix },
 };
