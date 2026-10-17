@@ -553,6 +553,7 @@ export function MobileLayout({
     tokenSymbol: tokenSymbol || tokenDetail?.name,
     tokenLogoUrl: tokenDetail?.logoUrl,
     tokenLogoUrls: tokenDetail?.logoUrls,
+    tokenVariant: selectedTokenVariant,
   });
   if (isTradingViewNative) {
     marketTradingViewKey = `native:${marketTokenId ?? ''}:${getTradingViewNativeSourceKey(tradingViewNativeSource)}`;
