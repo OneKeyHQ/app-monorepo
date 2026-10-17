@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { zPrivacyHex } from '@onekeyhq/shared/src/utils/privacyTransactionReview';
 
+import { ZCASH_PCZT_HEX_MAX_CHARS } from './transactionReview';
+
 const addressSchema = z.object({
   path: z.string().min(1),
   address: z.string().min(1),
@@ -18,7 +20,7 @@ const addressSchema = z.object({
     .transform((value) => value ?? undefined),
 });
 const signedSchema = z.object({
-  pczt: zPrivacyHex(48 * 1024),
+  pczt: zPrivacyHex(ZCASH_PCZT_HEX_MAX_CHARS),
 });
 const responseSchema = z.object({ success: z.boolean(), payload: z.unknown() });
 const errorSchema = z.object({

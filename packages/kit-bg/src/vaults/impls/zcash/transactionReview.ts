@@ -11,6 +11,8 @@ import type { IEncodedTxZcash } from './types';
 
 // 21 million ZEC.
 const ZCASH_MAX_MONEY_ZAT = '2100000000000000';
+// Memory sanity bound for PCZT hex payloads (8 MiB of bytes).
+export const ZCASH_PCZT_HEX_MAX_CHARS = 16 * 1024 * 1024;
 
 const atomic = zPrivacyBaseUnits(ZCASH_MAX_MONEY_ZAT);
 const index = z.number().int().nonnegative().safe();
@@ -70,8 +72,8 @@ const schema = z.object({
   zcashAmountValue: atomic,
   zcashIsMaxSend: z.boolean().optional(),
   zcashSpendSource: z.enum(['orchard', 'ironwood']).optional(),
-  pcztHex: zPrivacyHex(16 * 1024 * 1024).optional(),
-  signedPcztHex: zPrivacyHex(16 * 1024 * 1024).optional(),
+  pcztHex: zPrivacyHex(ZCASH_PCZT_HEX_MAX_CHARS).optional(),
+  signedPcztHex: zPrivacyHex(ZCASH_PCZT_HEX_MAX_CHARS).optional(),
   pcztReservationId: z.string().min(1).optional(),
   zcashTransparentPlan: z
     .object({
