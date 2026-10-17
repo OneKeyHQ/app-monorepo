@@ -223,6 +223,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
               ...context,
               path: account.path,
               messageHex: message.message,
+              messageType: 'V2',
             }),
           {
             operationId: checkedDeviceParams.deviceCommonParams?.operationId,

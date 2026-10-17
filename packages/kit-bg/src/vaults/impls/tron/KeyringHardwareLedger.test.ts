@@ -94,6 +94,7 @@ describe('KeyringHardwareLedger.signMessage', () => {
       expect.objectContaining({
         path: dbAccount.path,
         messageHex: 'deadbeef',
+        messageType: 'V2',
       }),
     );
     expect(signatures).toEqual(['0xabcd']);
