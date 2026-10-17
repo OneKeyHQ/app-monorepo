@@ -5,6 +5,9 @@ import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.StatFs;
+import android.system.ErrnoException;
+import android.system.Os;
+import android.system.OsConstants;
 
 import androidx.annotation.NonNull;
 
@@ -19,6 +22,7 @@ import com.tencent.mmkv.MMKV;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileDescriptor;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
@@ -175,6 +179,36 @@ public final class OneKeyNativeStorageMigrationModule extends ReactContextBaseJa
                     throw new IllegalStateException("MMKV instance is unavailable");
                 }
                 mmkv.sync();
+                // Core's void sync API does not return msync errors. Check both
+                // backing files before JS may commit its migration ledger.
+                String rootPath = MMKV.getRootDir();
+                if (rootPath == null || rootPath.isEmpty()) {
+                    throw new IllegalStateException("MMKV storage path is unavailable");
+                }
+                for (String suffix : new String[] { "", ".crc" }) {
+                    File path = new File(rootPath, mmapID + suffix);
+                    FileDescriptor descriptor;
+                    while (true) {
+                        try {
+                            descriptor = Os.open(path.getPath(), OsConstants.O_RDWR | OsConstants.O_CLOEXEC, 0);
+                            break;
+                        } catch (ErrnoException error) {
+                            if (error.errno != OsConstants.EINTR) throw error;
+                        }
+                    }
+                    try {
+                        while (true) {
+                            try {
+                                Os.fsync(descriptor);
+                                break;
+                            } catch (ErrnoException error) {
+                                if (error.errno != OsConstants.EINTR) throw error;
+                            }
+                        }
+                    } finally {
+                        Os.close(descriptor);
+                    }
+                }
                 promise.resolve(null);
             } catch (Exception error) {
                 promise.reject("MMKV_SYNC_FAILED", error.getMessage(), error);
