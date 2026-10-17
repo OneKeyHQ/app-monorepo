@@ -103,6 +103,8 @@ import {
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 // eslint-disable-next-line import-js/order, import/first
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+// eslint-disable-next-line import-js/order, import/first
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 // eslint-disable-next-line import-js/order, import/first
 import { getPrimeInfiniPaymentWarningsFingerprint } from '@onekeyhq/shared/src/utils/primeInfiniPaymentWarnings';
@@ -229,6 +231,8 @@ function buildTronEncodedTx(contractCount: number): IEncodedTxTron {
 }
 
 function makeService() {
+  const blockedHistoryIds = new Set<string>();
+  const reservedNonces = new Set<number>();
   const vault = {
     signTransaction: jest.fn().mockResolvedValue(signedTx),
     buildDecodedTx: jest.fn().mockResolvedValue(decodedTx),
@@ -244,6 +248,9 @@ function makeService() {
   (vaultFactory.getVault as unknown as jest.Mock).mockResolvedValue(vault);
 
   const backgroundApi = {
+    serviceAccountProfile: {
+      fetchAccountDetails: jest.fn().mockResolvedValue({ nonce: 0 }),
+    },
     serviceAccount: {
       getAccountAddressForApi: jest.fn().mockResolvedValue('0xaccount'),
     },
@@ -274,6 +281,7 @@ function makeService() {
     serviceHistory: {
       saveSendConfirmHistoryTxs: jest.fn().mockResolvedValue(undefined),
       getLocalHistoryTxById: jest.fn(),
+      clearLocalHistoryPendingTxByTxId: jest.fn().mockResolvedValue(true),
     },
     servicePrime: {
       getLocalUserInfo: jest.fn().mockResolvedValue({
@@ -286,8 +294,31 @@ function makeService() {
       }),
     },
     simpleDb: {
+      localHistory: {
+        getMaxPendingNonce: jest.fn().mockResolvedValue(null),
+        getPendingNonceList: jest.fn().mockResolvedValue([]),
+      },
       prime: {
+        getInfiniReservedNonces: jest.fn(async () =>
+          Array.from(reservedNonces),
+        ),
         findInfiniPaymentForTransfer: jest.fn().mockResolvedValue(undefined),
+        isInfiniReplacementBlocked: jest.fn(
+          async ({ historyId }: { historyId: string }) =>
+            blockedHistoryIds.has(historyId),
+        ),
+        blockInfiniReplacement: jest.fn(
+          async ({
+            historyId,
+            nonce,
+          }: {
+            historyId: string;
+            nonce: number;
+          }) => {
+            blockedHistoryIds.add(historyId);
+            reservedNonces.add(nonce);
+          },
+        ),
         markInfiniPendingPaymentSessionSendStarted: jest
           .fn()
           .mockResolvedValue({
@@ -1782,7 +1813,7 @@ describe('Infini Speed Up broadcast validation', () => {
     });
   }
 
-  test.each(['expired', 'failed'])(
+  test.each(['expired', 'failed', 'cancelled'])(
     'never broadcasts a replacement for a %s invoice',
     async (status) => {
       const { service, vault, backgroundApi } = makeReplacement();
@@ -1794,8 +1825,296 @@ describe('Infini Speed Up broadcast validation', () => {
       );
       await expect(speedUp(service)).rejects.toThrow();
       expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+      expect(
+        backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+      ).toHaveBeenCalledWith({
+        accountId,
+        networkId,
+        accountAddress: '0xaccount',
+        txid: '0xoriginal',
+      });
+      expect(
+        backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+      ).not.toHaveBeenCalled();
     },
   );
+
+  test.each(['timeout', 'invalid', 'differentInvoice', 'differentAddress'])(
+    'preserves local history for %s validation results',
+    async (scenario) => {
+      const { service, vault, backgroundApi } = makeReplacement();
+      const api =
+        backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot;
+      if (scenario === 'timeout') {
+        api.mockRejectedValue(new Error('Request timeout'));
+      } else {
+        api.mockResolvedValue({
+          payment: {
+            ...latestPayment,
+            status: 'expired',
+            ...(scenario === 'invalid' ? { amountDue: 'invalid' } : {}),
+            ...(scenario === 'differentInvoice' ? { paymentId: 'other' } : {}),
+            ...(scenario === 'differentAddress' ? { address: '0xother' } : {}),
+          },
+          purchaseStatusSnapshot,
+        });
+      }
+      await expect(speedUp(service)).rejects.toThrow();
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+      expect(
+        backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+      ).not.toHaveBeenCalled();
+    },
+  );
+
+  test('still reports expiry if removing local history fails', async () => {
+    const { service, backgroundApi } = makeReplacement();
+    backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId.mockRejectedValue(
+      new Error('Storage unavailable'),
+    );
+    backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+      {
+        payment: { ...latestPayment, status: 'expired' },
+        purchaseStatusSnapshot,
+      },
+    );
+    await expect(speedUp(service)).rejects.toMatchObject({
+      autoToast: true,
+      data: { paymentValidationFailure: 'quoteExpired' },
+    });
+  });
+
+  test.each(['expired', 'failed'])(
+    'blocks a second speed-up after deleting a %s invoice history',
+    async (status) => {
+      const { service, vault, backgroundApi } = makeReplacement();
+      backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+        {
+          payment: { ...latestPayment, status, amountConfirming: '1' },
+          purchaseStatusSnapshot,
+        },
+      );
+      backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId.mockImplementation(
+        async () => {
+          backgroundApi.serviceHistory.getLocalHistoryTxById.mockResolvedValue(
+            undefined,
+          );
+          return true;
+        },
+      );
+      await expect(speedUp(service)).rejects.toThrow();
+      expect(
+        backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+      ).toHaveBeenCalledTimes(1);
+      await expect(speedUp(service)).rejects.toMatchObject({ autoToast: true });
+      expect(vault.signTransaction).toHaveBeenCalledTimes(1);
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+    },
+  );
+
+  test('allows an ordinary transfer speed-up with missing local history', async () => {
+    const { service, vault, backgroundApi } = makeReplacement();
+    backgroundApi.serviceHistory.getLocalHistoryTxById.mockResolvedValue(
+      undefined,
+    );
+    await expect(speedUp(service)).resolves.toMatchObject({ txid: '0xtxid' });
+    expect(
+      backgroundApi.simpleDb.prime.findInfiniPaymentForTransfer,
+    ).toHaveBeenCalledWith({
+      transferClaim: expect.objectContaining({
+        accountId,
+        networkId,
+        accountAddress: '0xaccount',
+      }),
+    });
+    expect(vault.buildDecodedTx).toHaveBeenCalledWith({
+      unsignedTx: expect.objectContaining({ encodedTx }),
+    });
+    expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  test.each([
+    'matched',
+    'ambiguous',
+    'decodeFailure',
+    'lookupFailure',
+    'fenceFailure',
+    'unknownShape',
+  ])('rejects missing history safely for %s', async (reason) => {
+    const { service, vault, backgroundApi } = makeReplacement();
+    backgroundApi.serviceHistory.getLocalHistoryTxById.mockResolvedValue(
+      undefined,
+    );
+    if (reason === 'matched')
+      backgroundApi.simpleDb.prime.findInfiniPaymentForTransfer.mockResolvedValue(
+        { paymentCacheKey },
+      );
+    if (reason === 'ambiguous' || reason === 'lookupFailure')
+      backgroundApi.simpleDb.prime.findInfiniPaymentForTransfer.mockRejectedValue(
+        new Error(reason),
+      );
+    if (reason === 'decodeFailure')
+      vault.buildDecodedTx.mockRejectedValue(new Error(reason));
+    if (reason === 'fenceFailure')
+      backgroundApi.simpleDb.prime.isInfiniReplacementBlocked.mockRejectedValue(
+        new Error(reason),
+      );
+    if (reason === 'unknownShape')
+      vault.buildDecodedTx.mockResolvedValue({ ...decodedTx, actions: [] });
+    await expect(speedUp(service)).rejects.toThrow();
+    expect(vault.signTransaction).not.toHaveBeenCalled();
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+  });
+
+  test('retains original history if the durable block cannot be persisted', async () => {
+    const { service, backgroundApi } = makeReplacement();
+    backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+      {
+        payment: { ...latestPayment, status: 'expired' },
+        purchaseStatusSnapshot,
+      },
+    );
+    backgroundApi.simpleDb.prime.blockInfiniReplacement.mockRejectedValue(
+      new Error('Storage failed'),
+    );
+    await expect(speedUp(service)).rejects.toMatchObject({
+      data: { paymentValidationFailure: 'quoteExpired' },
+    });
+    expect(
+      backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+    ).not.toHaveBeenCalled();
+  });
+
+  test.each(
+    ['failed', 'cancelled', 'expired'].flatMap((status) =>
+      [false, true].flatMap((withWarning) =>
+        ['none', 'fence', 'history'].map((cleanupFailure) => ({
+          status,
+          withWarning,
+          cleanupFailure,
+        })),
+      ),
+    ),
+  )(
+    'shows terminal $status feedback with warning=$withWarning and cleanup=$cleanupFailure',
+    async ({ status, withWarning, cleanupFailure }) => {
+      const { service, vault, backgroundApi } = makeReplacement();
+      backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+        {
+          payment: {
+            ...latestPayment,
+            status,
+            warningMessages: withWarning ? ['New warning'] : [],
+          },
+          purchaseStatusSnapshot,
+        },
+      );
+      if (cleanupFailure === 'fence') {
+        backgroundApi.simpleDb.prime.blockInfiniReplacement.mockRejectedValue(
+          new Error('Fence write failed'),
+        );
+      }
+      if (cleanupFailure === 'history') {
+        backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId.mockRejectedValue(
+          new Error('History write failed'),
+        );
+      }
+      await expect(speedUp(service)).rejects.toMatchObject(
+        status === 'expired'
+          ? {
+              autoToast: true,
+              data: { paymentValidationFailure: 'quoteExpired' },
+            }
+          : {
+              autoToast: true,
+              key: ETranslations.prime_close_and_try_again__desc,
+            },
+      );
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+      expect(
+        backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted,
+      ).not.toHaveBeenCalled();
+      if (cleanupFailure === 'fence') {
+        expect(
+          backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+        ).not.toHaveBeenCalled();
+      } else {
+        expect(
+          backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+        ).toHaveBeenCalledTimes(1);
+      }
+    },
+  );
+
+  test('hides terminal history without freeing its pending nonce', async () => {
+    const { service, backgroundApi, vault } = makeReplacement();
+    backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+      {
+        payment: { ...latestPayment, status: 'expired' },
+        purchaseStatusSnapshot,
+      },
+    );
+    await expect(speedUp(service)).rejects.toThrow();
+    expect(
+      backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+    ).toHaveBeenCalledTimes(1);
+    await expect(
+      service.getNextNonce({
+        accountId,
+        networkId,
+        accountAddress: '0xaccount',
+      }),
+    ).resolves.toBe(1);
+    await expect(
+      service.signAndSendTransaction({
+        accountId,
+        networkId,
+        unsignedTx: { ...unsignedTx, encodedTx, nonce: 0 },
+        signOnly: false,
+      }),
+    ).rejects.toMatchObject({ autoToast: true });
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+    backgroundApi.serviceAccountProfile.fetchAccountDetails.mockResolvedValue({
+      nonce: 1,
+    });
+    await expect(
+      service.getNextNonce({
+        accountId,
+        networkId,
+        accountAddress: '0xaccount',
+      }),
+    ).resolves.toBe(1);
+  });
+
+  test('blocks an ordinary transfer explicitly reusing a hidden payment nonce', async () => {
+    const { service, vault, backgroundApi } = makeReplacement();
+    backgroundApi.simpleDb.prime.getInfiniReservedNonces.mockResolvedValue([0]);
+    await expect(
+      service.signAndSendTransaction({
+        accountId,
+        networkId,
+        unsignedTx: { ...unsignedTx, encodedTx, nonce: 0 },
+        signOnly: false,
+      }),
+    ).rejects.toMatchObject({ autoToast: true });
+    expect(vault.signTransaction).not.toHaveBeenCalled();
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+  });
+
+  test('reports expired replacement invoices through the shared error toast', async () => {
+    const { service, vault, backgroundApi } = makeReplacement();
+    backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+      {
+        payment: { ...latestPayment, status: 'expired' },
+        purchaseStatusSnapshot,
+      },
+    );
+    await expect(speedUp(service)).rejects.toMatchObject({
+      autoToast: true,
+      data: { paymentValidationFailure: 'quoteExpired' },
+    });
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+  });
 
   test('validates an active invoice using replacement admission and preserves its history binding', async () => {
     const { service, backgroundApi } = makeReplacement();
@@ -1803,6 +2122,9 @@ describe('Infini Speed Up broadcast validation', () => {
       txid: '0xtxid',
       primeInfiniPayment: beforeBroadcastAction,
     });
+    expect(
+      backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+    ).not.toHaveBeenCalled();
     expect(
       backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot,
     ).toHaveBeenCalledWith(

@@ -3814,3 +3814,76 @@ describe('SimpleDbEntityPrime prime-profile analytics TTL', () => {
     ).resolves.toBe(true);
   });
 });
+
+describe('Infini replacement history fence', () => {
+  test('survives session cleanup and reload without blocking another account or history', async () => {
+    let persisted: ISimpleDBPrime = {};
+    const writer = new SimpleDbEntityPrime();
+    jest.spyOn(writer, 'setRawData').mockImplementation(async (updater) => {
+      persisted =
+        typeof updater === 'function' ? await updater(persisted) : updater;
+      return persisted;
+    });
+    const identity = {
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      historyId: 'history-1',
+    };
+    await writer.blockInfiniReplacement({
+      ...identity,
+      accountAddress: '0xABC',
+      nonce: 5,
+    });
+    await writer.blockInfiniReplacement({
+      ...identity,
+      accountAddress: '0xabc',
+      nonce: 5,
+    });
+    persisted.infiniPendingPaymentSessionByUserId = {};
+    persisted.infiniSupersededPaymentSessionsByUserId = {};
+    const reader = new SimpleDbEntityPrime();
+    jest.spyOn(reader, 'getRawData').mockImplementation(async () => persisted);
+    await expect(
+      reader.getInfiniReservedNonces({
+        networkId: 'evm--1',
+        accountAddress: '0xabc',
+      }),
+    ).resolves.toEqual([5]);
+    await expect(
+      reader.getInfiniReservedNonces({
+        networkId: 'evm--10',
+        accountAddress: '0xabc',
+      }),
+    ).resolves.toEqual([]);
+    await expect(
+      reader.getInfiniReservedNonces({
+        networkId: 'evm--1',
+        accountAddress: '0xother',
+      }),
+    ).resolves.toEqual([]);
+    await expect(reader.isInfiniReplacementBlocked(identity)).resolves.toBe(
+      true,
+    );
+    await expect(
+      reader.isInfiniReplacementBlocked({ ...identity, historyId: 'other' }),
+    ).resolves.toBe(false);
+    await expect(
+      reader.isInfiniReplacementBlocked({ ...identity, accountId: 'other' }),
+    ).resolves.toBe(false);
+    await expect(
+      reader.isInfiniReplacementBlocked({ ...identity, networkId: 'evm--10' }),
+    ).resolves.toBe(false);
+  });
+
+  test('does not turn unreadable storage into an unblocked transaction', async () => {
+    const entity = new SimpleDbEntityPrime();
+    jest.spyOn(entity, 'getRawData').mockRejectedValue(new Error('Unreadable'));
+    await expect(
+      entity.isInfiniReplacementBlocked({
+        accountId: 'a',
+        networkId: 'n',
+        historyId: 'h',
+      }),
+    ).rejects.toThrow('Unreadable');
+  });
+});
