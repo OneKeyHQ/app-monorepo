@@ -353,9 +353,9 @@ export class KeyringHardware extends KeyringHardwareBase {
           );
         }
         if (derived.unifiedAddress === item.address) {
-          // Firmware dropped its P2PKH receiver (Orchard-only UA): the device now
-          // shows the same Orchard-only address the app derives, so there is
-          // no second string left to keep.
+          // Diagnostic only. The device UA carries P2PKH + Orchard, so it
+          // normally differs from the app's Orchard-only derivation, which is
+          // then kept as derivedUnifiedAddress below.
           console.log('[zcash] device unified address matches app derivation', {
             accountId,
           });

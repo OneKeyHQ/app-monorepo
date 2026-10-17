@@ -78,7 +78,7 @@ Hardware:  pcztCreate -> redact -> device signs -> pcztCombine -> pcztProve -> p
 ```
 
 - Hardware gets a redacted copy of the unproved PCZT (no Sapling data, no
-  proving fields; firmware rejects both). The device returns signatures only;
+  proving fields; signing needs neither). The device returns signatures only;
   combining them into the local original restores what proving needs.
 - Transparent-source sends use a stateless path: the keys package builds and
   signs from backend UTXOs; a UA recipient may load the proof computation
