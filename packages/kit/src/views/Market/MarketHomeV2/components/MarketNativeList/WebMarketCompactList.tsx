@@ -13,7 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { LazyPopover } from '@onekeyhq/components/src/actions/LazyPopover';
 import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
-import { WebPagerContent } from '@onekeyhq/kit/src/components/WebCollapsiblePager';
+import { useScrollContentRegistration } from '@onekeyhq/components/src/composite/ScrollContentRegistration';
 import { useWebPagerPage } from '@onekeyhq/kit/src/components/WebCollapsiblePagerContext';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -115,7 +115,12 @@ export function WebMarketCompactList<T>({
   const intl = useIntl();
   const theme = useTheme();
   const themeVariant = useThemeVariant();
-  const { owner: scrollElement, isFocused: isFocusedTab } = useWebPagerPage();
+  const {
+    owner: scrollElement,
+    isFocused: isFocusedTab,
+    width,
+  } = useWebPagerPage();
+  const registerContent = useScrollContentRegistration();
   const presentation = useMemo<IMarketNativeListPresentation>(
     () => ({
       webImageSources: true,
@@ -252,6 +257,17 @@ export function WebMarketCompactList<T>({
       (footer ? footerHeight : 0),
     [rows, footer, footerHeight],
   );
+  useEffect(() => {
+    const element = rootRef.current;
+    if (!isFocusedTab || !element) return undefined;
+    return registerContent?.(element, element.scrollHeight);
+  }, [
+    registerContent,
+    isFocusedTab,
+    virtualHeight,
+    contentPaddingTop,
+    contentPaddingBottom,
+  ]);
   const listRef = useRef<NativeListRef>(null);
   const [baseSnapshot, setBaseSnapshot] = useState(snapshot);
   const appliedRef = useRef<
@@ -353,9 +369,8 @@ export function WebMarketCompactList<T>({
     setHelp(undefined);
   }, [help]);
   return (
-    <WebPagerContent style={{ flex: 0 }}>
+    <YStack flex={1} style={{ flex: 0 }} ref={setRootRef} width={width}>
       <Stack
-        ref={setRootRef}
         testID={testID}
         width="100%"
         paddingBottom={
@@ -440,6 +455,6 @@ export function WebMarketCompactList<T>({
           </Stack>
         ) : null}
       </Stack>
-    </WebPagerContent>
+    </YStack>
   );
 }
