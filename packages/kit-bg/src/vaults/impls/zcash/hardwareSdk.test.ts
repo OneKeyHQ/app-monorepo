@@ -1,4 +1,5 @@
 import { getZcashHardwareSdk } from './hardwareSdk';
+import { ZCASH_PCZT_HEX_MAX_CHARS } from './transactionReview';
 
 describe('Zcash hardware capability boundary', () => {
   it('rejects an SDK lacking either Zcash capability before calling a device', () => {
@@ -8,7 +9,7 @@ describe('Zcash hardware capability boundary', () => {
     );
     expect(zcashGetAddress).not.toHaveBeenCalled();
   });
-  it.each(['not-hex', 'a', 'ab'.repeat(24 * 1024 + 1)])(
+  it.each(['not-hex', 'a', 'ab'.repeat(ZCASH_PCZT_HEX_MAX_CHARS / 2 + 1)])(
     'rejects invalid signed PCZT payload',
     async (pczt) => {
       const sdk = getZcashHardwareSdk({
@@ -20,6 +21,16 @@ describe('Zcash hardware capability boundary', () => {
       ).rejects.toThrow();
     },
   );
+  it('accepts a signed PCZT larger than any device buffer', async () => {
+    const pczt = 'ab'.repeat(64 * 1024);
+    const sdk = getZcashHardwareSdk({
+      zcashGetAddress: async () => undefined,
+      zcashSignPczt: async () => ({ success: true, payload: { pczt } }),
+    });
+    await expect(
+      sdk.zcashSignPczt('connect', 'device', { pczt: 'aabb' }),
+    ).resolves.toEqual({ success: true, payload: { pczt } });
+  });
   it.each([false, true])(
     'normalizes absent optional address metadata and preserves supplied metadata (bundle=%s)',
     async (bundle) => {
