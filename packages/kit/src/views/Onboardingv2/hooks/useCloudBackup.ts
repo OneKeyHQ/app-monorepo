@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { useThrottledCallback } from 'use-debounce';
@@ -483,14 +483,34 @@ export function useCloudBackup() {
     },
   );
 
+  const lastBackupDetailLaunch = useRef<number | undefined>(undefined);
   const openBackupDetail = useCallback(() => {
-    rootNavigationRef.current?.navigate(ERootRoutes.Onboarding, {
-      screen: EOnboardingV2Routes.OnboardingV2,
-      params: {
-        screen: EOnboardingPagesV2.ICloudBackupDetails,
-        params: { actionType: 'backup', backupTime: Date.now() },
-      },
-    });
+    const rootNavigation = rootNavigationRef.current;
+    if (!rootNavigation) return;
+    const now = Date.now();
+    // Keep the handoff callable after source teardown without queuing a second
+    // navigation. Once opened, the destination owns authorization and retries.
+    if (
+      (lastBackupDetailLaunch.current !== undefined &&
+        now - lastBackupDetailLaunch.current < 600) ||
+      rootNavigation.getCurrentRoute()?.name ===
+        EOnboardingPagesV2.ICloudBackupDetails
+    ) {
+      return;
+    }
+    lastBackupDetailLaunch.current = now;
+    try {
+      rootNavigation.navigate(ERootRoutes.Onboarding, {
+        screen: EOnboardingV2Routes.OnboardingV2,
+        params: {
+          screen: EOnboardingPagesV2.ICloudBackupDetails,
+          params: { actionType: 'backup', backupTime: now },
+        },
+      });
+    } catch (error) {
+      lastBackupDetailLaunch.current = undefined;
+      throw error;
+    }
   }, []);
 
   const startBackupInPage = useThrottledCallback(

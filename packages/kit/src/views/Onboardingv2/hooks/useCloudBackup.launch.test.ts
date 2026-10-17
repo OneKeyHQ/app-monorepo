@@ -6,6 +6,7 @@ import { act, renderHook } from '@testing-library/react';
 import { Dialog, Toast } from '@onekeyhq/components';
 import type { IBackupDataEncryptedPayload } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { ECloudBackupProviderType } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -16,7 +17,10 @@ import { showCloudBackupPasswordDialog } from '../components/CloudBackupDialogs'
 
 import { useCloudBackup } from './useCloudBackup';
 
-const mockRootNavigation = { navigate: jest.fn() };
+const mockRootNavigation = {
+  navigate: jest.fn(),
+  getCurrentRoute: jest.fn(() => ({ name: 'source' })),
+};
 const mockNavigation = {
   pop: jest.fn(),
   popStack: jest.fn(),
@@ -142,6 +146,8 @@ describe.each(['Android', 'iOS', 'desktop'])(
     const service = jest.mocked(backgroundApiProxy.serviceCloudBackupV2);
     beforeEach(() => {
       jest.clearAllMocks();
+      mockRootNavigation.navigate.mockReset();
+      mockRootNavigation.getCurrentRoute.mockReturnValue({ name: 'source' });
       mockNavigation.navigate.mockReset();
       mockNavigation.popStack.mockReset();
       Object.assign(platformEnv, {
@@ -199,10 +205,12 @@ describe.each(['Android', 'iOS', 'desktop'])(
       const source = renderHook(() =>
         useBackUpWallet({ walletId: 'synthetic-wallet' }),
       );
+      const handleBackUpByCloud = source.result.current.handleBackUpByCloud;
       mockNavigation.navigate.mockImplementationOnce(() => source.unmount());
       await act(async () => {
-        await source.result.current.handleBackUpByCloud();
+        await Promise.all([handleBackUpByCloud(), handleBackUpByCloud()]);
       });
+      expect(mockRootNavigation.navigate).toHaveBeenCalledTimes(1);
       expect(timerUtils.wait).toHaveBeenCalledWith(100);
       expectDetailNavigation();
       expect(service.getCloudAccountInfo).not.toHaveBeenCalled();
@@ -219,6 +227,56 @@ describe.each(['Android', 'iOS', 'desktop'])(
       expect(service.getCloudAccountInfo).not.toHaveBeenCalled();
       expect(service.buildBackupData).not.toHaveBeenCalled();
       expect(showCloudBackupPasswordDialog).not.toHaveBeenCalled();
+    });
+
+    it('opens only one detail page for repeated handoffs, including after teardown and rerender', async () => {
+      const source = renderHook(() => useCloudBackup());
+      const now = jest.spyOn(Date, 'now').mockReturnValue(1000);
+      const launch = () =>
+        source.result.current.startBackup({ alwaysGoToBackupDetail: true });
+      await act(async () => {
+        await launch();
+      });
+      source.rerender();
+      const startBackup = source.result.current.startBackup;
+      source.unmount();
+      await act(async () => {
+        await Promise.all([
+          startBackup({ alwaysGoToBackupDetail: true }),
+          startBackup({ alwaysGoToBackupDetail: true }),
+        ]);
+      });
+      expect(mockRootNavigation.navigate).toHaveBeenCalledTimes(1);
+      mockRootNavigation.getCurrentRoute.mockReturnValue({
+        name: EOnboardingPagesV2.ICloudBackupDetails,
+      });
+      now.mockReturnValue(2000);
+      await act(async () => {
+        await startBackup({ alwaysGoToBackupDetail: true });
+      });
+      expect(mockRootNavigation.navigate).toHaveBeenCalledTimes(1);
+      expect(service.loginCloudIfNeed).not.toHaveBeenCalled();
+      mockRootNavigation.getCurrentRoute.mockReturnValue({ name: 'source' });
+      await act(async () => {
+        await startBackup({ alwaysGoToBackupDetail: true });
+      });
+      expect(mockRootNavigation.navigate).toHaveBeenCalledTimes(2);
+    });
+
+    it('allows a handoff retry after navigation throws', async () => {
+      const source = renderHook(() => useCloudBackup());
+      mockRootNavigation.navigate.mockImplementationOnce(() => {
+        throw new OneKeyLocalError('navigation failed');
+      });
+      await expect(
+        source.result.current.startBackup({ alwaysGoToBackupDetail: true }),
+      ).rejects.toThrow('navigation failed');
+      await act(async () => {
+        await source.result.current.startBackup({
+          alwaysGoToBackupDetail: true,
+        });
+      });
+      expect(mockRootNavigation.navigate).toHaveBeenCalledTimes(2);
     });
 
     it('does not treat a genuinely abandoned page as an explicit handoff', async () => {
@@ -369,7 +427,7 @@ describe.each(['Android', 'iOS', 'desktop'])(
           await pending;
         });
         expect(service.buildBackupData).not.toHaveBeenCalled();
-        expect(Toast.success).not.toHaveBeenCalled();
+        expect(jest.mocked(Toast).success).not.toHaveBeenCalled();
       });
 
       it('settles failed authorization and lets the active destination retry', async () => {
