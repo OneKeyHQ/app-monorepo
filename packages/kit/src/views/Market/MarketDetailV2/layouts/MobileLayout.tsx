@@ -555,6 +555,18 @@ export function MobileLayout({
     tokenLogoUrls: tokenDetail?.logoUrls,
     tokenVariant: selectedTokenVariant,
   });
+  // Polling can return the same logos in a new array without changing identity.
+  const stableChartHeaderLogoUrlsRef = useRef(chartHeaderLogoUrls);
+  if (
+    stableChartHeaderLogoUrlsRef.current?.length !==
+      chartHeaderLogoUrls?.length ||
+    chartHeaderLogoUrls?.some(
+      (url, index) => url !== stableChartHeaderLogoUrlsRef.current?.[index],
+    )
+  ) {
+    stableChartHeaderLogoUrlsRef.current = chartHeaderLogoUrls;
+  }
+  const stableChartHeaderLogoUrls = stableChartHeaderLogoUrlsRef.current;
   if (isTradingViewNative) {
     marketTradingViewKey = `native:${marketTokenId ?? ''}:${getTradingViewNativeSourceKey(tradingViewNativeSource)}`;
   }
@@ -966,7 +978,7 @@ export function MobileLayout({
                             <TradingViewNativeTokenHeader
                               name={chartHeaderSymbol}
                               tokenImageUri={chartHeaderLogoUrl}
-                              tokenImageUris={chartHeaderLogoUrls}
+                              tokenImageUris={stableChartHeaderLogoUrls}
                             />
                           ) : undefined
                         }
@@ -1067,7 +1079,6 @@ export function MobileLayout({
   }, [
     accountMarksContext,
     chartHeaderLogoUrl,
-    chartHeaderLogoUrls,
     chartHeaderSymbol,
     detailKind,
     handleHeaderHorizontalSwipe,
@@ -1091,6 +1102,7 @@ export function MobileLayout({
     onChartFullscreenChange,
     onChartSwitch,
     stockPreviousClose,
+    stableChartHeaderLogoUrls,
     priceMode,
     tradingViewNativeSource,
     tradingViewChartHeight,
