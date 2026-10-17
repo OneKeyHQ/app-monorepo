@@ -80,6 +80,7 @@ import { InformationPanel } from '../components/InformationPanel/InformationPane
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
 import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
 import { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';
+import { resolveMarketDetailHeaderIdentity } from '../components/MarketDetailHeader/marketDetailHeaderIdentity';
 import { LazyMobileMarketTradingView } from '../components/MarketTradingView/LazyMarketTradingView';
 import { useStockDetail } from '../hooks/StockDetailContext';
 import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData';
@@ -383,6 +384,7 @@ export function MobileLayout({
     isStockRoute,
     selectedTokenVariant,
     stockDetail,
+    stockPreview,
     stockId,
     isStockDetailError,
   } = useStockDetail();
@@ -436,9 +438,6 @@ export function MobileLayout({
       ? routeIsNative
       : storeIsNative;
   const tokenSymbol = tokenDetail?.symbol;
-  const tokenName = tokenDetail?.name;
-  const tokenLogoUrl = tokenDetail?.logoUrl;
-  const tokenLogoUrls = tokenDetail?.logoUrls;
   const isStockDetailChart = isStockRoute && Boolean(stockId);
   const stockPreviousClose = isStockDetailChart
     ? getMarketStockChartPreviousClose({
@@ -543,6 +542,18 @@ export function MobileLayout({
       tokenSymbol,
     ],
   );
+  const {
+    symbol: chartHeaderSymbol,
+    logoUrl: chartHeaderLogoUrl,
+    logoUrls: chartHeaderLogoUrls,
+  } = resolveMarketDetailHeaderIdentity({
+    isStockToken: tradingViewNativeSource.kind === 'stock',
+    stockSymbol: stockDetail?.symbol || stockPreview?.symbol || stockId,
+    stockLogoUrl: stockDetail?.logoUrl || stockPreview?.logoUrl,
+    tokenSymbol: tokenSymbol || tokenDetail?.name,
+    tokenLogoUrl: tokenDetail?.logoUrl,
+    tokenLogoUrls: tokenDetail?.logoUrls,
+  });
   if (isTradingViewNative) {
     marketTradingViewKey = `native:${marketTokenId ?? ''}:${getTradingViewNativeSourceKey(tradingViewNativeSource)}`;
   }
@@ -950,11 +961,11 @@ export function MobileLayout({
                         mobileToolbarExtra={<MobileChartModeControl />}
                         isNativeChartFullscreen={isChartFullscreen}
                         nativeChartFullscreenHeader={
-                          platformEnv.isNative && (tokenSymbol || tokenName) ? (
+                          platformEnv.isNative && chartHeaderSymbol ? (
                             <TradingViewNativeTokenHeader
-                              name={tokenSymbol || tokenName || ''}
-                              tokenImageUri={tokenLogoUrl}
-                              tokenImageUris={tokenLogoUrls}
+                              name={chartHeaderSymbol}
+                              tokenImageUri={chartHeaderLogoUrl}
+                              tokenImageUris={chartHeaderLogoUrls}
                             />
                           ) : undefined
                         }
@@ -1054,6 +1065,9 @@ export function MobileLayout({
     );
   }, [
     accountMarksContext,
+    chartHeaderLogoUrl,
+    chartHeaderLogoUrls,
+    chartHeaderSymbol,
     detailKind,
     handleHeaderHorizontalSwipe,
     handleIndicatorsDialogOpenChange,
@@ -1077,10 +1091,6 @@ export function MobileLayout({
     onChartSwitch,
     stockPreviousClose,
     priceMode,
-    tokenLogoUrl,
-    tokenLogoUrls,
-    tokenName,
-    tokenSymbol,
     tradingViewNativeSource,
     tradingViewChartHeight,
     tradingViewHeight,
