@@ -1,11 +1,10 @@
 import fs from 'fs';
-import http from 'http';
-import https from 'https';
 import path from 'path';
 
 import AdmZip from 'adm-zip';
 import { app } from 'electron';
 import logger from 'electron-log/main';
+import semver from 'semver';
 
 import {
   calculateSHA256,
@@ -13,22 +12,37 @@ import {
   getBundleDirName,
   getBundleExtractDir,
   lastSHA256FailureReason,
+  readMetadataFileSha256,
   testExtractedSha256FromVerifyAscFile,
   verifyMetadataFileSha256,
   verifySha256,
 } from '@onekeyhq/desktop/app/bundle';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
+import {
+  assertSafeBundleVersion,
+  resolveBundlePath,
+} from '@onekeyhq/desktop/app/libs/bundlePaths';
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import {
   clearWindowProgressBar,
   updateWindowProgressBar,
 } from '@onekeyhq/desktop/app/windowProgressBar';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EUpdateErrorCode,
+  createUpdateError,
+  getUpdateError,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
+import type { TUpdateErrorStep } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 import type {
   IDownloadPackageParams,
   IUpdateDownloadedEvent,
+  IUpdateOperationParams,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 import type { IDesktopStoreUpdateBundleData } from '@onekeyhq/shared/types/desktop';
+
+import { requestUpdateUrl } from './electronUpdateRequest';
+import { downloadNodeFile, stripSensitiveHeaders } from './nodeDownload';
 
 import type { IDesktopApi } from './base/types';
 import type { BrowserWindow } from 'electron';
@@ -41,53 +55,12 @@ export interface IUpdateProgressUpdate {
   transferred: number;
 }
 
-// ---------------------------------------------------------------------------
-// Concurrent (multi-range) download tuning.
-//
-// We split the bundle into BUNDLE_SEGMENT_COUNT byte ranges and download them
-// in parallel, writing each segment directly into its own offset of a single
-// pre-allocated `.partial` file (no separate merge pass, 1x disk). A small
-// sidecar manifest (`<partial>.progress.json`) records each segment's
-// durably-written cursor so an interrupted download resumes by re-requesting
-// only `Range: (start+done)-(end)` for the unfinished segments.
-// ---------------------------------------------------------------------------
-const BUNDLE_SEGMENT_COUNT = 8;
-// Below this size the per-connection setup cost outweighs any speedup, so we
-// keep the simple single-stream path.
-const BUNDLE_MIN_CONCURRENT_BYTES = 2 * 1024 * 1024;
-// Per-segment transient-failure retries inside one concurrent run. The outer
-// updateRetry loop still wraps the whole download for harder failures.
-const BUNDLE_PART_MAX_RETRY = 3;
-const BUNDLE_REQUEST_TIMEOUT_MS = 1000 * 60 * 30;
-// Persist the manifest at most this often per segment to bound fsync cost.
-const BUNDLE_MANIFEST_FLUSH_BYTES = 4 * 1024 * 1024;
-// OCDS §5.4 stall (no-progress) watchdog: if a segment receives no bytes for
-// this long the socket is treated as stalled — a Transient timeout that
-// destroys the request and triggers a retry. This is distinct from the coarse
-// per-request connection timeout (BUNDLE_REQUEST_TIMEOUT_MS) which bounds the
-// total request lifetime.
-const BUNDLE_STALL_TIMEOUT_MS = 1000 * 60;
-// OCDS §5.4 retry backoff: exponential base * 2^retry, capped, plus jitter so
-// the N segments do not retry in lockstep. A server `Retry-After` overrides
-// the computed value (see retryAfterMsFromHeader).
+// Retained exports for callers that classify HTTP failures and retry delays.
 const BUNDLE_RETRY_BASE_DELAY_MS = 500;
 const BUNDLE_RETRY_MAX_DELAY_MS = 1000 * 10;
 
-// Sentinel for "the concurrent path cannot proceed" (range unsupported, ETag
-// changed, server ignored Range, ...). Encoded as a message-prefixed
-// OneKeyLocalError rather than a bespoke Error subclass (keeps the file to a
-// single class and satisfies no-raw-error); the orchestrator detects it and
-// falls back to the single-stream downloader so we never regress.
-const CONCURRENT_FALLBACK_PREFIX = 'CONCURRENT_DOWNLOAD_FALLBACK';
-function concurrentFallbackError(reason: string): OneKeyLocalError {
-  return new OneKeyLocalError(`${CONCURRENT_FALLBACK_PREFIX}: ${reason}`);
-}
-function isConcurrentFallback(error: unknown): boolean {
-  return (
-    error instanceof OneKeyLocalError &&
-    error.message.startsWith(CONCURRENT_FALLBACK_PREFIX)
-  );
-}
+export const MAX_BUNDLE_UNCOMPRESSED_BYTES = 512 * 1024 * 1024;
+export const MAX_BUNDLE_ENTRY_COUNT = 4096;
 
 // OCDS §4 failure classification. Every non-2xx HTTP status resolves to exactly
 // one of two classes with opposite recoveries: a Permanent failure means the
@@ -97,11 +70,8 @@ function isConcurrentFallback(error: unknown): boolean {
 //   4xx → permanent, EXCEPT 408 / 429 → transient
 //   5xx → transient, EXCEPT 501 / 505 → permanent
 //   anything else / unknown → permanent
-// NOTE: this set must stay in agreement with the shared-JS
-// UNRECOVERABLE_DOWNLOAD_ERROR_CODES taxonomy
-// (packages/kit/src/components/AppUpdate/updateErrorTaxonomy.ts). kit-bg must
-// not import from kit at runtime, so the relationship is duplicated here; the
-// test imports the real shared set and asserts the two stay in agreement.
+// The test keeps this classification aligned with the shared updater DTO
+// retry allowlist.
 // Exported so the test exercises the shipped code, not a re-implemented copy.
 export function classifyHttpStatus(status: number): 'permanent' | 'transient' {
   if (status >= 400 && status <= 499) {
@@ -119,25 +89,6 @@ export function classifyHttpStatus(status: number): 'permanent' | 'transient' {
   // Unknown / unexpected (e.g. a stray 3xx that was not a redirect, or 0) is
   // classified Permanent so the "exactly one of two classes" property holds.
   return 'permanent';
-}
-
-// A permanent HTTP status during a segment fetch is surfaced as a fallback so
-// the orchestrator switches to single-stream WITHOUT consuming the segment's
-// transient retry budget. A transient status is a plain Error that the inner
-// retry loop will back off and re-attempt.
-function httpStatusError(status: number): Error {
-  if (classifyHttpStatus(status) === 'permanent') {
-    return concurrentFallbackError(`permanent HTTP ${status}`);
-  }
-  return new OneKeyLocalError(`HTTP ${status}`);
-}
-
-// Sleep helper duplicated locally on purpose: kit-bg must not import the kit
-// timer utilities (import hierarchy). Used by the §5.4 backoff.
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, Math.max(0, ms));
-  });
 }
 
 // OCDS §5.4 backoff with jitter. Exponential growth capped at
@@ -238,97 +189,111 @@ export function contentRangeStart(
   return Number.isFinite(start) ? start : null;
 }
 
-interface IBundleDownloadPart {
-  index: number;
-  start: number;
-  end: number;
-  // Bytes durably written into [start, start+done) of the partial file.
-  done: number;
+// Keep the download boundary limited to the shared updater payload.
+function wrapDownloadError(error: unknown) {
+  return createUpdateError(getUpdateError(error, 'download'));
 }
 
-interface IBundleDownloadManifest {
-  // CDN ETag captured at probe time; if it changes mid-download the on-disk
-  // bytes are stale and the whole download must restart.
-  etag: string | null;
-  size: number;
-  parts: IBundleDownloadPart[];
-}
-
-// Wraps a Node.js fs/stream/http error into a sanitized OneKeyLocalError
-// before it can reach the analytics layer. Node's errno errors embed the
-// failing path (`ENOENT: no such file ... open '/Users/<name>/...'`) which
-// would otherwise leak the OS username through softwareUpdateResult's
-// errorMessage. The errno code itself is preserved as `IO_<errno>` so
-// downstream extractUpdateErrorCode can still split mixpanel buckets.
-// OneKeyLocalError instances pass through untouched — verifyAndResolve
-// already produces structured `Downloaded file is not valid: SHA256_<reason>`
-// payloads we want to keep verbatim.
-function wrapDownloadError(
-  error: unknown,
-  fallbackMessage: string,
-): OneKeyLocalError {
-  if (error instanceof OneKeyLocalError) return error;
-  const errno = (error as NodeJS.ErrnoException | null)?.code;
-  if (errno) {
-    return new OneKeyLocalError(`${fallbackMessage}: IO_${errno}`);
+function assertUpdateBundleVersion(
+  value: unknown,
+  step: TUpdateErrorStep,
+): asserts value is string {
+  try {
+    assertSafeBundleVersion(value);
+  } catch {
+    throw createUpdateError({ code: EUpdateErrorCode.invalidArgument, step });
   }
-  return new OneKeyLocalError(fallbackMessage);
+}
+
+function wrapBundleError(error: unknown, step: TUpdateErrorStep) {
+  const known = getUpdateError(error, step);
+  if (known.code !== EUpdateErrorCode.unknown) return createUpdateError(known);
+  const errno = (error as NodeJS.ErrnoException | undefined)?.code;
+  if (errno === 'ENOENT' || errno === 'ENOTDIR') {
+    return createUpdateError({ code: EUpdateErrorCode.packageMissing, step });
+  }
+  if (['EACCES', 'EPERM', 'ENOSPC', 'EIO', 'EROFS'].includes(errno ?? '')) {
+    return createUpdateError({ code: EUpdateErrorCode.storageError, step });
+  }
+  if (error instanceof SyntaxError) {
+    return createUpdateError({ code: EUpdateErrorCode.integrityFailed, step });
+  }
+  return createUpdateError({ code: EUpdateErrorCode.unknown, step });
+}
+
+function wrapSignedMetadataError(error: unknown, step: TUpdateErrorStep) {
+  if (
+    error instanceof OneKeyLocalError &&
+    getUpdateError(error, step).code === EUpdateErrorCode.unknown
+  ) {
+    return createUpdateError({ code: EUpdateErrorCode.integrityFailed, step });
+  }
+  return wrapBundleError(error, step);
+}
+
+async function verifySignedMetadata(
+  params: Parameters<typeof verifyMetadataFileSha256>[0],
+  step: TUpdateErrorStep,
+) {
+  try {
+    if (
+      !fs.existsSync(path.join(getBundleExtractDir(params), 'metadata.json'))
+    ) {
+      throw createUpdateError({ code: EUpdateErrorCode.packageMissing, step });
+    }
+    await verifyMetadataFileSha256(params);
+  } catch (error) {
+    throw wrapSignedMetadataError(error, step);
+  }
 }
 
 class DesktopApiAppBundleUpdate {
   desktopApi: IDesktopApi;
 
-  cancelCurrentDownload: (() => void) | null;
+  get isDownloading(): boolean {
+    return this.cancelByDest.size > 0;
+  }
 
-  isDownloading = false;
-
-  // OCDS §5.4 stall (no-progress) watchdog timeout. Injectable so tests can
-  // exercise the stall path without a 60s wait; defaults to the production
-  // BUNDLE_STALL_TIMEOUT_MS.
-  private stallTimeoutMs: number = BUNDLE_STALL_TIMEOUT_MS;
-
-  // OCDS §5.8 per-destination single-flight. Keyed on the destination zip path:
-  // a second download() for the same dest JOINS the in-flight run (returns the
-  // same promise) rather than co-writing the same artifacts; different-dest
-  // runs proceed independently. The entry is always deleted on settle (finally)
+  // OCDS §5.8 per-destination single-flight. A second request with the same
+  // content hash joins the writer; a different hash cannot write that ZIP.
+  // The entry is always deleted on settle (finally)
   // so a crashed/rejected run never permanently wedges a destination — the
   // in-memory map is the reclaimable lock (the process restarting clears it
   // entirely, which is the desktop equivalent of stale-lock recovery).
   private inflightDownloads = new Map<
     string,
-    Promise<IUpdateDownloadedEvent>
+    { sha256: string; run: Promise<IUpdateDownloadedEvent> }
   >();
 
   // OCDS §5.8: cancellation wired per-destination so cancelling one dest does
   // not tear down an unrelated concurrent run.
   private cancelByDest = new Map<string, () => void>();
 
-  private isSkipGPGAllowed(skipGPGVerification?: boolean) {
+  private cacheClearPromise: Promise<void> | undefined;
+
+  private isSkipGPGAllowed(_skipGPGVerification?: boolean) {
     return (
       process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION === 'true' &&
-      Boolean(skipGPGVerification)
+      Boolean(
+        store.getDevSettingsEnabled?.() && store.getSkipGPGVerification?.(),
+      )
     );
   }
 
   constructor({
     desktopApi,
-    stallTimeoutMs,
   }: {
     desktopApi: IDesktopApi;
     stallTimeoutMs?: number;
   }) {
     this.desktopApi = desktopApi;
-    this.cancelCurrentDownload = () => {};
-    if (typeof stallTimeoutMs === 'number') {
-      this.stallTimeoutMs = stallTimeoutMs;
-    }
   }
 
-  getMainWindow(): BrowserWindow | undefined {
+  private getMainWindow(): BrowserWindow | undefined {
     return globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
   }
 
-  async verifyAndResolve(filePath: string, sha256: string) {
+  private async verifyAndResolve(filePath: string, sha256: string) {
     return new Promise<boolean>((resolve, reject) => {
       setTimeout(() => {
         const verified = verifySha256(filePath, sha256);
@@ -339,11 +304,11 @@ class DesktopApiAppBundleUpdate {
           // OOM / IO_<code> / MISMATCH) that match the iOS/Android nitro
           // module subtypes so cross-platform funnels can compare apples-to-
           // apples.
-          const reason = lastSHA256FailureReason() ?? 'UNKNOWN';
           reject(
-            new OneKeyLocalError(
-              `Downloaded file is not valid: SHA256_${reason}`,
-            ),
+            createUpdateError({
+              code: EUpdateErrorCode.integrityFailed,
+              step: 'download',
+            }),
           );
           return;
         }
@@ -364,14 +329,14 @@ class DesktopApiAppBundleUpdate {
     return tempDir;
   }
 
-  // The destination zip path for a (appVersion, bundleVersion) pair. Mirrors
-  // the path computed inside downloadBundleConcurrent / downloadBundleSingleStream
-  // so the single-flight key matches the file actually written. Returns null
-  // when the required parts are missing (those params are validated downstream).
-  private getDestZipPath(params: IDownloadPackageParams): string | null {
-    const { latestVersion: appVersion, bundleVersion } = params;
-    if (!appVersion || !bundleVersion) return null;
-    return path.join(
+  // The destination zip path for a (appVersion, bundleVersion) pair.
+  private getDestZipPath(
+    params?: Pick<IDownloadPackageParams, 'latestVersion' | 'bundleVersion'>,
+  ): string | null {
+    const { latestVersion: appVersion, bundleVersion } = params || {};
+    assertSafeBundleVersion(appVersion);
+    assertSafeBundleVersion(bundleVersion);
+    return resolveBundlePath(
       this.getDownloadDir(),
       `${appVersion}-${bundleVersion}.zip`,
     );
@@ -385,1112 +350,125 @@ class DesktopApiAppBundleUpdate {
   async downloadBundle(
     params: IDownloadPackageParams,
   ): Promise<IUpdateDownloadedEvent> {
-    const destKey = this.getDestZipPath(params);
-    // No usable key (missing version params): skip single-flight bookkeeping
+    try {
+      return await this.downloadBundleInternal(params);
+    } catch (error) {
+      throw wrapBundleError(error, 'download');
+    }
+  }
+
+  private async downloadBundleInternal(
+    params: IDownloadPackageParams,
+  ): Promise<IUpdateDownloadedEvent> {
+    while (this.cacheClearPromise) await this.cacheClearPromise;
+    const safeParams = params || ({} as IDownloadPackageParams);
+    assertUpdateBundleVersion(safeParams.latestVersion, 'download');
+    assertUpdateBundleVersion(safeParams.bundleVersion, 'download');
+    const destKey = this.getDestZipPath(safeParams);
+    const validSha256 =
+      typeof safeParams.sha256 === 'string' &&
+      /^[a-fA-F0-9]{64}$/.test(safeParams.sha256)
+        ? safeParams.sha256.toLowerCase()
+        : null;
+    // No usable key (missing version/sha256 params): skip single-flight bookkeeping
     // and let the downstream validation produce the canonical error.
-    if (!destKey) {
-      return this.runDownloadBundle(params);
+    if (!destKey || !validSha256) {
+      return this.runDownloadBundle(safeParams);
     }
     const existing = this.inflightDownloads.get(destKey);
     if (existing) {
+      if (existing.sha256 !== validSha256) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.incompatible,
+          step: 'download',
+        });
+      }
       logger.info(
         'bundle-download',
         'Joining in-flight download for same destination',
       );
-      return existing;
+      return existing.run;
     }
-    const run = this.runDownloadBundle(params).finally(() => {
+    const run = this.runDownloadBundle(safeParams).finally(() => {
       this.inflightDownloads.delete(destKey);
       this.cancelByDest.delete(destKey);
     });
-    this.inflightDownloads.set(destKey, run);
+    this.inflightDownloads.set(destKey, { sha256: validSha256, run });
     return run;
   }
 
-  // Only the happy path — valid https URL, no in-flight download, a large
-  // enough range-capable file — takes the concurrent route. Everything else
-  // (validation errors, the in-progress guard, the cached-file short circuit)
-  // stays owned by the single-stream implementation so existing behavior is
-  // unchanged, and any capability problem mid-flight falls back to single-stream
-  // so we never regress.
+  // The shared downloader owns range selection, resume, and integrity checks.
   private async runDownloadBundle(
     params: IDownloadPackageParams,
   ): Promise<IUpdateDownloadedEvent> {
-    const bundleUrl = params.downloadUrl;
-    if (this.isDownloading || !bundleUrl?.startsWith('https://')) {
-      return this.downloadBundleSingleStream(params);
-    }
-
-    let probe: {
-      finalUrl: string;
-      totalBytes: number;
-      etag: string | null;
-      supportsRange: boolean;
-    } | null = null;
-    try {
-      probe = await this.probeBundleRange(bundleUrl);
-    } catch (e) {
-      logger.warn(
-        'bundle-download',
-        'Range probe failed, using single-stream',
-        e,
-      );
-    }
-
-    const canConcurrent =
-      !!probe &&
-      probe.supportsRange &&
-      probe.totalBytes >= BUNDLE_MIN_CONCURRENT_BYTES;
-    if (!probe || !canConcurrent) {
-      return this.downloadBundleSingleStream(params);
-    }
-
-    try {
-      return await this.downloadBundleConcurrent(params, probe);
-    } catch (error) {
-      if (isConcurrentFallback(error)) {
-        logger.warn(
-          'bundle-download',
-          `Concurrent download fell back to single-stream: ${
-            (error as Error).message
-          }`,
-        );
-        return this.downloadBundleSingleStream(params);
-      }
-      throw error;
-    }
-  }
-
-  // Lightweight probe: a one-byte range request that, in a single round trip,
-  // confirms Range support, captures the total size and the CDN ETag, and
-  // resolves the post-redirect final URL (so segment requests skip redirects).
-  private probeBundleRange(
-    url: string,
-    redirectCount = 0,
-  ): Promise<{
-    finalUrl: string;
-    totalBytes: number;
-    etag: string | null;
-    supportsRange: boolean;
-  }> {
-    return new Promise((resolve, reject) => {
-      const reqProtocol = url.startsWith('https://') ? https : http;
-      const req = reqProtocol.get(
-        url,
-        { headers: { Range: 'bytes=0-0' } },
-        (response) => {
-          const status = response.statusCode ?? 0;
-          if (
-            [301, 302, 307, 308].includes(status) &&
-            response.headers.location
-          ) {
-            response.resume();
-            if (redirectCount >= 5) {
-              reject(new Error('Too many redirects'));
-              return;
-            }
-            const resolvedRedirectUrl = new URL(
-              response.headers.location,
-              url,
-            ).toString();
-            if (!resolvedRedirectUrl.startsWith('https://')) {
-              reject(new Error('Redirect to non-HTTPS URL is not allowed'));
-              return;
-            }
-            this.probeBundleRange(resolvedRedirectUrl, redirectCount + 1).then(
-              resolve,
-              reject,
-            );
-            return;
-          }
-          const etag = response.headers.etag ?? null;
-          response.resume();
-          if (status === 206) {
-            const contentRange = response.headers['content-range'];
-            const match =
-              typeof contentRange === 'string'
-                ? contentRange.match(/bytes \d+-\d+\/(\d+)/)
-                : null;
-            if (match) {
-              resolve({
-                finalUrl: url,
-                totalBytes: parseInt(match[1], 10),
-                etag,
-                supportsRange: true,
-              });
-              return;
-            }
-            resolve({
-              finalUrl: url,
-              totalBytes: 0,
-              etag,
-              supportsRange: false,
-            });
-            return;
-          }
-          if (status === 200) {
-            // Server ignored the Range header — single-stream only.
-            resolve({
-              finalUrl: url,
-              totalBytes: parseInt(
-                (response.headers['content-length'] as string) || '0',
-                10,
-              ),
-              etag,
-              supportsRange: false,
-            });
-            return;
-          }
-          reject(new Error(`HTTP ${status}`));
-        },
-      );
-      req.on('error', reject);
-      req.setTimeout(30_000, () => {
-        req.destroy();
-        reject(new Error('Probe timeout'));
-      });
-    });
-  }
-
-  // Invariant: the progress manifest is only meaningful as metadata for an
-  // existing `.partial`. A manifest with no `.partial` behind it (e.g. left by
-  // a crash between renaming a finished `.partial` and deleting its manifest)
-  // is meaningless — drop it so it can never be half-trusted or linger.
-  private dropOrphanManifest(partialFilePath: string, manifestPath: string) {
-    if (!fs.existsSync(partialFilePath) && fs.existsSync(manifestPath)) {
-      logger.info('bundle-download', 'Dropping orphan progress manifest');
-      fs.rmSync(manifestPath, { force: true });
-    }
-  }
-
-  // Discard the whole resume state. The manifest is removed BEFORE the
-  // `.partial` so the manifest never outlives the file it describes (a crash
-  // mid-call leaves at most an orphan `.partial`, which is self-discarding).
-  private discardPartialDownload(
-    partialFilePath: string,
-    manifestPath: string,
-  ) {
-    fs.rmSync(manifestPath, { force: true });
-    fs.rmSync(partialFilePath, { force: true });
-  }
-
-  // Build a fresh segment plan + pre-allocated partial file, or resume from an
-  // existing manifest when its size/ETag still match the current CDN object.
-  private loadOrInitManifest(
-    manifestPath: string,
-    partialFilePath: string,
-    totalBytes: number,
-    etag: string | null,
-  ): IBundleDownloadManifest {
-    if (fs.existsSync(manifestPath) && fs.existsSync(partialFilePath)) {
-      try {
-        const parsed = JSON.parse(
-          fs.readFileSync(manifestPath, 'utf8'),
-        ) as IBundleDownloadManifest;
-        const sameSize = parsed.size === totalBytes;
-        const sameEtag = !etag || !parsed.etag || parsed.etag === etag;
-        const stat = fs.statSync(partialFilePath);
-        if (
-          sameSize &&
-          sameEtag &&
-          stat.size === totalBytes &&
-          Array.isArray(parsed.parts) &&
-          parsed.parts.length > 0
-        ) {
-          for (const p of parsed.parts) {
-            const segLen = p.end - p.start + 1;
-            if (!(p.done >= 0)) p.done = 0;
-            if (p.done > segLen) p.done = segLen;
-          }
-          logger.info('bundle-download', 'Resuming concurrent download', {
-            transferred: parsed.parts.reduce((acc, p) => acc + p.done, 0),
-            total: totalBytes,
-          });
-          return parsed;
-        }
-      } catch (e) {
-        logger.warn('bundle-download', 'Manifest parse failed, restarting', e);
-      }
-    }
-
-    // Fresh start: drop stale artifacts (manifest first so it never describes a
-    // not-yet-(re)created partial), pre-allocate the full file, plan the 8
-    // segments (last one absorbs the remainder), then write the matching
-    // manifest only after the partial exists.
-    this.discardPartialDownload(partialFilePath, manifestPath);
-    const allocFd = fs.openSync(partialFilePath, 'w');
-    try {
-      fs.ftruncateSync(allocFd, totalBytes);
-    } finally {
-      fs.closeSync(allocFd);
-    }
-    const parts: IBundleDownloadPart[] = [];
-    const chunk = Math.ceil(totalBytes / BUNDLE_SEGMENT_COUNT);
-    for (let i = 0; i < BUNDLE_SEGMENT_COUNT; i += 1) {
-      const start = i * chunk;
-      if (start >= totalBytes) break;
-      const end = Math.min(start + chunk - 1, totalBytes - 1);
-      parts.push({ index: parts.length, start, end, done: 0 });
-    }
-    const manifest: IBundleDownloadManifest = { etag, size: totalBytes, parts };
-    fs.writeFileSync(manifestPath, JSON.stringify(manifest));
-    return manifest;
-  }
-
-  // Persist the manifest AFTER fsync-ing the data so the recorded cursors never
-  // claim more than what is durably on disk (a crash just means a tiny re-fetch
-  // on resume; positioned writes are idempotent).
-  private flushManifest(
-    manifestPath: string,
-    manifest: IBundleDownloadManifest,
-    fd: number,
-  ) {
-    try {
-      fs.fsyncSync(fd);
-    } catch {
-      // best effort
-    }
-    try {
-      fs.writeFileSync(manifestPath, JSON.stringify(manifest));
-    } catch (e) {
-      logger.warn('bundle-download', 'Manifest flush failed', e);
-    }
-  }
-
-  // Download one segment into [start, end] of the shared fd via positioned
-  // writes, resuming from part.done and retrying transient failures in place.
-  private downloadBundlePart(opts: {
-    fd: number;
-    url: string;
-    etag: string | null;
-    part: IBundleDownloadPart;
-    expectedTotal: number;
-    isAborted: () => boolean;
-    registerRequest: (req: { destroy: () => void }) => void;
-    unregisterRequest: (req: { destroy: () => void }) => void;
-    onBytes: (delta: number) => void;
-  }): Promise<void> {
     const {
-      fd,
-      etag,
-      part,
-      expectedTotal,
-      isAborted,
-      registerRequest,
-      unregisterRequest,
-      onBytes,
-    } = opts;
-
-    const segLen = part.end - part.start + 1;
-    // Carries a server `Retry-After` value from a 429/503 response on one
-    // attempt into the backoff before the next attempt (OCDS §5.4). Reset to
-    // null after it is consumed.
-    let retryAfterMsOverride: number | null = null;
-
-    const attempt = (
-      url: string,
-      redirectCount: number,
-      retry: number,
-    ): Promise<void> =>
-      new Promise<void>((resolve, reject) => {
-        if (isAborted()) {
-          reject(new Error('Download cancelled'));
-          return;
-        }
-        const rangeStart = part.start + part.done;
-        if (rangeStart > part.end) {
-          resolve();
-          return;
-        }
-        const reqProtocol = url.startsWith('https://') ? https : http;
-        const headers: Record<string, string> = {
-          Range: `bytes=${rangeStart}-${part.end}`,
-        };
-        // If-Range: a mismatched ETag makes the CDN reply 200 (full body)
-        // instead of 206, which our handler treats as a fallback signal.
-        if (etag) headers['If-Range'] = etag;
-        const req = reqProtocol.get(url, { headers }, (response) => {
-          const status = response.statusCode ?? 0;
-          if (
-            [301, 302, 307, 308].includes(status) &&
-            response.headers.location
-          ) {
-            response.resume();
-            unregisterRequest(req);
-            if (redirectCount >= 5) {
-              reject(new Error('Too many redirects'));
-              return;
-            }
-            const next = new URL(response.headers.location, url).toString();
-            if (!next.startsWith('https://')) {
-              reject(new Error('Redirect to non-HTTPS URL is not allowed'));
-              return;
-            }
-            attempt(next, redirectCount + 1, retry).then(resolve, reject);
-            return;
-          }
-          if (status === 200) {
-            // Range ignored or ETag changed — cannot safely assemble.
-            response.resume();
-            reject(
-              concurrentFallbackError('server returned 200 to a Range request'),
-            );
-            return;
-          }
-          if (status !== 206) {
-            // OCDS §4: classify so a Permanent status (e.g. 401/403/404/410/
-            // 501/505) falls back WITHOUT consuming the retry budget, while a
-            // Transient status (429/5xx/408) is retried with backoff. A
-            // `Retry-After` header overrides the computed backoff on the next
-            // attempt.
-            response.resume();
-            if (
-              classifyHttpStatus(status) === 'transient' &&
-              (status === 429 || status === 503)
-            ) {
-              retryAfterMsOverride = retryAfterMsFromHeader(
-                response.headers['retry-after'],
-              );
-            }
-            reject(httpStatusError(status));
-            return;
-          }
-          // OCDS §5.5: a 206 body is accepted only when it is a single range
-          // whose Content-Range window matches the requested range exactly and
-          // whose total agrees with the probe total. A multipart/byteranges,
-          // mismatched-window, `*`-total or disagreeing-total response cannot be
-          // safely assembled → fall back to single-stream.
-          const rangeCheck = validateSegmentContentRange({
-            contentRange: response.headers['content-range'],
-            contentType: response.headers['content-type'],
-            rangeStart,
-            rangeEnd: part.end,
-            expectedTotal,
-          });
-          if (!rangeCheck.ok) {
-            response.resume();
-            reject(concurrentFallbackError(rangeCheck.reason));
-            return;
-          }
-          let writePos = rangeStart;
-          // OCDS §5.4 stall watchdog: arm a no-progress timer that destroys the
-          // request and rejects Transient if no bytes arrive within the stall
-          // window. Re-armed on every chunk, cleared on every exit path so the
-          // 8 segments never leak timers or false-fire after completion.
-          let stallTimer: ReturnType<typeof setTimeout> | null = null;
-          const clearStall = () => {
-            if (stallTimer) {
-              clearTimeout(stallTimer);
-              stallTimer = null;
-            }
-          };
-          const armStall = () => {
-            clearStall();
-            stallTimer = setTimeout(() => {
-              try {
-                req.destroy();
-              } catch {
-                // ignore
-              }
-              unregisterRequest(req);
-              reject(new OneKeyLocalError('Segment stalled (no progress)'));
-            }, this.stallTimeoutMs);
-          };
-          armStall();
-          response.on('data', (chunk: Buffer) => {
-            if (isAborted()) {
-              clearStall();
-              try {
-                req.destroy();
-              } catch {
-                // ignore
-              }
-              return;
-            }
-            armStall();
-            // OCDS §5.5 over-long guard: never write past this segment's
-            // planned end. Clamp the tail slice, then reject Permanent — an
-            // over-long body means the server is misbehaving and the stream
-            // cannot be trusted, so fall back rather than silently truncate.
-            const remaining = part.end - writePos + 1;
-            if (remaining <= 0 || chunk.length > remaining) {
-              const slice = remaining > 0 ? chunk.subarray(0, remaining) : null;
-              if (slice && slice.length > 0) {
-                fs.writeSync(fd, slice, 0, slice.length, writePos);
-                writePos += slice.length;
-                part.done += slice.length;
-                onBytes(slice.length);
-              }
-              clearStall();
-              try {
-                req.destroy();
-              } catch {
-                // ignore
-              }
-              unregisterRequest(req);
-              reject(
-                concurrentFallbackError(
-                  `segment ${part.index} body overran planned end`,
-                ),
-              );
-              return;
-            }
-            // Positioned synchronous write — the explicit offset means the 8
-            // concurrent segments never interleave on the shared fd.
-            fs.writeSync(fd, chunk, 0, chunk.length, writePos);
-            writePos += chunk.length;
-            part.done += chunk.length;
-            onBytes(chunk.length);
-          });
-          response.on('end', () => {
-            clearStall();
-            unregisterRequest(req);
-            // OCDS §5.5 short-body guard: the segment is only complete when the
-            // cursor reached its planned end. A short body is a Transient
-            // interruption — keep the bytes already written and retry the tail.
-            if (part.done < segLen) {
-              reject(
-                new OneKeyLocalError(
-                  `segment ${part.index} body short (${part.done}/${segLen})`,
-                ),
-              );
-              return;
-            }
-            resolve();
-          });
-          response.on('error', (err) => {
-            clearStall();
-            unregisterRequest(req);
-            reject(err);
-          });
-        });
-        registerRequest(req);
-        req.on('error', (err) => {
-          unregisterRequest(req);
-          reject(err);
-        });
-        req.setTimeout(BUNDLE_REQUEST_TIMEOUT_MS, () => {
-          try {
-            req.destroy();
-          } catch {
-            // ignore
-          }
-          reject(new Error('Segment timeout'));
-        });
-      }).catch(async (err) => {
-        if (
-          isConcurrentFallback(err) ||
-          isAborted() ||
-          retry >= BUNDLE_PART_MAX_RETRY
-        ) {
-          throw err;
-        }
-        // Transient failure: bytes written so far (part.done) stay on disk and
-        // we resume this same segment from its current cursor.
-        logger.warn(
-          'bundle-download',
-          `segment ${part.index} retry ${retry + 1}: ${(err as Error).message}`,
-        );
-        // OCDS §5.4: back off (jittered) before the next attempt; a server
-        // `Retry-After` overrides the computed delay.
-        const backoff = retryAfterMsOverride ?? computeBackoffMs(retry);
-        retryAfterMsOverride = null;
-        await sleep(backoff);
-        return attempt(url, redirectCount, retry + 1);
-      });
-
-    return attempt(opts.url, 0, 0);
-  }
-
-  // 8-way concurrent download with positioned writes + manifest resume. Reuses
-  // the existing cached-file check, SHA256 verification and IPC progress
-  // channel so the rest of the update pipeline is unaffected.
-  private async downloadBundleConcurrent(
-    {
-      latestVersion: appVersion,
+      latestVersion,
       bundleVersion,
-      downloadUrl: bundleUrl,
+      downloadUrl,
       sha256,
-    }: IDownloadPackageParams,
-    probe: { finalUrl: string; totalBytes: number; etag: string | null },
-  ): Promise<IUpdateDownloadedEvent> {
-    if (this.isDownloading) {
-      logger.info('bundle-download', 'Download already in progress, skipping');
-      return undefined as unknown as IUpdateDownloadedEvent;
-    }
-    // Required params are validated by the single-stream path; bail to it (via
-    // fallback) rather than duplicating the canonical error shapes here.
-    if (!appVersion || !bundleVersion || !bundleUrl || !sha256) {
-      throw concurrentFallbackError('missing required params');
-    }
-    this.isDownloading = true;
-    clearWindowProgressBar(this.getMainWindow());
-
-    const tempDir = this.getDownloadDir();
-    const fileName = `${appVersion}-${bundleVersion}.zip`;
-    const filePath = path.join(tempDir, fileName);
-    const partialFilePath = `${filePath}.partial`;
-    const manifestPath = `${partialFilePath}.progress.json`;
-    const { totalBytes } = probe;
-
-    // Enforce the manifest<->partial invariant up front: a manifest with no
-    // partial behind it is stale and must not survive into this run.
-    this.dropOrphanManifest(partialFilePath, manifestPath);
-
-    const result: IUpdateDownloadedEvent = {
-      downloadedFile: filePath,
-      downloadUrl: bundleUrl,
-      latestVersion: appVersion,
-      bundleVersion,
-    };
-
-    // Reuse a previously downloaded + verified file if present.
-    if (fs.existsSync(filePath)) {
-      try {
-        if (await this.verifyAndResolve(filePath, sha256)) {
-          // The final file is authoritative — any leftover partial/manifest is
-          // stale junk from an earlier interrupted attempt; drop it.
-          this.discardPartialDownload(partialFilePath, manifestPath);
-          this.isDownloading = false;
-          return result;
-        }
-      } catch (e) {
-        logger.error(
-          'bundle-download',
-          'Cached file invalid, re-downloading',
-          e,
-        );
-      }
-      fs.rmSync(filePath, { force: true });
-    }
-
-    let fd: number | null = null;
-    let aborted = false;
-    const inflight = new Set<{ destroy: () => void }>();
-    const abortAll = () => {
-      aborted = true;
-      for (const req of inflight) {
-        try {
-          req.destroy();
-        } catch {
-          // ignore
-        }
-      }
-    };
-
-    try {
-      const manifest = this.loadOrInitManifest(
-        manifestPath,
-        partialFilePath,
-        totalBytes,
-        probe.etag,
-      );
-      fd = fs.openSync(partialFilePath, 'r+');
-      const fileFd = fd;
-
-      this.cancelCurrentDownload = abortAll;
-      // OCDS §5.8: also register this run's cancel under its destination so a
-      // per-dest cancel (cancelDownloadForDest) tears down exactly this run.
-      this.cancelByDest.set(filePath, abortAll);
-
-      const lastFlush = manifest.parts.map((p) => p.done);
-      const emitProgress = (delta: number) => {
-        const transferred = manifest.parts.reduce((acc, p) => acc + p.done, 0);
-        const percent = totalBytes > 0 ? (transferred / totalBytes) * 100 : 0;
-        this.getMainWindow()?.webContents.send(
-          ipcMessageKeys.UPDATE_DOWNLOADING,
-          {
-            percent,
-            transferred,
-            total: totalBytes,
-            bytesPerSecond: 0,
-            delta,
-          },
-        );
-        updateWindowProgressBar(this.getMainWindow(), percent);
-      };
-      emitProgress(0);
-
-      try {
-        await Promise.all(
-          manifest.parts.map((part) =>
-            this.downloadBundlePart({
-              fd: fileFd,
-              url: probe.finalUrl,
-              etag: probe.etag,
-              part,
-              expectedTotal: totalBytes,
-              isAborted: () => aborted,
-              registerRequest: (req) => inflight.add(req),
-              unregisterRequest: (req) => inflight.delete(req),
-              onBytes: (delta) => {
-                if (
-                  part.done - lastFlush[part.index] >=
-                  BUNDLE_MANIFEST_FLUSH_BYTES
-                ) {
-                  lastFlush[part.index] = part.done;
-                  this.flushManifest(manifestPath, manifest, fileFd);
-                }
-                emitProgress(delta);
-              },
-            }),
-          ),
-        );
-      } catch (e) {
-        abortAll();
-        throw e;
-      }
-
-      if (aborted) {
-        throw new OneKeyLocalError('Download cancelled');
-      }
-
-      this.flushManifest(manifestPath, manifest, fileFd);
-      fs.fsyncSync(fileFd);
-      fs.closeSync(fileFd);
-      fd = null;
-      this.cancelCurrentDownload = () => {};
-
-      const transferred = manifest.parts.reduce((acc, p) => acc + p.done, 0);
-      if (transferred < totalBytes) {
-        throw new OneKeyLocalError('Download incomplete');
-      }
-
-      fs.renameSync(partialFilePath, filePath);
-      fs.rmSync(manifestPath, { force: true });
-      try {
-        await this.verifyAndResolve(filePath, sha256);
-      } catch (verifyError) {
-        // Bad assembly — discard so the next attempt re-downloads cleanly.
-        fs.rmSync(filePath, { force: true });
-        throw verifyError;
-      }
-
-      this.isDownloading = false;
-      clearWindowProgressBar(this.getMainWindow());
-      logger.info('bundle-download', 'Concurrent download complete', filePath);
-      return result;
-    } catch (error) {
-      abortAll();
-      if (fd !== null) {
-        try {
-          fs.closeSync(fd);
-        } catch {
-          // ignore
-        }
-      }
-      this.isDownloading = false;
-      this.cancelCurrentDownload = () => {};
-      clearWindowProgressBar(this.getMainWindow());
-
-      if (isConcurrentFallback(error)) {
-        // On-disk bytes are stale/unusable — clear them before falling back.
-        this.discardPartialDownload(partialFilePath, manifestPath);
-        throw error;
-      }
-      // Transient/IO/verify error: keep partial + manifest so the outer retry
-      // loop resumes from where we stopped.
-      throw wrapDownloadError(error, 'Concurrent download failed');
-    }
-  }
-
-  private async downloadBundleSingleStream({
-    latestVersion: appVersion,
-    bundleVersion,
-    downloadUrl: bundleUrl,
-    fileSize,
-    sha256,
-  }: IDownloadPackageParams): Promise<IUpdateDownloadedEvent> {
-    if (this.isDownloading) {
-      logger.info('bundle-download', 'Download already in progress, skipping');
-      return;
-    }
-    clearWindowProgressBar(this.getMainWindow());
-    if (!appVersion || !bundleVersion || !bundleUrl || !fileSize || !sha256) {
-      logger.error('bundle-download', 'Invalid parameters', {
-        appVersion,
-        bundleVersion,
-        bundleUrl,
-        fileSize,
-        sha256,
+      signature,
+      fileSize,
+      headers,
+    } = params || {};
+    if (
+      !latestVersion ||
+      !bundleVersion ||
+      !downloadUrl ||
+      typeof sha256 !== 'string' ||
+      !/^[a-fA-F0-9]{64}$/.test(sha256)
+    ) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.invalidArgument,
+        step: 'download',
       });
-      this.isDownloading = false;
-      return Promise.reject(new Error('Invalid parameters'));
     }
-    if (!bundleUrl.startsWith('https://')) {
-      logger.error('bundle-download', `Non-HTTPS URL rejected: ${bundleUrl}`);
-      this.isDownloading = false;
-      return Promise.reject(new Error('Bundle download URL must use HTTPS'));
+    const filePath = this.getDestZipPath(params);
+    if (!filePath)
+      throw createUpdateError({
+        code: EUpdateErrorCode.invalidArgument,
+        step: 'download',
+      });
+    const controller = new AbortController();
+    const cancel = () => controller.abort();
+    this.cancelByDest.set(filePath, cancel);
+    if (this.cancelByDest.size === 1)
+      clearWindowProgressBar(this.getMainWindow());
+    try {
+      await downloadNodeFile({
+        url: downloadUrl,
+        targetPath: filePath,
+        identity: `bundle:${latestVersion}:${bundleVersion}:${sha256}`,
+        headers: stripSensitiveHeaders(headers ?? {}),
+        expectedBytes:
+          typeof fileSize === 'number' &&
+          Number.isSafeInteger(fileSize) &&
+          fileSize > 0
+            ? fileSize
+            : undefined,
+        expectedSha256: sha256,
+        transport: requestUpdateUrl,
+        signal: controller.signal,
+        onProgress: (progress) => {
+          this.getMainWindow()?.webContents.send(
+            ipcMessageKeys.UPDATE_DOWNLOADING,
+            { ...progress, latestVersion, bundleVersion },
+          );
+          updateWindowProgressBar(this.getMainWindow(), progress.percent);
+        },
+      });
+      return {
+        downloadUrl,
+        latestVersion,
+        bundleVersion,
+        sha256,
+        signature,
+      };
+    } catch (error) {
+      throw wrapDownloadError(error);
+    } finally {
+      this.cancelByDest.delete(filePath);
+      if (!this.isDownloading) clearWindowProgressBar(this.getMainWindow());
     }
-    this.isDownloading = true;
-    return new Promise<IUpdateDownloadedEvent>((resolve, reject) => {
-      setTimeout(async () => {
-        // Synchronous fs / setup errors before the response handlers are
-        // installed (getDownloadDir() permission denied, statSync ENOENT
-        // races on the partial file, mkdirSync EROFS, etc.) used to
-        // bubble up as unhandled rejections — leaving isDownloading=true
-        // and blocking every subsequent download call. Wrap the whole
-        // body so any setup error becomes a clean safeReject + flag
-        // reset.
-        // Prevent double resolve/reject when multiple error handlers fire
-        let settled = false;
-        const safeResolve = (value: IUpdateDownloadedEvent) => {
-          if (settled) return;
-          settled = true;
-          resolve(value);
-        };
-        const safeReject = (error: unknown) => {
-          if (settled) return;
-          settled = true;
-          this.isDownloading = false;
-          reject(error);
-        };
-        try {
-          const tempDir = this.getDownloadDir();
-          logger.info('bundle-download', {
-            tempDir,
-          });
-          const fileName = `${appVersion}-${bundleVersion}.zip`;
-          const filePath = path.join(tempDir, fileName);
-          const partialFilePath = `${filePath}.partial`;
-
-          let downloadedBytes = 0;
-          let totalBytes = fileSize;
-
-          if (fs.existsSync(filePath)) {
-            try {
-              const result = await this.verifyAndResolve(filePath, sha256);
-              if (result) {
-                this.isDownloading = false;
-                safeResolve({
-                  downloadedFile: filePath,
-                  downloadUrl: bundleUrl,
-                  latestVersion: appVersion,
-                  bundleVersion,
-                });
-                return;
-              }
-            } catch (e) {
-              logger.error(
-                'bundle-download',
-                'Cached file verification failed, re-downloading',
-                e,
-              );
-            }
-            await this.clearDownload();
-            fs.mkdirSync(tempDir, { recursive: true });
-          }
-          // Check if partial file exists for resume
-          if (fs.existsSync(partialFilePath)) {
-            const stats = fs.statSync(partialFilePath);
-            downloadedBytes = stats.size;
-            logger.info(
-              'bundle-download',
-              `Resuming download from ${downloadedBytes} bytes`,
-            );
-          }
-
-          const options = {
-            headers:
-              downloadedBytes > 0 ? { Range: `bytes=${downloadedBytes}-` } : {},
-          };
-
-          let downloadRequest: http.ClientRequest | null = null;
-
-          const makeDownloadRequest = (
-            url: string,
-            reqOptions: typeof options,
-            redirectCount = 0,
-          ) => {
-            const reqProtocol = url.startsWith('https://') ? https : http;
-            downloadRequest = reqProtocol.get(
-              url,
-              reqOptions,
-              async (response) => {
-                // Handle redirects (301, 302, 307, 308)
-                if (
-                  response.statusCode &&
-                  [301, 302, 307, 308].includes(response.statusCode) &&
-                  response.headers.location
-                ) {
-                  response.resume();
-                  if (redirectCount >= 5) {
-                    logger.error('bundle-download', 'Too many redirects (>5)');
-                    this.isDownloading = false;
-                    safeReject(new Error('Too many redirects'));
-                    return;
-                  }
-                  const rawRedirectUrl = response.headers.location;
-                  const resolvedRedirectUrl = new URL(
-                    rawRedirectUrl,
-                    url,
-                  ).toString();
-                  if (!resolvedRedirectUrl.startsWith('https://')) {
-                    logger.error(
-                      'bundle-download',
-                      `Redirect to non-HTTPS URL rejected: ${resolvedRedirectUrl}`,
-                    );
-                    this.isDownloading = false;
-                    safeReject(
-                      new Error('Redirect to non-HTTPS URL is not allowed'),
-                    );
-                    return;
-                  }
-                  makeDownloadRequest(
-                    resolvedRedirectUrl,
-                    reqOptions,
-                    redirectCount + 1,
-                  );
-                  return;
-                }
-
-                if (response.statusCode === 416) {
-                  // Range not satisfiable, file might be complete
-                  if (fs.existsSync(partialFilePath)) {
-                    try {
-                      fs.renameSync(partialFilePath, filePath);
-                      await this.verifyAndResolve(filePath, sha256);
-                      this.isDownloading = false;
-                      safeResolve({
-                        downloadedFile: filePath,
-                        downloadUrl: bundleUrl,
-                        latestVersion: appVersion,
-                        bundleVersion,
-                      });
-                    } catch (error) {
-                      this.isDownloading = false;
-                      safeReject(
-                        wrapDownloadError(error, 'Failed to finalize download'),
-                      );
-                    }
-                    return;
-                  }
-                  logger.error(
-                    'bundle-download',
-                    'HTTP 416 with no partial file to resume',
-                  );
-                  this.isDownloading = false;
-                  safeReject(new Error('HTTP 416'));
-                  return;
-                }
-
-                if (
-                  response.statusCode !== 200 &&
-                  response.statusCode !== 206
-                ) {
-                  logger.error(
-                    'bundle-download',
-                    `Unexpected HTTP status: ${response.statusCode || 0}`,
-                  );
-                  this.isDownloading = false;
-                  // Use the canonical "HTTP <code>" shape so
-                  // extractUpdateErrorCode in hooks.tsx parses it as
-                  // HTTP_<code> and can apply the unrecoverable-list
-                  // (HTTP_403/404/410). Previously "Download failed with
-                  // status: 404" did not match the regex, so 404s went
-                  // through the retry-with-backoff loop pointlessly.
-                  safeReject(new Error(`HTTP ${response.statusCode || 0}`));
-                  return;
-                }
-
-                if (response.statusCode === 200) {
-                  // OCDS §5.6: the server ignored our resume Range and is
-                  // sending the whole body. Appending it onto existing partial
-                  // bytes would corrupt the file, so truncate any partial first
-                  // and restart this stream cleanly from byte 0.
-                  if (fs.existsSync(partialFilePath)) {
-                    fs.rmSync(partialFilePath, { force: true });
-                  }
-                  totalBytes = parseInt(
-                    response.headers['content-length'] || '0',
-                    10,
-                  );
-                  downloadedBytes = 0;
-                } else if (response.statusCode === 206) {
-                  // Partial download
-                  const contentRange = response.headers['content-range'];
-                  if (contentRange) {
-                    const match = contentRange.match(/bytes \d+-\d+\/(\d+)/);
-                    if (match) {
-                      totalBytes = parseInt(match[1], 10);
-                    }
-                  }
-                  // OCDS §5.6: only append when the server resumed at exactly
-                  // the offset we asked for. A mis-aligned 206 (start !=
-                  // downloadedBytes) cannot be salvaged by truncate-and-continue
-                  // the way a 200 can: this response body begins at the server's
-                  // `resumeStart`, NOT at byte 0. Truncating the partial and
-                  // writing this stream from offset 0 would store
-                  // `object[resumeStart..end]` as `[0..]`, leaving the
-                  // `[0..resumeStart)` prefix permanently missing — a short,
-                  // corrupt file that only fails at SHA verification (and whose
-                  // leftover partial can compound on later resumes). So abort
-                  // this request, drop the partial, and reject with a transient
-                  // error; the outer retry loop then re-issues a fresh request
-                  // from byte 0 (no partial => no Range => clean 200/206).
-                  const resumeStart = contentRangeStart(
-                    response.headers['content-range'],
-                  );
-                  if (
-                    downloadedBytes > 0 &&
-                    resumeStart !== null &&
-                    resumeStart !== downloadedBytes
-                  ) {
-                    logger.warn(
-                      'bundle-download',
-                      `206 resume mis-aligned (server start ${resumeStart} != expected ${downloadedBytes}), restarting`,
-                    );
-                    if (fs.existsSync(partialFilePath)) {
-                      fs.rmSync(partialFilePath, { force: true });
-                    }
-                    downloadedBytes = 0;
-                    this.isDownloading = false;
-                    response.destroy();
-                    downloadRequest?.destroy();
-                    safeReject(new Error('206 resume mis-aligned'));
-                    return;
-                  }
-                }
-
-                const writeStream = fs.createWriteStream(partialFilePath, {
-                  // 'a' only after the offset above was confirmed (or set to 0);
-                  // a reset downloadedBytes => 'w' so we never append onto stale
-                  // or mis-positioned bytes.
-                  flags: downloadedBytes > 0 ? 'a' : 'w',
-                });
-
-                // Handle download cancellation
-                const cancelDownload = () => {
-                  if (downloadRequest) {
-                    this.isDownloading = false;
-                    downloadRequest.destroy();
-                    downloadRequest = null;
-                  }
-                  writeStream.destroy();
-                  safeReject(new Error('Download cancelled'));
-                };
-
-                // Store cancel function for external access
-                this.cancelCurrentDownload = cancelDownload;
-                // OCDS §5.8: register under the destination too so a per-dest
-                // cancel reaches this single-stream run.
-                this.cancelByDest.set(filePath, cancelDownload);
-
-                response.on('data', (chunk) => {
-                  downloadedBytes += (chunk as Buffer).length;
-                  writeStream.write(chunk);
-
-                  // Emit progress
-                  const percent =
-                    totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : 0;
-                  this.getMainWindow()?.webContents.send(
-                    ipcMessageKeys.UPDATE_DOWNLOADING,
-                    {
-                      percent,
-                      transferred: downloadedBytes,
-                      total: totalBytes,
-                      bytesPerSecond: 0,
-                      delta: (chunk as Buffer).length,
-                    },
-                  );
-                  updateWindowProgressBar(this.getMainWindow(), percent);
-                });
-
-                response.on('end', () => {
-                  writeStream.end();
-                });
-
-                writeStream.on('finish', async () => {
-                  this.isDownloading = false;
-                  logger.info(
-                    'bundle-download-end',
-                    downloadedBytes,
-                    totalBytes,
-                    partialFilePath,
-                    filePath,
-                  );
-                  if (downloadedBytes >= totalBytes) {
-                    try {
-                      // Download complete, rename and verify
-                      fs.renameSync(partialFilePath, filePath);
-                      await this.verifyAndResolve(filePath, sha256);
-                      safeResolve({
-                        downloadedFile: filePath,
-                        downloadUrl: bundleUrl,
-                        latestVersion: appVersion,
-                        bundleVersion,
-                      });
-                    } catch (error) {
-                      safeReject(
-                        wrapDownloadError(error, 'Failed to finalize download'),
-                      );
-                    }
-                  } else {
-                    logger.error(
-                      'bundle-download',
-                      `Download incomplete: ${downloadedBytes}/${totalBytes} bytes`,
-                    );
-                    safeReject(new Error('Download incomplete'));
-                  }
-                  clearWindowProgressBar(this.getMainWindow());
-                });
-
-                writeStream.on('error', (error) => {
-                  logger.error('bundle-download writeStream error:', error);
-                  if (downloadRequest) {
-                    downloadRequest.destroy();
-                    downloadRequest = null;
-                  }
-                  this.isDownloading = false;
-                  this.cancelCurrentDownload = () => {};
-                  safeReject(wrapDownloadError(error, 'Write stream error'));
-                  clearWindowProgressBar(this.getMainWindow());
-                });
-
-                response.on('error', (error) => {
-                  logger.error(
-                    'bundle-download',
-                    'Response stream error:',
-                    error,
-                  );
-                  writeStream.destroy();
-                  downloadRequest = null;
-                  this.isDownloading = false;
-                  this.cancelCurrentDownload = () => {};
-                  safeReject(wrapDownloadError(error, 'Response stream error'));
-                  clearWindowProgressBar(this.getMainWindow());
-                });
-              },
-            );
-
-            downloadRequest.on('error', (error) => {
-              logger.error('bundle-download', 'Request error:', error);
-              downloadRequest = null;
-              this.cancelCurrentDownload = null;
-              this.isDownloading = false;
-              safeReject(wrapDownloadError(error, 'Request error'));
-            });
-
-            downloadRequest.setTimeout(1000 * 60 * 30, () => {
-              logger.error('bundle-download', 'Download timed out (30min)');
-              if (downloadRequest) {
-                downloadRequest.destroy();
-                downloadRequest = null;
-              }
-              this.isDownloading = false;
-              this.cancelCurrentDownload = null;
-              safeReject(new Error('Download timeout'));
-            });
-          };
-
-          makeDownloadRequest(bundleUrl, options);
-        } catch (setupError) {
-          logger.error('bundle-download', 'Setup error:', setupError);
-          safeReject(wrapDownloadError(setupError, 'Download setup error'));
-          clearWindowProgressBar(this.getMainWindow());
-        }
-      }, 0);
-    });
   }
 
   getBundleBuildPath({
@@ -1500,8 +478,10 @@ class DesktopApiAppBundleUpdate {
     appVersion: string;
     bundleVersion: string;
   }) {
-    const bundleDir = getBundleDirName();
-    return path.join(bundleDir, `${appVersion}-${bundleVersion}`, 'build');
+    return path.join(
+      getBundleExtractDir({ appVersion, bundleVersion }),
+      'build',
+    );
   }
 
   getMetadataFilePath({
@@ -1511,39 +491,51 @@ class DesktopApiAppBundleUpdate {
     appVersion: string;
     bundleVersion: string;
   }) {
-    const bundleDir = getBundleDirName();
     return path.join(
-      bundleDir,
-      `${appVersion}-${bundleVersion}`,
+      getBundleExtractDir({ appVersion, bundleVersion }),
       'metadata.json',
     );
   }
 
-  async verifyBundle(params: IUpdateDownloadedEvent) {
+  async verifyBundle(params: IUpdateOperationParams) {
+    try {
+      await this.verifyBundleInternal(params);
+    } catch (error) {
+      throw wrapBundleError(error, 'verifyPackage');
+    }
+  }
+
+  private async verifyBundleInternal(params: IUpdateOperationParams) {
     const {
-      downloadedFile,
       sha256,
       latestVersion: appVersion,
       bundleVersion,
       signature,
       skipGPGVerification,
     } = params || {};
+    assertUpdateBundleVersion(appVersion, 'verifyPackage');
+    assertUpdateBundleVersion(bundleVersion, 'verifyPackage');
     const allowSkipGPG = this.isSkipGPGAllowed(skipGPGVerification);
     if (
-      !downloadedFile ||
       !sha256 ||
       !appVersion ||
       !bundleVersion ||
       (!signature && !allowSkipGPG)
     ) {
-      throw new OneKeyLocalError('Invalid parameters');
+      throw createUpdateError({
+        code: EUpdateErrorCode.invalidArgument,
+        step: 'verifyPackage',
+      });
     }
     if (!allowSkipGPG) {
-      await verifyMetadataFileSha256({
-        appVersion,
-        bundleVersion,
-        signature: signature!,
-      });
+      await verifySignedMetadata(
+        {
+          appVersion,
+          bundleVersion,
+          signature: signature!,
+        },
+        'verifyPackage',
+      );
     }
   }
 
@@ -1552,39 +544,55 @@ class DesktopApiAppBundleUpdate {
    * This method validates the digital signature of the downloaded bundle
    * to ensure it comes from a trusted source and hasn't been tampered with
    *
-   * @param params - Bundle downloaded event containing file path and signature info
+   * @param params - Bundle release identity and signature info
    * @returns Promise that resolves when verification is complete
    */
-  async downloadBundleASC(params: IUpdateDownloadedEvent) {
+  async downloadBundleASC(params: IUpdateOperationParams) {
     const {
-      downloadedFile,
       sha256,
       latestVersion: appVersion,
       bundleVersion,
       signature,
       skipGPGVerification,
     } = params || {};
+    assertUpdateBundleVersion(appVersion, 'downloadASC');
+    assertUpdateBundleVersion(bundleVersion, 'downloadASC');
     const allowSkipGPG = this.isSkipGPGAllowed(skipGPGVerification);
     if (
-      !downloadedFile ||
       !sha256 ||
       !appVersion ||
       !bundleVersion ||
       (!signature && !allowSkipGPG)
     ) {
-      throw new OneKeyLocalError('Invalid parameters');
+      throw createUpdateError({
+        code: EUpdateErrorCode.invalidArgument,
+        step: 'downloadASC',
+      });
     }
   }
 
-  async verifyBundleASC(params: IUpdateDownloadedEvent) {
+  async verifyBundleASC(params: IUpdateOperationParams) {
+    try {
+      await this.verifyBundleASCInternal(params);
+    } catch (error) {
+      throw wrapBundleError(error, 'verifyASC');
+    }
+  }
+
+  private async verifyBundleASCInternal(params: IUpdateOperationParams) {
     const {
-      downloadedFile,
       sha256,
       latestVersion: appVersion,
       bundleVersion,
       signature,
       skipGPGVerification,
     } = params || {};
+    assertUpdateBundleVersion(appVersion, 'verifyASC');
+    assertUpdateBundleVersion(bundleVersion, 'verifyASC');
+    const downloadedFile = this.getDestZipPath({
+      latestVersion: appVersion,
+      bundleVersion,
+    });
     const allowSkipGPG = this.isSkipGPGAllowed(skipGPGVerification);
     if (
       !downloadedFile ||
@@ -1602,35 +610,119 @@ class DesktopApiAppBundleUpdate {
         skipGPGVerification,
         allowSkipGPG,
       });
-      throw new OneKeyLocalError('Invalid parameters');
+      throw createUpdateError({
+        code: EUpdateErrorCode.invalidArgument,
+        step: 'verifyASC',
+      });
+    }
+    if (fs.existsSync(downloadedFile)) {
+      const resolvedRoot = fs.realpathSync(this.getDownloadDir());
+      const resolvedFile = fs.realpathSync(downloadedFile);
+      if (!resolvedFile.startsWith(`${resolvedRoot}${path.sep}`)) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.securityRejected,
+          step: 'verifyASC',
+        });
+      }
+    }
+    if (!fs.existsSync(downloadedFile)) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'verifyASC',
+      });
     }
     if (!allowSkipGPG) {
       const isBundleVerified = verifySha256(downloadedFile, sha256);
       if (!isBundleVerified) {
-        // Promote the SHA256 subtype (FILE_NOT_FOUND / IO_<errno> /
-        // OOM / MISMATCH) into the thrown message so JS-side
-        // extractUpdateErrorCode splits this verifyASC bucket the same
-        // way the download stage does.
+        // Keep detailed SHA failures local; the bridge reports one fixed code.
         const reason = lastSHA256FailureReason() ?? 'MISMATCH';
         logger.error(
           'bundle-verifyASC',
           `SHA256 verification failed (reason=${reason})`,
         );
-        throw new OneKeyLocalError(
-          `Bundle SHA256 verification failed: ${reason}`,
-        );
+        let code = EUpdateErrorCode.storageError;
+        if (reason === 'FILE_NOT_FOUND') {
+          code = EUpdateErrorCode.packageMissing;
+        } else if (reason === 'MISMATCH' || reason === 'FILE_EMPTY') {
+          code = EUpdateErrorCode.integrityFailed;
+        }
+        throw createUpdateError({
+          code,
+          step: 'verifyASC',
+        });
+      }
+      try {
+        await readMetadataFileSha256(signature!, {
+          appVersion,
+          bundleVersion,
+        });
+      } catch (error) {
+        throw wrapSignedMetadataError(error, 'verifyASC');
       }
     }
     const extractDir = getBundleExtractDir({
       appVersion,
       bundleVersion,
     });
+    if (fs.lstatSync(extractDir, { throwIfNoEntry: false })?.isSymbolicLink()) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.securityRejected,
+        step: 'verifyASC',
+      });
+    }
+    const activeBundle = store.getUpdateBundleData();
+    const fallbackBundles = store.getFallbackUpdateBundleData();
+    const isInstalled =
+      (activeBundle?.appVersion === appVersion &&
+        activeBundle.bundleVersion === bundleVersion) ||
+      (Array.isArray(fallbackBundles) &&
+        fallbackBundles.some(
+          (entry) =>
+            entry?.appVersion === appVersion &&
+            entry.bundleVersion === bundleVersion,
+        ));
+    if (isInstalled) {
+      const metadataFilePath = this.getMetadataFilePath({
+        appVersion,
+        bundleVersion,
+      });
+      if (!allowSkipGPG) {
+        await verifySignedMetadata(
+          {
+            appVersion,
+            expectedAppVersion: appVersion,
+            bundleVersion,
+            signature: signature!,
+          },
+          'verifyASC',
+        );
+      }
+      const metadata = JSON.parse(
+        fs.readFileSync(metadataFilePath, 'utf8'),
+      ) as Record<string, string>;
+      this.verifyAllExtractedFiles(extractDir, metadata, extractDir);
+      return;
+    }
 
     try {
       const zip = new AdmZip(downloadedFile);
+      if (zip.getEntryCount() > MAX_BUNDLE_ENTRY_COUNT) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.securityRejected,
+          step: 'verifyASC',
+        });
+      }
+      const entries = zip.getEntries();
+      if (entries.length > MAX_BUNDLE_ENTRY_COUNT) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.securityRejected,
+          step: 'verifyASC',
+        });
+      }
       const resolvedExtractDir = path.resolve(extractDir);
-      // Validate all zip entries for path traversal before extraction
-      for (const entry of zip.getEntries()) {
+      let totalUncompressedBytes = 0;
+      // Validate all zip entries for path traversal and uncompressed size quotas before extraction
+      for (const entry of entries) {
         const entryPath = path.resolve(resolvedExtractDir, entry.entryName);
         if (
           !entryPath.startsWith(resolvedExtractDir + path.sep) &&
@@ -1640,10 +732,90 @@ class DesktopApiAppBundleUpdate {
             'bundle-verifyASC',
             `Path traversal detected in zip entry: ${entry.entryName}`,
           );
-          throw new OneKeyLocalError(
-            `Path traversal detected in zip entry: ${entry.entryName}`,
+          throw createUpdateError({
+            code: EUpdateErrorCode.securityRejected,
+            step: 'verifyASC',
+          });
+        }
+        const entrySize = entry.header.size;
+        const compressedSize = entry.header.compressedSize;
+        if (
+          !Number.isFinite(entrySize) ||
+          entrySize < 0 ||
+          entrySize > MAX_BUNDLE_UNCOMPRESSED_BYTES
+        ) {
+          throw createUpdateError({
+            code: EUpdateErrorCode.securityRejected,
+            step: 'verifyASC',
+          });
+        }
+        if (
+          !Number.isFinite(compressedSize) ||
+          compressedSize < 0 ||
+          compressedSize > MAX_BUNDLE_UNCOMPRESSED_BYTES
+        ) {
+          throw createUpdateError({
+            code: EUpdateErrorCode.securityRejected,
+            step: 'verifyASC',
+          });
+        }
+        // adm-zip does not cap inflation when the advertised size is zero.
+        if (!entry.isDirectory && entrySize === 0) {
+          const compressed = entry.getCompressedData();
+          const canonicalEmptyDeflate =
+            entry.header.method === 8 &&
+            compressed.length === 2 &&
+            compressed[0] === 0x03 &&
+            compressed[1] === 0x00;
+          const storedEmpty =
+            entry.header.method === 0 && compressed.length === 0;
+          if (!canonicalEmptyDeflate && !storedEmpty) {
+            throw createUpdateError({
+              code: EUpdateErrorCode.securityRejected,
+              step: 'verifyASC',
+            });
+          }
+        }
+        totalUncompressedBytes += entrySize;
+        if (totalUncompressedBytes > MAX_BUNDLE_UNCOMPRESSED_BYTES) {
+          throw createUpdateError({
+            code: EUpdateErrorCode.securityRejected,
+            step: 'verifyASC',
+          });
+        }
+      }
+      const metadataEntry = entries.find(
+        (e) =>
+          !e.isDirectory &&
+          e.entryName.replace(/\\/g, '/').replace(/^\.\//, '') ===
+            'metadata.json',
+      );
+      if (!metadataEntry || !(metadataEntry.header.size > 0)) {
+        throw createUpdateError({
+          code: EUpdateErrorCode.packageMissing,
+          step: 'verifyASC',
+        });
+      }
+      fs.rmSync(extractDir, { recursive: true, force: true });
+      if (!allowSkipGPG) {
+        if (typeof zip.extractEntryTo === 'function') {
+          zip.extractEntryTo(metadataEntry, extractDir, false, true);
+        } else if (typeof metadataEntry.getData === 'function') {
+          fs.mkdirSync(extractDir, { recursive: true });
+          fs.writeFileSync(
+            this.getMetadataFilePath({ appVersion, bundleVersion }),
+            metadataEntry.getData(),
           );
         }
+        await verifySignedMetadata(
+          {
+            appVersion,
+            expectedAppVersion: appVersion,
+            bundleVersion,
+            signature: signature!,
+          },
+          'verifyASC',
+        );
       }
       zip.extractAllTo(extractDir, true);
     } catch (error) {
@@ -1662,16 +834,23 @@ class DesktopApiAppBundleUpdate {
       });
       logger.info('bundle-verifyBundleASC', metadataFilePath, allowSkipGPG);
       if (!allowSkipGPG) {
-        await verifyMetadataFileSha256({
-          appVersion,
-          bundleVersion,
-          signature: signature!,
-        });
+        await verifySignedMetadata(
+          {
+            appVersion,
+            expectedAppVersion: appVersion,
+            bundleVersion,
+            signature: signature!,
+          },
+          'verifyASC',
+        );
       }
 
       // Verify all extracted files against metadata SHA256 hashes
       if (!fs.existsSync(metadataFilePath)) {
-        throw new OneKeyLocalError('metadata.json not found after extraction');
+        throw createUpdateError({
+          code: EUpdateErrorCode.packageMissing,
+          step: 'verifyASC',
+        });
       }
       const metadataContent = fs.readFileSync(metadataFilePath, 'utf8');
       const metadata = JSON.parse(metadataContent) as Record<string, string>;
@@ -1701,9 +880,10 @@ class DesktopApiAppBundleUpdate {
           'bundle-verify',
           `File listed in metadata but missing on disk: ${key}`,
         );
-        throw new OneKeyLocalError(
-          `File ${key} listed in metadata but missing on disk`,
-        );
+        throw createUpdateError({
+          code: EUpdateErrorCode.integrityFailed,
+          step: 'verifyPackage',
+        });
       }
     }
   }
@@ -1720,7 +900,10 @@ class DesktopApiAppBundleUpdate {
       // Security: Reject symbolic links to prevent symlink attacks
       if (entry.isSymbolicLink()) {
         logger.error('bundle-verify', `Symbolic link detected: ${entry.name}`);
-        throw new OneKeyLocalError(`Symbolic link detected: ${entry.name}`);
+        throw createUpdateError({
+          code: EUpdateErrorCode.securityRejected,
+          step: 'verifyPackage',
+        });
       }
       if (entry.isDirectory()) {
         this.walkAndVerifyFiles(fullPath, metadata, baseDir, verifiedFiles);
@@ -1737,16 +920,18 @@ class DesktopApiAppBundleUpdate {
             'bundle-verify',
             `File on disk not found in metadata: ${relativePath}`,
           );
-          throw new OneKeyLocalError(
-            `File ${relativePath} not found in metadata`,
-          );
+          throw createUpdateError({
+            code: EUpdateErrorCode.integrityFailed,
+            step: 'verifyPackage',
+          });
         }
         const isSha512Matched = checkFileSha512(fullPath, expectedSha512);
         if (!isSha512Matched) {
           logger.error('bundle-verify', `SHA512 mismatch for ${relativePath}`);
-          throw new OneKeyLocalError(
-            `SHA512 mismatch for file ${relativePath}`,
-          );
+          throw createUpdateError({
+            code: EUpdateErrorCode.integrityFailed,
+            step: 'verifyPackage',
+          });
         }
         verifiedFiles.add(relativePath);
       }
@@ -1935,13 +1120,27 @@ class DesktopApiAppBundleUpdate {
     appVersion: string,
     bundleVersion: string,
   ): Promise<void> {
+    try {
+      await this.verifyExtractedBundleInternal(appVersion, bundleVersion);
+    } catch (error) {
+      throw wrapBundleError(error, 'verifyPackage');
+    }
+  }
+
+  private async verifyExtractedBundleInternal(
+    appVersion: string,
+    bundleVersion: string,
+  ): Promise<void> {
     const extractDir = getBundleExtractDir({ appVersion, bundleVersion });
     if (!fs.existsSync(extractDir)) {
       logger.error(
         'bundle-verify',
         `verifyExtractedBundle: directory not found: ${extractDir}`,
       );
-      throw new OneKeyLocalError('Bundle directory not found');
+      throw createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'verifyPackage',
+      });
     }
     const metadataFilePath = path.join(extractDir, 'metadata.json');
     if (!fs.existsSync(metadataFilePath)) {
@@ -1949,20 +1148,33 @@ class DesktopApiAppBundleUpdate {
         'bundle-verify',
         `verifyExtractedBundle: metadata.json not found in ${extractDir}`,
       );
-      throw new OneKeyLocalError('metadata.json not found');
+      throw createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'verifyPackage',
+      });
     }
     const metadataContent = fs.readFileSync(metadataFilePath, 'utf8');
     const metadata = JSON.parse(metadataContent) as Record<string, string>;
     this.verifyAllExtractedFiles(extractDir, metadata, extractDir);
   }
 
-  async installBundle(params: IUpdateDownloadedEvent) {
+  async installBundle(params: IUpdateOperationParams) {
+    try {
+      await this.installBundleInternal(params);
+    } catch (error) {
+      throw wrapBundleError(error, 'install');
+    }
+  }
+
+  private async installBundleInternal(params: IUpdateOperationParams) {
     const {
       latestVersion: appVersion,
       bundleVersion,
       signature,
       skipGPGVerification,
     } = params || {};
+    assertUpdateBundleVersion(appVersion, 'install');
+    assertUpdateBundleVersion(bundleVersion, 'install');
     const allowSkipGPG = this.isSkipGPGAllowed(skipGPGVerification);
     if (!appVersion || !bundleVersion || (!signature && !allowSkipGPG)) {
       logger.error('bundle-install', 'Invalid parameters', {
@@ -1971,21 +1183,106 @@ class DesktopApiAppBundleUpdate {
         hasSignature: !!signature,
         allowSkipGPG,
       });
-      throw new OneKeyLocalError('Invalid parameters');
+      throw createUpdateError({
+        code: EUpdateErrorCode.invalidArgument,
+        step: 'install',
+      });
     }
-    const currentUpdateBundleData = store.getUpdateBundleData();
+    if (!semver.eq(appVersion, app.getVersion())) {
+      logger.error('bundle-install', 'Bundle appVersion mismatch', {
+        appVersion,
+        currentAppVersion: app.getVersion(),
+      });
+      throw createUpdateError({
+        code: EUpdateErrorCode.incompatible,
+        step: 'install',
+      });
+    }
+    const isValidStoredBundle = (
+      entry: IDesktopStoreUpdateBundleData | undefined,
+    ) => {
+      try {
+        assertSafeBundleVersion(entry?.appVersion);
+        assertSafeBundleVersion(entry?.bundleVersion);
+        return true;
+      } catch {
+        logger.warn('bundle-install', 'Discarding invalid stored bundle');
+        return false;
+      }
+    };
+    const storedCurrentBundle = store.getUpdateBundleData();
+    const currentUpdateBundleData =
+      storedCurrentBundle && isValidStoredBundle(storedCurrentBundle)
+        ? storedCurrentBundle
+        : undefined;
+    const storedFallbacks = store.getFallbackUpdateBundleData();
+    const fallbackUpdateBundleData = Array.isArray(storedFallbacks)
+      ? storedFallbacks.filter(
+          (entry) =>
+            isValidStoredBundle(entry) &&
+            !(
+              entry.appVersion === appVersion &&
+              entry.bundleVersion === bundleVersion
+            ) &&
+            !(
+              currentUpdateBundleData &&
+              entry.appVersion === currentUpdateBundleData.appVersion &&
+              entry.bundleVersion === currentUpdateBundleData.bundleVersion
+            ),
+        )
+      : [];
 
-    // Security: Verify bundle directory exists before updating store
+    // Security: Verify bundle directory and integrity before updating store
     const extractDir = getBundleExtractDir({ appVersion, bundleVersion });
     if (!fs.existsSync(extractDir)) {
       logger.error(
         'bundle-install',
         `Bundle directory not found: ${appVersion}-${bundleVersion}`,
       );
-      throw new OneKeyLocalError(
-        `Bundle directory not found: ${appVersion}-${bundleVersion}`,
+      throw createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'install',
+      });
+    }
+    const indexHtmlPath = path.join(extractDir, 'build', 'index.html');
+    if (!fs.existsSync(indexHtmlPath)) {
+      logger.error(
+        'bundle-install',
+        `Bundle index.html not found: ${indexHtmlPath}`,
+      );
+      throw createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'install',
+      });
+    }
+    const metadataFilePath = this.getMetadataFilePath({
+      appVersion,
+      bundleVersion,
+    });
+    if (!fs.existsSync(metadataFilePath)) {
+      logger.error(
+        'bundle-install',
+        `metadata.json not found in bundle: ${metadataFilePath}`,
+      );
+      throw createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'install',
+      });
+    }
+    if (!allowSkipGPG) {
+      await verifySignedMetadata(
+        {
+          appVersion,
+          expectedAppVersion: appVersion,
+          bundleVersion,
+          signature: signature!,
+        },
+        'install',
       );
     }
+    const metadataContent = fs.readFileSync(metadataFilePath, 'utf8');
+    const metadata = JSON.parse(metadataContent) as Record<string, string>;
+    this.verifyAllExtractedFiles(extractDir, metadata, extractDir);
 
     store.setUpdateBundleData({
       appVersion,
@@ -2004,22 +1301,27 @@ class DesktopApiAppBundleUpdate {
       nativeVersion: app.getVersion(),
       buildNumber,
     });
-    const fallbackUpdateBundleData = store.getFallbackUpdateBundleData();
     if (
       currentUpdateBundleData &&
       currentUpdateBundleData.appVersion &&
       currentUpdateBundleData.bundleVersion &&
-      currentUpdateBundleData.signature
+      currentUpdateBundleData.signature &&
+      (currentUpdateBundleData.appVersion !== appVersion ||
+        currentUpdateBundleData.bundleVersion !== bundleVersion)
     ) {
       fallbackUpdateBundleData.push(currentUpdateBundleData);
     }
 
     if (fallbackUpdateBundleData.length > 3) {
       const shiftUpdateBundleData = fallbackUpdateBundleData.shift();
-      if (shiftUpdateBundleData) {
-        const dirName = `${shiftUpdateBundleData.appVersion}-${shiftUpdateBundleData.bundleVersion}`;
-        const bundleDir = getBundleDirName();
-        const bundleDirPath = path.join(bundleDir, dirName);
+      if (
+        shiftUpdateBundleData &&
+        !(
+          shiftUpdateBundleData.appVersion === appVersion &&
+          shiftUpdateBundleData.bundleVersion === bundleVersion
+        )
+      ) {
+        const bundleDirPath = getBundleExtractDir(shiftUpdateBundleData);
         if (fs.existsSync(bundleDirPath)) {
           fs.rmSync(bundleDirPath, { recursive: true, force: true });
         }
@@ -2031,25 +1333,30 @@ class DesktopApiAppBundleUpdate {
   }
 
   async clearDownload() {
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        // OCDS §5.8: stop in-flight work first, then delete artifacts, so a
-        // still-running task cannot resurrect a just-deleted file. Fire every
-        // per-dest cancel (plus the legacy global one) before wiping the dir.
-        this.cancelCurrentDownload?.();
-        for (const cancel of this.cancelByDest.values()) {
-          try {
-            cancel();
-          } catch {
-            // ignore
-          }
-        }
-        this.cancelByDest.clear();
-        const downloadDir = this.getDownloadDir();
-        fs.rmSync(downloadDir, { recursive: true, force: true });
-        resolve();
-      }, 100);
-    });
+    try {
+      await this.clearDownloadInternal();
+    } catch (error) {
+      throw wrapBundleError(error, 'cleanup');
+    }
+  }
+
+  private async clearDownloadInternal() {
+    if (this.cacheClearPromise) return this.cacheClearPromise;
+    // Publish the barrier before cancellation callbacks can start another run.
+    const clear = Promise.resolve()
+      .then(async () => {
+        for (const cancel of this.cancelByDest.values()) cancel();
+        await Promise.allSettled(
+          [...this.inflightDownloads.values()].map(({ run }) => run),
+        );
+        fs.rmSync(this.getDownloadDir(), { recursive: true, force: true });
+      })
+      .finally(() => {
+        if (this.cacheClearPromise === clear)
+          this.cacheClearPromise = undefined;
+      });
+    this.cacheClearPromise = clear;
+    return clear;
   }
 
   async getFallbackUpdateBundleData() {
@@ -2059,8 +1366,75 @@ class DesktopApiAppBundleUpdate {
   async setCurrentUpdateBundleData(
     updateBundleData: IDesktopStoreUpdateBundleData,
   ) {
+    try {
+      await this.setCurrentUpdateBundleDataInternal(updateBundleData);
+    } catch (error) {
+      throw wrapBundleError(error, 'install');
+    }
+  }
+
+  private async setCurrentUpdateBundleDataInternal(
+    updateBundleData: IDesktopStoreUpdateBundleData,
+  ) {
+    const { appVersion, bundleVersion, signature } = updateBundleData || {};
+    assertUpdateBundleVersion(appVersion, 'install');
+    assertUpdateBundleVersion(bundleVersion, 'install');
+    if (!semver.valid(appVersion) || !semver.eq(appVersion, app.getVersion())) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.incompatible,
+        step: 'install',
+      });
+    }
+    const allowSkipGPG = this.isSkipGPGAllowed(false);
+    if (!allowSkipGPG && !signature) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.invalidArgument,
+        step: 'install',
+      });
+    }
+    const extractDir = getBundleExtractDir({ appVersion, bundleVersion });
+    if (!fs.existsSync(extractDir)) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'install',
+      });
+    }
+    const indexHtmlPath = path.join(extractDir, 'build', 'index.html');
+    if (!fs.existsSync(indexHtmlPath)) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'install',
+      });
+    }
+    const metadataFilePath = this.getMetadataFilePath({
+      appVersion,
+      bundleVersion,
+    });
+    if (!fs.existsSync(metadataFilePath)) {
+      throw createUpdateError({
+        code: EUpdateErrorCode.packageMissing,
+        step: 'install',
+      });
+    }
+    if (!allowSkipGPG) {
+      await verifySignedMetadata(
+        {
+          appVersion,
+          expectedAppVersion: appVersion,
+          bundleVersion,
+          signature: signature!,
+        },
+        'install',
+      );
+    }
+    const metadataContent = fs.readFileSync(metadataFilePath, 'utf8');
+    const metadata = JSON.parse(metadataContent) as Record<string, string>;
+    this.verifyAllExtractedFiles(extractDir, metadata, extractDir);
+
     store.setUpdateBundleData(updateBundleData);
-    if (updateBundleData.appVersion && updateBundleData.bundleVersion) {
+    store.setNativeVersion(app.getVersion());
+    store.setNativeBuildNumber(process.env.BUILD_NUMBER ?? '');
+    if (appVersion && bundleVersion) {
       await this.restartAppForBundleUpdate();
     }
   }
@@ -2085,10 +1459,14 @@ class DesktopApiAppBundleUpdate {
   }
 
   async resetToBuiltInBundle() {
-    store.clearUpdateBundleData();
-    logger.info(
-      'resetToBuiltInBundle: cleared update bundle data, app will use built-in bundle on next restart',
-    );
+    try {
+      store.clearUpdateBundleData();
+      logger.info(
+        'resetToBuiltInBundle: cleared update bundle data, app will use built-in bundle on next restart',
+      );
+    } catch (error) {
+      throw wrapBundleError(error, 'cleanup');
+    }
   }
 
   // Single choke point for "restart the app to load the just-written bundle".
@@ -2142,24 +1520,41 @@ class DesktopApiAppBundleUpdate {
   }
 
   async clearAllJSBundleData() {
-    await this.clearDownload();
-    await this.clearBundleExtract();
-    store.clearUpdateBundleData();
-    return new Promise<{ success: boolean; message: string }>((resolve) => {
-      setTimeout(() => {
-        resolve({
-          success: true,
-          message: 'Successfully cleared all JS bundle data',
-        });
-      }, 300);
-    });
+    try {
+      await this.clearDownload();
+      await this.clearBundleExtract();
+      store.clearUpdateBundleData();
+      return await new Promise<{ success: boolean; message: string }>(
+        (resolve) => {
+          setTimeout(() => {
+            resolve({
+              success: true,
+              message: 'Successfully cleared all JS bundle data',
+            });
+          }, 300);
+        },
+      );
+    } catch (error) {
+      throw wrapBundleError(error, 'cleanup');
+    }
+  }
+
+  private assertDevelopmentBuild() {
+    if (process.env.NODE_ENV === 'production') {
+      throw createUpdateError({
+        code: EUpdateErrorCode.invalidArgument,
+        step: 'verifyASC',
+      });
+    }
   }
 
   async testVerification() {
+    this.assertDevelopmentBuild();
     return testExtractedSha256FromVerifyAscFile();
   }
 
   async testSkipVerification() {
+    this.assertDevelopmentBuild();
     const skipGPGVerification = true;
     return Promise.resolve(this.isSkipGPGAllowed(skipGPGVerification));
   }
@@ -2176,6 +1571,7 @@ class DesktopApiAppBundleUpdate {
    * @param bundleVersion - Bundle version
    */
   async testDeleteJsBundle(appVersion: string, bundleVersion: string) {
+    this.assertDevelopmentBuild();
     try {
       const bundleDir = getBundleExtractDir({ appVersion, bundleVersion });
       const mainIndexHtmlPath = path.join(bundleDir, 'index.html');
@@ -2216,6 +1612,7 @@ class DesktopApiAppBundleUpdate {
    * @param bundleVersion - Bundle version
    */
   async testDeleteJsRuntimeDir(appVersion: string, bundleVersion: string) {
+    this.assertDevelopmentBuild();
     try {
       const bundleDir = getBundleExtractDir({ appVersion, bundleVersion });
 
@@ -2255,6 +1652,7 @@ class DesktopApiAppBundleUpdate {
    * @param bundleVersion - Bundle version
    */
   async testDeleteMetadataJson(appVersion: string, bundleVersion: string) {
+    this.assertDevelopmentBuild();
     try {
       const metadataFilePath = this.getMetadataFilePath({
         appVersion,
@@ -2297,6 +1695,7 @@ class DesktopApiAppBundleUpdate {
    * @param bundleVersion - Bundle version
    */
   async testWriteEmptyMetadataJson(appVersion: string, bundleVersion: string) {
+    this.assertDevelopmentBuild();
     try {
       const bundleDir = getBundleExtractDir({ appVersion, bundleVersion });
       const metadataFilePath = path.join(bundleDir, 'metadata.json');
@@ -2353,6 +1752,7 @@ class DesktopApiAppBundleUpdate {
   }
 
   async getSha256FromFilePath(filePath: string) {
+    this.assertDevelopmentBuild();
     return calculateSHA256(filePath);
   }
 }

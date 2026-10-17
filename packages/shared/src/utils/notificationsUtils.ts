@@ -484,7 +484,7 @@ export function parseNotificationPayload(
         return false;
       }
     case ENotificationPushMessageMode.openInBrowser:
-      if (!payload) {
+      if (!payload || !/^https?:\/\//i.test(payload.trim())) {
         return false;
       }
       // The push protocol's openInBrowser mode promises the OS browser;
@@ -559,6 +559,12 @@ export function parseNotificationPayload(
       }
     case ENotificationPushMessageMode.openInDapp:
       if (!payload) {
+        return false;
+      }
+      if (!isAllowedWebViewUrl(payload)) {
+        defaultLogger.app.error.log(
+          'parseNotificationPayload: blocked unsafe url in openInDapp',
+        );
         return false;
       }
       appEventBus.emit(EAppEventBusNames.ShowNotificationInDappPage, payload);

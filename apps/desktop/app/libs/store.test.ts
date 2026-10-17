@@ -200,26 +200,38 @@ describe('desktop store file boundaries', () => {
     }
   });
 
-  it('routes generic IPC reads, writes, deletes and clears across the files', async () => {
+  it('limits IPC to instance backup and resets all dedicated configuration stores', async () => {
     const api = new DesktopApiStorage({ desktopApi: {} as IDesktopApi });
+    const backup = {
+      instanceId: 'fixture',
+      sensitiveEncodeKey: 'fixture',
+      instanceIdBackup: undefined,
+    };
+    store.setUpdateBuildNumber('test-build');
+    store.recordGPUCrash();
+    store.setTheme('dark');
     await api.storeSetItemAsync(
-      EDesktopStoreKeys.UpdateBuildNumber,
-      'test-build',
+      EDesktopStoreKeys.AppInstanceMetaBackup,
+      backup,
     );
-    await api.storeSetItemAsync(EDesktopStoreKeys.GPUCrashCount, 3);
-    await api.storeSetItemAsync(EDesktopStoreKeys.Theme, 'dark');
     expect(updates.data.get(EDesktopStoreKeys.UpdateBuildNumber)).toBe(
       'test-build',
     );
-    expect(runtime.data.get(EDesktopStoreKeys.GPUCrashCount)).toBe(3);
+    expect(runtime.data.get(EDesktopStoreKeys.GPUCrashCount)).toBe(1);
     expect(preferences.data.get(EDesktopStoreKeys.Theme)).toBe('dark');
-    expect(preferences.data.has(EDesktopStoreKeys.GPUCrashCount)).toBe(false);
-    expect(await api.storeGetItemAsync(EDesktopStoreKeys.GPUCrashCount)).toBe(
-      3,
+    expect(
+      await api.storeGetItemAsync(EDesktopStoreKeys.AppInstanceMetaBackup),
+    ).toEqual(backup);
+    await expect(
+      Reflect.apply(api.storeGetItemAsync.bind(api), api, [
+        EDesktopStoreKeys.GPUCrashCount,
+      ]),
+    ).rejects.toThrow('not allowed');
+    await api.storeDelItemAsync(EDesktopStoreKeys.AppInstanceMetaBackup);
+    expect(preferences.data.has(EDesktopStoreKeys.AppInstanceMetaBackup)).toBe(
+      false,
     );
-    await api.storeDelItemAsync(EDesktopStoreKeys.UpdateBuildNumber);
-    expect(updates.data.has(EDesktopStoreKeys.UpdateBuildNumber)).toBe(false);
-    await api.storeClear();
+    await api.resetAppConfiguration();
     expect(preferences.data.size).toBe(0);
     expect(updates.data.size).toBe(0);
     expect(runtime.data.size).toBe(0);
