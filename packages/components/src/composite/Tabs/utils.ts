@@ -1,6 +1,10 @@
 export const startViewTransition = (fn: () => void) => {
   if (typeof document !== 'undefined' && document.startViewTransition) {
-    document.startViewTransition(fn);
+    void document.startViewTransition(fn).ready.catch((error: DOMException) => {
+      if (!['AbortError', 'InvalidStateError'].includes(error.name)) {
+        throw error;
+      }
+    });
   } else {
     fn();
   }
