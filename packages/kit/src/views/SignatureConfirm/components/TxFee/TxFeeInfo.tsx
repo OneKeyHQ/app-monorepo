@@ -56,6 +56,7 @@ import {
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { SignatureConfirmTestIDs } from '@onekeyhq/kit/src/views/SignatureConfirm/testIDs';
+import { applyEvmThorSwapGasLimit } from '@onekeyhq/kit/src/views/Swap/utils/swapGasUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
@@ -1582,7 +1583,7 @@ function TxFeeInfo(props: IProps) {
 
       const baseSelectedFeeInfo = selectedFeeInfo ?? selectedFeeInfos[0];
 
-      const txFeeInfo = {
+      let txFeeInfo = {
         ...baseSelectedFeeInfo,
         gas: baseSelectedFeeInfo.gas
           ? {
@@ -1603,6 +1604,14 @@ function TxFeeInfo(props: IProps) {
             }
           : undefined,
       };
+      if (!isMultiTxs) {
+        txFeeInfo = applyEvmThorSwapGasLimit({
+          networkId,
+          buildTx: unsignedTx.swapInfo?.swapBuildResData,
+          gasInfo: txFeeInfo,
+          isSponsored: isPayerManagedByService,
+        });
+      }
 
       const feeResult = calculateFeeForSend({
         feeInfo: txFeeInfo,
@@ -1697,8 +1706,10 @@ function TxFeeInfo(props: IProps) {
     feeSelectorItems,
     isLastSwapTxWithFeeInfo,
     isMultiTxs,
+    isPayerManagedByService,
     isSecondApproveTxWithFeeInfo,
     multiTxsFeeSelectorItems,
+    networkId,
     sendSelectedFee.feeType,
     sendSelectedFee.presetIndex,
     txFeeCommon?.nativeTokenPrice,

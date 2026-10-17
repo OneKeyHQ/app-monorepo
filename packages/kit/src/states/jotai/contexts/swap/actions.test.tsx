@@ -40,6 +40,7 @@ import type {
   IFetchQuotesParams,
   ISwapNetwork,
   ISwapQuoteEvent,
+  ISwapQuoteEventPayload,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -116,9 +117,7 @@ type IFetchSwapTokenDetailsParams = {
 type ISwapAddressInfo = ReturnType<typeof useSwapAddressInfo>;
 
 const mockFetchSwapTokenDetails: jest.MockedFunction<
-  (
-    params: IFetchSwapTokenDetailsParams,
-  ) => Promise<{ balanceParsed?: string; price?: string; fiatValue?: string }[]>
+  (params: IFetchSwapTokenDetailsParams) => Promise<Partial<ISwapToken>[]>
 > = jest.fn();
 const mockGetNativeTokenAddress = jest.fn<
   Promise<string>,
@@ -503,6 +502,7 @@ describe('useSwapActions', () => {
     mockCancelFetchQuoteEvents.mockResolvedValue(undefined);
     mockCheckAccountNetworkNotSupported.mockResolvedValue(false);
     mockFetchQuotesEvents.mockResolvedValue(undefined);
+    mockFetchSwapTokenDetails.mockResolvedValue([]);
     mockFetchSwapTokens.mockResolvedValue([]);
     mockFetchMarketTokenListBatch.mockResolvedValue({ list: [] });
     mockGetSupportSwapAllAccounts.mockResolvedValue({
@@ -520,6 +520,332 @@ describe('useSwapActions', () => {
 
   afterEach(() => {
     platformEnv.isNative = false;
+  });
+
+  describe('quote token price refresh', () => {
+    const fromToken = {
+      ...ethToken,
+      price: '119',
+      currency: 'usd',
+      balanceParsed: '5',
+      accountAddress: 'balance-owner',
+    };
+    const toToken = { ...usdcToken, price: '2', currency: 'cny' };
+    const protocols = {
+      [ESwapTabSwitchType.SWAP]: EProtocolOfExchange.SWAP,
+      [ESwapTabSwitchType.BRIDGE]: EProtocolOfExchange.SWAP,
+      [ESwapTabSwitchType.LIMIT]: EProtocolOfExchange.LIMIT,
+      [ESwapTabSwitchType.STOCK]: EProtocolOfExchange.STOCK,
+      [ESwapTabSwitchType.PRIVATE_SEND]: EProtocolOfExchange.PRIVATE_SEND,
+    };
+
+    function prepare({
+      swapType = ESwapTabSwitchType.SWAP,
+      source,
+    }: {
+      swapType?: ESwapTabSwitchType;
+      source?: ESwapQuoteSource;
+    } = {}) {
+      const { store, Wrapper } = createWrapperWithStore((currentStore) => {
+        currentStore.set(swapTypeSwitchAtom(), swapType);
+        currentStore.set(swapSelectFromTokenAtom(), fromToken);
+        currentStore.set(swapSelectToTokenAtom(), toToken);
+        currentStore.set(swapFromTokenAmountAtom(), {
+          value: '1',
+          isInput: true,
+        });
+        currentStore.set(swapQuoteActionLockAtom(), {
+          actionLock: true,
+          quoteRequestId: 'price-refresh-request',
+          type: swapType,
+          source,
+          fromToken,
+          toToken,
+          fromTokenAmount: '1',
+        });
+      });
+      const { result } = renderHook(() => useSwapActions().current, {
+        wrapper: Wrapper,
+      });
+      const publish = (type: ISwapQuoteEventPayload['type'], data?: object) => {
+        result.current.quoteEventHandler({
+          type,
+          event: {
+            type,
+            ...(data ? { data: JSON.stringify(data) } : {}),
+          } as ISwapQuoteEvent,
+          quoteRequestId: 'price-refresh-request',
+          tokenPairs: { fromToken, toToken },
+          params: {
+            source,
+            protocol: protocols[swapType],
+            fromNetworkId: fromToken.networkId,
+            fromTokenAddress: fromToken.contractAddress,
+            toNetworkId: toToken.networkId,
+            toTokenAddress: toToken.contractAddress,
+            fromTokenAmount: '1',
+            slippagePercentage: 0.5,
+          },
+        });
+      };
+      return { store, publish, actions: result.current };
+    }
+
+    it('keeps a refreshed price when an older balance request finishes later', async () => {
+      const pendingBalance = createDeferred<Partial<ISwapToken>[]>();
+      mockFetchSwapTokenDetails.mockImplementation(async (params) => {
+        if (params.direction) return pendingBalance.promise;
+        return [
+          {
+            networkId: params.networkId,
+            contractAddress: params.contractAddress,
+            price: '104',
+          },
+        ];
+      });
+      const { store, publish, actions } = prepare();
+      let balanceRequest: Promise<void> | undefined;
+      await act(async () => {
+        balanceRequest = actions.loadSwapSelectTokenDetail(
+          ESwapDirectionType.FROM,
+          fromAddressInfo,
+          true,
+        );
+      });
+      await waitFor(() =>
+        expect(mockFetchSwapTokenDetails).toHaveBeenCalledWith(
+          expect.objectContaining({ direction: ESwapDirectionType.FROM }),
+        ),
+      );
+      await act(async () => {
+        publish('done');
+      });
+      expect(store.get(swapSelectFromTokenAtom())?.price).toBe('104');
+      await act(async () => {
+        pendingBalance.resolve([
+          { ...fromToken, balanceParsed: '8', price: '119', fiatValue: '952' },
+        ]);
+        await balanceRequest;
+      });
+      expect(store.get(swapSelectFromTokenAtom())).toMatchObject({
+        price: '104',
+        currency: 'usd',
+        balanceParsed: '8',
+      });
+      expect(store.get(swapSelectFromTokenAtom())?.fiatValue).toBeUndefined();
+      expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('8');
+    });
+
+    it.each(['', 'native-canonical-address'])(
+      'accepts a native detail returned with address %s',
+      async (responseAddress) => {
+        mockGetNativeTokenAddress.mockResolvedValue('native-canonical-address');
+        mockFetchSwapTokenDetails.mockImplementation(
+          async ({ networkId, contractAddress }) => [
+            {
+              networkId,
+              contractAddress:
+                networkId === fromToken.networkId
+                  ? responseAddress
+                  : contractAddress,
+              price: '104',
+            },
+          ],
+        );
+        const { store, publish } = prepare();
+        await act(async () => {
+          publish('done');
+        });
+        expect(mockFetchSwapTokenDetails).toHaveBeenCalledWith({
+          networkId: fromToken.networkId,
+          contractAddress: 'native-canonical-address',
+          currency: 'usd',
+        });
+        expect(store.get(swapSelectFromTokenAtom())?.price).toBe('104');
+      },
+    );
+
+    it('ignores mismatched token details and keeps unchanged prices referentially stable', async () => {
+      mockFetchSwapTokenDetails.mockImplementation(
+        async ({ networkId, contractAddress }) => [
+          {
+            networkId,
+            contractAddress:
+              networkId === fromToken.networkId
+                ? contractAddress
+                : 'another-token',
+            price: fromToken.price,
+          },
+        ],
+      );
+      const { store, publish } = prepare();
+      await act(async () => {
+        publish('done');
+      });
+      expect(store.get(swapSelectFromTokenAtom())).toBe(fromToken);
+      expect(store.get(swapSelectToTokenAtom())).toBe(toToken);
+    });
+
+    it.each([
+      ['done', undefined],
+      ['error', undefined],
+      ['close', undefined],
+      ['message', { totalQuoteCount: 0, eventId: 'empty-event' }],
+      ['message', { errorMessage: 'No route', eventId: 'error-event' }],
+    ] as const)(
+      'refreshes both prices once after %s %j',
+      async (type, data) => {
+        mockFetchSwapTokenDetails.mockImplementation(
+          async ({ networkId, contractAddress }) => [
+            {
+              networkId,
+              contractAddress,
+              price: networkId === fromToken.networkId ? '104' : '1',
+              balanceParsed: '999',
+              accountAddress: 'other-owner',
+            },
+          ],
+        );
+        const { store, publish } = prepare();
+        await act(async () => {
+          publish(type, data);
+        });
+        expect(
+          mockFetchSwapTokenDetails.mock.calls.map(([params]) => params),
+        ).toEqual(
+          expect.arrayContaining([
+            {
+              networkId: fromToken.networkId,
+              contractAddress: fromToken.contractAddress,
+              currency: 'usd',
+            },
+            {
+              networkId: toToken.networkId,
+              contractAddress: toToken.contractAddress,
+              currency: 'usd',
+            },
+          ]),
+        );
+        expect(mockFetchSwapTokenDetails).toHaveBeenCalledTimes(2);
+        expect(store.get(swapSelectFromTokenAtom())).toEqual({
+          ...fromToken,
+          price: '104',
+        });
+        expect(store.get(swapSelectToTokenAtom())).toEqual({
+          ...toToken,
+          price: '1',
+          currency: 'usd',
+        });
+        expect(store.get(swapFromTokenAmountAtom())).toEqual({
+          value: '1',
+          isInput: true,
+        });
+        expect(mockFetchQuotesEvents).not.toHaveBeenCalled();
+        await act(async () => {
+          publish('done');
+          publish('close');
+        });
+        expect(mockFetchSwapTokenDetails).toHaveBeenCalledTimes(2);
+      },
+    );
+
+    it('waits for the round to finish and refreshes even at the automatic refresh limit', async () => {
+      const { store, publish } = prepare();
+      await act(async () => {
+        publish('message', { totalQuoteCount: 2, eventId: 'active-event' });
+      });
+      expect(mockFetchSwapTokenDetails).not.toHaveBeenCalled();
+      store.set(swapQuoteIntervalCountAtom(), swapQuoteIntervalMaxCount);
+      await act(async () => {
+        publish('done');
+      });
+      expect(mockFetchSwapTokenDetails).toHaveBeenCalledTimes(2);
+      expect(store.get(swapShouldRefreshQuoteAtom())).toBe(true);
+    });
+
+    it.each(['next quote', 'token', 'tab', 'reset'] as const)(
+      'ignores prices superseded by %s',
+      async (change) => {
+        const pending = createDeferred<Partial<ISwapToken>[]>();
+        mockFetchSwapTokenDetails.mockReturnValue(pending.promise);
+        const { store, publish } = prepare();
+        await act(async () => {
+          publish('done');
+        });
+        expect(mockFetchSwapTokenDetails).toHaveBeenCalledTimes(2);
+        act(() => {
+          if (change === 'next quote')
+            store.set(swapQuoteActionLockAtom(), (previous) => ({
+              ...previous,
+              quoteRequestId: 'next-request',
+            }));
+          if (change === 'token') store.set(swapSelectToTokenAtom(), usdtToken);
+          if (change === 'tab')
+            store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+          if (change === 'reset')
+            store.set(swapQuoteEventCompletedAtom(), false);
+        });
+        await act(async () => {
+          pending.resolve([
+            { ...fromToken, price: '200' },
+            { ...toToken, price: '300' },
+          ]);
+        });
+        expect(store.get(swapSelectFromTokenAtom())).toBe(fromToken);
+        expect(store.get(swapSelectToTokenAtom())).toBe(
+          change === 'token' ? usdtToken : toToken,
+        );
+      },
+    );
+
+    it.each(['0', '-1', 'NaN', 'Infinity', ''])(
+      'retains an invalid %s price while refreshing the other side',
+      async (price) => {
+        mockFetchSwapTokenDetails.mockImplementation(
+          async ({ networkId, contractAddress }) => [
+            {
+              networkId,
+              contractAddress,
+              price: networkId === fromToken.networkId ? price : '1',
+            },
+          ],
+        );
+        const { store, publish } = prepare();
+        await act(async () => {
+          publish('done');
+        });
+        expect(store.get(swapSelectFromTokenAtom())).toBe(fromToken);
+        expect(store.get(swapSelectToTokenAtom())?.price).toBe('1');
+      },
+    );
+
+    it('isolates a failed price request from the successful side', async () => {
+      mockFetchSwapTokenDetails.mockImplementation(async ({ networkId }) => {
+        if (networkId === fromToken.networkId) {
+          throw new OneKeyLocalError('Price unavailable');
+        }
+        return [{ ...toToken, price: '1' }];
+      });
+      const { store, publish } = prepare();
+      await act(async () => {
+        publish('done');
+      });
+      expect(store.get(swapSelectFromTokenAtom())).toBe(fromToken);
+      expect(store.get(swapSelectToTokenAtom())?.price).toBe('1');
+    });
+
+    it.each([
+      { swapType: ESwapTabSwitchType.STOCK },
+      { swapType: ESwapTabSwitchType.LIMIT },
+      { swapType: ESwapTabSwitchType.PRIVATE_SEND },
+      { source: ESwapQuoteSource.MARKET },
+    ])('preserves independent price owners for %j', async (options) => {
+      const { publish } = prepare(options);
+      await act(async () => {
+        publish('done');
+      });
+      expect(mockFetchSwapTokenDetails).not.toHaveBeenCalled();
+    });
   });
 
   it('quotes Swap Pro market orders through the standard Swap event endpoint', async () => {
