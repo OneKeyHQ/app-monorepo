@@ -240,6 +240,39 @@ it('keeps an unanswered selection open when the same request is republished (e.g
   expect(showThirdPartyDeviceSelectionDialog).toHaveBeenCalledTimes(2);
 });
 
+it('opens the next selection after the user cancels one', async () => {
+  mockUiState = selectionState(EHardwareVendor.ledger);
+  const view = render(<ThirdPartyHardwareUiStateContainer />);
+  await flush();
+  expect(showThirdPartyDeviceSelectionDialog).toHaveBeenCalledTimes(1);
+
+  const [{ onClose }] = jest.mocked(showThirdPartyDeviceSelectionDialog).mock
+    .calls[0];
+  await act(async () => {
+    await onClose?.();
+  });
+  publishState(undefined);
+  view.rerender(<ThirdPartyHardwareUiStateContainer />);
+  await flush();
+
+  const next = selectionState(EHardwareVendor.ledger);
+  publishState({
+    ...next,
+    uiRequestId: 'ui-selection-2',
+    payload: {
+      ...next.payload,
+      deviceSelection: {
+        ...next.payload?.deviceSelection,
+        requestId: 'sdk-selection-2',
+      },
+    },
+  } as IThirdPartyHardwareUiState);
+  view.rerender(<ThirdPartyHardwareUiStateContainer />);
+  await flush();
+
+  expect(showThirdPartyDeviceSelectionDialog).toHaveBeenCalledTimes(2);
+});
+
 it('waits before opening the Keystone scanner', async () => {
   mockUiState = qrState(false);
   const release = holdExit();

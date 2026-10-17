@@ -921,6 +921,8 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     const localDialogRef: { current: IDialogInstance | null } = {
       current: null,
     };
+    // onClose clears localDialogRef, so cleanup releases the shared ref by the dialog it opened.
+    let openedDialog: IDialogInstance | null = null;
     const callbacks = createThirdPartyDeviceSelectionDialogCallbacks({
       vendor,
       requestId: selection?.requestId,
@@ -948,17 +950,20 @@ function ThirdPartyHardwareUiStateContainerCmp() {
       });
       thirdPartyDeviceSelectionDialogInstanceRef.current = instance;
       localDialogRef.current = instance;
+      openedDialog = instance;
     })();
     return () => {
       const unansweredRequestId = settledRef.current
         ? undefined
         : selection?.requestId;
       settledRef.current = true;
-      const instance = localDialogRef.current;
-      if (thirdPartyDeviceSelectionDialogInstanceRef.current === instance) {
+      if (
+        openedDialog &&
+        thirdPartyDeviceSelectionDialogInstanceRef.current === openedDialog
+      ) {
         thirdPartyDeviceSelectionDialogInstanceRef.current = null;
       }
-      void instance?.close();
+      void localDialogRef.current?.close();
       // Replaced by another request: answer now so the SDK does not wait out its timeout. A
       // re-render of the same request (e.g. a language change) reopens it instead.
       if (
