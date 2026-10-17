@@ -104,6 +104,10 @@ const PORTFOLIO_NATIVE_TOKEN_CONTRACT_NETWORK_IMPLS = new Set(['aptos', 'sui']);
 const PORTFOLIO_TOKEN_LIMIT = 5;
 // Firmware uses char symbol[16], reserving one byte for the trailing null.
 const PORTFOLIO_TOKEN_SYMBOL_MAX_BYTES = 15;
+// Firmware uses char name[48], reserving one byte for the trailing null.
+const PORTFOLIO_TOKEN_NAME_MAX_BYTES = 47;
+// Firmware uses char account_label[48], reserving one byte for the trailing null.
+const PORTFOLIO_ACCOUNT_LABEL_MAX_BYTES = 47;
 // Token symbols must not carry contact details, URLs, or advertising copy.
 const PORTFOLIO_ADVERTISING_SYMBOL_PATTERN = /[\s@]|:\/\/|www\./iu;
 const PORTFOLIO_PERCENTAGE_DECIMAL_PLACES = 2;
@@ -141,20 +145,29 @@ function isPortfolioFirmwareFontSupported(value: string): boolean {
   });
 }
 
-function truncatePortfolioTokenSymbol(value: string): string {
+function truncatePortfolioTokenText(
+  value: string,
+  maxBytes: number,
+  suffix = '',
+): string {
+  if (Buffer.byteLength(value, 'utf8') <= maxBytes) {
+    return value;
+  }
+
+  const contentMaxBytes = maxBytes - Buffer.byteLength(suffix, 'utf8');
   let bytesLength = 0;
   let result = '';
 
   for (const character of value) {
     const characterBytesLength = Buffer.byteLength(character, 'utf8');
-    if (bytesLength + characterBytesLength > PORTFOLIO_TOKEN_SYMBOL_MAX_BYTES) {
+    if (bytesLength + characterBytesLength > contentMaxBytes) {
       break;
     }
     result += character;
     bytesLength += characterBytesLength;
   }
 
-  return result;
+  return `${result}${suffix}`;
 }
 
 function isPortfolioTokenSymbolEligible(value: string): boolean {
@@ -474,7 +487,10 @@ export function buildPortfolioPayload({
     const isAllNetworks = Boolean(token.isAggregateToken);
     const isNative = isAllNetworks ? false : Boolean(token.isNative);
     const networkId = isAllNetworks ? '' : (token.networkId ?? '');
-    const symbol = truncatePortfolioTokenSymbol(sourceSymbol);
+    const symbol = truncatePortfolioTokenText(
+      sourceSymbol,
+      PORTFOLIO_TOKEN_SYMBOL_MAX_BYTES,
+    );
     const contractAddress = getPortfolioTokenContractAddress({
       isAllNetworks,
       isNative,
@@ -505,7 +521,11 @@ export function buildPortfolioPayload({
         iconName,
         isAllNetworks,
         isNative,
-        name: iconName ? getPortfolioTokenCanonicalName(iconName) : token.name,
+        name: truncatePortfolioTokenText(
+          iconName ? getPortfolioTokenCanonicalName(iconName) : token.name,
+          PORTFOLIO_TOKEN_NAME_MAX_BYTES,
+          '...',
+        ),
         networkId,
         portfolioPercentage: 0,
         symbol,
@@ -549,7 +569,14 @@ export function buildPortfolioPayload({
   }));
 
   const payload = {
-    account,
+    account: {
+      ...account,
+      label: truncatePortfolioTokenText(
+        account.label,
+        PORTFOLIO_ACCOUNT_LABEL_MAX_BYTES,
+        '...',
+      ),
+    },
     tokenCount: payloadTokens.length,
     tokens: payloadTokens,
     otherTokens: {
