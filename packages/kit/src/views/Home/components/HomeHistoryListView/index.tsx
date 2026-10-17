@@ -1,13 +1,9 @@
 import { useEffect, useMemo, useRef } from 'react';
 
-import { Tabs, getTokenValue, useStyle } from '@onekeyhq/components';
-import {
-  useTabsContext,
-  useTabsScrollContext,
-} from '@onekeyhq/components/src/composite/Tabs/context';
-import { useIsFocusedTab } from '@onekeyhq/components/src/composite/Tabs/hooks';
-import { useTabNameContext } from '@onekeyhq/components/src/composite/Tabs/TabNameContext';
+import { getTokenValue, useStyle } from '@onekeyhq/components';
 import { TxHistoryListView } from '@onekeyhq/kit/src/components/TxHistoryListView';
+import { WebPagerContent } from '@onekeyhq/kit/src/components/WebCollapsiblePager';
+import { useWebPagerPage } from '@onekeyhq/kit/src/components/WebCollapsiblePagerContext';
 import { withBrowserProvider } from '@onekeyhq/kit/src/views/Discovery/pages/Browser/WithBrowserProvider';
 
 import { FrozenTopHistoryScrollObserver } from '../../pages/hooks/useFrozenTopHistoryData';
@@ -34,10 +30,12 @@ function WebHistoryPaginationObserver({
   progressKey: string;
   padding: { top: number; bottom: number };
 }) {
-  const { scrollTop, height } = useTabsScrollContext();
-  const { scrollTabElementsRef } = useTabsContext();
-  const tabName = useTabNameContext();
-  const isFocusedTab = useIsFocusedTab();
+  const {
+    scrollTop,
+    height,
+    content,
+    isFocused: isFocusedTab,
+  } = useWebPagerPage();
   const previousScrollTop = useRef(scrollTop);
   const attemptedShortPage = useRef<string | undefined>(undefined);
   useEffect(() => {
@@ -45,7 +43,6 @@ function WebHistoryPaginationObserver({
     previousScrollTop.current = scrollTop;
     if (!enabled || !isFocusedTab || !onEndReached || !hasMore || isLoadingMore)
       return;
-    const content = scrollTabElementsRef.current?.[tabName]?.element;
     const scrollHeight =
       (content?.scrollHeight ?? 0) - padding.top - padding.bottom;
     if (scrollHeight <= 0) return;
@@ -71,8 +68,7 @@ function WebHistoryPaginationObserver({
     onEndReachedThreshold,
     padding.top,
     padding.bottom,
-    scrollTabElementsRef,
-    tabName,
+    content,
   ]);
   return null;
 }
@@ -91,8 +87,7 @@ function spacing(...values: unknown[]): number {
 }
 
 function WebHistoryList(props: IHomeHistoryListViewProps) {
-  const { scrollElement } = useTabsContext();
-  const isFocusedTab = useIsFocusedTab();
+  const { owner: scrollElement, isFocused: isFocusedTab } = useWebPagerPage();
   const rawContentStyle =
     props.contentContainerStyle ||
     props.listViewStyleProps?.contentContainerStyle ||
@@ -139,13 +134,13 @@ function WebHistoryList(props: IHomeHistoryListViewProps) {
         enabled={props.frozenTopEnabled}
         onAwayFromTopChange={props.onAwayFromTopChange}
       />
-      <Tabs.ScrollView>
+      <WebPagerContent>
         <SharedHistoryList
           {...props}
           webScrollHost={isFocusedTab ? (scrollElement ?? null) : null}
           webContentPadding={webContentPadding}
         />
-      </Tabs.ScrollView>
+      </WebPagerContent>
     </>
   );
 }

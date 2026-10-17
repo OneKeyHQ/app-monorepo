@@ -17,14 +17,7 @@ jest.mock('react-native-reanimated', () => {
     useSharedValue: (value: unknown) => react.useRef({ value }).current,
   };
 });
-jest.mock('@onekeyhq/components', () => {
-  const react = jest.requireActual<typeof import('react')>('react');
-  return {
-    TabsContext: react.createContext({}),
-    TabsScrollContext: react.createContext({}),
-    TabNameContext: react.createContext(''),
-  };
-});
+jest.mock('@onekeyhq/components', () => ({ YStack: () => null }));
 jest.mock('react-native-pager-view', () => {
   const react = jest.requireActual<typeof import('react')>('react');
   return {
@@ -46,15 +39,11 @@ jest.mock('react-native-pager-view', () => {
   };
 });
 
-function Tab({ children }: { name: string; children?: React.ReactNode }) {
-  return children ?? null;
-}
-
-const tab = (name: string, value = name) => (
-  <Tab key={name} name={name}>
-    {value}
-  </Tab>
-);
+const page = (name: string, value = name) => ({
+  key: name,
+  name,
+  children: value,
+});
 
 describe('WebCollapsiblePager selection bridge', () => {
   beforeEach(() => {
@@ -64,10 +53,10 @@ describe('WebCollapsiblePager selection bridge', () => {
   it('does not drive the SDK back during stable-key business rerenders', () => {
     const onTabChange = jest.fn();
     const screen = render(
-      <WebCollapsiblePager onTabChange={onTabChange}>
-        {tab('Spot')}
-        {tab('DeFi')}
-      </WebCollapsiblePager>,
+      <WebCollapsiblePager
+        onTabChange={onTabChange}
+        pages={[page('Spot'), page('DeFi')]}
+      />,
     );
     act(() => mockSelected({ nativeEvent: { position: 1 } }));
     screen.rerender(
@@ -75,10 +64,11 @@ describe('WebCollapsiblePager selection bridge', () => {
         onTabChange={(event) => {
           onTabChange(event);
         }}
-      >
-        {tab('Spot', 'updated header source')}
-        {tab('DeFi', 'loaded protocols')}
-      </WebCollapsiblePager>,
+        pages={[
+          page('Spot', 'updated header source'),
+          page('DeFi', 'loaded protocols'),
+        ]}
+      />,
     );
     expect(onTabChange).toHaveBeenCalledWith(
       expect.objectContaining({ tabName: 'DeFi', index: 1 }),
@@ -89,21 +79,27 @@ describe('WebCollapsiblePager selection bridge', () => {
 
   it('synchronizes the selected business key only when page order changes', () => {
     const screen = render(
-      <WebCollapsiblePager>
-        {tab('A')}
-        {tab('B')}
-        {tab('C')}
-      </WebCollapsiblePager>,
+      <WebCollapsiblePager pages={[page('A'), page('B'), page('C')]} />,
     );
     act(() => mockSelected({ nativeEvent: { position: 1 } }));
     screen.rerender(
-      <WebCollapsiblePager>
-        {tab('B')}
-        {tab('A')}
-        {tab('C')}
-      </WebCollapsiblePager>,
+      <WebCollapsiblePager pages={[page('B'), page('A'), page('C')]} />,
     );
     expect(mockSetPageWithoutAnimation).toHaveBeenCalledTimes(1);
     expect(mockSetPageWithoutAnimation).toHaveBeenLastCalledWith(0);
+  });
+
+  it('keeps business identity when labels match and selects a valid survivor on removal', () => {
+    const pages = [
+      { key: 'a', name: 'Same', children: 'A' },
+      { key: 'b', name: 'Same', children: 'B' },
+    ];
+    const screen = render(<WebCollapsiblePager pages={pages} />);
+    act(() => mockSelected({ nativeEvent: { position: 1 } }));
+    screen.rerender(<WebCollapsiblePager pages={[pages[1], pages[0]]} />);
+    expect(mockSetPageWithoutAnimation).toHaveBeenLastCalledWith(0);
+    screen.rerender(<WebCollapsiblePager pages={[pages[0]]} />);
+    expect(mockSetPageWithoutAnimation).toHaveBeenLastCalledWith(0);
+    expect(mockSetPageWithoutAnimation).toHaveBeenCalledTimes(2);
   });
 });

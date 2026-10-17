@@ -145,7 +145,8 @@ function isSameSubscriptionRange(
 }
 
 function getMarketHomeScrollContainer(element: HTMLElement | null) {
-  return element?.closest?.('.onekey-tabs-container') as HTMLElement | null;
+  return (element?.closest?.('[data-collapsible-pager-scroll]') ??
+    element?.closest?.('.onekey-tabs-container')) as HTMLElement | null;
 }
 
 function getLimitedSubscriptionRange({

@@ -9,11 +9,15 @@ import {
 } from 'react';
 import type { RefObject } from 'react';
 
-import { IconButton, Tabs, XStack, YStack } from '@onekeyhq/components';
-import type { ITabContainerRef } from '@onekeyhq/components';
+import { IconButton, XStack, YStack } from '@onekeyhq/components';
+import { TabBar } from '@onekeyhq/components/src/composite/TabBar';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
 import { WebCollapsiblePager } from '@onekeyhq/kit/src/components/WebCollapsiblePager';
-import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
+import type {
+  IWebCollapsiblePagerRef,
+  IWebPagerPage,
+  IWebPagerTabBarProps,
+} from '@onekeyhq/kit/src/components/WebCollapsiblePagerContext';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -52,14 +56,13 @@ import type {
   IMarketFilterBarProps,
   IMarketHomeTabValue,
 } from '../types';
-import type { TabBarProps } from 'react-native-collapsible-tab-view';
 
 interface IMobileLayoutProps {
   filterBarProps: IMarketFilterBarProps;
   selectedNetworkId: string;
   liquidityFilter?: ILiquidityFilter;
   onTabChange: (tabId: IMarketHomeTabValue) => void;
-  tabsRef?: RefObject<ITabContainerRef | null>;
+  tabsRef?: RefObject<IWebCollapsiblePagerRef | null>;
   isFocused?: boolean;
   nestedPager?: boolean;
 }
@@ -90,7 +93,7 @@ const TabBarDynamicContext = createContext<ITabBarDynamicContext | null>(null);
 const EMPTY_MARKET_STOCK_CATEGORIES: IMarketCategoryItem[] = [];
 const EMPTY_MARKET_TOP_COINS_CATEGORIES: IMarketCategoryItem[] = [];
 
-interface IMarketHomeTabBarProps extends TabBarProps<string> {
+interface IMarketHomeTabBarProps extends IWebPagerTabBarProps {
   watchlistTabName: string;
   perpsTabName: string;
 }
@@ -153,7 +156,7 @@ function MarketHomeTabBar({
 
   return (
     <YStack bg="$bgApp" position={'sticky' as any} top={0} zIndex={10}>
-      <Tabs.TabBar
+      <TabBar
         {...tabBarProps}
         scrollable
         containerStyle={{ position: 'relative' as any }}
@@ -287,7 +290,7 @@ function MobileLayoutComponent({
   onTabChange,
   tabsRef,
   isFocused = true,
-  nestedPager = false,
+  nestedPager: _nestedPager = false,
 }: IMobileLayoutProps) {
   const openMarketWatchlistEditDialog = useOpenMarketWatchlistEditDialog();
   const isTokenCacheReady = useIsWatchlistTokenCacheReady();
@@ -307,7 +310,6 @@ function MobileLayoutComponent({
   });
 
   const tabBarHeight = useTabBarHeight();
-  const tabContainerWidth = useTabContainerWidth() as number | undefined;
 
   // Watchlist state — used to hide category selector when empty
   const [watchlistState] = useMarketWatchListV2Atom();
@@ -369,7 +371,6 @@ function MobileLayoutComponent({
 
   const containerProps = useMemo(
     () => ({
-      allowHeaderOverscroll: true,
       // NOTE: renderHeader must never return a 0-height tree after it had
       // a positive height, because react-native-collapsible-tab-view's
       // useLayoutHeight guard ignores 0-height re-layouts once a positive
@@ -403,7 +404,7 @@ function MobileLayoutComponent({
 
   // Stable renderTabBar — reads dynamic values from context, not props.
   const renderTabBar = useCallback(
-    (tabBarProps: TabBarProps<string>) => {
+    (tabBarProps: IWebPagerTabBarProps) => {
       const handleTabPress = (name: string) => {
         setActiveTabNameRef.current(name);
         handleTabChangeRef.current(name);
@@ -475,15 +476,19 @@ function MobileLayoutComponent({
     ],
   );
 
-  const tabElements = [
+  const pages: IWebPagerPage[] = [
     ...(showWatchlistTab
       ? [
-          <Tabs.Tab key="watchlist" name={watchlistTabName}>
-            <MobileMarketWatchlistFlatList
-              selectedFilter={watchlistFilter}
-              listContainerProps={listContainerProps}
-            />
-          </Tabs.Tab>,
+          {
+            key: 'watchlist',
+            name: watchlistTabName,
+            children: (
+              <MobileMarketWatchlistFlatList
+                selectedFilter={watchlistFilter}
+                listContainerProps={listContainerProps}
+              />
+            ),
+          },
         ]
       : []),
     ...spotTabItems.map((item) => {
@@ -517,20 +522,24 @@ function MobileLayoutComponent({
           />
         );
       }
-      return (
-        <Tabs.Tab key={item.categoryId} name={item.tabName}>
-          {tabContent}
-        </Tabs.Tab>
-      );
+      return {
+        key: item.categoryId,
+        name: item.tabName,
+        children: tabContent,
+      };
     }),
     ...(showPerpsTab
       ? [
-          <Tabs.Tab key="perps" name={perpsTabName}>
-            <MobileMarketPerpsFlatList
-              selectedCategoryId={selectedCategoryId}
-              listContainerProps={listContainerProps}
-            />
-          </Tabs.Tab>,
+          {
+            key: 'perps',
+            name: perpsTabName,
+            children: (
+              <MobileMarketPerpsFlatList
+                selectedCategoryId={selectedCategoryId}
+                listContainerProps={listContainerProps}
+              />
+            ),
+          },
         ]
       : []),
   ];
@@ -538,20 +547,14 @@ function MobileLayoutComponent({
   return (
     <TabBarDynamicContext.Provider value={dynamicCtx}>
       <WebCollapsiblePager
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ref={currentTabsRef as any}
-        width={platformEnv.isNative ? tabContainerWidth : undefined}
+        ref={currentTabsRef}
         renderTabBar={renderTabBar}
         initialTabName={selectedTabName}
         isRouteFocused={isFocused}
         onTabChange={onTabChangeHandler}
-        useNativeHeaderAnimation={
-          platformEnv.isNativeAndroid ? !nestedPager : false
-        }
         {...containerProps}
-      >
-        {tabElements}
-      </WebCollapsiblePager>
+        pages={pages}
+      />
     </TabBarDynamicContext.Provider>
   );
 }

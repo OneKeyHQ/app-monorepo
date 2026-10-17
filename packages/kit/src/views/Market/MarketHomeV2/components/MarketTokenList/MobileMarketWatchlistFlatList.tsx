@@ -19,6 +19,7 @@ import {
 import { Portal } from '@onekeyhq/components/src/hocs';
 import type { IPortalManager } from '@onekeyhq/components/src/hocs/Portal';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { WebPagerContent } from '@onekeyhq/kit/src/components/WebCollapsiblePager';
 import {
   useMarketWatchListV2Atom,
   useWatchListV2Actions,
@@ -448,14 +449,16 @@ function MobileMarketWatchlistFlatListImpl({
     [navigateToPerps, shouldSuppressItemPress, toMarketDetailPage],
   );
 
+  const Content = platformEnv.isNative ? Tabs.ScrollView : WebPagerContent;
+
   // Wait for data to be loaded
   if (!watchlistState.isMounted) {
-    return <Tabs.ScrollView />;
+    return <Content />;
   }
 
   if (!showSkeleton && (watchlist.length === 0 || data.length === 0)) {
     return (
-      <Tabs.ScrollView>
+      <Content>
         <Stack
           {...(platformEnv.isNative ? null : { justifyContent: 'center' })}
           {...getMarketEmptyWatchlistContainerProps({
@@ -469,7 +472,7 @@ function MobileMarketWatchlistFlatListImpl({
             recommendedTokens={recommendedTokens}
           />
         </Stack>
-      </Tabs.ScrollView>
+      </Content>
     );
   }
 

@@ -1,38 +1,77 @@
 import {
-  Children,
-  isValidElement,
   useCallback,
-  useContext,
+  useEffect,
   useImperativeHandle,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
-import type { PropsWithChildren, ReactNode, Ref } from 'react';
+import type { ComponentProps, PropsWithChildren, ReactNode, Ref } from 'react';
 
 import { View } from 'react-native';
 import { CollapsiblePagerView, NativeScroller } from 'react-native-pager-view';
 import { useSharedValue } from 'react-native-reanimated';
 
-import type {
-  ITabContainerProps,
-  ITabContainerRef,
-} from '@onekeyhq/components/src/composite/Tabs/Container';
+import { YStack } from '@onekeyhq/components';
 import {
-  TabsContext,
-  TabsScrollContext,
-} from '@onekeyhq/components/src/composite/Tabs/context';
-import { TabNameContext } from '@onekeyhq/components/src/composite/Tabs/TabNameContext';
+  ScrollContentRegistrationContext,
+  useScrollContentRegistration,
+} from '@onekeyhq/components/src/composite/ScrollContentRegistration';
+import type { IRegisterScrollContent } from '@onekeyhq/components/src/composite/ScrollContentRegistration';
 
-import type { TabBarProps } from 'react-native-collapsible-tab-view';
+import {
+  WebPagerContext,
+  WebPagerPageContext,
+  useWebPagerPage,
+} from './WebCollapsiblePagerContext';
+
+import type {
+  IWebCollapsiblePagerRef,
+  IWebPagerPage,
+  IWebPagerTabBarProps,
+} from './WebCollapsiblePagerContext';
 import type { NativeScrollerRef } from 'react-native-pager-view';
 
-type IPage = { key: string; name: string; children: ReactNode };
-type ITabsContext = React.ContextType<typeof TabsContext>;
-type IWebCollapsiblePagerProps = PropsWithChildren<ITabContainerProps> & {
-  ref?: Ref<ITabContainerRef>;
+export type IWebCollapsiblePagerProps = {
+  ref?: Ref<IWebCollapsiblePagerRef>;
+  pages: readonly IWebPagerPage[];
+  renderHeader?: () => ReactNode;
+  renderTabBar?: (props: IWebPagerTabBarProps) => ReactNode;
+  renderSubHeader?: () => ReactNode;
+  initialTabName?: string;
+  onTabChange?: (event: {
+    prevIndex: number;
+    index: number;
+    prevTabName: string;
+    tabName: string;
+  }) => void;
+  onIndexChange?: (index: number) => void;
+  disableScroll?: boolean;
+  isRouteFocused?: boolean;
 };
+
+export function WebPagerContent({
+  children,
+  style,
+}: PropsWithChildren<{ style?: ComponentProps<typeof YStack>['style'] }>) {
+  const { width, isFocused } = useWebPagerPage();
+  const registerContent = useScrollContentRegistration();
+  const [element, setElement] = useState<HTMLElement | null>(null);
+  const contentRef = useCallback(
+    (node: unknown) => setElement(scrollElement(node)),
+    [],
+  );
+  useEffect(() => {
+    if (!isFocused || !element) return undefined;
+    return registerContent?.(element);
+  }, [element, isFocused, registerContent]);
+  return (
+    <YStack flex={1} style={style} ref={contentRef} width={width}>
+      {children}
+    </YStack>
+  );
+}
 
 function scrollElement(node: unknown): HTMLElement | null {
   return typeof HTMLElement !== 'undefined' && node instanceof HTMLElement
@@ -68,7 +107,6 @@ function useMeasuredElement() {
 function WebPagerPage({
   page,
   active,
-  context,
   resetGeneration,
   headerHeight,
   stickyHeight,
@@ -77,9 +115,8 @@ function WebPagerPage({
   onScrollPosition,
   onUserInput,
 }: {
-  page: IPage;
+  page: IWebPagerPage;
   active: boolean;
-  context: ITabsContext;
   resetGeneration: number;
   headerHeight: number;
   stickyHeight: number;
@@ -91,10 +128,15 @@ function WebPagerPage({
   const [owner, setOwner] = useState<HTMLElement | null>(null);
   const [metrics, setMetrics] = useState({ width: 0, height: 0, scrollTop: 0 });
   const observerRef = useRef<ResizeObserver | null>(null);
-  const registeredElementRef = useRef<HTMLElement | null>(null);
+  const registeredContentRef = useRef<{
+    element: HTMLElement;
+    height?: number;
+  } | null>(null);
+  const [registeredContent, setRegisteredContent] = useState<{
+    element: HTMLElement;
+    height?: number;
+  } | null>(null);
   const frameRef = useRef<number | undefined>(undefined);
-  const activeRef = useRef(active);
-  activeRef.current = active;
   const setScrollerRef = useCallback(
     (node: NativeScrollerRef | null) => {
       setOwner(scrollElement(node?.getScrollableNode()));
@@ -106,14 +148,8 @@ function WebPagerPage({
     frameRef.current = undefined;
     if (!owner) return;
     const ownerRect = owner.getBoundingClientRect();
-    const candidate = context.scrollTabElementsRef.current[page.name]?.element;
+    const candidate = registeredContentRef.current?.element;
     const content = candidate?.isConnected ? candidate : null;
-    if (registeredElementRef.current !== content) {
-      if (registeredElementRef.current)
-        observerRef.current?.unobserve(registeredElementRef.current);
-      registeredElementRef.current = content;
-      if (content) observerRef.current?.observe(content);
-    }
     const contentRect = (
       content ?? owner.firstElementChild
     )?.getBoundingClientRect();
@@ -131,7 +167,6 @@ function WebPagerPage({
       height: Math.max(0, ownerRect.bottom - visibleTop),
       scrollTop: Math.max(0, pinnedBottom - (contentRect?.top ?? pinnedBottom)),
     };
-    if (activeRef.current) context.scrollYCurrent.value = owner.scrollTop;
     setMetrics((previous) =>
       previous.width === next.width &&
       previous.height === next.height &&
@@ -139,57 +174,38 @@ function WebPagerPage({
         ? previous
         : next,
     );
-  }, [
-    owner,
-    context.scrollTabElementsRef,
-    context.scrollYCurrent,
-    page.name,
-    headerHeight,
-    stickyHeight,
-  ]);
+  }, [owner, headerHeight, stickyHeight]);
   const requestRemeasure = useCallback(() => {
     if (frameRef.current === undefined)
       frameRef.current = requestAnimationFrame(measure);
   }, [measure]);
-  const registerChild = useCallback(
-    (node?: Element | null) => {
-      const element = scrollElement(node);
-      const previous = registeredElementRef.current;
-      if (previous && previous !== element)
-        observerRef.current?.unobserve(previous);
-      registeredElementRef.current = element;
-      if (element) {
-        context.scrollTabElementsRef.current[page.name] = { element };
-        observerRef.current?.observe(element);
-      } else if (
-        context.scrollTabElementsRef.current[page.name]?.element === previous
-      ) {
-        delete context.scrollTabElementsRef.current[page.name];
-      }
+  const registerContent = useCallback<IRegisterScrollContent>(
+    (element, height) => {
+      const previous = registeredContentRef.current;
+      if (previous?.element !== element && previous)
+        observerRef.current?.unobserve(previous.element);
+      const entry = { element, height };
+      registeredContentRef.current = entry;
+      setRegisteredContent(entry);
+      observerRef.current?.observe(element);
       requestRemeasure();
+      return () => {
+        if (registeredContentRef.current !== entry) return;
+        observerRef.current?.unobserve(element);
+        registeredContentRef.current = null;
+        setRegisteredContent(null);
+        requestRemeasure();
+      };
     },
-    [context.scrollTabElementsRef, page.name, requestRemeasure],
-  );
-  useLayoutEffect(
-    () => () => {
-      if (
-        context.scrollTabElementsRef.current[page.name]?.element ===
-        registeredElementRef.current
-      )
-        delete context.scrollTabElementsRef.current[page.name];
-      registeredElementRef.current = null;
-    },
-    [context.scrollTabElementsRef, page.name],
+    [requestRemeasure],
   );
   useLayoutEffect(() => {
     if (!owner) return undefined;
     const observer = new ResizeObserver(requestRemeasure);
     observerRef.current = observer;
     observer.observe(owner);
-    const content = context.scrollTabElementsRef.current[page.name]?.element;
+    const content = registeredContentRef.current?.element;
     if (content) observer.observe(content);
-    const hadOwnerClass = owner.classList.contains('onekey-tabs-container');
-    owner.classList.add('onekey-tabs-container');
     const handleScroll = () => {
       onScrollPosition(page.key, owner.scrollTop);
       requestRemeasure();
@@ -227,7 +243,6 @@ function WebPagerPage({
       owner.removeEventListener('touchstart', takeOver);
       owner.removeEventListener('pointerdown', takeOver);
       owner.removeEventListener('keydown', handleKey);
-      if (!hadOwnerClass) owner.classList.remove('onekey-tabs-container');
       owner.removeEventListener(
         'ok-collapsible-pager-insets-changed',
         requestRemeasure,
@@ -240,8 +255,6 @@ function WebPagerPage({
     owner,
     measure,
     requestRemeasure,
-    context.scrollTabElementsRef,
-    page.name,
     page.key,
     onScrollPosition,
     onUserInput,
@@ -249,46 +262,36 @@ function WebPagerPage({
   useLayoutEffect(requestRemeasure, [active, requestRemeasure]);
   const pageContext = useMemo(
     () => ({
-      ...context,
-      scrollElement: owner,
-      requestRemeasure,
-      width: metrics.width,
-    }),
-    [context, owner, requestRemeasure, metrics.width],
-  );
-  const scrollContext = useMemo(
-    () => ({
+      key: page.key,
+      name: page.name,
+      isFocused: active,
+      owner,
+      content: registeredContent?.element ?? null,
+      contentHeight: registeredContent?.height,
       ...metrics,
-      isScrolling: false,
-      scrollLeft: 0,
-      onChildScroll: () => {},
-      registerChild,
-      updateListContainerHeight: requestRemeasure,
     }),
-    [metrics, registerChild, requestRemeasure],
+    [page.key, page.name, active, owner, registeredContent, metrics],
   );
   return (
-    <TabNameContext.Provider value={page.name}>
-      <TabsContext.Provider value={pageContext}>
-        <TabsScrollContext.Provider value={scrollContext}>
-          <NativeScroller
-            ref={setScrollerRef}
-            pagerScrollKey={`${page.key}:${resetGeneration}`}
-            style={{ flex: 1 }}
-          >
-            {active ? renderSubHeader?.() : null}
-            {page.children}
-          </NativeScroller>
-        </TabsScrollContext.Provider>
-      </TabsContext.Provider>
-    </TabNameContext.Provider>
+    <WebPagerPageContext.Provider value={pageContext}>
+      <ScrollContentRegistrationContext.Provider value={registerContent}>
+        <NativeScroller
+          ref={setScrollerRef}
+          pagerScrollKey={`${page.key}:${resetGeneration}`}
+          style={{ flex: 1 }}
+        >
+          {active ? renderSubHeader?.() : null}
+          {page.children}
+        </NativeScroller>
+      </ScrollContentRegistrationContext.Provider>
+    </WebPagerPageContext.Provider>
   );
 }
 
 /** Home and Market retain their business contexts while the SDK owns paging. */
 export function WebCollapsiblePager({
   ref,
-  children,
+  pages,
   renderHeader,
   renderTabBar,
   renderSubHeader,
@@ -298,22 +301,6 @@ export function WebCollapsiblePager({
   disableScroll,
   isRouteFocused = true,
 }: IWebCollapsiblePagerProps) {
-  const inheritedContext = useContext(TabsContext);
-  const pages = useMemo(
-    () =>
-      Children.toArray(children).flatMap((child, index) => {
-        if (!isValidElement<{ name: string; children: ReactNode }>(child))
-          return [];
-        return [
-          {
-            key: String(child.key ?? index),
-            name: child.props.name,
-            children: child.props.children,
-          },
-        ];
-      }),
-    [children],
-  );
   const initialIndex = Math.max(
     0,
     pages.findIndex((page) => page.name === initialTabName),
@@ -370,14 +357,8 @@ export function WebCollapsiblePager({
     routeOffsetRef.current = null;
     return true;
   }, []);
-  const scrollTabElementsRef = useRef<
-    ITabsContext['scrollTabElementsRef']['current']
-  >({});
   const focusedTab = useSharedValue(pages[initialIndex]?.name ?? '');
-  const index = useSharedValue(initialIndex);
   const indexDecimal = useSharedValue(initialIndex);
-  const sharedTabNames = useSharedValue(pages.map((page) => page.name));
-  const scrollYCurrent = useSharedValue(0);
   const header = useMeasuredElement();
   const sticky = useMeasuredElement();
   const setIndex = useCallback((next: number) => {
@@ -428,13 +409,11 @@ export function WebCollapsiblePager({
       previousKeys.length !== pages.length ||
       pages.some((page, pageIndex) => page.key !== previousKeys[pageIndex]);
     previousPageKeysRef.current = pages.map((page) => page.key);
-    sharedTabNames.value = pages.map((page) => page.name);
     const selected = pages[selectedIndex];
     if (!selected) return;
     const removed = selected.key !== selectedKey;
     if (removed) setSelectedKey(selected.key);
     focusedTab.value = selected.name;
-    index.value = selectedIndex;
     indexDecimal.value = selectedIndex;
     if (keysChanged) pagerRef.current?.setPageWithoutAnimation(selectedIndex);
     if (removed)
@@ -449,47 +428,23 @@ export function WebCollapsiblePager({
     selectedIndex,
     selectedKey,
     focusedTab,
-    index,
     indexDecimal,
-    sharedTabNames,
     onTabChange,
   ]);
   const context = useMemo(
-    () => ({
-      ...inheritedContext,
-      focusedTab,
-      tabNames: sharedTabNames,
-      index,
-      indexDecimal,
-      scrollYCurrent,
-      scrollTabElementsRef,
-      scrollToTop,
-      headerHeight: header.size.height,
-      tabBarHeight: sticky.size.height,
-    }),
-    [
-      inheritedContext,
-      focusedTab,
-      sharedTabNames,
-      index,
-      indexDecimal,
-      scrollYCurrent,
-      scrollToTop,
-      header.size.height,
-      sticky.size.height,
-    ],
+    () => ({ focusedName: pages[selectedIndex]?.name ?? '', scrollToTop }),
+    [pages, selectedIndex, scrollToTop],
   );
-  const tabBarProps = useMemo(
-    () =>
-      ({
-        focusedTab,
-        tabNames: pages.map((page) => page.name),
-        onTabPress: jumpToTab,
-      }) as unknown as TabBarProps<string>,
+  const tabBarProps = useMemo<IWebPagerTabBarProps>(
+    () => ({
+      focusedTab,
+      tabNames: pages.map((page) => page.name),
+      onTabPress: jumpToTab,
+    }),
     [focusedTab, pages, jumpToTab],
   );
   return (
-    <TabsContext.Provider value={context}>
+    <WebPagerContext.Provider value={context}>
       <CollapsiblePagerView
         ref={pagerRef}
         style={{ flex: 1 }}
@@ -512,7 +467,6 @@ export function WebCollapsiblePager({
           selectedIndexRef.current = nativeEvent.position;
           setSelectedKey(next.key);
           focusedTab.value = next.name;
-          index.value = nativeEvent.position;
           onIndexChange?.(nativeEvent.position);
           onTabChange?.({
             prevIndex: previous,
@@ -527,7 +481,6 @@ export function WebCollapsiblePager({
             <WebPagerPage
               page={page}
               active={pageIndex === selectedIndex}
-              context={context}
               resetGeneration={resetGeneration}
               headerHeight={header.size.height}
               stickyHeight={sticky.size.height}
@@ -539,6 +492,6 @@ export function WebCollapsiblePager({
           </View>
         ))}
       </CollapsiblePagerView>
-    </TabsContext.Provider>
+    </WebPagerContext.Provider>
   );
 }

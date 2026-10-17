@@ -2,16 +2,9 @@ import type { ComponentProps } from 'react';
 import { useMemo } from 'react';
 
 import type { ListView } from '@onekeyhq/components';
-import {
-  Tabs,
-  useScrollContentTabBarOffset,
-  useStyle,
-} from '@onekeyhq/components';
-import {
-  useTabsContext,
-  useTabsScrollContext,
-} from '@onekeyhq/components/src/composite/Tabs/context';
-import { useIsFocusedTab } from '@onekeyhq/components/src/composite/Tabs/hooks';
+import { useScrollContentTabBarOffset, useStyle } from '@onekeyhq/components';
+import { WebPagerContent } from '@onekeyhq/kit/src/components/WebCollapsiblePager';
+import { useWebPagerPage } from '@onekeyhq/kit/src/components/WebCollapsiblePagerContext';
 import useActiveTabDAppInfo from '@onekeyhq/kit/src/views/DAppConnection/hooks/useActiveTabDAppInfo';
 
 import { NFTListView as SharedNFTListView } from './NativeNFTList';
@@ -32,9 +25,11 @@ type IProps = Omit<
 };
 
 export function NFTListView({ listViewStyleProps, ...props }: IProps) {
-  const { scrollElement } = useTabsContext();
-  const isFocusedTab = useIsFocusedTab();
-  const { width } = useTabsScrollContext();
+  const {
+    owner: scrollElement,
+    isFocused: isFocusedTab,
+    width,
+  } = useWebPagerPage();
   const tabBarHeight = useScrollContentTabBarOffset();
   const { result: activeDApp } = useActiveTabDAppInfo();
   const contentStyle = useStyle(
@@ -72,13 +67,13 @@ export function NFTListView({ listViewStyleProps, ...props }: IProps) {
     tabBarHeight,
   ]);
   return (
-    <Tabs.ScrollView>
+    <WebPagerContent>
       <SharedNFTListView
         {...props}
         webScrollHost={isFocusedTab ? (scrollElement ?? null) : null}
         webContentPadding={webContentPadding}
         webContentWidth={width}
       />
-    </Tabs.ScrollView>
+    </WebPagerContent>
   );
 }

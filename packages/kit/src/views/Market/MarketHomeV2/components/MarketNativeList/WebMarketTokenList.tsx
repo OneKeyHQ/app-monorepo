@@ -22,10 +22,9 @@ import {
 } from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/components';
 import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
-import { useTabsContext } from '@onekeyhq/components/src/composite/Tabs/context';
-import { useIsFocusedTab } from '@onekeyhq/components/src/composite/Tabs/hooks';
-import { useTabNameContext } from '@onekeyhq/components/src/composite/Tabs/TabNameContext';
+import { useScrollContentRegistration } from '@onekeyhq/components/src/composite/ScrollContentRegistration';
 import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
+import { useWebPagerPage } from '@onekeyhq/kit/src/components/WebCollapsiblePagerContext';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -192,9 +191,8 @@ export function WebMarketTokenList({
   const intl = useIntl();
   const theme = useTheme();
   const themeVariant = useThemeVariant();
-  const { scrollElement, scrollTabElementsRef, requestRemeasure } =
-    useTabsContext();
-  const tabName = useTabNameContext();
+  const { owner: scrollElement, isFocused: isFocusedTab } = useWebPagerPage();
+  const registerContent = useScrollContentRegistration();
   const rootRef = useRef<HTMLElement | null>(null);
   const setRootRef = useCallback((node: unknown) => {
     rootRef.current =
@@ -211,18 +209,9 @@ export function WebMarketTokenList({
   );
   useEffect(() => {
     const element = rootRef.current;
-    const entries = scrollTabElementsRef.current;
-    if (!element || !tabName || !entries) return undefined;
-    entries[tabName] = { element, height: registeredHeight };
-    requestRemeasure?.();
-    return () => {
-      if (entries[tabName]?.element === element) {
-        delete entries[tabName];
-        requestRemeasure?.();
-      }
-    };
-  }, [tabName, scrollTabElementsRef, registeredHeight, requestRemeasure]);
-  const isFocusedTab = useIsFocusedTab();
+    if (!element) return undefined;
+    return registerContent?.(element, registeredHeight);
+  }, [registerContent, registeredHeight]);
   const sticky = useContext(DesktopStickyHeaderContext);
   const [stickyInset, setStickyInset] = useState(0);
   useEffect(() => {

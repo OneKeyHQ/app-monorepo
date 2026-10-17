@@ -2,15 +2,14 @@ import type { ReactNode, Ref } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 
-import { Tabs } from '@onekeyhq/components';
-import type { ITabContainerRef } from '@onekeyhq/components';
 import { WebCollapsiblePager } from '@onekeyhq/kit/src/components/WebCollapsiblePager';
+import type { IWebCollapsiblePagerRef } from '@onekeyhq/kit/src/components/WebCollapsiblePagerContext';
 import type { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import type { SharedValue } from 'react-native-reanimated';
 
 export type IHomeNativePagerProps = {
-  ref?: Ref<ITabContainerRef>;
+  ref?: Ref<IWebCollapsiblePagerRef>;
   tabs: { id: EHomeWalletTab; name: string; component: ReactNode }[];
   initialTabName?: string;
   headerHeightHint?: number;
@@ -21,7 +20,7 @@ export type IHomeNativePagerProps = {
   topEdgeActive?: boolean;
   renderTabBar: (props: {
     focusedTab: SharedValue<string>;
-    indexDecimal: SharedValue<number>;
+    indexDecimal?: SharedValue<number>;
     onTabPress: (name: string) => void;
     topEdgeActive?: boolean;
   }) => ReactNode;
@@ -42,18 +41,17 @@ export function HomeNativePager({
   return (
     <WebCollapsiblePager
       ref={ref}
+      pages={tabs.map((tab) => ({
+        key: tab.id,
+        name: tab.name,
+        children: tab.component,
+      }))}
       initialTabName={initialTabName}
       renderHeader={renderHeader}
       renderSubHeader={renderSubHeader}
       renderTabBar={renderTabBar}
       onTabChange={onTabChange}
       isRouteFocused={isRouteFocused}
-    >
-      {tabs.map((tab) => (
-        <Tabs.Tab key={tab.id} name={tab.name}>
-          {tab.component}
-        </Tabs.Tab>
-      ))}
-    </WebCollapsiblePager>
+    />
   );
 }

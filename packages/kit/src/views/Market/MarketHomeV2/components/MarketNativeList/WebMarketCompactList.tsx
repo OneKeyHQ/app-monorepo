@@ -8,17 +8,13 @@ import {
   Icon,
   SizableText,
   Stack,
-  Tabs,
   YStack,
   useTheme,
 } from '@onekeyhq/components';
 import { LazyPopover } from '@onekeyhq/components/src/actions/LazyPopover';
 import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
-import {
-  useTabsContext,
-  useTabsScrollContext,
-} from '@onekeyhq/components/src/composite/Tabs/context';
-import { useIsFocusedTab } from '@onekeyhq/components/src/composite/Tabs/hooks';
+import { WebPagerContent } from '@onekeyhq/kit/src/components/WebCollapsiblePager';
+import { useWebPagerPage } from '@onekeyhq/kit/src/components/WebCollapsiblePagerContext';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -53,7 +49,7 @@ function WebCompactEndObserver({
   paddingTop: number;
   onEndReached?: () => boolean | void;
 }) {
-  const { scrollTop, height } = useTabsScrollContext();
+  const { scrollTop, height } = useWebPagerPage();
   const previousScrollTop = useRef(scrollTop);
   const attemptedShortPage = useRef<string | undefined>(undefined);
   useEffect(() => {
@@ -119,8 +115,7 @@ export function WebMarketCompactList<T>({
   const intl = useIntl();
   const theme = useTheme();
   const themeVariant = useThemeVariant();
-  const isFocusedTab = useIsFocusedTab();
-  const { scrollElement } = useTabsContext();
+  const { owner: scrollElement, isFocused: isFocusedTab } = useWebPagerPage();
   const presentation = useMemo<IMarketNativeListPresentation>(
     () => ({
       webImageSources: true,
@@ -358,7 +353,7 @@ export function WebMarketCompactList<T>({
     setHelp(undefined);
   }, [help]);
   return (
-    <Tabs.ScrollView style={{ flex: 0 }}>
+    <WebPagerContent style={{ flex: 0 }}>
       <Stack
         ref={setRootRef}
         testID={testID}
@@ -445,6 +440,6 @@ export function WebMarketCompactList<T>({
           </Stack>
         ) : null}
       </Stack>
-    </Tabs.ScrollView>
+    </WebPagerContent>
   );
 }
