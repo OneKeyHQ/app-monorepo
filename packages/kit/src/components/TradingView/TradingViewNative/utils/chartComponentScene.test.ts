@@ -22,6 +22,7 @@ import {
 } from './chartScene';
 
 import type { IDrawing } from '../drawings/model';
+import type { ITradingViewNativeReferenceLineComponent } from '../types';
 
 const POINTS: IMarketTokenKLineDataPoint[] = [
   { c: 101, h: 103, l: 98, o: 100, t: 1_700_000_000, v: 10 },
@@ -694,4 +695,149 @@ describe('TradingViewNative chart component scene', () => {
       ),
     ).toBe(false);
   });
+});
+
+describe('TradingViewNative trading line labels', () => {
+  const orderLabel: NonNullable<
+    ITradingViewNativeReferenceLineComponent['props']['label']
+  > = {
+    variant: 'order',
+    offset: { type: 'chartWidthPercentage', value: 70 },
+    backgroundColor: '#FFFFFF',
+    color: '#30A46C',
+    quantity: {
+      text: '0.00015',
+      backgroundColor: '#30A46C',
+      color: '#FFFFFF',
+    },
+  };
+  const paintId = 'chart.component.referenceLine.limit-order.label.trading';
+
+  function buildTradingLineScene(width: number, label = orderLabel) {
+    return buildPreviousCloseScene(101, {
+      width,
+      chartComponents: [
+        {
+          id: 'limit-order',
+          type: 'referenceLine',
+          props: {
+            anchor: { type: 'price', price: 101 },
+            color: '#30A46C',
+            interactive: true,
+            cancelable: true,
+            draggable: true,
+            style: 'dotted',
+            title: 'Limit 101',
+            label,
+          },
+        },
+      ],
+    });
+  }
+
+  function getLabelRect(
+    scene: ReturnType<typeof buildTradingLineScene>,
+    part: 'body' | 'quantity' | 'cancelBackground',
+  ) {
+    const rect = scene.commands.find(
+      (command) =>
+        command.kind === 'rect' &&
+        command.customPaintId === `${paintId}.${part}`,
+    );
+    if (rect?.kind !== 'rect') {
+      throw new OneKeyLocalError(`Expected trading label ${part}`);
+    }
+    return rect;
+  }
+
+  it.each([700, 1000])(
+    'positions a compact order label at 70 percent of a %s px chart',
+    (width) => {
+      const scene = buildTradingLineScene(width);
+      const body = getLabelRect(scene, 'body');
+      const chartRight = width - scene.priceAxisWidth - 1;
+
+      expect(body.x / chartRight).toBeCloseTo(0.7);
+      expect(body.height).toBe(20);
+      expect(body.x + body.width).toBeLessThanOrEqual(chartRight);
+    },
+  );
+
+  it.each([700, 1000])(
+    'preserves pixel offsets and regular label sizing in a %s px chart',
+    (width) => {
+      const scene = buildTradingLineScene(width, {
+        ...orderLabel,
+        variant: undefined,
+        offset: 16,
+      });
+      const body = getLabelRect(scene, 'body');
+
+      expect(body.x).toBe(16);
+      expect(body.height).toBe(24);
+    },
+  );
+
+  it.each([240, 320])(
+    'keeps the complete order label and its hit regions inside a %s px chart',
+    (width) => {
+      const scene = buildTradingLineScene(width);
+      const body = getLabelRect(scene, 'body');
+      const quantity = getLabelRect(scene, 'quantity');
+      const cancel = getLabelRect(scene, 'cancelBackground');
+      const chartRight = width - scene.priceAxisWidth - 1;
+
+      expect(body.x).toBeGreaterThanOrEqual(0);
+      expect(body.x).toBeLessThan(chartRight * 0.7);
+      expect(body.x + body.width).toBeCloseTo(chartRight);
+      expect(body.height).toBe(20);
+      expect(quantity).toMatchObject({ y: body.y, height: body.height });
+      expect(quantity.x + quantity.width).toBe(cancel.x);
+      expect(cancel).toMatchObject({
+        y: body.y,
+        width: body.height,
+        height: body.height,
+      });
+      expect(cancel.x + cancel.width).toBe(body.x + body.width);
+
+      const labelText = scene.commands.flatMap((command) =>
+        command.kind === 'text' &&
+        (command.customPaintId === `${paintId}.bodyText` ||
+          command.customPaintId === `${paintId}.quantityText`)
+          ? [command]
+          : [],
+      );
+      expect(labelText.map((command) => command.text)).toEqual([
+        'Limit 101',
+        '0.00015',
+      ]);
+      labelText.forEach((command, index) => {
+        const left = index === 0 ? body.x : quantity.x;
+        const right = index === 0 ? quantity.x : cancel.x;
+        expect(command.x).toBeGreaterThan(left);
+        expect(command.x + command.text.length * 6).toBeLessThan(right);
+        expect(command.y).toBeGreaterThan(body.y);
+        expect(command.y).toBeLessThan(body.y + body.height);
+      });
+
+      const dragHit = scene.referenceLineHitRegions?.findLast(
+        (hit) => hit.id === 'limit-order' && hit.action === 'drag',
+      );
+      const cancelHit = scene.referenceLineHitRegions?.findLast(
+        (hit) => hit.id === 'limit-order' && hit.action === 'cancel',
+      );
+      expect(dragHit?.rect).toEqual({
+        x: body.x,
+        y: body.y,
+        width: cancel.x - body.x,
+        height: body.height,
+      });
+      expect(cancelHit?.rect).toEqual({
+        x: cancel.x,
+        y: cancel.y,
+        width: cancel.width,
+        height: cancel.height,
+      });
+    },
+  );
 });
