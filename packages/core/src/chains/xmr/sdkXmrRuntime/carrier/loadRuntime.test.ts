@@ -1,6 +1,6 @@
 import { XMR_RUNTIME_METHODS } from '../methods';
 
-import { loadXmrRuntime } from './loadRuntime';
+import { loadXmrRuntime, xmrStorageRequiresWorkerRestart } from './loadRuntime';
 
 const mockInit = jest.fn<Promise<void>, []>();
 const mockOpenWallet = jest.fn(async () => '{}');
@@ -28,5 +28,33 @@ describe('xmr runtime storage install', () => {
     await expect(api.openWallet('xmr-mainnet', 'mainnet')).resolves.toBe('{}');
     expect(mockInit).toHaveBeenCalledTimes(2);
     expect(mockOpenWallet).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('xmr storage restart signal', () => {
+  const runtimeModule = jest.requireMock<Record<string, unknown>>(
+    'onekey-monero-runtime',
+  );
+
+  afterEach(() => {
+    delete runtimeModule.storageRequiresWorkerRestart;
+  });
+
+  it('reads as false for an artifact without the export', async () => {
+    mockInit.mockResolvedValue(undefined);
+    await loadXmrRuntime();
+    expect(runtimeModule.storageRequiresWorkerRestart).toBeUndefined();
+    expect(xmrStorageRequiresWorkerRestart()).toBe(false);
+  });
+
+  it('forwards the runtime export', async () => {
+    mockInit.mockResolvedValue(undefined);
+    await loadXmrRuntime();
+    const check = jest.fn(() => false);
+    runtimeModule.storageRequiresWorkerRestart = check;
+    expect(xmrStorageRequiresWorkerRestart()).toBe(false);
+    check.mockReturnValue(true);
+    expect(xmrStorageRequiresWorkerRestart()).toBe(true);
+    expect(check).toHaveBeenCalledTimes(2);
   });
 });

@@ -40,6 +40,16 @@ export type IZcashDeriveAccountResult = {
   chainTip: number | null;
 };
 
+export type IZcashDeriveAccountKeysParams = Omit<
+  IZcashDeriveAccountParams,
+  'lightwalletdUrl'
+>;
+
+export type IZcashDeriveAccountKeysResult = Omit<
+  IZcashDeriveAccountResult,
+  'chainTip'
+>;
+
 // Derive display addresses from a UFVK without a seed or password.
 export type IZcashDeriveAddressFromUfvkParams = {
   network: IZcashNetwork;
@@ -429,6 +439,10 @@ export type IZcashSdkApi = {
   deriveAccount: (
     params: IZcashDeriveAccountParams,
   ) => Promise<IZcashDeriveAccountResult>;
+  // deriveAccount without the chain-tip lookup: no network, so the caller can wipe the key before any retry.
+  deriveAccountKeys: (
+    params: IZcashDeriveAccountKeysParams,
+  ) => Promise<IZcashDeriveAccountKeysResult>;
   deriveAddressFromUfvk: (
     params: IZcashDeriveAddressFromUfvkParams,
   ) => Promise<IZcashDeriveAddressFromUfvkResult>;

@@ -9,6 +9,7 @@ import {
 import {
   installXmrHostRequester,
   loadXmrRuntime,
+  xmrStorageRequiresWorkerRestart,
 } from '../carrier/loadRuntime';
 
 import './xmrSdkWorker';
@@ -23,6 +24,7 @@ jest.mock('@onekeyhq/core/src/utils/privacyChainWorkerClient', () => ({
 jest.mock('../carrier/loadRuntime', () => ({
   loadXmrRuntime: jest.fn(),
   installXmrHostRequester: jest.fn(),
+  xmrStorageRequiresWorkerRestart: jest.fn(() => false),
 }));
 
 afterEach(() => jest.clearAllMocks());
@@ -73,4 +75,15 @@ it('uses bounded Fetch inside the Worker when the web carrier has no relay', asy
   } finally {
     globalThis.fetch = savedFetch;
   }
+});
+
+it('reports poisoned storage so the client retires the Worker', async () => {
+  jest.mocked(workerCarrierHasHostStreamRequest).mockReturnValue(false);
+  jest.mocked(workerCarrierHasHostRequest).mockReturnValue(false);
+  expect(config.storageRequiresRestart?.()).toBe(false);
+  await config.loadApi();
+  jest.mocked(xmrStorageRequiresWorkerRestart).mockReturnValue(true);
+  expect(config.storageRequiresRestart?.()).toBe(true);
+  jest.mocked(xmrStorageRequiresWorkerRestart).mockReturnValue(false);
+  expect(config.storageRequiresRestart?.()).toBe(false);
 });

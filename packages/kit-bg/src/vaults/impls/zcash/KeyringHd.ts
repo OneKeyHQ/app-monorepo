@@ -2,12 +2,17 @@ import bs58check from 'bs58check';
 
 import {
   deriveZcashAccountSecrets,
+  deriveZcashAccountTransparentSecrets,
   deriveZcashAccountViewingSecrets,
 } from '@onekeyhq/core/src/chains/zcash/accountSecrets';
-import type { IZcashAccountViewingSecrets } from '@onekeyhq/core/src/chains/zcash/accountSecrets';
+import type {
+  IZcashAccountSecrets,
+  IZcashAccountViewingSecrets,
+} from '@onekeyhq/core/src/chains/zcash/accountSecrets';
 import { ZCASH_NETWORK_MAIN } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 import { fetchZcashChainTipDirect } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
 import type {
+  IZcashDeriveAccountKeysResult,
   IZcashPcztReviewRequest,
   IZcashTransparentTxRequest,
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
@@ -187,18 +192,18 @@ export class KeyringHd extends KeyringHdBtc {
       encodedTx,
       request,
       parseOutputs: (result) => zcashVault.zcashParseTransparentOutputs(result),
-      sign: () =>
-        this.withAccountSecrets(
-          {
-            password,
-            derive: (seed) =>
-              deriveZcashAccountSecrets({
-                seed,
-                accountIndex: request.accountIndex,
-              }),
-          },
-          async (secrets) => {
-            if (await isZcashHardwarePreviewEnabled(this.backgroundApi)) {
+      sign: async () => {
+        if (await isZcashHardwarePreviewEnabled(this.backgroundApi)) {
+          return this.withAccountSecrets(
+            {
+              password,
+              derive: (seed) =>
+                deriveZcashAccountSecrets({
+                  seed,
+                  accountIndex: request.accountIndex,
+                }),
+            },
+            async (secrets) => {
               try {
                 await this.printTransparentHardwarePreview({
                   request,
@@ -215,7 +220,20 @@ export class KeyringHd extends KeyringHdBtc {
                 );
               }
               throw new OneKeyLocalError(ZCASH_HW_PREVIEW_STOP_MESSAGE);
-            }
+            },
+          );
+        }
+        // Transparent inputs only: no Orchard key is derived for this path.
+        return this.withAccountSecrets(
+          {
+            password,
+            derive: (seed) =>
+              deriveZcashAccountTransparentSecrets({
+                seed,
+                accountIndex: request.accountIndex,
+              }),
+          },
+          async (secrets) => {
             const api = await zcashVault.zcashGetApi();
             // A shield proves its Orchard output here; hold off background sync on the same Worker.
             return zcashTrackUserOperation(() =>
@@ -225,13 +243,18 @@ export class KeyringHd extends KeyringHdBtc {
               }),
             );
           },
-        ),
+        );
+      },
     });
   }
 
   // Derives account-scoped keys from the seed in the background and wipes the
   // seed before any SDK call: the Zcash SDK never receives the seed.
-  private async withAccountSecrets<S extends IZcashAccountViewingSecrets, T>(
+  private async withAccountSecrets<
+    S extends Pick<IZcashAccountSecrets, 'accountXpub'> &
+      Partial<Pick<IZcashAccountSecrets, 'orchardSk'>>,
+    T,
+  >(
     {
       password,
       derive,
@@ -267,7 +290,7 @@ export class KeyringHd extends KeyringHdBtc {
       }
       return await fn(secrets);
     } finally {
-      secrets.orchardSk.fill(0);
+      secrets.orchardSk?.fill(0);
     }
   }
 
@@ -448,6 +471,22 @@ export class KeyringHd extends KeyringHdBtc {
         }
         const vault = this.vault as Vault;
         const api = await vault.zcashGetApi();
+        let keys: IZcashDeriveAccountKeysResult;
+        try {
+          keys = await api.deriveAccountKeys({
+            network: ZCASH_NETWORK_MAIN,
+            orchardSkHex: bytesToHex(secrets.orchardSk),
+            accountXpub: secrets.accountXpub,
+            hdIndex,
+          });
+        } finally {
+          // The chain-tip retries below need only public data.
+          secrets.orchardSk.fill(0);
+        }
+        const viewing = {
+          ...keys,
+          seedFingerprintHex: secrets.seedFingerprintHex,
+        };
         const lightwalletdUrl = await vault.zcashResolveLightwalletdUrl();
 
         // lightwalletd calls go through a proxy that occasionally resets
@@ -456,18 +495,11 @@ export class KeyringHd extends KeyringHdBtc {
         for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
           try {
             // eslint-disable-next-line no-await-in-loop
-            const derived = await api.deriveAccount({
+            const chainTip = await api.getChainTip({
               network: ZCASH_NETWORK_MAIN,
-              orchardSkHex: bytesToHex(secrets.orchardSk),
-              accountXpub: secrets.accountXpub,
-              hdIndex,
               lightwalletdUrl,
             });
-            const viewing = {
-              ...derived,
-              seedFingerprintHex: secrets.seedFingerprintHex,
-            };
-            if (viewing.chainTip !== null) return viewing;
+            if (chainTip !== null) return { ...viewing, chainTip };
             return {
               ...viewing,
               // eslint-disable-next-line no-await-in-loop
@@ -479,7 +511,7 @@ export class KeyringHd extends KeyringHdBtc {
             if (attempt === maxAttempts) {
               throw e;
             }
-            console.warn('[zcash] deriveAccount attempt failed, retrying', {
+            console.warn('[zcash] chain tip attempt failed, retrying', {
               accountId: account.id,
               attempt,
               error: e instanceof Error ? e.message : String(e),
@@ -489,7 +521,7 @@ export class KeyringHd extends KeyringHdBtc {
           }
         }
         throw new OneKeyLocalError(
-          'zcash: deriveAccount retry loop exited unexpectedly',
+          'zcash: chain tip retry loop exited unexpectedly',
         );
       },
     });

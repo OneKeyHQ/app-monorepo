@@ -9,6 +9,7 @@ import {
   buildTransparentTxWithAccountXprv,
   createTransparentHardwarePczt,
   deriveAccount,
+  deriveAccountKeys,
   deriveTransparentXpubFromUfvk,
   finalizeTransparentHardwarePczt,
   getChainTip,
@@ -132,6 +133,45 @@ describe('deriveAccount', () => {
     ).rejects.toThrow('derive failed');
 
     expect(Array.from(observedSk ?? [])).toEqual(new Array(32).fill(0));
+    expect(mockChainTipAt).not.toHaveBeenCalled();
+  });
+});
+
+describe('deriveAccountKeys', () => {
+  beforeEach(() => {
+    mockGetRuntime.mockClear();
+    mockChainTipAt.mockReset();
+    mockUfvkFromAccountKeys.mockReset().mockReturnValue('ufvk');
+    mockUnifiedAddress.mockReset().mockReturnValue('unified-address');
+    mockTransparentAddressFromUfvk
+      .mockReset()
+      .mockReturnValue('transparent-address');
+  });
+
+  it('derives the viewing identity offline and clears the Orchard key', async () => {
+    let observedSk: Uint8Array | undefined;
+    mockUfvkFromAccountKeys.mockImplementation(
+      (_network: string, sk: Uint8Array) => {
+        observedSk = sk;
+        return 'ufvk';
+      },
+    );
+
+    await expect(
+      deriveAccountKeys({
+        network: 'main',
+        orchardSkHex: '33'.repeat(32),
+        accountXpub: ACCOUNT_XPUB,
+        hdIndex: 4,
+      }),
+    ).resolves.toEqual({
+      ufvk: 'ufvk',
+      unifiedAddress: 'unified-address',
+      transparentAddress: 'transparent-address',
+    });
+    expect(Array.from(observedSk ?? [])).toEqual(new Array(32).fill(0));
+    expect(mockUnifiedAddress).toHaveBeenCalledWith('main', 'ufvk', 'orchard');
+    expect(mockGetRuntime).not.toHaveBeenCalled();
     expect(mockChainTipAt).not.toHaveBeenCalled();
   });
 });

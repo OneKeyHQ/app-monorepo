@@ -5,6 +5,7 @@ import { getBitcoinBip32 } from '../btc/sdkBtc';
 
 import {
   deriveZcashAccountSecrets,
+  deriveZcashAccountTransparentSecrets,
   deriveZcashAccountViewingSecrets,
 } from './accountSecrets';
 import {
@@ -70,9 +71,29 @@ describe('deriveZcashAccountSecrets', () => {
     }
   });
 
+  it('transparent secrets match the signing xprv without an Orchard key', () => {
+    const transparent = deriveZcashAccountTransparentSecrets({
+      seed,
+      accountIndex: 3,
+    });
+    const signing = deriveZcashAccountSecrets({ seed, accountIndex: 3 });
+    try {
+      expect(transparent).toEqual({
+        accountXprvHex: signing.accountXprvHex,
+        accountXpub: signing.accountXpub,
+      });
+      expect(seed.equals(seedSnapshot)).toBe(true);
+    } finally {
+      signing.orchardSk.fill(0);
+    }
+  });
+
   it.each([-1, 0x80_00_00_00, 0.5])('rejects account index %p', (index) => {
     expect(() =>
       deriveZcashAccountSecrets({ seed, accountIndex: index }),
+    ).toThrow('invalid account index');
+    expect(() =>
+      deriveZcashAccountTransparentSecrets({ seed, accountIndex: index }),
     ).toThrow('invalid account index');
   });
 });
