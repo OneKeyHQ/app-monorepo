@@ -94,8 +94,10 @@ Hardware:  pcztCreate -> redact -> device signs -> pcztCombine -> pcztProve -> p
 ### Scheduling
 
 `ServicePrivacyChain` is the only sync owner. Runtimes never start network or
-scan work on their own. Each turn is bounded (`syncTurn.ts`) so it cannot
-outrun the watchdog; UI reads return the last snapshot instead of joining a
+scan work on their own. Each `syncWallet` call bounds itself (batch count
+plus a wall-clock budget in the Worker) so it cannot outrun the watchdog; the
+shared `runBoundedSyncTurn` (`syncTurn.ts`) is for chains that only expose a
+step primitive (XMR). UI reads return the last snapshot instead of joining a
 scan.
 
 ## Key decisions
@@ -137,10 +139,13 @@ scan.
   carries an Orchard receiver; new outputs, change and Shield All land in
   Ironwood; Orchard and Ironwood are spend sources. Ironwood has no UA
   typecode, so an address cannot tell which pool a payment lands in.
-- **Receive addresses are a list: one Orchard-only UA plus one transparent
-  address.** A transparent receiver inside the UA would link transparent and
-  shielded activity. A future spendable pool joins the existing UA. Hardware
-  accounts display the address the device derives.
+- **Receive addresses are a list: one UA plus one transparent address.**
+  Software accounts derive an Orchard-only UA: a transparent receiver inside
+  the UA would link transparent and shielded activity. A future spendable pool
+  joins the existing UA. Hardware accounts store and display the UA the device
+  returns, which still includes a P2PKH receiver until the firmware honours
+  the requested address type; the app's Orchard-only derivation is kept beside
+  it.
 - **The payment source is the send page's choice.** A payment spends exactly
   one source and never mixes transparent and shielded or two shielded pools,
   so the shown spendable amount and Max always agree. TEX recipients (ZIP-320)

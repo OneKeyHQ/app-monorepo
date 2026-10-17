@@ -139,6 +139,15 @@ export async function installXmrHostRequester(
   install?.(requester);
 }
 
+/**
+ * Synchronous so every Worker reply can report it. Artifacts built before the
+ * export existed cannot signal poisoned storage, so missing reads as false.
+ */
+export function xmrStorageRequiresWorkerRestart(): boolean {
+  const check = rawModule?.storageRequiresWorkerRestart;
+  return typeof check === 'function' && (check as () => unknown)() === true;
+}
+
 /** Called once per carrier at startup; both entry points share one module. */
 export function installXmrRuntime() {
   setXmrRuntimeApiLoader(loadXmrRuntime);

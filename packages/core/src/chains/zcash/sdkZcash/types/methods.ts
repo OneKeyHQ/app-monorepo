@@ -25,6 +25,7 @@ export const ZCASH_SDK_METHODS = [
   // keys side
   'validateAddress',
   'deriveAccount',
+  'deriveAccountKeys',
   'deriveAddressFromUfvk',
   'signPczt',
   'verifyPcztReview',
