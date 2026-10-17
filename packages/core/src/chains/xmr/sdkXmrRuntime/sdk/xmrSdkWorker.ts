@@ -22,6 +22,8 @@ import type { IXmrRuntimeApi } from '..';
 // second, so the CPU cost is real but modest -- on the page thread it would
 // still be hundreds of milliseconds of frozen UI per step, with no error and
 // no timeout to show for it.
+let storageRequiresWorkerRestart = () => false;
+
 servePrivacyChainWorker<IXmrRuntimeApi>({
   label: 'xmr',
   methods: XMR_RUNTIME_METHODS,
@@ -30,6 +32,7 @@ servePrivacyChainWorker<IXmrRuntimeApi>({
     // stays deferred to the first call, and a failed load can be retried.
     const m = await import(/* webpackMode: "eager" */ '../carrier/loadRuntime');
     const api = await m.loadXmrRuntime();
+    storageRequiresWorkerRestart = m.xmrStorageRequiresWorkerRestart;
     // Keep decoding and binary assembly in this Worker. Plain web uses its own
     // bounded Fetch; other carriers relay chunks through the available host.
     if (workerCarrierHasHostStreamRequest()) {
@@ -43,4 +46,5 @@ servePrivacyChainWorker<IXmrRuntimeApi>({
     }
     return api;
   },
+  storageRequiresRestart: () => storageRequiresWorkerRestart(),
 });

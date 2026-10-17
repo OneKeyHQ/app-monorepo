@@ -12,6 +12,8 @@ import {
 import { zcashHexToBytes } from './hex';
 
 import type {
+  IZcashDeriveAccountKeysParams,
+  IZcashDeriveAccountKeysResult,
   IZcashDeriveAccountParams,
   IZcashDeriveAccountResult,
   IZcashDeriveAddressFromUfvkParams,
@@ -47,9 +49,9 @@ export async function validateAddress(params: {
   return keys.validateAddress(params.network, params.address);
 }
 
-export async function deriveAccount(
-  params: IZcashDeriveAccountParams,
-): Promise<IZcashDeriveAccountResult> {
+export async function deriveAccountKeys(
+  params: IZcashDeriveAccountKeysParams,
+): Promise<IZcashDeriveAccountKeysResult> {
   const keys = await getKeys();
   const orchardSk = zcashHexToBytes(params.orchardSkHex);
   let ufvk: string;
@@ -61,8 +63,8 @@ export async function deriveAccount(
       params.hdIndex,
     );
   } finally {
-    // Clear before any network await below, even if the wasm call throws.
-    // The wire-format string itself can't be cleared in JS.
+    // Clear even if the wasm call throws. The wire-format string itself can't
+    // be cleared in JS.
     orchardSk.fill(0);
   }
 
@@ -73,23 +75,27 @@ export async function deriveAccount(
     params.network,
     ufvk,
   );
+  return { ufvk, unifiedAddress, transparentAddress };
+}
+
+export async function deriveAccount(
+  params: IZcashDeriveAccountParams,
+): Promise<IZcashDeriveAccountResult> {
+  const { lightwalletdUrl, ...keyParams } = params;
+  // Keys first: the Orchard key copy is cleared before the network await.
+  const derived = await deriveAccountKeys(keyParams);
 
   let chainTip: number | null = null;
   try {
     const rt = await getRuntime();
-    chainTip = await rt.chainTipAt(params.lightwalletdUrl);
+    chainTip = await rt.chainTipAt(lightwalletdUrl);
   } catch {
     // Offline, or no wallet runtime: null is a documented outcome, not a
     // failure - caller already handles null when picking a birthday.
     chainTip = null;
   }
 
-  return {
-    ufvk,
-    unifiedAddress,
-    transparentAddress,
-    chainTip,
-  };
+  return { ...derived, chainTip };
 }
 
 export async function deriveAddressFromUfvk(

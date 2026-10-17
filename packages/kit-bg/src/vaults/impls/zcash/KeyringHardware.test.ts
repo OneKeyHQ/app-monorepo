@@ -508,8 +508,8 @@ describe('Zcash KeyringHardware', () => {
       meta: expect.objectContaining({
         ufvk: 'uview1device',
         unifiedAddress: 'u1device',
-        // The app's own derivation is kept beside the device's, so the
-        // firmware's P2PKH drop (Orchard-only UA) becomes checkable later.
+        // The device UA still includes a P2PKH receiver, so the app's
+        // Orchard-only derivation is kept beside it.
         derivedUnifiedAddress: 'u1app',
         transparentAddress: 't1account',
         seedFingerprintHex: 'ab'.repeat(32),

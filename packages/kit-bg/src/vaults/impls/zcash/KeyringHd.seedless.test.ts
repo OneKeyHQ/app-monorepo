@@ -4,10 +4,15 @@ import {
   deriveZcashAccountSecrets,
   deriveZcashAccountViewingSecrets,
 } from '@onekeyhq/core/src/chains/zcash/accountSecrets';
+import { fetchZcashChainTipDirect } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
+import { deriveZcashOrchardSpendingKey } from '@onekeyhq/core/src/chains/zcash/zip32Orchard';
 import { seedFromHdCredentialAsync } from '@onekeyhq/core/src/secret';
 
 import { resolveAndSaveZcashAccountMeta } from './accountMeta';
 import { KeyringHd } from './KeyringHd';
+import { signTransparentTransaction } from './signTransparentTransaction';
+
+import type { IEncodedTxZcash } from './types';
 
 const TEST_SEED = mnemonicToSeedSync(
   'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about',
@@ -29,6 +34,26 @@ jest.mock('../btc/KeyringHd', () => ({
 }));
 jest.mock('./accountMeta', () => ({
   resolveAndSaveZcashAccountMeta: jest.fn(),
+}));
+jest.mock('@onekeyhq/core/src/chains/zcash/zip32Orchard', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/core/src/chains/zcash/zip32Orchard')
+  >('@onekeyhq/core/src/chains/zcash/zip32Orchard');
+  return {
+    ...actual,
+    deriveZcashOrchardSpendingKey: jest.fn(
+      actual.deriveZcashOrchardSpendingKey,
+    ),
+  };
+});
+jest.mock(
+  '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect',
+  () => ({
+    fetchZcashChainTipDirect: jest.fn(),
+  }),
+);
+jest.mock('./signTransparentTransaction', () => ({
+  signTransparentTransaction: jest.fn(),
 }));
 
 const issuedSeeds: Buffer[] = [];
@@ -79,8 +104,15 @@ function createKeyring({
       accountId: 'hd-1--acc',
       zcashGetApi: jest.fn(async () => api),
       zcashResolveLightwalletdUrl: jest.fn(async () => 'https://lwd.example'),
+      zcashPrepareFreshTransparentRequest: jest.fn(async () => ({
+        network: 'main',
+        accountIndex: pathIndex,
+      })),
     },
     backgroundApi: {
+      serviceDevSetting: {
+        getDevSetting: jest.fn(async () => ({ enabled: false })),
+      },
       simpleDb: {
         zcash: {
           getPrivacyModeState: jest.fn(async () => ({ intent: 'on' })),
@@ -183,43 +215,159 @@ describe('Zcash KeyringHd never hands the seed to the SDK', () => {
     expectIssuedSeedsWiped();
   });
 
-  it('sets up the viewing key from the Orchard sk and stored xpub', async () => {
+  it('sets up the viewing key once and wipes the Orchard sk before the chain tip', async () => {
     const expected = deriveZcashAccountViewingSecrets({
       seed: TEST_SEED,
       accountIndex: 0,
     });
-    const deriveAccount = jest.fn(async () => ({
+    let passedSk: Uint8Array | undefined;
+    const deriveAccountKeys = jest.fn(async () => ({
       ufvk: 'ufvk',
       unifiedAddress: 'u1',
       transparentAddress: 't1',
-      chainTip: 3_000_000,
     }));
+    const getChainTip = jest.fn(async () => {
+      expect(passedSk?.every((b) => b === 0)).toBe(true);
+      return 3_000_000;
+    });
     let derived: unknown;
     jest
       .mocked(resolveAndSaveZcashAccountMeta)
       .mockImplementation(async ({ derive }) => {
         derived = await derive({ hdIndex: 0 });
       });
+    jest
+      .mocked(deriveZcashOrchardSpendingKey)
+      .mockImplementationOnce(({ seed, accountIndex }) => {
+        passedSk = jest
+          .requireActual<
+            typeof import('@onekeyhq/core/src/chains/zcash/zip32Orchard')
+          >('@onekeyhq/core/src/chains/zcash/zip32Orchard')
+          .deriveZcashOrchardSpendingKey({ seed, accountIndex });
+        return passedSk;
+      });
     const keyring = createKeyring({
-      api: { deriveAccount },
+      api: { deriveAccountKeys, getChainTip },
       accountXpub: expected.accountXpub,
     });
 
     await keyring.retryLocalWalletSetup({ password: 'pw' });
 
-    expect(deriveAccount).toHaveBeenCalledWith({
+    expect(deriveAccountKeys).toHaveBeenCalledTimes(1);
+    expect(deriveAccountKeys).toHaveBeenCalledWith({
       network: 'main',
       orchardSkHex: Buffer.from(expected.orchardSk).toString('hex'),
       accountXpub: expected.accountXpub,
       hdIndex: 0,
+    });
+    expect(getChainTip).toHaveBeenCalledWith({
+      network: 'main',
       lightwalletdUrl: 'https://lwd.example',
     });
-    expectNoSeed(deriveAccount.mock.calls as unknown[][]);
+    expectNoSeed(deriveAccountKeys.mock.calls as unknown[][]);
     expectIssuedSeedsWiped();
-    expect(derived).toMatchObject({
+    expect(derived).toEqual({
       ufvk: 'ufvk',
+      unifiedAddress: 'u1',
+      transparentAddress: 't1',
+      chainTip: 3_000_000,
       seedFingerprintHex: expected.seedFingerprintHex,
     });
     expected.orchardSk.fill(0);
+  });
+
+  it('retries only the chain tip, never re-sending the Orchard sk', async () => {
+    jest.useFakeTimers();
+    let warnSpy: jest.SpyInstance | undefined;
+    try {
+      const expected = deriveZcashAccountViewingSecrets({
+        seed: TEST_SEED,
+        accountIndex: 0,
+      });
+      const deriveAccountKeys = jest.fn(async () => ({
+        ufvk: 'ufvk',
+        unifiedAddress: 'u1',
+        transparentAddress: 't1',
+      }));
+      const getChainTip = jest
+        .fn<Promise<number | null>, []>()
+        .mockRejectedValueOnce(new Error('connection reset'))
+        .mockResolvedValueOnce(null);
+      jest.mocked(fetchZcashChainTipDirect).mockResolvedValueOnce(3_100_000);
+      let derived: unknown;
+      jest
+        .mocked(resolveAndSaveZcashAccountMeta)
+        .mockImplementation(async ({ derive }) => {
+          derived = await derive({ hdIndex: 0 });
+        });
+      const keyring = createKeyring({
+        api: { deriveAccountKeys, getChainTip },
+        accountXpub: expected.accountXpub,
+      });
+      warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+      const pending = keyring.retryLocalWalletSetup({ password: 'pw' });
+      await jest.runAllTimersAsync();
+      await pending;
+
+      expect(deriveAccountKeys).toHaveBeenCalledTimes(1);
+      expect(getChainTip).toHaveBeenCalledTimes(2);
+      expect(fetchZcashChainTipDirect).toHaveBeenCalledWith({
+        lightwalletdUrl: 'https://lwd.example',
+      });
+      expect(derived).toMatchObject({ ufvk: 'ufvk', chainTip: 3_100_000 });
+      expectIssuedSeedsWiped();
+      expected.orchardSk.fill(0);
+    } finally {
+      warnSpy?.mockRestore();
+      jest.useRealTimers();
+    }
+  });
+
+  it('signs transparent inputs with the account xprv only', async () => {
+    const expected = deriveZcashAccountSecrets({
+      seed: TEST_SEED,
+      accountIndex: 0,
+    });
+    expected.orchardSk.fill(0);
+    jest.mocked(deriveZcashOrchardSpendingKey).mockClear();
+    const buildTransparentTxWithAccountXprv = jest.fn(async () => ({
+      rawTxHex: '00',
+    }));
+    jest
+      .mocked(signTransparentTransaction)
+      .mockImplementation(async ({ sign }) => {
+        await sign();
+        return { txid: '', rawTx: '00', encodedTx: null };
+      });
+    const keyring = createKeyring({
+      api: { buildTransparentTxWithAccountXprv },
+      accountXpub: expected.accountXpub,
+    });
+
+    await (
+      keyring as unknown as {
+        signTransparentTransaction: (params: {
+          encodedTx: IEncodedTxZcash;
+          password: string;
+        }) => Promise<unknown>;
+      }
+    ).signTransparentTransaction({
+      encodedTx: { zcashMode: 'transparent' } as IEncodedTxZcash,
+      password: 'pw',
+    });
+
+    expect(deriveZcashOrchardSpendingKey).not.toHaveBeenCalled();
+    expect(buildTransparentTxWithAccountXprv).toHaveBeenCalledWith({
+      network: 'main',
+      accountIndex: 0,
+      accountXprvHex: expected.accountXprvHex,
+    });
+    const calls = buildTransparentTxWithAccountXprv.mock.calls as unknown[][];
+    for (const [arg] of calls) {
+      expect(Object.keys(arg as object)).not.toContain('orchardSkHex');
+    }
+    expectNoSeed(calls);
+    expectIssuedSeedsWiped();
   });
 });
