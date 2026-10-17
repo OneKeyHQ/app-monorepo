@@ -5,6 +5,7 @@ import {
   WebSocketTransport,
 } from '@nktkas/hyperliquid';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   ICandle,
@@ -15,7 +16,11 @@ import type {
   IMarketTokenKLineResponse,
 } from '@onekeyhq/shared/types/marketV2';
 
-import { normalizeHyperliquidCandle } from './hyperliquidCandleUtils';
+import {
+  getHyperliquidCandleHistoryBoundary,
+  normalizeHyperliquidCandle,
+  normalizeHyperliquidHistoryCandle,
+} from './hyperliquidCandleUtils';
 
 import type { IHyperliquidCandleInterval } from './hyperliquidCandleUtils';
 import type { ITradingViewNativeHyperliquidEnvironment } from '../../../types';
@@ -265,18 +270,71 @@ export class TradingViewNativeHyperliquidGateway {
     timeFrom,
     timeTo,
   }: IFetchHyperliquidCandlesParams): Promise<IMarketTokenKLineResponse> {
+    const boundary = getHyperliquidCandleHistoryBoundary(coin, environment);
+    const startTime = boundary
+      ? Math.max(timeFrom * 1000, boundary.startTime)
+      : timeFrom * 1000;
+    if (boundary && startTime >= timeTo * 1000) {
+      return { points: [], total: 0 };
+    }
     const candles = await this.getInfoClient(environment).candleSnapshot(
       {
         coin,
         interval,
-        startTime: timeFrom * 1000,
+        startTime,
         endTime: timeTo * 1000,
       },
       signal,
     );
-    const points = candles
-      .map(normalizeHyperliquidCandle)
-      .filter((point) => point !== null);
+    const points: IMarketTokenKLineDataPoint[] = [];
+    for (const candle of candles) {
+      if (
+        boundary &&
+        (interval === '1w' || interval === '1M') &&
+        candle.t < boundary.startTime &&
+        candle.T >= boundary.startTime
+      ) {
+        // Rebuild only the contaminated first bucket; preserve its original timestamp
+        // and valid later highs instead of capping the entire week or month.
+        const days = await this.getInfoClient(environment).candleSnapshot(
+          {
+            coin,
+            interval: '1d',
+            startTime: boundary.startTime,
+            endTime: candle.T,
+          },
+          signal,
+        );
+        const validDays = days
+          .filter((day) => day.t >= candle.t && day.T <= candle.T)
+          .map((day) => normalizeHyperliquidHistoryCandle(day, environment))
+          .filter((point) => point !== null)
+          .toSorted((a, b) => a.t - b.t);
+        const first = validDays[0];
+        if (!first) {
+          throw new OneKeyLocalError(
+            'Missing Hyperliquid boundary candle history',
+          );
+        }
+        points.push(
+          validDays.slice(1).reduce(
+            (point, day) => ({
+              ...point,
+              h: Math.max(point.h, day.h),
+              l: Math.min(point.l, day.l),
+              c: day.c,
+              v: point.v + day.v,
+            }),
+            { ...first, t: Math.floor(candle.t / 1000) },
+          ),
+        );
+      } else {
+        const point = normalizeHyperliquidHistoryCandle(candle, environment);
+        if (point) {
+          points.push(point);
+        }
+      }
+    }
 
     return { points, total: points.length };
   }
