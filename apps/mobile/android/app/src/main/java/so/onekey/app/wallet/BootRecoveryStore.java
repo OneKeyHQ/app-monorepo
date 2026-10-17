@@ -77,6 +77,13 @@ final class BootRecoveryStore {
         return timestamps.size();
     }
 
+    static void reset(SharedPreferences prefs) {
+        prefs.edit()
+            .putInt(BootRecoveryKeys.CONSECUTIVE_BOOT_FAIL_COUNT, 0)
+            .remove(BootRecoveryKeys.BOOT_FAIL_TIMESTAMPS)
+            .commit();
+    }
+
     private static void dropOutsideWindow(List<Long> timestamps, long now) {
         Iterator<Long> it = timestamps.iterator();
         while (it.hasNext()) {

@@ -23,6 +23,10 @@ import {
   logGasAccountReviewExit,
   markGasAccountReviewSubmitted,
 } from '@onekeyhq/kit/src/views/Swap/utils/gasAccountAnalytics';
+import {
+  type ISwapReviewAnalytics,
+  createSwapReviewAnalytics,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapReviewAnalytics';
 import type { ISwapReviewAdapter } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
 import { resolveStockTokenToAssetRatio } from '@onekeyhq/kit/src/views/Swap/utils/swapStockReviewUtils';
 import {
@@ -107,6 +111,15 @@ function SwapPanelWrapContent({
   const [isReviewOpening, setIsReviewOpening] = useState(false);
   const reviewDialogRef = useRef<IDialogInstance | null>(null);
   const reviewDialogRequestIdRef = useRef(0);
+  const reviewAnalyticsRef = useRef<ISwapReviewAnalytics | undefined>(
+    undefined,
+  );
+  useEffect(
+    () => () => {
+      reviewAnalyticsRef.current?.close('reviewChanged');
+    },
+    [],
+  );
   const closeReviewDialog = useCallback(async () => {
     await reviewDialogRef.current?.close();
   }, []);
@@ -724,6 +737,7 @@ function SwapPanelWrapContent({
         return;
       }
 
+      const reviewAnalytics = createSwapReviewAnalytics();
       const requestId = reviewDialogRequestIdRef.current + 1;
       reviewDialogRequestIdRef.current = requestId;
       setIsReviewOpening(true);
@@ -735,6 +749,7 @@ function SwapPanelWrapContent({
 
       try {
         const nextReviewState = await prepareMarketSwapReview({
+          reviewAnalytics,
           isWrap,
           networkFeeLevel: effectiveNetworkFeeLevel,
           customPriorityFee: effectiveCustomPriorityFee,
@@ -744,9 +759,11 @@ function SwapPanelWrapContent({
         }
         const previousDialog = reviewDialogRef.current;
         if (previousDialog) {
+          reviewAnalyticsRef.current?.close('reviewChanged');
           reviewDialogRef.current = null;
           void previousDialog.close();
         }
+        reviewAnalyticsRef.current = reviewAnalytics;
         setIsReviewDialogOpen(true);
         const gasAccountReviewSession = createGasAccountReviewSession();
         let dialog: IDialogInstance | null = null;
@@ -758,6 +775,7 @@ function SwapPanelWrapContent({
           showCancelButton: false,
           showConfirmButton: false,
           onClose: () => {
+            reviewAnalytics.close('user');
             if (reviewDialogRef.current !== dialog) {
               return;
             }
@@ -767,6 +785,7 @@ function SwapPanelWrapContent({
           },
           renderContent: (
             <MarketSwapReviewDialog
+              reviewAnalytics={reviewAnalytics}
               adapter={reviewAdapter}
               disableSaveSlippageForFutureOrders={
                 marketPresetEnabled &&
