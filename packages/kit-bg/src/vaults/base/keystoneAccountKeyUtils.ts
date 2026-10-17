@@ -34,19 +34,20 @@ export function collectKeystoneAccountKeys(
 /**
  * Refuse Keystone results derived from an account key other than the one first seen for it, and
  * pin the keys seen for the first time. Must run before the results replace stored accounts.
+ * Without `dbDeviceId` only the export's own consistency is checked.
  */
 export async function pinKeystoneAccountKeys({
   dbDeviceId,
   items,
   vendorName,
 }: {
-  dbDeviceId: string;
+  dbDeviceId: string | undefined;
   items: IHwAllNetworkPrepareAccountsItem[];
   vendorName: string;
 }): Promise<void> {
   const { keys, conflicting } = collectKeystoneAccountKeys(items);
   let mismatched = conflicting;
-  if (!mismatched.length && Object.keys(keys).length) {
+  if (dbDeviceId && !mismatched.length && Object.keys(keys).length) {
     mismatched = await localDb.pinDeviceKeystoneAccountKeys({
       dbDeviceId,
       keys,

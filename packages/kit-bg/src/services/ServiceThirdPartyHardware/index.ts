@@ -1096,6 +1096,19 @@ class ServiceThirdPartyHardware extends ServiceBase {
     const hardwareOperationContext = usb
       ? { operationId: usb.operationId }
       : undefined;
+    // A re-import replaces the wallet's accounts, so the export must match the keys pinned on
+    // the device record before anything is written.
+    const existingDevice = await localDb.getExistingDevice({
+      rawDeviceId: walletId,
+      uuid: device.uuid || '',
+      connectId: device.connectId ?? undefined,
+      vendor,
+    });
+    await pinKeystoneAccountKeys({
+      dbDeviceId: existingDevice?.id,
+      items,
+      vendorName,
+    });
     const created = await this.backgroundApi.serviceAccount.createHWWallet({
       device,
       features: {
@@ -1110,9 +1123,11 @@ class ServiceThirdPartyHardware extends ServiceBase {
       hardwareOperationContext,
     });
 
-    // A re-import replaces the wallet's accounts, so the export must match the keys pinned on
-    // the device record before anything is written.
-    if (created.wallet.associatedDevice) {
+    // A new device has no pins yet; pin on the record just created.
+    if (
+      created.wallet.associatedDevice &&
+      created.wallet.associatedDevice !== existingDevice?.id
+    ) {
       await pinKeystoneAccountKeys({
         dbDeviceId: created.wallet.associatedDevice,
         items,

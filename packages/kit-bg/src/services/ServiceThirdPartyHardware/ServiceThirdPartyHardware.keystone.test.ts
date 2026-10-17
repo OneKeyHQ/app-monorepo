@@ -31,6 +31,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 }));
 
 function buildService() {
+  jest.spyOn(localDb, 'getExistingDevice').mockResolvedValue(undefined);
   const walletIdentity = 'ab'.repeat(32);
   const created = { wallet: { id: 'hw-keystone-test', isTemp: true } };
   const createHWWallet = jest.fn().mockResolvedValue(created);
@@ -187,7 +188,7 @@ describe('Keystone default account creation', () => {
   describe('account key pinning on import', () => {
     const ACCOUNT_PATH = "m/44'/60'/0'";
 
-    function withPinnedDevice(fixture: ReturnType<typeof buildService>) {
+    function withExport(fixture: ReturnType<typeof buildService>) {
       Object.assign(fixture.created.wallet, {
         associatedDevice: 'keystone-db-device',
       });
@@ -215,7 +216,16 @@ describe('Keystone default account creation', () => {
       });
     }
 
-    it('refuses a re-import with another account key before replacing accounts', async () => {
+    function withPinnedDevice(fixture: ReturnType<typeof buildService>) {
+      withExport(fixture);
+      jest
+        .spyOn(localDb, 'getExistingDevice')
+        .mockResolvedValue({ id: 'keystone-db-device' } as Awaited<
+          ReturnType<typeof localDb.getExistingDevice>
+        >);
+    }
+
+    it('refuses a re-import with another account key before writing the wallet', async () => {
       const fixture = buildService();
       withPinnedDevice(fixture);
       const pin = jest
@@ -229,18 +239,67 @@ describe('Keystone default account creation', () => {
         dbDeviceId: 'keystone-db-device',
         keys: { [`evm:${ACCOUNT_PATH}`]: '02aa:cc' },
       });
+      expect(fixture.createHWWallet).not.toHaveBeenCalled();
       expect(fixture.batchBuildAccounts).not.toHaveBeenCalled();
     });
 
-    it('pins the keys and creates the accounts when they match', async () => {
+    it('pins a re-import once and creates the accounts when they match', async () => {
       const fixture = buildService();
       withPinnedDevice(fixture);
-      jest.spyOn(localDb, 'pinDeviceKeystoneAccountKeys').mockResolvedValue([]);
+      const pin = jest
+        .spyOn(localDb, 'pinDeviceKeystoneAccountKeys')
+        .mockResolvedValue([]);
 
       await expect(
         fixture.service.createKeystoneWalletWithDefaultAccounts({}),
       ).resolves.toMatchObject(fixture.created);
+      expect(pin).toHaveBeenCalledTimes(1);
+      expect(pin.mock.invocationCallOrder[0]).toBeLessThan(
+        fixture.createHWWallet.mock.invocationCallOrder[0],
+      );
       expect(fixture.batchBuildAccounts).toHaveBeenCalled();
+    });
+
+    it('pins a first import on the record just created', async () => {
+      const fixture = buildService();
+      withExport(fixture);
+      const pin = jest
+        .spyOn(localDb, 'pinDeviceKeystoneAccountKeys')
+        .mockResolvedValue([]);
+
+      await expect(
+        fixture.service.createKeystoneWalletWithDefaultAccounts({}),
+      ).resolves.toMatchObject(fixture.created);
+      expect(pin).toHaveBeenCalledTimes(1);
+      expect(pin).toHaveBeenCalledWith({
+        dbDeviceId: 'keystone-db-device',
+        keys: { [`evm:${ACCOUNT_PATH}`]: '02aa:cc' },
+      });
+    });
+
+    it('refuses an export that disagrees with itself before writing the wallet', async () => {
+      const fixture = buildService();
+      const item = (publicKey: string) => ({
+        network: 'evm',
+        path: `${ACCOUNT_PATH}/0/0`,
+        success: true,
+        payload: {
+          address: `0x${'11'.repeat(20)}`,
+          deviceIdentity: { type: 'walletId', value: fixture.walletIdentity },
+          accountKey: { path: ACCOUNT_PATH, publicKey, chainCode: 'cc' },
+        },
+      });
+      fixture.allNetworkGetAddress.mockResolvedValueOnce({
+        success: true,
+        payload: [item('02aa'), item('02bb')],
+      });
+      const pin = jest.spyOn(localDb, 'pinDeviceKeystoneAccountKeys');
+
+      await expect(
+        fixture.service.createKeystoneWalletWithDefaultAccounts({}),
+      ).rejects.toMatchObject({ code: HardwareErrorCode.DeviceMismatch });
+      expect(pin).not.toHaveBeenCalled();
+      expect(fixture.createHWWallet).not.toHaveBeenCalled();
     });
   });
 
