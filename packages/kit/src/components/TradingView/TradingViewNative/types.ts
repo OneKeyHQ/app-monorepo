@@ -73,17 +73,19 @@ export interface ITradingViewNativeIntervalChangeData {
   toInterval: ITradingViewNativeChartInterval;
 }
 
-export type ITradingViewNativeInitialRightOffset =
+export type ITradingViewNativeInitialRightOffset = {
+  // Keep padding and pan limits stable when a sidebar changes the visible width.
+  referenceWidth?: number;
+} & (
   | {
       type: 'chartWidthPercentage';
       value: number;
-      // Keep the right padding stable when a sidebar changes the visible width.
-      referenceWidth?: number;
     }
   | {
       type: 'pointCount';
       value: number;
-    };
+    }
+);
 
 export interface ITradingViewNativePriceChartAnchor {
   type: 'price';

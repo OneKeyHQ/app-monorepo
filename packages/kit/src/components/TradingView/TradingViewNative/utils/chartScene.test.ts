@@ -53,12 +53,13 @@ function buildLinearPoints(count: number): IMarketTokenKLineDataPoint[] {
 
 describe('TradingViewNative shared chart scene', () => {
   it.each([
-    { offset: 0, zoomScale: 1 },
-    { offset: 57, zoomScale: 1.25 },
+    { offset: 0, zoomScale: 1, width: 840 },
+    { offset: 57, zoomScale: 1.25, width: 840 },
+    { offset: 0, zoomScale: 1, width: 840.5 },
+    { offset: 57, zoomScale: 1.25, width: 840.5 },
   ])(
     'extends the left edge without moving existing candles (%p)',
-    (viewport) => {
-      const width = 840;
+    ({ width, ...viewport }) => {
       const toolbarWidth = 48;
       const priceAxisWidth = 60;
       const referenceWidth = getTradingViewNativeChartWidth(

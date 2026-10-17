@@ -483,10 +483,14 @@ export const TradingViewNativeChart = memo(
           priceAxisFontSize,
         );
         // Include the toolbar width so revealing candles does not rescale the plot.
+        const canvasRect = canvas.getBoundingClientRect();
+        const chartLeft =
+          drawingRootRef.current?.getBoundingClientRect().left ??
+          canvasRect.left;
         const autoScalePointRange =
           getTradingViewNativeChartRuntimeVisiblePointRange({
             chartWidth: getTradingViewNativeChartWidth(
-              canvas.clientWidth + (containerRef.current?.offsetLeft ?? 0),
+              canvasRect.right - chartLeft,
               priceAxisWidth,
             ),
             pointCount: points.length,
@@ -799,6 +803,7 @@ export const TradingViewNativeChart = memo(
           return;
         }
         setMeasuredChartHeight(canvas.clientHeight);
+        const canvasRect = canvas.getBoundingClientRect();
         const nextPriceAxisWidth = getTradingViewNativeCanvasPriceAxisWidth(
           canvas,
           priceAxisLabels,
@@ -806,7 +811,7 @@ export const TradingViewNativeChart = memo(
           priceAxisFontSize,
         );
         const nextChartWidth = getTradingViewNativeChartWidth(
-          canvas.clientWidth,
+          canvasRect.width,
           nextPriceAxisWidth,
         );
         const currentRuntimeState = runtimeStateRef.current;
@@ -818,17 +823,21 @@ export const TradingViewNativeChart = memo(
           },
         );
         const rightOffset = measuredRuntimeState.viewport.initialRightOffset;
-        const referenceWidth =
-          nextChartWidth + (containerRef.current?.offsetLeft ?? 0);
-        if (
-          rightOffset?.type === 'chartWidthPercentage' &&
-          rightOffset.referenceWidth !== referenceWidth
-        ) {
+        const chartLeft =
+          drawingRootRef.current?.getBoundingClientRect().left ??
+          canvasRect.left;
+        const referenceWidth = getTradingViewNativeChartWidth(
+          canvasRect.right - chartLeft,
+          nextPriceAxisWidth,
+        );
+        if (rightOffset?.referenceWidth !== referenceWidth) {
           measuredRuntimeState = {
             ...measuredRuntimeState,
             viewport: {
               ...measuredRuntimeState.viewport,
-              initialRightOffset: { ...rightOffset, referenceWidth },
+              initialRightOffset: rightOffset
+                ? { ...rightOffset, referenceWidth }
+                : { type: 'pointCount', value: 0, referenceWidth },
             },
           };
         }

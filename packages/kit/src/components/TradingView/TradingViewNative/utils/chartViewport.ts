@@ -293,19 +293,24 @@ export function getTradingViewNativePanOffsetBounds({
     initialRightOffset,
     zoomScale: scale,
   });
+  // Cropping the left edge must not change the pan limit or move an edge candle.
+  const boundsWidth = Math.max(
+    chartWidth,
+    initialRightOffset?.referenceWidth ?? chartWidth,
+  );
   const newestCenter =
-    chartWidth -
+    boundsWidth -
     (resolvedCandleGap + TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH / 2) * scale -
     rightOffsetWidth;
   const oldestCenter = newestCenter - (pointCount - 1) * candleStep;
   // Keep the edge candle body visible, including on charts narrower than a candle.
   const edgeInset = Math.min(
     (TRADING_VIEW_NATIVE_CANDLE_BODY_WIDTH * scale) / 2,
-    chartWidth / 2,
+    boundsWidth / 2,
   );
   return {
     minOffset: edgeInset - newestCenter,
-    maxOffset: chartWidth - edgeInset - oldestCenter,
+    maxOffset: boundsWidth - edgeInset - oldestCenter,
   };
 }
 
