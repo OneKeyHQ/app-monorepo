@@ -97,7 +97,7 @@ export interface ITradingViewNativeReferenceLineComponent {
     interactive: boolean;
     cancelable?: boolean;
     draggable?: boolean;
-    pending?: boolean;
+    pending?: ITradingViewNativeReferenceLineAction['type'];
     style: ITradingViewNativeChartLineStyle | 'dotted';
     title: string;
     /** Opt into an outlined label on the left, with an optional quantity segment. */
@@ -218,4 +218,5 @@ export interface ITradingViewNativePriceSelection {
   price: number;
   screenX: number;
   screenY: number;
+  onClose?: () => void;
 }
