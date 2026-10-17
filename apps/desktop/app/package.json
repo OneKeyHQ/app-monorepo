@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@onekeyfe/electron-mac-icloud": "1.2.6",
+    "@onekeyfe/electron-windows-hello": "44.0.2-alpha.1",
     "@sentry/electron": "7.8.0",
     "@stoprocent/noble": "2.3.16",
     "adm-zip": "0.5.17",
@@ -17,8 +18,6 @@
     "electron-updater": "6.8.9",
     "iconv-lite": "0.6.3",
     "mime-db": "1.52.0",
-    "passport-desktop": "0.1.2",
-    "passport-desktop-win32-x64-msvc": "0.1.2",
     "systeminformation": "5.31.6",
     "validator": "13.15.23"
   },

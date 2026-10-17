@@ -267,6 +267,26 @@ describe('PasswordVerify biometric-changed warning', () => {
     // above the lock screen and the toast layer.
     expect(props.isOverTopAllViews).toBeUndefined();
   });
+
+  it('does not register Windows reactivation as an automatic Hello retry', async () => {
+    const platformEnv = jest.requireMock<
+      typeof import('@onekeyhq/shared/src/platformEnv')
+    >('@onekeyhq/shared/src/platformEnv').default;
+    const originalPlatform = {
+      isNativeIOS: platformEnv.isNativeIOS,
+      isDesktopWin: platformEnv.isDesktopWin,
+    };
+    Object.assign(platformEnv, { isNativeIOS: false, isDesktopWin: true });
+    try {
+      const onBiologyAuth = jest.fn();
+      renderVerify({ onBiologyAuth });
+      await flush();
+      expect(onBiologyAuth).toHaveBeenCalledTimes(1);
+      expect(captured().active).toBeUndefined();
+    } finally {
+      Object.assign(platformEnv, originalPlatform);
+    }
+  });
 });
 
 function captured(): ICaptured {
