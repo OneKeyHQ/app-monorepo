@@ -181,12 +181,18 @@ describe('scanning with airGapUrUtils', () => {
   it.each([
     ['plain hex text', '0x1234abcd'],
     ['a bitcoin address', 'bc1qxyz'],
-    ['a UR with a broken checksum', `${singlePart('44deadbeef').slice(0, -2)}aa`],
-  ])('fails one-shot decoding of %s as an invalid scheme', async (_case, qr) => {
-    await expect(
-      settledWithin(() => airGapUrUtils.qrcodeToUr(qr)),
-    ).rejects.toBeInstanceOf(InvalidSchemeError);
-  });
+    [
+      'a UR with a broken checksum',
+      `${singlePart('44deadbeef').slice(0, -2)}aa`,
+    ],
+  ])(
+    'fails one-shot decoding of %s as an invalid scheme',
+    async (_case, qr) => {
+      await expect(
+        settledWithin(() => airGapUrUtils.qrcodeToUr(qr)),
+      ).rejects.toBeInstanceOf(InvalidSchemeError);
+    },
+  );
 
   it('decodes a valid code in one shot', async () => {
     const single = await settledWithin(() =>
