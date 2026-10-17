@@ -1,10 +1,10 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { useThrottledCallback } from 'use-debounce';
 
 import type { IDialogInstance } from '@onekeyhq/components';
-import { Dialog, Toast } from '@onekeyhq/components';
+import { Dialog, Toast, rootNavigationRef } from '@onekeyhq/components';
 import type { ICloudBackupExitPreventAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   cloudBackupExitPreventAtom,
@@ -17,23 +17,24 @@ import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import {
   EOnboardingPagesV2,
   EOnboardingV2Routes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useIsMounted } from '../../../hooks/useIsMounted';
 import { showPrimeTransferImportProcessingDialog } from '../../Prime/pages/PagePrimeTransfer/components/PrimeTransferImportProcessingDialog';
 import {
   showCloudBackupDeleteDialog,
   showCloudBackupPasswordDialog,
 } from '../components/CloudBackupDialogs';
+
+import type { ICloudBackupAvailabilityOptions } from './checkCloudBackupAvailability';
 
 let isBackupErrorDialogShowing = false;
 
@@ -41,6 +42,7 @@ export function useCloudBackup() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [checkLoading, setCheckLoading] = useState(false);
+  const isMountedRef = useIsMounted();
 
   const [cloudBackupStatus] = useCloudBackupStatusAtom();
 
@@ -65,115 +67,21 @@ export function useCloudBackup() {
     };
   }, [cloudBackupStatus.cloudBackupProviderInfo, intl, supportCloudBackup]);
 
-  const checkIsAvailable = useCallback(async (): Promise<boolean> => {
-    try {
-      setCheckLoading(true);
-      if (!supportCloudBackup) {
-        Toast.error({
-          title: 'Cloud backup not support on your device',
-        });
-        return false;
-      }
-      const _showAlertDialogUnused = () => {
-        Dialog.confirm({
-          icon: 'InfoCircleOutline',
-          title: intl.formatMessage({
-            id: platformEnv.isNativeAndroid
-              ? // You have no available Google Drive backups to import.
-                ETranslations.settings_google_drive_backup
-              : ETranslations.settings_icloud_backup,
-          }),
-          description: intl.formatMessage({
-            id: platformEnv.isNativeAndroid
-              ? // To enable this feature, please download Google Drive, log in, and ensure that OneKey has the necessary permissions.
-                ETranslations.backup_enable_feature_download_google_drive
-              : ETranslations.backup_please_log_in_to_your_apple_account_and_activate_icloud_drive,
-          }),
-          onConfirmText: intl.formatMessage({
-            id: platformEnv.isNativeAndroid
-              ? ETranslations.global_got_it
-              : ETranslations.backup_go_system_settings,
-          }),
-          onConfirm: () =>
-            platformEnv.isNativeIOS
-              ? openUrlExternal('App-prefs:CASTLE')
-              : undefined,
-        });
-      };
-      const cloudAccountInfo =
-        await backgroundApiProxy.serviceCloudBackupV2.getCloudAccountInfo();
-      if (platformEnv.isNativeIOS || platformEnv.isDesktopMac) {
-        if (
-          !cloudAccountInfo.iCloud?.cloudKitAvailable ||
-          !cloudAccountInfo.iCloud?.cloudKitContainerUserId
-        ) {
-          Dialog.confirm({
-            icon: 'InfoCircleOutline',
-            title: intl.formatMessage({
-              id: ETranslations.settings_icloud_backup,
-            }),
-            description: intl.formatMessage({
-              id: ETranslations.backup_please_log_in_to_your_apple_account_and_activate_icloud_drive,
-            }),
-            onConfirmText: intl.formatMessage({
-              id: platformEnv.isDesktopMac
-                ? ETranslations.global_got_it
-                : ETranslations.backup_go_system_settings,
-            }),
-            onConfirm: () =>
-              platformEnv.isDesktopMac
-                ? undefined
-                : openUrlExternal('App-prefs:CASTLE'),
-          });
-          return false;
-        }
-        // console
-        return true;
-      }
-      if (platformEnv.isNativeAndroid) {
-        if (!cloudAccountInfo.googleDrive?.googlePlayServiceAvailable) {
-          Dialog.confirm({
-            icon: 'InfoCircleOutline',
-            title: intl.formatMessage({
-              id: ETranslations.google_play_services_not_available_title,
-            }),
-            description: intl.formatMessage({
-              id: ETranslations.google_play_services_not_available_desc,
-            }),
-            onConfirmText: intl.formatMessage({
-              id: ETranslations.global_got_it,
-            }),
-            onConfirm: () => undefined,
-          });
-          return false;
-        }
-        if (!cloudAccountInfo.googleDrive?.userInfo?.user?.id) {
-          Dialog.confirm({
-            icon: 'PeopleOutline',
-            title: intl.formatMessage({
-              id: ETranslations.google_account_not_signed_in,
-            }),
-            onConfirmText: intl.formatMessage({
-              id: ETranslations.global_sign_in,
-            }),
-            onConfirm: async () => {
-              await backgroundApiProxy.serviceCloudBackupV2.loginCloudIfNeed();
-              Toast.success({
-                title: intl.formatMessage({
-                  id: ETranslations.signed_in_feedback,
-                }),
-              });
-            },
-          });
-          return false;
-        }
-        return true;
-      }
-      return false;
-    } finally {
-      setCheckLoading(false);
-    }
-  }, [intl, supportCloudBackup]);
+  const checkIsAvailable = useCallback(
+    async (options: ICloudBackupAvailabilityOptions = {}) => {
+      // Wallet entry points mount this hook during startup; load authorization
+      // UI only when a cloud operation requests it. The helper rechecks ownership.
+      const { checkCloudBackupAvailability } =
+        await import('./checkCloudBackupAvailability');
+      return checkCloudBackupAvailability({
+        intl,
+        supportCloudBackup,
+        setCheckLoading,
+        ...options,
+      });
+    },
+    [intl, supportCloudBackup],
+  );
 
   const goToPageBackupList = useCallback(
     async ({ hideRestoreButton }: { hideRestoreButton?: boolean } = {}) => {
@@ -203,23 +111,17 @@ export function useCloudBackup() {
     [checkIsAvailable, navigation],
   );
 
-  const goToPageBackupDetail = useCallback(
-    async (
-      params: IOnboardingParamListV2[EOnboardingPagesV2.ICloudBackupDetails],
-    ) => {
-      const isAvailable = await checkIsAvailable();
-      if (isAvailable) {
-        navigation.navigate(ERootRoutes.Onboarding, {
-          screen: EOnboardingV2Routes.OnboardingV2,
-          params: {
-            screen: EOnboardingPagesV2.ICloudBackupDetails,
-            params,
-          },
-        });
-      }
-    },
-    [checkIsAvailable, navigation],
-  );
+  // The destination page owns authorization after an explicit navigation handoff.
+  const prepareBackup = useCallback(async () => {
+    const isAvailable = await checkIsAvailable({
+      isActive: () => isMountedRef.current,
+      signInIfNeeded: true,
+    });
+    if (!isAvailable || !isMountedRef.current) return undefined;
+    const data =
+      await backgroundApiProxy.serviceCloudBackupV2.buildBackupData();
+    return isMountedRef.current ? data : undefined;
+  }, [checkIsAvailable, isMountedRef]);
 
   const doBackup = useThrottledCallback(
     async ({
@@ -229,8 +131,10 @@ export function useCloudBackup() {
       data: IPrimeTransferData;
       backupTimes?: number;
     }) => {
-      const isAvailable = await checkIsAvailable();
-      if (!isAvailable) {
+      const isAvailable = await checkIsAvailable({
+        isActive: () => isMountedRef.current,
+      });
+      if (!isAvailable || !isMountedRef.current) {
         return;
       }
       let verifyPasswordDialog: IDialogInstance | null = null;
@@ -238,6 +142,9 @@ export function useCloudBackup() {
       let loadingDialog: IDialogInstance | null = null;
 
       function handleBackupError(error: unknown) {
+        if (!isMountedRef.current) {
+          throw error;
+        }
         const e = error as Error | undefined;
         const errorMessage = e?.message;
         if (
@@ -355,6 +262,10 @@ export function useCloudBackup() {
         setCheckLoading(true);
         const isPasswordSet =
           await backgroundApiProxy.serviceCloudBackupV2.isBackupPasswordSet();
+        // Drive consent can outlive the page that started the backup.
+        if (!isMountedRef.current) {
+          return;
+        }
         const resetPasswordAndBackup = async ({
           isFirstTimeSetPassword,
         }: { isFirstTimeSetPassword?: boolean } = {}) => {
@@ -412,7 +323,9 @@ export function useCloudBackup() {
           });
         }
       } finally {
-        setCheckLoading(false);
+        if (isMountedRef.current) {
+          setCheckLoading(false);
+        }
       }
     },
     600,
@@ -570,47 +483,81 @@ export function useCloudBackup() {
     },
   );
 
-  const startBackup = useThrottledCallback(
-    async ({
-      alwaysGoToBackupDetail,
-    }: { alwaysGoToBackupDetail?: boolean } = {}) => {
-      const isAvailable = await checkIsAvailable();
-      let loadingDialog: IDialogInstance | null = null;
-      if (isAvailable) {
-        if (platformEnv.isNativeAndroid) {
-          await backgroundApiProxy.serviceCloudBackupV2.loginCloudIfNeed();
-        }
+  const lastBackupDetailLaunch = useRef<number | undefined>(undefined);
+  const openBackupDetail = useCallback(() => {
+    const rootNavigation = rootNavigationRef.current;
+    if (!rootNavigation) return;
+    const now = Date.now();
+    // Keep the handoff callable after source teardown without queuing a second
+    // navigation. Once opened, the destination owns authorization and retries.
+    if (
+      (lastBackupDetailLaunch.current !== undefined &&
+        now - lastBackupDetailLaunch.current < 600) ||
+      rootNavigation.getCurrentRoute()?.name ===
+        EOnboardingPagesV2.ICloudBackupDetails
+    ) {
+      return;
+    }
+    lastBackupDetailLaunch.current = now;
+    try {
+      rootNavigation.navigate(ERootRoutes.Onboarding, {
+        screen: EOnboardingV2Routes.OnboardingV2,
+        params: {
+          screen: EOnboardingPagesV2.ICloudBackupDetails,
+          params: { actionType: 'backup', backupTime: now },
+        },
+      });
+    } catch (error) {
+      lastBackupDetailLaunch.current = undefined;
+      throw error;
+    }
+  }, []);
 
-        if (platformEnv.isNativeAndroid || alwaysGoToBackupDetail) {
-          await goToPageBackupDetail({
-            actionType: 'backup',
-            backupTime: Date.now(),
-          });
-        } else {
-          loadingDialog = Dialog.loading({
-            title: intl.formatMessage({
-              id: ETranslations.preparing_backup_title,
-            }),
-            description: intl.formatMessage({
-              id: ETranslations.preparing_backup_desc,
-            }),
-          });
-          try {
-            await timerUtils.wait(300);
-            const data =
-              await backgroundApiProxy.serviceCloudBackupV2.buildBackupData();
-            await doBackup({ data });
-          } finally {
-            void loadingDialog?.close?.();
-          }
-        }
+  const startBackupInPage = useThrottledCallback(
+    async () => {
+      if (!isMountedRef.current) return;
+      if (platformEnv.isNativeAndroid) {
+        openBackupDetail();
+        return;
+      }
+      const isAvailable = await checkIsAvailable({
+        isActive: () => isMountedRef.current,
+      });
+      if (!isAvailable || !isMountedRef.current) return;
+      const loadingDialog = Dialog.loading({
+        title: intl.formatMessage({ id: ETranslations.preparing_backup_title }),
+        description: intl.formatMessage({
+          id: ETranslations.preparing_backup_desc,
+        }),
+      });
+      try {
+        await timerUtils.wait(300);
+        if (!isMountedRef.current) return;
+        const data =
+          await backgroundApiProxy.serviceCloudBackupV2.buildBackupData();
+        if (!isMountedRef.current) return;
+        await doBackup({ data });
+      } finally {
+        void loadingDialog?.close?.();
       }
     },
     600,
-    {
-      leading: true,
-      trailing: false,
+    { leading: true, trailing: false },
+  );
+
+  const startBackup = useCallback(
+    async ({
+      alwaysGoToBackupDetail,
+    }: { alwaysGoToBackupDetail?: boolean } = {}) => {
+      // Settings and wallet actions intentionally dismiss their source page first.
+      // A throttled callback cannot run after unmount; hand off navigation directly.
+      if (alwaysGoToBackupDetail) {
+        openBackupDetail();
+        return;
+      }
+      await startBackupInPage();
     },
+    [openBackupDetail, startBackupInPage],
   );
 
   return useMemo(
@@ -618,6 +565,7 @@ export function useCloudBackup() {
       supportCloudBackup,
       cloudBackupFeatureInfo,
       startBackup,
+      prepareBackup,
       goToPageBackupList,
       checkLoading,
       doBackup,
@@ -628,6 +576,7 @@ export function useCloudBackup() {
       supportCloudBackup,
       cloudBackupFeatureInfo,
       startBackup,
+      prepareBackup,
       goToPageBackupList,
       checkLoading,
       doBackup,
