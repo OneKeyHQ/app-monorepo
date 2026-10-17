@@ -21,6 +21,9 @@ on:
         default: false
 
 env:
+  # Release artifacts must ship the licensed brand font; fonts-sync fails
+  # instead of falling back to the open-source face.
+  ONEKEY_REQUIRE_PRIVATE_FONTS: '1'
   NODE_ENV: production
   YARN_ENABLE_GLOBAL_CACHE: true
   ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
@@ -130,12 +133,23 @@ jobs:
         id: yarn-cache-dir-path
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
 
+      - name: Private fonts token
+        uses: ./.github/actions/private-fonts-token
+        with:
+          app-id: ${{ vars.PRIVATE_FONTS_APP_ID }}
+          private-key: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
+
       - name: Install Dep
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           yarn install --immutable
+
+      # EAS skips gitignored files, so hand it the private font through a
+      # non-ignored directory that eas-build-post-install syncs from.
+      - name: Stage private fonts for EAS
+        run: node development/scripts/fonts-sync.js --stage-eas
 
       - name: Build on EAS And Submit
         if: ${{ github.event.workflow_run }}

@@ -102,6 +102,16 @@ export const brandFontManifest = {
 
 `ONEKEY_REQUIRE_PRIVATE_FONTS=1` 时，若走到第 4 条（fallback）则直接 `exit 1`。
 
+实现说明（步骤 2）：
+
+- 私有仓库按 `brand.lock.json` 的 `commit` 通过 GitHub Contents API（`Accept: application/vnd.github.raw+json`）
+  逐个下载锁文件中列出的 4 个文件，而不是整个 tarball：无需解压依赖，也不会拉取仓库里的授权凭证等其他文件。
+  下载结果缓存在 `node_modules/.cache/onekey-private-fonts/<commit>/`，每次使用前重新校验 sha256。
+- `commit` 为 `null` 表示私有仓库尚未发布，此时跳过该来源（过渡期继续使用 `private-legacy`）。
+- `gh auth token` 无权限（外部贡献者）或网络不可达时，静默进入下一来源。
+- 本地 `yarn` 永远不会因为字体失败：显式 token 无效、sha256 不匹配、`ONEKEY_PRIVATE_FONTS_DIR` 配错等错误，
+  只打印警告并改用开源 fallback。只有 `ONEKEY_REQUIRE_PRIVATE_FONTS=1`（发布构建）时这些错误才是致命的。
+
 ### 3.3 iOS
 
 - `Info.plist` `UIAppFonts` 与 `project.pbxproj` 改为固定槽位名 `BrandSans-*.ttf`，一次性提交，此后不随字体变化。
@@ -113,17 +123,26 @@ export const brandFontManifest = {
 新建私有仓库 **`OneKeyHQ/app-private-fonts`**（建议），内容：Roobert 4 个字重 + 授权凭证副本（内部存档）。
 相比私有 npm 包：无需额外 registry 配置；相比 git submodule：开源用户 clone 时不会出现无法访问的子模块报错。
 
-访问凭据：GitHub App 或 fine-grained PAT，仅该仓库 `contents:read`，存为组织级 secret `PRIVATE_FONTS_TOKEN`。
+访问凭据：GitHub App，不使用长期 PAT。
+
+- 组织管理员创建一个 GitHub App，只授予 Repository permissions → Contents: Read-only，只安装到 `app-private-fonts`。
+- app-monorepo 配置：变量 `vars.PRIVATE_FONTS_APP_ID`、secret `secrets.PRIVATE_FONTS_APP_PRIVATE_KEY`。
+- 每个需要安装依赖的发布 job 在 `yarn install` 前执行 `.github/actions/private-fonts-token`，
+  用 `actions/create-github-app-token` 临时生成 1 小时有效、仅 `contents:read` 的 token，写入 `ONEKEY_PRIVATE_FONTS_TOKEN`。
+  App 未配置时该步骤自动跳过。
 
 ## 4. CI / 发布流水线
 
 | 流水线 | 处理 |
 |---|---|
 | `lint.yml`、`unittest.yml`、`react-native-unittest.yml` 等 PR 检查 | 不注入 token，走 fallback。也就验证了"开源用户能编译" |
-| `release-ios.yml` / `release-android.yml`（EAS） | EAS 上传项目时不包含 gitignore 文件 → 在 `eas-build-post-install` 中执行 `ONEKEY_REQUIRE_PRIVATE_FONTS=1 yarn fonts:sync`，token 放 EAS secret（与现有 `KEY_SECRET` 写入 lite-card keys 的做法一致） |
+| `release-ios.yml` / `release-android.yml`（EAS） | EAS 上传时排除 gitignore 文件。Actions 在 `yarn install` 拉到私有字体后，执行 `fonts-sync.js --stage-eas` 复制到未被 ignore 的 `.eas-private-fonts/`，随项目一起上传；`eas-build-post-install` 用 `ONEKEY_PRIVATE_FONTS_DIR=.eas-private-fonts` + `ONEKEY_REQUIRE_PRIVATE_FONTS=1` 同步。EAS 不需要任何 token/secret。不使用 `.easignore`：它会整体替代全仓库的 `.gitignore`，导致 `.env` 等文件被上传 |
 | `release-native-bundle.yml`、`release-app-bundles.yml`（OTA JS bundle） | **必须** require private。否则 OTA bundle 中的 family 名会和原生包不一致，导致文字全部回退成系统字体 |
-| `release-desktop*.yml`、`release-ext.yml`、`release-web.yml`、`build-desktop-renderer.yml`、`web-embed-prebundle.yml`、`metro-dev-prebundle.yml`、`daily-build*.yml` | `env: ONEKEY_PRIVATE_FONTS_TOKEN` + `ONEKEY_REQUIRE_PRIVATE_FONTS=1` |
+| `release-desktop*.yml`、`release-ext.yml`、`release-web.yml`、`build-desktop-renderer.yml`、`web-embed-prebundle.yml`、`metro-dev-prebundle.yml`、`daily-build*.yml` | `private-fonts-token` action + `ONEKEY_REQUIRE_PRIVATE_FONTS=1` |
 | 来自 fork 的 PR | 拿不到 secret，自动 fallback，不受影响 |
+
+过渡期（`private-legacy/` 尚未删除）：GitHub App 未配置时，发布构建会使用 `private-legacy/`，仍能正常出包。
+删除 `private-legacy/` 之前必须先配置好 GitHub App。
 
 再加一道运行时保险：在正式包里，若 `brandFontManifest.source !== 'private'`，启动时上报 Sentry 告警（不阻断用户）。
 
@@ -139,7 +158,7 @@ export const brandFontManifest = {
 | 角色 | 操作 |
 |---|---|
 | 外部贡献者 | `git clone && yarn` → 自动使用 fallback 字体，一切照常。终端提示一行：当前为开源替代字体 |
-| 内部开发者 | 已登录 `gh` 或配置了 SSH 即可自动拉取；否则在 `.env` 写 `ONEKEY_PRIVATE_FONTS_TOKEN` |
+| 内部开发者 | `gh` 已登录且有 `app-private-fonts` 读权限即可在 `yarn` 时自动拉取；没有权限则使用 Inter，`yarn` 不会失败。下载结果有缓存，离线也能复用 |
 | 切换字体后 | `yarn fonts:sync`；iOS 需重新 `pod install` / 重新编译原生；Android 需重新编译原生（assets 变化） |
 
 ## 7. 历史记录处理（需决策）
@@ -158,7 +177,7 @@ export const brandFontManifest = {
 1. **fallback 字体选型**：Inter（覆盖语言最广，有 `tnum`）或 Geist Sans（与已用的 Geist Mono 同源，同为 OFL）。需要对比数字等宽、行高，避免截断。
 2. **授权范围**：公司持有的 Roobert 授权是否覆盖 App 嵌入 + Web（app.onekey.so 以 Web 字体形式对外提供 `.ttf`，通常需要单独的 Web license）+ 浏览器扩展。
 3. **槽位文件名**：构建产物中把 Roobert 文件以 `BrandSans-*.ttf` 存放（不修改字体数据和内部名称），需法务确认不属于授权条款中的 "rename"。若不接受，iOS 改为由 Podfile 动态写入 `UIAppFonts`，代价是每次 `pod install` 修改 Info.plist / pbxproj。
-4. 私有仓库名与 token 管理人。
+4. GitHub App 的创建与私钥轮换负责人。
 
 ## 9. 实施拆分（建议按 PR 顺序）
 

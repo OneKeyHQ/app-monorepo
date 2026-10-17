@@ -1,0 +1,39 @@
+name: Private fonts token
+description: >-
+  Mint a short-lived, read-only GitHub App installation token for
+  OneKeyHQ/app-private-fonts and expose it to later steps as
+  ONEKEY_PRIVATE_FONTS_TOKEN, so `yarn install` (fonts:sync) can fetch the
+  licensed brand font. Skips silently when the App is not configured; release
+  workflows still fail later through ONEKEY_REQUIRE_PRIVATE_FONTS.
+
+inputs:
+  app-id:
+    description: GitHub App ID (vars.PRIVATE_FONTS_APP_ID).
+    required: false
+    default: ''
+  private-key:
+    description: GitHub App private key (secrets.PRIVATE_FONTS_APP_PRIVATE_KEY).
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Create GitHub App token
+      id: app-token
+      if: inputs.app-id != '' && inputs.private-key != ''
+      # v3.2.0
+      uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+      with:
+        app-id: ${{ inputs.app-id }}
+        private-key: ${{ inputs.private-key }}
+        owner: OneKeyHQ
+        repositories: app-private-fonts
+        permission-contents: read
+
+    - name: Export token for fonts:sync
+      if: steps.app-token.outputs.token != ''
+      shell: bash
+      env:
+        TOKEN: ${{ steps.app-token.outputs.token }}
+      run: echo "ONEKEY_PRIVATE_FONTS_TOKEN=${TOKEN}" >> "$GITHUB_ENV"

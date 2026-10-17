@@ -56,6 +56,9 @@ permissions:
   contents: read
 
 env:
+  # Release artifacts must ship the licensed brand font; fonts-sync fails
+  # instead of falling back to the open-source face.
+  ONEKEY_REQUIRE_PRIVATE_FONTS: '1'
   ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
   NOTIFY_RELEASE: ${{ github.event.inputs.notify_release || 'false' }}
   UPLOAD_MAS_TO_TESTFLIGHT: ${{ github.event.inputs.upload_mas_to_testflight || 'true' }}
@@ -74,6 +77,7 @@ jobs:
       source_ref_name: ${{ github.event.inputs.source_ref_name || github.ref_name }}
       ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
     secrets:
+      PRIVATE_FONTS_APP_PRIVATE_KEY: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
       SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
       SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
@@ -181,6 +185,12 @@ jobs:
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
+
+      - name: Private fonts token
+        uses: ./.github/actions/private-fonts-token
+        with:
+          app-id: ${{ vars.PRIVATE_FONTS_APP_ID }}
+          private-key: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
 
       - name: Install Dep
         env:
@@ -531,6 +541,12 @@ jobs:
         id: yarn-cache-dir-path
         shell: pwsh
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
+
+      - name: Private fonts token
+        uses: ./.github/actions/private-fonts-token
+        with:
+          app-id: ${{ vars.PRIVATE_FONTS_APP_ID }}
+          private-key: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
 
       - name: Install Dep
         env:
@@ -956,6 +972,12 @@ jobs:
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
+
+      - name: Private fonts token
+        uses: ./.github/actions/private-fonts-token
+        with:
+          app-id: ${{ vars.PRIVATE_FONTS_APP_ID }}
+          private-key: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
 
       - name: Install Dep
         env:

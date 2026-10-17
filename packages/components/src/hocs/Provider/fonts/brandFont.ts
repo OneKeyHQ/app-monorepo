@@ -10,4 +10,6 @@ export const BRAND_FONT_NATIVE_FAMILY = brandFontManifest.nativeFamily;
 // Web @font-face alias declared in web-fonts.css; independent of the typeface.
 export const BRAND_FONT_WEB_FAMILY = 'OneKeySans';
 
-export const BRAND_FONT_SOURCE = brandFontManifest.source;
+// Widened: the generated manifest pins a literal that differs per install.
+export const BRAND_FONT_SOURCE: 'private' | 'fallback' =
+  brandFontManifest.source;
