@@ -10,12 +10,18 @@ import {
 } from '../chartConstants';
 
 import { buildTradingViewNativeIndicatorSeries } from './chartIndicators';
-import { formatTradingViewNativeCrosshairTime } from './chartLayout';
+import {
+  formatTradingViewNativeCrosshairTime,
+  getTradingViewNativeChartWidth,
+} from './chartLayout';
 import {
   buildTradingViewNativeChartScene,
   getTradingViewNativeChartScenePaintStyles,
 } from './chartScene';
-import { getTradingViewNativeCandleX } from './chartViewport';
+import {
+  getTradingViewNativeCandleX,
+  getTradingViewNativeVisiblePointRange,
+} from './chartViewport';
 import {
   createTradingViewNativeSubIndicatorRenderSnapshot,
   createTradingViewNativeSubIndicatorRenderSnapshots,
@@ -46,6 +52,90 @@ function buildLinearPoints(count: number): IMarketTokenKLineDataPoint[] {
 }
 
 describe('TradingViewNative shared chart scene', () => {
+  it.each([
+    { offset: 0, zoomScale: 1 },
+    { offset: 57, zoomScale: 1.25 },
+  ])(
+    'extends the left edge without moving existing candles (%p)',
+    (viewport) => {
+      const width = 840;
+      const toolbarWidth = 48;
+      const priceAxisWidth = 60;
+      const referenceWidth = getTradingViewNativeChartWidth(
+        width,
+        priceAxisWidth,
+      );
+      const points = buildLinearPoints(200);
+      const state = {
+        ...viewport,
+        initialRightOffset: {
+          type: 'chartWidthPercentage' as const,
+          value: 5,
+          referenceWidth,
+        },
+      };
+      const autoScalePointRange = getTradingViewNativeVisiblePointRange({
+        ...state,
+        chartWidth: referenceWidth,
+        pointCount: points.length,
+      });
+      // An extreme in the newly revealed area must not move existing candles.
+      points[autoScalePointRange.startIndex] = {
+        ...points[autoScalePointRange.startIndex],
+        h: 1000,
+        v: 10_000,
+      };
+      const buildScene = (canvasWidth: number) =>
+        buildTradingViewNativeChartScene({
+          autoScalePointRange,
+          candleIntervalSeconds: 3600,
+          candleLabels: CANDLE_LABELS,
+          chartSettings: createTradingViewNativeChartSettings(),
+          chartType: 'candlestick',
+          crosshair: { visible: false, x: 0, y: 0 },
+          hasVolume: true,
+          height: 400,
+          measureTextWidth: (text) => text.length * 6,
+          points,
+          priceAxisWidth,
+          viewport: state,
+          watermarkOpacity: 0.16,
+          width: canvasWidth,
+        });
+      const narrow = buildScene(width - toolbarWidth);
+      const wide = buildScene(width);
+      expect(wide.visiblePointRange.startIndex).toBeLessThan(
+        narrow.visiblePointRange.startIndex,
+      );
+      expect(wide.visiblePointRange.endIndex).toBe(
+        narrow.visiblePointRange.endIndex,
+      );
+      expect(narrow.autoPriceRange).toEqual(wide.autoPriceRange);
+      expect(narrow.autoPriceRange?.maxPrice).toBe(1000);
+      expect(narrow.layout?.maxVolume).toBe(wide.layout?.maxVolume);
+      expect(narrow.viewport).toEqual(wide.viewport);
+      const candleBodies = (scene: ReturnType<typeof buildScene>) =>
+        scene.commands.flatMap((command) =>
+          command.kind === 'rect' &&
+          command.customPaintId?.startsWith('chart.candle.body.')
+            ? [command]
+            : [],
+        );
+      const existingWideBodies = candleBodies(wide).slice(
+        narrow.visiblePointRange.startIndex - wide.visiblePointRange.startIndex,
+      );
+      const narrowBodies = candleBodies(narrow);
+      expect(narrowBodies.length).toBeGreaterThan(0);
+      expect(existingWideBodies).toHaveLength(narrowBodies.length);
+      narrowBodies.forEach((body, index) => {
+        expect(body.x + toolbarWidth).toBeCloseTo(existingWideBodies[index].x);
+        expect(body.y).toBe(existingWideBodies[index].y);
+        expect(body.width).toBe(existingWideBodies[index].width);
+        expect(body.height).toBe(existingWideBodies[index].height);
+      });
+    },
+  );
+
   it('describes the complete chart without a Canvas or Skia dependency', () => {
     const scene = buildTradingViewNativeChartScene({
       candleIntervalSeconds: 3600,

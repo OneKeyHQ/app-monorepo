@@ -77,6 +77,8 @@ export type ITradingViewNativeInitialRightOffset =
   | {
       type: 'chartWidthPercentage';
       value: number;
+      // Keep the right padding stable when a sidebar changes the visible width.
+      referenceWidth?: number;
     }
   | {
       type: 'pointCount';

@@ -80,7 +80,11 @@ function getTradingViewNativeRightOffsetWidth({
     const percentage = Number.isFinite(initialRightOffset.value)
       ? Math.min(Math.max(initialRightOffset.value, 0), 100)
       : 0;
-    return (Math.max(chartWidth, 0) * percentage) / 100;
+    return (
+      (Math.max(initialRightOffset.referenceWidth ?? chartWidth, 0) *
+        percentage) /
+      100
+    );
   }
   const pointCount =
     initialRightOffset?.type === 'pointCount' &&
