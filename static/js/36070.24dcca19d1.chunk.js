@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[36070],{854069(s,e,d){var k;let r=((k={}).AddressRiskCheckInput="AddressRiskCheckInput",k.AddressRiskCheckResult="AddressRiskCheckResult",k.AddressRiskCheckHistory="AddressRiskCheckHistory",k);d.d(e,{Y:()=>r})},779569(s,e,d){var k;let r=((k={}).BulkCopyAddressesModal="BulkCopyAddressesModal",k.ExportAddressesModal="ExportAddressesModal",k);d.d(e,{k:()=>r})}}]);
+//# sourceMappingURL=36070.24dcca19d1.chunk.js.map

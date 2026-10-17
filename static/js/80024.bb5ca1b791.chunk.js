@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[80024],{101835(e,t,a){a.r(t);var l=a(699567),n=a(200852);let walletConnectPay=async e=>{if(!e||"string"!=typeof e)return null;let t=!1;try{if((0,l.RG)(e)){let{isPaymentLink:l}=await Promise.all([a.e(73160),a.e(66132),a.e(11704)]).then(a.bind(a,343531));t=l(e)}}catch{t=!1}return t?{type:n.Wb.WALLET_CONNECT_PAY,data:{paymentLink:e}}:null};a.d(t,{},{default:walletConnectPay})}}]);
+//# sourceMappingURL=80024.bb5ca1b791.chunk.js.map

@@ -1,0 +1,2 @@
+"use strict";(self.rspackChunkweb=self.rspackChunkweb||[]).push([[14737],{604840(s,e,t){var r=t(368870);let SimpleDbEntityBrowserTabs=class SimpleDbEntityBrowserTabs extends r.t{constructor(...s){super(...s),this.entityName="browserTabs",this.enableCache=!0}};t.d(e,{SimpleDbEntityBrowserTabs:()=>SimpleDbEntityBrowserTabs})}}]);
+//# sourceMappingURL=14737.de7758f77f.chunk.js.map
