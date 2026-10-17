@@ -1,11 +1,20 @@
 const mockGet = jest.fn<
-  Promise<{ headers: { date?: string } }>,
+  Promise<{
+    headers: { date?: string; Date?: string; age?: string };
+    status?: number;
+    request?: { responseURL: string };
+  }>,
   [string, unknown]
 >();
 const mockEmit = jest.fn<void, [string, unknown]>();
 const mockTimeCheckLog = jest.fn();
 const mockTimeRefreshLog = jest.fn();
-const mockGetClient = jest.fn(async () => ({ get: mockGet }));
+const mockGetClient = jest.fn(async () => ({
+  get: mockGet,
+  defaults: { baseURL: 'https://wallet.onekeycn.com', headers: {} },
+}));
+const mockTrustedDomain = jest.fn(async () => true);
+const mockGetEndpoint = jest.fn(async () => 'https://wallet.onekeycn.com');
 
 jest.mock('../appApiClient/appApiClient', () => ({
   appApiClient: {
@@ -18,7 +27,11 @@ jest.mock('../config/appConfig', () => ({
 }));
 
 jest.mock('../config/endpointsMap', () => ({
-  getEndpointByServiceName: async () => 'https://wallet.onekeycn.com',
+  endpointsMap: {
+    prod: { wallet: 'https://wallet.onekeycn.com' },
+    test: { wallet: 'https://wallet.onekeytest.com' },
+  },
+  getEndpointByServiceName: () => mockGetEndpoint(),
 }));
 
 jest.mock('../eventBus/appEventBus', () => ({
@@ -44,7 +57,7 @@ jest.mock('../logger/logger', () => ({
 
 jest.mock('../request/requestHelper', () => ({
   __esModule: true,
-  default: { checkIsOneKeyDomain: async () => true },
+  default: { checkIsOneKeyDomain: () => mockTrustedDomain() },
 }));
 
 jest.mock('../storage/appStorage', () => ({
@@ -76,7 +89,10 @@ describe('system time error notifications', () => {
     jest.clearAllMocks();
     mockGet.mockReset();
     mockGetClient.mockReset();
-    mockGetClient.mockImplementation(async () => ({ get: mockGet }));
+    mockGetClient.mockImplementation(async () => ({
+      get: mockGet,
+      defaults: { baseURL: 'https://wallet.onekeycn.com', headers: {} },
+    }));
     jest.useFakeTimers({ doNotFake: ['performance'] });
     jest.setSystemTime(BASE_TIME);
     monotonicTime = 1000;
@@ -343,7 +359,10 @@ describe('system time error notifications', () => {
     mockGetClient.mockImplementation(async () => {
       jest.setSystemTime(Date.now() + 20_000);
       monotonicTime += 20_000;
-      return { get: mockGet };
+      return {
+        get: mockGet,
+        defaults: { baseURL: 'https://wallet.onekeycn.com', headers: {} },
+      };
     });
     mockGet.mockImplementation(async () => {
       jest.setSystemTime(Date.now() + 11_000);
@@ -487,4 +506,176 @@ describe('system time error notifications', () => {
       isTimeErrorConfirmed: false,
     });
   });
+});
+
+describe('hardware verification time', () => {
+  beforeEach(async () => {
+    jest.resetModules();
+    jest.clearAllMocks();
+    mockGet.mockReset();
+    mockTrustedDomain.mockResolvedValue(true);
+    mockGetEndpoint.mockResolvedValue('https://wallet.onekeycn.com');
+    mockGetClient.mockImplementation(async () => ({
+      get: mockGet,
+      defaults: { baseURL: 'https://wallet.onekeycn.com', headers: {} },
+    }));
+    jest.useFakeTimers({ doNotFake: ['performance'] });
+    jest.setSystemTime(BASE_TIME);
+    monotonicTime = 1000;
+    jest.spyOn(performance, 'now').mockImplementation(() => monotonicTime);
+    systemTimeUtils = (await import('./systemTimeUtils')).default;
+    mockGet.mockImplementation(async () => ({
+      status: 200,
+      headers: { date: new Date(BASE_TIME).toUTCString() },
+    }));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it.each([-316_000, 0, 316_000])(
+    'uses server time with local offset %i ms',
+    async (offset) => {
+      jest.setSystemTime(BASE_TIME + offset);
+      expect(await systemTimeUtils.getHardwareVerificationTime()).toBe(
+        BASE_TIME,
+      );
+    },
+  );
+
+  it('refreshes on every retry even with a previously valid cached sample', async () => {
+    systemTimeUtils.updateServerTime({ serverTime: BASE_TIME - 60_000 });
+    await systemTimeUtils.getHardwareVerificationTime();
+    jest.setSystemTime(BASE_TIME + SLEEP_TIME);
+    await systemTimeUtils.getHardwareVerificationTime();
+    expect(mockGet).toHaveBeenCalledTimes(2);
+    expect(mockGet.mock.calls[0][1]).not.toEqual(mockGet.mock.calls[1][1]);
+  });
+
+  it('accounts for bounded network latency using monotonic elapsed time', async () => {
+    mockGet.mockImplementation(async () => {
+      monotonicTime += 400;
+      jest.setSystemTime(BASE_TIME + 400);
+      return {
+        status: 200,
+        headers: { date: new Date(BASE_TIME).toUTCString() },
+      };
+    });
+    expect(await systemTimeUtils.getHardwareVerificationTime()).toBe(
+      BASE_TIME + 200,
+    );
+  });
+
+  it.each([
+    [6000, 6000],
+    [-1, 0],
+    [NaN, 0],
+    [Infinity, 0],
+    [0, SLEEP_TIME],
+    [0, -316_000],
+  ])(
+    'rejects uncertain elapsed clocks (%i, %i)',
+    async (perfDelta, wallDelta) => {
+      mockGet.mockImplementation(async () => {
+        monotonicTime += perfDelta;
+        jest.setSystemTime(BASE_TIME + wallDelta);
+        return {
+          status: 200,
+          headers: { date: new Date(BASE_TIME).toUTCString() },
+        };
+      });
+      expect(
+        await systemTimeUtils.getHardwareVerificationTime(),
+      ).toBeUndefined();
+    },
+  );
+
+  it.each([undefined, '', 'invalid', '0', 'Thu, 01 Jan 1970 00:00:00 GMT'])(
+    'rejects unavailable or invalid Date %s without a local fallback',
+    async (date) => {
+      systemTimeUtils.updateServerTime({ serverTime: BASE_TIME });
+      mockGet.mockResolvedValue({ status: 200, headers: { date } });
+      expect(
+        await systemTimeUtils.getHardwareVerificationTime(),
+      ).toBeUndefined();
+    },
+  );
+
+  it.each(['1', '-1', 'invalid'])(
+    'rejects cached/invalid Age %s',
+    async (age) => {
+      mockGet.mockResolvedValue({
+        status: 200,
+        headers: { date: new Date(BASE_TIME).toUTCString(), age },
+      });
+      expect(
+        await systemTimeUtils.getHardwareVerificationTime(),
+      ).toBeUndefined();
+    },
+  );
+
+  it('rejects a failed health response', async () => {
+    mockGet.mockResolvedValue({
+      status: 503,
+      headers: { date: new Date(BASE_TIME).toUTCString() },
+    });
+    expect(await systemTimeUtils.getHardwareVerificationTime()).toBeUndefined();
+  });
+
+  it('propagates network failures and timeouts for retry', async () => {
+    mockGet.mockRejectedValue(new Error('timeout'));
+    await expect(systemTimeUtils.getHardwareVerificationTime()).rejects.toThrow(
+      'timeout',
+    );
+  });
+
+  it('does not request time without a reliable monotonic clock', async () => {
+    monotonicTime = NaN;
+    expect(await systemTimeUtils.getHardwareVerificationTime()).toBeUndefined();
+    expect(mockGet).not.toHaveBeenCalled();
+  });
+
+  it('does not request an untrusted source', async () => {
+    mockTrustedDomain.mockResolvedValue(false);
+    expect(await systemTimeUtils.getHardwareVerificationTime()).toBeUndefined();
+    expect(mockGet).not.toHaveBeenCalled();
+  });
+
+  it('accepts case-insensitive HTTP headers', async () => {
+    mockGet.mockImplementation(async (url, config) => ({
+      status: 200,
+      headers: { Date: new Date(BASE_TIME).toUTCString() },
+      request: {
+        responseURL: `https://wallet.onekeycn.com${url}?${new URLSearchParams(
+          (config as { params: Record<string, string> }).params,
+        ).toString()}`,
+      },
+    }));
+    expect(await systemTimeUtils.getHardwareVerificationTime()).toBe(BASE_TIME);
+  });
+
+  it.each([
+    'http://wallet.onekeycn.com/wallet/v1/health',
+    'https://other.example.com/health',
+  ])('rejects an XHR redirect to %s', async (responseURL) => {
+    mockGet.mockResolvedValue({
+      status: 200,
+      headers: { date: new Date(BASE_TIME).toUTCString() },
+      request: { responseURL },
+    });
+    expect(await systemTimeUtils.getHardwareVerificationTime()).toBeUndefined();
+  });
+
+  it.each(['http://wallet.onekeycn.com', 'https://custom.example.com'])(
+    'rejects an insecure or custom endpoint %s even if the runtime whitelist allows it',
+    async (endpoint) => {
+      mockGetEndpoint.mockResolvedValue(endpoint);
+      expect(
+        await systemTimeUtils.getHardwareVerificationTime(),
+      ).toBeUndefined();
+      expect(mockGet).not.toHaveBeenCalled();
+    },
+  );
 });
