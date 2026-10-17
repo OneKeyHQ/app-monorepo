@@ -17,9 +17,12 @@ type IFooterActions = {
 
 const mockFooterActions = jest.fn<null, [IFooterActions]>(() => null);
 const mockBatchSend = jest.fn<Promise<unknown>, [unknown]>();
+const mockCurrentRoute = jest.fn(() => ({ name: 'Confirm' }));
 const mockNavigation = { pop: jest.fn(), popStack: jest.fn() };
 const mockDappApprove = { resolve: jest.fn(), reject: jest.fn() };
-const mockUnsignedTxs = [{ encodedTx: { value: '0x1' }, nonce: 1 }];
+const mockUnsignedTxs = [
+  { encodedTx: { from: '0xpayer', to: '0xrecipient', value: '0x1' }, nonce: 1 },
+];
 const mockActions = {
   updateEffectiveFeePayer: jest.fn(),
   updateGasAccountTemporarilyDisabled: jest.fn(),
@@ -36,6 +39,7 @@ jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
 jest.mock('@onekeyhq/components', () => ({
+  rootNavigationRef: { current: { getCurrentRoute: () => mockCurrentRoute() } },
   Page: {
     Footer: ({ children }: { children: ReactNode }) => children,
     FooterActions: (props: IFooterActions) => mockFooterActions(props),
@@ -318,6 +322,72 @@ describe('TxConfirmActions Gas Account failure exit', () => {
       expect(onFail).not.toHaveBeenCalled();
       expect(mockBatchSend).not.toHaveBeenCalled();
       expect(mockNavigation.pop).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    { legacyScanner: false, userCancelled: false },
+    { legacyScanner: false, userCancelled: true },
+    { legacyScanner: true, userCancelled: false },
+  ])(
+    'continues QR rental after delayed rebuild, legacy=$legacyScanner cancelled=$userCancelled',
+    async ({ legacyScanner, userCancelled }) => {
+      mockCurrentRoute.mockReturnValue({
+        name: legacyScanner ? 'ScanQrCodeStack' : 'Confirm',
+      });
+      jest
+        .spyOn(
+          backgroundApiProxy.serviceSignatureConfirm,
+          'preActionsBeforeSending',
+        )
+        .mockResolvedValueOnce({ preSendTx: { txid: 'rental' } });
+      let resolveRebuild: (value: typeof mockUnsignedTxs) => void = () =>
+        undefined;
+      jest
+        .spyOn(backgroundApiProxy.serviceSend, 'updateUnSignedTxBeforeSending')
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              resolveRebuild = resolve;
+            }),
+        );
+      mockBatchSend.mockRejectedValue(
+        new Error('Stop after main signing starts'),
+      );
+      const onCancel = jest.fn();
+      const screen = render(
+        <TxConfirmActions
+          accountId="qr-1--0"
+          networkId="tron--0x2b6653dc"
+          securityCheckConfirmation="none"
+          securityCheckAcknowledgementKey="tx-1"
+          onCancel={onCancel}
+        />,
+      );
+      // Reproduce the old internal pop unmounting the underlying confirmation.
+      mockNavigation.popStack.mockImplementationOnce(() => {
+        if (legacyScanner)
+          mockCurrentRoute.mockReturnValue({ name: 'Confirm' });
+        else screen.unmount();
+      });
+      let pending: Promise<void> | undefined;
+      await act(async () => {
+        pending = getFooterActions().onConfirm?.();
+      });
+      expect(mockNavigation.popStack).toHaveBeenCalledTimes(
+        legacyScanner ? 1 : 0,
+      );
+      if (userCancelled) screen.unmount();
+      act(() => {
+        jest.advanceTimersByTime(1500);
+      });
+      await act(async () => {
+        resolveRebuild(mockUnsignedTxs);
+        await pending?.catch(() => undefined);
+      });
+      expect(mockBatchSend).toHaveBeenCalledTimes(userCancelled ? 0 : 1);
+      expect(onCancel).toHaveBeenCalledTimes(userCancelled ? 1 : 0);
+      mockNavigation.popStack.mockReset();
     },
   );
 

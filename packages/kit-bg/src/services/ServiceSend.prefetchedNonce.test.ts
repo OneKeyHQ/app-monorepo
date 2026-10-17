@@ -1,3 +1,4 @@
+/* cspell:ignore Infini */
 jest.mock('p-limit', () => ({
   __esModule: true,
   default: () => (fn: () => unknown) => fn(),
@@ -43,6 +44,7 @@ function makeService() {
   const fetchAccountDetails = jest.fn().mockResolvedValue({ nonce: 8 });
   const getMaxPendingNonce = jest.fn().mockResolvedValue(6);
   const getPendingNonceList = jest.fn().mockResolvedValue([5, 6]);
+  const getInfiniReservedNonces = jest.fn().mockResolvedValue([]);
   const Ctor = ServiceSend as unknown as new (args: {
     backgroundApi: unknown;
   }) => ServiceSend;
@@ -51,10 +53,17 @@ function makeService() {
       serviceAccountProfile: { fetchAccountDetails },
       simpleDb: {
         localHistory: { getMaxPendingNonce, getPendingNonceList },
+        prime: { getInfiniReservedNonces },
       },
     },
   });
-  return { service, fetchAccountDetails, getMaxPendingNonce };
+  return {
+    service,
+    fetchAccountDetails,
+    getMaxPendingNonce,
+    getPendingNonceList,
+    getInfiniReservedNonces,
+  };
 }
 
 describe('ServiceSend.getNextNonce prefetched on-chain nonce', () => {
@@ -112,5 +121,39 @@ describe('ServiceSend.getNextNonce prefetched on-chain nonce', () => {
       }),
     ).resolves.toBe(8);
     expect(fetchAccountDetails).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('hidden Infini nonce reservations', () => {
+  it('keeps a hidden pending nonce occupied and uses the next free nonce', async () => {
+    const {
+      service,
+      fetchAccountDetails,
+      getPendingNonceList,
+      getMaxPendingNonce,
+      getInfiniReservedNonces,
+    } = makeService();
+    fetchAccountDetails.mockResolvedValue({ nonce: 5 });
+    getPendingNonceList.mockResolvedValue([]);
+    getMaxPendingNonce.mockResolvedValue(null);
+    getInfiniReservedNonces.mockResolvedValue([5]);
+    await expect(
+      service.getNextNonce({ accountId, networkId, accountAddress }),
+    ).resolves.toBe(6);
+    getInfiniReservedNonces.mockResolvedValue([5, 7]);
+    await expect(
+      service.getNextNonce({ accountId, networkId, accountAddress }),
+    ).resolves.toBe(6);
+    fetchAccountDetails.mockResolvedValue({ nonce: 8 });
+    await expect(
+      service.getNextNonce({ accountId, networkId, accountAddress }),
+    ).resolves.toBe(8);
+  });
+  it('fails closed when reservations cannot be read', async () => {
+    const { service, getInfiniReservedNonces } = makeService();
+    getInfiniReservedNonces.mockRejectedValue(new Error('Storage failed'));
+    await expect(
+      service.getNextNonce({ accountId, networkId, accountAddress }),
+    ).rejects.toThrow('Storage failed');
   });
 });

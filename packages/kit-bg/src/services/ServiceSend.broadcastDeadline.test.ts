@@ -232,6 +232,7 @@ function buildTronEncodedTx(contractCount: number): IEncodedTxTron {
 
 function makeService() {
   const blockedHistoryIds = new Set<string>();
+  const reservedNonces = new Set<number>();
   const vault = {
     signTransaction: jest.fn().mockResolvedValue(signedTx),
     buildDecodedTx: jest.fn().mockResolvedValue(decodedTx),
@@ -247,6 +248,9 @@ function makeService() {
   (vaultFactory.getVault as unknown as jest.Mock).mockResolvedValue(vault);
 
   const backgroundApi = {
+    serviceAccountProfile: {
+      fetchAccountDetails: jest.fn().mockResolvedValue({ nonce: 0 }),
+    },
     serviceAccount: {
       getAccountAddressForApi: jest.fn().mockResolvedValue('0xaccount'),
     },
@@ -290,15 +294,29 @@ function makeService() {
       }),
     },
     simpleDb: {
+      localHistory: {
+        getMaxPendingNonce: jest.fn().mockResolvedValue(null),
+        getPendingNonceList: jest.fn().mockResolvedValue([]),
+      },
       prime: {
+        getInfiniReservedNonces: jest.fn(async () =>
+          Array.from(reservedNonces),
+        ),
         findInfiniPaymentForTransfer: jest.fn().mockResolvedValue(undefined),
         isInfiniReplacementBlocked: jest.fn(
           async ({ historyId }: { historyId: string }) =>
             blockedHistoryIds.has(historyId),
         ),
         blockInfiniReplacement: jest.fn(
-          async ({ historyId }: { historyId: string }) => {
+          async ({
+            historyId,
+            nonce,
+          }: {
+            historyId: string;
+            nonce: number;
+          }) => {
             blockedHistoryIds.add(historyId);
+            reservedNonces.add(nonce);
           },
         ),
         markInfiniPendingPaymentSessionSendStarted: jest
@@ -2027,6 +2045,61 @@ describe('Infini Speed Up broadcast validation', () => {
       }
     },
   );
+
+  test('hides terminal history without freeing its pending nonce', async () => {
+    const { service, backgroundApi, vault } = makeReplacement();
+    backgroundApi.servicePrime.apiGetInfiniPaymentPreBroadcastSnapshot.mockResolvedValue(
+      {
+        payment: { ...latestPayment, status: 'expired' },
+        purchaseStatusSnapshot,
+      },
+    );
+    await expect(speedUp(service)).rejects.toThrow();
+    expect(
+      backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
+    ).toHaveBeenCalledTimes(1);
+    await expect(
+      service.getNextNonce({
+        accountId,
+        networkId,
+        accountAddress: '0xaccount',
+      }),
+    ).resolves.toBe(1);
+    await expect(
+      service.signAndSendTransaction({
+        accountId,
+        networkId,
+        unsignedTx: { ...unsignedTx, encodedTx, nonce: 0 },
+        signOnly: false,
+      }),
+    ).rejects.toMatchObject({ autoToast: true });
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+    backgroundApi.serviceAccountProfile.fetchAccountDetails.mockResolvedValue({
+      nonce: 1,
+    });
+    await expect(
+      service.getNextNonce({
+        accountId,
+        networkId,
+        accountAddress: '0xaccount',
+      }),
+    ).resolves.toBe(1);
+  });
+
+  test('blocks an ordinary transfer explicitly reusing a hidden payment nonce', async () => {
+    const { service, vault, backgroundApi } = makeReplacement();
+    backgroundApi.simpleDb.prime.getInfiniReservedNonces.mockResolvedValue([0]);
+    await expect(
+      service.signAndSendTransaction({
+        accountId,
+        networkId,
+        unsignedTx: { ...unsignedTx, encodedTx, nonce: 0 },
+        signOnly: false,
+      }),
+    ).rejects.toMatchObject({ autoToast: true });
+    expect(vault.signTransaction).not.toHaveBeenCalled();
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+  });
 
   test('reports expired replacement invoices through the shared error toast', async () => {
     const { service, vault, backgroundApi } = makeReplacement();

@@ -3829,11 +3829,38 @@ describe('Infini replacement history fence', () => {
       networkId: 'evm--1',
       historyId: 'history-1',
     };
-    await writer.blockInfiniReplacement(identity);
+    await writer.blockInfiniReplacement({
+      ...identity,
+      accountAddress: '0xABC',
+      nonce: 5,
+    });
+    await writer.blockInfiniReplacement({
+      ...identity,
+      accountAddress: '0xabc',
+      nonce: 5,
+    });
     persisted.infiniPendingPaymentSessionByUserId = {};
     persisted.infiniSupersededPaymentSessionsByUserId = {};
     const reader = new SimpleDbEntityPrime();
     jest.spyOn(reader, 'getRawData').mockImplementation(async () => persisted);
+    await expect(
+      reader.getInfiniReservedNonces({
+        networkId: 'evm--1',
+        accountAddress: '0xabc',
+      }),
+    ).resolves.toEqual([5]);
+    await expect(
+      reader.getInfiniReservedNonces({
+        networkId: 'evm--10',
+        accountAddress: '0xabc',
+      }),
+    ).resolves.toEqual([]);
+    await expect(
+      reader.getInfiniReservedNonces({
+        networkId: 'evm--1',
+        accountAddress: '0xother',
+      }),
+    ).resolves.toEqual([]);
     await expect(reader.isInfiniReplacementBlocked(identity)).resolves.toBe(
       true,
     );

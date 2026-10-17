@@ -113,6 +113,8 @@ export interface ISimpleDBPrime {
   // Independent of expiring payment sessions: stale confirmations must remain
   // blocked after their original pending history has been removed.
   infiniBlockedReplacements?: Record<string, true>;
+  // Hidden transactions may still occupy a nonce on-chain. No age-based pruning.
+  infiniReservedNonces?: Record<string, number[]>;
   // Deprecated token copy. Supabase/OAuth session storage is the source of truth.
   authToken?: string;
   authSessionSource?: EPrimeAuthSessionSource;
@@ -2316,15 +2318,51 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
   }
 
   @backgroundMethod()
-  async blockInfiniReplacement(params: IInfiniBlockedReplacement) {
-    const key = stringUtils.stableStringify(params);
+  async blockInfiniReplacement({
+    accountAddress,
+    nonce,
+    ...identity
+  }: IInfiniBlockedReplacement & { accountAddress: string; nonce: number }) {
+    if (!accountAddress || !Number.isSafeInteger(nonce) || nonce < 0) {
+      throw new OneKeyLocalError('Invalid Infini nonce reservation');
+    }
+    const key = stringUtils.stableStringify(identity);
+    const nonceKey = stringUtils.stableStringify({
+      networkId: identity.networkId,
+      accountAddress: accountAddress.toLowerCase(),
+    });
     await this.setRawData((rawData) => ({
       ...rawData,
       infiniBlockedReplacements: {
         ...rawData?.infiniBlockedReplacements,
         [key]: true,
       },
+      infiniReservedNonces: {
+        ...rawData?.infiniReservedNonces,
+        [nonceKey]: Array.from(
+          new Set([
+            ...(rawData?.infiniReservedNonces?.[nonceKey] ?? []),
+            nonce,
+          ]),
+        ),
+      },
     }));
+  }
+
+  @backgroundMethod()
+  async getInfiniReservedNonces({
+    networkId,
+    accountAddress,
+  }: {
+    networkId: string;
+    accountAddress: string;
+  }): Promise<number[]> {
+    const rawData = await this.getRawData();
+    const key = stringUtils.stableStringify({
+      networkId,
+      accountAddress: accountAddress.toLowerCase(),
+    });
+    return rawData?.infiniReservedNonces?.[key] ?? [];
   }
 
   @backgroundMethod()

@@ -10,6 +10,7 @@ import {
   Page,
   Stack,
   Toast,
+  rootNavigationRef,
   usePageUnMounted,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -61,6 +62,7 @@ import type {
   IGasAccountActionParams,
   IGasAccountAnalyticsContext,
 } from '@onekeyhq/shared/src/logger/scopes/transaction/types';
+import { EScanQrCodeModalPages } from '@onekeyhq/shared/src/routes';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsEmptyData } from '@onekeyhq/shared/src/utils/evmUtils';
@@ -492,7 +494,15 @@ function TxConfirmActions(props: IProps) {
           },
         );
 
-      if (resp?.preSendTx && accountUtils.isQrAccount({ accountId })) {
+      if (gasAccountSubmitIdRef.current !== submitId) return;
+      // DeviceStage owns its overlay lifecycle. Only the legacy QR scanner
+      // needs this navigation handoff; popping the confirm page cancels sending.
+      if (
+        resp?.preSendTx &&
+        accountUtils.isQrAccount({ accountId }) &&
+        rootNavigationRef.current?.getCurrentRoute()?.name ===
+          EScanQrCodeModalPages.ScanQrCodeStack
+      ) {
         navigation.popStack();
       }
     } catch (e: any) {

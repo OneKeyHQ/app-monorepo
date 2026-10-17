@@ -797,6 +797,7 @@ class ServiceSend extends ServiceBase {
     mode,
     originalTxid,
     originalHistoryId,
+    originalNonce,
   }: ISendTxBaseParams & {
     accountAddress: string;
     signedTx: ISignedTxPro;
@@ -807,6 +808,7 @@ class ServiceSend extends ServiceBase {
     mode: 'initial' | 'speedUp';
     originalTxid?: string;
     originalHistoryId?: string;
+    originalNonce?: number;
   }) {
     // Both paths originate from wallet-built transfers. Replacement callers
     // additionally verify the signed EVM payload against the original history.
@@ -954,6 +956,8 @@ class ServiceSend extends ServiceBase {
           accountId,
           networkId,
           historyId: originalHistoryId,
+          accountAddress,
+          nonce: originalNonce ?? NaN,
         });
         await this.backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId(
           {
@@ -1147,6 +1151,33 @@ class ServiceSend extends ServiceBase {
         networkId,
       });
 
+    const checkReservedNonce = async (
+      encodedTx: IEncodedTx | null,
+      fallbackNonce?: number,
+    ) => {
+      if (
+        !networkUtils.isEvmNetwork({ networkId }) ||
+        replaceTxInfo?.replaceType === EReplaceTxType.Cancel
+      )
+        return;
+      const nonce = new BigNumber(
+        (encodedTx as IEncodedTxEvm | null)?.nonce ?? fallbackNonce ?? NaN,
+      ).toNumber();
+      if (!Number.isSafeInteger(nonce)) return;
+      const reserved =
+        await this.backgroundApi.simpleDb.prime.getInfiniReservedNonces({
+          networkId,
+          accountAddress,
+        });
+      if (reserved.includes(nonce)) {
+        throw new OneKeyLocalError({
+          key: ETranslations.prime_close_and_try_again__desc,
+          autoToast: true,
+        });
+      }
+    };
+    await checkReservedNonce(unsignedTx.encodedTx, unsignedTx.nonce);
+
     const isExternalAccount = accountUtils.isExternalAccount({ accountId });
     let staticBroadcastSkipReason: string | undefined;
     if (signOnly) {
@@ -1208,6 +1239,7 @@ class ServiceSend extends ServiceBase {
     });
 
     diagnosticState.context = signedTx.solanaTxDiagnostic ?? diagnostic;
+    await checkReservedNonce(signedTx.encodedTx, unsignedTx.nonce);
     if (replacementContext) {
       this.assertPrimeInfiniReplacementTransaction({
         ...replacementContext,
@@ -1314,6 +1346,7 @@ class ServiceSend extends ServiceBase {
             mode: replacementContext ? 'speedUp' : 'initial',
             originalTxid: replacementContext?.originalTxid,
             originalHistoryId: replacementContext?.originalHistoryId,
+            originalNonce: replacementContext?.nonce,
           });
         infiniPaymentExpiresAt = markedSession.payment.expiresAt;
         effectiveBroadcastDeadline = Math.min(
@@ -1990,16 +2023,26 @@ class ServiceSend extends ServiceBase {
         accountAddress,
         networkId,
       });
+    const reservedNonces = networkUtils.isEvmNetwork({ networkId })
+      ? await this.backgroundApi.simpleDb.prime.getInfiniReservedNonces({
+          networkId,
+          accountAddress,
+        })
+      : [];
+    // Chain nonce is the lower bound: consumed reservations cannot create holes
+    // below it, while hidden pending transactions still occupy their nonce.
+    const occupiedNonces = new Set([...pendingNonceList, ...reservedNonces]);
     let nextNonce = Math.max(
       isNil(maxPendingNonce) ? 0 : maxPendingNonce + 1,
       onChainNextNonce,
+      reservedNonces.reduce((max, nonce) => Math.max(max, nonce + 1), 0),
     );
     if (Number.isNaN(nextNonce)) {
       nextNonce = onChainNextNonce;
     }
     if (nextNonce > onChainNextNonce) {
       for (let i = onChainNextNonce; i < nextNonce; i += 1) {
-        if (!pendingNonceList.includes(i)) {
+        if (!occupiedNonces.has(i)) {
           nextNonce = i;
           break;
         }
