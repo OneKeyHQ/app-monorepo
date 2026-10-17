@@ -85,16 +85,20 @@ export type IZcashAccountViewingSecrets = Omit<
   'accountXprvHex'
 >;
 
-// Signing: Orchard sk + transparent account xprv.
-export function deriveZcashAccountSecrets({
+export type IZcashAccountTransparentSecrets = Pick<
+  IZcashAccountSecrets,
+  'accountXprvHex' | 'accountXpub'
+>;
+
+// Transparent signing: account xprv only; no Orchard key is derived.
+export function deriveZcashAccountTransparentSecrets({
   seed,
   accountIndex,
 }: {
   seed: Uint8Array;
   accountIndex: number;
-}): IZcashAccountSecrets {
+}): IZcashAccountTransparentSecrets {
   assertAccountIndex(accountIndex);
-  const seedFingerprintHex = zcashSeedFingerprintHex(seed);
   const { accountXpub, accountXprvHex } = deriveTransparentAccountKeys({
     seed,
     accountIndex,
@@ -103,16 +107,30 @@ export function deriveZcashAccountSecrets({
   if (!accountXprvHex) {
     throw new OneKeyLocalError('zcash: account xprv missing');
   }
+  return { accountXprvHex, accountXpub };
+}
+
+// Shielded signing: Orchard sk + transparent account xprv.
+export function deriveZcashAccountSecrets({
+  seed,
+  accountIndex,
+}: {
+  seed: Uint8Array;
+  accountIndex: number;
+}): IZcashAccountSecrets {
+  const transparent = deriveZcashAccountTransparentSecrets({
+    seed,
+    accountIndex,
+  });
   return {
+    ...transparent,
     orchardSk: deriveZcashOrchardSpendingKey({ seed, accountIndex }),
-    accountXprvHex,
-    accountXpub,
-    seedFingerprintHex,
+    seedFingerprintHex: zcashSeedFingerprintHex(seed),
   };
 }
 
-// Viewing-key setup: Orchard sk only; the transparent part comes from the
-// stored account xpub, so no transparent secret leaves this function.
+// Viewing-key setup: Orchard sk plus the public account xpub (the caller checks
+// it against the stored one), so no transparent secret leaves this function.
 export function deriveZcashAccountViewingSecrets({
   seed,
   accountIndex,
