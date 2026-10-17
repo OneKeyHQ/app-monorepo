@@ -21,15 +21,15 @@ import { useSharedValue } from 'react-native-reanimated';
 
 import {
   IconButton,
-  Tabs,
   XStack,
   YStack,
   useScrollContentTabBarOffset,
   useTheme,
   useThemeName,
 } from '@onekeyhq/components';
-import type { ITabContainerRef } from '@onekeyhq/components';
+import { TabBar } from '@onekeyhq/components/src/composite/TabBar';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
+import type { IWebCollapsiblePagerRef } from '@onekeyhq/kit/src/components/WebCollapsiblePagerContext';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -103,7 +103,7 @@ interface IMobileLayoutProps {
   selectedNetworkId: string;
   liquidityFilter?: ILiquidityFilter;
   onTabChange: (tabId: IMarketHomeTabValue) => void;
-  tabsRef?: RefObject<ITabContainerRef | null>;
+  tabsRef?: RefObject<IWebCollapsiblePagerRef | null>;
   isFocused?: boolean;
   nestedPager?: boolean;
   externalTopOverlayTag?: number;
@@ -318,7 +318,7 @@ function MarketHomeTabBar({
         height={MARKET_TAB_BAR_HEIGHT}
       >
         {useNativeTabBar ? null : (
-          <Tabs.TabBar
+          <TabBar
             focusedTab={focusedTab}
             tabNames={tabNames}
             onTabPress={onTabPress}
@@ -413,7 +413,7 @@ function MobileLayoutComponent({
   const perpsDataCacheRef = useRef<IMarketPerpsDataCache | undefined>(
     undefined,
   );
-  const internalTabsRef = useRef<ITabContainerRef | null>(null);
+  const internalTabsRef = useRef<IWebCollapsiblePagerRef | null>(null);
   const resolvedTabsRef = tabsRef ?? internalTabsRef;
   const activeIndexRef = useRef(initialIndex);
   const activeTabNameRef = useRef(

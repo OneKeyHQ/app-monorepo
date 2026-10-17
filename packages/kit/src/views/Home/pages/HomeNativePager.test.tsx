@@ -491,7 +491,7 @@ it('ignores queued scroll progress after restoring a reordered tab', () => {
   const common = {
     initialTabName: 'History',
     renderHeader: () => null,
-    renderTabBar: (props: { indexDecimal: { value: number } }) => {
+    renderTabBar: (props: { indexDecimal?: { value: number } }) => {
       indexDecimal = props.indexDecimal;
       return null;
     },
@@ -527,7 +527,7 @@ it.each([
   (initialTabName, targetName, initialIndex, targetIndex) => {
     const ref = createRef<ITabContainerRef>();
     let tabBarState:
-      | { indexDecimal: { value: number }; focusedTab: { value: string } }
+      | { indexDecimal?: { value: number }; focusedTab: { value: string } }
       | undefined;
     render(
       <HomeNativePager
@@ -548,7 +548,7 @@ it.each([
       />,
     );
     act(() => ref.current?.jumpToTab(targetName));
-    expect(tabBarState?.indexDecimal.value).toBe(targetIndex);
+    expect(tabBarState?.indexDecimal?.value).toBe(targetIndex);
     act(() => {
       mockNativeEvents.onPageSelected?.({
         nativeEvent: { position: targetIndex },
@@ -558,7 +558,7 @@ it.each([
         nativeEvent: { position: initialIndex, offset: 0 },
       });
     });
-    expect(tabBarState?.indexDecimal.value).toBe(targetIndex);
+    expect(tabBarState?.indexDecimal?.value).toBe(targetIndex);
     expect(tabBarState?.focusedTab.value).toBe(targetName);
     expect(ref.current?.getCurrentIndex()).toBe(targetIndex);
 
@@ -570,7 +570,7 @@ it.each([
         nativeEvent: { position: 1, offset: 0.4 },
       });
     });
-    expect(tabBarState?.indexDecimal.value).toBe(1.4);
+    expect(tabBarState?.indexDecimal?.value).toBe(1.4);
 
     act(() => ref.current?.jumpToTab(initialTabName));
     act(() => {
@@ -580,13 +580,13 @@ it.each([
     });
     const adjacentIndex = initialIndex === 0 ? 1 : 2;
     act(() => ref.current?.setIndex(adjacentIndex));
-    expect(tabBarState?.indexDecimal.value).toBe(initialIndex);
+    expect(tabBarState?.indexDecimal?.value).toBe(initialIndex);
     act(() => {
       mockNativeEvents.onPageScroll?.({
         nativeEvent: { position: 1, offset: 0.6 },
       });
     });
-    expect(tabBarState?.indexDecimal.value).toBe(1.6);
+    expect(tabBarState?.indexDecimal?.value).toBe(1.6);
   },
 );
 
@@ -782,7 +782,7 @@ describe('HomePageView complete header authority', () => {
         'axios',
         'react-intl',
         '@onekeyhq/components',
-        '@onekeyhq/components/src/composite/Tabs/TabBar',
+        '@onekeyhq/components/src/composite/TabBar',
         '@onekeyhq/kit/src/hooks/useTabContainerWidth',
         '@onekeyhq/shared/src/config/presetNetworks',
         '@onekeyhq/shared/src/consts/dbConsts',

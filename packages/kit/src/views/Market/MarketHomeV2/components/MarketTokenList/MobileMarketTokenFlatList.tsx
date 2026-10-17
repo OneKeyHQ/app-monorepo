@@ -11,10 +11,15 @@ import {
   Tabs,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
+import { prewarmMarketTokenImages } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailImagePreload';
+import { preloadMarketDetailV2Page } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketDetailPagePreload';
+import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getMarketNativeCompactListStyle } from '../../layouts/mobileLayoutUtils';
+import { buildTokenMarketRow } from '../MarketNativeList/marketNativeListRows';
+import { WebMarketCompactList } from '../MarketNativeList/WebMarketCompactList';
 
 import { TokenListItem } from './components/TokenListItem';
 import { TokenListSkeleton } from './components/TokenListSkeleton';
@@ -120,7 +125,9 @@ function MobileMarketTokenFlatListBase({
   const handleEndReached = useCallback(() => {
     if (canLoadMore && !isLoadingMore && !isProvisionalFirstPageResult) {
       void loadMore();
+      return true;
     }
+    return false;
   }, [canLoadMore, isLoadingMore, isProvisionalFirstPageResult, loadMore]);
 
   // List footer - loading spinner or end indicator
@@ -176,6 +183,41 @@ function MobileMarketTokenFlatListBase({
   }, [showSkeleton, intl, isError, refetch]);
 
   const tabBarHeight = useScrollContentTabBarOffset();
+  const handleWebItemPress = useCallback(
+    (item: IMarketToken) => {
+      if (shouldSuppressItemPress?.()) return;
+      void toMarketDetailPage({
+        ...item,
+        symbol: item.symbol,
+        tokenAddress: item.address,
+        networkId: item.networkId,
+        isNative: item.isNative,
+      });
+    },
+    [shouldSuppressItemPress, toMarketDetailPage],
+  );
+  const handleWebPressIn = useCallback((item: IMarketToken) => {
+    void preloadMarketDetailV2Page({
+      includeBodyModules: true,
+      includeHeavyModules: true,
+      isStockRoute: Boolean(resolveMarketStockId(item)),
+      layout: 'mobile',
+    });
+    prewarmMarketTokenImages(item);
+  }, []);
+  if (!platformEnv.isNative)
+    return (
+      <WebMarketCompactList
+        data={showSkeleton ? EMPTY_DATA : data}
+        buildRow={buildTokenMarketRow}
+        onPress={handleWebItemPress}
+        onPressIn={handleWebPressIn}
+        onEndReached={handleEndReached}
+        empty={ListEmptyComponent}
+        footer={ListFooterComponent}
+        contentPaddingBottom={tabBarHeight}
+      />
+    );
   return (
     <Tabs.FlatList<IMarketToken>
       showsVerticalScrollIndicator={false}

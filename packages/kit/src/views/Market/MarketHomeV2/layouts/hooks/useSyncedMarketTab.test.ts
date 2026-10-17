@@ -4,7 +4,7 @@
 
 import { act, renderHook } from '@testing-library/react-native';
 
-import type { ITabContainerRef } from '@onekeyhq/components';
+import type { IWebCollapsiblePagerRef } from '@onekeyhq/kit/src/components/WebCollapsiblePagerContext';
 
 import { useSyncedMarketTab } from './useSyncedMarketTab';
 
@@ -57,7 +57,7 @@ describe('useSyncedMarketTab', () => {
     const onBeforeJumpToTab = jest.fn(() => {
       shouldDefer = true;
     });
-    const tabContainerRef: ITabContainerRef = {
+    const tabContainerRef: IWebCollapsiblePagerRef = {
       getCurrentIndex: jest.fn(() => 2),
       getFocusedTab: jest.fn(() => focusedTab),
       jumpToTab,
@@ -106,7 +106,7 @@ describe('useSyncedMarketTab', () => {
     let focusedTab = 'Stocks';
     const jumpToTab = jest.fn();
     const syncCurrentPage = jest.fn();
-    const tabContainerRef: ITabContainerRef = {
+    const tabContainerRef: IWebCollapsiblePagerRef = {
       getCurrentIndex: jest.fn(() => 2),
       getFocusedTab: jest.fn(() => focusedTab),
       jumpToTab,

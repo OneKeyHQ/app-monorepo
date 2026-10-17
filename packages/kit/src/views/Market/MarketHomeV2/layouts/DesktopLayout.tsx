@@ -11,14 +11,14 @@ import {
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import {
-  SizableText,
-  Tabs,
-  Tooltip,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
-import type { ITabBarItemProps } from '@onekeyhq/components';
+import { SizableText, Tooltip, XStack, YStack } from '@onekeyhq/components';
+import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/TabBar';
+import { TabBar, TabBarItem } from '@onekeyhq/components/src/composite/TabBar';
+import { WebCollapsiblePager } from '@onekeyhq/kit/src/components/WebCollapsiblePager';
+import type {
+  IWebPagerPage,
+  IWebPagerTabBarProps,
+} from '@onekeyhq/kit/src/components/WebCollapsiblePagerContext';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -54,7 +54,6 @@ import { useMarketSubCategorySelection } from './useMarketSubCategorySelection';
 
 import type { IDesktopLayoutProps } from './DesktopLayout.types';
 import type { IMarketCategoryItem } from '../types';
-import type { TabBarProps } from 'react-native-collapsible-tab-view';
 
 const EMPTY_MARKET_STOCK_CATEGORIES: IMarketCategoryItem[] = [];
 const EMPTY_MARKET_TOP_COINS_CATEGORIES: IMarketCategoryItem[] = [];
@@ -126,7 +125,6 @@ export function DesktopLayout({
 
   const containerProps = useMemo(
     () => ({
-      allowHeaderOverscroll: true,
       renderHeader: () => (
         <YStack bg="$bgApp" pointerEvents="box-none">
           <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS}>
@@ -269,7 +267,7 @@ export function DesktopLayout({
   // prop, and a new identity each render would remount every tab item.
   const renderTabBarItem = useCallback((itemProps: ITabBarItemProps) => {
     const tooltip = tabTooltipsRef.current[itemProps.name];
-    const tabItem = <Tabs.TabBarItem {...itemProps} />;
+    const tabItem = <TabBarItem {...itemProps} />;
     if (!tooltip) {
       return tabItem;
     }
@@ -285,7 +283,7 @@ export function DesktopLayout({
   }, []);
 
   const renderTabBar = useCallback(
-    (tabBarProps: TabBarProps<string>) => {
+    (tabBarProps: IWebPagerTabBarProps) => {
       const handleTabPress = (name: string) => {
         // Update immediately on press so the portal clears before the
         // tab-switch animation completes (onTabChange fires after animation).
@@ -329,7 +327,7 @@ export function DesktopLayout({
             testID={MarketTestIDs.marketTabs}
           >
             <XStack flexShrink={1} minWidth={0}>
-              <Tabs.TabBar
+              <TabBar
                 {...tabBarProps}
                 onTabPress={handleTabPress}
                 divider={false}
@@ -420,24 +418,28 @@ export function DesktopLayout({
     return null;
   }
 
-  const tabElements = [
+  const pages: IWebPagerPage[] = [
     ...(showWatchlistTab
       ? [
-          <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
-            <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} px="$3" flex={1}>
-              {hasActivated(watchlistTabName) ? (
-                <Suspense fallback={<MarketDesktopTableLoadingFallback />}>
-                  <LazyMarketWatchlistTokenList
-                    tabIntegrated
-                    tabName={watchlistTabName}
-                    listContainerProps={listContainerProps}
-                    enableWebSocket={activeTabName === watchlistTabName}
-                    centerDesktopPortalContent
-                  />
-                </Suspense>
-              ) : null}
-            </YStack>
-          </Tabs.Tab>,
+          {
+            key: 'watchlist',
+            name: watchlistTabName,
+            children: (
+              <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} px="$3" flex={1}>
+                {hasActivated(watchlistTabName) ? (
+                  <Suspense fallback={<MarketDesktopTableLoadingFallback />}>
+                    <LazyMarketWatchlistTokenList
+                      tabIntegrated
+                      tabName={watchlistTabName}
+                      listContainerProps={listContainerProps}
+                      enableWebSocket={activeTabName === watchlistTabName}
+                      centerDesktopPortalContent
+                    />
+                  </Suspense>
+                ) : null}
+              </YStack>
+            ),
+          },
         ]
       : []),
     ...spotTabItems.map((item) => {
@@ -495,8 +497,10 @@ export function DesktopLayout({
           );
         }
       }
-      return (
-        <Tabs.Tab key={item.categoryId} name={item.tabName}>
+      return {
+        key: item.categoryId,
+        name: item.tabName,
+        children: (
           <YStack
             // The stock list owns its own centered frame (it has to keep the
             // horizontal scroller full-bleed), so it opts out of this one.
@@ -508,24 +512,28 @@ export function DesktopLayout({
           >
             {tabContent}
           </YStack>
-        </Tabs.Tab>
-      );
+        ),
+      };
     }),
     ...(showPerpsTab
       ? [
-          <Tabs.Tab key={perpsTabName} name={perpsTabName}>
-            <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} px="$3" flex={1}>
-              {hasActivated(perpsTabName) ? (
-                <Suspense fallback={null}>
-                  <LazyMarketPerpsTokenList
-                    tabIntegrated
-                    tabName={perpsTabName}
-                    listContainerProps={listContainerProps}
-                  />
-                </Suspense>
-              ) : null}
-            </YStack>
-          </Tabs.Tab>,
+          {
+            key: 'perps',
+            name: perpsTabName,
+            children: (
+              <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} px="$3" flex={1}>
+                {hasActivated(perpsTabName) ? (
+                  <Suspense fallback={null}>
+                    <LazyMarketPerpsTokenList
+                      tabIntegrated
+                      tabName={perpsTabName}
+                      listContainerProps={listContainerProps}
+                    />
+                  </Suspense>
+                ) : null}
+              </YStack>
+            ),
+          },
         ]
       : []),
   ];
@@ -533,17 +541,15 @@ export function DesktopLayout({
   return (
     <DesktopStickyHeaderContext.Provider value={stickyHeaderCtx}>
       <YStack flex={1}>
-        <Tabs.Container
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ref={tabsRef as any}
+        <WebCollapsiblePager
+          ref={tabsRef}
           renderTabBar={renderTabBar}
           initialTabName={selectedTabName}
           isRouteFocused={isRouteFocused}
           onTabChange={onTabChangeHandler}
           {...containerProps}
-        >
-          {tabElements}
-        </Tabs.Container>
+          pages={pages}
+        />
       </YStack>
     </DesktopStickyHeaderContext.Provider>
   );
