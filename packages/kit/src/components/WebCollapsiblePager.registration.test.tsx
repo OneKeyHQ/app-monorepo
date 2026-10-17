@@ -74,16 +74,26 @@ jest.mock('react-native-pager-view', () => ({
     children,
     ref,
     onPageSelected,
+    header,
+    stickyHeader,
   }: React.PropsWithChildren<{
     ref?: React.Ref<unknown>;
     onPageSelected: typeof mockSelected;
+    header?: React.ReactNode;
+    stickyHeader?: React.ReactNode;
   }>) => {
     mockSelected = onPageSelected;
     React.useImperativeHandle(ref, () => ({
       setPage: () => {},
       setPageWithoutAnimation: () => {},
     }));
-    return <>{children}</>;
+    return (
+      <>
+        {header}
+        {stickyHeader}
+        {children}
+      </>
+    );
   },
   NativeScroller: ({
     children,
@@ -94,6 +104,17 @@ jest.mock('react-native-pager-view', () => ({
     pagerScrollKey?: string;
   }>) => {
     const node = React.useRef<HTMLDivElement>(null);
+    React.useLayoutEffect(() => {
+      node.current?.setAttribute('data-collapsible-pager-active', 'true');
+      node.current?.style.setProperty(
+        '--ok-collapsible-pager-header-inset',
+        '0px',
+      );
+      node.current?.style.setProperty(
+        '--ok-collapsible-pager-sticky-inset',
+        '0px',
+      );
+    }, []);
     React.useImperativeHandle(
       ref,
       () => ({
@@ -138,8 +159,12 @@ function RegistrationProbe({
 
 const originalResizeObserver = globalThis.ResizeObserver;
 const observerDisconnect = jest.fn();
+const resizeCallbacks: Array<() => void> = [];
 beforeAll(() => {
   globalThis.ResizeObserver = class {
+    constructor(callback: ResizeObserverCallback) {
+      resizeCallbacks.push(() => callback([], this));
+    }
     observe() {}
     unobserve() {}
     disconnect = observerDisconnect;
@@ -387,6 +412,182 @@ describe('Pager and legacy Table content registration', () => {
     expect(owner.getAttribute('data-scroll-key')).toBe('stable:1');
     expect(mounts).toHaveBeenCalledTimes(1);
     expect(ref.current?.getFocusedTab()).toBe('One');
+    screen.unmount();
+  });
+
+  it('restores a pending route offset after the owner content grows, including a second blur', async () => {
+    const ref = React.createRef<IWebCollapsiblePagerRef>();
+    const pages = [
+      { key: 'stable', name: 'One', children: <WebPagerContent /> },
+    ];
+    const screen = render(<WebCollapsiblePager ref={ref} pages={pages} />);
+    const owner = screen.getByTestId('pager-owner');
+    let extent = 1200;
+    Object.defineProperty(owner, 'clientHeight', { value: 400 });
+    Object.defineProperty(owner, 'scrollHeight', { get: () => extent });
+    act(() => {
+      owner.scrollTop = 300;
+      owner.dispatchEvent(new Event('scroll'));
+    });
+    screen.rerender(
+      <WebCollapsiblePager ref={ref} pages={pages} isRouteFocused={false} />,
+    );
+    extent = 500;
+    owner.scrollTop = 0;
+    mockOwnerScroll.mockClear();
+    screen.rerender(
+      <WebCollapsiblePager ref={ref} pages={pages} isRouteFocused />,
+    );
+    expect(mockOwnerScroll).not.toHaveBeenCalled();
+    screen.rerender(
+      <WebCollapsiblePager ref={ref} pages={pages} isRouteFocused={false} />,
+    );
+    screen.rerender(
+      <WebCollapsiblePager ref={ref} pages={pages} isRouteFocused />,
+    );
+    extent = 1200;
+    await act(async () => {
+      resizeCallbacks.forEach((callback) => callback());
+      await new Promise(requestAnimationFrame);
+    });
+    expect(mockOwnerScroll).toHaveBeenCalledTimes(1);
+    expect(mockOwnerScroll).toHaveBeenLastCalledWith(300);
+    expect(owner.scrollTop).toBe(300);
+    screen.unmount();
+  });
+
+  it('cancels pending route restore when the user takes over scrolling', async () => {
+    const pages = [
+      { key: 'stable', name: 'One', children: <WebPagerContent /> },
+    ];
+    const screen = render(<WebCollapsiblePager pages={pages} />);
+    const owner = screen.getByTestId('pager-owner');
+    let extent = 1200;
+    Object.defineProperty(owner, 'clientHeight', { value: 400 });
+    Object.defineProperty(owner, 'scrollHeight', { get: () => extent });
+    act(() => {
+      owner.scrollTop = 300;
+      owner.dispatchEvent(new Event('scroll'));
+    });
+    screen.rerender(
+      <WebCollapsiblePager pages={pages} isRouteFocused={false} />,
+    );
+    extent = 500;
+    owner.scrollTop = 0;
+    mockOwnerScroll.mockClear();
+    screen.rerender(<WebCollapsiblePager pages={pages} isRouteFocused />);
+    act(() => {
+      owner.dispatchEvent(new WheelEvent('wheel', { deltaY: 10 }));
+    });
+    extent = 1200;
+    await act(async () => {
+      resizeCallbacks.forEach((callback) => callback());
+      await new Promise(requestAnimationFrame);
+    });
+    expect(mockOwnerScroll).not.toHaveBeenCalled();
+    expect(owner.scrollTop).toBe(0);
+    screen.unmount();
+  });
+
+  it('keeps a pending offset on blur and cancels it after overlay scroll input', async () => {
+    const ref = React.createRef<IWebCollapsiblePagerRef>();
+    const pages = [
+      { key: 'stable', name: 'One', children: <WebPagerContent /> },
+    ];
+    const screen = render(<WebCollapsiblePager ref={ref} pages={pages} />);
+    const owner = screen.getByTestId('pager-owner');
+    let extent = 1200;
+    Object.defineProperty(owner, 'clientHeight', { value: 400 });
+    Object.defineProperty(owner, 'scrollHeight', { get: () => extent });
+    act(() => {
+      owner.scrollTop = 300;
+      owner.dispatchEvent(new Event('scroll'));
+    });
+    screen.rerender(
+      <WebCollapsiblePager ref={ref} pages={pages} isRouteFocused={false} />,
+    );
+    expect(ref.current?.restoreScrollPosition?.()).toBe(false);
+    extent = 500;
+    owner.scrollTop = 0;
+    screen.rerender(
+      <WebCollapsiblePager ref={ref} pages={pages} isRouteFocused />,
+    );
+    mockOwnerScroll.mockClear();
+    act(() => {
+      owner.dispatchEvent(new Event('ok-collapsible-pager-user-scroll'));
+    });
+    extent = 1200;
+    await act(async () => {
+      resizeCallbacks.forEach((callback) => callback());
+      await new Promise(requestAnimationFrame);
+    });
+    expect(mockOwnerScroll).not.toHaveBeenCalled();
+    screen.unmount();
+  });
+
+  it('waits for the active owner and matching Header insets before restoring', async () => {
+    resizeCallbacks.length = 0;
+    const pages = [
+      { key: 'stable', name: 'One', children: <WebPagerContent /> },
+    ];
+    const pager = (isRouteFocused: boolean) => (
+      <WebCollapsiblePager
+        pages={pages}
+        isRouteFocused={isRouteFocused}
+        renderHeader={() => <div data-testid="header-inner" />}
+        renderTabBar={() => <div data-testid="sticky-inner" />}
+      />
+    );
+    const screen = render(pager(true));
+    const owner = screen.getByTestId('pager-owner');
+    const measureHeight = (element: HTMLElement, height: number) => {
+      element.getBoundingClientRect = () =>
+        ({ width: 375, height, top: 0, bottom: height }) as DOMRect;
+    };
+    measureHeight(screen.getByTestId('header-inner').parentElement!, 212);
+    measureHeight(screen.getByTestId('sticky-inner').parentElement!, 133);
+    await act(async () => {
+      resizeCallbacks.forEach((callback) => callback());
+    });
+    owner.style.setProperty('--ok-collapsible-pager-header-inset', '212px');
+    owner.style.setProperty('--ok-collapsible-pager-sticky-inset', '133px');
+    let extent = 1200;
+    Object.defineProperty(owner, 'clientHeight', { value: 400 });
+    Object.defineProperty(owner, 'scrollHeight', { get: () => extent });
+    act(() => {
+      owner.scrollTop = 500;
+      owner.dispatchEvent(new Event('scroll'));
+    });
+    screen.rerender(pager(false));
+    extent = 500;
+    owner.scrollTop = 0;
+    owner.removeAttribute('data-collapsible-pager-active');
+    owner.style.setProperty('--ok-collapsible-pager-header-inset', '0px');
+    owner.style.setProperty('--ok-collapsible-pager-sticky-inset', '0px');
+    mockOwnerScroll.mockClear();
+    screen.rerender(pager(true));
+    extent = 1200;
+    await act(async () => {
+      owner.dispatchEvent(new Event('ok-collapsible-pager-insets-changed'));
+      await new Promise(requestAnimationFrame);
+    });
+    expect(mockOwnerScroll).not.toHaveBeenCalled();
+    owner.setAttribute('data-collapsible-pager-active', 'true');
+    await act(async () => {
+      owner.dispatchEvent(new Event('ok-collapsible-pager-insets-changed'));
+      await new Promise(requestAnimationFrame);
+    });
+    expect(mockOwnerScroll).not.toHaveBeenCalled();
+    owner.style.setProperty('--ok-collapsible-pager-header-inset', '212px');
+    owner.style.setProperty('--ok-collapsible-pager-sticky-inset', '133px');
+    owner.scrollTop = 845;
+    await act(async () => {
+      owner.dispatchEvent(new Event('ok-collapsible-pager-insets-changed'));
+      await new Promise(requestAnimationFrame);
+    });
+    expect(mockOwnerScroll).toHaveBeenCalledTimes(1);
+    expect(mockOwnerScroll).toHaveBeenLastCalledWith(500);
+    expect(owner.scrollTop).toBe(500);
     screen.unmount();
   });
 });

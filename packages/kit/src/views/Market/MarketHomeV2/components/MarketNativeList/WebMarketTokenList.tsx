@@ -499,7 +499,9 @@ export function WebMarketTokenList({
                   }),
                 });
             }
-            const subtitle = kind === 'perps' ? item.perpsSubtitle : item.name;
+            let subtitle: string | undefined = item.name;
+            if (kind === 'token') subtitle = item.name?.trim();
+            else if (kind === 'perps') subtitle = item.perpsSubtitle;
             const address =
               kind === 'token' && item.address
                 ? accountUtils.shortenAddress({
@@ -508,7 +510,7 @@ export function WebMarketTokenList({
                     trailingLength: 4,
                   })
                 : undefined;
-            const secondary = subtitle || address;
+            const secondary = subtitle;
             let hoverSecondary: Extract<
               WebMarketTableCell,
               { kind: 'asset' }
@@ -523,7 +525,7 @@ export function WebMarketTokenList({
                   style: { fontSize: 14, lineHeight: 20 },
                 },
               ];
-            } else if (address && subtitle) {
+            } else if (address) {
               hoverSecondary = [
                 { text: address, style: { fontSize: 14, lineHeight: 20 } },
               ];
@@ -582,7 +584,7 @@ export function WebMarketTokenList({
                           : null,
                       )
                   : undefined,
-              hoverActionKey: address && subtitle ? 'copy' : undefined,
+              hoverActionKey: address ? 'copy' : undefined,
               hoverActionLabel: address
                 ? intl.formatMessage({ id: ETranslations.global_copy })
                 : undefined,

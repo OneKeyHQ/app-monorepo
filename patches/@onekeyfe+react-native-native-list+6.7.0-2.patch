@@ -1858,7 +1858,7 @@ index b0a9f88..2683477 100644
        prefix.style.textOverflow = 'ellipsis';
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/templates/MarketTableRowRenderer.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/templates/MarketTableRowRenderer.js
 new file mode 100644
-index 0000000..fcde5a1
+index 0000000..e33ae60
 --- /dev/null
 +++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/templates/MarketTableRowRenderer.js
 @@ -0,0 +1,576 @@
@@ -2201,7 +2201,7 @@ index 0000000..fcde5a1
 +    });
 +    text.appendChild(title);
 +    if (cell.secondary?.length || cell.hoverSecondary?.length) {
-+      const height = cell.secondary?.[0]?.style?.lineHeight ?? 16;
++      const height = cell.secondary?.[0]?.style?.lineHeight ?? cell.hoverSecondary?.[0]?.style?.lineHeight ?? 16;
 +      const clip = createElement(document, 'span', 'ok-native-list-table-secondary');
 +      clip.style.height = `${height}px`;
 +      const track = createElement(document, 'span', 'ok-native-list-table-secondary-track');
@@ -6131,10 +6131,10 @@ index e1a69c7..9dd3176 100644
        prefix.style.textOverflow = 'ellipsis';
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/web/templates/MarketTableRowRenderer.ts b/node_modules/@onekeyfe/react-native-native-list/src/web/templates/MarketTableRowRenderer.ts
 new file mode 100644
-index 0000000..224d3a5
+index 0000000..4791b90
 --- /dev/null
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/web/templates/MarketTableRowRenderer.ts
-@@ -0,0 +1,749 @@
+@@ -0,0 +1,752 @@
 +import type {
 +  MarketRow,
 +  WebMarketTableCell,
@@ -6598,7 +6598,10 @@ index 0000000..224d3a5
 +    });
 +    text.appendChild(title);
 +    if (cell.secondary?.length || cell.hoverSecondary?.length) {
-+      const height = cell.secondary?.[0]?.style?.lineHeight ?? 16;
++      const height =
++        cell.secondary?.[0]?.style?.lineHeight ??
++        cell.hoverSecondary?.[0]?.style?.lineHeight ??
++        16;
 +      const clip = createElement(
 +        document,
 +        'span',

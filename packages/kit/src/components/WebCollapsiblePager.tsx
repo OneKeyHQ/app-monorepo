@@ -114,6 +114,7 @@ function WebPagerPage({
   onOwner,
   onScrollPosition,
   onUserInput,
+  onGeometryChange,
 }: {
   page: IWebPagerPage;
   active: boolean;
@@ -124,6 +125,7 @@ function WebPagerPage({
   onOwner: (key: string, node: NativeScrollerRef | null) => void;
   onScrollPosition: (key: string, top: number) => void;
   onUserInput: (key: string) => void;
+  onGeometryChange: (key: string) => void;
 }) {
   const [owner, setOwner] = useState<HTMLElement | null>(null);
   const [metrics, setMetrics] = useState({ width: 0, height: 0, scrollTop: 0 });
@@ -174,7 +176,8 @@ function WebPagerPage({
         ? previous
         : next,
     );
-  }, [owner, headerHeight, stickyHeight]);
+    onGeometryChange(page.key);
+  }, [owner, headerHeight, stickyHeight, onGeometryChange, page.key]);
   const requestRemeasure = useCallback(() => {
     if (frameRef.current === undefined)
       frameRef.current = requestAnimationFrame(measure);
@@ -230,6 +233,7 @@ function WebPagerPage({
     owner.addEventListener('touchstart', takeOver, { passive: true });
     owner.addEventListener('pointerdown', takeOver);
     owner.addEventListener('keydown', handleKey);
+    owner.addEventListener('ok-collapsible-pager-user-scroll', takeOver);
     owner.addEventListener(
       'ok-collapsible-pager-insets-changed',
       requestRemeasure,
@@ -243,6 +247,7 @@ function WebPagerPage({
       owner.removeEventListener('touchstart', takeOver);
       owner.removeEventListener('pointerdown', takeOver);
       owner.removeEventListener('keydown', handleKey);
+      owner.removeEventListener('ok-collapsible-pager-user-scroll', takeOver);
       owner.removeEventListener(
         'ok-collapsible-pager-insets-changed',
         requestRemeasure,
@@ -324,6 +329,8 @@ export function WebCollapsiblePager({
     >(),
   );
   const routeOffsetRef = useRef<{ key: string; top: number } | null>(null);
+  const measuredInsetsRef = useRef({ header: 0, sticky: 0 });
+  const retryRestoreRef = useRef<(key: string) => void>(() => undefined);
   const routeFocusedRef = useRef(isRouteFocused);
   routeFocusedRef.current = isRouteFocused;
   const onOwner = useCallback((key: string, node: NativeScrollerRef | null) => {
@@ -335,6 +342,7 @@ export function WebCollapsiblePager({
         element,
         lastTop: ownersRef.current.get(key)?.lastTop ?? 0,
       });
+    if (node && element) retryRestoreRef.current(key);
   }, []);
   const onScrollPosition = useCallback((key: string, top: number) => {
     const owner = ownersRef.current.get(key);
@@ -344,25 +352,53 @@ export function WebCollapsiblePager({
     if (routeOffsetRef.current?.key === key) routeOffsetRef.current = null;
   }, []);
   const restoreScrollPosition = useCallback(() => {
+    if (!routeFocusedRef.current) return false;
     const key = pagesRef.current[selectedIndexRef.current]?.key;
     const owner = key ? ownersRef.current.get(key) : undefined;
     if (!owner?.element.isConnected || owner.element.clientHeight === 0)
       return false;
     const saved = routeOffsetRef.current;
     if (!saved || saved.key !== key) return true;
+    const style = owner.element.style;
+    const { header, sticky } = measuredInsetsRef.current;
+    if (
+      owner.element.getAttribute('data-collapsible-pager-active') !== 'true' ||
+      style.getPropertyValue('--ok-collapsible-pager-header-inset').trim() !==
+        `${Math.max(0, header)}px` ||
+      style.getPropertyValue('--ok-collapsible-pager-sticky-inset').trim() !==
+        `${Math.max(0, sticky)}px`
+    )
+      return false;
     if (owner.element.scrollHeight - owner.element.clientHeight < saved.top)
       return false;
-    owner.node.scrollTo({ y: saved.top, animated: false });
-    owner.lastTop = saved.top;
     routeOffsetRef.current = null;
+    owner.lastTop = saved.top;
+    owner.node.scrollTo({ y: saved.top, animated: false });
     return true;
   }, []);
+  const onGeometryChange = useCallback(
+    (key: string) => {
+      if (
+        routeFocusedRef.current &&
+        routeOffsetRef.current?.key === key &&
+        pagesRef.current[selectedIndexRef.current]?.key === key
+      )
+        restoreScrollPosition();
+    },
+    [restoreScrollPosition],
+  );
+  retryRestoreRef.current = onGeometryChange;
   const focusedTab = useSharedValue(pages[initialIndex]?.name ?? '');
   const indexDecimal = useSharedValue(initialIndex);
   const header = useMeasuredElement();
   const sticky = useMeasuredElement();
+  measuredInsetsRef.current = {
+    header: header.size.height,
+    sticky: sticky.size.height,
+  };
   const setIndex = useCallback((next: number) => {
     if (!pagesRef.current[next]) return;
+    if (next !== selectedIndexRef.current) routeOffsetRef.current = null;
     if (Math.abs(next - selectedIndexRef.current) > 1)
       pagerRef.current?.setPageWithoutAnimation(next);
     else pagerRef.current?.setPage(next);
@@ -401,7 +437,8 @@ export function WebCollapsiblePager({
     }
     const key = pagesRef.current[selectedIndexRef.current]?.key;
     const owner = key ? ownersRef.current.get(key) : undefined;
-    if (key && owner) routeOffsetRef.current = { key, top: owner.lastTop };
+    if (key && owner && routeOffsetRef.current?.key !== key)
+      routeOffsetRef.current = { key, top: owner.lastTop };
   }, [isRouteFocused, restoreScrollPosition]);
   useLayoutEffect(() => {
     const previousKeys = previousPageKeysRef.current;
@@ -410,6 +447,12 @@ export function WebCollapsiblePager({
       pages.some((page, pageIndex) => page.key !== previousKeys[pageIndex]);
     previousPageKeysRef.current = pages.map((page) => page.key);
     const selected = pages[selectedIndex];
+    if (
+      routeOffsetRef.current &&
+      (!pages.some((page) => page.key === routeOffsetRef.current?.key) ||
+        routeOffsetRef.current.key !== selected?.key)
+    )
+      routeOffsetRef.current = null;
     if (!selected) return;
     const removed = selected.key !== selectedKey;
     if (removed) setSelectedKey(selected.key);
@@ -463,6 +506,8 @@ export function WebCollapsiblePager({
         onPageSelected={({ nativeEvent }) => {
           const next = pages[nativeEvent.position];
           if (!next) return;
+          if (next.key !== routeOffsetRef.current?.key)
+            routeOffsetRef.current = null;
           const previous = selectedIndexRef.current;
           selectedIndexRef.current = nativeEvent.position;
           setSelectedKey(next.key);
@@ -488,6 +533,7 @@ export function WebCollapsiblePager({
               onOwner={onOwner}
               onScrollPosition={onScrollPosition}
               onUserInput={onUserInput}
+              onGeometryChange={onGeometryChange}
             />
           </View>
         ))}

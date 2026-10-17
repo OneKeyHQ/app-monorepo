@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-pager-view/lib/module/CollapsiblePagerView.web.js b/node_modules/react-native-pager-view/lib/module/CollapsiblePagerView.web.js
-index 0a332bb..0771f09 100644
+index 0a332bb..fd74717 100644
 --- a/node_modules/react-native-pager-view/lib/module/CollapsiblePagerView.web.js
 +++ b/node_modules/react-native-pager-view/lib/module/CollapsiblePagerView.web.js
 @@ -18,6 +18,11 @@ const webElement = node => {
@@ -14,12 +14,24 @@ index 0a332bb..0771f09 100644
  function ensureCollapseAnimation(document) {
    if (document.getElementById(COLLAPSE_STYLE_ID)) return;
    const style = document.createElement("style");
-@@ -38,11 +43,15 @@ export class CollapsiblePagerView extends React.PureComponent {
+@@ -25,6 +30,10 @@ function ensureCollapseAnimation(document) {
+   style.textContent = `@keyframes ${COLLAPSE_ANIMATION_NAME}{from{transform:translateY(0)}to{transform:translateY(calc(-1 * var(--ok-collapsible-header-height)))}}`;
+   document.head.appendChild(style);
+ }
++function supportsScrollTimeline(document) {
++  const css = document.defaultView?.CSS;
++  return !!(typeof css?.supports === "function" && css.supports("animation-timeline", "--ok-test") && css.supports("timeline-scope", "--ok-test") && css.supports("scroll-timeline-name", "--ok-test") && css.supports("scroll-timeline-axis", "block") && css.supports("animation-range", "0px 1px") && css.supports("animation-duration", "auto"));
++}
+ const pageKey = (child, index) => {
+   if (/*#__PURE__*/React.isValidElement(child) && child.key != null) return String(child.key);
+   return `page-${index}`;
+@@ -38,11 +47,16 @@ export class CollapsiblePagerView extends React.PureComponent {
    };
    root = null;
    track = null;
 +  headerSlot = null;
 +  stickySlot = null;
++  cssTimelineSupported = false;
 +  overlayTouch = null;
    touchStartX = null;
    touchStartY = null;
@@ -30,7 +42,24 @@ index 0a332bb..0771f09 100644
    sharedHeaderOffset = 0;
    selectionRestoreToken = 0;
    bodyAlignment = null;
-@@ -82,6 +91,16 @@ export class CollapsiblePagerView extends React.PureComponent {
+@@ -55,8 +69,15 @@ export class CollapsiblePagerView extends React.PureComponent {
+   configuredScrollElement = null;
+   timelineName = `--ok-collapsible-pager-${++collapsiblePagerWebInstance}`;
+   componentDidMount() {
+-    if (this.root) ensureCollapseAnimation(this.root.ownerDocument);
++    if (this.root) {
++      this.cssTimelineSupported = supportsScrollTimeline(this.root.ownerDocument);
++      if (this.cssTimelineSupported) {
++        ensureCollapseAnimation(this.root.ownerDocument);
++        this.forceUpdate();
++      }
++    }
+     this.scheduleScrollConfiguration();
++    this.syncFallbackHeader();
+     this.notifyMountedPagesChanged();
+     this.emitDiagnostics("mounted");
+   }
+@@ -82,7 +103,18 @@ export class CollapsiblePagerView extends React.PureComponent {
        });
        return;
      }
@@ -45,9 +74,11 @@ index 0a332bb..0771f09 100644
 +      }
 +    }
      this.scheduleScrollConfiguration();
++    this.syncFallbackHeader();
      this.notifyMountedPagesChanged();
    }
-@@ -98,6 +117,7 @@ export class CollapsiblePagerView extends React.PureComponent {
+   componentWillUnmount() {
+@@ -98,6 +130,7 @@ export class CollapsiblePagerView extends React.PureComponent {
        this.transitionTimer = null;
      }
      this.setTrack(null);
@@ -55,7 +86,7 @@ index 0a332bb..0771f09 100644
      this.restoreConfiguredScrollElement();
    }
    setPage = selectedPage => {
-@@ -149,7 +169,7 @@ export class CollapsiblePagerView extends React.PureComponent {
+@@ -149,7 +182,7 @@ export class CollapsiblePagerView extends React.PureComponent {
      this.cancelPendingTopFrame();
      const EventConstructor = element.ownerDocument.defaultView?.Event;
      if (EventConstructor) element.dispatchEvent(new EventConstructor("ok-collapsible-pager-cancel-scroll-command"));
@@ -64,7 +95,7 @@ index 0a332bb..0771f09 100644
        left: element.scrollLeft,
        top: element.scrollTop,
        behavior: "instant"
-@@ -164,7 +184,7 @@ export class CollapsiblePagerView extends React.PureComponent {
+@@ -164,10 +197,11 @@ export class CollapsiblePagerView extends React.PureComponent {
          element,
          key
        };
@@ -73,13 +104,17 @@ index 0a332bb..0771f09 100644
          top: offset,
          behavior: animated ? "smooth" : "instant"
        });
-@@ -230,8 +250,115 @@ export class CollapsiblePagerView extends React.PureComponent {
++      this.syncFallbackHeader();
+     });
+     this.pendingTopFrame = {
+       frame,
+@@ -230,8 +264,118 @@ export class CollapsiblePagerView extends React.PureComponent {
    };
    pageScrollElement(index) {
      const pageHost = this.pageHosts.get(index);
 -    return pageHost?.querySelector(".ok-native-list-viewport, [data-collapsible-pager-scroll]") ?? pageHost;
 +    return pageHost?.querySelector("[data-collapsible-pager-scroll]") ?? pageHost?.querySelector(".ok-native-list-viewport") ?? pageHost;
-+  }
+   }
 +  setRoot = node => {
 +    const root = webElement(node);
 +    if (root === this.root) return;
@@ -108,7 +143,7 @@ index 0a332bb..0771f09 100644
 +    const target = event.target;
 +    if (!target || !this.headerSlot?.contains(target) && !this.stickySlot?.contains(target) || target.closest("input,textarea,select,[contenteditable=true]")) return null;
 +    return target;
-   }
++  }
 +  nestedScrollConsumes(target, delta) {
 +    for (let node = target; node && node !== this.root; node = node.parentElement) {
 +      const style = node.ownerDocument.defaultView?.getComputedStyle(node);
@@ -117,8 +152,11 @@ index 0a332bb..0771f09 100644
 +    return false;
 +  }
 +  scrollOverlayOwner(owner, delta, event) {
++    if (!event.cancelable) return;
++    const EventConstructor = owner.ownerDocument.defaultView?.Event;
++    if (EventConstructor) owner.dispatchEvent(new EventConstructor("ok-collapsible-pager-user-scroll"));
 +    const top = Math.min(Math.max(0, owner.scrollTop + delta), owner.scrollHeight - owner.clientHeight);
-+    if (top === owner.scrollTop || !event.cancelable) return;
++    if (top === owner.scrollTop) return;
 +    this.takeOverVerticalScroll();
 +    scrollElementTo(owner, {
 +      top,
@@ -190,7 +228,11 @@ index 0a332bb..0771f09 100644
    notifyInsetsChanged(element) {
      const EventConstructor = element.ownerDocument.defaultView?.Event;
      if (EventConstructor) {
-@@ -250,7 +377,7 @@ export class CollapsiblePagerView extends React.PureComponent {
+@@ -247,10 +391,11 @@ export class CollapsiblePagerView extends React.PureComponent {
+     configured.element.removeEventListener("pointerdown", this.onScrollbarPointerDown);
+     configured.element.removeEventListener("keydown", this.onQueuedTopKey);
+     configured.element.removeEventListener("scrollend", this.onVerticalScrollSettled);
++    configured.element.removeEventListener("scroll", this.syncFallbackHeader);
      const style = timelineStyle(configured.element);
      configured.rangeSpacer.remove();
      style.position = configured.position;
@@ -199,7 +241,14 @@ index 0a332bb..0771f09 100644
      style.boxSizing = configured.boxSizing;
      style.scrollTimelineName = configured.scrollTimelineName;
      style.scrollTimelineAxis = configured.scrollTimelineAxis;
-@@ -265,10 +392,12 @@ export class CollapsiblePagerView extends React.PureComponent {
+@@ -259,16 +404,19 @@ export class CollapsiblePagerView extends React.PureComponent {
+     configured.element.removeAttribute("data-collapsible-pager-active");
+     this.notifyInsetsChanged(configured.element);
+     this.configuredScrollElement = null;
++    this.syncFallbackHeader();
+     if (this.bodyAlignment?.element === configured.element) this.bodyAlignment = null;
+   }
+   configureActiveScrollElement = () => {
      this.configureFrame = null;
      const element = this.pageScrollElement(this.state.selectedPage);
      if (!element) return;
@@ -213,7 +262,7 @@ index 0a332bb..0771f09 100644
        const rangeSpacer = element.ownerDocument.createElement("div");
        Object.assign(rangeSpacer.style, {
          position: "absolute",
-@@ -283,10 +412,12 @@ export class CollapsiblePagerView extends React.PureComponent {
+@@ -283,10 +431,12 @@ export class CollapsiblePagerView extends React.PureComponent {
        if (element.ownerDocument.defaultView?.getComputedStyle(element).position === "static") style.position = "relative";
        element.appendChild(rangeSpacer);
        this.configuredScrollElement = {
@@ -227,15 +276,20 @@ index 0a332bb..0771f09 100644
          basePaddingTop: computedPaddingTop,
          boxSizing: style.boxSizing,
          scrollTimelineName: style.scrollTimelineName,
-@@ -301,6 +432,7 @@ export class CollapsiblePagerView extends React.PureComponent {
+@@ -299,8 +449,12 @@ export class CollapsiblePagerView extends React.PureComponent {
+       element.addEventListener("wheel", this.onQueuedTopWheel);
+       element.addEventListener("pointerdown", this.onScrollbarPointerDown);
        element.addEventListener("keydown", this.onQueuedTopKey);
++      if (!this.cssTimelineSupported) element.addEventListener("scroll", this.syncFallbackHeader, {
++        passive: true
++      });
      }
      const style = timelineStyle(element);
 +    const paddingStyle = this.configuredScrollElement?.paddingTarget.style ?? style;
      const headerInset = Math.max(0, this.props.headerHeight);
      const stickyInset = Math.max(0, this.props.stickyHeaderHeight);
      if (this.configuredScrollElement) this.configuredScrollElement.rangeSpacer.style.height = `calc(100% + ${headerInset}px)`;
-@@ -308,8 +440,8 @@ export class CollapsiblePagerView extends React.PureComponent {
+@@ -308,8 +462,8 @@ export class CollapsiblePagerView extends React.PureComponent {
      const paddingTop = `calc(${basePaddingTop} + ${headerInset + stickyInset}px)`;
      const headerInsetValue = `${headerInset}px`;
      const stickyInsetValue = `${stickyInset}px`;
@@ -246,7 +300,23 @@ index 0a332bb..0771f09 100644
      style.boxSizing = "border-box";
      style.scrollTimelineName = this.timelineName;
      style.scrollTimelineAxis = "block";
-@@ -342,8 +474,10 @@ export class CollapsiblePagerView extends React.PureComponent {
+@@ -317,6 +471,15 @@ export class CollapsiblePagerView extends React.PureComponent {
+     style.setProperty(PAGER_STICKY_INSET, stickyInsetValue);
+     element.setAttribute("data-collapsible-pager-active", "true");
+     if (insetsChanged) this.notifyInsetsChanged(element);
++    this.syncFallbackHeader();
++  };
++  syncFallbackHeader = () => {
++    if (this.cssTimelineSupported) return;
++    const top = this.configuredScrollElement?.element.scrollTop ?? 0;
++    const collapse = Math.min(Math.max(top, 0), Math.max(this.props.headerHeight, 0));
++    const transform = `translateY(${-collapse}px)`;
++    if (this.headerSlot) this.headerSlot.style.transform = transform;
++    if (this.stickySlot) this.stickySlot.style.transform = transform;
+   };
+   scheduleScrollConfiguration() {
+     if (this.configureFrame !== null) return;
+@@ -342,8 +505,10 @@ export class CollapsiblePagerView extends React.PureComponent {
      this.emitDiagnostics("scroll-settled");
    };
    savePageOffset(index) {
@@ -259,7 +329,15 @@ index 0a332bb..0771f09 100644
      if (key && scrollElement) {
        if (this.bodyAlignment?.key === key && this.bodyAlignment.element === scrollElement) return;
        const D = Math.max(0, this.props.headerHeight);
-@@ -370,6 +504,7 @@ export class CollapsiblePagerView extends React.PureComponent {
+@@ -363,6 +528,7 @@ export class CollapsiblePagerView extends React.PureComponent {
+       key
+     };
+     scrollElement.scrollTop = expectedQ;
++    this.syncFallbackHeader();
+   }
+   selectPage(selectedPage, animated) {
+     const pages = this.pages();
+@@ -370,6 +536,7 @@ export class CollapsiblePagerView extends React.PureComponent {
      if (position === null || position < 0 || position >= pages.length || position === this.state.selectedPage) {
        return;
      }
@@ -267,17 +345,37 @@ index 0a332bb..0771f09 100644
      const selectionToken = ++this.selectionRestoreToken;
      const expectedKey = this.pages().map(pageKey)[position];
      this.cancelPendingTopFrame();
-@@ -525,18 +660,22 @@ export class CollapsiblePagerView extends React.PureComponent {
+@@ -506,7 +673,7 @@ export class CollapsiblePagerView extends React.PureComponent {
+     const keys = pages.map(pageKey);
+     const retained = new Set(this.mountedPages(pages.length));
+     const pageWidth = pages.length > 0 ? `${100 / pages.length}%` : "100%";
+-    const collapseAnimation = {
++    const collapseAnimation = this.cssTimelineSupported ? {
+       "--ok-collapsible-header-height": `${Math.max(0, this.props.headerHeight)}px`,
+       animationName: COLLAPSE_ANIMATION_NAME,
+       animationDuration: "auto",
+@@ -514,7 +681,7 @@ export class CollapsiblePagerView extends React.PureComponent {
+       animationTimingFunction: "linear",
+       animationTimeline: this.timelineName,
+       animationRange: `0px ${Math.max(1, this.props.headerHeight)}px`
+-    };
++    } : undefined;
+     const trackStyle = [styles.track, {
+       width: `${Math.max(1, pages.length) * 100}%`,
+       transform: [{
+@@ -525,18 +692,22 @@ export class CollapsiblePagerView extends React.PureComponent {
      }];
      return /*#__PURE__*/_jsxs(View, {
        ...viewProps,
 -      ref: node => {
 -        this.root = webElement(node);
 -      },
+-      style: [styles.root, {
 +      ref: this.setRoot,
-       style: [styles.root, {
++      style: [styles.root, this.cssTimelineSupported ? {
          timelineScope: this.timelineName
-       }, style],
+-      }, style],
++      } : undefined, style],
        children: [/*#__PURE__*/_jsx(View, {
 +        ref: node => {
 +          this.headerSlot = webElement(node);
@@ -293,7 +391,7 @@ index 0a332bb..0771f09 100644
          style: [styles.sticky, {
            top: Math.max(0, this.props.headerHeight),
            height: Math.max(0, this.props.stickyHeaderHeight)
-@@ -572,7 +711,7 @@ export class CollapsiblePagerView extends React.PureComponent {
+@@ -572,7 +743,7 @@ export class CollapsiblePagerView extends React.PureComponent {
  const styles = StyleSheet.create({
    root: {
      flex: 1,
@@ -302,7 +400,7 @@ index 0a332bb..0771f09 100644
      position: "relative"
    },
    header: {
-@@ -588,7 +727,7 @@ const styles = StyleSheet.create({
+@@ -588,7 +759,7 @@ const styles = StyleSheet.create({
      left: 0,
      right: 0,
      zIndex: 4,
@@ -353,15 +451,16 @@ index 9f009fc..ad44dfa 100644
    });
  });
 diff --git a/node_modules/react-native-pager-view/lib/typescript/src/CollapsiblePagerView.web.d.ts b/node_modules/react-native-pager-view/lib/typescript/src/CollapsiblePagerView.web.d.ts
-index e4bbc86..cd29156 100644
+index e4bbc86..53ae0f0 100644
 --- a/node_modules/react-native-pager-view/lib/typescript/src/CollapsiblePagerView.web.d.ts
 +++ b/node_modules/react-native-pager-view/lib/typescript/src/CollapsiblePagerView.web.d.ts
-@@ -58,11 +58,15 @@ export declare class CollapsiblePagerView extends React.PureComponent<Collapsibl
+@@ -58,11 +58,16 @@ export declare class CollapsiblePagerView extends React.PureComponent<Collapsibl
      state: State;
      private root;
      private track;
 +    private headerSlot;
 +    private stickySlot;
++    private cssTimelineSupported;
 +    private overlayTouch;
      private touchStartX;
      private touchStartY;
@@ -372,7 +471,7 @@ index e4bbc86..cd29156 100644
      private sharedHeaderOffset;
      private selectionRestoreToken;
      private bodyAlignment;
-@@ -101,6 +105,16 @@ export declare class CollapsiblePagerView extends React.PureComponent<Collapsibl
+@@ -101,9 +106,20 @@ export declare class CollapsiblePagerView extends React.PureComponent<Collapsibl
      private onTrackTransitionEnd;
      private setTrack;
      private pageScrollElement;
@@ -389,8 +488,12 @@ index e4bbc86..cd29156 100644
      private notifyInsetsChanged;
      private restoreConfiguredScrollElement;
      private configureActiveScrollElement;
++    private syncFallbackHeader;
+     private scheduleScrollConfiguration;
+     private takeOverVerticalScroll;
+     private onListScrollCommandAccepted;
 diff --git a/node_modules/react-native-pager-view/src/CollapsiblePagerView.web.tsx b/node_modules/react-native-pager-view/src/CollapsiblePagerView.web.tsx
-index 1ad9943..73bdfea 100644
+index 1ad9943..2c20d51 100644
 --- a/node_modules/react-native-pager-view/src/CollapsiblePagerView.web.tsx
 +++ b/node_modules/react-native-pager-view/src/CollapsiblePagerView.web.tsx
 @@ -83,7 +83,9 @@ type State = {
@@ -418,12 +521,33 @@ index 1ad9943..73bdfea 100644
  function ensureCollapseAnimation(document: Document) {
    if (document.getElementById(COLLAPSE_STYLE_ID)) return;
    const style = document.createElement("style");
-@@ -153,11 +163,21 @@ export class CollapsiblePagerView extends React.PureComponent<
+@@ -132,6 +142,19 @@ function ensureCollapseAnimation(document: Document) {
+   document.head.appendChild(style);
+ }
+ 
++function supportsScrollTimeline(document: Document) {
++  const css = document.defaultView?.CSS;
++  return !!(
++    typeof css?.supports === "function" &&
++    css.supports("animation-timeline", "--ok-test") &&
++    css.supports("timeline-scope", "--ok-test") &&
++    css.supports("scroll-timeline-name", "--ok-test") &&
++    css.supports("scroll-timeline-axis", "block") &&
++    css.supports("animation-range", "0px 1px") &&
++    css.supports("animation-duration", "auto")
++  );
++}
++
+ const pageKey = (child: React.ReactNode, index: number) => {
+   if (React.isValidElement(child) && child.key != null)
+     return String(child.key);
+@@ -153,11 +176,22 @@ export class CollapsiblePagerView extends React.PureComponent<
  
    private root: HTMLElement | null = null;
    private track: HTMLElement | null = null;
 +  private headerSlot: HTMLElement | null = null;
 +  private stickySlot: HTMLElement | null = null;
++  private cssTimelineSupported = false;
 +  private overlayTouch: {
 +    owner: HTMLElement;
 +    target: HTMLElement;
@@ -440,7 +564,26 @@ index 1ad9943..73bdfea 100644
    private sharedHeaderOffset = 0;
    private selectionRestoreToken = 0;
    private bodyAlignment: Readonly<{
-@@ -207,6 +227,18 @@ export class CollapsiblePagerView extends React.PureComponent<
+@@ -179,8 +213,17 @@ export class CollapsiblePagerView extends React.PureComponent<
+   private readonly timelineName = `--ok-collapsible-pager-${++collapsiblePagerWebInstance}`;
+ 
+   componentDidMount() {
+-    if (this.root) ensureCollapseAnimation(this.root.ownerDocument);
++    if (this.root) {
++      this.cssTimelineSupported = supportsScrollTimeline(
++        this.root.ownerDocument
++      );
++      if (this.cssTimelineSupported) {
++        ensureCollapseAnimation(this.root.ownerDocument);
++        this.forceUpdate();
++      }
++    }
+     this.scheduleScrollConfiguration();
++    this.syncFallbackHeader();
+     this.notifyMountedPagesChanged();
+     this.emitDiagnostics("mounted");
+   }
+@@ -207,7 +250,20 @@ export class CollapsiblePagerView extends React.PureComponent<
        });
        return;
      }
@@ -457,9 +600,11 @@ index 1ad9943..73bdfea 100644
 +      }
 +    }
      this.scheduleScrollConfiguration();
++    this.syncFallbackHeader();
      this.notifyMountedPagesChanged();
    }
-@@ -224,6 +256,7 @@ export class CollapsiblePagerView extends React.PureComponent<
+ 
+@@ -224,6 +280,7 @@ export class CollapsiblePagerView extends React.PureComponent<
        this.transitionTimer = null;
      }
      this.setTrack(null);
@@ -467,7 +612,7 @@ index 1ad9943..73bdfea 100644
      this.restoreConfiguredScrollElement();
    }
  
-@@ -315,7 +348,7 @@ export class CollapsiblePagerView extends React.PureComponent<
+@@ -315,7 +372,7 @@ export class CollapsiblePagerView extends React.PureComponent<
        element.dispatchEvent(
          new EventConstructor("ok-collapsible-pager-cancel-scroll-command")
        );
@@ -476,7 +621,7 @@ index 1ad9943..73bdfea 100644
        left: element.scrollLeft,
        top: element.scrollTop,
        behavior: "instant",
-@@ -334,7 +367,7 @@ export class CollapsiblePagerView extends React.PureComponent<
+@@ -334,10 +391,11 @@ export class CollapsiblePagerView extends React.PureComponent<
        this.pageOffsets.set(key, 0);
        this.sharedHeaderOffset = offset;
        this.bodyAlignment = { element, key };
@@ -485,7 +630,11 @@ index 1ad9943..73bdfea 100644
          top: offset,
          behavior: animated ? "smooth" : "instant",
        });
-@@ -411,12 +444,179 @@ export class CollapsiblePagerView extends React.PureComponent<
++      this.syncFallbackHeader();
+     });
+     this.pendingTopFrame = { frame, element, key };
+   }
+@@ -411,12 +469,185 @@ export class CollapsiblePagerView extends React.PureComponent<
    private pageScrollElement(index: number) {
      const pageHost = this.pageHosts.get(index);
      return (
@@ -495,9 +644,9 @@ index 1ad9943..73bdfea 100644
 +      pageHost?.querySelector<HTMLElement>("[data-collapsible-pager-scroll]") ??
 +      pageHost?.querySelector<HTMLElement>(".ok-native-list-viewport") ??
 +      pageHost
-+    );
-+  }
-+
+     );
+   }
+ 
 +  private setRoot = (node: unknown) => {
 +    const root = webElement(node);
 +    if (root === this.root) return;
@@ -559,16 +708,22 @@ index 1ad9943..73bdfea 100644
 +  }
 +
 +  private scrollOverlayOwner(owner: HTMLElement, delta: number, event: Event) {
++    if (!event.cancelable) return;
++    const EventConstructor = owner.ownerDocument.defaultView?.Event;
++    if (EventConstructor)
++      owner.dispatchEvent(
++        new EventConstructor("ok-collapsible-pager-user-scroll")
++      );
 +    const top = Math.min(
 +      Math.max(0, owner.scrollTop + delta),
 +      owner.scrollHeight - owner.clientHeight
-     );
-+    if (top === owner.scrollTop || !event.cancelable) return;
++    );
++    if (top === owner.scrollTop) return;
 +    this.takeOverVerticalScroll();
 +    scrollElementTo(owner, { top, behavior: "instant" });
 +    event.preventDefault();
-   }
- 
++  }
++
 +  private onOverlayWheel = (event: WheelEvent) => {
 +    const target = this.overlayTarget(event);
 +    const owner = this.pageScrollElement(this.state.selectedPage);
@@ -668,7 +823,11 @@ index 1ad9943..73bdfea 100644
    private notifyInsetsChanged(element: HTMLElement) {
      const EventConstructor = element.ownerDocument.defaultView?.Event;
      if (EventConstructor) {
-@@ -447,7 +647,7 @@ export class CollapsiblePagerView extends React.PureComponent<
+@@ -444,10 +675,11 @@ export class CollapsiblePagerView extends React.PureComponent<
+       "scrollend",
+       this.onVerticalScrollSettled
+     );
++    configured.element.removeEventListener("scroll", this.syncFallbackHeader);
      const style = timelineStyle(configured.element);
      configured.rangeSpacer.remove();
      style.position = configured.position;
@@ -677,7 +836,15 @@ index 1ad9943..73bdfea 100644
      style.boxSizing = configured.boxSizing;
      style.scrollTimelineName = configured.scrollTimelineName;
      style.scrollTimelineAxis = configured.scrollTimelineAxis;
-@@ -464,13 +664,19 @@ export class CollapsiblePagerView extends React.PureComponent<
+@@ -456,6 +688,7 @@ export class CollapsiblePagerView extends React.PureComponent<
+     configured.element.removeAttribute("data-collapsible-pager-active");
+     this.notifyInsetsChanged(configured.element);
+     this.configuredScrollElement = null;
++    this.syncFallbackHeader();
+     if (this.bodyAlignment?.element === configured.element)
+       this.bodyAlignment = null;
+   }
+@@ -464,13 +697,19 @@ export class CollapsiblePagerView extends React.PureComponent<
      this.configureFrame = null;
      const element = this.pageScrollElement(this.state.selectedPage);
      if (!element) return;
@@ -699,7 +866,7 @@ index 1ad9943..73bdfea 100644
          "0px";
        const rangeSpacer = element.ownerDocument.createElement("div");
        Object.assign(rangeSpacer.style, {
-@@ -490,10 +696,12 @@ export class CollapsiblePagerView extends React.PureComponent<
+@@ -490,10 +729,12 @@ export class CollapsiblePagerView extends React.PureComponent<
          style.position = "relative";
        element.appendChild(rangeSpacer);
        this.configuredScrollElement = {
@@ -713,7 +880,14 @@ index 1ad9943..73bdfea 100644
          basePaddingTop: computedPaddingTop,
          boxSizing: style.boxSizing,
          scrollTimelineName: style.scrollTimelineName,
-@@ -512,6 +720,8 @@ export class CollapsiblePagerView extends React.PureComponent<
+@@ -509,9 +750,15 @@ export class CollapsiblePagerView extends React.PureComponent<
+       element.addEventListener("wheel", this.onQueuedTopWheel);
+       element.addEventListener("pointerdown", this.onScrollbarPointerDown);
+       element.addEventListener("keydown", this.onQueuedTopKey);
++      if (!this.cssTimelineSupported)
++        element.addEventListener("scroll", this.syncFallbackHeader, {
++          passive: true,
++        });
      }
  
      const style = timelineStyle(element);
@@ -722,7 +896,7 @@ index 1ad9943..73bdfea 100644
      const headerInset = Math.max(0, this.props.headerHeight);
      const stickyInset = Math.max(0, this.props.stickyHeaderHeight);
      if (this.configuredScrollElement)
-@@ -524,10 +734,10 @@ export class CollapsiblePagerView extends React.PureComponent<
+@@ -524,10 +771,10 @@ export class CollapsiblePagerView extends React.PureComponent<
      const headerInsetValue = `${headerInset}px`;
      const stickyInsetValue = `${stickyInset}px`;
      const insetsChanged =
@@ -735,7 +909,27 @@ index 1ad9943..73bdfea 100644
      style.boxSizing = "border-box";
      style.scrollTimelineName = this.timelineName;
      style.scrollTimelineAxis = "block";
-@@ -573,8 +783,11 @@ export class CollapsiblePagerView extends React.PureComponent<
+@@ -535,6 +782,19 @@ export class CollapsiblePagerView extends React.PureComponent<
+     style.setProperty(PAGER_STICKY_INSET, stickyInsetValue);
+     element.setAttribute("data-collapsible-pager-active", "true");
+     if (insetsChanged) this.notifyInsetsChanged(element);
++    this.syncFallbackHeader();
++  };
++
++  private syncFallbackHeader = () => {
++    if (this.cssTimelineSupported) return;
++    const top = this.configuredScrollElement?.element.scrollTop ?? 0;
++    const collapse = Math.min(
++      Math.max(top, 0),
++      Math.max(this.props.headerHeight, 0)
++    );
++    const transform = `translateY(${-collapse}px)`;
++    if (this.headerSlot) this.headerSlot.style.transform = transform;
++    if (this.stickySlot) this.stickySlot.style.transform = transform;
+   };
+ 
+   private scheduleScrollConfiguration() {
+@@ -573,8 +833,11 @@ export class CollapsiblePagerView extends React.PureComponent<
    };
  
    private savePageOffset(index: number) {
@@ -749,7 +943,15 @@ index 1ad9943..73bdfea 100644
      if (key && scrollElement) {
        if (
          this.bodyAlignment?.key === key &&
-@@ -612,6 +825,7 @@ export class CollapsiblePagerView extends React.PureComponent<
+@@ -599,6 +862,7 @@ export class CollapsiblePagerView extends React.PureComponent<
+     const expectedQ = C + (C === D ? this.pageOffsets.get(key) ?? 0 : 0);
+     this.bodyAlignment = { element: scrollElement, key };
+     scrollElement.scrollTop = expectedQ;
++    this.syncFallbackHeader();
+   }
+ 
+   private selectPage(selectedPage: number, animated: boolean) {
+@@ -612,6 +876,7 @@ export class CollapsiblePagerView extends React.PureComponent<
      ) {
        return;
      }
@@ -757,7 +959,40 @@ index 1ad9943..73bdfea 100644
      const selectionToken = ++this.selectionRestoreToken;
      const expectedKey = this.pages().map(pageKey)[position];
      this.cancelPendingTopFrame();
-@@ -818,9 +1032,7 @@ export class CollapsiblePagerView extends React.PureComponent<
+@@ -787,18 +1052,20 @@ export class CollapsiblePagerView extends React.PureComponent<
+     const keys = pages.map(pageKey);
+     const retained = new Set(this.mountedPages(pages.length));
+     const pageWidth = pages.length > 0 ? `${100 / pages.length}%` : "100%";
+-    const collapseAnimation = {
+-      "--ok-collapsible-header-height": `${Math.max(
+-        0,
+-        this.props.headerHeight
+-      )}px`,
+-      animationName: COLLAPSE_ANIMATION_NAME,
+-      animationDuration: "auto",
+-      animationFillMode: "both",
+-      animationTimingFunction: "linear",
+-      animationTimeline: this.timelineName,
+-      animationRange: `0px ${Math.max(1, this.props.headerHeight)}px`,
+-    } as never;
++    const collapseAnimation = this.cssTimelineSupported
++      ? ({
++          "--ok-collapsible-header-height": `${Math.max(
++            0,
++            this.props.headerHeight
++          )}px`,
++          animationName: COLLAPSE_ANIMATION_NAME,
++          animationDuration: "auto",
++          animationFillMode: "both",
++          animationTimingFunction: "linear",
++          animationTimeline: this.timelineName,
++          animationRange: `0px ${Math.max(1, this.props.headerHeight)}px`,
++        } as never)
++      : undefined;
+     const trackStyle = [
+       styles.track,
+       {
+@@ -818,16 +1085,19 @@ export class CollapsiblePagerView extends React.PureComponent<
      return (
        <View
          {...viewProps}
@@ -767,8 +1002,11 @@ index 1ad9943..73bdfea 100644
 +        ref={this.setRoot}
          style={[
            styles.root,
-           { timelineScope: this.timelineName } as never,
-@@ -828,6 +1040,9 @@ export class CollapsiblePagerView extends React.PureComponent<
+-          { timelineScope: this.timelineName } as never,
++          this.cssTimelineSupported
++            ? ({ timelineScope: this.timelineName } as never)
++            : undefined,
+           style,
          ]}
        >
          <View
@@ -778,7 +1016,7 @@ index 1ad9943..73bdfea 100644
            style={[
              styles.header,
              { height: Math.max(0, this.props.headerHeight) },
-@@ -837,6 +1052,9 @@ export class CollapsiblePagerView extends React.PureComponent<
+@@ -837,6 +1107,9 @@ export class CollapsiblePagerView extends React.PureComponent<
            {header}
          </View>
          <View
@@ -788,7 +1026,7 @@ index 1ad9943..73bdfea 100644
            style={[
              styles.sticky,
              {
-@@ -883,7 +1101,7 @@ export class CollapsiblePagerView extends React.PureComponent<
+@@ -883,7 +1156,7 @@ export class CollapsiblePagerView extends React.PureComponent<
  const styles = StyleSheet.create({
    root: {
      flex: 1,
@@ -797,7 +1035,7 @@ index 1ad9943..73bdfea 100644
      position: "relative",
    } as never,
    header: {
-@@ -899,7 +1117,7 @@ const styles = StyleSheet.create({
+@@ -899,7 +1172,7 @@ const styles = StyleSheet.create({
      left: 0,
      right: 0,
      zIndex: 4,
