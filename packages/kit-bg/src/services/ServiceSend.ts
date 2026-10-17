@@ -2035,7 +2035,11 @@ class ServiceSend extends ServiceBase {
     let nextNonce = Math.max(
       isNil(maxPendingNonce) ? 0 : maxPendingNonce + 1,
       onChainNextNonce,
-      reservedNonces.reduce((max, nonce) => Math.max(max, nonce + 1), 0),
+      reservedNonces.reduce(
+        (highestReservedNextNonce, nonce) =>
+          Math.max(highestReservedNextNonce, nonce + 1),
+        0,
+      ),
     );
     if (Number.isNaN(nextNonce)) {
       nextNonce = onChainNextNonce;
