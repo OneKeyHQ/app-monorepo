@@ -10,6 +10,9 @@ on:
   workflow_dispatch:
 
 env:
+  # Release artifacts must ship the licensed brand font; fonts-sync fails
+  # instead of falling back to the open-source face.
+  ONEKEY_REQUIRE_PRIVATE_FONTS: '1'
   NODE_ENV: production
   YARN_ENABLE_GLOBAL_CACHE: true
 
@@ -94,6 +97,12 @@ jobs:
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
+
+      - name: Private fonts token
+        uses: ./.github/actions/private-fonts-token
+        with:
+          app-id: ${{ vars.PRIVATE_FONTS_APP_ID }}
+          private-key: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
 
       - name: Install Dep
         env:

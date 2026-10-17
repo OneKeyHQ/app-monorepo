@@ -29,6 +29,9 @@ concurrency:
 permissions: {}
 
 env:
+  # Release artifacts must ship the licensed brand font; fonts-sync fails
+  # instead of falling back to the open-source face.
+  ONEKEY_REQUIRE_PRIVATE_FONTS: '1'
   OCI_ARTIFACT_TYPE: application/vnd.onekey.web-embed-prebundle.v1
   OCI_REGISTRY: ghcr.io
   OCI_REPOSITORY: onekeyhq/web-embed-prebundle
@@ -190,6 +193,12 @@ jobs:
           key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
           restore-keys: |
             node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-
+
+      - name: Private fonts token
+        uses: ./.github/actions/private-fonts-token
+        with:
+          app-id: ${{ vars.PRIVATE_FONTS_APP_ID }}
+          private-key: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
 
       - name: Install dependencies
         env:

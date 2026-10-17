@@ -37,7 +37,7 @@ const HOVER_PRICE_FORMATTER_OPTIONS = { currency: '$' } as const;
 const HOVER_TIME_FORMAT_TEMPLATE = 'yyyy/LL/dd, HH:mm';
 // The hover card follows the cursor on both axes. Fixed width so it can be
 // flipped and clamped before it is drawn, and so figures like "$123,456.78"
-// and the widest hover time ("2000/00/00, 00:00", ~99px at 11px Roobert)
+// and the widest hover time ("2000/00/00, 00:00", ~99px at 11px brand sans)
 // still fit on one line.
 const HOVER_TOOLTIP_WIDTH = 120;
 // Gap kept between the cursor and the card, and the smallest gap kept to the

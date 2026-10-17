@@ -25,6 +25,11 @@ permissions:
   packages: read
   actions: read
 
+env:
+  # Release artifacts must ship the licensed brand font; fonts-sync fails
+  # instead of falling back to the open-source face.
+  ONEKEY_REQUIRE_PRIVATE_FONTS: '1'
+
 jobs:
   validate-pr:
     if: ${{ inputs.pr_number }}
@@ -244,6 +249,12 @@ jobs:
           restore-keys: |
             node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-
 
+      - name: Private fonts token
+        uses: ./.github/actions/private-fonts-token
+        with:
+          app-id: ${{ vars.PRIVATE_FONTS_APP_ID }}
+          private-key: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
+
       - name: Install Dep
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -358,6 +369,7 @@ jobs:
       commit: ${{ needs.prepare-params.outputs.commit }}
       checkout_ref: ${{ needs.prepare-params.outputs.commit }}
     secrets:
+      PRIVATE_FONTS_APP_PRIVATE_KEY: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
       SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
       SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
@@ -394,6 +406,7 @@ jobs:
       commit: ${{ needs.prepare-params.outputs.commit }}
       checkout_ref: ${{ needs.prepare-params.outputs.commit }}
     secrets:
+      PRIVATE_FONTS_APP_PRIVATE_KEY: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
       JPUSH_KEY: ${{ secrets.JPUSH_KEY }}
       SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
@@ -429,6 +442,7 @@ jobs:
       commit: ${{ needs.prepare-params.outputs.commit }}
       checkout_ref: ${{ needs.prepare-params.outputs.commit }}
     secrets:
+      PRIVATE_FONTS_APP_PRIVATE_KEY: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
       JPUSH_KEY: ${{ secrets.JPUSH_KEY }}
       SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
@@ -461,6 +475,7 @@ jobs:
       skip_pages_deploy: true
       test_endpoint: app-bundle.onekeytest.com
     secrets:
+      PRIVATE_FONTS_APP_PRIVATE_KEY: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
       SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
       SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}

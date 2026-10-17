@@ -14,6 +14,7 @@ import {
   useIsKeyboardShown,
 } from '@onekeyhq/components';
 import type { IInputRef } from '@onekeyhq/components';
+import { BRAND_FONT_NATIVE_FAMILY } from '@onekeyhq/components/src/hocs/Provider/fonts/brandFont';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -239,7 +240,7 @@ export const TradingFormInput = memo(
               ...(!ifOnDialog
                 ? {
                     fontFamily: platformEnv.isNative
-                      ? 'Roobert-Regular'
+                      ? BRAND_FONT_NATIVE_FAMILY.regular
                       : undefined,
                     fontSize: 14,
                     fontWeight: '500' as const,

@@ -144,6 +144,12 @@ jest.mock('react-native-reanimated', () => {
 jest.mock('react-intl', () => ({ useIntl: () => mockIntl }));
 // Every @onekeyhq/components import path resolves to one jest module.
 jest.mock('@onekeyhq/components', () => ({
+  BRAND_FONT_NATIVE_FAMILY: {
+    regular: 'Inter-Regular',
+    medium: 'Inter-Medium',
+    semibold: 'Inter-SemiBold',
+    bold: 'Inter-Bold',
+  },
   IconButton: () => null,
   Tabs: { TabBar: () => null },
   XStack: ({ children }: PropsWithChildren) => <div>{children}</div>,
