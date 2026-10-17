@@ -9000,6 +9000,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/electron-windows-hello@npm:44.0.2-alpha.1":
+  version: 44.0.2-alpha.1
+  resolution: "@onekeyfe/electron-windows-hello@npm:44.0.2-alpha.1"
+  checksum: 10/df71caeef45dbe6e0c47e534d83fc218970bba4cbf9f626da364773477ca2dba70ec7710add7570c81b67a11550474d77111e3c0411f635c033ccb3c61dcd183
+  languageName: node
+  linkType: hard
+
 "@onekeyfe/extension-bridge-hosted@npm:2.2.76":
   version: 2.2.76
   resolution: "@onekeyfe/extension-bridge-hosted@npm:2.2.76"
@@ -10403,6 +10410,7 @@ __metadata:
     "@electron/rebuild": "npm:4.0.1"
     "@electron/remote": "npm:^2.0.1"
     "@onekeyfe/electron-mac-icloud": "npm:1.2.6"
+    "@onekeyfe/electron-windows-hello": "npm:44.0.2-alpha.1"
     "@sentry/electron": "npm:7.8.0"
     "@stoprocent/noble": "npm:2.3.16"
     "@types/adm-zip": "npm:^0"
@@ -10419,8 +10427,6 @@ __metadata:
     electron-store: "npm:^8.2.0"
     esbuild: "npm:0.27.2"
     glob: "npm:^7.2.0"
-    passport-desktop: "npm:0.1.2"
-    passport-desktop-win32-x64-msvc: "npm:0.1.2"
     rimraf: "npm:3.0.2"
     semver: "npm:7.5.4"
   languageName: unknown
@@ -40858,36 +40864,6 @@ __metadata:
     no-case: "npm:^3.0.4"
     tslib: "npm:^2.0.3"
   checksum: 10/ba98bfd595fc91ef3d30f4243b1aee2f6ec41c53b4546bfa3039487c367abaa182471dcfc830a1f9e1a0df00c14a370514fa2b3a1aacc68b15a460c31116873e
-  languageName: node
-  linkType: hard
-
-"passport-desktop-win32-ia32-msvc@npm:0.1.2":
-  version: 0.1.2
-  resolution: "passport-desktop-win32-ia32-msvc@npm:0.1.2"
-  conditions: os=win32 & cpu=ia32
-  languageName: node
-  linkType: hard
-
-"passport-desktop-win32-x64-msvc@npm:0.1.2":
-  version: 0.1.2
-  resolution: "passport-desktop-win32-x64-msvc@npm:0.1.2"
-  checksum: 10/3e90d6300f0a81bd528b388171e342aa68ec573753f3d75b37201cf70a7e017b5b64df99f67b6a3bc87fe556091d64a4ce7b42bafe1ac3dd3bda0f7c2cfc1400
-  conditions: os=win32 & cpu=x64
-  languageName: node
-  linkType: hard
-
-"passport-desktop@npm:0.1.2":
-  version: 0.1.2
-  resolution: "passport-desktop@npm:0.1.2"
-  dependencies:
-    passport-desktop-win32-ia32-msvc: "npm:0.1.2"
-    passport-desktop-win32-x64-msvc: "npm:0.1.2"
-  dependenciesMeta:
-    passport-desktop-win32-ia32-msvc:
-      optional: true
-    passport-desktop-win32-x64-msvc:
-      optional: true
-  checksum: 10/1898c46b4dd8a9a32fcd82abf6862c61da9551ba00f4c42bc53c7059394b72ebd94bdc3f11ed92e1a5afcffb611482c74ad8468eed36a1459a41a7be9243c436
   languageName: node
   linkType: hard
 
