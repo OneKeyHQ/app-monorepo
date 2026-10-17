@@ -11,8 +11,8 @@ function findTable(buf, tableTag) {
   return 0;
 }
 
-// PostScript name (name table nameID=6); iOS UIAppFonts registers faces by it.
-function getPostScriptName(ttfPath) {
+// Reads a name table string, preferring Windows Unicode (UTF-16BE) records.
+function getNameString(ttfPath, targetNameID) {
   const buf = fs.readFileSync(ttfPath);
   const nameTableOffset = findTable(buf, 'name');
   if (!nameTableOffset) return null;
@@ -34,7 +34,7 @@ function getPostScriptName(ttfPath) {
   // Prefer platformID 3 (Windows) encodingID 1 (Unicode BMP, UTF-16BE).
   for (let i = 0; i < count; i += 1) {
     const r = readRecord(i);
-    if (r.nameID === 6 && r.platformID === 3 && r.encodingID === 1) {
+    if (r.nameID === targetNameID && r.platformID === 3 && r.encodingID === 1) {
       let result = '';
       for (let j = 0; j < r.bytes.length; j += 2) {
         result += String.fromCharCode(r.bytes.readUInt16BE(j));
@@ -45,11 +45,21 @@ function getPostScriptName(ttfPath) {
   // Fallback: platformID 1 (Macintosh, ASCII).
   for (let i = 0; i < count; i += 1) {
     const r = readRecord(i);
-    if (r.nameID === 6 && r.platformID === 1) {
+    if (r.nameID === targetNameID && r.platformID === 1) {
       return r.bytes.toString('ascii');
     }
   }
   return null;
+}
+
+// PostScript name (nameID=6); iOS UIAppFonts registers faces by it.
+function getPostScriptName(ttfPath) {
+  return getNameString(ttfPath, 6);
+}
+
+// License description (nameID=13).
+function getLicenseDescription(ttfPath) {
+  return getNameString(ttfPath, 13);
 }
 
 // OS/2 usWeightClass, e.g. 400 for Regular and 700 for Bold.
@@ -59,4 +69,8 @@ function getWeightClass(ttfPath) {
   return os2Offset ? buf.readUInt16BE(os2Offset + 4) : null;
 }
 
-module.exports = { getPostScriptName, getWeightClass };
+module.exports = {
+  getLicenseDescription,
+  getPostScriptName,
+  getWeightClass,
+};
