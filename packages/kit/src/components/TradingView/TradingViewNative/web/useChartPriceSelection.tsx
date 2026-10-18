@@ -48,18 +48,32 @@ export function useChartPriceSelection({
     const layout = projectionRef.current?.layout;
     if (!selection || !layout) return undefined;
     const y = getTradingViewNativePriceY(selection.price, layout);
+    return { visible: true, x: selection.x, y, price: selection.price };
+  }, [projectionRef]);
+  const updateControl = useCallback(() => {
+    if (!pinned.current) return;
+    const crosshair = getCrosshair();
+    const layout = projectionRef.current?.layout;
     if (button.current) {
+      if (
+        !crosshair ||
+        !layout ||
+        crosshair.price < layout.minPrice ||
+        crosshair.price > layout.maxPrice
+      ) {
+        button.current.style.display = 'none';
+        return;
+      }
       button.current.style.display = 'block';
       button.current.style.left = `${Math.max(0, layout.priceAxisX - 24)}px`;
-      button.current.style.top = `${Math.max(0, y - 11)}px`;
+      button.current.style.top = `${Math.max(0, crosshair.y - 11)}px`;
     }
-    return { visible: true, x: selection.x, y };
-  }, [projectionRef]);
+  }, [getCrosshair, projectionRef]);
   const select = useCallback(
     (price: number, x: number, screenX: number, screenY: number) => {
       const selection = { price, x };
       pinned.current = selection;
-      getCrosshair();
+      updateControl();
       onSelect?.({
         price,
         screenX,
@@ -72,7 +86,7 @@ export function useChartPriceSelection({
       });
       redrawRef.current();
     },
-    [getCrosshair, hide, onSelect, redrawRef],
+    [updateControl, hide, onSelect, redrawRef],
   );
   const getPrice = useCallback(
     ({ clientX, clientY }: { clientX: number; clientY: number }) => {
@@ -94,6 +108,13 @@ export function useChartPriceSelection({
     if (!enabled || !onSelect) return;
     const onContextMenu = (event: globalThis.MouseEvent) => {
       if (!pinned.current) return;
+      if (
+        event.target instanceof Element &&
+        event.target.closest(
+          '[data-testid="TMPopover-ScrollView"], [role="menu"], [role="dialog"]',
+        )
+      )
+        return;
       const selection = getPrice(event);
       if (!selection) return;
       // The open menu's backdrop covers the canvas, so handle repeated right-clicks here.
@@ -176,5 +197,12 @@ export function useChartPriceSelection({
         +
       </button>
     ) : null;
-  return { control, onContextMenu, onPointerMove, hide, getCrosshair };
+  return {
+    control,
+    onContextMenu,
+    onPointerMove,
+    hide,
+    getCrosshair,
+    updateControl,
+  };
 }

@@ -145,12 +145,14 @@ export function useReferenceLineInteraction({
     (event: PointerEvent<HTMLCanvasElement>) => {
       if (!enabled || !onAction) return undefined;
       const rect = event.currentTarget.getBoundingClientRect();
-      return hitRegionsRef.current.findLast((hit) =>
-        containsPoint(
-          hit.rect,
-          event.clientX - rect.left,
-          event.clientY - rect.top,
-        ),
+      return hitRegionsRef.current.findLast(
+        (hit) =>
+          hit.loadingColor === undefined &&
+          containsPoint(
+            hit.rect,
+            event.clientX - rect.left,
+            event.clientY - rect.top,
+          ),
       );
     },
     [enabled, onAction, hitRegionsRef],

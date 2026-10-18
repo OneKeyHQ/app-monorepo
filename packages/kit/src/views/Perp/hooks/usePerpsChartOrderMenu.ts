@@ -2,7 +2,11 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, runAfterActionListClose } from '@onekeyhq/components';
+import {
+  ActionList,
+  Toast,
+  runAfterActionListClose,
+} from '@onekeyhq/components';
 import type { IDialogInstance } from '@onekeyhq/components';
 import type { ITradingViewNativePriceSelection } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/types';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -136,11 +140,18 @@ export function usePerpsChartOrderMenu(enabled: boolean) {
       const openTpsl = (tpsl: 'tp' | 'sl') => {
         if (
           !isCurrent() ||
-          getTpsl() !== tpsl ||
           instrument.mode !== 'perp' ||
           instrument.assetId === undefined
         )
           return;
+        if (getTpsl() !== tpsl) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.order_changed_try_again__msg,
+            }),
+          });
+          return;
+        }
         close();
         dialog.current = showSetTpslDialog({
           coin: scope.coin,

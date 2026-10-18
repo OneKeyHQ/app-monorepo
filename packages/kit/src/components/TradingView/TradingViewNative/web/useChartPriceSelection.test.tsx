@@ -6,7 +6,10 @@ import { act, render, renderHook } from '@testing-library/react';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-import { getTradingViewNativeChartLayout } from '../utils/chartLayout';
+import {
+  getTradingViewNativeChartLayout,
+  getTradingViewNativePriceY,
+} from '../utils/chartLayout';
 
 import { useChartPriceSelection } from './useChartPriceSelection';
 
@@ -90,10 +93,43 @@ function setup() {
     buttons: 0,
     preventDefault: jest.fn(),
   });
-  return { ...hook, options, selections, button, event, rightClickOverlay };
+  return {
+    ...hook,
+    options,
+    selections,
+    button,
+    event,
+    overlay,
+    rightClickOverlay,
+  };
 }
 
 describe('chart price selection', () => {
+  it('leaves right-clicks inside the open menu to the menu', () => {
+    const hook = setup();
+    act(() =>
+      hook.result.current.onContextMenu(
+        hook.event() as unknown as MouseEvent<HTMLCanvasElement>,
+      ),
+    );
+    const menu = document.createElement('div');
+    menu.dataset.testid = 'TMPopover-ScrollView';
+    hook.overlay.appendChild(menu);
+    const item = menu.appendChild(document.createElement('button'));
+    const event = new globalThis.MouseEvent('contextmenu', {
+      bubbles: true,
+      cancelable: true,
+      clientX: 250,
+      clientY: 200,
+    });
+    act(() => {
+      item.dispatchEvent(event);
+    });
+    expect(event.defaultPrevented).toBe(false);
+    expect(hook.selections).toHaveLength(1);
+    expect(hook.result.current.getCrosshair()?.y).toBeCloseTo(100);
+  });
+
   it('repositions an open menu when its overlay receives another chart right-click', () => {
     const hook = setup();
     act(() =>
@@ -137,6 +173,13 @@ describe('chart price selection', () => {
 
   it('keeps the selected price visible until the menu closes', () => {
     const hook = setup();
+    act(() => {
+      hook.result.current.onPointerMove(
+        hook.event() as unknown as PointerEvent<HTMLCanvasElement>,
+      );
+      hook.result.current.updateControl();
+    });
+    expect(hook.button.style.display).toBe('block');
     act(() =>
       hook.result.current.onContextMenu(
         hook.event() as unknown as MouseEvent<HTMLCanvasElement>,
@@ -157,6 +200,13 @@ describe('chart price selection', () => {
     });
     expect(hook.button.style.display).toBe('block');
     expect(hook.result.current.getCrosshair()?.y).toBeCloseTo(100);
+    const projection = hook.options.projectionRef.current;
+    projection.layout = { ...projection.layout, minPrice: 80, maxPrice: 140 };
+    act(() => hook.result.current.updateControl());
+    expect(Number.parseFloat(hook.button.style.top)).toBeCloseTo(
+      getTradingViewNativePriceY(hook.selections[0].price, projection.layout) -
+        11,
+    );
     act(() => hook.selections[0].onClose?.());
     expect(hook.button.style.display).toBe('none');
     expect(hook.result.current.getCrosshair()).toBeUndefined();

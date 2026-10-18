@@ -2,8 +2,9 @@
 
 import { act, renderHook } from '@testing-library/react';
 
-import { ActionList } from '@onekeyhq/components';
+import { ActionList, Toast } from '@onekeyhq/components';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { usePerpsChartOrderMenu } from './usePerpsChartOrderMenu';
 
@@ -18,6 +19,7 @@ jest.mock('react-intl', () => ({
 }));
 jest.mock('@onekeyhq/components', () => ({
   ActionList: { show: jest.fn(() => ({ close: mockCloseMenu })) },
+  Toast: { error: jest.fn() },
   runAfterActionListClose: (close: () => void, action: () => void) => {
     close();
     action();
@@ -116,5 +118,19 @@ describe('Perps chart order menu', () => {
       await item.onPress?.(mockCloseMenu);
     });
     expect(mockShowTpsl).not.toHaveBeenCalled();
+  });
+
+  it('explains why an action is no longer valid after mid crosses the selected price', async () => {
+    const { result, rerender } = renderHook(() => usePerpsChartOrderMenu(true));
+    const item = selectPrice(result, 83_000)[1];
+    mockMid = '84000';
+    rerender();
+    await act(async () => {
+      await item.onPress?.(mockCloseMenu);
+    });
+    expect(mockShowTpsl).not.toHaveBeenCalled();
+    expect(Toast.error).toHaveBeenCalledWith({
+      title: ETranslations.order_changed_try_again__msg,
+    });
   });
 });

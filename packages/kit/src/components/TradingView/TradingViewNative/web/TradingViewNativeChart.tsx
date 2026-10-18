@@ -260,7 +260,10 @@ export const TradingViewNativeChart = memo(
       redrawRef: drawingRedrawRef,
       scopeKey: drawingStorageKey,
     });
-    const { getCrosshair: getPriceSelectionCrosshair } = priceSelection;
+    const {
+      getCrosshair: getPriceSelectionCrosshair,
+      updateControl: updatePriceSelectionControl,
+    } = priceSelection;
     const drawingInteraction =
       drawingsEnabled &&
       (drawingController.state.tool !== 'cursor' ||
@@ -590,6 +593,7 @@ export const TradingViewNativeChart = memo(
                 interval: candleIntervalSeconds,
               }
             : null;
+        updatePriceSelectionControl();
         if (drawingsEnabled)
           updateData(
             getDataWindowSnapshot({
@@ -641,6 +645,7 @@ export const TradingViewNativeChart = memo(
         candleLabels,
         points,
         getPriceSelectionCrosshair,
+        updatePriceSelectionControl,
         priceAxisFontSize,
         priceAxisLabels,
         priceAxisTickCount,
