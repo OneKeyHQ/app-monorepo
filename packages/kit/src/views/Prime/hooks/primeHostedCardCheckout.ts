@@ -1,6 +1,8 @@
 import { Dialog, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
+  PRIME_CARD_CHECKOUT_EXT_HANDOFF_CURRENCY_QUERY,
+  PRIME_CARD_CHECKOUT_EXT_HANDOFF_FALLBACK_QUERY,
   PRIME_CARD_CHECKOUT_EXT_HANDOFF_FEATURE_QUERY,
   PRIME_CARD_CHECKOUT_EXT_HANDOFF_QUERY,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
@@ -55,17 +57,23 @@ export type IPrimeHostedCardCheckoutParams = {
 
 // The popup closes as soon as another tab takes focus, which would kill the
 // waiting dialog, so card checkout continues in the expand tab with the same
-// plan preselected.
+// plan preselected. A fallback from the embedded checkout opens the hosted
+// checkout there right away; otherwise the user confirms the plan again.
 async function handOffCardCheckoutToExpandTab({
   selectedSubscriptionPeriod,
+  currency,
   featureName,
+  fallbackFrom,
 }: {
   selectedSubscriptionPeriod: ISubscriptionPeriod;
+  currency?: string;
   featureName?: EPrimeFeatures;
+  fallbackFrom?: IPrimeEmbeddedCheckoutFallbackTrigger;
 }) {
   logPrimeWebCheckoutFlow({
     stage: 'extensionHandoff',
     status: 'started',
+    reason: fallbackFrom,
     subscriptionPeriod: selectedSubscriptionPeriod,
     featureName,
   });
@@ -75,6 +83,12 @@ async function handOffCardCheckoutToExpandTab({
       [PRIME_CARD_CHECKOUT_EXT_HANDOFF_QUERY]: selectedSubscriptionPeriod,
       ...(featureName
         ? { [PRIME_CARD_CHECKOUT_EXT_HANDOFF_FEATURE_QUERY]: featureName }
+        : {}),
+      ...(fallbackFrom
+        ? { [PRIME_CARD_CHECKOUT_EXT_HANDOFF_FALLBACK_QUERY]: fallbackFrom }
+        : {}),
+      ...(fallbackFrom && currency
+        ? { [PRIME_CARD_CHECKOUT_EXT_HANDOFF_CURRENCY_QUERY]: currency }
         : {}),
     },
   });
@@ -96,7 +110,9 @@ export async function startPrimeHostedCardCheckout({
   if (platformEnv.isExtensionUiPopup) {
     await handOffCardCheckoutToExpandTab({
       selectedSubscriptionPeriod,
+      currency,
       featureName,
+      fallbackFrom,
     });
     return;
   }

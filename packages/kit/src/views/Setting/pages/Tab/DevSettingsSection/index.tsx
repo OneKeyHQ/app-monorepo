@@ -2760,9 +2760,9 @@ const BaseDevSettingsSection = () => {
                       </SectionFieldItem>
                       <SectionFieldItem
                         icon="CreditCardOutline"
-                        name="usePrimeEmbeddedCardCheckout"
-                        title="Prime 信用卡使用旧版内嵌支付"
-                        subtitle="关闭时插件走 RevenueCat Purchase Link，切换后需重启"
+                        name="usePrimeHostedCardCheckout"
+                        title="Prime 信用卡直接走 Purchase Link"
+                        subtitle="默认内嵌 Stripe，失败才回退；开启后 Web / Desktop / 插件跳过 Stripe，切换后需重启"
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>

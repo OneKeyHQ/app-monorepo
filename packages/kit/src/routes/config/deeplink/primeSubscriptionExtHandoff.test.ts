@@ -1,6 +1,8 @@
 /** @jest-environment jsdom */
 
 import {
+  PRIME_CARD_CHECKOUT_EXT_HANDOFF_CURRENCY_QUERY,
+  PRIME_CARD_CHECKOUT_EXT_HANDOFF_FALLBACK_QUERY,
   PRIME_CARD_CHECKOUT_EXT_HANDOFF_FEATURE_QUERY,
   PRIME_CARD_CHECKOUT_EXT_HANDOFF_QUERY,
   PRIME_SUBSCRIPTION_EXT_HANDOFF_QUERY,
@@ -86,6 +88,36 @@ describe('consumePrimeCardCheckoutHandoffFromUrl', () => {
       selectedSubscriptionPeriod: 'P1Y',
       featureName: undefined,
     });
+  });
+
+  it('consumes the fallback trigger and currency of a failed checkout', () => {
+    globalThis.history.replaceState(
+      null,
+      '',
+      `#/?${PRIME_CARD_CHECKOUT_EXT_HANDOFF_QUERY}=P1Y&${PRIME_CARD_CHECKOUT_EXT_HANDOFF_FALLBACK_QUERY}=formNotLoaded&${PRIME_CARD_CHECKOUT_EXT_HANDOFF_CURRENCY_QUERY}=EUR&keep=true`,
+    );
+
+    expect(consumePrimeCardCheckoutHandoffFromUrl()).toEqual({
+      selectedSubscriptionPeriod: 'P1Y',
+      featureName: undefined,
+      currency: 'EUR',
+      fallbackFrom: 'formNotLoaded',
+    });
+    expect(globalThis.location.hash).toBe('#/?keep=true');
+  });
+
+  it('drops an unknown fallback trigger and a malformed currency', () => {
+    globalThis.history.replaceState(
+      null,
+      '',
+      `#/?${PRIME_CARD_CHECKOUT_EXT_HANDOFF_QUERY}=P1M&${PRIME_CARD_CHECKOUT_EXT_HANDOFF_FALLBACK_QUERY}=autoPay&${PRIME_CARD_CHECKOUT_EXT_HANDOFF_CURRENCY_QUERY}=US%2FD`,
+    );
+
+    const handoff = consumePrimeCardCheckoutHandoffFromUrl();
+    expect(handoff?.selectedSubscriptionPeriod).toBe('P1M');
+    expect(handoff?.fallbackFrom).toBeUndefined();
+    expect(handoff?.currency).toBeUndefined();
+    expect(globalThis.location.hash).toBe('#/');
   });
 
   it('strips but ignores an invalid plan', () => {

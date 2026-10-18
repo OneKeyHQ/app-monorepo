@@ -1,5 +1,8 @@
 import { memo, useEffect } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -15,14 +18,19 @@ import {
 } from './primeSubscriptionExtHandoff';
 
 import type { IPrimeCardCheckoutHandoff } from './primeSubscriptionExtHandoff';
+import type { IntlShape } from 'react-intl';
 
-async function openPrimeDashboardForCardCheckout({
-  selectedSubscriptionPeriod,
-  featureName,
-}: IPrimeCardCheckoutHandoff) {
+// Nothing is charged automatically: the user confirms the plan again, or
+// after a failed embedded checkout pays on the hosted page opened here.
+async function continuePrimeCardCheckout({
+  handoff: { selectedSubscriptionPeriod, featureName, currency, fallbackFrom },
+  intl,
+}: {
+  handoff: IPrimeCardCheckoutHandoff;
+  intl: IntlShape;
+}) {
   await whenAppUnlocked();
   const navigation = appGlobals.$rootAppNavigation;
-  // The user confirms the plan again here; nothing is charged automatically.
   navigation?.pushModal(EModalRoutes.PrimeModal, {
     screen: EPrimePages.PrimeDashboard,
     params: {
@@ -30,9 +38,27 @@ async function openPrimeDashboardForCardCheckout({
       fromFeature: featureName,
     },
   });
+  if (!fallbackFrom) {
+    return;
+  }
+  const { isLoggedIn, onekeyUserId, email } =
+    await backgroundApiProxy.servicePrime.getLocalUserInfo();
+  const { startPrimeHostedCardCheckout } =
+    await import('../../../views/Prime/hooks/primeHostedCardCheckout');
+  await startPrimeHostedCardCheckout({
+    intl,
+    onekeyUserId: isLoggedIn ? onekeyUserId : undefined,
+    email,
+    selectedSubscriptionPeriod,
+    currency,
+    featureName,
+    fallbackFrom,
+  });
 }
 
 function ExtPrimeSubscriptionHandoffOnMountCmp() {
+  const intl = useIntl();
+
   // Bootstrap only mounts this in the expand tab.
   useEffect(() => {
     const runPendingHandoff = () => {
@@ -40,7 +66,10 @@ function ExtPrimeSubscriptionHandoffOnMountCmp() {
       if (cardCheckoutHandoff) {
         void (async () => {
           await timerUtils.wait(600);
-          await openPrimeDashboardForCardCheckout(cardCheckoutHandoff);
+          await continuePrimeCardCheckout({
+            handoff: cardCheckoutHandoff,
+            intl,
+          });
         })();
         return;
       }
@@ -63,7 +92,7 @@ function ExtPrimeSubscriptionHandoffOnMountCmp() {
     return () => {
       globalThis.removeEventListener('hashchange', runPendingHandoff);
     };
-  }, []);
+  }, [intl]);
 
   return null;
 }

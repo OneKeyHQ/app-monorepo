@@ -1,4 +1,6 @@
 import {
+  PRIME_CARD_CHECKOUT_EXT_HANDOFF_CURRENCY_QUERY,
+  PRIME_CARD_CHECKOUT_EXT_HANDOFF_FALLBACK_QUERY,
   PRIME_CARD_CHECKOUT_EXT_HANDOFF_FEATURE_QUERY,
   PRIME_CARD_CHECKOUT_EXT_HANDOFF_QUERY,
   PRIME_SUBSCRIPTION_EXT_HANDOFF_QUERY,
@@ -12,6 +14,7 @@ import {
 } from '../../../utils/extExpandTabHashParams';
 
 import type { ISubscriptionPeriod } from '../../../views/Prime/hooks/usePrimePaymentTypes';
+import type { IPrimeEmbeddedCheckoutFallbackTrigger } from '../../../views/Prime/purchasesSdk/primeEmbeddedCheckoutFallback';
 
 export function consumePrimeSubscriptionHandoffFromUrl(): boolean {
   if (
@@ -29,10 +32,16 @@ const PRIME_SUBSCRIPTION_PERIODS: readonly ISubscriptionPeriod[] = [
   'P1M',
 ];
 const PRIME_FEATURES = new Set<string>(Object.values(EPrimeFeatures));
+const PRIME_CARD_CHECKOUT_FALLBACK_TRIGGERS: readonly IPrimeEmbeddedCheckoutFallbackTrigger[] =
+  ['checkoutError', 'formNotLoaded'];
+const CURRENCY_CODE_REGEX = /^[A-Za-z]{3}$/;
 
 export type IPrimeCardCheckoutHandoff = {
   selectedSubscriptionPeriod: ISubscriptionPeriod;
   featureName?: EPrimeFeatures;
+  currency?: string;
+  // Set when the popup's embedded checkout failed.
+  fallbackFrom?: IPrimeEmbeddedCheckoutFallbackTrigger;
 };
 
 // Card checkout started in the popup continues in the expand tab, which
@@ -46,9 +55,13 @@ export function consumePrimeCardCheckoutHandoffFromUrl():
     return undefined;
   }
   const feature = params.get(PRIME_CARD_CHECKOUT_EXT_HANDOFF_FEATURE_QUERY);
+  const currency = params.get(PRIME_CARD_CHECKOUT_EXT_HANDOFF_CURRENCY_QUERY);
+  const fallback = params.get(PRIME_CARD_CHECKOUT_EXT_HANDOFF_FALLBACK_QUERY);
   stripExtExpandTabHashParams([
     PRIME_CARD_CHECKOUT_EXT_HANDOFF_QUERY,
     PRIME_CARD_CHECKOUT_EXT_HANDOFF_FEATURE_QUERY,
+    PRIME_CARD_CHECKOUT_EXT_HANDOFF_CURRENCY_QUERY,
+    PRIME_CARD_CHECKOUT_EXT_HANDOFF_FALLBACK_QUERY,
   ]);
   const selectedSubscriptionPeriod = PRIME_SUBSCRIPTION_PERIODS.find(
     (item) => item === period,
@@ -62,5 +75,10 @@ export function consumePrimeCardCheckoutHandoffFromUrl():
       feature && PRIME_FEATURES.has(feature)
         ? (feature as EPrimeFeatures)
         : undefined,
+    currency:
+      currency && CURRENCY_CODE_REGEX.test(currency) ? currency : undefined,
+    fallbackFrom: PRIME_CARD_CHECKOUT_FALLBACK_TRIGGERS.find(
+      (item) => item === fallback,
+    ),
   };
 }
