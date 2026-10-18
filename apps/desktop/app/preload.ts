@@ -76,14 +76,13 @@ function isDesktopBleConnectedOnlyScopeActive(uuid: string) {
 }
 
 export interface IVerifyUpdateParams {
-  downloadedFile?: string;
   downloadUrl?: string;
+  latestVersion?: string;
   skipGPGVerification?: boolean;
 }
 
 export interface IInstallUpdateParams extends IVerifyUpdateParams {
   buildNumber: string;
-  latestVersion?: string;
 }
 
 export type IDesktopEventUnSubscribe = () => void;
@@ -541,11 +540,13 @@ const exposeToMainWorld = (key: string, value: unknown) => {
 exposeToMainWorld('desktopApi', desktopApi);
 exposeToMainWorld('desktopApiBridge', desktopApiBridge);
 
-exposeToMainWorld(
-  '$mmkvSync',
-  (args: { method: string; id: string; key?: string; value?: unknown }) =>
-    ipcRenderer.sendSync('mmkv:sync', args),
-);
+if (!isTrayWindow) {
+  exposeToMainWorld(
+    '$mmkvSync',
+    (args: { method: string; id: string; key?: string; value?: unknown }) =>
+      ipcRenderer.sendSync('mmkv:sync', args),
+  );
+}
 
 // Expose getters for globals managed by IPC events
 exposeToMainWorld('ONEKEY_DESKTOP_GLOBALS_GETTER', () => desktopGlobals);

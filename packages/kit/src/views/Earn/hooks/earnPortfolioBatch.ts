@@ -1,3 +1,6 @@
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
+
 export type IPortfolioFetchRequest = {
   accountId: string;
   accountAddress: string;
@@ -23,8 +26,15 @@ export const createEarnPortfolioRequestKey = (
     IPortfolioFetchRequest,
     'provider' | 'symbol' | 'vault' | 'networkId'
   >,
-) =>
-  `${request.provider}_${request.symbol}_${request.vault || ''}_${request.networkId}`;
+) => {
+  const vault = networkUtils.isEvmNetwork({ networkId: request.networkId })
+    ? normalizeTokenContractAddress({
+        networkId: request.networkId,
+        contractAddress: request.vault,
+      })
+    : request.vault;
+  return `${request.provider}_${request.symbol}_${vault || ''}_${request.networkId}`;
+};
 
 export const shouldUseEarnPortfolioBatchFetch = ({
   enableBatch,
@@ -74,6 +84,11 @@ export const matchEarnPortfolioBatchRequest = ({
     return exactRequest;
   }
 
+  // A returned vault is authoritative; never assign a different vault's result.
+  if (vault) {
+    return undefined;
+  }
+
   const symbolKeys = group.requestKeysBySymbol.get(symbol);
   if (symbolKeys?.size === 1) {
     const [matchedKey] = symbolKeys;
@@ -90,8 +105,7 @@ export const buildEarnPortfolioBatchGroups = ({
 }: {
   requests: IPortfolioFetchRequest[];
 }) => {
-  const initialGroups = new Map<string, IEarnPortfolioBatchTaskGroup>();
-  const singleRequests: IPortfolioFetchRequest[] = [];
+  const groups = new Map<string, IEarnPortfolioBatchTaskGroup>();
 
   requests.forEach((request) => {
     const key = createEarnPortfolioRequestKey(request);
@@ -102,7 +116,7 @@ export const buildEarnPortfolioBatchGroups = ({
       request.publicKey || '',
     ].join('_');
 
-    const existingGroup = initialGroups.get(groupKey);
+    const existingGroup = groups.get(groupKey);
     if (existingGroup) {
       addRequestToEarnPortfolioBatchGroup({
         group: existingGroup,
@@ -125,40 +139,10 @@ export const buildEarnPortfolioBatchGroups = ({
       key,
       request,
     });
-    initialGroups.set(groupKey, nextGroup);
-  });
-
-  const batchGroups: IEarnPortfolioBatchTaskGroup[] = [];
-  initialGroups.forEach((group) => {
-    const eligibleBatchGroup: IEarnPortfolioBatchTaskGroup = {
-      ...group,
-      requestsByKey: new Map(),
-      requestKeysBySymbol: new Map(),
-    };
-
-    group.requestsByKey.forEach((request, key) => {
-      const requestKeysForSymbol = group.requestKeysBySymbol.get(
-        request.symbol,
-      );
-      if ((requestKeysForSymbol?.size || 0) > 1) {
-        singleRequests.push(request);
-        return;
-      }
-
-      addRequestToEarnPortfolioBatchGroup({
-        group: eligibleBatchGroup,
-        key,
-        request,
-      });
-    });
-
-    if (eligibleBatchGroup.requestsByKey.size > 0) {
-      batchGroups.push(eligibleBatchGroup);
-    }
+    groups.set(groupKey, nextGroup);
   });
 
   return {
-    batchGroups,
-    singleRequests,
+    batchGroups: Array.from(groups.values()),
   };
 };

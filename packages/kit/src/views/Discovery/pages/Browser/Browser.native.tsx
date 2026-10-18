@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import * as ExpoDevice from 'expo-device';
 import { Freeze } from 'react-freeze';
-import { BackHandler, StyleSheet, View, findNodeHandle } from 'react-native';
+import { BackHandler, StyleSheet, View } from 'react-native';
 import Animated, { useSharedValue } from 'react-native-reanimated';
 
 import {
@@ -56,7 +56,6 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { EarnHomeWithProvider } from '../../../Earn/EarnHome';
-import { MarketHomeWithProvider } from '../../../Market/MarketHomeV2/MarketHomeV2';
 import CustomHeaderTitle from '../../components/CustomHeaderTitle';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import HeaderRightToolBar from '../../components/HeaderRightToolBar';
@@ -221,8 +220,12 @@ function MobileBrowser() {
   const isLandscape = useIsSplitView();
   const { defaultTab, earnTab } = route?.params || {};
   const [settings] = useSettingsPersistAtom();
-  const selectedHeaderTab =
+  const rawSelectedHeaderTab =
     settings.selectedBrowserTab || ETranslations.global_browser;
+  const selectedHeaderTab =
+    rawSelectedHeaderTab === ETranslations.global_earn
+      ? ETranslations.global_earn
+      : ETranslations.global_browser;
   // Pages the outer pager is actually painting. Tracked separately from
   // selectedHeaderTab, which only commits after the swipe finishes — the
   // gap between the two is what showed a blank page mid-swipe (OK-60300).
@@ -236,16 +239,15 @@ function MobileBrowser() {
   }, []);
   const isEarnPageVisible =
     selectedHeaderTab === ETranslations.global_earn ||
-    visibleOuterPages.includes(1);
+    visibleOuterPages.includes(0);
   const exploreTabSwitchTypeRef = useRef<IExploreTabSwitchType>('default');
   const hasLoggedExploreTabViewRef = useRef(false);
 
   // Shared value for swipe-following header tab animation.
-  // Maps tab enum to pager index: market=0, earn=1, browser=2.
+  // Maps tab enum to pager index: earn=0, browser=1.
   const initialPageIndex = useMemo(() => {
-    if (selectedHeaderTab === ETranslations.global_market) return 0;
-    if (selectedHeaderTab === ETranslations.global_earn) return 1;
-    return 2;
+    if (selectedHeaderTab === ETranslations.global_earn) return 0;
+    return 1;
   }, [selectedHeaderTab]);
   const outerPageScrollPosition = useSharedValue(initialPageIndex);
 
@@ -254,9 +256,6 @@ function MobileBrowser() {
   // Market/Perp/Wallet tabs are still available to switch to (OK-56756). Do NOT
   // narrow the search scope here — that would drop those tabs entirely.
   const searchInitialTab = useMemo(() => {
-    if (selectedHeaderTab === ETranslations.global_market) {
-      return 'market' as const;
-    }
     if (selectedHeaderTab === ETranslations.global_browser) {
       return 'dapp' as const;
     }
@@ -295,7 +294,7 @@ function MobileBrowser() {
     isBrowserHeaderTabSelected && !showDiscoveryPage && !displayHomePage;
   const isBrowserDashboardActive =
     showDiscoveryPage &&
-    (isBrowserHeaderTabSelected || visibleOuterPages.includes(2));
+    (isBrowserHeaderTabSelected || visibleOuterPages.includes(1));
   const shouldKeepBrowserTabLayerAttached =
     platformEnv.isNativeIOSPad && isTabletDetailView;
   const shouldDismissKeyboardOnTabSwitch =
@@ -307,6 +306,14 @@ function MobileBrowser() {
     }
   }, [tabs?.length]);
 
+  useEffect(() => {
+    if (rawSelectedHeaderTab === ETranslations.global_market) {
+      void backgroundApiProxy.serviceSetting.setSelectedBrowserTab(
+        ETranslations.global_browser,
+      );
+    }
+  }, [rawSelectedHeaderTab]);
+
   const previousDefaultTab = useRef<ETranslations | undefined>(undefined);
   useEffect(() => {
     if (previousDefaultTab.current !== defaultTab) {
@@ -315,13 +322,15 @@ function MobileBrowser() {
         previousDefaultTab: previousDefaultTab.current,
       });
       previousDefaultTab.current = defaultTab;
-      if (defaultTab) {
+      if (defaultTab === ETranslations.global_market) {
+        navigation.switchTab(ETabRoutes.Market);
+      } else if (defaultTab) {
         void backgroundApiProxy.serviceSetting.setSelectedBrowserTab(
           defaultTab,
         );
       }
     }
-  }, [defaultTab]);
+  }, [defaultTab, navigation]);
 
   useEffect(() => {
     if (!showDiscoveryPage) {
@@ -378,6 +387,10 @@ function MobileBrowser() {
         openUrl: event.openUrl,
         showWebPage: event.showWebPage,
       });
+      if (event.tab === ETranslations.global_market) {
+        navigation.switchTab(ETabRoutes.Market);
+        return;
+      }
       exploreTabSwitchTypeRef.current = event.switchType ?? 'default';
 
       // State machine: when WebView is open (displayHomePage === false) and
@@ -411,6 +424,7 @@ function MobileBrowser() {
   }, [
     activeTabId,
     displayHomePage,
+    navigation,
     setDisplayHomePage,
     shouldDismissKeyboardOnTabSwitch,
   ]);
@@ -471,24 +485,6 @@ function MobileBrowser() {
   // a 56pt row, i.e. ~6pt lower than this bar's safe-area-top anchor. Off iOS 26
   // / Android nothing changes.
   const searchGlassActive = isLiquidGlassAvailable();
-  const sharedScrollEdgeHeader = Boolean(
-    platformEnv.isNativeIOS &&
-    searchGlassActive &&
-    showDiscoveryPage &&
-    useOuterPager,
-  );
-  const sharedHeaderRef = useRef<View>(null);
-  const [sharedHeaderHeight, setSharedHeaderHeight] = useState(0);
-  const [sharedHeaderTag, setSharedHeaderTag] = useState(0);
-  const handleSharedHeaderRef = useCallback((view: View | null) => {
-    sharedHeaderRef.current = view;
-    if (view === null) {
-      setSharedHeaderTag(0);
-      setSharedHeaderHeight(0);
-    }
-  }, []);
-  const sharedHeaderReady =
-    sharedScrollEdgeHeader && sharedHeaderHeight > 0 && sharedHeaderTag > 0;
   let discoverSearchTop = top;
   if (platformEnv.isNativeAndroid) {
     discoverSearchTop = top + 5;
@@ -517,8 +513,7 @@ function MobileBrowser() {
     handleGoBackHome,
   });
 
-  // Refs for inner tab containers (Market/Earn) to sync after freeze/unfreeze
-  const marketTabsRef = useRef<ITabContainerRef>(null);
+  // Refs for inner tab containers (Earn) to sync after freeze/unfreeze
   const earnTabsRef = useRef<ITabContainerRef>(null);
   const earnBorrowPagerRef = useRef<IEarnBorrowPagerViewRef>(null);
 
@@ -574,30 +569,9 @@ function MobileBrowser() {
 
       {showDiscoveryPage ? (
         <YStack
-          ref={handleSharedHeaderRef}
-          collapsable={false}
-          onLayout={(event) => {
-            if (!sharedScrollEdgeHeader) return;
-            const tag = findNodeHandle(sharedHeaderRef.current) ?? 0;
-            if (
-              tag <= 0 ||
-              !('target' in event.nativeEvent) ||
-              event.nativeEvent.target !== tag
-            )
-              return;
-            const height = event.nativeEvent.layout.height;
-            if (height > 0 && height !== sharedHeaderHeight)
-              setSharedHeaderHeight(height);
-            if (tag > 0 && tag !== sharedHeaderTag) setSharedHeaderTag(tag);
-          }}
-          bg={sharedHeaderReady ? undefined : '$bgApp'}
-          position={sharedHeaderReady ? 'absolute' : undefined}
-          top={sharedHeaderReady ? 0 : undefined}
-          left={sharedHeaderReady ? 0 : undefined}
-          right={sharedHeaderReady ? 0 : undefined}
-          zIndex={sharedHeaderReady ? 10 : undefined}
-          // Keep the original layout until the native header tag and height are
-          // measured; then the other outer pages reserve the same fixed height.
+          bg="$bgApp"
+          // Keep the visible header and the space above the pager in the same
+          // layout tree, so async native measurement cannot move the page body.
           // iOS 26 needs 58pt for the lower 44pt glass search bar and its gap.
           pt={searchGlassActive ? 58 : '$12'}
           width="100%"
@@ -651,49 +625,22 @@ function MobileBrowser() {
               showDiscoveryPage={showDiscoveryPage}
               onPageSelectedBySwipe={handleExploreTabSwipe}
               pageScrollPosition={outerPageScrollPosition}
-              marketTabsRef={marketTabsRef}
               earnTabsRef={earnTabsRef}
               earnBorrowPagerRef={earnBorrowPagerRef}
               onVisiblePagesChange={handleVisiblePagesChange}
-              marketContent={
-                <MarketHomeWithProvider
-                  isFocused={selectedHeaderTab === ETranslations.global_market}
-                  nestedPager={useOuterPager}
-                  externalTopOverlayTag={
-                    sharedHeaderReady ? sharedHeaderTag : undefined
-                  }
-                  externalTopOverlayHeight={
-                    sharedHeaderReady ? sharedHeaderHeight : undefined
-                  }
-                  tabsRef={marketTabsRef}
+              earnContent={
+                <EarnHomeWithProvider
+                  showHeader={false}
+                  showContent={selectedHeaderTab === ETranslations.global_earn}
+                  isVisible={isEarnPageVisible}
+                  defaultTab={earnTab}
+                  tabsRef={earnTabsRef}
+                  useSwipePager={useOuterPager}
+                  earnBorrowPagerRef={earnBorrowPagerRef}
                 />
               }
-              earnContent={
-                <View
-                  style={{
-                    flex: 1,
-                    paddingTop: sharedHeaderReady ? sharedHeaderHeight : 0,
-                  }}
-                >
-                  <EarnHomeWithProvider
-                    showHeader={false}
-                    showContent={
-                      selectedHeaderTab === ETranslations.global_earn
-                    }
-                    isVisible={isEarnPageVisible}
-                    defaultTab={earnTab}
-                    tabsRef={earnTabsRef}
-                    useSwipePager={useOuterPager}
-                    earnBorrowPagerRef={earnBorrowPagerRef}
-                  />
-                </View>
-              }
               browserContent={
-                <Stack
-                  flex={1}
-                  zIndex={3}
-                  pt={sharedHeaderReady ? sharedHeaderHeight : 0}
-                >
+                <Stack flex={1} zIndex={3}>
                   <Stack flex={1}>
                     {browserDashboardContent}
                     {platformEnv.isNativeAndroid ? (
@@ -761,21 +708,6 @@ function MobileBrowser() {
         ) : (
           <>
             {/* Keep iPad browser layers attached; Android retains legacy display switching. */}
-            {isShowContent ? (
-              <View
-                style={{
-                  flex: 1,
-                  display:
-                    selectedHeaderTab === ETranslations.global_market
-                      ? 'flex'
-                      : 'none',
-                }}
-              >
-                <MarketHomeWithProvider
-                  isFocused={selectedHeaderTab === ETranslations.global_market}
-                />
-              </View>
-            ) : null}
             <Stack
               flex={1}
               zIndex={shouldKeepBrowserTabLayerAttached ? undefined : 3}

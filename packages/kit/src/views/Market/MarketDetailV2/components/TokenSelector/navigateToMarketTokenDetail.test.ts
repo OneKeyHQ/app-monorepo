@@ -147,7 +147,7 @@ describe('navigateToMarketTokenDetail', () => {
       jest.runAllTimers();
 
       expect(navigateMock).toHaveBeenCalledWith('main', {
-        screen: isNativePlatform ? 'Discovery' : 'Market',
+        screen: 'Market',
         params: {
           screen: 'MarketDetailV2',
           params: {
@@ -223,7 +223,7 @@ describe('navigateToMarketTokenDetail', () => {
       jest.runAllTimers();
 
       expect(navigateMock).toHaveBeenCalledWith('main', {
-        screen: isNativePlatform ? 'Discovery' : 'Market',
+        screen: 'Market',
         params: {
           screen: 'MarketStockDetail',
           params: {
@@ -445,7 +445,7 @@ describe('navigateToMarketTokenDetail', () => {
     jest.runAllTimers();
 
     expect(navigateMock).toHaveBeenCalledWith('main', {
-      screen: 'Discovery',
+      screen: 'Market',
       params: {
         screen: 'MarketDetailV2',
         params: {
@@ -537,10 +537,10 @@ describe('navigateToMarketTokenDetail', () => {
         {
           name: 'main',
           state: {
-            key: 'discovery-stack',
+            key: 'market-stack',
             index: 2,
             routes: [
-              { key: 'list', name: 'TabDiscovery' },
+              { key: 'list', name: 'TabMarket' },
               { key: 'detail-a', name: 'MarketDetailV2' },
               { key: 'detail-b', name: 'MarketStockDetail' },
             ],
@@ -561,7 +561,7 @@ describe('navigateToMarketTokenDetail', () => {
     expect(dispatchMock).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'RESET',
-        target: 'discovery-stack',
+        target: 'market-stack',
       }),
     );
   });
@@ -659,7 +659,7 @@ describe('navigateToMarketTokenDetail', () => {
     expect(navigateMock).toHaveBeenCalledWith(
       'main',
       expect.objectContaining({
-        screen: 'Discovery',
+        screen: 'Market',
       }),
     );
   });
