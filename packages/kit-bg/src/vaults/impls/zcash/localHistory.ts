@@ -237,7 +237,6 @@ export async function buildZcashLocalHistoryTx({
       item.minedHeight !== null && chainTip !== null && chainTip !== undefined
         ? Math.max(0, chainTip - item.minedHeight + 1)
         : undefined,
-    broadcastOutcomeUnknown: item.pending && item.broadcastOutcomeUnknown,
     nativeAmount: amount,
     ...(nativeAmountIsUnknown ? { nativeAmountIsUnknown: true } : {}),
     createdAt: timestampMs,

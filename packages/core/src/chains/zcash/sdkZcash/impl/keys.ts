@@ -3,12 +3,7 @@ import bs58check from 'bs58check';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-import {
-  getKeys,
-  getLightwalletdUrl,
-  getRuntime,
-  getRuntimeWasm,
-} from './carrier';
+import { getKeys, getRuntime, getRuntimeWasm } from './carrier';
 import { zcashHexToBytes } from './hex';
 
 import type {
@@ -340,7 +335,7 @@ export async function getChainTip(
 ): Promise<number | null> {
   try {
     const rt = await getRuntime();
-    return await rt.chainTipAt(getLightwalletdUrl(params.lightwalletdUrl));
+    return await rt.chainTipAt(params.lightwalletdUrl);
   } catch {
     // Contract: null on failure, not a throw - callers must handle it when offline.
     return null;

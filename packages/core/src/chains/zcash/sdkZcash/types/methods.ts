@@ -53,7 +53,6 @@ export const ZCASH_SDK_METHODS = [
   'quotePczt',
   'provePczt',
   'submitPczt',
-  'releasePczt',
   'purgeWallet',
   'dropWalletDatabase',
 ] as const satisfies readonly (keyof IZcashSdkApi)[];

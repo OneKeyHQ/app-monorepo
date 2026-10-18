@@ -13,18 +13,12 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useUnresolvedBroadcastDialog } from '@onekeyhq/kit/src/hooks/useUnresolvedBroadcastDialog';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EAccountManagerStacksRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { isUnresolvedPrivacyChainBroadcastError } from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
 
 import { LocalWalletFrozenLines } from './LocalWalletFrozenLines';
 import { LocalWalletPasswordAlert } from './LocalWalletPasswordAlert';
@@ -58,22 +52,6 @@ export function LocalWalletPoolStatus({
     !lw.isUnsupportedWallet &&
     (accountUtils.isHdAccount({ accountId }) ||
       accountUtils.isHwAccount({ accountId }));
-
-  const refreshAfterBroadcast = useCallback(() => {
-    appEventBus.emit(EAppEventBusNames.RefreshHistoryList, undefined);
-    lw.refresh();
-  }, [lw]);
-  const showUnresolvedBroadcastDialog = useUnresolvedBroadcastDialog(
-    refreshAfterBroadcast,
-  );
-  const handleGuardError = useCallback(
-    (error: unknown): boolean => {
-      if (!isUnresolvedPrivacyChainBroadcastError(error)) return false;
-      showUnresolvedBroadcastDialog();
-      return true;
-    },
-    [showUnresolvedBroadcastDialog],
-  );
 
   const openEnable = useCallback(async () => {
     if (!lw.settings?.accountSetup.requiresBirthday) {
@@ -125,20 +103,12 @@ export function LocalWalletPoolStatus({
   }, [openEnable]);
 
   const handleResume = useCallback(async () => {
-    try {
-      await lw.enableAccount({});
-    } catch (error) {
-      if (!handleGuardError(error)) throw error;
-    }
-  }, [handleGuardError, lw]);
+    await lw.enableAccount({});
+  }, [lw]);
 
   const handleDisable = useCallback(async () => {
-    try {
-      await lw.disableAccount();
-    } catch (error) {
-      if (!handleGuardError(error)) throw error;
-    }
-  }, [handleGuardError, lw]);
+    await lw.disableAccount();
+  }, [lw]);
 
   const handleReset = useCallback(() => {
     Dialog.confirm({
@@ -150,14 +120,10 @@ export function LocalWalletPoolStatus({
       }),
       onConfirmText: intl.formatMessage({ id: ETranslations.global_reset }),
       onConfirm: async () => {
-        try {
-          await lw.resetLocalData();
-        } catch (error) {
-          if (!handleGuardError(error)) throw error;
-        }
+        await lw.resetLocalData();
       },
     });
-  }, [handleGuardError, intl, lw]);
+  }, [intl, lw]);
 
   const handleDelete = useCallback(() => {
     Dialog.confirm({
@@ -170,14 +136,10 @@ export function LocalWalletPoolStatus({
       tone: 'destructive',
       onConfirmText: intl.formatMessage({ id: ETranslations.global_delete }),
       onConfirm: async () => {
-        try {
-          await lw.deleteLocalData();
-        } catch (error) {
-          if (!handleGuardError(error)) throw error;
-        }
+        await lw.deleteLocalData();
       },
     });
-  }, [handleGuardError, intl, lw]);
+  }, [intl, lw]);
 
   // One gate for the whole private UI: see `isReady` in useLocalWalletPool.
   if (!lw.hasPooledBalance || !lw.isReady) {

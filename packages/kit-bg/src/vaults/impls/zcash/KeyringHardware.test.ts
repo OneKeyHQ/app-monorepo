@@ -194,16 +194,16 @@ describe('Zcash KeyringHardware', () => {
     },
   );
 
-  it('signs the unproved PCZT on the device, then combines, proves and commits', async () => {
+  it('signs the unproved PCZT on the device, then combines and proves', async () => {
     const calls: string[] = [];
     const zcashSignPczt = jest.fn(async () => {
       calls.push('device');
       return { success: true, payload: { pczt: 'ccdd' } };
     });
+    const verifyPcztReview = jest.fn(async () => {
+      calls.push('verify');
+    });
     const vault = {
-      zcashAssertPcztReservationLive: jest.fn(async () => {
-        calls.push('assert');
-      }),
       zcashCombineSignedPczt: jest.fn(async () => {
         calls.push('combine');
         return { pcztHex: 'combined' };
@@ -212,12 +212,11 @@ describe('Zcash KeyringHardware', () => {
         calls.push('prove');
         return { pcztHex: 'proved' };
       }),
-      zcashCommitSignedPczt: jest.fn(async () => {
-        calls.push('commit');
-      }),
-      zcashAbandonPczt: jest.fn(),
     };
-    mockGetZcashApi.mockResolvedValue({ redactPcztForHardwareSigner });
+    mockGetZcashApi.mockResolvedValue({
+      redactPcztForHardwareSigner,
+      verifyPcztReview,
+    });
     const keyring = createKeyring({
       sdk: { zcashSignPczt },
       vault,
@@ -233,13 +232,12 @@ describe('Zcash KeyringHardware', () => {
           ...baseEncodedTx(),
           zcashMode: 'privacy',
           pcztHex: 'aabb',
-          pcztReservationId: 'res-1',
         },
       },
       deviceParams,
     } as never);
 
-    expect(calls).toEqual(['assert', 'device', 'combine', 'prove', 'commit']);
+    expect(calls).toEqual(['verify', 'device', 'combine', 'prove']);
     expect(zcashSignPczt).toHaveBeenCalledWith('connect-1', 'device-1', {
       passphraseState: 'pp',
       pczt: 'aabb-device',
@@ -257,17 +255,17 @@ describe('Zcash KeyringHardware', () => {
     expect((result.encodedTx as { signedPcztHex: string }).signedPcztHex).toBe(
       'proved',
     );
-    expect(vault.zcashAbandonPczt).not.toHaveBeenCalled();
   });
 
-  it('abandons the reservation when the device rejects', async () => {
+  it('does not combine or prove when the device rejects', async () => {
     const vault = {
-      zcashAssertPcztReservationLive: jest.fn(),
       zcashCombineSignedPczt: jest.fn(),
       zcashProvePczt: jest.fn(),
-      zcashCommitSignedPczt: jest.fn(),
-      zcashAbandonPczt: jest.fn(),
     };
+    mockGetZcashApi.mockResolvedValue({
+      redactPcztForHardwareSigner,
+      verifyPcztReview: jest.fn(),
+    });
     const keyring = createKeyring({
       sdk: {
         zcashSignPczt: jest.fn().mockResolvedValue({
@@ -289,19 +287,14 @@ describe('Zcash KeyringHardware', () => {
             ...baseEncodedTx(),
             zcashMode: 'privacy',
             pcztHex: 'aabb',
-            pcztReservationId: 'res-1',
           },
         },
         deviceParams,
       } as never),
     ).rejects.toBeDefined();
 
-    expect(vault.zcashAbandonPczt).toHaveBeenCalledWith({
-      accountId: 'hw-1--acc',
-      reservationId: 'res-1',
-    });
     expect(vault.zcashCombineSignedPczt).not.toHaveBeenCalled();
-    expect(vault.zcashCommitSignedPczt).not.toHaveBeenCalled();
+    expect(vault.zcashProvePczt).not.toHaveBeenCalled();
   });
 
   it.each([

@@ -19,6 +19,7 @@ import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 import { resolveAndSaveZcashAccountMeta } from './accountMeta';
 import { getZcashHardwareSdk } from './hardwareSdk';
 import { getZcashLifecycleMutex } from './lifecycle';
+import { getZcashPcztReviewRequest } from './pcztReview';
 import { signTransparentTransaction } from './signTransparentTransaction';
 import { parseZcashTransaction } from './transactionReview';
 import { zcashTrackUserOperation } from './vaultUtils';
@@ -401,8 +402,8 @@ export class KeyringHardware extends KeyringHardwareBase {
         'zcash: shielded account meta missing (use retryLocalWalletSetup to retry)',
       );
     }
-    const { pcztHex, pcztReservationId: reservationId } = encodedTx;
-    if (!pcztHex || !reservationId) {
+    const { pcztHex } = encodedTx;
+    if (!pcztHex) {
       throw new OneKeyLocalError(
         'zcash: unsigned PCZT missing; build and review the transaction again',
       );
@@ -418,50 +419,36 @@ export class KeyringHardware extends KeyringHardwareBase {
           'zcash: Privacy Mode was disabled before signing completed',
         );
       }
-      let proved: { pcztHex: string };
-      try {
-        await zcashVault.zcashAssertPcztReservationLive({
-          accountId,
-          reservationId,
-          encodedTx,
-        });
-        // The device signs a redacted copy of the UNPROVED PCZT and returns
-        // only signatures; the original keeps what proving needs.
-        const api = await zcashVault.zcashGetApi();
-        const device = await api.redactPcztForHardwareSigner({ pcztHex });
-        const sdk = await this.getZcashSdk({ connectId });
-        const response = await sdk.zcashSignPczt(connectId, deviceId, {
-          ...deviceParams.deviceCommonParams,
-          pczt: device.pcztHex,
-        });
-        if (!response.success) {
-          throw convertDeviceError(response.payload);
-        }
-        const combined = await zcashVault.zcashCombineSignedPczt({
-          accountId,
-          originalPcztHex: pcztHex,
-          signedPcztHex: response.payload.pczt,
-        });
-        proved = await zcashVault.zcashProvePczt({
-          accountId,
-          pcztHex: combined.pcztHex,
-        });
-        await zcashVault.zcashCommitSignedPczt({ accountId, reservationId });
-      } catch (e) {
-        try {
-          await zcashVault.zcashAbandonPczt({ accountId, reservationId });
-        } catch (releaseError) {
-          console.error('[zcash] failed to release abandoned PCZT inputs', {
-            accountId,
-            releaseError,
-          });
-        }
-        throw e;
+      const api = await zcashVault.zcashGetApi();
+      // The device shows its own summary; the host still refuses a PCZT that
+      // differs from what the user reviewed before asking the device to sign.
+      await api.verifyPcztReview({
+        pcztHex,
+        review: getZcashPcztReviewRequest(encodedTx, meta.ufvk),
+      });
+      // The device signs a redacted copy of the UNPROVED PCZT and returns
+      // only signatures; the original keeps what proving needs.
+      const device = await api.redactPcztForHardwareSigner({ pcztHex });
+      const sdk = await this.getZcashSdk({ connectId });
+      const response = await sdk.zcashSignPczt(connectId, deviceId, {
+        ...deviceParams.deviceCommonParams,
+        pczt: device.pcztHex,
+      });
+      if (!response.success) {
+        throw convertDeviceError(response.payload);
       }
+      const combined = await zcashVault.zcashCombineSignedPczt({
+        accountId,
+        originalPcztHex: pcztHex,
+        signedPcztHex: response.payload.pczt,
+      });
+      const proved = await zcashVault.zcashProvePczt({
+        accountId,
+        pcztHex: combined.pcztHex,
+      });
       const signedEncodedTx: IEncodedTxZcash = {
         ...encodedTx,
         signedPcztHex: proved.pcztHex,
-        pcztReservationId: reservationId,
       };
       return {
         txid: '',

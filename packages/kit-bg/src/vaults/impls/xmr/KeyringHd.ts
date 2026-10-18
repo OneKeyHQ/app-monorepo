@@ -7,7 +7,6 @@ import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { KeyringHdBase } from '../../base/KeyringHdBase';
 import { saveLocalWalletViewingKey } from '../../localWallet/viewingKeyStore';
 
-import type Vault from './Vault';
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IGetPrivateKeysParams,
@@ -54,23 +53,12 @@ export class KeyringHd extends KeyringHdBase {
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    const vault = this.vault as Vault;
+    // The runtime re-verifies the review against `signableHex` before signing.
     const encodedTx = parseXmrTransaction(params.unsignedTx.encodedTx);
-    await vault.xmrClaimTransactionReview(encodedTx);
-    try {
-      await vault.xmrMarkReservationSigned(
-        encodedTx.reservationId,
-        encodedTx.inputCount,
-      );
-      return await this.baseSignTransaction({
-        ...params,
-        unsignedTx: { ...params.unsignedTx, encodedTx },
-      });
-    } catch (error) {
-      // Nothing was broadcast, so holding the reservation would make a balance not spendable with no visible cause.
-      await vault.xmrReleaseReservation(encodedTx.reservationId);
-      throw error;
-    }
+    return this.baseSignTransaction({
+      ...params,
+      unsignedTx: { ...params.unsignedTx, encodedTx },
+    });
   }
 
   /** See CoreChainSoftware.getSpendPrivateKeyHex. */

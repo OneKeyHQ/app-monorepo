@@ -57,8 +57,6 @@ export type IEncodedTxXmr = {
   signableHex?: string;
   /** Piconero. Exact once `signableHex` is set. */
   feeAtomic?: string;
-  /** Holds the chosen inputs so a second send cannot pick them too. */
-  reservationId?: string;
   inputCount?: number;
   /** Piconero returned to this account's own primary address. */
   changeAtomic?: string;

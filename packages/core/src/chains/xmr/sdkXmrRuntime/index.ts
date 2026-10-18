@@ -79,7 +79,6 @@ export type IXmrRuntimeApi = {
     accountId: string,
     recipientsJson: string,
     maxSend: boolean,
-    reservationId: string,
     chainTip: string,
     priority: IXmrFeePriority,
   ) => Promise<string>;
@@ -93,19 +92,12 @@ export type IXmrRuntimeApi = {
   broadcastTransaction: (
     accountId: string,
     rawHex: string,
-    reservationId: string,
     chainTip: string,
     /** Amount plus fee, for the pending row. */
     outgoingAtomic?: string,
     /** Change, counted in the total (locked) until the send is mined. */
     changeAtomic?: string,
   ) => Promise<string>;
-  /** Claim every live input before signing; later prepares keep it held. */
-  markReservationSigned: (
-    reservationId: string,
-    expectedInputs: number,
-  ) => Promise<string>;
-  releaseReservation: (reservationId: string) => Promise<string>;
 
   diagDatabase: () => Promise<string>;
 };

@@ -513,11 +513,6 @@ export async function zcashBuildTransparentEncodedTx(
     );
   }
   const fresh = await vault.zcashFetchFreshTransparentUtxos();
-  await vault.zcashPruneTransparentSendHistory(
-    vault.accountId,
-    undefined,
-    fresh.targetHeight - 1,
-  );
   if (!fresh.utxos.length) {
     throw zcashTransparentError(
       'INSUFFICIENT_FUNDS',
@@ -674,11 +669,6 @@ export async function zcashPrepareFreshTransparentRequest(
     );
   }
   const fresh = await vault.zcashFetchFreshTransparentUtxos();
-  await vault.zcashPruneTransparentSendHistory(
-    vault.accountId,
-    undefined,
-    fresh.targetHeight - 1,
-  );
   if (fresh.accountIndex !== plan.accountIndex) {
     throw zcashTransparentError(
       'ACCOUNT_CHANGED',

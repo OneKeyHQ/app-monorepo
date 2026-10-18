@@ -197,23 +197,20 @@ describe('Zcash Privacy Mode privacy lifecycle', () => {
       birthdayHeight: 2_000_000,
     });
     const mutex = getZcashLifecycleMutex('synthetic-ufvk');
-    const checkBroadcasts = jest.fn(async () => {
+    const getSyncProgress = jest.fn(async () => {
       expect(mutex.isLocked()).toBe(true);
+      return undefined;
     });
-    const checkWithLock = jest.fn(() => mutex.runExclusive(checkBroadcasts));
     mockGetChainOnlyVault.mockResolvedValue({
       getLocalWalletCapability: () => ({
-        getSyncProgress: async () => undefined,
+        getSyncProgress,
       }),
-      zcashAssertNoUnresolvedBroadcast: checkBroadcasts,
-      zcashAssertNoUnresolvedBroadcastWithLifecycleLock: checkWithLock,
     });
 
     await service.disablePrivacyMode({ networkId: 'zec--0', accountId });
     await service.disablePrivacyMode({ networkId: 'zec--0', accountId });
 
-    expect(checkBroadcasts).toHaveBeenCalledTimes(2);
-    expect(checkWithLock).not.toHaveBeenCalled();
+    expect(getSyncProgress).toHaveBeenCalledTimes(2);
     expect(
       backgroundApi.simpleDb.zcash.completePrivacyModeDisable,
     ).toHaveBeenCalledTimes(2);

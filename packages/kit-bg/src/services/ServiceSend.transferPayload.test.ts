@@ -190,7 +190,6 @@ function privacyProposal(
         priority: 'normal',
         isMaxSend: false,
         chainTip: 3_767_827,
-        reservationId: 'synthetic-reservation',
         signableHex: 'aabb',
         inputCount: 1,
       }
@@ -206,7 +205,6 @@ function privacyProposal(
         zcashMode: 'privacy',
         zcashSpendSource: 'ironwood',
         pcztHex: 'aabb',
-        pcztReservationId: 'synthetic-reservation',
       };
 }
 

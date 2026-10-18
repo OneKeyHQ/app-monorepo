@@ -16,11 +16,6 @@ describe('Zcash cleanup of a deleted account', () => {
   function createVault(otherAccountStillExists: boolean) {
     const purgeWallet = jest.fn(async () => undefined);
     const removeAccountState = jest.fn(async () => undefined);
-    const assertNoUnresolved = jest.fn(async () => {
-      throw Object.assign(new Error('pending'), {
-        code: 'UNRESOLVED_PRIVACY_CHAIN_BROADCAST',
-      });
-    });
     const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
       networkId: 'zec--0',
       backgroundApi: {
@@ -41,24 +36,18 @@ describe('Zcash cleanup of a deleted account', () => {
               : null,
         },
       },
-      zcashAssertNoUnresolvedBroadcast: assertNoUnresolved,
       zcashGetWalletAccount: async () => ({ ufvk }),
       zcashGetApi: async () => ({ purgeWallet }),
     });
-    return { vault, purgeWallet, removeAccountState, assertNoUnresolved };
+    return { vault, purgeWallet, removeAccountState };
   }
 
   it('removes its runtime data even with a transaction in flight', async () => {
-    const { vault, purgeWallet, removeAccountState, assertNoUnresolved } =
-      createVault(false);
+    const { vault, purgeWallet, removeAccountState } = createVault(false);
 
     await vault.resetLocalWallet({ accountId: 'deleted', scope: 'all' });
 
-    expect(assertNoUnresolved).not.toHaveBeenCalled();
-    expect(purgeWallet).toHaveBeenCalledWith(
-      { ufvk },
-      { accountDeleted: true },
-    );
+    expect(purgeWallet).toHaveBeenCalledWith({ ufvk });
     expect(removeAccountState).toHaveBeenCalledWith({ accountId: 'deleted' });
   });
 

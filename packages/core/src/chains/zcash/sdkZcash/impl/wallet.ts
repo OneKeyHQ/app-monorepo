@@ -75,7 +75,8 @@ type IRuntimeHistoryRow = {
   totalReceivedZat: number | null;
   poolIds?: number[];
   perPoolBalanceDeltaZat?: Record<string, string>;
-  broadcastState?: 'observed' | 'pending' | 'accepted' | 'rejected' | null;
+  // An explicit node rejection was recorded for this transaction.
+  rejected?: boolean;
   recipient?: string | null;
   // Absent on a runtime build that predates this column.
   externalOutputCount?: number;
@@ -149,7 +150,7 @@ async function purgeAccountsUnknownToHost(
       await rt.removeAccount(uuid);
       console.log('[zcash] purged runtime account unknown to host', { uuid });
     } catch (e) {
-      // removeAccount refuses while a broadcast is unresolved; retried on the next prepare.
+      // Failed storage cleanup is retried on the next prepare.
       console.error('[zcash] purge of unknown runtime account failed', {
         uuid,
         error: e instanceof Error ? e.message : String(e),
@@ -199,7 +200,7 @@ export async function rebroadcastUnmined(
   for (const accountUuid of accountUuids) {
     let txids: string[];
     try {
-      txids = JSON.parse(rt.broadcastRetryTxids(accountUuid)) as string[];
+      txids = JSON.parse(rt.pendingBroadcastTxids(accountUuid)) as string[];
     } catch {
       // One damaged account view must not block another account's pending-tx retry.
       // eslint-disable-next-line no-continue
@@ -665,15 +666,8 @@ export function readHistory(
       timestamp: r.blockTime,
       valueZat: valueZat.toString(),
       fee: r.feeZat === null ? null : String(r.feeZat),
-      broadcastOutcomeUnknown:
-        r.minedHeight === null && r.broadcastState === 'pending',
-      pending:
-        r.minedHeight === null &&
-        !r.expiredUnmined &&
-        r.broadcastState !== 'rejected',
-      expired:
-        r.expiredUnmined ||
-        (r.minedHeight === null && r.broadcastState === 'rejected'),
+      pending: r.minedHeight === null && !r.expiredUnmined && !r.rejected,
+      expired: r.expiredUnmined || (r.minedHeight === null && !!r.rejected),
       txType,
       recipient: r.recipient ?? null,
       poolIds: Array.isArray(r.poolIds)
@@ -762,13 +756,7 @@ export async function getEndpointHealth(): Promise<
 // Removes the ACCOUNT, not the database — every account of every mnemonic shares one database
 // per network, so deleting the file would wipe every other account's scan state too.
 // Everything dropped here is derived cache (rebuildable from UFVK + birthday); nothing unrecoverable is lost.
-export async function purgeWallet(
-  account: IZcashWalletAccount,
-  options?: {
-    // The app account is gone: remove it even with a transaction in flight.
-    accountDeleted?: boolean;
-  },
-): Promise<void> {
+export async function purgeWallet(account: IZcashWalletAccount): Promise<void> {
   // Registering it just to remove it would rewind the shared database and requeue every other
   // account's range; an unregistered account has nothing to drop.
   let registered: Awaited<ReturnType<typeof withWallet>> | undefined;
@@ -780,9 +768,7 @@ export async function purgeWallet(
   // Open either way: withWallet opens the database before resolving the account, so the emptiness check below is accurate.
   const rt = registered?.rt ?? (await getRuntime());
   if (registered) {
-    await (options?.accountDeleted
-      ? rt.removeDeletedAccount(registered.accountUuid)
-      : rt.removeAccount(registered.accountUuid));
+    await rt.removeAccount(registered.accountUuid);
   }
 
   const remaining = JSON.parse(rt.listAccounts()) as string[];
