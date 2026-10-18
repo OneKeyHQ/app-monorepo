@@ -1,4 +1,4 @@
-import { useContext, useMemo, useState } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
 
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { SvgXml } from 'react-native-svg';
@@ -19,12 +19,19 @@ import {
 import type { IScrollViewProps } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import {
+  DrawingAnchorFields,
+  DrawingStyleOptions,
+} from '../drawings/DrawingStyleOptions';
 import { TRADING_VIEW_DRAWING_ICONS } from '../drawings/icons';
 import {
   DEFAULT_DRAWING_FONT_SIZE,
   DRAWING_FONT_SIZES,
+  DRAWING_TOOLBAR_GROUPS,
   DRAWING_TOOLS,
+  getDrawingToolbarGroup,
   isFreehandTool,
+  isPathTool,
   isTextDrawingTool,
 } from '../drawings/model';
 
@@ -153,6 +160,9 @@ export function NativeDrawingToolbar({
   const [collapsed, setCollapsed] = useState(false);
   const [group, setGroup] = useState<string | null>(null);
   const [settings, setSettings] = useState(false);
+  useEffect(() => {
+    if (state.editingCoordinates) setSettings(true);
+  }, [state.editingCoordinates, state.selectedId]);
   const selected = state.history.present.find(
     (drawing) => drawing.id === state.selectedId,
   );
@@ -165,9 +175,7 @@ export function NativeDrawingToolbar({
   const hasLine = activeTool !== 'text' && activeTool !== 'priceLabel';
   const disabled =
     !state.ready || Boolean(selected && (selected.locked || state.locked));
-  const groups = [
-    ...new Set(Object.values(DRAWING_TOOLS).map((tool) => tool.group)),
-  ];
+  const groups = DRAWING_TOOLBAR_GROUPS;
   const open = Boolean(group || state.panel || settings);
   const close = () => {
     setGroup(null);
@@ -208,7 +216,7 @@ export function NativeDrawingToolbar({
             {groups.map((name) => {
               const tool =
                 (Object.keys(DRAWING_TOOLS) as IDrawingTool[]).find(
-                  (key) => DRAWING_TOOLS[key].group === name,
+                  (key) => getDrawingToolbarGroup(key) === name,
                 ) ?? 'trend';
               return (
                 <DrawingButton
@@ -218,7 +226,7 @@ export function NativeDrawingToolbar({
                   testID={`native-drawing-group-${name}`}
                   active={
                     state.tool !== 'cursor' &&
-                    DRAWING_TOOLS[state.tool].group === name
+                    getDrawingToolbarGroup(state.tool) === name
                   }
                   disabled={!state.ready}
                   onPress={() => {
@@ -416,7 +424,7 @@ export function NativeDrawingToolbar({
             {group ? (
               <YStack p="$2">
                 {(Object.keys(DRAWING_TOOLS) as IDrawingTool[])
-                  .filter((tool) => DRAWING_TOOLS[tool].group === group)
+                  .filter((tool) => getDrawingToolbarGroup(tool) === group)
                   .map((tool) => (
                     <XStack
                       key={tool}
@@ -610,7 +618,8 @@ export function NativeDrawingToolbar({
             {settings ? (
               <YStack p="$3" gap="$3">
                 {selected &&
-                (selected.tool === 'text' || selected.tool === 'callout') ? (
+                isTextDrawingTool(selected.tool) &&
+                selected.tool !== 'priceLabel' ? (
                   <EditField
                     key={`${selected.id}-text-${selected.text ?? ''}`}
                     label="Content"
@@ -646,13 +655,23 @@ export function NativeDrawingToolbar({
                       height={32}
                       borderRadius="$2"
                       bg={color}
-                      borderWidth={style.color === color ? 3 : 1}
+                      borderWidth={
+                        (hasText
+                          ? (style.textColor ??
+                            (activeTool === 'text' ? style.color : '#FFFFFF'))
+                          : style.color) === color
+                          ? 3
+                          : 1
+                      }
                       borderColor="$borderStrong"
                       opacity={disabled ? 0.3 : 1}
                       onPress={
                         disabled
                           ? undefined
-                          : () => controller.changeStyle({ color })
+                          : () =>
+                              controller.changeStyle(
+                                hasText ? { textColor: color } : { color },
+                              )
                       }
                     />
                   ))}
@@ -691,7 +710,7 @@ export function NativeDrawingToolbar({
                 {hasLine ? (
                   <>
                     <SizableText size="$bodySmMedium">
-                      {hasText ? 'Connection line' : 'Line width'}
+                      {hasText ? 'Border width' : 'Line width'}
                     </SizableText>
                     <XStack gap="$2">
                       {[1, 2, 3, 4].map((width) => (
@@ -729,6 +748,12 @@ export function NativeDrawingToolbar({
                     </XStack>
                   </>
                 ) : null}
+                <DrawingStyleOptions
+                  tool={activeTool}
+                  style={style}
+                  disabled={disabled}
+                  onChange={controller.changeStyle}
+                />
                 {hasText && selected ? (
                   <SizableText
                     size="$bodySmMedium"
@@ -739,13 +764,21 @@ export function NativeDrawingToolbar({
                     Position
                   </SizableText>
                 ) : null}
+                {selected?.anchor ? (
+                  <DrawingAnchorFields
+                    anchor={selected.anchor}
+                    disabled={disabled}
+                    onChange={controller.editAnchor}
+                  />
+                ) : null}
                 {selected?.points
                   .map((point, index) => ({ point, index }))
                   .filter(
                     ({ index }) =>
-                      !isFreehandTool(selected.tool) ||
-                      index === 0 ||
-                      index === selected.points.length - 1,
+                      !selected.anchor &&
+                      (!isFreehandTool(selected.tool) ||
+                        index === 0 ||
+                        index === selected.points.length - 1),
                   )
                   .map(({ point, index }) => (
                     <YStack key={`${selected.id}-${index}`} gap="$2">
@@ -795,6 +828,22 @@ export function NativeDrawingToolbar({
             Drawings could not be saved on this device.
           </SizableText>
         </Stack>
+      ) : null}
+      {state.draft && isPathTool(state.draft.drawing.tool) ? (
+        <Button
+          testID="native-drawing-finish"
+          position="absolute"
+          left={48}
+          bottom={52}
+          size="small"
+          onPress={controller.finishPath}
+          disabled={
+            state.draft.anchors.length <
+            DRAWING_TOOLS[state.draft.drawing.tool].points
+          }
+        >
+          Finish drawing
+        </Button>
       ) : null}
     </>
   );

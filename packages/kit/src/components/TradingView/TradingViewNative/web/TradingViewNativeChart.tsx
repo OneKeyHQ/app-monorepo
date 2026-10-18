@@ -138,6 +138,7 @@ interface ITimeAxisPointerDragState {
 export const TradingViewNativeChart = memo(
   ({
     drawingStorageKey,
+    loadDrawingHistory,
     enableDrawings: drawingsEnabled = false,
     candleIntervalSeconds,
     candleTimeMode,
@@ -230,6 +231,8 @@ export const TradingViewNativeChart = memo(
       projectionRef: drawingProjectionRef,
       redrawRef: drawingRedrawRef,
       storageKey: drawingStorageKey,
+      loadHistory: loadDrawingHistory,
+      historyContext: { points, interval: candleIntervalSeconds },
       rootRef: drawingRootRef,
     });
     const {
@@ -562,6 +565,12 @@ export const TradingViewNativeChart = memo(
                 viewport: scene.viewport,
                 points,
                 interval: candleIntervalSeconds,
+                priceDecimalPlaces,
+                size: {
+                  width: canvas.clientWidth,
+                  height: canvas.clientHeight,
+                },
+                showPriceAxis: chartSettings.options.yAxis,
               }
             : null;
         if (drawingsEnabled)

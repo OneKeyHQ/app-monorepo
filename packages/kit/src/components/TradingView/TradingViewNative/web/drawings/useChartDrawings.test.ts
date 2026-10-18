@@ -121,6 +121,86 @@ beforeEach(() => {
   });
 });
 
+it.each([false, true])(
+  'keeps the ruler temporary, including shift-drag: %s',
+  async (shiftKey) => {
+    const hook = setup();
+    await waitFor(() => expect(hook.result.current.state.ready).toBe(true));
+    if (!shiftKey) void act(() => hook.result.current.selectTool('measure'));
+    act(() => {
+      hook.result.current.onPointerDown(
+        hook.event('pointerdown', 200, 120, { shiftKey }),
+      );
+      hook.result.current.onPointerMove(
+        hook.event('pointermove', 400, 220, { shiftKey }),
+      );
+      hook.result.current.onPointerUp(
+        hook.event('pointerup', 400, 220, { shiftKey }),
+      );
+    });
+    expect(hook.result.current.getRenderState().drawings).toHaveLength(1);
+    expect(hook.result.current.getRenderState().drawings[0].tool).toBe(
+      'measure',
+    );
+    expect(hook.result.current.state.history.present).toEqual([]);
+    expect(hook.result.current.state.tool).toBe('cursor');
+    expect(setItem).not.toHaveBeenCalled();
+    void act(() =>
+      hook.result.current.onPointerDown(hook.event('pointerdown', 500, 200)),
+    );
+    expect(hook.result.current.getRenderState().drawings).toEqual([]);
+  },
+);
+
+it('persists range styles and keeps brush defaults separate from text and line defaults', async () => {
+  const hook = setup();
+  await waitFor(() => expect(hook.result.current.state.ready).toBe(true));
+  act(() => hook.result.current.selectTool('highlighter'));
+  expect(hook.result.current.state.style).toMatchObject({
+    color: '#FFEB3B',
+    width: 4,
+    opacity: 0.5,
+  });
+  act(() =>
+    hook.result.current.changeStyle({ color: '#112233', opacity: 0.3 }),
+  );
+  act(() => hook.result.current.selectTool('text'));
+  expect(hook.result.current.state.style).toMatchObject({
+    color: '#2962FF',
+    fontSize: 20,
+  });
+  act(() => hook.result.current.selectTool('highlighter'));
+  expect(hook.result.current.state.style).toMatchObject({
+    color: '#112233',
+    opacity: 0.3,
+  });
+  act(() => hook.result.current.selectTool('datePriceRange'));
+  act(() => {
+    hook.result.current.onPointerDown(hook.event('pointerdown', 200, 120));
+    hook.result.current.onPointerMove(hook.event('pointermove', 400, 220));
+    hook.result.current.onPointerUp(hook.event('pointerup', 400, 220));
+  });
+  act(() =>
+    hook.result.current.changeStyle({
+      showVolume: false,
+      fillOpacity: 0.4,
+      textColor: '#112233',
+    }),
+  );
+  await waitFor(() =>
+    expect(JSON.parse(stored.values().next().value ?? '[]')[0]).toMatchObject({
+      tool: 'datePriceRange',
+      showVolume: false,
+      fillOpacity: 0.4,
+      textColor: '#112233',
+    }),
+  );
+  act(() => hook.result.current.historyAction('undo'));
+  expect(
+    hook.result.current.state.history.present[0].showVolume,
+  ).toBeUndefined();
+});
+
 it.each(
   (['horizontal', 'horizontalRay', 'cross'] as const).flatMap((tool) => [
     { tool, modifier: 'ctrlKey' as const },
@@ -280,7 +360,10 @@ it('keeps edited text out of defaults, new drawings and selected non-text tools'
   expect(drawings).toHaveLength(4);
   expect(drawings[2]).not.toHaveProperty('text');
   expect(drawings[3]).not.toHaveProperty('text');
-  expect(drawings.every((drawing) => drawing.color === '#112233')).toBe(true);
+  expect(
+    drawings.slice(0, 3).every((drawing) => drawing.color === '#112233'),
+  ).toBe(true);
+  expect(drawings[3].color).toBe(DEFAULT_DRAWING_STYLE.color);
   await waitFor(() =>
     expect(JSON.parse(stored.values().next().value ?? '[]')).toEqual(drawings),
   );
@@ -356,8 +439,8 @@ it('persists text size and content and allows undo and editing after reload', as
     }),
   );
   void act(() => {
-    second.result.current.onPointerDown(second.event('pointerdown', 315, 185));
-    second.result.current.onPointerUp(second.event('pointerup', 315, 185));
+    second.result.current.onPointerDown(second.event('pointerdown', 315, 245));
+    second.result.current.onPointerUp(second.event('pointerup', 315, 245));
   });
   expect(second.result.current.state.selectedId).toBe(original.id);
   void act(() => second.result.current.changeStyle({ fontSize: 8 }));
@@ -635,4 +718,58 @@ it('persists object visibility, name, lock and stacking order with undo support'
   expect(
     hook.result.current.state.history.present.map((drawing) => drawing.id),
   ).toEqual([first.id, second.id]);
+});
+
+it('finishes variable-length paths as one undoable drawing and restores every anchor', async () => {
+  const hook = setup();
+  await waitFor(() => expect(hook.result.current.state.ready).toBe(true));
+  void act(() => hook.result.current.selectTool('polyline'));
+  for (const [x, y] of [
+    [200, 220],
+    [280, 120],
+    [360, 240],
+    [440, 100],
+  ]) {
+    void act(() => {
+      hook.result.current.onPointerMove(hook.event('pointermove', x, y));
+      hook.result.current.onPointerDown(hook.event('pointerdown', x, y));
+      hook.result.current.onPointerUp(hook.event('pointerup', x, y));
+    });
+  }
+  expect(hook.result.current.state.history.present).toHaveLength(0);
+  expect(setItem).not.toHaveBeenCalled();
+  void act(() => hook.result.current.finishPath());
+  const [path] = hook.result.current.state.history.present;
+  expect(path.points).toHaveLength(4);
+  await waitFor(() => expect(setItem).toHaveBeenCalled());
+  void act(() => hook.result.current.historyAction('undo'));
+  expect(hook.result.current.state.history.present).toHaveLength(0);
+  void act(() => hook.result.current.historyAction('redo'));
+  await waitFor(() =>
+    expect(JSON.parse(stored.values().next().value ?? '[]')).toEqual([path]),
+  );
+  hook.unmount();
+  const restored = setup();
+  await waitFor(() => expect(restored.result.current.state.ready).toBe(true));
+  expect(restored.result.current.state.history.present).toEqual([path]);
+});
+
+it('edits anchored text in viewport percentages without changing its price coordinates', async () => {
+  const hook = setup();
+  await waitFor(() => expect(hook.result.current.state.ready).toBe(true));
+  void act(() => hook.result.current.selectTool('anchoredText'));
+  void act(() =>
+    hook.result.current.onPointerDown(hook.event('pointerdown', 200, 120)),
+  );
+  const first = hook.result.current.state.history.present[0];
+  expect(first.anchor).toBeDefined();
+  void act(() => hook.result.current.editAnchor({ x: 0.75, y: 0.25 }));
+  expect(hook.result.current.state.history.present[0]).toMatchObject({
+    points: first.points,
+    anchor: { x: 0.75, y: 0.25 },
+  });
+  void act(() => hook.result.current.historyAction('undo'));
+  expect(hook.result.current.state.history.present[0]).toEqual(first);
+  void act(() => hook.result.current.editAnchor({ x: 2 }));
+  expect(hook.result.current.state.history.present[0]).toEqual(first);
 });

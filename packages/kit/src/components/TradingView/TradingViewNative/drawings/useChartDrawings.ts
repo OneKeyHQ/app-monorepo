@@ -15,15 +15,20 @@ import {
   changeDrawingHistory,
   constrainDrawingPoint,
   drawingPointToScreen,
+  getDrawingDefaultStyle,
   isFreehandTool,
   isInDrawingPane,
+  isPathTool,
   isTextDrawingTool,
   moveDrawing,
   parseDrawings,
   screenToDrawingPoint,
 } from './model';
+import { prepareDrawing } from './projectionGeometry';
+import { getDrawingProfileKey, useDrawingHistory } from './useDrawingHistory';
 
 import type { IDataWindowSnapshot } from './dataWindow';
+import type { IDrawingHistoryLoader } from './drawingHistory';
 import type {
   IDrawing,
   IDrawingHistory,
@@ -84,11 +89,15 @@ export function useChartDrawings({
   redrawRef,
   storageKey,
   enabled,
+  loadHistory,
+  historyContext,
 }: {
   projectionRef: RefObject<IDrawingProjection | null>;
   redrawRef: RefObject<() => void>;
   storageKey?: string;
   enabled: boolean;
+  loadHistory?: IDrawingHistoryLoader;
+  historyContext?: Pick<IDrawingProjection, 'points' | 'interval'>;
 }) {
   const [, refresh] = useReducer((version: number) => version + 1, 0);
   const state = useRef({
@@ -97,6 +106,7 @@ export function useChartDrawings({
     selectedId: null as string | null,
     selectedIds: [] as string[],
     style: { ...DEFAULT_DRAWING_STYLE },
+    toolStyles: {} as Partial<Record<IDrawingTool, IDrawingStyle>>,
     draft: null as IDrawingDraft | null,
     drag: null as IDrawingDrag | null,
     preview: null as IDrawing | null,
@@ -127,6 +137,14 @@ export function useChartDrawings({
     redrawRef.current();
   }, [redrawRef]);
   const redraw = useCallback(() => redrawRef.current(), [redrawRef]);
+  const drawingHistory = useDrawingHistory({
+    drawings: state.current.history.present,
+    storageKey,
+    loadHistory,
+    context: historyContext,
+    enabled: enabled && state.current.ready,
+    redraw: update,
+  });
   const key = storageKey
     ? `trading-view-web-drawings:v1:${storageKey}`
     : undefined;
@@ -150,6 +168,9 @@ export function useChartDrawings({
       state.current.draft = null;
       state.current.drag = null;
       state.current.preview = null;
+      state.current.measurement = null;
+      state.current.measuring = false;
+      state.current.companionPreviews = [];
       state.current.selectedId = null;
       state.current.selectedIds = [];
       update();
@@ -216,6 +237,8 @@ export function useChartDrawings({
       cancel();
       const model = state.current;
       model.tool = tool;
+      if (tool !== 'cursor')
+        model.style = model.toolStyles[tool] ?? getDrawingDefaultStyle(tool);
       model.selectedId = null;
       model.selectedIds = [];
       if (tool !== 'cursor') model.hidden = false;
@@ -225,19 +248,47 @@ export function useChartDrawings({
   );
 
   const completeDraft = useCallback(
-    (drawing: IDrawing) => {
+    (input: IDrawing) => {
+      const drawing = projectionRef.current
+        ? prepareDrawing(input, projectionRef.current)
+        : input;
       const model = state.current;
       model.draft = null;
       model.drag = null;
       model.preview = null;
       model.editingCoordinates = false;
+      if (drawing.tool === 'measure') {
+        model.measurement = drawing;
+        model.selectedId = null;
+        model.selectedIds = [];
+        model.tool = 'cursor';
+        update();
+        return;
+      }
       model.selectedId = drawing.id;
       model.selectedIds = [drawing.id];
+      model.editingCoordinates =
+        isTextDrawingTool(drawing.tool) &&
+        drawing.tool !== 'priceLabel' &&
+        drawing.tool !== 'flag';
       if (!model.stayInDrawingMode) model.tool = 'cursor';
       commit([...model.history.present, drawing]);
     },
-    [commit],
+    [commit, projectionRef, update],
   );
+
+  const finishPath = useCallback(() => {
+    const draft = state.current.draft;
+    if (!draft || !isPathTool(draft.drawing.tool)) return;
+    const points = draft.anchors.filter(
+      (point, index) =>
+        !index ||
+        point.time !== draft.anchors[index - 1].time ||
+        point.price !== draft.anchors[index - 1].price,
+    );
+    if (points.length >= DRAWING_TOOLS[draft.drawing.tool].points)
+      completeDraft({ ...draft.drawing, points });
+  }, [completeDraft]);
 
   const screenPoint = (event: IDrawingPointerEvent): IScreenPoint => ({
     x: event.x,
@@ -286,9 +337,9 @@ export function useChartDrawings({
           model.draft = {
             anchors: [anchor],
             drawing: {
-              ...model.style,
+              ...getDrawingDefaultStyle('measure'),
               id: 'measurement',
-              tool: 'datePriceRange',
+              tool: 'measure',
               locked: false,
               points: [anchor],
             },
@@ -333,7 +384,11 @@ export function useChartDrawings({
             : 'crosshair',
         );
       } else {
-        if (model.history.present.length >= MAX_DRAWINGS) return true;
+        if (
+          model.history.present.length >= MAX_DRAWINGS &&
+          model.tool !== 'measure'
+        )
+          return true;
         const lastAnchor = model.draft?.anchors.at(-1);
         const constrained =
           event.shiftKey && lastAnchor
@@ -349,9 +404,13 @@ export function useChartDrawings({
           model.magnet !== (event.ctrlKey || event.metaKey),
         );
         if (model.draft) {
+          if (model.draft.anchors.length >= MAX_DRAWING_POINTS) return true;
           const anchors = [...model.draft.anchors, anchor];
           const drawing = { ...model.draft.drawing, points: anchors };
-          if (anchors.length >= DRAWING_TOOLS[model.tool].points) {
+          if (
+            !isPathTool(model.tool) &&
+            anchors.length >= DRAWING_TOOLS[model.tool].points
+          ) {
             completeDraft(drawing);
             return true;
           }
@@ -518,6 +577,7 @@ export function useChartDrawings({
         model.measurement = model.draft?.drawing ?? null;
         model.draft = null;
         model.measuring = false;
+        event.release?.();
         update();
         return true;
       }
@@ -554,7 +614,8 @@ export function useChartDrawings({
         (isFreehandTool(model.draft.drawing.tool)
           ? model.draft.anchors.length > 1
           : moved) &&
-        DRAWING_TOOLS[model.draft.drawing.tool].points === 2
+        DRAWING_TOOLS[model.draft.drawing.tool].points === 2 &&
+        !isPathTool(model.draft.drawing.tool)
       ) {
         completeDraft(model.draft.drawing);
       } else if (model.draft && isFreehandTool(model.draft.drawing.tool)) {
@@ -585,6 +646,10 @@ export function useChartDrawings({
     (event: IDrawingPointerEvent) => {
       const projection = projectionRef.current;
       const model = state.current;
+      if (model.draft && isPathTool(model.draft.drawing.tool)) {
+        finishPath();
+        return;
+      }
       if (!projection || model.hidden || model.tool !== 'cursor') return;
       const hit = hitTestDrawings(
         model.history.present,
@@ -599,7 +664,7 @@ export function useChartDrawings({
         update();
       }
     },
-    [projectionRef, update],
+    [finishPath, projectionRef, update],
   );
 
   const editPoint = useCallback(
@@ -633,6 +698,32 @@ export function useChartDrawings({
               }
             : drawing,
         ),
+      );
+    },
+    [commit],
+  );
+
+  const editAnchor = useCallback(
+    (patch: Partial<IScreenPoint>) => {
+      const model = state.current;
+      if (model.locked) return;
+      commit(
+        model.history.present.map((drawing) => {
+          if (
+            drawing.id !== model.selectedId ||
+            drawing.locked ||
+            !drawing.anchor
+          )
+            return drawing;
+          const anchor = { ...drawing.anchor, ...patch };
+          if (
+            ![anchor.x, anchor.y].every(
+              (value) => Number.isFinite(value) && value >= 0 && value <= 1,
+            )
+          )
+            return drawing;
+          return { ...drawing, anchor };
+        }),
       );
     },
     [commit],
@@ -741,6 +832,12 @@ export function useChartDrawings({
               : drawing,
           ),
         );
+      } else if (
+        event.key === 'Enter' &&
+        model.draft &&
+        isPathTool(model.draft.drawing.tool)
+      ) {
+        finishPath();
       } else if (event.key === 'Escape') {
         selectTool('cursor');
         event.preventDefault?.();
@@ -761,6 +858,7 @@ export function useChartDrawings({
       cancel,
       commit,
       completeDraft,
+      finishPath,
       enabled,
       historyAction,
       projectionRef,
@@ -777,6 +875,12 @@ export function useChartDrawings({
       const selected = model.history.present.find(
         (drawing) => drawing.id === model.selectedId,
       );
+      const tool = selected?.tool ?? model.tool;
+      if (tool !== 'cursor')
+        model.toolStyles[tool] = {
+          ...(model.toolStyles[tool] ?? getDrawingDefaultStyle(tool)),
+          ...styleOnly,
+        };
       if (selected && !model.locked && !selected.locked)
         commit(
           model.history.present.map((drawing) =>
@@ -928,10 +1032,22 @@ export function useChartDrawings({
       drawings.push(model.preview, ...model.companionPreviews);
     if (model.draft) drawings.push(model.draft.drawing);
     if (model.measurement) drawings.push(model.measurement);
+    for (let i = 0; i < drawings.length; i += 1) {
+      const drawing = drawings[i];
+      const entry = drawingHistory.current.get(drawing.id);
+      if (
+        entry &&
+        entry.key === getDrawingProfileKey(drawing, historyContext) &&
+        entry.profile
+      )
+        drawings[i] = { ...drawing, volumeProfile: entry.profile };
+    }
     let selectedId = model.draft?.drawing.id ?? model.selectedId;
     if (
       model.locked ||
-      (model.draft && isFreehandTool(model.draft.drawing.tool))
+      (model.draft &&
+        (isFreehandTool(model.draft.drawing.tool) ||
+          model.draft.drawing.tool === 'measure'))
     )
       selectedId = null;
     return {
@@ -939,7 +1055,7 @@ export function useChartDrawings({
       selectedId,
       selectedIds: model.locked ? [] : model.selectedIds,
     };
-  }, [enabled]);
+  }, [enabled, drawingHistory, historyContext]);
 
   return {
     state: state.current,
@@ -957,7 +1073,9 @@ export function useChartDrawings({
     onPointerUp,
     onKeyDown,
     onDoubleClick,
+    finishPath,
     editPoint,
+    editAnchor,
     toggleCoordinates,
     removeSelected,
     changeStyle,

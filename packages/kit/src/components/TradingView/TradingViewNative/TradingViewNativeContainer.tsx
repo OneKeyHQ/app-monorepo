@@ -395,6 +395,7 @@ const TradingViewNativeContent = memo(
       chartType: automaticChartType,
       chartPictureVersion,
       dataProviderKey,
+      loadDrawingHistory,
       dataState,
       getVisibleTimeRange,
       points,
@@ -1070,6 +1071,7 @@ const TradingViewNativeContent = memo(
                 storageNamespace !== 'swap'
               }
               drawingStorageKey={drawingSourceKey}
+              loadDrawingHistory={loadDrawingHistory}
               prioritizePageScroll={
                 prioritizePageScroll && !isNativeChartFullscreen
               }
