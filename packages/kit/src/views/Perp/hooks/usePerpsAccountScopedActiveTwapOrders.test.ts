@@ -83,9 +83,10 @@ describe('usePerpsAccountScopedActiveTwapOrders', () => {
         2, 3,
       ]);
       expect(result.current.twapOrders).toHaveLength(2);
-      expect(
-        result.current.activeRuntimeInfoByKey.get('ETH:1718000000000'),
-      ).toEqual({ reportedStatus: status, activatedAt: 1_718_000_120_000 });
+      expect(result.current.activeRuntimeInfoById.get(1)).toEqual({
+        reportedStatus: status,
+        activatedAt: 1_718_000_120_000,
+      });
     },
   );
 
@@ -107,6 +108,39 @@ describe('usePerpsAccountScopedActiveTwapOrders', () => {
     expect(result.current.twapOrders).toEqual([]);
     expect(result.current.twapOrders).toHaveLength(0);
     expect(result.current.historyRows).toHaveLength(3);
+  });
+
+  it('keeps an identical same-timestamp order when another TWAP finishes', () => {
+    const twin = { ...orders[0], twapId: 4 };
+    mockOrders = { ...mockOrders, twapOrders: [...orders, twin] };
+    mockHistory = {
+      accountAddress,
+      isLoaded: true,
+      history: [historyRecord(orders[0], { status: 'finished' })],
+    };
+    const { result } = renderHook(() =>
+      usePerpsAccountScopedActiveTwapOrders(accountAddress),
+    );
+    expect(result.current.twapOrders.map((order) => order.twapId)).toEqual([
+      2, 3, 4,
+    ]);
+  });
+
+  it('does not use an unidentified legacy event to hide an active TWAP', () => {
+    mockHistory = {
+      accountAddress,
+      isLoaded: true,
+      history: [
+        {
+          ...historyRecord(orders[0], { status: 'finished' }),
+          twapId: undefined,
+        },
+      ],
+    };
+    const { result } = renderHook(() =>
+      usePerpsAccountScopedActiveTwapOrders(accountAddress),
+    );
+    expect(result.current.twapOrders).toEqual(orders);
   });
 
   it('ignores another account history during an account switch', () => {
@@ -144,7 +178,7 @@ describe('usePerpsAccountScopedActiveTwapOrders', () => {
     expect(result.current.twapOrders.map((order) => order.twapId)).toEqual([
       1, 2, 3,
     ]);
-    expect(result.current.activeRuntimeInfoByKey.size).toBe(0);
+    expect(result.current.activeRuntimeInfoById.size).toBe(0);
   });
 
   it('hides orders and history while the active account is unresolved', () => {

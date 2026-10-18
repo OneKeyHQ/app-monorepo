@@ -24,19 +24,13 @@ export type IActiveTwapRuntimeInfo = {
   activatedAt?: number;
 };
 
-export function getTwapRuntimeInfoKey(state: {
-  coin: string;
-  timestamp: number;
-}): string {
-  return `${state.coin}:${state.timestamp}`;
-}
-
 function normalizeTwapHistoryTimeMs(time: number): number {
   return time > 1_000_000_000_000 ? time : time * 1000;
 }
 
-export function buildActiveTwapRuntimeInfoByKey(
+export function buildActiveTwapRuntimeInfoById(
   records: readonly {
+    twapId?: number;
     time: number;
     state: {
       coin: string;
@@ -44,29 +38,31 @@ export function buildActiveTwapRuntimeInfoByKey(
     };
     status: { status: ITwapRuntimeStatus };
   }[],
-): Map<string, IActiveTwapRuntimeInfo> {
-  const latestRecordByKey = new Map<string, (typeof records)[number]>();
-  const activationTimeByKey = new Map<string, number>();
+): Map<number, IActiveTwapRuntimeInfo> {
+  const latestRecordById = new Map<number, (typeof records)[number]>();
+  const activationTimeById = new Map<number, number>();
   records.forEach((record) => {
-    const key = getTwapRuntimeInfoKey(record.state);
+    const { twapId } = record;
+    // Legacy events without an ID cannot safely be attributed to an order.
+    if (twapId === undefined) return;
     if (record.status.status === 'activated') {
       const activatedAt = normalizeTwapHistoryTimeMs(record.time);
-      activationTimeByKey.set(
-        key,
-        Math.min(activationTimeByKey.get(key) ?? activatedAt, activatedAt),
+      activationTimeById.set(
+        twapId,
+        Math.min(activationTimeById.get(twapId) ?? activatedAt, activatedAt),
       );
     }
-    const previous = latestRecordByKey.get(key);
+    const previous = latestRecordById.get(twapId);
     if (!previous || record.time > previous.time) {
-      latestRecordByKey.set(key, record);
+      latestRecordById.set(twapId, record);
     }
   });
   return new Map(
-    Array.from(latestRecordByKey.entries()).map(([key, record]) => [
-      key,
+    Array.from(latestRecordById.entries()).map(([twapId, record]) => [
+      twapId,
       {
         reportedStatus: record.status.status,
-        activatedAt: activationTimeByKey.get(key),
+        activatedAt: activationTimeById.get(twapId),
       },
     ]),
   );

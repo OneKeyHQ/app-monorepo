@@ -29,10 +29,7 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  getActiveTwapRuntimeStatus,
-  getTwapRuntimeInfoKey,
-} from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
+import { getActiveTwapRuntimeStatus } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import {
   normalizePerpsAccountAddress,
   resolveBboOrderPrice,
@@ -257,7 +254,7 @@ function PerpOpenOrdersList({
   );
   const {
     twapOrders: scopedTwapOrders,
-    activeRuntimeInfoByKey: activeTwapRuntimeInfoByKey,
+    activeRuntimeInfoById: activeTwapRuntimeInfoByKey,
   } = usePerpsAccountScopedActiveTwapOrders(accountScopedAddress);
   const openOrders = useMemo(
     () =>
@@ -712,9 +709,7 @@ function PerpOpenOrdersList({
     onHoverChange?: (index: number | null) => void,
   ) => {
     if (item.type === 'twap') {
-      const runtimeInfo = activeTwapRuntimeInfoByKey.get(
-        getTwapRuntimeInfoKey(item.order.state),
-      );
+      const runtimeInfo = activeTwapRuntimeInfoByKey.get(item.order.twapId);
       const status = getActiveTwapRuntimeStatus({
         reportedStatus: runtimeInfo?.reportedStatus,
         triggerPrice: item.order.state.trigger?.px,

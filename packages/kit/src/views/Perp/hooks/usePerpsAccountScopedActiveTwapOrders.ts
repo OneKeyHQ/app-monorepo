@@ -5,8 +5,7 @@ import {
   usePerpsTwapHistoryAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
-  buildActiveTwapRuntimeInfoByKey,
-  getTwapRuntimeInfoKey,
+  buildActiveTwapRuntimeInfoById,
   isTerminalTwapStatus,
 } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 
@@ -28,8 +27,8 @@ export function usePerpsAccountScopedActiveTwapOrders(
         : [],
     [accountAddress, historyState.accountAddress, historyState.history],
   );
-  const activeRuntimeInfoByKey = useMemo(
-    () => buildActiveTwapRuntimeInfoByKey(historyRows),
+  const activeRuntimeInfoById = useMemo(
+    () => buildActiveTwapRuntimeInfoById(historyRows),
     [historyRows],
   );
   const twapOrders = useMemo(
@@ -42,18 +41,17 @@ export function usePerpsAccountScopedActiveTwapOrders(
           }).filter(
             (order) =>
               !isTerminalTwapStatus(
-                activeRuntimeInfoByKey.get(getTwapRuntimeInfoKey(order.state))
-                  ?.reportedStatus,
+                activeRuntimeInfoById.get(order.twapId)?.reportedStatus,
               ),
           )
         : [],
     [
       accountAddress,
-      activeRuntimeInfoByKey,
+      activeRuntimeInfoById,
       ordersState.accountAddress,
       ordersState.twapOrders,
     ],
   );
 
-  return { twapOrders, historyRows, activeRuntimeInfoByKey };
+  return { twapOrders, historyRows, activeRuntimeInfoById };
 }

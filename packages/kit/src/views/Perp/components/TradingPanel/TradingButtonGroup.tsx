@@ -489,7 +489,9 @@ function SideButtonInternal({
   const [activePositionsValue] = usePerpsActivePositionAtom();
 
   const [isSubmitting] = useTradingLoadingAtom();
-  const { midPriceBN } = useTradingPrice();
+  const { midPriceBN } = useTradingPrice({
+    allowSpotMarkPriceFallback: formData.orderMode !== 'twap',
+  });
   const getAggressiveLimitPriceWarning = useGetAggressiveLimitPriceWarning();
   const {
     sizePriceBN: twapReferencePriceBN,

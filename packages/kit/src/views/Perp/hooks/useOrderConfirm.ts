@@ -85,7 +85,9 @@ function useOrderConfirmWithMarketDataFreshness({
   const [activePositionsValue] = usePerpsActivePositionAtom();
   const hyperliquidActions = useHyperliquidActions();
   const [isSubmitting] = useTradingLoadingAtom();
-  const { midPrice, midPriceBN } = useTradingPrice();
+  const { midPrice, midPriceBN } = useTradingPrice({
+    allowSpotMarkPriceFallback: formData.orderMode !== 'twap',
+  });
   const { sizePriceBN: twapReferencePriceBN, markPriceBN: twapMarkPriceBN } =
     useTwapReferencePrice({
       midPriceBN,

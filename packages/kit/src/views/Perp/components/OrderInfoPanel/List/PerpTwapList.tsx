@@ -33,7 +33,6 @@ import {
   formatTwapPriceForDisplay,
   getActiveTwapRuntimeStatus,
   getTwapElapsedMs,
-  getTwapRuntimeInfoKey,
 } from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
@@ -573,6 +572,7 @@ function TwapActiveRow({
 
 function TwapHistoryRow({
   record,
+  activatedAt,
   now,
   cellMinWidth,
   columnConfigs,
@@ -585,6 +585,7 @@ function TwapHistoryRow({
   isMobile,
 }: {
   record: ITwapHistoryRecord;
+  activatedAt?: number;
   now: number;
   cellMinWidth: number;
   columnConfigs: IColumnConfig[];
@@ -611,6 +612,7 @@ function TwapHistoryRow({
       getTwapBaseInfo({
         state,
         status: record.status.status,
+        activatedAt,
         now,
         endTime,
         spotDisplayMap,
@@ -618,6 +620,7 @@ function TwapHistoryRow({
         intl,
       }),
     [
+      activatedAt,
       endTime,
       intl,
       now,
@@ -1300,7 +1303,7 @@ function PerpTwapList({
 
   const currentAccountAddress = currentUser?.accountAddress?.toLowerCase();
 
-  const { twapOrders, historyRows, activeRuntimeInfoByKey } =
+  const { twapOrders, historyRows, activeRuntimeInfoById } =
     usePerpsAccountScopedActiveTwapOrders(currentAccountAddress);
 
   useEffect(() => {
@@ -1713,9 +1716,7 @@ function PerpTwapList({
       isHovered?: boolean,
       onHoverChange?: (index: number | null) => void,
     ) => {
-      const runtimeInfo = activeRuntimeInfoByKey.get(
-        getTwapRuntimeInfoKey(item.state),
-      );
+      const runtimeInfo = activeRuntimeInfoById.get(item.twapId);
       const status = getActiveTwapRuntimeStatus({
         reportedStatus: runtimeInfo?.reportedStatus,
         triggerPrice: item.state.trigger?.px,
@@ -1743,7 +1744,7 @@ function PerpTwapList({
     },
     [
       activeColumns,
-      activeRuntimeInfoByKey,
+      activeRuntimeInfoById,
       activeMinWidth,
       handleTerminate,
       now,
@@ -1759,22 +1760,34 @@ function PerpTwapList({
       renderMode?: IRenderMode,
       isHovered?: boolean,
       onHoverChange?: (index: number | null) => void,
-    ) => (
-      <TwapHistoryRow
-        record={item}
-        now={now}
-        cellMinWidth={historyMinWidth}
-        columnConfigs={historyColumns}
-        index={index}
-        renderMode={renderMode}
-        isHovered={isHovered}
-        onHoverChange={onHoverChange}
-        spotDisplayMap={spotDisplayMap}
-        spotPairDisplayNameMap={spotPairDisplayNameMap}
-        isMobile={isMobile}
-      />
-    ),
+    ) => {
+      const runtimeInfo =
+        item.twapId === undefined
+          ? undefined
+          : activeRuntimeInfoById.get(item.twapId);
+      return (
+        <TwapHistoryRow
+          record={item}
+          activatedAt={
+            item.status.status === 'activated'
+              ? normalizeEpochMs(item.time)
+              : runtimeInfo?.activatedAt
+          }
+          now={now}
+          cellMinWidth={historyMinWidth}
+          columnConfigs={historyColumns}
+          index={index}
+          renderMode={renderMode}
+          isHovered={isHovered}
+          onHoverChange={onHoverChange}
+          spotDisplayMap={spotDisplayMap}
+          spotPairDisplayNameMap={spotPairDisplayNameMap}
+          isMobile={isMobile}
+        />
+      );
+    },
     [
+      activeRuntimeInfoById,
       historyColumns,
       historyMinWidth,
       isMobile,
