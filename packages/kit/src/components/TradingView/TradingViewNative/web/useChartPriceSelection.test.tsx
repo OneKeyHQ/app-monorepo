@@ -73,7 +73,11 @@ function setup() {
   const view = render(hook.result.current.control);
   const button = view.getByRole('button', { hidden: true });
   const overlay = view.container.appendChild(document.createElement('div'));
-  const rightClickOverlay = (clientX: number, clientY: number) => {
+  const rightClickAt = (
+    clientX: number,
+    clientY: number,
+    target: Element = overlay,
+  ) => {
     const contextMenu = new globalThis.MouseEvent('contextmenu', {
       bubbles: true,
       cancelable: true,
@@ -81,7 +85,7 @@ function setup() {
       clientY,
     });
     act(() => {
-      overlay.dispatchEvent(contextMenu);
+      target.dispatchEvent(contextMenu);
     });
     return contextMenu;
   };
@@ -100,31 +104,25 @@ function setup() {
     button,
     event,
     overlay,
-    rightClickOverlay,
+    rightClickAt,
+    selectPrice: () =>
+      act(() =>
+        hook.result.current.onContextMenu(
+          event() as unknown as MouseEvent<HTMLCanvasElement>,
+        ),
+      ),
   };
 }
 
 describe('chart price selection', () => {
   it('leaves right-clicks inside the open menu to the menu', () => {
     const hook = setup();
-    act(() =>
-      hook.result.current.onContextMenu(
-        hook.event() as unknown as MouseEvent<HTMLCanvasElement>,
-      ),
-    );
+    hook.selectPrice();
     const menu = document.createElement('div');
     menu.dataset.testid = 'TMPopover-ScrollView';
     hook.overlay.appendChild(menu);
     const item = menu.appendChild(document.createElement('button'));
-    const event = new globalThis.MouseEvent('contextmenu', {
-      bubbles: true,
-      cancelable: true,
-      clientX: 250,
-      clientY: 200,
-    });
-    act(() => {
-      item.dispatchEvent(event);
-    });
+    const event = hook.rightClickAt(250, 200, item);
     expect(event.defaultPrevented).toBe(false);
     expect(hook.selections).toHaveLength(1);
     expect(hook.result.current.getCrosshair()?.y).toBeCloseTo(100);
@@ -132,12 +130,8 @@ describe('chart price selection', () => {
 
   it('repositions an open menu when its overlay receives another chart right-click', () => {
     const hook = setup();
-    act(() =>
-      hook.result.current.onContextMenu(
-        hook.event() as unknown as MouseEvent<HTMLCanvasElement>,
-      ),
-    );
-    const secondClick = hook.rightClickOverlay(250, 200);
+    hook.selectPrice();
+    const secondClick = hook.rightClickAt(250, 200);
     expect(secondClick.defaultPrevented).toBe(true);
     expect(hook.selections).toHaveLength(2);
     expect(hook.selections[1]).toMatchObject({ screenX: 250, screenY: 200 });
@@ -151,23 +145,19 @@ describe('chart price selection', () => {
 
   it('leaves browser context menus outside the plot and after menu dismissal alone', () => {
     const hook = setup();
-    expect(hook.rightClickOverlay(120, 100).defaultPrevented).toBe(false);
-    act(() =>
-      hook.result.current.onContextMenu(
-        hook.event() as unknown as MouseEvent<HTMLCanvasElement>,
-      ),
-    );
+    expect(hook.rightClickAt(120, 100).defaultPrevented).toBe(false);
+    hook.selectPrice();
     for (const [x, y] of [
       [780, 100],
       [-10, 100],
       [120, -10],
       [120, 450],
     ]) {
-      expect(hook.rightClickOverlay(x, y).defaultPrevented).toBe(false);
+      expect(hook.rightClickAt(x, y).defaultPrevented).toBe(false);
     }
     expect(hook.selections).toHaveLength(1);
     act(() => hook.selections[0].onClose?.());
-    expect(hook.rightClickOverlay(120, 100).defaultPrevented).toBe(false);
+    expect(hook.rightClickAt(120, 100).defaultPrevented).toBe(false);
     expect(hook.selections).toHaveLength(1);
   });
 
@@ -180,11 +170,7 @@ describe('chart price selection', () => {
       hook.result.current.updateControl();
     });
     expect(hook.button.style.display).toBe('block');
-    act(() =>
-      hook.result.current.onContextMenu(
-        hook.event() as unknown as MouseEvent<HTMLCanvasElement>,
-      ),
-    );
+    hook.selectPrice();
     expect(hook.selections).toHaveLength(1);
     expect(hook.button.style.display).toBe('block');
     expect(hook.result.current.getCrosshair()).toMatchObject({
@@ -214,19 +200,11 @@ describe('chart price selection', () => {
 
   it('clears the selection when the symbol changes or selection is disabled', () => {
     const hook = setup();
-    act(() =>
-      hook.result.current.onContextMenu(
-        hook.event() as unknown as MouseEvent<HTMLCanvasElement>,
-      ),
-    );
+    hook.selectPrice();
     hook.rerender({ ...hook.options, scopeKey: 'ETH' });
     expect(hook.result.current.getCrosshair()).toBeUndefined();
     expect(hook.button.style.display).toBe('none');
-    act(() =>
-      hook.result.current.onContextMenu(
-        hook.event() as unknown as MouseEvent<HTMLCanvasElement>,
-      ),
-    );
+    hook.selectPrice();
     hook.rerender({ ...hook.options, enabled: false });
     expect(hook.result.current.getCrosshair()).toBeUndefined();
   });

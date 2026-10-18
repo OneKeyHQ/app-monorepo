@@ -11,7 +11,6 @@ import { usePerpsChartOrderMenu } from './usePerpsChartOrderMenu';
 let mockMid: string | undefined = '82000';
 let mockAssetMid: string | undefined;
 let mockSize = '1';
-let mockMode = 'perp';
 const mockShowTpsl = jest.fn<undefined, unknown[]>();
 const mockCloseMenu = jest.fn();
 
@@ -33,7 +32,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
 }));
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
   useActiveTradeInstrumentAtom: () => [
-    { mode: mockMode, coin: 'BTC', assetId: 0, universe: { szDecimals: 5 } },
+    { mode: 'perp', coin: 'BTC', assetId: 0, universe: { szDecimals: 5 } },
   ],
   usePerpsMidByCoin: () => mockMid,
 }));
@@ -80,7 +79,6 @@ describe('Perps chart order menu', () => {
     mockMid = '82000';
     mockAssetMid = undefined;
     mockSize = '1';
-    mockMode = 'perp';
   });
 
   it.each([
@@ -97,17 +95,16 @@ describe('Perps chart order menu', () => {
     ]);
   });
 
-  it.each(['0', 'NaN'])('omits TP/SL without a valid position: %s', (size) => {
-    mockSize = size;
-    const { result } = renderHook(() => usePerpsChartOrderMenu(true));
-    expect(selectPrice(result, 83_000).map((item) => item.testID)).toEqual([
-      'perps-chart-limit-order',
-    ]);
-  });
-
-  it.each(['0', 'NaN', '83000'])(
-    'omits TP/SL when the selected price has no valid side of mid %s',
-    (mid) => {
+  it.each([
+    ['0', '82000'],
+    ['NaN', '82000'],
+    ['1', '0'],
+    ['1', 'NaN'],
+    ['1', '83000'],
+  ])(
+    'omits TP/SL without a valid position and price side: size=%s, mid=%s',
+    (size, mid) => {
+      mockSize = size;
       mockMid = mid;
       const { result } = renderHook(() => usePerpsChartOrderMenu(true));
       expect(selectPrice(result, 83_000).map((item) => item.testID)).toEqual([
@@ -127,37 +124,31 @@ describe('Perps chart order menu', () => {
     expect(mockShowTpsl).not.toHaveBeenCalled();
   });
 
-  it('uses active-asset mid for availability and revalidation when all-mids is missing', async () => {
-    mockMid = undefined;
-    mockAssetMid = '82000';
-    const { result, rerender } = renderHook(() => usePerpsChartOrderMenu(true));
-    const items = selectPrice(result, 83_000);
-    expect(items.map((item) => item.testID)).toEqual([
-      'perps-chart-limit-order',
-      'perps-chart-take-profit',
-    ]);
-    mockAssetMid = '84000';
-    rerender();
-    await act(async () => {
-      await items[1].onPress?.(mockCloseMenu);
-    });
-    expect(mockShowTpsl).not.toHaveBeenCalled();
-    expect(Toast.error).toHaveBeenCalledWith({
-      title: ETranslations.order_changed_try_again__msg,
-    });
-  });
-
-  it('explains why an action is no longer valid after mid crosses the selected price', async () => {
-    const { result, rerender } = renderHook(() => usePerpsChartOrderMenu(true));
-    const item = selectPrice(result, 83_000)[1];
-    mockMid = '84000';
-    rerender();
-    await act(async () => {
-      await item.onPress?.(mockCloseMenu);
-    });
-    expect(mockShowTpsl).not.toHaveBeenCalled();
-    expect(Toast.error).toHaveBeenCalledWith({
-      title: ETranslations.order_changed_try_again__msg,
-    });
-  });
+  it.each(['all-mids', 'active-asset'] as const)(
+    'uses %s mid for availability and revalidates it before opening TP/SL',
+    async (source) => {
+      if (source === 'active-asset') {
+        mockMid = undefined;
+        mockAssetMid = '82000';
+      }
+      const { result, rerender } = renderHook(() =>
+        usePerpsChartOrderMenu(true),
+      );
+      const items = selectPrice(result, 83_000);
+      expect(items.map((item) => item.testID)).toEqual([
+        'perps-chart-limit-order',
+        'perps-chart-take-profit',
+      ]);
+      if (source === 'active-asset') mockAssetMid = '84000';
+      else mockMid = '84000';
+      rerender();
+      await act(async () => {
+        await items[1].onPress?.(mockCloseMenu);
+      });
+      expect(mockShowTpsl).not.toHaveBeenCalled();
+      expect(Toast.error).toHaveBeenCalledWith({
+        title: ETranslations.order_changed_try_again__msg,
+      });
+    },
+  );
 });
