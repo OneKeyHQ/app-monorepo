@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 
-import type { IWebCollapsiblePagerRef } from '@onekeyhq/kit/src/components/WebCollapsiblePagerContext';
+import type { IAppPagerRef } from '@onekeyhq/kit/src/components/AppPager/types';
 
 interface IUseSyncedMarketTabOptions {
   onBeforeJumpToTab?: (targetTabName: string) => void;
@@ -13,12 +13,12 @@ interface IUseSyncedMarketTabOptions {
 
 export function useSyncedMarketTab(
   targetTabName: string,
-  tabsRef?: RefObject<IWebCollapsiblePagerRef | null>,
+  tabsRef?: RefObject<IAppPagerRef | null>,
   shouldResync = false,
   options?: IUseSyncedMarketTabOptions,
 ) {
   const { onBeforeJumpToTab, shouldDeferPageSync } = options ?? {};
-  const internalTabsRef = useRef<IWebCollapsiblePagerRef | null>(null);
+  const internalTabsRef = useRef<IAppPagerRef | null>(null);
   const resolvedTabsRef = tabsRef ?? internalTabsRef;
   const [activeTabName, setActiveTabName] = useState(targetTabName);
   const pendingPageSyncRef = useRef(false);

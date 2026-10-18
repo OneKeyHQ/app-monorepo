@@ -19,7 +19,7 @@ import {
 import { Portal } from '@onekeyhq/components/src/hocs';
 import type { IPortalManager } from '@onekeyhq/components/src/hocs/Portal';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { WebPagerContent } from '@onekeyhq/kit/src/components/WebCollapsiblePager';
+import { AppPagerContent } from '@onekeyhq/kit/src/components/AppPager/AppPagerContent';
 import {
   useMarketWatchListV2Atom,
   useWatchListV2Actions,
@@ -449,7 +449,7 @@ function MobileMarketWatchlistFlatListImpl({
     [navigateToPerps, shouldSuppressItemPress, toMarketDetailPage],
   );
 
-  const Content = platformEnv.isNative ? Tabs.ScrollView : WebPagerContent;
+  const Content = platformEnv.isNative ? Tabs.ScrollView : AppPagerContent;
 
   // Wait for data to be loaded
   if (!watchlistState.isMounted) {

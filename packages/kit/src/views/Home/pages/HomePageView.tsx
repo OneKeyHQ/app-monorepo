@@ -30,8 +30,8 @@ import {
 } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/TabBar';
 import { TabBar, TabBarItem } from '@onekeyhq/components/src/composite/TabBar';
-import { useWebPager } from '@onekeyhq/kit/src/components/WebCollapsiblePagerContext';
-import type { IWebCollapsiblePagerRef } from '@onekeyhq/kit/src/components/WebCollapsiblePagerContext';
+import { useAppPager } from '@onekeyhq/kit/src/components/AppPager/context';
+import type { IAppPagerRef } from '@onekeyhq/kit/src/components/AppPager/types';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   WALLET_TYPE_HD,
@@ -109,6 +109,7 @@ import { TabHeaderSettings } from './TabHeaderSettings';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
+import type { IHomeNativePagerProps } from './HomeNativePager';
 import type { LayoutChangeEvent, View } from 'react-native';
 
 const networksSupportBulkRevokeApproval =
@@ -152,7 +153,7 @@ function HomeAlerts() {
 
 function HistoryTabNotificationAlertSlot() {
   const intl = useIntl();
-  const { focusedName: focusedTab } = useWebPager();
+  const { focusedName: focusedTab } = useAppPager();
   const historyTabName = intl.formatMessage({
     id: ETranslations.global_history,
   });
@@ -225,7 +226,7 @@ function FreezeInactiveHomeTab({
   keepActive: boolean;
   children: React.ReactNode;
 }) {
-  const { focusedName: focusedTab } = useWebPager();
+  const { focusedName: focusedTab } = useAppPager();
   const ownerThaw = useHomeTabOwnerThaw(ownerKey);
   const frozen = useHomeTabFreeze(
     keepActive ||
@@ -246,7 +247,7 @@ function HomeTabsScrollToTopBridge({
 }: {
   scrollToTopRef: MutableRefObject<(() => void) | undefined>;
 }) {
-  const { scrollToTop } = useWebPager();
+  const { scrollToTop } = useAppPager();
   useLayoutEffect(() => {
     scrollToTopRef.current = scrollToTop;
     return () => {
@@ -326,7 +327,7 @@ export function HomePageView({
 
   const approvalOwnerKey = buildOverviewOwnerKey(account?.id, network?.id);
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
-  const tabsRef = useRef<IWebCollapsiblePagerRef | null>(null);
+  const tabsRef = useRef<IAppPagerRef | null>(null);
   const homeTabsScrollToTopRef = useRef<(() => void) | undefined>(undefined);
   // Keep the measured native tab bar height outside the tab container
   // so remounts do not briefly reserve the library's default 48pt height.
@@ -934,7 +935,7 @@ export function HomePageView({
   );
 
   const renderTabBar = useCallback(
-    (tabBarProps: any) => {
+    (tabBarProps: Parameters<IHomeNativePagerProps['renderTabBar']>[0]) => {
       // Design: plain-text tabs on small screens only; pill elsewhere.
       const tabBarVariant = isSmallScreen ? 'text' : 'pill';
       const handleTabPress = (name: string) => {
@@ -947,8 +948,7 @@ export function HomePageView({
         setActiveTabName(nextTab?.name ?? name);
         setActiveTabId(nextTab?.id);
         lastDisplayableTabNameRef.current = nextTab?.name ?? name;
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-        tabBarProps.onTabPress?.(name);
+        tabBarProps.onTabPress(name);
       };
 
       if (platformEnv.isNative) {

@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from 'react';
 
-import { WebPagerContent } from '@onekeyhq/kit/src/components/WebCollapsiblePager';
+import { AppPagerContent } from '@onekeyhq/kit/src/components/AppPager/AppPagerContent';
 
 import type { ScrollViewProps } from 'react-native';
 
@@ -10,5 +10,5 @@ export function HomeScrollView({
   children,
   style,
 }: PropsWithChildren<ScrollViewProps>) {
-  return <WebPagerContent style={style}>{children}</WebPagerContent>;
+  return <AppPagerContent style={style}>{children}</AppPagerContent>;
 }

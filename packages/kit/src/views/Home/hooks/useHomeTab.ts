@@ -1,9 +1,9 @@
 import { useState } from 'react';
 
-import { useWebPagerPage } from '@onekeyhq/kit/src/components/WebCollapsiblePagerContext';
+import { useAppPagerPage } from '@onekeyhq/kit/src/components/AppPager/useAppPagerPage';
 
 export function useTabIsRefreshingFocused() {
-  const { isFocused } = useWebPagerPage();
+  const { isFocused } = useAppPagerPage();
   const [isHeaderRefreshing, setIsHeaderRefreshing] = useState(false);
   const [isFooterRefreshing, setIsFooterRefreshing] = useState(false);
   return {

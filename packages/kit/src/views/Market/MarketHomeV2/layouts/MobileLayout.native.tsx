@@ -17,7 +17,6 @@ import {
   CollapsiblePagerView,
   ScrollEdgeEffect,
 } from 'react-native-pager-view';
-import { useSharedValue } from 'react-native-reanimated';
 
 import {
   IconButton,
@@ -29,7 +28,8 @@ import {
 } from '@onekeyhq/components';
 import { TabBar } from '@onekeyhq/components/src/composite/TabBar';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
-import type { IWebCollapsiblePagerRef } from '@onekeyhq/kit/src/components/WebCollapsiblePagerContext';
+import type { IAppPagerRef } from '@onekeyhq/kit/src/components/AppPager/types';
+import { useAppPagerController } from '@onekeyhq/kit/src/components/AppPager/useAppPagerController';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -103,7 +103,7 @@ interface IMobileLayoutProps {
   selectedNetworkId: string;
   liquidityFilter?: ILiquidityFilter;
   onTabChange: (tabId: IMarketHomeTabValue) => void;
-  tabsRef?: RefObject<IWebCollapsiblePagerRef | null>;
+  tabsRef?: RefObject<IAppPagerRef | null>;
   isFocused?: boolean;
   nestedPager?: boolean;
   externalTopOverlayTag?: number;
@@ -399,9 +399,6 @@ function MobileLayoutComponent({
       watchlistTabName,
     ],
   );
-  const initialIndex = useRef(
-    Math.max(0, tabNames.indexOf(selectedTabName)),
-  ).current;
   const pagerRef = useRef<CollapsiblePagerView>(null);
   // Keep successful data when the pager unmounts a distant page.
   const watchlistDataCacheRef = useRef<IMarketWatchlistDataCache | undefined>(
@@ -413,16 +410,42 @@ function MobileLayoutComponent({
   const perpsDataCacheRef = useRef<IMarketPerpsDataCache | undefined>(
     undefined,
   );
-  const internalTabsRef = useRef<IWebCollapsiblePagerRef | null>(null);
+  const internalTabsRef = useRef<IAppPagerRef | null>(null);
   const resolvedTabsRef = tabsRef ?? internalTabsRef;
-  const activeIndexRef = useRef(initialIndex);
-  const activeTabNameRef = useRef(
-    tabNames[initialIndex] ?? selectedTabName ?? tabNames[0] ?? '',
-  );
   const selectedTabNameRef = useRef(selectedTabName);
   selectedTabNameRef.current = selectedTabName;
-  const [activeTabName, setActiveTabName] = useState(activeTabNameRef.current);
-  const focusedTab = useSharedValue(activeTabNameRef.current);
+  const controller = useAppPagerController({
+    pages: [
+      ...(showWatchlistTab
+        ? [{ key: 'watchlist', name: watchlistTabName }]
+        : []),
+      ...spotTabItems.map((item) => ({
+        key: item.categoryId,
+        name: item.tabName,
+      })),
+      ...(showPerpsTab ? [{ key: 'perps', name: perpsTabName }] : []),
+    ],
+    initialTabName: selectedTabName,
+    removedPageFallback: {
+      tabName: selectedTabName,
+      notifySelectionChange: false,
+    },
+    pagerRef,
+    commitOnCommand: true,
+    onSelectionChange: ({ tabName }) => handleTabChange(tabName),
+  });
+  const {
+    initialIndex,
+    selectedIndexRef: activeIndexRef,
+    focusedTab,
+    focusedName: activeTabName,
+    selectIndex: updateActivePage,
+    jumpToTab,
+    getFocusedTab,
+    getCurrentIndex,
+    syncCurrentPage,
+    setIndex: setPagerIndex,
+  } = controller;
   const theme = useTheme();
   const themeName = useThemeName();
   const [scrollEdgeAvailable, setScrollEdgeAvailable] = useState(false);
@@ -624,52 +647,32 @@ function MobileLayoutComponent({
   const lastPagerUserDragEndedAtRef = useRef(0);
   const isPagerUserDraggingRef = useRef(false);
 
-  const updateActivePage = useCallback(
-    (index: number) => {
-      const tabName = tabNames[index];
-      if (!tabName) return;
-      activeIndexRef.current = index;
-      activeTabNameRef.current = tabName;
-      focusedTab.value = tabName;
-      setActiveTabName(tabName);
-    },
-    [focusedTab, tabNames],
-  );
-
-  const setPagerIndex = useCallback(
-    (index: number, animated: boolean) => {
-      if (!tabNames[index]) return;
-      updateActivePage(index);
-      if (animated) {
-        pagerRef.current?.setPage(index);
-      } else {
-        pagerRef.current?.setPageWithoutAnimation(index);
-      }
-    },
-    [tabNames, updateActivePage],
-  );
-
   useImperativeHandle(
     resolvedTabsRef,
     () => ({
-      jumpToTab: (tabName: string) => {
-        const index = tabNames.indexOf(tabName);
-        if (index >= 0) setPagerIndex(index, true);
-      },
+      jumpToTab: (tabName: string) => jumpToTab(tabName, true),
       setIndex: (index: number) => setPagerIndex(index, true),
-      getFocusedTab: () => activeTabNameRef.current,
-      getCurrentIndex: () => activeIndexRef.current,
+      getFocusedTab: getFocusedTab,
+      getCurrentIndex: getCurrentIndex,
       syncCurrentPage: () => {
         const selectedIndex = tabNames.indexOf(selectedTabNameRef.current);
         const targetIndex =
           !isTabSelectionInFlight() && selectedIndex >= 0
             ? selectedIndex
             : activeIndexRef.current;
-        updateActivePage(targetIndex);
-        pagerRef.current?.setPageWithoutAnimation(targetIndex);
+        syncCurrentPage(targetIndex);
       },
     }),
-    [isTabSelectionInFlight, setPagerIndex, tabNames, updateActivePage],
+    [
+      jumpToTab,
+      getFocusedTab,
+      getCurrentIndex,
+      syncCurrentPage,
+      isTabSelectionInFlight,
+      setPagerIndex,
+      tabNames,
+      activeIndexRef,
+    ],
   );
 
   useEffect(() => {
@@ -678,7 +681,7 @@ function MobileLayoutComponent({
     const logResult = (result: 'jumped' | 'tabNotFound') => {
       defaultLogger.market.navigation.marketHomePagerSync({
         selectedTabName,
-        activeTabName: activeTabNameRef.current,
+        activeTabName: getFocusedTab(),
         result,
         tabCount: tabNames.length,
       });
@@ -690,10 +693,12 @@ function MobileLayoutComponent({
     if (targetIndex !== activeIndexRef.current) {
       logResult('jumped');
       setPagerIndex(targetIndex, false);
-    } else if (activeTabNameRef.current !== selectedTabName) {
-      updateActivePage(targetIndex);
+    } else if (getFocusedTab() !== selectedTabName) {
+      updateActivePage(targetIndex, false);
     }
   }, [
+    getFocusedTab,
+    activeIndexRef,
     isFocused,
     isTabSelectionInFlight,
     selectedTabName,
@@ -713,7 +718,7 @@ function MobileLayoutComponent({
         setPagerIndex(index, false);
       }
     },
-    [handleTabChange, setPagerIndex, tabNames],
+    [handleTabChange, setPagerIndex, tabNames, activeIndexRef],
   );
 
   const handleNativeTabPress = useCallback(
@@ -747,9 +752,8 @@ function MobileLayoutComponent({
       const tabName = tabNames[index];
       if (!tabName) return;
       updateActivePage(index);
-      handleTabChange(tabName);
     },
-    [handleTabChange, tabNames, updateActivePage],
+    [tabNames, updateActivePage],
   );
 
   const handlePagerScrollStateChanged = useCallback(
@@ -933,7 +937,7 @@ function MobileLayoutComponent({
           }
         >
           {showWatchlistTab ? (
-            <YStack key={watchlistTabName} flex={1} bg="$bgApp">
+            <YStack key="watchlist" flex={1} bg="$bgApp">
               <MobileMarketNativeWatchlist
                 dataCacheRef={watchlistDataCacheRef}
                 selectedFilter={watchlistFilter}
@@ -978,13 +982,13 @@ function MobileLayoutComponent({
               );
             }
             return (
-              <YStack key={item.tabName} flex={1} bg="$bgApp">
+              <YStack key={item.categoryId} flex={1} bg="$bgApp">
                 {content}
               </YStack>
             );
           })}
           {showPerpsTab ? (
-            <YStack key={perpsTabName} flex={1} bg="$bgApp">
+            <YStack key="perps" flex={1} bg="$bgApp">
               <MobileMarketNativePerpsList
                 dataCacheRef={perpsDataCacheRef}
                 selectedCategoryId={selectedCategoryId}

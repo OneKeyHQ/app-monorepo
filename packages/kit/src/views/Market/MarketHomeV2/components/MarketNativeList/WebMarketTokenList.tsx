@@ -24,7 +24,7 @@ import type { ITableColumn } from '@onekeyhq/components';
 import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
 import { useScrollContentRegistration } from '@onekeyhq/components/src/composite/ScrollContentRegistration';
 import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
-import { useWebPagerPage } from '@onekeyhq/kit/src/components/WebCollapsiblePagerContext';
+import { useAppPagerPage } from '@onekeyhq/kit/src/components/AppPager/useAppPagerPage';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -191,7 +191,7 @@ export function WebMarketTokenList({
   const intl = useIntl();
   const theme = useTheme();
   const themeVariant = useThemeVariant();
-  const { owner: scrollElement, isFocused: isFocusedTab } = useWebPagerPage();
+  const { owner: scrollElement, isFocused: isFocusedTab } = useAppPagerPage();
   const registerContent = useScrollContentRegistration();
   const rootRef = useRef<HTMLElement | null>(null);
   const setRootRef = useCallback((node: unknown) => {

@@ -2,10 +2,13 @@ import * as React from 'react';
 
 import { act, render } from '@testing-library/react-native';
 
-import { WebCollapsiblePager } from './WebCollapsiblePager';
+import { AppPager } from './AppPager';
 
 const mockSetPage = jest.fn();
 const mockSetPageWithoutAnimation = jest.fn();
+let mockScroll: (event: {
+  nativeEvent: { position: number; offset: number };
+}) => void;
 let mockSelected: (event: { nativeEvent: { position: number } }) => void;
 
 jest.mock('react-native', () => ({
@@ -21,14 +24,17 @@ jest.mock('@onekeyhq/components', () => ({ YStack: () => null }));
 jest.mock('react-native-pager-view', () => {
   const react = jest.requireActual<typeof import('react')>('react');
   return {
-    CollapsiblePagerView: ({
+    WebCollapsiblePagerView: ({
       ref,
       onPageSelected,
+      onPageScroll,
     }: {
       ref: React.Ref<unknown>;
       onPageSelected: typeof mockSelected;
+      onPageScroll: typeof mockScroll;
     }) => {
       mockSelected = onPageSelected;
+      mockScroll = onPageScroll;
       react.useImperativeHandle(ref, () => ({
         setPage: mockSetPage,
         setPageWithoutAnimation: mockSetPageWithoutAnimation,
@@ -36,6 +42,7 @@ jest.mock('react-native-pager-view', () => {
       return null;
     },
     NativeScroller: () => null,
+    useWebCollapsiblePagerPage: () => null,
   };
 });
 
@@ -45,7 +52,7 @@ const page = (name: string, value = name) => ({
   children: value,
 });
 
-describe('WebCollapsiblePager selection bridge', () => {
+describe('AppPager selection bridge', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -53,14 +60,14 @@ describe('WebCollapsiblePager selection bridge', () => {
   it('does not drive the SDK back during stable-key business rerenders', () => {
     const onTabChange = jest.fn();
     const screen = render(
-      <WebCollapsiblePager
+      <AppPager
         onTabChange={onTabChange}
         pages={[page('Spot'), page('DeFi')]}
       />,
     );
     act(() => mockSelected({ nativeEvent: { position: 1 } }));
     screen.rerender(
-      <WebCollapsiblePager
+      <AppPager
         onTabChange={(event) => {
           onTabChange(event);
         }}
@@ -79,12 +86,10 @@ describe('WebCollapsiblePager selection bridge', () => {
 
   it('synchronizes the selected business key only when page order changes', () => {
     const screen = render(
-      <WebCollapsiblePager pages={[page('A'), page('B'), page('C')]} />,
+      <AppPager pages={[page('A'), page('B'), page('C')]} />,
     );
     act(() => mockSelected({ nativeEvent: { position: 1 } }));
-    screen.rerender(
-      <WebCollapsiblePager pages={[page('B'), page('A'), page('C')]} />,
-    );
+    screen.rerender(<AppPager pages={[page('B'), page('A'), page('C')]} />);
     expect(mockSetPageWithoutAnimation).toHaveBeenCalledTimes(1);
     expect(mockSetPageWithoutAnimation).toHaveBeenLastCalledWith(0);
   });
@@ -94,12 +99,27 @@ describe('WebCollapsiblePager selection bridge', () => {
       { key: 'a', name: 'Same', children: 'A' },
       { key: 'b', name: 'Same', children: 'B' },
     ];
-    const screen = render(<WebCollapsiblePager pages={pages} />);
+    const screen = render(<AppPager pages={pages} />);
     act(() => mockSelected({ nativeEvent: { position: 1 } }));
-    screen.rerender(<WebCollapsiblePager pages={[pages[1], pages[0]]} />);
+    screen.rerender(<AppPager pages={[pages[1], pages[0]]} />);
     expect(mockSetPageWithoutAnimation).toHaveBeenLastCalledWith(0);
-    screen.rerender(<WebCollapsiblePager pages={[pages[0]]} />);
+    screen.rerender(<AppPager pages={[pages[0]]} />);
     expect(mockSetPageWithoutAnimation).toHaveBeenLastCalledWith(0);
     expect(mockSetPageWithoutAnimation).toHaveBeenCalledTimes(2);
   });
+});
+
+it('exposes SDK progress through the common tabbar interface', () => {
+  let props: import('./AppPager/types').IAppPagerTabBarProps | undefined;
+  render(
+    <AppPager
+      pages={[page('A'), page('B')]}
+      renderTabBar={(value) => {
+        props = value;
+        return null;
+      }}
+    />,
+  );
+  act(() => mockScroll({ nativeEvent: { position: 0, offset: 0.45 } }));
+  expect(props?.indexDecimal?.value).toBe(0.45);
 });

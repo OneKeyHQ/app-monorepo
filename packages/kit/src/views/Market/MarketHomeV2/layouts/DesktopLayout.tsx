@@ -8,17 +8,17 @@ import {
   useState,
 } from 'react';
 
-import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { SizableText, Tooltip, XStack, YStack } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/TabBar';
 import { TabBar, TabBarItem } from '@onekeyhq/components/src/composite/TabBar';
-import { WebCollapsiblePager } from '@onekeyhq/kit/src/components/WebCollapsiblePager';
+import { AppPager } from '@onekeyhq/kit/src/components/AppPager';
 import type {
-  IWebPagerPage,
-  IWebPagerTabBarProps,
-} from '@onekeyhq/kit/src/components/WebCollapsiblePagerContext';
+  IAppPagerPage,
+  IAppPagerTabBarProps,
+} from '@onekeyhq/kit/src/components/AppPager/types';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -145,37 +145,6 @@ export function DesktopLayout({
 
   const { activeTabName, setActiveTabName, tabsRef } =
     useSyncedMarketTab(selectedTabName);
-  useFocusEffect(
-    useCallback(() => {
-      const frameIds: number[] = [];
-      const timeoutIds: ReturnType<typeof setTimeout>[] = [];
-      let restored = false;
-      const scheduleRestore = (delay: number) => {
-        timeoutIds.push(
-          setTimeout(() => {
-            if (restored) return;
-            frameIds.push(
-              requestAnimationFrame(() => {
-                if (tabsRef.current?.restoreScrollPosition?.()) {
-                  restored = true;
-                  timeoutIds.forEach((timeoutId) => clearTimeout(timeoutId));
-                }
-              }),
-            );
-          }, delay),
-        );
-      };
-      scheduleRestore(0);
-      scheduleRestore(100);
-      scheduleRestore(300);
-      scheduleRestore(800);
-      scheduleRestore(1500);
-      return () => {
-        frameIds.forEach((frameId) => cancelAnimationFrame(frameId));
-        timeoutIds.forEach((timeoutId) => clearTimeout(timeoutId));
-      };
-    }, [tabsRef]),
-  );
   const [stockDataCategoryMap, setStockDataCategoryMap] = useState<
     Record<string, boolean>
   >({});
@@ -283,7 +252,7 @@ export function DesktopLayout({
   }, []);
 
   const renderTabBar = useCallback(
-    (tabBarProps: IWebPagerTabBarProps) => {
+    (tabBarProps: IAppPagerTabBarProps) => {
       const handleTabPress = (name: string) => {
         // Update immediately on press so the portal clears before the
         // tab-switch animation completes (onTabChange fires after animation).
@@ -418,7 +387,7 @@ export function DesktopLayout({
     return null;
   }
 
-  const pages: IWebPagerPage[] = [
+  const pages: IAppPagerPage[] = [
     ...(showWatchlistTab
       ? [
           {
@@ -541,7 +510,7 @@ export function DesktopLayout({
   return (
     <DesktopStickyHeaderContext.Provider value={stickyHeaderCtx}>
       <YStack flex={1}>
-        <WebCollapsiblePager
+        <AppPager
           ref={tabsRef}
           renderTabBar={renderTabBar}
           initialTabName={selectedTabName}

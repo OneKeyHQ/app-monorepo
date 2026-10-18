@@ -1,6 +1,4 @@
 import {
-  useCallback,
-  useEffect,
   useImperativeHandle,
   useLayoutEffect,
   useMemo,
@@ -13,9 +11,9 @@ import {
   CollapsiblePagerView,
   ScrollEdgeEffect,
 } from 'react-native-pager-view';
-import { useSharedValue } from 'react-native-reanimated';
 
 import { useTheme, useThemeName } from '@onekeyhq/components';
+import { useAppPagerController } from '@onekeyhq/kit/src/components/AppPager/useAppPagerController';
 
 import { SpotlightScrollStateContext } from '../../../components/Spotlight/SpotlightScrollStateContext';
 import { HomeNativeTabContext } from '../hooks/useHomeTab.native';
@@ -38,15 +36,6 @@ export function HomeNativePager({
   onTabChange,
   onTabPrepare,
 }: IHomeNativePagerProps) {
-  const initialIndex = Math.max(
-    0,
-    tabs.findIndex((tab) => tab.name === initialTabName),
-  );
-  const [selectedId, setSelectedId] = useState(tabs[initialIndex]?.id);
-  const selectedIndex = Math.max(
-    0,
-    tabs.findIndex((tab) => tab.id === selectedId),
-  );
   const [headerLayout, setHeaderLayout] = useState({
     hint: headerHeightHint,
     height: headerHeightHint ?? 182,
@@ -62,8 +51,6 @@ export function HomeNativePager({
   }
   const [stickyHeight, setStickyHeight] = useState(48);
   const pagerRef = useRef<CollapsiblePagerView>(null);
-  const focusedTab = useSharedValue(tabs[initialIndex]?.name ?? '');
-  const indexDecimal = useSharedValue(initialIndex);
   const theme = useTheme();
   const themeName = useThemeName();
   const capabilityCallbackRef = useRef(onTopScrollEdgeCapability);
@@ -89,7 +76,6 @@ export function HomeNativePager({
       capabilityCallbackRef.current?.(false);
     };
   }, []);
-  const selectedIndexRef = useRef(selectedIndex);
   const mountedPageKeysRef = useRef<{
     pageIdentity: string;
     keys: readonly string[];
@@ -102,84 +88,42 @@ export function HomeNativePager({
     startIndex: number;
     preparedIndices: Set<number>;
   } | null>(null);
-  selectedIndexRef.current = selectedIndex;
-
-  const setIndex = useCallback(
-    (index: number) => {
-      debugPerpsChain('pager.command', { index });
-      if (!tabs[index]) return;
-      setSpotlightScrollState(null);
+  const controller = useAppPagerController({
+    pages: tabs.map((tab) => ({ key: tab.id, name: tab.name })),
+    initialTabName,
+    pagerRef,
+    onSelectionChange: ({ tabName }) => onTabChange({ tabName }),
+    onBeforeCommand: (index, animated, reason) => {
+      if (reason !== 'reconcile') setSpotlightScrollState(null);
       dragRef.current = null;
-      if (Math.abs(index - selectedIndexRef.current) > 1) {
-        // Immediate jumps may omit progress events; ignore queued old progress
-        // until the next drag or animated command takes ownership.
-        followsPageScrollRef.current = false;
-        indexDecimal.value = index;
-        pagerRef.current?.setPageWithoutAnimation(index);
-      } else {
-        followsPageScrollRef.current = true;
-        pagerRef.current?.setPage(index);
-      }
+      followsPageScrollRef.current = animated;
+      if (reason === 'command') debugPerpsChain('pager.command', { index });
     },
-    [indexDecimal, tabs],
-  );
-  const jumpToTab = useCallback(
-    (name: string) => {
-      setIndex(tabs.findIndex((tab) => tab.name === name));
-    },
-    [setIndex, tabs],
-  );
-  const syncCurrentPage = useCallback(() => {
-    setSpotlightScrollState(null);
-    dragRef.current = null;
-    followsPageScrollRef.current = false;
-    indexDecimal.value = selectedIndexRef.current;
-    pagerRef.current?.setPageWithoutAnimation(selectedIndexRef.current);
-  }, [indexDecimal]);
+  });
+  const {
+    initialIndex,
+    selectedIndex,
+    selectedIndexRef,
+    focusedTab,
+    indexDecimal,
+    jumpToTab,
+    setIndex,
+    syncCurrentPage,
+    getCurrentIndex,
+    getFocusedTab,
+  } = controller;
   useImperativeHandle(
     ref,
     () => ({
       jumpToTab,
       setIndex,
-      getCurrentIndex: () => selectedIndexRef.current,
-      getFocusedTab: () => tabs[selectedIndexRef.current]?.name ?? '',
+      getCurrentIndex,
+      getFocusedTab,
       syncCurrentPage,
     }),
-    [jumpToTab, setIndex, syncCurrentPage, tabs],
+    [jumpToTab, setIndex, getCurrentIndex, getFocusedTab, syncCurrentPage],
   );
-
-  // Dynamic network capabilities may remove or reorder tabs. Restore the
-  // selected business key instead of leaving native selection at an old index.
   const pageIdentity = JSON.stringify(tabs.map((tab) => tab.id));
-  const tabIdentity = tabs.map((tab) => `${tab.id}:${tab.name}`).join('|');
-  const previousTabIdentity = useRef(tabIdentity);
-  const previousPageIdentity = useRef(pageIdentity);
-  useEffect(() => {
-    if (previousTabIdentity.current === tabIdentity) return;
-    previousTabIdentity.current = tabIdentity;
-    const pagesChanged = previousPageIdentity.current !== pageIdentity;
-    previousPageIdentity.current = pageIdentity;
-    const selectedTab = tabs[selectedIndex];
-    if (selectedTab && selectedTab.id !== selectedId) {
-      setSelectedId(selectedTab.id);
-      onTabChange({ tabName: selectedTab.name });
-    }
-    focusedTab.value = selectedTab?.name ?? '';
-    if (!pagesChanged) return;
-    dragRef.current = null;
-    followsPageScrollRef.current = false;
-    indexDecimal.value = selectedIndex;
-    pagerRef.current?.setPageWithoutAnimation(selectedIndex);
-  }, [
-    tabIdentity,
-    pageIdentity,
-    tabs,
-    selectedId,
-    selectedIndex,
-    focusedTab,
-    indexDecimal,
-    onTabChange,
-  ]);
 
   const pageContexts = useMemo(
     () =>
@@ -330,11 +274,8 @@ export function HomeNativePager({
         });
         const tab = tabs[nativeEvent.position];
         if (!tab) return;
-        selectedIndexRef.current = nativeEvent.position;
         setSpotlightScrollState(null);
-        setSelectedId(tab.id);
-        focusedTab.value = tab.name;
-        onTabChange({ tabName: tab.name });
+        controller.selectIndex(nativeEvent.position);
       }}
     >
       {tabs.map((tab, index) => (

@@ -12,12 +12,12 @@ import type { RefObject } from 'react';
 import { IconButton, XStack, YStack } from '@onekeyhq/components';
 import { TabBar } from '@onekeyhq/components/src/composite/TabBar';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
-import { WebCollapsiblePager } from '@onekeyhq/kit/src/components/WebCollapsiblePager';
+import { AppPager } from '@onekeyhq/kit/src/components/AppPager';
 import type {
-  IWebCollapsiblePagerRef,
-  IWebPagerPage,
-  IWebPagerTabBarProps,
-} from '@onekeyhq/kit/src/components/WebCollapsiblePagerContext';
+  IAppPagerPage,
+  IAppPagerRef,
+  IAppPagerTabBarProps,
+} from '@onekeyhq/kit/src/components/AppPager/types';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -62,7 +62,7 @@ interface IMobileLayoutProps {
   selectedNetworkId: string;
   liquidityFilter?: ILiquidityFilter;
   onTabChange: (tabId: IMarketHomeTabValue) => void;
-  tabsRef?: RefObject<IWebCollapsiblePagerRef | null>;
+  tabsRef?: RefObject<IAppPagerRef | null>;
   isFocused?: boolean;
   nestedPager?: boolean;
 }
@@ -93,7 +93,7 @@ const TabBarDynamicContext = createContext<ITabBarDynamicContext | null>(null);
 const EMPTY_MARKET_STOCK_CATEGORIES: IMarketCategoryItem[] = [];
 const EMPTY_MARKET_TOP_COINS_CATEGORIES: IMarketCategoryItem[] = [];
 
-interface IMarketHomeTabBarProps extends IWebPagerTabBarProps {
+interface IMarketHomeTabBarProps extends IAppPagerTabBarProps {
   watchlistTabName: string;
   perpsTabName: string;
 }
@@ -404,7 +404,7 @@ function MobileLayoutComponent({
 
   // Stable renderTabBar — reads dynamic values from context, not props.
   const renderTabBar = useCallback(
-    (tabBarProps: IWebPagerTabBarProps) => {
+    (tabBarProps: IAppPagerTabBarProps) => {
       const handleTabPress = (name: string) => {
         setActiveTabNameRef.current(name);
         handleTabChangeRef.current(name);
@@ -476,7 +476,7 @@ function MobileLayoutComponent({
     ],
   );
 
-  const pages: IWebPagerPage[] = [
+  const pages: IAppPagerPage[] = [
     ...(showWatchlistTab
       ? [
           {
@@ -546,7 +546,7 @@ function MobileLayoutComponent({
 
   return (
     <TabBarDynamicContext.Provider value={dynamicCtx}>
-      <WebCollapsiblePager
+      <AppPager
         ref={currentTabsRef}
         renderTabBar={renderTabBar}
         initialTabName={selectedTabName}

@@ -14,7 +14,7 @@ import {
 import { LazyPopover } from '@onekeyhq/components/src/actions/LazyPopover';
 import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
 import { useScrollContentRegistration } from '@onekeyhq/components/src/composite/ScrollContentRegistration';
-import { useWebPagerPage } from '@onekeyhq/kit/src/components/WebCollapsiblePagerContext';
+import { useAppPagerPage } from '@onekeyhq/kit/src/components/AppPager/useAppPagerPage';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -49,7 +49,7 @@ function WebCompactEndObserver({
   paddingTop: number;
   onEndReached?: () => boolean | void;
 }) {
-  const { scrollTop, height } = useWebPagerPage();
+  const { scrollTop, height } = useAppPagerPage();
   const previousScrollTop = useRef(scrollTop);
   const attemptedShortPage = useRef<string | undefined>(undefined);
   useEffect(() => {
@@ -119,7 +119,7 @@ export function WebMarketCompactList<T>({
     owner: scrollElement,
     isFocused: isFocusedTab,
     width,
-  } = useWebPagerPage();
+  } = useAppPagerPage();
   const registerContent = useScrollContentRegistration();
   const presentation = useMemo<IMarketNativeListPresentation>(
     () => ({

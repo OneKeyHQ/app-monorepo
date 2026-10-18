@@ -1,9 +1,11 @@
 /** @jest-environment jsdom */
 
+import { createRef } from 'react';
 import type { PropsWithChildren, ReactNode } from 'react';
 
 import { act, render } from '@testing-library/react';
 
+import type { IAppPagerRef } from '@onekeyhq/kit/src/components/AppPager/types';
 import type {
   IMarketHomePreferences,
   IMarketSelectedTabAtom,
@@ -45,6 +47,10 @@ type IMockPagerProps = {
   onNativeSubHeaderPress?: (
     event: CollapsiblePagerViewOnNativeSubHeaderPressEvent,
   ) => void;
+  onPageSelected?: (event: { nativeEvent: { position: number } }) => void;
+  onPageScrollStateChanged?: (event: {
+    nativeEvent: { pageScrollState: 'dragging' | 'idle' };
+  }) => void;
   onNativeTabPress: (event: CollapsiblePagerViewOnNativeTabPressEvent) => void;
 };
 
@@ -61,6 +67,10 @@ let mockListContainerProps: IMockListContainerProps | undefined;
 const mockSetPage = jest.fn();
 const mockSetPageWithoutAnimation = jest.fn();
 const mockHandleTabChange = jest.fn();
+let mockSelectionInFlight = false;
+let mockUseRealTabsLogic = false;
+let mockPerpDisabled = false;
+const mockSetSelectedTab = jest.fn();
 let mockPagerProps: IMockPagerProps | undefined;
 let mockCategorySelectorProps: IMockCategorySelectorProps | undefined;
 let mockSelection: IMarketSelectedTabAtom;
@@ -93,7 +103,7 @@ const mockTabsLogic = {
   getSpotCategoryIdByTabName: (tabName: string) =>
     mockSpotTabItems.find((item) => item.tabName === tabName)?.categoryId,
   selectedTabName: 'Favorites',
-  isTabSelectionInFlight: () => false,
+  isTabSelectionInFlight: () => mockSelectionInFlight,
 };
 const mockTheme = Object.fromEntries(
   ['bgApp', 'bgActive', 'text', 'textSubdued'].map((key) => [
@@ -172,7 +182,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {
-    useMarketSelectedTabAtom: () => [mockSelection],
+    useMarketSelectedTabAtom: () => [mockSelection, mockSetSelectedTab],
     useMarketHomePreferencesAtom: () => [
       React.useSyncExternalStore(
         (listener) => {
@@ -196,7 +206,28 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
   useMarketWatchListV2Atom: () => [{ isMounted: true, data: [] }],
 }));
-jest.mock('./hooks', () => ({ useMarketTabsLogic: () => mockTabsLogic }));
+jest.mock('./hooks', () => ({
+  useMarketTabsLogic: (
+    ...args: Parameters<
+      typeof import('./hooks/useMarketTabsLogic').useMarketTabsLogic
+    >
+  ) =>
+    mockUseRealTabsLogic
+      ? jest
+          .requireActual<typeof import('./hooks/useMarketTabsLogic')>(
+            './hooks/useMarketTabsLogic',
+          )
+          .useMarketTabsLogic(...args)
+      : mockTabsLogic,
+}));
+jest.mock('@onekeyhq/kit/src/hooks/usePerpTabConfig', () => ({
+  usePerpTabConfig: () => ({ perpDisabled: mockPerpDisabled }),
+}));
+jest.mock('@onekeyhq/shared/src/travelMode', () => ({
+  travelModeManager: {
+    getRuntimeEnvironmentSync: () => ({ profile: { kind: 'normal' } }),
+  },
+}));
 jest.mock('../components/MarketBanner/MarketBannerList', () => ({
   MarketBannerList: () => null,
   useMarketBannerState: () => ({
@@ -332,6 +363,9 @@ beforeEach(() => {
   mockCategorySelectorProps = undefined;
   mockSelection = { tab: 'trending' };
   mockPreferences = {};
+  mockSelectionInFlight = false;
+  mockUseRealTabsLogic = false;
+  mockPerpDisabled = false;
   mockTabsLogic.selectedTabName = 'Favorites';
   mockHandleTabChange.mockImplementation((tabName: string) => {
     mockTabsLogic.selectedTabName = tabName;
@@ -347,6 +381,68 @@ function pressNativeTab(key: string) {
 }
 
 describe('native market home tab presses', () => {
+  it('commits a press immediately and ignores stale non-drag selection callbacks', () => {
+    const tabsRef = createRef<IAppPagerRef>();
+    render(
+      <MobileLayout
+        filterBarProps={filterBarProps}
+        selectedNetworkId="evm--1"
+        onTabChange={jest.fn()}
+        tabsRef={tabsRef}
+      />,
+    );
+    pressNativeTab('Perps');
+    expect(tabsRef.current?.getFocusedTab()).toBe('Perps');
+    act(() =>
+      mockPagerProps?.onPageSelected?.({ nativeEvent: { position: 0 } }),
+    );
+    expect(tabsRef.current?.getFocusedTab()).toBe('Perps');
+    expect(mockHandleTabChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the local command during an in-flight stale atom sync', () => {
+    const tabsRef = createRef<IAppPagerRef>();
+    render(
+      <MobileLayout
+        filterBarProps={filterBarProps}
+        selectedNetworkId="evm--1"
+        onTabChange={jest.fn()}
+        tabsRef={tabsRef}
+      />,
+    );
+    mockSelectionInFlight = true;
+    mockHandleTabChange.mockImplementation(() => {});
+    pressNativeTab('Perps');
+    act(() => tabsRef.current?.syncCurrentPage());
+    expect(tabsRef.current?.getCurrentIndex()).toBe(4);
+    expect(mockSetPageWithoutAnimation).toHaveBeenLastCalledWith(4);
+    expect(mockHandleTabChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('accepts a real dragging selection and notifies the domain once', () => {
+    const tabsRef = createRef<IAppPagerRef>();
+    render(
+      <MobileLayout
+        filterBarProps={filterBarProps}
+        selectedNetworkId="evm--1"
+        onTabChange={jest.fn()}
+        tabsRef={tabsRef}
+      />,
+    );
+    act(() => {
+      mockPagerProps?.onPageScrollStateChanged?.({
+        nativeEvent: { pageScrollState: 'dragging' },
+      });
+      mockPagerProps?.onPageSelected?.({ nativeEvent: { position: 1 } });
+      mockPagerProps?.onPageScrollStateChanged?.({
+        nativeEvent: { pageScrollState: 'idle' },
+      });
+    });
+    expect(tabsRef.current?.getCurrentIndex()).toBe(1);
+    expect(mockHandleTabChange).toHaveBeenCalledTimes(1);
+    expect(mockHandleTabChange).toHaveBeenCalledWith('Trending');
+  });
+
   it('jumps straight to a distant tab instead of scrolling through pages', () => {
     renderLayout();
 
@@ -703,3 +799,50 @@ describe.each([false, true])(
     });
   },
 );
+
+describe('native market domain fallback with the real business hook', () => {
+  it.each(['category removal', 'disabled perps'])(
+    'silently selects the first Spot after %s',
+    (kind) => {
+      mockUseRealTabsLogic = true;
+      mockSelection =
+        kind === 'category removal'
+          ? { tab: 'trending', selectedSpotCategory: 'stocks' }
+          : { tab: 'perps', selectedSpotCategory: 'trending' };
+      const tabsRef = createRef<IAppPagerRef>();
+      const onTabChange = jest.fn();
+      const categories = [
+        { id: 'trending', name: 'Trending' },
+        { id: 'stocks', name: 'Stocks' },
+      ];
+      const view = render(
+        <MobileLayout
+          tabsRef={tabsRef}
+          filterBarProps={{ ...filterBarProps, categories }}
+          selectedNetworkId="evm--1"
+          onTabChange={onTabChange}
+        />,
+      );
+      mockSetPageWithoutAnimation.mockClear();
+      mockSetSelectedTab.mockClear();
+      mockPerpDisabled = kind === 'disabled perps';
+      view.rerender(
+        <MobileLayout
+          tabsRef={tabsRef}
+          filterBarProps={{
+            ...filterBarProps,
+            categories:
+              kind === 'category removal' ? categories.slice(0, 1) : categories,
+          }}
+          selectedNetworkId="evm--1"
+          onTabChange={onTabChange}
+        />,
+      );
+      expect(tabsRef.current?.getFocusedTab()).toBe('Trending');
+      expect(tabsRef.current?.getCurrentIndex()).toBe(1);
+      expect(mockSetPageWithoutAnimation).toHaveBeenCalledWith(1);
+      expect(mockSetSelectedTab).not.toHaveBeenCalled();
+      expect(onTabChange).not.toHaveBeenCalled();
+    },
+  );
+});
