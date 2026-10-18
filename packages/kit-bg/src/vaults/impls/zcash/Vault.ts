@@ -3,11 +3,10 @@
 import { validateZcashTransparentAddress } from '@onekeyhq/core/src/chains/zcash/sdkZcash';
 import { ZCASH_NETWORK_MAIN } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 import { fetchZcashChainTipDirect } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
-import { LOCK_FOR_BLOCKS } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/policy';
 import type {
   IZcashBalance,
+  IZcashCreatedPczt,
   IZcashParsedTransparentTransaction,
-  IZcashPcztReservation,
   IZcashSpendSource,
   IZcashSyncProgress,
   IZcashTransparentOutpoint,
@@ -301,58 +300,14 @@ export default class Vault extends VaultBtc {
     );
   }
 
-  async zcashReleaseStaleSendState(
-    accountId: string,
-    excludeShieldedReservationId?: string,
-  ) {
-    return zcashSend.zcashReleaseStaleSendState(
-      this,
-      accountId,
-      excludeShieldedReservationId,
-    );
-  }
-
-  async zcashAssertNoUnresolvedBroadcast(
-    accountId: string,
-    excludeShieldedReservationId?: string,
-  ) {
-    return zcashSend.zcashAssertNoUnresolvedBroadcast(
-      this,
-      accountId,
-      excludeShieldedReservationId,
-    );
-  }
-
   async zcashCreatePczt(params: {
     accountId: string;
     toAddress: string;
     valueZat: string;
     spendSource: IZcashSpendSource;
     memoHex?: string;
-    reservationId?: string;
-  }): Promise<IZcashPcztReservation> {
+  }): Promise<IZcashCreatedPczt> {
     return zcashSend.zcashCreatePczt(this, params);
-  }
-
-  async zcashReleasePczt(params: {
-    accountId: string;
-    reservationId: string;
-  }): Promise<void> {
-    const account = await this.zcashGetWalletAccount({
-      accountId: params.accountId,
-    });
-    const api = await this.zcashGetApi();
-    await api.releasePczt(account, { reservationId: params.reservationId });
-  }
-
-  async zcashGetShieldedReservationExpiryHeight(): Promise<number> {
-    const chainTip = await this.getLocalWalletChainTip();
-    if (chainTip === null) {
-      throw new OneKeyLocalError(
-        'zcash: chain tip is unavailable for input reservation',
-      );
-    }
-    return chainTip + LOCK_FOR_BLOCKS;
   }
 
   async zcashProvePczt(params: {
@@ -392,10 +347,6 @@ export default class Vault extends VaultBtc {
 
   async resumePendingPrivacyOperations(): Promise<void> {
     return zcashLifecycle.resumePendingPrivacyOperations(this);
-  }
-
-  async zcashReleaseReservationsFromEarlierRuns(): Promise<void> {
-    return zcashLifecycle.zcashReleaseReservationsFromEarlierRuns(this);
   }
 
   async gcPrivacyWalletState(params: {
@@ -807,17 +758,8 @@ export default class Vault extends VaultBtc {
     return zcashSend.zcashAttachPczt(this, encodedTx);
   }
 
-  async zcashAssertPcztReservationLive(params: {
-    accountId: string;
-    reservationId: string;
-    encodedTx: IEncodedTxZcash;
-  }): Promise<void> {
-    return zcashSend.zcashAssertPcztReservationLive(this, params);
-  }
-
   async zcashPreparePcztForSigning(params: {
     accountId: string;
-    reservationId: string;
     pcztHex: string;
     encodedTx: IEncodedTxZcash;
   }): Promise<{ pcztHex: string }> {
@@ -832,33 +774,11 @@ export default class Vault extends VaultBtc {
     return zcashSend.zcashCombineSignedPczt(this, params);
   }
 
-  async zcashCommitSignedPczt(params: {
-    accountId: string;
-    reservationId: string;
-  }): Promise<void> {
-    await this.backgroundApi.simpleDb.zcash.markShieldedReservationSigned(
-      params,
-    );
-  }
-
   async zcashParseTransparentOutputs(result: {
     txid: string;
     rawTx: string;
   }): Promise<{ valueZat: string; scriptPubKey: string }[]> {
     return zcashSend.zcashParseTransparentOutputs(this, result);
-  }
-
-  override async releaseUnsignedTx(params: {
-    unsignedTx: IUnsignedTxPro;
-  }): Promise<void> {
-    return zcashSend.releaseUnsignedTx(this, params);
-  }
-
-  async zcashAbandonPczt(params: {
-    accountId: string;
-    reservationId: string;
-  }): Promise<void> {
-    return zcashSend.zcashAbandonPczt(this, params);
   }
 
   override async updateUnsignedTx(

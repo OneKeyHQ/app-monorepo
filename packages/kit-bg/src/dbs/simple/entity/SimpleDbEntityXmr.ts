@@ -1,9 +1,7 @@
 import { z } from 'zod';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { localWalletText } from '../../../vaults/localWallet/messages';
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 /**
@@ -45,13 +43,6 @@ export type IXmrSentAmount = {
 };
 
 export interface IXmrDB {
-  transactionReviews?: Record<
-    string,
-    Record<
-      string,
-      { digest: string; state: 'unsigned' | 'signed' | 'abandoned' }
-    >
-  >;
   /** Keyed by accountId. */
   accounts?: Record<string, IXmrAccountScanState>;
   /** accountId -> txid -> recipient address. */
@@ -66,18 +57,6 @@ const xmrStoredDataSchema = z
   .object({
     accounts: z
       .record(z.object({ intent: z.enum(['on', 'off']) }).passthrough())
-      .optional(),
-    transactionReviews: z
-      .record(
-        z.record(
-          z
-            .object({
-              digest: z.string().min(1),
-              state: z.enum(['unsigned', 'signed', 'abandoned']),
-            })
-            .passthrough(),
-        ),
-      )
       .optional(),
     sentRecipients: z.record(z.record(z.string())).optional(),
     sentAmounts: z
@@ -114,126 +93,6 @@ export class SimpleDbEntityXmr extends SimpleDbEntityBase<IXmrDB> {
     if (!xmrStoredDataSchema.safeParse(data).success) {
       throw new OneKeyLocalError('simpledb: invalid persisted data (xmr)');
     }
-  }
-
-  async saveTransactionReview(params: {
-    accountId: string;
-    reservationId: string;
-    digest: string;
-  }): Promise<void> {
-    await this.setRawData((raw) => ({
-      ...raw,
-      transactionReviews: {
-        ...raw?.transactionReviews,
-        [params.accountId]: {
-          ...Object.fromEntries(
-            Object.entries(
-              raw?.transactionReviews?.[params.accountId] ?? {},
-            ).filter(
-              ([, review]) =>
-                review.state === 'signed' || review.state === 'abandoned',
-            ),
-          ),
-          [params.reservationId]: { digest: params.digest, state: 'unsigned' },
-        },
-      },
-    }));
-  }
-
-  // Claim atomically before exposing a spend key; a second signer must fail.
-  async assertTransactionReview(params: {
-    accountId: string;
-    reservationId: string;
-    digest: string;
-  }): Promise<void> {
-    const raw = await this.getRawData();
-    const review =
-      raw?.transactionReviews?.[params.accountId]?.[params.reservationId];
-    if (
-      !review ||
-      review.state !== 'unsigned' ||
-      review.digest !== params.digest
-    ) {
-      throw new OneKeyLocalError(
-        localWalletText(ETranslations.privacy_error_review_expired__msg),
-      );
-    }
-  }
-
-  // The builder and its persisted write share the background entity mutex.
-  async claimTransactionReview(params: {
-    accountId: string;
-    reservationId: string;
-    digest: string;
-  }): Promise<void> {
-    const saved = await this.setRawData((raw) => {
-      const reviews = raw?.transactionReviews?.[params.accountId];
-      const review = reviews?.[params.reservationId];
-      if (
-        !review ||
-        review.state !== 'unsigned' ||
-        review.digest !== params.digest
-      ) {
-        throw new OneKeyLocalError(
-          localWalletText(ETranslations.privacy_error_review_expired__msg),
-        );
-      }
-      return {
-        ...raw,
-        transactionReviews: {
-          ...raw?.transactionReviews,
-          [params.accountId]: {
-            ...reviews,
-            [params.reservationId]: { ...review, state: 'signed' },
-          },
-        },
-      };
-    });
-    if (!saved) {
-      throw new OneKeyLocalError(
-        'xmr: transaction review could not be claimed',
-      );
-    }
-  }
-
-  async removeTransactionReview(params: {
-    accountId: string;
-    reservationId: string;
-  }): Promise<void> {
-    await this.setRawData((raw) => {
-      const reviews = { ...raw?.transactionReviews?.[params.accountId] };
-      delete reviews[params.reservationId];
-      return {
-        ...raw,
-        transactionReviews: {
-          ...raw?.transactionReviews,
-          [params.accountId]: reviews,
-        },
-      };
-    });
-  }
-
-  // Cancellation and signing compete for the same persisted approval.
-  async abandonUnsignedTransactionReview(params: {
-    accountId: string;
-    reservationId: string;
-  }): Promise<boolean> {
-    let abandoned = false;
-    const saved = await this.setRawData((raw) => {
-      const reviews = { ...raw?.transactionReviews?.[params.accountId] };
-      const review = reviews[params.reservationId];
-      if (!review || review.state === 'signed') return { ...raw };
-      reviews[params.reservationId] = { ...review, state: 'abandoned' };
-      abandoned = true;
-      return {
-        ...raw,
-        transactionReviews: {
-          ...raw?.transactionReviews,
-          [params.accountId]: reviews,
-        },
-      };
-    });
-    return !!saved && abandoned;
   }
 
   async getAccountState(params: {
@@ -383,20 +242,17 @@ export class SimpleDbEntityXmr extends SimpleDbEntityBase<IXmrDB> {
           birthdayTimestamp: previous.birthdayTimestamp,
         };
       }
-      // Drops recorded recipients and reviews too, or they'd outlive the
-      // account the user asked to delete.
+      // Drops recorded recipients too, or they'd outlive the account the user
+      // asked to delete.
       const sentRecipients = { ...raw?.sentRecipients };
       delete sentRecipients[params.accountId];
       const sentAmounts = { ...raw?.sentAmounts };
       delete sentAmounts[params.accountId];
-      const transactionReviews = { ...raw?.transactionReviews };
-      delete transactionReviews[params.accountId];
       return {
         ...raw,
         accounts,
         sentRecipients,
         sentAmounts,
-        transactionReviews,
       };
     });
   }

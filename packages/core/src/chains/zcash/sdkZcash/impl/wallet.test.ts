@@ -184,7 +184,7 @@ describe('rebroadcastUnmined', () => {
     });
     const rt = {
       listAccounts: () => JSON.stringify(['account-a', 'account-b']),
-      broadcastRetryTxids: (accountUuid: string) =>
+      pendingBroadcastTxids: (accountUuid: string) =>
         JSON.stringify(
           accountUuid === 'account-a'
             ? ['tx-accepted']
@@ -209,7 +209,7 @@ describe('rebroadcastUnmined', () => {
     });
     const rt = {
       listAccounts: () => JSON.stringify(['account-a']),
-      broadcastRetryTxids: () => JSON.stringify(['tx-network-unknown']),
+      pendingBroadcastTxids: () => JSON.stringify(['tx-network-unknown']),
       broadcastTransaction,
     } as unknown as Parameters<typeof rebroadcastUnmined>[0];
 
@@ -224,7 +224,7 @@ describe('rebroadcastUnmined', () => {
     const broadcastTransaction = jest.fn(async () => {});
     const rt = {
       listAccounts: () => JSON.stringify(['account-a']),
-      broadcastRetryTxids: () => JSON.stringify([]),
+      pendingBroadcastTxids: () => JSON.stringify([]),
       transactionHistory: () =>
         JSON.stringify([{ txid: 'unowned-intent', minedHeight: null }]),
       broadcastTransaction,
@@ -320,24 +320,6 @@ describe('purgeWallet', () => {
     await expect(purgeWallet(account)).resolves.toBeUndefined();
 
     expect(removeAccount).toHaveBeenCalledWith('uuid-1');
-  });
-
-  // A deleted app account is removed without the idle check that would refuse
-  // it while a transaction is in flight.
-  it('removes a deleted account without waiting on its transactions', async () => {
-    const removeAccount = jest.fn(async () => undefined);
-    const removeDeletedAccount = jest.fn(async () => undefined);
-    const rt = {
-      listAccounts: () => JSON.stringify(['someone-else']),
-      removeAccount,
-      removeDeletedAccount,
-    } as unknown as Awaited<ReturnType<typeof withWallet>>['rt'];
-    jest.mocked(withWallet).mockResolvedValue({ rt, accountUuid: 'uuid-1' });
-
-    await purgeWallet(account, { accountDeleted: true });
-
-    expect(removeDeletedAccount).toHaveBeenCalledWith('uuid-1');
-    expect(removeAccount).not.toHaveBeenCalled();
   });
 
   it('propagates failures that are not a missing registration', async () => {

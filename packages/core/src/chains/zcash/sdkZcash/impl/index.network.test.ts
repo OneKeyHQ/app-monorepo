@@ -6,7 +6,6 @@ import {
   getEndpointHealth,
   getRuntime,
   noteNetworkOutcome,
-  pickLightwalletdUrl,
   recordEndpointHealth,
   withWallet,
   withWalletLease,
@@ -20,13 +19,6 @@ jest.mock('./carrier', () => ({
   withWallet: jest.fn(),
 }));
 jest.mock('./runtimeSelfTest', () => ({ runRuntimeSelfTest: jest.fn() }));
-jest.mock('../constants', () => ({
-  ...jest.requireActual<typeof import('../constants')>('../constants'),
-  ZCASH_LIGHTWALLETD_MAINNET_FALLBACKS: [
-    'https://public-a.example.invalid',
-    'https://public-b.example.invalid',
-  ],
-}));
 
 const account: IZcashWalletAccount = {
   network: 'main',
@@ -44,73 +36,45 @@ function networkError() {
   });
 }
 
+function mockWallet(rt: Record<string, unknown>) {
+  jest
+    .mocked(withWallet)
+    .mockResolvedValue({ rt, accountUuid: 'uuid' } as unknown as Awaited<
+      ReturnType<typeof withWallet>
+    >);
+}
+
 describe('Zcash endpoint outcomes through the leased API', () => {
   beforeEach(() => {
-    pickLightwalletdUrl('https://reset.example.invalid');
-    pickLightwalletdUrl(account.lightwalletdUrl);
+    recordEndpointHealth({ ok: true, latencyMs: null });
   });
 
-  it('keeps custom nodes pinned through network and repeated runtime failures', () => {
-    const customUrl = 'https://private.example.invalid';
+  it('stays on one endpoint through repeated network and runtime failures', () => {
+    const { url } = getEndpointHealth() ?? {};
     const malformedBlock = Object.assign(new OneKeyLocalError('bad block'), {
       code: 'INVALID_DATA',
       params: { operation: 'syncStep' },
     });
     for (const failure of [networkError(), malformedBlock]) {
       for (let retry = 0; retry < 6; retry += 1) {
-        expect(pickLightwalletdUrl(customUrl)).toBe(customUrl);
         noteNetworkOutcome(failure);
+        expect(getEndpointHealth()).toMatchObject({ url, ok: false });
       }
     }
-    expect(pickLightwalletdUrl(customUrl)).toBe(customUrl);
-    expect(getEndpointHealth()?.url).toBe(customUrl);
+    noteNetworkOutcome(null);
+    expect(getEndpointHealth()).toMatchObject({ url, ok: true });
   });
 
-  it('reports the selected public endpoint and resets failover when configuration changes', () => {
-    recordEndpointHealth({ ok: true, latencyMs: 42 });
-    noteNetworkOutcome(networkError());
-    noteNetworkOutcome(networkError());
-    // The failure belongs to the endpoint that handled the request.
-    expect(getEndpointHealth()?.url).toBe(account.lightwalletdUrl);
-    expect(pickLightwalletdUrl(account.lightwalletdUrl)).toBe(
-      'https://public-b.example.invalid',
-    );
-    recordEndpointHealth({ ok: true });
-    expect(getEndpointHealth()).toMatchObject({
-      url: 'https://public-b.example.invalid',
-      latencyMs: null,
-    });
-    noteNetworkOutcome(networkError());
-    const customUrl = 'https://private.example.invalid';
-    expect(pickLightwalletdUrl(customUrl)).toBe(customUrl);
-    expect(pickLightwalletdUrl(account.lightwalletdUrl)).toBe(
-      account.lightwalletdUrl,
-    );
-    noteNetworkOutcome(networkError());
-    expect(pickLightwalletdUrl(account.lightwalletdUrl)).toBe(
-      account.lightwalletdUrl,
-    );
-  });
-
-  it('does not carry latency from the previous endpoint into a new sample', () => {
-    pickLightwalletdUrl('https://previous.example.invalid');
+  it('carries the last latency forward for samples from the same endpoint', () => {
     recordEndpointHealth({ ok: true, latencyMs: 42 });
     recordEndpointHealth({ ok: true });
     expect(getEndpointHealth()?.latencyMs).toBe(42);
-
-    pickLightwalletdUrl(account.lightwalletdUrl);
-    recordEndpointHealth({ ok: true });
-    expect(getEndpointHealth()).toMatchObject({
-      url: account.lightwalletdUrl,
-      ok: true,
-      latencyMs: null,
-    });
   });
 
-  it('does not let an unleased tip probe overwrite an in-flight scan endpoint', async () => {
+  it('probes the tip on the requested endpoint without touching scan health', async () => {
     const api = await sdk.getZcashApi();
-    pickLightwalletdUrl(account.lightwalletdUrl);
     noteNetworkOutcome(networkError());
+    const before = getEndpointHealth();
     const rt = { chainTipAt: jest.fn().mockResolvedValue(123) };
     jest
       .mocked(getRuntime)
@@ -127,50 +91,14 @@ describe('Zcash endpoint outcomes through the leased API', () => {
     expect(rt.chainTipAt).toHaveBeenCalledWith(
       'https://private.example.invalid',
     );
-
-    noteNetworkOutcome(networkError());
-    expect(getEndpointHealth()?.url).toBe(account.lightwalletdUrl);
-    expect(pickLightwalletdUrl(account.lightwalletdUrl)).toBe(
-      'https://public-b.example.invalid',
-    );
+    expect(getEndpointHealth()).toEqual(before);
   });
 
-  it('rotates after two failed scans separated by local preparation and successful tip reads', async () => {
+  it('marks the endpoint unhealthy when a pending rebroadcast cannot reach it', async () => {
     const api = await sdk.getZcashApi();
-    const startUrl = pickLightwalletdUrl(account.lightwalletdUrl);
-    const rt = {
-      listAccounts: () => JSON.stringify(['uuid']),
-      accountBalance: () =>
-        JSON.stringify({ chainTip: 10, fullyScannedHeight: 9 }),
-      syncPeek: () => JSON.stringify({ totalBlocks: 1 }),
-      chainTip: jest.fn().mockResolvedValue(11),
-      syncPrepare: jest.fn().mockResolvedValue(undefined),
-      syncTip: jest.fn().mockResolvedValue(undefined),
-      syncStep: jest.fn().mockRejectedValue(networkError()),
-    };
-    jest
-      .mocked(withWallet)
-      .mockResolvedValue({ rt, accountUuid: 'uuid' } as unknown as Awaited<
-        ReturnType<typeof withWallet>
-      >);
-
-    await expect(
-      api.syncWallet(account, { activeUfvks: [account.ufvk] }),
-    ).rejects.toMatchObject({ code: 'NETWORK_ERROR' });
-    await api.prepareWalletAccounts([account]);
-    expect(pickLightwalletdUrl(account.lightwalletdUrl)).toBe(startUrl);
-    await expect(
-      api.syncWallet(account, { activeUfvks: [account.ufvk] }),
-    ).rejects.toMatchObject({ code: 'NETWORK_ERROR' });
-    expect(rt.chainTip).toHaveBeenCalledTimes(2);
-    expect(pickLightwalletdUrl(account.lightwalletdUrl)).not.toBe(startUrl);
-  });
-
-  it('counts caught rebroadcast errors once per pass, despite earlier network success', async () => {
-    const api = await sdk.getZcashApi();
-    const startUrl = pickLightwalletdUrl(account.lightwalletdUrl);
     let tip = 10;
-    const rt = {
+    const broadcastTransaction = jest.fn().mockRejectedValue(networkError());
+    mockWallet({
       listAccounts: () => JSON.stringify(['uuid']),
       accountByUfvk: () => JSON.stringify({ uuid: 'uuid' }),
       accountBalance: () =>
@@ -187,98 +115,39 @@ describe('Zcash endpoint outcomes through the leased API', () => {
       syncStep: jest.fn(async () =>
         JSON.stringify({ blocksScanned: 0, done: true }),
       ),
-      broadcastRetryTxids: () => JSON.stringify(['pending']),
-      broadcastTransaction: jest.fn().mockRejectedValue(networkError()),
-    };
-    jest
-      .mocked(withWallet)
-      .mockResolvedValue({ rt, accountUuid: 'uuid' } as unknown as Awaited<
-        ReturnType<typeof withWallet>
-      >);
+      pendingBroadcastTxids: () => JSON.stringify(['pending']),
+      broadcastTransaction,
+    });
 
     await expect(
       api.syncWallet(account, { activeUfvks: [account.ufvk] }),
     ).resolves.toMatchObject({ stateChanged: true });
-    expect(pickLightwalletdUrl(account.lightwalletdUrl)).toBe(startUrl);
-    await api.prepareWalletAccounts([account]);
-    await expect(
-      api.syncWallet(account, { activeUfvks: [account.ufvk] }),
-    ).resolves.toMatchObject({ stateChanged: true });
-    expect(pickLightwalletdUrl(account.lightwalletdUrl)).not.toBe(startUrl);
+    expect(broadcastTransaction).toHaveBeenCalledWith('pending');
+    expect(getEndpointHealth()?.ok).toBe(false);
   });
 
-  it('counts caught broadcast transport errors instead of treating unknown outcomes as success', async () => {
+  it('treats an unknown submit outcome as an endpoint failure, not success', async () => {
     const api = await sdk.getZcashApi();
-    const startUrl = pickLightwalletdUrl(account.lightwalletdUrl);
-    const rt = {
-      pcztSubmit: jest.fn(async () =>
-        JSON.stringify({
-          txid: 'pending',
-          broadcast: 'unknown',
-          error: { code: 'NETWORK_ERROR', params: {}, detail: null },
-        }),
-      ),
-    };
-    jest
-      .mocked(withWallet)
-      .mockResolvedValue({ rt, accountUuid: 'uuid' } as unknown as Awaited<
-        ReturnType<typeof withWallet>
-      >);
-    const submit = () =>
-      api.submitPczt(account, { pcztHex: '00', reservationId: 'r' });
-    await expect(submit()).resolves.toMatchObject({
-      broadcastState: 'unknown',
-    });
-    await api.prepareWalletAccounts([account]);
-    expect(pickLightwalletdUrl(account.lightwalletdUrl)).toBe(startUrl);
-    await expect(submit()).resolves.toMatchObject({
-      broadcastState: 'unknown',
-    });
-    expect(pickLightwalletdUrl(account.lightwalletdUrl)).not.toBe(startUrl);
-  });
-
-  it('resets the failure streak after a successful scan operation', async () => {
-    const api = await sdk.getZcashApi();
-    const startUrl = pickLightwalletdUrl(account.lightwalletdUrl);
-    let tip = 10;
-    const rt = {
-      listAccounts: () => JSON.stringify(['uuid']),
-      accountByUfvk: () => JSON.stringify({ uuid: 'uuid' }),
-      accountBalance: () =>
-        JSON.stringify({ chainTip: tip, fullyScannedHeight: tip }),
-      accountSyncStatus: () => JSON.stringify({ isComplete: true }),
-      syncPeek: () => JSON.stringify({ totalBlocks: 1 }),
-      chainTip: jest.fn(async () => tip + 1),
-      syncTip: jest.fn(async () => {
-        tip += 1;
+    const pcztSubmit = jest.fn(async () =>
+      JSON.stringify({
+        txid: 'pending',
+        broadcast: 'unknown',
+        error: { code: 'NETWORK_ERROR', params: {}, detail: null },
       }),
-      syncPrepare: jest.fn(async () => {
-        tip += 1;
-      }),
-      syncStep: jest.fn().mockRejectedValue(networkError()),
-      broadcastRetryTxids: () => JSON.stringify([]),
-      pcztSubmit: jest.fn(async () =>
-        JSON.stringify({ txid: 'pending', broadcast: 'accepted' }),
-      ),
-    };
-    jest
-      .mocked(withWallet)
-      .mockResolvedValue({ rt, accountUuid: 'uuid' } as unknown as Awaited<
-        ReturnType<typeof withWallet>
-      >);
-    await expect(
-      api.syncWallet(account, { activeUfvks: [account.ufvk] }),
-    ).rejects.toMatchObject({ code: 'NETWORK_ERROR' });
-    rt.syncStep.mockResolvedValue(
-      JSON.stringify({ blocksScanned: 0, done: true }),
     );
-    await api.syncWallet(account, { activeUfvks: [account.ufvk] });
-    rt.syncStep.mockRejectedValue(networkError());
+    mockWallet({ pcztSubmit });
+
     await expect(
-      api.syncWallet(account, { activeUfvks: [account.ufvk] }),
-    ).rejects.toMatchObject({ code: 'NETWORK_ERROR' });
-    expect(pickLightwalletdUrl(account.lightwalletdUrl)).toBe(startUrl);
-    await api.submitPczt(account, { pcztHex: '00', reservationId: 'r' });
+      api.submitPczt(account, { pcztHex: '00' }),
+    ).resolves.toMatchObject({ broadcastState: 'unknown' });
+    expect(pcztSubmit).toHaveBeenCalledWith('uuid', Uint8Array.from([0]));
+    expect(getEndpointHealth()?.ok).toBe(false);
+
+    pcztSubmit.mockResolvedValueOnce(
+      JSON.stringify({ txid: 'pending', broadcast: 'accepted' }),
+    );
+    await api.submitPczt(account, { pcztHex: '00' });
+    expect(getEndpointHealth()?.ok).toBe(true);
   });
 });
 

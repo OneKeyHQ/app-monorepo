@@ -14,7 +14,6 @@ function transaction() {
     priority: 'normal',
     isMaxSend: true,
     chainTip: 3_767_827,
-    reservationId: 'review',
     signableHex: 'aabb',
     inputCount: 2,
   };

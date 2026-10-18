@@ -21,11 +21,10 @@ export type IEncodedTxZcash = IEncodedTxBtc & {
   // Unset for the shield sweep, which builds as a transparent transaction
   // through the stateless keys runtime.
   zcashSpendSource?: IZcashSpendSource;
-  // Unsigned PCZT built at buildUnsignedTx (inputs locked, fee exact). Every
-  // keyring -- software or hardware -- signs this same object.
+  // Unsigned PCZT built at buildUnsignedTx (fee exact; notes are not locked).
+  // Every keyring -- software or hardware -- signs this same object.
   pcztHex?: string;
   signedPcztHex?: string; // filled by the keyring after prove+sign
-  pcztReservationId?: string; // input-lock owner, carried until broadcast
   zcashTransparentPlan?: {
     ownerId: string;
     accountIndex: number;

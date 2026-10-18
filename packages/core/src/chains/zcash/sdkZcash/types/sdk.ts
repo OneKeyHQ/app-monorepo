@@ -163,13 +163,10 @@ export type IZcashTransparentHardwareFinalizeParams = {
   signedPcztHex: string;
 };
 
-export type IZcashPcztReservation = {
+export type IZcashCreatedPczt = {
   pcztHex: string;
-  // Fee of the exact locked proposal represented by pcztHex.
+  // Fee of the exact proposal represented by pcztHex.
   feeZat: string;
-  // Owner token for the inputs this PCZT locked; not a secret.
-  // Callers must carry it through to send or cancellation to release the lock.
-  reservationId: string;
 };
 
 export type IZcashSendResult = {
@@ -313,7 +310,7 @@ export type IZcashDatabaseDiagnostics = {
   } | null;
 };
 
-// Pool labels must match how they're computed: maturing = pendingChange + pendingSpendable, locked = reserved by an in-flight send.
+// Pool labels must match how they're computed: maturing = pendingChange + pendingSpendable, locked = held by an upstream output lock (this app's sends take none).
 // IZcashSpendSource restricts note selection to one pool; the runtime never crosses pools — a shortfall is INSUFFICIENT_FUNDS, not a fallback.
 export type IZcashSpendSource = 'orchard' | 'ironwood';
 
@@ -348,7 +345,7 @@ export type IZcashBalance = {
   };
 };
 
-// The fee a send will pay, from the real proposal, before anything is built or locked.
+// The fee a send will pay, from the real proposal, before anything is built.
 export type IZcashSendQuote = {
   feeZat: string;
 };
@@ -383,7 +380,6 @@ export type IZcashHistoryItem = {
   timestamp: number | null;
   valueZat: string; // signed: negative = outgoing
   fee: string | null;
-  broadcastOutcomeUnknown?: boolean;
   pending: boolean;
   expired: boolean;
   txType: 'received' | 'sent' | 'shielded';
@@ -395,7 +391,7 @@ export type IZcashHistoryItem = {
 };
 
 // Host uses this to hide actions it can't complete, rather than let them fail mid-pipeline.
-// A send failing at the proving step has already locked notes and asked the user for their password.
+// A send failing at the proving step has already asked the user for their password.
 export type IZcashCapabilities = {
   scan: boolean;
   balance: boolean;
@@ -414,7 +410,7 @@ export type IZcashSdkApi = {
 
   // Perf tracing for slow reads; off by default — during a boost these fire several times/sec, enough to itself slow a console-attached page.
   setPerfTrace: (params: { enabled: boolean }) => Promise<void>;
-  // Public circuit parameters only: no proposal, reservation, seed, or storage.
+  // Public circuit parameters only: no proposal, seed, or storage.
   prewarmPczt: (params: {
     network: IZcashNetwork;
     targetHeight: number;
@@ -522,9 +518,8 @@ export type IZcashSdkApi = {
       valueZat: string;
       spendSource: IZcashSpendSource;
       memoHex?: string;
-      reservationId?: string;
     },
-  ) => Promise<IZcashPcztReservation>;
+  ) => Promise<IZcashCreatedPczt>;
   // Exact ZIP-317 fee for a transfer: proposal only, no PCZT built.
   quotePczt: (
     account: IZcashWalletAccount,
@@ -539,20 +534,13 @@ export type IZcashSdkApi = {
     account: IZcashWalletAccount,
     params: { pcztHex: string },
   ) => Promise<{ pcztHex: string }>;
-  // Broadcasts, then records unless the node explicitly rejected it.
+  // Stores the signed tx, then broadcasts it; only an explicit node rejection is recorded.
   submitPczt: (
     account: IZcashWalletAccount,
-    params: { pcztHex: string; reservationId: string },
+    params: { pcztHex: string },
   ) => Promise<IZcashSendResult>;
-  releasePczt: (
-    account: IZcashWalletAccount,
-    params: { reservationId: string },
-  ) => Promise<void>;
   // drop the in-memory wallet and its persisted db cache (account removed)
-  purgeWallet: (
-    account: IZcashWalletAccount,
-    options?: { accountDeleted?: boolean },
-  ) => Promise<void>;
+  purgeWallet: (account: IZcashWalletAccount) => Promise<void>;
   // Deletes the whole per-network database (app reset); every account's decrypted scan state goes with it.
   dropWalletDatabase: (network: IZcashNetwork) => Promise<void>;
 };

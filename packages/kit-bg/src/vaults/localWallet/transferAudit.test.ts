@@ -18,7 +18,6 @@ const xmrTransaction: IEncodedTxXmr = {
   feeAtomic: '30000000',
   changeAtomic: '5000000',
   signableHex: 'aabb',
-  reservationId: 'synthetic-reservation',
   inputCount: 2,
   chainTip: 100,
   priority: 'normal',
@@ -30,14 +29,7 @@ function createXmrVault() {
     networkId: 'xmr--0',
     getAccount: async () => ({ address: 'synthetic-own' }),
     getNetwork: async () => ({ decimals: 12, feeMeta: { decimals: 12 } }),
-    xmrReleaseReservation: jest.fn(async () => undefined),
     backgroundApi: {
-      simpleDb: {
-        xmr: {
-          assertTransactionReview: async () => undefined,
-          abandonUnsignedTransactionReview: async () => true,
-        },
-      },
       serviceToken: { getNativeToken: async () => undefined },
     },
   });
@@ -45,17 +37,7 @@ function createXmrVault() {
 
 // These assertions express the cross-layer behavior required by a live review.
 describe('privacy wallet review boundary regressions', () => {
-  it('XMR cancellation releases the inputs held by its unsigned review', async () => {
-    const vault = createXmrVault();
-    await vault.releaseUnsignedTx({
-      unsignedTx: { encodedTx: xmrTransaction },
-    });
-    expect(vault.xmrReleaseReservation).toHaveBeenCalledWith(
-      'synthetic-reservation',
-    );
-  });
-
-  it('XMR locked proposal tells confirmation to avoid recounting its reserved inputs', async () => {
+  it('XMR built transaction tells confirmation not to recount the balance', async () => {
     const vault = createXmrVault();
     const decoded = await vault.buildDecodedTx({
       unsignedTx: { encodedTx: xmrTransaction },
@@ -78,8 +60,6 @@ describe('privacy wallet review boundary regressions', () => {
         zcashSpendSource: mode === 'privacy' ? 'ironwood' : undefined,
         zcashMode: mode,
         pcztHex: mode === 'privacy' ? 'aabb' : undefined,
-        pcztReservationId:
-          mode === 'privacy' ? 'synthetic-reservation' : undefined,
       };
       const vault: ZcashVault = Object.assign(
         Object.create(ZcashVault.prototype) as ZcashVault,
@@ -173,7 +153,7 @@ it('Zcash public-pool total request carries the explicitly selected account iden
   );
 });
 
-it('Monero refuses an unsupported transaction message before reserving funds', async () => {
+it('Monero refuses an unsupported transaction message before building', async () => {
   const vault = createXmrVault();
   await expect(
     vault.buildEncodedTx({

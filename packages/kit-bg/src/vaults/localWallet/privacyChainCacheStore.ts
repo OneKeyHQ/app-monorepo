@@ -248,8 +248,8 @@ export async function listLastLocalWalletBalanceAccountIds({
   return backgroundApi.simpleDb.privacyChainCache.listLastBalanceAccountIds();
 }
 
-// For display only (progress, unlock state); anything acting on the tip
-// fetches it from the node.
+// Last observed tip for display and local scan-data management. Sending and
+// normal sync fetch their current chain data from the node.
 export async function getLastLocalWalletChainTip({
   backgroundApi,
   networkId,

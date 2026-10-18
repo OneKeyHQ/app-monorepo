@@ -40,7 +40,6 @@ import {
   prewarmPczt,
   provePczt,
   quotePczt,
-  releasePczt,
   submitPczt,
 } from './send';
 import {
@@ -301,9 +300,8 @@ const api: IZcashSdkApi = {
   submitPczt: leased(submitPczt),
   quotePczt: leased(quotePczt),
   provePczt: leased(provePczt),
-  releasePczt: leased(releasePczt),
-  purgeWallet: async (account, options) => {
-    await leasedPurgeWallet(account, options);
+  purgeWallet: async (account) => {
+    await leasedPurgeWallet(account);
     forgetLastReads(account);
   },
   dropWalletDatabase: async (network) => {

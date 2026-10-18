@@ -27,7 +27,6 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
-import { useUnresolvedBroadcastDialog } from '@onekeyhq/kit/src/hooks/useUnresolvedBroadcastDialog';
 import {
   formatPrivacyChainRemainingBlocks,
   formatPrivacyChainSyncProgress,
@@ -59,7 +58,6 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes/setting';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes/setting';
 import { formatMonth } from '@onekeyhq/shared/src/utils/dateUtils';
-import { isUnresolvedPrivacyChainBroadcastError } from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { IntlShape } from 'react-intl';
@@ -694,13 +692,6 @@ export default function PrivacyNetworkSettings({
     );
   }, [entries]);
 
-  const refreshAfterBroadcast = useCallback(() => {
-    void refreshEntries();
-  }, [refreshEntries]);
-  const showUnresolvedBroadcastDialog = useUnresolvedBroadcastDialog(
-    refreshAfterBroadcast,
-  );
-
   const askBirthdayAndEnable = useCallback(
     async (entry: IPrivacyAccountEntry) => {
       const earliestBirthday = await getEarliestBirthday(entry.networkId);
@@ -838,12 +829,6 @@ export default function PrivacyNetworkSettings({
               },
             );
             await refreshEntries();
-          } catch (error) {
-            if (isUnresolvedPrivacyChainBroadcastError(error)) {
-              showUnresolvedBroadcastDialog();
-              return;
-            }
-            throw error;
           } finally {
             setBusyAccountId(undefined);
           }
@@ -851,7 +836,7 @@ export default function PrivacyNetworkSettings({
         },
       });
     },
-    [intl, refreshEntries, showUnresolvedBroadcastDialog, startAccount],
+    [intl, refreshEntries, startAccount],
   );
 
   const editBirthday = useCallback(
@@ -936,19 +921,13 @@ export default function PrivacyNetworkSettings({
               { networkId: entry.networkId, accountId: entry.accountId },
             );
             await refreshEntries();
-          } catch (error) {
-            if (isUnresolvedPrivacyChainBroadcastError(error)) {
-              showUnresolvedBroadcastDialog();
-              return;
-            }
-            throw error;
           } finally {
             setBusyAccountId(undefined);
           }
         },
       });
     },
-    [intl, refreshEntries, showUnresolvedBroadcastDialog],
+    [intl, refreshEntries],
   );
 
   const disableAccount = useCallback(
@@ -960,17 +939,11 @@ export default function PrivacyNetworkSettings({
           accountId: entry.accountId,
         });
         await refreshEntries();
-      } catch (error) {
-        if (isUnresolvedPrivacyChainBroadcastError(error)) {
-          showUnresolvedBroadcastDialog();
-          return;
-        }
-        throw error;
       } finally {
         setBusyAccountId(undefined);
       }
     },
-    [refreshEntries, showUnresolvedBroadcastDialog],
+    [refreshEntries],
   );
 
   const renderAccount = (entry: IPrivacyAccountEntry) => {

@@ -68,13 +68,11 @@ function balance(
 describe('Zcash send amount intent', () => {
   function createVault(snapshot: IZcashBalance | null) {
     const quotePczt = jest.fn().mockResolvedValue({ feeZat: '10000' });
-    const releaseStaleSendState = jest.fn(async () => undefined);
     const account = { id: 'test-account' };
     const vault: Vault = Object.assign(
       Object.create(Vault.prototype) as Vault,
       {
         accountId: account.id,
-        zcashReleaseStaleSendState: releaseStaleSendState,
         backgroundApi: {
           simpleDb: {
             zcash: {
@@ -107,7 +105,6 @@ describe('Zcash send amount intent', () => {
     return {
       vault,
       quotePczt,
-      releaseStaleSendState,
     };
   }
 
@@ -191,15 +188,13 @@ describe('Zcash send amount intent', () => {
     expect(quotePczt.mock.calls[0][1]).not.toHaveProperty('spendTransparent');
   });
 
-  // As in reference wallets: a send still awaiting confirmation does not block the next.
+  // Stored unmined sends already hold their notes; Max quotes without a
+  // confirmation-screen reservation sweep.
   it('does not wait on an unconfirmed send before quoting the max', async () => {
-    const { vault, quotePczt, releaseStaleSendState } = createVault(
-      balance('100000000', '0'),
-    );
+    const { vault, quotePczt } = createVault(balance('100000000', '0'));
 
     await vault.buildEncodedTx(request('1', true));
 
-    expect(releaseStaleSendState).toHaveBeenCalledWith('test-account');
     expect(quotePczt).toHaveBeenCalled();
   });
 
