@@ -3,6 +3,13 @@
 import type { ReactNode } from 'react';
 
 import { fireEvent, render, screen } from '@testing-library/react';
+import BigNumber from 'bignumber.js';
+
+import {
+  ARC_ERC20_USDC_CONTRACT_ADDRESS,
+  ARC_EURC_CONTRACT_ADDRESS,
+  ARC_NETWORK_ID,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 
 import { ESwapDirection } from '../../hooks/useTradeType';
 
@@ -40,6 +47,32 @@ describe('QuickAmountSelector', () => {
   beforeEach(() => {
     defaultProps.onSelect.mockReset();
   });
+
+  it.each([
+    [ARC_NETWORK_ID, ARC_ERC20_USDC_CONTRACT_ADDRESS, '0.0000001', '1.123455'],
+    [ARC_NETWORK_ID, ARC_ERC20_USDC_CONTRACT_ADDRESS, '2', '0'],
+    [ARC_NETWORK_ID, ARC_EURC_CONTRACT_ADDRESS, '0.1', '1.123456'],
+    ['evm--1', ARC_ERC20_USDC_CONTRACT_ADDRESS, '0.1', '1.123456'],
+  ])(
+    'reserves gas only for Arc USDC when selling 100% (%s, %s, %s)',
+    (networkId, contractAddress, reserveGas, expectedAmount) => {
+      render(
+        <QuickAmountSelector
+          {...defaultProps}
+          balance={new BigNumber('1.123456')}
+          selectedTokenNetworkId={networkId}
+          selectedTokenContractAddress={contractAddress}
+          selectedTokenDecimals={6}
+          selectedTokenIsNative={false}
+          swapNativeTokenReserveGas={[
+            { networkId, reserveGas: Number(reserveGas) },
+          ]}
+        />,
+      );
+      fireEvent.click(screen.getByRole('button', { name: '100%' }));
+      expect(defaultProps.onSelect).toHaveBeenCalledWith(expectedAmount);
+    },
+  );
 
   it('does not treat a sell percentage as an absolute amount while balance is unknown', () => {
     render(<QuickAmountSelector {...defaultProps} balance={undefined} />);

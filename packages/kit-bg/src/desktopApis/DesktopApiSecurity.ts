@@ -131,6 +131,9 @@ class DesktopApiSecurity {
     if (isWin) {
       logger.info('[TOUCH_ID_PROMPT] Windows requestVerificationAsync');
       try {
+        if (!(await this.canPromptTouchID())) {
+          return { success: false, isSupport: false };
+        }
         const { success, error } = await requestVerificationAsync(msg);
         if (error) {
           logger.info(

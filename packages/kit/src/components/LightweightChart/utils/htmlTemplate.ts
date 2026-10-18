@@ -529,6 +529,20 @@ function getChartInitScript(): string {
           crosshairMarkerVisible: false,
         };
       }
+      // Overlay points with gaps on both sides draw no segment; this dot-only
+      // series in the same color keeps them visible.
+      function getSecondaryPointSeriesOptions(nextConfig) {
+        return {
+          priceScaleId: getPriceScalePosition(nextConfig),
+          color: nextConfig.secondaryLineColor || '#0177E5',
+          lineVisible: false,
+          pointMarkersVisible: true,
+          pointMarkersRadius: getNormalizedLineWidth(nextConfig.secondaryLineWidth, 2) + 1,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        };
+      }
       // Rebuilds both series from scratch on every apply.
       //
       // lightweight-charts 5.2 keeps a stale copy of its time points after a
@@ -544,6 +558,10 @@ function getChartInitScript(): string {
       // sizes. The primary goes first so the overlay keeps drawing on top of
       // it; everything runs before the next frame, so nothing flickers.
       function rebuildSeries(nextConfig) {
+        if (window.secondaryPointSeries) {
+          window.chart.removeSeries(window.secondaryPointSeries);
+          window.secondaryPointSeries = null;
+        }
         if (window.secondarySeries) {
           window.chart.removeSeries(window.secondarySeries);
           window.secondarySeries = null;
@@ -567,6 +585,16 @@ function getChartInitScript(): string {
             getSecondarySeriesOptions(nextConfig)
           );
           window.secondarySeries.setData(nextConfig.secondaryLineData);
+          if (
+            Array.isArray(nextConfig.secondaryPointData) &&
+            nextConfig.secondaryPointData.length > 0
+          ) {
+            window.secondaryPointSeries = window.chart.addSeries(
+              LightweightCharts.LineSeries,
+              getSecondaryPointSeriesOptions(nextConfig)
+            );
+            window.secondaryPointSeries.setData(nextConfig.secondaryPointData);
+          }
         }
       }
       // Price formatter: use a serializable formatter type in WebView, otherwise default %
@@ -687,6 +715,7 @@ function getChartInitScript(): string {
       chart.timeScale().subscribeVisibleTimeRangeChange(function() {
         window.updatePulseDot();
       });
+      window.secondaryPointSeries = null;
       window.applyChartConfig = function(nextConfig) {
         if (!nextConfig || !window.chart) return;
         window.latestChartConfig = nextConfig;

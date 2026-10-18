@@ -508,6 +508,9 @@ const settings: IVaultSettings = {
   },
 
   enabledInternalSignAndVerify: true,
+
+  // ~200 token transfers stay well below the EIP-7825 per-tx gas cap (2^24)
+  bulkSendMaxTransfersPerTx: 200,
 };
 
 export default Object.freeze(settings);

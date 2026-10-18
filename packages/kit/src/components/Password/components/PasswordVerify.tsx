@@ -358,7 +358,9 @@ function PasswordVerify({
     guardedBiologyAuth,
   ]);
 
-  useHandleAppStateActive(isEnable ? onActive : undefined);
+  useHandleAppStateActive(
+    isEnable && !platformEnv.isDesktopWin ? onActive : undefined,
+  );
 
   const rightActions = useMemo(() => {
     const actions: IPropsWithTestId<{

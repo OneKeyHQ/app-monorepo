@@ -51,6 +51,7 @@ import {
 import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { sanitizeTrezorThpModuleLogData } from '@onekeyhq/shared/src/hardware/trezorThpLogRedact';
+import { UPDATE_ERROR_WIRE_PREFIX } from '@onekeyhq/shared/src/modules3rdParty/auto-update/error';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
@@ -70,6 +71,7 @@ import { findAllowedDeepLinkArg, isAllowedDeepLinkUrl } from './libs/deepLink';
 import {
   DESKTOP_API_ALLOWED_MODULES,
   isDesktopApiMethodAllowed,
+  isTrustedMainWindowUrl,
 } from './libs/desktopApiModuleAllowlist';
 import {
   applyDesktopNetworkThrottleToKnownSessions,
@@ -119,8 +121,11 @@ import type { IpcMainLike } from '@onekeyfe/hwk-trezor-connector-electron-ble/ma
 // can still recover any `{ message, code, data }` payload encoded in it.
 function makeIpcSafeError(error: unknown, fallbackMessage: string): Error {
   if (error instanceof Error) {
-    const safeError = new Error(error.message || fallbackMessage);
-    safeError.name = error.name || 'Error';
+    const message = error.message || fallbackMessage;
+    const safeError = new Error(message);
+    if (!message.startsWith(UPDATE_ERROR_WIRE_PREFIX)) {
+      safeError.name = error.name || 'Error';
+    }
     safeError.stack = error.stack;
     return safeError;
   }
@@ -754,6 +759,8 @@ const minWidth = 1024;
 const minHeight = 800;
 let bleQuitStarted = false;
 let bleQuitReady = false;
+let appQuitStarted = false;
+let mainRendererBootFailed = false;
 let nobleBleInitialization = Promise.resolve();
 let trezorBleWindowCleanup = Promise.resolve();
 // Retain retired handlers so recovery-created native instances survive until app quit.
@@ -793,8 +800,27 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     );
   }
   store.setBootFailAppVersion(currentAppVersion);
-  const bootFailCount = store.incrementConsecutiveBootFailCount();
+  let bootFailCount = store.incrementConsecutiveBootFailCount();
   logger.info('Boot fail count:', bootFailCount, { isSoftRestart });
+  const activeOtaBundleVersion = store.getUpdateBundleData()?.bundleVersion;
+  if (bootFailCount >= 3 && activeOtaBundleVersion) {
+    logger.warn(
+      'Consecutive boot failures detected with active OTA bundle, rolling back to built-in bundle',
+      {
+        bootFailCount,
+        bundleVersion: activeOtaBundleVersion,
+        appVersion: currentAppVersion,
+      },
+    );
+    store.recordFailedOtaBundle(currentAppVersion, activeOtaBundleVersion);
+    store.revokePendingSwitchForFailedBundle(
+      currentAppVersion,
+      activeOtaBundleVersion,
+    );
+    store.clearUpdateBundleData();
+    store.resetConsecutiveBootFailCount();
+    bootFailCount = store.incrementConsecutiveBootFailCount();
+  }
   if (bootFailCount >= 3) {
     logger.error('Recovery page triggered', {
       crashCount: bootFailCount,
@@ -881,7 +907,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   store.processPreLaunchPendingTask();
   const bundleData = store.getUpdateBundleData();
   logger.info('bundleData >>>> ', bundleData);
-  const bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
+  let bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
   logger.info('bundleIndexHtmlPath >>>> ', bundleIndexHtmlPath);
 
   globalThis.$desktopMainAppFunctions = {
@@ -985,11 +1011,69 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         });
   /* eslint-enable no-nested-ternary */
 
+  let selectedShellDocumentCommitted = false;
+  let trustedSameDocumentRouteUrl: string | undefined;
+  globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender = (
+    senderId,
+    senderFrame,
+    mainFrame,
+  ) => {
+    const currentMainWindow = getSafelyMainWindow() ?? getSafelyBrowserWindow();
+    return Boolean(
+      currentMainWindow?.webContents.id === senderId &&
+      senderFrame &&
+      senderFrame === mainFrame &&
+      selectedShellDocumentCommitted &&
+      isTrustedMainWindowUrl(src, senderFrame.url, trustedSameDocumentRouteUrl),
+    );
+  };
+
+  browserWindow.webContents.on('did-navigate', (_event, url) => {
+    selectedShellDocumentCommitted = isTrustedMainWindowUrl(src, url);
+    trustedSameDocumentRouteUrl = undefined;
+    if (!selectedShellDocumentCommitted) {
+      try {
+        if (
+          new URL(src).protocol === 'file:' &&
+          new URL(url).protocol === 'file:'
+        ) {
+          void getSafelyBrowserWindow()
+            ?.loadURL(src)
+            .catch((error) =>
+              logger.error('Failed to reload app shell:', error),
+            );
+        }
+      } catch {
+        // Invalid URLs cannot be recovered as local app-shell routes.
+      }
+    }
+  });
+  browserWindow.webContents.on(
+    'did-navigate-in-page',
+    (_event, url, isMainFrame) => {
+      if (isMainFrame && selectedShellDocumentCommitted) {
+        trustedSameDocumentRouteUrl = url;
+      }
+    },
+  );
+
+  const guardMainWindowNavigation = (event: Electron.Event, url: string) => {
+    if (!isTrustedMainWindowUrl(src, url)) {
+      event.preventDefault();
+      logger.warn(
+        '[MainWindow] rejected navigation outside selected app shell',
+      );
+    }
+  };
+  browserWindow.webContents.on('will-navigate', guardMainWindowNavigation);
+  browserWindow.webContents.on('will-redirect', guardMainWindowNavigation);
+  browserWindow.webContents.on('will-frame-navigate', (event) => {
+    if (event.isMainFrame) guardMainWindowNavigation(event, event.url);
+  });
+
   if (isDevServer && !isDesktopE2EMode) {
     browserWindow.webContents.openDevTools();
   }
-
-  void browserWindow.loadURL(src);
 
   // Set main window reference for OAuth server
   setMainWindowForOAuthServer(browserWindow);
@@ -1018,9 +1102,15 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   });
 
   browserWindow.webContents.on('render-process-gone', (_event, details) => {
-    if (details.reason === 'clean-exit' || bleQuitStarted || softRestarting) {
+    if (
+      details.reason === 'clean-exit' ||
+      appQuitStarted ||
+      bleQuitStarted ||
+      softRestarting
+    ) {
       return;
     }
+    mainRendererBootFailed = true;
     const now = Date.now();
     mainRendererReloadTimestamps = mainRendererReloadTimestamps.filter(
       (timestamp) => now - timestamp < MAIN_RENDERER_RELOAD_WINDOW_MS,
@@ -1044,7 +1134,12 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     // Start the reload after Electron finishes dispatching this event.
     setImmediate(() => {
       const safelyBrowserWindow = getSafelyBrowserWindow();
-      if (!safelyBrowserWindow || bleQuitStarted || softRestarting) {
+      if (
+        !safelyBrowserWindow ||
+        appQuitStarted ||
+        bleQuitStarted ||
+        softRestarting
+      ) {
         return;
       }
       // Deep links received while the page reboots wait for dom-ready.
@@ -1227,6 +1322,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   ipcMain.removeAllListeners(ipcMessageKeys.MARK_BOOT_SUCCESS);
   ipcMain.on(ipcMessageKeys.MARK_BOOT_SUCCESS, () => {
     store.resetConsecutiveBootFailCount();
+    mainRendererBootFailed = false;
     logger.info('Boot success confirmed, crash counter reset');
   });
 
@@ -1255,9 +1351,13 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       // window dynamically (not the closure-captured `browserWindow`) so a MAS
       // soft restart — which destroys and recreates the window — keeps the gate
       // pointed at the current renderer instead of the destroyed one.
-      const currentMainWebContentsId =
-        getSafelyMainWindow()?.webContents.id ?? browserWindow.webContents.id;
-      if (event.sender.id !== currentMainWebContentsId) {
+      if (
+        !globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender?.(
+          event.sender.id,
+          event.senderFrame,
+          event.sender.mainFrame,
+        )
+      ) {
         logger.warn(
           '[DESKTOP_API_CALL] Rejected call from non-main renderer',
           event.sender.id,
@@ -1610,7 +1710,6 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     let useJsBundle = globalThis.$desktopMainAppFunctions?.useJsBundle?.();
     const bundleDirPath = getBundleDirPath();
     let metadata: Record<string, string> = {};
-    let metadataFailed = false;
     if (bundleDirPath) {
       try {
         metadata = await getMetadata({
@@ -1620,113 +1719,150 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
           signature: bundleData.signature,
         });
       } catch (e) {
-        // GPG verification failed or metadata unreadable — disable JS bundle
-        // so the interceptor falls back to the builtin bundle in the asar.
+        // GPG verification failed or metadata unreadable — clear broken OTA
+        // bundle pointer and disable JS bundle so the interceptor falls back
+        // to the builtin bundle in the asar.
         logger.error('getMetadata failed, falling back to builtin bundle:', e);
+        store.clearUpdateBundleData();
+        bundleIndexHtmlPath = undefined;
         useJsBundle = false;
-        metadataFailed = true;
+        /* eslint-disable no-nested-ternary */
+        src = isPerfCiMode
+          ? formatUrl({
+              pathname: perfIndexHtmlPath,
+              protocol: PROTOCOL,
+              slashes: true,
+            })
+          : isDev
+            ? process.env.DESKTOP_E2E_RENDERER_URL || 'http://localhost:3001/'
+            : formatUrl({
+                pathname: 'index.html',
+                protocol: PROTOCOL,
+                slashes: true,
+              });
+        /* eslint-enable no-nested-ternary */
+        selectedShellDocumentCommitted = false;
+        trustedSameDocumentRouteUrl = undefined;
       }
     }
     uninterceptFileProtocolIfNeeded();
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
       (request, callback) => {
-        const isJsSdkFile = request.url.indexOf('/static/js-sdk') > -1;
-        const isIFrameHtml =
-          request.url.indexOf('/static/js-sdk/iframe.html') > -1;
+        try {
+          const cleanUrl = request.url.split(/[?#]/, 1)[0];
+          const isJsSdkFile = cleanUrl.indexOf('/static/js-sdk') > -1;
+          const isIFrameHtml = cleanUrl.endsWith('/static/js-sdk/iframe.html');
 
-        // resolve iframe path
-        if (isJsSdkFile && isIFrameHtml) {
+          // resolve iframe path
+          if (isJsSdkFile && isIFrameHtml) {
+            if (useJsBundle && indexHtmlPath && bundleDirPath) {
+              let key = path.join('static', 'js-sdk', 'iframe.html');
+              const filePath = path.join(bundleDirPath, key);
+              if (isWin) {
+                key = key.replace(/\\/g, '/');
+              }
+              const sha512 =
+                Object.prototype.hasOwnProperty.call(metadata, key) &&
+                typeof metadata[key] === 'string'
+                  ? metadata[key]
+                  : undefined;
+              if (!sha512 || !checkFileSha512(filePath, sha512)) {
+                logger.info(
+                  'checkFileHash error in js-sdk:',
+                  `${key}:  ${filePath} not matched ${sha512 ?? ''}`,
+                );
+                store.clearUpdateBundleData();
+                throw new OneKeyLocalError(`File ${key} sha512 mismatch`);
+              }
+              callback(filePath);
+              return;
+            }
+            callback({
+              path: path.join(
+                __dirname,
+                '..',
+                'build',
+                'static',
+                'js-sdk',
+                'iframe.html',
+              ),
+            });
+            return;
+          }
+
+          const url = cleanUrl.substring(PROTOCOL.length + 1);
           if (useJsBundle && indexHtmlPath && bundleDirPath) {
-            let key = path.join('static', 'js-sdk', 'iframe.html');
-            const filePath = path.join(bundleDirPath, key);
-            if (isWin) {
-              key = key.replace(/\\/g, '/');
+            let decodedUrl: string;
+            try {
+              decodedUrl = decodeURIComponent(url);
+            } catch {
+              callback({ error: -6 } as any);
+              return;
             }
-            const sha512 = metadata[key];
-            if (!checkFileSha512(filePath, sha512)) {
-              logger.info(
-                'checkFileHash error in js-sdk:',
-                `${key}:  ${filePath} not matched ${sha512}`,
-              );
-              throw new OneKeyLocalError(`File ${key} sha512 mismatch`);
+            const normalizedDecodedUrl = decodedUrl.replace(/\\/g, '/');
+            const normalizedBundleDirPath = bundleDirPath.replace(/\\/g, '/');
+            if (normalizedDecodedUrl.includes(normalizedBundleDirPath)) {
+              const filePath = checkFileHash({
+                bundleDirPath,
+                metadata,
+                driveLetter,
+                url: normalizedDecodedUrl.replace(normalizedBundleDirPath, ''),
+              });
+              callback(filePath);
+            } else {
+              const filePath = checkFileHash({
+                bundleDirPath,
+                metadata,
+                driveLetter,
+                url: decodedUrl,
+              });
+              callback(filePath);
             }
-            callback(filePath);
-            return;
-          }
-          callback({
-            path: path.join(
-              __dirname,
-              '..',
-              'build',
-              'static',
-              'js-sdk',
-              'iframe.html',
-            ),
-          });
-          return;
-        }
-
-        // Strip the query string before path resolution — without this the
-        // tray window's `?render=tray` gets concatenated into the resolved
-        // filename and fs misses. Guarded by indexOf so the common
-        // no-query case (main window resources) stays allocation-free.
-        const queryIdx = request.url.indexOf('?');
-        const rawUrl =
-          queryIdx === -1 ? request.url : request.url.substring(0, queryIdx);
-        const url = rawUrl.substring(PROTOCOL.length + 1);
-        if (useJsBundle && indexHtmlPath && bundleDirPath) {
-          const decodedUrl = decodeURIComponent(url);
-          if (decodedUrl.includes(bundleDirPath)) {
-            const filePath = checkFileHash({
-              bundleDirPath,
-              metadata,
-              driveLetter,
-              url: decodedUrl.replace(bundleDirPath, ''),
-            });
-            callback(filePath);
           } else {
-            const filePath = checkFileHash({
-              bundleDirPath,
-              metadata,
-              driveLetter,
-              url: decodedUrl,
-            });
-            callback(filePath);
+            const buildDir = path.resolve(__dirname, '..', 'build');
+            let decodedUrl: string;
+            try {
+              decodedUrl = decodeURIComponent(url);
+            } catch {
+              callback({ error: -6 } as any);
+              return;
+            }
+            // Strip leading protocol slashes (e.g. "//index.html" → "index.html")
+            // and Windows drive prefix so path.resolve treats the segment as relative.
+            const relativeUrl = decodedUrl
+              .replace(/^[:/\\]+/, '')
+              .replace(/^[A-Za-z]:[\\/]/, '')
+              .replace(/^[:/\\]+/, '');
+            const resolved = path.resolve(buildDir, relativeUrl);
+            if (
+              !resolved.startsWith(buildDir + path.sep) &&
+              resolved !== buildDir
+            ) {
+              logger.warn('Blocked file access outside build dir:', resolved);
+              callback({ error: -6 } as any); // net::ERR_FILE_NOT_FOUND
+              return;
+            }
+            callback(resolved);
           }
-        } else {
-          const buildDir = path.resolve(__dirname, '..', 'build');
-          // Strip leading protocol slashes (e.g. "//index.html" → "index.html")
-          // so path.resolve treats the segment as relative, not absolute.
-          const relativeUrl = url.replace(/^[:/]+/, '');
-          const resolved = path.resolve(buildDir, relativeUrl);
-          if (
-            !resolved.startsWith(buildDir + path.sep) &&
-            resolved !== buildDir
-          ) {
-            logger.warn('Blocked file access outside build dir:', resolved);
-            callback({ error: -6 } as any); // net::ERR_FILE_NOT_FOUND
-            return;
-          }
-          callback(resolved);
+        } catch (error) {
+          logger.error('interceptFileProtocol error:', error);
+          callback({ error: -6 } as any);
         }
       },
     );
-    // When getMetadata failed, src still points to the bundle path which the
-    // interceptor cannot resolve with useJsBundle=false. Recompute and reload
-    // now that the interceptor is registered and will serve builtin files.
-    if (metadataFailed) {
-      src = formatUrl({
-        pathname: 'index.html',
-        protocol: PROTOCOL,
-        slashes: true,
-      });
-      void browserWindow.loadURL(src);
-    }
     const safelyBrowserWindow = getSafelyBrowserWindow();
     safelyBrowserWindow?.webContents.on(
       'did-fail-load',
       (_, errorCode, __, validatedURL, isMainFrame) => {
+        if (
+          !appQuitStarted &&
+          isMainFrame &&
+          errorCode !== -3 &&
+          isTrustedMainWindowUrl(src, validatedURL)
+        ) {
+          mainRendererBootFailed = true;
+        }
         if (
           !shouldReloadAppShellAfterFailedLoad({
             validatedURL,
@@ -1745,6 +1881,8 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       },
     );
   }
+
+  void getSafelyBrowserWindow()?.loadURL(src);
 
   // @ts-expect-error
   browserWindow.on('close', (event: Event) => {
@@ -1984,6 +2122,7 @@ app.on('activate', async () => {
 });
 
 app.on('before-quit', (event) => {
+  appQuitStarted = true;
   unregisterShortcuts();
   if (isMac && !bleQuitReady) {
     event.preventDefault();
@@ -2046,11 +2185,7 @@ app.on('before-quit', (event) => {
     destroyTrayManager();
   }
 
-  // Reset crash counter on graceful shutdown so normal close
-  // is not mistaken for a crash on next boot.
-  // Skip reset when in recovery mode (count >= 3) so recovery is still
-  // offered if the user closes the recovery window without resolving.
-  if (store.getConsecutiveBootFailCount() < 3) {
+  if (!mainRendererBootFailed && store.getConsecutiveBootFailCount() < 3) {
     store.resetConsecutiveBootFailCount();
   }
 

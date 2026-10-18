@@ -26,6 +26,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
+  BIOLOGY_AUTH_ABORTED_ERROR,
   BIOLOGY_AUTH_ATTEMPTS_FACE,
   BIOLOGY_AUTH_ATTEMPTS_FINGERPRINT,
   BIOLOGY_AUTH_CANCEL_ERROR,
@@ -428,11 +429,17 @@ const PasswordVerifyContainer = ({
           });
         const isCancel = error?.name === BIOLOGY_AUTH_CANCEL_ERROR;
         const isNativeBiometricError = error?.cause === biologyAuthNativeError;
+        const isAborted =
+          platformEnv.isDesktopWin &&
+          isNativeBiometricError &&
+          error?.name === BIOLOGY_AUTH_ABORTED_ERROR;
         // `undefined` means "no user-facing error": keep the lock screen in a
         // neutral state and let the flow retry, instead of showing a wrong-
         // password message for a transient failure. (OK-56875)
         let message: string | undefined = error?.message || undefined;
-        if (isCancel) {
+        if (isAborted) {
+          message = undefined;
+        } else if (isCancel) {
           message = intl.formatMessage(
             { id: ETranslations.auth_biometric_cancel },
             { biometric: title },
