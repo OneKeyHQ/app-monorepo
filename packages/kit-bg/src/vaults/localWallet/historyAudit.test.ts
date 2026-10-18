@@ -44,7 +44,6 @@ it.each([null, 100])(
         async (
           _identity: string,
           _raw: string,
-          _reservation: string,
           _tip: string,
           outgoingAtomic?: string,
         ) => {
@@ -60,7 +59,6 @@ it.each([null, 100])(
       amountAtomic: '1000000000000',
       feeAtomic: '30000000',
       changeAtomic: '500000000000',
-      reservationId: 'synthetic-reservation',
       chainTip: 100,
       inputCount: 1,
       priority: 'normal',

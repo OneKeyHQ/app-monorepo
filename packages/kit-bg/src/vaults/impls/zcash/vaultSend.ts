@@ -13,7 +13,7 @@ import {
   zcashErrorAmount,
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/runtimeError';
 import type {
-  IZcashPcztReservation,
+  IZcashCreatedPczt,
   IZcashSpendSource,
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
 import type {
@@ -26,9 +26,6 @@ import {
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import { PRIVACY_CHAIN_UNRESOLVED_BROADCAST_CODE } from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
 import { validateZcashMemoHex } from '@onekeyhq/shared/src/utils/zcashMemo';
 import type {
   IEstimateGasParams,
@@ -44,10 +41,6 @@ import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 import { localWalletText } from '../../localWallet/messages';
 
 import { getZcashLifecycleMutex } from './lifecycle';
-import {
-  getZcashPcztReviewDigest,
-  getZcashPcztReviewRequest,
-} from './pcztReview';
 import { parseZcashTransaction } from './transactionReview';
 import {
   ZCASH_DISPLAY_FEE_ZAT,
@@ -69,169 +62,6 @@ import type {
 } from '../../types';
 import type VaultBtc from '../btc/Vault';
 
-// Frees stale send state: expired transparent journals, and private reservations never signed or past their lock.
-export async function zcashReleaseStaleSendState(
-  vault: Vault,
-  accountId: string,
-  excludeShieldedReservationId?: string,
-) {
-  let [transparentPending, shieldedReservations] = await Promise.all([
-    vault.backgroundApi.simpleDb.zcash.listTransparentPendingTxs({
-      accountId,
-    }),
-    vault.backgroundApi.simpleDb.zcash.listShieldedReservations({
-      accountId,
-    }),
-  ]);
-  await vault.zcashPruneTransparentSendHistory(accountId);
-  transparentPending =
-    await vault.backgroundApi.simpleDb.zcash.listTransparentPendingTxs({
-      accountId,
-    });
-  // Re-read after the indexer await so a fresh reservation can't slip
-  // through; only consensus height may expire an abandoned reservation.
-  shieldedReservations =
-    await vault.backgroundApi.simpleDb.zcash.listShieldedReservations({
-      accountId,
-    });
-  const [meta, privacyModeEnabled] = await Promise.all([
-    vault.backgroundApi.simpleDb.zcash.getAccountMeta({ accountId }),
-    vault.backgroundApi.simpleDb.zcash.isPrivacyModeEnabled({ accountId }),
-  ]);
-  if (excludeShieldedReservationId) {
-    shieldedReservations = shieldedReservations.filter(
-      ({ reservationId }) => reservationId !== excludeShieldedReservationId,
-    );
-  }
-  // A PCZT from an abandoned review will never be broadcast; unlock its inputs instead of blocking new sends.
-  const abandonedReservations = shieldedReservations.filter(
-    ({ state }) => state === 'unsigned',
-  );
-  if (abandonedReservations.length > 0 && meta) {
-    for (const { reservationId } of abandonedReservations) {
-      try {
-        // eslint-disable-next-line no-await-in-loop
-        const account = await vault.zcashGetWalletAccount({ accountId });
-        // eslint-disable-next-line no-await-in-loop
-        const api = await vault.zcashGetApi();
-        // eslint-disable-next-line no-await-in-loop
-        await api.releasePczt(account, { reservationId });
-        // eslint-disable-next-line no-await-in-loop
-        await vault.backgroundApi.simpleDb.zcash.removeShieldedReservation({
-          accountId,
-          reservationId,
-        });
-      } catch {
-        // Keep the journal and fail closed below.
-      }
-    }
-    shieldedReservations = (
-      await vault.backgroundApi.simpleDb.zcash.listShieldedReservations({
-        accountId,
-      })
-    ).filter(
-      ({ reservationId }) => reservationId !== excludeShieldedReservationId,
-    );
-  }
-  let currentShieldedHeight: number | null = null;
-  if (
-    shieldedReservations.some(({ expiryHeight }) => expiryHeight !== undefined)
-  ) {
-    try {
-      currentShieldedHeight = await vault.getLocalWalletChainTip();
-    } catch {
-      currentShieldedHeight = null;
-    }
-  }
-  const expiredShieldedReservations = shieldedReservations.filter(
-    ({ expiryHeight }) =>
-      expiryHeight !== undefined &&
-      currentShieldedHeight !== null &&
-      expiryHeight < currentShieldedHeight,
-  );
-  if (expiredShieldedReservations.length > 0 && meta) {
-    for (const { reservationId } of expiredShieldedReservations) {
-      try {
-        // eslint-disable-next-line no-await-in-loop
-        const account = await vault.zcashGetWalletAccount({ accountId });
-        // eslint-disable-next-line no-await-in-loop
-        const api = await vault.zcashGetApi();
-        // eslint-disable-next-line no-await-in-loop
-        await api.releasePczt(account, { reservationId });
-        // eslint-disable-next-line no-await-in-loop
-        await vault.backgroundApi.simpleDb.zcash.removeShieldedReservation({
-          accountId,
-          reservationId,
-        });
-      } catch {
-        // Keep the journal and fail closed; a later retry can release it once the carrier recovers.
-      }
-    }
-    shieldedReservations =
-      await vault.backgroundApi.simpleDb.zcash.listShieldedReservations({
-        accountId,
-      });
-    if (excludeShieldedReservationId) {
-      shieldedReservations = shieldedReservations.filter(
-        ({ reservationId }) => reservationId !== excludeShieldedReservationId,
-      );
-    }
-  }
-  return {
-    transparentPending,
-    shieldedReservations,
-    meta,
-    privacyModeEnabled,
-  };
-}
-
-export async function zcashAssertNoUnresolvedBroadcast(
-  vault: Vault,
-  accountId: string,
-  excludeShieldedReservationId?: string,
-) {
-  const { transparentPending, shieldedReservations, meta, privacyModeEnabled } =
-    await vault.zcashReleaseStaleSendState(
-      accountId,
-      excludeShieldedReservationId,
-    );
-  let privatePendingTxids: string[] = [];
-  if (meta && (privacyModeEnabled || shieldedReservations.length > 0)) {
-    try {
-      const account = await vault.zcashGetWalletAccount({ accountId });
-      const api = await vault.zcashGetApi();
-      privatePendingTxids = await api.getPendingBroadcasts(account);
-    } catch (error) {
-      // Scanner may be unreachable; transparent sends and deletion must not depend on it.
-      console.warn('[zcash] private broadcast state unavailable', {
-        accountId,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }
-  const pendingTxids = Array.from(
-    new Set([
-      ...privatePendingTxids,
-      ...transparentPending.map((tx) => tx.txid),
-    ]),
-  );
-  if (pendingTxids.length > 0 || shieldedReservations.length > 0) {
-    const error = new OneKeyLocalError(
-      localWalletText(ETranslations.privacy_error_pending_send__msg),
-    );
-    Object.assign(error, {
-      code: PRIVACY_CHAIN_UNRESOLVED_BROADCAST_CODE,
-      params: {
-        txids: pendingTxids,
-        retryAfterMinutes: 15,
-        canRecheck: true,
-        activeShieldedReservations: shieldedReservations.length,
-      },
-    });
-    throw error;
-  }
-}
-
 export async function zcashCreatePczt(
   vault: Vault,
   params: {
@@ -240,14 +70,9 @@ export async function zcashCreatePczt(
     valueZat: string;
     spendSource: IZcashSpendSource;
     memoHex?: string;
-    reservationId?: string;
   },
-): Promise<IZcashPcztReservation> {
-  // Pending sends don't block new ones: their notes are already spent/locked, so the proposer can't reuse them.
-  await vault.zcashReleaseStaleSendState(
-    params.accountId,
-    params.reservationId,
-  );
+): Promise<IZcashCreatedPczt> {
+  // Pending sends don't block new ones: their stored transactions already spend their notes, so the proposer can't reuse them.
   const account = await vault.zcashGetWalletAccount({
     accountId: params.accountId,
   });
@@ -258,7 +83,6 @@ export async function zcashCreatePczt(
         toAddress: params.toAddress,
         valueZat: params.valueZat,
         spendSource: params.spendSource,
-        reservationId: params.reservationId,
         memoHex: params.memoHex,
       }),
     );
@@ -306,7 +130,7 @@ export async function estimateFee(
   let feeZatValue = ZCASH_DISPLAY_FEE_ZAT;
   const encodedTx = params.encodedTx as IEncodedTxZcash | undefined;
   if (encodedTx?.zcashMode === 'transparent' || encodedTx?.pcztHex) {
-    // Fixed at build time: the transparent plan or the locked PCZT's own ZIP-317 fee; no quote beats the proposal itself.
+    // Fixed at build time: the transparent plan or the built PCZT's own ZIP-317 fee; no quote beats the proposal itself.
     feeZatValue = encodedTx.fee;
   } else if (
     encodedTx?.zcashTo &&
@@ -434,8 +258,6 @@ export async function buildEncodedTx(
       ? sourcePool
       : (requestedSpendSource ?? ZCASH_CURRENT_SHIELDED_POOL);
   if (params.transferPayload?.isMaxSend === true) {
-    // Notes held by an abandoned review would shrink the max.
-    await vault.zcashReleaseStaleSendState(vault.accountId);
     const balanceForMax = await vault.zcashGetBalanceSafe();
     if (!balanceForMax) {
       throw zcashTransparentError(
@@ -569,13 +391,6 @@ export async function buildDecodedTx(
 ): Promise<IDecodedTx> {
   const { unsignedTx } = params;
   const encodedTx = parseZcashTransaction(unsignedTx.encodedTx);
-  if (encodedTx.zcashMode === 'privacy') {
-    await vault.zcashAssertPcztReservationLive({
-      accountId: vault.accountId,
-      reservationId: checkIsDefined(encodedTx.pcztReservationId),
-      encodedTx,
-    });
-  }
   const network = await vault.getNetwork();
   const account = await vault.getAccount();
 
@@ -632,7 +447,7 @@ export async function buildDecodedTx(
       .toFixed(),
     nativeAmount: amount,
     nativeAmountValue: encodedTx.zcashAmountValue,
-    // A PCZT's inputs/fee are already fixed and its notes locked; the confirm page's generic balance check would otherwise flag them unavailable.
+    // A PCZT's inputs/fee are already fixed; the confirm page's generic balance check would otherwise flag them unavailable.
     isPsbt: !!encodedTx.pcztHex,
   };
 }
@@ -653,8 +468,9 @@ export async function buildUnsignedTx(
   return { ...unsignedTx, encodedTx: withPczt };
 }
 
-// Built here, not at signing, so review shows the exact locked proposal.
-// Journal is written before the runtime locks notes, so a crash stays releasable.
+// Built here, not at signing, so review shows the exact proposal. Building
+// locks no notes: an abandoned review leaves nothing to release, and signing
+// verifies the PCZT against this review before any key touches it.
 export async function zcashAttachPczt(
   vault: Vault,
   encodedTx: IEncodedTxZcash,
@@ -680,40 +496,15 @@ export async function zcashAttachPczt(
         'Enable Zcash Privacy Mode before using a shielded pool',
       );
     }
-    const reservationId = `${generateUUID()}${generateUUID()}`.replace(
-      /-/g,
-      '',
-    );
-    const expiryHeight = await vault.zcashGetShieldedReservationExpiryHeight();
-    await vault.backgroundApi.simpleDb.zcash.saveShieldedReservation({
+    const created = await vault.zcashCreatePczt({
       accountId,
-      reservationId,
-      expiryHeight,
-      state: 'unsigned',
+      toAddress: encodedTx.zcashTo,
+      memoHex: encodedTx.zcashMemoHex,
+      valueZat: encodedTx.zcashAmountValue,
+      spendSource: encodedTx.zcashSpendSource ?? ZCASH_CURRENT_SHIELDED_POOL,
     });
-    let created: IZcashPcztReservation;
-    try {
-      created = await vault.zcashCreatePczt({
-        accountId,
-        toAddress: encodedTx.zcashTo,
-        memoHex: encodedTx.zcashMemoHex,
-        valueZat: encodedTx.zcashAmountValue,
-        spendSource: encodedTx.zcashSpendSource ?? ZCASH_CURRENT_SHIELDED_POOL,
-        reservationId,
-      });
-      if (created.reservationId !== reservationId) {
-        throw new OneKeyLocalError(
-          'zcash: runtime returned an unexpected reservation id',
-        );
-      }
-    } catch (error) {
-      await vault.zcashAbandonPczt({ accountId, reservationId }).catch(() => {
-        // A carrier failure may happen after the runtime reservation; keep the host journal until an explicit release succeeds.
-      });
-      throw error;
-    }
     const amountValue = encodedTx.zcashAmountValue;
-    const reviewed: IEncodedTxZcash = {
+    return {
       ...encodedTx,
       fee: created.feeZat,
       zcashAmountValue: amountValue,
@@ -721,102 +512,26 @@ export async function zcashAttachPczt(
         index === 0 ? { ...output, value: amountValue } : output,
       ),
       pcztHex: created.pcztHex,
-      pcztReservationId: reservationId,
     };
-    try {
-      const api = await vault.zcashGetApi();
-      await api.verifyPcztReview({
-        pcztHex: created.pcztHex,
-        review: getZcashPcztReviewRequest(reviewed, meta.ufvk),
-      });
-      await vault.backgroundApi.simpleDb.zcash.saveShieldedReservation({
-        accountId,
-        reservationId,
-        expiryHeight,
-        state: 'unsigned',
-        reviewDigest: getZcashPcztReviewDigest({
-          accountId,
-          networkId: vault.networkId,
-          encodedTx: reviewed,
-          ufvk: meta.ufvk,
-        }),
-      });
-      return reviewed;
-    } catch (error) {
-      await vault
-        .zcashAbandonPczt({ accountId, reservationId })
-        .catch(() => undefined);
-      throw error;
-    }
   });
-}
-
-export async function zcashAssertPcztReservationLive(
-  vault: Vault,
-  params: {
-    accountId: string;
-    reservationId: string;
-    encodedTx: IEncodedTxZcash;
-  },
-): Promise<void> {
-  const reservations =
-    await vault.backgroundApi.simpleDb.zcash.listShieldedReservations({
-      accountId: params.accountId,
-    });
-  const reservation = reservations.find(
-    ({ reservationId }) => reservationId === params.reservationId,
-  );
-  // Signed already means a submit was attempted whose outcome never came
-  // back; "review again" would lead the user into paying a second time.
-  if (reservation?.state === 'signed') {
-    throw Object.assign(
-      new OneKeyLocalError(
-        localWalletText(ETranslations.privacy_error_broadcast_unknown__msg),
-      ),
-      { code: 'FINALIZE_OUTCOME_UNKNOWN', params: {} },
-    );
-  }
-  const meta = await vault.backgroundApi.simpleDb.zcash.getAccountMeta({
-    accountId: params.accountId,
-  });
-  if (
-    params.accountId !== vault.accountId ||
-    params.encodedTx.pcztReservationId !== params.reservationId ||
-    !reservation ||
-    !meta ||
-    !reservation.reviewDigest ||
-    reservation.reviewDigest !==
-      getZcashPcztReviewDigest({
-        accountId: params.accountId,
-        networkId: vault.networkId,
-        encodedTx: params.encodedTx,
-        ufvk: meta.ufvk,
-      })
-  ) {
-    throw Object.assign(
-      new OneKeyLocalError(
-        localWalletText(ETranslations.privacy_error_review_expired__msg),
-      ),
-      { code: 'STALE_PRIVACY_TRANSACTION', params: {} },
-    );
-  }
 }
 
 export async function zcashPreparePcztForSigning(
   vault: Vault,
   params: {
     accountId: string;
-    reservationId: string;
     pcztHex: string;
     encodedTx: IEncodedTxZcash;
   },
 ): Promise<{ pcztHex: string }> {
-  if (params.pcztHex !== params.encodedTx.pcztHex) {
+  if (
+    params.accountId !== vault.accountId ||
+    params.pcztHex !== params.encodedTx.pcztHex
+  ) {
     throw new OneKeyLocalError(
       'zcash: transaction proposal does not match the review',
     );
   }
-  await vault.zcashAssertPcztReservationLive(params);
   return vault.zcashProvePczt({
     accountId: params.accountId,
     pcztHex: params.pcztHex,
@@ -860,58 +575,6 @@ export async function zcashParseTransparentOutputs(
     );
   }
   return parsed.outputs;
-}
-
-// Cleanup for a PCZT that never got signed. Once journaled as signed,
-// inputs stay reserved until the outcome is known or it expires.
-export async function releaseUnsignedTx(
-  vault: Vault,
-  {
-    unsignedTx,
-  }: {
-    unsignedTx: IUnsignedTxPro;
-  },
-): Promise<void> {
-  const value = unsignedTx.encodedTx;
-  const reservationId =
-    value &&
-    typeof value === 'object' &&
-    'pcztReservationId' in value &&
-    typeof value.pcztReservationId === 'string'
-      ? value.pcztReservationId
-      : undefined;
-  if (!reservationId || !vault.accountId) return;
-  const meta = await vault.backgroundApi.simpleDb.zcash.getAccountMeta({
-    accountId: vault.accountId,
-  });
-  await getZcashLifecycleMutex(meta?.ufvk ?? vault.accountId).runExclusive(() =>
-    vault.zcashAbandonPczt({ accountId: vault.accountId, reservationId }),
-  );
-}
-
-export async function zcashAbandonPczt(
-  vault: Vault,
-  params: {
-    accountId: string;
-    reservationId: string;
-  },
-): Promise<void> {
-  const reservations =
-    await vault.backgroundApi.simpleDb.zcash.listShieldedReservations({
-      accountId: params.accountId,
-    });
-  const signed = reservations.some(
-    ({ reservationId, state }) =>
-      reservationId === params.reservationId && state === 'signed',
-  );
-  if (signed) {
-    console.warn('[zcash] keeping a signed reservation after a failure', {
-      accountId: params.accountId,
-    });
-    return;
-  }
-  await vault.zcashReleasePczt(params);
-  await vault.backgroundApi.simpleDb.zcash.removeShieldedReservation(params);
 }
 
 export async function updateUnsignedTx(
@@ -1001,30 +664,17 @@ export async function broadcastTransaction(
   if (!signedPcztHex) {
     throw new OneKeyLocalError('zcash: signed PCZT missing');
   }
-  const reservationId = encodedTx?.pcztReservationId;
-  if (!reservationId) {
-    throw new OneKeyLocalError('zcash: PCZT input reservation missing');
-  }
   const account = await vault.zcashGetWalletAccount({
     accountId: vault.accountId,
   });
   const api = await vault.zcashGetApi();
   const lifecycleMutex = getZcashLifecycleMutex(account.ufvk);
   const sendResult = await lifecycleMutex.runExclusive(async () => {
-    const [privacyModeEnabled, shieldedReservations] = await Promise.all([
-      vault.backgroundApi.simpleDb.zcash.isPrivacyModeEnabled({
+    const privacyModeEnabled =
+      await vault.backgroundApi.simpleDb.zcash.isPrivacyModeEnabled({
         accountId: vault.accountId,
-      }),
-      vault.backgroundApi.simpleDb.zcash.listShieldedReservations({
-        accountId: vault.accountId,
-      }),
-    ]);
-    if (
-      !privacyModeEnabled ||
-      !shieldedReservations.some(
-        (reservation) => reservation.reservationId === reservationId,
-      )
-    ) {
+      });
+    if (!privacyModeEnabled) {
       throw Object.assign(
         new OneKeyLocalError(
           localWalletText(ETranslations.privacy_error_review_expired__msg),
@@ -1032,39 +682,18 @@ export async function broadcastTransaction(
         { code: 'STALE_PRIVACY_TRANSACTION', params: {} },
       );
     }
-    let submitted: Awaited<ReturnType<typeof api.submitPczt>>;
     try {
-      submitted = await zcashTrackUserOperation(() =>
-        api.submitPczt(account, {
-          pcztHex: signedPcztHex,
-          reservationId,
-        }),
+      return await zcashTrackUserOperation(() =>
+        api.submitPczt(account, { pcztHex: signedPcztHex }),
       );
     } catch (e) {
+      // A runtime error before storing means nothing was sent.
       const runtimeError = readZcashRuntimeError(e);
       if (runtimeError && runtimeError.code !== 'FINALIZE_OUTCOME_UNKNOWN') {
-        try {
-          await api.releasePczt(account, { reservationId });
-          await vault.backgroundApi.simpleDb.zcash.removeShieldedReservation({
-            accountId: vault.accountId,
-            reservationId,
-          });
-        } catch (releaseError) {
-          console.error(
-            '[zcash] failed to release PCZT after finalize failure',
-            {
-              reservationId,
-              error:
-                releaseError instanceof Error
-                  ? releaseError.message
-                  : String(releaseError),
-            },
-          );
-        }
         throw toUserFacingZcashError(e);
       }
-      // Carrier may fail after the runtime committed the spend but before the
-      // txid returned; don't unlock -- the tx may still be rebroadcast from history.
+      // Carrier may fail after the runtime stored the spend but before the
+      // txid returned; the stored tx may still be rebroadcast from history.
       const uncertain = new OneKeyLocalError(
         localWalletText(ETranslations.privacy_error_broadcast_unknown__msg),
       );
@@ -1074,19 +703,6 @@ export async function broadcastTransaction(
       });
       throw uncertain;
     }
-    // The durable runtime record owns the notes, including rejections; host cleanup can't turn a submitted tx into a failure.
-    // An unknown outcome keeps the host record until expiry: it is the only
-    // trace that survives a runtime database rebuild, and deleting data
-    // while the tx may still land could lead to paying twice.
-    if (submitted.broadcastState !== 'unknown') {
-      await vault.backgroundApi.simpleDb.zcash
-        .removeShieldedReservation({
-          accountId: vault.accountId,
-          reservationId,
-        })
-        .catch(() => undefined);
-    }
-    return submitted;
   });
   const { txid, broadcastState, broadcastError } = sendResult;
   if (broadcastState === 'rejected') {

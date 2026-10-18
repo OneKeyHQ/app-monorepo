@@ -1,14 +1,12 @@
 // cspell:ignore subaddresses
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
-import { z } from 'zod';
 
 import { readXmrRuntimeError } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime';
 import type { IXmrRuntimeApi } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime';
 import { xmrHostFetch } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/sdk/hostFetch';
 import type { IXmrNetwork } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/types';
 import {
-  getXmrReviewRequest,
   parseXmrPreparedTransaction,
   parseXmrSendRequest,
   parseXmrTransaction,
@@ -30,7 +28,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { getPrivacyChainBlocksLeft } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
-import { getPrivacyTransactionReviewDigest } from '@onekeyhq/shared/src/utils/privacyTransactionReview';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type {
   IAddressValidation,
@@ -259,8 +256,8 @@ export default class Vault extends VaultBase {
       throw new OneKeyInternalError('transfersInfo is required');
     }
     if (transfersInfo.length > 1) {
-      // Monero supports multi-recipient txs, but the app's batch path builds
-      // its own inputs, bypassing the reservation that prevents double-spend.
+      // Monero supports multi-recipient txs, but the review contract the
+      // runtime checks at signing covers exactly one recipient.
       throw new OneKeyInternalError('Batch transfer is not supported');
     }
     return this.buildXmrEncodedTxFromTransfer({
@@ -379,8 +376,6 @@ export default class Vault extends VaultBase {
     await this.xmrEnsureKeyImages({ api, identityId });
     const chainTip = await getXmrChainTip(api);
 
-    const reservationId = stringUtils.generateUUID();
-
     let raw: string;
     try {
       raw = await api.prepareTransaction(
@@ -389,7 +384,6 @@ export default class Vault extends VaultBase {
           { address: encodedTx.to, amountAtomic: encodedTx.amountAtomic },
         ]),
         encodedTx.isMaxSend === true,
-        reservationId,
         String(chainTip),
         encodedTx.priority,
       );
@@ -397,70 +391,22 @@ export default class Vault extends VaultBase {
       throw toXmrUserFacingError(error);
     }
 
-    try {
-      const result = parseXmrPreparedTransaction(JSON.parse(raw));
-      if (
-        result.reservationId !== reservationId ||
-        (encodedTx.isMaxSend !== true &&
-          result.amountAtomic !== encodedTx.amountAtomic)
-      ) {
-        throw new OneKeyLocalError(
-          'xmr: prepared transaction does not match the request',
-        );
-      }
-      const prepared = parseXmrTransaction({
-        ...encodedTx,
-        ...result,
-        amount: new BigNumber(result.amountAtomic)
-          .shiftedBy(-XMR_DECIMALS)
-          .toFixed(),
-        chainTip,
-      });
-      await api.verifyTransaction(
-        prepared.signableHex,
-        stringUtils.stableStringify(
-          getXmrReviewRequest(prepared, await this.getXmrNetwork()),
-        ),
+    const result = parseXmrPreparedTransaction(JSON.parse(raw));
+    if (
+      encodedTx.isMaxSend !== true &&
+      result.amountAtomic !== encodedTx.amountAtomic
+    ) {
+      throw new OneKeyLocalError(
+        'xmr: prepared transaction does not match the request',
       );
-      await this.backgroundApi.simpleDb.xmr.saveTransactionReview({
-        accountId: this.accountId,
-        reservationId,
-        digest: this.xmrGetReviewDigest(prepared),
-      });
-      return prepared;
-    } catch (error) {
-      await this.xmrReleaseReservation(reservationId);
-      throw error;
     }
-  }
-
-  private xmrGetReviewDigest(encodedTx: IEncodedTxXmr): string {
-    const reviewed = parseXmrTransaction(encodedTx);
-    return getPrivacyTransactionReviewDigest({
-      accountId: this.accountId,
-      networkId: this.networkId,
-      proposalHex: reviewed.signableHex,
-      intent: {
-        from: reviewed.from,
-        to: reviewed.to,
-        amount: reviewed.amount,
-        amountAtomic: reviewed.amountAtomic,
-        feeAtomic: reviewed.feeAtomic,
-        changeAtomic: reviewed.changeAtomic,
-        isMaxSend: reviewed.isMaxSend === true,
-        priority: reviewed.priority,
-        inputCount: String(reviewed.inputCount),
-        chainTip: String(reviewed.chainTip),
-      },
-    });
-  }
-
-  async xmrClaimTransactionReview(encodedTx: IEncodedTxXmr): Promise<void> {
-    const reviewed = parseXmrTransaction(encodedTx);
-    await this.backgroundApi.simpleDb.xmr.claimTransactionReview({
-      accountId: this.accountId,
-      reservationId: reviewed.reservationId,
-      digest: this.xmrGetReviewDigest(reviewed),
+    return parseXmrTransaction({
+      ...encodedTx,
+      ...result,
+      amount: new BigNumber(result.amountAtomic)
+        .shiftedBy(-XMR_DECIMALS)
+        .toFixed(),
+      chainTip,
     });
   }
 
@@ -548,95 +494,11 @@ export default class Vault extends VaultBase {
     await this.xmrImportKeyImages({ password });
   }
 
-  /**
-   * Marks inputs signed so prepare won't treat them as abandoned while
-   * broadcast is pending; failure here must stop signing.
-   */
-  async xmrMarkReservationSigned(
-    reservationId: string,
-    expectedInputs: number,
-  ): Promise<void> {
-    const api = await this.getXmrRuntimeApi();
-    const marked = z
-      .object({ marked: z.literal(expectedInputs) })
-      .safeParse(
-        JSON.parse(
-          await api.markReservationSigned(reservationId, expectedInputs),
-        ),
-      );
-    if (!marked.success) {
-      throw new OneKeyLocalError(
-        localWalletText(ETranslations.privacy_error_review_expired__msg),
-      );
-    }
-  }
-
-  // Best-effort: a leftover review cannot authorize anything, its reservation
-  // is gone.
-  private async xmrRemoveTransactionReview(reservationId: string) {
-    try {
-      await this.backgroundApi.simpleDb.xmr.removeTransactionReview({
-        accountId: this.accountId,
-        reservationId,
-      });
-    } catch (error) {
-      console.error('[xmr] failed to remove transaction review', {
-        reservationId,
-        error: error instanceof Error ? error.message : '',
-      });
-    }
-  }
-
-  async xmrReleaseReservation(reservationId: string): Promise<void> {
-    try {
-      const api = await this.getXmrRuntimeApi();
-      await api.releaseReservation(reservationId);
-      await this.backgroundApi.simpleDb.xmr.removeTransactionReview({
-        accountId: this.accountId,
-        reservationId,
-      });
-    } catch (error) {
-      console.error('[xmr] failed to release reserved inputs', {
-        reservationId,
-        error,
-      });
-    }
-  }
-
-  override async releaseUnsignedTx({
-    unsignedTx,
-  }: {
-    unsignedTx: IUnsignedTxPro;
-  }): Promise<void> {
-    const value = unsignedTx.encodedTx;
-    const reservationId =
-      value &&
-      typeof value === 'object' &&
-      'reservationId' in value &&
-      typeof value.reservationId === 'string'
-        ? value.reservationId
-        : undefined;
-    if (!reservationId || !this.accountId) return;
-    if (
-      await this.backgroundApi.simpleDb.xmr.abandonUnsignedTransactionReview({
-        accountId: this.accountId,
-        reservationId,
-      })
-    ) {
-      await this.xmrReleaseReservation(reservationId);
-    }
-  }
-
   override async buildDecodedTx(
     params: IBuildDecodedTxParams,
   ): Promise<IDecodedTx> {
     const { unsignedTx } = params;
     const encodedTx = parseXmrTransaction(unsignedTx.encodedTx);
-    await this.backgroundApi.simpleDb.xmr.assertTransactionReview({
-      accountId: this.accountId,
-      reservationId: encodedTx.reservationId,
-      digest: this.xmrGetReviewDigest(encodedTx),
-    });
     const account = await this.getAccount();
     const network = await this.getNetwork();
 
@@ -687,7 +549,8 @@ export default class Vault extends VaultBase {
       accountId: this.accountId,
       extraInfo: null,
       encodedTx,
-      // The verified proposal already holds its inputs; spendable excludes them.
+      // Inputs were selected from real spendable outputs at build time; a
+      // balance recount on the confirm page could only disagree with it.
       isPsbt: true,
       totalFeeInNative: new BigNumber(encodedTx.feeAtomic || '0')
         .shiftedBy(-network.feeMeta.decimals)
@@ -751,7 +614,7 @@ export default class Vault extends VaultBase {
   ): Promise<ISignedTxPro> {
     const { signedTx } = params;
     const encodedTx = signedTx.encodedTx as IEncodedTxXmr | undefined;
-    if (!encodedTx?.reservationId || !signedTx.rawTx) {
+    if (!encodedTx?.signableHex || !signedTx.rawTx) {
       throw new OneKeyLocalError(
         localWalletText(ETranslations.privacy_error_review_expired__msg),
       );
@@ -768,7 +631,6 @@ export default class Vault extends VaultBase {
       raw = await api.broadcastTransaction(
         identityId,
         signedTx.rawTx,
-        encodedTx.reservationId,
         String(encodedTx.chainTip ?? (await getXmrChainTip(api))),
         encodedTx.amountAtomic
           ? new BigNumber(encodedTx.amountAtomic)
@@ -780,13 +642,11 @@ export default class Vault extends VaultBase {
     } catch (error) {
       console.error('[xmr] broadcast failed', {
         txid: signedTx.txid,
-        reservationId: encodedTx.reservationId,
         error,
       });
       // A runtime error is definite: rejected, or refused before sending.
       // Network trouble comes back as a recorded "unknown" instead.
       if (readXmrRuntimeError(error)) {
-        await this.xmrRemoveTransactionReview(encodedTx.reservationId);
         throw toXmrUserFacingError(error);
       }
       // The call itself was lost (bridge timeout, carrier restart): the node
@@ -842,7 +702,6 @@ export default class Vault extends VaultBase {
       );
     }
 
-    await this.xmrRemoveTransactionReview(encodedTx.reservationId);
     return {
       ...signedTx,
       txid,
@@ -911,7 +770,7 @@ export default class Vault extends VaultBase {
   }
 
   // `balance` is spendable-now (as on BTC); the dialog shows it beside total
-  // and the frozen remainder (locked, reserved, or already spent).
+  // and the frozen remainder (locked, pending change, or unverifiable).
   override async fetchAccountDetails(
     params: IFetchServerAccountDetailsParams,
   ): Promise<IFetchServerAccountDetailsResponse> {

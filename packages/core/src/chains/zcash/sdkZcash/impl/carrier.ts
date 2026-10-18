@@ -2,8 +2,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isPrivacyChainPerfLogEnabled } from '@onekeyhq/shared/src/utils/privacyChainPerfLog';
 
-import { ZCASH_LIGHTWALLETD_MAINNET_FALLBACKS } from '../constants';
-import { isZcashRuntimeError, readZcashRuntimeError } from '../runtimeError';
+import { ZCASH_LIGHTWALLETD_MAINNET } from '../constants';
 
 import { wrapKeysModuleWithStackCleanup } from './keysMemory';
 
@@ -354,50 +353,8 @@ export async function diagnoseWalletDatabase({
   };
 }
 
-const ENDPOINT_ROTATE_AFTER_FAILURES = 2;
-let endpointOffset = 0;
-let lastPreferredUrl: string | undefined;
+// The endpoint the last wallet operation used; health samples are attributed to it.
 let selectedEndpointUrl: string | undefined;
-let endpointPool: readonly string[] = [];
-let consecutiveNetworkFailures = 0;
-let lastFailureSignature: string | undefined;
-let sameFailureCount = 0;
-
-// Tip probes don't hold the wallet lease; must not change endpoint state of a scan already in flight.
-export function getLightwalletdUrl(preferred: string): string {
-  return lastPreferredUrl === preferred
-    ? endpointPool[endpointOffset]
-    : preferred;
-}
-
-export function pickLightwalletdUrl(preferred: string): string {
-  if (lastPreferredUrl !== preferred) {
-    lastPreferredUrl = preferred;
-    // A custom node is a privacy boundary: only built-in public nodes may fail over without another user decision.
-    endpointPool = ZCASH_LIGHTWALLETD_MAINNET_FALLBACKS.includes(preferred)
-      ? [
-          preferred,
-          ...ZCASH_LIGHTWALLETD_MAINNET_FALLBACKS.filter(
-            (u) => u !== preferred,
-          ),
-        ]
-      : [preferred];
-    endpointOffset = 0;
-    consecutiveNetworkFailures = 0;
-    lastFailureSignature = undefined;
-    sameFailureCount = 0;
-  }
-  selectedEndpointUrl = getLightwalletdUrl(preferred);
-  return selectedEndpointUrl;
-}
-
-function rotateEndpoint(): boolean {
-  if (endpointPool.length < 2) {
-    return false;
-  }
-  endpointOffset = (endpointOffset + 1) % endpointPool.length;
-  return true;
-}
 
 export async function withWallet(
   account: IZcashWalletAccount,
@@ -423,7 +380,9 @@ export async function withWallet(
     });
     openDbName = dbName;
   }
-  rt.setLightwalletdUrl(pickLightwalletdUrl(account.lightwalletdUrl));
+  // Pinned to the configured endpoint (default or custom RPC); no automatic failover.
+  selectedEndpointUrl = account.lightwalletdUrl;
+  rt.setLightwalletdUrl(account.lightwalletdUrl);
 
   // Match by UFVK, not uuid: the runtime's uuid is not stable across a purge, so it can't be cached.
   const existing = JSON.parse(rt.accountByUfvk(account.ufvk)) as {
@@ -471,10 +430,6 @@ export function resetCarrierState(): void {
   console.log('[zcash] carrier state reset');
 }
 
-// Sticky failover across built-in public endpoints; custom URLs stay pinned. Two consecutive
-// failures rotate to the next endpoint; success resets the failure count but never rotates back.
-
-// A non-network error repeating with the same shape never resolves on retry: rotating helps when it's bad server data.
 // Health signal comes from the scan's own requests, not a dedicated probe.
 export type IZcashEndpointHealth = {
   url: string;
@@ -490,7 +445,7 @@ export function recordEndpointHealth(sample: {
   ok: boolean;
   latencyMs?: number | null;
 }): void {
-  const url = selectedEndpointUrl ?? ZCASH_LIGHTWALLETD_MAINNET_FALLBACKS[0];
+  const url = selectedEndpointUrl ?? ZCASH_LIGHTWALLETD_MAINNET;
   endpointHealth = {
     url,
     ok: sample.ok,
@@ -507,46 +462,6 @@ export function getEndpointHealth(): IZcashEndpointHealth | undefined {
 
 export function noteNetworkOutcome(e: unknown | null): void {
   recordEndpointHealth({ ok: e === null });
-  if (e === null) {
-    consecutiveNetworkFailures = 0;
-    lastFailureSignature = undefined;
-    sameFailureCount = 0;
-    return;
-  }
-  if (isZcashRuntimeError(e, 'NETWORK_ERROR')) {
-    consecutiveNetworkFailures += 1;
-    if (consecutiveNetworkFailures >= ENDPOINT_ROTATE_AFTER_FAILURES) {
-      consecutiveNetworkFailures = 0;
-      if (rotateEndpoint()) {
-        console.log('[zcash] lightwalletd endpoint rotated', {
-          offset: endpointOffset,
-        });
-      }
-    }
-    return;
-  }
-  const runtime = readZcashRuntimeError(e);
-  if (!runtime) {
-    return;
-  }
-  const signature = `${runtime.code}:${String(runtime.params.operation ?? '')}`;
-  if (signature === lastFailureSignature) {
-    sameFailureCount += 1;
-  } else {
-    lastFailureSignature = signature;
-    sameFailureCount = 1;
-  }
-  if (sameFailureCount === 3 && rotateEndpoint()) {
-    console.error(
-      '[zcash] same failure three times in a row — rotating endpoint in case the server data is poisoned',
-      { signature },
-    );
-  } else if (sameFailureCount === 6) {
-    console.error(
-      '[zcash] scan appears stuck on a deterministic failure; local data may need Repair',
-      { signature },
-    );
-  }
 }
 
 /** Install only on this WASM instance, before any node operation runs. */

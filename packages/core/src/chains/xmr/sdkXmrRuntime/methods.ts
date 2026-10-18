@@ -39,8 +39,6 @@ export const XMR_RUNTIME_METHODS = [
   'signTransaction',
   'verifyTransaction',
   'broadcastTransaction',
-  'markReservationSigned',
-  'releaseReservation',
 ] as const;
 
 export type IXmrRuntimeMethod = (typeof XMR_RUNTIME_METHODS)[number];
@@ -59,8 +57,8 @@ export const XMR_RUNTIME_U64_ARGS: Partial<
   history: [0],
   transactionDetails: [0],
   importKeyImages: [0],
-  prepareTransaction: [0, 4],
-  broadcastTransaction: [0, 3],
+  prepareTransaction: [0, 3],
+  broadcastTransaction: [0, 2],
 };
 
 const DECIMAL_U64 = /^(0|[1-9][0-9]*)$/;

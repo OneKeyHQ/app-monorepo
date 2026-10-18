@@ -272,9 +272,6 @@ export async function fetchAccountHistoryDetail(
               : undefined),
           timestamp: item.timestamp ?? undefined,
           gasFee: item.fee === null ? undefined : zatoshiToZec(item.fee),
-          broadcastOutcomeUnknown:
-            status === EOnChainHistoryTxStatus.Pending &&
-            item.broadcastOutcomeUnknown,
           // Indexer owns public I/O; keep local shielded facts while replacing the public portion once association is proven.
           sends: publicDetail?.sends
             ? [

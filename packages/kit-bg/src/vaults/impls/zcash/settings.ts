@@ -2,7 +2,7 @@
 
 import {
   ZCASH_CURRENT_SHIELDED_POOL,
-  ZCASH_LIGHTWALLETD_MAINNET_FALLBACKS,
+  ZCASH_LIGHTWALLETD_MAINNET,
   ZCASH_POOL_IDS,
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 import { EAddressEncodings } from '@onekeyhq/core/src/types';
@@ -148,7 +148,7 @@ const settings: IVaultSettings = {
   // Custom node here is the lightwalletd the scanner reads from (not just a
   // broadcast override); transparent sends stay on the backend either way.
   customRpcEnabled: true,
-  builtInRpcUrls: ZCASH_LIGHTWALLETD_MAINNET_FALLBACKS,
+  builtInRpcUrls: [ZCASH_LIGHTWALLETD_MAINNET],
   // - note selection happens inside the wasm wallet; the BTC coin-control
   //   screen would call a blockbook backend that does not index zcash
   coinControlEnabled: false,

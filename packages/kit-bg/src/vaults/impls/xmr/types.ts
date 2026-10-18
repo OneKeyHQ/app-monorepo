@@ -12,7 +12,7 @@ export type IXmrPoolKey = 'private';
 
 /** One scanned output as the vault hands it to the UI. */
 export type IXmrOutput = {
-  /** Runtime row id; used to reserve inputs for a send. */
+  /** Runtime row id. */
   id: number;
   amountAtomic: string;
   globalIndex: string;
@@ -30,7 +30,6 @@ export type IXmrOutput = {
 export type IXmrBalance = {
   totalAtomic: string;
   unlockedAtomic: string;
-  lockedByReservationAtomic: string;
   unverifiableAtomic: string;
 };
 

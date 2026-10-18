@@ -38,7 +38,7 @@ jest.mock('./runtime', () => ({
   getXmrLocalRuntime: async () => runtime,
   getXmrIdentityId: async () => '3',
   getXmrChainTip: async () => TIP,
-  getXmrChainTipForDisplay: async () => TIP,
+  getXmrLastKnownChainTip: async () => TIP,
   readXmrStaleFirst: async <T>(p: {
     read: () => Promise<T>;
     fallback: T;

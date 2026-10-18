@@ -2,9 +2,7 @@ import { isEqual } from 'lodash';
 import { z } from 'zod';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { localWalletText } from '../../../vaults/localWallet/messages';
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export type IZcashBirthdaySource =
@@ -39,18 +37,6 @@ export type IZcashTransparentPendingTx = {
   broadcastState: 'accepted' | 'unknown';
   // A signature alone is not authorization to submit or recover by rebroadcast.
   broadcastAuthorized?: boolean;
-};
-
-export type IZcashShieldedReservation = {
-  // Only a digest is stored: the PCZT and its private viewing material remain transient.
-  reviewDigest?: string;
-  expiryHeight?: number;
-  // Review pages do not survive a restart; an unsigned reservation from an
-  // earlier process is abandoned.
-  createdAt?: number;
-  // 'unsigned': may still be abandoned, released by the next build or expiry.
-  // 'signed': carried to broadcast.
-  state: 'unsigned' | 'signed';
 };
 
 export type IZcashPrivacyModeIntent = 'off' | 'on';
@@ -137,13 +123,6 @@ export interface IZcashDB {
     string,
     Record<string, IZcashTransparentPendingTx>
   >;
-  // Host lifecycle journal only; private transaction truth stays in the
-  // runtime database. Closes the UI gap between PCZT creation and runtime
-  // finalization, when the runtime has no txid yet.
-  shieldedReservations?: Record<
-    string,
-    Record<string, IZcashShieldedReservation>
-  >;
 }
 
 const zcashStoredDataSchema = z
@@ -176,9 +155,6 @@ const zcashStoredDataSchema = z
       .record(z.record(z.object({}).passthrough()))
       .optional(),
     transparentPendingTxs: z
-      .record(z.record(z.object({}).passthrough()))
-      .optional(),
-    shieldedReservations: z
       .record(z.record(z.object({}).passthrough()))
       .optional(),
   })
@@ -665,7 +641,6 @@ export class SimpleDbEntityZcash extends SimpleDbEntityBase<IZcashDB> {
         ...Object.keys(rawData?.pendingRescans ?? {}),
         ...Object.keys(rawData?.transparentReservations ?? {}),
         ...Object.keys(rawData?.transparentPendingTxs ?? {}),
-        ...Object.keys(rawData?.shieldedReservations ?? {}),
       ]),
     );
   }
@@ -710,13 +685,11 @@ export class SimpleDbEntityZcash extends SimpleDbEntityBase<IZcashDB> {
         ...rawData?.transparentReservations,
       };
       const transparentPendingTxs = { ...rawData?.transparentPendingTxs };
-      const shieldedReservations = { ...rawData?.shieldedReservations };
       delete accounts[accountId];
       delete pendingRescans[accountId];
       delete privacyModeAccounts[accountId];
       delete transparentReservations[accountId];
       delete transparentPendingTxs[accountId];
-      delete shieldedReservations[accountId];
       return {
         ...rawData,
         accounts,
@@ -724,7 +697,6 @@ export class SimpleDbEntityZcash extends SimpleDbEntityBase<IZcashDB> {
         privacyModeAccounts,
         transparentReservations,
         transparentPendingTxs,
-        shieldedReservations,
       };
     });
   }
@@ -1184,111 +1156,5 @@ export class SimpleDbEntityZcash extends SimpleDbEntityBase<IZcashDB> {
         },
       };
     });
-  }
-
-  async saveShieldedReservation({
-    accountId,
-    reservationId,
-    expiryHeight,
-    state,
-    reviewDigest,
-  }: {
-    accountId: string;
-    reservationId: string;
-    expiryHeight: number;
-    state: IZcashShieldedReservation['state'];
-    reviewDigest?: string;
-  }): Promise<void> {
-    await this.setRawData((rawData) => ({
-      ...rawData,
-      accounts: rawData?.accounts ?? {},
-      shieldedReservations: {
-        ...rawData?.shieldedReservations,
-        [accountId]: {
-          ...rawData?.shieldedReservations?.[accountId],
-          [reservationId]: {
-            expiryHeight,
-            state,
-            reviewDigest,
-            createdAt: Date.now(),
-          },
-        },
-      },
-    }));
-  }
-
-  async markShieldedReservationSigned({
-    accountId,
-    reservationId,
-  }: {
-    accountId: string;
-    reservationId: string;
-  }): Promise<void> {
-    const saved = await this.setRawData((rawData) => {
-      const existing =
-        rawData?.shieldedReservations?.[accountId]?.[reservationId];
-      if (
-        !existing ||
-        existing.state !== 'unsigned' ||
-        !existing.reviewDigest
-      ) {
-        throw new OneKeyLocalError(
-          localWalletText(ETranslations.privacy_error_review_expired__msg),
-        );
-      }
-      return {
-        ...rawData,
-        accounts: rawData?.accounts ?? {},
-        shieldedReservations: {
-          ...rawData?.shieldedReservations,
-          [accountId]: {
-            ...rawData?.shieldedReservations?.[accountId],
-            [reservationId]: { ...existing, state: 'signed' },
-          },
-        },
-      };
-    });
-    if (!saved) {
-      throw new OneKeyLocalError(
-        'zcash: signed reservation could not be saved',
-      );
-    }
-  }
-
-  async removeShieldedReservation({
-    accountId,
-    reservationId,
-  }: {
-    accountId: string;
-    reservationId: string;
-  }): Promise<void> {
-    await this.setRawData((rawData) => {
-      const reservations = {
-        ...rawData?.shieldedReservations?.[accountId],
-      };
-      delete reservations[reservationId];
-      return {
-        ...rawData,
-        accounts: rawData?.accounts ?? {},
-        shieldedReservations: {
-          ...rawData?.shieldedReservations,
-          [accountId]: reservations,
-        },
-      };
-    });
-  }
-
-  async listShieldedReservations({
-    accountId,
-  }: {
-    accountId: string;
-  }): Promise<Array<IZcashShieldedReservation & { reservationId: string }>> {
-    const rawData = await this.getRawData();
-    return Object.entries(rawData?.shieldedReservations?.[accountId] ?? {}).map(
-      ([reservationId, reservation]) => ({
-        reservationId,
-        ...reservation,
-      }),
-    );
   }
 }

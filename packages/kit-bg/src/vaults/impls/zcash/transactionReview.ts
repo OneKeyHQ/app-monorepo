@@ -74,7 +74,6 @@ const schema = z.object({
   zcashSpendSource: z.enum(['orchard', 'ironwood']).optional(),
   pcztHex: zPrivacyHex(ZCASH_PCZT_HEX_MAX_CHARS).optional(),
   signedPcztHex: zPrivacyHex(ZCASH_PCZT_HEX_MAX_CHARS).optional(),
-  pcztReservationId: z.string().min(1).optional(),
   zcashTransparentPlan: z
     .object({
       ownerId: z.string().min(1),

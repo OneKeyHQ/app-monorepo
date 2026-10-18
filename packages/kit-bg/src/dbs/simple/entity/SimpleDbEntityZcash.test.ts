@@ -17,34 +17,6 @@ function createEntity(initial?: IZcashDB) {
   return entity;
 }
 
-describe('Zcash signed approval persistence', () => {
-  it('rejects missing, legacy and already consumed approvals', async () => {
-    const entity = createEntity();
-    const params = { accountId: 'account', reservationId: 'review' };
-    await expect(
-      entity.markShieldedReservationSigned(params),
-    ).rejects.toThrow();
-    await entity.saveShieldedReservation({
-      ...params,
-      expiryHeight: 100,
-      state: 'unsigned',
-    });
-    await expect(
-      entity.markShieldedReservationSigned(params),
-    ).rejects.toThrow();
-    await entity.saveShieldedReservation({
-      ...params,
-      expiryHeight: 100,
-      state: 'unsigned',
-      reviewDigest: 'approved',
-    });
-    await entity.markShieldedReservationSigned(params);
-    await expect(
-      entity.markShieldedReservationSigned(params),
-    ).rejects.toThrow();
-  });
-});
-
 describe('SimpleDbEntityZcash account cleanup', () => {
   it('discovers and removes orphaned account state', async () => {
     const entity = createEntity({
@@ -539,53 +511,6 @@ describe('SimpleDbEntityZcash transparent transaction journal', () => {
         expiryHeight: 110,
       }),
     ).rejects.toMatchObject({ code: 'UTXO_ALREADY_RESERVED' });
-  });
-});
-
-describe('SimpleDbEntityZcash shielded lifecycle journal', () => {
-  it('keeps reservations until the runtime release path removes them', async () => {
-    const entity = createEntity({ accounts: {} });
-    await entity.saveShieldedReservation({
-      accountId: 'account',
-      reservationId: 'aa'.repeat(32),
-      expiryHeight: 110,
-      state: 'signed',
-    });
-    await expect(
-      entity.listShieldedReservations({ accountId: 'account' }),
-    ).resolves.toEqual([
-      {
-        reservationId: 'aa'.repeat(32),
-        expiryHeight: 110,
-        state: 'signed',
-        createdAt: expect.any(Number),
-      },
-    ]);
-
-    await entity.removeShieldedReservation({
-      accountId: 'account',
-      reservationId: 'aa'.repeat(32),
-    });
-    await expect(
-      entity.listShieldedReservations({ accountId: 'account' }),
-    ).resolves.toEqual([]);
-
-    await entity.saveShieldedReservation({
-      accountId: 'account',
-      reservationId: 'bb'.repeat(32),
-      expiryHeight: 120,
-      state: 'signed',
-    });
-    await expect(
-      entity.listShieldedReservations({ accountId: 'account' }),
-    ).resolves.toEqual([
-      {
-        reservationId: 'bb'.repeat(32),
-        expiryHeight: 120,
-        state: 'signed',
-        createdAt: expect.any(Number),
-      },
-    ]);
   });
 });
 

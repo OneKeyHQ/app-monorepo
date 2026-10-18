@@ -51,6 +51,13 @@ const LOST_STATE_CODES = new Set([
   'NOT_INITIALIZED',
 ]);
 
+const NODE_METHODS = new Set<(typeof XMR_RUNTIME_METHODS)[number]>([
+  'chainTip',
+  'syncStep',
+  'prepareTransaction',
+  'broadcastTransaction',
+]);
+
 function readLostStateCode(error: unknown): string | undefined {
   const runtime = readXmrRuntimeError(error);
   if (runtime && LOST_STATE_CODES.has(runtime.code)) {
@@ -161,7 +168,7 @@ function healingMethod(
         }
         const next = await openSessionSingleFlight({
           network: current.network,
-          nodeUrl: current.nodeUrl,
+          nodeUrl: NODE_METHODS.has(method) ? current.nodeUrl : '',
         });
         return call(next.raw, args);
       }
@@ -266,7 +273,7 @@ export async function getXmrRuntime(vault: Vault): Promise<IXmrRuntimeApi> {
   return current.api;
 }
 
-// Local reads (balance, history, progress) need only the database; waiting
+// Local reads and data management need only the database; waiting
 // for a node to connect put up to three network round trips before them.
 // Scanning and sending go through getXmrRuntime, which connects.
 export async function getXmrLocalRuntime(
@@ -346,11 +353,9 @@ export async function getXmrChainTip(api: IXmrRuntimeApi): Promise<number> {
   return tip.height;
 }
 
-// Chain tip for display reads (balance, progress) only, never from the node:
-// the last one fetched in this run, else the one saved before. Undefined until
-// any was fetched. Anything that acts on the tip (enable, send, rescan) must
-// call `getXmrChainTip` instead.
-export async function getXmrChainTipForDisplay(
+// Last observed tip for display and local scan-data management. Sending and
+// normal sync fetch a fresh tip through getXmrChainTip instead.
+export async function getXmrLastKnownChainTip(
   vault: Vault,
 ): Promise<number | undefined> {
   return (

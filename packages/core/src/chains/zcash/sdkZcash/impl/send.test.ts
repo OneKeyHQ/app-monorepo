@@ -1,20 +1,13 @@
 import { ZCASH_CURRENT_SHIELDED_POOL } from '../constants';
 
 import { getKeys, withWallet } from './carrier';
-import {
-  createPczt,
-  prewarmPczt,
-  quotePczt,
-  releasePczt,
-  submitPczt,
-} from './send';
+import { createPczt, prewarmPczt, quotePczt, submitPczt } from './send';
 
 import type { IZcashWalletAccount } from '../types/sdk';
 
 const mockPcztQuote = jest.fn();
 const mockPcztCreate = jest.fn();
 const mockPcztSubmit = jest.fn();
-const mockReleaseReservation = jest.fn();
 const mockRuntimeCapabilities = jest.fn();
 const mockKeysCapabilities = jest.fn();
 const mockPrewarmPczt = jest.fn();
@@ -23,7 +16,6 @@ const runtime = {
   pcztQuote: mockPcztQuote,
   pcztCreate: mockPcztCreate,
   pcztSubmit: mockPcztSubmit,
-  releaseReservation: mockReleaseReservation,
   capabilities: mockRuntimeCapabilities,
   prewarmPczt: mockPrewarmPczt,
 };
@@ -91,7 +83,7 @@ describe('Zcash PCZT send policy', () => {
     );
   });
 
-  it('prewarms public parameters without keys, storage, or note reservations', async () => {
+  it('prewarms public parameters without keys or storage', async () => {
     await prewarmPczt({ network: 'main', targetHeight: 3_500_000 });
     expect(mockPrewarmPczt).toHaveBeenCalledWith('main', 3_500_000);
     expect(getKeys).not.toHaveBeenCalled();
@@ -102,11 +94,7 @@ describe('Zcash PCZT send policy', () => {
 
   it('pins PCZT creation to the selected Ironwood pool', async () => {
     mockPcztCreate.mockReturnValue(
-      JSON.stringify({
-        pcztHex: '0102',
-        reservationId: 'reservation-id',
-        feeZat: 10_000,
-      }),
+      JSON.stringify({ pcztHex: '0102', feeZat: 10_000 }),
     );
 
     await expect(
@@ -114,13 +102,8 @@ describe('Zcash PCZT send policy', () => {
         toAddress: 't1-recipient',
         valueZat: '90000',
         spendSource: 'ironwood',
-        reservationId: 'host-reservation-id',
       }),
-    ).resolves.toEqual({
-      pcztHex: '0102',
-      reservationId: 'reservation-id',
-      feeZat: '10000',
-    });
+    ).resolves.toEqual({ pcztHex: '0102', feeZat: '10000' });
 
     expect(mockPcztCreate).toHaveBeenCalledWith(
       'account-uuid',
@@ -131,8 +114,6 @@ describe('Zcash PCZT send policy', () => {
       10,
       'ironwood',
       true, // padOrchardBundle
-      41, // lockForBlocks
-      'host-reservation-id',
       false, // allowZeroConfShielding
       'ironwood',
       null,
@@ -166,11 +147,7 @@ describe('Zcash PCZT send policy', () => {
   it('passes quote and creation the same policy', async () => {
     mockPcztQuote.mockReturnValue(JSON.stringify({ feeZat: 10_000, steps: 1 }));
     mockPcztCreate.mockReturnValue(
-      JSON.stringify({
-        pcztHex: '0102',
-        reservationId: 'reservation-id',
-        feeZat: 10_000,
-      }),
+      JSON.stringify({ pcztHex: '0102', feeZat: 10_000 }),
     );
 
     await quotePczt(account, {
@@ -190,20 +167,15 @@ describe('Zcash PCZT send policy', () => {
     // while it changes the fee.
     const quoted = mockPcztQuote.mock.calls[0] as unknown[];
     const created = mockPcztCreate.mock.calls[0] as unknown[];
-    // Identical through padOrchardBundle; create then inserts lockForBlocks
-    // and reservationId before the remaining policy arguments.
-    expect(quoted.slice(0, 8)).toEqual(created.slice(0, 8));
-    expect(quoted.slice(8)).toEqual(created.slice(10));
+    expect(quoted).toEqual(created);
   });
 
-  it('submits in one runtime call and can release reservations', async () => {
+  it('submits in one runtime call without a reservation', async () => {
     mockPcztSubmit.mockResolvedValue(
       JSON.stringify({ txid: 'txid', broadcast: 'accepted' }),
     );
 
-    await expect(
-      submitPczt(account, { pcztHex: '0102', reservationId: 'reservation-id' }),
-    ).resolves.toEqual({
+    await expect(submitPczt(account, { pcztHex: '0102' })).resolves.toEqual({
       txid: 'txid',
       broadcastState: 'accepted',
       broadcastError: undefined,
@@ -211,11 +183,7 @@ describe('Zcash PCZT send policy', () => {
     expect(mockPcztSubmit).toHaveBeenCalledWith(
       'account-uuid',
       Uint8Array.from([1, 2]),
-      'reservation-id',
     );
-
-    await releasePczt(account, { reservationId: 'reservation-id' });
-    expect(mockReleaseReservation).toHaveBeenCalledWith('reservation-id');
   });
 
   it('reports an unknown outcome the runtime kept for rebroadcast', async () => {
@@ -231,9 +199,7 @@ describe('Zcash PCZT send policy', () => {
       }),
     );
 
-    await expect(
-      submitPczt(account, { pcztHex: '0102', reservationId: 'r' }),
-    ).resolves.toEqual({
+    await expect(submitPczt(account, { pcztHex: '0102' })).resolves.toEqual({
       txid: 'txid',
       broadcastState: 'unknown',
       broadcastError: {
@@ -244,7 +210,7 @@ describe('Zcash PCZT send policy', () => {
     });
   });
 
-  // Nothing was recorded for a rejection: the reason is all the caller shows.
+  // The runtime records the rejection; the node reason is what the caller shows.
   it('passes a rejection through with the node reason', async () => {
     mockPcztSubmit.mockResolvedValue(
       JSON.stringify({
@@ -258,9 +224,7 @@ describe('Zcash PCZT send policy', () => {
       }),
     );
 
-    await expect(
-      submitPczt(account, { pcztHex: '0102', reservationId: 'r' }),
-    ).resolves.toEqual({
+    await expect(submitPczt(account, { pcztHex: '0102' })).resolves.toEqual({
       txid: 'txid',
       broadcastState: 'rejected',
       broadcastError: {
@@ -276,9 +240,9 @@ describe('Zcash PCZT send policy', () => {
   it('lets a bridge failure surface to the caller', async () => {
     mockPcztSubmit.mockRejectedValue(new Error('bridge disconnected'));
 
-    await expect(
-      submitPczt(account, { pcztHex: '0102', reservationId: 'r' }),
-    ).rejects.toThrow('bridge disconnected');
+    await expect(submitPczt(account, { pcztHex: '0102' })).rejects.toThrow(
+      'bridge disconnected',
+    );
   });
 });
 
@@ -287,7 +251,7 @@ describe('Zcash memo quote/create parity', () => {
     const memoHex = `ff0102${'00'.repeat(509)}`;
     mockPcztQuote.mockReturnValue(JSON.stringify({ feeZat: 10_000 }));
     mockPcztCreate.mockReturnValue(
-      JSON.stringify({ pcztHex: '0102', reservationId: 'id', feeZat: 10_000 }),
+      JSON.stringify({ pcztHex: '0102', feeZat: 10_000 }),
     );
     const params = {
       toAddress: 'u1-test',
@@ -319,8 +283,6 @@ describe('Zcash memo quote/create parity', () => {
       10,
       'ironwood',
       true,
-      41,
-      null,
       false,
       'ironwood',
       memoHex,

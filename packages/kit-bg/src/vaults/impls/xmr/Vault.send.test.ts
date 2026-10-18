@@ -18,10 +18,10 @@ import type { IEncodedTxXmr } from './types';
  *
  * What is worth testing here is not the cryptography — that lives in the Rust
  * runtime and is tested there. It is the *handoff*: which object carries the
- * fee, who releases the reserved inputs, and whether the amount the user
+ * fee, what reaches the runtime at broadcast, and whether the amount the user
  * confirmed is the amount that gets signed. Every bug in that list is silent:
  * the screen still renders, the transaction still goes out, and the number is
- * wrong or the balance quietly becomes not spendable.
+ * wrong.
  */
 
 const ACCOUNT_ID = "hd-1--m/44'/128'/0'";
@@ -31,9 +31,7 @@ const RECIPIENT =
   '4AdUndXHHZ6cfufTMvppY6JwXNouMBzSkbLYfpAV5Usx3skxNgYeYTRj5UzqtReoS44qo9mtmXCqY45DJ852K5Jv2684Rge';
 
 type IFakeRuntime = IXmrRuntimeApi & {
-  released: string[];
   prepared: {
-    reservationId: string;
     maxSend: boolean;
     recipientsJson: string;
   }[];
@@ -46,11 +44,9 @@ function createVault(options?: {
   broadcast?: () => Promise<string>;
   recordSentRecipient?: () => Promise<void>;
 }) {
-  const released: string[] = [];
   const prepared: IFakeRuntime['prepared'] = [];
 
   const runtime = {
-    released,
     prepared,
     listAccounts: () =>
       JSON.stringify({ items: [{ accountId: 7, uuid: ACCOUNT_ID }] }),
@@ -59,14 +55,12 @@ function createVault(options?: {
       _accountId: string,
       recipientsJson: string,
       maxSend: boolean,
-      reservationId: string,
     ) => {
-      prepared.push({ reservationId, maxSend, recipientsJson });
+      prepared.push({ maxSend, recipientsJson });
       const requested = (
         JSON.parse(recipientsJson) as { amountAtomic: string }[]
       )[0].amountAtomic;
       return JSON.stringify({
-        reservationId,
         signableHex: 'aabb',
         feeAtomic: '30000000',
         // Max-send is solved inside the runtime, so it comes back different
@@ -76,10 +70,6 @@ function createVault(options?: {
         inputCount: 2,
         ...options?.prepare?.({ maxSend }),
       });
-    },
-    releaseReservation: (reservationId: string) => {
-      released.push(reservationId);
-      return JSON.stringify({ released: 1 });
     },
     verifyTransaction: jest.fn(async () => undefined),
     broadcastTransaction:
@@ -93,10 +83,6 @@ function createVault(options?: {
     backgroundApi: {
       simpleDb: {
         xmr: {
-          saveTransactionReview: jest.fn(async () => undefined),
-          assertTransactionReview: jest.fn(async () => undefined),
-          removeTransactionReview: jest.fn(async () => undefined),
-          abandonUnsignedTransactionReview: jest.fn(async () => true),
           recordSentRecipient: jest.fn(
             options?.recordSentRecipient ?? (async () => undefined),
           ),
@@ -296,8 +282,8 @@ describe('xmr send waits for the wallet to catch up', () => {
 });
 
 describe('xmr send: the fee comes from the built transaction', () => {
-  it('attaches the runtime fee and the inputs it reserved', async () => {
-    const { vault } = createVault();
+  it('attaches the runtime fee and the built transaction', async () => {
+    const { vault, runtime } = createVault();
     const unsignedTx = await vault.buildUnsignedTx({
       transfersInfo: [{ from: PRIMARY, to: RECIPIENT, amount: '0.001' }],
     } as never);
@@ -305,8 +291,10 @@ describe('xmr send: the fee comes from the built transaction', () => {
 
     expect(encodedTx.feeAtomic).toBe('30000000');
     expect(encodedTx.signableHex).toBe('aabb');
-    expect(encodedTx.reservationId).toBeTruthy();
+    expect(encodedTx.inputCount).toBe(2);
     expect(encodedTx.chainTip).toBe(3_767_827);
+    // The review is verified once, by the runtime, right before signing.
+    expect(runtime.verifyTransaction).not.toHaveBeenCalled();
   });
 
   it('reports that fee and nothing else, rather than estimating one', async () => {
@@ -376,39 +364,9 @@ describe('xmr send: max', () => {
   });
 });
 
-describe('xmr send: who holds the reserved inputs', () => {
-  it('cancels an unsigned review through the generic send cleanup', async () => {
-    const { vault, runtime } = createVault();
-    const unsignedTx = await vault.buildUnsignedTx({
-      transfersInfo: [{ from: PRIMARY, to: RECIPIENT, amount: '0.001' }],
-    });
-    const reservationId = (unsignedTx.encodedTx as IEncodedTxXmr).reservationId;
-    await vault.releaseUnsignedTx({ unsignedTx });
-    expect(runtime.released).toEqual([reservationId]);
-  });
-  it('keeps signed or unresolved broadcast inputs when confirmation closes', async () => {
-    const { vault, runtime } = createVault();
-    const unsignedTx = await vault.buildUnsignedTx({
-      transfersInfo: [{ from: PRIMARY, to: RECIPIENT, amount: '0.001' }],
-    });
-    jest
-      .spyOn(
-        vault.backgroundApi.simpleDb.xmr,
-        'abandonUnsignedTransactionReview',
-      )
-      .mockResolvedValue(false);
-    await vault.releaseUnsignedTx({ unsignedTx });
-    expect(runtime.released).toEqual([]);
-  });
-
-  /**
-   * Backing out of the confirm screen and trying again must not leave the
-   * first attempt's outputs locked -- they would read as balance the user
-   * cannot spend, with nothing on screen explaining why.
-   */
-  // The runtime drops the account's unsigned reservations at prepare; the
-  // host no longer tracks which one was the previous attempt.
-  it('rebuilds under a new reservation without releasing it itself', async () => {
+describe('xmr send: broadcast', () => {
+  // Inputs are not reserved, so going back and rebuilding simply prepares again.
+  it('rebuilds from scratch when the review is opened again', async () => {
     const { vault, runtime } = createVault();
     const first = (
       await vault.buildUnsignedTx({
@@ -420,9 +378,7 @@ describe('xmr send: who holds the reserved inputs', () => {
       encodedTx: first,
     } as never);
 
-    expect(runtime.released).toEqual([]);
     expect(runtime.prepared).toHaveLength(2);
-    expect(runtime.prepared[1].reservationId).not.toBe(first.reservationId);
   });
 
   /**
@@ -430,8 +386,8 @@ describe('xmr send: who holds the reserved inputs', () => {
    * and the reply was lost". Releasing on the second case lets the next send
    * pick the same inputs and double spend.
    */
-  it('keeps the inputs held when a broadcast fails', async () => {
-    const { vault, runtime } = createVault({
+  it('reports an unknown outcome when the broadcast call itself is lost', async () => {
+    const { vault } = createVault({
       broadcast: () => Promise.reject(new Error('socket closed')),
     });
     await expect(
@@ -440,13 +396,12 @@ describe('xmr send: who holds the reserved inputs', () => {
           txid: 'deadbeef',
           rawTx: '00ff',
           encodedTx: {
-            reservationId: 'r-1',
+            signableHex: 'aabb',
             chainTip: 3_767_827,
           } as IEncodedTxXmr,
         },
       } as never),
     ).rejects.toThrow(ETranslations.privacy_error_broadcast_unknown__msg);
-    expect(runtime.released).toEqual([]);
   });
 
   // The runtime recorded it as pending; resending would pick other inputs and
@@ -467,7 +422,7 @@ describe('xmr send: who holds the reserved inputs', () => {
           txid: 'deadbeef',
           rawTx: '00ff',
           encodedTx: {
-            reservationId: 'r-1',
+            signableHex: 'aabb',
             chainTip: 3_767_827,
           } as IEncodedTxXmr,
         },
@@ -487,7 +442,7 @@ describe('xmr send: who holds the reserved inputs', () => {
         txid: 'deadbeef',
         rawTx: '00ff',
         encodedTx: {
-          reservationId: 'r-1',
+          signableHex: 'aabb',
           chainTip: 3_767_827,
           amountAtomic: '1000000000000',
           feeAtomic: '30000000',
@@ -498,7 +453,6 @@ describe('xmr send: who holds the reserved inputs', () => {
     expect(broadcast).toHaveBeenCalledWith(
       expect.anything(),
       '00ff',
-      'r-1',
       '3767827',
       '1000030000000',
       '500000000000',
@@ -515,7 +469,7 @@ describe('xmr send: who holds the reserved inputs', () => {
           txid: 'deadbeef',
           rawTx: '00ff',
           encodedTx: {
-            reservationId: 'r-1',
+            signableHex: 'aabb',
             chainTip: 3_767_827,
           } as IEncodedTxXmr,
         },
@@ -540,7 +494,7 @@ describe('xmr send: who holds the reserved inputs', () => {
           rawTx: '00ff',
           encodedTx: {
             to: RECIPIENT,
-            reservationId: 'r-1',
+            signableHex: 'aabb',
             chainTip: 3_767_827,
           } as IEncodedTxXmr,
         },
@@ -560,7 +514,7 @@ describe('xmr send: who holds the reserved inputs', () => {
         rawTx: '00ff',
         encodedTx: {
           to: RECIPIENT,
-          reservationId: 'r-1',
+          signableHex: 'aabb',
           chainTip: 3_767_827,
         } as IEncodedTxXmr,
       },

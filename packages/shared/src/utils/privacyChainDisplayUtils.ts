@@ -49,35 +49,6 @@ export function getPrivacyChainPublicDisplayFlow({
   return { from: addresses('from'), to: addresses('to') };
 }
 
-// Raised by a local-wallet vault while a broadcast's outcome is still
-// unknown, so account-level operations must wait.
-export const PRIVACY_CHAIN_UNRESOLVED_BROADCAST_CODE =
-  'UNRESOLVED_PRIVACY_CHAIN_BROADCAST';
-
-const PRIVACY_CHAIN_UNRESOLVED_BROADCAST_CODES = new Set<string>([
-  PRIVACY_CHAIN_UNRESOLVED_BROADCAST_CODE,
-  'BROADCAST_OUTCOME_UNKNOWN',
-]);
-
-export function isUnresolvedPrivacyChainBroadcastError(
-  error: unknown,
-): boolean {
-  if (!error || typeof error !== 'object') return false;
-  const errorLike = error as {
-    code?: unknown;
-    data?: { code?: unknown; data?: { code?: unknown } };
-  };
-  return [
-    errorLike.code,
-    errorLike.data?.code,
-    errorLike.data?.data?.code,
-  ].some(
-    (code) =>
-      typeof code === 'string' &&
-      PRIVACY_CHAIN_UNRESOLVED_BROADCAST_CODES.has(code),
-  );
-}
-
 // Wallet-known recipients are local facts, distinct from publicly visible endpoints.
 export function getPrivacyChainWalletRecipientAddresses({
   privateAddressPattern,

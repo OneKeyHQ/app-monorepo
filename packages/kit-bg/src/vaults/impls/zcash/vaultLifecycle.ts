@@ -23,6 +23,7 @@ import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { getPrivacyModeResumeFromHeight } from '../../../services/PrivacyModeState';
+import { getLastLocalWalletChainTip } from '../../localWallet/privacyChainCacheStore';
 
 import {
   clampZcashBirthdayHeight,
@@ -243,7 +244,6 @@ export async function resumePendingPrivacyOperations(
   vault: Vault,
 ): Promise<void> {
   const requestedBefore = ZCASH_PROCESS_STARTED_AT;
-  await vault.zcashReleaseReservationsFromEarlierRuns();
   await vault.backgroundApi.simpleDb.zcash.cancelPendingPrivacyModeEnables({
     requestedBefore,
   });
@@ -256,32 +256,6 @@ export async function resumePendingPrivacyOperations(
     await vault.backgroundApi.simpleDb.zcash.completePrivacyModeDisable({
       accountId,
     });
-  }
-}
-
-// A review page left open when the app died never releases its PCZT.
-export async function zcashReleaseReservationsFromEarlierRuns(
-  vault: Vault,
-): Promise<void> {
-  const accountIds = await vault.backgroundApi.simpleDb.zcash.listAccountIds();
-  for (const accountId of accountIds) {
-    // eslint-disable-next-line no-await-in-loop
-    const reservations =
-      await vault.backgroundApi.simpleDb.zcash.listShieldedReservations({
-        accountId,
-      });
-    for (const { reservationId, state, createdAt } of reservations) {
-      if (state === 'unsigned' && (createdAt ?? 0) < ZCASH_PROCESS_STARTED_AT) {
-        // eslint-disable-next-line no-await-in-loop
-        await vault
-          .zcashAbandonPczt({ accountId, reservationId })
-          .catch((error: unknown) => {
-            console.error('[zcash] could not release a stale reservation', {
-              error: error instanceof Error ? error.message : String(error),
-            });
-          });
-      }
-    }
   }
 }
 
@@ -462,7 +436,7 @@ export async function zcashPrepareAccounts(
       });
       repairedBirthday = true;
     } catch (e) {
-      // An active PCZT reservation deliberately returns WALLET_BUSY; keep the journal, retry after the send completes.
+      // An unsettled outgoing send returns WALLET_BUSY; keep the journal and retry after it settles.
       console.log('[zcash] earlier birthday repair deferred', {
         accountId: group.accountId,
         ...zcashDescribeError(e),
@@ -685,35 +659,8 @@ export async function syncLocalWalletGroup(
   }
 }
 
-// Corrupted database is deleted and rescanned from birthdays -- but never
-// while a broadcast is unresolved, since the runtime holds that intent.
+// Corrupted databases can be rebuilt without reading their transaction history.
 export async function zcashRebuildRuntimeDatabase(vault: Vault): Promise<void> {
-  const { accounts } = await vault.listLocalWalletAccounts();
-  const chainTip = await vault.getLocalWalletChainTip().catch(() => null);
-  for (const { accountId } of accounts) {
-    // The broken database can't release anything; an unsigned/expired reservation has nothing left to hold.
-    // eslint-disable-next-line no-await-in-loop
-    const reservations =
-      await vault.backgroundApi.simpleDb.zcash.listShieldedReservations({
-        accountId,
-      });
-    const discarded = reservations.filter(
-      ({ state, expiryHeight }) =>
-        state === 'unsigned' ||
-        (expiryHeight !== undefined &&
-          chainTip !== null &&
-          expiryHeight < chainTip),
-    );
-    for (const { reservationId } of discarded) {
-      // eslint-disable-next-line no-await-in-loop
-      await vault.backgroundApi.simpleDb.zcash.removeShieldedReservation({
-        accountId,
-        reservationId,
-      });
-    }
-    // eslint-disable-next-line no-await-in-loop
-    await vault.zcashAssertNoUnresolvedBroadcast(accountId);
-  }
   const api = await vault.zcashGetApi();
   await api.dropWalletDatabase(ZCASH_NETWORK_MAIN);
   console.log('[zcash] runtime database dropped for rebuild');
@@ -948,7 +895,6 @@ export async function resetLocalWallet(
     const account = await vault.zcashGetWalletAccount({ accountId });
     const lifecycleMutex = getZcashLifecycleMutex(account.ufvk);
     await lifecycleMutex.runExclusive(async () => {
-      await vault.zcashAssertNoUnresolvedBroadcast(accountId);
       const api = await vault.zcashGetApi();
       await api.purgeWallet(account);
     });
@@ -987,7 +933,7 @@ export async function resetLocalWallet(
       }
       const account = await vault.zcashGetWalletAccount({ accountId });
       const api = await vault.zcashGetApi();
-      await api.purgeWallet(account, { accountDeleted: true });
+      await api.purgeWallet(account);
       await vault.backgroundApi.simpleDb.zcash.removeAccountState({
         accountId,
       });
@@ -1027,7 +973,6 @@ export async function deleteLocalPrivacyData(
         'zcash: Privacy Mode changed while deleting local privacy data',
       );
     }
-    await vault.zcashAssertNoUnresolvedBroadcast(accountId);
     const aliases = await vault.backgroundApi.simpleDb.zcash.listAccountMetas();
     let hasLiveAlias = false;
     for (const alias of aliases) {
@@ -1205,7 +1150,6 @@ export async function applyPendingRescan(
     ) {
       return;
     }
-    await vault.zcashAssertNoUnresolvedBroadcast(accountId);
     // Save the corrected birthday BEFORE purging: purging first could wedge
     // the account if the stored birthday never resolves. Crash-safe via the journal.
     await vault.backgroundApi.simpleDb.zcash.saveAccountMeta({
@@ -1247,7 +1191,7 @@ export async function zcashResumePendingRescans(
       // eslint-disable-next-line no-continue
       continue;
     }
-    // Runtime purge owns the active reservation/outgoing guard; busy throws and the journal remains for retry.
+    // Storage failures leave the repair journal intact for retry.
     try {
       // eslint-disable-next-line no-await-in-loop
       await vault.applyPendingRescan({ accountId, repair });
@@ -1287,28 +1231,8 @@ export async function zcashRescanFromHeight(
       'zcash: no local wallet meta to rescan (run retryLocalWalletSetup first)',
     );
   }
-  // A birthday above the chain tip wedges the account permanently; clamp centrally here (best-effort if the tip can't be fetched).
-  let ceiling: number | undefined;
-  try {
-    const tip = await vault.getLocalWalletChainTip();
-    ceiling = tip ?? undefined;
-  } catch (e) {
-    console.log('[zcash] rescan tip clamp skipped (tip fetch failed)', {
-      accountId,
-      ...zcashDescribeError(e),
-    });
-  }
-  const effectiveHeight = clampZcashBirthdayHeight({
-    birthdayHeight,
-    chainTip: ceiling,
-  });
-  if (ceiling !== undefined && birthdayHeight > ceiling) {
-    console.log('[zcash] rescan birthday clamped to chain tip', {
-      accountId,
-      requested: birthdayHeight,
-      chainTip: ceiling,
-    });
-  }
+  // The normal sync heals out-of-range birthdays against its fresh chain tip.
+  const effectiveHeight = clampZcashBirthdayHeight({ birthdayHeight });
   const repair: IZcashPendingRescan = {
     birthdayHeight: effectiveHeight,
     birthdaySource,
@@ -1347,7 +1271,10 @@ export async function rescanLocalWallet(
         ? from.timestamp
         : Date.now() - Math.max(0, from.daysAgo) * 24 * 60 * 60 * 1000;
     birthdaySource = 'manual-month';
-    const tip = await vault.getLocalWalletChainTip();
+    const tip = await getLastLocalWalletChainTip({
+      backgroundApi: vault.backgroundApi,
+      networkId: vault.networkId,
+    }).catch(() => undefined);
     birthdayHeight = estimateZcashBirthdayHeight({
       birthdayTimestamp,
       now: Date.now(),
