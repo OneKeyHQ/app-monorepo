@@ -300,12 +300,14 @@ jest.mock('./usePurchasePackageWebview', () => ({
 
 const mockPurchaseByHostedLink = jest.fn(async () => undefined);
 const mockFallbackToHostedLink = jest.fn(async () => undefined);
+const mockDiscardPendingHostedCheckout = jest.fn(async () => undefined);
 let mockCardCheckoutMode: 'embedded' | 'hostedLink' = 'embedded';
 
 jest.mock('../../hooks/usePrimeWebCheckoutPurchase', () => ({
   usePrimeWebCheckoutPurchase: () => ({
     purchaseByHostedLink: mockPurchaseByHostedLink,
     fallbackToHostedLink: mockFallbackToHostedLink,
+    discardPendingHostedCheckout: mockDiscardPendingHostedCheckout,
   }),
 }));
 

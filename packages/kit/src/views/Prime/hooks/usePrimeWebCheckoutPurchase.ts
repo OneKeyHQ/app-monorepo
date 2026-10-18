@@ -6,6 +6,7 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
 import {
+  discardPrimeHostedCardCheckout,
   fallbackToPrimeHostedCardCheckout,
   startPrimeHostedCardCheckout,
 } from './primeHostedCardCheckout';
@@ -46,5 +47,14 @@ export function usePrimeWebCheckoutPurchase() {
     [email, intl, onekeyUserId],
   );
 
-  return { purchaseByHostedLink, fallbackToHostedLink };
+  const discardPendingHostedCheckout = useCallback(
+    () => discardPrimeHostedCardCheckout(onekeyUserId),
+    [onekeyUserId],
+  );
+
+  return {
+    purchaseByHostedLink,
+    fallbackToHostedLink,
+    discardPendingHostedCheckout,
+  };
 }

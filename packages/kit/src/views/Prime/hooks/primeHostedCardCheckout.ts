@@ -29,6 +29,7 @@ import {
   getPrimeWebCheckoutPlatform,
   isPrimeWebCheckoutUserCurrent,
   logPrimeWebCheckoutFlow,
+  logPrimeWebCheckoutSessionFlow,
   openPrimeWebCheckoutPage,
   resolvePrimeWebCheckoutPackage,
 } from './primeWebCheckout';
@@ -180,6 +181,7 @@ export async function startPrimeHostedCardCheckout({
     } else {
       purchasePackage = parsePrimeWebPurchaseLinkPackage({
         config,
+        subscriptionPeriod: selectedSubscriptionPeriod,
         value: providedPurchasePackage,
       });
       if (!purchasePackage) {
@@ -187,7 +189,34 @@ export async function startPrimeHostedCardCheckout({
       }
     }
     const platform = getPrimeWebCheckoutPlatform();
-    const session: IPrimeWebCheckoutPendingSession = {
+    const checkoutUrl = buildPrimeWebPurchaseLinkUrl({
+      config,
+      onekeyUserId,
+      packageId: purchasePackage.packageId,
+      // The sandbox offering is priced in USD only.
+      currency: isSandboxKey ? undefined : purchasePackage.currency,
+      platform,
+      featureName,
+    });
+
+    if (!(await isPrimeWebCheckoutUserCurrent(onekeyUserId))) {
+      throw new OneKeyLocalError('Prime purchase user changed');
+    }
+    // An earlier checkout page may still be open and payable. The same link
+    // keeps its session; another one replaces it and, on the extension,
+    // takes over its tab. Success is read per OneKey ID, so a payment on an
+    // earlier page is still picked up by the current session.
+    const previousSession =
+      await backgroundApiProxy.simpleDb.prime.getWebCheckoutPendingSession({
+        onekeyUserId,
+      });
+    const reusedSession =
+      previousSession?.platform === platform &&
+      previousSession.isSandbox === isSandboxKey &&
+      previousSession.checkoutUrl === checkoutUrl
+        ? previousSession
+        : undefined;
+    const session: IPrimeWebCheckoutPendingSession = reusedSession ?? {
       checkoutId: generateUUID(),
       onekeyUserId,
       subscriptionPeriod: selectedSubscriptionPeriod,
@@ -198,39 +227,34 @@ export async function startPrimeHostedCardCheckout({
       featureName,
       isSandbox: isSandboxKey,
       platform,
-      checkoutUrl: buildPrimeWebPurchaseLinkUrl({
-        config,
-        onekeyUserId,
-        packageId: purchasePackage.packageId,
-        email,
-        // The sandbox offering is priced in USD only.
-        currency: isSandboxKey ? undefined : purchasePackage.currency,
-        platform,
-        featureName,
-      }),
+      checkoutUrl,
       startedAt: Date.now(),
     };
-
-    if (!(await isPrimeWebCheckoutUserCurrent(onekeyUserId))) {
-      throw new OneKeyLocalError('Prime purchase user changed');
+    if (!reusedSession) {
+      // Persist before opening so a return or restart can always find it.
+      await backgroundApiProxy.simpleDb.prime.setWebCheckoutPendingSession({
+        session,
+      });
     }
-    // Persist before opening so a return or restart can always find it.
-    await backgroundApiProxy.simpleDb.prime.setWebCheckoutPendingSession({
-      session,
-    });
     let openResult: Awaited<ReturnType<typeof openPrimeWebCheckoutPage>>;
     try {
-      openResult = await openPrimeWebCheckoutPage(session);
-    } catch (error) {
-      await backgroundApiProxy.simpleDb.prime.clearWebCheckoutPendingSession({
-        onekeyUserId,
-        expectedCheckoutId: session.checkoutId,
+      openResult = await openPrimeWebCheckoutPage(session, {
+        email,
+        replacedSession: reusedSession ? undefined : previousSession,
       });
+    } catch (error) {
+      if (!reusedSession) {
+        await backgroundApiProxy.simpleDb.prime.clearWebCheckoutPendingSession({
+          onekeyUserId,
+          expectedCheckoutId: session.checkoutId,
+        });
+      }
       throw error;
     }
     logPrimeWebCheckoutFlow({
       stage: 'open',
       status: 'succeeded',
+      reason: reusedSession ? 'reusedCheckout' : undefined,
       isSandbox: isSandboxKey,
       subscriptionPeriod: selectedSubscriptionPeriod,
       featureName,
@@ -304,6 +328,39 @@ export async function fallbackToPrimeHostedCardCheckout({
     return;
   }
   await startPrimeHostedCardCheckout({ ...params, fallbackFrom: trigger });
+}
+
+// An embedded purchase replaces any earlier hosted checkout of this user.
+// Both are Web Billing purchases, so a leftover hosted session would match
+// the embedded purchase too and report it a second time.
+export async function discardPrimeHostedCardCheckout(
+  onekeyUserId: string | undefined,
+) {
+  if (!onekeyUserId) {
+    return;
+  }
+  try {
+    const session =
+      await backgroundApiProxy.simpleDb.prime.getWebCheckoutPendingSession({
+        onekeyUserId,
+      });
+    if (
+      session &&
+      (await backgroundApiProxy.simpleDb.prime.clearWebCheckoutPendingSession({
+        onekeyUserId,
+        expectedCheckoutId: session.checkoutId,
+      }))
+    ) {
+      logPrimeWebCheckoutSessionFlow({
+        session,
+        stage: 'settle',
+        status: 'cancelled',
+        reason: 'embeddedPurchase',
+      });
+    }
+  } catch {
+    // Best-effort: never block the embedded purchase.
+  }
 }
 
 const FALLBACK_TRIGGERS = new Set<string>(['checkoutError', 'formNotLoaded']);

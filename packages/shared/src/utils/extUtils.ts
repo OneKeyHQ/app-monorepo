@@ -240,6 +240,19 @@ async function openExpandTab(
 
 const BROWSER_SESSION_ID_STORAGE_KEY = 'onekeyBrowserSessionId';
 
+async function readOrCreateBrowserSessionId(
+  sessionStorage: chrome.storage.SessionStorageArea,
+): Promise<string | undefined> {
+  const stored = await sessionStorage.get(BROWSER_SESSION_ID_STORAGE_KEY);
+  const storedId: unknown = stored?.[BROWSER_SESSION_ID_STORAGE_KEY];
+  if (typeof storedId === 'string' && storedId) {
+    return storedId;
+  }
+  const createdId = generateUUID();
+  await sessionStorage.set({ [BROWSER_SESSION_ID_STORAGE_KEY]: createdId });
+  return createdId;
+}
+
 // An id for the current browser session, shared by the extension background
 // and its pages. chrome.storage.session is cleared when the browser exits, so
 // a new id marks persisted tab / window ids as stale.
@@ -249,18 +262,15 @@ async function getBrowserSessionId(): Promise<string | undefined> {
     return undefined;
   }
   try {
-    const stored = await sessionStorage.get(BROWSER_SESSION_ID_STORAGE_KEY);
-    const storedId: unknown = stored?.[BROWSER_SESSION_ID_STORAGE_KEY];
-    if (typeof storedId === 'string' && storedId) {
-      return storedId;
+    // The background and extension pages share one origin, so a Web Lock
+    // keeps contexts that start at the same time from writing different ids.
+    const locks = globalThis.navigator?.locks;
+    if (locks) {
+      return await locks.request(BROWSER_SESSION_ID_STORAGE_KEY, () =>
+        readOrCreateBrowserSessionId(sessionStorage),
+      );
     }
-    await sessionStorage.set({
-      [BROWSER_SESSION_ID_STORAGE_KEY]: generateUUID(),
-    });
-    // Another context may have written first; its id wins.
-    const written = await sessionStorage.get(BROWSER_SESSION_ID_STORAGE_KEY);
-    const writtenId: unknown = written?.[BROWSER_SESSION_ID_STORAGE_KEY];
-    return typeof writtenId === 'string' && writtenId ? writtenId : undefined;
+    return await readOrCreateBrowserSessionId(sessionStorage);
   } catch {
     return undefined;
   }

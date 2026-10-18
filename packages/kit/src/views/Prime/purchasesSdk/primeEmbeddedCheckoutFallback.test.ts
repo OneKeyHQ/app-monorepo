@@ -56,14 +56,33 @@ describe('getPrimeEmbeddedCheckoutFallbackTrigger', () => {
   });
 
   it.each([0, 2, 12, 16, 23, 24])(
-    'switches for embedded checkout error code %s',
+    'switches for embedded checkout error code %s before the form rendered',
     (errorCode) => {
+      expect(
+        getPrimeEmbeddedCheckoutFallbackTrigger({
+          error: purchasesError(errorCode),
+          paymentElementState: 'notCreated',
+        }),
+      ).toBe('checkoutError');
+      expect(
+        getPrimeEmbeddedCheckoutFallbackTrigger({
+          error: purchasesError(errorCode),
+          paymentElementState: 'loadError',
+        }),
+      ).toBe('checkoutError');
+    },
+  );
+
+  it.each([0, 2, 12, 16, 23, 24])(
+    'never switches for error code %s once the card form rendered',
+    (errorCode) => {
+      // e.g. UnknownError after purchases-js stopped polling a submitted card
       expect(
         getPrimeEmbeddedCheckoutFallbackTrigger({
           error: purchasesError(errorCode),
           paymentElementState: 'ready',
         }),
-      ).toBe('checkoutError');
+      ).toBeUndefined();
     },
   );
 
@@ -86,6 +105,12 @@ describe('getPrimeEmbeddedCheckoutFallbackTrigger', () => {
         paymentElementState: 'notCreated',
       }),
     ).toBe('checkoutError');
+    expect(
+      getPrimeEmbeddedCheckoutFallbackTrigger({
+        error: new Error('Stripe confirmPayment failed'),
+        paymentElementState: 'ready',
+      }),
+    ).toBeUndefined();
     expect(
       getPrimeEmbeddedCheckoutFallbackTrigger({
         error: new OneKeyLocalError('User not logged in'),

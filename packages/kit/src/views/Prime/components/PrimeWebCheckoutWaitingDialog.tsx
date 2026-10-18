@@ -223,14 +223,19 @@ function PrimeWebCheckoutWaitingMonitor({
         await backgroundApiProxy.simpleDb.prime.getWebCheckoutPendingSession({
           onekeyUserId: session.onekeyUserId,
         });
+      const currentUser =
+        await backgroundApiProxy.servicePrime.getLocalUserInfo();
       if (
         currentSession?.checkoutId !== session.checkoutId ||
-        !(await isPrimeWebCheckoutUserCurrent(session.onekeyUserId))
+        !currentUser.isLoggedIn ||
+        currentUser.onekeyUserId !== session.onekeyUserId
       ) {
         await dialogInstance.close();
         return;
       }
-      await openPrimeWebCheckoutPage(currentSession);
+      await openPrimeWebCheckoutPage(currentSession, {
+        email: currentUser.email,
+      });
     } catch (error) {
       logPrimeWebCheckoutSessionFlow({
         session,

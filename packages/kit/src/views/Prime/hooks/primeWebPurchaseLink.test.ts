@@ -6,8 +6,10 @@ import {
 import {
   buildPrimeWebPurchaseLinkUrl,
   getPrimeWebPurchaseLinkConfig,
+  isPrimeWebPurchaseLinkPageUrl,
   parsePrimeWebPurchaseLinkPackage,
   resolvePrimeWebPurchaseLinkPackage,
+  withPrimeWebPurchaseLinkEmail,
 } from './primeWebPurchaseLink';
 
 /*
@@ -55,6 +57,7 @@ describe('primeWebPurchaseLink', () => {
       ).toEqual({
         packageId: '$rc_annual',
         offeringId: 'Sandbox_testing',
+        subscriptionPeriod: 'P1Y',
         amount: 99,
         currency: 'EUR',
       });
@@ -99,13 +102,12 @@ describe('primeWebPurchaseLink', () => {
           config: PRIME_WEB_PURCHASE_LINK_PRODUCTION,
           onekeyUserId: 'user/1',
           packageId: '$rc_annual',
-          email: 'a+b@example.com',
           currency: 'EUR',
           platform: 'extension',
           featureName: 'BulkCopyAddresses',
         }),
       ).toBe(
-        'https://pay.rev.cat/idlgwwbqaqvdevzv/user%2F1?package_id=%24rc_annual&email=a%2Bb%40example.com&currency=EUR&skip_purchase_success=true&utm_source=onekey_extension&utm_campaign=BulkCopyAddresses',
+        'https://pay.rev.cat/idlgwwbqaqvdevzv/user%2F1?package_id=%24rc_annual&currency=EUR&skip_purchase_success=true&utm_source=onekey_extension&utm_campaign=BulkCopyAddresses',
       );
     });
 
@@ -118,7 +120,6 @@ describe('primeWebPurchaseLink', () => {
           },
           onekeyUserId: 'u1',
           packageId: '$rc_monthly',
-          email: '',
           platform: 'web',
         }),
       ).toBe(
@@ -146,25 +147,65 @@ describe('primeWebPurchaseLink', () => {
     const value = {
       packageId: '$rc_annual',
       offeringId: 'Sandbox_testing',
+      subscriptionPeriod: 'P1Y',
       amount: 99,
       currency: 'USD',
     };
 
-    it('accepts a package of the link offering', () => {
-      expect(parsePrimeWebPurchaseLinkPackage({ config, value })).toEqual(
-        value,
-      );
+    it('accepts a package of the link offering and selected plan', () => {
+      expect(
+        parsePrimeWebPurchaseLinkPackage({
+          config,
+          subscriptionPeriod: 'P1Y',
+          value,
+        }),
+      ).toEqual(value);
     });
 
     it.each([
       ['another offering', { ...value, offeringId: 'Default_offering' }],
+      ['another plan', { ...value, subscriptionPeriod: 'P1M' }],
+      ['a missing period', { ...value, subscriptionPeriod: undefined }],
       ['a missing package', { ...value, packageId: '' }],
       ['a non-numeric amount', { ...value, amount: '99' }],
       ['no value', undefined],
     ])('rejects %s', (_label, input) => {
       expect(
-        parsePrimeWebPurchaseLinkPackage({ config, value: input }),
+        parsePrimeWebPurchaseLinkPackage({
+          config,
+          subscriptionPeriod: 'P1Y',
+          value: input,
+        }),
       ).toBeUndefined();
     });
+  });
+
+  describe('withPrimeWebPurchaseLinkEmail', () => {
+    it('adds the encoded email only when opening the link', () => {
+      expect(
+        withPrimeWebPurchaseLinkEmail(
+          'https://pay.rev.cat/abc/u1?package_id=%24rc_annual',
+          'a+b@example.com',
+        ),
+      ).toBe(
+        'https://pay.rev.cat/abc/u1?package_id=%24rc_annual&email=a%2Bb%40example.com',
+      );
+      expect(
+        withPrimeWebPurchaseLinkEmail('https://pay.rev.cat/abc/u1', undefined),
+      ).toBe('https://pay.rev.cat/abc/u1');
+    });
+  });
+
+  it('recognizes pages of the hosted checkout origin', () => {
+    expect(
+      isPrimeWebPurchaseLinkPageUrl('https://pay.rev.cat/sandbox/abc/u1'),
+    ).toBe(true);
+    expect(isPrimeWebPurchaseLinkPageUrl('https://example.com/pay')).toBe(
+      false,
+    );
+    expect(isPrimeWebPurchaseLinkPageUrl('https://pay.rev.cat.evil.io/')).toBe(
+      false,
+    );
+    expect(isPrimeWebPurchaseLinkPageUrl(undefined)).toBe(false);
   });
 });

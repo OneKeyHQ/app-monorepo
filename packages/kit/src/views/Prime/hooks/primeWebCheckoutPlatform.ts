@@ -10,13 +10,18 @@ import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type {
   IPrimeWebCheckoutExtensionContext,
+  IPrimeWebCheckoutOpenOptions,
   IPrimeWebCheckoutPendingSession,
 } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { loadPurchasesSdkWeb } from '../purchasesSdk/purchasesSdkWebLoader';
 
 import primePaymentUtils from './primePaymentUtils';
-import { resolvePrimeWebPurchaseLinkPackage } from './primeWebPurchaseLink';
+import {
+  isPrimeWebPurchaseLinkPageUrl,
+  resolvePrimeWebPurchaseLinkPackage,
+  withPrimeWebPurchaseLinkEmail,
+} from './primeWebPurchaseLink';
 
 import type { IPrimeWebCheckoutEntitlement } from './primeWebCheckoutResult';
 import type { IPrimeWebPurchaseLinkPackage } from './primeWebPurchaseLink';
@@ -154,16 +159,52 @@ async function getExtensionCheckoutInitiator(): Promise<IPrimeWebCheckoutExtensi
   };
 }
 
-async function openExtensionCheckoutTab(
-  session: IPrimeWebCheckoutPendingSession,
-) {
+function getExtensionTab(tabId: number) {
+  return new Promise<chrome.tabs.Tab | undefined>((resolve) => {
+    chrome.tabs.get(tabId, (tab) => {
+      void chrome.runtime.lastError;
+      resolve(tab);
+    });
+  });
+}
+
+// A recorded checkout tab is reused only while it still shows the hosted
+// checkout, never after the user navigated it elsewhere.
+async function isReusableCheckoutTab(tabId: number | undefined) {
+  if (tabId === undefined) {
+    return false;
+  }
+  const tab = await getExtensionTab(tabId);
+  return isPrimeWebPurchaseLinkPageUrl(tab?.pendingUrl || tab?.url);
+}
+
+async function openExtensionCheckoutTab({
+  session,
+  url,
+  replacedSession,
+}: {
+  session: IPrimeWebCheckoutPendingSession;
+  url: string;
+  replacedSession?: IPrimeWebCheckoutPendingSession;
+}) {
   const browserSessionId = await extUtils.getBrowserSessionId();
   const usableExtension =
     await getUsablePrimeWebCheckoutExtensionContext(session);
   const initiator = usableExtension ?? (await getExtensionCheckoutInitiator());
-  // Reuses the checkout tab when it still exists in this browser session.
-  const checkoutTab = await extUtils.openUrlInTab(session.checkoutUrl, {
-    tabId: usableExtension?.checkoutTabId,
+  // Reuses the tab of this checkout, or of the checkout it replaces, so only
+  // one hosted checkout stays open.
+  const replacedTabId = replacedSession
+    ? (await getUsablePrimeWebCheckoutExtensionContext(replacedSession))
+        ?.checkoutTabId
+    : undefined;
+  let reusableTabId: number | undefined;
+  if (await isReusableCheckoutTab(usableExtension?.checkoutTabId)) {
+    reusableTabId = usableExtension?.checkoutTabId;
+  } else if (await isReusableCheckoutTab(replacedTabId)) {
+    reusableTabId = replacedTabId;
+  }
+  const checkoutTab = await extUtils.openUrlInTab(url, {
+    tabId: reusableTabId,
   });
   if (checkoutTab?.id === undefined) {
     throw new OneKeyLocalError('Failed to open the checkout tab');
@@ -185,14 +226,16 @@ async function openExtensionCheckoutTab(
 // page is unloading; the return page resumes the checkout.
 export async function openPrimeWebCheckoutPage(
   session: IPrimeWebCheckoutPendingSession,
+  { email, replacedSession }: IPrimeWebCheckoutOpenOptions = {},
 ): Promise<'opened' | 'navigatedAway'> {
+  const url = withPrimeWebPurchaseLinkEmail(session.checkoutUrl, email);
   if (platformEnv.isExtension) {
-    await openExtensionCheckoutTab(session);
+    await openExtensionCheckoutTab({ session, url, replacedSession });
     return 'opened';
   }
   if (platformEnv.isDesktop) {
     // window.open is handed to the system browser by the desktop shell.
-    openUrlUtils.openUrlExternal(session.checkoutUrl, {
+    openUrlUtils.openUrlExternal(url, {
       useSystemBrowser: true,
     });
     return 'opened';
@@ -200,7 +243,7 @@ export async function openPrimeWebCheckoutPage(
   if (platformEnv.isWeb && !platformEnv.isWebEmbed) {
     // Same-tab navigation is never blocked as a popup, even without a user
     // gesture (e.g. after an automatic fallback).
-    globalThis.location.assign(session.checkoutUrl);
+    globalThis.location.assign(url);
     return 'navigatedAway';
   }
   throw new OneKeyLocalError(

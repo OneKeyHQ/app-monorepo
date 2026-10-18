@@ -7,6 +7,8 @@ import type { IStripePaymentElementState } from './stripePaymentElementHealth';
 
 // 'checkoutError': switch to the hosted Purchase Link right away.
 // 'formNotLoaded': the user closed a card form that never rendered; offer it.
+// Neither fires once the card form rendered: the user may have submitted a
+// payment that is still processing.
 export type IPrimeEmbeddedCheckoutFallbackTrigger =
   | 'checkoutError'
   | 'formNotLoaded';
@@ -44,6 +46,12 @@ export function getPrimeEmbeddedCheckoutFallbackTrigger({
       paymentElementState === 'loadError'
       ? 'formNotLoaded'
       : undefined;
+  }
+  // purchases-js reports UnknownError when RevenueCat confirms a submitted
+  // card too slowly (~10 s of polling). Opening a second checkout then could
+  // charge the user twice, so a rendered form keeps the error in the app.
+  if (paymentElementState === 'ready') {
+    return undefined;
   }
   if (message === PRIME_EMBEDDED_CHECKOUT_UNAVAILABLE_MESSAGE) {
     return 'checkoutError';

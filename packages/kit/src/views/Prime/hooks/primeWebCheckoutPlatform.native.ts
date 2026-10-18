@@ -4,9 +4,13 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IPrimeWebPurchaseLinkConfig } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
-import type { IPrimeWebCheckoutPendingSession } from '@onekeyhq/shared/types/prime/primeTypes';
+import type {
+  IPrimeWebCheckoutOpenOptions,
+  IPrimeWebCheckoutPendingSession,
+} from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
+import { withPrimeWebPurchaseLinkEmail } from './primeWebPurchaseLink';
 import { configureRevenueCat } from './revenueCatNativeCompatibility.native';
 
 import type { IPrimeWebCheckoutEntitlement } from './primeWebCheckoutResult';
@@ -80,10 +84,14 @@ export async function resolvePrimeWebCheckoutPackage(_params: {
 // app back through the onekey-wallet:// deep link.
 export async function openPrimeWebCheckoutPage(
   session: IPrimeWebCheckoutPendingSession,
+  { email }: IPrimeWebCheckoutOpenOptions = {},
 ): Promise<'opened' | 'navigatedAway'> {
-  openUrlUtils.openUrlExternal(session.checkoutUrl, {
-    useSystemBrowser: true,
-  });
+  openUrlUtils.openUrlExternal(
+    withPrimeWebPurchaseLinkEmail(session.checkoutUrl, email),
+    {
+      useSystemBrowser: true,
+    },
+  );
   return 'opened';
 }
 

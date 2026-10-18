@@ -194,14 +194,22 @@ export async function finishPrimeWebCheckoutSuccess(
   await finishPrimeSubscriptionPurchaseSuccess(successPayload);
   void (async () => {
     for (const delayMs of SERVER_REFRESH_DELAYS_MS) {
-      const { isActive } =
-        (await backgroundApiProxy.servicePrime.getLocalUserInfo())
-          .primeSubscription ?? {};
-      if (isActive) {
-        return;
+      try {
+        const { isActive } =
+          (await backgroundApiProxy.servicePrime.getLocalUserInfo())
+            .primeSubscription ?? {};
+        if (isActive) {
+          return;
+        }
+      } catch {
+        // A failed status read must not end the refresh retries.
       }
       await timerUtils.wait(delayMs);
-      await refreshPrimeUserInfoAfterPurchase();
+      try {
+        await refreshPrimeUserInfoAfterPurchase();
+      } catch {
+        // Retried on the next delay.
+      }
     }
   })();
 }

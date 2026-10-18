@@ -343,6 +343,13 @@ export type IPrimeWebCheckoutPendingSession = {
   extension?: IPrimeWebCheckoutExtensionContext;
 };
 
+export type IPrimeWebCheckoutOpenOptions = {
+  // Prefills the hosted form; never stored with the session.
+  email?: string;
+  // The pending checkout this one replaces.
+  replacedSession?: IPrimeWebCheckoutPendingSession;
+};
+
 // Infini crypto subscription detail returned by
 // GET /prime/v1/infini/subscription.
 // NOTE: backend schema pending confirmation — fields below are proposed from

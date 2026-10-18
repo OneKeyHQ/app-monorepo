@@ -27,6 +27,8 @@ export type IPrimeWebPurchaseLinkOffering = {
 export type IPrimeWebPurchaseLinkPackage = {
   packageId: string;
   offeringId: string;
+  // The package's billing period, which must be the plan the user picked.
+  subscriptionPeriod: ISubscriptionPeriod;
   amount: number;
   currency: string;
 };
@@ -73,29 +75,33 @@ export function resolvePrimeWebPurchaseLinkPackage({
   return {
     packageId: paywallPackage.identifier,
     offeringId: targetOffering.identifier,
+    subscriptionPeriod,
     amount,
     currency: currency || 'USD',
   };
 }
 
 // Validates a package resolved elsewhere (the Android web-embed checkout)
-// before it goes into a Purchase Link.
+// before it goes into a Purchase Link. The hosted page itself shows the
+// price RevenueCat holds for the package; this keeps the package on the
+// configured offering and on the plan the user picked.
 export function parsePrimeWebPurchaseLinkPackage({
   config,
+  subscriptionPeriod: expectedSubscriptionPeriod,
   value,
 }: {
   config: IPrimeWebPurchaseLinkConfig;
+  subscriptionPeriod: ISubscriptionPeriod;
   value: unknown;
 }): IPrimeWebPurchaseLinkPackage | undefined {
-  const { packageId, offeringId, amount, currency } = (value ?? {}) as Record<
-    string,
-    unknown
-  >;
+  const { packageId, offeringId, subscriptionPeriod, amount, currency } =
+    (value ?? {}) as Record<string, unknown>;
   if (
     typeof packageId !== 'string' ||
     !packageId ||
     typeof offeringId !== 'string' ||
     !offeringId ||
+    subscriptionPeriod !== expectedSubscriptionPeriod ||
     typeof currency !== 'string' ||
     typeof amount !== 'number' ||
     !Number.isFinite(amount) ||
@@ -103,14 +109,21 @@ export function parsePrimeWebPurchaseLinkPackage({
   ) {
     return undefined;
   }
-  return { packageId, offeringId, amount, currency };
+  return {
+    packageId,
+    offeringId,
+    subscriptionPeriod: expectedSubscriptionPeriod,
+    amount,
+    currency,
+  };
 }
 
+// The email never goes into the stored link; see
+// withPrimeWebPurchaseLinkEmail.
 export function buildPrimeWebPurchaseLinkUrl({
   config,
   onekeyUserId,
   packageId,
-  email,
   currency,
   platform,
   featureName,
@@ -118,7 +131,6 @@ export function buildPrimeWebPurchaseLinkUrl({
   config: IPrimeWebPurchaseLinkConfig;
   onekeyUserId: string;
   packageId: string;
-  email?: string;
   // Omit in sandbox: the sandbox offering is only priced in USD.
   currency?: string;
   platform: IPrimeWebCheckoutPlatform;
@@ -131,9 +143,6 @@ export function buildPrimeWebPurchaseLinkUrl({
     ? config.baseUrl
     : `${config.baseUrl}/`;
   const query: [string, string][] = [['package_id', packageId]];
-  if (email) {
-    query.push(['email', email]);
-  }
   if (currency) {
     query.push(['currency', currency]);
   }
@@ -151,4 +160,32 @@ export function buildPrimeWebPurchaseLinkUrl({
     )
     .join('&');
   return `${baseUrl}${encodeURIComponent(onekeyUserId)}?${queryString}`;
+}
+
+// The email only prefills the hosted form, so it is added when the link is
+// opened and never persisted with the pending checkout.
+export function withPrimeWebPurchaseLinkEmail(
+  checkoutUrl: string,
+  email: string | undefined,
+): string {
+  if (!email) {
+    return checkoutUrl;
+  }
+  const separator = checkoutUrl.includes('?') ? '&' : '?';
+  return `${checkoutUrl}${separator}email=${encodeURIComponent(email)}`;
+}
+
+// Both production and sandbox links are served from this origin.
+export function isPrimeWebPurchaseLinkPageUrl(url: string | undefined) {
+  if (!url) {
+    return false;
+  }
+  try {
+    return (
+      new URL(url).origin ===
+      new URL(PRIME_WEB_PURCHASE_LINK_PRODUCTION.baseUrl).origin
+    );
+  } catch {
+    return false;
+  }
 }
