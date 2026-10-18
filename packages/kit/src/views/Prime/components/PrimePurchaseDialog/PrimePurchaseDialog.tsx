@@ -13,7 +13,10 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type { IPrimePaymentMethod } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
+import type {
+  IPrimeCardCheckoutFlow,
+  IPrimePaymentMethod,
+} from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   isPrimeAppleStorePayment,
@@ -22,12 +25,14 @@ import {
 } from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
+import { getPrimeCardCheckoutMode } from '../../hooks/primeCardCheckoutMode';
 import {
   getPrimeInfiniPaymentEntryGuard,
   getPrimeInfiniPendingPaymentContext,
 } from '../../hooks/primeInfiniExternalCheckoutGuard';
 import { usePrimeInfiniPurchase } from '../../hooks/usePrimeInfiniPurchase';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
+import { usePrimeWebCheckoutPurchase } from '../../hooks/usePrimeWebCheckoutPurchase';
 import { showPrimeInfiniPaymentErrorToast } from '../../primeInfiniPaymentError';
 import { logPrimeInfiniPaymentFlow } from '../../primeInfiniPaymentLogger';
 import { ensurePrimePurchaseEligible } from '../../primePurchaseEligibility';
@@ -35,6 +40,11 @@ import {
   finishPrimeSubscriptionPurchaseSuccess,
   preparePrimeSubscriptionPurchaseSuccess,
 } from '../../primeSubscriptionPurchaseSuccess';
+import { getPrimeEmbeddedCheckoutFallbackTrigger } from '../../purchasesSdk/primeEmbeddedCheckoutFallback';
+import {
+  beginStripePaymentElementAttempt,
+  getStripePaymentElementState,
+} from '../../purchasesSdk/stripePaymentElementHealth';
 import { showPrimeInfiniWaitingDialog } from '../PrimeInfiniWaitingDialog';
 
 import { PrimeSubscriptionPlans } from './PrimeSubscriptionPlans';
@@ -202,6 +212,8 @@ export function usePrimePurchaseCallback({
   const intl = useIntl();
 
   const purchaseByWebviewUnchecked = usePurchasePackageWebview();
+  const { purchaseByHostedLink, fallbackToHostedLink } =
+    usePrimeWebCheckoutPurchase();
   const { purchaseByCrypto: purchaseByCryptoUnchecked } =
     usePrimeInfiniPurchase({ networkId });
 
@@ -239,13 +251,34 @@ export function usePrimePurchaseCallback({
         | undefined;
       try {
         const purchaseUserId = user?.onekeyUserId;
-        const purchaseResult = await purchasePackageWeb?.({
-          subscriptionPeriod: selectedSubscriptionPeriod,
-          email: supabaseUser?.email || '',
-          locale: intl.locale,
-          currency,
-          featureName,
-        });
+        beginStripePaymentElementAttempt();
+        let purchaseResult:
+          | Awaited<ReturnType<NonNullable<typeof purchasePackageWeb>>>
+          | undefined;
+        try {
+          purchaseResult = await purchasePackageWeb?.({
+            subscriptionPeriod: selectedSubscriptionPeriod,
+            email: supabaseUser?.email || '',
+            locale: intl.locale,
+            currency,
+            featureName,
+          });
+        } catch (error) {
+          const fallbackTrigger = getPrimeEmbeddedCheckoutFallbackTrigger({
+            error,
+            paymentElementState: getStripePaymentElementState(),
+          });
+          if (!fallbackTrigger) {
+            throw error;
+          }
+          void fallbackToHostedLink({
+            trigger: fallbackTrigger,
+            selectedSubscriptionPeriod,
+            currency,
+            featureName,
+          });
+          return;
+        }
         if (
           purchaseUserId &&
           purchaseResult?.customerInfo.entitlements.active.Prime?.isActive
@@ -264,7 +297,13 @@ export function usePrimePurchaseCallback({
         await finishPrimeSubscriptionPurchaseSuccess(successfulPurchase);
       }
     },
-    [intl.locale, purchasePackageWeb, supabaseUser?.email, user?.onekeyUserId],
+    [
+      fallbackToHostedLink,
+      intl.locale,
+      purchasePackageWeb,
+      supabaseUser?.email,
+      user?.onekeyUserId,
+    ],
   );
 
   const purchaseByNative = useCallback(
@@ -323,12 +362,16 @@ export function usePrimePurchaseCallback({
       // logged in each concrete channel branch instead of when the payment
       // method picker is shown. The crypto path logs it inside
       // usePrimeInfiniPurchase with paymentMethod: 'crypto'.
-      const logSubscribeIntent = (paymentMethod: IPrimePaymentMethod) => {
+      const logSubscribeIntent = (
+        paymentMethod: IPrimePaymentMethod,
+        cardCheckoutFlow?: IPrimeCardCheckoutFlow,
+      ) => {
         defaultLogger.prime.subscription.primeSubscribeIntent({
           subscriptionPeriod: selectedSubscriptionPeriod,
           featureName,
           currency,
           paymentMethod,
+          cardCheckoutFlow,
         });
       };
       const startCryptoPayment = async ({
@@ -577,19 +620,29 @@ export function usePrimePurchaseCallback({
                     featureName,
                   });
                 } else if (method === 'webview') {
-                  logSubscribeIntent('stripe');
+                  logSubscribeIntent('stripe', 'embedded');
                   void purchaseByWebviewUnchecked({
                     selectedSubscriptionPeriod,
                     currency,
                     featureName,
                   });
                 } else if (method === 'webStripe') {
-                  logSubscribeIntent('stripe');
-                  void purchaseByWebStripeUnchecked({
-                    selectedSubscriptionPeriod,
-                    currency,
-                    featureName,
-                  });
+                  if ((await getPrimeCardCheckoutMode()) === 'hostedLink') {
+                    // Logs its own intent; the extension popup only hands
+                    // the plan off to the expand tab.
+                    void purchaseByHostedLink({
+                      selectedSubscriptionPeriod,
+                      currency,
+                      featureName,
+                    });
+                  } else {
+                    logSubscribeIntent('stripe', 'embedded');
+                    void purchaseByWebStripeUnchecked({
+                      selectedSubscriptionPeriod,
+                      currency,
+                      featureName,
+                    });
+                  }
                 } else {
                   logPrimeInfiniPaymentFlow({
                     stage: 'paymentMethod',
@@ -617,6 +670,7 @@ export function usePrimePurchaseCallback({
       intl,
       onPurchase,
       purchaseByCryptoUnchecked,
+      purchaseByHostedLink,
       purchaseByNativeUnchecked,
       purchaseByWebStripeUnchecked,
       purchaseByWebviewUnchecked,

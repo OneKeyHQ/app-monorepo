@@ -2758,6 +2758,14 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+                      <SectionFieldItem
+                        icon="CreditCardOutline"
+                        name="usePrimeEmbeddedCardCheckout"
+                        title="Prime 信用卡使用旧版内嵌支付"
+                        subtitle="关闭时插件走 RevenueCat Purchase Link，切换后需重启"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
                       <SectionPressItem
                         icon="RefreshCcwOutline"
                         title="重置 Prime 免费试用次数"

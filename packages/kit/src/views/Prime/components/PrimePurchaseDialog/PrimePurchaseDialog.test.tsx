@@ -298,6 +298,21 @@ jest.mock('./usePurchasePackageWebview', () => ({
   usePurchasePackageWebview: () => jest.fn(async () => undefined),
 }));
 
+const mockPurchaseByHostedLink = jest.fn(async () => undefined);
+const mockFallbackToHostedLink = jest.fn(async () => undefined);
+let mockCardCheckoutMode: 'embedded' | 'hostedLink' = 'embedded';
+
+jest.mock('../../hooks/usePrimeWebCheckoutPurchase', () => ({
+  usePrimeWebCheckoutPurchase: () => ({
+    purchaseByHostedLink: mockPurchaseByHostedLink,
+    fallbackToHostedLink: mockFallbackToHostedLink,
+  }),
+}));
+
+jest.mock('../../hooks/primeCardCheckoutMode', () => ({
+  getPrimeCardCheckoutMode: async () => mockCardCheckoutMode,
+}));
+
 type IPaymentMethodDialogContent = ReactElement<{
   children: ReactElement<{
     freeTrial?: {
@@ -318,6 +333,7 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
     mockPlatformEnv.isNativeIOS = false;
     mockPlatformEnv.isMas = false;
     mockPackagesResult = undefined;
+    mockCardCheckoutMode = 'embedded';
     mockGooglePlayIsAvailable.mockResolvedValue(false);
     mockPendingChoice = 'resume';
     mockGetPrimeInfiniPendingPaymentContext.mockResolvedValue({
@@ -1034,4 +1050,59 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
       expect(mockPurchaseByCrypto).toHaveBeenCalledTimes(1);
     },
   );
+
+  describe('card checkout', () => {
+    const selectCard = async () => {
+      mockGetPrimeInfiniPaymentEntryGuard.mockResolvedValue({
+        isLoggedIn: true,
+        hasPendingPayment: false,
+        onekeyUserId: 'user-1',
+      });
+      const { result } = renderHook(() => usePrimePurchaseCallback());
+      await act(async () => {
+        await result.current.purchase({
+          selectedSubscriptionPeriod: 'P1M',
+          currency: 'EUR',
+        });
+      });
+      const dialogConfig = mockDialogShow.mock.calls[0][0] as {
+        renderContent: IPaymentMethodDialogContent;
+      };
+      await act(async () => {
+        await dialogConfig.renderContent.props.children.props.onSelect(
+          'webStripe',
+        );
+      });
+    };
+
+    it('opens the hosted Purchase Link in hosted mode', async () => {
+      mockCardCheckoutMode = 'hostedLink';
+
+      await selectCard();
+
+      expect(mockPurchaseByHostedLink).toHaveBeenCalledWith({
+        selectedSubscriptionPeriod: 'P1M',
+        currency: 'EUR',
+        featureName: undefined,
+      });
+      expect(mockPurchasePackageWeb).not.toHaveBeenCalled();
+    });
+
+    it('falls back to the hosted Purchase Link when the embedded checkout fails', async () => {
+      mockPurchasePackageWeb.mockRejectedValueOnce(
+        Object.assign(new Error('Unknown error'), { errorCode: 0 }) as never,
+      );
+
+      await selectCard();
+
+      expect(mockPurchasePackageWeb).toHaveBeenCalledTimes(1);
+      expect(mockFallbackToHostedLink).toHaveBeenCalledWith({
+        trigger: 'checkoutError',
+        selectedSubscriptionPeriod: 'P1M',
+        currency: 'EUR',
+        featureName: undefined,
+      });
+      expect(mockPurchaseByHostedLink).not.toHaveBeenCalled();
+    });
+  });
 });

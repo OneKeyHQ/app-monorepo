@@ -14,8 +14,13 @@ import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
+import { getPrimeEmbeddedCheckoutFallbackTrigger } from '../purchasesSdk/primeEmbeddedCheckoutFallback';
 import purchaseSdkUtils from '../purchasesSdk/purchaseSdkUtils';
-import { loadPurchasesSdkWeb } from '../purchasesSdk/purchasesSdkWebLoader';
+import {
+  loadPurchasesSdkWeb,
+  loadPurchasesSdkWebForEmbeddedPurchase,
+} from '../purchasesSdk/purchasesSdkWebLoader';
+import { getStripePaymentElementState } from '../purchasesSdk/stripePaymentElementHealth';
 
 import { getPrimePaymentApiKey } from './getPrimePaymentApiKey';
 import primePaymentUtils from './primePaymentUtils';
@@ -179,7 +184,7 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
       featureName?: EPrimeFeatures;
     }) => {
       const { isSandboxKey } = await initSdk({ loginRequired: true });
-      const { Purchases } = await loadPurchasesSdkWeb();
+      const { Purchases } = await loadPurchasesSdkWebForEmbeddedPurchase();
       try {
         if (!isReady) {
           throw new OneKeyLocalError('PrimeAuth Not ready');
@@ -233,6 +238,7 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
           featureName,
           // purchases-js = RevenueCat web billing (Stripe embedded form)
           paymentMethod: 'stripe',
+          cardCheckoutFlow: 'embedded',
         });
 
         // test credit card
@@ -246,8 +252,16 @@ export function usePrimePaymentMethodsWeb(): IUsePrimePayment {
           paymentMethod: 'stripe',
           subscriptionPeriod,
           featureName,
+          cardCheckoutFlow: 'embedded',
         });
-        if (reason !== 'userCancelled') {
+        // The caller switches these failures to the hosted Purchase Link.
+        const willFallBack = Boolean(
+          getPrimeEmbeddedCheckoutFallbackTrigger({
+            error,
+            paymentElementState: getStripePaymentElementState(),
+          }),
+        );
+        if (reason !== 'userCancelled' && !willFallBack) {
           errorToastUtils.toastIfError(error);
         }
         throw error;

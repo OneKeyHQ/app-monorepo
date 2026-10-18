@@ -298,6 +298,46 @@ export type IPrimeInfiniPendingPaymentSessionInput = Omit<
   'schemaVersion' | 'updatedAt'
 >;
 
+export type IPrimeWebCheckoutPlatform =
+  | 'extension'
+  | 'desktop'
+  | 'web'
+  | 'android';
+
+export type IPrimeWebCheckoutExtensionContext = {
+  // 'tab' covers the expand tab and the standalone window; both can be
+  // re-focused by tab id. The side panel has no tab of its own.
+  initiatorKind: 'tab' | 'sidePanel';
+  initiatorTabId?: number;
+  // Tab ids must be persisted: the extension has no `tabs` permission to look
+  // the checkout tab up by URL, and the service worker can restart meanwhile.
+  checkoutTabId?: number;
+};
+
+/**
+ * A RevenueCat hosted card checkout (Web Purchase Link) opened outside the
+ * app. Success is decided only by polling RevenueCat; this record lets any
+ * runtime resume that check after the checkout page returns.
+ */
+export type IPrimeWebCheckoutPendingSession = {
+  checkoutId: string;
+  onekeyUserId: string;
+  subscriptionPeriod: 'P1Y' | 'P1M';
+  packageId: string;
+  offeringId: string;
+  // Analytics only; the hosted page decides the final price.
+  amount: number;
+  currency: string;
+  featureName?: string;
+  isSandbox: boolean;
+  platform: IPrimeWebCheckoutPlatform;
+  // Reopening the checkout reuses the same URL. It contains the OneKey ID and
+  // email, so it must never be logged.
+  checkoutUrl: string;
+  startedAt: number;
+  extension?: IPrimeWebCheckoutExtensionContext;
+};
+
 // Infini crypto subscription detail returned by
 // GET /prime/v1/infini/subscription.
 // NOTE: backend schema pending confirmation — fields below are proposed from

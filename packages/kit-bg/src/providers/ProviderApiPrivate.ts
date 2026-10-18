@@ -37,6 +37,7 @@ import {
   EOnboardingPagesV2,
   EOnboardingV2OneKeyIDLoginMode,
 } from '@onekeyhq/shared/src/routes/onboardingv2';
+import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 import {
@@ -731,6 +732,69 @@ class ProviderApiPrivate extends ProviderApiBase {
       },
     });
     return { success: true };
+  }
+
+  /*
+    window.$onekey.$private.request({
+      method: 'wallet_primeWebCheckoutReturn',
+    });
+    Called by the first-party /prime/purchase-complete page after a RevenueCat
+    hosted card checkout redirects back. Request params are ignored: only the
+    background's own pending checkout record is trusted, and success is still
+    decided by polling RevenueCat in the extension UI.
+  */
+  @providerApiMethod()
+  async wallet_primeWebCheckoutReturn(
+    request: IJsBridgeMessagePayload,
+  ): Promise<{ handled: boolean }> {
+    if (!platformEnv.isExtension) {
+      throw new OneKeyLocalError(
+        'wallet_primeWebCheckoutReturn is only available in the extension',
+      );
+    }
+    // Defense in depth: BackgroundApiBase already gates this origin.
+    if (!isProviderApiPrivateAllowedKeylessOrigin(request.origin)) {
+      throw new OneKeyLocalError(
+        `[${request.origin ?? ''}] is not allowed to call wallet_primeWebCheckoutReturn`,
+      );
+    }
+    const { isLoggedIn, onekeyUserId } =
+      await this.backgroundApi.servicePrime.getLocalUserInfo();
+    if (!isLoggedIn || !onekeyUserId) {
+      return { handled: false };
+    }
+    const session =
+      await this.backgroundApi.simpleDb.prime.getWebCheckoutPendingSession({
+        onekeyUserId,
+      });
+    if (!session || session.platform !== 'extension') {
+      return { handled: false };
+    }
+    appEventBus.emit(EAppEventBusNames.PrimeWebCheckoutReturned, {
+      checkoutId: session.checkoutId,
+    });
+    const { initiatorKind, initiatorTabId, checkoutTabId } =
+      session.extension ?? {};
+    let isInitiatorVisible = false;
+    if (initiatorKind === 'tab' && initiatorTabId !== undefined) {
+      isInitiatorVisible = await extUtils.focusTab(initiatorTabId);
+    } else if (initiatorKind === 'sidePanel') {
+      // sidePanel.open needs a user gesture, so only a still-open panel counts.
+      isInitiatorVisible = sidePanelState.isOpen;
+    }
+    if (!isInitiatorVisible) {
+      // PrimeGlobalEffect in the new tab re-checks the pending checkout.
+      await this.backgroundApi.serviceApp.openExtensionExpandTab({
+        path: '/',
+      });
+    }
+    if (checkoutTabId !== undefined) {
+      // Let the response reach the return page before its tab goes away.
+      setTimeout(() => {
+        void extUtils.removeTab(checkoutTabId);
+      }, 500);
+    }
+    return { handled: true };
   }
 
   @providerApiMethod()

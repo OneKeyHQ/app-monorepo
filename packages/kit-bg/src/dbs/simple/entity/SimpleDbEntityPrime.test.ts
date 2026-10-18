@@ -1,10 +1,12 @@
 /* cspell:ignore Infini infini */
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import { PRIME_WEB_CHECKOUT_PENDING_SESSION_TTL_MS } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { getPrimeInfiniPaymentAssetKey } from '@onekeyhq/shared/src/utils/primeInfiniPaymentCacheUtils';
 import {
   EPrimeAuthSessionSource,
   type IPrimeInfiniPendingPaymentSession,
+  type IPrimeWebCheckoutPendingSession,
 } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import {
@@ -3812,5 +3814,124 @@ describe('SimpleDbEntityPrime prime-profile analytics TTL', () => {
         now,
       }),
     ).resolves.toBe(true);
+  });
+});
+
+describe('SimpleDbEntityPrime web checkout pending session', () => {
+  const buildSession = (
+    overrides: Partial<IPrimeWebCheckoutPendingSession> = {},
+  ): IPrimeWebCheckoutPendingSession => ({
+    checkoutId: 'checkout-1',
+    onekeyUserId: 'user-1',
+    subscriptionPeriod: 'P1Y',
+    packageId: '$rc_annual',
+    offeringId: 'Sandbox_testing',
+    amount: 99,
+    currency: 'USD',
+    isSandbox: true,
+    platform: 'extension',
+    checkoutUrl: 'https://pay.rev.cat/sandbox/abc/user-1?package_id=x',
+    startedAt: Date.now(),
+    ...overrides,
+  });
+
+  test('stores one session per user and drops expired ones', async () => {
+    const expired = buildSession({
+      checkoutId: 'old',
+      onekeyUserId: 'user-2',
+      startedAt: Date.now() - PRIME_WEB_CHECKOUT_PENDING_SESSION_TTL_MS - 1,
+    });
+    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore({
+      webCheckoutPendingSessionByUserId: { 'user-2': expired },
+    });
+
+    await entity.setWebCheckoutPendingSession({ session: buildSession() });
+    await entity.setWebCheckoutPendingSession({
+      session: buildSession({ checkoutId: 'checkout-2' }),
+    });
+
+    expect(getPersisted().webCheckoutPendingSessionByUserId).toEqual({
+      'user-1': buildSession({
+        checkoutId: 'checkout-2',
+        startedAt: expect.any(Number),
+      }),
+    });
+    await expect(
+      entity.getWebCheckoutPendingSession({ onekeyUserId: 'user-2' }),
+    ).resolves.toBeUndefined();
+  });
+
+  test('ignores an expired or foreign session on read', async () => {
+    const { entity } = createPrimeAnalyticsEntityWithStore({
+      webCheckoutPendingSessionByUserId: {
+        'user-1': buildSession({ onekeyUserId: 'user-3' }),
+        'user-2': buildSession({
+          onekeyUserId: 'user-2',
+          startedAt: Date.now() - PRIME_WEB_CHECKOUT_PENDING_SESSION_TTL_MS,
+        }),
+      },
+    });
+
+    await expect(
+      entity.getWebCheckoutPendingSession({ onekeyUserId: 'user-1' }),
+    ).resolves.toBeUndefined();
+    await expect(
+      entity.getWebCheckoutPendingSession({ onekeyUserId: 'user-2' }),
+    ).resolves.toBeUndefined();
+  });
+
+  test('only the caller that clears the matching checkout wins', async () => {
+    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore({
+      webCheckoutPendingSessionByUserId: { 'user-1': buildSession() },
+    });
+
+    await expect(
+      entity.clearWebCheckoutPendingSession({
+        onekeyUserId: 'user-1',
+        expectedCheckoutId: 'checkout-other',
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      entity.clearWebCheckoutPendingSession({
+        onekeyUserId: 'user-1',
+        expectedCheckoutId: 'checkout-1',
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      entity.clearWebCheckoutPendingSession({
+        onekeyUserId: 'user-1',
+        expectedCheckoutId: 'checkout-1',
+      }),
+    ).resolves.toBe(false);
+    expect(getPersisted().webCheckoutPendingSessionByUserId).toEqual({});
+  });
+
+  test('records extension tabs only for the current checkout', async () => {
+    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore({
+      webCheckoutPendingSessionByUserId: { 'user-1': buildSession() },
+    });
+    const extension = {
+      initiatorKind: 'tab' as const,
+      initiatorTabId: 1,
+      checkoutTabId: 2,
+    };
+
+    await expect(
+      entity.updateWebCheckoutPendingSessionExtensionContext({
+        onekeyUserId: 'user-1',
+        checkoutId: 'checkout-other',
+        extension,
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      entity.updateWebCheckoutPendingSessionExtensionContext({
+        onekeyUserId: 'user-1',
+        checkoutId: 'checkout-1',
+        extension,
+      }),
+    ).resolves.toBe(true);
+    expect(
+      getPersisted().webCheckoutPendingSessionByUserId?.['user-1']?.extension,
+    ).toEqual(extension);
   });
 });

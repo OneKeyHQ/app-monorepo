@@ -62,6 +62,9 @@ export interface IDevSettings {
 
   showPrimeTest?: boolean;
   usePrimeSandboxPayment?: boolean;
+  // Use the legacy embedded Stripe card form instead of RevenueCat Purchase
+  // Links on channels that already moved to hosted checkout. Needs a restart.
+  usePrimeEmbeddedCardCheckout?: boolean;
   showWebviewDevTools?: boolean;
   // strict signature alert display
   strictSignatureAlert?: boolean;

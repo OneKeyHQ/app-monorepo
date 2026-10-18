@@ -2,7 +2,20 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import safeStringify from 'fast-safe-stringify';
 
+import primePaymentUtils from '@onekeyhq/kit/src/views/Prime/hooks/primePaymentUtils';
+import {
+  getPrimeWebPurchaseLinkConfig,
+  resolvePrimeWebPurchaseLinkPackage,
+} from '@onekeyhq/kit/src/views/Prime/hooks/primeWebPurchaseLink';
 import { usePrimePaymentMethods } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentMethods';
+import type { ISubscriptionPeriod } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentTypes';
+import { getPrimeEmbeddedCheckoutFallbackTrigger } from '@onekeyhq/kit/src/views/Prime/purchasesSdk/primeEmbeddedCheckoutFallback';
+import type { IPrimeEmbeddedCheckoutFallbackTrigger } from '@onekeyhq/kit/src/views/Prime/purchasesSdk/primeEmbeddedCheckoutFallback';
+import { loadPurchasesSdkWeb } from '@onekeyhq/kit/src/views/Prime/purchasesSdk/purchasesSdkWebLoader';
+import {
+  beginStripePaymentElementAttempt,
+  getStripePaymentElementState,
+} from '@onekeyhq/kit/src/views/Prime/purchasesSdk/stripePaymentElementHealth';
 import { EWebEmbedPrivateRequestMethod } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 
@@ -32,6 +45,55 @@ async function showNativeToast({
   await globalThis.$onekey.$private.request({
     method: EWebEmbedPrivateRequestMethod.showToast,
     params: { title, message },
+  });
+}
+
+// The native host owns the hosted checkout (system browser + polling). This
+// page only knows the offering, so it resolves the package for the host.
+async function resolveHostedCheckoutPackage({
+  isSandboxKey,
+  currency,
+  subscriptionPeriod,
+}: {
+  isSandboxKey: boolean;
+  currency?: string;
+  subscriptionPeriod: ISubscriptionPeriod;
+}) {
+  try {
+    const { Purchases } = await loadPurchasesSdkWeb();
+    const { targetOffering } = await primePaymentUtils.fetchWebTargetOffering({
+      purchases: Purchases.getSharedInstance(),
+      isSandboxKey,
+      currency,
+    });
+    return resolvePrimeWebPurchaseLinkPackage({
+      config: getPrimeWebPurchaseLinkConfig({ isSandbox: isSandboxKey }),
+      targetOffering,
+      subscriptionPeriod,
+    });
+  } catch {
+    // The host refuses to open the checkout without a valid package.
+    return undefined;
+  }
+}
+
+async function fallbackToNativeHostedCheckout(params: {
+  trigger: IPrimeEmbeddedCheckoutFallbackTrigger;
+  onekeyUserId: string;
+  subscriptionPeriod: ISubscriptionPeriod;
+  currency?: string;
+  featureName?: string;
+  isSandboxKey: boolean;
+}) {
+  const { isSandboxKey, ...requestParams } = params;
+  const purchasePackage = await resolveHostedCheckoutPackage({
+    isSandboxKey,
+    currency: params.currency,
+    subscriptionPeriod: params.subscriptionPeriod,
+  });
+  await globalThis.$onekey.$private.request({
+    method: EWebEmbedPrivateRequestMethod.fallbackToPrimeHostedCheckout,
+    params: { ...requestParams, purchasePackage },
   });
 }
 
@@ -103,6 +165,7 @@ export default function PageWebEmbedPrimePurchase() {
     currency,
     mode,
     featureName,
+    isSandboxKey,
   } = webEmbedQueryParams || {};
 
   const run = useCallback(async () => {
@@ -126,6 +189,7 @@ export default function PageWebEmbedPrimePurchase() {
           ? (featureName as EPrimeFeatures)
           : undefined;
 
+      beginStripePaymentElementAttempt();
       const purchaseResult = await purchasePackageWeb?.({
         subscriptionPeriod,
         email: primeUserEmail,
@@ -148,6 +212,23 @@ export default function PageWebEmbedPrimePurchase() {
         await closeNativeWebViewModal();
       }
     } catch (error) {
+      const fallbackTrigger = getPrimeEmbeddedCheckoutFallbackTrigger({
+        error,
+        paymentElementState: getStripePaymentElementState(),
+      });
+      if (fallbackTrigger) {
+        // The host closes this page and continues with the hosted checkout.
+        await fallbackToNativeHostedCheckout({
+          trigger: fallbackTrigger,
+          onekeyUserId: primeUserId,
+          subscriptionPeriod,
+          currency,
+          featureName,
+          isSandboxKey: Boolean(isSandboxKey),
+        });
+        isRunning.current = false;
+        return;
+      }
       const trace = (error instanceof Error ? error.stack : '') || '';
       const debugMessage =
         error instanceof Error
@@ -174,6 +255,7 @@ export default function PageWebEmbedPrimePurchase() {
     locale,
     currency,
     featureName,
+    isSandboxKey,
   ]);
 
   useEffect(() => {

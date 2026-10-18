@@ -328,6 +328,32 @@ function focusExistWindow({
   });
 }
 
+// Brings an existing tab and its window to the front. Works without the
+// `tabs` permission; resolves false when the tab no longer exists.
+function focusTab(tabId: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    chrome.tabs.update(tabId, { active: true }, (tab) => {
+      // Reading lastError keeps Chrome from logging an unchecked error.
+      if (chrome.runtime.lastError || !tab) {
+        resolve(false);
+        return;
+      }
+      focusExistWindow({ windowId: tab.windowId });
+      resolve(true);
+    });
+  });
+}
+
+function removeTab(tabId: number): Promise<void> {
+  return new Promise((resolve) => {
+    chrome.tabs.remove(tabId, () => {
+      // The user may have closed the tab already.
+      void chrome.runtime.lastError;
+      resolve();
+    });
+  });
+}
+
 async function openPermissionSettings() {
   // oxlint-disable-next-line @cspell/spellchecker
   // chrome://settings/content/siteDetails?site=chrome-extension://apmndckkdnmkjblccnclblclninghkfh
@@ -351,6 +377,8 @@ export default {
   openSidePanel,
   resetSidePanelPath,
   focusExistWindow,
+  focusTab,
+  removeTab,
   openPanelOnActionClick,
   openPermissionSettings,
 };
