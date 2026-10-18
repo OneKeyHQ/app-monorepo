@@ -6,6 +6,7 @@ import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
 
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 
+import { generateUUID } from './miscUtils';
 import { buildModalRouteParams } from './routeUtils';
 
 /**
@@ -237,6 +238,34 @@ async function openExpandTab(
   return tab;
 }
 
+const BROWSER_SESSION_ID_STORAGE_KEY = 'onekeyBrowserSessionId';
+
+// An id for the current browser session, shared by the extension background
+// and its pages. chrome.storage.session is cleared when the browser exits, so
+// a new id marks persisted tab / window ids as stale.
+async function getBrowserSessionId(): Promise<string | undefined> {
+  const sessionStorage = globalThis.chrome?.storage?.session;
+  if (!sessionStorage) {
+    return undefined;
+  }
+  try {
+    const stored = await sessionStorage.get(BROWSER_SESSION_ID_STORAGE_KEY);
+    const storedId: unknown = stored?.[BROWSER_SESSION_ID_STORAGE_KEY];
+    if (typeof storedId === 'string' && storedId) {
+      return storedId;
+    }
+    await sessionStorage.set({
+      [BROWSER_SESSION_ID_STORAGE_KEY]: generateUUID(),
+    });
+    // Another context may have written first; its id wins.
+    const written = await sessionStorage.get(BROWSER_SESSION_ID_STORAGE_KEY);
+    const writtenId: unknown = written?.[BROWSER_SESSION_ID_STORAGE_KEY];
+    return typeof writtenId === 'string' && writtenId ? writtenId : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function closeExtensionPopupAfterExpandTabOpen() {
   if (platformEnv.isExtensionUiPopup) {
     setTimeout(globalThis.close, EXTENSION_EXPAND_TAB_POPUP_CLOSE_DELAY_MS);
@@ -379,6 +408,7 @@ export default {
   focusExistWindow,
   focusTab,
   removeTab,
+  getBrowserSessionId,
   openPanelOnActionClick,
   openPermissionSettings,
 };

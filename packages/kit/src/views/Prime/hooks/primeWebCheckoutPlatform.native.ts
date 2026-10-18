@@ -1,5 +1,6 @@
 import PurchasesReactNative from 'react-native-purchases';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IPrimeWebPurchaseLinkConfig } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -25,6 +26,11 @@ export async function fetchPrimeWebCheckoutEntitlement({
 }): Promise<IPrimeWebCheckoutEntitlement | undefined> {
   if (!onekeyUserId) {
     throw new OneKeyLocalError('Prime web checkout: missing OneKey ID');
+  }
+  // Never log the shared SDK back into a OneKey ID that has logged out.
+  const currentUser = await backgroundApiProxy.servicePrime.getLocalUserInfo();
+  if (!currentUser.isLoggedIn || currentUser.onekeyUserId !== onekeyUserId) {
+    throw new OneKeyLocalError('Prime purchase user changed');
   }
   if (!(await PurchasesReactNative.isConfigured())) {
     const { apiKey } = await getPrimePaymentApiKey({ apiKeyType: 'native' });
@@ -79,4 +85,11 @@ export async function openPrimeWebCheckoutPage(
     useSystemBrowser: true,
   });
   return 'opened';
+}
+
+// Only extension pages need to tell the initiating surface apart.
+export async function isPrimeWebCheckoutInitiatorSurface(
+  _session: IPrimeWebCheckoutPendingSession,
+): Promise<boolean> {
+  return true;
 }

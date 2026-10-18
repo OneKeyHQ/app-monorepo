@@ -7,17 +7,16 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   getCurrentVisibilityState,
   onVisibilityStateChange,
 } from '@onekeyhq/shared/src/utils/appVisibility';
-import type { IPrimeWebCheckoutPendingSession } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import {
   checkPrimeWebCheckout,
   finishPrimeWebCheckoutSuccess,
   getPrimeWebCheckoutPlatform,
+  isPrimeWebCheckoutInitiatorSurface,
   isPrimeWebCheckoutMonitored,
   isPrimeWebCheckoutUserCurrent,
   logPrimeWebCheckoutSessionFlow,
@@ -26,18 +25,6 @@ import {
 } from './primeWebCheckout';
 
 const RECOVERY_MIN_INTERVAL_MS = 15_000;
-
-// On return, only the surface that opened the checkout reacts at once, so
-// the result shows where the user is looking. A re-focused tab also gets a
-// visibility event; a side panel does not, hence the return event.
-function isCheckoutInitiatorSurface(session: IPrimeWebCheckoutPendingSession) {
-  if (!platformEnv.isExtension) {
-    return true;
-  }
-  return platformEnv.isExtensionUiSidePanel
-    ? session.extension?.initiatorKind === 'sidePanel'
-    : session.extension?.initiatorKind === 'tab';
-}
 
 // Settles a hosted card checkout whose waiting dialog is gone (closed by the
 // user, or the page that opened it was closed), whenever the app becomes
@@ -85,7 +72,12 @@ export function usePrimeWebCheckoutRecovery({
           !session ||
           session.platform !== getPrimeWebCheckoutPlatform() ||
           isPrimeWebCheckoutMonitored(session.checkoutId) ||
-          (fromReturnEvent && !isCheckoutInitiatorSurface(session)) ||
+          // On return, only the surface that opened the checkout reacts at
+          // once, so the result shows where the user is looking. A
+          // re-focused tab also gets a visibility event; a side panel does
+          // not, hence the return event.
+          (fromReturnEvent &&
+            !(await isPrimeWebCheckoutInitiatorSurface(session))) ||
           !(await isPrimeWebCheckoutUserCurrent(onekeyUserId))
         ) {
           return;

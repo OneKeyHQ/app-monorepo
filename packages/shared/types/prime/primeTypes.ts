@@ -309,9 +309,14 @@ export type IPrimeWebCheckoutExtensionContext = {
   // re-focused by tab id. The side panel has no tab of its own.
   initiatorKind: 'tab' | 'sidePanel';
   initiatorTabId?: number;
+  // Side panels are per window.
+  initiatorWindowId?: number;
   // Tab ids must be persisted: the extension has no `tabs` permission to look
   // the checkout tab up by URL, and the service worker can restart meanwhile.
   checkoutTabId?: number;
+  // Tab and window ids are only unique within one browser session; ids from
+  // another session must not be used.
+  browserSessionId?: string;
 };
 
 /**

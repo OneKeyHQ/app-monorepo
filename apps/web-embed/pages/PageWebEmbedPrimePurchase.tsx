@@ -217,17 +217,22 @@ export default function PageWebEmbedPrimePurchase() {
         paymentElementState: getStripePaymentElementState(),
       });
       if (fallbackTrigger) {
-        // The host closes this page and continues with the hosted checkout.
-        await fallbackToNativeHostedCheckout({
-          trigger: fallbackTrigger,
-          onekeyUserId: primeUserId,
-          subscriptionPeriod,
-          currency,
-          featureName,
-          isSandboxKey: Boolean(isSandboxKey),
-        });
-        isRunning.current = false;
-        return;
+        try {
+          // The host closes this page and continues with the hosted checkout.
+          await fallbackToNativeHostedCheckout({
+            trigger: fallbackTrigger,
+            onekeyUserId: primeUserId,
+            subscriptionPeriod,
+            currency,
+            featureName,
+            isSandboxKey: Boolean(isSandboxKey),
+          });
+          isRunning.current = false;
+          return;
+        } catch {
+          // The fallback request failed: show the original error and close
+          // this page below instead of leaving the spinner up.
+        }
       }
       const trace = (error instanceof Error ? error.stack : '') || '';
       const debugMessage =

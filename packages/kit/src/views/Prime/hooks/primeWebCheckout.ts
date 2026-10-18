@@ -1,5 +1,6 @@
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IPrimeWebCheckoutFlowParams } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
@@ -88,21 +89,31 @@ export function isPrimeWebCheckoutMonitored(checkoutId: string) {
   return monitoredCheckoutIds.has(checkoutId);
 }
 
-export async function checkPrimeWebCheckout(
-  session: IPrimeWebCheckoutPendingSession,
-): Promise<IPrimeWebCheckoutResult> {
-  const entitlement = await fetchPrimeWebCheckoutEntitlement({
-    onekeyUserId: session.onekeyUserId,
-    isSandbox: session.isSandbox,
-  });
-  return evaluatePrimeWebCheckoutResult({ session, entitlement });
-}
-
 export async function isPrimeWebCheckoutUserCurrent(onekeyUserId: string) {
   const currentUser = await backgroundApiProxy.servicePrime.getLocalUserInfo();
   return Boolean(
     currentUser.isLoggedIn && currentUser.onekeyUserId === onekeyUserId,
   );
+}
+
+export async function assertPrimeWebCheckoutUserCurrent(onekeyUserId: string) {
+  if (!(await isPrimeWebCheckoutUserCurrent(onekeyUserId))) {
+    throw new OneKeyLocalError('Prime purchase user changed');
+  }
+}
+
+// The OneKey ID can change while RevenueCat answers, so the purchase user is
+// checked on both sides of the request.
+export async function checkPrimeWebCheckout(
+  session: IPrimeWebCheckoutPendingSession,
+): Promise<IPrimeWebCheckoutResult> {
+  await assertPrimeWebCheckoutUserCurrent(session.onekeyUserId);
+  const entitlement = await fetchPrimeWebCheckoutEntitlement({
+    onekeyUserId: session.onekeyUserId,
+    isSandbox: session.isSandbox,
+  });
+  await assertPrimeWebCheckoutUserCurrent(session.onekeyUserId);
+  return evaluatePrimeWebCheckoutResult({ session, entitlement });
 }
 
 export type IPrimeWebCheckoutSettlement =
@@ -125,6 +136,8 @@ export async function settlePrimeWebCheckout({
   result: Exclude<IPrimeWebCheckoutResult, { status: 'pending' }>;
   intl: IntlShape;
 }): Promise<IPrimeWebCheckoutSettlement | undefined> {
+  // Never settle a checkout for a OneKey ID that has since logged out.
+  await assertPrimeWebCheckoutUserCurrent(session.onekeyUserId);
   const didClear =
     await backgroundApiProxy.simpleDb.prime.clearWebCheckoutPendingSession({
       onekeyUserId: session.onekeyUserId,
@@ -195,6 +208,7 @@ export async function finishPrimeWebCheckoutSuccess(
 
 export {
   fetchPrimeWebCheckoutEntitlement,
+  isPrimeWebCheckoutInitiatorSurface,
   openPrimeWebCheckoutPage,
   resolvePrimeWebCheckoutPackage,
 } from './primeWebCheckoutPlatform';

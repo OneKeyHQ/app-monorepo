@@ -86,29 +86,84 @@ export async function resolvePrimeWebCheckoutPackage({
   });
 }
 
+function getCurrentExtensionTab() {
+  return new Promise<chrome.tabs.Tab | undefined>((resolve) => {
+    chrome.tabs.getCurrent((tab) => {
+      void chrome.runtime.lastError;
+      resolve(tab);
+    });
+  });
+}
+
+function getCurrentExtensionWindowId() {
+  return new Promise<number | undefined>((resolve) => {
+    chrome.windows.getCurrent((win) => {
+      void chrome.runtime.lastError;
+      resolve(win?.id);
+    });
+  });
+}
+
+// The stored tab / window ids, or undefined when they come from another
+// browser session (ids are only unique within one session) or none exists.
+export async function getUsablePrimeWebCheckoutExtensionContext(
+  session: IPrimeWebCheckoutPendingSession,
+): Promise<IPrimeWebCheckoutExtensionContext | undefined> {
+  const browserSessionId = await extUtils.getBrowserSessionId();
+  return browserSessionId &&
+    session.extension?.browserSessionId === browserSessionId
+    ? session.extension
+    : undefined;
+}
+
+// Whether this extension page is the one that opened the checkout.
+export async function isPrimeWebCheckoutInitiatorSurface(
+  session: IPrimeWebCheckoutPendingSession,
+): Promise<boolean> {
+  if (!platformEnv.isExtension) {
+    return true;
+  }
+  const extension = await getUsablePrimeWebCheckoutExtensionContext(session);
+  if (!extension) {
+    return false;
+  }
+  if (platformEnv.isExtensionUiSidePanel) {
+    return (
+      extension.initiatorKind === 'sidePanel' &&
+      extension.initiatorWindowId !== undefined &&
+      extension.initiatorWindowId === (await getCurrentExtensionWindowId())
+    );
+  }
+  return (
+    extension.initiatorKind === 'tab' &&
+    extension.initiatorTabId !== undefined &&
+    extension.initiatorTabId === (await getCurrentExtensionTab())?.id
+  );
+}
+
 async function getExtensionCheckoutInitiator(): Promise<IPrimeWebCheckoutExtensionContext> {
   if (platformEnv.isExtensionUiSidePanel) {
-    return { initiatorKind: 'sidePanel' };
+    return {
+      initiatorKind: 'sidePanel',
+      initiatorWindowId: await getCurrentExtensionWindowId(),
+    };
   }
-  const currentTab = await new Promise<chrome.tabs.Tab | undefined>(
-    (resolve) => {
-      chrome.tabs.getCurrent((tab) => {
-        void chrome.runtime.lastError;
-        resolve(tab);
-      });
-    },
-  );
-  return { initiatorKind: 'tab', initiatorTabId: currentTab?.id };
+  return {
+    initiatorKind: 'tab',
+    initiatorTabId: (await getCurrentExtensionTab())?.id,
+  };
 }
 
 async function openExtensionCheckoutTab(
   session: IPrimeWebCheckoutPendingSession,
 ) {
-  const initiator =
-    session.extension ?? (await getExtensionCheckoutInitiator());
-  // Reuses the checkout tab when it still exists.
+  const browserSessionId = await extUtils.getBrowserSessionId();
+  const usableExtension =
+    await getUsablePrimeWebCheckoutExtensionContext(session);
+  const initiator = usableExtension ?? (await getExtensionCheckoutInitiator());
+  // Reuses the checkout tab when it still exists in this browser session.
   const checkoutTab = await extUtils.openUrlInTab(session.checkoutUrl, {
-    tabId: session.extension?.checkoutTabId,
+    tabId: usableExtension?.checkoutTabId,
   });
   if (checkoutTab?.id === undefined) {
     throw new OneKeyLocalError('Failed to open the checkout tab');
@@ -117,7 +172,11 @@ async function openExtensionCheckoutTab(
     {
       onekeyUserId: session.onekeyUserId,
       checkoutId: session.checkoutId,
-      extension: { ...initiator, checkoutTabId: checkoutTab.id },
+      extension: {
+        ...initiator,
+        checkoutTabId: checkoutTab.id,
+        browserSessionId,
+      },
     },
   );
 }

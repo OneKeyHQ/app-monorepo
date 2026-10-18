@@ -32,6 +32,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isPrimeWebCheckoutReturnFromCheckoutTab } from '@onekeyhq/shared/src/prime/primeWebCheckoutReturn';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EOnboardingPagesV2,
@@ -768,6 +769,25 @@ class ProviderApiPrivate extends ProviderApiBase {
         onekeyUserId,
       });
     if (!session || session.platform !== 'extension') {
+      return { handled: false };
+    }
+    const port =
+      request.remoteId === undefined || request.remoteId === null
+        ? undefined
+        : this.backgroundApi.bridgeExtBg?.ports?.[request.remoteId];
+    if (
+      !isPrimeWebCheckoutReturnFromCheckoutTab({
+        extension: session.extension,
+        browserSessionId: await extUtils.getBrowserSessionId(),
+        sender: port?.sender
+          ? {
+              tabId: port.sender.tab?.id,
+              frameId: port.sender.frameId,
+              url: port.sender.url,
+            }
+          : undefined,
+      })
+    ) {
       return { handled: false };
     }
     appEventBus.emit(EAppEventBusNames.PrimeWebCheckoutReturned, {
