@@ -30,6 +30,29 @@ export function isSwapGasSponsored(gasInfo?: ISwapGasInfo) {
   );
 }
 
+export function getEvmThorSwapGasLimit({
+  networkId,
+  buildTx,
+  isSponsored,
+}: {
+  networkId: string;
+  buildTx?: IFetchBuildTxResponse;
+  isSponsored: boolean;
+}) {
+  const gasLimit = buildTx?.result.gasLimit;
+  if (
+    !networkUtils.isEvmNetwork({ networkId }) ||
+    !buildTx?.thorSwapCallData ||
+    typeof gasLimit !== 'number' ||
+    !Number.isSafeInteger(gasLimit) ||
+    gasLimit <= 0 ||
+    isSponsored
+  ) {
+    return undefined;
+  }
+  return String(gasLimit);
+}
+
 export function applyEvmThorSwapGasLimit<T extends ISwapGasInfo>({
   networkId,
   buildTx,
@@ -41,15 +64,8 @@ export function applyEvmThorSwapGasLimit<T extends ISwapGasInfo>({
   gasInfo: T;
   isSponsored?: boolean;
 }): T {
-  const gasLimit = buildTx?.result.gasLimit;
-  if (
-    !networkUtils.isEvmNetwork({ networkId }) ||
-    !buildTx?.thorSwapCallData ||
-    typeof gasLimit !== 'number' ||
-    !Number.isSafeInteger(gasLimit) ||
-    gasLimit <= 0 ||
-    isSponsored
-  ) {
+  const gasLimit = getEvmThorSwapGasLimit({ networkId, buildTx, isSponsored });
+  if (!gasLimit) {
     return gasInfo;
   }
 

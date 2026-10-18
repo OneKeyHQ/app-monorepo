@@ -8,6 +8,7 @@ import type {
 import {
   applyEvmThorSwapGasLimit,
   canReuseSwapReviewGasInfo,
+  getEvmThorSwapGasLimit,
   isSwapGasAccountCandidate,
   isSwapGasAccountSponsored,
   isSwapGasSponsored,
@@ -82,6 +83,13 @@ describe('applyEvmThorSwapGasLimit (OK-64754)', () => {
     const result = apply({ gasInfo: { ...gasInfo, gas: higherGas } });
     expect(result.gas).toBe(higherGas);
     expect(result.gasEIP1559?.gasLimit).toBe('241020');
+    expect(
+      getEvmThorSwapGasLimit({
+        networkId: 'evm--1',
+        buildTx,
+        isSponsored: false,
+      }),
+    ).toBe('241020');
   });
 
   it.each([undefined, 0, -1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1])(
@@ -118,6 +126,13 @@ describe('applyEvmThorSwapGasLimit (OK-64754)', () => {
 
   it('honors the confirmation page effective sponsorship state', () => {
     expect(apply({ isSponsored: true })).toBe(gasInfo);
+    expect(
+      getEvmThorSwapGasLimit({
+        networkId: 'evm--1',
+        buildTx,
+        isSponsored: true,
+      }),
+    ).toBeUndefined();
   });
 });
 
