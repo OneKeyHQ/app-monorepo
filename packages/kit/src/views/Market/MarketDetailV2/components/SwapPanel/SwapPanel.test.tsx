@@ -9,6 +9,7 @@ import {
   prepareStockSwapEntry,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/prepareSwapProEntry';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import {
   ESwapSource,
@@ -99,6 +100,15 @@ const payToken: ISwapToken = {
 describe('Market mobile Buy / Sell modal entry', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.replaceProperty(platformEnv, 'isNative', true);
+  });
+
+  it('exposes Buy and Sell in the narrow web layout', () => {
+    jest.replaceProperty(platformEnv, 'isNative', false);
+    render(<SwapPanel swapToken={token} mobileLayout />);
+    expect(mockFooter).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 'buy-sell', tradeDisabled: false }),
+    );
   });
 
   it.each(['to', 'from'] as const)(

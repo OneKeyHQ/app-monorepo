@@ -173,6 +173,26 @@ it('preserves the non-native audit result layout', () => {
   expect(screen.getByText(ETranslations.global_market_cap)).toBeTruthy();
 });
 
+it('uses the redesigned price and audit layout on narrow web', () => {
+  jest.replaceProperty(platformEnv, 'isNative', false);
+  mockDetail = { ...mockDetail, price: '110', priceChange24hPercent: '10' };
+  mockSecurityData = {
+    check: { value: true, content: 'Test', riskType: 'caution' },
+  };
+  render(<InformationPanel mobileDetailKind="trending" />);
+  expect(screen.getByText(ETranslations.dexmarket_audit)).toBeTruthy();
+  expect(screen.getByTestId('market-mobile-price-change-value')).toBeTruthy();
+  expect(screen.queryByText(ETranslations.global_market_cap)).toBeNull();
+});
+
+it('uses the stock price header on narrow web while token detail is pending', () => {
+  jest.replaceProperty(platformEnv, 'isNative', false);
+  mockStockRoute = true;
+  mockMissingDetail = true;
+  render(<InformationPanel mobileDetailKind="stock" />);
+  expect(screen.getByText('stock price header')).toBeTruthy();
+});
+
 it.each(['trending', 'topCoin'] as const)(
   'shows the dollar move and percentage for %s',
   (mobileDetailKind) => {

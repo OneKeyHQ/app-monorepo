@@ -104,6 +104,7 @@ export function SwapPanel({
   detailKind,
   onPerps,
   perpsDisabled,
+  mobileLayout = platformEnv.isNative,
 }: {
   swapToken: ISwapToken;
   disableTrade?: boolean;
@@ -116,6 +117,7 @@ export function SwapPanel({
   detailKind?: IMarketMobileDetailKind;
   onPerps?: () => void;
   perpsDisabled?: boolean;
+  mobileLayout?: boolean;
 }) {
   const intl = useIntl();
   // This footer is a plain flex sibling, not a Page.Footer, so it must claim the
@@ -210,7 +212,7 @@ export function SwapPanel({
     return null;
   }
 
-  if (platformEnv.isNative) {
+  if (mobileLayout) {
     const pnl = myPositionInfo.pnl;
     const unrealizedBN = new BigNumber(pnl?.unrealizedPnlUsd ?? 0);
     const hasPnl = pnl?.isPnlSupported && !unrealizedBN.isNaN();

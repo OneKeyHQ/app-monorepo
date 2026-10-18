@@ -83,7 +83,67 @@ class ServiceMarket extends ServiceBase {
 
   @backgroundMethod()
   async fetchTrendingV2(): Promise<IMarketSearchV2Token[]> {
-    return this._fetchTrendingV2();
+    return this.resolveSearchTokenAssets(await this._fetchTrendingV2());
+  }
+
+  _fetchMarketAssetIdentityList = memoizee(
+    async () => {
+      const assets = await this.fetchMarketAssetList();
+      return assets.list.map(({ assetId, symbol }) => ({ assetId, symbol }));
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+    },
+  );
+
+  _resolveNativeMarketAssetId = memoizee(
+    async (networkId: string, symbol: string): Promise<string | undefined> => {
+      const assets = await this._fetchMarketAssetIdentityList();
+      const candidates = assets.filter(
+        (asset) => asset.symbol.trim().toUpperCase() === symbol,
+      );
+      for (const candidate of candidates) {
+        const detail = await this.fetchMarketAssetDetail({
+          assetId: candidate.assetId,
+          currency: 'usd',
+          autoHandleError: false,
+        });
+        if (
+          [detail.selectedVariant, ...detail.variants].some(
+            (variant) => variant.isNative && variant.networkId === networkId,
+          )
+        ) {
+          return detail.asset.assetId;
+        }
+      }
+      return undefined;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+      max: 100,
+    },
+  );
+
+  async resolveSearchTokenAssets(tokens: IMarketSearchV2Token[]) {
+    return Promise.all(
+      tokens.map(async (token) => {
+        if (!token.isNative || token.assetId || token.stock || token.stockId) {
+          return token;
+        }
+        try {
+          const assetId = await this._resolveNativeMarketAssetId(
+            token.network,
+            token.symbol.trim().toUpperCase(),
+          );
+          return assetId ? { ...token, assetId } : token;
+        } catch {
+          // Asset metadata must not hide otherwise usable search results.
+          return token;
+        }
+      }),
+    );
   }
 
   @backgroundMethod()
@@ -349,7 +409,7 @@ class ServiceMarket extends ServiceBase {
     });
     const { data } = response.data;
     if (Array.isArray(data) && data.length) {
-      return data;
+      return this.resolveSearchTokenAssets(data);
     }
     return [];
   }
