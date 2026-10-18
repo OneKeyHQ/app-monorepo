@@ -10,10 +10,7 @@ import {
 import type { IDialogInstance } from '@onekeyhq/components';
 import type { ITradingViewNativePriceSelection } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/types';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import {
-  useActiveTradeInstrumentAtom,
-  usePerpsMidByCoin,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
@@ -30,6 +27,7 @@ import {
 
 import { useActiveTradeDisplay } from './useActiveTradeDisplay';
 import { usePerpsAccountScopedActivePositions } from './usePerpsAccountScopedActivePositions';
+import { useTradingPrice } from './useTradingPrice';
 
 export function usePerpsChartOrderMenu(enabled: boolean) {
   const intl = useIntl();
@@ -39,7 +37,7 @@ export function usePerpsChartOrderMenu(enabled: boolean) {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { displayName, baseName } = useActiveTradeDisplay();
   const positions = usePerpsAccountScopedActivePositions();
-  const midPrice = usePerpsMidByCoin(instrument.coin);
+  const { midPrice } = useTradingPrice();
   const accountKey = getPerpsAccountKey(account);
   const scope = useMemo(
     () => ({ coin: instrument.coin, accountKey }),

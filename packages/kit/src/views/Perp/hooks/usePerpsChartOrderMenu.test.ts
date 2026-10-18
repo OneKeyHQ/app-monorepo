@@ -8,7 +8,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { usePerpsChartOrderMenu } from './usePerpsChartOrderMenu';
 
-let mockMid = '82000';
+let mockMid: string | undefined = '82000';
+let mockAssetMid: string | undefined;
 let mockSize = '1';
 let mockMode = 'perp';
 const mockShowTpsl = jest.fn<undefined, unknown[]>();
@@ -39,6 +40,11 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   usePerpsActiveAccountAtom: () => [{ accountId: 'account-1' }],
   usePerpsAccountLoadingInfoAtom: () => [{ selectAccountLoading: false }],
+  usePerpsActiveAssetCtxMidPriceBySource: () => mockAssetMid,
+}));
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/spot', () => ({
+  useSpotActiveAssetCtxMidPriceAtom: () => [undefined],
+  useSpotActiveAssetCtxMarkPriceAtom: () => [undefined],
 }));
 jest.mock('./useActiveTradeDisplay', () => ({
   useActiveTradeDisplay: () => ({ displayName: 'BTCUSDC', baseName: 'BTC' }),
@@ -72,6 +78,7 @@ describe('Perps chart order menu', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockMid = '82000';
+    mockAssetMid = undefined;
     mockSize = '1';
     mockMode = 'perp';
   });
@@ -118,6 +125,26 @@ describe('Perps chart order menu', () => {
       await item.onPress?.(mockCloseMenu);
     });
     expect(mockShowTpsl).not.toHaveBeenCalled();
+  });
+
+  it('uses active-asset mid for availability and revalidation when all-mids is missing', async () => {
+    mockMid = undefined;
+    mockAssetMid = '82000';
+    const { result, rerender } = renderHook(() => usePerpsChartOrderMenu(true));
+    const items = selectPrice(result, 83_000);
+    expect(items.map((item) => item.testID)).toEqual([
+      'perps-chart-limit-order',
+      'perps-chart-take-profit',
+    ]);
+    mockAssetMid = '84000';
+    rerender();
+    await act(async () => {
+      await items[1].onPress?.(mockCloseMenu);
+    });
+    expect(mockShowTpsl).not.toHaveBeenCalled();
+    expect(Toast.error).toHaveBeenCalledWith({
+      title: ETranslations.order_changed_try_again__msg,
+    });
   });
 
   it('explains why an action is no longer valid after mid crosses the selected price', async () => {
