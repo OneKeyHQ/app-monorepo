@@ -636,6 +636,117 @@ describe('useSwapActions', () => {
       expect(store.get(swapSelectedFromTokenBalanceAtom())).toBe('8');
     });
 
+    it.each([
+      [ESwapDirectionType.FROM, 'usd'],
+      [ESwapDirectionType.TO, 'usd'],
+      [ESwapDirectionType.FROM, 'cny'],
+      [ESwapDirectionType.TO, 'cny'],
+    ] as const)(
+      'keeps a same-value quote price after an older %s balance with %s currency',
+      async (direction, currency) => {
+        const pendingBalance = createDeferred<Partial<ISwapToken>[]>();
+        mockFetchSwapTokenDetails.mockImplementation(async (params) => {
+          if (params.direction) return pendingBalance.promise;
+          return [
+            {
+              networkId: params.networkId,
+              contractAddress: params.contractAddress,
+              price: '119',
+            },
+          ];
+        });
+        const { store, publish, actions } = prepare();
+        const tokenAtom =
+          direction === ESwapDirectionType.FROM
+            ? swapSelectFromTokenAtom()
+            : swapSelectToTokenAtom();
+        const token = { ...store.get(tokenAtom)!, price: '119', currency };
+        store.set(tokenAtom, token);
+        let balanceRequest: Promise<void> | undefined;
+        await act(async () => {
+          balanceRequest = actions.loadSwapSelectTokenDetail(
+            direction,
+            fromAddressInfo,
+            true,
+          );
+        });
+        await waitFor(() =>
+          expect(mockFetchSwapTokenDetails).toHaveBeenCalledWith(
+            expect.objectContaining({ direction }),
+          ),
+        );
+        await act(async () => {
+          publish('done');
+        });
+        await act(async () => {
+          pendingBalance.resolve([
+            { ...token, balanceParsed: '8', price: '98', fiatValue: '784' },
+          ]);
+          await balanceRequest;
+        });
+        expect(store.get(tokenAtom)).toMatchObject({
+          price: '119',
+          currency: 'usd',
+          balanceParsed: '8',
+        });
+        expect(store.get(tokenAtom)?.fiatValue).toBeUndefined();
+        expect(
+          store.get(
+            direction === ESwapDirectionType.FROM
+              ? swapSelectedFromTokenBalanceAtom()
+              : swapSelectedToTokenBalanceAtom(),
+          ),
+        ).toBe('8');
+      },
+    );
+
+    it('accepts prices from a later balance request despite unrelated token metadata updates', async () => {
+      const pendingBalance = createDeferred<Partial<ISwapToken>[]>();
+      mockFetchSwapTokenDetails.mockImplementation(async (params) => {
+        if (params.direction) return pendingBalance.promise;
+        return [
+          {
+            networkId: params.networkId,
+            contractAddress: params.contractAddress,
+            price: '119',
+          },
+        ];
+      });
+      const { store, publish, actions } = prepare();
+      await act(async () => {
+        publish('done');
+      });
+      let balanceRequest: Promise<void> | undefined;
+      await act(async () => {
+        balanceRequest = actions.loadSwapSelectTokenDetail(
+          ESwapDirectionType.FROM,
+          fromAddressInfo,
+          true,
+        );
+      });
+      await waitFor(() =>
+        expect(mockFetchSwapTokenDetails).toHaveBeenCalledWith(
+          expect.objectContaining({ direction: ESwapDirectionType.FROM }),
+        ),
+      );
+      store.set(swapSelectFromTokenAtom(), {
+        ...fromToken,
+        name: 'Updated token',
+      });
+      await act(async () => {
+        pendingBalance.resolve([
+          { ...fromToken, balanceParsed: '8', price: '98', fiatValue: '784' },
+        ]);
+        await balanceRequest;
+      });
+      expect(store.get(swapSelectFromTokenAtom())).toMatchObject({
+        name: 'Updated token',
+        price: '98',
+        balanceParsed: '8',
+        fiatValue: '784',
+      });
+    });
+
     it.each(['', 'native-canonical-address'])(
       'accepts a native detail returned with address %s',
       async (responseAddress) => {

@@ -162,6 +162,7 @@ import {
   swapSelectToTokenAtom,
   swapSelectTokenDetailFetchingAtom,
   swapSelectTokenDetailRequestIdAtom,
+  swapSelectTokenPriceRevisionAtom,
   swapSelectedFromTokenBalanceAtom,
   swapSelectedToTokenBalanceAtom,
   swapSelectedTokenBalanceMetaAtom,
@@ -1263,10 +1264,18 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       await Promise.allSettled(
         (
           [
-            [swapSelectFromTokenAtom(), event.tokenPairs.fromToken],
-            [swapSelectToTokenAtom(), event.tokenPairs.toToken],
+            [
+              swapSelectFromTokenAtom(),
+              event.tokenPairs.fromToken,
+              ESwapDirectionType.FROM,
+            ],
+            [
+              swapSelectToTokenAtom(),
+              event.tokenPairs.toToken,
+              ESwapDirectionType.TO,
+            ],
           ] as const
-        ).map(async ([selectedTokenAtom, token]) => {
+        ).map(async ([selectedTokenAtom, token, direction]) => {
           const contractAddress =
             await getSwapTokenBalanceContractAddress(token);
           if (!isCurrentPriceRequest()) {
@@ -1297,6 +1306,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           ) {
             return;
           }
+          // A same-value response still supersedes older balance prices.
+          set(swapSelectTokenPriceRevisionAtom(), (previous) => ({
+            ...previous,
+            [direction]: previous[direction] + 1,
+          }));
           set(selectedTokenAtom, (previous) =>
             !previous ||
             (previous.price === price && previous.currency === USD_CURRENCY_ID)
@@ -2797,6 +2811,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           ? get(swapSelectFromTokenAtom())
           : get(swapSelectToTokenAtom());
       const requestId = get(swapSelectTokenDetailRequestIdAtom())[type] + 1;
+      const priceRevision = get(swapSelectTokenPriceRevisionAtom())[type];
       // Replacing a refresh must not fall back to its previously cached balance.
       const shouldFetchBalance =
         fetchBalance || get(swapSelectTokenDetailFetchingAtom())[type];
@@ -2973,6 +2988,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   : get(swapSelectToTokenAtom());
               // A balance request may finish after a quote refreshed the price.
               if (
+                get(swapSelectTokenPriceRevisionAtom())[type] ===
+                  priceRevision &&
                 newToken?.price === token.price &&
                 newToken?.currency === token.currency
               ) {
