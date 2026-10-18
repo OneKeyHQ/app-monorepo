@@ -36,7 +36,7 @@ per receiving heap; they never copy the database or share JS mutexes.
 ### Storage
 
 - `simpleDb.zcash` (App): account intent (Privacy Mode), birthday, viewing
-  metadata, reservations and transparent pending transactions. This is the
+  metadata and transparent pending transactions. This is the
   recovery source of truth.
 - Runtime SQLite (Worker): one database per network (`zcash-main.db`,
   `zcash-test.db`) shared by every registered account, on an OPFS SAH-pool VFS
@@ -73,7 +73,7 @@ only transparent-only rows; private and mixed rows stay in the runtime.
 PCZT is the only boundary between key-holding and non-key-holding code:
 
 ```
-Software:  pcztCreate -> pcztProve -> keys.sign -> pcztSubmit
+Software:  pcztCreate -> pcztProve -> keys.sign -> pcztCombine -> pcztSubmit
 Hardware:  pcztCreate -> redact -> device signs -> pcztCombine -> pcztProve -> pcztSubmit
 ```
 
@@ -83,11 +83,19 @@ Hardware:  pcztCreate -> redact -> device signs -> pcztCombine -> pcztProve -> p
 - Transparent-source sends use a stateless path: the keys package builds and
   signs from backend UTXOs; a UA recipient may load the proof computation
   module, but never opens the wallet database or starts scanning.
-- Broadcast lifecycle: the runtime stores the finalized transaction before
-  broadcasting. Accepted or already-known = pending. Unknown network outcome =
-  pending, rebroadcast with the identical stored bytes on sync. Explicit node
-  rejection keeps the record and locks its notes until expiry. A mined
+  Old pending history is reconciled during normal history refresh, without
+  adding its node lookups to building or signing another payment.
+- Broadcast lifecycle: building locks no notes; the runtime stores the
+  finalized transaction before broadcasting, and the stored transaction holds
+  its notes until mined or expired. Storing is refused if another live stored
+  transaction already spends one of the same notes. Accepted or already-known =
+  pending. Unknown network outcome = pending, rebroadcast with the identical
+  stored bytes on sync. Only an explicit node rejection is recorded
+  (`ext_onekey_tx_state`); its notes stay held until expiry. A mined
   observation always wins over a rejection marker.
+- Submission always extracts and stores the current signed transaction. A
+  shared nullifier indicates conflicting inputs, not an identical payment;
+  it cannot substitute another stored transaction for the current one.
 - Retry never rebuilds or re-signs: that could select different notes and pay
   twice.
 
@@ -163,9 +171,12 @@ scan.
   advancing for other accounts and re-enable must not leave a gap. Deleting
   local privacy data also removes the UFVK (nothing on the device can read
   that history afterwards) but keeps the birthday.
-- **Destructive local operations wait for pending sends.** Disable, delete,
-  cache reset and rescan are refused while a reservation or unresolved
-  transaction exists, so they cannot free inputs a pending transaction spends.
+- **Local lifecycle operations follow user intent.** Pause, delete, cache
+  reset and rescan do not query pending transactions for permission. Storage
+  access remains serialized; pending history is used for display and normal
+  sync, not to veto local-data management. Rescan setup uses locally observed
+  heights or an offline date estimate; normal sync reconciles the requested
+  birthday with a fresh chain tip.
 - **Cellular scanning needs explicit permission** (default off).
 
 ## Glossary

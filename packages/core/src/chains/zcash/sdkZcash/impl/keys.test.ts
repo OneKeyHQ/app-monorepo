@@ -62,7 +62,6 @@ jest.mock('./carrier', () => ({
   getKeys: () => mockGetKeys(),
   getRuntime: () => mockGetRuntime(),
   getRuntimeWasm: () => mockGetRuntimeWasm(),
-  getLightwalletdUrl: (url: string) => url,
 }));
 
 const ACCOUNT_XPUB = 'xpub-account';

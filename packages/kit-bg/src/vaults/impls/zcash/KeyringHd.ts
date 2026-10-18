@@ -83,11 +83,11 @@ export class KeyringHd extends KeyringHdBtc {
     throw new NotImplemented();
   }
 
-  // PCZT signing path. The vault built and locked the PCZT at review time
-  // (Vault.zcashAttachPczt); this keyring only proves it and signs with the
-  // account keys re-derived from the seed in the background. A hardware
-  // keyring runs the same three vault steps with the device as the signer.
-  // Never routes through the BTC sighash path (core signTransaction throws).
+  // PCZT signing path. The vault built the PCZT at review time
+  // (Vault.zcashAttachPczt) without locking notes. This keyring proves it,
+  // verifies the review, signs with account keys re-derived from the seed,
+  // then combines so the sighash checks run before submit. Never routes
+  // through the BTC sighash path (core signTransaction throws).
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
@@ -107,8 +107,8 @@ export class KeyringHd extends KeyringHdBtc {
         'zcash: shielded account meta missing (use retryLocalWalletSetup to retry)',
       );
     }
-    const { pcztHex, pcztReservationId: reservationId } = encodedTx;
-    if (!pcztHex || !reservationId) {
+    const { pcztHex } = encodedTx;
+    if (!pcztHex) {
       throw new OneKeyLocalError(
         'zcash: unsigned PCZT missing; build and review the transaction again',
       );
@@ -124,52 +124,41 @@ export class KeyringHd extends KeyringHdBtc {
           'zcash: Privacy Mode was disabled before signing completed',
         );
       }
-      let signed: { pcztHex: string };
-      try {
-        const review = getZcashPcztReviewRequest(encodedTx, meta.ufvk);
-        if (await isZcashHardwarePreviewEnabled(this.backgroundApi)) {
-          const api = await zcashVault.zcashGetApi();
-          printZcashShieldedHardwarePreview({
-            keys: meta,
-            unprovedPcztHex: (
-              await api.redactPcztForHardwareSigner({ pcztHex })
-            ).pcztHex,
-            review,
-          });
-          throw new OneKeyLocalError(ZCASH_HW_PREVIEW_STOP_MESSAGE);
-        }
-        const proved = await zcashVault.zcashPreparePcztForSigning({
-          accountId,
-          reservationId,
-          pcztHex,
-          encodedTx,
-        });
-        signed = await this.signPcztHex({
-          password,
-          hdIndex: meta.hdIndex,
-          pcztHex: proved.pcztHex,
+      const review = getZcashPcztReviewRequest(encodedTx, meta.ufvk);
+      if (await isZcashHardwarePreviewEnabled(this.backgroundApi)) {
+        const api = await zcashVault.zcashGetApi();
+        printZcashShieldedHardwarePreview({
+          keys: meta,
+          unprovedPcztHex: (await api.redactPcztForHardwareSigner({ pcztHex }))
+            .pcztHex,
           review,
         });
-        await zcashVault.zcashCommitSignedPczt({ accountId, reservationId });
-      } catch (e) {
-        try {
-          await zcashVault.zcashAbandonPczt({ accountId, reservationId });
-        } catch (releaseError) {
-          console.error('[zcash] failed to release abandoned PCZT inputs', {
-            accountId,
-            releaseError,
-          });
-        }
-        throw e;
+        throw new OneKeyLocalError(ZCASH_HW_PREVIEW_STOP_MESSAGE);
       }
+      const proved = await zcashVault.zcashPreparePcztForSigning({
+        accountId,
+        pcztHex,
+        encodedTx,
+      });
+      // Signing verifies the proved PCZT against this review before using the keys.
+      const signed = await this.signPcztHex({
+        password,
+        hdIndex: meta.hdIndex,
+        pcztHex: proved.pcztHex,
+        review,
+      });
+      const combined = await zcashVault.zcashCombineSignedPczt({
+        accountId,
+        originalPcztHex: proved.pcztHex,
+        signedPcztHex: signed.pcztHex,
+      });
       const signedEncodedTx: IEncodedTxZcash = {
         ...encodedTx,
-        signedPcztHex: signed.pcztHex,
-        pcztReservationId: reservationId,
+        signedPcztHex: combined.pcztHex,
       };
       return {
         txid: '',
-        rawTx: signed.pcztHex,
+        rawTx: combined.pcztHex,
         encodedTx: signedEncodedTx,
       };
     });

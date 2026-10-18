@@ -48,8 +48,7 @@ const runtime = {
       totalAtomic: '2000000000000',
       unlockedAtomic: '1000000000000',
       unverifiableAtomic: '500000000000',
-      lockedByReservationAtomic: '200000000000',
-      pendingChangeAtomic: '100000000000',
+      pendingChangeAtomic: '300000000000',
     }),
 };
 
@@ -64,16 +63,19 @@ const mockSetAccountState = jest.fn(async () => undefined);
 const mockDeleteXmrDatabase = jest.fn(async (_network: string) => undefined);
 const mockForgetStaleFirst = jest.fn<void, [string]>();
 const mockRemoveAccount = jest.fn(async () => undefined);
+const mockOnlineRuntime = jest.fn(async () => runtime);
+const mockLiveTip = jest.fn(async () => 3_767_827);
+let mockCachedTip: number | undefined = 3_767_827;
 jest.mock('./runtime', () => ({
   isXmrRuntimeBusy: () => mockBusy,
   forgetXmrStaleFirstAccount: (accountId: string) =>
     mockForgetStaleFirst(accountId),
   deleteXmrDatabase: (network: string) => mockDeleteXmrDatabase(network),
-  getXmrRuntime: async () => runtime,
+  getXmrRuntime: () => mockOnlineRuntime(),
   getXmrLocalRuntime: async () => runtime,
   getXmrIdentityId: () => mockGetIdentityId(),
-  getXmrChainTip: async () => 3_767_827,
-  getXmrChainTipForDisplay: async () => 3_767_827,
+  getXmrChainTip: () => mockLiveTip(),
+  getXmrLastKnownChainTip: async () => mockCachedTip,
   getXmrNodeHealth: () => mockNodeHealth,
   readXmrStaleFirst: async <T>(p: {
     read: () => Promise<T>;
@@ -108,10 +110,12 @@ let mockNodeUrl = 'https://node.example:18081';
 function capability(intent: 'on' | 'off' = 'on', birthdayHeight?: number) {
   const vault = {
     networkId: 'xmr--0',
+    getXmrNetwork: async () => 'mainnet',
     resolveXmrNodeUrl: async () => mockNodeUrl,
     backgroundApi: {
       servicePrivacyChain: {
         publishLocalWalletSyncProgress: mockPublish,
+        onLocalWalletAccountsChanged: jest.fn(async () => undefined),
       },
       simpleDb: {
         privacyChainCache,
@@ -122,6 +126,9 @@ function capability(intent: 'on' | 'off' = 'on', birthdayHeight?: number) {
             birthdayHeight,
           }),
           hasAnyAccountState: async () => mockHasAnyAccountState,
+          listEnabledAccountIds: async () => ['acc'],
+          beginDisable: jest.fn(async () => undefined),
+          completeDisable: jest.fn(async () => undefined),
           setAccountState: mockSetAccountState,
           removeAccount: mockRemoveAccount,
         },
@@ -512,46 +519,65 @@ it('xmr reports the account itself as its only alias', async () => {
   ).resolves.toEqual(['acc']);
 });
 
-it('xmr treats a spend found on chain as a state change', async () => {
-  runtime.syncStep.mockImplementationOnce(async () =>
-    JSON.stringify({
-      blocksScanned: 10,
-      done: true,
-      outputsFound: 0,
-      spendsDetected: 1,
-    }),
-  );
-  const result = await capability().syncGroup({
-    accountIds: ['acc'],
-    chainTip: 3_767_827,
-  });
-  expect(result).toMatchObject({ stateChanged: true });
-});
+it.each(['spendsDetected', 'sendsRestored'] as const)(
+  'xmr reports %s as a state change',
+  async (field) => {
+    runtime.syncStep.mockImplementationOnce(async () =>
+      JSON.stringify({
+        blocksScanned: 10,
+        done: true,
+        outputsFound: 0,
+        [field]: 1,
+      }),
+    );
+    const result = await capability().syncGroup({
+      accountIds: ['acc'],
+      chainTip: 3_767_827,
+    });
+    expect(result).toMatchObject({ stateChanged: true });
+  },
+);
 
 // A database the runtime refuses to open (newer schema, corruption) must still
 // be recoverable from Settings, without a password.
 describe('xmr storage reset', () => {
-  it('deletes the database and registers every enabled account again', async () => {
+  it('rebuilds enabled accounts from local keys and birthdays without the node', async () => {
+    mockGetIdentityId
+      .mockRejectedValueOnce(new OneKeyLocalError('not registered'))
+      .mockResolvedValueOnce('3')
+      .mockRejectedValueOnce(new OneKeyLocalError('not registered'))
+      .mockResolvedValueOnce('4');
+    runtime.addAccount.mockClear();
+    mockOnlineRuntime.mockClear();
+    mockLiveTip.mockClear();
     const cap = buildXmrLocalWalletCapability({
       networkId: 'xmr--0',
       getXmrNetwork: async () => 'mainnet',
+      getXmrViewingKeys: async () => ({
+        spendPublicKeyHex: 'synthetic-spend-public',
+        viewPrivateKeyHex: 'synthetic-view-private',
+      }),
       backgroundApi: {
         simpleDb: {
-          xmr: { listEnabledAccountIds: async () => ['acc-1', 'acc-2'] },
+          xmr: {
+            listEnabledAccountIds: async () => ['acc-1', 'acc-2'],
+            getAccountState: async () => ({
+              intent: 'on',
+              birthdayHeight: 3_600_000,
+            }),
+          },
         },
       },
     } as unknown as Vault);
-    const enableAccount = jest
-      .spyOn(cap, 'enableAccount')
-      .mockResolvedValue(undefined as never);
-
     await cap.resetStorage?.();
 
     expect(mockDeleteXmrDatabase).toHaveBeenCalledWith('mainnet');
-    expect(enableAccount.mock.calls).toEqual([
-      [{ accountId: 'acc-1' }],
-      [{ accountId: 'acc-2' }],
+    expect(runtime.addAccount.mock.calls).toEqual([
+      ['acc-1', 'synthetic-spend-public', 'synthetic-view-private', '3600000'],
+      ['acc-2', 'synthetic-spend-public', 'synthetic-view-private', '3600000'],
     ]);
+    expect(mockOnlineRuntime).not.toHaveBeenCalled();
+    expect(mockLiveTip).not.toHaveBeenCalled();
   });
 });
 
@@ -561,6 +587,9 @@ describe('xmr sync registers an enabled account the runtime lost', () => {
   it('adds it back from the saved birthday before scanning', async () => {
     mockGetIdentityId.mockRejectedValueOnce(new Error('not registered'));
     runtime.addAccount.mockClear();
+    runtime.syncStep.mockResolvedValueOnce(
+      JSON.stringify({ blocksScanned: 10, done: true, outputsFound: 0 }),
+    );
     const cap = buildXmrLocalWalletCapability({
       networkId: 'xmr--0',
       getXmrViewingKeys: async () => ({
@@ -592,39 +621,67 @@ describe('xmr sync registers an enabled account the runtime lost', () => {
   });
 });
 
-// As on Zcash: rewinding or deleting scanned data waits for an unconfirmed send
-// of our own, or its inputs look spendable again and a resend could pay twice.
-describe('xmr lifecycle waits for an unconfirmed send', () => {
-  it('refuses a rescan while one of our sends is unconfirmed', async () => {
-    runtime.history.mockResolvedValueOnce(
-      JSON.stringify({
-        items: [{ txid: 'aa', height: null, direction: 'out', failed: false }],
-        total: 1,
-      }),
-    );
-    runtime.rewindTo.mockClear();
-    await expect(
-      capability('on', 3_600_000).rescan({
-        accountId: 'acc',
-        from: { type: 'height', height: 3_700_000 },
-      }),
-    ).rejects.toMatchObject({ code: 'UNRESOLVED_PRIVACY_CHAIN_BROADCAST' });
-    expect(runtime.rewindTo).not.toHaveBeenCalled();
+describe('xmr user lifecycle operations do not depend on pending history', () => {
+  afterEach(() => {
+    runtime.history.mockReset();
+    runtime.history.mockResolvedValue(JSON.stringify({ items: [], total: 0 }));
+    jest.restoreAllMocks();
   });
 
-  it('lets a failed send through', async () => {
-    runtime.history.mockResolvedValueOnce(
-      JSON.stringify({
-        items: [{ txid: 'aa', height: null, direction: 'out', failed: true }],
-        total: 1,
-      }),
-    );
-    await expect(
-      capability('on', 3_600_000).rescan({
-        accountId: 'acc',
-        from: { type: 'height', height: 3_700_000 },
-      }),
-    ).resolves.toEqual({ fromHeight: 3_700_000 });
+  it.each(['pending', 'unreadable'] as const)(
+    'allows all local lifecycle operations with %s history',
+    async (historyState) => {
+      if (historyState === 'pending') {
+        runtime.history.mockResolvedValue(
+          JSON.stringify({
+            items: [
+              { txid: 'aa', height: null, direction: 'out', failed: false },
+            ],
+            total: 1,
+          }),
+        );
+      } else {
+        runtime.history.mockRejectedValue(new Error('history unavailable'));
+      }
+      runtime.history.mockClear();
+      runtime.rewindTo.mockClear();
+      runtime.removeAccount.mockClear();
+      mockDeleteXmrDatabase.mockClear();
+
+      const cap = capability('on', 3_600_000);
+      const enable = jest
+        .spyOn(cap, 'enableAccount')
+        .mockResolvedValue(undefined);
+      await cap.disableAccount({ accountId: 'acc' });
+      await cap.deleteAccountData({ accountId: 'acc' });
+      await cap.reset({ accountId: 'acc', scope: 'cache' });
+      await expect(
+        cap.rescan({
+          accountId: 'acc',
+          from: { type: 'height', height: 3_700_000 },
+        }),
+      ).resolves.toEqual({ fromHeight: 3_700_000 });
+      await cap.gcWalletState({ liveWalletIds: [] });
+      await cap.resetStorage?.();
+
+      expect(runtime.history).not.toHaveBeenCalled();
+      expect(runtime.rewindTo).toHaveBeenCalledTimes(2);
+      expect(runtime.removeAccount).toHaveBeenCalledTimes(2);
+      expect(mockDeleteXmrDatabase).toHaveBeenCalledWith('mainnet');
+      expect(enable).not.toHaveBeenCalled();
+    },
+  );
+
+  it('propagates a real database deletion failure', async () => {
+    const error = new Error('storage deletion failed');
+    mockDeleteXmrDatabase.mockRejectedValueOnce(error);
+    const cap = capability('on', 3_600_000);
+    const enable = jest
+      .spyOn(cap, 'enableAccount')
+      .mockResolvedValue(undefined);
+
+    await expect(cap.resetStorage?.()).rejects.toBe(error);
+    expect(enable).not.toHaveBeenCalled();
   });
 });
 
@@ -653,6 +710,57 @@ describe('xmr local data delete keeps the birthday', () => {
       accountId: 'acc',
       keepBirthday: false,
     });
+  });
+});
+
+describe('xmr local management while offline', () => {
+  afterEach(() => {
+    mockOnlineRuntime.mockReset().mockResolvedValue(runtime);
+    mockLiveTip.mockReset().mockResolvedValue(3_767_827);
+    mockCachedTip = 3_767_827;
+    peek = { scannedToHeight: null, ranges: [] };
+  });
+
+  it('deletes and rewinds local data without connecting or querying the node', async () => {
+    mockOnlineRuntime.mockClear();
+    mockLiveTip.mockClear();
+    mockOnlineRuntime.mockRejectedValue(new OneKeyLocalError('offline'));
+    mockLiveTip.mockRejectedValue(new OneKeyLocalError('offline'));
+    runtime.rewindTo.mockClear();
+    const cap = capability('on', 3_600_000);
+
+    await cap.deleteAccountData({ accountId: 'acc' });
+    await cap.reset({ accountId: 'acc', scope: 'cache' });
+    await expect(
+      cap.rescan({
+        accountId: 'acc',
+        from: { type: 'height', height: 3_700_000 },
+      }),
+    ).resolves.toEqual({ fromHeight: 3_700_000 });
+
+    expect(mockOnlineRuntime).not.toHaveBeenCalled();
+    expect(mockLiveTip).not.toHaveBeenCalled();
+    expect(runtime.rewindTo).toHaveBeenCalledWith('3', '3699999', '3767827');
+  });
+
+  it('uses observed local scan ranges when no cached tip exists', async () => {
+    mockOnlineRuntime.mockClear();
+    mockLiveTip.mockClear();
+    mockOnlineRuntime.mockRejectedValue(new OneKeyLocalError('offline'));
+    mockCachedTip = undefined;
+    peek = {
+      scannedToHeight: 3_650_000,
+      ranges: [{ start: 3_650_001, end: 3_700_001 }],
+    };
+    runtime.rewindTo.mockClear();
+
+    await capability('on', 3_600_000).reset({
+      accountId: 'acc',
+      scope: 'cache',
+    });
+
+    expect(runtime.rewindTo).toHaveBeenCalledWith('3', '3599999', '3700000');
+    expect(mockOnlineRuntime).not.toHaveBeenCalled();
   });
 });
 

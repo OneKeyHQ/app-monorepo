@@ -18,13 +18,6 @@ export {
 // once server-side support lands.
 export const ZCASH_LIGHTWALLETD_MAINNET = 'https://zcash-mainnet.chainsafe.dev';
 
-// Ordered fallbacks for the endpoint pool (carrier.ts). Every entry must be
-// browser-usable: grpc-web framing and permissive CORS on the POST -- plain
-// gRPC nodes answer 200 but browsers cannot read the response.
-export const ZCASH_LIGHTWALLETD_MAINNET_FALLBACKS: string[] = [
-  ZCASH_LIGHTWALLETD_MAINNET,
-];
-
 export const ZCASH_NETWORK_MAIN: IZcashNetwork = 'main';
 
 // Bump only when the App changes addresses derived from an existing UFVK.

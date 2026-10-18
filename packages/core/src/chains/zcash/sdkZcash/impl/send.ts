@@ -12,7 +12,6 @@ import { zcashHexToBytes } from './hex';
 import {
   ALLOW_ZERO_CONF_SHIELDING,
   FALLBACK_CHANGE_POOL,
-  LOCK_FOR_BLOCKS,
   PAD_ORCHARD_BUNDLE,
   TRUSTED_CONFIRMATIONS,
   UNTRUSTED_CONFIRMATIONS,
@@ -20,8 +19,8 @@ import {
 
 import type {
   IZcashCombinePcztParams,
+  IZcashCreatedPczt,
   IZcashNetwork,
-  IZcashPcztReservation,
   IZcashSendQuote,
   IZcashSendResult,
   IZcashSpendSource,
@@ -36,11 +35,11 @@ export async function prewarmPczt(params: {
   rt.prewarmPczt(params.network, params.targetHeight);
 }
 
-// Required order: create (locks notes) -> prove -> sign (only place spend
-// keys exist) -> finalize -> broadcast.
+// Required order: create -> prove -> sign (only place spend keys exist)
+// -> submit (store, then broadcast). No step locks notes; the stored signed tx
+// holds them until mined or expired.
 type IPcztCreated = {
   pcztHex: string;
-  reservationId: string;
   feeZat: number;
 };
 
@@ -68,8 +67,8 @@ function zcashParamError(
   return err;
 }
 
-// Checked before notes lock: discovering unprovable only at the proving step
-// would leave them locked until expiry with nothing to show the user.
+// Checked before building: discovering unprovable only at the proving step
+// would fail after the user has already reviewed and entered a password.
 async function assertCanSpend(): Promise<void> {
   const rt = await getRuntime();
   const keys = await getKeys();
@@ -108,12 +107,11 @@ export async function quotePczt(
     valueZat: string;
     spendSource: IZcashSpendSource;
     memoHex?: string;
-    reservationId?: string;
   },
 ): Promise<IZcashSendQuote> {
   const { rt, accountUuid } = await withWallet(account);
   // Same proposal path as createPczt but stops before building, so the
-  // quoted fee is the fee actually paid; takes no lock, so repeat quoting is free.
+  // quoted fee is the fee actually paid; repeat quoting is free.
   const quote = JSON.parse(
     rt.pcztQuote(
       accountUuid,
@@ -141,9 +139,8 @@ export async function createPczt(
     valueZat: string;
     spendSource: IZcashSpendSource;
     memoHex?: string;
-    reservationId?: string;
   },
-): Promise<IZcashPcztReservation> {
+): Promise<IZcashCreatedPczt> {
   await assertCanSpend();
   const { rt, accountUuid } = await withWallet(account);
   const created = JSON.parse(
@@ -156,8 +153,6 @@ export async function createPczt(
       UNTRUSTED_CONFIRMATIONS,
       FALLBACK_CHANGE_POOL,
       PAD_ORCHARD_BUNDLE,
-      LOCK_FOR_BLOCKS,
-      params.reservationId ?? null,
       ALLOW_ZERO_CONF_SHIELDING,
       params.spendSource,
       validateZcashMemoHex(params.memoHex) ?? null,
@@ -186,19 +181,15 @@ export async function combinePczt(
   return { pcztHex: bytesToHex(combined) };
 }
 
-// Runtime records the tx before broadcasting; an explicit rejection keeps
-// its notes locked until expiry, while unknown outcomes get rebroadcast by the sync loop.
+// Runtime stores the tx before broadcasting; an explicit rejection keeps
+// its notes held until expiry, while unknown outcomes get rebroadcast by the sync loop.
 export async function submitPczt(
   account: IZcashWalletAccount,
-  params: { pcztHex: string; reservationId: string },
+  params: { pcztHex: string },
 ): Promise<IZcashSendResult> {
   const { rt, accountUuid } = await withWallet(account);
   const outcome = JSON.parse(
-    await rt.pcztSubmit(
-      accountUuid,
-      zcashHexToBytes(params.pcztHex),
-      params.reservationId,
-    ),
+    await rt.pcztSubmit(accountUuid, zcashHexToBytes(params.pcztHex)),
   ) as {
     txid: string;
     broadcast: IZcashSendResult['broadcastState'];
@@ -219,16 +210,6 @@ export async function getPendingBroadcasts(
 ): Promise<string[]> {
   const { rt, accountUuid } = await withWallet(account);
   return JSON.parse(rt.pendingBroadcastTxids(accountUuid)) as string[];
-}
-
-export async function releasePczt(
-  account: IZcashWalletAccount,
-  params: { reservationId: string },
-): Promise<void> {
-  const { rt } = await withWallet(account);
-  // Idempotent: cancel paths may run more than once; an unknown id just
-  // means the notes are already free.
-  rt.releaseReservation(params.reservationId);
 }
 
 function bytesToHex(bytes: Uint8Array): string {

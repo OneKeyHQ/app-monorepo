@@ -3,7 +3,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   forgetXmrStaleFirstAccount,
   getXmrChainTip,
-  getXmrChainTipForDisplay,
+  getXmrLastKnownChainTip,
   getXmrLocalRuntime,
   getXmrNodeHealth,
   getXmrRuntime,
@@ -309,21 +309,35 @@ describe('xmr display chain tip', () => {
     const api = await getXmrRuntime(vault);
     await expect(getXmrChainTip(api)).resolves.toBe(42);
     raw.chainTip.mockClear();
-    await expect(getXmrChainTipForDisplay(vault)).resolves.toBe(42);
+    await expect(getXmrLastKnownChainTip(vault)).resolves.toBe(42);
     expect(raw.chainTip).not.toHaveBeenCalled();
   });
 
   // A cold start must not wait on the node just to draw progress.
   it('falls back to the saved tip, never the node', async () => {
     mockSavedTip = 7;
-    await expect(getXmrChainTipForDisplay(vault)).resolves.toBe(7);
+    await expect(getXmrLastKnownChainTip(vault)).resolves.toBe(7);
     mockSavedTip = undefined;
-    await expect(getXmrChainTipForDisplay(vault)).resolves.toBeUndefined();
+    await expect(getXmrLastKnownChainTip(vault)).resolves.toBeUndefined();
     expect(raw.chainTip).not.toHaveBeenCalled();
   });
 });
 
 describe('xmr local reads', () => {
+  it('reopens a lost local database without reconnecting the node', async () => {
+    await getXmrRuntime(vault);
+    raw.setNodeUrl.mockClear();
+    raw.balance.mockRejectedValueOnce(runtimeError('WALLET_NOT_OPEN'));
+
+    const local = await getXmrLocalRuntime(vault);
+    await expect(local.balance('3', '1')).resolves.toBe('{}');
+
+    expect(raw.openWallet).toHaveBeenCalledTimes(2);
+    expect(raw.setNodeUrl).not.toHaveBeenCalled();
+    await getXmrRuntime(vault);
+    expect(raw.setNodeUrl).toHaveBeenCalledTimes(1);
+  });
+
   it('open the database without waiting on the node', async () => {
     await getXmrLocalRuntime(vault);
     expect(raw.openWallet).toHaveBeenCalledTimes(1);

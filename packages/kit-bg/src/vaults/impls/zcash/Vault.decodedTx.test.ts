@@ -5,14 +5,13 @@ jest.mock('../../../dbs/local/localDbInstance', () => ({
   default: {},
 }));
 
-import { getZcashPcztReviewDigest } from './pcztReview';
 import Vault from './Vault';
 
 import type { IEncodedTxZcash } from './types';
 
 // The confirm page skips its generic balance check for a PSBT-like tx. A
-// private send's own notes are locked by its PCZT, so without the flag the
-// check counted them as unavailable and refused the send.
+// private send's notes stay spendable until the signed transaction is stored,
+// so without the flag the check counted them as unavailable and refused the send.
 describe('Zcash decoded transaction', () => {
   function transaction(
     overrides: Partial<IEncodedTxZcash> = {},
@@ -29,51 +28,23 @@ describe('Zcash decoded transaction', () => {
       zcashMode: 'privacy',
       zcashSpendSource: 'ironwood',
       pcztHex: 'aa',
-      pcztReservationId: 'review',
       ...overrides,
     };
   }
-  function createVault(
-    approved: IEncodedTxZcash,
-    reviewDigest?: string,
-    reservationState: 'unsigned' | 'signed' = 'unsigned',
-  ) {
-    const digest =
-      reviewDigest ??
-      (approved.zcashMode === 'privacy' && approved.pcztHex
-        ? getZcashPcztReviewDigest({
-            accountId: 'acc',
-            networkId: 'zec--0',
-            encodedTx: approved,
-            ufvk: 'synthetic-ufvk',
-          })
-        : undefined);
-    const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
+  function createVault() {
+    return Object.assign(Object.create(Vault.prototype) as Vault, {
       accountId: 'acc',
       networkId: 'zec--0',
       getNetwork: async () => ({ decimals: 8 }),
       getAccount: async () => ({ address: 't1-own' }),
       backgroundApi: {
         serviceToken: { getToken: async () => undefined },
-        simpleDb: {
-          zcash: {
-            getAccountMeta: async () => ({ ufvk: 'synthetic-ufvk' }),
-            listShieldedReservations: async () => [
-              {
-                reservationId: 'review',
-                state: reservationState,
-                reviewDigest: digest,
-              },
-            ],
-          },
-        },
       },
     });
-    return vault;
   }
   function decode(overrides: Partial<IEncodedTxZcash>) {
     const encodedTx = transaction(overrides);
-    const vault = createVault(encodedTx);
+    const vault = createVault();
     return vault.buildDecodedTx({
       unsignedTx: { encodedTx },
     });
@@ -95,7 +66,7 @@ describe('Zcash decoded transaction', () => {
 
   it('holds a snapshot when the calling runtime mutates the object during an await', async () => {
     const encodedTx = transaction();
-    const vault = createVault(encodedTx);
+    const vault = createVault();
     const pending = vault.buildDecodedTx({ unsignedTx: { encodedTx } });
     encodedTx.zcashTo = 'changed-recipient';
     encodedTx.zcashAmountValue = '200000';
@@ -105,45 +76,5 @@ describe('Zcash decoded transaction', () => {
     expect(decoded.nativeAmountValue).toBe('100000');
     expect(decoded.encodedTx).not.toBe(encodedTx);
     expect(decoded.actions[0].unknownAction?.to).toBe('u1-recipient');
-  });
-
-  it('refuses a stale approval before presenting a confirmation', async () => {
-    const encodedTx = transaction();
-    const vault = createVault(encodedTx, 'replaced-approval');
-    await expect(
-      vault.buildDecodedTx({ unsignedTx: { encodedTx } }),
-    ).rejects.toMatchObject({ code: 'STALE_PRIVACY_TRANSACTION' });
-  });
-
-  // A signed reservation means the last submit's outcome never came back;
-  // "review again" would invite paying a second time.
-  it('tells the user to check history when the last submit is unresolved', async () => {
-    const encodedTx = transaction();
-    const vault = createVault(encodedTx, undefined, 'signed');
-    await expect(
-      vault.buildDecodedTx({ unsignedTx: { encodedTx } }),
-    ).rejects.toMatchObject({ code: 'FINALIZE_OUTCOME_UNKNOWN' });
-  });
-
-  it('requires a proposal for every private payment confirmation', async () => {
-    const encodedTx = transaction({ pcztHex: undefined });
-    const vault = createVault(transaction());
-    await expect(
-      vault.buildDecodedTx({ unsignedTx: { encodedTx } }),
-    ).rejects.toThrow();
-  });
-  it('rejects memo changes after approval, including removal', async () => {
-    const approved = transaction({
-      zcashMemoHex: `ff000102${'00'.repeat(508)}`,
-    });
-    for (const zcashMemoHex of [undefined, `ff99${'00'.repeat(510)}`]) {
-      const vault = createVault(approved);
-      const changed: IEncodedTxZcash = { ...approved, zcashMemoHex };
-      await expect(
-        vault.buildDecodedTx({
-          unsignedTx: { encodedTx: changed },
-        }),
-      ).rejects.toMatchObject({ code: 'STALE_PRIVACY_TRANSACTION' });
-    }
   });
 });

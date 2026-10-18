@@ -16,7 +16,6 @@ import type { IEncodedTxXmr } from './types';
 const atomic = zPrivacyBaseUnits('18446744073709551615');
 const hex = zPrivacyHex(8 * 1024 * 1024);
 const preparedSchema = z.object({
-  reservationId: z.string().min(1),
   signableHex: hex,
   amountAtomic: atomic,
   feeAtomic: atomic,

@@ -37,6 +37,9 @@ it.each([1, 3])(
       };
     });
     const vault = Object.create(Vault.prototype) as Vault;
+    const prune = jest
+      .spyOn(vault, 'zcashPruneTransparentSendHistory')
+      .mockRejectedValue(new OneKeyLocalError('old history node unavailable'));
     Object.assign(vault, {
       accountId: 'a',
       backgroundApi: {
@@ -71,5 +74,16 @@ it.each([1, 3])(
     expect(quote).toHaveBeenCalledTimes(required);
     expect(slice).toHaveBeenCalledTimes(required);
     expect(result.inputs).toHaveLength(required);
+    expect(prune).not.toHaveBeenCalled();
+    quote.mockImplementationOnce(async (request) => {
+      expect(request.selectedOutpoints).toHaveLength(required);
+      return {
+        spentOutpoints: request.selectedOutpoints,
+        feeZat: '10000',
+        sendAmountZat: '1000',
+      };
+    });
+    await vault.zcashPrepareFreshTransparentRequest({ encodedTx: result });
+    expect(prune).not.toHaveBeenCalled();
   },
 );

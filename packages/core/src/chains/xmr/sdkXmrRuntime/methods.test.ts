@@ -82,6 +82,21 @@ describe('xmr runtime u64 coercion', () => {
     expect(coerceXmrU64Args('syncStep', ['7', '100'])).toEqual([7n, 100n]);
   });
 
+  it('converts the chain tip of the send calls at its current position', () => {
+    expect(
+      coerceXmrU64Args('prepareTransaction', [
+        '7',
+        '[]',
+        false,
+        '100',
+        'normal',
+      ]),
+    ).toEqual([7n, '[]', false, 100n, 'normal']);
+    expect(
+      coerceXmrU64Args('broadcastTransaction', ['7', '00ff', '100', '5', '1']),
+    ).toEqual([7n, '00ff', 100n, '5', '1']);
+  });
+
   it('keeps an absent optional u64 absent', () => {
     expect(coerceXmrU64Args('balance', ['7'])).toEqual([7n]);
     expect(coerceXmrU64Args('balance', ['7', undefined])).toEqual([

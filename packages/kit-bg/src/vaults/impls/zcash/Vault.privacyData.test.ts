@@ -14,7 +14,6 @@ jest.mock(
 
 import { ZCASH_ADDRESS_SCHEME_VERSION } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 import { fetchZcashChainTipDirect } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -100,7 +99,6 @@ describe('Zcash local privacy data deletion', () => {
               return state?.intent === 'on' && state.operation === undefined;
             }),
             listTransparentPendingTxs: jest.fn(async () => []),
-            listShieldedReservations: jest.fn(async () => []),
             listAccountMetas: jest.fn(async () => [
               { accountId, meta },
               { accountId: aliasAccountId, meta },
@@ -195,7 +193,7 @@ describe('Zcash local privacy data deletion', () => {
   });
 });
 
-describe('Zcash chain-only deletion expiry guard', () => {
+describe('Zcash transparent pending history expiry', () => {
   const accountId = "hd-1--m/44'/133'/0'";
   const txid = '11'.repeat(32);
 
@@ -304,16 +302,15 @@ describe('Zcash chain-only deletion expiry guard', () => {
           ],
         }),
       });
-      const check = vault.zcashAssertNoUnresolvedBroadcast(accountId);
+      await vault.zcashPruneTransparentSendHistory(accountId);
       if (height > 100) {
-        await expect(check).resolves.toBeUndefined();
         await expect(
           zcash.listTransparentPendingTxs({ accountId }),
         ).resolves.toEqual([]);
       } else {
-        await expect(check).rejects.toMatchObject({
-          code: 'UNRESOLVED_PRIVACY_CHAIN_BROADCAST',
-        });
+        await expect(
+          zcash.listTransparentPendingTxs({ accountId }),
+        ).resolves.toHaveLength(1);
       }
       expect(getDBAccount).toHaveBeenCalledWith({ accountId });
       expect(backend).not.toHaveBeenCalled();
@@ -332,7 +329,7 @@ describe('Zcash chain-only deletion expiry guard', () => {
       .mockResolvedValueOnce(101);
 
     await expect(
-      vault.zcashAssertNoUnresolvedBroadcast(accountId),
+      vault.zcashPruneTransparentSendHistory(accountId),
     ).resolves.toBeUndefined();
     expect(fetchTip).toHaveBeenCalled();
     await expect(
@@ -347,159 +344,11 @@ describe('Zcash chain-only deletion expiry guard', () => {
       .mockRejectedValue(new Error('indexer unavailable'));
 
     await expect(
-      vault.zcashAssertNoUnresolvedBroadcast(accountId),
-    ).rejects.toMatchObject({ code: 'UNRESOLVED_PRIVACY_CHAIN_BROADCAST' });
+      vault.zcashPruneTransparentSendHistory(accountId),
+    ).resolves.toBeUndefined();
     await expect(
       zcash.listTransparentPendingTxs({ accountId }),
     ).resolves.toHaveLength(1);
-  });
-});
-
-// Lifecycle operations run through this gate; none may depend on the scanner
-// answering. A known unresolved broadcast still blocks.
-describe('Zcash unresolved-broadcast gate without the scanner', () => {
-  function createVault(pending: string[] | Error) {
-    return Object.assign(Object.create(Vault.prototype) as Vault, {
-      accountId: 'acc',
-      networkId: 'zec--0',
-      backgroundApi: {
-        simpleDb: {
-          zcash: {
-            listTransparentPendingTxs: async () => [],
-            listShieldedReservations: async () => [],
-            getAccountMeta: async () => ({ ufvk: 'uview1' }),
-            isPrivacyModeEnabled: async () => true,
-          },
-        },
-      },
-      zcashGetWalletAccount: async () => ({}),
-      zcashGetApi: async () => ({
-        getPendingBroadcasts: async () => {
-          if (pending instanceof Error) throw pending;
-          return pending;
-        },
-      }),
-    });
-  }
-
-  it('passes when the scanner cannot be reached', async () => {
-    const vault = createVault(new Error('runtime unavailable'));
-    await expect(
-      vault.zcashAssertNoUnresolvedBroadcast('acc'),
-    ).resolves.toBeUndefined();
-  });
-
-  // A corrupt database fails every read; the rebuild that fixes it must not
-  // be gated on reading it.
-  it('lets a corrupt database be rebuilt', async () => {
-    const vault = createVault(new Error('database disk image is malformed'));
-    const dropWalletDatabase = jest.fn(async () => undefined);
-    Object.assign(vault, {
-      listLocalWalletAccounts: async () => ({
-        accounts: [{ accountId: 'acc' }],
-      }),
-      zcashGetApi: async () => ({
-        getPendingBroadcasts: async () => {
-          throw new OneKeyLocalError('database disk image is malformed');
-        },
-        dropWalletDatabase,
-      }),
-    });
-    await (
-      vault as unknown as { zcashRebuildRuntimeDatabase: () => Promise<void> }
-    ).zcashRebuildRuntimeDatabase();
-    expect(dropWalletDatabase).toHaveBeenCalled();
-  });
-
-  // The broken database cannot release a reservation; one never signed must
-  // not keep the rebuild from running.
-  it('discards an unsigned reservation instead of blocking the rebuild', async () => {
-    const vault = createVault(new Error('database disk image is malformed'));
-    const dropWalletDatabase = jest.fn(async () => undefined);
-    const journal = new Map([['r1', { state: 'unsigned' as const }]]);
-    Object.assign(vault, {
-      backgroundApi: {
-        simpleDb: {
-          zcash: {
-            listTransparentPendingTxs: async () => [],
-            listShieldedReservations: async () =>
-              [...journal].map(([reservationId, r]) => ({
-                reservationId,
-                ...r,
-              })),
-            removeShieldedReservation: async ({
-              reservationId,
-            }: {
-              reservationId: string;
-            }) => {
-              journal.delete(reservationId);
-            },
-            getAccountMeta: async () => ({ ufvk: 'uview1' }),
-            isPrivacyModeEnabled: async () => true,
-          },
-        },
-      },
-      listLocalWalletAccounts: async () => ({
-        accounts: [{ accountId: 'acc' }],
-      }),
-      zcashGetApi: async () => ({
-        getPendingBroadcasts: async () => {
-          throw new OneKeyLocalError('database disk image is malformed');
-        },
-        releasePczt: async () => {
-          throw new OneKeyLocalError('database disk image is malformed');
-        },
-        dropWalletDatabase,
-      }),
-    });
-    await (
-      vault as unknown as { zcashRebuildRuntimeDatabase: () => Promise<void> }
-    ).zcashRebuildRuntimeDatabase();
-    expect(journal.size).toBe(0);
-    expect(dropWalletDatabase).toHaveBeenCalled();
-  });
-
-  it('blocks while the scanner reports a pending broadcast', async () => {
-    const vault = createVault(['aa'.repeat(32)]);
-    await expect(
-      vault.zcashAssertNoUnresolvedBroadcast('acc'),
-    ).rejects.toMatchObject({ code: 'UNRESOLVED_PRIVACY_CHAIN_BROADCAST' });
-  });
-});
-
-// Once signed, a failure later in the flow must not free the inputs.
-describe('Zcash PCZT failure cleanup', () => {
-  function createVault(state: 'unsigned' | 'signed') {
-    const zcashReleasePczt = jest.fn(async () => undefined);
-    const removeShieldedReservation = jest.fn(async () => undefined);
-    const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
-      zcashReleasePczt,
-      backgroundApi: {
-        simpleDb: {
-          zcash: {
-            listShieldedReservations: async () => [
-              { reservationId: 'r', state },
-            ],
-            removeShieldedReservation,
-          },
-        },
-      },
-    });
-    return { vault, zcashReleasePczt, removeShieldedReservation };
-  }
-
-  it('releases an unsigned reservation', async () => {
-    const { vault, zcashReleasePczt } = createVault('unsigned');
-    await vault.zcashAbandonPczt({ accountId: 'a', reservationId: 'r' });
-    expect(zcashReleasePczt).toHaveBeenCalled();
-  });
-
-  it('keeps a signed reservation', async () => {
-    const { vault, zcashReleasePczt, removeShieldedReservation } =
-      createVault('signed');
-    await vault.zcashAbandonPczt({ accountId: 'a', reservationId: 'r' });
-    expect(zcashReleasePczt).not.toHaveBeenCalled();
-    expect(removeShieldedReservation).not.toHaveBeenCalled();
   });
 });
 

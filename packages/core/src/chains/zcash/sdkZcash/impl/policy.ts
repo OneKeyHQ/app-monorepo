@@ -28,12 +28,6 @@ export const FALLBACK_CHANGE_POOL = ZCASH_CURRENT_SHIELDED_POOL;
 // PRODUCT. Below this, shielding costs more in fees than it moves.
 export const SHIELDING_THRESHOLD_ZAT = BigInt(ZCASH_SHIELDING_THRESHOLD_ZAT);
 
-// FIXED. Note-reservation lock, in blocks past target height; must outlive
-// upstream's 40-block tx expiry.
-// If the app dies after broadcast but before recording it, this lock alone prevents a double spend.
-const ZCASH_TX_EXPIRY_DELTA = 40;
-export const LOCK_FOR_BLOCKS = ZCASH_TX_EXPIRY_DELTA + 1;
-
 // PRODUCT. Expiry of host-built transparent txs; the signer always receives
 // the exact height, never picks a default itself.
 export const TRANSPARENT_TX_EXPIRY_DELTA = 10;

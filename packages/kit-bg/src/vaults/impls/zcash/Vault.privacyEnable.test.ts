@@ -82,7 +82,6 @@ it.each([false, true])(
       }),
       zcashGetApi: async () => ({ purgeWallet: purge }),
       getLocalWalletChainTip: async () => 3_000_000,
-      zcashAssertNoUnresolvedBroadcast: async () => undefined,
       zcashPrepareAccounts: async () => {
         registered = true;
         return [{ ufvk: 'birthday-fixture' }];

@@ -308,7 +308,6 @@ export class ZcashPrivacyMode {
         networkId,
       })) as VaultZcash;
       const capability = requireLocalWalletCapability(vault);
-      await vault.zcashAssertNoUnresolvedBroadcast(accountId);
       const progress = await capability.getSyncProgress({ accountId });
       const birthdayHeight =
         state.birthdayHeight ?? progress?.birthdayHeight ?? undefined;
