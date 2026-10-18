@@ -87,10 +87,11 @@ export const brandFontManifest = {
 
 解析私有字体来源，按优先级：
 
-1. `ONEKEY_PRIVATE_FONTS_DIR=/path/to/dir`：本地目录（设计师 / 已下载的同事）。
-2. `ONEKEY_PRIVATE_FONTS_TOKEN`：从私有仓库 `OneKeyHQ/app-private-fonts` 按锁定 commit 下载 tarball。
-3. 本机 `gh auth token` 或 SSH 能访问该私有仓库时自动使用（内部开发者零配置）。
-4. 以上都不满足 → 使用 `fonts/fallback/`，打印一次明确提示（非错误）。
+1. `ONEKEY_PRIVATE_FONTS_DIR=/path/to/dir`：本地目录（发布 CI 下载好的目录、EAS 暂存目录）。4 个文件必须与 `brand.lock.json` 的 sha256 一致。
+2. `ONEKEY_PRIVATE_FONTS_TOKEN` 或本机 `gh auth token`：从私有仓库 `OneKeyHQ/app-private-fonts` 按锁定 commit 下载（内部开发者零配置）。
+3. 以上都不满足 → 使用 `fonts/fallback/`，打印一次明确提示（非错误）。
+
+仓库中不再有任何 Roobert 文件。
 
 执行步骤：
 
@@ -107,7 +108,7 @@ export const brandFontManifest = {
 - 私有仓库按 `brand.lock.json` 的 `commit` 通过 GitHub Contents API（`Accept: application/vnd.github.raw+json`）
   逐个下载锁文件中列出的 4 个文件，而不是整个 tarball：无需解压依赖，也不会拉取仓库里的授权凭证等其他文件。
   下载结果缓存在 `node_modules/.cache/onekey-private-fonts/<commit>/`，每次使用前重新校验 sha256。
-- `commit` 为 `null` 表示私有仓库尚未发布，此时跳过该来源（过渡期继续使用 `private-legacy`）。
+- `commit` 为 `null` 表示私有仓库尚未发布，此时跳过该来源。
 - `gh auth token` 无权限（外部贡献者）或网络不可达时，静默进入下一来源。
 - 本地 `yarn` 永远不会因为字体失败：显式 token 无效、sha256 不匹配、`ONEKEY_PRIVATE_FONTS_DIR` 配错等错误，
   只打印警告并改用开源 fallback。只有 `ONEKEY_REQUIRE_PRIVATE_FONTS=1`（发布构建）时这些错误才是致命的。
@@ -127,9 +128,15 @@ export const brandFontManifest = {
 
 - 组织管理员创建一个 GitHub App，只授予 Repository permissions → Contents: Read-only，只安装到 `app-private-fonts`。
 - app-monorepo 配置：变量 `vars.PRIVATE_FONTS_APP_ID`、secret `secrets.PRIVATE_FONTS_APP_PRIVATE_KEY`。
-- 每个需要安装依赖的发布 job 在 `yarn install` 前执行 `.github/actions/private-fonts-token`，
-  用 `actions/create-github-app-token` 临时生成 1 小时有效、仅 `contents:read` 的 token，写入 `ONEKEY_PRIVATE_FONTS_TOKEN`。
-  App 未配置时该步骤自动跳过。
+- 每个发布 job 在 `actions/checkout` 之后、任何仓库代码（如 `./.github/actions/shared-env`、`yarn install`）运行之前，
+  内联执行两步：
+  1. 固定 SHA 的 `actions/create-github-app-token` 生成仅 `contents:read` 的 token；
+  2. 内联 bash（只用 curl/jq，不执行仓库代码）按 `brand.lock.json` 下载 4 个文件到 `$RUNNER_TEMP`、校验 sha256，
+     然后**立即撤销 token**，只把字体目录通过 `ONEKEY_PRIVATE_FONTS_DIR` 交给后续步骤。
+- App 私钥只传给固定 SHA 的第三方 action，从不传给本地 action；token 不写入 `$GITHUB_ENV`。
+  这样即使构建的是 PR 代码（如 `release-app-bundles` 指定 `pr_number`），PR 也拿不到私钥或 token。
+  PR 代码仍可读取已下载的字体文件，这与它最终出现在构建产物中的暴露程度相同。
+- App 未配置时这两步自动跳过，发布构建会因 `ONEKEY_REQUIRE_PRIVATE_FONTS=1` 失败。
 
 ## 4. CI / 发布流水线
 
@@ -138,11 +145,11 @@ export const brandFontManifest = {
 | `lint.yml`、`unittest.yml`、`react-native-unittest.yml` 等 PR 检查 | 不注入 token，走 fallback。也就验证了"开源用户能编译" |
 | `release-ios.yml` / `release-android.yml`（EAS） | EAS 上传时排除 gitignore 文件。Actions 在 `yarn install` 拉到私有字体后，执行 `fonts-sync.js --stage-eas` 复制到未被 ignore 的 `.eas-private-fonts/`，随项目一起上传；`eas-build-post-install` 用 `ONEKEY_PRIVATE_FONTS_DIR=.eas-private-fonts` + `ONEKEY_REQUIRE_PRIVATE_FONTS=1` 同步。EAS 不需要任何 token/secret。不使用 `.easignore`：它会整体替代全仓库的 `.gitignore`，导致 `.env` 等文件被上传 |
 | `release-native-bundle.yml`、`release-app-bundles.yml`（OTA JS bundle） | **必须** require private。否则 OTA bundle 中的 family 名会和原生包不一致，导致文字全部回退成系统字体 |
-| `release-desktop*.yml`、`release-ext.yml`、`release-web.yml`、`build-desktop-renderer.yml`、`web-embed-prebundle.yml`、`metro-dev-prebundle.yml`、`daily-build*.yml` | `private-fonts-token` action + `ONEKEY_REQUIRE_PRIVATE_FONTS=1` |
+| `release-desktop*.yml`、`release-ext.yml`、`release-web.yml`、`build-desktop-renderer.yml` | 内联 token + 下载步骤 + `ONEKEY_REQUIRE_PRIVATE_FONTS=1` |
+| `metro-dev-prebundle.yml`、`web-embed-prebundle.yml` | 产物发布为**公开** GHCR 包，因此强制 `ONEKEY_FONTS_FORCE_FALLBACK=1`，永远不含 Roobert。`brand/manifest.ts` 计入 metro dev vendor 指纹，本地装了 Roobert 的开发者不会复用 Inter 版预构建包 |
 | 来自 fork 的 PR | 拿不到 secret，自动 fallback，不受影响 |
 
-过渡期（`private-legacy/` 尚未删除）：GitHub App 未配置时，发布构建会使用 `private-legacy/`，仍能正常出包。
-删除 `private-legacy/` 之前必须先配置好 GitHub App。
+**合并前置条件**：GitHub App 必须先配置好，否则合并后所有发布构建都会失败（仓库内已无 Roobert）。
 
 再加一道运行时保险：在正式包里，若 `brandFontManifest.source !== 'private'`，启动时上报 Sentry 告警（不阻断用户）。
 
@@ -182,7 +189,6 @@ export const brandFontManifest = {
 ## 9. 实施拆分（建议按 PR 顺序）
 
 1. 槽位与 fallback：新增 `fonts:sync`、manifest、fallback 字体（Inter，取自已有依赖 `@expo-google-fonts/inter` 0.2.3）、代码中所有 `Roobert` 字面量收敛到 `BRAND_FONT_*`。
-   过渡期 Roobert 原文件移到 `fonts/private-legacy/`，`fonts:sync` 在没有 `ONEKEY_PRIVATE_FONTS_DIR` 时优先使用它，确保现有各流水线产物无视觉变化。
    `ONEKEY_FONTS_FORCE_FALLBACK=1 yarn fonts:sync` 可本地预览开源版效果。
 2. 私有仓库 + CI/EAS 接入 + `ONEKEY_REQUIRE_PRIVATE_FONTS` 闸门；在 daily build 上验证各平台产物仍为 Roobert。
 3. 删除仓库内 Roobert 文件、加 gitignore 与授权白名单检查。

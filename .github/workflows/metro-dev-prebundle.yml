@@ -66,9 +66,9 @@ concurrency:
 permissions: {}
 
 env:
-  # Release artifacts must ship the licensed brand font; fonts-sync fails
-  # instead of falling back to the open-source face.
-  ONEKEY_REQUIRE_PRIVATE_FONTS: '1'
+  # These prebundles are published as public GHCR packages, so they must never
+  # contain the licensed brand font: always build with the open-source fallback.
+  ONEKEY_FONTS_FORCE_FALLBACK: '1'
   OCI_ARTIFACT_TYPE: application/vnd.onekey.metro-dev-prebundle.v2
   OCI_REGISTRY: ghcr.io
   OCI_REPOSITORY: onekeyhq/metro-dev-prebundle
@@ -91,6 +91,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
 
       - name: Use Node.js 24
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
@@ -127,12 +128,6 @@ jobs:
           key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
           restore-keys: |
             node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-
-
-      - name: Private fonts token
-        uses: ./.github/actions/private-fonts-token
-        with:
-          app-id: ${{ vars.PRIVATE_FONTS_APP_ID }}
-          private-key: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
 
       - name: Install dependencies
         env:
@@ -218,6 +213,7 @@ jobs:
         with:
           lfs: true
 
+
       - name: Use Node.js 24
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
@@ -253,12 +249,6 @@ jobs:
           key: node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-${{ hashFiles('yarn.lock') }}
           restore-keys: |
             node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-
-
-      - name: Private fonts token
-        uses: ./.github/actions/private-fonts-token
-        with:
-          app-id: ${{ vars.PRIVATE_FONTS_APP_ID }}
-          private-key: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
 
       - name: Install dependencies
         env:

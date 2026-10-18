@@ -7,8 +7,8 @@
 //   2. The private GitHub repo pinned in fonts/brand.lock.json, read with
 //      ONEKEY_PRIVATE_FONTS_TOKEN or, when that is unset, the local
 //      `gh auth token`. Every downloaded file must match the locked sha256.
-//   3. fonts/private-legacy/ — transitional in-repo copy, removed in a follow-up.
-//   4. fonts/fallback/ — open-source Inter (SIL OFL 1.1), always committed.
+//   3. fonts/fallback/ — open-source Inter (SIL OFL 1.1), always committed.
+// Private faces from any source must match the sha256 pinned in brand.lock.json.
 // A source directory must contain one .ttf per weight 400/500/600/700, matched
 // by OS/2 usWeightClass, so file names inside it do not matter.
 //
@@ -46,7 +46,6 @@ const remoteCacheRoot = path.join(
   rootDir,
   'node_modules/.cache/onekey-private-fonts',
 );
-const legacyPrivateDir = path.join(fontsDir, 'private-legacy');
 const fallbackDir = path.join(fontsDir, 'fallback');
 const androidFontsDir = path.join(
   rootDir,
@@ -115,6 +114,21 @@ function sha256(buffer) {
 
 // GitHub owners are alphanumeric/hyphen; a repo name may not be '.' or '..'.
 const REPO_PATTERN = /^[A-Za-z0-9-]+\/(?!\.\.?$)[\w.-]+$/;
+
+// Throws unless every slot file matches the sha256 pinned in the lock, so a
+// misconfigured or tampered directory can never be reported as private.
+function verifyAgainstLock(files, lock, origin) {
+  for (const slot of SLOTS) {
+    const actual = sha256(fs.readFileSync(files[slot.key]));
+    if (actual !== lock.files[slot.key].sha256) {
+      throw new Error(
+        `${origin}: ${slot.key} sha256 ${actual} does not match brand.lock.json ${
+          lock.files[slot.key].sha256
+        }`,
+      );
+    }
+  }
+}
 
 function readLock(filePath = lockPath) {
   const lock = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
@@ -284,7 +298,9 @@ async function resolveSource({
     if (configuredDir) {
       // An explicit configuration that does not work is an error, not a fallback.
       const dir = path.resolve(rootDir, configuredDir);
-      return { source: 'private', origin: dir, files: readWeightSet(dir) };
+      const files = readWeightSet(dir);
+      verifyAgainstLock(files, lock || readLock(), dir);
+      return { source: 'private', origin: dir, files };
     }
     const remote = await resolveRemoteSource({
       env,
@@ -295,13 +311,6 @@ async function resolveSource({
     });
     if (remote) {
       return remote;
-    }
-    if (fs.existsSync(legacyPrivateDir)) {
-      return {
-        source: 'private',
-        origin: path.relative(rootDir, legacyPrivateDir),
-        files: readWeightSet(legacyPrivateDir),
-      };
     }
   }
   return {
@@ -434,6 +443,10 @@ function stageForEas() {
       'The brand slot does not hold the private font; run fonts:sync with access first.',
     );
   }
+  const files = Object.fromEntries(
+    SLOTS.map((slot) => [slot.key, path.join(brandDir, slot.fileName)]),
+  );
+  verifyAgainstLock(files, readLock(), path.relative(rootDir, brandDir));
   fs.rmSync(easStagingDir, { recursive: true, force: true });
   fs.mkdirSync(easStagingDir, { recursive: true });
   for (const slot of SLOTS) {
@@ -467,4 +480,5 @@ module.exports = {
   resolveSource,
   resolveSourceOrFallback,
   sha256,
+  verifyAgainstLock,
 };

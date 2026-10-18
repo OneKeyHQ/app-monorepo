@@ -89,6 +89,52 @@ jobs:
         with:
           lfs: true
 
+      # Fetch the private brand font with pinned third-party code before any
+      # repository code runs: the App private key never reaches a local action, the
+      # token is revoked right after the download, and later steps only receive the
+      # sha256-verified font directory.
+      - name: Mint private fonts token
+        id: private-fonts-token
+        if: vars.PRIVATE_FONTS_APP_ID != ''
+        # v3.2.0
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        with:
+          app-id: ${{ vars.PRIVATE_FONTS_APP_ID }}
+          private-key: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
+          owner: OneKeyHQ
+          repositories: app-private-fonts
+          permission-contents: read
+          skip-token-revoke: true
+
+      - name: Download private fonts
+        if: steps.private-fonts-token.outputs.token != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.private-fonts-token.outputs.token }}
+          LOCK: packages/components/src/hocs/Provider/fonts/brand.lock.json
+        run: |
+          set -euo pipefail
+          revoke() {
+            curl -fsS -X DELETE -H "Authorization: Bearer ${GH_TOKEN}" \
+              https://api.github.com/installation/token >/dev/null || true
+          }
+          trap revoke EXIT
+          dir="${RUNNER_TEMP}/onekey-private-fonts"
+          rm -rf "$dir" && mkdir -p "$dir"
+          commit="$(jq -r '.commit' "$LOCK")"
+          [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::brand.lock.json pins no commit"; exit 1; }
+          for slot in regular medium semibold bold; do
+            file="$(jq -r --arg s "$slot" '.files[$s].path' "$LOCK")"
+            sha="$(jq -r --arg s "$slot" '.files[$s].sha256' "$LOCK")"
+            [[ "$file" =~ ^[A-Za-z0-9._/-]+$ && "$file" != *..* ]] || { echo "::error::invalid font path for $slot"; exit 1; }
+            curl -fsSL --retry 3 -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github.raw+json" -o "$dir/$slot.ttf" \
+              "https://api.github.com/repos/OneKeyHQ/app-private-fonts/contents/${file}?ref=${commit}"
+            if command -v sha256sum >/dev/null; then actual="$(sha256sum "$dir/$slot.ttf" | cut -d' ' -f1)"; else actual="$(shasum -a 256 "$dir/$slot.ttf" | cut -d' ' -f1)"; fi
+            [[ "$actual" == "$sha" ]] || { echo "::error::$slot sha256 does not match brand.lock.json"; exit 1; }
+          done
+          echo "ONEKEY_PRIVATE_FONTS_DIR=$dir" >> "$GITHUB_ENV"
+
       - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env
         with:
@@ -155,12 +201,6 @@ jobs:
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
-
-      - name: Private fonts token
-        uses: ./.github/actions/private-fonts-token
-        with:
-          app-id: ${{ vars.PRIVATE_FONTS_APP_ID }}
-          private-key: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
 
       - name: Install Dep
         env:

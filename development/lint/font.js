@@ -221,10 +221,6 @@ if (!podfileFontMatch) {
 // fetched by `yarn fonts:sync` and must never be committed to this public repo.
 console.log('\nChecking committed font licenses...');
 const OPEN_FONT_LICENSE_PATTERN = /SIL Open Font License|Apache License/i;
-// Transitional source until release CI fetches the private repo; remove with it.
-const TRANSITIONAL_PRIVATE_FONT_DIRS = [
-  'packages/components/src/hocs/Provider/fonts/private-legacy/',
-];
 // Staged by `fonts-sync.js --stage-eas` in CI only; not gitignored so EAS uploads it.
 const EAS_STAGING_DIR = '.eas-private-fonts/';
 const trackedFiles = execFileSync('git', ['ls-files', '-z'], {
@@ -237,10 +233,7 @@ const trackedFiles = execFileSync('git', ['ls-files', '-z'], {
 for (const file of trackedFiles) {
   if (file.startsWith(EAS_STAGING_DIR)) {
     error(`${file} is a CI-only staged private font and must not be committed`);
-  } else if (
-    /\.(ttf|otf|woff2?)$/i.test(file) &&
-    !TRANSITIONAL_PRIVATE_FONT_DIRS.some((dir) => file.startsWith(dir))
-  ) {
+  } else if (/\.(ttf|otf|woff2?)$/i.test(file)) {
     const filePath = path.join(rootDir, file);
     const license = /\.(ttf|otf)$/i.test(file)
       ? getLicenseDescription(filePath)

@@ -15,6 +15,7 @@ const {
   resolveSource,
   resolveSourceOrFallback,
   sha256,
+  verifyAgainstLock,
 } = require('./fonts-sync');
 
 const fontsDir = path.resolve(
@@ -22,7 +23,6 @@ const fontsDir = path.resolve(
   '../../packages/components/src/hocs/Provider/fonts',
 );
 const fallbackDir = path.join(fontsDir, 'fallback');
-const legacyPrivateDir = path.join(fontsDir, 'private-legacy');
 
 const COMMIT = 'a'.repeat(40);
 const fallbackFiles = readWeightSet(fallbackDir);
@@ -106,22 +106,6 @@ test('committed lock is well-formed and contains no font bytes', () => {
   const lock = readLock();
   assert.equal(lock.repo, 'OneKeyHQ/app-private-fonts');
   assert.ok(fs.statSync(path.join(fontsDir, 'brand.lock.json')).size < 4096);
-});
-
-test('committed lock pins the bytes of the transitional private copy', (t) => {
-  if (!fs.existsSync(legacyPrivateDir)) {
-    t.skip('private-legacy removed');
-    return;
-  }
-  const lock = readLock();
-  const legacy = readWeightSet(legacyPrivateDir);
-  for (const slot of SLOTS) {
-    assert.equal(
-      sha256(fs.readFileSync(legacy[slot.key])),
-      lock.files[slot.key].sha256,
-      slot.key,
-    );
-  }
 });
 
 test('locked fonts are downloaded at the pinned commit, verified and cached', () =>
@@ -318,3 +302,26 @@ test('a release build keeps a broken private source fatal', () =>
       /HTTP 401/,
     );
   }));
+
+test('ONEKEY_PRIVATE_FONTS_DIR files must match the lock to count as private', () =>
+  withTempDir(async (cacheRoot) => {
+    const lock = makeLock();
+    lock.files.bold = { ...lock.files.bold, sha256: '0'.repeat(64) };
+    await assert.rejects(
+      resolveSource({
+        env: { ONEKEY_PRIVATE_FONTS_DIR: fallbackDir },
+        lock,
+        getGhToken: () => '',
+        fetchImpl: makeFetch().fetchImpl,
+        cacheRoot,
+      }),
+      /bold sha256 .* does not match brand\.lock\.json/,
+    );
+  }));
+
+test('the committed Inter fallback never verifies as the private font', () => {
+  assert.throws(
+    () => verifyAgainstLock(fallbackFiles, readLock(), 'fallback'),
+    /does not match brand\.lock\.json/,
+  );
+});
