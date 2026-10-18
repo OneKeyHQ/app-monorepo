@@ -24891,6 +24891,7 @@
     "packages/kit/src/views/Prime/purchasesSdk/primeEmbeddedCheckoutFallback.ts": 3855,
     "packages/kit/src/views/Prime/purchasesSdk/purchaseSdkUtils.ts": 9313,
     "packages/kit/src/views/Prime/purchasesSdk/purchasesSdkWebLoader.ts": 4041,
+    "packages/kit/src/views/Prime/purchasesSdk/shouldLoadStripeForPrimeCheckout.ts": 5223,
     "packages/kit/src/views/Prime/purchasesSdk/stripePaymentElementHealth.ts": 22778,
     "packages/kit/src/views/Prime/router/index.ts": 673,
     "packages/kit/src/views/Prime/testIDs.ts": 18331,

@@ -1,6 +1,7 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { shouldLoadStripeForPrimeCheckout } from './shouldLoadStripeForPrimeCheckout';
 import { instrumentStripePaymentElementHealth } from './stripePaymentElementHealth';
 
 import type * as PurchasesSdk from '@revenuecat/purchases-js';
@@ -17,13 +18,7 @@ async function shouldLoadStripeV3() {
   if (platformEnv.isNative) {
     return false;
   }
-  // web-embed hosts the embedded checkout for Android builds.
-  if (platformEnv.isWebEmbed) {
-    return true;
-  }
-  const { getPrimeCardCheckoutMode } =
-    await import('../hooks/primeCardCheckoutMode');
-  return (await getPrimeCardCheckoutMode()) === 'embedded';
+  return shouldLoadStripeForPrimeCheckout();
 }
 
 async function importStripeV3(): Promise<boolean> {
