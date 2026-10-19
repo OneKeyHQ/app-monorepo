@@ -38,6 +38,7 @@ import type { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
 import type { SimpleDbEntityFloatingIconDomainBlockList } from '../entity/SimpleDbEntityFloatingIconDomainBlockList';
 import type { SimpleDbEntityFloatingIconSettings } from '../entity/SimpleDbEntityFloatingIconSettings';
 import type { SimpleDbEntityHardwarePortfolioSync } from '../entity/SimpleDbEntityHardwarePortfolioSync';
+import type { SimpleDbEntityHeadlessBuyOrders } from '../entity/SimpleDbEntityHeadlessBuyOrders';
 import type { SimpleDbEntityIpTable } from '../entity/SimpleDbEntityIpTable';
 import type { SimpleDbEntityLegacyWalletNames } from '../entity/SimpleDbEntityLegacyWalletNames';
 import type { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning';
@@ -236,6 +237,10 @@ export class SimpleDbProxy
   earnOrders = this._createProxyService(
     'earnOrders',
   ) as SimpleDbEntityEarnOrders;
+
+  headlessBuyOrders = this._createProxyService(
+    'headlessBuyOrders',
+  ) as SimpleDbEntityHeadlessBuyOrders;
 
   localNFTs = this._createProxyService('localNFTs') as SimpleDbEntityLocalNFTs;
 
