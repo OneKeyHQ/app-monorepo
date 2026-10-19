@@ -4,25 +4,66 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  applyHeadlessBuyOrderTimeRules,
+  applyOnramperTransactionStatus,
+  isTerminalHeadlessBuyOrder,
+} from '@onekeyhq/shared/src/modules3rdParty/onramper/orderStatus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import type {
-  IFiatCryptoToken,
-  IFiatCryptoTokenListWithNetworks,
-  IFiatCryptoType,
-  IGenerateWidgetUrl,
-  IGenerateWidgetUrlResponse,
-  IGenerateWidgetUrlWithAccountId,
-  IGetTokensListParams,
-  IOnramperSessionResponse,
+import {
+  EHeadlessBuyOrderStatus,
+  type IAddHeadlessBuyOrderParams,
+  type IFiatCryptoToken,
+  type IFiatCryptoTokenListWithNetworks,
+  type IFiatCryptoType,
+  type IGenerateWidgetUrl,
+  type IGenerateWidgetUrlResponse,
+  type IGenerateWidgetUrlWithAccountId,
+  type IGetTokensListParams,
+  type IHeadlessBuyOrder,
+  type IOnramperSessionResponse,
+  type IOnramperTransactionStatus,
 } from '@onekeyhq/shared/types/fiatCrypto';
 
 import ServiceBase from './ServiceBase';
+
+// Wallet-side Onramper transaction lookup (OK-64602). PLACEHOLDER path: the
+// backend has not shipped the endpoint yet, so production lookups 404 until
+// it does and the UI shows "Can't update right now". Only this constant should
+// need to change once the real path is confirmed.
+const ONRAMPER_TRANSACTIONS_PATH = '/wallet/v1/fiat-pay/onramper-transactions';
+// Ids minted by the Simulator mock client / the no-id fallback never exist on
+// Onramper: they are scripted locally (dev) or left untouched (prod).
+const MOCK_TRANSACTION_ID_PREFIX = 'mock-';
+const LOCAL_TRANSACTION_ID_PREFIX = 'local-';
+// Scripted mock lifecycle: processing for a short while, then delivered.
+const MOCK_DELIVERY_DELAY_MS = 30_000;
+
+function isSyntheticTransactionId(transactionId: string): boolean {
+  return (
+    transactionId.startsWith(MOCK_TRANSACTION_ID_PREFIX) ||
+    transactionId.startsWith(LOCAL_TRANSACTION_ID_PREFIX)
+  );
+}
+
+function sortOrdersNewestFirst(
+  orders: IHeadlessBuyOrder[],
+): IHeadlessBuyOrder[] {
+  return orders.toSorted(
+    (a, b) => (b.submittedAt ?? b.createdAt) - (a.submittedAt ?? a.createdAt),
+  );
+}
 
 @backgroundClass()
 class ServiceFiatCrypto extends ServiceBase {
@@ -231,6 +272,365 @@ class ServiceFiatCrypto extends ServiceBase {
     return tokens.find(
       (o) => o.address.toLowerCase() === tokenAddress.toLowerCase(),
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Native buy orders (device-local record + wallet-side status lookup)
+  // ---------------------------------------------------------------------------
+
+  private emitHeadlessBuyOrdersChanged() {
+    appEventBus.emit(EAppEventBusNames.HeadlessBuyOrdersChanged, undefined);
+  }
+
+  // Records the order the moment the SDK publishes a transaction id (before
+  // Apple Pay). Hidden until markHeadlessBuyOrderSubmitted; idempotent so a
+  // repeated event or the submit fallback cannot overwrite the first record.
+  @backgroundMethod()
+  public async addHeadlessBuyOrder(
+    params: IAddHeadlessBuyOrderParams,
+  ): Promise<void> {
+    const { simpleDb } = this.backgroundApi;
+    const existing = await simpleDb.headlessBuyOrders.getOrder({
+      transactionId: params.transactionId,
+    });
+    if (existing) {
+      return;
+    }
+    const order = await this.buildHeadlessBuyOrder(params);
+    await simpleDb.headlessBuyOrders.mergeOrders({
+      updates: { [order.transactionId]: order },
+    });
+    defaultLogger.fiatCrypto.onramper.orderRecorded({
+      networkId: order.networkId,
+      tokenSymbol: order.tokenSymbol,
+      transactionId: order.transactionId,
+      amount: order.fiatAmount,
+      ramp: order.providerName,
+      entryFrom: order.entryFrom,
+    });
+    this.emitHeadlessBuyOrdersChanged();
+  }
+
+  private async buildHeadlessBuyOrder(
+    params: IAddHeadlessBuyOrderParams,
+  ): Promise<IHeadlessBuyOrder> {
+    const { serviceAccount, serviceNetwork } = this.backgroundApi;
+    // Display metadata is best-effort: a lookup failure must never lose the
+    // order itself.
+    const [accountName, network] = await Promise.all([
+      params.accountId
+        ? serviceAccount
+            .getAccount({
+              accountId: params.accountId,
+              networkId: params.networkId,
+            })
+            .then((account) => account?.name)
+            .catch(() => undefined)
+        : Promise.resolve(undefined),
+      serviceNetwork
+        .getNetwork({ networkId: params.networkId })
+        .catch(() => undefined),
+    ]);
+    return {
+      ...params,
+      accountName,
+      networkName: network?.name,
+      networkLogoURI: network?.logoURI,
+      createdAt: Date.now(),
+      status: EHeadlessBuyOrderStatus.Processing,
+    };
+  }
+
+  @backgroundMethod()
+  public async markHeadlessBuyOrderPaymentSeen({
+    transactionId,
+  }: {
+    transactionId: string;
+  }): Promise<void> {
+    const { simpleDb } = this.backgroundApi;
+    const order = await simpleDb.headlessBuyOrders.getOrder({ transactionId });
+    if (!order || order.paymentSeen) {
+      return;
+    }
+    await simpleDb.headlessBuyOrders.mergeOrders({
+      updates: { [transactionId]: { ...order, paymentSeen: true } },
+    });
+  }
+
+  // `completed` event: the order becomes visible. `order` lets the caller
+  // recover when the pre-payment record never landed (a missing record would
+  // otherwise leave the user with no order to look at).
+  @backgroundMethod()
+  public async markHeadlessBuyOrderSubmitted({
+    transactionId,
+    order: fallback,
+  }: {
+    transactionId: string;
+    order?: IAddHeadlessBuyOrderParams;
+  }): Promise<void> {
+    const { simpleDb } = this.backgroundApi;
+    let order = await simpleDb.headlessBuyOrders.getOrder({ transactionId });
+    const recordedBeforePayment = Boolean(order);
+    if (!order) {
+      if (!fallback) {
+        return;
+      }
+      order = await this.buildHeadlessBuyOrder({ ...fallback, transactionId });
+    }
+    if (order.submittedAt !== undefined) {
+      return;
+    }
+    const next: IHeadlessBuyOrder = { ...order, submittedAt: Date.now() };
+    await simpleDb.headlessBuyOrders.mergeOrders({
+      updates: { [transactionId]: next },
+    });
+    defaultLogger.fiatCrypto.onramper.orderSubmitted({
+      networkId: next.networkId,
+      tokenSymbol: next.tokenSymbol,
+      transactionId,
+      recordedBeforePayment,
+    });
+    this.emitHeadlessBuyOrdersChanged();
+  }
+
+  // cancelled / failed before completion: nothing was paid, drop the hidden
+  // record. A visible (paid) order is never discarded by a checkout event.
+  @backgroundMethod()
+  public async discardHeadlessBuyOrder({
+    transactionId,
+    reason,
+  }: {
+    transactionId: string;
+    reason: 'cancelled' | 'failed';
+  }): Promise<void> {
+    const { simpleDb } = this.backgroundApi;
+    const order = await simpleDb.headlessBuyOrders.getOrder({ transactionId });
+    if (!order || order.submittedAt !== undefined) {
+      return;
+    }
+    await simpleDb.headlessBuyOrders.mergeOrders({
+      updates: { [transactionId]: null },
+    });
+    defaultLogger.fiatCrypto.onramper.orderDiscarded({ transactionId, reason });
+    this.emitHeadlessBuyOrdersChanged();
+  }
+
+  // The Buy-tab banner shows a failed order until its detail is opened once.
+  @backgroundMethod()
+  public async markHeadlessBuyOrderViewed({
+    transactionId,
+  }: {
+    transactionId: string;
+  }): Promise<void> {
+    const { simpleDb } = this.backgroundApi;
+    const order = await simpleDb.headlessBuyOrders.getOrder({ transactionId });
+    if (
+      !order ||
+      order.status !== EHeadlessBuyOrderStatus.Failed ||
+      order.failureViewedAt !== undefined
+    ) {
+      return;
+    }
+    await simpleDb.headlessBuyOrders.mergeOrders({
+      updates: { [transactionId]: { ...order, failureViewedAt: Date.now() } },
+    });
+    this.emitHeadlessBuyOrdersChanged();
+  }
+
+  // All orders (hidden included), newest first, with the time rules applied
+  // and persisted — the UI never needs a network round-trip for them.
+  @backgroundMethod()
+  public async getHeadlessBuyOrders(): Promise<IHeadlessBuyOrder[]> {
+    const { simpleDb } = this.backgroundApi;
+    const stored = await simpleDb.headlessBuyOrders.getOrders();
+    const now = Date.now();
+    const updates: Record<string, IHeadlessBuyOrder | null> = {};
+    const result: IHeadlessBuyOrder[] = [];
+    for (const order of stored) {
+      const next = applyHeadlessBuyOrderTimeRules(order, now);
+      if (!next) {
+        updates[order.transactionId] = null;
+        defaultLogger.fiatCrypto.onramper.orderDiscarded({
+          transactionId: order.transactionId,
+          reason: 'timeout',
+        });
+      } else {
+        if (next !== order) {
+          updates[order.transactionId] = next;
+          this.logHeadlessBuyOrderStatusChange(order, next);
+        }
+        result.push(next);
+      }
+    }
+    if (Object.keys(updates).length > 0) {
+      await simpleDb.headlessBuyOrders.mergeOrders({ updates });
+      this.emitHeadlessBuyOrdersChanged();
+    }
+    return sortOrdersNewestFirst(result);
+  }
+
+  private logHeadlessBuyOrderStatusChange(
+    from: IHeadlessBuyOrder,
+    to: IHeadlessBuyOrder,
+  ) {
+    if (
+      from.status === to.status &&
+      Boolean(from.timedOut) === Boolean(to.timedOut)
+    ) {
+      return;
+    }
+    defaultLogger.fiatCrypto.onramper.orderStatusUpdated({
+      transactionId: to.transactionId,
+      from: from.status,
+      to: to.status,
+      rawStatus: to.rawStatus,
+      hasTxHash: Boolean(to.transactionHash),
+      timedOut: to.timedOut,
+    });
+  }
+
+  // One status round for the non-terminal orders (optionally narrowed to
+  // `transactionIds`). Called by the UI at the spec'd moments only: Buy/Sell
+  // page mount, order list mount, and the detail page's focused poll. Never
+  // scheduled from the background.
+  @backgroundMethod()
+  public async refreshHeadlessBuyOrders({
+    transactionIds,
+  }: {
+    transactionIds?: string[];
+  }): Promise<IHeadlessBuyOrder[]> {
+    const orders = await this.getHeadlessBuyOrders();
+    const wanted = transactionIds ? new Set(transactionIds) : undefined;
+    const targets = orders.filter(
+      (o) =>
+        !isTerminalHeadlessBuyOrder(o) &&
+        (!wanted || wanted.has(o.transactionId)),
+    );
+    if (targets.length === 0) {
+      return orders;
+    }
+    const now = Date.now();
+    const statuses = new Map<string, IOnramperTransactionStatus>();
+    const real = targets.filter(
+      (o) => !isSyntheticTransactionId(o.transactionId),
+    );
+    let lookupOk = true;
+    if (real.length > 0) {
+      try {
+        const fetched = await this.fetchOnramperTransactionStatuses(
+          real.map((o) => o.transactionId),
+        );
+        fetched.forEach((tx) => statuses.set(tx.transactionId, tx));
+      } catch (error) {
+        lookupOk = false;
+        const err = error as {
+          message?: string;
+          response?: { status?: number };
+        };
+        defaultLogger.fiatCrypto.onramper.orderStatusFetchFailed({
+          count: real.length,
+          status: err?.response?.status,
+          errorMessage: err?.message,
+        });
+      }
+    }
+    targets
+      .filter((o) => isSyntheticTransactionId(o.transactionId))
+      .forEach((o) => {
+        const scripted = this.buildMockTransactionStatus(o, now);
+        if (scripted) {
+          statuses.set(o.transactionId, scripted);
+        }
+      });
+
+    const updates: Record<string, IHeadlessBuyOrder | null> = {};
+    const deliveredAccounts: { accountId: string; networkId: string }[] = [];
+    for (const order of targets) {
+      const tx = statuses.get(order.transactionId);
+      if (!tx) {
+        if (!lookupOk && !isSyntheticTransactionId(order.transactionId)) {
+          updates[order.transactionId] = {
+            ...order,
+            lastCheckedAt: now,
+            lastCheckOk: false,
+          };
+        }
+      } else {
+        const next = applyOnramperTransactionStatus(order, tx, now);
+        if (!next) {
+          updates[order.transactionId] = null;
+          defaultLogger.fiatCrypto.onramper.orderDiscarded({
+            transactionId: order.transactionId,
+            reason: 'backendFailed',
+          });
+        } else {
+          updates[order.transactionId] = next;
+          this.logHeadlessBuyOrderStatusChange(order, next);
+          if (
+            next.status === EHeadlessBuyOrderStatus.Delivered &&
+            order.status !== EHeadlessBuyOrderStatus.Delivered &&
+            next.accountId
+          ) {
+            deliveredAccounts.push({
+              accountId: next.accountId,
+              networkId: next.networkId,
+            });
+          }
+        }
+      }
+    }
+    if (Object.keys(updates).length > 0) {
+      await this.backgroundApi.simpleDb.headlessBuyOrders.mergeOrders({
+        updates,
+      });
+      this.emitHeadlessBuyOrdersChanged();
+    }
+    if (deliveredAccounts.length > 0) {
+      // Delivered coins should show up without a manual pull-to-refresh.
+      appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+        accounts: deliveredAccounts,
+      });
+      appEventBus.emit(EAppEventBusNames.RefreshHistoryList, undefined);
+    }
+    return this.getHeadlessBuyOrders();
+  }
+
+  private async fetchOnramperTransactionStatuses(
+    transactionIds: string[],
+  ): Promise<IOnramperTransactionStatus[]> {
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const resp = await client.post<{ data: IOnramperTransactionStatus[] }>(
+      ONRAMPER_TRANSACTIONS_PATH,
+      { transactionIds },
+    );
+    const data = resp.data?.data;
+    return Array.isArray(data)
+      ? data.filter((tx) => typeof tx?.transactionId === 'string')
+      : [];
+  }
+
+  // Dev-only lifecycle for Simulator orders; production leaves synthetic ids
+  // untouched (they stay "Processing" with no lookup).
+  private buildMockTransactionStatus(
+    order: IHeadlessBuyOrder,
+    now: number,
+  ): IOnramperTransactionStatus | undefined {
+    if (
+      !platformEnv.isDev ||
+      !order.transactionId.startsWith(MOCK_TRANSACTION_ID_PREFIX)
+    ) {
+      return undefined;
+    }
+    if (now - order.createdAt < MOCK_DELIVERY_DELAY_MS) {
+      return { transactionId: order.transactionId, status: 'pending' };
+    }
+    return {
+      transactionId: order.transactionId,
+      status: 'completed',
+      outAmount: order.payout,
+      transactionHash: `0x${'ab'.repeat(32)}`,
+      statusDate: new Date(now).toISOString(),
+    };
   }
 }
 
