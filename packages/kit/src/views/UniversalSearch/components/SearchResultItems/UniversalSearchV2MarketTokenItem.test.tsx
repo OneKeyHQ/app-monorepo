@@ -98,10 +98,15 @@ jest.mock('@onekeyhq/kit/src/views/Market/components/TokenTagsPopover', () => ({
 jest.mock('../../../Market/components/MarketStarV2Deferred', () => {
   const ReactModule = jest.requireActual<typeof import('react')>('react');
   return {
-    MarketStarV2Deferred: (props: { stockId?: string; chainId: string }) =>
+    MarketStarV2Deferred: (props: {
+      assetId?: string;
+      stockId?: string;
+      chainId: string;
+    }) =>
       ReactModule.createElement('div', {
         'data-testid': 'market-search-star',
         'data-stock-id': props.stockId ?? '',
+        'data-asset-id': props.assetId ?? '',
         'data-chain-id': props.chainId,
       }),
   };
@@ -152,6 +157,41 @@ describe('UniversalSearchV2MarketTokenItem', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  it('uses the same asset identity for the search star and detail navigation', () => {
+    const item: IUniversalSearchV2MarketToken = {
+      type: EUniversalSearchType.V2MarketToken,
+      payload: {
+        assetId: 'bitcoin',
+        name: 'Bitcoin',
+        symbol: 'BTC',
+        address: 'native',
+        network: 'btc--0',
+        price: '100000',
+        logoUrl: '',
+        isNative: true,
+        decimals: 8,
+        liquidity: '0',
+        volume_24h: '0',
+      },
+    };
+    const { getByTestId } = render(
+      <UniversalSearchV2MarketTokenItem
+        item={item}
+        source={EUniversalSearchSource.Market}
+      />,
+    );
+    expect(
+      getByTestId('market-search-star').getAttribute('data-asset-id'),
+    ).toBe('bitcoin');
+    fireEvent.click(getByTestId('market-search-result'));
+    act(() => {
+      jest.advanceTimersByTime(80);
+    });
+    expect(mockToMarketDetailPage).toHaveBeenCalledWith(
+      expect.objectContaining({ assetId: 'bitcoin', networkId: 'btc--0' }),
+    );
   });
 
   it('opens chain search results as tokens even when stock metadata is present', () => {

@@ -77,6 +77,7 @@ export function convertSearchTokenToMarketToken(
 ): IMarketToken {
   return {
     id: `${item.network}_${item.address}`,
+    assetId: item.assetId,
     name: item.name,
     symbol: item.symbol,
     address: item.address,

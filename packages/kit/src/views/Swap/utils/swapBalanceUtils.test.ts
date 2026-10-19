@@ -4,6 +4,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
   buildNativeTokenFromGasInfo,
+  checkSwapBalanceSufficientFromAmount,
   checkSwapLatestBalanceSufficient,
   getSwapEncodedTxSize,
   getSwapQuoteBalanceRequirements,
@@ -277,6 +278,84 @@ describe('buildNativeTokenFromGasInfo', () => {
 });
 
 describe('getSwapRequiredNativeBalanceAmount', () => {
+  const solToken = {
+    ...ethToken,
+    networkId: 'sol--101',
+    symbol: 'SOL',
+    decimals: 9,
+    price: '100',
+  };
+  const solGasInfo = {
+    common: {
+      baseFee: '0.00002112',
+      feeDecimals: 9,
+      feeSymbol: 'SOL',
+      nativeDecimals: 9,
+      nativeSymbol: 'SOL',
+    },
+    feeSol: { computeUnitPrice: '0' },
+  };
+  const solanaRent = '0.00148844';
+
+  it('reserves ATA rent in addition to fees against the available balance', () => {
+    const requirement = getSwapRequiredNativeBalanceAmount({
+      gasInfos: [{ gasInfo: solGasInfo }],
+      networkId: solToken.networkId,
+      solanaRent,
+    });
+    expect(requirement).toMatchObject({
+      amount: '0.00150956',
+      reserveAmount: '0.00150956',
+      includesFromAmount: false,
+    });
+    expect(
+      checkSwapBalanceSufficientFromAmount({
+        balance: '0.00113528',
+        amount: requirement?.amount ?? '',
+        tokenSymbol: 'SOL',
+      }).isSufficient,
+    ).toBe(false);
+    expect(
+      checkSwapBalanceSufficientFromAmount({
+        balance: '0.00150956',
+        amount: requirement?.amount ?? '',
+        tokenSymbol: 'SOL',
+      }).isSufficient,
+    ).toBe(true);
+  });
+
+  it('retains rent when only the network fee is sponsored', () => {
+    expect(
+      getSwapRequiredNativeBalanceAmount({
+        gasInfos: [{ gasInfo: { ...solGasInfo, payer: 'megafuel' } }],
+        networkId: solToken.networkId,
+        solanaRent,
+      })?.amount,
+    ).toBe('0.00148844');
+  });
+
+  it('counts rent once alongside multiple fees, provider cost and native principal', () => {
+    expect(
+      getSwapRequiredNativeBalanceAmount({
+        gasInfos: [{ gasInfo: solGasInfo }, { gasInfo: solGasInfo }],
+        networkId: solToken.networkId,
+        fromToken: solToken,
+        fromAmount: '1',
+        otherFeeInfos: [{ token: solToken, amount: '0.01' }],
+        solanaRent,
+      })?.amount,
+    ).toBe('1.01153068');
+  });
+
+  it('does not reserve ATA rent when no account creation is required', () => {
+    expect(
+      getSwapRequiredNativeBalanceAmount({
+        gasInfos: [{ gasInfo: solGasInfo }],
+        networkId: solToken.networkId,
+      })?.amount,
+    ).toBe('0.00002112');
+  });
+
   it('returns the required native gas amount for non-native swaps', () => {
     expect(
       getSwapRequiredNativeBalanceAmount({
