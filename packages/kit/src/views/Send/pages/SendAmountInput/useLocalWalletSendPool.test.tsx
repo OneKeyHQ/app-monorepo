@@ -288,4 +288,25 @@ describe('getEntryLocalWalletSendPools', () => {
   it('offers every pool without an entry pool', () => {
     expect(keys(undefined)).toEqual(['ironwood', 'orchard', 'transparent']);
   });
+
+  it('starts a TEX payment from the eligible public pool when its private entry is ineligible', () => {
+    const texProps = { ...props, recipientAddress: 'tex1-recipient' };
+    mockSnapshot.result = {
+      scope: scopeFor(texProps),
+      pools: pools.map((pool) => ({
+        ...pool,
+        eligible: pool.key === 'transparent',
+      })),
+    };
+    const { result } = renderHook(() =>
+      useLocalWalletSendPool({
+        ...texProps,
+        initialPool: 'ironwood',
+        poolDescriptors: descriptors,
+      }),
+    );
+    expect(result.current.selectedPool?.key).toBe('transparent');
+    expect(result.current.selectedPool?.spendableParsed).toBe('5');
+    expect(result.current.isReady).toBe(true);
+  });
 });

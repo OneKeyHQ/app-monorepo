@@ -468,6 +468,8 @@ export async function fetchAccountHistoryFromLocal(
     const historyEncoded = encodedTx?.zcashMode
       ? encodedTx
       : (cachedEncoded ?? encodedTx);
+    // Missing local journal data says nothing about someone else's broadcast.
+    if (!journal && historyEncoded?.zcashMode !== 'transparent') return tx;
     const expiry =
       journal?.expiryHeight ??
       cachedEncoded?.zcashTransparentBuild?.expiryHeight ??
