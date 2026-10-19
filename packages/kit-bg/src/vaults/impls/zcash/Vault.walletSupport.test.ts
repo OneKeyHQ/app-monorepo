@@ -60,4 +60,27 @@ describe('zcash privacy support by wallet type', () => {
     });
     expect(getMeta).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ["hw-1--m/44'/133'/0'", 'u1-mixed', 'u1-orchard', 'u1-orchard'],
+    ["hw-1--m/44'/133'/0'", 'u1-orchard', undefined, 'u1-orchard'],
+    ["hd-1--m/44'/133'/0'", 'u1-software', undefined, 'u1-software'],
+  ] as const)(
+    'returns the private receive address matching the Orchard-only request for %s (%s)',
+    async (accountId, unifiedAddress, derivedUnifiedAddress, expectedAddress) => {
+      const meta = Object.freeze({
+        transparentAddress: 't1-account',
+        unifiedAddress,
+        derivedUnifiedAddress,
+      });
+      const vault = createVault(jest.fn(async () => meta));
+
+      await expect(
+        vault.getLocalWalletCapability()?.getAccountAddresses({ accountId }),
+      ).resolves.toEqual({
+        publicAddress: 't1-account',
+        privateAddress: expectedAddress,
+      });
+    },
+  );
 });
