@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react';
 import { memo, useCallback, useContext, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -42,6 +43,9 @@ type ITokenListProps = {
     token: IFiatCryptoToken;
     realAccountId?: string;
   }) => void;
+  // Rendered as the list's first row (scrolls with it; the search bar stays
+  // fixed). Hidden while a search query is active.
+  listHeader?: ReactElement;
 };
 
 function keyExtractor(item: IFiatCryptoToken): string {
@@ -246,6 +250,7 @@ export function TokenList({
   type,
   isLoading,
   onPress,
+  listHeader,
 }: ITokenListProps) {
   const [text, setText] = useState('');
   const onChangeText = useCallback((value: string) => {
@@ -302,6 +307,7 @@ export function TokenList({
               <ListItemFiatToken item={item} type={type} onPress={onPress} />
             )}
             keyExtractor={keyExtractor}
+            ListHeaderComponent={text ? null : (listHeader ?? null)}
             ListFooterComponent={<Stack h={bottom || '$2'} />}
             ListEmptyComponent={
               <Empty
