@@ -26,6 +26,7 @@ import type { IScreenPathConfig } from '@onekeyhq/shared/src/utils/routeUtils';
 import { buildAllowList } from '@onekeyhq/shared/src/utils/routeUtils';
 
 import { usePerpTabConfig } from '../../hooks/usePerpTabConfig';
+import { captureWebReferralCode } from '../../utils/webReferralCode';
 import { rootRouter, useRootRouter } from '../router';
 
 import { registerDeepLinking } from './deeplink';
@@ -109,6 +110,7 @@ const onGetStateFromPath = (path: string, options?: any) => {
   if (platformEnv.isWeb && isOAuthCallbackWebPath(path)) {
     return getStateFromPath(path, options);
   }
+  let referralPath = path;
   // Web platform: rewrite ?r= referral parameter to /r/{code}/app/{page} format
   if (platformEnv.isWeb) {
     const [pathPart, queryPart] = path.split('?');
@@ -124,9 +126,34 @@ const onGetStateFromPath = (path: string, options?: any) => {
       }
     }
   }
+  if (platformEnv.isWebDappMode) {
+    const hashIndex = path.indexOf('#');
+    const pathAndQuery = hashIndex >= 0 ? path.slice(0, hashIndex) : path;
+    const hash = hashIndex >= 0 ? path.slice(hashIndex) : '';
+    const queryIndex = pathAndQuery.indexOf('?');
+    const pathPart =
+      queryIndex >= 0 ? pathAndQuery.slice(0, queryIndex) : pathAndQuery;
+    const queryPart = queryIndex >= 0 ? pathAndQuery.slice(queryIndex + 1) : '';
+    if (!/^\/?r(?:\/|$)/u.test(pathPart) && queryPart) {
+      const searchParams = new URLSearchParams(queryPart);
+      const rawCode = searchParams.get('ref_code');
+      if (rawCode !== null) {
+        captureWebReferralCode(rawCode);
+        searchParams.delete('ref_code');
+        const remainingQuery = searchParams.toString();
+        referralPath = `${pathPart}${remainingQuery ? `?${remainingQuery}` : ''}${hash}`;
+      }
+    }
+  }
   // WebDappMode: rewrite "/" to "/market" so Market tab is the landing page
-  if (platformEnv.isWebDappMode && (path === '/' || path === '')) {
-    const result = getStateFromPath('/market', options);
+  if (
+    platformEnv.isWebDappMode &&
+    /^\/?(?:\?[^#]*)?(?:#.*)?$/u.test(referralPath)
+  ) {
+    const result = getStateFromPath(
+      `/market${referralPath.replace(/^\/?/u, '')}`,
+      options,
+    );
     if (process.env.NODE_ENV !== 'production') {
       const mainState = result?.routes?.[0]?.state;
       debugLandingLog(
@@ -136,7 +163,7 @@ const onGetStateFromPath = (path: string, options?: any) => {
     }
     return result;
   }
-  const result = getStateFromPath(path, options);
+  const result = getStateFromPath(referralPath, options);
   if (process.env.NODE_ENV !== 'production') {
     const mainState = result?.routes?.[0]?.state;
     debugLandingLog(

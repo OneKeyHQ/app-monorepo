@@ -45,6 +45,7 @@ import { ThirdPartyHardwareUiStateContainerLazy } from './ThirdPartyHardwareUiSt
 import { VerifyTxContainer } from './VerifyTxContainer';
 import { WalletBackupPreCheckContainerLazy } from './WalletBackupPreCheckContainerLazy';
 import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
+import { WebReferralBindContainer } from './WebReferralBindContainer';
 
 function GlobalRootAppNavigationUpdate() {
   const navigation = useAppNavigation();
@@ -70,6 +71,7 @@ function DetailRouter() {
       <DeviceStageContainerLazy />
       <PrimeLoginContainerLazy />
       <KeylessWebAutoConnectHashCleanupContainer />
+      <WebReferralBindContainer />
       <DialogLoadingContainer />
       <DiskFullWarningDialogContainer />
       <LinuxUdevGuideDialogContainer />
