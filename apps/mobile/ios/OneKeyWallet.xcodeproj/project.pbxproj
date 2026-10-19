@@ -26,6 +26,7 @@
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		4B0291071DB1A9856B2D4C1B /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 494070FD8580EB254AA2A894 /* ExpoModulesProvider.swift */; };
 		541DCC87FB2B844A31C6B2CE /* Roobert-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B713FFEAAB53780C8C97C64A /* Roobert-Medium.ttf */; };
+		54570AB4C271B6FCB100D1E5 /* LiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 068B6B2780888BF000863751 /* LiveActivityAttributes.swift */; };
 		8C103D83F4F845C446B2FA61 /* Roobert-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D61DE12A640796AEBBF9AF3E /* Roobert-Bold.ttf */; };
 		A1C000000000000000000001 /* OneKeyAppClipApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C000000000000000000020 /* OneKeyAppClipApp.swift */; };
 		A1C000000000000000000002 /* AppClipRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C000000000000000000021 /* AppClipRootView.swift */; };
@@ -42,8 +43,11 @@
 		A42E38F93D9412E28713DB42 /* Roobert-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 4212F2E9F990F15A98CD2C91 /* Roobert-SemiBold.ttf */; };
 		AC86234A85826FB6BC60AF85 /* GeistMono-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 39B7886775EDB292CDA71277 /* GeistMono-Medium.ttf */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
+		BC4E04CB4BDBD5573D7E4AE2 /* LiveActivityDemoModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 36EDB2D706DECF9B8E884F9D /* LiveActivityDemoModule.m */; };
 		C274DAC12AE2644400755275 /* NotificationService.m in Sources */ = {isa = PBXBuildFile; fileRef = C274DAC02AE2644400755275 /* NotificationService.m */; };
 		C274DAC52AE2644400755275 /* ServiceExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C274DABD2AE2644400755275 /* ServiceExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		C76746FD99673C4A9D78D4A9 /* LiveActivityDemoModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = B171DC0A2E96D0390FE7DA48 /* LiveActivityDemoModule.swift */; };
+		D6E96ED2F2402B7B9A55C707 /* LiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 068B6B2780888BF000863751 /* LiveActivityAttributes.swift */; };
 		EA73E1F22C3EAEAD000E9398 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = EA73E1F12C3EAEAD000E9398 /* GoogleService-Info.plist */; };
 		EA9B87EC2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = EA9B87EB2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy */; };
 		EA9FF4ED2BDFFDBB00AC618A /* web-embed in Resources */ = {isa = PBXBuildFile; fileRef = EA9FF4EC2BDFFDBB00AC618A /* web-embed */; };
@@ -113,6 +117,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		068B6B2780888BF000863751 /* LiveActivityAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LiveActivityAttributes.swift; sourceTree = "<group>"; };
 		0799B76F2E162F7D001ADEC8 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		07A167A82E576AF7006A3117 /* OneKeyLogo.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = OneKeyLogo.icon; sourceTree = "<group>"; };
 		07B1C3A02F08000000E00001 /* RecoveryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = RecoveryViewController.swift; path = OneKeyWallet/RecoveryViewController.swift; sourceTree = "<group>"; };
@@ -131,6 +136,7 @@
 		35EE15B42B9A2AD0004C86AC /* zh-HK */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-HK"; path = "zh-HK.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		35EE15B52B9A2AD1004C86AC /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		35EE15B62B9A2AD1004C86AC /* id */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = id; path = id.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		36EDB2D706DECF9B8E884F9D /* LiveActivityDemoModule.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = OneKeyWallet/LiveActivityDemoModule.m; sourceTree = "<group>"; };
 		39B7886775EDB292CDA71277 /* GeistMono-Medium.ttf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = "GeistMono-Medium.ttf"; sourceTree = "<group>"; };
 		4212F2E9F990F15A98CD2C91 /* Roobert-SemiBold.ttf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = "Roobert-SemiBold.ttf"; sourceTree = "<group>"; };
 		494070FD8580EB254AA2A894 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-OneKeyWallet/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
@@ -152,6 +158,7 @@
 		A1C00000000000000000002B /* AppClipAttributionModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppClipAttributionModule.swift; path = OneKeyWallet/AppClipAttributionModule.swift; sourceTree = "<group>"; };
 		A1C00000000000000000002C /* AppClipAttributionModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = AppClipAttributionModule.m; path = OneKeyWallet/AppClipAttributionModule.m; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = OneKeyWallet/SplashScreen.storyboard; sourceTree = "<group>"; };
+		B171DC0A2E96D0390FE7DA48 /* LiveActivityDemoModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OneKeyWallet/LiveActivityDemoModule.swift; sourceTree = "<group>"; };
 		B713FFEAAB53780C8C97C64A /* Roobert-Medium.ttf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; path = "Roobert-Medium.ttf"; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		C274DABD2AE2644400755275 /* ServiceExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ServiceExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -232,6 +239,7 @@
 				732BA7721B45B7207419DD35 /* LiveActivity.swift */,
 				5472198264B7103BEC627ADD /* Info.plist */,
 				F9700500D12A7501DEFC36AC /* LiveActivity.entitlements */,
+				068B6B2780888BF000863751 /* LiveActivityAttributes.swift */,
 			);
 			name = LiveActivity;
 			path = LiveActivity;
@@ -261,6 +269,8 @@
 				3381AFE75EB640B98B8576AB /* OneKeyWallet-Bridging-Header.h */,
 				07A167A82E576AF7006A3117 /* OneKeyLogo.icon */,
 				B443EFD976C5A3FE30F5AF8C /* Fonts */,
+				B171DC0A2E96D0390FE7DA48 /* LiveActivityDemoModule.swift */,
+				36EDB2D706DECF9B8E884F9D /* LiveActivityDemoModule.m */,
 			);
 			name = OneKeyWallet;
 			sourceTree = "<group>";
@@ -849,6 +859,9 @@
 				A1C00000000000000000000B /* AppClipAttributionStore.swift in Sources */,
 				A1C00000000000000000000C /* AppClipAttributionModule.swift in Sources */,
 				A1C00000000000000000000D /* AppClipAttributionModule.m in Sources */,
+				54570AB4C271B6FCB100D1E5 /* LiveActivityAttributes.swift in Sources */,
+				C76746FD99673C4A9D78D4A9 /* LiveActivityDemoModule.swift in Sources */,
+				BC4E04CB4BDBD5573D7E4AE2 /* LiveActivityDemoModule.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -857,6 +870,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				338C17D0134E618FAB1B37DE /* LiveActivity.swift in Sources */,
+				D6E96ED2F2402B7B9A55C707 /* LiveActivityAttributes.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
