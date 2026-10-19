@@ -188,6 +188,13 @@ jest.mock('@onekeyhq/shared/src/utils/numberUtils', () => ({
   formatDisplayNumber: (value: string) => value,
 }));
 
+jest.mock('../../../hooks/useMarketDetailPositionTab', () => ({
+  useMarketDetailPositionTabContainer: () => ({
+    tabsRef: { current: null },
+    initialTabName: undefined,
+    handleTabChange: jest.fn(),
+  }),
+}));
 jest.mock('../../../hooks/useTokenDetail', () => ({
   useTokenDetail: () => mockTokenDetailState,
 }));
@@ -248,7 +255,9 @@ describe('DesktopInformationTabs', () => {
   });
 
   it('resumes realtime updates and scrolls to top when the updates pill is clicked', () => {
-    render(<DesktopInformationTabs portfolioData={[]} />);
+    render(
+      <DesktopInformationTabs portfolioData={[]} isPortfolioSettled={false} />,
+    );
 
     fireEvent.click(screen.getByText('marketdex.new_updates:2'));
 
@@ -257,7 +266,9 @@ describe('DesktopInformationTabs', () => {
   });
 
   it('uses the inverse icon color for the updates arrow', () => {
-    render(<DesktopInformationTabs portfolioData={[]} />);
+    render(
+      <DesktopInformationTabs portfolioData={[]} isPortfolioSettled={false} />,
+    );
 
     expect(
       screen.getByTestId('icon-ArrowTopSolid').getAttribute('data-color'),
@@ -267,7 +278,9 @@ describe('DesktopInformationTabs', () => {
   it('uses the shared max buffer size in the overflow updates label', () => {
     mockRealtimePauseState.hasBufferOverflow = true;
 
-    render(<DesktopInformationTabs portfolioData={[]} />);
+    render(
+      <DesktopInformationTabs portfolioData={[]} isPortfolioSettled={false} />,
+    );
 
     expect(
       screen.getByText(new RegExp(`${MAX_BUFFERED_TRANSACTIONS}\\+$`)),
@@ -277,7 +290,9 @@ describe('DesktopInformationTabs', () => {
   it('does not render liquidity pools for native tokens', () => {
     mockTokenDetailState.isNative = true;
 
-    render(<DesktopInformationTabs portfolioData={[]} />);
+    render(
+      <DesktopInformationTabs portfolioData={[]} isPortfolioSettled={false} />,
+    );
 
     expect(screen.queryByText('liquidity-pools')).toBeNull();
   });
@@ -286,7 +301,9 @@ describe('DesktopInformationTabs', () => {
     mockHoldersTabSupported = true;
     Object.assign(mockTokenDetailState, { tokenDetail: { holders: 123 } });
 
-    render(<DesktopInformationTabs portfolioData={[]} />);
+    render(
+      <DesktopInformationTabs portfolioData={[]} isPortfolioSettled={false} />,
+    );
 
     const holdersTab = screen.getByTestId('tab-bar-item-dexmarket.holders');
     expect(holdersTab.getAttribute('data-name')).toBe('dexmarket.holders');

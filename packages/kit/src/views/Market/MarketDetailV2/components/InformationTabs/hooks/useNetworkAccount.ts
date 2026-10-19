@@ -56,11 +56,21 @@ export function useNetworkAccount(networkId: string) {
     ],
   );
   const { result: accountResult } = usePromiseResult(async () => {
-    const account =
-      request.networkId && (request.accountId || request.indexedAccountId)
-        ? await backgroundApiProxy.serviceAccount.getNetworkAccount(request)
-        : null;
-    return { request, account };
+    if (
+      !request.networkId ||
+      !(request.accountId || request.indexedAccountId)
+    ) {
+      return { request, account: null };
+    }
+    try {
+      const account =
+        await backgroundApiProxy.serviceAccount.getNetworkAccount(request);
+      return { request, account };
+    } catch (_error) {
+      // No account on this network (or a failed lookup) still settles the
+      // request, so callers waiting on isAccountResolved are not stuck.
+      return { request, account: null };
+    }
   }, [request]);
   // Hide the previous identity during render, before the async lookup starts.
   const networkAccount =
@@ -78,9 +88,19 @@ export function useNetworkAccount(networkId: string) {
     return undefined;
   }, [networkAccount]);
 
+  // True once the address for this network is known, or known to be missing:
+  // the wallet has loaded and, when it has an account, its lookup settled.
+  const hasAccountToLookUp = Boolean(
+    request.accountId || request.indexedAccountId,
+  );
+  const isAccountResolved =
+    Boolean(activeAccount?.ready) &&
+    (!hasAccountToLookUp || accountResult?.request === request);
+
   return {
     networkAccount,
     accountAddress: networkAccount?.address,
     xpub,
+    isAccountResolved,
   };
 }

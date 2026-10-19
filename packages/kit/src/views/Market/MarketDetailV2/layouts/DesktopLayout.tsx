@@ -247,18 +247,20 @@ export function DesktopLayout({
     enabled: active !== false && !isStockSharePrice,
   });
 
-  const { accountAddress, xpub } = useNetworkAccount(networkId);
+  const { accountAddress, xpub, isAccountResolved } =
+    useNetworkAccount(networkId);
   const accountMarksContext = useMemo(
     () => ({ accountAddress, networkId, tokenAddress }),
     [accountAddress, networkId, tokenAddress],
   );
   const chartFullscreenZIndex = useOverlayZIndex(isChartFullscreen);
 
-  const { portfolioData, isRefreshing } = usePortfolioData({
+  const { portfolioData, isRefreshing, isPortfolioSettled } = usePortfolioData({
     tokenAddress,
     networkId,
     accountAddress: shouldUseStockDesktopLayout ? undefined : accountAddress,
     xpub: shouldUseStockDesktopLayout ? undefined : xpub,
+    isAccountResolved,
   });
 
   const isBTCNetwork = networkUtils.isBTCNetwork(networkId);
@@ -684,6 +686,7 @@ export function DesktopLayout({
         swapInputDraftKey={swapInputDraftKey}
         portfolioData={portfolioData}
         isRefreshing={isRefreshing}
+        isPortfolioSettled={isPortfolioSettled}
         isBTCNetwork={isBTCNetwork}
         isBTCMainnet={isBTCMainnet}
         tokenLogoUrl={tokenDetail?.logoUrl}

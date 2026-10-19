@@ -106,6 +106,7 @@ describe('MobileInformationTabs chart fullscreen', () => {
         renderHeader={() => <Chart />}
         onScrollEnd={jest.fn()}
         portfolioData={[]}
+        isPortfolioSettled={false}
       />
     );
     const { rerender } = render(renderTabs(false));

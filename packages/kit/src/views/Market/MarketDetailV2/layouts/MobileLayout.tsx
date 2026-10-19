@@ -584,17 +584,19 @@ export function MobileLayout({
     networkId,
     tokenAddress,
   });
-  const { accountAddress, xpub } = useNetworkAccount(networkId);
+  const { accountAddress, xpub, isAccountResolved } =
+    useNetworkAccount(networkId);
   const accountMarksContext = useMemo(
     () => ({ accountAddress, networkId, tokenAddress }),
     [accountAddress, networkId, tokenAddress],
   );
 
-  const { portfolioData, isRefreshing } = usePortfolioData({
+  const { portfolioData, isRefreshing, isPortfolioSettled } = usePortfolioData({
     tokenAddress,
     networkId,
     accountAddress,
     xpub,
+    isAccountResolved,
   });
   const tabNames = useMemo(
     () => [intl.formatMessage({ id: ETranslations.market_chart })],
@@ -1157,6 +1159,7 @@ export function MobileLayout({
               scrollEnabled={!isChartFullscreen && !isTradingViewScrollLocked}
               portfolioData={portfolioData}
               isRefreshing={isRefreshing}
+              isPortfolioSettled={isPortfolioSettled}
               tokenLogoUrl={tokenDetail?.logoUrl}
               detailKind={detailKind}
               marketAssetDetail={marketAssetDetail}
@@ -1176,6 +1179,7 @@ export function MobileLayout({
       isTradingViewScrollLocked,
       portfolioData,
       isRefreshing,
+      isPortfolioSettled,
       tokenDetail?.logoUrl,
       detailKind,
       marketAssetDetail,

@@ -269,7 +269,7 @@ export function useStockPortfolioData() {
       // nothing to read a balance from, and an empty list would claim every
       // variant was checked and found empty.
       if (!stockId || !hasAccount) return undefined;
-      return fetchStockPortfolioData({
+      const result = await fetchStockPortfolioData({
         stockId,
         tokenVariants: tokenVariantsRef.current,
         successfulPortfolioCache: successfulPortfolioCacheRef.current,
@@ -280,6 +280,9 @@ export function useStockPortfolioData() {
             throwOnError: true,
           }),
       });
+      // Tagged so a result still held from the previous stock is not read as
+      // this stock's answer while the new request is in flight.
+      return { ...result, stockId };
     },
     // The request reads the latest variants from a ref so 6-second metadata
     // refreshes only restart this query when their asset identities change.
@@ -302,11 +305,18 @@ export function useStockPortfolioData() {
     [portfolioResult],
   );
 
+  // True once the page knows whether this stock has a position: the account
+  // has loaded and, when there is one, a request for this stock has settled.
+  const isPortfolioSettled =
+    Boolean(ready) &&
+    (!stockId || !hasAccount || portfolioResult?.stockId === stockId);
+
   return {
     portfolioData,
     resolvedVariantKeys,
     isRefreshing: Boolean(isRefreshing),
     hasAccount,
+    isPortfolioSettled,
     fetchPortfolio,
   };
 }

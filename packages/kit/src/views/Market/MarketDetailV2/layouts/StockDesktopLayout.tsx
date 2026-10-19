@@ -61,6 +61,7 @@ import {
 import { ShareButton } from '../components/TokenDetailHeader/ShareButton';
 import { MarketTokenSelector } from '../components/TokenSelector/MarketTokenSelector';
 import { useStockDetail } from '../hooks/StockDetailContext';
+import { useMarketDetailPositionTab } from '../hooks/useMarketDetailPositionTab';
 import { useStockPortfolioData } from '../hooks/useStockPortfolioData';
 import { useStockPriceSource } from '../hooks/useStockPriceSource';
 import { useTokenDetail } from '../hooks/useTokenDetail';
@@ -95,8 +96,6 @@ import {
   STOCK_DETAIL_COLUMN_GAP,
   STOCK_DETAIL_HORIZONTAL_GUTTER,
 } from './stockDesktopLayoutConstants';
-
-type IStockDetailTab = 'overview' | 'position';
 
 function StockPageHeader({
   showFavoriteButton,
@@ -845,10 +844,12 @@ function StockPosition({
   portfolioData,
   isRefreshing,
   hasAccount,
+  isPending,
 }: {
   portfolioData: IMarketAccountPortfolioDisplayItem[];
   isRefreshing: boolean;
   hasAccount: boolean;
+  isPending: boolean;
 }) {
   return (
     <Portfolio
@@ -856,6 +857,7 @@ function StockPosition({
       hasAccount={hasAccount}
       portfolioData={portfolioData}
       isRefreshing={isRefreshing}
+      isPending={isPending}
     />
   );
 }
@@ -1168,14 +1170,22 @@ function StockOverview({
   portfolioData,
   isRefreshing,
   hasAccount,
+  isPortfolioSettled,
 }: {
   portfolioData: IMarketAccountPortfolioDisplayItem[];
   isRefreshing: boolean;
   hasAccount: boolean;
+  isPortfolioSettled: boolean;
 }) {
   const intl = useIntl();
-  const [activeTab, setActiveTab] = useState<IStockDetailTab>('overview');
   const { stockId } = useStockDetail();
+  const { showPosition, selectTab, isPositionPending } =
+    useMarketDetailPositionTab({
+      assetKey: stockId,
+      isPortfolioSettled,
+      hasPosition: portfolioData.length > 0,
+    });
+  const activeTab = showPosition ? 'position' : 'overview';
 
   return (
     <YStack>
@@ -1199,7 +1209,7 @@ function StockOverview({
           height={44}
           m="$0"
           px="$0"
-          onPress={() => setActiveTab('overview')}
+          onPress={() => selectTab(false)}
         >
           {intl.formatMessage({ id: ETranslations.global_overview })}
         </Button>
@@ -1217,7 +1227,7 @@ function StockOverview({
           height={44}
           m="$0"
           px="$0"
-          onPress={() => setActiveTab('position')}
+          onPress={() => selectTab(true)}
         >
           {intl.formatMessage({
             id: ETranslations.dexmarket_details_myposition,
@@ -1245,6 +1255,7 @@ function StockOverview({
           portfolioData={portfolioData}
           isRefreshing={isRefreshing}
           hasAccount={hasAccount}
+          isPending={isPositionPending}
         />
       )}
     </YStack>
@@ -1288,6 +1299,7 @@ export function StockDesktopLayout({
     resolvedVariantKeys,
     isRefreshing: isStockPortfolioRefreshing,
     hasAccount: hasStockPortfolioAccount,
+    isPortfolioSettled,
   } = useStockPortfolioData();
   const { priceMode, handlePriceModeChange, sharePriceAvailable } =
     useStockPriceSource();
@@ -1347,6 +1359,7 @@ export function StockDesktopLayout({
             portfolioData={stockPortfolioData}
             isRefreshing={isStockPortfolioRefreshing}
             hasAccount={hasStockPortfolioAccount}
+            isPortfolioSettled={isPortfolioSettled}
           />
         </YStack>
 

@@ -1,5 +1,5 @@
 /** @jest-environment jsdom */
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 
 import type {
   IMarketAccountPortfolioItem,
@@ -12,6 +12,7 @@ type IScopedPortfolioData = {
   list: IMarketAccountPortfolioItem[];
   networkId: string;
   tokenAddress: string;
+  accountAddress?: string;
 };
 
 type IFetchPortfolioParams = {
@@ -105,6 +106,7 @@ describe('usePortfolioData', () => {
       list: [portfolioItem],
       networkId: 'evm--8453',
       tokenAddress: '0xSAME',
+      accountAddress: '0xaccount',
     });
     expect(mockFetchMarketAccountPortfolio).toHaveBeenCalledWith({
       tokenAddress: '0xSAME',
@@ -158,5 +160,77 @@ describe('usePortfolioData', () => {
       watchLoading: true,
       pollingInterval: 5000,
     });
+  });
+
+  it('settles once the result for the current token and account is back', () => {
+    const props = {
+      tokenAddress: '0xsame',
+      networkId: 'evm--8453',
+      accountAddress: '0xaccount',
+      isAccountResolved: true,
+    };
+    const { result, rerender } = renderHook(() => usePortfolioData(props));
+    expect(result.current.isPortfolioSettled).toBe(false);
+
+    mockPortfolioResult = {
+      list: [portfolioItem],
+      networkId: 'evm--8453',
+      tokenAddress: '0xSAME',
+      accountAddress: '0xaccount',
+    };
+    rerender();
+    expect(result.current.isPortfolioSettled).toBe(true);
+  });
+
+  it('does not settle on a result from another account or before the account resolves', () => {
+    mockPortfolioResult = {
+      list: [portfolioItem],
+      networkId: 'evm--8453',
+      tokenAddress: '0xSAME',
+      accountAddress: '0xother',
+    };
+    const { result: otherAccount } = renderHook(() =>
+      usePortfolioData({
+        tokenAddress: '0xsame',
+        networkId: 'evm--8453',
+        accountAddress: '0xaccount',
+        isAccountResolved: true,
+      }),
+    );
+    expect(otherAccount.current.isPortfolioSettled).toBe(false);
+
+    mockPortfolioResult = {
+      ...mockPortfolioResult,
+      accountAddress: '0xaccount',
+    };
+    const { result: accountPending } = renderHook(() =>
+      usePortfolioData({
+        tokenAddress: '0xsame',
+        networkId: 'evm--8453',
+        accountAddress: '0xaccount',
+        isAccountResolved: false,
+      }),
+    );
+    expect(accountPending.current.isPortfolioSettled).toBe(false);
+  });
+
+  it('settles when the request fails, so the page does not wait forever', async () => {
+    mockFetchMarketAccountPortfolio.mockRejectedValue(new Error('offline'));
+    const { result } = renderHook(() =>
+      usePortfolioData({
+        tokenAddress: '0xsame',
+        networkId: 'evm--8453',
+        accountAddress: '0xaccount',
+        isAccountResolved: true,
+      }),
+    );
+    expect(result.current.isPortfolioSettled).toBe(false);
+
+    await act(async () => {
+      await expect(mockCapturedMethod?.()).rejects.toThrow('offline');
+    });
+
+    expect(result.current.isPortfolioSettled).toBe(true);
+    expect(result.current.portfolioData).toEqual([]);
   });
 });

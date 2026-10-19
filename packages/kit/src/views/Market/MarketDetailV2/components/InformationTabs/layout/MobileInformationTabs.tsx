@@ -24,6 +24,7 @@ import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
 
 import { useStockDetail } from '../../../hooks/StockDetailContext';
+import { useMarketDetailPositionTabContainer } from '../../../hooks/useMarketDetailPositionTab';
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { TokenLiquidityPools } from '../../TokenLiquidityPools';
 import { Holders } from '../components/Holders';
@@ -133,6 +134,7 @@ export function MobileInformationTabs({
   onScrollEnd,
   portfolioData,
   isRefreshing,
+  isPortfolioSettled,
   tokenLogoUrl,
   scrollEnabled = true,
   freezeContent = false,
@@ -147,6 +149,7 @@ export function MobileInformationTabs({
   onScrollEnd: () => void;
   portfolioData: IMarketAccountPortfolioItem[];
   isRefreshing?: boolean;
+  isPortfolioSettled: boolean;
   tokenLogoUrl?: string;
   scrollEnabled?: boolean;
   freezeContent?: boolean;
@@ -180,21 +183,34 @@ export function MobileInformationTabs({
   const resolvedContainerWidth =
     containerWidth ?? (tabContainerWidth as number);
 
+  const overviewName = intl.formatMessage({
+    id: ETranslations.global_overview,
+  });
+  const positionTabName = intl.formatMessage({
+    id: ETranslations.dexmarket_details_myposition,
+  });
+  const {
+    tabsRef,
+    initialTabName,
+    handleTabChange: handlePositionTabChange,
+    isPositionPending,
+  } = useMarketDetailPositionTabContainer({
+    assetKey: `${networkId}:${tokenAddress}`,
+    isPortfolioSettled,
+    hasPosition: portfolioData.length > 0,
+    positionTabName,
+    // Every mobile detail kind opens with the overview tab.
+    defaultTabName: overviewName,
+  });
+
   const tabs = useMemo(() => {
-    const overviewName = intl.formatMessage({
-      id: ETranslations.global_overview,
-    });
     const portfolioTab = (
-      <Tabs.Tab
-        key="portfolio"
-        name={intl.formatMessage({
-          id: ETranslations.dexmarket_details_myposition,
-        })}
-      >
+      <Tabs.Tab key="portfolio" name={positionTabName}>
         <DelayedFreeze freeze={freezeContent}>
           <Portfolio
             portfolioData={portfolioData}
             isRefreshing={!!isRefreshing}
+            isPending={isPositionPending}
             accountAddress={accountAddress}
             tokenLogoUrl={tokenLogoUrl}
             scrollEnabled={scrollEnabled}
@@ -312,6 +328,9 @@ export function MobileInformationTabs({
     accountAddress,
     portfolioData,
     isRefreshing,
+    isPositionPending,
+    overviewName,
+    positionTabName,
     isNative,
     isBTCNetwork,
     tokenLogoUrl,
@@ -325,7 +344,14 @@ export function MobileInformationTabs({
   ]);
 
   const tabKeys = useMemo(() => tabs.map((tab) => String(tab.key)), [tabs]);
-  const { handleTabChange } = useBottomTabAnalytics(tabKeys);
+  const { handleTabChange: trackTabChange } = useBottomTabAnalytics(tabKeys);
+  const handleTabChange = useCallback(
+    (data: { index: number; tabName: string }) => {
+      trackTabChange(data);
+      handlePositionTabChange(data);
+    },
+    [handlePositionTabChange, trackTabChange],
+  );
 
   const renderTabBar = useCallback(
     (props: TabBarProps<string>) => (
@@ -356,6 +382,8 @@ export function MobileInformationTabs({
   return (
     <Tabs.Container
       key={tabsKey}
+      ref={tabsRef as any}
+      initialTabName={initialTabName}
       width={platformEnv.isNative ? resolvedContainerWidth : undefined}
       headerContainerStyle={{
         width: '100%',
