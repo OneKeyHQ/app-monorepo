@@ -1,3 +1,6 @@
+// The bounds module alone, so parsing does not pull the whole QR wallet SDK in.
+import { UrScanRejectedError } from '@onekeyhq/qr-wallet-sdk/src/boundedUr';
+import { OneKeyErrorAirGapInvalidQrCode } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EQRCodeHandlerType,
@@ -42,7 +45,12 @@ export const parseQRCode: IQRCodeHandlerParse<IBaseValue> = async (
           break;
         }
       }
-    } catch {
+    } catch (error) {
+      // A code the scan can never accept ends it with a visible error; falling back to UNKNOWN
+      // would read as a silent cancel.
+      if (error instanceof UrScanRejectedError) {
+        throw new OneKeyErrorAirGapInvalidQrCode({ autoToast: true });
+      }
       defaultLogger.app.error.log(
         `[ScanQRCode] parse handler failed: ${handlerName}`,
       );

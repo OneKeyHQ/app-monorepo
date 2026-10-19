@@ -13,6 +13,7 @@ import { buildTradingViewNativeIndicatorSeries } from './chartIndicators';
 import {
   formatTradingViewNativeCrosshairTime,
   getTradingViewNativeChartWidth,
+  getTradingViewNativePriceY,
 } from './chartLayout';
 import {
   buildTradingViewNativeChartScene,
@@ -134,6 +135,48 @@ describe('TradingViewNative shared chart scene', () => {
         expect(body.width).toBe(existingWideBodies[index].width);
         expect(body.height).toBe(existingWideBodies[index].height);
       });
+    },
+  );
+
+  it.each(['linear', 'logarithmic'] as const)(
+    'keeps a pinned crosshair at its price when the %s range changes',
+    (priceScaleMode) => {
+      const lines = [
+        { minPrice: 90, maxPrice: 110 },
+        { minPrice: 90, maxPrice: 130 },
+        { minPrice: 110, maxPrice: 140 },
+      ].map((pinnedPriceRange) => {
+        const scene = buildTradingViewNativeChartScene({
+          candleIntervalSeconds: 3600,
+          chartType: 'candlestick',
+          crosshair: { visible: true, x: 120, y: 17, price: 101 },
+          hasVolume: false,
+          height: 240,
+          measureTextWidth: (text) => text.length * 6,
+          candleLabels: CANDLE_LABELS,
+          points: POINTS,
+          pinnedPriceRange,
+          priceScaleMode,
+          viewport: { offset: 0, zoomScale: 1 },
+          watermarkOpacity: 0.16,
+          width: 320,
+        });
+        const horizontalLine = scene.commands.find(
+          (command) =>
+            command.kind === 'line' &&
+            command.paint === 'crosshairLine' &&
+            command.y1 === command.y2,
+        );
+        if (pinnedPriceRange.minPrice > 101) {
+          expect(horizontalLine).toBeUndefined();
+        } else {
+          expect(horizontalLine).toMatchObject({
+            y1: getTradingViewNativePriceY(101, scene.layout!),
+          });
+        }
+        return horizontalLine;
+      });
+      expect(lines[0]).not.toEqual(lines[1]);
     },
   );
 
