@@ -9,6 +9,9 @@ export function shouldApplyMinimumOrderGuard({
   orderType?: 'market' | 'limit';
   hasBboPriceMode?: boolean;
 }) {
+  if (orderMode === 'twap') {
+    return false;
+  }
   return !(
     isSpot &&
     orderMode === 'standard' &&

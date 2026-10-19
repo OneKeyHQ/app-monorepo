@@ -69,20 +69,20 @@ describe('shouldApplyMinimumOrderGuard', () => {
     ).toBe(true);
   });
 
-  it('keeps the guard for twap orders', () => {
+  it('lets TWAP use its own 100 USDC validation instead of the ordinary guard', () => {
     expect(
       shouldApplyMinimumOrderGuard({
         isSpot: false,
         orderMode: 'twap',
         orderType: 'market',
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldApplyMinimumOrderGuard({
         isSpot: true,
         orderMode: 'twap',
         orderType: 'market',
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 });

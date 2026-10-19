@@ -35,6 +35,7 @@ import {
   PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS,
 } from '@onekeyhq/shared/src/consts/perpCache';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { normalizeErrorProps } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -48,13 +49,19 @@ import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { getCurrentVisibilityState } from '@onekeyhq/shared/src/utils/appVisibility';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
-  SCALE_ORDER_MIN_NOTIONAL,
   getReduceOnlyOrderGuardError,
   getReduceOnlyPositionMaxSize,
   getReduceOnlyPositionSnapshotError,
   getScaleOrderReferencePrice,
   getScaleOrderSizeSkew,
 } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
+import {
+  TWAP_MAX_DURATION_MINUTES,
+  TWAP_MIN_DURATION_MINUTES,
+  TWAP_MIN_ORDER_NOTIONAL,
+  isTwapTotalNotionalValid,
+  isValidTwapDuration,
+} from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
 import {
   getPerpsOrderBookTickOptionWithCache,
   getPerpsOrderBookTickOptionsWithCache,
@@ -175,10 +182,6 @@ const MAX_LEDGER_UPDATES = 200;
 const ACCOUNT_MODE_USER_WALLET_TIMEOUT_MS = platformEnv.isNative
   ? 60_000
   : 15_000;
-const TWAP_MIN_DURATION_MINUTES = 5;
-const TWAP_MAX_DURATION_MINUTES = 1440;
-const TWAP_MIN_ORDER_NOTIONAL = Number(SCALE_ORDER_MIN_NOTIONAL);
-const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
 const TWAP_SLICE_FILLS_MAX_COUNT = 2000;
 
 const setAbstractionWithUserWalletTimeout = makeTimeoutPromise<
@@ -1696,6 +1699,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         triggerPrice: '',
         executionPrice: '',
         triggerReduceOnly: true,
+        twapTriggerPrice: '',
+        twapStopPrice: '',
       };
 
       // update limit price once using current atom snapshot.
@@ -1872,6 +1877,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         sizePercent: 0,
         triggerPrice: '',
         executionPrice: '',
+        twapTriggerPrice: '',
+        twapStopPrice: '',
       };
       // Spot doesn't have margin mode -- force to usd if currently set to margin
       const currentPrefs = await perpsTradingPreferencesAtom.get();
@@ -2410,14 +2417,22 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   updateTradingForm = contextAtomMethod(
     (get, set, updates: Partial<ITradingFormData>) => {
       const current = get(tradingFormAtom());
-      const updateKeys = Object.keys(updates) as Array<keyof ITradingFormData>;
+      const nextUpdates =
+        updates.side !== undefined &&
+        updates.side !== current.side &&
+        updates.twapStopPrice === undefined
+          ? { ...updates, twapStopPrice: '' }
+          : updates;
+      const updateKeys = Object.keys(nextUpdates) as Array<
+        keyof ITradingFormData
+      >;
       if (
         updateKeys.length === 0 ||
-        updateKeys.every((key) => current[key] === updates[key])
+        updateKeys.every((key) => current[key] === nextUpdates[key])
       ) {
         return;
       }
-      set(tradingFormAtom(), { ...current, ...updates });
+      set(tradingFormAtom(), { ...current, ...nextUpdates });
     },
   );
 
@@ -2439,6 +2454,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       slValue: '',
       triggerPrice: '',
       executionPrice: '',
+      twapTriggerPrice: '',
+      twapStopPrice: '',
     });
   });
 
@@ -2870,6 +2887,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         assetId: number;
         formData?: ITradingFormData;
         price?: string;
+        triggerAbove?: boolean;
       },
     ) => {
       const formData = params.formData || get(tradingFormAtom());
@@ -2897,6 +2915,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             ]);
 
             const isSpot = activeTradeInstrument.mode === 'spot';
+            const spotActiveAssetCtxValue = isSpot
+              ? await spotActiveAssetCtxAtom.get()
+              : undefined;
             if (
               isSpot &&
               (typeof params.assetId !== 'number' ||
@@ -2908,21 +2929,30 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             }
 
             const minutes = Number(formData.twapDurationMinutes ?? 0);
-            if (
-              !Number.isInteger(minutes) ||
-              minutes < TWAP_MIN_DURATION_MINUTES ||
-              minutes > TWAP_MAX_DURATION_MINUTES
-            ) {
+            if (!isValidTwapDuration(minutes)) {
               throw new OneKeyLocalError(
                 `TWAP duration must be ${TWAP_MIN_DURATION_MINUTES}-${TWAP_MAX_DURATION_MINUTES} minutes`,
               );
             }
 
-            const markPrice = isSpot
-              ? (params.price ?? env.markPrice ?? '')
-              : (activeAssetCtxValue?.ctx?.markPrice ?? env.markPrice ?? '');
-            const markPriceBN = new BigNumber(markPrice);
-            if (!markPriceBN.isFinite() || markPriceBN.lte(0)) {
+            const markPriceBN = new BigNumber(
+              isSpot
+                ? (spotActiveAssetCtxValue?.ctx?.markPrice ?? '')
+                : (activeAssetCtxValue?.ctx?.markPrice ??
+                    activeAssetDataValue?.markPx ??
+                    env.markPrice ??
+                    ''),
+            );
+            const sizePriceBN = isSpot
+              ? new BigNumber(params.price ?? env.markPrice ?? '')
+              : markPriceBN;
+            if (
+              !sizePriceBN.isFinite() ||
+              sizePriceBN.lte(0) ||
+              ((formData.twapTriggerPrice?.trim() ||
+                formData.twapStopPrice?.trim()) &&
+                (!markPriceBN.isFinite() || markPriceBN.lte(0)))
+            ) {
               throw new OneKeyLocalError(
                 'Market price unavailable, please try again',
               );
@@ -2938,8 +2968,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               manualSize: formData.size,
               sizePercent: formData.sizePercent,
               side: formData.side,
-              price: markPriceBN.toFixed(),
-              markPrice: markPriceBN.toFixed(),
+              price: sizePriceBN.toFixed(),
+              markPrice: sizePriceBN.toFixed(),
               maxTradeSzs: isSpot
                 ? env.maxTradeSzs
                 : activeAssetDataValue?.maxTradeSzs,
@@ -2954,19 +2984,18 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               throw new OneKeyLocalError('Order size is required');
             }
 
-            const totalNotional = resolvedSizeBN.multipliedBy(markPriceBN);
-            const estimatedSlices = Math.max(
-              1,
-              Math.ceil((minutes * 60) / TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS),
-            );
-            const averageSliceNotional =
-              totalNotional.dividedBy(estimatedSlices);
             if (
-              !averageSliceNotional.isFinite() ||
-              averageSliceNotional.lt(TWAP_MIN_ORDER_NOTIONAL)
+              !isTwapTotalNotionalValid({
+                size: resolvedSizeBN,
+                price: sizePriceBN,
+                szDecimals,
+              })
             ) {
               throw new OneKeyLocalError(
-                'TWAP order size is too small for this duration',
+                normalizeErrorProps({
+                  key: ETranslations.perp_twap_min_order_notional__msg,
+                  info: { amount: TWAP_MIN_ORDER_NOTIONAL },
+                }),
               );
             }
 
@@ -3009,6 +3038,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                   reduceOnly,
                   minutes,
                   randomize: formData.twapRandomize ?? true,
+                  triggerPrice: formData.twapTriggerPrice?.trim(),
+                  triggerAbove: params.triggerAbove,
+                  stopPrice: formData.twapStopPrice?.trim(),
+                  referencePrice: sizePriceBN.toFixed(),
+                  markPrice: markPriceBN.toFixed(),
                   szDecimals,
                 },
               );
@@ -3094,6 +3128,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         formData?: ITradingFormData;
         slippage?: number;
         price: string;
+        twapTriggerAbove?: boolean;
       },
     ) => {
       const formData = params.formData || get(tradingFormAtom());
@@ -3120,6 +3155,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           assetId: params.assetId,
           formData,
           price: params.price,
+          triggerAbove: params.twapTriggerAbove,
         });
       }
 
