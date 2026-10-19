@@ -1781,9 +1781,6 @@ function TxFeeInfo(props: IProps) {
   useEffect(() => {
     if (!txFeeInfoInit) return;
 
-    const extraNativeBalance =
-      unsignedTxs[0]?.solanaRent ?? extraFeeInfo.feeNative;
-
     if (isGasAccountSelected) {
       // Gas Account sponsorship only covers the network fee, not the
       // principal native amount being transferred or chain-specific extra
@@ -1796,7 +1793,7 @@ function TxFeeInfo(props: IProps) {
 
       const requiredNativeBalance = new BigNumber(
         nativeTokenTransferAmountToUpdate.amountToUpdate ?? 0,
-      ).plus(extraNativeBalance ?? 0);
+      ).plus(extraFeeInfo.feeNative ?? 0);
       const fillUpNativeBalance = requiredNativeBalance.minus(
         nativeTokenInfo.balance ?? 0,
       );
@@ -1873,7 +1870,7 @@ function TxFeeInfo(props: IProps) {
         nativeTokenTransferAmountToUpdate.amountToUpdate ?? 0,
       )
         .plus(totalFeeNative ?? 0)
-        .plus(extraNativeBalance ?? 0);
+        .plus(extraFeeInfo.feeNative ?? 0);
 
       const fillUpNativeBalance = requiredNativeBalance.minus(
         nativeTokenInfo.balance ?? 0,
@@ -1907,7 +1904,6 @@ function TxFeeInfo(props: IProps) {
     decodedTxs,
     txFeeInfoInit,
     extraFeeInfo.feeNative,
-    unsignedTxs,
     isGasAccountSelected,
     isResourceRentalEnabled,
     isResourceRentalNeeded,
