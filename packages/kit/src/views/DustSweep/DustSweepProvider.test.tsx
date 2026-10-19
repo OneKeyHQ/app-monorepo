@@ -24,9 +24,8 @@ import type { useDustSweepPreview } from './hooks/useDustSweepPreview';
 import type { IDustSweepState } from './stateMachine';
 
 function useMockPreferences() {
-  return useState<{ threshold: IDustSweepThreshold; entrySeen: boolean }>({
+  return useState<{ threshold: IDustSweepThreshold }>({
     threshold: 10,
-    entrySeen: false,
   });
 }
 
@@ -119,7 +118,9 @@ function network(
       decimals: 18,
     },
     tokens,
-    valueUsd: '0',
+    balanceUsd: values
+      .reduce((sum, value) => sum + Number(value), 0)
+      .toString(),
   };
 }
 
@@ -135,7 +136,7 @@ const routeParams: IDustSweepRouteParams = {
   walletId: 'hd-test',
   accountId: 'hd-test--0',
   indexedAccountId: 'hd-test--0',
-  entry: 'walletMore',
+  entry: 'lowValueRow',
 };
 const providerInfo: ISwapProviderInfo = {
   provider: 'SwapOKX',
@@ -310,12 +311,14 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     });
   });
 
-  it('preserves the initially selected network when a new threshold changes network ranking', async () => {
+  it('lists networks by balance, defaults to the most dust, and keeps the selection across thresholds', async () => {
     const { result } = renderController();
     await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+    // Base holds the larger balance ($52) but Ethereum has more dust under $10.
     expect(
       result.current.networks.map((entry) => entry.network.networkId),
-    ).toEqual(['evm--1', 'evm--8453']);
+    ).toEqual(['evm--8453', 'evm--1']);
+    expect(result.current.current?.network.networkId).toBe('evm--1');
 
     act(() => result.current.selectThreshold(100));
     expect(result.current.threshold).toBe(100);
@@ -329,6 +332,71 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     act(() => result.current.selectThreshold(10));
     expect(result.current.current?.network.networkId).toBe('evm--8453');
     expect(result.current.selected).toEqual([base.tokens[0]]);
+  });
+
+  it('hides networks with nothing to sweep or a $0.00 balance from the picker', async () => {
+    const empty = network('evm--10', []);
+    const dust = network('evm--56', ['0.004']);
+    // Every token is at or above the largest $100 preset, so none can be swept.
+    const large = network('evm--137', ['100', '250']);
+    mockLoadNetworks.mockResolvedValue({
+      networks: [base, empty, dust, large],
+      partialError: false,
+    });
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+
+    expect(
+      result.current.networks.map((entry) => entry.network.networkId),
+    ).toEqual(['evm--8453']);
+    expect(result.current.current?.network.networkId).toBe('evm--8453');
+  });
+
+  it('selects no network when every loaded network is excluded from the picker', async () => {
+    mockLoadNetworks.mockResolvedValue({
+      networks: [network('evm--10', []), network('evm--137', ['100', '250'])],
+      partialError: false,
+    });
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+
+    expect(result.current.networks).toEqual([]);
+    expect(result.current.current).toBeUndefined();
+    expect(result.current.visible).toEqual([]);
+  });
+
+  it('keeps the picker list unchanged when the threshold changes', async () => {
+    // Not selected, and nothing under $1, but has dust under $10 and $100.
+    const small = network('evm--42161', ['1.5']);
+    mockLoadNetworks.mockResolvedValue({
+      networks: [base, small],
+      partialError: false,
+    });
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+    expect(result.current.current?.network.networkId).toBe('evm--8453');
+
+    act(() => result.current.selectThreshold(1));
+    expect(
+      result.current.networks.map((entry) => entry.network.networkId),
+    ).toEqual(['evm--8453', 'evm--42161']);
+  });
+
+  it('keeps an explicitly requested hidden network selected and visible in the picker', async () => {
+    mockLoadNetworks.mockResolvedValue({
+      networks: [base, network('evm--10', [])],
+      partialError: false,
+    });
+    const { result } = renderController({
+      ...routeParams,
+      networkId: 'evm--10',
+    });
+    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+
+    expect(
+      result.current.networks.map((entry) => entry.network.networkId),
+    ).toEqual(['evm--10', 'evm--8453']);
+    expect(result.current.current?.network.networkId).toBe('evm--10');
   });
 
   it('falls back to an available network after reload removes the selected network', async () => {
