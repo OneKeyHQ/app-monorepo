@@ -188,7 +188,11 @@ export function getLocalWalletCapability(vault: Vault): ILocalWalletCapability {
         return undefined;
       }
       // No private address while not scanning: handing one out risks a payment landing where it can't be seen.
-      return { publicAddress, privateAddress: meta?.unifiedAddress };
+      return {
+        publicAddress,
+        // Older firmware returned a mixed UA; verification now requests Orchard-only.
+        privateAddress: meta?.derivedUnifiedAddress ?? meta?.unifiedAddress,
+      };
     },
     deleteAccountData: ({ accountId }) =>
       vault.zcashPrivacyMode().deleteLocalPrivacyData({
