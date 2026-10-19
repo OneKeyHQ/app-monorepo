@@ -1,8 +1,8 @@
 diff --git a/node_modules/@expo/ui/ios/ExpoUITouchHandlerHelper.h b/node_modules/@expo/ui/ios/ExpoUITouchHandlerHelper.h
-index 54918d4..c724a30 100644
+index b30328f..f705ec2 100644
 --- a/node_modules/@expo/ui/ios/ExpoUITouchHandlerHelper.h
 +++ b/node_modules/@expo/ui/ios/ExpoUITouchHandlerHelper.h
-@@ -13,6 +13,10 @@ NS_ASSUME_NONNULL_BEGIN
+@@ -11,6 +11,10 @@ NS_ASSUME_NONNULL_BEGIN
  
  + (void)detachTouchHandler:(UIGestureRecognizer *)touchHandler fromView:(UIView *)view;
  
@@ -71,53 +71,11 @@ index eb34427..8998787 100644
 +}
 +
  @end
-diff --git a/node_modules/@expo/ui/ios/Modifiers/PresentationModifiers.swift b/node_modules/@expo/ui/ios/Modifiers/PresentationModifiers.swift
-index f385284..d47e174 100644
---- a/node_modules/@expo/ui/ios/Modifiers/PresentationModifiers.swift
-+++ b/node_modules/@expo/ui/ios/Modifiers/PresentationModifiers.swift
-@@ -247,4 +247,19 @@ internal struct PresentationSizingModifier: ViewModifier, Record {
-       content
-     }
-   }
-+}
-+// OneKey patch: expose SwiftUI's preferredColorScheme. Unlike the environment
-+// colorScheme (subtree-only), it flows up to the enclosing presentation and
-+// flips the system sheet chrome - background material, grabber - to the given
-+// scheme. This is the only lever that keeps the native glass material while
-+// pinning a sheet dark on a light system.
-+
-+// MARK: - Preferred Color Scheme
-+
-+internal struct PreferredColorSchemeModifier: ViewModifier, Record {
-+  @Field var colorScheme: ColorSchemeType = .light
-+
-+  func body(content: Content) -> some View {
-+    content.preferredColorScheme(colorScheme.toNativeColorScheme())
-+  }
- }
-\ No newline at end of file
-diff --git a/node_modules/@expo/ui/ios/Modifiers/ViewModifierRegistry.swift b/node_modules/@expo/ui/ios/Modifiers/ViewModifierRegistry.swift
-index fbaa436..7f644b8 100644
---- a/node_modules/@expo/ui/ios/Modifiers/ViewModifierRegistry.swift
-+++ b/node_modules/@expo/ui/ios/Modifiers/ViewModifierRegistry.swift
-@@ -2270,6 +2270,12 @@ extension ViewModifierRegistry {
-       return try EnvironmentModifier(from: params, appContext: appContext)
-     }
- 
-+    // OneKey patch: registry entry for PreferredColorSchemeModifier, defined
-+    // in PresentationModifiers.swift.
-+    register("preferredColorScheme") { params, appContext, _ in
-+      return try PreferredColorSchemeModifier(from: params, appContext: appContext)
-+    }
-+
-     register("contentTransition") { params, appContext, _ in
-       return try ContentTransitionModifier(from: params, appContext: appContext)
-     }
 diff --git a/node_modules/@expo/ui/ios/RNHostView.swift b/node_modules/@expo/ui/ios/RNHostView.swift
-index 4cf3893..804e2cb 100644
+index 447fa6c..6c0d98d 100644
 --- a/node_modules/@expo/ui/ios/RNHostView.swift
 +++ b/node_modules/@expo/ui/ios/RNHostView.swift
-@@ -60,19 +60,64 @@ private final class RNHostTouchHandler: ObservableObject {
+@@ -150,19 +150,64 @@ private final class RNHostTouchHandler: ObservableObject {
      if attachedView === view, touchHandler != nil {
        return
      }
