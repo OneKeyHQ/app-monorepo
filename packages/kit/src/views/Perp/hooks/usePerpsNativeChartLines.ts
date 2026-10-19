@@ -83,7 +83,7 @@ export function usePerpsNativeChartLines(enableTradingUi: boolean) {
               interactive: canInteract && Boolean(line.meta?.orderId),
               cancelable: Boolean(line.meta?.orderId),
               draggable: line.editable === true,
-              pending: Boolean(pendingAction),
+              pending: pendingAction?.type,
               style: isLimitOrder ? 'dotted' : 'dashed',
               title: line.label?.left ?? '',
               label: {

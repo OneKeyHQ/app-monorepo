@@ -1,15 +1,20 @@
 import type { PropsWithChildren } from 'react';
-import { createContext, useContext } from 'react';
+import { createContext, useCallback, useContext } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { SizableText, Stack, YStack } from '@onekeyhq/components';
 import { Portfolio } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/InformationTabs/components/Portfolio';
+import { useStockDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { IMarketAccountPortfolioDisplayItem } from '@onekeyhq/shared/types/marketV2';
 
 import { useSwapStockPortfolioData } from '../../hooks/useSwapStockPortfolioData';
 
 import { SwapSmoothReveal } from './SwapSmoothReveal';
+import { useSwapStockSelection } from './SwapStockMarketProvider';
+import { useSwapStockPositions } from './SwapStockPositions';
 
 type ISwapStockPortfolio = ReturnType<typeof useSwapStockPortfolioData>;
 
@@ -35,6 +40,39 @@ export function useSwapStockPortfolio() {
 export function SwapStockMyPosition() {
   const intl = useIntl();
   const portfolio = useSwapStockPortfolio();
+  const positions = useSwapStockPositions();
+  const selection = useSwapStockSelection();
+  const { stockId, tokenVariants } = useStockDetail();
+  const selectPosition = useCallback(
+    (item: IMarketAccountPortfolioDisplayItem) => {
+      const identity = {
+        networkId: item.networkId,
+        contractAddress: item.tokenAddress,
+      };
+      const variant = tokenVariants.find((candidate) =>
+        equalTokenNoCaseSensitive({ token1: candidate, token2: identity }),
+      );
+      const token = positions?.positionTokenList.find((candidate) =>
+        equalTokenNoCaseSensitive({ token1: candidate, token2: identity }),
+      );
+      if (token) {
+        void selection?.selectToken(
+          variant && token.stock
+            ? {
+                ...token,
+                stock: {
+                  ...token.stock,
+                  stockId: token.stock.stockId ?? stockId,
+                },
+              }
+            : token,
+        );
+      } else if (variant) {
+        void selection?.selectVariant(variant);
+      }
+    },
+    [positions?.positionTokenList, selection, stockId, tokenVariants],
+  );
   const portfolioData = portfolio?.positionListData ?? [];
   return (
     <SwapSmoothReveal
@@ -57,6 +95,7 @@ export function SwapStockMyPosition() {
             hasAccount={portfolio?.hasAccount}
             portfolioData={portfolioData}
             isRefreshing={portfolio?.isRefreshing}
+            onItemPress={selectPosition}
           />
         </Stack>
       </YStack>

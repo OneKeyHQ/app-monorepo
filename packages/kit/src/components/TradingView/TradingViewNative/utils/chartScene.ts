@@ -1215,8 +1215,21 @@ export function buildTradingViewNativeChartScene({
       });
     }
   }
+  const pinnedPriceIsOutsideChart =
+    crosshair.price !== undefined &&
+    (crosshair.price < minPrice || crosshair.price > maxPrice);
   const crosshairY =
-    crosshairX === null ? null : Math.min(Math.max(crosshair.y, 0), timeAxisY);
+    crosshairX === null || pinnedPriceIsOutsideChart
+      ? null
+      : Math.min(
+          Math.max(
+            crosshair.price === undefined
+              ? crosshair.y
+              : getTradingViewNativePriceY(crosshair.price, layout),
+            0,
+          ),
+          timeAxisY,
+        );
   if (crosshairX !== null && crosshairY !== null) {
     commands.push(
       {

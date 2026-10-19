@@ -760,6 +760,17 @@ describe('TradingViewNative trading line labels', () => {
       expect(body.x / chartRight).toBeCloseTo(0.7);
       expect(body.height).toBe(20);
       expect(body.x + body.width).toBeLessThanOrEqual(chartRight);
+      expect(
+        scene.commands.find(
+          (command) =>
+            command.kind === 'line' &&
+            command.customPaintId ===
+              'chart.component.referenceLine.limit-order.line',
+        ),
+      ).toMatchObject({
+        y1: body.y + body.height / 2,
+        y2: body.y + body.height / 2,
+      });
     },
   );
 
