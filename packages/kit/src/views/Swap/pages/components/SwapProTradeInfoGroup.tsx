@@ -36,19 +36,22 @@ import {
   useSwapProInputToken,
   useSwapProToToken,
 } from '../../hooks/useSwapPro';
-import { pushSwapReceiveSelector } from '../../utils/swapDepositEntryUtils';
 
 import { ITEM_TITLE_PROPS, ITEM_VALUE_PROPS } from './SwapProTokenDetailGroup';
 
 interface ISwapProTradeInfoGroupProps {
   balanceLoading: boolean;
   onBalanceMax: () => void;
+  // Shared deposit entry (Done shortcut, balance reload, funnel event), same
+  // as the "Deposit to Trade" action button.
+  onDepositPress?: () => void;
   storeName: EJotaiContextStoreNames;
 }
 
 const SwapProTradeInfoGroup = ({
   balanceLoading,
   onBalanceMax,
+  onDepositPress,
   storeName,
 }: ISwapProTradeInfoGroupProps) => {
   const intl = useIntl();
@@ -71,17 +74,6 @@ const SwapProTradeInfoGroup = ({
       },
     });
   }, [navigation, storeName]);
-
-  const handleDepositPress = useCallback(() => {
-    if (!inputToken || !activeAccount) {
-      return;
-    }
-    pushSwapReceiveSelector({
-      navigation,
-      token: inputToken,
-      accountInfo: activeAccount,
-    });
-  }, [navigation, inputToken, activeAccount]);
 
   const inputTokenNetworkId = inputToken?.networkId;
   const { result: enableAddressTypeSelector } = usePromiseResult(
@@ -170,7 +162,9 @@ const SwapProTradeInfoGroup = ({
               />
             ) : null}
             <XStack
-              onPress={handleDepositPress}
+              onPress={onDepositPress}
+              disabled={!onDepositPress}
+              opacity={onDepositPress ? 1 : 0.5}
               hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
               hoverStyle={{ opacity: 0.7 }}
               pressStyle={{ opacity: 0.5 }}

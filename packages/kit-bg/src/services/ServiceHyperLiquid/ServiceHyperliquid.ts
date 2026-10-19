@@ -105,6 +105,7 @@ import type {
   IPerpsActiveAssetDataRaw,
   IPerpsUniverse,
   IRecentTrade,
+  ISpotBalance,
   ISpotMetaAndAssetCtxsResponse,
   ISpotToken,
   ISpotUniverse,
@@ -168,6 +169,12 @@ import { resolvePerpsDepositSelectedToken } from '../ServiceWebviewPerp/utils/de
 
 import { hyperLiquidApiClients } from './hyperLiquidApiClients';
 import hyperLiquidCache from './hyperLiquidCache';
+import {
+  getLiquidationRiskGeneration,
+  invalidatePerpsLiquidationRiskInputs,
+  setPerpsAbstractionModeWithRiskInvalidation,
+  updatePerpsLiquidationRiskInputs,
+} from './liquidationRiskInputs';
 import { shouldRefreshMarketPerpsUniverse } from './marketPerpsUniverse';
 import {
   createFetchUserAbstractionRawWithCache,
@@ -870,6 +877,8 @@ export default class ServiceHyperliquid extends ServiceBase {
               ipDisablePerp: commonConfig.ipDisablePerp === true,
               unifoldDepositEnabled:
                 commonConfig.unifoldDepositEnabled === true,
+              withdrawChannel:
+                commonConfig.withdrawChannel === 'legacy' ? 'legacy' : 'cctp',
             }),
             perpBannerConfig: options?.fromServerConfig
               ? bannerConfig
@@ -953,8 +962,25 @@ export default class ServiceHyperliquid extends ServiceBase {
     await this.disposeExchangeClients();
   }
 
+  private _perpsConfigRequest:
+    | Promise<IApiClientResponse<IPerpServerConfigResponse>>
+    | undefined;
+
   @backgroundMethod()
   async updatePerpsConfigByServer() {
+    // Focus, modal polling and submission must share one request so an older
+    // response cannot overwrite a newer emergency withdrawal policy.
+    if (!this._perpsConfigRequest) {
+      this._perpsConfigRequest = this._fetchPerpsConfigByServer().finally(
+        () => {
+          this._perpsConfigRequest = undefined;
+        },
+      );
+    }
+    return this._perpsConfigRequest;
+  }
+
+  private async _fetchPerpsConfigByServer() {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const resp = await client.get<
       IApiClientResponse<IPerpServerConfigResponse>
@@ -962,6 +988,10 @@ export default class ServiceHyperliquid extends ServiceBase {
       params: { assetTypeVersion: PERPS_ASSET_TYPE_VERSION },
     });
     const resData = resp.data;
+
+    if (!resData?.data?.referrerConfig) {
+      throw new OneKeyLocalError('Invalid Perps configuration response');
+    }
 
     if (process.env.NODE_ENV !== 'production') {
       // TODO devSettings ignore server config 11
@@ -2267,6 +2297,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   async updateActiveAccountSummaryFromClearinghouseState(
     data: IWsAllDexsClearinghouseState,
   ) {
+    const generation = getLiquidationRiskGeneration();
     const activeAccount = await perpsActiveAccountAtom.get();
     const activeAddress = activeAccount?.accountAddress?.toLowerCase();
     const dataUser = data?.user?.toLowerCase();
@@ -2287,11 +2318,11 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
 
     const crossMarginByDex = buildPerpsCrossMarginByDex(clearinghouseStates);
-    await perpsLiquidationRiskInputsAtom.set((prev) => ({
-      ...(prev?.accountAddress === activeAddress ? prev : {}),
+    await updatePerpsLiquidationRiskInputs({
+      generation,
       accountAddress: activeAddress as IHex,
       crossMarginByDex,
-    }));
+    });
 
     // Aggregate all DEXs (HL perps + xyz) using BigNumber
     const aggregated = clearinghouseStates.reduce(
@@ -2386,6 +2417,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   async updateSpotBalances(spotStateData: IWsSpotStateWithAvailability) {
+    const generation = getLiquidationRiskGeneration();
     const activeAccount = await perpsActiveAccountAtom.get();
     const activeAddress = activeAccount?.accountAddress?.toLowerCase();
     const dataUser = spotStateData?.user?.toLowerCase();
@@ -2397,13 +2429,21 @@ export default class ServiceHyperliquid extends ServiceBase {
       buildTokenAvailableAfterMaintenanceMap(
         spotStateData.spotState?.tokenToAvailableAfterMaintenance,
       );
-    await perpsLiquidationRiskInputsAtom.set((prev) => ({
-      ...(prev?.accountAddress === activeAddress ? prev : {}),
+    await updatePerpsLiquidationRiskInputs({
+      generation,
       accountAddress: activeAddress as IHex,
       tokenToAvailableAfterMaintenance,
-    }));
+    });
 
-    const balances = spotStateData?.spotState?.balances || [];
+    const allBalances = spotStateData?.spotState?.balances || [];
+    const balances = allBalances.filter(
+      (balance): balance is ISpotBalance => 'token' in balance,
+    );
+    // Outcome holdings have no supported valuation path yet. Keep the known
+    // total usable, but carry its incompleteness through live and cached UI.
+    const hasUnsupportedBalances = allBalances.some(
+      (balance) => !('token' in balance) && new BigNumber(balance.total).gt(0),
+    );
 
     await spotBalancesAtom.set({ balances, isLoaded: true });
 
@@ -2439,6 +2479,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         accountAddress: activeAddress as IHex,
         balances: normalizedBalances,
         spotTotalUsd: previousSpotTotalUsd,
+        hasUnsupportedBalances,
       });
       this._scheduleSpotTotalUsdFallback(activeAddress);
       return;
@@ -2450,6 +2491,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       accountAddress: activeAddress as IHex,
       balances: normalizedBalances,
       spotTotalUsd,
+      hasUnsupportedBalances,
     });
     void this.cacheService
       .writePerpsAccountDisplaySnapshot({
@@ -2466,6 +2508,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         accountAddress: activeAddress,
         balances: normalizedBalances,
         spotTotalUsd,
+        hasUnsupportedBalances,
       })
       .catch((error: unknown) => {
         console.warn(
@@ -2508,11 +2551,13 @@ export default class ServiceHyperliquid extends ServiceBase {
     // Functional updater: only write if spotTotalUsd is still undefined
     // (avoids overwriting fresher data from a concurrent SPOT_STATE event)
     let didWrite = false;
+    let hasUnsupportedBalances: boolean | undefined;
     await perpsSpotBalancesAtom.set((prev) => {
       if (!prev || (!force && prev.spotTotalUsd !== undefined)) return prev;
       if (prev.accountAddress?.toLowerCase() !== activeAddress) return prev;
       if (prev.spotTotalUsd === computed) return prev;
       didWrite = true;
+      hasUnsupportedBalances = prev.hasUnsupportedBalances;
       return { ...prev, spotTotalUsd: computed };
     });
     if (didWrite) {
@@ -2531,6 +2576,7 @@ export default class ServiceHyperliquid extends ServiceBase {
           accountAddress: activeAddress,
           balances,
           spotTotalUsd: computed,
+          hasUnsupportedBalances,
         })
         .catch((error: unknown) => {
           console.warn(
@@ -2586,6 +2632,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     const mids = hyperLiquidCache.allMids?.mids;
     let computed: string | undefined;
     let balancesToPersist: ISpotBalanceItem[] | undefined;
+    let hasUnsupportedBalances: boolean | undefined;
     await perpsSpotBalancesAtom.set((prev) => {
       if (!prev || prev.accountAddress?.toLowerCase() !== accountAddress) {
         return prev;
@@ -2597,6 +2644,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       });
       computed = spotTotal.totalUsd;
       balancesToPersist = prev.balances;
+      hasUnsupportedBalances = prev.hasUnsupportedBalances;
       return { ...prev, spotTotalUsd: computed };
     });
 
@@ -2616,6 +2664,7 @@ export default class ServiceHyperliquid extends ServiceBase {
           accountAddress,
           balances: balancesToPersist,
           spotTotalUsd: computed,
+          hasUnsupportedBalances,
         })
         .catch((error: unknown) => {
           console.warn(
@@ -2908,6 +2957,10 @@ export default class ServiceHyperliquid extends ServiceBase {
       previousAddress === newAddress;
 
     if (!isSameAddress) {
+      await invalidatePerpsLiquidationRiskInputs();
+      if (!this.isLatestActivePerpsAccountChange(requestId)) {
+        return undefined;
+      }
       await perpsAbstractionModeAtom.set((prev) =>
         this.isLatestActivePerpsAccountChange(requestId) ? undefined : prev,
       );
@@ -3254,7 +3307,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         ) {
           return undefined;
         }
-        await perpsAbstractionModeAtom.set(undefined);
+        await setPerpsAbstractionModeWithRiskInvalidation(undefined);
         return undefined;
       }
 
@@ -3262,7 +3315,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         userAddress,
         mode,
       );
-      await perpsAbstractionModeAtom.set({
+      await setPerpsAbstractionModeWithRiskInvalidation({
         accountAddress: lowerUserAddress,
         mode: mode as EHyperLiquidAbstractionMode,
         source: 'live',
@@ -3294,7 +3347,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         return undefined;
       }
       if (cached) {
-        await perpsAbstractionModeAtom.set({
+        await setPerpsAbstractionModeWithRiskInvalidation({
           accountAddress: lowerUserAddress,
           mode: cached as EHyperLiquidAbstractionMode,
           source: 'cache',
@@ -3329,7 +3382,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       lowerUserAddress,
       confirmedMode,
     );
-    await perpsAbstractionModeAtom.set({
+    await setPerpsAbstractionModeWithRiskInvalidation({
       accountAddress: lowerUserAddress,
       mode: confirmedMode as EHyperLiquidAbstractionMode,
       source: 'live',
@@ -3720,7 +3773,8 @@ export default class ServiceHyperliquid extends ServiceBase {
               });
               return null;
             }
-            if (agent.validUntil <= validThreshold) {
+            const validUntil = agent.validUntil ?? Number.MAX_SAFE_INTEGER;
+            if (validUntil <= validThreshold) {
               defaultLogger.perp.agentLifeCycle.trackReason({
                 reason: 'agent_near_expiry',
                 accountAddress,
@@ -3730,7 +3784,7 @@ export default class ServiceHyperliquid extends ServiceBase {
                   ...statusDetails,
                   agentName: agent.name,
                   agentAddress: agent.address,
-                  validUntil: agent.validUntil,
+                  validUntil: agent.validUntil ?? undefined,
                 },
               });
               return null;
@@ -3745,7 +3799,7 @@ export default class ServiceHyperliquid extends ServiceBase {
                   ...statusDetails,
                   agentName: agent.name,
                   agentAddress: agent.address,
-                  validUntil: agent.validUntil,
+                  validUntil: agent.validUntil ?? undefined,
                 },
               });
               return null;
@@ -3764,12 +3818,12 @@ export default class ServiceHyperliquid extends ServiceBase {
                   agentName: agent.name,
                   chainAgentAddress: agent.address,
                   localAgentAddress: credential.agentAddress,
-                  validUntil: agent.validUntil,
+                  validUntil: agent.validUntil ?? undefined,
                 },
               });
               return null;
             }
-            credential.validUntil = agent.validUntil;
+            credential.validUntil = validUntil;
             return credential;
           }),
         )
@@ -3819,7 +3873,11 @@ export default class ServiceHyperliquid extends ServiceBase {
           );
           const agentToRemove = (
             nonOneKeyAgents.length ? nonOneKeyAgents : extraAgents
-          ).toSorted((a, b) => a.validUntil - b.validUntil)?.[0];
+          ).toSorted(
+            (a, b) =>
+              (a.validUntil ?? Number.MAX_SAFE_INTEGER) -
+              (b.validUntil ?? Number.MAX_SAFE_INTEGER),
+          )?.[0];
           const agentNameToRemove = agentToRemove?.name as
             | EHyperLiquidAgentName
             | undefined;

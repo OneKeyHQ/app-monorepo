@@ -2,11 +2,17 @@
 
 import { act, renderHook } from '@testing-library/react';
 
+import {
+  ARC_ERC20_USDC_CONTRACT_ADDRESS,
+  ARC_EURC_CONTRACT_ADDRESS,
+  ARC_NETWORK_ID,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { ESwapProTradeType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapProAmountSlider } from './useSwapProAmountSlider';
 
 const mockToastMessage = jest.fn();
+let mockReserveGas: { networkId: string; reserveGas: string }[] = [];
 let mockInputToken:
   | {
       balanceParsed?: string;
@@ -34,7 +40,7 @@ jest.mock('@onekeyhq/components', () => ({
 }));
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/swap', () => ({
-  useSwapNativeTokenReserveGasAtom: () => [[]],
+  useSwapNativeTokenReserveGasAtom: () => [mockReserveGas],
   useSwapProTradeTypeAtom: () => [mockSwapProTradeType],
 }));
 
@@ -45,6 +51,7 @@ jest.mock('./useSwapPro', () => ({
 describe('useSwapProAmountSlider', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockReserveGas = [];
     jest.useFakeTimers();
     mockSwapProTradeType = ESwapProTradeType.MARKET;
     mockInputToken = {
@@ -59,6 +66,48 @@ describe('useSwapProAmountSlider', () => {
   afterEach(() => {
     jest.useRealTimers();
   });
+
+  it.each([
+    ['0.0000001', '1.123455'],
+    ['2', '0'],
+  ])(
+    'reserves Arc gas %s at 100% with ERC-20 precision',
+    (reserveGas, expectedAmount) => {
+      mockInputToken = {
+        balanceParsed: '1.123456',
+        contractAddress: ARC_ERC20_USDC_CONTRACT_ADDRESS,
+        decimals: 6,
+        isNative: false,
+        networkId: ARC_NETWORK_ID,
+        symbol: 'USDC',
+      };
+      mockReserveGas = [{ networkId: ARC_NETWORK_ID, reserveGas }];
+      const onAmountChange = jest.fn();
+      const { result, rerender } = renderHook(() =>
+        useSwapProAmountSlider({ inputAmount: '', onAmountChange }),
+      );
+      act(() => {
+        result.current.onSlideStart();
+        result.current.onSliderChange(100);
+        result.current.onSlideComplete();
+      });
+      expect(onAmountChange).toHaveBeenLastCalledWith(expectedAmount);
+      expect(mockInputToken.isNative).toBe(false);
+
+      mockInputToken = {
+        ...mockInputToken,
+        contractAddress: ARC_EURC_CONTRACT_ADDRESS,
+        symbol: 'EURC',
+      };
+      rerender();
+      act(() => {
+        result.current.onSlideStart();
+        result.current.onSliderChange(100);
+        result.current.onSlideComplete();
+      });
+      expect(onAmountChange).toHaveBeenLastCalledWith('1.123456');
+    },
+  );
 
   it('keeps a zero-balance token slider interactive while the amount stays zero', () => {
     const onAmountChange = jest.fn();

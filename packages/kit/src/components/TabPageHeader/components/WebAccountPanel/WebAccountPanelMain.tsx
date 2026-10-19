@@ -23,6 +23,7 @@ import {
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/actions';
+import { PerpsPartialAccountValueWarning } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/components/PerpsAccountNumberValue';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
 import {
   usePerpsActiveAccountAtom,
@@ -188,14 +189,19 @@ function PerpsSection({
       );
     }
     return (
-      <NumberSizeableText
-        size="$bodyMdMedium"
-        color="$text"
-        formatter="value"
-        formatterOptions={{ currency: '$' }}
-      >
-        {effectiveValue}
-      </NumberSizeableText>
+      <XStack alignItems="center" gap="$1">
+        <NumberSizeableText
+          size="$bodyMdMedium"
+          color="$text"
+          formatter="value"
+          formatterOptions={{ currency: '$' }}
+        >
+          {effectiveValue}
+        </NumberSizeableText>
+        {atomValue !== undefined && computedValue?.isAccountValuePartial ? (
+          <PerpsPartialAccountValueWarning />
+        ) : null}
+      </XStack>
     );
   };
 

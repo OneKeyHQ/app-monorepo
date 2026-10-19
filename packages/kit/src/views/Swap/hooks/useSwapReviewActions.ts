@@ -34,6 +34,10 @@ import {
 import { useSwapReviewRebuildStateMachine } from './useSwapReviewRebuildStateMachine';
 
 import type {
+  ISwapReviewAnalytics,
+  ISwapReviewPreparation,
+} from '../utils/swapReviewAnalytics';
+import type {
   ISwapReviewAdapter,
   ISwapReviewState,
 } from '../utils/swapReviewState';
@@ -130,10 +134,12 @@ function useReviewStepStateActions() {
 }
 
 export function useSwapReviewActions({
+  reviewAnalytics,
   adapter,
   approveTransactionSource = ESwapReviewApproveTransactionSource.None,
 }: {
   adapter: ISwapReviewAdapter;
+  reviewAnalytics?: ISwapReviewAnalytics;
   approveTransactionSource?: ESwapReviewApproveTransactionSource;
 }) {
   const intl = useIntl();
@@ -202,10 +208,13 @@ export function useSwapReviewActions({
       data?: IFetchQuoteResult,
       currentFromToken?: IFetchQuoteResult['fromTokenInfo'],
       currentToToken?: IFetchQuoteResult['toTokenInfo'],
+      reviewPreparation?: ISwapReviewPreparation,
     ) => {
       setBeforeActionsLoading(true);
       try {
         const reviewState = await adapter.prepareReview({
+          reviewAnalytics,
+          reviewPreparation,
           fromAmount: data?.fromAmount,
           fromToken: currentFromToken,
           toToken: currentToToken,
@@ -241,6 +250,7 @@ export function useSwapReviewActions({
     },
     [
       adapter,
+      reviewAnalytics,
       replaceReviewState,
       setBeforeActionsLoading,
       setSwapSteps,
