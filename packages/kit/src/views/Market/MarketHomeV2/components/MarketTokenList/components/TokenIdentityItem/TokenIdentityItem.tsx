@@ -1,8 +1,10 @@
 import type { FC } from 'react';
 import { memo, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
-  Icon,
+  IconButton,
   NATIVE_HIT_SLOP,
   NumberSizeableText,
   SizableText,
@@ -25,6 +27,7 @@ import {
   getSubtitleTextSize,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { TokenTagsPopover } from '@onekeyhq/kit/src/views/Market/components/TokenTagsPopover';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ECopyFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -147,6 +150,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   tokenSize = 'md',
   gap = MARKET_CELL_LOGO_GAP,
 }) => {
+  const intl = useIntl();
   const { gtMd } = useMedia();
   const { copyText } = useClipboard();
   // Use hook to get network logo with async fallback
@@ -178,6 +182,9 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
     localizedName = perpsSubtitle;
   } else if (!stock?.subtitle && stockListingName) {
     localizedName = stockListingName;
+  }
+  if (platformEnv.isNative && displayName === localizedName?.trim()) {
+    localizedName = undefined;
   }
   const shouldShowSecondRow =
     shouldShowVolume || shouldShowAddress || !!localizedName;
@@ -282,7 +289,19 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
         </SizableText>
       ) : null}
       {shouldShowCopyButton ? (
-        <Stack
+        <IconButton
+          testID="market-token-identity-copy"
+          accessibilityLabel={intl.formatMessage({
+            id: ETranslations.global_copy,
+          })}
+          icon="Copy3Outline"
+          iconSize="$4"
+          iconProps={{ color: '$iconSubdued' }}
+          variant="tertiary"
+          size="small"
+          hotKey
+          m="$0"
+          borderWidth={0}
           cursor="pointer"
           p={shouldRevealOnHover ? '$0' : '$1'}
           borderRadius="$full"
@@ -290,9 +309,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
           pressStyle={{ bg: '$bgActive' }}
           hitSlop={NATIVE_HIT_SLOP}
           onPress={handleCopy}
-        >
-          <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
-        </Stack>
+        />
       ) : null}
     </XStack>
   ) : null;

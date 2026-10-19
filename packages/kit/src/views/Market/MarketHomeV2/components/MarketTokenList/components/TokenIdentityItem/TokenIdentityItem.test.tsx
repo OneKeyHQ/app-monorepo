@@ -14,6 +14,15 @@ let mockGtMd = false;
 // module, so the lazy overlays must live in this single factory.
 jest.mock('@onekeyhq/components', () => ({
   Icon: () => null,
+  IconButton: ({
+    onPress,
+    accessibilityLabel,
+  }: {
+    onPress: (event: { stopPropagation: () => void }) => void;
+    accessibilityLabel: string;
+  }) => (
+    <button type="button" aria-label={accessibilityLabel} onClick={onPress} />
+  ),
   NATIVE_HIT_SLOP: undefined,
   NumberSizeableText: ({
     children,
@@ -43,6 +52,10 @@ jest.mock('@onekeyhq/components', () => ({
   LazyTooltip: ({ renderTrigger }: { renderTrigger: ReactNode }) => (
     <>{renderTrigger}</>
   ),
+}));
+
+jest.mock('react-intl', () => ({
+  useIntl: () => ({ formatMessage: () => 'Copy address' }),
 }));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -86,6 +99,34 @@ afterEach(() => {
 });
 
 describe('TokenIdentityItem volume line', () => {
+  test.each(['', '0x1234567890123456789012345678901234567890'])(
+    'shows a native stock name once with address %p',
+    (address) => {
+      jest.replaceProperty(platformEnv, 'isNative', true);
+      mockGtMd = true;
+      render(
+        <TokenIdentityItem
+          symbol="AAPL"
+          name=" Apple Inc. "
+          stockListingName="Apple Inc."
+          address={address}
+          showCopyButton
+        />,
+      );
+
+      expect(screen.getAllByText('Apple Inc.')).toHaveLength(1);
+      if (address) {
+        expect(screen.getByText('0x1234...7890')).toBeTruthy();
+        fireEvent.click(screen.getByRole('button', { name: 'Copy address' }));
+        expect(mockCopyText).toHaveBeenCalledWith(address);
+      } else {
+        expect(
+          screen.queryByRole('button', { name: 'Copy address' }),
+        ).toBeNull();
+      }
+    },
+  );
+
   test('shows the name with a reachable address and copy action on native tables', () => {
     jest.replaceProperty(platformEnv, 'isNative', true);
     mockGtMd = true;

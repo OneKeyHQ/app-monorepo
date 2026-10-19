@@ -50,6 +50,7 @@ export function MarketHoverRevealLine({
         animateOnly={ANIMATE_ONLY_TRANSFORM}
         y={0}
         $group-marketTokenRow-hover={{ y: -lineHeight }}
+        $group-marketTokenRow-focusWithin={{ y: -lineHeight }}
       >
         {resting}
         {revealed}
