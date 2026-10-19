@@ -56,7 +56,6 @@ describe('ServiceHardware Ledger BLE device mapping', () => {
         connectionType: 'usb',
       } as never,
       defaultDeviceName: 'Ledger',
-      canMatchDeviceByConnectId: () => true,
     });
 
     expect(result).toMatchObject({
@@ -77,8 +76,6 @@ describe('ServiceHardware Ledger BLE device mapping', () => {
         connectionType: 'usb',
       } as never,
       defaultDeviceName: 'Trezor',
-      hasPersistentConnectId: () => true,
-      hasPersistentDeviceId: () => true,
     });
 
     expect(result).toMatchObject({
@@ -100,8 +97,6 @@ describe('ServiceHardware Ledger BLE device mapping', () => {
         connectionType: 'ble',
       } as never,
       defaultDeviceName: 'Trezor',
-      hasPersistentConnectId: () => true,
-      hasPersistentDeviceId: () => true,
     });
 
     expect(result).toMatchObject({
