@@ -42,7 +42,7 @@ import {
 } from '@solana/web3.js';
 import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
-import { isEmpty, isNil } from 'lodash';
+import { chunk as chunkArray, isEmpty, isNil } from 'lodash';
 
 import { BLOCK_HASH_NOT_FOUND_ERROR_CODE } from '@onekeyhq/core/src/chains/sol/constants';
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
@@ -65,6 +65,8 @@ import {
   OneKeyInternalError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -82,6 +84,7 @@ import type {
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -112,12 +115,15 @@ import {
   COMPUTE_UNIT_PRICE_DECIMALS,
   CREATE_TOKEN_ACCOUNT_RENT,
   TOKEN_AUTH_RULES_ID,
+  canRefreshSolTxBlockhash,
   isCustomProgram,
+  isDurableNonceSolTx,
   masterEditionAddress,
   metadataAddress,
   parseComputeUnitLimit,
   parseComputeUnitPrice,
   parseNativeTxDetail,
+  replaceSolTxRecentBlockhash,
   tokenRecordAddress,
 } from './utils';
 
@@ -125,6 +131,7 @@ import type { IAssociatedTokenInfo, IParsedAccountInfo } from './types';
 import type { IKeyringMap } from '../../base/VaultBase';
 import type {
   IBroadcastTransactionByCustomRpcParams,
+  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -143,6 +150,69 @@ import type {
 } from '@metaplex-foundation/mpl-token-metadata';
 import type { AccountInfo, TransactionInstruction } from '@solana/web3.js';
 import type { FailedAttemptError } from 'p-retry';
+
+// A pending Solana tx that never reached the ledger leaves no signature
+// status. Its blockhash lives 150 blocks (~30 s at 200 ms slots, up to ~60 s
+// on slower cadences) and the broadcast retries add a few seconds more, so an
+// unseen tx older than this window is dropped.
+const SOL_PENDING_TX_DROPPED_TIMEOUT_MS = timerUtils.getTimeDurationMs({
+  minute: 3,
+});
+// Preflight rejection text shared by the proxy (code 40028) and custom RPCs.
+const SOL_BLOCKHASH_NOT_FOUND_MESSAGE = 'Blockhash not found';
+// A fresh blockhash can trail a lagging node by a slot or two, which clears in
+// a few seconds; an expired one never comes back. Two retries cover the lag
+// case without making the user wait a minute for a verdict that was already
+// final on the first attempt.
+const SOL_BLOCKHASH_NOT_FOUND_MAX_RETRY_ATTEMPTS = 2;
+// getSignatureStatuses accepts at most 256 signatures per request.
+const SOL_SIGNATURE_STATUSES_MAX_PER_CALL = 256;
+
+function isSolBlockhashNotFoundError(error: unknown): boolean {
+  return (
+    (error as OneKeyError | undefined)?.code ===
+      BLOCK_HASH_NOT_FOUND_ERROR_CODE ||
+    Boolean(
+      (error as Error | undefined)?.message?.includes(
+        SOL_BLOCKHASH_NOT_FOUND_MESSAGE,
+      ),
+    )
+  );
+}
+
+// Both broadcast paths surface the raw node text ("Error JSON RPC response:
+// Transaction simulation failed: Blockhash not found"); replace it with the
+// user-facing copy while keeping the code the retry check matches on. Solana
+// mainnet runs 200 ms slots since 2026-10-09, so a blockhash is only valid for
+// ~30 s; hardware/QR signing slower than that lands here, and the copy tells
+// the user to confirm faster next time.
+function normalizeSolBroadcastError(error: unknown): unknown {
+  if (!isSolBlockhashNotFoundError(error)) {
+    return error;
+  }
+  return new OneKeyLocalError({
+    message: appLocale.intl.formatMessage({
+      id: ETranslations.wallet_sol_tx_expired__msg,
+    }),
+    code: BLOCK_HASH_NOT_FOUND_ERROR_CODE,
+  });
+}
+
+// A durable-nonce tx has no blockhash expiry: it stays valid until its nonce
+// advances, so an unseen signature after the timeout does not mean the chain
+// will never execute it. Only a payload positively parsed as a plain blockhash
+// tx may be timed out; unreadable payloads stay pending.
+function hasSolBlockhashExpiry(encodedTx: IDecodedTx['encodedTx']): boolean {
+  if (typeof encodedTx !== 'string' || !encodedTx) {
+    return false;
+  }
+  try {
+    const nativeTx = parseToNativeTx(encodedTx);
+    return Boolean(nativeTx) && !isDurableNonceSolTx(nativeTx as INativeTxSol);
+  } catch {
+    return false;
+  }
+}
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.sol.hd;
@@ -179,7 +249,14 @@ export default class Vault extends VaultBase {
     ({ err?: unknown; confirmationStatus?: string | null } | null)[] | undefined
   > {
     const client = await this.getClient();
-    return client.getSignatureStatuses(signatures);
+    // The RPC rejects more than 256 signatures per call; batch and keep the
+    // caller's order so the result still lines up with the input.
+    const batches = await Promise.all(
+      chunkArray(signatures, SOL_SIGNATURE_STATUSES_MAX_PER_CALL).map((batch) =>
+        client.getSignatureStatuses(batch),
+      ),
+    );
+    return batches.flat();
   }
 
   override async buildAccountAddressDetail(
@@ -657,6 +734,90 @@ export default class Vault extends VaultBase {
     }
 
     return { ...unsignedTx, encodedTx: newEncodedTx };
+  }
+
+  override async refreshUnsignedTxBeforeSign(
+    unsignedTx: IUnsignedTxPro,
+  ): Promise<IUnsignedTxPro> {
+    const nativeTx = parseToNativeTx(unsignedTx.encodedTx as IEncodedTxSol);
+    if (!nativeTx || !canRefreshSolTxBlockhash(nativeTx)) {
+      return unsignedTx;
+    }
+
+    let recentBlockhash: string;
+    let lastValidBlockHeight: number;
+    try {
+      ({ recentBlockhash, lastValidBlockHeight } =
+        await this._getRecentBlockHash());
+    } catch (error) {
+      // Signing with the original blockhash is still the best effort when
+      // the RPC is unreachable; the broadcast reports the real outcome.
+      console.error(
+        'SOL refreshUnsignedTxBeforeSign: blockhash fetch failed',
+        error,
+      );
+      return unsignedTx;
+    }
+
+    return {
+      ...unsignedTx,
+      encodedTx: replaceSolTxRecentBlockhash({
+        nativeTx,
+        recentBlockhash,
+        lastValidBlockHeight,
+      }),
+    };
+  }
+
+  override async getDroppedPendingTxs({
+    pendingTxs,
+  }: {
+    pendingTxs: IAccountHistoryTx[];
+  }): Promise<IAccountHistoryTx[]> {
+    const now = Date.now();
+    const candidates = pendingTxs.filter((tx) => {
+      const { txid, createdAt, encodedTx } = tx.decodedTx;
+      return (
+        Boolean(txid) &&
+        !isNil(createdAt) &&
+        now - createdAt >= SOL_PENDING_TX_DROPPED_TIMEOUT_MS &&
+        hasSolBlockhashExpiry(encodedTx)
+      );
+    });
+    if (!candidates.length) {
+      return [];
+    }
+
+    try {
+      const statuses = await this.getSignatureStatuses(
+        candidates.map((tx) => tx.decodedTx.txid),
+      );
+      if (!statuses || statuses.length !== candidates.length) {
+        return [];
+      }
+      // `null` (not `undefined`) is the RPC's explicit "never seen" answer,
+      // even with searchTransactionHistory; anything else keeps the tx pending
+      // for the regular detail polling to settle.
+      return candidates.filter((_, index) => statuses[index] === null);
+    } catch (error) {
+      console.error('SOL getDroppedPendingTxs: status lookup failed', error);
+      return [];
+    }
+  }
+
+  override async buildHistoryTx(
+    params: Parameters<VaultBase['buildHistoryTx']>[0],
+  ): Promise<IAccountHistoryTx> {
+    const historyTx = await super.buildHistoryTx(params);
+    // refreshUnsignedTxBeforeSign may have re-stamped the blockhash after the
+    // decoded tx was built from the original payload. Every Solana keyring
+    // returns the exact payload it signed as signedTx.encodedTx, so persist
+    // that one as the record of what was broadcast.
+    const signedEncodedTx = params.signedTx?.encodedTx;
+    if (typeof signedEncodedTx === 'string' && signedEncodedTx) {
+      historyTx.decodedTx.encodedTx = signedEncodedTx;
+    }
+    return historyTx;
   }
 
   async _getRecentBlockHash() {
@@ -1836,12 +1997,27 @@ export default class Vault extends VaultBase {
       throw new OneKeyInternalError('Invalid rpc url');
     }
     const client = new ClientCustomRpcSol(rpcUrl);
-    const txid = await client.broadcastTransaction(signedTx.rawTx);
+    let txid: string;
+    try {
+      txid = await client.broadcastTransaction(signedTx.rawTx);
+    } catch (error) {
+      throw normalizeSolBroadcastError(error);
+    }
     return {
       ...signedTx,
       txid,
       encodedTx: signedTx.encodedTx,
     };
+  }
+
+  override async broadcastTransaction(
+    params: IBroadcastTransactionParams,
+  ): Promise<ISignedTxPro> {
+    try {
+      return await super.broadcastTransaction(params);
+    } catch (error) {
+      throw normalizeSolBroadcastError(error);
+    }
   }
 
   override async validateSendAmount({
@@ -1871,11 +2047,16 @@ export default class Vault extends VaultBase {
   override async checkShouldRetryBroadcastTx(
     error: FailedAttemptError,
   ): Promise<boolean> {
-    if (
-      (error as unknown as OneKeyError)?.code ===
-      BLOCK_HASH_NOT_FOUND_ERROR_CODE
-    ) {
-      await timerUtils.wait((error?.attemptNumber || 1) * 1000);
+    // A custom RPC node answers with a plain JSON-RPC error (no OneKey code).
+    // The blockhash comes from the proxy node, so a custom node lagging a few
+    // slots behind rejects it transiently the same way the proxy does with
+    // 40028; retry both alike.
+    if (isSolBlockhashNotFoundError(error)) {
+      const attemptNumber = error?.attemptNumber || 1;
+      if (attemptNumber > SOL_BLOCKHASH_NOT_FOUND_MAX_RETRY_ATTEMPTS) {
+        return false;
+      }
+      await timerUtils.wait(attemptNumber * 1000);
       return true;
     }
     return false;
