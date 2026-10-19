@@ -26717,6 +26717,7 @@
     "packages/shared/src/utils/lazySdkLoader.ts": 19855,
     "packages/shared/src/utils/lnUrlUtils.ts": 9049,
     "packages/shared/src/utils/lwwMaterializedView.ts": 10307,
+    "packages/shared/src/utils/marketAssetVariant.ts": 5827,
     "packages/shared/src/utils/marketKLineUtils.ts": 3449,
     "packages/shared/src/utils/marketPresetFeeUtils.ts": 5779,
     "packages/shared/src/utils/marketSearchStock.ts": 21656,

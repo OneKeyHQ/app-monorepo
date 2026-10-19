@@ -166,6 +166,7 @@ export function InformationPanel({
   const { tokenDetail, networkId, isPreviewTokenDetail, isStockToken } =
     useMarketDetailDisplayData();
   const btcMetadata = useBtcMetadataContext();
+  const isMobileLayout = platformEnv.isNative || mobileDetailKind !== undefined;
   const tokenAddress = tokenDetail?.address;
 
   const { securityData } = useTokenSecurity({
@@ -173,9 +174,7 @@ export function InformationPanel({
     networkId: networkId ?? '',
   });
 
-  // Figma stock chart header: price, dollar change, Share/Token toggle, and
-  // the market-status row. Desktop and web keep the previous stat header.
-  if (platformEnv.isNative && isStockToken) {
+  if (isMobileLayout && isStockToken) {
     return <StockMobilePriceHeader />;
   }
 
@@ -212,7 +211,7 @@ export function InformationPanel({
   const { color: priceChangeColor, display: priceChangeDisplay } =
     formatPriceChangeDisplay(priceChange24hPercent);
 
-  const priceChangeValue = platformEnv.isNative
+  const priceChangeValue = isMobileLayout
     ? resolveDisplayedPriceChange({
         price: currentPrice,
         priceChangePercent: priceChange24hPercent,
@@ -269,7 +268,7 @@ export function InformationPanel({
               </NumberSizeableText>
             ) : null}
             <SizableText
-              size={platformEnv.isNative ? '$bodyMdMedium' : '$bodyLgMedium'}
+              size={isMobileLayout ? '$bodyMdMedium' : '$bodyLgMedium'}
               color={priceChangeColor}
             >
               {priceChangeValue !== undefined
@@ -296,8 +295,9 @@ export function InformationPanel({
         </XStack>
       </YStack>
 
-      {platformEnv.isNative &&
-      mobileDetailKind === 'trending' &&
+      {isMobileLayout &&
+      (mobileDetailKind === 'trending' ||
+        (!platformEnv.isNative && mobileDetailKind === 'topCoin')) &&
       securityData ? (
         <XStack
           testID="market-detail-security-row"
@@ -314,7 +314,7 @@ export function InformationPanel({
           <TokenSecurityAlert />
         </XStack>
       ) : null}
-      {platformEnv.isNative ? null : (
+      {isMobileLayout ? null : (
         <YStack gap="$1" width="$40" pt="$1">
           <HeaderStatRows
             isStockToken={Boolean(isStockToken)}
