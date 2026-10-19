@@ -165,8 +165,8 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
     [address],
   );
 
-  const displayName =
-    !platformEnv.isNative && !showVolume ? name?.trim() : undefined;
+  const displayName = !showVolume ? name?.trim() : undefined;
+  const shouldRevealOnHover = !!displayName && !platformEnv.isNative;
   const shouldShowVolume = showVolume && !!volume;
   const shouldShowAddress = !showVolume && Boolean(address);
   const shouldShowCopyButton = showCopyButton && Boolean(address);
@@ -238,7 +238,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
       ? 'ChartColumnarOutline'
       : 'CryptoCoinOutline';
 
-  const secondaryRowHeight = displayName
+  const secondaryRowHeight = shouldRevealOnHover
     ? MARKET_CELL_SUBTITLE_LINE_HEIGHT
     : undefined;
   const secondaryRow = shouldShowSecondRow ? (
@@ -273,7 +273,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
       ) : null}
       {shouldShowAddress ? (
         <SizableText
-          size={displayName ? MARKET_CELL_SUBTITLE_SIZE : '$bodySm'}
+          size={shouldRevealOnHover ? MARKET_CELL_SUBTITLE_SIZE : '$bodySm'}
           color="$textSubdued"
           numberOfLines={1}
           flexShrink={0}
@@ -284,7 +284,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
       {shouldShowCopyButton ? (
         <Stack
           cursor="pointer"
-          p={displayName ? '$0' : '$1'}
+          p={shouldRevealOnHover ? '$0' : '$1'}
           borderRadius="$full"
           hoverStyle={{ bg: '$bgHover' }}
           pressStyle={{ bg: '$bgActive' }}
@@ -295,6 +295,18 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
         </Stack>
       ) : null}
     </XStack>
+  ) : null;
+
+  const nameRow = displayName ? (
+    <SizableText
+      height={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
+      size={MARKET_CELL_SUBTITLE_SIZE}
+      color="$textSubdued"
+      numberOfLines={1}
+      ellipsizeMode="tail"
+    >
+      {displayName}
+    </SizableText>
   ) : null;
 
   return (
@@ -324,24 +336,17 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
             />
           )}
         </XStack>
-        {displayName ? (
+        {shouldRevealOnHover ? (
           <MarketHoverRevealLine
             lineHeight={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
-            resting={
-              <SizableText
-                height={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
-                size={MARKET_CELL_SUBTITLE_SIZE}
-                color="$textSubdued"
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {displayName}
-              </SizableText>
-            }
+            resting={nameRow}
             revealed={shouldShowAddress ? secondaryRow : undefined}
           />
         ) : (
-          secondaryRow
+          <>
+            {nameRow}
+            {secondaryRow}
+          </>
         )}
       </Stack>
     </XStack>

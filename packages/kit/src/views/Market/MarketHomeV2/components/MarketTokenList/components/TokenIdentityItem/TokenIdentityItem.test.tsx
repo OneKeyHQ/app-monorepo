@@ -86,7 +86,7 @@ afterEach(() => {
 });
 
 describe('TokenIdentityItem volume line', () => {
-  test('keeps the address and copy action reachable on native tables', () => {
+  test('shows the name with a reachable address and copy action on native tables', () => {
     jest.replaceProperty(platformEnv, 'isNative', true);
     mockGtMd = true;
     const address = '0x1234567890123456789012345678901234567890';
@@ -101,40 +101,49 @@ describe('TokenIdentityItem volume line', () => {
       />,
     );
 
+    expect(screen.getByText('A Meme Coin')).toBeTruthy();
     expect(screen.getByText('0x1234...7890')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Copy address' }));
     expect(mockCopyText).toHaveBeenCalledWith(address);
     expect(onCopied).toHaveBeenCalledWith(address);
   });
 
-  test('retains the localized stock subtitle beside the revealed address', () => {
-    mockGtMd = true;
-    render(
-      <TokenIdentityItem
-        symbol="AAPLon"
-        name="Apple Ondo Token"
-        address="0x1234567890123456789012345678901234567890"
-        showCopyButton
-        stock={{
-          subtitle: '苹果',
-          source: 'ondo',
-          sourceLogoUri: '',
-          title: 'Ondo',
-        }}
-      />,
-    );
+  test.each([false, true])(
+    'retains the stock subtitle and address on native=%p',
+    (isNative) => {
+      jest.replaceProperty(platformEnv, 'isNative', isNative);
+      mockGtMd = true;
+      render(
+        <TokenIdentityItem
+          symbol="AAPLon"
+          name="Apple Ondo Token"
+          address="0x1234567890123456789012345678901234567890"
+          showCopyButton
+          stock={{
+            subtitle: '苹果',
+            source: 'ondo',
+            sourceLogoUri: '',
+            title: 'Ondo',
+          }}
+        />,
+      );
 
-    expect(screen.getByText('Apple Ondo Token')).toBeTruthy();
-    expect(screen.getByText('苹果')).toBeTruthy();
-    expect(screen.getByText('0x1234...7890')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Copy address' })).toBeTruthy();
-  });
+      expect(screen.getByText('Apple Ondo Token')).toBeTruthy();
+      expect(screen.getByText('苹果')).toBeTruthy();
+      expect(screen.getByText('0x1234...7890')).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Copy address' })).toBeTruthy();
+    },
+  );
 
-  test('shows a listing name even when the token has no address', () => {
-    render(<TokenIdentityItem symbol="TSM" name="台积电" address="" />);
+  test.each([false, true])(
+    'shows an addressless listing name on native=%p',
+    (isNative) => {
+      jest.replaceProperty(platformEnv, 'isNative', isNative);
+      render(<TokenIdentityItem symbol="TSM" name="台积电" address="" />);
 
-    expect(screen.getByText('台积电')).toBeTruthy();
-  });
+      expect(screen.getByText('台积电')).toBeTruthy();
+    },
+  );
 
   test('retains the contract address alongside the resting token name', () => {
     render(
@@ -150,20 +159,24 @@ describe('TokenIdentityItem volume line', () => {
     expect(screen.getByText('0x1234...7890')).toBeTruthy();
   });
 
-  test('keeps the volume layout when a name is supplied', () => {
-    render(
-      <TokenIdentityItem
-        symbol="MEME"
-        name="A Meme Coin"
-        address=""
-        showVolume
-        volume={249}
-      />,
-    );
+  test.each([false, true])(
+    'keeps the volume layout on native=%p when a name is supplied',
+    (isNative) => {
+      jest.replaceProperty(platformEnv, 'isNative', isNative);
+      render(
+        <TokenIdentityItem
+          symbol="MEME"
+          name="A Meme Coin"
+          address=""
+          showVolume
+          volume={249}
+        />,
+      );
 
-    expect(screen.queryByText('A Meme Coin')).toBeNull();
-    expect(screen.getByTestId('volume-number').textContent).toBe('249');
-  });
+      expect(screen.queryByText('A Meme Coin')).toBeNull();
+      expect(screen.getByTestId('volume-number').textContent).toBe('249');
+    },
+  );
 
   test('runs a volume on its own at the 12px subtitle size', () => {
     render(
