@@ -845,3 +845,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries �
 **Root Cause**: `chrome.notifications.create` used `BLANK_ICON_BASE64` (1x1 transparent PNG) when `extras.image` was missing or the remote URL failed, so the notification's content icon was invisible. On macOS the app icon is always Chrome's, so `iconUrl` is the only place OneKey can appear.
 **Fix**: Resolve `iconUrl` with the packaged `icon-128.png` via `chrome.runtime.getURL` when the payload has no usable icon, including the create-failure retry path.
 **Catchable by**: Section 3: identified which platforms consume modified code; NEW — extension OS notifications must not use a transparent placeholder for `iconUrl`
+
+## Case: Native SOL Pro chart showed a flat OBV
+**Date**: 2026-10-19 | **Platforms**: iOS, Android, extension (main runtime); desktop, web (single runtime), TradingViewNative charts
+**Symptom**: The native SOL Pro chart showed a flat OBV curve while prices changed (OK-64825).
+**Root Cause**: Native SOL was missing from the Hyperliquid whitelist, so the chart selected the Market price-sample feed without traded volume. OBV had no volume to accumulate.
+**Fix**: Map native Solana to Hyperliquid `SOL` OHLCV candles and realtime updates for Market, Swap, and Wallet. Keep wrapped SOL and other SPL tokens outside that native-token mapping. Add regression coverage for all three branches, SPL exclusion, and Market source resolution before and after transport metadata loads.
+**Catchable by**: Section 4: Data flow end-to-end — volume-based indicators need a feed with traded volume. Test native-token source selection and same-network contract-token exclusion whenever a shared chart whitelist changes.
