@@ -254,6 +254,7 @@ export type ITradingViewNativeChartSceneCommand =
     };
 
 export interface IBuildTradingViewNativeChartSceneOptions {
+  autoScalePointRange?: ITradingViewNativeVisiblePointRange;
   candleIntervalSeconds: number;
   candleTimeMode?: ITradingViewNativeCandleTimeMode;
   chartComponents?: readonly ITradingViewNativeChartLeafComponent[];
@@ -675,6 +676,7 @@ function appendLegendCommands({
 }
 
 export function buildTradingViewNativeChartScene({
+  autoScalePointRange,
   candleIntervalSeconds,
   candleTimeMode,
   chartComponents = [],
@@ -891,9 +893,11 @@ export function buildTradingViewNativeChartScene({
     return emptyScene;
   }
 
+  const scalePointRange = autoScalePointRange ?? visiblePointRange;
   const layout = getTradingViewNativeChartLayout({
+    autoScalePointRange: scalePointRange,
     additionalPriceRange: getTradingViewNativeIndicatorPriceRange({
-      ...visiblePointRange,
+      ...scalePointRange,
       series: indicatorSeries,
     }),
     candleIntervalSeconds,
@@ -936,11 +940,11 @@ export function buildTradingViewNativeChartScene({
     volumeTop,
   } = layout;
   const subIndicatorLayouts = getTradingViewNativeSubIndicatorPaneLayouts({
-    endIndex: visiblePointRange.endIndex,
+    endIndex: scalePointRange.endIndex,
     panes: visibleSubIndicatorPanes,
     stackBottom: subIndicatorPaneStackLayout.bottom,
     stackTop: subIndicatorPaneStackLayout.top,
-    startIndex: visiblePointRange.startIndex,
+    startIndex: scalePointRange.startIndex,
   });
   const getPointX = (index: number) =>
     getTradingViewNativeCandleX({
