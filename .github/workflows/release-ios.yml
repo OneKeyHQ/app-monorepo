@@ -112,6 +112,8 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Setup Credentials
+        env:
+          ADHOC_LIVE_ACTIVITY_PROFILE: ${{ secrets.ADHOC_LIVE_ACTIVITY_PROFILE }}
         run: |
           mkdir apps/mobile/ios/certs
           echo ${{ secrets.CREDENTIALS_JSON }} | base64 -d > apps/mobile/credentials.json
@@ -119,6 +121,7 @@ jobs:
           echo ${{ secrets.ADHOC_PROFILE }} | base64 -d > apps/mobile/ios/certs/profile.mobileprovision
           echo ${{ secrets.ADHOC_SERVICE_EXTENSION_PROFILE }} | base64 -d > apps/mobile/ios/certs/serviceextension-profile.mobileprovision
           echo ${{ secrets.ADHOC_APP_CLIP_PROFILE }} | base64 -d > apps/mobile/ios/certs/appclip-profile.mobileprovision
+          printf '%s' "${ADHOC_LIVE_ACTIVITY_PROFILE:?Missing ADHOC_LIVE_ACTIVITY_PROFILE}" | base64 -d > apps/mobile/ios/certs/liveactivity-profile.mobileprovision
           python3 << 'PYEOF'
           import json
 
@@ -141,6 +144,10 @@ jobs:
           ios_credentials['OneKeyAppClip'] = {
               'distributionCertificate': distribution_certificate,
               'provisioningProfilePath': 'ios/certs/appclip-profile.mobileprovision',
+          }
+          ios_credentials['LiveActivity'] = {
+              'distributionCertificate': distribution_certificate,
+              'provisioningProfilePath': 'ios/certs/liveactivity-profile.mobileprovision',
           }
           with open(path, 'w', encoding='utf-8') as file:
               json.dump(credentials, file)
@@ -168,6 +175,14 @@ jobs:
           buildNumber: ${{ env.BUILD_NUMBER }}
           versionName: ${{ env.BUILD_APP_VERSION }}
           projectName: OneKeyAppClip
+          dir: ./apps/mobile
+
+      - name: Modify LiveActivity info.plist
+        uses: OneKeyHQ/actions/build-plist-edit@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
+        with:
+          buildNumber: ${{ env.BUILD_NUMBER }}
+          versionName: ${{ env.BUILD_APP_VERSION }}
+          projectName: LiveActivity
           dir: ./apps/mobile
 
       - name: Set BUNDLE_VERSION in Info.plist
@@ -204,6 +219,8 @@ jobs:
 
       - name: Build on EAS And Auto Submit
         if: ${{ github.event.workflow_run }}
+        env:
+          APPSTORE_LIVE_ACTIVITY_PROFILE: ${{ secrets.APPSTORE_LIVE_ACTIVITY_PROFILE }}
         run: |
           cd apps/mobile
 
@@ -224,6 +241,7 @@ jobs:
             echo ${{ secrets.APPSTORE_PROFILE }} | base64 -d > ./ios/certs/profile.mobileprovision
             echo ${{ secrets.APPSTORE_SERVICE_EXTENSION_PROFILE }} | base64 -d > ./ios/certs/serviceextension-profile.mobileprovision
             echo ${{ secrets.APPSTORE_APP_CLIP_PROFILE }} | base64 -d > ./ios/certs/appclip-profile.mobileprovision
+            printf '%s' "${APPSTORE_LIVE_ACTIVITY_PROFILE:?Missing APPSTORE_LIVE_ACTIVITY_PROFILE}" | base64 -d > ./ios/certs/liveactivity-profile.mobileprovision
 
             eas build --profile="${STORE_PROFILE}" --platform ios --non-interactive --no-wait --auto-submit
           fi
