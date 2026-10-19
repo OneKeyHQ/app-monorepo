@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { EFirmwareType } from '@onekeyfe/hd-shared';
+import { colord } from 'colord';
 import { Image, Platform } from 'react-native';
 
 import { useTheme } from '@onekeyhq/components';
@@ -26,6 +27,14 @@ import type {
   NativeListTheme,
 } from '@onekeyfe/react-native-native-list';
 import type { ImageSourcePropType } from 'react-native';
+
+// Rasterized from components/svg/custom/onekey-device.svg at 3x. Inline PNGs
+// also work with the existing Android image decoder and OTA asset delivery.
+const hardwareWalletFallbackImages = {
+  light:
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAAB4CAYAAAA5ZDbSAAADbUlEQVR42u2d4ZGbMBBGP7ALoAQ6segkqQQoJZVY7oQS6MD5cdyMjzkbg20hrd6byZ+bTHLmeRch7S4SAAAAAAAAAABAChSx/CJ1XTtJ7c2PXILX00u6SNIwDB2Cv8SeE5X5DP3eoosdxXaziLXMbqIPO0btn4xuha6qqmIcR28+go2n5MV79DAMTcj/sNwhLecqV5Lc9AW3l6Izu+c+vBQh03URUPAVtz9ohmHwJlL0FL3wk9ZEBE8bGGd87hPFxxALiw27QX2I9PWBL7KLbZ0RQvAptvvSJ5h+b1/X9Zr0205f6KTvwW7Fbk+ScmeiO0n9h7JblPfg65MXppAhYvncZYD7Uq74GK5RmdLFgHQFA4IBwYBgBAOCAcGAYEAwKIXTJEVekhu8EI4IBgQrgnIYBO9XWQGGIxjBxhdZpzvHjw7BBri3Is61LptVNIIBwYBgQDAgGBAMCEYwIBgQDGIvWgH3qAsiGIhgpV0EcFvpcZk1bSM4UbGtfj8Ldjd/r1UEg0NJ0etHJq4Zm9jWdX21NvLJZE3WdLjvNv4TrSXJFiP4HTO5zEguDabld2FCcmmsm+FRWu71NYer+P4jqVkYedSyilb0xe7+3gyuZ4aX1XXdpby6PhqKXq2pspwPL3sg+SRSdLT0KyfU+TtDvB2CI0zPG1Jrb61bosx90pw4bEiWi7ZNjEWw0ulRyr4zkeNC4w1qpeH7raNX2I7g/tWdqEdzPVLe6CgzeBFVt+HNp5uepRGsz74vYcs57/Tz88IGiNiqjKDxe6HJu50qN/yKRVUvDhuionniPNil8u5fUvTvqbp/01tCO7GKjva1Ns2LL3NueEyKPJKnA/1+5bN0Y62y8mi8m6GT1N2soE8392Bv7aVc2Ra+Wy5sZy9abFUCggHBgGBAMCAYEAwIRjDIQgFfycUggrV3A5kMNcPlnKJNNFwvFPAp99Okdmrj9Kkd3y1M9EHwrJb5WzS8SBHgm33lMmu3EYs8JrGKFn26CV+bMqYxChlyYSeLCI5b8ELfUM4EqeQsAj4jnnEafkB5mVhLSXbjnZKI4NksSUdqDlenXew0MDRXyT5039Mh9Cccx/FfVVVFhpL9Hk1thz0+6TiOPjPJ/TAMf2VxL/qV4SdErQHBvxySnxKNbJ9DtyIAAAAAAAAAAMBn+A9fEDjuI1yu0QAAAABJRU5ErkJggg==',
+  dark: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAAB4CAYAAAA5ZDbSAAADwElEQVR42u2dW7KiMBBAu1NuAFjQxZUBKxMXBOyAzMfFKsZSFC9C0jmnaj7m6yrHhCb9QAQAAAAAAAAAACAGNJQPMgxDKSLV7f/e+zK6i6najuN4FREpiqJG8K/YS4wy38F73xwt+jDBXdfVqlqlsE0eKVpZtbYlK3L3vUdnWXbe82+6vbflVOXeAsdhGC4mBad0z30lueu62twW3fe956n0v+36nGVZa2IF7/mLjYjKxAoehqH03l/wecwqPn37S4zjWKrqqkhTRJo9tq+tf8jTdw0qzvi6YOfcj/c+qPvSN5g+d9t1nayQXIlIG/U9+N3HIu99E6vcOUVR1N77ZstrE/Q9+N3oOc9zFUOE8r3dDhmiVAOoNoRr5GK6GBCpYEAwIBgQjGBAMCAYEAwIBokhmySBl+QeUQjHCgYEv1iVFWqNCk45g5WE4HEcEWw5yHLO/ciDMphUC+7NCX4WEadal00UjWBAMCAYEAwIBgQDghEMCAYEg3AWvRvWuhdZwZDOCp4VAVSzvPFVZk3bCI5XbPUoF6yq5SyVWIUwOJQtev3IxLfHJqpq1fe9tzbyyWRNVt/3/tMKDlWtLEl2BkcFXraoyrQi2VnblmXD0lsLkp2lboalbdl736jqOc9zvf1T1fPSyCML9dUn68Xut8l5eZ638sHwsq7r6pij65OV1SsrqyzlbnjZM8lTGS5bdKhj9GXFhLpH45ymId4lggPcnj/YWhtr3RIu9UlzQrJBYu1RuspnE2MRHFGPUvKdiaQLjXcmOqv329ijXwS/Ef3KihdfLM31iPmgw/GOot977zO5a56lESzfe1/Cs8eiV3ne6Qz7snQAIpxFh9H4vdTkPYmu5j+EVznj2FevuZKdKTt02eolIRZKeJyx8Q3tFqtOVVsr9VnmgqwpaXD+S4LC0uQ7k1F0lmVtnue6ZjWraquqZ2uVlabLZidZ9S2Cnt7CVj44HGksnkMnU/huubCds2jhqBIQDAgGBAOCAcGAYEAwgkH+Wk2C4MTH7Se1gi111Yf0XVxI/UUWJC8V8Enq2aRJsjjn2tjSd0sTfRB8J9l7X/V9H1tQFeTn+vp4v1RfZyOBjFjkMYkomj7dmK+NO7BvSOhmXN/DzBYdVw9z/Ct4qW9I0j7K3KWSU/d6RtxixCDRc6Bb9FYtJSmOd4piBd+N+C1Tl7tnnbYeNMe5TPWxaO++J3dEH2+K2/URcg97TCqKok5J8pEdixpC7tTC2N6QVm1Qgu+T5PMOwIiPHc12KwIAAAAAAAAAAHyHf+wBBDiztlt8AAAAAElFTkSuQmCC',
+};
 
 export function useAccountSelectorNativeListThemeV2(
   sidebar = false,
@@ -178,9 +187,9 @@ export function accountSelectorWalletVisualV2({
       shape: 'rounded',
       backgroundColor: theme.strongBackground,
       image: {
-        uri: accountSelectorAssetUriV2(
-          require('@onekeyhq/components/svg/custom/onekey-device.svg'),
-        ),
+        uri: colord(theme.icon ?? theme.primaryText).isLight()
+          ? hardwareWalletFallbackImages.dark
+          : hardwareWalletFallbackImages.light,
         width: 40,
         height: 40,
         contentFit: 'contain',
