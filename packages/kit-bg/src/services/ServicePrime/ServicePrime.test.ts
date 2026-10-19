@@ -33,6 +33,17 @@ const mockPrimePersistAtom = {
   get: jest.fn(async () => ({})),
   set: jest.fn(async () => undefined),
 };
+const mockSupportPasswordAtom = {
+  get: jest.fn(async () => ({ unLock: true })),
+};
+const mockSupportPasswordPersistAtom = {
+  get: jest.fn(async () => ({ isPasswordSet: true })),
+};
+
+jest.mock('../../states/jotai/atoms/password', () => ({
+  passwordAtom: mockSupportPasswordAtom,
+  passwordPersistAtom: mockSupportPasswordPersistAtom,
+}));
 const mockPrimeServerMasterPasswordStatusAtom = {
   get: jest.fn(async () => ({})),
   set: jest.fn(async () => undefined),
@@ -362,6 +373,133 @@ const {
 const ServicePrime = require('./ServicePrime').default;
 
 const REQUEST_TOKEN = 'request-token';
+
+describe('ServicePrime Support access', () => {
+  beforeEach(() => {
+    resetIdentityRecoveryStateForTest('ready');
+    mockSupportPasswordAtom.get.mockResolvedValue({ unLock: true });
+    mockSupportPasswordPersistAtom.get.mockResolvedValue({
+      isPasswordSet: true,
+    });
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      isLoggedInOnServer: true,
+      onekeyUserId: 'support-user',
+    });
+  });
+
+  it.each([
+    { isPasswordSet: false, unLock: false },
+    { isPasswordSet: false, unLock: true },
+    { isPasswordSet: true, unLock: false },
+  ])(
+    'opens guest Support for password state %j without fetching a JWT',
+    async (state) => {
+      const { service } = createService();
+      mockSupportPasswordAtom.get.mockResolvedValue({ unLock: state.unLock });
+      mockSupportPasswordPersistAtom.get.mockResolvedValue({
+        isPasswordSet: state.isPasswordSet,
+      });
+      const getJWT = jest.spyOn(service, 'apiGetCustomerJWT');
+      const supportSession = await service.createIntercomSupportSession();
+      await expect(
+        service.redeemIntercomSupportSession({
+          supportSession,
+          origin: 'https://intercom.onekey.so',
+        }),
+      ).resolves.toEqual({});
+      expect(getJWT).not.toHaveBeenCalled();
+    },
+  );
+
+  it('opens guest Support while identity recovery is pending', async () => {
+    const { service } = createService();
+    resetIdentityRecoveryStateForTest('pending');
+    const getJWT = jest.spyOn(service, 'apiGetCustomerJWT');
+    try {
+      const supportSession = await service.createIntercomSupportSession();
+      await expect(
+        service.redeemIntercomSupportSession({
+          supportSession,
+          origin: 'https://intercom.onekey.so',
+        }),
+      ).resolves.toEqual({});
+      expect(getJWT).not.toHaveBeenCalled();
+    } finally {
+      resetIdentityRecoveryStateForTest('ready');
+    }
+  });
+
+  it.each(['missing', 'rejected'])(
+    'opens guest Support when the JWT is %s',
+    async (failure) => {
+      const { service } = createService();
+      jest.spyOn(service, 'apiGetCustomerJWT').mockImplementation(async () => {
+        if (failure === 'rejected')
+          throw new OneKeyLocalError('JWT endpoint unavailable');
+        return undefined;
+      });
+      const supportSession = await service.createIntercomSupportSession();
+      await expect(
+        service.redeemIntercomSupportSession({
+          supportSession,
+          origin: 'https://intercom.onekey.so',
+        }),
+      ).resolves.toEqual({});
+    },
+  );
+
+  it('still delivers an authenticated JWT only once when unlocked', async () => {
+    const { service } = createService();
+    jest.spyOn(service, 'apiGetCustomerJWT').mockResolvedValue({
+      token: 'memory-only-jwt',
+    });
+    const supportSession = await service.createIntercomSupportSession();
+    const request = { supportSession, origin: 'https://intercom.onekey.so' };
+    await expect(
+      service.redeemIntercomSupportSession(request),
+    ).resolves.toEqual({
+      intercom_user_jwt: 'memory-only-jwt',
+    });
+    await expect(service.redeemIntercomSupportSession(request)).rejects.toThrow(
+      'Invalid or expired',
+    );
+  });
+
+  it('does not promote a guest handoff after unlocking', async () => {
+    const { service } = createService();
+    mockSupportPasswordAtom.get.mockResolvedValue({ unLock: false });
+    const supportSession = await service.createIntercomSupportSession();
+    mockSupportPasswordAtom.get.mockResolvedValue({ unLock: true });
+    const getJWT = jest.spyOn(service, 'apiGetCustomerJWT');
+    await expect(
+      service.redeemIntercomSupportSession({
+        supportSession,
+        origin: 'https://intercom.onekey.so',
+      }),
+    ).rejects.toThrow('Invalid or expired');
+    expect(getJWT).not.toHaveBeenCalled();
+  });
+
+  it('still rejects identity changes when the JWT request fails', async () => {
+    const { service } = createService();
+    jest.spyOn(service, 'apiGetCustomerJWT').mockImplementation(async () => {
+      mockPrimePersistAtom.get.mockResolvedValue({
+        isLoggedIn: true,
+        isLoggedInOnServer: true,
+        onekeyUserId: 'other-user',
+      });
+      throw new OneKeyLocalError('JWT endpoint unavailable');
+    });
+    const supportSession = await service.createIntercomSupportSession();
+    await expect(
+      service.redeemIntercomSupportSession({
+        supportSession,
+        origin: 'https://intercom.onekey.so',
+      }),
+    ).rejects.toThrow('identity changed');
+  });
+});
 
 function createService() {
   const simpleDbPrime = {

@@ -42,13 +42,13 @@ export class IntercomSupportSessions {
     id: string;
     origin?: string;
     getOwner: () => Promise<string>;
-    getContext: () => Promise<IIntercomSupportContext>;
+    getContext: (owner: string) => Promise<IIntercomSupportContext>;
   }): Promise<IIntercomSupportContext> {
     const owner = await getOwner();
     if (!this.take(id, origin, owner)) {
       throw new OneKeyLocalError('Invalid or expired Support session');
     }
-    const context = await getContext();
+    const context = await getContext(owner);
     if (owner !== (await getOwner())) {
       throw new OneKeyLocalError('Support identity changed');
     }

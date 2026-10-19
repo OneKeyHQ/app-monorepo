@@ -15,6 +15,9 @@ describe('Intercom Support handoff', () => {
         1,
       ),
     ).toBe(false);
+    expect(
+      sessions.take('handoff', 'https://asset.onekey-asset.com', 'owner', 1),
+    ).toBe(false);
     expect(sessions.take('handoff', INTERCOM_SUPPORT_ORIGIN, 'owner', 1)).toBe(
       true,
     );
@@ -64,7 +67,7 @@ describe('Intercom Support handoff', () => {
     ).rejects.toThrow('identity changed');
   });
 
-  it('does not fetch credentials while locked or for an invalid origin', async () => {
+  it('does not fetch credentials for unavailable ownership or an invalid origin', async () => {
     const sessions = new IntercomSupportSessions();
     sessions.create('handoff', 'owner');
     const getContext = jest.fn(async () => ({}));
@@ -73,11 +76,11 @@ describe('Intercom Support handoff', () => {
         id: 'handoff',
         origin: INTERCOM_SUPPORT_ORIGIN,
         getOwner: async () => {
-          throw new OneKeyLocalError('locked');
+          throw new OneKeyLocalError('ownership unavailable');
         },
         getContext,
       }),
-    ).rejects.toThrow('locked');
+    ).rejects.toThrow('ownership unavailable');
     await expect(
       sessions.redeem({
         id: 'handoff',

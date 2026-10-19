@@ -116,7 +116,10 @@ import type {
 import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
-import { passwordAtom } from '../../states/jotai/atoms/password';
+import {
+  passwordAtom,
+  passwordPersistAtom,
+} from '../../states/jotai/atoms/password';
 import {
   primeGiftEligibilityPersistAtom,
   primeLoginDialogAtom,
@@ -512,16 +515,21 @@ class ServicePrime extends ServiceBase {
 
   private async getIntercomSupportOwner() {
     return this.authStateWriteMutex.runExclusive(async () => {
-      const [password, user, generation, source] = await Promise.all([
-        passwordAtom.get(),
-        primePersistAtom.get(),
-        this.backgroundApi.simpleDb.prime.getAuthStateGeneration(),
-        this.backgroundApi.simpleDb.prime.getAuthSessionSource(),
-      ]);
-      if (!password.unLock || !isIdentityRecoveryReady()) {
-        throw new OneKeyLocalError('Unlock the app before opening Support');
-      }
-      return `${user.isLoggedIn}:${user.isLoggedInOnServer}:${user.onekeyUserId ?? ''}:${source ?? ''}:${generation}`;
+      const [password, passwordSettings, user, generation, source] =
+        await Promise.all([
+          passwordAtom.get(),
+          passwordPersistAtom.get(),
+          primePersistAtom.get(),
+          this.backgroundApi.simpleDb.prime.getAuthStateGeneration(),
+          this.backgroundApi.simpleDb.prime.getAuthSessionSource(),
+        ]);
+      const canAuthenticate =
+        passwordSettings.isPasswordSet &&
+        password.unLock &&
+        isIdentityRecoveryReady() &&
+        user.isLoggedIn &&
+        user.isLoggedInOnServer;
+      return `${canAuthenticate ? 'authenticated' : 'guest'}:${user.isLoggedIn}:${user.isLoggedInOnServer}:${user.onekeyUserId ?? ''}:${source ?? ''}:${generation}`;
     });
   }
 
@@ -546,16 +554,14 @@ class ServicePrime extends ServiceBase {
       id: supportSession,
       origin,
       getOwner: () => this.getIntercomSupportOwner(),
-      getContext: async () => {
-        const user = await primePersistAtom.get();
-        const loggedIn = user.isLoggedIn && user.isLoggedInOnServer;
-        const token = loggedIn
-          ? (await this.apiGetCustomerJWT())?.token
-          : undefined;
-        if (loggedIn && !token) {
-          throw new OneKeyLocalError('Support identity is unavailable');
+      getContext: async (owner) => {
+        if (!owner.startsWith('authenticated:')) return {};
+        try {
+          const token = (await this.apiGetCustomerJWT())?.token;
+          return token ? { intercom_user_jwt: token } : {};
+        } catch {
+          return {};
         }
-        return { intercom_user_jwt: token };
       },
     });
   }
