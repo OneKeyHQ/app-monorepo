@@ -33,10 +33,12 @@ export function NativeMarketDetailContent({
   coinGeckoId,
   networkId,
   tokenImageUri,
+  tokenSymbol,
 }: {
   coinGeckoId: string;
   networkId?: string;
   tokenImageUri?: string;
+  tokenSymbol?: string;
 }) {
   const intl = useIntl();
   const lastTokenRef = useRef<IMarketTokenDetail | undefined>(undefined);
@@ -78,11 +80,11 @@ export function NativeMarketDetailContent({
           networkId={networkId}
         />
         <SizableText size="$headingLg" numberOfLines={1}>
-          {token?.symbol.toUpperCase()}
+          {tokenSymbol ?? token?.symbol}
         </SizableText>
       </XStack>
     ),
-    [networkId, token?.image, token?.symbol, tokenImageUri],
+    [networkId, token?.image, token?.symbol, tokenImageUri, tokenSymbol],
   );
 
   return (
@@ -143,6 +145,7 @@ export default function NativeMarketDetail({
       coinGeckoId={route.params.token}
       networkId={route.params.preferredToken?.networkId}
       tokenImageUri={route.params.tokenImageUri}
+      tokenSymbol={route.params.tokenSymbol}
     />
   );
 }

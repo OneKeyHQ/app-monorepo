@@ -65,6 +65,7 @@ export type IModalAssetDetailsParamList = {
   [EModalAssetDetailRoutes.MarketDetail]: {
     token: string;
     tokenImageUri?: string;
+    tokenSymbol?: string;
     /**
      * The wallet asset the caller launched Market from. Lets the trade
      * actions resolve the network and contract address even when market
