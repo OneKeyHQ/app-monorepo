@@ -65,6 +65,8 @@ import {
   TRADING_VIEW_URL_TEST,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
+import { DEV_UNKNOWN_AVATAR_DEVICE_ID } from '@onekeyhq/shared/src/consts/dbConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -493,22 +495,33 @@ const BaseDevSettingsSection = () => {
       const { wallets } = await serviceAccount.getWallets({
         ignoreEmptySingletonWalletAccounts: true,
       });
-      const matches = wallets.filter((wallet) => wallet.name === name);
-      let wallet = matches[0];
-      if (
-        matches.length > 1 ||
-        (wallet &&
-          (!wallet.isMocked ||
-            !accountUtils.isQrWallet({ walletId: wallet.id }) ||
-            wallet.accounts.length > 0))
-      ) {
-        Toast.error({ title: '同名钱包不是空模拟钱包，已停止注入' });
-        return;
-      }
+      const getFixtureWallet = (items: typeof wallets) => {
+        const matches = items.filter(
+          (item) =>
+            item.associatedDeviceInfo?.deviceId ===
+            DEV_UNKNOWN_AVATAR_DEVICE_ID,
+        );
+        const candidate = matches[0];
+        if (
+          matches.length > 1 ||
+          (candidate &&
+            (!candidate.isMocked ||
+              !accountUtils.isQrWallet({ walletId: candidate.id }) ||
+              accountUtils.isHwHiddenWallet({ wallet: candidate }) ||
+              candidate.accounts.length > 0)) ||
+          (!candidate && items.some((item) => item.name === name))
+        ) {
+          throw new OneKeyLocalError(
+            '测试钱包身份冲突或不是空模拟钱包，已停止注入',
+          );
+        }
+        return candidate;
+      };
+      let wallet = getFixtureWallet(wallets);
       if (!wallet) {
-        ({ wallet } = await serviceAccount.createQrWallet({
+        await serviceAccount.createQrWallet({
           qrDevice: {
-            deviceId: 'onekey-dev-unknown-avatar-v1',
+            deviceId: DEV_UNKNOWN_AVATAR_DEVICE_ID,
             name,
             deviceType: EDeviceType.Pro,
             xfp: '',
@@ -517,7 +530,14 @@ const BaseDevSettingsSection = () => {
           },
           airGapAccounts: [],
           isMockedStandardHwWallet: true,
-        }));
+        });
+        const { wallets: createdWallets } = await serviceAccount.getWallets({
+          ignoreEmptySingletonWalletAccounts: true,
+        });
+        wallet = getFixtureWallet(createdWallets);
+        if (!wallet) {
+          throw new OneKeyLocalError('未找到已创建的测试钱包，已停止注入');
+        }
       }
       await serviceAccount.setWalletNameAndAvatar({
         walletId: wallet.id,
