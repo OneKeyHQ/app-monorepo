@@ -272,14 +272,24 @@ function MarketStockListImpl({
   ]);
 
   const listContent = webTabIntegrated ? (
-    <WebMarketStockList
-      items={items}
-      columns={columns}
-      onPress={toMarketStockDetailPage}
-      footer={TableFooterComponent}
-      empty={TableEmptyComponent}
-      contentPaddingBottom={contentPaddingBottom}
-    />
+    <>
+      {!useDesktopPortal ? (
+        <Table.HeaderRow
+          columns={columns}
+          onHeaderRow={handleHeaderRow}
+          rowProps={{ width: '100%', height: MARKET_LIST_ROW_HEIGHT }}
+          headerRowProps={{ height: 36 }}
+        />
+      ) : null}
+      <WebMarketStockList
+        items={items}
+        columns={columns}
+        onPress={toMarketStockDetailPage}
+        footer={TableFooterComponent}
+        empty={TableEmptyComponent}
+        contentPaddingBottom={contentPaddingBottom}
+      />
+    </>
   ) : (
     <Table<IMarketStockPublicItem>
       contentContainerStyle={{ paddingBottom: contentPaddingBottom }}

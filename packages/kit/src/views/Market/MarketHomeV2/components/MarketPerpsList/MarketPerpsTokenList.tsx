@@ -205,14 +205,24 @@ function MarketPerpsTokenListImpl({
       };
 
   const listContent = webTabIntegrated ? (
-    <WebMarketPerpsList
-      items={sortedTokens}
-      columns={perpsColumns}
-      onPress={handleTokenPress}
-      footer={TableFooterComponent}
-      empty={TableEmptyComponent}
-      contentPaddingBottom={integratedContentPaddingBottom}
-    />
+    <>
+      {!useDesktopPortal ? (
+        <Table.HeaderRow
+          columns={perpsColumns}
+          onHeaderRow={handleHeaderRow}
+          rowProps={{ height: MARKET_LIST_ROW_HEIGHT }}
+          headerRowProps={{ height: 36 }}
+        />
+      ) : null}
+      <WebMarketPerpsList
+        items={sortedTokens}
+        columns={perpsColumns}
+        onPress={handleTokenPress}
+        footer={TableFooterComponent}
+        empty={TableEmptyComponent}
+        contentPaddingBottom={integratedContentPaddingBottom}
+      />
+    </>
   ) : (
     <Table<IMarketPerpsToken>
       contentContainerStyle={tableContentContainerStyle}

@@ -1019,21 +1019,31 @@ function MarketTokenListBase({
   const tableList =
     webTabIntegrated &&
     (useTrendingDesktopColumns || useWatchlistDesktopColumns) ? (
-      <WebMarketTokenList
-        data={data}
-        columns={marketTokenColumns}
-        onRow={stableOnRow}
-        footer={TableFooterComponent}
-        empty={TableEmptyComponent}
-        networkId={networkId}
-        contentPaddingBottom={integratedContentPaddingBottom}
-        watchlistFrom={watchlistFrom}
-        copyFrom={copyFrom}
-        watchlistMode={useWatchlistDesktopColumns}
-        draggable={draggable}
-        onDragEnd={onDragEnd}
-        onScrollBegin={onScrollBegin}
-      />
+      <>
+        {showTableHeader && !useDesktopPortal ? (
+          <Table.HeaderRow
+            columns={marketTokenColumns}
+            onHeaderRow={stableHandleHeaderRow}
+            rowProps={tableRowProps}
+            headerRowProps={md ? undefined : { height: 36 }}
+          />
+        ) : null}
+        <WebMarketTokenList
+          data={data}
+          columns={marketTokenColumns}
+          onRow={stableOnRow}
+          footer={TableFooterComponent}
+          empty={TableEmptyComponent}
+          networkId={networkId}
+          contentPaddingBottom={integratedContentPaddingBottom}
+          watchlistFrom={watchlistFrom}
+          copyFrom={copyFrom}
+          watchlistMode={useWatchlistDesktopColumns}
+          draggable={draggable}
+          onDragEnd={onDragEnd}
+          onScrollBegin={onScrollBegin}
+        />
+      </>
     ) : (
       <Table<IMarketToken>
         deferOffscreenRows={webTabIntegrated && useTrendingDesktopColumns}

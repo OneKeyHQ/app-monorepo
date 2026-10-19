@@ -426,12 +426,22 @@ export function MarketTopCoinsList({
 
   const listContent =
     webTabIntegrated && (!isLoading || data.length > 0) ? (
-      <WebMarketTopCoinsList
-        items={sortedData}
-        columns={columns}
-        onRow={onRow}
-        contentPaddingBottom={contentPaddingBottom}
-      />
+      <>
+        {!useDesktopPortal ? (
+          <Table.HeaderRow
+            columns={columns}
+            onHeaderRow={onHeaderRow}
+            rowProps={{ height: TOP_COINS_DESKTOP_ROW_HEIGHT }}
+            headerRowProps={{ height: 36 }}
+          />
+        ) : null}
+        <WebMarketTopCoinsList
+          items={sortedData}
+          columns={columns}
+          onRow={onRow}
+          contentPaddingBottom={contentPaddingBottom}
+        />
+      </>
     ) : (
       <Table<IMarketAssetListItem>
         contentContainerStyle={{ paddingBottom: contentPaddingBottom }}
