@@ -1922,7 +1922,8 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
   const preserveMarketModalAmounts =
     shouldSeedMarketPair && pageType === EPageType.modal;
   const initialSelectedTokensOnInit =
-    (swapInitParams?.swapSource === ESwapSource.WALLET_HOME_TOKEN_LIST &&
+    ((swapInitParams?.swapSource === ESwapSource.WALLET_HOME_TOKEN_LIST ||
+      swapInitParams?.swapSource === ESwapSource.TOKEN_DETAIL) &&
       Boolean(swapInitParams?.importNetworkId)) ||
     shouldSeedMarketPair
       ? {

@@ -1,5 +1,6 @@
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { ISwapSelectedTokensColdStartContext } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
+import { getSwapNetworkDefaultTokenPair } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   ISwapNetwork,
@@ -11,7 +12,6 @@ import {
   buildSwapDefaultSelectedTokensForNetwork,
   buildSwapDefaultSelectedTokensFromHomeAccount,
   buildSwapSelectedTokensColdStartAccountKeyFromSelectedAccount,
-  getSwapNetworkDefaultTokenPair,
   isSelectedAccountOwnerMatched,
   isSelectedAccountOwnerMatchedIgnoringDeriveType,
   isSwapColdStartAllNetworkContextNetworkId,

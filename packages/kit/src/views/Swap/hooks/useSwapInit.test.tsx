@@ -6,6 +6,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { createStore } from 'jotai';
 
+import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapDirectionType,
   ESwapSource,
@@ -169,6 +170,7 @@ const marketParams: ISwapInitParams = {
   swapTabSwitchType: ESwapTabSwitchType.SWAP,
   marketSwapDirection: 'to',
   importToToken: marketToken,
+  importFromToken: swapDefaultSetTokens['evm--1'].toToken,
 };
 const emptyHomeAccountInfo = {
   selectedAccount: undefined,
@@ -231,7 +233,7 @@ describe('Market import with cached network capabilities', () => {
     jest.useRealTimers();
   });
 
-  it('replaces the cached bridge default with the refreshed same-chain default', async () => {
+  it('keeps the entry-selected stablecoin while network capabilities refresh', async () => {
     const request = deferred<ISwapNetwork[]>();
     mockGetNetworkCache.mockResolvedValue({ data: [cachedBsc, freshNetwork] });
     mockFetchNetworks.mockReturnValue(request.promise);
@@ -255,7 +257,7 @@ describe('Market import with cached network capabilities', () => {
       ]),
     );
 
-    expect(mockStore.get(swapSelectFromTokenAtom())?.networkId).toBe('evm--56');
+    expect(mockStore.get(swapSelectFromTokenAtom())?.networkId).toBe('evm--1');
     expectMarketPair(bnb);
     expect(mockFetchNetworks).toHaveBeenCalledTimes(1);
     expect(mockSwapActions.current.syncNetworksSort).toHaveBeenCalledTimes(2);
@@ -343,8 +345,8 @@ describe('Market import with cached network capabilities', () => {
     );
 
     expectMarketPair(bnb);
-    expect(mockStore.get(swapSelectFromTokenAtom())?.networkId).toBe('evm--56');
-    expect(mockStore.get(swapToTokenAmountAtom()).value).toBe('');
+    expect(mockStore.get(swapSelectFromTokenAtom())?.networkId).toBe('evm--1');
+    expect(mockStore.get(swapToTokenAmountAtom()).value).toBe('7');
   });
 
   it('does not restore an older Market intent after Stock takes ownership during the Home await', async () => {
@@ -501,5 +503,227 @@ describe('Market import with cached network capabilities', () => {
     await act(async () => request.resolve([freshNetwork]));
 
     expectMarketPair(nextMarketToken);
+  });
+});
+
+const sol: ISwapToken = {
+  networkId: 'sol--101',
+  contractAddress: '',
+  symbol: 'SOL',
+  decimals: 9,
+  isNative: true,
+};
+const solUsdt: ISwapToken = {
+  networkId: sol.networkId,
+  contractAddress: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
+  symbol: 'USDT',
+  decimals: 6,
+  isNative: false,
+};
+const solNetwork: ISwapNetwork = {
+  ...freshNetwork,
+  networkId: sol.networkId,
+  symbol: 'SOL',
+  name: 'Solana',
+  defaultSelectTokenDetail: { from: sol, to: solUsdt },
+};
+
+describe('asset entry default counterpart ownership', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockStore = createStore();
+    mockIsFocused = true;
+    mockFetchNetworks.mockReset();
+    mockGetNetworkCache.mockResolvedValue({ data: [] });
+    jest
+      .mocked(getLatestHomeSelectedAccountInfo)
+      .mockResolvedValue(emptyHomeAccountInfo);
+  });
+
+  it.each([ESwapSource.WALLET_HOME_TOKEN_LIST, ESwapSource.TOKEN_DETAIL])(
+    'uses the API counterpart for %s while retaining the clicked SOL',
+    async (swapSource) => {
+      mockFetchNetworks.mockResolvedValue([solNetwork]);
+      renderMarket({
+        importFromToken: sol,
+        importNetworkId: sol.networkId,
+        swapSource,
+        swapTabSwitchType: ESwapTabSwitchType.SWAP,
+      });
+      await waitFor(() =>
+        expect(mockStore.get(swapSelectToTokenAtom())).toEqual(solUsdt),
+      );
+      expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(sol);
+    },
+  );
+
+  it('falls back locally when networks refresh fails', async () => {
+    mockGetNetworkCache.mockResolvedValue({ data: [solNetwork] });
+    mockFetchNetworks.mockRejectedValue(new Error('offline'));
+    renderMarket({
+      importFromToken: sol,
+      swapSource: ESwapSource.WALLET_HOME_TOKEN_LIST,
+    });
+    await waitFor(() =>
+      expect(mockStore.get(swapSelectToTokenAtom())?.symbol).toBe('USDC'),
+    );
+    expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(sol);
+  });
+
+  it.each([ESwapSource.WALLET_HOME_TOKEN_LIST, ESwapSource.TOKEN_DETAIL])(
+    'shows the local default then refreshes it without clearing the amount for %s',
+    async (swapSource) => {
+      const request = deferred<ISwapNetwork[]>();
+      mockFetchNetworks.mockReturnValue(request.promise);
+      renderMarket({
+        importFromToken: sol,
+        swapSource,
+      });
+      await waitFor(() =>
+        expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(sol),
+      );
+      expect(mockStore.get(swapSelectToTokenAtom())?.symbol).toBe('USDC');
+      act(() =>
+        mockStore.set(swapFromTokenAmountAtom(), {
+          value: '0.25',
+          isInput: true,
+        }),
+      );
+      await act(async () => request.resolve([solNetwork]));
+      await waitFor(() =>
+        expect(mockStore.get(swapSelectToTokenAtom())).toEqual(solUsdt),
+      );
+      expect(mockStore.get(swapFromTokenAmountAtom())).toEqual({
+        value: '0.25',
+        isInput: true,
+      });
+    },
+  );
+
+  it('uses the cached default while fresh configuration is pending', async () => {
+    const request = deferred<ISwapNetwork[]>();
+    mockFetchNetworks.mockReturnValue(request.promise);
+    mockGetNetworkCache.mockResolvedValue({ data: [solNetwork] });
+    renderMarket({
+      importFromToken: sol,
+      swapSource: ESwapSource.WALLET_HOME_TOKEN_LIST,
+    });
+    await waitFor(() =>
+      expect(mockStore.get(swapSelectToTokenAtom())).toEqual(solUsdt),
+    );
+    expect(mockStore.get(swapDefaultConfigStatusAtom())).toBe('pending');
+    await act(async () => request.resolve([solNetwork]));
+    expect(mockStore.get(swapSelectToTokenAtom())).toEqual(solUsdt);
+  });
+
+  it.each([
+    { previousStatus: 'success', manualSelection: false },
+    { previousStatus: 'success', manualSelection: true },
+    { previousStatus: 'failed', manualSelection: false },
+    { previousStatus: 'failed', manualSelection: true },
+  ] as const)(
+    'refreshes a previous $previousStatus result, preserving manual selection=$manualSelection',
+    async ({ previousStatus, manualSelection }) => {
+      const request = deferred<ISwapNetwork[]>();
+      const cached = {
+        ...solNetwork,
+        defaultSelectTokenDetail: {
+          from: sol,
+          to: swapDefaultSetTokens[sol.networkId].toToken,
+        },
+      };
+      mockStore.set(swapNetworks(), [cached]);
+      mockStore.set(swapDefaultConfigStatusAtom(), previousStatus);
+      mockGetNetworkCache.mockResolvedValue({ data: [cached] });
+      mockFetchNetworks.mockReturnValue(request.promise);
+      renderMarket({
+        importFromToken: sol,
+        importNetworkId: sol.networkId,
+        swapSource: ESwapSource.TOKEN_DETAIL,
+      });
+      await waitFor(() => expect(mockFetchNetworks).toHaveBeenCalled());
+      expect(mockStore.get(swapSelectToTokenAtom())?.symbol).toBe('USDC');
+      expect(mockStore.get(swapDefaultConfigStatusAtom())).toBe('pending');
+      const manualToken = { ...solUsdt, contractAddress: 'manual-token' };
+      if (manualSelection) {
+        act(() => mockStore.set(swapSelectToTokenAtom(), manualToken));
+      }
+      await act(async () => request.resolve([solNetwork]));
+      await waitFor(() =>
+        expect(mockStore.get(swapSelectToTokenAtom())).toEqual(
+          manualSelection ? manualToken : solUsdt,
+        ),
+      );
+    },
+  );
+
+  it.each(['success', 'failed'] as const)(
+    'settles the empty counterpart after %s when no default exists',
+    async (status) => {
+      const request = deferred<ISwapNetwork[]>();
+      mockFetchNetworks.mockReturnValue(request.promise);
+      const tokenWithoutDefaults = { ...sol, networkId: 'missing--1' };
+      renderMarket({
+        importFromToken: tokenWithoutDefaults,
+        swapSource: ESwapSource.WALLET_HOME_TOKEN_LIST,
+      });
+      await waitFor(() =>
+        expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(
+          tokenWithoutDefaults,
+        ),
+      );
+      expect(mockStore.get(swapSelectToTokenAtom())).toBeUndefined();
+      expect(mockStore.get(swapDefaultConfigStatusAtom())).toBe('pending');
+      await act(async () => {
+        if (status === 'failed') {
+          request.reject(new Error('offline'));
+        } else {
+          request.resolve([
+            {
+              ...solNetwork,
+              networkId: tokenWithoutDefaults.networkId,
+              defaultSelectTokenDetail: undefined,
+            },
+          ]);
+        }
+      });
+      await waitFor(() =>
+        expect(mockStore.get(swapInitialSelectedTokensSyncedAtom())).toBe(true),
+      );
+      expect(mockStore.get(swapSelectToTokenAtom())).toBeUndefined();
+    },
+  );
+
+  it('does not replace a manual selection made before an empty cache finishes loading', async () => {
+    const request = deferred<ISwapNetwork[]>();
+    mockFetchNetworks.mockReturnValue(request.promise);
+    renderMarket({
+      importFromToken: sol,
+      swapSource: ESwapSource.WALLET_HOME_TOKEN_LIST,
+    });
+    await waitFor(() =>
+      expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(sol),
+    );
+    const manual = {
+      ...solUsdt,
+      contractAddress: 'manual-token',
+      symbol: 'MANUAL',
+    };
+    act(() => mockStore.set(swapSelectToTokenAtom(), manual));
+    await act(async () => request.resolve([solNetwork]));
+    expect(mockStore.get(swapSelectToTokenAtom())).toEqual(manual);
+  });
+
+  it('keeps an explicitly imported pair even when the API default differs', async () => {
+    mockFetchNetworks.mockResolvedValue([solNetwork]);
+    const explicitTo = swapDefaultSetTokens[sol.networkId].toToken;
+    renderMarket({
+      importFromToken: sol,
+      importToToken: explicitTo,
+      swapSource: ESwapSource.WALLET_HOME_TOKEN_LIST,
+    });
+    await waitFor(() =>
+      expect(mockStore.get(swapSelectToTokenAtom())).toEqual(explicitTo),
+    );
   });
 });

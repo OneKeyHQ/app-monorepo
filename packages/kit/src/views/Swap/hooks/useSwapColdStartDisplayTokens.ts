@@ -16,12 +16,7 @@ import type {
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
-import {
-  useSwapDefaultConfigStatusAtom,
-  useSwapFromTokenAmountAtom,
-  useSwapSelectedTokensColdStartContextAtom,
-  useSwapToTokenAmountAtom,
-} from '../../../states/jotai/contexts/swap/atoms';
+import { useSwapDefaultConfigStatusAtom } from '../../../states/jotai/contexts/swap/atoms';
 import {
   type ISwapBalanceDisplayCache,
   areSwapBalanceDisplayAccountKeysEquivalent,
@@ -626,21 +621,6 @@ export function useSwapColdStartDisplayTokens({
   toToken?: ISwapToken;
 }) {
   const [defaultConfigStatus] = useSwapDefaultConfigStatusAtom();
-  const [selectedTokensColdStartContext] =
-    useSwapSelectedTokensColdStartContextAtom();
-  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
-  const [toTokenAmount] = useSwapToTokenAmountAtom();
-  const deferSelectedDefaults = shouldDeferSwapAutomaticDefaultTokens({
-    cachedContext: selectedTokensColdStartContext,
-    defaultConfigStatus,
-    fromTokenAmount,
-    swapType,
-    toTokenAmount,
-  });
-  const currentFromToken = deferSelectedDefaults ? undefined : fromToken;
-  const currentToToken = deferSelectedDefaults ? undefined : toToken;
-  const selectedTokensSynced =
-    !deferSelectedDefaults && initialSelectedTokensSynced;
   const hasResolvedFromTokenRef = useRef(Boolean(fromToken?.symbol));
   const hasResolvedToTokenRef = useRef(Boolean(toToken?.symbol));
   const previousDisplayFromTokenRef = useRef<ISwapToken | undefined>(
@@ -659,24 +639,24 @@ export function useSwapColdStartDisplayTokens({
     previousConfigStatusRef.current !== defaultConfigStatus ||
     previousSwapTypeRef.current !== swapType;
   if (
-    deferSelectedDefaults ||
-    (coldStartPresentationChanged && defaultConfigStatus === 'pending')
+    (coldStartPresentationChanged && defaultConfigStatus === 'pending') ||
+    (!initialSelectedTokensSynced && !fromToken && !toToken)
   ) {
     previousDisplayFromTokenRef.current = undefined;
     previousDisplayToTokenRef.current = undefined;
-    hasResolvedFromTokenRef.current = Boolean(currentFromToken?.symbol);
-    hasResolvedToTokenRef.current = Boolean(currentToToken?.symbol);
+    hasResolvedFromTokenRef.current = Boolean(fromToken?.symbol);
+    hasResolvedToTokenRef.current = Boolean(toToken?.symbol);
   }
   previousConfigStatusRef.current = defaultConfigStatus;
   previousSwapTypeRef.current = swapType;
 
-  if (currentFromToken?.symbol) {
+  if (fromToken?.symbol) {
     hasResolvedFromTokenRef.current = true;
   }
-  if (currentToToken?.symbol) {
+  if (toToken?.symbol) {
     hasResolvedToTokenRef.current = true;
   }
-  if (selectedTokensSynced) {
+  if (initialSelectedTokensSynced) {
     hasResolvedFromTokenRef.current = true;
     hasResolvedToTokenRef.current = true;
   }
@@ -684,10 +664,10 @@ export function useSwapColdStartDisplayTokens({
   if (
     !coldStartDisplayTokensRef.current ||
     coldStartPresentationChanged ||
-    (!currentFromToken?.symbol &&
+    (!fromToken?.symbol &&
       !hasResolvedFromTokenRef.current &&
       !coldStartDisplayTokensRef.current.fromToken) ||
-    (!currentToToken?.symbol &&
+    (!toToken?.symbol &&
       !hasResolvedToTokenRef.current &&
       !coldStartDisplayTokensRef.current.toToken)
   ) {
@@ -706,16 +686,16 @@ export function useSwapColdStartDisplayTokens({
 
   const displayFromToken = resolveSwapDisplayToken({
     allowFallback:
-      Boolean(defaultDisplayTokens?.fromToken) || !selectedTokensSynced,
-    currentToken: currentFromToken,
+      Boolean(defaultDisplayTokens?.fromToken) || !initialSelectedTokensSynced,
+    currentToken: fromToken,
     fallbackToken:
       defaultDisplayTokens?.fromToken ?? coldStartDisplayTokens.fromToken,
     previousDisplayToken: previousDisplayFromTokenRef.current,
   });
   const displayToToken = resolveSwapDisplayToken({
     allowFallback:
-      Boolean(defaultDisplayTokens?.toToken) || !selectedTokensSynced,
-    currentToken: currentToToken,
+      Boolean(defaultDisplayTokens?.toToken) || !initialSelectedTokensSynced,
+    currentToken: toToken,
     fallbackToken:
       defaultDisplayTokens?.toToken ?? coldStartDisplayTokens.toToken,
     previousDisplayToken: previousDisplayToTokenRef.current,
@@ -732,9 +712,11 @@ export function useSwapColdStartDisplayTokens({
     displayToToken,
   };
   const isInitialFromTokenSelectionPending =
-    !hasResolvedFromTokenRef.current && !displayTokens.displayFromToken?.symbol;
+    !displayTokens.displayFromToken?.symbol &&
+    (defaultConfigStatus === 'pending' || !hasResolvedFromTokenRef.current);
   const isInitialToTokenSelectionPending =
-    !hasResolvedToTokenRef.current && !displayTokens.displayToToken?.symbol;
+    !displayTokens.displayToToken?.symbol &&
+    (defaultConfigStatus === 'pending' || !hasResolvedToTokenRef.current);
 
   return {
     ...displayTokens,

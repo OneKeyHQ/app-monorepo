@@ -133,7 +133,7 @@ describe('useSpeedSwapInit cold display config', () => {
     );
   });
 
-  it('filters native candidates without changing their order or the cached config', () => {
+  it('preserves native candidates and their order for shared consumers', () => {
     const nativeToken = {
       networkId: 'evm--1',
       contractAddress: '',
@@ -141,93 +141,31 @@ describe('useSpeedSwapInit cold display config', () => {
       decimals: 18,
       isNative: true,
     };
-    const token = cachedConfig.speedConfig.defaultTokens[0];
-    const wrappedToken = {
-      ...nativeToken,
-      contractAddress: '0xwrapped',
-      symbol: 'WETH',
-      isNative: false,
-    };
+    const stableToken = cachedConfig.speedConfig.defaultTokens[0];
     const config = {
       ...cachedConfig,
       speedConfig: {
         ...cachedConfig.speedConfig,
-        defaultTokens: [nativeToken, token, wrappedToken],
-      },
-    };
-    mockUsePromiseResult.mockReturnValue({
-      result: { config, scope: 'evm--1', fromCache: true },
-      isLoading: false,
-    });
-
-    const { result } = renderHook(() =>
-      useSpeedSwapInit('evm--1', true, token),
-    );
-
-    expect(result.current.defaultTokens).toEqual([token, wrappedToken]);
-    expect(result.current.speedConfig.defaultTokens).toBe(
-      result.current.defaultTokens,
-    );
-    expect(config.speedConfig.defaultTokens).toEqual([
-      nativeToken,
-      token,
-      wrappedToken,
-    ]);
-  });
-
-  it('keeps native fallback only when no non-native counterpart exists', () => {
-    const nativeToken = {
-      networkId: 'evm--1',
-      contractAddress: '',
-      symbol: 'ETH',
-      decimals: 18,
-      isNative: true,
-    };
-    const token = cachedConfig.speedConfig.defaultTokens[0];
-    const config = {
-      ...cachedConfig,
-      speedConfig: {
-        ...cachedConfig.speedConfig,
-        defaultTokens: [nativeToken, token],
+        defaultTokens: [nativeToken, stableToken],
       },
     };
     mockUsePromiseResult.mockReturnValue({
       result: { config, scope: 'evm--1' },
       isLoading: false,
     });
-
-    const { result, rerender } = renderHook(
-      ({ targetToken }) => useSpeedSwapInit('evm--1', true, targetToken),
-      { initialProps: { targetToken: token } },
+    const { result } = renderHook(() => useSpeedSwapInit('evm--1', true));
+    expect(result.current.defaultTokens).toEqual([nativeToken, stableToken]);
+    expect(result.current.speedConfig.defaultTokens).toBe(
+      config.speedConfig.defaultTokens,
     );
-
-    expect(result.current.defaultTokens).toEqual([nativeToken, token]);
-    rerender({ targetToken: nativeToken });
-    expect(result.current.defaultTokens).toEqual([token]);
-    rerender({ targetToken: token });
-    expect(result.current.defaultTokens).toEqual([nativeToken, token]);
   });
 
-  it('also filters local fallback candidates while preserving a usable pair', () => {
+  it('preserves the local native fallback before configuration arrives', () => {
     mockUsePromiseResult.mockReturnValue({
       result: undefined,
       isLoading: true,
     });
-    const { result, rerender } = renderHook(
-      ({ contractAddress }) =>
-        useSpeedSwapInit('evm--1', true, {
-          networkId: 'evm--1',
-          contractAddress,
-        }),
-      { initialProps: { contractAddress: '0xmarket' } },
-    );
-
-    expect(result.current.defaultTokens.map((token) => token.symbol)).toEqual([
-      'USDC',
-    ]);
-    rerender({
-      contractAddress: result.current.defaultTokens[0].contractAddress,
-    });
+    const { result } = renderHook(() => useSpeedSwapInit('evm--1', true));
     expect(result.current.defaultTokens.map((token) => token.symbol)).toEqual([
       'ETH',
       'USDC',

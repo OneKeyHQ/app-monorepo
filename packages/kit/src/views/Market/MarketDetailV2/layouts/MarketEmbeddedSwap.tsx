@@ -21,6 +21,7 @@ import type {
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { useMarketSwapPayTokens } from '../components/SwapPanel/hooks/useMarketSwapPayTokens';
 import { useSpeedSwapInit } from '../components/SwapPanel/hooks/useSpeedSwapInit';
 
 import { MarketStockTradeTarget } from './components/MarketStockTradeTarget';
@@ -190,21 +191,32 @@ function MarketEmbeddedSwapContent({
   if (initialDraft.key !== inputDraftKey) {
     setInitialDraft({ key: inputDraftKey, draft: undefined });
   }
-  const { defaultTokens, speedConfigReady, speedSwapConfig } = useSpeedSwapInit(
-    swapTokenSeed.networkId,
-    true,
-    swapTokenSeed.isStock
-      ? swapTokenSeed
-      : (initialInputAmountDraft?.toToken ?? swapTokenSeed),
-  );
+  const {
+    defaultTokens: configuredTokens,
+    speedConfigReady,
+    speedSwapConfig,
+  } = useSpeedSwapInit(swapTokenSeed.networkId, true);
+  const { payTokens: defaultTokens, ready: marketPayTokensReady } =
+    useMarketSwapPayTokens({
+      tokens: configuredTokens,
+      enabled: !swapTokenSeed.isStock,
+      configReady: speedConfigReady,
+    });
   const swapInitParams = useMemo<ISwapInitParams | undefined>(
     () =>
-      buildMarketEmbeddedSwapInitParams({
-        defaultTokens,
-        inputDraft: initialInputAmountDraft,
-        swapToken: swapTokenSeed,
-      }),
-    [defaultTokens, initialInputAmountDraft, swapTokenSeed],
+      marketPayTokensReady
+        ? buildMarketEmbeddedSwapInitParams({
+            defaultTokens,
+            inputDraft: initialInputAmountDraft,
+            swapToken: swapTokenSeed,
+          })
+        : undefined,
+    [
+      defaultTokens,
+      initialInputAmountDraft,
+      marketPayTokensReady,
+      swapTokenSeed,
+    ],
   );
   const stockSpeedConfig = useMemo<ISwapStockSpeedConfig | undefined>(
     () =>
@@ -228,7 +240,7 @@ function MarketEmbeddedSwapContent({
     swapInitParams ?? lastValidSwapInitParamsRef.current;
   const hasRenderedSwapRef = useRef(false);
   if (
-    (!speedConfigReady || !effectiveSwapInitParams) &&
+    (!speedConfigReady || !marketPayTokensReady || !effectiveSwapInitParams) &&
     !hasRenderedSwapRef.current
   ) {
     return <MarketEmbeddedSwapLoading />;

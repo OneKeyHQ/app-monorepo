@@ -211,19 +211,22 @@ describe('hydrateSwapDefaultTokensFromGlobalHomeSnapshot', () => {
     expect(store.get(swapSelectToTokenAtom())).toBe(toToken);
   });
 
-  it('discards a previous automatic pair while fresh configuration is pending', () => {
+  it('keeps a previous automatic pair while fresh configuration is pending', () => {
     setHomeColdStartSnapshot('evm--1');
     const store = createStore();
     store.set(swapDefaultConfigStatusAtom(), 'failed');
     expect(hydrateSwapDefaultTokensFromGlobalHomeSnapshot(store)).toBe(true);
+    const fromToken = store.get(swapSelectFromTokenAtom());
+    const toToken = store.get(swapSelectToTokenAtom());
+    const context = store.get(swapSelectedTokensColdStartContextAtom());
     store.set(swapInitialSelectedTokensSyncedAtom(), true);
     store.set(swapDefaultConfigStatusAtom(), 'pending');
 
     expect(hydrateSwapDefaultTokensFromGlobalHomeSnapshot(store)).toBe(false);
-    expect(store.get(swapSelectFromTokenAtom())).toBeUndefined();
-    expect(store.get(swapSelectToTokenAtom())).toBeUndefined();
-    expect(store.get(swapSelectedTokensColdStartContextAtom())).toBeUndefined();
-    expect(store.get(swapInitialSelectedTokensSyncedAtom())).toBe(false);
+    expect(store.get(swapSelectFromTokenAtom())).toBe(fromToken);
+    expect(store.get(swapSelectToTokenAtom())).toBe(toToken);
+    expect(store.get(swapSelectedTokensColdStartContextAtom())).toBe(context);
+    expect(store.get(swapInitialSelectedTokensSyncedAtom())).toBe(true);
   });
 
   it('keeps an existing pair once the user has entered an amount', () => {

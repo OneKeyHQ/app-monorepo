@@ -21,6 +21,8 @@ const mockFetchNetworks = jest.fn<
   Promise<ISwapNetwork[]>,
   [{ refreshClientNetworks: boolean; autoHandleError?: boolean }]
 >();
+let mockInitialNetworks: ISwapNetwork[] = [];
+let mockInitialConfigStatus: ISwapDefaultConfigStatus = 'pending';
 
 jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -45,9 +47,10 @@ jest.mock('../../../states/jotai/contexts/swap/atoms', () => {
   const { useState: useMockState } =
     jest.requireActual<typeof import('react')>('react');
   return {
-    useSwapNetworksAtom: () => useMockState<ISwapNetwork[]>([]),
+    useSwapNetworksAtom: () =>
+      useMockState<ISwapNetwork[]>(mockInitialNetworks),
     useSwapDefaultConfigStatusAtom: () =>
-      useMockState<ISwapDefaultConfigStatus>('pending'),
+      useMockState<ISwapDefaultConfigStatus>(mockInitialConfigStatus),
   };
 });
 
@@ -107,6 +110,8 @@ function deferred<T>() {
 describe('useSwapNetworks configuration lifecycle', () => {
   beforeEach(() => {
     jest.resetAllMocks();
+    mockInitialNetworks = [];
+    mockInitialConfigStatus = 'pending';
     mockGetNetworkCache.mockResolvedValue({ data: [cachedNetwork] });
     mockSetNetworkCache.mockResolvedValue(undefined);
   });
@@ -114,6 +119,24 @@ describe('useSwapNetworks configuration lifecycle', () => {
   afterEach(() => {
     jest.useRealTimers();
   });
+
+  it.each(['success', 'failed'] as const)(
+    'keeps warm cached networks visible while refreshing a previous %s result',
+    async (previousStatus) => {
+      mockInitialNetworks = [cachedNetwork];
+      mockInitialConfigStatus = previousStatus;
+      const request = deferred<ISwapNetwork[]>();
+      mockFetchNetworks.mockReturnValue(request.promise);
+      const { result } = renderHook(useSwapNetworks);
+      await waitFor(() => expect(mockFetchNetworks).toHaveBeenCalledTimes(1));
+      expect(result.current.swapNetworks).toEqual([cachedNetwork]);
+      expect(result.current.networkListFetching).toBe(false);
+      expect(result.current.defaultConfigStatus).toBe('pending');
+      await act(async () => request.resolve([freshNetwork]));
+      expect(result.current.defaultConfigStatus).toBe('success');
+      expect(result.current.swapNetworks).toEqual([freshNetwork]);
+    },
+  );
 
   it.each([true, false])(
     'retries repeated configuration failures with cache=%s until fresh configuration settles',
@@ -168,7 +191,7 @@ describe('useSwapNetworks configuration lifecycle', () => {
     await act(async () => {});
     await act(async () => jest.advanceTimersByTime(90_000));
     expect(mockFetchNetworks).toHaveBeenCalledTimes(2);
-    expect(result.current.defaultConfigStatus).toBe('failed');
+    expect(result.current.defaultConfigStatus).toBe('pending');
     unmount();
     await act(async () => retry.reject(new Error('still offline')));
     await act(async () => jest.advanceTimersByTime(90_000));
@@ -283,7 +306,7 @@ describe('useSwapNetworks configuration lifecycle', () => {
     await waitFor(() => expect(mockFetchNetworks).toHaveBeenCalledTimes(2));
 
     expect(result.current.swapNetworks).toEqual([cachedNetwork]);
-    expect(result.current.defaultConfigStatus).toBe('failed');
+    expect(result.current.defaultConfigStatus).toBe('pending');
 
     await act(async () => {
       refreshRequest.resolve([freshNetwork]);

@@ -136,7 +136,6 @@ type ISpeedSwapConfigState = {
 export function useSpeedSwapInit(
   networkId: string,
   enableNoNetworkCheck?: boolean,
-  targetToken?: Pick<ISwapTokenBase, 'networkId' | 'contractAddress'>,
 ) {
   const fallbackConfig = useMemo(
     () => buildSwapPairFallbackConfig(networkId),
@@ -201,36 +200,10 @@ export function useSpeedSwapInit(
   const rawSpeedSwapConfig = speedSwapConfigReady
     ? (speedSwapConfigState?.config ?? fallbackConfig)
     : fallbackConfig;
-  const targetNetworkId = targetToken?.networkId;
-  const targetTokenAddress = targetToken?.contractAddress;
-  const speedSwapConfig = useMemo(() => {
-    const config = applySwapPairFallback({
-      config: rawSpeedSwapConfig,
-      fallbackConfig,
-    });
-    const tokens = config.speedConfig.defaultTokens;
-    const nonNativeTokens = tokens.filter((token) => !token.isNative);
-    // Keep the original candidates when filtering would leave no counterpart.
-    if (
-      nonNativeTokens.length === tokens.length ||
-      !nonNativeTokens.some(
-        (token) =>
-          !equalTokenNoCaseSensitive({
-            token1: token,
-            token2: {
-              networkId: targetNetworkId,
-              contractAddress: targetTokenAddress,
-            },
-          }),
-      )
-    ) {
-      return config;
-    }
-    return {
-      ...config,
-      speedConfig: { ...config.speedConfig, defaultTokens: nonNativeTokens },
-    };
-  }, [fallbackConfig, rawSpeedSwapConfig, targetNetworkId, targetTokenAddress]);
+  const speedSwapConfig = useMemo(
+    () => applySwapPairFallback({ config: rawSpeedSwapConfig, fallbackConfig }),
+    [fallbackConfig, rawSpeedSwapConfig],
+  );
 
   return {
     speedSwapConfig,

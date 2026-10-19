@@ -62,6 +62,7 @@ import {
   shouldShowMarketPresetReviewCustomNetworkFeeOption,
 } from './hooks/marketPresetSettings';
 import { useMarketPresetSettings } from './hooks/useMarketPresetSettings';
+import { useMarketSwapPayTokens } from './hooks/useMarketSwapPayTokens';
 import { useSpeedSwapActions } from './hooks/useSpeedSwapActions';
 import { useSpeedSwapInit } from './hooks/useSpeedSwapInit';
 import { useSwapPanel } from './hooks/useSwapPanel';
@@ -145,10 +146,7 @@ function SwapPanelWrapContent({
     onlySupportCrossChain,
     defaultTokens,
     swapMevNetConfig,
-  } = useSpeedSwapInit(networkId || '', true, {
-    networkId: networkId || '',
-    contractAddress: tokenAddress ?? tokenDetail?.address ?? '',
-  });
+  } = useSpeedSwapInit(networkId || '', true);
   const marketPresetSettings = useMarketPresetSettings({
     networkId: networkId || '',
     defaultSlippage: speedConfig?.slippage,
@@ -403,16 +401,23 @@ function SwapPanelWrapContent({
     tokenDetail?.symbol,
   ]);
 
+  const { payTokens: marketDefaultTokens, ready: marketPayTokensReady } =
+    useMarketSwapPayTokens({
+      tokens: defaultTokens,
+      enabled: !isStockRoute,
+      configReady: speedConfigReady,
+    });
+
   const compatibleDefaultTokens = useMemo(
     () =>
       isStockRoute
         ? filterStockPayTokenCandidates(defaultTokens)
-        : defaultTokens,
-    [defaultTokens, isStockRoute],
+        : marketDefaultTokens,
+    [defaultTokens, isStockRoute, marketDefaultTokens],
   );
 
   const filterDefaultTokens = useMemo(() => {
-    if (compatibleDefaultTokens.length === 1) {
+    if (isStockRoute && compatibleDefaultTokens.length === 1) {
       return [...compatibleDefaultTokens];
     }
 
@@ -427,7 +432,7 @@ function SwapPanelWrapContent({
           token2: currentMarketTokenForFilter,
         }),
     );
-  }, [compatibleDefaultTokens, currentMarketTokenForFilter]);
+  }, [compatibleDefaultTokens, currentMarketTokenForFilter, isStockRoute]);
 
   // --- Token preference persistence (simpledb) ---
   const { result: savedPreferenceState, isLoading: savedPreferenceLoading } =
@@ -488,7 +493,17 @@ function SwapPanelWrapContent({
           equalTokenNoCaseSensitive({ token1: token, token2: paymentToken }),
         ),
       )
-    : decimalsReady;
+    : Boolean(
+        decimalsReady &&
+        marketPayTokensReady &&
+        paymentToken &&
+        paymentTokenCandidates.some((candidate) =>
+          equalTokenNoCaseSensitive({
+            token1: candidate,
+            token2: paymentToken,
+          }),
+        ),
+      );
   const currentFromTokenAmount =
     tradeType === ESwapDirection.BUY
       ? paymentAmount.toFixed()
@@ -596,7 +611,13 @@ function SwapPanelWrapContent({
   // Initialize paymentToken: prefer saved preference, fallback to first default
   // Exclude native tokens when the current BUY flow requires it
   useEffect(() => {
-    if (!paymentTokenPreferenceReady || !paymentTokenDisplay) {
+    if (!paymentTokenPreferenceReady) {
+      return;
+    }
+    if (!paymentTokenDisplay) {
+      if (!isStockRoute && marketPayTokensReady && paymentToken) {
+        setPaymentToken(undefined);
+      }
       return;
     }
     if (
@@ -609,6 +630,8 @@ function SwapPanelWrapContent({
       setPaymentToken(paymentTokenDisplay);
     }
   }, [
+    isStockRoute,
+    marketPayTokensReady,
     paymentToken,
     paymentTokenDisplay,
     paymentTokenPreferenceReady,
@@ -929,7 +952,11 @@ function SwapPanelWrapContent({
       paymentTokenPrice={executionReady ? paymentTokenPrice : undefined}
       paymentTokenDisplay={paymentTokenDisplay}
       paymentTokenDisplayLoading={
-        Boolean(stockDetailDesktopLayout) && !paymentTokenDisplay
+        (Boolean(stockDetailDesktopLayout) && !paymentTokenDisplay) ||
+        (!isStockRoute &&
+          !paymentTokenDisplay &&
+          !paymentToken &&
+          (!marketPayTokensReady || !paymentTokenPreferenceReady))
       }
       isLoading={isActionLoading || isReviewOpening}
       quoteLoading={!executionReady || quoteActionLoading}
