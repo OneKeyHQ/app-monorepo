@@ -26,12 +26,19 @@ import type {
   IPool,
   IPoolAddLiquidityParams,
   IPoolAsset,
+  IPoolPricePoint,
   IPoolsWallet,
 } from '@onekeyhq/shared/types/pools';
 
-import { getPresetRange, getRangePresets } from './components/PoolRangeEditor';
 import { POOLS_COPY } from './poolsCopy';
 import { getVersusHolding } from './poolsOutcome';
+import {
+  DEFAULT_RANGE_PRESET_ID,
+  getPresetRange,
+  getRangePresets,
+} from './poolsRangePresets';
+
+import type { IPoolRangePresetId } from './poolsRangePresets';
 
 export type IPoolAddMode = 'zap' | 'both';
 
@@ -63,12 +70,15 @@ export function usdOf(asset: IPoolAsset, amount: BigNumber.Value) {
 export function usePoolPositionForm({
   pool,
   wallet,
+  priceHistory,
   positionId,
   initialRange,
   onTaskCreated,
 }: {
   pool: IPool;
   wallet: IPoolsWallet | undefined;
+  /** Daily closes of the last 30 days; sizes the range presets */
+  priceHistory?: IPoolPricePoint[];
   /** Adds to this position; its range is fixed */
   positionId?: string;
   initialRange?: IPoolTickRange;
@@ -80,26 +90,35 @@ export function usePoolPositionForm({
     [pool.token0, pool.token1],
   );
 
-  // Range (doc §2.5 ②)
-  const [{ range, presetId }, setRangeState] = useState<{
-    range: IPoolTickRange;
-    presetId?: string;
+  // Range (doc §2.5 ②). A chosen preset is a rule rather than ticks: the
+  // history that sizes it can arrive after the form opens, and the range
+  // follows it
+  const presets = useMemo(
+    () => (isRange ? getRangePresets(pool, priceHistory) : []),
+    [isRange, pool, priceHistory],
+  );
+  const [choice, setChoice] = useState<{
+    range?: IPoolTickRange;
+    presetId?: IPoolRangePresetId;
   }>(() => {
     if (initialRange) {
       return { range: initialRange };
     }
-    if (!isRange) {
-      return { range: { tickLower: 0, tickUpper: 0 } };
-    }
-    const preset = getRangePresets(pool)[0];
-    return {
-      range: getPresetRange(pool, preset.percent),
-      presetId: preset.id,
-    };
+    return isRange
+      ? { presetId: DEFAULT_RANGE_PRESET_ID }
+      : { range: { tickLower: 0, tickUpper: 0 } };
   });
+  const presetId = choice.presetId;
+  const range = useMemo<IPoolTickRange>(() => {
+    const preset = presets.find((item) => item.id === presetId);
+    if (preset) {
+      return getPresetRange(pool, preset.percent);
+    }
+    return choice.range ?? { tickLower: 0, tickUpper: 0 };
+  }, [choice.range, pool, presetId, presets]);
   const setRange = useCallback(
-    (next: IPoolTickRange, nextPresetId?: string) =>
-      setRangeState({ range: next, presetId: nextPresetId }),
+    (next: IPoolTickRange, nextPresetId?: IPoolRangePresetId) =>
+      setChoice(nextPresetId ? { presetId: nextPresetId } : { range: next }),
     [],
   );
   const rangeContext = useMemo(
@@ -432,6 +451,7 @@ export function usePoolPositionForm({
     tokens,
     // Range
     range,
+    presets,
     presetId,
     setRange,
     inRange,

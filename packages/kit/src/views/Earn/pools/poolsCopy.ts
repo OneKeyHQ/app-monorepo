@@ -144,11 +144,21 @@ export const POOLS_COPY = {
   enterAmount: 'Enter an amount',
   payWithEth: 'Pay with ETH',
   rangeInverted: 'Min must be below max',
-  daysInRangeLabel: 'In range, last 30 days',
-  daysInRange: (count: number, total: number) => `${count} of ${total} days`,
-  rangeMeaning: (base: string, min: string, max: string, quote: string) =>
-    `Earns fees while ${base} is between ${min} and ${max} ${quote}. Outside that, it earns nothing until the price comes back.`,
-  rangeMeaningFull: 'Earns fees at any price.',
+  expectedInRange: 'Expected in range',
+  inRangeOfLast: (count: number, total: number) =>
+    `In range ${count} of the last ${total} days`,
+  stay: {
+    days: (count: number) => (count === 1 ? '~1 day' : `~${count} days`),
+    weeks: (count: number) => (count === 1 ? '~1 week' : `~${count} weeks`),
+    months: (count: number) => (count === 1 ? '~1 month' : `~${count} months`),
+    overAYear: 'Over a year',
+    always: 'Always',
+  },
+  rangePresetNames: { narrow: 'Narrow', balanced: 'Balanced', wide: 'Wide' },
+  fullRangeBounds: '0 to ∞',
+  rangeInfo:
+    'You earn fees only while the price is inside your range. Outside it, the position holds one token and earns nothing until the price comes back.\n\nNarrow, Balanced and Wide are sized to how much this pair moved each day over the last 30 days, so the price is expected to stay inside about a week, a month and three months. Big moves can push it out sooner. Narrower earns more while the price stays inside.',
+  rangeChartHint: 'Drag an edge to resize, or the middle to move',
   estimatedEarnings: 'Est. earnings',
   perMonth: (value: string) => `${value} a month`,
   onReferenceDeposit: (value: string) => `On ${value} at today’s fees`,

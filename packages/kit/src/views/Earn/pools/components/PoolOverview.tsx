@@ -170,7 +170,12 @@ export function usePoolOverview({
     { refreshOnFocus: true },
   );
   const pool = detail?.pool ?? listPool;
-  const form = usePoolPositionForm({ pool, wallet, onTaskCreated });
+  const form = usePoolPositionForm({
+    pool,
+    wallet,
+    priceHistory: detail?.priceHistory,
+    onTaskCreated,
+  });
   const canCreate = pool.listingStatus === EPoolListingStatus.Listed;
   return { pool, detail, wallet, form, canCreate };
 }
@@ -214,6 +219,7 @@ export function PoolDataSection({
                   priceHistory={detail?.priceHistory ?? []}
                   estimate={form.estimate}
                   range={form.range}
+                  presets={form.presets}
                   presetId={form.presetId}
                   onChange={form.setRange}
                   underPriceChart

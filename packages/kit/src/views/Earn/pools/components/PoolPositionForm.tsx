@@ -461,6 +461,7 @@ export function PoolPositionForm({
         priceHistory={priceHistory ?? []}
         estimate={form.estimate}
         range={form.range}
+        presets={form.presets}
         presetId={form.presetId}
         readOnly={Boolean(form.positionId)}
         onChange={form.setRange}

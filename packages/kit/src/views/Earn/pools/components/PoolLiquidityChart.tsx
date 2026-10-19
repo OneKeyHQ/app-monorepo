@@ -13,6 +13,8 @@ import {
 import {
   bucketLiquidity,
   buildLiquiditySegments,
+  getMaxUsableTick,
+  getMinUsableTick,
   isFullRange,
 } from '@onekeyhq/shared/src/utils/poolsMath';
 import type { ILiquiditySegment } from '@onekeyhq/shared/src/utils/poolsMath';
@@ -42,7 +44,12 @@ const RANGE_FIT = 1.6;
 const ZOOM_FACTOR = 1.6;
 const NOW_LABEL_HEIGHT = 22;
 const AXIS_HEIGHT = 22;
-const HANDLE_HIT_WIDTH = 32;
+// Touch targets: an edge handle, and the middle one that moves the range
+const HANDLE_HIT_WIDTH = 44;
+const MOVE_HIT_WIDTH = 56;
+const MOVE_HIT_HEIGHT = 36;
+// A dragged band this close to the chart's side refits on release
+const REFIT_MARGIN = 0.02;
 const EDGE_LABEL_WIDTH = 96;
 
 function pickHalfWidth(segments: ILiquiditySegment[], currentTick: number) {
@@ -278,6 +285,8 @@ export function PoolLiquidityChart({
   latest.current = { range: showRange, window, width, band, onRangeChange };
   const dragStartX = useRef(0);
   const draggedRange = useRef<IPoolChartRange | undefined>(undefined);
+  // The range as the middle handle was grabbed; it moves by whole spacings
+  const moveStart = useRef<IPoolChartRange | undefined>(undefined);
   const responders = useMemo(() => {
     const tickAtX = (x: number, win: IWindow, chartWidth: number) => {
       let fraction = Math.min(Math.max(x / chartWidth, 0), 1);
@@ -287,11 +296,23 @@ export function PoolLiquidityChart({
       const tick = win.fromTick + fraction * (win.toTick - win.fromTick);
       return Math.round(tick / tickSpacing) * tickSpacing;
     };
+    // Letting go keeps the scale, so a second drag fine-tunes; a band
+    // pushed against the chart's side refits, so the next one reaches further
+    const release = () => {
+      moveStart.current = undefined;
+      const edges = latest.current.band;
+      if (edges && (edges[0] <= REFIT_MARGIN || edges[1] >= 1 - REFIT_MARGIN)) {
+        draggedRange.current = undefined;
+        setHeldWindow(undefined);
+      }
+    };
     const make = (edge: IEdge) =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: () => true,
         onPanResponderTerminationRequest: () => false,
+        onPanResponderRelease: release,
+        onPanResponderTerminate: release,
         onPanResponderGrant: () => {
           const {
             band: edges,
@@ -336,7 +357,69 @@ export function PoolLiquidityChart({
           }
         },
       });
-    return { left: make('left'), right: make('right') };
+    const move = PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderRelease: release,
+      onPanResponderTerminate: release,
+      onPanResponderGrant: () => {
+        moveStart.current = latest.current.range;
+        setHeldWindow(latest.current.window);
+      },
+      onPanResponderMove: (_event, gesture) => {
+        const {
+          range: current,
+          window: win,
+          width: chartWidth,
+          onRangeChange: report,
+        } = latest.current;
+        const start = moveStart.current;
+        if (!start || !current || !report || !chartWidth) {
+          return;
+        }
+        const movedTicks =
+          (gesture.dx / chartWidth) *
+          (win.toTick - win.fromTick) *
+          (inverted ? -1 : 1);
+        // Same width in ticks, kept inside the window it was grabbed in
+        // and the usable ticks
+        const lowest =
+          Math.ceil(
+            (Math.max(getMinUsableTick(tickSpacing), win.fromTick) -
+              start.tickLower) /
+              tickSpacing,
+          ) * tickSpacing;
+        const highest =
+          Math.floor(
+            (Math.min(getMaxUsableTick(tickSpacing), win.toTick) -
+              start.tickUpper) /
+              tickSpacing,
+          ) * tickSpacing;
+        const shift =
+          lowest <= highest
+            ? Math.min(
+                Math.max(
+                  Math.round(movedTicks / tickSpacing) * tickSpacing,
+                  lowest,
+                ),
+                highest,
+              )
+            : 0;
+        const next = {
+          tickLower: start.tickLower + shift,
+          tickUpper: start.tickUpper + shift,
+        };
+        if (
+          next.tickLower !== current.tickLower ||
+          next.tickUpper !== current.tickUpper
+        ) {
+          draggedRange.current = next;
+          report(next);
+        }
+      },
+    });
+    return { left: make('left'), right: make('right'), move };
   }, [inverted, tickSpacing]);
 
   // A range set elsewhere (a preset, the min / max fields) refits the window
@@ -521,6 +604,45 @@ export function PoolLiquidityChart({
               </Stack>
             ))
           : null}
+        {band &&
+        onRangeChange &&
+        (band[1] - band[0]) * width >= HANDLE_HIT_WIDTH + MOVE_HIT_WIDTH ? (
+          <Stack
+            position="absolute"
+            top={NOW_LABEL_HEIGHT + height - MOVE_HIT_HEIGHT}
+            h={MOVE_HIT_HEIGHT}
+            left={`${((band[0] + band[1]) / 2) * 100}%`}
+            ml={-MOVE_HIT_WIDTH / 2}
+            w={MOVE_HIT_WIDTH}
+            cursor="grab"
+            userSelect="none"
+          >
+            <View
+              testID="earn-pool-range-handle-move"
+              style={{
+                flex: 1,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              {...responders.move.panHandlers}
+            >
+              <XStack
+                w={30}
+                h={16}
+                borderRadius="$full"
+                bg="$text"
+                ai="center"
+                jc="center"
+                gap={3}
+                pointerEvents="none"
+              >
+                <Stack w={3} h={3} borderRadius="$full" bg="$bgApp" />
+                <Stack w={3} h={3} borderRadius="$full" bg="$bgApp" />
+                <Stack w={3} h={3} borderRadius="$full" bg="$bgApp" />
+              </XStack>
+            </View>
+          </Stack>
+        ) : null}
         <Stack
           position="absolute"
           top={NOW_LABEL_HEIGHT + height}

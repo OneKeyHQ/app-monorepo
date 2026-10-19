@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
 import {
   IconButton,
   Input,
+  Popover,
   SizableText,
   XStack,
   YStack,
@@ -12,7 +13,6 @@ import {
 import {
   displayPriceToTick,
   getDisplayRange,
-  getRangeAroundPrice,
   getRangeSideForDisplayBound,
   stepDisplayBound,
 } from '@onekeyhq/shared/src/utils/poolsMath';
@@ -28,48 +28,45 @@ import type {
 } from '@onekeyhq/shared/types/pools';
 
 import { POOLS_COPY } from '../poolsCopy';
-import { formatTokenPrice, getPoolPair } from '../poolsFormat';
+import {
+  formatTokenPrice,
+  getPoolDisplayPrice,
+  getPoolPair,
+} from '../poolsFormat';
 import { countDaysInRange } from '../poolsOutcome';
+import {
+  formatExpectedStay,
+  formatPresetWidth,
+  getDailyVolatility,
+  getExpectedDaysInRange,
+  getPresetRange,
+} from '../poolsRangePresets';
 
 import { PoolAprFigure } from './PoolAprEstimate';
 import { PoolLiquidityChart } from './PoolLiquidityChart';
-import { PoolsChip } from './PoolsFilterButton';
 
-export type IPoolRangePreset = { id: string; label: string; percent: number };
-
-/** Doc §3.3: ±10/20/50% for volatile pairs, ±0.1/0.5/1% for stable pairs */
-export function getRangePresets(pool: IPool): IPoolRangePreset[] {
-  const isStablePair =
-    pool.token0.category === 'stablecoin' &&
-    pool.token1.category === 'stablecoin';
-  const percents = isStablePair ? [0.001, 0.005, 0.01] : [0.1, 0.2, 0.5];
-  return [
-    ...percents.map((percent) => ({
-      id: String(percent),
-      label: `±${new BigNumber(percent).times(100).toFixed()}%`,
-      percent,
-    })),
-    { id: 'full', label: POOLS_COPY.fullRange, percent: 1 },
-  ];
-}
-
-export function getPresetRange(pool: IPool, percent: number): IPoolTickRange {
-  return getRangeAroundPrice({
-    sqrtRatioX96: BigInt(pool.sqrtPriceX96 ?? '0'),
-    percent,
-    tickSpacing: pool.tickSpacing ?? 60,
-    decimals0: pool.token0.decimals,
-    decimals1: pool.token1.decimals,
-  });
-}
+import type {
+  IPoolRangePreset,
+  IPoolRangePresetId,
+} from '../poolsRangePresets';
 
 /** Plain number for an editable field: 6 significant digits, no grouping */
 function toEditable(value: BigNumber) {
   return new BigNumber(value.toPrecision(6)).toFixed();
 }
 
+/** A bound against today's price: +11.07%, -9.06% */
+function formatChange(value: BigNumber, now: BigNumber) {
+  const change = value.div(now).minus(1).times(100);
+  if (!change.isFinite()) {
+    return undefined;
+  }
+  return `${change.gt(0) ? '+' : ''}${change.toFixed(2)}%`;
+}
+
 function PriceBoundField({
   label,
+  change,
   value,
   shown,
   disabled,
@@ -78,6 +75,8 @@ function PriceBoundField({
   testID,
 }: {
   label: string;
+  /** How far the bound sits from today's price */
+  change?: string;
   value: string;
   /** Formatted value, also used for 0 and ∞ */
   shown: string;
@@ -96,9 +95,20 @@ function PriceBoundField({
 
   return (
     <YStack flex={1} gap="$2" p="$3" borderRadius="$3" bg="$bgStrong">
-      <SizableText size="$bodySm" color="$textSubdued">
-        {label}
-      </SizableText>
+      <XStack jc="space-between" gap="$2">
+        <SizableText size="$bodySm" color="$textSubdued">
+          {label}
+        </SizableText>
+        {change ? (
+          <SizableText
+            testID={`${testID}-change`}
+            size="$bodySm"
+            color="$textSubdued"
+          >
+            {change}
+          </SizableText>
+        ) : null}
+      </XStack>
       <XStack ai="center" gap="$1">
         {disabled ? (
           <SizableText flex={1} size="$headingMd" numberOfLines={1}>
@@ -151,8 +161,9 @@ function PriceBoundField({
 }
 
 /**
- * What the chosen range comes to: the estimate, and how often the price
- * stayed inside it over the last 30 days.
+ * What the chosen range comes to: the estimate, and how long the price is
+ * expected to stay inside at the pair's daily moves, with how many of the
+ * last 30 days it actually did.
  */
 export function PoolRangeFigures({
   pool,
@@ -166,31 +177,121 @@ export function PoolRangeFigures({
   /** Daily closes of the last 30 days */
   priceHistory: IPoolPricePoint[];
 }) {
+  const volatility = useMemo(
+    () => getDailyVolatility(priceHistory),
+    [priceHistory],
+  );
   const days = countDaysInRange(pool, range, priceHistory);
+  const expectedDays =
+    volatility === undefined
+      ? undefined
+      : getExpectedDaysInRange(pool, range, volatility);
   return (
     <XStack jc="space-between" ai="flex-start" gap="$4">
       <PoolAprFigure estimate={estimate} pool={pool} />
-      {days.total ? (
-        <YStack gap="$0.5" ai="flex-end" flexShrink={0}>
+      {expectedDays === undefined ? null : (
+        <YStack gap="$0.5" ai="flex-end" flexShrink={1}>
           <SizableText size="$bodySm" color="$textSubdued">
-            {POOLS_COPY.daysInRangeLabel}
+            {POOLS_COPY.expectedInRange}
           </SizableText>
-          <SizableText size="$headingXl">
-            {POOLS_COPY.daysInRange(days.inRange, days.total)}
+          <SizableText
+            testID="earn-pool-range-expected-stay"
+            size="$headingXl"
+            color={expectedDays > 0 ? '$text' : '$textCaution'}
+          >
+            {expectedDays > 0
+              ? formatExpectedStay(expectedDays)
+              : POOLS_COPY.outOfRange}
           </SizableText>
+          {days.total ? (
+            <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
+              {POOLS_COPY.inRangeOfLast(days.inRange, days.total)}
+            </SizableText>
+          ) : null}
         </YStack>
-      ) : null}
+      )}
     </XStack>
   );
 }
 
+/** Each preset as a card with its width; the chosen one stands out */
+function PoolRangePresetCards({
+  presets,
+  presetId,
+  onSelect,
+}: {
+  presets: IPoolRangePreset[];
+  presetId?: IPoolRangePresetId;
+  onSelect: (preset: IPoolRangePreset) => void;
+}) {
+  return (
+    <XStack gap="$2">
+      {presets.map((preset) => {
+        const active = presetId === preset.id;
+        return (
+          <YStack
+            key={preset.id}
+            testID={`earn-pool-range-preset-${preset.id}`}
+            flex={1}
+            flexBasis={0}
+            minWidth={0}
+            ai="center"
+            gap="$0.5"
+            py="$2"
+            borderRadius="$3"
+            borderWidth={1}
+            borderColor={active ? '$borderActive' : '$transparent'}
+            bg={active ? '$bg' : '$bgStrong'}
+            hoverStyle={{ bg: active ? '$bg' : '$bgHover' }}
+            pressStyle={{ bg: active ? '$bg' : '$bgActive' }}
+            cursor="pointer"
+            userSelect="none"
+            onPress={() => onSelect(preset)}
+          >
+            <SizableText size="$bodyMdMedium" numberOfLines={1}>
+              {preset.name}
+            </SizableText>
+            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+              {formatPresetWidth(preset)}
+            </SizableText>
+          </YStack>
+        );
+      })}
+    </XStack>
+  );
+}
+
+/** What a range is, and how the presets are sized */
+function PoolRangeInfo() {
+  return (
+    <Popover
+      placement="bottom-start"
+      title={POOLS_COPY.priceRange}
+      renderTrigger={
+        <IconButton
+          testID="earn-pool-range-info"
+          variant="tertiary"
+          size="small"
+          icon="InfoCircleOutline"
+        />
+      }
+      renderContent={
+        <SizableText px="$pagePadding" py="$4">
+          {POOLS_COPY.rangeInfo}
+        </SizableText>
+      }
+    />
+  );
+}
+
 /**
- * Range step of the add form (doc §2.5 ②): the liquidity chart with the
- * range's edges to drag and the current price, presets, min / max that snap
- * to usable ticks, and the range in plain words. In the create card the
- * figures wait with the other results, after the deposit; under the pool's
- * price chart, where the band is dragged instead, there is no chart of its
- * own and the figures sit under the presets.
+ * Range step of the add form (doc §2.5 ②), in the order the choice is
+ * made: a preset sized to how far the pair moves, the liquidity chart to
+ * adjust it by its edges or move it whole, then min / max that snap to
+ * usable ticks, each with its distance from today's price. In the create
+ * card the figures wait with the other results; under the pool's price
+ * chart, where the band is dragged instead, there is no chart of its own
+ * and the figures sit under the presets.
  */
 export function PoolRangeEditor({
   pool,
@@ -198,6 +299,7 @@ export function PoolRangeEditor({
   priceHistory,
   estimate,
   range,
+  presets,
   presetId,
   onChange,
   readOnly = false,
@@ -211,8 +313,9 @@ export function PoolRangeEditor({
   priceHistory: IPoolPricePoint[];
   estimate: IPoolsAprEstimate | undefined;
   range: IPoolTickRange;
-  presetId?: string;
-  onChange: (range: IPoolTickRange, presetId?: string) => void;
+  presets: IPoolRangePreset[];
+  presetId?: IPoolRangePresetId;
+  onChange: (range: IPoolTickRange, presetId?: IPoolRangePresetId) => void;
   readOnly?: boolean;
   underPriceChart?: boolean;
   /** Prices the other way round, as the chart above shows them */
@@ -222,8 +325,6 @@ export function PoolRangeEditor({
   const tickSpacing = pool.tickSpacing ?? 60;
   const pair = getPoolPair(pool);
   const inverted = flipped ? !pair.inverted : pair.inverted;
-  const base = flipped ? pair.quote : pair.base;
-  const quote = flipped ? pair.base : pair.quote;
   const decimals = {
     decimals0: pool.token0.decimals,
     decimals1: pool.token1.decimals,
@@ -234,6 +335,7 @@ export function PoolRangeEditor({
     ...decimals,
     inverted,
   });
+  const now = getPoolDisplayPrice(pool, flipped);
 
   const commit = (bound: IRangeDisplayBound, text: string) => {
     const typed = new BigNumber(text.replace(/,/g, ''));
@@ -263,40 +365,36 @@ export function PoolRangeEditor({
     );
   };
 
-  const meaning =
-    display.isMinZero && display.isMaxInfinite
-      ? POOLS_COPY.rangeMeaningFull
-      : POOLS_COPY.rangeMeaning(
-          base.symbol,
-          display.isMinZero ? '0' : formatTokenPrice(display.min),
-          display.isMaxInfinite ? '∞' : formatTokenPrice(display.max),
-          quote.symbol,
-        );
-
-  const presets = readOnly ? null : (
-    <XStack gap="$2" flexWrap="wrap">
-      {getRangePresets(pool).map((preset) => (
-        <PoolsChip
-          key={preset.id}
-          testID={`earn-pool-range-preset-${preset.id}`}
-          label={preset.label}
-          active={presetId === preset.id}
-          onPress={() => {
-            setError(undefined);
-            onChange(getPresetRange(pool, preset.percent), preset.id);
-          }}
-        />
-      ))}
+  const header = (
+    <XStack ai="center" gap="$1">
+      <SizableText size={underPriceChart ? '$headingMd' : '$headingSm'}>
+        {POOLS_COPY.priceRange}
+      </SizableText>
+      <PoolRangeInfo />
     </XStack>
   );
 
-  // Min / max, a typing error, and the range in plain words
+  const presetCards = readOnly ? null : (
+    <PoolRangePresetCards
+      presets={presets}
+      presetId={presetId}
+      onSelect={(preset) => {
+        setError(undefined);
+        onChange(getPresetRange(pool, preset.percent), preset.id);
+      }}
+    />
+  );
+
+  // Min / max with their distance from today's price, and a typing error
   const bounds = (
     <>
       <XStack gap="$3">
         <PriceBoundField
           testID="earn-pool-range-min"
           label={POOLS_COPY.minPrice}
+          change={
+            display.isMinZero ? undefined : formatChange(display.min, now)
+          }
           value={display.isMinZero ? '0' : toEditable(display.min)}
           shown={display.isMinZero ? '0' : formatTokenPrice(display.min)}
           disabled={readOnly || display.isMinZero}
@@ -306,6 +404,9 @@ export function PoolRangeEditor({
         <PriceBoundField
           testID="earn-pool-range-max"
           label={POOLS_COPY.maxPrice}
+          change={
+            display.isMaxInfinite ? undefined : formatChange(display.max, now)
+          }
           value={display.isMaxInfinite ? '∞' : toEditable(display.max)}
           shown={display.isMaxInfinite ? '∞' : formatTokenPrice(display.max)}
           disabled={readOnly || display.isMaxInfinite}
@@ -318,19 +419,14 @@ export function PoolRangeEditor({
           {error}
         </SizableText>
       ) : null}
-      <SizableText size="$bodySm" color="$textSubdued">
-        {meaning}
-      </SizableText>
     </>
   );
 
   if (underPriceChart) {
     return (
       <YStack gap="$4">
-        <XStack ai="center" jc="space-between" gap="$3" flexWrap="wrap">
-          <SizableText size="$headingMd">{POOLS_COPY.priceRange}</SizableText>
-          {presets}
-        </XStack>
+        {header}
+        {presetCards}
         <PoolRangeFigures
           pool={pool}
           estimate={estimate}
@@ -342,19 +438,26 @@ export function PoolRangeEditor({
     );
   }
 
-  // The chart leads, so the range's presets don't sit right under the
-  // deposit's percent chips
-  const title = (
-    <SizableText size="$headingSm">{POOLS_COPY.priceRange}</SizableText>
-  );
   return (
     <YStack gap="$3">
+      {header}
+      {presetCards}
       {ticks ? (
         <PoolLiquidityChart
           pool={pool}
           ticks={ticks}
           range={range}
-          title={title}
+          title={
+            readOnly ? undefined : (
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                numberOfLines={1}
+              >
+                {POOLS_COPY.rangeChartHint}
+              </SizableText>
+            )
+          }
           onRangeChange={
             readOnly
               ? undefined
@@ -365,10 +468,7 @@ export function PoolRangeEditor({
           }
           height={96}
         />
-      ) : (
-        title
-      )}
-      {presets}
+      ) : null}
       {bounds}
     </YStack>
   );
