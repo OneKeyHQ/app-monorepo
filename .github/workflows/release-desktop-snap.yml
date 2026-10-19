@@ -18,7 +18,17 @@ env:
   ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
 
 jobs:
+  # Fetches the licensed brand font without running repository code; build
+  # jobs below restore it from an encrypted artifact.
+  private-fonts:
+    uses: ./.github/workflows/private-fonts.yml
+    with:
+      ref: ${{ github.event.workflow_run.head_sha || '' }}
+    secrets:
+      PRIVATE_FONTS_APP_PRIVATE_KEY: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
+
   release-desktop-snap:
+    needs: private-fonts
     strategy:
       matrix:
         node-version: [24.x]
@@ -43,51 +53,40 @@ jobs:
         with:
           lfs: true
 
-      # Fetch the private brand font with pinned third-party code before any
-      # repository code runs: the App private key never reaches a local action, the
-      # token is revoked right after the download, and later steps only receive the
-      # sha256-verified font directory.
-      - name: Mint private fonts token
-        id: private-fonts-token
-        if: vars.PRIVATE_FONTS_APP_ID != ''
-        # v3.2.0
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+      # Restore the private brand font fetched by the trusted `private-fonts` job
+      # (no App key in this job). fonts:sync verifies it against brand.lock.json.
+      - name: Restore private fonts
+        if: needs.private-fonts.outputs.artifact != ''
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          app-id: ${{ vars.PRIVATE_FONTS_APP_ID }}
-          private-key: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
-          owner: OneKeyHQ
-          repositories: app-private-fonts
-          permission-contents: read
-          skip-token-revoke: true
+          name: ${{ needs.private-fonts.outputs.artifact }}
+          path: ${{ runner.temp }}/private-fonts-artifact
 
-      - name: Download private fonts
-        if: steps.private-fonts-token.outputs.token != ''
+      - name: Decrypt private fonts
+        if: needs.private-fonts.outputs.artifact != ''
         shell: bash
         env:
-          GH_TOKEN: ${{ steps.private-fonts-token.outputs.token }}
-          LOCK: packages/components/src/hocs/Provider/fonts/brand.lock.json
+          FONTS_KEY: ${{ needs.private-fonts.outputs.key }}
         run: |
           set -euo pipefail
-          # Native jq.exe on Windows runners emits CRLF; strip \r from its output.
-          revoke() {
-            curl -fsS -X DELETE -H "Authorization: Bearer ${GH_TOKEN}" \
-              https://api.github.com/installation/token >/dev/null || true
-          }
-          trap revoke EXIT
           dir="${RUNNER_TEMP}/onekey-private-fonts"
-          rm -rf "$dir" && mkdir -p "$dir"
-          commit="$(jq -r '.commit' "$LOCK" | tr -d '\r')"
-          [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::brand.lock.json pins no commit"; exit 1; }
-          for slot in regular medium semibold bold; do
-            file="$(jq -r --arg s "$slot" '.files[$s].path' "$LOCK" | tr -d '\r')"
-            sha="$(jq -r --arg s "$slot" '.files[$s].sha256' "$LOCK" | tr -d '\r')"
-            [[ "$file" =~ ^[A-Za-z0-9._/-]+$ && "$file" != *..* ]] || { echo "::error::invalid font path for $slot"; exit 1; }
-            curl -fsSL --retry 3 -H "Authorization: Bearer ${GH_TOKEN}" \
-              -H "Accept: application/vnd.github.raw+json" -o "$dir/$slot.ttf" \
-              "https://api.github.com/repos/OneKeyHQ/app-private-fonts/contents/${file}?ref=${commit}"
-            if command -v sha256sum >/dev/null; then actual="$(sha256sum "$dir/$slot.ttf" | cut -d' ' -f1)"; else actual="$(shasum -a 256 "$dir/$slot.ttf" | cut -d' ' -f1)"; fi
-            [[ "$actual" == "$sha" ]] || { echo "::error::$slot sha256 does not match brand.lock.json"; exit 1; }
-          done
+          node -e "
+            const crypto = require('crypto');
+            const fs = require('fs');
+            const path = require('path');
+            const [input, dir] = process.argv.slice(1);
+            const blob = fs.readFileSync(input);
+            const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(process.env.FONTS_KEY, 'hex'), blob.subarray(0, 12));
+            decipher.setAuthTag(blob.subarray(12, 28));
+            const bundle = JSON.parse(Buffer.concat([decipher.update(blob.subarray(28)), decipher.final()]).toString());
+            fs.rmSync(dir, { recursive: true, force: true });
+            fs.mkdirSync(dir, { recursive: true });
+            for (const [name, data] of Object.entries(bundle)) {
+              if (!/^[a-z]+\.ttf$/.test(name)) throw new Error('unexpected font entry ' + name);
+              fs.writeFileSync(path.join(dir, name), Buffer.from(data, 'base64'));
+            }
+          " "${RUNNER_TEMP}/private-fonts-artifact/private-fonts.enc" "$dir"
+          rm -rf "${RUNNER_TEMP}/private-fonts-artifact"
           echo "ONEKEY_PRIVATE_FONTS_DIR=$dir" >> "$GITHUB_ENV"
       - name: Install dependencies
         run: |

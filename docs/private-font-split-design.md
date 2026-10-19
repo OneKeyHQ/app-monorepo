@@ -128,13 +128,15 @@ export const brandFontManifest = {
 
 - 组织管理员创建一个 GitHub App，只授予 Repository permissions → Contents: Read-only，只安装到 `app-private-fonts`。
 - app-monorepo 配置：变量 `vars.PRIVATE_FONTS_APP_ID`、secret `secrets.PRIVATE_FONTS_APP_PRIVATE_KEY`。
-- 每个发布 job 在 `actions/checkout` 之后、任何仓库代码（如 `./.github/actions/shared-env`、`yarn install`）运行之前，
-  内联执行两步：
-  1. 固定 SHA 的 `actions/create-github-app-token` 生成仅 `contents:read` 的 token；
-  2. 内联 bash（只用 curl/jq，不执行仓库代码；jq 输出经 `tr -d '\r'`，兼容 Windows runner 的 CRLF）按 `brand.lock.json` 下载 4 个文件到 `$RUNNER_TEMP`、校验 sha256，
-     然后**立即撤销 token**，只把字体目录通过 `ONEKEY_PRIVATE_FONTS_DIR` 交给后续步骤。
-- App 私钥只传给固定 SHA 的第三方 action，从不传给本地 action；token 不写入 `$GITHUB_ENV`。
-  这样即使构建的是 PR 代码（如 `release-app-bundles` 指定 `pr_number`），PR 也拿不到私钥或 token。
+- 每个发布 workflow 新增一个 `private-fonts` job（可复用 workflow `.github/workflows/private-fonts.yml`）。这个 job **不运行任何仓库代码**：
+  只稀疏检出 `brand.lock.json` 作为数据，用固定 SHA 的 `actions/create-github-app-token` 生成仅 `contents:read` 的 token，
+  用 curl/jq 下载 4 个文件并校验 sha256，然后立即撤销 token。
+- 本仓库是公开的，artifact 任何登录用户都能下载，所以字体先用**一次性随机密钥**（AES-256-GCM，Node `crypto`）加密，
+  再作为保留 1 天的 artifact 上传；密钥只通过 job output 传给同一 run 内依赖它的 job，不出现在日志或 API 中。
+- 构建 job `needs: private-fonts`，在 checkout 之后下载并解密到 `$RUNNER_TEMP`，通过 `ONEKEY_PRIVATE_FONTS_DIR` 交给 `fonts:sync`（再次校验 sha256）。
+- **App 私钥只出现在 `private-fonts` job 中。** 任何 job 引用的 secret 都会进入该 job 的 runner 进程内存，同 job 内运行的代码
+  （构建脚本、依赖的 postinstall、PR 代码）都可能读取。把私钥隔离出构建 job 后，即使依赖被投毒或构建了 PR 代码，最多拿到本次的字体文件，拿不到能长期生成 token 的私钥。
+- `workflow_run` 触发的 workflow 中，上游失败时 `private-fonts` 不运行，避免无意义地生成 token。
 - `release-app-bundles` 按 PR 构建时，`validate-pr` 只放行同仓库 PR 和 `TRUSTED_PR_AUTHORS` 白名单作者的 fork PR，
   这些构建都在 CI 中自行拉取私有字体（与它们已能使用签名、QA 上传等 secret 的信任模型一致）。
   非白名单 fork PR 在 `validate-pr` 阶段即被拒绝，不会进入构建。

@@ -1,0 +1,121 @@
+# Fetches the licensed brand font for a release workflow in a job that never
+# runs repository code, so the GitHub App private key stays out of every job
+# that executes build scripts or PR code (a secret referenced by a job lives in
+# that job's runner process and can be read by code running there).
+#
+# This repository is public, so its artifacts are downloadable by any signed-in
+# user. The fonts are therefore encrypted with a random one-time key before
+# upload; the key only travels to the calling workflow's jobs as a job output.
+# Build jobs restore the artifact, decrypt it into $RUNNER_TEMP and export
+# ONEKEY_PRIVATE_FONTS_DIR, which `fonts:sync` verifies against brand.lock.json.
+name: Private fonts
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit whose brand.lock.json pins the fonts. Defaults to the workflow commit.
+        type: string
+        required: false
+        default: ''
+    secrets:
+      PRIVATE_FONTS_APP_PRIVATE_KEY:
+        required: false
+    outputs:
+      artifact:
+        description: Encrypted font artifact name; empty when the App is not configured.
+        value: ${{ jobs.fetch.outputs.artifact }}
+      key:
+        description: One-time decryption key for the artifact.
+        value: ${{ jobs.fetch.outputs.key }}
+
+permissions:
+  contents: read
+
+jobs:
+  fetch:
+    runs-on: ubuntu-24.04
+    outputs:
+      artifact: ${{ steps.download.outputs.artifact }}
+      key: ${{ steps.download.outputs.key }}
+    steps:
+      # Only the lock file is read, as data. No repository code runs here.
+      - name: Checkout brand.lock.json
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
+          sparse-checkout: packages/components/src/hocs/Provider/fonts/brand.lock.json
+          sparse-checkout-cone-mode: false
+
+      - name: Mint private fonts token
+        id: private-fonts-token
+        if: vars.PRIVATE_FONTS_APP_ID != ''
+        # v3.2.0
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        with:
+          app-id: ${{ vars.PRIVATE_FONTS_APP_ID }}
+          private-key: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
+          owner: OneKeyHQ
+          repositories: app-private-fonts
+          permission-contents: read
+          skip-token-revoke: true
+
+      - name: Download and encrypt private fonts
+        id: download
+        if: steps.private-fonts-token.outputs.token != ''
+        env:
+          GH_TOKEN: ${{ steps.private-fonts-token.outputs.token }}
+          LOCK: packages/components/src/hocs/Provider/fonts/brand.lock.json
+        run: |
+          set -euo pipefail
+          revoke() {
+            curl -fsS -X DELETE -H "Authorization: Bearer ${GH_TOKEN}" \
+              https://api.github.com/installation/token >/dev/null || true
+          }
+          trap revoke EXIT
+          dir="${RUNNER_TEMP}/onekey-private-fonts"
+          rm -rf "$dir" && mkdir -p "$dir"
+          commit="$(jq -r '.commit' "$LOCK")"
+          [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::brand.lock.json pins no commit"; exit 1; }
+          for slot in regular medium semibold bold; do
+            file="$(jq -r --arg s "$slot" '.files[$s].path' "$LOCK")"
+            sha="$(jq -r --arg s "$slot" '.files[$s].sha256' "$LOCK")"
+            [[ "$file" =~ ^[A-Za-z0-9._/-]+$ && "$file" != *..* ]] || { echo "::error::invalid font path for $slot"; exit 1; }
+            curl -fsSL --retry 3 -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github.raw+json" -o "$dir/$slot.ttf" \
+              "https://api.github.com/repos/OneKeyHQ/app-private-fonts/contents/${file}?ref=${commit}"
+            actual="$(sha256sum "$dir/$slot.ttf" | cut -d' ' -f1)"
+            [[ "$actual" == "$sha" ]] || { echo "::error::$slot sha256 does not match brand.lock.json"; exit 1; }
+          done
+          revoke
+          trap - EXIT
+          # AES-256-GCM over a JSON bundle of the four faces; layout iv|tag|data.
+          key="$(node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))")"
+          FONTS_KEY="$key" node -e "
+            const crypto = require('crypto');
+            const fs = require('fs');
+            const path = require('path');
+            const [dir, out] = process.argv.slice(1);
+            const bundle = {};
+            for (const name of fs.readdirSync(dir)) {
+              bundle[name] = fs.readFileSync(path.join(dir, name)).toString('base64');
+            }
+            const iv = crypto.randomBytes(12);
+            const cipher = crypto.createCipheriv('aes-256-gcm', Buffer.from(process.env.FONTS_KEY, 'hex'), iv);
+            const data = Buffer.concat([cipher.update(JSON.stringify(bundle)), cipher.final()]);
+            fs.writeFileSync(out, Buffer.concat([iv, cipher.getAuthTag(), data]));
+          " "$dir" "${RUNNER_TEMP}/private-fonts.enc"
+          rm -rf "$dir"
+          suffix="$(node -e "process.stdout.write(require('crypto').randomBytes(6).toString('hex'))")"
+          echo "artifact=private-fonts-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${suffix}" >> "$GITHUB_OUTPUT"
+          echo "key=$key" >> "$GITHUB_OUTPUT"
+
+      - name: Upload encrypted fonts
+        if: steps.download.outputs.artifact != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ steps.download.outputs.artifact }}
+          path: ${{ runner.temp }}/private-fonts.enc
+          retention-days: 1
+          if-no-files-found: error
