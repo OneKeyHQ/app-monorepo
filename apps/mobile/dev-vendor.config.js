@@ -55,7 +55,7 @@ const fingerprintFiles = [
   'development/platformEnvDefine.js',
   'package.json',
   // Native font family names are baked into the vendor bundle; the generated
-  // manifest separates prebundles built with the private font from fallback ones.
+  // manifest keeps private-font vendor bundles apart from fallback ones.
   'packages/components/src/hocs/Provider/fonts/brand/manifest.ts',
   'packages/components/src/hocs/Provider/fonts/brandFont.ts',
   'packages/components/src/utils/scale.ts',

@@ -42,6 +42,8 @@ on:
       - 'development/platformEnvDefine.js'
       - 'package.json'
       - 'packages/components/colors/**'
+      - 'packages/components/src/hocs/Provider/fonts/brand/manifest.ts'
+      - 'packages/components/src/hocs/Provider/fonts/brandFont.ts'
       - 'packages/components/src/utils/scale.ts'
       - 'packages/components/src/utils/webFontFamily.ts'
       - 'packages/components/tamagui.animations.ts'
