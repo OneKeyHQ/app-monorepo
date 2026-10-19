@@ -17,6 +17,12 @@ const getOrCreateWebEmbedApiModule = memoizee(
     if (name === 'chainKaspa') {
       return new (await import('../WebEmbedApiChainKaspa')).default();
     }
+    if (name === 'chainZcash') {
+      return new (await import('../WebEmbedApiChainZcash')).default();
+    }
+    if (name === 'chainXmr') {
+      return new (await import('../WebEmbedApiChainXmr')).default();
+    }
     if (name === 'secret') {
       return new (await import('../WebEmbedApiSecret')).default();
     }

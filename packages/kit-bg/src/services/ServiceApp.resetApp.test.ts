@@ -237,9 +237,11 @@ describe('ServiceApp.resetApp', () => {
 
   test('cleans security-critical storage before rejecting a native AppStorage clear failure', async () => {
     platformEnv.isNative = true;
+    const dropAllLocalWalletData = jest.fn().mockResolvedValue([]);
     const stopPersistenceForReset = jest.fn().mockResolvedValue(undefined);
     const service = new ServiceApp({
       backgroundApi: {
+        servicePrivacyChain: { dropAllLocalWalletData },
         serviceIdentityExit: {
           prepareIdentityAuthForAppReset: jest
             .fn()
@@ -272,6 +274,7 @@ describe('ServiceApp.resetApp', () => {
     await expect(service.resetApp()).rejects.toBe(clearError);
 
     expect(clear).toHaveBeenCalledTimes(2);
+    expect(dropAllLocalWalletData).toHaveBeenCalledTimes(2);
     expect(endResetting).toHaveBeenCalledTimes(2);
     expect(resetUtils.getIsResetting()).toBe(false);
     expect(clearSyncStorage).toHaveBeenCalledTimes(2);
@@ -282,5 +285,64 @@ describe('ServiceApp.resetApp', () => {
     expect(resetLocalDb).toHaveBeenCalledTimes(2);
     expect(stopPersistenceForReset).toHaveBeenCalledTimes(2);
     expect(restartApp).not.toHaveBeenCalled();
+  });
+});
+
+describe('ServiceApp privacy database reset ordering', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('preserves host storage when the external privacy database cannot be erased', async () => {
+    const clear = jest.spyOn(appStorage, 'clear').mockResolvedValue(undefined);
+    const dropAllLocalWalletData = jest
+      .fn()
+      .mockRejectedValue(new Error('privacy database erase failed'));
+    const service = new ServiceApp({
+      backgroundApi: {
+        serviceLogger: {
+          stopPersistenceForReset: jest.fn().mockResolvedValue(undefined),
+        },
+        servicePrivacyChain: { dropAllLocalWalletData },
+      },
+    });
+
+    await expect(
+      (service as unknown as { resetData: () => Promise<void> }).resetData(),
+    ).rejects.toThrow('privacy database erase failed');
+    expect(clear).not.toHaveBeenCalled();
+  });
+
+  // The pending-drop marker lives in the store this reset clears, so it is
+  // written afterwards; the next reset then retries the failed network.
+  it('marks networks whose wipe failed after host storage clears', async () => {
+    const clear = jest.spyOn(appStorage, 'clear').mockResolvedValue(undefined);
+    jest.spyOn(appStorage.syncStorage, 'clearAll').mockResolvedValue(undefined);
+    jest.spyOn(biologyAuthUtils, 'deletePassword').mockResolvedValue(undefined);
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const markLocalDataDropPending = jest.fn().mockResolvedValue(undefined);
+    const service = new ServiceApp({
+      backgroundApi: {
+        serviceLogger: {
+          stopPersistenceForReset: jest.fn().mockResolvedValue(undefined),
+        },
+        servicePrivacyChain: {
+          dropAllLocalWalletData: jest.fn().mockResolvedValue(['xmr--0']),
+          markLocalDataDropPending,
+        },
+      },
+    });
+
+    await (service as unknown as { resetData: () => Promise<void> })
+      .resetData()
+      .catch(() => undefined);
+
+    expect(markLocalDataDropPending).toHaveBeenCalledWith({
+      networkIds: ['xmr--0'],
+    });
+    expect(
+      markLocalDataDropPending.mock.invocationCallOrder[0],
+    ).toBeGreaterThan(clear.mock.invocationCallOrder[0]);
   });
 });

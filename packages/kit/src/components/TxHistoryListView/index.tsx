@@ -23,6 +23,7 @@ import {
   convertToSectionGroups,
   getFilteredHistoryBySearchKey,
   getHistoryTxDisplayStatus,
+  getPendingHistorySectionState,
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import { getDisplayedActions } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
@@ -151,6 +152,7 @@ type IProps = {
   plainMode?: boolean;
   emptyTitle?: string;
   emptyDescription?: string;
+  emptyComponent?: ReactElement | null;
   onEndReached?: () => void | Promise<void>;
   onEndReachedThreshold?: number;
   isLoadingMore?: boolean;
@@ -332,6 +334,8 @@ function TxHistoryListViewSectionHeader(
     }
   }, [data, inTabList, isTabFocused, recomputeLayout]);
 
+  const pendingSection = getPendingHistorySectionState(data);
+
   if (
     data[0] &&
     getHistoryTxDisplayStatus(data[0]) === EDecodedTxStatus.Pending
@@ -345,9 +349,13 @@ function TxHistoryListViewSectionHeader(
         gap="$2"
         mt={index === 0 ? '$0' : '$5'}
       >
-        <Spinner size="small" color="$textCaution" />
+        {pendingSection.showSpinner ? (
+          <Spinner size="small" color="$textCaution" />
+        ) : null}
         <SizableText numberOfLines={1} size="$headingXs" color="$textCaution">
-          {intl.formatMessage({ id: ETranslations.global_confirming })}
+          {intl.formatMessage({
+            id: pendingSection.titleId,
+          })}
         </SizableText>
       </XStack>
     );
@@ -385,6 +393,7 @@ function BaseTxHistoryListView(props: IProps) {
     tokenMap,
     ref,
     plainMode,
+    emptyComponent,
     onEndReached,
     onEndReachedThreshold,
     isLoadingMore,
@@ -552,6 +561,9 @@ function BaseTxHistoryListView(props: IProps) {
     if (!initialized) {
       return <HistoryLoadingView tableLayout={tableLayout} />;
     }
+    if (emptyComponent !== undefined) {
+      return emptyComponent ?? <Stack />;
+    }
     if (searchKey && data.length > 0) {
       return <EmptySearch />;
     }
@@ -578,6 +590,7 @@ function BaseTxHistoryListView(props: IProps) {
     tokenMap,
     tableLayout,
     plainMode,
+    emptyComponent,
   ]);
 
   if (plainMode) {

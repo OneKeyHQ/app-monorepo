@@ -690,6 +690,15 @@ describe('ReceiveToken network switch', () => {
     });
   });
 
+  it('uses the ordinary network address despite a private receive preference', async () => {
+    mockRouteParams = buildParams('hd', { localWalletAddressForm: 'private' });
+    const { getByTestId } = render(<ReceiveToken />);
+
+    await waitFor(() =>
+      expect(getByTestId('address').textContent).toBe('0xaaa'),
+    );
+  });
+
   it('shows the trigger only for a switchable entry', async () => {
     mockRouteParams = buildParams('hd');
     const { getByTestId, queryByTestId, unmount } = render(<ReceiveToken />);

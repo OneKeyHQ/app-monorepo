@@ -697,14 +697,25 @@ function TxConfirmActions(props: IProps) {
           : undefined,
       });
 
-      Toast.success({
-        title: isFeeSponsored
-          ? intl.formatMessage({
-              id: ETranslations.wallet_gas_sponsored_transaction_submitted__msg,
-            })
-          : intl.formatMessage({
-              id: ETranslations.feedback_transaction_submitted,
-            }),
+      const broadcastOutcomeUnknown = result.some(
+        (item) => item.signedTx?.broadcastOutcomeUnknown,
+      );
+      const showSubmittedToast = broadcastOutcomeUnknown
+        ? Toast.warning
+        : Toast.success;
+      let submittedTitle = isFeeSponsored
+        ? intl.formatMessage({
+            id: ETranslations.wallet_gas_sponsored_transaction_submitted__msg,
+          })
+        : intl.formatMessage({
+            id: ETranslations.feedback_transaction_submitted,
+          });
+      if (broadcastOutcomeUnknown)
+        submittedTitle = intl.formatMessage({
+          id: ETranslations.global_unknown,
+        });
+      showSubmittedToast({
+        title: submittedTitle,
         icon: isFeeSponsored ? 'GiftSolid' : undefined,
       });
 
@@ -1153,8 +1164,21 @@ function TxConfirmActions(props: IProps) {
     customRpcStatus?.useDefaultRpcOnce,
   ]);
 
+  const unsignedTxsRef = useRef(unsignedTxs);
+  unsignedTxsRef.current = unsignedTxs;
   usePageUnMounted(() => {
     if (!isSubmitted.current) {
+      // Inputs the build reserved (Zcash) would otherwise stay locked for
+      // the reservation's whole lifetime.
+      void backgroundApiProxy.serviceSend
+        .releaseUnsignedTxs({
+          networkId,
+          accountId,
+          unsignedTxs: unsignedTxsRef.current,
+        })
+        .catch((error: unknown) => {
+          console.error('releaseUnsignedTxs failed', error);
+        });
       onCancelOnce();
     }
   });

@@ -13,6 +13,7 @@ import {
   Icon,
   Image,
   Page,
+  SegmentControl,
   SizableText,
   Skeleton,
   Stack,
@@ -46,7 +47,11 @@ import type {
   IModalReceiveParamList,
   IReceiveNetworkSelection,
 } from '@onekeyhq/shared/src/routes';
-import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalReceiveRoutes,
+  EModalRoutes,
+  EModalSettingRoutes,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -116,6 +121,7 @@ function ReceiveToken() {
     btcUsedAddress,
     btcUsedAddressPath,
     exchangeSource,
+    localWalletAddressForm,
     switchEntry,
     source: routeSource,
     isAllNetworksMode,
@@ -294,9 +300,46 @@ function ReceiveToken() {
 
   const isBtcUsedAddressVerifyMode = btcUsedAddress && btcUsedAddressPath;
 
-  const displayAddress = isBtcUsedAddressVerifyMode
-    ? btcUsedAddress
-    : (currentAccount?.address ?? '');
+  // Local-wallet chains: one account exposes a public and a private receive
+  // form; the segment control in the card header switches them and the
+  // QR / copy / share all follow displayAddress. On-device address
+  // verification must target the currently displayed form.
+  const localWalletAddressForms = vaultSettings?.localWallet?.addressForms;
+  const { result: localWalletAddresses } = usePromiseResult(async () => {
+    if (!localWalletAddressForms || !currentAccount?.id || !network?.id) {
+      return undefined;
+    }
+    return backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountAddresses(
+      {
+        networkId: network.id,
+        accountId: currentAccount.id,
+      },
+    );
+  }, [localWalletAddressForms, network?.id, currentAccount?.id]);
+  const [requestedAddressForm, setReceiveAddressForm] = useState<
+    'public' | 'private'
+  >(localWalletAddressForm ?? 'public');
+  const localWalletPrivateAddress = localWalletAddresses?.privateAddress;
+  // A chain with only a private form (Monero) always receives privately, from
+  // whichever entry the page was opened.
+  const receiveAddressForm: 'public' | 'private' =
+    localWalletAddressForms && !localWalletAddressForms.publicLabel
+      ? 'private'
+      : requestedAddressForm;
+  // Paused or never enabled: nothing scans the private address, so it is not
+  // handed out; the page points at where scanning is turned on instead.
+  const isPrivateReceiveUnavailable =
+    localWalletAddressForms &&
+    receiveAddressForm === 'private' &&
+    localWalletAddresses !== undefined &&
+    !localWalletPrivateAddress;
+
+  let displayAddress = currentAccount?.address ?? '';
+  if (isBtcUsedAddressVerifyMode) {
+    displayAddress = btcUsedAddress;
+  } else if (localWalletAddressForms && receiveAddressForm === 'private') {
+    displayAddress = localWalletPrivateAddress ?? '';
+  }
   const verificationPath = isBtcUsedAddressVerifyMode
     ? btcUsedAddressPath
     : currentAccount?.addressDetail?.receiveAddressPath;
@@ -384,6 +427,7 @@ function ReceiveToken() {
   ]);
 
   const shouldShowQRCode = useMemo(() => {
+    if (!displayAddress) return false;
     if (!isHardwareWallet) {
       return true;
     }
@@ -396,7 +440,7 @@ function ReceiveToken() {
     }
 
     return false;
-  }, [addressState, isHardwareWallet]);
+  }, [addressState, isHardwareWallet, displayAddress]);
 
   useEffect(() => {
     const url = network?.logoURI;
@@ -507,6 +551,10 @@ function ReceiveToken() {
     setAddressState(EAddressState.Unverified);
   }, []);
 
+  useEffect(() => {
+    resetVerifyState();
+  }, [displayAddress, verificationPath, resetVerifyState]);
+
   const handleVerifyOnDevicePress = useCallback(async () => {
     if (isVerifyingRef.current || isSwitchResolvingRef.current) return;
     if (!displayAddress) {
@@ -559,10 +607,15 @@ function ReceiveToken() {
           confirmOnDevice: EConfirmOnDeviceType.EveryItem,
           customReceiveAddressPath: verificationPath,
           expectedAddress: displayAddress,
+          localWalletAddressForm: localWalletAddressForms
+            ? receiveAddressForm
+            : undefined,
         });
 
-      const isSameAddress =
-        addresses?.[0]?.toLowerCase() === displayAddress.toLowerCase();
+      if (verifyAttemptRef.current !== attempt) return;
+      const isSameAddress = localWalletAddressForms
+        ? addresses?.[0] === displayAddress
+        : addresses?.[0]?.toLowerCase() === displayAddress.toLowerCase();
 
       defaultLogger.transaction.receive.showReceived({
         walletType: wallet?.type,
@@ -626,6 +679,8 @@ function ReceiveToken() {
     currentAccount?.indexedAccountId,
     currentDeriveType,
     displayAddress,
+    localWalletAddressForms,
+    receiveAddressForm,
     intl,
     networkId,
     addressVerification.mode,
@@ -1599,6 +1654,34 @@ function ReceiveToken() {
   }, [network, cardHeaderLeft]);
 
   const cardHeaderRight = useMemo(() => {
+    // Switch between the two receive forms of the same account.
+    // A chain with no public pool (Monero) has nothing to switch to; showing
+    // the control would offer a form that cannot produce an address.
+    const publicFormLabel = localWalletAddressForms?.publicLabel;
+    if (
+      localWalletPrivateAddress &&
+      localWalletAddressForms &&
+      publicFormLabel
+    ) {
+      return (
+        <SegmentControl
+          value={receiveAddressForm}
+          onChange={(v) => setReceiveAddressForm(v as 'public' | 'private')}
+          options={[
+            {
+              label: intl.formatMessage({ id: publicFormLabel }),
+              value: 'public',
+            },
+            {
+              label: intl.formatMessage({
+                id: localWalletAddressForms.privateLabel,
+              }),
+              value: 'private',
+            },
+          ]}
+        />
+      );
+    }
     if (!vaultSettings?.mergeDeriveAssetsEnabled || !currentAccount) {
       return null;
     }
@@ -1639,6 +1722,10 @@ function ReceiveToken() {
       />
     );
   }, [
+    intl,
+    localWalletAddressForms,
+    localWalletPrivateAddress,
+    receiveAddressForm,
     vaultSettings?.mergeDeriveAssetsEnabled,
     currentAccount,
     disableSelector,
@@ -1827,6 +1914,33 @@ function ReceiveToken() {
               {renderQrCodeCell()}
               {shouldShowAddress ? renderAddressCell() : null}
             </ReceiveCard>
+          ) : null}
+          {isPrivateReceiveUnavailable && network ? (
+            <YStack gap="$3" alignItems="center">
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                textAlign="center"
+              >
+                {intl.formatMessage({
+                  id: ETranslations.privacy_receive_needs_sync__msg,
+                })}
+              </SizableText>
+              <Button
+                testID="receive-open-privacy-settings"
+                variant="primary"
+                onPress={() =>
+                  navigation.pushModal(EModalRoutes.SettingModal, {
+                    screen: EModalSettingRoutes.SettingPrivacyNetwork,
+                    params: { networkId: network.id, walletId },
+                  })
+                }
+              >
+                {intl.formatMessage({
+                  id: ETranslations.backup_turn_on,
+                })}
+              </Button>
+            </YStack>
           ) : null}
           {isSwitchPending && !(currentAccount && displayAddress)
             ? renderPlaceholderCard()

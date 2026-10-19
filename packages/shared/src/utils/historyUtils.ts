@@ -4,7 +4,10 @@ import { isNil } from 'lodash';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 
-import { EOnChainHistoryTxStatus } from '../../types/history';
+import {
+  EOnChainHistoryTransferType,
+  EOnChainHistoryTxStatus,
+} from '../../types/history';
 import { EDecodedTxStatus } from '../../types/tx';
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 import { ETranslations } from '../locale';
@@ -19,10 +22,24 @@ import type {
   IOnChainHistoryTx,
   IOnChainHistoryTxNFT,
   IOnChainHistoryTxToken,
+  IOnChainHistoryTxTransfer,
 } from '../../types/history';
 
 // usd
 const LOW_VALUE_RECEIVE_TX_THRESHOLD = 0.01;
+
+export function getOnChainHistoryTransferDisplayAddress({
+  transfer,
+  endpoint,
+}: {
+  transfer: IOnChainHistoryTxTransfer;
+  endpoint: 'from' | 'to';
+}): string {
+  if (transfer.type === EOnChainHistoryTransferType.Shielded) {
+    return transfer.address || transfer.label || 'Shielded';
+  }
+  return transfer[endpoint];
+}
 
 export function getOnChainHistoryTxStatus(
   onChainTxStatus: EOnChainHistoryTxStatus,
@@ -178,8 +195,8 @@ export function getHistoryTxDetailInfo({
   const gasFee = txDetails?.gasFee ?? decodedTx?.totalFeeInNative;
   const gasFeeFiatValue =
     txDetails?.gasFeeFiatValue ?? decodedTx?.totalFeeFiatValue;
-  const confirmations = txDetails?.confirmations;
-  const blockHeight = txDetails?.block;
+  const confirmations = txDetails?.confirmations ?? decodedTx?.confirmations;
+  const blockHeight = txDetails?.block ?? decodedTx?.block;
 
   return {
     date,
@@ -204,6 +221,26 @@ export function sortHistoryTxsByTime({ txs }: { txs: IAccountHistoryTx[] }) {
 
 export function getHistoryTxDisplayStatus(item?: IAccountHistoryTx) {
   return item?.displayStatus ?? item?.decodedTx.status;
+}
+
+export function getPendingHistorySectionState(data: IAccountHistoryTx[]): {
+  titleId: ETranslations;
+  showSpinner: boolean;
+} {
+  const unknownCount = data.filter(
+    (tx) => tx.decodedTx.broadcastOutcomeUnknown,
+  ).length;
+  let titleId = ETranslations.global_confirming;
+  if (unknownCount > 0) {
+    titleId =
+      unknownCount === data.length
+        ? ETranslations.global_unknown
+        : ETranslations.global_pending;
+  }
+  return {
+    titleId,
+    showSpinner: unknownCount < data.length,
+  };
 }
 
 // Pagination cursor advancement check shared by the load-more hook and the

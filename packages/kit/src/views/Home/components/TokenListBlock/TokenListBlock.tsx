@@ -132,10 +132,14 @@ import {
   getMergedDeriveTokenData,
   getMergedTokenData,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
-import { sumTokenGroupsFiatValueIgnoringUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
+import {
+  getTokenGroupsBalanceStatus,
+  sumTokenGroupsFiatValueIgnoringUnavailable,
+} from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 import type {
   IAccountToken,
+  IBalanceStatus,
   ICustomTokenItem,
   IFetchAccountTokensResp,
   IHomeDefaultToken,
@@ -889,6 +893,7 @@ function TokenListBlock({
           };
 
           const accountWorth: Record<string, string> = {};
+          const worthStatus: Record<string, IBalanceStatus> = {};
 
           resp.forEach((item) => {
             if (item.accountId && item.networkId) {
@@ -899,6 +904,7 @@ function TokenListBlock({
               // Unavailable tokens are silently dropped from the per-network
               // total — partial sum keeps the top balance trustworthy while
               // the row-level '--' still surfaces the broken entry.
+              worthStatus[key] = getTokenGroupsBalanceStatus(item);
               accountWorth[key] =
                 sumTokenGroupsFiatValueIgnoringUnavailable(item);
             }
@@ -914,6 +920,7 @@ function TokenListBlock({
               accountId,
               initialized: true,
               worth: accountWorth,
+              worthStatus,
               createAtNetworkWorth: '0',
               merge: false,
             });
@@ -953,6 +960,12 @@ function TokenListBlock({
                   accountId,
                   networkId: network.id,
                 })]: accountWorth,
+              },
+              worthStatus: {
+                [accountUtils.buildAccountValueKey({
+                  accountId,
+                  networkId: network.id,
+                })]: getTokenGroupsBalanceStatus(r),
               },
               createAtNetworkWorth: accountWorth,
               merge: false,
@@ -1729,6 +1742,12 @@ function TokenListBlock({
                 networkId,
               })]: accountWorth,
             },
+            worthStatus: {
+              [accountUtils.buildAccountValueKey({
+                accountId,
+                networkId,
+              })]: getTokenGroupsBalanceStatus(r),
+            },
             createAtNetworkWorth,
             merge: true,
           });
@@ -2201,8 +2220,15 @@ function TokenListBlock({
 
       // Per-account worth map for the overview update below.
       let tokenListValue: Record<string, string> = {};
+      const worthStatus: Record<string, IBalanceStatus> = {};
       const hasAnyCache = data.some((item) => item.hasCache);
       data.forEach((item) => {
+        worthStatus[
+          accountUtils.buildAccountValueKey({
+            accountId: item.accountId,
+            networkId: item.networkId,
+          })
+        ] = getTokenGroupsBalanceStatus({ tokens: { map: item.tokenListMap } });
         tokenListValue = {
           ...tokenListValue,
           [accountUtils.buildAccountValueKey({
@@ -2258,6 +2284,7 @@ function TokenListBlock({
               : (account?.id ?? ''),
             initialized: true,
             worth: tokenListValue,
+            worthStatus,
             createAtNetworkWorth:
               tokenListValue[
                 accountUtils.buildAccountValueKey({
@@ -2524,6 +2551,7 @@ function TokenListBlock({
           initialized: true,
           updateAll: true,
           worth: snapshot.accountsWorth,
+          worthStatus: snapshot.accountsWorthStatus,
           createAtNetworkWorth: snapshot.createAtNetworkWorth,
         });
 
@@ -2935,6 +2963,7 @@ function TokenListBlock({
       let riskyTokenListMap: Record<string, ITokenFiat> = {};
       let tokenListValue = '0';
       let tokenListWorth: Record<string, string> = {};
+      const worthStatus: Record<string, IBalanceStatus> = {};
       let hasLocalTokenCache = false;
       let cachedWorthCurrency: string | undefined;
 
@@ -2971,6 +3000,14 @@ function TokenListBlock({
 
         const params = resp.map((r) => {
           if (r.accountId && r.networkId) {
+            worthStatus[
+              accountUtils.buildAccountValueKey({
+                accountId: r.accountId,
+                networkId: r.networkId,
+              })
+            ] = getTokenGroupsBalanceStatus({
+              tokens: { map: r.tokenListMap },
+            });
             tokenListWorth = {
               ...tokenListWorth,
               [accountUtils.buildAccountValueKey({
@@ -3048,6 +3085,11 @@ function TokenListBlock({
         riskyTokenListMap = pickTokenListFiatMap({
           tokens: riskyTokenList,
           tokenListMap: localTokens.tokenListMap,
+        });
+        worthStatus[
+          accountUtils.buildAccountValueKey({ accountId, networkId })
+        ] = getTokenGroupsBalanceStatus({
+          tokens: { map: localTokens.tokenListMap },
         });
         tokenListValue = localTokens.tokenListValue;
         tokenListWorth = {
@@ -3148,6 +3190,7 @@ function TokenListBlock({
               : (account?.id ?? ''),
             initialized: true,
             worth: tokenListWorth,
+            worthStatus,
             createAtNetworkWorth: tokenListValue,
             merge: false,
             currency: cachedWorthCurrency,
@@ -3195,6 +3238,7 @@ function TokenListBlock({
             : (account?.id ?? ''),
           initialized: true,
           worth: tokenListWorth,
+          worthStatus,
           createAtNetworkWorth: tokenListValue,
           merge: false,
           currency: cachedWorthCurrency,
@@ -3840,25 +3884,30 @@ function TokenListBlock({
         if (!isLatest()) return;
 
         const accountWorth: Record<string, string> = {};
+        const worthStatus: Record<string, IBalanceStatus> = {};
         let createAtNetworkWorth = '0';
         if (mergeDeriveTarget) {
           responses.forEach((item) => {
             if (item.accountId && item.networkId) {
-              accountWorth[
-                accountUtils.buildAccountValueKey({
-                  accountId: item.accountId,
-                  networkId: item.networkId,
-                })
-              ] = sumTokenGroupsFiatValueIgnoringUnavailable(item);
+              const key = accountUtils.buildAccountValueKey({
+                accountId: item.accountId,
+                networkId: item.networkId,
+              });
+              accountWorth[key] =
+                sumTokenGroupsFiatValueIgnoringUnavailable(item);
+              worthStatus[key] = getTokenGroupsBalanceStatus(item);
             }
           });
         } else {
           createAtNetworkWorth = sumTokenGroupsFiatValueIgnoringUnavailable(
             responses[0],
           );
-          accountWorth[
-            accountUtils.buildAccountValueKey({ accountId, networkId })
-          ] = createAtNetworkWorth;
+          const key = accountUtils.buildAccountValueKey({
+            accountId,
+            networkId,
+          });
+          accountWorth[key] = createAtNetworkWorth;
+          worthStatus[key] = getTokenGroupsBalanceStatus(responses[0]);
         }
         updateAccountOverviewState({ isRefreshing: false, initialized: true });
         updateAccountWorth({
@@ -3866,6 +3915,7 @@ function TokenListBlock({
           accountId: mergeDeriveTarget ? indexedAccountId : accountId,
           initialized: true,
           worth: accountWorth,
+          worthStatus,
           createAtNetworkWorth,
           merge: false,
         });

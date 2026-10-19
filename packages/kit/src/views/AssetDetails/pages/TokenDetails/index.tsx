@@ -42,6 +42,7 @@ import {
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useDeriveTypesCollapseState } from '@onekeyhq/kit/src/hooks/useDeriveTypesCollapseState';
+import { useMainThreadStallLogger } from '@onekeyhq/kit/src/hooks/useMainThreadStallLogger';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { openTokenDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import type {
@@ -58,6 +59,7 @@ import type {
   IModalAssetDetailsParamList,
 } from '@onekeyhq/shared/src/routes/assetDetails';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { privacyChainPerfLog } from '@onekeyhq/shared/src/utils/privacyChainPerfLog';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import {
   buildTokenListMapKey,
@@ -111,9 +113,12 @@ export type IProps = {
     enabledNetworks: Record<string, boolean>;
   };
   refreshAllNetworkState?: () => void;
+  // settings.localWallet.pools[].id of the tab this view renders.
+  privacyHistoryPoolId?: number;
 } & IStackProps;
 function TokenDetailsView() {
   const intl = useIntl();
+  useMainThreadStallLogger('token-details');
 
   const route =
     useRoute<
@@ -698,6 +703,31 @@ function TokenDetailsView() {
     }
 
     if (networkId && walletId) {
+      // Each tab is one protocol pool. The stable pool ID is shared by the
+      // balance and history paths, so a future pool remains distinguishable.
+      if (
+        vaultSettings?.localWallet?.balanceShape === 'pooled' &&
+        vaultSettings.localWallet.pools
+      ) {
+        return vaultSettings.localWallet.pools.map((pool) => (
+          <Tabs.Tab key={pool.id} name={pool.label}>
+            <TokenDetailsViews
+              inTabList
+              isTabView
+              accountId={tokenInfo.accountId ?? ''}
+              networkId={tokenInfo.networkId ?? ''}
+              walletId={walletId}
+              tokenInfo={tokenInfo}
+              tokenMap={tokenMap}
+              isAllNetworks={isAllNetworks}
+              listViewContentContainerStyle={listViewContentContainerStyle}
+              indexedAccountId={indexedAccountId}
+              privacyHistoryPoolId={pool.id}
+            />
+          </Tabs.Tab>
+        ));
+      }
+
       if (vaultSettings?.mergeDeriveAssetsEnabled) {
         return result?.networkAccounts.map((item, index) => (
           <Tabs.Tab
@@ -755,6 +785,8 @@ function TokenDetailsView() {
     allNetworksState,
     refreshAllNetworkState,
     vaultSettings?.mergeDeriveAssetsEnabled,
+    vaultSettings?.localWallet?.balanceShape,
+    vaultSettings?.localWallet?.pools,
     tokenInfo,
     tokenMap,
     result?.networkAccounts,
@@ -773,6 +805,7 @@ function TokenDetailsView() {
 
   const handleTabIndexChange = useCallback(
     async (index: number) => {
+      privacyChainPerfLog('ui tab-change', { index });
       setActiveTabIndex(index);
 
       // The Overview descriptor has no token, so only member tabs can trigger
@@ -864,9 +897,20 @@ function TokenDetailsView() {
         />
       );
     }
+    // Who gets the top tab bar. Three independent reasons, and they do NOT
+    // share conditions:
+    //
+    // - BTC-style derive types: HD wallets only. An imported or watched
+    //   account has one address, so there is nothing to switch between.
+    // - Aggregate tokens: more than one member network.
+    // - Pooled privacy chains: ALWAYS. Pools belong to the account's balance,
+    //   not to how the account was created, so `isOthersWallet` must not gate
+    //   them -- an imported zcash account has the same protocol pools as an HD
+    //   one.
     if (
       (!accountUtils.isOthersWallet({ walletId }) &&
         vaultSettings?.mergeDeriveAssetsEnabled) ||
+      vaultSettings?.localWallet?.balanceShape === 'pooled' ||
       tokens.length > 1
     ) {
       if (tabs && !isEmpty(tabs) && tabs.length > 1) {
@@ -879,6 +923,12 @@ function TokenDetailsView() {
               <Tabs.TabBar
                 {...props}
                 scrollable
+                renderItem={(itemProps, index) => (
+                  <Tabs.TabBarItem
+                    {...itemProps}
+                    testID={`token-details-tab-${index}`}
+                  />
+                )}
                 renderToolbar={() => (
                   <TokenDetailsTabToolbar
                     tokens={tokens}
@@ -915,6 +965,7 @@ function TokenDetailsView() {
     isAggregateTokenUnavailable,
     walletId,
     vaultSettings?.mergeDeriveAssetsEnabled,
+    vaultSettings?.localWallet?.balanceShape,
     tokens,
     tokenInfo,
     effectiveTokenInfo,

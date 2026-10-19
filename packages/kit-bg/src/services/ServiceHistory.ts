@@ -1,6 +1,6 @@
 /* cspell:ignore Infini */
 import BigNumber from 'bignumber.js';
-import { isNil, unionBy, uniqBy } from 'lodash';
+import { isNil, unionBy, uniq, uniqBy } from 'lodash';
 
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type ILightningVault from '@onekeyhq/kit-bg/src/vaults/impls/lightning/Vault';
@@ -1765,8 +1765,10 @@ class ServiceHistory extends ServiceBase {
         )
       ).filter(Boolean);
 
-      const updateResult =
-        await this.batchUpdateLocalHistoryTxs(allNetworksParams);
+      const updateResult = await this.batchUpdateLocalHistoryTxs(
+        allNetworksParams,
+        { isAllNetworks },
+      );
       finalPendingTxs = updateResult.allFinalPendingTxs;
       confirmedTxsToSave = updateResult.allConfirmedTxsToSave;
       onChainHistoryTxs = updateResult.allMergedOnChainHistoryTxs;
@@ -2315,6 +2317,7 @@ class ServiceHistory extends ServiceBase {
       pendingTxs: IAccountHistoryTx[];
       pendingTxsToModify: IAccountHistoryTx[];
     }[],
+    { isAllNetworks = false }: { isAllNetworks?: boolean } = {},
   ) {
     const allConfirmedTxsToSave: IAccountHistoryTx[] = [];
     const allMergedOnChainHistoryTxs: IAccountHistoryTx[] = [];
@@ -2361,10 +2364,17 @@ class ServiceHistory extends ServiceBase {
       );
       allMergedOnChainHistoryTxs.push(...mergedOnChainHistoryTxs);
 
-      // Find transactions confirmed through history details query but not in on-chain history, these need to be saved
-      let confirmedTxsToSave: IAccountHistoryTx[] = [];
+      const vaultSettings =
+        await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+      const historySourceIsAuthoritative =
+        vaultSettings.localWallet?.historySource === 'vault-authoritative';
+      const canRemoveMissingConfirmedTxs =
+        historySourceIsAuthoritative && !isAllNetworks;
 
-      confirmedTxsToSave = confirmedTxs
+      // Server-indexed chains preserve locally confirmed rows that fall
+      // outside the current page. Only a full per-chain vault snapshot can
+      // remove missing rows; All Networks does not read the private runtime.
+      const confirmedTxsToSave = confirmedTxs
         .map((tx) => {
           const onChainHistoryTx = mergedOnChainHistoryTxs.find((item) =>
             this.isSameScopedHistoryTx(item, tx),
@@ -2372,9 +2382,12 @@ class ServiceHistory extends ServiceBase {
           if (onChainHistoryTx) {
             return onChainHistoryTx;
           }
-          return tx;
+          return canRemoveMissingConfirmedTxs ? undefined : tx;
         })
-        .filter((tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending);
+        .filter(
+          (tx): tx is IAccountHistoryTx =>
+            !!tx && tx.decodedTx.status !== EDecodedTxStatus.Pending,
+        );
 
       const resp = unionBy(
         [...mergedOnChainHistoryTxs, ...confirmedTxsToSave],
@@ -2382,7 +2395,14 @@ class ServiceHistory extends ServiceBase {
       );
 
       const finalConfirmedTxs = [];
-      const confirmedTxsToRemove = [];
+      const confirmedTxsToRemove = canRemoveMissingConfirmedTxs
+        ? confirmedTxs.filter(
+            (tx) =>
+              !mergedOnChainHistoryTxs.some((item) =>
+                this.isSameScopedHistoryTx(item, tx),
+              ),
+          )
+        : [];
 
       for (let i = 0; i < resp.length; i += 1) {
         const tx = resp[i];
@@ -2397,9 +2417,6 @@ class ServiceHistory extends ServiceBase {
           finalConfirmedTxs.push(tx);
         }
       }
-
-      const vaultSettings =
-        await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
 
       const nonceHasBeenUsedTxs: IAccountHistoryTx[] = [];
       let finalPendingTxs: IAccountHistoryTx[] = [];
@@ -2429,15 +2446,31 @@ class ServiceHistory extends ServiceBase {
       // detection fires and the pending record is cleaned from simpleDb.
       const onChainMatchedPendingTxs: IAccountHistoryTx[] = [];
       finalPendingTxs = finalPendingTxs.filter((tx) => {
-        const matched = onChainHistoryTxs.find((onChainTx) =>
-          this.isSameScopedHistoryTx(onChainTx, tx),
-        );
+        const matched = onChainHistoryTxs.find((onChainTx) => {
+          // A vault-authoritative source keeps the local row until it resolves.
+          const keepLocalPending =
+            historySourceIsAuthoritative &&
+            onChainTx.decodedTx.status === EDecodedTxStatus.Pending;
+          return !keepLocalPending && this.isSameScopedHistoryTx(onChainTx, tx);
+        });
         if (matched) {
           onChainMatchedPendingTxs.push(tx);
           return false;
         }
         return true;
       });
+      if (historySourceIsAuthoritative) {
+        // The vault can refine an unresolved broadcast without changing its
+        // Pending status. Do not let the earlier cache read hide that result.
+        finalPendingTxs = finalPendingTxs.map(
+          (tx) =>
+            mergedOnChainHistoryTxs.find(
+              (row) =>
+                row.decodedTx.status === EDecodedTxStatus.Pending &&
+                this.isSameScopedHistoryTx(row, tx),
+            ) ?? tx,
+        );
+      }
 
       allNonceHasBeenUsedTxs.push(...nonceHasBeenUsedTxs);
       allFinalPendingTxs.push(...finalPendingTxs);
@@ -2454,7 +2487,9 @@ class ServiceHistory extends ServiceBase {
         ],
         confirmedTxsToSave: finalConfirmedTxs,
         confirmedTxsToRemove,
-        pendingTxsToModify,
+        pendingTxsToModify: historySourceIsAuthoritative
+          ? finalPendingTxs
+          : pendingTxsToModify,
       });
     }
 
@@ -2649,6 +2684,24 @@ class ServiceHistory extends ServiceBase {
       };
     }
 
+    // Client-computed history (e.g. zcash shielded): every data source flows
+    // through this pipeline; a defined local result replaces the server query.
+    const localTxs = await vault.fetchAccountHistoryFromLocal({
+      accountId,
+      networkId,
+      accountAddress,
+      xpub,
+    });
+    if (localTxs) {
+      return {
+        txs: localTxs,
+        addressMap: {},
+        hasMore: false,
+        next: undefined as string | undefined,
+        isIndexer: false,
+      };
+    }
+
     let networkInfo;
     try {
       networkInfo = await this.backgroundApi.serviceNetwork.getNetwork({
@@ -2666,12 +2719,15 @@ class ServiceHistory extends ServiceBase {
       extraParams = await this.buildFetchHistoryListParams(params);
       let extraRequestParams = extraParams;
       if (networkId === getNetworkIdsMap().onekeyall) {
-        extraRequestParams = {
-          allNetworkAccounts: (
+        const requestAccounts = await this.excludeAddressWithheldAccounts(
+          (
             extraParams as unknown as {
               allNetworkAccounts: IAllNetworkHistoryExtraItem[];
             }
-          ).allNetworkAccounts.map((i) => ({
+          ).allNetworkAccounts,
+        );
+        extraRequestParams = {
+          allNetworkAccounts: requestAccounts.map((i) => ({
             networkId: i.networkId,
             accountAddress: i.accountAddress,
             xpub: i.accountXpub,
@@ -2802,6 +2858,26 @@ class ServiceHistory extends ServiceBase {
     };
   }
 
+  private async isAddressWithheldFromBackend(networkId: string) {
+    const { localWallet } =
+      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+    return localWallet?.withholdAddressFromBackend === true;
+  }
+
+  private async excludeAddressWithheldAccounts<T extends { networkId: string }>(
+    accounts: T[],
+  ): Promise<T[]> {
+    const withheldNetworkIds = new Set<string>();
+    await Promise.all(
+      uniq(accounts.map((i) => i.networkId)).map(async (id) => {
+        if (await this.isAddressWithheldFromBackend(id)) {
+          withheldNetworkIds.add(id);
+        }
+      }),
+    );
+    return accounts.filter((i) => !withheldNetworkIds.has(i.networkId));
+  }
+
   @backgroundMethod()
   public async fetchTransferRecipients(params: {
     accountId: string;
@@ -2816,6 +2892,12 @@ class ServiceHistory extends ServiceBase {
     errored?: boolean;
   }> {
     const { accountId, networkId, limit = 10 } = params;
+
+    // Same shape as a server "unsupported" answer: the UI falls back to its
+    // locally stored recipients and never retries.
+    if (await this.isAddressWithheldFromBackend(networkId)) {
+      return { supported: false, data: [] };
+    }
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -3035,6 +3117,8 @@ class ServiceHistory extends ServiceBase {
             accountId,
             networkId,
             txid,
+            withUTXOs: true,
+            privacyChainPoolId: params.privacyChainPoolId,
           }
         : {
             accountId,
@@ -3042,6 +3126,7 @@ class ServiceHistory extends ServiceBase {
             txid,
             xpub,
             accountAddress,
+            privacyChainPoolId: params.privacyChainPoolId,
             // skip account-scoped vault extras when the address lookup
             // failed: the server rejects `accountAddressArray` without an
             // accompanying `accountAddress`, and other vault extras (e.g.

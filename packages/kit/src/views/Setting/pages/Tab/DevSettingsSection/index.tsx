@@ -2898,6 +2898,26 @@ const BaseDevSettingsSection = () => {
                         />
                       </SectionFieldItem>
                       <SectionFieldItem
+                        icon="SignatureOutline"
+                        name="zcashHardwareRequestPreview"
+                        title="打印 Zcash 硬件请求"
+                        subtitle="软件钱包签名时，在控制台打印同助记词硬件账户会发给设备的参数"
+                      >
+                        <Switch
+                          size={ESwitchSize.small}
+                          onChange={() => {
+                            void backgroundApiProxy.serviceDevSetting.updateDevSetting(
+                              'zcashHardwareRequestPreview',
+                              !devSettings.settings
+                                ?.zcashHardwareRequestPreview,
+                            );
+                          }}
+                          value={
+                            devSettings.settings?.zcashHardwareRequestPreview
+                          }
+                        />
+                      </SectionFieldItem>
+                      <SectionFieldItem
                         icon="BezierNodesOutline"
                         name="mockKaspaRefTxFetchFailed"
                         title="模拟 Kaspa refTx 获取失败"

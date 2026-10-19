@@ -78,7 +78,7 @@ module.exports = async () => {
     },
     // TODO unify with transpile modules
     transformIgnorePatterns: [
-      'node_modules/(?!(react-native-reanimated|react-native-aes-crypto|@react-navigation/(core|routers)|@keystonehq/bc-ur-registry-eth|@mysten/(sui|bcs|utils)|@noble/hashes|@scure/(base|bip32|bip39)|timeout-signal|p-limit|p-retry|is-network-error|yocto-queue|react-native-web/dist/(exports|modules))/)',
+      'node_modules/(?!(onekey-zcash-keys|react-native-reanimated|react-native-aes-crypto|@react-navigation/(core|routers)|@keystonehq/bc-ur-registry-eth|@mysten/(sui|bcs|utils)|@noble/hashes|@scure/(base|bip32|bip39)|timeout-signal|p-limit|p-retry|is-network-error|yocto-queue|react-native-web/dist/(exports|modules))/)',
     ],
     transform: {
       'node_modules/(@mysten/(sui|bcs|utils)|@noble/hashes|@scure/(base|bip32|bip39))/.+\\.m?js$':
@@ -169,7 +169,6 @@ module.exports = async () => {
       'packages/core/src/chains/near',
       'packages/core/src/chains/nexa',
       'packages/core/src/chains/stc',
-      'packages/core/src/chains/xmr',
       'packages/core/src/chains/xrp',
     ],
   };

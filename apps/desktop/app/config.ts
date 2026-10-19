@@ -102,6 +102,15 @@ export const ipcMessageKeys = {
 
   // System Resources
   SYSTEM_GET_CPU_USAGE: 'system/getCpuUsage',
+  // Privacy-chain node request, performed in the main process.
+  //
+  // The chain runtimes are wasm in the renderer, so a fetch from there obeys
+  // CORS and mixed content -- and a Monero node sends no CORS headers unless
+  // someone proxied it. Of twelve public nodes measured on 2026-09-22 exactly
+  // one was reachable that way. The main process has no such rules, so this
+  // channel is what lets the user point at any node.
+  PRIVACY_CHAIN_NODE_REQUEST: 'privacyChain/nodeRequest',
+  FETCH_STREAM: 'fetch/stream',
   SYSTEM_GET_MEMORY_USAGE: 'system/getMemoryUsage',
 
   // Boot Recovery

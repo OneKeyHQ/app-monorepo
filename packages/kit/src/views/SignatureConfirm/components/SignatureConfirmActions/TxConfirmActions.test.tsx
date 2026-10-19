@@ -66,6 +66,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       preActionsBeforeSending: jest.fn(async () => undefined),
     },
     serviceSend: {
+      releaseUnsignedTxs: jest.fn(async () => undefined),
       precheckUnsignedTxs: jest.fn(async () => undefined),
       updateUnSignedTxBeforeSending: jest.fn(async () => mockUnsignedTxs),
       batchSignAndSendTransaction: (params: unknown) => mockBatchSend(params),

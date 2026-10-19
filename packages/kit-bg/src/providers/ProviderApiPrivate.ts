@@ -37,6 +37,8 @@ import {
   EOnboardingPagesV2,
   EOnboardingV2OneKeyIDLoginMode,
 } from '@onekeyhq/shared/src/routes/onboardingv2';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { createFetchStreamHandler } from '@onekeyhq/shared/src/utils/fetchStream';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 import {
@@ -47,6 +49,10 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 import type { IEndpointEnv } from '@onekeyhq/shared/types/endpoint';
 import type {
+  IFetchStreamRequest,
+  IFetchStreamResult,
+} from '@onekeyhq/shared/types/fetchStream';
+import type {
   IRookieGuideInfo,
   IRookieShareData,
 } from '@onekeyhq/shared/types/rookieGuide';
@@ -56,6 +62,7 @@ import {
   isWebEmbedApiAllowedOrigin,
 } from '../apis/backgroundApiPermissions';
 import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
+import { relayPrivacyChainNodeRequest } from '../utils/privacyChainNodeRelay';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -626,6 +633,41 @@ class ProviderApiPrivate extends ProviderApiBase {
   async getSensitiveEncodeKey(): Promise<string> {
     defaultLogger.app.webembed.getSensitiveEncodeKey();
     return getBgSensitiveTextEncodeKey();
+  }
+
+  // The web-embed WebView relays its privacy-chain node requests here: its
+  // own fetch obeys CORS and mixed content, native networking does not. Only
+  // the web-embed page may use it -- otherwise it is a POST-anywhere proxy.
+  @providerApiMethod()
+  async privacyChainNodeRequest(
+    request: IJsBridgeMessagePayload,
+    {
+      url,
+      contentType,
+      b64,
+    }: { url: string; contentType: string; b64: string },
+  ): Promise<{ ok: true; b64: string } | { ok: false; error: string }> {
+    if (!platformEnv.isNative || !isWebEmbedApiAllowedOrigin(request.origin)) {
+      throw new OneKeyLocalError('privacyChainNodeRequest: not allowed');
+    }
+    return relayPrivacyChainNodeRequest({
+      url,
+      contentType,
+      body: new Uint8Array(bufferUtils.base64ToBytes(b64)),
+    });
+  }
+
+  private fetchStreamRequest = createFetchStreamHandler();
+
+  @providerApiMethod()
+  async fetchStream(
+    request: IJsBridgeMessagePayload,
+    params: IFetchStreamRequest,
+  ): Promise<IFetchStreamResult> {
+    if (!platformEnv.isNative || !isWebEmbedApiAllowedOrigin(request.origin)) {
+      throw new OneKeyLocalError('fetchStream: not allowed');
+    }
+    return this.fetchStreamRequest(params);
   }
 
   isWebEmbedApiReady = false;
