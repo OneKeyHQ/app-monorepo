@@ -337,10 +337,10 @@ describe('Dust Sweep Provider request and selection ownership', () => {
   it('hides networks with nothing to sweep or a $0.00 balance from the picker', async () => {
     const empty = network('evm--10', []);
     const dust = network('evm--56', ['0.004']);
-    // Every token is at or above the largest $100 preset, so none can be swept.
-    const large = network('evm--137', ['100', '250']);
+    // Every token is at or above the selected $10 threshold, so none can be swept.
+    const aboveThreshold = network('evm--137', ['10', '250']);
     mockLoadNetworks.mockResolvedValue({
-      networks: [base, empty, dust, large],
+      networks: [base, empty, dust, aboveThreshold],
       partialError: false,
     });
     const { result } = renderController();
@@ -350,6 +350,12 @@ describe('Dust Sweep Provider request and selection ownership', () => {
       result.current.networks.map((entry) => entry.network.networkId),
     ).toEqual(['evm--8453']);
     expect(result.current.current?.network.networkId).toBe('evm--8453');
+
+    // A larger threshold covers the $10 token, so its network returns.
+    act(() => result.current.selectThreshold(100));
+    expect(
+      result.current.networks.map((entry) => entry.network.networkId),
+    ).toEqual(['evm--137', 'evm--8453']);
   });
 
   it('keeps an explicitly requested hidden network selected and visible in the picker', async () => {
