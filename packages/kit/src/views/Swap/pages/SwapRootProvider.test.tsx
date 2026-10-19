@@ -101,7 +101,7 @@ describe.each(['native main', 'desktop single runtime'])(
       ).__ONEKEY_CTX_ATOM_SNAPSHOT__;
     });
 
-    it('clears persisted automatic defaults before the Provider can restore them', async () => {
+    it('preserves automatic defaults while configuration is pending', async () => {
       setSnapshot(automaticContext);
       const view = render(<SwapRootProvider />);
       const store = jotaiContextStore.getOrCreateStore({
@@ -109,20 +109,23 @@ describe.each(['native main', 'desktop single runtime'])(
       });
 
       expect(store.get(swapDefaultConfigStatusAtom())).toBe('pending');
-      expect(store.get(swapSelectFromTokenAtom())).toBeUndefined();
-      expect(store.get(swapSelectToTokenAtom())).toBeUndefined();
-      expect(
-        store.get(swapSelectedTokensColdStartContextAtom()),
-      ).toBeUndefined();
+      expect(store.get(swapSelectFromTokenAtom())).toEqual(fromToken);
+      expect(store.get(swapSelectToTokenAtom())).toEqual(toToken);
+      expect(store.get(swapSelectedTokensColdStartContextAtom())).toEqual(
+        automaticContext,
+      );
       expect(store.get(swapInitialSelectedTokensSyncedAtom())).toBe(false);
 
-      // A later Provider for the same store must not replay the persisted pair.
+      // A later Provider must keep the same defaults visible during refresh.
       const mirror = render(<ProviderJotaiContextSwap store={store} />);
       await act(async () => {
         await Promise.resolve();
       });
-      expect(store.get(swapSelectFromTokenAtom())).toBeUndefined();
-      expect(store.get(swapSelectToTokenAtom())).toBeUndefined();
+      expect(store.get(swapSelectFromTokenAtom())).toEqual(fromToken);
+      expect(store.get(swapSelectToTokenAtom())).toEqual(toToken);
+      expect(store.get(swapSelectedTokensColdStartContextAtom())).toEqual(
+        automaticContext,
+      );
       expect(store.get(swapInitialSelectedTokensSyncedAtom())).toBe(false);
       mirror.unmount();
       view.unmount();
