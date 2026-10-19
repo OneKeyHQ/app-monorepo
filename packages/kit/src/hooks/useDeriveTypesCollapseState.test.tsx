@@ -40,7 +40,8 @@ const BTC = 'btc--0';
 const LTC = 'ltc--0';
 const HD_WALLET = 'hd-1';
 const INDEXED_ACCOUNT = 'hd-1--0';
-const QUERY_KEY = `${BTC}__${INDEXED_ACCOUNT}`;
+const ACCOUNT_KEY = `${BTC}__${INDEXED_ACCOUNT}`;
+const QUERY_KEY = `${ACCOUNT_KEY}__0`;
 
 const COLLAPSED_ON_TAPROOT = {
   collapsed: true,
@@ -91,7 +92,7 @@ describe('useDeriveTypesCollapseState', () => {
     });
 
     mockResult = {
-      queryKey: `${BTC}__hd-1--1`,
+      queryKey: `${BTC}__hd-1--1__0`,
       state: { collapsed: false },
     };
     expect(renderState()).toMatchObject({
@@ -133,6 +134,7 @@ describe('useDeriveTypesCollapseState', () => {
 
     await expect(capturedLoader?.()).resolves.toEqual({
       queryKey: QUERY_KEY,
+      accountKey: ACCOUNT_KEY,
       state: COLLAPSED_ON_TAPROOT,
     });
     expect(mockGetDeriveTypesCollapseState).toHaveBeenCalledWith({
@@ -143,12 +145,71 @@ describe('useDeriveTypesCollapseState', () => {
 
   it('asks again per account, and on focus only when asked to', () => {
     renderState();
-    expect(capturedDeps).toEqual([QUERY_KEY, BTC, INDEXED_ACCOUNT]);
+    expect(capturedDeps).toEqual([
+      QUERY_KEY,
+      ACCOUNT_KEY,
+      BTC,
+      INDEXED_ACCOUNT,
+    ]);
     expect(capturedOptions).toEqual({ revalidateOnFocus: undefined });
 
     renderState({ indexedAccountId: 'hd-1--1', revalidateOnFocus: true });
-    expect(capturedDeps).toEqual([`${BTC}__hd-1--1`, BTC, 'hd-1--1']);
+    expect(capturedDeps).toEqual([
+      `${BTC}__hd-1--1__0`,
+      `${BTC}__hd-1--1`,
+      BTC,
+      'hd-1--1',
+    ]);
     expect(capturedOptions).toEqual({ revalidateOnFocus: true });
+  });
+
+  it('drops a collapsed answer when the revision is bumped', async () => {
+    mockResult = {
+      queryKey: QUERY_KEY,
+      accountKey: ACCOUNT_KEY,
+      state: COLLAPSED_ON_TAPROOT,
+    };
+    expect(renderState().isReady).toBe(true);
+
+    // The default type just changed: the old answer names the previous
+    // default's account and must not render, so the address type stays held
+    // back until the new one arrives.
+    expect(renderState({ revision: 1 })).toMatchObject({
+      isReady: false,
+      isAddressTypeHidden: true,
+    });
+    expect(capturedDeps).toEqual([
+      `${ACCOUNT_KEY}__1`,
+      ACCOUNT_KEY,
+      BTC,
+      INDEXED_ACCOUNT,
+    ]);
+
+    mockGetDeriveTypesCollapseState.mockResolvedValue({ collapsed: false });
+    await expect(capturedLoader?.()).resolves.toEqual({
+      queryKey: `${ACCOUNT_KEY}__1`,
+      accountKey: ACCOUNT_KEY,
+      state: { collapsed: false },
+    });
+  });
+
+  it('keeps a not-collapsed answer while a bumped revision is pending', () => {
+    mockResult = {
+      queryKey: QUERY_KEY,
+      accountKey: ACCOUNT_KEY,
+      state: { collapsed: false },
+    };
+
+    // A page with type tabs keeps them instead of remounting behind a spinner.
+    expect(renderState({ revision: 1 })).toMatchObject({
+      isReady: true,
+      collapsed: false,
+      isAddressTypeHidden: false,
+    });
+    // Another account's answer is still no answer.
+    expect(
+      renderState({ revision: 1, indexedAccountId: 'hd-1--1' }).isReady,
+    ).toBe(false);
   });
 
   it('falls back to every address type when the background call fails', async () => {
@@ -157,6 +218,7 @@ describe('useDeriveTypesCollapseState', () => {
 
     await expect(capturedLoader?.()).resolves.toEqual({
       queryKey: QUERY_KEY,
+      accountKey: ACCOUNT_KEY,
       state: { collapsed: false },
     });
   });
