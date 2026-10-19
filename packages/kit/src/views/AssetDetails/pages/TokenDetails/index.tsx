@@ -58,6 +58,7 @@ import type {
   IModalAssetDetailsParamList,
 } from '@onekeyhq/shared/src/routes/assetDetails';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import {
   buildTokenListMapKey,
@@ -545,15 +546,49 @@ function TokenDetailsView() {
   // accountId is whichever derive type the merged Home row happened to carry,
   // so the default type's account is used instead. An entry that passes no
   // indexed account never gets one here, so it is never collapsed.
+  const collapseNetworkId = tokenInfo.networkId ?? networkId;
+  const [collapseRevision, setCollapseRevision] = useState(0);
   const {
     isReady: isCollapseStateReady,
     defaultNetworkAccount: collapsedNetworkAccount,
   } = useDeriveTypesCollapseState({
-    networkId: tokenInfo.networkId ?? networkId,
+    networkId: collapseNetworkId,
     walletId,
     indexedAccountId,
     enabled: !!indexedAccountId,
+    revision: collapseRevision,
   });
+  // The default address type can change while this page sits below the
+  // receive page (its address type menu). A collapsed page shows that default
+  // type, so it decides again and moves to the new one.
+  const isCollapsed = !!collapsedNetworkAccount;
+  useEffect(() => {
+    if (!isCollapsed) {
+      return;
+    }
+    const networkImpl = networkUtils.getNetworkImpl({
+      networkId: collapseNetworkId,
+    });
+    const onGlobalDeriveTypeUpdate = ({
+      networkImpl: updatedImpl,
+    }: {
+      networkImpl: string;
+    }) => {
+      if (updatedImpl === networkImpl) {
+        setCollapseRevision((revision) => revision + 1);
+      }
+    };
+    appEventBus.on(
+      EAppEventBusNames.GlobalDeriveTypeUpdate,
+      onGlobalDeriveTypeUpdate,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.GlobalDeriveTypeUpdate,
+        onGlobalDeriveTypeUpdate,
+      );
+    };
+  }, [isCollapsed, collapseNetworkId]);
 
   const listViewContentContainerStyle = useMemo(() => ({ pt: '$5' }), []);
 
@@ -850,6 +885,8 @@ function TokenDetailsView() {
     if (collapsedNetworkAccount) {
       return (
         <TokenDetailsViews
+          // A new default type is another account: start its views fresh.
+          key={collapsedNetworkAccount.account.id}
           accountId={collapsedNetworkAccount.account.id}
           networkId={tokenInfo.networkId ?? networkId}
           walletId={walletId}

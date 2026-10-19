@@ -40,7 +40,7 @@ const BTC = 'btc--0';
 const LTC = 'ltc--0';
 const HD_WALLET = 'hd-1';
 const INDEXED_ACCOUNT = 'hd-1--0';
-const QUERY_KEY = `${BTC}__${INDEXED_ACCOUNT}`;
+const QUERY_KEY = `${BTC}__${INDEXED_ACCOUNT}__0`;
 
 const COLLAPSED_ON_TAPROOT = {
   collapsed: true,
@@ -91,7 +91,7 @@ describe('useDeriveTypesCollapseState', () => {
     });
 
     mockResult = {
-      queryKey: `${BTC}__hd-1--1`,
+      queryKey: `${BTC}__hd-1--1__0`,
       state: { collapsed: false },
     };
     expect(renderState()).toMatchObject({
@@ -147,8 +147,31 @@ describe('useDeriveTypesCollapseState', () => {
     expect(capturedOptions).toEqual({ revalidateOnFocus: undefined });
 
     renderState({ indexedAccountId: 'hd-1--1', revalidateOnFocus: true });
-    expect(capturedDeps).toEqual([`${BTC}__hd-1--1`, BTC, 'hd-1--1']);
+    expect(capturedDeps).toEqual([`${BTC}__hd-1--1__0`, BTC, 'hd-1--1']);
     expect(capturedOptions).toEqual({ revalidateOnFocus: true });
+  });
+
+  it('drops the previous answer when the revision is bumped', async () => {
+    mockResult = { queryKey: QUERY_KEY, state: COLLAPSED_ON_TAPROOT };
+    expect(renderState().isReady).toBe(true);
+
+    // The default type just changed: the old answer must not render, so the
+    // address type stays held back until the new one arrives.
+    expect(renderState({ revision: 1 })).toMatchObject({
+      isReady: false,
+      isAddressTypeHidden: true,
+    });
+    expect(capturedDeps).toEqual([
+      `${BTC}__${INDEXED_ACCOUNT}__1`,
+      BTC,
+      INDEXED_ACCOUNT,
+    ]);
+
+    mockGetDeriveTypesCollapseState.mockResolvedValue({ collapsed: false });
+    await expect(capturedLoader?.()).resolves.toEqual({
+      queryKey: `${BTC}__${INDEXED_ACCOUNT}__1`,
+      state: { collapsed: false },
+    });
   });
 
   it('falls back to every address type when the background call fails', async () => {

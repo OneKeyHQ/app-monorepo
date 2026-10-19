@@ -27,7 +27,7 @@ export function canDeriveTypesCollapse({
 
 // Whether the account shows only its default address type on this network.
 // Decided once per account: a page keeps the answer it opened with unless it
-// opts into `revalidateOnFocus`.
+// opts into `revalidateOnFocus` or bumps `revision`.
 export function useDeriveTypesCollapseState({
   networkId,
   walletId,
@@ -35,6 +35,7 @@ export function useDeriveTypesCollapseState({
   activeDeriveType,
   enabled = true,
   revalidateOnFocus,
+  revision = 0,
 }: {
   networkId: string | undefined;
   walletId: string | undefined;
@@ -43,13 +44,16 @@ export function useDeriveTypesCollapseState({
   activeDeriveType?: IAccountDeriveTypes;
   enabled?: boolean;
   revalidateOnFocus?: boolean;
+  // Bumped after the default address type changed: the previous answer is
+  // dropped (not ready again) instead of kept, so nothing renders from it.
+  revision?: number;
 }) {
   const isApplicable =
     enabled && canDeriveTypesCollapse({ networkId, walletId });
   // The account may still be loading on the caller's side.
   const queryKey =
     isApplicable && networkId && indexedAccountId
-      ? `${networkId}__${indexedAccountId}`
+      ? `${networkId}__${indexedAccountId}__${revision}`
       : undefined;
 
   const { result } = usePromiseResult(

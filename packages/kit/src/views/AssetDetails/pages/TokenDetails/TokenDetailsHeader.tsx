@@ -655,6 +655,7 @@ function TokenDetailsHeaderContent({
                 void handleOnReceive({
                   token: tokenInfo,
                   switchEntry: 'token',
+                  allowAddressTypeMenu: true,
                   source: 'tokenDetails',
                 });
               }}
