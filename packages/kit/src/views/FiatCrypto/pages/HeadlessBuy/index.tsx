@@ -42,6 +42,7 @@ import type {
 import { EModalFiatCryptoRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalFiatCryptoParamList } from '@onekeyhq/shared/src/routes';
 import { openFiatCryptoUrl } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { EHeadlessBuyEntry } from '@onekeyhq/shared/types/fiatCrypto';
 import type { IAddHeadlessBuyOrderParams } from '@onekeyhq/shared/types/fiatCrypto';
 
 import { BuyActionZone } from '../../components/Headless/BuyActionZone';
@@ -484,7 +485,10 @@ function HeadlessBuyPage() {
   // Same-token order still processing (direct entries skip the Buy tab's
   // banner, and this is where a repeat purchase is most likely). Shown in the
   // error line below the amount; a live quote error takes priority.
-  const { processingOrders } = useHeadlessBuyOrders({ refreshOnMount: true });
+  const { processingOrders } = useHeadlessBuyOrders({
+    // The Buy tab just refreshed on its own mount; direct entries have not.
+    refreshOnMount: entryFrom !== EHeadlessBuyEntry.BuyTokenList,
+  });
   const sameTokenOrder = useMemo(() => {
     const tokenNetworkId = activeToken?.networkId ?? networkId;
     const addr = (activeToken?.address ?? tokenAddress).toLowerCase();

@@ -66,6 +66,32 @@ function createService(orders: IHeadlessBuyOrder[]) {
       getOrder: jest.fn(async ({ transactionId }: { transactionId: string }) =>
         store.get(transactionId),
       ),
+      insertOrderIfAbsent: jest.fn(
+        async ({ order }: { order: IHeadlessBuyOrder }) => {
+          if (store.has(order.transactionId)) {
+            return false;
+          }
+          store.set(order.transactionId, order);
+          return true;
+        },
+      ),
+      patchOrder: jest.fn(
+        async ({
+          transactionId,
+          patch,
+        }: {
+          transactionId: string;
+          patch: Partial<IHeadlessBuyOrder>;
+        }) => {
+          const existing = store.get(transactionId);
+          if (!existing) {
+            return undefined;
+          }
+          const next = { ...existing, ...patch };
+          store.set(transactionId, next);
+          return next;
+        },
+      ),
       mergeOrders: jest.fn(
         async ({
           updates,
@@ -179,7 +205,7 @@ describe('ServiceFiatCrypto headless buy orders', () => {
     await service.markHeadlessBuyOrderViewed({ transactionId: 'failed' });
     await service.markHeadlessBuyOrderViewed({ transactionId: 'failed' });
     expect(store.get('failed')?.failureViewedAt).toBe(T0 + 1000);
-    expect(simpleDb.headlessBuyOrders.mergeOrders).toHaveBeenCalledTimes(2);
+    expect(simpleDb.headlessBuyOrders.patchOrder).toHaveBeenCalledTimes(2);
   });
 
   test('discardHeadlessBuyOrder removes only hidden orders', async () => {

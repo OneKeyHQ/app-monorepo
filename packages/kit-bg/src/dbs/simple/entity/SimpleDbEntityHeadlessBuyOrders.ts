@@ -36,6 +36,55 @@ export class SimpleDbEntityHeadlessBuyOrders extends SimpleDbEntityBase<IHeadles
     return raw?.orders?.[transactionId];
   }
 
+  // Inserts only when no record exists yet. Returns whether it inserted:
+  // the pre-payment record and the `completed` fallback can race (both are
+  // async), and the first writer must win without being overwritten.
+  @backgroundMethod()
+  async insertOrderIfAbsent({
+    order,
+  }: {
+    order: IHeadlessBuyOrder;
+  }): Promise<boolean> {
+    let inserted = false;
+    await this.setRawData((raw) => {
+      const orders = { ...raw?.orders };
+      if (orders[order.transactionId]) {
+        inserted = false;
+        return { orders };
+      }
+      inserted = true;
+      orders[order.transactionId] = order;
+      return { orders };
+    });
+    return inserted;
+  }
+
+  // Merges `patch` into an existing record atomically (read-modify-write
+  // inside the storage lock). Returns the updated record, or undefined when
+  // there is nothing to patch.
+  @backgroundMethod()
+  async patchOrder({
+    transactionId,
+    patch,
+  }: {
+    transactionId: string;
+    patch: Partial<IHeadlessBuyOrder>;
+  }): Promise<IHeadlessBuyOrder | undefined> {
+    let updated: IHeadlessBuyOrder | undefined;
+    await this.setRawData((raw) => {
+      const orders = { ...raw?.orders };
+      const existing = orders[transactionId];
+      if (!existing) {
+        updated = undefined;
+        return { orders };
+      }
+      updated = { ...existing, ...patch };
+      orders[transactionId] = updated;
+      return { orders };
+    });
+    return updated;
+  }
+
   // One atomic write for any mix of writes (value) and deletes (null), so a
   // status refresh and a checkout event can never clobber each other.
   @backgroundMethod()

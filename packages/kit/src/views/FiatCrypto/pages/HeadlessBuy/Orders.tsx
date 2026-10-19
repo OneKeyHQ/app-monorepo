@@ -28,7 +28,9 @@ function HeadlessBuyOrdersPage() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { bottom } = useSafeAreaInsets();
-  const { visibleOrders } = useHeadlessBuyOrders({ refreshOnMount: true });
+  const { visibleOrders, isReady } = useHeadlessBuyOrders({
+    refreshOnMount: true,
+  });
 
   const openOrder = useCallback(
     (order: IHeadlessBuyOrder) => {
@@ -55,12 +57,14 @@ function HeadlessBuyOrdersPage() {
           )}
           ListFooterComponent={<Stack h={bottom || '$2'} />}
           ListEmptyComponent={
-            <Empty
-              illustration="Orders"
-              title={intl.formatMessage({
-                id: ETranslations.global_no_results,
-              })}
-            />
+            isReady ? (
+              <Empty
+                illustration="Orders"
+                title={intl.formatMessage({
+                  id: ETranslations.global_no_results,
+                })}
+              />
+            ) : null
           }
         />
       </Page.Body>

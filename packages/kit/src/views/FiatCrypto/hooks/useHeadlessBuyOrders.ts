@@ -27,7 +27,7 @@ export function useHeadlessBuyOrders({
         ? backgroundApiProxy.serviceFiatCrypto.getHeadlessBuyOrders()
         : EMPTY,
     [enabled],
-    { watchLoading: true, initResult: EMPTY },
+    { watchLoading: true },
   );
   useEffect(() => {
     if (!enabled) {
@@ -50,6 +50,9 @@ export function useHeadlessBuyOrders({
     }
   }, [enabled, refreshOnMount]);
   const orders = result ?? EMPTY;
+  // False until the first read has landed — pages hold their empty state
+  // back until then instead of flashing "no orders" on entry.
+  const isReady = !enabled || result !== undefined;
   const selection = useMemo(() => selectHeadlessBuyOrders(orders), [orders]);
-  return { orders, ...selection, isLoading, refresh: run };
+  return { orders, ...selection, isReady, isLoading, refresh: run };
 }

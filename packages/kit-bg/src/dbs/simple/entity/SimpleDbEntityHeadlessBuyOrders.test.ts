@@ -57,4 +57,41 @@ describe('SimpleDbEntityHeadlessBuyOrders', () => {
     );
     expect(builder(null)).toEqual({ orders: { a: order('a', 9) } });
   });
+
+  test('insertOrderIfAbsent inserts once and patchOrder merges into existing records', async () => {
+    const entity = new SimpleDbEntityHeadlessBuyOrders();
+    let raw: { orders: Record<string, IHeadlessBuyOrder> } | null = null;
+    jest.spyOn(entity, 'setRawData').mockImplementation(async (builder) => {
+      raw = (
+        builder as (current: typeof raw) => {
+          orders: Record<string, IHeadlessBuyOrder>;
+        }
+      )(raw);
+      return undefined as never;
+    });
+
+    expect(await entity.insertOrderIfAbsent({ order: order('a', 1) })).toBe(
+      true,
+    );
+    expect(await entity.insertOrderIfAbsent({ order: order('a', 2) })).toBe(
+      false,
+    );
+    expect(raw).toEqual({ orders: { a: order('a', 1) } });
+
+    expect(
+      await entity.patchOrder({
+        transactionId: 'a',
+        patch: { submittedAt: 5 },
+      }),
+    ).toEqual({ ...order('a', 1), submittedAt: 5 });
+    expect(
+      await entity.patchOrder({
+        transactionId: 'zz',
+        patch: { submittedAt: 5 },
+      }),
+    ).toBeUndefined();
+    expect(raw).toEqual({
+      orders: { a: { ...order('a', 1), submittedAt: 5 } },
+    });
+  });
 });

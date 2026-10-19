@@ -91,7 +91,7 @@ function HeadlessBuyOrderDetailPage() {
       >
     >();
   const { transactionId, fromCheckout } = route.params;
-  const { orders } = useHeadlessBuyOrders();
+  const { orders, isReady } = useHeadlessBuyOrders();
   const order = useMemo(
     () => orders.find((o) => o.transactionId === transactionId),
     [orders, transactionId],
@@ -195,12 +195,13 @@ function HeadlessBuyOrderDetailPage() {
         })}
       />
       <Page.Body px="$5" pb="$3">
-        {!order ? (
+        {isReady && !order ? (
           <Empty
             illustration="Orders"
             title={intl.formatMessage({ id: ETranslations.global_no_results })}
           />
-        ) : (
+        ) : null}
+        {order ? (
           <YStack gap="$6" pt="$2">
             <YStack gap="$3" ai="flex-start">
               <OrderStatusBadge status={order.status} badgeSize="lg" />
@@ -374,7 +375,7 @@ function HeadlessBuyOrderDetailPage() {
               ) : null}
             </YStack>
           </YStack>
-        )}
+        ) : null}
       </Page.Body>
       {fromCheckout ? (
         <Page.Footer

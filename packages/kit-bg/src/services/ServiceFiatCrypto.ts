@@ -297,9 +297,14 @@ class ServiceFiatCrypto extends ServiceBase {
       return;
     }
     const order = await this.buildHeadlessBuyOrder(params);
-    await simpleDb.headlessBuyOrders.mergeOrders({
-      updates: { [order.transactionId]: order },
+    // The `completed` fallback may have written (and submitted) this id while
+    // the metadata lookups above were in flight; never overwrite it.
+    const inserted = await simpleDb.headlessBuyOrders.insertOrderIfAbsent({
+      order,
     });
+    if (!inserted) {
+      return;
+    }
     defaultLogger.fiatCrypto.onramper.orderRecorded({
       networkId: order.networkId,
       tokenSymbol: order.tokenSymbol,
@@ -352,8 +357,9 @@ class ServiceFiatCrypto extends ServiceBase {
     if (!order || order.paymentSeen) {
       return;
     }
-    await simpleDb.headlessBuyOrders.mergeOrders({
-      updates: { [transactionId]: { ...order, paymentSeen: true } },
+    await simpleDb.headlessBuyOrders.patchOrder({
+      transactionId,
+      patch: { paymentSeen: true },
     });
   }
 
@@ -369,21 +375,42 @@ class ServiceFiatCrypto extends ServiceBase {
     order?: IAddHeadlessBuyOrderParams;
   }): Promise<void> {
     const { simpleDb } = this.backgroundApi;
-    let order = await simpleDb.headlessBuyOrders.getOrder({ transactionId });
-    const recordedBeforePayment = Boolean(order);
-    if (!order) {
+    const existing = await simpleDb.headlessBuyOrders.getOrder({
+      transactionId,
+    });
+    if (existing?.submittedAt !== undefined) {
+      return;
+    }
+    const submittedAt = Date.now();
+    let recordedBeforePayment = Boolean(existing);
+    let next = await simpleDb.headlessBuyOrders.patchOrder({
+      transactionId,
+      patch: { submittedAt },
+    });
+    if (!next) {
       if (!fallback) {
         return;
       }
-      order = await this.buildHeadlessBuyOrder({ ...fallback, transactionId });
+      // No pre-payment record: create one already submitted. If the
+      // pre-payment write lands in between, patch that one instead.
+      const built = await this.buildHeadlessBuyOrder({
+        ...fallback,
+        transactionId,
+      });
+      recordedBeforePayment = false;
+      const inserted = await simpleDb.headlessBuyOrders.insertOrderIfAbsent({
+        order: { ...built, submittedAt },
+      });
+      next = inserted
+        ? { ...built, submittedAt }
+        : await simpleDb.headlessBuyOrders.patchOrder({
+            transactionId,
+            patch: { submittedAt },
+          });
+      if (!next) {
+        return;
+      }
     }
-    if (order.submittedAt !== undefined) {
-      return;
-    }
-    const next: IHeadlessBuyOrder = { ...order, submittedAt: Date.now() };
-    await simpleDb.headlessBuyOrders.mergeOrders({
-      updates: { [transactionId]: next },
-    });
     defaultLogger.fiatCrypto.onramper.orderSubmitted({
       networkId: next.networkId,
       tokenSymbol: next.tokenSymbol,
@@ -431,8 +458,9 @@ class ServiceFiatCrypto extends ServiceBase {
     ) {
       return;
     }
-    await simpleDb.headlessBuyOrders.mergeOrders({
-      updates: { [transactionId]: { ...order, failureViewedAt: Date.now() } },
+    await simpleDb.headlessBuyOrders.patchOrder({
+      transactionId,
+      patch: { failureViewedAt: Date.now() },
     });
     this.emitHeadlessBuyOrdersChanged();
   }
