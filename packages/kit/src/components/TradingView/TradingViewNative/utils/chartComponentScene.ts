@@ -50,6 +50,7 @@ export interface ITradingViewNativeReferenceLineHitRegion {
   price: number;
   rect: ITradingViewNativeChartSceneRect;
   loadingColor?: string;
+  disabled?: boolean;
 }
 
 function getReferenceLinePaintId(id: string, part: 'label' | 'line' | 'text') {
@@ -250,12 +251,13 @@ function appendTradingLineLabelCommands({
       },
     );
   }
-  if (interactive && draggable && !pending) {
+  if (interactive && draggable) {
     hitRegions.push({
       id: component.id,
       action: 'drag',
       price: anchor.price,
       rect: { ...labelRect, width: titleWidth + quantityWidth },
+      disabled: Boolean(pending),
     });
   }
   if (cancelWidth > 0) {
@@ -309,15 +311,14 @@ function appendTradingLineLabelCommands({
           y2: centerY - iconRadius,
         },
       );
-    if (!pending || isCancelPending) {
-      hitRegions.push({
-        id: component.id,
-        action: 'cancel',
-        price: anchor.price,
-        rect: cancelRect,
-        loadingColor: isCancelPending ? label.color : undefined,
-      });
-    }
+    hitRegions.push({
+      id: component.id,
+      action: 'cancel',
+      price: anchor.price,
+      rect: cancelRect,
+      loadingColor: isCancelPending ? label.color : undefined,
+      disabled: Boolean(pending),
+    });
   }
   commands.push({
     kind: 'rect',
@@ -371,6 +372,7 @@ export function appendTradingViewNativeChartComponentCommands({
   const priceLabelCommands: ITradingViewNativeChartSceneCommand[] = [];
   const textLabelCommands: ITradingViewNativeChartSceneCommand[] = [];
   const hitRegions: ITradingViewNativeReferenceLineHitRegion[] = [];
+  const lineHitRegions: ITradingViewNativeReferenceLineHitRegion[] = [];
   const drawingLabels = drawings.flatMap((drawing, renderIndex) => {
     const point = drawing.points[0];
     if (
@@ -568,7 +570,7 @@ export function appendTradingViewNativeChartComponentCommands({
     });
 
     if (canDrag) {
-      hitRegions.push({
+      lineHitRegions.push({
         id: component.id,
         action: 'drag',
         price: anchor.price,
@@ -619,12 +621,13 @@ export function appendTradingViewNativeChartComponentCommands({
           x: titleX,
           y: labelTop,
         };
-        if (canDrag) {
+        if (interactive && draggable) {
           hitRegions.push({
             id: component.id,
             action: 'drag',
             price: anchor.price,
             rect: titleRect,
+            disabled: Boolean(pending),
           });
         }
         textLabelCommands.push(
@@ -703,14 +706,14 @@ export function appendTradingViewNativeChartComponentCommands({
             y2: centerY - 3,
           },
         );
-      if (!pending || pending === 'cancel')
-        hitRegions.push({
-          id: component.id,
-          action: 'cancel',
-          price: anchor.price,
-          rect,
-          loadingColor: pending === 'cancel' ? color : undefined,
-        });
+      hitRegions.push({
+        id: component.id,
+        action: 'cancel',
+        price: anchor.price,
+        rect,
+        loadingColor: pending === 'cancel' ? color : undefined,
+        disabled: Boolean(pending),
+      });
     }
 
     if (showYAxis) {
@@ -744,6 +747,6 @@ export function appendTradingViewNativeChartComponentCommands({
     currentPriceLabelTop,
     priceLabelCommands,
     textLabelCommands,
-    hitRegions,
+    hitRegions: [...lineHitRegions, ...hitRegions],
   };
 }

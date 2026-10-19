@@ -145,15 +145,15 @@ export function useReferenceLineInteraction({
     (event: PointerEvent<HTMLCanvasElement>) => {
       if (!enabled || !onAction) return undefined;
       const rect = event.currentTarget.getBoundingClientRect();
-      return hitRegionsRef.current.findLast(
-        (hit) =>
-          hit.loadingColor === undefined &&
-          containsPoint(
-            hit.rect,
-            event.clientX - rect.left,
-            event.clientY - rect.top,
-          ),
+      const hit = hitRegionsRef.current.findLast((region) =>
+        containsPoint(
+          region.rect,
+          event.clientX - rect.left,
+          event.clientY - rect.top,
+        ),
       );
+      // A disabled label still covers neighboring order lines underneath it.
+      return hit?.disabled || hit?.loadingColor !== undefined ? undefined : hit;
     },
     [enabled, onAction, hitRegionsRef],
   );

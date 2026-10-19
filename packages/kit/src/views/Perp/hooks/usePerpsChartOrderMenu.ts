@@ -27,7 +27,7 @@ import {
 
 import { useActiveTradeDisplay } from './useActiveTradeDisplay';
 import { usePerpsAccountScopedActivePositions } from './usePerpsAccountScopedActivePositions';
-import { useTradingPrice } from './useTradingPrice';
+import { usePerpsMidPrice } from './usePerpsMidPrice';
 
 export function usePerpsChartOrderMenu(enabled: boolean) {
   const intl = useIntl();
@@ -37,7 +37,6 @@ export function usePerpsChartOrderMenu(enabled: boolean) {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { displayName, baseName } = useActiveTradeDisplay();
   const positions = usePerpsAccountScopedActivePositions();
-  const { midPrice } = useTradingPrice();
   const accountKey = getPerpsAccountKey(account);
   const scope = useMemo(
     () => ({ coin: instrument.coin, accountKey }),
@@ -47,6 +46,11 @@ export function usePerpsChartOrderMenu(enabled: boolean) {
     instrument.mode === 'spot'
       ? instrument.universe?.baseSzDecimals
       : instrument.universe?.szDecimals;
+  const { mid: midPrice } = usePerpsMidPrice({
+    coin: instrument.mode === 'perp' ? instrument.coin : '',
+    szDecimals,
+    allowActiveAssetFallback: true,
+  });
   const ready =
     enabled &&
     szDecimals !== undefined &&

@@ -83,7 +83,7 @@ describe('trading labels', () => {
       rect: { y: labels[0].y, height: labels[0].height },
     });
     expect(
-      hitRegions.some((hit) => hit.id === 'order-0' && hit.action === 'drag'),
+      hitRegions.some((hit) => hit.id === 'order-0' && !hit.disabled),
     ).toBe(false);
     expect(
       hitRegions.find((hit) => hit.id === 'order-1' && hit.action === 'cancel')
@@ -110,7 +110,8 @@ describe('trading labels', () => {
         'chart.component.referenceLine.order-0.label.trading.body'
       ].opacity,
     ).toBe(0.5);
-    expect(hitRegions).toEqual([]);
+    expect(hitRegions).toHaveLength(2);
+    expect(hitRegions.every((hit) => hit.disabled)).toBe(true);
   });
   it.each([
     [104, 103.9, 103.8],
@@ -153,6 +154,21 @@ describe('trading labels', () => {
         price,
         rect: { y: label.y, height: label.height },
       });
+      for (const [x, action] of [
+        [label.x + 10, 'drag'],
+        [label.x + label.width - 10, 'cancel'],
+      ] as const) {
+        const y = label.y + label.height / 2;
+        expect(
+          hitRegions.findLast(
+            ({ rect }) =>
+              x >= rect.x &&
+              x <= rect.x + rect.width &&
+              y >= rect.y &&
+              y <= rect.y + rect.height,
+          ),
+        ).toMatchObject({ id: `order-${index}`, action });
+      }
     });
   });
 });

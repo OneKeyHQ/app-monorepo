@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 
 import { act, renderHook } from '@testing-library/react';
+import { atom, getDefaultStore } from 'jotai';
 
 import { ActionList, Toast } from '@onekeyhq/components';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -9,7 +10,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { usePerpsChartOrderMenu } from './usePerpsChartOrderMenu';
 
 let mockMid: string | undefined = '82000';
-let mockAssetMid: string | undefined;
+const mockAssetCtxAtom = atom<
+  { coin: string; ctx: { midPrice: string } } | undefined
+>(undefined);
 let mockSize = '1';
 const mockShowTpsl = jest.fn<undefined, unknown[]>();
 const mockCloseMenu = jest.fn();
@@ -35,15 +38,17 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
     { mode: 'perp', coin: 'BTC', assetId: 0, universe: { szDecimals: 5 } },
   ],
   usePerpsMidByCoin: () => mockMid,
+  useHyperliquidActions: () => ({ current: {} }),
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   usePerpsActiveAccountAtom: () => [{ accountId: 'account-1' }],
   usePerpsAccountLoadingInfoAtom: () => [{ selectAccountLoading: false }],
-  usePerpsActiveAssetCtxMidPriceBySource: () => mockAssetMid,
+  usePerpsActiveAssetAtom: () => [{ coin: 'BTC', universe: { szDecimals: 5 } }],
+  usePerpsActiveAssetCtxMidPriceBySource: () => undefined,
+  perpsActiveAssetCtxAtom: { atom: () => mockAssetCtxAtom },
 }));
-jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/spot', () => ({
-  useSpotActiveAssetCtxMidPriceAtom: () => [undefined],
-  useSpotActiveAssetCtxMarkPriceAtom: () => [undefined],
+jest.mock('../../../hooks/usePromiseResult', () => ({
+  usePromiseResult: () => ({ result: undefined }),
 }));
 jest.mock('./useActiveTradeDisplay', () => ({
   useActiveTradeDisplay: () => ({ displayName: 'BTCUSDC', baseName: 'BTC' }),
@@ -77,7 +82,7 @@ describe('Perps chart order menu', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockMid = '82000';
-    mockAssetMid = undefined;
+    getDefaultStore().set(mockAssetCtxAtom, undefined);
     mockSize = '1';
   });
 
@@ -94,6 +99,42 @@ describe('Perps chart order menu', () => {
       action,
     ]);
   });
+
+  it.each([
+    ['82010', '81990', 'perps-chart-stop-loss'],
+    ['82010', '0', 'perps-chart-stop-loss'],
+  ])(
+    'prefers valid all-mids %s over active mid %s',
+    (mid, assetMid, action) => {
+      mockMid = mid;
+      getDefaultStore().set(mockAssetCtxAtom, {
+        coin: 'BTC',
+        ctx: { midPrice: assetMid },
+      });
+      const { result } = renderHook(() => usePerpsChartOrderMenu(true));
+      expect(selectPrice(result, 82_000).map((item) => item.testID)).toEqual([
+        'perps-chart-limit-order',
+        action,
+      ]);
+    },
+  );
+
+  it.each(['ETH', 'BTC'])(
+    'only falls back to a valid active context for the requested coin: %s',
+    (coin) => {
+      mockMid = '0';
+      getDefaultStore().set(mockAssetCtxAtom, {
+        coin,
+        ctx: { midPrice: '82000' },
+      });
+      const { result } = renderHook(() => usePerpsChartOrderMenu(true));
+      expect(selectPrice(result, 83_000).map((item) => item.testID)).toEqual(
+        coin === 'BTC'
+          ? ['perps-chart-limit-order', 'perps-chart-take-profit']
+          : ['perps-chart-limit-order'],
+      );
+    },
+  );
 
   it.each([
     ['0', '82000'],
@@ -129,7 +170,10 @@ describe('Perps chart order menu', () => {
     async (source) => {
       if (source === 'active-asset') {
         mockMid = undefined;
-        mockAssetMid = '82000';
+        getDefaultStore().set(mockAssetCtxAtom, {
+          coin: 'BTC',
+          ctx: { midPrice: '82000' },
+        });
       }
       const { result, rerender } = renderHook(() =>
         usePerpsChartOrderMenu(true),
@@ -139,8 +183,14 @@ describe('Perps chart order menu', () => {
         'perps-chart-limit-order',
         'perps-chart-take-profit',
       ]);
-      if (source === 'active-asset') mockAssetMid = '84000';
-      else mockMid = '84000';
+      act(() => {
+        if (source === 'active-asset')
+          getDefaultStore().set(mockAssetCtxAtom, {
+            coin: 'BTC',
+            ctx: { midPrice: '84000' },
+          });
+        else mockMid = '84000';
+      });
       rerender();
       await act(async () => {
         await items[1].onPress?.(mockCloseMenu);

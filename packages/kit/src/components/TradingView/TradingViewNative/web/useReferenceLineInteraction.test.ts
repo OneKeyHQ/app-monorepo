@@ -9,7 +9,7 @@ import { useReferenceLineInteraction } from './useReferenceLineInteraction';
 import type { ITradingViewNativeReferenceLineHitRegion } from '../utils/chartComponentScene';
 
 describe('reference line interaction', () => {
-  it('does not offer a clickable cursor for a cancellation loading region', () => {
+  it('blocks interactions through loading and disabled labels', () => {
     const canvas = document.createElement('canvas');
     const hit: ITradingViewNativeReferenceLineHitRegion = {
       id: 'order-1',
@@ -36,9 +36,14 @@ describe('reference line interaction', () => {
     expect(result.current.onPointerMove(event)).toBe(true);
     expect(canvas.style.cursor).toBe('pointer');
 
-    hitRegionsRef.current = [{ ...hit, loadingColor: '#00aa00' }];
-    canvas.style.cursor = 'crosshair';
-    expect(result.current.onPointerMove(event)).toBe(false);
-    expect(canvas.style.cursor).toBe('crosshair');
+    for (const pending of [{ loadingColor: '#00aa00' }, { disabled: true }]) {
+      hitRegionsRef.current = [
+        { ...hit, id: 'neighbor-order', action: 'drag' },
+        { ...hit, ...pending },
+      ];
+      canvas.style.cursor = 'crosshair';
+      expect(result.current.onPointerMove(event)).toBe(false);
+      expect(canvas.style.cursor).toBe('crosshair');
+    }
   });
 });
