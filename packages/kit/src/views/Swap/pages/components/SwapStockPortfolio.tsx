@@ -75,30 +75,30 @@ export function SwapStockMyPosition() {
   );
   const portfolioData = portfolio?.positionListData ?? [];
   return (
-    <SwapSmoothReveal
-      visible={portfolioData.length > 0}
-      parentGap={28}
-      keepMounted
-    >
-      <YStack testID="swap-stock-my-position" gap="$3">
-        <SizableText size="$bodyLgMedium">
-          {intl.formatMessage({
-            id: ETranslations.dexmarket_details_myposition,
-          })}
-        </SizableText>
-        {/* The table carries the Market page's 20px gutter in its header and
+    // Include the table gutters inside the reveal's clipping boundary while
+    // keeping the parent gap collapsed when there are no positions.
+    <Stack mx="$-5" mt={-28}>
+      <SwapSmoothReveal visible={portfolioData.length > 0} keepMounted>
+        <YStack testID="swap-stock-my-position" gap="$3" px="$5" pt="$7">
+          <SizableText size="$bodyLgMedium">
+            {intl.formatMessage({
+              id: ETranslations.dexmarket_details_myposition,
+            })}
+          </SizableText>
+          {/* The table carries the Market page's 20px gutter in its header and
             rows; pulling it back by the card padding lines the Token column
             up with the title. */}
-        <Stack mx="$-5">
-          <Portfolio
-            standalone
-            hasAccount={portfolio?.hasAccount}
-            portfolioData={portfolioData}
-            isRefreshing={portfolio?.isRefreshing}
-            onItemPress={selectPosition}
-          />
-        </Stack>
-      </YStack>
-    </SwapSmoothReveal>
+          <Stack mx="$-5">
+            <Portfolio
+              standalone
+              hasAccount={portfolio?.hasAccount}
+              portfolioData={portfolioData}
+              isRefreshing={portfolio?.isRefreshing}
+              onItemPress={selectPosition}
+            />
+          </Stack>
+        </YStack>
+      </SwapSmoothReveal>
+    </Stack>
   );
 }
