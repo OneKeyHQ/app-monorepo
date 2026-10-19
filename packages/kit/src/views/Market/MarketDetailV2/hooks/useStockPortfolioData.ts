@@ -338,13 +338,16 @@ export function useStockPortfolioData() {
 
   // True once the page knows whether this stock has a position: the account
   // has loaded and, when there is one, a request for this stock, account and
-  // its loaded variant list has settled. A failed variant lookup settles too,
-  // so the page never waits on it.
+  // its loaded variant list has settled. A failed variant lookup with nothing
+  // cached settles too, so the page never waits on it; cached variants are
+  // still asked about first.
+  const hasNoVariantsToCheck =
+    isTokenVariantsError && tokenVariants.length === 0;
   const isPortfolioSettled =
     Boolean(ready) &&
     (!stockId ||
       !hasAccount ||
-      isTokenVariantsError ||
+      hasNoVariantsToCheck ||
       (!isTokenVariantPending &&
         portfolioResult?.requestScopeKey === requestScopeKey));
 

@@ -102,10 +102,24 @@ describe('useStockPortfolioData scope', () => {
     expect(result.current.isPortfolioSettled).toBe(true);
   });
 
-  it('settles when the variant lookup fails, so the page does not wait on it', () => {
-    mockStockDetail = { ...mockStockDetail, isTokenVariantsError: true };
+  it('settles when the variant lookup fails with nothing cached, so the page does not wait on it', () => {
+    mockStockDetail = {
+      ...mockStockDetail,
+      tokenVariants: [],
+      isTokenVariantsError: true,
+    };
     const { result } = renderHook(() => useStockPortfolioData());
 
+    expect(result.current.isPortfolioSettled).toBe(true);
+  });
+
+  it('still waits for the holdings of cached variants when a variant refresh fails', async () => {
+    mockStockDetail = { ...mockStockDetail, isTokenVariantsError: true };
+    const { result, rerender } = renderHook(() => useStockPortfolioData());
+    expect(result.current.isPortfolioSettled).toBe(false);
+
+    mockResult = await runCapturedRequest();
+    rerender();
     expect(result.current.isPortfolioSettled).toBe(true);
   });
 
