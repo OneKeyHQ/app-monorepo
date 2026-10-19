@@ -853,3 +853,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: ResizeObserver deferred drawing until another animation frame, while percentage right padding, auto scaling, and pan limits used the changing visible width. Measurement mixed integer clientWidth with fractional bounding rectangles. The toggle was anchored to the full chart instead of the main price pane.
 **Fix**: Collapse to zero width without animation, redraw resized canvases before paint, anchor padding/scales/pan limits to the combined chart and toolbar width, consistently use bounding rectangles for width measurements, and position the toggle above indicator panes.
 **Catchable by**: Compare candle screen coordinates and sizes before and after repeated sidebar toggles at normal and extreme pan offsets, with fractional widths, zoom, and multiple indicator panes; verify bitmap dimensions before paint.
+
+## Case: Native SOL Pro chart showed a flat OBV
+**Date**: 2026-10-19 | **Platforms**: iOS, Android, extension (main runtime); desktop, web (single runtime), TradingViewNative charts
+**Symptom**: The native SOL Pro chart showed a flat OBV curve while prices changed (OK-64825).
+**Root Cause**: Native SOL was missing from the Hyperliquid whitelist, so the chart selected the Market price-sample feed without traded volume. OBV had no volume to accumulate.
+**Fix**: Map native Solana to Hyperliquid `SOL` OHLCV candles and realtime updates for Market, Swap, and Wallet. Keep wrapped SOL and other SPL tokens outside that native-token mapping. Add regression coverage for all three branches, SPL exclusion, and Market source resolution before and after transport metadata loads.
+**Catchable by**: Section 4: Data flow end-to-end â€” volume-based indicators need a feed with traded volume. Test native-token source selection and same-network contract-token exclusion whenever a shared chart whitelist changes.

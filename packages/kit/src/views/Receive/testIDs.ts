@@ -8,6 +8,7 @@ export const ReceiveTestIDs = {
   VerifyOnDeviceButton: 'receive-verify-on-device-button',
   SkipVerifyButton: 'receive-skip-verify-button',
   AddressTypeSelector: 'receive-address-type-selector',
+  AddressTypeMenuButton: 'receive-address-type-menu-button',
   Banner: 'receive-banner',
   PageHeading: 'receive-page-heading',
   CardHeaderNetworkEta: 'receive-card-network-eta',
