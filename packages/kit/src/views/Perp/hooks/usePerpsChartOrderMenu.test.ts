@@ -101,38 +101,23 @@ describe('Perps chart order menu', () => {
   });
 
   it.each([
-    ['82010', '81990', 'perps-chart-stop-loss'],
-    ['82010', '0', 'perps-chart-stop-loss'],
-  ])(
-    'prefers valid all-mids %s over active mid %s',
-    (mid, assetMid, action) => {
+    ['82010', 'BTC', '81990', 'perps-chart-stop-loss'],
+    ['82010', 'BTC', '0', 'perps-chart-stop-loss'],
+    ['0', 'ETH', '82000', undefined],
+    ['0', 'BTC', '82000', 'perps-chart-stop-loss'],
+  ] as const)(
+    'resolves TP/SL with all-mids=%s and active %s=%s',
+    (mid, coin, assetMid, action) => {
       mockMid = mid;
       getDefaultStore().set(mockAssetCtxAtom, {
-        coin: 'BTC',
+        coin,
         ctx: { midPrice: assetMid },
       });
       const { result } = renderHook(() => usePerpsChartOrderMenu(true));
-      expect(selectPrice(result, 82_000).map((item) => item.testID)).toEqual([
+      expect(selectPrice(result, 81_995).map((item) => item.testID)).toEqual([
         'perps-chart-limit-order',
-        action,
+        ...(action ? [action] : []),
       ]);
-    },
-  );
-
-  it.each(['ETH', 'BTC'])(
-    'only falls back to a valid active context for the requested coin: %s',
-    (coin) => {
-      mockMid = '0';
-      getDefaultStore().set(mockAssetCtxAtom, {
-        coin,
-        ctx: { midPrice: '82000' },
-      });
-      const { result } = renderHook(() => usePerpsChartOrderMenu(true));
-      expect(selectPrice(result, 83_000).map((item) => item.testID)).toEqual(
-        coin === 'BTC'
-          ? ['perps-chart-limit-order', 'perps-chart-take-profit']
-          : ['perps-chart-limit-order'],
-      );
     },
   );
 
@@ -154,19 +139,8 @@ describe('Perps chart order menu', () => {
     },
   );
 
-  it('revalidates the current position before opening TP/SL', async () => {
-    const { result, rerender } = renderHook(() => usePerpsChartOrderMenu(true));
-    const item = selectPrice(result, 83_000)[1];
-    mockSize = '0';
-    rerender();
-    await act(async () => {
-      await item.onPress?.(mockCloseMenu);
-    });
-    expect(mockShowTpsl).not.toHaveBeenCalled();
-  });
-
-  it.each(['all-mids', 'active-asset'] as const)(
-    'uses %s mid for availability and revalidates it before opening TP/SL',
+  it.each(['position', 'all-mids', 'active-asset'] as const)(
+    'revalidates %s before opening TP/SL',
     async (source) => {
       if (source === 'active-asset') {
         mockMid = undefined;
@@ -178,22 +152,19 @@ describe('Perps chart order menu', () => {
       const { result, rerender } = renderHook(() =>
         usePerpsChartOrderMenu(true),
       );
-      const items = selectPrice(result, 83_000);
-      expect(items.map((item) => item.testID)).toEqual([
-        'perps-chart-limit-order',
-        'perps-chart-take-profit',
-      ]);
+      const item = selectPrice(result, 83_000)[1];
       act(() => {
         if (source === 'active-asset')
           getDefaultStore().set(mockAssetCtxAtom, {
             coin: 'BTC',
             ctx: { midPrice: '84000' },
           });
+        else if (source === 'position') mockSize = '0';
         else mockMid = '84000';
       });
       rerender();
       await act(async () => {
-        await items[1].onPress?.(mockCloseMenu);
+        await item.onPress?.(mockCloseMenu);
       });
       expect(mockShowTpsl).not.toHaveBeenCalled();
       expect(Toast.error).toHaveBeenCalledWith({

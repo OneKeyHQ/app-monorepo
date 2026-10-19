@@ -13,7 +13,6 @@ import type { ITradingViewNativeReferenceLineComponent } from '../types';
 
 function buildLabels(
   prices: number[],
-  priceChartHeight = 200,
   pending?: ITradingViewNativeReferenceLineComponent['props']['pending'],
 ) {
   const components: ITradingViewNativeReferenceLineComponent[] = prices.map(
@@ -53,7 +52,7 @@ function buildLabels(
     measureTextWidth: (text) => text.length * 6,
     priceAxisFontSize: 12,
     priceAxisX: 600,
-    priceChartHeight,
+    priceChartHeight: 200,
     priceScaleMode: 'linear',
     showYAxis: true,
     width: 680,
@@ -67,52 +66,36 @@ function buildLabels(
 }
 
 describe('trading labels', () => {
-  it('replaces cancellation with a loading indicator without fading the label', () => {
-    const { labels, customPaintStyles, hitRegions, textLabelCommands } =
-      buildLabels([104, 100], 200, 'cancel');
-    expect(
-      customPaintStyles[
-        'chart.component.referenceLine.order-0.label.trading.body'
-      ].opacity,
-    ).toBe(1);
-    const loading = hitRegions.find(
-      (hit) => hit.id === 'order-0' && hit.action === 'cancel',
-    );
-    expect(loading).toMatchObject({
-      loadingColor: '#00aa00',
-      rect: { y: labels[0].y, height: labels[0].height },
-    });
-    expect(
-      hitRegions.some((hit) => hit.id === 'order-0' && !hit.disabled),
-    ).toBe(false);
-    expect(
-      hitRegions.find((hit) => hit.id === 'order-1' && hit.action === 'cancel')
-        ?.loadingColor,
-    ).toBeUndefined();
-    expect(
-      textLabelCommands.filter(
-        (command) =>
-          command.kind === 'line' &&
-          command.customPaintId ===
-            'chart.component.referenceLine.order-0.label.trading.bodyText',
-      ),
-    ).toEqual([]);
-  });
-
-  it('keeps amendment previews distinct from cancellation loading', () => {
-    const { customPaintStyles, hitRegions } = buildLabels(
-      [104],
-      200,
-      'priceChange',
-    );
-    expect(
-      customPaintStyles[
-        'chart.component.referenceLine.order-0.label.trading.body'
-      ].opacity,
-    ).toBe(0.5);
-    expect(hitRegions).toHaveLength(2);
-    expect(hitRegions.every((hit) => hit.disabled)).toBe(true);
-  });
+  it.each(['cancel', 'priceChange'] as const)(
+    'renders pending %s feedback and blocks its hit targets',
+    (pending) => {
+      const { labels, customPaintStyles, hitRegions, textLabelCommands } =
+        buildLabels([104, 100], pending);
+      const paintId = 'chart.component.referenceLine.order-0.label.trading';
+      expect(customPaintStyles[`${paintId}.body`].opacity).toBe(
+        pending === 'cancel' ? 1 : 0.5,
+      );
+      const pendingHits = hitRegions.filter((hit) => hit.id === 'order-0');
+      expect(pendingHits).toHaveLength(2);
+      expect(pendingHits.every((hit) => hit.disabled)).toBe(true);
+      expect(pendingHits.find((hit) => hit.action === 'cancel')).toMatchObject({
+        loadingColor: pending === 'cancel' ? '#00aa00' : undefined,
+        rect: { y: labels[0].y, height: labels[0].height },
+      });
+      expect(
+        hitRegions.find(
+          (hit) => hit.id === 'order-1' && hit.action === 'cancel',
+        )?.loadingColor,
+      ).toBeUndefined();
+      expect(
+        textLabelCommands.filter(
+          (command) =>
+            command.kind === 'line' &&
+            command.customPaintId === `${paintId}.bodyText`,
+        ),
+      ).toHaveLength(pending === 'cancel' ? 0 : 2);
+    },
+  );
   it.each([
     [104, 103.9, 103.8],
     [100, 100, 100],

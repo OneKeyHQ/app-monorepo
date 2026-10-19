@@ -39,17 +39,6 @@ function setup() {
   });
   if (!layout) throw new OneKeyLocalError('Expected chart layout');
   const canvas = document.createElement('canvas');
-  jest.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({
-    x: 0,
-    y: 0,
-    left: 0,
-    top: 0,
-    right: 800,
-    bottom: 400,
-    width: 800,
-    height: 400,
-    toJSON: () => ({}),
-  });
   const selections: ITradingViewNativePriceSelection[] = [];
   const options = {
     enabled: true,
