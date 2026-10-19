@@ -9,6 +9,7 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Keyboard } from 'react-native';
 
 import {
   Alert,
@@ -124,6 +125,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   const didRequestInitialCodeRef = useRef(false);
   const previousRequestConfiguration = useRef(requestConfiguration);
   const didSendCodeSucceedRef = useRef(false);
+  const suppressCodeAutoFocusRef = useRef(false);
   const isMountedRef = useIsMounted();
   const [verificationCode, setVerificationCode] = useState('');
   const isVerificationCodeValid = /^\d+$/.test(verificationCode);
@@ -163,9 +165,19 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     void backgroundApiProxy.serviceNetworkDoctor.runNetworkDiagnostics();
   }, [dialogInstance, navigation]);
 
+  const dismissCodeInput = useCallback(() => {
+    codeInputRef.current?.blur();
+    if (platformEnv.isNative) Keyboard.dismiss();
+  }, []);
+
   useEffect(() => {
-    if (active && isCodeInputEnabled) codeInputRef.current?.focus();
-  }, [active, isCodeInputEnabled]);
+    if (!active) return;
+    if (!isCodeInputEnabled) {
+      dismissCodeInput();
+    } else if (!sendAttemptRef.current && !suppressCodeAutoFocusRef.current) {
+      codeInputRef.current?.focus();
+    }
+  }, [active, dismissCodeInput, isCodeInputEnabled]);
 
   const cancelPendingCaptchaSend = useCallback(() => {
     const attempt = sendAttemptRef.current;
@@ -215,14 +227,15 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       allowPreviousCode: isCodeInputEnabled,
     };
     sendAttemptRef.current = attempt;
+    dismissCodeInput();
     setIsResending(true);
     setIsCodeInputEnabled(false);
     setState({ status: 'initial' });
-    setVerificationCode('');
     try {
       const captchaToken = await takeCaptchaToken();
       if (sendAttemptRef.current !== attempt || !isMountedRef.current) return;
       attempt.stage = 'sending';
+      setVerificationCode('');
       await sendCode({ email, ...(captchaToken ? { captchaToken } : {}) });
       if (sendAttemptRef.current !== attempt || !isMountedRef.current) return;
       didSendCodeSucceedRef.current = true;
@@ -234,6 +247,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
         return;
       }
       setIsApiReady(true);
+      suppressCodeAutoFocusRef.current = false;
       setIsCodeInputEnabled(true);
       setCountdown(EMAIL_OTP_COUNTDOWN_SECONDS);
     } catch (error) {
@@ -259,9 +273,11 @@ export function PrimeLoginEmailCodeDialogV2(props: {
         Toast.error({ title: errorMessage });
       }
       setIsApiReady(true);
-      // Only the server can validate an existing code. A failed CAPTCHA or
-      // send request must not prevent the user from submitting one.
+      // Keep existing-code entry available without opening the keyboard over
+      // CAPTCHA troubleshooting guidance, including failures without an error key.
+      suppressCodeAutoFocusRef.current = attempt.stage === 'captcha';
       setIsCodeInputEnabled(true);
+      if (attempt.stage === 'captcha') dismissCodeInput();
       setState({ status: 'initial' });
       setCountdown(retryAfterSeconds ?? 0);
       return;
@@ -274,6 +290,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     }
     if (!isolatedTest) defaultLogger.referral.page.signupOneKeyID();
   }, [
+    dismissCodeInput,
     email,
     intl,
     isCodeInputEnabled,
@@ -608,6 +625,12 @@ export function PrimeLoginEmailCodeDialogV2(props: {
           textContentType={platformEnv.isDesktop ? undefined : 'oneTimeCode'}
           autoComplete={platformEnv.isDesktop ? 'off' : otpAutoComplete}
           disabled={!isCodeInputEnabled || state.status === 'done'}
+          editable={isCodeInputEnabled && state.status !== 'done'}
+          onFocus={() => {
+            // Native focus events can arrive after a pending attempt was reset.
+            if (!isCodeInputEnabled || sendAttemptRef.current)
+              dismissCodeInput();
+          }}
           value={verificationCode}
           onChangeText={(value) => {
             if (!isCodeInputEnabled || state.status === 'done') return;
