@@ -20,11 +20,15 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   type IStockSimpleChartRange,
+  STOCK_SHARE_SIMPLE_CHART_RANGES,
   StockSimpleChart,
   TOKEN_SIMPLE_CHART_RANGES,
+  resolveStockSimpleChartRangeForPriceMode,
 } from '../components/StockSimpleChart';
 import { useStockDetail } from '../hooks/StockDetailContext';
 import { resolveDisplayedStockPriceMode } from '../hooks/useStockPriceSource';
+
+import { MARKET_SIMPLE_CHART_RANGE_LABEL_IDS } from './components/marketSimpleChartConstants';
 
 // Fallback when the host has no measured Pro height (web). Native hosts pass
 // the Pro block height so switching modes does not move the content below.
@@ -106,7 +110,7 @@ export function MobileSimpleChart({
   height?: number;
 }) {
   const intl = useIntl();
-  const [range, setRange] = useState<IStockSimpleChartRange>('1D');
+  const [selectedRange, setRange] = useState<IStockSimpleChartRange>('1D');
   const { stockId, isStockDetailError } = useStockDetail();
   const [{ source: priceSource }] = useMarketPriceSourceAtom();
   // Share price is what draws the previous-close line. Crypto charts, and
@@ -116,6 +120,14 @@ export function MobileSimpleChart({
     isStockDetailError,
     storedPriceMode: priceSource,
   });
+  const range = resolveStockSimpleChartRangeForPriceMode({
+    priceMode,
+    range: selectedRange,
+  });
+  const chartRanges =
+    priceMode === 'share'
+      ? STOCK_SHARE_SIMPLE_CHART_RANGES
+      : TOKEN_SIMPLE_CHART_RANGES;
   const chartHeight =
     height === undefined
       ? MOBILE_SIMPLE_CHART_HEIGHT
@@ -136,7 +148,7 @@ export function MobileSimpleChart({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={RANGE_ROW_STYLE}
         >
-          {TOKEN_SIMPLE_CHART_RANGES.map((item) => (
+          {chartRanges.map((item) => (
             <Button
               key={item}
               testID={`market-mobile-chart-range-${item}`}
@@ -150,9 +162,9 @@ export function MobileSimpleChart({
               borderRadius="$full"
               onPress={() => setRange(item)}
             >
-              {item === 'All'
-                ? intl.formatMessage({ id: ETranslations.global_all })
-                : item}
+              {intl.formatMessage({
+                id: MARKET_SIMPLE_CHART_RANGE_LABEL_IDS[item],
+              })}
             </Button>
           ))}
         </ScrollView>
