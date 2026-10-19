@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react';
 
+import { fakeDebugLogger } from '@onekeyfe/cross-inpage-provider-core';
 import { JsBridgeNativeHost } from '@onekeyfe/onekey-cross-webview';
 import { RefreshControl, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
@@ -18,6 +19,10 @@ import { WebView } from 'react-native-webview';
 import { Stack } from '@onekeyhq/components';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import GeckoView from '@onekeyhq/shared/src/modules3rdParty/geckoview';
+import {
+  INTERCOM_SUPPORT_ORIGIN,
+  createIntercomBridgeReplyScript,
+} from '@onekeyhq/shared/src/modules3rdParty/intercom/bridge';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import uriUtils, {
@@ -28,9 +33,28 @@ import ErrorView from './ErrorView';
 import { WEBVIEW_LOAD_TIMEOUT_MS, createMessageInjectedScript } from './utils';
 
 import type { IInpageProviderWebViewProps, IWebViewRef } from './types';
+import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebViewMessageEvent, WebViewProps } from 'react-native-webview';
 import type { WebViewRenderProcessGoneEvent } from 'react-native-webview/lib/WebViewTypes';
+
+class IntercomAwareBridgeHost extends JsBridgeNativeHost {
+  override sendPayload(payload: IJsBridgeMessagePayload | string) {
+    const message = (
+      typeof payload === 'string' ? JSON.parse(payload) : payload
+    ) as IJsBridgeMessagePayload;
+    if (message.peerOrigin !== INTERCOM_SUPPORT_ORIGIN) {
+      super.sendPayload(payload);
+      return;
+    }
+    // Recheck in the destination document: navigation may race with the reply.
+    this.webviewRef?.current?.injectJavaScript(
+      createIntercomBridgeReplyScript(
+        typeof payload === 'string' ? payload : JSON.stringify(payload),
+      ),
+    );
+  }
+}
 
 export type INativeWebViewProps = WebViewProps & IInpageProviderWebViewProps;
 
@@ -114,11 +138,14 @@ const NativeWebView = forwardRef(
 
     const jsBridge = useMemo(
       () =>
-        new JsBridgeNativeHost({
+        new IntercomAwareBridgeHost({
           webviewRef,
           receiveHandler,
+          ...(src?.startsWith(`${INTERCOM_SUPPORT_ORIGIN}/`)
+            ? { debugLogger: fakeDebugLogger }
+            : {}),
         }),
-      [receiveHandler],
+      [receiveHandler, src],
     );
 
     const webviewOnMessage = useCallback(

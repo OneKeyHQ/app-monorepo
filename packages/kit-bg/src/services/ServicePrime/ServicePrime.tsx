@@ -1,4 +1,6 @@
 /* cspell:ignore Infini */
+import { randomBytes } from 'crypto';
+
 import { type AuthResponse } from '@supabase/supabase-js';
 import { Semaphore } from 'async-mutex';
 import axios from 'axios';
@@ -42,6 +44,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IPrimeCryptoPaymentStage } from '@onekeyhq/shared/src/logger/scopes/prime/scenes/subscription';
+import type { IIntercomSupportContext } from '@onekeyhq/shared/src/modules3rdParty/intercom/bridge';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -113,6 +116,7 @@ import type {
 import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
+import { passwordAtom } from '../../states/jotai/atoms/password';
 import {
   primeGiftEligibilityPersistAtom,
   primeLoginDialogAtom,
@@ -132,6 +136,7 @@ import {
   markIdentityRecoveryReady,
 } from '../ServiceIdentityExit/identityLifecycleMutex';
 
+import { IntercomSupportSessions } from './IntercomSupportSessions';
 import {
   enqueuePrimeProfileAnalyticsReport as enqueuePrimeProfileAnalyticsReportImpl,
   trackOneKeyIdIdentityLinked as trackOneKeyIdIdentityLinkedImpl,
@@ -503,6 +508,58 @@ export type IOneKeyIdAuthSnapshot = {
 };
 
 class ServicePrime extends ServiceBase {
+  private intercomSupportSessions = new IntercomSupportSessions();
+
+  private async getIntercomSupportOwner() {
+    return this.authStateWriteMutex.runExclusive(async () => {
+      const [password, user, generation, source] = await Promise.all([
+        passwordAtom.get(),
+        primePersistAtom.get(),
+        this.backgroundApi.simpleDb.prime.getAuthStateGeneration(),
+        this.backgroundApi.simpleDb.prime.getAuthSessionSource(),
+      ]);
+      if (!password.unLock || !isIdentityRecoveryReady()) {
+        throw new OneKeyLocalError('Unlock the app before opening Support');
+      }
+      return `${user.isLoggedIn}:${user.isLoggedInOnServer}:${user.onekeyUserId ?? ''}:${source ?? ''}:${generation}`;
+    });
+  }
+
+  @backgroundMethod()
+  async createIntercomSupportSession() {
+    const owner = await this.getIntercomSupportOwner();
+    return this.intercomSupportSessions.create(
+      randomBytes(32).toString('hex'),
+      owner,
+    );
+  }
+
+  @backgroundMethod()
+  async redeemIntercomSupportSession({
+    supportSession,
+    origin,
+  }: {
+    supportSession: string;
+    origin?: string;
+  }): Promise<IIntercomSupportContext> {
+    return this.intercomSupportSessions.redeem({
+      id: supportSession,
+      origin,
+      getOwner: () => this.getIntercomSupportOwner(),
+      getContext: async () => {
+        const user = await primePersistAtom.get();
+        const loggedIn = user.isLoggedIn && user.isLoggedInOnServer;
+        const token = loggedIn
+          ? (await this.apiGetCustomerJWT())?.token
+          : undefined;
+        if (loggedIn && !token) {
+          throw new OneKeyLocalError('Support identity is unavailable');
+        }
+        return { intercom_user_jwt: token };
+      },
+    });
+  }
+
   private primeGiftMutex = new Semaphore(1);
 
   private primeGiftEligibilityRequests = new Map<string, number>();

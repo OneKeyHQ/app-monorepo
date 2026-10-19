@@ -7,7 +7,7 @@ import '@onekeyhq/shared/src/polyfills/polyfillsExtContentScript';
 
 // injected hot-reload cache update:  1111222
 
-import { consts } from '@onekeyfe/cross-inpage-provider-core';
+import { consts, fakeDebugLogger } from '@onekeyfe/cross-inpage-provider-core';
 import { bridgeSetup } from '@onekeyfe/extension-bridge-hosted';
 
 // import type { IOneKeyWalletInfo } from '@onekeyhq/kit-bg/src/providers/ProviderApiPrivate';
@@ -21,6 +21,7 @@ import {
   isKeylessWebAutoConnectOriginAllowed,
   isKeylessWebConnectAlertMessage,
 } from '@onekeyhq/shared/src/keylessWallet/keylessWebUtils';
+import { INTERCOM_SUPPORT_ORIGIN } from '@onekeyhq/shared/src/modules3rdParty/intercom/bridge';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -70,7 +71,11 @@ if (shouldInject()) {
   }
 }
 
-bridgeSetup.contentScript.setupMessagePort();
+bridgeSetup.contentScript.setupMessagePort(
+  globalThis.location.origin === INTERCOM_SUPPORT_ORIGIN
+    ? { debugLogger: fakeDebugLogger }
+    : undefined,
+);
 
 globalThis.addEventListener(
   KEYLESS_WEB_OPEN_SIDE_PANEL_EVENT,
