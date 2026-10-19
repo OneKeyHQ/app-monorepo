@@ -24,11 +24,13 @@ export function MarketTokenSelectorSearchTabs({
   onChange,
   hasStockResults = false,
   hasTokenResults = true,
+  backgroundColor,
 }: {
   value: IMarketTokenSelectorSearchTab;
   onChange: (value: IMarketTokenSelectorSearchTab) => void;
   hasStockResults?: boolean;
   hasTokenResults?: boolean;
+  backgroundColor?: '$bg' | '$bgApp';
 }) {
   const intl = useIntl();
   const tabs = useMemo(
@@ -48,6 +50,7 @@ export function MarketTokenSelectorSearchTabs({
       value={value}
       onChange={onChange}
       testIDPrefix="market-token-selector-search-tab-"
+      backgroundColor={backgroundColor}
     />
   );
 }

@@ -76,9 +76,11 @@ function isDetailSelectorBrowseTab(
 export function DetailSelectorBrowseTabs({
   value,
   onChange,
+  backgroundColor,
 }: {
   value: IDetailSelectorBrowseTab;
   onChange: (tabId: IDetailSelectorBrowseTab) => void;
+  backgroundColor?: '$bg' | '$bgApp';
 }) {
   const intl = useIntl();
   const tabs = useMemo(
@@ -95,6 +97,7 @@ export function DetailSelectorBrowseTabs({
       value={value}
       onChange={onChange}
       testIDPrefix="market-token-selector-tab-"
+      backgroundColor={backgroundColor}
     />
   );
 }

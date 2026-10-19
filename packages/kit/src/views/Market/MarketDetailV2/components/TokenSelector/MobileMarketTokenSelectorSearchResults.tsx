@@ -452,6 +452,7 @@ function MobileMarketTokenSelectorSearchResults({
   return (
     <YStack flex={1}>
       <MarketTokenSelectorSearchTabs
+        backgroundColor="$bgApp"
         value={activeTab}
         onChange={setActiveTab}
         // Only All shows while searching; type tabs join with the results.

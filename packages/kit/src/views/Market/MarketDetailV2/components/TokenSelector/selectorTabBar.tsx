@@ -5,9 +5,6 @@ import { useSharedValue } from 'react-native-reanimated';
 import { Tabs } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components';
 
-// The selector's popover and modal surface, under the bar's default `$bgApp`.
-const TAB_BAR_CONTAINER_STYLE = { bg: '$bg' } as const;
-
 /**
  * The selector's tab rows on the shared `Tabs.TabBar` — the bar universal
  * search uses — keyed by tab id instead of by label.
@@ -17,12 +14,18 @@ export function SelectorTabBar<T extends string>({
   value,
   onChange,
   testIDPrefix,
+  backgroundColor = '$bg',
 }: {
   tabs: { id: T; label: string }[];
   value: T;
   onChange: (tabId: T) => void;
   testIDPrefix: string;
+  backgroundColor?: '$bg' | '$bgApp';
 }) {
+  const containerStyle = useMemo(
+    () => ({ bg: backgroundColor }),
+    [backgroundColor],
+  );
   const tabNames = useMemo(() => tabs.map((tab) => tab.label), [tabs]);
   const focusedLabel =
     tabs.find((tab) => tab.id === value)?.label ?? tabNames[0] ?? '';
@@ -61,7 +64,7 @@ export function SelectorTabBar<T extends string>({
       focusedTab={focusedTab}
       onTabPress={handleTabPress}
       renderItem={renderItem}
-      containerStyle={TAB_BAR_CONTAINER_STYLE}
+      containerStyle={containerStyle}
     />
   );
 }

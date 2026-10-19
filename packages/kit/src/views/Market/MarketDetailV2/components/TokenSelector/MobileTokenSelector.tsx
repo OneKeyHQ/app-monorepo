@@ -303,6 +303,7 @@ function MobileTokenSelectorContent() {
         ) : (
           <>
             <DetailSelectorBrowseTabs
+              backgroundColor="$bgApp"
               value={browseTab}
               onChange={handleBrowseTabChange}
             />
