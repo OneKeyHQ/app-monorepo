@@ -152,11 +152,11 @@ jobs:
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
 
       - name: Install Dep
+        id: dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
-        run: |
-          yarn install --immutable
+        uses: ./.github/actions/install-dependencies
 
       - name: Build Renderer
         env:
@@ -232,3 +232,7 @@ jobs:
           path: |
             ./apps/desktop/app/build/
           retention-days: 1
+
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup

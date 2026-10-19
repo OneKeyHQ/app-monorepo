@@ -387,11 +387,11 @@ jobs:
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
 
       - name: Install Dep
+        id: dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
-        run: |
-          yarn install --immutable
+        uses: ./.github/actions/install-dependencies
 
       - name: Download pre-built web-embed bundle
         # Restores apps/web-embed/web-build/ from an upstream web-embed-build
@@ -495,6 +495,10 @@ jobs:
           artifact-build-source: '${{ inputs.build_source || ''daily-build'' }}'
           artifact-branch: '${{ env.BRANCH }}'
           artifact-commit: '${{ env.COMMIT }}'
+
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup
 
   # Separate job so a transient QA server failure can be retried via
   # rerun-failed-jobs without triggering another full native bundle build

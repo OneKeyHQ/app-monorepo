@@ -192,10 +192,11 @@ jobs:
             node-cache-${{ runner.os }}-${{ steps.yarn-cache.outputs.arch }}-yarn-
 
       - name: Install dependencies
+        id: dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: --max_old_space_size=8192
-        run: yarn install --immutable
+        uses: ./.github/actions/install-dependencies
 
       - name: Build canonical web-embed prebundle
         run: yarn workspace @onekeyhq/web-embed prebundle:build
@@ -228,6 +229,10 @@ jobs:
           if-no-files-found: error
           retention-days: 1
           compression-level: 0
+
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup
 
   publish:
     name: Publish web-embed OCI prebundle

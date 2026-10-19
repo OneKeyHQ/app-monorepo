@@ -958,6 +958,15 @@ jobs:
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
 
       - name: Install Dep
+        id: dependencies
+        if: runner.arch == 'X64'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        uses: ./.github/actions/install-dependencies
+
+      - name: Install Dep (ARM64)
+        if: runner.arch != 'X64'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
@@ -1112,3 +1121,7 @@ jobs:
           [[ "${{ steps.phase2_snap.outcome }}" == "success" && "${{ steps.install_snap_runtime_integrity.outcome }}" != "success" ]] && exit 1
           [[ "${{ steps.phase2_snap.outcome }}" == "success" && "${{ steps.linux_runtime_integrity.outcome }}" != "success" ]] && exit 1
           exit 0
+
+      - name: Unmount dependency image
+        if: always() && runner.arch == 'X64' && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup

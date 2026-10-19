@@ -214,11 +214,11 @@ jobs:
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
 
       - name: Install Dependency
+        id: dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=4096'
-        run: |
-          yarn install --immutable
+        uses: ./.github/actions/install-dependencies
 
       - name: Build Target
         env:
@@ -313,6 +313,10 @@ jobs:
           publish_dir: ./apps/web/web-build
           cname: ${{ env.TEST_ENDPOINT }}
           force_orphan: true
+
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup
 
   build-production:
     runs-on: ubuntu-24.04
@@ -455,11 +459,11 @@ jobs:
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
 
       - name: Install Dependency
+        id: dependencies
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=4096'
-        run: |
-          yarn install --immutable
+        uses: ./.github/actions/install-dependencies
 
       - name: Build Target
         env:
@@ -573,6 +577,10 @@ jobs:
             # Exact association paths must be files, never directory descendants.
             !./apps/web/web-build/.well-known/apple-app-site-association/*
             !./apps/web/web-build/.well-known/assetlinks.json/*
+
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup
 
   notify:
     runs-on: ubuntu-24.04
