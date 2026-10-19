@@ -6,16 +6,20 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Dialog,
+  DialogContainer,
   Icon,
   Image,
-  ScrollView,
+  Portal,
   SizableText,
   Spinner,
   Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { WC_PAY_DIALOG_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   describeWcPaySigningHeadline,
@@ -34,13 +38,83 @@ import type {
 // 1:1 mirror of the accepted reference in
 // packages/components/src/scenarios/WalletConnectPay/WalletConnectPay.stories.tsx
 // (Figma Modules / "Walletconnect pay", node 21831-35638; terminal layout
-// node 21926-35825). The shell (DialogV2) provides the 24pt side inset and
-// the safe-area bottom; nothing here adds horizontal padding of its own.
+// node 21926-35825). The shell (WcPayDialogShell, below) provides the 24pt
+// side inset and the safe-area bottom; nothing here adds horizontal padding
+// of its own. Scrollable areas use Dialog.ScrollView: inside the phone sheet
+// a plain ScrollView loses every vertical swipe to the sheet's drag
+// (OK-61140).
 // Copy comes from the wc_pay_* i18n keys; en_US matches the story verbatim.
 // One deliberate divergence from the story: WcPayConfirmingStep adds a
 // summary block under its headline while a headless signature is in flight —
 // the story predates inline signing and has no step that signs without a
 // confirm page to describe what is being signed.
+
+// ---------------------------------------------------------------------------
+// Shell
+
+// Stable shell props. The fixed z-index keeps the dialog below every prompt
+// a payment raises (see WC_PAY_DIALOG_Z_INDEX). The content inset is the
+// contract the steps are drawn against: 24 at the sides, 16 on top, and on
+// native nothing under the last element but the safe-area inset.
+const SHELL_SHEET_PROPS = { zIndex: WC_PAY_DIALOG_Z_INDEX };
+const SHELL_FLOATING_PANEL_PROPS = { zIndex: WC_PAY_DIALOG_Z_INDEX };
+const SHELL_CONTENT_CONTAINER_PROPS = {
+  px: '$6',
+  pt: '$4',
+  pb: platformEnv.isNative ? '$0' : '$6',
+} as const;
+// Every close goes through onOpenChange, which owns the flow's exit; the
+// shell's own close callback has nothing left to do.
+const noopShellClose = () => Promise.resolve();
+
+/**
+ * The shared Dialog without its header and footer, in the full-window
+ * overlay where every other global dialog lives: above the navigator (a pay
+ * link opened over a modal page still shows) and ordered among the prompts
+ * by z-index alone. The portal detaches the content from the caller's
+ * context providers; the steps only need what the app root provides (intl,
+ * theme).
+ */
+export function WcPayDialogShell({
+  open,
+  dismissible,
+  onOpenChange,
+  children,
+}: {
+  open: boolean;
+  /**
+   * Every dismissal path follows it: the sheet closes itself on a drag or a
+   * backdrop press before onOpenChange can refuse, so those locks must hold
+   * while the view is not dismissible.
+   */
+  dismissible: boolean;
+  /** Also called with `true` on mount; only `false` is a close request. */
+  onOpenChange: (open: boolean) => void;
+  children: ReactNode;
+}) {
+  return (
+    <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
+      <DialogContainer
+        open={open}
+        onOpenChange={onOpenChange}
+        onClose={noopShellClose}
+        renderContent={children}
+        showHeader={false}
+        showFooter={false}
+        dismissOnOverlayPress={dismissible}
+        disableDrag={!dismissible}
+        disableSystemClose={!dismissible}
+        contentContainerProps={SHELL_CONTENT_CONTAINER_PROPS}
+        sheetProps={SHELL_SHEET_PROPS}
+        floatingPanelProps={SHELL_FLOATING_PANEL_PROPS}
+        // The zero-inset first frame only happens inside the iOS
+        // FullWindowOverlay portal; Android must not pad with the startup
+        // snapshot.
+        useInitialSafeAreaBottomInsetFallback={Boolean(platformEnv.isNativeIOS)}
+      />
+    </Portal.Body>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Header
@@ -167,8 +241,6 @@ const SELECTED_CHECK = (
 
 // Rides the scroll content (not the card) so the inset scrolls away with
 // the rows instead of leaving a static gap at the clipped edges.
-const ASSET_LIST_CONTENT_CONTAINER_STYLE = { p: '$1' } as const;
-
 function WcPayAssetOptionRow({
   option,
   selected,
@@ -272,20 +344,22 @@ function WcPayAssetList({
         bg="$neutral3"
         borderRadius="$4"
         borderCurve="continuous"
-        height={200}
         overflow="hidden"
       >
-        <ScrollView contentContainerStyle={ASSET_LIST_CONTENT_CONTAINER_STYLE}>
-          {options.map((option) => (
-            <WcPayAssetOptionRow
-              key={option.id}
-              option={option}
-              selected={option.id === selectedId}
-              disabled={disabled}
-              onSelectOption={onSelectOption}
-            />
-          ))}
-        </ScrollView>
+        {/* Dialog.ScrollView sizes to its content, so the height sits on it. */}
+        <Dialog.ScrollView height={200}>
+          <YStack p="$1">
+            {options.map((option) => (
+              <WcPayAssetOptionRow
+                key={option.id}
+                option={option}
+                selected={option.id === selectedId}
+                disabled={disabled}
+                onSelectOption={onSelectOption}
+              />
+            ))}
+          </YStack>
+        </Dialog.ScrollView>
       </YStack>
     </YStack>
   );
@@ -564,7 +638,7 @@ export function WcPayConfirmingStep({
             {describeWcPaySigningHeadline(signingSummary, amountText, intl)}
           </SizableText>
           {isMessageBody ? (
-            <ScrollView
+            <Dialog.ScrollView
               maxHeight="$36"
               alignSelf="stretch"
               px="$4"
@@ -573,7 +647,7 @@ export function WcPayConfirmingStep({
               <SizableText size="$bodySm" color="$textSubdued" textAlign="left">
                 {summaryBody}
               </SizableText>
-            </ScrollView>
+            </Dialog.ScrollView>
           ) : (
             <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
               {summaryBody}
