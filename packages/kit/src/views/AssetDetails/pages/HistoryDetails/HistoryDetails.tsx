@@ -75,6 +75,7 @@ import type { IAddressInfo } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import {
   EHistoryTxDetailsBlock,
+  EOnChainHistoryTransferType,
   EOnChainHistoryTxStatus,
   EOnChainHistoryTxType,
 } from '@onekeyhq/shared/types/history';
@@ -1236,6 +1237,38 @@ function HistoryDetails() {
       isSentFromThisWallet,
     ],
   );
+  const localWalletPoolFlow = useMemo(() => {
+    const transfer = historyTx?.decodedTx.actions[0]?.assetTransfer;
+    const knownPoolLabels = new Set(
+      vaultSettings?.localWallet?.pools
+        .filter((pool) => pool.kind === 'private')
+        .map((pool) => `${pool.label} pool`),
+    );
+    const poolLabels = (direction: 'from' | 'to') => {
+      const endpoint = transfer?.[direction];
+      const outputs =
+        direction === 'from' ? txDetails?.sends : txDetails?.receives;
+      return [
+        ...new Set([
+          ...(endpoint && knownPoolLabels.has(endpoint) ? [endpoint] : []),
+          ...(outputs ?? [])
+            .filter(
+              (output) =>
+                output.type === EOnChainHistoryTransferType.Shielded &&
+                !output.isChange &&
+                output.label,
+            )
+            .map((output) => output.label),
+        ]),
+      ];
+    };
+    return { from: poolLabels('from'), to: poolLabels('to') };
+  }, [
+    historyTx?.decodedTx.actions,
+    txDetails?.sends,
+    txDetails?.receives,
+    vaultSettings?.localWallet?.pools,
+  ]);
   const hasWalletIO =
     txDetails?.inputOutputSource === 'account' &&
     !!(txDetails.sends?.length || txDetails.receives?.length);
@@ -1255,7 +1288,9 @@ function HistoryDetails() {
     if (localWalletHistoryFlow) {
       return (
         <>
-          {!isSentFromThisWallet && !localWalletHistoryFlow.from.length ? (
+          {!isSentFromThisWallet &&
+          !localWalletHistoryFlow.from.length &&
+          !localWalletPoolFlow.from.length ? (
             <InfoItem
               label={intl.formatMessage({ id: ETranslations.global_from })}
               renderContent={intl.formatMessage({
@@ -1270,52 +1305,75 @@ function HistoryDetails() {
               }
             />
           ) : null}
-          {walletRecipients.map((address) => (
-            <InfoItem
-              key={`wallet-recipient-${address}`}
-              label={intl.formatMessage({ id: ETranslations.global_to })}
-              renderContent={address}
-              showCopy
-              description={
-                <XStack gap="$1.5" alignItems="center">
-                  <Icon name="ShieldOutline" size="$4" color="$iconSubdued" />
-                  <SizableText
-                    color="$textSubdued"
-                    size="$bodySm"
-                    flexShrink={1}
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.privacy_history_local_recipient__desc,
-                    })}
-                  </SizableText>
-                </XStack>
-              }
-            />
+          {(['from', 'to'] as const).map((direction) => (
+            <Fragment key={direction}>
+              {localWalletPoolFlow[direction].map((pool) => (
+                <InfoItem
+                  key={pool}
+                  testID={`history-details-${direction}-pool`}
+                  label={intl.formatMessage({
+                    id:
+                      direction === 'from'
+                        ? ETranslations.global_from
+                        : ETranslations.global_to,
+                  })}
+                  renderContent={pool}
+                />
+              ))}
+              {localWalletHistoryFlow[direction].map((address) => (
+                <InfoItem
+                  key={address}
+                  label={intl.formatMessage({
+                    id:
+                      direction === 'from'
+                        ? ETranslations.global_from
+                        : ETranslations.global_to,
+                  })}
+                  renderContent={address}
+                  showCopy
+                  description={
+                    <AddressInfo
+                      address={address}
+                      networkId={networkId}
+                      accountId={accountId}
+                      allowClickAccountNameSwitch={allowClickAccountNameSwitch}
+                      addressMap={addressMap}
+                    />
+                  }
+                />
+              ))}
+              {direction === 'to'
+                ? walletRecipients.map((address) => (
+                    <InfoItem
+                      key={`wallet-recipient-${address}`}
+                      label={intl.formatMessage({
+                        id: ETranslations.global_to,
+                      })}
+                      renderContent={address}
+                      showCopy
+                      description={
+                        <XStack gap="$1.5" alignItems="center">
+                          <Icon
+                            name="ShieldOutline"
+                            size="$4"
+                            color="$iconSubdued"
+                          />
+                          <SizableText
+                            color="$textSubdued"
+                            size="$bodySm"
+                            flexShrink={1}
+                          >
+                            {intl.formatMessage({
+                              id: ETranslations.privacy_history_local_recipient__desc,
+                            })}
+                          </SizableText>
+                        </XStack>
+                      }
+                    />
+                  ))
+                : null}
+            </Fragment>
           ))}
-          {(['from', 'to'] as const).flatMap((direction) =>
-            localWalletHistoryFlow[direction].map((address) => (
-              <InfoItem
-                key={`${direction}-${address}`}
-                label={intl.formatMessage({
-                  id:
-                    direction === 'from'
-                      ? ETranslations.global_from
-                      : ETranslations.global_to,
-                })}
-                renderContent={address}
-                showCopy
-                description={
-                  <AddressInfo
-                    address={address}
-                    networkId={networkId}
-                    accountId={accountId}
-                    allowClickAccountNameSwitch={allowClickAccountNameSwitch}
-                    addressMap={addressMap}
-                  />
-                }
-              />
-            )),
-          )}
         </>
       );
     }
@@ -1454,6 +1512,7 @@ function HistoryDetails() {
     allowClickAccountNameSwitch,
     addressMap,
     localWalletHistoryFlow,
+    localWalletPoolFlow,
     walletRecipients,
     isSentFromThisWallet,
   ]);
