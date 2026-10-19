@@ -35,6 +35,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
+import { requireMarketAssetVariant } from '@onekeyhq/shared/src/utils/marketAssetVariant';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
@@ -145,7 +146,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           const { default: backgroundApiProxy } =
             await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
           if (navigationGenerationRef.current !== navigationGeneration) return;
-          const { selectedVariant } =
+          const detail =
             await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
               assetId: item.assetId,
               currency: 'usd',
@@ -154,6 +155,12 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           if (navigationGenerationRef.current !== navigationGeneration) {
             return;
           }
+          const selectedVariant = requireMarketAssetVariant({
+            detail,
+            networkId: item.networkId,
+            tokenAddress: item.tokenAddress,
+            isNative: item.isNative,
+          });
           item = {
             ...item,
             marketTokenId: item.assetId,

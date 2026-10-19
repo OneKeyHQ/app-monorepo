@@ -295,7 +295,10 @@ export function InformationPanel({
         </XStack>
       </YStack>
 
-      {isMobileLayout && mobileDetailKind === 'trending' && securityData ? (
+      {isMobileLayout &&
+      (mobileDetailKind === 'trending' ||
+        (!platformEnv.isNative && mobileDetailKind === 'topCoin')) &&
+      securityData ? (
         <XStack
           testID="market-detail-security-row"
           ai="center"

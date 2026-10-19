@@ -8,6 +8,7 @@ import {
   ETabMarketRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { requireMarketAssetVariant } from '@onekeyhq/shared/src/utils/marketAssetVariant';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
@@ -51,13 +52,19 @@ export async function navigateToMarketTokenDetail(
   let marketVariantId: string | undefined;
   if (token.assetId) {
     try {
-      const { selectedVariant } =
+      const detail =
         await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
           assetId: token.assetId,
           currency: 'usd',
           autoHandleError: false,
         });
       if (!isCurrentRequest()) return;
+      const selectedVariant = requireMarketAssetVariant({
+        detail,
+        networkId: token.networkId,
+        tokenAddress: token.address,
+        isNative: token.isNative,
+      });
       token = {
         ...token,
         address: selectedVariant.tokenAddress,

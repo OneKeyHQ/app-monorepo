@@ -185,6 +185,23 @@ it('uses the redesigned price and audit layout on narrow web', () => {
   expect(screen.queryByText(ETranslations.global_market_cap)).toBeNull();
 });
 
+it('retains the audit entry for top-coin contracts on narrow web', () => {
+  jest.replaceProperty(platformEnv, 'isNative', false);
+  mockSecurityData = {
+    check: { value: true, content: 'Test', riskType: 'caution' },
+  };
+  render(<InformationPanel mobileDetailKind="topCoin" />);
+  expect(screen.getByTestId('market-detail-security-row')).toBeTruthy();
+  expect(screen.getByText('risk result')).toBeTruthy();
+  expect(screen.queryByText(ETranslations.global_market_cap)).toBeNull();
+});
+
+it('does not add an audit entry to narrow web when no security report exists', () => {
+  jest.replaceProperty(platformEnv, 'isNative', false);
+  render(<InformationPanel mobileDetailKind="topCoin" />);
+  expect(screen.queryByTestId('market-detail-security-row')).toBeNull();
+});
+
 it('uses the stock price header on narrow web while token detail is pending', () => {
   jest.replaceProperty(platformEnv, 'isNative', false);
   mockStockRoute = true;

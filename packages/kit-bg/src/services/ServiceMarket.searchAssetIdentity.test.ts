@@ -146,6 +146,13 @@ it('retains verified identities and stock results without metadata lookups', asy
   expect(list).not.toHaveBeenCalled();
 });
 
+it('does not infer an asset default for a native result without a network', async () => {
+  const { service, list } = createService();
+  const token = { ...native, network: '' };
+  expect(await service.resolveSearchTokenAssets([token])).toEqual([token]);
+  expect(list).not.toHaveBeenCalled();
+});
+
 it('keeps search usable and retries identity lookup after an error', async () => {
   const { service, list } = createService();
   list.mockRejectedValueOnce(new Error('offline'));
@@ -155,3 +162,94 @@ it('keeps search usable and retries identity lookup after an error', async () =>
     { ...native, assetId: 'bitcoin' },
   ]);
 });
+
+it('continues to the matching candidate after an earlier detail fails', async () => {
+  const { service, list, detail } = createService();
+  list.mockResolvedValue({
+    list: [{ ...bitcoin, assetId: 'unavailable-btc' }, bitcoin],
+    total: 2,
+  });
+  detail.mockRejectedValueOnce(new Error('candidate unavailable'));
+  expect(await service.resolveSearchTokenAssets([native])).toEqual([
+    { ...native, assetId: 'bitcoin' },
+  ]);
+  expect(detail.mock.calls.map(([params]) => params.assetId)).toEqual([
+    'unavailable-btc',
+    'bitcoin',
+  ]);
+});
+
+it('retries failed candidates instead of caching a missing identity', async () => {
+  const { service, detail } = createService();
+  detail.mockRejectedValueOnce(new Error('offline'));
+  expect(await service.resolveSearchTokenAssets([native])).toEqual([native]);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(await service.resolveSearchTokenAssets([native])).toEqual([
+    { ...native, assetId: 'bitcoin' },
+  ]);
+  expect(detail).toHaveBeenCalledTimes(2);
+});
+
+it('shares in-flight asset metadata across networks and caches it for later lookups', async () => {
+  const { service, list, detail } = createService();
+  const secondNative = { ...native, network: 'btc--second' };
+  let completeDetail: ((value: IMarketAssetDetailData) => void) | undefined;
+  detail.mockReturnValueOnce(
+    new Promise((resolve) => {
+      completeDetail = resolve;
+    }),
+  );
+  const result = service.resolveSearchTokenAssets([native, secondNative]);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(detail).toHaveBeenCalledTimes(1);
+  completeDetail?.({
+    ...bitcoinDetail,
+    variants: [
+      ...bitcoinDetail.variants,
+      {
+        ...bitcoinDetail.selectedVariant,
+        networkId: secondNative.network,
+        variantId: 'bitcoin-second-native',
+      },
+    ],
+  });
+  expect(await result).toEqual([
+    { ...native, assetId: 'bitcoin' },
+    { ...secondNative, assetId: 'bitcoin' },
+  ]);
+  await service.resolveSearchTokenAssets([
+    { ...native, network: 'btc--unrelated' },
+  ]);
+  expect(list).toHaveBeenCalledTimes(1);
+  expect(detail).toHaveBeenCalledTimes(1);
+});
+
+it.each(['resolve', 'reject'] as const)(
+  'bounds metadata waiting and handles a late %s without losing later retries',
+  async (settlement) => {
+    jest.useFakeTimers();
+    try {
+      const { service, detail } = createService();
+      let completeDetail: ((value: IMarketAssetDetailData) => void) | undefined;
+      let failDetail: ((error: Error) => void) | undefined;
+      detail.mockReturnValueOnce(
+        new Promise((resolve, reject) => {
+          completeDetail = resolve;
+          failDetail = reject;
+        }),
+      );
+      const search = service.resolveSearchTokenAssets([native]);
+      await jest.advanceTimersByTimeAsync(2000);
+      expect(await search).toEqual([native]);
+      if (settlement === 'resolve') completeDetail?.(bitcoinDetail);
+      else failDetail?.(new Error('late metadata failure'));
+      await jest.advanceTimersByTimeAsync(1);
+      expect(await service.resolveSearchTokenAssets([native])).toEqual([
+        { ...native, assetId: 'bitcoin' },
+      ]);
+      expect(detail).toHaveBeenCalledTimes(settlement === 'resolve' ? 1 : 2);
+    } finally {
+      jest.useRealTimers();
+    }
+  },
+);

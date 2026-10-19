@@ -317,6 +317,72 @@ describe('useToDetailPage', () => {
     return { promise, resolve, reject };
   }
 
+  it.each([true, false])(
+    'preserves the searched native variant in extension=%s navigation',
+    async (extension) => {
+      platformEnv.isExtensionUiPopup = extension;
+      const mainnet = {
+        ...assetDetail.selectedVariant,
+        variantId: 'ethereum-mainnet',
+        networkId: 'evm--1',
+      };
+      const base = {
+        ...mainnet,
+        variantId: 'ethereum-base',
+        networkId: 'evm--8453',
+      };
+      jest
+        .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
+        .mockResolvedValueOnce({
+          ...assetDetail,
+          selectedVariant: mainnet,
+          variants: [mainnet, base],
+        });
+      const { result } = renderHook(() => useToDetailPage());
+      await act(async () => {
+        await result.current({
+          assetId: 'ethereum',
+          networkId: base.networkId,
+          tokenAddress: '',
+          symbol: 'ETH',
+          isNative: true,
+        });
+      });
+      const expected = expect.objectContaining({
+        marketTokenId: 'ethereum',
+        marketVariantId: base.variantId,
+      });
+      if (extension)
+        expect(openExtensionMarketTokenDetailMock).toHaveBeenCalledWith(
+          expected,
+        );
+      else
+        expect(mockNavigationPush).toHaveBeenCalledWith(
+          'MarketDetailV2',
+          expected,
+        );
+    },
+  );
+
+  it('does not substitute the default network when the searched variant is unavailable', async () => {
+    jest
+      .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
+      .mockResolvedValueOnce(assetDetail);
+    const { result } = renderHook(() => useToDetailPage());
+    await act(async () => {
+      await result.current({
+        assetId: 'bitcoin',
+        networkId: 'btc--unavailable',
+        tokenAddress: '',
+        symbol: 'BTC',
+        isNative: true,
+      });
+    });
+    expect(openExtensionMarketTokenDetailMock).not.toHaveBeenCalled();
+    expect(mockNavigationPush).not.toHaveBeenCalled();
+    expect(Toast.error).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     ['asset', { ...assetItem, assetId: 'ethereum', symbol: 'ETH' }],
     ['stock', stockItem],

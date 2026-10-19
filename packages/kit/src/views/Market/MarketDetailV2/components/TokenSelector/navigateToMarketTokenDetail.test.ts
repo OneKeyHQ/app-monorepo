@@ -17,7 +17,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   },
 }));
 jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
-  appLocale: { intl: { formatMessage: ({ id }: { id: string }) => id } },
+  appLocale: {
+    intl: { formatMessage: ({ id }: { id: string }) => id },
+    onLocaleChange: jest.fn(),
+  },
 }));
 const navigateMock = jest.fn();
 const dispatchMock = jest.fn();
@@ -118,6 +121,69 @@ describe('navigateToMarketTokenDetail', () => {
     platformEnv.isNative = false;
     platformEnv.isNativeAndroid = false;
     platformEnv.isWeb = false;
+  });
+
+  it('preserves the native network selected in asset search', async () => {
+    const mainnet = {
+      variantId: 'ethereum-mainnet',
+      networkId: 'evm--1',
+      tokenAddress: '',
+      isNative: true,
+    };
+    const base = {
+      ...mainnet,
+      variantId: 'ethereum-base',
+      networkId: 'evm--8453',
+    };
+    mockFetchAssetDetail.mockResolvedValueOnce({
+      selectedVariant: mainnet,
+      variants: [mainnet, base],
+    });
+    await navigateToMarketTokenDetail(
+      {
+        assetId: 'ethereum',
+        address: '',
+        networkId: base.networkId,
+        isNative: true,
+      },
+      { tokenDetailActions },
+    );
+    jest.runAllTimers();
+    expect(changeActiveTokenMock).toHaveBeenCalledWith(
+      expect.objectContaining({ networkId: base.networkId }),
+    );
+    expect(navigateMock).toHaveBeenCalledWith(
+      'main',
+      expect.objectContaining({
+        params: expect.objectContaining({
+          params: expect.objectContaining({
+            marketTokenId: 'ethereum',
+            marketVariantId: base.variantId,
+          }),
+        }),
+      }),
+    );
+  });
+
+  it('rejects a missing search variant without navigating or changing the active token', async () => {
+    const onError = jest.fn();
+    mockFetchAssetDetail.mockResolvedValueOnce({
+      selectedVariant: { networkId: 'evm--1', isNative: true },
+      variants: [],
+    });
+    await navigateToMarketTokenDetail(
+      {
+        assetId: 'ethereum',
+        address: '',
+        networkId: 'evm--8453',
+        isNative: true,
+      },
+      { tokenDetailActions, onError },
+    );
+    jest.runAllTimers();
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(changeActiveTokenMock).not.toHaveBeenCalled();
+    expect(navigateMock).not.toHaveBeenCalled();
   });
 
   it.each([false, true])(
