@@ -10,6 +10,7 @@ import type { ISendSelectedFeeInfo } from '@onekeyhq/shared/types/fee';
 import type { IDecodedTx, ISendTxBaseParams } from '@onekeyhq/shared/types/tx';
 
 import { vaultFactory } from '../vaults/factory';
+import { isLocalWalletNetwork } from '../vaults/localWallet/isLocalWalletNetwork';
 
 import ServiceSend from './ServiceSend';
 
@@ -45,6 +46,10 @@ jest.mock('./ServiceBase', () => ({
 
 jest.mock('../vaults/factory', () => ({
   vaultFactory: { getVault: jest.fn() },
+}));
+
+jest.mock('../vaults/localWallet/isLocalWalletNetwork', () => ({
+  isLocalWalletNetwork: jest.fn(async () => false),
 }));
 
 jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
@@ -128,6 +133,7 @@ function sentUuids(spy: jest.SpyInstance) {
 describe('ServiceSend.batchSignAndSendTransaction sentTxsTrackingId', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(isLocalWalletNetwork).mockResolvedValue(false);
   });
 
   test('retry skips txs broadcast by an earlier attempt', async () => {
@@ -260,6 +266,43 @@ describe('ServiceSend.batchSignAndSendTransaction sentTxsTrackingId', () => {
     await expect(sendFromUi(service, params)).resolves.toEqual(result);
     expect(signAndSend).toHaveBeenCalledTimes(1);
     expect(saveSendConfirmHistoryTxs).toHaveBeenCalledTimes(2);
+  });
+
+  test('a privacy send retry reuses the verified snapshot without signing again', async () => {
+    jest.mocked(isLocalWalletNetwork).mockResolvedValue(true);
+    const { service, backgroundApi, signAndSend, buildDecodedTx } =
+      makeService();
+    const snapshot = {
+      actions: [],
+      nativeAmount: '1',
+    } as unknown as IDecodedTx;
+    buildDecodedTx
+      .mockResolvedValueOnce(snapshot)
+      .mockRejectedValue(new Error('approval consumed'));
+    signAndSend.mockImplementationOnce(async ({ unsignedTx }) => {
+      snapshot.nativeAmount = '2';
+      return makeSignedTx(unsignedTx);
+    });
+    backgroundApi.serviceSignature.addItemFromSendProcess.mockRejectedValueOnce(
+      new Error('post-broadcast storage failed'),
+    );
+    const params: IBatchParams = {
+      accountId,
+      networkId,
+      unsignedTxs: [makeUnsignedTx('tx-1')],
+      signOnly: false,
+      sentTxsTrackingId: 'privacy-screen',
+      transferPayload: undefined,
+    };
+
+    await expect(sendFromUi(service, params)).rejects.toThrow(
+      'post-broadcast storage failed',
+    );
+    const result = await sendFromUi(service, params);
+
+    expect(signAndSend).toHaveBeenCalledTimes(1);
+    expect(buildDecodedTx).toHaveBeenCalledTimes(1);
+    expect(result[0].decodedTx.nativeAmount).toBe('1');
   });
 
   test('bulk send rebuild starts above the nonce of a broadcast-but-unrecorded tx', async () => {

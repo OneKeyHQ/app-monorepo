@@ -240,6 +240,7 @@ function privacySendFixture(networkId: string) {
       symbol: networkId === 'xmr--0' ? 'XMR' : 'ZEC',
     }),
     buildUnsignedTx: jest.fn(async () => unsignedTx),
+    refreshUnsignedTxBeforeSign: jest.fn(async (tx: IUnsignedTxPro) => tx),
     buildDecodedTx: jest.fn(async () => {
       if (!approvalAvailable) {
         throw new OneKeyLocalError('Transaction review expired');
@@ -383,14 +384,14 @@ describe('privacy send approval lifecycle', () => {
         networkId,
       });
       await service.buildDecodedTx({ accountId, networkId, unsignedTx });
-      const successfullySentTxs: string[] = [];
+      const sentTxsTrackingId = 'privacy-review';
       const result = await service.batchSignAndSendTransaction({
         accountId,
         networkId,
         unsignedTxs: [unsignedTx],
         signOnly,
         transferPayload: undefined,
-        successfullySentTxs,
+        sentTxsTrackingId,
       });
       expect(result).toHaveLength(1);
       expect(result[0].signedTx.txid).toBe(signedTx.txid);
@@ -406,7 +407,9 @@ describe('privacy send approval lifecycle', () => {
       expect(
         backgroundApi.serviceHistory.saveSendConfirmHistoryTxs,
       ).toHaveBeenCalledTimes(signOnly ? 0 : 1);
-      expect(successfullySentTxs).toEqual(signOnly ? [] : [unsignedTx.uuid]);
+      expect(
+        await service.getBatchBroadcastedTxUuids({ sentTxsTrackingId }),
+      ).toEqual(signOnly ? [] : [{ uuid: unsignedTx.uuid, recorded: true }]);
     },
   );
 
@@ -447,17 +450,19 @@ describe('privacy send approval lifecycle', () => {
         accountId,
         networkId,
       });
-      const successfullySentTxs: string[] = [];
+      const sentTxsTrackingId = 'privacy-history-failure';
       const result = await service.batchSignAndSendTransaction({
         accountId,
         networkId,
         unsignedTxs: [unsignedTx],
         signOnly: false,
         transferPayload: undefined,
-        successfullySentTxs,
+        sentTxsTrackingId,
       });
       expect(result[0].signedTx.txid).toBe(signedTx.txid);
-      expect(successfullySentTxs).toEqual([unsignedTx.uuid]);
+      expect(
+        await service.getBatchBroadcastedTxUuids({ sentTxsTrackingId }),
+      ).toEqual([{ uuid: unsignedTx.uuid, recorded: true }]);
       expect(vault.signTransaction).toHaveBeenCalledTimes(1);
       expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
     },
