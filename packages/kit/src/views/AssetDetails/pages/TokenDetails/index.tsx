@@ -974,6 +974,8 @@ function TokenDetailsView() {
     intl,
   ]);
 
+  const tokenSymbol =
+    tokenInfo.commonSymbol ?? tokenInfo.symbol ?? tokenInfo.name ?? '';
   const headerTitle = useCallback(() => {
     return (
       <XStack alignItems="center" gap="$2">
@@ -986,7 +988,7 @@ function TokenDetailsView() {
           networkId={networkId}
         />
         <SizableText size="$headingLg" numberOfLines={1}>
-          {tokenInfo.commonSymbol ?? tokenInfo.symbol ?? tokenInfo.name ?? ''}
+          {tokenSymbol}
         </SizableText>
         {!isLoadingTokens &&
         !isLoading &&
@@ -1001,9 +1003,7 @@ function TokenDetailsView() {
     );
   }, [
     tokenInfo.logoURI,
-    tokenInfo.commonSymbol,
-    tokenInfo.symbol,
-    tokenInfo.name,
+    tokenSymbol,
     tokenInfo.isAggregateToken,
     effectiveTokenInfo.networkName,
     isAggregateTokenUnavailable,
@@ -1050,6 +1050,7 @@ function TokenDetailsView() {
         symbol={activeFooterToken?.symbol}
         tokenAddress={activeFooterToken?.address}
         tokenImageUri={activeFooterToken?.logoURI}
+        tokenSymbol={tokenSymbol}
       />
     </Page>
   );
