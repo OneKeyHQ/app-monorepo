@@ -9,10 +9,23 @@ import { EOnChainHistoryTransferType } from '@onekeyhq/shared/types/history';
 
 import Vault from './Vault';
 
-it.each([false, true])(
-  'keeps known output facts without inventing an unknown recipient, withUTXOs=%s',
-  async (withUTXOs) => {
+it.each([
+  [false, false],
+  [true, false],
+  [false, true],
+  [true, true],
+])(
+  'keeps known payment facts, withUTXOs=%s, selfPayment=%s',
+  async (withUTXOs, selfPayment) => {
     const memoBinary = { hex: 'ff'.repeat(512), hash: '11'.repeat(32) };
+    const payment = {
+      pool: 'ironwood',
+      value: '12345',
+      address: selfPayment ? 'u1synthetic-recipient' : null,
+      internal: false,
+      memo: 'payment memo',
+      memoBinary,
+    };
     const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
       accountId: 'synthetic-account',
       networkId: 'zec--0',
@@ -37,6 +50,7 @@ it.each([false, true])(
         getTxDetails: async () => ({
           spent: [{ pool: 'ironwood', value: '222345', address: null }],
           received: [
+            ...(selfPayment ? [payment] : []),
             {
               pool: 'ironwood',
               value: '200000',
@@ -45,15 +59,7 @@ it.each([false, true])(
               memo: 'change memo',
             },
           ],
-          external: [
-            {
-              pool: 'ironwood',
-              value: '12345',
-              address: null,
-              memo: 'payment memo',
-              memoBinary,
-            },
-          ],
+          external: selfPayment ? [] : [payment],
         }),
       }),
     });
@@ -68,10 +74,10 @@ it.each([false, true])(
     expect(detail.receives?.[0]).toMatchObject({
       type: EOnChainHistoryTransferType.Shielded,
       amount: '0.00012345',
-      address: '',
-      to: '',
+      address: selfPayment ? payment.address : '',
+      to: selfPayment ? payment.address : '',
       label: 'Ironwood pool',
-      isOwn: false,
+      isOwn: selfPayment,
     });
     expect(detail.receives).toHaveLength(withUTXOs ? 2 : 1);
     if (withUTXOs)
