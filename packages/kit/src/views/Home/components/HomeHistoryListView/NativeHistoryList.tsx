@@ -10,6 +10,7 @@ import {
   ActionList,
   Stack,
   useScrollContentTabBarOffset,
+  useTheme,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { EmptySearch } from '@onekeyhq/kit/src/components/Empty';
@@ -19,6 +20,7 @@ import { ListFooterComponent } from '@onekeyhq/kit/src/components/TxHistoryListV
 import TxHistoryAddressInfo from '@onekeyhq/kit/src/components/TxHistoryListView/TxHistoryAddressInfo';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReplaceTx } from '@onekeyhq/kit/src/hooks/useReplaceTx';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useAddressesInfoAtom,
@@ -202,7 +204,12 @@ function PendingActionsController({
   return null;
 }
 
-export function NativeHistoryList(props: IHomeHistoryListViewProps) {
+export function NativeHistoryList(
+  props: IHomeHistoryListViewProps & {
+    webScrollHost?: HTMLElement | null;
+    webContentPadding?: { top: number; bottom: number };
+  },
+) {
   const {
     data,
     tableLayout = false,
@@ -215,9 +222,28 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
     hasMore,
     onPressHistory,
     hideValue,
+    webScrollHost,
+    webContentPadding,
   } = props;
   const intl = useIntl();
-  const theme = useHomeNativeListTheme();
+  const nativeListTheme = useHomeNativeListTheme();
+  const componentTheme = useTheme();
+  const isDark = useThemeVariant() === 'dark';
+  const theme = useMemo(
+    () =>
+      webScrollHost === undefined
+        ? nativeListTheme
+        : {
+            ...nativeListTheme,
+            cautionBackground: componentTheme.bgCaution.val,
+            accent: componentTheme.focusRing.val,
+            rowPressedBackground: componentTheme.bgHover.val,
+            imageFallbackBackground: tableLayout
+              ? undefined
+              : componentTheme.gray5.val,
+          },
+    [nativeListTheme, componentTheme, webScrollHost, tableLayout],
+  );
   const bottom = useScrollContentTabBarOffset();
   const { refreshing, onRefresh: triggerRefresh } = useHomeNativeRefresh();
   const [networkMetadataRetry, setNetworkMetadataRetry] = useState(0);
@@ -515,8 +541,12 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
         const header: RowModel = {
           key: sectionKey,
           type: 'sectionHeader',
+          variant: webScrollHost === undefined ? undefined : 'history',
           sectionKey,
-          height: (sectionIndex === 0 ? 32 : 52) + (pending ? 4 : 0),
+          height:
+            (sectionIndex === 0 ? 32 : 52) +
+            (pending && webScrollHost === undefined ? 4 : 0),
+          ...(webScrollHost !== undefined ? { pressDisabled: true } : {}),
           titleLoading: pending,
           title: pending
             ? intl.formatMessage({ id: ETranslations.global_confirming })
@@ -558,8 +588,128 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
                   history.decodedTx.accountId,
                 ])
               ];
+            let leading = model.row.leading;
+            let secondaryLeading = model.row.secondaryLeading;
+            const amounts =
+              webScrollHost !== undefined && tableLayout
+                ? model.row.amounts?.map((amount) =>
+                    amount.leading?.kind === 'token' && amount.leading.image
+                      ? {
+                          ...amount,
+                          leading: {
+                            ...amount.leading,
+                            backgroundColor: isDark
+                              ? componentTheme.neutral6Dark.val
+                              : componentTheme.bgApp.val,
+                            borderColor: isDark
+                              ? componentTheme.neutral2Dark.val
+                              : undefined,
+                          },
+                        }
+                      : amount,
+                  )
+                : model.row.amounts;
+            if (
+              webScrollHost !== undefined &&
+              tableLayout &&
+              leading?.kind === 'token'
+            ) {
+              leading = {
+                ...leading,
+                backgroundColor: componentTheme.gray2.val,
+                borderColor: componentTheme.gray3.val,
+                fallbackIcon: leading.fallbackIcon
+                  ? {
+                      ...leading.fallbackIcon,
+                      tintColor: componentTheme.icon.val,
+                    }
+                  : undefined,
+              };
+            } else if (
+              webScrollHost !== undefined &&
+              !tableLayout &&
+              leading?.kind === 'token' &&
+              leading.image &&
+              !model.row.secondaryLeading
+            ) {
+              leading = {
+                ...leading,
+                backgroundColor: isDark
+                  ? componentTheme.neutral6Dark.val
+                  : componentTheme.bgApp.val,
+                borderColor: isDark
+                  ? componentTheme.neutral2Dark.val
+                  : undefined,
+              };
+            } else if (
+              webScrollHost !== undefined &&
+              !tableLayout &&
+              leading?.kind === 'icon'
+            ) {
+              leading = {
+                ...leading,
+                backgroundColor: componentTheme.gray5.val,
+                tintColor: componentTheme.iconSubdued.val,
+              };
+            } else if (
+              webScrollHost !== undefined &&
+              !tableLayout &&
+              leading?.kind === 'token' &&
+              !leading.image &&
+              leading.fallbackIcon
+            ) {
+              leading = {
+                ...leading,
+                backgroundColor: isDark
+                  ? componentTheme.neutral6Dark.val
+                  : componentTheme.bgApp.val,
+                borderColor: isDark
+                  ? componentTheme.neutral2Dark.val
+                  : undefined,
+                fallbackIcon: {
+                  ...leading.fallbackIcon,
+                  tintColor: componentTheme.iconSubdued.val,
+                },
+              };
+            }
+            if (
+              webScrollHost !== undefined &&
+              !tableLayout &&
+              secondaryLeading
+            ) {
+              [leading, secondaryLeading] = [leading, secondaryLeading].map(
+                (source) =>
+                  source?.kind === 'token'
+                    ? {
+                        ...source,
+                        backgroundColor: isDark
+                          ? componentTheme.neutral6Dark.val
+                          : componentTheme.bgApp.val,
+                        borderColor: isDark
+                          ? componentTheme.neutral2Dark.val
+                          : undefined,
+                        fallbackIcon: source.fallbackIcon
+                          ? {
+                              ...source.fallbackIcon,
+                              tintColor: componentTheme.iconSubdued.val,
+                            }
+                          : undefined,
+                      }
+                    : source,
+              );
+            }
             return {
               ...model.row,
+              height:
+                webScrollHost !== undefined &&
+                pending &&
+                !tableLayout &&
+                !pendingActions.get(history.id)?.length
+                  ? 60
+                  : model.row.height,
+              leading,
+              secondaryLeading,
+              amounts,
               sectionKey,
               description,
               descriptionActionKey: badge ? 'address-info' : undefined,
@@ -621,19 +771,38 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
       networkData,
       pendingActions,
       tableLayout,
+      webScrollHost,
+      componentTheme,
+      isDark,
       effectiveHideValue,
       settings.currencyInfo.symbol,
     ],
   );
+  const rowStructure = useMemo(
+    () => JSON.stringify(rows.map((row) => row.key)),
+    [rows],
+  );
+  const [webGeneration, setWebGeneration] = useState({
+    structure: rowStructure,
+    generation: 1,
+  });
+  if (webScrollHost !== undefined && webGeneration.structure !== rowStructure) {
+    // Commit structure and generation together, including interrupted renders.
+    setWebGeneration({
+      structure: rowStructure,
+      generation: webGeneration.generation + 1,
+    });
+  }
+  const generation = webScrollHost === undefined ? 1 : webGeneration.generation;
   const snapshot = useMemo<NativeListSnapshot>(
     () => ({
       schemaVersion: 1,
-      generation: 1,
+      generation,
       layout: {
         kind: 'sectioned',
         stickyHeaders: false,
-        contentPaddingTop: 12,
-        contentPaddingBottom: bottom ?? 0,
+        contentPaddingTop: webContentPadding?.top ?? 12,
+        contentPaddingBottom: webContentPadding?.bottom ?? bottom ?? 0,
       },
       rows,
       theme,
@@ -641,25 +810,37 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
         pullToRefresh: true,
         refreshing,
         refreshTriggerDistance: 65,
-        loadMore: !!onEndReached && !!hasMore && !isLoadingMore,
+        loadMore:
+          webScrollHost === undefined &&
+          !!onEndReached &&
+          !!hasMore &&
+          !isLoadingMore,
         endReachedThreshold: props.onEndReachedThreshold ?? 0.2,
       },
     }),
     [
       rows,
+      generation,
       theme,
       bottom,
+      webContentPadding,
       refreshing,
       onEndReached,
       hasMore,
       isLoadingMore,
       props.onEndReachedThreshold,
+      webScrollHost,
     ],
   );
   const preparedSnapshot = useMemo(
     () => prepareHomeNativeListSnapshot(snapshot),
     [snapshot],
   );
+  const [webSnapshot, setWebSnapshot] = useState(preparedSnapshot);
+  if (webScrollHost !== undefined && !isEqual(webSnapshot, preparedSnapshot)) {
+    // Equal Web refreshes must not invalidate an open row action anchor.
+    setWebSnapshot(preparedSnapshot);
+  }
   const containerRef = useRef<View>(null);
   const listRef = useRef<NativeListRef>(null);
   const [addressInfo, setAddressInfo] = useState<{
@@ -742,7 +923,19 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
     props.tokenMap,
   ]);
   return (
-    <View ref={containerRef} style={{ flex: 1 }}>
+    <View
+      ref={containerRef}
+      style={
+        webScrollHost === undefined
+          ? { flex: 1 }
+          : {
+              flexGrow: 0,
+              flexShrink: 0,
+              // Match the legacy empty list's extent without moving its content.
+              marginBottom: rows.length ? 0 : -(webContentPadding?.top ?? 12),
+            }
+      }
+    >
       {filtered
         .filter(
           (history) =>
@@ -759,8 +952,13 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
         ref={listRef}
         onActionAnchorInvalidated={closeAddressInfo}
         testID="home-history-list"
-        style={{ flex: 1 }}
-        snapshot={preparedSnapshot}
+        style={
+          webScrollHost === undefined
+            ? { flex: 1 }
+            : { flexGrow: 0, flexShrink: 0 }
+        }
+        snapshot={webScrollHost === undefined ? preparedSnapshot : webSnapshot}
+        webScrollHost={webScrollHost}
         listHeader={ListHeaderComponent}
         listEmpty={empty}
         listFooter={
@@ -777,15 +975,21 @@ export function NativeHistoryList(props: IHomeHistoryListViewProps) {
           />
         }
         onRefresh={onRefresh}
-        onEndReached={onEndReached}
+        onEndReached={webScrollHost === undefined ? onEndReached : undefined}
         onRowAction={handleRowAction}
-        scrollPositionThresholds={{
-          start: FREEZE_RELEASE_OFFSET,
-          end: FREEZE_ENGAGE_OFFSET,
-          enabled: frozenTopEnabled,
-        }}
-        onScrollPositionThresholdChange={({ isBeyondThreshold }) =>
-          onAwayFromTopChange(isBeyondThreshold)
+        scrollPositionThresholds={
+          webScrollHost === undefined
+            ? {
+                start: FREEZE_RELEASE_OFFSET,
+                end: FREEZE_ENGAGE_OFFSET,
+                enabled: frozenTopEnabled,
+              }
+            : undefined
+        }
+        onScrollPositionThresholdChange={
+          webScrollHost === undefined
+            ? ({ isBeyondThreshold }) => onAwayFromTopChange(isBeyondThreshold)
+            : undefined
         }
       />
       {addressInfo ? (

@@ -40,6 +40,7 @@ export type IMarketNativeListPresentation = Readonly<{
   tokenBackground: string;
   tokenBorderColor?: string;
   androidPixelRatio?: number;
+  webImageSources?: boolean;
 }>;
 
 const TOKEN_ROW_STYLE: MarketRowStyle = {
@@ -163,15 +164,21 @@ function formatVolume(
 function marketImage(
   uri: string | undefined,
   size: number,
+  webImageSources = false,
+  fallbackUris?: readonly string[],
 ): ImageSource | undefined {
-  if (!uri || uri.toLowerCase().includes('svg')) return undefined;
+  if (!uri || (!webImageSources && uri.toLowerCase().includes('svg')))
+    return undefined;
   return {
     uri,
     width: size,
     height: size,
     contentFit: 'cover' as const,
     cachePolicy: 'memory-disk' as const,
-    retryTimes: 2,
+    ...(webImageSources
+      ? { loadingStrategy: 'static' as const, fallbackUris: fallbackUris ?? [] }
+      : {}),
+    retryTimes: webImageSources ? 1 : 2,
   };
 }
 
@@ -189,7 +196,11 @@ function tokenBadges(
   if (item.stock?.sourceLogoUri) {
     badges.push({
       key: `${marketTokenKey(item)}:stock-source`,
-      icon: marketImage(item.stock.sourceLogoUri, 14),
+      icon: marketImage(
+        item.stock.sourceLogoUri,
+        14,
+        presentation.webImageSources,
+      ),
       style: { height: 14 },
       tone: 'neutral',
       actionKey: 'token-tags',
@@ -323,6 +334,14 @@ export function buildTokenMarketRow({
     : undefined;
   const subtitlePrefix =
     item.stock?.subtitle ?? item.perpsSubtitle ?? getStockListingName(item);
+  let imageUri: string | undefined;
+  if (presentation.webImageSources) {
+    imageUri = item.tokenImageUris?.length
+      ? item.tokenImageUris[0]
+      : item.tokenImageUri;
+  } else {
+    imageUri = firstNativeImageUri(item);
+  }
   return {
     key,
     type: 'market',
@@ -332,9 +351,21 @@ export function buildTokenMarketRow({
     accessibilityLabel: `${item.symbol}, ${price.text}, ${change.text}`,
     leading: {
       kind: 'token',
-      image: marketImage(firstNativeImageUri(item), 32),
-      networkImage: isPerp ? undefined : marketImage(item.networkLogoUri, 16),
-      fallbackIcon: { name: 'CryptoCoinOutline' },
+      image: marketImage(
+        imageUri,
+        32,
+        presentation.webImageSources,
+        item.tokenImageUris?.slice(1),
+      ),
+      networkImage: isPerp
+        ? undefined
+        : marketImage(item.networkLogoUri, 16, presentation.webImageSources),
+      fallbackIcon: {
+        name: 'CryptoCoinOutline',
+        ...(presentation.webImageSources
+          ? { tintColor: presentation.theme.iconSubdued }
+          : {}),
+      },
       shape: 'circle',
       backgroundColor: presentation.tokenBackground,
       borderColor: presentation.tokenBorderColor,
@@ -400,8 +431,13 @@ export function buildStockMarketRow({
       : undefined,
     leading: {
       kind: 'token',
-      image: marketImage(item.logoUrl, 32),
-      fallbackIcon: { name: 'CryptoCoinOutline' },
+      image: marketImage(item.logoUrl, 32, presentation.webImageSources),
+      fallbackIcon: {
+        name: 'CryptoCoinOutline',
+        ...(presentation.webImageSources
+          ? { tintColor: presentation.theme.iconSubdued }
+          : {}),
+      },
       shape: 'circle',
       backgroundColor: presentation.tokenBackground,
       borderColor: presentation.tokenBorderColor,
@@ -437,8 +473,13 @@ export function buildPerpsMarketRow({
     accessibilityLabel: `${item.displayName}, ${price.text}, ${change.text}`,
     leading: {
       kind: 'token',
-      image: marketImage(item.tokenImageUrl, 32),
-      fallbackIcon: { name: 'CryptoCoinOutline' },
+      image: marketImage(item.tokenImageUrl, 32, presentation.webImageSources),
+      fallbackIcon: {
+        name: 'CryptoCoinOutline',
+        ...(presentation.webImageSources
+          ? { tintColor: presentation.theme.iconSubdued }
+          : {}),
+      },
       shape: 'circle',
       backgroundColor: presentation.tokenBackground,
       borderColor: presentation.tokenBorderColor,
@@ -507,8 +548,13 @@ export function buildTopCoinMarketRow({
       : undefined,
     leading: {
       kind: 'token',
-      image: marketImage(item.logoUrl, 32),
-      fallbackIcon: { name: 'CryptoCoinOutline' },
+      image: marketImage(item.logoUrl, 32, presentation.webImageSources),
+      fallbackIcon: {
+        name: 'CryptoCoinOutline',
+        ...(presentation.webImageSources
+          ? { tintColor: presentation.theme.iconSubdued }
+          : {}),
+      },
       shape: 'circle',
       backgroundColor: presentation.tokenBackground,
       borderColor: presentation.tokenBorderColor,
@@ -685,6 +731,7 @@ export function buildMarketNativeSnapshot({
 }
 
 const MARKET_PATCH_FIELDS = new Set<keyof MarketRow>([
+  'webTable',
   'price',
   'priceSegments',
   'change',
@@ -752,6 +799,14 @@ export function buildMarketNativeRowPatches(
         }
       }
       if (Object.keys(changes).length) {
+        if (
+          row.webTable &&
+          (changes.price !== undefined ||
+            changes.priceSegments !== undefined ||
+            changes.change !== undefined)
+        ) {
+          changes.webTable = row.webTable;
+        }
         patches.push({
           type: 'market',
           key: row.key,

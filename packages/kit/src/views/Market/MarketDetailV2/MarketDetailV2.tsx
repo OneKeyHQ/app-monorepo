@@ -424,7 +424,8 @@ function MarketDetailV2(
   const [isTradingViewNative, setIsTradingViewNative] = useState(true);
   const isDesktopChartLayout = media.gtLg && !platformEnv.isNative;
   const supportsChartFullscreen = Boolean(
-    isDesktopChartLayout || (platformEnv.isNative && isTradingViewNative),
+    isDesktopChartLayout ||
+    ((platformEnv.isNative || platformEnv.isWeb) && isTradingViewNative),
   );
   const effectiveIsChartFullscreen =
     supportsChartFullscreen && isChartFullscreen;

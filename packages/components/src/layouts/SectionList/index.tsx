@@ -332,6 +332,7 @@ function SectionHeader({
   );
 }
 
+/** @deprecated Use NativeList from @onekeyfe/react-native-native-list for supported sectioned content. */
 export const SectionList = withStaticProperties(
   forwardRef(BaseSectionList) as <T>(
     props: ISectionListProps<T> & { ref?: ForwardedRef<ISectionListRef<T>> },
