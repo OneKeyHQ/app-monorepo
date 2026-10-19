@@ -111,6 +111,8 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/privacyChainPool', () => ({
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => mockFocused,
+  useRouteIsFocusedWhenEnabled: ({ enabled }: { enabled: boolean }) =>
+    enabled ? mockFocused : true,
 }));
 jest.mock('@onekeyhq/components', () => ({
   getCurrentVisibilityState: () => true,
