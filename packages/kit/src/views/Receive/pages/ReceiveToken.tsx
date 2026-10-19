@@ -11,6 +11,7 @@ import {
   Dialog,
   Empty,
   Icon,
+  IconButton,
   Image,
   Page,
   SizableText,
@@ -70,6 +71,10 @@ import {
 import { useAccountData } from '../../../hooks/useAccountData';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useCopyAddressWithDeriveType } from '../../../hooks/useCopyAccountAddress';
+import {
+  canDeriveTypesCollapse,
+  useDeriveTypesCollapseState,
+} from '../../../hooks/useDeriveTypesCollapseState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useWalletBanner } from '../../../hooks/useWalletBanner';
 import { ReceiveCard, ReceiveCardCell } from '../components/ReceiveCard';
@@ -117,6 +122,7 @@ function ReceiveToken() {
     btcUsedAddressPath,
     exchangeSource,
     switchEntry,
+    allowAddressTypeMenu,
     source: routeSource,
     isAllNetworksMode,
     aggregateToken: routeAggregateToken,
@@ -164,6 +170,9 @@ function ReceiveToken() {
   // previous network then, verification included, and a verification started
   // against it would settle after the switch.
   const isSwitchResolvingRef = useRef(false);
+  // The same window for rendering: the address type menu would save its pick
+  // as the default of the network the page is about to leave.
+  const [isSwitchResolving, setIsSwitchResolving] = useState(false);
   // The account of the row a switch to a multi-address-type network was
   // picked from. The page resolves the default address type there; when the
   // wallet has none of that type, this is the address the user chose.
@@ -293,6 +302,32 @@ function ReceiveToken() {
   });
 
   const isBtcUsedAddressVerifyMode = btcUsedAddress && btcUsedAddressPath;
+
+  // A collapsed account shows a "…" where the card's address type switch
+  // would be, opening the same list. Like that switch, it is decided once when
+  // the page opens: after a pick the "…" stays (the shown type is no longer
+  // the default the page opened with) until the page is left.
+  const isAddressTypeMenuApplicable =
+    !!allowAddressTypeMenu &&
+    !isBtcUsedAddressVerifyMode &&
+    canDeriveTypesCollapse({ networkId, walletId });
+  const [hasPickedFromMenu, setHasPickedFromMenu] = useState(false);
+  const {
+    isReady: isCollapseStateReady,
+    collapsed: isCollapsed,
+    isAddressTypeHidden,
+  } = useDeriveTypesCollapseState({
+    networkId,
+    walletId,
+    indexedAccountId: currentAccount?.indexedAccountId,
+    activeDeriveType: currentDeriveType,
+    enabled: isAddressTypeMenuApplicable,
+  });
+  const showAddressTypeMenu =
+    isAddressTypeMenuApplicable &&
+    isCollapseStateReady &&
+    isCollapsed &&
+    (isAddressTypeHidden || hasPickedFromMenu);
 
   const displayAddress = isBtcUsedAddressVerifyMode
     ? btcUsedAddress
@@ -1161,6 +1196,7 @@ function ReceiveToken() {
         // looking up its target is withdrawn.
         switchAttemptRef.current += 1;
         isSwitchResolvingRef.current = false;
+        setIsSwitchResolving(false);
         return;
       }
       // The selection page resolves addresses in its own scope; a row from
@@ -1176,6 +1212,7 @@ function ReceiveToken() {
       const attempt = switchAttemptRef.current + 1;
       switchAttemptRef.current = attempt;
       isSwitchResolvingRef.current = true;
+      setIsSwitchResolving(true);
       try {
         defaultLogger.transaction.receive.receiveSwitchNetwork({
           fromNetworkId,
@@ -1245,6 +1282,7 @@ function ReceiveToken() {
         setCurrentAccount(undefined);
         setCurrentDeriveType(undefined);
         setCurrentDeriveInfo(undefined);
+        setHasPickedFromMenu(false);
         setNetworkLogoColor(null);
         setCurrentToken(targetToken);
         if (selectContext?.aggregateToken) {
@@ -1272,6 +1310,7 @@ function ReceiveToken() {
         // A newer switch owns the guard from the moment it starts.
         if (attempt === switchAttemptRef.current) {
           isSwitchResolvingRef.current = false;
+          setIsSwitchResolving(false);
         }
       }
     },
@@ -1598,18 +1637,79 @@ function ReceiveToken() {
     );
   }, [network, cardHeaderLeft]);
 
+  // The selector saves the choice before calling back, so the callback can
+  // arrive after the page moved to another network: it only applies to the
+  // target the selector was rendered for.
+  const createAddressTypeSelectHandler = useCallback(
+    ({ fromMenu }: { fromMenu: boolean }) => {
+      const renderedSwitchSeq = switchSeqRef.current;
+      const isStillRenderedTarget = () =>
+        renderedSwitchSeq === switchSeqRef.current &&
+        committedTargetRef.current.networkId === networkId &&
+        committedTargetRef.current.accountId === accountId;
+
+      return async (value: {
+        account: INetworkAccount | undefined;
+        deriveInfo: IAccountDeriveInfo;
+        deriveType: IAccountDeriveTypes;
+      }) => {
+        if (!value.account || !isStillRenderedTarget()) {
+          return;
+        }
+        resetVerifyState();
+        setCurrentAccount(value.account);
+        setCurrentDeriveType(value.deriveType);
+        setCurrentDeriveInfo(value.deriveInfo);
+        onDeriveTypeChange?.(value.deriveType);
+        if (fromMenu) {
+          setHasPickedFromMenu(true);
+        }
+      };
+    },
+    [accountId, networkId, onDeriveTypeChange, resetVerifyState],
+  );
+
   const cardHeaderRight = useMemo(() => {
     if (!vaultSettings?.mergeDeriveAssetsEnabled || !currentAccount) {
       return null;
     }
-    // The selector saves the choice before calling back, so the callback can
-    // arrive after the page moved to another network: it only applies to the
-    // target this selector was rendered for.
-    const renderedSwitchSeq = switchSeqRef.current;
-    const isStillRenderedTarget = () =>
-      renderedSwitchSeq === switchSeqRef.current &&
-      committedTargetRef.current.networkId === networkId &&
-      committedTargetRef.current.accountId === accountId;
+
+    if (showAddressTypeMenu) {
+      // Same rule as the network switch: the address must not change under a
+      // running verification or share-image generation, nor while a network
+      // switch is looking up its target.
+      const isMenuDisabled =
+        isVerifying || isPreparingShare || isSwitchResolving;
+      return (
+        <AddressTypeSelector
+          placement="bottom-end"
+          offset={{
+            mainAxis: 8,
+          }}
+          // An entry that fixes the address type (token details) keeps a
+          // collapsed page in line with nothing: there is no type tab there,
+          // so the menu is never locked by it.
+          disableSelector={isMenuDisabled}
+          showTriggerWhenDisabled
+          activeDeriveType={currentDeriveType}
+          activeDeriveInfo={currentDeriveInfo}
+          renderSelectorTrigger={
+            <IconButton
+              testID={ReceiveTestIDs.AddressTypeMenuButton}
+              icon="DotHorOutline"
+              variant="tertiary"
+              size="small"
+              disabled={isMenuDisabled}
+              title={intl.formatMessage({ id: ETranslations.address_type })}
+            />
+          }
+          walletId={walletId}
+          networkId={networkId}
+          indexedAccountId={currentAccount.indexedAccountId ?? ''}
+          onSelect={createAddressTypeSelectHandler({ fromMenu: true })}
+        />
+      );
+    }
 
     return (
       <AddressTypeSelector
@@ -1627,29 +1727,24 @@ function ReceiveToken() {
         walletId={walletId}
         networkId={networkId}
         indexedAccountId={currentAccount?.indexedAccountId ?? ''}
-        onSelect={async (value) => {
-          if (value.account && isStillRenderedTarget()) {
-            resetVerifyState();
-            setCurrentAccount(value.account);
-            setCurrentDeriveType(value.deriveType);
-            setCurrentDeriveInfo(value.deriveInfo);
-            onDeriveTypeChange?.(value.deriveType);
-          }
-        }}
+        onSelect={createAddressTypeSelectHandler({ fromMenu: false })}
       />
     );
   }, [
     vaultSettings?.mergeDeriveAssetsEnabled,
     currentAccount,
+    showAddressTypeMenu,
+    isVerifying,
+    isPreparingShare,
+    isSwitchResolving,
+    intl,
     disableSelector,
     currentDeriveType,
     currentDeriveInfo,
     deriveTypeTrigger,
     walletId,
     networkId,
-    accountId,
-    onDeriveTypeChange,
-    resetVerifyState,
+    createAddressTypeSelectHandler,
   ]);
 
   const renderNativeActionsFooter = useCallback(() => {
