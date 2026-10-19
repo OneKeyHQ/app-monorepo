@@ -85,6 +85,11 @@ export type IModalReceiveParamList = {
     // (entered from the network tab, title "Receive", no token) switches
     // among every wallet network.
     switchEntry?: IReceiveSwitchEntry;
+    // Header menu that opens the address type list while a Bitcoin account
+    // shows only its default type (see deriveTypeCollapseUtils). Absent = no
+    // menu, so fixed-destination entries keep the address type they asked
+    // for.
+    allowAddressTypeMenu?: boolean;
     // Analytics only: which entry pushed this page, and whether the home was
     // in All Networks mode when it did.
     source?: IWalletActionSource;
