@@ -44,6 +44,10 @@ function chartFormatterKey(source: string) {
 export function LightweightChart({
   data,
   height,
+  volumeData,
+  volumeColor,
+  volumeHeightRatio,
+  overlay,
   lineColor,
   topColor,
   bottomColor,
@@ -94,6 +98,9 @@ export function LightweightChart({
 
   const chartConfig = useChartConfig({
     data,
+    volumeData,
+    volumeColor,
+    volumeHeightRatio,
     lineColor,
     topColor,
     bottomColor,
@@ -147,6 +154,9 @@ export function LightweightChart({
   );
   const latestConfigRef = useRef(nativeConfig);
   latestConfigRef.current = nativeConfig;
+  // Kept out of nativeConfig: a dragged range must not rebuild the series
+  const overlayRef = useRef(overlay);
+  overlayRef.current = overlay;
   // Bumped on every recovery: it keys the WebView, so recovery is a remount.
   // Android does not let a WebView whose renderer is gone be reused, so a new
   // source on the old instance can stay blank; a fresh instance is the only
@@ -156,7 +166,10 @@ export function LightweightChart({
   // Rebuild the document when the embedded formatter changes. Data updates
   // still go through injectJavaScript and must not reload the page.
   const webViewSource = useMemo(() => {
-    const source = buildStaticWebViewSource(latestConfigRef.current);
+    const source = buildStaticWebViewSource({
+      ...latestConfigRef.current,
+      overlay: overlayRef.current,
+    });
     return {
       html: source.html.replace(
         '<head>',
@@ -257,6 +270,19 @@ export function LightweightChart({
       webViewRef.current.injectJavaScript(updateScript);
     }
   }, [nativeConfig, webViewReady]);
+
+  useEffect(() => {
+    if (webViewReady && webViewRef.current) {
+      webViewRef.current.injectJavaScript(`
+        (function() {
+          if (typeof window.applyOverlay === 'function') {
+            window.applyOverlay(${JSON.stringify(overlay ?? null)});
+          }
+        })();
+        true;
+      `);
+    }
+  }, [overlay, webViewReady]);
 
   return (
     <Stack position="relative" height={height} width="100%">

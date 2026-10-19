@@ -29,6 +29,7 @@ import type {
 
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
+import { PoolHeader } from '../components/PoolHeader';
 import { PoolPositionStatus } from '../components/PoolPositionCard';
 import {
   PoolAssetSelect,
@@ -36,11 +37,10 @@ import {
   PoolRemoveSummary,
   sortTargetAssets,
 } from '../components/PoolRemoveParts';
+import { PoolsCard } from '../components/PoolsCard';
 import { POOLS_COPY } from '../poolsCopy';
 import { getPoolPair, getPoolPairTitle } from '../poolsFormat';
 import { usePoolsBreadcrumb } from '../usePoolsBreadcrumb';
-
-import { PoolHeader, PoolsCard } from './EarnPoolDetails';
 
 import type { RouteProp } from '@react-navigation/core';
 

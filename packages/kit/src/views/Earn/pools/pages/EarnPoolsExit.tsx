@@ -41,13 +41,12 @@ import {
   PoolRemoveSummary,
   sortTargetAssets,
 } from '../components/PoolRemoveParts';
+import { PoolsCard } from '../components/PoolsCard';
 import { PoolsChip } from '../components/PoolsFilterButton';
 import { PoolTags } from '../components/PoolTags';
 import { POOLS_COPY } from '../poolsCopy';
 import { formatUsd, getPoolPair, getPoolPairTitle } from '../poolsFormat';
 import { usePoolsBreadcrumb } from '../usePoolsBreadcrumb';
-
-import { PoolsCard } from './EarnPoolDetails';
 
 import type { RouteProp } from '@react-navigation/core';
 

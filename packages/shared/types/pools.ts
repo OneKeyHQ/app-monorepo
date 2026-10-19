@@ -122,17 +122,64 @@ export type IPoolPricePoint = {
   time: number;
   /** token1 per token0 */
   price: string;
+  /** USD traded in the interval that ends at this point */
+  volumeUsd?: string;
 };
 
 /** The price chart's periods, as Market names them */
 export type IPoolPriceRange = '1D' | '1W' | '1M' | '1Y';
 
+/** Windows the pool list's volume, fees and APR are measured over */
+export type IPoolStatsWindow = '1D' | '1W' | '1M';
+
+/**
+ * A pool's activity over one window. Changes compare it with the window
+ * before it, as fractions: 0.12 is +12%.
+ */
+export type IPoolWindowStats = {
+  volumeUsd: string;
+  feesUsd: string;
+  /** fees × 365 ÷ days ÷ TVL */
+  apr?: string;
+  tvlChange?: string;
+  volumeChange?: string;
+  feesChange?: string;
+  aprChange?: string;
+};
+
+/**
+ * Someone else's open range position in a pool, ranked by what it earned,
+ * so a user can see which ranges work and copy one (proposal).
+ */
+export type IPoolTopPosition = {
+  id: string;
+  tokenId: string;
+  owner: string;
+  tickLower: number;
+  tickUpper: number;
+  valueUsd: string;
+  /** Fees earned since opening, at today's prices */
+  feesEarnedUsd: string;
+  /** Fees earned over its life, as a yearly fraction of its value */
+  apr: string;
+  inRange: boolean;
+  createdAt: number;
+};
+
+export type IPoolTopPositionsPage = {
+  items: IPoolTopPosition[];
+  /** Positions above the value floor, all pages */
+  total: number;
+  /** Positions worth less are left out */
+  minValueUsd: string;
+};
+
 export type IPoolDetail = {
-  pool: IPool;
+  pool: IPoolListItem;
   ticks: IPoolTickLiquidityNet[];
   priceHistory: IPoolPricePoint[];
   /** Other pools of the same pair, for side-by-side comparison */
-  pairPools: IPool[];
+  pairPools: IPoolListItem[];
 };
 
 export type IPoolPosition = {
@@ -190,7 +237,7 @@ export type IPoolsPortfolio = {
   tasks: IPoolTask[];
 };
 
-export type IPoolListSortKey = 'tvl' | 'apr' | 'volume24h';
+export type IPoolListSortKey = 'tvl' | 'apr' | 'volume24h' | 'fees';
 
 export type IPoolListQuery = {
   networkIds?: string[];
@@ -204,6 +251,10 @@ export type IPoolListQuery = {
 export type IPoolListItem = IPool & {
   /** Pool fee APR as a fraction: fees24h × 365 ÷ TVL */
   feeApr?: string;
+  /** Volume, fees and APR per window, for the list's period switch */
+  windows: Record<IPoolStatsWindow, IPoolWindowStats>;
+  /** When the pool was created */
+  createdAt: number;
 };
 
 // Swap quotes used by Zap in and Zap out

@@ -8,6 +8,7 @@ import { NumberSizeableText, SizableText, Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import { LightweightChart } from '../LightweightChart';
@@ -19,9 +20,16 @@ import {
 } from '../LightweightChart/utils/formatChartPrice';
 import { getChartPriceFormatBase } from '../LightweightChart/utils/priceFormatBase';
 
-import type { ILightweightChartReferenceLine } from '../LightweightChart/types';
+import type {
+  ILightweightChartOverlay,
+  ILightweightChartProps,
+  ILightweightChartReferenceLine,
+} from '../LightweightChart/types';
 
 const PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.1 } as const;
+// With volume bars under the line, the line keeps clear of their band
+const VOLUME_HEIGHT_RATIO = 0.22;
+const PRICE_SCALE_MARGINS_WITH_VOLUME = { top: 0.12, bottom: 0.3 } as const;
 // Kept in sync with `priceScaleMinimumWidth` below, so the price axis reserves
 // a stable width instead of resizing with the figures it prints.
 const PRICE_SCALE_WIDTH = 88;
@@ -116,10 +124,21 @@ export function StockPriceLineChart({
   testID,
   hoverLabelShowsPrice = true,
   hoverLabelLargePrice = false,
+  volumeData,
+  overlay,
+  onPriceBandDrag,
   onHoverChange,
 }: {
   data: IMarketTokenChart;
   height: number;
+  // [time, USD] bars under the line on their own scale; the hover card
+  // adds the bar under the cursor
+  volumeData?: IMarketTokenChart;
+  // A price band and a depth strip on the price scale. The strip's width is
+  // kept clear of the line, so the latest point sits left of it.
+  overlay?: ILightweightChartOverlay;
+  // Web: a draggable band's edge was moved to a price
+  onPriceBandDrag?: ILightweightChartProps['onPriceBandDrag'];
   pulseLastPoint?: boolean;
   // Previous session close. Drawn as a dashed line with a "Prev close" tag and
   // its own axis label, and kept inside the price scale even when the range
@@ -331,6 +350,15 @@ export function StockPriceLineChart({
         : '',
     [hoverData],
   );
+  const volumeByTime = useMemo(
+    () => new Map<number, number>(volumeData ?? []),
+    [volumeData],
+  );
+  const hoverVolume =
+    hoverData === null ? undefined : volumeByTime.get(hoverData.time);
+  const volumeColor = theme.neutral7.val;
+  const rightGap =
+    LAST_POINT_RIGHT_GAP + (overlay?.sideHistogram?.widthPixels ?? 0);
 
   return (
     <Stack
@@ -347,6 +375,11 @@ export function StockPriceLineChart({
       <LightweightChart
         data={data}
         height={height}
+        volumeData={volumeData}
+        volumeColor={volumeColor}
+        volumeHeightRatio={VOLUME_HEIGHT_RATIO}
+        overlay={overlay}
+        onPriceBandDrag={onPriceBandDrag}
         lineColor={dimmedLineColor}
         lineWidth={1}
         // The dot pattern and the live pulse marker stay at full strength: they
@@ -368,11 +401,15 @@ export function StockPriceLineChart({
         preserveChartInstanceOnDataChange
         pulseLastPoint={pulseLastPoint}
         showTimeScale
-        priceScaleMargins={PRICE_SCALE_MARGINS}
+        priceScaleMargins={
+          volumeData?.length
+            ? PRICE_SCALE_MARGINS_WITH_VOLUME
+            : PRICE_SCALE_MARGINS
+        }
         priceScaleEntireTextOnly
         // Let the native canvas measure its labels instead of reserving desktop space.
         priceScaleMinimumWidth={platformEnv.isNative ? 0 : PRICE_SCALE_WIDTH}
-        timeScaleRightOffsetPixels={LAST_POINT_RIGHT_GAP}
+        timeScaleRightOffsetPixels={rightGap}
         priceFormatter={priceFormatter}
         priceTickFormatter={priceTickFormatter}
         priceFormatBase={priceFormatBase}
@@ -419,6 +456,24 @@ export function StockPriceLineChart({
               {String(hoverData.price)}
             </NumberSizeableText>
           ) : null}
+          {hoverVolume === undefined ? null : (
+            <SizableText
+              testID="stock-price-line-chart-hover-label-volume"
+              size="$bodyXs"
+              color="$textSubdued"
+              numberOfLines={1}
+            >
+              {intl.formatMessage(
+                { id: ETranslations.market_vol_value },
+                {
+                  value: numberFormat(String(hoverVolume), {
+                    formatter: 'marketCap',
+                    formatterOptions: { currency: '$' },
+                  }),
+                },
+              )}
+            </SizableText>
+          )}
         </Stack>
       ) : null}
     </Stack>

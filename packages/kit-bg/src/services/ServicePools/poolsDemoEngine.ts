@@ -14,6 +14,7 @@ import {
   getSharePositionStatus,
   mergeAssetAmounts,
   planZapSplit,
+  tickToPrice,
 } from '@onekeyhq/shared/src/utils/poolsMath';
 import {
   EPoolListingStatus,
@@ -27,6 +28,7 @@ import type {
   IPool,
   IPoolAddLiquidityParams,
   IPoolAsset,
+  IPoolDetail,
   IPoolListItem,
   IPoolListQuery,
   IPoolPosition,
@@ -39,6 +41,7 @@ import type {
   IPoolTaskPreview,
   IPoolTaskRequest,
   IPoolTaskStep,
+  IPoolTopPositionsPage,
   IPoolZapInLeg,
   IPoolZapInPlan,
   IPoolZapInPlanParams,
@@ -86,6 +89,7 @@ type IState = IPoolsDemoDBStruct;
 export function createInitialDemoState(
   catalog: IPoolsMockCatalog,
   now: number,
+  favoritePoolIds: string[] = [],
 ): IState {
   return {
     version: POOLS_DEMO_STATE_VERSION,
@@ -95,7 +99,29 @@ export function createInitialDemoState(
     tasks: [],
     nextTokenId: FIRST_DEMO_TOKEN_ID,
     failNextStep: false,
+    favoritePoolIds,
   };
+}
+
+// Favorites (proposal): starred pools, kept across demo resets
+
+export function getFavoritePoolIds(state: IState) {
+  return state.favoritePoolIds ?? [];
+}
+
+export function setPoolFavorite(
+  state: IState,
+  poolId: string,
+  favorite: boolean,
+) {
+  const ids = new Set(getFavoritePoolIds(state));
+  if (favorite) {
+    ids.add(poolId);
+  } else {
+    ids.delete(poolId);
+  }
+  state.favoritePoolIds = Array.from(ids);
+  return state.favoritePoolIds;
 }
 
 function bn(value: BigNumber.Value | undefined) {
@@ -140,6 +166,28 @@ function tokenAmount(asset: IPoolAsset, amount: BigNumber) {
 
 // Pool list (doc §2.3)
 
+function toListItem(catalog: IPoolsMockCatalog, pool: IPool): IPoolListItem {
+  const feeApr = getPoolFeeApr({
+    fees24hUsd: pool.fees24hUsd,
+    tvlUsd: pool.tvlUsd,
+  })?.toFixed();
+  const fallback = {
+    volumeUsd: pool.volume24hUsd,
+    feesUsd: pool.fees24hUsd,
+    apr: feeApr,
+  };
+  return {
+    ...pool,
+    feeApr,
+    windows: catalog.windowStatsByPoolId[pool.id] ?? {
+      '1D': fallback,
+      '1W': fallback,
+      '1M': fallback,
+    },
+    createdAt: catalog.createdAtByPoolId[pool.id] ?? 0,
+  };
+}
+
 function matchesKeyword(pool: IPool, term: string) {
   return [pool.token0, pool.token1].some(
     (token) =>
@@ -176,13 +224,7 @@ export function queryPools(
         pool.token1.category === query.category,
     )
     .filter((pool) => terms.every((term) => matchesKeyword(pool, term)))
-    .map((pool) => ({
-      ...pool,
-      feeApr: getPoolFeeApr({
-        fees24hUsd: pool.fees24hUsd,
-        tvlUsd: pool.tvlUsd,
-      })?.toFixed(),
-    }));
+    .map((pool) => toListItem(catalog, pool));
 
   const sortValue = (item: IPoolListItem) => {
     if (sortBy === 'apr') {
@@ -190,6 +232,9 @@ export function queryPools(
     }
     if (sortBy === 'volume24h') {
       return Number(item.volume24hUsd);
+    }
+    if (sortBy === 'fees') {
+      return Number(item.fees24hUsd);
     }
     return Number(item.tvlUsd);
   };
@@ -206,18 +251,23 @@ export function getPoolNetworkIds(catalog: IPoolsMockCatalog) {
   return Array.from(ids);
 }
 
-export function getPoolDetail(catalog: IPoolsMockCatalog, poolId: string) {
+export function getPoolDetail(
+  catalog: IPoolsMockCatalog,
+  poolId: string,
+): IPoolDetail {
   const pool = getPool(catalog, poolId);
   return {
-    pool,
+    pool: toListItem(catalog, pool),
     ticks: catalog.ticksByPoolId[pool.id] ?? [],
     priceHistory: catalog.priceHistoryByPoolId[pool.id] ?? [],
-    pairPools: catalog.pools.filter(
-      (item) =>
-        item.pairKey === pool.pairKey &&
-        item.id !== pool.id &&
-        item.listingStatus === EPoolListingStatus.Listed,
-    ),
+    pairPools: catalog.pools
+      .filter(
+        (item) =>
+          item.pairKey === pool.pairKey &&
+          item.id !== pool.id &&
+          item.listingStatus === EPoolListingStatus.Listed,
+      )
+      .map((item) => toListItem(catalog, item)),
   };
 }
 
@@ -242,10 +292,97 @@ export function getPoolPriceHistory(
   const series = catalog.priceSeriesByPoolId[getPool(catalog, poolId).id] ?? [];
   const latest = series[series.length - 1]?.time ?? 0;
   const { spanMs, stepMs } = PRICE_RANGES[range];
-  return series.filter((point) => {
+  const sampled = series.filter((point) => {
     const ageMs = latest - point.time;
     return ageMs <= spanMs && ageMs % stepMs === 0;
   });
+  // Each bucket's volume is what traded since the bucket before it; the
+  // series is at least as fine as the step, so the sums are exact
+  return sampled.map((point) => {
+    let volume = 0;
+    for (const item of series) {
+      if (item.time > point.time - stepMs && item.time <= point.time) {
+        volume += Number(item.volumeUsd ?? 0);
+      }
+    }
+    return { ...point, volumeUsd: volume.toFixed(2) };
+  });
+}
+
+// Top positions (proposal): other LPs' open ranges, ranked by what they
+// earned over their life, so a user can copy a range that works
+
+const TOP_POSITION_MIN_VALUE_USD = 500;
+
+export function getPoolTopPositions(
+  catalog: IPoolsMockCatalog,
+  poolId: string,
+  { offset = 0, limit = 5 }: { offset?: number; limit?: number } = {},
+): IPoolTopPositionsPage {
+  const pool = getPool(catalog, poolId);
+  const book = catalog.bookByPoolId[pool.id] ?? [];
+  const series = catalog.priceSeriesByPoolId[pool.id] ?? [];
+  const now = series[series.length - 1]?.time ?? 0;
+  const dailyCloses = series.filter(
+    (point) => (now - point.time) % DAY_MS === 0,
+  );
+  const activeLiquidity = new BigNumber(pool.activeLiquidity ?? '0');
+  const currentTick = pool.currentTick ?? 0;
+  const decimals = {
+    decimals0: pool.token0.decimals,
+    decimals1: pool.token1.decimals,
+  };
+  const ranked = book
+    .filter((entry) => entry.valueUsd >= TOP_POSITION_MIN_VALUE_USD)
+    .map((entry, index) => {
+      const inRange =
+        entry.tickLower <= currentTick && currentTick < entry.tickUpper;
+      const liquidity = new BigNumber(entry.liquidity.toString());
+      // Its share of the liquidity that earns while the price is inside
+      const share = liquidity.div(
+        inRange ? activeLiquidity : activeLiquidity.plus(liquidity),
+      );
+      const aprWhileInRange = share
+        .times(pool.fees24hUsd)
+        .times(365)
+        .div(entry.valueUsd);
+      const createdAt = now - Math.round(entry.ageDays * DAY_MS);
+      const low = tickToPrice({ tick: entry.tickLower, ...decimals });
+      const high = tickToPrice({ tick: entry.tickUpper, ...decimals });
+      const closes = dailyCloses.filter((point) => point.time >= createdAt);
+      const inside = closes.filter(
+        (point) => low.lte(point.price) && high.gt(point.price),
+      ).length;
+      let inRangeShare = inRange ? 1 : 0;
+      if (closes.length) {
+        inRangeShare = inside / closes.length;
+      }
+      const apr = aprWhileInRange.isFinite()
+        ? aprWhileInRange.times(inRangeShare)
+        : new BigNumber(0);
+      return {
+        id: `${pool.id}:top:${index}`,
+        tokenId: entry.tokenId,
+        owner: entry.owner,
+        tickLower: entry.tickLower,
+        tickUpper: entry.tickUpper,
+        valueUsd: entry.valueUsd.toFixed(2),
+        feesEarnedUsd: apr
+          .times(entry.valueUsd)
+          .times(entry.ageDays)
+          .div(365)
+          .toFixed(2),
+        apr: apr.toFixed(),
+        inRange,
+        createdAt,
+      };
+    })
+    .toSorted((a, b) => Number(b.apr) - Number(a.apr));
+  return {
+    items: ranked.slice(offset, offset + limit),
+    total: ranked.length,
+    minValueUsd: String(TOP_POSITION_MIN_VALUE_USD),
+  };
 }
 
 // Positions (doc §3.9)

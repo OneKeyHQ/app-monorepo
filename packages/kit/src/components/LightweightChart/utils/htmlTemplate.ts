@@ -543,6 +543,138 @@ function getChartInitScript(): string {
           crosshairMarkerVisible: false,
         };
       }
+      // Mirrors ChartOverlayPrimitive (chartOverlayPrimitive.ts): a price
+      // band across the plot and a depth strip along its right edge, drawn
+      // under the series on the main price scale.
+      function isOpenLow(low) {
+        return typeof low !== 'number' || !isFinite(low) || low <= 0;
+      }
+      function isOpenHigh(high) {
+        return typeof high !== 'number' || !isFinite(high) || high <= 0;
+      }
+      function createOverlayPrimitive(initialOptions) {
+        var options = initialOptions || {};
+        var params = null;
+        var renderer = {
+          draw: function(target) {
+            var series = params && params.series;
+            if (!series) return;
+            var priceBand = options.priceBand;
+            var sideHistogram = options.sideHistogram;
+            target.useBitmapCoordinateSpace(function(scope) {
+              var ctx = scope.context;
+              var width = scope.bitmapSize.width;
+              var height = scope.bitmapSize.height;
+              var hRatio = scope.horizontalPixelRatio;
+              var vRatio = scope.verticalPixelRatio;
+              var line = Math.max(1, Math.round(vRatio));
+              function toY(price) {
+                var y = series.priceToCoordinate(price);
+                return y === null || y === undefined ? null : y * vRatio;
+              }
+              if (priceBand) {
+                var bandHighY = isOpenHigh(priceBand.high) ? null : toY(priceBand.high);
+                var bandLowY = isOpenLow(priceBand.low) ? null : toY(priceBand.low);
+                var bandTop = Math.max(0, bandHighY === null ? 0 : bandHighY);
+                var bandBottom = Math.min(height, bandLowY === null ? height : bandLowY);
+                if (bandBottom > bandTop) {
+                  ctx.fillStyle = priceBand.fillColor;
+                  ctx.fillRect(0, bandTop, width, bandBottom - bandTop);
+                }
+                ctx.fillStyle = priceBand.lineColor;
+                [bandHighY, bandLowY].forEach(function(y) {
+                  if (y !== null && y >= 0 && y <= height) {
+                    ctx.fillRect(0, Math.round(y), width, line);
+                  }
+                });
+              }
+              if (sideHistogram && sideHistogram.buckets && sideHistogram.buckets.length) {
+                var strip = sideHistogram.widthPixels * hRatio;
+                var usable = strip - 2 * hRatio;
+                var maxValue = 0;
+                sideHistogram.buckets.forEach(function(bucket) {
+                  maxValue = Math.max(maxValue, bucket.value);
+                });
+                var hasActive =
+                  typeof sideHistogram.activeColor === 'string' &&
+                  typeof sideHistogram.activeLow === 'number' &&
+                  typeof sideHistogram.activeHigh === 'number';
+                if (maxValue > 0) {
+                  sideHistogram.buckets.forEach(function(bucket) {
+                    var highY = toY(bucket.high);
+                    var lowY = toY(bucket.low);
+                    if (highY === null || lowY === null) return;
+                    var top = Math.min(highY, lowY);
+                    var bottom = Math.max(highY, lowY);
+                    if (bottom < 0 || top > height) return;
+                    var barHeight = Math.max(1, bottom - top - vRatio);
+                    var barWidth = Math.max(hRatio, (bucket.value / maxValue) * usable);
+                    var active =
+                      hasActive &&
+                      bucket.high > sideHistogram.activeLow &&
+                      bucket.low < sideHistogram.activeHigh;
+                    ctx.fillStyle = active ? sideHistogram.activeColor : sideHistogram.color;
+                    ctx.fillRect(
+                      Math.round(width - barWidth),
+                      Math.round(top),
+                      Math.round(barWidth),
+                      Math.round(barHeight)
+                    );
+                  });
+                }
+                if (typeof sideHistogram.markerPrice === 'number') {
+                  var markerY = toY(sideHistogram.markerPrice);
+                  if (markerY !== null && markerY >= 0 && markerY <= height) {
+                    ctx.save();
+                    ctx.strokeStyle = sideHistogram.markerColor || sideHistogram.color;
+                    ctx.lineWidth = line;
+                    ctx.setLineDash([3 * hRatio, 3 * hRatio]);
+                    ctx.beginPath();
+                    var lineY = Math.round(markerY) + line / 2;
+                    ctx.moveTo(width - strip, lineY);
+                    ctx.lineTo(width, lineY);
+                    ctx.stroke();
+                    ctx.restore();
+                  }
+                }
+              }
+            });
+          },
+        };
+        var views = [{ zOrder: function() { return 'bottom'; }, renderer: function() { return renderer; } }];
+        return {
+          attached: function(nextParams) { params = nextParams; },
+          detached: function() { params = null; },
+          paneViews: function() { return views; },
+          autoscaleInfo: function() {
+            var band = options.priceBand;
+            if (!band || !band.includeInAutoscale) return null;
+            var prices = [];
+            if (!isOpenLow(band.low)) prices.push(band.low);
+            if (!isOpenHigh(band.high)) prices.push(band.high);
+            if (!prices.length) return null;
+            return {
+              priceRange: {
+                minValue: Math.min.apply(null, prices),
+                maxValue: Math.max.apply(null, prices),
+              },
+            };
+          },
+          setOptions: function(nextOptions) {
+            options = nextOptions || {};
+            if (params) params.requestUpdate();
+          },
+        };
+      }
+      function getVolumeSeriesOptions(nextConfig) {
+        return {
+          priceScaleId: 'volume',
+          color: nextConfig.volumeColor || 'rgba(128, 128, 128, 0.3)',
+          priceFormat: { type: 'volume' },
+          lastValueVisible: false,
+          priceLineVisible: false,
+        };
+      }
       // Rebuilds both series from scratch on every apply.
       //
       // lightweight-charts 5.2 keeps a stale copy of its time points after a
@@ -558,6 +690,10 @@ function getChartInitScript(): string {
       // sizes. The primary goes first so the overlay keeps drawing on top of
       // it; everything runs before the next frame, so nothing flickers.
       function rebuildSeries(nextConfig) {
+        if (window.volumeSeries) {
+          window.chart.removeSeries(window.volumeSeries);
+          window.volumeSeries = null;
+        }
         if (window.secondaryPointSeries) {
           window.chart.removeSeries(window.secondaryPointSeries);
           window.secondaryPointSeries = null;
@@ -571,10 +707,27 @@ function getChartInitScript(): string {
           window.series = null;
           window.referencePriceLine = null;
         }
+        // Volume first, so the line and its fill draw over the bars
+        if (Array.isArray(nextConfig.volumeData) && nextConfig.volumeData.length > 0) {
+          window.volumeSeries = window.chart.addSeries(
+            LightweightCharts.HistogramSeries,
+            getVolumeSeriesOptions(nextConfig)
+          );
+          window.volumeSeries.priceScale().applyOptions({
+            visible: false,
+            scaleMargins: {
+              top: 1 - (Number(nextConfig.volumeHeightRatio) || 0.18),
+              bottom: 0,
+            },
+          });
+          window.volumeSeries.setData(nextConfig.volumeData);
+        }
         window.series = createPrimarySeries(nextConfig);
         window.seriesType = getPrimarySeriesType(nextConfig);
         window.series.applyOptions(getLastValueSeriesOptions(nextConfig));
         window.series.setData(Array.isArray(nextConfig.data) ? nextConfig.data : []);
+        window.overlayPrimitive = createOverlayPrimitive(window.latestOverlay);
+        window.series.attachPrimitive(window.overlayPrimitive);
         syncReferenceLine(nextConfig);
         if (
           Array.isArray(nextConfig.secondaryLineData) &&
@@ -716,6 +869,18 @@ function getChartInitScript(): string {
         window.updatePulseDot();
       });
       window.secondaryPointSeries = null;
+      window.volumeSeries = null;
+      window.overlayPrimitive = null;
+      window.latestOverlay = config.overlay || null;
+      // A dragged range only repaints the band; the series stay as they are.
+      // The band can move the price scale, so the pulse dot is placed again.
+      window.applyOverlay = function(nextOverlay) {
+        window.latestOverlay = nextOverlay || null;
+        if (window.overlayPrimitive) {
+          window.overlayPrimitive.setOptions(window.latestOverlay);
+          window.updatePulseDot();
+        }
+      };
       window.applyChartConfig = function(nextConfig) {
         if (!nextConfig || !window.chart) return;
         window.latestChartConfig = nextConfig;

@@ -44,6 +44,7 @@ import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { PoolPairIcon } from '../components/PoolPairIcon';
 import { PoolPositionStatus } from '../components/PoolPositionCard';
+import { PoolsCard } from '../components/PoolsCard';
 import { PoolsDemoMenuButton } from '../components/PoolsDemoMenuButton';
 import { PoolTags } from '../components/PoolTags';
 import { confirmAbandonPoolTask } from '../components/PoolUnfinishedTasks';
@@ -56,8 +57,6 @@ import {
   getPoolVersionLabel,
 } from '../poolsFormat';
 import { usePoolsBreadcrumb } from '../usePoolsBreadcrumb';
-
-import { PoolsCard } from './EarnPoolDetails';
 
 import type { RouteProp } from '@react-navigation/core';
 

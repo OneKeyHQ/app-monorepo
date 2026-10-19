@@ -19,7 +19,9 @@ import type {
   IPoolPosition,
   IPoolPricePoint,
   IPoolProtocolVersion,
+  IPoolStatsWindow,
   IPoolTickLiquidityNet,
+  IPoolWindowStats,
 } from '@onekeyhq/shared/types/pools';
 
 import {
@@ -50,6 +52,16 @@ const FULL_RANGE_SHARE = 0.12;
 const STALE_RANGE_SHARE = 0.15;
 const PRICE_HISTORY_DAYS = 30;
 const HOUR_MS = 60 * 60 * 1000;
+// Pools are this many days old at least and at most
+const POOL_AGE_DAYS = { min: 40, max: 1300 };
+// Synthetic positions were opened up to this long ago
+const BOOK_MAX_AGE_DAYS = 180;
+
+export const POOL_STATS_WINDOW_DAYS: Record<IPoolStatsWindow, number> = {
+  '1D': 1,
+  '1W': 7,
+  '1M': 30,
+};
 
 export const POOL_CAPABILITIES: Record<
   IPoolProtocolVersion,
@@ -207,10 +219,24 @@ function approximateTick(price: number, decimals0: number, decimals1: number) {
   return Math.floor(Math.log(rawPrice) / Math.log(1.0001));
 }
 
+/** One synthetic LP position behind a range pool's liquidity */
+export type IPoolsBookEntry = {
+  tokenId: string;
+  owner: string;
+  tickLower: number;
+  tickUpper: number;
+  liquidity: bigint;
+  valueUsd: number;
+  ageDays: number;
+};
+
 type IBuiltPool = {
   pool: IPool;
   ticks: IPoolTickLiquidityNet[];
   priceSeries: IPoolPricePoint[];
+  book: IPoolsBookEntry[];
+  windows: Record<IPoolStatsWindow, IPoolWindowStats>;
+  createdAt: number;
 };
 
 // The walk's steps, newest stretch first: finer where it is recent, so the
@@ -243,6 +269,123 @@ function buildPriceSeries(
   }
   points.push({ time: now - ageMs, price: String(current) });
   return points.toReversed();
+}
+
+/** How busy the pool is over time: slow waves, so weeks and months differ */
+function createActivityWave(seed: IPoolsPoolSeed) {
+  const random = createRandom(`${seed.key}:activity`);
+  const waves = [
+    { periodDays: 3.1, amplitude: 0.12 },
+    { periodDays: 9.7, amplitude: 0.22 },
+    { periodDays: 37, amplitude: 0.18 },
+  ].map((wave) => ({ ...wave, phase: random() * 2 * Math.PI }));
+  return (time: number) =>
+    waves.reduce(
+      (sum, wave) =>
+        sum +
+        wave.amplitude *
+          Math.sin(
+            (2 * Math.PI * time) / (wave.periodDays * DAY_MS) + wave.phase,
+          ),
+      0,
+    );
+}
+
+/**
+ * Volume for each point's interval: busier when the price moves, with noise
+ * and slow waves, scaled so the last 24h match the seed's 24h volume.
+ */
+function addVolumes(
+  seed: IPoolsPoolSeed,
+  points: IPoolPricePoint[],
+  now: number,
+): IPoolPricePoint[] {
+  const random = createRandom(`${seed.key}:volume`);
+  const { dailyMove } = SHAPES[seed.shape];
+  const wave = createActivityWave(seed);
+  const raw = points.map((point, index) => {
+    const previous = points[index - 1] ?? points[index + 1] ?? point;
+    const stepMs = Math.abs(point.time - previous.time);
+    const expectedMove = dailyMove * Math.sqrt(Math.max(stepMs, 1) / DAY_MS);
+    const move = Math.abs(
+      Math.log(Number(point.price) / Number(previous.price)),
+    );
+    const activity =
+      Math.exp(wave(point.time) + gaussian(random) * 0.3) *
+      (1 + (2 * move) / Math.max(expectedMove, 1e-9));
+    return stepMs * activity;
+  });
+  const lastDay = points.reduce(
+    (sum, point, index) => (now - point.time < DAY_MS ? sum + raw[index] : sum),
+    0,
+  );
+  const scale = lastDay > 0 ? seed.volume24hUsd / lastDay : 0;
+  return points.map((point, index) => ({
+    ...point,
+    volumeUsd: (raw[index] * scale).toFixed(2),
+  }));
+}
+
+/** Volume in (now − fromAgo, now − toAgo] */
+function sumVolume(
+  points: IPoolPricePoint[],
+  now: number,
+  fromAgoMs: number,
+  toAgoMs: number,
+) {
+  let sum = 0;
+  for (const point of points) {
+    const ageMs = now - point.time;
+    if (ageMs < fromAgoMs && ageMs >= toAgoMs) {
+      sum += Number(point.volumeUsd ?? 0);
+    }
+  }
+  return sum;
+}
+
+function change(current: number, previous: number) {
+  return previous > 0 ? String(current / previous - 1) : undefined;
+}
+
+/** Each window against the one before it */
+function buildWindowStats(
+  seed: IPoolsPoolSeed,
+  points: IPoolPricePoint[],
+  now: number,
+): Record<IPoolStatsWindow, IPoolWindowStats> {
+  const random = createRandom(`${seed.key}:tvl`);
+  const feeRatio =
+    (seed.fees24hUsd ?? (seed.volume24hUsd * seed.feeTier) / 1_000_000) /
+    seed.volume24hUsd;
+  const entries = (
+    Object.entries(POOL_STATS_WINDOW_DAYS) as [IPoolStatsWindow, number][]
+  ).map(([window, days]) => {
+    const spanMs = days * DAY_MS;
+    // The 1D window is exactly the seed's 24h figures
+    const volume =
+      window === '1D' ? seed.volume24hUsd : sumVolume(points, now, spanMs, 0);
+    const previousVolume = sumVolume(points, now, 2 * spanMs, spanMs);
+    const fees = volume * feeRatio;
+    const previousFees = previousVolume * feeRatio;
+    const tvlChange = gaussian(random) * 0.025 * Math.sqrt(days);
+    const previousTvl = seed.tvlUsd / (1 + tvlChange);
+    const apr = (fees * 365) / days / seed.tvlUsd;
+    const previousApr = (previousFees * 365) / days / previousTvl;
+    const stats: IPoolWindowStats = {
+      volumeUsd: volume.toFixed(2),
+      feesUsd: fees.toFixed(2),
+      apr: String(apr),
+      tvlChange: String(tvlChange),
+      volumeChange: change(volume, previousVolume),
+      feesChange: change(fees, previousFees),
+      aprChange: change(apr, previousApr),
+    };
+    return [window, stats] as const;
+  });
+  return Object.fromEntries(entries) as Record<
+    IPoolStatsWindow,
+    IPoolWindowStats
+  >;
 }
 
 function buildRangeBook({
@@ -306,6 +449,7 @@ function buildRangeBook({
   let activeLiquidity = BigInt(0);
   let reserve0 = new BigNumber(0);
   let reserve1 = new BigNumber(0);
+  const book: IPoolsBookEntry[] = [];
 
   for (const entry of entries) {
     const valueUsd = (seed.tvlUsd * entry.weight) / totalWeight;
@@ -344,6 +488,15 @@ function buildRangeBook({
     }
     reserve0 = reserve0.plus(reference.amount0.times(scale));
     reserve1 = reserve1.plus(reference.amount1.times(scale));
+    book.push({
+      tokenId: String(100_000 + Math.floor(random() * 1_400_000)),
+      owner: mockHex(`${seed.key}:owner:${book.length}`, 20),
+      tickLower: entry.tickLower,
+      tickUpper: entry.tickUpper,
+      liquidity,
+      valueUsd,
+      ageDays: 1 + random() * (BOOK_MAX_AGE_DAYS - 1),
+    });
   }
 
   const ticks = Array.from(nets.entries())
@@ -356,6 +509,7 @@ function buildRangeBook({
     activeLiquidity,
     reserve0: reserve0.toFixed(decimals0, BigNumber.ROUND_FLOOR),
     reserve1: reserve1.toFixed(decimals1, BigNumber.ROUND_FLOOR),
+    book,
   };
 }
 
@@ -406,7 +560,15 @@ function buildPool(
     aprEstimateSupported: seed.aprEstimateSupported ?? true,
   };
 
-  const priceSeries = buildPriceSeries(seed, price, now);
+  const priceSeries = addVolumes(seed, buildPriceSeries(seed, price, now), now);
+  const windows = buildWindowStats(seed, priceSeries, now);
+  const ageRandom = createRandom(`${seed.key}:age`);
+  const createdAt =
+    now -
+    Math.round(
+      POOL_AGE_DAYS.min + ageRandom() * (POOL_AGE_DAYS.max - POOL_AGE_DAYS.min),
+    ) *
+      DAY_MS;
 
   if (seed.version === 'v2') {
     const reserve0 = new BigNumber(seed.tvlUsd).div(2).div(token0.priceUsd);
@@ -414,7 +576,7 @@ function buildPool(
     pool.reserve0 = reserve0.toFixed(token0.decimals, BigNumber.ROUND_FLOOR);
     pool.reserve1 = reserve1.toFixed(token1.decimals, BigNumber.ROUND_FLOOR);
     pool.lpTotalSupply = reserve0.times(reserve1).sqrt().toFixed(18);
-    return { pool, ticks: [], priceSeries };
+    return { pool, ticks: [], priceSeries, book: [], windows, createdAt };
   }
 
   const sqrtRatioX96 = priceToSqrtRatioX96({
@@ -426,11 +588,18 @@ function buildPool(
   pool.sqrtPriceX96 = sqrtRatioX96.toString();
   pool.currentTick = getTickAtSqrtRatio(sqrtRatioX96);
 
-  const book = buildRangeBook({ seed, pool, price });
-  pool.activeLiquidity = book.activeLiquidity.toString();
-  pool.reserve0 = book.reserve0;
-  pool.reserve1 = book.reserve1;
-  return { pool, ticks: book.ticks, priceSeries };
+  const rangeBook = buildRangeBook({ seed, pool, price });
+  pool.activeLiquidity = rangeBook.activeLiquidity.toString();
+  pool.reserve0 = rangeBook.reserve0;
+  pool.reserve1 = rangeBook.reserve1;
+  return {
+    pool,
+    ticks: rangeBook.ticks,
+    priceSeries,
+    book: rangeBook.book,
+    windows,
+    createdAt,
+  };
 }
 
 export type IPoolsMockCatalog = {
@@ -441,6 +610,13 @@ export type IPoolsMockCatalog = {
   priceHistoryByPoolId: Record<string, IPoolPricePoint[]>;
   /** The whole year, finer toward today; the price chart's ranges cut it */
   priceSeriesByPoolId: Record<string, IPoolPricePoint[]>;
+  /** Range pools only: the positions their liquidity is made of */
+  bookByPoolId: Record<string, IPoolsBookEntry[]>;
+  windowStatsByPoolId: Record<
+    string,
+    Record<IPoolStatsWindow, IPoolWindowStats>
+  >;
+  createdAtByPoolId: Record<string, number>;
   poolIdBySeedKey: Record<string, string>;
 };
 
@@ -452,6 +628,9 @@ export function buildMockCatalog(now: number): IPoolsMockCatalog {
     ticksByPoolId: {},
     priceHistoryByPoolId: {},
     priceSeriesByPoolId: {},
+    bookByPoolId: {},
+    windowStatsByPoolId: {},
+    createdAtByPoolId: {},
     poolIdBySeedKey: {},
   };
   for (const seed of POOLS_POOL_SEEDS) {
@@ -459,6 +638,9 @@ export function buildMockCatalog(now: number): IPoolsMockCatalog {
     catalog.pools.push(built.pool);
     catalog.ticksByPoolId[built.pool.id] = built.ticks;
     catalog.priceSeriesByPoolId[built.pool.id] = built.priceSeries;
+    catalog.bookByPoolId[built.pool.id] = built.book;
+    catalog.windowStatsByPoolId[built.pool.id] = built.windows;
+    catalog.createdAtByPoolId[built.pool.id] = built.createdAt;
     catalog.priceHistoryByPoolId[built.pool.id] = built.priceSeries.filter(
       (point) =>
         now - point.time < PRICE_HISTORY_DAYS * DAY_MS &&

@@ -15,6 +15,8 @@ export interface IPoolsDemoDBStruct {
   tasks: IPoolTask[];
   nextTokenId: number;
   failNextStep: boolean;
+  /** Starred pools; kept when the demo data is reset */
+  favoritePoolIds?: string[];
 }
 
 export class SimpleDbEntityPoolsDemo extends SimpleDbEntityBase<IPoolsDemoDBStruct> {

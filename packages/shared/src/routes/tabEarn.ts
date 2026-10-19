@@ -14,6 +14,7 @@ export enum ETabEarnRoutes {
   // Pools (Uniswap LP) demo
   EarnPools = 'EarnPools',
   EarnPoolDetails = 'EarnPoolDetails',
+  EarnPoolDetailsShare = 'EarnPoolDetailsShare',
   EarnPoolAddLiquidity = 'EarnPoolAddLiquidity',
   EarnPoolPosition = 'EarnPoolPosition',
   EarnPoolRemoveLiquidity = 'EarnPoolRemoveLiquidity',
@@ -89,6 +90,12 @@ export type ITabEarnParamList = {
   };
   [ETabEarnRoutes.EarnPools]: undefined;
   [ETabEarnRoutes.EarnPoolDetails]: { poolId: string };
+  // Landing for /earn/pool/:network/:version/:poolKey
+  [ETabEarnRoutes.EarnPoolDetailsShare]: {
+    network: string; // share name, like 'ethereum'
+    version: string;
+    poolKey: string;
+  };
   [ETabEarnRoutes.EarnPoolAddLiquidity]: {
     poolId: string;
     /** Adds to this range position; its range is fixed */

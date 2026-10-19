@@ -80,6 +80,9 @@ export function buildSecondaryLineSeries(
 
 interface IUseChartConfigProps {
   data: IMarketTokenChart;
+  volumeData?: IMarketTokenChart;
+  volumeColor?: string;
+  volumeHeightRatio?: number;
   lineColor?: string;
   topColor?: string;
   bottomColor?: string;
@@ -126,6 +129,9 @@ interface IUseChartConfigProps {
 
 export function useChartConfig({
   data,
+  volumeData,
+  volumeColor,
+  volumeHeightRatio,
   lineColor = DEFAULT_CHART_COLORS.lineColor,
   topColor = DEFAULT_CHART_COLORS.topColor,
   bottomColor = DEFAULT_CHART_COLORS.bottomColor,
@@ -199,6 +205,14 @@ export function useChartConfig({
       })),
     [data, histogramOptions, lineColor, resolvedSeriesType],
   );
+  const chartVolumeData = useMemo(
+    () =>
+      volumeData?.map(([time, value]: [number, number]) => ({
+        time: time as ILightweightChartTime,
+        value,
+      })),
+    [volumeData],
+  );
   const {
     line: chartSecondaryLineData,
     isolatedPoints: chartSecondaryPointData,
@@ -230,6 +244,9 @@ export function useChartConfig({
       patternColor,
       pulseLastPointColor,
       data: chartData,
+      volumeData: chartVolumeData,
+      volumeColor,
+      volumeHeightRatio,
       secondaryLineData: chartSecondaryLineData,
       secondaryPointData: chartSecondaryPointData,
       secondaryLineColor,
@@ -261,6 +278,9 @@ export function useChartConfig({
     }),
     [
       chartData,
+      chartVolumeData,
+      volumeColor,
+      volumeHeightRatio,
       chartSecondaryLineData,
       chartSecondaryPointData,
       theme.textSubdued?.val,

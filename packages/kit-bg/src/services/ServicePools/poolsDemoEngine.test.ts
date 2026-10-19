@@ -21,13 +21,16 @@ import {
   buildPositionView,
   createInitialDemoState,
   createTask,
+  getFavoritePoolIds,
   getNextStep,
   getPoolPriceHistory,
+  getPoolTopPositions,
   isUnfinishedTask,
   planZapIn,
   previewRemove,
   queryPools,
   quoteSwap,
+  setPoolFavorite,
   settleTaskStep,
   submitTaskStep,
 } from './poolsDemoEngine';
@@ -253,9 +256,103 @@ describe('pools demo price history', () => {
   it('agrees across ranges where they overlap', () => {
     const day = getPoolPriceHistory(catalog, pool.id, '1D');
     const week = getPoolPriceHistory(catalog, pool.id, '1W');
+    const priceOf = ({ time, price }: { time: number; price: string }) => ({
+      time,
+      price,
+    });
     const hourlyFromDay = day.filter((_, index) => index % 4 === 0);
-    expect(week.slice(-hourlyFromDay.length)).toEqual(hourlyFromDay);
+    expect(week.slice(-hourlyFromDay.length).map(priceOf)).toEqual(
+      hourlyFromDay.map(priceOf),
+    );
     expect(catalog.priceHistoryByPoolId[pool.id]).toHaveLength(30);
+  });
+
+  it('sums volume into each bucket, the last day matching the 24h figure', () => {
+    const day = getPoolPriceHistory(catalog, pool.id, '1D');
+    const week = getPoolPriceHistory(catalog, pool.id, '1W');
+    // An hourly bucket holds the four 15-minute buckets before it
+    const lastHour = day
+      .slice(-4)
+      .reduce((sum, point) => sum + Number(point.volumeUsd), 0);
+    expect(Number(week.at(-1)?.volumeUsd)).toBeCloseTo(lastHour, 1);
+    const lastDay = day
+      .slice(1)
+      .reduce((sum, point) => sum + Number(point.volumeUsd), 0);
+    expect(relativeError(lastDay, pool.volume24hUsd)).toBeLessThan(0.01);
+  });
+});
+
+describe('pools demo list windows', () => {
+  const catalog = buildMockCatalog(NOW);
+
+  it('states each window, the day matching the pool figures', () => {
+    for (const item of queryPools(catalog)) {
+      expect(item.windows['1D'].volumeUsd).toBe(
+        Number(item.volume24hUsd).toFixed(2),
+      );
+      expect(
+        relativeError(item.windows['1D'].feesUsd, item.fees24hUsd),
+      ).toBeLessThan(0.001);
+      const week = item.windows['1W'];
+      // A week trades more than a day; its APR stays in the same ballpark
+      expect(Number(week.volumeUsd)).toBeGreaterThan(Number(item.volume24hUsd));
+      expect(Number(week.apr)).toBeGreaterThan(Number(item.feeApr) / 4);
+      expect(Number(week.apr)).toBeLessThan(Number(item.feeApr) * 4);
+      expect(item.createdAt).toBeLessThan(NOW);
+    }
+  });
+});
+
+describe('pools demo top positions', () => {
+  const catalog = buildMockCatalog(NOW);
+  const pool = poolBySeed(catalog, 'eth-v3-usdc-weth-500');
+
+  it('ranks open ranges above the value floor by what they earned', () => {
+    const page = getPoolTopPositions(catalog, pool.id, { limit: 10 });
+    expect(page.items).toHaveLength(10);
+    expect(page.total).toBeGreaterThan(10);
+    const aprValues = page.items.map((item) => Number(item.apr));
+    expect(aprValues).toEqual(aprValues.toSorted((a, b) => b - a));
+    for (const item of page.items) {
+      expect(Number(item.valueUsd)).toBeGreaterThanOrEqual(
+        Number(page.minValueUsd),
+      );
+      expect(item.tickLower).toBeLessThan(item.tickUpper);
+      expect(
+        item.inRange ===
+          (item.tickLower <= (pool.currentTick ?? 0) &&
+            (pool.currentTick ?? 0) < item.tickUpper),
+      ).toBe(true);
+    }
+    // The next page continues where this one ends
+    const next = getPoolTopPositions(catalog, pool.id, {
+      offset: 10,
+      limit: 5,
+    });
+    expect(Number(next.items[0].apr)).toBeLessThanOrEqual(aprValues[9]);
+  });
+
+  it('has none for a pool without ranges', () => {
+    const v2 = poolBySeed(catalog, 'eth-v2-usdc-weth');
+    expect(getPoolTopPositions(catalog, v2.id).total).toBe(0);
+  });
+});
+
+describe('pools demo favorites', () => {
+  it('stars and unstars pools and keeps them across a reset', () => {
+    const catalog = buildMockCatalog(NOW);
+    const state = createInitialDemoState(catalog, NOW);
+    const [first, second] = catalog.pools;
+    setPoolFavorite(state, first.id, true);
+    setPoolFavorite(state, second.id, true);
+    setPoolFavorite(state, first.id, false);
+    expect(getFavoritePoolIds(state)).toEqual([second.id]);
+    const reset = createInitialDemoState(
+      catalog,
+      NOW,
+      getFavoritePoolIds(state),
+    );
+    expect(getFavoritePoolIds(reset)).toEqual([second.id]);
   });
 });
 

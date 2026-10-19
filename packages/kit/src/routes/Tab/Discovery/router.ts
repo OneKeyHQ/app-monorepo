@@ -139,6 +139,12 @@ export const discoveryRouters: ITabSubNavigatorConfig<any, any>[] = [
     headerShown: !platformEnv.isNative,
   },
   {
+    // Same page, reached by its shared link; see EarnProtocolDetailsShare
+    name: ETabEarnRoutes.EarnPoolDetailsShare,
+    component: EarnPoolDetails,
+    headerShown: !platformEnv.isNative,
+  },
+  {
     name: ETabEarnRoutes.EarnPoolAddLiquidity,
     component: EarnPoolAddLiquidity,
     headerShown: !platformEnv.isNative,

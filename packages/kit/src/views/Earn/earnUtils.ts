@@ -132,6 +132,7 @@ export const EarnNetworkUtils = {
 const POOLS_EARN_ROUTES = new Set<ETabEarnRoutes>([
   ETabEarnRoutes.EarnPools,
   ETabEarnRoutes.EarnPoolDetails,
+  ETabEarnRoutes.EarnPoolDetailsShare,
   ETabEarnRoutes.EarnPoolAddLiquidity,
   ETabEarnRoutes.EarnPoolPosition,
   ETabEarnRoutes.EarnPoolRemoveLiquidity,

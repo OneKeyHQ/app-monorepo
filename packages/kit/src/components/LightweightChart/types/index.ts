@@ -48,6 +48,63 @@ export interface ILightweightChartHistogramOptions {
   maxBarWidth?: number;
 }
 
+/**
+ * Bars along the plot's right edge, one per price bucket, on the main price
+ * scale: a depth profile (a pool's liquidity) beside the line. The line ends
+ * before the strip, so the two never overlap.
+ */
+export interface ILightweightChartSideHistogram {
+  buckets: { low: number; high: number; value: number }[];
+  color: string;
+  // Buckets inside [activeLow, activeHigh] use activeColor
+  activeColor?: string;
+  activeLow?: number;
+  activeHigh?: number;
+  // Strip width in px, kept clear of the line
+  widthPixels: number;
+  // A short dashed line across the strip at this price
+  markerPrice?: number;
+  markerColor?: string;
+}
+
+/**
+ * A horizontal band between two prices across the plot, e.g. a price range.
+ * An open side (low ≤ 0, high not finite) runs to the plot's edge.
+ */
+export interface ILightweightChartPriceBand {
+  low?: number;
+  high?: number;
+  fillColor: string;
+  lineColor: string;
+  // Extends autoscale so the band's finite edges stay on screen
+  includeInAutoscale?: boolean;
+  // Web only: the finite edges get grab handles and their prices on the
+  // price axis, and follow the mouse through onPriceBandDrag; inside the side
+  // strip the whole band moves. The native WebView draws the band without
+  // them.
+  draggable?: boolean;
+  // Fill of the handles and axis labels, and the color drawn on it
+  handleColor?: string;
+  handleTextColor?: string;
+}
+
+/** A drag on a draggable price band, reported through onPriceBandDrag */
+export type ILightweightChartBandDrag = {
+  // An edge, or the band itself, moved whole
+  target: 'low' | 'high' | 'band';
+  phase: 'start' | 'move' | 'end';
+  // The dragged edge's price; for the band, the price under the mouse
+  price: number;
+  // `price` when the drag started
+  startPrice: number;
+};
+
+/** What the overlay primitive draws; updated without rebuilding the chart */
+export interface ILightweightChartOverlay {
+  sideHistogram?: ILightweightChartSideHistogram;
+  priceBand?: ILightweightChartPriceBand;
+}
+
 export interface ILightweightChartTheme {
   bgColor: string;
   textSubduedColor: string;
@@ -67,6 +124,13 @@ export type ILightweightSecondaryLineChart = [number, number | null][];
 export interface ILightweightChartConfig {
   theme: ILightweightChartTheme;
   data: ILightweightChartData[];
+  // Bars at the bottom of the plot on their own hidden scale
+  volumeData?: ILightweightChartData[];
+  volumeColor?: string;
+  volumeHeightRatio?: number;
+  // Native WebView only: the overlay for the page's first paint. Later
+  // changes are injected on their own (window.applyOverlay).
+  overlay?: ILightweightChartOverlay;
   secondaryLineData?: ILightweightSecondaryLineData[];
   // Overlay points with a gap (or nothing) on both sides. A line series draws
   // no segment for them, so they are drawn as dots instead.
@@ -117,6 +181,17 @@ export interface ILightweightChartConfig {
 export interface ILightweightChartProps {
   data: IMarketTokenChart;
   height: number;
+  // [time, value] bars at the bottom of the plot, on their own hidden scale,
+  // e.g. trading volume under a price line
+  volumeData?: IMarketTokenChart;
+  volumeColor?: string;
+  // Share of the plot's height the tallest bar may reach. Default 0.18.
+  volumeHeightRatio?: number;
+  // Drawn by a primitive on the main series; changing it repaints without
+  // re-creating the chart, so it can follow a dragged range
+  overlay?: ILightweightChartOverlay;
+  // Web only: a draggable band edge moved to this price; 'end' on release
+  onPriceBandDrag?: (drag: ILightweightChartBandDrag) => void;
   lineColor?: string;
   topColor?: string;
   bottomColor?: string;

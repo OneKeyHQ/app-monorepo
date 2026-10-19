@@ -7,27 +7,19 @@ import {
   ListView,
   SearchBar,
   SizableText,
-  Skeleton,
   XStack,
   YStack,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ETabEarnRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type {
-  IPoolListItem,
-  IPoolListSortKey,
-} from '@onekeyhq/shared/types/pools';
+import type { IPoolListItem } from '@onekeyhq/shared/types/pools';
 
 import {
   EARN_LIST_ESTIMATED_ITEM_SIZE,
-  EARN_LIST_ROW_GAP,
   EarnListRowSeparator,
 } from '../../components/earnListRhythm';
 import { earnListScrollBehaviorProps } from '../../components/earnListScrollProps';
@@ -35,71 +27,48 @@ import { EarnMobileSortControl } from '../../components/EarnMobileSortControl';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { NetworkFilterControl } from '../../components/NetworkFilterControl';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
-import { PoolListItem } from '../components/PoolListItem';
 import { PoolsDemoMenuButton } from '../components/PoolsDemoMenuButton';
-import { PoolsChip, PoolsFilterButton } from '../components/PoolsFilterButton';
+import {
+  PoolListRow,
+  PoolsScopeChips,
+  useExpandedPool,
+} from '../components/PoolsDiscoverList';
+import { PoolsFilterButton } from '../components/PoolsFilterButton';
+import { PoolsListSkeleton } from '../components/PoolsHomeTab';
 import { POOLS_COPY } from '../poolsCopy';
 import {
   EMPTY_POOLS_FILTER,
   filterPools,
   getPoolNetworkCounts,
+  sortPools,
 } from '../poolsFilter';
+import { PoolsQueries, usePoolsQuery } from '../poolsQueries';
+import { usePoolFavorites } from '../usePoolFavorites';
 
 import type {
   IEarnSortDirection,
   IEarnSortOption,
 } from '../../components/EarnMobileSortControl';
-import type { IPoolsFilter } from '../poolsFilter';
+import type { IPoolsScope } from '../components/PoolsDiscoverList';
+import type { IPoolsFilter, IPoolsSortKey } from '../poolsFilter';
 
 const EMPTY_POOLS: IPoolListItem[] = [];
 
-function sortValue(pool: IPoolListItem, key: IPoolListSortKey) {
-  if (key === 'apr') {
-    return Number(pool.feeApr ?? 0);
-  }
-  if (key === 'volume24h') {
-    return Number(pool.volume24hUsd);
-  }
-  return Number(pool.tvlUsd);
-}
-
-function EarnPoolsSkeleton() {
-  return (
-    <YStack px="$pagePadding" gap={EARN_LIST_ROW_GAP}>
-      {Array.from({ length: 8 }).map((_, index) => (
-        <XStack key={index} minHeight="$11" py="$2" ai="center" gap="$3">
-          <Skeleton w="$16" h="$10" borderRadius="$full" />
-          <YStack flex={1} gap="$1.5">
-            <Skeleton h="$4" w="$28" />
-            <Skeleton h="$3" w="$20" />
-          </YStack>
-          <YStack ai="flex-end" gap="$1.5">
-            <Skeleton h="$4" w="$20" />
-            <Skeleton h="$3" w="$16" />
-          </YStack>
-        </XStack>
-      ))}
-    </YStack>
-  );
-}
-
 function EarnPoolsContent() {
   const intl = useIntl();
-  const navigation = useAppNavigation();
   const tabBarHeight = useScrollContentTabBarOffset();
   const [searchText, setSearchText] = useState('');
   const [selectedNetworkIds, setSelectedNetworkIds] = useState<string[]>([]);
   const [filter, setFilter] = useState<IPoolsFilter>(EMPTY_POOLS_FILTER);
+  const [scope, setScope] = useState<IPoolsScope>('all');
   // TVL high to low by default (doc §2.3)
-  const [sortKey, setSortKey] = useState<IPoolListSortKey>('tvl');
+  const [sortKey, setSortKey] = useState<IPoolsSortKey>('tvl');
   const [sortDirection, setSortDirection] =
     useState<IEarnSortDirection>('desc');
+  const { favoriteIds } = usePoolFavorites();
+  const { expandedId, toggle } = useExpandedPool();
 
-  const { result: pools, isLoading } = usePromiseResult(
-    () => backgroundApiProxy.servicePools.getPoolList(),
-    [],
-    { watchLoading: true },
-  );
+  const { result: pools } = usePoolsQuery(PoolsQueries.list());
 
   const networkCounts = useMemo(
     () => getPoolNetworkCounts(pools ?? []),
@@ -117,18 +86,31 @@ function EarnPoolsContent() {
     });
   }, [availableNetworkIds]);
 
+  // Phones sort on the last 24 hours
   const sortedPools = useMemo(
     () =>
-      filterPools({
-        pools: pools ?? [],
-        filter,
-        networkIds: selectedNetworkIds,
-        search: searchText,
-      }).toSorted((a, b) => {
-        const diff = sortValue(a, sortKey) - sortValue(b, sortKey);
-        return sortDirection === 'asc' ? diff : -diff;
-      }),
-    [filter, pools, searchText, selectedNetworkIds, sortDirection, sortKey],
+      sortPools(
+        filterPools({
+          pools: pools ?? [],
+          filter: { ...filter, stocksOnly: scope === 'stocks' },
+          networkIds: selectedNetworkIds,
+          search: searchText,
+          onlyIds: scope === 'favorites' ? favoriteIds : undefined,
+        }),
+        sortKey,
+        sortDirection,
+        '1D',
+      ),
+    [
+      favoriteIds,
+      filter,
+      pools,
+      scope,
+      searchText,
+      selectedNetworkIds,
+      sortDirection,
+      sortKey,
+    ],
   );
 
   const sortOptions = useMemo<IEarnSortOption[]>(() => {
@@ -154,7 +136,13 @@ function EarnPoolsContent() {
       {
         label: `${POOLS_COPY.sortVolume} ${highToLow}`,
         triggerLabel: POOLS_COPY.sortVolume,
-        value: 'volume24h',
+        value: 'volume',
+        direction: 'desc',
+      },
+      {
+        label: `${POOLS_COPY.sortFees} ${highToLow}`,
+        triggerLabel: POOLS_COPY.sortFees,
+        value: 'fees',
         direction: 'desc',
       },
       {
@@ -174,7 +162,7 @@ function EarnPoolsContent() {
 
   const handleSortChange = useCallback(
     (key: string, direction: IEarnSortDirection) => {
-      setSortKey(key as IPoolListSortKey);
+      setSortKey(key as IPoolsSortKey);
       setSortDirection(direction);
     },
     [],
@@ -182,15 +170,13 @@ function EarnPoolsContent() {
 
   const renderItem = useCallback(
     ({ item }: { item: IPoolListItem }) => (
-      <PoolListItem
+      <PoolListRow
         pool={item}
-        testID={`earn-pools-item-${item.id}`}
-        onPress={() =>
-          navigation.push(ETabEarnRoutes.EarnPoolDetails, { poolId: item.id })
-        }
+        expanded={expandedId === item.id}
+        onPress={toggle}
       />
     ),
-    [navigation],
+    [expandedId, toggle],
   );
 
   const keyExtractor = useCallback((item: IPoolListItem) => item.id, []);
@@ -198,7 +184,17 @@ function EarnPoolsContent() {
   const isFiltered =
     searchText.trim().length > 0 ||
     selectedNetworkIds.length > 0 ||
-    filter !== EMPTY_POOLS_FILTER;
+    filter !== EMPTY_POOLS_FILTER ||
+    scope === 'stocks';
+
+  let emptyTitle: string = POOLS_COPY.noPools;
+  if (scope === 'favorites' && !favoriteIds.size) {
+    emptyTitle = POOLS_COPY.noFavorites;
+  } else if (isFiltered) {
+    emptyTitle = intl.formatMessage({
+      id: ETranslations.global_search_no_results_title,
+    });
+  }
 
   const listHeader = (
     <>
@@ -229,16 +225,7 @@ function EarnPoolsContent() {
         />
       </XStack>
       <XStack px="$pagePadding" py="$2" gap="$2" ai="center">
-        <PoolsChip
-          label={POOLS_COPY.allPools}
-          active={!filter.stocksOnly}
-          onPress={() => setFilter({ ...filter, stocksOnly: false })}
-        />
-        <PoolsChip
-          label={POOLS_COPY.stocks}
-          active={filter.stocksOnly}
-          onPress={() => setFilter({ ...filter, stocksOnly: true })}
-        />
+        <PoolsScopeChips scope={scope} onChange={setScope} />
         <YStack flex={1} />
         <PoolsFilterButton
           testID="earn-pools-filter"
@@ -265,26 +252,25 @@ function EarnPoolsContent() {
       <ListView
         flex={1}
         {...earnListScrollBehaviorProps}
-        data={isLoading && !pools ? EMPTY_POOLS : sortedPools}
+        data={pools ? sortedPools : EMPTY_POOLS}
+        extraData={expandedId}
         estimatedItemSize={EARN_LIST_ESTIMATED_ITEM_SIZE}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         ItemSeparatorComponent={EarnListRowSeparator}
         ListHeaderComponent={listHeader}
         ListEmptyComponent={
-          isLoading && !pools ? (
-            <EarnPoolsSkeleton />
-          ) : (
+          pools ? (
             <Empty
-              icon="SearchOutline"
-              title={
-                isFiltered
-                  ? intl.formatMessage({
-                      id: ETranslations.global_search_no_results_title,
-                    })
-                  : POOLS_COPY.noPools
+              icon={
+                scope === 'favorites' && !favoriteIds.size
+                  ? 'StarOutline'
+                  : 'SearchOutline'
               }
+              title={emptyTitle}
             />
+          ) : (
+            <PoolsListSkeleton rows={8} />
           )
         }
         contentContainerStyle={{ pb: tabBarHeight }}

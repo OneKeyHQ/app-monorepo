@@ -14,6 +14,7 @@ import type {
   IPoolRemovePreview,
   IPoolTask,
   IPoolTaskRequest,
+  IPoolTopPositionsPage,
   IPoolZapInPlan,
   IPoolZapInPlanParams,
   IPoolsDemoSettings,
@@ -30,13 +31,16 @@ import {
   buildWallet,
   createInitialDemoState,
   createTask,
+  getFavoritePoolIds,
   getPoolDetail,
   getPoolNetworkIds,
   getPoolPriceHistory,
+  getPoolTopPositions,
   getTask,
   planZapIn,
   previewRemove,
   queryPools,
+  setPoolFavorite,
   settleTaskStep,
   stopTask,
   submitTaskStep,
@@ -129,6 +133,38 @@ class ServicePools extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getPoolTopPositions({
+    poolId,
+    offset,
+    limit,
+  }: {
+    poolId: string;
+    offset?: number;
+    limit?: number;
+  }): Promise<IPoolTopPositionsPage> {
+    return getPoolTopPositions(this.getCatalog(), poolId, { offset, limit });
+  }
+
+  @backgroundMethod()
+  async getFavoritePoolIds(): Promise<string[]> {
+    return getFavoritePoolIds(await this.getState());
+  }
+
+  @backgroundMethod()
+  async setPoolFavorite({
+    poolId,
+    favorite,
+  }: {
+    poolId: string;
+    favorite: boolean;
+  }): Promise<string[]> {
+    const { result } = await this.updateState((state) =>
+      setPoolFavorite(state, poolId, favorite),
+    );
+    return result ?? [];
+  }
+
+  @backgroundMethod()
   async getPortfolio(): Promise<IPoolsPortfolio> {
     return buildPortfolio(this.getCatalog(), await this.getState());
   }
@@ -211,8 +247,9 @@ class ServicePools extends ServiceBase {
 
   @backgroundMethod()
   async resetDemo(): Promise<void> {
+    const favorites = getFavoritePoolIds(await this.getState());
     await this.backgroundApi.simpleDb.poolsDemo.setRawData(
-      createInitialDemoState(this.getCatalog(), Date.now()),
+      createInitialDemoState(this.getCatalog(), Date.now(), favorites),
     );
   }
 }

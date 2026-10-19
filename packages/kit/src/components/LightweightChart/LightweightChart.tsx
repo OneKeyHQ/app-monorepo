@@ -7,6 +7,7 @@ import type { IElement } from '@onekeyhq/components';
 import { createLazySdkLoader } from '@onekeyhq/shared/src/utils/lazySdkLoader';
 
 import { useChartConfig } from './hooks/useChartConfig';
+import { usePriceBandDrag } from './hooks/usePriceBandDrag';
 import { LightweightChartPulseDot } from './LightweightChartPulseDot';
 import {
   createAreaSeriesOptions,
@@ -14,6 +15,7 @@ import {
   createLastValueSeriesOptions,
   createReferenceLineAutoscaleInfoProvider,
 } from './utils/chartOptions';
+import { ChartOverlayPrimitive } from './utils/chartOverlayPrimitive';
 import {
   createDottedAreaSeriesOptions,
   createDottedAreaSeriesPaneView,
@@ -41,6 +43,11 @@ import type {
 } from 'lightweight-charts';
 
 const getChartLib = createLazySdkLoader(() => import('lightweight-charts'));
+
+// Hidden overlay scale for volume bars, so they never move the price axis
+export const VOLUME_PRICE_SCALE_ID = 'volume';
+const DEFAULT_VOLUME_HEIGHT_RATIO = 0.18;
+const DEFAULT_VOLUME_COLOR = 'rgba(128, 128, 128, 0.3)';
 
 type IDottedAreaSeriesApi = ISeriesApi<
   'Custom',
@@ -96,6 +103,10 @@ function getSeriesValue(seriesData: unknown): number | undefined {
 export function LightweightChart({
   data,
   height,
+  volumeData,
+  volumeColor,
+  volumeHeightRatio,
+  overlay,
   lineColor,
   topColor,
   bottomColor,
@@ -137,12 +148,21 @@ export function LightweightChart({
   pulseLastPoint,
   preserveChartInstanceOnDataChange,
   onHover,
+  onPriceBandDrag,
 }: ILightweightChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<IPrimarySeriesApi | null>(null);
   const secondarySeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   const secondaryPointSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
+  const overlayPrimitiveRef = useRef<ChartOverlayPrimitive | null>(null);
+  // Read when the chart is (re)built; later changes go through setOptions
+  const overlayRef = useRef(overlay);
+  overlayRef.current = overlay;
+  // While a band is dragged the hover stays off: the chart would otherwise
+  // put its crosshair back where the mouse went down whenever it redraws
+  const bandDragRef = useRef<{ crosshairMode: number } | null>(null);
   const heightRef = useRef(height);
   heightRef.current = height;
   // Pixel position of the last data point (relative to the chart container's
@@ -154,6 +174,9 @@ export function LightweightChart({
 
   const chartConfig = useChartConfig({
     data,
+    volumeData,
+    volumeColor,
+    volumeHeightRatio,
     lineColor,
     topColor,
     bottomColor,
@@ -208,6 +231,10 @@ export function LightweightChart({
   const secondaryLineDataCreateDependency = preserveChartInstanceOnDataChange
     ? undefined
     : chartConfig.secondaryLineData;
+  const hasVolumeData = Boolean(chartConfig.volumeData?.length);
+  const volumeDataCreateDependency = preserveChartInstanceOnDataChange
+    ? undefined
+    : chartConfig.volumeData;
 
   useEffect(() => {
     if (!chartContainerRef.current) return undefined;
@@ -231,6 +258,7 @@ export function LightweightChart({
       ({
         AreaSeries,
         BaselineSeries,
+        HistogramSeries,
         LineSeries,
         LineStyle,
         LineType,
@@ -274,6 +302,29 @@ export function LightweightChart({
           width: container.clientWidth,
           height: container.clientHeight || heightRef.current,
         });
+
+        // Added first so the line and its fill draw over the bars
+        if (currentChartConfig.volumeData?.length) {
+          const volumeSeries = chart.addSeries(HistogramSeries, {
+            priceScaleId: VOLUME_PRICE_SCALE_ID,
+            color: currentChartConfig.volumeColor ?? DEFAULT_VOLUME_COLOR,
+            priceFormat: { type: 'volume' },
+            lastValueVisible: false,
+            priceLineVisible: false,
+          });
+          volumeSeries.priceScale().applyOptions({
+            visible: false,
+            scaleMargins: {
+              top:
+                1 -
+                (currentChartConfig.volumeHeightRatio ??
+                  DEFAULT_VOLUME_HEIGHT_RATIO),
+              bottom: 0,
+            },
+          });
+          volumeSeries.setData(currentChartConfig.volumeData);
+          volumeSeriesRef.current = volumeSeries;
+        }
 
         const isBaseline = currentChartConfig.seriesType === 'baseline';
         const isDottedArea = currentChartConfig.seriesType === 'dotted-area';
@@ -355,6 +406,9 @@ export function LightweightChart({
           });
         }
         series.setData(currentChartConfig.data);
+        const overlayPrimitive = new ChartOverlayPrimitive(overlayRef.current);
+        series.attachPrimitive(overlayPrimitive);
+        overlayPrimitiveRef.current = overlayPrimitive;
 
         if (currentChartConfig.referenceLine) {
           const referenceLineStyle = {
@@ -481,6 +535,9 @@ export function LightweightChart({
         // Subscribe to crosshair move events
         if (onHover) {
           chart.subscribeCrosshairMove((param) => {
+            if (bandDragRef.current) {
+              return;
+            }
             if (
               param.time &&
               param.seriesData &&
@@ -567,6 +624,8 @@ export function LightweightChart({
       seriesRef.current = null;
       secondarySeriesRef.current = null;
       secondaryPointSeriesRef.current = null;
+      volumeSeriesRef.current = null;
+      overlayPrimitiveRef.current = null;
       lastPointPositionUpdaterRef.current = undefined;
     };
   }, [
@@ -604,8 +663,12 @@ export function LightweightChart({
     chartConfig.timeZone,
     chartConfig.useTimeScaleTickMarkWithoutUnit,
     chartConfig.locale,
+    chartConfig.volumeColor,
+    chartConfig.volumeHeightRatio,
     chartDataCreateDependency,
     hasSecondaryLineData,
+    hasVolumeData,
+    volumeDataCreateDependency,
     onHover,
     preserveChartInstanceOnDataChange,
     priceScaleMinimumWidth,
@@ -633,6 +696,7 @@ export function LightweightChart({
     // A new range can sit at a different magnitude, so the tick step follows.
     applyPriceFormatOverrides(currentSeries, chartConfigRef.current);
     currentSeries.setData(chartConfig.data);
+    volumeSeriesRef.current?.setData(chartConfig.volumeData ?? []);
     currentChart.timeScale().fitContent();
 
     const lastPointRafId = requestAnimationFrame(() => {
@@ -654,7 +718,62 @@ export function LightweightChart({
         canPublishLastPointPositionRef.current = false;
       }
     };
-  }, [chartConfig.data, preserveChartInstanceOnDataChange]);
+  }, [
+    chartConfig.data,
+    chartConfig.volumeData,
+    preserveChartInstanceOnDataChange,
+  ]);
+
+  // A drag holds the price scale and lets go of it at the end, which can move
+  // the scale, so the pulse dot is placed again then
+  usePriceBandDrag({
+    containerRef: chartContainerRef,
+    chartRef,
+    seriesRef,
+    overlayRef,
+    enabled: Boolean(overlay?.priceBand?.draggable && onPriceBandDrag),
+    onDrag: onPriceBandDrag,
+    onDragStart: () => {
+      const chart = chartRef.current;
+      bandDragRef.current = {
+        crosshairMode: chart?.options().crosshair.mode ?? 1,
+      };
+      chart?.applyOptions({
+        crosshair: { mode: 2 /* CrosshairMode.Hidden */ },
+      });
+      onHover?.({
+        time: undefined,
+        price: undefined,
+        secondaryPrice: undefined,
+        x: undefined,
+        y: undefined,
+      });
+    },
+    onDragEnd: () => {
+      const crosshairMode = bandDragRef.current?.crosshairMode;
+      bandDragRef.current = null;
+      if (crosshairMode !== undefined) {
+        chartRef.current?.applyOptions({ crosshair: { mode: crosshairMode } });
+      }
+      requestAnimationFrame(() => {
+        lastPointPositionUpdaterRef.current?.();
+      });
+    },
+  });
+
+  // A dragged range repaints the band without re-creating the chart. A band
+  // in the autoscale can move the price scale, so the pulse dot is placed
+  // again once the chart has drawn.
+  useEffect(() => {
+    if (!overlayPrimitiveRef.current) {
+      return undefined;
+    }
+    overlayPrimitiveRef.current.setOptions(overlay);
+    const rafId = requestAnimationFrame(() => {
+      lastPointPositionUpdaterRef.current?.();
+    });
+    return () => cancelAnimationFrame(rafId);
+  }, [overlay]);
 
   // The overlay series is re-cut on every crosshair step by charts that dim the
   // part of the line past the cursor, so it gets its own update path: replacing

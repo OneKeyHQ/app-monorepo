@@ -159,7 +159,8 @@ function PriceBoundField({
  * Range step of the add form (doc §2.5 ②): presets with what they do (the
  * estimate and how often the price stayed inside), the liquidity chart with
  * the range's edges to drag, min / max that snap to usable ticks, and the
- * range in plain words.
+ * range in plain words. Under the pool's price chart, where the band is
+ * dragged instead, it leaves out its own chart and the current price.
  */
 export function PoolRangeEditor({
   pool,
@@ -170,9 +171,12 @@ export function PoolRangeEditor({
   presetId,
   onChange,
   readOnly = false,
+  underPriceChart = false,
+  flipped = false,
 }: {
   pool: IPool;
-  ticks: IPoolTickLiquidityNet[];
+  /** For the editor's own liquidity chart */
+  ticks?: IPoolTickLiquidityNet[];
   /** Daily closes of the last 30 days */
   priceHistory: IPoolPricePoint[];
   estimate: IPoolsAprEstimate | undefined;
@@ -180,10 +184,16 @@ export function PoolRangeEditor({
   presetId?: string;
   onChange: (range: IPoolTickRange, presetId?: string) => void;
   readOnly?: boolean;
+  underPriceChart?: boolean;
+  /** Prices the other way round, as the chart above shows them */
+  flipped?: boolean;
 }) {
   const [error, setError] = useState<string>();
   const tickSpacing = pool.tickSpacing ?? 60;
-  const { inverted, base, quote } = getPoolPair(pool);
+  const pair = getPoolPair(pool);
+  const inverted = flipped ? !pair.inverted : pair.inverted;
+  const base = flipped ? pair.quote : pair.base;
+  const quote = flipped ? pair.base : pair.quote;
   const decimals = {
     decimals0: pool.token0.decimals,
     decimals1: pool.token1.decimals,
@@ -234,23 +244,32 @@ export function PoolRangeEditor({
           quote.symbol,
         );
 
+  const presets = readOnly ? null : (
+    <XStack gap="$2" flexWrap="wrap">
+      {getRangePresets(pool).map((preset) => (
+        <PoolsChip
+          key={preset.id}
+          testID={`earn-pool-range-preset-${preset.id}`}
+          label={preset.label}
+          active={presetId === preset.id}
+          onPress={() => {
+            setError(undefined);
+            onChange(getPresetRange(pool, preset.percent), preset.id);
+          }}
+        />
+      ))}
+    </XStack>
+  );
+
   return (
     <YStack gap="$4">
-      {readOnly ? null : (
-        <XStack gap="$2" flexWrap="wrap">
-          {getRangePresets(pool).map((preset) => (
-            <PoolsChip
-              key={preset.id}
-              testID={`earn-pool-range-preset-${preset.id}`}
-              label={preset.label}
-              active={presetId === preset.id}
-              onPress={() => {
-                setError(undefined);
-                onChange(getPresetRange(pool, preset.percent), preset.id);
-              }}
-            />
-          ))}
+      {underPriceChart ? (
+        <XStack ai="center" jc="space-between" gap="$3" flexWrap="wrap">
+          <SizableText size="$headingMd">{POOLS_COPY.presets}</SizableText>
+          {presets}
         </XStack>
+      ) : (
+        presets
       )}
       <XStack jc="space-between" ai="flex-start" gap="$4">
         <PoolAprFigure estimate={estimate} pool={pool} />
@@ -265,20 +284,22 @@ export function PoolRangeEditor({
           </YStack>
         ) : null}
       </XStack>
-      <PoolLiquidityChart
-        pool={pool}
-        ticks={ticks}
-        range={range}
-        onRangeChange={
-          readOnly
-            ? undefined
-            : (next) => {
-                setError(undefined);
-                onChange(next);
-              }
-        }
-        height={120}
-      />
+      {ticks && !underPriceChart ? (
+        <PoolLiquidityChart
+          pool={pool}
+          ticks={ticks}
+          range={range}
+          onRangeChange={
+            readOnly
+              ? undefined
+              : (next) => {
+                  setError(undefined);
+                  onChange(next);
+                }
+          }
+          height={120}
+        />
+      ) : null}
       <XStack gap="$3">
         <PriceBoundField
           testID="earn-pool-range-min"
@@ -304,14 +325,16 @@ export function PoolRangeEditor({
           {error}
         </SizableText>
       ) : null}
-      <XStack jc="space-between" ai="center" gap="$2">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {POOLS_COPY.currentPrice}
-        </SizableText>
-        <SizableText size="$bodyMdMedium" textAlign="right" flexShrink={1}>
-          {`${formatTokenPrice(getPoolDisplayPrice(pool))} ${getPriceUnitLabel(pool)}`}
-        </SizableText>
-      </XStack>
+      {underPriceChart ? null : (
+        <XStack jc="space-between" ai="center" gap="$2">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {POOLS_COPY.currentPrice}
+          </SizableText>
+          <SizableText size="$bodyMdMedium" textAlign="right" flexShrink={1}>
+            {`${formatTokenPrice(getPoolDisplayPrice(pool))} ${getPriceUnitLabel(pool)}`}
+          </SizableText>
+        </XStack>
+      )}
       <SizableText size="$bodyMd" color="$textSubdued">
         {meaning}
       </SizableText>

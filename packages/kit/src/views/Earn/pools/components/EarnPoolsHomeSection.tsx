@@ -9,16 +9,16 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IPoolListItem } from '@onekeyhq/shared/types/pools';
 
 import { EARN_LIST_ROW_GAP } from '../../components/earnListRhythm';
+import { sortPools } from '../poolsFilter';
 import { PoolsNavigation } from '../poolsNavigation';
+import { PoolsQueries, usePoolsQuery } from '../poolsQueries';
 
-import { PoolListItem } from './PoolListItem';
+import { PoolListRow } from './PoolsDiscoverList';
 
 const MAX_HOME_POOLS = 4;
 
@@ -29,7 +29,7 @@ const MAX_HOME_POOLS = 4;
 function pickHomePools(pools: IPoolListItem[]) {
   const seenPairs = new Set<string>();
   const picked: IPoolListItem[] = [];
-  for (const pool of pools) {
+  for (const pool of sortPools(pools, 'tvl', 'desc', '1D')) {
     if (!seenPairs.has(pool.pairKey)) {
       seenPairs.add(pool.pairKey);
       picked.push(pool);
@@ -59,18 +59,18 @@ function EarnPoolsHomeSectionSkeleton() {
   );
 }
 
-/** Phone Earn home: Pools sits right below Trending tokens */
+/**
+ * Phone Earn home: Pools sits right below Trending tokens. Its rows open the
+ * pool page rather than opening in place, so the home stays short
+ * (proposal); the full list opens rows in place.
+ */
 export function EarnPoolsHomeSection() {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { result: pools, isLoading } = usePromiseResult(
-    () => backgroundApiProxy.servicePools.getPoolList({ sortBy: 'tvl' }),
-    [],
-    { watchLoading: true },
-  );
+  const { result: pools } = usePoolsQuery(PoolsQueries.list());
   const homePools = useMemo(() => pickHomePools(pools ?? []), [pools]);
 
-  if (isLoading && !pools) {
+  if (!pools) {
     return <EarnPoolsHomeSectionSkeleton />;
   }
   if (!homePools.length) {
@@ -104,11 +104,13 @@ export function EarnPoolsHomeSection() {
       </XStack>
       <YStack gap={EARN_LIST_ROW_GAP}>
         {homePools.map((pool) => (
-          <PoolListItem
+          <PoolListRow
             key={pool.id}
             pool={pool}
-            testID={`earn-home-pool-${pool.id}`}
-            onPress={() => PoolsNavigation.pushPoolDetails(navigation, pool.id)}
+            expanded={false}
+            onPress={(poolId) =>
+              PoolsNavigation.pushPoolDetails(navigation, poolId)
+            }
           />
         ))}
       </YStack>

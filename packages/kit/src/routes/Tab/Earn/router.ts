@@ -124,6 +124,13 @@ export const earnRouters: ITabSubNavigatorConfig<any, any>[] = [
     headerShown: !platformEnv.isNative,
   },
   {
+    name: ETabEarnRoutes.EarnPoolDetailsShare,
+    component: EarnPoolDetails,
+    exact: true,
+    rewrite: '/earn/pool/:network/:version/:poolKey',
+    headerShown: !platformEnv.isNative,
+  },
+  {
     name: ETabEarnRoutes.EarnPoolAddLiquidity,
     component: EarnPoolAddLiquidity,
     headerShown: !platformEnv.isNative,

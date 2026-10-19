@@ -38,13 +38,10 @@ import { parseFormattedLiquidityValue } from '../earnUtils';
 import { useNavigateToEarnAsset } from '../hooks/useNavigateToEarnAsset';
 import { PoolsDemoMenuButton } from '../pools/components/PoolsDemoMenuButton';
 import { PoolsFilterButton } from '../pools/components/PoolsFilterButton';
-import { PoolsTable } from '../pools/components/PoolsTable';
-import {
-  EMPTY_POOLS_FILTER,
-  filterPools,
-  getPoolNetworkCounts,
-} from '../pools/poolsFilter';
+import { PoolsHomeTab } from '../pools/components/PoolsHomeTab';
+import { EMPTY_POOLS_FILTER, getPoolNetworkCounts } from '../pools/poolsFilter';
 import { PoolsNavigation } from '../pools/poolsNavigation';
+import { PoolsQueries, usePoolsQuery } from '../pools/poolsQueries';
 import { EarnTestIDs } from '../testIDs';
 
 import { AprText } from './AprText';
@@ -180,37 +177,13 @@ export function AvailableAssetsTabViewList({
     shouldApplyNetworkFilter,
   ]);
 
-  const { result: poolList, isLoading: isPoolListLoading } = usePromiseResult(
-    () =>
-      isPoolsTab && isActive
-        ? backgroundApiProxy.servicePools.getPoolList()
-        : Promise.resolve(undefined),
-    [isActive, isPoolsTab],
-    { watchLoading: true },
+  // Shared with the pool pages through the pools cache
+  const { result: poolList } = usePoolsQuery(
+    isPoolsTab && isActive ? PoolsQueries.list() : undefined,
   );
-
-  const pools = useMemo(
-    () =>
-      filterPools({
-        pools: poolList ?? [],
-        filter: poolsFilter,
-        networkIds: shouldApplyNetworkFilter ? selectedNetworkIds : [],
-        search: searchText,
-      }),
-    [
-      poolList,
-      poolsFilter,
-      searchText,
-      selectedNetworkIds,
-      shouldApplyNetworkFilter,
-    ],
-  );
-
-  const handlePoolPress = useCallback(
-    (pool: { id: string }) => {
-      PoolsNavigation.pushPoolDetails(navigation, pool.id);
-    },
-    [navigation],
+  const poolNetworkIds = useMemo(
+    () => (shouldApplyNetworkFilter ? selectedNetworkIds : []),
+    [selectedNetworkIds, shouldApplyNetworkFilter],
   );
 
   // Compute available network IDs for the current tab
@@ -676,7 +649,6 @@ export function AvailableAssetsTabViewList({
                 testID="earn-pools-filter"
                 value={poolsFilter}
                 onChange={setPoolsFilter}
-                showCategory
               />
             ) : null}
             {/* Demo controls; on phones they sit in the Pools page header */}
@@ -713,11 +685,12 @@ export function AvailableAssetsTabViewList({
         ) : null}
 
         {isPoolsTab ? (
-          <PoolsTable
-            pools={pools}
-            isLoading={isPoolListLoading && !poolList}
-            onPressPool={handlePoolPress}
-            ListEmptyComponent={listEmptyComponent}
+          <PoolsHomeTab
+            pools={poolList}
+            filter={poolsFilter}
+            networkIds={poolNetworkIds}
+            search={searchText}
+            emptyComponent={listEmptyComponent}
           />
         ) : (
           <TableList<IEarnAvailableAsset>
