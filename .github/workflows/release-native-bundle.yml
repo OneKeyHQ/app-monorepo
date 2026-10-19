@@ -71,12 +71,6 @@ on:
         required: false
       SENTRY_DSN_EXT:
         required: false
-      APPLEID:
-        required: false
-      APPLEIDPASS:
-        required: false
-      ASC_PROVIDER:
-        required: false
       QA_JS_BUNDLE_SERVER_URL:
         required: false
       QA_JS_BUNDLE_UPLOAD_SECRET:
@@ -409,9 +403,6 @@ jobs:
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           JPUSH_KEY: ${{ secrets.JPUSH_KEY }}
-          APPLEID: ${{ secrets.APPLEID }}
-          APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
-          ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           UNION_BUILD: 'true'
           ENABLE_NATIVE_BACKGROUND_THREAD: 'true'
@@ -457,9 +448,11 @@ jobs:
 
       # Stash the metadata the downstream qa-upload job needs. Lifting QA
       # upload out of this build job means a flaky QA server no longer forces
-      # a full re-bundle on rerun-failed-jobs. We pass everything via a small
-      # artifact (instead of job outputs) because matrix jobs cannot expose
-      # per-arm outputs reliably.
+      # a full re-bundle on rerun-failed-jobs, and keeps the QA upload and
+      # Slack secrets off the runner that executes checked-out (possibly
+      # fork PR) code. We pass everything via a small artifact (instead of
+      # job outputs) because matrix jobs cannot expose per-arm outputs
+      # reliably.
       - name: Stash QA upload metadata
         run: |
           mkdir -p ./qa-upload-meta
@@ -468,7 +461,10 @@ jobs:
             --arg commit "$COMMIT" \
             --arg branch "$BRANCH" \
             --arg commit_message "$COMMIT_MESSAGE" \
-            '{artifact_name:$artifact_name, commit:$commit, branch:$branch, commit_message:$commit_message}' \
+            --arg build_app_version "$BUILD_APP_VERSION" \
+            --arg build_number "$BUILD_NUMBER" \
+            --arg build_bundle_version "$BUILD_BUNDLE_VERSION" \
+            '{artifact_name:$artifact_name, commit:$commit, branch:$branch, commit_message:$commit_message, build_app_version:$build_app_version, build_number:$build_number, build_bundle_version:$build_bundle_version}' \
             > ./qa-upload-meta/meta.json
 
       - name: Upload QA metadata artifact
@@ -479,28 +475,16 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
-      - name: 'Notify to Slack'
-        uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
-        continue-on-error: true
-        with:
-          web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
-          secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
-          artifact-type: React-Native-Bundle-${{ matrix.platform }}
-          artifact-name: OneKey-Native-Bundle-${{ matrix.platform }}
-          artifact-bundle-id: 'so.onekey.wallet'
-          artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
-          artifact-version-code: '${{ env.BUILD_NUMBER }}'
-          artifact-download-url: '${{ env.ARTIFACTS_URL }}'
-          artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
-          artifact-build-source: '${{ inputs.build_source || ''daily-build'' }}'
-          artifact-branch: '${{ env.BRANCH }}'
-          artifact-commit: '${{ env.COMMIT }}'
-
   # Separate job so a transient QA server failure can be retried via
   # rerun-failed-jobs without triggering another full native bundle build
   # (each platform is ~8-10 minutes). Same matrix as release-native-bundle so
   # iOS and Android upload independently and one slot's failure doesn't block
   # the other.
+  #
+  # This job holds the QA upload and Slack secrets, so it must never check
+  # out or execute repository code: the build job may run fork PR code
+  # (release-app-bundles.yml). Everything read from the build artifacts is
+  # untrusted data and only reaches pinned remote actions as inputs.
   #
   # Two scenarios the `if:` has to thread:
   # 1. Upstream `release-native-bundle` is *skipped* (workflow_run fired with a
@@ -530,18 +514,26 @@ jobs:
 
       - name: Read metadata
         id: meta
+        env:
+          # Caller-provided values come from trusted workflow code; prefer
+          # them over the build-job artifact, which PR code can rewrite.
+          INPUT_BRANCH: ${{ inputs.branch }}
+          INPUT_COMMIT: ${{ inputs.commit }}
+          INPUT_BUILD_NUMBER: ${{ inputs.build_number }}
+          INPUT_BUILD_BUNDLE_VERSION: ${{ inputs.build_bundle_version }}
         run: |
+          set -euo pipefail
           meta=./qa-upload-meta/meta.json
+          # Single-line fields only, so a crafted value cannot add outputs.
+          field() { jq -r --arg k "$1" '.[$k] // "" | tostring | gsub("[\r\n]"; "")' "$meta"; }
           {
-            echo "artifact_name=$(jq -r .artifact_name "$meta")"
-            echo "commit=$(jq -r .commit "$meta")"
-            echo "branch=$(jq -r .branch "$meta")"
-          } >> "$GITHUB_OUTPUT"
-          DELIMITER=$(uuidgen)
-          {
-            echo "commit_message<<${DELIMITER}"
-            jq -r .commit_message "$meta"
-            echo "${DELIMITER}"
+            echo "artifact_name=$(field artifact_name)"
+            echo "commit=${INPUT_COMMIT:-$(field commit)}"
+            echo "branch=${INPUT_BRANCH:-$(field branch)}"
+            echo "build_app_version=$(field build_app_version)"
+            echo "build_number=${INPUT_BUILD_NUMBER:-$(field build_number)}"
+            echo "build_bundle_version=${INPUT_BUILD_BUNDLE_VERSION:-$(field build_bundle_version)}"
+            echo "commit_message=$(field commit_message)"
           } >> "$GITHUB_OUTPUT"
 
       - name: Download bundle zips
@@ -549,6 +541,23 @@ jobs:
         with:
           name: ${{ steps.meta.outputs.artifact_name }}
           path: ./bundle-zip
+
+      - name: 'Notify to Slack'
+        uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
+        continue-on-error: true
+        with:
+          web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+          secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
+          artifact-type: React-Native-Bundle-${{ matrix.platform }}
+          artifact-name: OneKey-Native-Bundle-${{ matrix.platform }}
+          artifact-bundle-id: 'so.onekey.wallet'
+          artifact-version-name: '${{ steps.meta.outputs.build_app_version }}@${{ steps.meta.outputs.build_number }}'
+          artifact-version-code: '${{ steps.meta.outputs.build_number }}'
+          artifact-download-url: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
+          artifact-bundle-version: '${{ steps.meta.outputs.build_bundle_version }}'
+          artifact-build-source: '${{ inputs.build_source || ''daily-build'' }}'
+          artifact-branch: '${{ steps.meta.outputs.branch }}'
+          artifact-commit: '${{ steps.meta.outputs.commit }}'
 
       - name: Upload QA Bundles
         uses: onekeyhq/actions/qa-bundle-upload@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA

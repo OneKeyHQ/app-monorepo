@@ -25,6 +25,17 @@ permissions:
   packages: read
   actions: read
 
+# Trust boundary for PR builds (`pr_number` set):
+# - Jobs that check out the PR head and run its code (local actions such as
+#   ./.github/actions/shared-env, `yarn install`, build scripts) are treated as
+#   untrusted for fork PRs from TRUSTED_PR_AUTHORS. They only receive values
+#   that are inlined into every shipped client bundle (COVALENT_KEY,
+#   SENTRY_DSN_*, JPUSH_KEY, ONRAMPER_*) plus the read-only GITHUB_TOKEN.
+#   SENTRY_TOKEN is withheld via `build_secrets_allowed`.
+# - QA upload and Slack notification run in separate jobs inside the reusable
+#   workflows (`qa-upload` / `notify`). Those jobs never check out the PR and
+#   only run pinned remote actions, so QA_JS_BUNDLE_* and Slack secrets never
+#   share a runner with PR code. They treat artifacts as data.
 jobs:
   validate-pr:
     if: ${{ inputs.pr_number }}
@@ -32,6 +43,7 @@ jobs:
     outputs:
       head_sha: ${{ steps.pr-info.outputs.head_sha }}
       head_ref: ${{ steps.pr-info.outputs.head_ref }}
+      is_fork: ${{ steps.pr-info.outputs.is_fork }}
     steps:
       - name: Validate PR and extract metadata
         id: pr-info
@@ -60,6 +72,13 @@ jobs:
               exit 1
             fi
             echo "::notice::PR #$PR_NUMBER is from a trusted fork ($HEAD_REPO) by whitelisted author @$AUTHOR — allowed."
+            echo "::notice::Fork build: build jobs run without SENTRY_TOKEN; QA upload and Slack run in separate jobs that never execute PR code."
+            IS_FORK=true
+            # A fork can name its branch "x" or "main"; namespace the QA/Slack
+            # label so a fork bundle is never listed as a mainline branch.
+            HEAD_REF="fork/${HEAD_REPO%%/*}/${HEAD_REF}"
+          else
+            IS_FORK=false
           fi
 
           # Check PR is up-to-date with base branch
@@ -80,6 +99,7 @@ jobs:
 
           echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
           echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
+          echo "is_fork=$IS_FORK" >> "$GITHUB_OUTPUT"
 
           echo "PR #$PR_NUMBER validated successfully."
 
@@ -93,6 +113,10 @@ jobs:
       build_source: ${{ steps.params.outputs.build_source }}
       branch: ${{ steps.params.outputs.branch }}
       commit: ${{ steps.params.outputs.commit }}
+      # 'true' only for branch dispatches and same-repo PRs. Fork PR code runs
+      # in the build jobs, so those jobs must not receive credentials; fails
+      # closed when validate-pr did not report a same-repo PR.
+      build_secrets_allowed: ${{ (!inputs.pr_number || needs.validate-pr.outputs.is_fork == 'false') && 'true' || 'false' }}
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
@@ -193,7 +217,7 @@ jobs:
           env_file_name: '.env'
           sentry_project: 'react-native'
           covalent_key: ${{ secrets.COVALENT_KEY }}
-          sentry_token: ${{ secrets.SENTRY_TOKEN }}
+          sentry_token: ${{ needs.prepare-params.outputs.build_secrets_allowed == 'true' && secrets.SENTRY_TOKEN || '' }}
           sentry_dsn_react_native: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
           sentry_dsn_web: ${{ secrets.SENTRY_DSN_WEB }}
           sentry_dsn_desktop: ${{ secrets.SENTRY_DSN_DESKTOP }}
@@ -262,7 +286,7 @@ jobs:
         id: upload_web_embed_sourcemaps
         continue-on-error: true
         env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_TOKEN }}
+          SENTRY_AUTH_TOKEN: ${{ needs.prepare-params.outputs.build_secrets_allowed == 'true' && secrets.SENTRY_TOKEN || '' }}
           SENTRY_ORG: onekey-bb
           SENTRY_PROJECT: react-native
           BUILD_APP_VERSION: ${{ env.BUILD_APP_VERSION }}
@@ -359,7 +383,7 @@ jobs:
       checkout_ref: ${{ needs.prepare-params.outputs.commit }}
     secrets:
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
-      SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
+      SENTRY_TOKEN: ${{ needs.prepare-params.outputs.build_secrets_allowed == 'true' && secrets.SENTRY_TOKEN || '' }}
       SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
       SENTRY_DSN_WEB: ${{ secrets.SENTRY_DSN_WEB }}
       SENTRY_DSN_DESKTOP: ${{ secrets.SENTRY_DSN_DESKTOP }}
@@ -367,9 +391,6 @@ jobs:
       SENTRY_DSN_SNAP: ${{ secrets.SENTRY_DSN_SNAP }}
       SENTRY_DSN_WINMS: ${{ secrets.SENTRY_DSN_WINMS }}
       SENTRY_DSN_EXT: ${{ secrets.SENTRY_DSN_EXT }}
-      APPLEID: ${{ secrets.APPLEID }}
-      APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
-      ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
       QA_JS_BUNDLE_SERVER_URL: ${{ secrets.QA_JS_BUNDLE_SERVER_URL }}
       QA_JS_BUNDLE_UPLOAD_SECRET: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
       SLACK_NOTIFICATION_WEBHOOK: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
@@ -396,7 +417,7 @@ jobs:
     secrets:
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
       JPUSH_KEY: ${{ secrets.JPUSH_KEY }}
-      SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
+      SENTRY_TOKEN: ${{ needs.prepare-params.outputs.build_secrets_allowed == 'true' && secrets.SENTRY_TOKEN || '' }}
       SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
       SENTRY_DSN_WEB: ${{ secrets.SENTRY_DSN_WEB }}
       SENTRY_DSN_DESKTOP: ${{ secrets.SENTRY_DSN_DESKTOP }}
@@ -404,9 +425,6 @@ jobs:
       SENTRY_DSN_SNAP: ${{ secrets.SENTRY_DSN_SNAP }}
       SENTRY_DSN_WINMS: ${{ secrets.SENTRY_DSN_WINMS }}
       SENTRY_DSN_EXT: ${{ secrets.SENTRY_DSN_EXT }}
-      APPLEID: ${{ secrets.APPLEID }}
-      APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
-      ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
       QA_JS_BUNDLE_SERVER_URL: ${{ secrets.QA_JS_BUNDLE_SERVER_URL }}
       QA_JS_BUNDLE_UPLOAD_SECRET: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
       SLACK_NOTIFICATION_WEBHOOK: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
@@ -431,7 +449,7 @@ jobs:
     secrets:
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
       JPUSH_KEY: ${{ secrets.JPUSH_KEY }}
-      SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
+      SENTRY_TOKEN: ${{ needs.prepare-params.outputs.build_secrets_allowed == 'true' && secrets.SENTRY_TOKEN || '' }}
       SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
       SENTRY_DSN_WEB: ${{ secrets.SENTRY_DSN_WEB }}
       SENTRY_DSN_DESKTOP: ${{ secrets.SENTRY_DSN_DESKTOP }}
@@ -439,9 +457,6 @@ jobs:
       SENTRY_DSN_SNAP: ${{ secrets.SENTRY_DSN_SNAP }}
       SENTRY_DSN_WINMS: ${{ secrets.SENTRY_DSN_WINMS }}
       SENTRY_DSN_EXT: ${{ secrets.SENTRY_DSN_EXT }}
-      APPLEID: ${{ secrets.APPLEID }}
-      APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
-      ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
       QA_JS_BUNDLE_SERVER_URL: ${{ secrets.QA_JS_BUNDLE_SERVER_URL }}
       QA_JS_BUNDLE_UPLOAD_SECRET: ${{ secrets.QA_JS_BUNDLE_UPLOAD_SECRET }}
       SLACK_NOTIFICATION_WEBHOOK: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
@@ -462,7 +477,7 @@ jobs:
       test_endpoint: app-bundle.onekeytest.com
     secrets:
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
-      SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
+      SENTRY_TOKEN: ${{ needs.prepare-params.outputs.build_secrets_allowed == 'true' && secrets.SENTRY_TOKEN || '' }}
       SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
       SENTRY_DSN_WEB: ${{ secrets.SENTRY_DSN_WEB }}
       SENTRY_DSN_DESKTOP: ${{ secrets.SENTRY_DSN_DESKTOP }}
