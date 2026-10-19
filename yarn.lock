@@ -10479,9 +10479,9 @@ __metadata:
     ethereumjs-util: "npm:7.1.5"
     js-conflux-sdk: "npm:^2.1.12"
     near-api-js: "npm:^2.1.4"
-    onekey-monero-runtime: "portal:../../../app-modules/chain-runtimes/monero/pkg"
-    onekey-zcash-keys: "portal:../../../app-modules/chain-runtimes/zcash/pkg-keys"
-    onekey-zcash-runtime: "portal:../../../app-modules/chain-runtimes/zcash/pkg"
+    onekey-monero-runtime: "npm:0.1.0-alpha.3"
+    onekey-zcash-keys: "npm:0.1.0-alpha.3"
+    onekey-zcash-runtime: "npm:0.1.0-alpha.3"
     ripple-keypairs: "npm:^1.3.1"
     tonweb-mnemonic: "npm:^1.0.1"
     tronweb: "npm:^6.1.0"
@@ -39773,23 +39773,26 @@ __metadata:
   languageName: node
   linkType: hard
 
-"onekey-monero-runtime@portal:../../../app-modules/chain-runtimes/monero/pkg::locator=%40onekeyhq%2Fcore%40workspace%3Apackages%2Fcore":
-  version: 0.0.0-use.local
-  resolution: "onekey-monero-runtime@portal:../../../app-modules/chain-runtimes/monero/pkg::locator=%40onekeyhq%2Fcore%40workspace%3Apackages%2Fcore"
+"onekey-monero-runtime@npm:0.1.0-alpha.3":
+  version: 0.1.0-alpha.3
+  resolution: "onekey-monero-runtime@npm:0.1.0-alpha.3"
+  checksum: 10/6d2c5851c28edda0681e77ef9165e3aaa5a50419985ae04f7f191e233af6d8ffc4b293e2c204f9ac32ae35f6063a639d1b9dff56bcce7cc83bc16056ff08f3fc
   languageName: node
-  linkType: soft
+  linkType: hard
 
-"onekey-zcash-keys@portal:../../../app-modules/chain-runtimes/zcash/pkg-keys::locator=%40onekeyhq%2Fcore%40workspace%3Apackages%2Fcore":
-  version: 0.0.0-use.local
-  resolution: "onekey-zcash-keys@portal:../../../app-modules/chain-runtimes/zcash/pkg-keys::locator=%40onekeyhq%2Fcore%40workspace%3Apackages%2Fcore"
+"onekey-zcash-keys@npm:0.1.0-alpha.3":
+  version: 0.1.0-alpha.3
+  resolution: "onekey-zcash-keys@npm:0.1.0-alpha.3"
+  checksum: 10/07a97e3fbae03312103f1ffce6f55774568d70030fed65426fea08ed92409c0caa8dd1aab8310f2133ab614e409597b8d63191352f151f4832c750a26efa0238
   languageName: node
-  linkType: soft
+  linkType: hard
 
-"onekey-zcash-runtime@portal:../../../app-modules/chain-runtimes/zcash/pkg::locator=%40onekeyhq%2Fcore%40workspace%3Apackages%2Fcore":
-  version: 0.0.0-use.local
-  resolution: "onekey-zcash-runtime@portal:../../../app-modules/chain-runtimes/zcash/pkg::locator=%40onekeyhq%2Fcore%40workspace%3Apackages%2Fcore"
+"onekey-zcash-runtime@npm:0.1.0-alpha.3":
+  version: 0.1.0-alpha.3
+  resolution: "onekey-zcash-runtime@npm:0.1.0-alpha.3"
+  checksum: 10/213e74adfdbbf29a69f278d3dc160cb261293395d89804c7e907a6e65d48adf6dce61639e95a4e0985918b547a8f982662a37d339cfc2596f9736386dd03014a
   languageName: node
-  linkType: soft
+  linkType: hard
 
 "onetime@npm:^2.0.0":
   version: 2.0.1

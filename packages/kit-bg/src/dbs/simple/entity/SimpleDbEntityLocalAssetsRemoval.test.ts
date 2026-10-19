@@ -16,6 +16,7 @@ function withMemoryStorage<T extends object>(entity: T) {
 }
 
 const token = (value: string) => ({
+  hasAssets: true,
   tokenList: [],
   smallBalanceTokenList: [],
   riskyTokenList: [],
@@ -48,6 +49,7 @@ describe('removing one account from the shared asset caches', () => {
 
     const raw = await entity.getRawData();
     expect(Object.keys(raw?.tokenListValue ?? {})).toEqual(['evm--1_0xabc']);
+    expect(raw?.tokenListHasAssets).toEqual({ 'evm--1_0xabc': true });
   });
 
   it('drops that network from the single and All Networks worth', async () => {
