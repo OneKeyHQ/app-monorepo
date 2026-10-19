@@ -319,21 +319,23 @@ export async function zcashFetchFreshTransparentUtxos(
     }
   }
 
-  // A signed/signing tx still spends these; both totals and new selections must skip them until it settles or expires.
+  // The next block follows the tip (height + confirmations - 1).
+  const targetHeight = confirmedUtxos.reduce(
+    (height, utxo) => Math.max(height, utxo.height + utxo.confirmations),
+    0,
+  );
+  // Expired unsigned reservations stop blocking inputs; signed journals remain in use until settled.
   const inUse = new Set(
     [
       ...(await vault.backgroundApi.simpleDb.zcash.listTransparentOutpointsInUse(
-        { accountId: account.id },
+        { accountId: account.id, currentHeight: targetHeight },
       )),
     ].map((key) => key.toLowerCase()),
   );
-  let targetHeight = 0;
   let coinbaseZat = new BigNumber(0);
   const seen = new Set<string>();
   const utxos: IZcashTransparentTxRequest['utxos'] = [];
   for (const utxo of confirmedUtxos) {
-    // A new tx lands in the block after the tip (height + confirmations - 1); branch, expiry, maturity key off that.
-    targetHeight = Math.max(targetHeight, utxo.height + utxo.confirmations);
     const key = `${utxo.txid.toLowerCase()}:${utxo.vout}`;
     if (seen.has(key) || inUse.has(key)) {
       // eslint-disable-next-line no-continue

@@ -137,6 +137,8 @@ describe('Zcash transparent send the backend has not seen yet', () => {
     observed = false,
     withJournal = true,
     accepted = false,
+    locallyCreated = true,
+    incoming = false,
   } = {}) {
     const pendingRow = {
       id: 'row-ab',
@@ -144,7 +146,9 @@ describe('Zcash transparent send the backend has not seen yet', () => {
         txid: 'AB',
         status: 'Pending',
         createdAt: 1,
-        encodedTx: { expiry: 100 },
+        encodedTx: locallyCreated
+          ? { zcashMode: 'transparent', expiry: 100 }
+          : undefined,
       },
     };
     const settle = jest.fn();
@@ -187,6 +191,8 @@ describe('Zcash transparent send the backend has not seen yet', () => {
                   txid: 'AB',
                   status: 'Pending',
                   createdAt: 10,
+                  owner: 't1-own',
+                  signer: incoming ? 't1-other' : 't1-own',
                 },
               },
             ]
@@ -230,4 +236,19 @@ describe('Zcash transparent send the backend has not seen yet', () => {
     const rows = await read();
     expect(rows?.[0].decodedTx.broadcastOutcomeUnknown).toBe(false);
   });
+  it.each([true, false])(
+    'does not invent an unknown broadcast for an observed non-local transaction (incoming=%s)',
+    async (incoming) => {
+      const { read } = fixture({
+        observed: true,
+        withJournal: false,
+        locallyCreated: false,
+        incoming,
+      });
+      const rows = await read();
+      expect(rows?.[0].decodedTx.status).toBe('Pending');
+      expect(rows?.[0].decodedTx.broadcastOutcomeUnknown).not.toBe(true);
+      expect(rows?.[0].decodedTx.createdAt).toBe(10);
+    },
+  );
 });

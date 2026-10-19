@@ -996,12 +996,20 @@ export class SimpleDbEntityZcash extends SimpleDbEntityBase<IZcashDB> {
   // must skip them until that transaction settles or expires.
   async listTransparentOutpointsInUse({
     accountId,
+    currentHeight,
   }: {
     accountId: string;
+    currentHeight?: number;
   }): Promise<Set<string>> {
     const rawData = await this.getRawData();
     const keys = new Set(
-      Object.keys(rawData?.transparentReservations?.[accountId] ?? {}),
+      Object.entries(rawData?.transparentReservations?.[accountId] ?? {})
+        .filter(
+          ([, reservation]) =>
+            currentHeight === undefined ||
+            reservation.expiryHeight >= currentHeight,
+        )
+        .map(([key]) => key),
     );
     for (const tx of Object.values(
       rawData?.transparentPendingTxs?.[accountId] ?? {},

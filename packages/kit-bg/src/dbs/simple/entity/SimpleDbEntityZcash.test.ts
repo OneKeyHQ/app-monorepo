@@ -39,6 +39,49 @@ describe('SimpleDbEntityZcash account cleanup', () => {
   });
 });
 
+it('ignores only expired signing reservations while retaining signed pending inputs', async () => {
+  const entity = createEntity({ accounts: {} });
+  const outpoint = { txid: '11'.repeat(32), vout: 0 };
+  await entity.reserveTransparentOutpoints({
+    accountId: 'account',
+    ownerId: 'owner',
+    outpoints: [outpoint],
+    currentHeight: 100,
+    expiryHeight: 110,
+  });
+  await expect(
+    entity.listTransparentOutpointsInUse({
+      accountId: 'account',
+      currentHeight: 110,
+    }),
+  ).resolves.toEqual(new Set([`${outpoint.txid}:0`]));
+  await expect(
+    entity.listTransparentOutpointsInUse({
+      accountId: 'account',
+      currentHeight: 111,
+    }),
+  ).resolves.toEqual(new Set());
+  await entity.saveTransparentPendingTx({
+    accountId: 'account',
+    requireLiveReservation: true,
+    tx: {
+      ownerId: 'owner',
+      rawTx: '00',
+      txid: '22'.repeat(32),
+      spentOutpoints: [outpoint],
+      expiryHeight: 110,
+      createdAt: 1,
+      broadcastState: 'unknown',
+    },
+  });
+  await expect(
+    entity.listTransparentOutpointsInUse({
+      accountId: 'account',
+      currentHeight: 111,
+    }),
+  ).resolves.toEqual(new Set([`${outpoint.txid}:0`]));
+});
+
 describe('SimpleDbEntityZcash privacy mode', () => {
   const meta = {
     ufvk: 'ufvk-shared',

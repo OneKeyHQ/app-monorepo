@@ -112,8 +112,10 @@ export function useLocalWalletSendPool({
         : undefined,
     [currentResult?.pools, initialPool, poolDescriptors],
   );
-  const preferredPool =
-    selection?.scope === scope ? selection.key : initialPool;
+  let preferredPool = pools?.some((pool) => pool.key === initialPool)
+    ? initialPool
+    : undefined;
+  if (selection?.scope === scope) preferredPool = selection.key;
   const selectedPool = pools
     ? getDefaultLocalWalletSendPool({
         pools,

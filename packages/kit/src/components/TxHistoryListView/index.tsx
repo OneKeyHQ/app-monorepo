@@ -23,6 +23,7 @@ import {
   convertToSectionGroups,
   getFilteredHistoryBySearchKey,
   getHistoryTxDisplayStatus,
+  getPendingHistorySectionState,
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import { getDisplayedActions } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
@@ -333,13 +334,7 @@ function TxHistoryListViewSectionHeader(
     }
   }, [data, inTabList, isTabFocused, recomputeLayout]);
 
-  const allBroadcastsUnknown = data.every(
-    (tx) => tx.decodedTx.broadcastOutcomeUnknown,
-  );
-  let pendingTitle = ETranslations.global_confirming;
-  if (allBroadcastsUnknown) pendingTitle = ETranslations.global_unknown;
-  else if (data.some((tx) => tx.decodedTx.broadcastOutcomeUnknown))
-    pendingTitle = ETranslations.global_pending;
+  const pendingSection = getPendingHistorySectionState(data);
 
   if (
     data[0] &&
@@ -354,12 +349,12 @@ function TxHistoryListViewSectionHeader(
         gap="$2"
         mt={index === 0 ? '$0' : '$5'}
       >
-        {allBroadcastsUnknown ? null : (
+        {pendingSection.showSpinner ? (
           <Spinner size="small" color="$textCaution" />
-        )}
+        ) : null}
         <SizableText numberOfLines={1} size="$headingXs" color="$textCaution">
           {intl.formatMessage({
-            id: pendingTitle,
+            id: pendingSection.titleId,
           })}
         </SizableText>
       </XStack>
