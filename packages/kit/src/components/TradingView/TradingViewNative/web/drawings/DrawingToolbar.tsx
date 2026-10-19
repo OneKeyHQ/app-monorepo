@@ -13,6 +13,8 @@ import type {
   SelectHTMLAttributes,
 } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   ButtonFrame,
@@ -30,6 +32,7 @@ import type {
   ISizableTextProps,
   IXStackProps,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { TRADING_VIEW_DRAWING_ICONS } from './icons';
 import {
@@ -360,7 +363,11 @@ export function DrawingToolbar({
   } | null>(null);
   const [propertiesPosition, setPropertiesPosition] =
     useState<IPropertiesPosition>({ left: 62, top: 8 });
+  const intl = useIntl();
   const [collapsed, setCollapsed] = useState(false);
+  const toggleToolbarLabel = intl.formatMessage({
+    id: collapsed ? ETranslations.global_expand : ETranslations.global_collapse,
+  });
   const [positionExpanded, setPositionExpanded] = useState(false);
   const [menu, setMenu] = useState<string | null>(null);
   const [lastTools, setLastTools] = useState<Record<string, IDrawingTool>>({
@@ -760,12 +767,8 @@ export function DrawingToolbar({
       >
         <IconButton
           testID="chart-drawing-toolbar-toggle"
-          aria-label={
-            collapsed ? 'Expand drawing toolbar' : 'Collapse drawing toolbar'
-          }
-          title={
-            collapsed ? 'Expand drawing toolbar' : 'Collapse drawing toolbar'
-          }
+          aria-label={toggleToolbarLabel}
+          title={toggleToolbarLabel}
           aria-expanded={!collapsed}
           icon={
             collapsed ? 'ChevronRightSmallOutline' : 'ChevronLeftSmallOutline'
