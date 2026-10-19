@@ -25314,6 +25314,7 @@
     "packages/kit/src/views/Setting/pages/Tab/DevSettingsSection/ImagePanel.native.tsx": 12328,
     "packages/kit/src/views/Setting/pages/Tab/DevSettingsSection/ImagePanel.tsx": 14590,
     "packages/kit/src/views/Setting/pages/Tab/DevSettingsSection/IpTableSelector.tsx": 16186,
+    "packages/kit/src/views/Setting/pages/Tab/DevSettingsSection/LiveActivityDemo.tsx": 17833,
     "packages/kit/src/views/Setting/pages/Tab/DevSettingsSection/NavigationDiagnosticsSection.tsx": 9816,
     "packages/kit/src/views/Setting/pages/Tab/DevSettingsSection/NetInfo.tsx": 16467,
     "packages/kit/src/views/Setting/pages/Tab/DevSettingsSection/NotificationDevSettings.tsx": 3001,
