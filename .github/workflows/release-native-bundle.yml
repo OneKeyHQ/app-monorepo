@@ -53,6 +53,8 @@ on:
     secrets:
       PRIVATE_FONTS_APP_PRIVATE_KEY:
         required: false
+      PRIVATE_FONTS_ARTIFACT_KEY:
+        required: false
       COVALENT_KEY:
         required: false
       JPUSH_KEY:
@@ -122,10 +124,9 @@ jobs:
   private-fonts:
     if: ${{ !github.event.workflow_run || github.event.workflow_run.conclusion == 'success' }}
     uses: ./.github/workflows/private-fonts.yml
-    with:
-      ref: ${{ inputs.checkout_ref || github.event.workflow_run.head_sha || '' }}
     secrets:
       PRIVATE_FONTS_APP_PRIVATE_KEY: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
+      PRIVATE_FONTS_ARTIFACT_KEY: ${{ secrets.PRIVATE_FONTS_ARTIFACT_KEY }}
 
   # Compute BUILD_BUNDLE_VERSION ONCE for the run so the iOS and Android
   # matrix arms below produce identical bundleVersion / Sentry release / QA
@@ -273,7 +274,8 @@ jobs:
           ref: ${{ inputs.checkout_ref || '' }}
 
       # Restore the private brand font fetched by the trusted `private-fonts` job
-      # (no App key in this job). fonts:sync verifies it against brand.lock.json.
+      # (no App key here; the artifact key only decrypts fonts). fonts:sync
+# verifies the result against this checkout's brand.lock.json.
       - name: Restore private fonts
         if: needs.private-fonts.outputs.artifact != ''
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -285,7 +287,7 @@ jobs:
         if: needs.private-fonts.outputs.artifact != ''
         shell: bash
         env:
-          FONTS_KEY: ${{ needs.private-fonts.outputs.key }}
+          FONTS_KEY: ${{ secrets.PRIVATE_FONTS_ARTIFACT_KEY }}
         run: |
           set -euo pipefail
           dir="${RUNNER_TEMP}/onekey-private-fonts"

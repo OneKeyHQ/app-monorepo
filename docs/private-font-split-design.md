@@ -127,15 +127,19 @@ export const brandFontManifest = {
 访问凭据：GitHub App，不使用长期 PAT。
 
 - 组织管理员创建一个 GitHub App，只授予 Repository permissions → Contents: Read-only，只安装到 `app-private-fonts`。
-- app-monorepo 配置：变量 `vars.PRIVATE_FONTS_APP_ID`、secret `secrets.PRIVATE_FONTS_APP_PRIVATE_KEY`。
-- 每个发布 workflow 新增一个 `private-fonts` job（可复用 workflow `.github/workflows/private-fonts.yml`）。这个 job **不运行任何仓库代码**：
-  只稀疏检出 `brand.lock.json` 作为数据，用固定 SHA 的 `actions/create-github-app-token` 生成仅 `contents:read` 的 token，
-  用 curl/jq 下载 4 个文件并校验 sha256，然后立即撤销 token。
-- 本仓库是公开的，artifact 任何登录用户都能下载，所以字体先用**一次性随机密钥**（AES-256-GCM，Node `crypto`）加密，
-  再作为保留 1 天的 artifact 上传；密钥只通过 job output 传给同一 run 内依赖它的 job，不出现在日志或 API 中。
-- 构建 job `needs: private-fonts`，在 checkout 之后下载并解密到 `$RUNNER_TEMP`，通过 `ONEKEY_PRIVATE_FONTS_DIR` 交给 `fonts:sync`（再次校验 sha256）。
-- **App 私钥只出现在 `private-fonts` job 中。** 任何 job 引用的 secret 都会进入该 job 的 runner 进程内存，同 job 内运行的代码
-  （构建脚本、依赖的 postinstall、PR 代码）都可能读取。把私钥隔离出构建 job 后，即使依赖被投毒或构建了 PR 代码，最多拿到本次的字体文件，拿不到能长期生成 token 的私钥。
+- app-monorepo 配置：变量 `vars.PRIVATE_FONTS_APP_ID`，secret `secrets.PRIVATE_FONTS_APP_PRIVATE_KEY`，以及 secret `secrets.PRIVATE_FONTS_ARTIFACT_KEY`（用 `openssl rand -hex 32` 生成）。
+- 每个发布 workflow 新增一个 `private-fonts` job（可复用 workflow `.github/workflows/private-fonts.yml`），这个 job **不运行任何仓库代码**：
+  - 只稀疏检出 workflow 自身提交（`github.sha`）上的 `brand.lock.json`，**从不读取 PR 或调用方传入的 ref**，所以 PR 无法改变 App token 读取私有仓库中的哪些文件；
+  - 路径还限定为 `fonts/*.ttf`；
+  - 用固定 SHA 的 `actions/create-github-app-token` 生成仅 `contents:read` 的 token，下载 4 个文件、校验 sha256 后立即撤销 token。
+- 本仓库是公开的：artifact 任何登录用户都能下载，步骤日志（包括每个 step 的 `env:`）也公开。所以字体用 secret
+  `PRIVATE_FONTS_ARTIFACT_KEY`（64 位 hex，日志中自动打码）做 AES-256-GCM 加密后，作为保留 1 天的 artifact 上传。
+  不使用"一次性密钥 + job output"的方式，因为 output 作为普通 env 传入下一个 step 时会被明文打印到日志里。
+- 构建 job `needs: private-fonts`，在 checkout 之后下载 artifact，用同一个 secret 解密到 `$RUNNER_TEMP`，
+  再通过 `ONEKEY_PRIVATE_FONTS_DIR` 交给 `fonts:sync`，按本 job 检出的 lock 再校验一次。
+  若 PR 修改了 lock，校验会失败，这类构建无法使用私有字体。
+- **App 私钥只出现在 `private-fonts` job 中。** 任何 job 引用的 secret 都会进入该 job 的 runner 进程内存，同 job 内运行的代码可能读取。
+  构建 job 只持有 artifact 密钥：它只能解密字体 artifact，不能访问私有仓库。即使泄露，暴露范围也只是这些字体（构建 job 本来就能拿到），轮换这个 secret 即可。
 - `workflow_run` 触发的 workflow 中，上游失败时 `private-fonts` 不运行，避免无意义地生成 token。
 - `release-app-bundles` 按 PR 构建时，`validate-pr` 只放行同仓库 PR 和 `TRUSTED_PR_AUTHORS` 白名单作者的 fork PR，
   这些构建都在 CI 中自行拉取私有字体（与它们已能使用签名、QA 上传等 secret 的信任模型一致）。
