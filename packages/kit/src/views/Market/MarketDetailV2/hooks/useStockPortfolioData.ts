@@ -202,7 +202,13 @@ export function useStockPortfolioData() {
     activeAccount: { account, indexedAccount, deriveType, ready },
   } = useActiveAccount({ num: 0 });
   const [selectedDeriveType] = useSelectedDeriveTypeAtom();
-  const { portfolioNetworkId, stockId, tokenVariants } = useStockDetail();
+  const {
+    portfolioNetworkId,
+    stockId,
+    tokenVariants,
+    isTokenVariantPending,
+    isTokenVariantsError,
+  } = useStockDetail();
   const successfulPortfolioCacheRef = useRef(
     new Map<string, IMarketAccountPortfolioDisplayItem[]>(),
   );
@@ -221,6 +227,19 @@ export function useStockPortfolioData() {
   );
   const tokenVariantsRef = useRef(tokenVariants);
   tokenVariantsRef.current = tokenVariants;
+  // Whose holdings a result describes: this stock under this account and
+  // derivation. Rows from another scope are never shown.
+  const accountScopeKey = [
+    stockId ?? '',
+    account?.id ?? '',
+    indexedAccount?.id ?? '',
+    deriveType ?? '',
+    portfolioNetworkId ?? '',
+    JSON.stringify(selectedDeriveType ?? null),
+  ].join('|');
+  // The scope plus the variants it was asked about. Settlement needs both, so
+  // a run over a variant list that has not loaded yet does not count.
+  const requestScopeKey = `${accountScopeKey}|${tokenVariantsKey}`;
 
   const resolveNetworkAccount = useCallback(
     async (networkId: string) => {
@@ -269,6 +288,8 @@ export function useStockPortfolioData() {
       // nothing to read a balance from, and an empty list would claim every
       // variant was checked and found empty.
       if (!stockId || !hasAccount) return undefined;
+      const requestAccountScopeKey = accountScopeKey;
+      const requestKey = requestScopeKey;
       const result = await fetchStockPortfolioData({
         stockId,
         tokenVariants: tokenVariantsRef.current,
@@ -280,9 +301,13 @@ export function useStockPortfolioData() {
             throwOnError: true,
           }),
       });
-      // Tagged so a result still held from the previous stock is not read as
-      // this stock's answer while the new request is in flight.
-      return { ...result, stockId };
+      // Tagged so a result still held from the previous stock or account is
+      // not read as the current answer while the new request is in flight.
+      return {
+        ...result,
+        accountScopeKey: requestAccountScopeKey,
+        requestScopeKey: requestKey,
+      };
     },
     // The request reads the latest variants from a ref so 6-second metadata
     // refreshes only restart this query when their asset identities change.
@@ -298,18 +323,30 @@ export function useStockPortfolioData() {
     },
   );
 
-  const portfolioData = portfolioResult?.items ?? [];
+  const isCurrentAccountScope =
+    portfolioResult?.accountScopeKey === accountScopeKey;
+  const portfolioData = useMemo(
+    () => (isCurrentAccountScope ? (portfolioResult?.items ?? []) : []),
+    [isCurrentAccountScope, portfolioResult?.items],
+  );
   // Empty until a run settles, so nothing counts as established before then.
   const resolvedVariantKeys = useMemo(
-    () => portfolioResult?.resolvedVariantKeys ?? [],
-    [portfolioResult],
+    () =>
+      isCurrentAccountScope ? (portfolioResult?.resolvedVariantKeys ?? []) : [],
+    [isCurrentAccountScope, portfolioResult],
   );
 
   // True once the page knows whether this stock has a position: the account
-  // has loaded and, when there is one, a request for this stock has settled.
+  // has loaded and, when there is one, a request for this stock, account and
+  // its loaded variant list has settled. A failed variant lookup settles too,
+  // so the page never waits on it.
   const isPortfolioSettled =
     Boolean(ready) &&
-    (!stockId || !hasAccount || portfolioResult?.stockId === stockId);
+    (!stockId ||
+      !hasAccount ||
+      isTokenVariantsError ||
+      (!isTokenVariantPending &&
+        portfolioResult?.requestScopeKey === requestScopeKey));
 
   return {
     portfolioData,
@@ -317,6 +354,7 @@ export function useStockPortfolioData() {
     isRefreshing: Boolean(isRefreshing),
     hasAccount,
     isPortfolioSettled,
+    accountScopeKey,
     fetchPortfolio,
   };
 }

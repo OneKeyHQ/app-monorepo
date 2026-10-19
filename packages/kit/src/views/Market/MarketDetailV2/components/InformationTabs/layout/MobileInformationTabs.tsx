@@ -12,6 +12,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { isHoldersTabSupported } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -162,6 +163,9 @@ export function MobileInformationTabs({
     useTokenDetail();
   const { stockId } = useStockDetail();
   const { accountAddress } = useNetworkAccountAddress(networkId);
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const activeAccountId =
+    activeAccount?.indexedAccount?.id ?? activeAccount?.account?.id ?? '';
 
   const holdersTabName = intl.formatMessage({
     id: ETranslations.dexmarket_holders,
@@ -195,7 +199,8 @@ export function MobileInformationTabs({
     handleTabChange: handlePositionTabChange,
     isPositionPending,
   } = useMarketDetailPositionTabContainer({
-    assetKey: `${networkId}:${tokenAddress}`,
+    // Keyed by account too: switching accounts decides the tab again.
+    assetKey: `${networkId}:${tokenAddress}:${activeAccountId}`,
     isPortfolioSettled,
     hasPosition: portfolioData.length > 0,
     positionTabName,

@@ -191,6 +191,71 @@ describe('useMarketDetailPositionTab skeleton', () => {
   });
 });
 
+describe('useMarketDetailPositionTab visits', () => {
+  beforeEach(() => {
+    mockPreferPosition = false;
+    mockSetPreference.mockClear();
+  });
+
+  it('shows the empty state when held positions empty out after settling', () => {
+    mockPreferPosition = true;
+    const { result, rerender } = renderTabHook({
+      assetKey: 'TSM:wallet-a',
+      isPortfolioSettled: true,
+      hasPosition: true,
+    });
+    expect(result.current.showPosition).toBe(true);
+
+    // Sold everything on this page: stay on My position, show "No data".
+    rerender({
+      assetKey: 'TSM:wallet-a',
+      isPortfolioSettled: true,
+      hasPosition: false,
+    });
+    expect(result.current.showPosition).toBe(true);
+    expect(result.current.isPositionPending).toBe(false);
+  });
+
+  it('decides again when the account changes on the same asset', () => {
+    mockPreferPosition = true;
+    const { result, rerender } = renderTabHook({
+      assetKey: 'TSM:wallet-a',
+      isPortfolioSettled: true,
+      hasPosition: false,
+    });
+    expect(result.current.showPosition).toBe(false);
+
+    rerender({
+      assetKey: 'TSM:wallet-b',
+      isPortfolioSettled: false,
+      hasPosition: false,
+    });
+    expect(result.current.showPosition).toBe(true);
+    rerender({
+      assetKey: 'TSM:wallet-b',
+      isPortfolioSettled: true,
+      hasPosition: true,
+    });
+    expect(result.current.showPosition).toBe(true);
+  });
+
+  it('forgets a tap from an earlier visit, so returning to an unheld asset keeps the skeleton', () => {
+    mockPreferPosition = true;
+    const { result, rerender } = renderTabHook({
+      assetKey: 'A',
+      isPortfolioSettled: true,
+      hasPosition: true,
+    });
+    act(() => result.current.selectTab(true));
+
+    rerender({ assetKey: 'B', isPortfolioSettled: true, hasPosition: true });
+    rerender({ assetKey: 'A', isPortfolioSettled: true, hasPosition: false });
+
+    expect(result.current.isPositionPending).toBe(true);
+    expect(result.current.showPosition).toBe(false);
+  });
+});
+
 describe('useMarketDetailPositionTabContainer', () => {
   type IContainerProps = IProps & { defaultTabName: string | undefined };
   const positionTabName = 'My position';
@@ -264,6 +329,30 @@ describe('useMarketDetailPositionTabContainer', () => {
     });
 
     expect(result.current.isPositionPending).toBe(false);
+  });
+
+  it('keeps the jump guard when a user tap lands before the jump event', () => {
+    mockPreferPosition = true;
+    const { result, rerender } = renderContainerHook({
+      assetKey: 'evm--1:0xabc',
+      isPortfolioSettled: false,
+      hasPosition: false,
+      defaultTabName: 'Overview',
+    });
+    rerender({
+      assetKey: 'evm--1:0xabc',
+      isPortfolioSettled: true,
+      hasPosition: false,
+      defaultTabName: 'Overview',
+    });
+
+    act(() => result.current.handleTabChange({ tabName: positionTabName }));
+    act(() => result.current.handleTabChange({ tabName: 'Overview' }));
+
+    expect(mockSetPreference).toHaveBeenCalledTimes(1);
+    expect(mockSetPreference).toHaveBeenLastCalledWith({
+      preferPosition: true,
+    });
   });
 
   it('records the tabs the user picks without jumping', () => {

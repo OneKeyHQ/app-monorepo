@@ -39,6 +39,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
@@ -579,9 +580,20 @@ function getFavoriteMenuAnchorPoint(anchor?: NativeListActionAnchor) {
  * Long-press menu for the non-Favorites lists: a single star that adds the
  * row to Favorites (hollow) or removes it when it is already there (solid).
  */
+// Favorites are hidden in travel mode (no stars, no Favorites tab), so the
+// long-press shortcut to them is too.
+function isFavoriteMenuEnabled() {
+  return (
+    travelModeManager.getRuntimeEnvironmentSync().profile.kind !== 'travel-mode'
+  );
+}
+
 function useNativeFavoriteMenu(listRef: RefObject<NativeListRef | null>) {
   const intl = useIntl();
   const watchListActions = useWatchListV2Action();
+  // The perps wrappers report failures on their own and return nothing, so
+  // perps go through the atom actions to know whether to confirm.
+  const rawWatchListActions = useWatchListV2Actions();
   const [{ data: watchListData, isMounted }] = useMarketWatchListV2Atom();
   const portalRef = useRef<IPortalManager | null>(null);
   const menuAnchorRef = useRef<NativeListActionAnchor | undefined>(undefined);
@@ -610,10 +622,23 @@ function useNativeFavoriteMenu(listRef: RefObject<NativeListRef | null>) {
       const { watchListActions: actions } = stateRef.current;
       const { symbol, ...item } = target;
       if (item.perpsCoin) {
-        if (isInWatchlist) {
-          actions.removePerpsFromWatchListV2(item.perpsCoin);
-        } else {
-          actions.addPerpsIntoWatchListV2(item.perpsCoin);
+        try {
+          if (isInWatchlist) {
+            await rawWatchListActions.current.removePerpsFromWatchListV2(
+              item.perpsCoin,
+            );
+          } else {
+            await rawWatchListActions.current.addPerpsIntoWatchListV2(
+              item.perpsCoin,
+            );
+          }
+        } catch {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            }),
+          });
+          return;
         }
       } else if (isInWatchlist) {
         const removed = await actions.removeFromWatchListV2(
@@ -646,13 +671,13 @@ function useNativeFavoriteMenu(listRef: RefObject<NativeListRef | null>) {
         }),
       });
     },
-    [intl],
+    [intl, rawWatchListActions],
   );
 
   const show = useCallback(
     (target: IFavoriteMenuTarget, anchor?: NativeListActionAnchor) => {
       close(false);
-      if (!stateRef.current.isMounted) return;
+      if (!isFavoriteMenuEnabled() || !stateRef.current.isMounted) return;
       const targetKey = getMarketWatchlistKey(target);
       const isInWatchlist = stateRef.current.watchListData.some(
         (item) => getMarketWatchlistKey(item) === targetKey,
@@ -744,12 +769,17 @@ function MobileMarketNativeTokenListImpl({
       onStockDataChange?.(selectedCategory, isStockData);
     }
   }, [isStockData, onStockDataChange, selectedCategory]);
+  const isFavoriteMenuOn = isFavoriteMenuEnabled();
   const rows = useMemo(
     () =>
       result.data.map((item) =>
-        buildTokenMarketRow({ item, presentation, favoriteMenu: true }),
+        buildTokenMarketRow({
+          item,
+          presentation,
+          favoriteMenu: isFavoriteMenuOn,
+        }),
       ),
-    [presentation, result.data],
+    [isFavoriteMenuOn, presentation, result.data],
   );
   const itemsByKey = useMemo(
     () => new Map(result.data.map((item) => [marketTokenKey(item), item])),
@@ -1129,12 +1159,17 @@ function MobileMarketNativeStockListImpl({
   const result = useMarketStockList({
     category: selectedCategoryId === 'all' ? undefined : selectedCategoryId,
   });
+  const isFavoriteMenuOn = isFavoriteMenuEnabled();
   const rows = useMemo(
     () =>
       result.items.map((item) =>
-        buildStockMarketRow({ item, presentation, favoriteMenu: true }),
+        buildStockMarketRow({
+          item,
+          presentation,
+          favoriteMenu: isFavoriteMenuOn,
+        }),
       ),
-    [presentation, result.items],
+    [isFavoriteMenuOn, presentation, result.items],
   );
   const itemsByKey = useMemo(
     () => new Map(result.items.map((item) => [item.stockId, item])),
@@ -1240,12 +1275,17 @@ function MobileMarketNativeTopCoinsListImpl({
   const presentation = useMarketNativeListPresentation();
   const { data, handleItemPress, isLoading, isError, refresh } =
     useMarketTopCoins({ categoryId: selectedCategoryId, dataCacheRef });
+  const isFavoriteMenuOn = isFavoriteMenuEnabled();
   const rows = useMemo(
     () =>
       data.map((item) =>
-        buildTopCoinMarketRow({ item, presentation, favoriteMenu: true }),
+        buildTopCoinMarketRow({
+          item,
+          presentation,
+          favoriteMenu: isFavoriteMenuOn,
+        }),
       ),
-    [data, presentation],
+    [isFavoriteMenuOn, data, presentation],
   );
   const itemsByKey = useMemo(
     () => new Map(data.map((item) => [item.assetId, item])),
@@ -1327,12 +1367,17 @@ function MobileMarketNativePerpsListImpl({
     dataCacheRef,
     selectedCategoryId,
   });
+  const isFavoriteMenuOn = isFavoriteMenuEnabled();
   const rows = useMemo(
     () =>
       tokens.map((item) =>
-        buildPerpsMarketRow({ item, presentation, favoriteMenu: true }),
+        buildPerpsMarketRow({
+          item,
+          presentation,
+          favoriteMenu: isFavoriteMenuOn,
+        }),
       ),
-    [presentation, tokens],
+    [isFavoriteMenuOn, presentation, tokens],
   );
   const itemsByKey = useMemo(
     () =>

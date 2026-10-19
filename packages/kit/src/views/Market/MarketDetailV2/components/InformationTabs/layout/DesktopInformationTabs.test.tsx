@@ -188,6 +188,11 @@ jest.mock('@onekeyhq/shared/src/utils/numberUtils', () => ({
   formatDisplayNumber: (value: string) => value,
 }));
 
+jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
+  useActiveAccount: () => ({
+    activeAccount: { indexedAccount: { id: 'indexed-account' } },
+  }),
+}));
 jest.mock('../../../hooks/useMarketDetailPositionTab', () => ({
   useMarketDetailPositionTabContainer: () => ({
     tabsRef: { current: null },

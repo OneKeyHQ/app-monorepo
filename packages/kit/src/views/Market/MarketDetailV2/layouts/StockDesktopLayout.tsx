@@ -1173,17 +1173,21 @@ function StockOverview({
   isRefreshing,
   hasAccount,
   isPortfolioSettled,
+  portfolioScopeKey,
 }: {
   portfolioData: IMarketAccountPortfolioDisplayItem[];
   isRefreshing: boolean;
   hasAccount: boolean;
   isPortfolioSettled: boolean;
+  // The stock and account the holdings belong to; the opening tab is decided
+  // again whenever either changes.
+  portfolioScopeKey: string;
 }) {
   const intl = useIntl();
   const { stockId } = useStockDetail();
   const { showPosition, selectTab, isPositionPending } =
     useMarketDetailPositionTab({
-      assetKey: stockId,
+      assetKey: portfolioScopeKey,
       isPortfolioSettled,
       hasPosition: portfolioData.length > 0,
     });
@@ -1302,6 +1306,7 @@ export function StockDesktopLayout({
     isRefreshing: isStockPortfolioRefreshing,
     hasAccount: hasStockPortfolioAccount,
     isPortfolioSettled,
+    accountScopeKey: stockPortfolioScopeKey,
   } = useStockPortfolioData();
   const { priceMode, handlePriceModeChange, sharePriceAvailable } =
     useStockPriceSource();
@@ -1362,6 +1367,7 @@ export function StockDesktopLayout({
             isRefreshing={isStockPortfolioRefreshing}
             hasAccount={hasStockPortfolioAccount}
             isPortfolioSettled={isPortfolioSettled}
+            portfolioScopeKey={stockPortfolioScopeKey}
           />
         </YStack>
 

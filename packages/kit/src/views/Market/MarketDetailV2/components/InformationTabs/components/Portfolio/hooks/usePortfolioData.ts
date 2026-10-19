@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -45,9 +45,16 @@ export function usePortfolioData({
     tokenAddress,
     accountAddress,
   });
-  // The scope whose latest request failed. A failure keeps the previous result
-  // on screen, so it is tracked apart from the result to still settle.
-  const [failedScopeKey, setFailedScopeKey] = useState<string | undefined>();
+  // Each change of scope starts a new visit, so a failure recorded on an
+  // earlier visit to the same token never settles a fresh request.
+  const visitRef = useRef({ scopeKey, id: 0 });
+  if (visitRef.current.scopeKey !== scopeKey) {
+    visitRef.current = { scopeKey, id: visitRef.current.id + 1 };
+  }
+  const visitId = visitRef.current.id;
+  // The visit whose request failed. A failure keeps the previous result on
+  // screen, so it is tracked apart from the result to still settle.
+  const [failedVisitId, setFailedVisitId] = useState<number | undefined>();
   const {
     result: portfolioResult,
     isLoading: isRefreshing,
@@ -58,6 +65,7 @@ export function usePortfolioData({
         return { list: [], networkId, tokenAddress, accountAddress };
       }
 
+      const requestVisitId = visitRef.current.id;
       try {
         const result =
           await backgroundApiProxy.serviceMarketV2.fetchMarketAccountPortfolio({
@@ -68,9 +76,7 @@ export function usePortfolioData({
           });
         return { ...result, networkId, tokenAddress, accountAddress };
       } catch (error) {
-        setFailedScopeKey(
-          getPortfolioScopeKey({ networkId, tokenAddress, accountAddress }),
-        );
+        setFailedVisitId(requestVisitId);
         throw error;
       }
     },
@@ -83,28 +89,28 @@ export function usePortfolioData({
     },
   );
 
-  const isCurrentPortfolioScope = equalTokenNoCaseSensitive({
-    token1: portfolioResult
-      ? {
-          networkId: portfolioResult.networkId,
-          contractAddress: portfolioResult.tokenAddress,
-        }
-      : undefined,
-    token2: { networkId, contractAddress: tokenAddress },
-  });
+  // A result left from another token or another account is not this one's
+  // answer: neither its rows nor its settlement carry over.
+  const isCurrentPortfolioScope =
+    equalTokenNoCaseSensitive({
+      token1: portfolioResult
+        ? {
+            networkId: portfolioResult.networkId,
+            contractAddress: portfolioResult.tokenAddress,
+          }
+        : undefined,
+      token2: { networkId, contractAddress: tokenAddress },
+    }) && portfolioResult?.accountAddress === accountAddress;
 
   const onRefresh = useCallback(async () => {
     await fetchPortfolio();
   }, [fetchPortfolio]);
 
   // True once the page knows whether this token has a position for the
-  // current account, so a result left from another token or account is not
-  // read as this one's answer.
+  // current account.
   const isPortfolioSettled =
     isAccountResolved &&
-    ((isCurrentPortfolioScope &&
-      portfolioResult?.accountAddress === accountAddress) ||
-      failedScopeKey === scopeKey);
+    (isCurrentPortfolioScope || failedVisitId === visitId);
 
   return {
     portfolioData: isCurrentPortfolioScope ? portfolioResult?.list || [] : [],

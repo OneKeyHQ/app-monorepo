@@ -13,61 +13,98 @@ const PROGRAMMATIC_TAB_CHANGE_WINDOW_MS = 1000;
  * to the default tab once this asset turns out to have no position. Pages that
  * switch assets in place run the check again for each asset.
  */
+interface IPositionTabVisit {
+  assetKey: string | undefined;
+  showPosition: boolean;
+  // The opening tab is settled, by the portfolio or by a tap.
+  isResolved: boolean;
+  // The portfolio closed an automatically opened position tab.
+  hasFallenBack: boolean;
+  // The user picked a tab during this visit.
+  isPicked: boolean;
+}
+
+function createVisit(
+  assetKey: string | undefined,
+  preferPosition: boolean,
+): IPositionTabVisit {
+  return {
+    assetKey,
+    showPosition: preferPosition,
+    isResolved: false,
+    hasFallenBack: false,
+    isPicked: false,
+  };
+}
+
 export function useMarketDetailPositionTab({
   assetKey,
   isPortfolioSettled,
   hasPosition,
 }: {
+  // The asset and account the holdings belong to. Every change starts a new
+  // visit, so a page that switches assets or accounts in place decides again.
   assetKey: string | undefined;
   isPortfolioSettled: boolean;
   hasPosition: boolean;
 }) {
   const [{ preferPosition }, setPositionTabPreference] =
     useMarketDetailPositionTabPersistAtom();
-  const [showPosition, setShowPosition] = useState(preferPosition);
-  const openedAssetKeyRef = useRef(assetKey);
-  // The asset whose opening tab is settled, by the portfolio or by a tap.
-  const resolvedAssetKeyRef = useRef<string | undefined>(undefined);
-  // The asset on which the user picked a tab themselves.
-  const [pickedAssetKey, setPickedAssetKey] = useState<string | undefined>();
+  const [storedVisit, setVisit] = useState(() =>
+    createVisit(assetKey, preferPosition),
+  );
+  // Reset during render rather than in an effect, so no render pairs the new
+  // asset with the previous visit.
+  let visit = storedVisit;
+  if (visit.assetKey !== assetKey) {
+    visit = createVisit(assetKey, preferPosition);
+    setVisit(visit);
+  }
 
   useEffect(() => {
-    if (openedAssetKeyRef.current === assetKey) return;
-    openedAssetKeyRef.current = assetKey;
-    resolvedAssetKeyRef.current = undefined;
-    setShowPosition(preferPosition);
-  }, [assetKey, preferPosition]);
-
-  useEffect(() => {
-    if (resolvedAssetKeyRef.current === assetKey || !isPortfolioSettled) return;
-    resolvedAssetKeyRef.current = assetKey;
-    if (preferPosition && !hasPosition) {
-      // Only this asset falls back; the remembered choice stays as it is.
-      setShowPosition(false);
-    }
-  }, [assetKey, hasPosition, isPortfolioSettled, preferPosition]);
+    if (!isPortfolioSettled) return;
+    setVisit((current) => {
+      if (current.assetKey !== assetKey || current.isResolved) return current;
+      // Only this visit falls back; the remembered choice stays as it is.
+      const hasFallenBack = current.showPosition && !hasPosition;
+      return {
+        ...current,
+        isResolved: true,
+        hasFallenBack,
+        showPosition: hasFallenBack ? false : current.showPosition,
+      };
+    });
+  }, [assetKey, hasPosition, isPortfolioSettled]);
 
   const selectTab = useCallback(
     (isPositionTab: boolean) => {
-      // A tap settles this asset's tab, so a late portfolio result never
-      // overrides it.
-      resolvedAssetKeyRef.current = assetKey;
-      setPickedAssetKey(assetKey);
-      setShowPosition(isPositionTab);
+      // A tap settles this visit, so a late portfolio result never overrides
+      // it.
+      setVisit((current) => ({
+        ...(current.assetKey === assetKey
+          ? current
+          : createVisit(assetKey, isPositionTab)),
+        showPosition: isPositionTab,
+        isResolved: true,
+        isPicked: true,
+      }));
       setPositionTabPreference({ preferPosition: isPositionTab });
     },
     [assetKey, setPositionTabPreference],
   );
 
-  // The position tab keeps its skeleton until the holdings are known, and
-  // also while an automatically opened tab leaves an empty position, so the
-  // empty state never flashes before the switch. A tab the user opens shows
-  // the empty state as usual.
+  // The position tab shows a skeleton until the holdings are known. An
+  // automatically opened tab that is about to close, or has just closed, keeps
+  // it too, so "No data" never flashes during the switch. Once settled with a
+  // position, holdings that later empty out show the empty state as usual,
+  // as does any tab the user opens.
+  const willFallBack = visit.showPosition && !hasPosition;
   const isPositionPending =
     !isPortfolioSettled ||
-    (preferPosition && !hasPosition && pickedAssetKey !== assetKey);
+    (!visit.isPicked &&
+      (visit.isResolved ? visit.hasFallenBack : willFallBack));
 
-  return { showPosition, selectTab, isPositionPending };
+  return { showPosition: visit.showPosition, selectTab, isPositionPending };
 }
 
 /**
@@ -121,11 +158,12 @@ export function useMarketDetailPositionTabContainer({
   const handleTabChange = useCallback(
     ({ tabName }: { tabName: string }) => {
       const programmaticTab = programmaticTabRef.current;
-      programmaticTabRef.current = undefined;
-      if (
-        programmaticTab?.tabName === tabName &&
-        Date.now() < programmaticTab.expiresAt
-      ) {
+      if (programmaticTab && Date.now() >= programmaticTab.expiresAt) {
+        programmaticTabRef.current = undefined;
+      } else if (programmaticTab?.tabName === tabName) {
+        // Only the jump's own event is swallowed. A user tap that lands first
+        // keeps the guard, so the jump's late event still is not recorded.
+        programmaticTabRef.current = undefined;
         return;
       }
       const isPositionTab = tabName === positionTabName;

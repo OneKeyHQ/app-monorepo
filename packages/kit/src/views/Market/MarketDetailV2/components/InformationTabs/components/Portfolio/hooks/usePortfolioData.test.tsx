@@ -145,6 +145,7 @@ describe('usePortfolioData', () => {
       list: [portfolioItem],
       networkId: 'evm--8453',
       tokenAddress: '0xSAME',
+      accountAddress: '0xaccount',
     };
 
     const { result } = renderHook(() =>
@@ -232,5 +233,49 @@ describe('usePortfolioData', () => {
 
     expect(result.current.isPortfolioSettled).toBe(true);
     expect(result.current.portfolioData).toEqual([]);
+  });
+
+  it('hides rows from the previous account while the new one loads', () => {
+    mockPortfolioResult = {
+      list: [portfolioItem],
+      networkId: 'evm--8453',
+      tokenAddress: '0xSAME',
+      accountAddress: '0xprevious',
+    };
+    const { result } = renderHook(() =>
+      usePortfolioData({
+        tokenAddress: '0xsame',
+        networkId: 'evm--8453',
+        accountAddress: '0xaccount',
+        isAccountResolved: true,
+      }),
+    );
+
+    expect(result.current.portfolioData).toEqual([]);
+    expect(result.current.isPortfolioSettled).toBe(false);
+  });
+
+  it('does not let a failure from an earlier visit settle a fresh request', async () => {
+    mockFetchMarketAccountPortfolio.mockRejectedValue(new Error('offline'));
+    const tokenA = {
+      tokenAddress: '0xaaa',
+      networkId: 'evm--8453',
+      accountAddress: '0xaccount',
+      isAccountResolved: true,
+    };
+    const tokenB = { ...tokenA, tokenAddress: '0xbbb' };
+    const { result, rerender } = renderHook(
+      (props: typeof tokenA) => usePortfolioData(props),
+      { initialProps: tokenA },
+    );
+    await act(async () => {
+      await expect(mockCapturedMethod?.()).rejects.toThrow('offline');
+    });
+    expect(result.current.isPortfolioSettled).toBe(true);
+
+    rerender(tokenB);
+    rerender(tokenA);
+
+    expect(result.current.isPortfolioSettled).toBe(false);
   });
 });

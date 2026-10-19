@@ -58,6 +58,11 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
 jest.mock('@onekeyhq/kit/src/hooks/useTabContainerWidth', () => ({
   useTabContainerWidth: () => 390,
 }));
+jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
+  useActiveAccount: () => ({
+    activeAccount: { indexedAccount: { id: 'indexed-account' } },
+  }),
+}));
 jest.mock('../../../hooks/useTokenDetail', () => ({
   useTokenDetail: () => ({ networkId: 'evm--1', isNative: true }),
 }));
