@@ -6,7 +6,12 @@ import { render, within } from '@testing-library/react';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import {
+  EOnChainHistoryTransferType,
+  type IAccountHistoryTx,
+  type IOnChainHistoryTx,
+  type IOnChainHistoryTxTransfer,
+} from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -15,6 +20,11 @@ import {
 import HistoryDetails from './HistoryDetails';
 
 let mockHistory: IAccountHistoryTx;
+let mockTxDetails: Partial<IOnChainHistoryTx> | undefined;
+
+beforeEach(() => {
+  mockTxDetails = undefined;
+});
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -41,12 +51,14 @@ jest.mock('@onekeyhq/components', () => {
     Button: container,
     Divider: () => null,
     Icon: () => null,
+    IconButton: ({ title }: { title?: string }) => <button>{title}</button>,
     Page: Object.assign(container, { Header: () => null, Body: container }),
     SizableText: container,
     Spinner: () => null,
     Stack: container,
     XStack: container,
     YStack: container,
+    useClipboard: () => ({ copyText: jest.fn() }),
   };
 });
 jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({
@@ -104,16 +116,30 @@ jest.mock('@onekeyhq/kit/src/hooks/useAccountData', () => ({
     account: { address: 'own' },
     network: {
       id: mockHistory.decodedTx.networkId,
-      impl: 'xmr',
+      impl: mockHistory.decodedTx.networkId === 'zec--0' ? 'zec' : 'xmr',
       symbol: 'XMR',
       name: 'Monero',
     },
-    vaultSettings: { localWallet: { publicAddressPattern: '(?!)' } },
+    vaultSettings: {
+      localWallet: {
+        publicAddressPattern:
+          mockHistory.decodedTx.networkId === 'zec--0'
+            ? '^t[13][1-9A-HJ-NP-Za-km-z]{33}$'
+            : '(?!)',
+        privateAddressPattern: '^u1[02-9ac-hj-np-z]+$',
+        pools: [
+          { id: 0, label: 'Transparent', kind: 'public' },
+          { id: 3, label: 'Orchard', kind: 'private' },
+          { id: 4, label: 'Ironwood', kind: 'private' },
+        ],
+      },
+    },
   }),
 }));
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   usePromiseResult: (_request: unknown, deps: unknown[]) => ({
-    result: deps.length === 2 ? { symbol: 'XMR' } : {},
+    result:
+      deps.length === 2 ? { symbol: 'XMR' } : { txDetails: mockTxDetails },
     isLoading: false,
   }),
 }));
@@ -141,12 +167,6 @@ jest.mock('@onekeyhq/shared/src/utils/historyUtils', () => ({
 jest.mock('../../utils', () => ({ getHistoryTxMeta: () => undefined }));
 jest.mock('./components/TxKYTRiskCheck', () => ({
   TxKYTRiskCheck: () => null,
-}));
-jest.mock('./components/TxDetailsInfoItem', () => ({
-  InfoItem: () => null,
-  InfoItemGroup: ({ children }: { children?: ReactNode }) => (
-    <div>{children}</div>
-  ),
 }));
 
 function history(
@@ -238,4 +258,114 @@ it('keeps unrelated token amounts visible when only the native payment is unknow
   );
   expect(assets.getByText(ETranslations.global_not_available)).toBeTruthy();
   expect(assets.getByText('-7')).toBeTruthy();
+});
+
+function setZcashFlow(from: string, to: string) {
+  mockHistory = history('zec--0', '1', false);
+  const transfer = mockHistory.decodedTx.actions[0].assetTransfer;
+  if (!transfer) throw new OneKeyLocalError('missing transfer fixture');
+  transfer.from = from;
+  transfer.to = to;
+  transfer.sends[0].from = from;
+  transfer.sends[0].to = to;
+}
+
+function poolOutput(
+  label: string,
+  overrides: Partial<IOnChainHistoryTxTransfer> = {},
+): IOnChainHistoryTxTransfer {
+  return {
+    type: EOnChainHistoryTransferType.Shielded,
+    from: '',
+    to: '',
+    address: '',
+    amount: '1',
+    token: '',
+    key: '',
+    label,
+    isOwn: false,
+    ...overrides,
+  };
+}
+
+it('names the known source and destination pools without treating change as the destination', () => {
+  setZcashFlow('Orchard pool', 'Shielded');
+  mockTxDetails = {
+    sends: [poolOutput('Orchard pool', { isOwn: true })],
+    receives: [
+      poolOutput('Ironwood pool'),
+      poolOutput('Orchard pool', { isOwn: true, isChange: true }),
+    ],
+  };
+  const result = render(<HistoryDetails />);
+  const from = within(result.getByTestId('history-details-from-pool'));
+  const to = within(result.getByTestId('history-details-to-pool'));
+  expect(from.getByText('Orchard pool')).toBeTruthy();
+  expect(to.getByText('Ironwood pool')).toBeTruthy();
+  expect(to.queryByText('Orchard pool')).toBeNull();
+  expect(from.queryByRole('button')).toBeNull();
+  expect(to.queryByRole('button')).toBeNull();
+});
+
+it('retains the known recipient address alongside the destination pool', () => {
+  const recipient = `u1${'a'.repeat(90)}`;
+  setZcashFlow('Orchard pool', recipient);
+  mockTxDetails = {
+    receives: [
+      poolOutput('Ironwood pool', { address: recipient, to: recipient }),
+    ],
+  };
+  const result = render(<HistoryDetails />);
+  expect(result.getByText(recipient)).toBeTruthy();
+  expect(
+    within(result.getByTestId('history-details-to-pool')).getByText(
+      'Ironwood pool',
+    ),
+  ).toBeTruthy();
+});
+
+it.each([
+  ['Orchard pool', 'Ironwood pool'],
+  [`t1${'A'.repeat(33)}`, 'Ironwood pool'],
+  ['Ironwood pool', `t3${'B'.repeat(33)}`],
+  ['Ironwood pool', 'Ironwood pool'],
+])(
+  'shows both internal endpoints %s -> %s before output details arrive',
+  (from, to) => {
+    setZcashFlow(from, to);
+    const result = render(<HistoryDetails />);
+    expect(result.getAllByText(from)).toHaveLength(from === to ? 2 : 1);
+    expect(result.getAllByText(to)).toHaveLength(from === to ? 2 : 1);
+  },
+);
+
+it('shows the incoming pool while keeping an unavailable shielded sender unknown', () => {
+  setZcashFlow('Shielded', 'Ironwood pool');
+  mockHistory.decodedTx.signer = '';
+  const transfer = mockHistory.decodedTx.actions[0].assetTransfer;
+  if (!transfer) throw new OneKeyLocalError('missing transfer fixture');
+  transfer.receives = transfer.sends;
+  transfer.sends = [];
+  mockTxDetails = {
+    receives: [poolOutput('Ironwood pool', { isOwn: true })],
+  };
+  const result = render(<HistoryDetails />);
+  expect(
+    result.getByText(ETranslations.privacy_history_sender_unknown__desc),
+  ).toBeTruthy();
+  expect(result.queryByTestId('history-details-from-pool')).toBeNull();
+  expect(
+    within(result.getByTestId('history-details-to-pool')).getByText(
+      'Ironwood pool',
+    ),
+  ).toBeTruthy();
+});
+
+it('does not infer a destination pool from change alone', () => {
+  setZcashFlow('Orchard pool', 'Shielded');
+  mockTxDetails = {
+    receives: [poolOutput('Orchard pool', { isOwn: true, isChange: true })],
+  };
+  const result = render(<HistoryDetails />);
+  expect(result.queryByTestId('history-details-to-pool')).toBeNull();
 });
