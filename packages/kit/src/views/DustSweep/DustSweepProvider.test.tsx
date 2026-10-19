@@ -352,6 +352,19 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     expect(result.current.current?.network.networkId).toBe('evm--8453');
   });
 
+  it('selects no network when every loaded network is excluded from the picker', async () => {
+    mockLoadNetworks.mockResolvedValue({
+      networks: [network('evm--10', []), network('evm--137', ['100', '250'])],
+      partialError: false,
+    });
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+
+    expect(result.current.networks).toEqual([]);
+    expect(result.current.current).toBeUndefined();
+    expect(result.current.visible).toEqual([]);
+  });
+
   it('keeps the picker list unchanged when the threshold changes', async () => {
     // Not selected, and nothing under $1, but has dust under $10 and $100.
     const small = network('evm--42161', ['1.5']);

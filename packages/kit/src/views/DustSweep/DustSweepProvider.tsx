@@ -126,9 +126,9 @@ function useDustSweepController(params: IDustSweepRouteParams) {
   const defaultNetwork = useMemo(() => {
     let best: IDustSweepNetwork | undefined;
     let bestDustUsd = new BigNumber(-1);
-    for (const entry of selectableNetworks.length
-      ? selectableNetworks
-      : networks) {
+    // Only picker-eligible networks can be chosen automatically; when none
+    // qualify, nothing is selected and the empty state shows.
+    for (const entry of selectableNetworks) {
       const dustUsd = entry.tokens
         .filter((token) =>
           new BigNumber(token.valueUsd).lt(preferences.threshold),
@@ -140,7 +140,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
       }
     }
     return best;
-  }, [selectableNetworks, networks, preferences.threshold]);
+  }, [selectableNetworks, preferences.threshold]);
   const current =
     networks.find((entry) => entry.network.networkId === networkId) ??
     (selecting ? defaultNetwork : undefined);
