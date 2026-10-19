@@ -85,6 +85,9 @@ export function MarketDetailHeader({
   const { copyText } = useClipboard();
   const isOverlayPage = useIsOverlayPage();
   const isMobileWebLayout = platformEnv.isWeb && !media.gtLg;
+  // DApp mode hides the sidebar above md, so this header owns global navigation.
+  const showDappHeaderAboveDetail =
+    platformEnv.isWebDappMode && media.gtMd && isMobileWebLayout;
 
   const networkLogoUri = useNetworkLogoUri({ networkId });
   const useListingStockHeader = Boolean(
@@ -418,10 +421,23 @@ export function MarketDetailHeader({
     );
   }
 
+  const tabPageHeader = (
+    <TabPageHeader
+      sceneName={EAccountSelectorSceneName.home}
+      tabRoute={ETabRoutes.Market}
+      customHeaderLeftItems={customHeaderLeft}
+      customHeaderRightItems={platformEnv.isNative ? customHeaderRight : null}
+      hideSearch={!media.gtMd}
+    />
+  );
+
   return (
     <>
+      {showDappHeaderAboveDetail ? tabPageHeader : null}
       {media.md || isMobileWebLayout ? (
-        <TabPageHeaderContainer>
+        <TabPageHeaderContainer
+          hideNavigationHeader={!showDappHeaderAboveDetail}
+        >
           <NavBackButton onPress={handleBackPress} />
 
           {platformEnv.isNative || isMobileWebLayout ? (
@@ -529,15 +545,7 @@ export function MarketDetailHeader({
           ) : null}
         </TabPageHeaderContainer>
       ) : (
-        <TabPageHeader
-          sceneName={EAccountSelectorSceneName.home}
-          tabRoute={ETabRoutes.Market}
-          customHeaderLeftItems={customHeaderLeft}
-          customHeaderRightItems={
-            platformEnv.isNative ? customHeaderRight : null
-          }
-          hideSearch={!media.gtMd}
-        />
+        tabPageHeader
       )}
     </>
   );

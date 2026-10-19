@@ -8,6 +8,7 @@ import { finishMarketDetailTabBarTransition } from '@onekeyhq/kit/src/views/Mark
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { useToDetailPage } from './useToMarketDetailPage';
 
@@ -224,6 +225,51 @@ describe('useToDetailPage', () => {
     expect(globalThis.close).not.toHaveBeenCalled();
   });
 
+  it.each([true, false])(
+    'falls back to the searched native token when asset detail fails (extension=%s)',
+    async (extension) => {
+      platformEnv.isExtensionUiPopup = extension;
+      jest
+        .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
+        .mockRejectedValueOnce(new Error('offline'));
+      const { result } = renderHook(() =>
+        useToDetailPage({ resolveMarketAsset: true }),
+      );
+      await act(async () => {
+        await result.current({
+          assetId: 'ethereum',
+          networkId: 'evm--8453',
+          tokenAddress: '',
+          symbol: 'ETH',
+          isNative: true,
+        });
+      });
+      const expectedParams = {
+        network: 'eth',
+        tokenAddress: '',
+        isNative: true,
+        resolveMarketAsset: true,
+        marketTokenSymbol: 'ETH',
+      };
+      if (extension) {
+        expect(openExtensionMarketTokenDetailMock).toHaveBeenCalledWith({
+          ...expectedParams,
+          from: EEnterWay.ExtensionPopup,
+          tokenDetailPreview: undefined,
+        });
+      } else {
+        expect(mockNavigationPush).toHaveBeenCalledWith('MarketDetailV2', {
+          ...expectedParams,
+          from: undefined,
+        });
+      }
+      expect(Toast.error).not.toHaveBeenCalled();
+      expect(networkUtils.getNetworkShortCode).toHaveBeenCalledWith({
+        networkId: 'evm--8453',
+      });
+    },
+  );
+
   it('ignores asset detail presses before resolving a variant in Travel Mode', async () => {
     mockTravelMode = true;
     const fetchMarketAssetDetail = jest.spyOn(
@@ -417,25 +463,28 @@ describe('useToDetailPage', () => {
     },
   );
 
-  it('suppresses errors from superseded asset requests', async () => {
-    const first = deferred<typeof assetDetail>();
-    const fetchAssetDetail = jest
-      .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
-      .mockImplementationOnce(() => first.promise);
-    const { result } = renderHook(() => useToDetailPage());
-    const firstNavigation = result.current(assetItem);
-    await waitFor(() => {
-      expect(fetchAssetDetail).toHaveBeenCalledTimes(1);
-    });
-    await act(async () => {
-      await result.current(stockItem);
-      first.reject(new Error('offline'));
-      await firstNavigation;
-    });
-    expect(Toast.error).not.toHaveBeenCalled();
-    expect(openExtensionMarketStockDetailMock).toHaveBeenCalledTimes(1);
-    expect(openExtensionMarketTokenDetailMock).not.toHaveBeenCalled();
-  });
+  it.each(['', 'btc--0'])(
+    'suppresses superseded asset failures (network=%s)',
+    async (networkId) => {
+      const first = deferred<typeof assetDetail>();
+      const fetchAssetDetail = jest
+        .spyOn(backgroundApiProxy.serviceMarket, 'fetchMarketAssetDetail')
+        .mockImplementationOnce(() => first.promise);
+      const { result } = renderHook(() => useToDetailPage());
+      const firstNavigation = result.current({ ...assetItem, networkId });
+      await waitFor(() => {
+        expect(fetchAssetDetail).toHaveBeenCalledTimes(1);
+      });
+      await act(async () => {
+        await result.current(stockItem);
+        first.reject(new Error('offline'));
+        await firstNavigation;
+      });
+      expect(Toast.error).not.toHaveBeenCalled();
+      expect(openExtensionMarketStockDetailMock).toHaveBeenCalledTimes(1);
+      expect(openExtensionMarketTokenDetailMock).not.toHaveBeenCalled();
+    },
+  );
 
   it('ignores superseded native preload completion', async () => {
     Object.assign(platformEnv, { isExtensionUiPopup: false, isNative: true });

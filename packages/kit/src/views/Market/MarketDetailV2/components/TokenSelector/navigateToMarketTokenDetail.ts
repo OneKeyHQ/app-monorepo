@@ -51,6 +51,7 @@ export async function navigateToMarketTokenDetail(
   let token = selectedToken;
   let marketVariantId: string | undefined;
   if (token.assetId) {
+    let assetDetailFetched = false;
     try {
       const detail =
         await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
@@ -58,6 +59,7 @@ export async function navigateToMarketTokenDetail(
           currency: 'usd',
           autoHandleError: false,
         });
+      assetDetailFetched = true;
       if (!isCurrentRequest()) return;
       const selectedVariant = requireMarketAssetVariant({
         detail,
@@ -73,8 +75,14 @@ export async function navigateToMarketTokenDetail(
       };
       marketVariantId = selectedVariant.variantId;
     } catch {
-      if (isCurrentRequest()) opts.onError?.();
-      return;
+      if (!isCurrentRequest()) return;
+      if (!assetDetailFetched && token.networkId) {
+        // Preserve the searched chain when the optional asset lookup is offline.
+        token = { ...token, assetId: undefined };
+      } else {
+        opts.onError?.();
+        return;
+      }
     }
   }
   prewarmMarketTokenDetailPreviewImages(opts.tokenDetailPreview);

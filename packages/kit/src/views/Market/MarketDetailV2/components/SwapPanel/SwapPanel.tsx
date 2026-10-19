@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import type { ReactNode } from 'react';
+import type { ComponentProps } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -95,14 +95,9 @@ function TradeButton({
   );
 }
 
-function MobileWebTradeActions({
-  children,
-  disabled,
-}: {
-  children: ReactNode;
-  disabled?: boolean;
-}) {
-  const intl = useIntl();
+function MobileWebTradeActions(
+  props: ComponentProps<typeof SwapPanelFooterButtons>,
+) {
   const { activeAccount, showAccountSelector } = useAccountSelectorTrigger({
     num: 0,
     showConnectWalletModalInDappMode: true,
@@ -110,19 +105,11 @@ function MobileWebTradeActions({
   const noAccount =
     !activeAccount?.indexedAccount?.id && !activeAccount?.account?.id;
 
-  return noAccount ? (
-    <Button
-      size="large"
-      height={50}
-      variant="primary"
-      disabled={disabled}
-      onPress={showAccountSelector}
-      testID="market-no-account-btn"
-    >
-      {intl.formatMessage({ id: ETranslations.global_connect })}
-    </Button>
-  ) : (
-    children
+  return (
+    <SwapPanelFooterButtons
+      {...props}
+      onConnect={noAccount ? showAccountSelector : undefined}
+    />
   );
 }
 
@@ -259,16 +246,14 @@ export function SwapPanel({
     if (pnlIsPositive) pnlPrefix = '+';
     if (pnlIsNegative) pnlPrefix = '-';
 
-    const footerButtons = (
-      <SwapPanelFooterButtons
-        mode={footerMode}
-        onBuy={handleBuy}
-        onSell={handleSell}
-        onPerps={onPerps}
-        tradeDisabled={!executionReady}
-        perpsDisabled={perpsDisabled}
-      />
-    );
+    const footerButtonProps = {
+      mode: footerMode,
+      onBuy: handleBuy,
+      onSell: handleSell,
+      onPerps,
+      tradeDisabled: !executionReady,
+      perpsDisabled,
+    };
 
     return (
       <YStack>
@@ -335,12 +320,10 @@ export function SwapPanel({
               }}
               enabledNum={[0]}
             >
-              <MobileWebTradeActions disabled={!executionReady}>
-                {footerButtons}
-              </MobileWebTradeActions>
+              <MobileWebTradeActions {...footerButtonProps} />
             </AccountSelectorProviderMirror>
           ) : (
-            footerButtons
+            <SwapPanelFooterButtons {...footerButtonProps} />
           )}
         </Stack>
       </YStack>

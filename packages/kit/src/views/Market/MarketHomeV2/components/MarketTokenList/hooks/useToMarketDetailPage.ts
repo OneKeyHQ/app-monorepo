@@ -142,6 +142,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       const navigationGeneration = navigationGenerationRef.current + 1;
       navigationGenerationRef.current = navigationGeneration;
       if (item.assetId) {
+        let assetDetailFetched = false;
         try {
           const { default: backgroundApiProxy } =
             await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
@@ -152,6 +153,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
               currency: 'usd',
               autoHandleError: false,
             });
+          assetDetailFetched = true;
           if (navigationGenerationRef.current !== navigationGeneration) {
             return;
           }
@@ -174,12 +176,18 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           if (navigationGenerationRef.current !== navigationGeneration) {
             return;
           }
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.global_an_error_occurred,
-            }),
-          });
-          return;
+          if (!assetDetailFetched && item.networkId) {
+            // Search rows retain a usable chain identity if asset lookup fails.
+            // A successful response with a missing variant must still fail.
+            item = { ...item, assetId: undefined };
+          } else {
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.global_an_error_occurred,
+              }),
+            });
+            return;
+          }
         }
       }
       const shouldResolveMarketAsset = Boolean(

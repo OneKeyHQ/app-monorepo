@@ -1,5 +1,6 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isTabBarHiddenByRequest } from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { finishMarketDetailTabBarTransition } from '../../../utils/marketDetailNavigation';
 
@@ -178,6 +179,66 @@ describe('navigateToMarketTokenDetail', () => {
         networkId: 'evm--8453',
         isNative: true,
       },
+      { tokenDetailActions, onError },
+    );
+    jest.runAllTimers();
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(changeActiveTokenMock).not.toHaveBeenCalled();
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])(
+    'falls back to the searched token on asset request failure (resolveMarketAsset=%s)',
+    async (resolveMarketAsset) => {
+      mockFetchAssetDetail.mockRejectedValueOnce(new Error('offline'));
+      const onError = jest.fn();
+      const beforeNavigate = jest.fn();
+      await navigateToMarketTokenDetail(
+        {
+          assetId: 'ethereum',
+          address: '',
+          networkId: 'evm--8453',
+          isNative: true,
+        },
+        { tokenDetailActions, resolveMarketAsset, onError, beforeNavigate },
+      );
+      jest.runAllTimers();
+      expect(onError).not.toHaveBeenCalled();
+      expect(networkUtils.getNetworkShortCode).toHaveBeenCalledWith({
+        networkId: 'evm--8453',
+      });
+      expect(beforeNavigate).toHaveBeenCalledTimes(1);
+      expect(navigateMock).toHaveBeenCalledWith('main', {
+        screen: 'Market',
+        params: {
+          screen: 'MarketDetailV2',
+          params: {
+            tokenAddress: '',
+            network: 'eth',
+            isNative: true,
+            ...(resolveMarketAsset
+              ? {
+                  resolveMarketAsset: true,
+                  marketTokenSymbol: undefined,
+                  legacyTokenPreview: undefined,
+                }
+              : undefined),
+          },
+        },
+      });
+      if (!resolveMarketAsset) {
+        expect(changeActiveTokenMock).toHaveBeenCalledWith(
+          expect.objectContaining({ networkId: 'evm--8453', isNative: true }),
+        );
+      }
+    },
+  );
+
+  it('reports an asset-only request failure without navigating', async () => {
+    mockFetchAssetDetail.mockRejectedValueOnce(new Error('offline'));
+    const onError = jest.fn();
+    await navigateToMarketTokenDetail(
+      { assetId: 'ethereum', address: '', networkId: '' },
       { tokenDetailActions, onError },
     );
     jest.runAllTimers();
@@ -523,9 +584,14 @@ describe('navigateToMarketTokenDetail', () => {
       },
     });
   });
-  it.each(['resolve', 'reject'])(
-    'ignores a superseded asset lookup that later %ss',
-    async (outcome) => {
+  it.each([
+    ['resolve', ''],
+    ['reject', ''],
+    ['resolve', 'btc--0'],
+    ['reject', 'btc--0'],
+  ])(
+    'ignores a superseded asset lookup that later %ss (network=%s)',
+    async (outcome, networkId) => {
       let resolveLookup: (value: unknown) => void = () => {};
       let rejectLookup: (reason: Error) => void = () => {};
       mockFetchAssetDetail.mockImplementationOnce(
@@ -539,7 +605,7 @@ describe('navigateToMarketTokenDetail', () => {
       const beforeNavigate = jest.fn();
       const onError = jest.fn();
       const first = navigateToMarketTokenDetail(
-        { assetId: 'bitcoin', networkId: '', address: '' },
+        { assetId: 'bitcoin', networkId, address: '' },
         {
           tokenDetailActions,
           beforeNavigate,
