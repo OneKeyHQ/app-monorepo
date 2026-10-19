@@ -20,6 +20,7 @@ import {
   Divider,
   EInPageDialogType,
   HeaderScrollGestureWrapper,
+  IconButton,
   ScrollView,
   SizableText,
   Skeleton,
@@ -949,6 +950,7 @@ export function MobileLayout({
                         key={marketTradingViewKey}
                         testID={MarketTestIDs.detailChart}
                         source={tradingViewNativeSource}
+                        useFullscreenOverlay={platformEnv.isWeb || undefined}
                         accountMarksContext={
                           tradingViewNativeSource.kind === 'stock'
                             ? undefined
@@ -960,7 +962,9 @@ export function MobileLayout({
                         enableNativeChartSettings
                         enableDrawings={!platformEnv.isNative}
                         prioritizePageScroll
-                        nativeChartSettingsInToolbar={platformEnv.isNative}
+                        nativeChartSettingsInToolbar={
+                          platformEnv.isNative || platformEnv.isWeb
+                        }
                         showNativeIndicatorQuickBar={platformEnv.isNative}
                         onNativeIndicatorQuickBarChange={
                           platformEnv.isNative
@@ -971,7 +975,31 @@ export function MobileLayout({
                           MARKET_DETAIL_MOBILE_TRADING_VIEW_MAX_SELECTABLE_SUB_INDICATOR_COUNT
                         }
                         nativeControlsLayoutMode="mobile"
-                        mobileToolbarExtra={<MobileChartModeControl />}
+                        mobileToolbarExtra={
+                          <>
+                            <MobileChartModeControl />
+                            {platformEnv.isWeb ? (
+                              <IconButton
+                                testID="market-mobile-chart-fullscreen-toggle"
+                                size="small"
+                                variant="tertiary"
+                                icon={
+                                  isChartFullscreen
+                                    ? 'TradingViewExitFullscreenCustom'
+                                    : 'TradingViewFullscreenCustom'
+                                }
+                                title={intl.formatMessage({
+                                  id: isChartFullscreen
+                                    ? ETranslations.global_collapse
+                                    : ETranslations.global_expand,
+                                })}
+                                onPress={() =>
+                                  onChartFullscreenChange?.(!isChartFullscreen)
+                                }
+                              />
+                            ) : null}
+                          </>
+                        }
                         isNativeChartFullscreen={isChartFullscreen}
                         nativeChartFullscreenHeader={
                           platformEnv.isNative && chartHeaderSymbol ? (
@@ -1087,6 +1115,7 @@ export function MobileLayout({
     handleNativeChartPriceUpdate,
     handleNativeIndicatorQuickBarChange,
     handleNativeSubIndicatorCountChange,
+    intl,
     isChartFullscreen,
     isSimpleChart,
     isStockDetailChart,
@@ -1242,6 +1271,7 @@ export function MobileLayout({
         onShowSwapDialog={showSwapDialog}
         executionReady={isSwapTokenReady && isSwapExecutionReady}
         footerMode={footerMode}
+        mobileLayout
         detailKind={detailKind}
         onPerps={handleOpenPerps}
         perpsDisabled={perpDisabled || !perpsInfo?.hlTicker}
