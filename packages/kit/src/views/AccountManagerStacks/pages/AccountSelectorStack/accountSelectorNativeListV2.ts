@@ -164,15 +164,38 @@ export function accountSelectorWalletVisualV2({
     };
   }
   const imageName = wallet.avatarInfo?.img;
+  const imageSource = imageName ? AllWalletAvatarImages[imageName] : undefined;
+  const imageUri = imageSource
+    ? accountSelectorAssetUriV2(imageSource)
+    : undefined;
+  if (
+    accountUtils.isHwOrQrWallet({ walletId: wallet.id }) &&
+    !imageUri?.trim() &&
+    (imageName || !wallet.avatarInfo?.emoji)
+  ) {
+    return {
+      kind: 'wallet',
+      shape: 'rounded',
+      backgroundColor: theme.strongBackground,
+      image: {
+        uri: accountSelectorAssetUriV2(
+          require('@onekeyhq/components/svg/custom/onekey-device.svg'),
+        ),
+        width: 40,
+        height: 40,
+        contentFit: 'contain',
+      },
+      overlays,
+    };
+  }
   return {
     kind: 'wallet',
     shape: 'square',
     backgroundColor: '#00000000',
     image: imageName
       ? {
-          uri: accountSelectorAssetUriV2(
-            AllWalletAvatarImages[imageName] ?? AllWalletAvatarImages.bear,
-          ),
+          uri:
+            imageUri ?? accountSelectorAssetUriV2(AllWalletAvatarImages.bear),
           width: 40,
           height: 40,
           contentFit: 'cover',
