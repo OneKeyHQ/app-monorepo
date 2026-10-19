@@ -54,6 +54,41 @@ jest.mock('@onekeyhq/kit/src/views/Market/components/TokenTagsPopover', () => ({
 }));
 
 describe('TokenIdentityItem volume line', () => {
+  test('shows a listing name even when the token has no address', () => {
+    render(<TokenIdentityItem symbol="TSM" name="台积电" address="" />);
+
+    expect(screen.getByText('台积电')).toBeTruthy();
+  });
+
+  test('retains the contract address alongside the resting token name', () => {
+    render(
+      <TokenIdentityItem
+        symbol="MEME"
+        name="A Meme Coin"
+        address="0x1234567890123456789012345678901234567890"
+        showCopyButton
+      />,
+    );
+
+    expect(screen.getByText('A Meme Coin')).toBeTruthy();
+    expect(screen.getByText('0x1234...7890')).toBeTruthy();
+  });
+
+  test('keeps the volume layout when a name is supplied', () => {
+    render(
+      <TokenIdentityItem
+        symbol="MEME"
+        name="A Meme Coin"
+        address=""
+        showVolume
+        volume={249}
+      />,
+    );
+
+    expect(screen.queryByText('A Meme Coin')).toBeNull();
+    expect(screen.getByTestId('volume-number').textContent).toBe('249');
+  });
+
   test('runs a volume on its own at the 12px subtitle size', () => {
     render(
       <TokenIdentityItem symbol="SP500" address="" showVolume volume={249} />,

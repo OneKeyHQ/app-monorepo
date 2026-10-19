@@ -31,9 +31,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
+import { MarketHoverRevealLine } from '../../../MarketHoverRevealLine';
 import {
   MARKET_CELL_LINE_GAP,
   MARKET_CELL_LOGO_GAP,
+  MARKET_CELL_SUBTITLE_LINE_HEIGHT,
+  MARKET_CELL_SUBTITLE_SIZE,
 } from '../../../MarketListCell';
 
 import type { GestureResponderEvent } from 'react-native';
@@ -43,6 +46,8 @@ interface ITokenIdentityItemProps {
    * Token display symbol, e.g. `SOL`.
    */
   symbol: string;
+  /** Full name at rest, with the address revealed on desktop row hover. */
+  name?: string;
   /**
    * Address represented by this token. Will be truncated for display but the
    * full value is preserved for copy action.
@@ -121,6 +126,7 @@ interface ITokenIdentityItemProps {
 
 const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   symbol,
+  name,
   address,
   tokenLogoURI,
   tokenLogoURIs,
@@ -159,6 +165,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
     [address],
   );
 
+  const displayName = !showVolume ? name?.trim() : undefined;
   const shouldShowVolume = showVolume && !!volume;
   const shouldShowAddress = !showVolume && Boolean(address);
   const shouldShowCopyButton = showCopyButton && Boolean(address);
@@ -230,6 +237,65 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
       ? 'ChartColumnarOutline'
       : 'CryptoCoinOutline';
 
+  const secondaryRowHeight = displayName
+    ? MARKET_CELL_SUBTITLE_LINE_HEIGHT
+    : undefined;
+  const secondaryRow = shouldShowSecondRow ? (
+    <XStack
+      alignItems="center"
+      gap="$1.5"
+      minWidth={0}
+      height={showVolume ? volumeRowHeight : secondaryRowHeight}
+    >
+      {!displayName && localizedName ? (
+        // Cap the localized name so long names truncate with an
+        // ellipsis, e.g. "Circle Int...", keeping the row compact.
+        <SubtitleText subtitle={localizedName} maxWidth={66} />
+      ) : null}
+      {/* Divider only before the address (desktop); the name and
+               volume (mobile) are separated by spacing alone. */}
+      {!displayName && localizedName && shouldShowAddress ? (
+        <SizableText size="$bodySm" color="$textDisabled" flexShrink={0}>
+          |
+        </SizableText>
+      ) : null}
+      {shouldShowVolume ? (
+        <NumberSizeableText
+          size={volumeTextSize}
+          color="$textSubdued"
+          numberOfLines={1}
+          formatter="marketCap"
+          formatterOptions={{ currency: '$' }}
+        >
+          {volume}
+        </NumberSizeableText>
+      ) : null}
+      {shouldShowAddress ? (
+        <SizableText
+          size={displayName ? MARKET_CELL_SUBTITLE_SIZE : '$bodySm'}
+          color="$textSubdued"
+          numberOfLines={1}
+          flexShrink={0}
+        >
+          {shortened}
+        </SizableText>
+      ) : null}
+      {shouldShowCopyButton ? (
+        <Stack
+          cursor="pointer"
+          p={displayName ? '$0' : '$1'}
+          borderRadius="$full"
+          hoverStyle={{ bg: '$bgHover' }}
+          pressStyle={{ bg: '$bgActive' }}
+          hitSlop={NATIVE_HIT_SLOP}
+          onPress={handleCopy}
+        >
+          <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
+        </Stack>
+      ) : null}
+    </XStack>
+  ) : null;
+
   return (
     <XStack alignItems="center" gap={gap} userSelect="none">
       <Token
@@ -257,61 +323,25 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
             />
           )}
         </XStack>
-        {shouldShowSecondRow ? (
-          <XStack
-            alignItems="center"
-            gap="$1.5"
-            minWidth={0}
-            height={showVolume ? volumeRowHeight : undefined}
-          >
-            {localizedName ? (
-              // Cap the localized name so long names truncate with an
-              // ellipsis, e.g. "Circle Int...", keeping the row compact.
-              <SubtitleText subtitle={localizedName} maxWidth={66} />
-            ) : null}
-            {/* Divider only before the address (desktop); the name and
-               volume (mobile) are separated by spacing alone. */}
-            {localizedName && shouldShowAddress ? (
-              <SizableText size="$bodySm" color="$textDisabled" flexShrink={0}>
-                |
-              </SizableText>
-            ) : null}
-            {shouldShowVolume ? (
-              <NumberSizeableText
-                size={volumeTextSize}
-                color="$textSubdued"
-                numberOfLines={1}
-                formatter="marketCap"
-                formatterOptions={{ currency: '$' }}
-              >
-                {volume}
-              </NumberSizeableText>
-            ) : null}
-            {shouldShowAddress ? (
+        {displayName ? (
+          <MarketHoverRevealLine
+            lineHeight={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
+            resting={
               <SizableText
-                size="$bodySm"
+                height={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
+                size={MARKET_CELL_SUBTITLE_SIZE}
                 color="$textSubdued"
                 numberOfLines={1}
-                flexShrink={0}
+                ellipsizeMode="tail"
               >
-                {shortened}
+                {displayName}
               </SizableText>
-            ) : null}
-            {shouldShowCopyButton ? (
-              <Stack
-                cursor="pointer"
-                p="$1"
-                borderRadius="$full"
-                hoverStyle={{ bg: '$bgHover' }}
-                pressStyle={{ bg: '$bgActive' }}
-                hitSlop={NATIVE_HIT_SLOP}
-                onPress={handleCopy}
-              >
-                <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
-              </Stack>
-            ) : null}
-          </XStack>
-        ) : null}
+            }
+            revealed={shouldShowAddress ? secondaryRow : undefined}
+          />
+        ) : (
+          secondaryRow
+        )}
       </Stack>
     </XStack>
   );
