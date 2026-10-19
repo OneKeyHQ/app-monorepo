@@ -113,6 +113,7 @@ function ValueCell({
   flex = 1,
 }: {
   value: string;
+  /** Left out, the line stays empty so values keep one baseline */
   change?: string;
   flex?: number;
 }) {
@@ -121,7 +122,11 @@ function ValueCell({
       <SizableText size="$bodyLgMedium" numberOfLines={1}>
         {value}
       </SizableText>
-      <PoolChangeText change={change} />
+      {change === undefined ? (
+        <SizableText size="$bodySm"> </SizableText>
+      ) : (
+        <PoolChangeText change={change} />
+      )}
     </YStack>
   );
 }
@@ -147,6 +152,7 @@ function SortHeader({
   return (
     <XStack
       testID={`earn-pools-sort-${sortKey}`}
+      group
       flex={1}
       flexBasis={0}
       role="button"
@@ -160,7 +166,14 @@ function SortHeader({
         onSort(sortKey, active && direction === 'desc' ? 'asc' : 'desc')
       }
     >
-      <Icon name={icon} size="$4.5" color={active ? '$icon' : '$iconSubdued'} />
+      {/* Only the sorted column shows its arrow; the rest on hover */}
+      <Stack opacity={active ? 1 : 0} $group-hover={{ opacity: 1 }}>
+        <Icon
+          name={icon}
+          size="$4.5"
+          color={active ? '$icon' : '$iconSubdued'}
+        />
+      </Stack>
       <SizableText
         size="$bodySmMedium"
         color={active ? '$text' : '$textSubdued'}
@@ -227,9 +240,10 @@ const PoolTableRow = memo(
             value={formatCompactUsd(stats.volumeUsd)}
             change={stats.volumeChange}
           />
+          {/* At a fixed fee, fees move exactly with volume */}
           <ValueCell
             value={formatCompactUsd(stats.feesUsd)}
-            change={stats.feesChange}
+            change={pool.isDynamicFee ? stats.feesChange : undefined}
           />
           <ValueCell
             value={formatPercent(stats.apr)}

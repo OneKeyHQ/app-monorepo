@@ -5,6 +5,8 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import type { IPool } from '@onekeyhq/shared/types/pools';
 
 import {
+  formatCompactTokenAmount,
+  formatCompactUsd,
   formatPercent,
   formatTokenAmount,
   formatUsd,
@@ -39,11 +41,16 @@ export function PoolTokenSplit({
   pool,
   amount0,
   amount1,
+  compact = false,
 }: {
   pool: IPool;
   amount0: BigNumber.Value;
   amount1: BigNumber.Value;
+  /** Pool reserves read like TVL (26.38K WETH); a position stays exact */
+  compact?: boolean;
 }) {
+  const formatAmount = compact ? formatCompactTokenAmount : formatTokenAmount;
+  const formatValue = compact ? formatCompactUsd : formatUsd;
   const { base, quote } = getPoolPair(pool);
   const rows = [base, quote].map((token) => {
     const amount = token.id === pool.token0.id ? amount0 : amount1;
@@ -71,10 +78,10 @@ export function PoolTokenSplit({
           />
           <YStack flex={1}>
             <SizableText size="$bodyLgMedium">
-              {formatTokenAmount(row.amount, row.token.symbol)}
+              {formatAmount(row.amount, row.token.symbol)}
             </SizableText>
             <SizableText size="$bodyMd" color="$textSubdued">
-              {formatUsd(row.valueUsd)}
+              {formatValue(row.valueUsd)}
             </SizableText>
           </YStack>
           <XStack ai="center" gap="$2">

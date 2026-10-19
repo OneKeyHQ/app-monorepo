@@ -63,7 +63,8 @@ function Stat({
 
 /**
  * The pool's last 24 hours with the change against the day before; a
- * dynamic-fee pool adds the fee it charges now.
+ * dynamic-fee pool adds the fee it charges now. At a fixed fee, fees move
+ * exactly with volume, so only a dynamic fee shows their change.
  */
 export function PoolStatsStrip({
   pool,
@@ -97,7 +98,7 @@ export function PoolStatsStrip({
       <Stat
         label={POOLS_COPY.fees24h}
         value={formatCompactUsd(day.feesUsd)}
-        change={day.feesChange}
+        change={pool.isDynamicFee ? day.feesChange : undefined}
         width={width}
       />
       <Stat

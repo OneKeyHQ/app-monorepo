@@ -43,6 +43,7 @@ import {
 } from '../components/PoolRemoveParts';
 import { PoolsCard } from '../components/PoolsCard';
 import { PoolsChip } from '../components/PoolsFilterButton';
+import { PoolsFlowColumn } from '../components/PoolsFlowColumn';
 import { PoolTags } from '../components/PoolTags';
 import { POOLS_COPY } from '../poolsCopy';
 import { formatUsd, getPoolPair, getPoolPairTitle } from '../poolsFormat';
@@ -234,19 +235,14 @@ function ExitForm({
       pageTitle={
         <SizableText size="$headingLg">{POOLS_COPY.exitTitle}</SizableText>
       }
-      breadcrumbProps={breadcrumbProps}
+      breadcrumbProps={gtMd ? undefined : breadcrumbProps}
       sceneName={EAccountSelectorSceneName.home}
       tabRoute={ETabRoutes.Earn}
       showBackButton
       footer={footer}
       contentContainerStyle={{ pb: gtMd ? '$10' : '$24' }}
     >
-      <YStack
-        px="$pagePadding"
-        gap="$5"
-        pt={gtMd ? '$0' : '$4'}
-        maxWidth={gtMd ? 600 : undefined}
-      >
+      <PoolsFlowColumn breadcrumbProps={breadcrumbProps} maxWidth={600}>
         {gtMd ? (
           <SizableText size="$heading2xl">{POOLS_COPY.exitTitle}</SizableText>
         ) : null}
@@ -316,7 +312,7 @@ function ExitForm({
             {buttonLabel}
           </Button>
         ) : null}
-      </YStack>
+      </PoolsFlowColumn>
     </EarnPageContainer>
   );
 }
@@ -375,10 +371,10 @@ function EarnPoolsExitContent({
         tabRoute={ETabRoutes.Earn}
         showBackButton
       >
-        <YStack px="$pagePadding" gap="$5" py="$4">
+        <PoolsFlowColumn maxWidth={600}>
           <Skeleton w="$48" h="$8" />
           <Skeleton w="100%" h={220} borderRadius="$4" />
-        </YStack>
+        </PoolsFlowColumn>
       </EarnPageContainer>
     );
   }

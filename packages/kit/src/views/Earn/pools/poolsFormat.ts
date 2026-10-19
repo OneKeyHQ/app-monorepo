@@ -21,6 +21,22 @@ export function getPoolPair(pool: IPool) {
   };
 }
 
+/** Token lists in pool order, put the way the pair reads: base first */
+export function sortByPair<T>(
+  pool: IPool | undefined,
+  items: T[],
+  getTokenId: (item: T) => string,
+) {
+  if (!pool) {
+    return items;
+  }
+  const { base } = getPoolPair(pool);
+  return items.toSorted(
+    (a, b) =>
+      Number(getTokenId(b) === base.id) - Number(getTokenId(a) === base.id),
+  );
+}
+
 export function getPoolPairTitle(pool: IPool) {
   const { base, quote } = getPoolPair(pool);
   return `${base.symbol} / ${quote.symbol}`;
@@ -76,6 +92,39 @@ export function formatTokenAmount(
     formatter: 'balance',
     formatterOptions: symbol ? { tokenSymbol: symbol } : undefined,
   });
+}
+
+/** Pool-level quantities, compact like TVL: 26.38K WETH */
+export function formatCompactTokenAmount(
+  value: BigNumber.Value | undefined,
+  symbol?: string,
+) {
+  return numberFormat(new BigNumber(value ?? 0).toFixed(), {
+    formatter: 'marketCap',
+    formatterOptions: symbol ? { tokenSymbol: symbol } : undefined,
+  });
+}
+
+/**
+ * An amount in a one-line summary such as a swap: millions and up compact
+ * (44.97M PEPE), smaller amounts exact as balances.
+ */
+export function formatTokenAmountShort(
+  value: BigNumber.Value | undefined,
+  symbol?: string,
+) {
+  return new BigNumber(value ?? 0).abs().gte(1_000_000)
+    ? formatCompactTokenAmount(value, symbol)
+    : formatTokenAmount(value, symbol);
+}
+
+/** A price against today's: +14.00%, -6.70% */
+export function formatPriceChange(value: BigNumber, now: BigNumber) {
+  const change = value.div(now).minus(1).times(100);
+  if (!change.isFinite()) {
+    return undefined;
+  }
+  return `${change.gt(0) ? '+' : ''}${change.toFixed(2)}%`;
 }
 
 export function formatTokenPrice(value: BigNumber.Value) {

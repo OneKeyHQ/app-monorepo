@@ -30,6 +30,7 @@ import type {
 
 import { POOLS_COPY } from '../poolsCopy';
 import {
+  formatPriceChange,
   formatTokenPrice,
   getPoolDisplayPrice,
   getPoolPair,
@@ -56,14 +57,6 @@ function toEditable(value: BigNumber) {
 }
 
 /** A bound against today's price: +11.07%, -9.06% */
-function formatChange(value: BigNumber, now: BigNumber) {
-  const change = value.div(now).minus(1).times(100);
-  if (!change.isFinite()) {
-    return undefined;
-  }
-  return `${change.gt(0) ? '+' : ''}${change.toFixed(2)}%`;
-}
-
 function PriceBoundField({
   label,
   change,
@@ -388,7 +381,7 @@ export function PoolRangeEditor({
           testID="earn-pool-range-min"
           label={POOLS_COPY.minPrice}
           change={
-            display.isMinZero ? undefined : formatChange(display.min, now)
+            display.isMinZero ? undefined : formatPriceChange(display.min, now)
           }
           value={display.isMinZero ? '0' : toEditable(display.min)}
           shown={display.isMinZero ? '0' : formatTokenPrice(display.min)}
@@ -400,7 +393,9 @@ export function PoolRangeEditor({
           testID="earn-pool-range-max"
           label={POOLS_COPY.maxPrice}
           change={
-            display.isMaxInfinite ? undefined : formatChange(display.max, now)
+            display.isMaxInfinite
+              ? undefined
+              : formatPriceChange(display.max, now)
           }
           value={display.isMaxInfinite ? '∞' : toEditable(display.max)}
           shown={display.isMaxInfinite ? '∞' : formatTokenPrice(display.max)}

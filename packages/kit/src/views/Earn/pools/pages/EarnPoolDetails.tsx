@@ -87,6 +87,7 @@ function PoolCompositionCard({ pool }: { pool: IPool }) {
         pool={pool}
         amount0={pool.reserve0}
         amount1={pool.reserve1}
+        compact
       />
     </PoolsCard>
   );

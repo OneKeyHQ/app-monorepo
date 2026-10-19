@@ -47,6 +47,7 @@ import { PoolUnfinishedTasks } from '../components/PoolUnfinishedTasks';
 import { POOLS_COPY } from '../poolsCopy';
 import {
   formatPercent,
+  formatPriceChange,
   formatTokenAmount,
   formatTokenPrice,
   formatUsd,
@@ -64,7 +65,7 @@ function ValueCard({ view }: { view: IPoolPositionView }) {
   const feesEarned = new BigNumber(view.feesEarnedUsd);
   return (
     <PoolsCard>
-      <XStack gap="$8" rowGap="$4" flexWrap="wrap" ai="flex-end">
+      <XStack gap="$8" rowGap="$4" flexWrap="wrap">
         <YStack gap="$1">
           <SizableText size="$bodyMd" color="$textSubdued">
             {POOLS_COPY.positionValue}
@@ -74,7 +75,7 @@ function ValueCard({ view }: { view: IPoolPositionView }) {
           </SizableText>
         </YStack>
         {feesEarned.gt(0) ? (
-          <YStack gap="$1" pb="$1">
+          <YStack gap="$1">
             <SizableText size="$bodyMd" color="$textSubdued">
               {POOLS_COPY.feesEarned}
             </SizableText>
@@ -165,7 +166,16 @@ function FeesCard({
   );
 }
 
-function RangeValue({ label, value }: { label: string; value: string }) {
+function RangeValue({
+  label,
+  value,
+  change,
+}: {
+  label: string;
+  value: string;
+  /** How far the price is from this bound */
+  change?: string;
+}) {
   return (
     <YStack flex={1} gap="$1">
       <SizableText size="$bodySm" color="$textSubdued">
@@ -174,6 +184,11 @@ function RangeValue({ label, value }: { label: string; value: string }) {
       <SizableText size="$headingMd" numberOfLines={1}>
         {value}
       </SizableText>
+      {change ? (
+        <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+          {change}
+        </SizableText>
+      ) : null}
     </YStack>
   );
 }
@@ -224,6 +239,7 @@ function RangeCard({
             <RangeValue
               label={POOLS_COPY.minPrice}
               value={formatTokenPrice(display.min)}
+              change={formatPriceChange(display.min, display.current)}
             />
             <RangeValue
               label={POOLS_COPY.currentPrice}
@@ -232,6 +248,7 @@ function RangeCard({
             <RangeValue
               label={POOLS_COPY.maxPrice}
               value={formatTokenPrice(display.max)}
+              change={formatPriceChange(display.max, display.current)}
             />
           </XStack>
           <SizableText size="$bodySm" color="$textSubdued">
@@ -254,6 +271,8 @@ function RangeCard({
           view.status === EPoolPositionStatus.OutOfRange ? 'caution' : 'success'
         }
         height={120}
+        // Min, current and max are right above
+        showPrices={display.isFull}
       />
     </PoolsCard>
   );

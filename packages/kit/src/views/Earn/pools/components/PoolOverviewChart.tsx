@@ -345,7 +345,9 @@ export function PoolOverviewChart({
           onPriceBandDrag={draggable ? handleBandDrag : undefined}
           height={height}
           pulseLastPoint
-          showCurrentPriceLabel
+          // Beside the band's own axis labels the tag places the price; on
+          // its own it repeats the price above and can cover an axis label
+          showCurrentPriceLabel={draggable}
           hoverLabelShowsPrice={false}
           priceAxisFormatter={formatAxisPrice}
           onHoverChange={setHover}

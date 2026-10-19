@@ -27,10 +27,12 @@ import { POOLS_COPY } from '../poolsCopy';
 import {
   formatPercent,
   formatTokenAmount,
+  formatTokenAmountShort,
   formatTokenPrice,
   formatUsd,
   getPoolPair,
   getPriceUnitLabel,
+  sortByPair,
 } from '../poolsFormat';
 import { toInputAmount, usdOf } from '../usePoolPositionForm';
 
@@ -47,7 +49,8 @@ const PERCENT_CHIPS = [0.25, 0.5, 0.75];
 function PlanRow({ label, children }: { label: string; children: ReactNode }) {
   return (
     <XStack jc="space-between" ai="flex-start" gap="$3">
-      <SizableText size="$bodyMd" color="$textSubdued">
+      {/* The label keeps one line; a long value wraps instead */}
+      <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
         {label}
       </SizableText>
       <YStack ai="flex-end" gap="$0.5" flexShrink={1}>
@@ -68,17 +71,30 @@ function ZapPlanView({
 }) {
   const tokens = [pool.token0, pool.token1];
   const swaps = plan.legs.filter((leg) => leg.quote);
-  const leftovers = [
-    { token: pool.token0, amount: plan.leftover0 },
-    { token: pool.token1, amount: plan.leftover1 },
-  ].filter(({ token, amount }) => usdOf(token, amount).gte(0.01));
+  const tokenIdOf = ({ token }: { token: IPoolAsset }) => token.id;
+  const goesIn = sortByPair(
+    pool,
+    [
+      { token: pool.token0, amount: plan.used0 },
+      { token: pool.token1, amount: plan.used1 },
+    ],
+    tokenIdOf,
+  ).filter(({ amount }) => new BigNumber(amount).gt(0));
+  const leftovers = sortByPair(
+    pool,
+    [
+      { token: pool.token0, amount: plan.leftover0 },
+      { token: pool.token1, amount: plan.leftover1 },
+    ],
+    tokenIdOf,
+  ).filter(({ token, amount }) => usdOf(token, amount).gte(0.01));
   return (
     <YStack gap="$3">
       {swaps.length ? (
         <PlanRow label={POOLS_COPY.zapPlan}>
           {swaps.map((leg) => (
             <SizableText key={leg.side} size="$bodyMdMedium" textAlign="right">
-              {`${formatTokenAmount(leg.amountIn, input.symbol)} → ${formatTokenAmount(
+              {`${formatTokenAmountShort(leg.amountIn, input.symbol)} → ${formatTokenAmountShort(
                 leg.quote?.amountOut,
                 tokens[leg.side].symbol,
               )}`}
@@ -94,16 +110,11 @@ function ZapPlanView({
         </PlanRow>
       ) : null}
       <PlanRow label={POOLS_COPY.goesIn}>
-        {[
-          { token: pool.token0, amount: plan.used0 },
-          { token: pool.token1, amount: plan.used1 },
-        ]
-          .filter(({ amount }) => new BigNumber(amount).gt(0))
-          .map(({ token, amount }) => (
-            <SizableText key={token.id} size="$bodyMdMedium">
-              {formatTokenAmount(amount, token.symbol)}
-            </SizableText>
-          ))}
+        {goesIn.map(({ token, amount }) => (
+          <SizableText key={token.id} size="$bodyMdMedium">
+            {formatTokenAmount(amount, token.symbol)}
+          </SizableText>
+        ))}
       </PlanRow>
       {leftovers.length ? (
         <PlanRow label={POOLS_COPY.leftover}>

@@ -10,7 +10,6 @@ import {
   SegmentControl,
   SizableText,
   Skeleton,
-  YStack,
   useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
@@ -38,6 +37,7 @@ import {
   sortTargetAssets,
 } from '../components/PoolRemoveParts';
 import { PoolsCard } from '../components/PoolsCard';
+import { PoolsFlowColumn } from '../components/PoolsFlowColumn';
 import { POOLS_COPY } from '../poolsCopy';
 import { getPoolPair, getPoolPairTitle } from '../poolsFormat';
 import { usePoolsBreadcrumb } from '../usePoolsBreadcrumb';
@@ -134,19 +134,14 @@ function RemoveForm({
           {POOLS_COPY.removeLiquidity}
         </SizableText>
       }
-      breadcrumbProps={breadcrumbProps}
+      breadcrumbProps={gtMd ? undefined : breadcrumbProps}
       sceneName={EAccountSelectorSceneName.home}
       tabRoute={ETabRoutes.Earn}
       showBackButton
       footer={footer}
       contentContainerStyle={{ pb: gtMd ? '$10' : '$24' }}
     >
-      <YStack
-        px="$pagePadding"
-        gap="$5"
-        pt={gtMd ? '$0' : '$4'}
-        maxWidth={gtMd ? 600 : undefined}
-      >
+      <PoolsFlowColumn breadcrumbProps={breadcrumbProps} maxWidth={600}>
         <PoolHeader pool={pool} status={<PoolPositionStatus view={view} />} />
         <PoolsCard title={POOLS_COPY.amountToRemove}>
           <PoolPercentPicker value={percent} onChange={setPercent} />
@@ -182,6 +177,7 @@ function RemoveForm({
               preview={preview}
               assets={wallet.assets}
               includesFees={includesFees}
+              pool={pool}
             />
           ) : null}
         </PoolsCard>
@@ -197,7 +193,7 @@ function RemoveForm({
             {buttonLabel}
           </Button>
         ) : null}
-      </YStack>
+      </PoolsFlowColumn>
     </EarnPageContainer>
   );
 }
@@ -238,10 +234,10 @@ function EarnPoolRemoveLiquidityContent({
         showBackButton
       >
         {result === null ? null : (
-          <YStack px="$pagePadding" gap="$5" py="$4">
+          <PoolsFlowColumn maxWidth={600}>
             <Skeleton w="$48" h="$8" />
             <Skeleton w="100%" h={200} borderRadius="$4" />
-          </YStack>
+          </PoolsFlowColumn>
         )}
       </EarnPageContainer>
     );

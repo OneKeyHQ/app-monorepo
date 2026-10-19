@@ -12,13 +12,19 @@ import {
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import type {
+  IPool,
   IPoolAsset,
   IPoolRemovePreview,
   IPoolsWallet,
 } from '@onekeyhq/shared/types/pools';
 
 import { POOLS_COPY } from '../poolsCopy';
-import { formatTokenAmount, formatUsd } from '../poolsFormat';
+import {
+  formatTokenAmount,
+  formatTokenAmountShort,
+  formatUsd,
+  sortByPair,
+} from '../poolsFormat';
 
 import { PoolsChip } from './PoolsFilterButton';
 
@@ -130,7 +136,8 @@ function SummaryRow({
 }) {
   return (
     <XStack jc="space-between" ai="flex-start" gap="$3">
-      <SizableText size="$bodyMd" color="$textSubdued">
+      {/* The label keeps one line; a long value wraps instead */}
+      <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
         {label}
       </SizableText>
       <YStack ai="flex-end" gap="$0.5" flexShrink={1}>
@@ -148,10 +155,13 @@ export function PoolRemoveSummary({
   preview,
   assets,
   includesFees,
+  pool,
 }: {
   preview: IPoolRemovePreview;
   assets: IPoolAsset[];
   includesFees: boolean;
+  /** Lists both tokens the way the pair reads */
+  pool?: IPool;
 }) {
   const symbolOf = (assetId: string) =>
     assets.find((asset) => asset.id === assetId)?.symbol ?? '';
@@ -181,7 +191,7 @@ export function PoolRemoveSummary({
                 size="$bodyMdMedium"
                 textAlign="right"
               >
-                {`${formatTokenAmount(leg.amount, symbolOf(leg.assetId))} → ${formatTokenAmount(
+                {`${formatTokenAmountShort(leg.amount, symbolOf(leg.assetId))} → ${formatTokenAmountShort(
                   leg.quote?.amountOut,
                   target?.symbol,
                 )}`}
@@ -204,8 +214,10 @@ export function PoolRemoveSummary({
       </YStack>
     );
   }
-  const received = preview.received.filter((item) =>
-    new BigNumber(item.amount).gt(0),
+  const received = sortByPair(
+    pool,
+    preview.received.filter((item) => new BigNumber(item.amount).gt(0)),
+    (item) => item.assetId,
   );
   return (
     <YStack gap="$3">

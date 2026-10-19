@@ -46,6 +46,7 @@ import { PoolPairIcon } from '../components/PoolPairIcon';
 import { PoolPositionStatus } from '../components/PoolPositionCard';
 import { PoolsCard } from '../components/PoolsCard';
 import { PoolsDemoMenuButton } from '../components/PoolsDemoMenuButton';
+import { PoolsFlowColumn } from '../components/PoolsFlowColumn';
 import { PoolTags } from '../components/PoolTags';
 import { confirmAbandonPoolTask } from '../components/PoolUnfinishedTasks';
 import { POOLS_COPY } from '../poolsCopy';
@@ -55,6 +56,7 @@ import {
   formatUsd,
   getPoolPairTitle,
   getPoolVersionLabel,
+  sortByPair,
 } from '../poolsFormat';
 import { usePoolsBreadcrumb } from '../usePoolsBreadcrumb';
 
@@ -125,10 +127,12 @@ function getStepDetail(
   step: IPoolTaskStep,
   poolsById: Map<string, IPool>,
 ): string[] {
+  const stepPool = step.poolId ? poolsById.get(step.poolId) : undefined;
   // With one pool the page header already names it
-  const pool =
-    step.poolId && poolsById.size > 1 ? poolsById.get(step.poolId) : undefined;
-  const poolLine = pool ? [getPoolName(pool)] : [];
+  const poolLine =
+    stepPool && poolsById.size > 1 ? [getPoolName(stepPool)] : [];
+  const inPairOrder = (items: IPoolTaskTokenAmount[]) =>
+    sortByPair(stepPool, items, (item) => item.assetId);
   switch (step.kind) {
     case EPoolTaskStepKind.Approve:
     case EPoolTaskStepKind.ApprovePermit2:
@@ -144,11 +148,14 @@ function getStepDetail(
     case EPoolTaskStepKind.AddLiquidity:
     case EPoolTaskStepKind.IncreaseLiquidity: {
       const amounts = nonZero(step.spent ?? [step.tokenIn, step.tokenOut]);
-      return [...poolLine, ...amounts.map(formatAmount)];
+      return [...poolLine, ...inPairOrder(amounts).map(formatAmount)];
     }
     case EPoolTaskStepKind.RemoveLiquidity:
     case EPoolTaskStepKind.CollectFees:
-      return [...poolLine, ...nonZero(step.received ?? []).map(formatAmount)];
+      return [
+        ...poolLine,
+        ...inPairOrder(nonZero(step.received ?? [])).map(formatAmount),
+      ];
     default:
       return [];
   }
@@ -297,13 +304,16 @@ function sameAmounts(a: IPoolTaskTokenAmount[], b: IPoolTaskTokenAmount[]) {
   );
 }
 
-function TaskSummary({ task }: { task: IPoolTask }) {
+function TaskSummary({ task, pool }: { task: IPoolTask; pool?: IPool }) {
   const { preview } = task;
   const isDone = task.status === EPoolTaskStatus.Done;
-  const pay = nonZero(preview.pay);
-  const deposit = nonZero(preview.deposit);
-  const receive = nonZero(preview.receive);
-  const leftover = nonZero(preview.leftover);
+  // One pool: both tokens listed the way the pair reads
+  const list = (items: IPoolTaskTokenAmount[]) =>
+    sortByPair(pool, nonZero(items), (item) => item.assetId);
+  const pay = list(preview.pay);
+  const deposit = list(preview.deposit);
+  const receive = list(preview.receive);
+  const leftover = list(preview.leftover);
   const cost = new BigNumber(preview.costUsd);
   return (
     <PoolsCard>
@@ -440,11 +450,11 @@ function TaskDoneHero({ task, pools }: { task: IPoolTask; pools: IPool[] }) {
 
 function TaskSkeleton() {
   return (
-    <YStack px="$pagePadding" gap="$5" py="$4">
+    <PoolsFlowColumn maxWidth={560}>
       <Skeleton w="$48" h="$8" />
       <Skeleton w="100%" h={140} borderRadius="$4" />
       <Skeleton w="100%" h={220} borderRadius="$4" />
-    </YStack>
+    </PoolsFlowColumn>
   );
 }
 
@@ -759,7 +769,7 @@ function TaskView({
           {POOLS_COPY.taskTitle[task.kind]}
         </SizableText>
       }
-      breadcrumbProps={breadcrumbProps}
+      breadcrumbProps={gtMd ? undefined : breadcrumbProps}
       sceneName={EAccountSelectorSceneName.home}
       tabRoute={ETabRoutes.Earn}
       showBackButton
@@ -767,15 +777,10 @@ function TaskView({
       customHeaderRightItems={<PoolsDemoMenuButton />}
       contentContainerStyle={{ pb: gtMd ? '$10' : '$24' }}
     >
-      <YStack
-        px="$pagePadding"
-        gap="$5"
-        pt={gtMd ? '$0' : '$4'}
-        maxWidth={gtMd ? 560 : undefined}
-      >
+      <PoolsFlowColumn breadcrumbProps={breadcrumbProps} maxWidth={560}>
         {header}
         {notice}
-        <TaskSummary task={task} />
+        <TaskSummary task={task} pool={singlePool} />
         {/* Once done, the next move matters more than the finished steps */}
         {gtMd && isDone ? buttons : null}
         {isDone ? (
@@ -828,7 +833,7 @@ function TaskView({
           </PoolsCard>
         )}
         {gtMd && !isDone ? buttons : null}
-      </YStack>
+      </PoolsFlowColumn>
     </EarnPageContainer>
   );
 }

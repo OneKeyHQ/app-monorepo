@@ -149,6 +149,7 @@ export function PoolLiquidityChart({
   bucketCount = 56,
   showZoom = true,
   title,
+  showPrices = true,
 }: {
   pool: IPool;
   ticks: IPoolTickLiquidityNet[];
@@ -162,6 +163,11 @@ export function PoolLiquidityChart({
   showZoom?: boolean;
   /** Left of the zoom buttons, when there is no legend */
   title?: ReactNode;
+  /**
+   * Off when the prices sit right above the chart: Now keeps its line but
+   * not its price, and the band's edges go unlabeled
+   */
+  showPrices?: boolean;
 }) {
   const [zoom, setZoom] = useState(1);
   const [width, setWidth] = useState(0);
@@ -490,6 +496,8 @@ export function PoolLiquidityChart({
   // With nothing else above the chart, the zoom buttons take its top corner
   // instead of a row of their own; the Now label stays centered
   const hasHeader = hasLegend || Boolean(title);
+  // The axis row holds the band's edges, or the window's ends without a band
+  const showAxis = showPrices || !band;
 
   return (
     <YStack gap="$2">
@@ -500,7 +508,7 @@ export function PoolLiquidityChart({
         </XStack>
       ) : null}
       <YStack
-        h={NOW_LABEL_HEIGHT + height + AXIS_HEIGHT}
+        h={NOW_LABEL_HEIGHT + height + (showAxis ? AXIS_HEIGHT : 0)}
         position="relative"
         onLayout={(event: LayoutChangeEvent) =>
           setWidth(event.nativeEvent.layout.width)
@@ -565,7 +573,9 @@ export function PoolLiquidityChart({
           pointerEvents="none"
         >
           <SizableText size="$bodySmMedium" numberOfLines={1}>
-            {`${POOLS_COPY.now} ${formatTokenPrice(nowPrice)}`}
+            {showPrices
+              ? `${POOLS_COPY.now} ${formatTokenPrice(nowPrice)}`
+              : POOLS_COPY.now}
           </SizableText>
           <Stack mt="$1" w={1.5} flex={1} bg="$text" />
         </YStack>
@@ -648,40 +658,42 @@ export function PoolLiquidityChart({
             </View>
           </Stack>
         ) : null}
-        <Stack
-          position="absolute"
-          top={NOW_LABEL_HEIGHT + height}
-          left={0}
-          right={0}
-          h={AXIS_HEIGHT}
-          pointerEvents="none"
-        >
-          {band && edgeTicks ? (
-            <>
-              <EdgeLabel
-                x={band[0]}
-                text={formatTokenPrice(
-                  getTickDisplayPrice(pool, edgeTicks.left),
-                )}
-              />
-              <EdgeLabel
-                x={band[1]}
-                text={formatTokenPrice(
-                  getTickDisplayPrice(pool, edgeTicks.right),
-                )}
-              />
-            </>
-          ) : (
-            <XStack jc="space-between" pt={4}>
-              <SizableText size="$bodySm" color="$textSubdued">
-                {formatTokenPrice(leftPrice)}
-              </SizableText>
-              <SizableText size="$bodySm" color="$textSubdued">
-                {formatTokenPrice(rightPrice)}
-              </SizableText>
-            </XStack>
-          )}
-        </Stack>
+        {showAxis ? (
+          <Stack
+            position="absolute"
+            top={NOW_LABEL_HEIGHT + height}
+            left={0}
+            right={0}
+            h={AXIS_HEIGHT}
+            pointerEvents="none"
+          >
+            {band && edgeTicks ? (
+              <>
+                <EdgeLabel
+                  x={band[0]}
+                  text={formatTokenPrice(
+                    getTickDisplayPrice(pool, edgeTicks.left),
+                  )}
+                />
+                <EdgeLabel
+                  x={band[1]}
+                  text={formatTokenPrice(
+                    getTickDisplayPrice(pool, edgeTicks.right),
+                  )}
+                />
+              </>
+            ) : (
+              <XStack jc="space-between" pt={4}>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {formatTokenPrice(leftPrice)}
+                </SizableText>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {formatTokenPrice(rightPrice)}
+                </SizableText>
+              </XStack>
+            )}
+          </Stack>
+        ) : null}
         {hasHeader ? null : (
           <XStack position="absolute" top={0} right={0}>
             {zoomButtons}

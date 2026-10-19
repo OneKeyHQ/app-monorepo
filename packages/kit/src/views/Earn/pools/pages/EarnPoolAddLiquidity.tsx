@@ -25,6 +25,7 @@ import {
   PoolPositionForm,
   PoolPositionReviewButton,
 } from '../components/PoolPositionForm';
+import { PoolsFlowColumn } from '../components/PoolsFlowColumn';
 import { PoolTags } from '../components/PoolTags';
 import { PoolUnfinishedTasks } from '../components/PoolUnfinishedTasks';
 import { POOLS_COPY } from '../poolsCopy';
@@ -37,11 +38,11 @@ import type { RouteProp } from '@react-navigation/core';
 
 function AddLiquiditySkeleton() {
   return (
-    <YStack px="$pagePadding" gap="$5" py="$4">
+    <PoolsFlowColumn maxWidth={560}>
       <Skeleton w="$48" h="$8" />
       <Skeleton w="100%" h={260} borderRadius="$4" />
       <Skeleton w="100%" h={180} borderRadius="$4" />
-    </YStack>
+    </PoolsFlowColumn>
   );
 }
 
@@ -106,19 +107,14 @@ function AddLiquidityForm({
           {positionId ? POOLS_COPY.add : POOLS_COPY.addLiquidity}
         </SizableText>
       }
-      breadcrumbProps={breadcrumbProps}
+      breadcrumbProps={gtMd ? undefined : breadcrumbProps}
       sceneName={EAccountSelectorSceneName.home}
       tabRoute={ETabRoutes.Earn}
       showBackButton
       footer={footer}
       contentContainerStyle={{ pb: gtMd ? '$10' : '$24' }}
     >
-      <YStack
-        px="$pagePadding"
-        gap="$5"
-        pt={gtMd ? '$0' : '$4'}
-        maxWidth={gtMd ? 560 : undefined}
-      >
+      <PoolsFlowColumn breadcrumbProps={breadcrumbProps} maxWidth={560}>
         <XStack ai="center" gap="$3">
           <PoolPairIcon pool={pool} size="md" />
           <YStack gap="$1" flex={1}>
@@ -135,7 +131,7 @@ function AddLiquidityForm({
           priceHistory={detail.priceHistory}
           button={gtMd ? <PoolPositionReviewButton form={form} /> : null}
         />
-      </YStack>
+      </PoolsFlowColumn>
     </EarnPageContainer>
   );
 }
