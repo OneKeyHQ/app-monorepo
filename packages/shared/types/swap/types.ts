@@ -18,6 +18,7 @@ import type {
   IEventSourceTimeoutEvent,
 } from '@onekeyhq/shared/src/eventSource';
 
+import type { ISwapReviewAnalyticsContext } from './reviewAnalytics';
 import type {
   IEstimateGasResp,
   IFeeAlgo,
@@ -385,6 +386,8 @@ export interface ISwapOrderHash {
 }
 
 export interface ISwapApproveTransaction {
+  // Keep the originating Review for estimates after reset approval completes.
+  analyticsSwapInfo?: ISwapTxInfo;
   fromToken: ISwapToken;
   toToken: ISwapToken;
   marketSwapApprovalFlowId?: string;
@@ -1036,6 +1039,7 @@ export interface ISwapInfoSide {
   };
 }
 export interface ISwapTxInfo {
+  reviewAnalyticsContext?: ISwapReviewAnalyticsContext;
   protocol: EProtocolOfExchange;
   sender: ISwapInfoSide;
   receiver: ISwapInfoSide;
@@ -1348,7 +1352,10 @@ export const SwapPercentageInputStageForNative = [25, 50, 75, 100];
 export const SwapLimitPriceInputStageBuyForNative = [0, -20, -50];
 export const SwapLimitPriceInputStageSellForNative = [0, 20, 50, 100];
 
-export const SwapBuildUseMultiplePopoversNetworkIds = ['tron--0x2b6653dc'];
+export const SwapBuildUseMultiplePopoversNetworkIds = [
+  'tron--0x2b6653dc',
+  'evm--81457',
+];
 
 export const SwapBuildShouldFallBackNetworkIds = ['tron--0x2b6653dc'];
 

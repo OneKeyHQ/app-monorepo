@@ -21,6 +21,10 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
+import type {
+  ISwapReviewAnalytics,
+  ISwapReviewPreparation,
+} from './swapReviewAnalytics';
 import type { ESwapReviewRebuildPhase } from './swapReviewRebuildStateMachine';
 
 export const NATIVE_BTC_MIN_SLIPPAGE_PERCENTAGE = 1;
@@ -389,6 +393,8 @@ export type ISwapReviewApproveBroadcastResult = {
 
 export type ISwapReviewAdapter = {
   prepareReview: (params?: {
+    reviewAnalytics?: ISwapReviewAnalytics;
+    reviewPreparation?: ISwapReviewPreparation;
     fromAmount?: string;
     fromToken?: IFetchQuoteResult['fromTokenInfo'];
     toToken?: IFetchQuoteResult['toTokenInfo'];

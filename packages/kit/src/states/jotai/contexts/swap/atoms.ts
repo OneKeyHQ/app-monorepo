@@ -603,6 +603,10 @@ export const { atom: swapSelectTokenDetailRequestIdAtom } = contextAtom<
   Record<ESwapDirectionType, number>
 >({ from: 0, to: 0 });
 
+export const { atom: swapSelectTokenPriceRevisionAtom } = contextAtom<
+  Record<ESwapDirectionType, number>
+>({ from: 0, to: 0 });
+
 export const {
   atom: swapSilenceQuoteLoading,
   use: useSwapSilenceQuoteLoading,
