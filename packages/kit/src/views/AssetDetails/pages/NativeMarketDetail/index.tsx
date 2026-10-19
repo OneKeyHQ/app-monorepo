@@ -31,9 +31,11 @@ import { TokenPriceChart } from '../../../Market/components/TokenPriceChart';
 
 export function NativeMarketDetailContent({
   coinGeckoId,
+  networkId,
   tokenImageUri,
 }: {
   coinGeckoId: string;
+  networkId?: string;
   tokenImageUri?: string;
 }) {
   const intl = useIntl();
@@ -73,11 +75,14 @@ export function NativeMarketDetailContent({
               : undefined
           }
           size="sm"
+          networkId={networkId}
         />
-        <SizableText>{token?.symbol.toUpperCase()}</SizableText>
+        <SizableText size="$headingLg" numberOfLines={1}>
+          {token?.symbol.toUpperCase()}
+        </SizableText>
       </XStack>
     ),
-    [token?.image, token?.symbol, tokenImageUri],
+    [networkId, token?.image, token?.symbol, tokenImageUri],
   );
 
   return (
@@ -136,6 +141,7 @@ export default function NativeMarketDetail({
     <NativeMarketDetailContent
       key={route.params.token}
       coinGeckoId={route.params.token}
+      networkId={route.params.preferredToken?.networkId}
       tokenImageUri={route.params.tokenImageUri}
     />
   );
