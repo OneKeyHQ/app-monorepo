@@ -64,7 +64,11 @@ export function getPrivacyChainWalletRecipientAddresses({
   if (!privateAddressPattern) return [];
   const pattern = new RegExp(privateAddressPattern);
   const candidates = (outputTransfers ?? [])
-    .filter((output) => output.isOwn === false && !output.isChange)
+    .filter(
+      (output) =>
+        !output.isChange &&
+        (output.isOwn === false || (isSent && output.isOwn === true)),
+    )
     .map((output) => output.to || output.address || '');
   if (isSent && transfer?.to) candidates.push(transfer.to);
   return [...new Set(candidates.filter((address) => pattern.test(address)))];

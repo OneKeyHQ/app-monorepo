@@ -230,9 +230,12 @@ export async function fetchAccountHistoryDetail(
           type: isShielded
             ? EOnChainHistoryTransferType.Shielded
             : EOnChainHistoryTransferType.Transfer,
-          address: isShielded ? label : (r.address ?? ''),
+          address:
+            isShielded && (r.internal || !r.address)
+              ? label
+              : (r.address ?? ''),
           from: '',
-          to: isShielded ? '' : (r.address ?? ''),
+          to: isShielded && r.internal ? '' : (r.address ?? ''),
           token: '',
           key: '',
           amount: toZec(r.value),
