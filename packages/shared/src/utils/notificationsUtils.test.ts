@@ -1,3 +1,4 @@
+import { ENotificationPushMessageMode } from '../../types/notification';
 import appGlobals from '../appGlobals';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import { ETranslations } from '../locale';
@@ -9,8 +10,19 @@ import {
   ETabRoutes,
 } from '../routes';
 
-import { navigateToNotificationDetailByLocalParams } from './notificationsUtils';
+import {
+  navigateToNotificationDetailByLocalParams,
+  parseNotificationPayload,
+} from './notificationsUtils';
 import timerUtils from './timerUtils';
+
+const mockLog = jest.fn<void, unknown[]>();
+
+jest.mock('../logger/logger', () => ({
+  defaultLogger: {
+    app: { error: { log: (...args: unknown[]) => mockLog(...args) } },
+  },
+}));
 
 jest.mock('@react-navigation/native', () => ({
   CommonActions: {
@@ -26,6 +38,7 @@ jest.mock('@react-navigation/native', () => ({
 
 jest.mock('../eventBus/appEventBus', () => ({
   EAppEventBusNames: {
+    ShowNotificationInDappPage: 'show-dapp',
     SwitchDiscoveryTabInNative: 'SwitchDiscoveryTabInNative',
     ShowNotificationPageNavigation: 'ShowNotificationPageNavigation',
   },
@@ -206,5 +219,43 @@ describe('navigateToNotificationDetailByLocalParams (Native Market & Discovery r
       EAppEventBusNames.SwitchDiscoveryTabInNative,
       { tab: ETranslations.global_earn },
     );
+  });
+});
+
+describe('notification DApp URL rejection', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  test.each([
+    'http://example.com/private-path?token=private-value',
+    'https://localhost/private-path?token=private-value',
+    'https://user:private-value@example.com/private-path',
+  ])('rejects %s without including the payload in diagnostics', (url) => {
+    const fallback = jest.fn();
+    expect(
+      parseNotificationPayload(
+        ENotificationPushMessageMode.openInDapp,
+        url,
+        fallback,
+      ),
+    ).toBe(false);
+    expect(mockLog).toHaveBeenCalledWith(
+      'parseNotificationPayload: blocked unsafe url in openInDapp',
+    );
+    expect(mockLog).toHaveBeenCalledTimes(1);
+    expect(mockAppEventBus.emit).not.toHaveBeenCalled();
+    expect(fallback).not.toHaveBeenCalled();
+  });
+
+  test('continues opening an allowed DApp URL', () => {
+    const url = 'https://example.com/dapp';
+    expect(
+      parseNotificationPayload(
+        ENotificationPushMessageMode.openInDapp,
+        url,
+        jest.fn(),
+      ),
+    ).toBe(true);
+    expect(mockAppEventBus.emit).toHaveBeenCalledWith('show-dapp', url);
+    expect(mockLog).not.toHaveBeenCalled();
   });
 });

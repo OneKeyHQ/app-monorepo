@@ -20,6 +20,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { shouldReserveSwapGas } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 import {
   buildUnifiedSwapProviderManagers,
   canUseUnifiedSwapProviderManagers,
@@ -593,6 +594,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     async ({
       homeSelectedAccount,
       homeSelectedAccountUpdatedAt,
+      importNetworkId,
       sourceRuntimeId,
     }: {
       homeSelectedAccount?: Parameters<
@@ -612,6 +614,7 @@ export function useSwapInit(params?: ISwapInitParams) {
        * later legitimate events would keep losing to the inflated value.
        */
       homeSelectedAccountUpdatedAt: number | null | undefined;
+      importNetworkId?: string;
       sourceRuntimeId?: string;
     }) => {
       if (!homeSelectedAccount) {
@@ -631,6 +634,7 @@ export function useSwapInit(params?: ISwapInitParams) {
           cachedContext: selectedTokensColdStartContextRef.current,
           eventPayload,
           hasSelectedTokens,
+          importNetworkId,
           initialSelectedTokensSynced: initialSelectedTokensSyncedRef.current,
           swapActiveNetworkId: swapActiveAccountRef.current?.network?.id,
           swapSelectedAccount: swapSelectedAccountRef.current,
@@ -814,9 +818,20 @@ export function useSwapInit(params?: ISwapInitParams) {
       // commit (monotonic, wall clock at commit time), not a receive time
       // stamped onto somebody else's event.
       homeSelectedAccountUpdatedAt: selectedAccountUpdatedAt,
+      importNetworkId:
+        params?.swapSource === ESwapSource.TOKEN_DETAIL &&
+        (params.importFromToken || params.importToToken)
+          ? params.importNetworkId
+          : undefined,
       sourceRuntimeId,
     });
-  }, [syncSwapSelectedAccountFromHome]);
+  }, [
+    params?.importFromToken,
+    params?.importNetworkId,
+    params?.importToToken,
+    params?.swapSource,
+    syncSwapSelectedAccountFromHome,
+  ]);
 
   const syncSwapSelectedAccountFromHomeStoragePromiseRef = useRef<
     ReturnType<typeof syncSwapSelectedAccountFromLatestHome> | undefined
@@ -1984,8 +1999,9 @@ export function useSwapInit(params?: ISwapInitParams) {
     },
   );
 
+  const shouldReserveFromTokenGas = shouldReserveSwapGas(fromToken);
   useEffect(() => {
-    if (fromToken?.networkId && fromToken?.isNative) {
+    if (fromToken?.networkId && shouldReserveFromTokenGas) {
       void (async () => {
         const nativeTokenConfig =
           await backgroundApiProxy.serviceSwap.fetchSwapNativeTokenConfig({
@@ -2008,7 +2024,11 @@ export function useSwapInit(params?: ISwapInitParams) {
         });
       })();
     }
-  }, [fromToken?.networkId, fromToken?.isNative, setSwapNativeTokenReserveGas]);
+  }, [
+    fromToken?.networkId,
+    shouldReserveFromTokenGas,
+    setSwapNativeTokenReserveGas,
+  ]);
 
   return {
     fetchLoading: networkListFetching,
