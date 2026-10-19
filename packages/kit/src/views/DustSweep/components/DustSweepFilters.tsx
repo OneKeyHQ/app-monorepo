@@ -8,6 +8,7 @@ import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useDustSweep } from '../DustSweepProvider';
+import { DUST_SWEEP_THRESHOLDS } from '../utils/candidates';
 
 export function DustSweepNetworks({ desktop = false }: { desktop?: boolean }) {
   const { networks, current, selecting, selectNetwork, loadStatus } =
@@ -120,7 +121,7 @@ export function DustSweepFilters({ desktop }: { desktop: boolean }) {
       opacity={selecting ? 1 : 0.4}
     >
       <XStack gap="$1">
-        {([1, 10, 100] as const).map((amount) => (
+        {DUST_SWEEP_THRESHOLDS.map((amount) => (
           <Button
             mx={0}
             my={0}

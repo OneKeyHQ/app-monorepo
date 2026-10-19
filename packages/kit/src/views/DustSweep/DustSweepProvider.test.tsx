@@ -337,8 +337,10 @@ describe('Dust Sweep Provider request and selection ownership', () => {
   it('hides networks with nothing to sweep or a $0.00 balance from the picker', async () => {
     const empty = network('evm--10', []);
     const dust = network('evm--56', ['0.004']);
+    // Every token is at or above the largest $100 preset, so none can be swept.
+    const large = network('evm--137', ['100', '250']);
     mockLoadNetworks.mockResolvedValue({
-      networks: [base, empty, dust],
+      networks: [base, empty, dust, large],
       partialError: false,
     });
     const { result } = renderController();

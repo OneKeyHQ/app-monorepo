@@ -25,7 +25,10 @@ import type { ISwapProviderInfo } from '@onekeyhq/shared/types/swap/SwapProvider
 
 import { useDustSweepPreview } from './hooks/useDustSweepPreview';
 import { useDustSweepSession } from './hooks/useDustSweepSession';
-import { filterDustSweepCandidates } from './utils/candidates';
+import {
+  DUST_SWEEP_THRESHOLDS,
+  filterDustSweepCandidates,
+} from './utils/candidates';
 import { loadDustSweepNetworks } from './utils/loadNetworks';
 
 function useDustSweepController(params: IDustSweepRouteParams) {
@@ -96,17 +99,18 @@ function useDustSweepController(params: IDustSweepRouteParams) {
       });
     return () => controller.abort();
   }, [loadParams, refresh]);
-  // Network pickers hide chains with nothing to sweep or a $0.00 balance. An
-  // explicitly requested network still resolves below and shows its empty state.
-  const selectableNetworks = useMemo(
-    () =>
-      networks.filter(
-        (entry) =>
-          entry.tokens.length > 0 &&
-          new BigNumber(entry.balanceUsd).decimalPlaces(2).gt(0),
-      ),
-    [networks],
-  );
+  // Network pickers hide chains with a $0.00 balance or nothing to sweep under
+  // the largest threshold preset. An explicitly requested network still
+  // resolves below and shows its empty state.
+  const selectableNetworks = useMemo(() => {
+    const maxThreshold = Math.max(...DUST_SWEEP_THRESHOLDS);
+    return networks.filter(
+      (entry) =>
+        entry.tokens.some((token) =>
+          new BigNumber(token.valueUsd).lt(maxThreshold),
+        ) && new BigNumber(entry.balanceUsd).decimalPlaces(2).gt(0),
+    );
+  }, [networks]);
   // Pickers list chains by the displayed network balance.
   const visibleNetworks = useMemo(
     () =>
