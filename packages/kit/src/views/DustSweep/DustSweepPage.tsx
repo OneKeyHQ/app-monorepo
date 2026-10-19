@@ -17,6 +17,7 @@ import Animated, {
 import {
   Dialog,
   Icon,
+  IconButton,
   NavBackButton,
   Page,
   ScrollView,
@@ -409,6 +410,9 @@ function DustSweepPageContent() {
     [desktop],
   );
   const onDone = useCallback(() => exit(), [exit]);
+  // The Home tab top bar (with its back button) is only rendered on the tab
+  // route, so a Swap modal widened to desktop width keeps its own back control.
+  const overlay = useIsOverlayPage();
   return (
     <Page testID="dust-sweep-page" scrollEnabled={desktop}>
       <Page.Header
@@ -421,9 +425,22 @@ function DustSweepPageContent() {
           // Title spacing matches other desktop Home sub pages (ApprovalListPage);
           // mb matches the 30px gap below the network chips.
           <Page.Container flex={1} pb="$6">
-            <SizableText size="$heading2xl" mt="$8" mb={30}>
-              {title}
-            </SizableText>
+            <XStack mt="$8" mb={30} alignItems="center" gap="$2">
+              {overlay ? (
+                <IconButton
+                  testID="dust-sweep-back"
+                  icon="ChevronLeftOutline"
+                  variant="tertiary"
+                  mx={0}
+                  my={0}
+                  accessibilityLabel={intl.formatMessage({
+                    id: ETranslations.global_back,
+                  })}
+                  onPress={onDone}
+                />
+              ) : null}
+              <SizableText size="$heading2xl">{title}</SizableText>
+            </XStack>
             <DustSweepNetworks desktop />
             {/* Stretch so the summary card always matches the token list card height. */}
             <XStack mt={30} flex={1} alignItems="stretch">

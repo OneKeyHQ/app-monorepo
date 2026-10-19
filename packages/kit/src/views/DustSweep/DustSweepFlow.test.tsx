@@ -587,11 +587,14 @@ it('shows the Home tab top bar on the desktop tab route', () => {
   mockOverlay = false;
   mountFlow();
   expect(screen.queryByTestId('tab-page-header')).toBeTruthy();
+  expect(screen.queryByTestId('dust-sweep-back')).toBeNull();
 });
 
-it('keeps the Home tab top bar out of a desktop-width modal', () => {
+it('keeps a back control in a desktop-width modal without the Home tab top bar', () => {
   mountFlow();
   expect(screen.queryByTestId('tab-page-header')).toBeNull();
+  fireEvent.click(screen.getByTestId('dust-sweep-back'));
+  expect(ref.getCurrentRoute()?.name).toBe('Home');
 });
 
 it('closes obsolete dialogs and ignores their callbacks after Again starts a new session', async () => {
