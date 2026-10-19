@@ -1,4 +1,7 @@
-import { isSupportedZcashUnifiedAddress } from './unifiedAddress';
+import {
+  getSupportedZcashUnifiedAddressReceiverTypes,
+  isSupportedZcashUnifiedAddress,
+} from './unifiedAddress';
 import fixtures from './unifiedAddress.fixtures.json';
 
 // Expected results captured from the existing keys WASM using public test data.
@@ -13,4 +16,16 @@ it.each(fixtures)(
 
 it('bounds work for address input', () => {
   expect(isSupportedZcashUnifiedAddress(`u1${'q'.repeat(2000)}`)).toBe(false);
+});
+
+it.each([
+  ['fixed public mnemonic Orchard golden', [3]],
+  ['P2PKH and Orchard', [0, 3]],
+  ['P2SH and Orchard', [1, 3]],
+] as const)('reads the validated receiver set for %s', (name, receivers) => {
+  const fixture = fixtures.find((item) => item.name === name);
+  expect(fixture).toBeDefined();
+  expect(
+    getSupportedZcashUnifiedAddressReceiverTypes(fixture!.address),
+  ).toEqual(receivers);
 });

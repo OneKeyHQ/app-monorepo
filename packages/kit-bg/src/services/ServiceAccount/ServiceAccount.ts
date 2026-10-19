@@ -6280,8 +6280,7 @@ class ServiceAccount extends ServiceBase {
     deriveType: IAccountDeriveTypes;
     confirmOnDevice?: EConfirmOnDeviceType;
     customReceiveAddressPath?: string;
-    /** DeviceStage confirm channel: the address the person expects, shown
-     * on the confirm card to check against the device screen. */
+    /** The displayed address, used for the confirm card and hardware address format. */
     expectedAddress?: string;
     localWalletAddressForm?: 'public' | 'private';
   }): Promise<string[]> {
@@ -6294,6 +6293,7 @@ class ServiceAccount extends ServiceBase {
         ...prepareParams.chainExtraParams,
         localWalletAddressForm: params.localWalletAddressForm,
         receiveAddressPath: params.customReceiveAddressPath,
+        expectedAddress: params.expectedAddress,
       };
     }
 

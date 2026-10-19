@@ -470,6 +470,7 @@ export type IPrepareImportedAccountsParams = {
 export type IPrepareHDOrHWAccountChainExtraParams = {
   localWalletAddressForm?: 'public' | 'private';
   receiveAddressPath?: string;
+  expectedAddress?: string;
 };
 export type IPrepareHdAccountsParamsBase = {
   indexes: Array<number>;

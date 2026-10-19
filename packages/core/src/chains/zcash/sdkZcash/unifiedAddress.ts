@@ -69,20 +69,22 @@ function validateSaplingReceiver(receiver: Uint8Array) {
     invalidAddress();
 }
 
-export function isSupportedZcashUnifiedAddress(address: string): boolean {
+export function getSupportedZcashUnifiedAddressReceiverTypes(
+  address: string,
+): number[] | undefined {
   try {
     if (
       address.length > MAX_UNIFIED_CHARACTERS ||
       !address.startsWith('u1') ||
       address !== address.toLowerCase()
     )
-      return false;
+      return undefined;
     const { prefix, words } = bech32m.decode(address, MAX_UNIFIED_CHARACTERS);
-    if (prefix !== 'u') return false;
+    if (prefix !== 'u') return undefined;
     const decoded = unjumble(Uint8Array.from(bech32m.fromWords(words)));
     const padding = Buffer.alloc(16);
     padding[0] = 0x75;
-    if (!Buffer.from(decoded.subarray(-16)).equals(padding)) return false;
+    if (!Buffer.from(decoded.subarray(-16)).equals(padding)) return undefined;
     const payload = decoded.subarray(0, -16);
     let offset = 0;
     const readCompactSize = () => {
@@ -99,18 +101,19 @@ export function isSupportedZcashUnifiedAddress(address: string): boolean {
     let previousType = -1;
     let hasTransparent = false;
     let hasOrchard = false;
+    const receiverTypes: number[] = [];
     while (offset < payload.length) {
       const type = readCompactSize();
       const length = readCompactSize();
       if (type <= previousType || offset + length > payload.length)
-        return false;
+        return undefined;
       previousType = type;
       if (type < RECEIVER_LENGTHS.length && length !== RECEIVER_LENGTHS[type])
-        return false;
+        return undefined;
       const receiver = payload.subarray(offset, offset + length);
       offset += length;
       if (type === 0 || type === 1) {
-        if (hasTransparent) return false;
+        if (hasTransparent) return undefined;
         hasTransparent = true;
       } else if (type === 2) {
         validateSaplingReceiver(receiver);
@@ -119,12 +122,17 @@ export function isSupportedZcashUnifiedAddress(address: string): boolean {
         hasOrchard = true;
       } else if (type >= 0xe0 && type <= 0xfc) {
         // Revision-zero addresses cannot contain MUST-understand metadata.
-        return false;
+        return undefined;
       }
+      receiverTypes.push(type);
     }
     // The shipped builder pays Unified recipients through Orchard only.
-    return hasOrchard;
+    return hasOrchard ? receiverTypes : undefined;
   } catch {
-    return false;
+    return undefined;
   }
+}
+
+export function isSupportedZcashUnifiedAddress(address: string): boolean {
+  return getSupportedZcashUnifiedAddressReceiverTypes(address) !== undefined;
 }

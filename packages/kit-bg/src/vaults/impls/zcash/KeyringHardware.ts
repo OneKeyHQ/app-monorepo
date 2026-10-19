@@ -2,6 +2,7 @@ import { getBtcForkNetwork } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import { ZCASH_NETWORK_MAIN } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 import { fetchZcashChainTipDirect } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
 import type { IZcashTransparentTxRequest } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
+import { getSupportedZcashUnifiedAddressReceiverTypes } from '@onekeyhq/core/src/chains/zcash/sdkZcash/unifiedAddress';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   ICoreApiGetAddressItem,
@@ -143,6 +144,24 @@ export class KeyringHardware extends KeyringHardwareBase {
         const sdk = await this.getZcashSdk({ connectId });
         const isPrivate =
           params.chainExtraParams?.localWalletAddressForm === 'private';
+        let addressType: 0 | 1 | 2 = isPrivate ? 2 : 1;
+        const expectedAddress = params.chainExtraParams?.expectedAddress;
+        if (isPrivate && expectedAddress !== undefined) {
+          const receivers =
+            getSupportedZcashUnifiedAddressReceiverTypes(expectedAddress);
+          // The private tab can show a legacy mixed UA or an Orchard-only UA.
+          if (
+            receivers?.length === 2 &&
+            receivers[0] === 0 &&
+            receivers[1] === 3
+          ) {
+            addressType = 0;
+          } else if (receivers?.length !== 1 || receivers[0] !== 3) {
+            throw new OneKeyLocalError(
+              'zcash: unsupported address verification receivers',
+            );
+          }
+        }
         const customPath = params.chainExtraParams?.receiveAddressPath;
         const bundle = params.indexes.map((index, position) => {
           let scope: 0 | 1 = 0;
@@ -169,7 +188,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           }
           return {
             path: buildZcashShieldedPath(index),
-            addressType: isPrivate ? (2 as const) : (1 as const),
+            addressType,
             scope,
             diversifierIndex,
             showOnOneKey: showOnOnekeyFn(position) ?? true,
