@@ -135,6 +135,15 @@ interface IChartData {
   points: IMarketTokenKLineDataPoint[];
 }
 
+const RECENT_PERPS_CHART_LIMIT = 8;
+const RECENT_PERPS_POINT_LIMIT = 1000;
+const RECENT_PERPS_CHART_TTL = 60_000;
+// Public candles only, owned by the UI runtime; account lines and marks never enter this cache.
+const recentPerpsCharts = new Map<
+  string,
+  { data: IChartData; updatedAt: number }
+>();
+
 interface IHistoryState {
   error?: unknown;
   interval: ITradingViewNativeChartInterval;
@@ -1957,6 +1966,50 @@ export function useTradingViewNativeKLine({
   const activeInterval =
     supportedIntervals.find((interval) => interval.value === selectedInterval)
       ?.value ?? DEFAULT_TRADING_VIEW_NATIVE_KLINE_INTERVAL;
+  const recentChartKey = `${seriesKey}:${activeInterval}`;
+  const recentChartData = useMemo(() => {
+    if (storageNamespace !== 'perps' || sourceKind !== 'hyperliquid') {
+      return null;
+    }
+    const cached = recentPerpsCharts.get(recentChartKey);
+    return cached && Date.now() - cached.updatedAt < RECENT_PERPS_CHART_TTL
+      ? cached.data
+      : null;
+  }, [recentChartKey, sourceKind, storageNamespace]);
+  useEffect(() => {
+    if (
+      storageNamespace !== 'perps' ||
+      sourceKind !== 'hyperliquid' ||
+      chartData?.seriesKey !== seriesKey ||
+      chartData.interval !== activeInterval ||
+      !chartData.points.length
+    ) {
+      return;
+    }
+    recentPerpsCharts.delete(recentChartKey);
+    recentPerpsCharts.set(recentChartKey, {
+      data: {
+        ...chartData,
+        points:
+          chartData.points.length > RECENT_PERPS_POINT_LIMIT
+            ? chartData.points.slice(-RECENT_PERPS_POINT_LIMIT)
+            : chartData.points,
+      },
+      updatedAt: Date.now(),
+    });
+    while (recentPerpsCharts.size > RECENT_PERPS_CHART_LIMIT) {
+      const oldestKey = recentPerpsCharts.keys().next().value;
+      if (oldestKey === undefined) break;
+      recentPerpsCharts.delete(oldestKey);
+    }
+  }, [
+    activeInterval,
+    chartData,
+    recentChartKey,
+    seriesKey,
+    sourceKind,
+    storageNamespace,
+  ]);
   const setActiveInterval = useCallback(
     (
       nextInterval:
@@ -2136,8 +2189,15 @@ export function useTradingViewNativeKLine({
     };
   }, [activeInterval, seriesKey]);
 
-  const visibleChartData =
+  const currentSeriesChartData =
     chartData?.seriesKey === seriesKey ? chartData : null;
+  const visibleChartData =
+    currentSeriesChartData?.interval === activeInterval
+      ? currentSeriesChartData
+      : (recentChartData ?? currentSeriesChartData);
+  const isShowingRecentChartData = Boolean(
+    recentChartData && visibleChartData === recentChartData,
+  );
   const isSwitchingInterval = Boolean(
     visibleChartData && visibleChartData.interval !== activeInterval,
   );
@@ -4105,9 +4165,19 @@ export function useTradingViewNativeKLine({
       getTradingViewNativeKLineInterval(activeInterval) ??
       TRADING_VIEW_NATIVE_KLINE_INTERVALS[4];
     const timeTo = Math.floor(Date.now() / 1000);
-    const timeFrom = getHistoryTimeFrom({
-      candleCount:
-        historyProvider.getHistoryRequestCandleCount(requestedInterval),
+    const fullHistoryCandleCount =
+      historyProvider.getHistoryRequestCandleCount(requestedInterval);
+    let initialHistoryCandleCount =
+      historyProvider.getInitialHistoryRequestCandleCount?.(
+        requestedInterval,
+      ) ?? fullHistoryCandleCount;
+    const fullHistoryTimeFrom = getHistoryTimeFrom({
+      candleCount: fullHistoryCandleCount,
+      intervalSeconds: requestedInterval.seconds,
+      timeTo,
+    });
+    let timeFrom = getHistoryTimeFrom({
+      candleCount: initialHistoryCandleCount,
       intervalSeconds: requestedInterval.seconds,
       timeTo,
     });
@@ -4185,13 +4255,30 @@ export function useTradingViewNativeKLine({
       ) {
         try {
           consumeHistoryRequestAttempt(requestAttemptBudget);
-          const data = await historyProvider.fetchHistory({
+          let data = await historyProvider.fetchHistory({
             ...(sourceKind === 'stock' ? { allowEarlierHistory: true } : {}),
             interval: requestedInterval,
             signal: abortController.signal,
             timeFrom,
             timeTo,
           });
+          if (
+            data &&
+            !data.points.length &&
+            initialHistoryCandleCount < fullHistoryCandleCount &&
+            !isCancelled &&
+            !abortController.signal.aborted
+          ) {
+            initialHistoryCandleCount = fullHistoryCandleCount;
+            timeFrom = fullHistoryTimeFrom;
+            consumeHistoryRequestAttempt(requestAttemptBudget);
+            data = await historyProvider.fetchHistory({
+              interval: requestedInterval,
+              signal: abortController.signal,
+              timeFrom,
+              timeTo,
+            });
+          }
           if (isCancelled || latestRequestIdRef.current !== requestId) {
             return;
           }
@@ -4240,11 +4327,16 @@ export function useTradingViewNativeKLine({
       let points = initialPoints;
       const receivedHistoryPointCount = points.length;
       const initialEarliestTimestamp = points[0]?.t;
-      const pageHasMoreHistory = historyProvider.hasMoreHistory({
-        historySource: initialData.historySource,
-        interval: requestedInterval,
-        receivedPointCount: receivedHistoryPointCount,
-      });
+      const shouldPreloadOlderHistory =
+        initialHistoryCandleCount < fullHistoryCandleCount &&
+        timeFrom > fullHistoryTimeFrom;
+      const pageHasMoreHistory =
+        shouldPreloadOlderHistory ||
+        historyProvider.hasMoreHistory({
+          historySource: initialData.historySource,
+          interval: requestedInterval,
+          receivedPointCount: receivedHistoryPointCount,
+        });
       const hasMoreHistory = getHasPotentialEarlierHistory({
         earliestTimestamp: initialEarliestTimestamp,
         historyBoundaryTimestamp: getCachedHistoryBoundaryTimestamp(
@@ -4322,6 +4414,87 @@ export function useTradingViewNativeKLine({
         seriesKey,
         status: 'ready',
       });
+
+      if (
+        shouldPreloadOlderHistory &&
+        initialEarliestTimestamp !== undefined &&
+        initialEarliestTimestamp > fullHistoryTimeFrom
+      ) {
+        // Paint the latest candles first, then restore the full indicator warmup and history window.
+        pagination.abortController = abortController;
+        pagination.isLoading = true;
+        try {
+          const olderData = await fetchRequiredHistoryPage({
+            historyProvider,
+            request: {
+              interval: requestedInterval,
+              signal: abortController.signal,
+              timeFrom: fullHistoryTimeFrom,
+              timeTo: initialEarliestTimestamp - 1,
+            },
+            requestAttemptBudget,
+            unavailableMessage:
+              'No indicator warmup history response is available',
+          });
+          if (
+            isCancelled ||
+            latestRequestIdRef.current !== requestId ||
+            historyPaginationRef.current !== pagination
+          ) {
+            return;
+          }
+          const olderPoints = normalizeKLinePoints(olderData.points);
+          if (olderPoints.length) {
+            addHistoryCoverageRange({
+              coverageState: historyCoverageRef.current,
+              from: olderPoints[0]?.t,
+              interval: requestedInterval.value,
+              intervalSeconds: requestedInterval.seconds,
+              seriesKey,
+              to: olderPoints[olderPoints.length - 1]?.t,
+            });
+            pagination.earliestTimestamp = olderPoints[0]?.t;
+            setChartData((currentData) =>
+              mergeScopedChartDataPoints({
+                currentData,
+                interval: requestedInterval.value,
+                points: olderPoints,
+                seriesKey,
+              }),
+            );
+          }
+          pagination.hasMore = historyProvider.hasMoreHistory({
+            interval: requestedInterval,
+            receivedPointCount: receivedHistoryPointCount + olderPoints.length,
+          });
+        } catch (error) {
+          if (
+            !isCancelled &&
+            !abortController.signal.aborted &&
+            latestRequestIdRef.current === requestId &&
+            !isAbortError(error)
+          ) {
+            logTradingViewNativeDataError(
+              'Failed to load native TradingView indicator warmup history',
+              error,
+            );
+            setHistoryState((current) => ({
+              ...current,
+              error,
+              status: 'error',
+            }));
+          }
+        } finally {
+          if (
+            historyPaginationRef.current === pagination &&
+            pagination.abortController === abortController
+          ) {
+            pagination.abortController = undefined;
+            pagination.isLoading = false;
+          }
+        }
+        return;
+      }
 
       if (
         !shouldRecoverSparseHistory ||
@@ -4440,12 +4613,13 @@ export function useTradingViewNativeKLine({
           realtimeState.seriesKey === seriesKey
             ? realtimeState
             : { interval: activeInterval, seriesKey, status: 'idle' },
-        supportsRealtime,
+        supportsRealtime: supportsRealtime && !isShowingRecentChartData,
       }),
     [
       activeInterval,
       historyState,
       isVisible,
+      isShowingRecentChartData,
       providerIsReady,
       realtimeState,
       seriesKey,
