@@ -846,6 +846,14 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Fix**: Resolve `iconUrl` with the packaged `icon-128.png` via `chrome.runtime.getURL` when the payload has no usable icon, including the create-failure retry path.
 **Catchable by**: Section 3: identified which platforms consume modified code; NEW â€” extension OS notifications must not use a transparent placeholder for `iconUrl`
 
+
+## Case: Web native chart shifted when toggling its drawing toolbar (OK-64893)
+**Date**: 2026-10-17 | **Platforms**: Web (single JS runtime)
+**Symptom**: Collapsing the drawing toolbar left unused space and briefly stretched the canvas; existing candles moved when the toolbar changed width. At the pan boundary, expanding the toolbar still moved the edge candle. Fractional layouts could also alternate measured widths.
+**Root Cause**: ResizeObserver deferred drawing until another animation frame, while percentage right padding, auto scaling, and pan limits used the changing visible width. Measurement mixed integer clientWidth with fractional bounding rectangles. The toggle was anchored to the full chart instead of the main price pane.
+**Fix**: Collapse to zero width without animation, redraw resized canvases before paint, anchor padding/scales/pan limits to the combined chart and toolbar width, consistently use bounding rectangles for width measurements, and position the toggle above indicator panes.
+**Catchable by**: Compare candle screen coordinates and sizes before and after repeated sidebar toggles at normal and extreme pan offsets, with fractional widths, zoom, and multiple indicator panes; verify bitmap dimensions before paint.
+
 ## Case: Native SOL Pro chart showed a flat OBV
 **Date**: 2026-10-19 | **Platforms**: iOS, Android, extension (main runtime); desktop, web (single runtime), TradingViewNative charts
 **Symptom**: The native SOL Pro chart showed a flat OBV curve while prices changed (OK-64825).

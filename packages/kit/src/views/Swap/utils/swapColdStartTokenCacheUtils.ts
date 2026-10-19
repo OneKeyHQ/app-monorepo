@@ -912,6 +912,7 @@ export function shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
   cachedContext,
   eventPayload,
   hasSelectedTokens,
+  importNetworkId,
   initialSelectedTokensSynced,
   swapActiveNetworkId,
   swapSelectedAccount,
@@ -923,6 +924,7 @@ export function shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
     num: number;
   };
   hasSelectedTokens: boolean;
+  importNetworkId?: string;
   initialSelectedTokensSynced?: boolean;
   swapActiveNetworkId?: string;
   swapSelectedAccount?: IAccountSelectorSelectedAccount;
@@ -932,6 +934,22 @@ export function shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
   }
 
   if (!eventPayload.selectedAccount?.networkId) {
+    return false;
+  }
+
+  // An explicit asset entry already on its owner's member network must not
+  // replay Home's older All Networks selection and cancel token initialization.
+  if (
+    importNetworkId &&
+    swapSelectedAccount?.networkId === importNetworkId &&
+    networkUtils.isAllNetwork({
+      networkId: eventPayload.selectedAccount.networkId,
+    }) &&
+    isSelectedAccountOwnerMatchedIgnoringDeriveType(
+      eventPayload.selectedAccount,
+      swapSelectedAccount,
+    )
+  ) {
     return false;
   }
 

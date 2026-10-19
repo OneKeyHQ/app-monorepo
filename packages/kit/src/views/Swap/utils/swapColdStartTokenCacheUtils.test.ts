@@ -1694,6 +1694,114 @@ describe('swap cold-start selected token context', () => {
     ).toBe(true);
   });
 
+  it.each([false, true])(
+    'preserves an explicit member-network entry for the same All Networks owner (tokens=%s)',
+    (hasSelectedTokens) => {
+      expect(
+        shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
+          hasSelectedTokens,
+          initialSelectedTokensSynced: false,
+          importNetworkId: 'evm--1',
+          swapActiveNetworkId: 'evm--1',
+          swapSelectedAccount: buildSelectedAccount({ networkId: 'evm--1' }),
+          eventPayload: {
+            sceneName: EAccountSelectorSceneName.home,
+            num: 0,
+            selectedAccount: buildSelectedAccount({
+              networkId: 'onekeyall--0',
+            }),
+          },
+        }),
+      ).toBe(false);
+    },
+  );
+
+  it.each([
+    { walletId: 'other-wallet', indexedAccountId: 'indexed-account-1' },
+    { walletId: 'wallet-1', indexedAccountId: 'other-indexed-account' },
+  ])('still synchronizes a different entry owner (%j)', (owner) => {
+    expect(
+      shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
+        hasSelectedTokens: false,
+        importNetworkId: 'evm--1',
+        swapActiveNetworkId: 'evm--1',
+        swapSelectedAccount: buildSelectedAccount({ networkId: 'evm--1' }),
+        eventPayload: {
+          sceneName: EAccountSelectorSceneName.home,
+          num: 0,
+          selectedAccount: buildSelectedAccount({
+            ...owner,
+            networkId: 'onekeyall--0',
+          }),
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it('does not preserve a member network that differs from the imported network', () => {
+    expect(
+      shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
+        hasSelectedTokens: false,
+        importNetworkId: 'evm--42161',
+        swapActiveNetworkId: 'evm--1',
+        swapSelectedAccount: buildSelectedAccount({ networkId: 'evm--1' }),
+        eventPayload: {
+          sceneName: EAccountSelectorSceneName.home,
+          num: 0,
+          selectedAccount: buildSelectedAccount({ networkId: 'onekeyall--0' }),
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it('still synchronizes a different watch-only account for an explicit entry', () => {
+    expect(
+      shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
+        hasSelectedTokens: false,
+        importNetworkId: 'evm--1',
+        swapActiveNetworkId: 'evm--1',
+        swapSelectedAccount: buildSelectedAccount({
+          walletId: 'watching',
+          indexedAccountId: undefined,
+          othersWalletAccountId: 'watch-1',
+          networkId: 'evm--1',
+        }),
+        eventPayload: {
+          sceneName: EAccountSelectorSceneName.home,
+          num: 0,
+          selectedAccount: buildSelectedAccount({
+            walletId: 'watching',
+            indexedAccountId: undefined,
+            othersWalletAccountId: 'watch-2',
+            networkId: 'onekeyall--0',
+          }),
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it('still synchronizes single-network address types for an explicit entry', () => {
+    expect(
+      shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
+        hasSelectedTokens: false,
+        importNetworkId: 'btc--0',
+        swapActiveNetworkId: 'btc--0',
+        swapSelectedAccount: buildSelectedAccount({
+          networkId: 'btc--0',
+          deriveType: 'BIP44',
+        }),
+        eventPayload: {
+          sceneName: EAccountSelectorSceneName.home,
+          num: 0,
+          selectedAccount: buildSelectedAccount({
+            networkId: 'btc--0',
+            deriveType: 'BIP86',
+          }),
+        },
+      }),
+    ).toBe(true);
+  });
+
   it('does not sync swap account when home and swap selected account are unchanged', () => {
     expect(
       shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
