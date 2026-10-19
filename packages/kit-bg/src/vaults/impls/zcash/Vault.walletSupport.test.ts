@@ -67,7 +67,12 @@ describe('zcash privacy support by wallet type', () => {
     ["hd-1--m/44'/133'/0'", 'u1-software', undefined, 'u1-software'],
   ] as const)(
     'returns the private receive address matching the Orchard-only request for %s (%s)',
-    async (accountId, unifiedAddress, derivedUnifiedAddress, expectedAddress) => {
+    async (
+      accountId,
+      unifiedAddress,
+      derivedUnifiedAddress,
+      expectedAddress,
+    ) => {
       const meta = Object.freeze({
         transparentAddress: 't1-account',
         unifiedAddress,
