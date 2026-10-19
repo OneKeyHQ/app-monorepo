@@ -853,3 +853,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: ResizeObserver deferred drawing until another animation frame, while percentage right padding, auto scaling, and pan limits used the changing visible width. Measurement mixed integer clientWidth with fractional bounding rectangles. The toggle was anchored to the full chart instead of the main price pane.
 **Fix**: Collapse to zero width without animation, redraw resized canvases before paint, anchor padding/scales/pan limits to the combined chart and toolbar width, consistently use bounding rectangles for width measurements, and position the toggle above indicator panes.
 **Catchable by**: Compare candle screen coordinates and sizes before and after repeated sidebar toggles at normal and extreme pan offsets, with fractional widths, zoom, and multiple indicator panes; verify bitmap dimensions before paint.
+
+## Case: Perps detail chart toolbar became a white strip in dark mode
+**Date**: 2026-10-19 | **Platforms**: iOS (main)
+**Symptom**: The native chart's interval and settings toolbar appeared as a blank white strip in dark mode, while the candles and the rest of the Perps detail page were dark.
+**Root Cause**: The iOS collapsible tabs header defaults to a white background. The native chart toolbar is transparent, so its dark-theme white text and icons were drawn over that white header.
+**Fix**: Set this page's collapsible header background to the current `bgApp` theme color and update it when the theme changes.
+**Catchable by**: Section 8: open Perps detail with the native chart in dark and light themes, verify the interval/settings toolbar is visible and usable, and recheck after switching themes and reopening the page.
