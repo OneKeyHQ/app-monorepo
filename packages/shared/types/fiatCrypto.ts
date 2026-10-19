@@ -72,3 +72,81 @@ export enum EHeadlessBuyEntry {
   ReceiveSelector = 'receiveSelector',
   DevGallery = 'devGallery',
 }
+
+// User-facing status of a native buy order. The backend's raw Onramper
+// status is folded into these four by mapOnramperStatus(); unknown raw values
+// stay Processing so a new provider state never renders as a failure.
+export enum EHeadlessBuyOrderStatus {
+  Processing = 'processing',
+  Delivered = 'delivered',
+  Failed = 'failed',
+  Refunded = 'refunded',
+}
+
+export type IAddHeadlessBuyOrderParams = {
+  // Onramper durable transaction id (SDK 1.2.1+); the storage key and the
+  // handle for status lookups.
+  transactionId: string;
+  accountId?: string;
+  networkId: string;
+  // Receiving address the quote was made for.
+  address: string;
+  tokenSymbol: string;
+  tokenAddress: string;
+  tokenLogoURI?: string;
+  // Fiat the user pays, in `fiatCurrency` (currently always 'usd').
+  fiatAmount: number;
+  fiatCurrency: string;
+  payout?: number;
+  networkFee?: number;
+  transactionFee?: number;
+  // Provider slug, e.g. 'coinbasepay'.
+  providerName?: string;
+  entryFrom?: string;
+};
+
+export type IHeadlessBuyOrder = IAddHeadlessBuyOrderParams & {
+  accountName?: string;
+  networkName?: string;
+  networkLogoURI?: string;
+  // When the order id was first seen (checkoutFinalized). The record stays
+  // hidden until `submittedAt` is set.
+  createdAt: number;
+  // `completed` event time (or backend-observed payment progress). Only
+  // orders with this set are shown anywhere.
+  submittedAt?: number;
+  // paymentAuthorized seen locally, or backend status pending/paid. Such an
+  // order is never auto-failed by the 24 h rule.
+  paymentSeen?: boolean;
+  status: EHeadlessBuyOrderStatus;
+  rawStatus?: string;
+  statusReason?: string;
+  statusDate?: string;
+  // Actual amount delivered (backend outAmount).
+  outAmount?: number;
+  transactionHash?: string;
+  lastCheckedAt?: number;
+  // false → the last lookup failed; the UI keeps the previous status and
+  // shows "Can't update right now".
+  lastCheckOk?: boolean;
+  // Set when the user opens a Failed order's detail; the banner shows a
+  // failed order only until then.
+  failureViewedAt?: number;
+  // Failed by the 24 h no-progress rule rather than by the backend. Such an
+  // order keeps being refreshed so a late completion can flip it back.
+  timedOut?: boolean;
+};
+
+// One entry of the wallet-side Onramper transaction lookup (OK-64602). Field
+// names follow Onramper's GET /transactions/{id}; everything is optional so a
+// partial payload degrades to "unchanged" instead of throwing.
+export type IOnramperTransactionStatus = {
+  transactionId: string;
+  status?: string;
+  statusReason?: string;
+  statusDate?: string;
+  inAmount?: number;
+  outAmount?: number;
+  transactionHash?: string;
+  walletAddress?: string;
+};
