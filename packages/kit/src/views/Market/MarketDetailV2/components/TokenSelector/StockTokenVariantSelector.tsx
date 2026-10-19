@@ -27,6 +27,7 @@ import {
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isPreferredStockTokenVariant } from '@onekeyhq/shared/src/utils/stockTokenVariant';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketAccountPortfolioDisplayItem,
@@ -81,6 +82,8 @@ const StockTokenVariantResolvedContext = createContext<Set<string>>(
 const ISSUER_LABELS: Record<string, string> = {
   // cspell:disable-next-line
   bstocks: 'bStocks',
+  // cspell:disable-next-line
+  bstock: 'bStocks',
   coingecko: 'Ondo',
   ondo: 'Ondo',
   // cspell:disable-next-line
@@ -313,7 +316,6 @@ function StockTokenVariantSelectorContent({
       : undefined;
   }, [portfolioNetworkId, selectedTokenVariant]);
   const orderedVariants = useMemo(() => {
-    if (!sortByBalance) return tokenVariants;
     const balanceOf = (variant: IMarketStockTokenVariant) =>
       new BigNumber(
         findVariantBalance({
@@ -323,9 +325,13 @@ function StockTokenVariantSelectorContent({
           isPortfolioScope: variant.tokenId === portfolioScopeTokenId,
         }) ?? 0,
       );
-    return [...tokenVariants].toSorted(
-      (a, b) => balanceOf(b).comparedTo(balanceOf(a)) ?? 0,
-    );
+    return tokenVariants.toSorted((a, b) => {
+      const preferredOrder =
+        Number(isPreferredStockTokenVariant(b)) -
+        Number(isPreferredStockTokenVariant(a));
+      if (preferredOrder || !sortByBalance) return preferredOrder;
+      return balanceOf(b).comparedTo(balanceOf(a)) ?? 0;
+    });
   }, [portfolioData, portfolioScopeTokenId, sortByBalance, tokenVariants]);
 
   return (

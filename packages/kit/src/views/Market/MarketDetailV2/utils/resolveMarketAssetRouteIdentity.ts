@@ -1,7 +1,6 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { IMarketAssetVariant } from '@onekeyhq/shared/types/market';
+import { resolveMarketAssetVariant } from '@onekeyhq/shared/src/utils/marketAssetVariant';
 
 export type IMarketAssetRouteIdentity = {
   isNative: boolean;
@@ -17,32 +16,6 @@ type IResolveMarketAssetRouteIdentityParams = {
   symbol: string;
   isNative?: boolean;
 };
-
-function isSameMarketVariant({
-  networkId,
-  tokenAddress,
-  isNative,
-  variant,
-}: Omit<IResolveMarketAssetRouteIdentityParams, 'symbol'> & {
-  variant: IMarketAssetVariant;
-}) {
-  if (variant.isNative !== Boolean(isNative)) {
-    return false;
-  }
-  if (variant.isNative) {
-    return variant.networkId === networkId;
-  }
-  return equalTokenNoCaseSensitive({
-    token1: {
-      networkId,
-      contractAddress: tokenAddress,
-    },
-    token2: {
-      networkId: variant.networkId,
-      contractAddress: variant.tokenAddress,
-    },
-  });
-}
 
 export async function resolveMarketAssetRouteIdentity({
   networkId,
@@ -76,17 +49,12 @@ export async function resolveMarketAssetRouteIdentity({
             assetId: candidate.assetId,
             currency: 'usd',
           });
-        const variants = [detail.selectedVariant, ...detail.variants];
-        const matchedVariant = variants.find(
-          (variant) =>
-            variant &&
-            isSameMarketVariant({
-              networkId,
-              tokenAddress,
-              isNative,
-              variant,
-            }),
-        );
+        const matchedVariant = resolveMarketAssetVariant({
+          detail,
+          networkId,
+          tokenAddress,
+          isNative,
+        });
 
         if (matchedVariant) {
           return {
