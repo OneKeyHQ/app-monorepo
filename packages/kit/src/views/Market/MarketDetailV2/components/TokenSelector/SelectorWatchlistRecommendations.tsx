@@ -32,7 +32,7 @@ export function SelectorWatchlistRecommendations() {
       testID="market-token-selector-recommendations"
       flex={1}
       keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="on-drag"
+      keyboardDismissMode={platformEnv.isNative ? 'on-drag' : 'none'}
     >
       <MarketRecommendList
         recommendedTokens={recommendedTokens}

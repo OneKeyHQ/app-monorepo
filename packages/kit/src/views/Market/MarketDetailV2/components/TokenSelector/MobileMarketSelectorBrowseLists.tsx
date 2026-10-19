@@ -38,6 +38,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   NUMBER_FORMATTER,
@@ -475,7 +476,7 @@ function TokenRowsList({
       onEndReached={onEndReached}
       onEndReachedThreshold={0.4}
       ListFooterComponent={footer}
-      keyboardDismissMode="on-drag"
+      keyboardDismissMode={platformEnv.isNative ? 'on-drag' : 'none'}
       keyboardShouldPersistTaps="handled"
       style={LIST_STYLE}
     />
@@ -705,7 +706,7 @@ export function MobileSelectorTopCoinsList({
       initialNumToRender={12}
       maxToRenderPerBatch={20}
       windowSize={7}
-      keyboardDismissMode="on-drag"
+      keyboardDismissMode={platformEnv.isNative ? 'on-drag' : 'none'}
       keyboardShouldPersistTaps="handled"
       style={LIST_STYLE}
     />
@@ -841,7 +842,7 @@ export function MobileSelectorStockTable({
           onRetry={() => void loadMore()}
         />
       }
-      keyboardDismissMode="on-drag"
+      keyboardDismissMode={platformEnv.isNative ? 'on-drag' : 'none'}
       keyboardShouldPersistTaps="handled"
       style={LIST_STYLE}
     />

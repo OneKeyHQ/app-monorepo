@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 
 import { fireEvent, render, screen } from '@testing-library/react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import {
   MobileSelectorCategoryTokenList,
   MobileSelectorSearchTokenRow,
@@ -14,6 +16,11 @@ import {
 
 import type { useMarketStockSelectorList } from './useMarketStockSelectorList';
 import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
+
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: { isNative: false },
+}));
 
 const mockRefreshWatchListV2 = jest.fn(() => Promise.resolve());
 const mockRefetch = jest.fn(() => Promise.resolve());
@@ -42,13 +49,15 @@ jest.mock('react-native', () => ({
     renderItem,
     ListFooterComponent,
     onEndReached,
+    keyboardDismissMode,
   }: {
     data: unknown[];
     renderItem: (info: { item: unknown }) => ReactNode;
     ListFooterComponent?: ReactNode;
     onEndReached?: () => void;
+    keyboardDismissMode?: string;
   }) => (
-    <div>
+    <div data-testid="browse-list" data-keyboard-mode={keyboardDismissMode}>
       {data.map((item, index) => (
         <div key={index}>{renderItem({ item })}</div>
       ))}
@@ -611,6 +620,60 @@ describe('mobile Favorites categories', () => {
       expect(Boolean(screen.queryByTestId('recommendations'))).toBe(
         filter === 'spot',
       );
+    },
+  );
+});
+
+describe('selector browse keyboard behavior', () => {
+  afterEach(() => {
+    platformEnv.isNative = false;
+  });
+  it.each([false, true])(
+    'limits scroll dismissal to native=%s across all browse lists',
+    (isNative) => {
+      platformEnv.isNative = isNative;
+      mockBrowseData = [searchToken];
+      mockWatchlistCount = 1;
+      mockIsMounted = true;
+      mockIsWatchlistLoading = false;
+      mockListState = { isError: false };
+      const onItemPress = jest.fn();
+      const { rerender } = render(
+        <MobileSelectorWatchlistList onItemPress={onItemPress} />,
+      );
+      const expectPolicy = () =>
+        expect(
+          screen.getByTestId('browse-list').getAttribute('data-keyboard-mode'),
+        ).toBe(isNative ? 'on-drag' : 'none');
+      expectPolicy();
+      rerender(
+        <MobileSelectorTopCoinsList
+          data={[]}
+          isLoading={false}
+          isError={false}
+          onRetry={jest.fn()}
+          onItemPress={onItemPress}
+        />,
+      );
+      expectPolicy();
+      rerender(
+        <MobileSelectorStockTable
+          result={{
+            items: [],
+            total: 0,
+            isLoading: false,
+            isError: false,
+            isLoadingMore: false,
+            isLoadMoreError: false,
+            canLoadMore: false,
+            isRevalidatingFirstPage: false,
+            loadMore: mockLoadMore,
+            refresh: jest.fn(),
+          }}
+          onItemPress={jest.fn()}
+        />,
+      );
+      expectPolicy();
     },
   );
 });

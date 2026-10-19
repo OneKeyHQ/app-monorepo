@@ -22,6 +22,7 @@ const mockTokens: IMarketBasicConfigToken[] = Array.from(
 let mockRecommendedTokens = mockTokens;
 let mockConfigLoading = false;
 let mockIsExtensionPopup = false;
+let mockIsNative = true;
 const mockAddTokens = jest.fn(async () => true);
 
 jest.mock('react-intl', () => ({
@@ -33,7 +34,9 @@ jest.mock('react-intl', () => ({
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
-    isNative: true,
+    get isNative() {
+      return mockIsNative;
+    },
     get isExtensionUiPopup() {
       return mockIsExtensionPopup;
     },
@@ -91,11 +94,17 @@ jest.mock('@onekeyhq/components', () => {
     ScrollView: ({
       children,
       keyboardShouldPersistTaps,
+      keyboardDismissMode,
     }: {
       children: ReactNode;
       keyboardShouldPersistTaps: string;
+      keyboardDismissMode: string;
     }) => (
-      <div data-testid="scroll" data-keyboard-taps={keyboardShouldPersistTaps}>
+      <div
+        data-testid="scroll"
+        data-keyboard-taps={keyboardShouldPersistTaps}
+        data-keyboard-mode={keyboardDismissMode}
+      >
         {children}
       </div>
     ),
@@ -121,6 +130,7 @@ beforeEach(() => {
   mockRecommendedTokens = mockTokens;
   mockConfigLoading = false;
   mockIsExtensionPopup = false;
+  mockIsNative = true;
   mockAddTokens.mockClear();
 });
 
@@ -178,3 +188,14 @@ it('shows loading while the recommendation config is pending and a fallback if i
   rerender(<SelectorWatchlistRecommendations />);
   expect(screen.getByText('market.favorites_empty')).toBeTruthy();
 });
+
+it.each([false, true])(
+  'limits recommendation scroll dismissal to native=%s',
+  (isNative) => {
+    mockIsNative = isNative;
+    render(<SelectorWatchlistRecommendations />);
+    expect(
+      screen.getByTestId('scroll').getAttribute('data-keyboard-mode'),
+    ).toBe(isNative ? 'on-drag' : 'none');
+  },
+);

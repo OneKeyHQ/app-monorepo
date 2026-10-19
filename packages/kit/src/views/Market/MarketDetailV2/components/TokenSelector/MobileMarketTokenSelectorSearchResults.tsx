@@ -18,6 +18,7 @@ import {
   isDetailSearchChainToken,
 } from '@onekeyhq/kit/src/views/Market/utils/marketSearchList';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketSearchV2Token } from '@onekeyhq/shared/types/market';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
@@ -124,7 +125,7 @@ export function MobileMarketSearchAllList({
       style={LIST_STYLE}
       contentContainerStyle={ALL_CONTENT_STYLE}
       stickyHeaderIndices={stickyHeaderIndices}
-      keyboardDismissMode="on-drag"
+      keyboardDismissMode={platformEnv.isNative ? 'on-drag' : 'none'}
       keyboardShouldPersistTaps="handled"
       onScroll={onScroll}
       scrollEventThrottle={64}
@@ -294,7 +295,7 @@ export function MobileMarketSearchTokenList<T>({
       initialNumToRender={10}
       maxToRenderPerBatch={20}
       windowSize={7}
-      keyboardDismissMode="on-drag"
+      keyboardDismissMode={platformEnv.isNative ? 'on-drag' : 'none'}
       keyboardShouldPersistTaps="handled"
       ListHeaderComponent={listHeader}
       style={LIST_STYLE}

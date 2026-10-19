@@ -6,7 +6,23 @@ import { fireEvent, render, screen } from '@testing-library/react';
 
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 
-import { MobileMarketTokenSelectorSearchResults } from './MobileMarketTokenSelectorSearchResults';
+import {
+  MobileMarketSearchAllList,
+  MobileMarketSearchTokenList,
+  MobileMarketTokenSelectorSearchResults,
+} from './MobileMarketTokenSelectorSearchResults';
+
+const { TextInput: WebTextInput } =
+  jest.requireActual<typeof import('react-native')>('react-native-web');
+let mockIsNative = false;
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: {
+    get isNative() {
+      return mockIsNative;
+    },
+  },
+}));
 
 const mockStockPress = jest.fn();
 const mockMarketPress = jest.fn();
@@ -113,41 +129,65 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
-jest.mock('react-native', () => ({
-  ScrollView: ({
-    children,
-    onScroll,
-  }: {
-    children?: ReactNode;
-    onScroll?: (event: unknown) => void;
-  }) => (
-    <div>
-      {children}
-      {/* Fires a scroll that reaches the end of the content. */}
-      <button
-        data-testid="scroll-to-end"
-        aria-label="scroll to end"
-        type="button"
-        onClick={() =>
-          onScroll?.({
-            nativeEvent: {
-              contentOffset: { y: 1000 },
-              layoutMeasurement: { height: 500 },
-              contentSize: { height: 1500 },
-            },
-          })
-        }
-      />
-    </div>
-  ),
-  FlatList: ({
-    data,
-    renderItem,
-  }: {
-    data: unknown[];
-    renderItem: (info: { item: unknown }) => ReactNode;
-  }) => <div>{data.map((item) => renderItem({ item }))}</div>,
-}));
+jest.mock('react-native', () => {
+  const { ScrollView: WebScrollView } =
+    jest.requireActual<typeof import('react-native')>('react-native-web');
+  return {
+    ScrollView: ({
+      children,
+      onScroll,
+      keyboardDismissMode,
+    }: {
+      children?: ReactNode;
+      onScroll?: (event: unknown) => void;
+      keyboardDismissMode?: 'none' | 'on-drag' | 'interactive';
+    }) => (
+      <div
+        data-testid="search-scroll-mode"
+        data-keyboard-mode={keyboardDismissMode}
+      >
+        <WebScrollView
+          testID="search-scroll"
+          keyboardDismissMode={keyboardDismissMode}
+        >
+          {children}
+          <button
+            data-testid="scroll-to-end"
+            aria-label="scroll to end"
+            type="button"
+            onClick={() =>
+              onScroll?.({
+                nativeEvent: {
+                  contentOffset: { y: 1000 },
+                  layoutMeasurement: { height: 500 },
+                  contentSize: { height: 1500 },
+                },
+              })
+            }
+          />
+        </WebScrollView>
+      </div>
+    ),
+    FlatList: ({
+      data,
+      renderItem,
+      keyboardDismissMode,
+    }: {
+      data: unknown[];
+      renderItem: (info: { item: unknown }) => ReactNode;
+      keyboardDismissMode?: 'none' | 'on-drag' | 'interactive';
+    }) => (
+      <div
+        data-testid="search-list-mode"
+        data-keyboard-mode={keyboardDismissMode}
+      >
+        {data.map((item, index) => (
+          <div key={index}>{renderItem({ item })}</div>
+        ))}
+      </div>
+    ),
+  };
+});
 
 // Rows render as plain buttons so the tests can press them by id.
 jest.mock('./MobileMarketSelectorBrowseLists', () => {
@@ -417,4 +457,43 @@ describe('MobileMarketTokenSelectorSearchResults', () => {
     fireEvent.click(screen.getByTestId('scroll-to-end'));
     expect(mockLoadMore).not.toHaveBeenCalled();
   });
+});
+
+describe('selector search keyboard behavior', () => {
+  afterEach(() => {
+    mockIsNative = false;
+  });
+
+  it('keeps the focused web search input active when results scroll', () => {
+    mockIsNative = false;
+    render(
+      <>
+        <WebTextInput testID="search-input" />
+        <MobileMarketSearchAllList sections={[]} />
+      </>,
+    );
+    const input = screen.getByTestId('search-input');
+    input.focus();
+    expect(document.activeElement).toBe(input);
+    fireEvent.scroll(screen.getByTestId('search-scroll'));
+    expect(document.activeElement).toBe(input);
+  });
+
+  it.each([false, true])(
+    'uses the correct scroll policy for native=%s in both result lists',
+    (isNative) => {
+      mockIsNative = isNative;
+      render(
+        <>
+          <MobileMarketSearchAllList sections={[]} />
+          <MobileMarketSearchTokenList entries={[]} onPress={jest.fn()} />
+        </>,
+      );
+      for (const testId of ['search-scroll-mode', 'search-list-mode']) {
+        expect(
+          screen.getByTestId(testId).getAttribute('data-keyboard-mode'),
+        ).toBe(isNative ? 'on-drag' : 'none');
+      }
+    },
+  );
 });
