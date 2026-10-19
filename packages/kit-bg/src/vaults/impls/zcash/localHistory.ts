@@ -174,13 +174,17 @@ export async function buildZcashLocalHistoryTx({
     from = endpoints.from;
     to = endpoints.to;
   }
+  // Classify internal movements as our own send before replacing account
+  // identifiers with pool labels. Pool labels alone are not account addresses.
+  const actionFrom = isInternal ? ownAddress : from;
+  const actionTo = isInternal ? ownAddress : to;
   const action = await buildTransferAction({
-    from,
-    to,
+    from: actionFrom,
+    to: actionTo,
     transfers: [
       {
-        from,
-        to,
+        from: actionFrom,
+        to: actionTo,
         amount,
         tokenIdOnNetwork: nativeToken?.address ?? '',
         icon: nativeToken?.logoURI ?? '',
@@ -191,6 +195,16 @@ export async function buildZcashLocalHistoryTx({
       },
     ],
   });
+  if (action.assetTransfer && isInternal) {
+    action.assetTransfer.from = from;
+    action.assetTransfer.to = to;
+    action.assetTransfer.sends = action.assetTransfer.sends.map((send) => ({
+      ...send,
+      from,
+      to,
+      isOwn: true,
+    }));
+  }
   // Own transparent address only fixed direction above; a shielded leg has
   // no address, so it's relabeled by pool + isOwn (never shown as the t-address).
   if (action.assetTransfer && !isInternal) {

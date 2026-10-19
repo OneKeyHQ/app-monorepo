@@ -5,9 +5,11 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { getRuntime, withWallet } from './carrier';
 import {
   canonicalizeZcashWalletAccounts,
+  getTxDetails,
   prepareWalletAccounts,
   purgeWallet,
   readBalance,
+  readHistory,
   readSyncProgress,
   rebroadcastUnmined,
 } from './wallet';
@@ -28,6 +30,55 @@ const account: IZcashWalletAccount = {
   hdIndex: 0,
   birthdayHeight: 1_000_000,
 };
+
+describe('getTxDetails', () => {
+  afterEach(() => jest.mocked(withWallet).mockClear());
+
+  it('preserves known output amounts and memos when the recipient address is unavailable', async () => {
+    const memoBinary = { hex: 'ff'.repeat(512), hash: '11'.repeat(32) };
+    const rt = {
+      transactionOutputs: () =>
+        JSON.stringify({
+          spent: [],
+          received: [],
+          external: [
+            {
+              valueZat: 123_456_789,
+              poolName: 'ironwood',
+              address: null,
+              memo: 'known memo',
+              memoBinary,
+            },
+            {
+              valueZat: 42,
+              poolName: 'orchard',
+              address: 'u1-known-recipient',
+            },
+          ],
+        }),
+      transactionDetails: () => JSON.stringify({ feeZat: 10_000 }),
+    } as unknown as Awaited<ReturnType<typeof withWallet>>['rt'];
+    jest
+      .mocked(withWallet)
+      .mockResolvedValueOnce({ rt, accountUuid: 'uuid-1' });
+
+    await expect(
+      getTxDetails(account, { txid: 'synthetic-tx' }),
+    ).resolves.toMatchObject({
+      external: [
+        {
+          value: '123456789',
+          pool: 'ironwood',
+          address: null,
+          memo: 'known memo',
+          memoBinary,
+        },
+        { value: '42', pool: 'orchard', address: 'u1-known-recipient' },
+      ],
+      feeZat: '10000',
+    });
+  });
+});
 
 function createRuntime({
   accountStatus,
@@ -52,6 +103,72 @@ function createRuntime({
     accountSyncStatus: () => JSON.stringify(accountStatus),
   } as unknown as Parameters<typeof readSyncProgress>[0];
 }
+
+describe('readHistory self-transfers', () => {
+  it('excludes change from a transfer within one shielded pool', () => {
+    const rt = {
+      transactionHistory: () =>
+        JSON.stringify([
+          {
+            txid: 'self',
+            minedHeight: 100,
+            blockTime: 1,
+            expiredUnmined: false,
+            feeZat: 10_000,
+            balanceDeltaZat: -10_000,
+            totalSpentZat: 1_000_000_000,
+            totalReceivedZat: 999_990_000,
+            externalOutputCount: 0,
+            isShielding: false,
+            poolIds: [4],
+            perPoolBalanceDeltaZat: { '4': '-10000' },
+          },
+        ]),
+      transactionOutputs: jest.fn(() =>
+        JSON.stringify({
+          received: [
+            { valueZat: 100_000_000, isChange: false },
+            { valueZat: 899_990_000, isChange: true },
+          ],
+        }),
+      ),
+    } as unknown as Parameters<typeof readHistory>[0];
+    expect(readHistory(rt, 'account-uuid')[0]).toMatchObject({
+      txType: 'shielded',
+      valueZat: '100000000',
+      fee: '10000',
+    });
+    expect(rt.transactionOutputs).toHaveBeenCalledWith('account-uuid', 'self');
+  });
+
+  it('uses the destination pool delta for a cross-pool transfer without reading all change', () => {
+    const rt = {
+      transactionHistory: () =>
+        JSON.stringify([
+          {
+            txid: 'cross-pool',
+            minedHeight: 100,
+            blockTime: 1,
+            expiredUnmined: false,
+            feeZat: 10_000,
+            balanceDeltaZat: -10_000,
+            totalSpentZat: 1_000_000_000,
+            totalReceivedZat: 999_990_000,
+            externalOutputCount: 0,
+            isShielding: false,
+            poolIds: [3, 4],
+            perPoolBalanceDeltaZat: { '3': '-100010000', '4': '100000000' },
+          },
+        ]),
+      transactionOutputs: jest.fn(),
+    } as unknown as Parameters<typeof readHistory>[0];
+    expect(readHistory(rt, 'account-uuid')[0]).toMatchObject({
+      txType: 'shielded',
+      valueZat: '100000000',
+    });
+    expect(rt.transactionOutputs).not.toHaveBeenCalled();
+  });
+});
 
 describe('canonicalizeZcashWalletAccounts', () => {
   it('registers a shared UFVK once from its earliest birthday', () => {

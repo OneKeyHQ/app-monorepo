@@ -209,9 +209,9 @@ export async function fetchAccountHistoryDetail(
         e.pool === 'transparent'
           ? EOnChainHistoryTransferType.Transfer
           : EOnChainHistoryTransferType.Shielded,
-      address: e.address,
+      address: e.address ?? '',
       from: '',
-      to: e.address,
+      to: e.address ?? '',
       token: '',
       key: '',
       amount: toZec(e.value),
