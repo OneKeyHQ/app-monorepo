@@ -120,6 +120,19 @@ describe('consumePrimeCardCheckoutHandoffFromUrl', () => {
     expect(globalThis.location.hash).toBe('#/');
   });
 
+  it('preserves an explicit switch from embedded to hosted checkout', () => {
+    globalThis.history.replaceState(
+      null,
+      '',
+      `#/?${PRIME_CARD_CHECKOUT_EXT_HANDOFF_QUERY}=P1M&${PRIME_CARD_CHECKOUT_EXT_HANDOFF_FALLBACK_QUERY}=userRequestedHostedCheckout`,
+    );
+    expect(consumePrimeCardCheckoutHandoffFromUrl()).toMatchObject({
+      selectedSubscriptionPeriod: 'P1M',
+      fallbackFrom: 'userRequestedHostedCheckout',
+    });
+    expect(globalThis.location.hash).toBe('#/');
+  });
+
   it('strips but ignores an invalid plan', () => {
     globalThis.history.replaceState(
       null,

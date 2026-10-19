@@ -2,6 +2,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { getPrimeEmbeddedCheckoutFallbackTrigger } from './primeEmbeddedCheckoutFallback';
 import { PRIME_EMBEDDED_CHECKOUT_UNAVAILABLE_MESSAGE } from './purchasesSdkWebLoader';
+import { PRIME_HOSTED_CHECKOUT_REQUESTED_MESSAGE } from './purchaseWithStripeLoadingGuard';
 
 /*
 yarn test packages/kit/src/views/Prime/purchasesSdk/primeEmbeddedCheckoutFallback.test.ts
@@ -14,6 +15,14 @@ function purchasesError(errorCode: number) {
 }
 
 describe('getPrimeEmbeddedCheckoutFallbackTrigger', () => {
+  it('honors an acknowledged user-requested switch even after the card form rendered', () => {
+    expect(
+      getPrimeEmbeddedCheckoutFallbackTrigger({
+        error: new OneKeyLocalError(PRIME_HOSTED_CHECKOUT_REQUESTED_MESSAGE),
+        paymentElementState: 'ready',
+      }),
+    ).toBe('userRequestedHostedCheckout');
+  });
   it('offers the hosted checkout when a blank card form was closed', () => {
     expect(
       getPrimeEmbeddedCheckoutFallbackTrigger({

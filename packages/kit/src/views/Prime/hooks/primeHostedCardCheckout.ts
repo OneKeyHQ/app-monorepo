@@ -363,7 +363,11 @@ export async function discardPrimeHostedCardCheckout(
   }
 }
 
-const FALLBACK_TRIGGERS = new Set<string>(['checkoutError', 'formNotLoaded']);
+const FALLBACK_TRIGGERS = new Set<string>([
+  'checkoutError',
+  'formNotLoaded',
+  'userRequestedHostedCheckout',
+]);
 const SUBSCRIPTION_PERIODS = new Set<string>(['P1Y', 'P1M']);
 const PRIME_FEATURES = new Set<string>(Object.values(EPrimeFeatures));
 

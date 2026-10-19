@@ -33,14 +33,14 @@ const PRIME_SUBSCRIPTION_PERIODS: readonly ISubscriptionPeriod[] = [
 ];
 const PRIME_FEATURES = new Set<string>(Object.values(EPrimeFeatures));
 const PRIME_CARD_CHECKOUT_FALLBACK_TRIGGERS: readonly IPrimeEmbeddedCheckoutFallbackTrigger[] =
-  ['checkoutError', 'formNotLoaded'];
+  ['checkoutError', 'formNotLoaded', 'userRequestedHostedCheckout'];
 const CURRENCY_CODE_REGEX = /^[A-Za-z]{3}$/;
 
 export type IPrimeCardCheckoutHandoff = {
   selectedSubscriptionPeriod: ISubscriptionPeriod;
   featureName?: EPrimeFeatures;
   currency?: string;
-  // Set when the popup's embedded checkout failed.
+  // Set when the popup failed or the user explicitly switched checkout.
   fallbackFrom?: IPrimeEmbeddedCheckoutFallbackTrigger;
 };
 

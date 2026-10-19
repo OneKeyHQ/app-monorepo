@@ -2,16 +2,21 @@ import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorT
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 
 import { PRIME_EMBEDDED_CHECKOUT_UNAVAILABLE_MESSAGE } from './purchasesSdkWebLoader';
+import {
+  PRIME_HOSTED_CHECKOUT_REQUESTED_MESSAGE,
+  PRIME_STRIPE_FORM_LOAD_FAILED_MESSAGE,
+} from './purchaseWithStripeLoadingGuard';
 
 import type { IStripePaymentElementState } from './stripePaymentElementHealth';
 
 // 'checkoutError': switch to the hosted Purchase Link right away.
 // 'formNotLoaded': the user closed a card form that never rendered; offer it.
-// Neither fires once the card form rendered: the user may have submitted a
-// payment that is still processing.
+// Automatic triggers never fire once the card form rendered. The explicit
+// user switch requires an acknowledged cancellation before submission.
 export type IPrimeEmbeddedCheckoutFallbackTrigger =
   | 'checkoutError'
-  | 'formNotLoaded';
+  | 'formNotLoaded'
+  | 'userRequestedHostedCheckout';
 
 // Literals of @revenuecat/purchases-js ErrorCode, kept local so this module
 // never pulls the web SDK into other bundles.
@@ -41,6 +46,10 @@ export function getPrimeEmbeddedCheckoutFallbackTrigger({
     errorCode?: unknown;
     message?: unknown;
   };
+  // Only our guarded SDK cancellation can produce this explicit user action.
+  if (message === PRIME_HOSTED_CHECKOUT_REQUESTED_MESSAGE) {
+    return 'userRequestedHostedCheckout';
+  }
   if (errorCode === USER_CANCELLED_ERROR_CODE) {
     return paymentElementState === 'loading' ||
       paymentElementState === 'loadError'
@@ -53,7 +62,10 @@ export function getPrimeEmbeddedCheckoutFallbackTrigger({
   if (paymentElementState === 'ready') {
     return undefined;
   }
-  if (message === PRIME_EMBEDDED_CHECKOUT_UNAVAILABLE_MESSAGE) {
+  if (
+    message === PRIME_EMBEDDED_CHECKOUT_UNAVAILABLE_MESSAGE ||
+    message === PRIME_STRIPE_FORM_LOAD_FAILED_MESSAGE
+  ) {
     return 'checkoutError';
   }
   if (typeof errorCode === 'number') {

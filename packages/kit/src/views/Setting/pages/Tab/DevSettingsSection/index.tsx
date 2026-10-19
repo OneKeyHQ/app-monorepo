@@ -766,7 +766,12 @@ const BaseDevSettingsSection = () => {
         }
         try {
           await backgroundApiProxy.serviceDevSetting.switchDevMode(false);
-          if (devSettings.enabled && devSettings.settings?.enableTestEndpoint) {
+          if (
+            devSettings.enabled &&
+            (devSettings.settings?.enableTestEndpoint ||
+              devSettings.settings?.usePrimeHostedCardCheckout ||
+              devSettings.settings?.useFaultyPrimeStripeJs)
+          ) {
             setTimeout(() => {
               void backgroundApiProxy.serviceApp.restartApp();
             }, 300);
@@ -787,8 +792,17 @@ const BaseDevSettingsSection = () => {
   }, [
     devSettings.enabled,
     devSettings.settings?.enableTestEndpoint,
+    devSettings.settings?.usePrimeHostedCardCheckout,
+    devSettings.settings?.useFaultyPrimeStripeJs,
     runIdentityExit,
   ]);
+
+  const handlePrimeCardCheckoutSettingChange = useCallback(() => {
+    // SectionFieldItem invokes this only after persisting the new setting.
+    void backgroundApiProxy.serviceApp.restartApp({
+      reason: 'primeCardCheckoutSettingChanged',
+    });
+  }, []);
 
   const handleOpenDevTools = useCallback(() => {
     showDevOnlyPasswordDialog({
@@ -1121,7 +1135,7 @@ const BaseDevSettingsSection = () => {
         title: 'Account & Wallet & Prime & Network',
         description: '账户 钱包 Prime 链和网络',
         keywords:
-          '允许添加相同助记词HD钱包 启用Keyless调试信息 启用Keyless云端同步 允许重置Keyless钱包 Referral Bind Guard 10s Test Add ServerNetwork Test Data Create 1000 Wallets Accounts Large Data NativeList 性能 压力测试 开启Prime 开启Prime Sandbox付款 重置Prime免费试用次数 In-App-Purchase Mac 内购 首页导出私钥临时入口 Export Accounts Data',
+          '允许添加相同助记词HD钱包 启用Keyless调试信息 启用Keyless云端同步 允许重置Keyless钱包 Referral Bind Guard 10s Test Add ServerNetwork Test Data Create 1000 Wallets Accounts Large Data NativeList 性能 压力测试 开启Prime 开启Prime Sandbox付款 Prime信用卡外链支付 RevenueCat Purchase Link hosted checkout 外部链接 切换到故障版本的Stripe.js 旧版 fallback iframe 加载失败 重置Prime免费试用次数 In-App-Purchase Mac 内购 首页导出私钥临时入口 Export Accounts Data',
       },
       {
         key: 'transaction',
@@ -2761,11 +2775,33 @@ const BaseDevSettingsSection = () => {
                       <SectionFieldItem
                         icon="CreditCardOutline"
                         name="usePrimeHostedCardCheckout"
-                        title="Prime 信用卡直接走 Purchase Link"
-                        subtitle="默认内嵌 Stripe，失败才回退；开启后 Web / Desktop / 插件跳过 Stripe，切换后需重启"
+                        title="Prime 信用卡外链支付"
+                        subtitle="开启后信用卡付款直接打开 RevenueCat 外链结账；适用于 Web / Desktop / 插件，切换后自动重启"
+                        onValueChange={handlePrimeCardCheckoutSettingChange}
+                        searchKeywords="RevenueCat Purchase Link hosted checkout 信用卡 外链支付 外部链接 Stripe"
+                        testID="dev-settings-prime-hosted-card-checkout"
                       >
-                        <Switch size={ESwitchSize.small} />
+                        <Switch
+                          size={ESwitchSize.small}
+                          testID="dev-settings-prime-hosted-card-checkout-switch"
+                        />
                       </SectionFieldItem>
+                      {!platformEnv.isNative ? (
+                        <SectionFieldItem
+                          icon="CreditCardOutline"
+                          name="useFaultyPrimeStripeJs"
+                          title="切换到故障版本的 Stripe.js"
+                          subtitle="使用 #13914 修复前的旧版，真实复现失效 iframe 并验证正常 fallback；切换后自动重启。强制外链开启时仍直接跳过 Stripe.js"
+                          onValueChange={handlePrimeCardCheckoutSettingChange}
+                          searchKeywords="Prime Stripe.js faulty legacy broken fallback iframe 403 故障 旧版 加载失败 外链 回退"
+                          testID="dev-settings-prime-faulty-stripe-js"
+                        >
+                          <Switch
+                            size={ESwitchSize.small}
+                            testID="dev-settings-prime-faulty-stripe-js-switch"
+                          />
+                        </SectionFieldItem>
+                      ) : null}
                       <SectionPressItem
                         icon="RefreshCcwOutline"
                         title="重置 Prime 免费试用次数"

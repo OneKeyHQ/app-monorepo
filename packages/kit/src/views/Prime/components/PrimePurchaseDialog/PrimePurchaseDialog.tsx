@@ -4,9 +4,19 @@ import { useCallback, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IActionListItemProps } from '@onekeyhq/components';
-import { Dialog, Skeleton, Stack, YStack } from '@onekeyhq/components';
+import {
+  Dialog,
+  Icon,
+  SizableText,
+  Skeleton,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IListItemTextProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -119,12 +129,19 @@ function PrimePaymentMethodItems({
 }: {
   methods: IPrimePaymentMethodOption[];
   freeTrial?: IPackageFreeTrial;
-  onSelect: (method: IPrimePaymentMethodKey) => Promise<boolean>;
+  onSelect: (
+    method: IPrimePaymentMethodKey,
+    forceHostedCardCheckout?: boolean,
+  ) => Promise<boolean>;
 }) {
   const intl = useIntl();
+  const [forceHostedCardCheckout, setForceHostedCardCheckout] = useState(false);
   const [pendingMethod, setPendingMethod] = useState<IPrimePaymentMethodKey>();
   const pendingMethodRef = useRef<IPrimePaymentMethodKey | undefined>(
     undefined,
+  );
+  const supportsHostedCardCheckout = methods.some(
+    (method) => method.key === 'webStripe',
   );
   // Android can show native and Web checkout together. A trial belongs only
   // to the offering source that reported it, so never copy it to both rows.
@@ -166,7 +183,7 @@ function PrimePaymentMethodItems({
         setPendingMethod(undefined);
       };
       try {
-        const didStart = await onSelect(method);
+        const didStart = await onSelect(method, forceHostedCardCheckout);
         if (!didStart) {
           clearPendingMethod();
         }
@@ -177,10 +194,29 @@ function PrimePaymentMethodItems({
         throw error;
       }
     },
-    [onSelect],
+    [forceHostedCardCheckout, onSelect],
   );
   return (
     <>
+      {supportsHostedCardCheckout ? (
+        <Dialog.Header>
+          <MultipleClickStack
+            key={String(forceHostedCardCheckout)}
+            testID="prime-payment-method-title"
+            onPress={() => {
+              if (!pendingMethodRef.current) {
+                setForceHostedCardCheckout((previous) => !previous);
+              }
+            }}
+          >
+            <Dialog.Title>
+              {intl.formatMessage({
+                id: ETranslations.prime_payment_method__title,
+              })}
+            </Dialog.Title>
+          </MultipleClickStack>
+        </Dialog.Header>
+      ) : null}
       {methods.map((method) => (
         <ListItem
           key={method.key}
@@ -188,6 +224,31 @@ function PrimePaymentMethodItems({
           icon={method.icon}
           testID={method.testID ?? `prime-payment-method-${method.key}`}
           title={intl.formatMessage({ id: method.label })}
+          renderItemText={
+            method.key === 'webStripe' && forceHostedCardCheckout
+              ? (textProps: IListItemTextProps) => (
+                  <ListItem.Text
+                    {...textProps}
+                    primary={
+                      <XStack alignItems="center" gap="$1">
+                        <SizableText
+                          size="$bodyLgMedium"
+                          {...textProps.primaryTextProps}
+                        >
+                          {intl.formatMessage({ id: method.label })}
+                        </SizableText>
+                        <Icon
+                          name="ArrowTopRightOutline"
+                          size="$4"
+                          color="$iconSubdued"
+                          testID="prime-card-hosted-checkout-icon"
+                        />
+                      </XStack>
+                    }
+                  />
+                )
+              : undefined
+          }
           subtitle={getMethodSubtitle(method)}
           disabled={Boolean(pendingMethod)}
           isLoading={pendingMethod === method.key}
@@ -599,7 +660,7 @@ export function usePrimePurchaseCallback({
             <PrimePaymentMethodItems
               methods={paymentMethods}
               freeTrial={freeTrial}
-              onSelect={async (method) => {
+              onSelect={async (method, forceHostedCardCheckout) => {
                 const pendingResult = await continuePendingCryptoPayment({
                   beforeContinue: async () => {
                     await paymentMethodDialog.close();
@@ -632,7 +693,10 @@ export function usePrimePurchaseCallback({
                     featureName,
                   });
                 } else if (method === 'webStripe') {
-                  if ((await getPrimeCardCheckoutMode()) === 'hostedLink') {
+                  if (
+                    forceHostedCardCheckout ||
+                    (await getPrimeCardCheckoutMode()) === 'hostedLink'
+                  ) {
                     // Logs its own intent; the extension popup only hands
                     // the plan off to the expand tab.
                     void purchaseByHostedLink({

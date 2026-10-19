@@ -3,3 +3,7 @@
 export async function shouldLoadStripeForPrimeCheckout() {
   return true;
 }
+
+export async function loadStripeJsForPrimeCheckout() {
+  await import('@onekeyhq/shared/src/modules3rdParty/stripe-v3');
+}

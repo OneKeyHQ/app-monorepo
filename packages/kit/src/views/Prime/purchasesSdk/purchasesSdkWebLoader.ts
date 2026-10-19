@@ -1,7 +1,10 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { shouldLoadStripeForPrimeCheckout } from './shouldLoadStripeForPrimeCheckout';
+import {
+  loadStripeJsForPrimeCheckout,
+  shouldLoadStripeForPrimeCheckout,
+} from './shouldLoadStripeForPrimeCheckout';
 import { instrumentStripePaymentElementHealth } from './stripePaymentElementHealth';
 
 import type * as PurchasesSdk from '@revenuecat/purchases-js';
@@ -23,7 +26,7 @@ async function shouldLoadStripeV3() {
 
 async function importStripeV3(): Promise<boolean> {
   try {
-    await import('@onekeyhq/shared/src/modules3rdParty/stripe-v3');
+    await loadStripeJsForPrimeCheckout();
   } catch (error) {
     // Stripe.js only powers the embedded card form. Keep purchases-js usable
     // so the card checkout can fall back to the hosted Purchase Link.

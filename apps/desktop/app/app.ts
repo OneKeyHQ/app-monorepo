@@ -78,6 +78,7 @@ import {
   applyDesktopNetworkThrottleToWebContents,
 } from './libs/networkThrottle';
 import { openExternalUrl } from './libs/openExternalUrl';
+import { createPrimeStripeRequestMonitor } from './libs/primeStripeRequestMonitor';
 // Side-effect import: registers synchronous IPC handler for renderer MMKV access
 // eslint-disable-next-line import-js/order
 import './libs/react-native-mmkv-desktop-main';
@@ -1666,6 +1667,21 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     },
   );
 
+  const primeStripeRequestMonitor = createPrimeStripeRequestMonitor(
+    () => getSafelyMainWindow()?.webContents,
+  );
+  session.defaultSession.webRequest.onBeforeRequest(
+    { urls: ['https://js.stripe.com/*'] },
+    (details, callback) => {
+      primeStripeRequestMonitor.recordRequest(details);
+      callback({});
+    },
+  );
+  session.defaultSession.webRequest.onErrorOccurred(
+    { urls: ['https://js.stripe.com/*'] },
+    (details) => primeStripeRequestMonitor.forgetRequest(details.id),
+  );
+
   // Inject security response headers for the app's own pages only.
   // Scoped to file:// and localhost to avoid interfering with external API responses.
   //
@@ -1683,9 +1699,15 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         'http://localhost:*/*',
         'https://pay.walletconnect.com/*',
         'https://*.pay.walletconnect.com/*',
+        'https://js.stripe.com/*',
       ],
     },
     (details, callback) => {
+      if (details.url.startsWith('https://js.stripe.com/')) {
+        primeStripeRequestMonitor.receiveResponse(details);
+        callback({});
+        return;
+      }
       if (isWcPayEmbedUrl(details.url)) {
         callback({
           responseHeaders: stripFrameBlockingHeaders(details.responseHeaders),
