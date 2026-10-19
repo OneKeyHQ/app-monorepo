@@ -251,8 +251,9 @@ jobs:
         run: |
           yarn install --immutable
 
-      # EAS skips gitignored files, so hand it the private font through a
-      # non-ignored directory that eas-build-post-install syncs from.
+      # EAS skips gitignored files, so hand it the verified private font through
+      # a non-ignored directory. fonts:sync on the EAS install picks it up before
+      # iOS pod install; eas-build-post-install verifies the native copies.
       - name: Stage private fonts for EAS
         run: node development/scripts/fonts-sync.js --stage-eas
 

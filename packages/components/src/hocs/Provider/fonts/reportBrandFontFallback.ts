@@ -18,13 +18,16 @@ export function reportBrandFontFallback() {
     return;
   }
   reported = true;
-  void import('@onekeyhq/shared/src/modules3rdParty/sentry').then(
-    ({ captureException }) => {
+  void import('@onekeyhq/shared/src/modules3rdParty/sentry')
+    .then(({ captureException }) => {
       captureException(
         new Error(
           `Brand font fallback in production build: source=${BRAND_FONT_SOURCE}`,
         ),
       );
-    },
-  );
+    })
+    .catch(() => {
+      // Allow a later mount to retry when the Sentry chunk failed to load.
+      reported = false;
+    });
 }

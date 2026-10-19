@@ -135,7 +135,8 @@ export const brandFontManifest = {
      然后**立即撤销 token**，只把字体目录通过 `ONEKEY_PRIVATE_FONTS_DIR` 交给后续步骤。
 - App 私钥只传给固定 SHA 的第三方 action，从不传给本地 action；token 不写入 `$GITHUB_ENV`。
   这样即使构建的是 PR 代码（如 `release-app-bundles` 指定 `pr_number`），PR 也拿不到私钥或 token。
-  PR 代码仍可读取已下载的字体文件，这与它最终出现在构建产物中的暴露程度相同。
+- `release-app-bundles` 构建 **fork PR** 时不下发私钥（`allow_fallback_fonts`），这类构建使用 Inter，fork 代码碰不到字体文件。
+  同仓库 PR 的作者本身已有仓库写权限、可以在自己的分支运行任意 workflow，所以仍使用私有字体。
 - App 未配置时这两步自动跳过，发布构建会因 `ONEKEY_REQUIRE_PRIVATE_FONTS=1` 失败。
 
 ## 4. CI / 发布流水线
@@ -143,7 +144,7 @@ export const brandFontManifest = {
 | 流水线 | 处理 |
 |---|---|
 | `lint.yml`、`unittest.yml`、`react-native-unittest.yml` 等 PR 检查 | 不注入 token，走 fallback。也就验证了"开源用户能编译" |
-| `release-ios.yml` / `release-android.yml`（EAS） | EAS 上传时排除 gitignore 文件。Actions 在 `yarn install` 拉到私有字体后，执行 `fonts-sync.js --stage-eas` 复制到未被 ignore 的 `.eas-private-fonts/`，随项目一起上传；`eas-build-post-install` 用 `ONEKEY_PRIVATE_FONTS_DIR=.eas-private-fonts` + `ONEKEY_REQUIRE_PRIVATE_FONTS=1` 同步。EAS 不需要任何 token/secret。不使用 `.easignore`：它会整体替代全仓库的 `.gitignore`，导致 `.env` 等文件被上传 |
+| `release-ios.yml` / `release-android.yml`（EAS） | EAS 上传时排除 gitignore 文件。Actions 在 `yarn install` 拉到私有字体后，执行 `fonts-sync.js --stage-eas` 复制到未被 ignore 的 `.eas-private-fonts/`，随项目一起上传。EAS 上 `yarn install` 的 postinstall（`fonts:sync`）会自动识别该目录（同样校验 sha256），所以 iOS `pod install` 复制进 Xcode 工程的就是 Roobert；`eas-build-post-install` 在 pod install 之后执行 `fonts-sync.js --verify-native`，校验 iOS/Android 原生副本与 JS 字体槽一致（`ONEKEY_REQUIRE_PRIVATE_FONTS=1`）。EAS 不需要任何 token/secret。不使用 `.easignore`：它会整体替代全仓库的 `.gitignore`，导致 `.env` 等文件被上传 |
 | `release-native-bundle.yml`、`release-app-bundles.yml`（OTA JS bundle） | **必须** require private。否则 OTA bundle 中的 family 名会和原生包不一致，导致文字全部回退成系统字体 |
 | `release-desktop*.yml`、`release-ext.yml`、`release-web.yml`、`build-desktop-renderer.yml` | 内联 token + 下载步骤 + `ONEKEY_REQUIRE_PRIVATE_FONTS=1` |
 | `metro-dev-prebundle.yml`、`web-embed-prebundle.yml` | 产物发布为**公开** GHCR 包，因此强制 `ONEKEY_FONTS_FORCE_FALLBACK=1`，永远不含 Roobert。`brand/manifest.ts` 计入 metro dev vendor 指纹，本地装了 Roobert 的开发者不会复用 Inter 版预构建包 |

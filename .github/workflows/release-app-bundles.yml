@@ -37,6 +37,7 @@ jobs:
     outputs:
       head_sha: ${{ steps.pr-info.outputs.head_sha }}
       head_ref: ${{ steps.pr-info.outputs.head_ref }}
+      fork_pr: ${{ steps.pr-info.outputs.fork_pr }}
     steps:
       - name: Validate PR and extract metadata
         id: pr-info
@@ -85,6 +86,11 @@ jobs:
 
           echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
           echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
+          if [ "$HEAD_REPO" != "$BASE_REPO" ]; then
+            echo "fork_pr=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "fork_pr=false" >> "$GITHUB_OUTPUT"
+          fi
 
           echo "PR #$PR_NUMBER validated successfully."
 
@@ -98,6 +104,9 @@ jobs:
       build_source: ${{ steps.params.outputs.build_source }}
       branch: ${{ steps.params.outputs.branch }}
       commit: ${{ steps.params.outputs.commit }}
+      # Fork PR code runs in these builds, so it must never see the private
+      # font; same-repo authors already have write access to every secret.
+      private_fonts: ${{ needs.validate-pr.outputs.fork_pr == 'true' && 'false' || 'true' }}
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
@@ -178,6 +187,8 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       artifact_name: ${{ steps.artifact-name.outputs.value }}
+    env:
+      ONEKEY_REQUIRE_PRIVATE_FONTS: ${{ needs.prepare-params.outputs.private_fonts == 'true' && '1' || '0' }}
     steps:
       - name: Compute artifact name
         id: artifact-name
@@ -197,7 +208,7 @@ jobs:
       # sha256-verified font directory.
       - name: Mint private fonts token
         id: private-fonts-token
-        if: vars.PRIVATE_FONTS_APP_ID != ''
+        if: vars.PRIVATE_FONTS_APP_ID != '' && needs.prepare-params.outputs.private_fonts == 'true'
         # v3.2.0
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
         with:
@@ -402,6 +413,7 @@ jobs:
     if: ${{ !cancelled() && !failure() }}
     uses: ./.github/workflows/release-desktop-bundle.yml
     with:
+      allow_fallback_fonts: ${{ needs.prepare-params.outputs.private_fonts != 'true' }}
       build_number: ${{ needs.prepare-params.outputs.build_number }}
       build_bundle_version: ${{ needs.prepare-params.outputs.build_bundle_version }}
       build_source: ${{ needs.prepare-params.outputs.build_source }}
@@ -409,7 +421,7 @@ jobs:
       commit: ${{ needs.prepare-params.outputs.commit }}
       checkout_ref: ${{ needs.prepare-params.outputs.commit }}
     secrets:
-      PRIVATE_FONTS_APP_PRIVATE_KEY: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
+      PRIVATE_FONTS_APP_PRIVATE_KEY: ${{ needs.prepare-params.outputs.private_fonts == 'true' && secrets.PRIVATE_FONTS_APP_PRIVATE_KEY || '' }}
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
       SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
       SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
@@ -437,6 +449,7 @@ jobs:
     if: ${{ !cancelled() && !failure() }}
     uses: ./.github/workflows/release-native-bundle.yml
     with:
+      allow_fallback_fonts: ${{ needs.prepare-params.outputs.private_fonts != 'true' }}
       platform: ios
       web_embed_artifact: ${{ needs.web-embed-build.outputs.artifact_name }}
       build_number: ${{ needs.prepare-params.outputs.build_number }}
@@ -446,7 +459,7 @@ jobs:
       commit: ${{ needs.prepare-params.outputs.commit }}
       checkout_ref: ${{ needs.prepare-params.outputs.commit }}
     secrets:
-      PRIVATE_FONTS_APP_PRIVATE_KEY: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
+      PRIVATE_FONTS_APP_PRIVATE_KEY: ${{ needs.prepare-params.outputs.private_fonts == 'true' && secrets.PRIVATE_FONTS_APP_PRIVATE_KEY || '' }}
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
       JPUSH_KEY: ${{ secrets.JPUSH_KEY }}
       SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
@@ -473,6 +486,7 @@ jobs:
     if: ${{ !cancelled() && !failure() }}
     uses: ./.github/workflows/release-native-bundle.yml
     with:
+      allow_fallback_fonts: ${{ needs.prepare-params.outputs.private_fonts != 'true' }}
       platform: android
       web_embed_artifact: ${{ needs.web-embed-build.outputs.artifact_name }}
       build_number: ${{ needs.prepare-params.outputs.build_number }}
@@ -482,7 +496,7 @@ jobs:
       commit: ${{ needs.prepare-params.outputs.commit }}
       checkout_ref: ${{ needs.prepare-params.outputs.commit }}
     secrets:
-      PRIVATE_FONTS_APP_PRIVATE_KEY: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
+      PRIVATE_FONTS_APP_PRIVATE_KEY: ${{ needs.prepare-params.outputs.private_fonts == 'true' && secrets.PRIVATE_FONTS_APP_PRIVATE_KEY || '' }}
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
       JPUSH_KEY: ${{ secrets.JPUSH_KEY }}
       SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
@@ -506,6 +520,7 @@ jobs:
     if: ${{ !cancelled() && !failure() }}
     uses: ./.github/workflows/release-web.yml
     with:
+      allow_fallback_fonts: ${{ needs.prepare-params.outputs.private_fonts != 'true' }}
       build_number: ${{ needs.prepare-params.outputs.build_number }}
       build_bundle_version: ${{ needs.prepare-params.outputs.build_bundle_version }}
       build_source: ${{ needs.prepare-params.outputs.build_source }}
@@ -515,7 +530,7 @@ jobs:
       skip_pages_deploy: true
       test_endpoint: app-bundle.onekeytest.com
     secrets:
-      PRIVATE_FONTS_APP_PRIVATE_KEY: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
+      PRIVATE_FONTS_APP_PRIVATE_KEY: ${{ needs.prepare-params.outputs.private_fonts == 'true' && secrets.PRIVATE_FONTS_APP_PRIVATE_KEY || '' }}
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
       SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
       SENTRY_DSN_REACT_NATIVE: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}

@@ -47,6 +47,13 @@ const remoteCacheRoot = path.join(
   'node_modules/.cache/onekey-private-fonts',
 );
 const fallbackDir = path.join(fontsDir, 'fallback');
+// EAS uploads the working tree minus gitignored paths, so the synced (ignored)
+// brand slot never reaches the EAS builder. CI stages the verified private
+// faces into this non-ignored directory right before `eas build`; the install
+// on EAS (postinstall fonts:sync) picks it up before iOS pod install copies the
+// slot into the Xcode project. EAS therefore needs no token.
+const easStagingDir = path.join(rootDir, '.eas-private-fonts');
+const iosFontsDir = path.join(rootDir, 'apps/mobile/ios/OneKeyWallet/Fonts');
 const androidFontsDir = path.join(
   rootDir,
   'apps/mobile/android/app/src/main/assets/fonts',
@@ -292,6 +299,7 @@ async function resolveSource({
   getGhToken = readGhToken,
   fetchImpl = fetch,
   cacheRoot = remoteCacheRoot,
+  stagingDir = easStagingDir,
 } = {}) {
   if (!isEnabled('ONEKEY_FONTS_FORCE_FALLBACK', env)) {
     const configuredDir = env.ONEKEY_PRIVATE_FONTS_DIR;
@@ -301,6 +309,15 @@ async function resolveSource({
       const files = readWeightSet(dir);
       verifyAgainstLock(files, lock || readLock(), dir);
       return { source: 'private', origin: dir, files };
+    }
+    if (fs.existsSync(stagingDir)) {
+      const files = readWeightSet(stagingDir);
+      verifyAgainstLock(files, lock || readLock(), stagingDir);
+      return {
+        source: 'private',
+        origin: path.relative(rootDir, stagingDir),
+        files,
+      };
     }
     const remote = await resolveRemoteSource({
       env,
@@ -427,12 +444,6 @@ async function main() {
   }
 }
 
-// EAS uploads the working tree minus gitignored paths, so the synced (ignored)
-// brand slot never reaches the EAS builder. CI stages the private faces into a
-// non-ignored directory right before `eas build`; eas-build-post-install then
-// syncs from it via ONEKEY_PRIVATE_FONTS_DIR. EAS therefore needs no token.
-const easStagingDir = path.join(rootDir, '.eas-private-fonts');
-
 function stageForEas() {
   const manifestPath = path.join(brandDir, 'manifest.ts');
   const manifest = fs.existsSync(manifestPath)
@@ -460,10 +471,69 @@ function stageForEas() {
   );
 }
 
+function readManifest() {
+  const manifestPath = path.join(brandDir, 'manifest.ts');
+  if (!fs.existsSync(manifestPath)) {
+    throw new Error('brand/manifest.ts is missing; run fonts:sync first.');
+  }
+  const manifest = fs.readFileSync(manifestPath, 'utf-8');
+  const nativeFamily = {};
+  for (const [, slot, family] of manifest.matchAll(
+    /^\s+(\w+): '([^']+)',$/gm,
+  )) {
+    nativeFamily[slot] = family;
+  }
+  const source = /^\s+source: 'private',$/m.test(manifest)
+    ? 'private'
+    : 'fallback';
+  return { source, nativeFamily };
+}
+
+// Runs after native dependency setup (eas-build-post-install): the iOS Xcode
+// copy and the Android assets must hold the same faces as the JS slot, or JS
+// would request font families the native bundle does not contain.
+function verifyNativeCopies() {
+  const { source, nativeFamily } = readManifest();
+  if (source !== 'private' && isEnabled('ONEKEY_REQUIRE_PRIVATE_FONTS')) {
+    throw new Error(
+      'ONEKEY_REQUIRE_PRIVATE_FONTS is set but the brand slot holds the fallback font.',
+    );
+  }
+  const slotFiles = Object.fromEntries(
+    SLOTS.map((slot) => [slot.key, path.join(brandDir, slot.fileName)]),
+  );
+  if (source === 'private') {
+    verifyAgainstLock(slotFiles, readLock(), path.relative(rootDir, brandDir));
+  }
+  const requireIos = process.env.EAS_BUILD_PLATFORM === 'ios';
+  if (requireIos && !fs.existsSync(iosFontsDir)) {
+    throw new Error(`${path.relative(rootDir, iosFontsDir)} is missing after pod install.`);
+  }
+  for (const slot of SLOTS) {
+    const expected = fs.readFileSync(slotFiles[slot.key]);
+    const copies = [
+      path.join(androidFontsDir, `${nativeFamily[slot.key]}.ttf`),
+      ...(fs.existsSync(iosFontsDir)
+        ? [path.join(iosFontsDir, slot.fileName)]
+        : []),
+    ];
+    for (const copy of copies) {
+      if (!fs.existsSync(copy) || !fs.readFileSync(copy).equals(expected)) {
+        throw new Error(
+          `${path.relative(rootDir, copy)} does not match the ${source} brand slot.`,
+        );
+      }
+    }
+  }
+  log(`native font copies match the ${source} brand slot`);
+}
+
 if (require.main === module) {
-  const run = process.argv.includes('--stage-eas')
-    ? async () => stageForEas()
-    : main;
+  let run = main;
+  if (process.argv.includes('--stage-eas')) run = async () => stageForEas();
+  if (process.argv.includes('--verify-native')) {
+    run = async () => verifyNativeCopies();
+  }
   run().catch((error) => {
     console.error(`[fonts:sync] ${error.message}`);
     process.exit(1);

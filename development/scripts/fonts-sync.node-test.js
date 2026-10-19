@@ -325,3 +325,33 @@ test('the committed Inter fallback never verifies as the private font', () => {
     /does not match brand\.lock\.json/,
   );
 });
+
+test('a staged EAS directory is used when it matches the lock', () =>
+  withTempDir(async (cacheRoot) => {
+    const { calls, fetchImpl } = makeFetch();
+    const result = await resolveSource({
+      env: {},
+      lock: makeLock(),
+      getGhToken: () => 'gh',
+      fetchImpl,
+      cacheRoot,
+      stagingDir: fallbackDir,
+    });
+    assert.equal(result.source, 'private');
+    assert.equal(calls.length, 0);
+  }));
+
+test('a staged EAS directory that does not match the lock is rejected', () =>
+  withTempDir(async (cacheRoot) => {
+    await assert.rejects(
+      resolveSource({
+        env: {},
+        lock: readLock(),
+        getGhToken: () => '',
+        fetchImpl: makeFetch().fetchImpl,
+        cacheRoot,
+        stagingDir: fallbackDir,
+      }),
+      /does not match brand\.lock\.json/,
+    );
+  }));

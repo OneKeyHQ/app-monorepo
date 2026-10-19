@@ -12,6 +12,12 @@ on:
   workflow_dispatch:
   workflow_call:
     inputs:
+      allow_fallback_fonts:
+        # Set by release-app-bundles for fork PR builds, which must not receive
+        # the private font; those builds use the open-source fallback.
+        type: boolean
+        required: false
+        default: false
       build_number:
         type: string
         required: true
@@ -100,7 +106,7 @@ on:
 env:
   # Release artifacts must ship the licensed brand font; fonts-sync fails
   # instead of falling back to the open-source face.
-  ONEKEY_REQUIRE_PRIVATE_FONTS: '1'
+  ONEKEY_REQUIRE_PRIVATE_FONTS: ${{ inputs.allow_fallback_fonts && '0' || '1' }}
   NODE_ENV: production
   YARN_ENABLE_GLOBAL_CACHE: true
 
@@ -268,7 +274,7 @@ jobs:
       # sha256-verified font directory.
       - name: Mint private fonts token
         id: private-fonts-token
-        if: vars.PRIVATE_FONTS_APP_ID != ''
+        if: vars.PRIVATE_FONTS_APP_ID != '' && !inputs.allow_fallback_fonts
         # v3.2.0
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
         with:
