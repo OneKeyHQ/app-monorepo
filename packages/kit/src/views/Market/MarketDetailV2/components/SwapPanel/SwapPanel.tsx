@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import type { ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -91,6 +92,37 @@ function TradeButton({
         {intl.formatMessage({ id: ETranslations.dexmarket_details_trade })}
       </Button>
     </View>
+  );
+}
+
+function MobileWebTradeActions({
+  children,
+  disabled,
+}: {
+  children: ReactNode;
+  disabled?: boolean;
+}) {
+  const intl = useIntl();
+  const { activeAccount, showAccountSelector } = useAccountSelectorTrigger({
+    num: 0,
+    showConnectWalletModalInDappMode: true,
+  });
+  const noAccount =
+    !activeAccount?.indexedAccount?.id && !activeAccount?.account?.id;
+
+  return noAccount ? (
+    <Button
+      size="large"
+      height={50}
+      variant="primary"
+      disabled={disabled}
+      onPress={showAccountSelector}
+      testID="market-no-account-btn"
+    >
+      {intl.formatMessage({ id: ETranslations.global_connect })}
+    </Button>
+  ) : (
+    children
   );
 }
 
@@ -227,6 +259,17 @@ export function SwapPanel({
     if (pnlIsPositive) pnlPrefix = '+';
     if (pnlIsNegative) pnlPrefix = '-';
 
+    const footerButtons = (
+      <SwapPanelFooterButtons
+        mode={footerMode}
+        onBuy={handleBuy}
+        onSell={handleSell}
+        onPerps={onPerps}
+        tradeDisabled={!executionReady}
+        perpsDisabled={perpsDisabled}
+      />
+    );
+
     return (
       <YStack>
         <Divider />
@@ -284,14 +327,21 @@ export function SwapPanel({
           ) : null}
         </XStack>
         <Stack px="$5" pb={bottomInset || '$4'} pt="$2.5">
-          <SwapPanelFooterButtons
-            mode={footerMode}
-            onBuy={handleBuy}
-            onSell={handleSell}
-            onPerps={onPerps}
-            tradeDisabled={!executionReady}
-            perpsDisabled={perpsDisabled}
-          />
+          {platformEnv.isWeb ? (
+            <AccountSelectorProviderMirror
+              config={{
+                sceneName: EAccountSelectorSceneName.home,
+                sceneUrl: '',
+              }}
+              enabledNum={[0]}
+            >
+              <MobileWebTradeActions disabled={!executionReady}>
+                {footerButtons}
+              </MobileWebTradeActions>
+            </AccountSelectorProviderMirror>
+          ) : (
+            footerButtons
+          )}
         </Stack>
       </YStack>
     );
