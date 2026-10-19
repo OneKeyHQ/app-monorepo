@@ -95,7 +95,6 @@ import { useSwapTokenRiskCheck } from '../../hooks/useSwapTokenRiskCheck';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
 import {
   buildSwapNetworkReadyKey,
-  isSwapNetworkCacheCompatible,
   isSwapNetworkCacheReadyForBasicList,
 } from '../../utils/swapNetworkCacheUtils';
 import {
@@ -405,6 +404,7 @@ const SwapTokenSelectPage = ({
     ? (desktopAddressInfo.accountInfo?.account?.id ??
       desktopAddressInfo.accountInfo?.dbAccount?.id)
     : undefined;
+  // The sidebar summarizes wallet holdings independently of the token filter.
   const desktopAllNetworkTokenListCacheKey = useMemo(
     () =>
       buildSwapAllNetworkTokenListCacheKey({
@@ -412,26 +412,23 @@ const SwapTokenSelectPage = ({
           desktopIndexedAccountId ??
           desktopOtherWalletTypeAccountId ??
           'noAccountId',
-        lpToken: requestLpToken,
+        lpToken: false,
         currency: settingsPersistAtom.currencyInfo.id,
         protocol: swapTypeSwitch,
       }),
     [
       desktopIndexedAccountId,
       desktopOtherWalletTypeAccountId,
-      requestLpToken,
       settingsPersistAtom.currencyInfo.id,
       swapTypeSwitch,
     ],
   );
   const desktopAllNetworkTokens =
     swapAllNetworkTokenListMap[desktopAllNetworkTokenListCacheKey];
-  const desktopAllNetworkTokenListReady = useMemo(() => {
-    if (requestLpToken) {
-      return isSwapNetworkCacheCompatible(rawSwapNetworks);
-    }
-    return isSwapNetworkCacheReadyForBasicList(rawSwapNetworks);
-  }, [rawSwapNetworks, requestLpToken]);
+  const desktopAllNetworkTokenListReady = useMemo(
+    () => isSwapNetworkCacheReadyForBasicList(rawSwapNetworks),
+    [rawSwapNetworks],
+  );
   const desktopAllNetworkSwapNetworksReadyKey = useMemo(
     () =>
       desktopAllNetworkTokenListReady
@@ -453,14 +450,14 @@ const SwapTokenSelectPage = ({
     void swapLoadAllNetworkTokenList(
       desktopIndexedAccountId,
       desktopOtherWalletTypeAccountId,
-      requestLpToken,
+      false,
       settingsPersistAtom.currencyInfo.id,
     ).catch(() => undefined);
   }, [
     desktopIndexedAccountId,
     desktopOtherWalletTypeAccountId,
-    requestLpToken,
     settingsPersistAtom.currencyInfo.id,
+    swapTypeSwitch,
     swapLoadAllNetworkTokenList,
     useDesktopTokenSelector,
     desktopAllNetworkTokenListReady,

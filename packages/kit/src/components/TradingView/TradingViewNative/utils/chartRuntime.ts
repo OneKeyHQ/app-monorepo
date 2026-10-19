@@ -105,13 +105,13 @@ export function createTradingViewNativeChartRuntimeState({
       ? Math.min(Math.max(initialRightOffset.value, 0), 100)
       : 0;
     normalizedInitialRightOffset =
-      value > 0 ? { type: initialRightOffset.type, value } : undefined;
+      value > 0 ? { ...initialRightOffset, value } : undefined;
   } else if (initialRightOffset?.type === 'pointCount') {
     const value = Number.isFinite(initialRightOffset.value)
       ? Math.max(Math.floor(initialRightOffset.value), 0)
       : 0;
     normalizedInitialRightOffset =
-      value > 0 ? { type: initialRightOffset.type, value } : undefined;
+      value > 0 ? { ...initialRightOffset, value } : undefined;
   }
   return {
     crosshair: { visible: false, x: 0, y: 0 },
