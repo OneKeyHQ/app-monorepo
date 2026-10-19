@@ -8,7 +8,11 @@ import {
   type IHeadlessBuyOrder,
 } from '@onekeyhq/shared/types/fiatCrypto';
 
+import { SimpleDbEntityHeadlessBuyOrders } from '../dbs/simple/entity/SimpleDbEntityHeadlessBuyOrders';
+
 import ServiceFiatCrypto from './ServiceFiatCrypto';
+
+import type { IHeadlessBuyOrdersDBStructure } from '../dbs/simple/entity/SimpleDbEntityHeadlessBuyOrders';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: any) => target,
@@ -57,57 +61,27 @@ function baseOrder(
   };
 }
 
+// The real entity on top of an in-memory store: the service's writes go
+// through the entity's atomic read-modify-write helpers exactly as in
+// production, only the storage layer is replaced.
 function createService(orders: IHeadlessBuyOrder[]) {
   const store = new Map(orders.map((o) => [o.transactionId, o]));
-  const simpleDb = {
-    headlessBuyOrders: {
-      getOrders: jest.fn(async () => [...store.values()]),
-      getOrder: jest.fn(async ({ transactionId }: { transactionId: string }) =>
-        store.get(transactionId),
-      ),
-      insertOrderIfAbsent: jest.fn(
-        async ({ order }: { order: IHeadlessBuyOrder }) => {
-          if (store.has(order.transactionId)) {
-            return false;
-          }
-          store.set(order.transactionId, order);
-          return true;
-        },
-      ),
-      patchOrder: jest.fn(
-        async ({
-          transactionId,
-          patch,
-        }: {
-          transactionId: string;
-          patch: Partial<IHeadlessBuyOrder>;
-        }) => {
-          const existing = store.get(transactionId);
-          if (!existing) {
-            return undefined;
-          }
-          const next = { ...existing, ...patch };
-          store.set(transactionId, next);
-          return next;
-        },
-      ),
-      mergeOrders: jest.fn(
-        async ({
-          updates,
-        }: {
-          updates: Record<string, IHeadlessBuyOrder | null>;
-        }) => {
-          for (const [id, o] of Object.entries(updates)) {
-            if (o === null) {
-              store.delete(id);
-            } else {
-              store.set(id, o);
-            }
-          }
-        },
-      ),
-    },
-  };
+  const entity = new SimpleDbEntityHeadlessBuyOrders();
+  const snapshot = (): IHeadlessBuyOrdersDBStructure => ({
+    orders: Object.fromEntries(store),
+  });
+  jest.spyOn(entity, 'getRawData').mockImplementation(async () => snapshot());
+  jest.spyOn(entity, 'setRawData').mockImplementation(async (builder) => {
+    const next = (
+      builder as (
+        raw: IHeadlessBuyOrdersDBStructure,
+      ) => IHeadlessBuyOrdersDBStructure
+    )(snapshot());
+    store.clear();
+    Object.values(next.orders).forEach((o) => store.set(o.transactionId, o));
+    return next;
+  });
+  const simpleDb = { headlessBuyOrders: entity };
   const get = jest.fn();
   const backgroundApi: any = {
     simpleDb,
@@ -204,13 +178,14 @@ describe('ServiceFiatCrypto headless buy orders', () => {
     await service.markHeadlessBuyOrderViewed({ transactionId: 'failed' });
     await service.markHeadlessBuyOrderViewed({ transactionId: 'failed' });
     expect(store.get('failed')?.failureViewedAt).toBe(T0 + 1000);
-    expect(simpleDb.headlessBuyOrders.patchOrder).toHaveBeenCalledTimes(2);
+    expect(simpleDb.headlessBuyOrders.setRawData).toHaveBeenCalledTimes(2);
   });
 
-  test('discardHeadlessBuyOrder removes only hidden orders', async () => {
+  test('discardHeadlessBuyOrder removes only hidden orders that never saw a payment', async () => {
     const { service, store } = createService([
       baseOrder(),
       baseOrder({ transactionId: 'paid', submittedAt: T0 }),
+      baseOrder({ transactionId: 'authorized', paymentSeen: true }),
     ]);
     await service.discardHeadlessBuyOrder({
       transactionId: '01M3',
@@ -220,8 +195,38 @@ describe('ServiceFiatCrypto headless buy orders', () => {
       transactionId: 'paid',
       reason: 'failed',
     });
+    // Apple Pay was authorized before the checkout failed: the record is
+    // kept and surfaced so the user can track a possible charge.
+    await service.discardHeadlessBuyOrder({
+      transactionId: 'authorized',
+      reason: 'failed',
+    });
     expect(store.has('01M3')).toBe(false);
     expect(store.has('paid')).toBe(true);
+    expect(store.get('authorized')).toMatchObject({
+      submittedAt: T0 + 1000,
+      paymentSeen: true,
+      status: EHeadlessBuyOrderStatus.Processing,
+    });
+  });
+
+  test('discardHeadlessBuyOrder keeps a record that got submitted after the read', async () => {
+    const { service, store, simpleDb } = createService([baseOrder()]);
+    // The `completed` event lands between the service's read and its
+    // conditional delete.
+    const { getOrder } = simpleDb.headlessBuyOrders;
+    jest
+      .spyOn(simpleDb.headlessBuyOrders, 'getOrder')
+      .mockImplementationOnce(async (params) => {
+        const order = await getOrder.call(simpleDb.headlessBuyOrders, params);
+        store.set('01M3', { ...baseOrder(), submittedAt: T0 + 500 });
+        return order;
+      });
+    await service.discardHeadlessBuyOrder({
+      transactionId: '01M3',
+      reason: 'cancelled',
+    });
+    expect(store.get('01M3')?.submittedAt).toBe(T0 + 500);
   });
 
   test('getHeadlessBuyOrders applies time rules, persists them and sorts newest first', async () => {
@@ -350,9 +355,18 @@ describe('ServiceFiatCrypto headless buy orders', () => {
       EAppEventBusNames.RefreshTokenList,
       expect.anything(),
     );
+
+    // The 429 pauses every lookup on this device for a minute.
+    get.mockClear();
+    (Date.now as jest.Mock).mockReturnValue(T0 + 1000 + 59_000);
+    await service.refreshHeadlessBuyOrders({ transactionIds: ['c'] });
+    expect(get).not.toHaveBeenCalled();
+    (Date.now as jest.Mock).mockReturnValue(T0 + 1000 + 61_000);
+    await service.refreshHeadlessBuyOrders({ transactionIds: ['c'] });
+    expect(get).toHaveBeenCalledTimes(1);
   });
 
-  test('refreshHeadlessBuyOrders skips orders checked successfully moments ago', async () => {
+  test('refreshHeadlessBuyOrders honours the recheck intervals, longer after a failure', async () => {
     const { service, get } = createService([
       baseOrder({
         transactionId: 'fresh',
@@ -363,7 +377,13 @@ describe('ServiceFiatCrypto headless buy orders', () => {
       baseOrder({
         transactionId: 'failed-check',
         submittedAt: T0,
-        lastCheckedAt: T0 + 1000 - 5000,
+        lastCheckedAt: T0 + 1000 - 30_000,
+        lastCheckOk: false,
+      }),
+      baseOrder({
+        transactionId: 'failed-old',
+        submittedAt: T0,
+        lastCheckedAt: T0 + 1000 - 90_000,
         lastCheckOk: false,
       }),
       baseOrder({
@@ -379,7 +399,94 @@ describe('ServiceFiatCrypto headless buy orders', () => {
       (call) =>
         (call[1] as { params: { transactionId: string } }).params.transactionId,
     );
-    expect(requested.toSorted()).toEqual(['failed-check', 'old-check']);
+    expect(requested.toSorted()).toEqual(['failed-old', 'old-check']);
+  });
+
+  test('refreshHeadlessBuyOrders caps a round and queries visible orders first', async () => {
+    const { service, get } = createService([
+      // Already checked hidden / timed-out records only get a slot after
+      // ten minutes in a general refresh.
+      baseOrder({
+        transactionId: 'hidden-checked',
+        lastCheckedAt: T0 + 1000 - 5 * 60_000,
+        lastCheckOk: true,
+      }),
+      baseOrder({
+        transactionId: 'timed-out',
+        submittedAt: T0 - 2 * DAY_MS,
+        status: EHeadlessBuyOrderStatus.Failed,
+        timedOut: true,
+        lastCheckedAt: T0 + 1000 - 5 * 60_000,
+        lastCheckOk: true,
+      }),
+      baseOrder({ transactionId: 'hidden-new', createdAt: T0 + 5 }),
+      baseOrder({ transactionId: 'v1', submittedAt: T0 + 1 }),
+      baseOrder({ transactionId: 'v2', submittedAt: T0 + 2 }),
+      baseOrder({ transactionId: 'v3', submittedAt: T0 + 3 }),
+      baseOrder({ transactionId: 'v4', submittedAt: T0 + 4 }),
+      baseOrder({ transactionId: 'v5', submittedAt: T0 + 5 }),
+    ]);
+    get.mockResolvedValue({ data: { data: null } });
+    await service.refreshHeadlessBuyOrders({});
+    const requested = () =>
+      get.mock.calls.map(
+        (call) =>
+          (call[1] as { params: { transactionId: string } }).params
+            .transactionId,
+      );
+    expect(requested()).toEqual(['v5', 'v4', 'v3', 'v2']);
+
+    // An explicit id (the detail page) is exempt from the low-priority
+    // interval, and the ones left out above get their turn once the failed
+    // ones are inside their cooldown.
+    get.mockClear();
+    await service.refreshHeadlessBuyOrders({ transactionIds: ['timed-out'] });
+    expect(requested()).toEqual(['timed-out']);
+    get.mockClear();
+    await service.refreshHeadlessBuyOrders({});
+    expect(requested()).toEqual(['v1', 'hidden-new']);
+  });
+
+  test('refreshHeadlessBuyOrders shares one in-flight request per id', async () => {
+    const { service, get } = createService([
+      baseOrder({ transactionId: 'a', submittedAt: T0 }),
+    ]);
+    let release: (value: unknown) => void = () => undefined;
+    get.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    const first = service.refreshHeadlessBuyOrders({ transactionIds: ['a'] });
+    const second = service.refreshHeadlessBuyOrders({});
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    expect(get).toHaveBeenCalledTimes(1);
+    release({ data: { data: { transactionId: 'a', status: 'pending' } } });
+    await Promise.all([first, second]);
+    expect(get).toHaveBeenCalledTimes(1);
+  });
+
+  test('refreshHeadlessBuyOrders merges a status into a record the checkout updated meanwhile', async () => {
+    const { service, store, get } = createService([baseOrder()]);
+    get.mockImplementation(async () => {
+      // `completed` + `paymentAuthorized` land while the lookup is in flight.
+      store.set('01M3', {
+        ...baseOrder(),
+        submittedAt: T0 + 900,
+        paymentSeen: true,
+      });
+      return { data: { data: { transactionId: '01M3', status: 'new' } } };
+    });
+    await service.refreshHeadlessBuyOrders({});
+    expect(store.get('01M3')).toMatchObject({
+      submittedAt: T0 + 900,
+      paymentSeen: true,
+      rawStatus: 'new',
+      lastCheckOk: true,
+    });
   });
 
   test('refreshHeadlessBuyOrders never looks up Simulator or fallback ids', async () => {

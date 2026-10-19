@@ -75,14 +75,19 @@ export function isHeadlessBuyOrderDelayed(
 export type IHeadlessBuyFailureKind = 'notCharged' | 'refund' | 'unknown';
 
 // Which failure sentence to show. Only a backend reason lets us promise
-// anything about the money; a timeout knows nothing.
+// anything about the money, and "not charged" is only safe when nothing ever
+// showed a payment (no local paymentAuthorized, no backend pending/paid); a
+// timeout knows nothing.
 export function getHeadlessBuyFailureKind(
   order: IHeadlessBuyOrder,
 ): IHeadlessBuyFailureKind {
   if (order.timedOut || !order.statusReason) {
     return 'unknown';
   }
-  return /refund/i.test(order.statusReason) ? 'refund' : 'notCharged';
+  if (/refund/i.test(order.statusReason)) {
+    return 'refund';
+  }
+  return order.paymentSeen ? 'unknown' : 'notCharged';
 }
 
 function parseStatusDate(statusDate: string | undefined): number | undefined {
@@ -94,8 +99,10 @@ function parseStatusDate(statusDate: string | undefined): number | undefined {
 }
 
 // Merges one lookup result into an order. Returns undefined when the record
-// should be deleted: a hidden order the backend reports failed/canceled — the
-// user never paid, so there is nothing to show.
+// should be deleted: a hidden order the backend reports failed/canceled before
+// any payment sign — the user never paid, so there is nothing to show. A
+// hidden order whose Apple Pay sheet was already authorized is surfaced
+// instead: the user may have been charged and needs the order id.
 export function applyOnramperTransactionStatus(
   order: IHeadlessBuyOrder,
   tx: IOnramperTransactionStatus,
@@ -115,9 +122,11 @@ export function applyOnramperTransactionStatus(
   };
   if (!order.submittedAt) {
     if (mapped.status === EHeadlessBuyOrderStatus.Failed) {
-      return undefined;
-    }
-    if (mapped.paymentSeen) {
+      if (!order.paymentSeen) {
+        return undefined;
+      }
+      next.submittedAt = parseStatusDate(tx.statusDate) ?? now;
+    } else if (mapped.paymentSeen) {
       // Payment happened while the app was away: surface the order.
       next.submittedAt = parseStatusDate(tx.statusDate) ?? now;
     }

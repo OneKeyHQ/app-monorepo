@@ -1,5 +1,12 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import type { IHeadlessBuyOrder } from '@onekeyhq/shared/types/fiatCrypto';
+import {
+  applyHeadlessBuyOrderTimeRules,
+  applyOnramperTransactionStatus,
+} from '@onekeyhq/shared/src/modules3rdParty/onramper/orderStatus';
+import type {
+  IHeadlessBuyOrder,
+  IOnramperTransactionStatus,
+} from '@onekeyhq/shared/types/fiatCrypto';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -7,6 +14,13 @@ export type IHeadlessBuyOrdersDBStructure = {
   // Keyed by Onramper transactionId. Device-wide across all accounts (product
   // decision 2026-10-16): no per-account partitioning.
   orders: Record<string, IHeadlessBuyOrder>;
+};
+
+// One record before and after a rule / status round. `to` undefined means
+// the record was deleted.
+export type IHeadlessBuyOrderChange = {
+  from: IHeadlessBuyOrder;
+  to: IHeadlessBuyOrder | undefined;
 };
 
 // Device-local record of native (Onramper Headless) buy orders. The
@@ -104,5 +118,108 @@ export class SimpleDbEntityHeadlessBuyOrders extends SimpleDbEntityBase<IHeadles
       }
       return { orders };
     });
+  }
+
+  // Deletes a record only while it is still hidden and has never shown a
+  // payment sign. The check runs inside the storage lock, so a `completed`
+  // or `paymentAuthorized` write that landed after the caller's read wins.
+  // Returns the deleted record.
+  @backgroundMethod()
+  async removeOrderIfHidden({
+    transactionId,
+  }: {
+    transactionId: string;
+  }): Promise<IHeadlessBuyOrder | undefined> {
+    let removed: IHeadlessBuyOrder | undefined;
+    await this.setRawData((raw) => {
+      const orders = { ...raw?.orders };
+      const existing = orders[transactionId];
+      if (
+        !existing ||
+        existing.submittedAt !== undefined ||
+        existing.paymentSeen
+      ) {
+        removed = undefined;
+        return { orders };
+      }
+      removed = existing;
+      delete orders[transactionId];
+      return { orders };
+    });
+    return removed;
+  }
+
+  // Applies the time rules to every record. The steady state is a plain read;
+  // when something has to change, the rules are re-run inside the storage
+  // lock so they act on the records as they are now, not on a snapshot.
+  // Returns the surviving records (unsorted) and what changed.
+  @backgroundMethod()
+  async applyTimeRules({ now }: { now: number }): Promise<{
+    orders: IHeadlessBuyOrder[];
+    changes: IHeadlessBuyOrderChange[];
+  }> {
+    const stored = await this.getOrders();
+    if (
+      stored.every(
+        (order) => applyHeadlessBuyOrderTimeRules(order, now) === order,
+      )
+    ) {
+      return { orders: stored, changes: [] };
+    }
+    let result: IHeadlessBuyOrder[] = [];
+    let changes: IHeadlessBuyOrderChange[] = [];
+    await this.setRawData((raw) => {
+      const orders: Record<string, IHeadlessBuyOrder> = {};
+      result = [];
+      changes = [];
+      for (const order of Object.values(raw?.orders ?? {})) {
+        const next = applyHeadlessBuyOrderTimeRules(order, now);
+        if (next) {
+          orders[order.transactionId] = next;
+          result.push(next);
+        }
+        if (next !== order) {
+          changes.push({ from: order, to: next });
+        }
+      }
+      return { orders };
+    });
+    return { orders: result, changes };
+  }
+
+  // Merges one status round. `statuses[id] === null` records a failed or
+  // not-found lookup. The merge reads the current record inside the storage
+  // lock, so a checkout write that landed while the lookups were in flight
+  // (submittedAt, paymentSeen) is merged into rather than overwritten; ids
+  // that no longer exist are skipped.
+  @backgroundMethod()
+  async applyTransactionStatuses({
+    statuses,
+    now,
+  }: {
+    statuses: Record<string, IOnramperTransactionStatus | null>;
+    now: number;
+  }): Promise<{ changes: IHeadlessBuyOrderChange[] }> {
+    let changes: IHeadlessBuyOrderChange[] = [];
+    await this.setRawData((raw) => {
+      const orders = { ...raw?.orders };
+      changes = [];
+      for (const [transactionId, tx] of Object.entries(statuses)) {
+        const existing = orders[transactionId];
+        if (existing) {
+          const next = tx
+            ? applyOnramperTransactionStatus(existing, tx, now)
+            : { ...existing, lastCheckedAt: now, lastCheckOk: false };
+          if (next) {
+            orders[transactionId] = next;
+          } else {
+            delete orders[transactionId];
+          }
+          changes.push({ from: existing, to: next });
+        }
+      }
+      return { orders };
+    });
+    return { changes };
   }
 }

@@ -9,11 +9,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import {
-  applyHeadlessBuyOrderTimeRules,
-  applyOnramperTransactionStatus,
-  isTerminalHeadlessBuyOrder,
-} from '@onekeyhq/shared/src/modules3rdParty/onramper/orderStatus';
+import { isTerminalHeadlessBuyOrder } from '@onekeyhq/shared/src/modules3rdParty/onramper/orderStatus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -46,6 +42,19 @@ const ONRAMPER_TRANSACTION_SOURCE = 'headless';
 // A successful lookup is reused for this long so a Buy page -> list -> detail
 // walk does not spend the per-IP rate limit on duplicate requests.
 const MIN_RECHECK_INTERVAL_MS = 10_000;
+// A failed lookup (network error, 429, unknown id) is not retried before
+// this; otherwise every page entry and poll tick would spend budget on an id
+// the edge keeps rejecting.
+const FAILED_RECHECK_INTERVAL_MS = 60_000;
+// Hidden (pre-payment) records and timed-out failures are kept only for a
+// late completion: a general refresh rechecks them this rarely so they never
+// crowd out the visible orders. Explicit ids (the detail page) are exempt.
+const LOW_PRIORITY_RECHECK_INTERVAL_MS = 10 * 60_000;
+// Lookups per round, well under the 10/min/IP edge budget so the walk above
+// plus the detail page's poll fits in one minute.
+const MAX_LOOKUPS_PER_ROUND = 4;
+// One 429 pauses every lookup on this device for this long.
+const RATE_LIMITED_PAUSE_MS = 60_000;
 // Ids minted by the Simulator mock client / the no-id fallback never exist on
 // Onramper: they are never looked up and stay Processing until the time rules
 // clear them.
@@ -65,6 +74,55 @@ function sortOrdersNewestFirst(
   return orders.toSorted(
     (a, b) => (b.submittedAt ?? b.createdAt) - (a.submittedAt ?? a.createdAt),
   );
+}
+
+// Visible processing orders first, then hidden records, then timed-out
+// failures (the sort is stable, so each tier stays newest first).
+function lookupPriority(order: IHeadlessBuyOrder): number {
+  if (order.timedOut) {
+    return 2;
+  }
+  return order.submittedAt === undefined ? 1 : 0;
+}
+
+// The orders one status round may look up: non-terminal real ids, each past
+// its recheck interval, highest priority first, capped per round.
+function selectLookupTargets({
+  orders,
+  wanted,
+  now,
+}: {
+  orders: IHeadlessBuyOrder[];
+  wanted: Set<string> | undefined;
+  now: number;
+}): IHeadlessBuyOrder[] {
+  const candidates = orders.filter((o) => {
+    if (
+      isTerminalHeadlessBuyOrder(o) ||
+      isSyntheticTransactionId(o.transactionId) ||
+      (wanted && !wanted.has(o.transactionId))
+    ) {
+      return false;
+    }
+    if (o.lastCheckedAt === undefined) {
+      return true;
+    }
+    const sinceLastCheck = now - o.lastCheckedAt;
+    if (
+      sinceLastCheck <
+      (o.lastCheckOk ? MIN_RECHECK_INTERVAL_MS : FAILED_RECHECK_INTERVAL_MS)
+    ) {
+      return false;
+    }
+    return (
+      wanted !== undefined ||
+      lookupPriority(o) === 0 ||
+      sinceLastCheck >= LOW_PRIORITY_RECHECK_INTERVAL_MS
+    );
+  });
+  return candidates
+    .toSorted((a, b) => lookupPriority(a) - lookupPriority(b))
+    .slice(0, MAX_LOOKUPS_PER_ROUND);
 }
 
 @backgroundClass()
@@ -280,6 +338,16 @@ class ServiceFiatCrypto extends ServiceBase {
   // Native buy orders (device-local record + wallet-side status lookup)
   // ---------------------------------------------------------------------------
 
+  // Lookups in flight by transaction id: a list refresh and the detail page's
+  // first poll can ask for the same id in the same tick.
+  private pendingOnramperLookups = new Map<
+    string,
+    Promise<IOnramperTransactionStatus | undefined>
+  >();
+
+  // Set after a 429: no lookup is attempted on this device until then.
+  private onramperLookupsPausedUntil = 0;
+
   private emitHeadlessBuyOrdersChanged() {
     appEventBus.emit(EAppEventBusNames.HeadlessBuyOrdersChanged, undefined);
   }
@@ -423,7 +491,10 @@ class ServiceFiatCrypto extends ServiceBase {
   }
 
   // cancelled / failed before completion: nothing was paid, drop the hidden
-  // record. A visible (paid) order is never discarded by a checkout event.
+  // record. A visible (paid) order is never discarded by a checkout event,
+  // and neither is a hidden one whose Apple Pay sheet was already authorized:
+  // money may have moved, so that record is surfaced for the user to track
+  // and the next status lookup settles it.
   @backgroundMethod()
   public async discardHeadlessBuyOrder({
     transactionId,
@@ -437,11 +508,22 @@ class ServiceFiatCrypto extends ServiceBase {
     if (!order || order.submittedAt !== undefined) {
       return;
     }
-    await simpleDb.headlessBuyOrders.mergeOrders({
-      updates: { [transactionId]: null },
-    });
-    defaultLogger.fiatCrypto.onramper.orderDiscarded({ transactionId, reason });
-    this.emitHeadlessBuyOrdersChanged();
+    if (!order.paymentSeen) {
+      // Conditional inside the storage lock: a `completed` or
+      // `paymentAuthorized` write that lands after the read above wins.
+      const removed = await simpleDb.headlessBuyOrders.removeOrderIfHidden({
+        transactionId,
+      });
+      if (removed) {
+        defaultLogger.fiatCrypto.onramper.orderDiscarded({
+          transactionId,
+          reason,
+        });
+        this.emitHeadlessBuyOrdersChanged();
+        return;
+      }
+    }
+    await this.markHeadlessBuyOrderSubmitted({ transactionId });
   }
 
   // The Buy-tab banner shows a failed order until its detail is opened once.
@@ -472,31 +554,23 @@ class ServiceFiatCrypto extends ServiceBase {
   @backgroundMethod()
   public async getHeadlessBuyOrders(): Promise<IHeadlessBuyOrder[]> {
     const { simpleDb } = this.backgroundApi;
-    const stored = await simpleDb.headlessBuyOrders.getOrders();
-    const now = Date.now();
-    const updates: Record<string, IHeadlessBuyOrder | null> = {};
-    const result: IHeadlessBuyOrder[] = [];
-    for (const order of stored) {
-      const next = applyHeadlessBuyOrderTimeRules(order, now);
-      if (!next) {
-        updates[order.transactionId] = null;
+    const { orders, changes } = await simpleDb.headlessBuyOrders.applyTimeRules(
+      { now: Date.now() },
+    );
+    for (const { from, to } of changes) {
+      if (!to) {
         defaultLogger.fiatCrypto.onramper.orderDiscarded({
-          transactionId: order.transactionId,
+          transactionId: from.transactionId,
           reason: 'timeout',
         });
       } else {
-        if (next !== order) {
-          updates[order.transactionId] = next;
-          this.logHeadlessBuyOrderStatusChange(order, next);
-        }
-        result.push(next);
+        this.logHeadlessBuyOrderStatusChange(from, to);
       }
     }
-    if (Object.keys(updates).length > 0) {
-      await simpleDb.headlessBuyOrders.mergeOrders({ updates });
+    if (changes.length > 0) {
       this.emitHeadlessBuyOrdersChanged();
     }
-    return sortOrdersNewestFirst(result);
+    return sortOrdersNewestFirst(orders);
   }
 
   private logHeadlessBuyOrderStatusChange(
@@ -522,7 +596,9 @@ class ServiceFiatCrypto extends ServiceBase {
   // One status round for the non-terminal orders (optionally narrowed to
   // `transactionIds`). Called by the UI at the spec'd moments only: Buy/Sell
   // page mount, order list mount, and the detail page's focused poll. Never
-  // scheduled from the background.
+  // scheduled from the background. Budgeted against the edge rate limit:
+  // per-order recheck intervals (longer after a failure), a per-round cap,
+  // in-flight de-duplication, and a device-wide pause after a 429.
   @backgroundMethod()
   public async refreshHeadlessBuyOrders({
     transactionIds,
@@ -530,34 +606,32 @@ class ServiceFiatCrypto extends ServiceBase {
     transactionIds?: string[];
   }): Promise<IHeadlessBuyOrder[]> {
     const orders = await this.getHeadlessBuyOrders();
-    const wanted = transactionIds ? new Set(transactionIds) : undefined;
     const now = Date.now();
-    const targets = orders.filter(
-      (o) =>
-        !isTerminalHeadlessBuyOrder(o) &&
-        !isSyntheticTransactionId(o.transactionId) &&
-        (!wanted || wanted.has(o.transactionId)) &&
-        !(
-          o.lastCheckOk &&
-          o.lastCheckedAt !== undefined &&
-          now - o.lastCheckedAt < MIN_RECHECK_INTERVAL_MS
-        ),
-    );
+    if (now < this.onramperLookupsPausedUntil) {
+      return orders;
+    }
+    const targets = selectLookupTargets({
+      orders,
+      wanted: transactionIds ? new Set(transactionIds) : undefined,
+      now,
+    });
     if (targets.length === 0) {
       return orders;
     }
-    const statuses = new Map<string, IOnramperTransactionStatus>();
     // The endpoint has no batch form: one request per id, and a failure only
     // affects its own order.
     const results = await Promise.allSettled(
-      targets.map((o) => this.fetchOnramperTransactionStatus(o.transactionId)),
+      targets.map((o) => this.lookupOnramperTransaction(o.transactionId)),
     );
+    const statuses: Record<string, IOnramperTransactionStatus | null> = {};
+    let rateLimited = false;
     results.forEach((result, index) => {
       const { transactionId } = targets[index];
       if (result.status === 'fulfilled' && result.value) {
-        statuses.set(transactionId, result.value);
+        statuses[transactionId] = result.value;
         return;
       }
+      statuses[transactionId] = null;
       const err =
         result.status === 'rejected'
           ? (result.reason as
@@ -569,51 +643,48 @@ class ServiceFiatCrypto extends ServiceBase {
                 }
               | undefined)
           : undefined;
+      const status = err?.httpStatusCode ?? err?.response?.status;
+      if (status === 429) {
+        rateLimited = true;
+      }
       defaultLogger.fiatCrypto.onramper.orderStatusFetchFailed({
         transactionId,
         code: err?.code,
-        status: err?.httpStatusCode ?? err?.response?.status,
+        status,
         errorMessage: err ? err.message : 'not found',
       });
     });
-    const updates: Record<string, IHeadlessBuyOrder | null> = {};
+    if (rateLimited) {
+      this.onramperLookupsPausedUntil = Date.now() + RATE_LIMITED_PAUSE_MS;
+    }
+    // Merged inside the storage lock against the records as they are now, so
+    // a checkout event that landed during the lookups is never overwritten.
+    const { changes } =
+      await this.backgroundApi.simpleDb.headlessBuyOrders.applyTransactionStatuses(
+        { statuses, now },
+      );
     const deliveredAccounts: { accountId: string; networkId: string }[] = [];
-    for (const order of targets) {
-      const tx = statuses.get(order.transactionId);
-      if (!tx) {
-        updates[order.transactionId] = {
-          ...order,
-          lastCheckedAt: now,
-          lastCheckOk: false,
-        };
+    for (const { from, to } of changes) {
+      if (!to) {
+        defaultLogger.fiatCrypto.onramper.orderDiscarded({
+          transactionId: from.transactionId,
+          reason: 'backendFailed',
+        });
       } else {
-        const next = applyOnramperTransactionStatus(order, tx, now);
-        if (!next) {
-          updates[order.transactionId] = null;
-          defaultLogger.fiatCrypto.onramper.orderDiscarded({
-            transactionId: order.transactionId,
-            reason: 'backendFailed',
+        this.logHeadlessBuyOrderStatusChange(from, to);
+        if (
+          to.status === EHeadlessBuyOrderStatus.Delivered &&
+          from.status !== EHeadlessBuyOrderStatus.Delivered &&
+          to.accountId
+        ) {
+          deliveredAccounts.push({
+            accountId: to.accountId,
+            networkId: to.networkId,
           });
-        } else {
-          updates[order.transactionId] = next;
-          this.logHeadlessBuyOrderStatusChange(order, next);
-          if (
-            next.status === EHeadlessBuyOrderStatus.Delivered &&
-            order.status !== EHeadlessBuyOrderStatus.Delivered &&
-            next.accountId
-          ) {
-            deliveredAccounts.push({
-              accountId: next.accountId,
-              networkId: next.networkId,
-            });
-          }
         }
       }
     }
-    if (Object.keys(updates).length > 0) {
-      await this.backgroundApi.simpleDb.headlessBuyOrders.mergeOrders({
-        updates,
-      });
+    if (changes.length > 0) {
       this.emitHeadlessBuyOrdersChanged();
     }
     if (deliveredAccounts.length > 0) {
@@ -624,6 +695,24 @@ class ServiceFiatCrypto extends ServiceBase {
       appEventBus.emit(EAppEventBusNames.RefreshHistoryList, undefined);
     }
     return this.getHeadlessBuyOrders();
+  }
+
+  // Shares one in-flight request per transaction id between overlapping
+  // rounds.
+  private lookupOnramperTransaction(
+    transactionId: string,
+  ): Promise<IOnramperTransactionStatus | undefined> {
+    const pending = this.pendingOnramperLookups.get(transactionId);
+    if (pending) {
+      return pending;
+    }
+    const lookup = this.fetchOnramperTransactionStatus(transactionId).finally(
+      () => {
+        this.pendingOnramperLookups.delete(transactionId);
+      },
+    );
+    this.pendingOnramperLookups.set(transactionId, lookup);
+    return lookup;
   }
 
   private async fetchOnramperTransactionStatus(

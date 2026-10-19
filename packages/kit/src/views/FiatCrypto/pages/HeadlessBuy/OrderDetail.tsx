@@ -99,17 +99,24 @@ function HeadlessBuyOrderDetailPage() {
   );
   const isTerminal = order ? isTerminalHeadlessBuyOrder(order) : true;
 
-  // One lookup on entry, then a focused poll until the order settles. The
-  // interval flips to undefined on a terminal status (the hook re-arms on
-  // pollingInterval changes by itself), which ends the chain.
+  // One lookup once the local record has been read (before that the poll
+  // interval is still unknown, and looking up anyway would double the first
+  // request the moment the record arrives and the interval flips), then a
+  // focused poll until the order settles. The interval flips to undefined on
+  // a terminal status (the hook re-arms on pollingInterval changes by
+  // itself), which ends the chain.
   usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceFiatCrypto.refreshHeadlessBuyOrders({
+    async () => {
+      if (!isReady) {
+        return undefined;
+      }
+      return backgroundApiProxy.serviceFiatCrypto.refreshHeadlessBuyOrders({
         transactionIds: [transactionId],
-      }),
-    [transactionId],
+      });
+    },
+    [transactionId, isReady],
     {
-      pollingInterval: isTerminal ? undefined : POLL_INTERVAL_MS,
+      pollingInterval: isReady && !isTerminal ? POLL_INTERVAL_MS : undefined,
       checkIsFocused: true,
       runImmediatelyOnPollingIntervalChange: true,
     },

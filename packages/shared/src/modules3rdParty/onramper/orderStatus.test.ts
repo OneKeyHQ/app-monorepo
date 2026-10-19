@@ -145,6 +145,27 @@ describe('applyOnramperTransactionStatus', () => {
     ).toBeUndefined();
   });
 
+  it('surfaces a hidden order that fails after the payment was authorized', () => {
+    const statusDate = '2023-11-14T22:13:20.000Z';
+    const next = applyOnramperTransactionStatus(
+      order({ paymentSeen: true }),
+      {
+        transactionId: '01M3',
+        status: 'failed',
+        statusReason: 'Declined',
+        statusDate,
+      },
+      T0 + 5000,
+    );
+    expect(next).toMatchObject({
+      submittedAt: Date.parse(statusDate),
+      status: EHeadlessBuyOrderStatus.Failed,
+      statusReason: 'Declined',
+      paymentSeen: true,
+      lastCheckOk: true,
+    });
+  });
+
   it('keeps a visible order the backend reports failed', () => {
     const next = applyOnramperTransactionStatus(
       order({ submittedAt: T0 }),
@@ -340,13 +361,25 @@ describe('terminal / delayed / failure kind', () => {
     ).toBe(false);
   });
 
-  it('classifies failures by reason', () => {
+  it('classifies failures by reason and payment evidence', () => {
     expect(
       getHeadlessBuyFailureKind(order({ statusReason: 'Refund issued' })),
     ).toBe('refund');
     expect(
       getHeadlessBuyFailureKind(order({ statusReason: 'Card declined' })),
     ).toBe('notCharged');
+    // A payment was authorized or seen by the backend: never promise that
+    // the card was not charged.
+    expect(
+      getHeadlessBuyFailureKind(
+        order({ statusReason: 'Card declined', paymentSeen: true }),
+      ),
+    ).toBe('unknown');
+    expect(
+      getHeadlessBuyFailureKind(
+        order({ statusReason: 'Refund issued', paymentSeen: true }),
+      ),
+    ).toBe('refund');
     expect(
       getHeadlessBuyFailureKind(order({ timedOut: true, statusReason: 'x' })),
     ).toBe('unknown');
