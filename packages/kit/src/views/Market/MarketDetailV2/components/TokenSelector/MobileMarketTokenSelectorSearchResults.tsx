@@ -40,6 +40,7 @@ import {
   useMarketTokenSelectorSearchState,
   useStockLoadMoreOnScrollEnd,
 } from './useMarketTokenSelectorSearchState';
+import { useSelectorListMeasurements } from './useSelectorSwipeKeyboardDismiss';
 
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
@@ -100,6 +101,7 @@ export function MobileMarketSearchAllList({
   sections: IMobileMarketSearchAllSection[];
   onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
 }) {
+  const listMeasurementProps = useSelectorListMeasurements();
   const children: ReactNode[] = [];
   const stickyHeaderIndices: number[] = [];
   sections.forEach((section, index) => {
@@ -122,6 +124,7 @@ export function MobileMarketSearchAllList({
   });
   return (
     <NativeScrollView
+      {...listMeasurementProps}
       style={LIST_STYLE}
       contentContainerStyle={ALL_CONTENT_STYLE}
       stickyHeaderIndices={stickyHeaderIndices}
@@ -281,6 +284,7 @@ export function MobileMarketSearchTokenList<T>({
   // Scrolls with the rows, e.g. universal search's section title.
   listHeader?: ReactElement;
 }) {
+  const listMeasurementProps = useSelectorListMeasurements();
   const renderItem = useCallback(
     ({ item }: { item: IMobileMarketSearchTokenEntry<T> }) => (
       <SearchTokenRow entry={item} onPress={onPress} />
@@ -289,6 +293,7 @@ export function MobileMarketSearchTokenList<T>({
   );
   return (
     <FlatList
+      {...listMeasurementProps}
       data={entries}
       keyExtractor={(item) => item.key}
       renderItem={renderItem}

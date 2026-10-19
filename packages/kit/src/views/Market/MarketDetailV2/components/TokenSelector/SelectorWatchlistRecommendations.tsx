@@ -6,9 +6,14 @@ import { MarketRecommendList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useSelectorListMeasurements } from './useSelectorSwipeKeyboardDismiss';
+
 export function SelectorWatchlistRecommendations() {
   const intl = useIntl();
   const { recommendedTokens, isLoading } = useMarketBasicConfig();
+  const listMeasurementProps = useSelectorListMeasurements(
+    recommendedTokens.length > 0,
+  );
 
   if (recommendedTokens.length === 0) {
     return (
@@ -29,6 +34,7 @@ export function SelectorWatchlistRecommendations() {
 
   return (
     <ScrollView
+      {...listMeasurementProps}
       testID="market-token-selector-recommendations"
       flex={1}
       keyboardShouldPersistTaps="handled"

@@ -1,4 +1,12 @@
-import { useCallback, useMemo, useRef } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react';
+import type { RefObject } from 'react';
 
 import { Keyboard } from 'react-native';
 
@@ -6,12 +14,56 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { dismissMobileTokenSelectorKeyboard } from './dismissMobileTokenSelectorKeyboard';
 
-import type { GestureResponderEvent } from 'react-native';
+import type { GestureResponderEvent, LayoutChangeEvent } from 'react-native';
 
 const SWIPE_THRESHOLD = 12;
 type ITouchEvent = Pick<GestureResponderEvent, 'nativeEvent'>;
 
+type ISelectorListDimensions = { height?: number; contentHeight?: number };
+type ISelectorListMeasurements = Map<symbol, ISelectorListDimensions>;
+
+export const SelectorListMeasurementsContext =
+  createContext<RefObject<ISelectorListMeasurements> | null>(null);
+
+// Measure the actual viewport, including keyboard/layout changes and list headers.
+export function useSelectorListMeasurements(hasList = true) {
+  const measurements = useContext(SelectorListMeasurementsContext);
+  const listId = useRef(Symbol('selector-list'));
+  const dimensions = useRef<ISelectorListDimensions>({});
+  const enabled =
+    platformEnv.isNativeAndroid && Boolean(measurements) && hasList;
+  const update = useCallback(() => {
+    if (enabled) {
+      measurements?.current.set(listId.current, { ...dimensions.current });
+    }
+  }, [enabled, measurements]);
+  useEffect(() => {
+    const id = listId.current;
+    const lists = measurements?.current;
+    update();
+    return () => {
+      lists?.delete(id);
+    };
+  }, [measurements, update]);
+  const onLayout = useCallback(
+    (event: Pick<LayoutChangeEvent, 'nativeEvent'>) => {
+      dimensions.current.height = event.nativeEvent.layout.height;
+      update();
+    },
+    [update],
+  );
+  const onContentSizeChange = useCallback(
+    (_width: number, height: number) => {
+      dimensions.current.contentHeight = height;
+      update();
+    },
+    [update],
+  );
+  return enabled ? { onLayout, onContentSizeChange } : {};
+}
+
 export function useSelectorSwipeKeyboardDismiss() {
+  const listMeasurements = useRef<ISelectorListMeasurements>(new Map());
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const isAndroid = platformEnv.isNativeAndroid;
   const resetTouch = useCallback(() => {
@@ -27,7 +79,15 @@ export function useSelectorSwipeKeyboardDismiss() {
   }, []);
   const handleMoveCapture = useCallback((event: ITouchEvent) => {
     const start = touchStart.current;
-    if (!start || !Keyboard.isVisible()) {
+    // Scrollable (or not yet measured) lists keep their first drag; their native
+    // keyboardDismissMode handles dismissal without consuming the scroll.
+    const hasScrollableList = [...listMeasurements.current.values()].some(
+      ({ height, contentHeight }) =>
+        height === undefined ||
+        contentHeight === undefined ||
+        contentHeight > height,
+    );
+    if (!start || !Keyboard.isVisible() || hasScrollableList) {
       return false;
     }
     const { pageX, pageY, touches } = event.nativeEvent;
@@ -45,7 +105,7 @@ export function useSelectorSwipeKeyboardDismiss() {
   }, [resetTouch]);
   const allowTermination = useCallback(() => true, []);
 
-  return useMemo(
+  const swipeKeyboardDismissProps = useMemo(
     () =>
       isAndroid
         ? {
@@ -70,4 +130,5 @@ export function useSelectorSwipeKeyboardDismiss() {
       resetTouch,
     ],
   );
+  return { swipeKeyboardDismissProps, listMeasurements };
 }

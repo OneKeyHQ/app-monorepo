@@ -61,6 +61,7 @@ import {
 import { SelectorTokenStar } from './selectorStar';
 import { SelectorWatchlistRecommendations } from './SelectorWatchlistRecommendations';
 import { useMarketStockSelectorList } from './useMarketStockSelectorList';
+import { useSelectorListMeasurements } from './useSelectorSwipeKeyboardDismiss';
 
 import type { IDetailSelectorWatchlistFilter } from './detailSelectorBrowse';
 import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
@@ -450,6 +451,7 @@ function TokenRowsList({
   onEndReached?: () => void;
   footer?: ReactElement | null;
 }) {
+  const listMeasurementProps = useSelectorListMeasurements();
   const renderItem = useCallback(
     ({ item }: { item: IMarketToken }) => (
       <MobileSelectorTokenRow
@@ -462,6 +464,7 @@ function TokenRowsList({
   );
   return (
     <FlatList
+      {...listMeasurementProps}
       data={data}
       keyExtractor={(item) => item.id}
       renderItem={renderItem}
@@ -676,6 +679,9 @@ export function MobileSelectorTopCoinsList({
   onRetry: () => void;
   onItemPress: (item: IMarketAssetListItem) => void;
 }) {
+  const listMeasurementProps = useSelectorListMeasurements(
+    !((isLoading || isError) && data.length === 0),
+  );
   const renderItem = useCallback(
     ({ item }: { item: IMarketAssetListItem }) => (
       <MobileSelectorTopCoinRow item={item} onPress={onItemPress} />
@@ -695,6 +701,7 @@ export function MobileSelectorTopCoinsList({
   }
   return (
     <FlatList
+      {...listMeasurementProps}
       data={data}
       keyExtractor={(item) => item.assetId}
       renderItem={renderItem}
@@ -768,6 +775,9 @@ export function MobileSelectorStockTable({
     loadMore,
     refresh,
   } = result;
+  const listMeasurementProps = useSelectorListMeasurements(
+    !((isLoading || isError) && items.length === 0),
+  );
   const renderItem = useCallback(
     ({ item }: { item: IMarketStockPublicItem }) => (
       <MobileSelectorStockRow item={item} onPress={onItemPress} />
@@ -814,6 +824,7 @@ export function MobileSelectorStockTable({
   }
   return (
     <FlatList
+      {...listMeasurementProps}
       data={items}
       keyExtractor={(item) => item.stockId}
       renderItem={renderItem}
