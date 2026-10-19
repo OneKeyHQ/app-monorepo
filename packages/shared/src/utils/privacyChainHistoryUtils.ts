@@ -99,6 +99,15 @@ export function projectPrivacyChainHistoryTxToPool({
   const action = tx.decodedTx.actions[0];
   const transfer = action?.assetTransfer;
   if (!action || !transfer) return tx;
+  // A same-pool self-payment has only a fee delta. Its payment amount is
+  // already known independently of that delta and must remain intact.
+  if (
+    transfer.from &&
+    transfer.from === transfer.to &&
+    Object.keys(tx.privacyChainHistoryPoolDeltas ?? {}).length === 1
+  ) {
+    return tx;
+  }
 
   const deltaBN = new BigNumber(delta);
   if (!deltaBN.isFinite()) return tx;
@@ -115,7 +124,7 @@ export function projectPrivacyChainHistoryTxToPool({
     tx.decodedTx.totalFeeInNative === undefined;
   const amount = nativeAmountIsUnknown
     ? '0'
-    : (isSend && feeBN.isFinite() && feeBN.gt(0) && deltaBN.abs().gt(feeBN)
+    : (isSend && feeBN.isFinite() && feeBN.gt(0) && deltaBN.abs().gte(feeBN)
         ? deltaBN.abs().minus(feeBN)
         : deltaBN.abs()
       ).toFixed();

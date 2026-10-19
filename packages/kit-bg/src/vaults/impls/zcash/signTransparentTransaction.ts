@@ -20,6 +20,7 @@ import type { SimpleDbEntityZcash } from '../../../dbs/simple/entity/SimpleDbEnt
 function outputsMatchReview(
   request: IZcashTransparentTxRequest,
   outputs: { valueZat: string; scriptPubKey: string }[],
+  reviewedAmountZat: string,
 ): boolean {
   const unmatched = [...outputs];
   for (const recipient of request.recipients) {
@@ -28,10 +29,9 @@ function outputsMatchReview(
       const index = unmatched.findIndex(
         (output) =>
           output.scriptPubKey.toLowerCase() === script &&
-          (request.sendMax ||
-            new BigNumber(output.valueZat).isEqualTo(
-              recipient.amountZat ?? '',
-            )),
+          new BigNumber(output.valueZat).isEqualTo(
+            request.sendMax ? reviewedAmountZat : (recipient.amountZat ?? ''),
+          ),
       );
       if (index === -1) return false;
       unmatched.splice(index, 1);
@@ -92,7 +92,11 @@ export async function signTransparentTransaction({
       result.spentOutpoints.length !== expected.size ||
       actual.size !== expected.size ||
       [...actual].some((outpoint) => !expected.has(outpoint)) ||
-      !outputsMatchReview(request, await parseOutputs(result))
+      !outputsMatchReview(
+        request,
+        await parseOutputs(result),
+        encodedTx.zcashAmountValue,
+      )
     ) {
       throw new OneKeyLocalError(
         'Zcash transparent signing result did not match the reviewed transaction',

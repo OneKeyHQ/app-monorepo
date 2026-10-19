@@ -278,6 +278,64 @@ describe('mergePrivacyChainHistoryTxs', () => {
 });
 
 describe('projectPrivacyChainHistoryTxToPool fee handling', () => {
+  it('preserves a known same-pool self-payment instead of replacing it with its net debit', () => {
+    const selfTransfer = {
+      id: 'self-transfer',
+      privacyChainHistoryPoolIds: [4],
+      privacyChainHistoryPoolDeltas: { '4': '-0.0001' },
+      decodedTx: {
+        txid: 'self-transfer',
+        nativeAmount: '1',
+        totalFeeInNative: '0.0001',
+        actions: [
+          {
+            assetTransfer: {
+              from: 'Ironwood pool',
+              to: 'Ironwood pool',
+              sends: [{ amount: '1', isNative: true }],
+              receives: [],
+            },
+          },
+        ],
+      },
+    } as unknown as IAccountHistoryTx;
+    expect(
+      projectPrivacyChainHistoryTxToPool({
+        tx: selfTransfer,
+        selectedPoolId: 4,
+      }).decodedTx.nativeAmount,
+    ).toBe('1');
+  });
+
+  it('does not display a fee-only pool debit as a second payment', () => {
+    const selfTransfer = {
+      id: 'self-transfer',
+      privacyChainHistoryPoolIds: [4],
+      privacyChainHistoryPoolDeltas: { '4': '-0.0001' },
+      decodedTx: {
+        txid: 'self-transfer',
+        totalFeeInNative: '0.0001',
+        actions: [
+          {
+            assetTransfer: {
+              sends: [{ amount: '1', isNative: true }],
+              receives: [],
+            },
+          },
+        ],
+      },
+    } as unknown as IAccountHistoryTx;
+    const projected = projectPrivacyChainHistoryTxToPool({
+      tx: selfTransfer,
+      selectedPoolId: 4,
+    });
+    expect(projected.decodedTx.nativeAmount).toBe('0');
+    expect(projected.decodedTx.actions[0].assetTransfer?.sends[0].amount).toBe(
+      '0',
+    );
+    expect(projected.decodedTx.totalFeeInNative).toBe('0.0001');
+  });
+
   it('shows the transferred amount on the paying pool, fee excluded', () => {
     const sent = {
       id: 's',
