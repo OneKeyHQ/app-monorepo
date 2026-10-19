@@ -20,7 +20,7 @@ export const MARKET_TOKEN_ROW_GROUP_NAME = 'marketTokenRow' as const;
  * — the token age giving way to its contract address, a company name to the
  * tokens issued against it.
  *
- * The swap is CSS-only: the data row carries the Tamagui group, so both lines
+ * Hover is CSS-only: the data row carries the Tamagui group, so both lines
  * render once and only the sliding wrapper reacts to the group's hover state.
  * Row-level JS hover state would mean a setState per row on every pointer move,
  * and the shared Table component exposes no row hover hook to piggyback on.
@@ -29,11 +29,14 @@ export function MarketHoverRevealLine({
   resting,
   revealed,
   lineHeight,
+  revealOnKeyboardFocus = false,
 }: {
   resting: ReactNode;
   /** Omitted when there is nothing to reveal; the resting line then stands alone. */
   revealed?: ReactNode;
   lineHeight: number;
+  /** Opt in only while the caller's copy button has keyboard-visible focus. */
+  revealOnKeyboardFocus?: boolean;
 }) {
   // Hover never fires on native, so the reveal would be unreachable there.
   // Touch-capable desktop browsers are deliberately not excluded: they still
@@ -44,13 +47,13 @@ export function MarketHoverRevealLine({
   }
 
   return (
-    <Stack height={lineHeight} overflow="hidden" minWidth={0}>
+    // Unlike hidden, clip prevents focus from scrolling the offscreen copy action.
+    <Stack height={lineHeight} overflowX="clip" overflowY="clip" minWidth={0}>
       <Stack
         transition="quick"
         animateOnly={ANIMATE_ONLY_TRANSFORM}
-        y={0}
+        y={revealOnKeyboardFocus ? -lineHeight : 0}
         $group-marketTokenRow-hover={{ y: -lineHeight }}
-        $group-marketTokenRow-focusWithin={{ y: -lineHeight }}
       >
         {resting}
         {revealed}

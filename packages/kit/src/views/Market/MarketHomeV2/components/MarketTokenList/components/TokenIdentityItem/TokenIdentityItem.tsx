@@ -42,6 +42,8 @@ import {
   MARKET_CELL_SUBTITLE_SIZE,
 } from '../../../MarketListCell';
 
+import { useCopyButtonKeyboardFocus } from './useCopyButtonKeyboardFocus';
+
 import type { GestureResponderEvent } from 'react-native';
 
 interface ITokenIdentityItemProps {
@@ -153,6 +155,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   const intl = useIntl();
   const { gtMd } = useMedia();
   const { copyText } = useClipboard();
+  const { isKeyboardFocused, focusProps } = useCopyButtonKeyboardFocus();
   // Use hook to get network logo with async fallback
   const effectiveNetworkLogoUri = useNetworkLogoUri({
     logoUri: networkLogoURI,
@@ -300,6 +303,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
           variant="tertiary"
           size="small"
           hotKey
+          {...focusProps}
           m="$0"
           borderWidth={0}
           cursor="pointer"
@@ -356,6 +360,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
         {shouldRevealOnHover ? (
           <MarketHoverRevealLine
             lineHeight={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
+            revealOnKeyboardFocus={isKeyboardFocused}
             resting={nameRow}
             revealed={shouldShowAddress ? secondaryRow : undefined}
           />
