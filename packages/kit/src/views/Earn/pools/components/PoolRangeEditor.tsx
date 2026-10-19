@@ -151,11 +151,46 @@ function PriceBoundField({
 }
 
 /**
- * Range step of the add form (doc §2.5 ②): presets with what they do (the
- * estimate and how often the price stayed inside), the liquidity chart with
- * the range's edges to drag and the current price, min / max that snap to
- * usable ticks, and the range in plain words. Under the pool's price chart,
- * where the band is dragged instead, it leaves out its own chart.
+ * What the chosen range comes to: the estimate, and how often the price
+ * stayed inside it over the last 30 days.
+ */
+export function PoolRangeFigures({
+  pool,
+  estimate,
+  range,
+  priceHistory,
+}: {
+  pool: IPool;
+  estimate: IPoolsAprEstimate | undefined;
+  range: IPoolTickRange;
+  /** Daily closes of the last 30 days */
+  priceHistory: IPoolPricePoint[];
+}) {
+  const days = countDaysInRange(pool, range, priceHistory);
+  return (
+    <XStack jc="space-between" ai="flex-start" gap="$4">
+      <PoolAprFigure estimate={estimate} pool={pool} />
+      {days.total ? (
+        <YStack gap="$0.5" ai="flex-end" flexShrink={0}>
+          <SizableText size="$bodySm" color="$textSubdued">
+            {POOLS_COPY.daysInRangeLabel}
+          </SizableText>
+          <SizableText size="$headingXl">
+            {POOLS_COPY.daysInRange(days.inRange, days.total)}
+          </SizableText>
+        </YStack>
+      ) : null}
+    </XStack>
+  );
+}
+
+/**
+ * Range step of the add form (doc §2.5 ②): the liquidity chart with the
+ * range's edges to drag and the current price, presets, min / max that snap
+ * to usable ticks, and the range in plain words. In the create card the
+ * figures wait with the other results, after the deposit; under the pool's
+ * price chart, where the band is dragged instead, there is no chart of its
+ * own and the figures sit under the presets.
  */
 export function PoolRangeEditor({
   pool,
@@ -228,7 +263,6 @@ export function PoolRangeEditor({
     );
   };
 
-  const days = countDaysInRange(pool, range, priceHistory);
   const meaning =
     display.isMinZero && display.isMaxInfinite
       ? POOLS_COPY.rangeMeaningFull
@@ -256,46 +290,9 @@ export function PoolRangeEditor({
     </XStack>
   );
 
-  return (
-    <YStack gap="$4">
-      {underPriceChart ? (
-        <XStack ai="center" jc="space-between" gap="$3" flexWrap="wrap">
-          <SizableText size="$headingMd">{POOLS_COPY.priceRange}</SizableText>
-          {presets}
-        </XStack>
-      ) : (
-        presets
-      )}
-      {/* Under its own chart, so dragging shows what the range does */}
-      {ticks && !underPriceChart ? (
-        <PoolLiquidityChart
-          pool={pool}
-          ticks={ticks}
-          range={range}
-          onRangeChange={
-            readOnly
-              ? undefined
-              : (next) => {
-                  setError(undefined);
-                  onChange(next);
-                }
-          }
-          height={96}
-        />
-      ) : null}
-      <XStack jc="space-between" ai="flex-start" gap="$4">
-        <PoolAprFigure estimate={estimate} pool={pool} />
-        {days.total ? (
-          <YStack gap="$0.5" ai="flex-end" flexShrink={0}>
-            <SizableText size="$bodySm" color="$textSubdued">
-              {POOLS_COPY.daysInRangeLabel}
-            </SizableText>
-            <SizableText size="$headingXl">
-              {POOLS_COPY.daysInRange(days.inRange, days.total)}
-            </SizableText>
-          </YStack>
-        ) : null}
-      </XStack>
+  // Min / max, a typing error, and the range in plain words
+  const bounds = (
+    <>
       <XStack gap="$3">
         <PriceBoundField
           testID="earn-pool-range-min"
@@ -324,6 +321,55 @@ export function PoolRangeEditor({
       <SizableText size="$bodySm" color="$textSubdued">
         {meaning}
       </SizableText>
+    </>
+  );
+
+  if (underPriceChart) {
+    return (
+      <YStack gap="$4">
+        <XStack ai="center" jc="space-between" gap="$3" flexWrap="wrap">
+          <SizableText size="$headingMd">{POOLS_COPY.priceRange}</SizableText>
+          {presets}
+        </XStack>
+        <PoolRangeFigures
+          pool={pool}
+          estimate={estimate}
+          range={range}
+          priceHistory={priceHistory}
+        />
+        {bounds}
+      </YStack>
+    );
+  }
+
+  // The chart leads, so the range's presets don't sit right under the
+  // deposit's percent chips
+  const title = (
+    <SizableText size="$headingSm">{POOLS_COPY.priceRange}</SizableText>
+  );
+  return (
+    <YStack gap="$3">
+      {ticks ? (
+        <PoolLiquidityChart
+          pool={pool}
+          ticks={ticks}
+          range={range}
+          title={title}
+          onRangeChange={
+            readOnly
+              ? undefined
+              : (next) => {
+                  setError(undefined);
+                  onChange(next);
+                }
+          }
+          height={96}
+        />
+      ) : (
+        title
+      )}
+      {presets}
+      {bounds}
     </YStack>
   );
 }

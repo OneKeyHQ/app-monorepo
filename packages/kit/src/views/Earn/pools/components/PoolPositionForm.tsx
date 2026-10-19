@@ -38,7 +38,7 @@ import {
 } from '../usePoolPositionForm';
 
 import { PoolAprEstimate } from './PoolAprEstimate';
-import { PoolRangeEditor } from './PoolRangeEditor';
+import { PoolRangeEditor, PoolRangeFigures } from './PoolRangeEditor';
 import { PoolsCard } from './PoolsCard';
 import { PoolsChip } from './PoolsFilterButton';
 
@@ -243,59 +243,66 @@ function ZapInput({ form }: { form: IPoolPositionForm }) {
   );
 }
 
-/** One token or both, and the amounts */
-function DepositFields({ form }: { form: IPoolPositionForm }) {
+/** One token or both */
+function DepositModeSwitch({
+  form,
+  fullWidth = false,
+}: {
+  form: IPoolPositionForm;
+  fullWidth?: boolean;
+}) {
+  return (
+    <SegmentControl
+      fullWidth={fullWidth}
+      value={form.mode}
+      options={[
+        {
+          label: POOLS_COPY.oneToken,
+          value: 'zap',
+          testID: 'earn-pool-mode-zap',
+        },
+        {
+          label: POOLS_COPY.bothTokens,
+          value: 'both',
+          testID: 'earn-pool-mode-both',
+        },
+      ]}
+      onChange={(value) => form.setMode(value as IPoolAddMode)}
+    />
+  );
+}
+
+/** The amounts the chosen mode asks for */
+function DepositInputs({ form }: { form: IPoolPositionForm }) {
   const { inverted } = getPoolPair(form.pool);
   const onlySide = form.shape === 'token0Only' ? 0 : 1;
-  let inputs: ReactNode;
   if (!form.wallet) {
-    inputs = (
+    return (
       <YStack gap="$3">
         <Skeleton w="100%" h={104} borderRadius="$3" />
         <Skeleton w="$48" h="$7" borderRadius="$full" />
       </YStack>
     );
-  } else if (form.mode === 'zap') {
-    inputs = <ZapInput form={form} />;
-  } else if (form.shape === 'both') {
-    inputs = (
+  }
+  if (form.mode === 'zap') {
+    return <ZapInput form={form} />;
+  }
+  if (form.shape === 'both') {
+    return (
       <YStack gap="$3">
         {(inverted ? ([1, 0] as const) : ([0, 1] as const)).map((side) => (
           <SideInput key={side} form={form} side={side} />
         ))}
       </YStack>
     );
-  } else {
-    inputs = (
-      <YStack gap="$3">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {POOLS_COPY.onlyToken(form.tokens[onlySide].symbol)}
-        </SizableText>
-        <SideInput form={form} side={onlySide} />
-      </YStack>
-    );
   }
   return (
-    <>
-      <SegmentControl
-        fullWidth
-        value={form.mode}
-        options={[
-          {
-            label: POOLS_COPY.oneToken,
-            value: 'zap',
-            testID: 'earn-pool-mode-zap',
-          },
-          {
-            label: POOLS_COPY.bothTokens,
-            value: 'both',
-            testID: 'earn-pool-mode-both',
-          },
-        ]}
-        onChange={(value) => form.setMode(value as IPoolAddMode)}
-      />
-      {inputs}
-    </>
+    <YStack gap="$3">
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {POOLS_COPY.onlyToken(form.tokens[onlySide].symbol)}
+      </SizableText>
+      <SideInput form={form} side={onlySide} />
+    </YStack>
   );
 }
 
@@ -397,7 +404,7 @@ function getOutcomeRows(form: IPoolPositionForm) {
       );
     }
   }
-  // Range pools show the estimate beside the presets
+  // Range pools show the estimate with the range's figures
   if (!form.isRange) {
     rows.unshift(
       <PoolAprEstimate key="estimate" estimate={form.estimate} pool={pool} />,
@@ -407,10 +414,10 @@ function getOutcomeRows(form: IPoolPositionForm) {
 }
 
 /**
- * The create-position form as one card, in the order the choice is made:
- * where (the range), how much (the deposit), what it comes to, then the
- * Review button when the page has no footer for it. Beside a price chart
- * that sets the range, the card keeps only the range's figures.
+ * The create-position form as one card: how much (the deposit), where (the
+ * range, right under it), what the two come to, then the Review button when
+ * the page has no footer for it. Beside a price chart that sets the range,
+ * the card shows the range as a row.
  */
 export function PoolPositionForm({
   form,
@@ -435,7 +442,8 @@ export function PoolPositionForm({
         title={POOLS_COPY.createPosition}
         testID="earn-pool-create-card"
       >
-        <DepositFields form={form} />
+        <DepositModeSwitch form={form} fullWidth />
+        <DepositInputs form={form} />
         <YStack gap="$3">
           {form.isRange ? <RangeSummaryRow form={form} /> : null}
           {outcome}
@@ -459,28 +467,38 @@ export function PoolPositionForm({
       />
     ) : (
       <YStack gap="$3">
+        <Skeleton w="$24" h="$5" borderRadius="$2" />
+        <Skeleton w="100%" h={140} borderRadius="$3" />
         <Skeleton w="100%" h="$8" borderRadius="$full" />
-        <Skeleton w="100%" h={120} borderRadius="$3" />
         <Skeleton w="100%" h="$16" borderRadius="$3" />
       </YStack>
     );
   }
-  // Sections are told apart by their headings and the space between them
+  // The amount and the range sit together; the results wait for both and
+  // meet the button
+  const results = form.isRange
+    ? [
+        <PoolRangeFigures
+          key="figures"
+          pool={form.pool}
+          estimate={form.estimate}
+          range={form.range}
+          priceHistory={priceHistory ?? []}
+        />,
+        ...outcome,
+      ]
+    : outcome;
   return (
-    <PoolsCard testID="earn-pool-create-card" gap="$6">
-      {range ? (
-        <YStack testID="earn-pool-range-card" gap="$4">
-          <SizableText size="$headingMd">{POOLS_COPY.priceRange}</SizableText>
-          {range}
-        </YStack>
-      ) : null}
-      <YStack gap="$4">
-        {range ? (
-          <SizableText size="$headingMd">{POOLS_COPY.deposit}</SizableText>
-        ) : null}
-        <DepositFields form={form} />
+    <PoolsCard testID="earn-pool-create-card" gap="$5">
+      <YStack gap="$3">
+        <XStack ai="center" jc="space-between" gap="$3">
+          <SizableText size="$headingSm">{POOLS_COPY.deposit}</SizableText>
+          <DepositModeSwitch form={form} />
+        </XStack>
+        <DepositInputs form={form} />
       </YStack>
-      {outcome.length ? <YStack gap="$3">{outcome}</YStack> : null}
+      {range ? <YStack testID="earn-pool-range-card">{range}</YStack> : null}
+      {results.length ? <YStack gap="$3">{results}</YStack> : null}
       {button}
     </PoolsCard>
   );

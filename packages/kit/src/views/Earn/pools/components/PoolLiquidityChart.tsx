@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import { PanResponder, View } from 'react-native';
 
@@ -140,6 +141,7 @@ export function PoolLiquidityChart({
   height = 140,
   bucketCount = 56,
   showZoom = true,
+  title,
 }: {
   pool: IPool;
   ticks: IPoolTickLiquidityNet[];
@@ -151,6 +153,8 @@ export function PoolLiquidityChart({
   height?: number;
   bucketCount?: number;
   showZoom?: boolean;
+  /** Left of the zoom buttons, when there is no legend */
+  title?: ReactNode;
 }) {
   const [zoom, setZoom] = useState(1);
   const [width, setWidth] = useState(0);
@@ -379,12 +383,12 @@ export function PoolLiquidityChart({
       ))}
     </XStack>
   ) : (
-    <Stack flex={1} />
+    <XStack flex={1}>{title}</XStack>
   );
 
   return (
     <YStack gap="$2">
-      {showZoom || hasLegend ? (
+      {showZoom || hasLegend || title ? (
         <XStack ai="center" gap="$2">
           {legend}
           {showZoom ? (
