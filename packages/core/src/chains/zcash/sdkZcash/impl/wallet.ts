@@ -650,7 +650,18 @@ export function readHistory(
         .map((v) => BigInt(v))
         .filter((v) => v > 0n)
         .reduce((sum, v) => sum + v, 0n);
-      valueZat = arrived > 0n ? arrived : received;
+      if (arrived > 0n) {
+        valueZat = arrived;
+      } else {
+        // A same-pool self-payment has no positive pool delta. Read its own
+        // payment outputs instead of counting the change as a payment too.
+        const outputs = JSON.parse(
+          rt.transactionOutputs(accountUuid, r.txid),
+        ) as { received: { valueZat: number; isChange: boolean }[] };
+        valueZat = outputs.received
+          .filter((output) => !output.isChange)
+          .reduce((sum, output) => sum + BigInt(output.valueZat), 0n);
+      }
     } else if (spent > 0n) {
       txType = 'sent';
       // After a rescan the fee can be unknown; fall back to the raw delta rather than claim a fee-excluded figure that would be wrong.
@@ -730,17 +741,13 @@ export async function getTxDetails(
       memoBinary: o.memoBinary,
       address: o.address,
     })),
-    // Outputs with no recorded address are dropped, not shown with a placeholder — an empty recipient
-    // reads as a bug and the address can't be recovered after the fact.
-    external: outputs.external
-      .filter((o): o is typeof o & { address: string } => !!o.address)
-      .map((o) => ({
-        address: o.address,
-        memo: o.memo,
-        memoBinary: o.memoBinary,
-        value: String(o.valueZat),
-        pool: o.poolName,
-      })),
+    external: outputs.external.map((o) => ({
+      address: o.address,
+      memo: o.memo,
+      memoBinary: o.memoBinary,
+      value: String(o.valueZat),
+      pool: o.poolName,
+    })),
     feeZat: typeof summary?.feeZat === 'number' ? String(summary.feeZat) : null,
   };
 }

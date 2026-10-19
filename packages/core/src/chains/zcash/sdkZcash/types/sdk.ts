@@ -363,9 +363,9 @@ export type IZcashTxDetails = {
     memoBinary: { hex: string; hash: string } | null;
     address: string | null;
   }[];
-  // outputs we sent to external recipients (real addresses; own sends only)
+  // Outputs we sent externally; an unavailable address does not erase the known amount or memo.
   external: {
-    address: string;
+    address: string | null;
     value: string;
     pool: string;
     memo?: string | null;

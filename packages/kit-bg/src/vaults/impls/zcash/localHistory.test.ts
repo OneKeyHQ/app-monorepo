@@ -162,6 +162,31 @@ describe('buildZcashLocalHistoryTx counterparties', () => {
       }),
     });
 
+  it('does not present a same-pool self-transfer as an external incoming payment', async () => {
+    const tx = await build({
+      ...historyItem('self'),
+      txType: 'shielded',
+      fee: '10000',
+      valueZat: '100000000',
+      perPoolBalanceDeltaZat: { '4': '-10000' },
+    });
+    expect(tx.decodedTx.nativeAmount).toBe('1');
+    expect(tx.decodedTx.totalFeeInNative).toBe('0.0001');
+    expect(tx.decodedTx.actions[0].assetTransfer).toMatchObject({
+      from: 'Ironwood pool',
+      to: 'Ironwood pool',
+      sends: [
+        {
+          from: 'Ironwood pool',
+          to: 'Ironwood pool',
+          amount: '1',
+          isOwn: true,
+        },
+      ],
+      receives: [],
+    });
+  });
+
   it('labels an unknown shielded sender instead of leaving it blank', async () => {
     const tx = await build({ ...historyItem('r'), txType: 'received' });
     const transfer = tx.decodedTx.actions[0].assetTransfer;
