@@ -88,6 +88,62 @@ jobs:
 
           echo "PR #$PR_NUMBER validated successfully."
 
+      # Fork code reaches jobs that read the private font and other secrets.
+      # The PR author check alone does not cover other people who can push to
+      # the fork, so every commit must carry a GitHub-verified signature from
+      # the PR author or a TRUSTED_PR_AUTHORS account, and end at the pinned
+      # head SHA.
+      - name: Attest fork PR commits
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          HEAD_SHA: ${{ steps.pr-info.outputs.head_sha }}
+          TRUSTED_PR_AUTHORS: ${{ vars.TRUSTED_PR_AUTHORS }}
+        run: |
+          set -euo pipefail
+          pr="$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER")"
+          if [ "$(jq -r '.head.repo.full_name' <<<"$pr")" = "$(jq -r '.base.repo.full_name' <<<"$pr")" ]; then
+            echo "Same-repository PR; pushers already have write access."
+            exit 0
+          fi
+          author="$(jq -r '.user.login' <<<"$pr")"
+          commit_count="$(jq -r '.commits' <<<"$pr")"
+          # The commits endpoint lists at most 250 commits.
+          if [ "$commit_count" -gt 250 ]; then
+            echo "::error::Fork PR #$PR_NUMBER has $commit_count commits; at most 250 can be attested."
+            exit 1
+          fi
+          commits="$(gh api --paginate "repos/${{ github.repository }}/pulls/$PR_NUMBER/commits?per_page=100" | jq -s 'add')"
+          if [ "$(jq -r '.[-1].sha' <<<"$commits")" != "$HEAD_SHA" ]; then
+            echo "::error::Fork PR #$PR_NUMBER head moved after validation; re-run the build."
+            exit 1
+          fi
+          unsigned="$(jq -r '.[] | select(.commit.verification.verified != true) | "\(.sha[0:12]) verified=false (\(.commit.verification.reason))"' <<<"$commits")"
+          if [ -n "$unsigned" ]; then
+            echo "::error::Fork PR #$PR_NUMBER has commits without a GitHub-verified signature:"
+            printf '%s\n' "$unsigned"
+            exit 1
+          fi
+          # web-flow commits are GitHub UI edits; their author is still checked.
+          logins="$(jq -r '.[] | (.author.login // "unlinked"), (.committer.login // "unlinked")' <<<"$commits" | sort -u | grep -vx 'web-flow' || true)"
+          untrusted=""
+          for login in $logins; do
+            if [ "$login" = "$author" ] || [[ ",${TRUSTED_PR_AUTHORS// /}," == *",$login,"* ]]; then
+              continue
+            fi
+            # Maintainers (e.g. "Update branch") already have write access.
+            permission="$(gh api "repos/${{ github.repository }}/collaborators/$login/permission" --jq '.permission' 2>/dev/null || echo none)"
+            case "$permission" in
+              admin|maintain|write) ;;
+              *) untrusted="$untrusted $login($permission)" ;;
+            esac
+          done
+          if [ -n "$untrusted" ]; then
+            echo "::error::Fork PR #$PR_NUMBER has commits from accounts that are not trusted:$untrusted"
+            exit 1
+          fi
+          echo "::notice::All $(jq length <<<"$commits") commits of fork PR #$PR_NUMBER are verified and from trusted accounts."
+
   prepare-params:
     needs: [validate-pr]
     if: ${{ always() && (needs.validate-pr.result == 'success' || needs.validate-pr.result == 'skipped') }}

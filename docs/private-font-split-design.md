@@ -138,6 +138,9 @@ export const brandFontManifest = {
 - `release-app-bundles` 按 PR 构建时，`validate-pr` 只放行同仓库 PR 和 `TRUSTED_PR_AUTHORS` 白名单作者的 fork PR，
   这些构建都在 CI 中自行拉取私有字体（与它们已能使用签名、QA 上传等 secret 的信任模型一致）。
   非白名单 fork PR 在 `validate-pr` 阶段即被拒绝，不会进入构建。
+  fork PR 还要通过 "Attest fork PR commits"：PR 的每个 commit 都必须有 GitHub 验证通过的签名，作者和提交者必须是 PR 作者、
+  白名单账号或对主仓库有 write 以上权限的成员（GitHub 网页提交的 `web-flow` 提交者除外），且最后一个 commit 等于已锁定的 head SHA。
+  这样能防止 fork 的其他协作者推送的代码拿到字体和其他 secret。
 - App 未配置时这两步自动跳过，发布构建会因 `ONEKEY_REQUIRE_PRIVATE_FONTS=1` 失败。
 
 ## 4. CI / 发布流水线
