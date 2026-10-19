@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useImperativeHandle,
   useLayoutEffect,
   useMemo,
@@ -88,17 +89,33 @@ export function HomeNativePager({
     startIndex: number;
     preparedIndices: Set<number>;
   } | null>(null);
-  const controller = useAppPagerController({
-    pages: tabs.map((tab) => ({ key: tab.id, name: tab.name })),
-    initialTabName,
-    pagerRef,
-    onSelectionChange: ({ tabName }) => onTabChange({ tabName }),
-    onBeforeCommand: (index, animated, reason) => {
+  const pages = useMemo(
+    () => tabs.map((tab) => ({ key: tab.id, name: tab.name })),
+    [tabs],
+  );
+  const handleSelectionChange = useCallback(
+    ({ tabName }: { tabName: string }) => onTabChange({ tabName }),
+    [onTabChange],
+  );
+  const handleBeforeCommand = useCallback(
+    (
+      index: number,
+      animated: boolean,
+      reason: 'command' | 'sync' | 'reconcile',
+    ) => {
       if (reason !== 'reconcile') setSpotlightScrollState(null);
       dragRef.current = null;
       followsPageScrollRef.current = animated;
       if (reason === 'command') debugPerpsChain('pager.command', { index });
     },
+    [],
+  );
+  const controller = useAppPagerController({
+    pages,
+    initialTabName,
+    pagerRef,
+    onSelectionChange: handleSelectionChange,
+    onBeforeCommand: handleBeforeCommand,
   });
   const {
     initialIndex,

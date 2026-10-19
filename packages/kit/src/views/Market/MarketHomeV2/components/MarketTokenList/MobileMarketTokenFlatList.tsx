@@ -66,6 +66,7 @@ function MobileMarketTokenFlatListBase({
     data,
     isLoading,
     isLoadingMore,
+    isLoadMoreError,
     isError,
     isNetworkSwitching,
     isProvisionalFirstPageResult,
@@ -123,12 +124,23 @@ function MobileMarketTokenFlatListBase({
 
   // Handle infinite scroll
   const handleEndReached = useCallback(() => {
-    if (canLoadMore && !isLoadingMore && !isProvisionalFirstPageResult) {
+    if (
+      canLoadMore &&
+      !isLoadingMore &&
+      (platformEnv.isNative || !isLoadMoreError) &&
+      !isProvisionalFirstPageResult
+    ) {
       void loadMore();
       return true;
     }
     return false;
-  }, [canLoadMore, isLoadingMore, isProvisionalFirstPageResult, loadMore]);
+  }, [
+    canLoadMore,
+    isLoadingMore,
+    isLoadMoreError,
+    isProvisionalFirstPageResult,
+    loadMore,
+  ]);
 
   // List footer - loading spinner or end indicator
   const ListFooterComponent = useMemo(() => {
@@ -140,12 +152,35 @@ function MobileMarketTokenFlatListBase({
       );
     }
 
+    if (!platformEnv.isNative && isLoadMoreError) {
+      return (
+        <Stack alignItems="center" justifyContent="center" py="$4">
+          <Button
+            testID="market-token-mobile-load-more-retry"
+            size="small"
+            variant="tertiary"
+            onPress={() => void loadMore()}
+          >
+            {intl.formatMessage({ id: ETranslations.global_retry })}
+          </Button>
+        </Stack>
+      );
+    }
+
     if (!isProvisionalFirstPageResult && !canLoadMore && data.length > 0) {
       return <ListEndIndicator />;
     }
 
     return null;
-  }, [isLoadingMore, isProvisionalFirstPageResult, canLoadMore, data.length]);
+  }, [
+    isLoadingMore,
+    isLoadMoreError,
+    isProvisionalFirstPageResult,
+    canLoadMore,
+    data.length,
+    intl,
+    loadMore,
+  ]);
 
   const showSkeleton =
     (Boolean(isLoading) && data.length === 0) || Boolean(isNetworkSwitching);

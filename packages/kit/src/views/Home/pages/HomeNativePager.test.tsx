@@ -21,6 +21,24 @@ let mockMountedPageLifecycle = false;
 let mockReadyWithMapping = false;
 let mockEmitCapabilityOnMount = false;
 let mockParentComponentLookup: ((key: PropertyKey) => unknown) | undefined;
+const mockControllerInputs: Array<
+  Parameters<
+    typeof import('@onekeyhq/kit/src/components/AppPager/useAppPagerController').useAppPagerController
+  >[0]
+> = [];
+jest.mock('@onekeyhq/kit/src/components/AppPager/useAppPagerController', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/kit/src/components/AppPager/useAppPagerController')
+  >('@onekeyhq/kit/src/components/AppPager/useAppPagerController');
+  return {
+    useAppPagerController: (
+      input: Parameters<typeof actual.useAppPagerController>[0],
+    ) => {
+      mockControllerInputs.push(input);
+      return actual.useAppPagerController(input);
+    },
+  };
+});
 const mockSetPage = jest.fn();
 const mockSetPageWithoutAnimation = jest.fn();
 const mockHeaderHeightCommits: number[] = [];
@@ -1365,4 +1383,28 @@ describe('native header Spotlight ownership', () => {
     screen.rerender(<HomeNativePager {...props} tabs={[spot, nft]} />);
     expect(currentState?.headerSettledAtTop).toBe(true);
   });
+});
+
+it('keeps native Home controller inputs stable on unrelated renders and updates labels', () => {
+  const ref = createRef<ITabContainerRef>();
+  const view = render(<HomeNativePager {...headerTestProps} ref={ref} />);
+  const first = mockControllerInputs.at(-1)!;
+  const commands = mockSetPageWithoutAnimation.mock.calls.length;
+  view.rerender(
+    <HomeNativePager {...headerTestProps} ref={ref} topEdgeActive />,
+  );
+  const next = mockControllerInputs.at(-1)!;
+  expect(next.pages).toBe(first.pages);
+  expect(next.onSelectionChange).toBe(first.onSelectionChange);
+  expect(next.onBeforeCommand).toBe(first.onBeforeCommand);
+  expect(mockSetPageWithoutAnimation).toHaveBeenCalledTimes(commands);
+  view.rerender(
+    <HomeNativePager
+      {...headerTestProps}
+      ref={ref}
+      tabs={headerTestProps.tabs.map((tab) => ({ ...tab, name: 'Renamed' }))}
+    />,
+  );
+  expect(mockControllerInputs.at(-1)!.pages[0].name).toBe('Renamed');
+  expect(ref.current?.getFocusedTab()).toBe('Renamed');
 });

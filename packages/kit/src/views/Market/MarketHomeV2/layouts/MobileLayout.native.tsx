@@ -414,8 +414,8 @@ function MobileLayoutComponent({
   const resolvedTabsRef = tabsRef ?? internalTabsRef;
   const selectedTabNameRef = useRef(selectedTabName);
   selectedTabNameRef.current = selectedTabName;
-  const controller = useAppPagerController({
-    pages: [
+  const pages = useMemo(
+    () => [
       ...(showWatchlistTab
         ? [{ key: 'watchlist', name: watchlistTabName }]
         : []),
@@ -425,6 +425,20 @@ function MobileLayoutComponent({
       })),
       ...(showPerpsTab ? [{ key: 'perps', name: perpsTabName }] : []),
     ],
+    [
+      showWatchlistTab,
+      watchlistTabName,
+      spotTabItems,
+      showPerpsTab,
+      perpsTabName,
+    ],
+  );
+  const handleSelectionChange = useCallback(
+    ({ tabName }: { tabName: string }) => handleTabChange(tabName),
+    [handleTabChange],
+  );
+  const controller = useAppPagerController({
+    pages,
     initialTabName: selectedTabName,
     removedPageFallback: {
       tabName: selectedTabName,
@@ -432,7 +446,7 @@ function MobileLayoutComponent({
     },
     pagerRef,
     commitOnCommand: true,
-    onSelectionChange: ({ tabName }) => handleTabChange(tabName),
+    onSelectionChange: handleSelectionChange,
   });
   const {
     initialIndex,

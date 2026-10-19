@@ -64,6 +64,24 @@ const mockInsetCommits: { padding: string | null | undefined; tag?: number }[] =
   [];
 let mockStickyHeaderLayout: ((event: IMockLayoutEvent) => void) | undefined;
 let mockListContainerProps: IMockListContainerProps | undefined;
+const mockControllerInputs: Array<
+  Parameters<
+    typeof import('@onekeyhq/kit/src/components/AppPager/useAppPagerController').useAppPagerController
+  >[0]
+> = [];
+jest.mock('@onekeyhq/kit/src/components/AppPager/useAppPagerController', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/kit/src/components/AppPager/useAppPagerController')
+  >('@onekeyhq/kit/src/components/AppPager/useAppPagerController');
+  return {
+    useAppPagerController: (
+      input: Parameters<typeof actual.useAppPagerController>[0],
+    ) => {
+      mockControllerInputs.push(input);
+      return actual.useAppPagerController(input);
+    },
+  };
+});
 const mockSetPage = jest.fn();
 const mockSetPageWithoutAnimation = jest.fn();
 const mockHandleTabChange = jest.fn();
@@ -845,4 +863,29 @@ describe('native market domain fallback with the real business hook', () => {
       expect(onTabChange).not.toHaveBeenCalled();
     },
   );
+});
+
+it('keeps native Market controller inputs stable on unrelated renders', () => {
+  const onTabChange = jest.fn();
+  const view = render(
+    <MobileLayout
+      filterBarProps={filterBarProps}
+      selectedNetworkId="evm--1"
+      onTabChange={onTabChange}
+    />,
+  );
+  const first = mockControllerInputs.at(-1)!;
+  const commands = mockSetPageWithoutAnimation.mock.calls.length;
+  view.rerender(
+    <MobileLayout
+      filterBarProps={filterBarProps}
+      selectedNetworkId="evm--1"
+      onTabChange={onTabChange}
+      isFocused={false}
+    />,
+  );
+  const next = mockControllerInputs.at(-1)!;
+  expect(next.pages).toBe(first.pages);
+  expect(next.onSelectionChange).toBe(first.onSelectionChange);
+  expect(mockSetPageWithoutAnimation).toHaveBeenCalledTimes(commands);
 });
