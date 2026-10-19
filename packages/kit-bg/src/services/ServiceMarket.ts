@@ -6,10 +6,12 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { resolveMarketAssetVariant } from '@onekeyhq/shared/src/utils/marketAssetVariant';
 import { normalizeMarketApiKLineInterval } from '@onekeyhq/shared/src/utils/marketKLineUtils';
 import { generateLocalIndexedIdFunc } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
   PROMISE_CONCURRENCY_LIMIT,
+  createTimeoutPromise,
   promiseAllSettledEnhanced,
 } from '@onekeyhq/shared/src/utils/promiseUtils';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
@@ -34,6 +36,7 @@ import { type IDBCloudSyncItem } from '../dbs/local/types';
 import ServiceBase from './ServiceBase';
 
 const ONEKEY_SEARCH_TRANDING = 'onekey-search-trending';
+const SEARCH_ASSET_RESOLUTION_TIMEOUT_MS = 2000;
 
 @backgroundClass()
 class ServiceMarket extends ServiceBase {
@@ -83,7 +86,102 @@ class ServiceMarket extends ServiceBase {
 
   @backgroundMethod()
   async fetchTrendingV2(): Promise<IMarketSearchV2Token[]> {
-    return this._fetchTrendingV2();
+    return this.resolveSearchTokenAssets(await this._fetchTrendingV2());
+  }
+
+  _fetchMarketAssetIdentityList = memoizee(
+    async () => {
+      const assets = await this.fetchMarketAssetList();
+      return assets.list.map(({ assetId, symbol }) => ({ assetId, symbol }));
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+    },
+  );
+
+  _fetchMarketAssetNativeVariants = memoizee(
+    async (assetId: string) => {
+      const detail = await this.fetchMarketAssetDetail({
+        assetId,
+        currency: 'usd',
+        autoHandleError: false,
+      });
+      return {
+        assetId: detail.asset.assetId,
+        selectedVariant: detail.selectedVariant,
+        variants: detail.variants.filter((variant) => variant.isNative),
+      };
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+      max: 100,
+    },
+  );
+
+  _resolveNativeMarketAssetId = memoizee(
+    async (networkId: string, symbol: string): Promise<string | undefined> => {
+      if (!networkId || !symbol) return undefined;
+      const assets = await this._fetchMarketAssetIdentityList();
+      const candidates = assets.filter(
+        (asset) => asset.symbol.trim().toUpperCase() === symbol,
+      );
+      let failedCandidate: { error: unknown } | undefined;
+      for (const candidate of candidates) {
+        try {
+          const detail = await this._fetchMarketAssetNativeVariants(
+            candidate.assetId,
+          );
+          if (
+            resolveMarketAssetVariant({
+              detail,
+              networkId,
+              tokenAddress: '',
+              isNative: true,
+            })
+          ) {
+            return detail.assetId;
+          }
+        } catch (error) {
+          failedCandidate = { error };
+        }
+      }
+      // Do not cache a transient lookup failure as an absent native identity.
+      if (failedCandidate) throw failedCandidate.error;
+      return undefined;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+      max: 100,
+    },
+  );
+
+  async resolveSearchTokenAssets(tokens: IMarketSearchV2Token[]) {
+    return Promise.all(
+      tokens.map(async (token) => {
+        if (!token.isNative || token.assetId || token.stock || token.stockId) {
+          return token;
+        }
+        return createTimeoutPromise({
+          timeout: SEARCH_ASSET_RESOLUTION_TIMEOUT_MS,
+          timeoutResult: token,
+          asyncFunc: async () => {
+            try {
+              const assetId = await this._resolveNativeMarketAssetId(
+                token.network,
+                token.symbol.trim().toUpperCase(),
+              );
+              return assetId ? { ...token, assetId } : token;
+            } catch {
+              // Asset metadata must not hide otherwise usable search results.
+              return token;
+            }
+          },
+        });
+      }),
+    );
   }
 
   @backgroundMethod()
@@ -349,7 +447,7 @@ class ServiceMarket extends ServiceBase {
     });
     const { data } = response.data;
     if (Array.isArray(data) && data.length) {
-      return data;
+      return this.resolveSearchTokenAssets(data);
     }
     return [];
   }

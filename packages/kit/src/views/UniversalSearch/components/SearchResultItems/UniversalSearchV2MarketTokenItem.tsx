@@ -199,6 +199,7 @@ export function UniversalSearchV2MarketTokenItem({
     communityRecognized,
     stock,
     stockId,
+    assetId,
   } = item.payload;
 
   // When network is empty, the item was converted from IMarketToken (trending/legacy)
@@ -263,6 +264,7 @@ export function UniversalSearchV2MarketTokenItem({
           name,
           symbol,
           isNative,
+          assetId,
           stockId: listingStockId,
           stock: isStockListing ? stock : undefined,
           tokenDetailPreview: buildMarketSearchTokenDetailPreview(item.payload),
@@ -295,6 +297,7 @@ export function UniversalSearchV2MarketTokenItem({
     name,
     symbol,
     isNative,
+    assetId,
     stock,
     listingStockId,
     universalSearchActions,
@@ -330,6 +333,7 @@ export function UniversalSearchV2MarketTokenItem({
       <XStack flex={1} minWidth={0} gap="$1" ai="center">
         <XStack w="$8" ai="center" jc="center">
           <MarketStarV2Deferred
+            assetId={assetId}
             stockId={listingStockId}
             chainId={network}
             contractAddress={address}
