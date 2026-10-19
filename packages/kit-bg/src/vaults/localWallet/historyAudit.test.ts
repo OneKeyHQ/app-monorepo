@@ -40,6 +40,7 @@ it.each([null, 100])(
     const api = {
       listAccounts: async () =>
         JSON.stringify({ items: [{ accountId: 7, uuid: accountId }] }),
+      verifySignedTransaction: async () => 'synthetic-tx',
       broadcastTransaction: jest.fn(
         async (
           _identity: string,
@@ -76,6 +77,7 @@ it.each([null, 100])(
       accountId,
       networkId: 'xmr--0',
       getXmrRuntimeApi: async () => api,
+      getXmrNetwork: async () => 'mainnet',
       backgroundApi: { simpleDb: { xmr: entity } },
     });
     // The runtime fixture records the same field that the Rust wire history returns.

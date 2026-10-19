@@ -69,6 +69,11 @@ export type IXmrRuntimeApi = {
     spendPrivateKeyHex: string,
   ) => Promise<string>;
   verifyTransaction: (signableHex: string, reviewJson: string) => Promise<void>;
+  verifySignedTransaction: (
+    signableHex: string,
+    reviewJson: string,
+    rawHex: string,
+  ) => Promise<string>;
 
   /**
    * Returned feeAtomic/amountAtomic are final; signing does not recompute
@@ -94,9 +99,11 @@ export type IXmrRuntimeApi = {
     rawHex: string,
     chainTip: string,
     /** Amount plus fee, for the pending row. */
-    outgoingAtomic?: string,
+    outgoingAtomic: string | undefined,
     /** Change, counted in the total (locked) until the send is mined. */
-    changeAtomic?: string,
+    changeAtomic: string | undefined,
+    signableHex: string,
+    reviewJson: string,
   ) => Promise<string>;
 
   diagDatabase: () => Promise<string>;

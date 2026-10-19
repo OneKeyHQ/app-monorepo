@@ -38,6 +38,7 @@ export const XMR_RUNTIME_METHODS = [
   'prepareTransaction',
   'signTransaction',
   'verifyTransaction',
+  'verifySignedTransaction',
   'broadcastTransaction',
 ] as const;
 

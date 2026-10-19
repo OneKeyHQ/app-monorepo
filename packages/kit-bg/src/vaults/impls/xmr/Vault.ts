@@ -7,6 +7,7 @@ import type { IXmrRuntimeApi } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime
 import { xmrHostFetch } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/sdk/hostFetch';
 import type { IXmrNetwork } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/types';
 import {
+  getXmrReviewRequest,
   parseXmrPreparedTransaction,
   parseXmrSendRequest,
   parseXmrTransaction,
@@ -620,7 +621,26 @@ export default class Vault extends VaultBase {
       );
     }
 
+    const reviewed = parseXmrTransaction(encodedTx);
+    const reviewJson = stringUtils.stableStringify(
+      getXmrReviewRequest(reviewed, await this.getXmrNetwork()),
+    );
     const api = await this.getXmrRuntimeApi();
+    let verifiedTxid: string;
+    try {
+      verifiedTxid = await api.verifySignedTransaction(
+        reviewed.signableHex,
+        reviewJson,
+        signedTx.rawTx,
+      );
+    } catch (error) {
+      throw toXmrUserFacingError(error);
+    }
+    if (verifiedTxid !== signedTx.txid) {
+      throw new OneKeyLocalError(
+        'xmr: unexpected transaction id before broadcast',
+      );
+    }
     const identityId = await getXmrIdentityId({
       api,
       accountId: this.accountId,
@@ -632,12 +652,10 @@ export default class Vault extends VaultBase {
         identityId,
         signedTx.rawTx,
         String(encodedTx.chainTip ?? (await getXmrChainTip(api))),
-        encodedTx.amountAtomic
-          ? new BigNumber(encodedTx.amountAtomic)
-              .plus(encodedTx.feeAtomic || '0')
-              .toFixed()
-          : undefined,
-        encodedTx.changeAtomic,
+        new BigNumber(reviewed.amountAtomic).plus(reviewed.feeAtomic).toFixed(),
+        reviewed.changeAtomic,
+        reviewed.signableHex,
+        reviewJson,
       );
     } catch (error) {
       console.error('[xmr] broadcast failed', {
