@@ -68,6 +68,7 @@ jobs:
           LOCK: packages/components/src/hocs/Provider/fonts/brand.lock.json
         run: |
           set -euo pipefail
+          # Native jq.exe on Windows runners emits CRLF; strip \r from its output.
           revoke() {
             curl -fsS -X DELETE -H "Authorization: Bearer ${GH_TOKEN}" \
               https://api.github.com/installation/token >/dev/null || true
@@ -75,11 +76,11 @@ jobs:
           trap revoke EXIT
           dir="${RUNNER_TEMP}/onekey-private-fonts"
           rm -rf "$dir" && mkdir -p "$dir"
-          commit="$(jq -r '.commit' "$LOCK")"
+          commit="$(jq -r '.commit' "$LOCK" | tr -d '\r')"
           [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::brand.lock.json pins no commit"; exit 1; }
           for slot in regular medium semibold bold; do
-            file="$(jq -r --arg s "$slot" '.files[$s].path' "$LOCK")"
-            sha="$(jq -r --arg s "$slot" '.files[$s].sha256' "$LOCK")"
+            file="$(jq -r --arg s "$slot" '.files[$s].path' "$LOCK" | tr -d '\r')"
+            sha="$(jq -r --arg s "$slot" '.files[$s].sha256' "$LOCK" | tr -d '\r')"
             [[ "$file" =~ ^[A-Za-z0-9._/-]+$ && "$file" != *..* ]] || { echo "::error::invalid font path for $slot"; exit 1; }
             curl -fsSL --retry 3 -H "Authorization: Bearer ${GH_TOKEN}" \
               -H "Accept: application/vnd.github.raw+json" -o "$dir/$slot.ttf" \

@@ -9,12 +9,6 @@ on:
   workflow_dispatch:
   workflow_call:
     inputs:
-      allow_fallback_fonts:
-        # Set by release-app-bundles for fork PR builds, which must not receive
-        # the private font; those builds use the open-source fallback.
-        type: boolean
-        required: false
-        default: false
       build_number:
         type: string
         required: true
@@ -71,7 +65,7 @@ on:
 env:
   # Release artifacts must ship the licensed brand font; fonts-sync fails
   # instead of falling back to the open-source face.
-  ONEKEY_REQUIRE_PRIVATE_FONTS: ${{ inputs.allow_fallback_fonts && '0' || '1' }}
+  ONEKEY_REQUIRE_PRIVATE_FONTS: '1'
   NODE_ENV: production
   YARN_ENABLE_GLOBAL_CACHE: true
 
@@ -107,7 +101,7 @@ jobs:
       # sha256-verified font directory.
       - name: Mint private fonts token
         id: private-fonts-token
-        if: vars.PRIVATE_FONTS_APP_ID != '' && !inputs.allow_fallback_fonts
+        if: vars.PRIVATE_FONTS_APP_ID != ''
         # v3.2.0
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
         with:
@@ -126,6 +120,7 @@ jobs:
           LOCK: packages/components/src/hocs/Provider/fonts/brand.lock.json
         run: |
           set -euo pipefail
+          # Native jq.exe on Windows runners emits CRLF; strip \r from its output.
           revoke() {
             curl -fsS -X DELETE -H "Authorization: Bearer ${GH_TOKEN}" \
               https://api.github.com/installation/token >/dev/null || true
@@ -133,11 +128,11 @@ jobs:
           trap revoke EXIT
           dir="${RUNNER_TEMP}/onekey-private-fonts"
           rm -rf "$dir" && mkdir -p "$dir"
-          commit="$(jq -r '.commit' "$LOCK")"
+          commit="$(jq -r '.commit' "$LOCK" | tr -d '\r')"
           [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::brand.lock.json pins no commit"; exit 1; }
           for slot in regular medium semibold bold; do
-            file="$(jq -r --arg s "$slot" '.files[$s].path' "$LOCK")"
-            sha="$(jq -r --arg s "$slot" '.files[$s].sha256' "$LOCK")"
+            file="$(jq -r --arg s "$slot" '.files[$s].path' "$LOCK" | tr -d '\r')"
+            sha="$(jq -r --arg s "$slot" '.files[$s].sha256' "$LOCK" | tr -d '\r')"
             [[ "$file" =~ ^[A-Za-z0-9._/-]+$ && "$file" != *..* ]] || { echo "::error::invalid font path for $slot"; exit 1; }
             curl -fsSL --retry 3 -H "Authorization: Bearer ${GH_TOKEN}" \
               -H "Accept: application/vnd.github.raw+json" -o "$dir/$slot.ttf" \
@@ -396,7 +391,7 @@ jobs:
       # sha256-verified font directory.
       - name: Mint private fonts token
         id: private-fonts-token
-        if: vars.PRIVATE_FONTS_APP_ID != '' && !inputs.allow_fallback_fonts
+        if: vars.PRIVATE_FONTS_APP_ID != ''
         # v3.2.0
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
         with:
@@ -415,6 +410,7 @@ jobs:
           LOCK: packages/components/src/hocs/Provider/fonts/brand.lock.json
         run: |
           set -euo pipefail
+          # Native jq.exe on Windows runners emits CRLF; strip \r from its output.
           revoke() {
             curl -fsS -X DELETE -H "Authorization: Bearer ${GH_TOKEN}" \
               https://api.github.com/installation/token >/dev/null || true
@@ -422,11 +418,11 @@ jobs:
           trap revoke EXIT
           dir="${RUNNER_TEMP}/onekey-private-fonts"
           rm -rf "$dir" && mkdir -p "$dir"
-          commit="$(jq -r '.commit' "$LOCK")"
+          commit="$(jq -r '.commit' "$LOCK" | tr -d '\r')"
           [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::brand.lock.json pins no commit"; exit 1; }
           for slot in regular medium semibold bold; do
-            file="$(jq -r --arg s "$slot" '.files[$s].path' "$LOCK")"
-            sha="$(jq -r --arg s "$slot" '.files[$s].sha256' "$LOCK")"
+            file="$(jq -r --arg s "$slot" '.files[$s].path' "$LOCK" | tr -d '\r')"
+            sha="$(jq -r --arg s "$slot" '.files[$s].sha256' "$LOCK" | tr -d '\r')"
             [[ "$file" =~ ^[A-Za-z0-9._/-]+$ && "$file" != *..* ]] || { echo "::error::invalid font path for $slot"; exit 1; }
             curl -fsSL --retry 3 -H "Authorization: Bearer ${GH_TOKEN}" \
               -H "Accept: application/vnd.github.raw+json" -o "$dir/$slot.ttf" \

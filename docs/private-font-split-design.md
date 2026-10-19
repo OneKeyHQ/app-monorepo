@@ -131,12 +131,13 @@ export const brandFontManifest = {
 - 每个发布 job 在 `actions/checkout` 之后、任何仓库代码（如 `./.github/actions/shared-env`、`yarn install`）运行之前，
   内联执行两步：
   1. 固定 SHA 的 `actions/create-github-app-token` 生成仅 `contents:read` 的 token；
-  2. 内联 bash（只用 curl/jq，不执行仓库代码）按 `brand.lock.json` 下载 4 个文件到 `$RUNNER_TEMP`、校验 sha256，
+  2. 内联 bash（只用 curl/jq，不执行仓库代码；jq 输出经 `tr -d '\r'`，兼容 Windows runner 的 CRLF）按 `brand.lock.json` 下载 4 个文件到 `$RUNNER_TEMP`、校验 sha256，
      然后**立即撤销 token**，只把字体目录通过 `ONEKEY_PRIVATE_FONTS_DIR` 交给后续步骤。
 - App 私钥只传给固定 SHA 的第三方 action，从不传给本地 action；token 不写入 `$GITHUB_ENV`。
   这样即使构建的是 PR 代码（如 `release-app-bundles` 指定 `pr_number`），PR 也拿不到私钥或 token。
-- `release-app-bundles` 构建 **fork PR** 时不下发私钥（`allow_fallback_fonts`），这类构建使用 Inter，fork 代码碰不到字体文件。
-  同仓库 PR 的作者本身已有仓库写权限、可以在自己的分支运行任意 workflow，所以仍使用私有字体。
+- `release-app-bundles` 按 PR 构建时，`validate-pr` 只放行同仓库 PR 和 `TRUSTED_PR_AUTHORS` 白名单作者的 fork PR，
+  这些构建都在 CI 中自行拉取私有字体（与它们已能使用签名、QA 上传等 secret 的信任模型一致）。
+  非白名单 fork PR 在 `validate-pr` 阶段即被拒绝，不会进入构建。
 - App 未配置时这两步自动跳过，发布构建会因 `ONEKEY_REQUIRE_PRIVATE_FONTS=1` 失败。
 
 ## 4. CI / 发布流水线

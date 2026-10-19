@@ -507,7 +507,9 @@ function verifyNativeCopies() {
   }
   const requireIos = process.env.EAS_BUILD_PLATFORM === 'ios';
   if (requireIos && !fs.existsSync(iosFontsDir)) {
-    throw new Error(`${path.relative(rootDir, iosFontsDir)} is missing after pod install.`);
+    throw new Error(
+      `${path.relative(rootDir, iosFontsDir)} is missing after pod install.`,
+    );
   }
   for (const slot of SLOTS) {
     const expected = fs.readFileSync(slotFiles[slot.key]);
