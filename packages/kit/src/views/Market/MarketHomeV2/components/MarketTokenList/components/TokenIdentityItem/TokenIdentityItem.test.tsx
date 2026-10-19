@@ -1,9 +1,14 @@
 /** @jest-environment jsdom */
 import type { PropsWithChildren, ReactNode } from 'react';
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { TokenIdentityItem } from './TokenIdentityItem';
+
+const mockCopyText = jest.fn();
+let mockGtMd = false;
 
 // Jest maps every `@onekeyhq/components` path, subpaths included, to one mock
 // module, so the lazy overlays must live in this single factory.
@@ -19,13 +24,34 @@ jest.mock('@onekeyhq/components', () => ({
     </span>
   ),
   SizableText: ({ children }: PropsWithChildren) => <span>{children}</span>,
-  Stack: ({ children }: PropsWithChildren) => <div>{children}</div>,
+  Stack: ({
+    children,
+    onPress,
+  }: PropsWithChildren<{
+    onPress?: (event: { stopPropagation: () => void }) => void;
+  }>) =>
+    onPress ? (
+      <button type="button" aria-label="Copy address" onClick={onPress}>
+        {children}
+      </button>
+    ) : (
+      <div>{children}</div>
+    ),
   XStack: ({ children }: PropsWithChildren) => <div>{children}</div>,
-  useClipboard: () => ({ copyText: jest.fn() }),
-  useMedia: () => ({ gtMd: false }),
+  useClipboard: () => ({ copyText: mockCopyText }),
+  useMedia: () => ({ gtMd: mockGtMd }),
   LazyTooltip: ({ renderTrigger }: { renderTrigger: ReactNode }) => (
     <>{renderTrigger}</>
   ),
+}));
+
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: { isNative: false, isJest: true },
+}));
+
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: { dex: { actions: { dexCopyCA: jest.fn() } } },
 }));
 
 jest.mock('@onekeyhq/kit/src/components/Token', () => ({
@@ -53,7 +79,57 @@ jest.mock('@onekeyhq/kit/src/views/Market/components/TokenTagsPopover', () => ({
   TokenTagsPopover: () => null,
 }));
 
+afterEach(() => {
+  mockGtMd = false;
+  mockCopyText.mockClear();
+  jest.restoreAllMocks();
+});
+
 describe('TokenIdentityItem volume line', () => {
+  test('keeps the address and copy action reachable on native tables', () => {
+    jest.replaceProperty(platformEnv, 'isNative', true);
+    mockGtMd = true;
+    const address = '0x1234567890123456789012345678901234567890';
+    const onCopied = jest.fn();
+    render(
+      <TokenIdentityItem
+        symbol="MEME"
+        name="A Meme Coin"
+        address={address}
+        showCopyButton
+        onCopied={onCopied}
+      />,
+    );
+
+    expect(screen.getByText('0x1234...7890')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Copy address' }));
+    expect(mockCopyText).toHaveBeenCalledWith(address);
+    expect(onCopied).toHaveBeenCalledWith(address);
+  });
+
+  test('retains the localized stock subtitle beside the revealed address', () => {
+    mockGtMd = true;
+    render(
+      <TokenIdentityItem
+        symbol="AAPLon"
+        name="Apple Ondo Token"
+        address="0x1234567890123456789012345678901234567890"
+        showCopyButton
+        stock={{
+          subtitle: '苹果',
+          source: 'ondo',
+          sourceLogoUri: '',
+          title: 'Ondo',
+        }}
+      />,
+    );
+
+    expect(screen.getByText('Apple Ondo Token')).toBeTruthy();
+    expect(screen.getByText('苹果')).toBeTruthy();
+    expect(screen.getByText('0x1234...7890')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Copy address' })).toBeTruthy();
+  });
+
   test('shows a listing name even when the token has no address', () => {
     render(<TokenIdentityItem symbol="TSM" name="台积电" address="" />);
 

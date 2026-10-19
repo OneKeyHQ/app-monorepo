@@ -165,7 +165,8 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
     [address],
   );
 
-  const displayName = !showVolume ? name?.trim() : undefined;
+  const displayName =
+    !platformEnv.isNative && !showVolume ? name?.trim() : undefined;
   const shouldShowVolume = showVolume && !!volume;
   const shouldShowAddress = !showVolume && Boolean(address);
   const shouldShowCopyButton = showCopyButton && Boolean(address);
@@ -247,14 +248,14 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
       minWidth={0}
       height={showVolume ? volumeRowHeight : secondaryRowHeight}
     >
-      {!displayName && localizedName ? (
+      {localizedName ? (
         // Cap the localized name so long names truncate with an
         // ellipsis, e.g. "Circle Int...", keeping the row compact.
         <SubtitleText subtitle={localizedName} maxWidth={66} />
       ) : null}
       {/* Divider only before the address (desktop); the name and
                volume (mobile) are separated by spacing alone. */}
-      {!displayName && localizedName && shouldShowAddress ? (
+      {localizedName && shouldShowAddress ? (
         <SizableText size="$bodySm" color="$textDisabled" flexShrink={0}>
           |
         </SizableText>
