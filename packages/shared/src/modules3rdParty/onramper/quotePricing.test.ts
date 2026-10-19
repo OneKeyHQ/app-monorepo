@@ -82,5 +82,9 @@ describe('getOnramperQuotePricing', () => {
     expect(
       getOnramperQuotePricing({ ...base, payout: Number.POSITIVE_INFINITY }),
     ).toBeUndefined();
+    // Finite but tiny payout: the division itself overflows to Infinity.
+    expect(
+      getOnramperQuotePricing({ ...base, payout: Number.MIN_VALUE }),
+    ).toBeUndefined();
   });
 });

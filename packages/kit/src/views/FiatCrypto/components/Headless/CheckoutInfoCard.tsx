@@ -81,10 +81,11 @@ export function CheckoutInfoCard({
   // Provider-rate value of the estimated receive (= amount − fees) and the
   // rate itself. Undefined until a full quote is in hand, or when the quote
   // can't be priced — the fiat figures are then hidden rather than replaced
-  // with a different-meaning number. Gated on !isQuoting like the hero
-  // estimate: the hook keeps the last quote while a NEW amount is in flight
-  // (preset tap after typing), and pricing that stale payout against the new
-  // amount would show wrong figures for the in-flight window.
+  // with a different-meaning number. fiatAmount and the quote must describe
+  // the same request: the hook keeps the last quote only while a NEW request
+  // is in flight (preset tap after typing, provider switch) and drops it when
+  // that request fails, so the !isQuoting gate — same as the hero estimate —
+  // covers the one window where the two can disagree.
   const pricing =
     !isQuoting &&
     fiatAmount !== undefined &&

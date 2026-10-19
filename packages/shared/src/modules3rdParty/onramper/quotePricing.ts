@@ -44,8 +44,12 @@ export function getOnramperQuotePricing({
   if (payoutFiatValue <= 0) {
     return undefined;
   }
-  return {
-    payoutFiatValue,
-    impliedPrice: payoutFiatValue / payout,
-  };
+  // Finite operands do not guarantee a finite quotient: a payout as small as
+  // Number.MIN_VALUE overflows the division to Infinity, and an extreme ratio
+  // can underflow it to 0.
+  const impliedPrice = payoutFiatValue / payout;
+  if (!Number.isFinite(impliedPrice) || impliedPrice <= 0) {
+    return undefined;
+  }
+  return { payoutFiatValue, impliedPrice };
 }

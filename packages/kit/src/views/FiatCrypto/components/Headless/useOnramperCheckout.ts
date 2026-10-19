@@ -545,6 +545,16 @@ export function useOnramperCheckout({
             amount,
             provider,
           });
+          // The retained quote answered an EARLIER request (previous amount /
+          // provider / address); this failure means no quote answers the
+          // current one. Drop it so every quote-derived figure — hero
+          // estimate, payout, fees, provider-rate pricing — disappears instead
+          // of being re-priced against the new inputs (a $100 payout priced at
+          // a $500 amount reads as a 5x rate). The mounted native button is
+          // left alone: the zone covers it with Retry / web fallback, and
+          // refreshQuote swaps it on the next attempt.
+          quoteRef.current = undefined;
+          setQuote(undefined);
           // Same classification policy as the SDK's `failed` event —
           // structural → web fallback, everything else retryable.
           applyFailure({
