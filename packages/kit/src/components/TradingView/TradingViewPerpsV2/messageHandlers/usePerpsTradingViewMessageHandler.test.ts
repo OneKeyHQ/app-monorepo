@@ -109,10 +109,15 @@ function chartMessage(method: string, data: unknown) {
   } as IJsBridgeMessagePayload;
 }
 
-function getMarksMessage(symbol: string, requestId: string) {
+function getMarksMessage(
+  symbol: string,
+  requestId: string,
+  accountRevision?: number,
+) {
   return chartMessage('tradingview_getMarks', {
     symbol,
     requestId,
+    ...(accountRevision === undefined ? {} : { accountRevision }),
     from: 0,
     to: 1,
   });
@@ -142,6 +147,10 @@ async function receive(
   await flushBridge();
 }
 
+const capableChartReady = chartMessage('tradingview_chartReady', {
+  capabilities: { perpsAccountMarksReset: true },
+});
+
 describe('usePerpsTradingViewMessageHandler account switch', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -152,52 +161,57 @@ describe('usePerpsTradingViewMessageHandler account switch', () => {
     );
   });
 
-  it('resets all account marks without rebuilding after a symbol switch on a capable chart', async () => {
-    const { result, rerender } = renderHandler('ETH', ACCOUNT_A);
-    await receive(
-      result.current,
-      chartMessage('tradingview_chartReady', {
-        symbol: 'ETH',
-        capabilities: { perpsAccountMarksReset: true },
-      }),
-    );
-    await receive(result.current, getMarksMessage('ETH', 'r1'));
-    rerender({ symbol: 'BTC', userAddress: ACCOUNT_A });
-    await receive(result.current, getMarksMessage('BTC', 'r2'));
-    mockSend.mockClear();
+  afterEach(() => jest.restoreAllMocks());
 
-    rerender({ symbol: 'BTC', userAddress: ACCOUNT_B });
-    await flushBridge();
+  it.each([
+    ['BTC', false, false],
+    ['ETH', false, true],
+    ['ETH', true, false],
+  ] as const)(
+    'switches accounts after %s -> BTC (reset=%s, rebuild=%s)',
+    async (firstSymbol, reset, rebuild) => {
+      const { result, rerender } = renderHandler(firstSymbol, ACCOUNT_A);
+      if (reset) await receive(result.current, capableChartReady);
+      await receive(result.current, getMarksMessage(firstSymbol, 'r1'));
+      rerender({ symbol: 'BTC', userAddress: ACCOUNT_A });
+      await receive(result.current, getMarksMessage('BTC', 'r2'));
+      mockSend.mockClear();
+      rerender({ symbol: 'BTC', userAddress: ACCOUNT_B });
+      await flushBridge();
 
-    expect(mockRebuild).not.toHaveBeenCalled();
-    expect(sentMessages()[0]).toMatchObject({
-      type: 'MARKS_UPDATE',
-      payload: { marks: [], operation: 'clear', accountRevision: 1 },
-    });
-    expect(sentMessages().at(-1)).toMatchObject({
-      payload: {
-        accountRevision: 1,
-        marks: [expect.objectContaining({ id: 'trade_3' })],
-      },
-    });
-    rerender({ symbol: 'BTC', userAddress: ACCOUNT_A });
-    await flushBridge();
-    expect(sentMessages().at(-1)).toMatchObject({
-      payload: { accountRevision: 2 },
-    });
-    expect(mockRebuild).not.toHaveBeenCalled();
-  });
+      expect(mockRebuild).toHaveBeenCalledTimes(rebuild ? 1 : 0);
+      if (rebuild) return;
+      expect(sentMessages()[0]).toEqual({
+        type: 'MARKS_UPDATE',
+        payload: {
+          marks: [],
+          symbol: 'BTC',
+          operation: 'clear',
+          ...(reset ? { accountRevision: 1 } : {}),
+        },
+      });
+      expect(sentMessages().at(-1)).toMatchObject({
+        payload: { marks: [expect.objectContaining({ id: 'trade_3' })] },
+      });
+      rerender({ symbol: 'BTC', userAddress: ACCOUNT_A });
+      await flushBridge();
+      expect(sentMessages().at(-1)).toMatchObject({
+        payload: {
+          marks: [expect.objectContaining({ id: 'trade_1' })],
+          ...(reset ? { accountRevision: 2 } : {}),
+        },
+      });
+      expect(mockRebuild).not.toHaveBeenCalled();
+    },
+  );
 
-  it('re-establishes the current revision after a reload without a new instance key', async () => {
+  it('re-establishes the revision on same-key reload and falls back for an old chart', async () => {
     const { result, rerender } = renderHandler('BTC', ACCOUNT_A);
-    const ready = chartMessage('tradingview_chartReady', {
-      capabilities: { perpsAccountMarksReset: true },
-    });
-    await receive(result.current, ready);
+    await receive(result.current, capableChartReady);
     rerender({ symbol: 'BTC', userAddress: ACCOUNT_B });
     await flushBridge();
     mockSend.mockClear();
-    await receive(result.current, ready);
+    await receive(result.current, capableChartReady);
     expect(sentMessages()[0]).toMatchObject({
       type: 'MARKS_UPDATE',
       payload: { operation: 'clear', accountRevision: 1 },
@@ -214,27 +228,22 @@ describe('usePerpsTradingViewMessageHandler account switch', () => {
     ).toBe(true);
   });
 
-  it('keeps the line rebuild guard even when account mark reset is supported', async () => {
-    const { result, rerender } = renderHandler('BTC', ACCOUNT_A);
-    await receive(
-      result.current,
-      chartMessage('tradingview_chartReady', {
-        capabilities: { perpsAccountMarksReset: true },
-      }),
-    );
-    mockHasAccountLinesRef.current = true;
-    rerender({ symbol: 'BTC', userAddress: ACCOUNT_B });
-    expect(mockRebuild).toHaveBeenCalledTimes(1);
-  });
+  it.each([false, true])(
+    'rebuilds interactive account lines even with empty marks (reset=%s)',
+    async (reset) => {
+      mockLoadTradesHistory.mockResolvedValue([]);
+      const { result, rerender } = renderHandler('BTC', ACCOUNT_A);
+      if (reset) await receive(result.current, capableChartReady);
+      await flushBridge();
+      mockHasAccountLinesRef.current = true;
+      rerender({ symbol: 'BTC', userAddress: ACCOUNT_B });
+      expect(mockRebuild).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('requires a fresh capability after the chart instance changes', async () => {
     const { result, rerender } = renderHandler('ETH', ACCOUNT_A);
-    await receive(
-      result.current,
-      chartMessage('tradingview_chartReady', {
-        capabilities: { perpsAccountMarksReset: true },
-      }),
-    );
+    await receive(result.current, capableChartReady);
     rerender({
       symbol: 'ETH',
       userAddress: ACCOUNT_A,
@@ -255,189 +264,101 @@ describe('usePerpsTradingViewMessageHandler account switch', () => {
     expect(mockRebuild).toHaveBeenCalledTimes(1);
   });
 
-  it('echoes the old revision without redrawing when a versioned request completes late', async () => {
-    const { result, rerender } = renderHandler('BTC', ACCOUNT_A);
-    await receive(
-      result.current,
-      chartMessage('tradingview_chartReady', {
-        capabilities: { perpsAccountMarksReset: true },
-      }),
-    );
-    let resolveOld: (fills: IFill[]) => void = () => {};
-    mockLoadTradesHistory.mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          resolveOld = resolve;
-        }),
-    );
-    const pending = result.current.customReceiveHandler(
-      chartMessage('tradingview_getMarks', {
-        symbol: 'BTC',
-        requestId: 'old',
-        accountRevision: 0,
-      }),
-    );
-    rerender({ symbol: 'BTC', userAddress: ACCOUNT_B });
-    await flushBridge();
-    mockSend.mockClear();
-    await act(async () => {
-      resolveOld(fillsByAccount[ACCOUNT_A]);
-      await pending;
-    });
-    expect(sentMessages()).toEqual([
-      {
+  it.each([
+    [undefined, false, false],
+    [undefined, true, false],
+    [undefined, false, true],
+    [0, false, false],
+  ] as const)(
+    'rejects late account data (revision=%s, fails=%s, returnToA=%s)',
+    async (revision, fails, returnToA) => {
+      const { result, rerender } = renderHandler('BTC', ACCOUNT_A);
+      if (revision !== undefined)
+        await receive(result.current, capableChartReady);
+      await flushBridge();
+      let complete: () => void = () => {};
+      mockLoadTradesHistory.mockImplementationOnce(
+        () =>
+          new Promise((resolve, reject) => {
+            complete = () => {
+              if (fails) reject(new Error('old request failed'));
+              else resolve([createFill('BTC', 99)]);
+            };
+          }),
+      );
+      const pending = result.current.customReceiveHandler(
+        getMarksMessage('BTC', 'old', revision),
+      );
+      rerender({ symbol: 'BTC', userAddress: ACCOUNT_B });
+      if (returnToA) rerender({ symbol: 'BTC', userAddress: ACCOUNT_A });
+      await flushBridge();
+      mockSend.mockClear();
+      if (fails) jest.spyOn(console, 'error').mockImplementation(() => {});
+      await act(async () => {
+        complete();
+        await pending;
+      });
+      await flushBridge();
+      expect(sentMessages()[0]).toEqual({
         type: 'MARKS_RESPONSE',
-        payload: { marks: [], requestId: 'old', accountRevision: 0 },
-      },
-    ]);
-  });
+        payload: {
+          marks: [],
+          requestId: 'old',
+          ...(revision === undefined ? {} : { accountRevision: revision }),
+        },
+      });
+      if (revision !== undefined) {
+        expect(sentMessages()).toHaveLength(1);
+      } else {
+        expect(sentMessages().at(-1)).toMatchObject({
+          type: 'MARKS_UPDATE',
+          payload: {
+            symbol: 'BTC',
+            operation: 'replace',
+            marks: [
+              expect.objectContaining({
+                id: returnToA ? 'trade_1' : 'trade_3',
+              }),
+            ],
+          },
+        });
+      }
+    },
+  );
 
-  it('keeps the chart and clears in place when only the confirmed symbol holds marks', async () => {
-    const { result, rerender } = renderHandler('BTC', ACCOUNT_A);
-    await flushBridge();
-    await receive(result.current, getMarksMessage('BTC', 'r1'));
-    mockSend.mockClear();
-
-    rerender({ symbol: 'BTC', userAddress: ACCOUNT_B });
-
-    expect(mockRebuild).not.toHaveBeenCalled();
-    expect(sentMessages()[0]).toEqual({
-      type: 'MARKS_UPDATE',
-      payload: { marks: [], symbol: 'BTC', operation: 'clear' },
-    });
-  });
-
-  it('rebuilds when another symbol still holds the previous account marks', async () => {
-    const { result, rerender } = renderHandler('ETH', ACCOUNT_A);
-    await flushBridge();
-    await receive(result.current, getMarksMessage('ETH', 'r1'));
-    rerender({ symbol: 'BTC', userAddress: ACCOUNT_A });
-    await receive(result.current, getMarksMessage('BTC', 'r2'));
-
-    rerender({ symbol: 'BTC', userAddress: ACCOUNT_B });
-
-    expect(mockRebuild).toHaveBeenCalledTimes(1);
-  });
-
-  it('rebuilds when the chart has not confirmed the symbol switched back to', async () => {
-    const { result, rerender } = renderHandler('BTC', ACCOUNT_A);
-    await flushBridge();
-    await receive(result.current, getMarksMessage('BTC', 'r1'));
-    rerender({ symbol: 'ETH', userAddress: ACCOUNT_A });
-    rerender({ symbol: 'BTC', userAddress: ACCOUNT_A });
-
-    rerender({ symbol: 'BTC', userAddress: ACCOUNT_B });
-
-    expect(mockRebuild).toHaveBeenCalledTimes(1);
-  });
+  it.each([
+    undefined,
+    'tradingview_priceUpdate',
+    'tradingview_chartReady',
+    'tradingview_getMarks',
+  ])(
+    'rebuilds after BTC -> ETH -> BTC even with delayed %s',
+    async (method) => {
+      const { result, rerender } = renderHandler('BTC', ACCOUNT_A);
+      await receive(result.current, getMarksMessage('BTC', 'first'));
+      rerender({ symbol: 'ETH', userAddress: ACCOUNT_A });
+      rerender({ symbol: 'BTC', userAddress: ACCOUNT_A });
+      if (method)
+        await receive(
+          result.current,
+          chartMessage(method, { symbol: 'BTC', requestId: 'late' }),
+        );
+      rerender({ symbol: 'BTC', userAddress: ACCOUNT_B });
+      expect(mockRebuild).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('answers a request for a symbol the app already left with no marks', async () => {
     const { result } = renderHandler('BTC', ACCOUNT_A);
-    await flushBridge();
-
     await receive(result.current, getMarksMessage('ETH', 'r1'));
-
     expect(sentMessages()).toContainEqual({
       type: 'MARKS_RESPONSE',
       payload: { marks: [], requestId: 'r1' },
     });
   });
 
-  it('answers a request from the previous account with no marks, then redraws the current account', async () => {
-    const { result, rerender } = renderHandler('BTC', ACCOUNT_A);
-    await flushBridge();
-    let resolveStaleFetch: (fills: IFill[]) => void = () => {};
-    mockLoadTradesHistory.mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          resolveStaleFetch = resolve;
-        }),
-    );
-    const staleRequest = result.current.customReceiveHandler(
-      getMarksMessage('BTC', 'r1'),
-    ) as Promise<unknown>;
-    rerender({ symbol: 'BTC', userAddress: ACCOUNT_B });
-    await flushBridge();
-    mockSend.mockClear();
-
-    resolveStaleFetch(fillsByAccount[ACCOUNT_A]);
-    await act(async () => {
-      await staleRequest;
-    });
-    await flushBridge();
-
-    const messages = sentMessages();
-    expect(messages[0]).toEqual({
-      type: 'MARKS_RESPONSE',
-      payload: { marks: [], requestId: 'r1' },
-    });
-    expect(messages.at(-1)).toMatchObject({
-      type: 'MARKS_UPDATE',
-      payload: {
-        symbol: 'BTC',
-        operation: 'replace',
-        marks: [expect.objectContaining({ id: 'trade_3' })],
-      },
-    });
-  });
-
-  it('redraws B when an A marks request fails after B has loaded', async () => {
-    const errorLog = jest.spyOn(console, 'error').mockImplementation(() => {});
-    const { result, rerender } = renderHandler('BTC', ACCOUNT_A);
-    await flushBridge();
-    let rejectOldRequest: (error: Error) => void = () => {};
-    mockLoadTradesHistory.mockImplementationOnce(
-      () =>
-        new Promise((_resolve, reject) => {
-          rejectOldRequest = reject;
-        }),
-    );
-    const pending = result.current.customReceiveHandler(
-      getMarksMessage('BTC', 'old'),
-    );
-    rerender({ symbol: 'BTC', userAddress: ACCOUNT_B });
-    await flushBridge();
-    mockSend.mockClear();
-    await act(async () => {
-      rejectOldRequest(new Error('old request failed'));
-      await pending;
-    });
-    await flushBridge();
-    expect(sentMessages()[0]).toMatchObject({
-      type: 'MARKS_RESPONSE',
-      payload: { marks: [], requestId: 'old' },
-    });
-    expect(sentMessages().at(-1)).toMatchObject({
-      type: 'MARKS_UPDATE',
-      payload: {
-        operation: 'replace',
-        marks: [expect.objectContaining({ id: 'trade_3' })],
-      },
-    });
-    errorLog.mockRestore();
-  });
-
-  it.each([
-    'tradingview_priceUpdate',
-    'tradingview_chartReady',
-    'tradingview_getMarks',
-  ])('does not trust delayed %s after BTC -> ETH -> BTC', async (method) => {
-    const { result, rerender } = renderHandler('BTC', ACCOUNT_A);
-    await flushBridge();
-    await receive(result.current, getMarksMessage('BTC', 'first'));
-    rerender({ symbol: 'ETH', userAddress: ACCOUNT_A });
-    rerender({ symbol: 'BTC', userAddress: ACCOUNT_A });
-    await receive(
-      result.current,
-      chartMessage(method, { symbol: 'BTC', requestId: 'late' }),
-    );
-    rerender({ symbol: 'BTC', userAddress: ACCOUNT_B });
-    expect(mockRebuild).toHaveBeenCalledTimes(1);
-  });
-
   it('keeps an empty initial-symbol chart after trade marks are disabled', async () => {
     const { result, rerender } = renderHandler('BTC', ACCOUNT_A);
-    await flushBridge();
     await receive(result.current, getMarksMessage('BTC', 'first'));
     mockShowTradeMarks = false;
     rerender({ symbol: 'BTC', userAddress: ACCOUNT_A });
@@ -446,46 +367,5 @@ describe('usePerpsTradingViewMessageHandler account switch', () => {
     await flushBridge();
     rerender({ symbol: 'ETH', userAddress: ACCOUNT_B });
     expect(mockRebuild).not.toHaveBeenCalled();
-  });
-
-  it('rebuilds before reuse when old account lines may still be interactive', async () => {
-    mockLoadTradesHistory.mockResolvedValue([]);
-    const { rerender } = renderHandler('BTC', ACCOUNT_A);
-    await flushBridge();
-    mockHasAccountLinesRef.current = true;
-    rerender({ symbol: 'BTC', userAddress: ACCOUNT_B });
-    expect(mockRebuild).toHaveBeenCalledTimes(1);
-  });
-
-  it('rejects a pending A response after A -> B -> A', async () => {
-    const { result, rerender } = renderHandler('BTC', ACCOUNT_A);
-    await flushBridge();
-    let resolveOld: (fills: IFill[]) => void = () => {};
-    mockLoadTradesHistory.mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          resolveOld = resolve;
-        }),
-    );
-    const pending = result.current.customReceiveHandler(
-      getMarksMessage('BTC', 'old-A'),
-    );
-    rerender({ symbol: 'BTC', userAddress: ACCOUNT_B });
-    rerender({ symbol: 'BTC', userAddress: ACCOUNT_A });
-    await flushBridge();
-    mockSend.mockClear();
-    await act(async () => {
-      resolveOld([createFill('BTC', 99)]);
-      await pending;
-    });
-    await flushBridge();
-    expect(sentMessages()[0]).toMatchObject({
-      type: 'MARKS_RESPONSE',
-      payload: { marks: [], requestId: 'old-A' },
-    });
-    expect(sentMessages().at(-1)).toMatchObject({
-      type: 'MARKS_UPDATE',
-      payload: { marks: [expect.objectContaining({ id: 'trade_1' })] },
-    });
   });
 });

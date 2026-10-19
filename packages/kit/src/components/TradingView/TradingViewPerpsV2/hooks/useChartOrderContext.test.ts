@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react-native';
+import { renderHook } from '@testing-library/react-native';
 
 import { useChartOrderContext } from './useChartOrderContext';
 
@@ -13,33 +13,7 @@ describe('chart order context', () => {
     { ...initial, accountAddress: '0xbbb' },
     { ...initial, symbol: 'ETH' },
     { ...initial, chartInstanceKey: 'second' },
-  ])('invalidates pending work and closes dialogs on %j', async (next) => {
-    const close = jest.fn();
-    const { result, rerender } = renderHook(
-      (context: typeof initial) =>
-        useChartOrderContext({ ...context, onInvalidate: close }),
-      { initialProps: initial },
-    );
-    const generation = result.current.current;
-    let resolveMeta: () => void = () => {};
-    const metadata = new Promise<void>((resolve) => {
-      resolveMeta = resolve;
-    });
-    const open = jest.fn();
-    const pending = metadata.then(() => {
-      if (generation === result.current.current) open();
-    });
-    rerender(next);
-    rerender(initial);
-    await act(async () => {
-      resolveMeta();
-      await pending;
-    });
-    expect(open).not.toHaveBeenCalled();
-    expect(close).toHaveBeenCalledTimes(2);
-  });
-
-  it('keeps an unchanged context valid and invalidates it on unmount', () => {
+  ])('invalidates the captured context and closes dialogs on %j', (next) => {
     const close = jest.fn();
     const { result, rerender, unmount } = renderHook(
       (context: typeof initial) =>
@@ -51,8 +25,14 @@ describe('chart order context', () => {
     rerender({ ...initial });
     expect(ref.current).toBe(generation);
     expect(close).not.toHaveBeenCalled();
-    unmount();
+    rerender(next);
     expect(ref.current).not.toBe(generation);
-    expect(close).toHaveBeenCalledTimes(1);
+    rerender(initial);
+    expect(ref.current).not.toBe(generation);
+    expect(close).toHaveBeenCalledTimes(2);
+    const beforeUnmount = ref.current;
+    unmount();
+    expect(ref.current).not.toBe(beforeUnmount);
+    expect(close).toHaveBeenCalledTimes(3);
   });
 });
