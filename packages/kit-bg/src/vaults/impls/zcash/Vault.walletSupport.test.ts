@@ -62,11 +62,11 @@ describe('zcash privacy support by wallet type', () => {
   });
 
   it.each([
-    ["hw-1--m/44'/133'/0'", 'u1-mixed', 'u1-orchard', 'u1-orchard'],
+    ["hw-1--m/44'/133'/0'", 'u1-mixed', 'u1-orchard', 'u1-mixed'],
     ["hw-1--m/44'/133'/0'", 'u1-orchard', undefined, 'u1-orchard'],
     ["hd-1--m/44'/133'/0'", 'u1-software', undefined, 'u1-software'],
   ] as const)(
-    'returns the private receive address matching the Orchard-only request for %s (%s)',
+    'preserves the receive address selected from account metadata for %s (%s)',
     async (
       accountId,
       unifiedAddress,
