@@ -15,6 +15,7 @@ import {
   type ImageStyle,
   type ImageURISource,
   Image as ReactNativeImage,
+  type StyleProp,
   StyleSheet,
 } from 'react-native';
 
@@ -32,7 +33,11 @@ import {
   isPreloadedImageUri,
   markPreloadedImageUri,
 } from './preloadedImageUris';
-import { isEmptyResolvedSource, useResetError } from './utils';
+import {
+  isEmptyResolvedSource,
+  isImageSourceArray,
+  useResetError,
+} from './utils';
 
 import type {
   IImageContentFit,
@@ -59,9 +64,10 @@ function resolveSource(
     return { uri: source.trim() };
   }
   if (typeof source === 'number') {
-    return ReactNativeImage.resolveAssetSource(source);
+    // Resolves to `null` (never `undefined`) for unknown assets at runtime.
+    return ReactNativeImage.resolveAssetSource(source) ?? null;
   }
-  if (Array.isArray(source)) {
+  if (source && isImageSourceArray(source)) {
     return source[0] ?? null;
   }
   return source ?? null;
@@ -110,7 +116,10 @@ export function ImageV2({ style: defaultStyle, ...props }: IImageV2Props) {
 
   const style = useMemo(() => {
     return defaultStyle
-      ? (StyleSheet.flatten([defaultStyle, restStyle]) as typeof restStyle)
+      ? (StyleSheet.flatten([
+          defaultStyle,
+          restStyle,
+        ] as StyleProp<ImageStyle>) as typeof restStyle)
       : restStyle;
   }, [defaultStyle, restStyle]);
 

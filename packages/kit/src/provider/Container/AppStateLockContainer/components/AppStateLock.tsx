@@ -38,11 +38,11 @@ import { verifiedWebAuth } from '@onekeyhq/shared/src/webAuth';
 
 import { AppStateContainer } from './AppStateContainer';
 
-import type { View as IView, KeyboardEvent } from 'react-native';
+import type { KeyboardEvent, ViewInstance } from 'react-native';
 
 interface IAppStateLockProps extends IThemeableStackProps {
   passwordVerifyContainer: React.ReactNode;
-  lockContainerRef: ForwardedRef<IView>;
+  lockContainerRef: ForwardedRef<ViewInstance>;
 }
 
 const DevPerpsWebSocketUpdateView = LazyLoad(async () => {

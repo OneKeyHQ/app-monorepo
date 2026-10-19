@@ -185,7 +185,7 @@ import {
 import SwapSwapMbContainer from './SwapSwapMbContainer';
 import SwapTipsContainer from './SwapTipsContainer';
 
-import type { ScrollView as ScrollViewNative } from 'react-native';
+import type { ScrollViewInstance } from 'react-native';
 
 interface ISwapMainLoadProps {
   children?: React.ReactNode;
@@ -1367,7 +1367,7 @@ const SwapMainLoad = ({
     },
     [navigation, storeName],
   );
-  const scrollViewRef = useRef<ScrollViewNative>(null);
+  const scrollViewRef = useRef<ScrollViewInstance>(null);
   const onTokenPress = useCallback(
     (token: ISwapToken) => {
       if (token.isStock) {

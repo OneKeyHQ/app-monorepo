@@ -1,3 +1,4 @@
+import type { BaseSyntheticEvent } from 'react';
 import {
   memo,
   useCallback,
@@ -455,7 +456,12 @@ function PasswordVerify({
                 onSubmitEditing={
                   confirmBtnDisabled
                     ? undefined
-                    : form.handleSubmit(onInputPasswordAuth)
+                    : (e) =>
+                        // react-hook-form only reads preventDefault/persist
+                        // from the event, which RN events provide too.
+                        form.handleSubmit(onInputPasswordAuth)(
+                          e as unknown as BaseSyntheticEvent,
+                        )
                 }
                 addOns={rightActions}
                 testID="password-input"

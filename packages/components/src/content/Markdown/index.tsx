@@ -38,10 +38,15 @@ const inlineMarkStyles = {
 type IBodyTextSize = ISizableTextProps['size'];
 // A nested SizableText re-applies its size token (font size, line height and
 // weight), so each inline wrapper carries the full style of its ancestors.
-type IInlineTextStyle = Pick<
-  ISizableTextProps,
-  'fontSize' | 'fontStyle' | 'fontWeight' | 'size' | 'textDecorationLine'
->;
+// RN strict style types are readonly; this object is built up locally.
+type IInlineTextStyle = {
+  -readonly [K in
+    | 'fontSize'
+    | 'fontStyle'
+    | 'fontWeight'
+    | 'size'
+    | 'textDecorationLine']?: ISizableTextProps[K];
+};
 type IRenderBlockNode = (
   node: IMarkdownNode,
   bodyTextSize: IBodyTextSize,

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useFocusEffect, useIsFocused } from '@react-navigation/core';
-import { Dimensions, type View } from 'react-native';
+import { Dimensions } from 'react-native';
 
 import { useScrollView } from '@onekeyhq/components';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -12,9 +12,11 @@ import {
 } from '@onekeyhq/shared/src/utils/appVisibility';
 import { PRIME_GIFT_CLAIM_SUCCESS_LINK_SLOT } from '@onekeyhq/shared/types/linkConfig';
 
+import type { ViewInstance } from 'react-native';
+
 const NATIVE_POLL_MS = 300;
 
-type INativeMeasureHost = Pick<View, 'measureInWindow'>;
+type INativeMeasureHost = Pick<ViewInstance, 'measureInWindow'>;
 type IImpressionHost = INativeMeasureHost | Element | null;
 
 function isMeasureHost(value: unknown): value is INativeMeasureHost {

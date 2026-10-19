@@ -1,4 +1,4 @@
-import type { PropsWithChildren } from 'react';
+import type { ComponentProps, PropsWithChildren } from 'react';
 
 import { AppPagerContent } from '@onekeyhq/kit/src/components/AppPager/AppPagerContent';
 
@@ -10,5 +10,11 @@ export function HomeScrollView({
   children,
   style,
 }: PropsWithChildren<ScrollViewProps>) {
-  return <AppPagerContent style={style}>{children}</AppPagerContent>;
+  return (
+    <AppPagerContent
+      style={style as ComponentProps<typeof AppPagerContent>['style']}
+    >
+      {children}
+    </AppPagerContent>
+  );
 }

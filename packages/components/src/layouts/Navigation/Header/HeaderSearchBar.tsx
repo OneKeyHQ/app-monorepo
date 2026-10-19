@@ -11,9 +11,9 @@ import type {
   FocusEvent,
   NativeSyntheticEvent,
   TargetedEvent,
-  TextInputFocusEventData,
-  TextInputSubmitEditingEventData,
+  TextInputSubmitEditingEvent,
 } from 'react-native';
+import type { SearchBarTextEventData } from 'react-native-screens';
 
 type IHeaderSearchBarProps = {
   height?: string;
@@ -28,7 +28,7 @@ type IHeaderSearchBarProps = {
   /**
    * A callback that gets called when the text changes. It receives the current text value of the search bar.
    */
-  onChangeText?: (e: NativeSyntheticEvent<TextInputFocusEventData>) => void;
+  onChangeText?: (e: NativeSyntheticEvent<SearchBarTextEventData>) => void;
   /**
    * A callback that gets called when search bar has received focus
    */
@@ -37,7 +37,7 @@ type IHeaderSearchBarProps = {
    * A callback that gets called when the search button is pressed. It receives the current text value of the search bar.
    */
   onSearchButtonPress?: (
-    e: NativeSyntheticEvent<TextInputFocusEventData>,
+    e: NativeSyntheticEvent<SearchBarTextEventData>,
   ) => void;
   /**
    * Text displayed when search field is empty
@@ -72,7 +72,7 @@ function HeaderSearchBar({
         nativeEvent: {
           text: value,
         },
-      } as NativeSyntheticEvent<TextInputFocusEventData>);
+      } as NativeSyntheticEvent<SearchBarTextEventData>);
     },
     [onChangeText],
   );
@@ -92,8 +92,8 @@ function HeaderSearchBar({
   );
 
   const onSubmitEditingCallback = useCallback(
-    (e: NativeSyntheticEvent<TextInputSubmitEditingEventData>) => {
-      onSearchButtonPress?.(e as NativeSyntheticEvent<TextInputFocusEventData>);
+    (e: TextInputSubmitEditingEvent) => {
+      onSearchButtonPress?.(e as NativeSyntheticEvent<SearchBarTextEventData>);
     },
     [onSearchButtonPress],
   );

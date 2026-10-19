@@ -123,4 +123,5 @@ const logoAsset = require('@onekeyhq/kit/assets/logo.png') as number | string;
 export const ONEKEY_LOGO_URL =
   typeof logoAsset === 'string'
     ? logoAsset
-    : Image.resolveAssetSource(logoAsset).uri;
+    : // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      Image.resolveAssetSource(logoAsset)!.uri;

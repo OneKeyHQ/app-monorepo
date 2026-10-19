@@ -6,7 +6,11 @@
     "jsx": "preserve",
     "lib": ["dom", "esnext", "webworker"],
     "moduleResolution": "bundler",
-    "customConditions": ["react-native", "react-native-legacy-deep-imports"],
+    "paths": {
+      "react-native-webview/src/WebViewShared": [
+        "./@types/react-native-webview-src/WebViewShared.d.ts"
+      ]
+    },
     "noEmit": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,

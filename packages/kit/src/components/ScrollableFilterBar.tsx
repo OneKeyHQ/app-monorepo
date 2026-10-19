@@ -25,7 +25,7 @@ import type {
   LayoutChangeEvent,
   NativeScrollEvent,
   NativeSyntheticEvent,
-  ScrollView as ScrollViewType,
+  ScrollViewInstance,
 } from 'react-native';
 import type { SpaceTokens } from 'tamagui';
 
@@ -113,7 +113,7 @@ function ScrollableFilterBarImpl({
   const [scrollViewWidth, setScrollViewWidth] = useState(0);
   const [contentWidth, setContentWidth] = useState(0);
 
-  const scrollViewRef = useRef<ScrollViewType>(null);
+  const scrollViewRef = useRef<ScrollViewInstance>(null);
   const itemLayoutsRef = useRef<Record<string, { x: number; width: number }>>(
     {},
   );

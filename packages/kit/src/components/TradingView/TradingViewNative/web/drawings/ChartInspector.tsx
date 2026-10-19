@@ -22,7 +22,7 @@ function InspectorButton({
   disabled,
   onClick,
   ...props
-}: Omit<IButtonProps, 'color'> & {
+}: Omit<IButtonProps, 'color' | 'onClick'> & {
   label: string;
   title?: string;
   active?: boolean;

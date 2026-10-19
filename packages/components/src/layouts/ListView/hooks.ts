@@ -12,12 +12,7 @@ export const useSafelyScrollIntoIndex = (
   const isListViewVisible = useRef(false);
   const scrollIntoIndex = useCallback(
     (
-      params: {
-        animated?: boolean | null | undefined;
-        index: number;
-        viewOffset?: number | undefined;
-        viewPosition?: number | undefined;
-      },
+      params: Parameters<IListViewRef<any>['scrollToIndex']>[0],
       retryTimes = 0,
     ) => {
       if (retryTimes > 20) {

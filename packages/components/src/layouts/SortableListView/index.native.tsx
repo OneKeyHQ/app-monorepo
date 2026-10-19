@@ -26,6 +26,7 @@ import type { ISortableListViewProps, ISortableListViewRef } from './types';
 import type { StyleProp, ViewStyle } from 'react-native';
 import type {
   DragEndParams,
+  DraggableFlatListProps,
   RenderItem,
 } from 'react-native-draggable-flatlist';
 
@@ -130,7 +131,8 @@ function BaseSortableListView<T>(
       keyboardDismissMode="on-drag"
       keyboardShouldPersistTaps="handled"
       animationConfig={ANIMATION_CONFIG}
-      {...restProps}
+      // List slots may be `null`, which the list renders the same as `undefined`.
+      {...(restProps as Partial<DraggableFlatListProps<T>>)}
     />
   );
 }

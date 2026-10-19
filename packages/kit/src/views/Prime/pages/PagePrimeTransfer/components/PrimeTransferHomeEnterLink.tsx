@@ -1,3 +1,4 @@
+import type { BaseSyntheticEvent } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import pTimeout from 'p-timeout';
@@ -394,7 +395,11 @@ export function PrimeTransferHomeEnterLink({
               // See: https://stackoverflow.com/questions/54684814/react-native-securetextentry-not-working-on-android
               autoCapitalize="none"
               textTransform="uppercase"
-              onSubmitEditing={form.handleSubmit(onSubmit)}
+              onSubmitEditing={(e) =>
+                // react-hook-form only reads preventDefault/persist from the
+                // event, which RN events provide too.
+                form.handleSubmit(onSubmit)(e as unknown as BaseSyntheticEvent)
+              }
               placeholder="224RU-EZ172-4B483-ZN695-RM9XC-CJ6Z9-MQ67J-ZM3B2-4LXBS-JZP7D"
               addOns={addOns}
             />

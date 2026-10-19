@@ -8,7 +8,7 @@ import type { IOtpInputProps } from './OtpInput.types';
 import type {
   NativeSyntheticEvent,
   TargetedEvent,
-  TextInput,
+  TextInputInstance,
 } from 'react-native';
 
 const regexMap = {
@@ -30,7 +30,7 @@ export const useOtpInput = ({
 }: IOtpInputProps) => {
   const [text, setText] = useState('');
   const [isFocused, setIsFocused] = useState(autoFocus);
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TextInputInstance>(null);
   const focusedInputIndex = text.length;
   const placeholder = useMemo(
     () =>

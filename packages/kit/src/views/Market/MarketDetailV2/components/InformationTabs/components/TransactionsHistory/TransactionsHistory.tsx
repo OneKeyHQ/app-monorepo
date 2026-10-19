@@ -431,7 +431,7 @@ export function TransactionsHistoryBase({
               <Stack p="$4" alignItems="center" gap="$2">
                 <Spinner size="small" />
               </Stack>
-            ) : null
+            ) : undefined
           }
           contentContainerStyle={{
             paddingBottom: platformEnv.isNativeAndroid ? 84 : 16,

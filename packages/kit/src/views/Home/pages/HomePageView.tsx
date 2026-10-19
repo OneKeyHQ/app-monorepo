@@ -110,7 +110,7 @@ import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
 import type { IHomeNativePagerProps } from './HomeNativePager';
-import type { LayoutChangeEvent, View } from 'react-native';
+import type { LayoutChangeEvent, ViewInstance } from 'react-native';
 
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
@@ -584,7 +584,7 @@ export function HomePageView({
     NATIVE_HEADER_HEIGHT_SEED,
   );
   const nativeHeaderAlertsHeightRef = useRef(0);
-  const nativeHeaderRef = useRef<View>(null);
+  const nativeHeaderRef = useRef<ViewInstance>(null);
   const nativeHeaderMeasureGenerationRef = useRef(0);
   const handleFullHeaderLayout = useCallback((event: LayoutChangeEvent) => {
     nativeHeaderMeasureGenerationRef.current += 1;

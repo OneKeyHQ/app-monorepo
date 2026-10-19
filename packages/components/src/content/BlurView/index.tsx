@@ -2,7 +2,6 @@ import type { ForwardedRef } from 'react';
 import { forwardRef, useMemo } from 'react';
 
 import { BlurView as NativeBlurView } from 'expo-blur';
-import { type View as IView, type ViewStyle } from 'react-native';
 
 import {
   usePropsAndStyle,
@@ -14,6 +13,7 @@ import { useThemeName } from '../../hooks/useStyle';
 import { OptimizationView } from '../../optimization';
 
 import type { BlurViewProps } from 'expo-blur';
+import type { ViewInstance, ViewStyle } from 'react-native';
 
 export type IBlurViewPros = Omit<BlurViewProps, 'style' | 'intensity'> &
   StackStyle & {
@@ -66,4 +66,4 @@ function BasicBlurView(
   );
 }
 
-export const BlurView = forwardRef<IView, IBlurViewPros>(BasicBlurView);
+export const BlurView = forwardRef<ViewInstance, IBlurViewPros>(BasicBlurView);

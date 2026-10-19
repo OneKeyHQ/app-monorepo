@@ -9,6 +9,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getFontToken } from '../../utils/getFontSize';
 import { TABULAR_NUMS, getFontVariantStyle } from '../../utils/tabularNums';
 
+import type { StyleProp, TextStyle } from 'react-native';
+
 // Nested text contributes its own line height to the same native paragraph.
 const SingleLineAutoSizeContext = createContext(false);
 
@@ -31,7 +33,7 @@ export function SizableText({
       (props.adjustsFontSizeToFit && props.numberOfLines === 1));
   let mergedStyle = style;
   if (isSingleLineAutoSize) {
-    const flattenedStyle = StyleSheet.flatten(style);
+    const flattenedStyle = StyleSheet.flatten(style as StyleProp<TextStyle>);
     const fontToken = getFontToken(size);
     const lineHeight =
       (typeof flattenedStyle === 'object'
@@ -46,7 +48,7 @@ export function SizableText({
       mergedStyle = {
         ...(typeof flattenedStyle === 'object' ? flattenedStyle : {}),
         lineHeight: (Math.ceil(lineHeight * scale) - 0.5) / scale,
-      };
+      } as typeof style;
     }
   }
   // Tamagui silently drops the RN `fontVariant` prop, so numeric variants

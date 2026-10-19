@@ -88,7 +88,7 @@ import type {
   NativeListSnapshot,
   RowActionEvent,
 } from '@onekeyfe/react-native-native-list';
-import type { View } from 'react-native';
+import type { ViewInstance } from 'react-native';
 
 const NATIVE_LIST_STYLE = StyleSheet.create({
   fill: { flex: 1 },
@@ -444,7 +444,7 @@ function NativeMarketBadgeInfo({
 }
 
 function useNativeMarketBadgeInfo(listRef: RefObject<NativeListRef | null>) {
-  const containerRef = useRef<View>(null);
+  const containerRef = useRef<ViewInstance>(null);
   const [info, setInfo] = useState<IMarketBadgeInfo>();
 
   const close = useCallback(() => {

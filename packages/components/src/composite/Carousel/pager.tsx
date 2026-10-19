@@ -10,7 +10,11 @@ import {
 import { debounce } from 'lodash';
 import { ScrollView } from 'react-native';
 
-import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
+import type {
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  ScrollViewInstance,
+} from 'react-native';
 import type PagerViewType from 'react-native-pager-view';
 import type { PagerViewProps } from 'react-native-pager-view';
 
@@ -33,7 +37,7 @@ export function PagerView({
   disableAnimation?: boolean;
 }) {
   const isWeb = typeof document !== 'undefined';
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<ScrollViewInstance>(null);
   const pageIndex = useRef<number>(initialPage);
   const timerId = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragClickResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(

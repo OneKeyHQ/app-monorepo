@@ -14,10 +14,8 @@ import { NavigationFocusTools } from '../../../utils/NavigationTools';
 import { FreezeProbe } from '../../../utils/RenderTools';
 import useDemoAppNavigation from '../../useDemoAppNavigation';
 
-import type {
-  NativeSyntheticEvent,
-  TextInputChangeEventData,
-} from 'react-native';
+import type { NativeSyntheticEvent } from 'react-native';
+import type { SearchBarTextEventData } from 'react-native-screens';
 
 const DemoRootHomeOptions = () => {
   const intl = useIntl();
@@ -38,7 +36,7 @@ const DemoRootHomeOptions = () => {
           id: ETranslations.explore_search_dapps,
         }),
         inputType: 'text',
-        onChangeText: (event: NativeSyntheticEvent<TextInputChangeEventData>) =>
+        onChangeText: (event: NativeSyntheticEvent<SearchBarTextEventData>) =>
           console.log('onChangeText', event.nativeEvent.text),
       },
     });

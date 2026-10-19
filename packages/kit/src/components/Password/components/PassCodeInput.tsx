@@ -17,7 +17,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { PassCodeRegex } from '../utils';
 
-import type { TextInput } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 
 export const PIN_CELL_COUNT = 6;
 export const AUTO_FOCUS_DELAY_MS = 380;
@@ -50,7 +50,7 @@ function BasicPassCodeInput(
 ) {
   const [pinValue, setPinValue] = useState('');
 
-  const pinInputRef = useRef<TextInput>(null);
+  const pinInputRef = useRef<TextInputInstance>(null);
   const [props, getCellOnLayoutHandler] = useClearByFocusCell({
     value: pinValue,
     setValue: setPinValue,

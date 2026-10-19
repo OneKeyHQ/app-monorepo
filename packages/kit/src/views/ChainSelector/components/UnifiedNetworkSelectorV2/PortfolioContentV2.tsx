@@ -8,10 +8,10 @@ import { AllNetworksManagerContext } from '../AllNetworksManager/AllNetworksMana
 import NetworksSectionListV2 from './NetworksSectionListV2';
 
 import type { IServerNetworkMatch } from '../../types';
-import type { View } from 'react-native';
+import type { ViewInstance } from 'react-native';
 
 type IPortfolioContentPropsV2 = {
-  webSectionIndexContainerRef: RefObject<View | null>;
+  webSectionIndexContainerRef: RefObject<ViewInstance | null>;
   walletId: string;
   accountId: string | undefined;
   indexedAccountId: string | undefined;

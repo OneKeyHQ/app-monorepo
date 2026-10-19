@@ -7,7 +7,7 @@ import type { IElement } from '@onekeyhq/components';
 
 import { useSpotlightScrollPause } from './useSpotlightScrollPause';
 
-import type { View as NativeView } from 'react-native';
+import type { ViewInstance } from 'react-native';
 
 // This opt-in guard measures only on layout/scroll/visibility changes, never
 // on a polling interval. Old tours keep their existing visibility behavior.
@@ -28,7 +28,7 @@ export function useSpotlightAnchorVisibility(
         onMeasured?.(false);
         return;
       }
-      const target = triggerRef.current as NativeView | null;
+      const target = triggerRef.current as ViewInstance | null;
       if (!target) {
         setIsVisible(false);
         onMeasured?.(false);

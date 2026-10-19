@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { type View, findNodeHandle } from 'react-native';
+import { findNodeHandle } from 'react-native';
 
 import {
   DelayedFreeze,
@@ -58,6 +58,7 @@ import {
 } from './utils';
 
 import type { ILiquidityFilter, IMarketCategoryItem } from './types';
+import type { ViewInstance } from 'react-native';
 
 markMarketPerf('market-home-module-eval');
 preloadMarketHomeTokenListSeed();
@@ -423,10 +424,10 @@ function BaseMarketHome() {
   const scrollEdgeHeaderEnabled = Boolean(
     platformEnv.isNativeIOS && searchGlassActive,
   );
-  const headerRef = useRef<View>(null);
+  const headerRef = useRef<ViewInstance>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
   const [headerTag, setHeaderTag] = useState(0);
-  const handleHeaderRef = useCallback((view: View | null) => {
+  const handleHeaderRef = useCallback((view: ViewInstance | null) => {
     headerRef.current = view;
     if (view === null) {
       setHeaderTag(0);

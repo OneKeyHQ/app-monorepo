@@ -1,0 +1,42 @@
+diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.types.d.ts b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.types.d.ts
+index ce1ba74..a5975d5 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.types.d.ts
++++ b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/NativeList.types.d.ts
+@@ -1,6 +1,6 @@
+ import type { ScrollEdgeEffect } from './ScrollEdgeEffect';
+ import type { ReactNode, RefObject } from 'react';
+-import type { View, ViewProps } from 'react-native';
++import type { ViewInstance, ViewProps } from 'react-native';
+ import type { ActionAnchorInvalidatedEvent, EndReachedEvent, NativeListSnapshot, ReorderEvent, RowActionEvent, RowModel, RowPatch, SelectionDeltaEvent, VisibleRangeChangedEvent } from './models';
+ export type ActionAnchorState = Readonly<{
+     token: string;
+@@ -97,7 +97,7 @@ export type NativeListProps = Omit<ViewProps, 'children'> & Readonly<{
+     /** Web only: visible sticky chrome above the parent's list viewport. */
+     webStickyInset?: number;
+     /** Web only. Hosts the section index inside this container. */
+-    webSectionIndexContainerRef?: RefObject<View | null>;
++    webSectionIndexContainerRef?: RefObject<ViewInstance | null>;
+     /** Defaults to `none`. `interactive` behaves as `none` on Android. */
+     keyboardDismissMode?: NativeListKeyboardDismissMode;
+     /**
+diff --git a/node_modules/@onekeyfe/react-native-native-list/src/NativeList.types.ts b/node_modules/@onekeyfe/react-native-native-list/src/NativeList.types.ts
+index 599a206..da0c68b 100644
+--- a/node_modules/@onekeyfe/react-native-native-list/src/NativeList.types.ts
++++ b/node_modules/@onekeyfe/react-native-native-list/src/NativeList.types.ts
+@@ -1,6 +1,6 @@
+ import type { ScrollEdgeEffect } from './ScrollEdgeEffect';
+ import type { ReactNode, RefObject } from 'react';
+-import type { View, ViewProps } from 'react-native';
++import type { ViewInstance, ViewProps } from 'react-native';
+ import type {
+   ActionAnchorInvalidatedEvent,
+   EndReachedEvent,
+@@ -142,7 +142,7 @@ export type NativeListProps = Omit<ViewProps, 'children'> &
+     /** Web only: visible sticky chrome above the parent's list viewport. */
+     webStickyInset?: number;
+     /** Web only. Hosts the section index inside this container. */
+-    webSectionIndexContainerRef?: RefObject<View | null>;
++    webSectionIndexContainerRef?: RefObject<ViewInstance | null>;
+     /** Defaults to `none`. `interactive` behaves as `none` on Android. */
+     keyboardDismissMode?: NativeListKeyboardDismissMode;
+     /**

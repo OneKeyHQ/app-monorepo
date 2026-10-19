@@ -14,7 +14,6 @@ import {
 
 import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { type TextInput } from 'react-native';
 
 import {
   Button,
@@ -38,6 +37,8 @@ import {
   OnboardingPage,
   OnboardingSidebar,
 } from './Layout';
+
+import type { TextInputInstance } from 'react-native';
 
 interface IPinInputLayoutProps {
   title: string;
@@ -97,7 +98,7 @@ const PinInputLayout = forwardRef<IPinInputLayoutRef, IPinInputLayoutProps>(
     ref,
   ) => {
     const intl = useIntl();
-    const inputRef = useRef<TextInput>(null);
+    const inputRef = useRef<TextInputInstance>(null);
     const { gtMd } = useMedia();
     const prevShowInputSkeletonRef = useRef(showInputSkeleton);
 

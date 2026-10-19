@@ -35,10 +35,8 @@ import {
 } from '../../../states/jotai/contexts/tokenList';
 
 import type { RouteProp } from '@react-navigation/core';
-import type {
-  NativeSyntheticEvent,
-  TextInputFocusEventData,
-} from 'react-native';
+import type { NativeSyntheticEvent } from 'react-native';
+import type { SearchBarTextEventData } from 'react-native-screens';
 
 function TokenList() {
   const navigation = useAppNavigation();
@@ -169,7 +167,7 @@ function TokenList() {
           tokens.length >= ENABLE_SEARCH_TOKEN_LIST_MIN_LENGTH
             ? {
                 onChangeText: debounce(
-                  (e: NativeSyntheticEvent<TextInputFocusEventData>) =>
+                  (e: NativeSyntheticEvent<SearchBarTextEventData>) =>
                     updateSearchKey(e.nativeEvent.text),
                   SEARCH_DEBOUNCE_INTERVAL,
                 ),
