@@ -71,7 +71,7 @@ jobs:
   private-fonts:
     uses: ./.github/workflows/private-fonts.yml
     secrets:
-      PRIVATE_FONTS_APP_PRIVATE_KEY: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
+      PRIVATE_FONTS_TOKEN: ${{ secrets.PRIVATE_FONTS_TOKEN }}
       PRIVATE_FONTS_ARTIFACT_KEY: ${{ secrets.PRIVATE_FONTS_ARTIFACT_KEY }}
 
   # ──────────────────────────────────────────────────
@@ -85,7 +85,7 @@ jobs:
       source_ref_name: ${{ github.event.inputs.source_ref_name || github.ref_name }}
       ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
     secrets:
-      PRIVATE_FONTS_APP_PRIVATE_KEY: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
+      PRIVATE_FONTS_TOKEN: ${{ secrets.PRIVATE_FONTS_TOKEN }}
       PRIVATE_FONTS_ARTIFACT_KEY: ${{ secrets.PRIVATE_FONTS_ARTIFACT_KEY }}
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
       SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}

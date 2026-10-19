@@ -124,21 +124,24 @@ export const brandFontManifest = {
 新建私有仓库 **`OneKeyHQ/app-private-fonts`**（建议），内容：Roobert 4 个字重 + 授权凭证副本（内部存档）。
 相比私有 npm 包：无需额外 registry 配置；相比 git submodule：开源用户 clone 时不会出现无法访问的子模块报错。
 
-访问凭据：GitHub App，不使用长期 PAT。
+访问凭据：fine-grained personal access token（PAT）。
 
-- 组织管理员创建一个 GitHub App，只授予 Repository permissions → Contents: Read-only，只安装到 `app-private-fonts`。
-- app-monorepo 配置：变量 `vars.PRIVATE_FONTS_APP_ID`，secret `secrets.PRIVATE_FONTS_APP_PRIVATE_KEY`，以及 secret `secrets.PRIVATE_FONTS_ARTIFACT_KEY`（用 `openssl rand -hex 32` 生成）。
+- 创建一个 fine-grained PAT：Resource owner 选 OneKeyHQ，Repository access 选 Only select repositories → `app-private-fonts`，
+  Repository permissions 只给 Contents: Read-only。如果组织要求审批 fine-grained PAT，需要 owner 批准。
+- PAT 绑定在创建者个人账号上：账号离职、失效或 token 过期都会导致发布构建失败。需要指定负责人，并在过期前轮换。
+- 没有采用 GitHub App：创建 App 需要 org owner 权限，配置项也更多；PAT 只在 `private-fonts` job 中使用，长期有效带来的风险可以接受。
+- app-monorepo 配置两个 Actions secret：`PRIVATE_FONTS_TOKEN`（上面的 PAT），以及 `PRIVATE_FONTS_ARTIFACT_KEY`（用 `openssl rand -hex 32` 生成）。
 - 每个发布 workflow 新增一个 `private-fonts` job（可复用 workflow `.github/workflows/private-fonts.yml`），这个 job **不运行任何仓库代码**：
-  - 只稀疏检出 workflow 自身提交（`github.sha`）上的 `brand.lock.json`，**从不读取 PR 或调用方传入的 ref**，所以 PR 无法改变 App token 读取私有仓库中的哪些文件；
+  - 只稀疏检出 workflow 自身提交（`github.sha`）上的 `brand.lock.json`，**从不读取 PR 或调用方传入的 ref**，所以 PR 无法改变 token 读取私有仓库中的哪些文件；
   - 路径还限定为 `fonts/*.ttf`；
-  - 用固定 SHA 的 `actions/create-github-app-token` 生成仅 `contents:read` 的 token，下载 4 个文件、校验 sha256 后立即撤销 token。
+  - 用 `PRIVATE_FONTS_TOKEN` 下载 4 个文件并校验 sha256。
 - 本仓库是公开的：artifact 任何登录用户都能下载，步骤日志（包括每个 step 的 `env:`）也公开。所以字体用 secret
   `PRIVATE_FONTS_ARTIFACT_KEY`（64 位 hex，日志中自动打码）做 AES-256-GCM 加密后，作为保留 1 天的 artifact 上传。
   不使用"一次性密钥 + job output"的方式，因为 output 作为普通 env 传入下一个 step 时会被明文打印到日志里。
 - 构建 job `needs: private-fonts`，在 checkout 之后下载 artifact，用同一个 secret 解密到 `$RUNNER_TEMP`，
   再通过 `ONEKEY_PRIVATE_FONTS_DIR` 交给 `fonts:sync`，按本 job 检出的 lock 再校验一次。
   若 PR 修改了 lock，校验会失败，这类构建无法使用私有字体。
-- **App 私钥只出现在 `private-fonts` job 中。** 任何 job 引用的 secret 都会进入该 job 的 runner 进程内存，同 job 内运行的代码可能读取。
+- **`PRIVATE_FONTS_TOKEN` 只出现在 `private-fonts` job 中。** 任何 job 引用的 secret 都会进入该 job 的 runner 进程内存，同 job 内运行的代码可能读取。
   构建 job 只持有 artifact 密钥：它只能解密字体 artifact，不能访问私有仓库。即使泄露，暴露范围也只是这些字体（构建 job 本来就能拿到），轮换这个 secret 即可。
 - `workflow_run` 触发的 workflow 中，上游失败时 `private-fonts` 不运行，避免无意义地生成 token。
 - `release-app-bundles` 按 PR 构建时，`validate-pr` 只放行同仓库 PR 和 `TRUSTED_PR_AUTHORS` 白名单作者的 fork PR，
@@ -147,7 +150,7 @@ export const brandFontManifest = {
   fork PR 还要通过 "Attest fork PR commits"：PR 的每个 commit 都必须有 GitHub 验证通过的签名，作者和提交者必须是 PR 作者、
   白名单账号或对主仓库有 write 以上权限的成员（GitHub 网页提交的 `web-flow` 提交者除外），且最后一个 commit 等于已锁定的 head SHA。
   这样能防止 fork 的其他协作者推送的代码拿到字体和其他 secret。
-- App 未配置时这两步自动跳过，发布构建会因 `ONEKEY_REQUIRE_PRIVATE_FONTS=1` 失败。
+- 两个 secret 未配置时，`private-fonts` 只打警告并跳过下载，发布构建随后会因 `ONEKEY_REQUIRE_PRIVATE_FONTS=1` 失败。
 
 ## 4. CI / 发布流水线
 
@@ -160,7 +163,7 @@ export const brandFontManifest = {
 | `metro-dev-prebundle.yml`、`web-embed-prebundle.yml` | 产物发布为**公开** GHCR 包，因此强制 `ONEKEY_FONTS_FORCE_FALLBACK=1`，永远不含 Roobert。`brand/manifest.ts` 计入 metro dev vendor 指纹，本地装了 Roobert 的开发者不会复用 Inter 版预构建包 |
 | 来自 fork 的 PR | 拿不到 secret，自动 fallback，不受影响 |
 
-**合并前置条件**：GitHub App 必须先配置好，否则合并后所有发布构建都会失败（仓库内已无 Roobert）。
+**合并前置条件**：`PRIVATE_FONTS_TOKEN` 和 `PRIVATE_FONTS_ARTIFACT_KEY` 必须先配置好，否则合并后所有发布构建都会失败（仓库内已无 Roobert）。
 
 再加一道运行时保险：在正式包里，若 `brandFontManifest.source !== 'private'`，启动时上报 Sentry 告警（不阻断用户）。
 
@@ -195,7 +198,7 @@ export const brandFontManifest = {
 1. **fallback 字体选型**：Inter（覆盖语言最广，有 `tnum`）或 Geist Sans（与已用的 Geist Mono 同源，同为 OFL）。需要对比数字等宽、行高，避免截断。
 2. **授权范围**：公司持有的 Roobert 授权是否覆盖 App 嵌入 + Web（app.onekey.so 以 Web 字体形式对外提供 `.ttf`，通常需要单独的 Web license）+ 浏览器扩展。
 3. **槽位文件名**：构建产物中把 Roobert 文件以 `BrandSans-*.ttf` 存放（不修改字体数据和内部名称），需法务确认不属于授权条款中的 "rename"。若不接受，iOS 改为由 Podfile 动态写入 `UIAppFonts`，代价是每次 `pod install` 修改 Info.plist / pbxproj。
-4. GitHub App 的创建与私钥轮换负责人。
+4. `PRIVATE_FONTS_TOKEN`（PAT）的创建与过期前轮换负责人。
 
 ## 9. 实施拆分（建议按 PR 顺序）
 

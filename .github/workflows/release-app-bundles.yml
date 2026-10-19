@@ -38,7 +38,7 @@ jobs:
     if: ${{ !cancelled() && !failure() }}
     uses: ./.github/workflows/private-fonts.yml
     secrets:
-      PRIVATE_FONTS_APP_PRIVATE_KEY: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
+      PRIVATE_FONTS_TOKEN: ${{ secrets.PRIVATE_FONTS_TOKEN }}
       PRIVATE_FONTS_ARTIFACT_KEY: ${{ secrets.PRIVATE_FONTS_ARTIFACT_KEY }}
 
   validate-pr:
@@ -466,7 +466,7 @@ jobs:
       commit: ${{ needs.prepare-params.outputs.commit }}
       checkout_ref: ${{ needs.prepare-params.outputs.commit }}
     secrets:
-      PRIVATE_FONTS_APP_PRIVATE_KEY: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
+      PRIVATE_FONTS_TOKEN: ${{ secrets.PRIVATE_FONTS_TOKEN }}
       PRIVATE_FONTS_ARTIFACT_KEY: ${{ secrets.PRIVATE_FONTS_ARTIFACT_KEY }}
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
       SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
@@ -504,7 +504,7 @@ jobs:
       commit: ${{ needs.prepare-params.outputs.commit }}
       checkout_ref: ${{ needs.prepare-params.outputs.commit }}
     secrets:
-      PRIVATE_FONTS_APP_PRIVATE_KEY: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
+      PRIVATE_FONTS_TOKEN: ${{ secrets.PRIVATE_FONTS_TOKEN }}
       PRIVATE_FONTS_ARTIFACT_KEY: ${{ secrets.PRIVATE_FONTS_ARTIFACT_KEY }}
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
       JPUSH_KEY: ${{ secrets.JPUSH_KEY }}
@@ -541,7 +541,7 @@ jobs:
       commit: ${{ needs.prepare-params.outputs.commit }}
       checkout_ref: ${{ needs.prepare-params.outputs.commit }}
     secrets:
-      PRIVATE_FONTS_APP_PRIVATE_KEY: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
+      PRIVATE_FONTS_TOKEN: ${{ secrets.PRIVATE_FONTS_TOKEN }}
       PRIVATE_FONTS_ARTIFACT_KEY: ${{ secrets.PRIVATE_FONTS_ARTIFACT_KEY }}
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
       JPUSH_KEY: ${{ secrets.JPUSH_KEY }}
@@ -575,7 +575,7 @@ jobs:
       skip_pages_deploy: true
       test_endpoint: app-bundle.onekeytest.com
     secrets:
-      PRIVATE_FONTS_APP_PRIVATE_KEY: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
+      PRIVATE_FONTS_TOKEN: ${{ secrets.PRIVATE_FONTS_TOKEN }}
       PRIVATE_FONTS_ARTIFACT_KEY: ${{ secrets.PRIVATE_FONTS_ARTIFACT_KEY }}
       COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
       SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}

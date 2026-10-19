@@ -37,7 +37,7 @@ on:
         description: "App version from package.json"
         value: ${{ jobs.build-renderer.outputs.build_app_version }}
     secrets:
-      PRIVATE_FONTS_APP_PRIVATE_KEY:
+      PRIVATE_FONTS_TOKEN:
         required: false
       PRIVATE_FONTS_ARTIFACT_KEY:
         required: false
@@ -77,7 +77,7 @@ jobs:
   private-fonts:
     uses: ./.github/workflows/private-fonts.yml
     secrets:
-      PRIVATE_FONTS_APP_PRIVATE_KEY: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
+      PRIVATE_FONTS_TOKEN: ${{ secrets.PRIVATE_FONTS_TOKEN }}
       PRIVATE_FONTS_ARTIFACT_KEY: ${{ secrets.PRIVATE_FONTS_ARTIFACT_KEY }}
 
   build-renderer:

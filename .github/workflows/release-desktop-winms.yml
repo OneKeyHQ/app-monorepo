@@ -23,7 +23,7 @@ jobs:
   private-fonts:
     uses: ./.github/workflows/private-fonts.yml
     secrets:
-      PRIVATE_FONTS_APP_PRIVATE_KEY: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
+      PRIVATE_FONTS_TOKEN: ${{ secrets.PRIVATE_FONTS_TOKEN }}
       PRIVATE_FONTS_ARTIFACT_KEY: ${{ secrets.PRIVATE_FONTS_ARTIFACT_KEY }}
 
   release-desktop-winms:

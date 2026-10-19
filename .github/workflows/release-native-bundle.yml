@@ -51,7 +51,7 @@ on:
         required: false
         default: ''
     secrets:
-      PRIVATE_FONTS_APP_PRIVATE_KEY:
+      PRIVATE_FONTS_TOKEN:
         required: false
       PRIVATE_FONTS_ARTIFACT_KEY:
         required: false
@@ -125,7 +125,7 @@ jobs:
     if: ${{ !github.event.workflow_run || github.event.workflow_run.conclusion == 'success' }}
     uses: ./.github/workflows/private-fonts.yml
     secrets:
-      PRIVATE_FONTS_APP_PRIVATE_KEY: ${{ secrets.PRIVATE_FONTS_APP_PRIVATE_KEY }}
+      PRIVATE_FONTS_TOKEN: ${{ secrets.PRIVATE_FONTS_TOKEN }}
       PRIVATE_FONTS_ARTIFACT_KEY: ${{ secrets.PRIVATE_FONTS_ARTIFACT_KEY }}
 
   # Compute BUILD_BUNDLE_VERSION ONCE for the run so the iOS and Android
