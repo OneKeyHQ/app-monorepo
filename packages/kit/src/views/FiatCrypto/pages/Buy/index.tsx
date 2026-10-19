@@ -208,7 +208,9 @@ const BuyPage = () => {
     [activeTab, handleTabChange, segmentOptions],
   );
 
-  const buyListHeader = bannerTarget ? (
+  // Native iOS only (the only platform with native buy orders): a stable
+  // header element whose content follows the order state.
+  const buyListHeader = platformEnv.isNativeIOS ? (
     <OrdersBanner target={bannerTarget} onPress={handleBannerPress} />
   ) : undefined;
   const buyContent = isBuyBlockedByBotWallet ? (

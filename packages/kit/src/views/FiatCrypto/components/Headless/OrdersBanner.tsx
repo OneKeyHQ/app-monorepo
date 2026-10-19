@@ -37,14 +37,19 @@ export function getOrdersBannerTarget({
 }
 
 // First row of the Buy tab list (scrolls with it; the search bar stays put).
+// Renders nothing for a null target but stays mounted as the list header, so
+// the header element never flips between null and an element.
 export function OrdersBanner({
   target,
   onPress,
 }: {
-  target: IOrdersBannerTarget;
+  target: IOrdersBannerTarget | null;
   onPress: (target: IOrdersBannerTarget) => void;
 }) {
   const intl = useIntl();
+  if (!target) {
+    return null;
+  }
   const isFailed =
     target.kind === 'order' &&
     target.order.status === EHeadlessBuyOrderStatus.Failed;

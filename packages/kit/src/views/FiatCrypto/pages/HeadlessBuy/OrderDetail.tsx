@@ -294,6 +294,9 @@ function HeadlessBuyOrderDetailPage() {
                   impliedPrice={pricing.impliedPrice}
                   providerName={order.providerName}
                   size="$bodyMdMedium"
+                  label={intl.formatMessage({
+                    id: ETranslations.swap_history_detail_rate,
+                  })}
                 />
               ) : null}
               {order.providerName ? (

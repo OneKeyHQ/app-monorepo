@@ -307,7 +307,22 @@ export function TokenList({
               <ListItemFiatToken item={item} type={type} onPress={onPress} />
             )}
             keyExtractor={keyExtractor}
-            ListHeaderComponent={text ? null : (listHeader ?? null)}
+            // The header element stays mounted and only its content toggles:
+            // FlashList keeps the first visible row in place when content is
+            // prepended (maintainVisibleContentPosition), which would leave a
+            // header swapped in from null scrolled out of view. With the
+            // autoscroll threshold, a list resting at the top follows the
+            // banner back up instead.
+            ListHeaderComponent={
+              listHeader ? <Stack>{text ? null : listHeader}</Stack> : null
+            }
+            // minIndexForVisible only satisfies the FlatList-shaped prop type;
+            // FlashList reads the threshold alone.
+            maintainVisibleContentPosition={
+              listHeader
+                ? { minIndexForVisible: 0, autoscrollToTopThreshold: 80 }
+                : undefined
+            }
             ListFooterComponent={<Stack h={bottom || '$2'} />}
             ListEmptyComponent={
               <Empty

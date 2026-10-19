@@ -20,23 +20,27 @@ export function RateRow({
   providerName,
   size = '$bodyMd',
   py,
+  // The review card is still English-only pending its i18n pass; localized
+  // surfaces (order detail) pass their own label so each page stays uniform.
+  label = 'Rate',
 }: {
   tokenSymbol: string;
   impliedPrice?: number;
   providerName?: string;
   size?: '$bodyMd' | '$bodyMdMedium';
   py?: '$2';
+  label?: string;
 }) {
   const providerLabel = providerName
     ? getProviderDisplayName(providerName)
     : 'the provider';
   return (
-    <DetailRow label="Rate" py={py}>
+    <DetailRow label={label} py={py}>
       {impliedPrice === undefined ? (
         <Skeleton.BodyMd />
       ) : (
         <Popover
-          title="Rate"
+          title={label}
           renderTrigger={
             <XStack ai="center" gap="$1" cursor="pointer">
               <SizableText size={size}>
