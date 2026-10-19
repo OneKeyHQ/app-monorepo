@@ -66,6 +66,8 @@ import {
   useEarnPendingTxsSharedMeta,
   useStakingPendingTxsByInfo,
 } from './hooks/useStakingPendingTxs';
+import { PoolsNavigation } from './pools/poolsNavigation';
+import { usePoolsPortfolioFiat } from './pools/usePoolsPortfolio';
 
 import type { IEarnBorrowPagerViewRef } from './components/EarnBorrowPagerView';
 import type { IStakePendingTx } from './hooks/useStakingPendingTxs';
@@ -321,6 +323,9 @@ function BasicEarnHome({
 
     return total.toFixed();
   }, [hideSmallAssets, portfolioData]);
+
+  // Pools demo: LP positions count in the totals like any other protocol
+  const poolsFiat = usePoolsPortfolioFiat();
 
   const displayTotalFiatValue = useMemo(() => {
     if (filteredTotalFiatValue !== undefined || !hasPortfolioRows) {
@@ -684,6 +689,10 @@ function BasicEarnHome({
     EarnNavigation.pushToEarnAllProtocols(navigation);
   }, [navigation]);
 
+  const handleOpenPools = useCallback(() => {
+    PoolsNavigation.pushPools(navigation);
+  }, [navigation]);
+
   // const [tabPageHeight, setTabPageHeight] = useState(
   //   platformEnv.isNativeIOS ? 143 : 92,
   // );
@@ -720,11 +729,14 @@ function BasicEarnHome({
           isPullRefreshing={isManualRefreshing}
           displayTotalFiatValue={displayTotalFiatValue}
           displayEarnings24h={displayEarnings24h}
+          extraFiatValue={poolsFiat.valueFiat}
+          extraEarnings24h={poolsFiat.fees24hFiat}
           onRefresh={refreshEarnData}
           onOpenBorrow={handleOpenBorrowHome}
           onOpenPortfolio={handleOpenPortfolio}
           onOpenTokens={handleOpenTokens}
           onOpenProtocols={handleOpenAllProtocols}
+          onOpenPools={handleOpenPools}
           // OK-60606: withholding the handler is what matters, not making it
           // a no-op. HeaderScrollGestureWrapper only builds its horizontal pan
           // when a handler exists, and that pan is Race'd rather than
@@ -790,6 +802,8 @@ function BasicEarnHome({
                     isLoading={isOverviewRefreshing}
                     displayTotalFiatValue={displayTotalFiatValue}
                     displayEarnings24h={displayEarnings24h}
+                    extraFiatValue={poolsFiat.valueFiat}
+                    extraEarnings24h={poolsFiat.fees24hFiat}
                   />
                 </XStack>
               </YStack>

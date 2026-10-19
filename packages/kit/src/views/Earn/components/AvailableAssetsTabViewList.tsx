@@ -36,6 +36,15 @@ import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
 import { parseFormattedLiquidityValue } from '../earnUtils';
 import { useNavigateToEarnAsset } from '../hooks/useNavigateToEarnAsset';
+import { PoolsDemoMenuButton } from '../pools/components/PoolsDemoMenuButton';
+import { PoolsFilterButton } from '../pools/components/PoolsFilterButton';
+import { PoolsTable } from '../pools/components/PoolsTable';
+import {
+  EMPTY_POOLS_FILTER,
+  filterPools,
+  getPoolNetworkCounts,
+} from '../pools/poolsFilter';
+import { PoolsNavigation } from '../pools/poolsNavigation';
 import { EarnTestIDs } from '../testIDs';
 
 import { AprText } from './AprText';
@@ -44,6 +53,7 @@ import { EarnMobileSortControl } from './EarnMobileSortControl';
 import { NetworkFilterControl } from './NetworkFilterControl';
 
 import type { IEarnSortDirection } from './EarnMobileSortControl';
+import type { IPoolsFilter } from '../pools/poolsFilter';
 
 // Earn's outer and inner tab bars share a scroll context on non-native
 // surfaces. Keep the inner category bar in normal flow so it cannot compete
@@ -79,10 +89,16 @@ export function AvailableAssetsTabViewList({
     [intl],
   );
 
+  // Pools sits after Staking as its own pill (demo); its rows are LP pools,
+  // not earn assets, so it renders its own table below
+  const poolsTabName = intl.formatMessage({ id: ETranslations.global_pools });
   const TabNames = useMemo(() => {
-    return tabData.map((item) => item.title);
-  }, [tabData]);
+    return [...tabData.map((item) => item.title), poolsTabName];
+  }, [poolsTabName, tabData]);
   const focusedTab = useSharedValue(TabNames[0]);
+  const isPoolsTab = selectedTabIndex === tabData.length;
+  const [poolsFilter, setPoolsFilter] =
+    useState<IPoolsFilter>(EMPTY_POOLS_FILTER);
   const selectedTabType = tabData[selectedTabIndex]?.type;
   const isFixedRateTab = selectedTabType === EAvailableAssetsTypeEnum.FixedRate;
   const showMobileSortControl =
@@ -164,8 +180,48 @@ export function AvailableAssetsTabViewList({
     shouldApplyNetworkFilter,
   ]);
 
+  const { result: poolList, isLoading: isPoolListLoading } = usePromiseResult(
+    () =>
+      isPoolsTab && isActive
+        ? backgroundApiProxy.servicePools.getPoolList()
+        : Promise.resolve(undefined),
+    [isActive, isPoolsTab],
+    { watchLoading: true },
+  );
+
+  const pools = useMemo(
+    () =>
+      filterPools({
+        pools: poolList ?? [],
+        filter: poolsFilter,
+        networkIds: shouldApplyNetworkFilter ? selectedNetworkIds : [],
+        search: searchText,
+      }),
+    [
+      poolList,
+      poolsFilter,
+      searchText,
+      selectedNetworkIds,
+      shouldApplyNetworkFilter,
+    ],
+  );
+
+  const handlePoolPress = useCallback(
+    (pool: { id: string }) => {
+      PoolsNavigation.pushPoolDetails(navigation, pool.id);
+    },
+    [navigation],
+  );
+
   // Compute available network IDs for the current tab
   const { availableNetworkIds, networkAssetCounts } = useMemo(() => {
+    if (isPoolsTab) {
+      const counts = getPoolNetworkCounts(poolList ?? []);
+      return {
+        availableNetworkIds: Object.keys(counts),
+        networkAssetCounts: counts,
+      };
+    }
     const source = selectedTabType
       ? availableAssetsByType[selectedTabType] || []
       : [];
@@ -183,7 +239,7 @@ export function AvailableAssetsTabViewList({
       availableNetworkIds: Object.keys(counts),
       networkAssetCounts: counts,
     };
-  }, [availableAssetsByType, selectedTabType]);
+  }, [availableAssetsByType, isPoolsTab, poolList, selectedTabType]);
 
   const handleNetworkFilterChange = useCallback((networkIds: string[]) => {
     setSelectedNetworkIds(networkIds);
@@ -257,14 +313,14 @@ export function AvailableAssetsTabViewList({
   // Handle tab change
   const handleTabChange = useCallback(
     (name: string) => {
-      const index = tabData.findIndex((item) => item.title === name);
+      const index = TabNames.indexOf(name);
       if (index !== -1) {
         focusedTab.value = name;
         setSelectedTabIndex(index);
         setSelectedNetworkIds([]);
       }
     },
-    [focusedTab, tabData],
+    [TabNames, focusedTab],
   );
 
   const columns: ITableColumn<IEarnAvailableAsset>[] = useMemo(() => {
@@ -488,7 +544,9 @@ export function AvailableAssetsTabViewList({
   // Memoize ListEmptyComponent
   const listEmptyComponent = useMemo(
     () =>
-      searchText || shouldApplyNetworkFilter ? (
+      searchText ||
+      shouldApplyNetworkFilter ||
+      (isPoolsTab && poolsFilter !== EMPTY_POOLS_FILTER) ? (
         <Empty
           icon="SearchOutline"
           title={intl.formatMessage({
@@ -496,7 +554,7 @@ export function AvailableAssetsTabViewList({
           })}
         />
       ) : null,
-    [searchText, shouldApplyNetworkFilter, intl],
+    [searchText, shouldApplyNetworkFilter, isPoolsTab, poolsFilter, intl],
   );
 
   // Pre-fetch all categories and open search dialog
@@ -594,7 +652,11 @@ export function AvailableAssetsTabViewList({
             iconSize="$5"
             loading={searchLoading}
             disabled={searchLoading}
-            onPress={handleMobileSearchPress}
+            onPress={
+              isPoolsTab
+                ? () => PoolsNavigation.pushPools(navigation)
+                : handleMobileSearchPress
+            }
           />
         )}
       </XStack>
@@ -609,6 +671,18 @@ export function AvailableAssetsTabViewList({
         />
         {media.gtMd ? (
           <XStack ai="center" gap="$3">
+            {isPoolsTab ? (
+              <PoolsFilterButton
+                testID="earn-pools-filter"
+                value={poolsFilter}
+                onChange={setPoolsFilter}
+                showCategory
+              />
+            ) : null}
+            {/* Demo controls; on phones they sit in the Pools page header */}
+            {isPoolsTab ? (
+              <PoolsDemoMenuButton testID="earn-pools-demo-menu-list" />
+            ) : null}
             <NetworkFilterControl
               availableNetworkIds={availableNetworkIds}
               selectedNetworkIds={selectedNetworkIds}
@@ -638,20 +712,29 @@ export function AvailableAssetsTabViewList({
           />
         ) : null}
 
-        <TableList<IEarnAvailableAsset>
-          key={`assets-tab-${selectedTabIndex}`}
-          data={assets ?? []}
-          columns={columns}
-          keyExtractor={keyExtractor}
-          withHeader={platformEnv.isNative ? false : media.gtMd}
-          sortKey={sortKey}
-          sortDirection={sortDirection}
-          onSortChange={handleSortChange}
-          onPressRow={onPressRow}
-          mobileRenderItem={mobileRenderItem}
-          enableDrillIn
-          ListEmptyComponent={listEmptyComponent}
-        />
+        {isPoolsTab ? (
+          <PoolsTable
+            pools={pools}
+            isLoading={isPoolListLoading && !poolList}
+            onPressPool={handlePoolPress}
+            ListEmptyComponent={listEmptyComponent}
+          />
+        ) : (
+          <TableList<IEarnAvailableAsset>
+            key={`assets-tab-${selectedTabIndex}`}
+            data={assets ?? []}
+            columns={columns}
+            keyExtractor={keyExtractor}
+            withHeader={platformEnv.isNative ? false : media.gtMd}
+            sortKey={sortKey}
+            sortDirection={sortDirection}
+            onSortChange={handleSortChange}
+            onPressRow={onPressRow}
+            mobileRenderItem={mobileRenderItem}
+            enableDrillIn
+            ListEmptyComponent={listEmptyComponent}
+          />
+        )}
       </YStack>
     </YStack>
   );

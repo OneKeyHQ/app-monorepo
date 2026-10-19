@@ -11,6 +11,14 @@ export enum ETabEarnRoutes {
   EarnProtocolDetailsShare = 'EarnProtocolDetailsShare',
   BorrowReserveDetails = 'BorrowReserveDetails',
   BorrowReserveDetailsShare = 'BorrowReserveDetailsShare',
+  // Pools (Uniswap LP) demo
+  EarnPools = 'EarnPools',
+  EarnPoolDetails = 'EarnPoolDetails',
+  EarnPoolAddLiquidity = 'EarnPoolAddLiquidity',
+  EarnPoolPosition = 'EarnPoolPosition',
+  EarnPoolRemoveLiquidity = 'EarnPoolRemoveLiquidity',
+  EarnPoolsExit = 'EarnPoolsExit',
+  EarnPoolTask = 'EarnPoolTask',
 }
 
 export type ITabEarnParamList = {
@@ -79,4 +87,18 @@ export type ITabEarnParamList = {
     accountId?: string;
     indexedAccountId?: string;
   };
+  [ETabEarnRoutes.EarnPools]: undefined;
+  [ETabEarnRoutes.EarnPoolDetails]: { poolId: string };
+  [ETabEarnRoutes.EarnPoolAddLiquidity]: {
+    poolId: string;
+    /** Adds to this range position; its range is fixed */
+    positionId?: string;
+  };
+  [ETabEarnRoutes.EarnPoolPosition]: { positionId: string };
+  [ETabEarnRoutes.EarnPoolRemoveLiquidity]: { positionId: string };
+  [ETabEarnRoutes.EarnPoolsExit]: {
+    networkId?: string;
+    positionIds?: string[];
+  };
+  [ETabEarnRoutes.EarnPoolTask]: { taskId: string };
 };

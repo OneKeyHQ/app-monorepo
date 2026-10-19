@@ -438,6 +438,18 @@ export class SimpleDb {
     return value;
   }
 
+  get poolsDemo() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@poolsDemo',
+      loader: () =>
+        import('../entity/SimpleDbEntityPoolsDemo').then(
+          ({ SimpleDbEntityPoolsDemo }) => new SimpleDbEntityPoolsDemo(),
+        ),
+    });
+    Object.defineProperty(this, 'poolsDemo', { value });
+    return value;
+  }
+
   get universalSearch() {
     const value = createLazyServiceProxy({
       serviceName: 'simpleDb@universalSearch',

@@ -4,7 +4,12 @@ const preservedChildRoutes: Partial<
   Record<ETabEarnRoutes, ReadonlySet<ETabEarnRoutes>>
 > = {
   [ETabEarnRoutes.EarnProtocols]: new Set([ETabEarnRoutes.EarnProtocolDetails]),
-  [ETabEarnRoutes.EarnPositions]: new Set([ETabEarnRoutes.EarnProtocolDetails]),
+  [ETabEarnRoutes.EarnPositions]: new Set([
+    ETabEarnRoutes.EarnProtocolDetails,
+    ETabEarnRoutes.EarnPoolPosition,
+    ETabEarnRoutes.EarnPoolsExit,
+    ETabEarnRoutes.EarnPoolTask,
+  ]),
   [ETabEarnRoutes.BorrowHome]: new Set([ETabEarnRoutes.BorrowReserveDetails]),
   // Tokens home → token's protocol list / protocol detail (OK-58505)
   [ETabEarnRoutes.EarnTokens]: new Set([
@@ -24,6 +29,8 @@ const preservedChildRoutes: Partial<
   [ETabEarnRoutes.EarnProtocolTokens]: new Set([
     ETabEarnRoutes.EarnProtocolDetails,
   ]),
+  // Pools list → pool page; the phone positions page → LP position pages
+  [ETabEarnRoutes.EarnPools]: new Set([ETabEarnRoutes.EarnPoolDetails]),
 };
 
 export function shouldResetEarnRouteStackBeforePush({

@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { Fragment, memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -24,6 +24,7 @@ import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
 import { EarnNavigation } from '../earnUtils';
 import { useNavigateToEarnAsset } from '../hooks/useNavigateToEarnAsset';
+import { EarnPoolsHomeSection } from '../pools/components/EarnPoolsHomeSection';
 import { EarnTestIDs } from '../testIDs';
 import { mergeSimpleEarnWithStakingAssets } from '../utils/availableAssetsUtils';
 
@@ -201,56 +202,69 @@ function AvailableAssetsFlatListComponent() {
         const isLoading =
           loadingStates[`availableAssets-${type}`] && assets.length === 0;
 
+        // Pools (demo) sits right below Trending tokens, even when Trending
+        // has nothing to show
+        const poolsSection =
+          type === EAvailableAssetsTypeEnum.SimpleEarn ? (
+            <EarnPoolsHomeSection />
+          ) : null;
+
         if (isLoading) {
           return (
-            <YStack key={type} px="$pagePadding">
-              <AvailableAssetsSectionSkeleton />
-            </YStack>
+            <Fragment key={type}>
+              <YStack px="$pagePadding">
+                <AvailableAssetsSectionSkeleton />
+              </YStack>
+              {poolsSection}
+            </Fragment>
           );
         }
 
         if (assets.length === 0) {
-          return null;
+          return <Fragment key={type}>{poolsSection}</Fragment>;
         }
 
         return (
-          <YStack key={type} gap="$3">
-            <XStack
-              testID={EarnTestIDs.flatAssetCategoryEntry(type)}
-              role="button"
-              minHeight="$12"
-              px="$pagePadding"
-              py="$1"
-              ai="center"
-              // Chevron hugs the title text instead of right-aligning (OK-58507)
-              gap="$1"
-              cursor="pointer"
-              userSelect="none"
-              pressStyle={{ opacity: 0.5 }}
-              onPress={() => handleOpenSection(type)}
-            >
-              <SizableText size="$headingLg" pointerEvents="none">
-                {title}
-              </SizableText>
-              <Icon
-                name="ChevronRightSmallOutline"
-                size="$5"
-                color="$iconSubdued"
-                pointerEvents="none"
-              />
-            </XStack>
-            <YStack gap={EARN_LIST_ROW_GAP}>
-              {assets.slice(0, MAX_INLINE_ASSETS).map((asset) => (
-                <AvailableAssetItem
-                  key={`${type}-${asset.symbol}`}
-                  asset={asset}
-                  categoryType={type}
-                  testID={EarnTestIDs.flatAssetItem(type, asset.symbol)}
-                  onPress={() => handleAssetPress(asset, type)}
+          <Fragment key={type}>
+            <YStack gap="$3">
+              <XStack
+                testID={EarnTestIDs.flatAssetCategoryEntry(type)}
+                role="button"
+                minHeight="$12"
+                px="$pagePadding"
+                py="$1"
+                ai="center"
+                // Chevron hugs the title text instead of right-aligning (OK-58507)
+                gap="$1"
+                cursor="pointer"
+                userSelect="none"
+                pressStyle={{ opacity: 0.5 }}
+                onPress={() => handleOpenSection(type)}
+              >
+                <SizableText size="$headingLg" pointerEvents="none">
+                  {title}
+                </SizableText>
+                <Icon
+                  name="ChevronRightSmallOutline"
+                  size="$5"
+                  color="$iconSubdued"
+                  pointerEvents="none"
                 />
-              ))}
+              </XStack>
+              <YStack gap={EARN_LIST_ROW_GAP}>
+                {assets.slice(0, MAX_INLINE_ASSETS).map((asset) => (
+                  <AvailableAssetItem
+                    key={`${type}-${asset.symbol}`}
+                    asset={asset}
+                    categoryType={type}
+                    testID={EarnTestIDs.flatAssetItem(type, asset.symbol)}
+                    onPress={() => handleAssetPress(asset, type)}
+                  />
+                ))}
+              </YStack>
             </YStack>
-          </YStack>
+            {poolsSection}
+          </Fragment>
         );
       })}
     </YStack>

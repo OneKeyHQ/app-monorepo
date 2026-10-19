@@ -1,0 +1,235 @@
+import type { ReactNode } from 'react';
+
+import BigNumber from 'bignumber.js';
+
+import {
+  ActionList,
+  Icon,
+  SizableText,
+  Slider,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import type {
+  IPoolAsset,
+  IPoolRemovePreview,
+  IPoolsWallet,
+} from '@onekeyhq/shared/types/pools';
+
+import { POOLS_COPY } from '../poolsCopy';
+import { formatTokenAmount, formatUsd } from '../poolsFormat';
+
+import { PoolsChip } from './PoolsFilterButton';
+
+const PERCENT_CHIPS = [0.25, 0.5, 0.75, 1];
+
+/** How much to remove: the share as a big number, a slider and quick picks */
+export function PoolPercentPicker({
+  value,
+  onChange,
+}: {
+  /** Fraction, 0 to 1 */
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <YStack gap="$4">
+      <SizableText size="$heading4xl">{`${Math.round(value * 100)}%`}</SizableText>
+      <Slider
+        testID="earn-pool-percent-slider"
+        value={Math.round(value * 100)}
+        onChange={(next) => onChange(Number(next) / 100)}
+        min={0}
+        max={100}
+        step={1}
+      />
+      <XStack gap="$2" flexWrap="wrap">
+        {PERCENT_CHIPS.map((percent) => (
+          <PoolsChip
+            key={percent}
+            testID={`earn-pool-percent-${percent * 100}`}
+            label={percent === 1 ? POOLS_COPY.maxAmount : `${percent * 100}%`}
+            active={Math.round(value * 100) === percent * 100}
+            onPress={() => onChange(percent)}
+          />
+        ))}
+      </XStack>
+    </YStack>
+  );
+}
+
+/** Pool tokens first, then the user's largest holdings */
+export function sortTargetAssets(
+  wallet: IPoolsWallet,
+  preferredIds: string[],
+): IPoolAsset[] {
+  const valueOf = (asset: IPoolAsset) =>
+    new BigNumber(wallet.balances[asset.id] ?? 0).times(asset.priceUsd);
+  return wallet.assets.toSorted((a, b) => {
+    const rankA = preferredIds.includes(a.id) ? 0 : 1;
+    const rankB = preferredIds.includes(b.id) ? 0 : 1;
+    if (rankA !== rankB) {
+      return rankA - rankB;
+    }
+    return valueOf(b).comparedTo(valueOf(a)) ?? 0;
+  });
+}
+
+/** The token a Zap out lands in, picked from the network's tokens */
+export function PoolAssetSelect({
+  title,
+  assets,
+  value,
+  onChange,
+}: {
+  title: string;
+  assets: IPoolAsset[];
+  value: IPoolAsset;
+  onChange: (asset: IPoolAsset) => void;
+}) {
+  return (
+    <XStack
+      role="button"
+      testID="earn-pool-target-asset"
+      ai="center"
+      gap="$3"
+      p="$3"
+      borderRadius="$3"
+      bg="$bgStrong"
+      cursor="pointer"
+      userSelect="none"
+      hoverStyle={{ bg: '$bgStrongHover' }}
+      pressStyle={{ bg: '$bgStrongActive' }}
+      onPress={() =>
+        ActionList.show({
+          title,
+          items: assets.map((asset) => ({
+            label: asset.symbol,
+            testID: `earn-pool-target-${asset.symbol}`,
+            onPress: () => onChange(asset),
+          })),
+        })
+      }
+    >
+      <Token size="sm" tokenImageUri={value.logoURI} borderRadius="$full" />
+      <SizableText flex={1} size="$bodyLgMedium">
+        {value.symbol}
+      </SizableText>
+      <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
+    </XStack>
+  );
+}
+
+function SummaryRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <XStack jc="space-between" ai="flex-start" gap="$3">
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {label}
+      </SizableText>
+      <YStack ai="flex-end" gap="$0.5" flexShrink={1}>
+        {children}
+      </YStack>
+    </XStack>
+  );
+}
+
+/**
+ * What lands in the wallet: both tokens, or one token after the swaps
+ * (doc §3.7). Fees come along with any removal from a range position.
+ */
+export function PoolRemoveSummary({
+  preview,
+  assets,
+  includesFees,
+}: {
+  preview: IPoolRemovePreview;
+  assets: IPoolAsset[];
+  includesFees: boolean;
+}) {
+  const symbolOf = (assetId: string) =>
+    assets.find((asset) => asset.id === assetId)?.symbol ?? '';
+  const { zapOut } = preview;
+  if (zapOut) {
+    const target = assets.find((asset) => asset.id === zapOut.targetAssetId);
+    const swaps = zapOut.legs.filter((leg) => leg.quote);
+    return (
+      <YStack gap="$3">
+        <SummaryRow label={POOLS_COPY.youReceive}>
+          <SizableText size="$headingMd" textAlign="right">
+            {formatTokenAmount(zapOut.expectedOut, target?.symbol)}
+          </SizableText>
+          {target ? (
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {formatUsd(
+                new BigNumber(zapOut.expectedOut).times(target.priceUsd),
+              )}
+            </SizableText>
+          ) : null}
+        </SummaryRow>
+        {swaps.length ? (
+          <SummaryRow label={POOLS_COPY.zapPlan}>
+            {swaps.map((leg) => (
+              <SizableText
+                key={leg.assetId}
+                size="$bodyMdMedium"
+                textAlign="right"
+              >
+                {`${formatTokenAmount(leg.amount, symbolOf(leg.assetId))} → ${formatTokenAmount(
+                  leg.quote?.amountOut,
+                  target?.symbol,
+                )}`}
+              </SizableText>
+            ))}
+          </SummaryRow>
+        ) : null}
+        {swaps.length ? (
+          <SummaryRow label={POOLS_COPY.swapCost}>
+            <SizableText size="$bodyMdMedium">
+              {formatUsd(zapOut.costUsd)}
+            </SizableText>
+          </SummaryRow>
+        ) : null}
+        {includesFees ? (
+          <SizableText size="$bodySm" color="$textSubdued">
+            {POOLS_COPY.includesFees}
+          </SizableText>
+        ) : null}
+      </YStack>
+    );
+  }
+  const received = preview.received.filter((item) =>
+    new BigNumber(item.amount).gt(0),
+  );
+  return (
+    <YStack gap="$3">
+      <SummaryRow label={POOLS_COPY.youReceive}>
+        {received.map((item) => (
+          <SizableText
+            key={item.assetId}
+            size="$bodyMdMedium"
+            textAlign="right"
+          >
+            {formatTokenAmount(item.amount, item.symbol)}
+          </SizableText>
+        ))}
+      </SummaryRow>
+      <SummaryRow label={POOLS_COPY.value}>
+        <SizableText size="$bodyMdMedium">
+          {formatUsd(preview.receivedUsd)}
+        </SizableText>
+      </SummaryRow>
+      {includesFees ? (
+        <SizableText size="$bodySm" color="$textSubdued">
+          {POOLS_COPY.includesFees}
+        </SizableText>
+      ) : null}
+    </YStack>
+  );
+}

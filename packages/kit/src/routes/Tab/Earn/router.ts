@@ -36,6 +36,35 @@ const EarnProtocolDetails = LazyLoadRootTabPage(
   () => import('../../../views/Earn/pages/EarnProtocolDetails'),
 );
 
+// Pools (Uniswap LP) demo
+const EarnPools = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pools/pages/EarnPools'),
+);
+
+const EarnPoolDetails = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pools/pages/EarnPoolDetails'),
+);
+
+const EarnPoolAddLiquidity = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pools/pages/EarnPoolAddLiquidity'),
+);
+
+const EarnPoolTask = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pools/pages/EarnPoolTask'),
+);
+
+const EarnPoolPosition = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pools/pages/EarnPoolPosition'),
+);
+
+const EarnPoolRemoveLiquidity = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pools/pages/EarnPoolRemoveLiquidity'),
+);
+
+const EarnPoolsExit = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pools/pages/EarnPoolsExit'),
+);
+
 const BorrowReserveDetails = LazyLoadRootTabPage(
   () => import('../../../views/Borrow/pages/ReserveDetails'),
 );
@@ -82,6 +111,41 @@ export const earnRouters: ITabSubNavigatorConfig<any, any>[] = [
     component: EarnProtocolDetails,
     exact: true,
     rewrite: '/earn/:network/:symbol/:provider',
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnPools,
+    component: EarnPools,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnPoolDetails,
+    component: EarnPoolDetails,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnPoolAddLiquidity,
+    component: EarnPoolAddLiquidity,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnPoolTask,
+    component: EarnPoolTask,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnPoolPosition,
+    component: EarnPoolPosition,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnPoolRemoveLiquidity,
+    component: EarnPoolRemoveLiquidity,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnPoolsExit,
+    component: EarnPoolsExit,
     headerShown: !platformEnv.isNative,
   },
   {

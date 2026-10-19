@@ -35,11 +35,14 @@ function EarnMobileHomeContentComponent({
   isPullRefreshing,
   displayTotalFiatValue,
   displayEarnings24h,
+  extraFiatValue,
+  extraEarnings24h,
   onRefresh,
   onOpenBorrow,
   onOpenPortfolio,
   onOpenTokens,
   onOpenProtocols,
+  onOpenPools,
   onHeaderHorizontalSwipe,
 }: {
   bannerList: IEarnPageBannerListItem[];
@@ -58,11 +61,14 @@ function EarnMobileHomeContentComponent({
   isPullRefreshing: boolean;
   displayTotalFiatValue?: string;
   displayEarnings24h?: string;
+  extraFiatValue?: string;
+  extraEarnings24h?: string;
   onRefresh: () => Promise<void>;
   onOpenBorrow: () => void;
   onOpenPortfolio: () => void;
   onOpenTokens: () => void;
   onOpenProtocols: () => void;
+  onOpenPools: () => void;
   onHeaderHorizontalSwipe?: (direction: 'left' | 'right') => void;
 }) {
   const intl = useIntl();
@@ -106,6 +112,8 @@ function EarnMobileHomeContentComponent({
               isLoading={isRefreshing}
               displayTotalFiatValue={displayTotalFiatValue}
               displayEarnings24h={displayEarnings24h}
+              extraFiatValue={extraFiatValue}
+              extraEarnings24h={extraEarnings24h}
               onPressTotalValue={onOpenPortfolio}
             />
           </YStack>
@@ -113,6 +121,7 @@ function EarnMobileHomeContentComponent({
             onOpenLoans={onOpenBorrow}
             onOpenTokens={onOpenTokens}
             onOpenProtocols={onOpenProtocols}
+            onOpenPools={onOpenPools}
           />
           <EarnHomeBanner banners={bannerList} isLoading={isBannerLoading} />
         </YStack>

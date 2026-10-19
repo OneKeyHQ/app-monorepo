@@ -41,6 +41,35 @@ const EarnProtocolDetails = LazyLoadRootTabPage(
   () => import('../../../views/Earn/pages/EarnProtocolDetails'),
   earnLazyPageFallback,
 );
+// Pools (Uniswap LP) demo
+const EarnPools = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pools/pages/EarnPools'),
+  earnLazyPageFallback,
+);
+const EarnPoolDetails = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pools/pages/EarnPoolDetails'),
+  earnLazyPageFallback,
+);
+const EarnPoolAddLiquidity = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pools/pages/EarnPoolAddLiquidity'),
+  earnLazyPageFallback,
+);
+const EarnPoolTask = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pools/pages/EarnPoolTask'),
+  earnLazyPageFallback,
+);
+const EarnPoolPosition = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pools/pages/EarnPoolPosition'),
+  earnLazyPageFallback,
+);
+const EarnPoolRemoveLiquidity = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pools/pages/EarnPoolRemoveLiquidity'),
+  earnLazyPageFallback,
+);
+const EarnPoolsExit = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pools/pages/EarnPoolsExit'),
+  earnLazyPageFallback,
+);
 const BorrowHome = LazyLoadRootTabPage(
   () => import('../../../views/Borrow/pages/BorrowHomePage'),
 );
@@ -97,6 +126,41 @@ export const discoveryRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     name: ETabEarnRoutes.EarnProtocolDetails,
     component: EarnProtocolDetails,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnPools,
+    component: EarnPools,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnPoolDetails,
+    component: EarnPoolDetails,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnPoolAddLiquidity,
+    component: EarnPoolAddLiquidity,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnPoolTask,
+    component: EarnPoolTask,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnPoolPosition,
+    component: EarnPoolPosition,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnPoolRemoveLiquidity,
+    component: EarnPoolRemoveLiquidity,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnPoolsExit,
+    component: EarnPoolsExit,
     headerShown: !platformEnv.isNative,
   },
   // Borrow pages live in the Discovery stack on native; legacy Market sub-routes

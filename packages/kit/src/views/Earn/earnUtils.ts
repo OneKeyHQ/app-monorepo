@@ -129,6 +129,16 @@ export const EarnNetworkUtils = {
   getShareNetworkParam,
 };
 
+const POOLS_EARN_ROUTES = new Set<ETabEarnRoutes>([
+  ETabEarnRoutes.EarnPools,
+  ETabEarnRoutes.EarnPoolDetails,
+  ETabEarnRoutes.EarnPoolAddLiquidity,
+  ETabEarnRoutes.EarnPoolPosition,
+  ETabEarnRoutes.EarnPoolRemoveLiquidity,
+  ETabEarnRoutes.EarnPoolsExit,
+  ETabEarnRoutes.EarnPoolTask,
+]);
+
 export async function safePushToEarnRoute(
   navigation: IAppNavigation,
   route: ETabEarnRoutes,
@@ -143,7 +153,8 @@ export async function safePushToEarnRoute(
     route === ETabEarnRoutes.EarnProtocolTokens ||
     route === ETabEarnRoutes.EarnProtocols ||
     route === ETabEarnRoutes.EarnProtocolDetails ||
-    route === ETabEarnRoutes.EarnProtocolDetailsShare;
+    route === ETabEarnRoutes.EarnProtocolDetailsShare ||
+    POOLS_EARN_ROUTES.has(route);
   if (shouldSwitchToEarnMode) {
     appEventBus.emit(EAppEventBusNames.SwitchEarnMode, { mode: 'earn' });
   }

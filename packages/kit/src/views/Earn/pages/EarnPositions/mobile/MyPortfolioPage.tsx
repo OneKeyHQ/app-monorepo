@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useIsFocused } from '@react-navigation/native';
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -37,6 +38,10 @@ import {
   STAKING_TX_SETTLE_DELAY_MS,
   useStakingPendingTxsByInfo,
 } from '../../../hooks/useStakingPendingTxs';
+import {
+  usePoolsPortfolio,
+  useUsdToFiat,
+} from '../../../pools/usePoolsPortfolio';
 
 import { DeFiAssetsTab } from './DeFiAssetsTab';
 import {
@@ -194,9 +199,35 @@ export function MyPortfolioPage() {
     return counts;
   }, [pendingTxs, positions]);
 
-  const networkAssetCounts = useMemo(
-    () => countEarnPositionsByNetwork(view.protocols),
-    [view.protocols],
+  // Pools demo: LP positions are one more protocol here (Uniswap)
+  const { groups: poolsGroups } = usePoolsPortfolio();
+  const toFiat = useUsdToFiat();
+  const networkAssetCounts = useMemo(() => {
+    const counts = countEarnPositionsByNetwork(view.protocols);
+    poolsGroups.forEach((group) => {
+      counts[group.networkId] =
+        (counts[group.networkId] ?? 0) + group.positions.length;
+    });
+    return counts;
+  }, [poolsGroups, view.protocols]);
+  const visiblePoolsGroups = useMemo(
+    () =>
+      selectedNetworkIds.length
+        ? poolsGroups.filter((group) =>
+            selectedNetworkIds.includes(group.networkId),
+          )
+        : poolsGroups,
+    [poolsGroups, selectedNetworkIds],
+  );
+  const defiAssetsFiatValue = useMemo(
+    () =>
+      poolsGroups
+        .reduce(
+          (sum, group) => sum.plus(toFiat(group.valueUsd)),
+          new BigNumber(view.totalValue),
+        )
+        .toFixed(),
+    [poolsGroups, toFiat, view.totalValue],
   );
   // The chip offers every network the wallet holds on or has ledger rewards
   // on: a network with rewards but no position would otherwise never be
@@ -442,7 +473,7 @@ export function MyPortfolioPage() {
             <YStack py="$2">
               {/* DeFi Assets leaves the positions' rewards out; Rewards counts them */}
               <PortfolioTotalsHeader
-                defiAssetsFiatValue={String(view.totalValue)}
+                defiAssetsFiatValue={defiAssetsFiatValue}
                 rewardsFiatValue={rewardsHeaderFiat}
               />
               <UnderlineTabs<IPrimaryTab>
@@ -467,6 +498,7 @@ export function MyPortfolioPage() {
               {primaryTab === 'assets' ? (
                 <DeFiAssetsTab
                   protocols={visibleProtocols}
+                  poolsGroups={visiblePoolsGroups}
                   isLoading={isPositionsLoading}
                   pendingCountByProvider={pendingCountByProvider}
                   networkFilter={networkFilter}

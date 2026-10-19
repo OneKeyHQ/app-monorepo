@@ -75,6 +75,7 @@ import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServiceOneKeyID from '../services/ServiceOneKeyID';
 import type ServicePassword from '../services/ServicePassword';
 import type { ServicePendingInstallTask } from '../services/servicePendingInstallTask';
+import type ServicePools from '../services/ServicePools';
 import type ServicePrime from '../services/ServicePrime';
 import type ServicePrimeCloudSync from '../services/ServicePrimeCloudSync';
 import type ServicePrimeFreeTrial from '../services/ServicePrimeFreeTrial';
@@ -208,6 +209,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceHistory: ServiceHistory;
   serviceTransaction: ServiceTransaction;
   serviceDeFi: ServiceDeFi;
+  servicePools: ServicePools;
   serviceValidator: ServiceValidator;
   serviceNameResolver: ServiceNameResolver;
   serviceGas: ServiceGas;

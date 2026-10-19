@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -19,18 +20,29 @@ import { useEarnAccountKey } from '../hooks/useEarnAccountKey';
 import { EarnTestIDs } from '../testIDs';
 import { getNumberColor } from '../utils/getNumberColor';
 
+// Leaves the figure untouched when there is nothing to add
+function addExtraValue(base: string, extra?: string) {
+  const sum = new BigNumber(base).plus(extra || 0);
+  return extra && sum.isFinite() ? sum.toFixed() : base;
+}
+
 const OverviewComponent = ({
   isLoading,
   onRefresh,
   displayTotalFiatValue,
   displayEarnings24h,
   onPressTotalValue,
+  extraFiatValue,
+  extraEarnings24h,
 }: {
   isLoading: boolean;
   onRefresh: () => void;
   displayTotalFiatValue?: string;
   displayEarnings24h?: string;
   onPressTotalValue?: () => void;
+  /** Pools demo: LP value and its estimated 24h fees, in the user's currency */
+  extraFiatValue?: string;
+  extraEarnings24h?: string;
 }) => {
   const totalFiatMapKey = useEarnAccountKey();
   const [{ earnAccount }] = useEarnAtom();
@@ -39,12 +51,18 @@ const OverviewComponent = ({
     () => earnAccount?.[totalFiatMapKey]?.totalFiatValue || '0',
     [earnAccount, totalFiatMapKey],
   );
-  const totalFiatValue = displayTotalFiatValue ?? rawTotalFiatValue;
+  const totalFiatValue = addExtraValue(
+    displayTotalFiatValue ?? rawTotalFiatValue,
+    extraFiatValue,
+  );
   const rawEarnings24h = useMemo(
     () => earnAccount?.[totalFiatMapKey]?.earnings24h || '0',
     [earnAccount, totalFiatMapKey],
   );
-  const earnings24h = displayEarnings24h ?? rawEarnings24h;
+  const earnings24h = addExtraValue(
+    displayEarnings24h ?? rawEarnings24h,
+    extraEarnings24h,
+  );
   const intl = useIntl();
 
   const handleRefresh = useCallback(() => {

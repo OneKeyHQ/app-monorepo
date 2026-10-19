@@ -72,6 +72,7 @@ import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServiceOneKeyID from '../services/ServiceOneKeyID';
 import type ServicePassword from '../services/ServicePassword';
 import type { ServicePendingInstallTask } from '../services/servicePendingInstallTask';
+import type ServicePools from '../services/ServicePools';
 import type ServicePrime from '../services/ServicePrime';
 import type ServicePrimeCloudSync from '../services/ServicePrimeCloudSync';
 import type ServicePrimeFreeTrial from '../services/ServicePrimeFreeTrial';
@@ -233,6 +234,10 @@ class BackgroundApiProxy
 
   get serviceDeFi(): ServiceDeFi {
     return this.getProxyService<ServiceDeFi>('serviceDeFi');
+  }
+
+  get servicePools(): ServicePools {
+    return this.getProxyService<ServicePools>('servicePools');
   }
 
   get serviceValidator(): ServiceValidator {

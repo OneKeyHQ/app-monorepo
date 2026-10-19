@@ -1,4 +1,5 @@
 import {
+  Fragment,
   createContext,
   memo,
   useCallback,
@@ -50,6 +51,13 @@ import { buildLocalTxStatusSyncId } from '../../Staking/utils/utils';
 import { EarnNavigation } from '../earnUtils';
 import { usePortfolioAction } from '../hooks/usePortfolioAction';
 import { useStakingPendingTxsByInfo } from '../hooks/useStakingPendingTxs';
+import { PoolsPortfolioGroup } from '../pools/components/PoolsPortfolioGroup';
+import { PoolUnfinishedTasks } from '../pools/components/PoolUnfinishedTasks';
+import {
+  insertByValue,
+  usePoolsPortfolio,
+  useUsdToFiat,
+} from '../pools/usePoolsPortfolio';
 import { EarnTestIDs } from '../testIDs';
 import {
   type IPortfolioClaimProtocolIdentity,
@@ -63,6 +71,7 @@ import type {
   IUseEarnPortfolioReturn,
 } from '../hooks/useEarnPortfolio';
 import type { IStakePendingTx } from '../hooks/useStakingPendingTxs';
+import type { IPoolsPortfolioGroup } from '../pools/usePoolsPortfolio';
 
 const useIsDesktopLayout = () => {
   const media = useMedia();
@@ -1330,12 +1339,21 @@ interface IBasePortfolioTabContentProps {
   hideSmallAssets?: boolean;
 }
 
+// One protocol's block in the list: an Earn investment or a Uniswap group
+type IPortfolioRow = { key: string; value: number } & (
+  | { investment: IEarnPortfolioInvestment }
+  | { poolsGroup: IPoolsPortfolioGroup }
+);
+
 const BasePortfolioTabContent = ({
   portfolioData,
   hideSmallAssets = false,
 }: IBasePortfolioTabContentProps) => {
   const intl = useIntl();
   const { investments, isLoading, refresh } = portfolioData;
+  // Pools demo: LP positions join the list as one more protocol (Uniswap)
+  const { groups: poolsGroups } = usePoolsPortfolio();
+  const toFiat = useUsdToFiat();
 
   const filteredInvestments = useMemo(() => {
     const withAssets = investments.filter(
@@ -1377,26 +1395,61 @@ const BasePortfolioTabContent = ({
       [] as typeof withAssets,
     );
   }, [hideSmallAssets, investments]);
+  // A position with nothing in it and no fees to collect is a small asset
+  const visiblePoolsGroups = useMemo(
+    () =>
+      hideSmallAssets
+        ? poolsGroups
+            .map((group) => ({
+              ...group,
+              positions: group.positions.filter(
+                (view) =>
+                  Number(view.valueUsd) >= 0.01 ||
+                  Number(view.uncollectedFeesUsd) >= 0.01,
+              ),
+            }))
+            .filter((group) => group.positions.length > 0)
+        : poolsGroups,
+    [hideSmallAssets, poolsGroups],
+  );
   const noAssets = useMemo(
-    () => isEmpty(filteredInvestments),
-    [filteredInvestments],
+    () => isEmpty(filteredInvestments) && visiblePoolsGroups.length === 0,
+    [filteredInvestments, visiblePoolsGroups.length],
   );
 
-  const investmentsItemRender = useCallback(
-    (item: IEarnPortfolioInvestment, index: number) => {
-      const showDivider = index !== 0 && filteredInvestments.length > 1;
-      const key = `${item.protocol.providerDetail.code}_${
-        item.protocol.vaultName || ''
-      }_${item.network.networkId}`;
+  // LP groups slot in by value; the protocols keep their own order
+  const rows = useMemo(
+    () =>
+      insertByValue<IPortfolioRow>(
+        filteredInvestments.map((item) => ({
+          key: `${item.protocol.providerDetail.code}_${
+            item.protocol.vaultName || ''
+          }_${item.network.networkId}`,
+          value: Number(item.totalFiatValue || 0),
+          investment: item,
+        })),
+        visiblePoolsGroups.map((group) => ({
+          key: group.key,
+          value: Number(toFiat(group.valueUsd)),
+          poolsGroup: group,
+        })),
+        (row) => row.value,
+      ),
+    [filteredInvestments, toFiat, visiblePoolsGroups],
+  );
 
-      return (
-        <>
-          {showDivider ? <Divider my="$4" mx="$5" /> : null}
-          <PortfolioItem key={key} portfolioItem={item} onRefresh={refresh} />
-        </>
-      );
-    },
-    [filteredInvestments.length, refresh],
+  const rowRender = useCallback(
+    (row: IPortfolioRow, index: number) => (
+      <Fragment key={row.key}>
+        {index !== 0 ? <Divider my="$4" mx="$5" /> : null}
+        {'investment' in row ? (
+          <PortfolioItem portfolioItem={row.investment} onRefresh={refresh} />
+        ) : (
+          <PoolsPortfolioGroup group={row.poolsGroup} />
+        )}
+      </Fragment>
+    ),
+    [refresh],
   );
 
   const showSkeleton = isLoading && noAssets;
@@ -1421,7 +1474,12 @@ const BasePortfolioTabContent = ({
     );
   }
 
-  return <YStack>{filteredInvestments.map(investmentsItemRender)}</YStack>;
+  return (
+    <YStack>
+      <PoolUnfinishedTasks px="$pagePadding" pb="$4" />
+      {rows.map(rowRender)}
+    </YStack>
+  );
 };
 
 export const PortfolioTabContent = memo(BasePortfolioTabContent);

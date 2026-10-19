@@ -55,10 +55,12 @@ export function EarnHomeShortcuts({
   onOpenLoans,
   onOpenTokens,
   onOpenProtocols,
+  onOpenPools,
 }: {
   onOpenLoans: () => void;
   onOpenTokens: () => void;
   onOpenProtocols: () => void;
+  onOpenPools: () => void;
 }) {
   const intl = useIntl();
   return (
@@ -80,6 +82,12 @@ export function EarnHomeShortcuts({
         label={intl.formatMessage({ id: ETranslations.earn_protocols__title })}
         testID={EarnTestIDs.homeShortcut('protocols')}
         onPress={onOpenProtocols}
+      />
+      <EarnHomeShortcut
+        icon="DropOutline"
+        label={intl.formatMessage({ id: ETranslations.global_pools })}
+        testID={EarnTestIDs.homeShortcut('pools')}
+        onPress={onOpenPools}
       />
     </XStack>
   );

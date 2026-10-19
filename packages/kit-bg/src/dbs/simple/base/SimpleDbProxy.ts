@@ -51,6 +51,7 @@ import type { SimpleDbEntityMarketWatchListV2 } from '../entity/SimpleDbEntityMa
 import type { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
 import type { SimpleDbEntityNotificationSettings } from '../entity/SimpleDbEntityNotificationSettings';
 import type { SimpleDbEntityPerp } from '../entity/SimpleDbEntityPerp';
+import type { SimpleDbEntityPoolsDemo } from '../entity/SimpleDbEntityPoolsDemo';
 import type { SimpleDbEntityPrime } from '../entity/SimpleDbEntityPrime';
 import type { SimpleDbEntityPrimeFreeTrial } from '../entity/SimpleDbEntityPrimeFreeTrial';
 import type { SimpleDbEntityPrimeTransfer } from '../entity/SimpleDbEntityPrimeTransfer';
@@ -236,6 +237,8 @@ export class SimpleDbProxy
   earnOrders = this._createProxyService(
     'earnOrders',
   ) as SimpleDbEntityEarnOrders;
+
+  poolsDemo = this._createProxyService('poolsDemo') as SimpleDbEntityPoolsDemo;
 
   localNFTs = this._createProxyService('localNFTs') as SimpleDbEntityLocalNFTs;
 
