@@ -105,7 +105,7 @@ export function PoolAprFigure({
       <SizableText size="$headingXl" color={info.color}>
         {info.value}
       </SizableText>
-      {/* Two lines kept, so the chart below holds still as notes come and go */}
+      {/* Two lines kept, so what sits below holds still as notes come and go */}
       <YStack gap="$0.5" minHeight={34}>
         {info.notes.map((note) => (
           <SizableText key={note} size="$bodySm" color="$textSubdued">

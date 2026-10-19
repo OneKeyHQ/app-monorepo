@@ -133,8 +133,8 @@ function AddLiquidityForm({
           form={form}
           ticks={detail.ticks}
           priceHistory={detail.priceHistory}
+          button={gtMd ? <PoolPositionReviewButton form={form} /> : null}
         />
-        {gtMd ? <PoolPositionReviewButton form={form} /> : null}
       </YStack>
     </EarnPageContainer>
   );

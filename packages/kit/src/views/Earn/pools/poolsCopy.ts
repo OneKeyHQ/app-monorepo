@@ -120,7 +120,6 @@ export const POOLS_COPY = {
   // Add liquidity
   oneToken: 'One token',
   bothTokens: 'Both tokens',
-  presets: 'Range',
   minPrice: 'Min price',
   maxPrice: 'Max price',
   deposit: 'Deposit',

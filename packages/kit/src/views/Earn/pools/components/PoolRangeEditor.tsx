@@ -28,12 +28,7 @@ import type {
 } from '@onekeyhq/shared/types/pools';
 
 import { POOLS_COPY } from '../poolsCopy';
-import {
-  formatTokenPrice,
-  getPoolDisplayPrice,
-  getPoolPair,
-  getPriceUnitLabel,
-} from '../poolsFormat';
+import { formatTokenPrice, getPoolPair } from '../poolsFormat';
 import { countDaysInRange } from '../poolsOutcome';
 
 import { PoolAprFigure } from './PoolAprEstimate';
@@ -158,9 +153,9 @@ function PriceBoundField({
 /**
  * Range step of the add form (doc §2.5 ②): presets with what they do (the
  * estimate and how often the price stayed inside), the liquidity chart with
- * the range's edges to drag, min / max that snap to usable ticks, and the
- * range in plain words. Under the pool's price chart, where the band is
- * dragged instead, it leaves out its own chart and the current price.
+ * the range's edges to drag and the current price, min / max that snap to
+ * usable ticks, and the range in plain words. Under the pool's price chart,
+ * where the band is dragged instead, it leaves out its own chart.
  */
 export function PoolRangeEditor({
   pool,
@@ -265,25 +260,13 @@ export function PoolRangeEditor({
     <YStack gap="$4">
       {underPriceChart ? (
         <XStack ai="center" jc="space-between" gap="$3" flexWrap="wrap">
-          <SizableText size="$headingMd">{POOLS_COPY.presets}</SizableText>
+          <SizableText size="$headingMd">{POOLS_COPY.priceRange}</SizableText>
           {presets}
         </XStack>
       ) : (
         presets
       )}
-      <XStack jc="space-between" ai="flex-start" gap="$4">
-        <PoolAprFigure estimate={estimate} pool={pool} />
-        {days.total ? (
-          <YStack gap="$0.5" ai="flex-end" flexShrink={0}>
-            <SizableText size="$bodySm" color="$textSubdued">
-              {POOLS_COPY.daysInRangeLabel}
-            </SizableText>
-            <SizableText size="$headingXl">
-              {POOLS_COPY.daysInRange(days.inRange, days.total)}
-            </SizableText>
-          </YStack>
-        ) : null}
-      </XStack>
+      {/* Under its own chart, so dragging shows what the range does */}
       {ticks && !underPriceChart ? (
         <PoolLiquidityChart
           pool={pool}
@@ -297,9 +280,22 @@ export function PoolRangeEditor({
                   onChange(next);
                 }
           }
-          height={120}
+          height={96}
         />
       ) : null}
+      <XStack jc="space-between" ai="flex-start" gap="$4">
+        <PoolAprFigure estimate={estimate} pool={pool} />
+        {days.total ? (
+          <YStack gap="$0.5" ai="flex-end" flexShrink={0}>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {POOLS_COPY.daysInRangeLabel}
+            </SizableText>
+            <SizableText size="$headingXl">
+              {POOLS_COPY.daysInRange(days.inRange, days.total)}
+            </SizableText>
+          </YStack>
+        ) : null}
+      </XStack>
       <XStack gap="$3">
         <PriceBoundField
           testID="earn-pool-range-min"
@@ -325,17 +321,7 @@ export function PoolRangeEditor({
           {error}
         </SizableText>
       ) : null}
-      {underPriceChart ? null : (
-        <XStack jc="space-between" ai="center" gap="$2">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {POOLS_COPY.currentPrice}
-          </SizableText>
-          <SizableText size="$bodyMdMedium" textAlign="right" flexShrink={1}>
-            {`${formatTokenPrice(getPoolDisplayPrice(pool))} ${getPriceUnitLabel(pool)}`}
-          </SizableText>
-        </XStack>
-      )}
-      <SizableText size="$bodyMd" color="$textSubdued">
+      <SizableText size="$bodySm" color="$textSubdued">
         {meaning}
       </SizableText>
     </YStack>

@@ -407,10 +407,10 @@ function getOutcomeRows(form: IPoolPositionForm) {
 }
 
 /**
- * The create-position form: range, deposit and what it comes to. The
- * caller places the Review button, inline or in the page footer. Beside the
- * pool's chart, where the range is set, the rest is one card ending in the
- * button.
+ * The create-position form as one card, in the order the choice is made:
+ * where (the range), how much (the deposit), what it comes to, then the
+ * Review button when the page has no footer for it. Beside a price chart
+ * that sets the range, the card keeps only the range's figures.
  */
 export function PoolPositionForm({
   form,
@@ -425,7 +425,7 @@ export function PoolPositionForm({
   priceHistory: IPoolPricePoint[] | undefined;
   /** The range is set on the chart beside the form */
   rangeOnChart?: boolean;
-  /** Ends the card when the range is on the chart */
+  /** Ends the card; pages with a footer keep the button there */
   button?: ReactNode;
 }) {
   const outcome = getOutcomeRows(form);
@@ -444,35 +444,45 @@ export function PoolPositionForm({
       </PoolsCard>
     );
   }
+  let range: ReactNode = null;
+  if (form.isRange) {
+    range = ticks ? (
+      <PoolRangeEditor
+        pool={form.pool}
+        ticks={ticks}
+        priceHistory={priceHistory ?? []}
+        estimate={form.estimate}
+        range={form.range}
+        presetId={form.presetId}
+        readOnly={Boolean(form.positionId)}
+        onChange={form.setRange}
+      />
+    ) : (
+      <YStack gap="$3">
+        <Skeleton w="100%" h="$8" borderRadius="$full" />
+        <Skeleton w="100%" h={120} borderRadius="$3" />
+        <Skeleton w="100%" h="$16" borderRadius="$3" />
+      </YStack>
+    );
+  }
+  // Sections are told apart by their headings and the space between them
   return (
-    <YStack gap="$4">
-      {form.isRange ? (
-        <PoolsCard title={POOLS_COPY.presets} testID="earn-pool-range-card">
-          {ticks ? (
-            <PoolRangeEditor
-              pool={form.pool}
-              ticks={ticks}
-              priceHistory={priceHistory ?? []}
-              estimate={form.estimate}
-              range={form.range}
-              presetId={form.presetId}
-              readOnly={Boolean(form.positionId)}
-              onChange={form.setRange}
-            />
-          ) : (
-            <YStack gap="$3">
-              <Skeleton w="100%" h="$8" borderRadius="$full" />
-              <Skeleton w="100%" h={120} borderRadius="$3" />
-              <Skeleton w="100%" h="$16" borderRadius="$3" />
-            </YStack>
-          )}
-        </PoolsCard>
+    <PoolsCard testID="earn-pool-create-card" gap="$6">
+      {range ? (
+        <YStack testID="earn-pool-range-card" gap="$4">
+          <SizableText size="$headingMd">{POOLS_COPY.priceRange}</SizableText>
+          {range}
+        </YStack>
       ) : null}
-      <PoolsCard title={POOLS_COPY.deposit}>
+      <YStack gap="$4">
+        {range ? (
+          <SizableText size="$headingMd">{POOLS_COPY.deposit}</SizableText>
+        ) : null}
         <DepositFields form={form} />
-      </PoolsCard>
-      {outcome.length ? <PoolsCard>{outcome}</PoolsCard> : null}
-    </YStack>
+      </YStack>
+      {outcome.length ? <YStack gap="$3">{outcome}</YStack> : null}
+      {button}
+    </PoolsCard>
   );
 }
 

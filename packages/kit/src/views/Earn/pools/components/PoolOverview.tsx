@@ -257,7 +257,6 @@ export function PoolCreateSection({
   if (!canCreate) {
     return <Alert type="warning" title={POOLS_COPY.unlistedNotice} />;
   }
-  const button = showButton ? <PoolPositionReviewButton form={form} /> : null;
   return (
     <YStack gap="$4">
       <PoolUnfinishedTasks poolId={form.pool.id} />
@@ -266,9 +265,8 @@ export function PoolCreateSection({
         ticks={detail?.ticks}
         priceHistory={detail?.priceHistory}
         rangeOnChart={rangeOnChart}
-        button={rangeOnChart ? button : undefined}
+        button={showButton ? <PoolPositionReviewButton form={form} /> : null}
       />
-      {rangeOnChart ? null : button}
     </YStack>
   );
 }
