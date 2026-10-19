@@ -4,6 +4,7 @@
 /* eslint-disable import/first */
 
 import type { ReactNode } from 'react';
+import { useEffect } from 'react';
 
 import { render } from '@testing-library/react';
 
@@ -11,23 +12,32 @@ import {
   SHEET_AND_DIALOG_Z_INDEX,
   WC_PAY_DIALOG_Z_INDEX,
 } from '@onekeyhq/shared/src/consts/zIndexConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // The shell is pure wiring onto the shared Dialog: the mocked container
-// records the props it receives and the portal records where it renders.
+// records the props it receives and each time it mounts, and the portal
+// records where it renders.
 const mockDialogContainer = jest.fn(
   (_props: Record<string, unknown>): ReactNode => null,
 );
+const mockDialogContainerMounts = jest.fn();
+const mockUseEffect = useEffect;
 const mockPortalContainers: string[] = [];
 
 jest.mock('@onekeyhq/components', () => {
   const Passthrough = ({ children }: { children?: ReactNode }) =>
     children ?? null;
+  function MockDialogContainer(props: Record<string, unknown>) {
+    mockUseEffect(() => {
+      mockDialogContainerMounts();
+    }, []);
+    return mockDialogContainer(props);
+  }
   return {
     __esModule: true,
     Button: Passthrough,
     Dialog: { ScrollView: Passthrough },
-    DialogContainer: (props: Record<string, unknown>) =>
-      mockDialogContainer(props),
+    DialogContainer: MockDialogContainer,
     Icon: Passthrough,
     Image: Passthrough,
     Portal: {
@@ -80,10 +90,53 @@ function renderShell({
   return shellProps ?? {};
 }
 
+function renderParkAndReveal() {
+  const onClose = jest.fn();
+  const shell = (open: boolean) => (
+    <WcPayDialogShell open={open} dismissible onClose={onClose}>
+      <span>step</span>
+    </WcPayDialogShell>
+  );
+  const { rerender } = render(shell(true));
+  const mountsAfterOpen = mockDialogContainerMounts.mock.calls.length;
+  rerender(shell(false));
+  const mountsAfterPark = mockDialogContainerMounts.mock.calls.length;
+  rerender(shell(true));
+  const mountsAfterReveal = mockDialogContainerMounts.mock.calls.length;
+  return { mountsAfterOpen, mountsAfterPark, mountsAfterReveal };
+}
+
 describe('WcPayDialogShell', () => {
   beforeEach(() => {
     mockDialogContainer.mockClear();
+    mockDialogContainerMounts.mockClear();
     mockPortalContainers.length = 0;
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('remounts the dialog on every reveal on iOS, never on park', () => {
+    // iOS stacks full-window overlay views by mount order: a backdrop
+    // mounted on reveal would sit on top of a sheet that stayed mounted.
+    jest.replaceProperty(platformEnv, 'isNativeIOS', true);
+
+    expect(renderParkAndReveal()).toEqual({
+      mountsAfterOpen: 1,
+      mountsAfterPark: 1,
+      mountsAfterReveal: 2,
+    });
+  });
+
+  it('keeps the same dialog across park and reveal off iOS', () => {
+    jest.replaceProperty(platformEnv, 'isNativeIOS', false);
+
+    expect(renderParkAndReveal()).toEqual({
+      mountsAfterOpen: 1,
+      mountsAfterPark: 1,
+      mountsAfterReveal: 1,
+    });
   });
 
   it('renders in the full-window overlay as a bare dialog with the scene inset', () => {

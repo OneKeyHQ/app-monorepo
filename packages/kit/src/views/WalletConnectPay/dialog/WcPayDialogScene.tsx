@@ -1,6 +1,6 @@
 // cspell:ignore showable
 import type { ReactNode } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -92,9 +92,24 @@ export function WcPayDialogShell({
   const handleClose = useCallback(async () => {
     onClose();
   }, [onClose]);
+  // iOS stacks the full-window overlay's views in the order they were
+  // mounted, whatever their z-index (RNSFullWindowOverlay appends every
+  // child it mounts). The sheet stays mounted while parked, so the backdrop
+  // a reveal mounts would land on top of it and dim the whole sheet.
+  // Remounting on every reveal mounts backdrop and sheet together, in order
+  // (the same fix DialogLoadingContainer applies, OK-42375).
+  const [revealCount, setRevealCount] = useState(0);
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setRevealCount((count) => count + 1);
+    }
+  }
   return (
     <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
       <DialogContainer
+        key={platformEnv.isNativeIOS ? revealCount : undefined}
         open={open}
         onBeforeClose={handleBeforeClose}
         onClose={handleClose}
