@@ -73,6 +73,9 @@ export function usePortfolioData({
             networkId,
             accountAddress,
             xpub,
+            // Without it a failed request comes back as an empty list, which
+            // reads as "no position" and wipes rows already on screen.
+            throwOnError: true,
           });
         return { ...result, networkId, tokenAddress, accountAddress };
       } catch (error) {

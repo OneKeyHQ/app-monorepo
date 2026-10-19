@@ -697,6 +697,8 @@ function useNativeFavoriteMenu(listRef: RefObject<NativeListRef | null>) {
           anchor={getFavoriteMenuAnchorPoint(anchor)}
           onToggleWatchlist={() => {
             close();
+            // Travel mode can switch on while the bar is open.
+            if (!isFavoriteMenuEnabled()) return;
             void toggleFavorite(target, isInWatchlist);
           }}
           onDismiss={() => close()}

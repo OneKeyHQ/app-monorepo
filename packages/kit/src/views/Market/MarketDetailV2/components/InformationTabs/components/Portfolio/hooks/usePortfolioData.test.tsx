@@ -20,6 +20,7 @@ type IFetchPortfolioParams = {
   networkId: string;
   accountAddress: string;
   xpub?: string;
+  throwOnError?: boolean;
 };
 
 const mockFetchMarketAccountPortfolio = jest.fn<
@@ -113,6 +114,7 @@ describe('usePortfolioData', () => {
       networkId: 'evm--8453',
       accountAddress: '0xaccount',
       xpub: 'xpub',
+      throwOnError: true,
     });
     expect(mockCapturedDeps).toEqual([
       '0xSAME',
