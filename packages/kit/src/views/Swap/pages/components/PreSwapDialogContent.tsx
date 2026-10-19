@@ -96,8 +96,6 @@ import { getSwapAnalyticsCategoryFromSwapType } from '../../utils/swapStockAnaly
 import { buildSwapStockReviewDisplay } from '../../utils/swapStockReviewUtils';
 import { getSwapExecutionTypeFromQuoteResult } from '../../utils/swapTypeUtils';
 
-import SwapQuoteRiskAlert from './SwapQuoteRiskAlert';
-
 import type { ISwapReviewRebuildOptions } from '../../hooks/useSwapReviewActions';
 import type {
   ISwapReviewAnalytics,
@@ -1041,13 +1039,6 @@ const PreSwapDialogContent = ({
               </YStack>
             </>
           ) : null}
-
-          <SwapQuoteRiskAlert
-            quote={quoteResult}
-            fromToken={preSwapData?.fromToken}
-            toToken={preSwapData?.toToken}
-            isLoading={preSwapData?.swapBuildLoading}
-          />
 
           {showMarketableFillTip ? (
             <Alert
