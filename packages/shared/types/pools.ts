@@ -124,6 +124,9 @@ export type IPoolPricePoint = {
   price: string;
 };
 
+/** The price chart's periods, as Market names them */
+export type IPoolPriceRange = '1D' | '1W' | '1M' | '1Y';
+
 export type IPoolDetail = {
   pool: IPool;
   ticks: IPoolTickLiquidityNet[];
@@ -149,6 +152,9 @@ export type IPoolPosition = {
   /** Human amounts; always zero for auto-compounding pools */
   uncollectedFees0: string;
   uncollectedFees1: string;
+  /** Human amounts claimed so far, so the position can show what it earned */
+  collectedFees0?: string;
+  collectedFees1?: string;
   createdAt: number;
 };
 
@@ -162,6 +168,11 @@ export type IPoolPositionView = {
   amount1: string;
   valueUsd: string;
   uncollectedFeesUsd: string;
+  /**
+   * Fees earned since opening, claimed and unclaimed, at today's prices.
+   * Zero for auto-compounding pools, whose fees are part of the value.
+   */
+  feesEarnedUsd: string;
   /**
    * Fees the position would have earned over the past 24h: the pool's fees
    * times its share of active liquidity. Zero when out of range or closed.
@@ -379,8 +390,10 @@ export type IPoolTaskStep = {
   /** Pool token or position the step acts on */
   poolId?: string;
   positionId?: string;
-  /** Approvals: the contract allowed to spend tokenIn */
+  /** Approvals: the contract allowed to spend tokenIn, shown in the wallet */
   spenderName?: string;
+  /** Approvals: who that is in the user's words, "OneKey Swap" or "Uniswap" */
+  spenderLabel?: string;
   tokenIn?: IPoolTaskTokenAmount;
   tokenOut?: IPoolTaskTokenAmount;
   /** Filled in once the step lands; later steps use these, not estimates */

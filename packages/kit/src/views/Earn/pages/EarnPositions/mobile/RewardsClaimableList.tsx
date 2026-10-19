@@ -22,6 +22,11 @@ import type { IEarnPortfolioPosition } from '@onekeyhq/shared/types/earn/portfol
 import type { IEarnRewardsPortfolioGroup } from '@onekeyhq/shared/types/staking';
 
 import { WrappedActionButton } from '../../../components/PortfolioTabContent';
+import {
+  PoolsRewardsGroup,
+  getPoolsClaimableUsd,
+} from '../../../pools/components/PoolsRewardsGroup';
+import { insertByValue, useUsdToFiat } from '../../../pools/usePoolsPortfolio';
 import { EarnTestIDs } from '../../../testIDs';
 import { resolveUniquePortfolioClaimSourceIdentity } from '../../../utils/portfolioClaimUtils';
 
@@ -42,6 +47,13 @@ import type {
   IEarnPositionRewardRow,
 } from './earnPositionModel';
 import type { IRewardsStageGroup } from './myPortfolio.utils';
+import type { IPoolsPortfolioGroup } from '../../../pools/usePoolsPortfolio';
+
+// Pools demo: a network's LP fees are one more protocol group here
+type IClaimableEntry = { key: string; value: number } & (
+  | { stageGroup: IRewardsStageGroup }
+  | { poolsGroup: IPoolsPortfolioGroup }
+);
 
 /** The group's figure: fiat the way the protocol rows read, the token amount only when nothing priced it. */
 export function RewardsGroupTotal({ group }: { group: IRewardsStageGroup }) {
@@ -133,6 +145,7 @@ export function RewardsClaimableList({
   positionGroups,
   positions,
   ledgerGroups,
+  poolsGroups,
   isLoading = false,
   emptyTitle,
   onManage,
@@ -140,6 +153,8 @@ export function RewardsClaimableList({
   positionGroups: IEarnPositionRewardGroup[];
   positions: IEarnPortfolioPosition[];
   ledgerGroups: IEarnRewardsPortfolioGroup[];
+  /** LP positions by network, under the page's network filter */
+  poolsGroups?: IPoolsPortfolioGroup[];
   /** the ledger part is still on its way: no empty state yet */
   isLoading?: boolean;
   emptyTitle: string;
@@ -159,8 +174,28 @@ export function RewardsClaimableList({
     () => mergeRewardGroups({ positionGroups, ledgerGroups }),
     [positionGroups, ledgerGroups],
   );
+  const toFiat = useUsdToFiat();
+  const entries = useMemo(
+    () =>
+      insertByValue<IClaimableEntry>(
+        groups.map((group) => ({
+          key: group.key,
+          value: group.value.value,
+          stageGroup: group,
+        })),
+        (poolsGroups ?? [])
+          .map((group) => ({
+            key: group.key,
+            value: Number(toFiat(getPoolsClaimableUsd([group]))),
+            poolsGroup: group,
+          }))
+          .filter((entry) => entry.value > 0),
+        (entry) => entry.value,
+      ),
+    [groups, poolsGroups, toFiat],
+  );
 
-  if (groups.length === 0) {
+  if (entries.length === 0) {
     if (isLoading) {
       return (
         <Stack ai="center" py="$8">
@@ -173,105 +208,119 @@ export function RewardsClaimableList({
 
   return (
     <YStack gap="$4">
-      {groups.map((group) => (
-        <GroupRow
-          key={group.key}
-          name={group.name}
-          logoURI={group.logoURI}
-          networkId={group.networkId}
-          expanded={expansion.isExpanded(group.key)}
-          onToggle={() => expansion.toggle(group.key)}
-          total={<RewardsGroupTotal group={group} />}
-        >
-          <YStack
-            px="$3"
-            py="$1"
-            borderRadius="$3"
-            borderWidth="$px"
-            borderColor="$borderSubdued"
-            bg="$bg"
+      {entries.map((entry) => {
+        if ('poolsGroup' in entry) {
+          return (
+            <PoolsRewardsGroup
+              key={entry.key}
+              group={entry.poolsGroup}
+              expansion={expansion}
+            />
+          );
+        }
+        const group = entry.stageGroup;
+        return (
+          <GroupRow
+            key={group.key}
+            name={group.name}
+            logoURI={group.logoURI}
+            networkId={group.networkId}
+            expanded={expansion.isExpanded(group.key)}
+            onToggle={() => expansion.toggle(group.key)}
+            total={<RewardsGroupTotal group={group} />}
           >
-            {group.positionRows.map((row) => (
-              <ClaimableRewardRow
-                key={row.key}
-                networkId={row.position.source.networkId}
-                logoURI={row.asset.meta?.logoUrl}
-                title={
-                  <NumberSizeableTextWrapper
-                    hideValue
-                    size="$bodyMdMedium"
-                    formatter="balance"
-                    formatterOptions={{ tokenSymbol: row.asset.symbol }}
-                    numberOfLines={1}
-                  >
-                    {row.asset.amount}
-                  </NumberSizeableTextWrapper>
-                }
-                subtitle={row.position.name}
-                fiatValue={
-                  isProtocolAssetValueUnavailable(row.asset) ||
-                  !new BigNumber(row.asset.amount).gt(0)
-                    ? undefined
-                    : row.asset.value
-                }
-                action={<PositionRewardAction row={row} onManage={onManage} />}
-              />
-            ))}
-            {group.ledgerItems.map(({ group: ledgerGroup, item }, index) => {
-              const network = networkInfoById.get(ledgerGroup.networkId);
-              const asset = toLedgerClaimAsset({
-                group: ledgerGroup,
-                item,
-                networkName: network?.name ?? '',
-                networkLogoURI: network?.logoURI ?? '',
-              });
-              const reward = asset?.airdropAssets[0];
-              return (
+            <YStack
+              px="$3"
+              py="$1"
+              borderRadius="$3"
+              borderWidth="$px"
+              borderColor="$borderSubdued"
+              bg="$bg"
+            >
+              {group.positionRows.map((row) => (
                 <ClaimableRewardRow
-                  key={`${item.token.info.symbol}-${item.vault ?? ''}-${index}`}
-                  networkId={ledgerGroup.networkId}
-                  logoURI={item.token.info.logoURI}
+                  key={row.key}
+                  networkId={row.position.source.networkId}
+                  logoURI={row.asset.meta?.logoUrl}
                   title={
-                    <EarnText
-                      text={hideValue ? { text: '****' } : item.title}
+                    <NumberSizeableTextWrapper
+                      hideValue
                       size="$bodyMdMedium"
+                      formatter="balance"
+                      formatterOptions={{ tokenSymbol: row.asset.symbol }}
                       numberOfLines={1}
-                    />
+                    >
+                      {row.asset.amount}
+                    </NumberSizeableTextWrapper>
                   }
-                  subtitle={
-                    item.description ? (
-                      <EarnText
-                        text={item.description}
-                        size="$bodySm"
-                        color="$textSubdued"
-                        numberOfLines={1}
-                      />
-                    ) : undefined
+                  subtitle={row.position.name}
+                  fiatValue={
+                    isProtocolAssetValueUnavailable(row.asset) ||
+                    !new BigNumber(row.asset.amount).gt(0)
+                      ? undefined
+                      : row.asset.value
                   }
-                  fiatValue={item.fiatValue || undefined}
                   action={
-                    asset && reward ? (
-                      <WrappedActionButton
-                        asset={asset}
-                        reward={reward}
-                        claimSourceIdentity={resolveUniquePortfolioClaimSourceIdentity(
-                          {
-                            networkId: ledgerGroup.networkId,
-                            providerName: ledgerGroup.provider,
-                            vault: item.vault,
-                            candidates,
-                          },
-                        )}
-                        rewardSymbol={item.token.info.symbol}
-                      />
-                    ) : null
+                    <PositionRewardAction row={row} onManage={onManage} />
                   }
                 />
-              );
-            })}
-          </YStack>
-        </GroupRow>
-      ))}
+              ))}
+              {group.ledgerItems.map(({ group: ledgerGroup, item }, index) => {
+                const network = networkInfoById.get(ledgerGroup.networkId);
+                const asset = toLedgerClaimAsset({
+                  group: ledgerGroup,
+                  item,
+                  networkName: network?.name ?? '',
+                  networkLogoURI: network?.logoURI ?? '',
+                });
+                const reward = asset?.airdropAssets[0];
+                return (
+                  <ClaimableRewardRow
+                    key={`${item.token.info.symbol}-${item.vault ?? ''}-${index}`}
+                    networkId={ledgerGroup.networkId}
+                    logoURI={item.token.info.logoURI}
+                    title={
+                      <EarnText
+                        text={hideValue ? { text: '****' } : item.title}
+                        size="$bodyMdMedium"
+                        numberOfLines={1}
+                      />
+                    }
+                    subtitle={
+                      item.description ? (
+                        <EarnText
+                          text={item.description}
+                          size="$bodySm"
+                          color="$textSubdued"
+                          numberOfLines={1}
+                        />
+                      ) : undefined
+                    }
+                    fiatValue={item.fiatValue || undefined}
+                    action={
+                      asset && reward ? (
+                        <WrappedActionButton
+                          asset={asset}
+                          reward={reward}
+                          claimSourceIdentity={resolveUniquePortfolioClaimSourceIdentity(
+                            {
+                              networkId: ledgerGroup.networkId,
+                              providerName: ledgerGroup.provider,
+                              vault: item.vault,
+                              candidates,
+                            },
+                          )}
+                          rewardSymbol={item.token.info.symbol}
+                        />
+                      ) : null
+                    }
+                  />
+                );
+              })}
+            </YStack>
+          </GroupRow>
+        );
+      })}
     </YStack>
   );
 }

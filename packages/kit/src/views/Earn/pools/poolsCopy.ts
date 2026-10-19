@@ -12,7 +12,8 @@ export const POOLS_COPY = {
   stock: 'Stock',
   hook: 'Hook',
   dynamicFee: 'Dynamic fee',
-  notListed: 'Not listed',
+  notListed: 'Unlisted',
+  unlistedHint: 'Unlisted pool: you can exit, not add',
   fullRange: 'Full range',
   viewAll: 'View all',
   network: 'Network',
@@ -32,6 +33,12 @@ export const POOLS_COPY = {
   // Pool details
   price: 'Price',
   priceIn: (quote: string, base: string) => `${quote} per ${base}`,
+  priceChangeOver: {
+    '1D': 'past day',
+    '1W': 'past week',
+    '1M': 'past month',
+    '1Y': 'past year',
+  },
   liquidity: 'Liquidity',
   currentPrice: 'Current price',
   now: 'Now',
@@ -49,10 +56,11 @@ export const POOLS_COPY = {
   position: 'Position',
   positionValue: 'Value',
   unclaimedFees: 'Unclaimed fees',
-  inRange: 'In range',
+  // One status word for every version: what the position does for the user
+  inRange: 'Earning',
   outOfRange: 'Out of range',
   closed: 'Closed',
-  active: 'Active',
+  active: 'Earning',
   range: 'Range',
   rangeMin: 'Min',
   rangeMax: 'Max',
@@ -64,17 +72,19 @@ export const POOLS_COPY = {
     `The price is below your range. The position is all ${symbol} and earns no fees until the price comes back.`,
   add: 'Add',
   remove: 'Remove',
-  collect: 'Collect',
+  collect: 'Claim',
   // Product type on a portfolio card; the group above it names the protocol
   lpBadge: 'Liquidity',
   fees: 'Fees',
   details: 'Details',
   positionId: 'Position ID',
   protocol: 'Protocol',
-  exitHint: (network: string) =>
-    `Close positions on ${network} together and receive one token`,
-  collectFees: 'Collect fees',
-  exitToOneToken: 'Exit to one token',
+  collectFees: 'Claim fees',
+  exitPositionsOn: (count: number, network: string) =>
+    `Exit ${count} positions on ${network}`,
+  exitPositionsHint: 'Close them together and receive one token',
+  feesEarned: 'Fees earned',
+  claimedSoFar: (value: string) => `${value} claimed so far`,
   createdOn: 'Opened',
 
   // Add liquidity
@@ -105,6 +115,19 @@ export const POOLS_COPY = {
   enterAmount: 'Enter an amount',
   payWithEth: 'Pay with ETH',
   rangeInverted: 'Min must be below max',
+  daysInRangeLabel: 'In range, last 30 days',
+  daysInRange: (count: number, total: number) => `${count} of ${total} days`,
+  rangeMeaning: (base: string, min: string, max: string, quote: string) =>
+    `Earns fees while ${base} is between ${min} and ${max} ${quote}. Outside that, it earns nothing until the price comes back.`,
+  rangeMeaningFull: 'Earns fees at any price.',
+  estimatedEarnings: 'Est. earnings',
+  perMonth: (value: string) => `${value} a month`,
+  onReferenceDeposit: (value: string) => `On ${value} at today’s fees`,
+  atTodaysFees: 'At today’s fees',
+  versusHoldingLabel: (symbol: string, percent: string) =>
+    `If ${symbol} moves ${percent}`,
+  lessThanHolding: (value: string) => `${value} less than holding`,
+  beforeFees: 'Before fees',
 
   // Remove
   amountToRemove: 'Amount',
@@ -149,15 +172,27 @@ export const POOLS_COPY = {
   retry: 'Retry',
   done: 'Done',
   viewPosition: 'View position',
-  stepApprove: (symbol: string) => `Approve ${symbol}`,
-  stepApproveTo: (spender: string) => `For ${spender}`,
-  stepSignPermit: 'Sign Permit2 allowance',
+  stepAllow: (spender: string, symbol: string) =>
+    `Allow ${spender} to use your ${symbol}`,
+  stepContract: (contract: string) => `Contract: ${contract}`,
+  // A Permit2 signature covers this deposit only; it costs no gas
+  stepSignPermit: 'Sign to approve this deposit',
+  confirmations: (count: number) =>
+    count === 1 ? '1 wallet confirmation' : `${count} wallet confirmations`,
+  confirmationsLeft: (count: number) => `${count} left`,
+  timeEstimate: (seconds: number) =>
+    seconds < 60 ? 'under a minute' : `about ${Math.round(seconds / 60)} min`,
+  stepsCompleted: (count: number) =>
+    count === 1 ? '1 step completed' : `${count} steps completed`,
+  heroIn: (pair: string) => `in ${pair}`,
+  heroFrom: (pair: string) => `from ${pair}`,
+  heroFromPositions: (count: number) => `from ${count} positions`,
   stepSwap: (from: string, to: string) => `Swap ${from} to ${to}`,
   stepWrap: (from: string, to: string) => `Convert ${from} to ${to}`,
   stepAdd: 'Add liquidity',
   stepIncrease: 'Add to position',
   stepRemove: 'Remove liquidity',
-  stepCollect: 'Collect fees',
+  stepCollect: 'Claim fees',
   statusWaiting: 'Waiting',
   statusConfirming: 'Confirm in wallet',
   statusSubmitted: 'Pending',
@@ -170,7 +205,7 @@ export const POOLS_COPY = {
     removeLiquidity: 'Liquidity removed',
     zapOut: 'Liquidity removed',
     exitToToken: 'Positions exited',
-    collectFees: 'Fees collected',
+    collectFees: 'Fees claimed',
   },
   taskTitle: {
     addLiquidity: 'Add liquidity',
@@ -179,7 +214,7 @@ export const POOLS_COPY = {
     removeLiquidity: 'Remove liquidity',
     zapOut: 'Remove to one token',
     exitToToken: 'Exit to one token',
-    collectFees: 'Collect fees',
+    collectFees: 'Claim fees',
   },
 
   // Demo controls

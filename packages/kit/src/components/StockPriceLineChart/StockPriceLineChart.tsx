@@ -112,6 +112,7 @@ export function StockPriceLineChart({
   previousClose,
   showCurrentPriceLabel,
   priceScaleFormat,
+  priceAxisFormatter,
   testID,
   hoverLabelShowsPrice = true,
   hoverLabelLargePrice = false,
@@ -131,6 +132,10 @@ export function StockPriceLineChart({
   // `full`: desktop prints the whole figure up to $1M (`$2,377.04`, ticks
   // `$2,540`) instead of the compact `$2.38K`.
   priceScaleFormat?: 'stock' | 'full';
+  // Prices that are not dollars (a pool quoted in WETH): the axis and the
+  // last-price tag print through this instead of a $ formatter, and the
+  // native chart, which cannot run it, prints plain numbers.
+  priceAxisFormatter?: (price: number) => string;
   testID?: string;
   // The hover card answers "when" and, by default, "how much". Hosts that must
   // not repeat the figure pass false to keep the card time-only.
@@ -146,11 +151,12 @@ export function StockPriceLineChart({
   const [chartWidth, setChartWidth] = useState(0);
   const priceFormatter = useCallback(
     (price: number) => {
+      if (priceAxisFormatter) return priceAxisFormatter(price);
       if (priceScaleFormat === 'full') return formatChartPriceFull(price);
       if (priceScaleFormat === 'stock') return formatStockChartPrice(price);
       return formatChartPrice(price, PRICE_SCALE_MAX_CHARACTERS);
     },
-    [priceScaleFormat],
+    [priceAxisFormatter, priceScaleFormat],
   );
   const priceTickFormatter =
     priceScaleFormat === 'full' ? formatChartPriceFullTicks : undefined;
@@ -370,7 +376,9 @@ export function StockPriceLineChart({
         priceFormatter={priceFormatter}
         priceTickFormatter={priceTickFormatter}
         priceFormatBase={priceFormatBase}
-        compactPriceMaxCharacters={PRICE_SCALE_MAX_CHARACTERS}
+        compactPriceMaxCharacters={
+          priceAxisFormatter ? undefined : PRICE_SCALE_MAX_CHARACTERS
+        }
         // `full` relies on JS formatters, which only the web chart runs; the
         // native WebView keeps its serializable compact form.
         priceScaleFormat={priceScaleFormat === 'stock' ? 'stock' : undefined}

@@ -18,6 +18,8 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar/NetworkAvatar';
+import { StockPriceLineChart } from '@onekeyhq/kit/src/components/StockPriceLineChart';
+import type { IStockPriceLineChartHoverPoint } from '@onekeyhq/kit/src/components/StockPriceLineChart';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -30,11 +32,15 @@ import {
   toDisplayPrice,
 } from '@onekeyhq/shared/src/utils/poolsMath';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import { EPoolListingStatus } from '@onekeyhq/shared/types/pools';
+import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
+import {
+  EPoolListingStatus,
+  EPoolPositionStatus,
+} from '@onekeyhq/shared/types/pools';
 import type {
   IPool,
-  IPoolDetail,
   IPoolPositionView,
+  IPoolPriceRange,
 } from '@onekeyhq/shared/types/pools';
 
 import { EarnPageContainer } from '../../components/EarnPageContainer';
@@ -42,7 +48,6 @@ import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { PoolLiquidityChart } from '../components/PoolLiquidityChart';
 import { PoolPairIcon } from '../components/PoolPairIcon';
 import { PoolPositionCard } from '../components/PoolPositionCard';
-import { PoolPriceChart } from '../components/PoolPriceChart';
 import { PoolTags } from '../components/PoolTags';
 import { PoolTokenSplit } from '../components/PoolTokenSplit';
 import { POOLS_COPY } from '../poolsCopy';
@@ -58,6 +63,7 @@ import {
 } from '../poolsFormat';
 import { usePoolsBreadcrumb } from '../usePoolsBreadcrumb';
 
+import type { IPoolChartPosition } from '../components/PoolLiquidityChart';
 import type { RouteProp } from '@react-navigation/core';
 
 export function PoolsCard({
@@ -198,25 +204,45 @@ function PoolHookCard({ pool }: { pool: IPool }) {
   );
 }
 
-function PoolPriceCard({ detail }: { detail: IPoolDetail }) {
-  const { pool } = detail;
+const PRICE_RANGES: IPoolPriceRange[] = ['1D', '1W', '1M', '1Y'];
+
+// A pool's price is one token in the other, not dollars
+const formatAxisPrice = (price: number) => formatTokenPrice(price);
+
+/** Market's stock chart (StockSimpleChart), on the pool's price */
+function PoolPriceCard({ pool }: { pool: IPool }) {
+  const { gtMd } = useMedia();
   const [flipped, setFlipped] = useState(false);
+  const [range, setRange] = useState<IPoolPriceRange>('1M');
+  const [hover, setHover] = useState<IStockPriceLineChartHoverPoint>();
   const { base, quote, inverted } = getPoolPair(pool);
   const shownBase = flipped ? quote : base;
   const shownQuote = flipped ? base : quote;
-  const prices = useMemo(
+  const { result: history } = usePromiseResult(
     () =>
-      detail.priceHistory.map((point) =>
+      backgroundApiProxy.servicePools.getPoolPriceHistory({
+        poolId: pool.id,
+        range,
+      }),
+    [pool.id, range],
+  );
+  const data = useMemo<IMarketTokenChart>(
+    () =>
+      (history ?? []).map((point) => [
+        Math.round(point.time / 1000),
         toDisplayPrice(
           new PoolsBigNumber(point.price),
           flipped ? !inverted : inverted,
         ).toNumber(),
-      ),
-    [detail.priceHistory, flipped, inverted],
+      ]),
+    [flipped, history, inverted],
   );
-  const first = prices[0];
-  const last = prices[prices.length - 1];
-  const change = first ? last / first - 1 : 0;
+  // The header follows the cursor, like Market's
+  const shownPrice =
+    hover?.price ?? getPoolDisplayPrice(pool, flipped).toNumber();
+  const first = data[0]?.[1];
+  const change = first ? shownPrice / first - 1 : 0;
+  const chartHeight = gtMd ? 240 : 200;
 
   return (
     <PoolsCard
@@ -234,20 +260,60 @@ function PoolPriceCard({ detail }: { detail: IPoolDetail }) {
       <YStack gap="$1">
         <XStack ai="baseline" gap="$2" flexWrap="wrap">
           <SizableText size="$heading2xl">
-            {formatTokenPrice(getPoolDisplayPrice(pool, flipped))}
+            {formatTokenPrice(shownPrice)}
           </SizableText>
           <SizableText size="$bodyMd" color="$textSubdued">
             {POOLS_COPY.priceIn(shownQuote.symbol, shownBase.symbol)}
           </SizableText>
         </XStack>
-        <SizableText
-          size="$bodyMdMedium"
-          color={change >= 0 ? '$textSuccess' : '$textCritical'}
-        >
-          {`${change >= 0 ? '+' : ''}${(change * 100).toFixed(2)}% 30D`}
-        </SizableText>
+        <XStack ai="center" gap="$1.5">
+          <SizableText
+            size="$bodyMdMedium"
+            color={change >= 0 ? '$textSuccess' : '$textCritical'}
+          >
+            {`${change >= 0 ? '+' : ''}${(change * 100).toFixed(2)}%`}
+          </SizableText>
+          {hover ? null : (
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {POOLS_COPY.priceChangeOver[range]}
+            </SizableText>
+          )}
+        </XStack>
       </YStack>
-      <PoolPriceChart prices={prices} />
+      {/* Market's period row (MobileSimpleChart) */}
+      <XStack gap="$1" ai="center">
+        {PRICE_RANGES.map((item) => (
+          <Button
+            key={item}
+            testID={`earn-pool-price-range-${item}`}
+            size="small"
+            variant={range === item ? 'secondary' : 'tertiary'}
+            minWidth={42}
+            height={30}
+            m="$0"
+            px="$2.5"
+            borderWidth={0}
+            borderRadius="$full"
+            onPress={() => setRange(item)}
+          >
+            {item}
+          </Button>
+        ))}
+      </XStack>
+      {data.length ? (
+        <StockPriceLineChart
+          testID="earn-pool-price-chart"
+          data={data}
+          height={chartHeight}
+          pulseLastPoint
+          showCurrentPriceLabel
+          hoverLabelShowsPrice={false}
+          priceAxisFormatter={formatAxisPrice}
+          onHoverChange={setHover}
+        />
+      ) : (
+        <Skeleton w="100%" h={chartHeight} borderRadius="$3" />
+      )}
     </PoolsCard>
   );
 }
@@ -371,6 +437,26 @@ function EarnPoolDetailsContent({ poolId }: { poolId: string }) {
     () => portfolio?.positions.filter((view) => view.pool.id === poolId) ?? [],
     [poolId, portfolio?.positions],
   );
+  // Open range positions, drawn into the liquidity bars
+  const chartPositions = useMemo<IPoolChartPosition[]>(
+    () =>
+      myPositions.flatMap(({ position, status, valueUsd }) =>
+        status !== EPoolPositionStatus.Closed &&
+        position.tickLower !== undefined &&
+        position.tickUpper !== undefined
+          ? [
+              {
+                id: position.id,
+                tickLower: position.tickLower,
+                tickUpper: position.tickUpper,
+                inRange: status === EPoolPositionStatus.Active,
+                valueUsd,
+              },
+            ]
+          : [],
+      ),
+    [myPositions],
+  );
 
   const pool = detail?.pool;
   const canAdd = pool?.listingStatus === EPoolListingStatus.Listed;
@@ -406,9 +492,12 @@ function EarnPoolDetailsContent({ poolId }: { poolId: string }) {
       />
     ) : null;
 
+  // Distinct keys: the loaded page mounts with its footer, since a footer
+  // added to a mounted page updates the page while rendering
   if (!detail || !pool) {
     return (
       <EarnPageContainer
+        key="loading"
         pageTitle={pageTitle}
         breadcrumbProps={breadcrumbProps}
         sceneName={EAccountSelectorSceneName.home}
@@ -427,12 +516,13 @@ function EarnPoolDetailsContent({ poolId }: { poolId: string }) {
         <Alert type="warning" title={POOLS_COPY.unlistedNotice} />
       ) : null}
       <PoolHookCard pool={pool} />
-      <PoolPriceCard detail={detail} />
+      <PoolPriceCard pool={pool} />
       {pool.capabilities.priceRange ? (
         <PoolsCard title={POOLS_COPY.liquidity}>
           <PoolLiquidityChart
             pool={pool}
             ticks={detail.ticks}
+            positions={chartPositions}
             height={gtMd ? 180 : 140}
             bucketCount={gtMd ? 72 : 48}
           />
@@ -461,6 +551,7 @@ function EarnPoolDetailsContent({ poolId }: { poolId: string }) {
 
   return (
     <EarnPageContainer
+      key="loaded"
       pageTitle={pageTitle}
       breadcrumbProps={breadcrumbProps}
       sceneName={EAccountSelectorSceneName.home}
@@ -473,8 +564,12 @@ function EarnPoolDetailsContent({ poolId }: { poolId: string }) {
         <PoolHeader pool={pool} />
         {gtMd ? (
           <XStack gap="$6" ai="flex-start">
-            <YStack flex={65}>{leftColumn}</YStack>
-            <YStack flex={35}>{sideColumn}</YStack>
+            <YStack flex={65} flexBasis={0} minWidth={0}>
+              {leftColumn}
+            </YStack>
+            <YStack flex={35} flexBasis={0} minWidth={0}>
+              {sideColumn}
+            </YStack>
           </XStack>
         ) : (
           <YStack gap="$5">

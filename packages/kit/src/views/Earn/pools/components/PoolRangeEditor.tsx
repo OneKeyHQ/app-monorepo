@@ -18,10 +18,12 @@ import {
 } from '@onekeyhq/shared/src/utils/poolsMath';
 import type {
   IPoolTickRange,
+  IPoolsAprEstimate,
   IRangeDisplayBound,
 } from '@onekeyhq/shared/src/utils/poolsMath';
 import type {
   IPool,
+  IPoolPricePoint,
   IPoolTickLiquidityNet,
 } from '@onekeyhq/shared/types/pools';
 
@@ -32,7 +34,9 @@ import {
   getPoolPair,
   getPriceUnitLabel,
 } from '../poolsFormat';
+import { countDaysInRange } from '../poolsOutcome';
 
+import { PoolAprFigure } from './PoolAprEstimate';
 import { PoolLiquidityChart } from './PoolLiquidityChart';
 import { PoolsChip } from './PoolsFilterButton';
 
@@ -152,13 +156,16 @@ function PriceBoundField({
 }
 
 /**
- * Range step of the add form (doc §2.5 ②): presets, the liquidity chart
- * with the range drawn on it, and min / max that snap to usable ticks and
- * show the snapped price.
+ * Range step of the add form (doc §2.5 ②): presets with what they do (the
+ * estimate and how often the price stayed inside), the liquidity chart with
+ * the range's edges to drag, min / max that snap to usable ticks, and the
+ * range in plain words.
  */
 export function PoolRangeEditor({
   pool,
   ticks,
+  priceHistory,
+  estimate,
   range,
   presetId,
   onChange,
@@ -166,6 +173,9 @@ export function PoolRangeEditor({
 }: {
   pool: IPool;
   ticks: IPoolTickLiquidityNet[];
+  /** Daily closes of the last 30 days */
+  priceHistory: IPoolPricePoint[];
+  estimate: IPoolsAprEstimate | undefined;
   range: IPoolTickRange;
   presetId?: string;
   onChange: (range: IPoolTickRange, presetId?: string) => void;
@@ -173,7 +183,7 @@ export function PoolRangeEditor({
 }) {
   const [error, setError] = useState<string>();
   const tickSpacing = pool.tickSpacing ?? 60;
-  const { inverted } = getPoolPair(pool);
+  const { inverted, base, quote } = getPoolPair(pool);
   const decimals = {
     decimals0: pool.token0.decimals,
     decimals1: pool.token1.decimals,
@@ -213,6 +223,17 @@ export function PoolRangeEditor({
     );
   };
 
+  const days = countDaysInRange(pool, range, priceHistory);
+  const meaning =
+    display.isMinZero && display.isMaxInfinite
+      ? POOLS_COPY.rangeMeaningFull
+      : POOLS_COPY.rangeMeaning(
+          base.symbol,
+          display.isMinZero ? '0' : formatTokenPrice(display.min),
+          display.isMaxInfinite ? '∞' : formatTokenPrice(display.max),
+          quote.symbol,
+        );
+
   return (
     <YStack gap="$4">
       {readOnly ? null : (
@@ -231,10 +252,31 @@ export function PoolRangeEditor({
           ))}
         </XStack>
       )}
+      <XStack jc="space-between" ai="flex-start" gap="$4">
+        <PoolAprFigure estimate={estimate} pool={pool} />
+        {days.total ? (
+          <YStack gap="$0.5" ai="flex-end" flexShrink={0}>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {POOLS_COPY.daysInRangeLabel}
+            </SizableText>
+            <SizableText size="$headingXl">
+              {POOLS_COPY.daysInRange(days.inRange, days.total)}
+            </SizableText>
+          </YStack>
+        ) : null}
+      </XStack>
       <PoolLiquidityChart
         pool={pool}
         ticks={ticks}
         range={range}
+        onRangeChange={
+          readOnly
+            ? undefined
+            : (next) => {
+                setError(undefined);
+                onChange(next);
+              }
+        }
         height={120}
       />
       <XStack gap="$3">
@@ -270,6 +312,9 @@ export function PoolRangeEditor({
           {`${formatTokenPrice(getPoolDisplayPrice(pool))} ${getPriceUnitLabel(pool)}`}
         </SizableText>
       </XStack>
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {meaning}
+      </SizableText>
     </YStack>
   );
 }

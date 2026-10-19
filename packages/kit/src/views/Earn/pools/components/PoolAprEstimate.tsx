@@ -5,7 +5,10 @@ import type { IPool } from '@onekeyhq/shared/types/pools';
 import { POOLS_COPY } from '../poolsCopy';
 import { formatPercent } from '../poolsFormat';
 
-function describe(estimate: IPoolsAprEstimate | undefined, pool: IPool) {
+export function describeAprEstimate(
+  estimate: IPoolsAprEstimate | undefined,
+  pool: IPool,
+) {
   if (!estimate || estimate.status === 'unavailable') {
     return {
       value: POOLS_COPY.aprUnavailable,
@@ -37,10 +40,11 @@ function describe(estimate: IPoolsAprEstimate | undefined, pool: IPool) {
   if (estimate.isSmallAmount) {
     notes.push(POOLS_COPY.estimatedForSmallAmount);
   }
+  // Earn paints an APR green only for a bonus, so a plain estimate stays $text
   return {
     value: formatPercent(estimate.apr),
     notes,
-    color: '$textSuccess',
+    color: '$text',
   } as const;
 }
 
@@ -56,7 +60,7 @@ export function PoolAprEstimate({
   estimate: IPoolsAprEstimate | undefined;
   pool: IPool;
 }) {
-  const info = describe(estimate, pool);
+  const info = describeAprEstimate(estimate, pool);
   return (
     <YStack gap="$1">
       <XStack jc="space-between" ai="center">
@@ -77,6 +81,38 @@ export function PoolAprEstimate({
           {note}
         </SizableText>
       ))}
+    </YStack>
+  );
+}
+
+/**
+ * The estimate as a figure beside the range presets, so a preset's effect
+ * shows where it is picked.
+ */
+export function PoolAprFigure({
+  estimate,
+  pool,
+}: {
+  estimate: IPoolsAprEstimate | undefined;
+  pool: IPool;
+}) {
+  const info = describeAprEstimate(estimate, pool);
+  return (
+    <YStack gap="$0.5" flexShrink={1}>
+      <SizableText size="$bodySm" color="$textSubdued">
+        {POOLS_COPY.estimatedApr}
+      </SizableText>
+      <SizableText size="$headingXl" color={info.color}>
+        {info.value}
+      </SizableText>
+      {/* Two lines kept, so the chart below holds still as notes come and go */}
+      <YStack gap="$0.5" minHeight={34}>
+        {info.notes.map((note) => (
+          <SizableText key={note} size="$bodySm" color="$textSubdued">
+            {note}
+          </SizableText>
+        ))}
+      </YStack>
     </YStack>
   );
 }

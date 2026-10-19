@@ -9,6 +9,8 @@ import type {
   IPoolExitParams,
   IPoolListItem,
   IPoolListQuery,
+  IPoolPricePoint,
+  IPoolPriceRange,
   IPoolRemovePreview,
   IPoolTask,
   IPoolTaskRequest,
@@ -30,6 +32,7 @@ import {
   createTask,
   getPoolDetail,
   getPoolNetworkIds,
+  getPoolPriceHistory,
   getTask,
   planZapIn,
   previewRemove,
@@ -112,6 +115,17 @@ class ServicePools extends ServiceBase {
   @backgroundMethod()
   async getPoolDetail({ poolId }: { poolId: string }): Promise<IPoolDetail> {
     return getPoolDetail(this.getCatalog(), poolId);
+  }
+
+  @backgroundMethod()
+  async getPoolPriceHistory({
+    poolId,
+    range,
+  }: {
+    poolId: string;
+    range: IPoolPriceRange;
+  }): Promise<IPoolPricePoint[]> {
+    return getPoolPriceHistory(this.getCatalog(), poolId, range);
   }
 
   @backgroundMethod()

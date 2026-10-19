@@ -49,6 +49,7 @@ const SYNTHETIC_POSITION_COUNT = 56;
 const FULL_RANGE_SHARE = 0.12;
 const STALE_RANGE_SHARE = 0.15;
 const PRICE_HISTORY_DAYS = 30;
+const HOUR_MS = 60 * 60 * 1000;
 
 export const POOL_CAPABILITIES: Record<
   IPoolProtocolVersion,
@@ -209,10 +210,20 @@ function approximateTick(price: number, decimals0: number, decimals1: number) {
 type IBuiltPool = {
   pool: IPool;
   ticks: IPoolTickLiquidityNet[];
-  priceHistory: IPoolPricePoint[];
+  priceSeries: IPoolPricePoint[];
 };
 
-function buildPriceHistory(
+// The walk's steps, newest stretch first: finer where it is recent, so the
+// 1D, 1W, 1M and 1Y charts all read from one history and agree
+const PRICE_SERIES_SEGMENTS = [
+  { untilMs: DAY_MS, stepMs: 15 * 60 * 1000 },
+  { untilMs: 7 * DAY_MS, stepMs: HOUR_MS },
+  { untilMs: 30 * DAY_MS, stepMs: 4 * HOUR_MS },
+  { untilMs: 365 * DAY_MS, stepMs: DAY_MS },
+];
+
+/** A random walk back from today's price, oldest point first */
+function buildPriceSeries(
   seed: IPoolsPoolSeed,
   price: number,
   now: number,
@@ -221,10 +232,16 @@ function buildPriceHistory(
   const { dailyMove } = SHAPES[seed.shape];
   const points: IPoolPricePoint[] = [];
   let current = price;
-  for (let day = 0; day < PRICE_HISTORY_DAYS; day += 1) {
-    points.push({ time: now - day * DAY_MS, price: String(current) });
-    current /= Math.exp(gaussian(random) * dailyMove);
+  let ageMs = 0;
+  for (const segment of PRICE_SERIES_SEGMENTS) {
+    const move = dailyMove * Math.sqrt(segment.stepMs / DAY_MS);
+    while (ageMs < segment.untilMs) {
+      points.push({ time: now - ageMs, price: String(current) });
+      current /= Math.exp(gaussian(random) * move);
+      ageMs += segment.stepMs;
+    }
   }
+  points.push({ time: now - ageMs, price: String(current) });
   return points.toReversed();
 }
 
@@ -389,7 +406,7 @@ function buildPool(
     aprEstimateSupported: seed.aprEstimateSupported ?? true,
   };
 
-  const priceHistory = buildPriceHistory(seed, price, now);
+  const priceSeries = buildPriceSeries(seed, price, now);
 
   if (seed.version === 'v2') {
     const reserve0 = new BigNumber(seed.tvlUsd).div(2).div(token0.priceUsd);
@@ -397,7 +414,7 @@ function buildPool(
     pool.reserve0 = reserve0.toFixed(token0.decimals, BigNumber.ROUND_FLOOR);
     pool.reserve1 = reserve1.toFixed(token1.decimals, BigNumber.ROUND_FLOOR);
     pool.lpTotalSupply = reserve0.times(reserve1).sqrt().toFixed(18);
-    return { pool, ticks: [], priceHistory };
+    return { pool, ticks: [], priceSeries };
   }
 
   const sqrtRatioX96 = priceToSqrtRatioX96({
@@ -413,14 +430,17 @@ function buildPool(
   pool.activeLiquidity = book.activeLiquidity.toString();
   pool.reserve0 = book.reserve0;
   pool.reserve1 = book.reserve1;
-  return { pool, ticks: book.ticks, priceHistory };
+  return { pool, ticks: book.ticks, priceSeries };
 }
 
 export type IPoolsMockCatalog = {
   assets: IPoolAsset[];
   pools: IPool[];
   ticksByPoolId: Record<string, IPoolTickLiquidityNet[]>;
+  /** Daily closes of the last 30 days */
   priceHistoryByPoolId: Record<string, IPoolPricePoint[]>;
+  /** The whole year, finer toward today; the price chart's ranges cut it */
+  priceSeriesByPoolId: Record<string, IPoolPricePoint[]>;
   poolIdBySeedKey: Record<string, string>;
 };
 
@@ -431,13 +451,19 @@ export function buildMockCatalog(now: number): IPoolsMockCatalog {
     pools: [],
     ticksByPoolId: {},
     priceHistoryByPoolId: {},
+    priceSeriesByPoolId: {},
     poolIdBySeedKey: {},
   };
   for (const seed of POOLS_POOL_SEEDS) {
     const built = buildPool(seed, assets, now);
     catalog.pools.push(built.pool);
     catalog.ticksByPoolId[built.pool.id] = built.ticks;
-    catalog.priceHistoryByPoolId[built.pool.id] = built.priceHistory;
+    catalog.priceSeriesByPoolId[built.pool.id] = built.priceSeries;
+    catalog.priceHistoryByPoolId[built.pool.id] = built.priceSeries.filter(
+      (point) =>
+        now - point.time < PRICE_HISTORY_DAYS * DAY_MS &&
+        (now - point.time) % DAY_MS === 0,
+    );
     catalog.poolIdBySeedKey[seed.key] = built.pool.id;
   }
   return catalog;
@@ -496,12 +522,22 @@ export function buildSeedPositions(
     const price0 = new BigNumber(pool.token0.priceUsd);
     const price1 = new BigNumber(pool.token1.priceUsd);
     const halfFees = new BigNumber(seed.feesUsd).div(2);
+    const claimedRounds = Math.floor(seed.daysAgo / 14);
     const base = {
       poolId: pool.id,
       networkId: pool.networkId,
       owner: POOLS_DEMO_OWNER,
       uncollectedFees0: halfFees.div(price0).toFixed(pool.token0.decimals),
       uncollectedFees1: halfFees.div(price1).toFixed(pool.token1.decimals),
+      // Claimed every two weeks or so, at about the rate it earns now
+      collectedFees0: halfFees
+        .times(claimedRounds)
+        .div(price0)
+        .toFixed(pool.token0.decimals),
+      collectedFees1: halfFees
+        .times(claimedRounds)
+        .div(price1)
+        .toFixed(pool.token1.decimals),
       createdAt: now - seed.daysAgo * DAY_MS,
     };
 
@@ -513,6 +549,8 @@ export function buildSeedPositions(
         lpBalance: share.times(pool.lpTotalSupply ?? 0).toFixed(18),
         uncollectedFees0: '0',
         uncollectedFees1: '0',
+        collectedFees0: undefined,
+        collectedFees1: undefined,
       };
     }
 

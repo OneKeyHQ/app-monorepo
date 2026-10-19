@@ -38,9 +38,9 @@ import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { PoolLiquidityChart } from '../components/PoolLiquidityChart';
 import { PoolPositionStatus } from '../components/PoolPositionCard';
-import { PoolRangeBar, getRangeDisplay } from '../components/PoolRangeBar';
+import { getRangeDisplay } from '../components/PoolRangeBar';
 import { PoolsDemoMenuButton } from '../components/PoolsDemoMenuButton';
-import { PoolTokenSplit } from '../components/PoolTokenSplit';
+import { PoolTokenDot, PoolTokenSplit } from '../components/PoolTokenSplit';
 import { PoolUnfinishedTasks } from '../components/PoolUnfinishedTasks';
 import { POOLS_COPY } from '../poolsCopy';
 import {
@@ -60,14 +60,30 @@ import { PoolHeader, PoolsCard } from './EarnPoolDetails';
 import type { RouteProp } from '@react-navigation/core';
 
 function ValueCard({ view }: { view: IPoolPositionView }) {
+  // Auto-compounding pools add fees to the value, so there is nothing apart
+  const feesEarned = new BigNumber(view.feesEarnedUsd);
   return (
     <PoolsCard>
-      <YStack gap="$1">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {POOLS_COPY.positionValue}
-        </SizableText>
-        <SizableText size="$heading4xl">{formatUsd(view.valueUsd)}</SizableText>
-      </YStack>
+      <XStack gap="$8" rowGap="$4" flexWrap="wrap" ai="flex-end">
+        <YStack gap="$1">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {POOLS_COPY.positionValue}
+          </SizableText>
+          <SizableText size="$heading4xl">
+            {formatUsd(view.valueUsd)}
+          </SizableText>
+        </YStack>
+        {feesEarned.gt(0) ? (
+          <YStack gap="$1" pb="$1">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {POOLS_COPY.feesEarned}
+            </SizableText>
+            <SizableText size="$heading2xl" color="$textSuccess">
+              {`+${formatUsd(feesEarned)}`}
+            </SizableText>
+          </YStack>
+        ) : null}
+      </XStack>
       <PoolTokenSplit
         pool={view.pool}
         amount0={view.amount0}
@@ -124,12 +140,26 @@ function FeesCard({
       </SizableText>
       {hasFees ? (
         <YStack gap="$1">
-          {(inverted ? rows.toReversed() : rows).map(({ token, amount }) => (
-            <SizableText key={token.id} size="$bodyMd" color="$textSubdued">
-              {formatTokenAmount(amount, token.symbol)}
-            </SizableText>
-          ))}
+          {(inverted ? rows.toReversed() : rows).map(
+            ({ token, amount }, index) => (
+              <XStack key={token.id} ai="center" gap="$2">
+                <PoolTokenDot index={index === 0 ? 0 : 1} />
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {formatTokenAmount(amount, token.symbol)}
+                </SizableText>
+              </XStack>
+            ),
+          )}
         </YStack>
+      ) : null}
+      {new BigNumber(view.feesEarnedUsd).gt(view.uncollectedFeesUsd) ? (
+        <SizableText size="$bodySm" color="$textSubdued">
+          {POOLS_COPY.claimedSoFar(
+            formatUsd(
+              new BigNumber(view.feesEarnedUsd).minus(view.uncollectedFeesUsd),
+            ),
+          )}
+        </SizableText>
       ) : null}
     </PoolsCard>
   );
@@ -204,12 +234,6 @@ function RangeCard({
               value={formatTokenPrice(display.max)}
             />
           </XStack>
-          <PoolRangeBar
-            pool={pool}
-            tickLower={range.tickLower}
-            tickUpper={range.tickUpper}
-            showLabels={false}
-          />
           <SizableText size="$bodySm" color="$textSubdued">
             {getPriceUnitLabel(pool)}
           </SizableText>
@@ -226,6 +250,9 @@ function RangeCard({
         pool={pool}
         ticks={ticks}
         range={range}
+        tone={
+          view.status === EPoolPositionStatus.OutOfRange ? 'caution' : 'success'
+        }
         height={120}
       />
     </PoolsCard>
@@ -290,10 +317,13 @@ function PositionView({
   view,
   ticks,
   networkName,
+  openOnNetwork,
 }: {
   view: IPoolPositionView;
   ticks: IPoolTickLiquidityNet[];
   networkName: string;
+  /** Open positions on this position's network, this one included */
+  openOnNetwork: number;
 }) {
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
@@ -314,10 +344,10 @@ function PositionView({
     navigation.push(ETabEarnRoutes.EarnPoolRemoveLiquidity, {
       positionId: position.id,
     });
+  // Every open position on the network starts selected
   const openExit = () =>
     navigation.push(ETabEarnRoutes.EarnPoolsExit, {
       networkId: pool.networkId,
-      positionIds: [position.id],
     });
   const collect = async () => {
     setIsCollecting(true);
@@ -366,20 +396,22 @@ function PositionView({
     });
   }
 
-  const exitRow = isOpen ? (
-    <ListItem
-      mx="$0"
-      px="$5"
-      py="$4"
-      borderRadius="$4"
-      bg="$bgSubdued"
-      title={POOLS_COPY.exitToOneToken}
-      subtitle={POOLS_COPY.exitHint(networkName)}
-      drillIn
-      onPress={openExit}
-      testID="earn-pool-position-exit"
-    />
-  ) : null;
+  // With one position, Remove's "one token" option is the same exit
+  const exitRow =
+    isOpen && openOnNetwork > 1 ? (
+      <ListItem
+        mx="$0"
+        px="$5"
+        py="$4"
+        borderRadius="$4"
+        bg="$bgSubdued"
+        title={POOLS_COPY.exitPositionsOn(openOnNetwork, networkName)}
+        subtitle={POOLS_COPY.exitPositionsHint}
+        drillIn
+        onPress={openExit}
+        testID="earn-pool-position-exit"
+      />
+    ) : null;
 
   const unlisted = isListed ? null : (
     <Alert
@@ -407,7 +439,9 @@ function PositionView({
           variant: 'primary',
           onPress: primaryAction.onPress,
           testID: primaryAction.testID,
-          ...(secondaryAction ? {} : { mb: tabBarHeight }),
+          // Both buttons carry the offset, as on the protocol page; one alone
+          // stretches the other to the row's height
+          mb: tabBarHeight,
         }}
         {...(secondaryAction
           ? {
@@ -426,11 +460,11 @@ function PositionView({
   if (gtMd) {
     body = (
       <XStack gap="$6" ai="flex-start">
-        <YStack flex={65} gap="$5" minWidth={0}>
+        <YStack flex={65} flexBasis={0} minWidth={0} gap="$5">
           <ValueCard view={view} />
           <RangeCard view={view} ticks={ticks} />
         </YStack>
-        <YStack flex={35} gap="$5" minWidth={0}>
+        <YStack flex={35} flexBasis={0} minWidth={0} gap="$5">
           {actions.length ? (
             <XStack gap="$3">
               {actions.map((action) => (
@@ -513,7 +547,17 @@ function EarnPoolPositionContent({ positionId }: { positionId: string }) {
           networkId: view.pool.networkId,
         }),
       ]);
-      return { view, ticks: detail.ticks, networkName: network?.name ?? '' };
+      const openOnNetwork = portfolio.positions.filter(
+        (item) =>
+          item.pool.networkId === view.pool.networkId &&
+          item.status !== EPoolPositionStatus.Closed,
+      ).length;
+      return {
+        view,
+        ticks: detail.ticks,
+        networkName: network?.name ?? '',
+        openOnNetwork,
+      };
     },
     [positionId],
     { revalidateOnFocus: true },
@@ -537,6 +581,7 @@ function EarnPoolPositionContent({ positionId }: { positionId: string }) {
       view={result.view}
       ticks={result.ticks}
       networkName={result.networkName}
+      openOnNetwork={result.openOnNetwork}
     />
   );
 }

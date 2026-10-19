@@ -38,6 +38,7 @@ import {
   STAKING_TX_SETTLE_DELAY_MS,
   useStakingPendingTxsByInfo,
 } from '../../../hooks/useStakingPendingTxs';
+import { getPoolsClaimableUsd } from '../../../pools/components/PoolsRewardsGroup';
 import {
   usePoolsPortfolio,
   useUsdToFiat,
@@ -270,15 +271,17 @@ export function MyPortfolioPage() {
   // Product rule: the header Rewards figure equals what the Claimable and
   // Pending lists add up to, filter aside — the ledger totals are over every
   // network, so the protocol part is summed over every protocol too.
+  // Pools demo: LP fees claimed by hand count as claimable rewards
   const rewardsHeaderFiat = useMemo(
     () =>
       sumRewardsHeaderFiat({
         ledgerRewardsFiatValue: rewards?.totals.rewards,
         positionRewardsValue:
           sumEarnClaimableRewards(view.protocols) +
-          sumEarnPendingRewards(view.protocols),
+          sumEarnPendingRewards(view.protocols) +
+          Number(toFiat(getPoolsClaimableUsd(poolsGroups))),
       }),
-    [rewards?.totals.rewards, view.protocols],
+    [poolsGroups, rewards?.totals.rewards, toFiat, view.protocols],
   );
 
   // The card's header line opens the position's own detail page, landing on
@@ -514,6 +517,7 @@ export function MyPortfolioPage() {
                   isLoadingMore={isRewardsLoadingMore}
                   claimableGroups={claimableGroups}
                   pendingGroups={pendingGroups}
+                  poolsGroups={visiblePoolsGroups}
                   positions={positions}
                   networkFilter={networkFilter}
                   onManage={handleManage}

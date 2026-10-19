@@ -31,6 +31,8 @@ import type {
   IPoolListQuery,
   IPoolPosition,
   IPoolPositionView,
+  IPoolPricePoint,
+  IPoolPriceRange,
   IPoolRemovePreview,
   IPoolSwapQuote,
   IPoolTask,
@@ -59,9 +61,13 @@ import type { IPoolsDemoDBStruct } from '../../dbs/simple/entity/SimpleDbEntityP
 // Pure demo logic behind ServicePools. Functions that change state mutate the
 // state object they are given; the service loads and saves it around them.
 
-export const POOLS_DEMO_STATE_VERSION = 1;
+// 2: positions remember the fees they claimed
+export const POOLS_DEMO_STATE_VERSION = 2;
 
 export const POOLS_SWAP_SPENDER_NAME = 'OneKey Swap router';
+// What the steps call the spenders; the wallet shows the contract
+const SWAP_SPENDER_LABEL = 'OneKey Swap';
+const POOL_SPENDER_LABEL = 'Uniswap';
 
 const FIRST_DEMO_TOKEN_ID = 1_200_001;
 const SWAP_FEE_RATE = 0.0025;
@@ -215,7 +221,47 @@ export function getPoolDetail(catalog: IPoolsMockCatalog, poolId: string) {
   };
 }
 
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+// How far back each range reaches and how often it samples the walk
+const PRICE_RANGES: Record<
+  IPoolPriceRange,
+  { spanMs: number; stepMs: number }
+> = {
+  '1D': { spanMs: DAY_MS, stepMs: 15 * 60 * 1000 },
+  '1W': { spanMs: 7 * DAY_MS, stepMs: HOUR_MS },
+  '1M': { spanMs: 30 * DAY_MS, stepMs: 4 * HOUR_MS },
+  '1Y': { spanMs: 365 * DAY_MS, stepMs: DAY_MS },
+};
+
+export function getPoolPriceHistory(
+  catalog: IPoolsMockCatalog,
+  poolId: string,
+  range: IPoolPriceRange,
+): IPoolPricePoint[] {
+  const series = catalog.priceSeriesByPoolId[getPool(catalog, poolId).id] ?? [];
+  const latest = series[series.length - 1]?.time ?? 0;
+  const { spanMs, stepMs } = PRICE_RANGES[range];
+  return series.filter((point) => {
+    const ageMs = latest - point.time;
+    return ageMs <= spanMs && ageMs % stepMs === 0;
+  });
+}
+
 // Positions (doc §3.9)
+
+/** Claimed plus unclaimed, at today's prices; auto-compounded fees are in the value */
+function getFeesEarnedUsd(pool: IPool, position: IPoolPosition) {
+  if (pool.capabilities.feeCollection !== 'CLAIMABLE') {
+    return bn(0);
+  }
+  return getAmountsValueUsd({
+    amount0: bn(position.uncollectedFees0).plus(position.collectedFees0 ?? 0),
+    amount1: bn(position.uncollectedFees1).plus(position.collectedFees1 ?? 0),
+    price0Usd: pool.token0.priceUsd,
+    price1Usd: pool.token1.priceUsd,
+  });
+}
 
 export function buildPositionView(
   pool: IPool,
@@ -248,6 +294,7 @@ export function buildPositionView(
         price1Usd: pool.token1.priceUsd,
       }).toFixed(2),
       uncollectedFeesUsd: fees.toFixed(2),
+      feesEarnedUsd: getFeesEarnedUsd(pool, position).toFixed(2),
       // V2 splits fees by share of the pool
       fees24hUsd: bn(pool.fees24hUsd).times(amounts.shareOfPool).toFixed(2),
       shareOfPool: amounts.shareOfPool.toFixed(),
@@ -285,6 +332,7 @@ export function buildPositionView(
       price1Usd: pool.token1.priceUsd,
     }).toFixed(2),
     uncollectedFeesUsd: fees.toFixed(2),
+    feesEarnedUsd: getFeesEarnedUsd(pool, position).toFixed(2),
     fees24hUsd: getRangeFees24hUsd(pool, liquidity, status).toFixed(2),
   };
 }
@@ -737,6 +785,7 @@ function planApprovals(
         steps.push({
           kind: EPoolTaskStepKind.Approve,
           spenderName: POOLS_SWAP_SPENDER_NAME,
+          spenderLabel: SWAP_SPENDER_LABEL,
           tokenIn: tokenAmount(asset, amount),
         });
       }
@@ -752,6 +801,7 @@ function planApprovals(
           ? EPoolTaskStepKind.ApprovePermit2
           : EPoolTaskStepKind.Approve,
         spenderName,
+        spenderLabel: POOL_SPENDER_LABEL,
         poolId: pool.id,
         tokenIn: tokenAmount(asset, amount),
       });
@@ -891,6 +941,7 @@ function planRemoveSteps(
         steps.push({
           kind: EPoolTaskStepKind.Approve,
           spenderName,
+          spenderLabel: POOL_SPENDER_LABEL,
           poolId: pool.id,
           positionId,
           tokenIn: {
@@ -1446,6 +1497,22 @@ function runRemove(
             .toFixed(0),
         );
   position.liquidity = (liquidity - removed).toString();
+  keepClaimedFees(position, pool, fees0, fees1);
+}
+
+/** A remove or a claim pays out the unclaimed fees; the position keeps the tally */
+function keepClaimedFees(
+  position: IPoolPosition,
+  pool: IPool,
+  fees0: BigNumber,
+  fees1: BigNumber,
+) {
+  position.collectedFees0 = bn(position.collectedFees0 ?? 0)
+    .plus(fees0)
+    .toFixed(pool.token0.decimals);
+  position.collectedFees1 = bn(position.collectedFees1 ?? 0)
+    .plus(fees1)
+    .toFixed(pool.token1.decimals);
   position.uncollectedFees0 = '0';
   position.uncollectedFees1 = '0';
 }
@@ -1465,8 +1532,7 @@ function runCollect(
     tokenAmount(pool.token0, fees0),
     tokenAmount(pool.token1, fees1),
   ];
-  position.uncollectedFees0 = '0';
-  position.uncollectedFees1 = '0';
+  keepClaimedFees(position, pool, fees0, fees1);
 }
 
 export function getNextStep(task: IPoolTask) {

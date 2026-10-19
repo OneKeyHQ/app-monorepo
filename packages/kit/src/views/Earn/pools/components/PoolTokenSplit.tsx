@@ -12,6 +12,26 @@ import {
 } from '../poolsFormat';
 
 /**
+ * One color per token, base first, so a split reads without a legend.
+ * Hues that carry no status: green and amber already mean earning and out
+ * of range.
+ */
+export const POOL_TOKEN_COLORS = ['$blue9', '$purple9'] as const;
+
+/** The token's color mark beside its amount */
+export function PoolTokenDot({ index }: { index: 0 | 1 }) {
+  return (
+    <Stack
+      w={8}
+      h={8}
+      borderRadius="$full"
+      bg={POOL_TOKEN_COLORS[index]}
+      flexShrink={0}
+    />
+  );
+}
+
+/**
  * Two token amounts as a value-weighted bar and one row per token, base
  * first. Used for the pool's reserves and for a position.
  */
@@ -38,11 +58,11 @@ export function PoolTokenSplit({
           <Stack
             key={row.token.id}
             flex={row.valueUsd / total}
-            bg={index === 0 ? '$text' : '$iconSubdued'}
+            bg={POOL_TOKEN_COLORS[index]}
           />
         ))}
       </XStack>
-      {rows.map((row) => (
+      {rows.map((row, index) => (
         <XStack key={row.token.id} ai="center" gap="$3">
           <Token
             size="sm"
@@ -57,9 +77,12 @@ export function PoolTokenSplit({
               {formatUsd(row.valueUsd)}
             </SizableText>
           </YStack>
-          <SizableText size="$bodyLgMedium">
-            {formatPercent(row.valueUsd / total, 1)}
-          </SizableText>
+          <XStack ai="center" gap="$2">
+            <PoolTokenDot index={index === 0 ? 0 : 1} />
+            <SizableText size="$bodyLgMedium">
+              {formatPercent(row.valueUsd / total, 1)}
+            </SizableText>
+          </XStack>
         </XStack>
       ))}
     </YStack>

@@ -49,6 +49,7 @@ import type {
   IPool,
   IPoolAddLiquidityParams,
   IPoolAsset,
+  IPoolPricePoint,
   IPoolZapInPlan,
   IPoolsWallet,
 } from '@onekeyhq/shared/types/pools';
@@ -62,6 +63,7 @@ import {
   getPresetRange,
   getRangePresets,
 } from '../components/PoolRangeEditor';
+import { PoolsChip } from '../components/PoolsFilterButton';
 import { PoolTags } from '../components/PoolTags';
 import { PoolUnfinishedTasks } from '../components/PoolUnfinishedTasks';
 import { POOLS_COPY } from '../poolsCopy';
@@ -71,6 +73,7 @@ import {
   getPoolPair,
   getPoolPairTitle,
 } from '../poolsFormat';
+import { getVersusHolding } from '../poolsOutcome';
 import { usePoolsBreadcrumb } from '../usePoolsBreadcrumb';
 
 import { PoolsCard } from './EarnPoolDetails';
@@ -78,6 +81,12 @@ import { PoolsCard } from './EarnPoolDetails';
 import type { RouteProp } from '@react-navigation/core';
 
 type IAddMode = 'zap' | 'both';
+
+// Remove's quick picks, so the two forms behave alike
+const PERCENT_CHIPS = [0.25, 0.5, 0.75, 1];
+// What the earnings and the move against holding are stated on before an
+// amount is typed
+const REFERENCE_DEPOSIT_USD = 1000;
 
 function toInputAmount(value: BigNumber.Value, decimals: number) {
   const amount = new BigNumber(value);
@@ -181,6 +190,7 @@ function AddLiquiditySkeleton() {
 function AddLiquidityForm({
   pool,
   ticks,
+  priceHistory,
   wallet,
   positionId,
   initialRange,
@@ -188,6 +198,7 @@ function AddLiquidityForm({
 }: {
   pool: IPool;
   ticks: Parameters<typeof PoolRangeEditor>[0]['ticks'];
+  priceHistory: IPoolPricePoint[];
   wallet: IPoolsWallet;
   positionId?: string;
   initialRange?: IPoolTickRange;
@@ -376,12 +387,16 @@ function AddLiquidityForm({
     { watchLoading: true },
   );
 
-  // APR estimate (doc §3.5)
-  const estimate = useMemo<IPoolsAprEstimate | undefined>(() => {
-    const depositUsd =
+  const depositUsd = useMemo(
+    () =>
       mode === 'zap'
         ? new BigNumber(zapPlan?.depositUsd ?? 0)
-        : bothDeposit.valueUsd;
+        : bothDeposit.valueUsd,
+    [bothDeposit.valueUsd, mode, zapPlan?.depositUsd],
+  );
+
+  // APR estimate (doc §3.5)
+  const estimate = useMemo<IPoolsAprEstimate | undefined>(() => {
     if (!isRange) {
       return estimateShareApr({
         fees24hUsd: pool.fees24hUsd,
@@ -412,7 +427,31 @@ function AddLiquidityForm({
         }),
       },
     });
-  }, [bothDeposit, inRange, isRange, mode, pool, rangeContext, zapPlan]);
+  }, [
+    bothDeposit.liquidity,
+    depositUsd,
+    inRange,
+    isRange,
+    mode,
+    pool,
+    rangeContext,
+    zapPlan?.liquidity,
+  ]);
+
+  // The estimate and the move against holding, in money (doc §3.5)
+  const hasDeposit = depositUsd.gt(0);
+  const statedUsd = hasDeposit
+    ? depositUsd
+    : new BigNumber(REFERENCE_DEPOSIT_USD);
+  const monthlyUsd =
+    estimate?.status === 'ok'
+      ? statedUsd.times(estimate.apr).div(12)
+      : undefined;
+  const versus = useMemo(
+    () => getVersusHolding(pool, isRange ? range : undefined),
+    [isRange, pool, range],
+  );
+  const versusUsd = statedUsd.times(-versus.fraction);
 
   // Validation and the button label
   const rangeValid = !isRange || range.tickLower < range.tickUpper;
@@ -499,6 +538,8 @@ function AddLiquidityForm({
       <PoolRangeEditor
         pool={pool}
         ticks={ticks}
+        priceHistory={priceHistory}
+        estimate={estimate}
         range={range}
         presetId={presetId}
         readOnly={Boolean(positionId)}
@@ -590,33 +631,57 @@ function AddLiquidityForm({
         onChange={(value) => setMode(value as IAddMode)}
       />
       {mode === 'zap' ? (
-        <AmountInput
-          value={amountIn}
-          onChange={(text) => {
-            if (validateAmountInputForStaking(text, inputAsset.decimals)) {
-              setAmountIn(text);
-            }
-          }}
-          hasError={new BigNumber(amountIn || 0).gt(balanceOf(inputAsset))}
-          tokenSelectorTriggerProps={{
-            selectedTokenImageUri: inputAsset.logoURI,
-            selectedTokenSymbol: inputAsset.symbol,
-            onPress: openInputPicker,
-          }}
-          balanceProps={{
-            value: balanceOf(inputAsset).toFixed(),
-            onPress: () =>
-              setAmountIn(
-                toInputAmount(balanceOf(inputAsset), inputAsset.decimals),
-              ),
-          }}
-          valueProps={{
-            value: usdOf(inputAsset, amountIn || 0).toFixed(2),
-            currency: '$',
-          }}
-          inputProps={{ placeholder: '0', testID: 'earn-pool-add-amount-zap' }}
-          enableMaxAmount
-        />
+        <YStack gap="$3">
+          <AmountInput
+            value={amountIn}
+            onChange={(text) => {
+              if (validateAmountInputForStaking(text, inputAsset.decimals)) {
+                setAmountIn(text);
+              }
+            }}
+            hasError={new BigNumber(amountIn || 0).gt(balanceOf(inputAsset))}
+            tokenSelectorTriggerProps={{
+              selectedTokenImageUri: inputAsset.logoURI,
+              selectedTokenSymbol: inputAsset.symbol,
+              onPress: openInputPicker,
+            }}
+            balanceProps={{
+              value: balanceOf(inputAsset).toFixed(),
+              onPress: () =>
+                setAmountIn(
+                  toInputAmount(balanceOf(inputAsset), inputAsset.decimals),
+                ),
+            }}
+            valueProps={{
+              value: usdOf(inputAsset, amountIn || 0).toFixed(2),
+              currency: '$',
+            }}
+            inputProps={{
+              placeholder: '0',
+              testID: 'earn-pool-add-amount-zap',
+            }}
+            enableMaxAmount
+          />
+          <XStack gap="$2" flexWrap="wrap">
+            {PERCENT_CHIPS.map((percent) => {
+              const value = toInputAmount(
+                balanceOf(inputAsset).times(percent),
+                inputAsset.decimals,
+              );
+              return (
+                <PoolsChip
+                  key={percent}
+                  testID={`earn-pool-add-percent-${percent * 100}`}
+                  label={
+                    percent === 1 ? POOLS_COPY.maxAmount : `${percent * 100}%`
+                  }
+                  active={Boolean(value) && amountIn === value}
+                  onPress={() => setAmountIn(value)}
+                />
+              );
+            })}
+          </XStack>
+        </YStack>
       ) : (
         <YStack gap="$3">
           {shape === 'both' ? (
@@ -636,7 +701,35 @@ function AddLiquidityForm({
 
   const previewCard = (
     <PoolsCard>
-      <PoolAprEstimate estimate={estimate} pool={pool} />
+      {/* Range pools show the estimate beside the presets */}
+      {isRange ? null : <PoolAprEstimate estimate={estimate} pool={pool} />}
+      {monthlyUsd ? (
+        <PlanRow label={POOLS_COPY.estimatedEarnings}>
+          <SizableText size="$bodyMdMedium" color="$textSuccess">
+            {POOLS_COPY.perMonth(formatUsd(monthlyUsd))}
+          </SizableText>
+          <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
+            {hasDeposit
+              ? POOLS_COPY.atTodaysFees
+              : POOLS_COPY.onReferenceDeposit(formatUsd(REFERENCE_DEPOSIT_USD))}
+          </SizableText>
+        </PlanRow>
+      ) : null}
+      {versus.fraction < -0.0005 ? (
+        <PlanRow
+          label={POOLS_COPY.versusHoldingLabel(
+            getPoolPair(pool).base.symbol,
+            `${versus.move * 100}%`,
+          )}
+        >
+          <SizableText size="$bodyMdMedium" textAlign="right">
+            {POOLS_COPY.lessThanHolding(formatUsd(versusUsd))}
+          </SizableText>
+          <SizableText size="$bodySm" color="$textSubdued">
+            {POOLS_COPY.beforeFees}
+          </SizableText>
+        </PlanRow>
+      ) : null}
       {mode === 'zap' && zapPlan ? (
         <ZapPlanView plan={zapPlan} pool={pool} input={inputAsset} />
       ) : null}
@@ -717,8 +810,10 @@ function AddLiquidityForm({
         <PoolUnfinishedTasks poolId={pool.id} />
         {gtMd && rangeCard ? (
           <XStack gap="$6" ai="flex-start">
-            <YStack flex={55}>{rangeCard}</YStack>
-            <YStack flex={45} gap="$5">
+            <YStack flex={55} flexBasis={0} minWidth={0}>
+              {rangeCard}
+            </YStack>
+            <YStack flex={45} flexBasis={0} minWidth={0} gap="$5">
               {depositCard}
               {previewCard}
               <Button
@@ -812,6 +907,7 @@ function EarnPoolAddLiquidityContent({
     <AddLiquidityForm
       pool={detail.pool}
       ticks={detail.ticks}
+      priceHistory={detail.priceHistory}
       wallet={wallet}
       positionId={positionId}
       initialRange={

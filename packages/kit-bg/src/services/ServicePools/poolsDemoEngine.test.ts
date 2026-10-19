@@ -22,6 +22,7 @@ import {
   createInitialDemoState,
   createTask,
   getNextStep,
+  getPoolPriceHistory,
   isUnfinishedTask,
   planZapIn,
   previewRemove,
@@ -231,7 +232,63 @@ describe('pools demo swaps and zaps', () => {
   });
 });
 
+describe('pools demo price history', () => {
+  const catalog = buildMockCatalog(NOW);
+  const pool = poolBySeed(catalog, 'rh-v3-tsla-usdg-3000');
+
+  it('cuts every range from one walk that ends at the pool price', () => {
+    const counts = (['1D', '1W', '1M', '1Y'] as const).map((range) => {
+      const points = getPoolPriceHistory(catalog, pool.id, range);
+      const times = points.map((point) => point.time);
+      expect(times).toEqual(times.toSorted((a, b) => a - b));
+      expect(times[times.length - 1]).toBe(NOW);
+      return points.length;
+    });
+    // 15 minutes over a day, hourly over a week, 4h over a month, daily over a year
+    expect(counts).toEqual([97, 169, 181, 366]);
+    const last = getPoolPriceHistory(catalog, pool.id, '1D').at(-1);
+    expect(relativeError(last?.price ?? 0, 357.4)).toBeLessThan(0.001);
+  });
+
+  it('agrees across ranges where they overlap', () => {
+    const day = getPoolPriceHistory(catalog, pool.id, '1D');
+    const week = getPoolPriceHistory(catalog, pool.id, '1W');
+    const hourlyFromDay = day.filter((_, index) => index % 4 === 0);
+    expect(week.slice(-hourlyFromDay.length)).toEqual(hourlyFromDay);
+    expect(catalog.priceHistoryByPoolId[pool.id]).toHaveLength(30);
+  });
+});
+
 describe('pools demo tasks', () => {
+  it('keeps what a position earned after its fees are claimed', async () => {
+    const catalog = buildMockCatalog(NOW);
+    const state = createInitialDemoState(catalog, NOW);
+    const before = buildPortfolio(catalog, state).positions.find(
+      (view) => view.position.tokenId && Number(view.uncollectedFeesUsd) > 0,
+    );
+    if (!before) {
+      throw new OneKeyLocalError('no position with fees');
+    }
+    // Seeded positions older than two weeks claimed fees before
+    expect(Number(before.feesEarnedUsd)).toBeGreaterThan(
+      Number(before.uncollectedFeesUsd),
+    );
+    const task = await createTask(
+      catalog,
+      state,
+      { kind: 'collect', positionId: before.position.id },
+      NOW,
+    );
+    expect(runAll(catalog, state, task).status).toBe(EPoolTaskStatus.Done);
+    const after = buildPortfolio(catalog, state).positions.find(
+      (view) => view.position.id === before.position.id,
+    );
+    expect(Number(after?.uncollectedFeesUsd)).toBe(0);
+    expect(
+      relativeError(after?.feesEarnedUsd ?? 0, before.feesEarnedUsd),
+    ).toBeLessThan(0.001);
+  });
+
   it('runs a Zap in end to end and opens a position', async () => {
     const catalog = buildMockCatalog(NOW);
     const state = createInitialDemoState(catalog, NOW);

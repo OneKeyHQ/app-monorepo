@@ -2,22 +2,23 @@ import { useCallback, useMemo } from 'react';
 import type { ComponentProps } from 'react';
 
 import { SizableText, XStack, useMedia } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TableList } from '@onekeyhq/kit/src/components/ListView/TableList';
 import type { ITableColumn } from '@onekeyhq/kit/src/components/ListView/TableList';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar/NetworkAvatar';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IPoolListItem } from '@onekeyhq/shared/types/pools';
 
 import { POOLS_COPY } from '../poolsCopy';
-import {
-  formatCompactUsd,
-  formatPercent,
-  getPoolPairTitle,
-} from '../poolsFormat';
+import { formatCompactUsd, formatPercent } from '../poolsFormat';
 
-import { PoolListItem } from './PoolListItem';
+import { PoolListItem, PoolNameCell } from './PoolListItem';
 import { PoolPairIcon } from './PoolPairIcon';
-import { PoolTags } from './PoolTags';
+
+// The table re-renders on data, not on column closures, so the network's
+// name rides in the row
+type IPoolTableRow = IPoolListItem & { networkName: string };
 
 /**
  * Pools table for the desktop Earn page. Two number columns only, TVL and
@@ -35,8 +36,27 @@ export function PoolsTable({
   ListEmptyComponent?: ComponentProps<typeof TableList>['ListEmptyComponent'];
 }) {
   const media = useMedia();
+  const networkIdsKey = useMemo(
+    () => Array.from(new Set(pools.map((pool) => pool.networkId))).join(','),
+    [pools],
+  );
+  const { result: networkNames } = usePromiseResult(async () => {
+    const { networks } =
+      await backgroundApiProxy.serviceNetwork.getNetworksByIds({
+        networkIds: networkIdsKey.split(','),
+      });
+    return new Map(networks.map((network) => [network.id, network.name]));
+  }, [networkIdsKey]);
+  const rows = useMemo<IPoolTableRow[]>(
+    () =>
+      pools.map((pool) => ({
+        ...pool,
+        networkName: networkNames?.get(pool.networkId) ?? '',
+      })),
+    [networkNames, pools],
+  );
 
-  const columns = useMemo<ITableColumn<IPoolListItem>[]>(
+  const columns = useMemo<ITableColumn<IPoolTableRow>[]>(
     () => [
       {
         key: 'pool',
@@ -45,10 +65,7 @@ export function PoolsTable({
         render: (pool) => (
           <XStack ai="center" gap="$3" minWidth={0}>
             <PoolPairIcon pool={pool} size="md" />
-            <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={0}>
-              {getPoolPairTitle(pool)}
-            </SizableText>
-            <PoolTags pool={pool} flexShrink={1} />
+            <PoolNameCell pool={pool} />
           </XStack>
         ),
       },
@@ -58,7 +75,12 @@ export function PoolsTable({
         flex: 0.8,
         hideInMobile: true,
         render: (pool) => (
-          <NetworkAvatar networkId={pool.networkId} size="$5" />
+          <XStack ai="center" gap="$2" minWidth={0}>
+            <NetworkAvatar networkId={pool.networkId} size="$5" />
+            <SizableText size="$bodyMd" numberOfLines={1}>
+              {pool.networkName}
+            </SizableText>
+          </XStack>
         ),
       },
       {
@@ -76,7 +98,8 @@ export function PoolsTable({
       },
       {
         key: 'apr',
-        label: POOLS_COPY.apr,
+        // The pool's average; the add page estimates the user's own
+        label: POOLS_COPY.poolApr,
         flex: 1,
         align: 'flex-end',
         sortable: true,
@@ -91,18 +114,18 @@ export function PoolsTable({
     [],
   );
 
-  const keyExtractor = useCallback((pool: IPoolListItem) => pool.id, []);
+  const keyExtractor = useCallback((pool: IPoolTableRow) => pool.id, []);
 
   const mobileRenderItem = useCallback(
-    (pool: IPoolListItem) => (
+    (pool: IPoolTableRow) => (
       <PoolListItem pool={pool} onPress={() => onPressPool(pool)} />
     ),
     [onPressPool],
   );
 
   return (
-    <TableList<IPoolListItem>
-      data={pools}
+    <TableList<IPoolTableRow>
+      data={rows}
       columns={columns}
       keyExtractor={keyExtractor}
       withHeader={platformEnv.isNative ? false : media.gtMd}

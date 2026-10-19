@@ -28,6 +28,7 @@ import { ETabEarnRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { ITabEarnParamList } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
+  EPoolTaskKind,
   EPoolTaskStatus,
   EPoolTaskStepKind,
   EPoolTaskStepStatus,
@@ -42,6 +43,7 @@ import type {
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { PoolPairIcon } from '../components/PoolPairIcon';
+import { PoolPositionStatus } from '../components/PoolPositionCard';
 import { PoolsDemoMenuButton } from '../components/PoolsDemoMenuButton';
 import { PoolTags } from '../components/PoolTags';
 import { confirmAbandonPoolTask } from '../components/PoolUnfinishedTasks';
@@ -58,6 +60,9 @@ import { usePoolsBreadcrumb } from '../usePoolsBreadcrumb';
 import { PoolsCard } from './EarnPoolDetails';
 
 import type { RouteProp } from '@react-navigation/core';
+
+// A wallet confirmation plus the block it lands in, roughly
+const SECONDS_PER_STEP = 20;
 
 function formatAmount(item: IPoolTaskTokenAmount) {
   return formatTokenAmount(item.amount, item.symbol);
@@ -90,7 +95,10 @@ function getStepTitle(step: IPoolTaskStep) {
   switch (step.kind) {
     case EPoolTaskStepKind.Approve:
     case EPoolTaskStepKind.ApprovePermit2:
-      return POOLS_COPY.stepApprove(from);
+      return POOLS_COPY.stepAllow(
+        step.spenderLabel ?? step.spenderName ?? '',
+        from,
+      );
     case EPoolTaskStepKind.SignPermit:
       return POOLS_COPY.stepSignPermit;
     case EPoolTaskStepKind.Swap:
@@ -126,9 +134,8 @@ function getStepDetail(
     case EPoolTaskStepKind.Approve:
     case EPoolTaskStepKind.ApprovePermit2:
     case EPoolTaskStepKind.SignPermit:
-      return step.spenderName
-        ? [POOLS_COPY.stepApproveTo(step.spenderName)]
-        : [];
+      // The title says it; the contract shows in the wallet
+      return [];
     case EPoolTaskStepKind.Swap: {
       const out = step.received?.[0] ?? step.tokenOut;
       return step.tokenIn && out
@@ -146,6 +153,14 @@ function getStepDetail(
     default:
       return [];
   }
+}
+
+/** The wallet sheet also names the contract an approval is for */
+function getWalletLines(step: IPoolTaskStep, poolsById: Map<string, IPool>) {
+  const contract = step.spenderName
+    ? [POOLS_COPY.stepContract(step.spenderName)]
+    : [];
+  return [...contract, ...getStepDetail(step, poolsById)];
 }
 
 function DetailLines({ lines }: { lines: string[] }) {
@@ -315,11 +330,14 @@ function TaskSummary({ task }: { task: IPoolTask }) {
           <AmountLines items={receive} />
         </SummaryRow>
       ) : null}
-      <SummaryRow label={POOLS_COPY.value}>
-        <SizableText size="$bodyMdMedium">
-          {formatUsd(preview.valueUsd)}
-        </SizableText>
-      </SummaryRow>
+      {/* Once done, the hero above states the value */}
+      {isDone ? null : (
+        <SummaryRow label={POOLS_COPY.value}>
+          <SizableText size="$bodyMdMedium">
+            {formatUsd(preview.valueUsd)}
+          </SizableText>
+        </SummaryRow>
+      )}
       {cost.gt(0) ? (
         <SummaryRow label={POOLS_COPY.swapCost}>
           <SizableText size="$bodyMdMedium">{formatUsd(cost)}</SizableText>
@@ -371,6 +389,56 @@ function confirmInDemoWallet({
   });
 }
 
+/**
+ * The outcome first: the pool, what moved and, for a new position, whether
+ * it is earning
+ */
+function TaskDoneHero({ task, pools }: { task: IPoolTask; pools: IPool[] }) {
+  const singlePool = pools.length === 1 ? pools[0] : undefined;
+  const isAdd =
+    task.kind === EPoolTaskKind.AddLiquidity ||
+    task.kind === EPoolTaskKind.IncreaseLiquidity ||
+    task.kind === EPoolTaskKind.ZapIn;
+  const { result: positionView } = usePromiseResult(async () => {
+    if (!isAdd || !task.resultPositionId) {
+      return undefined;
+    }
+    const portfolio = await backgroundApiProxy.servicePools.getPortfolio();
+    return portfolio.positions.find(
+      (view) => view.position.id === task.resultPositionId,
+    );
+  }, [isAdd, task.resultPositionId]);
+  let caption: string;
+  if (!singlePool) {
+    caption = POOLS_COPY.heroFromPositions(task.positionIds.length);
+  } else if (isAdd) {
+    caption = POOLS_COPY.heroIn(getPoolPairTitle(singlePool));
+  } else {
+    caption = POOLS_COPY.heroFrom(getPoolPairTitle(singlePool));
+  }
+  return (
+    <YStack ai="center" gap="$4" py="$4" testID="earn-pool-task-done-hero">
+      {singlePool ? (
+        <PoolPairIcon pool={singlePool} size="xl" />
+      ) : (
+        <Icon name="CheckRadioSolid" color="$iconSuccess" size="$12" />
+      )}
+      <YStack ai="center" gap="$1">
+        <SizableText size="$bodyLgMedium" color="$textSubdued">
+          {POOLS_COPY.taskDoneTitle[task.kind]}
+        </SizableText>
+        <SizableText size="$heading4xl" textAlign="center">
+          {formatUsd(task.preview.valueUsd)}
+        </SizableText>
+        <SizableText size="$bodyLg" color="$textSubdued" textAlign="center">
+          {caption}
+        </SizableText>
+      </YStack>
+      {positionView ? <PoolPositionStatus view={positionView} /> : null}
+    </YStack>
+  );
+}
+
 function TaskSkeleton() {
   return (
     <YStack px="$pagePadding" gap="$5" py="$4">
@@ -393,6 +461,7 @@ function TaskView({
   const tabBarHeight = useScrollContentTabBarOffset();
   const [task, setTask] = useState(initialTask);
   const [confirmingStepId, setConfirmingStepId] = useState<string>();
+  const [showDoneSteps, setShowDoneSteps] = useState(false);
   const poolsById = useMemo(
     () => new Map(pools.map((pool) => [pool.id, pool])),
     [pools],
@@ -441,7 +510,7 @@ function TaskView({
           step,
           index,
           total: current.steps.length,
-          lines: getStepDetail(step, poolsById),
+          lines: getWalletLines(step, poolsById),
         });
         setConfirmingStepId(undefined);
         if (!confirmed || !mountedRef.current) {
@@ -566,14 +635,7 @@ function TaskView({
   const singlePool = pools.length === 1 ? pools[0] : undefined;
   let header: ReactNode = null;
   if (isDone) {
-    header = (
-      <YStack gap="$3" ai="flex-start">
-        <Icon name="CheckRadioSolid" color="$iconSuccess" size="$10" />
-        <SizableText size="$heading2xl">
-          {POOLS_COPY.taskDoneTitle[task.kind]}
-        </SizableText>
-      </YStack>
-    );
+    header = <TaskDoneHero task={task} pools={pools} />;
   } else if (!singlePool) {
     // Several pools: no pool header, so the task names the page
     header = gtMd ? (
@@ -622,6 +684,23 @@ function TaskView({
     return null;
   })();
 
+  const remainingSteps = task.steps.filter(
+    (step) => step.status !== EPoolTaskStepStatus.Done,
+  ).length;
+  const stepList = (
+    <YStack gap="$4">
+      {task.steps.map((step, index) => (
+        <StepRow
+          key={step.id}
+          step={step}
+          index={index}
+          poolsById={poolsById}
+          isConfirming={confirmingStepId === step.id}
+        />
+      ))}
+    </YStack>
+  );
+
   const buttons = (
     <XStack gap="$3">
       {secondary ? (
@@ -657,7 +736,9 @@ function TaskView({
         disabled: isRunning && !isDone,
         onPress: primary.onPress,
         testID: primary.testID,
-        ...(secondary ? {} : { mb: tabBarHeight }),
+        // Both buttons carry the offset, as on the protocol page; one alone
+        // stretches the other to the row's height
+        mb: tabBarHeight,
       }}
       {...(secondary
         ? {
@@ -698,27 +779,55 @@ function TaskView({
         <TaskSummary task={task} />
         {/* Once done, the next move matters more than the finished steps */}
         {gtMd && isDone ? buttons : null}
-        {/* Desktop has no page header, so the demo controls sit here */}
-        <PoolsCard
-          title={POOLS_COPY.steps}
-          right={
-            gtMd ? (
-              <PoolsDemoMenuButton testID="earn-pools-demo-menu-steps" />
-            ) : null
-          }
-        >
-          <YStack gap="$4">
-            {task.steps.map((step, index) => (
-              <StepRow
-                key={step.id}
-                step={step}
-                index={index}
-                poolsById={poolsById}
-                isConfirming={confirmingStepId === step.id}
+        {isDone ? (
+          // Done: the finished list folds into one line, a tap away
+          <PoolsCard>
+            <XStack
+              ai="center"
+              gap="$2"
+              cursor="pointer"
+              userSelect="none"
+              onPress={() => setShowDoneSteps((value) => !value)}
+              testID="earn-pool-task-steps-toggle"
+            >
+              <Icon name="CheckRadioSolid" color="$iconSuccess" size="$5" />
+              <SizableText size="$bodyLgMedium" flex={1}>
+                {POOLS_COPY.stepsCompleted(task.steps.length)}
+              </SizableText>
+              <Icon
+                name={
+                  showDoneSteps
+                    ? 'ChevronTopSmallOutline'
+                    : 'ChevronDownSmallOutline'
+                }
+                color="$iconSubdued"
+                size="$5"
               />
-            ))}
-          </YStack>
-        </PoolsCard>
+            </XStack>
+            {showDoneSteps ? stepList : null}
+          </PoolsCard>
+        ) : (
+          // Desktop has no page header, so the demo controls sit here
+          <PoolsCard
+            title={POOLS_COPY.steps}
+            right={
+              gtMd ? (
+                <PoolsDemoMenuButton testID="earn-pools-demo-menu-steps" />
+              ) : null
+            }
+          >
+            {isAbandoned ? null : (
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {`${
+                  hasStarted
+                    ? POOLS_COPY.confirmationsLeft(remainingSteps)
+                    : POOLS_COPY.confirmations(remainingSteps)
+                }, ${POOLS_COPY.timeEstimate(remainingSteps * SECONDS_PER_STEP)}`}
+              </SizableText>
+            )}
+            {stepList}
+          </PoolsCard>
+        )}
         {gtMd && !isDone ? buttons : null}
       </YStack>
     </EarnPageContainer>

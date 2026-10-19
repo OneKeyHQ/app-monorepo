@@ -22,6 +22,7 @@ import { RewardsPendingList } from './RewardsPendingList';
 
 import type { IEarnPositionCardHandlers } from './EarnPositionCard';
 import type { IEarnPositionRewardGroup } from './earnPositionModel';
+import type { IPoolsPortfolioGroup } from '../../../pools/usePoolsPortfolio';
 
 export const REWARDS_STAGES: IEarnRewardsPortfolioStage[] = [
   'claimable',
@@ -84,6 +85,7 @@ export function RewardsTab({
   isLoadingMore = false,
   claimableGroups,
   pendingGroups,
+  poolsGroups,
   positions,
   networkFilter,
   onManage,
@@ -98,6 +100,8 @@ export function RewardsTab({
   claimableGroups: IEarnPositionRewardGroup[];
   /** the positions' rewards the server marked pending, grouped the same way */
   pendingGroups: IEarnPositionRewardGroup[];
+  /** Pools demo: LP positions by network; their unclaimed fees are claimable */
+  poolsGroups?: IPoolsPortfolioGroup[];
   /** every position the page holds; names networks and vaults for the ledger rows */
   positions: IEarnPortfolioPosition[];
   /** the page's network chip; sits under the stage pills on this tab */
@@ -128,6 +132,7 @@ export function RewardsTab({
         positionGroups={claimableGroups}
         positions={positions}
         ledgerGroups={groups}
+        poolsGroups={poolsGroups}
         isLoading={isStageLoading}
         emptyTitle={emptyTitle}
         onManage={onManage}

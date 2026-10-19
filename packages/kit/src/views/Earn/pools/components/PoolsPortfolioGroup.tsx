@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -15,7 +15,6 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import type { ITableColumn } from '@onekeyhq/kit/src/components/ListView/TableList';
 import { TableList } from '@onekeyhq/kit/src/components/ListView/TableList';
@@ -37,6 +36,7 @@ import {
   getPoolVersionLabel,
 } from '../poolsFormat';
 import { PoolsNavigation } from '../poolsNavigation';
+import { canCollectPoolFees, usePoolCollect } from '../usePoolCollect';
 import { UNISWAP_PROTOCOL, useUsdToFiat } from '../usePoolsPortfolio';
 
 import { PoolPairIcon } from './PoolPairIcon';
@@ -55,10 +55,17 @@ function FiatText({
   usd,
   size = '$bodyMdMedium',
   color,
+  showPlus = false,
 }: {
   usd: BigNumber.Value;
-  size?: '$bodySm' | '$bodyMdMedium' | '$bodyLgMedium' | '$headingLg';
+  size?:
+    | '$bodySm'
+    | '$bodySmMedium'
+    | '$bodyMdMedium'
+    | '$bodyLgMedium'
+    | '$headingLg';
   color?: string;
+  showPlus?: boolean;
 }) {
   const currencyInfo = useCurrency();
   const toFiat = useUsdToFiat();
@@ -68,40 +75,14 @@ function FiatText({
       size={size}
       color={color}
       formatter="value"
-      formatterOptions={{ currency: currencyInfo.symbol }}
+      formatterOptions={{
+        currency: currencyInfo.symbol,
+        showPlusMinusSigns: showPlus,
+      }}
       numberOfLines={1}
     >
       {toFiat(usd)}
     </NumberSizeableTextWrapper>
-  );
-}
-
-/** One collect per position; the task page walks the wallet steps */
-function useCollect() {
-  const navigation = useAppNavigation();
-  const [collectingId, setCollectingId] = useState<string>();
-  const collect = useCallback(
-    async (view: IPoolPositionView) => {
-      setCollectingId(view.position.id);
-      try {
-        const task = await backgroundApiProxy.servicePools.createTask({
-          kind: 'collect',
-          positionId: view.position.id,
-        });
-        PoolsNavigation.pushTask(navigation, task.id);
-      } finally {
-        setCollectingId(undefined);
-      }
-    },
-    [navigation],
-  );
-  return { collect, collectingId };
-}
-
-function canCollect(view: IPoolPositionView) {
-  return (
-    view.pool.capabilities.feeCollection === 'CLAIMABLE' &&
-    new BigNumber(view.uncollectedFeesUsd).gt(0)
   );
 }
 
@@ -127,7 +108,7 @@ export function PoolsPortfolioGroup({
   const media = useMedia();
   const navigation = useAppNavigation();
   const isDesktopLayout = !platformEnv.isNative && media.gtSm;
-  const { collect, collectingId } = useCollect();
+  const { collect, collectingId } = usePoolCollect();
 
   const columns: ITableColumn<IPoolPositionView>[] = useMemo(
     () => [
@@ -182,7 +163,7 @@ export function PoolsPortfolioGroup({
         flex: 1,
         priority: 3,
         render: (view) =>
-          canCollect(view) ? (
+          canCollectPoolFees(view) ? (
             <XStack ai="center" gap="$2" flexWrap="wrap">
               <FiatText usd={view.uncollectedFeesUsd} />
               <Button
@@ -192,7 +173,7 @@ export function PoolsPortfolioGroup({
                 onPress={() => void collect(view)}
                 testID={`earn-pools-portfolio-collect-${view.position.id}`}
               >
-                {POOLS_COPY.collect}
+                {intl.formatMessage({ id: ETranslations.earn_claim })}
               </Button>
             </XStack>
           ) : (
@@ -221,7 +202,7 @@ export function PoolsPortfolioGroup({
                   </SizableText>
                 </XStack>
                 <PoolPositionStatus view={view} />
-                {canCollect(view) ? (
+                {canCollectPoolFees(view) ? (
                   <XStack ai="center" jc="space-between" gap="$2">
                     <XStack ai="center" gap="$2" flex={1} minWidth={0}>
                       <FiatText usd={view.uncollectedFeesUsd} />
@@ -236,7 +217,7 @@ export function PoolsPortfolioGroup({
                       onPress={() => void collect(view)}
                       testID={`earn-pools-portfolio-collect-${view.position.id}`}
                     >
-                      {POOLS_COPY.collect}
+                      {intl.formatMessage({ id: ETranslations.earn_claim })}
                     </Button>
                   </XStack>
                 ) : null}
@@ -399,14 +380,15 @@ export function PoolsPortfolioCards({
 }: {
   group: IPoolsPortfolioGroup;
 }) {
+  const intl = useIntl();
   const navigation = useAppNavigation();
-  const { collect, collectingId } = useCollect();
+  const { collect, collectingId } = usePoolCollect();
   return (
     <>
       {group.positions.map((view) => {
         const { position, pool } = view;
         const inPool = getPoolTokenRows(view, [view.amount0, view.amount1]);
-        const fees = canCollect(view)
+        const fees = canCollectPoolFees(view)
           ? getPoolTokenRows(view, [
               position.uncollectedFees0,
               position.uncollectedFees1,
@@ -449,7 +431,29 @@ export function PoolsPortfolioCards({
                   />
                 </XStack>
               </XStack>
-              <PoolPositionStatus view={view} />
+              {/* What it earns beside the status, so it reads as working */}
+              <XStack ai="center" jc="space-between" gap="$2">
+                <PoolPositionStatus view={view} />
+                {new BigNumber(view.fees24hUsd).gt(0) ? (
+                  <XStack ai="center" gap="$1" flexShrink={1}>
+                    <FiatText
+                      usd={view.fees24hUsd}
+                      size="$bodySmMedium"
+                      color="$textSuccess"
+                      showPlus
+                    />
+                    <SizableText
+                      size="$bodySm"
+                      color="$textSubdued"
+                      numberOfLines={1}
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.earn_24h_earnings,
+                      })}
+                    </SizableText>
+                  </XStack>
+                ) : null}
+              </XStack>
             </YStack>
             {inPool.length ? (
               <PoolHoldingPanel
@@ -482,12 +486,12 @@ export function PoolsPortfolioCards({
                     size="small"
                     variant="secondary"
                     hitSlop={ROW_ACTION_HIT_SLOP}
-                    aria-label={`${POOLS_COPY.collect} ${pairTitle}`}
+                    aria-label={`${intl.formatMessage({ id: ETranslations.earn_claim })} ${pairTitle}`}
                     loading={collectingId === position.id}
                     onPress={() => void collect(view)}
                     testID={`earn-pools-portfolio-collect-${position.id}`}
                   >
-                    {POOLS_COPY.collect}
+                    {intl.formatMessage({ id: ETranslations.earn_claim })}
                   </Button>
                 }
               />
