@@ -24,7 +24,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import { getOnramperQuotePricing } from '@onekeyhq/shared/src/modules3rdParty/onramper';
 import {
-  getHeadlessBuyFailureKind,
+  getHeadlessBuyOrderSentenceId,
   isHeadlessBuyOrderDelayed,
   isTerminalHeadlessBuyOrder,
 } from '@onekeyhq/shared/src/modules3rdParty/onramper/orderStatus';
@@ -33,10 +33,7 @@ import type {
   IModalFiatCryptoParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import {
-  EHeadlessBuyOrderStatus,
-  type IHeadlessBuyOrder,
-} from '@onekeyhq/shared/types/fiatCrypto';
+import { EHeadlessBuyOrderStatus } from '@onekeyhq/shared/types/fiatCrypto';
 
 import { DetailRow, formatPrice } from '../../components/Headless/DetailRow';
 import { formatHeadlessBuyOrderTime } from '../../components/Headless/orderFormat';
@@ -53,28 +50,6 @@ import type { RouteProp } from '@react-navigation/core';
 // Detail page poll cadence while focused and the order is not terminal. The
 // lookup endpoint is rate limited per IP (10/min), so stay well under it.
 const POLL_INTERVAL_MS = 15_000;
-
-function getStatusSentenceId(
-  order: IHeadlessBuyOrder,
-): ETranslations | undefined {
-  switch (order.status) {
-    case EHeadlessBuyOrderStatus.Processing:
-      return ETranslations.buy_order_processing__desc;
-    case EHeadlessBuyOrderStatus.Refunded:
-      return ETranslations.buy_order_refunded__desc;
-    case EHeadlessBuyOrderStatus.Failed:
-      switch (getHeadlessBuyFailureKind(order)) {
-        case 'refund':
-          return ETranslations.buy_order_failed_refund__desc;
-        case 'notCharged':
-          return ETranslations.buy_order_failed_not_charged__desc;
-        default:
-          return ETranslations.buy_order_failed_unknown__desc;
-      }
-    default:
-      return undefined;
-  }
-}
 
 // One native buy order. Replaces the former "Order submitted" page: reached
 // via CommonActions.reset right after the `completed` event (fromCheckout →
@@ -174,12 +149,17 @@ function HeadlessBuyOrderDetailPage() {
   }, [navigation]);
 
   const now = Date.now();
-  const sentenceId = order ? getStatusSentenceId(order) : undefined;
+  const sentenceId = order
+    ? getHeadlessBuyOrderSentenceId(order, now)
+    : undefined;
   const isDelayed = order ? isHeadlessBuyOrderDelayed(order, now) : false;
   const isFailed = order?.status === EHeadlessBuyOrderStatus.Failed;
+  const isRefunded = order?.status === EHeadlessBuyOrderStatus.Refunded;
   const isDelivered = order?.status === EHeadlessBuyOrderStatus.Delivered;
-  const showSupport =
-    isDelayed || isFailed || order?.status === EHeadlessBuyOrderStatus.Refunded;
+  const showSupport = isDelayed || isFailed || isRefunded;
+  // Nothing will be (or was) delivered: the quote-derived rows would only
+  // mislead.
+  const hideQuoteRows = isFailed || isRefunded;
   const showReceived = isDelivered && order?.outAmount !== undefined;
   // Same pricing as the review card (provider rate, not market price).
   const pricing =
@@ -213,26 +193,20 @@ function HeadlessBuyOrderDetailPage() {
           <YStack gap="$6" pt="$2">
             <YStack gap="$3" ai="flex-start">
               <OrderStatusBadge status={order.status} badgeSize="lg" />
+              {/* Stale note sits right under the label, ahead of the sentence. */}
+              {order.lastCheckOk === false ? (
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.buy_order_status_stale__msg,
+                  })}
+                </SizableText>
+              ) : null}
               {sentenceId ? (
                 <SizableText size="$bodyMd" color="$textSubdued">
                   {intl.formatMessage(
                     { id: sentenceId },
                     { token: order.tokenSymbol },
                   )}
-                </SizableText>
-              ) : null}
-              {isDelayed ? (
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.buy_order_delayed__desc,
-                  })}
-                </SizableText>
-              ) : null}
-              {order.lastCheckOk === false ? (
-                <SizableText size="$bodySm" color="$textCaution">
-                  {intl.formatMessage({
-                    id: ETranslations.buy_order_status_stale__msg,
-                  })}
                 </SizableText>
               ) : null}
               {showSupport ? (
@@ -274,7 +248,7 @@ function HeadlessBuyOrderDetailPage() {
                   </NumberSizeableText>
                 </DetailRow>
               ) : null}
-              {!isFailed && !showReceived && order.payout !== undefined ? (
+              {!hideQuoteRows && !showReceived && order.payout !== undefined ? (
                 <DetailRow
                   label={intl.formatMessage({
                     id: ETranslations.earn_est_receive,
@@ -296,7 +270,7 @@ function HeadlessBuyOrderDetailPage() {
                   </XStack>
                 </DetailRow>
               ) : null}
-              {!isFailed && pricing ? (
+              {!hideQuoteRows && pricing ? (
                 <RateRow
                   tokenSymbol={order.tokenSymbol}
                   impliedPrice={pricing.impliedPrice}
@@ -347,6 +321,24 @@ function HeadlessBuyOrderDetailPage() {
                   </SizableText>
                 </DetailRow>
               ) : null}
+              {/* Visual spec: the hash follows the address, ahead of time. */}
+              {isDelivered && order.transactionHash ? (
+                <DetailRow
+                  label={intl.formatMessage({
+                    id: ETranslations.global_transaction_id,
+                  })}
+                  onPress={openTxHash}
+                >
+                  <XStack ai="center" gap="$1.5">
+                    <SizableText size="$bodyMdMedium">
+                      {accountUtils.shortenAddress({
+                        address: order.transactionHash,
+                      })}
+                    </SizableText>
+                    <Icon name="OpenOutline" size="$4" color="$iconSubdued" />
+                  </XStack>
+                </DetailRow>
+              ) : null}
               <DetailRow
                 label={intl.formatMessage({ id: ETranslations.global_time })}
               >
@@ -367,23 +359,6 @@ function HeadlessBuyOrderDetailPage() {
                   <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
                 </XStack>
               </DetailRow>
-              {isDelivered && order.transactionHash ? (
-                <DetailRow
-                  label={intl.formatMessage({
-                    id: ETranslations.global_transaction_id,
-                  })}
-                  onPress={openTxHash}
-                >
-                  <XStack ai="center" gap="$1.5">
-                    <SizableText size="$bodyMdMedium">
-                      {accountUtils.shortenAddress({
-                        address: order.transactionHash,
-                      })}
-                    </SizableText>
-                    <Icon name="OpenOutline" size="$4" color="$iconSubdued" />
-                  </XStack>
-                </DetailRow>
-              ) : null}
             </YStack>
           </YStack>
         ) : null}

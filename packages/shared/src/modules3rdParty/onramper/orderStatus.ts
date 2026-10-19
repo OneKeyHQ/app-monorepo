@@ -3,6 +3,7 @@ import {
   type IHeadlessBuyOrder,
   type IOnramperTransactionStatus,
 } from '../../../types/fiatCrypto';
+import { ETranslations } from '../../locale';
 
 // Processing for about an hour reads as "taking longer than usual".
 export const HEADLESS_BUY_ORDER_DELAYED_MS = 60 * 60 * 1000;
@@ -88,6 +89,35 @@ export function getHeadlessBuyFailureKind(
     return 'refund';
   }
   return order.paymentSeen ? 'unknown' : 'notCharged';
+}
+
+// The single sentence under the status label — only when the label alone
+// does not say what happens next. Past the delay threshold the "taking
+// longer" copy replaces the plain processing copy (never both); a delivered
+// order needs no sentence.
+export function getHeadlessBuyOrderSentenceId(
+  order: IHeadlessBuyOrder,
+  now: number,
+): ETranslations | undefined {
+  switch (order.status) {
+    case EHeadlessBuyOrderStatus.Processing:
+      return isHeadlessBuyOrderDelayed(order, now)
+        ? ETranslations.buy_order_delayed__desc
+        : ETranslations.buy_order_processing__desc;
+    case EHeadlessBuyOrderStatus.Refunded:
+      return ETranslations.buy_order_refunded__desc;
+    case EHeadlessBuyOrderStatus.Failed:
+      switch (getHeadlessBuyFailureKind(order)) {
+        case 'refund':
+          return ETranslations.buy_order_failed_refund__desc;
+        case 'notCharged':
+          return ETranslations.buy_order_failed_not_charged__desc;
+        default:
+          return ETranslations.buy_order_failed_unknown__desc;
+      }
+    default:
+      return undefined;
+  }
 }
 
 function parseStatusDate(statusDate: string | undefined): number | undefined {

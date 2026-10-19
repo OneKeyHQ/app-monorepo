@@ -1,3 +1,4 @@
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EHeadlessBuyOrderStatus,
   type IHeadlessBuyOrder,
@@ -9,6 +10,7 @@ import {
   applyHeadlessBuyOrderTimeRules,
   applyOnramperTransactionStatus,
   getHeadlessBuyFailureKind,
+  getHeadlessBuyOrderSentenceId,
   isHeadlessBuyOrderDelayed,
   isTerminalHeadlessBuyOrder,
   mapOnramperStatus,
@@ -416,6 +418,64 @@ describe('terminal / delayed / failure kind', () => {
       getHeadlessBuyFailureKind(order({ timedOut: true, statusReason: 'x' })),
     ).toBe('unknown');
     expect(getHeadlessBuyFailureKind(order())).toBe('unknown');
+  });
+});
+
+describe('getHeadlessBuyOrderSentenceId', () => {
+  it('swaps the processing sentence for the delayed one after an hour', () => {
+    const processing = order({ submittedAt: T0 });
+    expect(getHeadlessBuyOrderSentenceId(processing, T0)).toBe(
+      ETranslations.buy_order_processing__desc,
+    );
+    expect(
+      getHeadlessBuyOrderSentenceId(
+        processing,
+        T0 + HEADLESS_BUY_ORDER_DELAYED_MS - 1,
+      ),
+    ).toBe(ETranslations.buy_order_processing__desc);
+    // One sentence only: the delayed copy replaces, never stacks on, the
+    // plain processing copy.
+    expect(
+      getHeadlessBuyOrderSentenceId(
+        processing,
+        T0 + HEADLESS_BUY_ORDER_DELAYED_MS,
+      ),
+    ).toBe(ETranslations.buy_order_delayed__desc);
+  });
+
+  it('says nothing under a delivered order', () => {
+    expect(
+      getHeadlessBuyOrderSentenceId(
+        order({ status: EHeadlessBuyOrderStatus.Delivered, submittedAt: T0 }),
+        T0 + 2 * HEADLESS_BUY_ORDER_DELAYED_MS,
+      ),
+    ).toBeUndefined();
+  });
+
+  it('picks the failure and refund sentences from the failure kind', () => {
+    const failed = (overrides: Partial<IHeadlessBuyOrder>) =>
+      order({ status: EHeadlessBuyOrderStatus.Failed, ...overrides });
+    expect(
+      getHeadlessBuyOrderSentenceId(
+        failed({ statusReason: 'Card declined' }),
+        T0,
+      ),
+    ).toBe(ETranslations.buy_order_failed_not_charged__desc);
+    expect(
+      getHeadlessBuyOrderSentenceId(
+        failed({ statusReason: 'Refund issued' }),
+        T0,
+      ),
+    ).toBe(ETranslations.buy_order_failed_refund__desc);
+    expect(getHeadlessBuyOrderSentenceId(failed({ timedOut: true }), T0)).toBe(
+      ETranslations.buy_order_failed_unknown__desc,
+    );
+    expect(
+      getHeadlessBuyOrderSentenceId(
+        order({ status: EHeadlessBuyOrderStatus.Refunded }),
+        T0,
+      ),
+    ).toBe(ETranslations.buy_order_refunded__desc);
   });
 });
 
