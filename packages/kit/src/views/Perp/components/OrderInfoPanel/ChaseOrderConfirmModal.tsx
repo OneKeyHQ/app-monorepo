@@ -125,6 +125,12 @@ function ChaseOrderConfirmContent({
         />
         <ChaseOrderConfirmRow
           label={intl.formatMessage({
+            id: ETranslations.perp_time_in_force__title,
+          })}
+          value="ALO (Post-Only)"
+        />
+        <ChaseOrderConfirmRow
+          label={intl.formatMessage({
             id: ETranslations.perps_reduce_only,
           })}
           value={order.reduceOnly ? yesText : noText}
