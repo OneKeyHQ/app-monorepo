@@ -1,3 +1,6 @@
+import addressFixtures from '@onekeyhq/core/src/chains/zcash/sdkZcash/unifiedAddress.fixtures.json';
+import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
+
 import { EDBAccountType } from '../../../dbs/local/consts';
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
@@ -42,6 +45,29 @@ const deviceParams = {
   dbDevice: { connectId: 'connect-1', deviceId: 'device-1' },
   deviceCommonParams: { passphraseState: 'pp' },
 };
+
+function receiveVerificationParams(
+  form: 'public' | 'private',
+  expectedAddress: string,
+) {
+  return {
+    indexes: [2],
+    deriveInfo: {
+      template: "m/44'/133'/$$INDEX$$'/0/0",
+      coinType: '133',
+      namePrefix: 'ZEC',
+    },
+    deviceParams: {
+      ...deviceParams,
+      confirmOnDevice: EConfirmOnDeviceType.EveryItem,
+    },
+    chainExtraParams: {
+      localWalletAddressForm: form,
+      expectedAddress,
+      receiveAddressPath: "m/44'/133'/2'/1/17",
+    },
+  } as Parameters<KeyringHardware['batchGetAddresses']>[0];
+}
 
 function createSeedFingerprintStore(initial: Record<string, string> = {}) {
   const fingerprints = new Map(Object.entries(initial));
@@ -118,6 +144,76 @@ describe('Zcash KeyringHardware', () => {
     jest.restoreAllMocks();
     mockGetZcashApi.mockReset();
   });
+
+  it.each([
+    {
+      form: 'public',
+      address: 't1-on-screen',
+      addressType: 1,
+      scope: 1,
+      index: 17,
+    },
+    {
+      form: 'private',
+      address: addressFixtures.find(
+        (item) => item.name === 'P2PKH and Orchard',
+      )!.address,
+      addressType: 0,
+      scope: 0,
+      index: 0,
+    },
+    {
+      form: 'private',
+      address: addressFixtures.find(
+        (item) => item.name === 'fixed public mnemonic Orchard golden',
+      )!.address,
+      addressType: 2,
+      scope: 0,
+      index: 0,
+    },
+  ] as const)(
+    'requests the address displayed on the receive page (type $addressType)',
+    async ({ form, address, addressType, scope, index }) => {
+      const zcashGetAddress = jest.fn().mockResolvedValue({
+        success: true,
+        payload: [{ path: "m/32'/133'/2'", address }],
+      });
+      const keyring = createKeyring({ sdk: { zcashGetAddress } });
+      await expect(
+        keyring.batchGetAddresses(receiveVerificationParams(form, address)),
+      ).resolves.toEqual([expect.objectContaining({ address })]);
+      expect(zcashGetAddress).toHaveBeenCalledWith('connect-1', 'device-1', {
+        passphraseState: 'pp',
+        bundle: [
+          {
+            path: "m/32'/133'/2'",
+            addressType,
+            scope,
+            diversifierIndex: index,
+            showOnOneKey: true,
+          },
+        ],
+      });
+    },
+  );
+
+  it.each(
+    addressFixtures.filter((item) =>
+      ['P2SH and Orchard', 'unknown receiver', 'checksum'].includes(item.name),
+    ),
+  )(
+    'rejects an address the device cannot reproduce before requesting it: $name',
+    async ({ address }) => {
+      const zcashGetAddress = jest.fn();
+      const keyring = createKeyring({ sdk: { zcashGetAddress } });
+      await expect(
+        keyring.batchGetAddresses(
+          receiveVerificationParams('private', address),
+        ),
+      ).rejects.toThrow('unsupported address verification receivers');
+      expect(zcashGetAddress).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([0, 0x12_34_56_78, undefined])(
     'requires the device root fingerprint and preserves it on created accounts (%s)',
