@@ -10,6 +10,11 @@ describe('resolveMarketDetailHeaderIdentity', () => {
         tokenSymbol: 'AAPLon',
         tokenLogoUrl: 'https://example.com/aaplon.png',
         tokenLogoUrls: ['https://example.com/aaplon.png'],
+        tokenVariant: {
+          symbol: 'AAPLon',
+          name: 'Apple (Ondo)',
+          logoUrl: 'https://example.com/aaplon.png',
+        },
       }),
     ).toEqual({
       symbol: 'AAPL',
@@ -60,5 +65,46 @@ describe('resolveMarketDetailHeaderIdentity', () => {
       logoUrl: 'https://example.com/eth.png',
       logoUrls: ['https://example.com/eth.png'],
     });
+  });
+
+  it('uses the selected variant while the previous token detail is still loaded', () => {
+    expect(
+      resolveMarketDetailHeaderIdentity({
+        isStockToken: false,
+        tokenSymbol: 'AAPLon',
+        tokenLogoUrl: 'https://example.com/aaplon.png',
+        tokenLogoUrls: ['https://example.com/aaplon.png'],
+        tokenVariant: {
+          symbol: 'AAPLx',
+          name: 'Apple xStock',
+          logoUrl: 'https://example.com/aaplx.png',
+        },
+      }),
+    ).toEqual({
+      symbol: 'AAPLx',
+      logoUrl: 'https://example.com/aaplx.png',
+    });
+  });
+
+  it('does not reuse the previous variant image when the selection has no image', () => {
+    expect(
+      resolveMarketDetailHeaderIdentity({
+        isStockToken: false,
+        tokenSymbol: 'AAPLon',
+        tokenLogoUrl: 'https://example.com/aaplon.png',
+        tokenLogoUrls: ['https://example.com/aaplon.png'],
+        tokenVariant: { symbol: 'AAPLx', name: 'Apple xStock' },
+      }),
+    ).toEqual({ symbol: 'AAPLx', logoUrl: undefined });
+  });
+
+  it('shows the share identity without any token metadata', () => {
+    expect(
+      resolveMarketDetailHeaderIdentity({
+        isStockToken: true,
+        stockSymbol: 'AAPL',
+        stockLogoUrl: 'https://example.com/aapl.png',
+      }),
+    ).toEqual({ symbol: 'AAPL', logoUrl: 'https://example.com/aapl.png' });
   });
 });

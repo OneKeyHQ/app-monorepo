@@ -177,7 +177,16 @@ class ServiceUniversalSearch extends ServiceBase {
             );
 
           if (v2Items.length) {
-            result[EUniversalSearchType.V2MarketToken] = { items: v2Items };
+            const tokens =
+              await this.backgroundApi.serviceMarket.resolveSearchTokenAssets(
+                v2Items.map((item) => item.payload),
+              );
+            result[EUniversalSearchType.V2MarketToken] = {
+              items: tokens.map((payload) => ({
+                type: EUniversalSearchType.V2MarketToken,
+                payload,
+              })),
+            };
           }
         }
       } catch {

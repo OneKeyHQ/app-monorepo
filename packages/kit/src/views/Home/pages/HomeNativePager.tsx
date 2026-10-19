@@ -1,29 +1,55 @@
 import type { ReactNode, Ref } from 'react';
 
-import type { ITabContainerRef } from '@onekeyhq/components';
+import { useIsFocused } from '@react-navigation/native';
+
+import { AppPager } from '@onekeyhq/kit/src/components/AppPager';
+import type {
+  IAppPagerRef,
+  IAppPagerTabBarProps,
+} from '@onekeyhq/kit/src/components/AppPager/types';
 import type { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
-import type { SharedValue } from 'react-native-reanimated';
-
 export type IHomeNativePagerProps = {
-  ref?: Ref<ITabContainerRef>;
+  ref?: Ref<IAppPagerRef>;
   tabs: { id: EHomeWalletTab; name: string; component: ReactNode }[];
   initialTabName?: string;
   headerHeightHint?: number;
   renderHeader: () => ReactNode;
+  renderSubHeader?: () => ReactNode;
   topOverlay?: ReactNode;
   onTopScrollEdgeCapability?: (available: boolean) => void;
   topEdgeActive?: boolean;
-  renderTabBar: (props: {
-    focusedTab: SharedValue<string>;
-    indexDecimal: SharedValue<number>;
-    onTabPress: (name: string) => void;
-    topEdgeActive?: boolean;
-  }) => ReactNode;
+  renderTabBar: (
+    props: Omit<IAppPagerTabBarProps, 'tabNames'> & { topEdgeActive?: boolean },
+  ) => ReactNode;
   onTabChange: (data: { tabName: string }) => void;
   onTabPrepare?: (data: { tabId: EHomeWalletTab }) => void;
 };
 
-export function HomeNativePager(_props: IHomeNativePagerProps) {
-  return null;
+export function HomeNativePager({
+  ref,
+  tabs,
+  initialTabName,
+  renderHeader,
+  renderSubHeader,
+  renderTabBar,
+  onTabChange,
+}: IHomeNativePagerProps) {
+  const isRouteFocused = useIsFocused();
+  return (
+    <AppPager
+      ref={ref}
+      pages={tabs.map((tab) => ({
+        key: tab.id,
+        name: tab.name,
+        children: tab.component,
+      }))}
+      initialTabName={initialTabName}
+      renderHeader={renderHeader}
+      renderSubHeader={renderSubHeader}
+      renderTabBar={renderTabBar}
+      onTabChange={onTabChange}
+      isRouteFocused={isRouteFocused}
+    />
+  );
 }
