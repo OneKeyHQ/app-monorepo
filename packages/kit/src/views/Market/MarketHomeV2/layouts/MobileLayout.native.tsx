@@ -337,17 +337,29 @@ function MarketHomeTabBar({
           position="relative"
         >
           {showWatchlistSubHeader ? (
-            <YStack height="100%" bg="$bgApp" justifyContent="flex-end">
+            <YStack
+              height="100%"
+              bg={scrollEdgeEnabled ? undefined : '$bgApp'}
+              justifyContent="flex-end"
+            >
               {renderWatchlistSubHeaderContent()}
             </YStack>
           ) : null}
           {showSpotSubHeader ? (
-            <YStack height="100%" bg="$bgApp" justifyContent="flex-end">
+            <YStack
+              height="100%"
+              bg={scrollEdgeEnabled ? undefined : '$bgApp'}
+              justifyContent="flex-end"
+            >
               {renderSpotSubHeaderContent()}
             </YStack>
           ) : null}
           {showPerpsSubHeader ? (
-            <YStack height="100%" bg="$bgApp" justifyContent="flex-end">
+            <YStack
+              height="100%"
+              bg={scrollEdgeEnabled ? undefined : '$bgApp'}
+              justifyContent="flex-end"
+            >
               {renderPerpsSubHeaderContent()}
             </YStack>
           ) : null}

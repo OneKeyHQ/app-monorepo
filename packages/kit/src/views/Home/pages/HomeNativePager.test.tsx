@@ -39,7 +39,12 @@ const mockNativeEvents: {
   }) => void;
   headerHeight?: number;
   header?: React.ReactElement<{ onLayout: (event: LayoutChangeEvent) => void }>;
+  stickyHeaderHeight?: number;
+  stickyHeader?: React.ReactElement<{
+    onLayout: (event: LayoutChangeEvent) => void;
+  }>;
   topOverlay?: React.ReactNode;
+  topOverlayHeightHint?: number;
   onPageScroll?: (event: {
     nativeEvent: { position: number; offset: number };
   }) => void;
@@ -150,9 +155,14 @@ const headerLayoutEvent = (height: number): LayoutChangeEvent =>
 
 it('uses the hard edge for the fixed Home header', () => {
   const screen = render(
-    <HomeNativePager {...headerTestProps} topOverlay={<React.Fragment />} />,
+    <HomeNativePager
+      {...headerTestProps}
+      topOverlay={<React.Fragment />}
+      topOverlayHeightHint={162}
+    />,
   );
   expect(mockNativeEvents).toHaveProperty('topScrollEdgeEffect', 'hard');
+  expect(mockNativeEvents).toHaveProperty('topOverlayHeightHint', 162);
   screen.rerender(<HomeNativePager {...headerTestProps} />);
   expect(mockNativeEvents).toHaveProperty('topScrollEdgeEffect', undefined);
 });
@@ -328,6 +338,18 @@ it('corrects the hint with layout and retains measurement for a stable hint', ()
   rerender(<HomeNativePager {...headerTestProps} />);
   expect(mockNativeEvents.headerHeight).toBe(182);
   expect(mockHeaderHeightCommits).toEqual([292, 302, 302, 240, 249, 182]);
+});
+
+it('snapshots sticky layout before queued state updates read a pooled event', () => {
+  render(<HomeNativePager {...headerTestProps} />);
+  const onLayout = mockNativeEvents.stickyHeader?.props.onLayout;
+  const pooledEvent = headerLayoutEvent(49.2);
+  act(() => {
+    onLayout?.(headerLayoutEvent(48));
+    onLayout?.(pooledEvent);
+    Object.defineProperty(pooledEvent, 'nativeEvent', { value: null });
+  });
+  expect(mockNativeEvents.stickyHeaderHeight).toBe(50);
 });
 
 it('resets A -> B -> A without a B measurement and ignores stale layouts', () => {
@@ -943,11 +965,17 @@ describe('HomePageView complete header authority', () => {
     expect(screen.UNSAFE_getByType(HomeNativePager).props.topEdgeActive).toBe(
       false,
     );
+    expect(
+      screen.UNSAFE_getByType(HomeNativePager).props.topOverlayHeightHint,
+    ).toBe(162);
     const oldHandler = mockNativeEvents.onScrollEdgeCapability;
     act(() => oldHandler?.({ nativeEvent: { available: true } }));
     expect(screen.UNSAFE_getByType(HomeNativePager).props.topEdgeActive).toBe(
       true,
     );
+    expect(
+      screen.UNSAFE_getByType(HomeNativePager).props.topOverlayHeightHint,
+    ).toBe(162);
     walletBackedUp = false;
     screen.rerender(
       React.createElement(HomePage, {
