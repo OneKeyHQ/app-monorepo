@@ -22128,6 +22128,7 @@
     "packages/kit/src/components/TradingView/TradingViewNative/TradingViewNativeFullscreenButton.native.tsx": 10742,
     "packages/kit/src/components/TradingView/TradingViewNative/TradingViewNativeMultiChart.tsx": 14378,
     "packages/kit/src/components/TradingView/TradingViewNative/TradingViewNativePresentation.native.tsx": 2791,
+    "packages/kit/src/components/TradingView/TradingViewNative/TradingViewNativeTokenHeader.tsx": 17353,
     "packages/kit/src/components/TradingView/TradingViewNative/TradingViewPanelButton.tsx": 16486,
     "packages/kit/src/components/TradingView/TradingViewNative/TradingViewPanelDivider.native.tsx": 11045,
     "packages/kit/src/components/TradingView/TradingViewNative/TradingViewPanelIcon.native.tsx": 17408,

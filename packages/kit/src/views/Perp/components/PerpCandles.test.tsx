@@ -39,6 +39,10 @@ jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
 
+jest.mock('@onekeyhq/kit/src/components/Token', () => ({
+  Token: () => null,
+}));
+
 jest.mock('@onekeyhq/components', () => ({
   Stack: ({ children }: { children?: ReactNode }) => children,
   XStack: ({ children }: { children?: ReactNode }) => children,
