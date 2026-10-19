@@ -8,6 +8,7 @@ jest.mock('../../../dbs/local/localDbInstance', () => ({
 
 import type { IXmrRuntimeApi } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import Vault from './Vault';
 
@@ -72,6 +73,7 @@ function createVault(options?: {
       });
     },
     verifyTransaction: jest.fn(async () => undefined),
+    verifySignedTransaction: jest.fn(async () => 'deadbeef'),
     broadcastTransaction:
       options?.broadcast ??
       (async () => JSON.stringify({ txid: 'deadbeef', sizeBytes: 1500 })),
@@ -364,7 +366,86 @@ describe('xmr send: max', () => {
   });
 });
 
+const broadcastEncodedTx: IEncodedTxXmr = {
+  from: PRIMARY,
+  to: RECIPIENT,
+  amount: '1',
+  amountAtomic: '1000000000000',
+  feeAtomic: '30000000',
+  changeAtomic: '500000000000',
+  inputCount: 2,
+  priority: 'normal',
+  signableHex: 'aabb',
+  chainTip: LIVE_TIP,
+};
+
 describe('xmr send: broadcast', () => {
+  it('does not broadcast when signed transaction verification fails', async () => {
+    const broadcast = jest.fn(async () => JSON.stringify({ txid: 'deadbeef' }));
+    const { vault, runtime } = createVault({ broadcast });
+    jest
+      .mocked(runtime.verifySignedTransaction)
+      .mockRejectedValue(new Error('signed output mismatch'));
+    await expect(
+      vault.broadcastTransaction({
+        signedTx: {
+          txid: 'deadbeef',
+          rawTx: '00ff',
+          encodedTx: broadcastEncodedTx,
+        },
+      } as never),
+    ).rejects.toThrow('signed output mismatch');
+    expect(broadcast).not.toHaveBeenCalled();
+  });
+
+  it('does not broadcast when the verified transaction id differs', async () => {
+    const broadcast = jest.fn(async () => JSON.stringify({ txid: 'deadbeef' }));
+    const { vault, runtime } = createVault({ broadcast });
+    jest.mocked(runtime.verifySignedTransaction).mockResolvedValue('cafebabe');
+    await expect(
+      vault.broadcastTransaction({
+        signedTx: {
+          txid: 'deadbeef',
+          rawTx: '00ff',
+          encodedTx: broadcastEncodedTx,
+        },
+      } as never),
+    ).rejects.toThrow('unexpected transaction id before broadcast');
+    expect(broadcast).not.toHaveBeenCalled();
+  });
+
+  it('does not broadcast through an older runtime without signed verification', async () => {
+    const broadcast = jest.fn(async () => JSON.stringify({ txid: 'deadbeef' }));
+    const { vault, runtime } = createVault({ broadcast });
+    Reflect.deleteProperty(runtime, 'verifySignedTransaction');
+    await expect(
+      vault.broadcastTransaction({
+        signedTx: {
+          txid: 'deadbeef',
+          rawTx: '00ff',
+          encodedTx: broadcastEncodedTx,
+        },
+      } as never),
+    ).rejects.toThrow();
+    expect(broadcast).not.toHaveBeenCalled();
+  });
+
+  it('rejects malformed bookkeeping amounts before verifying or broadcasting', async () => {
+    const broadcast = jest.fn(async () => JSON.stringify({ txid: 'deadbeef' }));
+    const { vault, runtime } = createVault({ broadcast });
+    await expect(
+      vault.broadcastTransaction({
+        signedTx: {
+          txid: 'deadbeef',
+          rawTx: '00ff',
+          encodedTx: { ...broadcastEncodedTx, changeAtomic: '01' },
+        },
+      } as never),
+    ).rejects.toThrow('invalid transaction review');
+    expect(runtime.verifySignedTransaction).not.toHaveBeenCalled();
+    expect(broadcast).not.toHaveBeenCalled();
+  });
+
   // Inputs are not reserved, so going back and rebuilding simply prepares again.
   it('rebuilds from scratch when the review is opened again', async () => {
     const { vault, runtime } = createVault();
@@ -396,6 +477,7 @@ describe('xmr send: broadcast', () => {
           txid: 'deadbeef',
           rawTx: '00ff',
           encodedTx: {
+            ...broadcastEncodedTx,
             signableHex: 'aabb',
             chainTip: 3_767_827,
           } as IEncodedTxXmr,
@@ -422,6 +504,7 @@ describe('xmr send: broadcast', () => {
           txid: 'deadbeef',
           rawTx: '00ff',
           encodedTx: {
+            ...broadcastEncodedTx,
             signableHex: 'aabb',
             chainTip: 3_767_827,
           } as IEncodedTxXmr,
@@ -436,12 +519,13 @@ describe('xmr send: broadcast', () => {
     const broadcast = jest.fn(async () =>
       JSON.stringify({ txid: 'deadbeef', sizeBytes: 1500 }),
     );
-    const { vault } = createVault({ broadcast });
+    const { vault, runtime } = createVault({ broadcast });
     await vault.broadcastTransaction({
       signedTx: {
         txid: 'deadbeef',
         rawTx: '00ff',
         encodedTx: {
+          ...broadcastEncodedTx,
           signableHex: 'aabb',
           chainTip: 3_767_827,
           amountAtomic: '1000000000000',
@@ -450,12 +534,31 @@ describe('xmr send: broadcast', () => {
         } as IEncodedTxXmr,
       },
     } as never);
+    const reviewJson = stringUtils.stableStringify({
+      network: 'mainnet',
+      fromAddress: PRIMARY,
+      toAddress: RECIPIENT,
+      amountAtomic: '1000000000000',
+      feeAtomic: '30000000',
+      changeAtomic: '500000000000',
+      isMaxSend: false,
+    });
+    expect(runtime.verifySignedTransaction).toHaveBeenCalledWith(
+      'aabb',
+      reviewJson,
+      '00ff',
+    );
+    expect(
+      jest.mocked(runtime.verifySignedTransaction).mock.invocationCallOrder[0],
+    ).toBeLessThan(broadcast.mock.invocationCallOrder[0]);
     expect(broadcast).toHaveBeenCalledWith(
       expect.anything(),
       '00ff',
       '3767827',
       '1000030000000',
       '500000000000',
+      'aabb',
+      reviewJson,
     );
   });
 
@@ -469,6 +572,7 @@ describe('xmr send: broadcast', () => {
           txid: 'deadbeef',
           rawTx: '00ff',
           encodedTx: {
+            ...broadcastEncodedTx,
             signableHex: 'aabb',
             chainTip: 3_767_827,
           } as IEncodedTxXmr,
@@ -493,6 +597,7 @@ describe('xmr send: broadcast', () => {
           txid: 'deadbeef',
           rawTx: '00ff',
           encodedTx: {
+            ...broadcastEncodedTx,
             to: RECIPIENT,
             signableHex: 'aabb',
             chainTip: 3_767_827,
@@ -513,6 +618,7 @@ describe('xmr send: broadcast', () => {
         txid: 'deadbeef',
         rawTx: '00ff',
         encodedTx: {
+          ...broadcastEncodedTx,
           to: RECIPIENT,
           signableHex: 'aabb',
           chainTip: 3_767_827,
@@ -525,6 +631,8 @@ describe('xmr send: broadcast', () => {
       accountId: ACCOUNT_ID,
       txid: 'deadbeef',
       recipient: RECIPIENT,
+      amountAtomic: '1000000000000',
+      feeAtomic: '30000000',
     });
   });
 
