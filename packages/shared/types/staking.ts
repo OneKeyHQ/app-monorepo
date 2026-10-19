@@ -2012,6 +2012,19 @@ export type IClaimableListItem = {
   extra?: IClaimableListItemExtra;
 };
 
+/**
+ * Approval a claim needs before its transaction (OK-61790, Unitas USDu): the
+ * claimed USDu is converted back to USDT by the protocol afterwards, so the
+ * server asks for an allowance of the claimed amount up front.
+ */
+export type IClaimApproveInfo = {
+  approveType: EApproveType;
+  approveTarget: string;
+  tokenAddress: string;
+  symbol: string;
+  decimals: number;
+};
+
 export type IClaimableListResponse = {
   token: IToken;
   network?: {
@@ -2023,6 +2036,7 @@ export type IClaimableListResponse = {
   description?: {
     text: string;
   };
+  claimApprove?: IClaimApproveInfo;
 };
 
 export interface IEarnAccountToken {
