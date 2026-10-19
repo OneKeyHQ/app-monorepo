@@ -51,7 +51,7 @@ const mockOwnerStore = (() => {
 const mockHookParams: IHookParams[] = [];
 const mockFetchAccountNFTs = jest.fn<Promise<unknown>, [unknown]>();
 
-jest.mock('@onekeyhq/components', () => ({
+jest.mock('../hooks/useHomeTab', () => ({
   useTabIsRefreshingFocused: () => ({
     isFocused: true,
     isHeaderRefreshing: false,

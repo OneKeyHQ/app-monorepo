@@ -28,6 +28,8 @@ export interface ITradingViewNativeChartRuntimeCrosshair {
   visible: boolean;
   x: number;
   y: number;
+  // A pinned price is projected after the current frame's layout is resolved.
+  price?: number;
 }
 
 export interface ITradingViewNativeChartRuntimeState {
