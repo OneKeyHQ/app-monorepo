@@ -96,8 +96,18 @@ function UTXODetails() {
             alignItems="center"
             gap="$1.5"
           >
-            <Icon name="ShieldOutline" size="$4" color="$iconSubdued" />
-            <SizableText size="$bodyMdMedium" $gtMd={{ size: '$bodySmMedium' }}>
+            <Icon
+              name="ShieldOutline"
+              size="$4"
+              color="$iconSubdued"
+              flexShrink={0}
+            />
+            <SizableText
+              size="$bodyMdMedium"
+              flexShrink={1}
+              $gtMd={{ size: '$bodySmMedium' }}
+              $platform-web={{ wordBreak: 'break-all' }}
+            >
               {showUtxoEndpoint(utxo) ||
               (vaultSettings?.localWallet?.privateAddressPattern &&
                 new RegExp(

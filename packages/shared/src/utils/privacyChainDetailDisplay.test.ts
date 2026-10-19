@@ -59,6 +59,20 @@ it('does not turn incoming own addresses, change or unknown pool labels into cou
   ).toEqual([]);
 });
 
+it('keeps an explicit self-payment recipient while excluding its change', () => {
+  expect(
+    getPrivacyChainWalletRecipientAddresses({
+      privateAddressPattern,
+      transfer: transfer('Ironwood pool', 'Ironwood pool'),
+      outputTransfers: [
+        output(privateAddress, { isOwn: true, isChange: false }),
+        output(`u1${'c'.repeat(90)}`, { isOwn: true, isChange: true }),
+      ],
+      isSent: true,
+    }),
+  ).toEqual([privateAddress]);
+});
+
 it('deduplicates authoritative private recipients without making them public endpoints', () => {
   const payment = transfer('Ironwood pool', privateAddress);
   expect(

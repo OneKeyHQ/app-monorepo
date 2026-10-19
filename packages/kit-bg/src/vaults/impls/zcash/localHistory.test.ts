@@ -187,6 +187,18 @@ describe('buildZcashLocalHistoryTx counterparties', () => {
     });
   });
 
+  it('does not claim a zero payment when a rescan only recovered the fee delta', async () => {
+    const tx = await build({
+      ...historyItem('self-without-payment-output'),
+      txType: 'shielded',
+      fee: '10000',
+      valueZat: '0',
+      perPoolBalanceDeltaZat: { '4': '-10000' },
+    });
+    expect(tx.decodedTx.nativeAmountIsUnknown).toBe(true);
+    expect(tx.decodedTx.totalFeeInNative).toBe('0.0001');
+  });
+
   it('labels an unknown shielded sender instead of leaving it blank', async () => {
     const tx = await build({ ...historyItem('r'), txType: 'received' });
     const transfer = tx.decodedTx.actions[0].assetTransfer;

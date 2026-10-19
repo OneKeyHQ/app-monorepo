@@ -155,7 +155,11 @@ export async function buildZcashLocalHistoryTx({
   const isSent = item.txType === 'sent';
   // 'shielded' = internal move between own pools; both sides are us
   const isInternal = item.txType === 'shielded';
-  const nativeAmountIsUnknown = isSent && item.fee === null;
+  // A rescan may know only the same-pool fee delta, without payment outputs.
+  // That is missing payment information, not proof of a zero-value payment.
+  const nativeAmountIsUnknown =
+    (isSent && item.fee === null) ||
+    (isInternal && new BigNumber(item.valueZat).isZero());
   const amount = nativeAmountIsUnknown
     ? '0'
     : new BigNumber(item.valueZat).abs().shiftedBy(-ZCASH_DECIMALS).toFixed();
