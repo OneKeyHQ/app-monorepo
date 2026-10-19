@@ -14,6 +14,7 @@ import {
   displayPriceToTick,
   getDisplayRange,
   getRangeSideForDisplayBound,
+  isTickInRange,
   stepDisplayBound,
 } from '@onekeyhq/shared/src/utils/poolsMath';
 import type {
@@ -33,7 +34,6 @@ import {
   getPoolDisplayPrice,
   getPoolPair,
 } from '../poolsFormat';
-import { countDaysInRange } from '../poolsOutcome';
 import {
   formatExpectedStay,
   formatPresetWidth,
@@ -162,8 +162,8 @@ function PriceBoundField({
 
 /**
  * What the chosen range comes to: the estimate, and how long the price is
- * expected to stay inside at the pair's daily moves, with how many of the
- * last 30 days it actually did.
+ * expected to stay inside at the pair's daily moves. A range away from the
+ * price says so even without history.
  */
 export function PoolRangeFigures({
   pool,
@@ -181,15 +181,17 @@ export function PoolRangeFigures({
     () => getDailyVolatility(priceHistory),
     [priceHistory],
   );
-  const days = countDaysInRange(pool, range, priceHistory);
-  const expectedDays =
-    volatility === undefined
-      ? undefined
-      : getExpectedDaysInRange(pool, range, volatility);
+  const inRange = isTickInRange({ ...range, tick: pool.currentTick ?? 0 });
+  let stay: string | undefined;
+  if (!inRange) {
+    stay = POOLS_COPY.outOfRange;
+  } else if (volatility !== undefined) {
+    stay = formatExpectedStay(getExpectedDaysInRange(pool, range, volatility));
+  }
   return (
     <XStack jc="space-between" ai="flex-start" gap="$4">
       <PoolAprFigure estimate={estimate} pool={pool} />
-      {expectedDays === undefined ? null : (
+      {stay ? (
         <YStack gap="$0.5" ai="flex-end" flexShrink={1}>
           <SizableText size="$bodySm" color="$textSubdued">
             {POOLS_COPY.expectedInRange}
@@ -197,19 +199,12 @@ export function PoolRangeFigures({
           <SizableText
             testID="earn-pool-range-expected-stay"
             size="$headingXl"
-            color={expectedDays > 0 ? '$text' : '$textCaution'}
+            color={inRange ? '$text' : '$textCaution'}
           >
-            {expectedDays > 0
-              ? formatExpectedStay(expectedDays)
-              : POOLS_COPY.outOfRange}
+            {stay}
           </SizableText>
-          {days.total ? (
-            <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
-              {POOLS_COPY.inRangeOfLast(days.inRange, days.total)}
-            </SizableText>
-          ) : null}
         </YStack>
-      )}
+      ) : null}
     </XStack>
   );
 }
@@ -447,17 +442,6 @@ export function PoolRangeEditor({
           pool={pool}
           ticks={ticks}
           range={range}
-          title={
-            readOnly ? undefined : (
-              <SizableText
-                size="$bodySm"
-                color="$textSubdued"
-                numberOfLines={1}
-              >
-                {POOLS_COPY.rangeChartHint}
-              </SizableText>
-            )
-          }
           onRangeChange={
             readOnly
               ? undefined

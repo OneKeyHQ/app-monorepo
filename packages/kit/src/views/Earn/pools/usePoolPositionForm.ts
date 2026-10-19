@@ -42,10 +42,6 @@ import type { IPoolRangePresetId } from './poolsRangePresets';
 
 export type IPoolAddMode = 'zap' | 'both';
 
-// What the earnings and the move against holding are stated on before an
-// amount is typed
-export const REFERENCE_DEPOSIT_USD = 1000;
-
 export function toInputAmount(value: BigNumber.Value, decimals: number) {
   const amount = new BigNumber(value);
   if (!amount.isFinite() || amount.lte(0)) {
@@ -354,20 +350,18 @@ export function usePoolPositionForm({
     shownZapPlan?.liquidity,
   ]);
 
-  // The estimate and the move against holding, in money (doc §3.5)
+  // The estimate and the move against holding in money, once there is an
+  // amount (doc §3.5)
   const hasDeposit = depositUsd.gt(0);
-  const statedUsd = hasDeposit
-    ? depositUsd
-    : new BigNumber(REFERENCE_DEPOSIT_USD);
   const monthlyUsd =
-    estimate?.status === 'ok'
-      ? statedUsd.times(estimate.apr).div(12)
+    hasDeposit && estimate?.status === 'ok'
+      ? depositUsd.times(estimate.apr).div(12)
       : undefined;
   const versus = useMemo(
     () => getVersusHolding(pool, isRange ? range : undefined),
     [isRange, pool, range],
   );
-  const versusUsd = statedUsd.times(-versus.fraction);
+  const versusUsd = depositUsd.times(-versus.fraction);
 
   // Validation and the button label
   const rangeValid = !isRange || range.tickLower < range.tickUpper;

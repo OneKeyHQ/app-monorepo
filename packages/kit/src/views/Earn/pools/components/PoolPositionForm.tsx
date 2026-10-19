@@ -25,17 +25,14 @@ import type {
 
 import { POOLS_COPY } from '../poolsCopy';
 import {
+  formatPercent,
   formatTokenAmount,
   formatTokenPrice,
   formatUsd,
   getPoolPair,
   getPriceUnitLabel,
 } from '../poolsFormat';
-import {
-  REFERENCE_DEPOSIT_USD,
-  toInputAmount,
-  usdOf,
-} from '../usePoolPositionForm';
+import { toInputAmount, usdOf } from '../usePoolPositionForm';
 
 import { PoolAprEstimate } from './PoolAprEstimate';
 import { PoolRangeEditor, PoolRangeFigures } from './PoolRangeEditor';
@@ -44,8 +41,8 @@ import { PoolsChip } from './PoolsFilterButton';
 
 import type { IPoolAddMode, IPoolPositionForm } from '../usePoolPositionForm';
 
-// Remove's quick picks, so the two forms behave alike
-const PERCENT_CHIPS = [0.25, 0.5, 0.75, 1];
+// Remove's quick picks; Max is already on the balance line
+const PERCENT_CHIPS = [0.25, 0.5, 0.75];
 
 function PlanRow({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -232,7 +229,7 @@ function ZapInput({ form }: { form: IPoolPositionForm }) {
             <PoolsChip
               key={percent}
               testID={`earn-pool-add-percent-${percent * 100}`}
-              label={percent === 1 ? POOLS_COPY.maxAmount : `${percent * 100}%`}
+              label={`${percent * 100}%`}
               active={Boolean(value) && amountIn === value}
               onPress={() => form.setAmountIn(value)}
             />
@@ -340,7 +337,11 @@ function RangeSummaryRow({ form }: { form: IPoolPositionForm }) {
   );
 }
 
-/** What the deposit comes to; empty until there is something to show */
+/**
+ * What the deposit comes to; empty until there is something to show. Money
+ * waits for an amount: before one, the APR already gives the earnings rate
+ * and the move against holding is a share.
+ */
 function getOutcomeRows(form: IPoolPositionForm) {
   const { pool, versus } = form;
   const rows: ReactNode[] = [];
@@ -349,11 +350,6 @@ function getOutcomeRows(form: IPoolPositionForm) {
       <PlanRow key="earnings" label={POOLS_COPY.estimatedEarnings}>
         <SizableText size="$bodyMdMedium" color="$textSuccess">
           {POOLS_COPY.perMonth(formatUsd(form.monthlyUsd))}
-        </SizableText>
-        <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
-          {form.hasDeposit
-            ? POOLS_COPY.atTodaysFees
-            : POOLS_COPY.onReferenceDeposit(formatUsd(REFERENCE_DEPOSIT_USD))}
         </SizableText>
       </PlanRow>,
     );
@@ -367,11 +363,16 @@ function getOutcomeRows(form: IPoolPositionForm) {
           `${versus.move * 100}%`,
         )}
       >
-        <SizableText size="$bodyMdMedium" textAlign="right">
-          {POOLS_COPY.lessThanHolding(formatUsd(form.versusUsd))}
-        </SizableText>
-        <SizableText size="$bodySm" color="$textSubdued">
-          {POOLS_COPY.beforeFees}
+        <SizableText
+          testID="earn-pool-versus-holding"
+          size="$bodyMdMedium"
+          textAlign="right"
+        >
+          {POOLS_COPY.lessThanHolding(
+            form.hasDeposit
+              ? formatUsd(form.versusUsd)
+              : formatPercent(-versus.fraction),
+          )}
         </SizableText>
       </PlanRow>,
     );

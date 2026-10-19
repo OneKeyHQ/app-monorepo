@@ -126,12 +126,8 @@ export const POOLS_COPY = {
   balance: 'Balance',
   maxAmount: 'Max',
   estimatedApr: 'Estimated APR',
-  vsPoolAverage: (multiple: string) => `${multiple}× pool average`,
-  estimatedForSmallAmount: 'For a small deposit',
   aprUnavailable: 'Can’t estimate',
-  aprUnavailableHook:
-    'This pool’s hook changes what LPs earn, so the estimate would be wrong.',
-  aprOutOfRange: 'Earns no fees until the price enters the range',
+  aprUnavailableHook: 'This pool’s hook changes what LPs earn.',
   aprNoFees: 'No fees in the last 24h',
   onlyToken: (symbol: string) =>
     `The range is outside the current price, so it takes only ${symbol}.`,
@@ -145,8 +141,6 @@ export const POOLS_COPY = {
   payWithEth: 'Pay with ETH',
   rangeInverted: 'Min must be below max',
   expectedInRange: 'Expected in range',
-  inRangeOfLast: (count: number, total: number) =>
-    `In range ${count} of the last ${total} days`,
   stay: {
     days: (count: number) => (count === 1 ? '~1 day' : `~${count} days`),
     weeks: (count: number) => (count === 1 ? '~1 week' : `~${count} weeks`),
@@ -157,16 +151,12 @@ export const POOLS_COPY = {
   rangePresetNames: { narrow: 'Narrow', balanced: 'Balanced', wide: 'Wide' },
   fullRangeBounds: '0 to ∞',
   rangeInfo:
-    'You earn fees only while the price is inside your range. Outside it, the position holds one token and earns nothing until the price comes back.\n\nNarrow, Balanced and Wide are sized to how much this pair moved each day over the last 30 days, so the price is expected to stay inside about a week, a month and three months. Big moves can push it out sooner. Narrower earns more while the price stays inside.',
-  rangeChartHint: 'Drag an edge to resize, or the middle to move',
+    'You earn fees only while the price is inside your range. Outside it, the position is all one token and earns nothing until the price comes back.\n\nNarrow, Balanced and Wide are sized to this pair’s daily moves over the last 30 days, to stay in range about a week, a month and three months. Big moves can push the price out sooner. Narrower earns more while it lasts.',
   estimatedEarnings: 'Est. earnings',
   perMonth: (value: string) => `${value} a month`,
-  onReferenceDeposit: (value: string) => `On ${value} at today’s fees`,
-  atTodaysFees: 'At today’s fees',
   versusHoldingLabel: (symbol: string, percent: string) =>
     `If ${symbol} moves ${percent}`,
   lessThanHolding: (value: string) => `${value} less than holding`,
-  beforeFees: 'Before fees',
 
   // Remove
   amountToRemove: 'Amount',

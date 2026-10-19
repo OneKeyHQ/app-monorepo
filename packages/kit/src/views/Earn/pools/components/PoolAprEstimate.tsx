@@ -5,10 +5,22 @@ import type { IPool } from '@onekeyhq/shared/types/pools';
 import { POOLS_COPY } from '../poolsCopy';
 import { formatPercent } from '../poolsFormat';
 
+type IAprEstimateDisplay = {
+  value: string;
+  /** Why the figure is missing or zero; a plain estimate has none */
+  notes: string[];
+  color: '$text' | '$textSubdued' | '$textCaution';
+};
+
+/**
+ * The estimate as one figure. Doc §3.5 also shows the multiple of the pool
+ * average and a small-deposit label; both stay out to keep the figure short.
+ * Out of range needs no note: the time in range beside it says so.
+ */
 export function describeAprEstimate(
   estimate: IPoolsAprEstimate | undefined,
   pool: IPool,
-) {
+): IAprEstimateDisplay {
   if (!estimate || estimate.status === 'unavailable') {
     return {
       value: POOLS_COPY.aprUnavailable,
@@ -17,41 +29,25 @@ export function describeAprEstimate(
           ? [POOLS_COPY.aprUnavailableHook]
           : [],
       color: '$textSubdued',
-    } as const;
+    };
   }
   if (estimate.status === 'outOfRange') {
-    return {
-      value: formatPercent(0),
-      notes: [POOLS_COPY.aprOutOfRange],
-      color: '$textCaution',
-    } as const;
+    return { value: formatPercent(0), notes: [], color: '$textCaution' };
   }
   if (estimate.status === 'noFees') {
     return {
       value: formatPercent(0),
       notes: [POOLS_COPY.aprNoFees],
       color: '$text',
-    } as const;
-  }
-  const notes: string[] = [];
-  if (estimate.multiple) {
-    notes.push(POOLS_COPY.vsPoolAverage(estimate.multiple.toFixed(1)));
-  }
-  if (estimate.isSmallAmount) {
-    notes.push(POOLS_COPY.estimatedForSmallAmount);
+    };
   }
   // Earn paints an APR green only for a bonus, so a plain estimate stays $text
-  return {
-    value: formatPercent(estimate.apr),
-    notes,
-    color: '$text',
-  } as const;
+  return { value: formatPercent(estimate.apr), notes: [], color: '$text' };
 }
 
 /**
- * Estimated fee APR for the chosen range and amount, with the multiple of
- * the pool average (doc §3.5). Before an amount is entered it estimates a
- * small deposit.
+ * Estimated fee APR for the amount entered, or for a small deposit before
+ * one is (doc §3.5).
  */
 export function PoolAprEstimate({
   estimate,
@@ -105,14 +101,11 @@ export function PoolAprFigure({
       <SizableText size="$headingXl" color={info.color}>
         {info.value}
       </SizableText>
-      {/* Two lines kept, so what sits below holds still as notes come and go */}
-      <YStack gap="$0.5" minHeight={34}>
-        {info.notes.map((note) => (
-          <SizableText key={note} size="$bodySm" color="$textSubdued">
-            {note}
-          </SizableText>
-        ))}
-      </YStack>
+      {info.notes.map((note) => (
+        <SizableText key={note} size="$bodySm" color="$textSubdued">
+          {note}
+        </SizableText>
+      ))}
     </YStack>
   );
 }

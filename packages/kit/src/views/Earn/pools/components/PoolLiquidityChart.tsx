@@ -469,29 +469,34 @@ export function PoolLiquidityChart({
     <XStack flex={1}>{title}</XStack>
   );
 
+  const zoomButtons = showZoom ? (
+    <XStack gap="$1">
+      <IconButton
+        testID="earn-pool-liquidity-zoom-out"
+        size="small"
+        variant="tertiary"
+        icon="MinusLargeOutline"
+        onPress={() => changeZoom(ZOOM_FACTOR)}
+      />
+      <IconButton
+        testID="earn-pool-liquidity-zoom-in"
+        size="small"
+        variant="tertiary"
+        icon="PlusLargeOutline"
+        onPress={() => changeZoom(1 / ZOOM_FACTOR)}
+      />
+    </XStack>
+  ) : null;
+  // With nothing else above the chart, the zoom buttons take its top corner
+  // instead of a row of their own; the Now label stays centered
+  const hasHeader = hasLegend || Boolean(title);
+
   return (
     <YStack gap="$2">
-      {showZoom || hasLegend || title ? (
+      {hasHeader ? (
         <XStack ai="center" gap="$2">
           {legend}
-          {showZoom ? (
-            <XStack gap="$1">
-              <IconButton
-                testID="earn-pool-liquidity-zoom-out"
-                size="small"
-                variant="tertiary"
-                icon="MinusLargeOutline"
-                onPress={() => changeZoom(ZOOM_FACTOR)}
-              />
-              <IconButton
-                testID="earn-pool-liquidity-zoom-in"
-                size="small"
-                variant="tertiary"
-                icon="PlusLargeOutline"
-                onPress={() => changeZoom(1 / ZOOM_FACTOR)}
-              />
-            </XStack>
-          ) : null}
+          {zoomButtons}
         </XStack>
       ) : null}
       <YStack
@@ -677,6 +682,11 @@ export function PoolLiquidityChart({
             </XStack>
           )}
         </Stack>
+        {hasHeader ? null : (
+          <XStack position="absolute" top={0} right={0}>
+            {zoomButtons}
+          </XStack>
+        )}
       </YStack>
     </YStack>
   );
