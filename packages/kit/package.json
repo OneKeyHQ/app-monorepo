@@ -11,7 +11,7 @@
     "@types/url-parse": "^1.4.8",
     "barcode-detector": "^3.0.0",
     "date-fns": "2.30.0",
-    "expo-camera": "~57.0.3",
+    "expo-camera": "~58.0.10",
     "fuse.js": "^7.0.0",
     "lightweight-charts": "5.2.0",
     "mime": "^3.0.0",

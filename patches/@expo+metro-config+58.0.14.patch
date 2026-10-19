@@ -1,0 +1,12 @@
+diff --git a/node_modules/@expo/metro-config/build/babel-transformer.js b/node_modules/@expo/metro-config/build/babel-transformer.js
+index 6946cd9..c68818d 100644
+--- a/node_modules/@expo/metro-config/build/babel-transformer.js
++++ b/node_modules/@expo/metro-config/build/babel-transformer.js
+@@ -306,6 +306,7 @@ plugins })=>{
+     const partialConfig = (0, _babelcore.loadPartialConfigSync)({
+         cwd: options.projectRoot,
+         root: options.projectRoot,
++        filename: _nodepath().default.resolve(options.projectRoot, 'index.js'),
+         extends: _nodepath().default.resolve(options.projectRoot, configName),
+         configFile: false,
+         babelrc: false

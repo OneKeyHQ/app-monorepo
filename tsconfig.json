@@ -6,6 +6,7 @@
     "jsx": "preserve",
     "lib": ["dom", "esnext", "webworker"],
     "moduleResolution": "bundler",
+    "customConditions": ["react-native", "react-native-legacy-deep-imports"],
     "noEmit": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,

@@ -17,8 +17,6 @@ import type {
 const setDarkContent = (isAnimated = true) => {
   StatusBar.setBarStyle('light-content', isAnimated);
   if (platformEnv.isNativeAndroid) {
-    const color = getTokenValue('$bgAppDark', 'color');
-    StatusBar.setBackgroundColor(color, isAnimated);
     setStyle('light');
   }
 };
@@ -26,8 +24,6 @@ const setDarkContent = (isAnimated = true) => {
 const setLightContent = (isAnimated = true) => {
   StatusBar.setBarStyle('dark-content', isAnimated);
   if (platformEnv.isNativeAndroid) {
-    const color = getTokenValue('$bgAppLight', 'color');
-    StatusBar.setBackgroundColor(color, isAnimated);
     setStyle('dark');
   }
 };
@@ -39,13 +35,10 @@ const setLightContent = (isAnimated = true) => {
 // repaints through applySystemBars, so ordering can never leave a
 // stale coat.
 //
-// Two mechanisms per repaint, because Android changed the rules: the
-// bar-color calls above paint real bar surfaces up to Android 14, and
-// under enforced edge-to-edge (targetSdk 35+, Android 15+) become
-// no-ops — there the "bars" are transparent over the WINDOW background
-// (the app content sits inset by fitsSystemWindows), so the window
-// paint below is what actually colors the bands. The icon styles work
-// on both eras.
+// The app runs edge-to-edge on every Android version (KeyboardProvider
+// turns off decorFitsSystemWindows and insets the content), so the "bars"
+// are transparent over the WINDOW background and the window paint below is
+// what colors the bands. The calls above only pick the icon styles.
 let appVariant: 'light' | 'dark' | undefined;
 let overrideVariant: 'light' | 'dark' | null = null;
 // The app's own window-background request (NavigationContainer keeps it
