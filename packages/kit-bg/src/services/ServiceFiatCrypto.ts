@@ -14,7 +14,6 @@ import {
   applyOnramperTransactionStatus,
   isTerminalHeadlessBuyOrder,
 } from '@onekeyhq/shared/src/modules3rdParty/onramper/orderStatus';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -48,11 +47,10 @@ const ONRAMPER_TRANSACTION_SOURCE = 'headless';
 // walk does not spend the per-IP rate limit on duplicate requests.
 const MIN_RECHECK_INTERVAL_MS = 10_000;
 // Ids minted by the Simulator mock client / the no-id fallback never exist on
-// Onramper: they are scripted locally (dev) or left untouched (prod).
+// Onramper: they are never looked up and stay Processing until the time rules
+// clear them.
 const MOCK_TRANSACTION_ID_PREFIX = 'mock-';
 const LOCAL_TRANSACTION_ID_PREFIX = 'local-';
-// Scripted mock lifecycle: processing for a short while, then delivered.
-const MOCK_DELIVERY_DELAY_MS = 30_000;
 
 function isSyntheticTransactionId(transactionId: string): boolean {
   return (
@@ -537,6 +535,7 @@ class ServiceFiatCrypto extends ServiceBase {
     const targets = orders.filter(
       (o) =>
         !isTerminalHeadlessBuyOrder(o) &&
+        !isSyntheticTransactionId(o.transactionId) &&
         (!wanted || wanted.has(o.transactionId)) &&
         !(
           o.lastCheckOk &&
@@ -548,22 +547,17 @@ class ServiceFiatCrypto extends ServiceBase {
       return orders;
     }
     const statuses = new Map<string, IOnramperTransactionStatus>();
-    const failedIds = new Set<string>();
-    const real = targets.filter(
-      (o) => !isSyntheticTransactionId(o.transactionId),
-    );
     // The endpoint has no batch form: one request per id, and a failure only
     // affects its own order.
     const results = await Promise.allSettled(
-      real.map((o) => this.fetchOnramperTransactionStatus(o.transactionId)),
+      targets.map((o) => this.fetchOnramperTransactionStatus(o.transactionId)),
     );
     results.forEach((result, index) => {
-      const { transactionId } = real[index];
+      const { transactionId } = targets[index];
       if (result.status === 'fulfilled' && result.value) {
         statuses.set(transactionId, result.value);
         return;
       }
-      failedIds.add(transactionId);
       const err =
         result.status === 'rejected'
           ? (result.reason as
@@ -582,27 +576,16 @@ class ServiceFiatCrypto extends ServiceBase {
         errorMessage: err ? err.message : 'not found',
       });
     });
-    targets
-      .filter((o) => isSyntheticTransactionId(o.transactionId))
-      .forEach((o) => {
-        const scripted = this.buildMockTransactionStatus(o, now);
-        if (scripted) {
-          statuses.set(o.transactionId, scripted);
-        }
-      });
-
     const updates: Record<string, IHeadlessBuyOrder | null> = {};
     const deliveredAccounts: { accountId: string; networkId: string }[] = [];
     for (const order of targets) {
       const tx = statuses.get(order.transactionId);
       if (!tx) {
-        if (failedIds.has(order.transactionId)) {
-          updates[order.transactionId] = {
-            ...order,
-            lastCheckedAt: now,
-            lastCheckOk: false,
-          };
-        }
+        updates[order.transactionId] = {
+          ...order,
+          lastCheckedAt: now,
+          lastCheckOk: false,
+        };
       } else {
         const next = applyOnramperTransactionStatus(order, tx, now);
         if (!next) {
@@ -653,30 +636,6 @@ class ServiceFiatCrypto extends ServiceBase {
     );
     const data = resp.data?.data;
     return data && typeof data.transactionId === 'string' ? data : undefined;
-  }
-
-  // Dev-only lifecycle for Simulator orders; production leaves synthetic ids
-  // untouched (they stay "Processing" with no lookup).
-  private buildMockTransactionStatus(
-    order: IHeadlessBuyOrder,
-    now: number,
-  ): IOnramperTransactionStatus | undefined {
-    if (
-      !platformEnv.isDev ||
-      !order.transactionId.startsWith(MOCK_TRANSACTION_ID_PREFIX)
-    ) {
-      return undefined;
-    }
-    if (now - order.createdAt < MOCK_DELIVERY_DELAY_MS) {
-      return { transactionId: order.transactionId, status: 'pending' };
-    }
-    return {
-      transactionId: order.transactionId,
-      status: 'completed',
-      outAmount: order.payout,
-      transactionHash: `0x${'ab'.repeat(32)}`,
-      statusDate: new Date(now).toISOString(),
-    };
   }
 }
 

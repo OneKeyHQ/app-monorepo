@@ -633,7 +633,7 @@ export function useOnramperCheckout({
 
   const payMock = useCallback(() => {
     // Mirror the real event order: the id is known before "payment". The
-    // `mock-` prefix tells the order service to script the status locally.
+    // `mock-` prefix tells the order service never to look it up.
     const transactionId = `mock-${Date.now()}`;
     noteTransactionId(transactionId);
     handleCheckoutCompletedRef.current({

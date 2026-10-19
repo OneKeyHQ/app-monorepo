@@ -3,7 +3,6 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EHeadlessBuyOrderStatus,
   type IHeadlessBuyOrder,
@@ -383,37 +382,25 @@ describe('ServiceFiatCrypto headless buy orders', () => {
     expect(requested.toSorted()).toEqual(['failed-check', 'old-check']);
   });
 
-  test('refreshHeadlessBuyOrders scripts mock ids in dev without touching the network', async () => {
-    // platformEnv is a plain object; force the dev branch regardless of the
-    // jest environment's own value.
-    const originalIsDev = Object.getOwnPropertyDescriptor(platformEnv, 'isDev');
-    Object.defineProperty(platformEnv, 'isDev', {
-      value: true,
-      configurable: true,
-      writable: true,
-    });
+  test('refreshHeadlessBuyOrders never looks up Simulator or fallback ids', async () => {
     const { service, store, get } = createService([
-      baseOrder({
-        transactionId: 'mock-1',
-        submittedAt: T0,
-        createdAt: T0 - 60_000,
-        payout: 0.05,
-      }),
-      baseOrder({ transactionId: 'mock-2', submittedAt: T0, createdAt: T0 }),
+      baseOrder({ transactionId: 'mock-1', submittedAt: T0 }),
+      baseOrder({ transactionId: 'local-1', submittedAt: T0 }),
+      baseOrder({ transactionId: 'a', submittedAt: T0 }),
     ]);
+    get.mockResolvedValue({
+      data: { data: { transactionId: 'a', status: 'pending' } },
+    });
     await service.refreshHeadlessBuyOrders({});
-    expect(get).not.toHaveBeenCalled();
-    expect(store.get('mock-1')).toMatchObject({
-      status: EHeadlessBuyOrderStatus.Delivered,
-      outAmount: 0.05,
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(get.mock.calls[0][1]).toEqual({
+      params: { transactionId: 'a', source: 'headless' },
     });
-    expect(store.get('mock-2')).toMatchObject({
-      status: EHeadlessBuyOrderStatus.Processing,
-      rawStatus: 'pending',
+    expect(store.get('mock-1')?.lastCheckedAt).toBeUndefined();
+    expect(store.get('local-1')?.lastCheckedAt).toBeUndefined();
+    expect(store.get('a')).toMatchObject({
       paymentSeen: true,
+      lastCheckOk: true,
     });
-    if (originalIsDev) {
-      Object.defineProperty(platformEnv, 'isDev', originalIsDev);
-    }
   });
 });
