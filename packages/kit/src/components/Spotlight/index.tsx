@@ -46,6 +46,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useSplitViewDetailOffset } from '../../provider/Container/TableSplitViewContainer/SplitViewDetailOffsetContext';
 
 import { useSpotlightAnchorVisibility } from './useSpotlightAnchorVisibility';
 
@@ -142,9 +143,14 @@ function SpotlightContent({
   const [props, setProps] = useState(initProps);
   const usePortalCoordinates =
     platformEnv.isNative && props.alignCardToAnchorEnd;
+  const detailOffset = useSplitViewDetailOffset();
+  const portalStartOffset =
+    platformEnv.isNativeAndroid && usePortalCoordinates ? detailOffset : 0;
   const portalRef = useRef<IElement | null>(null);
   const portalMeasureRequest = useRef(0);
-  const [portalFrame, setPortalFrame] = useState<IFloatingPosition>();
+  const [portalFrame, setPortalFrame] = useState<
+    IFloatingPosition & { startOffset: number }
+  >();
   const [floatingPosition, setFloatingPosition] = useState<IFloatingPosition>({
     x: 0,
     y: 0,
@@ -222,7 +228,9 @@ function SpotlightContent({
 
   const isRendered = floatingPosition.width > 0;
   const hasPortalLayout =
-    !usePortalCoordinates || (portalFrame?.width ?? 0) > 0;
+    !usePortalCoordinates ||
+    ((portalFrame?.width ?? 0) > 0 &&
+      portalFrame?.startOffset === portalStartOffset);
   const portalX = usePortalCoordinates ? (portalFrame?.x ?? 0) : 0;
   const portalY = usePortalCoordinates ? (portalFrame?.y ?? 0) : 0;
   const portalWidth = usePortalCoordinates
@@ -250,13 +258,14 @@ function SpotlightContent({
         previous?.x === x &&
         previous?.y === y &&
         previous?.width === width &&
-        previous?.height === height
+        previous?.height === height &&
+        previous?.startOffset === portalStartOffset
           ? previous
-          : { x, y, width, height },
+          : { x, y, width, height, startOffset: portalStartOffset },
       );
       measureTriggerInWindow();
     });
-  }, [measureTriggerInWindow, usePortalCoordinates]);
+  }, [measureTriggerInWindow, usePortalCoordinates, portalStartOffset]);
 
   useLayoutEffect(() => {
     if (shouldMeasurePortal) {
@@ -267,7 +276,13 @@ function SpotlightContent({
     return () => {
       portalMeasureRequest.current += 1;
     };
-  }, [shouldMeasurePortal, measurePortalInWindow, windowHeight, windowWidth]);
+  }, [
+    shouldMeasurePortal,
+    measurePortalInWindow,
+    windowHeight,
+    windowWidth,
+    portalStartOffset,
+  ]);
 
   if (platformEnv.isDev && !isRendered) {
     console.error(
@@ -352,9 +367,12 @@ function SpotlightContent({
         pointerEvents={hasPortalLayout ? undefined : 'none'}
         position="absolute"
         top={0}
-        left={0}
         bottom={0}
-        right={0}
+        // Home is in the main pane, while this portal is hosted in the detail pane.
+        // Extend only the opted-in Android guide, as the hardware stage does.
+        {...(platformEnv.isNativeAndroid && usePortalCoordinates
+          ? { start: -portalStartOffset, end: 0 }
+          : { left: 0, right: 0 })}
         enterStyle={{
           opacity: 0,
         }}

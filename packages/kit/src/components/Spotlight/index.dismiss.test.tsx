@@ -17,6 +17,8 @@ import { acquireDeferredGuideBlocker } from '@onekeyhq/components/src/hooks/useD
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
+import { SplitViewDetailOffsetProvider } from '../../provider/Container/TableSplitViewContainer/SplitViewDetailOffsetContext';
+
 let mockTourTimes = 0;
 let mockGtMd = true;
 let mockAnchorX = 20;
@@ -26,6 +28,7 @@ let mockWindowDimensions = { width: 1024, height: 768 };
 let mockSafeAreaInsets = { top: 0, bottom: 0, left: 0, right: 0 };
 let mockDesktopPlatform: 'mac' | 'windows' | 'linux' = 'mac';
 let mockIsNative = false;
+let mockIsNativeAndroid = false;
 let mockIsRTL = false;
 let mockPortalFrame = { x: 0, y: 0, width: 1024, height: 768 };
 let mockPortalLayout: (() => void) | undefined;
@@ -72,6 +75,9 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     isDev: false,
     get isNative() {
       return mockIsNative;
+    },
+    get isNativeAndroid() {
+      return mockIsNativeAndroid;
     },
     get isDesktopWin() {
       return mockDesktopPlatform === 'windows';
@@ -120,6 +126,7 @@ jest.mock('@onekeyhq/components', () => {
     top?: number;
     left?: number | string;
     right?: number | string;
+    start?: number;
     end?: number;
     maxWidth?: number;
     px?: number | string;
@@ -138,6 +145,7 @@ jest.mock('@onekeyhq/components', () => {
     top,
     left,
     right,
+    start,
     end,
     maxWidth,
     px,
@@ -156,6 +164,7 @@ jest.mock('@onekeyhq/components', () => {
         'data-top': top,
         'data-left': left,
         'data-right': right,
+        'data-start': start,
         'data-end': end,
         'data-max-width': maxWidth,
         'data-padding-x': px,
@@ -182,9 +191,9 @@ jest.mock('@onekeyhq/components', () => {
             mockPortalMeasureCallbacks.push(callback);
           else
             callback(
-              mockPortalFrame.x,
+              mockPortalFrame.x + (mockIsRTL ? 0 : (props.start ?? 0)),
               mockPortalFrame.y,
-              mockPortalFrame.width,
+              mockPortalFrame.width - (props.start ?? 0),
               mockPortalFrame.height,
             );
           return;
@@ -298,6 +307,7 @@ describe('Spotlight dismissal', () => {
     mockSafeAreaInsets = { top: 0, bottom: 0, left: 0, right: 0 };
     mockDesktopPlatform = 'mac';
     mockIsNative = false;
+    mockIsNativeAndroid = false;
     mockIsRTL = false;
     mockPortalFrame = { x: 0, y: 0, width: 1024, height: 768 };
     mockPortalLayout = undefined;
@@ -1003,6 +1013,145 @@ describe('Spotlight dismissal', () => {
         Math.min(width, 842 - rightInset - x) - 8,
       );
       expect(mockUpdateTourTimes).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([false, true])(
+    'aligns with the Android main-pane anchor across the detail portal (RTL=%s)',
+    (isRTL) => {
+      mockIsNative = true;
+      mockIsNativeAndroid = true;
+      mockIsRTL = isRTL;
+      mockWindowDimensions = { width: 842, height: 390 };
+      mockPortalFrame = {
+        x: isRTL ? 0 : 421.5,
+        y: 24,
+        width: 420.5,
+        height: 366,
+      };
+      mockAnchorX = isRTL ? 700 : 300;
+      mockAnchorY = 100;
+      mockAnchorWidth = 74;
+      mockSafeAreaInsets = { top: 0, bottom: 0, left: 24, right: 24 };
+      const onConfirm = jest.fn();
+      render(
+        <SplitViewDetailOffsetProvider value={421.5}>
+          <SpotlightView
+            visible
+            alignCardToAnchorEnd
+            matchTriggerSize
+            closeOnBackdropPress
+            onConfirm={onConfirm}
+            cardMaxWidth={280}
+            content={<span>Update device portfolio here</span>}
+          >
+            <span>More</span>
+          </SpotlightView>
+        </SplitViewDetailOffsetProvider>,
+      );
+
+      const overlay = screen.getByTestId('spotlight-content');
+      expect(overlay.getAttribute('data-start')).toBe('-421.5');
+      expect(overlay.getAttribute('data-end')).toBe('0');
+      expect(overlay.hasAttribute('data-left')).toBe(false);
+      expect(overlay.hasAttribute('data-right')).toBe(false);
+      const attribute = isRTL ? 'data-end' : 'data-left';
+      const highlight = screen.getByTestId('spotlight-highlight');
+      expect(highlight.getAttribute(attribute)).toBe(String(mockAnchorX - 8));
+      expect(highlight.getAttribute('data-top')).toBe('68');
+      expect(getCard().getAttribute(attribute)).toBe(isRTL ? '502' : '102');
+      expect(getCard().getAttribute('data-top')).toBe('144');
+      expect(getCard().getAttribute('data-width')).toBe('280');
+      expect(Number(getCard().getAttribute(attribute)) + 280).toBe(
+        mockAnchorX + mockAnchorWidth + 8,
+      );
+      expect(mockUpdateTourTimes).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByTestId('spotlight-backdrop'));
+      expect(onConfirm).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each([false, true])(
+    'remeasures Android split transitions without resizing the window (RTL=%s)',
+    async (isRTL) => {
+      mockIsNative = true;
+      mockIsNativeAndroid = true;
+      mockIsRTL = isRTL;
+      mockWindowDimensions = { width: 842, height: 390 };
+      mockPortalFrame = { x: 0, y: 0, width: 842, height: 390 };
+      mockAnchorX = 700;
+      mockAnchorWidth = 74;
+      const renderInPortal = (offset: number) => (
+        <SplitViewDetailOffsetProvider value={offset}>
+          <SpotlightView
+            visible
+            alignCardToAnchorEnd
+            cardMaxWidth={280}
+            content={<span>Update device portfolio here</span>}
+          >
+            <span>More</span>
+          </SpotlightView>
+        </SplitViewDetailOffsetProvider>
+      );
+      const view = render(renderInPortal(0));
+      const attribute = isRTL ? 'data-end' : 'data-left';
+      expect(getCard().getAttribute(attribute)).toBe('502');
+
+      mockPortalFrame = {
+        x: isRTL ? 0 : 421.5,
+        y: 0,
+        width: 420.5,
+        height: 390,
+      };
+      mockAnchorX = isRTL ? 700 : 300;
+      mockPortalMeasureCallbacks = [];
+      view.rerender(renderInPortal(421.5));
+      expect(screen.queryByTestId('spotlight-card')).toBeNull();
+      expect(screen.queryByTestId('spotlight-backdrop')).toBeNull();
+      const oldCallbacks = mockPortalMeasureCallbacks.splice(0);
+      mockPortalMeasureCallbacks = undefined;
+      act(() => mockPortalLayout?.());
+      expect(getCard().getAttribute(attribute)).toBe(isRTL ? '502' : '102');
+
+      mockPortalFrame = { x: 0, y: 0, width: 842, height: 390 };
+      mockAnchorX = 700;
+      view.rerender(renderInPortal(0));
+      await act(async () =>
+        oldCallbacks.forEach((callback) => callback(421.5, 0, 420.5, 390)),
+      );
+      expect(getCard().getAttribute(attribute)).toBe('502');
+      expect(
+        screen.getByTestId('spotlight-content').getAttribute('data-start'),
+      ).toBe('0');
+      expect(mockUpdateTourTimes).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    { native: true, android: true, align: false },
+    { native: true, android: false, align: true },
+    { native: false, android: false, align: true },
+  ])(
+    'does not extend other overlay hosts (native=$native android=$android align=$align)',
+    ({ native, android, align }) => {
+      mockIsNative = native;
+      mockIsNativeAndroid = android;
+      render(
+        <SplitViewDetailOffsetProvider value={421.5}>
+          <SpotlightView
+            visible
+            alignCardToAnchorEnd={align}
+            content={<span>Update device portfolio here</span>}
+          >
+            <span>More</span>
+          </SpotlightView>
+        </SplitViewDetailOffsetProvider>,
+      );
+      const overlay = screen.getByTestId('spotlight-content');
+      expect(overlay.hasAttribute('data-start')).toBe(false);
+      expect(overlay.hasAttribute('data-end')).toBe(false);
+      expect(overlay.getAttribute('data-left')).toBe('0');
+      expect(overlay.getAttribute('data-right')).toBe('0');
     },
   );
 
