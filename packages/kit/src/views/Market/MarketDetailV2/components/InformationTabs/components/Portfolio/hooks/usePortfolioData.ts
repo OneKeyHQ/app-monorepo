@@ -109,8 +109,7 @@ export function usePortfolioData({
   // True once the page knows whether this token has a position for the
   // current account.
   const isPortfolioSettled =
-    isAccountResolved &&
-    (isCurrentPortfolioScope || failedVisitId === visitId);
+    isAccountResolved && (isCurrentPortfolioScope || failedVisitId === visitId);
 
   return {
     portfolioData: isCurrentPortfolioScope ? portfolioResult?.list || [] : [],
