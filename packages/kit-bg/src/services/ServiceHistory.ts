@@ -1765,8 +1765,10 @@ class ServiceHistory extends ServiceBase {
         )
       ).filter(Boolean);
 
-      const updateResult =
-        await this.batchUpdateLocalHistoryTxs(allNetworksParams);
+      const updateResult = await this.batchUpdateLocalHistoryTxs(
+        allNetworksParams,
+        { isAllNetworks },
+      );
       finalPendingTxs = updateResult.allFinalPendingTxs;
       confirmedTxsToSave = updateResult.allConfirmedTxsToSave;
       onChainHistoryTxs = updateResult.allMergedOnChainHistoryTxs;
@@ -2315,6 +2317,7 @@ class ServiceHistory extends ServiceBase {
       pendingTxs: IAccountHistoryTx[];
       pendingTxsToModify: IAccountHistoryTx[];
     }[],
+    { isAllNetworks = false }: { isAllNetworks?: boolean } = {},
   ) {
     const allConfirmedTxsToSave: IAccountHistoryTx[] = [];
     const allMergedOnChainHistoryTxs: IAccountHistoryTx[] = [];
@@ -2365,10 +2368,12 @@ class ServiceHistory extends ServiceBase {
         await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
       const historySourceIsAuthoritative =
         vaultSettings.localWallet?.historySource === 'vault-authoritative';
+      const canRemoveMissingConfirmedTxs =
+        historySourceIsAuthoritative && !isAllNetworks;
 
       // Server-indexed chains preserve locally confirmed rows that fall
-      // outside the current page. A complete client-scanned source instead
-      // owns the full set and may remove rows it no longer reports.
+      // outside the current page. Only a full per-chain vault snapshot can
+      // remove missing rows; All Networks does not read the private runtime.
       const confirmedTxsToSave = confirmedTxs
         .map((tx) => {
           const onChainHistoryTx = mergedOnChainHistoryTxs.find((item) =>
@@ -2377,7 +2382,7 @@ class ServiceHistory extends ServiceBase {
           if (onChainHistoryTx) {
             return onChainHistoryTx;
           }
-          return historySourceIsAuthoritative ? undefined : tx;
+          return canRemoveMissingConfirmedTxs ? undefined : tx;
         })
         .filter(
           (tx): tx is IAccountHistoryTx =>
@@ -2390,7 +2395,7 @@ class ServiceHistory extends ServiceBase {
       );
 
       const finalConfirmedTxs = [];
-      const confirmedTxsToRemove = historySourceIsAuthoritative
+      const confirmedTxsToRemove = canRemoveMissingConfirmedTxs
         ? confirmedTxs.filter(
             (tx) =>
               !mergedOnChainHistoryTxs.some((item) =>

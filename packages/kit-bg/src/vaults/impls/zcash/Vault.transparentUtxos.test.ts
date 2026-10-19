@@ -52,11 +52,12 @@ function createVault({
       ),
     );
   const parseTransparentTransactions = jest.fn().mockResolvedValue(parsed);
+  const listTransparentOutpointsInUse = jest.fn(async () => new Set(inUse));
   const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
     networkId: 'zec--0',
     backgroundApi: {
       simpleDb: {
-        zcash: { listTransparentOutpointsInUse: async () => new Set(inUse) },
+        zcash: { listTransparentOutpointsInUse },
       },
       serviceSend: { getRawTransactions },
     },
@@ -72,10 +73,20 @@ function createVault({
     getRawTransactions,
     parseTransparentTransactions,
     fetchAccountDetails,
+    listTransparentOutpointsInUse,
   };
 }
 
 afterEach(() => jest.restoreAllMocks());
+
+it('uses the already fetched next-block height to exclude only live signing reservations', async () => {
+  const { vault, listTransparentOutpointsInUse } = createVault();
+  await vault['zcashFetchFreshTransparentUtxos']();
+  expect(listTransparentOutpointsInUse).toHaveBeenCalledWith({
+    accountId: 'public-fixture',
+    currentHeight: utxo.height + utxo.confirmations,
+  });
+});
 
 it('completes ordinary OneKey UTXOs from the backend raw transactions', async () => {
   const { vault, getRawTransactions, parseTransparentTransactions } =

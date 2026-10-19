@@ -42,6 +42,7 @@ import {
   convertToSectionGroups,
   getFilteredHistoryBySearchKey,
   getHistoryTxDisplayStatus,
+  getPendingHistorySectionState,
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
@@ -539,6 +540,7 @@ export function NativeHistoryList(
         const pending =
           getHistoryTxDisplayStatus(section.data[0]) ===
           EDecodedTxStatus.Pending;
+        const pendingSection = getPendingHistorySectionState(section.data);
         const header: RowModel = {
           key: sectionKey,
           type: 'sectionHeader',
@@ -548,9 +550,9 @@ export function NativeHistoryList(
             (sectionIndex === 0 ? 32 : 52) +
             (pending && webScrollHost === undefined ? 4 : 0),
           ...(webScrollHost !== undefined ? { pressDisabled: true } : {}),
-          titleLoading: pending,
+          titleLoading: pending && pendingSection.showSpinner,
           title: pending
-            ? intl.formatMessage({ id: ETranslations.global_confirming })
+            ? intl.formatMessage({ id: pendingSection.titleId })
             : section.title || intl.formatMessage({ id: section.titleKey }),
           style: {
             container: { contentVerticalAlignment: 'bottom' },
