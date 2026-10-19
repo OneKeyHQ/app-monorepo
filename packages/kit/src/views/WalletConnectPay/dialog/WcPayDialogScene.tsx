@@ -56,16 +56,12 @@ import type {
 // a payment raises (see WC_PAY_DIALOG_Z_INDEX). The content inset is the
 // contract the steps are drawn against: 24 at the sides, 16 on top, and on
 // native nothing under the last element but the safe-area inset.
-const SHELL_SHEET_PROPS = { zIndex: WC_PAY_DIALOG_Z_INDEX };
-const SHELL_FLOATING_PANEL_PROPS = { zIndex: WC_PAY_DIALOG_Z_INDEX };
+const SHELL_Z_INDEX_PROPS = { zIndex: WC_PAY_DIALOG_Z_INDEX };
 const SHELL_CONTENT_CONTAINER_PROPS = {
   px: '$6',
   pt: '$4',
   pb: platformEnv.isNative ? '$0' : '$6',
 } as const;
-// Every close goes through onOpenChange, which owns the flow's exit; the
-// shell's own close callback has nothing left to do.
-const noopShellClose = () => Promise.resolve();
 
 /**
  * The shared Dialog without its header and footer, in the full-window
@@ -78,26 +74,30 @@ const noopShellClose = () => Promise.resolve();
 export function WcPayDialogShell({
   open,
   dismissible,
-  onOpenChange,
+  onClose,
   children,
 }: {
   open: boolean;
   /**
    * Every dismissal path follows it: the sheet closes itself on a drag or a
-   * backdrop press before onOpenChange can refuse, so those locks must hold
-   * while the view is not dismissible.
+   * backdrop press before any callback could refuse, so those locks must
+   * hold while the view is not dismissible; onBeforeClose refuses the rest.
    */
   dismissible: boolean;
-  /** Also called with `true` on mount; only `false` is a close request. */
-  onOpenChange: (open: boolean) => void;
+  /** A dismissal the view allows: backdrop, drag, back press or Escape. */
+  onClose: () => void;
   children: ReactNode;
 }) {
+  const handleBeforeClose = useCallback(() => dismissible, [dismissible]);
+  const handleClose = useCallback(async () => {
+    onClose();
+  }, [onClose]);
   return (
     <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
       <DialogContainer
         open={open}
-        onOpenChange={onOpenChange}
-        onClose={noopShellClose}
+        onBeforeClose={handleBeforeClose}
+        onClose={handleClose}
         renderContent={children}
         showHeader={false}
         showFooter={false}
@@ -105,11 +105,10 @@ export function WcPayDialogShell({
         disableDrag={!dismissible}
         disableSystemClose={!dismissible}
         contentContainerProps={SHELL_CONTENT_CONTAINER_PROPS}
-        sheetProps={SHELL_SHEET_PROPS}
-        floatingPanelProps={SHELL_FLOATING_PANEL_PROPS}
-        // The zero-inset first frame only happens inside the iOS
-        // FullWindowOverlay portal; Android must not pad with the startup
-        // snapshot.
+        sheetProps={SHELL_Z_INDEX_PROPS}
+        floatingPanelProps={SHELL_Z_INDEX_PROPS}
+        // Same iOS-only first-frame inset fallback as the WalletConnect
+        // connection dialog (useWalletConnection).
         useInitialSafeAreaBottomInsetFallback={Boolean(platformEnv.isNativeIOS)}
       />
     </Portal.Body>
@@ -239,8 +238,6 @@ const SELECTED_CHECK = (
   <Icon name="CheckRadioSolid" size="$6" color="$iconActive" />
 );
 
-// Rides the scroll content (not the card) so the inset scrolls away with
-// the rows instead of leaving a static gap at the clipped edges.
 function WcPayAssetOptionRow({
   option,
   selected,
@@ -339,14 +336,16 @@ function WcPayAssetList({
           {intl.formatMessage({ id: ETranslations.wc_pay_pay_with__label })}
         </SizableText>
       </XStack>
-      {/* Fixed 200pt viewport per the design; overflow scrolls inside. */}
       <YStack
         bg="$neutral3"
         borderRadius="$4"
         borderCurve="continuous"
         overflow="hidden"
       >
-        {/* Dialog.ScrollView sizes to its content, so the height sits on it. */}
+        {/* Fixed 200pt viewport per the design. Dialog.ScrollView sizes to
+            its content, so the height sits on it; the inset rides the
+            scroll content (not the card) so it scrolls away with the rows
+            instead of leaving a static gap at the clipped edges. */}
         <Dialog.ScrollView height={200}>
           <YStack p="$1">
             {options.map((option) => (

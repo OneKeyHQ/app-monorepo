@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import {
   Dialog,
@@ -79,7 +79,6 @@ const SHELL_CONTENT_CONTAINER_PROPS = {
   pt: '$4',
   pb: platformEnv.isNative ? '$0' : '$6',
 } as const;
-const noopDialogClose = () => Promise.resolve();
 
 // ---------------------------------------------------------------------------
 // Header — present on every step; only its vertical padding and content vary.
@@ -447,7 +446,9 @@ function WalletConnectPayDemo({
     setSelectedId(SAMPLE_OPTIONS[0].id);
     setOpen(true);
   }, [initialStep]);
-  const handleClose = useCallback(() => {
+  // Also the dialog's own onClose (backdrop, drag, back), so it returns a
+  // promise.
+  const handleClose = useCallback(async () => {
     setOpen(false);
   }, []);
   const handleRetry = useCallback(() => {
@@ -470,36 +471,39 @@ function WalletConnectPayDemo({
     return undefined;
   }, [open, autoAdvance, step]);
 
-  const content = useMemo((): ReactNode => {
-    switch (step) {
-      case 'fetching':
-        return <WcPayFetchingStep />;
-      case 'failed':
-        return <WcPayFailedStep onRetry={handleRetry} />;
-      case 'options':
-        return (
-          <WcPayOptionsStep
-            options={options}
-            selectedId={selectedId}
-            onSelectOption={setSelectedId}
-            onConfirmPay={handleConfirmPay}
-            onClose={handleClose}
-          />
-        );
-      case 'confirming':
-        return <WcPayConfirmingStep />;
-      case 'success':
-        return <WcPaySuccessStep onDone={handleClose} />;
-    }
-  }, [step, options, selectedId, handleRetry, handleConfirmPay, handleClose]);
+  let content: ReactNode;
+  switch (step) {
+    case 'fetching':
+      content = <WcPayFetchingStep />;
+      break;
+    case 'failed':
+      content = <WcPayFailedStep onRetry={handleRetry} />;
+      break;
+    case 'options':
+      content = (
+        <WcPayOptionsStep
+          options={options}
+          selectedId={selectedId}
+          onSelectOption={setSelectedId}
+          onConfirmPay={handleConfirmPay}
+          onClose={handleClose}
+        />
+      );
+      break;
+    case 'confirming':
+      content = <WcPayConfirmingStep />;
+      break;
+    case 'success':
+      content = <WcPaySuccessStep onDone={handleClose} />;
+      break;
+  }
 
   return (
     <YStack gap="$4" alignItems="flex-start">
       <Button onPress={handleOpen}>Open payment sheet</Button>
       <DialogContainer
         open={open}
-        onOpenChange={setOpen}
-        onClose={noopDialogClose}
+        onClose={handleClose}
         renderContent={content}
         showHeader={false}
         showFooter={false}

@@ -64,18 +64,14 @@ import { WcPayDialogShell } from '../WcPayDialogScene';
 function renderShell({
   open = true,
   dismissible,
-  onOpenChange = jest.fn(),
+  onClose = jest.fn(),
 }: {
   open?: boolean;
   dismissible: boolean;
-  onOpenChange?: (open: boolean) => void;
+  onClose?: () => void;
 }) {
   render(
-    <WcPayDialogShell
-      open={open}
-      dismissible={dismissible}
-      onOpenChange={onOpenChange}
-    >
+    <WcPayDialogShell open={open} dismissible={dismissible} onClose={onClose}>
       <span>step</span>
     </WcPayDialogShell>,
   );
@@ -114,35 +110,26 @@ describe('WcPayDialogShell', () => {
     });
   });
 
-  it('locks every dismissal path while the view is not dismissible', () => {
-    const shellProps = renderShell({ dismissible: false });
+  it.each([true, false])(
+    'ties every dismissal path to the view (dismissible: %s)',
+    (dismissible) => {
+      const shellProps = renderShell({ dismissible });
 
-    expect(shellProps).toMatchObject({
-      dismissOnOverlayPress: false,
-      disableDrag: true,
-      disableSystemClose: true,
-    });
-  });
+      expect(shellProps).toMatchObject({
+        dismissOnOverlayPress: dismissible,
+        disableDrag: !dismissible,
+        disableSystemClose: !dismissible,
+      });
+      expect((shellProps.onBeforeClose as () => boolean)()).toBe(dismissible);
+    },
+  );
 
-  it('opens every dismissal path while the view is dismissible', () => {
-    const shellProps = renderShell({ dismissible: true });
-
-    expect(shellProps).toMatchObject({
-      dismissOnOverlayPress: true,
-      disableDrag: false,
-      disableSystemClose: false,
-    });
-  });
-
-  it('passes open and onOpenChange through untouched', () => {
-    const onOpenChange = jest.fn();
-    const shellProps = renderShell({
-      open: false,
-      dismissible: true,
-      onOpenChange,
-    });
+  it('passes open through and reports an allowed close through onClose', async () => {
+    const onClose = jest.fn();
+    const shellProps = renderShell({ open: false, dismissible: true, onClose });
 
     expect(shellProps.open).toBe(false);
-    expect(shellProps.onOpenChange).toBe(onOpenChange);
+    await (shellProps.onClose as () => Promise<void>)();
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
