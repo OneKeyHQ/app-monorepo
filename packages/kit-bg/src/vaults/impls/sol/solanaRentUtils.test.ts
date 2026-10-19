@@ -8,6 +8,7 @@ import {
   getMintLen,
   getTypeLen,
 } from '@solana/spl-token';
+import { pack } from '@solana/spl-token-metadata';
 import { PublicKey, SystemProgram } from '@solana/web3.js';
 
 import { getSolanaSwapRent } from './solanaRentUtils';
@@ -239,4 +240,75 @@ describe('getSolanaSwapRent', () => {
       }),
     ).rejects.toThrow('Unsupported Solana mint extension');
   });
+
+  it('accepts Token-2022 multisig-size padding after variable-length metadata', async () => {
+    const client = fixture();
+    const metadata = pack({
+      updateAuthority: payer,
+      mint,
+      name: 'Test',
+      symbol: 'TEST',
+      uri: 'a'.repeat(29),
+      additionalMetadata: [],
+    });
+    const data = Buffer.alloc(
+      getMintLen([ExtensionType.MetadataPointer], {
+        [ExtensionType.TokenMetadata]: metadata.length,
+      }),
+    );
+    expect(data.length).toBe(357);
+    MintLayout.encode(
+      {
+        mintAuthorityOption: 0,
+        mintAuthority: payer,
+        supply: 0n,
+        decimals: 6,
+        isInitialized: true,
+        freezeAuthorityOption: 0,
+        freezeAuthority: payer,
+      },
+      data,
+    );
+    data[165] = 1;
+    data.writeUInt16LE(ExtensionType.MetadataPointer, 166);
+    data.writeUInt16LE(64, 168);
+    payer.toBuffer().copy(data, 170);
+    mint.toBuffer().copy(data, 202);
+    data.writeUInt16LE(ExtensionType.TokenMetadata, 234);
+    data.writeUInt16LE(metadata.length, 236);
+    Buffer.from(metadata).copy(data, 238);
+    client.getAccountInfo.mockResolvedValue(
+      accountInfo(TOKEN_2022_PROGRAM_ID, 1, data),
+    );
+    await expect(
+      getSolanaSwapRent({
+        instructions: [create(TOKEN_2022_PROGRAM_ID)],
+        accountAddress: payer.toBase58(),
+        client,
+      }),
+    ).resolves.toBe('0.00148844');
+    expect(client.getMinimumBalanceForRentExemption).toHaveBeenCalledWith(170);
+  });
+
+  it.each([168, 170])(
+    'rejects truncated mint extension data: %s bytes',
+    async (size) => {
+      const client = fixture();
+      const data = Buffer.alloc(size);
+      data[165] = 1;
+      data.writeUInt16LE(ExtensionType.TransferHook, 166);
+      if (size === 170) data.writeUInt16LE(64, 168);
+      client.getAccountInfo.mockResolvedValue(
+        accountInfo(TOKEN_2022_PROGRAM_ID, 1, data),
+      );
+      await expect(
+        getSolanaSwapRent({
+          instructions: [create(TOKEN_2022_PROGRAM_ID)],
+          accountAddress: payer.toBase58(),
+          client,
+        }),
+      ).rejects.toThrow('Invalid Solana mint extension');
+      expect(client.getMinimumBalanceForRentExemption).not.toHaveBeenCalled();
+    },
+  );
 });

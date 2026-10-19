@@ -7,7 +7,6 @@ import {
   TOKEN_PROGRAM_ID,
   TYPE_SIZE,
   getAccountLen,
-  getExtensionTypes,
   unpackMint,
 } from '@solana/spl-token';
 import { PublicKey, SystemProgram } from '@solana/web3.js';
@@ -95,7 +94,25 @@ export async function getSolanaSwapRent({
           },
           programId,
         );
-        const extensions = new Set<number>(getExtensionTypes(mint.tlvData));
+        const extensions = new Set<number>();
+        // Token-2022 permits an Uninitialized terminator and trailing padding,
+        // including the two bytes used to avoid a multisig-sized mint.
+        for (let offset = 0; offset + TYPE_SIZE <= mint.tlvData.length;) {
+          const type = mint.tlvData.readUInt16LE(offset);
+          if (type === ExtensionType.Uninitialized) break;
+          const lengthOffset = offset + TYPE_SIZE;
+          if (lengthOffset + LENGTH_SIZE > mint.tlvData.length) {
+            throw new OneKeyLocalError('Invalid Solana mint extension');
+          }
+          offset =
+            lengthOffset +
+            LENGTH_SIZE +
+            mint.tlvData.readUInt16LE(lengthOffset);
+          if (offset > mint.tlvData.length) {
+            throw new OneKeyLocalError('Invalid Solana mint extension');
+          }
+          extensions.add(type);
+        }
         if ([...extensions].some((type) => !KNOWN_MINT_EXTENSIONS.has(type))) {
           throw new OneKeyLocalError('Unsupported Solana mint extension');
         }
