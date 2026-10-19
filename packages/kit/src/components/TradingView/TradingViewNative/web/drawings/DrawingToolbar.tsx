@@ -346,8 +346,10 @@ function LineStyleControls({
 
 export function DrawingToolbar({
   controller,
+  mainChartBottomInset,
 }: {
   controller: IChartDrawingsController;
+  mainChartBottomInset: number;
 }) {
   const theme = useTheme();
   const fontSizeControlId = useId();
@@ -614,7 +616,7 @@ export function DrawingToolbar({
       role="group"
       aria-label="Chart drawings"
       position="static"
-      width={collapsed ? 18 : 48}
+      width={collapsed ? 0 : 48}
       flexShrink={0}
       borderRightWidth={collapsed ? 0 : 1}
       borderColor="$borderSubdued"
@@ -758,7 +760,7 @@ export function DrawingToolbar({
       <Stack
         position="absolute"
         left={collapsed ? 10 : 39}
-        bottom={32}
+        bottom={mainChartBottomInset + 8}
         width={16}
         height={32}
         borderRadius="$full"
