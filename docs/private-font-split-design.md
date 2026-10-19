@@ -159,9 +159,9 @@ export const brandFontManifest = {
 | `lint.yml`、`unittest.yml`、`react-native-unittest.yml` 等 PR 检查 | 不注入 token，走 fallback。也就验证了"开源用户能编译" |
 | `release-ios.yml` / `release-android.yml`（EAS） | EAS 上传时排除 gitignore 文件。Actions 在 `yarn install` 拉到私有字体后，执行 `fonts-sync.js --stage-eas` 复制到未被 ignore 的 `.eas-private-fonts/`，随项目一起上传。EAS 上 `yarn install` 的 postinstall（`fonts:sync`）会自动识别该目录（同样校验 sha256），所以 iOS `pod install` 复制进 Xcode 工程的就是 Roobert；`eas-build-post-install` 在 pod install 之后执行 `fonts-sync.js --verify-native`，校验 iOS/Android 原生副本与 JS 字体槽一致（`ONEKEY_REQUIRE_PRIVATE_FONTS=1`）。EAS 不需要任何 token/secret。不使用 `.easignore`：它会整体替代全仓库的 `.gitignore`，导致 `.env` 等文件被上传 |
 | `release-native-bundle.yml`、`release-app-bundles.yml`（OTA JS bundle） | **必须** require private。否则 OTA bundle 中的 family 名会和原生包不一致，导致文字全部回退成系统字体 |
-| `release-desktop*.yml`、`release-ext.yml`、`release-web.yml`、`build-desktop-renderer.yml` | 内联 token + 下载步骤 + `ONEKEY_REQUIRE_PRIVATE_FONTS=1` |
+| `release-desktop*.yml`、`release-ext.yml`、`release-web.yml`、`build-desktop-renderer.yml` | `private-fonts` reusable job 下载并用 `PRIVATE_FONTS_ARTIFACT_KEY` 加密 artifact；构建 job 仅恢复、解密字体，并设置 `ONEKEY_REQUIRE_PRIVATE_FONTS=1`，不接触 `PRIVATE_FONTS_TOKEN` |
 | `metro-dev-prebundle.yml`、`web-embed-prebundle.yml` | 产物发布为**公开** GHCR 包，因此强制 `ONEKEY_FONTS_FORCE_FALLBACK=1`，永远不含 Roobert。`brand/manifest.ts` 计入 metro dev vendor 指纹，本地装了 Roobert 的开发者不会复用 Inter 版预构建包 |
-| 来自 fork 的 PR | 拿不到 secret，自动 fallback，不受影响 |
+| 来自 fork 的 PR | 常规 PR 检查不注入 secret，走 fallback；`release-app-bundles` 在 `validate-pr` 阶段拒绝非白名单 fork PR，`TRUSTED_PR_AUTHORS` 白名单 fork PR 通过 commit Attest 后拉取私有字体；发布构建拿不到字体时直接失败 |
 
 **合并前置条件**：`PRIVATE_FONTS_TOKEN` 和 `PRIVATE_FONTS_ARTIFACT_KEY` 必须先配置好，否则合并后所有发布构建都会失败（仓库内已无 Roobert）。
 
