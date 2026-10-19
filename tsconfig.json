@@ -26,6 +26,13 @@
     "typeRoots": ["node_modules/@types", "./@types"]
   },
   "include": ["**/*.ts", "**/*.tsx", "apps/web-embed/index.js", "apps/web-embed/src/views/WebEmbedWebviewAgentCardano/index.tsx"],
-  "exclude": ["node_modules", ".worktree", ".claude/worktrees", "ignore", "apps/desktop/native-modules/**/.build"],
+  "exclude": [
+    "node_modules",
+    ".worktree",
+    ".claude/worktrees",
+    "ignore",
+    "apps/desktop/native-modules/**/.build",
+    "local"
+  ],
   "extends": "expo/tsconfig.base"
 }

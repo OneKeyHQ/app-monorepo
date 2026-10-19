@@ -307,6 +307,9 @@ jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
 
 jest.mock('@onekeyhq/shared/types/device', () => ({
   EConfirmOnDeviceType: { EveryItem: 'EveryItem' },
+  EHardwareVendor: jest.requireActual<
+    typeof import('@onekeyhq/shared/types/device')
+  >('@onekeyhq/shared/types/device').EHardwareVendor,
 }));
 
 jest.mock('../../../background/instance/backgroundApiProxy', () => ({

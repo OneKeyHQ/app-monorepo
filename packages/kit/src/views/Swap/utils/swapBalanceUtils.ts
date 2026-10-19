@@ -157,6 +157,7 @@ type ISwapNativeBalanceRequirementParams = {
   fromToken?: ISwapToken;
   fromAmount?: string;
   otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];
+  solanaRent?: string;
 };
 
 export type ISwapNativeBalanceRequirement = {
@@ -344,6 +345,7 @@ export function getSwapRequiredNativeBalanceAmount({
   fromToken,
   fromAmount,
   otherFeeInfos,
+  solanaRent,
 }: ISwapNativeBalanceRequirementParams):
   | ISwapNativeBalanceRequirement
   | undefined {
@@ -415,7 +417,11 @@ export function getSwapRequiredNativeBalanceAmount({
     return acc.plus(amountBN);
   }, new BigNumber(0));
 
-  const reserveAmount = networkFeeAmount.plus(otherNativeFeeAmount);
+  // balanceParsed already excludes the sender's rent-exempt frozen balance.
+  // Only this transaction's additional ATA funding belongs on the cost side.
+  const reserveAmount = networkFeeAmount
+    .plus(otherNativeFeeAmount)
+    .plus(solanaRent ?? 0);
   const requiredAmount = shouldAddFromAmount
     ? reserveAmount.plus(fromAmountBN)
     : reserveAmount;

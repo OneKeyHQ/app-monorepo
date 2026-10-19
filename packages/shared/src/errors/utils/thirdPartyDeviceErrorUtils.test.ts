@@ -7,24 +7,83 @@ import {
   appEventBus,
 } from '../../eventBus/appEventBus';
 import {
+  EThirdPartyHardwareRetryAction,
+  getThirdPartyHardwareRetryAction,
+} from '../../hardware/thirdPartyHardwareRetry';
+import { ETranslations } from '../../locale';
+import {
+  THIRD_PARTY_HW_APP_ALREADY_INSTALLED_CODE,
   THIRD_PARTY_HW_BLE_PAIRING_CANCELLED_CODE,
   THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE,
+  THIRD_PARTY_HW_FIRMWARE_METADATA_ERROR_CODE,
   THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE,
   THIRD_PARTY_HW_NETWORK_ERROR_CODE,
+  THIRD_PARTY_HW_OPERATION_ENDED_CODE,
+  THIRD_PARTY_HW_OPERATION_NOT_FOUND_CODE,
   THIRD_PARTY_HW_PIN_MISMATCH_CODE,
+  THIRD_PARTY_HW_SECURE_CHANNEL_ERROR_CODE,
+  ThirdPartyAppAlreadyInstalled,
+  ThirdPartyInstallAppUserCancelled,
   ThirdPartyNetworkError,
+  ThirdPartySecureChannelError,
 } from '../errors/thirdPartyHardwareErrors';
 
 import { convertDeviceError } from './deviceErrorUtils';
+import { toPlainErrorObject } from './errorUtils';
 import {
   classifyThirdPartyHwCreateFailures,
   convertThirdPartyDeviceError,
   filterThirdPartyHwCreateFailureToasts,
+  isThirdPartyInstallAppUserCancelCode,
   normalizeThirdPartyDeviceErrorCode,
+  normalizeThirdPartyHardwareRecoveryHint,
   shouldOfferLedgerCoreAppInstallForCreateFailures,
 } from './thirdPartyDeviceErrorUtils';
 
 describe('convertThirdPartyDeviceError', () => {
+  it.each([
+    [
+      ThirdPartyHwErrorCode.SolanaBlindSigningRequired,
+      ETranslations.hardware_third_party_evm_blind_signing_required,
+    ],
+    [
+      ThirdPartyHwErrorCode.TronCustomContractRequired,
+      ETranslations.hardware_third_party_tron_custom_contract_required__msg,
+    ],
+    [
+      ThirdPartyHwErrorCode.TronDataSigningRequired,
+      ETranslations.hardware_third_party_tron_data_signing_required__msg,
+    ],
+    [
+      ThirdPartyHwErrorCode.TronSignByHashRequired,
+      ETranslations.hardware_third_party_tron_sign_by_hash_required__msg,
+    ],
+  ] as const)(
+    'maps setting error %s to the matching chain guidance',
+    (code, key) => {
+      const error = convertThirdPartyDeviceError({
+        code,
+        error: 'Setting disabled',
+      });
+      expect(error.code).toBe(code);
+      expect(error.key).toBe(key);
+      expect(error.autoToast).toBe(true);
+    },
+  );
+
+  it('preserves the USB size limit instead of reporting an unknown error', () => {
+    const error = convertThirdPartyDeviceError({
+      code: ThirdPartyHwErrorCode.PayloadTooLarge,
+      error: 'Request exceeds USB framing capacity',
+      recovery: { scope: 'transport' },
+    });
+    expect(error.code).toBe(ThirdPartyHwErrorCode.PayloadTooLarge);
+    expect(error.key).toBe(
+      ETranslations.hardware_third_party_payload_too_large__msg,
+    );
+    expect(error.payload?.recovery).toEqual({ scope: 'transport' });
+  });
+
   it('maps invalid firmware metadata responses to network errors', () => {
     const error = convertThirdPartyDeviceError({
       code: ThirdPartyHwErrorCode.UnknownError,
@@ -33,6 +92,97 @@ describe('convertThirdPartyDeviceError', () => {
     });
 
     expect(error.code).toBe(THIRD_PARTY_HW_NETWORK_ERROR_CODE);
+  });
+
+  it('maps the SDK secure channel code without needing the DMK tag', () => {
+    const error = convertThirdPartyDeviceError(
+      {
+        code: THIRD_PARTY_HW_SECURE_CHANNEL_ERROR_CODE,
+        error: 'Ledger secure channel closed',
+      },
+      { vendor: EHardwareVendor.ledger },
+    );
+
+    expect(error).toBeInstanceOf(ThirdPartySecureChannelError);
+    expect(error.code).toBe(THIRD_PARTY_HW_SECURE_CHANNEL_ERROR_CODE);
+  });
+
+  it('shares the network error copy and remedy for the firmware metadata code', () => {
+    const error = convertThirdPartyDeviceError(
+      {
+        code: THIRD_PARTY_HW_FIRMWARE_METADATA_ERROR_CODE,
+        error: 'GetApplicationsMetadataTaskError',
+      },
+      { vendor: EHardwareVendor.ledger },
+    );
+
+    expect(error).toBeInstanceOf(ThirdPartyNetworkError);
+    expect(error.code).toBe(THIRD_PARTY_HW_NETWORK_ERROR_CODE);
+  });
+
+  it.each([
+    'InvalidGetFirmwareMetadataResponseError',
+    'GetApplicationsMetadataTaskError',
+  ])('still recognizes the legacy %s tag on an uncoded failure', (tag) => {
+    const error = convertThirdPartyDeviceError({
+      code: ThirdPartyHwErrorCode.UnknownError,
+      error: tag,
+      _tag: tag,
+    });
+
+    expect(error.code).toBe(THIRD_PARTY_HW_NETWORK_ERROR_CODE);
+  });
+
+  it('maps an already-installed app apart from an install the user cancelled', () => {
+    const alreadyInstalled = convertThirdPartyDeviceError(
+      {
+        code: THIRD_PARTY_HW_APP_ALREADY_INSTALLED_CODE,
+        error: 'AppAlreadyInstalledDAError',
+        appName: 'Bitcoin',
+      },
+      { vendor: EHardwareVendor.ledger },
+    );
+    const userCancelled = convertThirdPartyDeviceError({
+      code: THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE,
+      error: 'cancelled',
+    });
+
+    expect(alreadyInstalled).toBeInstanceOf(ThirdPartyAppAlreadyInstalled);
+    expect(userCancelled).toBeInstanceOf(ThirdPartyInstallAppUserCancelled);
+    // The app-minted cancel marker must not collide with the SDK's code space.
+    expect(THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE).not.toBe(
+      THIRD_PARTY_HW_APP_ALREADY_INSTALLED_CODE,
+    );
+    expect(isThirdPartyInstallAppUserCancelCode(alreadyInstalled.code)).toBe(
+      false,
+    );
+  });
+
+  it('maps a broken Ledger secure channel to its own error, not a network error', () => {
+    const error = convertThirdPartyDeviceError(
+      {
+        code: ThirdPartyHwErrorCode.UnknownError,
+        error: 'SecureChannelError',
+        _tag: 'SecureChannelError',
+      },
+      { vendor: EHardwareVendor.ledger },
+    );
+
+    expect(error.code).toBe(THIRD_PARTY_HW_SECURE_CHANNEL_ERROR_CODE);
+    expect(error).toBeInstanceOf(ThirdPartySecureChannelError);
+    expect(error).not.toBeInstanceOf(ThirdPartyNetworkError);
+    expect(error).toMatchObject({ vendor: EHardwareVendor.ledger });
+  });
+
+  it('leaves a secure channel tag alone once the SDK already classified the code', () => {
+    const error = convertThirdPartyDeviceError({
+      code: ThirdPartyHwErrorCode.NetworkError,
+      error: 'websocket closed',
+      _tag: 'SecureChannelError',
+    });
+
+    expect(error.code).toBe(THIRD_PARTY_HW_NETWORK_ERROR_CODE);
+    expect(error).toBeInstanceOf(ThirdPartyNetworkError);
   });
 
   it('maps the adapter network error code to the retryable network error', () => {
@@ -50,6 +200,40 @@ describe('convertThirdPartyDeviceError', () => {
         code: String(ThirdPartyHwErrorCode.DeviceOutOfMemory),
       }),
     ).toBe(ThirdPartyHwErrorCode.DeviceOutOfMemory);
+  });
+
+  it('preserves valid SDK recovery metadata on the converted error', () => {
+    const error = convertThirdPartyDeviceError({
+      code: ThirdPartyHwErrorCode.DeviceDisconnected,
+      error: 'Device disconnected',
+      recovery: { scope: 'operation' },
+    });
+
+    expect(error.payload?.recovery).toEqual({ scope: 'operation' });
+  });
+
+  it('preserves an ambiguous side-effect marker across the runtime boundary', () => {
+    const error = convertThirdPartyDeviceError({
+      code: ThirdPartyHwErrorCode.TransportError,
+      error: 'Signing response was lost',
+      params: {
+        operationMayHaveCompleted: true,
+        method: 'evmSignTransaction',
+      },
+      recovery: { scope: 'unknown' },
+    });
+
+    expect(error.payload?.params).toEqual({
+      operationMayHaveCompleted: true,
+      method: 'evmSignTransaction',
+    });
+    expect(error.payload?.recovery).toEqual({ scope: 'unknown' });
+  });
+
+  it('drops unknown recovery scopes received across a runtime boundary', () => {
+    expect(
+      normalizeThirdPartyHardwareRecoveryHint({ scope: 'future-invalid' }),
+    ).toBeUndefined();
   });
 
   it('routes DeviceNotFound to the hardware troubleshooting dialog', () => {
@@ -142,6 +326,20 @@ describe('convertThirdPartyDeviceError', () => {
     expect(error.key).toBe('hardware_third_party_passphrase_always_on_device');
   });
 
+  it.each([
+    THIRD_PARTY_HW_OPERATION_NOT_FOUND_CODE,
+    THIRD_PARTY_HW_OPERATION_ENDED_CODE,
+  ])('preserves interaction lifecycle error code %s', (code) => {
+    const error = convertThirdPartyDeviceError({
+      code,
+      error: 'Hardware interaction is no longer available',
+    });
+
+    expect(error.code).toBe(code);
+    expect(error.name).toBe('ThirdPartyHardwareError');
+    expect(error.key).toBe('hardware_third_party_device_disconnected');
+  });
+
   it('maps third-party PIN cancel to a structured PIN cancelled error', () => {
     const error = convertThirdPartyDeviceError({
       code: ThirdPartyHwErrorCode.PinCancelled,
@@ -173,9 +371,145 @@ describe('convertThirdPartyDeviceError', () => {
     expect(error.name).toBe('ThirdPartyHardwareError');
     expect(error.key).toBe('hardware_third_party_path_not_supported__msg');
   });
+
+  it('reports a request the device could not parse as unsupported', () => {
+    const error = convertThirdPartyDeviceError(
+      { code: ThirdPartyHwErrorCode.InvalidParams, error: 'PRS_PARSING_ERROR' },
+      { vendor: 'Keystone' },
+    );
+
+    expect(error.key).toBe(
+      ETranslations.hardware_third_party_method_not_supported,
+    );
+    expect(error.autoToast).toBe(true);
+  });
+
+  it('maps a rejected THP pairing to a reconnect prompt instead of an unknown error', () => {
+    const error = convertThirdPartyDeviceError(
+      {
+        code: ThirdPartyHwErrorCode.ThpPairingRequired,
+        error: 'pairing required',
+      },
+      { vendor: EHardwareVendor.trezor },
+    );
+
+    expect(error.code).toBe(ThirdPartyHwErrorCode.ThpPairingRequired);
+    expect(error.key).toBe(
+      ETranslations.hardware_third_party_thp_pairing_required__msg,
+    );
+    expect(error.autoToast).toBe(true);
+  });
+
+  it('explains a Keystone path refusal as the account #1 Bitcoin limit', () => {
+    const payload = {
+      code: THIRD_PARTY_HW_DEVICE_PATH_FORBIDDEN_CODE,
+      error: 'forbidden',
+    };
+    expect(
+      convertThirdPartyDeviceError(payload, { vendor: 'Keystone' }).key,
+    ).toBe(
+      ETranslations.hardware_third_party_keystone_btc_account_one_only__msg,
+    );
+    expect(
+      convertThirdPartyDeviceError(payload, { vendor: EHardwareVendor.ledger })
+        .key,
+    ).toBe(ETranslations.hardware_third_party_path_not_supported__msg);
+  });
+
+  it('keeps Bluetooth wording out of Keystone connection errors', () => {
+    const cases: Array<[number, ETranslations, ETranslations]> = [
+      [
+        ThirdPartyHwErrorCode.DeviceNotFound,
+        ETranslations.device_stage_disconnected__desc,
+        ETranslations.hardware_third_party_device_not_found,
+      ],
+      [
+        ThirdPartyHwErrorCode.TransportError,
+        ETranslations.global_connection_failed_usb_help_text,
+        ETranslations.hardware_third_party_transport_error,
+      ],
+      [
+        ThirdPartyHwErrorCode.DevicePermissionDenied,
+        ETranslations.device_grant_usb_access,
+        ETranslations.onboarding_bluetooth_permission_needed,
+      ],
+    ];
+    for (const [code, keystoneKey, otherKey] of cases) {
+      const payload = { code, error: 'failed' };
+      expect(
+        convertThirdPartyDeviceError(payload, {
+          vendor: 'Keystone',
+          silentMode: true,
+        }).key,
+      ).toBe(keystoneKey);
+      expect(
+        convertThirdPartyDeviceError(payload, {
+          vendor: EHardwareVendor.ledger,
+          silentMode: true,
+        }).key,
+      ).toBe(otherKey);
+    }
+  });
 });
 
 describe('convertDeviceError', () => {
+  it('keeps the selected Trezor retry policy after conversion and serialization', () => {
+    const error = convertDeviceError(
+      {
+        code: ThirdPartyHwErrorCode.OperationEnded,
+        error: 'Connection lost',
+        recovery: { scope: 'operation' },
+      },
+      { vendor: EHardwareVendor.trezor },
+    );
+    const wireError = JSON.parse(
+      JSON.stringify(toPlainErrorObject(error)),
+    ) as typeof error;
+    expect(wireError.payload?.recovery).toEqual({ scope: 'operation' });
+    expect(
+      getThirdPartyHardwareRetryAction({
+        errorCode: Number(wireError.code),
+        recovery: wireError.payload?.recovery,
+        searchTarget: {
+          vendor: EHardwareVendor.trezor,
+          searchTargetId: 'selected-usb',
+          connectionType: 'usb',
+          kind: 'physical',
+          searchTargetReusePolicy: 'reconnectable',
+        },
+      }),
+    ).toBe(EThirdPartyHardwareRetryAction.retrySelectedSearchTarget);
+  });
+
+  it('preserves the app name and recovery hint through the common entry', () => {
+    const error = convertDeviceError({
+      code: ThirdPartyHwErrorCode.AppNotInstalled,
+      error: 'Missing app',
+      appName: 'Bitcoin',
+      recovery: { scope: 'call' },
+    });
+    expect(error.info).toMatchObject({ appName: 'Bitcoin' });
+    expect(error.payload?.recovery).toEqual({ scope: 'call' });
+  });
+
+  it('does not retry when the common entry receives an ambiguous signing result', () => {
+    const error = convertDeviceError({
+      code: ThirdPartyHwErrorCode.OperationEnded,
+      error: 'Signing response lost',
+      params: { operationMayHaveCompleted: true },
+      recovery: { scope: 'unknown' },
+    });
+    expect(
+      getThirdPartyHardwareRetryAction({
+        errorCode: Number(error.code),
+        recovery: error.payload?.recovery,
+        searchTarget: undefined,
+        operationMayHaveCompleted:
+          error.payload?.params?.operationMayHaveCompleted,
+      }),
+    ).toBe(EThirdPartyHardwareRetryAction.doNotRetry);
+  });
+
   it('preserves invalid firmware metadata tags for third-party hardware errors', () => {
     const sdkPayload = {
       code: ThirdPartyHwErrorCode.UnknownError,

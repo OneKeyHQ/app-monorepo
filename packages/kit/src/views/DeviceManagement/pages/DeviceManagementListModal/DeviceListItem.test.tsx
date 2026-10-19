@@ -21,8 +21,7 @@ const mockIntl = { formatMessage: () => '' };
 const mockUseMediaResult = { gtMd: false };
 const mockVendorProfile = {
   isThirdParty: false,
-  supportsFirmwareVersionDisplay: true,
-  supportsFirmwareUpdate: true,
+  firmware: { showVersion: true, update: true },
 };
 
 jest.mock('react-intl', () => ({
@@ -115,7 +114,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   appEventBus: { on: jest.fn(), off: jest.fn(), emit: jest.fn() },
 }));
 
-jest.mock('@onekeyhq/shared/src/hardware/vendorProfile', () => ({
+jest.mock('@onekeyhq/shared/src/hardware/config/vendorProfile', () => ({
   getVendorProfile: () => mockVendorProfile,
 }));
 
