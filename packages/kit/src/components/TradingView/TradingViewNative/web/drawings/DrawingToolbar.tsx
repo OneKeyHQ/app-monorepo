@@ -33,6 +33,8 @@ import type {
   IXStackProps,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 
 import { TRADING_VIEW_DRAWING_ICONS } from './icons';
 import {
@@ -366,7 +368,17 @@ export function DrawingToolbar({
   const [propertiesPosition, setPropertiesPosition] =
     useState<IPropertiesPosition>({ left: 62, top: 8 });
   const intl = useIntl();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return (
+        appStorage.syncStorage.getBoolean(
+          EAppSyncStorageKeys.onekey_trading_view_native_drawing_toolbar_collapsed,
+        ) === true
+      );
+    } catch {
+      return false;
+    }
+  });
   const toggleToolbarLabel = intl.formatMessage({
     id: collapsed ? ETranslations.global_expand : ETranslations.global_collapse,
   });
@@ -789,6 +801,16 @@ export function DrawingToolbar({
           pressStyle={{ backgroundColor: '$bgActive' }}
           onPress={() => {
             setCollapsed(!collapsed);
+            try {
+              void Promise.resolve(
+                appStorage.syncStorage.set(
+                  EAppSyncStorageKeys.onekey_trading_view_native_drawing_toolbar_collapsed,
+                  !collapsed,
+                ),
+              ).catch(() => undefined);
+            } catch {
+              // Keep the toolbar usable when preference storage is unavailable.
+            }
             setMenu(null);
           }}
         />
