@@ -147,8 +147,11 @@ function TxConfirm() {
           });
 
         let extraFeeNativeTotal = new BigNumber(0);
-        for (const decodedTx of r) {
-          const extraFeeNative = calculateTxExtraFee({ decodedTx });
+        for (const [index, decodedTx] of r.entries()) {
+          const extraFeeNative = calculateTxExtraFee({
+            decodedTx,
+            solanaRent: reactiveUnsignedTxs[index]?.solanaRent,
+          });
           extraFeeNativeTotal = extraFeeNativeTotal.plus(extraFeeNative);
         }
 

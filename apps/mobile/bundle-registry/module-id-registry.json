@@ -21512,6 +21512,7 @@
     "packages/kit-bg/src/vaults/impls/sol/sdkSol/bubblegum.ts": 23271,
     "packages/kit-bg/src/vaults/impls/sol/settings.ts": 19114,
     "packages/kit-bg/src/vaults/impls/sol/solTxDiagnostics.ts": 14337,
+    "packages/kit-bg/src/vaults/impls/sol/solanaRentUtils.ts": 9242,
     "packages/kit-bg/src/vaults/impls/sol/utils.ts": 12322,
     "packages/kit-bg/src/vaults/impls/stellar/KeyringExternal.ts": 12492,
     "packages/kit-bg/src/vaults/impls/stellar/KeyringHardware.ts": 21214,

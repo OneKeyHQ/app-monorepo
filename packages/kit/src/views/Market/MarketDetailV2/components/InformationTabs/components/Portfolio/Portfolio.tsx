@@ -28,6 +28,7 @@ interface IPortfolioProps {
   tokenLogoUrl?: string;
   scrollEnabled?: boolean;
   standalone?: boolean;
+  onItemPress?: (item: IMarketAccountPortfolioDisplayItem) => void;
 }
 
 function PortfolioBase({
@@ -38,6 +39,7 @@ function PortfolioBase({
   tokenLogoUrl,
   scrollEnabled = true,
   standalone = false,
+  onItemPress,
 }: IPortfolioProps) {
   const intl = useIntl();
   const { gtLg } = useMedia();
@@ -46,12 +48,16 @@ function PortfolioBase({
   const renderPortfolioItem = useCallback(
     (item: IMarketAccountPortfolioDisplayItem) => {
       return gtLg ? (
-        <PortfolioItemNormal item={item} tokenLogoUrl={tokenLogoUrl} />
+        <PortfolioItemNormal
+          item={item}
+          tokenLogoUrl={tokenLogoUrl}
+          onPress={onItemPress}
+        />
       ) : (
-        <PortfolioItemSmall item={item} />
+        <PortfolioItemSmall item={item} onPress={onItemPress} />
       );
     },
-    [gtLg, tokenLogoUrl],
+    [gtLg, onItemPress, tokenLogoUrl],
   );
 
   const renderItem: FlatListProps<IMarketAccountPortfolioDisplayItem>['renderItem'] =
