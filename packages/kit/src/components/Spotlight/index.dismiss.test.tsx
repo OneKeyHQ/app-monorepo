@@ -19,7 +19,11 @@ import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
 let mockTourTimes = 0;
 let mockGtMd = true;
+let mockAnchorX = 20;
 let mockAnchorY = 40;
+let mockAnchorWidth = 80;
+let mockWindowDimensions = { width: 1024, height: 768 };
+let mockSafeAreaInsets = { top: 0, bottom: 0, left: 0, right: 0 };
 let mockDesktopPlatform: 'mac' | 'windows' | 'linux' = 'mac';
 let mockMeasureCount = 0;
 let mockMeasureCallbacks:
@@ -27,7 +31,7 @@ let mockMeasureCallbacks:
   | undefined;
 
 jest.mock('react-native', () => ({
-  useWindowDimensions: () => ({ width: 1024, height: 768 }),
+  useWindowDimensions: () => mockWindowDimensions,
 }));
 const mockUpdateTourTimes = jest
   .fn<Promise<void>, [unknown]>()
@@ -99,6 +103,8 @@ jest.mock('@onekeyhq/components', () => {
     width?: number;
     height?: number;
     top?: number;
+    left?: number | string;
+    right?: number | string;
     maxWidth?: number;
     px?: number | string;
     py?: number | string;
@@ -113,6 +119,8 @@ jest.mock('@onekeyhq/components', () => {
     width,
     height,
     top,
+    left,
+    right,
     maxWidth,
     px,
     py,
@@ -128,6 +136,8 @@ jest.mock('@onekeyhq/components', () => {
         'data-width': width,
         'data-height': height,
         'data-top': top,
+        'data-left': left,
+        'data-right': right,
         'data-max-width': maxWidth,
         'data-padding-x': px,
         'data-padding-y': py,
@@ -149,7 +159,7 @@ jest.mock('@onekeyhq/components', () => {
       measureInWindow: (callback) => {
         mockMeasureCount += 1;
         if (mockMeasureCallbacks) mockMeasureCallbacks.push(callback);
-        else callback(20, mockAnchorY, 80, 48);
+        else callback(mockAnchorX, mockAnchorY, mockAnchorWidth, 48);
       },
     }));
     return React.createElement(Box, props);
@@ -196,6 +206,8 @@ jest.mock('@onekeyhq/components', () => {
         [],
       ),
     useMedia: () => media,
+    useSafeAreaInsets: () => mockSafeAreaInsets,
+    getTokenValue: (token: string) => (token === '$2' ? 8 : 16),
   };
 });
 
@@ -247,7 +259,11 @@ describe('Spotlight dismissal', () => {
     jest.clearAllMocks();
     mockTourTimes = 0;
     mockGtMd = true;
+    mockAnchorX = 20;
     mockAnchorY = 40;
+    mockAnchorWidth = 80;
+    mockWindowDimensions = { width: 1024, height: 768 };
+    mockSafeAreaInsets = { top: 0, bottom: 0, left: 0, right: 0 };
     mockDesktopPlatform = 'mac';
     mockMeasureCount = 0;
     mockMeasureCallbacks = undefined;
@@ -677,6 +693,203 @@ describe('Spotlight dismissal', () => {
       expect(mockUpdateTourTimes).not.toHaveBeenCalled();
     },
   );
+
+  it.each([
+    ['desktop', true, '12', null],
+    ['mobile', false, '$4', '$4'],
+  ] as const)(
+    'preserves the default %s card placement without anchor-end alignment',
+    (_platform, gtMd, left, right) => {
+      mockGtMd = gtMd;
+      render(
+        <SpotlightView
+          visible
+          cardMaxWidth={280}
+          content={<span>Update device portfolio here</span>}
+        >
+          <span>More</span>
+        </SpotlightView>,
+      );
+
+      expect(getCard().getAttribute('data-left')).toBe(left);
+      expect(getCard().getAttribute('data-right')).toBe(right);
+      expect(getCard().hasAttribute('data-width')).toBe(false);
+      expect(getCard().getAttribute('data-max-width')).toBe('280');
+    },
+  );
+
+  it('aligns an opted-in tour card with the highlighted trigger right edge', async () => {
+    mockGtMd = false;
+    mockWindowDimensions = { width: 390, height: 844 };
+    mockAnchorX = 300;
+    mockAnchorWidth = 74;
+    render(
+      <Spotlight
+        isVisible
+        alignCardToAnchorEnd
+        matchTriggerSize
+        cardMaxWidth={280}
+        tourName={ESpotlightTour.allNetworksInfo}
+        message="Update device portfolio here"
+      >
+        <span>More</span>
+      </Spotlight>,
+    );
+    await advanceTime(0);
+
+    const highlight = screen.getByTestId('spotlight-highlight');
+    const highlightRight =
+      Number(highlight.getAttribute('data-left')) +
+      Number(highlight.getAttribute('data-width'));
+    const cardRight =
+      Number(getCard().getAttribute('data-left')) +
+      Number(getCard().getAttribute('data-width'));
+
+    expect(getCard().getAttribute('data-left')).toBe('102');
+    expect(getCard().getAttribute('data-width')).toBe('280');
+    expect(cardRight).toBe(highlightRight);
+    expect(getCard().hasAttribute('data-right')).toBe(false);
+    expect(mockUpdateTourTimes).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      name: 'left-side anchor',
+      windowWidth: 390,
+      anchorX: 20,
+      leftInset: 0,
+      rightInset: 0,
+      left: 8,
+      width: 280,
+    },
+    {
+      name: 'right-side overflow',
+      windowWidth: 390,
+      anchorX: 360,
+      leftInset: 0,
+      rightInset: 0,
+      left: 102,
+      width: 280,
+    },
+    {
+      name: 'narrow viewport',
+      windowWidth: 260,
+      anchorX: 170,
+      leftInset: 0,
+      rightInset: 0,
+      left: 8,
+      width: 244,
+    },
+    {
+      name: 'landscape right safe area',
+      windowWidth: 844,
+      anchorX: 700,
+      leftInset: 59,
+      rightInset: 59,
+      left: 497,
+      width: 280,
+    },
+    {
+      name: 'landscape left safe area',
+      windowWidth: 844,
+      anchorX: 20,
+      leftInset: 59,
+      rightInset: 59,
+      left: 67,
+      width: 280,
+    },
+  ])(
+    'keeps anchor-end alignment within the $name bounds',
+    ({ windowWidth, anchorX, leftInset, rightInset, left, width }) => {
+      mockGtMd = false;
+      mockWindowDimensions = { width: windowWidth, height: 844 };
+      mockAnchorX = anchorX;
+      mockAnchorWidth = 74;
+      mockSafeAreaInsets = {
+        top: 0,
+        bottom: 0,
+        left: leftInset,
+        right: rightInset,
+      };
+      render(
+        <SpotlightView
+          visible
+          alignCardToAnchorEnd
+          cardMaxWidth={280}
+          content={<span>Update device portfolio here</span>}
+        >
+          <span>More</span>
+        </SpotlightView>,
+      );
+
+      expect(getCard().getAttribute('data-left')).toBe(String(left));
+      expect(getCard().getAttribute('data-width')).toBe(String(width));
+      expect(left).toBeGreaterThanOrEqual(leftInset + 8);
+      expect(left + width).toBeLessThanOrEqual(windowWidth - rightInset - 8);
+    },
+  );
+
+  it('remeasures anchor-end placement when window dimensions change', async () => {
+    mockGtMd = false;
+    mockWindowDimensions = { width: 390, height: 844 };
+    mockAnchorX = 300;
+    mockAnchorWidth = 74;
+    const renderAlignedView = () => (
+      <SpotlightView
+        visible
+        alignCardToAnchorEnd
+        cardMaxWidth={280}
+        content={<span>Update device portfolio here</span>}
+      >
+        <span>More</span>
+      </SpotlightView>
+    );
+    const view = render(renderAlignedView());
+    await advanceTime(0);
+    expect(getCard().getAttribute('data-left')).toBe('102');
+
+    mockWindowDimensions = { width: 844, height: 390 };
+    mockAnchorX = 600;
+    mockSafeAreaInsets = { top: 0, bottom: 0, left: 59, right: 59 };
+    view.rerender(renderAlignedView());
+    await advanceTime(0);
+
+    expect(getCard().getAttribute('data-left')).toBe('402');
+    expect(getCard().getAttribute('data-width')).toBe('280');
+    expect(mockUpdateTourTimes).not.toHaveBeenCalled();
+  });
+
+  it('updates anchor-end alignment and restores default placement when removed', async () => {
+    mockGtMd = false;
+    mockWindowDimensions = { width: 390, height: 844 };
+    mockAnchorX = 300;
+    mockAnchorWidth = 74;
+    const renderAlignedView = (alignCardToAnchorEnd?: boolean) => (
+      <SpotlightView
+        visible
+        alignCardToAnchorEnd={alignCardToAnchorEnd}
+        cardMaxWidth={280}
+        content={<span>Update device portfolio here</span>}
+      >
+        <span>More</span>
+      </SpotlightView>
+    );
+    const view = render(renderAlignedView());
+    expect(getCard().getAttribute('data-left')).toBe('$4');
+    expect(getCard().getAttribute('data-right')).toBe('$4');
+
+    view.rerender(renderAlignedView(true));
+    await advanceTime(0);
+    expect(getCard().getAttribute('data-left')).toBe('102');
+    expect(getCard().getAttribute('data-width')).toBe('280');
+    expect(getCard().hasAttribute('data-right')).toBe(false);
+
+    view.rerender(renderAlignedView());
+    await advanceTime(0);
+    expect(getCard().getAttribute('data-left')).toBe('$4');
+    expect(getCard().getAttribute('data-right')).toBe('$4');
+    expect(getCard().hasAttribute('data-width')).toBe(false);
+  });
 
   it('records a backdrop dismissal as visited and stays hidden on the next visit', async () => {
     const renderTour = () => (

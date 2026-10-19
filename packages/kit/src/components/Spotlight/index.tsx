@@ -16,6 +16,7 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import {
   Button,
@@ -26,9 +27,11 @@ import {
   View,
   XStack,
   YStack,
+  getTokenValue,
   useBackHandler,
   useDeferredPromise,
   useMedia,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { IDeferredPromise, IElement } from '@onekeyhq/components';
 import {
@@ -61,6 +64,7 @@ export type ISpotlightViewProps = PropsWithChildren<{
   cardPaddingBottom?: number;
   cardGap?: number;
   cardMaxWidth?: number;
+  alignCardToAnchorEnd?: boolean;
   childrenPaddingVertical?: number;
   childrenPaddingHorizontal?: number;
   showHighlightBackground?: boolean;
@@ -103,6 +107,7 @@ export type ISpotlightProps = PropsWithChildren<{
   cardPaddingBottom?: number;
   cardGap?: number;
   cardMaxWidth?: number;
+  alignCardToAnchorEnd?: boolean;
   confirmText?: string;
   tourName: ESpotlightTour;
   delayMs?: number;
@@ -132,6 +137,8 @@ function SpotlightContent({
   const isGuideBlocked = useIsDeferredGuideBlocked();
 
   const { gtMd } = useMedia();
+  const { width: windowWidth } = useWindowDimensions();
+  const { left: safeAreaLeft, right: safeAreaRight } = useSafeAreaInsets();
   const [props, setProps] = useState(initProps);
   const [floatingPosition, setFloatingPosition] = useState<IFloatingPosition>({
     x: 0,
@@ -171,7 +178,7 @@ function SpotlightContent({
 
   useLayoutEffect(() => {
     measureTriggerInWindow();
-  }, [md, measureTriggerInWindow]);
+  }, [md, measureTriggerInWindow, windowWidth]);
 
   useLayoutEffect(() => {
     if (triggerPropsRef.current) {
@@ -195,6 +202,7 @@ function SpotlightContent({
     cardPaddingBottom,
     cardGap,
     cardMaxWidth,
+    alignCardToAnchorEnd = false,
     onConfirm,
     confirmText,
     closeOnBackdropPress = false,
@@ -215,32 +223,56 @@ function SpotlightContent({
     );
   }
 
-  const floatingStyle = useMemo(
-    () =>
-      isRendered
-        ? {
-            top:
-              floatingPosition.y +
-              floatingPosition.height +
-              floatingOffset +
-              childrenPaddingVertical,
-            left: gtMd ? floatingPosition.x - childrenPaddingHorizontal : '$4',
-            right: gtMd ? undefined : '$4',
-            maxWidth: cardMaxWidth ?? (gtMd ? 354 : undefined),
-          }
-        : undefined,
-    [
-      isRendered,
-      floatingPosition.y,
-      floatingPosition.height,
-      floatingPosition.x,
-      floatingOffset,
-      childrenPaddingVertical,
-      gtMd,
-      childrenPaddingHorizontal,
-      cardMaxWidth,
-    ],
-  );
+  const floatingStyle = useMemo(() => {
+    if (!isRendered) return undefined;
+    const top =
+      floatingPosition.y +
+      floatingPosition.height +
+      floatingOffset +
+      childrenPaddingVertical;
+
+    if (alignCardToAnchorEnd) {
+      const edgePadding = getTokenValue('$2', 'space');
+      const minLeft = safeAreaLeft + edgePadding;
+      const maxRight = windowWidth - safeAreaRight - edgePadding;
+      const availableWidth = Math.max(0, maxRight - minLeft);
+      const width = Math.min(cardMaxWidth ?? availableWidth, availableWidth);
+      const anchorRight =
+        floatingPosition.x + floatingPosition.width + childrenPaddingHorizontal;
+
+      return {
+        top,
+        left: Math.max(
+          minLeft,
+          Math.min(anchorRight - width, maxRight - width),
+        ),
+        width,
+        maxWidth: cardMaxWidth,
+      };
+    }
+
+    return {
+      top,
+      left: gtMd ? floatingPosition.x - childrenPaddingHorizontal : '$4',
+      right: gtMd ? undefined : '$4',
+      maxWidth: cardMaxWidth ?? (gtMd ? 354 : undefined),
+    };
+  }, [
+    isRendered,
+    floatingPosition.y,
+    floatingPosition.height,
+    floatingPosition.x,
+    floatingPosition.width,
+    floatingOffset,
+    childrenPaddingVertical,
+    gtMd,
+    childrenPaddingHorizontal,
+    cardMaxWidth,
+    alignCardToAnchorEnd,
+    safeAreaLeft,
+    safeAreaRight,
+    windowWidth,
+  ]);
 
   const handleBackPress = useCallback(() => true, []);
   useBackHandler(handleBackPress);
@@ -350,6 +382,7 @@ export function SpotlightView({
   cardPaddingBottom,
   cardGap,
   cardMaxWidth,
+  alignCardToAnchorEnd,
   childrenPaddingVertical,
   childrenPaddingHorizontal,
   showHighlightBackground,
@@ -390,6 +423,7 @@ export function SpotlightView({
         cardPaddingBottom,
         cardGap,
         cardMaxWidth,
+        alignCardToAnchorEnd,
         onConfirm,
         confirmText,
         closeOnBackdropPress,
@@ -418,6 +452,7 @@ export function SpotlightView({
     cardPaddingBottom,
     cardGap,
     cardMaxWidth,
+    alignCardToAnchorEnd,
     defer,
     floatingOffset,
     onConfirm,
@@ -469,6 +504,7 @@ export function SpotlightView({
               cardPaddingBottom,
               cardGap,
               cardMaxWidth,
+              alignCardToAnchorEnd,
               onConfirm,
               confirmText,
               closeOnBackdropPress,
@@ -525,6 +561,7 @@ export function Spotlight(props: ISpotlightProps) {
     cardPaddingBottom,
     cardGap,
     cardMaxWidth,
+    alignCardToAnchorEnd,
     confirmText,
     children,
     containerProps,
@@ -599,6 +636,7 @@ export function Spotlight(props: ISpotlightProps) {
       cardPaddingBottom={cardPaddingBottom}
       cardGap={cardGap}
       cardMaxWidth={cardMaxWidth}
+      alignCardToAnchorEnd={alignCardToAnchorEnd}
       content={
         illustration ? (
           <YStack gap={illustrationGap ?? '$3'}>
