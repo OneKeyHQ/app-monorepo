@@ -96,26 +96,57 @@ function useDustSweepController(params: IDustSweepRouteParams) {
       });
     return () => controller.abort();
   }, [loadParams, refresh]);
-  const orderedNetworks = useMemo(
+  // Network pickers hide chains with nothing to sweep or a $0.00 balance. An
+  // explicitly requested network still resolves below and shows its empty state.
+  const selectableNetworks = useMemo(
     () =>
-      networks
-        .map((entry) => ({
-          ...entry,
-          valueUsd: entry.tokens
-            .filter((token) =>
-              new BigNumber(token.valueUsd).lt(preferences.threshold),
-            )
-            .reduce((sum, token) => sum.plus(token.valueUsd), new BigNumber(0))
-            .toFixed(),
-        }))
-        .toSorted(
-          (a, b) => new BigNumber(b.valueUsd).comparedTo(a.valueUsd) ?? 0,
-        ),
-    [networks, preferences.threshold],
+      networks.filter(
+        (entry) =>
+          entry.tokens.length > 0 &&
+          new BigNumber(entry.balanceUsd).decimalPlaces(2).gt(0),
+      ),
+    [networks],
   );
+  // Pickers list chains by the displayed network balance.
+  const visibleNetworks = useMemo(
+    () =>
+      selectableNetworks.toSorted(
+        (a, b) => new BigNumber(b.balanceUsd).comparedTo(a.balanceUsd) ?? 0,
+      ),
+    [selectableNetworks],
+  );
+  // The default selection is the chain with the most dust under the current
+  // threshold; ties keep the loaded order.
+  const defaultNetwork = useMemo(() => {
+    let best: IDustSweepNetwork | undefined;
+    let bestDustUsd = new BigNumber(-1);
+    for (const entry of selectableNetworks.length
+      ? selectableNetworks
+      : networks) {
+      const dustUsd = entry.tokens
+        .filter((token) =>
+          new BigNumber(token.valueUsd).lt(preferences.threshold),
+        )
+        .reduce((sum, token) => sum.plus(token.valueUsd), new BigNumber(0));
+      if (dustUsd.gt(bestDustUsd)) {
+        best = entry;
+        bestDustUsd = dustUsd;
+      }
+    }
+    return best;
+  }, [selectableNetworks, networks, preferences.threshold]);
   const current =
-    orderedNetworks.find((entry) => entry.network.networkId === networkId) ??
-    (selecting ? orderedNetworks[0] : undefined);
+    networks.find((entry) => entry.network.networkId === networkId) ??
+    (selecting ? defaultNetwork : undefined);
+  // An explicitly requested network stays visible (first) in the picker while
+  // it is selected, even when the rules above would hide it.
+  const pickerNetworks = useMemo(
+    () =>
+      current && !visibleNetworks.includes(current)
+        ? [current, ...visibleNetworks]
+        : visibleNetworks,
+    [current, visibleNetworks],
+  );
   const currentNetworkId = current?.network.networkId;
   const includeHidden =
     !!currentNetworkId && networksWithHidden.has(currentNetworkId);
@@ -291,7 +322,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
   }, [selecting, isFocused, selected.length, loadStatus, preview.status]);
   return {
     params,
-    networks: orderedNetworks,
+    networks: pickerNetworks,
     current,
     visible,
     hidden,

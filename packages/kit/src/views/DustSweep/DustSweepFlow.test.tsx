@@ -98,7 +98,12 @@ jest.mock('@onekeyhq/components', () => ({
       Header back
     </Button>
   ),
-  Page: Object.assign(Box, { Header: () => null, Body: Box, Footer: Box }),
+  Page: Object.assign(Box, {
+    Header: () => null,
+    Body: Box,
+    Footer: Box,
+    Container: Box,
+  }),
   Stack: Box,
   XStack: Box,
   YStack: Box,
@@ -120,6 +125,13 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   },
 }));
 jest.mock('@onekeyhq/shared/src/errors', () => ({ OneKeyLocalError: Error }));
+jest.mock('@onekeyhq/kit/src/components/TabPageHeader', () => ({
+  TabPageHeader: () => <span data-testid="tab-page-header" />,
+}));
+jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
+  __esModule: true,
+  default: () => ({ pop: jest.fn() }),
+}));
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
@@ -287,7 +299,7 @@ function Modal() {
         initialParams={{
           walletId: 'wallet',
           accountId: 'account',
-          entry: 'walletMore',
+          entry: 'lowValueRow',
         }}
       />
     </ModalStack.Navigator>
@@ -307,7 +319,7 @@ function mountFlow(modal = false) {
             params: {
               walletId: 'wallet',
               accountId: 'account',
-              entry: 'walletMore',
+              entry: 'lowValueRow',
             },
           },
         ],
@@ -569,6 +581,17 @@ it('provides a visible parent Back on the initial nested page for native tab ent
   fireEvent.click(activeButton('Header back'));
   expect(ref.getCurrentRoute()?.name).toBe('Home');
   expect(execute).not.toHaveBeenCalled();
+});
+
+it('shows the Home tab top bar on the desktop tab route', () => {
+  mockOverlay = false;
+  mountFlow();
+  expect(screen.queryByTestId('tab-page-header')).toBeTruthy();
+});
+
+it('keeps the Home tab top bar out of a desktop-width modal', () => {
+  mountFlow();
+  expect(screen.queryByTestId('tab-page-header')).toBeNull();
 });
 
 it('closes obsolete dialogs and ignores their callbacks after Again starts a new session', async () => {

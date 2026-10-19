@@ -10,7 +10,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialog';
+import {
+  SLIPPAGE_INPUT_FOCUS_BORDER_COLOR,
+  SlippageInput,
+} from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -180,7 +183,9 @@ export function SwapReviewSlippageEditor({
               height: platformEnv.isNative ? 44 : undefined,
               borderRadius: '$3',
               bg: '$bgStrong',
-              borderColor: isInputFocused ? '#2f7cf6' : '$borderStrong',
+              borderColor: isInputFocused
+                ? SLIPPAGE_INPUT_FOCUS_BORDER_COLOR
+                : '$borderStrong',
               borderWidth: isInputFocused ? 1.5 : '$px',
             },
           }}
