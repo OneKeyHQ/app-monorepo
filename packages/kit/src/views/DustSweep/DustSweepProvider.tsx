@@ -25,7 +25,10 @@ import type { ISwapProviderInfo } from '@onekeyhq/shared/types/swap/SwapProvider
 
 import { useDustSweepPreview } from './hooks/useDustSweepPreview';
 import { useDustSweepSession } from './hooks/useDustSweepSession';
-import { filterDustSweepCandidates } from './utils/candidates';
+import {
+  DUST_SWEEP_THRESHOLDS,
+  filterDustSweepCandidates,
+} from './utils/candidates';
 import { loadDustSweepNetworks } from './utils/loadNetworks';
 
 function useDustSweepController(params: IDustSweepRouteParams) {
@@ -96,26 +99,60 @@ function useDustSweepController(params: IDustSweepRouteParams) {
       });
     return () => controller.abort();
   }, [loadParams, refresh]);
-  const orderedNetworks = useMemo(
+  // Network pickers hide chains with a $0.00 balance or nothing to sweep under
+  // the largest threshold preset. The list deliberately stays the same when the
+  // threshold changes (product decision); a network with nothing under the
+  // selected threshold shows the empty state. An explicitly requested network
+  // still resolves below and shows its empty state.
+  const selectableNetworks = useMemo(() => {
+    const maxThreshold = Math.max(...DUST_SWEEP_THRESHOLDS);
+    return networks.filter(
+      (entry) =>
+        entry.tokens.some((token) =>
+          new BigNumber(token.valueUsd).lt(maxThreshold),
+        ) && new BigNumber(entry.balanceUsd).decimalPlaces(2).gt(0),
+    );
+  }, [networks]);
+  // Pickers list chains by the displayed network balance.
+  const visibleNetworks = useMemo(
     () =>
-      networks
-        .map((entry) => ({
-          ...entry,
-          valueUsd: entry.tokens
-            .filter((token) =>
-              new BigNumber(token.valueUsd).lt(preferences.threshold),
-            )
-            .reduce((sum, token) => sum.plus(token.valueUsd), new BigNumber(0))
-            .toFixed(),
-        }))
-        .toSorted(
-          (a, b) => new BigNumber(b.valueUsd).comparedTo(a.valueUsd) ?? 0,
-        ),
-    [networks, preferences.threshold],
+      selectableNetworks.toSorted(
+        (a, b) => new BigNumber(b.balanceUsd).comparedTo(a.balanceUsd) ?? 0,
+      ),
+    [selectableNetworks],
   );
+  // The default selection is the chain with the most dust under the current
+  // threshold; ties keep the loaded order.
+  const defaultNetwork = useMemo(() => {
+    let best: IDustSweepNetwork | undefined;
+    let bestDustUsd = new BigNumber(-1);
+    // Only picker-eligible networks can be chosen automatically; when none
+    // qualify, nothing is selected and the empty state shows.
+    for (const entry of selectableNetworks) {
+      const dustUsd = entry.tokens
+        .filter((token) =>
+          new BigNumber(token.valueUsd).lt(preferences.threshold),
+        )
+        .reduce((sum, token) => sum.plus(token.valueUsd), new BigNumber(0));
+      if (dustUsd.gt(bestDustUsd)) {
+        best = entry;
+        bestDustUsd = dustUsd;
+      }
+    }
+    return best;
+  }, [selectableNetworks, preferences.threshold]);
   const current =
-    orderedNetworks.find((entry) => entry.network.networkId === networkId) ??
-    (selecting ? orderedNetworks[0] : undefined);
+    networks.find((entry) => entry.network.networkId === networkId) ??
+    (selecting ? defaultNetwork : undefined);
+  // An explicitly requested network stays visible (first) in the picker while
+  // it is selected, even when the rules above would hide it.
+  const pickerNetworks = useMemo(
+    () =>
+      current && !visibleNetworks.includes(current)
+        ? [current, ...visibleNetworks]
+        : visibleNetworks,
+    [current, visibleNetworks],
+  );
   const currentNetworkId = current?.network.networkId;
   const includeHidden =
     !!currentNetworkId && networksWithHidden.has(currentNetworkId);
@@ -291,7 +328,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
   }, [selecting, isFocused, selected.length, loadStatus, preview.status]);
   return {
     params,
-    networks: orderedNetworks,
+    networks: pickerNetworks,
     current,
     visible,
     hidden,

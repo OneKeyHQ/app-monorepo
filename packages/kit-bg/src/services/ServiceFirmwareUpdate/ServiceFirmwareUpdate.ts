@@ -28,7 +28,10 @@ import {
   OneKeyLocalError,
   UseDesktopToUpdateFirmware,
 } from '@onekeyhq/shared/src/errors';
-import { FirmwareUpdateVersionMismatchError } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
+import {
+  DeviceNotSame,
+  FirmwareUpdateVersionMismatchError,
+} from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   convertDeviceResponse,
@@ -45,10 +48,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { checkBLEState } from '@onekeyhq/shared/src/hardware/blePermissions';
-import { DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS } from '@onekeyhq/shared/src/hardware/connectionTimeouts';
+import { DESKTOP_BLE_FIRMWARE_CONNECTION_TIMEOUT_MS } from '@onekeyhq/shared/src/hardware/config/connectionTimeouts';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { projectLegacyDeviceFeaturesFromState } from '@onekeyhq/shared/src/hardware/deviceStateUtils';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { parseFirmwareVersions } from '@onekeyhq/shared/src/logger/scopes/update/scenes/firmware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -954,8 +957,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
         ? { connectId, transportType: resolvedTransportType }
         : await this.backgroundApi.serviceHardware.resolveHardwareTransport({
             connectId,
-            hardwareCallContext:
-              EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
+            hardwareCallContext: platformEnv.isDesktop
+              ? EHardwareCallContext.UPDATE_FIRMWARE
+              : EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
           });
     }
     const originalConnectId = resolvedTransport?.connectId ?? connectId;
@@ -2556,6 +2560,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
                     connectId:
                       params.releaseResult.originalConnectId ??
                       params.releaseResult.updatingConnectId,
+                    features: params.releaseResult.features,
                     hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
                   },
                 );
@@ -2585,7 +2590,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
               currentTransportType,
             );
 
-            // TODO verify current device is matched with params.connectId\params.updateFirmware\params.updateBle
             // pre checking
             await this.validateMnemonicBackuped(params);
             await this.validateUSBConnection(params);
@@ -2914,6 +2918,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
                     connectId:
                       params.releaseResult.originalConnectId ??
                       params.releaseResult.updatingConnectId,
+                    features: params.releaseResult.features,
                     hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
                   },
                 );
@@ -3765,9 +3770,77 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }
 
   async validateUSBConnection(params: IUpdateFirmwareWorkflowParams) {
-    // TODO device is connected by USB
     if (!params.usbConnected) {
       throw new OneKeyLocalError('USB not connected');
+    }
+    if (!platformEnv.isDesktop) return;
+
+    const hardwareTransportType = await this.getActiveTransportType();
+    if (
+      hardwareTransportType !== EHardwareTransportType.WEBUSB &&
+      hardwareTransportType !== EHardwareTransportType.Bridge
+    ) {
+      throw new FirmwareUpdateRequiresUsbTransport();
+    }
+    const { releaseResult } = params;
+    const deviceUUID = releaseResult.deviceUUID?.trim();
+    const expectedSerial =
+      (deviceUUID && !/^0+$/.test(deviceUUID) ? deviceUUID : undefined) ||
+      (await deviceUtils.buildDeviceUSBConnectId({
+        features: releaseResult.features,
+      }));
+    const expectedDeviceId = [
+      releaseResult.features?.deviceId,
+      releaseResult.features?.device_id,
+    ]
+      .map((id) => id?.trim())
+      .find((id) => id && !/^0+$/.test(id));
+    if (
+      !expectedSerial &&
+      !expectedDeviceId &&
+      !releaseResult.isBootloaderMode
+    ) {
+      throw new DeviceNotSame();
+    }
+
+    // Read the selected target over the locked USB transport, without cached
+    // features or BLE aliases. A presence check alone cannot authorize an update.
+    const transport =
+      await this.backgroundApi.serviceHardware.resolveHardwareTransport({
+        connectId: releaseResult.originalConnectId,
+        features: releaseResult.features,
+        hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+      });
+    const state = await this.backgroundApi.serviceHardware.getDeviceState({
+      connectId: transport.connectId,
+      hardwareTransportType: transport.transportType,
+      hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+      params: {
+        scope: 'firmware',
+        retryCount: 0,
+        skipWebDevicePrompt: true,
+        connectProtocol: isProtocolV2ProductType(releaseResult.deviceType)
+          ? 'V2'
+          : 'V1',
+      },
+    });
+    if (state.identity.deviceType !== releaseResult.deviceType) {
+      throw new DeviceNotSame();
+    }
+    if (expectedSerial) {
+      if (!equalsIgnoreCase(expectedSerial, state.identity.serialNo)) {
+        throw new DeviceNotSame();
+      }
+    } else if (expectedDeviceId) {
+      if (expectedDeviceId !== state.identity.deviceId) {
+        throw new DeviceNotSame();
+      }
+    } else if (
+      state.status.mode !== 'bootloader' &&
+      state.status.mode !== 'romloader'
+    ) {
+      // Identity-less recovery must remain in the selected model's loader mode.
+      throw new DeviceNotSame();
     }
   }
 

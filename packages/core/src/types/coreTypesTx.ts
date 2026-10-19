@@ -107,6 +107,8 @@ export type IUnsignedTx = {
 
 export type IUnsignedTxPro = IUnsignedTx & {
   solanaTxDiagnostic?: ISolanaTxDiagnosticContext;
+  // Additional SOL funded by this wallet for ATA creation, outside network fees.
+  solanaRent?: string;
   encodedTx: IEncodedTx;
   feeInfo?: IFeeInfoUnit | undefined;
   feesInfo?: IFeesInfoUnit | undefined;

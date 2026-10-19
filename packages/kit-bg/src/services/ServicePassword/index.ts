@@ -54,6 +54,7 @@ import type {
   IPasswordSecuritySession,
 } from '@onekeyhq/shared/types/password';
 import {
+  BIOLOGY_AUTH_ABORTED_ERROR,
   BIOLOGY_AUTH_CANCEL_ERROR,
   EPasswordMode,
   EPasswordPromptType,
@@ -166,15 +167,31 @@ export default class ServicePassword extends ServiceBase {
     success: boolean;
   }) {
     if (!authRes.success) {
-      if (authRes.warning || authRes.error === BIOLOGY_AUTH_CANCEL_ERROR) {
+      const isAborted =
+        platformEnv.isDesktopWin &&
+        authRes.error === BIOLOGY_AUTH_ABORTED_ERROR;
+      if (
+        authRes.warning ||
+        authRes.error === BIOLOGY_AUTH_CANCEL_ERROR ||
+        isAborted
+      ) {
         const nativeError = new Error(
-          authRes.error === BIOLOGY_AUTH_CANCEL_ERROR ? '' : authRes.warning,
+          authRes.error === BIOLOGY_AUTH_CANCEL_ERROR || isAborted
+            ? ''
+            : authRes.warning,
         );
         nativeError.name = authRes.error;
         nativeError.cause = biologyAuthNativeError;
         throw nativeError;
       } else {
-        throw new OneKeyErrors.BiologyAuthFailed();
+        const error = new OneKeyErrors.BiologyAuthFailed();
+        if (
+          platformEnv.isDesktopWin &&
+          authRes.error === 'biologyAuthenticate failed'
+        ) {
+          error.cause = biologyAuthNativeError;
+        }
+        throw error;
       }
     }
   }

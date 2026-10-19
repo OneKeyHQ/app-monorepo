@@ -17,6 +17,7 @@ import type {
 import type { ICoinSelectAlgorithm } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import type { IAirGapAccount } from '@onekeyhq/qr-wallet-sdk';
 import type { IPbkdf2KdfParams } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
+import type { IOneKeyHardwareErrorPayload } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type {
   ETranslations,
   ETranslationsMock,
@@ -324,6 +325,11 @@ export type IVaultSettings = {
   enabledInternalSignAndVerify?: boolean;
 
   nativeBatchTransferEnabled?: boolean;
+
+  // Max recipients per OneToMany bulk send tx (contract call or native batch).
+  // Larger lists are split into multiple txs to stay under per-tx limits.
+  // Leave unset when the vault splits by other means (e.g. SOL tx size).
+  bulkSendMaxTransfersPerTx?: number;
 };
 
 export type IVaultFactoryOptions = {
@@ -451,7 +457,10 @@ export type INormalizeGetMultiAccountsPathParams = {
 
 export type IHwSdkNetwork = AllNetworkAddressParams['network'];
 
-type IHwAllNetworkPrepareAccountsItemErrorPayload = {
+type IHwAllNetworkPrepareAccountsItemErrorPayload = Pick<
+  IOneKeyHardwareErrorPayload,
+  'appName' | 'recovery'
+> & {
   error: string;
   code: number;
   errorCode: string | number; // TODO use code instead
@@ -474,6 +483,13 @@ export type IHwAllNetworkPrepareAccountsItem =
       address?: string;
       path?: string;
       rootFingerprint?: number;
+      /** Keystone: the unsigned account-level key the address was derived from. */
+      accountKey?: {
+        path: string;
+        publicKey: string;
+        chainCode?: string;
+        xpub?: string;
+      };
       deviceIdentity?:
         | {
             vendor: 'ledger';
@@ -484,6 +500,11 @@ export type IHwAllNetworkPrepareAccountsItem =
         | {
             vendor: 'trezor';
             type: 'deviceId';
+            value: string;
+          }
+        | {
+            vendor: 'keystone';
+            type: 'walletId';
             value: string;
           };
       chainFingerprint?: string;
@@ -801,6 +822,9 @@ export interface IBatchSignTransactionParamsBase {
   // Free-trial usage of a bulk tool; ServiceSend marks it consumed right
   // after a broadcast succeeds. Omitted for Prime users and other callers.
   freeTrialUsage?: IPrimeFreeTrialBroadcastUsage;
+  // When set, emits BatchSignTxProgress before signing each tx so the UI can
+  // show which tx of the batch is being signed.
+  progressEventId?: string;
 }
 
 export interface ISignMessageParams extends IPbkdf2KdfParams {

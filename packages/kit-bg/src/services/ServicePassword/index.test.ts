@@ -3,8 +3,9 @@ import ServicePassword, { shouldUseV4MigrationPasswordForPrompt } from '.';
 import { encodeSensitiveTextAsync } from '@onekeyhq/core/src/secret';
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
+import { biologyAuthNativeError } from '@onekeyhq/shared/src/biologyAuth/error';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
-import { WrongPassword } from '@onekeyhq/shared/src/errors';
+import { BiologyAuthFailed, WrongPassword } from '@onekeyhq/shared/src/errors';
 import { checkBiometricAuthChanged } from '@onekeyhq/shared/src/modules3rdParty/check-biometric-auth-changed';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
@@ -15,6 +16,7 @@ import {
 } from '@onekeyhq/shared/src/travelMode';
 import { ENCODE_TEXT_PREFIX } from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
 import {
+  BIOLOGY_AUTH_ABORTED_ERROR,
   EPasswordMode,
   EPasswordVerifyStatus,
 } from '@onekeyhq/shared/types/password';
@@ -40,6 +42,8 @@ import { v4migrationAtom } from '../../states/jotai/atoms/v4migration';
 import { jotaiDefaultStore } from '../../states/jotai/utils/jotaiDefaultStore';
 
 import { biologyAuthUtils } from './biologyAuthUtils';
+
+import type { LocalAuthenticationError } from 'expo-local-authentication';
 
 const PASSWORD_VALIDATION_PROBE_ID =
   'password-validation-explicit-webcrypto-test';
@@ -131,6 +135,118 @@ describe('ServicePassword', () => {
         );
       });
   });
+
+  it('preserves an interrupted Windows challenge without reading the stored password', async () => {
+    const originalPlatform = {
+      isDesktopWin: platformEnv.isDesktopWin,
+      isDesktopMac: platformEnv.isDesktopMac,
+      isNativeIOS: platformEnv.isNativeIOS,
+    };
+    Object.assign(platformEnv, {
+      isDesktopWin: true,
+      isDesktopMac: false,
+      isNativeIOS: false,
+    });
+    try {
+      const service = Object.create(
+        ServicePassword.prototype,
+      ) as ServicePassword;
+      jest
+        .spyOn(passwordBiologyAuthInfoAtom, 'get')
+        .mockResolvedValue(Promise.resolve({ authType: [], isSupport: true }));
+      jest.spyOn(biologyAuthUtils, 'biologyAuthenticate').mockResolvedValue({
+        success: false,
+        error: BIOLOGY_AUTH_ABORTED_ERROR,
+        warning: BIOLOGY_AUTH_ABORTED_ERROR,
+      });
+      const getPassword = jest.spyOn(biologyAuthUtils, 'getPassword');
+      await expect(service.getBiologyAuthPassword()).rejects.toMatchObject({
+        name: BIOLOGY_AUTH_ABORTED_ERROR,
+        message: '',
+        cause: biologyAuthNativeError,
+      });
+      expect(getPassword).not.toHaveBeenCalled();
+    } finally {
+      Object.assign(platformEnv, originalPlatform);
+    }
+  });
+
+  it('marks a real Windows verification failure for attempt protection', async () => {
+    const originalPlatform = {
+      isDesktopWin: platformEnv.isDesktopWin,
+      isDesktopMac: platformEnv.isDesktopMac,
+      isNativeIOS: platformEnv.isNativeIOS,
+    };
+    Object.assign(platformEnv, {
+      isDesktopWin: true,
+      isDesktopMac: false,
+      isNativeIOS: false,
+    });
+    try {
+      const service = Object.create(
+        ServicePassword.prototype,
+      ) as ServicePassword;
+      jest
+        .spyOn(passwordBiologyAuthInfoAtom, 'get')
+        .mockResolvedValue(Promise.resolve({ authType: [], isSupport: true }));
+      jest.spyOn(biologyAuthUtils, 'biologyAuthenticate').mockResolvedValue({
+        success: false,
+        error: 'biologyAuthenticate failed' as LocalAuthenticationError,
+      });
+      const getPassword = jest.spyOn(biologyAuthUtils, 'getPassword');
+      const verification = service.getBiologyAuthPassword();
+      await expect(verification).rejects.toBeInstanceOf(BiologyAuthFailed);
+      await expect(verification).rejects.toMatchObject({
+        cause: biologyAuthNativeError,
+      });
+      expect(getPassword).not.toHaveBeenCalled();
+    } finally {
+      Object.assign(platformEnv, originalPlatform);
+    }
+  });
+
+  it.each(['not_available', 'biologyAuthenticate no supported', 'IPC failure'])(
+    'does not count the Windows pre-challenge error %s as a native failure',
+    async (error) => {
+      const originalPlatform = {
+        isDesktopWin: platformEnv.isDesktopWin,
+        isDesktopMac: platformEnv.isDesktopMac,
+        isNativeIOS: platformEnv.isNativeIOS,
+      };
+      Object.assign(platformEnv, {
+        isDesktopWin: true,
+        isDesktopMac: false,
+        isNativeIOS: false,
+      });
+      try {
+        const service = Object.create(
+          ServicePassword.prototype,
+        ) as ServicePassword;
+        jest
+          .spyOn(passwordBiologyAuthInfoAtom, 'get')
+          .mockResolvedValue(
+            Promise.resolve({ authType: [], isSupport: true }),
+          );
+        const authenticate = jest
+          .spyOn(biologyAuthUtils, 'biologyAuthenticate')
+          .mockResolvedValue({
+            success: false,
+            error: error as LocalAuthenticationError,
+          });
+        const getPassword = jest.spyOn(biologyAuthUtils, 'getPassword');
+        const verification = service.getBiologyAuthPassword();
+        await expect(verification).rejects.toBeInstanceOf(BiologyAuthFailed);
+        await expect(verification).rejects.not.toHaveProperty(
+          'cause',
+          biologyAuthNativeError,
+        );
+        expect(authenticate).toHaveBeenCalledTimes(1);
+        expect(getPassword).not.toHaveBeenCalled();
+      } finally {
+        Object.assign(platformEnv, originalPlatform);
+      }
+    },
+  );
 
   it('never substitutes a migration password for a manual prompt', () => {
     expect(

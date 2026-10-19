@@ -64,13 +64,16 @@ export interface IScene {
 }
 export const NO_LOG_OUTPUT = '$$_NO_LOG_OUTPUT_8888888';
 
+export type ILogExportScope = 'recent' | 'full';
+export const RECENT_LOG_EXPORT_BYTES = 10 * 1024 * 1024;
+export const BROWSER_LOG_MAX_BYTES = 40 * 1024 * 1024;
+
 export type ILogBundle =
   | {
-      type: 'text';
+      type: 'blob';
       fileName: string;
       mimeType: string;
       blob: Blob;
-      content: string;
     }
   | {
       type: 'file';
