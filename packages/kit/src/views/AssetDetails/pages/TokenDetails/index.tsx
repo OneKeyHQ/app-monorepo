@@ -560,10 +560,11 @@ function TokenDetailsView() {
   });
   // The default address type can change while this page sits below the
   // receive page (its address type menu). A collapsed page shows that default
-  // type, so it decides again and moves to the new one.
-  const isCollapsed = !!collapsedNetworkAccount;
+  // type, so it decides again and moves to the new one. It keeps listening
+  // while that answer is pending, so a second change in between is not missed.
+  const followsDefaultType = !!collapsedNetworkAccount || !isCollapseStateReady;
   useEffect(() => {
-    if (!isCollapsed) {
+    if (!followsDefaultType) {
       return;
     }
     const networkImpl = networkUtils.getNetworkImpl({
@@ -588,7 +589,7 @@ function TokenDetailsView() {
         onGlobalDeriveTypeUpdate,
       );
     };
-  }, [isCollapsed, collapseNetworkId]);
+  }, [followsDefaultType, collapseNetworkId]);
 
   const listViewContentContainerStyle = useMemo(() => ({ pt: '$5' }), []);
 
