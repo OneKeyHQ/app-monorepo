@@ -11,7 +11,7 @@ import {
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import type { ITabContainerRef } from '@onekeyhq/components';
+import type { IAppPagerRef } from '@onekeyhq/kit/src/components/AppPager/types';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   EJotaiContextStoreNames,
@@ -543,7 +543,7 @@ function BaseMarketHomeWithProvider({
   externalTopOverlayHeight,
 }: {
   isFocused?: boolean;
-  tabsRef?: React.RefObject<ITabContainerRef | null>;
+  tabsRef?: React.RefObject<IAppPagerRef | null>;
   nestedPager?: boolean;
   externalTopOverlayTag?: number;
   externalTopOverlayHeight?: number;
@@ -589,7 +589,7 @@ export function MarketHomeWithProvider({
   externalTopOverlayHeight,
 }: {
   isFocused?: boolean;
-  tabsRef?: React.RefObject<ITabContainerRef | null>;
+  tabsRef?: React.RefObject<IAppPagerRef | null>;
   nestedPager?: boolean;
   externalTopOverlayTag?: number;
   externalTopOverlayHeight?: number;
