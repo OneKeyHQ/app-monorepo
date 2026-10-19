@@ -25,6 +25,13 @@ let mockAnchorWidth = 80;
 let mockWindowDimensions = { width: 1024, height: 768 };
 let mockSafeAreaInsets = { top: 0, bottom: 0, left: 0, right: 0 };
 let mockDesktopPlatform: 'mac' | 'windows' | 'linux' = 'mac';
+let mockIsNative = false;
+let mockIsRTL = false;
+let mockPortalFrame = { x: 0, y: 0, width: 1024, height: 768 };
+let mockPortalLayout: (() => void) | undefined;
+let mockPortalMeasureCallbacks:
+  | ((x: number, y: number, width: number, height: number) => void)[]
+  | undefined;
 let mockMeasureCount = 0;
 let mockMeasureCallbacks:
   | ((x: number, y: number, width: number, height: number) => void)[]
@@ -32,6 +39,11 @@ let mockMeasureCallbacks:
 
 jest.mock('react-native', () => ({
   useWindowDimensions: () => mockWindowDimensions,
+  I18nManager: {
+    get isRTL() {
+      return mockIsRTL;
+    },
+  },
 }));
 const mockUpdateTourTimes = jest
   .fn<Promise<void>, [unknown]>()
@@ -58,6 +70,9 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
     isDev: false,
+    get isNative() {
+      return mockIsNative;
+    },
     get isDesktopWin() {
       return mockDesktopPlatform === 'windows';
     },
@@ -105,12 +120,14 @@ jest.mock('@onekeyhq/components', () => {
     top?: number;
     left?: number | string;
     right?: number | string;
+    end?: number;
     maxWidth?: number;
     px?: number | string;
     py?: number | string;
     pb?: number | string;
     gap?: number | string;
     borderRadius?: number | string;
+    onLayout?: () => void;
   };
   const Box = ({
     children,
@@ -121,6 +138,7 @@ jest.mock('@onekeyhq/components', () => {
     top,
     left,
     right,
+    end,
     maxWidth,
     px,
     py,
@@ -138,6 +156,7 @@ jest.mock('@onekeyhq/components', () => {
         'data-top': top,
         'data-left': left,
         'data-right': right,
+        'data-end': end,
         'data-max-width': maxWidth,
         'data-padding-x': px,
         'data-padding-y': py,
@@ -155,8 +174,21 @@ jest.mock('@onekeyhq/components', () => {
     },
     IBoxProps
   >((props, ref) => {
+    if (props.testID === 'spotlight-content') mockPortalLayout = props.onLayout;
     React.useImperativeHandle(ref, () => ({
       measureInWindow: (callback) => {
+        if (props.testID === 'spotlight-content') {
+          if (mockPortalMeasureCallbacks)
+            mockPortalMeasureCallbacks.push(callback);
+          else
+            callback(
+              mockPortalFrame.x,
+              mockPortalFrame.y,
+              mockPortalFrame.width,
+              mockPortalFrame.height,
+            );
+          return;
+        }
         mockMeasureCount += 1;
         if (mockMeasureCallbacks) mockMeasureCallbacks.push(callback);
         else callback(mockAnchorX, mockAnchorY, mockAnchorWidth, 48);
@@ -265,6 +297,11 @@ describe('Spotlight dismissal', () => {
     mockWindowDimensions = { width: 1024, height: 768 };
     mockSafeAreaInsets = { top: 0, bottom: 0, left: 0, right: 0 };
     mockDesktopPlatform = 'mac';
+    mockIsNative = false;
+    mockIsRTL = false;
+    mockPortalFrame = { x: 0, y: 0, width: 1024, height: 768 };
+    mockPortalLayout = undefined;
+    mockPortalMeasureCallbacks = undefined;
     mockMeasureCount = 0;
     mockMeasureCallbacks = undefined;
   });
@@ -857,6 +894,235 @@ describe('Spotlight dismissal', () => {
     expect(getCard().getAttribute('data-left')).toBe('402');
     expect(getCard().getAttribute('data-width')).toBe('280');
     expect(mockUpdateTourTimes).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      name: 'right detail pane',
+      x: 421.5,
+      width: 420.5,
+      anchorX: 700,
+      leftInset: 0,
+      rightInset: 0,
+      left: 80.5,
+      cardWidth: 280,
+    },
+    {
+      name: 'left detail pane in RTL',
+      x: 0,
+      width: 420.5,
+      anchorX: 300,
+      leftInset: 0,
+      rightInset: 0,
+      left: 102,
+      cardWidth: 280,
+    },
+    {
+      name: 'pane-local right overflow',
+      x: 421.5,
+      width: 420.5,
+      anchorX: 800,
+      leftInset: 0,
+      rightInset: 0,
+      left: 132.5,
+      cardWidth: 280,
+    },
+    {
+      name: 'pane-local left overflow',
+      x: 421.5,
+      width: 420.5,
+      anchorX: 430,
+      leftInset: 59,
+      rightInset: 0,
+      left: 8,
+      cardWidth: 280,
+    },
+    {
+      name: 'narrow pane with a right safe area',
+      x: 600,
+      width: 242,
+      anchorX: 740,
+      leftInset: 0,
+      rightInset: 24,
+      left: 8,
+      cardWidth: 202,
+    },
+    {
+      name: 'full-window native host',
+      x: 0,
+      width: 842,
+      anchorX: 700,
+      leftInset: 59,
+      rightInset: 59,
+      left: 495,
+      cardWidth: 280,
+    },
+  ])(
+    'uses measured portal coordinates for the $name',
+    ({ name, x, width, anchorX, leftInset, rightInset, left, cardWidth }) => {
+      mockIsNative = true;
+      mockIsRTL = name === 'left detail pane in RTL';
+      mockWindowDimensions = { width: 842, height: 390 };
+      mockPortalFrame = { x, y: 24, width, height: 366 };
+      mockAnchorX = anchorX;
+      mockAnchorY = 100;
+      mockAnchorWidth = 74;
+      mockSafeAreaInsets = {
+        top: 0,
+        bottom: 0,
+        left: leftInset,
+        right: rightInset,
+      };
+      render(
+        <SpotlightView
+          visible
+          alignCardToAnchorEnd
+          matchTriggerSize
+          cardMaxWidth={280}
+          content={<span>Update device portfolio here</span>}
+        >
+          <span>More</span>
+        </SpotlightView>,
+      );
+
+      const highlight = screen.getByTestId('spotlight-highlight');
+      const horizontalAttribute = mockIsRTL ? 'data-end' : 'data-left';
+      expect(highlight.getAttribute(horizontalAttribute)).toBe(
+        String(anchorX - x - 8),
+      );
+      expect(highlight.getAttribute('data-top')).toBe('68');
+      expect(getCard().getAttribute('data-top')).toBe('144');
+      expect(getCard().getAttribute(horizontalAttribute)).toBe(String(left));
+      if (mockIsRTL) {
+        expect(highlight.hasAttribute('data-left')).toBe(false);
+        expect(getCard().hasAttribute('data-left')).toBe(false);
+      }
+      expect(getCard().getAttribute('data-width')).toBe(String(cardWidth));
+      expect(left).toBeGreaterThanOrEqual(Math.max(0, leftInset - x) + 8);
+      expect(left + cardWidth).toBeLessThanOrEqual(
+        Math.min(width, 842 - rightInset - x) - 8,
+      );
+      expect(mockUpdateTourTimes).not.toHaveBeenCalled();
+    },
+  );
+
+  it('remeasures pane-local placement on layout changes without resizing the window', () => {
+    mockIsNative = true;
+    mockWindowDimensions = { width: 842, height: 390 };
+    mockPortalFrame = { x: 421.5, y: 0, width: 420.5, height: 390 };
+    mockAnchorX = 700;
+    mockAnchorWidth = 74;
+    render(
+      <SpotlightView
+        visible
+        alignCardToAnchorEnd
+        cardMaxWidth={280}
+        content={<span>Update device portfolio here</span>}
+      >
+        <span>More</span>
+      </SpotlightView>,
+    );
+    expect(getCard().getAttribute('data-left')).toBe('80.5');
+
+    mockPortalFrame = { x: 600, y: 0, width: 242, height: 390 };
+    mockAnchorX = 740;
+    act(() => mockPortalLayout?.());
+    expect(getCard().getAttribute('data-left')).toBe('8');
+    expect(getCard().getAttribute('data-width')).toBe('226');
+
+    mockPortalFrame = { x: 0, y: 0, width: 842, height: 390 };
+    mockAnchorX = 700;
+    act(() => mockPortalLayout?.());
+    expect(getCard().getAttribute('data-left')).toBe('502');
+    expect(getCard().getAttribute('data-width')).toBe('280');
+  });
+
+  it('waits for native portal measurement and ignores stale layout callbacks', async () => {
+    mockIsNative = true;
+    mockWindowDimensions = { width: 842, height: 390 };
+    mockAnchorX = 700;
+    mockAnchorWidth = 74;
+    mockPortalMeasureCallbacks = [];
+    const view = render(
+      <SpotlightView
+        visible
+        alignCardToAnchorEnd
+        cardMaxWidth={280}
+        content={<span>Update device portfolio here</span>}
+      >
+        <span>More</span>
+      </SpotlightView>,
+    );
+    expect(screen.queryByTestId('spotlight-card')).toBeNull();
+    expect(screen.queryByTestId('spotlight-backdrop')).toBeNull();
+    expect(mockUpdateTourTimes).not.toHaveBeenCalled();
+    const staleCallbacks = mockPortalMeasureCallbacks.splice(0);
+
+    act(() => mockPortalLayout?.());
+    const latestCallback = mockPortalMeasureCallbacks.pop();
+    expect(latestCallback).toBeDefined();
+    await act(async () => latestCallback?.(421.5, 0, 420.5, 390));
+    expect(getCard().getAttribute('data-left')).toBe('80.5');
+
+    await act(async () =>
+      staleCallbacks.forEach((callback) => callback(0, 0, 842, 390)),
+    );
+    expect(getCard().getAttribute('data-left')).toBe('80.5');
+    act(() => mockPortalLayout?.());
+    const unmountedCallback = mockPortalMeasureCallbacks.pop();
+    view.unmount();
+    await act(async () => unmountedCallback?.(0, 0, 842, 390));
+    expect(mockUpdateTourTimes).not.toHaveBeenCalled();
+  });
+
+  it('remeasures the native portal before restoring a guide interrupted by a blocker', async () => {
+    mockIsNative = true;
+    mockWindowDimensions = { width: 842, height: 390 };
+    mockPortalFrame = { x: 421.5, y: 0, width: 420.5, height: 390 };
+    mockAnchorX = 700;
+    mockAnchorWidth = 74;
+    render(
+      <SpotlightView
+        visible
+        deferUntilIdle
+        alignCardToAnchorEnd
+        cardMaxWidth={280}
+        content={<span>Update device portfolio here</span>}
+      >
+        <span>More</span>
+      </SpotlightView>,
+    );
+    expect(getCard().getAttribute('data-left')).toBe('80.5');
+
+    let release: (() => void) | undefined;
+    act(() => {
+      release = blockGuides();
+    });
+    expect(screen.queryByTestId('spotlight-content')).toBeNull();
+
+    mockPortalMeasureCallbacks = [];
+    act(() => release?.());
+    expect(screen.queryByTestId('spotlight-card')).toBeNull();
+    const callback = mockPortalMeasureCallbacks.pop();
+    expect(callback).toBeDefined();
+    await act(async () => callback?.(600, 0, 242, 390));
+    expect(getCard().getAttribute('data-left')).toBe('8');
+    expect(getCard().getAttribute('data-width')).toBe('226');
+    expect(mockUpdateTourTimes).not.toHaveBeenCalled();
+  });
+
+  it('leaves native tours without anchor-end alignment on the existing positioning path', () => {
+    mockIsNative = true;
+    mockGtMd = false;
+    mockPortalFrame = { x: 421.5, y: 24, width: 420.5, height: 366 };
+    renderView();
+
+    expect(mockPortalLayout).toBeUndefined();
+    expect(getCard().getAttribute('data-left')).toBe('$4');
+    expect(getCard().getAttribute('data-right')).toBe('$4');
+    expect(
+      screen.getByTestId('spotlight-highlight').getAttribute('data-left'),
+    ).toBe('12');
   });
 
   it('updates anchor-end alignment and restores default placement when removed', async () => {

@@ -16,7 +16,7 @@ import {
 } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
+import { I18nManager, useWindowDimensions } from 'react-native';
 
 import {
   Button,
@@ -137,9 +137,14 @@ function SpotlightContent({
   const isGuideBlocked = useIsDeferredGuideBlocked();
 
   const { gtMd } = useMedia();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const { left: safeAreaLeft, right: safeAreaRight } = useSafeAreaInsets();
   const [props, setProps] = useState(initProps);
+  const usePortalCoordinates =
+    platformEnv.isNative && props.alignCardToAnchorEnd;
+  const portalRef = useRef<IElement | null>(null);
+  const portalMeasureRequest = useRef(0);
+  const [portalFrame, setPortalFrame] = useState<IFloatingPosition>();
   const [floatingPosition, setFloatingPosition] = useState<IFloatingPosition>({
     x: 0,
     y: 0,
@@ -216,6 +221,53 @@ function SpotlightContent({
   } = props;
 
   const isRendered = floatingPosition.width > 0;
+  const hasPortalLayout =
+    !usePortalCoordinates || (portalFrame?.width ?? 0) > 0;
+  const portalX = usePortalCoordinates ? (portalFrame?.x ?? 0) : 0;
+  const portalY = usePortalCoordinates ? (portalFrame?.y ?? 0) : 0;
+  const portalWidth = usePortalCoordinates
+    ? (portalFrame?.width ?? windowWidth)
+    : windowWidth;
+  const anchorLeftProperty =
+    usePortalCoordinates && I18nManager.isRTL ? 'end' : 'left';
+  const shouldMeasurePortal =
+    usePortalCoordinates &&
+    visible &&
+    isRendered &&
+    !(deferUntilIdle && isGuideBlocked);
+  const measurePortalInWindow = useCallback(() => {
+    if (!usePortalCoordinates) return;
+    const portal = portalRef.current;
+    portalMeasureRequest.current += 1;
+    const request = portalMeasureRequest.current;
+    portal?.measureInWindow((x, y, width, height) => {
+      if (
+        request !== portalMeasureRequest.current ||
+        portal !== portalRef.current
+      )
+        return;
+      setPortalFrame((previous) =>
+        previous?.x === x &&
+        previous?.y === y &&
+        previous?.width === width &&
+        previous?.height === height
+          ? previous
+          : { x, y, width, height },
+      );
+      measureTriggerInWindow();
+    });
+  }, [measureTriggerInWindow, usePortalCoordinates]);
+
+  useLayoutEffect(() => {
+    if (shouldMeasurePortal) {
+      measurePortalInWindow();
+    } else {
+      setPortalFrame(undefined);
+    }
+    return () => {
+      portalMeasureRequest.current += 1;
+    };
+  }, [shouldMeasurePortal, measurePortalInWindow, windowHeight, windowWidth]);
 
   if (platformEnv.isDev && !isRendered) {
     console.error(
@@ -229,20 +281,27 @@ function SpotlightContent({
       floatingPosition.y +
       floatingPosition.height +
       floatingOffset +
-      childrenPaddingVertical;
+      childrenPaddingVertical -
+      portalY;
 
     if (alignCardToAnchorEnd) {
       const edgePadding = getTokenValue('$2', 'space');
-      const minLeft = safeAreaLeft + edgePadding;
-      const maxRight = windowWidth - safeAreaRight - edgePadding;
+      // Native portals can occupy a split-view pane instead of the whole window.
+      const minLeft = Math.max(0, safeAreaLeft - portalX) + edgePadding;
+      const maxRight =
+        Math.min(portalWidth, windowWidth - safeAreaRight - portalX) -
+        edgePadding;
       const availableWidth = Math.max(0, maxRight - minLeft);
       const width = Math.min(cardMaxWidth ?? availableWidth, availableWidth);
       const anchorRight =
-        floatingPosition.x + floatingPosition.width + childrenPaddingHorizontal;
+        floatingPosition.x +
+        floatingPosition.width +
+        childrenPaddingHorizontal -
+        portalX;
 
       return {
         top,
-        left: Math.max(
+        [anchorLeftProperty]: Math.max(
           minLeft,
           Math.min(anchorRight - width, maxRight - width),
         ),
@@ -272,6 +331,10 @@ function SpotlightContent({
     safeAreaLeft,
     safeAreaRight,
     windowWidth,
+    portalX,
+    portalY,
+    portalWidth,
+    anchorLeftProperty,
   ]);
 
   const handleBackPress = useCallback(() => true, []);
@@ -279,10 +342,14 @@ function SpotlightContent({
   if (visible && isRendered && !(deferUntilIdle && isGuideBlocked))
     return (
       <Stack
+        ref={usePortalCoordinates ? portalRef : undefined}
+        onLayout={usePortalCoordinates ? measurePortalInWindow : undefined}
+        collapsable={usePortalCoordinates ? false : undefined}
         testID="spotlight-content"
         transition="quick"
         animateOnly={ANIMATE_ONLY_OPACITY}
-        bg="rgba(0,0,0,0.3)"
+        bg={hasPortalLayout ? 'rgba(0,0,0,0.3)' : 'transparent'}
+        pointerEvents={hasPortalLayout ? undefined : 'none'}
         position="absolute"
         top={0}
         left={0}
@@ -293,74 +360,81 @@ function SpotlightContent({
         }}
         exitStyle={{ opacity: 0 }}
       >
-        <Stack
-          testID="spotlight-backdrop"
-          position="absolute"
-          inset={0}
-          onPress={closeOnBackdropPress ? onConfirm : undefined}
-          accessible={false}
-        />
-        <Stack
-          testID="spotlight-highlight"
-          position="absolute"
-          pointerEvents="none"
-          top={floatingPosition.y - childrenPaddingVertical}
-          left={floatingPosition.x - childrenPaddingHorizontal}
-          width={
-            matchTriggerSize
-              ? floatingPosition.width + childrenPaddingHorizontal * 2
-              : undefined
-          }
-          height={
-            matchTriggerSize
-              ? floatingPosition.height + childrenPaddingVertical * 2
-              : undefined
-          }
-          borderRadius={highlightBorderRadius ?? '$3'}
-          px={childrenPaddingHorizontal}
-          py={childrenPaddingVertical}
-          overflow="hidden"
-        >
-          {showHighlightBackground ? (
+        {hasPortalLayout ? (
+          <>
             <Stack
+              testID="spotlight-backdrop"
               position="absolute"
               inset={0}
-              bg="$bg"
-              opacity={highlightBackgroundOpacity}
+              onPress={closeOnBackdropPress ? onConfirm : undefined}
+              accessible={false}
             />
-          ) : null}
-          {children}
-        </Stack>
-        <YStack
-          testID="spotlight-card"
-          position="absolute"
-          bg="$bg"
-          px={cardPadding ?? '$4'}
-          py={cardPadding ?? '$3.5'}
-          pb={cardPaddingBottom ?? cardPadding ?? '$3.5'}
-          gap={cardGap ?? '$3.5'}
-          borderRadius={cardBorderRadius ?? '$3'}
-          outlineColor="$borderSubdued"
-          outlineStyle="solid"
-          outlineWidth="$px"
-          elevation={20}
-          {...floatingStyle}
-        >
-          <Stack>{content}</Stack>
-          <XStack jc="flex-end">
-            <Button
-              testID="spotlight-btn"
-              variant="primary"
-              borderRadius={confirmButtonBorderRadius ?? '$2'}
-              px={confirmButtonPaddingHorizontal}
-              size="small"
-              onPress={onConfirm}
+            <Stack
+              testID="spotlight-highlight"
+              position="absolute"
+              pointerEvents="none"
+              top={floatingPosition.y - portalY - childrenPaddingVertical}
+              {...{
+                [anchorLeftProperty]:
+                  floatingPosition.x - portalX - childrenPaddingHorizontal,
+              }}
+              width={
+                matchTriggerSize
+                  ? floatingPosition.width + childrenPaddingHorizontal * 2
+                  : undefined
+              }
+              height={
+                matchTriggerSize
+                  ? floatingPosition.height + childrenPaddingVertical * 2
+                  : undefined
+              }
+              borderRadius={highlightBorderRadius ?? '$3'}
+              px={childrenPaddingHorizontal}
+              py={childrenPaddingVertical}
+              overflow="hidden"
             >
-              {confirmText ??
-                intl.formatMessage({ id: ETranslations.global_done })}
-            </Button>
-          </XStack>
-        </YStack>
+              {showHighlightBackground ? (
+                <Stack
+                  position="absolute"
+                  inset={0}
+                  bg="$bg"
+                  opacity={highlightBackgroundOpacity}
+                />
+              ) : null}
+              {children}
+            </Stack>
+            <YStack
+              testID="spotlight-card"
+              position="absolute"
+              bg="$bg"
+              px={cardPadding ?? '$4'}
+              py={cardPadding ?? '$3.5'}
+              pb={cardPaddingBottom ?? cardPadding ?? '$3.5'}
+              gap={cardGap ?? '$3.5'}
+              borderRadius={cardBorderRadius ?? '$3'}
+              outlineColor="$borderSubdued"
+              outlineStyle="solid"
+              outlineWidth="$px"
+              elevation={20}
+              {...floatingStyle}
+            >
+              <Stack>{content}</Stack>
+              <XStack jc="flex-end">
+                <Button
+                  testID="spotlight-btn"
+                  variant="primary"
+                  borderRadius={confirmButtonBorderRadius ?? '$2'}
+                  px={confirmButtonPaddingHorizontal}
+                  size="small"
+                  onPress={onConfirm}
+                >
+                  {confirmText ??
+                    intl.formatMessage({ id: ETranslations.global_done })}
+                </Button>
+              </XStack>
+            </YStack>
+          </>
+        ) : null}
       </Stack>
     );
 
