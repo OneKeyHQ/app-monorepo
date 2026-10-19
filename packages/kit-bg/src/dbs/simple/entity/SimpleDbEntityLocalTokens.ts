@@ -484,21 +484,15 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
         : '',
     ].filter(Boolean);
     if (keys.length === 0) return;
-    const omit = <V>(map: Record<string, V> | undefined) => {
-      const result = { ...map };
-      keys.forEach((key) => {
-        delete result[key];
-      });
-      return result;
-    };
     await this.setRawData((rawData) => ({
       data: rawData?.data ?? {},
-      tokenList: omit(rawData?.tokenList),
-      smallBalanceTokenList: omit(rawData?.smallBalanceTokenList),
-      riskyTokenList: omit(rawData?.riskyTokenList),
-      tokenListMap: omit(rawData?.tokenListMap),
-      tokenListValue: omit(rawData?.tokenListValue),
-      tokenListCurrency: omit(rawData?.tokenListCurrency),
+      tokenList: omit(rawData?.tokenList, keys),
+      smallBalanceTokenList: omit(rawData?.smallBalanceTokenList, keys),
+      riskyTokenList: omit(rawData?.riskyTokenList, keys),
+      tokenListMap: omit(rawData?.tokenListMap, keys),
+      tokenListValue: omit(rawData?.tokenListValue, keys),
+      tokenListCurrency: omit(rawData?.tokenListCurrency, keys),
+      tokenListHasAssets: omit(rawData?.tokenListHasAssets, keys),
     }));
   }
 
