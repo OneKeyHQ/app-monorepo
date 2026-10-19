@@ -5,6 +5,7 @@ import { act, render } from '@testing-library/react-native';
 import * as jsxRuntime from 'react/jsx-runtime';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
+import { useAppPager } from '@onekeyhq/kit/src/components/AppPager/context';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
@@ -17,6 +18,7 @@ import type { ISpotlightScrollState } from '../../../components/Spotlight/Spotli
 import type { LayoutChangeEvent } from 'react-native';
 
 let mockRenderParentHeader = false;
+let mockRenderPageDescendants = false;
 let mockMountedPageLifecycle = false;
 let mockReadyWithMapping = false;
 let mockEmitCapabilityOnMount = false;
@@ -40,6 +42,8 @@ jest.mock('@onekeyhq/kit/src/components/AppPager/useAppPagerController', () => {
   };
 });
 const mockSetPage = jest.fn();
+const mockScrollToPageTop = jest.fn();
+const mockNativeHostSessions: object[] = [];
 const mockSetPageWithoutAnimation = jest.fn();
 const mockHeaderHeightCommits: number[] = [];
 const mockNativeEvents: {
@@ -111,6 +115,10 @@ jest.mock('react-native-pager-view', () => ({
     const { useImperativeHandle, useLayoutEffect, useRef } =
       jest.requireActual<typeof import('react')>('react');
     const mountSignature = useRef('');
+    const hostSession = useRef({});
+    useLayoutEffect(() => {
+      mockNativeHostSessions.push(hostSession.current);
+    }, []);
     useLayoutEffect(() => {
       if (mockEmitCapabilityOnMount) {
         events.onScrollEdgeCapability?.({ nativeEvent: { available: true } });
@@ -141,7 +149,15 @@ jest.mock('react-native-pager-view', () => ({
     useImperativeHandle(ref, () => ({
       setPage: mockSetPage,
       setPageWithoutAnimation: mockSetPageWithoutAnimation,
+      scrollToPageTop: mockScrollToPageTop,
     }));
+    if (mockRenderPageDescendants)
+      return (
+        <>
+          {events.header}
+          {events.children}
+        </>
+      );
     return mockRenderParentHeader ? (
       <>
         {events.header}
@@ -993,6 +1009,41 @@ describe('HomePageView complete header authority', () => {
     );
   });
 
+  it('remounts the native host and its panes only when the account owner changes, keeping the selected business tab', () => {
+    mockRenderPageDescendants = true;
+    try {
+      const screen = renderParent();
+      const initialHost = mockNativeHostSessions.at(-1);
+      const initialProps = screen.UNSAFE_getByType(HomeNativePager)
+        .props as React.ComponentProps<typeof HomeNativePager>;
+      const historyIndex = initialProps.tabs.findIndex(
+        (tab) => tab.id === EHomeWalletTab.History,
+      );
+      expect(historyIndex).toBeGreaterThanOrEqual(0);
+      act(() =>
+        mockNativeEvents.onPageSelected?.({
+          nativeEvent: { position: historyIndex },
+        }),
+      );
+      const selectedName = initialProps.tabs[historyIndex].name;
+      screen.rerender(<HomePage sceneName={EAccountSelectorSceneName.home} />);
+      expect(mockNativeHostSessions.at(-1)).toBe(initialHost);
+      accountId = 'replacement-account';
+      screen.rerender(<HomePage sceneName={EAccountSelectorSceneName.home} />);
+      const replacementHost = mockNativeHostSessions.at(-1);
+      expect(replacementHost).not.toBe(initialHost);
+      expect(
+        screen.UNSAFE_getByType(HomeNativePager).props.initialTabName,
+      ).toBe(selectedName);
+      accountId = 'test-account';
+      screen.rerender(<HomePage sceneName={EAccountSelectorSceneName.home} />);
+      expect(mockNativeHostSessions.at(-1)).not.toBe(initialHost);
+      expect(mockNativeHostSessions.at(-1)).not.toBe(replacementHost);
+    } finally {
+      mockRenderPageDescendants = false;
+    }
+  });
+
   it('keeps the fixed overlay on the first committed frame of an account switch', () => {
     Object.assign(parentPlatform, {
       isNative: true,
@@ -1407,4 +1458,64 @@ it('keeps native Home controller inputs stable on unrelated renders and updates 
   );
   expect(mockControllerInputs.at(-1)!.pages[0].name).toBe('Renamed');
   expect(ref.current?.getFocusedTab()).toBe('Renamed');
+});
+
+describe('native Home shared pager context', () => {
+  const readings: Record<string, ReturnType<typeof useAppPager>> = {};
+  function Probe({ slot }: { slot: string }) {
+    readings[slot] = useAppPager();
+    return null;
+  }
+  beforeEach(() => {
+    mockRenderPageDescendants = true;
+    mockScrollToPageTop.mockClear();
+  });
+  afterEach(() => {
+    mockRenderPageDescendants = false;
+  });
+  it('provides the accepted focused name to the header and panes with a real active-page top command', () => {
+    const tabs = [
+      {
+        id: EHomeWalletTab.Portfolio,
+        name: 'Spot',
+        component: <Probe slot="spot" />,
+      },
+      {
+        id: EHomeWalletTab.History,
+        name: 'History',
+        component: <Probe slot="history" />,
+      },
+    ];
+    const screen = render(
+      <HomeNativePager
+        {...headerTestProps}
+        tabs={tabs}
+        initialTabName="History"
+        renderHeader={() => <Probe slot="header" />}
+      />,
+    );
+    expect(readings.header.focusedName).toBe('History');
+    expect(readings.history.focusedName).toBe('History');
+    act(() =>
+      mockNativeEvents.onPageSelected?.({ nativeEvent: { position: 0 } }),
+    );
+    expect(readings.header.focusedName).toBe('Spot');
+    expect(readings.spot.focusedName).toBe('Spot');
+    act(() => readings.spot.scrollToTop());
+    expect(mockScrollToPageTop).toHaveBeenCalledTimes(1);
+    expect(mockScrollToPageTop).toHaveBeenCalledWith({ animated: false });
+    screen.rerender(
+      <HomeNativePager
+        {...headerTestProps}
+        tabs={[{ ...tabs[1], name: 'Activity' }, tabs[0]]}
+        initialTabName="History"
+        renderHeader={() => <Probe slot="header" />}
+      />,
+    );
+    expect(readings.header.focusedName).toBe('Spot');
+    act(() =>
+      mockNativeEvents.onPageSelected?.({ nativeEvent: { position: 0 } }),
+    );
+    expect(readings.header.focusedName).toBe('Activity');
+  });
 });

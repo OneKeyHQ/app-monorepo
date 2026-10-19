@@ -200,7 +200,7 @@ const aptosScriptComposerNativeStub = path.resolve(
 // prefers even for native bundles. Pin native resolution to its native entry.
 const nativePagerViewEntry = path.resolve(
   monorepoRoot,
-  'node_modules/react-native-pager-view/lib/module/index.js',
+  'node_modules/react-native-pager-view/lib/module/index.native.js',
 );
 
 // Ledger DMK packages only declare `exports` (no `main`). With

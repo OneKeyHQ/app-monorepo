@@ -14,6 +14,7 @@ import {
 } from 'react-native-pager-view';
 
 import { useTheme, useThemeName } from '@onekeyhq/components';
+import { AppPagerContext } from '@onekeyhq/kit/src/components/AppPager/context';
 import { useAppPagerController } from '@onekeyhq/kit/src/components/AppPager/useAppPagerController';
 
 import { SpotlightScrollStateContext } from '../../../components/Spotlight/SpotlightScrollStateContext';
@@ -119,6 +120,7 @@ export function HomeNativePager({
   });
   const {
     initialIndex,
+    focusedName,
     selectedIndex,
     selectedIndexRef,
     focusedTab,
@@ -140,6 +142,14 @@ export function HomeNativePager({
     }),
     [jumpToTab, setIndex, getCurrentIndex, getFocusedTab, syncCurrentPage],
   );
+  // Explicit top requests affect the active pane; owner changes remount all panes.
+  const scrollToTop = useCallback(() => {
+    pagerRef.current?.scrollToPageTop({ animated: false });
+  }, []);
+  const pagerContext = useMemo(
+    () => ({ focusedName, scrollToTop }),
+    [focusedName, scrollToTop],
+  );
   const pageIdentity = JSON.stringify(tabs.map((tab) => tab.id));
 
   const pageContexts = useMemo(
@@ -155,153 +165,155 @@ export function HomeNativePager({
     [focusedTab, indexDecimal, jumpToTab],
   );
   return (
-    <CollapsiblePagerView
-      ref={pagerRef}
-      style={{ flex: 1, backgroundColor: theme.bgApp.val }}
-      initialPage={initialIndex}
-      nestedScrollEnabled
-      nativeSmoothHeaderScrollEnabled
-      topScrollEdgeEffect={topOverlay ? ScrollEdgeEffect.Hard : undefined}
-      topOverlayColorScheme={topOverlay ? themeName : undefined}
-      topOverlay={topOverlay}
-      onScrollEdgeCapability={(event) => {
-        const session = capabilitySessionRef.current;
-        if (!session.active && session.mounted) return;
-        session.lastAvailable = event.nativeEvent.available;
-        if (session.active) {
-          capabilityCallbackRef.current?.(event.nativeEvent.available);
+    <AppPagerContext.Provider value={pagerContext}>
+      <CollapsiblePagerView
+        ref={pagerRef}
+        style={{ flex: 1, backgroundColor: theme.bgApp.val }}
+        initialPage={initialIndex}
+        nestedScrollEnabled
+        nativeSmoothHeaderScrollEnabled
+        topScrollEdgeEffect={topOverlay ? ScrollEdgeEffect.Hard : undefined}
+        topOverlayColorScheme={topOverlay ? themeName : undefined}
+        topOverlay={topOverlay}
+        onScrollEdgeCapability={(event) => {
+          const session = capabilitySessionRef.current;
+          if (!session.active && session.mounted) return;
+          session.lastAvailable = event.nativeEvent.available;
+          if (session.active) {
+            capabilityCallbackRef.current?.(event.nativeEvent.available);
+          }
+        }}
+        headerHeight={headerLayout.height}
+        stickyHeaderHeight={stickyHeight}
+        // Spot remains the owner of shared asset loading even while offscreen.
+        pageRetentionDistance={tabs.length}
+        offscreenPageLimit={Math.max(1, tabs.length - 1)}
+        header={
+          <View
+            onLayout={(event) => {
+              const height = Math.ceil(event.nativeEvent.layout.height);
+              setHeaderLayout((current) =>
+                current.generation === headerLayout.generation
+                  ? { ...current, height }
+                  : current,
+              );
+            }}
+          >
+            <SpotlightScrollStateContext.Provider
+              value={
+                spotlightScrollState?.pageIdentity === pageIdentity &&
+                spotlightScrollState.pageKey ===
+                  mountedPageKeysRef.current?.keys[selectedIndex]
+                  ? spotlightScrollState
+                  : null
+              }
+            >
+              {renderHeader()}
+            </SpotlightScrollStateContext.Provider>
+          </View>
         }
-      }}
-      headerHeight={headerLayout.height}
-      stickyHeaderHeight={stickyHeight}
-      // Spot remains the owner of shared asset loading even while offscreen.
-      pageRetentionDistance={tabs.length}
-      offscreenPageLimit={Math.max(1, tabs.length - 1)}
-      header={
-        <View
-          onLayout={(event) => {
-            const height = Math.ceil(event.nativeEvent.layout.height);
-            setHeaderLayout((current) =>
-              current.generation === headerLayout.generation
-                ? { ...current, height }
-                : current,
-            );
-          }}
-        >
-          <SpotlightScrollStateContext.Provider
-            value={
-              spotlightScrollState?.pageIdentity === pageIdentity &&
-              spotlightScrollState.pageKey ===
-                mountedPageKeysRef.current?.keys[selectedIndex]
-                ? spotlightScrollState
-                : null
+        stickyHeader={
+          <View
+            style={{
+              backgroundColor: topEdgeActive ? 'transparent' : theme.bgApp.val,
+            }}
+            onLayout={(event) =>
+              setStickyHeight(Math.ceil(event.nativeEvent.layout.height))
             }
           >
-            {renderHeader()}
-          </SpotlightScrollStateContext.Provider>
-        </View>
-      }
-      stickyHeader={
-        <View
-          style={{
-            backgroundColor: topEdgeActive ? 'transparent' : theme.bgApp.val,
-          }}
-          onLayout={(event) =>
-            setStickyHeight(Math.ceil(event.nativeEvent.layout.height))
+            {renderTabBar({ ...tabBarProps, topEdgeActive })}
+          </View>
+        }
+        onMountedPagesChanged={({ pageKeys }) => {
+          const previous = mountedPageKeysRef.current;
+          if (
+            previous?.pageIdentity !== pageIdentity ||
+            previous.keys.length !== pageKeys.length ||
+            previous.keys.some((key, index) => key !== pageKeys[index])
+          ) {
+            setSpotlightScrollState(null);
           }
-        >
-          {renderTabBar({ ...tabBarProps, topEdgeActive })}
-        </View>
-      }
-      onMountedPagesChanged={({ pageKeys }) => {
-        const previous = mountedPageKeysRef.current;
-        if (
-          previous?.pageIdentity !== pageIdentity ||
-          previous.keys.length !== pageKeys.length ||
-          previous.keys.some((key, index) => key !== pageKeys[index])
-        ) {
-          setSpotlightScrollState(null);
-        }
-        mountedPageKeysRef.current = { pageIdentity, keys: pageKeys };
-      }}
-      onCollapsibleStateChanged={({ nativeEvent }) => {
-        const mounted = mountedPageKeysRef.current;
-        if (
-          mounted?.pageIdentity !== pageIdentity ||
-          nativeEvent.position !== selectedIndexRef.current ||
-          mounted.keys[nativeEvent.position] !== nativeEvent.pageKey
-        )
-          return;
-        const settled = nativeEvent.headerSettledAtTop;
-        setSpotlightScrollState((previous) =>
-          previous?.pageIdentity === pageIdentity &&
-          previous.pageKey === nativeEvent.pageKey &&
-          previous.headerSettledAtTop === settled
-            ? previous
-            : {
-                pageIdentity,
-                pageKey: nativeEvent.pageKey,
-                headerSettledAtTop: settled,
-              },
-        );
-      }}
-      onPageScroll={({ nativeEvent }) => {
-        const progress = nativeEvent.position + nativeEvent.offset;
-        if (followsPageScrollRef.current) {
-          indexDecimal.value = progress;
-        }
-        const drag = dragRef.current;
-        if (drag && progress !== drag.startIndex) {
-          const targetIndex =
-            drag.startIndex + (progress > drag.startIndex ? 1 : -1);
-          const target = tabs[targetIndex];
-          if (target && !drag.preparedIndices.has(targetIndex)) {
-            drag.preparedIndices.add(targetIndex);
-            debugPerpsChain('pager.prepare', {
-              index: targetIndex,
-              progress,
-              selectedIndex: selectedIndexRef.current,
+          mountedPageKeysRef.current = { pageIdentity, keys: pageKeys };
+        }}
+        onCollapsibleStateChanged={({ nativeEvent }) => {
+          const mounted = mountedPageKeysRef.current;
+          if (
+            mounted?.pageIdentity !== pageIdentity ||
+            nativeEvent.position !== selectedIndexRef.current ||
+            mounted.keys[nativeEvent.position] !== nativeEvent.pageKey
+          )
+            return;
+          const settled = nativeEvent.headerSettledAtTop;
+          setSpotlightScrollState((previous) =>
+            previous?.pageIdentity === pageIdentity &&
+            previous.pageKey === nativeEvent.pageKey &&
+            previous.headerSettledAtTop === settled
+              ? previous
+              : {
+                  pageIdentity,
+                  pageKey: nativeEvent.pageKey,
+                  headerSettledAtTop: settled,
+                },
+          );
+        }}
+        onPageScroll={({ nativeEvent }) => {
+          const progress = nativeEvent.position + nativeEvent.offset;
+          if (followsPageScrollRef.current) {
+            indexDecimal.value = progress;
+          }
+          const drag = dragRef.current;
+          if (drag && progress !== drag.startIndex) {
+            const targetIndex =
+              drag.startIndex + (progress > drag.startIndex ? 1 : -1);
+            const target = tabs[targetIndex];
+            if (target && !drag.preparedIndices.has(targetIndex)) {
+              drag.preparedIndices.add(targetIndex);
+              debugPerpsChain('pager.prepare', {
+                index: targetIndex,
+                progress,
+                selectedIndex: selectedIndexRef.current,
+              });
+              onTabPrepare?.({ tabId: target.id });
+            }
+          }
+        }}
+        onPageScrollStateChanged={({ nativeEvent }) => {
+          if (nativeEvent.pageScrollState !== 'idle')
+            setSpotlightScrollState(null);
+          if (nativeEvent.pageScrollState === 'dragging') {
+            followsPageScrollRef.current = true;
+            dragRef.current = {
+              startIndex: selectedIndexRef.current,
+              preparedIndices: new Set(),
+            };
+            debugPerpsChain('pager.drag.start', {
+              index: selectedIndexRef.current,
             });
-            onTabPrepare?.({ tabId: target.id });
+          } else if (nativeEvent.pageScrollState === 'idle') {
+            debugPerpsChain('pager.drag.end', {
+              index: selectedIndexRef.current,
+            });
+            dragRef.current = null;
           }
-        }
-      }}
-      onPageScrollStateChanged={({ nativeEvent }) => {
-        if (nativeEvent.pageScrollState !== 'idle')
+        }}
+        onPageSelected={({ nativeEvent }) => {
+          debugPerpsChain('pager.selected.receive', {
+            index: nativeEvent.position,
+          });
+          const tab = tabs[nativeEvent.position];
+          if (!tab) return;
           setSpotlightScrollState(null);
-        if (nativeEvent.pageScrollState === 'dragging') {
-          followsPageScrollRef.current = true;
-          dragRef.current = {
-            startIndex: selectedIndexRef.current,
-            preparedIndices: new Set(),
-          };
-          debugPerpsChain('pager.drag.start', {
-            index: selectedIndexRef.current,
-          });
-        } else if (nativeEvent.pageScrollState === 'idle') {
-          debugPerpsChain('pager.drag.end', {
-            index: selectedIndexRef.current,
-          });
-          dragRef.current = null;
-        }
-      }}
-      onPageSelected={({ nativeEvent }) => {
-        debugPerpsChain('pager.selected.receive', {
-          index: nativeEvent.position,
-        });
-        const tab = tabs[nativeEvent.position];
-        if (!tab) return;
-        setSpotlightScrollState(null);
-        controller.selectIndex(nativeEvent.position);
-      }}
-    >
-      {tabs.map((tab, index) => (
-        <View key={tab.id} collapsable={false} style={{ flex: 1 }}>
-          <HomeNativeTabContext.Provider value={pageContexts[index]}>
-            {tab.component}
-          </HomeNativeTabContext.Provider>
-        </View>
-      ))}
-    </CollapsiblePagerView>
+          controller.selectIndex(nativeEvent.position);
+        }}
+      >
+        {tabs.map((tab, index) => (
+          <View key={tab.id} collapsable={false} style={{ flex: 1 }}>
+            <HomeNativeTabContext.Provider value={pageContexts[index]}>
+              {tab.component}
+            </HomeNativeTabContext.Provider>
+          </View>
+        ))}
+      </CollapsiblePagerView>
+    </AppPagerContext.Provider>
   );
 }
