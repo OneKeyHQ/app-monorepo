@@ -243,6 +243,23 @@ describe('StockTokenVariantSelector', () => {
     mockStockDetailState.portfolioNetworkId = mockVariants[0].networkId;
   });
 
+  it.each([false, true])(
+    'pins bStocks before other issuers, compact=%s',
+    (compact) => {
+      mockStockDetailState.tokenVariants = [mockVariants[1], mockVariants[0]];
+      render(<StockTokenVariantSelector compact={compact} />);
+      expect(
+        within(screen.getByTestId('stock-token-variant-row-0')).getByText(
+          'AAPLb',
+        ),
+      ).toBeTruthy();
+      fireEvent.click(screen.getByTestId('stock-token-variant-row-1'));
+      expect(setSelectedTokenIdMock).toHaveBeenCalledWith(
+        mockVariants[1].tokenId,
+      );
+    },
+  );
+
   it('renders backend variants and selects a token by tokenId', () => {
     render(
       <StockTokenVariantSelector
