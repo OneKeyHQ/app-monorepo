@@ -41,7 +41,10 @@ import {
 } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
-import { useDeriveTypesCollapseState } from '@onekeyhq/kit/src/hooks/useDeriveTypesCollapseState';
+import {
+  canDeriveTypesCollapse,
+  useDeriveTypesCollapseState,
+} from '@onekeyhq/kit/src/hooks/useDeriveTypesCollapseState';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { openTokenDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import type {
@@ -558,11 +561,13 @@ function TokenDetailsView() {
     enabled: !!indexedAccountId,
     revision: collapseRevision,
   });
-  // The default address type can change while this page sits below the
-  // receive page (its address type menu). A collapsed page shows that default
-  // type, so it decides again and moves to the new one. It keeps listening
-  // while that answer is pending, so a second change in between is not missed.
-  const followsDefaultType = !!collapsedNetworkAccount || !isCollapseStateReady;
+  // The default address type can change while this page is open, e.g. from
+  // the address type menu of the receive page above it. Whether the account
+  // collapses depends on that default, so the page decides again on every
+  // change, collapsed or not, even while the previous decision is pending.
+  const followsDefaultType =
+    !!indexedAccountId &&
+    canDeriveTypesCollapse({ networkId: collapseNetworkId, walletId });
   useEffect(() => {
     if (!followsDefaultType) {
       return;
