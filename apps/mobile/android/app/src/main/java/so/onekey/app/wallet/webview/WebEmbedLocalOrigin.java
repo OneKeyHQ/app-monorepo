@@ -9,12 +9,13 @@ import android.webkit.WebView;
 import androidx.annotation.Nullable;
 import androidx.webkit.WebViewAssetLoader;
 
-import com.reactnativecommunity.webview.RNCWebViewClient;
-
+import com.margelo.nitro.reactnativebundleupdate.BundleUpdateStoreAndroid;
 import com.reactnativecommunity.webview.RNCWebView;
+import com.reactnativecommunity.webview.RNCWebViewClient;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.IOException;
 
 /**
  * Serves the local web-embed page from a virtual https origin.
@@ -46,9 +47,38 @@ public final class WebEmbedLocalOrigin implements RNCWebViewClient.RequestInterc
         .setDomain(HOST)
         // Only the web-embed subtree of APK assets.
         .addPathHandler("/web-embed/", path -> isInsideSubtree(path) ? assets.handle(ASSET_SUBDIR + path) : null)
-        // Verified hot-update bundles: <filesDir>/onekey-bundle/<version>/web-embed/...
-        .addPathHandler("/bundle/", new WebViewAssetLoader.InternalStoragePathHandler(app, new File(app.getFilesDir(), BUNDLE_DIR)))
+        .addPathHandler("/bundle/", path -> loadBundleAsset(app, path))
         .build();
+  }
+
+  @Nullable
+  private static WebResourceResponse loadBundleAsset(Context context, String path) {
+    if (!isInsideSubtree(path)) {
+      return null;
+    }
+    // Use the same native verification as the JS entry URL. Never expose the
+    // whole update directory, including other versions and JS entry bundles.
+    String verifiedPath = BundleUpdateStoreAndroid.INSTANCE.getWebEmbedPath(context);
+    if (verifiedPath.isEmpty()) {
+      return null;
+    }
+    try {
+      File webEmbedDir = new File(verifiedPath).getCanonicalFile();
+      File versionDir = webEmbedDir.getParentFile();
+      File bundleDir = new File(context.getFilesDir(), BUNDLE_DIR).getCanonicalFile();
+      if (!webEmbedDir.getName().equals("web-embed") || versionDir == null
+          || !bundleDir.equals(versionDir.getParentFile())) {
+        return null;
+      }
+      String prefix = versionDir.getName() + "/web-embed/";
+      if (!path.startsWith(prefix)) {
+        return null;
+      }
+      return new WebViewAssetLoader.InternalStoragePathHandler(context, webEmbedDir)
+          .handle(path.substring(prefix.length()));
+    } catch (IOException ignored) {
+      return null;
+    }
   }
 
   /** Call once from Application.onCreate of the process that hosts WebViews. */
