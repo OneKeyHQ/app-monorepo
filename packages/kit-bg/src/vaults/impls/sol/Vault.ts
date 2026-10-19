@@ -95,6 +95,7 @@ import type {
   ISolanaTxDiagnosticContext,
 } from '@onekeyhq/shared/types/solanaTxDiagnostics';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
+import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import {
   EDecodedTxActionType,
@@ -127,6 +128,7 @@ import {
 } from './sdkSol/bubblegum';
 import { ClientCustomRpcSol } from './sdkSol/ClientCustomRpcSol';
 import ClientSol, { EParamsEncodings } from './sdkSol/ClientSol';
+import { getSolanaSwapRent } from './solanaRentUtils';
 import {
   inspectSolTxDiagnostic,
   withSolTxDiagnosticBlockhash,
@@ -1538,16 +1540,10 @@ export default class Vault extends VaultBase {
     },
   );
 
-  async _extractATADetailsFromEncodedTx(
-    encodedTx: IEncodedTxSol,
+  async _extractATADetailsFromInstructions(
+    instructions: TransactionInstruction[],
   ): Promise<IATADetails[]> {
     const ataDetails: IATADetails[] = [];
-    const nativeTx = parseToNativeTx(encodedTx) as INativeTxSol;
-    const client = await this.getClient();
-    const { instructions } = await parseNativeTxDetail({
-      nativeTx,
-      client,
-    });
 
     // Track ATAs created in this transaction for quick lookup
     const createdAta: Record<string, IATADetails> = {};
@@ -2024,8 +2020,17 @@ export default class Vault extends VaultBase {
       }
     }
 
-    // Extract ATA details from the encoded transaction for hardware signing
-    const ataDetails = await this._extractATADetailsFromEncodedTx(newEncodedTx);
+    const client = await this.getClient();
+    const { instructions } = await parseNativeTxDetail({
+      nativeTx: parseToNativeTx(newEncodedTx) as INativeTxSol,
+      client,
+    });
+    const ataDetails =
+      await this._extractATADetailsFromInstructions(instructions);
+    const solanaRent =
+      swapInfo && swapInfo.protocol !== EProtocolOfExchange.PRIVATE_SEND
+        ? await getSolanaSwapRent({ instructions, accountAddress, client })
+        : undefined;
 
     return {
       payload: {
@@ -2033,6 +2038,7 @@ export default class Vault extends VaultBase {
         ataDetails: ataDetails.length > 0 ? ataDetails : undefined,
       },
       encodedTx: newEncodedTx,
+      solanaRent,
     };
   }
 
