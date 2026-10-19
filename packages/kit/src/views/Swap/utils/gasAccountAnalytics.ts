@@ -193,7 +193,11 @@ export function buildDirectSwapGasAccountAnalyticsContext({
     estimatedGasNative: originalTotalNative ?? totalNative,
     nativeBalance,
     nativePrincipal,
-    extraFeeNative: getNativeOtherFeeAmount({ networkId, unsignedTx }),
+    extraFeeNative: new BigNumber(
+      getNativeOtherFeeAmount({ networkId, unsignedTx }),
+    )
+      .plus(unsignedTx.solanaRent ?? 0)
+      .toFixed(),
     nativeTokenPrice: gasInfo.common.nativeTokenPrice,
     fiatCurrency,
     tokenPrincipalInsufficient: false,

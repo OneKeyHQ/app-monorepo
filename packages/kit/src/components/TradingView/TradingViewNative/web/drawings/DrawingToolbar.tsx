@@ -13,6 +13,8 @@ import type {
   SelectHTMLAttributes,
 } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   ButtonFrame,
@@ -30,6 +32,7 @@ import type {
   ISizableTextProps,
   IXStackProps,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { TRADING_VIEW_DRAWING_ICONS } from './icons';
 import {
@@ -343,8 +346,10 @@ function LineStyleControls({
 
 export function DrawingToolbar({
   controller,
+  mainChartBottomInset,
 }: {
   controller: IChartDrawingsController;
+  mainChartBottomInset: number;
 }) {
   const theme = useTheme();
   const fontSizeControlId = useId();
@@ -360,7 +365,11 @@ export function DrawingToolbar({
   } | null>(null);
   const [propertiesPosition, setPropertiesPosition] =
     useState<IPropertiesPosition>({ left: 62, top: 8 });
+  const intl = useIntl();
   const [collapsed, setCollapsed] = useState(false);
+  const toggleToolbarLabel = intl.formatMessage({
+    id: collapsed ? ETranslations.global_expand : ETranslations.global_collapse,
+  });
   const [positionExpanded, setPositionExpanded] = useState(false);
   const [menu, setMenu] = useState<string | null>(null);
   const [lastTools, setLastTools] = useState<Record<string, IDrawingTool>>({
@@ -607,7 +616,7 @@ export function DrawingToolbar({
       role="group"
       aria-label="Chart drawings"
       position="static"
-      width={collapsed ? 18 : 48}
+      width={collapsed ? 0 : 48}
       flexShrink={0}
       borderRightWidth={collapsed ? 0 : 1}
       borderColor="$borderSubdued"
@@ -751,7 +760,7 @@ export function DrawingToolbar({
       <Stack
         position="absolute"
         left={collapsed ? 10 : 39}
-        bottom={32}
+        bottom={mainChartBottomInset + 8}
         width={16}
         height={32}
         borderRadius="$full"
@@ -760,12 +769,8 @@ export function DrawingToolbar({
       >
         <IconButton
           testID="chart-drawing-toolbar-toggle"
-          aria-label={
-            collapsed ? 'Expand drawing toolbar' : 'Collapse drawing toolbar'
-          }
-          title={
-            collapsed ? 'Expand drawing toolbar' : 'Collapse drawing toolbar'
-          }
+          aria-label={toggleToolbarLabel}
+          title={toggleToolbarLabel}
           aria-expanded={!collapsed}
           icon={
             collapsed ? 'ChevronRightSmallOutline' : 'ChevronLeftSmallOutline'

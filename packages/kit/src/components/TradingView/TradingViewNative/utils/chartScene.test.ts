@@ -10,12 +10,19 @@ import {
 } from '../chartConstants';
 
 import { buildTradingViewNativeIndicatorSeries } from './chartIndicators';
-import { formatTradingViewNativeCrosshairTime } from './chartLayout';
+import {
+  formatTradingViewNativeCrosshairTime,
+  getTradingViewNativeChartWidth,
+  getTradingViewNativePriceY,
+} from './chartLayout';
 import {
   buildTradingViewNativeChartScene,
   getTradingViewNativeChartScenePaintStyles,
 } from './chartScene';
-import { getTradingViewNativeCandleX } from './chartViewport';
+import {
+  getTradingViewNativeCandleX,
+  getTradingViewNativeVisiblePointRange,
+} from './chartViewport';
 import {
   createTradingViewNativeSubIndicatorRenderSnapshot,
   createTradingViewNativeSubIndicatorRenderSnapshots,
@@ -46,6 +53,133 @@ function buildLinearPoints(count: number): IMarketTokenKLineDataPoint[] {
 }
 
 describe('TradingViewNative shared chart scene', () => {
+  it.each([
+    { offset: 0, zoomScale: 1, width: 840 },
+    { offset: 57, zoomScale: 1.25, width: 840 },
+    { offset: 0, zoomScale: 1, width: 840.5 },
+    { offset: 57, zoomScale: 1.25, width: 840.5 },
+  ])(
+    'extends the left edge without moving existing candles (%p)',
+    ({ width, ...viewport }) => {
+      const toolbarWidth = 48;
+      const priceAxisWidth = 60;
+      const referenceWidth = getTradingViewNativeChartWidth(
+        width,
+        priceAxisWidth,
+      );
+      const points = buildLinearPoints(200);
+      const state = {
+        ...viewport,
+        initialRightOffset: {
+          type: 'chartWidthPercentage' as const,
+          value: 5,
+          referenceWidth,
+        },
+      };
+      const autoScalePointRange = getTradingViewNativeVisiblePointRange({
+        ...state,
+        chartWidth: referenceWidth,
+        pointCount: points.length,
+      });
+      // An extreme in the newly revealed area must not move existing candles.
+      points[autoScalePointRange.startIndex] = {
+        ...points[autoScalePointRange.startIndex],
+        h: 1000,
+        v: 10_000,
+      };
+      const buildScene = (canvasWidth: number) =>
+        buildTradingViewNativeChartScene({
+          autoScalePointRange,
+          candleIntervalSeconds: 3600,
+          candleLabels: CANDLE_LABELS,
+          chartSettings: createTradingViewNativeChartSettings(),
+          chartType: 'candlestick',
+          crosshair: { visible: false, x: 0, y: 0 },
+          hasVolume: true,
+          height: 400,
+          measureTextWidth: (text) => text.length * 6,
+          points,
+          priceAxisWidth,
+          viewport: state,
+          watermarkOpacity: 0.16,
+          width: canvasWidth,
+        });
+      const narrow = buildScene(width - toolbarWidth);
+      const wide = buildScene(width);
+      expect(wide.visiblePointRange.startIndex).toBeLessThan(
+        narrow.visiblePointRange.startIndex,
+      );
+      expect(wide.visiblePointRange.endIndex).toBe(
+        narrow.visiblePointRange.endIndex,
+      );
+      expect(narrow.autoPriceRange).toEqual(wide.autoPriceRange);
+      expect(narrow.autoPriceRange?.maxPrice).toBe(1000);
+      expect(narrow.layout?.maxVolume).toBe(wide.layout?.maxVolume);
+      expect(narrow.viewport).toEqual(wide.viewport);
+      const candleBodies = (scene: ReturnType<typeof buildScene>) =>
+        scene.commands.flatMap((command) =>
+          command.kind === 'rect' &&
+          command.customPaintId?.startsWith('chart.candle.body.')
+            ? [command]
+            : [],
+        );
+      const existingWideBodies = candleBodies(wide).slice(
+        narrow.visiblePointRange.startIndex - wide.visiblePointRange.startIndex,
+      );
+      const narrowBodies = candleBodies(narrow);
+      expect(narrowBodies.length).toBeGreaterThan(0);
+      expect(existingWideBodies).toHaveLength(narrowBodies.length);
+      narrowBodies.forEach((body, index) => {
+        expect(body.x + toolbarWidth).toBeCloseTo(existingWideBodies[index].x);
+        expect(body.y).toBe(existingWideBodies[index].y);
+        expect(body.width).toBe(existingWideBodies[index].width);
+        expect(body.height).toBe(existingWideBodies[index].height);
+      });
+    },
+  );
+
+  it.each(['linear', 'logarithmic'] as const)(
+    'keeps a pinned crosshair at its price when the %s range changes',
+    (priceScaleMode) => {
+      const lines = [
+        { minPrice: 90, maxPrice: 110 },
+        { minPrice: 90, maxPrice: 130 },
+        { minPrice: 110, maxPrice: 140 },
+      ].map((pinnedPriceRange) => {
+        const scene = buildTradingViewNativeChartScene({
+          candleIntervalSeconds: 3600,
+          chartType: 'candlestick',
+          crosshair: { visible: true, x: 120, y: 17, price: 101 },
+          hasVolume: false,
+          height: 240,
+          measureTextWidth: (text) => text.length * 6,
+          candleLabels: CANDLE_LABELS,
+          points: POINTS,
+          pinnedPriceRange,
+          priceScaleMode,
+          viewport: { offset: 0, zoomScale: 1 },
+          watermarkOpacity: 0.16,
+          width: 320,
+        });
+        const horizontalLine = scene.commands.find(
+          (command) =>
+            command.kind === 'line' &&
+            command.paint === 'crosshairLine' &&
+            command.y1 === command.y2,
+        );
+        if (pinnedPriceRange.minPrice > 101) {
+          expect(horizontalLine).toBeUndefined();
+        } else {
+          expect(horizontalLine).toMatchObject({
+            y1: getTradingViewNativePriceY(101, scene.layout!),
+          });
+        }
+        return horizontalLine;
+      });
+      expect(lines[0]).not.toEqual(lines[1]);
+    },
+  );
+
   it('describes the complete chart without a Canvas or Skia dependency', () => {
     const scene = buildTradingViewNativeChartScene({
       candleIntervalSeconds: 3600,

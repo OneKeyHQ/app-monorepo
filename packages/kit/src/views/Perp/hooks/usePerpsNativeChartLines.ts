@@ -50,7 +50,7 @@ export function usePerpsNativeChartLines(enableTradingUi: boolean) {
 
         const isLong = line.side === 'long';
         const isLimitOrder = line.kind === 'order';
-        let labelOffset = isLimitOrder ? 50 : 16;
+        let labelOffset = 16;
         let color =
           themeColors[
             isLong
@@ -83,12 +83,14 @@ export function usePerpsNativeChartLines(enableTradingUi: boolean) {
               interactive: canInteract && Boolean(line.meta?.orderId),
               cancelable: Boolean(line.meta?.orderId),
               draggable: line.editable === true,
-              pending: Boolean(pendingAction),
+              pending: pendingAction?.type,
               style: isLimitOrder ? 'dotted' : 'dashed',
               title: line.label?.left ?? '',
               label: {
                 variant: isLimitOrder ? 'order' : undefined,
-                offset: labelOffset,
+                offset: isLimitOrder
+                  ? { type: 'chartWidthPercentage', value: 70 }
+                  : labelOffset,
                 backgroundColor: labelBackground,
                 color: isLimitOrder ? color : labelColor,
                 quantity: line.qty
