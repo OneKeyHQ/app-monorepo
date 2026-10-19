@@ -811,8 +811,7 @@ describe('walletconnect pay deep links', () => {
   });
 
   it('waits for app unlock before opening the pay dialog', async () => {
-    // the dialog is a system sheet that would present ABOVE the RN lock
-    // screen, so the link must park until the app is unlocked
+    // a payment never opens over a locked app: the link waits for unlock
     let resolveUnlock: () => void = () => {};
     mockedWhenAppUnlocked.mockImplementation(
       () =>

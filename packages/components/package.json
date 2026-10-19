@@ -7,8 +7,6 @@
     "**/*.css"
   ],
   "dependencies": {
-    "@base-ui/react": "1.6.0",
-    "@expo/ui": "57.0.12",
     "@onekeyfe/react-native-native-sheet": "6.7.0-6",
     "@onekeyfe/react-native-scroll-guard": "6.7.0-6",
     "@onekeyfe/react-native-segment-slider": "6.7.0-6",
