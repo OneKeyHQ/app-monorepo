@@ -31,10 +31,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import {
-  INTERCOM_CONTEXT_METHOD,
-  INTERCOM_SUPPORT_ORIGIN,
-} from '@onekeyhq/shared/src/modules3rdParty/intercom/bridge';
+import { INTERCOM_SUPPORT_ORIGIN } from '@onekeyhq/shared/src/modules3rdParty/intercom/bridge';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import {
@@ -106,7 +103,7 @@ export interface IOneKeyWalletInfo {
 @backgroundClass()
 class ProviderApiPrivate extends ProviderApiBase {
   @providerApiMethod()
-  async [INTERCOM_CONTEXT_METHOD](
+  async wallet_getIntercomContext(
     request: IJsBridgeMessagePayload,
     params: { supportSession?: string },
   ) {
