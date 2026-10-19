@@ -50,8 +50,9 @@ import { useHeadlessBuyOrders } from '../../hooks/useHeadlessBuyOrders';
 
 import type { RouteProp } from '@react-navigation/core';
 
-// Detail page poll cadence while focused and the order is not terminal.
-const POLL_INTERVAL_MS = 10_000;
+// Detail page poll cadence while focused and the order is not terminal. The
+// lookup endpoint is rate limited per IP (10/min), so stay well under it.
+const POLL_INTERVAL_MS = 15_000;
 
 function getStatusSentenceId(
   order: IHeadlessBuyOrder,

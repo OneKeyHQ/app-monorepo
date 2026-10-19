@@ -435,7 +435,8 @@ export class OnramperScene extends BaseScene {
 
   @LogToLocal({ level: 'error' })
   public orderStatusFetchFailed(params: {
-    count: number;
+    transactionId: string;
+    code?: number;
     status?: number;
     errorMessage?: string;
   }) {

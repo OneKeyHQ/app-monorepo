@@ -142,9 +142,16 @@ export type IHeadlessBuyOrder = IAddHeadlessBuyOrderParams & {
 // partial payload degrades to "unchanged" instead of throwing.
 export type IOnramperTransactionStatus = {
   transactionId: string;
+  transactionType?: string;
   status?: string;
   statusReason?: string;
   statusDate?: string;
+  onramp?: string;
+  onrampTransactionId?: string;
+  paymentMethod?: string;
+  country?: string;
+  sourceCurrency?: string;
+  targetCurrency?: string;
   inAmount?: number;
   outAmount?: number;
   transactionHash?: string;

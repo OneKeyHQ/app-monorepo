@@ -38,11 +38,15 @@ import {
 
 import ServiceBase from './ServiceBase';
 
-// Wallet-side Onramper transaction lookup (OK-64602). PLACEHOLDER path: the
-// backend has not shipped the endpoint yet, so production lookups 404 until
-// it does and the UI shows "Can't update right now". Only this constant should
-// need to change once the real path is confirmed.
-const ONRAMPER_TRANSACTIONS_PATH = '/wallet/v1/fiat-pay/onramper-transactions';
+// Wallet-side Onramper transaction lookup (OK-64602): one transaction per
+// GET, no auth, rate limited per IP at the edge (10/min). `source` selects the
+// Onramper key that created the transaction; native buy always uses the
+// headless key. Unknown ids come back as `data: null` with code 0.
+const ONRAMPER_TRANSACTION_PATH = '/wallet/v1/fiat-pay/onramper-transaction';
+const ONRAMPER_TRANSACTION_SOURCE = 'headless';
+// A successful lookup is reused for this long so a Buy page -> list -> detail
+// walk does not spend the per-IP rate limit on duplicate requests.
+const MIN_RECHECK_INTERVAL_MS = 10_000;
 // Ids minted by the Simulator mock client / the no-id fallback never exist on
 // Onramper: they are scripted locally (dev) or left untouched (prod).
 const MOCK_TRANSACTION_ID_PREFIX = 'mock-';
@@ -529,39 +533,55 @@ class ServiceFiatCrypto extends ServiceBase {
   }): Promise<IHeadlessBuyOrder[]> {
     const orders = await this.getHeadlessBuyOrders();
     const wanted = transactionIds ? new Set(transactionIds) : undefined;
+    const now = Date.now();
     const targets = orders.filter(
       (o) =>
         !isTerminalHeadlessBuyOrder(o) &&
-        (!wanted || wanted.has(o.transactionId)),
+        (!wanted || wanted.has(o.transactionId)) &&
+        !(
+          o.lastCheckOk &&
+          o.lastCheckedAt !== undefined &&
+          now - o.lastCheckedAt < MIN_RECHECK_INTERVAL_MS
+        ),
     );
     if (targets.length === 0) {
       return orders;
     }
-    const now = Date.now();
     const statuses = new Map<string, IOnramperTransactionStatus>();
+    const failedIds = new Set<string>();
     const real = targets.filter(
       (o) => !isSyntheticTransactionId(o.transactionId),
     );
-    let lookupOk = true;
-    if (real.length > 0) {
-      try {
-        const fetched = await this.fetchOnramperTransactionStatuses(
-          real.map((o) => o.transactionId),
-        );
-        fetched.forEach((tx) => statuses.set(tx.transactionId, tx));
-      } catch (error) {
-        lookupOk = false;
-        const err = error as {
-          message?: string;
-          response?: { status?: number };
-        };
-        defaultLogger.fiatCrypto.onramper.orderStatusFetchFailed({
-          count: real.length,
-          status: err?.response?.status,
-          errorMessage: err?.message,
-        });
+    // The endpoint has no batch form: one request per id, and a failure only
+    // affects its own order.
+    const results = await Promise.allSettled(
+      real.map((o) => this.fetchOnramperTransactionStatus(o.transactionId)),
+    );
+    results.forEach((result, index) => {
+      const { transactionId } = real[index];
+      if (result.status === 'fulfilled' && result.value) {
+        statuses.set(transactionId, result.value);
+        return;
       }
-    }
+      failedIds.add(transactionId);
+      const err =
+        result.status === 'rejected'
+          ? (result.reason as
+              | {
+                  message?: string;
+                  code?: number;
+                  httpStatusCode?: number;
+                  response?: { status?: number };
+                }
+              | undefined)
+          : undefined;
+      defaultLogger.fiatCrypto.onramper.orderStatusFetchFailed({
+        transactionId,
+        code: err?.code,
+        status: err?.httpStatusCode ?? err?.response?.status,
+        errorMessage: err ? err.message : 'not found',
+      });
+    });
     targets
       .filter((o) => isSyntheticTransactionId(o.transactionId))
       .forEach((o) => {
@@ -576,7 +596,7 @@ class ServiceFiatCrypto extends ServiceBase {
     for (const order of targets) {
       const tx = statuses.get(order.transactionId);
       if (!tx) {
-        if (!lookupOk && !isSyntheticTransactionId(order.transactionId)) {
+        if (failedIds.has(order.transactionId)) {
           updates[order.transactionId] = {
             ...order,
             lastCheckedAt: now,
@@ -623,18 +643,16 @@ class ServiceFiatCrypto extends ServiceBase {
     return this.getHeadlessBuyOrders();
   }
 
-  private async fetchOnramperTransactionStatuses(
-    transactionIds: string[],
-  ): Promise<IOnramperTransactionStatus[]> {
+  private async fetchOnramperTransactionStatus(
+    transactionId: string,
+  ): Promise<IOnramperTransactionStatus | undefined> {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const resp = await client.post<{ data: IOnramperTransactionStatus[] }>(
-      ONRAMPER_TRANSACTIONS_PATH,
-      { transactionIds },
+    const resp = await client.get<{ data: IOnramperTransactionStatus | null }>(
+      ONRAMPER_TRANSACTION_PATH,
+      { params: { transactionId, source: ONRAMPER_TRANSACTION_SOURCE } },
     );
     const data = resp.data?.data;
-    return Array.isArray(data)
-      ? data.filter((tx) => typeof tx?.transactionId === 'string')
-      : [];
+    return data && typeof data.transactionId === 'string' ? data : undefined;
   }
 
   // Dev-only lifecycle for Simulator orders; production leaves synthetic ids

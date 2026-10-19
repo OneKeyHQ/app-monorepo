@@ -109,7 +109,7 @@ function createService(orders: IHeadlessBuyOrder[]) {
       ),
     },
   };
-  const post = jest.fn();
+  const get = jest.fn();
   const backgroundApi: any = {
     simpleDb,
     serviceAccount: {
@@ -123,8 +123,8 @@ function createService(orders: IHeadlessBuyOrder[]) {
     },
   };
   const service = new ServiceFiatCrypto({ backgroundApi });
-  jest.spyOn(service as any, 'getClient').mockResolvedValue({ post });
-  return { service, store, post, simpleDb };
+  jest.spyOn(service as any, 'getClient').mockResolvedValue({ get });
+  return { service, store, get, simpleDb };
 }
 
 describe('ServiceFiatCrypto headless buy orders', () => {
@@ -247,8 +247,8 @@ describe('ServiceFiatCrypto headless buy orders', () => {
     });
   });
 
-  test('refreshHeadlessBuyOrders posts real ids in one batch, applies statuses and emits refresh events', async () => {
-    const { service, store, post } = createService([
+  test('refreshHeadlessBuyOrders looks up each real id, applies statuses and emits refresh events', async () => {
+    const { service, store, get } = createService([
       baseOrder({ transactionId: 'a', submittedAt: T0 }),
       baseOrder({ transactionId: 'b', submittedAt: T0 }),
       baseOrder({
@@ -257,26 +257,30 @@ describe('ServiceFiatCrypto headless buy orders', () => {
         status: EHeadlessBuyOrderStatus.Delivered,
       }),
     ]);
-    post.mockResolvedValue({
-      data: {
-        data: [
-          {
-            transactionId: 'a',
-            status: 'completed',
-            outAmount: 0.05,
-            transactionHash: '0xhash',
-          },
-          { transactionId: 'b', status: 'pending' },
-          { notAnId: true },
-        ],
+    const byId: Record<string, unknown> = {
+      a: {
+        transactionId: 'a',
+        status: 'completed',
+        outAmount: 0.05,
+        transactionHash: '0xhash',
       },
-    });
-    await service.refreshHeadlessBuyOrders({});
-    expect(post).toHaveBeenCalledTimes(1);
-    expect(post.mock.calls[0][0]).toBe(
-      '/wallet/v1/fiat-pay/onramper-transactions',
+      b: { transactionId: 'b', status: 'pending' },
+    };
+    get.mockImplementation(
+      async (_path: string, config: { params: { transactionId: string } }) => ({
+        data: { data: byId[config.params.transactionId] ?? null },
+      }),
     );
-    expect(post.mock.calls[0][1]).toEqual({ transactionIds: ['a', 'b'] });
+    await service.refreshHeadlessBuyOrders({});
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(get).toHaveBeenCalledWith(
+      '/wallet/v1/fiat-pay/onramper-transaction',
+      { params: { transactionId: 'a', source: 'headless' } },
+    );
+    expect(get).toHaveBeenCalledWith(
+      '/wallet/v1/fiat-pay/onramper-transaction',
+      { params: { transactionId: 'b', source: 'headless' } },
+    );
     expect(store.get('a')).toMatchObject({
       status: EHeadlessBuyOrderStatus.Delivered,
       outAmount: 0.05,
@@ -298,21 +302,38 @@ describe('ServiceFiatCrypto headless buy orders', () => {
   });
 
   test('refreshHeadlessBuyOrders narrows to the requested ids', async () => {
-    const { service, post } = createService([
+    const { service, get } = createService([
       baseOrder({ transactionId: 'a', submittedAt: T0 }),
       baseOrder({ transactionId: 'b', submittedAt: T0 }),
     ]);
-    post.mockResolvedValue({ data: { data: [] } });
+    get.mockResolvedValue({ data: { data: null } });
     await service.refreshHeadlessBuyOrders({ transactionIds: ['b'] });
-    expect(post.mock.calls[0][1]).toEqual({ transactionIds: ['b'] });
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(get.mock.calls[0][1]).toEqual({
+      params: { transactionId: 'b', source: 'headless' },
+    });
   });
 
-  test('refreshHeadlessBuyOrders keeps statuses and flags the failure when the lookup throws', async () => {
-    const { service, store, post } = createService([
+  test('refreshHeadlessBuyOrders flags only the orders whose lookup failed or was not found', async () => {
+    const { service, store, get } = createService([
       baseOrder({ transactionId: 'a', submittedAt: T0 }),
+      baseOrder({ transactionId: 'b', submittedAt: T0 }),
+      baseOrder({ transactionId: 'c', submittedAt: T0 }),
     ]);
-    post.mockRejectedValue(
-      Object.assign(new Error('Not Found'), { response: { status: 404 } }),
+    get.mockImplementation(
+      async (_path: string, config: { params: { transactionId: string } }) => {
+        const { transactionId } = config.params;
+        if (transactionId === 'a') {
+          throw Object.assign(new Error('Too Many Requests'), {
+            httpStatusCode: 429,
+          });
+        }
+        if (transactionId === 'b') {
+          // Unknown ids come back as a null payload with code 0.
+          return { data: { data: null } };
+        }
+        return { data: { data: { transactionId, status: 'pending' } } };
+      },
     );
     await service.refreshHeadlessBuyOrders({});
     expect(store.get('a')).toMatchObject({
@@ -320,10 +341,46 @@ describe('ServiceFiatCrypto headless buy orders', () => {
       lastCheckOk: false,
       lastCheckedAt: T0 + 1000,
     });
+    expect(store.get('b')).toMatchObject({ lastCheckOk: false });
+    expect(store.get('c')).toMatchObject({
+      status: EHeadlessBuyOrderStatus.Processing,
+      paymentSeen: true,
+      lastCheckOk: true,
+    });
     expect(emit).not.toHaveBeenCalledWith(
       EAppEventBusNames.RefreshTokenList,
       expect.anything(),
     );
+  });
+
+  test('refreshHeadlessBuyOrders skips orders checked successfully moments ago', async () => {
+    const { service, get } = createService([
+      baseOrder({
+        transactionId: 'fresh',
+        submittedAt: T0,
+        lastCheckedAt: T0 + 1000 - 5000,
+        lastCheckOk: true,
+      }),
+      baseOrder({
+        transactionId: 'failed-check',
+        submittedAt: T0,
+        lastCheckedAt: T0 + 1000 - 5000,
+        lastCheckOk: false,
+      }),
+      baseOrder({
+        transactionId: 'old-check',
+        submittedAt: T0,
+        lastCheckedAt: T0 + 1000 - 60_000,
+        lastCheckOk: true,
+      }),
+    ]);
+    get.mockResolvedValue({ data: { data: null } });
+    await service.refreshHeadlessBuyOrders({});
+    const requested = get.mock.calls.map(
+      (call) =>
+        (call[1] as { params: { transactionId: string } }).params.transactionId,
+    );
+    expect(requested.toSorted()).toEqual(['failed-check', 'old-check']);
   });
 
   test('refreshHeadlessBuyOrders scripts mock ids in dev without touching the network', async () => {
@@ -335,7 +392,7 @@ describe('ServiceFiatCrypto headless buy orders', () => {
       configurable: true,
       writable: true,
     });
-    const { service, store, post } = createService([
+    const { service, store, get } = createService([
       baseOrder({
         transactionId: 'mock-1',
         submittedAt: T0,
@@ -345,7 +402,7 @@ describe('ServiceFiatCrypto headless buy orders', () => {
       baseOrder({ transactionId: 'mock-2', submittedAt: T0, createdAt: T0 }),
     ]);
     await service.refreshHeadlessBuyOrders({});
-    expect(post).not.toHaveBeenCalled();
+    expect(get).not.toHaveBeenCalled();
     expect(store.get('mock-1')).toMatchObject({
       status: EHeadlessBuyOrderStatus.Delivered,
       outAmount: 0.05,
