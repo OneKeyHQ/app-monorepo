@@ -68,27 +68,41 @@ export function getStripePaymentElementState(): IStripePaymentElementState {
 
 // A rendered form may already have submitted a payment. Stop permanently on
 // ready, and scope the timer to the current attempt rather than the SDK import.
-export function monitorStripePaymentElementLoading(onFailure: () => void) {
+// Returning false from onFailure defers stopping until safe SDK cancellation.
+export function monitorStripePaymentElementLoading(
+  onFailure: () => boolean | void,
+) {
   const health = getHealth();
   const monitoredAttemptId = health.attemptId;
   const monitoredAt = Date.now();
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let stopped = false;
   const resourceSubscription: { unsubscribe?: () => void } = {};
   const monitor = {
     stop: () => {
+      if (stopped) return;
+      stopped = true;
       clearTimeout(timer);
       health.listeners.delete(monitor.onStateChanged);
       resourceSubscription.unsubscribe?.();
     },
     fail: () => {
+      if (stopped) return;
       const shouldFail =
         health === getHealth() &&
         health.attemptId === monitoredAttemptId &&
         (health.state === 'loading' || health.state === 'loadError');
-      monitor.stop();
-      if (shouldFail) onFailure();
+      if (!shouldFail || onFailure() !== false) {
+        monitor.stop();
+      } else if (!stopped) {
+        // The SDK can create or enable its close control after the failure.
+        // Keep observing ready/new-attempt events until cancellation succeeds.
+        clearTimeout(timer);
+        timer = setTimeout(monitor.fail, 100);
+      }
     },
     onStateChanged: () => {
+      if (stopped) return;
       if (
         health !== getHealth() ||
         health.attemptId !== monitoredAttemptId ||

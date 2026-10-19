@@ -22,8 +22,8 @@ export async function purchaseWithStripeLoadingGuard<T>(
   let automaticallyClosed = false;
   const stopMonitoring = monitorStripePaymentElementLoading(() => {
     if (session) {
-      session.cancel('loadFailure');
-      return;
+      if (session.hasSubmitted()) return true;
+      return session.cancel('loadFailure');
     }
     // purchase() mounts after asynchronous validation/preloading. Locate its
     // root at failure time, excluding any roots from an earlier purchase.
@@ -41,10 +41,11 @@ export async function purchaseWithStripeLoadingGuard<T>(
       'button.close-button',
     );
     if (!checkoutRoot?.isConnected || !closeButton || closeButton.disabled) {
-      return;
+      return false;
     }
-    automaticallyClosed = true;
     closeButton.click();
+    automaticallyClosed = checkoutRoot.childNodes.length === 0;
+    return automaticallyClosed;
   });
   try {
     return await purchase();
