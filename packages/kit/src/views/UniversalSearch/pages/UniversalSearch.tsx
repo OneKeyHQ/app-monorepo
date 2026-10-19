@@ -16,7 +16,6 @@ import { useDebouncedCallback } from 'use-debounce';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
-  Button,
   Empty,
   Icon,
   Page,
@@ -25,7 +24,6 @@ import {
   SectionList,
   SizableText,
   Skeleton,
-  Spinner,
   Stack,
   Tabs,
   View,
@@ -79,7 +77,6 @@ import type {
 } from '@onekeyhq/shared/src/routes/universalSearch';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { isMarketSearchStockListing } from '@onekeyhq/shared/src/utils/marketSearchStock';
-import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 import type {
@@ -98,7 +95,6 @@ import { ListItem } from '../../../components/ListItem';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { useMarketWatchListV2Atom } from '../../../states/jotai/contexts/marketV2';
 import { useHomeTokenListSnapshot } from '../../../states/jotai/contexts/tokenList/cells';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { MarketWatchListProviderMirror } from '../../Market/MarketWatchListProviderMirror';
@@ -123,12 +119,9 @@ import { useUniversalSearchMarketPress } from '../hooks/useUniversalSearchMarket
 import { UniversalSearchTestIDs } from '../testIDs';
 import { isSearchResponseCurrent } from '../universalSearchRun';
 import {
-  WATCHLIST_TAB_INDEX,
   getUniversalSearchTabIndex,
-  getUniversalSearchWatchlistIdentity,
   prioritizeMarketFocusedSections,
   resolveUniversalSearchInitialTabName,
-  resolveUniversalSearchWatchlistIdentities,
   shouldPrioritizeMarketSearchSections,
 } from '../universalSearchTabs';
 
@@ -280,7 +273,6 @@ export function UniversalSearch({
     initialTab,
   });
 
-  const [{ data: watchlistItems }] = useMarketWatchListV2Atom();
   const searchSettings = useSettingsSearch();
 
   // The set of result categories this search instance is allowed to surface.
@@ -302,13 +294,6 @@ export function UniversalSearch({
     !isTravelMode &&
     allowedSearchTypeSet.has(EUniversalSearchType.V2MarketToken);
 
-  const shouldIncludeWatchlist = PRIMARY_SEARCH_TYPES.some((type) =>
-    allowedSearchTypeSet.has(type),
-  );
-  const watchlistTabTitle = intl.formatMessage({
-    id: ETranslations.global_watchlist,
-  });
-
   const tabTitles = useMemo(() => {
     return [
       intl.formatMessage({
@@ -324,7 +309,6 @@ export function UniversalSearch({
       intl.formatMessage({
         id: ETranslations.global_universal_search_tabs_tokens,
       }),
-      watchlistTabTitle,
       intl.formatMessage({
         id: ETranslations.global_perp,
       }),
@@ -342,7 +326,7 @@ export function UniversalSearch({
           id: ETranslations.global_settings,
         }),
     ].filter(Boolean);
-  }, [intl, watchlistTabTitle]);
+  }, [intl]);
 
   const initialTabName = useMemo(
     () =>
@@ -421,13 +405,9 @@ export function UniversalSearch({
         .map((section) => section.title),
     );
     return tabTitles.filter(
-      (title, index) =>
-        index === 0 ||
-        (title === watchlistTabTitle
-          ? shouldIncludeWatchlist
-          : sectionTitles.has(title)),
+      (title, index) => index === 0 || sectionTitles.has(title),
     );
-  }, [displaySections, shouldIncludeWatchlist, tabTitles, watchlistTabTitle]);
+  }, [displaySections, tabTitles]);
 
   // Results wait for the stock search too, so a stock section landing later
   // does not push the other results down; but a slow stock search holds them
@@ -989,125 +969,6 @@ export function UniversalSearch({
     [handleTextChange],
   );
 
-  const isInWatchlistTab = activeTab === watchlistTabTitle;
-  const { result: resolvedWatchlist } = usePromiseResult(async () => {
-    if (!isInWatchlistTab) return undefined;
-    return {
-      items: watchlistItems,
-      identities: await resolveUniversalSearchWatchlistIdentities({
-        items: watchlistItems,
-        fetchAssetDetail: (assetId) =>
-          backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
-            assetId,
-            autoHandleError: false,
-          }),
-      }),
-    };
-  }, [isInWatchlistTab, watchlistItems]);
-  const watchlistIdentities = useMemo(
-    () =>
-      resolvedWatchlist?.items === watchlistItems
-        ? resolvedWatchlist.identities
-        : new Map(
-            watchlistItems.map((item) => [getMarketWatchlistKey(item), item]),
-          ),
-    [resolvedWatchlist, watchlistItems],
-  );
-
-  const loadedStockIds = useMemo(
-    () => new Set(stockResult.items.map((stock) => stock.stockId)),
-    [stockResult.items],
-  );
-  const shouldCompleteWatchlistStocks =
-    isInWatchlistTab &&
-    isStockSearchInScope &&
-    Boolean(stockQuery) &&
-    stockQuery === searchValue.trim() &&
-    watchlistItems.some(
-      (item) => item.stockId && !loadedStockIds.has(item.stockId),
-    );
-  const isWatchlistStockError =
-    shouldCompleteWatchlistStocks &&
-    (stockResult.isError || stockResult.isLoadMoreError);
-  const isLoadingWatchlistStocks =
-    shouldCompleteWatchlistStocks &&
-    !isWatchlistStockError &&
-    (stockResult.isLoading ||
-      stockResult.isLoadingMore ||
-      stockResult.canLoadMore);
-
-  const {
-    canLoadMore: canLoadMoreWatchlistStocks,
-    isLoadingMore: isLoadingMoreWatchlistStocks,
-    isLoadMoreError: isLoadMoreWatchlistStocksError,
-    isError: isWatchlistFirstPageError,
-    loadMore: loadMoreWatchlistStocks,
-    refresh: refreshWatchlistStocks,
-  } = stockResult;
-  // Filtered-out pages cannot trigger a scroll event; keep searching until
-  // every saved stock is found or the query has no more pages.
-  useEffect(() => {
-    if (
-      shouldCompleteWatchlistStocks &&
-      canLoadMoreWatchlistStocks &&
-      !isLoadingMoreWatchlistStocks &&
-      !isLoadMoreWatchlistStocksError
-    ) {
-      void loadMoreWatchlistStocks();
-    }
-  }, [
-    shouldCompleteWatchlistStocks,
-    canLoadMoreWatchlistStocks,
-    isLoadingMoreWatchlistStocks,
-    isLoadMoreWatchlistStocksError,
-    loadMoreWatchlistStocks,
-  ]);
-
-  const renderWatchlistStockFooter = useCallback(() => {
-    if (isWatchlistStockError) {
-      return (
-        <YStack alignItems="center" gap="$2" py="$4">
-          <SizableText color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.global_connet_error_try_again,
-            })}
-          </SizableText>
-          <Button
-            size="small"
-            variant="tertiary"
-            testID="universal-search-watchlist-stock-retry"
-            onPress={() =>
-              void (isWatchlistFirstPageError
-                ? refreshWatchlistStocks()
-                : loadMoreWatchlistStocks())
-            }
-          >
-            {intl.formatMessage({ id: ETranslations.global_retry })}
-          </Button>
-        </YStack>
-      );
-    }
-    if (isLoadingWatchlistStocks) {
-      return (
-        <YStack
-          alignItems="center"
-          py="$4"
-          testID="universal-search-watchlist-stock-loading"
-        >
-          <Spinner />
-        </YStack>
-      );
-    }
-    return null;
-  }, [
-    intl,
-    isWatchlistStockError,
-    isWatchlistFirstPageError,
-    isLoadingWatchlistStocks,
-    refreshWatchlistStocks,
-    loadMoreWatchlistStocks,
-  ]);
-
   const filterSections = useMemo(() => {
     if (isInAllTab) {
       const sectionsWithSliceData = displaySections.map((i) => ({
@@ -1126,36 +987,8 @@ export function UniversalSearch({
 
       return sectionsWithSliceData;
     }
-    if (isInWatchlistTab) {
-      const data = displaySections.flatMap((section) =>
-        section.data.filter((item) =>
-          getUniversalSearchWatchlistIdentity(item, watchlistIdentities),
-        ),
-      );
-      if (data.length === 0) {
-        return [];
-      }
-      return [
-        {
-          tabIndex: WATCHLIST_TAB_INDEX,
-          title: watchlistTabTitle,
-          type: EUniversalSearchType.V2MarketToken,
-          data,
-          sliceData: data,
-          showMore: false,
-        },
-      ];
-    }
     return displaySections.filter((i) => i.title === activeTab);
-  }, [
-    activeTab,
-    displaySections,
-    isFocusInMarketTab,
-    isInAllTab,
-    isInWatchlistTab,
-    watchlistIdentities,
-    watchlistTabTitle,
-  ]);
+  }, [activeTab, displaySections, isFocusInMarketTab, isInAllTab]);
 
   // Searches that cover stocks or tokens follow the Market detail selector on
   // both desktop and mobile: its skeleton under a tab bar that already shows
@@ -1290,21 +1123,13 @@ export function UniversalSearch({
               source={source}
             />
           );
-        // Watchlist and trending results use these rows; the type tabs
+        // Trending results use these rows; the type tabs
         // render through the Market selector's lists.
         case EUniversalSearchType.MarketStock:
         case EUniversalSearchType.V2MarketToken:
           return (
             <UniversalSearchV2MarketTokenItem
               item={item}
-              watchlistIdentity={
-                isInWatchlistTab
-                  ? getUniversalSearchWatchlistIdentity(
-                      item,
-                      watchlistIdentities,
-                    )
-                  : undefined
-              }
               isTrending={searchStatus === ESearchStatus.init}
               getSearchInput={getSearchInput}
               source={source}
@@ -1349,8 +1174,6 @@ export function UniversalSearch({
     },
     [
       activeAccount?.network?.id,
-      isInWatchlistTab,
-      watchlistIdentities,
       searchStatus,
       allAggregateTokenMap,
       getSearchInput,
@@ -1545,10 +1368,7 @@ export function UniversalSearch({
       <Empty
         illustration="QuestionMark"
         title={intl.formatMessage({
-          id:
-            isInWatchlistTab && watchlistItems.length === 0
-              ? ETranslations.market_empty_watchlist_title
-              : ETranslations.global_no_results,
+          id: ETranslations.global_no_results,
         })}
         description={intl.formatMessage({
           id: ETranslations.global_search_no_results_desc,
@@ -1662,21 +1482,11 @@ export function UniversalSearch({
               sections={filterSections}
               renderSectionHeader={renderSectionHeader}
               renderSectionFooter={renderSectionFooter}
-              ListEmptyComponent={
-                isInWatchlistTab &&
-                (isLoadingWatchlistStocks || isWatchlistStockError)
-                  ? null
-                  : noResultsComponent
-              }
+              ListEmptyComponent={noResultsComponent}
               renderItem={renderItem}
               keyExtractor={keyExtractor}
               estimatedItemSize="$16"
-              ListFooterComponent={
-                <>
-                  {renderWatchlistStockFooter()}
-                  <Stack h="$16" />
-                </>
-              }
+              ListFooterComponent={<Stack h="$16" />}
               keyboardShouldPersistTaps="handled"
             />
           );
@@ -1709,11 +1519,6 @@ export function UniversalSearch({
     }
   }, [
     resultStatus,
-    isLoadingWatchlistStocks,
-    isWatchlistStockError,
-    renderWatchlistStockFooter,
-    isInWatchlistTab,
-    watchlistItems.length,
     isTravelMode,
     renderSectionHeader,
     renderRecommendSectionHeader,

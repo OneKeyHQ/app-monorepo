@@ -5,10 +5,7 @@ import type { ReactNode } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  IMarketAssetDetailData,
-  IMarketWatchListItemV2,
-} from '@onekeyhq/shared/types/market';
+import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 import {
   EUniversalSearchSource,
@@ -28,9 +25,10 @@ let mockResults: IUniversalSearchBatchResult = {};
 let mockStocks: IMarketStockPublicItem[] = [];
 const mockSearch = jest.fn(async () => mockResults);
 const mockFetchAssetDetail = jest.fn<
-  Promise<Pick<IMarketAssetDetailData, 'selectedVariant' | 'variants'>>,
+  Promise<unknown>,
   [{ assetId: string; autoHandleError: boolean }]
 >();
+let mockGtMd = true;
 const mockIntl = { formatMessage: ({ id }: { id: string }) => id };
 const mockEmptyTokens = {
   tokens: [],
@@ -151,7 +149,7 @@ jest.mock('@onekeyhq/components', () => {
         {ListFooterComponent}
       </div>
     ),
-    useMedia: () => ({ gtMd: true }),
+    useMedia: () => ({ gtMd: mockGtMd }),
     isLiquidGlassAvailable: () => false,
   };
 });
@@ -269,11 +267,27 @@ jest.mock(
 );
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/MobileMarketSelectorBrowseLists',
-  () => ({}),
+  () => ({ MobileSelectorSearchSkeleton: () => null }),
 );
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/MobileMarketTokenSelectorSearchResults',
-  () => ({}),
+  () => ({
+    MobileMarketSearchAllList: ({
+      sections,
+    }: {
+      sections: { key: string; body: ReactNode }[];
+    }) => (
+      <div>
+        {sections.map((section) => (
+          <div key={section.key}>{section.body}</div>
+        ))}
+      </div>
+    ),
+    MobileMarketSearchStockRows: () => null,
+    MobileMarketSearchTokenRows: () => null,
+    MobileMarketSearchSectionTitle: () => null,
+    MobileMarketSearchShowMoreButton: () => null,
+  }),
 );
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/useMarketTokenSelectorSearchState',
@@ -330,6 +344,7 @@ async function search(filterTypes?: EUniversalSearchType[]) {
 }
 
 beforeEach(() => {
+  mockGtMd = true;
   mockWatchlistItems = [];
   mockStocks = [];
   mockResults = {};
@@ -343,199 +358,113 @@ beforeEach(() => {
   mockStockResult.refresh.mockReset();
 });
 
-it('keeps Watchlist visible for default search and shows the empty-watchlist copy', async () => {
-  await search();
-  fireEvent.click(
-    screen.getByRole('button', { name: ETranslations.global_watchlist }),
+describe.each([
+  ['desktop', true],
+  ['mobile', false],
+] as const)('search tabs on %s', (_layout, gtMd) => {
+  beforeEach(() => {
+    mockGtMd = gtMd;
+  });
+
+  it('hides Watchlist when the query has no results', async () => {
+    await search();
+    expect(
+      screen.queryByRole('button', { name: ETranslations.global_watchlist }),
+    ).toBeNull();
+    expect(
+      screen
+        .getByRole('button', { name: ETranslations.global_all })
+        .getAttribute('aria-pressed'),
+    ).toBe('true');
+    expect(screen.getByText(ETranslations.global_no_results)).toBeTruthy();
+  });
+
+  it.each([false, true])(
+    'keeps result tabs without Watchlist when saved favorites=%s',
+    async (hasFavorites) => {
+      mockWatchlistItems = hasFavorites
+        ? [
+            { assetId: 'ethereum', chainId: '', contractAddress: '' },
+            { stockId: 'ETHA', chainId: '', contractAddress: '' },
+          ]
+        : [];
+      mockResults = {
+        [EUniversalSearchType.V2MarketToken]: {
+          items: [
+            {
+              type: EUniversalSearchType.V2MarketToken,
+              payload: { network: 'evm--1', address: '', symbol: 'ETH' },
+            } as IUniversalSearchV2MarketToken,
+          ],
+        },
+        [EUniversalSearchType.Perp]: {
+          items: [
+            {
+              type: EUniversalSearchType.Perp,
+              payload: { assetType: 'perps', name: 'ETH' },
+            } as IUniversalSearchPerp,
+          ],
+        },
+      };
+      mockStocks = [
+        {
+          stockId: 'ETHA',
+          symbol: 'ETHA',
+          name: 'Ethereum ETF',
+          logoUrl: '',
+          assetType: 'stock',
+          currency: 'USD',
+        },
+      ];
+      mockStockResult.canLoadMore = true;
+      await search();
+      expect(
+        screen.queryByRole('button', { name: ETranslations.global_watchlist }),
+      ).toBeNull();
+      for (const title of [
+        ETranslations.global_all,
+        ETranslations.perps_token_selector_stocks,
+        ETranslations.global_universal_search_tabs_tokens,
+        ETranslations.global_perp,
+      ]) {
+        expect(screen.getByRole('button', { name: title })).toBeTruthy();
+      }
+      fireEvent.click(
+        screen.getByRole('button', { name: ETranslations.global_perp }),
+      );
+      expect(
+        screen
+          .getByRole('button', { name: ETranslations.global_perp })
+          .getAttribute('aria-pressed'),
+      ).toBe('true');
+      expect(screen.getByTestId('result-row').textContent).toBe('ETH');
+      expect(mockFetchAssetDetail).not.toHaveBeenCalled();
+      expect(mockStockResult.loadMore).not.toHaveBeenCalled();
+    },
   );
-  expect(
-    screen
-      .getByRole('button', { name: ETranslations.global_watchlist })
-      .getAttribute('aria-pressed'),
-  ).toBe('true');
-  expect(
-    screen.getByText(ETranslations.market_empty_watchlist_title),
-  ).toBeTruthy();
+
+  it('does not restore Watchlist after clearing and retyping a query', async () => {
+    await search();
+    const input = screen.getByRole('textbox', { name: 'Search' });
+    fireEvent.change(input, { target: { value: '' } });
+    expect(
+      screen.queryByRole('button', { name: ETranslations.global_watchlist }),
+    ).toBeNull();
+    fireEvent.change(input, { target: { value: 'ETH' } });
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: ETranslations.global_all }),
+      ).toBeTruthy(),
+    );
+    expect(
+      screen.queryByRole('button', { name: ETranslations.global_watchlist }),
+    ).toBeNull();
+  });
 });
 
-it('filters complete token, stock and perps results and reacts to watchlist changes', async () => {
-  const tokens = Array.from({ length: 7 }, (_, index) => ({
-    type: EUniversalSearchType.V2MarketToken,
-    payload: {
-      network: 'evm--1',
-      address: `0x${index}`,
-      symbol: `TOKEN${index}`,
-    },
-  })) as IUniversalSearchV2MarketToken[];
-  const perp = {
-    type: EUniversalSearchType.Perp,
-    payload: { assetType: 'perps', name: 'BTC' },
-  } as IUniversalSearchPerp;
-  mockResults = {
-    [EUniversalSearchType.V2MarketToken]: { items: tokens },
-    [EUniversalSearchType.Perp]: { items: [perp] },
-  };
-  mockStocks = [
-    {
-      stockId: 'AAPL',
-      symbol: 'AAPL',
-      name: 'Apple',
-      logoUrl: '',
-      assetType: 'stock',
-      currency: 'USD',
-    },
-  ];
-  mockWatchlistItems = [
-    { chainId: 'evm--1', contractAddress: '0x6' },
-    { stockId: 'AAPL', chainId: '', contractAddress: '' },
-    { perpsCoin: 'BTC', chainId: '', contractAddress: '' },
-  ];
-  await search();
-  fireEvent.click(
-    screen.getByRole('button', { name: ETranslations.global_watchlist }),
-  );
-  expect(
-    screen.getAllByTestId('result-row').map((row) => row.textContent),
-  ).toEqual(['AAPLApple', 'TOKEN6', 'BTC']);
-  expect(screen.queryByText('TOKEN0')).toBeNull();
-
-  mockWatchlistItems = [{ chainId: 'evm--1', contractAddress: '0xunknown' }];
-  fireEvent.click(
-    screen.getByRole('button', { name: ETranslations.global_all }),
-  );
-  fireEvent.click(
-    screen.getByRole('button', { name: ETranslations.global_watchlist }),
-  );
-  expect(screen.getByText(ETranslations.global_no_results)).toBeTruthy();
-  expect(screen.queryByTestId('result-row')).toBeNull();
-});
-
-it('hides Watchlist for DApp-only searches', async () => {
+it('keeps Watchlist hidden for DApp-only searches', async () => {
   await search([EUniversalSearchType.Dapp]);
   expect(
     screen.queryByRole('button', { name: ETranslations.global_watchlist }),
   ).toBeNull();
-});
-
-const createStock = (stockId: string): IMarketStockPublicItem => ({
-  stockId,
-  symbol: stockId,
-  name: stockId,
-  logoUrl: '',
-  assetType: 'stock',
-  currency: 'USD',
-});
-
-it('loads filtered-out stock pages until a later favorite is found, then stops', async () => {
-  mockStocks = Array.from({ length: 20 }, (_, index) =>
-    createStock(`S${index}`),
-  );
-  mockWatchlistItems = [{ stockId: 'S40', chainId: '', contractAddress: '' }];
-  mockStockResult.canLoadMore = true;
-  mockStockResult.loadMore.mockImplementation(() => {
-    mockStockResult.isLoadingMore = true;
-  });
-  const view = await search();
-  expect(mockStockResult.loadMore).not.toHaveBeenCalled();
-  fireEvent.click(
-    screen.getByRole('button', { name: ETranslations.global_watchlist }),
-  );
-  expect(mockStockResult.loadMore).toHaveBeenCalledTimes(1);
-  expect(screen.getByTestId('spinner')).toBeTruthy();
-  expect(screen.queryByText(ETranslations.global_no_results)).toBeNull();
-
-  const redraw = () =>
-    view.rerender(<UniversalSearch source={EUniversalSearchSource.Unknown} />);
-  redraw();
-  expect(mockStockResult.loadMore).toHaveBeenCalledTimes(1);
-  mockStocks = [
-    ...mockStocks,
-    ...Array.from({ length: 20 }, (_, index) => createStock(`S${index + 20}`)),
-  ];
-  mockStockResult.isLoadingMore = false;
-  redraw();
-  expect(mockStockResult.loadMore).toHaveBeenCalledTimes(2);
-
-  redraw();
-  expect(mockStockResult.loadMore).toHaveBeenCalledTimes(2);
-  mockStocks = [...mockStocks, createStock('S40')];
-  mockStockResult.isLoadingMore = false;
-  redraw();
-  expect(screen.getByText('S40S40')).toBeTruthy();
-  expect(mockStockResult.loadMore).toHaveBeenCalledTimes(2);
-  expect(screen.queryByTestId('spinner')).toBeNull();
-});
-
-it('offers retry for a failed Watchlist stock page and stops when pages are exhausted', async () => {
-  mockStocks = [createStock('S0')];
-  mockWatchlistItems = [
-    { stockId: 'missing', chainId: '', contractAddress: '' },
-  ];
-  mockStockResult.canLoadMore = true;
-  mockStockResult.isLoadMoreError = true;
-  const view = await search();
-  fireEvent.click(
-    screen.getByRole('button', { name: ETranslations.global_watchlist }),
-  );
-  expect(mockStockResult.loadMore).not.toHaveBeenCalled();
-  expect(screen.queryByText(ETranslations.global_no_results)).toBeNull();
-  fireEvent.click(screen.getByTestId('universal-search-watchlist-stock-retry'));
-  expect(mockStockResult.loadMore).toHaveBeenCalledTimes(1);
-
-  mockStockResult.canLoadMore = false;
-  mockStockResult.isLoadMoreError = false;
-  view.rerender(<UniversalSearch source={EUniversalSearchSource.Unknown} />);
-  expect(screen.getByText(ETranslations.global_no_results)).toBeTruthy();
-  expect(
-    screen.queryByTestId('universal-search-watchlist-stock-retry'),
-  ).toBeNull();
-  expect(mockStockResult.loadMore).toHaveBeenCalledTimes(1);
-});
-
-it('passes the matched asset favorite identity to a variant row', async () => {
-  mockWatchlistItems = [
-    { assetId: 'ethereum', chainId: '', contractAddress: '' },
-  ];
-  const token = {
-    type: EUniversalSearchType.V2MarketToken,
-    payload: { network: 'evm--1', address: '', symbol: 'ETH' },
-  } as IUniversalSearchV2MarketToken;
-  mockResults = { [EUniversalSearchType.V2MarketToken]: { items: [token] } };
-  mockFetchAssetDetail.mockResolvedValue({
-    selectedVariant: {
-      variantId: 'eth',
-      networkId: 'evm--1',
-      tokenAddress: '',
-      networkName: 'Ethereum',
-      networkSymbol: 'ETH',
-      networkLogoUrl: '',
-      isNative: true,
-      isDefault: true,
-    },
-    variants: [],
-  });
-  await search();
-  fireEvent.click(
-    screen.getByRole('button', { name: ETranslations.global_watchlist }),
-  );
-  await waitFor(() =>
-    expect(screen.getByTestId('result-row').getAttribute('data-asset-id')).toBe(
-      'ethereum',
-    ),
-  );
-  expect(screen.getByTestId('result-row').getAttribute('data-chain-id')).toBe(
-    '',
-  );
-});
-
-it('retries a failed first stock page from Watchlist', async () => {
-  mockWatchlistItems = [{ stockId: 'AAPL', chainId: '', contractAddress: '' }];
-  mockStockResult.isError = true;
-  await search();
-  fireEvent.click(
-    screen.getByRole('button', { name: ETranslations.global_watchlist }),
-  );
-  fireEvent.click(screen.getByTestId('universal-search-watchlist-stock-retry'));
-  expect(mockStockResult.refresh).toHaveBeenCalledTimes(1);
-  expect(mockStockResult.loadMore).not.toHaveBeenCalled();
 });
