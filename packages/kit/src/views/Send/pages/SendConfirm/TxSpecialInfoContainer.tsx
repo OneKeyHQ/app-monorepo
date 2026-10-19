@@ -1,4 +1,4 @@
-import type { IUnsignedTx } from '@onekeyhq/core/src/types';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { InfoItemGroup } from '@onekeyhq/kit/src/views/AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
 
@@ -7,7 +7,7 @@ import { getTxSpecialInfo } from './TxSpecialInfo';
 type IProps = {
   accountId: string;
   networkId: string;
-  unsignedTxs: IUnsignedTx[];
+  unsignedTxs: IUnsignedTxPro[];
 };
 
 function TxSpecialInfoContainer(props: IProps) {

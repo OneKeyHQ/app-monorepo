@@ -39,6 +39,7 @@ const reviewedOutputs = [
 ];
 const encodedTx = {
   fee: '10000',
+  zcashAmountValue: '50000',
   zcashTransparentPlan: { ownerId: 'owner' },
 } as IEncodedTxZcash;
 const result = {
@@ -211,4 +212,52 @@ it.each([
       request,
     }),
   ).rejects.toThrow('did not match');
+});
+
+it.each(['49999', '50001'])(
+  'rejects a Max-send signed output of %s that differs from the reviewed amount',
+  async (valueZat) => {
+    const { journal, sign, parseOutputs } = setup();
+    parseOutputs.mockResolvedValue([
+      { valueZat, scriptPubKey: recipientScript },
+    ]);
+    await expect(
+      signTransparentTransaction({
+        journal,
+        sign,
+        parseOutputs,
+        accountId: 'account',
+        encodedTx,
+        request: {
+          ...request,
+          sendMax: true,
+          change: undefined,
+          recipients: [{ address: RECIPIENT }],
+        },
+      }),
+    ).rejects.toThrow('did not match');
+    expect(journal.saveTransparentPendingTx).not.toHaveBeenCalled();
+  },
+);
+
+it('accepts a Max-send signed output matching the reviewed amount exactly', async () => {
+  const { journal, sign, parseOutputs } = setup();
+  parseOutputs.mockResolvedValue([
+    { valueZat: '50000', scriptPubKey: recipientScript },
+  ]);
+  await expect(
+    signTransparentTransaction({
+      journal,
+      sign,
+      parseOutputs,
+      accountId: 'account',
+      encodedTx,
+      request: {
+        ...request,
+        sendMax: true,
+        change: undefined,
+        recipients: [{ address: RECIPIENT }],
+      },
+    }),
+  ).resolves.toMatchObject({ txid: result.txid });
 });
