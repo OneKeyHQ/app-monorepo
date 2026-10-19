@@ -28,6 +28,11 @@ on:
       checkout_ref:
         type: string
         required: false
+      build_app_version:
+        # Used only by `notify`, which must not check out caller code.
+        type: string
+        required: false
+        default: ''
       skip_pages_deploy:
         type: boolean
         required: false
@@ -574,10 +579,12 @@ jobs:
             !./apps/web/web-build/.well-known/apple-app-site-association/*
             !./apps/web/web-build/.well-known/assetlinks.json/*
 
-  # Holds the Slack secrets, so it must never execute repository code: the
-  # build jobs above may run fork PR code (release-app-bundles.yml). It
-  # rebuilds the values shared-env used to provide from data only: the
-  # upstream workflow-params artifact and a sparse checkout of .env.version.
+  # Holds the Slack secrets, so it must never check out or execute
+  # repository code: the build jobs above may run fork PR code
+  # (release-app-bundles.yml). It rebuilds the values shared-env used to
+  # provide from trusted data only: caller inputs, the upstream
+  # workflow-params artifact, and (workflow_run only) .env.version of the
+  # validated same-repo daily-build commit fetched through the API as data.
   # It does not depend on build-job outputs, so a failed or skipped build
   # still notifies with full version fields, as before.
   notify:
@@ -585,17 +592,10 @@ jobs:
     needs: [test-web, build-production]
     if: ${{ always() && (github.event.workflow_run || inputs.build_number) }}
     steps:
-      - name: Checkout version file
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.checkout_ref || '' }}
-          persist-credentials: false
-          sparse-checkout: .env.version
-          sparse-checkout-cone-mode: false
-
       - name: Download workflow parameters
         if: ${{ github.event.workflow_run }}
-        uses: dawidd6/action-download-artifact@v2
+        # v2.28.0 (same commit as the v2 tag used elsewhere)
+        uses: dawidd6/action-download-artifact@268677152d06ba59fcec7a7f0b5d961b6ccd7e1e
         continue-on-error: true
         with:
           workflow: daily-build-dev
@@ -605,10 +605,14 @@ jobs:
 
       - name: Setup ENV
         env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_BUILD_APP_VERSION: ${{ inputs.build_app_version }}
           INPUT_BUILD_NUMBER: ${{ inputs.build_number }}
           INPUT_BUILD_BUNDLE_VERSION: ${{ inputs.build_bundle_version }}
           IS_WORKFLOW_RUN: ${{ github.event.workflow_run && 'true' || 'false' }}
           WORKFLOW_RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+          WORKFLOW_RUN_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+          WORKFLOW_RUN_SHA: ${{ github.event.workflow_run.head_sha }}
           PARAMS_FILE: ${{ runner.temp }}/workflow-params/params.env
         run: |
           set -euo pipefail
@@ -638,10 +642,22 @@ jobs:
             done < "$PARAMS_FILE"
           fi
 
-          # Read as data; never source the file.
-          APP_VERSION=$(grep -m1 -E '^VERSION=' .env.version | cut -d '=' -f 2- | tr -d '\r' || true)
-          if [[ ! "$APP_VERSION" =~ ^[0-9A-Za-z.+-]+$ ]]; then
-            echo "::warning::Unexpected VERSION in .env.version: '$APP_VERSION'"
+          if [ -n "$INPUT_BUILD_APP_VERSION" ]; then
+            APP_VERSION="$INPUT_BUILD_APP_VERSION"
+          elif [ "$IS_WORKFLOW_RUN" = "true" ]; then
+            if [ "$WORKFLOW_RUN_REPOSITORY" != "$GITHUB_REPOSITORY" ] || [[ ! "$WORKFLOW_RUN_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "::error::Rejecting workflow_run source: $WORKFLOW_RUN_REPOSITORY@$WORKFLOW_RUN_SHA"
+              exit 1
+            fi
+            # Read as data via the API; never checked out or sourced.
+            APP_VERSION=$(gh api -H 'Accept: application/vnd.github.raw+json' \
+              "repos/$GITHUB_REPOSITORY/contents/.env.version?ref=$WORKFLOW_RUN_SHA" \
+              | grep -m1 -E '^VERSION=' | cut -d '=' -f 2- | tr -d '\r' || true)
+          else
+            APP_VERSION=""
+          fi
+          if [[ ! "$APP_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?$ ]]; then
+            echo "::warning::Ignoring unexpected app version: '$APP_VERSION'"
             APP_VERSION=""
           fi
 

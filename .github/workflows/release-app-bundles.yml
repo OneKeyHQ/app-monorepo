@@ -121,6 +121,7 @@ jobs:
     outputs:
       build_number: ${{ steps.params.outputs.build_number }}
       build_bundle_version: ${{ steps.params.outputs.build_bundle_version }}
+      build_app_version: ${{ steps.params.outputs.build_app_version }}
       build_source: ${{ steps.params.outputs.build_source }}
       branch: ${{ steps.params.outputs.branch }}
       commit: ${{ steps.params.outputs.commit }}
@@ -176,6 +177,14 @@ jobs:
           NOW=$(date -u +%s)
           BUILD_BUNDLE_VERSION=$(( NOW - EPOCH_2026 ))
 
+          # Read as data (never sourced) so secret-holding jobs downstream
+          # get the version without checking out PR content.
+          BUILD_APP_VERSION=$(grep -m1 -E '^VERSION=' .env.version | cut -d '=' -f 2- | tr -d '\r' || true)
+          if [[ ! "$BUILD_APP_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?$ ]]; then
+            echo "::warning::Unexpected VERSION in .env.version: '$BUILD_APP_VERSION'"
+            BUILD_APP_VERSION=""
+          fi
+          echo "build_app_version=$BUILD_APP_VERSION" >> "$GITHUB_OUTPUT"
           echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
           echo "build_bundle_version=$BUILD_BUNDLE_VERSION" >> $GITHUB_OUTPUT
           echo "build_source=$BUILD_SOURCE" >> $GITHUB_OUTPUT
@@ -484,6 +493,7 @@ jobs:
       branch: ${{ needs.prepare-params.outputs.branch }}
       commit: ${{ needs.prepare-params.outputs.commit }}
       checkout_ref: ${{ needs.prepare-params.outputs.commit }}
+      build_app_version: ${{ needs.prepare-params.outputs.build_app_version }}
       skip_pages_deploy: true
       test_endpoint: app-bundle.onekeytest.com
     secrets:
