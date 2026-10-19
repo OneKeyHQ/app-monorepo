@@ -1,8 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { type View, findNodeHandle } from 'react-native';
 
-import { DelayedFreeze, Page, useMedia } from '@onekeyhq/components';
+import {
+  DelayedFreeze,
+  Page,
+  YStack,
+  isLiquidGlassAvailable,
+  useMedia,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import type { ITabContainerRef } from '@onekeyhq/components';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
@@ -20,7 +28,9 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { LazyPageContainer } from '../../../components/LazyPageContainer';
+import { TabletHomeContainer } from '../../../components/TabletHomeContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
+import { LegacyUniversalSearchInput } from '../../../components/TabPageHeader/LegacyUniversalSearchInput';
 import { useWatchListV2Actions } from '../../../states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '../hooks';
 import { resolveMarketHomeNetworkSelection } from '../hooks/marketNetworkUtils';
@@ -342,7 +352,13 @@ const useMarketHomeLayoutProps = () => {
   );
 };
 
-function MarketHomeLayoutContent() {
+function MarketHomeLayoutContent({
+  externalTopOverlayTag,
+  externalTopOverlayHeight,
+}: {
+  externalTopOverlayTag?: number;
+  externalTopOverlayHeight?: number;
+}) {
   const { isLoading: isBannerPending } = useMarketBannerState();
   markMarketPerf('market-home-base-layout-render');
   useMarketRenderCommitProbe('MarketHome.BaseLayout');
@@ -357,7 +373,11 @@ function MarketHomeLayoutContent() {
   ) {
     return (
       <LazyPageContainer eager={platformEnv.isWeb}>
-        {md || platformEnv.isNative ? <MarketHomeLoadingFallback /> : null}
+        {md || platformEnv.isNative ? (
+          <YStack flex={1} pt={externalTopOverlayHeight ?? 0}>
+            <MarketHomeLoadingFallback />
+          </YStack>
+        ) : null}
       </LazyPageContainer>
     );
   }
@@ -365,7 +385,13 @@ function MarketHomeLayoutContent() {
   return (
     <LazyPageContainer eager={platformEnv.isWeb}>
       {md || platformEnv.isNative ? (
-        <MobileLayout {...layoutProps} />
+        <MobileLayout
+          {...layoutProps}
+          isFocused={isFocused}
+          {...(platformEnv.isNativeIOS
+            ? { externalTopOverlayTag, externalTopOverlayHeight }
+            : {})}
+        />
       ) : (
         <DesktopLayout {...layoutProps} />
       )}
@@ -373,25 +399,110 @@ function MarketHomeLayoutContent() {
   );
 }
 
-function BaseMarketHomeLayout() {
+function BaseMarketHomeLayout({
+  externalTopOverlayTag,
+  externalTopOverlayHeight,
+}: {
+  externalTopOverlayTag?: number;
+  externalTopOverlayHeight?: number;
+}) {
   return (
     <MarketBannerProvider>
-      <MarketHomeLayoutContent />
+      <MarketHomeLayoutContent
+        externalTopOverlayTag={externalTopOverlayTag}
+        externalTopOverlayHeight={externalTopOverlayHeight}
+      />
     </MarketBannerProvider>
   );
 }
 
 function BaseMarketHome() {
   const isFocused = useRouteIsFocused();
+  const { top } = useSafeAreaInsets();
+  const searchGlassActive = isLiquidGlassAvailable();
+  const scrollEdgeHeaderEnabled = Boolean(
+    platformEnv.isNativeIOS && searchGlassActive,
+  );
+  const headerRef = useRef<View>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const [headerTag, setHeaderTag] = useState(0);
+  const handleHeaderRef = useCallback((view: View | null) => {
+    headerRef.current = view;
+    if (view === null) {
+      setHeaderTag(0);
+      setHeaderHeight(0);
+    }
+  }, []);
+  const headerReady =
+    scrollEdgeHeaderEnabled && headerHeight > 0 && headerTag > 0;
+  let searchTop = top;
+  if (platformEnv.isNativeAndroid) {
+    searchTop = top + 5;
+  } else if (searchGlassActive) {
+    searchTop = top + 6;
+  }
+
   return (
-    <Page>
-      <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
-        tabRoute={ETabRoutes.Market}
-      />
+    <Page fullPage={platformEnv.isNative}>
+      {platformEnv.isNative ? (
+        <>
+          <Page.Header headerShown={false} />
+          <YStack
+            ref={handleHeaderRef}
+            collapsable={false}
+            onLayout={(event) => {
+              if (!scrollEdgeHeaderEnabled) return;
+              const tag = findNodeHandle(headerRef.current) ?? 0;
+              if (
+                tag <= 0 ||
+                !('target' in event.nativeEvent) ||
+                event.nativeEvent.target !== tag
+              ) {
+                return;
+              }
+              const height = event.nativeEvent.layout.height;
+              if (height > 0 && height !== headerHeight) {
+                setHeaderHeight(height);
+              }
+              if (tag > 0 && tag !== headerTag) {
+                setHeaderTag(tag);
+              }
+            }}
+            bg={headerReady ? undefined : '$bgApp'}
+            position={headerReady ? 'absolute' : undefined}
+            top={headerReady ? 0 : undefined}
+            left={headerReady ? 0 : undefined}
+            right={headerReady ? 0 : undefined}
+            zIndex={headerReady ? 10 : undefined}
+            pt={searchTop}
+            pb="$2"
+            px="$5"
+            width="100%"
+          >
+            <LegacyUniversalSearchInput
+              size="medium"
+              glass
+              initialTab="market"
+              tabRoute={ETabRoutes.Market}
+              containerProps={{
+                width: '100%',
+                $gtLg: undefined,
+              }}
+            />
+          </YStack>
+        </>
+      ) : (
+        <TabPageHeader
+          sceneName={EAccountSelectorSceneName.home}
+          tabRoute={ETabRoutes.Market}
+        />
+      )}
       <Page.Body testID={MarketTestIDs.marketPage}>
         <DelayedFreeze freeze={!platformEnv.isNative && !isFocused}>
-          <BaseMarketHomeLayout />
+          <BaseMarketHomeLayout
+            externalTopOverlayTag={headerReady ? headerTag : undefined}
+            externalTopOverlayHeight={headerReady ? headerHeight : undefined}
+          />
         </DelayedFreeze>
       </Page.Body>
     </Page>
@@ -405,20 +516,22 @@ export function MarketHomeV2() {
     debugLandingLog('MarketHomeV2 render');
   }
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.home,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-      waitForStorageReady={!platformEnv.isWeb}
-    >
-      <MarketWatchListProviderMirrorV2
-        storeName={EJotaiContextStoreNames.marketWatchListV2}
+    <TabletHomeContainer>
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName: EAccountSelectorSceneName.home,
+          sceneUrl: '',
+        }}
+        enabledNum={[0]}
+        waitForStorageReady={!platformEnv.isWeb}
       >
-        <BaseMarketHome />
-      </MarketWatchListProviderMirrorV2>
-    </AccountSelectorProviderMirror>
+        <MarketWatchListProviderMirrorV2
+          storeName={EJotaiContextStoreNames.marketWatchListV2}
+        >
+          <BaseMarketHome />
+        </MarketWatchListProviderMirrorV2>
+      </AccountSelectorProviderMirror>
+    </TabletHomeContainer>
   );
 }
 
@@ -426,10 +539,14 @@ function BaseMarketHomeWithProvider({
   isFocused = true,
   tabsRef,
   nestedPager = false,
+  externalTopOverlayTag,
+  externalTopOverlayHeight,
 }: {
   isFocused?: boolean;
   tabsRef?: React.RefObject<ITabContainerRef | null>;
   nestedPager?: boolean;
+  externalTopOverlayTag?: number;
+  externalTopOverlayHeight?: number;
 }) {
   const { layoutProps, shouldWaitForSpotCategoryReady } =
     useMarketHomeLayoutProps();
@@ -439,7 +556,11 @@ function BaseMarketHomeWithProvider({
     shouldWaitForSpotCategoryReady ||
     (platformEnv.isNative && isBannerPending)
   ) {
-    return platformEnv.isNative ? <MarketHomeLoadingFallback /> : null;
+    return platformEnv.isNative ? (
+      <YStack flex={1} pt={externalTopOverlayHeight ?? 0}>
+        <MarketHomeLoadingFallback />
+      </YStack>
+    ) : null;
   }
   // In nested outer pagers (Discovery: Market/Earn/Browser), keep Market mounted
   // and let Freeze control inactive-page performance. Unmounting here causes
@@ -453,6 +574,9 @@ function BaseMarketHomeWithProvider({
       isFocused={isFocused}
       tabsRef={tabsRef}
       nestedPager={nestedPager}
+      {...(platformEnv.isNativeIOS
+        ? { externalTopOverlayTag, externalTopOverlayHeight }
+        : {})}
     />
   );
 }
@@ -461,10 +585,14 @@ export function MarketHomeWithProvider({
   isFocused = true,
   tabsRef,
   nestedPager = false,
+  externalTopOverlayTag,
+  externalTopOverlayHeight,
 }: {
   isFocused?: boolean;
   tabsRef?: React.RefObject<ITabContainerRef | null>;
   nestedPager?: boolean;
+  externalTopOverlayTag?: number;
+  externalTopOverlayHeight?: number;
 }) {
   return (
     <AccountSelectorProviderMirror
@@ -483,6 +611,8 @@ export function MarketHomeWithProvider({
             isFocused={isFocused}
             tabsRef={tabsRef}
             nestedPager={nestedPager}
+            externalTopOverlayTag={externalTopOverlayTag}
+            externalTopOverlayHeight={externalTopOverlayHeight}
           />
         </MarketBannerProvider>
       </MarketWatchListProviderMirrorV2>

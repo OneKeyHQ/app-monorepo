@@ -63,6 +63,7 @@ jest.mock('@onekeyhq/components', () => {
       <div data-testid={testID}>{children}</div>
     );
   return {
+    Badge: Object.assign(Wrapper, { Text: Wrapper }),
     Button: Wrapper,
     Icon: () => null,
     NumberSizeableText: Wrapper,
@@ -162,6 +163,14 @@ describe('SwapStockTickerSelector', () => {
     expect(screen.getByTestId('swap-stock-ticker-empty')).toBeTruthy();
     expect(screen.getByText(ETranslations.global_no_results)).toBeTruthy();
     expect(screen.queryByTestId('swap-stock-ticker-load-more')).toBeNull();
+  });
+
+  it('renders listing market tags alongside the stock name', () => {
+    mockListResult.items = [{ ...mockStock, tags: ['US'] }];
+    render(<SwapStockTickerSelector />);
+
+    expect(screen.getByText('US')).toBeTruthy();
+    expect(screen.getByText(mockStock.name)).toBeTruthy();
   });
 
   it('starts selecting the debounced search result before closing', async () => {

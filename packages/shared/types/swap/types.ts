@@ -18,6 +18,7 @@ import type {
   IEventSourceTimeoutEvent,
 } from '@onekeyhq/shared/src/eventSource';
 
+import type { ISwapReviewAnalyticsContext } from './reviewAnalytics';
 import type {
   IEstimateGasResp,
   IFeeAlgo,
@@ -192,6 +193,8 @@ export interface IMarketPresetTokenContext {
 }
 
 export interface ISwapInitParams {
+  // The current Market token side; resolved using Swap's loaded capabilities.
+  marketSwapDirection?: 'from' | 'to';
   importFromToken?: ISwapToken;
   importToToken?: ISwapToken;
   importAccountKey?: string;
@@ -395,6 +398,8 @@ export interface ISwapOrderHash {
 
 export interface ISwapApproveTransaction {
   approvalRequestId?: string;
+  // Keep the originating Review for estimates after reset approval completes.
+  analyticsSwapInfo?: ISwapTxInfo;
   fromToken: ISwapToken;
   toToken: ISwapToken;
   marketSwapApprovalFlowId?: string;
@@ -1052,6 +1057,7 @@ export interface ISwapInfoSide {
   };
 }
 export interface ISwapTxInfo {
+  reviewAnalyticsContext?: ISwapReviewAnalyticsContext;
   protocol: EProtocolOfExchange;
   sender: ISwapInfoSide;
   receiver: ISwapInfoSide;

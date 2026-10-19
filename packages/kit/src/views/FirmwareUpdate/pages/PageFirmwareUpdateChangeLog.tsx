@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { toUserFacingFirmwareUpdateError } from '@onekeyhq/shared/src/errors/utils/firmwareUpdateErrorUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalFirmwareUpdateRoutes,
   type IModalFirmwareUpdateParamList,
@@ -78,10 +79,10 @@ function PageFirmwareUpdateChangeLog() {
         const resolvedTransport =
           await backgroundApiProxy.serviceHardware.resolveHardwareTransport({
             connectId,
-            // Preserve anonymous USB/bootloader discovery from the legacy flow.
-            hardwareCallContext: connectId
-              ? EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG
-              : EHardwareCallContext.UPDATE_FIRMWARE,
+            hardwareCallContext:
+              platformEnv.isDesktop || !connectId
+                ? EHardwareCallContext.UPDATE_FIRMWARE
+                : EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG,
           });
         const compatibleConnectId = resolvedTransport.connectId;
         setActiveConnectId(compatibleConnectId);

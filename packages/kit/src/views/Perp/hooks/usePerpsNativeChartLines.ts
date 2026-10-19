@@ -1,20 +1,16 @@
 import { useMemo } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import { useTheme } from '@onekeyhq/components';
 import { useTradingViewSettingsThemeColors } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls/chartSettings/TradingViewSettingsThemeColors';
 import type { ITradingViewNativeReferenceLineComponent } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
 
 import { usePerpsChartLineActions } from './usePerpsChartLineActions';
 import { usePerpsChartLines } from './usePerpsChartLines';
 
 export function usePerpsNativeChartLines(enableTradingUi: boolean) {
-  const intl = useIntl();
   const theme = useTheme();
   const labelBackground = theme.bgApp.val;
   const labelColor = theme.text.val;
@@ -55,12 +51,6 @@ export function usePerpsNativeChartLines(enableTradingUi: boolean) {
         const isLong = line.side === 'long';
         const isLimitOrder = line.kind === 'order';
         let labelOffset = isLimitOrder ? 50 : 16;
-        const isPosition =
-          line.kind === 'position' || line.kind === 'liquidation';
-        const directionId: ETranslations = isLong
-          ? ETranslations.global_buy
-          : ETranslations.global_sell;
-        const direction = intl.formatMessage({ id: directionId });
         let color =
           themeColors[
             isLong
@@ -95,12 +85,7 @@ export function usePerpsNativeChartLines(enableTradingUi: boolean) {
               draggable: line.editable === true,
               pending: Boolean(pendingAction),
               style: isLimitOrder ? 'dotted' : 'dashed',
-              title: [
-                isPosition || isLimitOrder ? undefined : direction,
-                line.label?.left,
-              ]
-                .filter(Boolean)
-                .join(' · '),
+              title: line.label?.left ?? '',
               label: {
                 variant: isLimitOrder ? 'order' : undefined,
                 offset: labelOffset,
@@ -121,7 +106,6 @@ export function usePerpsNativeChartLines(enableTradingUi: boolean) {
         ];
       }),
     [
-      intl,
       lines,
       themeColors,
       labelBackground,

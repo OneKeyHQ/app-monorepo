@@ -76,14 +76,13 @@ function isDesktopBleConnectedOnlyScopeActive(uuid: string) {
 }
 
 export interface IVerifyUpdateParams {
-  downloadedFile?: string;
   downloadUrl?: string;
+  latestVersion?: string;
   skipGPGVerification?: boolean;
 }
 
 export interface IInstallUpdateParams extends IVerifyUpdateParams {
   buildNumber: string;
-  latestVersion?: string;
 }
 
 export type IDesktopEventUnSubscribe = () => void;
@@ -180,6 +179,14 @@ const desktopApi = {
   totalMemoryBytes: platformInfo.totalMemoryBytes,
   isMas: platformInfo.isMas,
   processStartAt: platformInfo.processStartAt,
+  claimStartupTiming: (stage: 'jsReadyTime' | 'uiVisibleTime'): boolean =>
+    !isTrayWindow &&
+    ipcRenderer.sendSync(ipcMessageKeys.CLAIM_STARTUP_TIMING, stage) === true,
+  releaseStartupTiming: (stage: 'jsReadyTime' | 'uiVisibleTime'): void => {
+    if (!isTrayWindow) {
+      ipcRenderer.sendSync(ipcMessageKeys.RELEASE_STARTUP_TIMING, stage);
+    }
+  },
   supportsShareImageFile: platformInfo.supportsShareImageFile,
   isDev,
   channel: platformInfo.channel,
@@ -533,11 +540,13 @@ const exposeToMainWorld = (key: string, value: unknown) => {
 exposeToMainWorld('desktopApi', desktopApi);
 exposeToMainWorld('desktopApiBridge', desktopApiBridge);
 
-exposeToMainWorld(
-  '$mmkvSync',
-  (args: { method: string; id: string; key?: string; value?: unknown }) =>
-    ipcRenderer.sendSync('mmkv:sync', args),
-);
+if (!isTrayWindow) {
+  exposeToMainWorld(
+    '$mmkvSync',
+    (args: { method: string; id: string; key?: string; value?: unknown }) =>
+      ipcRenderer.sendSync('mmkv:sync', args),
+  );
+}
 
 // Expose getters for globals managed by IPC events
 exposeToMainWorld('ONEKEY_DESKTOP_GLOBALS_GETTER', () => desktopGlobals);

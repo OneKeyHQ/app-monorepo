@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -342,6 +343,7 @@ export function AddressRiskMoreAnalysis({
   address: string;
 }) {
   const intl = useIntl();
+  const navigation = useNavigation();
   const { handleFreeTrialError } = usePrimeFeatureAccess();
   const [isLoading, setIsLoading] = useState(false);
   const [details, setDetails] = useState<
@@ -359,13 +361,16 @@ export function AddressRiskMoreAnalysis({
       setDetails(data);
     } catch (error) {
       // Free users may read details of an address checked this month; the
-      // server decides. Not eligible / exhausted get the unified feedback,
-      // other errors were already toasted by the background proxy.
-      handleFreeTrialError({ error, networkId });
+      // server decides. Not eligible / exhausted get the unified feedback
+      // while the result page is still on top; other errors were already
+      // toasted by the background proxy.
+      if (navigation.isFocused()) {
+        handleFreeTrialError({ error, networkId });
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [networkId, address, handleFreeTrialError]);
+  }, [networkId, address, handleFreeTrialError, navigation]);
 
   if (!details) {
     return (

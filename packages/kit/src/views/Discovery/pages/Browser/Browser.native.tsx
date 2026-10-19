@@ -56,7 +56,6 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { EarnHomeWithProvider } from '../../../Earn/EarnHome';
-import { MarketHomeWithProvider } from '../../../Market/MarketHomeV2/MarketHomeV2';
 import CustomHeaderTitle from '../../components/CustomHeaderTitle';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import HeaderRightToolBar from '../../components/HeaderRightToolBar';
@@ -221,8 +220,12 @@ function MobileBrowser() {
   const isLandscape = useIsSplitView();
   const { defaultTab, earnTab } = route?.params || {};
   const [settings] = useSettingsPersistAtom();
-  const selectedHeaderTab =
+  const rawSelectedHeaderTab =
     settings.selectedBrowserTab || ETranslations.global_browser;
+  const selectedHeaderTab =
+    rawSelectedHeaderTab === ETranslations.global_earn
+      ? ETranslations.global_earn
+      : ETranslations.global_browser;
   // Pages the outer pager is actually painting. Tracked separately from
   // selectedHeaderTab, which only commits after the swipe finishes — the
   // gap between the two is what showed a blank page mid-swipe (OK-60300).
@@ -236,16 +239,15 @@ function MobileBrowser() {
   }, []);
   const isEarnPageVisible =
     selectedHeaderTab === ETranslations.global_earn ||
-    visibleOuterPages.includes(1);
+    visibleOuterPages.includes(0);
   const exploreTabSwitchTypeRef = useRef<IExploreTabSwitchType>('default');
   const hasLoggedExploreTabViewRef = useRef(false);
 
   // Shared value for swipe-following header tab animation.
-  // Maps tab enum to pager index: market=0, earn=1, browser=2.
+  // Maps tab enum to pager index: earn=0, browser=1.
   const initialPageIndex = useMemo(() => {
-    if (selectedHeaderTab === ETranslations.global_market) return 0;
-    if (selectedHeaderTab === ETranslations.global_earn) return 1;
-    return 2;
+    if (selectedHeaderTab === ETranslations.global_earn) return 0;
+    return 1;
   }, [selectedHeaderTab]);
   const outerPageScrollPosition = useSharedValue(initialPageIndex);
 
@@ -254,9 +256,6 @@ function MobileBrowser() {
   // Market/Perp/Wallet tabs are still available to switch to (OK-56756). Do NOT
   // narrow the search scope here — that would drop those tabs entirely.
   const searchInitialTab = useMemo(() => {
-    if (selectedHeaderTab === ETranslations.global_market) {
-      return 'market' as const;
-    }
     if (selectedHeaderTab === ETranslations.global_browser) {
       return 'dapp' as const;
     }
@@ -295,7 +294,7 @@ function MobileBrowser() {
     isBrowserHeaderTabSelected && !showDiscoveryPage && !displayHomePage;
   const isBrowserDashboardActive =
     showDiscoveryPage &&
-    (isBrowserHeaderTabSelected || visibleOuterPages.includes(2));
+    (isBrowserHeaderTabSelected || visibleOuterPages.includes(1));
   const shouldKeepBrowserTabLayerAttached =
     platformEnv.isNativeIOSPad && isTabletDetailView;
   const shouldDismissKeyboardOnTabSwitch =
@@ -307,6 +306,14 @@ function MobileBrowser() {
     }
   }, [tabs?.length]);
 
+  useEffect(() => {
+    if (rawSelectedHeaderTab === ETranslations.global_market) {
+      void backgroundApiProxy.serviceSetting.setSelectedBrowserTab(
+        ETranslations.global_browser,
+      );
+    }
+  }, [rawSelectedHeaderTab]);
+
   const previousDefaultTab = useRef<ETranslations | undefined>(undefined);
   useEffect(() => {
     if (previousDefaultTab.current !== defaultTab) {
@@ -315,13 +322,15 @@ function MobileBrowser() {
         previousDefaultTab: previousDefaultTab.current,
       });
       previousDefaultTab.current = defaultTab;
-      if (defaultTab) {
+      if (defaultTab === ETranslations.global_market) {
+        navigation.switchTab(ETabRoutes.Market);
+      } else if (defaultTab) {
         void backgroundApiProxy.serviceSetting.setSelectedBrowserTab(
           defaultTab,
         );
       }
     }
-  }, [defaultTab]);
+  }, [defaultTab, navigation]);
 
   useEffect(() => {
     if (!showDiscoveryPage) {
@@ -378,6 +387,10 @@ function MobileBrowser() {
         openUrl: event.openUrl,
         showWebPage: event.showWebPage,
       });
+      if (event.tab === ETranslations.global_market) {
+        navigation.switchTab(ETabRoutes.Market);
+        return;
+      }
       exploreTabSwitchTypeRef.current = event.switchType ?? 'default';
 
       // State machine: when WebView is open (displayHomePage === false) and
@@ -411,6 +424,7 @@ function MobileBrowser() {
   }, [
     activeTabId,
     displayHomePage,
+    navigation,
     setDisplayHomePage,
     shouldDismissKeyboardOnTabSwitch,
   ]);
@@ -461,6 +475,9 @@ function MobileBrowser() {
     [tabs, navigation, activeTabId],
   );
 
+  // Only the legacy tablet layout requires display:none gating across panes;
+  // phone layouts keep Market, Earn, and Browser in the outer pager.
+  const useOuterPager = !isTabletMainView && !isTabletDetailView;
   const { top } = useSafeAreaInsets();
   // iOS 26: the Discover search bar opts into the Liquid Glass capsule (so it
   // matches the Wallet header's glass search bar) and is nudged down so its
@@ -496,20 +513,10 @@ function MobileBrowser() {
     handleGoBackHome,
   });
 
-  // Refs for inner tab containers (Market/Earn) to sync after freeze/unfreeze
-  const marketTabsRef = useRef<ITabContainerRef>(null);
+  // Refs for inner tab containers (Earn) to sync after freeze/unfreeze
   const earnTabsRef = useRef<ITabContainerRef>(null);
   const earnBorrowPagerRef = useRef<IEarnBorrowPagerViewRef>(null);
 
-  // Determine if outer PagerView should be used (phone-style layout).
-  // Only the legacy tablet layout requires display:none gating across panes;
-  // that layout is only meaningful when SplitView is actually active (the
-  // SplitViewContext provider wraps the routers). When the user disables
-  // enableSplitView on a foldable / dual-screen device, neither main nor sub
-  // view is set — fall back to the phone-style pager so Market/Earn/Browser
-  // can still render. Without this, dual-screen Android with split-screen
-  // off renders a blank Market/DeFi page.
-  const useOuterPager = !isTabletMainView && !isTabletDetailView;
   const handleExploreTabSwipe = useCallback(() => {
     exploreTabSwitchTypeRef.current = 'swipe';
   }, []);
@@ -618,17 +625,9 @@ function MobileBrowser() {
               showDiscoveryPage={showDiscoveryPage}
               onPageSelectedBySwipe={handleExploreTabSwipe}
               pageScrollPosition={outerPageScrollPosition}
-              marketTabsRef={marketTabsRef}
               earnTabsRef={earnTabsRef}
               earnBorrowPagerRef={earnBorrowPagerRef}
               onVisiblePagesChange={handleVisiblePagesChange}
-              marketContent={
-                <MarketHomeWithProvider
-                  isFocused={selectedHeaderTab === ETranslations.global_market}
-                  nestedPager={useOuterPager}
-                  tabsRef={marketTabsRef}
-                />
-              }
               earnContent={
                 <EarnHomeWithProvider
                   showHeader={false}
@@ -709,21 +708,6 @@ function MobileBrowser() {
         ) : (
           <>
             {/* Keep iPad browser layers attached; Android retains legacy display switching. */}
-            {isShowContent ? (
-              <View
-                style={{
-                  flex: 1,
-                  display:
-                    selectedHeaderTab === ETranslations.global_market
-                      ? 'flex'
-                      : 'none',
-                }}
-              >
-                <MarketHomeWithProvider
-                  isFocused={selectedHeaderTab === ETranslations.global_market}
-                />
-              </View>
-            ) : null}
             <Stack
               flex={1}
               zIndex={shouldKeepBrowserTabLayerAttached ? undefined : 3}

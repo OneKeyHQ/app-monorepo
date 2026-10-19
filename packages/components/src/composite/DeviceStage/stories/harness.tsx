@@ -241,6 +241,7 @@ export function useStageDriver(
     stageProps: {
       step,
       onClose: closable ? close : undefined,
+      onErrorNoticeExpire: () => go('off'),
       waitStalled: stalled,
       inputError,
       authChecklist: authRows,

@@ -49,11 +49,7 @@ export function HeaderLeftCloseButton() {
   );
 }
 const discoveryTabs = platformEnv.isNative
-  ? [
-      ETranslations.global_market,
-      ETranslations.global_earn,
-      ETranslations.global_browser,
-    ]
+  ? [ETranslations.global_earn, ETranslations.global_browser]
   : [ETranslations.global_market, ETranslations.global_earn];
 
 // Static styles for animated text to match $headingXl token

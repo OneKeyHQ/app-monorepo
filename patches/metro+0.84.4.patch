@@ -1,8 +1,26 @@
 diff --git a/node_modules/metro/src/Assets.js b/node_modules/metro/src/Assets.js
-index b34df88..b6a18d9 100644
+index b34df88..66b684e 100644
 --- a/node_modules/metro/src/Assets.js
 +++ b/node_modules/metro/src/Assets.js
-@@ -203,6 +203,8 @@ async function getAssetFiles(assetPath, platform = null) {
+@@ -171,10 +171,14 @@ async function getAssetData(
+   assetUrlPath = (0, _pathUtils.normalizePathSeparatorsToPosix)(assetUrlPath);
+   const isImage = isAssetTypeAnImage(_path.default.extname(assetPath).slice(1));
+   const assetInfo = await getAbsoluteAssetInfo(assetPath, platform ?? null);
+-  const isImageInput = assetInfo.files[0].includes(".zip/")
++  // OneKey patch: image-size 2 accepts image bytes instead of file paths.
++  // const isImageInput = assetInfo.files[0].includes(".zip/")
++  //   ? _fs.default.readFileSync(assetInfo.files[0])
++  //   : assetInfo.files[0];
++  const isImageInput = isImage
+     ? _fs.default.readFileSync(assetInfo.files[0])
+-    : assetInfo.files[0];
+-  const dimensions = isImage ? (0, _imageSize.default)(isImageInput) : null;
++    : null;
++  const dimensions = isImageInput ? (0, _imageSize.default)(isImageInput) : null;
+   const scale = assetInfo.scales[0];
+   const assetData = {
+     __packager_asset: true,
+@@ -203,6 +207,8 @@ async function getAssetFiles(assetPath, platform = null) {
    const assetData = await getAbsoluteAssetRecord(assetPath, platform);
    return assetData.files;
  }
@@ -11,7 +29,7 @@ index b34df88..b6a18d9 100644
  async function getAsset(
    relativePath,
    projectRoot,
-@@ -211,12 +213,19 @@ async function getAsset(
+@@ -211,12 +217,19 @@ async function getAsset(
    assetExts,
    fileExistsInFileMap,
  ) {
@@ -31,7 +49,7 @@ index b34df88..b6a18d9 100644
      throw new Error(
        `'${relativePath}' cannot be loaded as its extension is not registered in assetExts`,
      );
-@@ -225,6 +234,10 @@ async function getAsset(
+@@ -225,6 +238,10 @@ async function getAsset(
      fileExistsInFileMap == null &&
      !pathBelongsToRoots(absolutePath, [projectRoot, ...watchFolders])
    ) {

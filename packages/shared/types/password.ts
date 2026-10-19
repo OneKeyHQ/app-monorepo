@@ -26,6 +26,7 @@ export enum EPasswordMode {
 }
 
 export const BIOLOGY_AUTH_CANCEL_ERROR = 'user_cancel';
+export const BIOLOGY_AUTH_ABORTED_ERROR = 'app_cancel';
 
 export const PASSCODE_LENGTH = 6;
 export const PASSCODE_PROTECTION_ATTEMPTS = 10;

@@ -1,17 +1,20 @@
 import { useCallback } from 'react';
 
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Dialog } from '@onekeyhq/components';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import type { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { getFirmwareUpdateUSBPreflightParams } from '../../FirmwareUpdate/utils';
 import { getDesktopForceUSBTransportType } from '../utils';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
@@ -36,29 +39,73 @@ export function usePrepareUSBConnectForFirmwareUpdate() {
       device: SearchDevice;
       features: IOneKeyDeviceFeatures | undefined;
     }): Promise<IUSBConnectPrepareResult | null> => {
-      const connectProtocol = isProtocolV2ProductType(device.deviceType)
-        ? 'V2'
-        : undefined;
-      let connectIdToUse = device.connectId;
-      if (platformEnv.isDesktop && features) {
+      let usbPreflightParams: Awaited<
+        ReturnType<typeof getFirmwareUpdateUSBPreflightParams>
+      > = {
+        connectId: device.connectId ?? undefined,
+        connectProtocol: isProtocolV2ProductType(device.deviceType)
+          ? 'V2'
+          : undefined,
+      };
+      if (platformEnv.isDesktop) {
         try {
-          const usbConnectId = await deviceUtils.buildDeviceUSBConnectId({
+          usbPreflightParams = await getFirmwareUpdateUSBPreflightParams({
             features,
+            deviceType: device.deviceType,
+            originalConnectId: device.connectId ?? undefined,
           });
-          if (!isNil(usbConnectId)) {
-            connectIdToUse = usbConnectId;
-          }
         } catch (error) {
           console.error('Failed to build USB connectId:', error);
         }
       }
+      const { connectId: connectIdToUse, connectProtocol } = usbPreflightParams;
 
       // Step 1: Check if USB device is available
-      const isUSBDeviceAvailable =
-        await backgroundApiProxy.serviceHardware.detectUSBDeviceAvailability({
-          connectId: connectIdToUse ?? undefined,
-          connectProtocol,
+      let isUSBDeviceAvailable: boolean;
+      let resolvedConnectId = connectIdToUse;
+      try {
+        isUSBDeviceAvailable =
+          await backgroundApiProxy.serviceHardware.detectUSBDeviceAvailability(
+            usbPreflightParams,
+          );
+        // A BLE loader entry needs its observed model to resolve the single
+        // USB endpoint, because loader firmware has no business serial.
+        if (
+          isUSBDeviceAvailable &&
+          platformEnv.isDesktop &&
+          connectIdToUse &&
+          features &&
+          usbPreflightParams.bootloaderRecoveryDeviceType
+        ) {
+          resolvedConnectId =
+            await backgroundApiProxy.serviceHardware.checkDeviceReachableForFirmwareUpdate(
+              { connectId: connectIdToUse, features },
+            );
+        }
+      } catch (error) {
+        if (
+          !isHardwareErrorByCode({
+            error: error as IOneKeyError,
+            code: HardwareErrorCode.FirmwareUpdateLimitOneDevice,
+          })
+        ) {
+          throw error;
+        }
+        Dialog.show({
+          icon: 'TypeCoutline',
+          title: intl.formatMessage({
+            id: ETranslations.firmware_update_install_page__title,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.update_only_one_usb_device_supported_for_upgrade,
+          }),
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_got_it,
+          }),
+          showCancelButton: false,
         });
+        return null;
+      }
 
       if (!isUSBDeviceAvailable) {
         Dialog.show({
@@ -90,12 +137,12 @@ export function usePrepareUSBConnectForFirmwareUpdate() {
         }
       }
 
-      if (isNil(connectIdToUse)) {
+      if (isNil(resolvedConnectId)) {
         return null;
       }
 
       return {
-        connectId: connectIdToUse,
+        connectId: resolvedConnectId,
         originalTransport: globalOriginalTransport,
         needsRestore: globalOriginalTransport !== undefined,
       };
