@@ -50,9 +50,12 @@ const FAILED_RECHECK_INTERVAL_MS = 60_000;
 // late completion: a general refresh rechecks them this rarely so they never
 // crowd out the visible orders. Explicit ids (the detail page) are exempt.
 const LOW_PRIORITY_RECHECK_INTERVAL_MS = 10 * 60_000;
-// Lookups per round, well under the 10/min/IP edge budget so the walk above
-// plus the detail page's poll fits in one minute.
-const MAX_LOOKUPS_PER_ROUND = 4;
+// Device-wide lookup budget per rolling minute, under the 10/min/IP edge
+// limit so the detail page's poll still has room. One page entry can refresh
+// every order up to this count; beyond it the least recently checked orders
+// go first and the rest get their turn on the next entry.
+const LOOKUP_BUDGET_PER_MINUTE = 8;
+const LOOKUP_BUDGET_WINDOW_MS = 60_000;
 // One 429 pauses every lookup on this device for this long.
 const RATE_LIMITED_PAUSE_MS = 60_000;
 // Ids minted by the Simulator mock client / the no-id fallback never exist on
@@ -86,15 +89,18 @@ function lookupPriority(order: IHeadlessBuyOrder): number {
 }
 
 // The orders one status round may look up: non-terminal real ids, each past
-// its recheck interval, highest priority first, capped per round.
+// its recheck interval, highest priority first and within a tier the least
+// recently checked first (never checked before all), capped to `limit`.
 function selectLookupTargets({
   orders,
   wanted,
   now,
+  limit,
 }: {
   orders: IHeadlessBuyOrder[];
   wanted: Set<string> | undefined;
   now: number;
+  limit: number;
 }): IHeadlessBuyOrder[] {
   const candidates = orders.filter((o) => {
     if (
@@ -121,8 +127,12 @@ function selectLookupTargets({
     );
   });
   return candidates
-    .toSorted((a, b) => lookupPriority(a) - lookupPriority(b))
-    .slice(0, MAX_LOOKUPS_PER_ROUND);
+    .toSorted(
+      (a, b) =>
+        lookupPriority(a) - lookupPriority(b) ||
+        (a.lastCheckedAt ?? 0) - (b.lastCheckedAt ?? 0),
+    )
+    .slice(0, limit);
 }
 
 @backgroundClass()
@@ -347,6 +357,9 @@ class ServiceFiatCrypto extends ServiceBase {
 
   // Set after a 429: no lookup is attempted on this device until then.
   private onramperLookupsPausedUntil = 0;
+
+  // Start times of the lookups issued in the last budget window.
+  private onramperLookupTimes: number[] = [];
 
   private emitHeadlessBuyOrdersChanged() {
     appEventBus.emit(EAppEventBusNames.HeadlessBuyOrdersChanged, undefined);
@@ -597,8 +610,9 @@ class ServiceFiatCrypto extends ServiceBase {
   // `transactionIds`). Called by the UI at the spec'd moments only: Buy/Sell
   // page mount, order list mount, and the detail page's focused poll. Never
   // scheduled from the background. Budgeted against the edge rate limit:
-  // per-order recheck intervals (longer after a failure), a per-round cap,
-  // in-flight de-duplication, and a device-wide pause after a 429.
+  // per-order recheck intervals (longer after a failure), a rolling
+  // per-minute budget, in-flight de-duplication, and a device-wide pause
+  // after a 429.
   @backgroundMethod()
   public async refreshHeadlessBuyOrders({
     transactionIds,
@@ -610,10 +624,14 @@ class ServiceFiatCrypto extends ServiceBase {
     if (now < this.onramperLookupsPausedUntil) {
       return orders;
     }
+    this.onramperLookupTimes = this.onramperLookupTimes.filter(
+      (t) => now - t < LOOKUP_BUDGET_WINDOW_MS,
+    );
     const targets = selectLookupTargets({
       orders,
       wanted: transactionIds ? new Set(transactionIds) : undefined,
       now,
+      limit: LOOKUP_BUDGET_PER_MINUTE - this.onramperLookupTimes.length,
     });
     if (targets.length === 0) {
       return orders;
@@ -706,6 +724,7 @@ class ServiceFiatCrypto extends ServiceBase {
     if (pending) {
       return pending;
     }
+    this.onramperLookupTimes.push(Date.now());
     const lookup = this.fetchOnramperTransactionStatus(transactionId).finally(
       () => {
         this.pendingOnramperLookups.delete(transactionId);

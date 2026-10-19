@@ -256,6 +256,38 @@ describe('applyHeadlessBuyOrderTimeRules', () => {
     ).toBe(fresh);
   });
 
+  it('surfaces a hidden payment-seen record as timed out instead of deleting it', () => {
+    const hidden = order({ paymentSeen: true });
+    expect(
+      applyHeadlessBuyOrderTimeRules(
+        hidden,
+        T0 + HEADLESS_BUY_ORDER_TIMEOUT_MS - 1,
+      ),
+    ).toBe(hidden);
+    const next = applyHeadlessBuyOrderTimeRules(
+      hidden,
+      T0 + HEADLESS_BUY_ORDER_TIMEOUT_MS,
+    );
+    expect(next).toEqual({
+      ...hidden,
+      submittedAt: T0,
+      status: EHeadlessBuyOrderStatus.Failed,
+      timedOut: true,
+    });
+    // Stable afterwards, still refreshed, and the failure copy stays
+    // non-committal about the money.
+    expect(
+      applyHeadlessBuyOrderTimeRules(
+        next as IHeadlessBuyOrder,
+        T0 + 3 * HEADLESS_BUY_ORDER_TIMEOUT_MS,
+      ),
+    ).toBe(next);
+    expect(isTerminalHeadlessBuyOrder(next as IHeadlessBuyOrder)).toBe(false);
+    expect(getHeadlessBuyFailureKind(next as IHeadlessBuyOrder)).toBe(
+      'unknown',
+    );
+  });
+
   it('keeps a hidden order whose backend status shows progress', () => {
     const paid = order({ rawStatus: 'paid', paymentSeen: true });
     expect(

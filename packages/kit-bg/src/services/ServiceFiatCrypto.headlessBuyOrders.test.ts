@@ -402,7 +402,7 @@ describe('ServiceFiatCrypto headless buy orders', () => {
     expect(requested.toSorted()).toEqual(['failed-old', 'old-check']);
   });
 
-  test('refreshHeadlessBuyOrders caps a round and queries visible orders first', async () => {
+  test('refreshHeadlessBuyOrders rechecks hidden and timed-out records rarely, visible orders first', async () => {
     const { service, get } = createService([
       // Already checked hidden / timed-out records only get a slot after
       // ten minutes in a general refresh.
@@ -422,9 +422,6 @@ describe('ServiceFiatCrypto headless buy orders', () => {
       baseOrder({ transactionId: 'hidden-new', createdAt: T0 + 5 }),
       baseOrder({ transactionId: 'v1', submittedAt: T0 + 1 }),
       baseOrder({ transactionId: 'v2', submittedAt: T0 + 2 }),
-      baseOrder({ transactionId: 'v3', submittedAt: T0 + 3 }),
-      baseOrder({ transactionId: 'v4', submittedAt: T0 + 4 }),
-      baseOrder({ transactionId: 'v5', submittedAt: T0 + 5 }),
     ]);
     get.mockResolvedValue({ data: { data: null } });
     await service.refreshHeadlessBuyOrders({});
@@ -434,17 +431,79 @@ describe('ServiceFiatCrypto headless buy orders', () => {
           (call[1] as { params: { transactionId: string } }).params
             .transactionId,
       );
-    expect(requested()).toEqual(['v5', 'v4', 'v3', 'v2']);
+    expect(requested()).toEqual(['v2', 'v1', 'hidden-new']);
 
     // An explicit id (the detail page) is exempt from the low-priority
-    // interval, and the ones left out above get their turn once the failed
-    // ones are inside their cooldown.
+    // interval.
     get.mockClear();
     await service.refreshHeadlessBuyOrders({ transactionIds: ['timed-out'] });
     expect(requested()).toEqual(['timed-out']);
     get.mockClear();
+    (Date.now as jest.Mock).mockReturnValue(T0 + 1000 + 10 * 60_000);
     await service.refreshHeadlessBuyOrders({});
-    expect(requested()).toEqual(['v1', 'hidden-new']);
+    expect(requested().toSorted()).toEqual([
+      'hidden-checked',
+      'hidden-new',
+      'timed-out',
+      'v1',
+      'v2',
+    ]);
+  });
+
+  test('refreshHeadlessBuyOrders spends at most eight lookups per minute, least recently checked first', async () => {
+    const { service, get } = createService(
+      Array.from({ length: 10 }, (_, i) =>
+        baseOrder({ transactionId: `v${i + 1}`, submittedAt: T0 + i + 1 }),
+      ),
+    );
+    get.mockImplementation(
+      async (_path: string, config: { params: { transactionId: string } }) => ({
+        data: {
+          data: {
+            transactionId: config.params.transactionId,
+            status: 'pending',
+          },
+        },
+      }),
+    );
+    const requested = () =>
+      get.mock.calls.map(
+        (call) =>
+          (call[1] as { params: { transactionId: string } }).params
+            .transactionId,
+      );
+    // One page entry refreshes eight orders, newest first.
+    await service.refreshHeadlessBuyOrders({});
+    expect(requested()).toEqual([
+      'v10',
+      'v9',
+      'v8',
+      'v7',
+      'v6',
+      'v5',
+      'v4',
+      'v3',
+    ]);
+    // Inside the same minute the budget is spent: nothing more goes out,
+    // not even for the two orders that were left out.
+    get.mockClear();
+    (Date.now as jest.Mock).mockReturnValue(T0 + 1000 + 15_000);
+    await service.refreshHeadlessBuyOrders({});
+    expect(requested()).toEqual([]);
+    // Next minute: the never-checked orders go first, then the rest.
+    get.mockClear();
+    (Date.now as jest.Mock).mockReturnValue(T0 + 1000 + 61_000);
+    await service.refreshHeadlessBuyOrders({});
+    expect(requested()).toEqual([
+      'v2',
+      'v1',
+      'v10',
+      'v9',
+      'v8',
+      'v7',
+      'v6',
+      'v5',
+    ]);
   });
 
   test('refreshHeadlessBuyOrders shares one in-flight request per id', async () => {

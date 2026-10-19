@@ -156,7 +156,19 @@ export function applyHeadlessBuyOrderTimeRules(
       isPrePayment(order.rawStatus) &&
       now - order.createdAt >= HEADLESS_BUY_ORDER_TIMEOUT_MS
     ) {
-      return undefined;
+      if (!order.paymentSeen) {
+        return undefined;
+      }
+      // Apple Pay was authorized but `completed` never arrived (the app was
+      // killed in between): the user may have been charged, so the record
+      // is surfaced as a timed-out failure — still refreshed, shown with the
+      // "contact support with your order id" copy — instead of being dropped.
+      return {
+        ...order,
+        submittedAt: order.createdAt,
+        status: EHeadlessBuyOrderStatus.Failed,
+        timedOut: true,
+      };
     }
     return order;
   }
