@@ -53,6 +53,7 @@ import { MobileMarketTokenSelectorSearchResults } from './MobileMarketTokenSelec
 import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
 import { useLiveTokenOverride } from './useLiveTokenOverride';
 import { useMobileStockSelectorNavigation } from './useMobileStockSelectorNavigation';
+import { useSelectorSwipeKeyboardDismiss } from './useSelectorSwipeKeyboardDismiss';
 
 function normalizeRouteBooleanParam(value: boolean | string | undefined) {
   if (typeof value === 'string') {
@@ -107,6 +108,7 @@ function MobileTokenSelectorContent() {
   const searchQuery = searchValueDebounce.trim();
   const { searchLoading, searchTokenList } = useSwapProTokenSearch(searchQuery);
   const liveTokenOverride = useLiveTokenOverride();
+  const swipeKeyboardDismissProps = useSelectorSwipeKeyboardDismiss();
 
   useEffect(() => {
     if (!searchQuery) {
@@ -292,69 +294,75 @@ function MobileTokenSelectorContent() {
           />
         </Stack>
 
-        {searchQuery ? (
-          <MobileMarketTokenSelectorSearchResults
-            query={searchQuery}
-            marketItems={searchTokenList}
-            isMarketLoading={searchLoading}
-            onStockPress={handleSearchStockSelect}
-            onMarketPress={handleSearchTokenSelect}
-          />
-        ) : (
-          <>
-            <DetailSelectorBrowseTabs
-              backgroundColor="$bgApp"
-              value={browseTab}
-              onChange={handleBrowseTabChange}
+        <YStack
+          flex={1}
+          testID="market-token-selector-results"
+          {...swipeKeyboardDismissProps}
+        >
+          {searchQuery ? (
+            <MobileMarketTokenSelectorSearchResults
+              query={searchQuery}
+              marketItems={searchTokenList}
+              isMarketLoading={searchLoading}
+              onStockPress={handleSearchStockSelect}
+              onMarketPress={handleSearchTokenSelect}
             />
-            {/* Figma 26934:146096 — 16px above the chips and 10px below;
+          ) : (
+            <>
+              <DetailSelectorBrowseTabs
+                backgroundColor="$bgApp"
+                value={browseTab}
+                onChange={handleBrowseTabChange}
+              />
+              {/* Figma 26934:146096 — 16px above the chips and 10px below;
                a tab without chips starts its list 10px under the tabs. */}
-            {subCategories.length > 0 ? (
-              <MarketStockCategorySelector
-                categories={chipCategories}
-                selectedCategoryId={selectedSubCategoryId}
-                onSelectCategory={handleSubCategoryChange}
-                containerStyle={{ px: '$5', pt: '$4', pb: '$2.5' }}
-              />
-            ) : (
-              <YStack h="$2.5" />
-            )}
-            {isFavoritesSelection ? (
-              <MobileSelectorWatchlistList
-                watchlistFilter={watchlistFilter}
-                onItemPress={handleTokenSelect}
-                liveTokenOverride={liveTokenOverride}
-              />
-            ) : null}
-            {isStockSelection ? (
-              <MobileSelectorStockList
-                category={stockCategoryId}
-                onItemPress={handleSearchStockSelect}
-              />
-            ) : null}
-            {!isFavoritesSelection &&
-            !isStockSelection &&
-            isTopCoinsSelection ? (
-              <MobileSelectorTopCoinsList
-                data={topCoins}
-                isLoading={Boolean(isTopCoinsLoading)}
-                isError={isTopCoinsError}
-                onRetry={() => void refreshTopCoins()}
-                onItemPress={handleTopCoinSelect}
-              />
-            ) : null}
-            {!isFavoritesSelection &&
-            !isStockSelection &&
-            !isTopCoinsSelection ? (
-              <MobileSelectorCategoryTokenList
-                category={tokenCategoryId}
-                timeRange={selectorTimeRange}
-                onItemPress={handleTokenSelect}
-                liveTokenOverride={liveTokenOverride}
-              />
-            ) : null}
-          </>
-        )}
+              {subCategories.length > 0 ? (
+                <MarketStockCategorySelector
+                  categories={chipCategories}
+                  selectedCategoryId={selectedSubCategoryId}
+                  onSelectCategory={handleSubCategoryChange}
+                  containerStyle={{ px: '$5', pt: '$4', pb: '$2.5' }}
+                />
+              ) : (
+                <YStack h="$2.5" />
+              )}
+              {isFavoritesSelection ? (
+                <MobileSelectorWatchlistList
+                  watchlistFilter={watchlistFilter}
+                  onItemPress={handleTokenSelect}
+                  liveTokenOverride={liveTokenOverride}
+                />
+              ) : null}
+              {isStockSelection ? (
+                <MobileSelectorStockList
+                  category={stockCategoryId}
+                  onItemPress={handleSearchStockSelect}
+                />
+              ) : null}
+              {!isFavoritesSelection &&
+              !isStockSelection &&
+              isTopCoinsSelection ? (
+                <MobileSelectorTopCoinsList
+                  data={topCoins}
+                  isLoading={Boolean(isTopCoinsLoading)}
+                  isError={isTopCoinsError}
+                  onRetry={() => void refreshTopCoins()}
+                  onItemPress={handleTopCoinSelect}
+                />
+              ) : null}
+              {!isFavoritesSelection &&
+              !isStockSelection &&
+              !isTopCoinsSelection ? (
+                <MobileSelectorCategoryTokenList
+                  category={tokenCategoryId}
+                  timeRange={selectorTimeRange}
+                  onItemPress={handleTokenSelect}
+                  liveTokenOverride={liveTokenOverride}
+                />
+              ) : null}
+            </>
+          )}
+        </YStack>
       </Page.Body>
     </Page>
   );

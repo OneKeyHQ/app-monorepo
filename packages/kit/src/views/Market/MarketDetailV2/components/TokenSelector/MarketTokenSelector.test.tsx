@@ -432,6 +432,21 @@ describe('MarketTokenSelector stock default category', () => {
     mockStockCategories = [];
   });
 
+  it('keeps the search input outside the swipe region while covering browse and search results', () => {
+    render(<MobileTokenSelector />);
+    const region = screen.getByTestId('market-token-selector-results');
+    const input = screen.getByTestId('market-token-selector-search');
+    expect(region.contains(input)).toBe(false);
+
+    fireEvent.click(screen.getByTestId('market-token-selector-tab-favorites'));
+    expect(region.contains(screen.getByTestId('mobile-favorites'))).toBe(true);
+
+    fireEvent.change(input, { target: { value: 'btc' } });
+    expect(region.contains(screen.getByTestId('mobile-search-result'))).toBe(
+      true,
+    );
+  });
+
   it('preserves assetId when selecting an asset-only mobile search result', () => {
     mockMobileSearchTokenList = [
       {
