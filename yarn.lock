@@ -11098,7 +11098,7 @@ __metadata:
     "@rozenite/react-navigation-plugin": "npm:1.0.0-alpha.16"
     "@sentry/react-native": "npm:8.2.0"
     "@shopify/flash-list": "npm:2.3.2"
-    "@shopify/react-native-skia": "npm:2.6.2"
+    "@shopify/react-native-skia": "npm:2.14.0"
     "@storybook/addon-ondevice-actions": "npm:10.4.7"
     "@storybook/addon-ondevice-controls": "npm:10.4.7"
     "@storybook/react-native": "npm:10.4.7"
@@ -11152,10 +11152,10 @@ __metadata:
     react-native-dns-lookup: "npm:@onekeyfe/react-native-dns-lookup@6.7.0-6"
     react-native-fast-pbkdf2: "npm:@onekeyfe/react-native-pbkdf2@6.7.0-6"
     react-native-fs: "npm:@dr.pogodin/react-native-fs@2.34.0"
-    react-native-gesture-handler: "npm:~2.32.0"
+    react-native-gesture-handler: "npm:~2.33.1"
     react-native-get-random-values: "npm:@onekeyfe/react-native-get-random-values@6.7.0-6"
     react-native-image-colors: "npm:^2.5.0"
-    react-native-keyboard-controller: "npm:1.21.9"
+    react-native-keyboard-controller: "npm:1.22.7"
     react-native-level-fs: "npm:3.0.1"
     react-native-mmkv: "npm:4.3.2"
     react-native-modal: "npm:^13.0.1"
@@ -16964,29 +16964,31 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@shopify/react-native-skia@npm:2.6.2":
-  version: 2.6.2
-  resolution: "@shopify/react-native-skia@npm:2.6.2"
+"@shopify/react-native-skia@npm:2.14.0":
+  version: 2.14.0
+  resolution: "@shopify/react-native-skia@npm:2.14.0"
   dependencies:
     canvaskit-wasm: "npm:0.41.0"
-    react-native-skia-android: "npm:147.1.0"
-    react-native-skia-apple-ios: "npm:147.1.0"
-    react-native-skia-apple-macos: "npm:147.1.0"
-    react-native-skia-apple-tvos: "npm:147.1.0"
+    react-native-skia-android: "npm:154.0.0"
+    react-native-skia-apple-ios: "npm:154.0.0"
+    react-native-skia-apple-macos: "npm:154.0.0"
+    react-native-skia-apple-tvos: "npm:154.0.0"
     react-reconciler: "npm:0.31.0"
   peerDependencies:
     react: ">=19.0"
     react-native: ">=0.78"
-    react-native-reanimated: ">=3.19.1"
+    react-native-reanimated: ">=4.0.0"
+    react-native-worklets: ">=0.7.0"
   peerDependenciesMeta:
     react-native:
       optional: true
     react-native-reanimated:
       optional: true
+    react-native-worklets:
+      optional: true
   bin:
-    install-skia: scripts/install-libs.js
     setup-skia-web: scripts/setup-canvaskit.js
-  checksum: 10/cdcdb6058ec21d836f874a0a37b385448d06d4faadc8b5b134c1f37826bba04cf6aedbc9dea2d42cb79f0b1bfe7a692571f374c378614dfb84ae120366d1887b
+  checksum: 10/342d3028807800211d538aee947b655e730a11e471e9d705a70d597719b12168f25197aafa0188dfc8d51518c2e0c572d3d122867588c117883c4bdb792f104a
   languageName: node
   linkType: hard
 
@@ -43642,9 +43644,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-gesture-handler@npm:~2.32.0":
-  version: 2.32.0
-  resolution: "react-native-gesture-handler@npm:2.32.0"
+"react-native-gesture-handler@npm:~2.33.1":
+  version: 2.33.1
+  resolution: "react-native-gesture-handler@npm:2.33.1"
   dependencies:
     "@egjs/hammerjs": "npm:^2.0.17"
     "@types/react-test-renderer": "npm:^19.1.0"
@@ -43653,7 +43655,7 @@ __metadata:
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/b43d350fd281ed9f75a469873a1eb74ae7cfa3d3e15dc7e57b11c0da5702a107b2824e1a9115386d9812e1179e86ccb952d6617cecbdbb26097d7c186088210f
+  checksum: 10/b37fa3e7b528af40e19ccd78e55ea39f764a5127384d7fd46e0cd00043c78678481fec6e2e00a5976933d762ee71a680da5d228a3eb184512ea4479cb08305d7
   languageName: node
   linkType: hard
 
@@ -43743,16 +43745,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-keyboard-controller@npm:1.21.9":
-  version: 1.21.9
-  resolution: "react-native-keyboard-controller@npm:1.21.9"
+"react-native-keyboard-controller@npm:1.22.7":
+  version: 1.22.7
+  resolution: "react-native-keyboard-controller@npm:1.22.7"
   dependencies:
     react-native-is-edge-to-edge: "npm:^1.2.1"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-reanimated: ">=3.0.0"
-  checksum: 10/54c91528fa7730a41efe1688fad32dbbe6f32878b5bb1ef3fc78e4fba837704efe3a34cfa0c7c674608ad32f5e677bfcb6c7c237697b20252784fc51c2def4ff
+  checksum: 10/0ae8ccbbf171743b18f5704482cc6f71fb938a5cd0df5fc40ea509260411a51dc30f89c277d30031236ad047446acf97f32a62f6ebea4533fe5affe8050aeaf2
   languageName: node
   linkType: hard
 
@@ -44003,31 +44005,31 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-skia-android@npm:147.1.0":
-  version: 147.1.0
-  resolution: "react-native-skia-android@npm:147.1.0"
-  checksum: 10/4e653ff0530fe19cd49e95ebc8906e5336894e529a1bb2c3aac4de2bd2c0f56403a76dbf598f4e3c59dc1a0841f6eae1d7506886bf14b2fdb9182b2de767fb0e
+"react-native-skia-android@npm:154.0.0":
+  version: 154.0.0
+  resolution: "react-native-skia-android@npm:154.0.0"
+  checksum: 10/ba295fde931dac1f4ac1374f90c71c04229359c6d0b04fc134cbd44f5849d7fae26dff53eaac6b10c4237ce90b749d45b80538cae85b90740c2720c6755d631e
   languageName: node
   linkType: hard
 
-"react-native-skia-apple-ios@npm:147.1.0":
-  version: 147.1.0
-  resolution: "react-native-skia-apple-ios@npm:147.1.0"
-  checksum: 10/642e505a211af3bef79ace6cb95298b0addff05ef8ffb53dd66615026cee3ded14283cef40ae4c823c7d072eb4d6c30730d725901286c77c738703fb050448b7
+"react-native-skia-apple-ios@npm:154.0.0":
+  version: 154.0.0
+  resolution: "react-native-skia-apple-ios@npm:154.0.0"
+  checksum: 10/f7184774234cfa5a622e483bd6b99d3ab7bbf65acd15a9c0e9055558cb37d32236512cc6d75dad0eb50f8947c555b8b4086cdd1d5ad729c024aeb8e9865ee5bf
   languageName: node
   linkType: hard
 
-"react-native-skia-apple-macos@npm:147.1.0":
-  version: 147.1.0
-  resolution: "react-native-skia-apple-macos@npm:147.1.0"
-  checksum: 10/a341b2c82a9a38d11e1dfb492a287989d7f9bd59be77af84b2fbbe86f06592ad31df7e4bddf21a04db34e9313a7bc472e263c0bc5a0539e0eaf56fce99d3ece5
+"react-native-skia-apple-macos@npm:154.0.0":
+  version: 154.0.0
+  resolution: "react-native-skia-apple-macos@npm:154.0.0"
+  checksum: 10/44f6d40e9065b29419233a20dd69398336a756ca960430786f18f3856f33213e942faa47b47738d0b3c29f1c9cec57ec0f2c7c5618f78b1db3281fd5e5479d91
   languageName: node
   linkType: hard
 
-"react-native-skia-apple-tvos@npm:147.1.0":
-  version: 147.1.0
-  resolution: "react-native-skia-apple-tvos@npm:147.1.0"
-  checksum: 10/ce0a58089bcef3ba0faa786db64be39bd8e397c7c5565a3631dd8a21eb913994e9adc7d9c4e47027aa47ce3b1e6d9e3e351e82a7d20c6d1258ddae7ba9ea6d27
+"react-native-skia-apple-tvos@npm:154.0.0":
+  version: 154.0.0
+  resolution: "react-native-skia-apple-tvos@npm:154.0.0"
+  checksum: 10/a79ad77ec9393c4e381a8ac278988ed72dd9ea44c66dc3678ffbed2af50dc9409199a0c115ff9ceffc1d5e23a9cdd9e32ea34404398ed64d31fb05d9a2a80497
   languageName: node
   linkType: hard
 

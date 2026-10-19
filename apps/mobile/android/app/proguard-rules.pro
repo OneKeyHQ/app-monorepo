@@ -7,6 +7,10 @@
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
+# AGP 9 removed proguard-android.txt, which carried -dontoptimize. Keep R8
+# optimizations off so release behavior matches the previous base file.
+-dontoptimize
+
 # react-native-reanimated
 -keep class com.swmansion.reanimated.** { *; }
 -keep class com.facebook.react.turbomodule.** { *; }

@@ -42,15 +42,17 @@ export function drawNativeChartDrawings(
     for (const line of geometry.paths.filter(
       (path) => path.points.length > 0,
     )) {
-      const path = Skia.Path.Make();
+      const builder = Skia.PathBuilder.Make();
       line.points.forEach((point, index) => {
-        if (index === 0) path.moveTo(point.x, point.y);
-        else path.lineTo(point.x, point.y);
+        if (index === 0) builder.moveTo(point.x, point.y);
+        else builder.lineTo(point.x, point.y);
       });
+      if (line.fill) builder.close();
+      const path = builder.build();
+      builder.dispose();
       paint.setColor(Skia.Color(line.color ?? drawing.color));
       paint.setPathEffect(null);
       if (line.fill) {
-        path.close();
         paint.setStyle(PaintStyle.Fill);
         paint.setAlphaf(0.12);
         canvas.drawPath(path, paint);

@@ -1,4 +1,5 @@
 diff --git a/node_modules/react-native-keyboard-controller/src/module.ts b/node_modules/react-native-keyboard-controller/src/module.ts
+index f749419..cdb5b65 100644
 --- a/node_modules/react-native-keyboard-controller/src/module.ts
 +++ b/node_modules/react-native-keyboard-controller/src/module.ts
 @@ -1,3 +1,5 @@
@@ -7,17 +8,17 @@ diff --git a/node_modules/react-native-keyboard-controller/src/module.ts b/node_
  import { KeyboardControllerNative, KeyboardEvents } from "./bindings";
  
  import type {
-@@ -32,17 +34,41 @@ const dismiss = async (options?: Partial<DismissOptions>): Promise<void> => {
- 
-   return new Promise((resolve) => {
+@@ -34,18 +36,41 @@ const dismiss = async (options?: Partial<DismissOptions>): Promise<void> => {
      if (isClosed) {
-+      // Android keyboards can live in a separate window (for example a
-+      // BottomSheetDialog). The activity listener does not observe that
-+      // window, so its cached visibility can be stale even while an input is
-+      // focused. Always forward the native dismissal on Android.
-+      if (Platform.OS === "android") {
+       if (!keepFocus) {
+         KeyboardControllerNative.dismiss(keepFocus, animated);
++      } else if (Platform.OS === "android") {
++        // Android keyboards can live in a separate window (for example a
++        // BottomSheetDialog). The activity listener does not observe that
++        // window, so its cached visibility can be stale even while an input is
++        // focused. Always forward the native dismissal on Android.
 +        KeyboardControllerNative.dismiss(true, animated);
-+      }
+       }
        resolve();
  
        return;

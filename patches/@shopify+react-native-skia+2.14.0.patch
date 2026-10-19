@@ -1,70 +1,52 @@
-diff --git a/node_modules/@shopify/react-native-skia/cpp/api/JsiSkFont.h b/node_modules/@shopify/react-native-skia/cpp/api/JsiSkFont.h
-index baf3a8a..93311a4 100644
---- a/node_modules/@shopify/react-native-skia/cpp/api/JsiSkFont.h
-+++ b/node_modules/@shopify/react-native-skia/cpp/api/JsiSkFont.h
-@@ -185,8 +185,11 @@ public:
-   }
- 
-   JSI_HOST_FUNCTION(getTypeface) {
--    return JsiSkTypeface::toValue(
--        runtime, getContext(), sk_sp<SkTypeface>(getObject()->getTypeface()));
-+    // OneKey patch: sk_sp(T*) adopts without ref'ing, so getTypeface() handed the
-+    // wrapper a reference it never took and over-released the SkTypeface that
-+    // Skia's global font cache still points at (OK-63558).
-+    return JsiSkTypeface::toValue(runtime, getContext(),
-+                                  getObject()->refTypeface());
-   }
- 
-   JSI_HOST_FUNCTION(setEdging) {
 diff --git a/node_modules/@shopify/react-native-skia/cpp/api/JsiSkFontMgr.h b/node_modules/@shopify/react-native-skia/cpp/api/JsiSkFontMgr.h
-index aec7f26..72d2ae5 100644
+index 33eb9ef..4e3a81a 100644
 --- a/node_modules/@shopify/react-native-skia/cpp/api/JsiSkFontMgr.h
 +++ b/node_modules/@shopify/react-native-skia/cpp/api/JsiSkFontMgr.h
-@@ -69,13 +69,43 @@ public:
-         runtime, hostObjectInstance, getContext());
+@@ -4,6 +4,7 @@
+ #include <numeric>
+ #include <string>
+ #include <utility>
++#include <variant>
+ #include <vector>
+ 
+ #include "JsiSkConverters.h"
+@@ -67,6 +68,27 @@ public:
+     return std::make_shared<JsiSkTypeface>(getContext(), std::move(typeface));
    }
  
 +  // OneKey patch: expose Skia's locale-aware system fallback lookup.
-+  JSI_HOST_FUNCTION(matchFamilyStyleCharacter) {
-+    auto name = arguments[0].asString(runtime).utf8(runtime);
++  std::variant<std::nullptr_t, std::shared_ptr<JsiSkTypeface>>
++  matchFamilyStyleCharacter(std::string name,
++                            std::shared_ptr<SkFontStyle> fontStyle,
++                            std::vector<std::string> bcp47Strings,
++                            double character) {
 +    auto resolvedName = getContext()->resolveFontFamily(name);
-+    auto fontStyle = JsiSkFontStyle::fromValue(runtime, arguments[1]);
-+    auto jsiBcp47 = arguments[2].asObject(runtime).asArray(runtime);
-+    auto bcp47Count = static_cast<int>(jsiBcp47.size(runtime));
-+    std::vector<std::string> bcp47Strings;
-+    bcp47Strings.reserve(bcp47Count);
-+    for (int index = 0; index < bcp47Count; index += 1) {
-+      bcp47Strings.push_back(jsiBcp47.getValueAtIndex(runtime, index)
-+                                 .asString(runtime)
-+                                 .utf8(runtime));
-+    }
 +    std::vector<const char *> bcp47;
 +    bcp47.reserve(bcp47Strings.size());
 +    for (const auto &locale : bcp47Strings) {
 +      bcp47.push_back(locale.c_str());
 +    }
-+    auto character = static_cast<SkUnichar>(arguments[3].asNumber());
 +    auto typeface = getObject()->matchFamilyStyleCharacter(
-+        resolvedName.c_str(), *fontStyle, bcp47.data(), bcp47Count, character);
++        resolvedName.c_str(), *fontStyle, bcp47.data(),
++        static_cast<int>(bcp47.size()), static_cast<SkUnichar>(character));
 +    if (!typeface) {
-+      return jsi::Value::null();
++      return nullptr;
 +    }
-+    return JsiSkTypeface::toValue(runtime, getContext(), std::move(typeface));
++    return std::make_shared<JsiSkTypeface>(getContext(), std::move(typeface));
 +  }
 +
-   size_t getMemoryPressure() const override { return 2048; }
+   size_t getMemoryPressure() override { return 2048; }
  
-   std::string getObjectType() const override { return "JsiSkFontMgr"; }
- 
-   JSI_EXPORT_FUNCTIONS(JSI_EXPORT_FUNC(JsiSkFontMgr, countFamilies),
-                        JSI_EXPORT_FUNC(JsiSkFontMgr, getFamilyName),
--                       JSI_EXPORT_FUNC(JsiSkFontMgr, matchFamilyStyle))
-+                       JSI_EXPORT_FUNC(JsiSkFontMgr, matchFamilyStyle),
-+                       JSI_EXPORT_FUNC(JsiSkFontMgr,
-+                                       matchFamilyStyleCharacter))
+   static sk_sp<SkFontMgr> fromValue(jsi::Runtime &runtime,
+@@ -82,6 +104,8 @@ public:
+                   &JsiSkFontMgr::getFamilyName);
+     installMethod(runtime, prototype, "matchFamilyStyle",
+                   &JsiSkFontMgr::matchFamilyStyle);
++    installMethod(runtime, prototype, "matchFamilyStyleCharacter",
++                  &JsiSkFontMgr::matchFamilyStyleCharacter);
+   }
  
  private:
-   std::vector<std::string> _systemFontFamilies;
 diff --git a/node_modules/@shopify/react-native-skia/lib/typescript/src/skia/types/Font/FontMgr.d.ts b/node_modules/@shopify/react-native-skia/lib/typescript/src/skia/types/Font/FontMgr.d.ts
 index eb436ae..887c298 100644
 --- a/node_modules/@shopify/react-native-skia/lib/typescript/src/skia/types/Font/FontMgr.d.ts
