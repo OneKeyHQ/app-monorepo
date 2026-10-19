@@ -99,6 +99,8 @@ describe('ServiceHyperliquidSubscription ping measurement', () => {
     try {
       internals._client = { ping };
       const oldMeasurement = internals._measurePing();
+      await internals._measurePing();
+      expect(ping).toHaveBeenCalledTimes(1);
       internals._stopPingLoop();
       expect(signals[0].aborted).toBe(true);
       const newMeasurement = internals._measurePing();
@@ -114,27 +116,6 @@ describe('ServiceHyperliquidSubscription ping measurement', () => {
     } finally {
       publish.mockRestore();
     }
-  });
-
-  it('keeps one ping in flight per client', async () => {
-    const service = createService();
-    const internals = service as unknown as {
-      _client: { ping: () => Promise<void> } | null;
-      _measurePing: () => Promise<void>;
-    };
-    let releasePing: (() => void) | undefined;
-    const pendingPing = new Promise<void>((resolve) => {
-      releasePing = resolve;
-    });
-    const ping = jest.fn(() => pendingPing);
-    internals._client = { ping };
-
-    const first = internals._measurePing();
-    const second = internals._measurePing();
-
-    expect(ping).toHaveBeenCalledTimes(1);
-    releasePing?.();
-    await Promise.all([first, second]);
   });
 });
 
@@ -189,61 +170,44 @@ describe('ServiceHyperliquidSubscription resume stream liveness', () => {
     },
   );
 
-  it('recovers a retrying socket before a subscription update without waiting', async () => {
-    const { service, force } = setupOpenSocketService();
-    const internals = service as unknown as {
-      _client: unknown;
-      _recoverNotOpenSocketBeforeSubscriptionUpdate: (params: {
-        client: unknown;
-        reason: string;
-      }) => Promise<void>;
-      _waitForOpenSocket: () => Promise<boolean>;
-    };
-    const client = {
-      transport: {
-        socket: { readyState: WebSocket.CONNECTING, retryCount: 1 },
-      },
-    };
-    internals._client = client;
-    const wait = jest.spyOn(internals, '_waitForOpenSocket');
+  it.each([false, true])(
+    'recovers only the current retrying socket: replaced=%s',
+    async (replaced) => {
+      const { service, force, reconcile } = setupOpenSocketService();
+      const internals = service as unknown as {
+        _client: unknown;
+        _recoverNotOpenSocketBeforeSubscriptionUpdate: (params: {
+          client: unknown;
+          reason: string;
+        }) => Promise<void>;
+        _waitForOpenSocket: () => Promise<boolean>;
+      };
+      const client = {
+        transport: {
+          socket: { readyState: WebSocket.CONNECTING, retryCount: 1 },
+        },
+      };
+      const currentClient = replaced
+        ? {
+            transport: {
+              socket: { readyState: WebSocket.OPEN, retryCount: 0 },
+            },
+          }
+        : client;
+      internals._client = currentClient;
+      const wait = jest.spyOn(internals, '_waitForOpenSocket');
 
-    await internals._recoverNotOpenSocketBeforeSubscriptionUpdate({
-      client,
-      reason: 'test',
-    });
+      await internals._recoverNotOpenSocketBeforeSubscriptionUpdate({
+        client,
+        reason: 'test',
+      });
 
-    expect(force).toHaveBeenCalledTimes(1);
-    expect(wait).not.toHaveBeenCalled();
-  });
-
-  it('ignores recovery from a retrying socket that has already been replaced', async () => {
-    const { service, force, reconcile } = setupOpenSocketService();
-    const internals = service as unknown as {
-      _client: unknown;
-      _recoverNotOpenSocketBeforeSubscriptionUpdate: (params: {
-        client: unknown;
-        reason: string;
-      }) => Promise<void>;
-    };
-    const oldClient = {
-      transport: {
-        socket: { readyState: WebSocket.CONNECTING, retryCount: 1 },
-      },
-    };
-    const replacement = {
-      transport: { socket: { readyState: WebSocket.OPEN, retryCount: 0 } },
-    };
-    internals._client = replacement;
-
-    await internals._recoverNotOpenSocketBeforeSubscriptionUpdate({
-      client: oldClient,
-      reason: 'stale_update',
-    });
-
-    expect(force).not.toHaveBeenCalled();
-    expect(reconcile).not.toHaveBeenCalled();
-    expect(internals._client).toBe(replacement);
-  });
+      expect(force).toHaveBeenCalledTimes(replaced ? 0 : 1);
+      expect(wait).not.toHaveBeenCalled();
+      expect(reconcile).not.toHaveBeenCalled();
+      expect(internals._client).toBe(currentClient);
+    },
+  );
 
   it('forces a reconnect when the open socket stream went stale', async () => {
     const { service, internals, force, reconcile } = setupOpenSocketService();

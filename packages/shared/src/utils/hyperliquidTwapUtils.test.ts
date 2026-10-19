@@ -1,7 +1,6 @@
 import BigNumber from 'bignumber.js';
 
 import {
-  buildActiveTwapRuntimeInfoById,
   formatTwapEstimatedSliceSize,
   formatTwapMinimumOrderNotional,
   formatTwapPriceForDisplay,
@@ -211,55 +210,19 @@ describe('hyperliquidTwapUtils', () => {
       }),
     ).toBe(30_000);
     expect(getTwapElapsedMs({ ...clock, endTime: 121_000 })).toBe(120_000);
+    expect(
+      getTwapElapsedMs({
+        ...clock,
+        triggerPrice: '101',
+        activatedAt: 61_000,
+        endTime: 121_000,
+      }),
+    ).toBe(60_000);
   });
 
   it.each(['stopped', 'finished', 'terminated', 'error'] as const)(
-    'keeps the latest %s status and activation time despite an out-of-order active snapshot',
+    'preserves terminal %s status even when fills have been reported',
     (terminalStatus) => {
-      const state = { coin: 'ETH', timestamp: 1_718_000_000_000 };
-      const info = buildActiveTwapRuntimeInfoById([
-        {
-          state,
-          twapId: 1,
-          time: 1_718_000_180,
-          status: { status: terminalStatus },
-        },
-        {
-          state,
-          twapId: 1,
-          time: 1_718_000_120,
-          status: { status: 'activated' },
-        },
-        {
-          state,
-          twapId: 1,
-          time: 1_718_000_000,
-          status: { status: 'waitingForTrigger' },
-        },
-        {
-          state: { ...state, coin: 'BTC' },
-          twapId: 2,
-          time: 1_718_000_200_000,
-          status: { status: 'activated' },
-        },
-      ]);
-      expect(info.get(1)).toEqual({
-        reportedStatus: terminalStatus,
-        activatedAt: 1_718_000_120_000,
-      });
-      expect(info.get(2)?.activatedAt).toBe(1_718_000_200_000);
-      expect(isTerminalTwapStatus(info.get(1)?.reportedStatus)).toBe(true);
-      expect(
-        getTwapElapsedMs({
-          timestamp: state.timestamp,
-          triggerPrice: '101',
-          activatedAt: info.get(1)?.activatedAt,
-          status: terminalStatus,
-          endTime: 1_718_000_180_000,
-          now: 1_718_001_000_000,
-          minutes: 5,
-        }),
-      ).toBe(60_000);
       expect(
         getActiveTwapRuntimeStatus({
           reportedStatus: terminalStatus,

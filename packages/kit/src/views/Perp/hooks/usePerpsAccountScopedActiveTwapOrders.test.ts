@@ -38,6 +38,7 @@ const orders: IPerpsActiveTwapOrder[] = [
   { twapId: 1, state },
   { twapId: 2, state: { ...state, coin: 'BTC' } },
   { twapId: 3, state: { ...state, timestamp: state.timestamp + 1 } },
+  { twapId: 4, state },
 ];
 
 function historyRecord(
@@ -48,45 +49,48 @@ function historyRecord(
   return { state: order.state, status, time, twapId: order.twapId };
 }
 
+function setHistory(history: ITwapHistoryRecord[]) {
+  mockHistory = { accountAddress, isLoaded: true, history };
+}
+
 describe('usePerpsAccountScopedActiveTwapOrders', () => {
   beforeEach(() => {
     mockOrders = {
       accountAddress,
       twapOrders: orders,
-      twapOrdersByCoin: { ETH: [orders[0], orders[2]], BTC: [orders[1]] },
+      twapOrdersByCoin: {
+        ETH: [orders[0], orders[2], orders[3]],
+        BTC: [orders[1]],
+      },
     };
     mockHistory = { accountAddress, history: [], isLoaded: false };
   });
 
   it.each(['finished', 'stopped', 'terminated', 'error'] as const)(
-    'excludes a stale %s order while keeping other coins and creation times',
+    'excludes a stale %s order by ID, preserving even an identical same-timestamp order',
     (status) => {
-      mockHistory = {
-        accountAddress,
-        isLoaded: true,
-        history: [
-          historyRecord(
-            orders[0],
-            status === 'error'
-              ? { status, description: 'Stopped' }
-              : { status },
-          ),
-          historyRecord(orders[0], { status: 'activated' }, 1_718_000_120),
-          historyRecord(orders[1], { status: 'waitingForTrigger' }),
-        ],
-      };
+      setHistory([
+        historyRecord(
+          orders[0],
+          status === 'error' ? { status, description: 'Stopped' } : { status },
+        ),
+        historyRecord(orders[0], { status: 'activated' }, 1_718_000_120),
+        historyRecord(orders[1], { status: 'activated' }, 1_718_000_200_000),
+      ]);
       const { result } = renderHook(() =>
         usePerpsAccountScopedActiveTwapOrders('0xAbC'),
       );
 
       expect(result.current.twapOrders.map((order) => order.twapId)).toEqual([
-        2, 3,
+        2, 3, 4,
       ]);
-      expect(result.current.twapOrders).toHaveLength(2);
       expect(result.current.activeRuntimeInfoById.get(1)).toEqual({
         reportedStatus: status,
         activatedAt: 1_718_000_120_000,
       });
+      expect(result.current.activeRuntimeInfoById.get(2)?.activatedAt).toBe(
+        1_718_000_200_000,
+      );
     },
   );
 
@@ -94,49 +98,24 @@ describe('usePerpsAccountScopedActiveTwapOrders', () => {
     const { result, rerender } = renderHook(() =>
       usePerpsAccountScopedActiveTwapOrders(accountAddress),
     );
-    expect(result.current.twapOrders).toHaveLength(3);
+    expect(result.current.twapOrders).toHaveLength(4);
 
-    mockHistory = {
-      accountAddress,
-      isLoaded: true,
-      history: orders.map((order) =>
-        historyRecord(order, { status: 'stopped' }),
-      ),
-    };
+    setHistory(
+      orders.map((order) => historyRecord(order, { status: 'stopped' })),
+    );
     rerender({});
 
     expect(result.current.twapOrders).toEqual([]);
-    expect(result.current.twapOrders).toHaveLength(0);
-    expect(result.current.historyRows).toHaveLength(3);
-  });
-
-  it('keeps an identical same-timestamp order when another TWAP finishes', () => {
-    const twin = { ...orders[0], twapId: 4 };
-    mockOrders = { ...mockOrders, twapOrders: [...orders, twin] };
-    mockHistory = {
-      accountAddress,
-      isLoaded: true,
-      history: [historyRecord(orders[0], { status: 'finished' })],
-    };
-    const { result } = renderHook(() =>
-      usePerpsAccountScopedActiveTwapOrders(accountAddress),
-    );
-    expect(result.current.twapOrders.map((order) => order.twapId)).toEqual([
-      2, 3, 4,
-    ]);
+    expect(result.current.historyRows).toHaveLength(4);
   });
 
   it('does not use an unidentified legacy event to hide an active TWAP', () => {
-    mockHistory = {
-      accountAddress,
-      isLoaded: true,
-      history: [
-        {
-          ...historyRecord(orders[0], { status: 'finished' }),
-          twapId: undefined,
-        },
-      ],
-    };
+    setHistory([
+      {
+        ...historyRecord(orders[0], { status: 'finished' }),
+        twapId: undefined,
+      },
+    ]);
     const { result } = renderHook(() =>
       usePerpsAccountScopedActiveTwapOrders(accountAddress),
     );
@@ -144,13 +123,9 @@ describe('usePerpsAccountScopedActiveTwapOrders', () => {
   });
 
   it('ignores another account history during an account switch', () => {
-    mockHistory = {
-      accountAddress,
-      isLoaded: true,
-      history: orders.map((order) =>
-        historyRecord(order, { status: 'finished' }),
-      ),
-    };
+    setHistory(
+      orders.map((order) => historyRecord(order, { status: 'finished' })),
+    );
     const { result, rerender } = renderHook(
       ({ address }: { address: string }) =>
         usePerpsAccountScopedActiveTwapOrders(address),
@@ -170,13 +145,13 @@ describe('usePerpsAccountScopedActiveTwapOrders', () => {
       accountAddress: '0xdef',
       twapOrders: otherOrders,
       twapOrdersByCoin: {
-        ETH: [otherOrders[0], otherOrders[2]],
+        ETH: [otherOrders[0], otherOrders[2], otherOrders[3]],
         BTC: [otherOrders[1]],
       },
     };
     rerender({ address: '0xdef' });
     expect(result.current.twapOrders.map((order) => order.twapId)).toEqual([
-      1, 2, 3,
+      1, 2, 3, 4,
     ]);
     expect(result.current.activeRuntimeInfoById.size).toBe(0);
   });
