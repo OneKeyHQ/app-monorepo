@@ -408,7 +408,7 @@ describe('useToMarketStockDetailPage', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  it('opens the selected stock in Discovery after dismissing a native modal', async () => {
+  it('opens the selected stock in Market after dismissing a native modal', async () => {
     mockIsModalPage = true;
     mockedPlatformEnv.isNative = true;
     const { result } = renderHook(() =>
@@ -419,9 +419,9 @@ describe('useToMarketStockDetailPage', () => {
       await result.current('AAPL');
     });
 
-    expect(mockSwitchTabAsync).toHaveBeenCalledWith(ETabRoutes.Discovery);
+    expect(mockSwitchTabAsync).toHaveBeenCalledWith(ETabRoutes.Market);
     expect(mockNavigate).toHaveBeenCalledWith(ERootRoutes.Main, {
-      screen: ETabRoutes.Discovery,
+      screen: ETabRoutes.Market,
       params: {
         screen: ETabMarketRoutes.MarketStockDetail,
         params: { stockId: 'AAPL' },
@@ -443,7 +443,7 @@ describe('useToMarketStockDetailPage', () => {
       const router = StackRouter({});
       const config = {
         routeNames: [
-          'TabDiscovery',
+          ETabMarketRoutes.TabMarket,
           ETabMarketRoutes.MarketNativeDetail,
           ETabMarketRoutes.MarketDetailV2,
           ETabMarketRoutes.MarketStockDetail,
@@ -453,13 +453,12 @@ describe('useToMarketStockDetailPage', () => {
       };
       let stack: ReturnType<typeof router.getInitialState> = {
         ...router.getInitialState(config),
-        key: 'discovery-stack',
+        key: 'market-stack',
         index: 1,
         routes: [
           {
             key: 'list',
-            name: 'TabDiscovery',
-            params: { defaultTab: 'market' },
+            name: ETabMarketRoutes.TabMarket,
           },
           { key: 'detail', name: sourceName, params: { stockId: 'AAPL' } },
         ],
@@ -487,13 +486,13 @@ describe('useToMarketStockDetailPage', () => {
         await result.current('NVDA');
       });
       expect(stack.routes.map((route) => route.name)).toEqual([
-        'TabDiscovery',
+        ETabMarketRoutes.TabMarket,
         ETabMarketRoutes.MarketStockDetail,
       ]);
-      expect(stack.routes[0].params).toEqual({ defaultTab: 'market' });
       expect(stack.routes[1].params).toEqual(
         expect.objectContaining({ stockId: 'NVDA' }),
       );
+      expect(mockSwitchTabAsync).toHaveBeenCalledWith(ETabRoutes.Market);
       expect(mockNavigate).not.toHaveBeenCalled();
       expect(mockDispatch.mock.invocationCallOrder[0]).toBeLessThan(
         mockSwitchTabAsync.mock.invocationCallOrder[0],
@@ -504,7 +503,7 @@ describe('useToMarketStockDetailPage', () => {
         config,
       );
       expect(afterBack?.routes.map((route) => route.name)).toEqual([
-        'TabDiscovery',
+        ETabMarketRoutes.TabMarket,
       ]);
     },
   );
@@ -521,10 +520,10 @@ describe('useToMarketStockDetailPage', () => {
         {
           name: 'main',
           state: {
-            key: 'discovery-stack',
+            key: 'market-stack',
             index: 1,
             routes: [
-              { key: 'list', name: ETabRoutes.Discovery },
+              { key: 'list', name: ETabMarketRoutes.TabMarket },
               {
                 key: 'stock-detail',
                 name: ETabMarketRoutes.MarketStockDetail,
@@ -550,7 +549,7 @@ describe('useToMarketStockDetailPage', () => {
     });
 
     expect(mockPrepareStockTokenDetail).not.toHaveBeenCalled();
-    expect(mockSwitchTabAsync).toHaveBeenCalledWith(ETabRoutes.Discovery);
+    expect(mockSwitchTabAsync).toHaveBeenCalledWith(ETabRoutes.Market);
     expect(mockNavigate).not.toHaveBeenCalled();
     expect(mockDispatch).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'SET_PARAMS', source: 'stock-detail' }),

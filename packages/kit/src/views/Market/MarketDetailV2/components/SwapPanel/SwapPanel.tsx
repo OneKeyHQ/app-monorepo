@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import type { ComponentProps } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -94,6 +95,24 @@ function TradeButton({
   );
 }
 
+function MobileWebTradeActions(
+  props: ComponentProps<typeof SwapPanelFooterButtons>,
+) {
+  const { activeAccount, showAccountSelector } = useAccountSelectorTrigger({
+    num: 0,
+    showConnectWalletModalInDappMode: true,
+  });
+  const noAccount =
+    !activeAccount?.indexedAccount?.id && !activeAccount?.account?.id;
+
+  return (
+    <SwapPanelFooterButtons
+      {...props}
+      onConnect={noAccount ? showAccountSelector : undefined}
+    />
+  );
+}
+
 export function SwapPanel({
   swapToken,
   disableTrade,
@@ -104,6 +123,7 @@ export function SwapPanel({
   detailKind,
   onPerps,
   perpsDisabled,
+  mobileLayout = platformEnv.isNative,
 }: {
   swapToken: ISwapToken;
   disableTrade?: boolean;
@@ -116,6 +136,7 @@ export function SwapPanel({
   detailKind?: IMarketMobileDetailKind;
   onPerps?: () => void;
   perpsDisabled?: boolean;
+  mobileLayout?: boolean;
 }) {
   const intl = useIntl();
   // This footer is a plain flex sibling, not a Page.Footer, so it must claim the
@@ -210,7 +231,7 @@ export function SwapPanel({
     return null;
   }
 
-  if (platformEnv.isNative) {
+  if (mobileLayout) {
     const pnl = myPositionInfo.pnl;
     const unrealizedBN = new BigNumber(pnl?.unrealizedPnlUsd ?? 0);
     const hasPnl = pnl?.isPnlSupported && !unrealizedBN.isNaN();
@@ -224,6 +245,15 @@ export function SwapPanel({
     let pnlPrefix = '';
     if (pnlIsPositive) pnlPrefix = '+';
     if (pnlIsNegative) pnlPrefix = '-';
+
+    const footerButtonProps = {
+      mode: footerMode,
+      onBuy: handleBuy,
+      onSell: handleSell,
+      onPerps,
+      tradeDisabled: !executionReady,
+      perpsDisabled,
+    };
 
     return (
       <YStack>
@@ -282,14 +312,19 @@ export function SwapPanel({
           ) : null}
         </XStack>
         <Stack px="$5" pb={bottomInset || '$4'} pt="$2.5">
-          <SwapPanelFooterButtons
-            mode={footerMode}
-            onBuy={handleBuy}
-            onSell={handleSell}
-            onPerps={onPerps}
-            tradeDisabled={!executionReady}
-            perpsDisabled={perpsDisabled}
-          />
+          {platformEnv.isWeb ? (
+            <AccountSelectorProviderMirror
+              config={{
+                sceneName: EAccountSelectorSceneName.home,
+                sceneUrl: '',
+              }}
+              enabledNum={[0]}
+            >
+              <MobileWebTradeActions {...footerButtonProps} />
+            </AccountSelectorProviderMirror>
+          ) : (
+            <SwapPanelFooterButtons {...footerButtonProps} />
+          )}
         </Stack>
       </YStack>
     );

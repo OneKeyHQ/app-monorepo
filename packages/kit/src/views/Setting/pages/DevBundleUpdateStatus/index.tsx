@@ -21,6 +21,7 @@ import {
   EAppUpdateStatus,
   EPendingInstallTaskStatus,
   EUpdateStrategy,
+  getAppUpdateProgressScope,
 } from '@onekeyhq/shared/src/appUpdate';
 import { useDownloadProgress } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 
@@ -133,16 +134,8 @@ function buildActiveDetails(
     }
   } else if (stageIdx >= 2 && stageIdx <= 4) {
     // Download/Verify ASC or Verify Package
-    if (info.downloadedEvent?.downloadedFile) {
-      rows.push({ label: 'File', value: info.downloadedEvent.downloadedFile });
-    }
     if (info.downloadedEvent?.sha256) {
       rows.push({ label: 'SHA256', value: info.downloadedEvent.sha256 });
-    }
-  } else if (stageIdx === 5) {
-    // Ready
-    if (info.downloadedEvent?.downloadedFile) {
-      rows.push({ label: 'File', value: info.downloadedEvent.downloadedFile });
     }
   }
 
@@ -510,7 +503,9 @@ function PendingTaskSection({
 // ---------------------------------------------------------------------------
 export default function DevBundleUpdateStatusModal() {
   const [appUpdateInfo] = useAppUpdatePersistAtom();
-  const downloadPercent = useDownloadProgress();
+  const downloadPercent = useDownloadProgress(
+    getAppUpdateProgressScope(appUpdateInfo),
+  );
   const [pendingTask, setPendingTask] = useState<
     IPendingInstallTask | null | undefined
   >(undefined);

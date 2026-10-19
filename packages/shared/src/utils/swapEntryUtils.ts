@@ -1,4 +1,5 @@
 import {
+  ARC_ERC20_USDC_CONTRACT_ADDRESS,
   ARC_NETWORK_ID,
   swapDefaultSetTokens,
 } from '../../types/swap/SwapProvider.constants';
@@ -12,6 +13,17 @@ type ISwapEntryTokenIdentity = {
   contractAddress?: string;
   isNative?: boolean;
 };
+
+// Arc's ERC-20 USDC spends the same balance as its native gas token.
+// Keep the ERC-20 identity for quoting, approvals and transaction building.
+export function shouldReserveSwapGas(token?: ISwapEntryTokenIdentity) {
+  return Boolean(
+    token?.isNative ||
+    (token?.networkId === ARC_NETWORK_ID &&
+      token?.contractAddress?.toLowerCase() ===
+        ARC_ERC20_USDC_CONTRACT_ADDRESS),
+  );
+}
 
 export function isSwapEntryDisabledToken(token: ISwapEntryTokenIdentity) {
   if (token.networkId !== ARC_NETWORK_ID) {

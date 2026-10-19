@@ -1,5 +1,5 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import type { IDBDevice } from '../../dbs/local/types';

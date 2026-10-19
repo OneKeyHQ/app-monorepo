@@ -1,4 +1,5 @@
 import { SwapReviewDialog } from '@onekeyhq/kit/src/views/Swap/pages/components/SwapReviewDialog';
+import type { ISwapReviewAnalytics } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewAnalytics';
 import { ESwapReviewApproveTransactionSource } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
 import type {
   ISwapReviewAdapter,
@@ -10,6 +11,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { ESwapNetworkFeeLevel } from '@onekeyhq/shared/types/swap/types';
 
 type IMarketSwapReviewDialogProps = {
+  reviewAnalytics?: ISwapReviewAnalytics;
   onDone: () => void;
   onConfirmStart?: () => void;
   adapter: ISwapReviewAdapter;
@@ -21,6 +23,7 @@ type IMarketSwapReviewDialogProps = {
 };
 
 export function MarketSwapReviewDialog({
+  reviewAnalytics,
   onDone,
   onConfirmStart,
   adapter,
@@ -32,6 +35,7 @@ export function MarketSwapReviewDialog({
 }: IMarketSwapReviewDialogProps) {
   return (
     <SwapReviewDialog
+      reviewAnalytics={reviewAnalytics}
       onDone={onDone}
       onConfirmStart={onConfirmStart}
       adapter={adapter}

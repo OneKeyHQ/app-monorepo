@@ -39,4 +39,23 @@ describe('Featured Changelog action normalization', () => {
     });
     expect(result?.features[0].ctaAction).toBeUndefined();
   });
+
+  test('keeps valid features after invalid entries while limiting the result to ten', () => {
+    const result = normalizeFeaturedChangelog({
+      version: '6.6.0',
+      features: [
+        ...Array.from({ length: 10 }, () => ({
+          ...media,
+          mediaUrl: 'http://example.com/invalid.png',
+        })),
+        ...Array.from({ length: 11 }, (_, index) => ({
+          ...media,
+          title: `Feature ${index}`,
+        })),
+      ],
+    });
+    expect(result?.features).toHaveLength(10);
+    expect(result?.features[0].title).toBe('Feature 0');
+    expect(result?.features[9].title).toBe('Feature 9');
+  });
 });

@@ -753,4 +753,45 @@ describe('market native list rows', () => {
       ).toBeUndefined();
     }
   });
+
+  it('includes visible table cells when only the unrounded quote changes', () => {
+    const row = buildTokenMarketRow({ item: token, presentation });
+    const webTable = {
+      columns: [{ key: 'change24h', flex: 1 }],
+      cells: [
+        {
+          key: 'change24h',
+          kind: 'text' as const,
+          primary: [{ text: '+1.23%' }],
+        },
+      ],
+    };
+    const previous = buildMarketNativeSnapshot({
+      rows: [
+        { ...row, change: { text: '1.2341', tone: 'positive' }, webTable },
+      ],
+      generation: 1,
+      presentation,
+      loading: false,
+      canLoadMore: false,
+      noDataMessage: 'No data',
+      retryMessage: 'Retry',
+      contentPaddingBottom: 20,
+    });
+    const next = {
+      ...previous,
+      rows: previous.rows.map((item) =>
+        item.type === 'market'
+          ? { ...item, change: { text: '1.2342', tone: 'positive' as const } }
+          : item,
+      ),
+    };
+    expect(buildMarketNativeRowPatches(previous, next)).toEqual([
+      {
+        type: 'market',
+        key: row.key,
+        changes: { change: { text: '1.2342', tone: 'positive' }, webTable },
+      },
+    ]);
+  });
 });
