@@ -51,6 +51,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ inputs.pr_number }}
           TRUSTED_PR_AUTHORS: ${{ vars.TRUSTED_PR_AUTHORS }}
+          DISPATCH_REF: ${{ github.ref }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           PR_DATA=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER" \
             --jq '{head_repo: .head.repo.full_name, base_repo: .base.repo.full_name, author: .user.login, head_sha: .head.sha, head_ref: .head.ref, base_ref: .base.ref}')
@@ -69,6 +71,15 @@ jobs:
             # Fork PR — check if author is in the trusted whitelist
             if [[ ! ",$TRUSTED_PR_AUTHORS," == *",$AUTHOR,"* ]]; then
               echo "::error::PR #$PR_NUMBER is from a fork by @$AUTHOR who is not in TRUSTED_PR_AUTHORS. Configure the whitelist in repository variables."
+              exit 1
+            fi
+            # Fork code can reach ACTIONS_RUNTIME_TOKEN and write Actions cache
+            # entries in the dispatch ref's scope. Entries in the default
+            # branch's scope are restored by every branch (yarn cache and the
+            # ci-deps-squashfs node_modules snapshot used by lint/unittest/
+            # security-checks), so fork builds must run from another ref.
+            if [ "$DISPATCH_REF" = "refs/heads/$DEFAULT_BRANCH" ]; then
+              echo "::error::Fork PR #$PR_NUMBER must not be built from the default branch ($DEFAULT_BRANCH): fork code could write Actions cache entries that every branch restores. Maintainers: dispatch this workflow from the dedicated non-default branch 'qa/fork-builds' (kept in sync with $DEFAULT_BRANCH) instead."
               exit 1
             fi
             echo "::notice::PR #$PR_NUMBER is from a trusted fork ($HEAD_REPO) by whitelisted author @$AUTHOR — allowed."

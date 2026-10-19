@@ -454,8 +454,9 @@ jobs:
           name: ${{ steps.meta.outputs.artifact_name }}
           path: ./bundle-zip
 
+      # Runs before the QA upload and, like the old in-build step, fails the
+      # job when Slack fails (native keeps its continue-on-error).
       - name: 'Notify to Slack'
-        continue-on-error: true
         uses: onekeyhq/actions/slack-notify-webhook@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}

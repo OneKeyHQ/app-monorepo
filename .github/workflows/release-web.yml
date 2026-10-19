@@ -67,10 +67,6 @@ env:
 jobs:
   test-web:
     runs-on: ubuntu-24.04
-    outputs:
-      build_app_version: ${{ steps.notify-meta.outputs.build_app_version }}
-      build_number: ${{ steps.notify-meta.outputs.build_number }}
-      build_bundle_version: ${{ steps.notify-meta.outputs.build_bundle_version }}
     env:
       TEST_ENDPOINT: ${{ inputs.test_endpoint || 'app.onekeytest.com' }}
 
@@ -213,17 +209,6 @@ jobs:
             echo "PUBLIC_URL=https://${TEST_ENDPOINT}/${COMMIT}-${{ env.BUILD_NUMBER }}/" >> "$GITHUB_ENV"
           fi
 
-      # The notify job reads these instead of checking out and running the
-      # local shared-env action next to the Slack secrets.
-      - name: Export notify metadata
-        id: notify-meta
-        run: |
-          {
-            echo "build_app_version=$BUILD_APP_VERSION"
-            echo "build_number=$BUILD_NUMBER"
-            echo "build_bundle_version=$BUILD_BUNDLE_VERSION"
-          } >> "$GITHUB_OUTPUT"
-
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
@@ -331,10 +316,6 @@ jobs:
 
   build-production:
     runs-on: ubuntu-24.04
-    outputs:
-      build_app_version: ${{ steps.notify-meta.outputs.build_app_version }}
-      build_number: ${{ steps.notify-meta.outputs.build_number }}
-      build_bundle_version: ${{ steps.notify-meta.outputs.build_bundle_version }}
 
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:
@@ -469,17 +450,6 @@ jobs:
           # Override PUBLIC_URL with resolved commit (replaces github.sha set by Setup ENV)
           echo "PUBLIC_URL=https://app-assets.onekey.so/${COMMIT}-${{ env.BUILD_NUMBER }}/" >> $GITHUB_ENV
 
-      # The notify job reads these instead of checking out and running the
-      # local shared-env action next to the Slack secrets.
-      - name: Export notify metadata
-        id: notify-meta
-        run: |
-          {
-            echo "build_app_version=$BUILD_APP_VERSION"
-            echo "build_number=$BUILD_NUMBER"
-            echo "build_bundle_version=$BUILD_BUNDLE_VERSION"
-          } >> "$GITHUB_OUTPUT"
-
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
@@ -604,29 +574,102 @@ jobs:
             !./apps/web/web-build/.well-known/apple-app-site-association/*
             !./apps/web/web-build/.well-known/assetlinks.json/*
 
-  # Holds the Slack secrets, so it must never check out or execute repository
-  # code: the build jobs above may run fork PR code (release-app-bundles.yml).
-  # Values read from the build jobs are untrusted data and only reach the
-  # pinned Slack action as inputs.
+  # Holds the Slack secrets, so it must never execute repository code: the
+  # build jobs above may run fork PR code (release-app-bundles.yml). It
+  # rebuilds the values shared-env used to provide from data only: the
+  # upstream workflow-params artifact and a sparse checkout of .env.version.
+  # It does not depend on build-job outputs, so a failed or skipped build
+  # still notifies with full version fields, as before.
   notify:
     runs-on: ubuntu-24.04
     needs: [test-web, build-production]
     if: ${{ always() && (github.event.workflow_run || inputs.build_number) }}
     steps:
+      - name: Checkout version file
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.checkout_ref || '' }}
+          persist-credentials: false
+          sparse-checkout: .env.version
+          sparse-checkout-cone-mode: false
+
+      - name: Download workflow parameters
+        if: ${{ github.event.workflow_run }}
+        uses: dawidd6/action-download-artifact@v2
+        continue-on-error: true
+        with:
+          workflow: daily-build-dev
+          name: workflow-params
+          run_id: ${{ github.event.workflow_run.id }}
+          path: ${{ runner.temp }}/workflow-params
+
       - name: Setup ENV
         env:
           INPUT_BUILD_NUMBER: ${{ inputs.build_number }}
           INPUT_BUILD_BUNDLE_VERSION: ${{ inputs.build_bundle_version }}
-          JOB_BUILD_APP_VERSION: ${{ needs.build-production.outputs.build_app_version || needs.test-web.outputs.build_app_version }}
-          JOB_BUILD_NUMBER: ${{ needs.build-production.outputs.build_number || needs.test-web.outputs.build_number }}
-          JOB_BUILD_BUNDLE_VERSION: ${{ needs.build-production.outputs.build_bundle_version || needs.test-web.outputs.build_bundle_version }}
+          IS_WORKFLOW_RUN: ${{ github.event.workflow_run && 'true' || 'false' }}
+          WORKFLOW_RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+          PARAMS_FILE: ${{ runner.temp }}/workflow-params/params.env
         run: |
-          artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          set -euo pipefail
+
+          # Same validation as shared-env's "Load workflow parameters".
+          WORKFLOW_BUILD_NUMBER=""
+          WORKFLOW_BUNDLE_VERSION=""
+          SKIP_GPG=""
+          if [ "$IS_WORKFLOW_RUN" = "true" ] && [ -f "$PARAMS_FILE" ]; then
+            while IFS='=' read -r key value || [ -n "${key:-}" ]; do
+              case "$key" in
+                WORKFLOW_BUILD_NUMBER|WORKFLOW_BUNDLE_VERSION)
+                  if [[ ! "$value" =~ ^[0-9]+$ ]]; then
+                    echo "::error::Invalid numeric workflow parameter: $key=$value"
+                    exit 1
+                  fi
+                  printf -v "$key" '%s' "$value"
+                  ;;
+                ONEKEY_ALLOW_SKIP_GPG_VERIFICATION)
+                  if [[ "$value" != "true" && "$value" != "false" ]]; then
+                    echo "::error::Invalid boolean workflow parameter: $key=$value"
+                    exit 1
+                  fi
+                  SKIP_GPG="$value"
+                  ;;
+              esac
+            done < "$PARAMS_FILE"
+          fi
+
+          # Read as data; never source the file.
+          APP_VERSION=$(grep -m1 -E '^VERSION=' .env.version | cut -d '=' -f 2- | tr -d '\r' || true)
+          if [[ ! "$APP_VERSION" =~ ^[0-9A-Za-z.+-]+$ ]]; then
+            echo "::warning::Unexpected VERSION in .env.version: '$APP_VERSION'"
+            APP_VERSION=""
+          fi
+
+          # Precedence mirrors shared-env plus the "Override params from caller" step.
+          if [ -n "$INPUT_BUILD_NUMBER" ]; then
+            BUILD_NUMBER="$INPUT_BUILD_NUMBER"
+          elif [ "$IS_WORKFLOW_RUN" != "true" ]; then
+            BUILD_NUMBER=1
+          elif [ -n "$WORKFLOW_BUILD_NUMBER" ]; then
+            BUILD_NUMBER="$WORKFLOW_BUILD_NUMBER"
+          else
+            BUILD_NUMBER="$(date '+%Y%m%d')$(printf '%02d' $(( WORKFLOW_RUN_NUMBER % 100 )))"
+          fi
+
+          if [ -n "$INPUT_BUILD_BUNDLE_VERSION" ]; then
+            BUILD_BUNDLE_VERSION="$INPUT_BUILD_BUNDLE_VERSION"
+          elif [ -n "$WORKFLOW_BUNDLE_VERSION" ]; then
+            BUILD_BUNDLE_VERSION="$WORKFLOW_BUNDLE_VERSION"
+          else
+            BUILD_BUNDLE_VERSION=$(( $(date -u +%s) - $(date -u -d '2026-01-01T00:00:00' +%s) ))
+          fi
+
           {
-            echo "ARTIFACTS_URL=$artifacts_url"
-            echo "BUILD_APP_VERSION=${JOB_BUILD_APP_VERSION//[$'\r\n']/}"
-            echo "BUILD_NUMBER=${INPUT_BUILD_NUMBER:-${JOB_BUILD_NUMBER//[$'\r\n']/}}"
-            echo "BUILD_BUNDLE_VERSION=${INPUT_BUILD_BUNDLE_VERSION:-${JOB_BUILD_BUNDLE_VERSION//[$'\r\n']/}}"
+            echo "ARTIFACTS_URL=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo "BUILD_APP_VERSION=$APP_VERSION"
+            echo "BUILD_NUMBER=$BUILD_NUMBER"
+            echo "BUILD_BUNDLE_VERSION=$BUILD_BUNDLE_VERSION"
+            echo "ONEKEY_ALLOW_SKIP_GPG_VERIFICATION=$SKIP_GPG"
           } >> "$GITHUB_ENV"
 
       - name: Resolve branch and commit
