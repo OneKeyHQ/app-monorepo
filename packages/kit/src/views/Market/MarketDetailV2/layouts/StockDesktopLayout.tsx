@@ -357,6 +357,8 @@ function StockPriceHeader({
           <MarketTooltipLabel
             testID="stock-price-tooltip-trigger"
             hovering
+            // Opening upward covers the price source toggle above the quote.
+            placement="bottom"
             // The row baseline-aligns this figure with the change beside it.
             alignSelf="baseline"
             tooltip={intl.formatMessage({
