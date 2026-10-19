@@ -32,6 +32,9 @@ import { DustSweepSlippage } from './DustSweepSlippage';
 
 import type { IDustSweepState } from '../stateMachine';
 
+// Height of the summary action button; the desktop hidden-tokens row aligns to it.
+export const DUST_SWEEP_ACTION_HEIGHT = 46;
+
 function formatAmount(amount: string, decimals: number) {
   return new BigNumber(amount).decimalPlaces(decimals).toFormat();
 }
@@ -267,7 +270,8 @@ export function DustSweepSummary({
   return (
     <YStack
       testID="dust-sweep-summary"
-      height={desktop ? 540 : 209 + (partialQuote ? 28 : 0)}
+      // Desktop fills the row so it matches the token list card height.
+      {...(desktop ? { flex: 1 } : { height: 209 + (partialQuote ? 28 : 0) })}
       flexShrink={0}
       px="$5"
       pt={desktop ? '$5' : '$0'}
@@ -499,10 +503,9 @@ export function DustSweepSummary({
       {desktop ? <Stack flex={1} /> : <Stack height={8} />}
       <Button
         testID="dust-sweep-action"
-        height={46}
-        minHeight={46}
+        height={DUST_SWEEP_ACTION_HEIGHT}
+        minHeight={DUST_SWEEP_ACTION_HEIGHT}
         variant="primary"
-        borderRadius="$3"
         disabled={
           session.leaving ||
           state.phase === 'left' ||

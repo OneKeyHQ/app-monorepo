@@ -93,7 +93,10 @@ const DustSweepTokenRowBase = ({
     item?.status === 'unknown'
       ? intl.formatMessage({ id: ETranslations.swap_review_tx_pending })
       : reasonText;
+  const unverified = !!token?.suspicious && !item && !quoteFailure;
   let statusLabel = quoteFailure ? reasonText : token?.name;
+  if (unverified)
+    statusLabel = intl.formatMessage({ id: ETranslations.global_unverified });
   if (item?.status === 'preparing')
     statusLabel = intl.formatMessage({ id: ETranslations.global_processing });
   else if (item?.status === 'signing')
@@ -173,7 +176,6 @@ const DustSweepTokenRowBase = ({
       py="$2"
       gap="$3"
       alignItems="center"
-      opacity={token?.suspicious && !item ? 0.5 : 1}
     >
       <Stack width={20} height={32} alignItems="center" justifyContent="center">
         {!token ? <Skeleton width={20} height={20} /> : null}
@@ -209,7 +211,11 @@ const DustSweepTokenRowBase = ({
             <SizableText size="$bodyLgMedium" numberOfLines={1}>
               {token.symbol}
             </SizableText>
-            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+            <SizableText
+              size="$bodyMd"
+              color={unverified ? '$textCaution' : '$textSubdued'}
+              numberOfLines={1}
+            >
               {statusLabel}
             </SizableText>
           </>

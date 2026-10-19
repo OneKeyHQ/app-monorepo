@@ -860,3 +860,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: Native SOL was missing from the Hyperliquid whitelist, so the chart selected the Market price-sample feed without traded volume. OBV had no volume to accumulate.
 **Fix**: Map native Solana to Hyperliquid `SOL` OHLCV candles and realtime updates for Market, Swap, and Wallet. Keep wrapped SOL and other SPL tokens outside that native-token mapping. Add regression coverage for all three branches, SPL exclusion, and Market source resolution before and after transport metadata loads.
 **Catchable by**: Section 4: Data flow end-to-end â€” volume-based indicators need a feed with traded volume. Test native-token source selection and same-network contract-token exclusion whenever a shared chart whitelist changes.
+
+## Case: Perps detail chart toolbar became a white strip in dark mode
+**Date**: 2026-10-19 | **Platforms**: iOS (main)
+**Symptom**: The native chart's interval and settings toolbar appeared as a blank white strip in dark mode, while the candles and the rest of the Perps detail page were dark.
+**Root Cause**: The iOS collapsible tabs header defaults to a white background. The native chart toolbar is transparent, so its dark-theme white text and icons were drawn over that white header.
+**Fix**: Set this page's collapsible header background to the current `bgApp` theme color and update it when the theme changes.
+**Catchable by**: Section 8: open Perps detail with the native chart in dark and light themes, verify the interval/settings toolbar is visible and usable, and recheck after switching themes and reopening the page.

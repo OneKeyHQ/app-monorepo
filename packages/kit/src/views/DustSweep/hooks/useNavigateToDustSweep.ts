@@ -5,7 +5,7 @@ import { useIntl } from 'react-intl';
 import { Dialog, rootNavigationRef, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useDustSweepPreferencesPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -16,13 +16,15 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import type { IDustSweepRouteParams } from '@onekeyhq/shared/types/swap/dustSweep';
+import type {
+  IDustSweepEntry,
+  IDustSweepRouteParams,
+} from '@onekeyhq/shared/types/swap/dustSweep';
 
 export function useNavigateToDustSweep() {
   const navigation = useAppNavigation();
   const media = useMedia();
   const intl = useIntl();
-  const [, setPreferences] = useDustSweepPreferencesPersistAtom();
 
   return useCallback(
     async (
@@ -82,8 +84,44 @@ export function useNavigateToDustSweep() {
           params: routeParams,
         });
       }
-      setPreferences((value) => ({ ...value, entrySeen: true }));
     },
-    [intl, media.gtMd, navigation, setPreferences],
+    [intl, media.gtMd, navigation],
   );
+}
+
+// Entry points that open Dust Sweep for the active Home account.
+export function useActiveAccountDustSweep() {
+  const navigateToDustSweep = useNavigateToDustSweep();
+  const {
+    activeAccount: { account, wallet, network, indexedAccount },
+  } = useActiveAccount({ num: 0 });
+  const walletId = wallet?.id;
+  // Mirrors the guards in useNavigateToDustSweep so entries never lead to the
+  // "account does not support swap" dialog.
+  const canDustSweep =
+    !!(
+      account?.id ?? (network?.isAllNetworks ? indexedAccount?.id : undefined)
+    ) &&
+    !!walletId &&
+    !accountUtils.isWatchingWallet({ walletId }) &&
+    !accountUtils.isExternalWallet({ walletId });
+  const openDustSweep = useCallback(
+    (entry: IDustSweepEntry) =>
+      navigateToDustSweep({
+        accountId: account?.id,
+        walletId,
+        indexedAccountId: indexedAccount?.id,
+        networkId: network?.isAllNetworks ? undefined : network?.id,
+        entry,
+      }),
+    [
+      navigateToDustSweep,
+      account?.id,
+      walletId,
+      indexedAccount?.id,
+      network?.id,
+      network?.isAllNetworks,
+    ],
+  );
+  return { canDustSweep, openDustSweep };
 }
