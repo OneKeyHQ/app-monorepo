@@ -889,6 +889,7 @@ export function useSwapBuildTx({
       otherFeeInfos,
       cachedNativeBalance,
       prefetchedNativeBalance,
+      solanaRent,
     }: {
       gasInfos?: { gasInfo?: ISwapGasInfo; txSize?: number }[];
       networkId?: string;
@@ -901,6 +902,7 @@ export function useSwapBuildTx({
         fetchedAt: number;
         token: ISwapToken;
       };
+      solanaRent?: string;
     }) => {
       const nativeBalanceRequirement = getSwapRequiredNativeBalanceAmount({
         gasInfos,
@@ -908,6 +910,7 @@ export function useSwapBuildTx({
         fromToken: token,
         fromAmount: amount,
         otherFeeInfos,
+        solanaRent,
       });
       if (!nativeBalanceRequirement && cachedNativeBalance !== undefined) {
         return {
@@ -1195,6 +1198,7 @@ export function useSwapBuildTx({
       });
       const checkLatestNativeBalanceRes = await checkLatestNativeTokenBalance({
         gasInfos: [{ gasInfo, txSize }],
+        solanaRent: unsignedTxItem.solanaRent,
         networkId,
         token: unsignedTxItem.swapInfo?.sender.token,
         amount: unsignedTxItem.swapInfo?.sender.amount,
@@ -4113,6 +4117,7 @@ export function useSwapBuildTx({
           async () =>
             checkLatestNativeTokenBalance({
               gasInfos: gasFeeInfos,
+              solanaRent: unsignedTx.solanaRent,
               networkId,
               token: swapInfo?.sender.token,
               amount: swapInfo?.sender.amount,
