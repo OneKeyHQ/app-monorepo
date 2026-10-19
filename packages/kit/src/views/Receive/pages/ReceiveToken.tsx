@@ -170,6 +170,9 @@ function ReceiveToken() {
   // previous network then, verification included, and a verification started
   // against it would settle after the switch.
   const isSwitchResolvingRef = useRef(false);
+  // The same window for rendering: the address type menu would save its pick
+  // as the default of the network the page is about to leave.
+  const [isSwitchResolving, setIsSwitchResolving] = useState(false);
   // The account of the row a switch to a multi-address-type network was
   // picked from. The page resolves the default address type there; when the
   // wallet has none of that type, this is the address the user chose.
@@ -1193,6 +1196,7 @@ function ReceiveToken() {
         // looking up its target is withdrawn.
         switchAttemptRef.current += 1;
         isSwitchResolvingRef.current = false;
+        setIsSwitchResolving(false);
         return;
       }
       // The selection page resolves addresses in its own scope; a row from
@@ -1208,6 +1212,7 @@ function ReceiveToken() {
       const attempt = switchAttemptRef.current + 1;
       switchAttemptRef.current = attempt;
       isSwitchResolvingRef.current = true;
+      setIsSwitchResolving(true);
       try {
         defaultLogger.transaction.receive.receiveSwitchNetwork({
           fromNetworkId,
@@ -1305,6 +1310,7 @@ function ReceiveToken() {
         // A newer switch owns the guard from the moment it starts.
         if (attempt === switchAttemptRef.current) {
           isSwitchResolvingRef.current = false;
+          setIsSwitchResolving(false);
         }
       }
     },
@@ -1670,8 +1676,10 @@ function ReceiveToken() {
 
     if (showAddressTypeMenu) {
       // Same rule as the network switch: the address must not change under a
-      // running verification or share-image generation.
-      const isMenuDisabled = isVerifying || isPreparingShare;
+      // running verification or share-image generation, nor while a network
+      // switch is looking up its target.
+      const isMenuDisabled =
+        isVerifying || isPreparingShare || isSwitchResolving;
       return (
         <AddressTypeSelector
           placement="bottom-end"
@@ -1728,6 +1736,7 @@ function ReceiveToken() {
     showAddressTypeMenu,
     isVerifying,
     isPreparingShare,
+    isSwitchResolving,
     intl,
     disableSelector,
     currentDeriveType,

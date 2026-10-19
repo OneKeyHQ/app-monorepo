@@ -1818,4 +1818,49 @@ describe('ReceiveToken address type menu', () => {
     expect(isMenuTrigger(latestCardSelector())).toBe(true);
     page.unmount();
   });
+
+  it('locks the "…" while a network switch looks up its target', async () => {
+    const page = await renderBitcoinPage({ switchEntry: 'network' });
+    expect(latestCardSelector()?.disableSelector).toBe(false);
+
+    let failLookup: (error: Error) => void = () => undefined;
+    mockGetVaultSettings.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          failLookup = reject;
+        }),
+    );
+    fireEvent.click(page.getByTestId('receive-card-network-trigger'));
+    const { params } = mockPushModal.mock.calls[
+      mockPushModal.mock.calls.length - 1
+    ][1] as {
+      params: {
+        onSelect: (selection: {
+          network: unknown;
+          accountId: string;
+        }) => Promise<void>;
+      };
+    };
+    let switching: Promise<void> = Promise.resolve();
+    act(() => {
+      switching = params.onSelect({
+        network: NETWORKS['evm--1'],
+        accountId: 'hd-1--evm1',
+      });
+    });
+
+    // Bitcoin is still on screen, but a pick now would become its default
+    // while the page is leaving it.
+    expect(isMenuTrigger(latestCardSelector())).toBe(true);
+    expect(latestCardSelector()?.disableSelector).toBe(true);
+
+    // A failed lookup keeps the page on Bitcoin, and the "…" usable.
+    await act(async () => {
+      failLookup(new Error('lookup failed'));
+      await switching;
+    });
+    expect(page.getByTestId('address').textContent).toBe('bc1ptaproot');
+    expect(latestCardSelector()?.disableSelector).toBe(false);
+    page.unmount();
+  });
 });
