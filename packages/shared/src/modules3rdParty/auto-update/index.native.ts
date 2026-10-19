@@ -258,6 +258,12 @@ export const AppUpdate: IAppUpdate = {
   clearApkCache,
 };
 
+let isBundleInstallLocked = false;
+
+export function resetBundleInstallLockForTest() {
+  isBundleInstallLocked = false;
+}
+
 export const BundleUpdate: IBundleUpdate = {
   downloadBundle: async (params) => {
     const result = await ReactNativeBundleUpdate.downloadBundle({
@@ -297,12 +303,24 @@ export const BundleUpdate: IBundleUpdate = {
       sha256: toNativeString(params?.sha256),
     }),
   installBundle: async (params) => {
-    await ReactNativeBundleUpdate.installBundle({
-      downloadedFile: toNativeString(params?.downloadedFile),
-      latestVersion: toNativeString(params?.latestVersion),
-      bundleVersion: toNativeString(params?.bundleVersion),
-      signature: toNativeString(params?.signature),
-    });
+    if (isBundleInstallLocked) {
+      defaultLogger.app.appUpdate.log(
+        'BundleUpdate.installBundle: skipped — install already in progress or awaiting restart',
+      );
+      return;
+    }
+    isBundleInstallLocked = true;
+    try {
+      await ReactNativeBundleUpdate.installBundle({
+        downloadedFile: toNativeString(params?.downloadedFile),
+        latestVersion: toNativeString(params?.latestVersion),
+        bundleVersion: toNativeString(params?.bundleVersion),
+        signature: toNativeString(params?.signature),
+      });
+    } catch (error) {
+      isBundleInstallLocked = false;
+      throw error;
+    }
     defaultLogger.app.appUpdate.restartRNApp();
     // mode=All — OTA install rewrote bundle on disk; both main and bg
     // runtimes need to come up against the new bundle so moduleId tables

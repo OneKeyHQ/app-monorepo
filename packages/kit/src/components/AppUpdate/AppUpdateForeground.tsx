@@ -23,6 +23,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import { EAppUpdatePackageErrorCode } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -38,6 +39,7 @@ import { buildSoftwareUpdateParams } from './updateAnalytics';
 // OK-55397: showSilentUpdateDialogUI no longer used — silent updates are
 // applied via a pending install task on restart instead of a "ready" dialog.
 import { showUpdateDialogUI } from './updateDialogs';
+import { extractUpdateErrorCode } from './updateErrorTaxonomy';
 import { isAutoUpdateStrategy, isForceUpdateStrategy } from './updateStrategy';
 import { useDownloadPackage } from './useDownloadPackage';
 
@@ -528,7 +530,22 @@ export function useAppUpdateForegroundEffects(enabled = true) {
               info.downloadedEvent?.signature &&
               info.downloadedEvent?.sha256
             ) {
-              void BundleUpdate.installBundle(info.downloadedEvent);
+              void Promise.resolve(
+                BundleUpdate.installBundle(info.downloadedEvent),
+              ).catch(async (error: unknown) => {
+                defaultLogger.app.appUpdate.endInstallPackage(
+                  false,
+                  error as Error,
+                );
+                if (
+                  extractUpdateErrorCode(error) ===
+                  EAppUpdatePackageErrorCode.packageMissing
+                ) {
+                  await backgroundApiProxy.serviceAppUpdate
+                    .reconcileAppShellPackage({ includeJsBundle: true })
+                    .catch(() => undefined);
+                }
+              });
             } else {
               defaultLogger.app.appUpdate.endInstallPackage(
                 false,

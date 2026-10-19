@@ -225,6 +225,12 @@ export const AppUpdate: IAppUpdate = {
   clearApkCache,
 };
 
+let isBundleInstallLocked = false;
+
+export function resetBundleInstallLockForTest() {
+  isBundleInstallLocked = false;
+}
+
 export const BundleUpdate: IBundleUpdate = {
   getWebEmbedPath: () => '',
   getWebEmbedPathAsync: () => Promise.resolve(''),
@@ -236,8 +242,21 @@ export const BundleUpdate: IBundleUpdate = {
     globalThis.desktopApiProxy.bundleUpdate.verifyBundleASC(params),
   downloadBundleASC: (params) =>
     globalThis.desktopApiProxy.bundleUpdate.downloadBundleASC(params),
-  installBundle: (params) =>
-    globalThis.desktopApiProxy.bundleUpdate.installBundle(params),
+  installBundle: async (params) => {
+    if (isBundleInstallLocked) {
+      defaultLogger.app.appUpdate.log(
+        'BundleUpdate.installBundle: skipped — install already in progress or awaiting restart',
+      );
+      return;
+    }
+    isBundleInstallLocked = true;
+    try {
+      await globalThis.desktopApiProxy.bundleUpdate.installBundle(params);
+    } catch (error) {
+      isBundleInstallLocked = false;
+      throw error;
+    }
+  },
   getFallbackBundles: () =>
     globalThis.desktopApiProxy.bundleUpdate.getFallbackUpdateBundleData(),
   switchBundle: (params) =>

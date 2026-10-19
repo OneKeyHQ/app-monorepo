@@ -382,6 +382,7 @@ import {
   sanitizeUpdateErrorMessage,
   useDownloadPackage,
 } from './useAppUpdate';
+import { resetInstallPackageLockForTest } from './useDownloadPackage';
 // DownloadGaveUpError + the budget-hook option type are not re-exported via
 // useAppUpdate (they are part of the retry-internal contract), so import them
 // directly from the module under test.
@@ -428,6 +429,7 @@ function setAtom(partial: Record<string, any>) {
 
 function resetAllMocks() {
   jest.clearAllMocks();
+  resetInstallPackageLockForTest();
   mockGuideBlockers.clear();
   mockRunAfterTokensDone.mockImplementation(({ onRun }) => {
     onRun('test');
@@ -2163,6 +2165,74 @@ describe('useDownloadPackage', () => {
       expect(onFail).not.toHaveBeenCalled();
       expect(onSuccess).not.toHaveBeenCalled();
       expect(mockToastError).not.toHaveBeenCalled();
+    });
+
+    test('jsBundle repeated clicks after install succeeds are ignored until restart', async () => {
+      const onSuccess = jest.fn();
+      const onFail = jest.fn();
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '24910529',
+        updateStrategy: EUpdateStrategy.silent,
+        downloadedEvent: { downloadedFile: '/tmp/bundle.zip' },
+      });
+
+      const { result } = renderHook(() => useDownloadPackage());
+
+      await act(async () => {
+        await result.current.installPackage(onSuccess, onFail);
+        await result.current.installPackage(onSuccess, onFail);
+        await result.current.installPackage(onSuccess, onFail);
+      });
+
+      expect(bundleUpd.installBundle).toHaveBeenCalledTimes(1);
+      expect(onSuccess).toHaveBeenCalledTimes(1);
+      expect(onFail).not.toHaveBeenCalled();
+    });
+
+    test('jsBundle throwing Bundle directory not found reconciles package and releases lock', async () => {
+      const onSuccess = jest.fn();
+      const onFail = jest.fn();
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '24910529',
+        updateStrategy: EUpdateStrategy.silent,
+        downloadedEvent: { downloadedFile: '/tmp/bundle.zip' },
+      });
+      svc.reconcileAppShellPackage.mockResolvedValue({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '24910529',
+        status: EAppUpdateStatus.notify,
+      });
+      bundleUpd.installBundle
+        .mockRejectedValueOnce(
+          new Error('Bundle directory not found: 1.0.0-24910529'),
+        )
+        .mockResolvedValueOnce(undefined);
+
+      const { result } = renderHook(() => useDownloadPackage());
+
+      await act(async () => {
+        await result.current.installPackage(onSuccess, onFail);
+      });
+
+      expect(
+        extractUpdateErrorCode(
+          new Error('Bundle directory not found: 1.0.0-24910529'),
+        ),
+      ).toBe('APP_PACKAGE_MISSING');
+      expect(svc.reconcileAppShellPackage).toHaveBeenCalledWith({
+        includeJsBundle: true,
+      });
+      expect(onFail).not.toHaveBeenCalled();
+      expect(mockToastError).not.toHaveBeenCalled();
+
+      // Lock is released after failed install so recovery re-install can proceed
+      await act(async () => {
+        await result.current.installPackage(onSuccess, onFail);
+      });
+      expect(bundleUpd.installBundle).toHaveBeenCalledTimes(2);
+      expect(onSuccess).toHaveBeenCalledTimes(1);
     });
   });
 

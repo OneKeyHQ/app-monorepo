@@ -733,6 +733,72 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(AppUpdate.checkPackageAvailability).not.toHaveBeenCalled();
     });
 
+    test('missing JS bundle with includeJsBundle restarts auto download for silent strategy and clears pending task', async () => {
+      const {
+        BundleUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      BundleUpdate.isBundleExists.mockResolvedValueOnce(false);
+      resetAtom({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '24910529',
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.silent,
+        downloadedEvent: {
+          downloadedFile: '/tmp/bundle-24910529.zip',
+        },
+      });
+      resetPendingTask({
+        taskId: 'jsBundle:1.0.0:24910529',
+        revision: 1,
+        action: EPendingInstallTaskAction.switchBundle,
+        type: EPendingInstallTaskType.jsBundleSwitch,
+        targetAppVersion: '1.0.0',
+        targetBundleVersion: '24910529',
+      });
+
+      const result = await service.reconcileAppShellPackage({
+        includeJsBundle: true,
+      });
+
+      expect(BundleUpdate.isBundleExists).toHaveBeenCalledWith(
+        '1.0.0',
+        '24910529',
+      );
+      expect(result.status).toBe(EAppUpdateStatus.notify);
+      expect(result.downloadedEvent).toBeUndefined();
+      expect(pendingInstallTaskValue).toBeUndefined();
+
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
+      await jest.runAllTimersAsync();
+      expect(emitSpy).toHaveBeenCalledWith(
+        EAppEventBusNames.StartAutoDownloadUpdate,
+        { decision: 'jsBundlePackageRecovery' },
+      );
+    });
+
+    test('missing JS bundle with includeJsBundle transitions manual strategy to updateIncomplete', async () => {
+      const {
+        BundleUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      BundleUpdate.isBundleExists.mockResolvedValueOnce(false);
+      resetAtom({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '24910529',
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.manual,
+        downloadedEvent: {
+          downloadedFile: '/tmp/bundle-24910529.zip',
+        },
+      });
+
+      const result = await service.reconcileAppShellPackage({
+        includeJsBundle: true,
+      });
+
+      expect(result.status).toBe(EAppUpdateStatus.updateIncomplete);
+      expect(result.downloadedEvent).toBeUndefined();
+    });
+
     test('availability check failure preserves the ready package state', async () => {
       const {
         AppUpdate,
