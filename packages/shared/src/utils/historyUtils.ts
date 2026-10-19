@@ -223,6 +223,26 @@ export function getHistoryTxDisplayStatus(item?: IAccountHistoryTx) {
   return item?.displayStatus ?? item?.decodedTx.status;
 }
 
+export function getPendingHistorySectionState(data: IAccountHistoryTx[]): {
+  titleId: ETranslations;
+  showSpinner: boolean;
+} {
+  const unknownCount = data.filter(
+    (tx) => tx.decodedTx.broadcastOutcomeUnknown,
+  ).length;
+  let titleId = ETranslations.global_confirming;
+  if (unknownCount > 0) {
+    titleId =
+      unknownCount === data.length
+        ? ETranslations.global_unknown
+        : ETranslations.global_pending;
+  }
+  return {
+    titleId,
+    showSpinner: unknownCount < data.length,
+  };
+}
+
 // Pagination cursor advancement check shared by the load-more hook and the
 // merge-derive aggregator. Without this guard a misbehaving backend that
 // returns the same (or non-decreasing) cursor can wedge the client into an

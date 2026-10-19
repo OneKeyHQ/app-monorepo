@@ -117,4 +117,33 @@ describe('ServiceHistory local pending reconciliation', () => {
       }),
     ]);
   });
+
+  it.each([true, false])(
+    'only removes missing confirmed history from a full vault snapshot (all networks=%s)',
+    async (isAllNetworks) => {
+      const { service, batchUpdateLocalHistoryTxs } = createService(true);
+      const confirmed = tx(EDecodedTxStatus.Confirmed);
+      const result = await service.batchUpdateLocalHistoryTxs(
+        [
+          {
+            accountAddress: 'addr',
+            networkId: 'btc--0',
+            onChainHistoryTxs: [],
+            confirmedTxs: [confirmed],
+            pendingTxs: [],
+            pendingTxsToModify: [],
+          },
+        ],
+        { isAllNetworks },
+      );
+      expect(result.allConfirmedTxsToSave).toEqual(
+        isAllNetworks ? [confirmed] : [],
+      );
+      expect(batchUpdateLocalHistoryTxs).toHaveBeenCalledWith([
+        expect.objectContaining({
+          confirmedTxsToRemove: isAllNetworks ? [] : [confirmed],
+        }),
+      ]);
+    },
+  );
 });
