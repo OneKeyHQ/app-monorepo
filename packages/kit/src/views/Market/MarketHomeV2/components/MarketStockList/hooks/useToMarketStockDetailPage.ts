@@ -242,8 +242,9 @@ export function useToMarketStockDetailPage(
           // Switching tabs dismisses the selector; this is no longer a user cancellation.
           request?.onNavigationStart?.();
           await switchTabAsync(marketTab);
+          if (replacedCurrentDetail) return true;
+          if (!isCurrentRequest()) return false;
           if (
-            replacedCurrentDetail ||
             replaceFocusedMarketDetailRoute({
               routeName: ETabMarketRoutes.MarketStockDetail,
               params: stockDetailParams,
@@ -251,7 +252,7 @@ export function useToMarketStockDetailPage(
           ) {
             return true;
           }
-          if (!isCurrentRequest() || !rootNavigationRef.current) return false;
+          if (!rootNavigationRef.current) return false;
           rootNavigationRef.current.navigate(ERootRoutes.Main, {
             screen: marketTab,
             params: {
