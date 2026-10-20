@@ -7,9 +7,7 @@ import { useIntl } from 'react-intl';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Dialog,
-  Divider,
   Icon,
-  Illustration,
   NATIVE_HIT_SLOP,
   SizableText,
   Skeleton,
@@ -47,7 +45,6 @@ import {
   COMPACT_ENTRY_TITLE_PROPS,
   COMPACT_ROW_BLEED_PROPS,
   COMPACT_ROW_ICON_PROPS,
-  INVITE_CARD_BORDER_COLOR,
   POINTER_ROW_BLEED_PROPS,
   PRESSABLE_SURFACE_PROPS,
   useInviteHomeCardStyle,
@@ -63,7 +60,7 @@ type IRewardModule = keyof IInviteeRewardsOverview;
 // Hardcoded English until i18n keys are added in Lokalise.
 const MY_REWARDS_COPY = {
   addressScope: 'Rewards are counted per address',
-  address: 'Address',
+  rebatesReceived: 'Rebates received',
   noEvmAddress: 'No EVM address',
   noWalletTitle: 'Connect a wallet to view rewards',
   unsupportedTitle: 'This account has no EVM address',
@@ -289,12 +286,10 @@ function RewardsAddressValue({
   address,
   unsupported,
   compact,
-  size = '$bodyMd',
 }: {
   address?: string;
   unsupported: boolean;
   compact: boolean;
-  size?: '$bodyMd' | '$bodyLgMedium';
 }) {
   const { copyText } = useClipboard();
   const copyAddress = useCallback(() => {
@@ -323,11 +318,7 @@ function RewardsAddressValue({
       hitSlop={NATIVE_HIT_SLOP}
       onPress={copyAddress}
     >
-      <SizableText
-        size={size}
-        color={size === '$bodyMd' ? '$textSubdued' : '$text'}
-        numberOfLines={1}
-      >
+      <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
         {accountUtils.shortenAddress({
           address,
           ...(compact ? { leadingLength: 6, trailingLength: 4 } : null),
@@ -377,13 +368,13 @@ function TotalFigure({
 }: {
   totals: IRewardTotals;
   pick: 'total' | 'paid' | 'unpaid';
-  size: '$heading4xl' | '$headingMd';
+  size: '$headingXl' | '$headingLg';
 }) {
   if (totals.status === 'loading') {
-    return size === '$heading4xl' ? (
-      <Skeleton.Heading4Xl w={200} />
+    return size === '$headingXl' ? (
+      <Skeleton.HeadingXl w={120} />
     ) : (
-      <Skeleton.HeadingMd w={88} />
+      <Skeleton.HeadingLg w={88} />
     );
   }
   if (totals.status === 'unavailable') {
@@ -394,21 +385,17 @@ function TotalFigure({
     );
   }
   return (
-    <Currency
-      {...REFERRAL_USD_SOURCE_PROPS}
-      size={size}
-      numberOfLines={1}
-      flexShrink={1}
-    >
+    <Currency {...REFERRAL_USD_SOURCE_PROPS} size={size} numberOfLines={1}>
       {totals[pick]}
     </Currency>
   );
 }
 
-// Desktop lead card, built like the invite tab's earnings card: whose perks
-// these are, the total with its art, then its parts and the counted address
-// on a hairline. It gives the tab the same weight up top as the invite tab.
-function PerksSummaryCard({
+// Desktop: one slim row for whose rebates these are and how much they came
+// to. Kept deliberately unlike the invite tab's earnings card (no lead
+// figure, no coin art, a gift mark instead), so the two tabs do not read as
+// the same page.
+function PerksRebateStrip({
   totals,
   address,
   unsupported,
@@ -421,56 +408,48 @@ function PerksSummaryCard({
 }) {
   const cardStyle = useInviteHomeCardStyle();
   return (
-    <YStack
+    <XStack
       testID="my-rewards-summary-card"
-      flex={1}
-      gap="$4"
-      p="$5"
+      px="$5"
+      py="$4"
+      gap="$5"
+      ai="center"
       {...cardStyle}
     >
-      <YStack gap="$1">
-        <XStack ai="center" jc="space-between" gap="$3">
-          <SizableText size="$bodyLgMedium" color="$textSubdued">
-            {labels.total}
-          </SizableText>
-          <Stack flexShrink={1} minWidth={0}>
-            <AccountSelectorTriggerHome num={0} hideAddress />
-          </Stack>
-        </XStack>
-        <XStack ai="flex-start" gap="$4">
-          <YStack flex={1} minWidth={0} ai="flex-start" gap="$2">
-            <TotalFigure totals={totals} pick="total" size="$heading4xl" />
-            <SubduedNote>{MY_REWARDS_COPY.addressScope}</SubduedNote>
-          </YStack>
-          <Illustration name="Coins" size={80} flexShrink={0} />
-        </XStack>
+      <Stack
+        w="$12"
+        h="$12"
+        borderRadius="$full"
+        bg="$bgSuccessSubdued"
+        ai="center"
+        jc="center"
+        flexShrink={0}
+      >
+        <Icon name="GiftSolid" size="$6" color="$iconSuccess" />
+      </Stack>
+      <YStack flex={1} minWidth={0}>
+        <RewardsAddressCard address={address} unsupported={unsupported} />
       </YStack>
-      <Divider mt="auto" borderColor={INVITE_CARD_BORDER_COLOR} />
-      <XStack ai="flex-start" gap="$6">
+      <XStack gap="$8" flexShrink={0} ai="flex-start">
+        <InviteStatCell share="content" label={labels.total}>
+          <TotalFigure totals={totals} pick="total" size="$headingXl" />
+        </InviteStatCell>
         <InviteStatCell
+          share="content"
           leading={<PartDot color="$iconSuccess" />}
           label={labels.paid}
-          minWidth="$16"
         >
-          <TotalFigure totals={totals} pick="paid" size="$headingMd" />
+          <TotalFigure totals={totals} pick="paid" size="$headingLg" />
         </InviteStatCell>
         <InviteStatCell
+          share="content"
           leading={<PartDot color="$iconCaution" />}
           label={labels.unpaid}
-          minWidth="$16"
         >
-          <TotalFigure totals={totals} pick="unpaid" size="$headingMd" />
-        </InviteStatCell>
-        <InviteStatCell shrink={false} label={MY_REWARDS_COPY.address}>
-          <RewardsAddressValue
-            address={address}
-            unsupported={unsupported}
-            compact={false}
-            size="$bodyLgMedium"
-          />
+          <TotalFigure totals={totals} pick="unpaid" size="$headingLg" />
         </InviteStatCell>
       </XStack>
-    </YStack>
+    </XStack>
   );
 }
 
@@ -878,15 +857,15 @@ export function MyRewardsContent() {
   };
 
   if (md) {
-    // Compact: the address card and the campaign slides, then the breakdown
-    // under a quiet caption inset like the cards' text, as on the invite tab.
+    // Compact: the campaign slides lead, then the address card scoping the
+    // breakdown under a quiet caption inset like the cards' text.
     return (
       <YStack px="$pagePadding" pt="$2" pb="$6" gap="$5">
+        <PerksCampaignBanner items={bannerItems} compact />
         <RewardsAddressCard
           address={walletAddress}
           unsupported={isUnsupported}
         />
-        <PerksCampaignBanner items={bannerItems} compact />
         <YStack gap="$2">
           <SizableText size="$bodyMdMedium" color="$textSubdued" px="$4">
             {sectionTitle}
@@ -897,37 +876,27 @@ export function MyRewardsContent() {
     );
   }
 
-  // Desktop leads with the summary card and the campaign slides side by
-  // side, like the invite tab's two cards; without slides the summary card
-  // takes the row.
+  // Desktop leads with the campaign slides at full width, so the tab opens
+  // on perks rather than on money like the invite tab; the rebate strip
+  // then scopes the table under it.
   return (
     <YStack pb="$6">
-      <XStack px="$pagePadding" gap="$5" ai="stretch">
-        {/* Padding stays inside the flex items, so the two split evenly. */}
-        <XStack flex={1} flexBasis={0} minWidth={0}>
-          <PerksSummaryCard
-            totals={
-              isUnsupported ? { status: 'unavailable' } : getRewardTotals(rows)
-            }
-            address={walletAddress}
-            unsupported={isUnsupported}
-            labels={{
-              total: intl.formatMessage({
-                id: ETranslations.referral_cumulative_rewards,
-              }),
-              paid: labels.paid,
-              unpaid: labels.unpaid,
-            }}
-          />
-        </XStack>
-        {bannerItems.length ? (
-          <XStack flex={1} flexBasis={0} minWidth={0}>
-            <PerksCampaignBanner items={bannerItems} compact={false} />
-          </XStack>
-        ) : null}
-      </XStack>
-      {/* A group gap: the summary card scopes the table but is not part of
-          it. */}
+      <YStack px="$pagePadding" gap="$5">
+        <PerksCampaignBanner items={bannerItems} compact={false} />
+        <PerksRebateStrip
+          totals={
+            isUnsupported ? { status: 'unavailable' } : getRewardTotals(rows)
+          }
+          address={walletAddress}
+          unsupported={isUnsupported}
+          labels={{
+            total: MY_REWARDS_COPY.rebatesReceived,
+            paid: labels.paid,
+            unpaid: labels.unpaid,
+          }}
+        />
+      </YStack>
+      {/* A group gap: the strip scopes the table but is not part of it. */}
       <YStack px="$pagePadding" pt="$8" gap="$3">
         <SizableText size="$headingLg">{sectionTitle}</SizableText>
         {renderBreakdown()}

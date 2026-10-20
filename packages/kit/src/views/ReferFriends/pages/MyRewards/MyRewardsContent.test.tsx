@@ -52,15 +52,14 @@ jest.mock('@onekeyhq/components', () => {
   };
   return {
     Dialog: { show: showDialog },
-    Divider: () => null,
     Icon: () => null,
     Illustration: () => null,
     NATIVE_HIT_SLOP: undefined,
     NumberSizeableText: Primitive,
     SizableText: Primitive,
     Skeleton: Object.assign(() => null, {
-      Heading4Xl: () => null,
-      HeadingMd: () => null,
+      HeadingXl: () => null,
+      HeadingLg: () => null,
     }),
     Stack: Primitive,
     XStack: Primitive,
@@ -168,7 +167,6 @@ jest.mock('../InviteReward/components/useInviteCardStyle', () => ({
   COMPACT_ENTRY_TITLE_PROPS: {},
   COMPACT_ROW_BLEED_PROPS: {},
   COMPACT_ROW_ICON_PROPS: {},
-  INVITE_CARD_BORDER_COLOR: '$neutral4',
   POINTER_ROW_BLEED_PROPS: {},
   PRESSABLE_SURFACE_PROPS: {},
   useInviteHomeCardStyle: () => ({}),

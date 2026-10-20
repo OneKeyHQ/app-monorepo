@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -23,8 +23,6 @@ import {
 } from '@onekeyhq/shared/types/linkConfig';
 
 import { useInviteHomeCardStyle } from '../InviteReward/components/useInviteCardStyle';
-
-import type { LayoutChangeEvent } from 'react-native';
 
 const EMPTY_ITEMS: ILinkConfigItem[] = [];
 
@@ -61,9 +59,7 @@ const PREVIEW_ITEMS: ILinkConfigItem[] = [
 
 // Compact cards keep one height, so paging never moves the content below.
 const COMPACT_BANNER_HEIGHT = 136;
-// Pointer layouts stretch the banner to the summary card beside it; this is
-// only the floor when that card is shorter.
-const POINTER_BANNER_MIN_HEIGHT = 176;
+const POINTER_BANNER_HEIGHT = 184;
 const AUTO_PLAY_INTERVAL_MS = 5000;
 
 // Last list this session saw, so returning to the tab paints the final
@@ -108,7 +104,6 @@ function PerksBannerSlide({
   compact: boolean;
 }) {
   const intl = useIntl();
-  const cardStyle = useInviteHomeCardStyle();
   const shouldSuppressPress = useCarouselPressSuppressor();
   const handlePress = useCallback(() => {
     // The lift at the end of a swipe still lands as a press.
@@ -117,17 +112,15 @@ function PerksBannerSlide({
     }
     parseNotificationPayload(item.mode, item.payload, () => {});
   }, [item.mode, item.payload, shouldSuppressPress]);
-  const imageSize = compact ? 88 : 120;
+  const imageSize = compact ? 88 : 128;
 
+  // Borderless: the frame around the pager draws the card, so a neighbor
+  // slide peeking in at the pager's edge never shows a border of its own.
   return (
     <XStack
       testID={`perks-banner-${item.linkId}`}
       flex={1}
-      {...cardStyle}
-      // The pager clips at its bounds, so the soft lift would be cut off.
-      boxShadow={undefined}
-      overflow="hidden"
-      p={compact ? '$4' : '$5'}
+      p={compact ? '$4' : '$6'}
       gap="$4"
       ai="center"
       role="button"
@@ -149,7 +142,7 @@ function PerksBannerSlide({
           ) : null}
           {item.title ? (
             <SizableText
-              size={compact ? '$headingMd' : '$headingXl'}
+              size={compact ? '$headingMd' : '$heading2xl'}
               numberOfLines={2}
             >
               {item.title}
@@ -176,55 +169,8 @@ function PerksBannerSlide({
   );
 }
 
-function PerksBannerCarousel({
-  items,
-  height,
-  compact,
-}: {
-  items: ILinkConfigItem[];
-  height: number;
-  compact: boolean;
-}) {
-  const isMulti = items.length > 1;
-  const renderItem = useCallback(
-    ({ item }: { item: ILinkConfigItem }) => (
-      <PerksBannerSlide item={item} compact={compact} />
-    ),
-    [compact],
-  );
-  return (
-    <Carousel
-      data={items}
-      renderItem={renderItem}
-      autoPlayInterval={AUTO_PLAY_INTERVAL_MS}
-      loop={isMulti}
-      infinite
-      showPagination={isMulti}
-      containerStyle={{ height }}
-      // Compact dots sit under the card like the Earn banner; pointer dots
-      // stay inside it, so the card's bottom lines up with its neighbor.
-      paginationContainerStyle={
-        compact
-          ? { pt: '$2' }
-          : { position: 'absolute', bottom: '$5', right: '$5' }
-      }
-      renderPaginationItem={({ activeDotStyle, onPress }, index) => (
-        <YStack
-          key={items[index]?.linkId ?? index}
-          w={activeDotStyle ? '$3' : '$1.5'}
-          h="$1.5"
-          ml={index === 0 ? '$0' : '$1.5'}
-          borderRadius="$full"
-          bg={activeDotStyle ? '$bgPrimary' : '$neutral5'}
-          onPress={onPress}
-        />
-      )}
-    />
-  );
-}
-
-// Swipeable campaign slides for the Perks tab. Renders nothing while the
-// slot has no slides, so the layout around it decides what fills the space.
+// Swipeable campaign slides that lead the Perks tab. Renders nothing while
+// the slot has no slides, so the content below moves up.
 export function PerksCampaignBanner({
   items,
   compact,
@@ -232,50 +178,46 @@ export function PerksCampaignBanner({
   items: ILinkConfigItem[];
   compact: boolean;
 }) {
-  const [pointerHeight, setPointerHeight] = useState(0);
-  const handleLayout = useCallback((event: LayoutChangeEvent) => {
-    setPointerHeight(Math.round(event.nativeEvent.layout.height));
-  }, []);
-
+  const cardStyle = useInviteHomeCardStyle();
+  const isMulti = items.length > 1;
+  const renderItem = useCallback(
+    ({ item }: { item: ILinkConfigItem }) => (
+      <PerksBannerSlide item={item} compact={compact} />
+    ),
+    [compact],
+  );
   if (!items.length) {
     return null;
   }
-  if (compact) {
-    return (
-      <YStack testID="perks-banner">
-        <PerksBannerCarousel
-          items={items}
-          height={COMPACT_BANNER_HEIGHT}
-          compact
-        />
-      </YStack>
-    );
-  }
-  // The pager needs a fixed height, so it is measured from an overlay that
-  // fills the stretched column; the overlay never feeds back into the
-  // column's own height.
+  const height = compact ? COMPACT_BANNER_HEIGHT : POINTER_BANNER_HEIGHT;
   return (
-    <YStack
-      testID="perks-banner"
-      flex={1}
-      minHeight={POINTER_BANNER_MIN_HEIGHT}
-    >
-      <YStack
-        position="absolute"
-        top={0}
-        right={0}
-        bottom={0}
-        left={0}
-        onLayout={handleLayout}
-      >
-        {pointerHeight > 0 ? (
-          <PerksBannerCarousel
-            items={items}
-            height={pointerHeight}
-            compact={false}
+    <YStack testID="perks-banner" {...cardStyle} overflow="hidden">
+      <Carousel
+        data={items}
+        renderItem={renderItem}
+        autoPlayInterval={AUTO_PLAY_INTERVAL_MS}
+        loop={isMulti}
+        infinite
+        showPagination={isMulti}
+        containerStyle={{ height }}
+        // Dots sit inside the card, bottom right, across from Learn more.
+        paginationContainerStyle={{
+          position: 'absolute',
+          bottom: compact ? '$3' : '$4',
+          right: compact ? '$4' : '$6',
+        }}
+        renderPaginationItem={({ activeDotStyle, onPress }, index) => (
+          <YStack
+            key={items[index]?.linkId ?? index}
+            w={activeDotStyle ? '$3' : '$1.5'}
+            h="$1.5"
+            ml={index === 0 ? '$0' : '$1.5'}
+            borderRadius="$full"
+            bg={activeDotStyle ? '$bgPrimary' : '$neutral5'}
+            onPress={onPress}
           />
-        ) : null}
-      </YStack>
+        )}
+      />
     </YStack>
   );
 }
