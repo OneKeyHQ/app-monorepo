@@ -28,6 +28,7 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { isTokenSelectorDappToken } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
+import { sumFiatValuesFromTokens } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -181,6 +182,43 @@ function TokenListFooter(props: IProps) {
     nonZeroIdsSet,
   ]);
 
+  // Record<$key, ITokenFiat> for the given ids — aggregate ids resolve through
+  // the derived aggCell, normal ids through cell.
+  const getFiatMap = useCallback(
+    (ids: readonly string[]) => {
+      const map: Record<string, ITokenFiat> = {};
+      for (const id of ids) {
+        const aggregate = isAgg(id, store.get(meta(store, id)));
+        const fiat = store.get(
+          aggregate ? aggCell(store, id) : cell(store, id),
+        );
+        if (fiat) {
+          map[id] = fiat;
+        }
+      }
+      return map;
+    },
+    [store],
+  );
+
+  // The BG total covers every small-balance token; when filters hide some of
+  // them, re-sum the rows actually listed. The BG total changes on every fiat
+  // tick, so it also keys the re-sum.
+  const displayedSmallBalanceFiatValue = useMemo(() => {
+    if (filteredSmallBalanceTokens === smallBalanceTokens) {
+      return smallBalanceTokensFiatValue;
+    }
+    return sumFiatValuesFromTokens(
+      filteredSmallBalanceTokens,
+      getFiatMap(filteredSmallBalanceTokens.map((token) => token.$key)),
+    ).toFixed();
+  }, [
+    filteredSmallBalanceTokens,
+    smallBalanceTokens,
+    smallBalanceTokensFiatValue,
+    getFiatMap,
+  ]);
+
   const filteredRiskyTokens = useMemo(() => {
     if (riskyOwnerKey !== currentOwnerKey) {
       return [];
@@ -220,16 +258,7 @@ function TokenListFooter(props: IProps) {
     // its own isolated store via refresh*, and a wrong shape renders blank
     // balances.
 
-    // map: Record<$key, ITokenFiat> for the small-balance ids — aggregate ids
-    // resolve through the derived aggCell, normal ids through cell.
-    const smallBalanceTokenListMap: Record<string, ITokenFiat> = {};
-    for (const id of smallBalanceIds) {
-      const aggregate = isAgg(id, store.get(meta(store, id)));
-      const fiat = store.get(aggregate ? aggCell(store, id) : cell(store, id));
-      if (fiat) {
-        smallBalanceTokenListMap[id] = fiat;
-      }
-    }
+    const smallBalanceTokenListMap = getFiatMap(smallBalanceIds);
 
     // nested aggregate fiat map: Record<aggKey, Record<networkId, ITokenFiat>>
     // for the aggregate small-balance ids, read from the per-network sub-cells
@@ -286,6 +315,7 @@ function TokenListFooter(props: IProps) {
     indexedAccount?.id,
     smallBalanceTokens.length,
     smallBalanceIds,
+    getFiatMap,
     store,
     listStructure.aggMembership,
     navigation,
@@ -492,8 +522,9 @@ function TokenListFooter(props: IProps) {
               formatter="value"
               sourceCurrency="usd"
               textAlign="right"
+              hideValue
             >
-              {smallBalanceTokensFiatValue}
+              {displayedSmallBalanceFiatValue}
             </Currency>
           </XStack>
         </ListItem>
