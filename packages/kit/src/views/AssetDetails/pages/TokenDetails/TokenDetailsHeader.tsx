@@ -50,13 +50,9 @@ import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import {
-  getSwapConfiguredDefaultToToken,
-  isSwapEntryDisabledToken,
-} from '@onekeyhq/shared/src/utils/swapEntryUtils';
+import { isSwapEntryDisabledToken } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
-import { getSwapBridgeDefaultToToken } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapSource,
   ESwapTabSwitchType,
@@ -85,7 +81,7 @@ const tokenDetailsCache = new cacheUtils.LRUCache<
 
 // Shared with the aggregate Overview tab, which resolves the concrete member
 // network / derive type before delegating here.
-export async function pushSwapFromTokenDetails({
+export function pushSwapFromTokenDetails({
   navigation,
   token,
   networkId,
@@ -138,19 +134,6 @@ export async function pushSwapFromTokenDetails({
     logoURI: token.logoURI,
     networkLogoURI,
   };
-  let importToToken = getSwapConfiguredDefaultToToken(importFromToken);
-  try {
-    const { isSupportSwap, isSupportCrossChain } =
-      await backgroundApiProxy.serviceSwap.checkSupportSwap({
-        networkId,
-      });
-    if (!importToToken && !isSupportSwap && isSupportCrossChain) {
-      importToToken = getSwapBridgeDefaultToToken(importFromToken);
-    }
-  } catch {
-    // Keep the existing Swap fallback if capability refresh fails.
-  }
-
   defaultLogger.wallet.walletActions.actionTrade({
     walletType: walletType ?? '',
     networkId,
@@ -163,7 +146,6 @@ export async function pushSwapFromTokenDetails({
     params: {
       importNetworkId: networkId,
       importFromToken,
-      importToToken,
       importDeriveType: deriveType,
       swapTabSwitchType: ESwapTabSwitchType.SWAP,
       swapSource: ESwapSource.TOKEN_DETAIL,

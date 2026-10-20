@@ -5,16 +5,14 @@ import { useSyncExternalStore } from 'react';
  * usePreCheckFeeInfo's showFeeInfoOverflowConfirm opens), as a subscribable
  * module-level flag.
  *
- * That dialog is a plain RN-layer Dialog.show(). On native, a system-level
- * presentation covers every RN-layer surface — the WalletConnect Pay sheet
- * (@expo/ui BottomSheet on iOS, M3 ModalBottomSheet in its own window on
- * Android) is one — and the background's verifyTransactionFeeInfo blocks on
- * the user's answer. A flow that owns such a presentation must therefore park
- * it while this dialog is up, exactly as it does for the password and
- * hardware prompts, or the user can never reach the dialog and the flow waits
- * forever. Those two prompts expose atoms; this one does not — the request
- * travels as a one-shot app event (doubleConfirmTxFeeInfo) and only the
- * dialog itself knows when it closes — hence this store.
+ * The background's verifyTransactionFeeInfo blocks on the user's answer to
+ * that dialog. A flow that keeps its own sheet up during the transaction —
+ * the WalletConnect Pay sheet, which steps aside on native while a prompt is
+ * up — needs to know when it opens and closes, exactly as it does for the
+ * password and hardware prompts. Those two prompts expose atoms; this one
+ * does not — the request travels as a one-shot app event
+ * (doubleConfirmTxFeeInfo) and only the dialog itself knows when it closes —
+ * hence this store.
  *
  * Count-based rather than boolean so two overlapping opens cannot clear each
  * other's presence.

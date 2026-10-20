@@ -5,7 +5,6 @@ import { render } from '@testing-library/react';
 import { EPageType } from '@onekeyhq/components';
 import type { ISwapInputAmountDraft } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapSource,
   ESwapTabSwitchType,
@@ -20,10 +19,10 @@ const mockEmbeddedSwapMounted = jest.fn();
 let mockConfigReady = true;
 const mockPaymentToken = {
   networkId: 'evm--1',
-  contractAddress: '',
-  symbol: 'ETH',
-  decimals: 18,
-  isNative: true,
+  contractAddress: '0xusdt',
+  symbol: 'USDT',
+  decimals: 6,
+  isNative: false,
 };
 
 let mockDefaultTokens = [mockPaymentToken];
@@ -115,6 +114,7 @@ jest.mock('@onekeyhq/shared/types/swap/types', () => ({
 }));
 
 jest.mock('./SwapPanel/hooks/useSpeedSwapInit', () => ({
+  ESpeedSwapConfigScope: { DEFAULT: 'default', MARKET: 'market' },
   useSpeedSwapInit: jest.fn(() => ({
     defaultTokens: mockDefaultTokens,
     speedConfigReady: mockConfigReady,
@@ -170,9 +170,7 @@ describe('MarketDetailEmbeddedSwap', () => {
       );
       expect(mockEmbeddedSwap.mock.lastCall?.[0].swapInitParams).toEqual(
         expect.objectContaining({
-          importFromToken: isStock
-            ? mockPaymentToken
-            : swapDefaultSetTokens['evm--1'].toToken,
+          importFromToken: mockPaymentToken,
         }),
       );
       const updatedPaymentToken = {
@@ -186,9 +184,7 @@ describe('MarketDetailEmbeddedSwap', () => {
       );
       expect(mockEmbeddedSwap.mock.lastCall?.[0].swapInitParams).toEqual(
         expect.objectContaining({
-          importFromToken: isStock
-            ? updatedPaymentToken
-            : swapDefaultSetTokens['evm--1'].toToken,
+          importFromToken: updatedPaymentToken,
         }),
       );
       expect(mockEmbeddedSwapMounted).toHaveBeenCalledTimes(1);
@@ -210,7 +206,7 @@ describe('MarketDetailEmbeddedSwap', () => {
         pageType: EPageType.modal,
         singleSwapBridgeHeader: true,
         swapInitParams: {
-          importFromToken: swapDefaultSetTokens['evm--1'].toToken,
+          importFromToken: mockPaymentToken,
           importNetworkId: mockPaymentToken.networkId,
           importToToken: marketToken,
           marketSwapDirection: 'to',

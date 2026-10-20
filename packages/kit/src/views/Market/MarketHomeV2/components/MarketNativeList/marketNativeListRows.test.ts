@@ -258,6 +258,28 @@ describe('market native list rows', () => {
     expect(row.pressInActionKey).toBe('prewarm-detail');
   });
 
+  it('opens the favorite menu on long press outside the watchlist', () => {
+    expect(
+      buildTokenMarketRow({ item: token, presentation, favoriteMenu: true })
+        .longPressActionKey,
+    ).toBe('favorite-menu');
+    expect(
+      buildPerpsMarketRow({ item: perp, presentation, favoriteMenu: true })
+        .longPressActionKey,
+    ).toBe('favorite-menu');
+    expect(
+      buildTokenMarketRow({
+        item: token,
+        presentation,
+        watchlist: true,
+        favoriteMenu: true,
+      }).longPressActionKey,
+    ).toBe('watchlist-menu');
+    expect(
+      buildTokenMarketRow({ item: token, presentation }).longPressActionKey,
+    ).toBeUndefined();
+  });
+
   it('serializes leverage and interactive DEX badges for perps', () => {
     const row = buildPerpsMarketRow({ item: perp, presentation });
 

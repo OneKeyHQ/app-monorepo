@@ -11,6 +11,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
+import { BRAND_FONT_NATIVE_FAMILY } from '../../hocs/Provider/fonts/brandFont';
 import { getAppThemeVariant } from '../../hocs/Provider/hooks/useAppearanceTheme';
 import { uiScale } from '../../utils/scale';
 
@@ -65,8 +66,8 @@ const CROPPER_COLOR_TOKENS = {
 function getCropperAppearance(): ImageCropperAppearance {
   const appearance: ImageCropperAppearance = {
     // $headingLg and $bodyLgMedium.
-    titleFontFamily: 'Roobert-SemiBold',
-    buttonFontFamily: 'Roobert-Medium',
+    titleFontFamily: BRAND_FONT_NATIVE_FAMILY.semibold,
+    buttonFontFamily: BRAND_FONT_NATIVE_FAMILY.medium,
     scale: uiScale,
   };
   const variant = getAppThemeVariant();

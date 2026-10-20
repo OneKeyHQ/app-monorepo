@@ -26,6 +26,7 @@ import type {
   ISizableTextProps,
   IStackProps,
 } from '@onekeyhq/components';
+import { BRAND_FONT_NATIVE_FAMILY } from '@onekeyhq/components/src/hocs/Provider/fonts/brandFont';
 import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { NUMBER_FORMATTER } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -42,7 +43,7 @@ const WRAPPED_SYMBOL_MAX_FONT_SIZE = 24;
 const WRAPPED_SYMBOL_HORIZONTAL_PADDING_PX = 16;
 const WRAPPED_SYMBOL_BREAK_CHARS = new Set([' ', '-', '_', '/', '.']);
 const AMOUNT_FONT_FAMILY = platformEnv.isNative
-  ? 'Roobert-Medium'
+  ? BRAND_FONT_NATIVE_FAMILY.medium
   : webFontFamily;
 // iOS-only hidden marker used to force a native prop delta without visible UI change.
 const IOS_FORCE_WRITE_BACK_MARKER = '\u200B';
