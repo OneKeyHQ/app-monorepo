@@ -26905,6 +26905,7 @@
     "packages/components/src/hocs/Provider/fonts/Roobert-Regular.ttf": 6611,
     "packages/components/src/hocs/Provider/fonts/Roobert-SemiBold.ttf": 2670,
     "packages/kit/src/views/Home/components/TokenListBlock/buildMergedAllNetworkSnapshot.ts": 7735,
+    "packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useMarketSwapPayTokens.ts": 4476,
     "packages/kit/src/views/Market/hooks/useRecommendListingResolution.ts": 2969
   }
 }

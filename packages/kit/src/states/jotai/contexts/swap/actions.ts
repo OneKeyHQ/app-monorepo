@@ -54,6 +54,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import { buildSwapSelectedTokensColdStartAccountKey } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
+import { getSwapDefaultCounterpartToken } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 import { getVisibleSwapTabSwitchType } from '@onekeyhq/shared/src/utils/swapTypeUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
@@ -122,6 +123,7 @@ import {
   swapAutoSlippageSuggestedValueAtom,
   swapBalanceDisplayCacheAtom,
   swapBuildTxFetchingAtom,
+  swapDefaultConfigStatusAtom,
   swapFromTokenAmountAtom,
   swapInitialSelectedTokensSyncedAtom,
   swapInputAmountDraftsAtom,
@@ -915,11 +917,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   needChangeToken = ({
     token,
     toToken,
+    swapNetworks: configuredNetworks,
     swapTypeSwitchValue,
   }: {
     token: ISwapToken;
     swapTypeSwitchValue: ESwapTabSwitchType;
     toToken?: ISwapToken;
+    swapNetworks?: ISwapNetwork[];
   }) => {
     if (
       token.networkId !== toToken?.networkId &&
@@ -948,21 +952,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       swapTypeSwitchValue === ESwapTabSwitchType.SWAP
     ) {
       if (!toToken) {
-        const defaultTokenSet = swapDefaultSetTokens[token.networkId];
-        if (
-          token.isNative &&
-          defaultTokenSet?.toToken &&
-          !defaultTokenSet?.toToken?.isNative
-        ) {
-          return defaultTokenSet?.toToken;
-        }
-        if (
-          !token.isNative &&
-          defaultTokenSet?.fromToken &&
-          defaultTokenSet?.fromToken?.isNative
-        ) {
-          return defaultTokenSet?.fromToken;
-        }
+        return getSwapDefaultCounterpartToken({
+          fromToken: token,
+          swapNetworks: configuredNetworks,
+        });
       }
       return null;
     }
@@ -1037,6 +1030,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           : context,
       );
       const needChangeToToken = this.needChangeToken({
+        swapNetworks:
+          get(swapDefaultConfigStatusAtom()) === 'failed'
+            ? []
+            : get(swapNetworks()),
         token,
         swapTypeSwitchValue,
         toToken,
@@ -3856,6 +3853,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           }
           if (fromToken && !toToken) {
             const needChangeToToken = this.needChangeToken({
+              swapNetworks:
+                get(swapDefaultConfigStatusAtom()) === 'failed'
+                  ? []
+                  : get(swapNetworks()),
               token: fromToken,
               toToken,
               swapTypeSwitchValue: normalizedType,

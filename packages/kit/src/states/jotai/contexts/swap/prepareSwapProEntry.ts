@@ -133,10 +133,12 @@ export function prepareStockSwapEntry({
 export function prepareMarketSwapEntry({
   token,
   direction = 'to',
+  defaultTokens,
   storeName = EJotaiContextStoreNames.swap,
 }: {
   token: ISwapToken;
   direction?: 'from' | 'to';
+  defaultTokens: ISwapToken[];
   storeName?: EJotaiContextStoreNames.swap | EJotaiContextStoreNames.swapModal;
 }): IPreparedMarketSwapEntry {
   const store = jotaiContextStore.prepareStoreForImmediateUse({
@@ -148,7 +150,7 @@ export function prepareMarketSwapEntry({
     fromToken: nextFromToken,
     toToken: nextToToken,
     swapType,
-  } = getMarketSwapDefaultPair({ token, direction });
+  } = getMarketSwapDefaultPair({ token, direction, defaultTokens });
   store.set(swapSelectFromTokenAtom(), nextFromToken);
   store.set(swapSelectToTokenAtom(), nextToToken);
   // Amounts belong to the complete directed pair, including the trade side.
