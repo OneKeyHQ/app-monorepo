@@ -1179,6 +1179,7 @@ export type IPerpsLastAdvancedOrderType = ETriggerOrderType | 'scale' | 'twap';
 export type IPerpsChartPosition = 'top' | 'bottom' | 'hidden';
 
 export interface IPerpsCustomSettings {
+  mobileTradingMode?: 'simple' | 'pro';
   skipOrderConfirm: boolean;
   showTradeMarks: boolean;
   showChartLines: boolean;
@@ -1196,6 +1197,7 @@ export const {
   name: EAtomNames.perpsCustomSettingsAtom,
   persist: true,
   initialValue: {
+    mobileTradingMode: 'pro',
     skipOrderConfirm: false,
     showTradeMarks: true,
     showChartLines: true,
@@ -1210,6 +1212,7 @@ export const {
 
 export interface IPerpsTradingPreferences {
   sizeInputUnit: 'token' | 'usd' | 'margin';
+  simpleSizeInputUnit?: 'token' | 'usd' | 'margin';
   slippage: number;
 }
 export const {

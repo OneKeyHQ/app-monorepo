@@ -243,3 +243,96 @@ describe('ServiceHyperliquidExchange account guard', () => {
     expect(orderCalls()).toBe(0);
   });
 });
+
+describe('exchange order account guard', () => {
+  function createService() {
+    const response = {
+      status: 'ok',
+      response: { type: 'order', data: { statuses: [] } },
+    };
+    const client = { order: jest.fn().mockResolvedValue(response) };
+    const service = {
+      _account: '0xagent',
+      _userAddress: '0xUSER',
+      _exchangeClient: client,
+      checkAccountCanTrade: jest.fn(),
+      _resolveExpectedAccountAddress: jest.fn().mockResolvedValue('0xuser'),
+      _formatOrdersForHyperLiquid: jest.fn().mockResolvedValue([]),
+      getExchangeClientForTrading: jest.fn().mockResolvedValue(client),
+      _buildLogContext: jest.fn().mockResolvedValue({}),
+      _composeOrderLogExtra: jest.fn(),
+      _resolveOrderOpenIsFirstTime: jest.fn(),
+      _markOrderOpenSucceeded: jest.fn(),
+      backgroundApi: {
+        serviceRookieGuide: { recordTaskCompleted: jest.fn() },
+      },
+    };
+    const submit = () =>
+      ServiceHyperliquidExchange.prototype.placeOrderRaw.call(
+        service as unknown as ServiceHyperliquidExchange,
+        { orders: [], grouping: 'na' },
+        { expectedAccountAddress: '0xuser' },
+      );
+    return { service, client, submit, response };
+  }
+
+  const previousScope = globalThis.$onekeyIsInBackground;
+  afterEach(() => {
+    globalThis.$onekeyIsInBackground = previousScope;
+  });
+
+  beforeEach(() => {
+    globalThis.$onekeyIsInBackground = true;
+    mockActiveAccountState.value = {
+      accountAddress: '0xuser',
+    };
+  });
+
+  it('accepts an agent signer serving the expected user', async () => {
+    const { submit, client, response } = createService();
+    await expect(submit()).resolves.toEqual(response);
+    expect(client.order).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a changed selected account before dispatch', async () => {
+    mockActiveAccountState.value = {
+      accountAddress: '0xother',
+    };
+    const { submit, client } = createService();
+    await expect(submit()).rejects.toThrow(accountChangedMessage);
+    expect(client.order).not.toHaveBeenCalled();
+  });
+
+  it('accepts a wallet signing directly for the expected user', async () => {
+    const { submit, service, client } = createService();
+    service._account = '0xuser';
+    await submit();
+    expect(client.order).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears client ownership when disposed', async () => {
+    const { service } = createService();
+    await ServiceHyperliquidExchange.prototype.dispose.call(
+      service as unknown as ServiceHyperliquidExchange,
+    );
+    expect(service._userAddress).toBeNull();
+    expect(service._exchangeClient).toBeNull();
+  });
+
+  it('rejects a client belonging to another user', async () => {
+    const { submit, service, client } = createService();
+    service._userAddress = '0xother';
+    await expect(submit()).rejects.toThrow(accountChangedMessage);
+    expect(client.order).not.toHaveBeenCalled();
+  });
+
+  it('rejects a client replaced while order preparation is awaiting', async () => {
+    const { submit, service, client } = createService();
+    service._buildLogContext.mockImplementation(async () => {
+      service._exchangeClient = { order: jest.fn() };
+      return {};
+    });
+    await expect(submit()).rejects.toThrow(accountChangedMessage);
+    expect(client.order).not.toHaveBeenCalled();
+  });
+});
