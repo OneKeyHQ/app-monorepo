@@ -3835,7 +3835,7 @@ describe('SimpleDbEntityPrime web checkout pending session', () => {
     ...overrides,
   });
 
-  test('stores one session per user and drops expired ones', async () => {
+  test('preserves the payable session per user and drops expired ones', async () => {
     const expired = buildSession({
       checkoutId: 'old',
       onekeyUserId: 'user-2',
@@ -3845,20 +3845,72 @@ describe('SimpleDbEntityPrime web checkout pending session', () => {
       webCheckoutPendingSessionByUserId: { 'user-2': expired },
     });
 
-    await entity.setWebCheckoutPendingSession({ session: buildSession() });
-    await entity.setWebCheckoutPendingSession({
+    await entity.acquireWebCheckoutPendingSession({ session: buildSession() });
+    const reused = await entity.acquireWebCheckoutPendingSession({
       session: buildSession({ checkoutId: 'checkout-2' }),
     });
 
     expect(getPersisted().webCheckoutPendingSessionByUserId).toEqual({
       'user-1': buildSession({
-        checkoutId: 'checkout-2',
+        checkoutId: 'checkout-1',
         startedAt: expect.any(Number),
       }),
     });
+    expect(reused.reused).toBe(true);
+    expect(reused.session.checkoutId).toBe('checkout-1');
     await expect(
       entity.getWebCheckoutPendingSession({ onekeyUserId: 'user-2' }),
     ).resolves.toBeUndefined();
+  });
+
+  test('atomically gives concurrent plans the same pending session', async () => {
+    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore();
+    const annual = buildSession();
+    const monthly = buildSession({
+      checkoutId: 'checkout-2',
+      subscriptionPeriod: 'P1M',
+      packageId: '$rc_monthly',
+      amount: 12,
+      checkoutUrl: 'https://pay.rev.cat/sandbox/abc/user-1?package_id=monthly',
+    });
+
+    const acquisitions = await Promise.all([
+      entity.acquireWebCheckoutPendingSession({ session: annual }),
+      entity.acquireWebCheckoutPendingSession({ session: monthly }),
+    ]);
+
+    expect(acquisitions).toEqual([
+      { session: annual, reused: false, replacedSession: undefined },
+      { session: annual, reused: true },
+    ]);
+    expect(
+      getPersisted().webCheckoutPendingSessionByUserId?.['user-1'],
+    ).toEqual(annual);
+  });
+
+  test('keeps different accounts independent and only replaces a different environment', async () => {
+    const original = buildSession();
+    const { entity, getPersisted } = createPrimeAnalyticsEntityWithStore({
+      webCheckoutPendingSessionByUserId: { 'user-1': original },
+    });
+    const otherUser = buildSession({ onekeyUserId: 'user-2' });
+    const production = buildSession({
+      checkoutId: 'production',
+      isSandbox: false,
+    });
+
+    await entity.acquireWebCheckoutPendingSession({ session: otherUser });
+    await expect(
+      entity.acquireWebCheckoutPendingSession({ session: production }),
+    ).resolves.toEqual({
+      session: production,
+      reused: false,
+      replacedSession: original,
+    });
+    expect(getPersisted().webCheckoutPendingSessionByUserId).toEqual({
+      'user-1': production,
+      'user-2': otherUser,
+    });
   });
 
   test('ignores an expired or foreign session on read', async () => {

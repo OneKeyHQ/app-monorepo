@@ -2516,12 +2516,17 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
       : undefined;
   }
 
+  // The read and write share the entity mutex, including across extension UIs.
   @backgroundMethod()
-  async setWebCheckoutPendingSession({
+  async acquireWebCheckoutPendingSession({
     session,
   }: {
     session: IPrimeWebCheckoutPendingSession;
-  }): Promise<void> {
+  }): Promise<{
+    session: IPrimeWebCheckoutPendingSession;
+    reused: boolean;
+    replacedSession?: IPrimeWebCheckoutPendingSession;
+  }> {
     const now = Date.now();
     if (
       !isValidWebCheckoutPendingSession(session, {
@@ -2531,16 +2536,43 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
     ) {
       throw new OneKeyLocalError('Invalid Prime web checkout session');
     }
-    await this.setRawData((rawData) => ({
-      ...rawData,
-      webCheckoutPendingSessionByUserId: {
-        ...pruneWebCheckoutPendingSessions(
-          rawData?.webCheckoutPendingSessionByUserId,
-          now,
-        ),
-        [session.onekeyUserId]: session,
-      },
-    }));
+    let acquisition:
+      | {
+          session: IPrimeWebCheckoutPendingSession;
+          reused: boolean;
+          replacedSession?: IPrimeWebCheckoutPendingSession;
+        }
+      | undefined;
+    await this.setRawData((rawData) => {
+      const sessions = pruneWebCheckoutPendingSessions(
+        rawData?.webCheckoutPendingSessionByUserId,
+        Date.now(),
+      );
+      const previousSession = sessions[session.onekeyUserId];
+      if (
+        previousSession?.platform === session.platform &&
+        previousSession.isSandbox === session.isSandbox
+      ) {
+        acquisition = { session: previousSession, reused: true };
+        return rawData ?? {};
+      }
+      acquisition = {
+        session,
+        reused: false,
+        replacedSession: previousSession,
+      };
+      return {
+        ...rawData,
+        webCheckoutPendingSessionByUserId: {
+          ...sessions,
+          [session.onekeyUserId]: session,
+        },
+      };
+    });
+    if (!acquisition) {
+      throw new OneKeyLocalError('Prime web checkout session was not acquired');
+    }
+    return acquisition;
   }
 
   // Records the extension tabs after the checkout tab exists. Ignored when

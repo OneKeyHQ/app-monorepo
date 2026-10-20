@@ -105,10 +105,11 @@ function PrimeWebCheckoutWaitingMonitor({
         result,
         intl,
       });
-      if (settlement?.outcome === 'succeeded') {
-        showPrimeWebCheckoutSuccessToast(intl);
+      try {
+        await dialogInstance.close();
+      } catch {
+        // A UI failure must not discard an already-settled purchase.
       }
-      await dialogInstance.close();
       if (settlement?.outcome !== 'succeeded') {
         return;
       }
@@ -116,6 +117,13 @@ function PrimeWebCheckoutWaitingMonitor({
       // success surfaces (e.g. the KYT intro) mount.
       await timerUtils.wait(350);
       await finishPrimeWebCheckoutSuccess(settlement.successPayload);
+      try {
+        if (await isPrimeWebCheckoutUserCurrent(session.onekeyUserId)) {
+          showPrimeWebCheckoutSuccessToast(intl);
+        }
+      } catch {
+        // Optional UI must not make the monitor retry a committed handoff.
+      }
     },
     [dialogInstance, intl, session],
   );

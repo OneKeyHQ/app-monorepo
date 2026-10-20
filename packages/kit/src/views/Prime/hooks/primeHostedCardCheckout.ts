@@ -201,18 +201,7 @@ export async function startPrimeHostedCardCheckout({
     if (!(await isPrimeWebCheckoutUserCurrent(onekeyUserId))) {
       throw new OneKeyLocalError('Prime purchase user changed');
     }
-    // An earlier checkout page may still be open and payable. Resume its
-    // original plan and attribution instead of replacing it with another link.
-    const previousSession =
-      await backgroundApiProxy.simpleDb.prime.getWebCheckoutPendingSession({
-        onekeyUserId,
-      });
-    const reusedSession =
-      previousSession?.platform === platform &&
-      previousSession.isSandbox === isSandboxKey
-        ? previousSession
-        : undefined;
-    const session: IPrimeWebCheckoutPendingSession = reusedSession ?? {
+    const candidate: IPrimeWebCheckoutPendingSession = {
       checkoutId: generateUUID(),
       onekeyUserId,
       subscriptionPeriod: selectedSubscriptionPeriod,
@@ -226,31 +215,24 @@ export async function startPrimeHostedCardCheckout({
       checkoutUrl,
       startedAt: Date.now(),
     };
-    if (!reusedSession) {
-      // Persist before opening so a return or restart can always find it.
-      await backgroundApiProxy.simpleDb.prime.setWebCheckoutPendingSession({
-        session,
+    // Independent extension surfaces must acquire the same payable session.
+    const { session, reused, replacedSession } =
+      await backgroundApiProxy.simpleDb.prime.acquireWebCheckoutPendingSession({
+        session: candidate,
       });
+    if (!(await isPrimeWebCheckoutUserCurrent(onekeyUserId))) {
+      throw new OneKeyLocalError('Prime purchase user changed');
     }
-    let openResult: Awaited<ReturnType<typeof openPrimeWebCheckoutPage>>;
-    try {
-      openResult = await openPrimeWebCheckoutPage(session, {
-        email,
-        replacedSession: reusedSession ? undefined : previousSession,
-      });
-    } catch (error) {
-      if (!reusedSession) {
-        await backgroundApiProxy.simpleDb.prime.clearWebCheckoutPendingSession({
-          onekeyUserId,
-          expectedCheckoutId: session.checkoutId,
-        });
-      }
-      throw error;
-    }
+    // Another surface may already be opening this session. Keep it recoverable
+    // even when this caller fails to open or record its checkout tab.
+    const openResult = await openPrimeWebCheckoutPage(session, {
+      email,
+      replacedSession,
+    });
     logPrimeWebCheckoutFlow({
       stage: 'open',
       status: 'succeeded',
-      reason: reusedSession ? 'reusedCheckout' : undefined,
+      reason: reused ? 'reusedCheckout' : undefined,
       isSandbox: isSandboxKey,
       subscriptionPeriod: selectedSubscriptionPeriod,
       featureName,
