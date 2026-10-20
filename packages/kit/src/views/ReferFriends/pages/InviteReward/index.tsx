@@ -49,7 +49,6 @@ import {
   IS_BENEFITS_TAB_ENABLED,
   resolveReferralPageTab,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralPageTab';
-import { REFERRAL_TAB_COPY } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralTabCopy';
 import {
   getInviteCodeStepImageHeight,
   getInviteCodeStepImageWidth,
@@ -628,21 +627,7 @@ function InviteRewardPage() {
               gap="$3"
             >
               {IS_BENEFITS_TAB_ENABLED ? (
-                // On Perks, one line beside the tabs says what the tab is
-                // about.
-                <XStack ai="center" gap="$4" flexShrink={1} minWidth={0}>
-                  <ReferralJobTabs value={activeTab} onChange={setActiveTab} />
-                  {isInviteTab ? null : (
-                    <SizableText
-                      size="$bodyMd"
-                      color="$textSubdued"
-                      numberOfLines={1}
-                      flexShrink={1}
-                    >
-                      {REFERRAL_TAB_COPY.perksIntro}
-                    </SizableText>
-                  )}
-                </XStack>
+                <ReferralJobTabs value={activeTab} onChange={setActiveTab} />
               ) : (
                 <SizableText size="$headingXl">
                   {intl.formatMessage({

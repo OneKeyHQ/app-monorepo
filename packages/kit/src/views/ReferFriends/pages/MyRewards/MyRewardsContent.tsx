@@ -1066,8 +1066,8 @@ export function MyRewardsContent({
     return (
       <YStack flex={1} pt="$2" pb="$6">
         <YStack px="$pagePadding" gap="$5">
-          {/* The tab names sit in the navigation bar here, so one line says
-            whose money this tab is about. */}
+          {/* One line under the tabs says whose rewards this tab is about,
+              the same on every layout. */}
           <SizableText size="$bodyMd" color="$textSubdued">
             {REFERRAL_TAB_COPY.perksIntro}
           </SizableText>
@@ -1098,6 +1098,16 @@ export function MyRewardsContent({
   // takes the row.
   return (
     <YStack flex={1} pb="$6">
+      {/* One line under the tabs says whose rewards this tab is about, as on
+          compact layouts. */}
+      <SizableText
+        size="$bodyMd"
+        color="$textSubdued"
+        px="$pagePadding"
+        pb="$4"
+      >
+        {REFERRAL_TAB_COPY.perksIntro}
+      </SizableText>
       <XStack px="$pagePadding" gap="$5" ai="stretch">
         {/* Padding stays inside the flex items, so the split holds. */}
         <XStack flex={2} flexBasis={0} minWidth={0}>
