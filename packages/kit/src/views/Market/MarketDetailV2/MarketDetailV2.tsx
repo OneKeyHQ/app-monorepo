@@ -309,23 +309,23 @@ function MarketDetail({
   // whole body mid-push. Reuse the height this device already settled on.
   const estimatedHeaderHeight = useNativeStackHeaderHeightEstimate();
   const headerHeightCacheKey = useHeaderHeightCacheKey();
+  const inlineHeaderHeightRef = useRef(headerHeight);
+  const preserveInlineHeader =
+    platformEnv.isNativeIOS &&
+    !platformEnv.isNativeIOSPad &&
+    isChartFullscreen;
+  if (!preserveInlineHeader) {
+    inlineHeaderHeightRef.current = headerHeight;
+  }
+  // Ignore the hidden phone header's landscape measurements. On exit, let the
+  // existing settle window adopt the live portrait height, even if it changed.
   const { paddingTop: settledHeaderHeight, isSettled: isHeaderHeightSettled } =
-    useSettledHeaderHeight(headerHeight, {
+    useSettledHeaderHeight(inlineHeaderHeightRef.current, {
       enabled: usesTranslucentHeader,
       estimatedHeaderHeight,
       cacheKey: headerHeightCacheKey,
     });
   const bodyPaddingTop = usesTranslucentHeader ? settledHeaderHeight : 0;
-  const inlineHeaderHeightRef = useRef<number | undefined>(undefined);
-  if (platformEnv.isNativeIOS && !platformEnv.isNativeIOSPad) {
-    if (isChartFullscreen) {
-      inlineHeaderHeightRef.current ??= bodyPaddingTop;
-    } else if (inlineHeaderHeightRef.current === bodyPaddingTop) {
-      inlineHeaderHeightRef.current = undefined;
-    }
-  }
-  // The hidden detail keeps its portrait inset until the native bar restores it.
-  const inlineBodyPaddingTop = inlineHeaderHeightRef.current ?? bodyPaddingTop;
 
   useEffect(() => {
     preloadMarketDetailV2BodyModules({
@@ -357,11 +357,7 @@ function MarketDetail({
         )}
 
         <Page.Body
-          pt={
-            isChartFullscreen && !platformEnv.isNative
-              ? 0
-              : inlineBodyPaddingTop
-          }
+          pt={isChartFullscreen && !platformEnv.isNative ? 0 : bodyPaddingTop}
           // Hidden only while the session's first header measurement settles.
           opacity={isHeaderHeightSettled ? 1 : 0}
           testID={MarketTestIDs.detailPage}
