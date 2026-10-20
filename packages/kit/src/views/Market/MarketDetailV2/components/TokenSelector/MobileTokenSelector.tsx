@@ -113,6 +113,9 @@ function MobileTokenSelectorContent() {
   const liveTokenOverride = useLiveTokenOverride();
   const { swipeKeyboardDismissProps, listMeasurements } =
     useSelectorSwipeKeyboardDismiss();
+  // Controls are outside the list and need dismissal even when the list scrolls.
+  const { swipeKeyboardDismissProps: controlsSwipeKeyboardDismissProps } =
+    useSelectorSwipeKeyboardDismiss();
 
   useEffect(() => {
     if (!searchQuery) {
@@ -314,23 +317,28 @@ function MobileTokenSelectorContent() {
               />
             ) : (
               <>
-                <DetailSelectorBrowseTabs
-                  backgroundColor="$bgApp"
-                  value={browseTab}
-                  onChange={handleBrowseTabChange}
-                />
-                {/* Figma 26934:146096 — 16px above the chips and 10px below;
-               a tab without chips starts its list 10px under the tabs. */}
-                {subCategories.length > 0 ? (
-                  <MarketStockCategorySelector
-                    categories={chipCategories}
-                    selectedCategoryId={selectedSubCategoryId}
-                    onSelectCategory={handleSubCategoryChange}
-                    containerStyle={{ px: '$5', pt: '$4', pb: '$2.5' }}
+                <YStack
+                  testID="market-token-selector-browse-controls"
+                  {...controlsSwipeKeyboardDismissProps}
+                >
+                  <DetailSelectorBrowseTabs
+                    backgroundColor="$bgApp"
+                    value={browseTab}
+                    onChange={handleBrowseTabChange}
                   />
-                ) : (
-                  <YStack h="$2.5" />
-                )}
+                  {/* Figma 26934:146096 — 16px above the chips and 10px below;
+               a tab without chips starts its list 10px under the tabs. */}
+                  {subCategories.length > 0 ? (
+                    <MarketStockCategorySelector
+                      categories={chipCategories}
+                      selectedCategoryId={selectedSubCategoryId}
+                      onSelectCategory={handleSubCategoryChange}
+                      containerStyle={{ px: '$5', pt: '$4', pb: '$2.5' }}
+                    />
+                  ) : (
+                    <YStack h="$2.5" />
+                  )}
+                </YStack>
                 {isFavoritesSelection ? (
                   <MobileSelectorWatchlistList
                     watchlistFilter={watchlistFilter}

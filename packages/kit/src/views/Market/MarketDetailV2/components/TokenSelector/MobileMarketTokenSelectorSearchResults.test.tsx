@@ -311,6 +311,20 @@ describe('MobileMarketTokenSelectorSearchResults', () => {
     expect(
       screen.getAllByText('global.universal_search_tabs_tokens').length,
     ).toBeGreaterThan(0);
+    const controls = screen.getByTestId(
+      'market-token-selector-search-controls',
+    );
+    expect(
+      controls.contains(
+        screen.getByTestId('market-token-selector-search-tab-stocks'),
+      ),
+    ).toBe(true);
+    expect(
+      controls.contains(screen.getByTestId('mobile-market-evm--1:0xaapl')),
+    ).toBe(false);
+    expect(controls.contains(screen.getByTestId('mobile-stock-AAPL'))).toBe(
+      false,
+    );
     fireEvent.click(screen.getByTestId('mobile-market-evm--1:0xaapl'));
     expect(mockMarketPress).toHaveBeenCalledWith(marketItem);
     fireEvent.click(

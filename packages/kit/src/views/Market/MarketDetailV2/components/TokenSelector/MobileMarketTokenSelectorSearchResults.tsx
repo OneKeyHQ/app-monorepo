@@ -40,7 +40,10 @@ import {
   useMarketTokenSelectorSearchState,
   useStockLoadMoreOnScrollEnd,
 } from './useMarketTokenSelectorSearchState';
-import { useSelectorListMeasurements } from './useSelectorSwipeKeyboardDismiss';
+import {
+  useSelectorListMeasurements,
+  useSelectorSwipeKeyboardDismiss,
+} from './useSelectorSwipeKeyboardDismiss';
 
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
@@ -322,6 +325,8 @@ function MobileMarketTokenSelectorSearchResults({
   onMarketPress: (item: IMarketSearchToken) => void;
 }) {
   const intl = useIntl();
+  const { swipeKeyboardDismissProps: tabSwipeKeyboardDismissProps } =
+    useSelectorSwipeKeyboardDismiss();
   const tokenEntries = useMemo<
     IMobileMarketSearchTokenEntry<IMarketSearchToken>[]
   >(
@@ -456,14 +461,19 @@ function MobileMarketTokenSelectorSearchResults({
 
   return (
     <YStack flex={1}>
-      <MarketTokenSelectorSearchTabs
-        backgroundColor="$bgApp"
-        value={activeTab}
-        onChange={setActiveTab}
-        // Only All shows while searching; type tabs join with the results.
-        hasStockResults={!isSearching && hasStockResults}
-        hasTokenResults={!isSearching && hasTokenResults}
-      />
+      <YStack
+        testID="market-token-selector-search-controls"
+        {...tabSwipeKeyboardDismissProps}
+      >
+        <MarketTokenSelectorSearchTabs
+          backgroundColor="$bgApp"
+          value={activeTab}
+          onChange={setActiveTab}
+          // Only All shows while searching; type tabs join with the results.
+          hasStockResults={!isSearching && hasStockResults}
+          hasTokenResults={!isSearching && hasTokenResults}
+        />
+      </YStack>
       <YStack flex={1}>{body}</YStack>
     </YStack>
   );

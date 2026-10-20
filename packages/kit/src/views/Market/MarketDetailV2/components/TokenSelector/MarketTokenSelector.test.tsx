@@ -437,8 +437,21 @@ describe('MarketTokenSelector stock default category', () => {
     const region = screen.getByTestId('market-token-selector-results');
     const input = screen.getByTestId('market-token-selector-search');
     expect(region.contains(input)).toBe(false);
+    const controls = screen.getByTestId(
+      'market-token-selector-browse-controls',
+    );
+    expect(controls.contains(input)).toBe(false);
+    expect(
+      controls.contains(screen.getByTestId('market-token-selector-tab-stocks')),
+    ).toBe(true);
 
     fireEvent.click(screen.getByTestId('market-token-selector-tab-favorites'));
+    expect(
+      controls.contains(screen.getByText('prime_crypto_payment__label')),
+    ).toBe(true);
+    expect(controls.contains(screen.getByTestId('mobile-favorites'))).toBe(
+      false,
+    );
     expect(region.contains(screen.getByTestId('mobile-favorites'))).toBe(true);
 
     fireEvent.change(input, { target: { value: 'btc' } });

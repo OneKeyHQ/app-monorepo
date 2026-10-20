@@ -247,3 +247,34 @@ it('does not change lists rendered outside the mobile detail selector', () => {
   const { result } = renderHook(() => useSelectorListMeasurements());
   expect(result.current).toEqual({});
 });
+
+it.each([-20, 20])(
+  'dismisses a controls swipe (%s) independently of the scrollable results region',
+  (dy) => {
+    const { result } = renderHook(() => ({
+      results: useSelectorSwipeKeyboardDismiss(),
+      controls: useSelectorSwipeKeyboardDismiss(),
+    }));
+    result.current.results.listMeasurements.current.set(Symbol('long-list'), {
+      height: 400,
+      contentHeight: 1000,
+    });
+    const results = result.current.results.swipeKeyboardDismissProps;
+    const controls = result.current.controls.swipeKeyboardDismissProps;
+    results.onStartShouldSetResponderCapture?.(touchEvent(50, 100));
+    controls.onStartShouldSetResponderCapture?.(touchEvent(50, 100));
+    expect(
+      results.onMoveShouldSetResponderCapture?.(touchEvent(50, 100 + dy)),
+    ).toBe(false);
+    expect(
+      controls.onMoveShouldSetResponderCapture?.(touchEvent(50, 100 + dy)),
+    ).toBe(true);
+    controls.onResponderGrant?.();
+    expect(dismissMobileTokenSelectorKeyboard).toHaveBeenCalledTimes(1);
+    // The next list drag still belongs to the list, even before keyboardDidHide.
+    results.onStartShouldSetResponderCapture?.(touchEvent(50, 100));
+    expect(results.onMoveShouldSetResponderCapture?.(touchEvent(50, 150))).toBe(
+      false,
+    );
+  },
+);
