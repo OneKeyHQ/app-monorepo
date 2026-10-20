@@ -703,7 +703,7 @@ export async function broadcastTransaction(
         throw toUserFacingZcashError(e);
       }
       // Carrier may fail after the runtime stored the spend but before the
-      // txid returned; the stored tx may still be rebroadcast from history.
+      // txid returned; the stored tx stays pending until mined or expired.
       const uncertain = new OneKeyLocalError(
         localWalletText(ETranslations.privacy_error_broadcast_unknown__msg),
       );

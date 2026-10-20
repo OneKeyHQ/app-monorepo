@@ -184,58 +184,6 @@ let lastPassEndedAt: number | null = null;
 // Per-database TTL for downloaded subtree roots, so backfill doesn't re-pay syncPrepare's full download every round.
 const subtreeRootsFreshUntil = new Map<string, number>();
 
-export async function rebroadcastUnmined(
-  rt: Awaited<ReturnType<typeof withWallet>>['rt'],
-  recordOutcome?: (error: unknown | null) => void,
-): Promise<{ accepted: string[]; rejected: string[] }> {
-  let accountUuids: string[];
-  try {
-    accountUuids = JSON.parse(rt.listAccounts()) as string[];
-  } catch {
-    return { accepted: [], rejected: [] };
-  }
-  const accepted: string[] = [];
-  const rejected: string[] = [];
-  const visited = new Set<string>();
-  for (const accountUuid of accountUuids) {
-    let txids: string[];
-    try {
-      txids = JSON.parse(rt.pendingBroadcastTxids(accountUuid)) as string[];
-    } catch {
-      // One damaged account view must not block another account's pending-tx retry.
-      // eslint-disable-next-line no-continue
-      continue;
-    }
-    for (const txid of txids) {
-      if (visited.has(txid)) {
-        // eslint-disable-next-line no-continue
-        continue;
-      }
-      visited.add(txid);
-      try {
-        // eslint-disable-next-line no-await-in-loop
-        await rt.broadcastTransaction(txid);
-        recordOutcome?.(null);
-        accepted.push(txid);
-        console.log('[zcash] rebroadcast pending tx', { txid });
-      } catch (e) {
-        recordOutcome?.(
-          isZcashRuntimeError(e, 'BROADCAST_REJECTED') ? null : e,
-        );
-        if (isZcashRuntimeError(e, 'BROADCAST_REJECTED')) {
-          rejected.push(txid);
-          console.log('[zcash] rebroadcast rejected, giving up', { txid });
-        } else {
-          console.log('[zcash] rebroadcast failed, will retry next block', {
-            txid,
-          });
-        }
-      }
-    }
-  }
-  return { accepted, rejected };
-}
-
 export async function syncWallet(
   account: IZcashWalletAccount,
   options: { activeUfvks: string[]; chainTip?: number | null },
@@ -420,14 +368,7 @@ export async function syncWallet(
   }
 
   // Transparent balance/history/UTXOs are backend-owned (blockbook) on purpose — asking lightwalletd would leak every transparent address to it.
-  let rebroadcastRejectedTxids: string[] = [];
-  let rebroadcastAcceptedTxids: string[] = [];
-  if (before.chainTip !== after.chainTip) {
-    // A new block is both a fresh network-health signal and a new expiry check; never fails the pass.
-    const rebroadcast = await rebroadcastUnmined(rt, recordOutcome);
-    rebroadcastAcceptedTxids = rebroadcast.accepted;
-    rebroadcastRejectedTxids = rebroadcast.rejected;
-  }
+  // Stored sends are never resubmitted here: an unmined one stays pending until mined or expired.
 
   // idleBeforeMs distinguishes a scheduling gap from a throughput problem: 100 blocks/100s differs if the work took 5s vs 95s idle.
   const totalMs = Date.now() - passStartedAt;
@@ -458,8 +399,6 @@ export async function syncWallet(
     chainTip: options?.chainTip ?? after.chainTip,
     fullyScanned: after.fullyScanned,
     backfillRemaining,
-    rebroadcastAcceptedTxids,
-    rebroadcastRejectedTxids,
   };
 }
 

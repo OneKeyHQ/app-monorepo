@@ -198,10 +198,6 @@ export type IZcashSyncResult = {
   fullyScanned: number | null;
   // True when the step budget ran out with historic ranges still queued; the next sync continues the backfill.
   backfillRemaining?: boolean;
-  // Node-confirmed rejections from retrying stored unmined transactions; the host persists these as Failed.
-  // Network failures are excluded — their outcome remains unknown/Pending, not Failed.
-  rebroadcastRejectedTxids?: string[];
-  rebroadcastAcceptedTxids?: string[];
 };
 
 export type IZcashSyncProgress = {
