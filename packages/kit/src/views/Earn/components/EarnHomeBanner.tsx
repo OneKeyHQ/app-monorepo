@@ -199,7 +199,13 @@ function EarnHomeBannerInfoGlass() {
   );
 }
 
-function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
+function EarnHomeBannerItem({
+  item,
+  cardHeight,
+}: {
+  item: IEarnPageBannerListItem;
+  cardHeight: number;
+}) {
   const shouldSuppressPress = useCarouselPressSuppressor();
   const isDarkTheme = useThemeName() === 'dark';
   const reducedMotion = useReducedMotion();
@@ -274,7 +280,7 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
     // responder wins, so it does not fire twice.
     <YStack
       testID={EarnTestIDs.bannerItem(item.bannerId)}
-      h={BANNER_HEIGHT}
+      h={cardHeight}
       // react-native-pager-view's viewport clips at the page edge, and a page
       // is exactly as wide as the carousel. Without this inset the card's
       // shadow is sliced off flush with its own left/right sides, which is
@@ -468,10 +474,15 @@ function EarnHomeBannerItem({ item }: { item: IEarnPageBannerListItem }) {
 export function EarnHomeBanner({
   banners,
   isLoading,
+  cardHeight = BANNER_HEIGHT,
 }: {
   banners: IEarnPageBannerListItem[];
   isLoading: boolean;
+  /** the desktop home matches the hero beside it */
+  cardHeight?: number;
 }) {
+  const blockHeight =
+    cardHeight + EARN_HOME_BANNER_BLOCK_HEIGHT - BANNER_HEIGHT;
   const validBanners = useMemo(
     () =>
       banners.filter(
@@ -483,20 +494,16 @@ export function EarnHomeBanner({
 
   const renderItem = useCallback(
     ({ item }: { item: IEarnPageBannerListItem }) => (
-      <EarnHomeBannerItem item={item} />
+      <EarnHomeBannerItem item={item} cardHeight={cardHeight} />
     ),
-    [],
+    [cardHeight],
   );
 
   if (isLoading && validBanners.length === 0) {
     return (
-      <YStack
-        h={EARN_HOME_BANNER_BLOCK_HEIGHT}
-        px={BANNER_CONTAINER_PADDING}
-        pb="$3"
-      >
+      <YStack h={blockHeight} px={BANNER_CONTAINER_PADDING} pb="$3">
         <Skeleton
-          h={BANNER_HEIGHT}
+          h={cardHeight}
           mx={BANNER_SHADOW_ROOM}
           borderRadius="$3"
           borderCurve="continuous"
@@ -512,7 +519,7 @@ export function EarnHomeBanner({
   return (
     <YStack
       testID={EarnTestIDs.banner}
-      h={EARN_HOME_BANNER_BLOCK_HEIGHT}
+      h={blockHeight}
       px={BANNER_CONTAINER_PADDING}
       pb="$3"
     >
@@ -523,7 +530,7 @@ export function EarnHomeBanner({
         loop={validBanners.length > 1}
         infinite
         showPagination={validBanners.length > 1}
-        containerStyle={{ height: BANNER_HEIGHT + BANNER_SHADOW_ROOM_BOTTOM }}
+        containerStyle={{ height: cardHeight + BANNER_SHADOW_ROOM_BOTTOM }}
         paginationContainerStyle={{ mt: BANNER_PAGINATION_OFFSET }}
         renderPaginationItem={({ activeDotStyle, onPress }, index) => (
           <YStack

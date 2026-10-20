@@ -44,6 +44,7 @@ import { BorrowNavigation } from '../Borrow/borrowUtils';
 import { BorrowHome } from '../Borrow/pages/BorrowHome';
 import { isBorrowTag } from '../Staking/utils/utils';
 
+import { EarnDesktopHome } from './components/desktopHome/EarnDesktopHome';
 import { EarnBlockedOverview } from './components/EarnBlockedOverview';
 import { EarnHomeTabs } from './components/EarnHomeTabs';
 import { EarnMainTabs } from './components/EarnMainTabs';
@@ -108,6 +109,10 @@ function BasicEarnHome({
 }) {
   const route = useAppRoute<ITabEarnParamList, ETabEarnRoutes.EarnHome>();
   const actions = useEarnActions();
+  const media = useMedia();
+  // Web, desktop and the extension tab at 768px and wider get the desktop
+  // home; narrower windows keep the Earn | Borrow layout below.
+  const isDesktopHome = !platformEnv.isNative && media.gtMd;
 
   const { isFetchingBlockResult, refreshBlockResult, blockResult } =
     useBlockRegion();
@@ -148,7 +153,7 @@ function BasicEarnHome({
 
   const { run: refetchEarnPageBannerList } = usePromiseResult(
     async () => {
-      if (!platformEnv.isNative || showContent === false) {
+      if ((!platformEnv.isNative && !isDesktopHome) || showContent === false) {
         return;
       }
       const requestTheme = earnBannerTheme;
@@ -246,7 +251,7 @@ function BasicEarnHome({
       // Skeleton but remains retryable, so a later successful request can still
       // show banners.
     },
-    [earnBannerTheme, showContent],
+    [earnBannerTheme, isDesktopHome, showContent],
     {
       revalidateOnFocus: true,
     },
@@ -590,7 +595,6 @@ function BasicEarnHome({
     };
   }, [defaultMode, handleModeChange]);
 
-  const media = useMedia();
   const earnFocusTabRoutes = useMemo(
     () =>
       platformEnv.isNative
@@ -670,6 +674,25 @@ function BasicEarnHome({
   const handleOpenBorrowHome = useCallback(() => {
     BorrowNavigation.pushToBorrowHome(navigation);
   }, [navigation]);
+
+  // The desktop home has no Borrow pane or Positions tab: links that asked
+  // for them (notifications, the detail page's way back) open the pages.
+  const requestedMode = route.params?.mode;
+  const requestedTab = route.params?.tab;
+  useEffect(() => {
+    if (!isDesktopHome) {
+      return;
+    }
+    if (requestedMode === 'borrow') {
+      navigation.setParams({ mode: 'earn', tab: undefined });
+      BorrowNavigation.pushToBorrowHome(navigation);
+      return;
+    }
+    if (requestedTab === 'portfolio') {
+      navigation.setParams({ mode: 'earn', tab: undefined });
+      EarnNavigation.pushToEarnPositions(navigation);
+    }
+  }, [isDesktopHome, navigation, requestedMode, requestedTab]);
 
   const handleOpenPortfolio = useCallback(() => {
     EarnNavigation.pushToEarnPositions(navigation);
@@ -756,6 +779,41 @@ function BasicEarnHome({
           </YStack>
         ) : null}
       </YStack>
+    );
+  }
+
+  if (isDesktopHome) {
+    return (
+      <LazyPageContainer>
+        <EarnPageContainer
+          showTabPageHeader
+          sceneName={EAccountSelectorSceneName.home}
+          tabRoute={ETabRoutes.Earn}
+          contentContainerStyle={{
+            py: 0,
+          }}
+          refreshControl={
+            <RefreshControl
+              refreshing={isManualRefreshing}
+              onRefresh={refreshEarnData}
+            />
+          }
+        >
+          <EarnDesktopHome
+            portfolioData={portfolioData}
+            displayTotalFiatValue={displayTotalFiatValue}
+            displayEarnings24h={displayEarnings24h}
+            bannerList={earnPageBannerList}
+            isBannerLoading={earnPageBannerState.status === 'loading'}
+            faqList={faqList || []}
+            isFaqLoading={isFaqLoading}
+            isActive={isEarnContentActive}
+            onOpenPortfolio={handleOpenPortfolio}
+            onOpenLoans={handleOpenBorrowHome}
+            onOpenProtocols={handleOpenAllProtocols}
+          />
+        </EarnPageContainer>
+      </LazyPageContainer>
     );
   }
 

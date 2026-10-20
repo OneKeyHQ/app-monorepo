@@ -40,11 +40,31 @@ const BorrowReserveDetails = LazyLoadRootTabPage(
   () => import('../../../views/Borrow/pages/ReserveDetails'),
 );
 
+// The desktop home has no Earn | Borrow switch, so Borrow and the positions
+// page are pages of their own here, as they already are on native
+const BorrowHome = LazyLoadRootTabPage(
+  () => import('../../../views/Borrow/pages/BorrowHomePage'),
+);
+
+const EarnPositions = LazyLoadRootTabPage(
+  () => import('../../../views/Earn/pages/EarnPositions'),
+);
+
 export const earnRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     rewrite: '/',
     name: ETabEarnRoutes.EarnHome,
     component: EarnHome,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.BorrowHome,
+    component: BorrowHome,
+    headerShown: !platformEnv.isNative,
+  },
+  {
+    name: ETabEarnRoutes.EarnPositions,
+    component: EarnPositions,
     headerShown: !platformEnv.isNative,
   },
   {

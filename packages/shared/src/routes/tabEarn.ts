@@ -20,7 +20,14 @@ export type ITabEarnParamList = {
         tab?: 'assets' | 'portfolio' | 'faqs';
         mode?: 'earn' | 'borrow';
       };
-  [ETabEarnRoutes.BorrowHome]: undefined;
+  [ETabEarnRoutes.BorrowHome]:
+    | undefined
+    | {
+        // The market to open; the desktop home's market cards pass all three
+        provider?: string;
+        networkId?: string;
+        marketAddress?: string;
+      };
   [ETabEarnRoutes.EarnPositions]: undefined;
   // Tokens home (OK-58505): full token list (with in-page All/Stable/Non-Stable categories)
   [ETabEarnRoutes.EarnTokens]: undefined;
