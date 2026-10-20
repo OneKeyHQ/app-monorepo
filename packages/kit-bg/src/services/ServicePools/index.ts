@@ -32,6 +32,7 @@ import {
   buildWallet,
   createInitialDemoState,
   createTask,
+  findPoolsByKey,
   getFavoritePoolIds,
   getPoolDetail,
   getPoolNetworkIds,
@@ -115,6 +116,16 @@ class ServicePools extends ServiceBase {
   @backgroundMethod()
   async getPoolList(query?: IPoolListQuery): Promise<IPoolListItem[]> {
     return queryPools(this.getCatalog(), query);
+  }
+
+  /** A pool by its exact address or V4 pool ID, also when it is unlisted */
+  @backgroundMethod()
+  async findPoolsByKey({
+    poolKey,
+  }: {
+    poolKey: string;
+  }): Promise<IPoolListItem[]> {
+    return findPoolsByKey(this.getCatalog(), poolKey);
   }
 
   @backgroundMethod()

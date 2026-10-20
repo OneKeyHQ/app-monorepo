@@ -1,10 +1,7 @@
 import { Page, useScrollContentTabBarOffset } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETabEarnRoutes } from '@onekeyhq/shared/src/routes';
-import {
-  EPoolListingStatus,
-  EPoolPositionStatus,
-} from '@onekeyhq/shared/types/pools';
+import { EPoolPositionStatus } from '@onekeyhq/shared/types/pools';
 import type { IPoolPositionView } from '@onekeyhq/shared/types/pools';
 
 import { POOLS_COPY } from '../poolsCopy';
@@ -17,9 +14,9 @@ export type IPoolPositionAction = {
 };
 
 /**
- * Remove and Add for one position, on its page. Remove while it is open;
- * Add only while the pool is listed, else Remove is the main action. No
- * position, no actions.
+ * Remove and Add for one position, on its page. Remove while it is open,
+ * Add always (an unlisted pool asks for the risk at review). No position,
+ * no actions.
  */
 export function usePoolPositionActions(
   view: IPoolPositionView | undefined,
@@ -30,7 +27,6 @@ export function usePoolPositionActions(
     return [];
   }
   const { pool, position } = view;
-  const canAdd = pool.listingStatus === EPoolListingStatus.Listed;
   const canRemove = view.status !== EPoolPositionStatus.Closed;
   const actions: IPoolPositionAction[] = [];
   if (canRemove) {
@@ -40,22 +36,20 @@ export function usePoolPositionActions(
         navigation.push(ETabEarnRoutes.EarnPoolRemoveLiquidity, {
           positionId: position.id,
         }),
-      primary: !canAdd,
+      primary: false,
       testID: `${testIDPrefix}-remove`,
     });
   }
-  if (canAdd) {
-    actions.push({
-      label: POOLS_COPY.add,
-      onPress: () =>
-        navigation.push(ETabEarnRoutes.EarnPoolAddLiquidity, {
-          poolId: pool.id,
-          positionId: position.id,
-        }),
-      primary: true,
-      testID: `${testIDPrefix}-add`,
-    });
-  }
+  actions.push({
+    label: POOLS_COPY.add,
+    onPress: () =>
+      navigation.push(ETabEarnRoutes.EarnPoolAddLiquidity, {
+        poolId: pool.id,
+        positionId: position.id,
+      }),
+    primary: true,
+    testID: `${testIDPrefix}-add`,
+  });
   return actions;
 }
 

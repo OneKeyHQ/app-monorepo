@@ -25,10 +25,7 @@ import { ETabEarnRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { ITabEarnParamList } from '@onekeyhq/shared/src/routes';
 import { formatLocaleDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import {
-  EPoolListingStatus,
-  EPoolPositionStatus,
-} from '@onekeyhq/shared/types/pools';
+import { EPoolPositionStatus } from '@onekeyhq/shared/types/pools';
 import type {
   IPoolPositionView,
   IPoolTickLiquidityNet,
@@ -50,7 +47,6 @@ import { getRangeDisplay } from '../components/PoolRangeBar';
 import { PoolsCard } from '../components/PoolsCard';
 import { PoolsDemoMenuButton } from '../components/PoolsDemoMenuButton';
 import { PoolTokenDot, PoolTokenSplit } from '../components/PoolTokenSplit';
-import { PoolUnfinishedTasks } from '../components/PoolUnfinishedTasks';
 import { POOLS_COPY } from '../poolsCopy';
 import {
   formatPercent,
@@ -123,11 +119,14 @@ function ValueCard({ view }: { view: IPoolPositionView }) {
           </XStack>
         </YStack>
       )}
-      <PoolTokenSplit
-        pool={view.pool}
-        amount0={view.amount0}
-        amount1={view.amount1}
-      />
+      {/* A closed position holds nothing; its rows would only read 0 */}
+      {view.status !== EPoolPositionStatus.Closed ? (
+        <PoolTokenSplit
+          pool={view.pool}
+          amount0={view.amount0}
+          amount1={view.amount1}
+        />
+      ) : null}
     </PoolsCard>
   );
 }
@@ -399,7 +398,6 @@ function PositionView({
   const { gtMd } = useMedia();
   const [isCollecting, setIsCollecting] = useState(false);
   const { pool, position } = view;
-  const isListed = pool.listingStatus === EPoolListingStatus.Listed;
   const isOpen = view.status !== EPoolPositionStatus.Closed;
   const actions = usePoolPositionActions(view, 'earn-pool-position');
   // Every open position on the network starts selected
@@ -447,14 +445,6 @@ function PositionView({
         testID="earn-pool-position-exit"
       />
     ) : null;
-
-  const unlisted = isListed ? null : (
-    <Alert
-      type="warning"
-      title={POOLS_COPY.notListed}
-      description={POOLS_COPY.unlistedNotice}
-    />
-  );
 
   const fees = (
     <FeesCard
@@ -529,8 +519,6 @@ function PositionView({
     >
       <YStack px="$pagePadding" gap="$5" pt={gtMd ? '$0' : '$4'}>
         <PoolHeader pool={pool} status={<PoolPositionStatus view={view} />} />
-        <PoolUnfinishedTasks positionId={position.id} />
-        {unlisted}
         {body}
       </YStack>
     </EarnPageContainer>

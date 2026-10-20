@@ -212,6 +212,11 @@ export const PoolsQueries = {
     key: 'list',
     fetch: () => backgroundApiProxy.servicePools.getPoolList(),
   }),
+  /** A searched pool address or V4 pool ID, also off the list */
+  byKey: (poolKey: string): IPoolsQuery<IPoolListItem[]> => ({
+    key: `byKey:${poolKey}`,
+    fetch: () => backgroundApiProxy.servicePools.findPoolsByKey({ poolKey }),
+  }),
   detail: (poolId: string): IPoolsQuery<IPoolDetail> => ({
     key: `detail:${poolId}`,
     fetch: () => backgroundApiProxy.servicePools.getPoolDetail({ poolId }),

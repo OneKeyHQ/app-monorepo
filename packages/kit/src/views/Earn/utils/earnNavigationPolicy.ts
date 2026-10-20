@@ -9,6 +9,9 @@ const preservedChildRoutes: Partial<
     ETabEarnRoutes.EarnPoolPosition,
     ETabEarnRoutes.EarnPoolsExit,
     ETabEarnRoutes.EarnPoolTask,
+    // A position card's Remove and a pool row's Details
+    ETabEarnRoutes.EarnPoolRemoveLiquidity,
+    ETabEarnRoutes.EarnPoolDetails,
   ]),
   [ETabEarnRoutes.BorrowHome]: new Set([ETabEarnRoutes.BorrowReserveDetails]),
   // Tokens home → token's protocol list / protocol detail (OK-58505)

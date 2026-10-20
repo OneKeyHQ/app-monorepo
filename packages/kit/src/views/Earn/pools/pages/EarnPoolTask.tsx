@@ -52,8 +52,8 @@ import { PoolsCard } from '../components/PoolsCard';
 import { PoolsDemoMenuButton } from '../components/PoolsDemoMenuButton';
 import { PoolsFlowColumn } from '../components/PoolsFlowColumn';
 import { PoolTags } from '../components/PoolTags';
-import { confirmAbandonPoolTask } from '../components/PoolUnfinishedTasks';
 import { POOLS_COPY } from '../poolsCopy';
+import { emitPoolsDataChanged } from '../poolsDemoEvents';
 import {
   formatFeeTier,
   formatTokenAmount,
@@ -63,14 +63,29 @@ import {
   getRangeLine,
   sortByPair,
 } from '../poolsFormat';
+import { isCostlySwap } from '../poolsOutcome';
 import { usePoolsBreadcrumb } from '../usePoolsBreadcrumb';
 
 import type { RouteProp } from '@react-navigation/core';
 
+/** Abandoning keeps assets where they are; nothing is swapped back (doc §3.8) */
+function confirmAbandonPoolTask(task: IPoolTask, onDone?: () => void) {
+  Dialog.show({
+    title: POOLS_COPY.abandonTitle,
+    description: POOLS_COPY.abandonBody,
+    onConfirmText: POOLS_COPY.abandon,
+    confirmButtonProps: { variant: 'destructive' },
+    onCancelText: POOLS_COPY.cancel,
+    onConfirm: async () => {
+      await backgroundApiProxy.servicePools.abandonTask({ taskId: task.id });
+      emitPoolsDataChanged();
+      onDone?.();
+    },
+  });
+}
+
 // A wallet confirmation plus the block it lands in, roughly
 const SECONDS_PER_STEP = 20;
-// A swap that costs more than this share of the whole amount is worth a look
-const SWAP_COST_NOTICE = 0.01;
 
 function formatAmount(item: IPoolTaskTokenAmount) {
   return formatTokenAmount(item.amount, item.symbol);
@@ -381,10 +396,7 @@ function TaskSummary({ task, pool }: { task: IPoolTask; pool?: IPool }) {
   const receive = list(preview.receive);
   const cost = new BigNumber(preview.costUsd);
   // Only a costly swap gets a row, and only while it can still be avoided
-  const isCostly =
-    !isDone &&
-    cost.gt(0) &&
-    cost.div(cost.plus(preview.valueUsd)).gt(SWAP_COST_NOTICE);
+  const isCostly = !isDone && isCostlySwap(cost, preview.valueUsd);
   return (
     <PoolsCard>
       {pay.length ? (
@@ -634,13 +646,6 @@ function TaskView({
   const failedStep = task.steps.find(
     (step) => step.status === EPoolTaskStepStatus.Failed,
   );
-  const movedAssets = task.steps.some(
-    (step) =>
-      step.status === EPoolTaskStepStatus.Done &&
-      step.kind !== EPoolTaskStepKind.Approve &&
-      step.kind !== EPoolTaskStepKind.ApprovePermit2 &&
-      step.kind !== EPoolTaskStepKind.SignPermit,
-  );
   const isIncrease =
     task.request.kind === 'add' && Boolean(task.request.params.positionId);
   const resultPositionId = task.resultPositionId;
@@ -748,20 +753,6 @@ function TaskView({
           type="default"
           title={POOLS_COPY.abandoned}
           description={POOLS_COPY.abandonBody}
-        />
-      );
-    }
-    if (
-      !isDone &&
-      !isRunning &&
-      movedAssets &&
-      task.status === EPoolTaskStatus.Stopped
-    ) {
-      return (
-        <Alert
-          type="warning"
-          title={POOLS_COPY.unfinishedTitle(POOLS_COPY.taskTitle[task.kind])}
-          description={POOLS_COPY.unfinishedBody}
         />
       );
     }

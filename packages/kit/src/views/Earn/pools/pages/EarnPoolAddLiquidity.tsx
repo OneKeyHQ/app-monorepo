@@ -27,7 +27,6 @@ import {
 } from '../components/PoolPositionForm';
 import { PoolsFlowColumn } from '../components/PoolsFlowColumn';
 import { PoolTags } from '../components/PoolTags';
-import { PoolUnfinishedTasks } from '../components/PoolUnfinishedTasks';
 import { POOLS_COPY } from '../poolsCopy';
 import { getPoolPairTitle } from '../poolsFormat';
 import { PoolsQueries, usePoolsQuery } from '../poolsQueries';
@@ -135,7 +134,6 @@ function AddLiquidityForm({
             <PoolTags pool={pool} />
           </YStack>
         </XStack>
-        <PoolUnfinishedTasks poolId={pool.id} />
         <PoolPositionForm
           form={form}
           ticks={detail.ticks}

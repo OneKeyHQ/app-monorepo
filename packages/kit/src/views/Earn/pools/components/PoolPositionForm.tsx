@@ -15,23 +15,19 @@ import {
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import type {
-  IPool,
-  IPoolAsset,
   IPoolPricePoint,
   IPoolTickLiquidityNet,
-  IPoolZapInPlan,
 } from '@onekeyhq/shared/types/pools';
 
 import { POOLS_COPY } from '../poolsCopy';
 import {
   formatPercent,
   formatTokenAmount,
-  formatTokenAmountShort,
   formatUsd,
   getPoolPair,
   getRangeLine,
-  sortByPair,
 } from '../poolsFormat';
+import { isCostlySwap } from '../poolsOutcome';
 import { toInputAmount, usdOf } from '../usePoolPositionForm';
 
 import { PoolAprEstimate } from './PoolAprEstimate';
@@ -55,78 +51,6 @@ function PlanRow({ label, children }: { label: string; children: ReactNode }) {
         {children}
       </YStack>
     </XStack>
-  );
-}
-
-function ZapPlanView({
-  plan,
-  pool,
-  input,
-}: {
-  plan: IPoolZapInPlan;
-  pool: IPool;
-  input: IPoolAsset;
-}) {
-  const tokens = [pool.token0, pool.token1];
-  const swaps = plan.legs.filter((leg) => leg.quote);
-  const tokenIdOf = ({ token }: { token: IPoolAsset }) => token.id;
-  const goesIn = sortByPair(
-    pool,
-    [
-      { token: pool.token0, amount: plan.used0 },
-      { token: pool.token1, amount: plan.used1 },
-    ],
-    tokenIdOf,
-  ).filter(({ amount }) => new BigNumber(amount).gt(0));
-  const leftovers = sortByPair(
-    pool,
-    [
-      { token: pool.token0, amount: plan.leftover0 },
-      { token: pool.token1, amount: plan.leftover1 },
-    ],
-    tokenIdOf,
-  ).filter(({ token, amount }) => usdOf(token, amount).gte(0.01));
-  return (
-    <YStack gap="$3">
-      {swaps.length ? (
-        <PlanRow label={POOLS_COPY.zapPlan}>
-          {swaps.map((leg) => (
-            <SizableText key={leg.side} size="$bodyMdMedium" textAlign="right">
-              {`${formatTokenAmountShort(leg.amountIn, input.symbol)} → ${formatTokenAmountShort(
-                leg.quote?.amountOut,
-                tokens[leg.side].symbol,
-              )}`}
-            </SizableText>
-          ))}
-        </PlanRow>
-      ) : null}
-      {swaps.length ? (
-        <PlanRow label={POOLS_COPY.swapCost}>
-          <SizableText size="$bodyMdMedium">
-            {formatUsd(plan.costUsd)}
-          </SizableText>
-        </PlanRow>
-      ) : null}
-      {/* An amount too small to add puts nothing in */}
-      {goesIn.length ? (
-        <PlanRow label={POOLS_COPY.goesIn}>
-          {goesIn.map(({ token, amount }) => (
-            <SizableText key={token.id} size="$bodyMdMedium">
-              {formatTokenAmount(amount, token.symbol)}
-            </SizableText>
-          ))}
-        </PlanRow>
-      ) : null}
-      {leftovers.length ? (
-        <PlanRow label={POOLS_COPY.leftover}>
-          {leftovers.map(({ token, amount }) => (
-            <SizableText key={token.id} size="$bodyMdMedium">
-              {formatTokenAmount(amount, token.symbol)}
-            </SizableText>
-          ))}
-        </PlanRow>
-      ) : null}
-    </YStack>
   );
 }
 
@@ -380,33 +304,21 @@ function getOutcomeRows(form: IPoolPositionForm) {
       </PlanRow>,
     );
   }
-  if (form.mode === 'zap' && form.zapPlan) {
+  // The review's rule: the swap and what goes in show as its steps; only a
+  // swap that costs a lot earns a row here
+  const plan = form.mode === 'zap' ? form.zapPlan : undefined;
+  if (plan && isCostlySwap(plan.costUsd, plan.depositUsd)) {
     rows.push(
-      <ZapPlanView
-        key="zap"
-        plan={form.zapPlan}
-        pool={pool}
-        input={form.inputAsset}
-      />,
-    );
-  }
-  if (form.mode === 'both' && form.bothDeposit.valueUsd.gt(0)) {
-    rows.push(
-      <PlanRow key="goes-in" label={POOLS_COPY.goesIn}>
-        <SizableText size="$bodyMdMedium">
-          {formatUsd(form.bothDeposit.valueUsd)}
+      <PlanRow key="swap-cost" label={POOLS_COPY.swapCost}>
+        <SizableText
+          testID="earn-pool-add-swap-cost"
+          size="$bodyMdMedium"
+          color="$textCaution"
+        >
+          {formatUsd(plan.costUsd)}
         </SizableText>
       </PlanRow>,
     );
-    if (form.bothDeposit.shareOfPool) {
-      rows.push(
-        <PlanRow key="share" label={POOLS_COPY.shareOfPool}>
-          <SizableText size="$bodyMdMedium">
-            {`${form.bothDeposit.shareOfPool.times(100).toFixed(4)}%`}
-          </SizableText>
-        </PlanRow>,
-      );
-    }
   }
   // Range pools show the estimate with the range's figures
   if (!form.isRange) {

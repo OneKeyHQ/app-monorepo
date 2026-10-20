@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useDebounce } from 'use-debounce';
 
+import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -22,6 +23,7 @@ import type {
   IPoolTickRange,
   IPoolsAprEstimate,
 } from '@onekeyhq/shared/src/utils/poolsMath';
+import { EPoolListingStatus } from '@onekeyhq/shared/types/pools';
 import type {
   IPool,
   IPoolAddLiquidityParams,
@@ -55,6 +57,31 @@ export function toInputAmount(value: BigNumber.Value, decimals: number) {
 export function usdOf(asset: IPoolAsset, amount: BigNumber.Value) {
   const value = new BigNumber(amount);
   return value.isFinite() ? value.times(asset.priceUsd) : new BigNumber(0);
+}
+
+/** Resolves true once the user accepts adding to a pool off the list */
+function confirmUnlistedPoolRisk() {
+  return new Promise<boolean>((resolve) => {
+    let settled = false;
+    const settle = (value: boolean) => {
+      if (!settled) {
+        settled = true;
+        resolve(value);
+      }
+    };
+    Dialog.show({
+      icon: 'ErrorOutline',
+      tone: 'warning',
+      title: POOLS_COPY.unlistedRiskTitle,
+      description: POOLS_COPY.unlistedRiskBody,
+      onConfirmText: POOLS_COPY.unlistedRiskConfirm,
+      onCancelText: POOLS_COPY.cancel,
+      confirmButtonProps: { testID: 'earn-pool-unlisted-risk-confirm' },
+      onConfirm: () => settle(true),
+      onCancel: () => settle(false),
+      onClose: () => settle(false),
+    });
+  });
 }
 
 /**
@@ -225,7 +252,6 @@ export function usePoolPositionForm({
           price0Usd: pool.token0.priceUsd,
           price1Usd: pool.token1.priceUsd,
         }),
-        shareOfPool: undefined,
       };
     }
     const mint = getShareMint({
@@ -249,7 +275,6 @@ export function usePoolPositionForm({
         price0Usd: pool.token0.priceUsd,
         price1Usd: pool.token1.priceUsd,
       }),
-      shareOfPool: mint.shareOfPool,
     };
   }, [amounts, isRange, pool, rangeContext]);
 
@@ -419,10 +444,16 @@ export function usePoolPositionForm({
     if (!canReview) {
       return;
     }
+    // A pool off the list takes liquidity once the user accepts the risk
+    const isUnlisted = pool.listingStatus !== EPoolListingStatus.Listed;
+    if (isUnlisted && !(await confirmUnlistedPoolRisk())) {
+      return;
+    }
     const shared = {
       poolId: pool.id,
       positionId,
       ...(isRange ? range : {}),
+      ...(isUnlisted ? { riskConfirmed: true } : {}),
     };
     const params: IPoolAddLiquidityParams =
       mode === 'zap'

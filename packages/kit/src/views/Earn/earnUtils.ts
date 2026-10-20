@@ -67,6 +67,7 @@ function dispatchToTargetStack({
 }: {
   action:
     | ReturnType<typeof StackActions.push>
+    | ReturnType<typeof StackActions.pop>
     | ReturnType<typeof StackActions.replace>
     | ReturnType<typeof StackActions.popToTop>
     | ReturnType<typeof StackActions.popTo>;
@@ -330,6 +331,47 @@ export async function safePushToEarnRoute(
       },
     });
   }
+}
+
+/**
+ * Opens a page over one with the same name, which safePushToEarnRoute would
+ * replace, so Back returns to the first. A page with these params further
+ * down is gone back to instead, which keeps the stack bounded (OK-51746).
+ */
+export function pushEarnRouteOverSameName(
+  navigation: IAppNavigation,
+  route: ETabEarnRoutes,
+  params: Record<string, string>,
+) {
+  const rootNavigation = rootNavigationRef.current;
+  const stack = rootNavigation
+    ? findTargetStack(rootNavigation.getRootState?.())
+    : undefined;
+  const routes = stack?.tabState?.routes;
+  if (!rootNavigation || !stack?.targetKey || !routes?.length) {
+    void safePushToEarnRoute(navigation, route, params);
+    return;
+  }
+  const topIndex = stack.tabState?.index ?? routes.length - 1;
+  const index = routes.findLastIndex(
+    (item) =>
+      item.name === route &&
+      Object.entries(params).every(
+        ([key, value]) =>
+          (item.params as Record<string, unknown> | undefined)?.[key] === value,
+      ),
+  );
+  if (index === topIndex) {
+    return;
+  }
+  dispatchToTargetStack({
+    action:
+      index >= 0
+        ? StackActions.pop(topIndex - index)
+        : StackActions.push(route, params),
+    rootNavigation,
+    targetKey: stack.targetKey,
+  });
 }
 
 export const EarnNavigation = {

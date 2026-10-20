@@ -17,6 +17,8 @@ describe('earnNavigationPolicy', () => {
     [ETabEarnRoutes.EarnProtocols, ETabEarnRoutes.EarnProtocolDetails],
     [ETabEarnRoutes.EarnPositions, ETabEarnRoutes.EarnProtocolDetails],
     [ETabEarnRoutes.BorrowHome, ETabEarnRoutes.BorrowReserveDetails],
+    [ETabEarnRoutes.EarnPositions, ETabEarnRoutes.EarnPoolRemoveLiquidity],
+    [ETabEarnRoutes.EarnPositions, ETabEarnRoutes.EarnPoolDetails],
   ])('preserves the valid %s -> %s parent-child chain', (current, target) => {
     expect(
       shouldResetEarnRouteStackBeforePush({

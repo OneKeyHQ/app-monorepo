@@ -18,7 +18,6 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import type { IPoolTickRange } from '@onekeyhq/shared/src/utils/poolsMath';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import { EPoolListingStatus } from '@onekeyhq/shared/types/pools';
 import type { IPoolDetail, IPoolsWallet } from '@onekeyhq/shared/types/pools';
 
 import { EarnProviderMirror } from '../../EarnProviderMirror';
@@ -70,7 +69,6 @@ function CreatePositionForm({
       }
     },
   });
-  const canCreate = pool.listingStatus === EPoolListingStatus.Listed;
 
   return (
     <Page scrollEnabled scrollProps={{ keyboardShouldPersistTaps: 'handled' }}>
@@ -86,26 +84,19 @@ function CreatePositionForm({
               <PoolTags pool={pool} />
             </YStack>
           </XStack>
-          <PoolCreateSection
-            form={form}
-            detail={detail}
-            canCreate={canCreate}
-            showButton={false}
-          />
+          <PoolCreateSection form={form} detail={detail} showButton={false} />
         </YStack>
       </Page.Body>
-      {canCreate ? (
-        <Page.Footer
-          onConfirmText={form.buttonLabel}
-          confirmButtonProps={{
-            variant: 'primary',
-            disabled: !form.canReview,
-            loading: form.isBusy,
-            onPress: () => void form.review(),
-            testID: 'earn-pool-add-review',
-          }}
-        />
-      ) : null}
+      <Page.Footer
+        onConfirmText={form.buttonLabel}
+        confirmButtonProps={{
+          variant: 'primary',
+          disabled: !form.canReview,
+          loading: form.isBusy,
+          onPress: () => void form.review(),
+          testID: 'earn-pool-add-review',
+        }}
+      />
     </Page>
   );
 }

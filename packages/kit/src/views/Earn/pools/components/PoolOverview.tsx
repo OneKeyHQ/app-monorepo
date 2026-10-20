@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 
 import {
-  Alert,
   Button,
   IconButton,
   SizableText,
@@ -15,23 +14,26 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IPoolTickRange } from '@onekeyhq/shared/src/utils/poolsMath';
-import { EPoolListingStatus } from '@onekeyhq/shared/types/pools';
 import type { IPoolDetail, IPoolListItem } from '@onekeyhq/shared/types/pools';
 
 import { POOLS_COPY } from '../poolsCopy';
-import { formatCompactUsd, formatPercent } from '../poolsFormat';
+import {
+  formatCompactUsd,
+  formatPercent,
+  getPoolPairTitle,
+} from '../poolsFormat';
 import { PoolsNavigation, buildPoolShareLink } from '../poolsNavigation';
 import { PoolsQueries, usePoolsQuery } from '../poolsQueries';
 import { usePoolFavorites } from '../usePoolFavorites';
 import { usePoolPositionForm } from '../usePoolPositionForm';
 
 import { PoolOverviewChart } from './PoolOverviewChart';
+import { PoolPairIcon } from './PoolPairIcon';
 import { PoolPositionForm, PoolPositionReviewButton } from './PoolPositionForm';
 import { PoolRangeEditor } from './PoolRangeEditor';
 import { PoolsCard } from './PoolsCard';
 import { PoolTags } from './PoolTags';
 import { PoolTopPositions } from './PoolTopPositions';
-import { PoolUnfinishedTasks } from './PoolUnfinishedTasks';
 
 import type { IPoolPositionForm } from '../usePoolPositionForm';
 
@@ -106,8 +108,18 @@ export function usePoolShare(pool: IPoolListItem) {
   );
 }
 
-/** The pair's other pools, one row each, each opening its page */
-export function PoolSamePairList({ pools }: { pools: IPoolListItem[] }) {
+/**
+ * The pair's other pools, one row each with the pool's logo and name (ETH
+ * and WETH pools of a pair differ there), each opening its page
+ */
+export function PoolSamePairList({
+  pools,
+  ringColor = '$bgApp',
+}: {
+  pools: IPoolListItem[];
+  /** The surface behind the rows, for the pair icon's network badge */
+  ringColor?: string;
+}) {
   const navigation = useAppNavigation();
   return (
     <YStack>
@@ -124,9 +136,15 @@ export function PoolSamePairList({ pools }: { pools: IPoolListItem[] }) {
           cursor="pointer"
           hoverStyle={{ opacity: 0.8 }}
           pressStyle={{ opacity: 0.6 }}
-          onPress={() => PoolsNavigation.pushPoolDetails(navigation, pool.id)}
+          onPress={() => PoolsNavigation.pushPairPool(navigation, pool.id)}
         >
-          <PoolTags pool={pool} flex={1} />
+          <PoolPairIcon pool={pool} size="md" ringColor={ringColor} />
+          <YStack flex={1} gap="$1" minWidth={0}>
+            <SizableText size="$bodyLgMedium" numberOfLines={1}>
+              {getPoolPairTitle(pool)}
+            </SizableText>
+            <PoolTags pool={pool} />
+          </YStack>
           <YStack ai="flex-end" gap="$0.5">
             <SizableText size="$bodyMdMedium">
               {`${formatPercent(pool.windows['1D'].apr)} ${POOLS_COPY.apr}`}
@@ -148,7 +166,7 @@ export function PoolSamePairCard({ pools }: { pools: IPoolListItem[] }) {
   }
   return (
     <PoolsCard title={POOLS_COPY.samePair} testID="earn-pool-same-pair">
-      <PoolSamePairList pools={pools} />
+      <PoolSamePairList pools={pools} ringColor="$bgSubdued" />
     </PoolsCard>
   );
 }
@@ -177,8 +195,7 @@ export function usePoolOverview({
     priceHistory: detail?.priceHistory,
     onTaskCreated,
   });
-  const canCreate = pool.listingStatus === EPoolListingStatus.Listed;
-  return { pool, detail, wallet, form, canCreate };
+  return { pool, detail, wallet, form };
 }
 
 /**
@@ -304,32 +321,24 @@ export function PoolDataSection({
 export function PoolCreateSection({
   form,
   detail,
-  canCreate,
   showButton,
   rangeOnChart = false,
 }: {
   form: IPoolPositionForm;
   detail: IPoolDetail | undefined;
-  canCreate: boolean;
   /** False when the page footer holds the button */
   showButton: boolean;
   /** The chart beside the form sets the range */
   rangeOnChart?: boolean;
 }) {
-  if (!canCreate) {
-    return <Alert type="warning" title={POOLS_COPY.unlistedNotice} />;
-  }
   return (
-    <YStack gap="$4">
-      <PoolUnfinishedTasks poolId={form.pool.id} />
-      <PoolPositionForm
-        form={form}
-        ticks={detail?.ticks}
-        priceHistory={detail?.priceHistory}
-        rangeOnChart={rangeOnChart}
-        button={showButton ? <PoolPositionReviewButton form={form} /> : null}
-      />
-    </YStack>
+    <PoolPositionForm
+      form={form}
+      ticks={detail?.ticks}
+      priceHistory={detail?.priceHistory}
+      rangeOnChart={rangeOnChart}
+      button={showButton ? <PoolPositionReviewButton form={form} /> : null}
+    />
   );
 }
 
@@ -393,7 +402,7 @@ export function useCopyRange(
  */
 export function PoolExpandedPanel({ pool: listPool }: { pool: IPoolListItem }) {
   const navigation = useAppNavigation();
-  const { pool, detail, form, canCreate } = usePoolOverview({
+  const { pool, detail, form } = usePoolOverview({
     pool: listPool,
     onTaskCreated: (taskId) => PoolsNavigation.pushTask(navigation, taskId),
   });
@@ -411,7 +420,7 @@ export function PoolExpandedPanel({ pool: listPool }: { pool: IPoolListItem }) {
             form={form}
             layout="table"
             chartHeight={260}
-            rangeOnChart={CAN_SET_RANGE_ON_CHART && canCreate}
+            rangeOnChart={CAN_SET_RANGE_ON_CHART}
             onCopyRange={copyRange}
           />
         </YStack>
@@ -423,7 +432,6 @@ export function PoolExpandedPanel({ pool: listPool }: { pool: IPoolListItem }) {
           <PoolCreateSection
             form={form}
             detail={detail}
-            canCreate={canCreate}
             showButton
             rangeOnChart={CAN_SET_RANGE_ON_CHART}
           />

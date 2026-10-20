@@ -3,7 +3,6 @@ import { useCallback, useMemo } from 'react';
 import { useRoute } from '@react-navigation/core';
 
 import {
-  Alert,
   Empty,
   IconButton,
   Page,
@@ -26,10 +25,7 @@ import {
 import type { ITabEarnParamList } from '@onekeyhq/shared/src/routes';
 import type { IPoolTickRange } from '@onekeyhq/shared/src/utils/poolsMath';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import {
-  EPoolListingStatus,
-  EPoolPositionStatus,
-} from '@onekeyhq/shared/types/pools';
+import { EPoolPositionStatus } from '@onekeyhq/shared/types/pools';
 import type {
   IPool,
   IPoolListItem,
@@ -131,7 +127,7 @@ function PoolDetailsLoaded({ listPool }: { listPool: IPoolListItem }) {
       navigation.push(ETabEarnRoutes.EarnPoolTask, { taskId }),
     [navigation],
   );
-  const { pool, detail, form, canCreate } = usePoolOverview({
+  const { pool, detail, form } = usePoolOverview({
     pool: listPool,
     onTaskCreated: pushTask,
   });
@@ -185,18 +181,17 @@ function PoolDetailsLoaded({ listPool }: { listPool: IPoolListItem }) {
 
   // The same footer whether or not the user holds a position here: Remove
   // and Add sit on each position's own page, one tap on its card away
-  const footer =
-    !gtMd && canCreate ? (
-      <Page.Footer
-        onConfirmText={POOLS_COPY.createPosition}
-        confirmButtonProps={{
-          variant: 'primary',
-          onPress: () => openCreate(),
-          mb: tabBarHeight,
-          testID: 'earn-pool-footer-create',
-        }}
-      />
-    ) : null;
+  const footer = !gtMd ? (
+    <Page.Footer
+      onConfirmText={POOLS_COPY.createPosition}
+      confirmButtonProps={{
+        variant: 'primary',
+        onPress: () => openCreate(),
+        mb: tabBarHeight,
+        testID: 'earn-pool-footer-create',
+      }}
+    />
+  ) : null;
 
   const layout = gtMd ? 'table' : 'list';
   const chart = (
@@ -207,7 +202,7 @@ function PoolDetailsLoaded({ listPool }: { listPool: IPoolListItem }) {
       form={gtMd ? form : undefined}
       layout={layout}
       chartHeight={gtMd ? 300 : 220}
-      rangeOnChart={rangeOnChart && canCreate}
+      rangeOnChart={rangeOnChart}
     />
   );
   const tabs = (
@@ -255,9 +250,6 @@ function PoolDetailsLoaded({ listPool }: { listPool: IPoolListItem }) {
         <YStack gap="$5">
           <PoolHeader pool={pool} right={gtMd ? actions : undefined} />
           <PoolStatsStrip pool={pool} compact={!gtMd} />
-          {pool.listingStatus === EPoolListingStatus.Unlisted ? (
-            <Alert type="warning" title={POOLS_COPY.unlistedNotice} />
-          ) : null}
         </YStack>
         {gtMd ? (
           <XStack gap="$6" ai="flex-start">
@@ -265,22 +257,19 @@ function PoolDetailsLoaded({ listPool }: { listPool: IPoolListItem }) {
               {chart}
               {tabs}
             </YStack>
-            {canCreate ? (
-              <YStack
-                testID="earn-pool-create-column"
-                width={420}
-                flexShrink={0}
-                {...POOL_CREATE_COLUMN_STICKY}
-              >
-                <PoolCreateSection
-                  form={form}
-                  detail={detail}
-                  canCreate={canCreate}
-                  showButton
-                  rangeOnChart={rangeOnChart}
-                />
-              </YStack>
-            ) : null}
+            <YStack
+              testID="earn-pool-create-column"
+              width={420}
+              flexShrink={0}
+              {...POOL_CREATE_COLUMN_STICKY}
+            >
+              <PoolCreateSection
+                form={form}
+                detail={detail}
+                showButton
+                rangeOnChart={rangeOnChart}
+              />
+            </YStack>
           </XStack>
         ) : (
           <YStack gap="$6">

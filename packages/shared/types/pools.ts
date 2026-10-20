@@ -329,6 +329,8 @@ export type IPoolAddLiquidityParams = {
   positionId?: string;
   tickLower?: number;
   tickUpper?: number;
+  /** The user accepted the risk of a pool off the supported list */
+  riskConfirmed?: boolean;
 } & (
   | {
       mode: 'both';

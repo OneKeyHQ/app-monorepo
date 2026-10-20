@@ -1050,6 +1050,7 @@ Soroban
 stroops
 timebounds
 stablecoin
+stablecoins
 kline
 multiline
 recrypt

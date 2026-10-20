@@ -102,13 +102,18 @@ function PoolsFilterContent({
         <FilterGroup title={POOLS_COPY.assetType}>
           <PoolsChip
             label={POOLS_COPY.allPools}
-            active={!draft.stocksOnly}
-            onPress={() => setDraft({ ...draft, stocksOnly: false })}
+            active={!draft.category}
+            onPress={() => setDraft({ ...draft, category: undefined })}
           />
           <PoolsChip
-            label={POOLS_COPY.stocks}
-            active={draft.stocksOnly}
-            onPress={() => setDraft({ ...draft, stocksOnly: true })}
+            label={POOLS_COPY.rwa}
+            active={draft.category === 'rwa'}
+            onPress={() => setDraft({ ...draft, category: 'rwa' })}
+          />
+          <PoolsChip
+            label={POOLS_COPY.stablecoins}
+            active={draft.category === 'stablecoins'}
+            onPress={() => setDraft({ ...draft, category: 'stablecoins' })}
           />
         </FilterGroup>
       ) : null}
@@ -160,7 +165,7 @@ export function PoolsFilterButton({
   testID?: string;
 }) {
   const count =
-    countExtraFilters(value) + (showCategory && value.stocksOnly ? 1 : 0);
+    countExtraFilters(value) + (showCategory && value.category ? 1 : 0);
   const open = useCallback(() => {
     Dialog.show({
       title: POOLS_COPY.filters,

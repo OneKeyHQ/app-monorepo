@@ -7,7 +7,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabEarnRoutes } from '@onekeyhq/shared/src/routes';
 import type { IPool } from '@onekeyhq/shared/types/pools';
 
-import { safePushToEarnRoute } from '../earnUtils';
+import { pushEarnRouteOverSameName, safePushToEarnRoute } from '../earnUtils';
 import {
   getNetworkIdByShareName,
   getShareNetworkParam,
@@ -21,6 +21,12 @@ export const PoolsNavigation = {
   },
   pushPoolDetails(navigation: IAppNavigation, poolId: string) {
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnPoolDetails, {
+      poolId,
+    });
+  },
+  /** Another pool from a pool's page: Back returns to the one before */
+  pushPairPool(navigation: IAppNavigation, poolId: string) {
+    pushEarnRouteOverSameName(navigation, ETabEarnRoutes.EarnPoolDetails, {
       poolId,
     });
   },

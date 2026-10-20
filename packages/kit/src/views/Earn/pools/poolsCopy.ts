@@ -13,13 +13,18 @@ export const POOLS_COPY = {
   hook: 'Hook',
   dynamicFee: 'Dynamic fee',
   notListed: 'Unlisted',
-  unlistedHint: 'Unlisted pool: you can remove, not add',
+  unlistedHint: 'Not on OneKey’s list. Adding asks you to accept the risk.',
+  unlistedRiskTitle: 'This pool isn’t on OneKey’s list',
+  unlistedRiskBody:
+    'OneKey hasn’t reviewed this pool. Its tokens or contracts could be unsafe, and you could lose what you add.',
+  unlistedRiskConfirm: 'I understand',
   fullRange: 'Full range',
   priceRange: 'Price range',
   viewAll: 'View all',
   network: 'Network',
   allPools: 'All',
-  stocks: 'Stocks',
+  rwa: 'RWA',
+  stablecoins: 'Stablecoins',
   assetType: 'Asset type',
   filters: 'Filters',
   version: 'Version',
@@ -94,8 +99,6 @@ export const POOLS_COPY = {
   currentFee: 'Current fee',
   hookAddress: 'Hook contract',
   about: 'About this pool',
-  unlistedNotice:
-    'This pool is not on the supported list. You can remove liquidity but not add more.',
 
   // Positions
   position: 'Position',
@@ -147,10 +150,7 @@ export const POOLS_COPY = {
   aprNoFees: 'No fees in the last 24h',
   onlyToken: (symbol: string) =>
     `The range is outside the current price, so it takes only ${symbol}.`,
-  zapPlan: 'Swap plan',
   swapCost: 'Swap cost',
-  leftover: 'Stays in your wallet',
-  goesIn: 'Goes into the pool',
   review: 'Review',
   insufficientBalance: (symbol: string) => `Not enough ${symbol}`,
   enterAmount: 'Enter an amount',
@@ -215,10 +215,7 @@ export const POOLS_COPY = {
   abandonBody:
     'Tokens already swapped or withdrawn stay in your wallet. Nothing is swapped back.',
   unfinished: 'Unfinished',
-  unfinishedTitle: (title: string) => `${title} didn’t finish`,
   abandoned: 'Abandoned',
-  unfinishedBody:
-    'Some steps went through and the rest did not. The tokens are in your wallet.',
   retry: 'Retry',
   done: 'Done',
   viewPosition: 'View position',

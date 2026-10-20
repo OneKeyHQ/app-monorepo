@@ -19,12 +19,8 @@ import type {
 } from '@onekeyhq/shared/types/pools';
 
 import { POOLS_COPY } from '../poolsCopy';
-import {
-  formatTokenAmount,
-  formatTokenAmountShort,
-  formatUsd,
-  sortByPair,
-} from '../poolsFormat';
+import { formatTokenAmount, formatUsd, sortByPair } from '../poolsFormat';
+import { isCostlySwap } from '../poolsOutcome';
 
 import { PoolsChip } from './PoolsFilterButton';
 
@@ -163,12 +159,12 @@ export function PoolRemoveSummary({
   /** Lists both tokens the way the pair reads */
   pool?: IPool;
 }) {
-  const symbolOf = (assetId: string) =>
-    assets.find((asset) => asset.id === assetId)?.symbol ?? '';
   const { zapOut } = preview;
   if (zapOut) {
     const target = assets.find((asset) => asset.id === zapOut.targetAssetId);
-    const swaps = zapOut.legs.filter((leg) => leg.quote);
+    const receivedUsd = target
+      ? new BigNumber(zapOut.expectedOut).times(target.priceUsd)
+      : new BigNumber(0);
     return (
       <YStack gap="$3">
         <SummaryRow label={POOLS_COPY.youReceive}>
@@ -177,31 +173,18 @@ export function PoolRemoveSummary({
           </SizableText>
           {target ? (
             <SizableText size="$bodyMd" color="$textSubdued">
-              {formatUsd(
-                new BigNumber(zapOut.expectedOut).times(target.priceUsd),
-              )}
+              {formatUsd(receivedUsd)}
             </SizableText>
           ) : null}
         </SummaryRow>
-        {swaps.length ? (
-          <SummaryRow label={POOLS_COPY.zapPlan}>
-            {swaps.map((leg) => (
-              <SizableText
-                key={leg.assetId}
-                size="$bodyMdMedium"
-                textAlign="right"
-              >
-                {`${formatTokenAmountShort(leg.amount, symbolOf(leg.assetId))} → ${formatTokenAmountShort(
-                  leg.quote?.amountOut,
-                  target?.symbol,
-                )}`}
-              </SizableText>
-            ))}
-          </SummaryRow>
-        ) : null}
-        {swaps.length ? (
+        {/* The swaps show as the review's steps; a costly one gets a row */}
+        {isCostlySwap(zapOut.costUsd, receivedUsd) ? (
           <SummaryRow label={POOLS_COPY.swapCost}>
-            <SizableText size="$bodyMdMedium">
+            <SizableText
+              testID="earn-pool-remove-swap-cost"
+              size="$bodyMdMedium"
+              color="$textCaution"
+            >
               {formatUsd(zapOut.costUsd)}
             </SizableText>
           </SummaryRow>

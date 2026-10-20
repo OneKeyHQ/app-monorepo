@@ -52,7 +52,6 @@ import { EarnNavigation } from '../earnUtils';
 import { usePortfolioAction } from '../hooks/usePortfolioAction';
 import { useStakingPendingTxsByInfo } from '../hooks/useStakingPendingTxs';
 import { PoolsPortfolioGroup } from '../pools/components/PoolsPortfolioGroup';
-import { PoolUnfinishedTasks } from '../pools/components/PoolUnfinishedTasks';
 import {
   insertByValue,
   usePoolsPortfolio,
@@ -1474,12 +1473,7 @@ const BasePortfolioTabContent = ({
     );
   }
 
-  return (
-    <YStack>
-      <PoolUnfinishedTasks px="$pagePadding" pb="$4" />
-      {rows.map(rowRender)}
-    </YStack>
-  );
+  return <YStack>{rows.map(rowRender)}</YStack>;
 };
 
 export const PortfolioTabContent = memo(BasePortfolioTabContent);

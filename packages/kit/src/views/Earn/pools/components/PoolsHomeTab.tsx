@@ -14,7 +14,13 @@ import type {
 } from '@onekeyhq/shared/types/pools';
 
 import { POOLS_COPY } from '../poolsCopy';
-import { filterPools, sortPools } from '../poolsFilter';
+import {
+  filterPools,
+  getPoolKeySearch,
+  sortPools,
+  withSearchedPools,
+} from '../poolsFilter';
+import { PoolsQueries, usePoolsQuery } from '../poolsQueries';
 import { usePoolFavorites } from '../usePoolFavorites';
 
 import {
@@ -22,6 +28,7 @@ import {
   PoolsDiscoverTable,
   PoolsPeriodPills,
   PoolsScopeChips,
+  getScopeCategory,
   useExpandedPool,
 } from './PoolsDiscoverList';
 
@@ -75,14 +82,22 @@ export function PoolsHomeTab({
   }>({ key: 'tvl', direction: 'desc' });
   const { favoriteIds } = usePoolFavorites();
   const { expandedId, toggle } = useExpandedPool();
+  // An exact pool address also finds a pool that is not on the list
+  const keySearch = getPoolKeySearch(search);
+  const { result: searchedPools } = usePoolsQuery(
+    keySearch ? PoolsQueries.byKey(keySearch) : undefined,
+  );
 
   const shownPeriod = gtMd ? period : '1D';
   const shown = useMemo(
     () =>
       sortPools(
         filterPools({
-          pools: pools ?? [],
-          filter: { ...filter, stocksOnly: scope === 'stocks' },
+          pools: withSearchedPools(pools, searchedPools) ?? [],
+          filter: {
+            ...filter,
+            category: getScopeCategory(scope) ?? filter.category,
+          },
           networkIds,
           search,
           onlyIds: scope === 'favorites' ? favoriteIds : undefined,
@@ -98,6 +113,7 @@ export function PoolsHomeTab({
       pools,
       scope,
       search,
+      searchedPools,
       shownPeriod,
       sort.direction,
       sort.key,
@@ -117,8 +133,14 @@ export function PoolsHomeTab({
 
   return (
     <YStack gap="$2">
-      <XStack px="$5" pb="$1" ai="center" jc="space-between" gap="$3">
-        <PoolsScopeChips scope={scope} onChange={setScope} />
+      <XStack
+        px={gtMd ? '$5' : undefined}
+        pb="$1"
+        ai="center"
+        jc="space-between"
+        gap="$3"
+      >
+        <PoolsScopeChips scope={scope} onChange={setScope} scrollable={!gtMd} />
         {gtMd ? (
           <PoolsPeriodPills period={period} onChange={setPeriod} />
         ) : null}

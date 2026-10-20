@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import {
   Button,
   Icon,
+  ScrollView,
   SizableText,
   Stack,
   XStack,
@@ -33,21 +34,37 @@ import { PoolsSortHeader } from './PoolsSortHeader';
 import { PoolChangeText } from './PoolStats';
 import { PoolBadgeRow } from './PoolTags';
 
-import type { IPoolsSortKey } from '../poolsFilter';
+import type { IPoolsCategory, IPoolsSortKey } from '../poolsFilter';
 
 export const POOL_STATS_WINDOWS: IPoolStatsWindow[] = ['1D', '1W', '1M'];
 
-export type IPoolsScope = 'all' | 'favorites' | 'stocks';
+export type IPoolsScope = 'all' | 'favorites' | IPoolsCategory;
 
-/** All, the starred pools, or stock pools */
+/** The category a scope chip stands for; All and Favorites have none */
+export function getScopeCategory(scope: IPoolsScope) {
+  return scope === 'rwa' || scope === 'stablecoins' ? scope : undefined;
+}
+
+const CATEGORY_CHIPS: { scope: IPoolsCategory; label: string }[] = [
+  { scope: 'rwa', label: POOLS_COPY.rwa },
+  { scope: 'stablecoins', label: POOLS_COPY.stablecoins },
+];
+
+/** All, the starred pools, then Revert's asset categories */
 export function PoolsScopeChips({
   scope,
   onChange,
+  scrollable = false,
 }: {
   scope: IPoolsScope;
   onChange: (scope: IPoolsScope) => void;
+  /**
+   * Phones: the chips scroll sideways from the screen edge once they
+   * outgrow the row, so the caller leaves out its side padding
+   */
+  scrollable?: boolean;
 }) {
-  return (
+  const chips = (
     <XStack gap="$2" ai="center">
       <PoolsChip
         testID="earn-pools-scope-all"
@@ -68,13 +85,29 @@ export function PoolsScopeChips({
         active={scope === 'favorites'}
         onPress={() => onChange('favorites')}
       />
-      <PoolsChip
-        testID="earn-pools-scope-stocks"
-        label={POOLS_COPY.stocks}
-        active={scope === 'stocks'}
-        onPress={() => onChange('stocks')}
-      />
+      {CATEGORY_CHIPS.map((chip) => (
+        <PoolsChip
+          key={chip.scope}
+          testID={`earn-pools-scope-${chip.scope}`}
+          label={chip.label}
+          active={scope === chip.scope}
+          onPress={() => onChange(chip.scope)}
+        />
+      ))}
     </XStack>
+  );
+  if (!scrollable) {
+    return chips;
+  }
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      flex={1}
+      contentContainerStyle={{ px: '$pagePadding' }}
+    >
+      {chips}
+    </ScrollView>
   );
 }
 
@@ -318,8 +351,12 @@ export const PoolListRow = memo(({ pool }: { pool: IPoolListItem }) => {
       testID={`earn-pools-item-${pool.id}`}
       userSelect="none"
       gap="$2"
-      onPressIn={() => prefetchPoolOverview(pool)}
-      onPress={() => PoolsNavigation.pushPoolDetails(navigation, pool.id)}
+      // Not onPressIn: on native, ListItem leaves it on the inner view, which
+      // then takes the touch and the press never fires
+      onPress={() => {
+        prefetchPoolOverview(pool);
+        PoolsNavigation.pushPoolDetails(navigation, pool.id);
+      }}
     >
       <Stack ml="$-1.5">
         <PoolStarButton poolId={pool.id} />

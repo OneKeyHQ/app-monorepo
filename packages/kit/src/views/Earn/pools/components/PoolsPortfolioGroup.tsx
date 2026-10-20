@@ -329,8 +329,7 @@ function getPoolTokenRows(
 /**
  * The other cards' panel (EarnHoldingSections): a title over token rows,
  * each the amount over its value. One action covers both tokens of a
- * position, so it sits on the first row, the way a claim covering several
- * rows does on those cards.
+ * position, so it sits centered beside the rows, not on one of them.
  */
 function PoolHoldingPanel({
   title,
@@ -348,35 +347,43 @@ function PoolHoldingPanel({
       <SizableText size="$bodySmMedium" color="$textSubdued" py="$1">
         {title}
       </SizableText>
-      {rows.map((row, index) => (
-        <XStack key={row.token.id} ai="center" gap="$3" minHeight={36} py="$1">
-          <XStack ai="center" gap="$2" flex={1} minWidth={0}>
-            <Token
-              size="md"
-              tokenImageUri={row.token.logoURI}
-              showNetworkIcon
-              networkId={networkId}
-            />
-            <YStack flexShrink={1} minWidth={0}>
-              <NumberSizeableTextWrapper
-                hideValue
-                size="$bodyMdMedium"
-                formatter="balance"
-                formatterOptions={{ tokenSymbol: row.token.symbol }}
-                numberOfLines={1}
-              >
-                {row.amount}
-              </NumberSizeableTextWrapper>
-              <FiatText
-                usd={new BigNumber(row.amount).times(row.token.priceUsd)}
-                size="$bodySm"
-                color="$textSubdued"
+      <XStack ai="center" gap="$3">
+        <YStack flex={1} minWidth={0}>
+          {rows.map((row) => (
+            <XStack
+              key={row.token.id}
+              ai="center"
+              gap="$2"
+              minHeight={36}
+              py="$1"
+            >
+              <Token
+                size="md"
+                tokenImageUri={row.token.logoURI}
+                showNetworkIcon
+                networkId={networkId}
               />
-            </YStack>
-          </XStack>
-          {index === 0 ? action : null}
-        </XStack>
-      ))}
+              <YStack flexShrink={1} minWidth={0}>
+                <NumberSizeableTextWrapper
+                  hideValue
+                  size="$bodyMdMedium"
+                  formatter="balance"
+                  formatterOptions={{ tokenSymbol: row.token.symbol }}
+                  numberOfLines={1}
+                >
+                  {row.amount}
+                </NumberSizeableTextWrapper>
+                <FiatText
+                  usd={new BigNumber(row.amount).times(row.token.priceUsd)}
+                  size="$bodySm"
+                  color="$textSubdued"
+                />
+              </YStack>
+            </XStack>
+          ))}
+        </YStack>
+        {action}
+      </XStack>
     </YStack>
   );
 }

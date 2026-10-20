@@ -21,6 +21,7 @@ import {
   buildPositionView,
   createInitialDemoState,
   createTask,
+  findPoolsByKey,
   getFavoritePoolIds,
   getNextStep,
   getPoolDetail,
@@ -179,6 +180,20 @@ describe('pools demo queries', () => {
     const tsla = queryPools(catalog, { search: 'tsla/usdg' });
     expect(tsla.map((pool) => pool.version).toSorted()).toEqual(['v2', 'v3']);
     expect(queryPools(catalog, { search: 'pepe' })).toEqual([]);
+  });
+
+  it('finds a pool by its address, an unlisted one only that way', () => {
+    const pepe = poolBySeed(catalog, 'eth-v3-pepe-weth-10000');
+    expect(queryPools(catalog, { search: pepe.poolKey })).toEqual([]);
+    expect(
+      findPoolsByKey(catalog, pepe.poolKey.toUpperCase()).map(
+        (pool) => pool.id,
+      ),
+    ).toEqual([pepe.id]);
+    const stable = poolBySeed(catalog, 'eth-v3-usdc-usdt-100');
+    expect(
+      queryPools(catalog, { search: stable.poolKey }).map((pool) => pool.id),
+    ).toEqual([stable.id]);
   });
 
   it('computes the pool fee APR from 24h fees', () => {
@@ -518,6 +533,33 @@ describe('pools demo tasks', () => {
       EPoolTaskStepKind.Swap,
       EPoolTaskStepKind.AddLiquidity,
     ]);
+  });
+
+  it('adds to an unlisted pool only once the risk is accepted', async () => {
+    const catalog = buildMockCatalog(NOW);
+    const state = createInitialDemoState(catalog, NOW);
+    const pool = poolBySeed(catalog, 'eth-v3-pepe-weth-10000');
+    const weth = assetBySymbol(catalog, pool.networkId, 'WETH');
+    const spacing = pool.tickSpacing ?? 200;
+    const tick = Math.floor((pool.currentTick ?? 0) / spacing) * spacing;
+    const params = {
+      poolId: pool.id,
+      mode: 'zap' as const,
+      inputAssetId: weth.id,
+      amountIn: '0.05',
+      tickLower: tick - spacing * 10,
+      tickUpper: tick + spacing * 10,
+    };
+    await expect(
+      createTask(catalog, state, { kind: 'add', params }, NOW),
+    ).rejects.toThrow('Confirm the risk of this unlisted pool first');
+    const task = await createTask(
+      catalog,
+      state,
+      { kind: 'add', params: { ...params, riskConfirmed: true } },
+      NOW,
+    );
+    expect(task.kind).toBe(EPoolTaskKind.ZapIn);
   });
 
   it('refuses an add too small to mint anything before any step runs', async () => {

@@ -13,6 +13,21 @@ import { getPoolPair, getPoolPrice } from './poolsFormat';
 
 // What a range means for the user, in numbers the add page can say plainly
 
+// A swap that costs more than this share of the whole amount is worth a look
+const SWAP_COST_NOTICE = 0.01;
+
+/**
+ * Whether a swap's cost earns a row: past 1% of everything that goes
+ * through it, cost included. Below that, the steps carry the swap.
+ */
+export function isCostlySwap(
+  costUsd: BigNumber.Value,
+  valueUsd: BigNumber.Value,
+) {
+  const cost = new BigNumber(costUsd);
+  return cost.gt(0) && cost.div(cost.plus(valueUsd)).gt(SWAP_COST_NOTICE);
+}
+
 type IRange = { tickLower: number; tickUpper: number };
 
 function decimalsOf(pool: IPool) {

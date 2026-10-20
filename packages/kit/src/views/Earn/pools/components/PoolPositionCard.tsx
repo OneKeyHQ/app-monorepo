@@ -1,6 +1,6 @@
 import BigNumber from 'bignumber.js';
 
-import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import { Icon, SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
 import type { ISizableTextProps } from '@onekeyhq/components';
 import { EPoolPositionStatus } from '@onekeyhq/shared/types/pools';
 import type {
@@ -183,7 +183,17 @@ export function PoolPositionCard({
           </SizableText>
           <PoolTags pool={pool} />
         </YStack>
-        <PoolPositionStatus view={view} />
+        {/* The chevron says the card opens, as on the portfolio cards */}
+        <XStack ai="center" gap="$1" flexShrink={0}>
+          <PoolPositionStatus view={view} />
+          {onPress ? (
+            <Icon
+              name="ChevronRightSmallOutline"
+              size="$5"
+              color="$iconSubdued"
+            />
+          ) : null}
+        </XStack>
       </XStack>
       <XStack gap="$3">
         <CardFigure

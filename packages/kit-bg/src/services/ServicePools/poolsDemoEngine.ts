@@ -196,11 +196,14 @@ function toListItem(catalog: IPoolsMockCatalog, pool: IPool): IPoolListItem {
 }
 
 function matchesKeyword(pool: IPool, term: string) {
-  return [pool.token0, pool.token1].some(
-    (token) =>
-      token.symbol.toLowerCase().includes(term) ||
-      token.name.toLowerCase().includes(term) ||
-      (term.startsWith('0x') && token.address === term),
+  return (
+    (term.startsWith('0x') && pool.poolKey.toLowerCase() === term) ||
+    [pool.token0, pool.token1].some(
+      (token) =>
+        token.symbol.toLowerCase().includes(term) ||
+        token.name.toLowerCase().includes(term) ||
+        (term.startsWith('0x') && token.address === term),
+    )
   );
 }
 
@@ -246,6 +249,20 @@ export function queryPools(
     return Number(item.tvlUsd);
   };
   return items.toSorted((a, b) => sortValue(b) - sortValue(a));
+}
+
+/**
+ * Pools whose address (V4: pool ID) is exactly this, listed or not: how a
+ * pool off the list is found
+ */
+export function findPoolsByKey(
+  catalog: IPoolsMockCatalog,
+  poolKey: string,
+): IPoolListItem[] {
+  const key = poolKey.trim().toLowerCase();
+  return catalog.pools
+    .filter((pool) => pool.poolKey.toLowerCase() === key)
+    .map((pool) => toListItem(catalog, pool));
 }
 
 export function getPoolNetworkIds(catalog: IPoolsMockCatalog) {
@@ -1040,8 +1057,12 @@ async function planAddSteps(
   params: IPoolAddLiquidityParams,
 ): Promise<IPlannedStep[]> {
   const pool = getPool(catalog, params.poolId);
-  if (pool.listingStatus !== EPoolListingStatus.Listed) {
-    throw new OneKeyLocalError('This pool only allows withdrawals');
+  // Off the list is allowed, once the user has accepted the risk
+  if (
+    pool.listingStatus !== EPoolListingStatus.Listed &&
+    !params.riskConfirmed
+  ) {
+    throw new OneKeyLocalError('Confirm the risk of this unlisted pool first');
   }
   const steps: IPlannedStep[] = [];
   let pays: Array<{ asset: IPoolAsset; amount: BigNumber }>;

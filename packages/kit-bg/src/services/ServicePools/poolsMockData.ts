@@ -444,7 +444,18 @@ export const POOLS_POOL_SEEDS: IPoolsPoolSeed[] = [
     shape: 'stable',
   },
   {
-    // Outside the whitelist: only the existing position shows, exit only
+    key: 'eth-v4-usdc-usdt-100',
+    networkId: POOLS_ETHEREUM_NETWORK_ID,
+    version: 'v4',
+    symbols: ['USDC', 'USDT'],
+    feeTier: 100,
+    tvlUsd: 12_406_900,
+    volume24hUsd: 18_934_200,
+    shape: 'stable',
+  },
+  {
+    // Outside the whitelist: found by its address, and adding to it asks the
+    // user to accept the risk first
     key: 'eth-v3-pepe-weth-10000',
     networkId: POOLS_ETHEREUM_NETWORK_ID,
     version: 'v3',

@@ -28,15 +28,21 @@ import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { NetworkFilterControl } from '../../components/NetworkFilterControl';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { PoolsDemoMenuButton } from '../components/PoolsDemoMenuButton';
-import { PoolListRow, PoolsScopeChips } from '../components/PoolsDiscoverList';
+import {
+  PoolListRow,
+  PoolsScopeChips,
+  getScopeCategory,
+} from '../components/PoolsDiscoverList';
 import { PoolsFilterButton } from '../components/PoolsFilterButton';
 import { PoolsListSkeleton } from '../components/PoolsHomeTab';
 import { POOLS_COPY } from '../poolsCopy';
 import {
   EMPTY_POOLS_FILTER,
   filterPools,
+  getPoolKeySearch,
   getPoolNetworkCounts,
   sortPools,
+  withSearchedPools,
 } from '../poolsFilter';
 import { PoolsQueries, usePoolsQuery } from '../poolsQueries';
 import { usePoolFavorites } from '../usePoolFavorites';
@@ -64,6 +70,11 @@ function EarnPoolsContent() {
   const { favoriteIds } = usePoolFavorites();
 
   const { result: pools } = usePoolsQuery(PoolsQueries.list());
+  // An exact pool address also finds a pool that is not on the list
+  const keySearch = getPoolKeySearch(searchText);
+  const { result: searchedPools } = usePoolsQuery(
+    keySearch ? PoolsQueries.byKey(keySearch) : undefined,
+  );
 
   const networkCounts = useMemo(
     () => getPoolNetworkCounts(pools ?? []),
@@ -86,8 +97,11 @@ function EarnPoolsContent() {
     () =>
       sortPools(
         filterPools({
-          pools: pools ?? [],
-          filter: { ...filter, stocksOnly: scope === 'stocks' },
+          pools: withSearchedPools(pools, searchedPools) ?? [],
+          filter: {
+            ...filter,
+            category: getScopeCategory(scope) ?? filter.category,
+          },
           networkIds: selectedNetworkIds,
           search: searchText,
           onlyIds: scope === 'favorites' ? favoriteIds : undefined,
@@ -102,6 +116,7 @@ function EarnPoolsContent() {
       pools,
       scope,
       searchText,
+      searchedPools,
       selectedNetworkIds,
       sortDirection,
       sortKey,
@@ -174,7 +189,7 @@ function EarnPoolsContent() {
     searchText.trim().length > 0 ||
     selectedNetworkIds.length > 0 ||
     filter !== EMPTY_POOLS_FILTER ||
-    scope === 'stocks';
+    getScopeCategory(scope) !== undefined;
 
   let emptyTitle: string = POOLS_COPY.noPools;
   if (scope === 'favorites' && !favoriteIds.size) {
@@ -213,14 +228,15 @@ function EarnPoolsContent() {
           testID="earn-pools-sort"
         />
       </XStack>
-      <XStack px="$pagePadding" py="$2" gap="$2" ai="center">
-        <PoolsScopeChips scope={scope} onChange={setScope} />
-        <YStack flex={1} />
-        <PoolsFilterButton
-          testID="earn-pools-filter"
-          value={filter}
-          onChange={setFilter}
-        />
+      <XStack py="$2" gap="$2" ai="center">
+        <PoolsScopeChips scope={scope} onChange={setScope} scrollable />
+        <XStack pr="$pagePadding">
+          <PoolsFilterButton
+            testID="earn-pools-filter"
+            value={filter}
+            onChange={setFilter}
+          />
+        </XStack>
       </XStack>
     </>
   );
