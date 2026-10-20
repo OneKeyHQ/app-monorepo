@@ -11,7 +11,9 @@ import {
   getPerpsMarketDataFreshness,
 } from '../utils/perpsMarketDataFreshness';
 
-function getCurrentPerpsMarketDataFreshness(staleMs: number) {
+export function getCurrentPerpsMarketDataFreshness(
+  staleMs = PERPS_MARKET_DATA_STALE_MS,
+) {
   const networkStatus = jotaiDefaultStore.get(perpsNetworkStatusAtom.atom());
   const isWebSocketConnected = jotaiDefaultStore.get(
     perpsWebSocketConnectedAtom.atom(),
