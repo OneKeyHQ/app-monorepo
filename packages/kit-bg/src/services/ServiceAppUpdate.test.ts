@@ -278,9 +278,11 @@ function createService() {
     backgroundApi,
     refreshUpdateStatus: jest.fn(async () => undefined),
   });
-  return new ServiceAppUpdate({
+  const service = new ServiceAppUpdate({
     backgroundApi,
   });
+  backgroundApi.serviceAppUpdate = service;
+  return service;
 }
 
 function resetFirstLaunchForTest() {
@@ -4605,5 +4607,248 @@ describe('Featured Changelog preview and post-install refresh', () => {
     await service.refreshCurrentFeaturedChangelog();
     expect(atomValue.featuredChangelog).toBeUndefined();
     expect(atomValue.jsBundleVersion).toBe('222');
+  });
+});
+
+describe('OTA funnel telemetry reporting', () => {
+  const TELEMETRY_PATH = '/utility/v1/app-update/telemetry';
+  let service: ReturnType<typeof createService>;
+  let post: jest.Mock;
+
+  // reportOtaTelemetry is fire-and-forget; drain its promise chain
+  async function flushTelemetry() {
+    for (let i = 0; i < 20; i += 1) {
+      await Promise.resolve();
+    }
+  }
+
+  function telemetryBodies() {
+    return post.mock.calls
+      .filter(([path]) => path === TELEMETRY_PATH)
+      .map(([, body]) => body);
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    // Earlier suites mutate the shared platformEnv mock
+    Object.assign(platformEnv, { version: '1.0.0', bundleVersion: '1' });
+    resetAtom();
+    resetPendingTask();
+    resetSyncStorageBackingMap();
+    jest.clearAllMocks();
+    service = createService();
+    post = jest.fn(async () => ({ status: 204, data: '' }));
+    jest.spyOn(service, 'getRawDataClient').mockResolvedValue({ post });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  test('classifies INSTALL_SUCCESS after a hot update restart as hotUpdate', async () => {
+    // Runtime bundle (mocked platformEnv.bundleVersion = '1') equals the target,
+    // so getUpdateFileType() alone would return appShell.
+    resetAtom({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '1',
+      status: EAppUpdateStatus.ready,
+    });
+
+    await service.refreshUpdateStatus();
+    await flushTelemetry();
+
+    expect(telemetryBodies()).toEqual([
+      expect.objectContaining({
+        category: 'hotUpdate',
+        targetVersion: '1.0.0',
+        bundleVersion: 1,
+        event: 'INSTALL_SUCCESS',
+      }),
+    ]);
+    expect(atomValue.jsBundleVersion).toBeUndefined();
+  });
+
+  test('classifies INSTALL_SUCCESS after an app shell update as fullUpdate', async () => {
+    resetAtom({
+      latestVersion: '1.0.0',
+      jsBundleVersion: undefined,
+      status: EAppUpdateStatus.ready,
+    });
+
+    await service.refreshUpdateStatus();
+    await flushTelemetry();
+
+    const [body] = telemetryBodies();
+    expect(body).toEqual(
+      expect.objectContaining({
+        category: 'fullUpdate',
+        targetVersion: '1.0.0',
+        event: 'INSTALL_SUCCESS',
+      }),
+    );
+    expect(body.bundleVersion).toBeUndefined();
+  });
+
+  test('skips INSTALL_SUCCESS when first launch is from a rollback to built-in bundle', async () => {
+    resetAtom({
+      latestVersion: '1.0.0',
+      jsBundleVersion: '0',
+      isRollbackTarget: true,
+      status: EAppUpdateStatus.ready,
+    });
+
+    await service.refreshUpdateStatus();
+    await flushTelemetry();
+
+    expect(telemetryBodies()).toEqual([]);
+  });
+
+  test('reports INSTALL_OR_APPLY_ERROR when a bundle switch task reaches a terminal failure', async () => {
+    const task = {
+      taskId: 'task-1',
+      revision: 1,
+      type: EPendingInstallTaskType.jsBundleSwitch,
+      action: EPendingInstallTaskAction.switchBundle,
+      status: EPendingInstallTaskStatus.pending,
+      targetAppVersion: '1.0.0',
+      targetBundleVersion: '7',
+      retryCount: 2,
+    };
+    resetPendingTask(task);
+    const pendingTaskService = service.backgroundApi.servicePendingInstallTask;
+    // The terminal path logs through helpers the shared logger mock omits
+    const { defaultLogger } = jest.requireMock(
+      '@onekeyhq/shared/src/logger/logger',
+    );
+    const appUpdateLogger = defaultLogger.app.appUpdate;
+    for (const name of [
+      'pendingTaskCleared',
+      'updateControlFrozenOrIgnored',
+      'fullFlowRetryTriggered',
+    ]) {
+      appUpdateLogger[name] = appUpdateLogger[name] ?? jest.fn();
+    }
+
+    await pendingTaskService.markTaskFailed(task, 'install failed', 'trace-1');
+    await flushTelemetry();
+
+    expect(telemetryBodies()).toEqual([
+      expect.objectContaining({
+        category: 'hotUpdate',
+        targetVersion: '1.0.0',
+        bundleVersion: 7,
+        event: 'INSTALL_FAILED',
+        errorCode: 'INSTALL_OR_APPLY_ERROR',
+        errorSample: 'RETRY_EXHAUSTED',
+      }),
+    ]);
+  });
+
+  test('reports download and verify events in order, deduped per session', async () => {
+    resetAtom({ status: EAppUpdateStatus.notify, latestVersion: '2.0.0' });
+    await service.downloadPackage();
+    await flushTelemetry();
+
+    atomValue = { ...atomValue, status: EAppUpdateStatus.verifyASC };
+    await service.verifyPackage();
+    await flushTelemetry();
+    // Re-entering verification must not re-send DOWNLOAD_SUCCESS
+    await service.verifyPackage();
+    await flushTelemetry();
+
+    atomValue = {
+      ...atomValue,
+      downloadUrl: 'https://cdn.onekey.so/app.zip',
+      downloadedEvent: {
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://cdn.onekey.so/app.zip',
+      },
+    };
+    await service.readyToInstall();
+    await flushTelemetry();
+
+    expect(telemetryBodies().map((b) => b.event)).toEqual([
+      'DOWNLOAD_START',
+      'DOWNLOAD_SUCCESS',
+      'VERIFY_SUCCESS',
+    ]);
+    expect(telemetryBodies()[0]).toEqual(
+      expect.objectContaining({
+        category: 'fullUpdate',
+        targetVersion: '2.0.0',
+      }),
+    );
+  });
+
+  test('maps verify failures to whitelisted error codes', async () => {
+    resetAtom({
+      status: EAppUpdateStatus.verifyPackage,
+      latestVersion: '2.0.0',
+    });
+    await service.verifyPackageFailed({
+      message: 'checksum failed',
+    });
+    await flushTelemetry();
+
+    resetAtom({ status: EAppUpdateStatus.verifyASC, latestVersion: '2.0.0' });
+    await service.verifyASCFailed({
+      message: 'signature failed',
+    });
+    await flushTelemetry();
+
+    expect(
+      telemetryBodies().map((b) => [b.event, b.errorCode, b.errorSample]),
+    ).toEqual([
+      ['VERIFY_FAILED', 'SHA256_MISMATCH', undefined],
+      ['VERIFY_FAILED', 'SIGNATURE_INVALID', undefined],
+    ]);
+  });
+
+  test.each([
+    ['timeout https://private.example/path', 'NETWORK_TIMEOUT'],
+    ['ENOSPC /private/user/path', 'DISK_SPACE_INSUFFICIENT'],
+    ['404', 'DOWNLOAD_HTTP_ERROR'],
+    ['unclassified private message', 'UNKNOWN_ERROR'],
+  ])(
+    'normalizes a legacy download error without sending its message: %s',
+    async (message, errorCode) => {
+      resetAtom({
+        status: EAppUpdateStatus.downloadPackage,
+        latestVersion: '2.0.0',
+      });
+      await service.downloadPackageFailed({ message });
+      await flushTelemetry();
+
+      expect(telemetryBodies()).toEqual([
+        expect.objectContaining({ event: 'DOWNLOAD_FAILED', errorCode }),
+      ]);
+      expect(telemetryBodies()[0].errorSample).toBeUndefined();
+      expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackageFailed);
+    },
+  );
+
+  test('aborts a stalled telemetry request without blocking the download', async () => {
+    post.mockImplementation(() => new Promise(() => {}));
+    resetAtom({ status: EAppUpdateStatus.notify, latestVersion: '2.0.0' });
+
+    await expect(service.downloadPackage()).resolves.toBeUndefined();
+    await flushTelemetry();
+    const options = post.mock.calls[0][2];
+    expect(options.signal.aborted).toBe(false);
+    expect(options.timeout).toBe(3000);
+    jest.advanceTimersByTime(3000);
+    expect(options.signal.aborted).toBe(true);
+    expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
+  });
+
+  test('swallows network errors without affecting state transitions', async () => {
+    post.mockRejectedValue(new Error('network down'));
+    resetAtom({ status: EAppUpdateStatus.notify, latestVersion: '2.0.0' });
+
+    await expect(service.downloadPackage()).resolves.toBeUndefined();
+    await flushTelemetry();
+
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
   });
 });
