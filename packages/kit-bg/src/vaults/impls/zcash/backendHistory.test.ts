@@ -12,6 +12,7 @@ import type {
 
 import {
   fetchCompleteZcashBackendHistory,
+  markZcashBackendShieldedCounterparty,
   normalizeZcashBackendHistoryTx,
   restoreZcashBackendSelfTransfer,
   zcashSelfTransferDetailCache,
@@ -261,9 +262,11 @@ describe('normalizeZcashBackendHistoryTx', () => {
         },
       ],
     });
-    expect(tx.from).toBe('Shielded');
+    expect(tx.from).toBe('');
+    expect(tx.shieldedCounterparty).toBe('from');
     expect(tx.sends).toHaveLength(1);
     expect(tx.sends[0].type).toBe(EOnChainHistoryTransferType.Shielded);
+    expect(tx.sends[0]).toMatchObject({ address: '', label: '' });
     expect(tx.sends[0].amount).toBe('0.028112');
     expect(tx.receives).toHaveLength(1);
   });
@@ -288,10 +291,54 @@ describe('normalizeZcashBackendHistoryTx', () => {
       ],
       receives: [],
     });
-    expect(tx.to).toBe('Shielded');
+    expect(tx.to).toBe('');
+    expect(tx.shieldedCounterparty).toBe('to');
     expect(tx.receives.map((r) => r.type)).toEqual([
       EOnChainHistoryTransferType.Shielded,
     ]);
+  });
+
+  it('keeps an address the indexer did report on the shielded side', () => {
+    const tx = normalizeZcashBackendHistoryTx({
+      ...base,
+      type: EOnChainHistoryTxType.Receive,
+      from: 't1sender',
+      sends: [],
+      receives: [],
+    });
+    expect(tx.from).toBe('t1sender');
+    expect(tx.shieldedCounterparty).toBeUndefined();
+  });
+
+  it('marks only the shielded side of the built action', () => {
+    const builtRow = () =>
+      ({
+        decodedTx: {
+          actions: [
+            {
+              assetTransfer: { from: '', to: 't1own', sends: [], receives: [] },
+            },
+          ],
+        },
+      }) as unknown as IAccountHistoryTx;
+    const receive = builtRow();
+    markZcashBackendShieldedCounterparty({
+      onChainHistoryTx: { ...base, shieldedCounterparty: 'from' },
+      historyTx: receive,
+    });
+    expect(receive.decodedTx.actions[0].assetTransfer).toEqual({
+      from: '',
+      to: 't1own',
+      shieldedFrom: {},
+      sends: [],
+      receives: [],
+    });
+    const plain = builtRow();
+    markZcashBackendShieldedCounterparty({
+      onChainHistoryTx: base,
+      historyTx: plain,
+    });
+    expect(plain).toEqual(builtRow());
   });
 
   it('leaves an ordinary transparent transfer alone', () => {

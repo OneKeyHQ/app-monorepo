@@ -12,7 +12,7 @@ import {
   IMPL_XMR,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
@@ -111,6 +111,7 @@ const settings: IVaultSettings = {
     // Zcash): the runtime is the only source of truth here.
     privateAddressPattern:
       '^(?:[1-9A-HJ-NP-Za-km-z]{95}|[1-9A-HJ-NP-Za-km-z]{106})$',
+    hiddenEndpointLabelId: ETranslationsMock.privacy_history_private__label,
     // Base58 lengths of 69..87 address bytes: every type monero-address
     // parses, incl. featured addresses (97/108 chars).
     addressShapePattern: '^[1-9A-HJ-NP-Za-km-z]{95,120}$',
