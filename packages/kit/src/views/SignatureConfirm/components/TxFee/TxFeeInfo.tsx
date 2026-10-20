@@ -230,13 +230,18 @@ function TxFeeInfo(props: IProps) {
   // estimated for and Prime re-checks that identity at execute time. When the
   // user logs in / out or switches account while this page is open, drop the
   // old quote and re-estimate so the send carries a quote for the current
-  // session. Gated to flows that request sponsorship; a change seen during
-  // submit is held by the hook and applied once submission ends, so a failed
+  // session. Gated to flows that request sponsorship and to moments when the
+  // estimator can actually run: it is paused while a custom fee is selected
+  // or a submit is in flight (see `overrideIsFocused` on the estimate poll),
+  // and `run()` is a no-op then, so asking for a re-estimate would only leave
+  // `txFeeInfoInit` false and the confirm button disabled. The hook holds the
+  // change meanwhile and applies it as soon as estimation resumes, so a failed
   // attempt never retries the previous identity's quote.
   useOneKeyIdIdentityChange({
     enabled:
       !gasAccountDisabledByScenario &&
       !gasAccountTemporarilyDisabled &&
+      sendSelectedFee.feeType !== EFeeType.Custom &&
       !sendTxStatus.isSubmitting,
     onChange: () => {
       resetGasAccountUiState();
