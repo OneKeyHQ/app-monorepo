@@ -8,18 +8,19 @@ import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Dialog,
   Icon,
-  Illustration,
-  NumberSizeableText,
+  NATIVE_HIT_SLOP,
   SizableText,
   Skeleton,
   Stack,
   XStack,
   YStack,
+  useClipboard,
   useInTabDialog,
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -38,10 +39,12 @@ import { InviteeRewardNoWallet } from '../../components/InviteeRewardNoWallet';
 import { ReferralCardEmpty } from '../../components/ReferralCardEmpty';
 import { BenefitsTabPlaceholder } from '../InviteReward/components/BenefitsTabPlaceholder';
 import { INVITE_REWARD_SUBJECT_ICON } from '../InviteReward/components/getInviteRewardRows';
+import { REFERRAL_USD_SOURCE_PROPS } from '../InviteReward/components/shared/getRewardSummary';
 import {
   COMPACT_ENTRY_TITLE_PROPS,
   COMPACT_ROW_BLEED_PROPS,
   COMPACT_ROW_ICON_PROPS,
+  POINTER_ROW_BLEED_PROPS,
   PRESSABLE_SURFACE_PROPS,
   useInviteHomeCardStyle,
 } from '../InviteReward/components/useInviteCardStyle';
@@ -50,8 +53,8 @@ type IRewardModule = keyof IInviteeRewardsOverview;
 
 // Hardcoded English until i18n keys are added in Lokalise.
 const MY_REWARDS_COPY = {
-  addressLabel: 'Rewards address',
-  addressScope: 'Only this address is counted',
+  addressScope: 'Rewards are counted per address',
+  noEvmAddress: 'No EVM address',
   noWalletTitle: 'Connect a wallet to view rewards',
   unsupportedTitle: 'This account has no EVM address',
   unsupportedDescription: 'Switch to an EVM account to view rewards',
@@ -84,7 +87,7 @@ const DESKTOP_ROW_BLEED_PROPS = {
 
 // A paid or unpaid figure: a token amount, or the server-formatted Earn text.
 type IRewardValue =
-  | { kind: 'amount'; amount: string; symbol: string }
+  | { kind: 'amount'; amount: string }
   | { kind: 'text'; text: IEarnText; extraCount: number };
 
 interface IModuleRow {
@@ -119,12 +122,33 @@ function hasNoRewards(overview?: IInviteeRewardsOverview) {
   );
 }
 
+// Earn list titles arrive as token amounts, like "0.3976 USDC".
+function readUsdAmount(text: string | undefined) {
+  const match = text?.trim().match(/^[+-]?\d[\d,]*(?:\.\d+)?/);
+  if (!match) {
+    return undefined;
+  }
+  const amount = new BigNumber(match[0].replace(/,/g, ''));
+  return amount.isFinite() ? amount : undefined;
+}
+
 function getEarnValue(
   items: IEarnSummaryV2['distributed'] | IEarnSummaryV2['undistributed'],
 ): IRewardValue | undefined {
   if (!items.length) {
     return undefined;
   }
+  const amounts = items.map((item) => readUsdAmount(item.title.text));
+  if (amounts.every((amount): amount is BigNumber => amount !== undefined)) {
+    const total = amounts.reduce(
+      (sum, amount) => sum.plus(amount),
+      new BigNumber(0),
+    );
+    return total.gt(0)
+      ? { kind: 'amount', amount: total.toFixed() }
+      : undefined;
+  }
+  // A label that is not an amount stays as the server wrote it.
   return { kind: 'text', text: items[0].title, extraCount: items.length - 1 };
 }
 
@@ -152,17 +176,17 @@ function getModuleRow(
   if (result.status !== 'success') {
     return { module, status: 'error' };
   }
-  const { totalBonus, undistributed, token } = result.data;
+  const { totalBonus, undistributed } = result.data;
   const unpaid = new BigNumber(undistributed);
   const paid = new BigNumber(totalBonus).minus(unpaid);
+  // List figures are USDC amounts shown as USD in the wallet currency.
+  // Product detail dialogs still show the token.
   return {
     module,
     status: 'ready',
-    paid: paid.gt(0)
-      ? { kind: 'amount', amount: paid.toFixed(), symbol: token.symbol }
-      : undefined,
+    paid: paid.gt(0) ? { kind: 'amount', amount: paid.toFixed() } : undefined,
     unpaid: unpaid.gt(0)
-      ? { kind: 'amount', amount: unpaid.toFixed(), symbol: token.symbol }
+      ? { kind: 'amount', amount: unpaid.toFixed() }
       : undefined,
   };
 }
@@ -178,15 +202,15 @@ function RewardValue({
 }) {
   if (value.kind === 'amount') {
     return (
-      <NumberSizeableText
+      <Currency
         size={size}
         color={color}
         formatter="value"
-        formatterOptions={{ tokenSymbol: value.symbol }}
         numberOfLines={1}
+        {...REFERRAL_USD_SOURCE_PROPS}
       >
         {value.amount}
-      </NumberSizeableText>
+      </Currency>
     );
   }
   return (
@@ -212,41 +236,79 @@ function SubduedNote({ children }: { children: string }) {
   );
 }
 
-// The rewards address leads the tab like the earnings card leads the invite
-// tab: the label, the address as the figure, the account switch under it,
-// and the brand line art in the room the address leaves.
-function RewardsAddressCard({ address }: { address?: string }) {
-  const { md } = useMedia();
-  const cardStyle = useInviteHomeCardStyle();
+// The counted address as one quiet target: a tap anywhere on it copies the
+// full address, and the icon is only the cue, like the invite tab's code.
+function RewardsAddressValue({
+  address,
+  unsupported,
+  compact,
+}: {
+  address?: string;
+  unsupported: boolean;
+  compact: boolean;
+}) {
+  const { copyText } = useClipboard();
+  const copyAddress = useCallback(() => {
+    if (address) {
+      copyText(address);
+    }
+  }, [address, copyText]);
+
+  if (unsupported) {
+    return <SubduedNote>{MY_REWARDS_COPY.noEvmAddress}</SubduedNote>;
+  }
+  if (!address) {
+    return <Skeleton width={120} height={16} />;
+  }
   return (
-    <YStack p={md ? '$4' : '$5'} gap="$1" {...cardStyle}>
-      <SizableText size="$bodyLgMedium" color="$textSubdued">
-        {MY_REWARDS_COPY.addressLabel}
+    <XStack
+      testID="my-rewards-copy-address"
+      ai="center"
+      gap="$1.5"
+      flexShrink={0}
+      py="$1"
+      borderRadius="$2"
+      {...POINTER_ROW_BLEED_PROPS}
+      {...PRESSABLE_SURFACE_PROPS}
+      // The cell is 28px tall; the slop brings its touch area to 44px.
+      hitSlop={NATIVE_HIT_SLOP}
+      onPress={copyAddress}
+    >
+      <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+        {accountUtils.shortenAddress({
+          address,
+          ...(compact ? { leadingLength: 6, trailingLength: 4 } : null),
+        })}
       </SizableText>
-      <XStack ai="flex-start" gap="$4">
-        <YStack flex={1} minWidth={0} ai="flex-start" gap="$2">
-          <SizableText
-            size={md ? '$heading3xl' : '$heading4xl'}
-            numberOfLines={1}
-          >
-            {address
-              ? // Compact cards fit the address at figure size only when
-                // shorter, like the header account chip.
-                accountUtils.shortenAddress({
-                  address,
-                  ...(md ? { leadingLength: 6, trailingLength: 4 } : null),
-                })
-              : '-'}
-          </SizableText>
+      <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
+    </XStack>
+  );
+}
+
+// Whose rewards these are: the account switch and the counted address sit
+// together. Stretching them to opposite edges left a blank middle.
+function RewardsAddressCard({
+  address,
+  unsupported,
+}: {
+  address?: string;
+  unsupported: boolean;
+}) {
+  const { md } = useMedia();
+  return (
+    <YStack testID="my-rewards-address-card" gap="$1">
+      <XStack ai="center" gap="$4" minWidth={0}>
+        {/* A long account name truncates first, so the address stays whole. */}
+        <Stack flexShrink={1} minWidth={0}>
           <AccountSelectorTriggerHome num={0} hideAddress />
-          <SubduedNote>{MY_REWARDS_COPY.addressScope}</SubduedNote>
-        </YStack>
-        <Illustration
-          name="BlockPercentage"
-          size={md ? 64 : 80}
-          flexShrink={0}
+        </Stack>
+        <RewardsAddressValue
+          address={address}
+          unsupported={unsupported}
+          compact={md}
         />
       </XStack>
+      <SubduedNote>{MY_REWARDS_COPY.addressScope}</SubduedNote>
     </YStack>
   );
 }
@@ -658,7 +720,10 @@ export function MyRewardsContent() {
     // inset like the cards' text, as on the invite tab.
     return (
       <YStack px="$pagePadding" pt="$2" pb="$6" gap="$5">
-        <RewardsAddressCard address={walletAddress} />
+        <RewardsAddressCard
+          address={walletAddress}
+          unsupported={isUnsupported}
+        />
         <YStack gap="$2">
           <SizableText size="$bodyMdMedium" color="$textSubdued" px="$4">
             {sectionTitle}
@@ -672,11 +737,14 @@ export function MyRewardsContent() {
   return (
     <YStack pb="$6">
       <YStack px="$pagePadding">
-        <RewardsAddressCard address={walletAddress} />
+        <RewardsAddressCard
+          address={walletAddress}
+          unsupported={isUnsupported}
+        />
       </YStack>
-      {/* A wider gap splits the address card from the breakdown, and the
-          section title matches the invite tab's. */}
-      <YStack px="$pagePadding" pt="$10" gap="$3">
+      {/* A group gap: the header card scopes the table but is not part of
+          it. */}
+      <YStack px="$pagePadding" pt="$8" gap="$3">
         <SizableText size="$headingLg">{sectionTitle}</SizableText>
         {renderBreakdown()}
       </YStack>

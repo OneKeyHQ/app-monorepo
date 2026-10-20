@@ -7,6 +7,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 
 const mockReloadOverview = jest.fn();
 const mockShowDialog = jest.fn();
+const mockCopyText = jest.fn();
 let mockActiveAccount: {
   account?: { id: string };
   indexedAccount?: { id: string };
@@ -53,12 +54,14 @@ jest.mock('@onekeyhq/components', () => {
     Dialog: { show: showDialog },
     Icon: () => null,
     Illustration: () => null,
+    NATIVE_HIT_SLOP: undefined,
     NumberSizeableText: Primitive,
     SizableText: Primitive,
     Skeleton: () => null,
     Stack: Primitive,
     XStack: Primitive,
     YStack: Primitive,
+    useClipboard: () => ({ copyText: mockCopyText }),
     useInTabDialog: () => ({ show: showDialog }),
     useMedia: () => ({ md: false, gtMd: true }),
   };
@@ -81,6 +84,24 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 jest.mock('@onekeyhq/kit/src/components/AccountSelector', () => ({
   AccountSelectorTriggerHome: () => null,
 }));
+
+jest.mock('@onekeyhq/kit/src/components/Currency', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    Currency: ({
+      children,
+      sourceCurrency,
+    }: {
+      children?: ReactNode;
+      sourceCurrency?: string;
+    }) =>
+      React.createElement(
+        'span',
+        { 'data-source-currency': sourceCurrency },
+        children,
+      ),
+  };
+});
 
 jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({
   ListItem: () => null,
@@ -138,6 +159,7 @@ jest.mock('../InviteReward/components/useInviteCardStyle', () => ({
   COMPACT_ENTRY_TITLE_PROPS: {},
   COMPACT_ROW_BLEED_PROPS: {},
   COMPACT_ROW_ICON_PROPS: {},
+  POINTER_ROW_BLEED_PROPS: {},
   PRESSABLE_SURFACE_PROPS: {},
   useInviteHomeCardStyle: () => ({}),
 }));
@@ -148,6 +170,7 @@ describe('MyRewardsContent', () => {
   beforeEach(() => {
     mockReloadOverview.mockReset();
     mockShowDialog.mockReset();
+    mockCopyText.mockReset();
     mockActiveAccount = {
       account: { id: 'hd-1--account' },
       indexedAccount: { id: 'hd-1--0' },
@@ -191,16 +214,43 @@ describe('MyRewardsContent', () => {
   it('shows the unsupported state when the account has no EVM address', () => {
     mockEarnAccountResult = { result: null, isLoading: false };
     render(<MyRewardsContent />);
+    const header = screen.getByTestId('my-rewards-address-card');
+    expect(header.textContent).toContain('No EVM address');
+    expect(header.textContent).not.toContain('-');
     expect(screen.getByText('This account has no EVM address')).toBeTruthy();
+    expect(screen.queryByTestId('my-rewards-copy-address')).toBeNull();
+  });
+
+  it('shows the counted address shortened and copies it in full', () => {
+    const address = '0x4EF8800000000000000000000000000000A296e';
+    mockEarnAccountResult = {
+      result: { accountId: 'evm-account', accountAddress: address },
+      isLoading: false,
+    };
+    render(<MyRewardsContent />);
+    const copyCell = screen.getByTestId('my-rewards-copy-address');
+    expect(copyCell.textContent).toBe('0x4EF880...0A296e');
+    expect(screen.getByTestId('my-rewards-address-card').textContent).toContain(
+      'Rewards are counted per address',
+    );
+
+    fireEvent.click(copyCell);
+    expect(mockCopyText).toHaveBeenCalledWith(address);
   });
 
   it('splits each product into paid and unpaid and isolates a failure', () => {
     render(<MyRewardsContent />);
-    const perps = screen.getByTestId('my-rewards-module-perps').textContent;
-    expect(perps).toContain('4');
-    expect(perps).toContain('1');
-    expect(screen.getByTestId('my-rewards-module-swap').textContent).toContain(
-      '9',
+    const perps = screen.getByTestId('my-rewards-module-perps');
+    expect(perps.textContent).toContain('4');
+    expect(perps.textContent).toContain('1');
+    expect(screen.getByTestId('my-rewards-copy-address')).toBeTruthy();
+    expect(perps.querySelectorAll('[data-source-currency="usd"]')).toHaveLength(
+      2,
+    );
+    const swap = screen.getByTestId('my-rewards-module-swap');
+    expect(swap.textContent).toContain('9');
+    expect(swap.querySelectorAll('[data-source-currency="usd"]')).toHaveLength(
+      2,
     );
     expect(screen.getByTestId('my-rewards-module-earn').textContent).toContain(
       'Unable to load',
@@ -213,6 +263,41 @@ describe('MyRewardsContent', () => {
 
     fireEvent.click(screen.getByTestId('my-rewards-module-earn'));
     expect(mockReloadOverview).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows DeFi token amounts as wallet currency', () => {
+    const empty = {
+      totalBonus: '0',
+      undistributed: '0',
+      token: { symbol: 'USDC', logoURI: '' },
+      history: [],
+    };
+    mockOverviewResult = {
+      result: {
+        perps: { status: 'success', data: empty },
+        swap: { status: 'success', data: empty },
+        earn: {
+          status: 'success',
+          data: {
+            distributed: [{ title: { text: '0.3976 USDC' } }],
+            undistributed: [
+              { title: { text: '0.02 USDC' } },
+              { title: { text: '0.01 USDC' } },
+            ],
+          },
+        },
+      },
+      isLoading: false,
+    };
+    render(<MyRewardsContent />);
+    const earn = screen.getByTestId('my-rewards-module-earn');
+    expect(earn.textContent).toContain('0.3976');
+    expect(earn.textContent).toContain('0.03');
+    expect(earn.textContent).not.toContain('USDC');
+    expect(earn.textContent).not.toContain('more');
+    expect(earn.querySelectorAll('[data-source-currency="usd"]')).toHaveLength(
+      2,
+    );
   });
 
   it('falls back to the perks placeholder when no module has rewards', () => {
