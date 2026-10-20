@@ -244,7 +244,9 @@ function WebReferralBindContainerInner() {
     ) {
       generationRef.current += 1;
       try {
-        void Promise.resolve(dialogRef.current.close()).catch(() => undefined);
+        void Promise.resolve(
+          dialogRef.current.close({ flag: 'referral-context-changed' }),
+        ).catch(() => undefined);
       } catch {
         // The stale prompt remains unable to bind after its route or identity changes.
       }
@@ -325,8 +327,11 @@ function WebReferralBindContainerInner() {
               </SizableText>
             </YStack>
           ),
-          onClose: () => {
+          onClose: (extra) => {
             if (dialogRef.current === ownDialog) {
+              if (extra?.flag === 'referral-context-changed') {
+                shownIdentitiesRef.current.delete(promptKey(current));
+              }
               dialogRef.current = undefined;
               openIdentityRef.current = undefined;
               if (mountedRef.current) {

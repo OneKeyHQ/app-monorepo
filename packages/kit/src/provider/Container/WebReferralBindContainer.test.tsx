@@ -477,6 +477,110 @@ it('suppresses the same prompt across EVM chains and all-networks after cancel',
   expect(batchMock.mock.calls.length).toBeGreaterThan(initialChecks);
 });
 
+it('retries on the new EVM chain only after the stale dialog closes', async () => {
+  const closed = deferred<undefined>();
+  const firstDialog = dialogInstance();
+  firstDialog.close.mockReturnValue(closed.promise);
+  jest
+    .mocked(Dialog.show)
+    .mockReturnValueOnce(firstDialog as ReturnType<typeof Dialog.show>)
+    .mockReturnValueOnce(dialogInstance() as ReturnType<typeof Dialog.show>);
+  const view = render(<WebReferralBindContainer />);
+  const firstPrompt = await showPrompt();
+
+  if (mockBag.__webReferralTest) {
+    mockBag.__webReferralTest.active.network = { id: 'evm--10' };
+    mockBag.__webReferralTest.selected.networkId = 'evm--10';
+  }
+  view.rerender(<WebReferralBindContainer />);
+  expect(firstDialog.close).toHaveBeenCalledWith({
+    flag: 'referral-context-changed',
+  });
+  expect(Dialog.show).toHaveBeenCalledTimes(1);
+
+  await act(async () => {
+    await firstPrompt.onClose?.({ flag: 'referral-context-changed' });
+    closed.resolve(undefined);
+  });
+  await waitFor(() => expect(Dialog.show).toHaveBeenCalledTimes(2));
+  await act(async () => {
+    await firstPrompt.onConfirm?.({
+      ...firstDialog,
+      preventClose: jest.fn(),
+    });
+  });
+  expect(unsignedMessageMock).not.toHaveBeenCalled();
+
+  const secondPrompt = jest.mocked(Dialog.show).mock.calls[1][0];
+  const secondDialog = jest.mocked(Dialog.show).mock.results[1]
+    .value as ReturnType<typeof Dialog.show>;
+  await act(async () => {
+    await secondPrompt.onConfirm?.({
+      ...secondDialog,
+      preventClose: jest.fn(),
+    });
+  });
+  expect(mockBag.__webReferralTest?.navigate).toHaveBeenCalledWith(
+    expect.objectContaining({ networkId: 'evm--10' }),
+  );
+  expect(bindMock).toHaveBeenCalledWith(
+    expect.objectContaining({ networkId: 'evm--1' }),
+  );
+});
+
+it('retries after leaving and returning to an eligible route', async () => {
+  const firstDialog = dialogInstance();
+  jest
+    .mocked(Dialog.show)
+    .mockReturnValueOnce(firstDialog as ReturnType<typeof Dialog.show>);
+  render(<WebReferralBindContainer />);
+  const firstPrompt = await showPrompt();
+
+  changeRoute('modal');
+  expect(firstDialog.close).toHaveBeenCalledWith({
+    flag: 'referral-context-changed',
+  });
+  await act(async () => {
+    await firstPrompt.onClose?.({ flag: 'referral-context-changed' });
+  });
+  expect(Dialog.show).toHaveBeenCalledTimes(1);
+
+  changeRoute('main');
+  await waitFor(() => expect(Dialog.show).toHaveBeenCalledTimes(2));
+});
+
+it('keeps a user cancellation when the chain changes during dialog close', async () => {
+  const closed = deferred<undefined>();
+  const instance = dialogInstance();
+  instance.close.mockReturnValue(closed.promise);
+  jest
+    .mocked(Dialog.show)
+    .mockReturnValue(instance as ReturnType<typeof Dialog.show>);
+  const view = render(<WebReferralBindContainer />);
+  const prompt = await showPrompt();
+  const initialChecks = batchMock.mock.calls.length;
+
+  void (instance as ReturnType<typeof Dialog.show>).close({ flag: 'cancel' });
+  if (mockBag.__webReferralTest) {
+    mockBag.__webReferralTest.active.network = { id: 'evm--10' };
+    mockBag.__webReferralTest.selected.networkId = 'evm--10';
+  }
+  view.rerender(<WebReferralBindContainer />);
+  expect(instance.close).toHaveBeenCalledWith({
+    flag: 'referral-context-changed',
+  });
+
+  await act(async () => {
+    await prompt.onClose?.({ flag: 'cancel' });
+    closed.resolve(undefined);
+  });
+  await act(async () => {
+    await prompt.onClose?.({ flag: 'referral-context-changed' });
+  });
+  expect(Dialog.show).toHaveBeenCalledTimes(1);
+  expect(batchMock).toHaveBeenCalledTimes(initialChecks);
+});
+
 it('stops a delayed message after the account changes', async () => {
   const message = deferred<string>();
   unsignedMessageMock.mockReturnValue(message.promise);
@@ -568,6 +672,9 @@ it('does not resume an old signature after EVM chain A changes to B and back', a
   const instance = jest.mocked(Dialog.show).mock.results[0].value as ReturnType<
     typeof Dialog.show
   >;
+  jest.mocked(instance.close).mockImplementation(async (extra) => {
+    await prompt.onClose?.(extra);
+  });
   let confirming: void | Promise<void> | undefined;
   await act(async () => {
     confirming = prompt.onConfirm?.({ ...instance, preventClose: jest.fn() });
@@ -590,6 +697,7 @@ it('does not resume an old signature after EVM chain A changes to B and back', a
     await confirming;
   });
   expect(bindMock).not.toHaveBeenCalled();
+  expect(Dialog.show).toHaveBeenCalledTimes(1);
   expectNoSuccessSideEffects();
 });
 
