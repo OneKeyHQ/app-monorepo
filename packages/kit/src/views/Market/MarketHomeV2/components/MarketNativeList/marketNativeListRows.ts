@@ -315,14 +315,30 @@ function rowStyleForChange(
   };
 }
 
+// Long press opens the Favorites menu (move to top / remove) on watchlist
+// rows, and the add/remove favorite menu on every other list.
+function resolveLongPressActionKey({
+  watchlist,
+  favoriteMenu,
+}: {
+  watchlist?: boolean;
+  favoriteMenu?: boolean;
+}) {
+  if (watchlist) return 'watchlist-menu';
+  if (favoriteMenu) return 'favorite-menu';
+  return undefined;
+}
+
 export function buildTokenMarketRow({
   item,
   presentation,
   watchlist = false,
+  favoriteMenu = false,
 }: {
   item: IMarketToken;
   presentation: IMarketNativeListPresentation;
   watchlist?: boolean;
+  favoriteMenu?: boolean;
 }): MarketRow {
   const key = marketTokenKey(item);
   const isPerp = Boolean(item.perpsCoin);
@@ -386,7 +402,7 @@ export function buildTokenMarketRow({
       : tokenBadges(item, presentation),
     pressActionKey: 'open-detail',
     pressInActionKey: isPerp ? undefined : 'prewarm-detail',
-    longPressActionKey: watchlist ? 'watchlist-menu' : undefined,
+    longPressActionKey: resolveLongPressActionKey({ watchlist, favoriteMenu }),
     style: rowStyleForChange(TOKEN_ROW_STYLE, Number(rawChange)),
   };
 }
@@ -395,9 +411,11 @@ export function buildStockMarketRow({
   item,
   presentation,
   favorite,
+  favoriteMenu = false,
 }: {
   item: IMarketStockPublicItem;
   presentation: IMarketNativeListPresentation;
+  favoriteMenu?: boolean;
   favorite?: {
     checked: boolean;
     disabled: boolean;
@@ -450,6 +468,7 @@ export function buildStockMarketRow({
     change,
     pressActionKey: 'open-detail',
     pressInActionKey: 'prewarm-stock-detail',
+    longPressActionKey: resolveLongPressActionKey({ favoriteMenu }),
     // Stock rows share the token row frame (32px logo, 4px line gap).
     style: rowStyleForChange(TOKEN_ROW_STYLE, changeValue),
   };
@@ -458,9 +477,11 @@ export function buildStockMarketRow({
 export function buildPerpsMarketRow({
   item,
   presentation,
+  favoriteMenu = false,
 }: {
   item: IMarketPerpsToken;
   presentation: IMarketNativeListPresentation;
+  favoriteMenu?: boolean;
 }): MarketRow {
   const price = formatNumber(item.markPrice, 'price', { currency: '$' });
   const change = buildChange(item.change24hPercent, presentation);
@@ -504,6 +525,7 @@ export function buildPerpsMarketRow({
       compact: true,
     }),
     pressActionKey: 'open-detail',
+    longPressActionKey: resolveLongPressActionKey({ favoriteMenu }),
     // Perps rows share the token row frame (72dp, 20dp padding, 4dp line gap).
     style: rowStyleForChange(TOKEN_ROW_STYLE, item.change24hPercent),
   };
@@ -513,9 +535,11 @@ export function buildTopCoinMarketRow({
   item,
   presentation,
   favorite,
+  favoriteMenu = false,
 }: {
   item: IMarketAssetListItem;
   presentation: IMarketNativeListPresentation;
+  favoriteMenu?: boolean;
   favorite?: {
     checked: boolean;
     disabled: boolean;
@@ -565,6 +589,7 @@ export function buildTopCoinMarketRow({
     priceSegments: price.textSegments,
     change,
     pressActionKey: 'open-detail',
+    longPressActionKey: resolveLongPressActionKey({ favoriteMenu }),
     style: rowStyleForChange(
       TOKEN_ROW_STYLE,
       Number(item.priceChange24hPercent),

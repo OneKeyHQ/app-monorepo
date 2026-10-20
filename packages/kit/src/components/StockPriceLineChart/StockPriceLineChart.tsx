@@ -128,8 +128,8 @@ export function StockPriceLineChart({
   // without the dashed price line lightweight-charts pairs it with.
   showCurrentPriceLabel?: boolean;
   // `stock`: quotes keep two decimals on the axis and the last-price badge.
-  // `full`: desktop prints the whole figure up to $1M (`$2,377.04`, ticks
-  // `$2,540`) instead of the compact `$2.38K`.
+  // `full`: prints the whole figure up to $1M (`$2,377.04`, ticks `$2,540`)
+  // instead of the compact `$2.38K`.
   priceScaleFormat?: 'stock' | 'full';
   testID?: string;
   // The hover card answers "when" and, by default, "how much". Hosts that must
@@ -371,9 +371,7 @@ export function StockPriceLineChart({
         priceTickFormatter={priceTickFormatter}
         priceFormatBase={priceFormatBase}
         compactPriceMaxCharacters={PRICE_SCALE_MAX_CHARACTERS}
-        // `full` relies on JS formatters, which only the web chart runs; the
-        // native WebView keeps its serializable compact form.
-        priceScaleFormat={priceScaleFormat === 'stock' ? 'stock' : undefined}
+        priceScaleFormat={priceScaleFormat}
         fontSize={11}
         useTimeScaleTickMarkWithoutUnit
         onHover={handleHover}

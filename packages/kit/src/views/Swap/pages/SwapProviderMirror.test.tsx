@@ -13,6 +13,7 @@ import {
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
   swapToTokenAmountAtom,
+  swapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap/atoms';
 import { prepareMarketSwapEntry } from '../../../states/jotai/contexts/swap/prepareSwapProEntry';
 import { jotaiContextStore } from '../../../states/jotai/utils/jotaiContextStore';
@@ -41,6 +42,34 @@ describe('Market modal initial token selection', () => {
     jotaiContextStore.storeCache.clear();
     jotaiContextStore.storeResetRequests.clear();
   });
+
+  it.each([ESwapTabSwitchType.STOCK, ESwapTabSwitchType.LIMIT])(
+    'resets a reused %s modal before an asset entry initializes',
+    (previousType) => {
+      const storeName = EJotaiContextStoreNames.swapModal;
+      const store = jotaiContextStore.getOrCreateStore({ storeName });
+      store.set(swapTypeSwitchAtom(), previousType);
+      const sol = {
+        networkId: 'sol--101',
+        contractAddress: '',
+        symbol: 'SOL',
+        decimals: 9,
+        isNative: true,
+      };
+      const view = render(
+        <SwapProviderMirror
+          storeName={storeName}
+          initialSelectedTokensOnInit={{
+            fromToken: sol,
+            swapType: ESwapTabSwitchType.SWAP,
+          }}
+        />,
+      );
+      expect(store.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.SWAP);
+      expect(store.get(swapSelectFromTokenAtom())).toEqual(sol);
+      view.unmount();
+    },
+  );
 
   it('keeps 0.1 BTC attached to BTC when an embedded bridge draft remounts', () => {
     const storeName = EJotaiContextStoreNames.marketSwap;
@@ -112,11 +141,17 @@ describe('Market modal initial token selection', () => {
         symbol: 'MARKET',
         decimals: 18,
       };
-      prepareMarketSwapEntry({ direction: 'from', storeName, token });
+      prepareMarketSwapEntry({
+        defaultTokens: [swapDefaultSetTokens['evm--1'].toToken!],
+        direction: 'from',
+        storeName,
+        token,
+      });
       const store = jotaiContextStore.getOrCreateStore({ storeName });
       store.set(swapFromTokenAmountAtom(), { value: '12', isInput: true });
       store.set(swapToTokenAmountAtom(), { value: '24', isInput: false });
       const entry = prepareMarketSwapEntry({
+        defaultTokens: [swapDefaultSetTokens['evm--1'].toToken!],
         direction: 'from',
         storeName,
         token: changed ? { ...token, contractAddress: '0xother' } : token,
@@ -185,6 +220,7 @@ describe('Market modal initial token selection', () => {
     async (direction) => {
       const storeName = EJotaiContextStoreNames.swapModal;
       const entry = prepareMarketSwapEntry({
+        defaultTokens: [swapDefaultSetTokens['evm--1'].toToken!],
         direction,
         storeName,
         token: {

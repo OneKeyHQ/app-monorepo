@@ -257,3 +257,46 @@ describe('formatChartPriceFullTicks', () => {
     ]);
   });
 });
+
+describe('full price mode in the native WebView', () => {
+  const nativeFormatChartPrice = runInNewContext(
+    `(${readFileSync(
+      'packages/kit/src/components/LightweightChart/utils/formatChartPrice.text-js',
+      'utf8',
+    )})`,
+  ) as typeof formatChartPrice;
+
+  it.each([
+    0, 0.000_411_4, 0.9999, 1, 341.7, 999.995, 2377.04, 2540, 108_432.17,
+    -2377.04, 999_999.99, 999_999.995, 1_234_567.8, 2.5e9,
+  ])('prints %s the same way as the TS formatter', (price) => {
+    for (const mode of ['cents', 'whole'] as const) {
+      expect(nativeFormatChartPrice(price, 10, false, mode)).toBe(
+        formatChartPrice(price, 10, false, mode),
+      );
+    }
+  });
+
+  it('prints ETH and BTC quotes in full', () => {
+    expect(nativeFormatChartPrice(2377.04, 10, false, 'cents')).toBe(
+      '$2,377.04',
+    );
+    expect(nativeFormatChartPrice(2540, 10, false, 'whole')).toBe('$2,540');
+    expect(nativeFormatChartPrice(108_432.17, 10, false, 'cents')).toBe(
+      '$108,432.17',
+    );
+    expect(nativeFormatChartPrice(108_500, 10, false, 'whole')).toBe(
+      '$108,500',
+    );
+  });
+
+  it('keeps distinct labels for a narrow ETH range', () => {
+    // A $5 step used to print $2.54K twice in the compact form.
+    expect(formatChartPriceFullTicks([2535, 2540, 2545, 2550])).toEqual([
+      '$2,535',
+      '$2,540',
+      '$2,545',
+      '$2,550',
+    ]);
+  });
+});
