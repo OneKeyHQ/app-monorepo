@@ -269,6 +269,14 @@ it.each([true, false])(
   },
 );
 
+it('shows the receive estimate as unavailable when the native price is zero', () => {
+  mockCurrent = { nativeToken: { ...nativeToken, price: '0' } };
+  render(<DustSweepSummary desktop onDone={jest.fn()} onDetails={jest.fn()} />);
+
+  expect(screen.getByText('— ETH')).toBeTruthy();
+  expect(screen.queryByText(/Infinity/)).toBeNull();
+});
+
 it.each([true, false])(
   'shows configured provider metadata with no selected token and formats zero fiat (desktop=%s)',
   (desktop) => {

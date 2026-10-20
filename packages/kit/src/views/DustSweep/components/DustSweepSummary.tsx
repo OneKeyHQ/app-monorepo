@@ -192,13 +192,15 @@ export function DustSweepSummary({
   const nativeToken = state.snapshot?.nativeToken ?? current?.nativeToken;
   // Before converting, estimate from the selection's market value (as Rabby
   // does) so it always matches the action label; afterwards show what arrived.
+  const nativePrice = new BigNumber(nativeToken?.price ?? NaN);
+  const hasNativePrice = nativePrice.isFinite() && nativePrice.gt(0);
   let amount = totals.receivedAmount;
   if (selecting)
-    amount = nativeToken?.price
-      ? new BigNumber(selectedValueUsd).div(nativeToken.price).toFixed()
+    amount = hasNativePrice
+      ? new BigNumber(selectedValueUsd).div(nativePrice).toFixed()
       : '0';
   const amountUnavailable = selecting
-    ? !nativeToken?.price
+    ? !hasNativePrice
     : totals.receiptUnavailable || unknown;
   // No receive token means no network to sweep on (e.g. a wallet with no
   // assets), so show zero instead of placeholders.
@@ -211,9 +213,9 @@ export function DustSweepSummary({
     if (selecting) receiveValue = formatFiat(selectedValueUsd);
     else
       receiveValue =
-        amountUnavailable || !nativeToken.price
+        amountUnavailable || !hasNativePrice
           ? '—'
-          : formatFiat(new BigNumber(amount).times(nativeToken.price));
+          : formatFiat(new BigNumber(amount).times(nativePrice));
   }
   let label = intl.formatMessage(
     { id: ETranslations.button_convert_tokens_estimated_amount },
