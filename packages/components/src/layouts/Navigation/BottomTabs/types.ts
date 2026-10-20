@@ -18,9 +18,10 @@ export type NativeBottomTabNavigationEventMap = {
    */
   tabPress: { data: undefined; canPreventDefault: true };
   /**
-   * Event which fires on long press on tab bar.
+   * Event which fires when the focused tab is pressed twice within the
+   * platform double-tap timeout, after both presses went through `tabPress`.
    */
-  tabLongPress: { data: undefined };
+  tabDoublePress: { data: undefined };
 };
 
 export type NativeBottomTabNavigationHelpers = NavigationHelpers<
@@ -155,7 +156,7 @@ export type NativeBottomTabNavigationConfig = Partial<
     | 'getBadge'
     | 'getBadgeBackgroundColor'
     | 'getBadgeTextColor'
-    | 'onTabLongPress'
+    | 'onTabDoublePress'
     | 'getActiveTintColor'
     | 'getHidden'
     | 'getTestID'

@@ -256,15 +256,15 @@ export function NativeBottomTabView({
     ],
     [descriptors, tabBarHidden],
   );
-  const onTabLongPress = useCallback(
+  const onTabDoublePress = useCallback(
     (index: number) => {
       const route = state.routes[index];
       if (!route) {
-        return false;
+        return;
       }
 
       navigation.emit({
-        type: 'tabLongPress',
+        type: 'tabDoublePress',
         target: route.key,
       });
     },
@@ -330,7 +330,7 @@ export function NativeBottomTabView({
       getLazy={getLazy}
       getFreezeOnBlur={getFreezeOnBlur}
       getSceneStyle={getSceneStyle}
-      onTabLongPress={onTabLongPress}
+      onTabDoublePress={onTabDoublePress}
       getPreventsDefault={getPreventsDefault}
       onIndexChange={onIndexChange}
     />
