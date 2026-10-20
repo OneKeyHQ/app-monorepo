@@ -71,7 +71,7 @@ const MY_REWARDS_COPY = {
   payoutTitle: 'Payout',
   paidTo: 'Paid to',
   addressRule: 'Rebates are counted and paid per address.',
-  earnSchedule: 'DeFi rebates are paid by the 10th of the next month.',
+  payoutSchedule: 'Rebates are paid by the 10th of the next month.',
   payoutGeneric: 'Rebates are paid to this address',
   payoutIn: (token: string, network?: string) =>
     network
@@ -366,7 +366,7 @@ function PayoutInfo({
             {MY_REWARDS_COPY.addressRule}
           </SizableText>
           <SizableText size="$bodyMd" color="$textSubdued">
-            {MY_REWARDS_COPY.earnSchedule}
+            {MY_REWARDS_COPY.payoutSchedule}
           </SizableText>
         </YStack>
       }
