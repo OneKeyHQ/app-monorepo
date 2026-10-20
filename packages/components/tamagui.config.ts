@@ -47,6 +47,7 @@ import {
   yellow,
   yellowDark,
 } from './colors';
+import { BRAND_FONT_NATIVE_FAMILY } from './src/hocs/Provider/fonts/brandFont';
 import { fs, s } from './src/utils/scale';
 import { webFontFamily } from './src/utils/webFontFamily';
 import { animations } from './tamagui.animations';
@@ -173,14 +174,16 @@ const monoMediumFontFamily = isTamaguiNative
   : '"GeistMono-Medium", "GeistMono-Regular", monospace';
 
 const font = createFont({
-  family: isTamaguiNative ? 'Roobert-Regular' : tamaguiWebFontFamily,
+  family: isTamaguiNative
+    ? BRAND_FONT_NATIVE_FAMILY.regular
+    : tamaguiWebFontFamily,
   ...(isTamaguiNative
     ? {
         face: {
-          400: { normal: 'Roobert-Regular' },
-          500: { normal: 'Roobert-Medium' },
-          600: { normal: 'Roobert-SemiBold' },
-          700: { normal: 'Roobert-Bold' },
+          400: { normal: BRAND_FONT_NATIVE_FAMILY.regular },
+          500: { normal: BRAND_FONT_NATIVE_FAMILY.medium },
+          600: { normal: BRAND_FONT_NATIVE_FAMILY.semibold },
+          700: { normal: BRAND_FONT_NATIVE_FAMILY.bold },
         },
       }
     : {}),
