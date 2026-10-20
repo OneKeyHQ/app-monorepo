@@ -9950,9 +9950,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-native-overlay@npm:6.7.0-alpha.337":
-  version: 6.7.0-alpha.337
-  resolution: "@onekeyfe/react-native-native-overlay@npm:6.7.0-alpha.337"
+"@onekeyfe/react-native-native-overlay@npm:6.7.0-alpha.340":
+  version: 6.7.0-alpha.340
+  resolution: "@onekeyfe/react-native-native-overlay@npm:6.7.0-alpha.340"
   peerDependencies:
     react: "*"
     react-dom: "*"
@@ -9960,7 +9960,7 @@ __metadata:
   peerDependenciesMeta:
     react-dom:
       optional: true
-  checksum: 10/d9f93244035850dc3e43f9101eab37bf33d3e4f4ce0828364bb4ed746c1fd1a07c6012947be803c04e7147b61f439cb7e68daac31e73557ba999e86f67ea9cbb
+  checksum: 10/de03d21573ecde92c904670158a8cfd770c71612553aa6143e210e6368ab3ee47ef4df31a2aa2736fa8991b2c3aea5f6cd56ca3a77c0f106e5ce419ae60587b2
   languageName: node
   linkType: hard
 
@@ -10405,7 +10405,7 @@ __metadata:
   resolution: "@onekeyhq/components@workspace:packages/components"
   dependencies:
     "@floating-ui/dom": "npm:^1.8.0"
-    "@onekeyfe/react-native-native-overlay": "npm:6.7.0-alpha.337"
+    "@onekeyfe/react-native-native-overlay": "npm:6.7.0-alpha.340"
     "@onekeyfe/react-native-scroll-guard": "npm:6.7.0-alpha.337"
     "@onekeyfe/react-native-segment-slider": "npm:6.7.0-alpha.337"
     "@onekeyfe/react-native-tab-view": "npm:6.7.0-alpha.337"
@@ -10606,7 +10606,7 @@ __metadata:
     "@onekeyfe/react-native-lite-card": "npm:6.7.0-alpha.337"
     "@onekeyfe/react-native-native-list": "npm:6.7.0-alpha.337"
     "@onekeyfe/react-native-native-logger": "npm:6.7.0-alpha.337"
-    "@onekeyfe/react-native-native-overlay": "npm:6.7.0-alpha.337"
+    "@onekeyfe/react-native-native-overlay": "npm:6.7.0-alpha.340"
     "@onekeyfe/react-native-network-throttle": "npm:6.7.0-alpha.337"
     "@onekeyfe/react-native-perf-memory": "npm:6.7.0-alpha.337"
     "@onekeyfe/react-native-perf-stats": "npm:6.7.0-alpha.337"
@@ -10738,7 +10738,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/playground@workspace:apps/playground"
   dependencies:
-    "@onekeyfe/react-native-native-overlay": "npm:6.7.0-alpha.337"
+    "@onekeyfe/react-native-native-overlay": "npm:6.7.0-alpha.340"
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/shared": "npm:*"
     "@originjs/vite-plugin-commonjs": "npm:^1.0.3"
