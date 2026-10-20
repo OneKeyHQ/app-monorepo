@@ -27,8 +27,7 @@ export function installXmrCarrier(): void {
       deriveAccount: api.deriveAccount,
       deriveSubaddress: api.deriveSubaddress,
       validateAddress: api.validateAddress,
-      spendScalar: api.spendScalar,
-      signTransaction: api.signTransaction,
+      signTransactionWithBip32Key: api.signTransactionWithBip32Key,
       verifyTransaction: api.verifyTransaction,
     };
   });

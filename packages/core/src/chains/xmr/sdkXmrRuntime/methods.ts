@@ -11,7 +11,6 @@ export const XMR_RUNTIME_METHODS = [
   // pure derivation -- no database, no node
   'deriveAccount',
   'deriveSubaddress',
-  'spendScalar',
   'validateAddress',
 
   // identities
@@ -34,9 +33,9 @@ export const XMR_RUNTIME_METHODS = [
   'diagDatabase',
 
   // spending
-  'importKeyImages',
+  'importKeyImagesWithBip32Key',
   'prepareTransaction',
-  'signTransaction',
+  'signTransactionWithBip32Key',
   'verifyTransaction',
   'verifySignedTransaction',
   'broadcastTransaction',
@@ -57,7 +56,7 @@ export const XMR_RUNTIME_U64_ARGS: Partial<
   balance: [0, 1],
   history: [0],
   transactionDetails: [0],
-  importKeyImages: [0],
+  importKeyImagesWithBip32Key: [0],
   prepareTransaction: [0, 3],
   broadcastTransaction: [0, 2],
 };

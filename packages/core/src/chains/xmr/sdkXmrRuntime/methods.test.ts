@@ -34,6 +34,25 @@ describe('xmr runtime method list', () => {
     expect(new Set(XMR_RUNTIME_METHODS).size).toBe(XMR_RUNTIME_METHODS.length);
   });
 
+  // The spend key stays inside the runtime: signing and key-image import take
+  // the BIP-32 key, and nothing hands a spend key across.
+  it('forwards no method that returns or takes a spend key', () => {
+    for (const method of [
+      'spendScalar',
+      'signTransaction',
+      'importKeyImages',
+    ]) {
+      expect(XMR_RUNTIME_METHODS as readonly string[]).not.toContain(method);
+    }
+    expect(XMR_RUNTIME_METHODS).toEqual(
+      expect.arrayContaining([
+        'signTransactionWithBip32Key',
+        'importKeyImagesWithBip32Key',
+      ]),
+    );
+    expect(XMR_RUNTIME_U64_ARGS.importKeyImagesWithBip32Key).toEqual([0]);
+  });
+
   /**
    * The wasm package is a build artifact, not something `yarn install`
    * produces. When it is stale, every missing method fails the same way at

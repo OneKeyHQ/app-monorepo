@@ -18,14 +18,14 @@ function createVault(outputsWithoutKeyImage: number, spendsFound = 0) {
     listAccounts: async () =>
       JSON.stringify({ items: [{ accountId: 7, uuid: ACCOUNT_ID }] }),
     balance: jest.fn(async () => JSON.stringify({ outputsWithoutKeyImage })),
-    importKeyImages: jest.fn(async () =>
+    importKeyImagesWithBip32Key: jest.fn(async () =>
       JSON.stringify({ imported: outputsWithoutKeyImage, spendsFound }),
     ),
   };
   const keyring = Object.assign(
     Object.create(KeyringHd.prototype) as KeyringHd,
     {
-      xmrGetSpendPrivateKeyHex: jest.fn(async () => 'spend-key-hex'),
+      xmrGetKeyImageBip32PrivateKeyHex: jest.fn(async () => 'bip32-key-hex'),
     },
   );
   const promptPasswordVerifyByAccount = jest.fn(async () => ({
@@ -55,7 +55,7 @@ describe('xmr key images', () => {
     const { ensure, promptPasswordVerifyByAccount, api } = createVault(0);
     await ensure();
     expect(promptPasswordVerifyByAccount).not.toHaveBeenCalled();
-    expect(api.importKeyImages).not.toHaveBeenCalled();
+    expect(api.importKeyImagesWithBip32Key).not.toHaveBeenCalled();
   });
 
   it('imports key images from the password before a send when some are missing', async () => {
@@ -63,10 +63,15 @@ describe('xmr key images', () => {
       createVault(2);
     await ensure();
     expect(promptPasswordVerifyByAccount).toHaveBeenCalledTimes(1);
-    expect(keyring.xmrGetSpendPrivateKeyHex).toHaveBeenCalledWith({
+    expect(keyring.xmrGetKeyImageBip32PrivateKeyHex).toHaveBeenCalledWith({
       password: 'pw',
     });
-    expect(api.importKeyImages).toHaveBeenCalledWith('7', 'spend-key-hex');
+    // One crossing with the BIP-32 key; the runtime reduces the spend key.
+    expect(api.importKeyImagesWithBip32Key).toHaveBeenCalledTimes(1);
+    expect(api.importKeyImagesWithBip32Key).toHaveBeenCalledWith(
+      '7',
+      'bip32-key-hex',
+    );
   });
 
   it('reports password work only while outputs lack key images', async () => {
@@ -85,5 +90,30 @@ describe('xmr key images', () => {
     await expect(
       createVault(2, 0).vault.localWalletDoPasswordWork({ password: 'pw' }),
     ).resolves.toBe(false);
+  });
+});
+
+describe('xmr key-image key', () => {
+  it('fetches the BIP-32 key, not a spend key, from the core with the password credentials', async () => {
+    const getKeyImageBip32PrivateKeyHex = jest.fn(async () => 'bip32-key-hex');
+    const keyring = Object.assign(
+      Object.create(KeyringHd.prototype) as KeyringHd,
+      {
+        vault: { getAccount: async () => ({ id: ACCOUNT_ID }) },
+        coreApi: { getKeyImageBip32PrivateKeyHex },
+        baseGetCredentialsInfo: async () => ({ hd: 'hd-credential' }),
+        getCoreApiNetworkInfo: async () => ({ networkId: 'xmr--0' }),
+      },
+    );
+    await expect(
+      keyring.xmrGetKeyImageBip32PrivateKeyHex({ password: 'pw' }),
+    ).resolves.toBe('bip32-key-hex');
+    expect(getKeyImageBip32PrivateKeyHex).toHaveBeenCalledWith({
+      networkInfo: { networkId: 'xmr--0' },
+      account: { id: ACCOUNT_ID },
+      password: 'pw',
+      credentials: { hd: 'hd-credential' },
+    });
+    expect('xmrGetSpendPrivateKeyHex' in keyring).toBe(false);
   });
 });
