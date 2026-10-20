@@ -23,7 +23,10 @@ import {
 import { mergeLocalTxDisplayFields } from '../../../services/ServiceHistory';
 import VaultBtc from '../btc/Vault';
 
-import { restoreZcashLocalTransparentPayment } from './backendHistory';
+import {
+  restoreZcashLocalTransparentPayment,
+  zcashSelfTransferDetailCache,
+} from './backendHistory';
 import Vault from './Vault';
 
 import type { IEncodedTxZcash } from './types';
@@ -203,7 +206,10 @@ function createVault(initial = localPayment()) {
   return { vault, runtime, raw, getCached: () => cached };
 }
 
-afterEach(() => jest.restoreAllMocks());
+afterEach(() => {
+  jest.restoreAllMocks();
+  zcashSelfTransferDetailCache.clear();
+});
 
 it('retains the signed payment across confirmation, serialization and repeated refreshes', async () => {
   const { vault, runtime, getCached } = createVault();
@@ -327,6 +333,8 @@ it('recovers a legacy transparent Max self-payment from public I/O across refres
     networkId: params.networkId,
     txid,
   });
+  // Mined I/O is fetched once, not on every refresh.
+  expect(fetchDetail).toHaveBeenCalledTimes(1);
   expect(runtime).not.toHaveBeenCalled();
 });
 
