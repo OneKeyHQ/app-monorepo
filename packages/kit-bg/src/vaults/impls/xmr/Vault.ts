@@ -242,20 +242,19 @@ export default class Vault extends VaultBase {
     return network.isTestnet ? 'testnet' : 'mainnet';
   }
 
-  /**
-   * `enabled: false` is honoured, not worked around: unlike chains with a
-   * backend, disabling the node here means no data source at all - say so.
-   */
+  // An enabled custom node wins; otherwise the built-in one, so turning a
+  // custom node off never stops sync.
   async resolveXmrNodeUrl(): Promise<string> {
-    const record = await this.backgroundApi.serviceCustomRpc.ensureBuiltInRpc({
-      networkId: this.networkId,
-    });
-    if (!record?.rpc || !record.enabled) {
+    const url =
+      await this.backgroundApi.serviceCustomRpc.resolveRpcUrlWithBuiltIn({
+        networkId: this.networkId,
+      });
+    if (!url) {
       throw new OneKeyLocalError(
         localWalletText(ETranslations.privacy_error_no_node__msg),
       );
     }
-    return record.rpc;
+    return url;
   }
 
   async getXmrRuntimeApi(): Promise<IXmrRuntimeApi> {

@@ -140,17 +140,18 @@ export default class Vault extends VaultBtc {
     });
   }
 
+  // An enabled custom node wins; otherwise the built-in one, so turning a custom node off never stops sync.
   async zcashResolveLightwalletdUrl(): Promise<string> {
-    // This chain has no backend fallback: 'off' means no node can serve shielded data, so fail clearly here.
-    const record = await this.backgroundApi.serviceCustomRpc.ensureBuiltInRpc({
-      networkId: this.networkId,
-    });
-    if (!record?.rpc || !record.enabled) {
+    const url =
+      await this.backgroundApi.serviceCustomRpc.resolveRpcUrlWithBuiltIn({
+        networkId: this.networkId,
+      });
+    if (!url) {
       throw new OneKeyLocalError(
         localWalletText(ETranslations.privacy_error_no_node__msg),
       );
     }
-    return record.rpc;
+    return url;
   }
 
   // Probes via the scanner's transport; the node still needs gRPC-web, not just CORS-friendly networking.
