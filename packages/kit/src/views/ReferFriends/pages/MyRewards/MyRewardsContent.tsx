@@ -1054,6 +1054,7 @@ export function MyRewardsContent({
   const crossLink = onOpenInvite ? (
     <ReferralTabCrossLink
       testID="refer-friends-to-invite-link"
+      prompt={REFERRAL_TAB_COPY.toInvitePrompt}
       action={REFERRAL_TAB_COPY.toInviteAction}
       onPress={onOpenInvite}
     />
