@@ -41,12 +41,27 @@ const REST_SHARE_COLOR = '$neutral5';
 const SECONDS_PER_DAY = 24 * 60 * 60;
 // A third over the wallet home's 48px balance, so Net Worth leads the page;
 // the line height matches the size. A total too long for the hero beside the
-// banner (1024px) steps down to the wallet home's size
-const TOTAL_FONT_SIZE = 64;
-const COMPACT_TOTAL_FONT_SIZE = 48;
-// The width of the entry around the number: its left padding, the gap and the
-// chevron, at each size
-const ENTRY_CHROME_WIDTH = { 64: 54, 48: 46 } as const;
+// banner takes the largest of these that fits, the way a phone's auto-sizing
+// label shrinks, and keeps the 64px line
+const TOTAL_FONT_SIZES = [64, 60, 56, 52, 48, 44, 40] as const;
+type ITotalFontSize = (typeof TOTAL_FONT_SIZES)[number];
+const TOTAL_FONT_SIZE: ITotalFontSize = 64;
+const MIN_TOTAL_FONT_SIZE: ITotalFontSize = 40;
+// The chevron keeps about the same proportion to the number
+const CHEVRON_SIZE = {
+  64: { token: '$10', px: 40 },
+  60: { token: '$9', px: 36 },
+  56: { token: '$9', px: 36 },
+  52: { token: '$8', px: 32 },
+  48: { token: '$8', px: 32 },
+  44: { token: '$7', px: 28 },
+  40: { token: '$6', px: 24 },
+} as const;
+// The entry's left padding and the gap before the chevron
+const ENTRY_PADDING_WIDTH = 14;
+// Growing back needs this much room, so a total ticking over the edge of a
+// size does not flip between two
+const GROW_SPARE_WIDTH = 8;
 const MIN_TICK_MS = 1000;
 const MAX_TICK_MS = 60_000;
 
@@ -279,25 +294,24 @@ export function EarnDesktopHero({
     id: ETranslations.defi_net_worth,
   });
 
-  // The entry hugs the total, so at the hero's full width it has been cut
-  // short: step down a size. Back up once the full size would fit with room
+  // The size comes from an unseen copy of the total at 64px: the text scales
+  // with its size, so the largest size that fits is known in one step, with
+  // no frame of a cut-off number
   const [heroWidth, setHeroWidth] = useState(0);
-  const [entryWidth, setEntryWidth] = useState(0);
-  const [isCompact, setIsCompact] = useState(false);
-  if (heroWidth && entryWidth) {
-    if (!isCompact && entryWidth >= heroWidth - 1) {
-      setIsCompact(true);
-    } else if (isCompact) {
-      const fullWidth =
-        ((entryWidth - ENTRY_CHROME_WIDTH[48]) * TOTAL_FONT_SIZE) /
-          COMPACT_TOTAL_FONT_SIZE +
-        ENTRY_CHROME_WIDTH[64];
-      if (fullWidth < heroWidth - 24) {
-        setIsCompact(false);
-      }
+  const [fullWidth, setFullWidth] = useState(0);
+  const [fontSize, setFontSize] = useState<ITotalFontSize>(TOTAL_FONT_SIZE);
+  if (heroWidth && fullWidth) {
+    const fits = (size: ITotalFontSize) =>
+      (fullWidth * size) / TOTAL_FONT_SIZE +
+        ENTRY_PADDING_WIDTH +
+        CHEVRON_SIZE[size].px +
+        (size > fontSize ? GROW_SPARE_WIDTH : 0) <=
+      heroWidth;
+    const nextFontSize = TOTAL_FONT_SIZES.find(fits) ?? MIN_TOTAL_FONT_SIZE;
+    if (nextFontSize !== fontSize) {
+      setFontSize(nextFontSize);
     }
   }
-  const fontSize = isCompact ? COMPACT_TOTAL_FONT_SIZE : TOTAL_FONT_SIZE;
 
   let earningsRow: ReactNode = null;
   if (isLoading) {
@@ -365,6 +379,27 @@ export function EarnDesktopHero({
         onHeightChange?.(Math.round(height));
       }}
     >
+      {/* Unseen, at full size, so the total's size is picked before it shows */}
+      {isLoading ? null : (
+        <XStack
+          position="absolute"
+          t={0}
+          l={0}
+          opacity={0}
+          pointerEvents="none"
+          aria-hidden
+          onLayout={(event) =>
+            setFullWidth(Math.ceil(event.nativeEvent.layout.width))
+          }
+        >
+          <TotalValue
+            value={value}
+            currency={currency}
+            fontSize={TOTAL_FONT_SIZE}
+            isHidden={isHidden}
+          />
+        </XStack>
+      )}
       <YStack gap="$2">
         {/* The eye hides and shows values the way pressing the wallet home
             balance does */}
@@ -413,12 +448,9 @@ export function EarnDesktopHero({
             hoverStyle={{ bg: '$bgHover' }}
             pressStyle={{ bg: '$bgActive' }}
             onPress={onOpenPortfolio}
-            onLayout={(event) =>
-              setEntryWidth(Math.round(event.nativeEvent.layout.width))
-            }
             {...buildKeyboardPressProps(onOpenPortfolio)}
           >
-            {/* The compact size keeps the 64px line, so nothing below moves */}
+            {/* Every size keeps the 64px line, so nothing below moves */}
             <YStack h={TOTAL_FONT_SIZE} jc="center" minWidth={0} flexShrink={1}>
               <TotalValue
                 value={value}
@@ -429,7 +461,7 @@ export function EarnDesktopHero({
             </YStack>
             <Icon
               name="ChevronRightSmallOutline"
-              size={isCompact ? '$8' : '$10'}
+              size={CHEVRON_SIZE[fontSize].token}
               color="$iconSubdued"
               flexShrink={0}
             />
