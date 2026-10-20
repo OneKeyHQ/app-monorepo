@@ -2517,6 +2517,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       set,
       params: {
         assetId: number;
+        expectedAccountAddress?: string;
         formData?: ITradingFormData;
         slippage?: number;
         price: string;
@@ -2555,6 +2556,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             const result =
               await backgroundApiProxy.serviceHyperliquidExchange.orderOpen({
                 assetId: params.assetId,
+                expectedAccountAddress: params.expectedAccountAddress,
                 isBuy: formData.side === 'long',
                 size: resolvedSize,
                 price: params.price,
@@ -3094,6 +3096,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       set,
       params: {
         assetId: number;
+        expectedAccountAddress?: string;
         formData?: ITradingFormData;
         slippage?: number;
         price: string;
@@ -3152,6 +3155,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
       return this.orderOpen.call(set, {
         assetId: params.assetId,
+        expectedAccountAddress: params.expectedAccountAddress,
         formData,
         slippage: params.slippage,
         price: params.price,
@@ -3165,17 +3169,21 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       set,
       params: {
         asset: number;
+        expectedAccountAddress?: string;
         leverage: number;
         isCross: boolean;
       },
     ): Promise<{ leverage: number; isCross: boolean }> => {
       return withToast({
         asyncFn: async () => {
-          await backgroundApiProxy.serviceHyperliquidExchange.updateLeverage({
-            asset: params.asset,
-            leverage: params.leverage,
-            isCross: params.isCross,
-          });
+          await backgroundApiProxy.serviceHyperliquidExchange.updateLeverage(
+            {
+              asset: params.asset,
+              leverage: params.leverage,
+              isCross: params.isCross,
+            },
+            { expectedAccountAddress: params.expectedAccountAddress },
+          );
 
           const formData = get(tradingFormAtom());
           set(tradingFormAtom(), { ...formData, leverage: params.leverage });

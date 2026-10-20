@@ -77,3 +77,16 @@ describe('Perps mode on client initialization', () => {
     );
   });
 });
+
+describe('restored client preferences', () => {
+  it('does not seed Easy mode when identity was restored from backup', async () => {
+    const { initializePreferences } = await import('./initializePreferences');
+    const { onekeyJotaiStorage } = await import('./jotaiStorage');
+    const write = jest.spyOn(onekeyJotaiStorage, 'setItem');
+    write.mockClear();
+    const storage = new Map<string, unknown>();
+    await initializePreferences(storage, true);
+    expect(write).not.toHaveBeenCalled();
+    expect(storage.size).toBe(0);
+  });
+});
