@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useIntl } from 'react-intl';
 import { AppState } from 'react-native';
 
-import { useInTabDialog } from '@onekeyhq/components';
+import { Toast, useInTabDialog } from '@onekeyhq/components';
 import { acquireDeferredGuideBlocker } from '@onekeyhq/components/src/hooks/useDeferredGuideBlocker';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -21,6 +21,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import { EAppUpdatePackageErrorCode } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
@@ -689,6 +690,19 @@ export function useAppUpdateForegroundEffects(enabled = true) {
       appEventBus.off(EAppEventBusNames.StartAutoDownloadUpdate, handler);
     };
   }, [downloadPackage, enabled]);
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+    const handler = () => {
+      Toast.error({
+        title: intl.formatMessage({ id: ETranslations.global_update_failed }),
+      });
+    };
+    appEventBus.on(EAppEventBusNames.BundleUpdateRestartFailed, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.BundleUpdateRestartFailed, handler);
+    };
+  }, [enabled, intl]);
 
   useEffect(() => {
     if (!enabled) return undefined;

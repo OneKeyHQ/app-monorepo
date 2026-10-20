@@ -3229,6 +3229,42 @@ describe('useAppUpdateInfo useEffect', () => {
 
   // ----- C5. fetchUpdateInfo result handling -----
   describe('fetchUpdateInfo result handling', () => {
+    test('seamless restart failure shows an error and removes the UI listener on unmount', async () => {
+      setAtom({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '24910529',
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.seamless,
+        downloadedEvent: {
+          downloadedFile: '/tmp/bundle.zip',
+          signature: 'signature',
+          sha256: 'sha256',
+        },
+      });
+      bundleUpd.installBundle.mockResolvedValue(undefined);
+      const hooks = requireFreshHooks();
+      const hook = renderHook(() => hooks.useAppUpdateInfo(false, true));
+      await act(async () => {
+        await jest.runAllTimersAsync();
+        appEventBus.emitToSelf({
+          type: EAppEventBusNames.BundleUpdateRestartFailed,
+          payload: undefined,
+        });
+      });
+      expect(mockToastError).toHaveBeenCalledTimes(1);
+      expect(mockToastError).toHaveBeenCalledWith({
+        title: ETranslations.global_update_failed,
+      });
+      expect(mockAtomHolder.value.status).toBe(EAppUpdateStatus.ready);
+
+      hook.unmount();
+      appEventBus.emitToSelf({
+        type: EAppEventBusNames.BundleUpdateRestartFailed,
+        payload: undefined,
+      });
+      expect(mockToastError).toHaveBeenCalledTimes(1);
+    });
+
     test('startup uses the reconciled JS bundle state instead of installing a stale ready snapshot', async () => {
       setAtom({
         latestVersion: '1.0.0',
