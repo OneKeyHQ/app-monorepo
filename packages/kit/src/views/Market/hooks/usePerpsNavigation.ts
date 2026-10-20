@@ -4,9 +4,10 @@ import { findFocusedRoute } from '@react-navigation/core';
 import { Semaphore } from 'async-mutex';
 import { useIntl } from 'react-intl';
 
-import { Toast, rootNavigationRef } from '@onekeyhq/components';
+import { Toast, rootNavigationRef, useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
+import { perpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { WEBVIEW_PERP_TRADE_INITIAL_WAIT_MS } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -17,8 +18,10 @@ import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { IWebviewPerpTradeParamList } from '@onekeyhq/shared/src/routes';
+import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { EModalMarketRoutes } from '../router/types';
@@ -78,6 +81,7 @@ function waitForPerpsEntryRoute({
 export function usePerpsNavigation(source?: EPerpPageEnterSource) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const { gtMd } = useMedia();
   const { perpDisabled, perpTabShowWeb } = usePerpTabConfig();
 
   const navigateToPerps = useCallback(
@@ -229,6 +233,17 @@ export function usePerpsNavigation(source?: EPerpPageEnterSource) {
                 mode: 'perp',
                 coin,
               });
+              if (platformEnv.isNative || !gtMd) {
+                await perpsCustomSettingsAtom.ready();
+                const settings = await perpsCustomSettingsAtom.get();
+                if (!isCurrentRequest()) return;
+                if (settings.mobileTradingMode === 'simple') {
+                  navigation.pushModal(EModalRoutes.PerpModal, {
+                    screen: EModalPerpRoutes.MobilePerpSimpleMarket,
+                    params: { coin },
+                  });
+                }
+              }
             } catch (error) {
               console.error('Failed to change active asset:', error);
             }
@@ -247,7 +262,7 @@ export function usePerpsNavigation(source?: EPerpPageEnterSource) {
         });
       }, 80);
     },
-    [intl, navigation, source, perpDisabled, perpTabShowWeb],
+    [intl, navigation, source, perpDisabled, perpTabShowWeb, gtMd],
   );
 
   return { navigateToPerps };

@@ -1,5 +1,6 @@
 import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 
+import { useNavigation } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -35,6 +36,7 @@ import { useMarketPerpsTokenList } from '@onekeyhq/kit/src/views/Market/MarketHo
 import { isSpotHoldingVisible } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/utils';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
 import {
+  perpsCustomSettingsAtom,
   perpsPendingInfoPanelTabAtom,
   spotActiveAssetAtom,
   tradingModeAtom,
@@ -44,6 +46,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -54,8 +57,13 @@ import {
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  ERootRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import {
   type INumberFormatProps,
   numberFormat,
@@ -127,27 +135,49 @@ function useEnsureHomePerpsAccount() {
     activeAccount: { account, indexedAccount, wallet },
   } = useActiveAccount({ num: 0 });
 
-  return useCallback(async () => {
-    if (!account?.id && !indexedAccount?.id) {
-      return undefined;
-    }
-    const deriveType =
-      await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-        networkId: PERPS_NETWORK_ID,
+  return useCallback(
+    async (isCurrent?: () => boolean) => {
+      if (!account?.id && !indexedAccount?.id) {
+        return undefined;
+      }
+      const deriveType =
+        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: PERPS_NETWORK_ID,
+        });
+      if (isCurrent && !isCurrent()) return undefined;
+      return backgroundApiProxy.serviceHyperliquid.changeActivePerpsAccount({
+        indexedAccountId: indexedAccount?.id ?? null,
+        accountId: account?.id ?? null,
+        walletId: wallet?.id ?? null,
+        deriveType: deriveType ?? 'default',
       });
-    return backgroundApiProxy.serviceHyperliquid.changeActivePerpsAccount({
-      indexedAccountId: indexedAccount?.id ?? null,
-      accountId: account?.id ?? null,
-      walletId: wallet?.id ?? null,
-      deriveType: deriveType ?? 'default',
-    });
-  }, [account?.id, indexedAccount?.id, wallet?.id]);
+    },
+    [account?.id, indexedAccount?.id, wallet?.id],
+  );
 }
 
-// Jump into the Perps tab (optionally focusing a coin), mirroring UniversalSearchPerpItem.
+// Serialize Home entries across position rows and hot markets.
+let homePerpsNavigationInFlight = false;
+
 function useOpenPerpAsset() {
   const navigation = useAppNavigation();
+  const { isFocused, addListener } = useNavigation();
+  const { gtMd } = useMedia();
   const ensureHomePerpsAccount = useEnsureHomePerpsAccount();
+  const generation = useRef(0);
+  const currentAccount = useRef(ensureHomePerpsAccount);
+  useLayoutEffect(() => {
+    currentAccount.current = ensureHomePerpsAccount;
+    const invalidate = () => {
+      generation.current += 1;
+    };
+    const unsubscribe = addListener('blur', invalidate);
+    return () => {
+      unsubscribe();
+      invalidate();
+    };
+  }, [addListener, ensureHomePerpsAccount]);
+
   return useCallback(
     (
       coin?: string,
@@ -155,19 +185,35 @@ function useOpenPerpAsset() {
       openMarket = true,
       infoPanelTab?: IPerpsInfoPanelTab,
     ) => {
+      if (homePerpsNavigationInFlight || !isFocused()) return;
+      homePerpsNavigationInFlight = true;
+      const requestGeneration = generation.current;
+      const isCurrent = () =>
+        generation.current === requestGeneration && isFocused();
+      const requestId = generateUUID();
       void (async () => {
-        const activePerpsAccount = await ensureHomePerpsAccount();
-        if (!activePerpsAccount) {
-          return;
-        }
-        if (coin && !activePerpsAccount?.accountAddress) {
-          return;
-        }
+        let pendingInstrumentWritten = false;
+        let navigationCommitted = false;
         try {
+          const activePerpsAccount = await ensureHomePerpsAccount(isCurrent);
+          if (
+            !isCurrent() ||
+            !activePerpsAccount ||
+            (coin && !activePerpsAccount.accountAddress)
+          )
+            return;
+          await perpsCustomSettingsAtom.ready();
+          if (!isCurrent()) return;
+          const settings = await perpsCustomSettingsAtom.get();
+          if (!isCurrent()) return;
+          const simple =
+            (platformEnv.isNative || !gtMd) &&
+            settings.mobileTradingMode === 'simple';
           if (coin && mode === 'perp') {
             await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
               coin,
             });
+            if (!isCurrent()) return;
             await tradingModeAtom.set('perp');
           } else if (coin && mode === 'spot') {
             await spotActiveAssetAtom.set({
@@ -175,59 +221,95 @@ function useOpenPerpAsset() {
               assetId: undefined,
               universe: undefined,
             });
+            if (!isCurrent()) return;
             await tradingModeAtom.set('spot');
+            if (!isCurrent()) return;
+            if (simple) {
+              // Spot trading is only available in professional mode.
+              await perpsCustomSettingsAtom.set((previous) => ({
+                ...previous,
+                mobileTradingMode: 'pro',
+              }));
+            }
           }
-        } catch {
-          return;
-        }
-        if (infoPanelTab) {
-          await perpsPendingInfoPanelTabAtom.set(infoPanelTab);
-        }
-        // After the writes above and before the navigation that mounts the tab:
-        // recording it earlier would strand a pending pair whenever those
-        // writes bail out, and later would lose the race with the first mount.
-        // Isolated because losing it only costs that first-mount restore.
-        if (coin) {
-          try {
+          if (!isCurrent()) return;
+          if (infoPanelTab) {
+            await perpsPendingInfoPanelTabAtom.set(infoPanelTab);
+            if (!isCurrent()) return;
+          }
+          if (coin) {
+            // Request-scoped cleanup cannot clear a newer entry's target.
+            pendingInstrumentWritten = true;
             await backgroundApiProxy.serviceHyperliquid.setPendingInitialTradeInstrument(
-              { coin, mode },
+              { coin, mode, requestId },
             );
-          } catch {
-            // ignore
+            if (!isCurrent()) return;
           }
-        }
-        setPerpPageEnterSource(EPerpPageEnterSource.Home);
-        navigation.switchTab(ETabRoutes.Perp);
-        if (!coin) {
-          return;
-        }
-        try {
+          setPerpPageEnterSource(EPerpPageEnterSource.Home);
+          navigation.switchTab(ETabRoutes.Perp);
+          navigationCommitted = true;
+          if (!coin) return;
           appEventBus.emit(EAppEventBusNames.PerpSwitchActiveInstrument, {
             mode,
             coin,
           });
           if (infoPanelTab) {
             setTimeout(() => {
+              if (
+                rootNavigationRef.current?.getCurrentRoute()?.name !==
+                ETabRoutes.Perp
+              )
+                return;
               appEventBus.emit(EAppEventBusNames.PerpSwitchInfoPanelTab, {
                 tab: infoPanelTab,
               });
             }, 0);
           }
-        } catch {
-          return;
-        }
-        if (platformEnv.isNative && openMarket) {
-          // The Home navigator can't push into the Perp tab's stack, so go via the root.
-          setTimeout(() => {
-            rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-              screen: ETabRoutes.Perp,
-              params: { screen: EModalPerpRoutes.MobilePerpMarket },
+          if (simple && mode === 'perp') {
+            navigation.pushModal(EModalRoutes.PerpModal, {
+              screen: EModalPerpRoutes.MobilePerpSimpleMarket,
+              params: {
+                coin,
+                ...(infoPanelTab === 'Positions'
+                  ? { initialPortfolioTab: 'positions' as const }
+                  : {}),
+              },
             });
-          }, 500);
+            return;
+          }
+          if (platformEnv.isNative && openMarket) {
+            // Only complete the delayed stack push while still on the Perps tab.
+            setTimeout(() => {
+              if (
+                currentAccount.current !== ensureHomePerpsAccount ||
+                rootNavigationRef.current?.getCurrentRoute()?.name !==
+                  ETabRoutes.Perp
+              )
+                return;
+              rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+                screen: ETabRoutes.Perp,
+                params: { screen: EModalPerpRoutes.MobilePerpMarket },
+              });
+            }, 500);
+          }
+        } catch (error) {
+          if (isCurrent()) errorToastUtils.toastIfError(error);
+        } finally {
+          try {
+            if (pendingInstrumentWritten && !navigationCommitted) {
+              await backgroundApiProxy.serviceHyperliquid.clearPendingInitialTradeInstrument(
+                { requestId },
+              );
+            }
+          } catch (error) {
+            if (isCurrent()) errorToastUtils.toastIfError(error);
+          } finally {
+            homePerpsNavigationInFlight = false;
+          }
         }
       })();
     },
-    [ensureHomePerpsAccount, navigation],
+    [ensureHomePerpsAccount, gtMd, isFocused, navigation],
   );
 }
 

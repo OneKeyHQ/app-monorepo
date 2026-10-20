@@ -14,6 +14,7 @@ import { useIntl } from 'react-intl';
 
 import {
   DebugRenderTracker,
+  type IIconProps,
   IconButton,
   NumberSizeableText,
   SizableText,
@@ -223,11 +224,13 @@ export const FavoriteButton = memo(
     isMobile,
     iconSize,
     isSpot,
+    activeIconColor = '$icon',
   }: {
     coin: string;
     isMobile?: boolean;
     iconSize?: string;
     isSpot?: boolean;
+    activeIconColor?: IIconProps['color'];
   }) => {
     const [perpFavs, setPerpFavs] = usePerpTokenFavoritesPersistAtom();
     const [spotFavs, setSpotFavs] = useSpotTokenFavoritesPersistAtom();
@@ -295,7 +298,7 @@ export const FavoriteButton = memo(
         variant="tertiary"
         size="small"
         iconProps={{
-          color: isFavorite ? '$icon' : '$iconSubdued',
+          color: isFavorite ? activeIconColor : '$iconSubdued',
           size: iconSize ?? (isMobile ? '$5' : '$3'),
         }}
         onPress={handleToggle}
