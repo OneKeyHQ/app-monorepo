@@ -1497,7 +1497,7 @@ class ServiceHistory extends ServiceBase {
     // Fetch details of locally pending transactions
     const onChainHistoryTxsDetails = await promiseAllSettledEnhanced(
       localHistoryPendingTxs.map(
-        (tx) => () =>
+        (tx) => async () =>
           this.fetchHistoryTxDetails({
             accountId: tx.decodedTx.accountId,
             networkId: tx.decodedTx.networkId,
@@ -1508,6 +1508,7 @@ class ServiceHistory extends ServiceBase {
             txInvolvedAddresses: collectDecodedTxInvolvedAddresses({
               decodedTx: tx.decodedTx,
             }),
+            privacyChainPoolId: await this.getBackendPrivacyChainPoolId(tx),
           }),
       ),
       { continueOnError: true, concurrency: PROMISE_CONCURRENCY_LIMIT },
@@ -2860,12 +2861,71 @@ class ServiceHistory extends ServiceBase {
     ).filter(Boolean);
 
     return {
-      txs,
+      txs:
+        networkId === getNetworkIdsMap().onekeyall
+          ? await this.applyAllNetworksPrivacyChainSource(txs)
+          : txs,
       addressMap,
       hasMore,
       next,
       isIndexer: isIndexerChain,
     };
+  }
+
+  // A privacy chain joins All Networks only with its backend pool, tagged the
+  // way its own view tags it; local-scan rows never enter. Other chains'
+  // rows are returned as is.
+  private async applyAllNetworksPrivacyChainSource<
+    T extends IAccountHistoryTx | null,
+  >(txs: T[]): Promise<T[]> {
+    const backendPoolIds = new Map<string, number | undefined>();
+    await Promise.all(
+      uniq(txs.map((tx) => tx?.decodedTx.networkId)).map(async (id) => {
+        if (!id) return;
+        const localWallet = await this.backgroundApi.serviceNetwork
+          .getVaultSettings({ networkId: id })
+          .then((settings) => settings.localWallet)
+          .catch(() => undefined);
+        if (localWallet) {
+          backendPoolIds.set(
+            id,
+            localWallet.pools.find((pool) => pool.source === 'backend')?.id,
+          );
+        }
+      }),
+    );
+    if (!backendPoolIds.size) return txs;
+    return txs.flatMap((tx) => {
+      if (!tx || !backendPoolIds.has(tx.decodedTx.networkId)) return [tx];
+      const poolId = backendPoolIds.get(tx.decodedTx.networkId);
+      if (poolId === undefined) return [];
+      return [
+        {
+          ...tx,
+          privacyChainHistorySide: 'public' as const,
+          privacyChainHistoryPoolIds: [poolId],
+        },
+      ];
+    });
+  }
+
+  // A row on backend pools only is the backend's to answer, so its detail
+  // request names that pool and the vault never consults its local scan.
+  private async getBackendPrivacyChainPoolId(
+    tx: IAccountHistoryTx,
+  ): Promise<number | undefined> {
+    const poolIds = tx.privacyChainHistoryPoolIds;
+    if (!poolIds?.length) return undefined;
+    const localWallet = await this.backgroundApi.serviceNetwork
+      .getVaultSettings({ networkId: tx.decodedTx.networkId })
+      .then((settings) => settings.localWallet)
+      .catch(() => undefined);
+    const isBackendOnly = poolIds.every(
+      (poolId) =>
+        localWallet?.pools.find((pool) => pool.id === poolId)?.source ===
+        'backend',
+    );
+    return isBackendOnly ? poolIds[0] : undefined;
   }
 
   private async isAddressWithheldFromBackend(networkId: string) {

@@ -1655,7 +1655,13 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async fetchAccountHistoryDetailByApi(
     params: IServerFetchAccountHistoryDetailParams,
   ): Promise<IServerFetchAccountHistoryDetailResp> {
-    const { accountId, withUTXOs: _withUTXOs, ...rest } = params;
+    // Pool ids pick the client-side answerer; the backend never needs them.
+    const {
+      accountId,
+      withUTXOs: _withUTXOs,
+      privacyChainPoolId: _privacyChainPoolId,
+      ...rest
+    } = params;
     const client = await this.backgroundApi.serviceGas.getClient(
       EServiceEndpointEnum.Wallet,
     );
