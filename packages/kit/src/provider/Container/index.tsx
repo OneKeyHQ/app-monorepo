@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 
 import { RootSiblingParent } from 'react-native-root-siblings';
 
@@ -6,10 +6,15 @@ import { ESplitViewType, SplitViewContext } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { setSplitViewLayoutDisabled } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { useShouldUseSplitView } from '../../hooks/useShouldUseSplitView';
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
+import {
+  readWebReferralCode,
+  subscribeWebReferralCode,
+} from '../../utils/webReferralCode';
 import { Bootstrap } from '../Bootstrap';
 
 import { AirGapQrcodeDialogContainer } from './AirGapQrcodeDialogContainer';
@@ -45,7 +50,38 @@ import { ThirdPartyHardwareUiStateContainerLazy } from './ThirdPartyHardwareUiSt
 import { VerifyTxContainer } from './VerifyTxContainer';
 import { WalletBackupPreCheckContainerLazy } from './WalletBackupPreCheckContainerLazy';
 import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
-import { WebReferralBindContainer } from './WebReferralBindContainer';
+
+const LazyWebReferralBindContainer = lazy(() =>
+  import('./WebReferralBindContainer').then((module) => ({
+    default: module.WebReferralBindContainer,
+  })),
+);
+
+function WebReferralBindGate() {
+  const [shouldMount, setShouldMount] = useState(() =>
+    Boolean(readWebReferralCode()),
+  );
+
+  useEffect(() => {
+    const check = () => {
+      if (readWebReferralCode()) {
+        setShouldMount(true);
+      }
+    };
+    const unsubscribe = subscribeWebReferralCode(check);
+    check();
+    return unsubscribe;
+  }, []);
+
+  if (!shouldMount) {
+    return null;
+  }
+  return (
+    <Suspense fallback={null}>
+      <LazyWebReferralBindContainer />
+    </Suspense>
+  );
+}
 
 function GlobalRootAppNavigationUpdate() {
   const navigation = useAppNavigation();
@@ -71,7 +107,7 @@ function DetailRouter() {
       <DeviceStageContainerLazy />
       <PrimeLoginContainerLazy />
       <KeylessWebAutoConnectHashCleanupContainer />
-      <WebReferralBindContainer />
+      {platformEnv.isWebDappMode ? <WebReferralBindGate /> : null}
       <DialogLoadingContainer />
       <DiskFullWarningDialogContainer />
       <LinuxUdevGuideDialogContainer />

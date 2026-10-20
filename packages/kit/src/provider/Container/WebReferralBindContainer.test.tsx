@@ -423,6 +423,60 @@ it('keeps a newer Web code when cached invite cleanup finishes late', async () =
   expect(Toast.success).toHaveBeenCalledTimes(1);
 });
 
+it('reports a completed bind when cached invite cleanup rejects', async () => {
+  clearCachedCodeMock.mockRejectedValue(
+    new OneKeyLocalError('Cache unavailable'),
+  );
+  render(<WebReferralBindContainer />);
+  const prompt = await showPrompt();
+  const instance = jest.mocked(Dialog.show).mock.results[0].value as ReturnType<
+    typeof Dialog.show
+  >;
+  await act(async () => {
+    await prompt.onConfirm?.({ ...instance, preventClose: jest.fn() });
+  });
+  expect(bindMock).toHaveBeenCalledTimes(1);
+  expect(readWebReferralCode()).toBeUndefined();
+  expect(clearCachedCodeMock).toHaveBeenCalledWith('');
+  expect(completedEventMock).toHaveBeenCalledTimes(1);
+  expect(completedEventMock).toHaveBeenCalledWith({
+    referralCode: 'AUDIT661',
+    address,
+    networkId: 'evm--1',
+  });
+  expect(Toast.success).toHaveBeenCalledTimes(1);
+});
+
+it('suppresses the same prompt across EVM chains and all-networks after cancel', async () => {
+  const view = render(<WebReferralBindContainer />);
+  const prompt = await showPrompt();
+  await act(async () => {
+    await prompt.onClose?.();
+  });
+  const initialChecks = batchMock.mock.calls.length;
+  if (mockBag.__webReferralTest) {
+    mockBag.__webReferralTest.active.network = { id: 'evm--10' };
+    mockBag.__webReferralTest.selected.networkId = 'evm--10';
+  }
+  view.rerender(<WebReferralBindContainer />);
+  expect(Dialog.show).toHaveBeenCalledTimes(1);
+  expect(batchMock).toHaveBeenCalledTimes(initialChecks);
+
+  if (mockBag.__webReferralTest) {
+    mockBag.__webReferralTest.active.network = { id: 'onekeyall--0' };
+    mockBag.__webReferralTest.selected.networkId = undefined;
+  }
+  view.rerender(<WebReferralBindContainer />);
+  expect(Dialog.show).toHaveBeenCalledTimes(1);
+  expect(batchMock).toHaveBeenCalledTimes(initialChecks);
+
+  await act(async () => {
+    captureWebReferralCode('NEXT');
+  });
+  await waitFor(() => expect(Dialog.show).toHaveBeenCalledTimes(2));
+  expect(batchMock.mock.calls.length).toBeGreaterThan(initialChecks);
+});
+
 it('stops a delayed message after the account changes', async () => {
   const message = deferred<string>();
   unsignedMessageMock.mockReturnValue(message.promise);
@@ -493,6 +547,43 @@ it('does not resume an old signature after account A changes to B and back', asy
   setAccount('account-B');
   view.rerender(<WebReferralBindContainer />);
   setAccount('account-A');
+  view.rerender(<WebReferralBindContainer />);
+  await act(async () => {
+    signature.resolve('signature');
+    await confirming;
+  });
+  expect(bindMock).not.toHaveBeenCalled();
+  expectNoSuccessSideEffects();
+});
+
+it('does not resume an old signature after EVM chain A changes to B and back', async () => {
+  const signature = deferred<string>();
+  mockBag.__webReferralTest?.navigate.mockReturnValue(signature.promise);
+  if (mockBag.__webReferralTest) {
+    mockBag.__webReferralTest.active.network = { id: 'evm--10' };
+    mockBag.__webReferralTest.selected.networkId = 'evm--10';
+  }
+  const view = render(<WebReferralBindContainer />);
+  const prompt = await showPrompt();
+  const instance = jest.mocked(Dialog.show).mock.results[0].value as ReturnType<
+    typeof Dialog.show
+  >;
+  let confirming: void | Promise<void> | undefined;
+  await act(async () => {
+    confirming = prompt.onConfirm?.({ ...instance, preventClose: jest.fn() });
+    await waitFor(() =>
+      expect(mockBag.__webReferralTest?.navigate).toHaveBeenCalledTimes(1),
+    );
+  });
+  if (mockBag.__webReferralTest) {
+    mockBag.__webReferralTest.active.network = { id: 'evm--137' };
+    mockBag.__webReferralTest.selected.networkId = 'evm--137';
+  }
+  view.rerender(<WebReferralBindContainer />);
+  if (mockBag.__webReferralTest) {
+    mockBag.__webReferralTest.active.network = { id: 'evm--10' };
+    mockBag.__webReferralTest.selected.networkId = 'evm--10';
+  }
   view.rerender(<WebReferralBindContainer />);
   await act(async () => {
     signature.resolve('signature');

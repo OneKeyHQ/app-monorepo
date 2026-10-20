@@ -77,6 +77,20 @@ function identityKey(identity: IBindIdentity): string {
   ]);
 }
 
+function promptKey(identity: IBindIdentity): string {
+  const normalizedAddress =
+    normalizeTokenContractAddress({
+      networkId: referralNetworkId,
+      contractAddress: identity.address,
+    }) || identity.address;
+  return JSON.stringify([
+    identity.record.code,
+    identity.record.capturedAt,
+    identity.accountId,
+    normalizedAddress,
+  ]);
+}
+
 function canShowPrompt(): boolean {
   if (
     /^\/r(?:\/|$)/u.test(globalThis.location?.pathname ?? '') ||
@@ -241,7 +255,7 @@ function WebReferralBindContainerInner() {
     if (
       !identity ||
       dialogRef.current ||
-      shownIdentitiesRef.current.has(identityKey(identity)) ||
+      shownIdentitiesRef.current.has(promptKey(identity)) ||
       !canShowPrompt()
     ) {
       return;
@@ -288,7 +302,7 @@ function WebReferralBindContainerInner() {
         }
 
         // Suppress another automatic prompt for this identity until this page remounts.
-        shownIdentitiesRef.current.add(identityKey(current));
+        shownIdentitiesRef.current.add(promptKey(current));
         openIdentityRef.current = current;
         const ownDialog = Dialog.show({
           title: intl.formatMessage({
@@ -361,9 +375,13 @@ function WebReferralBindContainerInner() {
                 );
               if (bound && stillCurrent(current, generation)) {
                 clearWebReferralCodeIfMatch(current.record);
-                await backgroundApiProxy.serviceReferralCode.setCachedInviteCode(
-                  '',
-                );
+                try {
+                  await backgroundApiProxy.serviceReferralCode.setCachedInviteCode(
+                    '',
+                  );
+                } catch {
+                  // Auxiliary cache cleanup must not hide a completed binding.
+                }
                 defaultLogger.referral.page.referralBindingCompleted({
                   referralCode: current.record.code,
                   address: current.address,
