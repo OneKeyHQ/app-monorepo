@@ -513,8 +513,9 @@ function PerksSummaryCard({
     <YStack
       testID="my-rewards-summary-card"
       flex={1}
-      p="$5"
-      gap="$5"
+      px="$5"
+      py="$4"
+      gap="$4"
       {...cardStyle}
     >
       <RewardsAddressCard

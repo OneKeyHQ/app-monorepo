@@ -116,7 +116,7 @@ function PerksBannerSlide({
     }
     parseNotificationPayload(item.mode, item.payload, () => {});
   }, [item.mode, item.payload, shouldSuppressPress]);
-  const imageSize = compact ? 88 : 80;
+  const imageSize = compact ? 88 : 72;
 
   // Borderless: the frame around the pager draws the card, so a neighbor
   // slide peeking in at the pager's edge never shows a border of its own.
@@ -125,7 +125,8 @@ function PerksBannerSlide({
       testID={`perks-banner-${item.linkId}`}
       flex={1}
       // Same inset as the summary card beside it.
-      p={compact ? '$4' : '$5'}
+      px={compact ? '$4' : '$5'}
+      py="$4"
       gap="$4"
       ai="center"
       role="button"
@@ -164,6 +165,9 @@ function PerksBannerSlide({
           height={imageSize}
           flexShrink={0}
           contentFit="contain"
+          // Pointer slides hang the art from the top, clear of the dots
+          // in the bottom-right corner.
+          alignSelf={compact ? undefined : 'flex-start'}
           source={{ uri: item.image }}
         />
       ) : null}
@@ -209,7 +213,7 @@ export function PerksCampaignBanner({
         position: 'absolute',
         // Centered on the Learn more line: the card inset plus half of
         // its 20px line height minus the 6px dot.
-        bottom: (compact ? 16 : 20) + 7,
+        bottom: 16 + 7,
         right: compact ? 16 : 20,
       }}
       renderPaginationItem={({ activeDotStyle, onPress }, index) => (
