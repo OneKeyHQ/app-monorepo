@@ -5,6 +5,8 @@ import type { TPerpDepositEntrySource } from '../logger/scopes/perp/type';
 
 export enum EModalPerpRoutes {
   PerpTradeHistoryDetails = 'PerpTradeHistoryDetails',
+  MobilePerpSimpleMarket = 'MobilePerpSimpleMarket',
+  MobilePerpSimpleOrder = 'MobilePerpSimpleOrder',
   PerpTradersHistoryList = 'PerpTradersHistoryList',
   MobilePerpMarket = 'MobilePerpMarket',
   MobileTokenSelector = 'MobileTokenSelector',
@@ -38,6 +40,8 @@ export type IPerpHistoryTab = 'Trades' | 'Twap' | 'Funding' | 'Account';
 
 export type IMobilePerpMarketTab = 'orderbook' | 'info' | 'funding';
 
+export type IPerpSimplePortfolioTab = 'positions' | 'orders';
+
 export type IUnifoldSourceSelectorResult =
   | {
       requestId: string;
@@ -57,6 +61,14 @@ export type IModalPerpParamList = {
     fill: IFill;
     builderFeeRate?: number;
     pairName?: string;
+  };
+  [EModalPerpRoutes.MobilePerpSimpleMarket]: {
+    coin: string;
+    initialPortfolioTab?: IPerpSimplePortfolioTab;
+  };
+  [EModalPerpRoutes.MobilePerpSimpleOrder]: {
+    coin: string;
+    side: 'long' | 'short';
   };
   [EModalPerpRoutes.PerpTradersHistoryList]:
     | { initialTab?: IPerpHistoryTab }

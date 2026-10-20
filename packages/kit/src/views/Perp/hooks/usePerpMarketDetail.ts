@@ -1,7 +1,10 @@
 /* cspell:ignore Fundings */
 
+import { useIntl } from 'react-intl';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IFundingHistoryRecord,
   IPerpAnnotation,
@@ -16,6 +19,8 @@ import type {
 } from '@onekeyhq/shared/types/hyperliquid/types';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 import type { IMarketStockDetail } from '@onekeyhq/shared/types/marketV2';
+
+import { loadPerpsCachedData } from '../utils/perpsCachedData';
 
 export type IPerpFundingHistoryRange = '24h' | '7d' | '30d' | '90d';
 
@@ -300,13 +305,25 @@ export function usePerpResolvedMarketDetail(params: {
   displayName?: string;
 }) {
   const { coin, displayName } = params;
+  const { locale } = useIntl();
+  const [settings] = useSettingsPersistAtom();
+  const currency = settings.currencyInfo.id;
+  const swrKey =
+    coin || displayName
+      ? `perpsMarketDetail:v1:${JSON.stringify([coin, displayName, locale, currency])}`
+      : undefined;
 
   return usePromiseResult<IPerpResolvedMarketDetail | undefined>(
-    async () => resolvePerpMarketDetail({ coin, displayName }),
-    [coin, displayName],
+    () =>
+      loadPerpsCachedData(swrKey, () =>
+        resolvePerpMarketDetail({ coin, displayName }),
+      ),
+    [coin, displayName, swrKey],
     {
       watchLoading: true,
       undefinedResultIfError: true,
+      swrKey,
+      swrShouldPersist: (result) => Boolean(result),
     },
   );
 }
