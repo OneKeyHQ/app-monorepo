@@ -89,6 +89,8 @@ export interface IPlaceOrderParams {
 }
 
 export interface IOrderOpenParams {
+  cloid?: IHex;
+  expectedAccountAddress?: string;
   assetId: number;
   isBuy: boolean;
   size: string;
@@ -103,6 +105,7 @@ export interface IOrderOpenParams {
 }
 
 export interface IPlaceOrderByCoinParams {
+  cloid?: IHex;
   coin: string;
   expectedAccountAddress: string;
   isBuy: boolean;

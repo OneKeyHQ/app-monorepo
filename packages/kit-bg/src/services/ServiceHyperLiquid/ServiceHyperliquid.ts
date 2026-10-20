@@ -1537,6 +1537,18 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getMobileTradingFees(params: { user: IHex }) {
+    const [fees, builderFee] = await Promise.all([
+      hyperLiquidApiClients.infoClient.userFees({ user: params.user }),
+      this.backgroundApi.simpleDb.perp.getExpectMaxBuilderFee(),
+    ]);
+    return {
+      takerRate: fees.userCrossRate,
+      builderRate: (builderFee ?? 0) / 100_000,
+    };
+  }
+
+  @backgroundMethod()
   async getUserFills(params: IUserFillsParameters): Promise<IFill[]> {
     const { infoClient } = hyperLiquidApiClients;
 
