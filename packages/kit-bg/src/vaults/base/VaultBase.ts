@@ -653,6 +653,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     networkId: string;
     accountAddress: string;
     xpub?: string;
+    // Pull-to-refresh; a vault may use it to skip incremental shortcuts.
+    isManualRefresh?: boolean;
   }): Promise<IAccountHistoryTx[] | undefined> {
     return undefined;
   }

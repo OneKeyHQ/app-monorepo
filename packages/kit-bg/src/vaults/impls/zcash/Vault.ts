@@ -632,6 +632,7 @@ export default class Vault extends VaultBtc {
     networkId: string;
     accountAddress: string;
     xpub?: string;
+    isManualRefresh?: boolean;
   }): Promise<IAccountHistoryTx[] | undefined> {
     return zcashHistory.fetchAccountHistoryFromLocal(this, params);
   }
@@ -654,6 +655,7 @@ export default class Vault extends VaultBtc {
     networkId: string;
     accountAddress: string;
     xpub?: string;
+    isManualRefresh?: boolean;
   }): Promise<{
     txs: IAccountHistoryTx[];
     snapshotComplete: boolean;
