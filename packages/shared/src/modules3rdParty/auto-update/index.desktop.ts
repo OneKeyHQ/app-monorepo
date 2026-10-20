@@ -266,8 +266,18 @@ export const BundleUpdate: IBundleUpdate = {
   },
   getFallbackBundles: () =>
     globalThis.desktopApiProxy.bundleUpdate.getFallbackUpdateBundleData(),
-  switchBundle: (params) =>
-    globalThis.desktopApiProxy.bundleUpdate.setCurrentUpdateBundleData(params),
+  switchBundle: async (params) => {
+    const exists = await globalThis.desktopApiProxy.bundleUpdate.isBundleExists(
+      params.appVersion,
+      params.bundleVersion,
+    );
+    if (!exists) {
+      throw new OneKeyLocalError('BUNDLE_MISSING: Bundle directory not found');
+    }
+    await globalThis.desktopApiProxy.bundleUpdate.setCurrentUpdateBundleData(
+      params,
+    );
+  },
   isSkipGpgVerificationAllowed: () =>
     globalThis.desktopApiProxy.bundleUpdate.isSkipGpgVerificationAllowed(),
   pruneStaleAppVersionBundles: () =>

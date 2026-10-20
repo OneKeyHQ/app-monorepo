@@ -28,19 +28,35 @@ describe('desktop bundle install concurrency', () => {
   const installBundle = jest.fn<Promise<void>, []>();
   const restart = jest.fn<Promise<void>, []>();
   const switchBundle = jest.fn<Promise<void>, []>();
+  const isBundleExists = jest.fn<Promise<boolean>, [string, string]>();
 
   beforeEach(() => {
     resetBundleInstallLockForTest();
     installBundle.mockReset().mockResolvedValue(undefined);
     restart.mockReset().mockResolvedValue(undefined);
     switchBundle.mockReset().mockResolvedValue(undefined);
+    isBundleExists.mockReset().mockResolvedValue(true);
     globalThis.desktopApiProxy = {
       bundleUpdate: {
         installBundle,
         restart,
         setCurrentUpdateBundleData: switchBundle,
+        isBundleExists,
       },
     } as unknown as typeof globalThis.desktopApiProxy;
+  });
+
+  test('missing switch target cannot reach the metadata setter or restart', async () => {
+    isBundleExists.mockResolvedValueOnce(false);
+    await expect(
+      BundleUpdate.switchBundle({
+        appVersion: '6.6.1',
+        bundleVersion: '24910529',
+        signature: 'signature',
+      }),
+    ).rejects.toThrow('BUNDLE_MISSING: Bundle directory not found');
+    expect(switchBundle).not.toHaveBeenCalled();
+    expect(restart).not.toHaveBeenCalled();
   });
 
   test.each(['restart', 'switchBundle'] as const)(
