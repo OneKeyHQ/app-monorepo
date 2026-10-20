@@ -225,10 +225,10 @@ export const AppUpdate: IAppUpdate = {
   clearApkCache,
 };
 
-let isBundleInstallLocked = false;
+let bundleInstallPromise: Promise<void> | undefined;
 
 export function resetBundleInstallLockForTest() {
-  isBundleInstallLocked = false;
+  bundleInstallPromise = undefined;
 }
 
 export const BundleUpdate: IBundleUpdate = {
@@ -242,20 +242,17 @@ export const BundleUpdate: IBundleUpdate = {
     globalThis.desktopApiProxy.bundleUpdate.verifyBundleASC(params),
   downloadBundleASC: (params) =>
     globalThis.desktopApiProxy.bundleUpdate.downloadBundleASC(params),
-  installBundle: async (params) => {
-    if (isBundleInstallLocked) {
-      defaultLogger.app.appUpdate.log(
-        'BundleUpdate.installBundle: skipped — install already in progress or awaiting restart',
-      );
-      return;
+  installBundle: (params) => {
+    if (!bundleInstallPromise) {
+      // Keep the successful operation until restart; share failures with all callers.
+      bundleInstallPromise = (async () => {
+        await globalThis.desktopApiProxy.bundleUpdate.installBundle(params);
+      })().catch((error: unknown) => {
+        bundleInstallPromise = undefined;
+        throw error;
+      });
     }
-    isBundleInstallLocked = true;
-    try {
-      await globalThis.desktopApiProxy.bundleUpdate.installBundle(params);
-    } catch (error) {
-      isBundleInstallLocked = false;
-      throw error;
-    }
+    return bundleInstallPromise;
   },
   getFallbackBundles: () =>
     globalThis.desktopApiProxy.bundleUpdate.getFallbackUpdateBundleData(),

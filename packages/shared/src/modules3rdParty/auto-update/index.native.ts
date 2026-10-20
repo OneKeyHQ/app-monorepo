@@ -258,10 +258,10 @@ export const AppUpdate: IAppUpdate = {
   clearApkCache,
 };
 
-let isBundleInstallLocked = false;
+let bundleInstallPromise: Promise<void> | undefined;
 
 export function resetBundleInstallLockForTest() {
-  isBundleInstallLocked = false;
+  bundleInstallPromise = undefined;
 }
 
 export const BundleUpdate: IBundleUpdate = {
@@ -302,37 +302,32 @@ export const BundleUpdate: IBundleUpdate = {
       bundleVersion: toNativeString(params?.bundleVersion),
       sha256: toNativeString(params?.sha256),
     }),
-  installBundle: async (params) => {
-    if (isBundleInstallLocked) {
-      defaultLogger.app.appUpdate.log(
-        'BundleUpdate.installBundle: skipped — install already in progress or awaiting restart',
-      );
-      return;
-    }
-    isBundleInstallLocked = true;
-    try {
-      await ReactNativeBundleUpdate.installBundle({
-        downloadedFile: toNativeString(params?.downloadedFile),
-        latestVersion: toNativeString(params?.latestVersion),
-        bundleVersion: toNativeString(params?.bundleVersion),
-        signature: toNativeString(params?.signature),
+  installBundle: (params) => {
+    if (!bundleInstallPromise) {
+      bundleInstallPromise = (async () => {
+        await ReactNativeBundleUpdate.installBundle({
+          downloadedFile: toNativeString(params?.downloadedFile),
+          latestVersion: toNativeString(params?.latestVersion),
+          bundleVersion: toNativeString(params?.bundleVersion),
+          signature: toNativeString(params?.signature),
+        });
+        defaultLogger.app.appUpdate.restartRNApp();
+        // OTA rewrote the bundle on disk, so restart both runtimes after the
+        // existing grace period. Await restart so failure releases both the
+        // shared operation and any caller's install lock.
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, 2500);
+        });
+        await appRestart({
+          mode: EAppRestartMode.All,
+          reason: 'ota.installBundle',
+        });
+      })().catch((error: unknown) => {
+        bundleInstallPromise = undefined;
+        throw error;
       });
-    } catch (error) {
-      isBundleInstallLocked = false;
-      throw error;
     }
-    defaultLogger.app.appUpdate.restartRNApp();
-    // mode=All — OTA install rewrote bundle on disk; both main and bg
-    // runtimes need to come up against the new bundle so moduleId tables
-    // stay consistent. The setTimeout keeps the existing 2.5s grace
-    // window (MMKV / DB fsync, UI affordance) before reload triggers.
-    // BootRecovery.markBootSuccess() is invoked inside appRestart.
-    setTimeout(() => {
-      void appRestart({
-        mode: EAppRestartMode.All,
-        reason: 'ota.installBundle',
-      });
-    }, 2500);
+    return bundleInstallPromise;
   },
   clearBundle: () => ReactNativeBundleUpdate.clearBundle(),
   clearDownload: () => ReactNativeBundleUpdate.clearDownload(),

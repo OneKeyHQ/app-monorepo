@@ -1,4 +1,8 @@
-import { AppUpdate } from './index.desktop';
+import {
+  AppUpdate,
+  BundleUpdate,
+  resetBundleInstallLockForTest,
+} from './index.desktop';
 import {
   EAppUpdatePackageAvailabilityStatus,
   EAppUpdatePackageErrorCode,
@@ -18,6 +22,53 @@ jest.mock('./electronUpdateListeners', () => {
   return {
     electronUpdateListeners: { onUpdateError },
   };
+});
+
+describe('desktop bundle install concurrency', () => {
+  const installBundle = jest.fn<Promise<void>, []>();
+
+  beforeEach(() => {
+    resetBundleInstallLockForTest();
+    installBundle.mockReset().mockResolvedValue(undefined);
+    globalThis.desktopApiProxy = {
+      bundleUpdate: { installBundle },
+    } as unknown as typeof globalThis.desktopApiProxy;
+  });
+
+  test('overlapping callers wait for the same failure and can retry', async () => {
+    let rejectInstall: (error: Error) => void = () => {};
+    installBundle.mockImplementationOnce(
+      () =>
+        new Promise<void>((_resolve, reject) => {
+          rejectInstall = reject;
+        }),
+    );
+    const first = BundleUpdate.installBundle({});
+    const second = BundleUpdate.installBundle({});
+    const outcome = Promise.allSettled([first, second]);
+    const error = new Error('Bundle directory not found');
+
+    rejectInstall(error);
+
+    await expect(outcome).resolves.toEqual([
+      { status: 'rejected', reason: error },
+      { status: 'rejected', reason: error },
+    ]);
+    expect(installBundle).toHaveBeenCalledTimes(1);
+
+    await BundleUpdate.installBundle({});
+    expect(installBundle).toHaveBeenCalledTimes(2);
+  });
+
+  test('successful installation remains one-shot while awaiting restart', async () => {
+    await Promise.all([
+      BundleUpdate.installBundle({}),
+      BundleUpdate.installBundle({}),
+    ]);
+    await BundleUpdate.installBundle({});
+
+    expect(installBundle).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('desktop app update adapter', () => {

@@ -101,6 +101,14 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/auto-update', () => {
   return { AppUpdate: au, BundleUpdate: bu };
 });
 
+jest.mock('@onekeyfe/react-native-bundle-update', () => ({
+  ReactNativeBundleUpdate: { installBundle: jest.fn() },
+}));
+
+jest.mock('@onekeyhq/shared/src/modules3rdParty/appRestart', () => ({
+  appRestart: jest.fn(),
+}));
+
 jest.mock('../../hooks/useAppNavigation', () => {
   const n = {
     pushModal: jest.fn(),
@@ -289,6 +297,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
         endInstallPackage: jest.fn(),
         startManualInstallPackage: jest.fn(),
         endManualInstallPackage: jest.fn(),
+        restartRNApp: jest.fn(),
         isNeedSyncAppUpdateInfo: jest.fn(),
         fetchConfig: jest.fn(),
         startCheckForUpdatesOnly: jest.fn(),
@@ -2235,6 +2244,91 @@ describe('useDownloadPackage', () => {
       expect(onSuccess).toHaveBeenCalledTimes(1);
     });
   });
+
+  test.each(['installPackage', 'manualInstallPackage'] as const)(
+    '%s releases the UI lock when an overlapping seamless install fails to restart',
+    async (method) => {
+      const adapter = jest.requireActual<
+        typeof import('@onekeyhq/shared/src/modules3rdParty/auto-update/index.native')
+      >('@onekeyhq/shared/src/modules3rdParty/auto-update/index.native');
+      const { ReactNativeBundleUpdate } = jest.requireMock<
+        typeof import('@onekeyfe/react-native-bundle-update')
+      >('@onekeyfe/react-native-bundle-update');
+      const { appRestart } = jest.requireMock<
+        typeof import('@onekeyhq/shared/src/modules3rdParty/appRestart')
+      >('@onekeyhq/shared/src/modules3rdParty/appRestart');
+      const nativeInstall = jest.spyOn(
+        ReactNativeBundleUpdate,
+        'installBundle',
+      );
+      const restart = jest.mocked(appRestart);
+      const endInstall = jest.spyOn(
+        defaultLogger.app.appUpdate,
+        'endInstallPackage',
+      );
+      const endManualInstall = jest.spyOn(
+        defaultLogger.app.appUpdate,
+        'endManualInstallPackage',
+      );
+      nativeInstall.mockReset().mockResolvedValue(undefined);
+      restart
+        .mockReset()
+        .mockRejectedValueOnce(new Error('Restart failed'))
+        .mockResolvedValue(undefined);
+      adapter.resetBundleInstallLockForTest();
+      const savedImplementation =
+        bundleUpd.installBundle.getMockImplementation();
+      bundleUpd.installBundle.mockImplementation(
+        adapter.BundleUpdate.installBundle,
+      );
+      const params = { downloadedFile: '/tmp/bundle.zip' };
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '24910529',
+        updateStrategy: EUpdateStrategy.silent,
+        downloadedEvent: params,
+      });
+      svc.getDownloadEvent.mockResolvedValue(params);
+      const onSuccess = jest.fn();
+      const { result } = renderHook(() => useDownloadPackage());
+      const install = () =>
+        method === 'installPackage'
+          ? result.current.installPackage(onSuccess, jest.fn())
+          : result.current.manualInstallPackage();
+
+      try {
+        const seamless = adapter.BundleUpdate.installBundle(params).catch(
+          (error: unknown) => error,
+        );
+        await act(async () => {
+          const request = install();
+          await jest.runAllTimersAsync();
+          await request;
+        });
+        expect(await seamless).toEqual(new Error('Restart failed'));
+        expect(nativeInstall).toHaveBeenCalledTimes(1);
+        expect(onSuccess).not.toHaveBeenCalled();
+        expect(endManualInstall).not.toHaveBeenCalledWith(true);
+        expect(endInstall).not.toHaveBeenCalledWith(true);
+
+        await act(async () => {
+          const retry = install();
+          await jest.runAllTimersAsync();
+          await retry;
+        });
+        expect(nativeInstall).toHaveBeenCalledTimes(2);
+        expect(restart).toHaveBeenCalledTimes(2);
+        if (method === 'installPackage') {
+          expect(onSuccess).toHaveBeenCalledTimes(1);
+        } else {
+          expect(endManualInstall).toHaveBeenCalledWith(true);
+        }
+      } finally {
+        bundleUpd.installBundle.mockImplementation(savedImplementation);
+        adapter.resetBundleInstallLockForTest();
+      }
+    },
+  );
 
   // ----- B6. manualInstallPackage -----
   describe('manualInstallPackage', () => {
