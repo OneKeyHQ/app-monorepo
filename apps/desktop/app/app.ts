@@ -1039,10 +1039,11 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     selectedShellDocumentCommitted = isTrustedMainWindowUrl(
       src,
       url,
-      undefined,
+      isDevServer ? trustedSameDocumentRouteUrl : undefined,
       isDevServer,
     );
-    trustedSameDocumentRouteUrl = undefined;
+    trustedSameDocumentRouteUrl =
+      isDevServer && selectedShellDocumentCommitted ? url : undefined;
     if (!selectedShellDocumentCommitted) {
       try {
         if (
@@ -1070,7 +1071,14 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   );
 
   const guardMainWindowNavigation = (event: Electron.Event, url: string) => {
-    if (!isTrustedMainWindowUrl(src, url, undefined, isDevServer)) {
+    if (
+      !isTrustedMainWindowUrl(
+        src,
+        url,
+        isDevServer ? trustedSameDocumentRouteUrl : undefined,
+        isDevServer,
+      )
+    ) {
       event.preventDefault();
       logger.warn(
         '[MainWindow] rejected navigation outside selected app shell',
