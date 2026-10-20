@@ -24,6 +24,9 @@ export function WebView({
 }) {
   const webViewRef = useRef<NativeWebView>(null);
   const [webViewKey, setWebViewKey] = useState(0);
+  // Android cannot reuse a WebView after its renderer exits; changing the key
+  // replaces the native view. The same recovery path handles iOS content process
+  // termination so the chart and injected scripts load again.
   const handleRenderProcessGone = useCallback(() => {
     setWebViewKey((prev) => prev + 1);
   }, []);
