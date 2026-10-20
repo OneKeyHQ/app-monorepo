@@ -20,6 +20,7 @@ import {
   SubtitleBadge,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { TokenTagsPopover } from '@onekeyhq/kit/src/views/Market/components/TokenTagsPopover';
+import { getSelectorSearchAssetId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/constants';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -257,7 +258,16 @@ export function UniversalSearchV2MarketTokenItem({
       <XStack flex={1} minWidth={0} gap="$1" ai="center">
         <XStack w="$8" ai="center" jc="center">
           <MarketStarV2Deferred
-            assetId={watchlistIdentity?.assetId}
+            assetId={
+              watchlistIdentity
+                ? watchlistIdentity.assetId
+                : getSelectorSearchAssetId({
+                    assetId,
+                    network,
+                    address,
+                    isNative,
+                  })
+            }
             stockId={watchlistIdentity?.stockId ?? listingStockId}
             chainId={watchlistIdentity?.chainId ?? network}
             contractAddress={watchlistIdentity?.contractAddress ?? address}

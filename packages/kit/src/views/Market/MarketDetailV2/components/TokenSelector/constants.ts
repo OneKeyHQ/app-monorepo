@@ -126,6 +126,9 @@ export function getSelectorSearchAssetId(
     'assetId' | 'network' | 'address' | 'isNative'
   >,
 ): string | undefined {
+  // Native coins keep their canonical asset id so favorites match Top Coins
+  // (OK-64236); navigation still resolves the searched chain's variant.
+  if (item.isNative) return item.assetId;
   // A concrete chain token must not be replaced by the asset's default variant.
   const hasChainIdentity = Boolean(
     item.network?.trim() && (item.address?.trim() || item.isNative),

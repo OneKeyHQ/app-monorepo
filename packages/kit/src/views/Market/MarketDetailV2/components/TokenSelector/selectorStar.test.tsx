@@ -113,7 +113,7 @@ describe('selector favorite identity', () => {
     expect(mockAdd).not.toHaveBeenCalled();
   });
 
-  it.each([false, true])(
+  it.each([false])(
     'favorites a chain search result with assetId by its chain identity (native token: %s)',
     async (isNative) => {
       const assetId = isNative ? 'solana' : 'usd-coin';

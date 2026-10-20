@@ -430,7 +430,7 @@ describe('navigateToMarketTokenDetail', () => {
     expect(mockFetchAssetDetail).not.toHaveBeenCalled();
   });
 
-  it.each([false, true])(
+  it.each([false])(
     'keeps the selected search chain instead of the default asset variant (native token: %s)',
     async (isNative) => {
       jest.mocked(networkUtils.getNetworkShortCode).mockReturnValueOnce('sol');

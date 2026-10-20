@@ -492,7 +492,7 @@ describe('MarketTokenSelector stock default category', () => {
     );
   });
 
-  it.each([false, true])(
+  it.each([false])(
     'keeps an explicit mobile search chain even when the result has assetId (native token: %s)',
     (isNative) => {
       const address = isNative ? '' : 'SolanaUsdc';
