@@ -41,14 +41,12 @@ import { parseMarketStockNumber } from './utils';
 
 const EMPTY_VALUE = '--';
 
-// `$bodyMd`'s line box: the company name and the variant summary share it so
-// the hover slide lands cleanly on the second line.
-const COMPACT_COMPANY_COLUMN_PERCENTAGE = 32;
-
-const COMPACT_METRIC_COLUMN_PROPS: IStackProps = {
-  flexShrink: 0,
-  px: '$2',
-};
+// The selector dropdown's company column, matching the selector's token tabs
+// (`TOKEN_SELECTOR_NAME_COLUMN_WIDTH`) so every tab lines up. The metric
+// columns share the rest evenly, like the full table.
+const COMPACT_COMPANY_COLUMN_WIDTH = 256;
+// `$bodySm`'s line box, the compact subtitle line.
+const COMPACT_SUBTITLE_LINE_HEIGHT = 16;
 
 const FLEX_METRIC_COLUMN_PROPS: IStackProps = {
   flexGrow: 1,
@@ -61,24 +59,17 @@ function getStockColumnWidths(
   metricColumnCount: number,
   compact: boolean,
 ): {
-  companyColumnWidth: `${number}%` | number;
+  companyColumnWidth: number;
   metricColumnWidth: `${number}%`;
   metricColumnProps: IStackProps;
 } {
-  if (compact) {
-    return {
-      companyColumnWidth: `${COMPACT_COMPANY_COLUMN_PERCENTAGE}%`,
-      metricColumnWidth: `${
-        (100 - COMPACT_COMPANY_COLUMN_PERCENTAGE) / metricColumnCount
-      }%`,
-      metricColumnProps: COMPACT_METRIC_COLUMN_PROPS,
-    };
-  }
-  // The design splits the row into a fixed 240 `Left Fixed` company column and
-  // a `Right Flex` region the metric columns share evenly. `flexBasis: 0` makes
+  // The design splits the row into a fixed `Left Fixed` company column and a
+  // `Right Flex` region the metric columns share evenly. `flexBasis: 0` makes
   // that split independent of each column's own content width.
   return {
-    companyColumnWidth: MARKET_LIST_FIRST_COLUMN_WIDTH,
+    companyColumnWidth: compact
+      ? COMPACT_COMPANY_COLUMN_WIDTH
+      : MARKET_LIST_FIRST_COLUMN_WIDTH,
     metricColumnWidth: `${100 / metricColumnCount}%`,
     metricColumnProps: FLEX_METRIC_COLUMN_PROPS,
   };
@@ -109,12 +100,15 @@ function renderCompanySubtitle({
 }) {
   const marketTags = showMarketTags ? (record.tags?.filter(Boolean) ?? []) : [];
   const hasMarketTags = marketTags.length > 0;
+  const lineHeight = compact
+    ? COMPACT_SUBTITLE_LINE_HEIGHT
+    : MARKET_CELL_SUBTITLE_LINE_HEIGHT;
   const companyName = (
     <SizableText
       // Beside the badges the row centers the name instead: a fixed height
       // would pin the compact 16px line to the top of the 20px row and leave
       // the name sitting above the badge.
-      height={hasMarketTags ? undefined : MARKET_CELL_SUBTITLE_LINE_HEIGHT}
+      height={hasMarketTags ? undefined : lineHeight}
       size={compact ? '$bodySm' : MARKET_CELL_SUBTITLE_SIZE}
       color="$textSubdued"
       numberOfLines={1}
@@ -129,9 +123,9 @@ function renderCompanySubtitle({
   }
   return (
     <XStack
-      height={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
+      height={lineHeight}
       alignItems="center"
-      gap="$1"
+      gap={compact ? '$1.5' : '$1'}
       minWidth={0}
     >
       {marketTags.map((tag) => (
@@ -219,7 +213,7 @@ export function useMarketStockColumns({
               flex={1}
               minWidth={0}
               alignItems="center"
-              gap={compact ? '$2.5' : 14}
+              gap={compact ? '$3' : 14}
             >
               <Token
                 size={compact ? 'md' : 'lg'}
@@ -230,18 +224,22 @@ export function useMarketStockColumns({
               <YStack
                 flex={1}
                 minWidth={0}
-                gap={compact ? '$0.5' : undefined}
+                gap={compact ? '$1' : undefined}
                 justifyContent="center"
               >
                 <SizableText
-                  size={compact ? '$bodyMdMedium' : '$bodyLgMedium'}
+                  size={compact ? '$headingSm' : '$bodyLgMedium'}
                   numberOfLines={1}
                   ellipsizeMode="tail"
                 >
                   {record.symbol}
                 </SizableText>
                 <MarketHoverRevealLine
-                  lineHeight={MARKET_CELL_SUBTITLE_LINE_HEIGHT}
+                  lineHeight={
+                    compact
+                      ? COMPACT_SUBTITLE_LINE_HEIGHT
+                      : MARKET_CELL_SUBTITLE_LINE_HEIGHT
+                  }
                   resting={renderCompanySubtitle({
                     record,
                     compact,
@@ -408,6 +406,13 @@ export function useMarketStockColumns({
           ),
         renderSkeleton: () => <Skeleton width={132} height={40} />,
       });
+    }
+    // The selector's compact table right-aligns its figures; the company
+    // column stays left.
+    if (compact) {
+      return columns.map((column, index) =>
+        index === 0 ? column : { ...column, align: 'right' as const },
+      );
     }
     return columns;
   }, [
