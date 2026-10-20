@@ -189,9 +189,15 @@ class ServiceApp extends ServiceBase {
 
     // Client-scanned chains keep decrypted state in their own databases,
     // outside every store cleared below. Each chain wipes what it can and
-    // never needs the host index to do it.
-    const privacyChainDropFailed =
-      await this.backgroundApi.servicePrivacyChain.dropAllLocalWalletData();
+    // never needs the host index to do it. Failures come back as networks to
+    // retry; a throw must not take App Reset down with it.
+    let privacyChainDropFailed: string[] = [];
+    try {
+      privacyChainDropFailed =
+        await this.backgroundApi.servicePrivacyChain.dropAllLocalWalletData();
+    } catch {
+      console.error('servicePrivacyChain.dropAllLocalWalletData() error');
+    }
     defaultLogger.setting.page.clearDataStep('privacyChain-dropLocalData');
 
     // clean app storage
