@@ -473,6 +473,11 @@ export async function fetchAccountHistoryFromLocal(
       tx.decodedTx.status,
     ]),
   );
+  const minedTxids = new Set(
+    publicTxs
+      .filter((tx) => (tx.decodedTx.block ?? 0) > 0)
+      .map((tx) => tx.decodedTx.txid.toLowerCase()),
+  );
   const restorePendingJournal = (tx: IAccountHistoryTx): IAccountHistoryTx => {
     if (
       tx.decodedTx.status !== EDecodedTxStatus.Pending ||
@@ -616,6 +621,7 @@ export async function fetchAccountHistoryFromLocal(
           cachedHistory: await loadCachedHistory(),
           backendTipHeight: publicTipHeight,
           backendStatuses: observedTxs,
+          backendMinedTxids: minedTxids,
         });
       } catch (error) {
         console.error(

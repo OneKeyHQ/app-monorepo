@@ -7,9 +7,9 @@ jest.mock('../../../dbs/local/localDbInstance', () => ({
 jest.mock(
   '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect',
   () => ({
-    ...jest.requireActual(
-      '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect',
-    ),
+    ...jest.requireActual<
+      typeof import('@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect')
+    >('@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect'),
     fetchZcashChainTipDirect: jest.fn(async () => 1_000_000),
     fetchZcashLightdInfoDirect: jest.fn(async () => null),
   }),
@@ -284,6 +284,24 @@ describe('expired transparent send reconciliation', () => {
         .filter((tx) => tx.decodedTx.txid === txid)
         .map((tx) => tx.decodedTx.status),
     ).toEqual([EDecodedTxStatus.Confirmed]);
+  });
+
+  it('never drops a send the backend reports in a block while still pending', async () => {
+    const { zcash, backend, read, inUse } = await fixture();
+    Object.assign(backend, {
+      txs: [row(txid, EDecodedTxStatus.Pending, { block: expiryHeight - 1 })],
+      tipHeight: expiryHeight + 500,
+    });
+    const rows = await read();
+    expect(rows.map((tx) => tx.decodedTx.status)).not.toContain(
+      EDecodedTxStatus.Dropped,
+    );
+    expect(await zcash.listTransparentPendingTxs({ accountId })).toHaveLength(
+      1,
+    );
+    expect(await inUse()).toEqual(
+      new Set([`${spentOutpoint.txid}:${spentOutpoint.vout}`]),
+    );
   });
 
   it('keeps a dropped send dropped on later polls past the 50-row cache', async () => {
