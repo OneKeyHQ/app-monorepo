@@ -23,10 +23,7 @@ import {
 import { mergeLocalTxDisplayFields } from '../../../services/ServiceHistory';
 import VaultBtc from '../btc/Vault';
 
-import {
-  restoreZcashLocalTransparentPayment,
-  zcashSelfTransferDetailCache,
-} from './backendHistory';
+import { restoreZcashLocalTransparentPayment } from './backendHistory';
 import Vault from './Vault';
 
 import type { IEncodedTxZcash } from './types';
@@ -207,7 +204,6 @@ function createVault(initial = localPayment()) {
 
 afterEach(() => {
   jest.restoreAllMocks();
-  zcashSelfTransferDetailCache.clear();
 });
 
 it('retains the signed payment across confirmation, serialization and repeated refreshes', async () => {
@@ -314,64 +310,28 @@ function createLegacySelfTransfer() {
   return { ...context, detail, fetchDetail };
 }
 
-it('recovers a legacy transparent Max self-payment from public I/O across refreshes', async () => {
+// Like BTC: a self-transfer this device did not sign shows the backend's value.
+it('shows an unsigned transparent self-transfer with the backend value', async () => {
   const { vault, fetchDetail, runtime } = createLegacySelfTransfer();
-  for (let refresh = 0; refresh < 2; refresh += 1) {
-    const rows = await vault.fetchAccountHistoryFromLocal(params);
-    expect(rows?.[0].decodedTx).toMatchObject({
-      nativeAmount: '0.0009',
-      totalFeeInNative: '0.00015',
-      to: sender,
-      status: EDecodedTxStatus.Confirmed,
-    });
-    expect(rows?.[0].decodedTx.nativeAmountIsUnknown).not.toBe(true);
-    expect(rows?.[0].isLocalCreated).not.toBe(true);
-  }
-  expect(fetchDetail).toHaveBeenCalledWith({
-    accountId: params.accountId,
-    networkId: params.networkId,
-    txid,
+  const rows = await vault.fetchAccountHistoryFromLocal(params);
+  expect(rows?.[0].decodedTx).toMatchObject({
+    nativeAmount: '0.00015',
+    totalFeeInNative: '0.00015',
+    to: sender,
+    status: EDecodedTxStatus.Confirmed,
   });
-  // Mined I/O is fetched once, not on every refresh.
-  expect(fetchDetail).toHaveBeenCalledTimes(1);
+  expect(rows?.[0].decodedTx.nativeAmountIsUnknown).not.toBe(true);
+  expect(rows?.[0].isLocalCreated).not.toBe(true);
+  expect(fetchDetail).not.toHaveBeenCalled();
   expect(runtime).not.toHaveBeenCalled();
 });
 
-it.each([
-  'unavailable',
-  'different transaction',
-  'different recipient',
-  'multiple outputs',
-  'foreign input',
-  'change output',
-])(
-  'keeps an ambiguous self-payment unknown when I/O is %s',
-  async (scenario) => {
-    const { vault, detail, fetchDetail } = createLegacySelfTransfer();
-    if (scenario === 'unavailable')
-      fetchDetail.mockRejectedValue(new Error('offline'));
-    if (scenario === 'different transaction') detail.tx = 'cd'.repeat(32);
-    if (scenario === 'different recipient') detail.receives[0].to = recipient;
-    if (scenario === 'multiple outputs')
-      detail.receives.push({ ...detail.receives[0] });
-    if (scenario === 'foreign input') detail.sends[0].from = 't1-other';
-    if (scenario === 'change output') detail.receives[0].isChange = true;
-    const rows = await vault.fetchAccountHistoryFromLocal(params);
-    expect(rows?.[0].decodedTx).toMatchObject({
-      to: sender,
-      totalFeeInNative: '0.00015',
-      nativeAmountIsUnknown: true,
-      status: EDecodedTxStatus.Confirmed,
-    });
-  },
-);
-
-it('preserves full public I/O and restores the legacy self-payment summary', async () => {
+it('keeps the public I/O of an unsigned self-transfer as the backend reports it', async () => {
   const { vault, detail } = createLegacySelfTransfer();
   const summary = (await vault.fetchAccountHistoryDetail({ ...params, txid }))
     .data.data.data;
   expect(summary).toMatchObject({
-    value: '0.0009',
+    value: '0.00015',
     gasFee: '0.00015',
     to: sender,
   });
