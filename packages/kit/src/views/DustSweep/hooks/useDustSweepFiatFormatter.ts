@@ -1,13 +1,14 @@
 import { useCallback } from 'react';
 
-import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
+import BigNumber from 'bignumber.js';
+
 import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import type BigNumber from 'bignumber.js';
+const isUsableRate = (rate: BigNumber) => rate.isFinite() && rate.gt(0);
 
 // Dust sweep prices everything in USD; text that can't use <Currency> (labels,
 // interpolated copy) goes through here to show the user's display currency.
@@ -17,16 +18,21 @@ export function useDustSweepFiatFormatter() {
   const targetCurrency = currencyInfo?.id ?? 'usd';
   return useCallback(
     (valueUsd: BigNumber.Value) => {
-      // convertFiat passes the USD value through when either rate is missing,
-      // so the symbol must stay USD in that case too.
-      const converted = !!currencyMap.usd && !!currencyMap[targetCurrency];
+      const usdRate = new BigNumber(currencyMap.usd?.value ?? NaN);
+      const targetRate = new BigNumber(
+        currencyMap[targetCurrency]?.value ?? NaN,
+      );
+      // Only label the value with the display currency when it was actually
+      // converted; a missing, zero or invalid rate keeps the USD amount and
+      // symbol together.
+      const converted =
+        targetCurrency !== 'usd' &&
+        isUsableRate(usdRate) &&
+        isUsableRate(targetRate);
       return numberFormat(
-        convertFiat({
-          value: valueUsd,
-          sourceCurrency: 'usd',
-          targetCurrency,
-          currencyMap,
-        }),
+        converted
+          ? new BigNumber(valueUsd).div(usdRate).times(targetRate).toFixed()
+          : new BigNumber(valueUsd).toFixed(),
         {
           formatter: 'value',
           formatterOptions: {

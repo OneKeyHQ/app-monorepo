@@ -40,3 +40,14 @@ it('keeps the USD amount and symbol until the rate map loads', () => {
 
   expect(result.current('10')).toBe('$10.00');
 });
+
+it.each([
+  ['the USD rate is zero', { ...rates, usd: { unit: '$', value: '0' } }],
+  ['the target rate is zero', { ...rates, cny: { unit: '¥', value: '0' } }],
+  ['the target rate is invalid', { ...rates, cny: { unit: '¥', value: '--' } }],
+])('keeps the USD amount and symbol when %s', (_case, map) => {
+  mockCurrencyMap = map;
+  const { result } = renderHook(() => useDustSweepFiatFormatter());
+
+  expect(result.current('10')).toBe('$10.00');
+});
