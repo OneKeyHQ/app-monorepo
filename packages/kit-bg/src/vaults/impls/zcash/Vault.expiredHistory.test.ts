@@ -141,9 +141,9 @@ describe('expired transparent send reconciliation', () => {
       backgroundApi: {
         simpleDb: { zcash, localHistory },
         serviceToken: { getToken: async () => undefined },
+        serviceAccount: { getDBAccount: async () => ({ address: 't1-own' }) },
       },
       getAccount: async () => ({ address: 't1-own' }),
-      zcashReplayUnknownTransparentBroadcast: jest.fn(async () => undefined),
       zcashFetchTransparentHistory: async () => ({
         ...backend,
         txs: backend.txs.map((tx) => ({
@@ -240,6 +240,34 @@ describe('expired transparent send reconciliation', () => {
       ).toEqual([EDecodedTxStatus.Dropped]);
     },
   );
+
+  it('never resubmits an unknown-outcome send on history reads', async () => {
+    const { zcash, backend, read, inUse } = await fixture();
+    const [journal] = await zcash.listTransparentPendingTxs({ accountId });
+    await zcash.saveTransparentPendingTx({
+      accountId,
+      tx: { ...journal, broadcastState: 'unknown' },
+    });
+    const transport = jest.spyOn(VaultBtc.prototype, 'broadcastTransaction');
+    backend.tipHeight = expiryHeight + 10;
+    for (let i = 0; i < 3; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      const rows = await read();
+      expect(rows.map((tx) => tx.decodedTx)).toEqual([
+        expect.objectContaining({
+          status: EDecodedTxStatus.Pending,
+          broadcastOutcomeUnknown: true,
+        }),
+      ]);
+    }
+    expect(transport).not.toHaveBeenCalled();
+    expect(await zcash.listTransparentPendingTxs({ accountId })).toEqual([
+      expect.objectContaining({ broadcastState: 'unknown' }),
+    ]);
+    expect(await inUse()).toEqual(
+      new Set([`${spentOutpoint.txid}:${spentOutpoint.vout}`]),
+    );
+  });
 
   it('never drops a send the backend reports mined', async () => {
     const { localHistory, backend, read } = await fixture();
