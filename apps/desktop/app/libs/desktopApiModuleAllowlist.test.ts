@@ -7,6 +7,45 @@ import {
 
 describe('selected desktop app shell URL', () => {
   it.each([
+    ['http://localhost:3001/', 'http://localhost:3001/market'],
+    [
+      'http://localhost:3001/',
+      'http://localhost:3001/market/stock/JNJ?stockPreviewSymbol=JNJ',
+    ],
+    ['http://127.0.0.1:3001/', 'http://127.0.0.1:3001/swap'],
+    ['http://[::1]:3001/', 'http://[::1]:3001/market'],
+    ['https://localhost:3001/', 'https://localhost:3001/market'],
+  ])(
+    'allows local dev-server routes only in development',
+    (selected, frame) => {
+      expect(isTrustedMainWindowUrl(selected, frame, undefined, true)).toBe(
+        true,
+      );
+      expect(isTrustedMainWindowUrl(selected, frame, undefined, false)).toBe(
+        false,
+      );
+    },
+  );
+
+  it.each([
+    ['http://localhost:3001/', 'http://localhost:3002/market'],
+    ['http://localhost:3001/', 'https://localhost:3001/market'],
+    ['http://localhost:3001/', 'http://127.0.0.1:3001/market'],
+    ['http://localhost:3001/', 'http://localhost.evil.example:3001/market'],
+    ['http://localhost:3001/', 'https://evil.example/market'],
+    ['https://app.onekey.so/', 'https://app.onekey.so/market'],
+    ['file:///opt/onekey/index.html', 'file:///opt/other/index.html'],
+    ['http://localhost:3001/', 'not a URL'],
+  ])(
+    'keeps dev-server trust scoped to the selected local origin',
+    (selected, frame) => {
+      expect(isTrustedMainWindowUrl(selected, frame, undefined, true)).toBe(
+        false,
+      );
+    },
+  );
+
+  it.each([
     [
       'file:///opt/onekey/index.html',
       'file:///opt/onekey/index.html#/home',
