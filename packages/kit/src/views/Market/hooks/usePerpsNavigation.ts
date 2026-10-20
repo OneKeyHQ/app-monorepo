@@ -225,10 +225,16 @@ export function usePerpsNavigation(source?: EPerpPageEnterSource) {
             }
             navigation.switchTab(targetTab);
             navigationCommitted = true;
+            const targetRouteKey =
+              rootNavigationRef.current?.getCurrentRoute()?.key;
+            const isCurrentTarget = () =>
+              isCurrentRequest() &&
+              rootNavigationRef.current?.getCurrentRoute()?.key ===
+                targetRouteKey;
             if (!proxy) return;
             try {
               await proxy.serviceHyperliquid.changeActiveAsset({ coin });
-              if (!isCurrentRequest()) return;
+              if (!isCurrentTarget()) return;
               appEventBus.emit(EAppEventBusNames.PerpSwitchActiveInstrument, {
                 mode: 'perp',
                 coin,
@@ -236,7 +242,7 @@ export function usePerpsNavigation(source?: EPerpPageEnterSource) {
               if (platformEnv.isNative || !gtMd) {
                 await perpsCustomSettingsAtom.ready();
                 const settings = await perpsCustomSettingsAtom.get();
-                if (!isCurrentRequest()) return;
+                if (!isCurrentTarget()) return;
                 if (settings.mobileTradingMode === 'simple') {
                   navigation.pushModal(EModalRoutes.PerpModal, {
                     screen: EModalPerpRoutes.MobilePerpSimpleMarket,

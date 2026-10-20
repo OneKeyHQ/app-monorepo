@@ -54,6 +54,7 @@ import {
   type IModalPerpParamList,
 } from '@onekeyhq/shared/src/routes/perp';
 import {
+  computeMaxTradeSize,
   estimateLiquidationPrice,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -284,9 +285,14 @@ function SimpleOrderContent() {
   const amountDecimals =
     inputUnit === 'token' ? (asset.universe?.szDecimals ?? 0) : 2;
   const leverage = assetData?.leverage.value ?? 0;
-  const maxSize = String(
-    assetData?.maxTradeSzs[side === 'long' ? 0 : 1] ?? '0',
-  );
+  const maxSize = computeMaxTradeSize({
+    side,
+    price: orderPrice,
+    markPrice: assetCtx?.ctx?.markPrice,
+    maxTradeSzs: assetData?.maxTradeSzs,
+    leverageValue: leverage,
+    szDecimals: asset.universe?.szDecimals,
+  }).toFixed();
   const percent =
     scopedDraft?.source === 'percent' ? scopedDraft.sizePercent : 0;
   let amount = scopedDraft?.source === 'manual' ? scopedDraft.inputAmount : '';
@@ -601,6 +607,7 @@ function SimpleOrderContent() {
       try {
         await actions.current.submitOrder({
           assetId: instrument.assetId,
+          expectedAccountAddress: accountAddress,
           formData,
           price: orderPrice,
         });
@@ -616,6 +623,7 @@ function SimpleOrderContent() {
     confirmDialogRef.current = showOrderConfirmDialog({
       intl,
       expectedCoin: route.params.coin,
+      expectedAccountAddress: accountAddress,
       formData,
       price: orderPrice,
       aggressiveLimitPriceWarning,

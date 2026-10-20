@@ -577,14 +577,37 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async updateLeverage(params: ILeverageUpdateRequest): Promise<void> {
+  async updateLeverage(
+    params: ILeverageUpdateRequest,
+    options: IOrderAccountGuardOptions = {},
+  ): Promise<void> {
+    const expectedAccountAddress =
+      await this._resolveExpectedAccountAddress(options);
     await this.checkAccountCanTrade();
 
-    const client = await this.getExchangeClientForTrading();
+    const client = await this.getExchangeClientForTrading({
+      expectedAccountAddress,
+    });
     const context = await this._buildLogContext();
     const startedAt = Date.now();
     try {
-      await convertHyperLiquidResponse(() => client.updateLeverage(params));
+      if (expectedAccountAddress) {
+        const account = await perpsActiveAccountAtom.get();
+        if (
+          account.accountAddress?.toLowerCase() !==
+          expectedAccountAddress.toLowerCase()
+        ) {
+          throw new OneKeyLocalError(
+            appLocale.intl.formatMessage({
+              id: ETranslations.active_trading_account_changed__msg,
+            }),
+          );
+        }
+      }
+      await convertHyperLiquidResponse(() => {
+        this._assertExchangeUserAddress(expectedAccountAddress);
+        return client.updateLeverage(params);
+      });
       defaultLogger.perp.hyperliquid.updateLeverage({
         ...context,
         request: params,
