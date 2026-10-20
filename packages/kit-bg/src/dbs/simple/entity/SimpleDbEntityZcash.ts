@@ -1078,56 +1078,6 @@ export class SimpleDbEntityZcash extends SimpleDbEntityBase<IZcashDB> {
     });
   }
 
-  async pruneExpiredTransparentState({
-    accountId,
-    currentHeight,
-    retainPending = false,
-  }: {
-    accountId: string;
-    currentHeight?: number;
-    retainPending?: boolean;
-  }): Promise<string[]> {
-    const expiredTxids: string[] = [];
-    await this.setRawData((rawData) => {
-      const pending = {
-        ...rawData?.transparentPendingTxs?.[accountId],
-      };
-      const reservations = {
-        ...rawData?.transparentReservations?.[accountId],
-      };
-      const expiredOwners = new Set<string>();
-      for (const [txid, tx] of Object.entries(pending)) {
-        if (currentHeight !== undefined && tx.expiryHeight < currentHeight) {
-          expiredTxids.push(txid);
-          expiredOwners.add(tx.ownerId);
-          if (!retainPending) delete pending[txid];
-        }
-      }
-      for (const [key, reservation] of Object.entries(reservations)) {
-        if (
-          (currentHeight !== undefined &&
-            reservation.expiryHeight < currentHeight) ||
-          expiredOwners.has(reservation.ownerId)
-        ) {
-          delete reservations[key];
-        }
-      }
-      return {
-        ...rawData,
-        accounts: rawData?.accounts ?? {},
-        transparentPendingTxs: {
-          ...rawData?.transparentPendingTxs,
-          [accountId]: pending,
-        },
-        transparentReservations: {
-          ...rawData?.transparentReservations,
-          [accountId]: reservations,
-        },
-      };
-    });
-    return expiredTxids;
-  }
-
   // Settings "Clear pending transactions": release every signed or reserved
   // input, as BTC keeps no local input locks.
   async clearTransparentPendingState(): Promise<void> {

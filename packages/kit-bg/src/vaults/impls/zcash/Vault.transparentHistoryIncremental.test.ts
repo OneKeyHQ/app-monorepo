@@ -268,9 +268,25 @@ describe('Zcash transparent history polling', () => {
     backend.rows = [...minedRows(1201, 1800), ...backend.rows];
     post.mockClear();
     const result = await fetchTransparent();
-    expect(post).toHaveBeenCalledTimes(1 + 4);
+    // Page 1 is reused by the full fetch, not requested twice.
+    expect(post).toHaveBeenCalledTimes(4);
     expect(result.snapshotComplete).toBe(true);
     expect(statuses(result.txs)).toEqual(expectedStatuses(backend.rows));
+  });
+
+  it('keeps the snapshot when a caller edits the rows it was given', async () => {
+    const { post } = createBackend(minedRows(1, 1200));
+    const { fetchTransparent } = createVault(post);
+    const full = await fetchTransparent();
+    full.txs.forEach((tx) => {
+      tx.decodedTx.status = EDecodedTxStatus.Failed;
+    });
+    const poll = await fetchTransparent();
+    expect(
+      poll.txs.every(
+        (tx) => tx.decodedTx.status === EDecodedTxStatus.Confirmed,
+      ),
+    ).toBe(true);
   });
 
   it('keeps a small history a single complete page on every poll', async () => {
