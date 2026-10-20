@@ -121,6 +121,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   },
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  perpsCustomSettingsAtom: {
+    ready: jest.fn(async () => undefined),
+    get: jest.fn(async () => ({ mobileTradingMode: 'pro' })),
+  },
   useBannerClosePersistAtom: () => [
     { ids: mockDismissed ? ['perps-trading-banner'] : [] },
     jest.fn(),
@@ -146,6 +150,7 @@ jest.mock('../../../utils/marketDetailNavigation', () => ({
 }));
 jest.mock('@onekeyhq/components', () => ({
   switchTabAsync: (...args: unknown[]) => mockSwitchTabAsync(...args),
+  useMedia: () => ({ gtMd: false }),
   rootNavigationRef: {
     current: {
       getCurrentRoute: () =>

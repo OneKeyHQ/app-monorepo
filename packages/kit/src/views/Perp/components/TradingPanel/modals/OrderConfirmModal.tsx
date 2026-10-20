@@ -107,6 +107,7 @@ interface IOrderConfirmContentProps {
   // Coin the override ticket was built for; submit aborts if the live active
   // instrument no longer matches (active-asset switch between press and confirm).
   expectedCoin?: string;
+  expectedAccountAddress?: string;
   aggressiveLimitPriceWarning?: IAggressiveLimitPriceWarning;
   // Fired only after a successful override submit (chart popover closes itself).
   onConfirmSuccess?: () => void;
@@ -142,6 +143,7 @@ function OrderConfirmContent({
   formDataOverride,
   priceOverride,
   expectedCoin,
+  expectedAccountAddress,
   aggressiveLimitPriceWarning,
   onConfirmSuccess,
   liquidationPriceOverride,
@@ -156,10 +158,23 @@ function OrderConfirmContent({
   );
   const currentAccountKeyRef = useRef(currentAccountKey);
   const isDialogClosedRef = useRef(false);
+  useEffect(() => {
+    isDialogClosedRef.current = false;
+    return () => {
+      isDialogClosedRef.current = true;
+    };
+  }, []);
   const closeDialog = useCallback(() => {
     isDialogClosedRef.current = true;
     onClose?.();
   }, [onClose]);
+  const accountMatchesSnapshot =
+    !expectedAccountAddress ||
+    perpsAccount.accountAddress?.toLowerCase() ===
+      expectedAccountAddress.toLowerCase();
+  useEffect(() => {
+    if (!accountMatchesSnapshot) closeDialog();
+  }, [accountMatchesSnapshot, closeDialog]);
   const closeBeforeDeposit = useCallback(() => {
     closeDialog();
     beforeDeposit?.();
@@ -175,13 +190,6 @@ function OrderConfirmContent({
   useEffect(() => {
     currentAccountKeyRef.current = currentAccountKey;
   }, [currentAccountKey]);
-
-  useEffect(
-    () => () => {
-      isDialogClosedRef.current = true;
-    },
-    [],
-  );
 
   const hyperliquidActions = useHyperliquidActions();
   const [isOverrideSubmitting, setIsOverrideSubmitting] = useState(false);
@@ -506,7 +514,15 @@ function OrderConfirmContent({
   const isConfirmLoading = isSubmitting || isPreparingEnableTrading;
 
   const submitReviewedOrder = useCallback(async () => {
-    if (!formDataOverride || overrideSubmitLock.current) {
+    if (
+      !formDataOverride ||
+      overrideSubmitLock.current ||
+      isDialogClosedRef.current
+    ) {
+      return;
+    }
+    if (!accountMatchesSnapshot) {
+      closeDialog();
       return;
     }
     if (activeInstrument.assetId === undefined) {
@@ -539,6 +555,7 @@ function OrderConfirmContent({
     try {
       await hyperliquidActions.current.submitOrder({
         assetId: activeInstrument.assetId,
+        expectedAccountAddress,
         formData: formDataOverride,
         price: priceOverride ?? formDataOverride.price,
       });
@@ -552,10 +569,12 @@ function OrderConfirmContent({
       setIsOverrideSubmitting(false);
     }
   }, [
+    accountMatchesSnapshot,
     activeInstrument.assetId,
     activeInstrument.coin,
     closeDialog,
     expectedCoin,
+    expectedAccountAddress,
     formDataOverride,
     hyperliquidActions,
     intl,
@@ -1054,6 +1073,7 @@ export function showOrderConfirmDialog({
   formData,
   price,
   expectedCoin,
+  expectedAccountAddress,
   aggressiveLimitPriceWarning,
   onConfirmSuccess,
   onDismiss,
@@ -1074,6 +1094,7 @@ export function showOrderConfirmDialog({
   price?: string;
   // Coin the override ticket was built for; submit aborts on a live-coin mismatch.
   expectedCoin?: string;
+  expectedAccountAddress?: string;
   aggressiveLimitPriceWarning?: IAggressiveLimitPriceWarning;
   // Fired only after a successful override submit (chart popover closes itself).
   onConfirmSuccess?: () => void;
@@ -1105,6 +1126,7 @@ export function showOrderConfirmDialog({
                 formDataOverride={formData}
                 priceOverride={price}
                 expectedCoin={expectedCoin}
+                expectedAccountAddress={expectedAccountAddress}
                 aggressiveLimitPriceWarning={aggressiveLimitPriceWarning}
                 onConfirmSuccess={onConfirmSuccess}
                 liquidationPriceOverride={liquidationPriceOverride}
