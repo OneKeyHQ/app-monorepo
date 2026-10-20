@@ -39,6 +39,7 @@ export function useDustSweepSession(
   const pauseRevision = useRef(0);
   const started = useRef(0);
   const reported = useRef(false);
+  const releaseHold = useRef<(() => void) | undefined>(undefined);
   const stoppingRef = useRef(false);
   const [stopping, setStopping] = useState(false);
   const send = useCallback((action: Parameters<typeof dustSweepReducer>[1]) => {
@@ -76,18 +77,18 @@ export function useDustSweepSession(
         return;
       const wait = started.current + minRunMs - Date.now();
       if (wait <= 0) return;
-      // Stop and Leave abort the signal; don't keep them waiting on the hold.
-      // The listener goes away with this session's signal.
+      // Stop releases the hold and Leave aborts the signal; don't keep either
+      // waiting on it. The listener goes away with this session's signal.
       await new Promise<void>((resolve) => {
-        const timer = setTimeout(resolve, wait);
-        signal.addEventListener(
-          'abort',
-          () => {
-            clearTimeout(timer);
-            resolve();
-          },
-          { once: true },
-        );
+        const timer = setTimeout(() => releaseHold.current?.(), wait);
+        releaseHold.current = () => {
+          clearTimeout(timer);
+          releaseHold.current = undefined;
+          resolve();
+        };
+        signal.addEventListener('abort', () => releaseHold.current?.(), {
+          once: true,
+        });
       });
     };
     const task = async () => {
@@ -269,10 +270,12 @@ export function useDustSweepSession(
     stoppingRef.current = true;
     setStopping(true);
     try {
-      controller.current?.abort();
-      // Same as leave: a signing call already in progress can't be cancelled,
-      // so wait for it before starting over.
+      // Don't abort: a broadcast swap or approval must settle before the
+      // balances reload, or the same token could be submitted again. Paused,
+      // the worker signs nothing new and exits once its current item settles.
+      releaseHold.current?.();
       await running.current;
+      controller.current?.abort();
     } finally {
       stoppingRef.current = false;
       if (mounted.current) setStopping(false);

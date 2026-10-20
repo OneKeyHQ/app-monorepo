@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 import { act, renderHook } from '@testing-library/react';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IDustSweepSnapshot } from '@onekeyhq/shared/types/swap/dustSweep';
 
 import {
@@ -455,7 +456,7 @@ it('stops a paused session after its in-flight item and returns to selection', a
     stop = result.current.stop();
   });
   expect(result.current.stopping).toBe(true);
-  expect(execute.mock.calls[0][0].signal.aborted).toBe(true);
+  expect(execute.mock.calls[0][0].signal.aborted).toBe(false);
   // Continue is ignored while the stop waits for the signing call.
   act(() => result.current.resume());
   expect(result.current.state.phase).toBe('paused');
@@ -471,6 +472,41 @@ it('stops a paused session after its in-flight item and returns to selection', a
   expect(mockResultLog).toHaveBeenCalledWith(
     expect.objectContaining({ endReason: 'stopped' }),
   );
+});
+
+it('waits for a broadcast swap to settle before Stop resets the session', async () => {
+  const settled = deferred<IResult>();
+  execute.mockImplementationOnce(async ({ onSigning, onBroadcast, signal }) => {
+    onSigning();
+    onBroadcast('tx-a');
+    const outcome = await settled.promise;
+    // The real confirmation loop gives up once its signal aborts.
+    if (signal.aborted) throw new OneKeyLocalError('Dust Sweep cancelled');
+    return outcome;
+  });
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  act(() => {
+    result.current.start(snapshot);
+  });
+  act(() => result.current.pause());
+  let stop: Promise<boolean> | undefined;
+  act(() => {
+    stop = result.current.stop();
+  });
+  // Still broadcast and polling; the session must not reset under it.
+  expect(execute.mock.calls[0][0].signal.aborted).toBe(false);
+  expect(result.current.state.items[0].status).toBe('broadcasted');
+  let stopped: boolean | undefined;
+  await act(async () => {
+    settled.resolve(success);
+    stopped = await stop;
+  });
+  expect(stopped).toBe(true);
+  expect(execute).toHaveBeenCalledTimes(1);
+  expect(mockItemLog).toHaveBeenCalledWith(
+    expect.objectContaining({ tokenSymbol: 'a', status: 'success' }),
+  );
+  expect(result.current.state).toEqual({ phase: 'selecting', items: [] });
 });
 
 it('keeps an unconfirmed submission blocked instead of stopping', async () => {
