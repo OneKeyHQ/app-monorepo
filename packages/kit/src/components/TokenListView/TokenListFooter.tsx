@@ -73,7 +73,8 @@ function TokenListFooter(props: IProps) {
     plainMode,
   } = props;
   const navigation = useAppNavigation();
-  const { canDustSweep, openDustSweep } = useActiveAccountDustSweep();
+  const { canDustSweep, isDustSweepRefreshing, openDustSweep } =
+    useActiveAccountDustSweep();
   const {
     activeAccount: {
       account,
@@ -500,6 +501,7 @@ function TokenListFooter(props: IProps) {
               variant="secondary"
               icon="BroomOutline"
               flexShrink={0}
+              disabled={isDustSweepRefreshing}
               accessibilityLabel={intl.formatMessage({
                 id: ETranslations.title_dust_sweep,
               })}

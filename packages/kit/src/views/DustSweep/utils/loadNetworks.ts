@@ -3,6 +3,7 @@ import pLimit from 'p-limit';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   buildUnifiedSwapProviderManagers,
@@ -14,9 +15,88 @@ import type {
   IDustSweepRouteParams,
 } from '@onekeyhq/shared/types/swap/dustSweep';
 import { DUST_SWEEP_PROVIDER } from '@onekeyhq/shared/types/swap/dustSweep';
-import type { ISwapProviderInfo } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import type {
+  ISwapProviderInfo,
+  ISwapProviderManager,
+  ISwapServiceProvider,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
 import { buildDustSweepCandidates } from './candidates';
+
+export function getDustSweepSupportedNetworks({
+  networks,
+  providers,
+  savedProviders,
+}: {
+  networks: ISwapNetwork[];
+  providers: ISwapServiceProvider[];
+  savedProviders: ISwapProviderManager[];
+}) {
+  const provider = providers.find(
+    (item) => item.providerInfo.provider === DUST_SWEEP_PROVIDER,
+  );
+  const supportedNetworkIds = new Set(
+    provider?.providerServiceDisable || provider?.isSupportSingleSwap === false
+      ? []
+      : provider?.supportSingleSwapNetworks?.map((item) => item.networkId),
+  );
+  const disabledNetworkIds = new Set(
+    provider?.serviceDisableNetworks?.map((item) => item.networkId),
+  );
+  const enabledProviders = buildUnifiedSwapProviderManagers({
+    serverProviders: providers,
+    swapProviderManagers: savedProviders,
+    bridgeProviderManagers: [],
+  });
+  return networks.filter(
+    (network) =>
+      network.supportSingleSwap &&
+      supportedNetworkIds.has(network.networkId) &&
+      !disabledNetworkIds.has(network.networkId) &&
+      !getDenySwapProviderString({
+        providerManagers: enabledProviders,
+        fromNetworkId: network.networkId,
+        toNetworkId: network.networkId,
+      })
+        ?.split(',')
+        .includes(DUST_SWEEP_PROVIDER),
+  );
+}
+
+async function loadQuietly<T>(load: () => Promise<T>) {
+  try {
+    return await load();
+  } catch (error) {
+    // The background proxy defers auto-toast dispatch so optional UI queries
+    // can suppress it at the caller, without changing explicit page requests.
+    errorToastUtils.toastIfErrorDisable(error);
+    throw error;
+  }
+}
+
+export async function loadDustSweepEntryCapabilities({
+  fetchNetworks,
+  fetchProviders,
+  getSavedProviders,
+}: {
+  fetchNetworks: () => Promise<ISwapNetwork[]>;
+  fetchProviders: () => Promise<ISwapServiceProvider[]>;
+  getSavedProviders: () => Promise<ISwapProviderManager[]>;
+}) {
+  // Silence each branch independently: Promise.all may reject before another
+  // branch fails, but that later error still reaches the proxy toast handler.
+  const [networks, providers, savedProviders] = await Promise.all([
+    loadQuietly(fetchNetworks),
+    loadQuietly(fetchProviders),
+    loadQuietly(getSavedProviders),
+  ]);
+  return getDustSweepSupportedNetworks({
+    networks,
+    providers,
+    savedProviders,
+  });
+}
 
 type IDustSweepNetworksResult = {
   networks: IDustSweepNetwork[];
@@ -100,37 +180,18 @@ async function loadDustSweepNetworksInternal(
   const provider = providers.find(
     (item) => item.providerInfo.provider === DUST_SWEEP_PROVIDER,
   );
-  const supportedNetworkIds = new Set(
-    provider?.providerServiceDisable || provider?.isSupportSingleSwap === false
-      ? []
-      : provider?.supportSingleSwapNetworks?.map((item) => item.networkId),
-  );
-  const disabledNetworkIds = new Set(
-    provider?.serviceDisableNetworks?.map((item) => item.networkId),
-  );
   const denySingleSwapProvider = providers
     .map((item) => item.providerInfo.provider)
     .filter((item) => item !== DUST_SWEEP_PROVIDER)
     .toSorted()
     .join(',');
-  const enabledProviders = buildUnifiedSwapProviderManagers({
-    serverProviders: providers,
-    swapProviderManagers: savedProviders,
-    bridgeProviderManagers: [],
-  });
   const limit = pLimit(4);
-  const candidates = networks.filter(
+  const candidates = getDustSweepSupportedNetworks({
+    networks,
+    providers,
+    savedProviders,
+  }).filter(
     (network) =>
-      network.supportSingleSwap &&
-      supportedNetworkIds.has(network.networkId) &&
-      !disabledNetworkIds.has(network.networkId) &&
-      !getDenySwapProviderString({
-        providerManagers: enabledProviders,
-        fromNetworkId: network.networkId,
-        toNetworkId: network.networkId,
-      })
-        ?.split(',')
-        .includes(DUST_SWEEP_PROVIDER) &&
       (!params.networkId || network.networkId === params.networkId) &&
       accountsInfo.some(
         (account) =>
