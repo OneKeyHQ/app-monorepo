@@ -84,6 +84,7 @@ describe.each(['native main', 'desktop single runtime'])(
     const originalDesktop = platformEnv.isDesktop;
 
     beforeEach(() => {
+      mockHomeSelectedAccount.networkId = 'evm--1';
       platformEnv.isNative = runtime === 'native main';
       platformEnv.isDesktop = runtime === 'desktop single runtime';
     });
@@ -101,7 +102,7 @@ describe.each(['native main', 'desktop single runtime'])(
       ).__ONEKEY_CTX_ATOM_SNAPSHOT__;
     });
 
-    it('clears persisted automatic defaults before the Provider can restore them', async () => {
+    it('preserves automatic defaults while configuration is pending', async () => {
       setSnapshot(automaticContext);
       const view = render(<SwapRootProvider />);
       const store = jotaiContextStore.getOrCreateStore({
@@ -109,24 +110,55 @@ describe.each(['native main', 'desktop single runtime'])(
       });
 
       expect(store.get(swapDefaultConfigStatusAtom())).toBe('pending');
-      expect(store.get(swapSelectFromTokenAtom())).toBeUndefined();
-      expect(store.get(swapSelectToTokenAtom())).toBeUndefined();
-      expect(
-        store.get(swapSelectedTokensColdStartContextAtom()),
-      ).toBeUndefined();
+      expect(store.get(swapSelectFromTokenAtom())).toEqual(fromToken);
+      expect(store.get(swapSelectToTokenAtom())).toEqual(toToken);
+      expect(store.get(swapSelectedTokensColdStartContextAtom())).toEqual(
+        automaticContext,
+      );
       expect(store.get(swapInitialSelectedTokensSyncedAtom())).toBe(false);
 
-      // A later Provider for the same store must not replay the persisted pair.
+      // A later Provider must keep the same defaults visible during refresh.
       const mirror = render(<ProviderJotaiContextSwap store={store} />);
       await act(async () => {
         await Promise.resolve();
       });
-      expect(store.get(swapSelectFromTokenAtom())).toBeUndefined();
-      expect(store.get(swapSelectToTokenAtom())).toBeUndefined();
+      expect(store.get(swapSelectFromTokenAtom())).toEqual(fromToken);
+      expect(store.get(swapSelectToTokenAtom())).toEqual(toToken);
+      expect(store.get(swapSelectedTokensColdStartContextAtom())).toEqual(
+        automaticContext,
+      );
       expect(store.get(swapInitialSelectedTokensSyncedAtom())).toBe(false);
       mirror.unmount();
       view.unmount();
     });
+
+    it.each([true, false])(
+      'uses the latest Home network only for automatic defaults=%s',
+      async (automatic) => {
+        mockHomeSelectedAccount.networkId = 'btc--0';
+        setSnapshot({
+          ...automaticContext,
+          defaultTokenSeed: automatic
+            ? automaticContext.defaultTokenSeed
+            : undefined,
+        });
+        const view = render(<SwapRootProvider />);
+        const store = jotaiContextStore.getOrCreateStore({
+          storeName: EJotaiContextStoreNames.swap,
+        });
+        expect(store.get(swapSelectFromTokenAtom())?.symbol).toBe('ETH');
+        await act(async () => {
+          await Promise.resolve();
+        });
+        expect(store.get(swapSelectFromTokenAtom())?.symbol).toBe(
+          automatic ? 'BTC' : 'ETH',
+        );
+        expect(store.get(swapSelectToTokenAtom())?.symbol).toBe(
+          automatic ? 'ETH' : 'USDC',
+        );
+        view.unmount();
+      },
+    );
 
     it('preserves a persisted manual selection while configuration is pending', async () => {
       const manualContext = {

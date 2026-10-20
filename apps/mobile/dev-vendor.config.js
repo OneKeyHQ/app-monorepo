@@ -54,6 +54,10 @@ const fingerprintFiles = [
   'development/envExposedToClient.js',
   'development/platformEnvDefine.js',
   'package.json',
+  // Native font family names are baked into the vendor bundle; the generated
+  // manifest keeps private-font vendor bundles apart from fallback ones.
+  'packages/components/src/hocs/Provider/fonts/brand/manifest.ts',
+  'packages/components/src/hocs/Provider/fonts/brandFont.ts',
   'packages/components/src/utils/scale.ts',
   'packages/components/src/utils/webFontFamily.ts',
   'packages/components/tamagui.animations.ts',
@@ -78,7 +82,6 @@ const nativeContractDependencies = {
   shared: [
     '@expo/dom-webview',
     '@expo/log-box',
-    '@expo/ui',
     '@notifee/react-native',
     '@onekeyfe/react-native-app-update',
     '@onekeyfe/react-native-auto-size-input',

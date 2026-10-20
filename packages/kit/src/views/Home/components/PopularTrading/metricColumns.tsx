@@ -29,11 +29,8 @@ const EMPTY_MARKET_VALUE = '--';
 
 type ITextSize = ComponentProps<typeof NumberSizeableText>['size'];
 
-// Name cell shared with the Market list so the home widget matches the Market
-// page exactly:
-// - desktop (table): localized name (stock/perps) prefix + contract address,
-//   or just the address; native tokens (e.g. BTC) with no address show nothing.
-// - mobile (list): localized name + 24h volume
+// Desktop names reveal the copyable address on hover. Mobile keeps the
+// localized subtitle and volume, while perps retain their leverage/DEX labels.
 function renderPopularTradingTokenIdentity(
   record: IFavoriteTokenDisplay,
   { showVolume }: { showVolume: boolean },
@@ -48,6 +45,7 @@ function renderPopularTradingTokenIdentity(
           : record.chainId
       }
       symbol={record.symbol}
+      name={!showVolume && !record.perpsCoin ? record.name : undefined}
       address={record.contractAddress}
       showVolume={showVolume}
       volume={record.volume24h}

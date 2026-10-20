@@ -152,6 +152,22 @@ export const {
   initialValue: { mode: 'simple' },
 });
 
+export interface IMarketDetailPositionTabPersistAtom {
+  preferPosition: boolean;
+}
+
+// Whether the last tab picked on any market detail page was My position. It is
+// a reading habit rather than a per-asset choice, so one value covers every
+// detail page; the other tabs are not remembered.
+export const {
+  target: marketDetailPositionTabPersistAtom,
+  use: useMarketDetailPositionTabPersistAtom,
+} = globalAtom<IMarketDetailPositionTabPersistAtom>({
+  persist: true,
+  name: EAtomNames.marketDetailPositionTabPersistAtom,
+  initialValue: { preferPosition: false },
+});
+
 export type IMarketPriceSource = 'share' | 'token';
 
 export interface IMarketPriceSourceAtom {
