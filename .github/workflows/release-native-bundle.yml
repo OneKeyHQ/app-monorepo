@@ -441,10 +441,18 @@ jobs:
 
       - name: Install Dep
         id: dependencies
+        if: hashFiles('.github/actions/install-dependencies/action.yml') != ''
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
         uses: ./.github/actions/install-dependencies
+
+      - name: Install dependencies for legacy refs
+        if: hashFiles('.github/actions/install-dependencies/action.yml') == ''
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn install --immutable
 
       - name: Download pre-built web-embed bundle
         # Restores apps/web-embed/web-build/ from an upstream web-embed-build
