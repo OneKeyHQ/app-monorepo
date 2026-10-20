@@ -628,20 +628,20 @@ function InviteRewardPage() {
               gap="$3"
             >
               {IS_BENEFITS_TAB_ENABLED ? (
-                // One line beside the tabs says whose money each tab is
-                // about: commission you earn, or rewards you get.
+                // On Perks, one line beside the tabs says what the tab is
+                // about.
                 <XStack ai="center" gap="$4" flexShrink={1} minWidth={0}>
                   <ReferralJobTabs value={activeTab} onChange={setActiveTab} />
-                  <SizableText
-                    size="$bodyMd"
-                    color="$textSubdued"
-                    numberOfLines={1}
-                    flexShrink={1}
-                  >
-                    {isInviteTab
-                      ? REFERRAL_TAB_COPY.inviteIntro
-                      : REFERRAL_TAB_COPY.perksIntro}
-                  </SizableText>
+                  {isInviteTab ? null : (
+                    <SizableText
+                      size="$bodyMd"
+                      color="$textSubdued"
+                      numberOfLines={1}
+                      flexShrink={1}
+                    >
+                      {REFERRAL_TAB_COPY.perksIntro}
+                    </SizableText>
+                  )}
                 </XStack>
               ) : (
                 <SizableText size="$headingXl">
