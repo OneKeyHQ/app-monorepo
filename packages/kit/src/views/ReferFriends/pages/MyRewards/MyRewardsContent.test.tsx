@@ -148,7 +148,7 @@ jest.mock(
 
 jest.mock('./PerksCampaignBanner', () => ({
   PerksCampaignBanner: () => null,
-  usePerksBannerItems: () => [],
+  usePerksBannerItems: () => ({ items: [], isLoading: false }),
 }));
 
 jest.mock('../../components/InviteeRewardNoWallet', () => ({

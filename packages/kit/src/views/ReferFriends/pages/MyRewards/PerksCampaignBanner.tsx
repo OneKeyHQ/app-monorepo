@@ -7,6 +7,7 @@ import {
   Icon,
   Image,
   SizableText,
+  Skeleton,
   XStack,
   YStack,
   useCarouselPressSuppressor,
@@ -40,7 +41,7 @@ let lastBannerItems: ILinkConfigItem[] | undefined;
 
 export function usePerksBannerItems() {
   const locale = useLocaleVariant();
-  const { result } = usePromiseResult(
+  const { result, isLoading } = usePromiseResult(
     async () => {
       try {
         const items =
@@ -62,9 +63,44 @@ export function usePerksBannerItems() {
     // fetches the copy again when the active language changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [locale],
-    { initResult: lastBannerItems ?? EMPTY_ITEMS },
+    { initResult: lastBannerItems ?? EMPTY_ITEMS, watchLoading: true },
   );
-  return result ?? EMPTY_ITEMS;
+  return {
+    items: result ?? EMPTY_ITEMS,
+    // Only the first load of the session: after that the cached list paints
+    // at once and a refetch swaps it in place.
+    isLoading: lastBannerItems === undefined && isLoading !== false,
+  };
+}
+
+// Mirrors a slide (eyebrow, two title lines, Learn more, art) inside the
+// same frame, so the slides replace it without moving anything.
+function PerksBannerSkeleton({ compact }: { compact: boolean }) {
+  const cardStyle = useInviteHomeCardStyle();
+  const imageSize = compact ? 88 : 72;
+  return (
+    <XStack
+      testID="perks-banner-skeleton"
+      {...(compact
+        ? { h: COMPACT_BANNER_HEIGHT }
+        : { flex: 1, minHeight: POINTER_BANNER_MIN_HEIGHT })}
+      {...cardStyle}
+      px={compact ? '$4' : '$5'}
+      py="$4"
+      gap="$4"
+      ai={compact ? 'center' : 'flex-start'}
+    >
+      <YStack flex={1} alignSelf="stretch" jc="space-between">
+        <YStack gap="$1">
+          <Skeleton.BodySm w={80} />
+          <Skeleton.HeadingMd w="80%" />
+          <Skeleton.HeadingMd w="50%" />
+        </YStack>
+        <Skeleton.BodyMd w={72} />
+      </YStack>
+      <Skeleton w={imageSize} h={imageSize} radius={12} />
+    </XStack>
+  );
 }
 
 function PerksBannerSlide({
@@ -147,9 +183,11 @@ function PerksBannerSlide({
 export function PerksCampaignBanner({
   items,
   compact,
+  loading = false,
 }: {
   items: ILinkConfigItem[];
   compact: boolean;
+  loading?: boolean;
 }) {
   const cardStyle = useInviteHomeCardStyle();
   const isMulti = items.length > 1;
@@ -164,7 +202,7 @@ export function PerksCampaignBanner({
     [compact],
   );
   if (!items.length) {
-    return null;
+    return loading ? <PerksBannerSkeleton compact={compact} /> : null;
   }
   const renderCarousel = (height: number) => (
     <Carousel

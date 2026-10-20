@@ -954,7 +954,8 @@ export function MyRewardsContent({
     accountId,
     indexedAccountId,
   });
-  const bannerItems = usePerksBannerItems();
+  const { items: bannerItems, isLoading: isBannerLoading } =
+    usePerksBannerItems();
 
   if (!hasAccount) {
     return (
@@ -1069,7 +1070,11 @@ export function MyRewardsContent({
           <SizableText size="$bodyMd" color="$textSubdued">
             {REFERRAL_TAB_COPY.perksIntro}
           </SizableText>
-          <PerksCampaignBanner items={bannerItems} compact />
+          <PerksCampaignBanner
+            items={bannerItems}
+            loading={isBannerLoading}
+            compact
+          />
           <RewardsAddressCard
             address={walletAddress}
             unsupported={isUnsupported}
@@ -1109,9 +1114,15 @@ export function MyRewardsContent({
             }}
           />
         </XStack>
-        {bannerItems.length ? (
+        {/* The banner column holds its place while the slides load, so
+            the summary card does not narrow once they arrive. */}
+        {bannerItems.length || isBannerLoading ? (
           <XStack flex={1} flexBasis={0} minWidth={0}>
-            <PerksCampaignBanner items={bannerItems} compact={false} />
+            <PerksCampaignBanner
+              items={bannerItems}
+              loading={isBannerLoading}
+              compact={false}
+            />
           </XStack>
         ) : null}
       </XStack>
