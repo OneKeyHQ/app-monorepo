@@ -216,6 +216,7 @@ describe('servicePendingInstallTask', () => {
 
   test('does not emit process finished event when bundle switch succeeds and restart is expected', async () => {
     const service = createService();
+    const { defaultLogger } = require('@onekeyhq/shared/src/logger/logger');
     pendingTaskValue = makeSwitchTask();
 
     await service.processPendingInstallTask();
@@ -223,6 +224,14 @@ describe('servicePendingInstallTask', () => {
     expect(appEventBus.emit).not.toHaveBeenCalledWith(
       EAppEventBusNames.PendingInstallTaskProcessFinished,
       undefined,
+    );
+    expect(
+      defaultLogger.app.appUpdate.pendingSwitchResult,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      defaultLogger.app.appUpdate.pendingSwitchResult,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({ result: 'restart_requested' }),
     );
   });
 
@@ -242,39 +251,86 @@ describe('servicePendingInstallTask', () => {
     );
   });
 
-  test('delayed restart failure returns an applied task to retry and releases the foreground', async () => {
-    jest.useFakeTimers();
-    try {
-      const service = createService();
-      const {
-        BundleUpdate,
-      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
-      pendingTaskValue = makeSwitchTask();
-      BundleUpdate.switchBundle.mockImplementationOnce(
-        () =>
-          new Promise<void>((_resolve, reject) => {
-            setTimeout(() => reject(new Error('BG_RESTART_ERROR')), 2500);
+  test.each(['bundle', 'builtin'])(
+    '%s restart records the request before returning and retries a delayed failure',
+    async (restartTarget) => {
+      jest.useFakeTimers();
+      try {
+        const service = createService();
+        const {
+          BundleUpdate,
+        } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+        const { defaultLogger } = require('@onekeyhq/shared/src/logger/logger');
+        const isBuiltinFallback = restartTarget === 'builtin';
+        pendingTaskValue = makeSwitchTask(
+          isBuiltinFallback
+            ? {
+                targetBundleVersion: '0',
+                payload: {
+                  appVersion: '1.0.0',
+                  bundleVersion: '0',
+                  signature: 'signature',
+                },
+              }
+            : {},
+        );
+        if (isBuiltinFallback) {
+          BundleUpdate.isBundleExists.mockResolvedValueOnce(false);
+        }
+        const restart = isBuiltinFallback
+          ? BundleUpdate.restart
+          : BundleUpdate.switchBundle;
+        restart.mockImplementationOnce(
+          () =>
+            new Promise<void>((_resolve, reject) => {
+              setTimeout(() => reject(new Error('BG_RESTART_ERROR')), 2500);
+            }),
+        );
+        const processing = service.processPendingInstallTask();
+        await jest.advanceTimersByTimeAsync(0);
+        if (isBuiltinFallback) {
+          expect(pendingTaskValue).toBeUndefined();
+        } else {
+          expect(pendingTaskValue.status).toBe('applied_waiting_verify');
+        }
+        expect(
+          defaultLogger.app.appUpdate.pendingSwitchResult,
+        ).toHaveBeenCalledTimes(1);
+        expect(
+          defaultLogger.app.appUpdate.pendingSwitchResult,
+        ).toHaveBeenCalledWith(
+          expect.objectContaining({
+            result: isBuiltinFallback
+              ? 'builtin_fallback_restart_requested'
+              : 'restart_requested',
           }),
-      );
-      const processing = service.processPendingInstallTask();
-      await jest.advanceTimersByTimeAsync(0);
-      expect(pendingTaskValue.status).toBe('applied_waiting_verify');
+        );
 
-      await jest.advanceTimersByTimeAsync(2500);
-      await processing;
-      expect(pendingTaskValue).toMatchObject({
-        status: 'pending',
-        retryCount: 1,
-        lastError: 'BG_RESTART_ERROR',
-      });
-      expect(appEventBus.emit).toHaveBeenCalledWith(
-        EAppEventBusNames.PendingInstallTaskProcessFinished,
-        undefined,
-      );
-    } finally {
-      jest.useRealTimers();
-    }
-  });
+        await jest.advanceTimersByTimeAsync(2500);
+        await processing;
+        expect(pendingTaskValue).toMatchObject({
+          status: 'pending',
+          retryCount: 1,
+          lastError: 'BG_RESTART_ERROR',
+        });
+        expect(appEventBus.emit).toHaveBeenCalledWith(
+          EAppEventBusNames.PendingInstallTaskProcessFinished,
+          undefined,
+        );
+        expect(
+          defaultLogger.app.appUpdate.pendingSwitchResult,
+        ).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            result: 'fail',
+            errorCode: 'BG_RESTART_ERROR',
+          }),
+          'error',
+        );
+      } finally {
+        jest.useRealTimers();
+      }
+    },
+  );
 
   test('builtin fallback restart failure is retried instead of discarded', async () => {
     const service = createService();

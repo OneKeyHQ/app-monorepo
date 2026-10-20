@@ -1237,7 +1237,11 @@ describe('executeBundleSwitchTask rollback to builtin', () => {
     const pendingService = service.backgroundApi.servicePendingInstallTask;
     const proto = Object.getPrototypeOf(pendingService);
     await expect(
-      proto.executeBundleSwitchTask.call(pendingService, rollbackTask),
+      proto.executeBundleSwitchTask.call(
+        pendingService,
+        rollbackTask,
+        jest.fn(),
+      ),
     ).rejects.toThrow('BUILTIN_FALLBACK_RELAUNCH');
 
     expect(BundleUpdate.resetToBuiltInBundle).toHaveBeenCalled();
@@ -1267,7 +1271,11 @@ describe('executeBundleSwitchTask rollback to builtin', () => {
     const pendingService = service.backgroundApi.servicePendingInstallTask;
     const proto = Object.getPrototypeOf(pendingService);
     await expect(
-      proto.executeBundleSwitchTask.call(pendingService, upgradeTask),
+      proto.executeBundleSwitchTask.call(
+        pendingService,
+        upgradeTask,
+        jest.fn(),
+      ),
     ).rejects.toThrow();
 
     expect(BundleUpdate.resetToBuiltInBundle).not.toHaveBeenCalled();
