@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef } from 'react';
 
 import { Platform } from 'react-native';
 import { WebView as NativeWebView } from 'react-native-webview';
@@ -23,13 +23,6 @@ export function WebView({
   onLoadEnd: () => void;
 }) {
   const webViewRef = useRef<NativeWebView>(null);
-  const [webViewKey, setWebViewKey] = useState(0);
-  // Android cannot reuse a WebView after its renderer exits; changing the key
-  // replaces the native view. The same recovery path handles iOS content process
-  // termination so the chart and injected scripts load again.
-  const handleRenderProcessGone = useCallback(() => {
-    setWebViewKey((prev) => prev + 1);
-  }, []);
 
   const handleLoadedEnd = useCallback(() => {
     const isIOS16 =
@@ -76,7 +69,6 @@ export function WebView({
   return uri ? (
     <Stack style={style as any}>
       <NativeWebView
-        key={webViewKey}
         ref={webViewRef}
         originWhitelist={['*']}
         javaScriptEnabled
@@ -94,8 +86,6 @@ export function WebView({
           uri,
         }}
         onLoadEnd={handleLoadedEnd}
-        onRenderProcessGone={handleRenderProcessGone}
-        onContentProcessDidTerminate={handleRenderProcessGone}
         {...props}
       />
     </Stack>
