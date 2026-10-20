@@ -25,12 +25,14 @@ export function DustSweepNetworks({ desktop = false }: { desktop?: boolean }) {
         flexGrow={0}
         height={36}
         minHeight={36}
+        // While sweeping the chips keep their look but can't be changed.
+        cursor={selecting ? undefined : 'not-allowed'}
       >
         <XStack
           height={36}
           alignItems="center"
           gap="$2"
-          opacity={selecting ? 1 : 0.4}
+          pointerEvents={selecting ? 'auto' : 'none'}
         >
           {loadStatus === 'loading' && !networks.length
             ? [0, 1, 2, 3].map((key) => (
@@ -50,7 +52,6 @@ export function DustSweepNetworks({ desktop = false }: { desktop?: boolean }) {
               variant={entry === current ? 'secondary' : 'tertiary'}
               borderWidth={1}
               borderColor="$borderSubdued"
-              disabled={!selecting}
               accessibilityLabel={entry.network.name}
               onPress={() => selectNetwork(entry.network.networkId)}
             >
@@ -59,7 +60,6 @@ export function DustSweepNetworks({ desktop = false }: { desktop?: boolean }) {
                 <Currency
                   size="$bodyMdMedium"
                   sourceCurrency="usd"
-                  targetCurrency="usd"
                   formatter="value"
                 >
                   {entry.balanceUsd}
@@ -91,7 +91,7 @@ export function DustSweepNetworks({ desktop = false }: { desktop?: boolean }) {
       borderRadius="$full"
       borderColor="$transparent"
       bg="$bgStrong"
-      disabled={networkSelectionDisabled}
+      disabled={!networks.length}
       focusable={!networkSelectionDisabled}
       onPress={
         networkSelectionDisabled
@@ -118,9 +118,9 @@ export function DustSweepFilters({ desktop }: { desktop: boolean }) {
       px="$5"
       alignItems="center"
       justifyContent="space-between"
-      opacity={selecting ? 1 : 0.4}
+      cursor={selecting ? undefined : 'not-allowed'}
     >
-      <XStack gap="$1">
+      <XStack gap="$1" pointerEvents={selecting ? 'auto' : 'none'}>
         {DUST_SWEEP_THRESHOLDS.map((amount) => (
           <Button
             mx={0}
@@ -131,7 +131,6 @@ export function DustSweepFilters({ desktop }: { desktop: boolean }) {
             height={36}
             px="$3"
             borderRadius="$full"
-            disabled={!selecting}
             variant={threshold === amount ? 'secondary' : 'tertiary'}
             onPress={() => selectThreshold(amount)}
           >{`<$${amount}`}</Button>

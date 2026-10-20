@@ -18,10 +18,6 @@ export type IDustSweepReason =
   | 'insufficientGas'
   | 'txFailed'
   | 'unknown';
-export type IDustSweepQuoteFailure = {
-  reason: IDustSweepReason;
-  providerErrorMessage?: string;
-};
 export type IDustSweepToken = ISwapToken & {
   key: string;
   amount: string;

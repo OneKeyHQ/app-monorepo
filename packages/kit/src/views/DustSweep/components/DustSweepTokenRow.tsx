@@ -23,7 +23,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IDustSweepItem,
-  IDustSweepQuoteFailure,
   IDustSweepReason,
   IDustSweepToken,
 } from '@onekeyhq/shared/types/swap/dustSweep';
@@ -50,7 +49,7 @@ export function getDustSweepReasonMessage(
   providerErrorMessage?: string,
 ) {
   if (reason === 'noQuote' && providerErrorMessage?.trim())
-    return providerErrorMessage;
+    return providerErrorMessage.trim();
   if (reason === 'insufficientGas') {
     const symbol = nativeTokenSymbol?.trim();
     return symbol
@@ -65,13 +64,26 @@ export function getDustSweepReasonMessage(
   return intl.formatMessage({ id: dustSweepReasonMessageIds[reason] });
 }
 
+// The reason a token row shows; the result breakdown groups by the same text.
+export function getDustSweepItemReasonMessage(
+  intl: ReturnType<typeof useIntl>,
+  item: IDustSweepItem,
+  nativeTokenSymbol?: string,
+) {
+  return getDustSweepReasonMessage(
+    intl,
+    item.reason ?? 'unknown',
+    nativeTokenSymbol,
+    item.providerErrorMessage,
+  );
+}
+
 const DustSweepTokenRowBase = ({
   token,
   selected,
   item,
   paused,
   onToggle,
-  quoteFailure,
   nativeTokenSymbol,
 }: {
   token?: IDustSweepToken;
@@ -79,22 +91,18 @@ const DustSweepTokenRowBase = ({
   item?: IDustSweepItem;
   paused?: boolean;
   onToggle?: (key: string) => void;
-  quoteFailure?: IDustSweepQuoteFailure;
   nativeTokenSymbol?: string;
 }) => {
   const intl = useIntl();
-  const reasonText = getDustSweepReasonMessage(
-    intl,
-    item?.reason ?? quoteFailure?.reason ?? 'unknown',
-    nativeTokenSymbol,
-    item?.providerErrorMessage ?? quoteFailure?.providerErrorMessage,
-  );
-  const reasonDescription =
-    item?.status === 'unknown'
-      ? intl.formatMessage({ id: ETranslations.swap_review_tx_pending })
-      : reasonText;
-  const unverified = !!token?.suspicious && !item && !quoteFailure;
-  let statusLabel = quoteFailure ? reasonText : token?.name;
+  let reasonDescription: string | undefined;
+  if (item)
+    reasonDescription =
+      item.status === 'unknown'
+        ? intl.formatMessage({ id: ETranslations.swap_review_tx_pending })
+        : getDustSweepItemReasonMessage(intl, item, nativeTokenSymbol);
+  // Errors only surface once the sweep starts, as the leading status icon.
+  const unverified = !!token?.suspicious && !item;
+  let statusLabel = token?.name;
   if (unverified)
     statusLabel = intl.formatMessage({ id: ETranslations.global_unverified });
   if (item?.status === 'preparing')
@@ -124,7 +132,7 @@ const DustSweepTokenRowBase = ({
               icon={
                 item.status === 'unknown'
                   ? 'ClockTimeHistoryOutline'
-                  : 'XCircleSolid'
+                  : 'InfoCircleSolid'
               }
               iconProps={{
                 color:
@@ -246,7 +254,6 @@ const DustSweepTokenRowBase = ({
               size="$bodyMd"
               color="$textSubdued"
               sourceCurrency="usd"
-              targetCurrency="usd"
               formatter="value"
             >
               {token.valueUsd}

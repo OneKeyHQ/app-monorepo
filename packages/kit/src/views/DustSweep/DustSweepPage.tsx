@@ -40,7 +40,10 @@ import type { IDustSweepRouteParams } from '@onekeyhq/shared/types/swap/dustSwee
 
 import { DustSweepDetails } from './components/DustSweepDetails';
 import { DustSweepNetworks } from './components/DustSweepFilters';
-import { DustSweepSelection } from './components/DustSweepSelection';
+import {
+  DUST_SWEEP_MOBILE_DIRECTION_SIZE,
+  DustSweepSelection,
+} from './components/DustSweepSelection';
 import {
   DustSweepResult,
   DustSweepSummary,
@@ -51,9 +54,8 @@ import { getDustSweepPresentation } from './stateMachine';
 
 import type { NavigationAction, RouteProp } from '@react-navigation/core';
 
-// Desktop layout: the token list column gives up width so the direction arrow
-// sits in its own gap column with 12px clearance from both cards.
-const DESKTOP_SELECTION_WIDTH = '51.2%';
+// Desktop layout: two equal-width cards with the direction arrow in its own
+// gap column, 12px clear of both.
 const DESKTOP_COLUMN_GAP = 64;
 const DESKTOP_DIRECTION_SIZE = 40;
 
@@ -140,7 +142,8 @@ function DustSweepResultDialog({
       />
     );
   return (
-    <ScrollView maxHeight={Math.min(420, maxHeight)}>
+    // The sheet grows with the expanded skip reasons, up to the screen.
+    <ScrollView maxHeight={maxHeight}>
       <DustSweepResult
         state={state}
         onDetails={
@@ -153,7 +156,8 @@ function DustSweepResultDialog({
 }
 
 function DustSweepPageContent() {
-  const { session, selecting, sweepAgain, isFocused } = useDustSweep();
+  const { session, selecting, sweepAgain, isFocused, networks, loadStatus } =
+    useDustSweep();
   const intl = useIntl();
   const { exit, continueRemoval, execution } = useDustSweepFlow();
   const desktop = useDustSweepDesktopLayout();
@@ -413,6 +417,8 @@ function DustSweepPageContent() {
   // The Home tab top bar (with its back button) is only rendered on the tab
   // route, so a Swap modal widened to desktop width keeps its own back control.
   const overlay = useIsOverlayPage();
+  // A wallet with no assets has no network chips, so drop the empty row.
+  const showNetworks = loadStatus === 'loading' || networks.length > 0;
   return (
     <Page testID="dust-sweep-page" scrollEnabled={desktop}>
       <Page.Header
@@ -441,10 +447,10 @@ function DustSweepPageContent() {
               ) : null}
               <SizableText size="$heading2xl">{title}</SizableText>
             </XStack>
-            <DustSweepNetworks desktop />
+            {showNetworks ? <DustSweepNetworks desktop /> : null}
             {/* Stretch so the summary card always matches the token list card height. */}
-            <XStack mt={30} flex={1} alignItems="stretch">
-              <YStack width={DESKTOP_SELECTION_WIDTH}>
+            <XStack mt={showNetworks ? 30 : 0} flex={1} alignItems="stretch">
+              <YStack flex={1} flexBasis={0} minWidth={0}>
                 <DustSweepSelection desktop />
               </YStack>
               <Stack
@@ -468,7 +474,7 @@ function DustSweepPageContent() {
                   />
                 </Stack>
               </Stack>
-              <YStack flex={1}>
+              <YStack flex={1} flexBasis={0} minWidth={0}>
                 <DustSweepSummary
                   desktop
                   onDone={onDone}
@@ -494,10 +500,10 @@ function DustSweepPageContent() {
             <Stack
               position="absolute"
               left="50%"
-              x={-18}
-              top={-18}
-              width={36}
-              height={36}
+              x={-DUST_SWEEP_MOBILE_DIRECTION_SIZE / 2}
+              top={-DUST_SWEEP_MOBILE_DIRECTION_SIZE / 2}
+              width={DUST_SWEEP_MOBILE_DIRECTION_SIZE}
+              height={DUST_SWEEP_MOBILE_DIRECTION_SIZE}
               borderWidth={1}
               borderColor="$borderSubdued"
               bg="$bgApp"

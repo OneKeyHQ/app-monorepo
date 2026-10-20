@@ -20,16 +20,22 @@ import type {
   IDustSweepRouteParams,
   IDustSweepSnapshot,
   IDustSweepThreshold,
+  IDustSweepToken,
 } from '@onekeyhq/shared/types/swap/dustSweep';
 import type { ISwapProviderInfo } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 
-import { useDustSweepPreview } from './hooks/useDustSweepPreview';
 import { useDustSweepSession } from './hooks/useDustSweepSession';
 import {
   DUST_SWEEP_THRESHOLDS,
   filterDustSweepCandidates,
+  isDustSweepBelowGasThreshold,
 } from './utils/candidates';
 import { loadDustSweepNetworks } from './utils/loadNetworks';
+
+// Added below-gas tokens are listed but left for the user to tick.
+function isDefaultSelected(token: IDustSweepToken) {
+  return !token.suspicious && !isDustSweepBelowGasThreshold(token);
+}
 
 function useDustSweepController(params: IDustSweepRouteParams) {
   const isFocused = useRouteIsFocused();
@@ -41,17 +47,18 @@ function useDustSweepController(params: IDustSweepRouteParams) {
   const [partialError, setPartialError] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [networkId, setNetworkId] = useState(params.networkId);
-  const [networksWithHidden, setNetworksWithHidden] = useState<Set<string>>(
-    () => new Set(),
-  );
+  // Add anyway applies to every network until the user leaves Dust Sweep.
+  const [includeHidden, setIncludeHidden] = useState(false);
   const [selection, setSelection] = useState<Set<string>>();
   const [slippage, setSlippage] = useState(5);
-  const [previewRevision, setPreviewRevision] = useState(0);
   const visited = useRef(false);
   const firstVisit = useRef(true);
-  const hiddenReported = useRef(false);
   const session = useDustSweepSession(networks);
-  const { reset: resetSession, start: startSession } = session;
+  const {
+    reset: resetSession,
+    start: startSession,
+    stop: stopSession,
+  } = session;
   const selecting = session.state.phase === 'selecting';
   const loadParams = useMemo(
     () => ({
@@ -154,14 +161,11 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     [current, visibleNetworks],
   );
   const currentNetworkId = current?.network.networkId;
-  const includeHidden =
-    !!currentNetworkId && networksWithHidden.has(currentNetworkId);
   useEffect(() => {
     if (!selecting || !currentNetworkId || currentNetworkId === networkId)
       return;
     setNetworkId(currentNetworkId);
     setSelection(undefined);
-    hiddenReported.current = false;
   }, [currentNetworkId, networkId, selecting]);
   const { visible, hidden } = useMemo(
     () =>
@@ -172,14 +176,10 @@ function useDustSweepController(params: IDustSweepRouteParams) {
       ),
     [current, preferences.threshold, includeHidden],
   );
-  const selectableHidden = useMemo(
-    () => hidden.filter((token) => !token.suspicious),
-    [hidden],
-  );
   const selected = useMemo(
     () =>
       visible.filter((token) =>
-        selection ? selection.has(token.key) : !token.suspicious,
+        selection ? selection.has(token.key) : isDefaultSelected(token),
       ),
     [visible, selection],
   );
@@ -200,18 +200,11 @@ function useDustSweepController(params: IDustSweepRouteParams) {
         : undefined,
     [current, selecting, slippage, selected],
   );
-  const preview = useDustSweepPreview(snapshot, {
-    enabled: selecting && isFocused && loadStatus === 'ready',
-    revision: previewRevision,
-  });
+  // Nothing is quoted while selecting: every selected token is submitted and
+  // quoted on its own turn, and one without a quote is skipped then.
   const canStart =
-    selecting &&
-    isFocused &&
-    loadStatus === 'ready' &&
-    (preview.status === 'ready' || preview.status === 'partial') &&
-    preview.quotedCount > 0;
-  const quotedValueUsd = selected
-    .filter((token) => preview.availableKeys.includes(token.key))
+    selecting && isFocused && loadStatus === 'ready' && selected.length > 0;
+  const selectedValueUsd = selected
     .reduce((sum, token) => sum.plus(token.valueUsd), new BigNumber(0))
     .toFixed();
   useEffect(() => {
@@ -230,7 +223,6 @@ function useDustSweepController(params: IDustSweepRouteParams) {
       if (!selecting) return;
       setNetworkId(id);
       setSelection(undefined);
-      hiddenReported.current = false;
     },
     [selecting],
   );
@@ -247,10 +239,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
       if (!selecting) return;
       setSelection((value) => {
         const next = new Set(
-          value ??
-            visible
-              .filter((token) => !token.suspicious)
-              .map((token) => token.key),
+          value ?? visible.filter(isDefaultSelected).map((token) => token.key),
         );
         if (next.has(key)) next.delete(key);
         else next.add(key);
@@ -276,25 +265,19 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     setSelection(selectedKeys);
   }, [selecting, selected, visible]);
   const addHidden = useCallback(() => {
-    if (!selecting || includeHidden || !currentNetworkId) return;
-    setSelection(
-      new Set([...selected, ...selectableHidden].map((token) => token.key)),
-    );
-    setNetworksWithHidden((value) => new Set(value).add(currentNetworkId));
-    if (!hiddenReported.current) {
-      hiddenReported.current = true;
-      defaultLogger.dex.dustSweep.dustSweepAddHidden({
-        hiddenCount: hidden.length,
-      });
-    }
-  }, [
-    selecting,
-    includeHidden,
-    currentNetworkId,
-    selected,
-    selectableHidden,
-    hidden.length,
-  ]);
+    if (!selecting || includeHidden) return;
+    setIncludeHidden(true);
+    defaultLogger.dex.dustSweep.dustSweepAddHidden({
+      hiddenCount: hidden.length,
+    });
+  }, [selecting, includeHidden, hidden.length]);
+  // Back to selection with fresh balances, keeping the submitted selection.
+  const reloadNetworks = useCallback(() => {
+    setRefresh((value) => value + 1);
+    setNetworks([]);
+    setLoadStatus('loading');
+    visited.current = false;
+  }, []);
   const sweepAgain = useCallback(() => {
     if (
       session.state.phase !== 'completed' &&
@@ -302,30 +285,18 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     )
       return;
     resetSession();
-    setSelection(undefined);
-    setNetworksWithHidden(new Set());
-    hiddenReported.current = false;
-    setRefresh((value) => value + 1);
-    setNetworks([]);
-    setLoadStatus('loading');
-    visited.current = false;
-  }, [resetSession, session.state.phase]);
+    reloadNetworks();
+  }, [resetSession, reloadNetworks, session.state.phase]);
+  const stop = useCallback(async () => {
+    if (await stopSession()) reloadNetworks();
+  }, [stopSession, reloadNetworks]);
   const start = useCallback(() => {
-    if (snapshot && canStart)
-      return startSession(snapshot, preview.unavailable);
-    return undefined;
-  }, [snapshot, canStart, preview.unavailable, startSession]);
-  const retryPreview = useCallback(() => {
-    if (
-      selecting &&
-      isFocused &&
-      selected.length &&
-      loadStatus === 'ready' &&
-      preview.status !== 'loading' &&
-      preview.status !== 'refreshing'
-    )
-      setPreviewRevision((value) => value + 1);
-  }, [selecting, isFocused, selected.length, loadStatus, preview.status]);
+    if (!snapshot || !canStart) return undefined;
+    // Done / Stop come back with what was submitted; tokens that converted
+    // drop out on reload because they are no longer listed.
+    setSelection(new Set(snapshot.tokens.map((token) => token.key)));
+    return startSession(snapshot);
+  }, [snapshot, canStart, startSession]);
   return {
     params,
     networks: pickerNetworks,
@@ -334,7 +305,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     hidden,
     selected,
     includeHidden,
-    quotedValueUsd,
+    selectedValueUsd,
     canStart,
     isFocused,
     loadStatus,
@@ -343,7 +314,6 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     threshold: preferences.threshold,
     slippage,
     setSlippage,
-    preview,
     session,
     selecting,
     toggle,
@@ -353,10 +323,11 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     selectThreshold,
     start,
     sweepAgain,
+    stop,
+    stopping: session.stopping,
     retry: () => {
       if (selecting) setRefresh((value) => value + 1);
     },
-    retryPreview,
   };
 }
 

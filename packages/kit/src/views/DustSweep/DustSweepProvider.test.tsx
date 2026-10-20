@@ -20,7 +20,6 @@ import { useDustSweepSession } from './hooks/useDustSweepSession';
 import { dustSweepReducer, initialDustSweepState } from './stateMachine';
 import { loadDustSweepNetworks } from './utils/loadNetworks';
 
-import type { useDustSweepPreview } from './hooks/useDustSweepPreview';
 import type { IDustSweepState } from './stateMachine';
 
 function useMockPreferences() {
@@ -29,16 +28,6 @@ function useMockPreferences() {
   });
 }
 
-const readyPreview: ReturnType<typeof useDustSweepPreview> = {
-  autoRefreshTimerActive: false,
-  status: 'ready',
-  amount: '0.01',
-  quotedCount: 1,
-  availableKeys: ['evm--1:0'],
-  unavailable: {},
-  providers: [{ provider: 'OKX' }],
-};
-let mockPreview = readyPreview;
 let mockFocused = true;
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => mockFocused,
@@ -63,9 +52,6 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 jest.mock('./utils/loadNetworks', () => ({
   loadDustSweepNetworks: jest.fn(),
 }));
-jest.mock('./hooks/useDustSweepPreview', () => ({
-  useDustSweepPreview: () => mockPreview,
-}));
 jest.mock('./hooks/useDustSweepSession', () => ({
   useDustSweepSession: jest.fn(),
 }));
@@ -77,15 +63,18 @@ function useMockSession(): ReturnType<typeof useDustSweepSession> {
   const [state, setState] = useState<IDustSweepState>(initialDustSweepState);
   return {
     state,
-    start: (snapshot, unavailable) => {
-      setState((value) =>
-        dustSweepReducer(value, { type: 'start', snapshot, unavailable }),
-      );
+    start: (snapshot) => {
+      setState((value) => dustSweepReducer(value, { type: 'start', snapshot }));
       return snapshot.id;
     },
     pause: () => setState((value) => ({ ...value, phase: 'paused' })),
     resume: () => setState((value) => ({ ...value, phase: 'running' })),
     reset: () => setState(initialDustSweepState),
+    stop: async () => {
+      setState((value) => dustSweepReducer(value, { type: 'stop' }));
+      return true;
+    },
+    stopping: false,
     leave: async () => true,
     leaving: false,
   };
@@ -169,7 +158,6 @@ function deferredLoad() {
 describe('Dust Sweep Provider request and selection ownership', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockPreview = readyPreview;
     mockFocused = true;
     mockUseSession.mockImplementation(useMockSession);
     mockLoadNetworks.mockResolvedValue({
@@ -184,19 +172,11 @@ describe('Dust Sweep Provider request and selection ownership', () => {
       partialError: false,
       providerInfo,
     });
-    mockPreview = {
-      ...readyPreview,
-      status: 'idle',
-      quotedCount: 0,
-      availableKeys: [],
-      providers: [],
-    };
     const { result } = renderController();
     await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
 
     expect(result.current.providerInfo).toEqual(providerInfo);
     expect(result.current.selected).toEqual([]);
-    expect(result.current.preview.providers).toEqual([]);
     expect(result.current.canStart).toBe(false);
   });
 
@@ -421,9 +401,11 @@ describe('Dust Sweep Provider request and selection ownership', () => {
 
     expect(result.current.current?.network.networkId).toBe('evm--8453');
     expect(result.current.current?.accountId).toBe(remainingNetwork.accountId);
-    expect(result.current.includeHidden).toBe(false);
+    // Add anyway survives the reload and applies to the new network as well.
+    expect(result.current.includeHidden).toBe(true);
+    expect(result.current.visible).toEqual(remainingNetwork.tokens);
     expect(result.current.selected).toEqual([remainingNetwork.tokens[0]]);
-    expect(result.current.hidden).toEqual([remainingNetwork.tokens[1]]);
+    expect(result.current.hidden).toEqual([]);
     expect(result.current.partialError).toBe(true);
   });
 
@@ -469,6 +451,8 @@ describe('Dust Sweep Provider request and selection ownership', () => {
         pause: jest.fn(),
         resume: jest.fn(),
         reset: jest.fn(),
+        stop: jest.fn().mockResolvedValue(false),
+        stopping: false,
         leave: jest.fn().mockResolvedValue(undefined),
         leaving: false,
       });
@@ -490,7 +474,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     },
   );
 
-  it('keeps Add anyway across visited networks and threshold changes', async () => {
+  it('keeps Add anyway on every network and threshold for the page', async () => {
     mockLoadNetworks.mockResolvedValue({
       networks: [base, ethereumWithHidden],
       partialError: false,
@@ -504,7 +488,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     expect(result.current.hidden).toHaveLength(0);
 
     act(() => result.current.selectNetwork(base.network.networkId));
-    expect(result.current.includeHidden).toBe(false);
+    expect(result.current.includeHidden).toBe(true);
     expect(result.current.hidden).toHaveLength(0);
 
     act(() =>
@@ -515,6 +499,10 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     act(() => result.current.selectThreshold(1));
     expect(result.current.includeHidden).toBe(true);
     act(() => result.current.selectNetwork('evm--1'));
+    expect(result.current.includeHidden).toBe(true);
+
+    act(() => result.current.sweepAgain());
+    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
     expect(result.current.includeHidden).toBe(true);
   });
 
@@ -554,8 +542,14 @@ describe('Dust Sweep Provider request and selection ownership', () => {
       suspiciousVisibleKey,
     ]);
 
+    // Added tokens are listed but not selected; Select all still covers them.
     act(() => result.current.addHidden());
     expect(result.current.selected.map((token) => token.key)).toEqual([
+      suspiciousVisibleKey,
+    ]);
+    act(() => result.current.toggleAll());
+    expect(result.current.selected.map((token) => token.key)).toEqual([
+      safeVisibleKey,
       suspiciousVisibleKey,
       safeHiddenKey,
     ]);
@@ -642,54 +636,90 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     expect(result.current.session.state.snapshot).toBe(snapshot);
   });
 
-  it.each(['idle', 'loading', 'refreshing', 'error', 'expired'] as const)(
-    'does not start execution when the quote is %s',
-    async (status) => {
-      mockPreview = { ...readyPreview, status };
-      mockLoadNetworks.mockResolvedValue({
-        networks: [ethereum],
-        partialError: false,
-      });
-      const { result } = renderController();
-      await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+  it('stops back to refreshed selection and keeps Add anyway tokens listed', async () => {
+    mockLoadNetworks.mockResolvedValue({
+      networks: [ethereumWithHidden],
+      partialError: false,
+    });
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+    act(() => result.current.addHidden());
+    expect(result.current.visible).toEqual(ethereumWithHidden.tokens);
+    expect(result.current.selected).toEqual([ethereumWithHidden.tokens[0]]);
 
-      act(() => {
-        result.current.start();
-      });
+    act(() => {
+      result.current.start();
+    });
+    act(() => result.current.session.pause());
+    await act(async () => result.current.stop());
 
-      expect(result.current.session.state.phase).toBe('selecting');
-      expect(result.current.session.state.snapshot).toBeUndefined();
-    },
-  );
-  it('executes a partial quote and freezes unavailable rows as skipped', async () => {
+    expect(result.current.session.state.phase).toBe('selecting');
+    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(2);
+    expect(result.current.includeHidden).toBe(true);
+    expect(result.current.visible).toEqual(ethereumWithHidden.tokens);
+    expect(result.current.selected).toEqual([ethereumWithHidden.tokens[0]]);
+  });
+
+  it('returns from Stop with the submitted selection instead of the default', async () => {
+    const source = network('evm--1', ['8', '2']);
+    mockLoadNetworks.mockResolvedValue({
+      networks: [source],
+      partialError: false,
+    });
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+    act(() => result.current.toggle(source.tokens[0].key));
+    expect(result.current.selected).toEqual([source.tokens[1]]);
+
+    act(() => {
+      result.current.start();
+    });
+    act(() => result.current.session.pause());
+    await act(async () => result.current.stop());
+    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+
+    expect(result.current.selected).toEqual([source.tokens[1]]);
+  });
+
+  it('drops submitted tokens that are no longer listed after the reload', async () => {
+    const source = network('evm--1', ['8', '2']);
+    const afterSweep = { ...source, tokens: [source.tokens[0]] };
+    mockLoadNetworks
+      .mockResolvedValueOnce({ networks: [source], partialError: false })
+      .mockResolvedValueOnce({ networks: [afterSweep], partialError: false });
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+    act(() => result.current.toggle(source.tokens[0].key));
+
+    act(() => {
+      result.current.start();
+    });
+    act(() => result.current.session.pause());
+    await act(async () => result.current.stop());
+    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+
+    // The converted token is gone; the one left was not part of the submission.
+    expect(result.current.visible).toEqual([source.tokens[0]]);
+    expect(result.current.selected).toEqual([]);
+  });
+
+  it('starts every selected token without quoting first', async () => {
     const source = network('evm--1', ['1', '2']);
-    mockPreview = {
-      ...readyPreview,
-      status: 'partial',
-      unavailable: {
-        [source.tokens[1].key]: {
-          reason: 'noQuote',
-          providerErrorMessage: '请增加金额后重试',
-        },
-      },
-    };
     mockLoadNetworks.mockResolvedValue({
       networks: [source],
       partialError: false,
     });
     const { result } = renderController();
     await waitFor(() => expect(result.current.canStart).toBe(true));
-    expect(result.current.quotedValueUsd).toBe('1');
+    expect(result.current.selectedValueUsd).toBe('3');
     act(() => {
       result.current.start();
     });
+    // Each token is quoted on its own turn and skipped there if it can't be.
     expect(
       result.current.session.state.items.map((item) => item.status),
-    ).toEqual(['waiting', 'skipped']);
-    expect(result.current.session.state.items[1]).toMatchObject({
-      reason: 'noQuote',
-      providerErrorMessage: '请增加金额后重试',
-    });
+    ).toEqual(['waiting', 'waiting']);
   });
   it('does not start while the route is hidden', async () => {
     mockFocused = false;
@@ -700,10 +730,15 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     });
     expect(result.current.session.state.phase).toBe('selecting');
   });
-  it('does not start a ready placeholder with zero available quotes', async () => {
-    mockPreview = { ...readyPreview, quotedCount: 0, availableKeys: [] };
+  it('does not start without a selection', async () => {
+    mockLoadNetworks.mockResolvedValue({
+      networks: [ethereum],
+      partialError: false,
+    });
     const { result } = renderController();
-    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+    act(() => result.current.toggleAll());
+    expect(result.current.canStart).toBe(false);
     act(() => {
       result.current.start();
     });
