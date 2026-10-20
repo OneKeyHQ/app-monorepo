@@ -144,9 +144,11 @@ PERF_WEB_COLD_HARDWARE_CONCURRENCY=4 yarn perf:web:cold --skip-build
 `yarn perf:web:cold` does not call live services. Every request that leaves the
 local static server is handled by `lib/webColdNetwork.js`:
 
-- API calls are answered from `fixtures/web-cold-api.json`, matched by method,
-  host, path, sorted query (minus `timestamp`) and JSON body. A GET whose query
-  differs falls back to a response recorded for the same path.
+- API calls are answered from `fixtures/web-cold-api.json`, matched exactly by
+  method, host, path, sorted query (minus `timestamp`) and JSON body. Like the
+  real API hosts, each answer carries a current `Date` header and
+  `Access-Control-Expose-Headers: *`, because the app reads the server time
+  from every API response.
 - Images get a 1x1 PNG, iframes an empty page, analytics
   (`/utility/v1/track/*`) a success body, and WebSockets an open socket that
   never answers.
@@ -157,10 +159,14 @@ every lookup except `127.0.0.1`, so a request the route misses cannot reach a
 real host either; it is counted as blocked with reason `not-routed`.
 
 Blocked requests are listed per scenario in the console and in
-`scenarios[].blockedRequests` / `runs[].network.blocked` of the report. They do
-not fail the job unless `PERF_WEB_COLD_FAIL_ON_BLOCKED_REQUESTS=1`. A new entry
-there usually means a page gained an API dependency: re-record (below), and if
-the host is new, add it to `RECORDABLE_HOST_PATTERNS` first.
+`scenarios[].blockedRequests` / `runs[].network.blocked` of the report, and
+they fail the job (health check `blockedRequests`): a page that ran without
+data it asked for may only have measured its shell. Set
+`PERF_WEB_COLD_FAIL_ON_BLOCKED_REQUESTS=0` to only report them while
+investigating locally. A new entry usually means a page gained an API
+dependency or changed a query: re-record (below). A new endpoint has to be
+reviewed and added to `RECORDABLE_ENDPOINTS` first, and a new host to
+`API_HOST_PATTERNS`.
 
 Options:
 
@@ -188,11 +194,19 @@ PERF_WEB_COLD_SCENARIOS=perps yarn perf:web:cold:record --skip-build
 
 The script runs every scenario twice in record mode, once with the CI device
 profile and once with this machine's, holding each page for 20 s so late
-requests are captured. API calls are fetched from Node and written back to the
-fixture file; images, iframes and analytics are stubbed as above and never
-recorded. `PERF_WEB_COLD_RECORD_SOURCE=test` fetches the same paths from
-`*.onekeytest.com` but keeps the production URL in the key. The repository is
-public: review the diff and make sure the file only holds public API data.
+requests are captured. API calls are fetched from Node without following
+redirects and written back to the fixture file; images, iframes and analytics
+are stubbed as above and never recorded. `PERF_WEB_COLD_RECORD_SOURCE=test`
+fetches the same paths from `*.onekeytest.com` but keeps the production URL in
+the key.
+
+The fixture file is committed to a public repository, so record mode only
+forwards endpoints listed in `RECORDABLE_ENDPOINTS` (reviewed as public data)
+and refuses requests that carry `Authorization` or `X-Onekey-Request-Token`.
+Any API call that cannot be recorded (refused, upstream error, non-JSON answer,
+redirect) fails the command and leaves the fixture file unchanged; both passes
+write to a temporary copy that replaces the file only when everything was
+recorded. Still review the diff before committing.
 
 Budget CI also writes AI-oriented diagnostic artifacts next to the raw reports:
 

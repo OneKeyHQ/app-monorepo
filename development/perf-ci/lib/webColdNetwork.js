@@ -7,9 +7,10 @@
  *   aborted and counted. Chromium also gets a host resolver rule that fails
  *   any lookup except 127.0.0.1, so a request the route misses cannot reach a
  *   real host either.
- * - record: same stubs and resolver rule, but API calls are forwarded from
- *   Node to an upstream origin and the JSON responses are written back to the
- *   fixture file.
+ * - record: same stubs and resolver rule, but calls to the endpoints listed in
+ *   RECORDABLE_ENDPOINTS are forwarded from Node to an upstream origin and the
+ *   JSON responses are written back to the fixture file. Any API call that
+ *   cannot be recorded fails the recording and leaves the file untouched.
  * - live: no interception; the page talks to the real APIs.
  */
 
@@ -27,14 +28,31 @@ const DEFAULT_FIXTURE_PATH = path.join(
 );
 
 const FIXTURE_FILE_COMMENT =
-  'Recorded API responses replayed by development/perf-ci/run-web-cold.js. Refresh with `yarn perf:web:cold:record` (see development/perf-ci/README.md). One entry per line; keys are "<METHOD> <host><path>[?sorted query][ <body>]".';
+  'Recorded API responses replayed by development/perf-ci/run-web-cold.js. Refresh with `yarn perf:web:cold:record` (see development/perf-ci/README.md). One entry per line; keys are "<METHOD> <host><path>[?sorted, percent-encoded query][ <body>]".';
 
-// API hosts whose responses may be recorded. Requests to other hosts are only
-// ever stubbed or aborted, so a new third-party dependency shows up as blocked.
-const RECORDABLE_HOST_PATTERNS = [
-  /\.onekeycn\.com$/,
-  /^api\.hyperliquid\.xyz$/,
+// Hosts the page loads data from. In record mode a call to one of them must be
+// recorded or the recording fails; requests to any other host are only ever
+// stubbed or aborted, so a new third-party dependency shows up as blocked.
+const API_HOST_PATTERNS = [/\.onekeycn\.com$/, /^api\.hyperliquid\.xyz$/];
+
+// Endpoints reviewed as returning public data only (no account, wallet or
+// device data), matched against the request key. The fixture file is
+// committed to a public repository, so record mode refuses any other API call:
+// review a new endpoint and add it here before recording it.
+const RECORDABLE_ENDPOINTS = [
+  /^GET earn\.onekeycn\.com\/earn\/v1\/(available-assets|block-region|faq\/list)(\?|$)/,
+  /^POST earn\.onekeycn\.com\/earn\/v2\/recommend \{"accounts":\[\]\}$/,
+  /^GET rebate\.onekeycn\.com\/rebate\/v1\/invite\/post-config(\?|$)/,
+  /^GET swap\.onekeycn\.com\/swap\/v1\/(native-token-config|networks|providers\/list|speed-config|swap-config|token\/detail)(\?|$)/,
+  /^GET utility\.onekeycn\.com\/utility\/v1\/(app-update|currency\/exchange-rates\/map|market\/tokens|perp-config|setting|swap-tips)(\?|$)/,
+  /^GET utility\.onekeycn\.com\/utility\/v2\/market\/(basic-config|token\/list|banner\/list|banner\/(stock-)?token-list\/[0-9a-f]+)(\?|$)/,
+  /^GET wallet\.onekeycn\.com\/wallet\/v1\/(health|network\/list|portfolio\/chains)(\?|$)/,
+  /^POST api\.hyperliquid\.xyz\/info \{("dex":"[a-z]*",)?"type":"(allMids|allPerpMetas|meta|metaAndAssetCtxs|spotMeta|spotMetaAndAssetCtxs)"\}$/,
 ];
+
+// A request that carries one of these belongs to a signed-in user; its
+// response must never be recorded.
+const CREDENTIAL_HEADERS = ['authorization', 'x-onekey-request-token'];
 
 // Upstream origins for record mode. `test` keeps the production URL in the
 // fixture key and only changes where the response is fetched from.
@@ -58,6 +76,17 @@ const SINK_RESPONSE_BODY = JSON.stringify({
   message: 'Success',
   data: null,
 });
+
+// The real API hosts answer with a Date header and expose every header to
+// cross-origin callers. The app reads Date from each API response
+// (systemTimeUtils), so replayed responses carry a current one too.
+function apiResponseHeaders() {
+  return {
+    'access-control-expose-headers': '*',
+    'cache-control': 'no-store',
+    date: new Date().toUTCString(),
+  };
+}
 
 // 1x1 transparent PNG; browsers sniff it fine for any image URL.
 const STUB_IMAGE = Buffer.from(
@@ -143,7 +172,11 @@ function requestKey({ method, url, postData }) {
   const query = [...parsed.searchParams.entries()]
     .filter(([key]) => !VOLATILE_QUERY_KEYS.has(key))
     .toSorted(([a, av], [b, bv]) => a.localeCompare(b) || av.localeCompare(bv))
-    .map(([key, value]) => `${key}=${value}`)
+    // Encoded so a value containing & or = cannot collide with another query.
+    .map(
+      ([key, value]) =>
+        `${encodeURIComponent(key)}=${encodeURIComponent(value)}`,
+    )
     .join('&');
   const body = method.toUpperCase() === 'GET' ? '' : bodyKey(postData);
   return [`${routeKey({ method, url })}${query ? `?${query}` : ''}`, body]
@@ -151,9 +184,21 @@ function requestKey({ method, url, postData }) {
     .join(' ');
 }
 
-function isRecordableUrl(url) {
+function isApiUrl(url) {
   const { hostname } = new URL(url);
-  return RECORDABLE_HOST_PATTERNS.some((pattern) => pattern.test(hostname));
+  return API_HOST_PATTERNS.some((pattern) => pattern.test(hostname));
+}
+
+/**
+ * Why a request to an API host may not be recorded, or null when it may.
+ */
+function recordRefusal({ key, headers }) {
+  const credential = CREDENTIAL_HEADERS.find((name) => headers?.[name]);
+  if (credential) return `carries ${credential}`;
+  if (!RECORDABLE_ENDPOINTS.some((pattern) => pattern.test(key))) {
+    return 'endpoint not in RECORDABLE_ENDPOINTS';
+  }
+  return null;
 }
 
 function isSinkUrl(url) {
@@ -200,28 +245,16 @@ function serializeFixtureFile(file) {
   ].join('\n');
 }
 
+// Exact keys only: a query or body the recording never saw is blocked rather
+// than answered with another variant's data. Params that legitimately change
+// per call belong in VOLATILE_QUERY_KEYS.
 function createFixtureStore(file) {
-  const byKey = new Map();
-  const byRoute = new Map();
-  for (const entry of file.entries) {
-    byKey.set(entry.key, entry);
-    const [method, hostPath] = entry.key.split(' ');
-    const route = `${method} ${hostPath.split('?')[0]}`;
-    if (!byRoute.has(route)) byRoute.set(route, entry);
-  }
+  const byKey = new Map(file.entries.map((entry) => [entry.key, entry]));
   return {
     size: byKey.size,
     lookup(request) {
       const key = requestKey(request);
-      const exact = byKey.get(key);
-      if (exact) return { entry: exact, key, fallback: false };
-      // Query values such as contract addresses can vary between runs; any
-      // response recorded for the same GET route has the right shape.
-      if (request.method.toUpperCase() === 'GET') {
-        const sameRoute = byRoute.get(routeKey(request));
-        if (sameRoute) return { entry: sameRoute, key, fallback: true };
-      }
-      return { entry: null, key, fallback: false };
+      return { entry: byKey.get(key) || null, key };
     },
   };
 }
@@ -234,14 +267,23 @@ function fixtureBody(entry) {
  * Collects upstream responses during a record run. Existing entries are kept
  * and re-recorded keys replace them, so a partial run (one scenario, one
  * device profile) only adds to the file; `fresh` starts from an empty file.
+ * An API call that could not be recorded is a failure, and `write` refuses to
+ * touch the file while there is one, so a failed refresh can neither drop an
+ * endpoint nor keep a stale answer for it.
  */
 function createRecorder({ fixturePath, source, fresh, log }) {
   const existing = fresh ? emptyFixtureFile() : readFixtureFile(fixturePath);
   const recorded = new Map();
-  const skipped = new Map();
+  const failures = new Map();
 
   return {
     source,
+    fail(key, reason) {
+      failures.set(key, reason);
+    },
+    failures() {
+      return [...failures].map(([key, reason]) => ({ key, reason }));
+    },
     add({ key, status, contentType, body, scenario }) {
       const text = body.toString('utf8');
       let json;
@@ -252,7 +294,7 @@ function createRecorder({ fixturePath, source, fresh, log }) {
       }
       if (status >= 400 || (text && json === undefined)) {
         // Block pages and other non-JSON answers are not API responses.
-        skipped.set(key, status);
+        failures.set(key, `upstream answered ${status} without JSON`);
         return false;
       }
       const entry = recorded.get(key) || {
@@ -269,6 +311,11 @@ function createRecorder({ fixturePath, source, fresh, log }) {
       return true;
     },
     write() {
+      if (failures.size) {
+        throw new Error(
+          `refusing to write ${fixturePath}: ${failures.size} API call(s) were not recorded`,
+        );
+      }
       const kept = [];
       for (const entry of existing.entries) {
         const replacement = recorded.get(entry.key);
@@ -291,11 +338,6 @@ function createRecorder({ fixturePath, source, fresh, log }) {
       log(
         `recorded ${recorded.size} API fixture(s) from ${source}, kept ${kept.length}, wrote ${fixturePath}`,
       );
-      for (const [key, status] of skipped) {
-        if (!recorded.has(key)) {
-          log(`record: no JSON response (status ${status}) for ${key}`);
-        }
-      }
     },
   };
 }
@@ -331,7 +373,6 @@ async function installNetworkIsolation({
   const stats = {
     mode,
     fixtureHits: {},
-    fixtureFallbackHits: {},
     recorded: {},
     stubbed: {},
     blocked: [],
@@ -385,6 +426,7 @@ async function installNetworkIsolation({
       return route.fulfill({
         status: 200,
         contentType: 'application/json; charset=utf-8',
+        headers: apiResponseHeaders(),
         body: SINK_RESPONSE_BODY,
       });
     }
@@ -396,8 +438,16 @@ async function installNetworkIsolation({
     };
 
     if (mode === 'record') {
-      if (!isRecordableUrl(url)) return block(route, request, 'not-recordable');
+      if (!isApiUrl(url)) return block(route, request, 'not-recordable');
       const key = requestKey(keyInput);
+      const refusal = recordRefusal({
+        key,
+        headers: await request.allHeaders(),
+      });
+      if (refusal) {
+        recorder.fail(key, refusal);
+        return block(route, request, `record-refused: ${refusal}`);
+      }
       const headers = { ...request.headers() };
       if (headers['user-agent']) {
         headers['user-agent'] = headers['user-agent'].replace(
@@ -407,14 +457,18 @@ async function installNetworkIsolation({
       }
       let response;
       try {
+        // No redirects: a hop could leave the reviewed hosts, and this
+        // Node-side request is not covered by the Chromium resolver rule.
         response = await route.fetch({
           url: RECORD_SOURCES[recorder.source](url),
           headers,
+          maxRedirects: 0,
         });
       } catch (error) {
         // Only the first line: Playwright appends a call log with the
         // request headers and cookies.
         const reason = String(error?.message || error).split('\n')[0];
+        recorder.fail(key, `fetch failed: ${reason}`);
         return block(route, request, `record-fetch-failed: ${reason}`);
       }
       const body = await response.body();
@@ -432,14 +486,14 @@ async function installNetworkIsolation({
       return route.fulfill({ response, body });
     }
 
-    const { entry, key, fallback } = fixtureStore.lookup(keyInput);
+    const { entry, key } = fixtureStore.lookup(keyInput);
     if (!entry) return block(route, request, 'no-fixture');
-    increment(fallback ? stats.fixtureFallbackHits : stats.fixtureHits, key);
+    increment(stats.fixtureHits, key);
     if (latencyMs > 0) await sleep(latencyMs);
     return route.fulfill({
       status: entry.status,
       contentType: entry.contentType,
-      headers: { 'cache-control': 'no-store' },
+      headers: apiResponseHeaders(),
       body: fixtureBody(entry),
     });
   };
@@ -478,7 +532,6 @@ function countValues(counts) {
 function summarizeNetworkStats(stats) {
   return {
     fixtureRequestCount: countValues(stats?.fixtureHits),
-    fixtureFallbackRequestCount: countValues(stats?.fixtureFallbackHits),
     recordedRequestCount: countValues(stats?.recorded),
     stubbedRequestCount: countValues(stats?.stubbed),
     blockedRequestCount: stats?.blocked?.length || 0,
@@ -494,6 +547,7 @@ module.exports = {
   installNetworkIsolation,
   isolatedChromiumArgs,
   readFixtureFile,
+  recordRefusal,
   requestKey,
   resolveNetworkMode,
   resolveRecordSource,

@@ -7,6 +7,7 @@ const {
   createRecorder,
   isolatedChromiumArgs,
   readFixtureFile,
+  recordRefusal,
   requestKey,
   resolveNetworkMode,
   serializeFixtureFile,
@@ -37,6 +38,19 @@ describe('web cold network fixtures', () => {
     );
   });
 
+  test('percent-encodes query values so delimiters cannot collide', () => {
+    const oneParam = requestKey({
+      method: 'GET',
+      url: 'https://utility.onekeycn.com/a?a=x%26b%3Dy',
+    });
+    const twoParams = requestKey({
+      method: 'GET',
+      url: 'https://utility.onekeycn.com/a?a=x&b=y',
+    });
+    expect(oneParam).toBe('GET utility.onekeycn.com/a?a=x%26b%3Dy');
+    expect(twoParams).toBe('GET utility.onekeycn.com/a?a=x&b=y');
+  });
+
   test('keys POST requests by canonical JSON body', () => {
     const key = requestKey({
       method: 'POST',
@@ -55,11 +69,11 @@ describe('web cold network fixtures', () => {
     ).toMatch(/^POST api\.hyperliquid\.xyz\/info sha256:[0-9a-f]{16}$/);
   });
 
-  test('falls back to the same GET route but never across POST bodies', () => {
+  test('only answers exact keys', () => {
     const store = createFixtureStore({
       entries: [
         {
-          key: 'GET swap.onekeycn.com/swap/v1/token/detail?contractAddress=a',
+          key: 'GET earn.onekeycn.com/earn/v1/available-assets?type=staking',
           status: 200,
           json: { code: 0 },
         },
@@ -74,15 +88,18 @@ describe('web cold network fixtures', () => {
     expect(
       store.lookup({
         method: 'GET',
-        url: 'https://swap.onekeycn.com/swap/v1/token/detail?contractAddress=a',
-      }),
-    ).toMatchObject({ fallback: false, entry: { status: 200 } });
+        url: 'https://earn.onekeycn.com/earn/v1/available-assets?type=staking',
+      }).entry,
+    ).toMatchObject({ status: 200 });
     expect(
       store.lookup({
         method: 'GET',
-        url: 'https://swap.onekeycn.com/swap/v1/token/detail?contractAddress=b',
+        url: 'https://earn.onekeycn.com/earn/v1/available-assets?type=simpleEarn',
       }),
-    ).toMatchObject({ fallback: true, entry: { status: 200 } });
+    ).toEqual({
+      entry: null,
+      key: 'GET earn.onekeycn.com/earn/v1/available-assets?type=simpleEarn',
+    });
     expect(
       store.lookup({
         method: 'POST',
@@ -98,7 +115,7 @@ describe('web cold network fixtures', () => {
     ).toBeNull();
   });
 
-  test('recorder skips block pages and merges into the existing file', () => {
+  test('recorder merges into the existing file', () => {
     const fixturePath = tempFixturePath();
     const log = jest.fn();
     const first = createRecorder({
@@ -115,14 +132,6 @@ describe('web cold network fixtures', () => {
         scenario: 'root',
       }),
     ).toBe(true);
-    expect(
-      first.add({
-        key: 'GET a.onekeycn.com/blocked',
-        status: 403,
-        body: Buffer.from('<html>blocked</html>'),
-        scenario: 'root',
-      }),
-    ).toBe(false);
     expect(
       first.add({
         key: 'GET a.onekeycn.com/empty',
@@ -161,6 +170,72 @@ describe('web cold network fixtures', () => {
         text: '',
       }),
     ]);
+  });
+
+  test('recorder refuses to write after a call was not recorded', () => {
+    const fixturePath = tempFixturePath();
+    fs.writeFileSync(fixturePath, '{"entries":[]}\n');
+    const recorder = createRecorder({
+      fixturePath,
+      source: 'test',
+      fresh: true,
+      log: jest.fn(),
+    });
+    recorder.add({
+      key: 'GET a.onekeycn.com/a',
+      status: 200,
+      body: Buffer.from('{"code":0}'),
+      scenario: 'root',
+    });
+    expect(
+      recorder.add({
+        key: 'GET a.onekeycn.com/blocked',
+        status: 403,
+        body: Buffer.from('<html>blocked</html>'),
+        scenario: 'root',
+      }),
+    ).toBe(false);
+    recorder.fail('GET a.onekeycn.com/moved', 'fetch failed: redirect');
+
+    expect(recorder.failures()).toEqual([
+      {
+        key: 'GET a.onekeycn.com/blocked',
+        reason: 'upstream answered 403 without JSON',
+      },
+      { key: 'GET a.onekeycn.com/moved', reason: 'fetch failed: redirect' },
+    ]);
+    expect(() => recorder.write()).toThrow(/refusing to write/);
+    expect(fs.readFileSync(fixturePath, 'utf8')).toBe('{"entries":[]}\n');
+  });
+
+  test('records only reviewed public endpoints without credentials', () => {
+    const publicKey =
+      'GET utility.onekeycn.com/utility/v2/market/token/list?limit=20&page=1';
+    expect(recordRefusal({ key: publicKey, headers: {} })).toBeNull();
+    expect(
+      recordRefusal({
+        key: 'POST api.hyperliquid.xyz/info {"dex":"xyz","type":"metaAndAssetCtxs"}',
+        headers: {},
+      }),
+    ).toBeNull();
+    expect(
+      recordRefusal({ key: publicKey, headers: { authorization: 'Bearer x' } }),
+    ).toBe('carries authorization');
+    expect(
+      recordRefusal({
+        key: publicKey,
+        headers: { 'x-onekey-request-token': 'token' },
+      }),
+    ).toBe('carries x-onekey-request-token');
+    for (const key of [
+      'GET wallet.onekeycn.com/wallet/v1/account/list?address=0x1',
+      'POST earn.onekeycn.com/earn/v2/recommend {"accounts":[{"accountAddress":"0x1"}]}',
+      'POST api.hyperliquid.xyz/info {"type":"clearinghouseState","user":"0x1"}',
+    ]) {
+      expect(recordRefusal({ key, headers: {} })).toBe(
+        'endpoint not in RECORDABLE_ENDPOINTS',
+      );
+    }
   });
 
   test('serializes one sorted entry per line', () => {
