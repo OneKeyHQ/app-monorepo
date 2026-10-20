@@ -65,11 +65,20 @@ function BasicPassCodeInput(
   },
   forwardedRef: any,
 ) {
-  const [pinValue, setPinValue] = useState(value ?? '');
+  const [pinValue, setPinValue] = useState('');
+  // A controlled caller owns the digits: render its value and leave local state
+  // alone, so an edit the caller rejects (e.g. during a cooldown) never shows up.
+  const isControlled = value !== undefined;
+  const displayValue = isControlled ? value : pinValue;
+  const updateValue = (text: string) => {
+    if (!isControlled) {
+      setPinValue(text);
+    }
+  };
 
   const pinInputRef = useRef<TextInput>(null);
   const [props, getCellOnLayoutHandler] = useClearByFocusCell({
-    value: pinValue,
+    value: displayValue,
     // Tapping a cell truncates the code without going through onChangeText, so
     // report it too: a parent holding the value would otherwise keep the old
     // one and act on digits the user just erased.
@@ -80,10 +89,10 @@ function BasicPassCodeInput(
       if (editable === false) {
         return;
       }
-      setPinValue(text);
+      updateValue(text);
       // A tap that lands on the trailing cell slices to the same string; do not
       // wake up parents that reset errors or counters on every change.
-      if (text !== pinValue) {
+      if (text !== displayValue) {
         onPinCodeChange?.(text);
       }
     },
@@ -104,12 +113,6 @@ function BasicPassCodeInput(
       pinInputRef.current?.focus();
     },
   }));
-
-  useEffect(() => {
-    if (value !== undefined) {
-      setPinValue(value);
-    }
-  }, [value]);
 
   useEffect(() => {
     if (autoFocus && pinInputRef.current) {
@@ -180,10 +183,10 @@ function BasicPassCodeInput(
         width:
           cellCount * cellSize + (cellCount - 1) * cellSize * CELL_GAP_RATIO,
       }}
-      value={pinValue}
+      value={displayValue}
       onChangeText={(text) => {
         const newText = text.replace(PassCodeRegex, '');
-        setPinValue(newText);
+        updateValue(newText);
         onPinCodeChange?.(newText);
         if (newText.length === cellCount && !disabledComplete) {
           onComplete?.();
