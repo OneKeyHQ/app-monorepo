@@ -4,6 +4,7 @@ import { isObject } from 'lodash';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { isGasAccountSubmitResultUnknownError } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   ESwapNetworkFeeLevel,
@@ -75,6 +76,38 @@ export function shouldFallbackSwapStep({
     stepType !== ESwapStepType.SIGN_MESSAGE &&
     errorInfo.name !== 'buildSwapApi'
   );
+}
+
+// True once any step in this review ended result-unknown (OK-64746). The
+// review is then terminal: no step restarts and no second confirm.
+export function hasSwapStepSubmitResultUnknown(steps: ISwapStep[]) {
+  return steps.some((step) => step.submitResultUnknown);
+}
+
+// Patch for a step whose send threw. A result-unknown sponsored send is
+// pinned as a non-retryable failure with the check-activity copy; every
+// other failure keeps its own message and retry rules.
+export function buildSwapStepFailurePatch({
+  error,
+  errorMessage,
+  resultUnknownMessage,
+}: {
+  error: unknown;
+  errorMessage?: string;
+  resultUnknownMessage: string;
+}): Partial<ISwapStep> {
+  if (isGasAccountSubmitResultUnknownError(error)) {
+    return {
+      status: ESwapStepStatus.FAILED,
+      errorMessage: resultUnknownMessage,
+      canRetry: false,
+      submitResultUnknown: true,
+    };
+  }
+  return {
+    status: ESwapStepStatus.FAILED,
+    errorMessage,
+  };
 }
 
 export function markSubmittedSwapApprovalsCompleted({

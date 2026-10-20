@@ -171,6 +171,31 @@ export function getGasAccountRequestStage(
     : undefined;
 }
 
+type IGasAccountResultUnknownError = {
+  $$gasAccountSubmitResultUnknown?: true;
+};
+
+// Tags an error from a sponsored send whose outcome is unknown (OK-64746):
+// the tx may already be on chain. Review surfaces that only display errors
+// (Swap / Market direct send) read this to keep the attempt terminal — no
+// retry, no second confirm — instead of letting a later tap resend.
+export function markGasAccountSubmitResultUnknown<T>(error: T): T {
+  if (typeof error === 'object' && error !== null) {
+    (error as IGasAccountResultUnknownError).$$gasAccountSubmitResultUnknown =
+      true;
+  }
+  return error;
+}
+
+export function isGasAccountSubmitResultUnknownError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as IGasAccountResultUnknownError).$$gasAccountSubmitResultUnknown ===
+      true
+  );
+}
+
 function toIntegerSecond(value: unknown): number | undefined {
   if (typeof value !== 'number') return undefined;
   if (!Number.isFinite(value)) return undefined;

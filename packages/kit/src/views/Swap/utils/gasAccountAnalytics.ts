@@ -5,6 +5,7 @@ import {
   EGasAccountRequestStage,
   getGasAccountErrorCode,
   markGasAccountRequestStage,
+  markGasAccountSubmitResultUnknown,
 } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
@@ -317,7 +318,20 @@ export async function sendDirectSwapWithGasAccountAnalytics<T>({
       throw error;
     }
 
-    await onGasAccountError?.(error, entry);
+    // A result-unknown send may already be on chain (OK-64746). Tag the
+    // error — and whatever the caller's handler throws in its place — so the
+    // review that owns this attempt can latch instead of offering a retry.
+    if (entry.resultUnknown) {
+      markGasAccountSubmitResultUnknown(error);
+    }
+    try {
+      await onGasAccountError?.(error, entry);
+    } catch (handlerError) {
+      if (entry.resultUnknown) {
+        markGasAccountSubmitResultUnknown(handlerError);
+      }
+      throw handlerError;
+    }
     if (entry.strategy !== EGasAccountErrorStrategy.Fallback) {
       throw error;
     }

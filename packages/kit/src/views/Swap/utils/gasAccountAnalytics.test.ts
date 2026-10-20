@@ -2,6 +2,7 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   EGasAccountRequestStage,
   getGasAccountRequestStage,
+  isGasAccountSubmitResultUnknownError,
 } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import type { ISwapGasInfo } from '@onekeyhq/shared/types/swap/types';
 
@@ -429,5 +430,85 @@ describe('buildDirectSwapGasAccountAnalyticsContext', () => {
     const stage = getGasAccountRequestStage(error);
     expect(stage).toBeUndefined();
     expect(getGasAccountErrorEntryForError(error, stage)).toBeUndefined();
+  });
+  it('tags a result-unknown sponsored send error, including the handler rethrow', async () => {
+    // 90205 may already be on chain: no user-paid resend, and both the
+    // original error and whatever the caller throws in its place carry the
+    // result-unknown tag so the owning review can latch (OK-64746).
+    const gasAccountUiState = buildDirectSwapGasAccountUiState({
+      gasInfo,
+      unsignedTx,
+    });
+    const error = { code: 90_205 };
+    const handlerError = new Error('mapped copy');
+    const send = jest.fn().mockRejectedValueOnce(error);
+
+    await expect(
+      sendDirectSwapWithGasAccountAnalytics({
+        context: undefined,
+        gasAccountUiState,
+        send,
+        onGasAccountError: (_error, entry) => {
+          expect(entry.resultUnknown).toBe(true);
+          throw handlerError;
+        },
+      }),
+    ).rejects.toBe(handlerError);
+
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(isGasAccountSubmitResultUnknownError(error)).toBe(true);
+    expect(isGasAccountSubmitResultUnknownError(handlerError)).toBe(true);
+  });
+
+  it('tags a result-unknown sponsored send error when no handler is given', async () => {
+    const gasAccountUiState = buildDirectSwapGasAccountUiState({
+      gasInfo,
+      unsignedTx,
+    });
+    const error = { code: 90_219 };
+    const send = jest.fn().mockRejectedValueOnce(error);
+
+    await expect(
+      sendDirectSwapWithGasAccountAnalytics({
+        context: undefined,
+        gasAccountUiState,
+        send,
+      }),
+    ).rejects.toBe(error);
+
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(isGasAccountSubmitResultUnknownError(error)).toBe(true);
+  });
+
+  it('does not tag a fallback or unmapped sponsored send error', async () => {
+    const gasAccountUiState = buildDirectSwapGasAccountUiState({
+      gasInfo,
+      unsignedTx,
+    });
+    const fallbackError = { code: 40_213 };
+    const unmappedError = { code: 12_345 };
+    const send = jest
+      .fn()
+      .mockRejectedValueOnce(fallbackError)
+      .mockResolvedValueOnce('signed')
+      .mockRejectedValueOnce(unmappedError);
+
+    await expect(
+      sendDirectSwapWithGasAccountAnalytics({
+        context: undefined,
+        gasAccountUiState,
+        send,
+      }),
+    ).resolves.toBe('signed');
+    await expect(
+      sendDirectSwapWithGasAccountAnalytics({
+        context: undefined,
+        gasAccountUiState,
+        send,
+      }),
+    ).rejects.toBe(unmappedError);
+
+    expect(isGasAccountSubmitResultUnknownError(fallbackError)).toBe(false);
+    expect(isGasAccountSubmitResultUnknownError(unmappedError)).toBe(false);
   });
 });
