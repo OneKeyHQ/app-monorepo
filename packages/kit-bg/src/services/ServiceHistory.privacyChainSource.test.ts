@@ -247,3 +247,26 @@ describe('ServiceHistory local pending detail routing', () => {
     }
   });
 });
+
+describe('ServiceHistory vault history source', () => {
+  it.each([true, false])(
+    'passes the manual refresh flag (%s) to the vault',
+    async (isManualRefresh) => {
+      const fetchAccountHistoryFromLocal = jest.fn(async () => []);
+      mockGetVault.mockResolvedValue({ fetchAccountHistoryFromLocal });
+      const { service } = createService();
+      const post = jest.fn();
+      jest.spyOn(service, 'getClient').mockResolvedValue({ post } as never);
+      await service.fetchAccountOnChainHistory({
+        accountId: 'hd-1',
+        networkId: ZEC,
+        accountAddress: 't1-own',
+        isManualRefresh,
+      });
+      expect(fetchAccountHistoryFromLocal).toHaveBeenCalledWith(
+        expect.objectContaining({ isManualRefresh }),
+      );
+      expect(post).not.toHaveBeenCalled();
+    },
+  );
+});

@@ -2704,6 +2704,7 @@ class ServiceHistory extends ServiceBase {
       networkId,
       accountAddress,
       xpub,
+      isManualRefresh,
     });
     if (localTxs) {
       return {

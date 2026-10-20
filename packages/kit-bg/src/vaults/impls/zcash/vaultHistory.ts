@@ -6,6 +6,7 @@ import type {
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
   PRIVACY_CHAIN_PUBLIC_POOL_ID,
   appendMissingPrivacyChainHistoryTxs,
@@ -33,6 +34,7 @@ import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 import { loadCachedLocalWalletHistory } from '../../localWallet/cachedHistory';
 
 import {
+  ZCASH_BACKEND_HISTORY_PAGE_SIZE,
   fetchCompleteZcashBackendHistory,
   normalizeZcashBackendHistoryTx,
   restoreZcashBackendSelfTransfer,
@@ -355,6 +357,7 @@ export async function fetchAccountHistoryFromLocal(
     networkId: string;
     accountAddress: string;
     xpub?: string;
+    isManualRefresh?: boolean;
   },
 ): Promise<IAccountHistoryTx[] | undefined> {
   // honor the explicit param; this.accountId is '' on a chain-only vault
@@ -661,6 +664,14 @@ export async function fetchAccountHistoryFromLocal(
   });
 }
 
+const ZCASH_TRANSPARENT_FULL_REFRESH_MS = 10 * 60 * 1000;
+
+// Last complete backend snapshot per account; routine polls merge the first page into it.
+export const zcashTransparentHistorySnapshots = new LRUCache<
+  string,
+  { txs: IAccountHistoryTx[]; fullAt: number }
+>({ max: 64 });
+
 // Throws on indexer failure (vs. empty) so the caller can tell 'nothing to add' from 'could not ask'.
 export async function zcashFetchTransparentHistory(
   vault: Vault,
@@ -669,6 +680,7 @@ export async function zcashFetchTransparentHistory(
     networkId: string;
     accountAddress: string;
     xpub?: string;
+    isManualRefresh?: boolean;
   },
 ): Promise<{
   txs: IAccountHistoryTx[];
@@ -719,7 +731,7 @@ export async function zcashFetchTransparentHistory(
       })
     ).map((tx) => [tx.decodedTx.txid.toLowerCase(), tx]),
   );
-  const result = await fetchCompleteZcashBackendHistory({
+  const backendPages: Parameters<typeof fetchCompleteZcashBackendHistory>[0] = {
     fetchPage: async ({ limit, maxTimestampMs }) => {
       const response = await client.post<{
         data: IFetchAccountHistoryResp;
@@ -781,6 +793,65 @@ export async function zcashFetchTransparentHistory(
           };
         }),
       ),
-  });
+  };
+  const snapshotKey = [
+    params.networkId,
+    accountId,
+    transparentAddress,
+    xpub ?? '',
+  ].join(':');
+  const snapshot = zcashTransparentHistorySnapshots.get(snapshotKey);
+  if (
+    snapshot &&
+    !params.isManualRefresh &&
+    Date.now() - snapshot.fullAt < ZCASH_TRANSPARENT_FULL_REFRESH_MS
+  ) {
+    const firstPage = await fetchCompleteZcashBackendHistory({
+      ...backendPages,
+      maxItems: ZCASH_BACKEND_HISTORY_PAGE_SIZE,
+    });
+    if (firstPage.snapshotComplete) {
+      zcashTransparentHistorySnapshots.set(snapshotKey, {
+        txs: firstPage.txs,
+        fullAt: Date.now(),
+      });
+      return { ...firstPage, tipHeight };
+    }
+    const pageTxids = new Set(
+      firstPage.txs.map((tx) => tx.decodedTx.txid.toLowerCase()),
+    );
+    // A mined row seen in both means every newer row is on this page.
+    if (
+      snapshot.txs.some(
+        (tx) =>
+          tx.decodedTx.status !== EDecodedTxStatus.Pending &&
+          pageTxids.has(tx.decodedTx.txid.toLowerCase()),
+      )
+    ) {
+      const txs = [
+        ...firstPage.txs,
+        ...snapshot.txs.filter(
+          (tx) => !pageTxids.has(tx.decodedTx.txid.toLowerCase()),
+        ),
+      ];
+      zcashTransparentHistorySnapshots.set(snapshotKey, {
+        txs,
+        fullAt: snapshot.fullAt,
+      });
+      // Not a full snapshot: callers may add or update rows but must not remove or drop any.
+      return {
+        txs: txs.map((tx) => ({ ...tx, decodedTx: { ...tx.decodedTx } })),
+        snapshotComplete: false,
+      };
+    }
+  }
+  tipHeight = undefined;
+  const result = await fetchCompleteZcashBackendHistory(backendPages);
+  if (result.snapshotComplete) {
+    zcashTransparentHistorySnapshots.set(snapshotKey, {
+      txs: result.txs,
+      fullAt: Date.now(),
+    });
+  }
   return { ...result, tipHeight };
 }

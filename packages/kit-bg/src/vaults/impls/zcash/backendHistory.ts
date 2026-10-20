@@ -325,11 +325,13 @@ export function markZcashBackendShieldedCounterparty({
   }
 }
 
+export const ZCASH_BACKEND_HISTORY_PAGE_SIZE = 500;
+
 export async function fetchCompleteZcashBackendHistory({
   fetchPage,
   buildPage,
   maxItems = 20_000,
-  pageSize = 500,
+  pageSize = ZCASH_BACKEND_HISTORY_PAGE_SIZE,
 }: {
   fetchPage: (params: {
     limit: number;
