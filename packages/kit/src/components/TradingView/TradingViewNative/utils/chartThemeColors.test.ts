@@ -53,6 +53,45 @@ describe('TradingViewNative theme colors', () => {
     expect(resolved.candles.border.upColor).toBe('#ABCDEF');
   });
 
+  it('scopes an embedded background override without changing saved settings', () => {
+    const settings = createTradingViewNativeChartSettings();
+    const original = resolveTradingViewNativeChartThemeColors(
+      settings,
+      themeColors,
+    );
+    const embedded = resolveTradingViewNativeChartThemeColors(
+      settings,
+      themeColors,
+      '#f8f8f8',
+    );
+
+    expect(embedded.background.colors[0]).toBe('#f8f8f8');
+    expect(embedded.candles).toEqual(original.candles);
+    expect(embedded.grid).toEqual(original.grid);
+    expect(settings.background.colors[0]).toBe(
+      TRADING_VIEW_NATIVE_THEME_COLORS.background,
+    );
+    expect(
+      resolveTradingViewNativeChartThemeColors(settings, themeColors),
+    ).toEqual(original);
+  });
+
+  it('preserves custom solid and gradient backgrounds when embedded', () => {
+    const settings = createTradingViewNativeChartSettings();
+    settings.background.colors[0] = '#ABCDEF';
+    expect(
+      resolveTradingViewNativeChartThemeColors(settings, themeColors, '#f8f8f8')
+        .background.colors[0],
+    ).toBe('#ABCDEF');
+
+    settings.background.style = 'gradient';
+    settings.background.colors[0] = TRADING_VIEW_NATIVE_THEME_COLORS.background;
+    expect(
+      resolveTradingViewNativeChartThemeColors(settings, themeColors, '#f8f8f8')
+        .background.colors,
+    ).toEqual(['#010101', '#020202']);
+  });
+
   it('resolves main and sub indicator tokens before rendering', () => {
     const mainIndicator: ITradingViewNativeIndicatorSettingsItem = {
       active: true,

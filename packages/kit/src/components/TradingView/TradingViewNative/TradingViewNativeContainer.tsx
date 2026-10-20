@@ -240,6 +240,7 @@ type ITradingViewNativeContentProps = ITradingViewNativeProps & {
 const TradingViewNativeContent = memo(
   ({
     testID,
+    defaultBackgroundColor,
     source,
     priceDecimalPlaces,
     onPriceSelect,
@@ -265,6 +266,7 @@ const TradingViewNativeContent = memo(
     nativeChartDisplayMode,
     maxSelectableSubIndicatorCount,
     nativeControlsLayoutMode,
+    mobileControlsPaddingHorizontal,
     nativeControlsFlushHorizontalInset,
     showNativeChartCloseControl,
     showNativeIndicatorQuickBar = false,
@@ -295,8 +297,9 @@ const TradingViewNativeContent = memo(
         resolveTradingViewNativeChartThemeColors(
           normalizedChartSettings,
           themeColors,
+          defaultBackgroundColor,
         ),
-      [normalizedChartSettings, themeColors],
+      [defaultBackgroundColor, normalizedChartSettings, themeColors],
     );
     const onPriceUpdateRef = useRef(onPriceUpdate);
     const realtimePointRef = useRef<{ c: number; t: number } | undefined>(
@@ -939,6 +942,7 @@ const TradingViewNativeContent = memo(
         isMobileControlsLayout &&
         !isCompactDisplayMode ? (
           <TradingViewIndicatorQuickBar
+            backgroundColor={defaultBackgroundColor}
             activeIndicatorValues={activeIndicatorValues}
             mainIndicators={mainIndicators}
             subIndicators={subIndicators}
@@ -964,6 +968,7 @@ const TradingViewNativeContent = memo(
       [
         activeIndicatorValues,
         canToggleIndicatorOn,
+        defaultBackgroundColor,
         handleIndicatorSettingsPress,
         handleQuickBarIndicatorPress,
         intl,
@@ -1091,6 +1096,7 @@ const TradingViewNativeContent = memo(
             activeIndicatorValues={activeIndicatorValues}
             maxSelectableSubIndicatorCount={maxSelectableSubIndicatorCount}
             layoutMode={nativeControlsLayoutMode}
+            mobileControlsPaddingHorizontal={mobileControlsPaddingHorizontal}
             flushDesktopControls={nativeControlsFlushHorizontalInset}
             showChartCloseControl={showNativeChartCloseControl}
             isFullscreen={isNativeChartFullscreen}
@@ -1184,6 +1190,7 @@ const TradingViewNativeContent = memo(
             />
             {showChartLoadingMask ? (
               <TradingViewChartLoadingMask
+                backgroundColor={defaultBackgroundColor}
                 testID={testID ? `${testID}-loading` : undefined}
               />
             ) : null}
