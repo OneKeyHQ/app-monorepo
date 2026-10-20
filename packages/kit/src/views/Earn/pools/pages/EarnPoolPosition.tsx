@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { StackActions } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 
 import {
   Alert,
   Button,
+  Empty,
   SizableText,
   Skeleton,
   XStack,
@@ -39,7 +41,10 @@ import {
   PoolPositionActionsFooter,
   usePoolPositionActions,
 } from '../components/PoolPositionActions';
-import { PoolPositionStatus } from '../components/PoolPositionCard';
+import {
+  PoolPositionStatus,
+  describeCurrentApr,
+} from '../components/PoolPositionCard';
 import { PoolStrataPlot } from '../components/PoolPositionStrata';
 import { getRangeDisplay } from '../components/PoolRangeBar';
 import { PoolsCard } from '../components/PoolsCard';
@@ -62,30 +67,62 @@ import { usePoolsBreadcrumb } from '../usePoolsBreadcrumb';
 import type { RouteProp } from '@react-navigation/core';
 
 function ValueCard({ view }: { view: IPoolPositionView }) {
+  const { gtMd } = useMedia();
   // Auto-compounding pools add fees to the value, so there is nothing apart
   const feesEarned = new BigNumber(view.feesEarnedUsd);
-  return (
-    <PoolsCard>
-      <XStack gap="$8" rowGap="$4" flexWrap="wrap" ai="flex-end">
-        <YStack gap="$1">
+  const apr = describeCurrentApr(view);
+  const value = (
+    <YStack gap="$1">
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {POOLS_COPY.positionValue}
+      </SizableText>
+      <SizableText size="$heading4xl">{formatUsd(view.valueUsd)}</SizableText>
+    </YStack>
+  );
+  const figures = (
+    <>
+      {feesEarned.gt(0) ? (
+        <YStack gap="$1" pb="$1">
           <SizableText size="$bodyMd" color="$textSubdued">
-            {POOLS_COPY.positionValue}
+            {POOLS_COPY.feesEarned}
           </SizableText>
-          <SizableText size="$heading4xl">
-            {formatUsd(view.valueUsd)}
+          <SizableText size="$heading2xl" color="$textSuccess">
+            {`+${formatUsd(feesEarned)}`}
           </SizableText>
         </YStack>
-        {feesEarned.gt(0) ? (
-          <YStack gap="$1" pb="$1">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {POOLS_COPY.feesEarned}
-            </SizableText>
-            <SizableText size="$heading2xl" color="$textSuccess">
-              {`+${formatUsd(feesEarned)}`}
-            </SizableText>
-          </YStack>
-        ) : null}
-      </XStack>
+      ) : null}
+      {apr ? (
+        <YStack gap="$1" pb="$1">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {POOLS_COPY.currentApr}
+          </SizableText>
+          <SizableText
+            testID="earn-pool-position-current-apr"
+            size="$heading2xl"
+            color={apr.color}
+          >
+            {apr.value}
+          </SizableText>
+        </YStack>
+      ) : null}
+    </>
+  );
+  return (
+    <PoolsCard>
+      {/* Phones keep the value on its own line, the other figures under it */}
+      {gtMd ? (
+        <XStack gap="$8" ai="flex-end">
+          {value}
+          {figures}
+        </XStack>
+      ) : (
+        <YStack gap="$4">
+          {value}
+          <XStack gap="$8" rowGap="$4" flexWrap="wrap">
+            {figures}
+          </XStack>
+        </YStack>
+      )}
       <PoolTokenSplit
         pool={view.pool}
         amount0={view.amount0}
@@ -241,9 +278,13 @@ function RangeCard({
     const shownAbove = inverted
       ? view.outOfRangeSide === 'below'
       : view.outOfRangeSide === 'above';
+    // How far the price has to come back to earn again, as shown
+    const bound = shownAbove ? display.max : display.min;
+    const move = new BigNumber(bound).div(display.current).minus(1).abs();
+    const moveText = move.lt(0.001) ? '< 0.1%' : formatPercent(move, 1);
     notice = shownAbove
-      ? POOLS_COPY.outOfRangeAbove(held)
-      : POOLS_COPY.outOfRangeBelow(held);
+      ? POOLS_COPY.outOfRangeAbove(held, moveText, formatTokenPrice(bound))
+      : POOLS_COPY.outOfRangeBelow(held, moveText, formatTokenPrice(bound));
   }
   return (
     <PoolsCard testID="earn-pool-position-range">
@@ -502,6 +543,7 @@ type IRouteProps = RouteProp<
 >;
 
 function EarnPoolPositionContent({ positionId }: { positionId: string }) {
+  const navigation = useAppNavigation();
   const { result } = usePromiseResult(
     async () => {
       const portfolio = await backgroundApiProxy.servicePools.getPortfolio();
@@ -534,17 +576,52 @@ function EarnPoolPositionContent({ positionId }: { positionId: string }) {
     [positionId],
     { revalidateOnFocus: true },
   );
+
+  // A full Remove, an Exit, or claiming a closed position's last fees ends
+  // the position while this page waits under the task, so the user goes on
+  // to its pool rather than to an empty page
+  const [shownPoolId, setShownPoolId] = useState<string>();
+  const loadedPoolId = result?.view.pool.id;
+  useEffect(() => {
+    if (loadedPoolId) {
+      setShownPoolId(loadedPoolId);
+    }
+  }, [loadedPoolId]);
+  const closedPoolId = result === null ? shownPoolId : undefined;
+  useEffect(() => {
+    if (!closedPoolId) {
+      return;
+    }
+    navigation.dispatch((state) => {
+      const below = state.routes[state.index - 1];
+      const belowPoolId = (below?.params as { poolId?: string } | undefined)
+        ?.poolId;
+      return below?.name === ETabEarnRoutes.EarnPoolDetails &&
+        belowPoolId === closedPoolId
+        ? StackActions.pop()
+        : StackActions.replace(ETabEarnRoutes.EarnPoolDetails, {
+            poolId: closedPoolId,
+          });
+    });
+  }, [closedPoolId, navigation]);
+
+  const breadcrumbProps = usePoolsBreadcrumb([{ label: POOLS_COPY.position }]);
   if (!result) {
     return (
       <EarnPageContainer
         pageTitle={
           <SizableText size="$headingLg">{POOLS_COPY.position}</SizableText>
         }
+        breadcrumbProps={breadcrumbProps}
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Earn}
         showBackButton
       >
-        {result === null ? null : <PositionSkeleton />}
+        {result === null && !closedPoolId ? (
+          <Empty icon="SearchOutline" title={POOLS_COPY.positionNotFound} />
+        ) : (
+          <PositionSkeleton />
+        )}
       </EarnPageContainer>
     );
   }

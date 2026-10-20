@@ -616,3 +616,13 @@ export const POOLS_BALANCE_SEEDS: Record<string, Record<string, number>> = {
     cbBTC: 0.0213,
   },
 };
+
+/**
+ * Demo gas prices in gwei; all three networks pay gas in ETH. The two L2
+ * figures fold in their L1 data cost.
+ */
+export const POOLS_GAS_PRICE_GWEI: Record<string, number> = {
+  [POOLS_ROBINHOOD_NETWORK_ID]: 0.01,
+  [POOLS_ETHEREUM_NETWORK_ID]: 1.5,
+  [POOLS_BASE_NETWORK_ID]: 0.01,
+};

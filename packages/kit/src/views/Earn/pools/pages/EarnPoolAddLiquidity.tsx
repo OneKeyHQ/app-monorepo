@@ -97,6 +97,17 @@ function AddLiquidityForm({
           poolId: pool.id,
         }),
     },
+    ...(positionId
+      ? [
+          {
+            label: POOLS_COPY.position,
+            onClick: () =>
+              navigation.navigate(ETabEarnRoutes.EarnPoolPosition, {
+                positionId,
+              }),
+          },
+        ]
+      : []),
     { label: positionId ? POOLS_COPY.stepIncrease : POOLS_COPY.addLiquidity },
   ]);
 

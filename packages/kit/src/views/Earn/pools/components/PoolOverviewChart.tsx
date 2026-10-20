@@ -103,6 +103,8 @@ export function PoolOverviewChart({
   range,
   onRangeChange,
   renderRangeControls,
+  flipped: flippedProp,
+  onFlippedChange,
   height,
   stripWidth,
 }: {
@@ -114,12 +116,17 @@ export function PoolOverviewChart({
   onRangeChange?: (range: IPoolTickRange) => void;
   /** Under the legend; `flipped` when the prices are shown the other way */
   renderRangeControls?: (flipped: boolean) => ReactNode;
+  /** Set to share the direction with a form beside the chart */
+  flipped?: boolean;
+  onFlippedChange?: (flipped: boolean) => void;
   height: number;
   /** Width of the liquidity strip on the right of the plot, in px */
   stripWidth: number;
 }) {
   const theme = useTheme();
-  const [flipped, setFlipped] = useState(false);
+  const [ownFlipped, setOwnFlipped] = useState(false);
+  const flipped = flippedProp ?? ownFlipped;
+  const setFlipped = onFlippedChange ?? setOwnFlipped;
   const [period, setPeriod] = useState<IPoolPriceRange>(DEFAULT_PRICE_RANGE);
   const [hover, setHover] = useState<IStockPriceLineChartHoverPoint>();
   const { base, quote, inverted } = getPoolPair(pool);
@@ -289,7 +296,7 @@ export function PoolOverviewChart({
           size="small"
           variant="tertiary"
           icon="SwitchHorOutline"
-          onPress={() => setFlipped((value) => !value)}
+          onPress={() => setFlipped(!flipped)}
         />
       }
     >

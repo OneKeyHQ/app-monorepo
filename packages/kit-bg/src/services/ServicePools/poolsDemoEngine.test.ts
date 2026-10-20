@@ -397,6 +397,32 @@ describe('pools demo favorites', () => {
   });
 });
 
+describe('pools demo positions', () => {
+  it('rates what each open position earns now, nothing out of range', () => {
+    const catalog = buildMockCatalog(NOW);
+    const state = createInitialDemoState(catalog, NOW);
+    const views = buildPortfolio(catalog, state).positions;
+    const byId = (id: string) => views.find((view) => view.position.id === id);
+
+    const earning = byId('evm--1:uniswap:v3:1042871');
+    expect(earning?.status).toBe(EPoolPositionStatus.Active);
+    // The view's 24h fees are rounded to cents; the rate is not
+    expect(Number(earning?.currentApr)).toBeCloseTo(
+      (Number(earning?.fees24hUsd) * 365) / Number(earning?.valueUsd),
+      3,
+    );
+    expect(Number(earning?.currentApr)).toBeGreaterThan(0);
+
+    const outside = byId('evm--4663:uniswap:v3:20915');
+    expect(outside?.status).toBe(EPoolPositionStatus.OutOfRange);
+    expect(outside?.currentApr).toBe('0');
+
+    const closed = byId('evm--1:uniswap:v3:1019255');
+    expect(closed?.status).toBe(EPoolPositionStatus.Closed);
+    expect(closed?.currentApr).toBeUndefined();
+  });
+});
+
 describe('pools demo tasks', () => {
   it('keeps what a position earned after its fees are claimed', async () => {
     const catalog = buildMockCatalog(NOW);
@@ -460,6 +486,26 @@ describe('pools demo tasks', () => {
       EPoolTaskStepKind.AddLiquidity,
     ]);
 
+    // The review: where it goes, what it earns and what it costs
+    const { preview } = task;
+    expect(preview.range).toEqual({
+      tickLower: Math.floor(tick / 60) * 60 - 1200,
+      tickUpper: Math.floor(tick / 60) * 60 + 1200,
+    });
+    expect(preview.apr?.status).toBe('ok');
+    expect(
+      Number(preview.apr?.status === 'ok' ? preview.apr.apr : 0),
+    ).toBeGreaterThan(0);
+    // About half the USDG is swapped, against a $3M stock route
+    expect(Number(preview.priceImpact)).toBeGreaterThan(0);
+    expect(Number(preview.priceImpact)).toBeLessThan(0.001);
+    const stepFees = task.steps.map((step) => Number(step.networkFeeUsd));
+    expect(stepFees.every((fee) => fee > 0)).toBe(true);
+    expect(Number(preview.networkFeeUsd)).toBeCloseTo(
+      stepFees.reduce((sum, fee) => sum + fee, 0),
+      5,
+    );
+
     const done = runAll(catalog, state, task);
     expect(done.status).toBe(EPoolTaskStatus.Done);
     const position = state.positions.find(
@@ -481,6 +527,34 @@ describe('pools demo tasks', () => {
       EPoolTaskStepKind.Swap,
       EPoolTaskStepKind.AddLiquidity,
     ]);
+  });
+
+  it('refuses an add too small to mint anything before any step runs', async () => {
+    const catalog = buildMockCatalog(NOW);
+    const state = createInitialDemoState(catalog, NOW);
+    const pool = poolBySeed(catalog, 'rh-v3-tsla-usdg-3000');
+    const usdg = assetBySymbol(catalog, POOLS_ROBINHOOD_NETWORK_ID, 'USDG');
+    const tick = pool.currentTick ?? 0;
+    const tasksBefore = state.tasks.length;
+    await expect(
+      createTask(
+        catalog,
+        state,
+        {
+          kind: 'add',
+          params: {
+            poolId: pool.id,
+            mode: 'zap',
+            inputAssetId: usdg.id,
+            amountIn: '0.000001',
+            tickLower: Math.floor(tick / 60) * 60 - 1200,
+            tickUpper: Math.floor(tick / 60) * 60 + 1200,
+          },
+        },
+        NOW,
+      ),
+    ).rejects.toThrow('Amounts too small to add');
+    expect(state.tasks.length).toBe(tasksBefore);
   });
 
   it('stops on a failed step without touching balances, then resumes', async () => {

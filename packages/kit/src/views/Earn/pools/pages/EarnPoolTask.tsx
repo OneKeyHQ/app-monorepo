@@ -26,6 +26,8 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETabEarnRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { ITabEarnParamList } from '@onekeyhq/shared/src/routes';
+import { isTickInRange } from '@onekeyhq/shared/src/utils/poolsMath';
+import type { IPoolsAprEstimate } from '@onekeyhq/shared/src/utils/poolsMath';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   EPoolTaskKind,
@@ -36,12 +38,14 @@ import {
 import type {
   IPool,
   IPoolTask,
+  IPoolTaskAprPreview,
   IPoolTaskStep,
   IPoolTaskTokenAmount,
 } from '@onekeyhq/shared/types/pools';
 
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
+import { describeAprEstimate } from '../components/PoolAprEstimate';
 import { PoolPairIcon } from '../components/PoolPairIcon';
 import { PoolPositionStatus } from '../components/PoolPositionCard';
 import { PoolsCard } from '../components/PoolsCard';
@@ -52,10 +56,12 @@ import { confirmAbandonPoolTask } from '../components/PoolUnfinishedTasks';
 import { POOLS_COPY } from '../poolsCopy';
 import {
   formatFeeTier,
+  formatPercent,
   formatTokenAmount,
   formatUsd,
   getPoolPairTitle,
   getPoolVersionLabel,
+  getRangeLine,
   sortByPair,
 } from '../poolsFormat';
 import { usePoolsBreadcrumb } from '../usePoolsBreadcrumb';
@@ -64,6 +70,9 @@ import type { RouteProp } from '@react-navigation/core';
 
 // A wallet confirmation plus the block it lands in, roughly
 const SECONDS_PER_STEP = 20;
+// Price impact worth a second look, and worth stopping for
+const IMPACT_CAUTION = 0.03;
+const IMPACT_CRITICAL = 0.05;
 
 function formatAmount(item: IPoolTaskTokenAmount) {
   return formatTokenAmount(item.amount, item.symbol);
@@ -304,6 +313,84 @@ function sameAmounts(a: IPoolTaskTokenAmount[], b: IPoolTaskTokenAmount[]) {
   );
 }
 
+/** The add's estimate in the form's terms, so the review reads the same */
+function toAprEstimate(apr: IPoolTaskAprPreview): IPoolsAprEstimate {
+  return apr.status === 'ok'
+    ? { status: 'ok', apr: new BigNumber(apr.apr), isSmallAmount: false }
+    : { status: apr.status };
+}
+
+function formatPriceImpact(fraction: BigNumber) {
+  return fraction.lt(0.0001) ? '< 0.01%' : formatPercent(fraction);
+}
+
+function getPriceImpactColor(fraction: BigNumber) {
+  if (fraction.gte(IMPACT_CRITICAL)) {
+    return '$textCritical';
+  }
+  return fraction.gte(IMPACT_CAUTION) ? '$textCaution' : '$textSubdued';
+}
+
+/** Where the deposit goes; a range that starts outside the price says so */
+function RangeSummaryRow({
+  pool,
+  range,
+  isDone,
+}: {
+  pool: IPool;
+  range: { tickLower: number; tickUpper: number };
+  isDone: boolean;
+}) {
+  const line = getRangeLine(pool, range);
+  // Once done, the hero shows the position's status
+  const startsOutside =
+    !isDone && !isTickInRange({ ...range, tick: pool.currentTick ?? 0 });
+  return (
+    <SummaryRow label={POOLS_COPY.priceRange}>
+      <SizableText size="$bodyMdMedium" textAlign="right">
+        {line.text}
+      </SizableText>
+      {line.unit ? (
+        <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
+          {line.unit}
+        </SizableText>
+      ) : null}
+      {startsOutside ? (
+        <SizableText size="$bodySm" color="$textCaution" textAlign="right">
+          {POOLS_COPY.outOfRangeNow}
+        </SizableText>
+      ) : null}
+    </SummaryRow>
+  );
+}
+
+function AprSummaryRow({
+  pool,
+  apr,
+}: {
+  pool: IPool;
+  apr: IPoolTaskAprPreview;
+}) {
+  const info = describeAprEstimate(toAprEstimate(apr), pool);
+  return (
+    <SummaryRow label={POOLS_COPY.estimatedApr}>
+      <SizableText size="$bodyMdMedium" color={info.color}>
+        {info.value}
+      </SizableText>
+      {info.notes.map((note) => (
+        <SizableText
+          key={note}
+          size="$bodySm"
+          color="$textSubdued"
+          textAlign="right"
+        >
+          {note}
+        </SizableText>
+      ))}
+    </SummaryRow>
+  );
+}
+
 function TaskSummary({ task, pool }: { task: IPoolTask; pool?: IPool }) {
   const { preview } = task;
   const isDone = task.status === EPoolTaskStatus.Done;
@@ -315,6 +402,9 @@ function TaskSummary({ task, pool }: { task: IPoolTask; pool?: IPool }) {
   const receive = list(preview.receive);
   const leftover = list(preview.leftover);
   const cost = new BigNumber(preview.costUsd);
+  const impact = preview.priceImpact
+    ? new BigNumber(preview.priceImpact)
+    : undefined;
   return (
     <PoolsCard>
       {pay.length ? (
@@ -347,9 +437,33 @@ function TaskSummary({ task, pool }: { task: IPoolTask; pool?: IPool }) {
           </SizableText>
         </SummaryRow>
       )}
+      {pool && preview.range ? (
+        <RangeSummaryRow pool={pool} range={preview.range} isDone={isDone} />
+      ) : null}
+      {pool && preview.apr ? (
+        <AprSummaryRow pool={pool} apr={preview.apr} />
+      ) : null}
+      {/* The swap cost holds the price impact, so the two read together */}
       {cost.gt(0) ? (
         <SummaryRow label={POOLS_COPY.swapCost}>
           <SizableText size="$bodyMdMedium">{formatUsd(cost)}</SizableText>
+          {impact ? (
+            <SizableText
+              testID="earn-pool-task-price-impact"
+              size="$bodySm"
+              color={getPriceImpactColor(impact)}
+              textAlign="right"
+            >
+              {POOLS_COPY.priceImpact(formatPriceImpact(impact))}
+            </SizableText>
+          ) : null}
+        </SummaryRow>
+      ) : null}
+      {preview.networkFeeUsd ? (
+        <SummaryRow label={POOLS_COPY.networkFee}>
+          <SizableText testID="earn-pool-task-network-fee" size="$bodyMdMedium">
+            {formatUsd(preview.networkFeeUsd)}
+          </SizableText>
         </SummaryRow>
       ) : null}
     </PoolsCard>
@@ -383,6 +497,16 @@ function confirmInDemoWallet({
                 </SizableText>
               ))}
             </YStack>
+          ) : null}
+          {new BigNumber(step.networkFeeUsd ?? 0).gt(0) ? (
+            <XStack jc="space-between" gap="$3">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {POOLS_COPY.networkFee}
+              </SizableText>
+              <SizableText size="$bodyMdMedium">
+                {formatUsd(step.networkFeeUsd)}
+              </SizableText>
+            </XStack>
           ) : null}
           <SizableText size="$bodySm" color="$textSubdued">
             {POOLS_COPY.demoWalletNote}
@@ -638,10 +762,21 @@ function TaskView({
     }
   }
 
+  const singlePool = pools.length === 1 ? pools[0] : undefined;
   const breadcrumbProps = usePoolsBreadcrumb([
+    ...(singlePool
+      ? [
+          {
+            label: getPoolPairTitle(singlePool),
+            onClick: () =>
+              navigation.navigate(ETabEarnRoutes.EarnPoolDetails, {
+                poolId: singlePool.id,
+              }),
+          },
+        ]
+      : []),
     { label: POOLS_COPY.taskTitle[task.kind] },
   ]);
-  const singlePool = pools.length === 1 ? pools[0] : undefined;
   let header: ReactNode = null;
   if (isDone) {
     header = <TaskDoneHero task={task} pools={pools} />;

@@ -23,6 +23,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EPoolPositionStatus } from '@onekeyhq/shared/types/pools';
 import type {
   IPoolAsset,
   IPoolPositionView,
@@ -136,9 +137,17 @@ export function PoolsPortfolioGroup({
                   color="$textSubdued"
                 />
               </XStack>
-              <SizableText size="$bodySm" color="$textSubdued">
-                {getPoolSubtitle(view)}
-              </SizableText>
+              <XStack ai="center" gap="$3" flexWrap="wrap">
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {getPoolSubtitle(view)}
+                </SizableText>
+                {/* Narrow rows drop the status column, so a position that
+                    earns nothing says so before it is opened */}
+                {!isDesktopLayout &&
+                view.status !== EPoolPositionStatus.Active ? (
+                  <PoolPositionStatus view={view} />
+                ) : null}
+              </XStack>
             </YStack>
           </XStack>
         ),
@@ -181,7 +190,7 @@ export function PoolsPortfolioGroup({
           ),
       },
     ],
-    [collect, collectingId, intl],
+    [collect, collectingId, intl, isDesktopLayout],
   );
 
   // Phone width on web: rows open in place like the other protocols' rows,
@@ -206,8 +215,11 @@ export function PoolsPortfolioGroup({
                   <XStack ai="center" jc="space-between" gap="$2">
                     <XStack ai="center" gap="$2" flex={1} minWidth={0}>
                       <FiatText usd={view.uncollectedFeesUsd} />
+                      {/* The same word as this row's column on wide screens */}
                       <SizableText size="$bodyMd" color="$textSubdued">
-                        {POOLS_COPY.unclaimedFees}
+                        {intl.formatMessage({
+                          id: ETranslations.earn_claimable,
+                        })}
                       </SizableText>
                     </XStack>
                     <Button

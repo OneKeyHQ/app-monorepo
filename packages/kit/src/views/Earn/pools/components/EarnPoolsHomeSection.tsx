@@ -104,14 +104,7 @@ export function EarnPoolsHomeSection() {
       </XStack>
       <YStack gap={EARN_LIST_ROW_GAP}>
         {homePools.map((pool) => (
-          <PoolListRow
-            key={pool.id}
-            pool={pool}
-            expanded={false}
-            onPress={(poolId) =>
-              PoolsNavigation.pushPoolDetails(navigation, poolId)
-            }
-          />
+          <PoolListRow key={pool.id} pool={pool} />
         ))}
       </YStack>
     </YStack>

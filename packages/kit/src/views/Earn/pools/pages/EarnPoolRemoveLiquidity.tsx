@@ -101,10 +101,18 @@ function RemoveForm({
       setIsSubmitting(false);
     }
   };
-  const buttonLabel = percent > 0 ? POOLS_COPY.review : POOLS_COPY.enterAmount;
+  const buttonLabel = percent > 0 ? POOLS_COPY.review : POOLS_COPY.chooseAmount;
+  // The pair opens its pool everywhere; the position sits under it
   const breadcrumbProps = usePoolsBreadcrumb([
     {
       label: getPoolPairTitle(pool),
+      onClick: () =>
+        navigation.navigate(ETabEarnRoutes.EarnPoolDetails, {
+          poolId: pool.id,
+        }),
+    },
+    {
+      label: POOLS_COPY.position,
       onClick: () =>
         navigation.navigate(ETabEarnRoutes.EarnPoolPosition, {
           positionId: position.id,

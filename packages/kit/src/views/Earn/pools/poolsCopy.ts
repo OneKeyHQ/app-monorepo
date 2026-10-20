@@ -13,7 +13,7 @@ export const POOLS_COPY = {
   hook: 'Hook',
   dynamicFee: 'Dynamic fee',
   notListed: 'Unlisted',
-  unlistedHint: 'Unlisted pool: you can exit, not add',
+  unlistedHint: 'Unlisted pool: you can remove, not add',
   fullRange: 'Full range',
   priceRange: 'Price range',
   viewAll: 'View all',
@@ -28,6 +28,7 @@ export const POOLS_COPY = {
   apply: 'Apply',
   noPools: 'No pools match',
   poolNotFound: 'Pool not found',
+  positionNotFound: 'Position not found',
   sortTvl: 'TVL',
   sortApr: 'APR',
   sortVolume: '24h volume',
@@ -38,13 +39,13 @@ export const POOLS_COPY = {
   noFavorites: 'Star a pool to keep it here',
   addFavorite: 'Add to favorites',
   removeFavorite: 'Remove from favorites',
+  points: (value: string) => `${value} pts`,
   periodHint: {
     '1D': 'Last 24 hours, change against the 24 hours before',
     '1W': 'Last 7 days, change against the 7 days before',
     '1M': 'Last 30 days, change against the 30 days before',
   },
   // An opened pool and its page
-  poolData: 'Pool data',
   createPosition: 'Create position',
   openPoolPage: 'Open pool page',
   share: 'Share',
@@ -94,7 +95,7 @@ export const POOLS_COPY = {
   hookAddress: 'Hook contract',
   about: 'About this pool',
   unlistedNotice:
-    'This pool is not on the supported list. You can withdraw but not add more.',
+    'This pool is not on the supported list. You can remove liquidity but not add more.',
 
   // Positions
   position: 'Position',
@@ -110,10 +111,11 @@ export const POOLS_COPY = {
   rangeMax: 'Max',
   shareOfPool: 'Share of pool',
   feesAutoCompound: 'Fees are added to the position automatically',
-  outOfRangeAbove: (symbol: string) =>
-    `The price is above your range. The position is all ${symbol} and earns no fees until the price comes back.`,
-  outOfRangeBelow: (symbol: string) =>
-    `The price is below your range. The position is all ${symbol} and earns no fees until the price comes back.`,
+  outOfRangeAbove: (symbol: string, move: string, price: string) =>
+    `The price is above your range. The position is all ${symbol} and earns no fees until the price falls ${move} to ${price}.`,
+  outOfRangeBelow: (symbol: string, move: string, price: string) =>
+    `The price is below your range. The position is all ${symbol} and earns no fees until the price rises ${move} to ${price}.`,
+  currentApr: 'Current APR',
   add: 'Add',
   remove: 'Remove',
   collect: 'Claim',
@@ -152,6 +154,10 @@ export const POOLS_COPY = {
   review: 'Review',
   insufficientBalance: (symbol: string) => `Not enough ${symbol}`,
   enterAmount: 'Enter an amount',
+  amountTooSmall: 'Amount too small',
+  // Remove and Exit pick a share with a slider, so nothing is typed
+  chooseAmount: 'Choose an amount',
+  selectPosition: 'Select a position',
   payWithEth: 'Pay with ETH',
   rangeInverted: 'Min must be below max',
   expectedInRange: 'Expected in range',
@@ -198,6 +204,9 @@ export const POOLS_COPY = {
   paid: 'You paid',
   received: 'You received',
   value: 'Value',
+  networkFee: 'Network fee',
+  priceImpact: (value: string) => `${value} price impact`,
+  outOfRangeNow: 'Out of range now',
   confirmInWallet: 'Confirm in wallet',
   demoWalletNote: 'Demo: nothing is signed or sent.',
   confirm: 'Confirm',

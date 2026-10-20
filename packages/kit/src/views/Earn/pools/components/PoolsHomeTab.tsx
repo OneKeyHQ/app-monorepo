@@ -137,14 +137,7 @@ export function PoolsHomeTab({
       ) : (
         <YStack>
           {shown.length
-            ? shown.map((pool) => (
-                <PoolListRow
-                  key={pool.id}
-                  pool={pool}
-                  expanded={expandedId === pool.id}
-                  onPress={toggle}
-                />
-              ))
+            ? shown.map((pool) => <PoolListRow key={pool.id} pool={pool} />)
             : empty}
         </YStack>
       )}

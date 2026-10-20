@@ -2,11 +2,13 @@ import BigNumber from 'bignumber.js';
 
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
+  getDisplayRange,
   isPoolPriceInverted,
   sqrtRatioX96ToPrice,
   tickToPrice,
   toDisplayPrice,
 } from '@onekeyhq/shared/src/utils/poolsMath';
+import type { IPoolTickRange } from '@onekeyhq/shared/src/utils/poolsMath';
 import type { IPool } from '@onekeyhq/shared/types/pools';
 
 import { POOLS_COPY } from './poolsCopy';
@@ -162,7 +164,32 @@ export function getTickDisplayPrice(pool: IPool, tick: number) {
   );
 }
 
-export function getPriceUnitLabel(pool: IPool) {
+/** "USDC per WETH"; `flipped` when the chart shows prices the other way */
+export function getPriceUnitLabel(pool: IPool, flipped = false) {
   const { base, quote } = getPoolPair(pool);
-  return POOLS_COPY.priceIn(quote.symbol, base.symbol);
+  return flipped
+    ? POOLS_COPY.priceIn(base.symbol, quote.symbol)
+    : POOLS_COPY.priceIn(quote.symbol, base.symbol);
+}
+
+/** A range on one line, "2,104.12 – 2,801.33", and the unit under it */
+export function getRangeLine(
+  pool: IPool,
+  range: IPoolTickRange,
+  flipped = false,
+) {
+  const { inverted } = getPoolPair(pool);
+  const display = getDisplayRange({
+    ...range,
+    tickSpacing: pool.tickSpacing ?? 60,
+    decimals0: pool.token0.decimals,
+    decimals1: pool.token1.decimals,
+    inverted: flipped ? !inverted : inverted,
+  });
+  if (display.isMinZero && display.isMaxInfinite) {
+    return { text: POOLS_COPY.fullRange, unit: undefined };
+  }
+  const min = display.isMinZero ? '0' : formatTokenPrice(display.min);
+  const max = display.isMaxInfinite ? '∞' : formatTokenPrice(display.max);
+  return { text: `${min} – ${max}`, unit: getPriceUnitLabel(pool, flipped) };
 }

@@ -1,4 +1,7 @@
+import BigNumber from 'bignumber.js';
+
 import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import type { ISizableTextProps } from '@onekeyhq/components';
 import { EPoolPositionStatus } from '@onekeyhq/shared/types/pools';
 import type {
   IPoolPositionView,
@@ -7,6 +10,7 @@ import type {
 
 import { POOLS_COPY } from '../poolsCopy';
 import {
+  formatPercent,
   formatTokenAmount,
   formatUsd,
   getPoolPair,
@@ -41,6 +45,38 @@ export function getPositionStatusInfo(view: IPoolPositionView) {
   }
 }
 
+/**
+ * What an open position earns now, as one figure: 0% in amber out of
+ * range. Closed positions have none.
+ */
+export function describeCurrentApr(
+  view: IPoolPositionView,
+): { value: string; color: ISizableTextProps['color'] } | undefined {
+  if (view.status === EPoolPositionStatus.Closed) {
+    return undefined;
+  }
+  if (view.currentApr === undefined) {
+    // A hook that changes LP fees
+    return { value: POOLS_COPY.aprUnavailable, color: '$textSubdued' };
+  }
+  return {
+    value: formatPercent(view.currentApr),
+    color:
+      view.status === EPoolPositionStatus.OutOfRange ? '$textCaution' : '$text',
+  };
+}
+
+/** Fees since opening as the position page shows them; none when they compound */
+export function getFeesEarnedText(view: IPoolPositionView) {
+  if (view.pool.capabilities.feeCollection === 'AUTO_COMPOUND') {
+    return undefined;
+  }
+  const earned = new BigNumber(view.feesEarnedUsd);
+  return earned.gt(0)
+    ? { value: `+${formatUsd(earned)}`, color: '$textSuccess' as const }
+    : { value: formatUsd(0), color: '$text' as const };
+}
+
 export function PoolPositionStatus({ view }: { view: IPoolPositionView }) {
   const info = getPositionStatusInfo(view);
   return (
@@ -72,10 +108,31 @@ export function PoolPositionAmounts({ view }: { view: IPoolPositionView }) {
   );
 }
 
+function CardFigure({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: string;
+  color?: ISizableTextProps['color'];
+}) {
+  return (
+    <YStack flex={1} flexBasis={0} minWidth={0} gap="$0.5">
+      <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+        {label}
+      </SizableText>
+      <SizableText size="$bodyLgMedium" color={color} numberOfLines={1}>
+        {value}
+      </SizableText>
+    </YStack>
+  );
+}
+
 /**
- * A position as a card (doc §2.6): pair, version and fee, value, both
- * amounts, status; range positions add their range against the pool's
- * liquidity and unclaimed fees.
+ * A position as a card (doc §2.6): pair, version and fee, and status; then
+ * what it is worth, has earned and earns now; both amounts. Range positions
+ * add their range against the pool's liquidity and unclaimed fees.
  */
 export function PoolPositionCard({
   view,
@@ -96,6 +153,8 @@ export function PoolPositionCard({
     position.tickUpper !== undefined &&
     view.status !== EPoolPositionStatus.Closed;
   const hasFees = Number(view.uncollectedFeesUsd) > 0;
+  const earned = getFeesEarnedText(view);
+  const apr = describeCurrentApr(view);
 
   return (
     <YStack
@@ -124,12 +183,27 @@ export function PoolPositionCard({
           </SizableText>
           <PoolTags pool={pool} />
         </YStack>
-        <YStack ai="flex-end" gap="$1">
-          <SizableText size="$bodyLgMedium">
-            {formatUsd(view.valueUsd)}
-          </SizableText>
-          <PoolPositionStatus view={view} />
-        </YStack>
+        <PoolPositionStatus view={view} />
+      </XStack>
+      <XStack gap="$3">
+        <CardFigure
+          label={POOLS_COPY.positionValue}
+          value={formatUsd(view.valueUsd)}
+        />
+        {earned ? (
+          <CardFigure
+            label={POOLS_COPY.feesEarned}
+            value={earned.value}
+            color={earned.color}
+          />
+        ) : null}
+        {apr ? (
+          <CardFigure
+            label={POOLS_COPY.currentApr}
+            value={apr.value}
+            color={apr.color}
+          />
+        ) : null}
       </XStack>
       <PoolPositionAmounts view={view} />
       {hasRange ? (

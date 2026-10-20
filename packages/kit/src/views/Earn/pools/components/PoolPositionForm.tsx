@@ -14,7 +14,6 @@ import {
 } from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
-import { getDisplayRange } from '@onekeyhq/shared/src/utils/poolsMath';
 import type {
   IPool,
   IPoolAsset,
@@ -28,10 +27,9 @@ import {
   formatPercent,
   formatTokenAmount,
   formatTokenAmountShort,
-  formatTokenPrice,
   formatUsd,
   getPoolPair,
-  getPriceUnitLabel,
+  getRangeLine,
   sortByPair,
 } from '../poolsFormat';
 import { toInputAmount, usdOf } from '../usePoolPositionForm';
@@ -316,20 +314,11 @@ function DepositInputs({ form }: { form: IPoolPositionForm }) {
 
 /**
  * The range set on the chart, so the card shows everything the position
- * takes, also with the chart scrolled away or after a copied range.
+ * takes, also with the chart scrolled away or after a copied range. It reads
+ * the prices the way the chart shows them.
  */
 function RangeSummaryRow({ form }: { form: IPoolPositionForm }) {
-  const { pool, range } = form;
-  const display = getDisplayRange({
-    ...range,
-    tickSpacing: pool.tickSpacing ?? 60,
-    decimals0: pool.token0.decimals,
-    decimals1: pool.token1.decimals,
-    inverted: getPoolPair(pool).inverted,
-  });
-  const isFull = display.isMinZero && display.isMaxInfinite;
-  const min = display.isMinZero ? '0' : formatTokenPrice(display.min);
-  const max = display.isMaxInfinite ? '∞' : formatTokenPrice(display.max);
+  const line = getRangeLine(form.pool, form.range, form.flipped);
   return (
     <PlanRow label={POOLS_COPY.priceRange}>
       <SizableText
@@ -337,13 +326,13 @@ function RangeSummaryRow({ form }: { form: IPoolPositionForm }) {
         size="$bodyMdMedium"
         textAlign="right"
       >
-        {isFull ? POOLS_COPY.fullRange : `${min} – ${max}`}
+        {line.text}
       </SizableText>
-      {isFull ? null : (
+      {line.unit ? (
         <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
-          {getPriceUnitLabel(pool)}
+          {line.unit}
         </SizableText>
-      )}
+      ) : null}
     </PlanRow>
   );
 }

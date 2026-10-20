@@ -3,6 +3,8 @@ import BigNumber from 'bignumber.js';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   PoolsBigNumber,
+  estimateRangeApr,
+  estimateShareApr,
   fitRangeDeposit,
   getAmountsValueUsd,
   getPoolFeeApr,
@@ -12,6 +14,7 @@ import {
   getShareMint,
   getSharePositionAmounts,
   getSharePositionStatus,
+  isTickInRange,
   mergeAssetAmounts,
   planZapSplit,
   tickToPrice,
@@ -35,9 +38,11 @@ import type {
   IPoolPositionView,
   IPoolPricePoint,
   IPoolPriceRange,
+  IPoolProtocolVersion,
   IPoolRemovePreview,
   IPoolSwapQuote,
   IPoolTask,
+  IPoolTaskAprPreview,
   IPoolTaskPreview,
   IPoolTaskRequest,
   IPoolTaskStep,
@@ -59,6 +64,7 @@ import {
   buildSeedPositions,
   mockHex,
 } from './poolsMockBuilder';
+import { POOLS_GAS_PRICE_GWEI } from './poolsMockData';
 import { getPoolProtocolIntro } from './poolsProtocolIntro';
 
 import type { IPoolsMockCatalog } from './poolsMockBuilder';
@@ -85,6 +91,30 @@ const ROUTE_DEPTH_USD: Record<string, number> = {
   stock: 3_000_000,
   ETH: 60_000_000,
   default: 8_000_000,
+};
+
+// Rough gas per transaction, by Uniswap version where it differs. A Permit2
+// signature is free, and V2 has no fees to claim.
+const STEP_GAS: Record<
+  EPoolTaskStepKind,
+  number | Record<IPoolProtocolVersion, number>
+> = {
+  [EPoolTaskStepKind.Approve]: 46_000,
+  [EPoolTaskStepKind.ApprovePermit2]: 46_000,
+  [EPoolTaskStepKind.SignPermit]: 0,
+  [EPoolTaskStepKind.Swap]: 160_000,
+  [EPoolTaskStepKind.AddLiquidity]: { v2: 160_000, v3: 450_000, v4: 380_000 },
+  [EPoolTaskStepKind.IncreaseLiquidity]: {
+    v2: 160_000,
+    v3: 180_000,
+    v4: 170_000,
+  },
+  [EPoolTaskStepKind.RemoveLiquidity]: {
+    v2: 180_000,
+    v3: 230_000,
+    v4: 200_000,
+  },
+  [EPoolTaskStepKind.CollectFees]: { v2: 0, v3: 130_000, v4: 140_000 },
 };
 
 type IState = IPoolsDemoDBStruct;
@@ -442,22 +472,25 @@ export function buildPositionView(
       totalSupply: pool.lpTotalSupply ?? 0,
       lpBalance: position.lpBalance ?? 0,
     });
+    const valueUsd = getAmountsValueUsd({
+      amount0: amounts.amount0,
+      amount1: amounts.amount1,
+      price0Usd: pool.token0.priceUsd,
+      price1Usd: pool.token1.priceUsd,
+    });
+    // V2 splits fees by share of the pool
+    const fees24hUsd = bn(pool.fees24hUsd).times(amounts.shareOfPool);
     return {
       position,
       pool,
       status: getSharePositionStatus(position.lpBalance ?? 0),
       amount0: toAmountString(amounts.amount0, pool.token0.decimals),
       amount1: toAmountString(amounts.amount1, pool.token1.decimals),
-      valueUsd: getAmountsValueUsd({
-        amount0: amounts.amount0,
-        amount1: amounts.amount1,
-        price0Usd: pool.token0.priceUsd,
-        price1Usd: pool.token1.priceUsd,
-      }).toFixed(2),
+      valueUsd: valueUsd.toFixed(2),
       uncollectedFeesUsd: fees.toFixed(2),
       feesEarnedUsd: getFeesEarnedUsd(pool, position).toFixed(2),
-      // V2 splits fees by share of the pool
-      fees24hUsd: bn(pool.fees24hUsd).times(amounts.shareOfPool).toFixed(2),
+      fees24hUsd: fees24hUsd.toFixed(2),
+      currentApr: getCurrentApr(fees24hUsd, valueUsd),
       shareOfPool: amounts.shareOfPool.toFixed(),
     };
   }
@@ -479,6 +512,20 @@ export function buildPositionView(
     tickUpper,
     currentTick: pool.currentTick ?? 0,
   });
+  const valueUsd = getAmountsValueUsd({
+    amount0: amounts.amount0,
+    amount1: amounts.amount1,
+    price0Usd: pool.token0.priceUsd,
+    price1Usd: pool.token1.priceUsd,
+  });
+  const fees24hUsd = getRangeFees24hUsd(pool, liquidity, status);
+  let currentApr: string | undefined;
+  if (pool.aprEstimateSupported) {
+    currentApr =
+      status === EPoolPositionStatus.OutOfRange
+        ? '0'
+        : getCurrentApr(fees24hUsd, valueUsd);
+  }
   return {
     position,
     pool,
@@ -486,16 +533,19 @@ export function buildPositionView(
     outOfRangeSide,
     amount0: toAmountString(amounts.amount0, pool.token0.decimals),
     amount1: toAmountString(amounts.amount1, pool.token1.decimals),
-    valueUsd: getAmountsValueUsd({
-      amount0: amounts.amount0,
-      amount1: amounts.amount1,
-      price0Usd: pool.token0.priceUsd,
-      price1Usd: pool.token1.priceUsd,
-    }).toFixed(2),
+    valueUsd: valueUsd.toFixed(2),
     uncollectedFeesUsd: fees.toFixed(2),
     feesEarnedUsd: getFeesEarnedUsd(pool, position).toFixed(2),
-    fees24hUsd: getRangeFees24hUsd(pool, liquidity, status).toFixed(2),
+    fees24hUsd: fees24hUsd.toFixed(2),
+    currentApr,
   };
+}
+
+/** Unrounded, so a small position's cents still give its rate */
+function getCurrentApr(fees24hUsd: BigNumber, valueUsd: BigNumber) {
+  return valueUsd.gt(0)
+    ? fees24hUsd.times(365).div(valueUsd).toFixed()
+    : undefined;
 }
 
 /**
@@ -1157,10 +1207,97 @@ function planRemoveSteps(
 // Below a cent a leftover is rounding, not something to tell the user about
 const DUST_USD = 0.01;
 
+/** Amounts that mint nothing would fail only at the last step, after swaps */
+function assertAddsLiquidity(liquidity: string) {
+  if (!bn(liquidity).gt(0)) {
+    throw new OneKeyLocalError('Amounts too small to add');
+  }
+}
+
 function amountsOf(items: Array<{ asset: IPoolAsset; amount: BigNumber }>) {
   return items
     .filter(({ amount }) => amount.gt(0))
     .map(({ asset, amount }) => tokenAmount(asset, amount));
+}
+
+function getStepNetworkFeeUsd(
+  catalog: IPoolsMockCatalog,
+  networkId: string,
+  step: IPlannedStep,
+) {
+  const gas = STEP_GAS[step.kind];
+  let units = 0;
+  if (typeof gas === 'number') {
+    units = gas;
+  } else if (step.poolId) {
+    units = gas[getPool(catalog, step.poolId).version];
+  }
+  const native = getNativeAsset(catalog, networkId);
+  return bn(units)
+    .times(POOLS_GAS_PRICE_GWEI[networkId] ?? 0)
+    .shiftedBy(-9)
+    .times(native?.priceUsd ?? 0);
+}
+
+/**
+ * The share of what the swaps send that their price impact costs. ETH to
+ * WETH is a wrap and moves no price, so it stays out.
+ */
+function getSwapsPriceImpact(
+  catalog: IPoolsMockCatalog,
+  quotes: Array<IPoolSwapQuote | undefined>,
+) {
+  let sentUsd = new PoolsBigNumber(0);
+  let impactUsd = new PoolsBigNumber(0);
+  for (const quote of quotes) {
+    if (quote) {
+      const from = getAsset(catalog, quote.fromAssetId);
+      const to = getAsset(catalog, quote.toAssetId);
+      if (from.canonicalId !== to.canonicalId) {
+        const valueUsd = bn(quote.amountIn).times(from.priceUsd);
+        sentUsd = sentUsd.plus(valueUsd);
+        impactUsd = impactUsd.plus(valueUsd.times(quote.priceImpact));
+      }
+    }
+  }
+  return sentUsd.gt(0) ? impactUsd.div(sentUsd).toFixed() : undefined;
+}
+
+/** The same estimate the form shows for this deposit (doc §3.5) */
+function getAddApr(
+  pool: IPool,
+  range: { tickLower?: number; tickUpper?: number },
+  deposit: { liquidity: string; valueUsd: BigNumber.Value },
+): IPoolTaskAprPreview {
+  let estimate;
+  if (pool.capabilities.priceRange) {
+    const { tickLower = 0, tickUpper = 0 } = range;
+    const liquidity = BigInt(deposit.liquidity);
+    estimate = estimateRangeApr({
+      fees24hUsd: pool.fees24hUsd,
+      tvlUsd: pool.tvlUsd,
+      activeLiquidity: BigInt(pool.activeLiquidity ?? '0'),
+      inRange: isTickInRange({
+        tickLower,
+        tickUpper,
+        tick: pool.currentTick ?? 0,
+      }),
+      supported: pool.aprEstimateSupported,
+      deposit:
+        liquidity > BigInt(0)
+          ? { liquidity, valueUsd: deposit.valueUsd }
+          : undefined,
+    });
+  } else {
+    estimate = estimateShareApr({
+      fees24hUsd: pool.fees24hUsd,
+      tvlUsd: pool.tvlUsd,
+      depositUsd: deposit.valueUsd,
+    });
+  }
+  return estimate.status === 'ok'
+    ? { status: 'ok', apr: estimate.apr.toFixed() }
+    : { status: estimate.status };
 }
 
 async function buildTaskPreview(
@@ -1181,11 +1318,27 @@ async function buildTaskPreview(
       const { params } = request;
       const pool = getPool(catalog, params.poolId);
       const range = resolveAddRange(state, params);
+      const shownRange =
+        pool.capabilities.priceRange &&
+        range.tickLower !== undefined &&
+        range.tickUpper !== undefined
+          ? { tickLower: range.tickLower, tickUpper: range.tickUpper }
+          : undefined;
       if (params.mode === 'zap') {
         const input = getAsset(catalog, params.inputAssetId);
         const plan = await planZapIn(catalog, { ...params, ...range });
+        assertAddsLiquidity(plan.liquidity);
         return {
           ...empty,
+          range: shownRange,
+          apr: getAddApr(pool, range, {
+            liquidity: plan.liquidity,
+            valueUsd: plan.depositUsd,
+          }),
+          priceImpact: getSwapsPriceImpact(
+            catalog,
+            plan.legs.map((leg) => leg.quote),
+          ),
           pay: [tokenAmount(input, bn(plan.amountIn))],
           deposit: amountsOf([
             { asset: pool.token0, amount: bn(plan.used0) },
@@ -1209,9 +1362,18 @@ async function buildTaskPreview(
         bn(params.amount0),
         bn(params.amount1),
       );
+      assertAddsLiquidity(fit.liquidity);
       const payWithNative = Boolean(params.payWithNative);
+      const valueUsd = getAmountsValueUsd({
+        amount0: fit.used0,
+        amount1: fit.used1,
+        price0Usd: pool.token0.priceUsd,
+        price1Usd: pool.token1.priceUsd,
+      });
       return {
         ...empty,
+        range: shownRange,
+        apr: getAddApr(pool, range, { liquidity: fit.liquidity, valueUsd }),
         pay: amountsOf([
           {
             asset: getPayAsset(catalog, pool, 0, payWithNative),
@@ -1226,12 +1388,7 @@ async function buildTaskPreview(
           { asset: pool.token0, amount: fit.used0 },
           { asset: pool.token1, amount: fit.used1 },
         ]),
-        valueUsd: getAmountsValueUsd({
-          amount0: fit.used0,
-          amount1: fit.used1,
-          price0Usd: pool.token0.priceUsd,
-          price1Usd: pool.token1.priceUsd,
-        }).toFixed(2),
+        valueUsd: valueUsd.toFixed(2),
       };
     }
     case 'remove':
@@ -1253,6 +1410,10 @@ async function buildTaskPreview(
             .times(target.priceUsd)
             .toFixed(2),
           costUsd: preview.zapOut.costUsd,
+          priceImpact: getSwapsPriceImpact(
+            catalog,
+            preview.zapOut.legs.map((leg) => leg.quote),
+          ),
         };
       }
       return {
@@ -1380,7 +1541,15 @@ export async function createTask(
       throw new OneKeyLocalError('Unknown pool task');
   }
 
-  const preview = await buildTaskPreview(catalog, state, request);
+  const fees = planned.map((step) =>
+    getStepNetworkFeeUsd(catalog, networkId, step),
+  );
+  const preview: IPoolTaskPreview = {
+    ...(await buildTaskPreview(catalog, state, request)),
+    networkFeeUsd: fees
+      .reduce((sum, fee) => sum.plus(fee), new PoolsBigNumber(0))
+      .toFixed(6),
+  };
   pruneTasks(state);
   const id = `pools-task-${now}-${state.tasks.length}`;
   const positionIds = getRequestPositionIds(request);
@@ -1403,6 +1572,7 @@ export async function createTask(
       ...step,
       id: makeStepId(id, index),
       status: EPoolTaskStepStatus.Pending,
+      networkFeeUsd: fees[index].toFixed(6),
     })),
     createdAt: now,
     updatedAt: now,

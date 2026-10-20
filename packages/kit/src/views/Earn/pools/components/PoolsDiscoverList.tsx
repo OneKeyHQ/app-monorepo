@@ -10,6 +10,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type {
   IPoolListItem,
   IPoolStatsWindow,
@@ -22,6 +23,7 @@ import {
   formatPercent,
   getPoolPairTitle,
 } from '../poolsFormat';
+import { PoolsNavigation } from '../poolsNavigation';
 import { prefetchPoolOverview } from '../poolsQueries';
 
 import { PoolExpandedPanel, PoolStarButton } from './PoolOverview';
@@ -110,10 +112,12 @@ export function PoolsPeriodPills({
 function ValueCell({
   value,
   change,
+  changeInPoints,
   flex = 1,
 }: {
   value: string;
   change?: string;
+  changeInPoints?: boolean;
   flex?: number;
 }) {
   return (
@@ -121,7 +125,7 @@ function ValueCell({
       <SizableText size="$bodyLgMedium" numberOfLines={1}>
         {value}
       </SizableText>
-      <PoolChangeText change={change} />
+      <PoolChangeText change={change} points={changeInPoints} />
     </YStack>
   );
 }
@@ -189,6 +193,7 @@ const PoolTableRow = memo(
           <ValueCell
             value={formatPercent(stats.apr)}
             change={stats.aprChange}
+            changeInPoints
           />
           <Icon
             width={CHEVRON_WIDTH}
@@ -201,7 +206,7 @@ const PoolTableRow = memo(
         </ListItem>
         {expanded ? (
           <YStack px="$5" pt="$4" pb="$8">
-            <PoolExpandedPanel pool={pool} wide />
+            <PoolExpandedPanel pool={pool} />
           </YStack>
         ) : null}
       </YStack>
@@ -303,51 +308,36 @@ export function PoolsDiscoverTable({
 }
 
 /**
- * A phone row: star, pair and badges, then the 24h APR over TVL. In the
- * lists it opens in place to tabs for the pool's data and the create form.
+ * A phone row: star, pair and badges, then the 24h APR over TVL. It opens
+ * the pool page, where the footer creates a position.
  */
-export const PoolListRow = memo(
-  ({
-    pool,
-    expanded,
-    onPress,
-  }: {
-    pool: IPoolListItem;
-    expanded: boolean;
-    onPress: (poolId: string) => void;
-  }) => (
-    <YStack>
-      <ListItem
-        testID={`earn-pools-item-${pool.id}`}
-        userSelect="none"
-        gap="$2"
-        aria-expanded={expanded}
-        bg={expanded ? '$bgActive' : undefined}
-        onPress={() => onPress(pool.id)}
-      >
-        <Stack ml="$-1.5">
-          <PoolStarButton poolId={pool.id} />
-        </Stack>
-        <XStack flex={1} minWidth={0}>
-          <PoolCell pool={pool} />
-        </XStack>
-        <YStack ai="flex-end" jc="center" gap="$0.5" flexShrink={0}>
-          <EarnAprSuffixText
-            text={`${formatPercent(pool.windows['1D'].apr)} ${POOLS_COPY.apr}`}
-          />
-          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-            {`${formatCompactUsd(pool.tvlUsd)} ${POOLS_COPY.tvl}`}
-          </SizableText>
-        </YStack>
-      </ListItem>
-      {expanded ? (
-        <YStack px="$5" pt="$3" pb="$6">
-          <PoolExpandedPanel pool={pool} wide={false} />
-        </YStack>
-      ) : null}
-    </YStack>
-  ),
-);
+export const PoolListRow = memo(({ pool }: { pool: IPoolListItem }) => {
+  const navigation = useAppNavigation();
+  return (
+    <ListItem
+      testID={`earn-pools-item-${pool.id}`}
+      userSelect="none"
+      gap="$2"
+      onPressIn={() => prefetchPoolOverview(pool)}
+      onPress={() => PoolsNavigation.pushPoolDetails(navigation, pool.id)}
+    >
+      <Stack ml="$-1.5">
+        <PoolStarButton poolId={pool.id} />
+      </Stack>
+      <XStack flex={1} minWidth={0}>
+        <PoolCell pool={pool} />
+      </XStack>
+      <YStack ai="flex-end" jc="center" gap="$0.5" flexShrink={0}>
+        <EarnAprSuffixText
+          text={`${formatPercent(pool.windows['1D'].apr)} ${POOLS_COPY.apr}`}
+        />
+        <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+          {`${formatCompactUsd(pool.tvlUsd)} ${POOLS_COPY.tvl}`}
+        </SizableText>
+      </YStack>
+    </ListItem>
+  );
+});
 PoolListRow.displayName = 'PoolListRow';
 
 /** One open row at a time; opening another closes the first */

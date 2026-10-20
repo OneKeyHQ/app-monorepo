@@ -209,9 +209,9 @@ function ExitForm({
   };
   let buttonLabel: string = POOLS_COPY.exitAction;
   if (!selectedViews.length) {
-    buttonLabel = POOLS_COPY.exitPick;
+    buttonLabel = POOLS_COPY.selectPosition;
   } else if (percent <= 0) {
-    buttonLabel = POOLS_COPY.enterAmount;
+    buttonLabel = POOLS_COPY.chooseAmount;
   }
 
   const breadcrumbProps = usePoolsBreadcrumb([{ label: POOLS_COPY.exitTitle }]);

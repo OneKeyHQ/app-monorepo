@@ -127,6 +127,8 @@ export function usePoolPositionForm({
     }),
     [pool, range],
   );
+  // Which way prices read: the chart's flip turns the card's range too
+  const [flipped, setFlipped] = useState(false);
   const shape = isRange ? getRangeDepositShape(rangeContext) : 'both';
   const inRange = isRange
     ? isTickInRange({ ...range, tick: pool.currentTick ?? 0 })
@@ -214,6 +216,7 @@ export function usePoolPositionForm({
       const fit = fitRangeDeposit({ ...rangeContext, amount0, amount1 });
       return {
         liquidity: fit.liquidity,
+        addsLiquidity: fit.liquidity > BigInt(0),
         used0: fit.used0,
         used1: fit.used1,
         valueUsd: getAmountsValueUsd({
@@ -234,6 +237,10 @@ export function usePoolPositionForm({
     });
     return {
       liquidity: BigInt(0),
+      // LP tokens count to 18 decimals
+      addsLiquidity: mint.liquidity
+        .decimalPlaces(18, BigNumber.ROUND_FLOOR)
+        .gt(0),
       used0: mint.used0,
       used1: mint.used1,
       valueUsd: getAmountsValueUsd({
@@ -383,6 +390,9 @@ export function usePoolPositionForm({
       blocker = POOLS_COPY.insufficientBalance(inputAsset.symbol);
     } else if (!zapPlan || isZapLoading || debouncedAmountIn !== amountIn) {
       blocker = POOLS_COPY.review;
+    } else if (!new BigNumber(zapPlan.liquidity).gt(0)) {
+      // Else it fails at the last step, after the swaps
+      blocker = POOLS_COPY.amountTooSmall;
     }
   } else {
     const sides = ([0, 1] as const).filter(needSide);
@@ -394,6 +404,8 @@ export function usePoolPositionForm({
       );
       if (short !== undefined) {
         blocker = POOLS_COPY.insufficientBalance(payAssetFor(short).symbol);
+      } else if (!bothDeposit.addsLiquidity) {
+        blocker = POOLS_COPY.amountTooSmall;
       }
     }
   }
@@ -449,6 +461,8 @@ export function usePoolPositionForm({
     presetId,
     setRange,
     inRange,
+    flipped,
+    setFlipped,
     shape,
     // Deposit
     mode,

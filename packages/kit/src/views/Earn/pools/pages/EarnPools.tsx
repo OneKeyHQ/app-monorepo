@@ -28,11 +28,7 @@ import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { NetworkFilterControl } from '../../components/NetworkFilterControl';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { PoolsDemoMenuButton } from '../components/PoolsDemoMenuButton';
-import {
-  PoolListRow,
-  PoolsScopeChips,
-  useExpandedPool,
-} from '../components/PoolsDiscoverList';
+import { PoolListRow, PoolsScopeChips } from '../components/PoolsDiscoverList';
 import { PoolsFilterButton } from '../components/PoolsFilterButton';
 import { PoolsListSkeleton } from '../components/PoolsHomeTab';
 import { POOLS_COPY } from '../poolsCopy';
@@ -66,7 +62,6 @@ function EarnPoolsContent() {
   const [sortDirection, setSortDirection] =
     useState<IEarnSortDirection>('desc');
   const { favoriteIds } = usePoolFavorites();
-  const { expandedId, toggle } = useExpandedPool();
 
   const { result: pools } = usePoolsQuery(PoolsQueries.list());
 
@@ -169,14 +164,8 @@ function EarnPoolsContent() {
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: IPoolListItem }) => (
-      <PoolListRow
-        pool={item}
-        expanded={expandedId === item.id}
-        onPress={toggle}
-      />
-    ),
-    [expandedId, toggle],
+    ({ item }: { item: IPoolListItem }) => <PoolListRow pool={item} />,
+    [],
   );
 
   const keyExtractor = useCallback((item: IPoolListItem) => item.id, []);
@@ -253,7 +242,6 @@ function EarnPoolsContent() {
         flex={1}
         {...earnListScrollBehaviorProps}
         data={pools ? sortedPools : EMPTY_POOLS}
-        extraData={expandedId}
         estimatedItemSize={EARN_LIST_ESTIMATED_ITEM_SIZE}
         keyExtractor={keyExtractor}
         renderItem={renderItem}

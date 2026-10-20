@@ -378,7 +378,8 @@ function buildWindowStats(
       tvlChange: String(tvlChange),
       volumeChange: change(volume, previousVolume),
       feesChange: change(fees, previousFees),
-      aprChange: change(apr, previousApr),
+      // A rate changes by points: 34% after 33% is +1 point, not +3%
+      aprChange: previousApr > 0 ? String(apr - previousApr) : undefined,
     };
     return [window, stats] as const;
   });

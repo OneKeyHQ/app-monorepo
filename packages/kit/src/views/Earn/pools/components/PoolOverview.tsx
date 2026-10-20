@@ -1,10 +1,9 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 import {
   Alert,
   Button,
   IconButton,
-  SegmentControl,
   SizableText,
   Toast,
   XStack,
@@ -30,14 +29,11 @@ import { PoolOverviewChart } from './PoolOverviewChart';
 import { PoolPositionForm, PoolPositionReviewButton } from './PoolPositionForm';
 import { PoolRangeEditor } from './PoolRangeEditor';
 import { PoolsCard } from './PoolsCard';
-import { PoolStatsStrip } from './PoolStats';
 import { PoolTags } from './PoolTags';
 import { PoolTopPositions } from './PoolTopPositions';
 import { PoolUnfinishedTasks } from './PoolUnfinishedTasks';
 
 import type { IPoolPositionForm } from '../usePoolPositionForm';
-
-export type IPoolOverviewTab = 'data' | 'create';
 
 /**
  * Wide layouts set the range on the price chart. The web chart takes drags;
@@ -58,12 +54,11 @@ export const POOL_CREATE_COLUMN_STICKY = platformEnv.isNative
 const REVEAL_MIN_TOP = 64;
 
 /**
- * DOM ids a copied range scrolls back to: the tabs above the form on phones,
- * and an opened row's columns, whose card cannot stay in view inside the
- * Earn home's tab view.
+ * DOM ids a copied range scrolls back to: an opened row's columns, whose
+ * card cannot stay in view inside the Earn home's tab view.
  */
 export function getPoolRevealId(
-  part: 'tabs' | 'columns',
+  part: 'columns',
   surface: 'row' | 'page',
   poolId: string,
 ) {
@@ -214,6 +209,8 @@ export function PoolChartSection({
       ticks={detail?.ticks}
       range={form?.isRange ? form.range : undefined}
       onRangeChange={editForm?.setRange}
+      flipped={form?.flipped}
+      onFlippedChange={form?.setFlipped}
       renderRangeControls={
         editForm
           ? (flipped) => (
@@ -359,11 +356,10 @@ export function revealPoolSection(id: string) {
 }
 
 /**
- * Sets a copied range in the form and says so. An opened row then shows it:
- * on phones it switches to the form's tab and scrolls back to it, on wide
- * screens it scrolls back up to its chart and card. The pool page stays put
- * on wide screens, as its create card stays in view beside the list; phones
- * open the create modal with the range.
+ * Sets a copied range in the form and says so. An opened row then scrolls
+ * back up to its chart and card. The pool page stays put on wide screens,
+ * as its create card stays in view beside the list; phones open the create
+ * modal with the range.
  */
 export function useCopyRange(
   form: IPoolPositionForm,
@@ -390,141 +386,69 @@ export function useCopyRange(
   );
 }
 
-export function PoolOverviewTabs({
-  value,
-  onChange,
-}: {
-  value: IPoolOverviewTab;
-  onChange: (value: IPoolOverviewTab) => void;
-}) {
-  return (
-    <SegmentControl
-      fullWidth
-      value={value}
-      options={[
-        {
-          label: POOLS_COPY.poolData,
-          value: 'data',
-          testID: 'earn-pool-tab-data',
-        },
-        {
-          label: POOLS_COPY.createPosition,
-          value: 'create',
-          testID: 'earn-pool-tab-create',
-        },
-      ]}
-      onChange={(next) => onChange(next as IPoolOverviewTab)}
-    />
-  );
-}
-
 /**
- * An opened row in the pools list. Wide screens put the pool's data beside
- * the form; phones switch between them. Both stay mounted, so a typed
- * amount or a copied range survives the switch.
+ * An opened row in the wide pools table: the pool's data beside the form,
+ * so a typed amount or a copied range stays in view. Phones open the pool
+ * page instead.
  */
-export function PoolExpandedPanel({
-  pool: listPool,
-  wide,
-}: {
-  pool: IPoolListItem;
-  wide: boolean;
-}) {
+export function PoolExpandedPanel({ pool: listPool }: { pool: IPoolListItem }) {
   const navigation = useAppNavigation();
-  const [tab, setTab] = useState<IPoolOverviewTab>('data');
   const { pool, detail, form, canCreate } = usePoolOverview({
     pool: listPool,
     onTaskCreated: (taskId) => PoolsNavigation.pushTask(navigation, taskId),
   });
-  const showCreate = useCallback(() => setTab('create'), []);
-  const rangeOnChart = wide && CAN_SET_RANGE_ON_CHART;
-  const tabsId = getPoolRevealId('tabs', 'row', pool.id);
   const columnsId = getPoolRevealId('columns', 'row', pool.id);
-  const copyRange = useCopyRange(
-    form,
-    wide ? { revealId: columnsId } : { onCopied: showCreate, revealId: tabsId },
-  );
+  const copyRange = useCopyRange(form, { revealId: columnsId });
   const share = usePoolShare(pool);
-
-  const links = (
-    <XStack gap="$2" ai="center" flexWrap="wrap">
-      <Button
-        testID={`earn-pool-open-page-${pool.id}`}
-        size="small"
-        variant="secondary"
-        icon="ArrowTopRightOutline"
-        onPress={() => PoolsNavigation.pushPoolDetails(navigation, pool.id)}
-      >
-        {POOLS_COPY.openPoolPage}
-      </Button>
-      <Button
-        testID={`earn-pool-share-${pool.id}`}
-        size="small"
-        variant="tertiary"
-        icon="ShareOutline"
-        onPress={share}
-      >
-        {POOLS_COPY.share}
-      </Button>
-    </XStack>
-  );
-
-  const data = (
-    <PoolDataSection
-      pool={pool}
-      detail={detail}
-      form={form}
-      layout={wide ? 'table' : 'list'}
-      chartHeight={wide ? 260 : 200}
-      rangeOnChart={rangeOnChart && canCreate}
-      onCopyRange={copyRange}
-    />
-  );
-  const create = (
-    <PoolCreateSection
-      form={form}
-      detail={detail}
-      canCreate={canCreate}
-      showButton
-      rangeOnChart={rangeOnChart}
-    />
-  );
-
-  if (wide) {
-    return (
-      <YStack testID={`earn-pool-panel-${pool.id}`} gap="$4">
-        <XStack id={columnsId} gap="$5" ai="flex-start">
-          <YStack flex={1} minWidth={0}>
-            {data}
-          </YStack>
-          <YStack
-            testID={`earn-pool-create-column-${pool.id}`}
-            width={400}
-            flexShrink={0}
-          >
-            {create}
-          </YStack>
-        </XStack>
-        {links}
-      </YStack>
-    );
-  }
 
   return (
     <YStack testID={`earn-pool-panel-${pool.id}`} gap="$4">
-      {canCreate ? (
-        <YStack id={tabsId}>
-          <PoolOverviewTabs value={tab} onChange={setTab} />
+      <XStack id={columnsId} gap="$5" ai="flex-start">
+        <YStack flex={1} minWidth={0}>
+          <PoolDataSection
+            pool={pool}
+            detail={detail}
+            form={form}
+            layout="table"
+            chartHeight={260}
+            rangeOnChart={CAN_SET_RANGE_ON_CHART && canCreate}
+            onCopyRange={copyRange}
+          />
         </YStack>
-      ) : null}
-      <YStack gap="$4" display={tab === 'data' ? 'flex' : 'none'}>
-        <PoolStatsStrip pool={pool} compact />
-        {data}
-      </YStack>
-      {canCreate ? (
-        <YStack display={tab === 'create' ? 'flex' : 'none'}>{create}</YStack>
-      ) : null}
-      {links}
+        <YStack
+          testID={`earn-pool-create-column-${pool.id}`}
+          width={400}
+          flexShrink={0}
+        >
+          <PoolCreateSection
+            form={form}
+            detail={detail}
+            canCreate={canCreate}
+            showButton
+            rangeOnChart={CAN_SET_RANGE_ON_CHART}
+          />
+        </YStack>
+      </XStack>
+      <XStack gap="$2" ai="center" flexWrap="wrap">
+        <Button
+          testID={`earn-pool-open-page-${pool.id}`}
+          size="small"
+          variant="secondary"
+          icon="ArrowTopRightOutline"
+          onPress={() => PoolsNavigation.pushPoolDetails(navigation, pool.id)}
+        >
+          {POOLS_COPY.openPoolPage}
+        </Button>
+        <Button
+          testID={`earn-pool-share-${pool.id}`}
+          size="small"
+          variant="tertiary"
+          icon="ShareOutline"
+          onPress={share}
+        >
+          {POOLS_COPY.share}
+        </Button>
+      </XStack>
     </YStack>
   );
 }

@@ -11,9 +11,12 @@ const FLAT_CHANGE = 0.0005;
 /** A change against the window before, as Revert prints it under a value */
 export function PoolChangeText({
   change,
+  points = false,
   size = '$bodySm',
 }: {
   change: string | undefined;
+  /** A rate's change, in percentage points */
+  points?: boolean;
   size?: ISizableTextProps['size'];
 }) {
   const value = Number(change);
@@ -27,10 +30,17 @@ export function PoolChangeText({
     color = '$textCritical';
   }
   const percent = value * 100;
-  const digits = Math.abs(percent) >= 100 ? 0 : 1;
+  const sign = percent >= 0 ? '+' : '';
+  let text: string;
+  if (points) {
+    text = POOLS_COPY.points(`${sign}${percent.toFixed(2)}`);
+  } else {
+    const digits = Math.abs(percent) >= 100 ? 0 : 1;
+    text = `${sign}${percent.toFixed(digits)}%`;
+  }
   return (
     <SizableText size={size} color={color} numberOfLines={1}>
-      {`${percent >= 0 ? '+' : ''}${percent.toFixed(digits)}%`}
+      {text}
     </SizableText>
   );
 }
@@ -39,11 +49,13 @@ function Stat({
   label,
   value,
   change,
+  changeInPoints,
   width,
 }: {
   label: string;
   value: string;
   change?: string;
+  changeInPoints?: boolean;
   width?: string;
 }) {
   return (
@@ -55,7 +67,11 @@ function Stat({
         <SizableText size="$headingXl" numberOfLines={1}>
           {value}
         </SizableText>
-        <PoolChangeText change={change} size="$bodyMdMedium" />
+        <PoolChangeText
+          change={change}
+          points={changeInPoints}
+          size="$bodyMdMedium"
+        />
       </XStack>
     </YStack>
   );
@@ -104,6 +120,7 @@ export function PoolStatsStrip({
         label={POOLS_COPY.poolApr}
         value={formatPercent(day.apr)}
         change={day.aprChange}
+        changeInPoints
         width={width}
       />
       {pool.isDynamicFee ? (
