@@ -289,9 +289,15 @@ function getPayoutToken(
   };
 }
 
-// Where the rewards land, behind an info icon beside the address: secondary
+// Where the rewards land, behind an info icon beside the account: secondary
 // to the figures, so it does not take a line of its own.
-function PayoutInfo({ payout }: { payout?: IPayoutToken }) {
+function PayoutInfo({
+  payout,
+  address,
+}: {
+  payout?: IPayoutToken;
+  address?: string;
+}) {
   const intl = useIntl();
   return (
     <Popover
@@ -325,6 +331,15 @@ function PayoutInfo({ payout }: { payout?: IPayoutToken }) {
                 ? MY_REWARDS_COPY.payoutIn(payout.symbol, payout.networkName)
                 : MY_REWARDS_COPY.payoutGeneric}
             </SizableText>
+          </XStack>
+          {/* The account switch already says whose rebates these are; the
+              address itself only matters here, as where they land. */}
+          <XStack>
+            <RewardsAddressValue
+              address={address}
+              unsupported={false}
+              compact={false}
+            />
           </XStack>
           <SizableText size="$bodyMd" color="$textSubdued">
             {MY_REWARDS_COPY.addressScope}
@@ -445,22 +460,18 @@ function RewardsAddressCard({
   unsupported: boolean;
   payout?: IPayoutToken;
 }) {
-  const { md } = useMedia();
   return (
     <YStack testID="my-rewards-address-card">
-      <XStack ai="center" gap="$4" minWidth={0}>
-        {/* A long account name truncates first, so the address stays whole. */}
+      <XStack ai="center" gap="$2" minWidth={0}>
+        {/* A long account name truncates first, so the icon stays. */}
         <Stack flexShrink={1} minWidth={0}>
           <AccountSelectorTriggerHome num={0} hideAddress />
         </Stack>
-        <XStack ai="center" gap="$1" flexShrink={0}>
-          <RewardsAddressValue
-            address={address}
-            unsupported={unsupported}
-            compact={md}
-          />
-          {unsupported ? null : <PayoutInfo payout={payout} />}
-        </XStack>
+        {unsupported ? (
+          <SubduedNote>{MY_REWARDS_COPY.noEvmAddress}</SubduedNote>
+        ) : (
+          <PayoutInfo payout={payout} address={address} />
+        )}
       </XStack>
     </YStack>
   );
@@ -489,7 +500,14 @@ function TotalFigure({
     );
   }
   return (
-    <Currency {...REFERRAL_USD_SOURCE_PROPS} size={size} numberOfLines={1}>
+    <Currency
+      {...REFERRAL_USD_SOURCE_PROPS}
+      size={size}
+      // Same rounding as the table, so a tiny amount does not run to six
+      // decimals.
+      formatter="value"
+      numberOfLines={1}
+    >
       {totals[pick]}
     </Currency>
   );

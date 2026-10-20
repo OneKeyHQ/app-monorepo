@@ -54,7 +54,13 @@ jest.mock('@onekeyhq/components', () => {
     Dialog: { show: showDialog },
     Icon: () => null,
     IconButton: Primitive,
-    Popover: ({ renderTrigger }: { renderTrigger: ReactNode }) => renderTrigger,
+    Popover: ({
+      renderTrigger,
+      renderContent,
+    }: {
+      renderTrigger: ReactNode;
+      renderContent: ReactNode;
+    }) => React.createElement('div', null, renderTrigger, renderContent),
     Illustration: () => null,
     Image: () => null,
     NATIVE_HIT_SLOP: undefined,
