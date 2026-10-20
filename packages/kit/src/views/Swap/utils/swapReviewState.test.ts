@@ -22,6 +22,7 @@ import {
   invalidateSwapReviewForSlippageChange,
   markSubmittedSwapApprovalsCompleted,
   resolveSwapReviewNeedFetchGasAfterRebuild,
+  resolveSwapReviewResultStep,
   shouldCloseSwapReviewOnFocusLoss,
   shouldFallbackSwapStep,
   shouldShowNativeBtcLowSlippageWarning,
@@ -724,6 +725,53 @@ describe('buildSwapStepFailurePatch', () => {
       errorMessage: 'check activity',
       canRetry: false,
       submitResultUnknown: true,
+    });
+  });
+});
+
+describe('resolveSwapReviewResultStep', () => {
+  const approveStep: ISwapStep = {
+    type: ESwapStepType.APPROVE_TX,
+    status: ESwapStepStatus.SUCCESS,
+    canRetry: true,
+  };
+  const sendStep: ISwapStep = {
+    type: ESwapStepType.SEND_TX,
+    status: ESwapStepStatus.READY,
+  };
+
+  it('keeps the review form while the final step has not run', () => {
+    expect(resolveSwapReviewResultStep([approveStep, sendStep])).toEqual({
+      resultStep: sendStep,
+      showResultContent: false,
+    });
+    expect(resolveSwapReviewResultStep([])).toEqual({
+      resultStep: undefined,
+      showResultContent: false,
+    });
+  });
+
+  it('reports the final step once it settles', () => {
+    const failedSend = { ...sendStep, status: ESwapStepStatus.FAILED };
+    expect(resolveSwapReviewResultStep([approveStep, failedSend])).toEqual({
+      resultStep: failedSend,
+      showResultContent: true,
+    });
+  });
+
+  it('reports a nonfinal result-unknown step even though later steps are READY', () => {
+    // OK-64746: the sponsored approve may already be on chain; the review is
+    // over, so the user must see the check-activity result and Done rather
+    // than a confirm button that no longer does anything.
+    const unknownApprove: ISwapStep = {
+      ...approveStep,
+      status: ESwapStepStatus.FAILED,
+      canRetry: false,
+      submitResultUnknown: true,
+    };
+    expect(resolveSwapReviewResultStep([unknownApprove, sendStep])).toEqual({
+      resultStep: unknownApprove,
+      showResultContent: true,
     });
   });
 });

@@ -84,6 +84,28 @@ export function hasSwapStepSubmitResultUnknown(steps: ISwapStep[]) {
   return steps.some((step) => step.submitResultUnknown);
 }
 
+// Which step the review result page reports and whether it shows at all. A
+// result-unknown sponsored send on any step ends the review (OK-64746): later
+// steps never run, so that step's check-activity result and the Done exit
+// must show instead of waiting for the final step to leave READY.
+export function resolveSwapReviewResultStep(steps: ISwapStep[]): {
+  resultStep: ISwapStep | undefined;
+  showResultContent: boolean;
+} {
+  const resultUnknownStep = steps.find((step) => step.submitResultUnknown);
+  if (resultUnknownStep) {
+    return { resultStep: resultUnknownStep, showResultContent: true };
+  }
+  const lastStep = steps[steps.length - 1];
+  return {
+    resultStep: lastStep,
+    showResultContent:
+      !!lastStep &&
+      lastStep.status !== ESwapStepStatus.READY &&
+      lastStep.status !== ESwapStepStatus.LOADING,
+  };
+}
+
 // Patch for a step whose send threw. A result-unknown sponsored send is
 // pinned as a non-retryable failure with the check-activity copy; every
 // other failure keeps its own message and retry rules.
