@@ -348,11 +348,12 @@ function BasicActionList({
       setOpenStatus(openStatus);
       onOpenChange?.(openStatus);
       trackActionListToggle(openStatus);
-      if (!openStatus) {
+      // Keep resolved items visible through the Popover's exit animation.
+      if (openStatus && !isOpen) {
         setAsyncItems(null);
       }
     },
-    [onOpenChange, setOpenStatus, trackActionListToggle],
+    [isOpen, onOpenChange, setOpenStatus, trackActionListToggle],
   );
   const handleActionListOpen = useCallback(() => {
     handleOpenStatusChange(true);

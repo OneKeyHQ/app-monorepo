@@ -482,17 +482,14 @@ function BaseMarketTokenSelectorContent({
   );
 }
 
-// Only render content when open to avoid stale state on reopen
+// The Popover host unmounts content after its exit animation, resetting state
+// on reopen without clearing the panel while it is still visible.
 function MarketTokenSelectorContent({
-  isOpen,
   defaultCategory,
 }: {
-  isOpen: boolean;
   defaultCategory: IMarketTokenSelectorDefaultCategory;
 }) {
-  return isOpen ? (
-    <BaseMarketTokenSelectorContent defaultCategory={defaultCategory} />
-  ) : null;
+  return <BaseMarketTokenSelectorContent defaultCategory={defaultCategory} />;
 }
 
 const MarketTokenSelectorContentMemo = memo(MarketTokenSelectorContent);
@@ -575,12 +572,7 @@ function BaseMarketTokenSelector({
   const stableLogoUrls = stableLogoUrlsRef.current;
 
   const renderSelectorContent = useCallback(
-    ({ isOpen: isOpenProp }: { isOpen?: boolean }) => (
-      <MarketTokenSelectorContentMemo
-        isOpen={isOpenProp ?? false}
-        defaultCategory={defaultCategory}
-      />
-    ),
+    () => <MarketTokenSelectorContentMemo defaultCategory={defaultCategory} />,
     [defaultCategory],
   );
 

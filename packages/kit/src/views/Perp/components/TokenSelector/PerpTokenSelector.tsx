@@ -1191,6 +1191,7 @@ function BasePerpTokenSelectorContent() {
       <YStack gap="$1">
         <XStack px="$2" pt="$2">
           <SearchBar
+            testID={PerpTestIDs.TokenSelectorSearch}
             containerProps={{
               borderRadius: '$2',
               mx: '$2',
@@ -1291,8 +1292,8 @@ function BasePerpTokenSelectorContent() {
   );
 }
 
-function PerpTokenSelectorContent({ isOpen }: { isOpen: boolean }) {
-  return isOpen ? <BasePerpTokenSelectorContent /> : null;
+function PerpTokenSelectorContent() {
+  return <BasePerpTokenSelectorContent />;
 }
 
 const PerpTokenSelectorContentMemo = memo(PerpTokenSelectorContent);
@@ -1374,6 +1375,7 @@ function BasePerpTokenSelector() {
         placement="bottom-start"
         renderTrigger={
           <Badge
+            testID={PerpTestIDs.TokenSelector}
             gap="$3"
             bg="$bgApp"
             px="$2"
@@ -1436,9 +1438,7 @@ function BasePerpTokenSelector() {
             <Icon name="ChevronBottomOutline" size="$4" />
           </Badge>
         }
-        renderContent={({ isOpen: isOpenProp }) => (
-          <PerpTokenSelectorContentMemo isOpen={isOpenProp ?? false} />
-        )}
+        renderContent={<PerpTokenSelectorContentMemo />}
       />
     ),
     [
