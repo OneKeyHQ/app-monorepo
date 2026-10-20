@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import {
@@ -17,6 +17,8 @@ import { POOLS_COPY } from '../poolsCopy';
 import {
   filterPools,
   getPoolKeySearch,
+  getPoolsOptionCounts,
+  scopePools,
   sortPools,
   withSearchedPools,
 } from '../poolsFilter';
@@ -35,7 +37,7 @@ import { PoolsPhoneFilterBar } from './PoolsPhoneFilterBar';
 
 import type { IPoolsScope } from './PoolsDiscoverList';
 import type { IPoolsListSort } from './PoolsFilterButton';
-import type { IPoolsFilter } from '../poolsFilter';
+import type { IPoolsFilter, IPoolsOptionCounts } from '../poolsFilter';
 
 export function PoolsListSkeleton({ rows = 6 }: { rows?: number }) {
   return (
@@ -70,6 +72,7 @@ export function PoolsHomeTab({
   networkCounts,
   search,
   emptyComponent,
+  onOptionCountsChange,
 }: {
   pools: IPoolListItem[] | undefined;
   filter: IPoolsFilter;
@@ -82,6 +85,8 @@ export function PoolsHomeTab({
   search: string;
   /** Shown when search or filters leave nothing */
   emptyComponent?: ReactNode;
+  /** For the Filters button in the toolbar above, on wide screens */
+  onOptionCountsChange?: (counts: IPoolsOptionCounts) => void;
 }) {
   const { gtMd } = useMedia();
   const [scope, setScope] = useState<IPoolsScope>('all');
@@ -98,40 +103,80 @@ export function PoolsHomeTab({
     keySearch ? PoolsQueries.byKey(keySearch) : undefined,
   );
 
+  // New pools count from when the list opened
+  const [now] = useState(() => Date.now());
   const shownPeriod = gtMd ? period : '1D';
+  const listPools = useMemo(
+    () => withSearchedPools(pools, searchedPools) ?? [],
+    [pools, searchedPools],
+  );
+  const networkIds = useMemo(() => (chainId ? [chainId] : []), [chainId]);
+  // Each width filters by the types it shows: the row's chips on wide
+  // screens, the Filters sheet on phones
+  const category = gtMd ? getScopeCategory(scope) : filter.category;
+  const shownFilter = useMemo(
+    () => ({ ...filter, category }),
+    [category, filter],
+  );
+  const everyPool = useMemo(
+    () => scopePools({ pools: listPools, networkIds, search }),
+    [listPools, networkIds, search],
+  );
+  const scoped = useMemo(
+    () =>
+      scope === 'favorites'
+        ? scopePools({
+            pools: everyPool,
+            networkIds: [],
+            search: '',
+            onlyIds: favoriteIds,
+          })
+        : everyPool,
+    [everyPool, favoriteIds, scope],
+  );
   const shown = useMemo(
     () =>
       sortPools(
         filterPools({
-          pools: withSearchedPools(pools, searchedPools) ?? [],
-          filter: {
-            ...filter,
-            // Each width filters by the asset types it shows: the row's
-            // chips on wide screens, the Filters sheet on phones
-            category: gtMd ? getScopeCategory(scope) : filter.category,
-          },
-          networkIds: chainId ? [chainId] : [],
-          search,
-          onlyIds: scope === 'favorites' ? favoriteIds : undefined,
+          pools: scoped,
+          filter: shownFilter,
+          networkIds: [],
+          search: '',
+          period: shownPeriod,
+          now,
         }),
         sort.key,
         sort.direction,
         shownPeriod,
       ),
-    [
-      chainId,
-      favoriteIds,
-      filter,
-      gtMd,
-      pools,
-      scope,
-      search,
-      searchedPools,
-      shownPeriod,
-      sort.direction,
-      sort.key,
-    ],
+    [now, scoped, shownFilter, shownPeriod, sort.direction, sort.key],
   );
+  const optionCounts = useMemo(
+    () =>
+      getPoolsOptionCounts({
+        pools: scoped,
+        filter: shownFilter,
+        period: shownPeriod,
+        now,
+      }),
+    [now, scoped, shownFilter, shownPeriod],
+  );
+  // A type on the wide row replaces Favorites, so it counts every pool
+  const rowCategoryCounts = useMemo(
+    () =>
+      gtMd
+        ? getPoolsOptionCounts({
+            pools: everyPool,
+            filter: shownFilter,
+            period: shownPeriod,
+            now,
+          }).category
+        : undefined,
+    [everyPool, gtMd, now, shownFilter, shownPeriod],
+  );
+  useEffect(() => {
+    onOptionCountsChange?.(optionCounts);
+  }, [onOptionCountsChange, optionCounts]);
 
   let empty: ReactNode = null;
   if (!pools) {
@@ -148,7 +193,11 @@ export function PoolsHomeTab({
     <YStack gap="$2">
       {gtMd ? (
         <XStack px="$5" pb="$1" ai="center" jc="space-between" gap="$3">
-          <PoolsScopeChips scope={scope} onChange={setScope} />
+          <PoolsScopeChips
+            scope={scope}
+            onChange={setScope}
+            categoryCounts={rowCategoryCounts}
+          />
           <PoolsPeriodPills period={period} onChange={setPeriod} />
         </XStack>
       ) : (
@@ -163,6 +212,7 @@ export function PoolsHomeTab({
           sort={sort}
           onSortChange={setSort}
           resultCount={shown.length}
+          optionCounts={optionCounts}
         />
       )}
       {gtMd ? (

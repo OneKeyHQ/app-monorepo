@@ -179,7 +179,10 @@ describe('pools demo queries', () => {
     expect(robinhood.length).toBe(7);
     const tsla = queryPools(catalog, { search: 'tsla/usdg' });
     expect(tsla.map((pool) => pool.version).toSorted()).toEqual(['v2', 'v3']);
-    expect(queryPools(catalog, { search: 'pepe' })).toEqual([]);
+    // Symbol search finds the listed PEPE pool, never the unlisted one
+    expect(
+      queryPools(catalog, { search: 'pepe' }).map((pool) => pool.feeTier),
+    ).toEqual([3000]);
   });
 
   it('finds a pool by its address, an unlisted one only that way', () => {

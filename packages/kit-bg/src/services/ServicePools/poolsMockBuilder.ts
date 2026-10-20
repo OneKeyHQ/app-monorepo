@@ -393,10 +393,12 @@ function buildRangeBook({
   seed,
   pool,
   price,
+  maxAgeDays,
 }: {
   seed: IPoolsPoolSeed;
   pool: IPool;
   price: number;
+  maxAgeDays: number;
 }) {
   const random = createRandom(seed.key);
   const shape = SHAPES[seed.shape];
@@ -496,7 +498,7 @@ function buildRangeBook({
       tickUpper: entry.tickUpper,
       liquidity,
       valueUsd,
-      ageDays: 1 + random() * (BOOK_MAX_AGE_DAYS - 1),
+      ageDays: 1 + random() * (maxAgeDays - 1),
     });
   }
 
@@ -561,15 +563,21 @@ function buildPool(
     aprEstimateSupported: seed.aprEstimateSupported ?? true,
   };
 
-  const priceSeries = addVolumes(seed, buildPriceSeries(seed, price, now), now);
-  const windows = buildWindowStats(seed, priceSeries, now);
   const ageRandom = createRandom(`${seed.key}:age`);
-  const createdAt =
-    now -
+  const ageDays =
+    seed.ageDays ??
     Math.round(
       POOL_AGE_DAYS.min + ageRandom() * (POOL_AGE_DAYS.max - POOL_AGE_DAYS.min),
-    ) *
-      DAY_MS;
+    );
+  const createdAt = now - ageDays * DAY_MS;
+  const fullSeries = buildPriceSeries(seed, price, now);
+  // A pool seeded as young has no prices or volume from before it existed
+  const series =
+    seed.ageDays === undefined
+      ? fullSeries
+      : fullSeries.filter((point) => point.time >= createdAt);
+  const priceSeries = addVolumes(seed, series, now);
+  const windows = buildWindowStats(seed, priceSeries, now);
 
   if (seed.version === 'v2') {
     const reserve0 = new BigNumber(seed.tvlUsd).div(2).div(token0.priceUsd);
@@ -589,7 +597,16 @@ function buildPool(
   pool.sqrtPriceX96 = sqrtRatioX96.toString();
   pool.currentTick = getTickAtSqrtRatio(sqrtRatioX96);
 
-  const rangeBook = buildRangeBook({ seed, pool, price });
+  const rangeBook = buildRangeBook({
+    seed,
+    pool,
+    price,
+    // Nobody can have held a range for longer than the pool has existed
+    maxAgeDays:
+      seed.ageDays === undefined
+        ? BOOK_MAX_AGE_DAYS
+        : Math.min(BOOK_MAX_AGE_DAYS, seed.ageDays),
+  });
   pool.activeLiquidity = rangeBook.activeLiquidity.toString();
   pool.reserve0 = rangeBook.reserve0;
   pool.reserve1 = rangeBook.reserve1;

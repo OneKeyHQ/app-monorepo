@@ -1,54 +1,140 @@
 import type {
   IPool,
   IPoolListItem,
+  IPoolProtocol,
   IPoolProtocolVersion,
   IPoolStatsWindow,
 } from '@onekeyhq/shared/types/pools';
 
 import { isStockPool } from './poolsFormat';
 
-// List filters from doc §2.3: network, protocol version, asset category and
-// fee tier, plus search by symbol or address.
+// List filters from doc §2.3: network, protocol, pool type and fee tier, plus
+// search by symbol or address.
 
-/** The asset categories of Revert's list that our pools fill */
-export type IPoolsCategory = 'rwa' | 'stablecoins';
+/** One per pool, from its two tokens; the first rule that fits wins */
+export type IPoolPairType = 'rwa' | 'stablecoins' | 'bluechips' | 'altcoins';
+
+/** Revert's list types we have data for, next to the pair types */
+export type IPoolsCategory = 'trending' | 'new' | IPoolPairType;
+
+/** The order the type options show in, Revert's first */
+export const POOL_CATEGORIES: IPoolsCategory[] = [
+  'trending',
+  'new',
+  'rwa',
+  'stablecoins',
+  'bluechips',
+  'altcoins',
+];
+
+/** Protocol and version as one option: Uniswap V3 is `uniswap-v3` */
+export type IPoolProtocolKey = `${IPoolProtocol}-${IPoolProtocolVersion}`;
+
+export const POOL_PROTOCOL_OPTIONS: {
+  key: IPoolProtocolKey;
+  protocol: IPoolProtocol;
+  version: IPoolProtocolVersion;
+}[] = [
+  { key: 'uniswap-v2', protocol: 'uniswap', version: 'v2' },
+  { key: 'uniswap-v3', protocol: 'uniswap', version: 'v3' },
+  { key: 'uniswap-v4', protocol: 'uniswap', version: 'v4' },
+];
+
+export function getPoolProtocolKey(
+  pool: Pick<IPool, 'protocol' | 'version'>,
+): IPoolProtocolKey {
+  return `${pool.protocol}-${pool.version}`;
+}
+
+/** A tier in hundredths of a bip, or the pools whose hook sets the fee */
+export type IPoolsFeeOption = number | 'dynamic';
+
+export const POOL_FEE_OPTIONS: IPoolsFeeOption[] = [
+  100,
+  500,
+  3000,
+  10_000,
+  'dynamic',
+];
+
+function getPoolFeeOption(pool: IPool): IPoolsFeeOption {
+  return pool.isDynamicFee ? 'dynamic' : pool.feeTier;
+}
 
 export type IPoolsFilter = {
-  /** Absent: every category */
+  /** Absent: every type */
   category?: IPoolsCategory;
-  versions: IPoolProtocolVersion[];
-  feeTiers: number[];
+  protocols: IPoolProtocolKey[];
+  feeTiers: IPoolsFeeOption[];
 };
 
 export const EMPTY_POOLS_FILTER: IPoolsFilter = {
-  versions: [],
+  protocols: [],
   feeTiers: [],
 };
 
 /**
- * Revert's definitions: RWA has a tokenized real-world asset on at least one
- * side (our stock and ETF tokens), Stablecoins a USD stablecoin on both
+ * RWA and Stablecoins as Revert defines them: a tokenized real-world asset
+ * on at least one side, a USD stablecoin on both. Blue chips pair majors
+ * (or a major and a stablecoin); any other token makes an altcoin pool.
  */
-export function isPoolInCategory(pool: IPool, category: IPoolsCategory) {
-  if (category === 'stablecoins') {
+export function getPoolPairType(pool: IPool): IPoolPairType {
+  if (isStockPool(pool)) {
+    return 'rwa';
+  }
+  const tokens = [pool.token0, pool.token1];
+  if (tokens.every((token) => token.category === 'stablecoin')) {
+    return 'stablecoins';
+  }
+  if (
+    tokens.every(
+      (token) =>
+        token.category === 'bluechip' || token.category === 'stablecoin',
+    )
+  ) {
+    return 'bluechips';
+  }
+  return 'altcoins';
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+// Revert counts $1M of volume in the period as trending; most of our pools
+// clear that, so the volume must also be up on the period before
+export const TRENDING_MIN_VOLUME_USD = 1_000_000;
+export const TRENDING_MIN_VOLUME_GROWTH = 0.2;
+// Revert's cutoff for New pools
+export const NEW_POOL_MAX_AGE_DAYS = 14;
+
+/** What the list's period and clock mean for Trending and New pools */
+export type IPoolsListContext = {
+  period: IPoolStatsWindow;
+  now: number;
+};
+
+export function isPoolInCategory(
+  pool: IPoolListItem,
+  category: IPoolsCategory,
+  { period, now }: IPoolsListContext,
+) {
+  if (category === 'trending') {
+    const stats = pool.windows[period];
     return (
-      pool.token0.category === 'stablecoin' &&
-      pool.token1.category === 'stablecoin'
+      Number(stats.volumeUsd) >= TRENDING_MIN_VOLUME_USD &&
+      Number(stats.volumeChange ?? 0) >= TRENDING_MIN_VOLUME_GROWTH
     );
   }
-  return isStockPool(pool);
+  if (category === 'new') {
+    return now - pool.createdAt <= NEW_POOL_MAX_AGE_DAYS * DAY_MS;
+  }
+  return getPoolPairType(pool) === category;
 }
 
-export const POOL_VERSIONS: IPoolProtocolVersion[] = ['v2', 'v3', 'v4'];
-
-export const POOL_FEE_TIERS = [100, 500, 3000, 10_000];
-
-/** Filters other than network and category, for the badge on the button */
+/** Filters other than network and type, for the badge on the button */
 export function countExtraFilters(filter: IPoolsFilter) {
-  return filter.versions.length + filter.feeTiers.length;
+  return filter.protocols.length + filter.feeTiers.length;
 }
 
-/** What the Filters button counts; the category only where it lives there */
+/** What the Filters button counts; the type only where it lives there */
 export function countPanelFilters(
   filter: IPoolsFilter,
   { withCategory }: { withCategory: boolean },
@@ -89,15 +175,36 @@ export function withSearchedPools(
   return [...pools, ...searched.filter((pool) => !ids.has(pool.id))];
 }
 
-export function filterPools({
+type IPoolsFilterGroup = 'category' | 'protocols' | 'feeTiers';
+
+/** The Filters picks, leaving out one group when counting its options */
+function matchesFilter(
+  pool: IPoolListItem,
+  filter: IPoolsFilter,
+  context: IPoolsListContext,
+  skip?: IPoolsFilterGroup,
+) {
+  return (
+    (skip === 'category' ||
+      !filter.category ||
+      isPoolInCategory(pool, filter.category, context)) &&
+    (skip === 'protocols' ||
+      !filter.protocols.length ||
+      filter.protocols.includes(getPoolProtocolKey(pool))) &&
+    (skip === 'feeTiers' ||
+      !filter.feeTiers.length ||
+      filter.feeTiers.includes(getPoolFeeOption(pool)))
+  );
+}
+
+/** Network, search and an id list: what the list holds before Filters */
+export function scopePools({
   pools,
-  filter,
   networkIds,
   search,
   onlyIds,
 }: {
   pools: IPoolListItem[];
-  filter: IPoolsFilter;
   networkIds: string[];
   search: string;
   /** Keeps these pools only, e.g. the starred ones */
@@ -114,13 +221,85 @@ export function filterPools({
     (pool) =>
       (!onlyIds || onlyIds.has(pool.id)) &&
       (!networks.size || networks.has(pool.networkId)) &&
-      (!filter.category || isPoolInCategory(pool, filter.category)) &&
-      (!filter.versions.length || filter.versions.includes(pool.version)) &&
-      // A dynamic-fee pool has no fixed tier, so a tier filter skips it
-      (!filter.feeTiers.length ||
-        (!pool.isDynamicFee && filter.feeTiers.includes(pool.feeTier))) &&
       terms.every((term) => matchesTerm(pool, term)),
   );
+}
+
+export function filterPools({
+  pools,
+  filter,
+  networkIds,
+  search,
+  onlyIds,
+  period = '1D',
+  now = Date.now(),
+}: {
+  pools: IPoolListItem[];
+  filter: IPoolsFilter;
+  networkIds: string[];
+  search: string;
+  /** Keeps these pools only, e.g. the starred ones */
+  onlyIds?: ReadonlySet<string>;
+  /** The window Trending reads */
+  period?: IPoolStatsWindow;
+  now?: number;
+}) {
+  return scopePools({ pools, networkIds, search, onlyIds }).filter((pool) =>
+    matchesFilter(pool, filter, { period, now }),
+  );
+}
+
+/**
+ * Pools each option would leave, the other picks as they are: zero greys
+ * the option out
+ */
+export type IPoolsOptionCounts = {
+  category: Record<IPoolsCategory, number>;
+  protocols: Record<IPoolProtocolKey, number>;
+  /** Keyed by `String(option)` */
+  feeTiers: Record<string, number>;
+};
+
+export function getPoolsOptionCounts({
+  pools,
+  filter,
+  period = '1D',
+  now = Date.now(),
+}: {
+  /** The list before Filters, from scopePools */
+  pools: IPoolListItem[];
+  filter: IPoolsFilter;
+  period?: IPoolStatsWindow;
+  now?: number;
+}): IPoolsOptionCounts {
+  const context = { period, now };
+  const count = (
+    group: IPoolsFilterGroup,
+    test: (pool: IPoolListItem) => boolean,
+  ) =>
+    pools.filter(
+      (pool) => matchesFilter(pool, filter, context, group) && test(pool),
+    ).length;
+  return {
+    category: Object.fromEntries(
+      POOL_CATEGORIES.map((category) => [
+        category,
+        count('category', (pool) => isPoolInCategory(pool, category, context)),
+      ]),
+    ) as Record<IPoolsCategory, number>,
+    protocols: Object.fromEntries(
+      POOL_PROTOCOL_OPTIONS.map(({ key }) => [
+        key,
+        count('protocols', (pool) => getPoolProtocolKey(pool) === key),
+      ]),
+    ) as Record<IPoolProtocolKey, number>,
+    feeTiers: Object.fromEntries(
+      POOL_FEE_OPTIONS.map((option) => [
+        String(option),
+        count('feeTiers', (pool) => getPoolFeeOption(pool) === option),
+      ]),
+    ),
+  };
 }
 
 export type IPoolsSortKey = 'tvl' | 'volume' | 'fees' | 'apr';

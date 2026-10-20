@@ -1637,3 +1637,7 @@ poolstrade
 pumpfun
 sunpump
 Jsign
+altcoin
+altcoins
+bluechip
+bluechips

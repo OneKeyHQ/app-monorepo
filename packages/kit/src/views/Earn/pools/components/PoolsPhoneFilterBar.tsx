@@ -6,7 +6,7 @@ import { PoolsChainSelector } from './PoolsChainSelector';
 import { PoolsFilterButton } from './PoolsFilterButton';
 
 import type { IPoolsListSort } from './PoolsFilterButton';
-import type { IPoolsFilter } from '../poolsFilter';
+import type { IPoolsFilter, IPoolsOptionCounts } from '../poolsFilter';
 
 /** Shows only the starred pools while on */
 function PoolsFavoritesToggle({
@@ -45,7 +45,7 @@ function PoolsFavoritesToggle({
 
 /**
  * Phones: one row for the list. The chain pill, the star for Favorites, and
- * Filters, which holds the asset types and the sort as well.
+ * Filters, which holds the types and the sort as well.
  */
 export function PoolsPhoneFilterBar({
   chainId,
@@ -58,6 +58,7 @@ export function PoolsPhoneFilterBar({
   sort,
   onSortChange,
   resultCount,
+  optionCounts,
 }: {
   chainId?: string;
   onChainChange: (networkId: string | undefined) => void;
@@ -69,6 +70,8 @@ export function PoolsPhoneFilterBar({
   sort: IPoolsListSort;
   onSortChange: (sort: IPoolsListSort) => void;
   resultCount: number;
+  /** Pools each Filters option would leave */
+  optionCounts?: IPoolsOptionCounts;
 }) {
   return (
     <XStack px="$pagePadding" py="$2" gap="$2" ai="center">
@@ -91,6 +94,7 @@ export function PoolsPhoneFilterBar({
           sort={sort}
           onSortChange={onSortChange}
           resultCount={resultCount}
+          optionCounts={optionCounts}
         />
       </XStack>
     </XStack>

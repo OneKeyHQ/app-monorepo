@@ -9,9 +9,9 @@ import type {
 // Demo snapshot for the Pools prototype; no indexer behind it yet. Token
 // addresses and logos are real. Prices were taken on 2026-10-19: stocks from
 // Robinhood's /rhj/prices mid quote times the token's current multiplier
-// (on-chain tokens price the multiplier in), crypto from CoinGecko (BNB and
-// ARB on 2026-10-20). Pool metrics are invented but sized like real pools of
-// the same pair.
+// (on-chain tokens price the multiplier in), crypto from CoinGecko (BNB, ARB
+// and LINK on 2026-10-20). Pool metrics are invented but sized like real
+// pools of the same pair.
 
 export const POOLS_ETHEREUM_NETWORK_ID = getNetworkIdsMap().eth;
 export const POOLS_BASE_NETWORK_ID = getNetworkIdsMap().base;
@@ -98,6 +98,7 @@ export const POOLS_ASSET_SEEDS: Record<string, IPoolsAssetSeed[]> = {
       priceUsd: ETH_PRICE,
       logoURI: ETH_LOGO,
       canonical: 'ETH',
+      category: 'bluechip',
     },
     {
       symbol: 'WETH',
@@ -107,6 +108,7 @@ export const POOLS_ASSET_SEEDS: Record<string, IPoolsAssetSeed[]> = {
       priceUsd: ETH_PRICE,
       logoURI: WETH_LOGO,
       canonical: 'ETH',
+      category: 'bluechip',
     },
     {
       symbol: 'USDC',
@@ -142,6 +144,7 @@ export const POOLS_ASSET_SEEDS: Record<string, IPoolsAssetSeed[]> = {
         POOLS_ETHEREUM_NETWORK_ID,
         '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599',
       ),
+      category: 'bluechip',
     },
     {
       symbol: 'PEPE',
@@ -154,6 +157,17 @@ export const POOLS_ASSET_SEEDS: Record<string, IPoolsAssetSeed[]> = {
         '0x6982508145454Ce325dDbE47a25d4ec3d2311933',
       ),
     },
+    {
+      symbol: 'LINK',
+      name: 'Chainlink',
+      address: '0x514910771AF9Ca656af840dff83E8264EcF986CA',
+      decimals: 18,
+      priceUsd: 12.19,
+      logoURI: onchainLogo(
+        POOLS_ETHEREUM_NETWORK_ID,
+        '0x514910771AF9Ca656af840dff83E8264EcF986CA',
+      ),
+    },
   ],
   [POOLS_BASE_NETWORK_ID]: [
     {
@@ -164,6 +178,7 @@ export const POOLS_ASSET_SEEDS: Record<string, IPoolsAssetSeed[]> = {
       priceUsd: ETH_PRICE,
       logoURI: ETH_LOGO,
       canonical: 'ETH',
+      category: 'bluechip',
     },
     {
       symbol: 'WETH',
@@ -173,6 +188,7 @@ export const POOLS_ASSET_SEEDS: Record<string, IPoolsAssetSeed[]> = {
       priceUsd: ETH_PRICE,
       logoURI: WETH_LOGO,
       canonical: 'ETH',
+      category: 'bluechip',
     },
     {
       symbol: 'USDC',
@@ -196,6 +212,7 @@ export const POOLS_ASSET_SEEDS: Record<string, IPoolsAssetSeed[]> = {
         POOLS_BASE_NETWORK_ID,
         '0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf',
       ),
+      category: 'bluechip',
     },
   ],
   [POOLS_ROBINHOOD_NETWORK_ID]: [
@@ -207,6 +224,7 @@ export const POOLS_ASSET_SEEDS: Record<string, IPoolsAssetSeed[]> = {
       priceUsd: ETH_PRICE,
       logoURI: ETH_LOGO,
       canonical: 'ETH',
+      category: 'bluechip',
     },
     {
       symbol: 'WETH',
@@ -216,6 +234,7 @@ export const POOLS_ASSET_SEEDS: Record<string, IPoolsAssetSeed[]> = {
       priceUsd: ETH_PRICE,
       logoURI: WETH_LOGO,
       canonical: 'ETH',
+      category: 'bluechip',
     },
     {
       symbol: 'USDG',
@@ -278,6 +297,7 @@ export const POOLS_ASSET_SEEDS: Record<string, IPoolsAssetSeed[]> = {
       priceUsd: BNB_PRICE,
       logoURI: BNB_LOGO,
       canonical: 'BNB',
+      category: 'bluechip',
     },
     {
       symbol: 'WBNB',
@@ -290,6 +310,7 @@ export const POOLS_ASSET_SEEDS: Record<string, IPoolsAssetSeed[]> = {
         '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c',
       ),
       canonical: 'BNB',
+      category: 'bluechip',
     },
     {
       symbol: 'USDT',
@@ -325,6 +346,7 @@ export const POOLS_ASSET_SEEDS: Record<string, IPoolsAssetSeed[]> = {
         POOLS_BSC_NETWORK_ID,
         '0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c',
       ),
+      category: 'bluechip',
     },
   ],
   [POOLS_ARBITRUM_NETWORK_ID]: [
@@ -336,6 +358,7 @@ export const POOLS_ASSET_SEEDS: Record<string, IPoolsAssetSeed[]> = {
       priceUsd: ETH_PRICE,
       logoURI: ETH_LOGO,
       canonical: 'ETH',
+      category: 'bluechip',
     },
     {
       symbol: 'WETH',
@@ -345,6 +368,7 @@ export const POOLS_ASSET_SEEDS: Record<string, IPoolsAssetSeed[]> = {
       priceUsd: ETH_PRICE,
       logoURI: WETH_LOGO,
       canonical: 'ETH',
+      category: 'bluechip',
     },
     {
       symbol: 'USDC',
@@ -379,6 +403,7 @@ export const POOLS_ASSET_SEEDS: Record<string, IPoolsAssetSeed[]> = {
       priceUsd: ETH_PRICE,
       logoURI: ETH_LOGO,
       canonical: 'ETH',
+      category: 'bluechip',
     },
     {
       symbol: 'USDC',
@@ -415,6 +440,8 @@ export type IPoolsPoolSeed = {
   /** Defaults to volume × fee tier */
   fees24hUsd?: number;
   shape: IPoolsLiquidityShape;
+  /** Days since the pool was created; a random older age when absent */
+  ageDays?: number;
 };
 
 export const POOLS_POOL_SEEDS: IPoolsPoolSeed[] = [
@@ -475,6 +502,7 @@ export const POOLS_POOL_SEEDS: IPoolsPoolSeed[] = [
     tvlUsd: 2_108_400,
     volume24hUsd: 309_800,
     shape: 'stock',
+    ageDays: 6,
   },
   {
     key: 'rh-v3-msft-usdg-3000',
@@ -485,6 +513,7 @@ export const POOLS_POOL_SEEDS: IPoolsPoolSeed[] = [
     tvlUsd: 1_874_900,
     volume24hUsd: 258_600,
     shape: 'stock',
+    ageDays: 11,
   },
   {
     key: 'rh-v2-tsla-usdg',
@@ -600,6 +629,26 @@ export const POOLS_POOL_SEEDS: IPoolsPoolSeed[] = [
     volume24hUsd: 2_104_800,
     shape: 'volatile',
   },
+  {
+    key: 'eth-v3-pepe-weth-3000',
+    networkId: POOLS_ETHEREUM_NETWORK_ID,
+    version: 'v3',
+    symbols: ['PEPE', 'WETH'],
+    feeTier: 3000,
+    tvlUsd: 28_640_500,
+    volume24hUsd: 9_871_300,
+    shape: 'volatile',
+  },
+  {
+    key: 'eth-v3-link-weth-3000',
+    networkId: POOLS_ETHEREUM_NETWORK_ID,
+    version: 'v3',
+    symbols: ['LINK', 'WETH'],
+    feeTier: 3000,
+    tvlUsd: 14_823_900,
+    volume24hUsd: 2_310_600,
+    shape: 'volatile',
+  },
   // Base
   {
     key: 'base-v3-weth-usdc-500',
@@ -664,6 +713,7 @@ export const POOLS_POOL_SEEDS: IPoolsPoolSeed[] = [
     volume24hUsd: 906_300,
     fees24hUsd: 1903.2,
     shape: 'volatile',
+    ageDays: 3,
   },
   // BNB Chain
   {

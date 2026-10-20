@@ -35,6 +35,8 @@ import {
   filterPools,
   getPoolKeySearch,
   getPoolNetworkCounts,
+  getPoolsOptionCounts,
+  scopePools,
   sortPools,
   withSearchedPools,
 } from '../poolsFilter';
@@ -79,32 +81,39 @@ function EarnPoolsContent() {
     }
   }, [chainId, networkCounts, pools]);
 
-  // Phones sort on the last 24 hours
+  // New pools count from when the page opened
+  const [now] = useState(() => Date.now());
+  const scoped = useMemo(
+    () =>
+      scopePools({
+        pools: withSearchedPools(pools, searchedPools) ?? [],
+        networkIds: chainId ? [chainId] : [],
+        search: searchText,
+        onlyIds: favoritesOnly ? favoriteIds : undefined,
+      }),
+    [chainId, favoriteIds, favoritesOnly, pools, searchText, searchedPools],
+  );
+  // Phones sort, and read Trending, on the last 24 hours
   const sortedPools = useMemo(
     () =>
       sortPools(
         filterPools({
-          pools: withSearchedPools(pools, searchedPools) ?? [],
+          pools: scoped,
           filter,
-          networkIds: chainId ? [chainId] : [],
-          search: searchText,
-          onlyIds: favoritesOnly ? favoriteIds : undefined,
+          networkIds: [],
+          search: '',
+          period: '1D',
+          now,
         }),
         sort.key,
         sort.direction,
         '1D',
       ),
-    [
-      chainId,
-      favoriteIds,
-      favoritesOnly,
-      filter,
-      pools,
-      searchText,
-      searchedPools,
-      sort.direction,
-      sort.key,
-    ],
+    [filter, now, scoped, sort.direction, sort.key],
+  );
+  const optionCounts = useMemo(
+    () => getPoolsOptionCounts({ pools: scoped, filter, period: '1D', now }),
+    [filter, now, scoped],
   );
 
   const renderItem = useCallback(
@@ -149,6 +158,7 @@ function EarnPoolsContent() {
         sort={sort}
         onSortChange={setSort}
         resultCount={sortedPools.length}
+        optionCounts={optionCounts}
       />
     </>
   );

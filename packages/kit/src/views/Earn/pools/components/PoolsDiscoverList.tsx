@@ -18,6 +18,7 @@ import type {
 
 import { EarnAprSuffixText } from '../../components/EarnAprSuffixText';
 import { POOLS_COPY } from '../poolsCopy';
+import { POOL_CATEGORIES } from '../poolsFilter';
 import {
   formatCompactUsd,
   formatPercent,
@@ -28,7 +29,7 @@ import { prefetchPoolOverview } from '../poolsQueries';
 
 import { PoolExpandedPanel, PoolStarButton } from './PoolOverview';
 import { PoolPairIcon } from './PoolPairIcon';
-import { PoolsChip } from './PoolsFilterButton';
+import { POOLS_CATEGORY_LABELS, PoolsChip } from './PoolsFilterButton';
 import { PoolsSortHeader } from './PoolsSortHeader';
 import { PoolChangeText } from './PoolStats';
 import { PoolBadgeRow } from './PoolTags';
@@ -39,26 +40,27 @@ export const POOL_STATS_WINDOWS: IPoolStatsWindow[] = ['1D', '1W', '1M'];
 
 export type IPoolsScope = 'all' | 'favorites' | IPoolsCategory;
 
-/** The category a scope chip stands for; All and Favorites have none */
+/** The type a scope chip stands for; All and Favorites have none */
 export function getScopeCategory(scope: IPoolsScope) {
-  return scope === 'rwa' || scope === 'stablecoins' ? scope : undefined;
+  return POOL_CATEGORIES.find((category) => category === scope);
 }
 
-const CATEGORY_CHIPS: { scope: IPoolsCategory; label: string }[] = [
-  { scope: 'rwa', label: POOLS_COPY.rwa },
-  { scope: 'stablecoins', label: POOLS_COPY.stablecoins },
-];
-
-/** All, the starred pools, then Revert's asset categories (wide screens) */
+/**
+ * All, the starred pools, then the types (wide screens). One at a time; a
+ * type that would leave no pools is greyed out.
+ */
 export function PoolsScopeChips({
   scope,
   onChange,
+  categoryCounts,
 }: {
   scope: IPoolsScope;
   onChange: (scope: IPoolsScope) => void;
+  /** Pools each type would leave */
+  categoryCounts?: Record<IPoolsCategory, number>;
 }) {
   return (
-    <XStack gap="$2" ai="center">
+    <XStack gap="$2" rowGap="$2" ai="center" flex={1} flexWrap="wrap">
       <PoolsChip
         testID="earn-pools-scope-all"
         label={POOLS_COPY.allPools}
@@ -78,13 +80,14 @@ export function PoolsScopeChips({
         active={scope === 'favorites'}
         onPress={() => onChange('favorites')}
       />
-      {CATEGORY_CHIPS.map((chip) => (
+      {POOL_CATEGORIES.map((category) => (
         <PoolsChip
-          key={chip.scope}
-          testID={`earn-pools-scope-${chip.scope}`}
-          label={chip.label}
-          active={scope === chip.scope}
-          onPress={() => onChange(chip.scope)}
+          key={category}
+          testID={`earn-pools-scope-${category}`}
+          label={POOLS_CATEGORY_LABELS[category]}
+          active={scope === category}
+          disabled={scope !== category && categoryCounts?.[category] === 0}
+          onPress={() => onChange(category)}
         />
       ))}
     </XStack>

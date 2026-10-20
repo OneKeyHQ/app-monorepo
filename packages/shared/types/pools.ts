@@ -50,7 +50,8 @@ export type IPoolDeployment = {
   spenderName: string;
 };
 
-export type IPoolAssetCategory = 'stock' | 'stablecoin';
+/** A curated tag; bluechip is ETH, BTC, BNB and their wrapped forms */
+export type IPoolAssetCategory = 'stock' | 'stablecoin' | 'bluechip';
 
 export type IPoolAsset = {
   /** `${networkId}:${address}`; the native coin uses an empty address */

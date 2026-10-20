@@ -55,7 +55,7 @@ import { EarnMobileSortControl } from './EarnMobileSortControl';
 import { NetworkFilterControl } from './NetworkFilterControl';
 
 import type { IEarnSortDirection } from './EarnMobileSortControl';
-import type { IPoolsFilter } from '../pools/poolsFilter';
+import type { IPoolsFilter, IPoolsOptionCounts } from '../pools/poolsFilter';
 
 // Earn's outer and inner tab bars share a scroll context on non-native
 // surfaces. Keep the inner category bar in normal flow so it cannot compete
@@ -103,6 +103,9 @@ export function AvailableAssetsTabViewList({
     useState<IPoolsFilter>(EMPTY_POOLS_FILTER);
   // Pools pick one chain at a time, as Market does, on every screen size
   const [poolsChainId, setPoolsChainId] = useState<string>();
+  // The Pools tab counts what each Filters option would leave
+  const [poolsOptionCounts, setPoolsOptionCounts] =
+    useState<IPoolsOptionCounts>();
   const selectedTabType = tabData[selectedTabIndex]?.type;
   const isFixedRateTab = selectedTabType === EAvailableAssetsTypeEnum.FixedRate;
   const showMobileSortControl =
@@ -673,6 +676,7 @@ export function AvailableAssetsTabViewList({
                 testID="earn-pools-filter"
                 value={poolsFilter}
                 onChange={setPoolsFilter}
+                optionCounts={poolsOptionCounts}
               />
             ) : null}
             {/* Demo controls; on phones they sit in the Pools page header */}
@@ -726,6 +730,7 @@ export function AvailableAssetsTabViewList({
             networkCounts={networkAssetCounts}
             search={searchText}
             emptyComponent={listEmptyComponent}
+            onOptionCountsChange={setPoolsOptionCounts}
           />
         ) : (
           <TableList<IEarnAvailableAsset>

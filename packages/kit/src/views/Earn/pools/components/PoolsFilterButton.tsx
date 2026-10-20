@@ -11,22 +11,34 @@ import {
   useMedia,
   usePopoverContext,
 } from '@onekeyhq/components';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { POOLS_COPY } from '../poolsCopy';
 import {
   EMPTY_POOLS_FILTER,
-  POOL_FEE_TIERS,
-  POOL_VERSIONS,
+  POOL_CATEGORIES,
+  POOL_FEE_OPTIONS,
+  POOL_PROTOCOL_OPTIONS,
   countPanelFilters,
 } from '../poolsFilter';
-import { formatFeeTier } from '../poolsFormat';
+import { formatFeeTier, getPoolProtocolLabel } from '../poolsFormat';
+import { UNISWAP_PROTOCOL } from '../usePoolsPortfolio';
 
 import type {
   IPoolsCategory,
+  IPoolsFeeOption,
   IPoolsFilter,
+  IPoolsOptionCounts,
   IPoolsSortKey,
 } from '../poolsFilter';
+
+function chipTextColor(active: boolean, disabled: boolean) {
+  if (disabled) {
+    return '$textDisabled';
+  }
+  return active ? '$text' : '$textSubdued';
+}
 
 export function PoolsChip({
   label,
@@ -35,6 +47,7 @@ export function PoolsChip({
   testID,
   icon,
   large = false,
+  disabled = false,
 }: {
   label: string;
   active: boolean;
@@ -44,28 +57,30 @@ export function PoolsChip({
   icon?: ReactNode;
   /** Touch size, for sheets */
   large?: boolean;
+  /** Greyed out and not tappable: picking it would leave no pools */
+  disabled?: boolean;
 }) {
   return (
     <XStack
       testID={testID}
       role="button"
+      aria-disabled={disabled}
       ai="center"
       gap="$1.5"
       px={large ? '$3.5' : '$3'}
       py={large ? '$2' : '$1'}
       borderRadius="$full"
       bg={active ? '$bgStrong' : '$bgSubdued'}
-      cursor="pointer"
+      cursor={disabled ? 'default' : 'pointer'}
       userSelect="none"
-      hoverStyle={{ bg: active ? '$bgStrong' : '$bgHover' }}
-      pressStyle={{ opacity: 0.7 }}
-      onPress={onPress}
+      hoverStyle={
+        disabled ? undefined : { bg: active ? '$bgStrong' : '$bgHover' }
+      }
+      pressStyle={disabled ? undefined : { opacity: 0.7 }}
+      onPress={disabled ? undefined : onPress}
     >
-      {icon}
-      <SizableText
-        size="$bodyMdMedium"
-        color={active ? '$text' : '$textSubdued'}
-      >
+      {icon ? <Stack opacity={disabled ? 0.4 : 1}>{icon}</Stack> : null}
+      <SizableText size="$bodyMdMedium" color={chipTextColor(active, disabled)}>
         {label}
       </SizableText>
     </XStack>
@@ -85,11 +100,18 @@ const SORT_OPTIONS: { key: IPoolsSortKey; label: string }[] = [
   { key: 'fees', label: POOLS_COPY.fees },
 ];
 
-const CATEGORY_OPTIONS: { value?: IPoolsCategory; label: string }[] = [
-  { label: POOLS_COPY.allPools },
-  { value: 'rwa', label: POOLS_COPY.rwa },
-  { value: 'stablecoins', label: POOLS_COPY.stablecoins },
-];
+export const POOLS_CATEGORY_LABELS: Record<IPoolsCategory, string> = {
+  trending: POOLS_COPY.trending,
+  new: POOLS_COPY.newPools,
+  rwa: POOLS_COPY.rwa,
+  stablecoins: POOLS_COPY.stablecoins,
+  bluechips: POOLS_COPY.blueChips,
+  altcoins: POOLS_COPY.altcoins,
+};
+
+function feeOptionLabel(option: IPoolsFeeOption) {
+  return option === 'dynamic' ? POOLS_COPY.dynamic : formatFeeTier(option);
+}
 
 function toggle<T>(list: T[], item: T) {
   return list.includes(item)
@@ -128,6 +150,7 @@ function PoolsFilterPanel({
   sort,
   onSortChange,
   resultCount,
+  optionCounts,
   isSheet,
 }: {
   value: IPoolsFilter;
@@ -136,6 +159,7 @@ function PoolsFilterPanel({
   sort?: IPoolsListSort;
   onSortChange?: (sort: IPoolsListSort) => void;
   resultCount?: number;
+  optionCounts?: IPoolsOptionCounts;
   isSheet: boolean;
 }) {
   const { closePopover } = usePopoverContext();
@@ -197,34 +221,55 @@ function PoolsFilterPanel({
         </FilterGroup>
       ) : null}
       {showCategory ? (
-        <FilterGroup title={POOLS_COPY.assetType}>
-          {CATEGORY_OPTIONS.map((option) => (
-            <PoolsChip
-              key={option.value ?? 'all'}
-              testID={`earn-pools-filter-category-${option.value ?? 'all'}`}
-              label={option.label}
-              large={isSheet}
-              active={value.category === option.value}
-              onPress={() => onChange({ ...value, category: option.value })}
-            />
-          ))}
+        <FilterGroup title={POOLS_COPY.type}>
+          <PoolsChip
+            testID="earn-pools-filter-category-all"
+            label={POOLS_COPY.allPools}
+            large={isSheet}
+            active={!value.category}
+            onPress={() => onChange({ ...value, category: undefined })}
+          />
+          {POOL_CATEGORIES.map((category) => {
+            const on = value.category === category;
+            return (
+              <PoolsChip
+                key={category}
+                testID={`earn-pools-filter-category-${category}`}
+                label={POOLS_CATEGORY_LABELS[category]}
+                large={isSheet}
+                active={on}
+                disabled={!on && optionCounts?.category[category] === 0}
+                onPress={() => onChange({ ...value, category })}
+              />
+            );
+          })}
         </FilterGroup>
       ) : null}
-      <FilterGroup title={POOLS_COPY.version}>
-        {POOL_VERSIONS.map((version) => {
-          const on = value.versions.includes(version);
+      <FilterGroup title={POOLS_COPY.protocol}>
+        {POOL_PROTOCOL_OPTIONS.map((option) => {
+          const on = value.protocols.includes(option.key);
           return (
             <PoolsChip
-              key={version}
-              testID={`earn-pools-filter-version-${version}`}
-              label={version.toUpperCase()}
+              key={option.key}
+              testID={`earn-pools-filter-protocol-${option.key}`}
+              label={getPoolProtocolLabel(option)}
               large={isSheet}
               active={on}
-              icon={checkIcon(on)}
+              disabled={!on && optionCounts?.protocols[option.key] === 0}
+              // The check takes the logo's place, so the chip keeps its width
+              icon={
+                checkIcon(on) ?? (
+                  <Token
+                    size="xxs"
+                    tokenImageUri={UNISWAP_PROTOCOL.logoURI}
+                    borderRadius="$full"
+                  />
+                )
+              }
               onPress={() =>
                 onChange({
                   ...value,
-                  versions: toggle(value.versions, version),
+                  protocols: toggle(value.protocols, option.key),
                 })
               }
             />
@@ -232,20 +277,21 @@ function PoolsFilterPanel({
         })}
       </FilterGroup>
       <FilterGroup title={POOLS_COPY.feeTier}>
-        {POOL_FEE_TIERS.map((feeTier) => {
-          const on = value.feeTiers.includes(feeTier);
+        {POOL_FEE_OPTIONS.map((option) => {
+          const on = value.feeTiers.includes(option);
           return (
             <PoolsChip
-              key={feeTier}
-              testID={`earn-pools-filter-fee-${feeTier}`}
-              label={formatFeeTier(feeTier)}
+              key={option}
+              testID={`earn-pools-filter-fee-${option}`}
+              label={feeOptionLabel(option)}
               large={isSheet}
               active={on}
+              disabled={!on && optionCounts?.feeTiers[String(option)] === 0}
               icon={checkIcon(on)}
               onPress={() =>
                 onChange({
                   ...value,
-                  feeTiers: toggle(value.feeTiers, feeTier),
+                  feeTiers: toggle(value.feeTiers, option),
                 })
               }
             />
@@ -284,9 +330,9 @@ function PoolsFilterPanel({
 }
 
 /**
- * Version and fee tier behind one button; phones add the asset types and
- * the sort. Every tap applies at once: under the button on wide screens,
- * in a sheet on phones.
+ * Protocol and fee tier behind one button; phones add the types and the
+ * sort. Every tap applies at once: under the button on wide screens, in a
+ * sheet on phones.
  */
 export function PoolsFilterButton({
   value,
@@ -295,18 +341,21 @@ export function PoolsFilterButton({
   sort,
   onSortChange,
   resultCount,
+  optionCounts,
   iconOnly = false,
   testID,
 }: {
   value: IPoolsFilter;
   onChange: (filter: IPoolsFilter) => void;
-  /** RWA and Stablecoins, where the row has no room for them */
+  /** The types, where the row has no room for them */
   showCategory?: boolean;
   /** The list's sort, where the row has no room for it */
   sort?: IPoolsListSort;
   onSortChange?: (sort: IPoolsListSort) => void;
   /** Pools the list shows now, for the sheet's button */
   resultCount?: number;
+  /** Pools each option would leave; options at zero are greyed out */
+  optionCounts?: IPoolsOptionCounts;
   /** A round icon, for a row with no room for the word */
   iconOnly?: boolean;
   testID?: string;
@@ -400,6 +449,7 @@ export function PoolsFilterButton({
           sort={sort}
           onSortChange={onSortChange}
           resultCount={resultCount}
+          optionCounts={optionCounts}
           isSheet={isSheet}
         />
       }
