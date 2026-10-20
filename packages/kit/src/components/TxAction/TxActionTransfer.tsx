@@ -838,43 +838,46 @@ function TxActionTransferListView(props: ITxActionProps) {
         -
       </NumberSizeableTextWrapper>
     );
-    changeDescription = changeDescription ? (
-      <NumberSizeableTextWrapper
-        hideValue={hideValue}
-        formatter={changeDescriptionSymbol ? 'balance' : 'value'}
-        formatterOptions={{
-          tokenSymbol: changeDescriptionSymbol,
-          currency: changeDescriptionSymbol ? '' : settings.currencyInfo.symbol,
-          showPlusMinusSigns: !!changeDescriptionSymbol,
-        }}
-        size="$bodyMd"
-        color="$textSubdued"
-        numberOfLines={1}
-        maxWidth={isStackedLayout ? '100%' : '$40'}
-        {...(isStackedLayout && {
-          minWidth: 0,
-          textAlign: 'right',
-          flexShrink: 1,
-        })}
-      >
-        {changeDescription as string}
-      </NumberSizeableTextWrapper>
-    ) : (
-      <NumberSizeableTextWrapper
-        hideValue={hideValue}
-        size="$bodyMd"
-        color="$textSubdued"
-        formatter="value"
-        {...(isStackedLayout && {
-          minWidth: 0,
-          maxWidth: '100%',
-          textAlign: 'right',
-          flexShrink: 1,
-        })}
-      >
-        -
-      </NumberSizeableTextWrapper>
-    );
+    changeDescription =
+      !nativeAmountIsUnknown && changeDescription ? (
+        <NumberSizeableTextWrapper
+          hideValue={hideValue}
+          formatter={changeDescriptionSymbol ? 'balance' : 'value'}
+          formatterOptions={{
+            tokenSymbol: changeDescriptionSymbol,
+            currency: changeDescriptionSymbol
+              ? ''
+              : settings.currencyInfo.symbol,
+            showPlusMinusSigns: !!changeDescriptionSymbol,
+          }}
+          size="$bodyMd"
+          color="$textSubdued"
+          numberOfLines={1}
+          maxWidth={isStackedLayout ? '100%' : '$40'}
+          {...(isStackedLayout && {
+            minWidth: 0,
+            textAlign: 'right',
+            flexShrink: 1,
+          })}
+        >
+          {changeDescription as string}
+        </NumberSizeableTextWrapper>
+      ) : (
+        <NumberSizeableTextWrapper
+          hideValue={hideValue}
+          size="$bodyMd"
+          color="$textSubdued"
+          formatter="value"
+          {...(isStackedLayout && {
+            minWidth: 0,
+            maxWidth: '100%',
+            textAlign: 'right',
+            flexShrink: 1,
+          })}
+        >
+          -
+        </NumberSizeableTextWrapper>
+      );
   }
 
   if (isPrivateSend) {

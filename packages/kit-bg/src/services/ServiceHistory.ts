@@ -86,6 +86,7 @@ import {
 import simpleDb from '../dbs/simple/simpleDb';
 import { perpsDepositOrderAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
+import { mergeZcashLocalTransparentPayment } from '../vaults/impls/zcash/backendHistory';
 
 import ServiceBase from './ServiceBase';
 import {
@@ -781,6 +782,13 @@ export function mergeLocalTxDisplayFields({
     localTx,
     onChainHistoryTx,
   });
+  const zcashPayment = mergeZcashLocalTransparentPayment({
+    localTx,
+    onChainHistoryTx,
+  });
+  if (zcashPayment !== onChainHistoryTx) {
+    return { ...zcashPayment, ...localReplacementFields };
+  }
   if (onChainHistoryTx.decodedTx.payload?.label) {
     return {
       ...onChainHistoryTx,
