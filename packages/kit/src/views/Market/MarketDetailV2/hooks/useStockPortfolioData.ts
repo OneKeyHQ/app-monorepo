@@ -228,27 +228,60 @@ export function useStockPortfolioData() {
   const tokenVariantsRef = useRef(tokenVariants);
   tokenVariantsRef.current = tokenVariants;
   // A picked address type applies only to the selected variant's chain (see
-  // resolveStockPortfolioDeriveType); every other chain uses its default.
-  const appliedDeriveType = getSelectedDeriveTypeForNetwork(
+  // resolveStockPortfolioDeriveType); every other chain uses its network
+  // default. It only changes an address when it differs from that default.
+  const pickedDeriveType = getSelectedDeriveTypeForNetwork(
     selectedDeriveType,
     portfolioNetworkId,
   );
-  // Whose holdings a result describes: this stock under this account and the
-  // addresses actually queried. Rows from another scope are never shown.
-  // Holdings cover every variant, so the selected chain itself is left out:
-  // switching variants keeps the rows and the opening tab unless it changes
-  // which address a chain is queried with.
+  const { result: portfolioNetworkDefaultResult } =
+    usePromiseResult(async () => {
+      if (!portfolioNetworkId || !pickedDeriveType) return undefined;
+      const networkDefaultDeriveType =
+        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: portfolioNetworkId,
+        });
+      return { networkId: portfolioNetworkId, networkDefaultDeriveType };
+    }, [pickedDeriveType, portfolioNetworkId]);
+  const portfolioNetworkDefaultDeriveType =
+    portfolioNetworkDefaultResult?.networkId === portfolioNetworkId
+      ? portfolioNetworkDefaultResult?.networkDefaultDeriveType
+      : undefined;
+  let addressOverride: string | undefined;
+  if (!pickedDeriveType) {
+    addressOverride = '';
+  } else if (portfolioNetworkDefaultDeriveType) {
+    addressOverride =
+      pickedDeriveType === portfolioNetworkDefaultDeriveType
+        ? ''
+        : `${portfolioNetworkId ?? ''}:${pickedDeriveType}`;
+  }
+  // Until the network default is known, keep the last answer instead of
+  // flashing the rows on every variant switch.
+  const lastAddressOverrideRef = useRef('');
+  if (addressOverride !== undefined) {
+    lastAddressOverrideRef.current = addressOverride;
+  }
+  // Whose holdings a result describes: this stock and the addresses actually
+  // queried, built only from what decides those addresses. Holdings cover
+  // every variant, so the selected chain itself is left out, and so are
+  // fields the request ignores (the network account when a wallet-level
+  // account is used, and the active derivation, which the always-present
+  // network default overrides). Rows from another scope are never shown.
   const accountScopeKey = [
     stockId ?? '',
-    account?.id ?? '',
-    indexedAccount?.id ?? '',
-    deriveType ?? '',
-    appliedDeriveType ? `${portfolioNetworkId ?? ''}:${appliedDeriveType}` : '',
+    indexedAccount?.id
+      ? `indexed:${indexedAccount.id}`
+      : `account:${account?.id ?? ''}`,
+    addressOverride ?? lastAddressOverrideRef.current,
   ].join('|');
   // Everything the request depended on. Settlement needs the current one, so
   // a run over a variant list that has not loaded yet does not count.
   const requestScopeKey = [
     accountScopeKey,
+    account?.id ?? '',
+    deriveType ?? '',
+    JSON.stringify(selectedDeriveType ?? null),
     portfolioNetworkId ?? '',
     tokenVariantsKey,
   ].join('|');

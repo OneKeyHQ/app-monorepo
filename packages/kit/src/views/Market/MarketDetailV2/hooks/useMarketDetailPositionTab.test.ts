@@ -445,6 +445,38 @@ describe('useMarketDetailPositionTabContainer', () => {
     expect(jumpToTab).not.toHaveBeenCalled();
   });
 
+  it('still jumps back when a target reverses before native lands the first jump', () => {
+    mockPreferPosition = true;
+    const { rerender, jumpToTab, focused } = renderContainerHook({
+      assetKey: 'evm--1:0xabc:wallet-a',
+      isPortfolioSettled: true,
+      hasPosition: false,
+      defaultTabName: 'Overview',
+    });
+    // The first visit fell back; the pager is on Overview.
+    focused.tabName = 'Overview';
+    jumpToTab.mockClear();
+
+    // A new account starts a visit heading to My position. Native has not
+    // landed it yet, so the focused tab still reads Overview.
+    rerender({
+      assetKey: 'evm--1:0xabc:wallet-b',
+      isPortfolioSettled: false,
+      hasPosition: false,
+      defaultTabName: 'Overview',
+    });
+    expect(jumpToTab).toHaveBeenLastCalledWith(positionTabName);
+
+    // The new account settles empty before the jump lands.
+    rerender({
+      assetKey: 'evm--1:0xabc:wallet-b',
+      isPortfolioSettled: true,
+      hasPosition: false,
+      defaultTabName: 'Overview',
+    });
+    expect(jumpToTab).toHaveBeenLastCalledWith('Overview');
+  });
+
   it('opens a new visit on its default tab in a reused container', () => {
     const { rerender, jumpToTab } = renderContainerHook({
       assetKey: 'evm--1:0xabc',

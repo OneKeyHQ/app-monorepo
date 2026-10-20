@@ -32,8 +32,31 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {},
 }));
+let mockNetworkDefaultDeriveType = 'default';
+
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: (method: () => Promise<IHookResult | undefined>) => {
+  usePromiseResult: (
+    method: () => Promise<IHookResult | undefined>,
+    deps: unknown[],
+  ) => {
+    // The network-default lookup depends on [pickedDeriveType, networkId].
+    if (deps.length === 2) {
+      const [pickedDeriveType, networkId] = deps as [
+        string | undefined,
+        string | undefined,
+      ];
+      return {
+        result:
+          pickedDeriveType && networkId
+            ? {
+                networkId,
+                networkDefaultDeriveType: mockNetworkDefaultDeriveType,
+              }
+            : undefined,
+        isLoading: false,
+        run: jest.fn(),
+      };
+    }
     mockCapturedMethod = method;
     return { result: mockResult, isLoading: false, run: jest.fn() };
   },
@@ -79,6 +102,7 @@ describe('useStockPortfolioData scope', () => {
     mockResult = undefined;
     mockCapturedMethod = undefined;
     mockSelectedDeriveType = undefined;
+    mockNetworkDefaultDeriveType = 'default';
   });
 
   it('does not settle on a run made before the variants loaded', async () => {
@@ -218,5 +242,65 @@ describe('useStockPortfolioData scope', () => {
     rerender();
 
     expect(result.current.portfolioData).toEqual([]);
+  });
+
+  async function renderWithHeldRow() {
+    const view = renderHook(() => useStockPortfolioData());
+    const firstResult = await runCapturedRequest();
+    mockResult = firstResult && {
+      ...firstResult,
+      items: [
+        {
+          accountAddress: '0xa',
+          tokenAddress: '0xAAPL',
+          symbol: 'AAPLon',
+          amount: '1',
+          tokenPrice: '100',
+          totalPrice: '100',
+          networkId: 'evm--1',
+          tokenId: 'aapl-ondo-ethereum',
+          issuer: 'Ondo',
+        },
+      ],
+    };
+    view.rerender();
+    return view;
+  }
+
+  it('keeps rows when a picked address type matches the network default', async () => {
+    // Picking ledgerLive and back leaves an explicit default selection.
+    mockSelectedDeriveType = { networkId: 'evm--1', deriveType: 'default' };
+    mockStockDetail = { ...mockStockDetail, portfolioNetworkId: 'evm--1' };
+    const { result, rerender } = await renderWithHeldRow();
+    const scopeKey = result.current.accountScopeKey;
+
+    mockStockDetail = { ...mockStockDetail, portfolioNetworkId: 'evm--56' };
+    rerender();
+
+    expect(result.current.accountScopeKey).toBe(scopeKey);
+    expect(result.current.portfolioData).toHaveLength(1);
+  });
+
+  it('ignores fields the request does not use', async () => {
+    mockActiveAccount = {
+      indexedAccount: { id: 'wallet-a' },
+      account: { id: 'evm-account' },
+      deriveType: 'default',
+      ready: true,
+    };
+    const { result, rerender } = await renderWithHeldRow();
+    const scopeKey = result.current.accountScopeKey;
+
+    // Switching the home network changes the network account and its active
+    // derivation, but holdings are queried through the wallet.
+    mockActiveAccount = {
+      ...mockActiveAccount,
+      account: { id: 'sol-account' },
+      deriveType: 'ledgerLive',
+    };
+    rerender();
+
+    expect(result.current.accountScopeKey).toBe(scopeKey);
+    expect(result.current.portfolioData).toHaveLength(1);
   });
 });

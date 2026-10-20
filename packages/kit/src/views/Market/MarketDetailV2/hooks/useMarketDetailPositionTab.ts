@@ -166,8 +166,15 @@ export function useMarketDetailPositionTabContainer({
     if (!targetTabName) return;
     // Already there: native treats a jump to the focused tab as a reselect
     // (scrolls it to the collapsed header, emits nothing), which would leave
-    // the guard below waiting on an event that never comes.
-    if (tabsRef.current?.getFocusedTab() === targetTabName) return;
+    // the guard below waiting on an event that never comes. While an earlier
+    // jump is still in flight, native's focused tab is the page it left, so
+    // the in-flight target is where the pager is heading.
+    const inFlightJump = programmaticTabRef.current;
+    const headingTabName =
+      inFlightJump && Date.now() < inFlightJump.expiresAt
+        ? inFlightJump.tabName
+        : tabsRef.current?.getFocusedTab();
+    if (headingTabName === targetTabName) return;
     programmaticTabRef.current = {
       tabName: targetTabName,
       expiresAt: Date.now() + PROGRAMMATIC_TAB_CHANGE_WINDOW_MS,
