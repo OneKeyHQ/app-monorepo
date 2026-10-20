@@ -35,14 +35,15 @@ import type { IEarnDesktopShares } from './earnDesktopHome.utils';
 const SHARE_COLORS = ['$neutral11', '$neutral9', '$neutral7'] as const;
 const REST_SHARE_COLOR = '$neutral5';
 const SECONDS_PER_DAY = 24 * 60 * 60;
-// Past this the value formatter abbreviates, and extra digits read as noise
-const TICKING_MAX_TOTAL = 1_000_000;
-// The wallet home's balance size, with the same line height
-const TOTAL_FONT_SIZE = 48;
-const TICKING_FONT_SIZE = 28;
+// A third over the wallet home's 48px balance, so Net Worth leads the page;
+// the line height matches the size
+const TOTAL_FONT_SIZE = 64;
+const MIN_TICK_MS = 1000;
+const MAX_TICK_MS = 60_000;
 
-// The total keeps moving between refreshes: the five digits after the cents
-// advance at the estimated daily change's per-second rate.
+// The total keeps moving between refreshes at the estimated daily change's
+// per-second rate. It shows cents only, so it re-renders about when the next
+// cent accrues, between once a second and once a minute
 function useTickingTotal(total: number, change24h: number) {
   const perSecond = change24h > 0 ? change24h / SECONDS_PER_DAY : 0;
   const [anchor, setAnchor] = useState(() => ({ total, at: Date.now() }));
@@ -50,20 +51,19 @@ function useTickingTotal(total: number, change24h: number) {
   if (anchor.total !== total) {
     setAnchor({ total, at: Date.now() });
   }
+  const tickMs =
+    perSecond > 0
+      ? Math.min(MAX_TICK_MS, Math.max(MIN_TICK_MS, 10 / perSecond))
+      : 0;
   useEffect(() => {
-    if (perSecond <= 0) {
+    if (!tickMs) {
       return undefined;
     }
-    const timer = setInterval(() => setNow(Date.now()), 1000);
+    const timer = setInterval(() => setNow(Date.now()), tickMs);
     return () => clearInterval(timer);
-  }, [perSecond]);
+  }, [tickMs]);
   const elapsedSeconds = Math.max(0, (now - anchor.at) / 1000);
-  const value = total + perSecond * elapsedSeconds;
-  const extraDigits =
-    perSecond > 0 && total < TICKING_MAX_TOTAL
-      ? value.toFixed(7).slice(-5)
-      : undefined;
-  return { value, extraDigits };
+  return total + perSecond * elapsedSeconds;
 }
 
 function HeroButton({
@@ -91,46 +91,21 @@ function HeroButton({
   );
 }
 
-function TotalValue({
-  value,
-  extraDigits,
-  currency,
-  isHidden,
-}: {
-  value: number;
-  extraDigits?: string;
-  currency: string;
-  isHidden: boolean;
-}) {
+function TotalValue({ value, currency }: { value: number; currency: string }) {
   return (
-    // One text run, so the ticking digits sit on the total's baseline
-    <SizableText
+    <NumberSizeableTextWrapper
+      hideValue
+      splitDecimal
       numberOfLines={1}
       fontSize={TOTAL_FONT_SIZE}
       lineHeight={TOTAL_FONT_SIZE}
+      fontWeight={500}
+      fontVariant={PROPORTIONAL_NUMS}
+      formatter="value"
+      formatterOptions={{ currency }}
     >
-      <NumberSizeableTextWrapper
-        hideValue
-        splitDecimal
-        fontSize={TOTAL_FONT_SIZE}
-        lineHeight={TOTAL_FONT_SIZE}
-        fontWeight={500}
-        fontVariant={PROPORTIONAL_NUMS}
-        formatter="value"
-        formatterOptions={{ currency }}
-      >
-        {String(value)}
-      </NumberSizeableTextWrapper>
-      {extraDigits && !isHidden ? (
-        <SizableText
-          fontSize={TICKING_FONT_SIZE}
-          fontWeight={500}
-          color="$textDisabled"
-        >
-          {extraDigits}
-        </SizableText>
-      ) : null}
-    </SizableText>
+      {String(value)}
+    </NumberSizeableTextWrapper>
   );
 }
 
@@ -199,10 +174,7 @@ export function EarnDesktopHero({
   const total = new BigNumber(totalFiatValue).toNumber() || 0;
   const earnings = new BigNumber(earnings24h).toNumber() || 0;
   // Net worth grows by the earnings less what the loans accrue
-  const { value, extraDigits } = useTickingTotal(
-    total,
-    earnings - borrowInterest24h,
-  );
+  const value = useTickingTotal(total, earnings - borrowInterest24h);
   const [{ hideValue: isHidden }] = useSettingsValuePersistAtom();
   const handleToggleHideValue = useCallback(async () => {
     const current = await settingsValuePersistAtom.get();
@@ -213,10 +185,12 @@ export function EarnDesktopHero({
   });
 
   return (
+    // Gaps tight enough that the 64px total leaves the hero, and the banner
+    // that takes its height, as tall as the 48px one did
     <YStack
       flex={1}
       minWidth={0}
-      gap="$6"
+      gap="$4"
       onLayout={(event) =>
         onHeightChange?.(Math.round(event.nativeEvent.layout.height))
       }
@@ -258,15 +232,10 @@ export function EarnDesktopHero({
           pressStyle={{ bg: '$bgActive' }}
           onPress={onOpenPortfolio}
         >
-          <TotalValue
-            value={value}
-            extraDigits={extraDigits}
-            currency={currency}
-            isHidden={isHidden}
-          />
+          <TotalValue value={value} currency={currency} />
           <Icon
             name="ChevronRightSmallOutline"
-            size="$8"
+            size="$10"
             color="$iconSubdued"
           />
         </XStack>
