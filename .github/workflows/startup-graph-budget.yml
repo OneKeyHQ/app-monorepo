@@ -203,6 +203,9 @@ jobs:
       # swap: 15.81 MiB JS, 159 scripts, 192 resources, 971 ms long tasks
       # defi: 15.95 MiB JS, 160 scripts, 190 resources, 1092 ms long tasks
       # referFriends: 15.85 MiB JS, 157 scripts, 175 resources, 692 ms long tasks
+      # API calls are answered from development/perf-ci/fixtures/web-cold-api.json
+      # and other outbound requests are stubbed or blocked, so this job does not
+      # depend on live services (see development/perf-ci/README.md).
       - name: Check web startup/cold entry budgets
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
