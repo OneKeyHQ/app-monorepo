@@ -3,6 +3,7 @@ import { TRADING_VIEW_LOCALHOST_ORIGIN } from '@onekeyhq/shared/src/config/appCo
 import { WEB_EMBED_ANDROID_LOCAL_ORIGIN } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { KEYLESS_WEB_TAB_WHITE_LIST_ORIGIN } from '@onekeyhq/shared/src/keylessWallet/keylessWebTabUrlPatternsConstants';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { hasWebEmbedChannelMark } from '@onekeyhq/shared/src/utils/webEmbedChannelUtils';
 
 import { EAtomNames } from '../states/jotai/atomNames';
 
@@ -159,6 +160,14 @@ export function isProviderApiPrivateOriginDenied({
 
 export function isWebEmbedApiAllowedOrigin(origin?: string) {
   return !!origin && WEB_EMBED_API_WHITE_LIST_ORIGIN.includes(origin);
+}
+
+// The app's own web-embed page: the host's mark plus its fixed origin.
+export function isWebEmbedChannelRequest(payload?: IJsBridgeMessagePayload) {
+  return (
+    hasWebEmbedChannelMark(payload) &&
+    isWebEmbedApiAllowedOrigin(payload?.origin)
+  );
 }
 
 export function isExtensionInternalCall(payload: IJsBridgeMessagePayload) {

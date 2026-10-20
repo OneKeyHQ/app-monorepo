@@ -1,9 +1,15 @@
-import { createFetchStreamHandler } from '@onekeyhq/shared/src/utils/fetchStream';
+import { createPrivacyChainFetchStreamRelay } from '@onekeyhq/kit-bg/src/utils/privacyChainNodeRelay';
+import type { IPrivacyChainRelayTargetSource } from '@onekeyhq/kit-bg/src/utils/privacyChainRelayTargets';
 import { FETCH_STREAM_MESSAGE } from '@onekeyhq/shared/types/fetchStream';
 import type { IFetchStreamRequest } from '@onekeyhq/shared/types/fetchStream';
 
-export function installFetchStreamListener() {
-  const fetchStreamRequest = createFetchStreamHandler();
+import { backgroundPrivacyChainRelayTargets } from './privacyChainRelayTargets';
+
+export function installFetchStreamListener(
+  targets: IPrivacyChainRelayTargetSource = backgroundPrivacyChainRelayTargets,
+) {
+  // Only privacy-chain node calls use this relay.
+  const fetchStreamRequest = createPrivacyChainFetchStreamRelay(targets);
   chrome.runtime.onMessage.addListener(
     (
       message: { type?: string; request?: IFetchStreamRequest },
