@@ -373,6 +373,22 @@ export function getPrivacyChainEndpointFlow({
             ownAddresses,
           }),
         ),
+      // Our transparent I/O whose address the background removed.
+      ...((direction === 'from' ? inputTransfers : outputTransfers) ?? [])
+        .filter(
+          (entry) =>
+            entry.type !== EOnChainHistoryTransferType.Shielded &&
+            entry.isOwn &&
+            !entry.isChange &&
+            !entry.address &&
+            !entry[direction],
+        )
+        .map(
+          (): IPrivacyChainEndpointItem => ({
+            kind: 'own',
+            poolId: pools?.find((pool) => pool.kind === 'public')?.id,
+          }),
+        ),
       // Our side named by pool where the background removed its address.
       ...[...(transfer?.sends ?? []), ...(transfer?.receives ?? [])].flatMap(
         (entry): IPrivacyChainEndpointItem[] => {

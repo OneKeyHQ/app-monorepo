@@ -61,9 +61,13 @@ function mockGatedDetails() {
     : mockTxDetails;
 }
 
+// A notification opens the page with a txid only; the row is decoded from the detail.
+let mockDeepLink = false;
+
 beforeEach(() => {
   mockTxDetails = undefined;
   mockAccountAddresses = undefined;
+  mockDeepLink = false;
 });
 
 jest.mock('react-intl', () => ({
@@ -84,7 +88,7 @@ jest.mock('@react-navigation/core', () => ({
     params: {
       accountId: 'synthetic-account',
       networkId: mockHistory.decodedTx.networkId,
-      historyTx: mockGatedHistory(),
+      historyTx: mockDeepLink ? undefined : mockGatedHistory(),
     },
   }),
 }));
@@ -210,7 +214,12 @@ jest.mock('@onekeyhq/kit/src/hooks/useAccountData', () => ({
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   usePromiseResult: (_request: unknown, deps: unknown[]) => ({
     result:
-      deps.length === 2 ? { symbol: 'XMR' } : { txDetails: mockGatedDetails() },
+      deps.length === 2
+        ? { symbol: 'XMR' }
+        : {
+            txDetails: mockGatedDetails(),
+            decodedOnChainTx: mockDeepLink ? mockHistory : undefined,
+          },
     isLoading: false,
   }),
 }));
@@ -699,5 +708,58 @@ it.each([
     mockTxDetails = { memo: 'memo text' };
     const result = render(<HistoryDetails />);
     expect(!!result.queryByTestId('history-details-memo')).toBe(shown);
+  },
+);
+
+it.each([
+  ['spent only legacy change', { publicAddress: OWN_T }],
+  ['could not read the displayed addresses', undefined],
+])(
+  'names our sending side by pool on a deep link when the send %s',
+  (_, displayed) => {
+    const legacyChange = `t1${'H'.repeat(33)}`;
+    const external = `t1${'E'.repeat(33)}`;
+    mockAccountAddresses = displayed;
+    mockDeepLink = true;
+    // Decoded from the detail after the background removed our address.
+    setZcashFlow('', external);
+    mockHistory.decodedTx.owner = OWN_T;
+    mockHistory.decodedTx.signer = '';
+    mockTxDetails = {
+      sends: [
+        {
+          type: EOnChainHistoryTransferType.Transfer,
+          from: legacyChange,
+          to: '',
+          address: legacyChange,
+          token: '',
+          key: '',
+          amount: '1',
+          label: '',
+          isOwn: true,
+        },
+      ],
+      receives: [
+        {
+          type: EOnChainHistoryTransferType.Transfer,
+          from: '',
+          to: external,
+          address: external,
+          token: '',
+          key: '',
+          amount: '0.9',
+          label: '',
+        },
+      ],
+    };
+    const result = render(<HistoryDetails />);
+    expect(result.queryByText(legacyChange)).toBeNull();
+    expect(
+      result.queryByText(ETranslations.privacy_history_sender_unknown__desc),
+    ).toBeNull();
+    const from = within(result.getByTestId('history-details-from-pool'));
+    expect(from.getByText('Transparent pool')).toBeTruthy();
+    expect(from.queryByRole('button')).toBeNull();
+    expect(result.getAllByText(external)).toHaveLength(1);
   },
 );

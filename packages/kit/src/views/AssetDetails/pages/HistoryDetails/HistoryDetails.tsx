@@ -1217,9 +1217,11 @@ function HistoryDetails() {
       vaultSettings?.localWallet?.publicAddressPattern,
     ],
   );
+  // An input of ours also proves it, where its address was not shown.
   const isSentFromThisWallet =
-    !!historyTx?.decodedTx.signer &&
-    historyTx.decodedTx.signer === historyTx.decodedTx.owner;
+    (!!historyTx?.decodedTx.signer &&
+      historyTx.decodedTx.signer === historyTx.decodedTx.owner) ||
+    (isLocalWalletHistory && !!txDetails?.sends?.some((send) => send.isOwn));
   // Every endpoint a local-wallet row shows, in order: shielded and private
   // ones, then public addresses. The background leaves an own address only
   // when it is a displayed one; anything else is named by its pool.
