@@ -103,6 +103,21 @@ describe('privacy-chain node relay', () => {
     );
   });
 
+  it('fetches the normalized URL it checked', async () => {
+    const fetchImpl = jest.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(new Uint8Array([1])),
+    );
+    await relayPrivacyChainNodeRequest({
+      url: 'HTTP://NODE.example:18081/a/../json_rpc',
+      contentType: 'application/json',
+      body: new Uint8Array(),
+      targets,
+      fetchImpl,
+    });
+    expect(fetchImpl.mock.calls[0][0]).toBe(`${XMR_NODE}/json_rpc`);
+  });
+
   it('reports a node error with its status', async () => {
     const fetchImpl = jest.fn(
       async () => new Response('', { status: 503, statusText: 'Busy' }),
@@ -167,6 +182,37 @@ describe('privacy-chain fetch stream relay', () => {
     const result = await relay(open(`${XMR_NODE}/get_blocks.bin`));
     expect(result).toEqual(expect.objectContaining({ ok: true }));
     await closeStream(relay, result);
+  });
+
+  it('opens the normalized URL it checked', async () => {
+    const fetchImpl = jest.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response('ok'),
+    );
+    const relay = createPrivacyChainFetchStreamRelay(targets, fetchImpl);
+    const result = await relay(
+      open('HTTPS://Zcash-Mainnet.chainsafe.dev:443/x/../GetLatestBlock'),
+    );
+    expect(fetchImpl.mock.calls[0][0]).toBe(`${ZCASH_NODE}/GetLatestBlock`);
+    await closeStream(relay, result);
+  });
+
+  it('answers with an error when the node list cannot be read', async () => {
+    const fetchImpl = jest.fn();
+    const relay = createPrivacyChainFetchStreamRelay(
+      {
+        getLocalWalletNetworkIds: async () => {
+          throw new TypeError('background not ready');
+        },
+        getNodeUrls: async () => [],
+      },
+      fetchImpl,
+    );
+    await expect(relay(open(`${XMR_NODE}/json_rpc`))).resolves.toEqual({
+      ok: false,
+      error: 'background not ready',
+    });
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it.each([

@@ -105,7 +105,8 @@ export function createFetchStreamHandler(
         };
         streams.set(id, stream);
         arm(id, stream);
-        const response = await fetchImpl(request.url, {
+        // The parsed URL is the one checked above.
+        const response = await fetchImpl(url.href, {
           method,
           headers,
           body:

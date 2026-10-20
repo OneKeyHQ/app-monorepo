@@ -135,7 +135,8 @@ export function isProviderApiPrivateAllowedOrigin(origin?: string) {
     (origin?.endsWith('.onekey.so') ||
       origin?.endsWith('.onekeytest.com') ||
       isDevLocalhostOrigin(origin) ||
-      PROVIDER_API_PRIVATE_WHITE_LIST_ORIGIN.includes(origin))
+      PROVIDER_API_PRIVATE_WHITE_LIST_ORIGIN.includes(origin) ||
+      isWebEmbedApiAllowedOrigin(origin))
   );
 }
 
@@ -158,8 +159,35 @@ export function isProviderApiPrivateOriginDenied({
   );
 }
 
+// Dev builds only: the Mobile DevSession serves the web-embed from Metro on
+// the host loopback (iOS simulator, adb reverse) or the Android emulator's
+// alias for it, on whichever port the session allocated.
+const DEV_SESSION_WEB_EMBED_HOSTS = new Set([
+  '127.0.0.1',
+  'localhost',
+  '10.0.2.2',
+]);
+
+function isDevSessionWebEmbedOrigin(origin: string): boolean {
+  if (!platformEnv.isDev) return false;
+  try {
+    const parsed = new URL(origin);
+    return (
+      parsed.protocol === 'http:' &&
+      DEV_SESSION_WEB_EMBED_HOSTS.has(parsed.hostname) &&
+      parsed.origin === origin
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function isWebEmbedApiAllowedOrigin(origin?: string) {
-  return !!origin && WEB_EMBED_API_WHITE_LIST_ORIGIN.includes(origin);
+  return (
+    !!origin &&
+    (WEB_EMBED_API_WHITE_LIST_ORIGIN.includes(origin) ||
+      isDevSessionWebEmbedOrigin(origin))
+  );
 }
 
 // The app's own web-embed page: the host's mark plus its fixed origin.

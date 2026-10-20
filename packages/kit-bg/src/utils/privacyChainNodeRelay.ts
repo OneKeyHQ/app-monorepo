@@ -47,14 +47,16 @@ export async function relayPrivacyChainNodeRequest({
     if (parsed.username || parsed.password) {
       return { ok: false, error: 'URL credentials are not supported' };
     }
-    if (!(await isPrivacyChainRelayTargetAllowed(url, targets))) {
+    if (!(await isPrivacyChainRelayTargetAllowed(parsed.href, targets))) {
       return { ok: false, error: NOT_A_CONFIGURED_NODE };
     }
     const fetchStartedAt = Date.now();
     // Fails only on silence, never on a slow-but-steady transfer: a
     // wallet2-sized batch over a proxy can take minutes and be fine.
+    // Fetch the URL that was checked, not a raw string another parser may
+    // read differently.
     const response = await fetchBytesWithIdleTimeout(
-      url,
+      parsed.href,
       {
         method: 'POST',
         headers: { 'Content-Type': contentType || 'application/json' },
@@ -107,14 +109,25 @@ export function createPrivacyChainFetchStreamRelay(
 ): IFetchStreamRequester {
   const handler = createFetchStreamHandler(fetchImpl);
   return async (request) => {
-    if (request.action === 'open') {
-      if ((request.method ?? 'GET').toUpperCase() !== 'POST') {
-        return { ok: false, error: 'unsupported fetch method' };
-      }
-      if (!(await isPrivacyChainRelayTargetAllowed(request.url, targets))) {
+    if (request.action !== 'open') {
+      return handler(request);
+    }
+    if ((request.method ?? 'GET').toUpperCase() !== 'POST') {
+      return { ok: false, error: 'unsupported fetch method' };
+    }
+    let href: string;
+    try {
+      href = new URL(request.url).href;
+      if (!(await isPrivacyChainRelayTargetAllowed(href, targets))) {
         return { ok: false, error: NOT_A_CONFIGURED_NODE };
       }
+    } catch (error) {
+      // The extension listener replies only on resolve; never reject.
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
-    return handler(request);
+    return handler({ ...request, url: href });
   };
 }
