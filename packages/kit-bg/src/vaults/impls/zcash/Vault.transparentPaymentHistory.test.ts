@@ -172,6 +172,10 @@ function createVault(initial = localPayment()) {
         },
       },
       serviceToken: { getToken: async () => undefined },
+      // Our transparent address is the one Receive displays.
+      servicePrivacyChain: {
+        getLocalWalletAccountAddresses: async () => ({ publicAddress: sender }),
+      },
       serviceAccount: {
         getDBAccountSafe: async () => ({ address: sender, xpub: params.xpub }),
       },

@@ -14,9 +14,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
-import { useLocalWalletAccountAddresses } from '@onekeyhq/kit/src/hooks/useLocalWalletAccountAddresses';
 import {
-  isPrivacyChainOwnTarget,
   resolvePrivacyChainTargetDisplay,
   toPrivacyChainLocalWalletDisplay,
 } from '@onekeyhq/kit/src/utils/privacyChainEndpointLabel';
@@ -633,26 +631,6 @@ function TxActionTransferListView(props: ITxActionProps) {
       })
     : sends;
   const isSendLikeHistory = isSendLikeHistoryTxType(type);
-  // Every own address a row names, change included, is checked before it shows.
-  const localWalletOwnAddresses = isLocalWalletHistory
-    ? collectPrivacyChainOwnAddresses({
-        owner: decodedTx.owner,
-        transfer: props.action.assetTransfer,
-      })
-    : undefined;
-  const localWalletAddresses = useLocalWalletAccountAddresses({
-    accountId: decodedTx.accountId,
-    networkId,
-    enabled:
-      !!localWalletOwnAddresses &&
-      !isPrivateSend &&
-      !transferTargetIsCount &&
-      isPrivacyChainOwnTarget({
-        address: transferTarget,
-        shielded: transferTargetShielded,
-        ownAddresses: localWalletOwnAddresses,
-      }),
-  });
   let descriptionTarget = isPrivateSend
     ? (payload?.privateSend?.originalRecipient ?? '')
     : transferTarget;
@@ -668,11 +646,13 @@ function TxActionTransferListView(props: ITxActionProps) {
     const target = resolvePrivacyChainTargetDisplay({
       intl,
       localWallet: toPrivacyChainLocalWalletDisplay(vaultSettings.localWallet),
-      addresses: localWalletAddresses,
       address: descriptionTarget,
       shielded: transferTargetShielded,
       side: transferTargetSide,
-      ownAddresses: localWalletOwnAddresses ?? new Set(),
+      ownAddresses: collectPrivacyChainOwnAddresses({
+        owner: decodedTx.owner,
+        transfer: props.action.assetTransfer,
+      }),
     });
     // A pool name is shown but never looked up as an address.
     descriptionTarget = target?.address ?? '';
