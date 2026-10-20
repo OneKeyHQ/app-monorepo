@@ -1,10 +1,13 @@
+// cspell:ignore lightd taddr
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import {
   extractGrpcWebDataFrame,
   fetchZcashChainTipDirect,
+  fetchZcashLightdInfoDirect,
   fetchZcashTransactionMissingDirect,
   parseZcashBlockIdHeight,
+  parseZcashLightdInfoChainName,
 } from './chainTipDirect';
 
 // BlockID { height: 3_123_456, hash: 0xab 0xcd }
@@ -150,5 +153,78 @@ describe('expired transaction absence evidence', () => {
     await expect(fetchZcashTransactionMissingDirect(params)).resolves.toBe(
       false,
     );
+  });
+});
+
+describe('lightd info chain name', () => {
+  const originalFetch = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  function stringField(field: number, value: string) {
+    const bytes = new TextEncoder().encode(value);
+    return Uint8Array.from([field * 8 + 2, bytes.length, ...bytes]);
+  }
+
+  // LightdInfo { version, vendor, taddrSupport, chainName, saplingActivationHeight, blockHeight }
+  function lightdInfo(chainName: string) {
+    return concat(
+      stringField(1, 'v0.4.17'),
+      stringField(2, 'ECC LightWalletD'),
+      Uint8Array.from([0x18, 0x01]),
+      stringField(4, chainName),
+      Uint8Array.from([0x28, 0x80, 0xcb, 0x19]),
+      Uint8Array.from([0x38, 0x80, 0xd2, 0xbe, 0x01]),
+    );
+  }
+
+  it('parses chainName after other fields', () => {
+    expect(parseZcashLightdInfoChainName(lightdInfo('main'))).toBe('main');
+    expect(parseZcashLightdInfoChainName(lightdInfo('test'))).toBe('test');
+  });
+
+  it('returns null when chainName is absent or truncated', () => {
+    expect(parseZcashLightdInfoChainName(stringField(1, 'v0.4.17'))).toBe(null);
+    expect(
+      parseZcashLightdInfoChainName(Uint8Array.from([0x22, 0x04, 0x6d])),
+    ).toBeNull();
+  });
+
+  it('fetches GetLightdInfo and tolerates failures', async () => {
+    const body = concat(
+      frame(0, lightdInfo('main')),
+      frame(0x80, new TextEncoder().encode('grpc-status:0\r\n')),
+    );
+    globalThis.fetch = jest.fn(async (url: string) => {
+      expect(url).toBe(
+        'https://example.test/cash.z.wallet.sdk.rpc.CompactTxStreamer/GetLightdInfo',
+      );
+      return {
+        ok: true,
+        headers: { get: () => null },
+        arrayBuffer: async () => body.buffer.slice(0),
+      } as unknown as Response;
+    }) as unknown as typeof fetch;
+    await expect(
+      fetchZcashLightdInfoDirect({ lightwalletdUrl: 'https://example.test/' }),
+    ).resolves.toEqual({ chainName: 'main' });
+
+    globalThis.fetch = jest.fn(() =>
+      Promise.reject(new OneKeyLocalError('offline')),
+    ) as unknown as typeof fetch;
+    await expect(
+      fetchZcashLightdInfoDirect({ lightwalletdUrl: 'https://example.test' }),
+    ).resolves.toBeNull();
+
+    globalThis.fetch = jest.fn(
+      async () =>
+        new Response(
+          frame(0x80, new TextEncoder().encode('grpc-status:12\r\n')),
+        ),
+    ) as typeof fetch;
+    await expect(
+      fetchZcashLightdInfoDirect({ lightwalletdUrl: 'https://example.test' }),
+    ).resolves.toBeNull();
   });
 });
