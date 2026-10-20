@@ -42,6 +42,26 @@ export function parseCompactFiatText(text?: string): number {
   return Number(match[1]) * (suffix ? COMPACT_SUFFIX[suffix] : 1);
 }
 
+export type IEarnDesktopAvailableAmount = {
+  amount: string;
+  /** The server sends dust as "< 0.01": the amount is a bound, not a balance */
+  isBelow: boolean;
+};
+
+// The recommend list's available.text is a label followed by the amount
+// ("Active 220.09", "Available: < 0.01"); the amount always uses '.' and ','
+// (see RecommendedSection)
+const AVAILABLE_AMOUNT_PATTERN = /(<\s*)?(\d[\d,]*(?:\.\d+)?)/;
+export function parseAvailableAmount(
+  text?: string,
+): IEarnDesktopAvailableAmount | undefined {
+  const match = text?.match(AVAILABLE_AMOUNT_PATTERN);
+  if (!match) {
+    return undefined;
+  }
+  return { amount: match[2].replace(/,/g, ''), isBelow: Boolean(match[1]) };
+}
+
 // ---------- Hero split bar ----------
 
 export type IEarnDesktopShare = {

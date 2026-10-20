@@ -289,11 +289,3 @@ export function useEarnDesktopWalletTokens({
   const isLoaded = result.scope === scope;
   return { tokens: isLoaded ? result.tokens : EMPTY_TOKENS, isLoaded };
 }
-
-// The server builds available.text as a label followed by the amount ("Active
-// 220.09"); the amount itself always uses '.' and ',' (see RecommendedSection)
-const AVAILABLE_NUMBER_PATTERN = /\d[\d,]*(?:\.\d+)?/;
-export function extractAvailableAmount(text?: string) {
-  const raw = text?.match(AVAILABLE_NUMBER_PATTERN)?.[0];
-  return raw ? raw.replace(/,/g, '') : undefined;
-}

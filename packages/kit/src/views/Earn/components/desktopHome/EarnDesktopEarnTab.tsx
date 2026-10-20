@@ -22,7 +22,10 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSettingsPersistAtom,
+  useSettingsValuePersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
@@ -44,14 +47,16 @@ import { AprText } from '../AprText';
 import { EarnListEmptyState } from '../EarnListEmptyState';
 import { NetworkFilterControl } from '../NetworkFilterControl';
 
-import { findPositionDeposit } from './earnDesktopHome.utils';
+import {
+  findPositionDeposit,
+  parseAvailableAmount,
+} from './earnDesktopHome.utils';
 import {
   EarnDesktopSurfaceProvider,
   SurfaceToken,
   buildKeyboardPressProps,
   usePressableSurface,
 } from './earnDesktopPressable';
-import { extractAvailableAmount } from './useEarnDesktopHomeData';
 import { useEarnDesktopSurfaces } from './useEarnDesktopSurfaces';
 
 import type {
@@ -107,6 +112,8 @@ type IEarnTableRow = {
   depositedFiatValue: number;
   /** undefined when the recommend list does not carry this token */
   balance?: string;
+  /** The balance is the server's "< 0.01" bound */
+  isBalanceBelow?: boolean;
   tvl: number;
 };
 
@@ -551,6 +558,7 @@ function TokenRow({
 }) {
   const intl = useIntl();
   const surfaces = useEarnDesktopSurfaces();
+  const [{ hideValue }] = useSettingsValuePersistAtom();
   const { asset } = row;
   const handleToggle = () => onToggle(row.key);
   return (
@@ -618,13 +626,19 @@ function TokenRow({
           {/* Empty when there's nothing to deposit, whether the balance is 0
               or unknown: a dash on most rows would say nothing */}
           {new BigNumber(row.balance ?? 0).gt(0) ? (
-            <NumberSizeableTextWrapper
-              hideValue
-              size="$bodyLgMedium"
-              formatter="balance"
-            >
-              {row.balance}
-            </NumberSizeableTextWrapper>
+            <XStack ai="center" gap="$1">
+              {/* Dust reads "< 0.01"; the sign hides with the amount */}
+              {row.isBalanceBelow && !hideValue ? (
+                <SizableText size="$bodyLgMedium">{'<'}</SizableText>
+              ) : null}
+              <NumberSizeableTextWrapper
+                hideValue
+                size="$bodyLgMedium"
+                formatter="balance"
+              >
+                {row.balance}
+              </NumberSizeableTextWrapper>
+            </XStack>
           ) : null}
         </Stack>
         <Stack {...COLUMNS.apr}>
@@ -715,12 +729,13 @@ export function EarnDesktopEarnTab({
   }, [deposits, lendingOffers]);
 
   const balanceBySymbol = useMemo(() => {
-    const map = new Map<string, string>();
+    const map = new Map<string, { amount: string; isBelow: boolean }>();
     walletTokens.forEach((token) => {
-      map.set(
-        token.symbol.toLowerCase(),
-        extractAvailableAmount(token.available?.text) ?? '0',
-      );
+      const available = parseAvailableAmount(token.available?.text);
+      map.set(token.symbol.toLowerCase(), {
+        amount: available?.amount ?? '0',
+        isBelow: available?.isBelow ?? false,
+      });
     });
     return map;
   }, [walletTokens]);
@@ -744,7 +759,8 @@ export function EarnDesktopEarnTab({
           ]),
         ),
         depositedFiatValue: depositedBySymbol.get(symbolKey) ?? 0,
-        balance: balanceBySymbol.get(symbolKey),
+        balance: balanceBySymbol.get(symbolKey)?.amount,
+        isBalanceBelow: balanceBySymbol.get(symbolKey)?.isBelow,
         tvl: symbolTvl.get(symbolKey) ?? 0,
       };
     };

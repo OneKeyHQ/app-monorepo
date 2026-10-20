@@ -15,6 +15,7 @@ import {
   estimateBorrowInterest24h,
   findPositionDeposit,
   formatSharePercent,
+  parseAvailableAmount,
   parseCompactFiatText,
   pickTileOffers,
   sumBorrowedFiat,
@@ -172,6 +173,21 @@ describe('parseCompactFiatText', () => {
     [undefined, 0],
   ])('reads %s', (text, expected) => {
     expect(parseCompactFiatText(text)).toBeCloseTo(expected);
+  });
+});
+
+describe('parseAvailableAmount', () => {
+  it.each([
+    ['Available: 4.03', { amount: '4.03', isBelow: false }],
+    ['Active 1,220.09', { amount: '1220.09', isBelow: false }],
+    ['Available: 0', { amount: '0', isBelow: false }],
+    // Dust: the server sends a bound, not the amount
+    ['Available: < 0.01', { amount: '0.01', isBelow: true }],
+    ['<0.0001', { amount: '0.0001', isBelow: true }],
+    ['Available', undefined],
+    [undefined, undefined],
+  ])('reads %s', (text, expected) => {
+    expect(parseAvailableAmount(text)).toEqual(expected);
   });
 });
 

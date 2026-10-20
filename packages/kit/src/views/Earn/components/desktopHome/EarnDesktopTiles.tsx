@@ -46,6 +46,7 @@ import { WrappedActionButton } from '../PortfolioTabContent';
 import {
   buildBorrowOffers,
   collectTileRows,
+  parseAvailableAmount,
   pickTileOffers,
   sumBorrowedFiat,
 } from './earnDesktopHome.utils';
@@ -56,7 +57,6 @@ import {
   buildKeyboardPressProps,
   usePressableSurface,
 } from './earnDesktopPressable';
-import { extractAvailableAmount } from './useEarnDesktopHomeData';
 import { useEarnDesktopSurfaces } from './useEarnDesktopSurfaces';
 
 import type {
@@ -275,8 +275,17 @@ function TileRow({
   );
 }
 
-function RowAmount({ amount, symbol }: { amount: string; symbol: string }) {
-  return (
+function RowAmount({
+  amount,
+  symbol,
+  isBelow,
+}: {
+  amount: string;
+  symbol: string;
+  isBelow?: boolean;
+}) {
+  const [{ hideValue }] = useSettingsValuePersistAtom();
+  const value = (
     <NumberSizeableTextWrapper
       hideValue
       size="$bodyMdMedium"
@@ -286,6 +295,16 @@ function RowAmount({ amount, symbol }: { amount: string; symbol: string }) {
     >
       {amount}
     </NumberSizeableTextWrapper>
+  );
+  // Dust reads "< 0.01 ETH"; the sign hides with the amount
+  if (!isBelow || hideValue) {
+    return value;
+  }
+  return (
+    <XStack ai="center" gap="$1" minWidth={0}>
+      <SizableText size="$bodyMdMedium">{'<'}</SizableText>
+      {value}
+    </XStack>
   );
 }
 
@@ -681,11 +700,12 @@ function LoansTile({
   );
 }
 
-// ---------- In your wallet ----------
+// ---------- Earns on your holding ----------
 
 type IHeldToken = {
   token: IRecommendAsset;
   amount: string;
+  isBelow: boolean;
   maxApr: number;
   rateColor: ComponentProps<typeof SizableText>['color'];
 };
@@ -699,11 +719,15 @@ function WalletTile({
   onOpenToken: (symbol: string) => void;
   onOpenTokens: () => void;
 }) {
+  const intl = useIntl();
   const bestApr = Math.max(0, ...heldTokens.map((item) => item.maxApr));
   return (
     <TileFrame>
+      {/* The phone's title for the same list of held tokens */}
       <TileHead
-        title={EARN_DESKTOP_DEMO_COPY.inYourWallet}
+        title={intl.formatMessage({
+          id: ETranslations.earns_on_your_holding__title,
+        })}
         onPress={onOpenTokens}
       />
       {/* The recommend list has no fiat value per token (backend ask 3), so
@@ -712,7 +736,7 @@ function WalletTile({
       <YStack mt="$3">
         {heldTokens
           .slice(0, ROW_LIMIT)
-          .map(({ token, amount, maxApr, rateColor }) => (
+          .map(({ token, amount, isBelow, maxApr, rateColor }) => (
             <TileRow
               key={token.symbol}
               onPress={() => onOpenToken(token.symbol)}
@@ -720,6 +744,7 @@ function WalletTile({
               primary={
                 <RowAmount
                   amount={amount}
+                  isBelow={isBelow}
                   symbol={earnUtils.getDisplaySymbol(token)}
                 />
               }
@@ -958,14 +983,18 @@ export function EarnDesktopTiles({
       trendingAssets.map((asset) => [asset.symbol, asset]),
     );
     return walletTokens
-      .map((token) => ({
-        token,
-        amount: extractAvailableAmount(token.available?.text) ?? '0',
-        maxApr: getAssetMaxApr(token),
-        rateColor: getAssetRateColor(
-          earnAssetBySymbol.get(token.symbol) ?? token,
-        ),
-      }))
+      .map((token) => {
+        const available = parseAvailableAmount(token.available?.text);
+        return {
+          token,
+          amount: available?.amount ?? '0',
+          isBelow: available?.isBelow ?? false,
+          maxApr: getAssetMaxApr(token),
+          rateColor: getAssetRateColor(
+            earnAssetBySymbol.get(token.symbol) ?? token,
+          ),
+        };
+      })
       .filter((item) => new BigNumber(item.amount).gt(0));
   }, [trendingAssets, walletTokens]);
 
