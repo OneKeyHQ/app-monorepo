@@ -13,15 +13,6 @@ import type {
 
 import type { IEncodedTxZcash } from './types';
 
-// Has no shielded side; like BTC, it shows the backend's net debit.
-function isTransparentSelfTransfer(tx: IOnChainHistoryTx) {
-  return (
-    tx.type === EOnChainHistoryTxType.Send &&
-    /^t[13]/.test(tx.from) &&
-    tx.from === tx.to
-  );
-}
-
 function getLocalTransparentPayment({
   txid,
   networkId,
@@ -211,12 +202,18 @@ export function normalizeZcashBackendHistoryTx(
   }
   if (
     tx.type === EOnChainHistoryTxType.Send &&
-    !isTransparentSelfTransfer(tx) &&
     receives.every((receive) => receive.isOwn)
   ) {
+    const toSelf = tx.to === tx.from;
+    // A payment to itself that this device signed already lists its output.
+    if (toSelf && receives.length) return tx;
+    // Change returns to the sending t1, so an indexer row "to" itself paid a
+    // shielded address (a true t1 -> same t1 transfer reads the same way).
+    const to = toSelf ? '' : tx.to;
     return {
       ...tx,
-      ...(tx.to ? {} : { shieldedCounterparty: 'to' as const }),
+      to,
+      ...(to ? {} : { shieldedCounterparty: 'to' as const }),
       receives: [...receives, shieldedCounterparty(tx.value ?? '0')],
     };
   }
