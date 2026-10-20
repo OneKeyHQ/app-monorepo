@@ -38,11 +38,42 @@ let mockMeasureCount = 0;
 let mockMeasureCallbacks:
   | ((x: number, y: number, width: number, height: number) => void)[]
   | undefined;
+let mockDeferOverlayExit = false;
+let mockFinishOverlayExit: (() => void) | undefined;
 
-jest.mock('@onekeyfe/react-native-native-overlay', () => ({
-  useNestedOverlayLevel: () => 'modal',
-  OverlayView: ({ children }: { children?: ReactNode }) => children,
-}));
+jest.mock('@onekeyfe/react-native-native-overlay', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    useNestedOverlayLevel: () => 'modal',
+    OverlayView: function MockOverlayView({
+      children,
+      visible,
+      onClose,
+    }: {
+      children?: ReactNode;
+      visible: boolean;
+      onClose?: () => void;
+    }) {
+      const [mounted, setMounted] = React.useState(visible);
+      mockFinishOverlayExit = () => {
+        setMounted(false);
+        onClose?.();
+      };
+      React.useEffect(() => {
+        if (visible) setMounted(true);
+        else if (mounted && !mockDeferOverlayExit) {
+          setMounted(false);
+          onClose?.();
+        }
+      }, [mounted, onClose, visible]);
+      return visible || mounted ? (
+        <div data-testid="spotlight-overlay" data-visible={String(visible)}>
+          {children}
+        </div>
+      ) : null;
+    },
+  };
+});
 
 jest.mock('react-native', () => ({
   useWindowDimensions: () => mockWindowDimensions,
@@ -305,6 +336,8 @@ describe('Spotlight dismissal', () => {
     jest.useFakeTimers();
     jest.clearAllMocks();
     mockTourTimes = 0;
+    mockDeferOverlayExit = false;
+    mockFinishOverlayExit = undefined;
     mockGtMd = true;
     mockAnchorX = 20;
     mockAnchorY = 40;
@@ -327,6 +360,64 @@ describe('Spotlight dismissal', () => {
     blockerReleases.splice(0).forEach((release) => release());
     jest.clearAllTimers();
     jest.useRealTimers();
+  });
+
+  it.each([false, true])(
+    'retains highlight, card and backdrop until exit completes (native=%s)',
+    async (native) => {
+      mockIsNative = native;
+      mockIsNativeAndroid = native;
+      mockDeferOverlayExit = true;
+      const onConfirm = jest.fn();
+      const renderSpotlight = (visible: boolean) => (
+        <SpotlightView
+          visible={visible}
+          onConfirm={onConfirm}
+          closeOnBackdropPress
+          alignCardToAnchorEnd
+          content={<span>Update device portfolio here</span>}
+        >
+          <span>More</span>
+        </SpotlightView>
+      );
+      const view = render(renderSpotlight(true));
+      await advanceTime(0);
+      const highlight = screen.getByTestId('spotlight-highlight');
+      const card = getCard();
+      const backdrop = screen.getByTestId('spotlight-backdrop');
+
+      view.rerender(renderSpotlight(false));
+      await advanceTime(0);
+      expect(screen.getByTestId('spotlight-overlay').dataset.visible).toBe(
+        'false',
+      );
+      expect(screen.getByTestId('spotlight-highlight')).toBe(highlight);
+      expect(getCard()).toBe(card);
+      expect(screen.getByTestId('spotlight-backdrop')).toBe(backdrop);
+      fireEvent.click(screen.getByTestId('spotlight-btn'));
+      fireEvent.click(backdrop);
+      expect(onConfirm).not.toHaveBeenCalled();
+
+      act(() => mockFinishOverlayExit?.());
+      expect(screen.queryByTestId('spotlight-content')).toBeNull();
+    },
+  );
+
+  it('unmounts a cancelled guide that never measured its anchor', async () => {
+    mockAnchorWidth = 0;
+    const renderSpotlight = (visible: boolean) => (
+      <SpotlightView visible={visible} content={<span>Guide</span>}>
+        <span>Anchor</span>
+      </SpotlightView>
+    );
+    const view = render(renderSpotlight(true));
+    view.rerender(renderSpotlight(false));
+    await advanceTime(0);
+    const measurements = mockMeasureCount;
+    mockWindowDimensions = { width: 1200, height: 768 };
+    view.rerender(renderSpotlight(false));
+    expect(mockMeasureCount).toBe(measurements);
+    expect(screen.queryByTestId('spotlight-content')).toBeNull();
   });
 
   it('keeps existing tours open when the backdrop option is omitted', () => {

@@ -1,6 +1,11 @@
+import { useCallback, useState } from 'react';
+
 import { Button, SizableText, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { Spotlight } from '@onekeyhq/kit/src/components/Spotlight';
+import {
+  Spotlight,
+  SpotlightView,
+} from '@onekeyhq/kit/src/components/Spotlight';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
 import { Layout } from './utils/Layout';
@@ -29,6 +34,43 @@ function DefaultPage() {
   );
 }
 
+function ExitLifecyclePage() {
+  const [visible, setVisible] = useState(false);
+  const [closeOnBackdropPress, setCloseOnBackdropPress] = useState(true);
+  const [closeCount, setCloseCount] = useState(0);
+  const open = useCallback(() => setVisible(true), []);
+  const close = useCallback(() => {
+    setVisible(false);
+    setCloseCount((count) => count + 1);
+  }, []);
+  const toggleBackdrop = useCallback(() => {
+    setCloseOnBackdropPress((enabled) => !enabled);
+  }, []);
+  return (
+    <YStack gap="$4">
+      <Button testID="spotlight-exit-open" onPress={open}>
+        Show spotlight
+      </Button>
+      <Button testID="spotlight-exit-toggle-backdrop" onPress={toggleBackdrop}>
+        {`Backdrop close: ${closeOnBackdropPress ? 'on' : 'off'}`}
+      </Button>
+      <SizableText testID="spotlight-exit-count">{closeCount}</SizableText>
+      <SpotlightView
+        visible={visible}
+        onConfirm={close}
+        confirmText="Got it"
+        closeOnBackdropPress={closeOnBackdropPress}
+        matchTriggerSize
+        content={
+          <SizableText>Keep this card visible until exit ends.</SizableText>
+        }
+      >
+        <SizableText>Spotlight anchor</SizableText>
+      </SpotlightView>
+    </YStack>
+  );
+}
+
 export default function SpotlightGallery() {
   return (
     <Layout
@@ -43,6 +85,10 @@ export default function SpotlightGallery() {
         {
           title: 'Default',
           element: <DefaultPage />,
+        },
+        {
+          title: 'Exit lifecycle',
+          element: <ExitLifecyclePage />,
         },
       ]}
     />

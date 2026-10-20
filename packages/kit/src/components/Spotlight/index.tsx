@@ -131,8 +131,12 @@ function SpotlightContent({
   initProps,
   triggerPropsRef,
   level,
+  visible,
+  onClose,
 }: {
   level: IOverlayLevel;
+  visible: boolean;
+  onClose: () => void;
   initProps: ISpotlightContentEvent;
   triggerPropsRef: MutableRefObject<{
     defer?: IDeferredPromise<unknown>;
@@ -208,7 +212,6 @@ function SpotlightContent({
     }
   }, [initProps.triggerRef, measureTriggerInWindow, triggerPropsRef]);
   const {
-    visible,
     children,
     content,
     cardBorderRadius,
@@ -276,8 +279,6 @@ function SpotlightContent({
   useLayoutEffect(() => {
     if (shouldMeasurePortal) {
       measurePortalInWindow();
-    } else {
-      setPortalFrame(undefined);
     }
     return () => {
       portalMeasureRequest.current += 1;
@@ -359,115 +360,129 @@ function SpotlightContent({
   ]);
 
   const handleBackPress = useCallback(() => true, []);
-  useBackHandler(handleBackPress);
-  if (visible && isRendered && !(deferUntilIdle && isGuideBlocked))
-    return (
-      <OverlayView
-        visible
-        level={level}
-        presentation="fullscreen"
-        dismissOnBackPress={false}
+  const overlayVisible =
+    visible && isRendered && !(deferUntilIdle && isGuideBlocked);
+  const handleConfirm = useCallback(() => {
+    if (overlayVisible) onConfirm?.();
+  }, [onConfirm, overlayVisible]);
+  const hasOverlayRef = useRef(false);
+  if (overlayVisible) hasOverlayRef.current = true;
+  const handleOverlayClose = useCallback(() => {
+    hasOverlayRef.current = false;
+    setPortalFrame(undefined);
+    onClose();
+  }, [onClose]);
+  useEffect(() => {
+    // A cancelled, unmeasured or deferred guide has no host exit to await.
+    if (!visible && !hasOverlayRef.current) onClose();
+  }, [onClose, visible]);
+  useBackHandler(handleBackPress, overlayVisible);
+  return (
+    <OverlayView
+      visible={overlayVisible}
+      onClose={handleOverlayClose}
+      level={level}
+      presentation="fullscreen"
+      dismissOnBackPress={false}
+    >
+      <Stack
+        ref={usePortalCoordinates ? portalRef : undefined}
+        onLayout={usePortalCoordinates ? measurePortalInWindow : undefined}
+        collapsable={usePortalCoordinates ? false : undefined}
+        testID="spotlight-content"
+        transition="quick"
+        animateOnly={ANIMATE_ONLY_OPACITY}
+        bg={hasPortalLayout ? 'rgba(0,0,0,0.3)' : 'transparent'}
+        pointerEvents={hasPortalLayout ? undefined : 'none'}
+        position="absolute"
+        top={0}
+        bottom={0}
+        {...(platformEnv.isNativeAndroid && usePortalCoordinates
+          ? { start: 0, end: 0 }
+          : { left: 0, right: 0 })}
+        enterStyle={{
+          opacity: 0,
+        }}
+        exitStyle={{ opacity: 0 }}
       >
-        <Stack
-          ref={usePortalCoordinates ? portalRef : undefined}
-          onLayout={usePortalCoordinates ? measurePortalInWindow : undefined}
-          collapsable={usePortalCoordinates ? false : undefined}
-          testID="spotlight-content"
-          transition="quick"
-          animateOnly={ANIMATE_ONLY_OPACITY}
-          bg={hasPortalLayout ? 'rgba(0,0,0,0.3)' : 'transparent'}
-          pointerEvents={hasPortalLayout ? undefined : 'none'}
-          position="absolute"
-          top={0}
-          bottom={0}
-          {...(platformEnv.isNativeAndroid && usePortalCoordinates
-            ? { start: 0, end: 0 }
-            : { left: 0, right: 0 })}
-          enterStyle={{
-            opacity: 0,
-          }}
-          exitStyle={{ opacity: 0 }}
-        >
-          {hasPortalLayout ? (
-            <>
-              <Stack
-                testID="spotlight-backdrop"
-                position="absolute"
-                inset={0}
-                onPress={closeOnBackdropPress ? onConfirm : undefined}
-                accessible={false}
-              />
-              <Stack
-                testID="spotlight-highlight"
-                position="absolute"
-                pointerEvents="none"
-                top={floatingPosition.y - portalY - childrenPaddingVertical}
-                {...{
-                  [anchorLeftProperty]:
-                    floatingPosition.x - portalX - childrenPaddingHorizontal,
-                }}
-                width={
-                  matchTriggerSize
-                    ? floatingPosition.width + childrenPaddingHorizontal * 2
-                    : undefined
-                }
-                height={
-                  matchTriggerSize
-                    ? floatingPosition.height + childrenPaddingVertical * 2
-                    : undefined
-                }
-                borderRadius={highlightBorderRadius ?? '$3'}
-                px={childrenPaddingHorizontal}
-                py={childrenPaddingVertical}
-                overflow="hidden"
-              >
-                {showHighlightBackground ? (
-                  <Stack
-                    position="absolute"
-                    inset={0}
-                    bg="$bg"
-                    opacity={highlightBackgroundOpacity}
-                  />
-                ) : null}
-                <Stack position="relative">{children}</Stack>
-              </Stack>
-              <YStack
-                testID="spotlight-card"
-                position="absolute"
-                bg="$bg"
-                px={cardPadding ?? '$4'}
-                py={cardPadding ?? '$3.5'}
-                pb={cardPaddingBottom ?? cardPadding ?? '$3.5'}
-                gap={cardGap ?? '$3.5'}
-                borderRadius={cardBorderRadius ?? '$3'}
-                outlineColor="$borderSubdued"
-                outlineStyle="solid"
-                outlineWidth="$px"
-                elevation={20}
-                {...floatingStyle}
-              >
-                <Stack>{content}</Stack>
-                <XStack jc="flex-end">
-                  <Button
-                    testID="spotlight-btn"
-                    variant="primary"
-                    borderRadius={confirmButtonBorderRadius ?? '$2'}
-                    px={confirmButtonPaddingHorizontal}
-                    size="small"
-                    onPress={onConfirm}
-                  >
-                    {confirmText ??
-                      intl.formatMessage({ id: ETranslations.global_done })}
-                  </Button>
-                </XStack>
-              </YStack>
-            </>
-          ) : null}
-        </Stack>
-      </OverlayView>
-    );
-
-  return null;
+        {hasPortalLayout ? (
+          <>
+            <Stack
+              testID="spotlight-backdrop"
+              position="absolute"
+              inset={0}
+              onPress={closeOnBackdropPress ? handleConfirm : undefined}
+              accessible={false}
+            />
+            <Stack
+              testID="spotlight-highlight"
+              position="absolute"
+              pointerEvents="none"
+              top={floatingPosition.y - portalY - childrenPaddingVertical}
+              {...{
+                [anchorLeftProperty]:
+                  floatingPosition.x - portalX - childrenPaddingHorizontal,
+              }}
+              width={
+                matchTriggerSize
+                  ? floatingPosition.width + childrenPaddingHorizontal * 2
+                  : undefined
+              }
+              height={
+                matchTriggerSize
+                  ? floatingPosition.height + childrenPaddingVertical * 2
+                  : undefined
+              }
+              borderRadius={highlightBorderRadius ?? '$3'}
+              px={childrenPaddingHorizontal}
+              py={childrenPaddingVertical}
+              overflow="hidden"
+            >
+              {showHighlightBackground ? (
+                <Stack
+                  position="absolute"
+                  inset={0}
+                  bg="$bg"
+                  opacity={highlightBackgroundOpacity}
+                />
+              ) : null}
+              <Stack position="relative">{children}</Stack>
+            </Stack>
+            <YStack
+              testID="spotlight-card"
+              position="absolute"
+              bg="$bg"
+              px={cardPadding ?? '$4'}
+              py={cardPadding ?? '$3.5'}
+              pb={cardPaddingBottom ?? cardPadding ?? '$3.5'}
+              gap={cardGap ?? '$3.5'}
+              borderRadius={cardBorderRadius ?? '$3'}
+              outlineColor="$borderSubdued"
+              outlineStyle="solid"
+              outlineWidth="$px"
+              elevation={20}
+              {...floatingStyle}
+            >
+              <Stack>{content}</Stack>
+              <XStack jc="flex-end">
+                <Button
+                  testID="spotlight-btn"
+                  variant="primary"
+                  borderRadius={confirmButtonBorderRadius ?? '$2'}
+                  px={confirmButtonPaddingHorizontal}
+                  size="small"
+                  onPress={handleConfirm}
+                >
+                  {confirmText ??
+                    intl.formatMessage({ id: ETranslations.global_done })}
+                </Button>
+              </XStack>
+            </YStack>
+          </>
+        ) : null}
+      </Stack>
+    </OverlayView>
+  );
 }
 
 export function SpotlightView({
@@ -503,6 +518,15 @@ export function SpotlightView({
   const defer = useDeferredPromise();
   const localTriggerRef = useRef<IElement | null>(null);
   const triggerRef = anchorRef ?? localTriggerRef;
+  const [contentMounted, setContentMounted] = useState(visible);
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
+  useEffect(() => {
+    if (visible) setContentMounted(true);
+  }, [visible]);
+  const handleClose = useCallback(() => {
+    if (!visibleRef.current) setContentMounted(false);
+  }, []);
   const triggerPropsRef = useRef<{
     trigger: ((props: ISpotlightContentEvent) => void) | undefined;
     defer: IDeferredPromise<unknown>;
@@ -589,8 +613,10 @@ export function SpotlightView({
           {children}
         </View>
       )}
-      {visible ? (
+      {visible || contentMounted ? (
         <SpotlightContent
+          visible={visible}
+          onClose={handleClose}
           level={level}
           triggerPropsRef={triggerPropsRef}
           initProps={{
