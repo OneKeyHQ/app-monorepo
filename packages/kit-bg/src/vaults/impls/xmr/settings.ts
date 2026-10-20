@@ -111,6 +111,9 @@ const settings: IVaultSettings = {
     // Zcash): the runtime is the only source of truth here.
     privateAddressPattern:
       '^(?:[1-9A-HJ-NP-Za-km-z]{95}|[1-9A-HJ-NP-Za-km-z]{106})$',
+    // Base58 lengths of 69..87 address bytes: every type monero-address
+    // parses, incl. featured addresses (97/108 chars).
+    addressShapePattern: '^[1-9A-HJ-NP-Za-km-z]{95,120}$',
     historySource: 'vault-authoritative',
     tipLagWarningBlocks: XMR_TIP_LAG_WARNING_BLOCKS,
     pools: [

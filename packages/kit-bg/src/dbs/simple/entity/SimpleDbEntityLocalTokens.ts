@@ -465,9 +465,9 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     return result;
   }
 
-  @backgroundMethod()
   // Drops one account's cached lists on one network (both key forms the
   // writers use), e.g. after its local privacy data is deleted.
+  @backgroundMethod()
   async removeAccountTokenList({
     networkId,
     accountAddress,
@@ -496,6 +496,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     }));
   }
 
+  @backgroundMethod()
   async clearTokens() {
     await this.setRawData({
       data: {},

@@ -111,3 +111,78 @@ describe('removed-account gc', () => {
     expect(getLocalWalletNetworkIds).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('init', () => {
+  function createService(
+    resume: (
+      service: InstanceType<typeof ServicePrivacyChain>,
+    ) => Promise<void>,
+  ) {
+    const service = Object.assign(
+      Object.create(ServicePrivacyChain.prototype) as InstanceType<
+        typeof ServicePrivacyChain
+      >,
+      {
+        initialized: false,
+        initPromise: undefined,
+        backfillActiveByAccount: {},
+        syncFailureBackoff: new Map(),
+        foregroundBoostRequestedByNetwork: {},
+        boostPausedByNetwork: {},
+        earliestTickAt: Date.now() + 60_000,
+        isPrivacySyncOnCellularAllowed: async () => false,
+        gcRemovedAccounts: jest.fn(async () => undefined),
+        scheduleBackgroundSync: jest.fn(),
+        publishBoostingNetworks: jest.fn(async () => undefined),
+      },
+    );
+    service.forEachLocalWalletCapability = jest.fn(() => resume(service));
+    return service;
+  }
+
+  beforeEach(() => {
+    mockEmit.mockReset();
+  });
+
+  // A resume (XMR enable retry) notifies accounts changed, which awaits
+  // init(); awaiting the resume inside init deadlocked startup.
+  it('resolves when a resumed operation re-enters init', async () => {
+    let resumed: () => void = () => {};
+    const resumeDone = new Promise<void>((resolve) => {
+      resumed = resolve;
+    });
+    const service = createService(async (self) => {
+      await self.onLocalWalletAccountsChanged({
+        networkId: 'xmr--0',
+        accountIds: ['account-a'],
+        backfillActive: true,
+      });
+      resumed();
+    });
+
+    try {
+      await service.init();
+      expect(service.initialized).toBe(true);
+      await resumeDone;
+      expect(service.forEachLocalWalletCapability).toHaveBeenCalledTimes(1);
+      expect(service.foregroundBoostRequestedByNetwork['xmr--0']).toBe(true);
+    } finally {
+      clearInterval(service.periodicSyncTimer);
+    }
+  });
+
+  it('does not fail init when resuming pending operations fails', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const service = createService(() =>
+      Promise.reject(new Error('node unreachable')),
+    );
+
+    try {
+      await expect(service.init()).resolves.toBeUndefined();
+      expect(service.initialized).toBe(true);
+    } finally {
+      clearInterval(service.periodicSyncTimer);
+      jest.restoreAllMocks();
+    }
+  });
+});

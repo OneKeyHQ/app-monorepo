@@ -625,6 +625,13 @@ export default class Vault extends VaultBtc {
     return zcashHistory.fetchAccountHistoryFromLocal(this, params);
   }
 
+  // BTC's override asks F2pool about acceleration, which never applies to zec txids.
+  override async getPendingTxsToUpdate(_params: {
+    pendingTxs: IAccountHistoryTx[];
+  }): Promise<IAccountHistoryTx[]> {
+    return [];
+  }
+
   async zcashGetComposedBalanceSafe(
     publicSideBackend?: string,
   ): Promise<IPrivacyChainComposedBalance> {

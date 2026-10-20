@@ -5,6 +5,7 @@ import {
   backgroundMethod,
   backgroundMethodForDev,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -220,9 +221,6 @@ class ServicePrivacyChain extends ServiceBase {
         // Prime the cellular consent the synchronous gates read; left at its
         // default, the first Sync after launch asked for consent already given.
         await this.isPrivacySyncOnCellularAllowed().catch(() => false);
-        await this.forEachLocalWalletCapability((capability) =>
-          capability.resumePendingOperations(),
-        );
         await this.gcRemovedAccounts();
         // Delay comes from the quiet-window clamp, not from this call site.
         console.log('[privacy-chain:sched] startup quiet until', {
@@ -234,12 +232,27 @@ class ServicePrivacyChain extends ServiceBase {
           this.scheduleBackgroundSync(0);
         }, PRIVACY_CHAIN_TIP_POLL_MS);
         this.initialized = true;
+        // Not awaited: a resume may reach the network and re-enter init()
+        // through onLocalWalletAccountsChanged.
+        void this.resumePendingLocalWalletOperations();
       })();
     }
     try {
       await this.initPromise;
     } finally {
       this.initPromise = undefined;
+    }
+  }
+
+  async resumePendingLocalWalletOperations(): Promise<void> {
+    try {
+      await this.forEachLocalWalletCapability((capability) =>
+        capability.resumePendingOperations(),
+      );
+    } catch (error) {
+      console.error('[privacy-chain] resume pending operations failed', {
+        ...describePrivacyChainError(error),
+      });
     }
   }
 
@@ -726,18 +739,27 @@ class ServicePrivacyChain extends ServiceBase {
       clearTimeout(this.syncTimer);
       this.syncTimer = undefined;
     }
-    const pendingDrop =
-      await this.backgroundApi.simpleDb.privacyChain.getPendingLocalDataDrop();
+    // Reset must stay available when storage is unreadable: an unreadable
+    // pending list means every network may hold data, not an abort.
+    let pendingDrop: string[] | undefined;
+    try {
+      pendingDrop =
+        await this.backgroundApi.simpleDb.privacyChain.getPendingLocalDataDrop();
+    } catch (e) {
+      console.error('[privacy-chain] could not read pending wipes', {
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
     // Loading a runtime only to find nothing would slow every reset for
     // users who never used a privacy chain.
     const networkIds: string[] = [];
-    for (const networkId of await this.getLocalWalletNetworkIds()) {
+    for (const networkId of await this.getLocalWalletNetworkIdsForReset()) {
       let mayHoldData = true;
       try {
         // eslint-disable-next-line no-await-in-loop
         const vault = await vaultFactory.getChainOnlyVault({ networkId });
         const hasLocalData = vault.getLocalWalletCapability()?.hasLocalData;
-        if (hasLocalData && !pendingDrop.includes(networkId)) {
+        if (hasLocalData && pendingDrop && !pendingDrop.includes(networkId)) {
           // eslint-disable-next-line no-await-in-loop
           mayHoldData = await hasLocalData();
         }
@@ -799,6 +821,30 @@ class ServicePrivacyChain extends ServiceBase {
       }
     }
     return failedNetworkIds;
+  }
+
+  private async getLocalWalletNetworkIdsForReset(): Promise<string[]> {
+    try {
+      return await this.getLocalWalletNetworkIds();
+    } catch (e) {
+      console.error('[privacy-chain] network list unreadable on reset', {
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+    // Preset networks are compiled in, so they resolve without storage.
+    const ids: string[] = [];
+    for (const network of getPresetNetworks()) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const settings = await getVaultSettings({ networkId: network.id });
+        if (settings.localWallet) {
+          ids.push(network.id);
+        }
+      } catch {
+        // network without vault settings — not a candidate
+      }
+    }
+    return ids;
   }
 
   @backgroundMethod()

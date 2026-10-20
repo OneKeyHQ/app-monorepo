@@ -4785,11 +4785,18 @@ class ServiceAccount extends ServiceBase {
 
     // Persist local-scanner provenance through one explicit capability fanout.
     // An event-only listener can miss this because the service is lazy.
-    await this.backgroundApi.servicePrivacyChain.onWalletCreated({
-      walletId: result.wallet.id,
-      isFreshlyGeneratedMnemonic: !!isFreshlyGeneratedMnemonic,
-      createdAt: Date.now(),
-    });
+    // The wallet is already saved, so a failure here must not fail the create.
+    try {
+      await this.backgroundApi.servicePrivacyChain.onWalletCreated({
+        walletId: result.wallet.id,
+        isFreshlyGeneratedMnemonic: !!isFreshlyGeneratedMnemonic,
+        createdAt: Date.now(),
+      });
+    } catch (error) {
+      console.error('[privacy-chain] wallet-created fanout failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     appEventBus.emit(EAppEventBusNames.WalletAdded, {
       walletId: result.wallet.id,

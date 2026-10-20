@@ -293,8 +293,15 @@ describe('ServiceApp privacy database reset ordering', () => {
     jest.restoreAllMocks();
   });
 
-  it('preserves host storage when the external privacy database cannot be erased', async () => {
+  // Supersedes the earlier rule that aborted reset here: per-network failures
+  // are now retried through the pending-drop marker, and App Reset must stay
+  // available when storage is broken.
+  it('still clears host storage when the privacy wipe throws', async () => {
     const clear = jest.spyOn(appStorage, 'clear').mockResolvedValue(undefined);
+    jest.spyOn(appStorage.syncStorage, 'clearAll').mockResolvedValue(undefined);
+    jest.spyOn(biologyAuthUtils, 'deletePassword').mockResolvedValue(undefined);
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
     const dropAllLocalWalletData = jest
       .fn()
       .mockRejectedValue(new Error('privacy database erase failed'));
@@ -307,10 +314,12 @@ describe('ServiceApp privacy database reset ordering', () => {
       },
     });
 
-    await expect(
-      (service as unknown as { resetData: () => Promise<void> }).resetData(),
-    ).rejects.toThrow('privacy database erase failed');
-    expect(clear).not.toHaveBeenCalled();
+    await (service as unknown as { resetData: () => Promise<void> })
+      .resetData()
+      .catch(() => undefined);
+
+    expect(dropAllLocalWalletData).toHaveBeenCalledTimes(1);
+    expect(clear).toHaveBeenCalledTimes(1);
   });
 
   // The pending-drop marker lives in the store this reset clears, so it is

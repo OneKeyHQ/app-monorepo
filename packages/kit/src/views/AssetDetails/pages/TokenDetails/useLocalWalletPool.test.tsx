@@ -3,14 +3,19 @@
 import type { Dispatch, SetStateAction } from 'react';
 
 import { act, renderHook } from '@testing-library/react-native';
+import { getDefaultStore } from 'jotai';
 
 import type { IPrivacyChainPoolDisplayData } from '@onekeyhq/kit/src/states/jotai/contexts/privacyChainPool';
+import { privacyChainAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IPrivacyChainScanState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   ILocalWalletAccountAddresses,
   ILocalWalletAccountBalance,
   ILocalWalletAccountState,
 } from '@onekeyhq/kit-bg/src/vaults/localWallet/types';
+import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 type IAccountParams = { accountId: string; networkId: string };
 type IPrivacyChangePayload = { networkId: string; accountIds: string[] };
@@ -71,12 +76,14 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     },
   },
 }));
-jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
-  usePrivacyChainAtom: () => [
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
-    { storageUnsupportedNetworkIds: mockStorageUnsupportedNetworkIds },
-  ],
-}));
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { atom } = jest.requireActual<typeof import('jotai')>('jotai');
+  const privacyChainAtomValue = atom({
+    storageUnsupportedNetworkIds: [] as string[],
+  });
+  return { privacyChainAtom: { atom: () => privacyChainAtomValue } };
+});
 jest.mock('@onekeyhq/kit/src/hooks/useAccountData', () => ({
   useAccountData: ({ accountId }: IAccountParams) => ({
     account: { id: accountId, address: `t-${accountId}` },
@@ -92,8 +99,6 @@ jest.mock('@onekeyhq/kit/src/hooks/useAccountData', () => ({
 // hardware keyring (Monero) answers false for a hardware account.
 // eslint-disable-next-line no-var, vars-on-top
 var mockWalletSupported = true;
-// eslint-disable-next-line no-var, vars-on-top
-var mockStorageUnsupportedNetworkIds: string[] = [];
 // eslint-disable-next-line no-var, vars-on-top
 var mockLocalWalletSettings: Record<string, unknown> = {
   balanceShape: 'pooled',
@@ -246,13 +251,39 @@ describe('useLocalWalletPool first balance read', () => {
   });
 });
 
+describe('useLocalWalletPool with account data from the caller', () => {
+  it('reads the account and settings it was given', async () => {
+    const { result } = renderHook(useLocalWalletPool, {
+      initialProps: {
+        ...props,
+        accountData: {
+          account: {
+            id: props.accountId,
+            address: 'caller-address',
+          } as INetworkAccount,
+          vaultSettings: {
+            localWallet: mockLocalWalletSettings,
+          } as unknown as IVaultSettings,
+        },
+      },
+    });
+    await flushReads();
+    expect(result.current.hasPooledBalance).toBe(true);
+    expect(mockDisplay?.action?.fromAddress).toBe('caller-address');
+  });
+});
+
 describe('useLocalWalletPool on a device that cannot store the database', () => {
+  const setStorageUnsupportedNetworkIds = (networkIds: string[]) =>
+    getDefaultStore().set(privacyChainAtom.atom(), {
+      storageUnsupportedNetworkIds: networkIds,
+    } as IPrivacyChainScanState);
   afterEach(() => {
-    mockStorageUnsupportedNetworkIds = [];
+    setStorageUnsupportedNetworkIds([]);
   });
 
   it('says to update the WebView instead of showing sync progress', async () => {
-    mockStorageUnsupportedNetworkIds = [props.networkId];
+    setStorageUnsupportedNetworkIds([props.networkId]);
     const { result } = renderHook(useLocalWalletPool, { initialProps: props });
     await flushReads();
     expect(result.current.syncStatusText).toBe(

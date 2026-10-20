@@ -274,6 +274,10 @@ export type IVaultSettings = {
     publicAddressPattern?: string;
     // Formats of wallet-known private recipients; never a public-chain claim.
     privateAddressPattern?: string;
+    // A superset of every address validateAddress accepts, as a RegExp
+    // source: lets callers skip a runtime-backed validator for input that
+    // cannot match. Absent: always validate.
+    addressShapePattern?: string;
     // The token page shows no address; Receive is the only place to get one,
     // as in mainstream Monero wallets.
     hideAddressOnTokenDetails?: boolean;

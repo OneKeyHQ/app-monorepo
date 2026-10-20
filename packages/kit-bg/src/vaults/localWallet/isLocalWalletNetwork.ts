@@ -15,3 +15,20 @@ export async function isLocalWalletNetwork({
     return false;
   }
 }
+
+// False only when the chain declares an address shape the input cannot have.
+export async function mayBeLocalWalletAddress({
+  networkId,
+  address,
+}: {
+  networkId: string;
+  address: string;
+}): Promise<boolean> {
+  try {
+    const pattern = (await getVaultSettings({ networkId })).localWallet
+      ?.addressShapePattern;
+    return !pattern || new RegExp(pattern).test(address);
+  } catch {
+    return true;
+  }
+}

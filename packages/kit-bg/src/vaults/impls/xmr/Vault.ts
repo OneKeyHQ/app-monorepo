@@ -84,6 +84,7 @@ import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type { ILocalWalletCapability } from '../../localWallet/types';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
@@ -604,6 +605,14 @@ export default class Vault extends VaultBase {
         },
       },
     };
+  }
+
+  // The runtime always broadcasts through the configured node, so a custom node needs no separate path.
+  override async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    const { customRpcInfo: _customRpcInfo, ...rest } = params;
+    return this.broadcastTransaction(rest);
   }
 
   /**

@@ -2,7 +2,6 @@ import { useIntl } from 'react-intl';
 
 import { Alert } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { usePrivacyChainBoost } from '@onekeyhq/kit/src/hooks/usePrivacyChainBoost';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { formatPrivacyChainPercent } from '@onekeyhq/kit/src/utils/privacyChainSyncDisplay';
@@ -17,26 +16,21 @@ import { PRIVACY_CHAIN_SYNC_POLL_MS } from '@onekeyhq/shared/src/utils/privacyCh
 // Which chains get it is a capability question (`localWallet`), not a
 // chain-name one: any wallet whose balance is scanned client-side can be
 // mid-scan while its owner is trying to spend.
-function PrivacyChainSyncStateAlert({
+function LocalWalletSyncStateAlert({
   networkId,
   accountId,
 }: {
   networkId: string;
   accountId: string;
 }) {
-  // Capability off useAccountData, not a fetch of its own: awaiting the
-  // settings inside the poll put a round trip in FRONT of the progress read,
-  // on every poll, which is precisely the wait this alert is meant to explain.
   const intl = useIntl();
-  const { vaultSettings } = useAccountData({ networkId, accountId });
-  const hasLocalWallet = !!vaultSettings?.localWallet;
   // An account that never turned privacy on has no scan to wait for.
   const { result: accountState } = usePromiseResult(async () => {
-    if (!accountId || !hasLocalWallet) return undefined;
+    if (!accountId) return undefined;
     return backgroundApiProxy.servicePrivacyChain
       .getLocalWalletAccountState({ networkId, accountId })
       .catch(() => undefined);
-  }, [networkId, accountId, hasLocalWallet]);
+  }, [networkId, accountId]);
   const isScanning = accountState?.enabled === true;
 
   // The one place where waiting on the scan has a cost the user can feel: the
@@ -85,6 +79,27 @@ function PrivacyChainSyncStateAlert({
     );
   }
   return null;
+}
+
+function PrivacyChainSyncStateAlert({
+  networkId,
+  accountId,
+}: {
+  networkId: string;
+  accountId: string;
+}) {
+  // Resolved once, outside the poll: awaiting the settings inside it put a
+  // round trip in FRONT of the progress read, on every poll, which is
+  // precisely the wait this alert is meant to explain. Other chains mount
+  // nothing past this check.
+  const { result: vaultSettings } = usePromiseResult(
+    () => backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
+    [networkId],
+  );
+  if (!vaultSettings?.localWallet) return null;
+  return (
+    <LocalWalletSyncStateAlert networkId={networkId} accountId={accountId} />
+  );
 }
 
 export default PrivacyChainSyncStateAlert;

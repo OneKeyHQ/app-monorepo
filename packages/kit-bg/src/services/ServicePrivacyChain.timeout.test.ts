@@ -1,3 +1,5 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import type { ILocalWalletCapability } from '../vaults/localWallet/types';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
@@ -539,6 +541,72 @@ describe('Privacy database erasure', () => {
       mockGetChainOnlyVault.mockReset();
     },
   );
+
+  // Unreadable storage is when users reset; it must not abort the wipe.
+  it('wipes every network when the pending list cannot be read', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const dropped: string[] = [];
+    mockGetChainOnlyVault.mockImplementation(
+      async ({ networkId }: { networkId: string }) => ({
+        getLocalWalletCapability: () => ({
+          hasLocalData: async () => false,
+          dropLocalData: async () => {
+            dropped.push(networkId);
+          },
+        }),
+      }),
+    );
+    const service = Object.assign(
+      Object.create(ServicePrivacyChain.prototype) as InstanceType<
+        typeof ServicePrivacyChain
+      >,
+      {
+        backgroundApi: {
+          simpleDb: {
+            privacyChain: {
+              getPendingLocalDataDrop: async () => {
+                throw new OneKeyLocalError('storage unreadable');
+              },
+            },
+          },
+        },
+        getLocalWalletNetworkIds: async () => ['zec--0', 'xmr--0'],
+      },
+    );
+
+    await expect(service.dropAllLocalWalletData()).resolves.toEqual([]);
+    expect(dropped).toEqual(['zec--0', 'xmr--0']);
+    mockGetChainOnlyVault.mockReset();
+  });
+
+  it('falls back to preset privacy networks when the network list fails', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const dropped: string[] = [];
+    mockGetChainOnlyVault.mockImplementation(
+      async ({ networkId }: { networkId: string }) => ({
+        getLocalWalletCapability: () => ({
+          dropLocalData: async () => {
+            dropped.push(networkId);
+          },
+        }),
+      }),
+    );
+    const service = Object.assign(
+      Object.create(ServicePrivacyChain.prototype) as InstanceType<
+        typeof ServicePrivacyChain
+      >,
+      {
+        backgroundApi: pendingDropApi([]),
+        getLocalWalletNetworkIds: async () => {
+          throw new OneKeyLocalError('network list unreadable');
+        },
+      },
+    );
+
+    await expect(service.dropAllLocalWalletData()).resolves.toEqual([]);
+    expect(dropped).toEqual(expect.arrayContaining(['zec--0', 'xmr--0']));
+    mockGetChainOnlyVault.mockReset();
+  });
 });
 
 describe('Privacy sync backoff after a user action', () => {
