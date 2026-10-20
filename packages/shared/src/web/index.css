@@ -137,6 +137,21 @@ body {
     var(--bgApp);
 }
 
+[data-testid='perp-desktop-table-scroll'][data-onekey-scroll-view-scrollbar='visible']::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+[data-testid='perp-desktop-table-scroll']::-webkit-scrollbar-thumb {
+  background: linear-gradient(var(--borderStrong), var(--borderStrong)),
+    var(--bgApp);
+  border-radius: 2px;
+}
+
+[data-testid='perp-desktop-table-scroll']::-webkit-scrollbar-corner {
+  background: var(--bgApp);
+}
+
 .show-scrollbar ::-webkit-scrollbar {
   width: 8px;
   height: unset;
