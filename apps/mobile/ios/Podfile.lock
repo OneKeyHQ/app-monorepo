@@ -2046,6 +2046,49 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - react-native-bottom-tabs (6.7.0-7):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - react-native-bottom-tabs/common (= 6.7.0-7)
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
+  - react-native-bottom-tabs/common (6.7.0-7):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - react-native-compat (2.23.10):
     - hermes-engine
     - RCTRequired
@@ -2331,49 +2374,6 @@ PODS:
     - ReactNativeDependencies
     - Yoga
   - react-native-slider/common (5.2.0):
-    - hermes-engine
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-jsi
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-renderercss
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - ReactNativeDependencies
-    - Yoga
-  - react-native-tab-view (6.7.0-7):
-    - hermes-engine
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-jsi
-    - react-native-tab-view/common (= 6.7.0-7)
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-renderercss
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - ReactNativeDependencies
-    - Yoga
-  - react-native-tab-view/common (6.7.0-7):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -3950,6 +3950,7 @@ DEPENDENCIES:
   - React-microtasksnativemodule (from `../../../node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
   - React-mutationobservernativemodule (from `../../../node_modules/react-native/ReactCommon/react/nativemodule/mutationobserver`)
   - react-native-ble-plx (from `../../../node_modules/react-native-ble-plx`)
+  - "react-native-bottom-tabs (from `../../../node_modules/@onekeyfe/react-native-bottom-tabs`)"
   - "react-native-compat (from `../../../node_modules/@walletconnect/react-native-compat`)"
   - "react-native-document-picker (from `../../../node_modules/@react-native-documents/picker`)"
   - react-native-keyboard-controller (from `../../../node_modules/react-native-keyboard-controller`)
@@ -3960,7 +3961,6 @@ DEPENDENCIES:
   - react-native-safe-area-context (from `../../../node_modules/react-native-safe-area-context`)
   - "react-native-skia (from `../../../node_modules/@shopify/react-native-skia`)"
   - "react-native-slider (from `../../../node_modules/@react-native-community/slider`)"
-  - "react-native-tab-view (from `../../../node_modules/@onekeyfe/react-native-tab-view`)"
   - react-native-view-shot (from `../../../node_modules/react-native-view-shot`)
   - react-native-webview (from `../../../node_modules/react-native-webview`)
   - react-native-webview-cleaner (from `../../../node_modules/react-native-webview-cleaner`)
@@ -4276,6 +4276,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon/react/nativemodule/mutationobserver"
   react-native-ble-plx:
     :path: "../../../node_modules/react-native-ble-plx"
+  react-native-bottom-tabs:
+    :path: "../../../node_modules/@onekeyfe/react-native-bottom-tabs"
   react-native-compat:
     :path: "../../../node_modules/@walletconnect/react-native-compat"
   react-native-document-picker:
@@ -4296,8 +4298,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@shopify/react-native-skia"
   react-native-slider:
     :path: "../../../node_modules/@react-native-community/slider"
-  react-native-tab-view:
-    :path: "../../../node_modules/@onekeyfe/react-native-tab-view"
   react-native-view-shot:
     :path: "../../../node_modules/react-native-view-shot"
   react-native-webview:
@@ -4576,6 +4576,7 @@ SPEC CHECKSUMS:
   React-microtasksnativemodule: fbca042172e65219501e792c0d088c17338a7bb2
   React-mutationobservernativemodule: c8a615cc141822983b343e6f1982d214b706246e
   react-native-ble-plx: 1c696efe881f1b519eab9efa2cd9308c007732c5
+  react-native-bottom-tabs: 0a0480e25537d67301725378097d8e59462fda55
   react-native-compat: cef830367a5c2834e8792f3cdd753b7d4e632560
   react-native-document-picker: 598c549d1cbcc8c1f73abfbb5369d2faa10da242
   react-native-keyboard-controller: 2ef1abca0f1b5ffc41c282c9e5f9c5576f83a53d
@@ -4586,7 +4587,6 @@ SPEC CHECKSUMS:
   react-native-safe-area-context: 866dbfc3292621c18abe9857bda29485bf20607a
   react-native-skia: 65a19b18cfddadd1ba5f267216763a0b8467f2ec
   react-native-slider: 8a70a9fbb0253489730cc274171dc78b44600b46
-  react-native-tab-view: ba04bb98d9d33edc2133bdbe63071e0ce8d4bd04
   react-native-view-shot: e31564b1d0c57add676123f74ed1b6e7c7e22851
   react-native-webview: d2b92fc3878f206cc5fecd618f4fb5b8d1652bd6
   react-native-webview-cleaner: c2d3bbb850105553c845303044234ca82062d592
@@ -4678,6 +4678,6 @@ SPEC CHECKSUMS:
   YttriumWrapper: 850d3c5bfa7815ad9962591ff3c1b289039266f2
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
-PODFILE CHECKSUM: 5d54baf3d62d531a4a9fccaa36d36437063d869e
+PODFILE CHECKSUM: e6f82b1c87ebaca0fd834943468c19d8cb3a5781
 
 COCOAPODS: 1.17.0
