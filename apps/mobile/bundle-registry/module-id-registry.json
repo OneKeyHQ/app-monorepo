@@ -20690,6 +20690,8 @@
     "packages/kit/src/provider/Container/WalletBackupPreCheckContainerLazy.utils.ts": 4376,
     "packages/kit/src/provider/Container/WebPerformanceMonitor/index.native.tsx": 20971,
     "packages/kit/src/provider/Container/WebReferralBindContainer.tsx": 3654,
+    "packages/kit/src/provider/Container/WebReferralBindGate.tsx": 2979,
+    "packages/kit/src/provider/Container/WebReferralBindGate.web-only.tsx": 16682,
     "packages/kit/src/provider/Container/index.tsx": 15674,
     "packages/kit/src/provider/HardwareServiceProvider.tsx": 12830,
     "packages/kit/src/provider/KeyboardProvider/index.native.tsx": 8435,
