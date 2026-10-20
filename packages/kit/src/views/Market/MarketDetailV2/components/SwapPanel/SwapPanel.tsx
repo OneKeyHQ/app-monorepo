@@ -42,6 +42,10 @@ import {
   resolveMarketMobileTradeDestination,
 } from '../../utils/marketMobileDetailKind';
 
+import {
+  ESpeedSwapConfigScope,
+  useSpeedSwapInit,
+} from './hooks/useSpeedSwapInit';
 import SwapPanelFooterButtons from './SwapPanelFooterButtons';
 
 function TradeButton({
@@ -95,9 +99,12 @@ function TradeButton({
   );
 }
 
-function MobileWebTradeActions(
-  props: ComponentProps<typeof SwapPanelFooterButtons>,
-) {
+function MobileWebTradeActions({
+  executionReady,
+  ...props
+}: ComponentProps<typeof SwapPanelFooterButtons> & {
+  executionReady: boolean;
+}) {
   const { activeAccount, showAccountSelector } = useAccountSelectorTrigger({
     num: 0,
     showConnectWalletModalInDappMode: true,
@@ -108,6 +115,7 @@ function MobileWebTradeActions(
   return (
     <SwapPanelFooterButtons
       {...props}
+      tradeDisabled={noAccount ? !executionReady : props.tradeDisabled}
       onConnect={noAccount ? showAccountSelector : undefined}
     />
   );
@@ -177,11 +185,19 @@ export function SwapPanel({
     };
   }, [portfolioData, swapToken.contractAddress, swapToken.networkId]);
 
+  const { defaultTokens, speedConfigReady } = useSpeedSwapInit(
+    swapToken.isStock ? '' : swapToken.networkId,
+    true,
+    swapToken.isStock
+      ? ESpeedSwapConfigScope.DEFAULT
+      : ESpeedSwapConfigScope.MARKET,
+  );
+
   const handleTrade = useCallback(
     (direction: 'from' | 'to') => {
       // Swap needs the token's decimals; the buttons are disabled until then,
       // but Android's gesture layer can still deliver a tap.
-      if (!executionReady) {
+      if (!executionReady || (!swapToken.isStock && !speedConfigReady)) {
         return;
       }
       const tradeDestination = swapToken.isStock
@@ -195,7 +211,10 @@ export function SwapPanel({
       const swapEntry =
         tradeDestination === 'stock'
           ? prepareStockSwapEntry(entryParams)
-          : prepareMarketSwapEntry(entryParams);
+          : prepareMarketSwapEntry({
+              ...entryParams,
+              defaultTokens,
+            });
       navigation.pushModal(EModalRoutes.SwapModal, {
         screen: EModalSwapRoutes.SwapMainLand,
         params: {
@@ -208,7 +227,14 @@ export function SwapPanel({
         },
       });
     },
-    [detailKind, executionReady, swapToken, navigation],
+    [
+      detailKind,
+      executionReady,
+      speedConfigReady,
+      defaultTokens,
+      swapToken,
+      navigation,
+    ],
   );
 
   const handleBuy = useCallback(() => handleTrade('to'), [handleTrade]);
@@ -251,7 +277,8 @@ export function SwapPanel({
       onBuy: handleBuy,
       onSell: handleSell,
       onPerps,
-      tradeDisabled: !executionReady,
+      tradeDisabled:
+        !executionReady || (!swapToken.isStock && !speedConfigReady),
       perpsDisabled,
     };
 
@@ -320,7 +347,10 @@ export function SwapPanel({
               }}
               enabledNum={[0]}
             >
-              <MobileWebTradeActions {...footerButtonProps} />
+              <MobileWebTradeActions
+                {...footerButtonProps}
+                executionReady={executionReady}
+              />
             </AccountSelectorProviderMirror>
           ) : (
             <SwapPanelFooterButtons {...footerButtonProps} />

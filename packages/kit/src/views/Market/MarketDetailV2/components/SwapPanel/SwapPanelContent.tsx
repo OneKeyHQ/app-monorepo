@@ -721,7 +721,8 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           tradeType={ESwapDirection.BUY}
           swapNativeTokenReserveGas={swapNativeTokenReserveGas}
           onChange={(amount) => setPaymentAmount(new BigNumber(amount))}
-          selectedToken={paymentToken}
+          selectedToken={paymentTokenDisplay ?? paymentToken}
+          selectedTokenLoading={paymentTokenDisplayLoading}
           selectableTokens={defaultTokens}
           onTokenChange={(token) => setPaymentToken(token)}
           balance={balance}
@@ -781,8 +782,10 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
               defaultTokens={defaultTokens}
               currentSelectToken={balanceToken as ISwapTokenBase}
               onTokenSelect={(token) => setPaymentToken(token as IToken)}
-              symbol={paymentToken?.symbol ?? '-'}
-              isLoading={!hasInitialReady}
+              symbol={
+                paymentTokenDisplay?.symbol ?? paymentToken?.symbol ?? '-'
+              }
+              isLoading={Boolean(paymentTokenDisplayLoading)}
             />
           </YStack>
         ) : null}

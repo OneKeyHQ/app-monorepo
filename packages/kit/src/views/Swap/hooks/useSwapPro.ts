@@ -897,11 +897,7 @@ export function useSwapProTokenInit() {
     speedDefaultSelectToken,
     supportSpeedSwap,
     onlySupportCrossChain,
-  } = useSpeedSwapInit(
-    swapProSelectToken?.networkId || '',
-    false,
-    swapProSelectToken,
-  );
+  } = useSpeedSwapInit(swapProSelectToken?.networkId || '', false);
 
   const defaultTokensFromType = useMemo(
     () =>

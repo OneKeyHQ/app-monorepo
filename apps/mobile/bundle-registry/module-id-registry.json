@@ -24078,6 +24078,7 @@
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketChartPriceUpdate.ts": 16639,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketDetailBackNavigation.ts": 7361,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketDetailDisplayData.ts": 13685,
+    "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketDetailPositionTab.ts": 13049,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketDetailWatchlistIdentity.ts": 12053,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketHolders.ts": 921,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketHolders.utils.ts": 8392,
@@ -26905,6 +26906,7 @@
     "packages/components/src/hocs/Provider/fonts/Roobert-Regular.ttf": 6611,
     "packages/components/src/hocs/Provider/fonts/Roobert-SemiBold.ttf": 2670,
     "packages/kit/src/views/Home/components/TokenListBlock/buildMergedAllNetworkSnapshot.ts": 7735,
+    "packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useMarketSwapPayTokens.ts": 4476,
     "packages/kit/src/views/Market/hooks/useRecommendListingResolution.ts": 2969
   }
 }
