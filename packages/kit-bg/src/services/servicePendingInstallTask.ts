@@ -357,6 +357,9 @@ class ServicePendingInstallTask {
     const activeRequestSeq = requestSeq ?? null;
     const activeProcessStartedAt = processStartedAt ?? now;
     let updaterInvoked = false;
+    // The native rollback marker persists across launches; only the first
+    // quarantine of a target is a new startup rollback worth reporting.
+    let isNewQuarantine = false;
     this.logPendingTaskTrace({
       traceId: activeTraceId,
       requestSeq: activeRequestSeq,
@@ -370,6 +373,7 @@ class ServicePendingInstallTask {
         now,
       );
       if (failedTargetKey) {
+        isNewQuarantine = !ignoredTargets[failedTargetKey];
         // Keep a crashed target quarantined for this native app version.
         ignoredTargets[failedTargetKey] = {
           reason: 'BOOT_FAILED',
@@ -409,6 +413,21 @@ class ServicePendingInstallTask {
       };
     });
     if (failedTargetKey) {
+      const parsedFailedBundle = Number(failedBundleVersion);
+      if (
+        isNewQuarantine &&
+        typeof failedAppVersion === 'string' &&
+        Number.isFinite(parsedFailedBundle) &&
+        parsedFailedBundle > 0
+      ) {
+        this.reportInstallFailure({
+          category: 'hotUpdate',
+          targetVersion: failedAppVersion,
+          bundleVersion: parsedFailedBundle,
+          errorCode: 'STARTUP_ROLLBACK',
+          errorSample: 'BOOT_FAILED',
+        });
+      }
       // Read and delete synchronously so a different task cannot replace it
       // between the target check and the storage mutation.
       const task = appStorage.syncStorage.getObject<IPendingInstallTask>(
@@ -1091,6 +1110,46 @@ class ServicePendingInstallTask {
     });
   }
 
+  private reportInstallFailure(params: {
+    category: 'fullUpdate' | 'hotUpdate';
+    targetVersion: string;
+    bundleVersion?: number;
+    errorCode: 'INSTALL_OR_APPLY_ERROR' | 'STARTUP_ROLLBACK';
+    errorSample?: string;
+  }): void {
+    try {
+      const svc = this.backgroundApi?.serviceAppUpdate as
+        | {
+            reportOtaInstallFailure?: (p: typeof params) => void;
+          }
+        | undefined;
+      svc?.reportOtaInstallFailure?.(params);
+    } catch {
+      // Telemetry must never affect pending install task state
+    }
+  }
+
+  private reportTaskTerminalFailure(
+    task: IPendingInstallTask,
+    error: IUpdateErrorDTO,
+  ): void {
+    const isHot = task.type === EPendingInstallTaskType.jsBundleSwitch;
+    const bundleNum = isHot ? Number(task.targetBundleVersion) : undefined;
+    const sample = [error.code, error.step, error.httpStatus]
+      .filter((part) => part !== undefined && part !== null)
+      .join(':');
+    this.reportInstallFailure({
+      category: isHot ? 'hotUpdate' : 'fullUpdate',
+      targetVersion: task.targetAppVersion,
+      bundleVersion:
+        bundleNum !== undefined && Number.isFinite(bundleNum)
+          ? bundleNum
+          : undefined,
+      errorCode: 'INSTALL_OR_APPLY_ERROR',
+      errorSample: sample || undefined,
+    });
+  }
+
   private async markTaskFailed(
     task: IPendingInstallTask,
     error: IUpdateErrorDTO,
@@ -1159,6 +1218,7 @@ class ServicePendingInstallTask {
         'warn',
       );
       if (fullFlowRetryCount > MAX_FULL_FLOW_RETRY) {
+        this.reportTaskTerminalFailure(task, error);
         await this.clearPendingTaskWithLog({
           traceId,
           requestSeq,
@@ -1211,6 +1271,7 @@ class ServicePendingInstallTask {
     }
 
     if (!interrupted && !isRetryableUpdateError(error)) {
+      this.reportTaskTerminalFailure(task, error);
       await this.clearPendingTaskWithLog({
         traceId,
         requestSeq,
@@ -1237,6 +1298,7 @@ class ServicePendingInstallTask {
     const nextRetryCount = task.retryCount + 1;
     const now = Date.now();
     if (nextRetryCount >= MAX_TASK_RETRY) {
+      this.reportTaskTerminalFailure(task, error);
       await this.clearPendingTaskWithLog({
         traceId,
         requestSeq,
