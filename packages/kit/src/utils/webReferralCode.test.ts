@@ -113,6 +113,12 @@ it('rejects malformed and incomplete stored records', () => {
   const referral = loadModule();
   values.set('onekey_web_referral_code_v1', '{bad json');
   expect(referral.readWebReferralCode()).toBeUndefined();
+  expect(storage.removeItem).toHaveBeenCalledWith(
+    'onekey_web_referral_code_v1',
+  );
+  referral.captureWebReferralCode('RECOVERED');
+  expect(storage.setItem).toHaveBeenCalled();
+  expect(loadModule().readWebReferralCode()?.code).toBe('RECOVERED');
 
   const nextStorage = createStorage();
   useStorage(nextStorage.storage);

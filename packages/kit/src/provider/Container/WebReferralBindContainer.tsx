@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import {
   Dialog,
   SizableText,
+  Toast,
   YStack,
   rootNavigationRef,
 } from '@onekeyhq/components';
@@ -23,6 +24,7 @@ import { useOnboardingConnectWalletLoadingAtom } from '@onekeyhq/kit-bg/src/stat
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 import { autoFixPersonalSignMessage } from '@onekeyhq/shared/src/utils/messageUtils';
@@ -53,6 +55,7 @@ const accountSelectorConfig = {
 };
 const enabledNum = [0];
 const STATUS_TIMEOUT_MS = 3000;
+const referralNetworkId = getNetworkIdsMap().eth;
 
 function sameIdentity(a: IBindIdentity | undefined, b: IBindIdentity): boolean {
   return (
@@ -104,6 +107,7 @@ function WebReferralBindContainerInner() {
   const dialogRef = useRef<IDialogInstance | undefined>(undefined);
   const openIdentityRef = useRef<IBindIdentity | undefined>(undefined);
   const shownIdentitiesRef = useRef(new Set<string>());
+  const terminalEligibilityRef = useRef(new Set<string>());
   const mountedRef = useRef(false);
   const generationRef = useRef(0);
 
@@ -222,15 +226,16 @@ function WebReferralBindContainerInner() {
     if (
       dialogRef.current &&
       openIdentityRef.current &&
-      !sameIdentity(identity, openIdentityRef.current)
+      (!canShowPrompt() || !sameIdentity(identity, openIdentityRef.current))
     ) {
+      generationRef.current += 1;
       try {
         void Promise.resolve(dialogRef.current.close()).catch(() => undefined);
       } catch {
-        // The stale prompt remains unable to bind because identity changed.
+        // The stale prompt remains unable to bind after its route or identity changes.
       }
     }
-  }, [identity]);
+  }, [identity, routeEpoch]);
 
   useEffect(() => {
     if (
@@ -247,15 +252,19 @@ function WebReferralBindContainerInner() {
     const generation = generationRef.current;
     const normalizedAddress =
       normalizeTokenContractAddress({
-        networkId: current.networkId,
+        networkId: referralNetworkId,
         contractAddress: current.address,
       }) || current.address;
+    const eligibilityKey = `${referralNetworkId}:${normalizedAddress}`;
+    if (terminalEligibilityRef.current.has(eligibilityKey)) {
+      return;
+    }
 
     const checkAndShow = async () => {
       try {
         const result =
           await backgroundApiProxy.serviceReferralCode.batchCheckWalletsBoundReferralCodeV2(
-            [{ address: normalizedAddress, networkId: current.networkId }],
+            [{ address: normalizedAddress, networkId: referralNetworkId }],
             STATUS_TIMEOUT_MS,
           );
         if (
@@ -265,14 +274,16 @@ function WebReferralBindContainerInner() {
         ) {
           return;
         }
-        const status = result?.[`${current.networkId}:${normalizedAddress}`];
+        const status = result?.[eligibilityKey];
         if (
-          !status ||
-          status.bound === true ||
-          status.bindable !== true ||
-          status.reason === 'already_bound' ||
-          status.reason === 'exceeded_bind_window'
+          status?.bound === true ||
+          status?.reason === 'already_bound' ||
+          status?.reason === 'exceeded_bind_window'
         ) {
+          terminalEligibilityRef.current.add(eligibilityKey);
+          return;
+        }
+        if (!status || status.bindable !== true) {
           return;
         }
 
@@ -320,7 +331,7 @@ function WebReferralBindContainerInner() {
                 await backgroundApiProxy.serviceReferralCode.getBoundReferralCodeUnsignedMessage(
                   {
                     address: current.address,
-                    networkId: current.networkId,
+                    networkId: referralNetworkId,
                     inviteCode: current.record.code,
                   },
                 );
@@ -343,13 +354,26 @@ function WebReferralBindContainerInner() {
                 await backgroundApiProxy.serviceReferralCode.boundReferralCodeWithSignedMessage(
                   {
                     address: current.address,
-                    networkId: current.networkId,
+                    networkId: referralNetworkId,
                     referralCode: current.record.code,
                     signature,
                   },
                 );
               if (bound && stillCurrent(current, generation)) {
                 clearWebReferralCodeIfMatch(current.record);
+                await backgroundApiProxy.serviceReferralCode.setCachedInviteCode(
+                  '',
+                );
+                defaultLogger.referral.page.referralBindingCompleted({
+                  referralCode: current.record.code,
+                  address: current.address,
+                  networkId: referralNetworkId,
+                });
+                Toast.success({
+                  title: intl.formatMessage({
+                    id: ETranslations.global_success,
+                  }),
+                });
               }
             } catch {
               // Rejected signatures and transient errors keep the code for this tab.

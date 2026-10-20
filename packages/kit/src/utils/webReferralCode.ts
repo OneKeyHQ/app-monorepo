@@ -59,17 +59,23 @@ export function subscribeWebReferralCode(listener: () => void): () => void {
 export function readWebReferralCode(): IWebReferralCodeRecord | undefined {
   const storage = getStorage();
   let record: unknown = fallbackRecord;
+  let raw: string | null | undefined;
   if (storage) {
     try {
-      const raw = storage.getItem(STORAGE_KEY);
-      record = raw ? (JSON.parse(raw) as unknown) : undefined;
+      raw = storage.getItem(STORAGE_KEY);
     } catch {
       storageFailed = true;
-      record = fallbackRecord;
+    }
+    if (raw !== undefined) {
+      try {
+        record = raw ? (JSON.parse(raw) as unknown) : undefined;
+      } catch {
+        record = undefined;
+      }
     }
   }
   if (!isRecord(record) || Date.now() - record.capturedAt > TTL_MS) {
-    if (record) {
+    if (raw) {
       try {
         storage?.removeItem(STORAGE_KEY);
       } catch {

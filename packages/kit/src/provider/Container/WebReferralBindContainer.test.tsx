@@ -4,8 +4,10 @@
 
 import { act, render, waitFor } from '@testing-library/react';
 
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import {
   captureWebReferralCode,
@@ -31,6 +33,8 @@ type ITestState = {
   connecting: boolean;
   syncing: boolean;
   navigate: jest.Mock;
+  rootRouteName: string;
+  routeStateListener?: () => void;
 };
 
 const mockBag = globalThis as typeof globalThis & {
@@ -44,12 +48,26 @@ jest.mock('react-intl', () => {
 
 jest.mock('@onekeyhq/components', () => ({
   Dialog: { show: jest.fn() },
+  Toast: { success: jest.fn() },
   SizableText: () => null,
   YStack: ({ children }: { children: React.ReactNode }) => children,
   rootNavigationRef: {
     current: {
-      getRootState: () => ({ routes: [{ name: 'main' }], index: 0 }),
-      addListener: () => () => undefined,
+      getRootState: () => ({
+        routes: [
+          {
+            name:
+              (globalThis as typeof mockBag).__webReferralTest?.rootRouteName ??
+              'main',
+          },
+        ],
+        index: 0,
+      }),
+      addListener: (_name: string, listener: () => void) => {
+        const state = (globalThis as typeof mockBag).__webReferralTest;
+        if (state) state.routeStateListener = listener;
+        return () => undefined;
+      },
     },
   },
 }));
@@ -127,7 +145,14 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       batchCheckWalletsBoundReferralCodeV2: jest.fn(),
       getBoundReferralCodeUnsignedMessage: jest.fn(),
       boundReferralCodeWithSignedMessage: jest.fn(),
+      setCachedInviteCode: jest.fn(),
     },
+  },
+}));
+
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    referral: { page: { referralBindingCompleted: jest.fn() } },
   },
 }));
 
@@ -143,6 +168,11 @@ const unsignedMessageMock = jest.spyOn(
 const bindMock = jest.spyOn(
   referralService,
   'boundReferralCodeWithSignedMessage',
+);
+const clearCachedCodeMock = jest.spyOn(referralService, 'setCachedInviteCode');
+const completedEventMock = jest.spyOn(
+  defaultLogger.referral.page,
+  'referralBindingCompleted',
 );
 
 const address = '0xAbCd';
@@ -181,6 +211,18 @@ function setAccount(accountId: string) {
   };
 }
 
+function changeRoute(name: string) {
+  if (!mockBag.__webReferralTest) return;
+  mockBag.__webReferralTest.rootRouteName = name;
+  act(() => mockBag.__webReferralTest?.routeStateListener?.());
+}
+
+function expectNoSuccessSideEffects() {
+  expect(clearCachedCodeMock).not.toHaveBeenCalled();
+  expect(completedEventMock).not.toHaveBeenCalled();
+  expect(Toast.success).not.toHaveBeenCalled();
+}
+
 async function showPrompt() {
   await waitFor(() => expect(Dialog.show).toHaveBeenCalledTimes(1));
   return jest.mocked(Dialog.show).mock.calls[0][0];
@@ -201,6 +243,7 @@ beforeEach(() => {
     connecting: false,
     syncing: false,
     navigate: jest.fn().mockResolvedValue('signature'),
+    rootRouteName: 'main',
   };
   jest.clearAllMocks();
   const instance = dialogInstance();
@@ -212,7 +255,9 @@ beforeEach(() => {
   });
   unsignedMessageMock.mockResolvedValue('message');
   bindMock.mockResolvedValue(true);
+  clearCachedCodeMock.mockResolvedValue(undefined);
   captureWebReferralCode('AUDIT661');
+  globalThis.history.replaceState({}, '', '/market');
 });
 
 afterEach(() => {
@@ -234,18 +279,45 @@ it('requires server bindable and uses the real EVM chain behind all-networks', a
   view.unmount();
 });
 
-it('prefers a concrete active EVM chain over createAtNetwork', async () => {
+it('uses ETH for referral APIs while signing on the active EVM chain', async () => {
   if (mockBag.__webReferralTest) {
     mockBag.__webReferralTest.active.network = { id: 'evm--10' };
     mockBag.__webReferralTest.selected.networkId = 'evm--10';
   }
   render(<WebReferralBindContainer />);
-  await waitFor(() =>
-    expect(batchMock).toHaveBeenCalledWith(
-      [{ address: normalizedAddress, networkId: 'evm--10' }],
-      3000,
-    ),
+  const prompt = await showPrompt();
+  expect(batchMock).toHaveBeenCalledWith(
+    [{ address: normalizedAddress, networkId: 'evm--1' }],
+    3000,
   );
+  const instance = jest.mocked(Dialog.show).mock.results[0].value as ReturnType<
+    typeof Dialog.show
+  >;
+  await act(async () => {
+    await prompt.onConfirm?.({ ...instance, preventClose: jest.fn() });
+  });
+  expect(unsignedMessageMock).toHaveBeenCalledWith({
+    address,
+    networkId: 'evm--1',
+    inviteCode: 'AUDIT661',
+  });
+  expect(mockBag.__webReferralTest?.navigate).toHaveBeenCalledWith(
+    expect.objectContaining({ networkId: 'evm--10' }),
+  );
+  expect(bindMock).toHaveBeenCalledWith({
+    address,
+    networkId: 'evm--1',
+    referralCode: 'AUDIT661',
+    signature: 'signature',
+  });
+  expect(clearCachedCodeMock).toHaveBeenCalledWith('');
+  expect(completedEventMock).toHaveBeenCalledWith({
+    referralCode: 'AUDIT661',
+    address,
+    networkId: 'evm--1',
+  });
+  expect(Toast.success).toHaveBeenCalledTimes(1);
+  expect(readWebReferralCode()).toBeUndefined();
 });
 
 it('does not prompt when selected and active networks differ', async () => {
@@ -295,6 +367,62 @@ it('waits for dialog close before opening message confirmation', async () => {
   expect(bindMock).toHaveBeenCalledTimes(1);
 });
 
+it('keeps binding after its own message confirmation opens a root modal', async () => {
+  const instance = dialogInstance();
+  jest
+    .mocked(Dialog.show)
+    .mockReturnValue(instance as ReturnType<typeof Dialog.show>);
+  if (mockBag.__webReferralTest) {
+    mockBag.__webReferralTest.navigate.mockImplementation(async () => {
+      changeRoute('modal');
+      return 'signature';
+    });
+  }
+  render(<WebReferralBindContainer />);
+  const prompt = await showPrompt();
+  instance.close.mockImplementation(async () => {
+    await prompt.onClose?.();
+    return undefined;
+  });
+  await act(async () => {
+    await prompt.onConfirm?.({ ...instance, preventClose: jest.fn() });
+  });
+  expect(bindMock).toHaveBeenCalledTimes(1);
+  expect(completedEventMock).toHaveBeenCalledTimes(1);
+});
+
+it('keeps a newer Web code when cached invite cleanup finishes late', async () => {
+  const cacheCleanup = deferred<undefined>();
+  clearCachedCodeMock.mockReturnValue(cacheCleanup.promise);
+  const view = render(<WebReferralBindContainer />);
+  const prompt = await showPrompt();
+  const instance = jest.mocked(Dialog.show).mock.results[0].value as ReturnType<
+    typeof Dialog.show
+  >;
+  let confirming: void | Promise<void> | undefined;
+  await act(async () => {
+    confirming = prompt.onConfirm?.({ ...instance, preventClose: jest.fn() });
+    await waitFor(() => expect(clearCachedCodeMock).toHaveBeenCalledTimes(1));
+  });
+  await act(async () => {
+    captureWebReferralCode('NEXT');
+  });
+  setAccount('account-B');
+  view.rerender(<WebReferralBindContainer />);
+  await act(async () => {
+    cacheCleanup.resolve(undefined);
+    await confirming;
+  });
+  expect(readWebReferralCode()?.code).toBe('NEXT');
+  expect(completedEventMock).toHaveBeenCalledTimes(1);
+  expect(completedEventMock).toHaveBeenCalledWith({
+    referralCode: 'AUDIT661',
+    address,
+    networkId: 'evm--1',
+  });
+  expect(Toast.success).toHaveBeenCalledTimes(1);
+});
+
 it('stops a delayed message after the account changes', async () => {
   const message = deferred<string>();
   unsignedMessageMock.mockReturnValue(message.promise);
@@ -316,6 +444,7 @@ it('stops a delayed message after the account changes', async () => {
   });
   expect(mockBag.__webReferralTest?.navigate).not.toHaveBeenCalled();
   expect(bindMock).not.toHaveBeenCalled();
+  expectNoSuccessSideEffects();
 });
 
 it('stops a delayed signature after the invite code changes', async () => {
@@ -343,6 +472,7 @@ it('stops a delayed signature after the invite code changes', async () => {
   });
   expect(bindMock).not.toHaveBeenCalled();
   expect(readWebReferralCode()?.code).toBe('NEXT');
+  expectNoSuccessSideEffects();
 });
 
 it('does not resume an old signature after account A changes to B and back', async () => {
@@ -369,6 +499,7 @@ it('does not resume an old signature after account A changes to B and back', asy
     await confirming;
   });
   expect(bindMock).not.toHaveBeenCalled();
+  expectNoSuccessSideEffects();
 });
 
 it('closes its dialog and prevents a delayed bind after unmount', async () => {
@@ -393,4 +524,102 @@ it('closes its dialog and prevents a delayed bind after unmount', async () => {
     await confirming;
   });
   expect(bindMock).not.toHaveBeenCalled();
+  expectNoSuccessSideEffects();
+});
+
+it.each(['rejected signature', 'bind failure'])(
+  'does not emit success effects on %s',
+  async (failure) => {
+    if (failure === 'rejected signature') {
+      mockBag.__webReferralTest?.navigate.mockRejectedValue(
+        new OneKeyLocalError('Rejected'),
+      );
+    } else {
+      bindMock.mockResolvedValue(false);
+    }
+    render(<WebReferralBindContainer />);
+    const prompt = await showPrompt();
+    const instance = jest.mocked(Dialog.show).mock.results[0]
+      .value as ReturnType<typeof Dialog.show>;
+    await act(async () => {
+      await prompt.onConfirm?.({ ...instance, preventClose: jest.fn() });
+    });
+    expect(readWebReferralCode()?.code).toBe('AUDIT661');
+    expectNoSuccessSideEffects();
+  },
+);
+
+it.each([
+  { route: 'main', path: '/r/AUDIT661' },
+  { route: 'main', path: '/oauth_callback_web' },
+])(
+  'closes the invite prompt on $path and blocks a stale confirm',
+  async ({ route, path }) => {
+    const view = render(<WebReferralBindContainer />);
+    const prompt = await showPrompt();
+    const instance = jest.mocked(Dialog.show).mock.results[0]
+      .value as ReturnType<typeof Dialog.show>;
+    globalThis.history.pushState({}, '', path);
+    changeRoute(route);
+    view.rerender(<WebReferralBindContainer />);
+    expect(instance.close).toHaveBeenCalled();
+    await act(async () => {
+      await prompt.onConfirm?.({ ...instance, preventClose: jest.fn() });
+    });
+    expect(unsignedMessageMock).not.toHaveBeenCalled();
+    expectNoSuccessSideEffects();
+  },
+);
+
+it.each([
+  { name: 'bound', status: { bound: true, bindable: false } },
+  {
+    name: 'already bound',
+    status: { bound: false, bindable: false, reason: 'already_bound' },
+  },
+  {
+    name: 'expired window',
+    status: { bound: false, bindable: false, reason: 'exceeded_bind_window' },
+  },
+] as const)(
+  'caches terminal $name eligibility across new codes and EVM chains',
+  async ({ status }) => {
+    batchMock.mockResolvedValue({
+      [`evm--1:${normalizedAddress}`]: status,
+    });
+    const view = render(<WebReferralBindContainer />);
+    await waitFor(() => expect(batchMock).toHaveBeenCalled());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const initialChecks = batchMock.mock.calls.length;
+    await act(async () => {
+      captureWebReferralCode('NEXT');
+    });
+    if (mockBag.__webReferralTest) {
+      mockBag.__webReferralTest.active.network = { id: 'evm--10' };
+      mockBag.__webReferralTest.selected.networkId = 'evm--10';
+    }
+    view.rerender(<WebReferralBindContainer />);
+    expect(batchMock).toHaveBeenCalledTimes(initialChecks);
+    expect(Dialog.show).not.toHaveBeenCalled();
+  },
+);
+
+it('rechecks a nonterminal unbindable result after the next navigation', async () => {
+  batchMock.mockResolvedValue({
+    [`evm--1:${normalizedAddress}`]: { bound: false, bindable: false },
+  });
+  render(<WebReferralBindContainer />);
+  await waitFor(() => expect(batchMock).toHaveBeenCalled());
+  await act(async () => {
+    await Promise.resolve();
+  });
+  const initialChecks = batchMock.mock.calls.length;
+  changeRoute('onboarding');
+  changeRoute('main');
+  await waitFor(() =>
+    expect(batchMock.mock.calls.length).toBeGreaterThan(initialChecks),
+  );
+  expect(Dialog.show).not.toHaveBeenCalled();
 });
