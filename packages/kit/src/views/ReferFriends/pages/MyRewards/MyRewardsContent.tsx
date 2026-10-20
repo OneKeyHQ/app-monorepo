@@ -585,15 +585,13 @@ function EmptyCell() {
 function DesktopCell({
   children,
   first,
-  span = 1,
 }: {
   children?: ReactNode;
   first?: boolean;
-  span?: number;
 }) {
   return (
     <XStack
-      flex={first ? 1.4 : span}
+      flex={first ? 1.4 : 1}
       flexBasis={0}
       minWidth={0}
       ai="center"
@@ -646,16 +644,21 @@ function DesktopRow({
         </>
       );
     }
-    // A note rather than figures spans both value columns.
+    // A note rather than figures sits in the first value column. Two cells
+    // rather than one spanning both, so the row has as many gaps as the
+    // header and the columns stay aligned.
     if (row.status === 'error' || !hasReward) {
       return (
-        <DesktopCell span={2}>
-          <SubduedNote>
-            {row.status === 'error'
-              ? MY_REWARDS_COPY.loadFailed
-              : noRewardLabel}
-          </SubduedNote>
-        </DesktopCell>
+        <>
+          <DesktopCell>
+            <SubduedNote>
+              {row.status === 'error'
+                ? MY_REWARDS_COPY.loadFailed
+                : noRewardLabel}
+            </SubduedNote>
+          </DesktopCell>
+          <DesktopCell />
+        </>
       );
     }
     return (
