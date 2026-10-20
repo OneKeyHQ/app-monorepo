@@ -13,6 +13,7 @@ import {
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
+import type { Dialog } from '@onekeyhq/components';
 import { getMarketDetailTradingViewNativeSource } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/getMarketDetailTradingViewNativeSource';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -23,6 +24,7 @@ import {
   createTradingViewNativeChartSettings,
 } from '@onekeyhq/shared/types/tradingViewNative';
 
+import { TradingViewChartDialogContext } from '../TradingViewChartControls/TradingViewChartDialogContext';
 import { fetchAccountTransactionMarks } from '../utils/accountTransactionMarks';
 
 import { TRADING_VIEW_NATIVE_KLINE_INTERVALS } from './data/tradingViewNativeIntervals';
@@ -1305,6 +1307,55 @@ describe('TradingViewNativeContainer', () => {
       expect(
         mockShowTradingViewNativeIndicatorSettingsDialog,
       ).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([undefined, 'RSI'] as const)(
+    'keeps fullscreen when opening indicator settings (%s)',
+    (indicator) => {
+      const showDrawer = jest.fn<
+        ReturnType<typeof Dialog.show>,
+        Parameters<typeof Dialog.show>
+      >();
+      const onFullscreenChange = jest.fn();
+      render(
+        <TradingViewChartDialogContext.Provider value={showDrawer}>
+          <TradingViewNativeContainer
+            source={{
+              kind: 'hyperliquid',
+              coin: 'ETH',
+              environment: 'mainnet',
+            }}
+            nativeControlsLayoutMode="mobile"
+            showNativeIndicatorQuickBar
+            isNativeChartFullscreen
+            onNativeChartFullscreenChange={onFullscreenChange}
+          />
+        </TradingViewChartDialogContext.Provider>,
+      );
+      if (indicator) {
+        const chartProps = mockTradingViewNativeChart.mock.calls.at(
+          -1,
+        )?.[0] as ITradingViewNativeChartProps;
+        act(() =>
+          chartProps.onSubIndicatorSettingsPress(indicator, showDrawer),
+        );
+      } else {
+        fireEvent.click(
+          screen.getByTestId('trading-view-native-indicator-settings-trigger'),
+        );
+      }
+      expect(mockPushModal).not.toHaveBeenCalled();
+      expect(onFullscreenChange).not.toHaveBeenCalled();
+      expect(
+        mockShowTradingViewNativeIndicatorSettingsDialog,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          showDialog: showDrawer,
+          initialIndicatorId: indicator,
+          displayMode: indicator ? 'focused' : 'full',
+        }),
+      );
     },
   );
 

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useContext } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -8,6 +8,8 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalMarketRoutes } from '@onekeyhq/kit/src/views/Market/router/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+
+import { TradingViewChartDialogContext } from '../TradingViewChartControls/TradingViewChartDialogContext';
 
 import { TradingViewMobileChartSettingsDialogContent } from './TradingViewMobileChartSettingsDialogContent';
 
@@ -45,6 +47,7 @@ export function TradingViewNativeChartSettingsButton({
 }) {
   const isToolbar = placement === 'toolbar';
   const intl = useIntl();
+  const showDialog = useContext(TradingViewChartDialogContext) ?? Dialog.show;
   const navigation = useAppNavigation();
   const openChartSettingsModal = useCallback(() => {
     onBeforeOpenSettings?.();
@@ -57,7 +60,7 @@ export function TradingViewNativeChartSettingsButton({
     });
   }, [enablePreviousClose, navigation, onBeforeOpenSettings, storageNamespace]);
   const handlePress = useCallback(() => {
-    Dialog.show({
+    showDialog({
       title: intl.formatMessage({ id: ETranslations.global_settings }),
       showFooter: false,
       testID: 'trading-view-native-chart-settings-quick-dialog',
@@ -79,6 +82,7 @@ export function TradingViewNativeChartSettingsButton({
     onChartSwitch,
     storageNamespace,
     openChartSettingsModal,
+    showDialog,
   ]);
 
   return (

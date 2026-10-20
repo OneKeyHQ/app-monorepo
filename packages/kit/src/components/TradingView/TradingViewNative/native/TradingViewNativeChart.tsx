@@ -31,6 +31,7 @@ import { scheduleOnRN, scheduleOnUI } from 'react-native-worklets';
 import { Stack, useTheme, useThemeName } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { TradingViewChartDialogContext } from '../../TradingViewChartControls/TradingViewChartDialogContext';
 import {
   TRADING_VIEW_NATIVE_SWITCHING_INTERVAL_OPACITY as SWITCHING_INTERVAL_OPACITY,
   TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
@@ -981,6 +982,13 @@ export const TradingViewNativeChart = memo(
       timeAxisHeight,
     });
 
+    const showChartDialog = useContext(TradingViewChartDialogContext);
+    const handleSubIndicatorSettingsPress = useCallback<
+      ITradingViewNativeChartProps['onSubIndicatorSettingsPress']
+    >(
+      (indicator) => onSubIndicatorSettingsPress(indicator, showChartDialog),
+      [onSubIndicatorSettingsPress, showChartDialog],
+    );
     const chartGestures = useTradingViewNativeChartGestures({
       prioritizePageScroll,
       chartRuntime,
@@ -990,7 +998,7 @@ export const TradingViewNativeChart = memo(
       onInteractionChange: onInteractionChange
         ? handleGestureInteraction
         : undefined,
-      onSubIndicatorSettingsPress,
+      onSubIndicatorSettingsPress: handleSubIndicatorSettingsPress,
       priceAxisResetGesture,
       priceAxisScaleGesture,
       priceAxisWidth,

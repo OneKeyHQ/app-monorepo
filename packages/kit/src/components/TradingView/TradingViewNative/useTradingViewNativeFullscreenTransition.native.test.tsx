@@ -72,19 +72,24 @@ describe('native fullscreen presentation transitions', () => {
         }),
       { initialProps: { isFullscreen: false } },
     );
+    expect(result.current.onPresentationReady).toBeUndefined();
     await act(async () => result.current.changeFullscreen(true));
+    expect(result.current.onPresentationReady).toEqual(expect.any(Function));
     expect(onFullscreenChange).not.toHaveBeenCalled();
     paintCover();
     expect(onFullscreenChange).toHaveBeenCalledWith(true);
     rerender({ isFullscreen: true });
-    act(() => result.current.onPresentationReady({ width: 390, height: 700 }));
+    act(() =>
+      result.current.onPresentationReady?.({ width: 390, height: 700 }),
+    );
     expect(mockReleaseCapture).not.toHaveBeenCalled();
     act(() => {
-      result.current.onPresentationReady({ width: 720, height: 310 });
+      result.current.onPresentationReady?.({ width: 720, height: 310 });
       jest.advanceTimersByTime(50);
     });
     expect(mockSetCover).toHaveBeenLastCalledWith(expect.any(String), null);
     expect(mockReleaseCapture).toHaveBeenCalledWith('file:///transition.png');
+    expect(result.current.onPresentationReady).toBeUndefined();
   });
 
   it('accepts the rendered inline layout after indicator changes or iPad window resizing', async () => {
@@ -101,7 +106,7 @@ describe('native fullscreen presentation transitions', () => {
     expect(mockReleaseCapture).not.toHaveBeenCalled();
     rerender({ isFullscreen: false });
     act(() => {
-      result.current.onPresentationReady({ width: 520, height: 240 });
+      result.current.onPresentationReady?.({ width: 520, height: 240 });
       jest.advanceTimersByTime(50);
     });
     expect(mockReleaseCapture).toHaveBeenCalledTimes(1);
@@ -121,7 +126,7 @@ describe('native fullscreen presentation transitions', () => {
     paintCover();
     rerender({ isFullscreen: true });
     act(() => {
-      result.current.onPresentationReady({ width: 390, height: 700 });
+      result.current.onPresentationReady?.({ width: 390, height: 700 });
       jest.advanceTimersByTime(50);
     });
     expect(mockReleaseCapture).toHaveBeenCalledTimes(1);
@@ -164,6 +169,7 @@ describe('native fullscreen presentation transitions', () => {
       });
       expect(onFullscreenChange).toHaveBeenCalledTimes(1);
       expect(mockSetCover).toHaveBeenLastCalledWith(expect.any(String), null);
+      expect(result.current.onPresentationReady).toBeUndefined();
     },
   );
 

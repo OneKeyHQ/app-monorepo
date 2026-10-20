@@ -25,6 +25,7 @@ export function showTradingViewNativeIndicatorSettingsDialog({
   intl,
   onConfirm,
   value,
+  showDialog = Dialog.show,
 }: {
   displayMode?: 'focused' | 'full';
   initialIndicatorId?: ITradingViewNativeAnyIndicator;
@@ -33,6 +34,7 @@ export function showTradingViewNativeIndicatorSettingsDialog({
     value: ITradingViewNativeIndicatorSettings,
   ) => void | Promise<void>;
   value: ITradingViewIndicatorSettingsValue;
+  showDialog?: typeof Dialog.show;
 }) {
   const isFocused = displayMode === 'focused';
   const dialogInstanceRef: {
@@ -42,7 +44,7 @@ export function showTradingViewNativeIndicatorSettingsDialog({
   };
   const closeDialog = () => dialogInstanceRef.current?.close();
 
-  const dialogInstance = Dialog.show({
+  const dialogInstance = showDialog({
     title: isFocused
       ? value.indicators.find(
           (indicator) => indicator.id === initialIndicatorId,

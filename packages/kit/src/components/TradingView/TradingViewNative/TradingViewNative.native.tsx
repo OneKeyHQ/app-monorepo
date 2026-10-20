@@ -114,9 +114,7 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
         onNativeChartFullscreenChange={
           onNativeChartFullscreenChange ? changeFullscreen : undefined
         }
-        onNativeChartPresentationReady={
-          platformEnv.isNativeIOS ? onPresentationReady : undefined
-        }
+        onNativeChartPresentationReady={onPresentationReady}
       />
     </>
   );

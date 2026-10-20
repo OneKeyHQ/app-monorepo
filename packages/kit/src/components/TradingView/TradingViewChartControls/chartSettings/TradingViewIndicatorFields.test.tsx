@@ -1,10 +1,12 @@
 /** @jest-environment jsdom */
 
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { fireEvent, render, screen, within } from '@testing-library/react';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
+import { TradingViewNativePresentationRotationContext } from '../../TradingViewNative/native/TradingViewNativePresentationContext';
 
 import {
   TradingViewIndicatorLineRow,
@@ -20,13 +22,53 @@ jest.mock('react-intl', () => ({
 }));
 
 jest.mock('@onekeyhq/components', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
   const View = ({ children, testID }: IMockProps) => (
     <div data-testid={testID}>{children}</div>
   );
+  const Button = ({
+    children,
+    testID,
+    onPress,
+  }: IMockProps & { onPress?: () => void }) => (
+    <button type="button" data-testid={testID} onClick={onPress}>
+      {children}
+    </button>
+  );
 
   return {
+    Button,
     ColorPicker: () => null,
     Icon: () => null,
+    IconButton: Button,
+    Popover: ({
+      open,
+      onOpenChange,
+      renderTrigger,
+      renderContent,
+    }: {
+      open: boolean;
+      onOpenChange: (open: boolean) => void;
+      renderTrigger: ReactElement<{ onPress: () => void }>;
+      renderContent: ReactNode;
+    }) => (
+      <>
+        {React.cloneElement(renderTrigger, {
+          onPress: () => onOpenChange(true),
+        })}
+        {open ? (
+          <div>
+            {renderContent}
+            <button
+              type="button"
+              aria-label="Close keypad"
+              onClick={() => onOpenChange(false)}
+              data-testid="keypad-close"
+            />
+          </div>
+        ) : null}
+      </>
+    ),
     Input: ({
       addOns,
       onBlur,
@@ -82,6 +124,37 @@ jest.mock('@onekeyhq/components', () => {
     useThemeName: () => 'light',
   };
 });
+
+jest.mock('@onekeyhq/kit/src/components/NativeAmountKeypad', () => ({
+  ...jest.requireActual<
+    typeof import('@onekeyhq/kit/src/components/NativeAmountKeypad')
+  >('@onekeyhq/kit/src/components/NativeAmountKeypad'),
+  NativeAmountKeypad: ({
+    onKeyPress,
+    onBackspaceLongPress,
+  }: {
+    onKeyPress: (key: string) => void;
+    onBackspaceLongPress: () => void;
+  }) => (
+    <div>
+      {['0', '2', '6', '.', 'backspace'].map((key) => (
+        <button
+          type="button"
+          key={key}
+          aria-label={key}
+          data-testid={`keypad-${key}`}
+          onClick={() => onKeyPress(key)}
+        />
+      ))}
+      <button
+        type="button"
+        aria-label="Clear keypad"
+        data-testid="keypad-clear"
+        onClick={onBackspaceLongPress}
+      />
+    </div>
+  ),
+}));
 
 jest.mock('./TradingViewSettingsPrimitives', () => {
   const Row = ({ children, label }: IMockProps & { label?: string }) => (
@@ -166,6 +239,72 @@ describe('TradingViewIndicatorLineRow', () => {
       [line.id, line.period + 1],
       [line.id, line.period],
     ]);
+  });
+
+  it('edits and normalizes a rotated fullscreen period without a system input', () => {
+    const line = getFirstLine();
+    const handlePeriodChange = jest.fn();
+    const { container } = render(
+      <TradingViewNativePresentationRotationContext.Provider value>
+        <TradingViewIndicatorLineRow
+          line={line}
+          onToggleLine={jest.fn()}
+          onPeriodChange={handlePeriodChange}
+          onStyleChange={jest.fn()}
+          onSecondaryStyleChange={jest.fn()}
+          onColorChange={jest.fn()}
+        />
+      </TradingViewNativePresentationRotationContext.Provider>,
+    );
+
+    expect(container.querySelector('input')).toBeNull();
+    fireEvent.click(screen.getByTestId('trading-view-indicator-number-input'));
+    for (const key of ['2', '.', '6']) {
+      fireEvent.click(screen.getByTestId(`keypad-${key}`));
+    }
+    expect(
+      screen.getByTestId('trading-view-indicator-keypad-value').textContent,
+    ).toBe('2.6');
+    expect(handlePeriodChange).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByTestId('trading-view-indicator-keypad-confirm'),
+    );
+    expect(handlePeriodChange).toHaveBeenCalledWith(line.id, 3);
+    expect(
+      screen.queryByTestId('trading-view-indicator-keypad-value'),
+    ).toBeNull();
+  });
+
+  it('discards a dismissed keypad draft and keeps an empty draft valid', () => {
+    const line = getFirstLine();
+    const handlePeriodChange = jest.fn();
+    render(
+      <TradingViewNativePresentationRotationContext.Provider value>
+        <TradingViewIndicatorLineRow
+          line={line}
+          onToggleLine={jest.fn()}
+          onPeriodChange={handlePeriodChange}
+          onStyleChange={jest.fn()}
+          onSecondaryStyleChange={jest.fn()}
+          onColorChange={jest.fn()}
+        />
+      </TradingViewNativePresentationRotationContext.Provider>,
+    );
+
+    const trigger = screen.getByTestId('trading-view-indicator-number-input');
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByTestId('keypad-6'));
+    fireEvent.click(screen.getByTestId('keypad-close'));
+    expect(handlePeriodChange).not.toHaveBeenCalled();
+    fireEvent.click(trigger);
+    expect(
+      screen.getByTestId('trading-view-indicator-keypad-value').textContent,
+    ).toBe(String(line.period));
+    fireEvent.click(screen.getByTestId('keypad-clear'));
+    fireEvent.click(
+      screen.getByTestId('trading-view-indicator-keypad-confirm'),
+    );
+    expect(handlePeriodChange).not.toHaveBeenCalled();
   });
 });
 

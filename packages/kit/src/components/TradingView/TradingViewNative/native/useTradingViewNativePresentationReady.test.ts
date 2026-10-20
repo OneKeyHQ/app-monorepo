@@ -19,6 +19,47 @@ function createCanvas() {
 }
 
 describe('native chart presentation readiness', () => {
+  it('does not capture or redraw an idle chart after resizing', () => {
+    const { canvas, redraw, makeImageSnapshotAsync } = createCanvas();
+    const { result } = renderHook(() =>
+      useTradingViewNativePresentationReady({ current: canvas }),
+    );
+    act(() => {
+      result.current({ width: 390, height: 320 });
+      result.current({ width: 390, height: 240 });
+    });
+    expect(makeImageSnapshotAsync).not.toHaveBeenCalled();
+    expect(redraw).not.toHaveBeenCalled();
+  });
+
+  it('cancels queued and in-flight readiness work when the transition finishes', async () => {
+    const { canvas, redraw, makeImageSnapshotAsync } = createCanvas();
+    let complete: (image: SkImage) => void = () => undefined;
+    makeImageSnapshotAsync.mockReturnValue(
+      new Promise((resolve) => {
+        complete = resolve;
+      }),
+    );
+    const ref = { current: canvas };
+    const onReady = jest.fn();
+    const initialProps: { callback?: typeof onReady } = { callback: onReady };
+    const { result, rerender } = renderHook(
+      ({ callback }: { callback?: typeof onReady }) =>
+        useTradingViewNativePresentationReady(ref, callback),
+      { initialProps },
+    );
+    const queuedCallback = result.current;
+    act(() => queuedCallback({ width: 780, height: 320 }));
+    rerender({ callback: undefined });
+    act(() => queuedCallback({ width: 780, height: 240 }));
+    const dispose = jest.fn();
+    await act(async () => complete({ dispose } as unknown as SkImage));
+    expect(makeImageSnapshotAsync).toHaveBeenCalledTimes(1);
+    expect(dispose).toHaveBeenCalledTimes(1);
+    expect(redraw).not.toHaveBeenCalled();
+    expect(onReady).not.toHaveBeenCalled();
+  });
+
   it('waits for a rendered image and tolerates a new handle for the same native canvas', async () => {
     const { canvas, redraw, makeImageSnapshotAsync } = createCanvas();
     let complete: (image: SkImage) => void = () => undefined;

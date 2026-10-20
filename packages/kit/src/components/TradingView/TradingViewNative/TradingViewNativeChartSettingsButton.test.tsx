@@ -6,6 +6,10 @@ import type { ReactElement } from 'react';
 
 import { render } from '@testing-library/react';
 
+import type { Dialog } from '@onekeyhq/components';
+
+import { TradingViewChartDialogContext } from '../TradingViewChartControls/TradingViewChartDialogContext';
+
 import {
   TradingViewNativeChartSettingsButton,
   getTradingViewNativeChartSettingsButtonRight,
@@ -86,6 +90,28 @@ describe('TradingViewNativeChartSettingsButton', () => {
 
   it('uses the native price-axis fallback before measurement', () => {
     expect(getTradingViewNativeChartSettingsButtonRight(0)).toBe(14);
+  });
+
+  it('opens quick settings through the fullscreen drawer presentation', () => {
+    const showDrawer = jest.fn<
+      ReturnType<typeof Dialog.show>,
+      Parameters<typeof Dialog.show>
+    >();
+    render(
+      <TradingViewChartDialogContext.Provider value={showDrawer}>
+        <TradingViewNativeChartSettingsButton priceAxisWidth={52} />
+      </TradingViewChartDialogContext.Provider>,
+    );
+    const { onPress } = mockIconButton.mock.calls[0][0] as {
+      onPress: () => void;
+    };
+    onPress();
+    expect(showDrawer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        testID: 'trading-view-native-chart-settings-quick-dialog',
+      }),
+    );
+    expect(mockDialogShow).not.toHaveBeenCalled();
   });
 
   it.each(['chart', 'toolbar'] as const)(

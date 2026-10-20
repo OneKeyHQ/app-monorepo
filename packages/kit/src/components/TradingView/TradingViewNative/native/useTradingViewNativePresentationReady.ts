@@ -12,6 +12,11 @@ export function useTradingViewNativePresentationReady(
 ) {
   const mounted = useRef(true);
   const requestId = useRef(0);
+  const readyCallback = useRef(onReady);
+  useLayoutEffect(() => {
+    readyCallback.current = onReady;
+    requestId.current += 1;
+  }, [onReady]);
   useLayoutEffect(() => {
     mounted.current = true;
     return () => {
@@ -23,7 +28,8 @@ export function useTradingViewNativePresentationReady(
   return useCallback(
     (size: ITradingViewNativeChartSize) => {
       const canvas = canvasRef.current;
-      if (!canvas || !onReady) return;
+      const callback = readyCallback.current;
+      if (!mounted.current || !canvas || !callback) return;
       requestId.current += 1;
       const request = requestId.current;
       // Layout alone does not mean the native canvas surface has drawn yet.
@@ -38,11 +44,11 @@ export function useTradingViewNativePresentationReady(
             canvasRef.current?.getNativeId() === canvas.getNativeId()
           ) {
             canvas.redraw();
-            onReady(size);
+            callback(size);
           }
         })
         .catch(noop);
     },
-    [canvasRef, onReady],
+    [canvasRef],
   );
 }

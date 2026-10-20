@@ -18,6 +18,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { Dialog } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalMarketRoutes } from '@onekeyhq/kit/src/views/Market/router/types';
 import {
@@ -41,6 +42,7 @@ import {
   TradingViewIndicatorQuickBar,
 } from '../TradingViewChartControls/indicatorSelector/NativeIndicatorQuickBar';
 import { resolveTradingViewNativeIndicatorQuickBarState } from '../TradingViewChartControls/indicatorSelector/nativeIndicatorQuickBarState';
+import { TradingViewChartDialogContext } from '../TradingViewChartControls/TradingViewChartDialogContext';
 import { TradingViewChartLoadingMask } from '../TradingViewChartLoadingMask';
 
 import {
@@ -776,7 +778,21 @@ const TradingViewNativeContent = memo(
       storageNamespace,
     ]);
     const handleIndicatorSettingsPress = useCallback(
-      (indicator?: ITradingViewNativeAnyIndicator) => {
+      (
+        indicator?: ITradingViewNativeAnyIndicator,
+        showDialog?: typeof Dialog.show,
+      ) => {
+        if (showDialog) {
+          showTradingViewNativeIndicatorSettingsDialog({
+            showDialog,
+            displayMode: indicator ? 'focused' : 'full',
+            initialIndicatorId: indicator,
+            intl,
+            onConfirm: (nextValue) => setIndicatorSettings(nextValue),
+            value: indicatorSettingsValue,
+          });
+          return;
+        }
         if (nativeControlsLayoutMode !== 'desktop') {
           pendingIndicatorSettingsRef.current = undefined;
           if (isNativeChartFullscreen) {
@@ -906,19 +922,25 @@ const TradingViewNativeContent = memo(
             canToggleIndicatorOn={canToggleIndicatorOn}
             onIndicatorPress={handleQuickBarIndicatorPress}
             settingsControl={
-              <IconButton
-                testID="trading-view-native-indicator-settings-trigger"
-                size="small"
-                variant="tertiary"
-                icon="ChartTrending2Outline"
-                iconSize="$5"
-                width="$10"
-                height={TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT}
-                accessibilityLabel={intl.formatMessage({
-                  id: ETranslations.market_indicators,
-                })}
-                onPress={() => handleIndicatorSettingsPress()}
-              />
+              <TradingViewChartDialogContext.Consumer>
+                {(showDialog) => (
+                  <IconButton
+                    testID="trading-view-native-indicator-settings-trigger"
+                    size="small"
+                    variant="tertiary"
+                    icon="ChartTrending2Outline"
+                    iconSize="$5"
+                    width="$10"
+                    height={TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT}
+                    accessibilityLabel={intl.formatMessage({
+                      id: ETranslations.market_indicators,
+                    })}
+                    onPress={() =>
+                      handleIndicatorSettingsPress(undefined, showDialog)
+                    }
+                  />
+                )}
+              </TradingViewChartDialogContext.Consumer>
             }
           />
         ) : null,

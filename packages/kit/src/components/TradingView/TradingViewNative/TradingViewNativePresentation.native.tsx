@@ -1,8 +1,10 @@
 import {
   memo,
+  useCallback,
   useId,
   useLayoutEffect,
   useMemo,
+  useRef,
   useSyncExternalStore,
 } from 'react';
 import type { ReactNode } from 'react';
@@ -16,12 +18,77 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
-import { OverlayContainer, Stack } from '@onekeyhq/components';
+import {
+  Dialog,
+  NativePopoverPresentationContext,
+  OverlayContainer,
+  Portal,
+  Stack,
+} from '@onekeyhq/components';
+import type { EPortalContainerConstantName } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { TradingViewChartDialogContext } from '../TradingViewChartControls/TradingViewChartDialogContext';
 
 import { TradingViewNativePresentationRotationContext } from './native/TradingViewNativePresentationContext';
 
 import type { ITradingViewNativePresentationProps } from './TradingViewNativePresentation';
+
+function FullscreenDialogs({
+  children,
+  width,
+  height,
+}: {
+  children: ReactNode;
+  width: number;
+  height: number;
+}) {
+  const id = useId();
+  const portalName =
+    `trading-view-native-fullscreen-dialog-${id}` as EPortalContainerConstantName;
+  const panelWidth = Math.min(width, 480, Math.max(320, width / 2));
+  const presentation = useMemo(
+    () => ({
+      portalContainer: portalName,
+      nativeDrawer: { width: panelWidth, height },
+    }),
+    [height, panelWidth, portalName],
+  );
+  const dialogs = useRef(new Set<ReturnType<typeof Dialog.show>>());
+  const showDialog = useCallback<typeof Dialog.show>(
+    (props) => {
+      const instance = Dialog.show({
+        ...props,
+        ...presentation,
+        nativeSheet: false,
+        isOverTopAllViews: false,
+        onClose: async (extra) => {
+          dialogs.current.delete(instance);
+          await props.onClose?.(extra);
+        },
+      });
+      dialogs.current.add(instance);
+      return instance;
+    },
+    [presentation],
+  );
+  useLayoutEffect(() => {
+    const instances = dialogs.current;
+    return () => {
+      // Imperative dialogs must not retain dimensions from an old viewport.
+      instances.forEach((instance) => void instance.close());
+      instances.clear();
+    };
+  }, [height, width]);
+
+  return (
+    <TradingViewChartDialogContext.Provider value={showDialog}>
+      <NativePopoverPresentationContext.Provider value={presentation}>
+        <Portal.Container name={portalName}>{children}</Portal.Container>
+      </NativePopoverPresentationContext.Provider>
+    </TradingViewChartDialogContext.Provider>
+  );
+}
 
 const FullscreenChart = memo(
   ({ children }: Pick<ITradingViewNativePresentationProps, 'children'>) => {
@@ -61,24 +128,28 @@ const FullscreenChart = memo(
           >
             <GestureHandlerRootView style={{ flex: 1 }}>
               <SafeAreaInsetsContext.Provider value={chartInsets}>
-                <Stack
-                  flex={1}
-                  paddingTop={chartInsets.top}
-                  paddingBottom={chartInsets.bottom}
-                  paddingLeft={chartInsets.left}
-                  paddingRight={chartInsets.right}
-                >
-                  <TradingViewNativePresentationRotationContext.Provider value>
-                    {children}
-                  </TradingViewNativePresentationRotationContext.Provider>
-                </Stack>
+                <TradingViewNativePresentationRotationContext.Provider value>
+                  <FullscreenDialogs width={height} height={width}>
+                    <Stack
+                      flex={1}
+                      paddingTop={chartInsets.top}
+                      paddingBottom={chartInsets.bottom}
+                      paddingLeft={chartInsets.left}
+                      paddingRight={chartInsets.right}
+                    >
+                      {children}
+                    </Stack>
+                  </FullscreenDialogs>
+                </TradingViewNativePresentationRotationContext.Provider>
               </SafeAreaInsetsContext.Provider>
             </GestureHandlerRootView>
           </Stack>
         ) : (
           <GestureHandlerRootView style={{ flex: 1 }}>
             <SafeAreaProvider style={{ flex: 1 }}>
-              <SafeAreaView style={{ flex: 1 }}>{children}</SafeAreaView>
+              <FullscreenDialogs width={width} height={height}>
+                <SafeAreaView style={{ flex: 1 }}>{children}</SafeAreaView>
+              </FullscreenDialogs>
             </SafeAreaProvider>
           </GestureHandlerRootView>
         )}

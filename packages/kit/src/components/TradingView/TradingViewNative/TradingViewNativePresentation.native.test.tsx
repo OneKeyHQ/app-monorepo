@@ -3,9 +3,19 @@
 import { useContext } from 'react';
 import type { ReactNode } from 'react';
 
-import { act, cleanup, render } from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  within,
+} from '@testing-library/react';
 
+import type { Dialog } from '@onekeyhq/components';
+import { NativePopoverPresentationContext } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { TradingViewChartDialogContext } from '../TradingViewChartControls/TradingViewChartDialogContext';
 
 import { TradingViewNativePresentationRotationContext } from './native/TradingViewNativePresentationContext';
 import {
@@ -15,8 +25,28 @@ import {
 } from './TradingViewNativePresentation.native';
 
 let mockPortalHost: HTMLElement;
+let mockDimensions = { width: 390, height: 844 };
+const mockDialogShow = jest.fn<
+  ReturnType<typeof Dialog.show>,
+  [Parameters<typeof Dialog.show>[0]]
+>(() => ({
+  close: jest.fn(async () => undefined),
+  getForm: () => undefined,
+  isExist: () => true,
+}));
 
 jest.mock('@onekeyhq/components', () => ({
+  NativePopoverPresentationContext: jest
+    .requireActual<typeof import('react')>('react')
+    .createContext(undefined),
+  Dialog: {
+    show: (props: Parameters<typeof Dialog.show>[0]) => mockDialogShow(props),
+  },
+  Portal: {
+    Container: ({ name, children }: { name: string; children: ReactNode }) => (
+      <div data-portal={name}>{children}</div>
+    ),
+  },
   Stack: ({
     children,
     rotate,
@@ -40,7 +70,7 @@ jest.mock('react-native', () => ({
   Image: ({ source }: { source: { uri: string } }) => (
     <img src={source.uri} alt="Transition" />
   ),
-  useWindowDimensions: () => ({ width: 390, height: 844 }),
+  useWindowDimensions: () => mockDimensions,
   StyleSheet: { absoluteFill: {} },
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -67,7 +97,9 @@ jest.mock('react-native-safe-area-context', () => ({
 
 describe('TradingViewNative fullscreen presentation', () => {
   beforeEach(() => {
+    jest.clearAllMocks();
     platformEnv.isNativeIOSPad = false;
+    mockDimensions = { width: 390, height: 844 };
     mockPortalHost = render(<TradingViewNativeFullscreenHost />).container;
   });
 
@@ -162,4 +194,63 @@ describe('TradingViewNative fullscreen presentation', () => {
     act(() => setTradingViewNativeTransitionCover('transition', null));
     expect(mockPortalHost.querySelector('img')).toBeNull();
   });
+
+  it.each(['unmount', 'resize'])(
+    'opens a right drawer in the rotated chart and cleans it up on %s',
+    (cleanupReason) => {
+      function Chart() {
+        const showDialog = useContext(TradingViewChartDialogContext);
+        const popoverPresentation = useContext(
+          NativePopoverPresentationContext,
+        );
+        return (
+          <button
+            type="button"
+            data-popover-portal={popoverPresentation?.portalContainer}
+            onClick={() =>
+              showDialog?.({ title: 'Indicators', showFooter: false })
+            }
+          >
+            Indicators
+          </button>
+        );
+      }
+      const chart = (
+        <TradingViewNativePresentation isFullscreen>
+          <Chart />
+        </TradingViewNativePresentation>
+      );
+      const { unmount, rerender } = render(chart);
+      const button = within(mockPortalHost).getByRole('button');
+      fireEvent.click(button);
+      const props = mockDialogShow.mock.calls[0][0];
+      const portal = mockPortalHost.querySelector(
+        `[data-portal="${props.portalContainer}"]`,
+      );
+      expect(portal?.closest('[data-rotation="90deg"]')).not.toBeNull();
+      expect(button.getAttribute('data-popover-portal')).toBe(
+        props.portalContainer,
+      );
+      expect(props).toEqual(
+        expect.objectContaining({
+          nativeSheet: false,
+          nativeDrawer: { width: 422, height: 390 },
+        }),
+      );
+      const instance = mockDialogShow.mock.results[0].value as ReturnType<
+        typeof Dialog.show
+      >;
+      if (cleanupReason === 'resize') {
+        mockDimensions = { width: 844, height: 390 };
+        rerender(
+          <TradingViewNativePresentation isFullscreen>
+            <Chart />
+          </TradingViewNativePresentation>,
+        );
+      } else {
+        unmount();
+      }
+      expect(instance.close).toHaveBeenCalledTimes(1);
+    },
+  );
 });

@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useContext, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,6 +11,8 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { TradingViewChartDialogContext } from '../TradingViewChartDialogContext';
 
 import { useNativeIntervalSelector } from './hooks/useNativeIntervalSelector';
 import { IntervalsDialogContent } from './NativeIntervalsDialogContent';
@@ -127,6 +129,7 @@ export const TradingViewNativeIntervalSelector = memo(
     onControlInteraction,
   }: ITradingViewNativeIntervalSelectorProps) => {
     const intl = useIntl();
+    const showDialog = useContext(TradingViewChartDialogContext) ?? Dialog.show;
     const horizontalPadding = getIntervalControlHorizontalPadding({
       compactMobileLayout,
       fullWidth,
@@ -179,7 +182,7 @@ export const TradingViewNativeIntervalSelector = memo(
     const showIntervalsDialog = useCallback(() => {
       onControlInteraction?.();
       closeIntervalsDialog();
-      const dialogInstance = Dialog.show({
+      const dialogInstance = showDialog({
         title: intl.formatMessage({ id: ETranslations.market_intervals }),
         showFooter: false,
         testID: 'trading-view-native-intervals-dialog',
@@ -218,6 +221,7 @@ export const TradingViewNativeIntervalSelector = memo(
       preferredIntervalValues,
       maxPreferredIntervalCount,
       setIntervalsDialogInstance,
+      showDialog,
     ]);
 
     if (!shouldRender) {

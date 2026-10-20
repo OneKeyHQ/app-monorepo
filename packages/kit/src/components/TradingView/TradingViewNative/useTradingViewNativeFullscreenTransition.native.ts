@@ -1,4 +1,4 @@
-import { useCallback, useId, useLayoutEffect, useRef } from 'react';
+import { useCallback, useId, useLayoutEffect, useRef, useState } from 'react';
 
 import { AppState } from 'react-native';
 import { captureScreen, releaseCapture } from 'react-native-view-shot';
@@ -27,6 +27,7 @@ export function useTradingViewNativeFullscreenTransition({
   const id = useId();
   const mounted = useRef(true);
   const transition = useRef<ITransition | null>(null);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const callback = useRef(onFullscreenChange);
   useLayoutEffect(() => {
     callback.current = onFullscreenChange;
@@ -35,6 +36,7 @@ export function useTradingViewNativeFullscreenTransition({
   const finish = useCallback(() => {
     const current = transition.current;
     transition.current = null;
+    if (mounted.current) setIsTransitioning(false);
     if (current?.timeout) clearTimeout(current.timeout);
     if (current?.frame !== undefined) cancelAnimationFrame(current.frame);
     setTradingViewNativeTransitionCover(id, null);
@@ -77,6 +79,7 @@ export function useTradingViewNativeFullscreenTransition({
         committed: false,
       };
       transition.current = current;
+      setIsTransitioning(true);
       const start = () => {
         if (transition.current !== current || current.started) return;
         current.started = true;
@@ -140,5 +143,8 @@ export function useTradingViewNativeFullscreenTransition({
     [finish, isFullscreen],
   );
 
-  return { changeFullscreen, onPresentationReady };
+  return {
+    changeFullscreen,
+    onPresentationReady: isTransitioning ? onPresentationReady : undefined,
+  };
 }

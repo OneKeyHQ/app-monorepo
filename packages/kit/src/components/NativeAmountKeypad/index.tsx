@@ -42,20 +42,31 @@ export function applyAmountKeypadKey(prev: string, key: string): string {
 }
 
 type IProps = {
+  compact?: boolean;
+  testID?: string;
   onKeyPress: (key: string) => void;
   onBackspaceLongPress: () => void;
 };
 
-function BasicNativeAmountKeypad({ onKeyPress, onBackspaceLongPress }: IProps) {
+function BasicNativeAmountKeypad({
+  compact = false,
+  testID,
+  onKeyPress,
+  onBackspaceLongPress,
+}: IProps) {
   return (
-    <YStack gap="$2" pb={platformEnv.isNativeAndroid ? '$3' : '$0'}>
+    <YStack
+      gap={compact ? '$1' : '$2'}
+      pb={platformEnv.isNativeAndroid ? '$3' : '$0'}
+    >
       {AMOUNT_KEYPAD_ROWS.map((row) => (
-        <XStack key={row.join('-')} gap="$2">
+        <XStack key={row.join('-')} gap={compact ? '$1' : '$2'}>
           {row.map((item) => (
             <Stack
               key={item}
+              testID={testID ? `${testID}-${item}` : undefined}
               flex={1}
-              h="$14"
+              h={compact ? '$10' : '$14'}
               alignItems="center"
               justifyContent="center"
               borderRadius="$full"
@@ -82,7 +93,11 @@ function BasicNativeAmountKeypad({ onKeyPress, onBackspaceLongPress }: IProps) {
               {item === 'backspace' ? (
                 <Icon name="ChevronLeftOutline" size="$5" color="$text" />
               ) : (
-                <SizableText size="$heading2xl" fontWeight="400" color="$text">
+                <SizableText
+                  size={compact ? '$headingXl' : '$heading2xl'}
+                  fontWeight="400"
+                  color="$text"
+                >
                   {item}
                 </SizableText>
               )}

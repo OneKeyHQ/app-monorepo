@@ -2,6 +2,8 @@
 
 import type { ReactElement } from 'react';
 
+import type { Dialog } from '@onekeyhq/components';
+
 import { showTradingViewNativeIndicatorSettingsDialog } from './showTradingViewNativeIndicatorSettingsDialog';
 
 import type { IIndicatorSettingsIntl } from './indicatorSettingsLocalization';
@@ -39,6 +41,33 @@ jest.mock('../TradingViewChartControls/chartSettings', () => ({
 describe('showTradingViewNativeIndicatorSettingsDialog', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('uses the fullscreen drawer and preserves confirmation before closing', async () => {
+    const close = jest.fn();
+    const showDrawer = jest.fn<
+      ReturnType<typeof Dialog.show>,
+      Parameters<typeof Dialog.show>
+    >(() => ({ close, getForm: () => undefined, isExist: () => true }));
+    const onConfirm = jest.fn();
+    const value: ITradingViewIndicatorSettingsValue = {
+      indicators: [],
+      schemaVersion: 1,
+    };
+    showTradingViewNativeIndicatorSettingsDialog({
+      showDialog: showDrawer,
+      intl: { formatMessage: ({ id }) => id },
+      onConfirm,
+      value,
+    });
+    expect(mockShowDialog).not.toHaveBeenCalled();
+    const content = showDrawer.mock.calls[0][0]
+      .renderContent as ReactElement<ITradingViewIndicatorSettingsProps>;
+    await content.props.onConfirm?.(value);
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(close).not.toHaveBeenCalled();
+    await content.props.onConfirmSuccess?.();
+    expect(close).toHaveBeenCalledTimes(1);
   });
 
   it('moves opening focus to the container and leaves inputs available for manual focus', () => {

@@ -769,3 +769,4 @@ export const Popover = withStaticProperties(BasicPopover, {
 
 export * from './type';
 export { usePopoverContext };
+export { NativePopoverPresentationContext } from './context';
