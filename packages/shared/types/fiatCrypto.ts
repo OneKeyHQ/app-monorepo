@@ -157,3 +157,14 @@ export type IOnramperTransactionStatus = {
   transactionHash?: string;
   walletAddress?: string;
 };
+
+// One entry of the batch lookup's `data[]`: the requested id echoed back with
+// its Onramper transaction, or `transaction: null` when the backend could not
+// resolve it (unknown id, wrong key, upstream error); `failed` is the
+// backend's own flag for that case.
+export type IOnramperTransactionLookupItem = {
+  transactionId: string;
+  source?: string;
+  transaction?: IOnramperTransactionStatus | null;
+  failed?: boolean;
+};

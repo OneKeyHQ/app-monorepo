@@ -6,6 +6,8 @@ import {
 import {
   EHeadlessBuyOrderStatus,
   type IHeadlessBuyOrder,
+  type IOnramperTransactionLookupItem,
+  type IOnramperTransactionStatus,
 } from '@onekeyhq/shared/types/fiatCrypto';
 
 import { SimpleDbEntityHeadlessBuyOrders } from '../dbs/simple/entity/SimpleDbEntityHeadlessBuyOrders';
@@ -88,7 +90,7 @@ function createService(orders: IHeadlessBuyOrder[]) {
     return next;
   });
   const simpleDb = { headlessBuyOrders: entity };
-  const get = jest.fn();
+  const post = jest.fn();
   const backgroundApi: any = {
     simpleDb,
     serviceAccount: {
@@ -102,8 +104,46 @@ function createService(orders: IHeadlessBuyOrder[]) {
     },
   };
   const service = new ServiceFiatCrypto({ backgroundApi });
-  jest.spyOn(service as any, 'getClient').mockResolvedValue({ get });
-  return { service, store, get, simpleDb, backgroundApi };
+  jest.spyOn(service as any, 'getClient').mockResolvedValue({ post });
+  return { service, store, post, simpleDb, backgroundApi };
+}
+
+type ILookupBody = {
+  transactions: { transactionId: string; source: string }[];
+};
+
+function requestedIdsOf(body: ILookupBody): string[] {
+  return body.transactions.map((t) => t.transactionId);
+}
+
+// Ids carried by every request so far, in request order.
+function requestedIds(post: jest.Mock): string[] {
+  return post.mock.calls.flatMap((call) =>
+    requestedIdsOf(call[1] as ILookupBody),
+  );
+}
+
+// The batch endpoint's payload: every requested id echoed back, resolved
+// ids with their transaction, the rest as `transaction: null, failed: true`.
+function lookupResponse(
+  body: ILookupBody,
+  byId: Record<string, Partial<IOnramperTransactionStatus>>,
+): { data: { data: IOnramperTransactionLookupItem[] } } {
+  return {
+    data: {
+      data: body.transactions.map(({ transactionId, source }) => {
+        const tx = byId[transactionId];
+        return tx
+          ? {
+              transactionId,
+              source,
+              transaction: { transactionId, ...tx },
+              failed: false,
+            }
+          : { transactionId, source, transaction: null, failed: true };
+      }),
+    },
+  };
 }
 
 describe('ServiceFiatCrypto headless buy orders', () => {
@@ -301,8 +341,8 @@ describe('ServiceFiatCrypto headless buy orders', () => {
     });
   });
 
-  test('refreshHeadlessBuyOrders looks up each real id, applies statuses and emits refresh events', async () => {
-    const { service, store, get } = createService([
+  test('refreshHeadlessBuyOrders looks up the real ids in one request, applies statuses and emits refresh events', async () => {
+    const { service, store, post } = createService([
       baseOrder({ transactionId: 'a', submittedAt: T0 }),
       baseOrder({ transactionId: 'b', submittedAt: T0 }),
       baseOrder({
@@ -311,30 +351,25 @@ describe('ServiceFiatCrypto headless buy orders', () => {
         status: EHeadlessBuyOrderStatus.Delivered,
       }),
     ]);
-    const byId: Record<string, unknown> = {
-      a: {
-        transactionId: 'a',
-        status: 'completed',
-        outAmount: 0.05,
-        transactionHash: '0xhash',
-      },
-      b: { transactionId: 'b', status: 'pending' },
-    };
-    get.mockImplementation(
-      async (_path: string, config: { params: { transactionId: string } }) => ({
-        data: { data: byId[config.params.transactionId] ?? null },
+    post.mockImplementation(async (_path: string, body: ILookupBody) =>
+      lookupResponse(body, {
+        a: { status: 'completed', outAmount: 0.05, transactionHash: '0xhash' },
+        b: { status: 'pending' },
       }),
     );
     await service.refreshHeadlessBuyOrders({});
-    expect(get).toHaveBeenCalledTimes(2);
-    expect(get).toHaveBeenCalledWith(
-      '/wallet/v1/fiat-pay/onramper-transaction',
-      { params: { transactionId: 'a', source: 'headless' } },
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post.mock.calls[0][0]).toBe(
+      '/wallet/v1/fiat-pay/onramper-transactions',
     );
-    expect(get).toHaveBeenCalledWith(
-      '/wallet/v1/fiat-pay/onramper-transaction',
-      { params: { transactionId: 'b', source: 'headless' } },
-    );
+    expect(
+      (post.mock.calls[0][1] as ILookupBody).transactions.toSorted((x, y) =>
+        x.transactionId.localeCompare(y.transactionId),
+      ),
+    ).toEqual([
+      { transactionId: 'a', source: 'headless' },
+      { transactionId: 'b', source: 'headless' },
+    ]);
     expect(store.get('a')).toMatchObject({
       status: EHeadlessBuyOrderStatus.Delivered,
       outAmount: 0.05,
@@ -356,40 +391,36 @@ describe('ServiceFiatCrypto headless buy orders', () => {
   });
 
   test('refreshHeadlessBuyOrders narrows to the requested ids', async () => {
-    const { service, get } = createService([
+    const { service, post } = createService([
       baseOrder({ transactionId: 'a', submittedAt: T0 }),
       baseOrder({ transactionId: 'b', submittedAt: T0 }),
     ]);
-    get.mockResolvedValue({ data: { data: null } });
+    post.mockImplementation(async (_path: string, body: ILookupBody) =>
+      lookupResponse(body, {}),
+    );
     await service.refreshHeadlessBuyOrders({ transactionIds: ['b'] });
-    expect(get).toHaveBeenCalledTimes(1);
-    expect(get.mock.calls[0][1]).toEqual({
-      params: { transactionId: 'b', source: 'headless' },
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post.mock.calls[0][1]).toEqual({
+      transactions: [{ transactionId: 'b', source: 'headless' }],
     });
   });
 
-  test('refreshHeadlessBuyOrders flags only the orders whose lookup failed or was not found', async () => {
-    const { service, store, get } = createService([
+  test('refreshHeadlessBuyOrders flags only the orders whose entry came back unresolved or missing', async () => {
+    const { service, store, post } = createService([
       baseOrder({ transactionId: 'a', submittedAt: T0 }),
       baseOrder({ transactionId: 'b', submittedAt: T0 }),
       baseOrder({ transactionId: 'c', submittedAt: T0 }),
     ]);
-    get.mockImplementation(
-      async (_path: string, config: { params: { transactionId: string } }) => {
-        const { transactionId } = config.params;
-        if (transactionId === 'a') {
-          throw Object.assign(new Error('Too Many Requests'), {
-            httpStatusCode: 429,
-          });
-        }
-        if (transactionId === 'b') {
-          // Unknown ids come back as a null payload with code 0.
-          return { data: { data: null } };
-        }
-        return { data: { data: { transactionId, status: 'pending' } } };
-      },
-    );
+    post.mockImplementation(async (_path: string, body: ILookupBody) => {
+      const resp = lookupResponse(body, { c: { status: 'pending' } });
+      // The backend could not resolve `a`; `b` is missing from the payload.
+      resp.data.data = resp.data.data.filter(
+        (item) => item.transactionId !== 'b',
+      );
+      return resp;
+    });
     await service.refreshHeadlessBuyOrders({});
+    expect(post).toHaveBeenCalledTimes(1);
     expect(store.get('a')).toMatchObject({
       status: EHeadlessBuyOrderStatus.Processing,
       lastCheckOk: false,
@@ -405,19 +436,40 @@ describe('ServiceFiatCrypto headless buy orders', () => {
       EAppEventBusNames.RefreshTokenList,
       expect.anything(),
     );
+  });
+
+  test('refreshHeadlessBuyOrders fails every id of a rejected request and pauses for a minute after a 429', async () => {
+    const { service, store, post } = createService([
+      baseOrder({ transactionId: 'a', submittedAt: T0 }),
+      baseOrder({ transactionId: 'b', submittedAt: T0 }),
+    ]);
+    post.mockRejectedValue(
+      Object.assign(new Error('Too Many Requests'), { httpStatusCode: 429 }),
+    );
+    await service.refreshHeadlessBuyOrders({});
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(store.get('a')).toMatchObject({
+      status: EHeadlessBuyOrderStatus.Processing,
+      lastCheckOk: false,
+      lastCheckedAt: T0 + 1000,
+    });
+    expect(store.get('b')).toMatchObject({
+      lastCheckOk: false,
+      lastCheckedAt: T0 + 1000,
+    });
 
     // The 429 pauses every lookup on this device for a minute.
-    get.mockClear();
+    post.mockClear();
     (Date.now as jest.Mock).mockReturnValue(T0 + 1000 + 59_000);
-    await service.refreshHeadlessBuyOrders({ transactionIds: ['c'] });
-    expect(get).not.toHaveBeenCalled();
+    await service.refreshHeadlessBuyOrders({ transactionIds: ['a'] });
+    expect(post).not.toHaveBeenCalled();
     (Date.now as jest.Mock).mockReturnValue(T0 + 1000 + 61_000);
-    await service.refreshHeadlessBuyOrders({ transactionIds: ['c'] });
-    expect(get).toHaveBeenCalledTimes(1);
+    await service.refreshHeadlessBuyOrders({ transactionIds: ['a'] });
+    expect(post).toHaveBeenCalledTimes(1);
   });
 
   test('refreshHeadlessBuyOrders honours the recheck intervals, longer after a failure', async () => {
-    const { service, get } = createService([
+    const { service, post } = createService([
       baseOrder({
         transactionId: 'fresh',
         submittedAt: T0,
@@ -443,17 +495,15 @@ describe('ServiceFiatCrypto headless buy orders', () => {
         lastCheckOk: true,
       }),
     ]);
-    get.mockResolvedValue({ data: { data: null } });
-    await service.refreshHeadlessBuyOrders({});
-    const requested = get.mock.calls.map(
-      (call) =>
-        (call[1] as { params: { transactionId: string } }).params.transactionId,
+    post.mockImplementation(async (_path: string, body: ILookupBody) =>
+      lookupResponse(body, {}),
     );
-    expect(requested.toSorted()).toEqual(['failed-old', 'old-check']);
+    await service.refreshHeadlessBuyOrders({});
+    expect(requestedIds(post).toSorted()).toEqual(['failed-old', 'old-check']);
   });
 
   test('refreshHeadlessBuyOrders rechecks hidden and timed-out records rarely, visible orders first', async () => {
-    const { service, get } = createService([
+    const { service, post } = createService([
       // Already checked hidden / timed-out records only get a slot after
       // ten minutes in a general refresh.
       baseOrder({
@@ -473,25 +523,21 @@ describe('ServiceFiatCrypto headless buy orders', () => {
       baseOrder({ transactionId: 'v1', submittedAt: T0 + 1 }),
       baseOrder({ transactionId: 'v2', submittedAt: T0 + 2 }),
     ]);
-    get.mockResolvedValue({ data: { data: null } });
+    post.mockImplementation(async (_path: string, body: ILookupBody) =>
+      lookupResponse(body, {}),
+    );
     await service.refreshHeadlessBuyOrders({});
-    const requested = () =>
-      get.mock.calls.map(
-        (call) =>
-          (call[1] as { params: { transactionId: string } }).params
-            .transactionId,
-      );
-    expect(requested()).toEqual(['v2', 'v1', 'hidden-new']);
+    expect(requestedIds(post)).toEqual(['v2', 'v1', 'hidden-new']);
 
     // An explicit id (the detail page) is exempt from the low-priority
     // interval.
-    get.mockClear();
+    post.mockClear();
     await service.refreshHeadlessBuyOrders({ transactionIds: ['timed-out'] });
-    expect(requested()).toEqual(['timed-out']);
-    get.mockClear();
+    expect(requestedIds(post)).toEqual(['timed-out']);
+    post.mockClear();
     (Date.now as jest.Mock).mockReturnValue(T0 + 1000 + 10 * 60_000);
     await service.refreshHeadlessBuyOrders({});
-    expect(requested().toSorted()).toEqual([
+    expect(requestedIds(post).toSorted()).toEqual([
       'hidden-checked',
       'hidden-new',
       'timed-out',
@@ -500,87 +546,142 @@ describe('ServiceFiatCrypto headless buy orders', () => {
     ]);
   });
 
-  test('refreshHeadlessBuyOrders spends at most six lookups per minute on a general refresh and keeps two for explicit ids', async () => {
-    const { service, get } = createService(
-      Array.from({ length: 10 }, (_, i) =>
+  test('refreshHeadlessBuyOrders sends at most twenty ids per request, newest first, and no more requests than the budget allows', async () => {
+    const { service, post } = createService(
+      Array.from({ length: 25 }, (_, i) =>
         baseOrder({ transactionId: `v${i + 1}`, submittedAt: T0 + i + 1 }),
       ),
     );
-    get.mockImplementation(
-      async (_path: string, config: { params: { transactionId: string } }) => ({
-        data: {
-          data: {
-            transactionId: config.params.transactionId,
-            status: 'pending',
-          },
-        },
-      }),
+    post.mockImplementation(async (_path: string, body: ILookupBody) =>
+      lookupResponse(
+        body,
+        Object.fromEntries(
+          body.transactions.map((t) => [
+            t.transactionId,
+            { status: 'pending' },
+          ]),
+        ),
+      ),
     );
-    const requested = () =>
-      get.mock.calls.map(
-        (call) =>
-          (call[1] as { params: { transactionId: string } }).params
-            .transactionId,
-      );
-    // One page entry refreshes six orders, newest first.
+    const newestFirst = Array.from({ length: 25 }, (_, i) => `v${25 - i}`);
+    // One page entry refreshes all 25 orders in two requests.
     await service.refreshHeadlessBuyOrders({});
-    expect(requested()).toEqual(['v10', 'v9', 'v8', 'v7', 'v6', 'v5']);
-    // Inside the same minute a general refresh gets nothing more, not even
-    // for the orders that were left out...
-    get.mockClear();
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(requestedIds(post)).toEqual(newestFirst);
+    expect(
+      (post.mock.calls[0][1] as ILookupBody).transactions.map(
+        (t) => t.transactionId,
+      ),
+    ).toEqual(newestFirst.slice(0, 20));
+    expect(
+      (post.mock.calls[1][1] as ILookupBody).transactions.map(
+        (t) => t.transactionId,
+      ),
+    ).toEqual(newestFirst.slice(20));
+
+    // Three detail-page polls bring the minute's request count to five:
+    // one slot is left for a general refresh, so only twenty ids go out.
+    post.mockClear();
     (Date.now as jest.Mock).mockReturnValue(T0 + 1000 + 15_000);
-    await service.refreshHeadlessBuyOrders({});
-    expect(requested()).toEqual([]);
-    // ...while the detail page's poll still has the two reserved slots.
-    await service.refreshHeadlessBuyOrders({ transactionIds: ['v4'] });
-    await service.refreshHeadlessBuyOrders({ transactionIds: ['v3'] });
+    await service.refreshHeadlessBuyOrders({ transactionIds: ['v1'] });
     await service.refreshHeadlessBuyOrders({ transactionIds: ['v2'] });
-    expect(requested()).toEqual(['v4', 'v3']);
-    // The whole budget is spent now: a general refresh must not go negative
-    // and leak lookups.
-    get.mockClear();
+    await service.refreshHeadlessBuyOrders({ transactionIds: ['v3'] });
+    expect(requestedIds(post)).toEqual(['v1', 'v2', 'v3']);
+    post.mockClear();
     await service.refreshHeadlessBuyOrders({});
-    expect(requested()).toEqual([]);
-    // Once the window has cleared: the never-checked orders go first, then
-    // the least recently checked.
-    get.mockClear();
-    (Date.now as jest.Mock).mockReturnValue(T0 + 1000 + 80_000);
-    await service.refreshHeadlessBuyOrders({});
-    expect(requested()).toEqual(['v2', 'v1', 'v10', 'v9', 'v8', 'v7']);
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(requestedIds(post)).toEqual(newestFirst.slice(0, 20));
   });
 
-  test('refreshHeadlessBuyOrders shares one in-flight request per id', async () => {
-    const { service, get } = createService([
+  test('refreshHeadlessBuyOrders spends at most six requests per minute on a general refresh and keeps two for explicit ids', async () => {
+    const { service, post } = createService(
+      Array.from({ length: 4 }, (_, i) =>
+        baseOrder({ transactionId: `v${i + 1}`, submittedAt: T0 + i + 1 }),
+      ),
+    );
+    post.mockImplementation(async (_path: string, body: ILookupBody) =>
+      lookupResponse(
+        body,
+        Object.fromEntries(
+          body.transactions.map((t) => [
+            t.transactionId,
+            { status: 'pending' },
+          ]),
+        ),
+      ),
+    );
+    // Six page entries ten seconds apart: one request each.
+    for (let i = 0; i < 6; i += 1) {
+      (Date.now as jest.Mock).mockReturnValue(T0 + 1000 + i * 10_000);
+      await service.refreshHeadlessBuyOrders({});
+    }
+    expect(post).toHaveBeenCalledTimes(6);
+    // Inside the same minute a general refresh gets nothing more...
+    post.mockClear();
+    (Date.now as jest.Mock).mockReturnValue(T0 + 1000 + 55_000);
+    await service.refreshHeadlessBuyOrders({});
+    expect(post).not.toHaveBeenCalled();
+    // ...while the detail page's poll still has the two reserved slots
+    // (the first entry has left the window by now, freeing a third).
+    (Date.now as jest.Mock).mockReturnValue(T0 + 1000 + 61_000);
+    await service.refreshHeadlessBuyOrders({ transactionIds: ['v1'] });
+    await service.refreshHeadlessBuyOrders({ transactionIds: ['v2'] });
+    await service.refreshHeadlessBuyOrders({ transactionIds: ['v3'] });
+    await service.refreshHeadlessBuyOrders({ transactionIds: ['v4'] });
+    expect(requestedIds(post)).toEqual(['v1', 'v2', 'v3']);
+    // The whole budget is spent now: a general refresh must not go negative
+    // and leak requests.
+    post.mockClear();
+    await service.refreshHeadlessBuyOrders({});
+    expect(post).not.toHaveBeenCalled();
+    // Once the window has cleared the page entry gets its request again.
+    (Date.now as jest.Mock).mockReturnValue(T0 + 1000 + 125_000);
+    await service.refreshHeadlessBuyOrders({});
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(requestedIds(post)).toEqual(['v4', 'v3', 'v2', 'v1']);
+  });
+
+  test('refreshHeadlessBuyOrders shares one in-flight request per id and only sends the new ids', async () => {
+    const { service, store, post } = createService([
       baseOrder({ transactionId: 'a', submittedAt: T0 }),
+      baseOrder({ transactionId: 'b', submittedAt: T0 }),
     ]);
-    let release: (value: unknown) => void = () => undefined;
-    get.mockImplementation(
-      () =>
+    const release: ((value: unknown) => void)[] = [];
+    const bodies: ILookupBody[] = [];
+    post.mockImplementation(
+      (_path: string, body: ILookupBody) =>
         new Promise((resolve) => {
-          release = resolve;
+          bodies.push(body);
+          release.push(resolve);
         }),
     );
     const first = service.refreshHeadlessBuyOrders({ transactionIds: ['a'] });
+    await flushPromises();
+    // `a` is still in flight: the general round joins it and asks for `b`.
     const second = service.refreshHeadlessBuyOrders({});
-    await new Promise((resolve) => {
-      setTimeout(resolve, 0);
-    });
-    expect(get).toHaveBeenCalledTimes(1);
-    release({ data: { data: { transactionId: 'a', status: 'pending' } } });
+    await flushPromises();
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(bodies.map((body) => requestedIdsOf(body))).toEqual([['a'], ['b']]);
+    release[0](lookupResponse(bodies[0], { a: { status: 'pending' } }));
+    release[1](lookupResponse(bodies[1], { b: { status: 'completed' } }));
     await Promise.all([first, second]);
-    expect(get).toHaveBeenCalledTimes(1);
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(store.get('a')).toMatchObject({ rawStatus: 'pending' });
+    expect(store.get('b')).toMatchObject({
+      status: EHeadlessBuyOrderStatus.Delivered,
+    });
   });
 
   test('refreshHeadlessBuyOrders merges a status into a record the checkout updated meanwhile', async () => {
-    const { service, store, get } = createService([baseOrder()]);
-    get.mockImplementation(async () => {
+    const { service, store, post } = createService([baseOrder()]);
+    post.mockImplementation(async (_path: string, body: ILookupBody) => {
       // `completed` + `paymentAuthorized` land while the lookup is in flight.
       store.set('01M3', {
         ...baseOrder(),
         submittedAt: T0 + 900,
         paymentSeen: true,
       });
-      return { data: { data: { transactionId: '01M3', status: 'new' } } };
+      return lookupResponse(body, { '01M3': { status: 'new' } });
     });
     await service.refreshHeadlessBuyOrders({});
     expect(store.get('01M3')).toMatchObject({
@@ -592,18 +693,18 @@ describe('ServiceFiatCrypto headless buy orders', () => {
   });
 
   test('refreshHeadlessBuyOrders never looks up Simulator or fallback ids', async () => {
-    const { service, store, get } = createService([
+    const { service, store, post } = createService([
       baseOrder({ transactionId: 'mock-1', submittedAt: T0 }),
       baseOrder({ transactionId: 'local-1', submittedAt: T0 }),
       baseOrder({ transactionId: 'a', submittedAt: T0 }),
     ]);
-    get.mockResolvedValue({
-      data: { data: { transactionId: 'a', status: 'pending' } },
-    });
+    post.mockImplementation(async (_path: string, body: ILookupBody) =>
+      lookupResponse(body, { a: { status: 'pending' } }),
+    );
     await service.refreshHeadlessBuyOrders({});
-    expect(get).toHaveBeenCalledTimes(1);
-    expect(get.mock.calls[0][1]).toEqual({
-      params: { transactionId: 'a', source: 'headless' },
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post.mock.calls[0][1]).toEqual({
+      transactions: [{ transactionId: 'a', source: 'headless' }],
     });
     expect(store.get('mock-1')?.lastCheckedAt).toBeUndefined();
     expect(store.get('local-1')?.lastCheckedAt).toBeUndefined();

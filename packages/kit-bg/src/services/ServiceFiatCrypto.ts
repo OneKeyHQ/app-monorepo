@@ -1,4 +1,4 @@
-import { uniq } from 'lodash';
+import { chunk, uniq } from 'lodash';
 
 import {
   backgroundClass,
@@ -28,17 +28,22 @@ import {
   type IGetTokensListParams,
   type IHeadlessBuyOrder,
   type IOnramperSessionResponse,
+  type IOnramperTransactionLookupItem,
   type IOnramperTransactionStatus,
 } from '@onekeyhq/shared/types/fiatCrypto';
 
 import ServiceBase from './ServiceBase';
 
-// Wallet-side Onramper transaction lookup (OK-64602): one transaction per
-// GET, no auth, rate limited per IP at the edge (10/min). `source` selects the
-// Onramper key that created the transaction; native buy always uses the
-// headless key. Unknown ids come back as `data: null` with code 0.
-const ONRAMPER_TRANSACTION_PATH = '/wallet/v1/fiat-pay/onramper-transaction';
+// Wallet-side Onramper transaction lookup (OK-64602): one POST looks up to
+// LOOKUP_MAX_IDS_PER_REQUEST ids (the backend fans out to Onramper per id),
+// no auth, rate limited per IP at the edge (10 requests/min). Each entry's
+// `source` selects the Onramper key that created the transaction; native buy
+// always uses the headless key. An id the backend could not resolve (unknown
+// id, wrong key, upstream error) comes back with `transaction: null`.
+const ONRAMPER_TRANSACTIONS_PATH = '/wallet/v1/fiat-pay/onramper-transactions';
 const ONRAMPER_TRANSACTION_SOURCE = 'headless';
+// Backend cap per request; more ids are rejected with code 10422.
+const LOOKUP_MAX_IDS_PER_REQUEST = 20;
 // A successful lookup is reused for this long so a Buy page -> list -> detail
 // walk does not spend the per-IP rate limit on duplicate requests.
 const MIN_RECHECK_INTERVAL_MS = 10_000;
@@ -50,10 +55,10 @@ const FAILED_RECHECK_INTERVAL_MS = 60_000;
 // late completion: a general refresh rechecks them this rarely so they never
 // crowd out the visible orders. Explicit ids (the detail page) are exempt.
 const LOW_PRIORITY_RECHECK_INTERVAL_MS = 10 * 60_000;
-// Device-wide lookup budget per rolling minute, under the 10/min/IP edge
-// limit. One page entry can refresh every order up to this count; beyond it
-// the least recently checked orders go first and the rest get their turn on
-// the next entry.
+// Device-wide request budget per rolling minute, under the 10/min/IP edge
+// limit. One page entry can refresh up to LOOKUP_MAX_IDS_PER_REQUEST orders
+// per request; beyond that the least recently checked orders go first and
+// the rest get their turn on the next request or the next entry.
 const LOOKUP_BUDGET_PER_MINUTE = 8;
 const LOOKUP_BUDGET_WINDOW_MS = 60_000;
 // A general refresh leaves this many of those slots to explicit-id requests
@@ -73,6 +78,16 @@ function isSyntheticTransactionId(transactionId: string): boolean {
     transactionId.startsWith(MOCK_TRANSACTION_ID_PREFIX) ||
     transactionId.startsWith(LOCAL_TRANSACTION_ID_PREFIX)
   );
+}
+
+// Why an entry of a successful request carries no transaction.
+function describeUnresolvedLookup(
+  item: IOnramperTransactionLookupItem | undefined,
+): string {
+  if (!item) {
+    return 'missing from response';
+  }
+  return item.failed ? 'backend lookup failed' : 'not found';
 }
 
 function sortOrdersNewestFirst(
@@ -356,13 +371,13 @@ class ServiceFiatCrypto extends ServiceBase {
   // first poll can ask for the same id in the same tick.
   private pendingOnramperLookups = new Map<
     string,
-    Promise<IOnramperTransactionStatus | undefined>
+    Promise<IOnramperTransactionLookupItem | undefined>
   >();
 
   // Set after a 429: no lookup is attempted on this device until then.
   private onramperLookupsPausedUntil = 0;
 
-  // Start times of the lookups issued in the last budget window.
+  // Start times of the lookup requests issued in the last budget window.
   private onramperLookupTimes: number[] = [];
 
   // Ids whose Apple Pay sheet was authorized before their record landed: the
@@ -670,30 +685,32 @@ class ServiceFiatCrypto extends ServiceBase {
     const budget = transactionIds
       ? LOOKUP_BUDGET_PER_MINUTE
       : LOOKUP_BUDGET_PER_MINUTE - EXPLICIT_LOOKUP_RESERVED_SLOTS;
-    const limit = budget - this.onramperLookupTimes.length;
-    if (limit <= 0) {
+    const remainingRequests = budget - this.onramperLookupTimes.length;
+    if (remainingRequests <= 0) {
       return orders;
     }
     const targets = selectLookupTargets({
       orders,
       wanted: transactionIds ? new Set(transactionIds) : undefined,
       now,
-      limit,
+      limit: remainingRequests * LOOKUP_MAX_IDS_PER_REQUEST,
     });
     if (targets.length === 0) {
       return orders;
     }
-    // The endpoint has no batch form: one request per id, and a failure only
-    // affects its own order.
-    const results = await Promise.allSettled(
-      targets.map((o) => this.lookupOnramperTransaction(o.transactionId)),
+    // One request per LOOKUP_MAX_IDS_PER_REQUEST ids: a rejected request
+    // fails every id it carried, an unresolved entry only its own order.
+    const results = await this.lookupOnramperTransactions(
+      targets.map((o) => o.transactionId),
     );
     const statuses: Record<string, IOnramperTransactionStatus | null> = {};
     let rateLimited = false;
     results.forEach((result, index) => {
       const { transactionId } = targets[index];
-      if (result.status === 'fulfilled' && result.value) {
-        statuses[transactionId] = result.value;
+      const item = result.status === 'fulfilled' ? result.value : undefined;
+      const tx = item?.transaction;
+      if (tx && typeof tx.transactionId === 'string') {
+        statuses[transactionId] = tx;
         return;
       }
       statuses[transactionId] = null;
@@ -716,7 +733,7 @@ class ServiceFiatCrypto extends ServiceBase {
         transactionId,
         code: err?.code,
         status,
-        errorMessage: err ? err.message : 'not found',
+        errorMessage: err ? err.message : describeUnresolvedLookup(item),
       });
     });
     if (rateLimited) {
@@ -762,35 +779,58 @@ class ServiceFiatCrypto extends ServiceBase {
     return this.getHeadlessBuyOrders();
   }
 
-  // Shares one in-flight request per transaction id between overlapping
-  // rounds.
-  private lookupOnramperTransaction(
-    transactionId: string,
-  ): Promise<IOnramperTransactionStatus | undefined> {
-    const pending = this.pendingOnramperLookups.get(transactionId);
-    if (pending) {
-      return pending;
-    }
-    this.onramperLookupTimes.push(Date.now());
-    const lookup = this.fetchOnramperTransactionStatus(transactionId).finally(
-      () => {
-        this.pendingOnramperLookups.delete(transactionId);
-      },
+  // Shares one in-flight lookup per transaction id between overlapping
+  // rounds: ids already on their way join that request, the rest go out in
+  // one new request per LOOKUP_MAX_IDS_PER_REQUEST ids. Results come back in
+  // the order of `transactionIds`.
+  private lookupOnramperTransactions(
+    transactionIds: string[],
+  ): Promise<
+    PromiseSettledResult<IOnramperTransactionLookupItem | undefined>[]
+  > {
+    const fresh = transactionIds.filter(
+      (id) => !this.pendingOnramperLookups.has(id),
     );
-    this.pendingOnramperLookups.set(transactionId, lookup);
-    return lookup;
+    for (const ids of chunk(fresh, LOOKUP_MAX_IDS_PER_REQUEST)) {
+      this.onramperLookupTimes.push(Date.now());
+      const request = this.fetchOnramperTransactions(ids);
+      for (const id of ids) {
+        const lookup = request
+          .then((items) => items.get(id))
+          .finally(() => {
+            this.pendingOnramperLookups.delete(id);
+          });
+        this.pendingOnramperLookups.set(id, lookup);
+      }
+    }
+    return Promise.allSettled(
+      transactionIds.map(
+        (id) =>
+          this.pendingOnramperLookups.get(id) ?? Promise.resolve(undefined),
+      ),
+    );
   }
 
-  private async fetchOnramperTransactionStatus(
-    transactionId: string,
-  ): Promise<IOnramperTransactionStatus | undefined> {
+  private async fetchOnramperTransactions(
+    transactionIds: string[],
+  ): Promise<Map<string, IOnramperTransactionLookupItem>> {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const resp = await client.get<{ data: IOnramperTransactionStatus | null }>(
-      ONRAMPER_TRANSACTION_PATH,
-      { params: { transactionId, source: ONRAMPER_TRANSACTION_SOURCE } },
-    );
-    const data = resp.data?.data;
-    return data && typeof data.transactionId === 'string' ? data : undefined;
+    const resp = await client.post<{
+      data: IOnramperTransactionLookupItem[] | null;
+    }>(ONRAMPER_TRANSACTIONS_PATH, {
+      transactions: transactionIds.map((transactionId) => ({
+        transactionId,
+        source: ONRAMPER_TRANSACTION_SOURCE,
+      })),
+    });
+    const items = new Map<string, IOnramperTransactionLookupItem>();
+    const entries = resp.data?.data;
+    for (const item of Array.isArray(entries) ? entries : []) {
+      if (item && typeof item.transactionId === 'string') {
+        items.set(item.transactionId, item);
+      }
+    }
+    return items;
   }
 }
 
