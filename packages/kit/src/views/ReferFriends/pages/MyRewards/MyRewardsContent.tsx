@@ -7,7 +7,9 @@ import { useIntl } from 'react-intl';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Dialog,
+  Divider,
   Icon,
+  Illustration,
   NATIVE_HIT_SLOP,
   SizableText,
   Skeleton,
@@ -39,21 +41,29 @@ import { InviteeRewardNoWallet } from '../../components/InviteeRewardNoWallet';
 import { ReferralCardEmpty } from '../../components/ReferralCardEmpty';
 import { BenefitsTabPlaceholder } from '../InviteReward/components/BenefitsTabPlaceholder';
 import { INVITE_REWARD_SUBJECT_ICON } from '../InviteReward/components/getInviteRewardRows';
+import { InviteStatCell } from '../InviteReward/components/InviteStatCell';
 import { REFERRAL_USD_SOURCE_PROPS } from '../InviteReward/components/shared/getRewardSummary';
 import {
   COMPACT_ENTRY_TITLE_PROPS,
   COMPACT_ROW_BLEED_PROPS,
   COMPACT_ROW_ICON_PROPS,
+  INVITE_CARD_BORDER_COLOR,
   POINTER_ROW_BLEED_PROPS,
   PRESSABLE_SURFACE_PROPS,
   useInviteHomeCardStyle,
 } from '../InviteReward/components/useInviteCardStyle';
+
+import {
+  PerksCampaignBanner,
+  usePerksBannerItems,
+} from './PerksCampaignBanner';
 
 type IRewardModule = keyof IInviteeRewardsOverview;
 
 // Hardcoded English until i18n keys are added in Lokalise.
 const MY_REWARDS_COPY = {
   addressScope: 'Rewards are counted per address',
+  address: 'Address',
   noEvmAddress: 'No EVM address',
   noWalletTitle: 'Connect a wallet to view rewards',
   unsupportedTitle: 'This account has no EVM address',
@@ -191,6 +201,43 @@ function getModuleRow(
   };
 }
 
+type IRewardTotals =
+  | { status: 'loading' }
+  | { status: 'unavailable' }
+  | { status: 'ready'; total: string; paid: string; unpaid: string };
+
+function sumAmount(value: IRewardValue | undefined) {
+  return value?.kind === 'amount' ? new BigNumber(value.amount) : undefined;
+}
+
+// The summary only adds up what it can: a failed product or an Earn figure
+// that is not an amount leaves the total unknown rather than understated.
+function getRewardTotals(rows: IModuleRow[]): IRewardTotals {
+  if (rows.some((row) => row.status === 'loading')) {
+    return { status: 'loading' };
+  }
+  let paid = new BigNumber(0);
+  let unpaid = new BigNumber(0);
+  for (const row of rows) {
+    if (row.status !== 'ready') {
+      return { status: 'unavailable' };
+    }
+    const rowPaid = row.paid ? sumAmount(row.paid) : new BigNumber(0);
+    const rowUnpaid = row.unpaid ? sumAmount(row.unpaid) : new BigNumber(0);
+    if (!rowPaid || !rowUnpaid) {
+      return { status: 'unavailable' };
+    }
+    paid = paid.plus(rowPaid);
+    unpaid = unpaid.plus(rowUnpaid);
+  }
+  return {
+    status: 'ready',
+    total: paid.plus(unpaid).toFixed(),
+    paid: paid.toFixed(),
+    unpaid: unpaid.toFixed(),
+  };
+}
+
 function RewardValue({
   value,
   size,
@@ -242,10 +289,12 @@ function RewardsAddressValue({
   address,
   unsupported,
   compact,
+  size = '$bodyMd',
 }: {
   address?: string;
   unsupported: boolean;
   compact: boolean;
+  size?: '$bodyMd' | '$bodyLgMedium';
 }) {
   const { copyText } = useClipboard();
   const copyAddress = useCallback(() => {
@@ -274,7 +323,11 @@ function RewardsAddressValue({
       hitSlop={NATIVE_HIT_SLOP}
       onPress={copyAddress}
     >
-      <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+      <SizableText
+        size={size}
+        color={size === '$bodyMd' ? '$textSubdued' : '$text'}
+        numberOfLines={1}
+      >
         {accountUtils.shortenAddress({
           address,
           ...(compact ? { leadingLength: 6, trailingLength: 4 } : null),
@@ -309,6 +362,114 @@ function RewardsAddressCard({
         />
       </XStack>
       <SubduedNote>{MY_REWARDS_COPY.addressScope}</SubduedNote>
+    </YStack>
+  );
+}
+
+function PartDot({ color }: { color: '$iconSuccess' | '$iconCaution' }) {
+  return <YStack w="$2" h="$2" borderRadius="$full" bg={color} />;
+}
+
+function TotalFigure({
+  totals,
+  pick,
+  size,
+}: {
+  totals: IRewardTotals;
+  pick: 'total' | 'paid' | 'unpaid';
+  size: '$heading4xl' | '$headingMd';
+}) {
+  if (totals.status === 'loading') {
+    return size === '$heading4xl' ? (
+      <Skeleton.Heading4Xl w={200} />
+    ) : (
+      <Skeleton.HeadingMd w={88} />
+    );
+  }
+  if (totals.status === 'unavailable') {
+    return (
+      <SizableText size={size} color="$textDisabled">
+        --
+      </SizableText>
+    );
+  }
+  return (
+    <Currency
+      {...REFERRAL_USD_SOURCE_PROPS}
+      size={size}
+      numberOfLines={1}
+      flexShrink={1}
+    >
+      {totals[pick]}
+    </Currency>
+  );
+}
+
+// Desktop lead card, built like the invite tab's earnings card: whose perks
+// these are, the total with its art, then its parts and the counted address
+// on a hairline. It gives the tab the same weight up top as the invite tab.
+function PerksSummaryCard({
+  totals,
+  address,
+  unsupported,
+  labels,
+}: {
+  totals: IRewardTotals;
+  address?: string;
+  unsupported: boolean;
+  labels: { total: string; paid: string; unpaid: string };
+}) {
+  const cardStyle = useInviteHomeCardStyle();
+  return (
+    <YStack
+      testID="my-rewards-summary-card"
+      flex={1}
+      gap="$4"
+      p="$5"
+      {...cardStyle}
+    >
+      <YStack gap="$1">
+        <XStack ai="center" jc="space-between" gap="$3">
+          <SizableText size="$bodyLgMedium" color="$textSubdued">
+            {labels.total}
+          </SizableText>
+          <Stack flexShrink={1} minWidth={0}>
+            <AccountSelectorTriggerHome num={0} hideAddress />
+          </Stack>
+        </XStack>
+        <XStack ai="flex-start" gap="$4">
+          <YStack flex={1} minWidth={0} ai="flex-start" gap="$2">
+            <TotalFigure totals={totals} pick="total" size="$heading4xl" />
+            <SubduedNote>{MY_REWARDS_COPY.addressScope}</SubduedNote>
+          </YStack>
+          <Illustration name="Coins" size={80} flexShrink={0} />
+        </XStack>
+      </YStack>
+      <Divider mt="auto" borderColor={INVITE_CARD_BORDER_COLOR} />
+      <XStack ai="flex-start" gap="$6">
+        <InviteStatCell
+          leading={<PartDot color="$iconSuccess" />}
+          label={labels.paid}
+          minWidth="$16"
+        >
+          <TotalFigure totals={totals} pick="paid" size="$headingMd" />
+        </InviteStatCell>
+        <InviteStatCell
+          leading={<PartDot color="$iconCaution" />}
+          label={labels.unpaid}
+          minWidth="$16"
+        >
+          <TotalFigure totals={totals} pick="unpaid" size="$headingMd" />
+        </InviteStatCell>
+        <InviteStatCell shrink={false} label={MY_REWARDS_COPY.address}>
+          <RewardsAddressValue
+            address={address}
+            unsupported={unsupported}
+            compact={false}
+            size="$bodyLgMedium"
+          />
+        </InviteStatCell>
+      </XStack>
     </YStack>
   );
 }
@@ -621,6 +782,7 @@ export function MyRewardsContent() {
     accountId,
     indexedAccountId,
   });
+  const bannerItems = usePerksBannerItems();
 
   if (!hasAccount) {
     return (
@@ -716,14 +878,15 @@ export function MyRewardsContent() {
   };
 
   if (md) {
-    // Compact: the address card, then the breakdown under a quiet caption
-    // inset like the cards' text, as on the invite tab.
+    // Compact: the address card and the campaign slides, then the breakdown
+    // under a quiet caption inset like the cards' text, as on the invite tab.
     return (
       <YStack px="$pagePadding" pt="$2" pb="$6" gap="$5">
         <RewardsAddressCard
           address={walletAddress}
           unsupported={isUnsupported}
         />
+        <PerksCampaignBanner items={bannerItems} compact />
         <YStack gap="$2">
           <SizableText size="$bodyMdMedium" color="$textSubdued" px="$4">
             {sectionTitle}
@@ -734,15 +897,36 @@ export function MyRewardsContent() {
     );
   }
 
+  // Desktop leads with the summary card and the campaign slides side by
+  // side, like the invite tab's two cards; without slides the summary card
+  // takes the row.
   return (
     <YStack pb="$6">
-      <YStack px="$pagePadding">
-        <RewardsAddressCard
-          address={walletAddress}
-          unsupported={isUnsupported}
-        />
-      </YStack>
-      {/* A group gap: the header card scopes the table but is not part of
+      <XStack px="$pagePadding" gap="$5" ai="stretch">
+        {/* Padding stays inside the flex items, so the two split evenly. */}
+        <XStack flex={1} flexBasis={0} minWidth={0}>
+          <PerksSummaryCard
+            totals={
+              isUnsupported ? { status: 'unavailable' } : getRewardTotals(rows)
+            }
+            address={walletAddress}
+            unsupported={isUnsupported}
+            labels={{
+              total: intl.formatMessage({
+                id: ETranslations.referral_cumulative_rewards,
+              }),
+              paid: labels.paid,
+              unpaid: labels.unpaid,
+            }}
+          />
+        </XStack>
+        {bannerItems.length ? (
+          <XStack flex={1} flexBasis={0} minWidth={0}>
+            <PerksCampaignBanner items={bannerItems} compact={false} />
+          </XStack>
+        ) : null}
+      </XStack>
+      {/* A group gap: the summary card scopes the table but is not part of
           it. */}
       <YStack px="$pagePadding" pt="$8" gap="$3">
         <SizableText size="$headingLg">{sectionTitle}</SizableText>

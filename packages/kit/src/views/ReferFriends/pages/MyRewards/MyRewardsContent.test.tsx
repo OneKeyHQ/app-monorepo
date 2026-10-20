@@ -52,12 +52,16 @@ jest.mock('@onekeyhq/components', () => {
   };
   return {
     Dialog: { show: showDialog },
+    Divider: () => null,
     Icon: () => null,
     Illustration: () => null,
     NATIVE_HIT_SLOP: undefined,
     NumberSizeableText: Primitive,
     SizableText: Primitive,
-    Skeleton: () => null,
+    Skeleton: Object.assign(() => null, {
+      Heading4Xl: () => null,
+      HeadingMd: () => null,
+    }),
     Stack: Primitive,
     XStack: Primitive,
     YStack: Primitive,
@@ -135,6 +139,11 @@ jest.mock(
   }),
 );
 
+jest.mock('./PerksCampaignBanner', () => ({
+  PerksCampaignBanner: () => null,
+  usePerksBannerItems: () => [],
+}));
+
 jest.mock('../../components/InviteeRewardNoWallet', () => ({
   InviteeRewardNoWallet: () => <div data-testid="no-wallet" />,
 }));
@@ -159,6 +168,7 @@ jest.mock('../InviteReward/components/useInviteCardStyle', () => ({
   COMPACT_ENTRY_TITLE_PROPS: {},
   COMPACT_ROW_BLEED_PROPS: {},
   COMPACT_ROW_ICON_PROPS: {},
+  INVITE_CARD_BORDER_COLOR: '$neutral4',
   POINTER_ROW_BLEED_PROPS: {},
   PRESSABLE_SURFACE_PROPS: {},
   useInviteHomeCardStyle: () => ({}),
@@ -214,9 +224,10 @@ describe('MyRewardsContent', () => {
   it('shows the unsupported state when the account has no EVM address', () => {
     mockEarnAccountResult = { result: null, isLoading: false };
     render(<MyRewardsContent />);
-    const header = screen.getByTestId('my-rewards-address-card');
+    const header = screen.getByTestId('my-rewards-summary-card');
     expect(header.textContent).toContain('No EVM address');
-    expect(header.textContent).not.toContain('-');
+    // No address to count means no total either.
+    expect(header.textContent).toContain('--');
     expect(screen.getByText('This account has no EVM address')).toBeTruthy();
     expect(screen.queryByTestId('my-rewards-copy-address')).toBeNull();
   });
@@ -230,12 +241,39 @@ describe('MyRewardsContent', () => {
     render(<MyRewardsContent />);
     const copyCell = screen.getByTestId('my-rewards-copy-address');
     expect(copyCell.textContent).toBe('0x4EF880...0A296e');
-    expect(screen.getByTestId('my-rewards-address-card').textContent).toContain(
+    expect(screen.getByTestId('my-rewards-summary-card').textContent).toContain(
       'Rewards are counted per address',
     );
 
     fireEvent.click(copyCell);
     expect(mockCopyText).toHaveBeenCalledWith(address);
+  });
+
+  it('leaves the desktop total unknown while a product failed', () => {
+    render(<MyRewardsContent />);
+    const summary = screen.getByTestId('my-rewards-summary-card');
+    expect(summary.querySelectorAll('[data-source-currency]')).toHaveLength(0);
+    expect(summary.textContent).toContain('--');
+  });
+
+  it('adds every product into the desktop total and its parts', () => {
+    mockOverviewResult = {
+      ...mockOverviewResult,
+      result: {
+        ...mockOverviewResult.result!,
+        earn: {
+          status: 'success',
+          data: { distributed: [], undistributed: [] },
+        },
+      },
+    };
+    render(<MyRewardsContent />);
+    const figures = Array.from(
+      screen
+        .getByTestId('my-rewards-summary-card')
+        .querySelectorAll('[data-source-currency="usd"]'),
+    ).map((node) => node.textContent);
+    expect(figures).toEqual(['17', '13', '4']);
   });
 
   it('splits each product into paid and unpaid and isolates a failure', () => {
