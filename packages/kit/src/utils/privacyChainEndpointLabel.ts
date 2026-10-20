@@ -22,6 +22,9 @@ export type IPrivacyChainLocalWalletSettings = {
   hiddenEndpointLabelId?: ETranslations | ETranslationsMock;
   publicAddressPattern?: string;
   privateAddressPattern?: string;
+  // Receive's address forms; without a public one (Monero) Receive never shows
+  // the public address.
+  addressForms?: { publicLabel?: ETranslations; privateLabel?: ETranslations };
 };
 
 export type IPrivacyChainLocalWalletDisplay = Omit<
@@ -100,7 +103,14 @@ export function resolvePrivacyChainEndpointDisplay({
   if (item.address) {
     // An own address the data names is shown only when it is exactly one the
     // Receive / token details pages display.
-    return isLocalWalletDisplayedAddress({ addresses, address: item.address })
+    const displayed =
+      localWallet?.addressForms && !localWallet.addressForms.publicLabel
+        ? { privateAddress: addresses?.privateAddress }
+        : addresses;
+    return isLocalWalletDisplayedAddress({
+      addresses: displayed,
+      address: item.address,
+    })
       ? { address: item.address, poolLabel, isOwn: true }
       : { poolLabel, isOwn: true };
   }

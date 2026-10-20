@@ -247,7 +247,11 @@ function buildHistoryActivityRowUnchecked({
     address = privateSend
       ? (decodedTx.payload?.privateSend?.originalRecipient ?? '')
       : info.transferTarget;
-    if (!privateSend && localWallet) {
+    if (!privateSend && localWallet && info.transferTargetIsCount) {
+      // "N addresses" is shown as is, never resolved or looked up.
+      address = '';
+      shieldedTargetLabel = info.transferTarget;
+    } else if (!privateSend && localWallet) {
       const target = resolvePrivacyChainTargetDisplay({
         intl,
         localWallet: toPrivacyChainLocalWalletDisplay(localWallet),

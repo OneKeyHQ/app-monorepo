@@ -18,6 +18,7 @@ import { EmptyHistory } from '@onekeyhq/kit/src/components/Empty/EmptyHistory';
 import { HistoryLoadingView } from '@onekeyhq/kit/src/components/Loading';
 import { ListFooterComponent } from '@onekeyhq/kit/src/components/TxHistoryListView';
 import TxHistoryAddressInfo from '@onekeyhq/kit/src/components/TxHistoryListView/TxHistoryAddressInfo';
+import { loadLocalWalletAccountAddresses } from '@onekeyhq/kit/src/hooks/useLocalWalletAccountAddresses';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReplaceTx } from '@onekeyhq/kit/src/hooks/useReplaceTx';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
@@ -293,16 +294,10 @@ export function NativeHistoryList(
         token: Awaited<
           ReturnType<typeof backgroundApiProxy.serviceToken.getNativeToken>
         >;
-        // Privacy chains: the addresses Receive shows, for this account's side.
-        localWalletAddresses?: Awaited<
-          ReturnType<
-            typeof backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountAddresses
-          >
-        >;
       }
     >(),
   );
-  const { result: networkData } = usePromiseResult(
+  const { result: networkData, run: reloadNetworkData } = usePromiseResult(
     async () => {
       // This JSON is produced locally above; derive requests from its identity so
       // value-only row updates never restart metadata queries.
@@ -320,19 +315,39 @@ export function NativeHistoryList(
               }),
               backgroundApiProxy.serviceToken.getNativeToken(target),
             ]);
-            const localWalletAddresses = vault.localWallet
-              ? await backgroundApiProxy.servicePrivacyChain
-                  .getLocalWalletAccountAddresses(target)
-                  .catch(() => undefined)
-              : undefined;
-            cache.set(key, { vault, token, localWalletAddresses });
+            cache.set(key, { vault, token });
           }),
         { concurrency: 4, continueOnError: true },
+      );
+      // Privacy chains: the addresses Receive shows, for this account's side.
+      // Shared with the rows' own reads; a failed read is retried next run.
+      const localWalletAddresses = new Map(
+        await Promise.all(
+          targets.map(
+            async ([key, target]) =>
+              [
+                key,
+                cache.get(key)?.vault.localWallet
+                  ? await loadLocalWalletAccountAddresses(target)
+                  : undefined,
+              ] as const,
+          ),
+        ),
       );
       return Object.fromEntries(
         targets.flatMap(([key]) => {
           const value = cache.get(key);
-          return value ? [[key, value] as const] : [];
+          return value
+            ? [
+                [
+                  key,
+                  {
+                    ...value,
+                    localWalletAddresses: localWalletAddresses.get(key),
+                  },
+                ] as const,
+              ]
+            : [];
         }),
       );
     },
@@ -341,6 +356,15 @@ export function NativeHistoryList(
       revalidateOnReconnect: true,
     },
   );
+  useEffect(() => {
+    const reload = () => {
+      void reloadNetworkData();
+    };
+    appEventBus.on(EAppEventBusNames.LocalWalletAccountsChanged, reload);
+    return () => {
+      appEventBus.off(EAppEventBusNames.LocalWalletAccountsChanged, reload);
+    };
+  }, [reloadNetworkData]);
   const localNetworkLogos = useMemo(
     () =>
       Object.fromEntries(

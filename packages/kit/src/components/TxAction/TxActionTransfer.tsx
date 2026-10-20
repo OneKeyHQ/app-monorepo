@@ -194,6 +194,8 @@ function getTxActionTransferInfo(
   let transferTargetShielded: IDecodedTxShieldedEndpoint | undefined;
   // Which side of the transfer the target is.
   let transferTargetSide: 'from' | 'to' = 'to';
+  // The target is a localized "N addresses" label, not an endpoint.
+  let transferTargetIsCount = false;
 
   const sendsWithNFT = sends.filter((send) => send.isNFT);
   const sendsWithToken = sends.filter((send) => !send.isNFT);
@@ -249,6 +251,7 @@ function getTxActionTransferInfo(
   } else if (isUTXO) {
     if (isSendLikeHistoryTxType(type)) {
       const filteredReceives = receives.filter((receive) => !receive.isOwn);
+      transferTargetIsCount = filteredReceives.length > 1;
       transferTarget =
         filteredReceives.length > 1
           ? intl.formatMessage(
@@ -261,6 +264,7 @@ function getTxActionTransferInfo(
       transferTargetShielded = (filteredReceives[0] ?? receives[0])?.shieldedTo;
     } else if (type === EOnChainHistoryTxType.Receive) {
       const filteredSends = sends.filter((send) => !send.isOwn);
+      transferTargetIsCount = filteredSends.length > 1;
       transferTarget =
         filteredSends.length > 1
           ? intl.formatMessage(
@@ -291,6 +295,7 @@ function getTxActionTransferInfo(
     transferTarget,
     transferTargetShielded,
     transferTargetSide,
+    transferTargetIsCount,
     sendNFTIcon: sendsWithNFT[0]?.icon,
     receiveNFTIcon: receivesWithNFT[0]?.icon,
     sendTokenIcon: sendsWithToken[0]?.icon,
@@ -610,6 +615,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     transferTarget,
     transferTargetShielded,
     transferTargetSide,
+    transferTargetIsCount,
     sendNFTIcon,
     sendTokenIcon,
     receiveNFTIcon,
@@ -640,6 +646,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     enabled:
       !!localWalletOwnAddresses &&
       !isPrivateSend &&
+      !transferTargetIsCount &&
       isPrivacyChainOwnTarget({
         address: transferTarget,
         shielded: transferTargetShielded,
@@ -650,7 +657,14 @@ function TxActionTransferListView(props: ITxActionProps) {
     ? (payload?.privateSend?.originalRecipient ?? '')
     : transferTarget;
   let descriptionLabel = '';
-  if (isLocalWalletHistory && vaultSettings?.localWallet && !isPrivateSend) {
+  if (isLocalWalletHistory && !isPrivateSend && transferTargetIsCount) {
+    descriptionTarget = '';
+    descriptionLabel = transferTarget;
+  } else if (
+    isLocalWalletHistory &&
+    vaultSettings?.localWallet &&
+    !isPrivateSend
+  ) {
     const target = resolvePrivacyChainTargetDisplay({
       intl,
       localWallet: toPrivacyChainLocalWalletDisplay(vaultSettings.localWallet),

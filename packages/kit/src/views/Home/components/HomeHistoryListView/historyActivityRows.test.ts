@@ -1,5 +1,6 @@
 import { createIntl, createIntlCache } from 'react-intl';
 
+import { getTxActionTransferInfo } from '@onekeyhq/kit/src/components/TxAction/TxActionTransfer';
 import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
@@ -503,6 +504,88 @@ describe('Home history shielded endpoints', () => {
     });
     expect(result.address).toBe('');
     expect(result.row.description).toBe('Transparent pool');
+  });
+
+  it('shows a transparent multi-address count as text, on BTC as before', () => {
+    const count = intl.formatMessage(
+      { id: ETranslations.global_count_addresses },
+      { count: 2 },
+    );
+    const tx = history(
+      [
+        { ...transfer('1'), from: `t1${'B'.repeat(33)}` },
+        { ...transfer('1'), from: `t1${'C'.repeat(33)}` },
+      ],
+      [{ ...transfer('2'), to: T1, isOwn: true }],
+    );
+    tx.decodedTx.payload = {
+      type: EOnChainHistoryTxType.Receive,
+      value: '2',
+      label: '',
+    };
+    const build = (settings?: typeof localWallet) =>
+      buildHistoryActivityRow({
+        history: tx,
+        tableLayout: false,
+        isUTXO: true,
+        localWallet: settings,
+        localWalletAddresses: { publicAddress: T1 },
+        hideValue: false,
+        currency: '$',
+        intl,
+      });
+    // The list row reads the same flag.
+    expect(
+      getTxActionTransferInfo({
+        action: tx.decodedTx.actions[0],
+        decodedTx: tx.decodedTx,
+        isUTXO: true,
+        intl,
+      }),
+    ).toMatchObject({ transferTarget: count, transferTargetIsCount: true });
+    const zcash = build(localWallet);
+    expect(zcash.address).toBe('');
+    expect(zcash.row.description).toBe(count);
+    expect(build().address).toBe(count);
+  });
+
+  it('shows the Monero primary address only while Receive shows it', () => {
+    const primary = `4${'A'.repeat(94)}`;
+    const monero = {
+      pools: [{ id: 1, kind: 'private' as const, label: 'Monero' }],
+      hiddenEndpointLabelId: ETranslationsMock.privacy_history_private__label,
+      publicAddressPattern: '^$',
+      privateAddressPattern: '^[1-9A-HJ-NP-Za-km-z]{95}$',
+      addressForms: {
+        privateLabel: ETranslations.privacy_receive_private_address__title,
+      },
+    };
+    const toSelf = (addresses: {
+      publicAddress?: string;
+      privateAddress?: string;
+    }) => {
+      const tx = history(
+        [{ ...transfer('1'), from: primary, to: primary, isOwn: true }],
+        [],
+      );
+      tx.decodedTx.owner = primary;
+      return buildHistoryActivityRow({
+        history: tx,
+        tableLayout: false,
+        isUTXO: false,
+        localWallet: monero,
+        localWalletAddresses: addresses,
+        hideValue: false,
+        currency: '$',
+        intl,
+      });
+    };
+    expect(
+      toSelf({ publicAddress: primary, privateAddress: primary }).address,
+    ).toBe(primary);
+    const paused = toSelf({ publicAddress: primary });
+    expect(paused.address).toBe('');
+    expect(paused.row.description).toBe('Private');
   });
 
   it('shows an exactly known recipient', () => {
