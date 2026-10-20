@@ -1549,8 +1549,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       '/wallet/v1/account/estimate-fee',
       rest,
       {
+        // Wallet-type header plus the OneKey ID login token: the Gas Account
+        // quote is bound to the member identity the BFF resolves from it.
         headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+          await this.backgroundApi.serviceGas.getGasAccountRequestHeaders({
             accountId,
           }),
       },

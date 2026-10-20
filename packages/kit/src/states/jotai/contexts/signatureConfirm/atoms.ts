@@ -235,6 +235,7 @@ export const defaultGasAccountUiState = {
   lockedUserNonce: undefined as number | undefined,
   idempotencyKey: '',
   gasAccountScenarioReason: undefined as string | undefined,
+  gasAccountSkipReason: undefined as string | undefined,
   sponsorDisabledByCustomRpc: false,
 };
 
@@ -247,6 +248,9 @@ export const { atom: gasAccountUiStateAtom, use: useGasAccountUiStateAtom } =
     lockedUserNonce?: number;
     idempotencyKey: string;
     gasAccountScenarioReason?: string;
+    // Backend reason the estimate came back self-paid (OK-64746 member
+    // dimension); observational only, see IEstimateGasResp.
+    gasAccountSkipReason?: string;
     sponsorDisabledByCustomRpc: boolean;
   }>({ ...defaultGasAccountUiState });
 

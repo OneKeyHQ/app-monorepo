@@ -197,6 +197,7 @@ function buildGasInfo(
     gasAccountEligible?: boolean;
     gasAccountQuote?: IGasAccountQuote;
     gasAccountScenarioReason?: string;
+    gasAccountSkipReason?: string;
   },
   gasCommon: {
     baseFee?: string;
@@ -234,6 +235,7 @@ function buildGasInfo(
     gasAccountEligible: gasRes.gasAccountEligible,
     gasAccountQuote: gasRes.gasAccountQuote,
     gasAccountScenarioReason: gasRes.gasAccountScenarioReason,
+    gasAccountSkipReason: gasRes.gasAccountSkipReason,
   };
 }
 

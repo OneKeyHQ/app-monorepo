@@ -83,7 +83,7 @@ import {
 
 import {
   EGasAccountErrorStrategy,
-  getGasAccountErrorEntry,
+  getGasAccountErrorEntryForError,
 } from '../../constants/gasAccountErrorCodes';
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
 import { SignatureConfirmTestIDs } from '../../testIDs';
@@ -313,7 +313,7 @@ function TxConfirmActions(props: IProps) {
       }
 
       const code = getGasAccountErrorCode(error);
-      const entry = getGasAccountErrorEntry(code);
+      const entry = getGasAccountErrorEntryForError(error);
       if (!entry) {
         if (typeof code === 'number') {
           // Unknown-but-numeric code — surface in dev so contract drift

@@ -44,7 +44,7 @@ import {
   isSwapQuoteRequestForCurrentInput,
   isSwapZeroProviderQuoteCompleted,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
-import { getGasAccountErrorEntry } from '@onekeyhq/kit/src/views/SignatureConfirm/constants/gasAccountErrorCodes';
+import { getGasAccountErrorEntryForError } from '@onekeyhq/kit/src/views/SignatureConfirm/constants/gasAccountErrorCodes';
 import { useSwapStockSelectedBalanceSync } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapStockSelectedBalanceSync';
 import { type ISwapReviewStepTexts } from '@onekeyhq/kit/src/views/Swap/utils/buildSwapReviewState';
 import { logDirectSwapGasAccountDecision } from '@onekeyhq/kit/src/views/Swap/utils/gasAccountAnalytics';
@@ -89,7 +89,6 @@ import type {
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import { getGasAccountErrorCode } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -3057,9 +3056,7 @@ export function useSpeedSwapActions(props: {
         // Sponsored broadcast failed at the gas-account layer: show the mapped
         // sponsor message (sponsor unavailable / quote expired …) before
         // surfacing the failure. Plain errors fall through unchanged.
-        const gasAccountEntry = getGasAccountErrorEntry(
-          getGasAccountErrorCode(error),
-        );
+        const gasAccountEntry = getGasAccountErrorEntryForError(error);
         if (gasAccountEntry) {
           // Mute the rethrown bridge error so the global handler doesn't toast
           // again (would duplicate the mapped message).
@@ -3170,9 +3167,7 @@ export function useSpeedSwapActions(props: {
         // Same sponsor-error mapping as sendMarketSwapTx: Fallback codes were
         // already resent user-paid inside sendMarketDirectUnsignedTxs, so only
         // Refresh/Hint reach here — surface the mapped message before failing.
-        const gasAccountEntry = getGasAccountErrorEntry(
-          getGasAccountErrorCode(error),
-        );
+        const gasAccountEntry = getGasAccountErrorEntryForError(error);
         if (gasAccountEntry) {
           (error as IOneKeyError).autoToast = false;
           if (!gasAccountEntry.suppressToast) {

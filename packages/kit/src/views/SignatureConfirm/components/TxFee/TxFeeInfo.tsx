@@ -73,7 +73,6 @@ import type {
   IOneKeyError,
   IOneKeyRpcError,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import { getGasAccountErrorCode } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -109,8 +108,9 @@ import type {
 
 import {
   EGasAccountErrorStrategy,
-  getGasAccountErrorEntry,
+  getGasAccountErrorEntryForError,
 } from '../../constants/gasAccountErrorCodes';
+import { useOneKeyIdIdentityChange } from '../../hooks/useOneKeyIdIdentityChange';
 import {
   isGasAccountQuoteEligible,
   resolveSponsorPayerState,
@@ -223,6 +223,29 @@ function TxFeeInfo(props: IProps) {
     updateTxFeeInfoInit,
     resetTxFeeState,
   } = useSignatureConfirmActions().current;
+
+  // OK-64746: a sponsored quote is bound to the OneKey ID member it was
+  // estimated for and Prime re-checks that identity at execute time. When the
+  // user logs in / out or switches account while this page is open, drop the
+  // old quote and re-estimate so the send carries a quote for the current
+  // session. Gated to flows that request sponsorship; a change during submit
+  // is left to the backend identity check (90221).
+  useOneKeyIdIdentityChange({
+    enabled:
+      !gasAccountDisabledByScenario &&
+      !gasAccountTemporarilyDisabled &&
+      !sendTxStatus.isSubmitting,
+    onChange: () => {
+      resetGasAccountUiState();
+      updateTxFeeInfoInit(false);
+      updateSendFeeStatus({
+        status: ESendFeeStatus.Loading,
+        errMessage: '',
+        discountPercent: 0,
+      });
+      appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
+    },
+  });
 
   const isMultiTxs = unsignedTxs.length > 1;
   // External-wallet accounts sign and broadcast through the connected wallet,
@@ -687,6 +710,7 @@ function TxFeeInfo(props: IProps) {
                 ? buildGasAccountIdempotencyKey(r.gasAccountQuote.quoteId)
                 : '',
             gasAccountScenarioReason: r.gasAccountScenarioReason,
+            gasAccountSkipReason: r.gasAccountSkipReason,
             sponsorDisabledByCustomRpc: false,
           });
         } else {
@@ -695,11 +719,13 @@ function TxFeeInfo(props: IProps) {
           // (and Grafana-equivalent telemetry) can distinguish policy gate
           // from transient chain failure. Do NOT set
           // `gasAccountTemporarilyDisabled` — scenario gate is not a
-          // fallback-worthy condition, retrying won't flip it.
-          if (r.gasAccountScenarioReason) {
+          // fallback-worthy condition, retrying won't flip it. The member
+          // skip reason (OK-64746) is recorded the same way for analytics.
+          if (r.gasAccountScenarioReason || r.gasAccountSkipReason) {
             updateGasAccountUiState({
               payer: 'user',
               gasAccountScenarioReason: r.gasAccountScenarioReason,
+              gasAccountSkipReason: r.gasAccountSkipReason,
             });
           }
         }
@@ -805,8 +831,7 @@ function TxFeeInfo(props: IProps) {
         // every tick re-asks for a sponsor and gets the same error. Classifying
         // the error and flipping `gasAccountTemporarilyDisabled` forces the
         // next tick onto the user-paid path.
-        const gasAccountCode = getGasAccountErrorCode(e);
-        const gasAccountEntry = getGasAccountErrorEntry(gasAccountCode);
+        const gasAccountEntry = getGasAccountErrorEntryForError(e);
         if (
           gasAccountEntry &&
           !gasAccountTemporarilyDisabled &&
@@ -829,7 +854,13 @@ function TxFeeInfo(props: IProps) {
           });
           if (!gasAccountEntry.suppressToast) {
             Toast.warning({
-              title: intl.formatMessage({ id: gasAccountEntry.messageKey }),
+              title: intl.formatMessage({
+                // Nothing was sent at estimate time, so prefer the
+                // estimate-specific copy over a "may be submitted" hint.
+                id:
+                  gasAccountEntry.estimateMessageKey ??
+                  gasAccountEntry.messageKey,
+              }),
             });
           }
           appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
@@ -852,7 +883,13 @@ function TxFeeInfo(props: IProps) {
           });
           if (!gasAccountEntry.suppressToast) {
             Toast.warning({
-              title: intl.formatMessage({ id: gasAccountEntry.messageKey }),
+              title: intl.formatMessage({
+                // Nothing was sent at estimate time, so prefer the
+                // estimate-specific copy over a "may be submitted" hint.
+                id:
+                  gasAccountEntry.estimateMessageKey ??
+                  gasAccountEntry.messageKey,
+              }),
             });
           }
           appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);

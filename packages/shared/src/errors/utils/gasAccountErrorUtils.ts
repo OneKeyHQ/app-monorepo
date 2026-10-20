@@ -52,15 +52,24 @@ export function abortableWait(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
+// Prime's generic error wrapper (HTTP 200 body, code = err.status ?? 400,
+// no messageId); the Wallet BFF fills the missing messageId with
+// `error__common_unknown`. On a Gas Account send this is result-unknown
+// (OK-64746 / OK-64758): the tx may already be broadcast.
+export const GAS_ACCOUNT_UNCLASSIFIED_SERVER_ERROR_CODE = 400;
+export const GAS_ACCOUNT_UNKNOWN_ERROR_MESSAGE_ID = 'error__common_unknown';
+
 type IGasAccountErrorShape = {
   code?: unknown;
   retryAfterSec?: unknown;
   data?: {
     code?: unknown;
+    messageId?: unknown;
     retryAfterSec?: unknown;
     args?: { retryAfterSec?: unknown };
     data?: {
       code?: unknown;
+      messageId?: unknown;
       retryAfterSec?: unknown;
       args?: { retryAfterSec?: unknown };
       res?: { error?: { code?: unknown } };
@@ -90,6 +99,32 @@ export function getGasAccountErrorCode(error: unknown): number | undefined {
     }
   }
   return undefined;
+}
+
+// The server body is kept verbatim under `data` on OneKeyServerApiError (and
+// survives background-bridge serialization), so the BFF messageId lives at
+// `data.messageId`; `data.data.messageId` covers one extra wrapping layer.
+export function getGasAccountErrorMessageId(
+  error: unknown,
+): string | undefined {
+  const e = error as IGasAccountErrorShape | undefined;
+  const candidates = [e?.data?.messageId, e?.data?.data?.messageId];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate) {
+      return candidate;
+    }
+  }
+  return undefined;
+}
+
+// A generic 400 whose messageId is the BFF's unknown-error filler. Only this
+// exact shape is narrowed; any other 400 keeps its ordinary handling.
+export function isGasAccountUnclassifiedServerError(error: unknown): boolean {
+  return (
+    getGasAccountErrorCode(error) ===
+      GAS_ACCOUNT_UNCLASSIFIED_SERVER_ERROR_CODE &&
+    getGasAccountErrorMessageId(error) === GAS_ACCOUNT_UNKNOWN_ERROR_MESSAGE_ID
+  );
 }
 
 function toIntegerSecond(value: unknown): number | undefined {

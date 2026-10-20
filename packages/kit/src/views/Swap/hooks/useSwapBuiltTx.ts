@@ -1645,6 +1645,7 @@ export function useSwapBuildTx({
         gasAccountEligible?: boolean;
         gasAccountQuote?: IGasAccountQuote;
         gasAccountScenarioReason?: string;
+        gasAccountSkipReason?: string;
       },
       gasCommon: {
         baseFee?: string;
@@ -1742,6 +1743,7 @@ export function useSwapBuildTx({
         gasAccountEligible: gasRes.gasAccountEligible,
         gasAccountQuote: gasRes.gasAccountQuote,
         gasAccountScenarioReason: gasRes.gasAccountScenarioReason,
+        gasAccountSkipReason: gasRes.gasAccountSkipReason,
       };
     },
     [

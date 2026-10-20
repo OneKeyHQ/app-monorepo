@@ -18,10 +18,11 @@ import type { ISwapGasInfo } from '@onekeyhq/shared/types/swap/types';
 
 import {
   EGasAccountErrorStrategy,
-  getGasAccountErrorEntry,
+  getGasAccountErrorEntryForError,
 } from '../../SignatureConfirm/constants/gasAccountErrorCodes';
 import {
   buildGasAccountAnalyticsContext,
+  getBackendGasAccountUnavailableReason,
   isGasSponsoredAnalyticsContext,
 } from '../../SignatureConfirm/utils/gasAccountAnalytics';
 
@@ -103,11 +104,13 @@ function getDirectSwapGasAccountUnavailableReason({
   useGasAccountByDefault,
   gasAccountCandidate,
   gasAccountScenarioReason,
+  gasAccountSkipReason,
 }: {
   hasEligibleQuote: boolean;
   useGasAccountByDefault: boolean | undefined;
   gasAccountCandidate: boolean;
   gasAccountScenarioReason: string | undefined;
+  gasAccountSkipReason: string | undefined;
 }) {
   if (hasEligibleQuote) {
     return undefined;
@@ -116,7 +119,10 @@ function getDirectSwapGasAccountUnavailableReason({
     return 'userDisabled';
   }
   if (gasAccountCandidate) {
-    return gasAccountScenarioReason ?? 'backend_unknown';
+    return getBackendGasAccountUnavailableReason({
+      gasAccountScenarioReason,
+      gasAccountSkipReason,
+    });
   }
   return 'swapBuildDisabled';
 }
@@ -189,7 +195,10 @@ export function buildDirectSwapGasAccountAnalyticsContext({
       useGasAccountByDefault,
       gasAccountCandidate,
       gasAccountScenarioReason: gasInfo.gasAccountScenarioReason,
+      gasAccountSkipReason: gasInfo.gasAccountSkipReason,
     }),
+    gasAccountSkipReason: gasInfo.gasAccountSkipReason,
+    quoteOwnerType: gasInfo.gasAccountQuote?.identity?.ownerType,
     estimatedGasNative: originalTotalNative ?? totalNative,
     nativeBalance,
     nativePrincipal,
@@ -273,7 +282,7 @@ export async function sendDirectSwapWithGasAccountAnalytics<T>({
   send: (gasAccountUiState?: IGasAccountUiState) => Promise<T>;
   onGasAccountError?: (
     error: unknown,
-    entry: NonNullable<ReturnType<typeof getGasAccountErrorEntry>>,
+    entry: NonNullable<ReturnType<typeof getGasAccountErrorEntryForError>>,
   ) => void | Promise<void>;
 }): Promise<T> {
   let result: T;
@@ -288,7 +297,7 @@ export async function sendDirectSwapWithGasAccountAnalytics<T>({
       errorCode,
     });
     const entry = gasAccountUiState
-      ? getGasAccountErrorEntry(errorCode)
+      ? getGasAccountErrorEntryForError(error)
       : undefined;
     if (!entry) {
       throw error;

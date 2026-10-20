@@ -616,6 +616,7 @@ export interface ISwapGasInfo {
   gasAccountEligible?: boolean;
   gasAccountQuote?: IGasAccountQuote;
   gasAccountScenarioReason?: string;
+  gasAccountSkipReason?: string;
   // Raw megafuel eligibility kept for the external-wallet promo hint
   // (OK-61254). The effective sponsor state above is stripped at the estimate
   // source for external-wallet accounts — they always pay the real fee — but
