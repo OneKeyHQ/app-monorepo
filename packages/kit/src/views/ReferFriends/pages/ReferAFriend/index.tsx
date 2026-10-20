@@ -245,17 +245,12 @@ function ReferAFriendPageWrapper() {
               <ReferAFriendPage
                 postConfig={postConfig}
                 phaseState={phaseState}
-                actions={
-                  showInlineActions ? (
-                    // The Perks link rides under the buttons, inside the
-                    // centred block, not at the bottom of the page.
-                    <>
-                      {actions}
-                      {renderPerksLink('$3')}
-                    </>
-                  ) : undefined
-                }
+                actions={showInlineActions ? actions : undefined}
               />
+            ) : null}
+            {postConfig && showInlineActions ? (
+              // Pinned to the bottom of the page, clear of its edge.
+              <Stack pb="$8">{renderPerksLink('$3')}</Stack>
             ) : null}
           </Page.Container>
         ) : (
