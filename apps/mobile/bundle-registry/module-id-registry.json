@@ -5086,6 +5086,7 @@
     "node_modules/@onekeyfe/react-native-bottom-tabs/lib/module/index.js": 26111,
     "node_modules/@onekeyfe/react-native-bottom-tabs/lib/module/utils/BottomTabBarHeightContext.js": 45619,
     "node_modules/@onekeyfe/react-native-bottom-tabs/lib/module/utils/useBottomTabBarHeight.js": 55261,
+    "node_modules/@onekeyfe/react-native-bottom-tabs/node_modules/use-latest-callback/lib/src/index.js": 25233,
     "node_modules/@onekeyfe/react-native-bundle-update/lib/module/index.js": 27024,
     "node_modules/@onekeyfe/react-native-capture-protection/lib/module/index.js": 34752,
     "node_modules/@onekeyfe/react-native-check-biometric-auth-changed/lib/module/index.js": 38226,
