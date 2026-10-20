@@ -2,7 +2,11 @@ import BigNumber from 'bignumber.js';
 
 import { XMR_DECIMALS } from '@onekeyhq/shared/src/config/xmr';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
+import type {
+  IAccountHistoryTx,
+  IOnChainHistoryTx,
+} from '@onekeyhq/shared/types/history';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 import type {
@@ -22,6 +26,38 @@ function getXmrHistoryStatus(item: IXmrHistoryItem): EDecodedTxStatus {
     return EDecodedTxStatus.Confirmed;
   }
   return item.failed ? EDecodedTxStatus.Failed : EDecodedTxStatus.Pending;
+}
+
+function getXmrConfirmations(
+  item: IXmrHistoryItem,
+  chainTip: number | null | undefined,
+): number | undefined {
+  return item.height !== null && chainTip !== null && chainTip !== undefined
+    ? Math.max(0, chainTip - item.height + 1)
+    : undefined;
+}
+
+// Status facts only: the page keeps showing the list row for amounts, fee and endpoints.
+export function buildXmrLocalHistoryDetail({
+  item,
+  chainTip,
+}: {
+  item: IXmrHistoryItem;
+  chainTip?: number | null;
+}): IOnChainHistoryTx {
+  const statusMap: Partial<Record<EDecodedTxStatus, EOnChainHistoryTxStatus>> =
+    {
+      [EDecodedTxStatus.Confirmed]: EOnChainHistoryTxStatus.Success,
+      [EDecodedTxStatus.Failed]: EOnChainHistoryTxStatus.Failed,
+    };
+  return {
+    tx: item.txid,
+    status:
+      statusMap[getXmrHistoryStatus(item)] ?? EOnChainHistoryTxStatus.Pending,
+    block: item.height ?? undefined,
+    confirmations: getXmrConfirmations(item, chainTip),
+    timestamp: item.timestamp ?? undefined,
+  } as IOnChainHistoryTx;
 }
 
 export async function buildXmrLocalHistoryTx({
@@ -116,10 +152,7 @@ export async function buildXmrLocalHistoryTx({
       !item.failed &&
       sentAmount?.broadcastOutcomeUnknown,
     block: item.height ?? undefined,
-    confirmations:
-      item.height !== null && chainTip !== null && chainTip !== undefined
-        ? Math.max(0, chainTip - item.height + 1)
-        : undefined,
+    confirmations: getXmrConfirmations(item, chainTip),
     networkId,
     accountId,
     extraInfo: null,

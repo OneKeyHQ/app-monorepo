@@ -4,9 +4,15 @@ jest.mock('../../../dbs/local/localDbInstance', () => ({
   __esModule: true,
   default: {},
 }));
+jest.mock('./runtime', () => ({
+  ...jest.requireActual('./runtime'),
+  getXmrLocalRuntime: jest.fn(),
+}));
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
+import { getXmrLocalRuntime } from './runtime';
 import Vault from './Vault';
 
 const ACCOUNT_ID = "hd-1--m/44'/128'/0'";
@@ -71,10 +77,62 @@ describe('xmr history stays on the device', () => {
     } as never);
     expect(row.privacyChainHistorySide).toBe('private');
   });
+});
 
-  it('never asks the backend for transaction details', async () => {
-    await expect(createVault().fetchAccountHistoryDetail()).rejects.toThrow(
-      'local only',
+// The runtime only knows accounts that turned scanning on at least once.
+describe('xmr history for an account that never enabled scanning', () => {
+  const localRuntime = jest.mocked(getXmrLocalRuntime);
+
+  beforeEach(() => {
+    localRuntime.mockReset();
+    localRuntime.mockRejectedValue(
+      new OneKeyLocalError('runtime unavailable in this test'),
     );
+  });
+
+  function createVault(getAccountState: () => Promise<unknown>) {
+    const cached = [{ id: 'cached' }] as unknown as IAccountHistoryTx[];
+    const vault: Vault = Object.assign(Object.create(Vault.prototype), {
+      accountId: ACCOUNT_ID,
+      networkId: 'xmr--0',
+      backgroundApi: {
+        simpleDb: {
+          xmr: { getAccountState: jest.fn(getAccountState) },
+          localHistory: {
+            getAccountLocalHistoryConfirmedTxs: jest.fn(async () => cached),
+            getAccountLocalHistoryPendingTxs: jest.fn(async () => []),
+          },
+        },
+      },
+    });
+    return { vault, cached };
+  }
+
+  const read = (vault: Vault) =>
+    vault.fetchAccountHistoryFromLocal({
+      accountId: ACCOUNT_ID,
+      networkId: 'xmr--0',
+      accountAddress: ADDRESS,
+    });
+
+  it('answers from the cached rows without loading the runtime', async () => {
+    const { vault, cached } = createVault(async () => ({ intent: 'off' }));
+    await expect(read(vault)).resolves.toEqual(cached);
+    expect(localRuntime).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['paused', async () => ({ intent: 'off', resumeFromHeight: 3_100_000 })],
+    ['enabled', async () => ({ intent: 'on' })],
+    [
+      'unreadable state',
+      async () => {
+        throw new OneKeyLocalError('simpledb: invalid persisted data (xmr)');
+      },
+    ],
+  ])('still reads the runtime when %s', async (_label, getAccountState) => {
+    const { vault, cached } = createVault(getAccountState);
+    await expect(read(vault)).resolves.toEqual(cached);
+    expect(localRuntime).toHaveBeenCalledTimes(1);
   });
 });

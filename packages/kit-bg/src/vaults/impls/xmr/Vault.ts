@@ -48,7 +48,11 @@ import type {
   IEstimateGasParams,
   IServerEstimateFeeResponse,
 } from '@onekeyhq/shared/types/fee';
-import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import type {
+  IAccountHistoryTx,
+  IServerFetchAccountHistoryDetailParams,
+  IServerFetchAccountHistoryDetailResp,
+} from '@onekeyhq/shared/types/history';
 import type {
   IFetchServerTokenDetailParams,
   IFetchServerTokenDetailResponse,
@@ -69,7 +73,10 @@ import { localWalletText } from '../../localWallet/messages';
 import { buildLocalWalletNativeTokenList } from '../../localWallet/tokenList';
 
 import { KeyringHd } from './KeyringHd';
-import { buildXmrLocalHistoryTx } from './localHistory';
+import {
+  buildXmrLocalHistoryDetail,
+  buildXmrLocalHistoryTx,
+} from './localHistory';
 import { buildXmrLocalWalletCapability } from './localWallet';
 import {
   getXmrChainTip,
@@ -939,7 +946,11 @@ export default class Vault extends VaultBase {
     xpub?: string;
   }): Promise<IAccountHistoryTx[] | undefined> {
     const accountId = params.accountId || this.accountId;
-    const items = await this.xmrListHistoryItems({ accountId });
+    const neverEnabled = await this.xmrIsHistoryNeverEnabled(accountId);
+    // Never enabled: the runtime has no identity for it, so skip loading it.
+    const items = neverEnabled
+      ? undefined
+      : await this.xmrListHistoryItems({ accountId });
     if (!items) {
       return loadCachedLocalWalletHistory({
         backgroundApi: this.backgroundApi,
@@ -981,6 +992,19 @@ export default class Vault extends VaultBase {
     );
   }
 
+  // Paused accounts keep their scanned rows and still read them. A failed
+  // state read is not proof of "never", so it keeps the runtime read.
+  private async xmrIsHistoryNeverEnabled(accountId: string): Promise<boolean> {
+    try {
+      const state = await this.backgroundApi.simpleDb.xmr.getAccountState({
+        accountId,
+      });
+      return state.intent !== 'on' && state.resumeFromHeight === undefined;
+    } catch {
+      return false;
+    }
+  }
+
   /**
    * `undefined` vs `[]` matters: `[]` is an authoritative "no transactions"
    * (clears stale cache); `undefined` falls back to cache instead of wiping it.
@@ -996,6 +1020,7 @@ export default class Vault extends VaultBase {
       return await readXmrStaleFirst({
         key: `history:${accountId}`,
         fallback: undefined,
+        queueWhenUncached: true,
         read: async () => {
           const api = await getXmrLocalRuntime(this);
           const identityId = await getXmrIdentityId({ api, accountId });
@@ -1023,10 +1048,35 @@ export default class Vault extends VaultBase {
     }
   }
 
-  // Default asks the backend with the account's address; refused here since
-  // the address must not leave the device and Monero has nothing to add.
-  override async fetchAccountHistoryDetail(): Promise<never> {
-    throw new OneKeyLocalError('xmr: transaction details are local only');
+  // Answered from the scanned rows, never the backend: the address must not
+  // leave the device. Not found throws, which the caller reads as no detail.
+  override async fetchAccountHistoryDetail(
+    params: IServerFetchAccountHistoryDetailParams,
+  ): Promise<IServerFetchAccountHistoryDetailResp> {
+    const accountId = params.accountId || this.accountId;
+    const item = (await this.xmrIsHistoryNeverEnabled(accountId))
+      ? undefined
+      : (await this.xmrListHistoryItems({ accountId }))?.find(
+          (row) => row.txid === params.txid,
+        );
+    if (!item) {
+      throw new OneKeyLocalError('xmr: transaction not found locally');
+    }
+    const progress = await this.backgroundApi.servicePrivacyChain
+      .getLocalWalletSyncProgress({ networkId: this.networkId, accountId })
+      .catch(() => undefined);
+    return {
+      data: {
+        data: {
+          data: buildXmrLocalHistoryDetail({
+            item,
+            chainTip: progress?.chainTip,
+          }),
+          tokens: {},
+          nfts: {},
+        },
+      },
+    };
   }
 
   // signableHex holds the view key; tagged private so it never reaches the
