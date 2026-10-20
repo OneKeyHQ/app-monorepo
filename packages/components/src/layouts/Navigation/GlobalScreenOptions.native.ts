@@ -78,7 +78,7 @@ export function makeModalStackNavigatorOptions({
   if (platformEnv.isNativeAndroid) {
     options = {
       headerShown: true,
-      animation: 'ios_from_right',
+      animation: 'slide_from_right',
       presentation: 'modal',
       headerShadowVisible: false,
       // Android Pad modal needs to be commented out
@@ -157,7 +157,7 @@ export function makeRootModalStackOptions(params?: {
   };
 
   if (platformEnv.isNativeAndroid) {
-    options.animation = 'ios_from_right';
+    options.animation = 'slide_from_right';
   }
 
   if (params?.bgColor) {
@@ -187,7 +187,7 @@ export function makeTabScreenOptions({
   };
 
   if (platformEnv.isNativeAndroid) {
-    options.animation = 'ios_from_right';
+    options.animation = 'slide_from_right';
   }
 
   return options;
@@ -211,9 +211,6 @@ export function makeOnboardingScreenOptions(): IStackNavigationOptions {
     gestureDirection: 'horizontal',
     animation: 'slide_from_right',
   };
-  if (platformEnv.isNativeAndroid) {
-    options.animation = 'ios_from_right';
-  }
   return options;
 }
 
@@ -229,8 +226,5 @@ export function makeWebviewScreenOptions(): IStackNavigationOptions {
     gestureDirection: 'horizontal',
     animation: 'slide_from_right',
   };
-  if (platformEnv.isNativeAndroid) {
-    options.animation = 'ios_from_right';
-  }
   return options;
 }
