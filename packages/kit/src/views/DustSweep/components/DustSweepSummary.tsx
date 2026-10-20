@@ -201,6 +201,7 @@ export function DustSweepSummary({
     canStart,
     isFocused,
     loadStatus,
+    assetStatus,
     providerInfo,
   } = model;
   const { state } = session;
@@ -219,6 +220,8 @@ export function DustSweepSummary({
     selecting && selected.length > 0 && preview.quotedCount === 0;
   const quoteExpired = selecting && preview.status === 'expired';
   const partialQuote = selecting && preview.status === 'partial';
+  const syncingAssets = selecting && assetStatus === 'refreshing';
+  const assetSyncError = selecting && assetStatus === 'error';
   const unavailableCount = Object.keys(preview.unavailable).length;
   const amountUnavailable =
     quoteUnavailable || (!selecting && (totals.receiptUnavailable || unknown));
@@ -258,6 +261,12 @@ export function DustSweepSummary({
       id: ETranslations.swap_page_button_refresh_quotes,
     });
     onPress = model.retryPreview;
+  }
+  if (syncingAssets)
+    label = intl.formatMessage({ id: ETranslations.global_syncing });
+  if (assetSyncError) {
+    label = `${intl.formatMessage({ id: ETranslations.global_sync_error })} · ${intl.formatMessage({ id: ETranslations.global_retry })}`;
+    onPress = model.retryAssets;
   }
   let progressLabel = ETranslations.label_conversion_progress;
   if (unknown) {
@@ -369,7 +378,10 @@ export function DustSweepSummary({
                   }}
                 />
               </Stack>
-              {selected.length && loadStatus === 'ready' ? (
+              {selected.length &&
+              loadStatus === 'ready' &&
+              !syncingAssets &&
+              !assetSyncError ? (
                 <Stack
                   testID="dust-sweep-refresh-quotes"
                   accessibilityLabel={intl.formatMessage({
@@ -509,7 +521,8 @@ export function DustSweepSummary({
         disabled={
           session.leaving ||
           state.phase === 'left' ||
-          (selecting && !canStart && !quoteExpired)
+          (selecting && loadStatus !== 'ready') ||
+          (selecting && !canStart && !quoteExpired && !assetSyncError)
         }
         onPress={onPress}
       >

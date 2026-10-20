@@ -3,7 +3,7 @@ import type { IAllNetworkAccountsInfoResult } from '@onekeyhq/kit-bg/src/service
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 
-import { loadDustSweepNetworks } from './loadNetworks';
+import { loadDustSweepNetworks, refreshDustSweepNetwork } from './loadNetworks';
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -118,6 +118,76 @@ describe('loadDustSweepNetworks request ownership', () => {
       name: 'Ethereum',
       decimals: 18,
     });
+  });
+
+  it('force-refreshes an existing network without rediscovering accounts or providers', async () => {
+    const initial = await loadDustSweepNetworks(
+      params,
+      new AbortController().signal,
+    );
+    const entry = initial.networks[0];
+    jest.clearAllMocks();
+    const refreshed = await refreshDustSweepNetwork(
+      { entry, indexedAccountId: params.indexedAccountId },
+      new AbortController().signal,
+    );
+    expect(refreshed).toEqual(entry);
+    expect(serviceToken.fetchAccountTokens.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        accountId: entry.accountId,
+        networkId: entry.network.networkId,
+        indexedAccountId: params.indexedAccountId,
+        isManualRefresh: true,
+        saveToLocal: false,
+      }),
+    );
+    expect(serviceToken.getNativeToken.mock.calls).toHaveLength(1);
+    expect(serviceSwap.fetchSwapNetworks.mock.calls).toHaveLength(0);
+    expect(serviceSwap.getSwapProviderManager.mock.calls).toHaveLength(0);
+    expect(serviceAllNetwork.getAllNetworkAccounts.mock.calls).toHaveLength(0);
+  });
+
+  it('rejects a missing native asset instead of treating it as an empty refreshed balance', async () => {
+    const initial = await loadDustSweepNetworks(
+      params,
+      new AbortController().signal,
+    );
+    serviceToken.getNativeToken.mockResolvedValueOnce(null);
+    await expect(
+      refreshDustSweepNetwork(
+        { entry: initial.networks[0] },
+        new AbortController().signal,
+      ),
+    ).rejects.toThrow('Native token is unavailable');
+  });
+
+  it('does not join a pre-settlement in-flight account load', async () => {
+    const initial = await loadDustSweepNetworks(
+      params,
+      new AbortController().signal,
+    );
+    const oldResponse =
+      deferred<
+        Awaited<
+          ReturnType<typeof backgroundApiProxy.serviceToken.fetchAccountTokens>
+        >
+      >();
+    serviceToken.fetchAccountTokens.mockReturnValueOnce(oldResponse.promise);
+    const oldLoad = loadDustSweepNetworks(params, new AbortController().signal);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const controller = new AbortController();
+    const fresh = await refreshDustSweepNetwork(
+      { entry: initial.networks[0] },
+      controller.signal,
+    );
+    expect(fresh).toEqual(initial.networks[0]);
+    expect(serviceToken.fetchAccountTokens.mock.calls).toHaveLength(3);
+    oldResponse.resolve({
+      tokens: { data: [], map: {}, keys: '', currency: 'usd' },
+      smallBalanceTokens: { data: [], map: {}, keys: '', currency: 'usd' },
+      riskTokens: { data: [], map: {}, keys: '', currency: 'usd' },
+    });
+    await oldLoad;
   });
 
   it.each([

@@ -6,6 +6,7 @@ import type { PropsWithChildren } from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 
 import type {
+  IDustSweepItem,
   IDustSweepNetwork,
   IDustSweepRouteParams,
   IDustSweepSnapshot,
@@ -16,11 +17,18 @@ import type { ISwapProviderInfo } from '@onekeyhq/shared/types/swap/SwapProvider
 import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 
 import { DustSweepProvider, useDustSweep } from './DustSweepProvider';
+import { useDustSweepPreview } from './hooks/useDustSweepPreview';
+import {
+  getDustSweepNetworkOwner,
+  useDustSweepReconciliation,
+} from './hooks/useDustSweepReconciliation';
 import { useDustSweepSession } from './hooks/useDustSweepSession';
 import { dustSweepReducer, initialDustSweepState } from './stateMachine';
-import { loadDustSweepNetworks } from './utils/loadNetworks';
+import {
+  loadDustSweepNetworks,
+  refreshDustSweepNetwork,
+} from './utils/loadNetworks';
 
-import type { useDustSweepPreview } from './hooks/useDustSweepPreview';
 import type { IDustSweepState } from './stateMachine';
 
 function useMockPreferences() {
@@ -62,24 +70,49 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 }));
 jest.mock('./utils/loadNetworks', () => ({
   loadDustSweepNetworks: jest.fn(),
+  refreshDustSweepNetwork: jest.fn(),
 }));
 jest.mock('./hooks/useDustSweepPreview', () => ({
-  useDustSweepPreview: () => mockPreview,
+  useDustSweepPreview: jest.fn(() => mockPreview),
 }));
 jest.mock('./hooks/useDustSweepSession', () => ({
   useDustSweepSession: jest.fn(),
 }));
 
 const mockLoadNetworks = jest.mocked(loadDustSweepNetworks);
+const mockRefreshNetwork = jest.mocked(refreshDustSweepNetwork);
+const mockUsePreview = jest.mocked(useDustSweepPreview);
+let mockComplete: (items?: Partial<IDustSweepItem>[]) => void;
+let mockBatchSequence = 0;
 const mockUseSession = jest.mocked(useDustSweepSession);
 
 function useMockSession(): ReturnType<typeof useDustSweepSession> {
   const [state, setState] = useState<IDustSweepState>(initialDustSweepState);
+  mockComplete = (items) =>
+    setState((value) => ({
+      ...value,
+      phase: 'completed',
+      items: value.items.map((item, index) => ({
+        ...item,
+        status: 'success',
+        txId: `tx-${index}`,
+        receivedAmount: '0.01',
+        ...items?.[index],
+      })),
+    }));
   return {
     state,
     start: (snapshot, unavailable) => {
+      mockBatchSequence += 1;
       setState((value) =>
-        dustSweepReducer(value, { type: 'start', snapshot, unavailable }),
+        dustSweepReducer(value, {
+          type: 'start',
+          snapshot: {
+            ...snapshot,
+            id: `${snapshot.id}:${mockBatchSequence}`,
+          },
+          unavailable,
+        }),
       );
       return snapshot.id;
     },
@@ -169,13 +202,357 @@ function deferredLoad() {
 describe('Dust Sweep Provider request and selection ownership', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockLoadNetworks.mockReset();
+    mockRefreshNetwork.mockReset();
     mockPreview = readyPreview;
     mockFocused = true;
+    mockBatchSequence = 0;
+    mockRefreshNetwork.mockImplementation(async ({ entry }) => entry);
     mockUseSession.mockImplementation(useMockSession);
     mockLoadNetworks.mockResolvedValue({
       networks: [base, ethereum],
       partialError: false,
     });
+  });
+
+  it('recovers only refreshed owners and preserves swept tokens after a partial full load', async () => {
+    mockRefreshNetwork.mockRejectedValueOnce(new Error('Refresh failed'));
+    const onRefreshed = jest.fn();
+    const { result } = renderHook(() => {
+      const [networks, setNetworks] = useState([ethereum, base]);
+      return useDustSweepReconciliation({
+        params: routeParams,
+        networks,
+        setNetworks,
+        onRefreshed,
+      });
+    });
+    const owner = getDustSweepNetworkOwner(ethereum);
+    const sweptKey = ethereum.tokens[0].key;
+    act(() => result.current.refresh(ethereum, [sweptKey]));
+    await waitFor(() =>
+      expect(result.current.entries[owner].status).toBe('error'),
+    );
+
+    act(() => result.current.markFullLoadReady([base]));
+    expect(result.current.entries[owner].status).toBe('error');
+    act(() => result.current.markFullLoadReady([ethereum]));
+    expect(result.current.entries[owner].status).toBe('ready');
+    expect(result.current.entries[owner].sweptKeys).toEqual(
+      new Set([sweptKey]),
+    );
+  });
+
+  it('refreshes only the completed network without clearing results or preferences on Again', async () => {
+    mockLoadNetworks.mockResolvedValue({
+      networks: [base, ethereumWithHidden],
+      partialError: false,
+      providerInfo,
+    });
+    let resolve!: (entry: IDustSweepNetwork) => void;
+    mockRefreshNetwork.mockReturnValueOnce(
+      new Promise((done) => {
+        resolve = done;
+      }),
+    );
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+    act(() => {
+      result.current.addHidden();
+      result.current.setSlippage(2);
+      result.current.selectThreshold(100);
+    });
+    act(() => {
+      result.current.start();
+    });
+    act(() => mockComplete([{ status: 'success' }, { status: 'failed' }]));
+    const completed = result.current.session.state;
+    expect(result.current.assetStatus).toBe('refreshing');
+    expect(result.current.loadStatus).toBe('ready');
+    expect(result.current.session.state).toBe(completed);
+    expect(mockRefreshNetwork).toHaveBeenCalledTimes(1);
+    expect(mockRefreshNetwork.mock.calls[0][0]).toEqual({
+      entry: ethereumWithHidden,
+      indexedAccountId: routeParams.indexedAccountId,
+    });
+    const signal = mockRefreshNetwork.mock.calls[0][1];
+    act(() => {
+      result.current.sweepAgain();
+    });
+    act(() => {
+      result.current.sweepAgain();
+      result.current.retryPreview();
+      result.current.start();
+      result.current.retry();
+    });
+    expect(signal.aborted).toBe(false);
+    expect(result.current.selecting).toBe(true);
+    expect(result.current.current).toBe(ethereumWithHidden);
+    expect(result.current.networks).toContain(base);
+    expect(result.current.providerInfo).toBe(providerInfo);
+    expect(result.current.threshold).toBe(100);
+    expect(result.current.slippage).toBe(2);
+    expect(result.current.includeHidden).toBe(true);
+    expect(result.current.canStart).toBe(false);
+    expect(mockUsePreview.mock.lastCall?.[0]).toBeUndefined();
+    expect(mockUsePreview.mock.lastCall?.[1]?.enabled).toBe(false);
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+    expect(mockRefreshNetwork).toHaveBeenCalledTimes(1);
+    const revision = mockUsePreview.mock.lastCall?.[1]?.revision ?? 0;
+    const updated = {
+      ...ethereumWithHidden,
+      tokens: ethereumWithHidden.tokens.map((token, index) =>
+        index ? { ...token, amount: '0.4' } : token,
+      ),
+    };
+    await act(async () => resolve(updated));
+    expect(result.current.assetStatus).toBe('ready');
+    expect(result.current.networks).toContain(base);
+    expect(result.current.current).toBe(updated);
+    expect(result.current.selected).toEqual([updated.tokens[1]]);
+    expect(mockUsePreview.mock.lastCall?.[1]?.revision).toBeGreaterThan(
+      revision,
+    );
+    act(() => result.current.selectNetwork(base.network.networkId));
+    expect(result.current.canStart).toBe(true);
+    act(() => result.current.selectNetwork(ethereum.network.networkId));
+    expect(result.current.selected).toEqual([updated.tokens[1]]);
+    // Explicitly selecting a previously swept token still uses a new quote.
+    act(() => result.current.toggle(updated.tokens[0].key));
+    expect(result.current.selected).toEqual(updated.tokens);
+  });
+
+  it('retains data on a failed refresh and gates only that network until retry succeeds', async () => {
+    mockRefreshNetwork.mockRejectedValueOnce(new Error('offline'));
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+    act(() => {
+      result.current.start();
+    });
+    act(() => mockComplete([{ status: 'failed' }]));
+    await waitFor(() => expect(result.current.assetStatus).toBe('error'));
+    act(() => result.current.sweepAgain());
+    expect(result.current.current).toBe(ethereum);
+    expect(result.current.canStart).toBe(false);
+    act(() => {
+      result.current.start();
+      result.current.retryPreview();
+    });
+    expect(result.current.selecting).toBe(true);
+    expect(mockUsePreview.mock.lastCall?.[0]).toBeUndefined();
+    act(() => result.current.selectNetwork(base.network.networkId));
+    expect(result.current.canStart).toBe(true);
+    act(() => result.current.selectNetwork(ethereum.network.networkId));
+    act(() => result.current.retryAssets());
+    await waitFor(() => expect(result.current.assetStatus).toBe('ready'));
+    expect(result.current.canStart).toBe(true);
+    expect(mockRefreshNetwork).toHaveBeenCalledTimes(2);
+    expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not invalidate another network quote after a stale refresh completes', async () => {
+    let resolve!: (entry: IDustSweepNetwork) => void;
+    mockRefreshNetwork.mockReturnValueOnce(
+      new Promise((done) => {
+        resolve = done;
+      }),
+    );
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+    act(() => {
+      void result.current.start();
+    });
+    act(() => mockComplete([{ status: 'failed' }]));
+    await waitFor(() => expect(result.current.assetStatus).toBe('refreshing'));
+    act(() => result.current.sweepAgain());
+    const revision = mockUsePreview.mock.lastCall?.[1]?.revision ?? 0;
+    act(() => result.current.selectNetwork(base.network.networkId));
+    expect(result.current.current).toBe(base);
+    const activeRevision = mockUsePreview.mock.lastCall?.[1]?.revision ?? 0;
+    expect(activeRevision).toBe(revision);
+    await act(async () =>
+      resolve({ ...ethereum, tokens: [], balanceUsd: '0' }),
+    );
+    expect(result.current.current).toBe(base);
+    expect(mockUsePreview.mock.lastCall?.[1]?.revision).toBe(activeRevision);
+  });
+
+  it.each([
+    { item: { status: 'skipped', txId: undefined }, refreshes: 0 },
+    {
+      item: { status: 'skipped', txId: undefined, approvalTxIds: ['approval'] },
+      refreshes: 1,
+    },
+    { item: { status: 'failed' }, refreshes: 1 },
+  ] as { item: Partial<IDustSweepItem>; refreshes: number }[])(
+    'refreshes when a terminal item may have spent gas: %j',
+    async ({ item, refreshes }) => {
+      const { result } = renderController();
+      await waitFor(() => expect(result.current.canStart).toBe(true));
+      act(() => {
+        result.current.start();
+      });
+      await act(async () => mockComplete([item]));
+      expect(mockRefreshNetwork).toHaveBeenCalledTimes(refreshes);
+      act(() => result.current.sweepAgain());
+      expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('keeps an emptied completed network selected while retaining other networks', async () => {
+    const empty = { ...ethereum, tokens: [], balanceUsd: '0' };
+    mockRefreshNetwork.mockResolvedValueOnce(empty);
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+    act(() => {
+      result.current.start();
+    });
+    await act(async () => mockComplete());
+    act(() => result.current.sweepAgain());
+    expect(result.current.current).toBe(empty);
+    expect(result.current.networks).toContain(base);
+    expect(result.current.selected).toEqual([]);
+    expect(result.current.canStart).toBe(false);
+  });
+
+  it.each(['full-first', 'local-first'] as const)(
+    'serializes full and local retries even in the same event: %s',
+    async (order) => {
+      mockLoadNetworks.mockResolvedValue({
+        networks: [ethereum],
+        partialError: true,
+      });
+      mockRefreshNetwork.mockRejectedValueOnce(new Error('offline'));
+      const { result } = renderController();
+      await waitFor(() => expect(result.current.canStart).toBe(true));
+      act(() => {
+        result.current.start();
+      });
+      await act(async () => mockComplete([{ status: 'failed' }]));
+      act(() => result.current.sweepAgain());
+      expect(result.current.assetStatus).toBe('error');
+      const full = deferredLoad();
+      let resolveLocal!: (entry: IDustSweepNetwork) => void;
+      mockLoadNetworks.mockReturnValueOnce(full.promise);
+      mockRefreshNetwork.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveLocal = resolve;
+        }),
+      );
+      act(() => {
+        if (order === 'full-first') {
+          result.current.retry();
+          result.current.retryAssets();
+        } else {
+          result.current.retryAssets();
+          result.current.retry();
+        }
+      });
+      if (order === 'full-first') {
+        expect(mockLoadNetworks).toHaveBeenCalledTimes(2);
+        expect(mockRefreshNetwork).toHaveBeenCalledTimes(1);
+        await act(async () =>
+          full.resolve({ networks: [ethereum], partialError: false }),
+        );
+        await waitFor(() => expect(result.current.assetStatus).toBe('ready'));
+        expect(result.current.canStart).toBe(true);
+        expect(mockRefreshNetwork).toHaveBeenCalledTimes(1);
+      } else {
+        expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+        expect(mockRefreshNetwork).toHaveBeenCalledTimes(2);
+      }
+      if (order === 'local-first') {
+        const fresh = {
+          ...ethereum,
+          tokens: ethereum.tokens.map((token) => ({ ...token, amount: '0.5' })),
+        };
+        await act(async () => resolveLocal(fresh));
+        expect(result.current.current).toBe(fresh);
+        expect(result.current.assetStatus).toBe('ready');
+      }
+    },
+  );
+
+  it.each(['resolve', 'reject'] as const)(
+    'ignores an old reconciliation that %ss after an A → B → A account change',
+    async (outcome) => {
+      let resolve!: (entry: IDustSweepNetwork) => void;
+      let reject!: (error: Error) => void;
+      mockRefreshNetwork.mockReturnValueOnce(
+        new Promise((done, fail) => {
+          resolve = done;
+          reject = fail;
+        }),
+      );
+      let changeScope!: (params: IDustSweepRouteParams) => void;
+      function Wrapper({ children }: PropsWithChildren) {
+        const [params, setParams] = useState(routeParams);
+        changeScope = setParams;
+        return (
+          <DustSweepProvider params={params}>{children}</DustSweepProvider>
+        );
+      }
+      const { result } = renderHook(() => useDustSweep(), { wrapper: Wrapper });
+      await waitFor(() => expect(result.current.canStart).toBe(true));
+      act(() => {
+        result.current.start();
+      });
+      act(() => mockComplete());
+      act(() => result.current.sweepAgain());
+      expect(result.current.selected).toEqual([]);
+      const signal = mockRefreshNetwork.mock.calls[0][1];
+      await act(async () =>
+        changeScope({ ...routeParams, accountId: 'account-b' }),
+      );
+      expect(signal.aborted).toBe(true);
+      await act(async () => changeScope(routeParams));
+      await act(async () => {
+        if (outcome === 'resolve')
+          resolve({ ...ethereum, tokens: [], balanceUsd: '0' });
+        else reject(new Error('obsolete failure'));
+      });
+      expect(result.current.current).toBe(ethereum);
+      expect(result.current.assetStatus).toBe('ready');
+      expect(result.current.selected).toEqual(ethereum.tokens);
+      expect(mockRefreshNetwork).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('does not let an earlier reconciliation overwrite a newer retry', async () => {
+    mockRefreshNetwork.mockRejectedValueOnce(new Error('offline'));
+    const { result } = renderController();
+    await waitFor(() => expect(result.current.canStart).toBe(true));
+    act(() => {
+      result.current.start();
+    });
+    await act(async () => mockComplete([{ status: 'failed' }]));
+    act(() => result.current.sweepAgain());
+    let first!: (entry: IDustSweepNetwork) => void;
+    let second!: (entry: IDustSweepNetwork) => void;
+    mockRefreshNetwork
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          first = resolve;
+        }),
+      )
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          second = resolve;
+        }),
+      );
+    act(() => {
+      result.current.retryAssets();
+      result.current.retryAssets();
+    });
+    expect(mockRefreshNetwork.mock.calls[1][1].aborted).toBe(true);
+    const fresh = {
+      ...ethereum,
+      tokens: ethereum.tokens.map((token) => ({ ...token, amount: '0.2' })),
+    };
+    await act(async () => second(fresh));
+    await act(async () => first(ethereum));
+    expect(result.current.current).toBe(fresh);
+    expect(result.current.assetStatus).toBe('ready');
   });
 
   it('exposes provider metadata independently of empty token and quote lists', async () => {
