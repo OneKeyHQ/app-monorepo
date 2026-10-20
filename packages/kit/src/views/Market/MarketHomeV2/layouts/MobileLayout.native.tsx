@@ -27,6 +27,7 @@ import {
   useThemeName,
 } from '@onekeyhq/components';
 import { TabBar } from '@onekeyhq/components/src/composite/TabBar';
+import { BRAND_FONT_NATIVE_FAMILY } from '@onekeyhq/components/src/hocs/Provider/fonts/brandFont';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
 import type { IAppPagerRef } from '@onekeyhq/kit/src/components/AppPager/types';
 import { useAppPagerController } from '@onekeyhq/kit/src/components/AppPager/useAppPagerController';
@@ -496,7 +497,7 @@ function MobileLayoutComponent({
               contentPaddingHorizontal: 12,
               itemSpacing: 8,
               fontSize: 16,
-              fontFamily: 'Roobert-Medium',
+              fontFamily: BRAND_FONT_NATIVE_FAMILY.medium,
               backgroundColor: scrollEdgeEnabled
                 ? 'transparent'
                 : theme.bgApp.val,

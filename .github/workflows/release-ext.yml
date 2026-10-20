@@ -10,11 +10,24 @@ on:
   workflow_dispatch:
 
 env:
+  # Release artifacts must ship the licensed brand font; fonts-sync fails
+  # instead of falling back to the open-source face.
+  ONEKEY_REQUIRE_PRIVATE_FONTS: '1'
   NODE_ENV: production
   YARN_ENABLE_GLOBAL_CACHE: true
 
 jobs:
+  # Fetches the licensed brand font without running repository code; build
+  # jobs below restore it from an encrypted artifact.
+  private-fonts:
+    if: ${{ !github.event.workflow_run || github.event.workflow_run.conclusion == 'success' }}
+    uses: ./.github/workflows/private-fonts.yml
+    secrets:
+      PRIVATE_FONTS_TOKEN: ${{ secrets.PRIVATE_FONTS_TOKEN }}
+      PRIVATE_FONTS_ARTIFACT_KEY: ${{ secrets.PRIVATE_FONTS_ARTIFACT_KEY }}
+
   release-ext:
+    needs: private-fonts
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -30,6 +43,43 @@ jobs:
         uses: actions/checkout@v4
         with:
           lfs: true
+
+      # Restore the private brand font fetched by the trusted `private-fonts` job
+      # (no App key here; the artifact key only decrypts fonts). fonts:sync
+# verifies the result against this checkout's brand.lock.json.
+      - name: Restore private fonts
+        if: needs.private-fonts.outputs.artifact != ''
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ needs.private-fonts.outputs.artifact }}
+          path: ${{ runner.temp }}/private-fonts-artifact
+
+      - name: Decrypt private fonts
+        if: needs.private-fonts.outputs.artifact != ''
+        shell: bash
+        env:
+          FONTS_KEY: ${{ secrets.PRIVATE_FONTS_ARTIFACT_KEY }}
+        run: |
+          set -euo pipefail
+          dir="${RUNNER_TEMP}/onekey-private-fonts"
+          node -e "
+            const crypto = require('crypto');
+            const fs = require('fs');
+            const path = require('path');
+            const [input, dir] = process.argv.slice(1);
+            const blob = fs.readFileSync(input);
+            const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(process.env.FONTS_KEY, 'hex'), blob.subarray(0, 12));
+            decipher.setAuthTag(blob.subarray(12, 28));
+            const bundle = JSON.parse(Buffer.concat([decipher.update(blob.subarray(28)), decipher.final()]).toString());
+            fs.rmSync(dir, { recursive: true, force: true });
+            fs.mkdirSync(dir, { recursive: true });
+            for (const [name, data] of Object.entries(bundle)) {
+              if (!/^[a-z]+\.ttf$/.test(name)) throw new Error('unexpected font entry ' + name);
+              fs.writeFileSync(path.join(dir, name), Buffer.from(data, 'base64'));
+            }
+          " "${RUNNER_TEMP}/private-fonts-artifact/private-fonts.enc" "$dir"
+          rm -rf "${RUNNER_TEMP}/private-fonts-artifact"
+          echo "ONEKEY_PRIVATE_FONTS_DIR=$dir" >> "$GITHUB_ENV"
 
       - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env

@@ -25,6 +25,9 @@ interface IPortfolioProps {
   hasAccount?: boolean;
   portfolioData: IMarketAccountPortfolioDisplayItem[];
   isRefreshing?: boolean;
+  // True until the page knows whether the asset has a position (account still
+  // loading, or the first request for it not back yet).
+  isPending?: boolean;
   tokenLogoUrl?: string;
   scrollEnabled?: boolean;
   standalone?: boolean;
@@ -36,6 +39,7 @@ function PortfolioBase({
   hasAccount,
   portfolioData,
   isRefreshing,
+  isPending = false,
   tokenLogoUrl,
   scrollEnabled = true,
   standalone = false,
@@ -72,7 +76,7 @@ function PortfolioBase({
   );
 
   const emptyContent =
-    canShowPortfolio && isRefreshing ? (
+    isPending || (canShowPortfolio && isRefreshing) ? (
       <PortfolioSkeleton />
     ) : (
       <Empty
