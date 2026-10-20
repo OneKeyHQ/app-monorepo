@@ -316,6 +316,16 @@ function MarketDetail({
       cacheKey: headerHeightCacheKey,
     });
   const bodyPaddingTop = usesTranslucentHeader ? settledHeaderHeight : 0;
+  const inlineHeaderHeightRef = useRef<number | undefined>(undefined);
+  if (platformEnv.isNativeIOS && !platformEnv.isNativeIOSPad) {
+    if (isChartFullscreen) {
+      inlineHeaderHeightRef.current ??= bodyPaddingTop;
+    } else if (inlineHeaderHeightRef.current === bodyPaddingTop) {
+      inlineHeaderHeightRef.current = undefined;
+    }
+  }
+  // The hidden detail keeps its portrait inset until the native bar restores it.
+  const inlineBodyPaddingTop = inlineHeaderHeightRef.current ?? bodyPaddingTop;
 
   useEffect(() => {
     preloadMarketDetailV2BodyModules({
@@ -347,7 +357,11 @@ function MarketDetail({
         )}
 
         <Page.Body
-          pt={isChartFullscreen && !platformEnv.isNative ? 0 : bodyPaddingTop}
+          pt={
+            isChartFullscreen && !platformEnv.isNative
+              ? 0
+              : inlineBodyPaddingTop
+          }
           // Hidden only while the session's first header measurement settles.
           opacity={isHeaderHeightSettled ? 1 : 0}
           testID={MarketTestIDs.detailPage}

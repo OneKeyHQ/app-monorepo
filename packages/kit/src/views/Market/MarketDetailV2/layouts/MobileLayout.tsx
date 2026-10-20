@@ -602,6 +602,7 @@ export function MobileLayout({
 
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const [containerWidth, setContainerWidth] = useState(0);
+  const [containerHeight, setContainerHeight] = useState(0);
   const pageViewportCacheKey = getPageViewportCacheKey({
     windowWidth,
     windowHeight,
@@ -699,28 +700,53 @@ export function MobileLayout({
   const isTradingViewScrollLocked =
     isTradingViewIndicatorsDialogOpen || isTradingViewInteractionOverlayOpen;
 
+  const preservesPortraitLayout =
+    platformEnv.isNativeIOS && !platformEnv.isNativeIOSPad;
+  const preserveInlineViewport =
+    preservesPortraitLayout &&
+    (isChartFullscreen || windowWidth > windowHeight);
+
   const handleContainerLayout = useCallback(
     (event: { nativeEvent: { layout: { height: number; width: number } } }) => {
-      if (platformEnv.isNativeIOS && isChartFullscreen) {
+      if (
+        preserveInlineViewport ||
+        (preservesPortraitLayout &&
+          Math.round(event.nativeEvent.layout.width) >
+            Math.round(Math.min(windowWidth, windowHeight)))
+      ) {
         return;
       }
-      const { width: nextWidth } = event.nativeEvent.layout;
+      const { width: nextWidth, height: nextHeight } = event.nativeEvent.layout;
       if (nextWidth > 0) {
         setContainerWidth((previousWidth) =>
           previousWidth === nextWidth ? previousWidth : nextWidth,
         );
       }
+      if (preservesPortraitLayout && nextHeight > 0) {
+        setContainerHeight((previousHeight) =>
+          previousHeight === nextHeight ? previousHeight : nextHeight,
+        );
+      }
     },
-    [isChartFullscreen],
+    [
+      preserveInlineViewport,
+      preservesPortraitLayout,
+      windowHeight,
+      windowWidth,
+    ],
   );
 
   const handlePageViewportLayout = useCallback(
-    (event: { nativeEvent: { layout: { height: number } } }) => {
+    (event: { nativeEvent: { layout: { height: number; width: number } } }) => {
       // The fullscreen canvas measures its window independently. Keep the
       // hidden page's portrait layout ready for the return transition.
       if (
         !usesMeasuredPageViewport ||
-        (platformEnv.isNativeIOS && isChartFullscreen)
+        preserveInlineViewport ||
+        // A queued landscape layout can arrive after Dimensions is portrait.
+        (preservesPortraitLayout &&
+          Math.round(event.nativeEvent.layout.width) >
+            Math.round(Math.min(windowWidth, windowHeight)))
       ) {
         return;
       }
@@ -734,7 +760,14 @@ export function MobileLayout({
         );
       }
     },
-    [isChartFullscreen, pageViewportCacheKey, usesMeasuredPageViewport],
+    [
+      pageViewportCacheKey,
+      preserveInlineViewport,
+      preservesPortraitLayout,
+      usesMeasuredPageViewport,
+      windowHeight,
+      windowWidth,
+    ],
   );
 
   useEffect(() => {
@@ -1200,41 +1233,48 @@ export function MobileLayout({
     );
   }
 
-  // Keep the iOS chart owner's layout intact while its canvas is in the
+  // Keep the iPhone chart owner's layout intact while its canvas is in the
   // fullscreen host. display:none collapses it and causes extra layout work.
   return (
-    <YStack
-      flex={1}
-      display={
-        isChartFullscreen && !platformEnv.isNativeIOS ? 'none' : undefined
-      }
-      opacity={isChartFullscreen && platformEnv.isNativeIOS ? 0 : 1}
-      pointerEvents={isChartFullscreen ? 'none' : 'auto'}
-      accessibilityElementsHidden={isChartFullscreen}
-      overflow="hidden"
-      bg="$bgApp"
-      onLayout={handleContainerLayout}
-    >
-      <YStack flex={1} overflow="hidden" onLayout={handlePageViewportLayout}>
-        <MobileInformationTabs
-          containerWidth={layoutPageWidth}
-          freezeContent={isChartFullscreen}
-          onScrollEnd={noop}
-          renderHeader={renderInformationHeader}
-          pendingHeader={informationHeader}
-          scrollEnabled={!isChartFullscreen && !isTradingViewScrollLocked}
-          portfolioData={portfolioData}
-          isRefreshing={isRefreshing}
-          isPortfolioPending={isPortfolioPending}
-          tokenLogoUrl={tokenDetail?.logoUrl}
-          detailKind={detailKind}
-          marketAssetDetail={marketAssetDetail}
-          isMarketAssetDetailLoading={isMarketAssetDetailLoading}
-        />
+    <YStack flex={1} overflow="hidden" onLayout={handleContainerLayout}>
+      <YStack
+        flex={preservesPortraitLayout && containerHeight > 0 ? undefined : 1}
+        height={
+          preservesPortraitLayout && containerHeight > 0
+            ? containerHeight
+            : undefined
+        }
+        width={preservesPortraitLayout ? layoutPageWidth : undefined}
+        display={
+          isChartFullscreen && !platformEnv.isNativeIOS ? 'none' : undefined
+        }
+        opacity={isChartFullscreen && platformEnv.isNativeIOS ? 0 : 1}
+        pointerEvents={isChartFullscreen ? 'none' : 'auto'}
+        accessibilityElementsHidden={isChartFullscreen}
+        overflow="hidden"
+        bg="$bgApp"
+      >
+        <YStack flex={1} overflow="hidden" onLayout={handlePageViewportLayout}>
+          <MobileInformationTabs
+            containerWidth={layoutPageWidth}
+            freezeContent={isChartFullscreen}
+            onScrollEnd={noop}
+            renderHeader={renderInformationHeader}
+            pendingHeader={informationHeader}
+            scrollEnabled={!isChartFullscreen && !isTradingViewScrollLocked}
+            portfolioData={portfolioData}
+            isRefreshing={isRefreshing}
+            isPortfolioPending={isPortfolioPending}
+            tokenLogoUrl={tokenDetail?.logoUrl}
+            detailKind={detailKind}
+            marketAssetDetail={marketAssetDetail}
+            isMarketAssetDetailLoading={isMarketAssetDetailLoading}
+          />
+        </YStack>
+        <DelayedFreeze freeze={isChartFullscreen}>
+          {swapPanelFooter}
+        </DelayedFreeze>
       </YStack>
-      <DelayedFreeze freeze={isChartFullscreen}>
-        {swapPanelFooter}
-      </DelayedFreeze>
     </YStack>
   );
 }

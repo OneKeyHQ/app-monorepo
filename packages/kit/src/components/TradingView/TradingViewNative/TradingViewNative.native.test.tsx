@@ -15,6 +15,10 @@ import type {
 
 const mockLockAsync = jest.fn<Promise<void>, [string]>(async () => undefined);
 const mockAppStateSubscriptionRemove = jest.fn();
+const mockOrientationSubscriptionRemove = jest.fn();
+let mockOrientationChangeHandler:
+  | ((event: { orientationInfo: { orientation: string } }) => void)
+  | undefined;
 const mockIsSpanning = jest.fn(() => false);
 const mockStatusBar = jest.fn<null, [{ hidden?: boolean }]>(() => null);
 const mockWindowDimensions = { height: 844, width: 390 };
@@ -24,6 +28,9 @@ let mockAppStateChangeHandler:
   | undefined;
 
 jest.mock('expo-screen-orientation', () => ({
+  Orientation: {
+    PORTRAIT_UP: 'PORTRAIT_UP',
+  },
   OrientationLock: {
     ALL: 'ALL',
     DEFAULT: 'DEFAULT',
@@ -31,6 +38,15 @@ jest.mock('expo-screen-orientation', () => ({
     PORTRAIT_UP: 'PORTRAIT_UP',
   },
   lockAsync: (orientationLock: string) => mockLockAsync(orientationLock),
+  getOrientationAsync: async () => 'LANDSCAPE',
+  addOrientationChangeListener: (
+    handler: typeof mockOrientationChangeHandler,
+  ) => {
+    mockOrientationChangeHandler = handler;
+    return { remove: mockOrientationSubscriptionRemove };
+  },
+  removeOrientationChangeListener: (subscription: { remove: () => void }) =>
+    subscription.remove(),
 }));
 
 jest.mock('react-native', () => ({
@@ -85,6 +101,7 @@ describe('TradingViewNative screen orientation', () => {
     mockWindowDimensions.height = 844;
     mockWindowDimensions.width = 390;
     mockAppStateChangeHandler = undefined;
+    mockOrientationChangeHandler = undefined;
     mockLockAsync.mockResolvedValue(undefined);
   });
 
@@ -155,6 +172,57 @@ describe('TradingViewNative screen orientation', () => {
     rerender(<TradingViewNative source={source} />);
     expect(mockLockAsync).toHaveBeenLastCalledWith('PORTRAIT_UP');
     expect(mockStatusBar).not.toHaveBeenCalled();
+  });
+
+  it('keeps the iPhone canvas fullscreen until portrait rotation completes', async () => {
+    platformEnv.isNativeAndroid = false;
+    platformEnv.isNativeIOS = true;
+    mockWindowDimensions.width = 844;
+    mockWindowDimensions.height = 390;
+    const onFullscreenChange = jest.fn();
+    const { rerender } = render(
+      <TradingViewNative
+        source={source}
+        isNativeChartFullscreen
+        onNativeChartFullscreenChange={onFullscreenChange}
+      />,
+    );
+    let finishRotation: (() => void) | undefined;
+    mockLockAsync.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishRotation = resolve;
+        }),
+    );
+    act(() =>
+      mockContainer.mock.calls
+        .at(-1)?.[0]
+        .onNativeChartFullscreenChange?.(false),
+    );
+    expect(mockLockAsync).toHaveBeenLastCalledWith('PORTRAIT_UP');
+    expect(onFullscreenChange).not.toHaveBeenCalled();
+    await act(async () => finishRotation?.());
+    expect(onFullscreenChange).not.toHaveBeenCalled();
+    act(() => {
+      mockOrientationChangeHandler?.({
+        orientationInfo: { orientation: 'PORTRAIT_UP' },
+      });
+    });
+    expect(onFullscreenChange).not.toHaveBeenCalled();
+    mockWindowDimensions.width = 390;
+    mockWindowDimensions.height = 844;
+    rerender(
+      <TradingViewNative
+        source={source}
+        isNativeChartFullscreen
+        onNativeChartFullscreenChange={onFullscreenChange}
+      />,
+    );
+    expect(onFullscreenChange).toHaveBeenCalledWith(false);
+    expect(mockOrientationSubscriptionRemove).toHaveBeenCalled();
+    mockLockAsync.mockClear();
+    rerender(<TradingViewNative source={source} />);
+    expect(mockLockAsync).not.toHaveBeenCalled();
   });
 
   it.each([

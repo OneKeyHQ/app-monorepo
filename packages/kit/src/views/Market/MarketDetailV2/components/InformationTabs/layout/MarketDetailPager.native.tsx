@@ -45,7 +45,7 @@ export function MarketDetailPager({
   scrollEnabled = true,
 }: IMarketDetailPagerProps) {
   const pagerRef = useRef<CollapsiblePagerView>(null);
-  const [headerHeight, setHeaderHeight] = useState(0);
+  const [headerHeight, setHeaderHeight] = useState(1);
   const [stickyHeaderHeight, setStickyHeaderHeight] = useState(44);
   const theme = useTheme();
   const pages = useMemo(
@@ -89,6 +89,8 @@ export function MarketDetailPager({
         header={
           <View
             collapsable={false}
+            // Measure intrinsic content independently of the pager's reserved slot.
+            style={{ position: 'absolute', top: 0, left: 0, right: 0 }}
             onLayout={({ nativeEvent }) =>
               setHeaderHeight(Math.ceil(nativeEvent.layout.height))
             }
