@@ -200,6 +200,12 @@ describe('native bundle install concurrency', () => {
     expect(restart).toHaveBeenCalledTimes(1);
 
     const retry = BundleUpdate.installBundle({});
+    await expect(
+      BundleUpdate.installBundle({
+        latestVersion: '6.6.1',
+        bundleVersion: '24910530',
+      }),
+    ).rejects.toThrow('BUNDLE_INSTALL_TARGET_CONFLICT');
     await jest.runAllTimersAsync();
     await retry;
     expect(installBundle).toHaveBeenCalledTimes(1);

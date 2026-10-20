@@ -330,8 +330,8 @@ export const BundleUpdate: IBundleUpdate = {
       // Only replace an installed target after restart has failed.
       bundleInstallPromise = undefined;
     }
+    bundleRestartFailed = false;
     if (!bundleInstallPromise) {
-      bundleRestartFailed = false;
       bundleInstallTarget = target;
       bundleInstallPromise = (async () => {
         await ReactNativeBundleUpdate.installBundle({
@@ -348,7 +348,6 @@ export const BundleUpdate: IBundleUpdate = {
     }
     return bundleInstallPromise.then(() => {
       if (!bundleRestartPromise) {
-        bundleRestartFailed = false;
         // Same-target retries must not rewrite fallback history.
         bundleRestartPromise = (async () => {
           defaultLogger.app.appUpdate.restartRNApp();
