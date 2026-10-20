@@ -181,24 +181,28 @@ export function gateLocalWalletHistoryDetail(
   });
   const hidden = hiddenOwnAddresses(gate, own);
   if (!hidden.size) return detail;
-  const gateEntry = (
-    entry: IOnChainHistoryTxTransfer,
-  ): IOnChainHistoryTxTransfer => {
-    const fields = (['address', 'from', 'to'] as const).filter((field) =>
-      hidden.has(entry[field] ?? ''),
-    );
-    if (!fields.length) return entry;
-    return {
-      ...entry,
-      ...Object.fromEntries(fields.map((field) => [field, ''])),
-      isOwn: true,
+  // Only a hidden address on the entry's own side (an input's sender, an
+  // output's receiver) makes it ours; the other side is just blanked.
+  const gateEntry =
+    (ownSide: 'from' | 'to') =>
+    (entry: IOnChainHistoryTxTransfer): IOnChainHistoryTxTransfer => {
+      const fields = (['address', 'from', 'to'] as const).filter((field) =>
+        hidden.has(entry[field] ?? ''),
+      );
+      if (!fields.length) return entry;
+      return {
+        ...entry,
+        ...Object.fromEntries(fields.map((field) => [field, ''])),
+        isOwn:
+          entry.isOwn ||
+          fields.some((field) => field === 'address' || field === ownSide),
+      };
     };
-  };
   return {
     ...detail,
     from: hidden.has(detail.from) ? '' : detail.from,
     to: hidden.has(detail.to) ? '' : detail.to,
-    sends: detail.sends?.map(gateEntry),
-    receives: detail.receives?.map(gateEntry),
+    sends: detail.sends?.map(gateEntry('from')),
+    receives: detail.receives?.map(gateEntry('to')),
   };
 }
