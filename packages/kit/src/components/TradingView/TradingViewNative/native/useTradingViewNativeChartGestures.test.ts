@@ -6,6 +6,7 @@ import { createElement } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { renderHook } from '@testing-library/react';
+import { I18nManager } from 'react-native';
 import { Gesture } from 'react-native-gesture-handler';
 import { withDecay } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -60,12 +61,13 @@ jest.mock(
   () => ({
     HeaderScrollGestureContext: jest
       .requireActual<typeof import('react')>('react')
-      .createContext<{ gestures: GestureType[]; excludeLeftEdgeWidth: number }>(
-        {
-          gestures: [],
-          excludeLeftEdgeWidth: 0,
-        },
-      ),
+      .createContext<{
+        gestures: GestureType[];
+        excludeStartEdgeWidth: number;
+      }>({
+        gestures: [],
+        excludeStartEdgeWidth: 0,
+      }),
   }),
 );
 
@@ -119,6 +121,12 @@ jest.mock('react-native-gesture-handler', () => ({
       return gesture;
     }),
   },
+}));
+
+jest.mock('react-native', () => ({
+  ...jest.requireActual<typeof import('react-native')>('react-native'),
+  I18nManager: { isRTL: false },
+  useWindowDimensions: () => ({ width: 400, height: 874 }),
 }));
 
 jest.mock('react-native-reanimated', () => ({
@@ -184,11 +192,11 @@ function renderSettingsGesture(
 function renderChartGestures({
   headerScrollGestures = [],
   prioritizePageScroll = false,
-  excludeLeftEdgeWidth = 0,
+  excludeStartEdgeWidth = 0,
 }: {
   headerScrollGestures?: GestureType[];
   prioritizePageScroll?: boolean;
-  excludeLeftEdgeWidth?: number;
+  excludeStartEdgeWidth?: number;
 } = {}) {
   const chartRuntime = {
     value: {
@@ -257,7 +265,7 @@ function renderChartGestures({
     wrapper: ({ children }: PropsWithChildren) =>
       createElement(
         HeaderScrollGestureContext.Provider,
-        { value: { gestures: headerScrollGestures, excludeLeftEdgeWidth } },
+        { value: { gestures: headerScrollGestures, excludeStartEdgeWidth } },
         children,
       ),
   });
@@ -277,6 +285,7 @@ function renderChartGestures({
 describe('useTradingViewNativeChartGestures', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    I18nManager.isRTL = false;
     mockPanGestures.length = 0;
     mockTapGestures.length = 0;
     mockGetSubIndicatorAtPoint.mockImplementation(
@@ -284,10 +293,18 @@ describe('useTradingViewNativeChartGestures', () => {
     );
   });
 
-  it.each([0, 16, 31])(
-    'leaves a touch at screen X=%i to navigation when the page reserves its left edge',
-    (absoluteX) => {
-      const gestures = renderChartGestures({ excludeLeftEdgeWidth: 32 });
+  it.each([
+    { isRTL: false, absoluteX: 0 },
+    { isRTL: false, absoluteX: 16 },
+    { isRTL: false, absoluteX: 31 },
+    { isRTL: true, absoluteX: 400 },
+    { isRTL: true, absoluteX: 384 },
+    { isRTL: true, absoluteX: 369 },
+  ])(
+    'leaves the logical start edge to navigation (%j)',
+    ({ isRTL, absoluteX }) => {
+      I18nManager.isRTL = isRTL;
+      const gestures = renderChartGestures({ excludeStartEdgeWidth: 32 });
       for (const gesture of [
         gestures.contentPanGesture,
         gestures.crosshairGesture,
@@ -322,14 +339,18 @@ describe('useTradingViewNativeChartGestures', () => {
   );
 
   it.each([
-    { excludeLeftEdgeWidth: 0, absoluteX: 0 },
-    { excludeLeftEdgeWidth: 32, absoluteX: 32 },
-    { excludeLeftEdgeWidth: 32, absoluteX: 64 },
+    { isRTL: false, excludeStartEdgeWidth: 0, absoluteX: 0 },
+    { isRTL: true, excludeStartEdgeWidth: 0, absoluteX: 400 },
+    { isRTL: true, excludeStartEdgeWidth: 32, absoluteX: 368 },
+    { isRTL: true, excludeStartEdgeWidth: 32, absoluteX: 16 },
+    { isRTL: false, excludeStartEdgeWidth: 32, absoluteX: 32 },
+    { isRTL: false, excludeStartEdgeWidth: 32, absoluteX: 64 },
   ])(
     'keeps chart panning available outside the reserved screen edge (%j)',
-    ({ excludeLeftEdgeWidth, absoluteX }) => {
+    ({ isRTL, excludeStartEdgeWidth, absoluteX }) => {
+      I18nManager.isRTL = isRTL;
       const { contentPanGesture } = renderChartGestures({
-        excludeLeftEdgeWidth,
+        excludeStartEdgeWidth,
       });
       const fail = jest.fn();
       contentPanGesture.handlers.onTouchesDown?.(

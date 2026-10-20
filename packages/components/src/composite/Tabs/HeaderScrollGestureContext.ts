@@ -5,5 +5,5 @@ import type { GestureType } from 'react-native-gesture-handler';
 // Nested native scroll views must take priority over the header's page pans.
 export const HeaderScrollGestureContext = createContext<{
   gestures: GestureType[];
-  excludeLeftEdgeWidth: number;
-}>({ gestures: [], excludeLeftEdgeWidth: 0 });
+  excludeStartEdgeWidth: number;
+}>({ gestures: [], excludeStartEdgeWidth: 0 });

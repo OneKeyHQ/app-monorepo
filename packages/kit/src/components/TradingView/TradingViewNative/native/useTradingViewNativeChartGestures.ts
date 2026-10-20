@@ -1,5 +1,6 @@
 import { useContext, useMemo } from 'react';
 
+import { I18nManager, useWindowDimensions } from 'react-native';
 import { Gesture } from 'react-native-gesture-handler';
 import {
   cancelAnimation,
@@ -74,9 +75,11 @@ export function useTradingViewNativeChartGestures({
   resources: SharedValue<ITradingViewNativeSkiaResources>;
   timeAxisHeight: number;
 }) {
-  const { gestures: headerScrollGestures, excludeLeftEdgeWidth } = useContext(
+  const { gestures: headerScrollGestures, excludeStartEdgeWidth } = useContext(
     HeaderScrollGestureContext,
   );
+  const { width: windowWidth } = useWindowDimensions();
+  const isRTL = I18nManager.isRTL;
   const shouldWaitForPageScroll =
     prioritizePageScroll && headerScrollGestures.length > 0;
   const pressedSubIndicatorSettingsTarget =
@@ -96,7 +99,12 @@ export function useTradingViewNativeChartGestures({
     const isNavigationEdgeTouch = (absoluteX: number) => {
       'worklet';
 
-      return excludeLeftEdgeWidth > 0 && absoluteX < excludeLeftEdgeWidth;
+      return (
+        excludeStartEdgeWidth > 0 &&
+        (isRTL
+          ? windowWidth - absoluteX < excludeStartEdgeWidth
+          : absoluteX < excludeStartEdgeWidth)
+      );
     };
     const isPriceAxisTouch = (x: number, y: number) => {
       'worklet';
@@ -622,7 +630,9 @@ export function useTradingViewNativeChartGestures({
     chartRuntime,
     decayOffset,
     headerScrollGestures,
-    excludeLeftEdgeWidth,
+    excludeStartEdgeWidth,
+    isRTL,
+    windowWidth,
     shouldWaitForPageScroll,
     isClickInteractionEnabled,
     isCrosshairEnabled,

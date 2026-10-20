@@ -2,6 +2,7 @@ import {
   cloneElement,
   isValidElement,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -19,6 +20,7 @@ import {
   DelayedFreeze,
   Divider,
   EInPageDialogType,
+  HeaderScrollGestureContext,
   HeaderScrollGestureWrapper,
   IconButton,
   ScrollView,
@@ -608,6 +610,7 @@ export function MobileLayout({
   const dialogRef = useRef<IDialogInstance>(null);
 
   const { height: windowHeight, width: windowWidth } = useWindowDimensions();
+  const { excludeStartEdgeWidth } = useContext(HeaderScrollGestureContext);
   const [containerWidth, setContainerWidth] = useState(0);
   const pageViewportCacheKey = getPageViewportCacheKey({
     windowWidth,
@@ -1083,10 +1086,10 @@ export function MobileLayout({
             <View
               style={{
                 position: 'absolute',
-                left: 0,
+                start: 0,
                 top: 50,
                 bottom: 0,
-                width: 20,
+                width: excludeStartEdgeWidth,
                 zIndex: 9999,
               }}
             />
@@ -1095,6 +1098,7 @@ export function MobileLayout({
       </YStack>
     );
   }, [
+    excludeStartEdgeWidth,
     accountMarksContext,
     chartHeaderLogoUrl,
     chartHeaderSymbol,

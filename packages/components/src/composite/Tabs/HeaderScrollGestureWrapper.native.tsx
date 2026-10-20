@@ -1,6 +1,7 @@
 import type { PropsWithChildren } from 'react';
 import { useCallback, useContext, useMemo, useState } from 'react';
 
+import { I18nManager } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
@@ -40,7 +41,7 @@ export function HeaderScrollGestureWrapper({
   onGestureActiveChange,
   excludeBottomEdgeHeight = 0,
 }: PropsWithChildren<IHeaderScrollGestureWrapperProps>) {
-  const { excludeLeftEdgeWidth } = useContext(HeaderScrollGestureContext);
+  const { excludeStartEdgeWidth } = useContext(HeaderScrollGestureContext);
   const tabsContext = useContext(CollapsibleTabContext);
   const refMap = tabsContext?.refMap;
   const focusedTab = tabsContext?.focusedTab;
@@ -96,16 +97,22 @@ export function HeaderScrollGestureWrapper({
         ? measuredWidth * safeExcludeRightEdgeRatio
         : 0;
     const safeExcludeBottomEdgeHeight = Math.max(0, excludeBottomEdgeHeight);
+    const navigationEdge = I18nManager.isRTL ? 'right' : 'left';
     const gestureHitSlop =
-      excludeLeftEdgeWidth > 0 ||
+      excludeStartEdgeWidth > 0 ||
       excludedRightEdgeWidth > 0 ||
       safeExcludeBottomEdgeHeight > 0
         ? {
-            ...(excludeLeftEdgeWidth > 0
-              ? { left: -excludeLeftEdgeWidth }
+            ...(excludeStartEdgeWidth > 0
+              ? { [navigationEdge]: -excludeStartEdgeWidth }
               : {}),
             ...(excludedRightEdgeWidth > 0
-              ? { right: -excludedRightEdgeWidth }
+              ? {
+                  right: -Math.max(
+                    excludedRightEdgeWidth,
+                    I18nManager.isRTL ? excludeStartEdgeWidth : 0,
+                  ),
+                }
               : {}),
             ...(safeExcludeBottomEdgeHeight > 0
               ? { bottom: -safeExcludeBottomEdgeHeight }
@@ -297,7 +304,7 @@ export function HeaderScrollGestureWrapper({
     panFailOffsetX,
     verticalPanMaxPointers,
     excludeRightEdgeRatio,
-    excludeLeftEdgeWidth,
+    excludeStartEdgeWidth,
     excludeBottomEdgeHeight,
     scrollScale,
     onHorizontalSwipe,
@@ -319,8 +326,8 @@ export function HeaderScrollGestureWrapper({
   ]);
 
   const scrollGestureContext = useMemo(
-    () => ({ gestures: scrollGestures, excludeLeftEdgeWidth }),
-    [scrollGestures, excludeLeftEdgeWidth],
+    () => ({ gestures: scrollGestures, excludeStartEdgeWidth }),
+    [scrollGestures, excludeStartEdgeWidth],
   );
 
   return (

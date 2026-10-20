@@ -902,3 +902,25 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: The wallet-wide discovery key depended on presentation order and selected-chain derive resolution. The account-only fallback also omitted network-logo metadata already available in the network list.
 **Fix**: Normalize network-set keys, invalidate discovery on the actual global derive-change generation, and fill missing network logos in the account-only fallback. Existing hook tests cover reorder stability and explicit derive invalidation. These retained changes do not eliminate individual-image placeholder flicker or establish that all token-selector image issues are resolved.
 **Catchable by**: Section 5: distinguish cache identity changes from presentation changes; verify populated-list continuity, account switches, explicit invalidation, and late responses separately from individual-image loading.
+
+
+## Case: Market chart gesture ownership and independent Simple layout (OK-64931, OK-65115, OK-64930)
+**Date**: 2026-10-21 | **Platforms**: iOS, mobile layouts
+**Symptom**: Chart touches blocked iOS swipe-back, Pro indicators expanded the Simple chart, and the Simple toggle overlapped the TradingView toolbar.
+**Root Cause**: Chart and page recognizers owned the navigation edge, Simple reused Pro pane height, and an absolute toggle overlay competed with toolbar controls.
+**Fix**: Reserve the logical start edge consistently in header, native chart, price-axis and WebView gestures; preserve a 280pt plot plus 48pt controls; use the toolbar's existing right-control slot. Verify the installed native-stack implementation before interpreting start/end response bounds.
+**Catchable by**: Section 4: Update every consumer of shared contracts; Section 7: Verify real navigation and independent chart modes on iOS, including RTL.
+
+## Case: Stock status and trading-hours panel disagreed on holidays
+**Date**: 2026-10-21 | **Platforms**: iOS, Android, web, desktop
+**Symptom**: Non-Ondo stocks hid valid market status; after enabling all issuers, a holiday's 24/7 badge could open a panel highlighting regular trading.
+**Root Cause**: Issuer guards suppressed valid stock signals, while the panel's session resolver received no backend market status and fell back to clock-only session math.
+**Fix**: Remove issuer filtering and feed the panel the existing cached US market-status hook, retaining clock fallback when unavailable. Cover status updates and weekday closures for Ondo, xStocks and bstock.
+**Catchable by**: Section 4: Trace data from API through every display consumer; Section 7: Compare badge and panel states for holidays and issuer variants.
+
+## Case: Web Market bootstrap seed stopped matching default Trending order
+**Date**: 2026-10-21 | **Platforms**: web
+**Symptom**: Market cold-start CI reported missing business/list readiness despite injecting a token seed.
+**Root Cause**: Trending switched to API default sorting, but seed acquisition and both runtime matching checks still required explicit volume-descending sorting.
+**Fix**: Align the build seed query, synchronous first-frame initialization and light API seed matching with the default order; keep explicitly sorted queries isolated. Verify regression tests and the production cold-start budget.
+**Catchable by**: Section 4: Update every producer and consumer when query identity changes; Section 7: Verify first-frame rendering with unavailable network requests.

@@ -438,7 +438,7 @@ function MarketDetailV2(
   >(
     () => ({
       gestures: [],
-      excludeLeftEdgeWidth:
+      excludeStartEdgeWidth:
         platformEnv.isNativeIOS && !effectiveIsChartFullscreen
           ? MARKET_DETAIL_BACK_SWIPE_EDGE_WIDTH
           : 0,
