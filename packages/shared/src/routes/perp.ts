@@ -71,7 +71,7 @@ export type IModalPerpParamList = {
     side: 'long' | 'short';
   };
   [EModalPerpRoutes.PerpTradersHistoryList]:
-    | { initialTab?: IPerpHistoryTab }
+    | { initialTab?: IPerpHistoryTab; coin?: string }
     | undefined;
   [EModalPerpRoutes.MobilePerpMarket]:
     | { initialTab?: IMobilePerpMarketTab }
