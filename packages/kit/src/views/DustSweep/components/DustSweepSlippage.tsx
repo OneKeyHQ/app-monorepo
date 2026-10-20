@@ -234,7 +234,11 @@ export function DustSweepSlippage() {
       mx={0}
       my={0}
       size="small"
-      p={0}
+      childrenAsText={false}
+      py={0}
+      pl="$1.5"
+      // The chevron's view box already supplies the trailing visual inset.
+      pr={0}
       height={20}
       minHeight={20}
       onPress={mobile ? openEditor : undefined}
