@@ -42,10 +42,10 @@ jest.mock('react-native', () => {
 
   return {
     ...actualReactNative,
-    Keyboard: {
-      ...actualReactNative.Keyboard,
+    // Keyboard is a class instance; keep its prototype and override dismiss.
+    Keyboard: Object.assign(Object.create(actualReactNative.Keyboard), {
       dismiss: jest.fn(),
-    },
+    }),
   };
 });
 

@@ -41,6 +41,11 @@ module.exports = async () => {
     // buffer type incorrect if use [jsdom] https://github.com/facebook/jest/issues/4422
     // jest-environment-node, node, jsdom
     testEnvironment: 'jest-environment-node',
+    // jest-expo 58's web preset defaults to the `browser` export condition,
+    // which resolves ESM-only browser builds under this node environment.
+    testEnvironmentOptions: {
+      customExportConditions: ['node', 'node-addons'],
+    },
     verbose: true,
     moduleFileExtensions: [
       ...defaults.moduleFileExtensions,

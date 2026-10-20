@@ -27,9 +27,6 @@ const { spawn } = require('child_process');
 const crypto = require('crypto');
 const path = require('path');
 
-const {
-  patchTransformFileForPackedMaps,
-} = require('@expo/metro-config/build/serializer/packedMap');
 const fs = require('fs-extra');
 const Metro = require('metro');
 const { loadConfig } = require('metro-config');
@@ -1968,8 +1965,9 @@ async function main() {
     );
   }
 
+  // Expo SDK 58 removed packed source maps; Metro transform results are
+  // serialized with plain source maps again.
   const metroServer = await Metro.runMetro(config, { watch: false });
-  patchTransformFileForPackedMaps(metroServer.getBundler().getBundler());
 
   try {
     const bundler = metroServer.getBundler();

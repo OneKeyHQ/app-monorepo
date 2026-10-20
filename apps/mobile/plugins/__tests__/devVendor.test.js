@@ -139,8 +139,12 @@ function loadResolveAssetSource(scriptURL) {
       if (request === './AssetUtils') {
         return { pickScale: () => 1 };
       }
-      if (request === '@react-native/assets-registry/registry') {
-        return { getAssetByID: () => ({ name: 'test', type: 'png' }) };
+      if (request === '../../src/private/assets/AssetRegistry') {
+        return {
+          AssetRegistry: {
+            getAssetByID: () => ({ name: 'test', type: 'png' }),
+          },
+        };
       }
       if (request === '../Core/Devtools/getDevServer') {
         return { __esModule: true, default: getDevServer };
@@ -763,7 +767,7 @@ describe('devVendor', () => {
       const yarnLockPath = path.join(fixture.repoRoot, 'yarn.lock');
       const yarnLock = fs.readFileSync(yarnLockPath, 'utf8');
       const changedYarnLock = yarnLock.replace(
-        /("react-native@npm:0\.86\.2":[\s\S]*?\n  checksum: )[^\n]+/u,
+        /("react-native@npm:0\.88\.0":[\s\S]*?\n  checksum: )[^\n]+/u,
         `$1${`10/${'a'.repeat(128)}`}`,
       );
       expect(changedYarnLock).not.toBe(yarnLock);

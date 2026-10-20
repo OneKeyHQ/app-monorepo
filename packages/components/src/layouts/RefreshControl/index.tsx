@@ -15,7 +15,7 @@ export function RefreshControl(props: IRefreshControlType) {
   const { onRefresh, ...rest } = props;
   const handleRefresh = useCallback(() => {
     Haptics.impact(ImpactFeedbackStyle.Medium);
-    onRefresh?.();
+    void onRefresh?.();
   }, [onRefresh]);
   return (
     <NativeRefreshControl

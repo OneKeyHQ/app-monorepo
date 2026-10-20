@@ -23,7 +23,7 @@ function BasicPulseContainer({
       toValue: isActive ? activeOpacity : 1,
       useNativeDriver: true,
       duration,
-      easing: Easing.inOut(Easing.ease),
+      easing: Easing.inOut((progress) => Easing.ease(progress)),
     }).start();
   }, [isActive, activeOpacity, duration, opacityAnim]);
 
