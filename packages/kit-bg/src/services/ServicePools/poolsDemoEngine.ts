@@ -38,7 +38,6 @@ import type {
   IPoolPositionView,
   IPoolPricePoint,
   IPoolPriceRange,
-  IPoolProtocolVersion,
   IPoolRemovePreview,
   IPoolSwapQuote,
   IPoolTask,
@@ -64,7 +63,6 @@ import {
   buildSeedPositions,
   mockHex,
 } from './poolsMockBuilder';
-import { POOLS_GAS_PRICE_GWEI } from './poolsMockData';
 import { getPoolProtocolIntro } from './poolsProtocolIntro';
 
 import type { IPoolsMockCatalog } from './poolsMockBuilder';
@@ -91,30 +89,6 @@ const ROUTE_DEPTH_USD: Record<string, number> = {
   stock: 3_000_000,
   ETH: 60_000_000,
   default: 8_000_000,
-};
-
-// Rough gas per transaction, by Uniswap version where it differs. A Permit2
-// signature is free, and V2 has no fees to claim.
-const STEP_GAS: Record<
-  EPoolTaskStepKind,
-  number | Record<IPoolProtocolVersion, number>
-> = {
-  [EPoolTaskStepKind.Approve]: 46_000,
-  [EPoolTaskStepKind.ApprovePermit2]: 46_000,
-  [EPoolTaskStepKind.SignPermit]: 0,
-  [EPoolTaskStepKind.Swap]: 160_000,
-  [EPoolTaskStepKind.AddLiquidity]: { v2: 160_000, v3: 450_000, v4: 380_000 },
-  [EPoolTaskStepKind.IncreaseLiquidity]: {
-    v2: 160_000,
-    v3: 180_000,
-    v4: 170_000,
-  },
-  [EPoolTaskStepKind.RemoveLiquidity]: {
-    v2: 180_000,
-    v3: 230_000,
-    v4: 200_000,
-  },
-  [EPoolTaskStepKind.CollectFees]: { v2: 0, v3: 130_000, v4: 140_000 },
 };
 
 type IState = IPoolsDemoDBStruct;
@@ -1220,49 +1194,6 @@ function amountsOf(items: Array<{ asset: IPoolAsset; amount: BigNumber }>) {
     .map(({ asset, amount }) => tokenAmount(asset, amount));
 }
 
-function getStepNetworkFeeUsd(
-  catalog: IPoolsMockCatalog,
-  networkId: string,
-  step: IPlannedStep,
-) {
-  const gas = STEP_GAS[step.kind];
-  let units = 0;
-  if (typeof gas === 'number') {
-    units = gas;
-  } else if (step.poolId) {
-    units = gas[getPool(catalog, step.poolId).version];
-  }
-  const native = getNativeAsset(catalog, networkId);
-  return bn(units)
-    .times(POOLS_GAS_PRICE_GWEI[networkId] ?? 0)
-    .shiftedBy(-9)
-    .times(native?.priceUsd ?? 0);
-}
-
-/**
- * The share of what the swaps send that their price impact costs. ETH to
- * WETH is a wrap and moves no price, so it stays out.
- */
-function getSwapsPriceImpact(
-  catalog: IPoolsMockCatalog,
-  quotes: Array<IPoolSwapQuote | undefined>,
-) {
-  let sentUsd = new PoolsBigNumber(0);
-  let impactUsd = new PoolsBigNumber(0);
-  for (const quote of quotes) {
-    if (quote) {
-      const from = getAsset(catalog, quote.fromAssetId);
-      const to = getAsset(catalog, quote.toAssetId);
-      if (from.canonicalId !== to.canonicalId) {
-        const valueUsd = bn(quote.amountIn).times(from.priceUsd);
-        sentUsd = sentUsd.plus(valueUsd);
-        impactUsd = impactUsd.plus(valueUsd.times(quote.priceImpact));
-      }
-    }
-  }
-  return sentUsd.gt(0) ? impactUsd.div(sentUsd).toFixed() : undefined;
-}
-
 /** The same estimate the form shows for this deposit (doc §3.5) */
 function getAddApr(
   pool: IPool,
@@ -1335,10 +1266,6 @@ async function buildTaskPreview(
             liquidity: plan.liquidity,
             valueUsd: plan.depositUsd,
           }),
-          priceImpact: getSwapsPriceImpact(
-            catalog,
-            plan.legs.map((leg) => leg.quote),
-          ),
           pay: [tokenAmount(input, bn(plan.amountIn))],
           deposit: amountsOf([
             { asset: pool.token0, amount: bn(plan.used0) },
@@ -1410,10 +1337,6 @@ async function buildTaskPreview(
             .times(target.priceUsd)
             .toFixed(2),
           costUsd: preview.zapOut.costUsd,
-          priceImpact: getSwapsPriceImpact(
-            catalog,
-            preview.zapOut.legs.map((leg) => leg.quote),
-          ),
         };
       }
       return {
@@ -1541,15 +1464,7 @@ export async function createTask(
       throw new OneKeyLocalError('Unknown pool task');
   }
 
-  const fees = planned.map((step) =>
-    getStepNetworkFeeUsd(catalog, networkId, step),
-  );
-  const preview: IPoolTaskPreview = {
-    ...(await buildTaskPreview(catalog, state, request)),
-    networkFeeUsd: fees
-      .reduce((sum, fee) => sum.plus(fee), new PoolsBigNumber(0))
-      .toFixed(6),
-  };
+  const preview = await buildTaskPreview(catalog, state, request);
   pruneTasks(state);
   const id = `pools-task-${now}-${state.tasks.length}`;
   const positionIds = getRequestPositionIds(request);
@@ -1572,7 +1487,6 @@ export async function createTask(
       ...step,
       id: makeStepId(id, index),
       status: EPoolTaskStepStatus.Pending,
-      networkFeeUsd: fees[index].toFixed(6),
     })),
     createdAt: now,
     updatedAt: now,

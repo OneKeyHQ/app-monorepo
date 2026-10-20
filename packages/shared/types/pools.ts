@@ -466,11 +466,6 @@ export type IPoolTaskStep = {
   spent?: IPoolTaskTokenAmount[];
   txId?: string;
   error?: string;
-  /**
-   * Demo estimate of the step's gas in USD; a signature costs none. Absent
-   * on tasks saved before fees were estimated.
-   */
-  networkFeeUsd?: string;
 };
 
 /** An add's fee APR estimate, as the form showed it (doc §3.5) */
@@ -491,13 +486,6 @@ export type IPoolTaskPreview = {
   valueUsd: string;
   /** Swap fees and price impact */
   costUsd: string;
-  /**
-   * The swaps' price impact as a fraction, weighted by what each sends;
-   * absent without market swaps
-   */
-  priceImpact?: string;
-  /** Every step's network fee; absent on tasks saved before fees were estimated */
-  networkFeeUsd?: string;
   /** Adds to a range pool: the range the deposit goes into */
   range?: { tickLower: number; tickUpper: number };
   /** Adds: what the deposit is estimated to earn */

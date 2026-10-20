@@ -56,7 +56,6 @@ import { confirmAbandonPoolTask } from '../components/PoolUnfinishedTasks';
 import { POOLS_COPY } from '../poolsCopy';
 import {
   formatFeeTier,
-  formatPercent,
   formatTokenAmount,
   formatUsd,
   getPoolPairTitle,
@@ -70,9 +69,8 @@ import type { RouteProp } from '@react-navigation/core';
 
 // A wallet confirmation plus the block it lands in, roughly
 const SECONDS_PER_STEP = 20;
-// Price impact worth a second look, and worth stopping for
-const IMPACT_CAUTION = 0.03;
-const IMPACT_CRITICAL = 0.05;
+// A swap that costs more than this share of the whole amount is worth a look
+const SWAP_COST_NOTICE = 0.01;
 
 function formatAmount(item: IPoolTaskTokenAmount) {
   return formatTokenAmount(item.amount, item.symbol);
@@ -302,33 +300,11 @@ function AmountLines({ items }: { items: IPoolTaskTokenAmount[] }) {
   );
 }
 
-function sameAmounts(a: IPoolTaskTokenAmount[], b: IPoolTaskTokenAmount[]) {
-  return (
-    a.length === b.length &&
-    a.every(
-      (item, index) =>
-        item.symbol === b[index].symbol &&
-        new BigNumber(item.amount).eq(b[index].amount),
-    )
-  );
-}
-
 /** The add's estimate in the form's terms, so the review reads the same */
 function toAprEstimate(apr: IPoolTaskAprPreview): IPoolsAprEstimate {
   return apr.status === 'ok'
     ? { status: 'ok', apr: new BigNumber(apr.apr), isSmallAmount: false }
     : { status: apr.status };
-}
-
-function formatPriceImpact(fraction: BigNumber) {
-  return fraction.lt(0.0001) ? '< 0.01%' : formatPercent(fraction);
-}
-
-function getPriceImpactColor(fraction: BigNumber) {
-  if (fraction.gte(IMPACT_CRITICAL)) {
-    return '$textCritical';
-  }
-  return fraction.gte(IMPACT_CAUTION) ? '$textCaution' : '$textSubdued';
 }
 
 /** Where the deposit goes; a range that starts outside the price says so */
@@ -391,6 +367,10 @@ function AprSummaryRow({
   );
 }
 
+/**
+ * What the user agrees to: what they pay or receive and, for an add, the
+ * range and what it should earn. The split shows in the steps below.
+ */
 function TaskSummary({ task, pool }: { task: IPoolTask; pool?: IPool }) {
   const { preview } = task;
   const isDone = task.status === EPoolTaskStatus.Done;
@@ -398,28 +378,18 @@ function TaskSummary({ task, pool }: { task: IPoolTask; pool?: IPool }) {
   const list = (items: IPoolTaskTokenAmount[]) =>
     sortByPair(pool, nonZero(items), (item) => item.assetId);
   const pay = list(preview.pay);
-  const deposit = list(preview.deposit);
   const receive = list(preview.receive);
-  const leftover = list(preview.leftover);
   const cost = new BigNumber(preview.costUsd);
-  const impact = preview.priceImpact
-    ? new BigNumber(preview.priceImpact)
-    : undefined;
+  // Only a costly swap gets a row, and only while it can still be avoided
+  const isCostly =
+    !isDone &&
+    cost.gt(0) &&
+    cost.div(cost.plus(preview.valueUsd)).gt(SWAP_COST_NOTICE);
   return (
     <PoolsCard>
       {pay.length ? (
         <SummaryRow label={isDone ? POOLS_COPY.paid : POOLS_COPY.pay}>
           <AmountLines items={pay} />
-        </SummaryRow>
-      ) : null}
-      {deposit.length && !sameAmounts(pay, deposit) ? (
-        <SummaryRow label={POOLS_COPY.goesIn}>
-          <AmountLines items={deposit} />
-        </SummaryRow>
-      ) : null}
-      {leftover.length ? (
-        <SummaryRow label={POOLS_COPY.leftover}>
-          <AmountLines items={leftover} />
         </SummaryRow>
       ) : null}
       {receive.length ? (
@@ -429,40 +399,20 @@ function TaskSummary({ task, pool }: { task: IPoolTask; pool?: IPool }) {
           <AmountLines items={receive} />
         </SummaryRow>
       ) : null}
-      {/* Once done, the hero above states the value */}
-      {isDone ? null : (
-        <SummaryRow label={POOLS_COPY.value}>
-          <SizableText size="$bodyMdMedium">
-            {formatUsd(preview.valueUsd)}
-          </SizableText>
-        </SummaryRow>
-      )}
       {pool && preview.range ? (
         <RangeSummaryRow pool={pool} range={preview.range} isDone={isDone} />
       ) : null}
       {pool && preview.apr ? (
         <AprSummaryRow pool={pool} apr={preview.apr} />
       ) : null}
-      {/* The swap cost holds the price impact, so the two read together */}
-      {cost.gt(0) ? (
+      {isCostly ? (
         <SummaryRow label={POOLS_COPY.swapCost}>
-          <SizableText size="$bodyMdMedium">{formatUsd(cost)}</SizableText>
-          {impact ? (
-            <SizableText
-              testID="earn-pool-task-price-impact"
-              size="$bodySm"
-              color={getPriceImpactColor(impact)}
-              textAlign="right"
-            >
-              {POOLS_COPY.priceImpact(formatPriceImpact(impact))}
-            </SizableText>
-          ) : null}
-        </SummaryRow>
-      ) : null}
-      {preview.networkFeeUsd ? (
-        <SummaryRow label={POOLS_COPY.networkFee}>
-          <SizableText testID="earn-pool-task-network-fee" size="$bodyMdMedium">
-            {formatUsd(preview.networkFeeUsd)}
+          <SizableText
+            testID="earn-pool-task-swap-cost"
+            size="$bodyMdMedium"
+            color="$textCaution"
+          >
+            {formatUsd(cost)}
           </SizableText>
         </SummaryRow>
       ) : null}
@@ -497,16 +447,6 @@ function confirmInDemoWallet({
                 </SizableText>
               ))}
             </YStack>
-          ) : null}
-          {new BigNumber(step.networkFeeUsd ?? 0).gt(0) ? (
-            <XStack jc="space-between" gap="$3">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {POOLS_COPY.networkFee}
-              </SizableText>
-              <SizableText size="$bodyMdMedium">
-                {formatUsd(step.networkFeeUsd)}
-              </SizableText>
-            </XStack>
           ) : null}
           <SizableText size="$bodySm" color="$textSubdued">
             {POOLS_COPY.demoWalletNote}

@@ -204,8 +204,6 @@ export const POOLS_COPY = {
   paid: 'You paid',
   received: 'You received',
   value: 'Value',
-  networkFee: 'Network fee',
-  priceImpact: (value: string) => `${value} price impact`,
   outOfRangeNow: 'Out of range now',
   confirmInWallet: 'Confirm in wallet',
   demoWalletNote: 'Demo: nothing is signed or sent.',

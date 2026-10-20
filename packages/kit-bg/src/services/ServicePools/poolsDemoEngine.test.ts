@@ -486,7 +486,7 @@ describe('pools demo tasks', () => {
       EPoolTaskStepKind.AddLiquidity,
     ]);
 
-    // The review: where it goes, what it earns and what it costs
+    // The review: where it goes and what it earns
     const { preview } = task;
     expect(preview.range).toEqual({
       tickLower: Math.floor(tick / 60) * 60 - 1200,
@@ -496,15 +496,6 @@ describe('pools demo tasks', () => {
     expect(
       Number(preview.apr?.status === 'ok' ? preview.apr.apr : 0),
     ).toBeGreaterThan(0);
-    // About half the USDG is swapped, against a $3M stock route
-    expect(Number(preview.priceImpact)).toBeGreaterThan(0);
-    expect(Number(preview.priceImpact)).toBeLessThan(0.001);
-    const stepFees = task.steps.map((step) => Number(step.networkFeeUsd));
-    expect(stepFees.every((fee) => fee > 0)).toBe(true);
-    expect(Number(preview.networkFeeUsd)).toBeCloseTo(
-      stepFees.reduce((sum, fee) => sum + fee, 0),
-      5,
-    );
 
     const done = runAll(catalog, state, task);
     expect(done.status).toBe(EPoolTaskStatus.Done);
