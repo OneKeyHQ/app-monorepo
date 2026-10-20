@@ -25,7 +25,6 @@ import type {
   IPrimeFreeTrialFeatureId,
   IPrimeFreeTrialNotOpenReason,
   IPrimeFreeTrialPendingAction,
-  IPrimeFreeTrialQuota,
   IPrimeFreeTrialReservation,
   IPrimeFreeTrialStartResult,
 } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
@@ -36,25 +35,22 @@ import {
 
 import {
   getPrimeFreeTrialQuotaOfUser,
+  isPrimeFreeTrialStayOnPageFeature,
   resolvePrimeFreeTrialAccess,
 } from '../utils/primeFreeTrialAccess';
-import {
-  PRIME_FREE_TRIAL_COPY,
-  getPrimeFreeTrialNoticeCopy,
-} from '../utils/primeFreeTrialCopy';
+import { getPrimeFreeTrialNoticeCopy } from '../utils/primeFreeTrialCopy';
 
 import { usePrimeFreeTrialUpgrade } from './usePrimeFreeTrialUpgrade';
 
 import type { IPrimeFreeTrialAccess } from '../utils/primeFreeTrialAccess';
 import type { IPrimeFreeTrialNotice } from '../utils/primeFreeTrialCopy';
 
-// Upper bound for each gate request on feature entry (public config, quota
-// refresh). A slow request must not block the entry: an unknown config still
-// offers the login and an unknown quota lets the user in, and start or the
-// metered API decides. The request keeps running and fills the cache.
+// Upper bound for the public config request of a logged-out entry. A slow
+// request must not block the entry: an unknown config still offers the login.
+// The request keeps running and fills the cache.
 const ENTRY_REQUEST_TIMEOUT_MS = 5000;
-// Gate requests answered within this (cached or fast) show no loading, so the
-// loading dialog never just flashes.
+// A public config answered within this (cached or fast) shows no loading, so
+// the loading dialog never just flashes.
 const ENTRY_LOADING_DELAY_MS = 300;
 
 export type IPrimeFeatureAccessResult =
@@ -150,15 +146,14 @@ export function usePrimeFeatureAccess() {
           getPrime({ featureId, networkId, afterPageExit, freeTrialReason })
         }
       >
-        {PRIME_FREE_TRIAL_COPY.getPrime}
+        {intl.formatMessage({ id: ETranslations.prime_get_prime })}
       </Button>
     ),
-    [getPrime],
+    [getPrime, intl],
   );
 
-  // A rejection toast: the notice copy (shared with the remaining hint) and a
-  // "Get Prime" button. The dashboard only opens on that press, never
-  // automatically.
+  // A rejection toast with the notice copy (shared with the remaining hint)
+  // and, unless the dashboard is already open, a "Get Prime" button.
   const showFreeTrialNoticeToast = useCallback(
     ({
       featureId,
@@ -166,14 +161,17 @@ export function usePrimeFeatureAccess() {
       networkId,
       toastId,
       afterPageExit,
+      showGetPrime = true,
     }: {
       featureId: IPrimeFreeTrialFeatureId;
       notice: IPrimeFreeTrialNotice;
       networkId?: string;
       toastId?: string;
       afterPageExit?: boolean;
+      showGetPrime?: boolean;
     }) => {
       const { toastTitle, toastMessage } = getPrimeFreeTrialNoticeCopy({
+        intl,
         featureId,
         notice,
       });
@@ -182,26 +180,32 @@ export function usePrimeFeatureAccess() {
         title: toastTitle,
         message: toastMessage,
         actionsAlign: 'left',
-        actions: renderGetPrimeButton({
-          featureId,
-          networkId,
-          afterPageExit,
-          freeTrialReason:
-            notice.kind === 'exhausted' || notice.kind === 'reservationHeld'
-              ? 'exhausted'
-              : 'notOpen',
-        }),
+        actions: showGetPrime
+          ? renderGetPrimeButton({
+              featureId,
+              networkId,
+              afterPageExit,
+              freeTrialReason:
+                notice.kind === 'exhausted' || notice.kind === 'reservationHeld'
+                  ? 'exhausted'
+                  : 'notOpen',
+            })
+          : undefined,
       });
     },
-    [renderGetPrimeButton],
+    [intl, renderGetPrimeButton],
   );
 
   // Feedback after the user actively tried a feature that is exhausted or
-  // not open: a toast with a "Get Prime" button, never the dashboard by
-  // itself. When the quota is only held by live reservations of earlier uses,
-  // the toast says so instead, since nothing was used up and it comes back by
-  // itself. The server's reservation fields cover every device; an older
-  // server without them falls back to this device's own records.
+  // not open:
+  // - exhausted: the dashboard and a toast saying why;
+  // - not open: just the dashboard;
+  // - translate stays on its page: a toast with "Get Prime" instead;
+  // - the quota only held by live reservations of earlier uses (the server's
+  //   reservation fields, which cover every device): a toast saying so, since
+  //   nothing was used up and it comes back by itself.
+  // Synchronous: callers run it right on the press, or right after their own
+  // request while their page is still on top, so it never lands later.
   const showActiveRejectedFeedback = useCallback(
     ({
       featureId,
@@ -221,59 +225,71 @@ export function usePrimeFeatureAccess() {
       // Reservation fields of the rejection (90600 data or the quota).
       reservation?: IPrimeFreeTrialReservation;
     }) => {
+      const openDashboard = !isPrimeFreeTrialStayOnPageFeature(featureId);
       if (reason === 'notOpen') {
+        // The details case: the feature itself is open.
+        if (notOpenReason === 'detailsNotEligible') {
+          showFreeTrialNoticeToast({
+            featureId,
+            notice: { kind: 'detailsNotEligible' },
+            networkId,
+            afterPageExit,
+          });
+          return;
+        }
+        if (openDashboard) {
+          openPrimeDashboard({
+            featureId,
+            networkId,
+            freeTrialReason: 'notOpen',
+            afterPageExit,
+          });
+          return;
+        }
         showFreeTrialNoticeToast({
           featureId,
-          notice: {
-            kind:
-              notOpenReason === 'detailsNotEligible'
-                ? 'detailsNotEligible'
-                : 'notOpen',
-          },
+          notice: { kind: 'notOpen' },
           networkId,
           afterPageExit,
         });
         return;
       }
-      void (async () => {
-        if (isPrimeFreeTrialUsageFeatureId(featureId)) {
-          let heldUntil: number | undefined;
-          if (hasPrimeFreeTrialReservationInfo(reservation)) {
-            heldUntil = getPrimeFreeTrialHeldReservationEnd(reservation);
-          } else {
-            try {
-              heldUntil =
-                await backgroundApiProxy.servicePrimeFreeTrial.getHeldReservationEnd(
-                  { featureId },
-                );
-            } catch {
-              // Fall back to the exhausted feedback.
-            }
-          }
-          if (heldUntil) {
-            showFreeTrialNoticeToast({
-              featureId,
-              notice: { kind: 'reservationHeld', heldUntil },
-              networkId,
-              afterPageExit,
-            });
-            return;
-          }
-        }
-        defaultLogger.prime.subscription.primeFreeTrialQuotaExhausted({
-          featureName: featureId,
-          featureId,
-          trigger: 'active',
-        });
+      const heldUntil =
+        isPrimeFreeTrialUsageFeatureId(featureId) &&
+        hasPrimeFreeTrialReservationInfo(reservation)
+          ? getPrimeFreeTrialHeldReservationEnd(reservation)
+          : undefined;
+      if (heldUntil) {
         showFreeTrialNoticeToast({
           featureId,
-          notice: { kind: 'exhausted', resetAt },
+          notice: { kind: 'reservationHeld', heldUntil },
           networkId,
           afterPageExit,
         });
-      })();
+        return;
+      }
+      defaultLogger.prime.subscription.primeFreeTrialQuotaExhausted({
+        featureName: featureId,
+        featureId,
+        trigger: 'active',
+      });
+      if (openDashboard) {
+        openPrimeDashboard({
+          featureId,
+          networkId,
+          freeTrialReason: 'exhausted',
+          afterPageExit,
+        });
+      }
+      showFreeTrialNoticeToast({
+        featureId,
+        notice: { kind: 'exhausted', resetAt },
+        networkId,
+        afterPageExit,
+        showGetPrime: !openDashboard,
+      });
     },
-    [showFreeTrialNoticeToast],
+    [openPrimeDashboard, showFreeTrialNoticeToast],
   );
 
   const getResetAtOfSnapshot = useCallback(
@@ -368,18 +384,6 @@ export function usePrimeFeatureAccess() {
     [getCachedAccess, getResetAtOfSnapshot, showActiveRejectedFeedback],
   );
 
-  // A refresh that fails or does not answer in time leaves the quota unknown,
-  // which lets the user in. The cached snapshot is not used instead: its 0
-  // may be a use released since.
-  const loadQuotaOfLoggedInFreeUser = useCallback(
-    async (): Promise<IPrimeFreeTrialQuota | null | undefined> =>
-      withTimeout(
-        backgroundApiProxy.servicePrimeFreeTrial.refreshQuota({ dedupe: true }),
-        ENTRY_REQUEST_TIMEOUT_MS,
-      ),
-    [],
-  );
-
   // Both attempts share one ENTRY_REQUEST_TIMEOUT_MS budget; a timeout is an
   // unknown config, never "not open".
   const getPublicConfigWithRetry = useCallback(
@@ -401,8 +405,8 @@ export function usePrimeFeatureAccess() {
   );
 
   // Most entries are menu items that close before the gate runs, so there
-  // is no pressed button left to spin: a slow gate request shows a loading
-  // dialog instead. It is closed before any login dialog or feedback.
+  // is no pressed button left to spin: a slow public config request shows a
+  // loading dialog instead. It is closed before any login dialog or feedback.
   const runWithEntryLoading = useCallback(
     async <T,>(showLoading: boolean, task: () => Promise<T>): Promise<T> => {
       if (!showLoading) {
@@ -429,10 +433,17 @@ export function usePrimeFeatureAccess() {
    * - Prime: granted right away, no free-trial request.
    * - Travel mode: legacy Prime behavior (dashboard).
    * - Logged out: open trial -> log in, then continue; not open -> dashboard.
-   * - Logged-in free user: exhausted / not open -> a toast with "Get Prime",
-   *   else granted.
-   *   With `deferQuotaCheck` (feature entries) the user is let in without a
-   *   quota check; the submit inside the page decides.
+   * - Logged-in free user, judged right away on the local quota snapshot
+   *   (never waiting for a request, so the answer never lands after the user
+   *   moved on): used up -> the dashboard and a toast; not open -> the
+   *   dashboard; anything else -> granted. That covers uses left, an unknown
+   *   quota (e.g. right after a login) and uses held by earlier unfinished
+   *   ones, which may come back (released on another device, or expired)
+   *   without this snapshot knowing. The page's remaining hint shows the
+   *   held state and refreshes; its start or metered API is the final judge.
+   *   With `loginOnly` (address risk check entries) the user only has to log
+   *   in, to read the history; the check button judges the quota.
+   * Translate never leaves its page: a toast with "Get Prime" instead.
    */
   const ensureFeatureAccess = useCallback(
     async ({
@@ -442,19 +453,19 @@ export function usePrimeFeatureAccess() {
       extPopup,
       onDenied,
       showLoading = true,
-      deferQuotaCheck = false,
+      loginOnly = false,
     }: {
       featureId: IPrimeFreeTrialFeatureId;
       networkId?: string;
       // false when the caller already shows its own loading, e.g. on the
-      // pressed button that stays on screen.
+      // pressed button that stays on screen. Only a logged-out user waits
+      // (for the public config).
       showLoading?: boolean;
-      // Feature entries: only log in here and let a logged-in free user in
-      // whatever the quota; the submit (start, the metered API or a check on
-      // the page's first step) shows the exhausted / not open feedback.
-      deferQuotaCheck?: boolean;
+      // Address risk check entries: only a login is needed, to read the
+      // history; the check button judges the quota.
+      loginOnly?: boolean;
       // Re-checked before granting after any async step (login, background
-      // checks, quota refresh); false drops the continuation.
+      // checks); false drops the continuation.
       isContextValid?: () => boolean | Promise<boolean>;
       extPopup?: IPrimeFeatureAccessExtPopupMode;
       // Runs before any dashboard / toast feedback, e.g. to leave the page
@@ -507,10 +518,10 @@ export function usePrimeFeatureAccess() {
         });
         if (loggedOutAccess.status === 'notOpen') {
           await onDenied?.('notOpen');
-          openPrimeDashboard({
+          showActiveRejectedFeedback({
             featureId,
+            reason: 'notOpen',
             networkId,
-            freeTrialReason: 'notOpen',
             afterPageExit,
           });
           return { granted: false };
@@ -571,80 +582,17 @@ export function usePrimeFeatureAccess() {
           entitlementSource: 'prime',
         });
       }
-      if (deferQuotaCheck) {
-        return grantIfContextValid({
-          granted: true,
-          entitlementSource: 'freeTrial',
-        });
-      }
-
-      // Fast path for a user who was already logged in: a snapshot that
-      // shows uses left lets them in right away and refreshes in the
-      // background (start / the metered API is the final judge). Only a
-      // snapshot of 0 / not open / unknown, or a fresh login, waits for the
-      // refresh so the routing is right.
-      if (loggedIn) {
-        const localUser =
-          await backgroundApiProxy.servicePrime.getLocalUserInfo();
-        const cachedAccess = resolvePrimeFreeTrialAccess({
-          featureId,
-          isPrimeSubscriptionActive: false,
-          isLoggedIn: true,
-          config: undefined,
-          quota: getPrimeFreeTrialQuotaOfUser({
-            quota: freeTrialRef.current.quota,
-            onekeyUserId: localUser.onekeyUserId,
-          }),
-        });
-        if (cachedAccess.status === 'available' && cachedAccess.featureQuota) {
-          void backgroundApiProxy.servicePrimeFreeTrial.refreshQuota({
-            dedupe: true,
-          });
-          return grantIfContextValid({
-            granted: true,
-            entitlementSource: 'freeTrial',
-          });
-        }
-      }
-
-      const { quota, config } = await runWithEntryLoading(
-        showLoading,
-        async () => {
-          const freshQuota = await loadQuotaOfLoggedInFreeUser();
-          // null for a free user: nothing may be open; the public config
-          // decides.
-          const publicConfig =
-            freshQuota === null
-              ? ((await withTimeout(
-                  backgroundApiProxy.servicePrimeFreeTrial.getPublicConfig(),
-                  ENTRY_REQUEST_TIMEOUT_MS,
-                )) ?? freeTrialRef.current.config.data)
-              : undefined;
-          return { quota: freshQuota, config: publicConfig };
-        },
-      );
+      // The local snapshot as of the press. Right after a login in this call
+      // it still reads logged out (`loginRequired`): the quota of the new
+      // login is unknown then anyway, so the user is let in. The page's
+      // remaining hint refreshes the snapshot.
+      const access = getCachedAccess(featureId);
       if (await isContextGone()) {
         await onDenied?.('contextChanged');
         return { granted: false };
       }
-      const access = resolvePrimeFreeTrialAccess({
-        featureId,
-        isPrimeSubscriptionActive: false,
-        isLoggedIn: true,
-        config,
-        quota,
-      });
-      if (access.status === 'exhausted') {
-        await onDenied?.('exhausted');
-        showActiveRejectedFeedback({
-          featureId,
-          reason: 'exhausted',
-          resetAt: access.resetAt,
-          networkId,
-          afterPageExit,
-          reservation: access.featureQuota,
-        });
-        return { granted: false };
+      if (loginOnly) {
+        return { granted: true, entitlementSource: 'freeTrial' };
       }
       if (access.status === 'notOpen') {
         await onDenied?.('notOpen');
@@ -656,15 +604,32 @@ export function usePrimeFeatureAccess() {
         });
         return { granted: false };
       }
-      return grantIfContextValid({
-        granted: true,
-        entitlementSource: 'freeTrial',
-      });
+      // Blocked only when nothing can come back. A bulk tool's uses may be
+      // held by an earlier one (released elsewhere or expired later), so it
+      // is blocked only when the server says nothing is held; an older
+      // server without the fields is unknown and lets the user in too.
+      if (
+        access.status === 'exhausted' &&
+        (!isPrimeFreeTrialUsageFeatureId(featureId) ||
+          (hasPrimeFreeTrialReservationInfo(access.featureQuota) &&
+            !(Number(access.featureQuota.reserved) > 0)))
+      ) {
+        await onDenied?.('exhausted');
+        showActiveRejectedFeedback({
+          featureId,
+          reason: 'exhausted',
+          resetAt: access.resetAt,
+          networkId,
+          afterPageExit,
+        });
+        return { granted: false };
+      }
+      return { granted: true, entitlementSource: 'freeTrial' };
     },
     [
+      getCachedAccess,
       getPublicConfigWithRetry,
       isPrimeSubscriptionActive,
-      loadQuotaOfLoggedInFreeUser,
       loginOneKeyId,
       openPrimeDashboard,
       runWithEntryLoading,

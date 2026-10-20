@@ -21,6 +21,7 @@ import type {
   ITradingViewNativeProps,
   ITradingViewNativeSource,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
+import { TradingViewNativeTokenHeader } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/TradingViewNativeTokenHeader';
 import { TradingViewPerpsV2 } from '@onekeyhq/kit/src/components/TradingView/TradingViewPerpsV2/TradingViewPerpsV2';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -32,9 +33,12 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   formatSpotPairDisplayName,
+  getHyperliquidTokenImageUris,
+  getHyperliquidTokenImageUrl,
   getSpotTokenDisplayName,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
+import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { usePerpsChartOrderMenu } from '../hooks/usePerpsChartOrderMenu';
 import { usePerpsNativeChartLines } from '../hooks/usePerpsNativeChartLines';
 import { usePerpsNativeChartMarks } from '../hooks/usePerpsNativeChartMarks';
@@ -50,11 +54,25 @@ function PerpNativeCandles({
   const metadata = usePerpsNativeChartMetadata();
   const orderMenu = usePerpsChartOrderMenu(enableTradingUi);
   const chartComponents = useMemo(() => [...lines, ...marks], [lines, marks]);
+  const { baseName, coin, mode } = useActiveTradeDisplay();
+  const fullscreenHeader = useMemo(
+    () =>
+      platformEnv.isNative ? (
+        <TradingViewNativeTokenHeader
+          name={baseName}
+          {...(mode === 'spot'
+            ? { tokenImageUri: getHyperliquidTokenImageUrl(baseName) }
+            : { tokenImageUris: getHyperliquidTokenImageUris(coin) })}
+        />
+      ) : undefined,
+    [baseName, coin, mode],
+  );
   return (
     <TradingViewNative
       {...props}
       {...metadata}
       {...orderMenu}
+      nativeChartFullscreenHeader={fullscreenHeader}
       chartComponents={chartComponents}
       onReferenceLineAction={
         enableTradingUi ? onReferenceLineAction : undefined

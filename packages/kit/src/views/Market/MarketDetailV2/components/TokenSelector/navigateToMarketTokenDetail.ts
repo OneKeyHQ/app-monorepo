@@ -8,6 +8,7 @@ import {
   ETabMarketRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { requireMarketAssetVariant } from '@onekeyhq/shared/src/utils/marketAssetVariant';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
@@ -50,14 +51,22 @@ export async function navigateToMarketTokenDetail(
   let token = selectedToken;
   let marketVariantId: string | undefined;
   if (token.assetId) {
+    let assetDetailFetched = false;
     try {
-      const { selectedVariant } =
+      const detail =
         await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
           assetId: token.assetId,
           currency: 'usd',
           autoHandleError: false,
         });
+      assetDetailFetched = true;
       if (!isCurrentRequest()) return;
+      const selectedVariant = requireMarketAssetVariant({
+        detail,
+        networkId: token.networkId,
+        tokenAddress: token.address,
+        isNative: token.isNative,
+      });
       token = {
         ...token,
         address: selectedVariant.tokenAddress,
@@ -66,8 +75,14 @@ export async function navigateToMarketTokenDetail(
       };
       marketVariantId = selectedVariant.variantId;
     } catch {
-      if (isCurrentRequest()) opts.onError?.();
-      return;
+      if (!isCurrentRequest()) return;
+      if (!assetDetailFetched && token.networkId) {
+        // Preserve the searched chain when the optional asset lookup is offline.
+        token = { ...token, assetId: undefined };
+      } else {
+        opts.onError?.();
+        return;
+      }
     }
   }
   prewarmMarketTokenDetailPreviewImages(opts.tokenDetailPreview);
@@ -106,9 +121,7 @@ export async function navigateToMarketTokenDetail(
     });
   }
 
-  const targetTab = platformEnv.isNative
-    ? ETabRoutes.Discovery
-    : ETabRoutes.Market;
+  const targetTab = ETabRoutes.Market;
   const tokenParams = {
     ...(token.assetId
       ? {

@@ -385,6 +385,35 @@ describe('useTradingViewNativeChartGestures', () => {
     expect(failMainChartTapCrosshair).not.toHaveBeenCalled();
   });
 
+  it.each([100, 250])(
+    'leaves Y-axis touches at %i to the scale gestures',
+    (y) => {
+      renderChartGestures();
+      const gestures = [
+        mockPanGestures[0],
+        mockPanGestures[1],
+        mockTapGestures.find(
+          (gesture) => gesture.maxDistance.mock.calls.length === 0,
+        ),
+      ];
+      for (const gesture of gestures) {
+        expect(gesture).toBeDefined();
+        const fail = jest.fn();
+        gesture?.handlers.onTouchesDown?.(
+          { changedTouches: [{ x: 310, y }] },
+          { fail },
+        );
+        expect(fail).toHaveBeenCalledTimes(1);
+        fail.mockClear();
+        gesture?.handlers.onTouchesDown?.(
+          { changedTouches: [{ x: 100, y }] },
+          { fail },
+        );
+        expect(fail).not.toHaveBeenCalled();
+      }
+    },
+  );
+
   it('keeps the crosshair visible after the long press ends', () => {
     const { chartRuntime } = renderChartGestures();
     const crosshairGesture = mockPanGestures[0];

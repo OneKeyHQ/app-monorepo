@@ -69,6 +69,10 @@ import {
   getTradingViewNativePriceScaleControlsMinimumAxisWidth,
 } from '../utils/priceScaleControls';
 import {
+  applyTradingViewNativeSubIndicatorPriceScales,
+  getTradingViewNativeScaledSubIndicatorAxisLabel,
+} from '../utils/subIndicatorPriceScale';
+import {
   type ITradingViewNativeSubIndicatorRenderPane,
   getTradingViewNativeSubIndicatorAxisLabel,
   getTradingViewNativeVisibleSubIndicatorPaneCount,
@@ -431,6 +435,12 @@ export const TradingViewNativeChart = memo(
       const widestSubIndicatorLabelBounds = measuredPriceAxisFont.measureText(
         widestSubIndicatorLabel,
       );
+      const scaledSubIndicatorLabelBounds = measuredPriceAxisFont.measureText(
+        getTradingViewNativeScaledSubIndicatorAxisLabel(
+          chartRuntime.value.subIndicatorPanes,
+          chartRuntime.value.subIndicatorPriceScales,
+        ),
+      );
       return getTradingViewNativePriceAxisWidth({
         currentPriceLabelWidth: Math.max(
           currentPriceLabelBounds.x + currentPriceLabelBounds.width,
@@ -447,6 +457,7 @@ export const TradingViewNativeChart = memo(
           widestIndicatorPriceLabelBounds.x +
             widestIndicatorPriceLabelBounds.width,
           widestSubIndicatorLabelBounds.x + widestSubIndicatorLabelBounds.width,
+          scaledSubIndicatorLabelBounds.x + scaledSubIndicatorLabelBounds.width,
           0,
         ),
         widestVolumeLabelWidth: Math.max(
@@ -504,7 +515,10 @@ export const TradingViewNativeChart = memo(
         priceScaleMode: runtime.priceScaleMode,
         resources: resources.value,
         showLegend,
-        subIndicatorPanes: runtime.subIndicatorPanes,
+        subIndicatorPanes: applyTradingViewNativeSubIndicatorPriceScales(
+          runtime.subIndicatorPanes,
+          runtime.subIndicatorPriceScales,
+        ),
         timeAxisFontSize,
         timeAxisHeight,
         viewport: runtime.viewport,
@@ -769,6 +783,11 @@ export const TradingViewNativeChart = memo(
           },
           points: nextPoints,
           subIndicatorPanes: nextSubIndicatorPanes,
+          subIndicatorPriceScales: Object.fromEntries(
+            Object.entries(runtime.subIndicatorPriceScales).filter(([id]) =>
+              nextSubIndicatorPanes.some((pane) => pane.instanceId === id),
+            ),
+          ),
           timeAxisScaleGesture: {
             ...runtime.timeAxisScaleGesture,
             startOffset: getTradingViewNativeGestureStartOffsetAfterDataUpdate({
@@ -915,14 +934,16 @@ export const TradingViewNativeChart = memo(
     ]);
 
     const {
+      activePaneId: priceScalePaneId,
+      controlsBottomInset: priceScaleControlsBottomInset,
       handleAutoScalePress: handlePriceScaleAutoPress,
       handleLogScalePress: handlePriceScaleLogPress,
       handlePointerLeave: handleChartPointerLeave,
       handlePointerMove: handleChartPointerMove,
       handleTouchStart: handleChartTouchStart,
       isAutoScale: isPriceScaleAuto,
+      isLogScaleAvailable: isActiveLogScaleAvailable,
       isVisible: isPriceScaleControlsVisible,
-      mainPriceAxisLayout,
       mode: priceScaleMode,
       priceAxisControlWidth,
       resetGesture: priceAxisResetGesture,
@@ -1032,14 +1053,18 @@ export const TradingViewNativeChart = memo(
             <TradingViewNativePriceScaleControls
               backgroundColor={background}
               isAutoScale={isPriceScaleAuto}
-              isLogScaleAvailable={isLogScaleAvailable}
+              isLogScaleAvailable={isActiveLogScaleAvailable}
               isVisible={isPriceScaleControlsVisible}
-              mainChartBottomInset={mainPriceAxisLayout.bottomInset}
+              mainChartBottomInset={priceScaleControlsBottomInset}
               onAutoScalePress={handlePriceScaleAutoPress}
               onLogScalePress={handlePriceScaleLogPress}
               priceAxisWidth={priceAxisControlWidth}
               priceScaleMode={priceScaleMode}
-              testID={testID}
+              testID={
+                priceScalePaneId === null
+                  ? testID
+                  : `${testID ?? 'trading-view-native-canvas'}-indicator-price-axis-${priceScalePaneId}`
+              }
             />
           ) : null}
         </Stack>

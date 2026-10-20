@@ -5,6 +5,7 @@ import { render } from '@testing-library/react';
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
+import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchQuoteResult,
   ISwapToken,
@@ -39,9 +40,9 @@ import {
   useSwapTypeSwitchAtom,
 } from './atoms';
 import {
+  prepareMarketSwapEntry,
   prepareStockSwapEntry,
   prepareSwapProEntry,
-  prepareTopCoinSwapEntry,
 } from './prepareSwapProEntry';
 
 type IGlobalColdStartSnapshot = typeof globalThis & {
@@ -494,7 +495,7 @@ describe('prepareStockSwapEntry', () => {
   });
 });
 
-describe('prepareTopCoinSwapEntry', () => {
+describe('prepareMarketSwapEntry', () => {
   beforeEach(() => {
     jotaiContextStore.storeCache.clear();
     jotaiContextStore.storeResetRequests.clear();
@@ -509,215 +510,71 @@ describe('prepareTopCoinSwapEntry', () => {
       .__ONEKEY_CTX_ATOM_SNAPSHOT__;
   });
 
-  it('opens Sell on From and clears the previous directed-pair amounts', () => {
+  it.each(['from', 'to'] as const)(
+    'resets the %s entry after a previous cross-chain trade',
+    (direction) => {
+      const store = jotaiContextStore.getOrCreateStore(swapStoreData);
+      store.set(swapSelectFromTokenAtom(), ordinaryFromToken);
+      store.set(swapSelectToTokenAtom(), {
+        ...ordinaryToToken,
+        networkId: 'sol--101',
+      });
+      store.set(swapFromTokenAmountAtom(), { value: '123', isInput: true });
+      store.set(swapToTokenAmountAtom(), { value: '2', isInput: false });
+      const entry = prepareMarketSwapEntry({ token: proToken, direction });
+      expect(entry).toEqual({
+        fromToken:
+          direction === 'from'
+            ? proToken
+            : swapDefaultSetTokens['evm--1'].toToken,
+        toToken:
+          direction === 'to'
+            ? proToken
+            : swapDefaultSetTokens['evm--1'].toToken,
+        swapType: ESwapTabSwitchType.SWAP,
+      });
+      expect(store.get(swapSelectFromTokenAtom())).toEqual(entry.fromToken);
+      expect(store.get(swapSelectToTokenAtom())).toEqual(entry.toToken);
+      expect(store.get(swapFromTokenAmountAtom())).toEqual({
+        value: '',
+        isInput: false,
+      });
+      expect(store.get(swapToTokenAmountAtom())).toEqual({
+        value: '',
+        isInput: false,
+      });
+    },
+  );
+
+  it('keeps an amount for the same directed pair and clears it when reversing', () => {
     const store = jotaiContextStore.getOrCreateStore(swapStoreData);
-    store.set(swapSelectFromTokenAtom(), ordinaryToToken);
-    store.set(swapSelectToTokenAtom(), proToken);
-    store.set(swapFromTokenAmountAtom(), { value: '123', isInput: true });
-    const entry = prepareTopCoinSwapEntry({
-      token: proToken,
-      direction: 'from',
-    });
-    expect(entry).toEqual({
-      fromToken: proToken,
-      toToken: ordinaryToToken,
-      swapType: ESwapTabSwitchType.SWAP,
-    });
-    expect(store.get(swapSelectFromTokenAtom())).toBe(proToken);
-    expect(store.get(swapSelectToTokenAtom())).toBe(ordinaryToToken);
-    expect(store.get(swapFromTokenAmountAtom()).value).toBe('');
+    prepareMarketSwapEntry({ token: proToken });
     store.set(swapFromTokenAmountAtom(), { value: '10', isInput: true });
-    prepareTopCoinSwapEntry({ token: proToken, direction: 'from' });
+    prepareMarketSwapEntry({ token: proToken });
     expect(store.get(swapFromTokenAmountAtom()).value).toBe('10');
-    prepareTopCoinSwapEntry({ token: proToken, direction: 'to' });
-    expect(store.get(swapSelectToTokenAtom())).toBe(proToken);
+    prepareMarketSwapEntry({ token: proToken, direction: 'from' });
     expect(store.get(swapFromTokenAmountAtom()).value).toBe('');
   });
 
-  it('keeps cross-network Sell on Bridge and replaces a stock receive token', () => {
+  it('uses Ethereum USDC for BTC instead of the old payment token', () => {
     const store = jotaiContextStore.getOrCreateStore(swapStoreData);
-    const receiveToken = { ...ordinaryToToken, networkId: 'evm--56' };
-    store.set(swapSelectToTokenAtom(), receiveToken);
-    const entry = prepareTopCoinSwapEntry({
-      token: proToken,
-      direction: 'from',
-    });
-    expect(entry.swapType).toBe(ESwapTabSwitchType.BRIDGE);
-    expect(entry.toToken).toBe(receiveToken);
-    store.set(swapSelectToTokenAtom(), { ...receiveToken, isStock: true });
-    const ordinaryEntry = prepareTopCoinSwapEntry({
-      token: proToken,
-      direction: 'from',
-    });
-    expect(ordinaryEntry.toToken?.isStock).not.toBe(true);
-    expect(ordinaryEntry.fromToken).toBe(proToken);
-    expect(ordinaryEntry.toToken).not.toEqual(proToken);
-  });
-
-  it('opens ordinary Swap with the coin as the receive token', () => {
-    const store = jotaiContextStore.getOrCreateStore(swapStoreData);
-    const btc: ISwapToken = {
-      networkId: 'evm--1',
-      contractAddress: '0xbtc',
-      symbol: 'BTC',
-      decimals: 8,
-      isNative: false,
-    };
-    store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.LIMIT);
     store.set(swapSelectFromTokenAtom(), ordinaryFromToken);
-    store.set(swapSelectToTokenAtom(), ordinaryToToken);
-    store.set(swapFromTokenAmountAtom(), { value: '1', isInput: true });
-    store.set(swapToTokenAmountAtom(), { value: '2', isInput: false });
-
-    prepareTopCoinSwapEntry({ token: btc });
-
-    expect(store.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.SWAP);
-    expect(store.get(swapSelectFromTokenAtom())).toBe(ordinaryFromToken);
-    expect(store.get(swapSelectToTokenAtom())).toEqual(btc);
-    expect(store.get(swapFromTokenAmountAtom())).toEqual({
-      value: '',
-      isInput: false,
-    });
-    expect(store.get(swapToTokenAmountAtom())).toEqual({
-      value: '',
-      isInput: false,
-    });
-    expect(store.get(swapProSelectTokenAtom())).toBeUndefined();
-  });
-
-  it('keeps a cross-network payment token on the bridge form', () => {
-    const store = jotaiContextStore.getOrCreateStore(swapStoreData);
-    const btc: ISwapToken = {
-      networkId: 'btc--0',
-      contractAddress: '',
-      symbol: 'BTC',
-      decimals: 8,
-      isNative: true,
-    };
-    store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.LIMIT);
-    store.set(swapSelectFromTokenAtom(), ordinaryFromToken);
-
-    prepareTopCoinSwapEntry({ token: btc });
-
-    expect(store.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.BRIDGE);
-    expect(store.get(swapSelectFromTokenAtom())).toBe(ordinaryFromToken);
-    expect(store.get(swapSelectToTokenAtom())).toEqual(btc);
-  });
-
-  it('does not leave a stock token on the pay side', () => {
-    const store = jotaiContextStore.getOrCreateStore(swapStoreData);
-    const stock: ISwapToken = {
-      networkId: 'evm--1',
-      contractAddress: '0xaapl',
-      symbol: 'AAPLon',
-      decimals: 18,
-      isNative: false,
-      isStock: true,
-    };
-    const btc: ISwapToken = {
-      networkId: 'evm--1',
-      contractAddress: '0xbtc',
-      symbol: 'BTC',
-      decimals: 8,
-      isNative: false,
-    };
-    store.set(swapSelectFromTokenAtom(), stock);
-    store.set(swapSelectToTokenAtom(), ordinaryToToken);
-
-    prepareTopCoinSwapEntry({ token: btc });
-
-    expect(store.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.SWAP);
-    expect(store.get(swapSelectFromTokenAtom())).toBe(ordinaryToToken);
-    expect(store.get(swapSelectToTokenAtom())).toEqual(btc);
-  });
-
-  it('clears the amount when the payment token changes and the receive token stays', () => {
-    const store = jotaiContextStore.getOrCreateStore(swapStoreData);
-    const stock: ISwapToken = {
-      networkId: 'evm--1',
-      contractAddress: '0xaapl',
-      symbol: 'AAPLon',
-      decimals: 18,
-      isNative: false,
-      isStock: true,
-    };
-    const btc: ISwapToken = {
-      networkId: 'evm--1',
-      contractAddress: '0xbtc',
-      symbol: 'BTC',
-      decimals: 8,
-      isNative: false,
-    };
-    store.set(swapSelectFromTokenAtom(), stock);
-    store.set(swapSelectToTokenAtom(), btc);
-    store.set(swapFromTokenAmountAtom(), { value: '100', isInput: true });
-    store.set(swapToTokenAmountAtom(), { value: '1', isInput: false });
-
-    prepareTopCoinSwapEntry({ token: btc });
-
-    expect(store.get(swapSelectToTokenAtom())).toEqual(btc);
-    expect(store.get(swapSelectFromTokenAtom())?.isStock).toBeFalsy();
-    expect(store.get(swapFromTokenAmountAtom())).toEqual({
-      value: '',
-      isInput: false,
-    });
-    expect(store.get(swapToTokenAmountAtom())).toEqual({
-      value: '',
-      isInput: false,
+    const btc = { ...ordinaryFromToken, networkId: 'btc--0', symbol: 'BTC' };
+    const entry = prepareMarketSwapEntry({ token: btc });
+    expect(entry).toEqual({
+      fromToken: swapDefaultSetTokens['evm--1'].toToken,
+      toToken: btc,
+      swapType: ESwapTabSwitchType.BRIDGE,
     });
   });
 
-  it('keeps the amount when the same pair is opened again', () => {
+  it('replaces a stock payment token with the configured counterpart', () => {
     const store = jotaiContextStore.getOrCreateStore(swapStoreData);
-    const btc: ISwapToken = {
-      networkId: 'evm--1',
-      contractAddress: '0xbtc',
-      symbol: 'BTC',
-      decimals: 8,
-      isNative: false,
-    };
-    const previousAmount = { value: '100', isInput: true };
-    store.set(swapSelectFromTokenAtom(), ordinaryFromToken);
-    store.set(swapSelectToTokenAtom(), btc);
-    store.set(swapFromTokenAmountAtom(), previousAmount);
-
-    prepareTopCoinSwapEntry({ token: btc });
-
-    expect(store.get(swapSelectFromTokenAtom())).toBe(ordinaryFromToken);
-    expect(store.get(swapFromTokenAmountAtom())).toEqual(previousAmount);
-  });
-
-  it('fills the network pay token when swap has no payment token', () => {
-    const store = jotaiContextStore.getOrCreateStore(swapStoreData);
-    const btc: ISwapToken = {
-      networkId: 'evm--1',
-      contractAddress: '0xbtc',
-      symbol: 'BTC',
-      decimals: 8,
-      isNative: false,
-    };
-
-    prepareTopCoinSwapEntry({ token: btc });
-
-    expect(store.get(swapSelectFromTokenAtom())).toMatchObject({
-      isNative: true,
-      networkId: 'evm--1',
-      symbol: 'ETH',
-    });
-    expect(store.get(swapSelectToTokenAtom())).toEqual(btc);
-    expect(store.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.SWAP);
-  });
-
-  it('uses the default quote token as payment when the detail token is native', () => {
-    const store = jotaiContextStore.getOrCreateStore(swapStoreData);
-
-    prepareTopCoinSwapEntry({ token: ordinaryFromToken });
-
-    expect(store.get(swapSelectFromTokenAtom())).toMatchObject({
-      networkId: 'evm--1',
-      symbol: 'USDC',
-    });
-    expect(store.get(swapSelectToTokenAtom())).toBe(ordinaryFromToken);
+    store.set(swapSelectFromTokenAtom(), { ...proToken, isStock: true });
+    prepareMarketSwapEntry({ token: ordinaryFromToken });
+    expect(store.get(swapSelectFromTokenAtom())).toBe(
+      swapDefaultSetTokens['evm--1'].toToken,
+    );
   });
 
   it('does not modify the modal Swap store', () => {
@@ -725,7 +582,7 @@ describe('prepareTopCoinSwapEntry', () => {
     modalStore.set(swapTypeSwitchAtom(), ESwapTabSwitchType.LIMIT);
     modalStore.set(swapSelectToTokenAtom(), modalToken);
 
-    prepareTopCoinSwapEntry({ token: proToken });
+    prepareMarketSwapEntry({ token: proToken });
 
     expect(modalStore.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.LIMIT);
     expect(modalStore.get(swapSelectToTokenAtom())).toBe(modalToken);
@@ -746,7 +603,7 @@ describe('Market modal store preparation', () => {
   });
 
   it.each([
-    { prepare: prepareTopCoinSwapEntry, isStock: false },
+    { prepare: prepareMarketSwapEntry, isStock: false },
     { prepare: prepareStockSwapEntry, isStock: true },
   ])(
     'prepares a modal pair with isStock=$isStock without modifying the Trade tab',

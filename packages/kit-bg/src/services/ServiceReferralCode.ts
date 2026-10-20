@@ -18,7 +18,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { resolveWalletCreatedAtForCreationRecord } from '@onekeyhq/shared/src/referralCode/creationRecordUtils';
 import type { EInviteCodeAttributionSource } from '@onekeyhq/shared/src/referralCode/installReferrerUtils';

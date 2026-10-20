@@ -11,6 +11,7 @@ type IProps = {
   mode: IMarketDetailFooterMode;
   onBuy: () => void;
   onSell: () => void;
+  onConnect?: () => void;
   onPerps?: () => void;
   tradeDisabled?: boolean;
   perpsDisabled?: boolean;
@@ -20,6 +21,7 @@ function SwapPanelFooterButtons({
   mode,
   onBuy,
   onSell,
+  onConnect,
   onPerps,
   tradeDisabled,
   perpsDisabled,
@@ -28,32 +30,48 @@ function SwapPanelFooterButtons({
 
   return (
     <XStack gap="$2.5">
-      <Button
-        testID={MarketTestIDs.detailBuyButton}
-        size="large"
-        height={50}
-        variant="secondary"
-        bg="$bgSuccessStrong"
-        color="$textOnColor"
-        hoverStyle={{ bg: '$success10' }}
-        pressStyle={{ bg: '$success11' }}
-        flex={1}
-        disabled={tradeDisabled}
-        onPress={onBuy}
-      >
-        {intl.formatMessage({ id: ETranslations.global_buy })}
-      </Button>
-      <Button
-        testID={MarketTestIDs.detailSellButton}
-        size="large"
-        height={50}
-        variant="destructive"
-        flex={1}
-        disabled={tradeDisabled}
-        onPress={onSell}
-      >
-        {intl.formatMessage({ id: ETranslations.global_sell })}
-      </Button>
+      {onConnect ? (
+        <Button
+          testID="market-no-account-btn"
+          size="large"
+          height={50}
+          variant="primary"
+          flex={1}
+          disabled={tradeDisabled}
+          onPress={onConnect}
+        >
+          {intl.formatMessage({ id: ETranslations.global_connect })}
+        </Button>
+      ) : (
+        <>
+          <Button
+            testID={MarketTestIDs.detailBuyButton}
+            size="large"
+            height={50}
+            variant="secondary"
+            bg="$bgSuccessStrong"
+            color="$textOnColor"
+            hoverStyle={{ bg: '$success10' }}
+            pressStyle={{ bg: '$success11' }}
+            flex={1}
+            disabled={tradeDisabled}
+            onPress={onBuy}
+          >
+            {intl.formatMessage({ id: ETranslations.global_buy })}
+          </Button>
+          <Button
+            testID={MarketTestIDs.detailSellButton}
+            size="large"
+            height={50}
+            variant="destructive"
+            flex={1}
+            disabled={tradeDisabled}
+            onPress={onSell}
+          >
+            {intl.formatMessage({ id: ETranslations.global_sell })}
+          </Button>
+        </>
+      )}
       {mode === 'perps-buy-sell' ? (
         <Button
           testID={MarketTestIDs.detailPerpsButton}

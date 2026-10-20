@@ -4,11 +4,14 @@ import { createServer } from 'http';
 import { app, shell } from 'electron';
 
 import {
+  KEYLESS_SUPABASE_PROJECT_URL,
   OAUTH_CALLBACK_DESKTOP_CHANNEL,
   OAUTH_CALLBACK_DESKTOP_PATH,
   OAUTH_POPUP_HEIGHT,
   OAUTH_POPUP_WIDTH,
+  SUPABASE_PROJECT_URL,
 } from '@onekeyhq/shared/src/consts/authConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { getLocale } from '../../i18n';
 
@@ -244,7 +247,26 @@ export async function startOAuthServer(): Promise<{ port: number }> {
   });
 }
 
+const OAUTH_ALLOWED_ORIGINS = new Set([
+  new URL(SUPABASE_PROJECT_URL).origin,
+  new URL(KEYLESS_SUPABASE_PROJECT_URL).origin,
+]);
+
 export async function openOAuthBrowser(url: string): Promise<void> {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new OneKeyLocalError('Invalid OAuth URL');
+  }
+  if (
+    parsed.protocol !== 'https:' ||
+    parsed.username ||
+    parsed.password ||
+    !OAUTH_ALLOWED_ORIGINS.has(parsed.origin)
+  ) {
+    throw new OneKeyLocalError('OAuth URL is not allowed');
+  }
   // We prefer opening the **system browser** (to reuse existing login state/cookies),
   // but we can't reliably remove the address bar or control window size for the default browser.
   // Best-effort: try Chromium "app window" mode (`--app=...`) which usually has no address bar,

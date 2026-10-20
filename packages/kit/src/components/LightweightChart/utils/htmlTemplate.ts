@@ -10,6 +10,13 @@ function getStyles(): string {
     body { position: relative; }
     #chart { position: absolute; inset: 0; width: 100%; height: 100%; }
     .tv-lightweight-charts table tr:last-child { pointer-events: none !important; }
+    /* Mirrors LightweightChartPulseDot on web/desktop. */
+    #pulse { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; pointer-events: none; display: none; z-index: 5; }
+    #pulse > div { position: absolute; inset: 0; border-radius: 50%; }
+    #pulse .ring { animation: okChartPulseRing 1.4s ease-out infinite; }
+    #pulse .dot { animation: okChartPulseDot 1.4s ease-in-out infinite; }
+    @keyframes okChartPulseRing { 0% { transform: scale(1); opacity: 0.5; } 100% { transform: scale(2.4); opacity: 0; } }
+    @keyframes okChartPulseDot { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.3); } }
   `.trim();
 }
 
@@ -42,6 +49,15 @@ function getChartInitScript(): string {
         return function(price) {
           return pctPriceFormatter(price, nextConfig);
         };
+      }
+      // Without a base the axis never steps below 0.01, which leaves a
+      // sub-cent token with a single $0 tick.
+      function getCustomPriceFormat(nextConfig, priceFormatter) {
+        var priceFormat = { type: 'custom', formatter: priceFormatter };
+        if (Number.isFinite(nextConfig.priceFormatBase) && nextConfig.priceFormatBase > 0) {
+          priceFormat.base = nextConfig.priceFormatBase;
+        }
+        return priceFormat;
       }
       function getNormalizedLineWidth(lineWidth, fallback) {
         return Math.min(4, Math.max(1, Math.round(lineWidth ?? fallback ?? 3)));
@@ -299,7 +315,7 @@ function getChartInitScript(): string {
           priceScaleId: getPriceScalePosition(nextConfig),
           lastValueVisible: showLast,
           priceLineVisible: showLast,
-          priceFormat: { type: 'custom', formatter: priceFormatter },
+          priceFormat: getCustomPriceFormat(nextConfig, priceFormatter),
         };
       }
       function createHistogramSeriesPaneView() {
@@ -432,7 +448,7 @@ function getChartInitScript(): string {
           baseLineVisible: false,
           lastValueVisible: showLast,
           priceLineVisible: showLast,
-          priceFormat: { type: 'custom', formatter: priceFormatter },
+          priceFormat: getCustomPriceFormat(nextConfig, priceFormatter),
         };
       }
       function createPrimarySeries(nextConfig) {
@@ -453,7 +469,7 @@ function getChartInitScript(): string {
             lastValueVisible: showLast,
             priceLineVisible: showLast,
             crosshairMarkerRadius: 5,
-            priceFormat: { type: 'custom', formatter: priceFormatter },
+            priceFormat: getCustomPriceFormat(nextConfig, priceFormatter),
           }));
         }
         if (getPrimarySeriesType(nextConfig) === 'histogram') {
@@ -473,7 +489,7 @@ function getChartInitScript(): string {
           crosshairMarkerRadius: 5,
           crosshairMarkerBorderColor: nextConfig.theme.lineColor,
           crosshairMarkerBackgroundColor: '#ffffff',
-          priceFormat: { type: 'custom', formatter: priceFormatter },
+          priceFormat: getCustomPriceFormat(nextConfig, priceFormatter),
         });
       }
       function syncReferenceLine(nextConfig) {
@@ -513,6 +529,20 @@ function getChartInitScript(): string {
           crosshairMarkerVisible: false,
         };
       }
+      // Overlay points with gaps on both sides draw no segment; this dot-only
+      // series in the same color keeps them visible.
+      function getSecondaryPointSeriesOptions(nextConfig) {
+        return {
+          priceScaleId: getPriceScalePosition(nextConfig),
+          color: nextConfig.secondaryLineColor || '#0177E5',
+          lineVisible: false,
+          pointMarkersVisible: true,
+          pointMarkersRadius: getNormalizedLineWidth(nextConfig.secondaryLineWidth, 2) + 1,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        };
+      }
       // Rebuilds both series from scratch on every apply.
       //
       // lightweight-charts 5.2 keeps a stale copy of its time points after a
@@ -528,6 +558,10 @@ function getChartInitScript(): string {
       // sizes. The primary goes first so the overlay keeps drawing on top of
       // it; everything runs before the next frame, so nothing flickers.
       function rebuildSeries(nextConfig) {
+        if (window.secondaryPointSeries) {
+          window.chart.removeSeries(window.secondaryPointSeries);
+          window.secondaryPointSeries = null;
+        }
         if (window.secondarySeries) {
           window.chart.removeSeries(window.secondarySeries);
           window.secondarySeries = null;
@@ -551,6 +585,16 @@ function getChartInitScript(): string {
             getSecondarySeriesOptions(nextConfig)
           );
           window.secondarySeries.setData(nextConfig.secondaryLineData);
+          if (
+            Array.isArray(nextConfig.secondaryPointData) &&
+            nextConfig.secondaryPointData.length > 0
+          ) {
+            window.secondaryPointSeries = window.chart.addSeries(
+              LightweightCharts.LineSeries,
+              getSecondaryPointSeriesOptions(nextConfig)
+            );
+            window.secondaryPointSeries.setData(nextConfig.secondaryPointData);
+          }
         }
       }
       // Price formatter: use a serializable formatter type in WebView, otherwise default %
@@ -638,11 +682,47 @@ function getChartInitScript(): string {
       window.seriesType = null;
       window.referencePriceLine = null;
       window.secondarySeries = null;
+      var pulseElement = document.getElementById('pulse');
+      var pulseFrameId = 0;
+      // Placed on the next frame: autoscale and axis width settle after
+      // setData, so reading coordinates right away lands on the old layout.
+      window.updatePulseDot = function() {
+        if (pulseFrameId) cancelAnimationFrame(pulseFrameId);
+        pulseFrameId = requestAnimationFrame(function() {
+          pulseFrameId = 0;
+          var nextConfig = window.latestChartConfig;
+          var data = nextConfig && Array.isArray(nextConfig.data) ? nextConfig.data : [];
+          var lastPoint = data[data.length - 1];
+          var x = lastPoint && window.chart
+            ? window.chart.timeScale().timeToCoordinate(lastPoint.time)
+            : null;
+          var y = lastPoint && window.series
+            ? window.series.priceToCoordinate(lastPoint.value)
+            : null;
+          if (!nextConfig || !nextConfig.pulseLastPoint || x === null || y === null) {
+            pulseElement.style.display = 'none';
+            return;
+          }
+          var color = nextConfig.pulseLastPointColor || nextConfig.theme.lineColor;
+          for (var i = 0; i < pulseElement.children.length; i += 1) {
+            pulseElement.children[i].style.backgroundColor = color;
+          }
+          pulseElement.style.left = x + 'px';
+          pulseElement.style.top = y + 'px';
+          pulseElement.style.display = 'block';
+        });
+      };
+      chart.timeScale().subscribeVisibleTimeRangeChange(function() {
+        window.updatePulseDot();
+      });
+      window.secondaryPointSeries = null;
       window.applyChartConfig = function(nextConfig) {
         if (!nextConfig || !window.chart) return;
+        window.latestChartConfig = nextConfig;
         window.chart.applyOptions(getChartOptions(nextConfig));
         rebuildSeries(nextConfig);
         window.chart.timeScale().fitContent();
+        window.updatePulseDot();
       };
       window.applyChartConfig(config);
   `.trim();
@@ -690,6 +770,7 @@ function getEventHandlers(): string {
           // Force a repaint even when ResizeObserver has nothing new to report.
           chart.resize(width, height, true);
         }
+        if (typeof window.updatePulseDot === 'function') window.updatePulseDot();
       };
       new ResizeObserver(() => window.repaintChart()).observe(container);
       document.addEventListener('visibilitychange', () => {
@@ -729,6 +810,7 @@ export function generateChartHTML(config: ILightweightChartConfig): string {
 </head>
 <body>
   <div id="chart"></div>
+  <div id="pulse"><div class="ring"></div><div class="dot"></div></div>
   <script>${getChartScript(config)}</script>
 </body>
 </html>`;

@@ -97,6 +97,7 @@ import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type {
   IAccountToken,
   IFetchAccountTokensResp,
+  IFetchTokenDetailBatchResp,
   IFetchTokenDetailItem,
 } from '@onekeyhq/shared/types/token';
 import type {
@@ -154,6 +155,7 @@ export type IKeyringMap = Record<
 > & {
   hwLedger?: typeof KeyringBase | undefined;
   hwTrezor?: typeof KeyringBase | undefined;
+  hwKeystone?: typeof KeyringBase | undefined;
 };
 
 if (platformEnv.isExtensionUi) {
@@ -410,6 +412,20 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     params: IFetchServerTokenDetailParams,
   ): Promise<IFetchServerTokenDetailResponse> {
     throw new NotImplemented();
+  }
+
+  /**
+   * Bulk send fetches sender balances through the search-batch endpoint, keyed
+   * by address rather than by this vault's account. Only address-agnostic
+   * adjustments (e.g. a chain-wide native reserve) belong here; account-bound
+   * logic in `fillTokensDetails` must not be applied to other senders.
+   */
+  async fillTokensDetailsBatch({
+    tokensDetailsBatch,
+  }: {
+    tokensDetailsBatch: IFetchTokenDetailBatchResp;
+  }) {
+    return Promise.resolve(tokensDetailsBatch);
   }
 
   async verifyMessage(params: IVerifyMessageParams) {

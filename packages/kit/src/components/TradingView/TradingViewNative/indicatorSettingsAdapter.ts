@@ -574,6 +574,7 @@ function createMainIndicator(
           id: 'period',
           label: 'Length',
           min: 1,
+          step: 1,
           storedIndicator,
         }),
         createParameter({
@@ -683,7 +684,7 @@ function createSubIndicator(
       label: input.title,
       max: input.max,
       min: input.min,
-      step: input.step,
+      step: input.step ?? (input.type === 'integer' ? 1 : undefined),
       storedIndicator,
     }),
   );

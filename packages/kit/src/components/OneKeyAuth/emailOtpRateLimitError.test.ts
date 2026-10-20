@@ -62,4 +62,36 @@ describe('emailOtpRateLimitError', () => {
       }),
     ).toBe(17);
   });
+
+  test('reads the OneKey server cooldown without parsing the localized message', () => {
+    expect(
+      getEmailOtpRateLimitRetryAfterSeconds({
+        code: 90_011,
+        message: '请等待 26 秒后再请求新的验证码',
+        messageId: 'error__prime_otp_cooldown',
+        retryAfterSec: 26,
+      }),
+    ).toBe(26);
+  });
+
+  test.each([-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, '26', undefined])(
+    'uses a safe fallback for an invalid OneKey cooldown: %s',
+    (retryAfterSec) => {
+      expect(
+        getEmailOtpRateLimitRetryAfterSeconds({
+          code: 90_011,
+          data: { retryAfterSec },
+        }),
+      ).toBe(EMAIL_OTP_COUNTDOWN_SECONDS);
+    },
+  );
+
+  test('does not treat another server error as an OTP cooldown', () => {
+    expect(
+      getEmailOtpRateLimitRetryAfterSeconds({
+        code: 90_012,
+        data: { retryAfterSec: 26 },
+      }),
+    ).toBeUndefined();
+  });
 });

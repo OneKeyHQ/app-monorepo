@@ -5,6 +5,7 @@ import { act, render } from '@testing-library/react-native';
 import * as jsxRuntime from 'react/jsx-runtime';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
+import { useAppPager } from '@onekeyhq/kit/src/components/AppPager/context';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
@@ -17,11 +18,32 @@ import type { ISpotlightScrollState } from '../../../components/Spotlight/Spotli
 import type { LayoutChangeEvent } from 'react-native';
 
 let mockRenderParentHeader = false;
+let mockRenderPageDescendants = false;
 let mockMountedPageLifecycle = false;
 let mockReadyWithMapping = false;
 let mockEmitCapabilityOnMount = false;
 let mockParentComponentLookup: ((key: PropertyKey) => unknown) | undefined;
+const mockControllerInputs: Array<
+  Parameters<
+    typeof import('@onekeyhq/kit/src/components/AppPager/useAppPagerController').useAppPagerController
+  >[0]
+> = [];
+jest.mock('@onekeyhq/kit/src/components/AppPager/useAppPagerController', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/kit/src/components/AppPager/useAppPagerController')
+  >('@onekeyhq/kit/src/components/AppPager/useAppPagerController');
+  return {
+    useAppPagerController: (
+      input: Parameters<typeof actual.useAppPagerController>[0],
+    ) => {
+      mockControllerInputs.push(input);
+      return actual.useAppPagerController(input);
+    },
+  };
+});
 const mockSetPage = jest.fn();
+const mockScrollToPageTop = jest.fn();
+const mockNativeHostSessions: object[] = [];
 const mockSetPageWithoutAnimation = jest.fn();
 const mockHeaderHeightCommits: number[] = [];
 const mockNativeEvents: {
@@ -39,6 +61,12 @@ const mockNativeEvents: {
   }) => void;
   headerHeight?: number;
   header?: React.ReactElement<{ onLayout: (event: LayoutChangeEvent) => void }>;
+  stickyHeaderHeight?: number;
+  stickyHeader?: React.ReactElement<{
+    onLayout: (event: LayoutChangeEvent) => void;
+  }>;
+  topOverlay?: React.ReactNode;
+  topOverlayHeightHint?: number;
   onPageScroll?: (event: {
     nativeEvent: { position: number; offset: number };
   }) => void;
@@ -80,6 +108,7 @@ jest.mock(
 );
 jest.mock('./perpsChainTrace', () => ({ debugPerpsChain: jest.fn() }));
 jest.mock('react-native-pager-view', () => ({
+  ScrollEdgeEffect: { Hard: 'hard', Soft: 'soft' },
   CollapsiblePagerView: ({
     ref,
     ...events
@@ -91,6 +120,10 @@ jest.mock('react-native-pager-view', () => ({
     const { useImperativeHandle, useLayoutEffect, useRef } =
       jest.requireActual<typeof import('react')>('react');
     const mountSignature = useRef('');
+    const hostSession = useRef({});
+    useLayoutEffect(() => {
+      mockNativeHostSessions.push(hostSession.current);
+    }, []);
     useLayoutEffect(() => {
       if (mockEmitCapabilityOnMount) {
         events.onScrollEdgeCapability?.({ nativeEvent: { available: true } });
@@ -121,8 +154,21 @@ jest.mock('react-native-pager-view', () => ({
     useImperativeHandle(ref, () => ({
       setPage: mockSetPage,
       setPageWithoutAnimation: mockSetPageWithoutAnimation,
+      scrollToPageTop: mockScrollToPageTop,
     }));
-    return mockRenderParentHeader ? events.header : null;
+    if (mockRenderPageDescendants)
+      return (
+        <>
+          {events.header}
+          {events.children}
+        </>
+      );
+    return mockRenderParentHeader ? (
+      <>
+        {events.header}
+        {events.topOverlay}
+      </>
+    ) : null;
   },
 }));
 jest.mock('react-native-reanimated', () => {
@@ -140,6 +186,20 @@ const headerLayoutEvent = (height: number): LayoutChangeEvent =>
   ({
     nativeEvent: { layout: { x: 0, y: 0, width: 400, height } },
   }) as LayoutChangeEvent;
+
+it('uses the hard edge for the fixed Home header', () => {
+  const screen = render(
+    <HomeNativePager
+      {...headerTestProps}
+      topOverlay={<React.Fragment />}
+      topOverlayHeightHint={162}
+    />,
+  );
+  expect(mockNativeEvents).toHaveProperty('topScrollEdgeEffect', 'hard');
+  expect(mockNativeEvents).toHaveProperty('topOverlayHeightHint', 162);
+  screen.rerender(<HomeNativePager {...headerTestProps} />);
+  expect(mockNativeEvents).toHaveProperty('topScrollEdgeEffect', undefined);
+});
 
 it('replays a capability received before the parent layout effect and clears it on unmount', () => {
   mockEmitCapabilityOnMount = true;
@@ -314,6 +374,18 @@ it('corrects the hint with layout and retains measurement for a stable hint', ()
   expect(mockHeaderHeightCommits).toEqual([292, 302, 302, 240, 249, 182]);
 });
 
+it('snapshots sticky layout before queued state updates read a pooled event', () => {
+  render(<HomeNativePager {...headerTestProps} />);
+  const onLayout = mockNativeEvents.stickyHeader?.props.onLayout;
+  const pooledEvent = headerLayoutEvent(49.2);
+  act(() => {
+    onLayout?.(headerLayoutEvent(48));
+    onLayout?.(pooledEvent);
+    Object.defineProperty(pooledEvent, 'nativeEvent', { value: null });
+  });
+  expect(mockNativeEvents.stickyHeaderHeight).toBe(50);
+});
+
 it('resets A -> B -> A without a B measurement and ignores stale layouts', () => {
   mockHeaderHeightCommits.length = 0;
   const { rerender } = render(
@@ -475,7 +547,7 @@ it('ignores queued scroll progress after restoring a reordered tab', () => {
   const common = {
     initialTabName: 'History',
     renderHeader: () => null,
-    renderTabBar: (props: { indexDecimal: { value: number } }) => {
+    renderTabBar: (props: { indexDecimal?: { value: number } }) => {
       indexDecimal = props.indexDecimal;
       return null;
     },
@@ -511,7 +583,7 @@ it.each([
   (initialTabName, targetName, initialIndex, targetIndex) => {
     const ref = createRef<ITabContainerRef>();
     let tabBarState:
-      | { indexDecimal: { value: number }; focusedTab: { value: string } }
+      | { indexDecimal?: { value: number }; focusedTab: { value: string } }
       | undefined;
     render(
       <HomeNativePager
@@ -532,7 +604,7 @@ it.each([
       />,
     );
     act(() => ref.current?.jumpToTab(targetName));
-    expect(tabBarState?.indexDecimal.value).toBe(targetIndex);
+    expect(tabBarState?.indexDecimal?.value).toBe(targetIndex);
     act(() => {
       mockNativeEvents.onPageSelected?.({
         nativeEvent: { position: targetIndex },
@@ -542,7 +614,7 @@ it.each([
         nativeEvent: { position: initialIndex, offset: 0 },
       });
     });
-    expect(tabBarState?.indexDecimal.value).toBe(targetIndex);
+    expect(tabBarState?.indexDecimal?.value).toBe(targetIndex);
     expect(tabBarState?.focusedTab.value).toBe(targetName);
     expect(ref.current?.getCurrentIndex()).toBe(targetIndex);
 
@@ -554,7 +626,7 @@ it.each([
         nativeEvent: { position: 1, offset: 0.4 },
       });
     });
-    expect(tabBarState?.indexDecimal.value).toBe(1.4);
+    expect(tabBarState?.indexDecimal?.value).toBe(1.4);
 
     act(() => ref.current?.jumpToTab(initialTabName));
     act(() => {
@@ -564,13 +636,13 @@ it.each([
     });
     const adjacentIndex = initialIndex === 0 ? 1 : 2;
     act(() => ref.current?.setIndex(adjacentIndex));
-    expect(tabBarState?.indexDecimal.value).toBe(initialIndex);
+    expect(tabBarState?.indexDecimal?.value).toBe(initialIndex);
     act(() => {
       mockNativeEvents.onPageScroll?.({
         nativeEvent: { position: 1, offset: 0.6 },
       });
     });
-    expect(tabBarState?.indexDecimal.value).toBe(1.6);
+    expect(tabBarState?.indexDecimal?.value).toBe(1.6);
   },
 );
 
@@ -766,7 +838,7 @@ describe('HomePageView complete header authority', () => {
         'axios',
         'react-intl',
         '@onekeyhq/components',
-        '@onekeyhq/components/src/composite/Tabs/TabBar',
+        '@onekeyhq/components/src/composite/TabBar',
         '@onekeyhq/kit/src/hooks/useTabContainerWidth',
         '@onekeyhq/shared/src/config/presetNetworks',
         '@onekeyhq/shared/src/consts/dbConsts',
@@ -927,11 +999,17 @@ describe('HomePageView complete header authority', () => {
     expect(screen.UNSAFE_getByType(HomeNativePager).props.topEdgeActive).toBe(
       false,
     );
+    expect(
+      screen.UNSAFE_getByType(HomeNativePager).props.topOverlayHeightHint,
+    ).toBe(162);
     const oldHandler = mockNativeEvents.onScrollEdgeCapability;
     act(() => oldHandler?.({ nativeEvent: { available: true } }));
     expect(screen.UNSAFE_getByType(HomeNativePager).props.topEdgeActive).toBe(
       true,
     );
+    expect(
+      screen.UNSAFE_getByType(HomeNativePager).props.topOverlayHeightHint,
+    ).toBe(162);
     walletBackedUp = false;
     screen.rerender(
       React.createElement(HomePage, {
@@ -957,6 +1035,41 @@ describe('HomePageView complete header authority', () => {
     expect(screen.UNSAFE_getByType(HomeNativePager).props.topEdgeActive).toBe(
       true,
     );
+  });
+
+  it('remounts the native host and its panes only when the account owner changes, keeping the selected business tab', () => {
+    mockRenderPageDescendants = true;
+    try {
+      const screen = renderParent();
+      const initialHost = mockNativeHostSessions.at(-1);
+      const initialProps = screen.UNSAFE_getByType(HomeNativePager)
+        .props as React.ComponentProps<typeof HomeNativePager>;
+      const historyIndex = initialProps.tabs.findIndex(
+        (tab) => tab.id === EHomeWalletTab.History,
+      );
+      expect(historyIndex).toBeGreaterThanOrEqual(0);
+      act(() =>
+        mockNativeEvents.onPageSelected?.({
+          nativeEvent: { position: historyIndex },
+        }),
+      );
+      const selectedName = initialProps.tabs[historyIndex].name;
+      screen.rerender(<HomePage sceneName={EAccountSelectorSceneName.home} />);
+      expect(mockNativeHostSessions.at(-1)).toBe(initialHost);
+      accountId = 'replacement-account';
+      screen.rerender(<HomePage sceneName={EAccountSelectorSceneName.home} />);
+      const replacementHost = mockNativeHostSessions.at(-1);
+      expect(replacementHost).not.toBe(initialHost);
+      expect(
+        screen.UNSAFE_getByType(HomeNativePager).props.initialTabName,
+      ).toBe(selectedName);
+      accountId = 'test-account';
+      screen.rerender(<HomePage sceneName={EAccountSelectorSceneName.home} />);
+      expect(mockNativeHostSessions.at(-1)).not.toBe(initialHost);
+      expect(mockNativeHostSessions.at(-1)).not.toBe(replacementHost);
+    } finally {
+      mockRenderPageDescendants = false;
+    }
   });
 
   it('keeps the fixed overlay on the first committed frame of an account switch', () => {
@@ -991,6 +1104,9 @@ describe('HomePageView complete header authority', () => {
     expect(
       screen.UNSAFE_getByType(HomeNativePager).props.topOverlay,
     ).toBeDefined();
+    expect(
+      screen.UNSAFE_getByType(parentTabPageHeader).props.disableHomeHeaderGlass,
+    ).toBeUndefined();
 
     accountId = 'replacement-account';
     committedOverlays.length = 0;
@@ -1345,5 +1461,89 @@ describe('native header Spotlight ownership', () => {
     expect(currentState?.headerSettledAtTop).toBe(true);
     screen.rerender(<HomeNativePager {...props} tabs={[spot, nft]} />);
     expect(currentState?.headerSettledAtTop).toBe(true);
+  });
+});
+
+it('keeps native Home controller inputs stable on unrelated renders and updates labels', () => {
+  const ref = createRef<ITabContainerRef>();
+  const view = render(<HomeNativePager {...headerTestProps} ref={ref} />);
+  const first = mockControllerInputs.at(-1)!;
+  const commands = mockSetPageWithoutAnimation.mock.calls.length;
+  view.rerender(
+    <HomeNativePager {...headerTestProps} ref={ref} topEdgeActive />,
+  );
+  const next = mockControllerInputs.at(-1)!;
+  expect(next.pages).toBe(first.pages);
+  expect(next.onSelectionChange).toBe(first.onSelectionChange);
+  expect(next.onBeforeCommand).toBe(first.onBeforeCommand);
+  expect(mockSetPageWithoutAnimation).toHaveBeenCalledTimes(commands);
+  view.rerender(
+    <HomeNativePager
+      {...headerTestProps}
+      ref={ref}
+      tabs={headerTestProps.tabs.map((tab) => ({ ...tab, name: 'Renamed' }))}
+    />,
+  );
+  expect(mockControllerInputs.at(-1)!.pages[0].name).toBe('Renamed');
+  expect(ref.current?.getFocusedTab()).toBe('Renamed');
+});
+
+describe('native Home shared pager context', () => {
+  const readings: Record<string, ReturnType<typeof useAppPager>> = {};
+  function Probe({ slot }: { slot: string }) {
+    readings[slot] = useAppPager();
+    return null;
+  }
+  beforeEach(() => {
+    mockRenderPageDescendants = true;
+    mockScrollToPageTop.mockClear();
+  });
+  afterEach(() => {
+    mockRenderPageDescendants = false;
+  });
+  it('provides the accepted focused name to the header and panes with a real active-page top command', () => {
+    const tabs = [
+      {
+        id: EHomeWalletTab.Portfolio,
+        name: 'Spot',
+        component: <Probe slot="spot" />,
+      },
+      {
+        id: EHomeWalletTab.History,
+        name: 'History',
+        component: <Probe slot="history" />,
+      },
+    ];
+    const screen = render(
+      <HomeNativePager
+        {...headerTestProps}
+        tabs={tabs}
+        initialTabName="History"
+        renderHeader={() => <Probe slot="header" />}
+      />,
+    );
+    expect(readings.header.focusedName).toBe('History');
+    expect(readings.history.focusedName).toBe('History');
+    act(() =>
+      mockNativeEvents.onPageSelected?.({ nativeEvent: { position: 0 } }),
+    );
+    expect(readings.header.focusedName).toBe('Spot');
+    expect(readings.spot.focusedName).toBe('Spot');
+    act(() => readings.spot.scrollToTop());
+    expect(mockScrollToPageTop).toHaveBeenCalledTimes(1);
+    expect(mockScrollToPageTop).toHaveBeenCalledWith({ animated: false });
+    screen.rerender(
+      <HomeNativePager
+        {...headerTestProps}
+        tabs={[{ ...tabs[1], name: 'Activity' }, tabs[0]]}
+        initialTabName="History"
+        renderHeader={() => <Probe slot="header" />}
+      />,
+    );
+    expect(readings.header.focusedName).toBe('Spot');
+    act(() =>
+      mockNativeEvents.onPageSelected?.({ nativeEvent: { position: 0 } }),
+    );
+    expect(readings.header.focusedName).toBe('Activity');
   });
 });
