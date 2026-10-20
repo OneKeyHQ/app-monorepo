@@ -2,6 +2,8 @@
 // modelled by mechanism (V2_LIKE / V3_LIKE / V4_LIKE), and pages read the
 // capability fields instead of checking protocol names.
 
+import type { IEarnProtocolIntroInfo } from './staking';
+
 export enum EPoolType {
   V2Like = 'V2_LIKE',
   V3Like = 'V3_LIKE',
@@ -180,6 +182,8 @@ export type IPoolDetail = {
   priceHistory: IPoolPricePoint[];
   /** Other pools of the same pair, for side-by-side comparison */
   pairPools: IPoolListItem[];
+  /** The DEX behind the pool, as an Earn asset page's Protocol tab shows it */
+  protocolInfo?: IEarnProtocolIntroInfo;
 };
 
 export type IPoolPosition = {

@@ -17,9 +17,9 @@ export type IPoolPositionAction = {
 };
 
 /**
- * Remove and Add for one position, on its page and on its pool's page.
- * Remove while it is open; Add only while the pool is listed, else Remove
- * is the main action. No position, no actions.
+ * Remove and Add for one position, on its page. Remove while it is open;
+ * Add only while the pool is listed, else Remove is the main action. No
+ * position, no actions.
  */
 export function usePoolPositionActions(
   view: IPoolPositionView | undefined,

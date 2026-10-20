@@ -12,6 +12,7 @@ import type {
   IProtocolInfo,
   IStakeProtocolDetails,
 } from '../../types/staking';
+import type { IPoolTickRange } from '../utils/poolsMath';
 
 export enum EModalStakingRoutes {
   InvestmentDetails = 'InvestmentDetails',
@@ -36,6 +37,7 @@ export enum EModalStakingRoutes {
   BorrowHistoryList = 'BorrowHistoryList',
   EarnTokenSelect = 'EarnTokenSelect',
   EarnAssetSearch = 'EarnAssetSearch',
+  PoolCreatePosition = 'PoolCreatePosition',
 }
 
 type IBaseRouteParams = {
@@ -120,6 +122,14 @@ export type IModalStakingParamList = {
     // opened as a modal there is no other way back to the caller. Same shape as
     // the onSuccess this file already carries on the Claim routes.
     onStakeWithdrawSuccess?: () => void;
+  };
+  [EModalStakingRoutes.PoolCreatePosition]: {
+    poolId: string;
+    /** A range copied from one of the pool's top positions */
+    initialRange?: IPoolTickRange;
+    // Fires once the form has created its task, before this modal pops; as
+    // with onStakeWithdrawSuccess above, the pool page has no other way back.
+    onTaskCreated?: (taskId: string) => void;
   };
   [EModalStakingRoutes.BorrowManagePosition]: IBorrowManagePositionRouteParams;
   [EModalStakingRoutes.BorrowEModeSwitch]: IBaseRouteParams & {

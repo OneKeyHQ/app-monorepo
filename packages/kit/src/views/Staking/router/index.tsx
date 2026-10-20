@@ -95,6 +95,11 @@ const EarnAssetSearchModal = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Earn/pages/EarnAssetSearch'),
 );
 
+const PoolCreatePositionModal = LazyLoad(
+  () =>
+    import('@onekeyhq/kit/src/views/Earn/pools/pages/PoolCreatePositionModal'),
+);
+
 export const StakingModalRouter: IModalFlowNavigatorConfig<
   EModalStakingRoutes | EModalAssetDetailRoutes,
   IModalStakingParamList & IModalAssetDetailsParamList
@@ -196,6 +201,10 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
   {
     name: EModalStakingRoutes.EarnAssetSearch,
     component: EarnAssetSearchModal,
+  },
+  {
+    name: EModalStakingRoutes.PoolCreatePosition,
+    component: PoolCreatePositionModal,
   },
   ...(ModalAssetDetailsStack as IModalFlowNavigatorConfig<
     EModalStakingRoutes | EModalAssetDetailRoutes,

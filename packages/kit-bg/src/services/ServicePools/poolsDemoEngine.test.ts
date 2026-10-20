@@ -23,6 +23,7 @@ import {
   createTask,
   getFavoritePoolIds,
   getNextStep,
+  getPoolDetail,
   getPoolPriceHistory,
   getPoolTopPositions,
   isUnfinishedTask,
@@ -335,6 +336,28 @@ describe('pools demo top positions', () => {
   it('has none for a pool without ranges', () => {
     const v2 = poolBySeed(catalog, 'eth-v2-usdc-weth');
     expect(getPoolTopPositions(catalog, v2.id).total).toBe(0);
+  });
+});
+
+describe('pools demo pool detail', () => {
+  const catalog = buildMockCatalog(NOW);
+  const auditorsOf = (key: string) =>
+    getPoolDetail(
+      catalog,
+      poolBySeed(catalog, key).id,
+    ).protocolInfo?.items?.[0]?.audits?.items?.map((audit) => audit.title);
+
+  it('introduces the DEX with the audits of the pool’s version', () => {
+    expect(auditorsOf('eth-v2-usdc-weth')).toEqual(['dapp.org']);
+    expect(auditorsOf('eth-v3-usdc-weth-500')).toEqual([
+      'Trail of Bits',
+      'ABDK',
+      'ABDK',
+    ]);
+    // Nine audits by six firms, as Uniswap's v4 security post counts them
+    const v4 = auditorsOf('eth-v4-eth-usdc-500') ?? [];
+    expect(v4).toHaveLength(9);
+    expect(new Set(v4).size).toBe(6);
   });
 });
 

@@ -63,7 +63,6 @@ export const POOLS_COPY = {
   currentPrice: 'Current price',
   now: 'Now',
   inPool: 'In the pool',
-  myPositions: 'My positions',
   samePair: 'Same pair, other pools',
   topPositions: 'Top positions',
   topPositionsHint: (minValue: string) =>

@@ -57,6 +57,7 @@ import {
   buildSeedPositions,
   mockHex,
 } from './poolsMockBuilder';
+import { getPoolProtocolIntro } from './poolsProtocolIntro';
 
 import type { IPoolsMockCatalog } from './poolsMockBuilder';
 import type { IPoolsDemoDBStruct } from '../../dbs/simple/entity/SimpleDbEntityPoolsDemo';
@@ -268,6 +269,7 @@ export function getPoolDetail(
           item.listingStatus === EPoolListingStatus.Listed,
       )
       .map((item) => toListItem(catalog, item)),
+    protocolInfo: getPoolProtocolIntro(pool.version),
   };
 }
 

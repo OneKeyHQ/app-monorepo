@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 
@@ -17,9 +17,15 @@ import {
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETabEarnRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EModalStakingRoutes,
+  ETabEarnRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import type { ITabEarnParamList } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { IPoolTickRange } from '@onekeyhq/shared/src/utils/poolsMath';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   EPoolListingStatus,
@@ -33,23 +39,23 @@ import type {
 
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
+import {
+  ProtocolIntroSection,
+  hasProtocolIntroContent,
+} from '../../pages/EarnProtocolDetails/components/ProtocolIntroSection';
+import { PoolDetailTabs } from '../components/PoolDetailTabs';
 import { PoolHeader } from '../components/PoolHeader';
 import {
   CAN_SET_RANGE_ON_CHART,
   POOL_CREATE_COLUMN_STICKY,
+  PoolChartSection,
   PoolCreateSection,
-  PoolDataSection,
-  PoolOverviewTabs,
+  PoolInfoSection,
   PoolStarButton,
-  getPoolRevealId,
   useCopyRange,
   usePoolOverview,
   usePoolShare,
 } from '../components/PoolOverview';
-import {
-  PoolPositionActionsFooter,
-  usePoolPositionActions,
-} from '../components/PoolPositionActions';
 import { PoolPositionCard } from '../components/PoolPositionCard';
 import { PoolsCard } from '../components/PoolsCard';
 import { PoolStatsStrip } from '../components/PoolStats';
@@ -60,7 +66,6 @@ import { parsePoolShareParams } from '../poolsNavigation';
 import { PoolsQueries, peekPoolsQuery, usePoolsQuery } from '../poolsQueries';
 import { usePoolsBreadcrumb } from '../usePoolsBreadcrumb';
 
-import type { IPoolOverviewTab } from '../components/PoolOverview';
 import type { RouteProp } from '@react-navigation/core';
 
 function PoolHookCard({ pool }: { pool: IPool }) {
@@ -97,19 +102,16 @@ function PoolCompositionCard({ pool }: { pool: IPool }) {
   );
 }
 
-function MyPositionsCard({
+/** The Portfolio tab: the user's open positions here, each to its page */
+function MyPositionsList({
   positions,
   onOpen,
 }: {
   positions: IPoolPositionView[];
   onOpen: (view: IPoolPositionView) => void;
 }) {
-  if (!positions.length) {
-    return null;
-  }
   return (
     <YStack gap="$3">
-      <SizableText size="$headingMd">{POOLS_COPY.myPositions}</SizableText>
       {positions.map((view) => (
         <PoolPositionCard
           key={view.position.id}
@@ -147,27 +149,36 @@ function PoolPageTitle({ pool }: { pool?: IPool }) {
 }
 
 /**
- * A pool's page: what an opened row shows, plus the user's own positions
- * in it, the hook and the reserves; and a link to share. Wide screens keep
- * the form beside the data; phones switch between them.
+ * A pool's page, laid out like an Earn asset page: the pool and its chart,
+ * then Portfolio, Info and Protocol tabs. Wide screens keep the create form
+ * beside them; phones open it in a modal from the footer, as the asset page
+ * opens Deposit.
  */
 function PoolDetailsLoaded({ listPool }: { listPool: IPoolListItem }) {
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
   const tabBarHeight = useScrollContentTabBarOffset();
-  const [tab, setTab] = useState<IPoolOverviewTab>('data');
+  const pushTask = useCallback(
+    (taskId: string) =>
+      navigation.push(ETabEarnRoutes.EarnPoolTask, { taskId }),
+    [navigation],
+  );
   const { pool, detail, form, canCreate } = usePoolOverview({
     pool: listPool,
-    onTaskCreated: (taskId) =>
-      navigation.push(ETabEarnRoutes.EarnPoolTask, { taskId }),
+    onTaskCreated: pushTask,
   });
-  const showCreate = useCallback(() => setTab('create'), []);
-  const rangeOnChart = gtMd && CAN_SET_RANGE_ON_CHART;
-  const tabsId = getPoolRevealId('tabs', 'page', pool.id);
-  const copyRange = useCopyRange(
-    form,
-    gtMd ? {} : { onCopied: showCreate, revealId: tabsId },
+  const openCreate = useCallback(
+    (initialRange?: IPoolTickRange) =>
+      navigation.pushModal(EModalRoutes.StakingModal, {
+        screen: EModalStakingRoutes.PoolCreatePosition,
+        params: { poolId: pool.id, initialRange, onTaskCreated: pushTask },
+      }),
+    [navigation, pool.id, pushTask],
   );
+  const rangeOnChart = gtMd && CAN_SET_RANGE_ON_CHART;
+  // Wide screens set a copied range in the create card beside the list;
+  // phones open the form with it
+  const copyRange = useCopyRange(form, gtMd ? {} : { onCopied: openCreate });
   const share = usePoolShare(pool);
 
   const { result: portfolio } = usePoolsQuery(PoolsQueries.portfolio(), {
@@ -204,73 +215,56 @@ function PoolDetailsLoaded({ listPool }: { listPool: IPoolListItem }) {
     </XStack>
   );
 
-  // With exactly one position the data tab's footer acts on it, as an Earn
-  // asset page's Redeem + Deposit do; with several, which one to remove is
-  // a choice the cards make, so the footer stays Create position
-  const positionActions = usePoolPositionActions(
-    myPositions.length === 1 ? myPositions[0] : undefined,
-    'earn-pool-footer',
-  );
+  // The same footer whether or not the user holds a position here: Remove
+  // and Add sit on each position's own page, one tap on its card away
+  const footer =
+    !gtMd && canCreate ? (
+      <Page.Footer
+        onConfirmText={POOLS_COPY.createPosition}
+        confirmButtonProps={{
+          variant: 'primary',
+          onPress: () => openCreate(),
+          mb: tabBarHeight,
+          testID: 'earn-pool-footer-create',
+        }}
+      />
+    ) : null;
 
-  // On the data tab the footer leads to the form; on the form it submits
-  let footer = null;
-  if (!gtMd) {
-    if (tab === 'create' && canCreate) {
-      footer = (
-        <Page.Footer
-          onConfirmText={form.buttonLabel}
-          confirmButtonProps={{
-            variant: 'primary',
-            disabled: !form.canReview,
-            loading: form.isBusy,
-            onPress: () => void form.review(),
-            mb: tabBarHeight,
-            testID: 'earn-pool-add-review',
-          }}
-        />
-      );
-    } else if (positionActions.length) {
-      footer = <PoolPositionActionsFooter actions={positionActions} />;
-    } else if (canCreate) {
-      footer = (
-        <Page.Footer
-          onConfirmText={POOLS_COPY.createPosition}
-          confirmButtonProps={{
-            variant: 'primary',
-            onPress: showCreate,
-            mb: tabBarHeight,
-            testID: 'earn-pool-footer-create',
-          }}
-        />
-      );
-    }
-  }
-
-  const data = (
-    <PoolDataSection
+  const layout = gtMd ? 'table' : 'list';
+  const chart = (
+    <PoolChartSection
       pool={pool}
       detail={detail}
-      form={form}
-      layout={gtMd ? 'table' : 'list'}
+      // Phones fill the form in its modal, so their chart draws no range
+      form={gtMd ? form : undefined}
+      layout={layout}
       chartHeight={gtMd ? 300 : 220}
       rangeOnChart={rangeOnChart && canCreate}
-      onCopyRange={copyRange}
-      // Like the Portfolio tab on an Earn asset page: what you hold comes first
-      beforeChart={
-        <MyPositionsCard positions={myPositions} onOpen={openPosition} />
-      }
-    >
-      <PoolHookCard pool={pool} />
-      <PoolCompositionCard pool={pool} />
-    </PoolDataSection>
+    />
   );
-  const create = (
-    <PoolCreateSection
-      form={form}
-      detail={detail}
-      canCreate={canCreate}
-      showButton={gtMd}
-      rangeOnChart={rangeOnChart}
+  const tabs = (
+    <PoolDetailTabs
+      portfolioContent={
+        myPositions.length ? (
+          <MyPositionsList positions={myPositions} onOpen={openPosition} />
+        ) : undefined
+      }
+      infoContent={
+        <PoolInfoSection
+          pool={pool}
+          detail={detail}
+          layout={layout}
+          onCopyRange={copyRange}
+        >
+          <PoolHookCard pool={pool} />
+          <PoolCompositionCard pool={pool} />
+        </PoolInfoSection>
+      }
+      protocolContent={
+        hasProtocolIntroContent(detail?.protocolInfo) ? (
+          <ProtocolIntroSection protocolInfo={detail?.protocolInfo} />
+        ) : undefined
+      }
     />
   );
 
@@ -295,8 +289,9 @@ function PoolDetailsLoaded({ listPool }: { listPool: IPoolListItem }) {
         </YStack>
         {gtMd ? (
           <XStack gap="$6" ai="flex-start">
-            <YStack flex={1} minWidth={0}>
-              {data}
+            <YStack flex={1} minWidth={0} gap="$6">
+              {chart}
+              {tabs}
             </YStack>
             {canCreate ? (
               <YStack
@@ -305,23 +300,20 @@ function PoolDetailsLoaded({ listPool }: { listPool: IPoolListItem }) {
                 flexShrink={0}
                 {...POOL_CREATE_COLUMN_STICKY}
               >
-                {create}
+                <PoolCreateSection
+                  form={form}
+                  detail={detail}
+                  canCreate={canCreate}
+                  showButton
+                  rangeOnChart={rangeOnChart}
+                />
               </YStack>
             ) : null}
           </XStack>
         ) : (
-          <YStack gap="$4">
-            {canCreate ? (
-              <YStack id={tabsId}>
-                <PoolOverviewTabs value={tab} onChange={setTab} />
-              </YStack>
-            ) : null}
-            <YStack display={tab === 'data' ? 'flex' : 'none'}>{data}</YStack>
-            {canCreate ? (
-              <YStack display={tab === 'create' ? 'flex' : 'none'}>
-                {create}
-              </YStack>
-            ) : null}
+          <YStack gap="$6">
+            {chart}
+            {tabs}
           </YStack>
         )}
       </YStack>

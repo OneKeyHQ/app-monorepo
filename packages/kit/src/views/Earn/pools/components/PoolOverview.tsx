@@ -180,58 +180,76 @@ export function usePoolOverview({
   return { pool, detail, wallet, form, canCreate };
 }
 
-export function PoolDataSection({
+/**
+ * The pool's price chart. With the create form on the same screen it draws
+ * the form's range, and wide web screens set the range there: drag the band,
+ * or use the controls under it.
+ */
+export function PoolChartSection({
   pool,
   detail,
   form,
   layout,
   chartHeight,
   rangeOnChart = false,
+}: {
+  pool: IPoolListItem;
+  detail: IPoolDetail | undefined;
+  /** None when the form opens elsewhere (a phone's create modal) */
+  form?: IPoolPositionForm;
+  layout: 'table' | 'list';
+  chartHeight: number;
+  rangeOnChart?: boolean;
+}) {
+  const editForm = rangeOnChart && form?.isRange ? form : undefined;
+  return (
+    <PoolOverviewChart
+      pool={pool}
+      ticks={detail?.ticks}
+      range={form?.isRange ? form.range : undefined}
+      onRangeChange={editForm?.setRange}
+      renderRangeControls={
+        editForm
+          ? (flipped) => (
+              <PoolRangeEditor
+                pool={editForm.pool}
+                priceHistory={detail?.priceHistory ?? []}
+                estimate={editForm.estimate}
+                range={editForm.range}
+                presets={editForm.presets}
+                presetId={editForm.presetId}
+                onChange={editForm.setRange}
+                underPriceChart
+                flipped={flipped}
+              />
+            )
+          : undefined
+      }
+      height={chartHeight}
+      stripWidth={layout === 'table' ? 72 : 52}
+    />
+  );
+}
+
+/**
+ * The pool's info under its chart: top positions to copy a range from, the
+ * page's own cards, then the pair's other pools.
+ */
+export function PoolInfoSection({
+  pool,
+  detail,
+  layout,
   onCopyRange,
-  beforeChart,
   children,
 }: {
   pool: IPoolListItem;
   detail: IPoolDetail | undefined;
-  form: IPoolPositionForm;
   layout: 'table' | 'list';
-  chartHeight: number;
-  /** The range is set on the chart: drag its band, or the controls under it */
-  rangeOnChart?: boolean;
   onCopyRange: (range: IPoolTickRange) => void;
-  /** The page's own cards: above the chart, and after top positions */
-  beforeChart?: ReactNode;
   children?: ReactNode;
 }) {
-  const editRange = rangeOnChart && form.isRange;
   return (
     <YStack gap="$4">
-      {beforeChart}
-      <PoolOverviewChart
-        pool={pool}
-        ticks={detail?.ticks}
-        range={form.isRange ? form.range : undefined}
-        onRangeChange={editRange ? form.setRange : undefined}
-        renderRangeControls={
-          editRange
-            ? (flipped) => (
-                <PoolRangeEditor
-                  pool={form.pool}
-                  priceHistory={detail?.priceHistory ?? []}
-                  estimate={form.estimate}
-                  range={form.range}
-                  presets={form.presets}
-                  presetId={form.presetId}
-                  onChange={form.setRange}
-                  underPriceChart
-                  flipped={flipped}
-                />
-              )
-            : undefined
-        }
-        height={chartHeight}
-        stripWidth={layout === 'table' ? 72 : 52}
-      />
       {pool.capabilities.priceRange ? (
         <PoolTopPositions
           pool={pool}
@@ -241,6 +259,44 @@ export function PoolDataSection({
       ) : null}
       {children}
       <PoolSamePairCard pools={detail?.pairPools ?? []} />
+    </YStack>
+  );
+}
+
+/** An opened row's data: the chart, then the info under it */
+export function PoolDataSection({
+  pool,
+  detail,
+  form,
+  layout,
+  chartHeight,
+  rangeOnChart = false,
+  onCopyRange,
+}: {
+  pool: IPoolListItem;
+  detail: IPoolDetail | undefined;
+  form: IPoolPositionForm;
+  layout: 'table' | 'list';
+  chartHeight: number;
+  rangeOnChart?: boolean;
+  onCopyRange: (range: IPoolTickRange) => void;
+}) {
+  return (
+    <YStack gap="$4">
+      <PoolChartSection
+        pool={pool}
+        detail={detail}
+        form={form}
+        layout={layout}
+        chartHeight={chartHeight}
+        rangeOnChart={rangeOnChart}
+      />
+      <PoolInfoSection
+        pool={pool}
+        detail={detail}
+        layout={layout}
+        onCopyRange={onCopyRange}
+      />
     </YStack>
   );
 }
@@ -300,10 +356,11 @@ export function revealPoolSection(id: string) {
 }
 
 /**
- * Sets a copied range in the form and says so. Phones then switch to the
- * form's tab and scroll back to it. The pool page stays put, as its create
- * card stays in view beside the list and shows the range; an opened row
- * scrolls back up to its chart and card.
+ * Sets a copied range in the form and says so. An opened row then shows it:
+ * on phones it switches to the form's tab and scrolls back to it, on wide
+ * screens it scrolls back up to its chart and card. The pool page stays put
+ * on wide screens, as its create card stays in view beside the list; phones
+ * open the create modal with the range.
  */
 export function useCopyRange(
   form: IPoolPositionForm,
@@ -311,7 +368,7 @@ export function useCopyRange(
     onCopied,
     revealId,
   }: {
-    onCopied?: () => void;
+    onCopied?: (range: IPoolTickRange) => void;
     /** Where to scroll back to, if anywhere */
     revealId?: string;
   } = {},
@@ -321,7 +378,7 @@ export function useCopyRange(
     (range: IPoolTickRange) => {
       setRange(range);
       Toast.success({ title: POOLS_COPY.rangeCopied });
-      onCopied?.();
+      onCopied?.(range);
       if (revealId) {
         revealPoolSection(revealId);
       }
