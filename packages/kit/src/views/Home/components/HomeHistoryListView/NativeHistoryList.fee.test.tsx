@@ -32,6 +32,10 @@ jest.mock('@onekeyhq/components', () => ({
   Stack: () => null,
   ActionList: {},
   useScrollContentTabBarOffset: () => 0,
+  useTheme: () => ({}),
+}));
+jest.mock('@onekeyhq/kit/src/hooks/useThemeVariant', () => ({
+  useThemeVariant: () => 'light',
 }));
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),

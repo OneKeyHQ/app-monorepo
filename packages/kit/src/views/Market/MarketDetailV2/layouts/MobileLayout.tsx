@@ -20,6 +20,7 @@ import {
   Divider,
   EInPageDialogType,
   HeaderScrollGestureWrapper,
+  IconButton,
   ScrollView,
   SizableText,
   Skeleton,
@@ -41,6 +42,7 @@ import {
 import { TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/chartConstants';
 import { getTradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
 import type { ITradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
+import { TradingViewNativeTokenHeader } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/TradingViewNativeTokenHeader';
 import { shouldReserveTradingViewNativeIndicatorQuickBar } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import type { ITradingViewNativeIndicatorQuickBarState } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import {
@@ -79,6 +81,7 @@ import { InformationPanel } from '../components/InformationPanel/InformationPane
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
 import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
 import { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';
+import { resolveMarketDetailHeaderIdentity } from '../components/MarketDetailHeader/marketDetailHeaderIdentity';
 import { LazyMobileMarketTradingView } from '../components/MarketTradingView/LazyMarketTradingView';
 import { useStockDetail } from '../hooks/StockDetailContext';
 import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData';
@@ -382,6 +385,7 @@ export function MobileLayout({
     isStockRoute,
     selectedTokenVariant,
     stockDetail,
+    stockPreview,
     stockId,
     isStockDetailError,
   } = useStockDetail();
@@ -539,6 +543,31 @@ export function MobileLayout({
       tokenSymbol,
     ],
   );
+  const {
+    symbol: chartHeaderSymbol,
+    logoUrl: chartHeaderLogoUrl,
+    logoUrls: chartHeaderLogoUrls,
+  } = resolveMarketDetailHeaderIdentity({
+    isStockToken: tradingViewNativeSource.kind === 'stock',
+    stockSymbol: stockDetail?.symbol || stockPreview?.symbol || stockId,
+    stockLogoUrl: stockDetail?.logoUrl || stockPreview?.logoUrl,
+    tokenSymbol: tokenSymbol || tokenDetail?.name,
+    tokenLogoUrl: tokenDetail?.logoUrl,
+    tokenLogoUrls: tokenDetail?.logoUrls,
+    tokenVariant: selectedTokenVariant,
+  });
+  // Polling can return the same logos in a new array without changing identity.
+  const stableChartHeaderLogoUrlsRef = useRef(chartHeaderLogoUrls);
+  if (
+    stableChartHeaderLogoUrlsRef.current?.length !==
+      chartHeaderLogoUrls?.length ||
+    chartHeaderLogoUrls?.some(
+      (url, index) => url !== stableChartHeaderLogoUrlsRef.current?.[index],
+    )
+  ) {
+    stableChartHeaderLogoUrlsRef.current = chartHeaderLogoUrls;
+  }
+  const stableChartHeaderLogoUrls = stableChartHeaderLogoUrlsRef.current;
   if (isTradingViewNative) {
     marketTradingViewKey = `native:${marketTokenId ?? ''}:${getTradingViewNativeSourceKey(tradingViewNativeSource)}`;
   }
@@ -561,7 +590,7 @@ export function MobileLayout({
     [accountAddress, networkId, tokenAddress],
   );
 
-  const { portfolioData, isRefreshing } = usePortfolioData({
+  const { portfolioData, isRefreshing, isPortfolioPending } = usePortfolioData({
     tokenAddress,
     networkId,
     accountAddress,
@@ -921,6 +950,7 @@ export function MobileLayout({
                         key={marketTradingViewKey}
                         testID={MarketTestIDs.detailChart}
                         source={tradingViewNativeSource}
+                        useFullscreenOverlay={platformEnv.isWeb || undefined}
                         accountMarksContext={
                           tradingViewNativeSource.kind === 'stock'
                             ? undefined
@@ -932,7 +962,9 @@ export function MobileLayout({
                         enableNativeChartSettings
                         enableDrawings={!platformEnv.isNative}
                         prioritizePageScroll
-                        nativeChartSettingsInToolbar={platformEnv.isNative}
+                        nativeChartSettingsInToolbar={
+                          platformEnv.isNative || platformEnv.isWeb
+                        }
                         showNativeIndicatorQuickBar={platformEnv.isNative}
                         onNativeIndicatorQuickBarChange={
                           platformEnv.isNative
@@ -943,8 +975,41 @@ export function MobileLayout({
                           MARKET_DETAIL_MOBILE_TRADING_VIEW_MAX_SELECTABLE_SUB_INDICATOR_COUNT
                         }
                         nativeControlsLayoutMode="mobile"
-                        mobileToolbarExtra={<MobileChartModeControl />}
+                        mobileToolbarExtra={
+                          <>
+                            <MobileChartModeControl />
+                            {platformEnv.isWeb ? (
+                              <IconButton
+                                testID="market-mobile-chart-fullscreen-toggle"
+                                size="small"
+                                variant="tertiary"
+                                icon={
+                                  isChartFullscreen
+                                    ? 'TradingViewExitFullscreenCustom'
+                                    : 'TradingViewFullscreenCustom'
+                                }
+                                title={intl.formatMessage({
+                                  id: isChartFullscreen
+                                    ? ETranslations.global_collapse
+                                    : ETranslations.global_expand,
+                                })}
+                                onPress={() =>
+                                  onChartFullscreenChange?.(!isChartFullscreen)
+                                }
+                              />
+                            ) : null}
+                          </>
+                        }
                         isNativeChartFullscreen={isChartFullscreen}
+                        nativeChartFullscreenHeader={
+                          platformEnv.isNative && chartHeaderSymbol ? (
+                            <TradingViewNativeTokenHeader
+                              name={chartHeaderSymbol}
+                              tokenImageUri={chartHeaderLogoUrl}
+                              tokenImageUris={stableChartHeaderLogoUrls}
+                            />
+                          ) : undefined
+                        }
                         isChartSwitchDisabled={
                           priceMode === 'share' || !marketTradingViewParams
                         }
@@ -1041,6 +1106,8 @@ export function MobileLayout({
     );
   }, [
     accountMarksContext,
+    chartHeaderLogoUrl,
+    chartHeaderSymbol,
     detailKind,
     handleHeaderHorizontalSwipe,
     handleIndicatorsDialogOpenChange,
@@ -1048,6 +1115,7 @@ export function MobileLayout({
     handleNativeChartPriceUpdate,
     handleNativeIndicatorQuickBarChange,
     handleNativeSubIndicatorCountChange,
+    intl,
     isChartFullscreen,
     isSimpleChart,
     isStockDetailChart,
@@ -1063,6 +1131,7 @@ export function MobileLayout({
     onChartFullscreenChange,
     onChartSwitch,
     stockPreviousClose,
+    stableChartHeaderLogoUrls,
     priceMode,
     tradingViewNativeSource,
     tradingViewChartHeight,
@@ -1088,6 +1157,7 @@ export function MobileLayout({
               scrollEnabled={!isChartFullscreen && !isTradingViewScrollLocked}
               portfolioData={portfolioData}
               isRefreshing={isRefreshing}
+              isPortfolioPending={isPortfolioPending}
               tokenLogoUrl={tokenDetail?.logoUrl}
               detailKind={detailKind}
               marketAssetDetail={marketAssetDetail}
@@ -1107,6 +1177,7 @@ export function MobileLayout({
       isTradingViewScrollLocked,
       portfolioData,
       isRefreshing,
+      isPortfolioPending,
       tokenDetail?.logoUrl,
       detailKind,
       marketAssetDetail,
@@ -1181,6 +1252,7 @@ export function MobileLayout({
                 storeName={EJotaiContextStoreNames.marketWatchListV2}
               >
                 <LazySwapPanelWrap
+                  isStock={swapToken.isStock}
                   onCloseDialog={() => dialogRef.current?.close()}
                 />
               </MarketWatchListProviderMirrorV2>
@@ -1202,6 +1274,7 @@ export function MobileLayout({
         onShowSwapDialog={showSwapDialog}
         executionReady={isSwapTokenReady && isSwapExecutionReady}
         footerMode={footerMode}
+        mobileLayout
         detailKind={detailKind}
         onPerps={handleOpenPerps}
         perpsDisabled={perpDisabled || !perpsInfo?.hlTicker}

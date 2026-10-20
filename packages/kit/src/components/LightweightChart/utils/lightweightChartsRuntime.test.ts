@@ -356,6 +356,22 @@ it('embeds and selects compact prices in the native chart', () => {
       ),
     ).toBe(expected);
   }
+  expect(
+    runInNewContext(`${formatterSource};
+    getPriceFormatter({priceScaleFormat: 'full', compactPriceMaxCharacters: 10})(2377.04)`),
+  ).toBe('$2,377.04');
+  expect(
+    runInNewContext(`${formatterSource};
+    getTickPriceFormatter({priceScaleFormat: 'full'})([2535, 2540, 2545])`),
+  ).toEqual(['$2,535', '$2,540', '$2,545']);
+  expect(
+    runInNewContext(`${formatterSource};
+    getTickPriceFormatter({priceScaleFormat: 'full'})([2540, 2540.5])`),
+  ).toEqual(['$2,540.00', '$2,540.50']);
+  expect(
+    runInNewContext(`${formatterSource};
+    getTickPriceFormatter({compactPriceMaxCharacters: 10})`),
+  ).toBeUndefined();
   expect(html).toContain('options.localization');
 });
 

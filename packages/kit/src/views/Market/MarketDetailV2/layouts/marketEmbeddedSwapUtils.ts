@@ -35,7 +35,10 @@ export function buildMarketEmbeddedSwapInitParams({
     })
       ? inputDraft.fromToken
       : undefined;
-  const defaultPair = getMarketSwapDefaultPair({ token: importToToken });
+  const defaultPair = getMarketSwapDefaultPair({
+    token: importToToken,
+    defaultTokens,
+  });
   const importFromToken =
     draftFromToken ??
     (swapToken.isStock
