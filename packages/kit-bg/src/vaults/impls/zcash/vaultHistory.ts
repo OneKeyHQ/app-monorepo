@@ -722,7 +722,8 @@ export async function zcashFetchTransparentHistory(
       : await vault.backgroundApi.serviceHistory.getOneKeyIdAuthHeaders()),
   };
   const dbAccountCache = {};
-  // Backend tip, from mined rows in this same snapshot (block + confirmations - 1).
+  // Backend tip: the highest indexed block in this same snapshot. Confirmations
+  // aren't used until the backend documents what height they count from.
   let tipHeight: number | undefined;
   const cached = new Map(
     (
@@ -755,14 +756,9 @@ export async function zcashFetchTransparentHistory(
     buildPage: async ({ page, indexOffset }) =>
       Promise.all(
         page.data.map(async (onChainHistoryTx, index) => {
-          const { block = 0, confirmations = 0 } = onChainHistoryTx;
-          if (
-            Number.isSafeInteger(block) &&
-            Number.isSafeInteger(confirmations) &&
-            block > 0 &&
-            confirmations > 0
-          ) {
-            tipHeight = Math.max(tipHeight ?? 0, block + confirmations - 1);
+          const { block = 0 } = onChainHistoryTx;
+          if (Number.isSafeInteger(block) && block > 0) {
+            tipHeight = Math.max(tipHeight ?? 0, block);
           }
           const localTx = cached.get(onChainHistoryTx.tx.toLowerCase());
           const normalized = normalizeZcashBackendHistoryTx(onChainHistoryTx);

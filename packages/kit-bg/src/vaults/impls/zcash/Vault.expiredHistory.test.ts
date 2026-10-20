@@ -162,7 +162,7 @@ describe('expired transparent send reconciliation', () => {
     };
     const inUse = async () =>
       zcash.listTransparentOutpointsInUse({ accountId });
-    return { zcash, localHistory, backend, read, inUse };
+    return { vault, zcash, localHistory, backend, read, inUse };
   }
 
   beforeEach(() => {
@@ -304,6 +304,65 @@ describe('expired transparent send reconciliation', () => {
     );
   });
 
+  it('drops an expired send only once an indexed block passes expiry + 10', async () => {
+    const { vault, zcash, read } = await fixture();
+    const indexed: IOnChainHistoryTx[] = [];
+    const mined = (tx: string, block: number, confirmations: number) =>
+      ({
+        tx,
+        networkId: historyParams.networkId,
+        key: `${historyParams.networkId}_`,
+        type: EOnChainHistoryTxType.Receive,
+        sends: [],
+        receives: [],
+        from: 't1-other',
+        to: 't1-own',
+        value: '0.001',
+        gasFee: '',
+        status: EOnChainHistoryTxStatus.Success,
+        block,
+        confirmations,
+      }) as unknown as IOnChainHistoryTx;
+    // Query the backend through the real history fetch.
+    Reflect.deleteProperty(vault, 'zcashFetchTransparentHistory');
+    Object.assign(vault.backgroundApi, {
+      serviceAccount: {
+        getDBAccountSafe: async () => ({ address: 't1-own', xpub: 'xpub' }),
+      },
+      serviceAccountProfile: { _getWalletTypeHeader: async () => ({}) },
+      serviceHistory: {
+        getOneKeyIdAuthHeaders: async () => ({}),
+        getClient: async () => ({
+          post: async () => ({
+            data: {
+              data: { data: indexed, tokens: {}, nfts: {}, hasMore: false },
+            },
+          }),
+        }),
+      },
+    });
+    jest
+      .spyOn(VaultBtc.prototype, 'buildOnChainHistoryTx')
+      .mockImplementation(async ({ onChainHistoryTx: tx }) =>
+        row(tx.tx, getOnChainHistoryTxStatus(tx.status), { block: tx.block }),
+      );
+
+    // Confirmations claim a far tip, but no indexed block is past the margin.
+    indexed.push(mined('01', expiryHeight + 10, 50_000));
+    expect((await read()).map((tx) => tx.decodedTx.status)).toEqual([
+      EDecodedTxStatus.Pending,
+    ]);
+    expect(await zcash.listTransparentPendingTxs({ accountId })).toHaveLength(
+      1,
+    );
+
+    indexed.unshift(mined('02', expiryHeight + 11, 1));
+    expect((await read()).map((tx) => tx.decodedTx.status)).toEqual([
+      EDecodedTxStatus.Dropped,
+    ]);
+    expect(await zcash.listTransparentPendingTxs({ accountId })).toEqual([]);
+  });
+
   it('keeps a dropped send dropped on later polls past the 50-row cache', async () => {
     const { localHistory, backend, read } = await fixture();
     backend.tipHeight = expiryHeight + 11;
@@ -432,14 +491,20 @@ describe('backend tip from the transparent history snapshot', () => {
     jest.restoreAllMocks();
   });
 
-  it('reads the tip from mined rows only', async () => {
+  it('reads the tip from indexed block heights only', async () => {
     await expect(
       fetchTip([
         onChainRow('01', EOnChainHistoryTxStatus.Success, 90, 12),
         onChainRow('02', EOnChainHistoryTxStatus.Success, 95, 3),
         onChainRow('03', EOnChainHistoryTxStatus.Pending, 0, 0),
       ]),
-    ).resolves.toBe(101);
+    ).resolves.toBe(95);
+  });
+
+  it('never raises the tip from confirmations', async () => {
+    await expect(
+      fetchTip([onChainRow('01', EOnChainHistoryTxStatus.Success, 90, 50_000)]),
+    ).resolves.toBe(90);
   });
 
   it('reports no tip when no row carries a height', async () => {
