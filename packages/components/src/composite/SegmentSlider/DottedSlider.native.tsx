@@ -94,6 +94,7 @@ export function DottedSlider({
   const width = useSharedValue(0);
   const dragging = useSharedValue(false);
   const lastEmitted = useSharedValue(value);
+  const moved = useSharedValue(false);
   const initialBubbleText = useRef(`${Math.round(value)}%`).current;
   const lastHapticTimeRef = useRef(0);
   const callbacksRef = useRef({ onChange, onSlideStart, onSlideComplete });
@@ -160,16 +161,26 @@ export function DottedSlider({
       .onBegin((event) => {
         dragging.value = true;
         runOnJS(start)();
-        update(event.x, false);
+        moved.value = false;
+        if (!snapTapToSegment) update(event.x, false);
       })
-      .onUpdate((event) => update(event.x, false))
-      .onEnd((event) => {
+      .onUpdate((event) => {
         if (
+          Math.abs(event.translationX) >= 4 ||
+          Math.abs(event.translationY) >= 4
+        ) {
+          moved.value = true;
+        }
+        if (!snapTapToSegment || moved.value) update(event.x, false);
+      })
+      .onEnd((event) => {
+        update(
+          event.x,
           snapTapToSegment &&
-          Math.abs(event.translationX) < 4 &&
-          Math.abs(event.translationY) < 4
-        )
-          update(event.x, true);
+            !moved.value &&
+            Math.abs(event.translationX) < 4 &&
+            Math.abs(event.translationY) < 4,
+        );
       })
       .onFinalize(() => {
         dragging.value = false;
@@ -180,6 +191,7 @@ export function DottedSlider({
     dragging,
     emit,
     lastEmitted,
+    moved,
     max,
     min,
     position,

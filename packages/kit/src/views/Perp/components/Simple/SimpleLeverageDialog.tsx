@@ -70,6 +70,7 @@ function SimpleLeverageContent({ settings }: { settings: ISettings }) {
       setLoading(true);
       await actions.current.updateLeverage({
         asset: settings.assetId,
+        expectedAccountAddress: settings.accountAddress,
         leverage: value,
         isCross: mode === 'cross',
       });

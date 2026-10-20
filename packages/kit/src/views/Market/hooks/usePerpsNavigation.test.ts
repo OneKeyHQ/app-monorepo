@@ -12,6 +12,7 @@ const mockNavigation = {
   switchTab: jest.fn(),
   pushModal: jest.fn(),
 };
+let mockRouteKey: string | undefined;
 const mockConfig = { perpDisabled: false, perpTabShowWeb: false };
 const mockMedia = { gtMd: false };
 const mockSettings = {
@@ -37,7 +38,11 @@ jest.mock('react-intl', () => ({
 jest.mock('@onekeyhq/components', () => ({
   Toast: { error: jest.fn() },
   useMedia: () => mockMedia,
-  rootNavigationRef: { current: null },
+  rootNavigationRef: {
+    current: {
+      getCurrentRoute: () => (mockRouteKey ? { key: mockRouteKey } : undefined),
+    },
+  },
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
@@ -92,6 +97,7 @@ describe('market entry into Perps', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    mockRouteKey = undefined;
     mockConfig.perpDisabled = false;
     mockConfig.perpTabShowWeb = false;
     mockMedia.gtMd = false;
@@ -118,6 +124,24 @@ describe('market entry into Perps', () => {
     expect(
       mockService.changeActiveAsset.mock.invocationCallOrder[0],
     ).toBeLessThan(mockNavigation.pushModal.mock.invocationCallOrder[0]);
+  });
+
+  it('does not open Easy details after leaving during asset selection', async () => {
+    mockService.changeActiveAsset.mockImplementationOnce(async () => {
+      mockRouteKey = 'wallet-home';
+    });
+    await navigate();
+    expect(mockNavigation.pushModal).not.toHaveBeenCalled();
+    expect(mockEmit).not.toHaveBeenCalled();
+  });
+
+  it('does not open Easy details after leaving during settings hydration', async () => {
+    mockSettings.get.mockImplementationOnce(async () => {
+      mockRouteKey = 'wallet-home';
+      return { mobileTradingMode: 'simple' };
+    });
+    await navigate();
+    expect(mockNavigation.pushModal).not.toHaveBeenCalled();
   });
 
   it('keeps Pro on its trading page', async () => {

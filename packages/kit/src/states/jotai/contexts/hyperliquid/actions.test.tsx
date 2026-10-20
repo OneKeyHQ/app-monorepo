@@ -51,6 +51,13 @@ type IDialogMockInstance = {
   isExist: () => boolean;
 };
 
+const mockOrderOpen = jest
+  .fn<Promise<unknown>, unknown[]>()
+  .mockResolvedValue({});
+const mockUpdateLeverage = jest
+  .fn<Promise<void>, unknown[]>()
+  .mockResolvedValue(undefined);
+
 const mockDialogClose = jest.fn<Promise<void>, []>(async () => undefined);
 const mockDialogShow = jest.fn<IDialogMockInstance, [IDialogOptions]>();
 const mockRefreshHyperLiquidAgentPasswordStatus = jest.fn<
@@ -156,9 +163,9 @@ jest.mock('@onekeyhq/components', () => {
     Icon: Container,
     SizableText: Container,
     Toast: {
-      error: jest.fn(),
       success: jest.fn(),
       loading: jest.fn(() => ({ close: jest.fn() })),
+      error: jest.fn(),
     },
     XStack: Container,
     YStack: Container,
@@ -171,6 +178,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceHyperliquidExchange: {
       placeTwapOrder: (params: IPlaceTwapOrderParams) =>
         mockPlaceTwapOrder(params),
+      orderOpen: (...args: unknown[]) => mockOrderOpen(...args),
+      updateLeverage: (...args: unknown[]) => mockUpdateLeverage(...args),
     },
     serviceHyperliquid: {
       checkPerpsAccountStatus: () => mockCheckPerpsAccountStatus(),
@@ -573,6 +582,61 @@ describe('useHyperliquidActions.loadTwapData', () => {
     });
     expect(store.get(perpsActiveTwapOrdersAtom()).twapOrders).toEqual(
       existingOrders,
+    );
+  });
+});
+
+describe('reviewed trading account propagation', () => {
+  beforeEach(() => {
+    jest.spyOn(perpsActiveAssetAtom, 'get').mockResolvedValue({
+      coin: 'BTC',
+      assetId: 0,
+      universe: undefined,
+      margin: undefined,
+    });
+    jest.spyOn(perpsActiveAssetCtxAtom, 'get').mockResolvedValue(undefined);
+    jest.spyOn(perpsActiveAssetDataAtom, 'get').mockResolvedValue(undefined);
+  });
+  afterEach(() => jest.restoreAllMocks());
+  it('forwards the confirmed account through standard order submission', async () => {
+    const store = createStore();
+    store.set(activeTradeInstrumentAtom(), {
+      mode: 'perp',
+      coin: 'BTC',
+      assetId: 0,
+      universe: undefined,
+    });
+    const { result } = renderHook(() => useHyperliquidActions(), {
+      wrapper: createWrapper(store),
+    });
+    await act(async () => {
+      await result.current.current.submitOrder({
+        assetId: 0,
+        price: '50000',
+        expectedAccountAddress: '0xconfirmed',
+        formData: { ...store.get(tradingFormAtom()), size: '0.1' },
+      });
+    });
+    expect(mockOrderOpen).toHaveBeenCalledWith(
+      expect.objectContaining({ expectedAccountAddress: '0xconfirmed' }),
+    );
+  });
+
+  it('forwards the leverage dialog account separately from the SDK request', async () => {
+    const { result } = renderHook(() => useHyperliquidActions(), {
+      wrapper: createWrapper(),
+    });
+    await act(async () => {
+      await result.current.current.updateLeverage({
+        asset: 0,
+        leverage: 5,
+        isCross: true,
+        expectedAccountAddress: '0xconfirmed',
+      });
+    });
+    expect(mockUpdateLeverage).toHaveBeenCalledWith(
+      { asset: 0, leverage: 5, isCross: true },
+      { expectedAccountAddress: '0xconfirmed' },
     );
   });
 });

@@ -1,3 +1,4 @@
+import { computeMaxTradeSize } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
@@ -276,3 +277,29 @@ describe('simple margin keypad', () => {
     },
   );
 });
+
+it.each(['long', 'short'] as const)(
+  'sizes a %s limit ticket from available margin at the entered price',
+  (side) => {
+    for (const price of ['25000', '60000']) {
+      const maxSize = computeMaxTradeSize({
+        side,
+        price,
+        markPrice: '50000',
+        maxTradeSzs: ['0.01', '0.01'],
+        leverageValue: 5,
+        szDecimals: 5,
+      }).toFixed();
+      const margin = getSimpleSliderAmount({
+        percent: 100,
+        maxSize,
+        price,
+        leverage: 5,
+        inputUnit: 'margin',
+        decimals: 2,
+      });
+      expect(Number(margin)).toBeLessThanOrEqual(100);
+      expect(Number(margin)).toBeGreaterThan(99.8);
+    }
+  },
+);
