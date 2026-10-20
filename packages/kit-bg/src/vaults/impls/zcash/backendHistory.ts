@@ -1,11 +1,7 @@
-import BigNumber from 'bignumber.js';
-
 import { zatoshiToZec } from '@onekeyhq/core/src/chains/zcash/sdkZcash/amount';
-import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { isHistoryCursorAdvanced } from '@onekeyhq/shared/src/utils/historyUtils';
 import {
   EOnChainHistoryTransferType,
-  EOnChainHistoryTxStatus,
   EOnChainHistoryTxType,
 } from '@onekeyhq/shared/types/history';
 import type {
@@ -16,94 +12,13 @@ import type {
 } from '@onekeyhq/shared/types/history';
 
 import type { IEncodedTxZcash } from './types';
-import type Vault from './Vault';
 
-// Public I/O of mined self-transfers, keyed by `${networkId}:${txid}`; every
-// history snapshot rebuilds these rows, and mined I/O never changes.
-export const zcashSelfTransferDetailCache = new LRUCache<
-  string,
-  IOnChainHistoryTx
->({ max: 512 });
-
+// Has no shielded side; like BTC, it shows the backend's net debit.
 function isTransparentSelfTransfer(tx: IOnChainHistoryTx) {
   return (
     tx.type === EOnChainHistoryTxType.Send &&
     /^t[13]/.test(tx.from) &&
     tx.from === tx.to
-  );
-}
-
-export async function restoreZcashBackendSelfTransfer(
-  vault: Vault,
-  tx: IOnChainHistoryTx,
-): Promise<IOnChainHistoryTx> {
-  if (!isTransparentSelfTransfer(tx) || tx.receives?.length) return tx;
-  // Only the fee leaves a true self-payment; a larger debit went elsewhere
-  // (e.g. shielded), so a lone receive is unflagged change, not the payment.
-  // Checked only when the list reports the fee; today it often omits it.
-  if (tx.gasFee && !new BigNumber(tx.value).isEqualTo(tx.gasFee)) return tx;
-  const cacheKey = `${vault.networkId}:${tx.tx}`;
-  try {
-    let detail = zcashSelfTransferDetailCache.get(cacheKey);
-    if (!detail) {
-      // Account-scoped history omits owned outputs and reports the net debit.
-      // The existing public I/O endpoint retains the actual self-payment.
-      const response = await vault.baseFetchAccountHistoryDetail({
-        accountId: vault.accountId,
-        networkId: vault.networkId,
-        txid: tx.tx,
-      });
-      detail = response.data.data.data;
-      if (
-        detail?.tx === tx.tx &&
-        tx.status !== EOnChainHistoryTxStatus.Pending
-      ) {
-        zcashSelfTransferDetailCache.set(cacheKey, detail);
-      }
-    }
-    const payment = detail?.receives?.[0];
-    if (
-      detail?.tx !== tx.tx ||
-      detail.receives?.length !== 1 ||
-      !detail.sends?.length ||
-      detail.sends.some(
-        (input) =>
-          input.type === EOnChainHistoryTransferType.Shielded ||
-          input.from !== tx.from,
-      ) ||
-      payment?.type === EOnChainHistoryTransferType.Shielded ||
-      payment?.isChange === true ||
-      payment?.to !== tx.to ||
-      !/^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,8})?$/.test(payment.amount) ||
-      !/[1-9]/.test(payment.amount)
-    ) {
-      return tx;
-    }
-    const transfer: IOnChainHistoryTxTransfer = {
-      ...payment,
-      type: EOnChainHistoryTransferType.Transfer,
-      from: tx.from,
-      key: `${tx.networkId}_`,
-      isOwn: true,
-      isNative: true,
-    };
-    return {
-      ...tx,
-      value: payment.amount,
-      sends: [transfer],
-      receives: [transfer],
-    };
-  } catch {
-    // Unavailable or ambiguous I/O must not turn a net fee into a payment.
-    return tx;
-  }
-}
-
-export function isZcashBackendPaymentAmountUnknown(tx: IOnChainHistoryTx) {
-  return (
-    tx.type === EOnChainHistoryTxType.Send &&
-    isTransparentSelfTransfer(tx) &&
-    !tx.receives?.length
   );
 }
 

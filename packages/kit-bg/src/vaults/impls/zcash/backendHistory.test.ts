@@ -14,11 +14,7 @@ import {
   fetchCompleteZcashBackendHistory,
   markZcashBackendShieldedCounterparty,
   normalizeZcashBackendHistoryTx,
-  restoreZcashBackendSelfTransfer,
-  zcashSelfTransferDetailCache,
 } from './backendHistory';
-
-import type Vault from './Vault';
 
 function page(
   txids: string[],
@@ -362,106 +358,28 @@ describe('normalizeZcashBackendHistoryTx', () => {
     };
     expect(normalizeZcashBackendHistoryTx(input)).toBe(input);
   });
-});
 
-describe('restoreZcashBackendSelfTransfer', () => {
-  const own = 't1own';
-  const txid = 'ab'.repeat(32);
-  const transfer = (amount: string, to = '') => ({
-    type: EOnChainHistoryTransferType.Transfer,
-    from: own,
-    to,
-    token: '',
-    key: 'zec--0_',
-    amount,
-    label: '',
-    isOwn: true,
-  });
-  // Account-scoped row: owned outputs omitted, value is the net debit.
-  const row = (
-    value: string,
-    status = EOnChainHistoryTxStatus.Success,
-  ): IOnChainHistoryTx =>
-    ({
-      tx: txid,
-      networkId: 'zec--0',
-      key: 'zec--0_',
+  // Like BTC: the backend's net debit is shown as is, with no shielded side.
+  it('leaves a transparent self-transfer as the backend reports it', () => {
+    const input = {
+      ...base,
       type: EOnChainHistoryTxType.Send,
-      from: own,
-      to: own,
-      value,
-      gasFee: '0.00015',
-      status,
-      sends: [transfer(value)],
+      from: 't1own',
+      value: '0.00015',
+      sends: [
+        {
+          type: EOnChainHistoryTransferType.Transfer,
+          from: 't1own',
+          to: '',
+          amount: '0.00015',
+          token: '',
+          key: 'zec--0_',
+          label: '',
+          isOwn: true,
+        },
+      ],
       receives: [],
-    }) as unknown as IOnChainHistoryTx;
-  // Public I/O as the detail endpoint returns it, without `isChange`.
-  const detail = {
-    tx: txid,
-    sends: [transfer('0.0009')],
-    receives: [transfer('0.0004', own)],
-  } as unknown as IOnChainHistoryTx;
-
-  function createVault() {
-    const fetchDetail = jest.fn(async () => ({
-      data: { data: { data: detail, tokens: {}, nfts: {} } },
-    }));
-    const vault = {
-      accountId: 'account',
-      networkId: 'zec--0',
-      baseFetchAccountHistoryDetail: fetchDetail,
-    } as unknown as Vault;
-    return { vault, fetchDetail };
-  }
-
-  afterEach(() => zcashSelfTransferDetailCache.clear());
-
-  it('restores a self-payment whose net debit is the fee', async () => {
-    const { vault } = createVault();
-    const tx = await restoreZcashBackendSelfTransfer(vault, row('0.00015'));
-    expect(tx.value).toBe('0.0004');
-    expect(tx.receives).toEqual([
-      expect.objectContaining({ to: own, amount: '0.0004' }),
-    ]);
-  });
-
-  it('does not present the unflagged change of a shielding send as a self-payment', async () => {
-    const { vault, fetchDetail } = createVault();
-    const input = row('0.00065');
-    await expect(restoreZcashBackendSelfTransfer(vault, input)).resolves.toBe(
-      input,
-    );
-    expect(fetchDetail).not.toHaveBeenCalled();
-  });
-
-  // The list often omits the fee; without it the row restores as before.
-  it('still restores a self-payment when the list omits the fee', async () => {
-    const { vault } = createVault();
-    const input = { ...row('0.00015'), gasFee: '' } as IOnChainHistoryTx;
-    const tx = await restoreZcashBackendSelfTransfer(vault, input);
-    expect(tx.value).toBe('0.0004');
-  });
-
-  it('fetches mined I/O once and retries after a failed lookup', async () => {
-    const { vault, fetchDetail } = createVault();
-    fetchDetail.mockRejectedValueOnce(new Error('offline'));
-    const input = row('0.00015');
-    await expect(restoreZcashBackendSelfTransfer(vault, input)).resolves.toBe(
-      input,
-    );
-    for (let refresh = 0; refresh < 2; refresh += 1) {
-      // eslint-disable-next-line no-await-in-loop
-      const tx = await restoreZcashBackendSelfTransfer(vault, input);
-      expect(tx.value).toBe('0.0004');
-    }
-    expect(fetchDetail).toHaveBeenCalledTimes(2);
-  });
-
-  it('refetches I/O while the transaction is pending', async () => {
-    const { vault, fetchDetail } = createVault();
-    const input = row('0.00015', EOnChainHistoryTxStatus.Pending);
-    await restoreZcashBackendSelfTransfer(vault, input);
-    await restoreZcashBackendSelfTransfer(vault, input);
-    expect(fetchDetail).toHaveBeenCalledTimes(2);
+    };
+    expect(normalizeZcashBackendHistoryTx(input)).toBe(input);
   });
 });
