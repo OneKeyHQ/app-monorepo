@@ -38,45 +38,7 @@ import {
 import type { IEncodedTxZcash } from './types';
 import type Vault from './Vault';
 import type { IDBUtxoAccount } from '../../../dbs/local/types';
-import type { IZcashTransparentPendingTx } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
 import type { IBuildEncodedTxParams } from '../../types';
-
-export async function zcashReplayUnknownTransparentBroadcast(
-  vault: Vault,
-  {
-    accountId,
-    tx,
-  }: {
-    accountId: string;
-    tx: IZcashTransparentPendingTx;
-  },
-): Promise<void> {
-  if (tx.broadcastAuthorized !== true) {
-    return;
-  }
-  try {
-    const dbAccount = await vault.backgroundApi.serviceAccount.getDBAccount({
-      accountId,
-    });
-    const result = await vault.zcashBroadcastTransparentViaBackend({
-      accountId,
-      networkId: vault.networkId,
-      accountAddress: dbAccount.address,
-      signedTx: { txid: tx.txid, rawTx: tx.rawTx, encodedTx: null },
-    });
-    if (result.txid.toLowerCase() === tx.txid.toLowerCase()) {
-      await vault.backgroundApi.simpleDb.zcash.markTransparentPendingTxAccepted(
-        { accountId, txid: tx.txid },
-      );
-    }
-  } catch (e) {
-    console.log('[zcash] transparent rebroadcast outcome still unknown', {
-      accountId,
-      txid: tx.txid,
-      error: e instanceof Error ? e.message : String(e),
-    });
-  }
-}
 
 // Backend blocks past expiry before an unmined send is dropped; covers indexer lag and shallow reorgs.
 const ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS = 10;

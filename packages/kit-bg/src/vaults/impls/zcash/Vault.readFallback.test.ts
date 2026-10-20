@@ -181,7 +181,6 @@ describe('Zcash transparent send the backend has not seen yet', () => {
         serviceToken: { getToken: async () => undefined },
       },
       getAccount: async () => ({ address: 't1-own' }),
-      zcashReplayUnknownTransparentBroadcast: async () => undefined,
       zcashFetchTransparentHistory: async () => ({
         txs: observed
           ? [

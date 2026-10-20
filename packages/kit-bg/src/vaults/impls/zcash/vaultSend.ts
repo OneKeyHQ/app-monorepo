@@ -647,7 +647,7 @@ export async function broadcastTransaction(
         txid: expectedTxid,
         ...detail,
       });
-      // Reported as submitted: the journal keeps it pending and rebroadcasts it.
+      // Reported as submitted: the journal keeps it pending until the backend reports it or it expires.
       // An error here would invite a resend from other inputs -- a double pay.
       return {
         ...signedTx,
