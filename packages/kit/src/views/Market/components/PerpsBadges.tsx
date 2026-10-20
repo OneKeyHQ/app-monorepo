@@ -15,6 +15,7 @@ import type {
   IColorTokens,
   IKeyOfIcons,
   ISizableTextProps,
+  IXStackProps,
 } from '@onekeyhq/components';
 import { LazyPopover } from '@onekeyhq/components/src/actions/LazyPopover';
 import { LazyTooltip } from '@onekeyhq/components/src/actions/LazyTooltip';
@@ -38,9 +39,20 @@ import { shouldShowOptionalSegment } from './utils/inlineStatusFit';
 import { truncatePerpsSubtitle } from './utils/perpsSubtitle';
 
 const LeverageBadge = memo(
-  ({ leverage, compact }: { leverage: number; compact?: boolean }) => (
+  ({
+    leverage,
+    compact,
+    borderRadius = '$1',
+    minWidth,
+  }: {
+    leverage: number;
+    compact?: boolean;
+    borderRadius?: IXStackProps['borderRadius'];
+    minWidth?: IXStackProps['minWidth'];
+  }) => (
     <XStack
-      borderRadius="$1"
+      borderRadius={borderRadius}
+      minWidth={minWidth}
       bg="$bgInfo"
       justifyContent="center"
       alignItems="center"
@@ -73,11 +85,13 @@ const PerpDexBadge = memo(
     dexLabel,
     height,
     testID,
+    borderRadius = '$1',
   }: {
     compact?: boolean;
     dexLabel?: string;
     height?: number;
     testID?: string;
+    borderRadius?: IXStackProps['borderRadius'];
   }) => {
     const intl = useIntl();
     const descriptionId = getPerpDexDescriptionId(dexLabel);
@@ -95,7 +109,7 @@ const PerpDexBadge = memo(
     );
     const badge = (
       <XStack
-        borderRadius="$1"
+        borderRadius={borderRadius}
         bg="$bgInfo"
         justifyContent="center"
         alignItems="center"

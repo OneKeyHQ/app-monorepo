@@ -3,6 +3,7 @@ import type {
   ITradingViewNativeIndicatorSettingsItem,
   ITradingViewNativeMainIndicatorId,
 } from '@onekeyhq/shared/types/tradingViewNative';
+import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
 
 import { resolveTradingViewSettingsThemeColor } from '../../TradingViewChartControls/chartSettings/TradingViewSettingsThemeColors';
 
@@ -35,6 +36,7 @@ function resolveStyleRecordColors<TValue extends { color?: string }>(
 export function resolveTradingViewNativeChartThemeColors(
   settings: ITradingViewNativeChartSettings,
   themeColors: ITradingViewSettingsThemeColorMap,
+  defaultBackgroundColor?: string,
 ): ITradingViewNativeChartSettings {
   const resolveColor = (color: string) =>
     resolveTradingViewSettingsThemeColor(color, themeColors);
@@ -43,7 +45,13 @@ export function resolveTradingViewNativeChartThemeColors(
     ...settings,
     background: {
       ...settings.background,
-      colors: settings.background.colors.map(resolveColor) as [string, string],
+      colors: settings.background.colors.map((color) =>
+        defaultBackgroundColor !== undefined &&
+        settings.background.style === 'solid' &&
+        color === TRADING_VIEW_NATIVE_THEME_COLORS.background
+          ? defaultBackgroundColor
+          : resolveColor(color),
+      ) as [string, string],
     },
     candles: {
       body: {
