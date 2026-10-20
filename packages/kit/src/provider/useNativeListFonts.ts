@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { configureNativeListFonts } from '@onekeyfe/react-native-native-list';
 
+import { BRAND_FONT_WEB_FAMILY } from '@onekeyhq/components/src/hocs/Provider/fonts/brandFont';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
@@ -18,7 +19,7 @@ export function useNativeListFonts() {
         const faces = await Promise.race([
           Promise.all(
             [400, 500, 600, 700].map((weight) =>
-              document.fonts.load(`${weight} 16px "Roobert"`),
+              document.fonts.load(`${weight} 16px "${BRAND_FONT_WEB_FAMILY}"`),
             ),
           ),
           new Promise<never>((_resolve, reject) => {
@@ -29,12 +30,12 @@ export function useNativeListFonts() {
           }),
         ]);
         if (faces.some((loaded) => loaded.length === 0))
-          throw new OneKeyLocalError('Missing Roobert font faces');
+          throw new OneKeyLocalError('Missing brand font faces');
         configureNativeListFonts({
-          regular: 'Roobert',
-          medium: 'Roobert',
-          semibold: 'Roobert',
-          bold: 'Roobert',
+          regular: BRAND_FONT_WEB_FAMILY,
+          medium: BRAND_FONT_WEB_FAMILY,
+          semibold: BRAND_FONT_WEB_FAMILY,
+          bold: BRAND_FONT_WEB_FAMILY,
         });
       } catch {
         defaultLogger.app.error.log(
