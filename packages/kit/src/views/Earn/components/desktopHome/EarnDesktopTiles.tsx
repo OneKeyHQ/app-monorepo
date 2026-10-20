@@ -42,6 +42,7 @@ import {
   buildBorrowOffers,
   collectTileRows,
   pickTileOffers,
+  sumBorrowedFiat,
 } from './earnDesktopHome.utils';
 import { EARN_DESKTOP_DEMO_COPY } from './earnDesktopHomeCopy';
 import { extractAvailableAmount } from './useEarnDesktopHomeData';
@@ -475,21 +476,7 @@ function LoansTile({
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const totalBorrowed = useMemo(
-    () =>
-      loans.reduce(
-        (sum, entry) =>
-          sum.plus(
-            (entry.reserves?.borrowed?.assets ?? []).reduce(
-              (marketSum, asset) =>
-                marketSum.plus(asset.borrowedAmount.fiatValue || 0),
-              new BigNumber(0),
-            ),
-          ),
-        new BigNumber(0),
-      ),
-    [loans],
-  );
+  const totalBorrowed = useMemo(() => sumBorrowedFiat(loans), [loans]);
   const title = intl.formatMessage({ id: ETranslations.earn_loans__action });
 
   const [firstLoan] = loans;

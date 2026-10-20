@@ -30,6 +30,8 @@ import {
   buildProtocolShares,
   collectLendingOffers,
   deriveLendingSupply,
+  estimateBorrowInterest24h,
+  sumBorrowedFiat,
 } from './earnDesktopHome.utils';
 import { EarnDesktopTiles } from './EarnDesktopTiles';
 import {
@@ -161,9 +163,18 @@ export function EarnDesktopHome({
       }),
     [investments, lending.lendingSupplies],
   );
-  // Lending supply counts as a deposit, like every other Earn channel
+  const borrowedTotal = useMemo(
+    () => sumBorrowedFiat(accountMarkets.loans),
+    [accountMarkets.loans],
+  );
+  const borrowInterest24h = useMemo(
+    () => estimateBorrowInterest24h(accountMarkets.loans),
+    [accountMarkets.loans],
+  );
+  // Net worth: every deposit, lending supply included, less what loans owe
   const totalFiatValue = new BigNumber(displayTotalFiatValue ?? 0)
     .plus(lending.lendingTotal)
+    .minus(borrowedTotal)
     .toFixed();
 
   const trendingAssets = useMemo(
@@ -232,6 +243,7 @@ export function EarnDesktopHome({
           <EarnDesktopHero
             totalFiatValue={totalFiatValue}
             earnings24h={displayEarnings24h ?? '0'}
+            borrowInterest24h={borrowInterest24h}
             shares={shares}
             onOpenPortfolio={onOpenPortfolio}
             onOpenTokens={handleOpenTokens}

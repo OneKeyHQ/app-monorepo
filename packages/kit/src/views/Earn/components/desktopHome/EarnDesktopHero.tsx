@@ -39,10 +39,10 @@ const TICKING_MAX_TOTAL = 1_000_000;
 const TOTAL_FONT_SIZE = 48;
 const TICKING_FONT_SIZE = 28;
 
-// The total keeps earning between refreshes: the five digits after the cents
-// advance at the 24h estimate's per-second rate.
-function useTickingTotal(total: number, earnings24h: number) {
-  const perSecond = earnings24h > 0 ? earnings24h / SECONDS_PER_DAY : 0;
+// The total keeps moving between refreshes: the five digits after the cents
+// advance at the estimated daily change's per-second rate.
+function useTickingTotal(total: number, change24h: number) {
+  const perSecond = change24h > 0 ? change24h / SECONDS_PER_DAY : 0;
   const [anchor, setAnchor] = useState(() => ({ total, at: Date.now() }));
   const [now, setNow] = useState(() => Date.now());
   if (anchor.total !== total) {
@@ -175,6 +175,7 @@ function ProtocolSplit({ shares }: { shares: IEarnDesktopShares }) {
 export function EarnDesktopHero({
   totalFiatValue,
   earnings24h,
+  borrowInterest24h,
   shares,
   onOpenPortfolio,
   onOpenTokens,
@@ -184,6 +185,7 @@ export function EarnDesktopHero({
 }: {
   totalFiatValue: string;
   earnings24h: string;
+  borrowInterest24h: number;
   shares: IEarnDesktopShares;
   onOpenPortfolio: () => void;
   onOpenTokens: () => void;
@@ -196,14 +198,18 @@ export function EarnDesktopHero({
   const currency = settings.currencyInfo.symbol;
   const total = new BigNumber(totalFiatValue).toNumber() || 0;
   const earnings = new BigNumber(earnings24h).toNumber() || 0;
-  const { value, extraDigits } = useTickingTotal(total, earnings);
+  // Net worth grows by the earnings less what the loans accrue
+  const { value, extraDigits } = useTickingTotal(
+    total,
+    earnings - borrowInterest24h,
+  );
   const [{ hideValue: isHidden }] = useSettingsValuePersistAtom();
   const handleToggleHideValue = useCallback(async () => {
     const current = await settingsValuePersistAtom.get();
     await settingsValuePersistAtom.set({ hideValue: !current.hideValue });
   }, []);
   const label = intl.formatMessage({
-    id: ETranslations.earn_defi_assets__title,
+    id: ETranslations.defi_net_worth,
   });
 
   return (

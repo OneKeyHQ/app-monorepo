@@ -11,8 +11,10 @@ import {
   collectLendingOffers,
   collectTileRows,
   deriveLendingSupply,
+  estimateBorrowInterest24h,
   parseCompactFiatText,
   pickTileOffers,
+  sumBorrowedFiat,
 } from './earnDesktopHome.utils';
 
 const investment = (
@@ -52,6 +54,7 @@ const reserves = ({
   borrow,
   supply = [],
   supplied = [],
+  borrowed,
 }: {
   borrow: {
     symbol: string;
@@ -66,8 +69,21 @@ const reserves = ({
     liquidationLtv?: string;
   }[];
   supplied?: { symbol: string; fiatValue: string }[];
+  borrowed?: { symbol: string; fiatValue: string; apy: string }[];
 }) =>
   ({
+    ...(borrowed
+      ? {
+          borrowed: {
+            assets: borrowed.map((item) => ({
+              reserveAddress: `Borrowed-${item.symbol}`,
+              token: token(item.symbol),
+              apyDetail: { apy: item.apy },
+              borrowedAmount: { fiatValue: item.fiatValue },
+            })),
+          },
+        }
+      : {}),
     borrow: {
       assets: borrow.map((item) => ({
         reserveAddress: `borrow-${item.symbol}`,
@@ -292,6 +308,35 @@ describe('collectLendingOffers', () => {
     ]);
     expect(usdc?.[0].tvlText).toBe('$1.00M');
     expect(usdc?.[0].depositedFiatValue).toBe(2.9);
+  });
+});
+
+describe('loan totals', () => {
+  const entries = [
+    {
+      market: market('aave', 'evm--1', 'Aave Core Instance'),
+      reserves: reserves({
+        borrow: [],
+        borrowed: [
+          { symbol: 'USDC', fiatValue: '365', apy: '10%' },
+          { symbol: 'ETH', fiatValue: '730', apy: '2.5' },
+        ],
+      }),
+    },
+    { market: market('kamino', 'sol--101', 'Kamino Main Market') },
+  ];
+
+  it('sums what every loan owes', () => {
+    expect(sumBorrowedFiat(entries).toNumber()).toBe(1095);
+  });
+
+  it('estimates a day of interest at the borrow APYs', () => {
+    expect(estimateBorrowInterest24h(entries)).toBeCloseTo(0.15, 10);
+  });
+
+  it('is zero without loans', () => {
+    expect(sumBorrowedFiat([]).toNumber()).toBe(0);
+    expect(estimateBorrowInterest24h([])).toBe(0);
   });
 });
 

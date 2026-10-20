@@ -10,6 +10,7 @@ import { getBorrowMarketLabel } from '../../../Borrow/borrowMarketDisplayName';
 import { buildBorrowMarketKey } from '../../../Borrow/borrowMarketKey';
 import { filterUnsupportedAaveNativeReserveAssets } from '../../../Borrow/components/borrowRepayPosition.utils';
 import { isBorrowAssetVisible } from '../../../Borrow/components/collateralControls.utils';
+import { parseAprPercentValue } from '../../utils/availableAssetsUtils';
 import { resolveUniquePortfolioClaimSourceIdentity } from '../../utils/portfolioClaimUtils';
 
 import type { IPortfolioClaimProtocolIdentity } from '../../utils/portfolioClaimUtils';
@@ -67,6 +68,40 @@ export type IEarnDesktopLendingSupply = {
 // The account's supply in the lending markets, which the Earn portfolio does
 // not report. A market whose provider the portfolio already reports on that
 // network (Kamino USDC has a staking config) is left out, so nothing counts twice.
+const DAYS_PER_YEAR = 365;
+
+/** What every loan owes, in fiat; net worth subtracts it. */
+export function sumBorrowedFiat(entries: IEarnDesktopMarketReserves[]) {
+  return entries.reduce(
+    (sum, { reserves }) =>
+      (reserves?.borrowed?.assets ?? []).reduce(
+        (marketSum, asset) =>
+          marketSum.plus(toNumber(asset.borrowedAmount.fiatValue)),
+        sum,
+      ),
+    new BigNumber(0),
+  );
+}
+
+/** Interest the loans accrue in a day at today's borrow APYs, in fiat. */
+export function estimateBorrowInterest24h(
+  entries: IEarnDesktopMarketReserves[],
+) {
+  return entries.reduce(
+    (sum, { reserves }) =>
+      (reserves?.borrowed?.assets ?? []).reduce(
+        (marketSum, asset) =>
+          marketSum +
+          (toNumber(asset.borrowedAmount.fiatValue) *
+            parseAprPercentValue(asset.apyDetail.apy)) /
+            100 /
+            DAYS_PER_YEAR,
+        sum,
+      ),
+    0,
+  );
+}
+
 export function deriveLendingSupply({
   entries,
   investments,
