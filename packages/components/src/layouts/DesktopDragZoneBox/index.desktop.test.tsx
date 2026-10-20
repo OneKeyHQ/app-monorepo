@@ -57,6 +57,11 @@ async function settleRegions() {
 
 it('keeps portalled overlay controls clickable and restores header dragging on close', async () => {
   jest.useFakeTimers({ doNotFake: ['queueMicrotask'] });
+  // The shared Jest setup replaces window listeners; restore JSDOM events.
+  Object.defineProperty(globalThis, 'addEventListener', {
+    configurable: true,
+    value: EventTarget.prototype.addEventListener.bind(globalThis),
+  });
   Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
     configurable: true,
     value: true,
@@ -102,7 +107,9 @@ it('keeps portalled overlay controls clickable and restores header dragging on c
   assert(close, 'Close did not mount');
   const animation = new EventTarget();
   Object.defineProperty(animation, 'playState', { value: 'running' });
-  Object.defineProperty(layer, 'getAnimations', { value: () => [animation] });
+  const entry = layer.firstElementChild;
+  assert(entry, 'Overlay entry did not mount');
+  Object.defineProperty(entry, 'getAnimations', { value: () => [animation] });
   setRect(close, 735, 20, 58, 30);
   document.body.appendChild(layer);
   await settleRegions();
@@ -133,6 +140,38 @@ it('keeps portalled overlay controls clickable and restores header dragging on c
   await settleRegions();
   expect(regions('no-drag')).toHaveLength(2);
   layer.remove();
+  await settleRegions();
+  expect(regions('drag')).toEqual(headerDrag);
+  expect(regions('no-drag')).toEqual(headerHoles);
+
+  const beforeFocus = document.querySelector('[data-onekey-syn-region="drag"]');
+  globalThis.dispatchEvent(new Event('focus'));
+  expect(document.querySelector('[data-onekey-syn-region="drag"]')).not.toBe(
+    beforeFocus,
+  );
+  const beforeVisible = document.querySelector(
+    '[data-onekey-syn-region="drag"]',
+  );
+  document.dispatchEvent(new Event('visibilitychange'));
+  expect(document.querySelector('[data-onekey-syn-region="drag"]')).not.toBe(
+    beforeVisible,
+  );
+
+  const pageHost = document.createElement('div');
+  pageHost.innerHTML =
+    '<div data-onekey-overlay-entry><button>Page close</button></div>';
+  const pageClose = pageHost.querySelector('button');
+  assert(pageClose, 'Page close did not mount');
+  setRect(pageClose, 735, 20, 58, 30);
+  container.appendChild(pageHost);
+  await settleRegions();
+  expect(regions('no-drag')).toEqual([
+    ...headerHoles,
+    expect.stringContaining(
+      'left: 735px; top: 20px; width: 58px; height: 30px;',
+    ),
+  ]);
+  pageHost.remove();
   await settleRegions();
   expect(regions('drag')).toEqual(headerDrag);
   expect(regions('no-drag')).toEqual(headerHoles);

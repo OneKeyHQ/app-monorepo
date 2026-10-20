@@ -49,7 +49,7 @@ const MARKER_CLASS = 'app-region-drag';
 const SYN_ATTR = 'data-onekey-syn-region';
 const NEUTRALIZE_STYLE_ID = 'onekey-drag-region-neutralize';
 const MODAL_SCREEN_SELECTOR = '.onekey-modal-screen';
-const OVERLAY_LAYER_SELECTOR = '[data-onekey-overlay-layer]';
+const OVERLAY_ENTRY_SELECTOR = '[data-onekey-overlay-entry]';
 const RECOMPUTE_DEBOUNCE = 200;
 // Content can update every frame. The debounce coalesces a burst, while
 // MAX_WAIT still rebuilds periodically if updates never settle.
@@ -181,12 +181,12 @@ function recompute() {
   });
   const drags: HTMLDivElement[] = [];
   const holes: HTMLDivElement[] = [];
-  const overlayLayers = Array.from(
-    document.querySelectorAll(OVERLAY_LAYER_SELECTOR),
+  const overlayEntries = Array.from(
+    document.querySelectorAll(OVERLAY_ENTRY_SELECTOR),
   ).filter(isZoneShown);
   // Web Animations move controls without DOM mutations or resize events.
-  for (const layer of overlayLayers) {
-    for (const animation of layer.getAnimations?.({ subtree: true }) ?? []) {
+  for (const entry of overlayEntries) {
+    for (const animation of entry.getAnimations?.({ subtree: true }) ?? []) {
       if (animation.playState === 'running') {
         animation.addEventListener('finish', scheduleRecompute, { once: true });
         animation.addEventListener('cancel', scheduleRecompute, { once: true });
@@ -200,7 +200,7 @@ function recompute() {
   }
   // Portalled controls can overlap the title bar without belonging to a header.
   // Append their holes after the synthesized drag regions as well.
-  const controlRoots = [...zones, ...overlayLayers];
+  const controlRoots = [...zones, ...overlayEntries];
   for (const controlRoot of controlRoots) {
     controlRoot.querySelectorAll(NO_DRAG_SELECTOR).forEach((nd) => {
       if (!isZoneShown(nd)) {
@@ -219,7 +219,7 @@ function recompute() {
   observeContent(controlRoots);
 }
 
-// Watch visible headers and overlay layers. Child/attribute/text mutations catch controls
+// Watch visible headers and overlay entries. Child/attribute/text mutations catch controls
 // inserted after the last size-observer pass, or controls shifted by a sibling
 // without changing their own size. Rebind after every pass so an inactive tab
 // or removed control stops generating work. The synthesized overlays live under
@@ -297,6 +297,9 @@ function startManager() {
   // Window geometry: resize, maximize, fullscreen toggle and docked-DevTools
   // open/close (all change the renderer's CSS-pixel viewport).
   globalThis.addEventListener('resize', scheduleRecompute);
+  // macOS hides the existing window on close; refresh native regions on reopen.
+  globalThis.addEventListener('focus', runRecompute);
+  document.addEventListener('visibilitychange', runRecompute);
 
   // devicePixelRatio change — i.e. the window moved to a monitor with a
   // different scale factor. A pure dpr change does NOT reliably fire `resize`
@@ -318,9 +321,8 @@ function startManager() {
   };
   armDprQuery();
 
-  // react-navigation keeps inactive tabs mounted and flips aria-hidden on an
-  // ancestor outside the observed drag zone. Watch only this attribute across
-  // the document to switch the active zone without observing unrelated churn.
+  // Track inactive screens and page/global overlay entries outside the headers.
+  // Ignore unrelated child-list changes, including our synthesized regions.
   const mo = new MutationObserver((records) => {
     if (
       records.some(
@@ -328,7 +330,9 @@ function startManager() {
           record.type === 'attributes' ||
           [...record.addedNodes, ...record.removedNodes].some(
             (node) =>
-              node instanceof Element && node.matches(OVERLAY_LAYER_SELECTOR),
+              node instanceof Element &&
+              (node.matches(OVERLAY_ENTRY_SELECTOR) ||
+                node.querySelector(OVERLAY_ENTRY_SELECTOR)),
           ),
       )
     ) {
@@ -338,10 +342,9 @@ function startManager() {
   mo.observe(document.documentElement, {
     attributes: true,
     attributeFilter: ['aria-hidden'],
+    childList: true,
     subtree: true,
   });
-  // Layers mount directly under body; ignore our own synthesized-region churn.
-  mo.observe(document.body, { childList: true });
 
   sizeObserver = new ResizeObserver((entries) => {
     const resized = entries.some(
