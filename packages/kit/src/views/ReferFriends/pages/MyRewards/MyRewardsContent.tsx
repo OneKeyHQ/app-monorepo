@@ -337,7 +337,8 @@ function PayoutInfo({
           icon="InfoCircleOutline"
           variant="tertiary"
           size="small"
-          iconProps={{ color: '$iconSubdued' }}
+          // Same 16px as the copy icon beside it.
+          iconProps={{ color: '$iconSubdued', size: '$4' }}
         />
       }
       renderContent={
