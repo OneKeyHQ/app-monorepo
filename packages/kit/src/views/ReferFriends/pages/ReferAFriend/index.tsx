@@ -249,8 +249,8 @@ function ReferAFriendPageWrapper() {
               />
             ) : null}
             {postConfig && showInlineActions ? (
-              // Pinned to the bottom of the page, clear of its edge.
-              <Stack pb="$8">{renderPerksLink('$3')}</Stack>
+              // Pinned to the bottom with the same 24px below as the tabs' links.
+              <Stack pb="$6">{renderPerksLink('$3')}</Stack>
             ) : null}
           </Page.Container>
         ) : (
