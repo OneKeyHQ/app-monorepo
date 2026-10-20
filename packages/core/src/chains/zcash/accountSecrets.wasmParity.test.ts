@@ -5,7 +5,12 @@ import { mnemonicToSeedSync } from 'bip39';
 import bs58check from 'bs58check';
 import * as keys from 'onekey-zcash-keys';
 
+import { EAddressEncodings } from '../../types';
+import { getAddressFromXpub } from '../btc/sdkBtc';
+import { getBtcForkNetwork } from '../btc/sdkBtc/networks';
+
 import { deriveZcashAccountSecrets } from './accountSecrets';
+import { encodeAddress } from './sdkZcash';
 
 // TS-derived account keys fed to the installed keys WASM must reproduce the
 // pinned firmware parity UFVKs (app-modules account_keys.rs
@@ -121,6 +126,78 @@ describe('Zcash account keys: TS derivation vs installed keys WASM', () => {
       ) as { txid: string; rawTx: string };
       expect(built.txid).toMatch(/^[0-9a-f]{64}$/);
       expect(built.rawTx).toMatch(/^[0-9a-f]+$/);
+    } finally {
+      secrets.orchardSk.fill(0);
+    }
+  });
+
+  // Change reuses the receive address (0/0); coins already on the old 1/0 change address stay spendable.
+  it('returns change to the receive address and still spends legacy 1/0 change', async () => {
+    const secrets = deriveZcashAccountSecrets({ seed, accountIndex: 0 });
+    try {
+      const { addresses } = await getAddressFromXpub({
+        curve: 'secp256k1',
+        network: getBtcForkNetwork('zec'),
+        xpub: secrets.accountXpub,
+        relativePaths: ['0/0', '1/0'],
+        addressEncoding: EAddressEncodings.P2PKH,
+        encodeAddress,
+      });
+      expect(addresses['0/0']).toBe(GOLDEN_ACCOUNT_0.transparentAddress);
+      const script = (address: string) =>
+        `76a914${Buffer.from(bs58check.decode(address)).subarray(2).toString('hex')}88ac`;
+      const utxos = (['0/0', '1/0'] as const).map((relPath, index) => ({
+        txid: `${index + 1}`.repeat(64),
+        vout: 0,
+        valueZat: '100000',
+        scriptPubKey: script(addresses[relPath]),
+        isCoinbase: false,
+        confirmations: 1,
+        derivationPath: `m/44'/133'/0'/${relPath}`,
+      }));
+      const request = JSON.stringify({
+        network: 'main',
+        accountIndex: 0,
+        targetHeight: 3_500_000,
+        expiryHeight: 3_500_020,
+        utxos,
+        selectedOutpoints: utxos.map(({ txid, vout }) => ({ txid, vout })),
+        recipients: [
+          {
+            address: 't1MZCJGByCheP3hZjEDrVTkMRwiaxTFuzJA',
+            amountZat: '50000',
+          },
+        ],
+        sendMax: false,
+        change: {
+          address: GOLDEN_ACCOUNT_0.transparentAddress,
+          derivationPath: "m/44'/133'/0'/0/0",
+        },
+      });
+      const built = JSON.parse(
+        keys.transparentTxBuildWithAccountXprv(
+          request,
+          bs58check.encode(Buffer.from(secrets.accountXprvHex, 'hex')),
+        ),
+      ) as { txid: string; rawTx: string; feeZat: string };
+      const [parsed] = JSON.parse(
+        keys.parseTransparentTransactions(
+          JSON.stringify({
+            transactions: [{ txid: built.txid, rawTx: built.rawTx }],
+          }),
+        ),
+      ) as { outputs: { valueZat: string; scriptPubKey: string }[] }[];
+      expect(parsed.outputs).toContainEqual({
+        valueZat: `${200_000 - 50_000 - Number(built.feeZat)}`,
+        scriptPubKey: script(GOLDEN_ACCOUNT_0.transparentAddress),
+      });
+      expect(
+        keys.transparentTxCreateWithAccountXpub(
+          request,
+          secrets.accountXpub,
+          'ab'.repeat(32),
+        ).length,
+      ).toBeGreaterThan(0);
     } finally {
       secrets.orchardSk.fill(0);
     }
