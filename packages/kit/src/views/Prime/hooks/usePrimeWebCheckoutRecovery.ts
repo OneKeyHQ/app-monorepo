@@ -102,19 +102,26 @@ export function usePrimeWebCheckoutRecovery({
             result,
             intl: intlRef.current,
           });
-          if (
-            !cancelled &&
-            settlement?.outcome === 'succeeded' &&
-            (await isPrimeWebCheckoutUserCurrent(onekeyUserId)) &&
-            !cancelled
-          ) {
+          if (settlement?.outcome === 'succeeded') {
             logPrimeWebCheckoutSessionFlow({
               session,
               stage: 'recovery',
               status: 'succeeded',
             });
-            showPrimeWebCheckoutSuccessToast(intlRef.current);
+            // Settlement cleared the pending session, so its success handoff
+            // must finish before optional UI work can fail or be cancelled.
             await finishPrimeWebCheckoutSuccess(settlement.successPayload);
+            try {
+              if (
+                !cancelled &&
+                (await isPrimeWebCheckoutUserCurrent(onekeyUserId)) &&
+                !cancelled
+              ) {
+                showPrimeWebCheckoutSuccessToast(intlRef.current);
+              }
+            } catch {
+              // A missing toast must not undo the completed purchase handoff.
+            }
           }
         } catch {
           logPrimeWebCheckoutSessionFlow({

@@ -2,6 +2,7 @@
 
 import { act, renderHook } from '@testing-library/react';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IPrimeWebCheckoutPendingSession } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { usePrimeWebCheckoutRecovery } from './usePrimeWebCheckoutRecovery';
@@ -375,11 +376,12 @@ describe('hosted checkout recovery return signals', () => {
     );
 
     expect(mockToast).not.toHaveBeenCalled();
-    expect(mockFinish).not.toHaveBeenCalled();
+    expect(mockFinish).toHaveBeenCalledTimes(1);
+    expect(mockFinish).toHaveBeenCalledWith({ onekeyUserId: 'user-1' });
     expect(mockGetPending).toHaveBeenCalledTimes(2);
   });
 
-  it('checks the background account again before reporting settlement success', async () => {
+  it('checks the background account before its toast but preserves the settled purchase handoff', async () => {
     const settlement =
       deferred<Awaited<ReturnType<typeof settlePrimeWebCheckout>>>();
     mockCheck.mockResolvedValueOnce(successResult);
@@ -394,6 +396,73 @@ describe('hosted checkout recovery return signals', () => {
     );
 
     expect(mockToast).not.toHaveBeenCalled();
-    expect(mockFinish).not.toHaveBeenCalled();
+    expect(mockFinish).toHaveBeenCalledTimes(1);
+    expect(mockFinish).toHaveBeenCalledWith({ onekeyUserId: 'user-1' });
+  });
+
+  it('finishes an already settled checkout after unmount without running queued recovery', async () => {
+    const settlement =
+      deferred<Awaited<ReturnType<typeof settlePrimeWebCheckout>>>();
+    mockCheck.mockResolvedValueOnce(successResult);
+    mockSettle.mockReturnValueOnce(settlement.promise);
+    const { unmount } = await mountRecovery();
+    await returnFromCheckout(3);
+    unmount();
+    await act(async () =>
+      settlement.resolve({
+        outcome: 'succeeded',
+        successPayload: { onekeyUserId: 'user-1' },
+      }),
+    );
+
+    expect(mockGetPending).toHaveBeenCalledTimes(1);
+    expect(mockToast).not.toHaveBeenCalled();
+    expect(mockFinish).toHaveBeenCalledTimes(1);
+    expect(mockFinish).toHaveBeenCalledWith({ onekeyUserId: 'user-1' });
+  });
+
+  it('preserves the committed success handoff when the toast identity read fails', async () => {
+    mockCheck.mockResolvedValueOnce(successResult);
+    mockIsUserCurrent
+      .mockResolvedValueOnce(true)
+      .mockRejectedValueOnce(new Error('identity unavailable'));
+    await mountRecovery();
+
+    expect(mockToast).not.toHaveBeenCalled();
+    expect(mockFinish).toHaveBeenCalledTimes(1);
+    expect(mockFinish).toHaveBeenCalledWith({ onekeyUserId: 'user-1' });
+    await returnFromCheckout(3);
+    expect(mockSettle).toHaveBeenCalledTimes(1);
+    expect(mockFinish).toHaveBeenCalledTimes(1);
+  });
+
+  it('finishes success before a delayed toast identity read and suppresses the toast after unmount', async () => {
+    const identity = deferred<boolean>();
+    mockCheck.mockResolvedValueOnce(successResult);
+    mockIsUserCurrent
+      .mockResolvedValueOnce(true)
+      .mockReturnValueOnce(identity.promise);
+    const { unmount } = await mountRecovery();
+
+    expect(mockFinish).toHaveBeenCalledTimes(1);
+    expect(mockToast).not.toHaveBeenCalled();
+    unmount();
+    await act(async () => identity.resolve(true));
+    expect(mockFinish).toHaveBeenCalledTimes(1);
+    expect(mockToast).not.toHaveBeenCalled();
+  });
+
+  it('preserves the committed success handoff when the toast throws', async () => {
+    mockCheck.mockResolvedValueOnce(successResult);
+    mockToast.mockImplementationOnce(() => {
+      throw new OneKeyLocalError('toast unavailable');
+    });
+    await mountRecovery();
+
+    expect(mockFinish).toHaveBeenCalledTimes(1);
+    expect(mockFinish).toHaveBeenCalledWith({ onekeyUserId: 'user-1' });
+    await returnFromCheckout(3);
+    expect(mockSettle).toHaveBeenCalledTimes(1);
+    expect(mockFinish).toHaveBeenCalledTimes(1);
   });
 });
