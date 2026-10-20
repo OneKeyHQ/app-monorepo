@@ -8,6 +8,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 const mockReloadOverview = jest.fn();
 const mockShowDialog = jest.fn();
 const mockCopyText = jest.fn();
+let mockIsCompact = false;
 let mockActiveAccount: {
   account?: { id: string };
   indexedAccount?: { id: string };
@@ -52,6 +53,7 @@ jest.mock('@onekeyhq/components', () => {
   };
   return {
     Dialog: { show: showDialog },
+    Divider: () => null,
     Icon: () => null,
     IconButton: Primitive,
     Popover: ({
@@ -68,13 +70,15 @@ jest.mock('@onekeyhq/components', () => {
     SizableText: Primitive,
     Skeleton: Object.assign(() => null, {
       HeadingLg: () => null,
+      Heading3Xl: () => null,
+      BodyMd: () => null,
     }),
     Stack: Primitive,
     XStack: Primitive,
     YStack: Primitive,
     useClipboard: () => ({ copyText: mockCopyText }),
     useInTabDialog: () => ({ show: showDialog }),
-    useMedia: () => ({ md: false, gtMd: true }),
+    useMedia: () => ({ md: mockIsCompact, gtMd: !mockIsCompact }),
   };
 });
 
@@ -175,6 +179,7 @@ jest.mock('../InviteReward/components/useInviteCardStyle', () => ({
   COMPACT_ENTRY_TITLE_PROPS: {},
   COMPACT_ROW_BLEED_PROPS: {},
   COMPACT_ROW_ICON_PROPS: {},
+  INVITE_CARD_BORDER_COLOR: '$neutral4',
   INVITE_POPOVER_PANEL_PROPS: {},
   POINTER_ROW_BLEED_PROPS: {},
   PRESSABLE_SURFACE_PROPS: {},
@@ -188,6 +193,7 @@ describe('MyRewardsContent', () => {
     mockReloadOverview.mockReset();
     mockShowDialog.mockReset();
     mockCopyText.mockReset();
+    mockIsCompact = false;
     mockActiveAccount = {
       account: { id: 'hd-1--account' },
       indexedAccount: { id: 'hd-1--0' },
@@ -280,6 +286,31 @@ describe('MyRewardsContent', () => {
         .querySelectorAll('[data-source-currency="usd"]'),
     ).map((node) => node.textContent);
     expect(figures).toEqual(['17', '13', '4']);
+  });
+
+  it('shows the total, its parts and the payout address on compact layouts', () => {
+    mockIsCompact = true;
+    mockOverviewResult = {
+      ...mockOverviewResult,
+      result: {
+        ...mockOverviewResult.result!,
+        earn: {
+          status: 'success',
+          data: { distributed: [], undistributed: [] },
+        },
+      },
+    };
+    render(<MyRewardsContent />);
+    const summary = screen.getByTestId('my-rewards-summary-card');
+    const figures = Array.from(
+      summary.querySelectorAll('[data-source-currency="usd"]'),
+    ).map((node) => node.textContent);
+    expect(figures).toEqual(['17', '13', '4']);
+    // The address has its own row, so the info popover leaves it out.
+    expect(
+      summary.querySelectorAll('[data-testid="my-rewards-copy-address"]'),
+    ).toHaveLength(1);
+    expect(summary.textContent).toContain('Paid to');
   });
 
   it('splits each product into paid and unpaid and isolates a failure', () => {

@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Dialog,
+  Divider,
   Icon,
   IconButton,
   Image,
@@ -39,6 +40,7 @@ import type { IInviteeRewardsOverview } from '@onekeyhq/shared/src/referralCode/
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IEarnSummaryV2, IEarnText } from '@onekeyhq/shared/types/staking';
 
+import { CompactFieldRow } from '../../components/CompactFieldRow';
 import { InviteeRewardNoWallet } from '../../components/InviteeRewardNoWallet';
 import { ReferralCardEmpty } from '../../components/ReferralCardEmpty';
 import { BenefitsTabPlaceholder } from '../InviteReward/components/BenefitsTabPlaceholder';
@@ -49,6 +51,7 @@ import {
   COMPACT_ENTRY_TITLE_PROPS,
   COMPACT_ROW_BLEED_PROPS,
   COMPACT_ROW_ICON_PROPS,
+  INVITE_CARD_BORDER_COLOR,
   INVITE_POPOVER_PANEL_PROPS,
   POINTER_ROW_BLEED_PROPS,
   PRESSABLE_SURFACE_PROPS,
@@ -487,12 +490,15 @@ function RewardsAddressCard({
   unsupported,
   payout,
   showDestination = false,
+  addressInPopover = !showDestination,
 }: {
   address?: string;
   unsupported: boolean;
   payout?: IPayoutToken;
   // Pointer layouts have room to show where rewards land on the row.
   showDestination?: boolean;
+  // Off where the card shows the address on a row of its own.
+  addressInPopover?: boolean;
 }) {
   const renderTrailing = () => {
     if (unsupported) {
@@ -510,7 +516,13 @@ function RewardsAddressCard({
         </XStack>
       );
     }
-    return <PayoutInfo payout={payout} address={address} withDestination />;
+    return (
+      <PayoutInfo
+        payout={payout}
+        address={address}
+        withDestination={addressInPopover}
+      />
+    );
   };
   return (
     <YStack testID="my-rewards-address-card">
@@ -534,16 +546,23 @@ function PartDot({ color }: { color: '$iconSuccess' | '$iconCaution' }) {
   return <YStack w="$2" h="$2" borderRadius="$full" bg={color} />;
 }
 
+const TOTAL_FIGURE_SKELETON = {
+  $headingLg: <Skeleton.HeadingLg w={88} />,
+  $heading3xl: <Skeleton.Heading3Xl w={160} />,
+  $bodyMdMedium: <Skeleton.BodyMd w={64} />,
+} as const;
+
 function TotalFigure({
   totals,
   pick,
+  size = '$headingLg',
 }: {
   totals: IRewardTotals;
   pick: 'total' | 'paid' | 'unpaid';
+  size?: keyof typeof TOTAL_FIGURE_SKELETON;
 }) {
-  const size = '$headingLg';
   if (totals.status === 'loading') {
-    return <Skeleton.HeadingLg w={88} />;
+    return TOTAL_FIGURE_SKELETON[size];
   }
   if (totals.status === 'unavailable') {
     return (
@@ -563,6 +582,73 @@ function TotalFigure({
     >
       {totals[pick]}
     </Currency>
+  );
+}
+
+// Compact summary: whose rewards these are, the total with its two parts,
+// then where they are paid, built like the invite tab's compact cards so the
+// rows line up across the page.
+function CompactPerksSummaryCard({
+  totals,
+  address,
+  unsupported,
+  payout,
+  labels,
+}: {
+  totals: IRewardTotals;
+  address?: string;
+  unsupported: boolean;
+  payout?: IPayoutToken;
+  labels: { total: string; paid: string; unpaid: string };
+}) {
+  const cardStyle = useInviteHomeCardStyle();
+  return (
+    <YStack
+      testID="my-rewards-summary-card"
+      px="$4"
+      pt="$3"
+      pb="$1"
+      {...cardStyle}
+    >
+      <RewardsAddressCard
+        address={address}
+        unsupported={unsupported}
+        payout={payout}
+        addressInPopover={false}
+      />
+      <YStack pt="$3" pb="$2" gap="$1">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {labels.total}
+        </SizableText>
+        <TotalFigure totals={totals} pick="total" size="$heading3xl" />
+      </YStack>
+      <YStack pb="$1">
+        <CompactFieldRow
+          leading={<PartDot color="$iconSuccess" />}
+          label={labels.paid}
+        >
+          <TotalFigure totals={totals} pick="paid" size="$bodyMdMedium" />
+        </CompactFieldRow>
+        <CompactFieldRow
+          leading={<PartDot color="$iconCaution" />}
+          label={labels.unpaid}
+        >
+          <TotalFigure totals={totals} pick="unpaid" size="$bodyMdMedium" />
+        </CompactFieldRow>
+      </YStack>
+      {unsupported ? null : (
+        <>
+          <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
+          <CompactFieldRow label={MY_REWARDS_COPY.paidTo}>
+            <RewardsAddressValue
+              address={address}
+              unsupported={false}
+              compact
+            />
+          </CompactFieldRow>
+        </>
+      )}
+    </YStack>
   );
 }
 
@@ -1051,6 +1137,15 @@ export function MyRewardsContent({
     );
   };
 
+  const totals: IRewardTotals = isUnsupported
+    ? { status: 'unavailable' }
+    : getRewardTotals(rows);
+  const summaryLabels = {
+    total: MY_REWARDS_COPY.totalRewards,
+    paid: labels.paid,
+    unpaid: labels.unpaid,
+  };
+
   const crossLink = onOpenInvite ? (
     <ReferralTabCrossLink
       testID="refer-friends-to-invite-link"
@@ -1061,25 +1156,30 @@ export function MyRewardsContent({
   ) : null;
 
   if (md) {
-    // Compact: the campaign slides lead, then the address card scoping the
-    // breakdown under a quiet caption inset like the cards' text.
+    // Compact: the intro, the summary card, the campaign slides, then the
+    // breakdown under a quiet caption inset like the cards' text. The money
+    // leads; the slides sit between it and the details.
     return (
       <YStack flex={1} pt="$2" pb="$6">
         <YStack px="$pagePadding" gap="$5">
-          {/* The tab names sit in the navigation bar here, so the intro
-              leads the content; pointer layouts show it beside the tabs. */}
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {REFERRAL_TAB_COPY.perksIntro}
-          </SizableText>
+          <YStack gap="$3">
+            {/* The tab names sit in the navigation bar here, so the intro
+                leads the content; pointer layouts show it beside the tabs. */}
+            <SizableText size="$bodyMd" color="$textSubdued" px="$4">
+              {REFERRAL_TAB_COPY.perksIntro}
+            </SizableText>
+            <CompactPerksSummaryCard
+              totals={totals}
+              address={walletAddress}
+              unsupported={isUnsupported}
+              payout={payout}
+              labels={summaryLabels}
+            />
+          </YStack>
           <PerksCampaignBanner
             items={bannerItems}
             loading={isBannerLoading}
             compact
-          />
-          <RewardsAddressCard
-            address={walletAddress}
-            unsupported={isUnsupported}
-            payout={payout}
           />
           <YStack gap="$2">
             <SizableText size="$bodyMdMedium" color="$textSubdued" px="$4">
@@ -1102,17 +1202,11 @@ export function MyRewardsContent({
         {/* Padding stays inside the flex items, so the split holds. */}
         <XStack flex={2} flexBasis={0} minWidth={0}>
           <PerksSummaryCard
-            totals={
-              isUnsupported ? { status: 'unavailable' } : getRewardTotals(rows)
-            }
+            totals={totals}
             address={walletAddress}
             unsupported={isUnsupported}
             payout={payout}
-            labels={{
-              total: MY_REWARDS_COPY.totalRewards,
-              paid: labels.paid,
-              unpaid: labels.unpaid,
-            }}
+            labels={summaryLabels}
           />
         </XStack>
         {/* The banner column holds its place while the slides load, so
