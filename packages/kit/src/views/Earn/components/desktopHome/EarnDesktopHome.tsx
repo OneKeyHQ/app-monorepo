@@ -256,58 +256,62 @@ export function EarnDesktopHome({
 
   return (
     <PortfolioPendingTxsProvider value={pendingTxsValue}>
-      <YStack px="$pagePadding" pt="$2" pb="$10" gap="$10">
-        {/* The banner card is as tall as the hero beside it; its dots, when
-            there are several banners, sit below. The row must not stretch the
-            hero, or its height would follow the banner's */}
-        <XStack gap="$5" ai="flex-start">
-          <EarnDesktopHero
-            totalFiatValue={totalFiatValue}
-            earnings24h={displayEarnings24h ?? '0'}
-            borrowInterest24h={borrowInterest24h}
-            shares={shares}
+      <YStack px="$pagePadding" pt="$2" pb="$10">
+        {/* Spacing groups the page: the hero and the tiles are your money and
+            sit close; browsing starts after a wider gap */}
+        <YStack gap="$8">
+          {/* The banner card is as tall as the hero beside it; its dots, when
+              there are several banners, sit below. The row must not stretch
+              the hero, or its height would follow the banner's */}
+          <XStack gap="$5" ai="flex-start">
+            <EarnDesktopHero
+              totalFiatValue={totalFiatValue}
+              earnings24h={displayEarnings24h ?? '0'}
+              borrowInterest24h={borrowInterest24h}
+              shares={shares}
+              onOpenPortfolio={onOpenPortfolio}
+              onOpenTokens={handleOpenTokens}
+              onOpenLoans={onOpenLoans}
+              onOpenProtocols={onOpenProtocols}
+              onHeightChange={setHeroHeight}
+            />
+            {hasBanner ? (
+              // As tall as the card only: the dots under it (several banners)
+              // hang into the gap above the tiles instead of pushing them down.
+              // The wider right margin puts the card's edge on the tiles' edge
+              <YStack
+                w={BANNER_WIDTH}
+                h={bannerCardHeight}
+                flexShrink={0}
+                ml="$-3"
+                mr="$-5"
+                overflow="visible"
+              >
+                <EarnHomeBanner
+                  banners={bannerList}
+                  isLoading={isBannerLoading}
+                  cardHeight={bannerCardHeight}
+                />
+              </YStack>
+            ) : null}
+          </XStack>
+          <EarnDesktopTiles
+            investments={investments}
+            isPortfolioLoading={Boolean(isPortfolioLoading)}
+            loans={accountMarkets.loans}
+            isLoansLoading={accountMarkets.isLoading}
+            walletTokens={wallet.tokens}
+            isWalletLoading={wallet.isLoading}
+            markets={markets}
+            trendingAssets={trendingAssets}
+            fixedRateAssets={fixedRateAssets}
             onOpenPortfolio={onOpenPortfolio}
+            onOpenBorrow={handleOpenBorrow}
             onOpenTokens={handleOpenTokens}
-            onOpenLoans={onOpenLoans}
-            onOpenProtocols={onOpenProtocols}
-            onHeightChange={setHeroHeight}
+            onOpenToken={handleOpenToken}
           />
-          {hasBanner ? (
-            // As tall as the card only: the dots under it (several banners)
-            // hang into the gap above the tiles instead of pushing them down.
-            // The wider right margin puts the card's edge on the tiles' edge
-            <YStack
-              w={BANNER_WIDTH}
-              h={bannerCardHeight}
-              flexShrink={0}
-              ml="$-3"
-              mr="$-5"
-              overflow="visible"
-            >
-              <EarnHomeBanner
-                banners={bannerList}
-                isLoading={isBannerLoading}
-                cardHeight={bannerCardHeight}
-              />
-            </YStack>
-          ) : null}
-        </XStack>
-        <EarnDesktopTiles
-          investments={investments}
-          isPortfolioLoading={Boolean(isPortfolioLoading)}
-          loans={accountMarkets.loans}
-          isLoansLoading={accountMarkets.isLoading}
-          walletTokens={wallet.tokens}
-          isWalletLoading={wallet.isLoading}
-          markets={markets}
-          trendingAssets={trendingAssets}
-          fixedRateAssets={fixedRateAssets}
-          onOpenPortfolio={onOpenPortfolio}
-          onOpenBorrow={handleOpenBorrow}
-          onOpenTokens={handleOpenTokens}
-          onOpenToken={handleOpenToken}
-        />
-        <YStack id={BROWSE_ANCHOR_ID} gap="$5">
+        </YStack>
+        <YStack id={BROWSE_ANCHOR_ID} gap="$5" mt="$16">
           <HomeTabs value={tab} onChange={setTab} />
           {tab === 'earn' ? (
             <EarnDesktopEarnTab
@@ -328,7 +332,7 @@ export function EarnDesktopHome({
           )}
         </YStack>
         {faqList.length || isFaqLoading ? (
-          <YStack gap="$3">
+          <YStack gap="$3" mt="$10">
             <SizableText size="$headingXl">
               {intl.formatMessage({ id: ETranslations.global_faqs })}
             </SizableText>

@@ -45,6 +45,7 @@ import { AprText } from '../AprText';
 import { NetworkFilterControl } from '../NetworkFilterControl';
 
 import { extractAvailableAmount } from './useEarnDesktopHomeData';
+import { useEarnDesktopSurfaces } from './useEarnDesktopSurfaces';
 
 import type { IEarnDesktopLendingOffer } from './earnDesktopHome.utils';
 
@@ -485,6 +486,7 @@ function TokenRow({
 }) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
+  const surfaces = useEarnDesktopSurfaces();
   const { asset } = row;
   return (
     // An open token and its offers read as one card
@@ -492,7 +494,7 @@ function TokenRow({
       mx="$2"
       borderRadius="$4"
       borderCurve="continuous"
-      bg={isOpen ? '$bgSubdued' : undefined}
+      bg={isOpen ? surfaces.rest : undefined}
     >
       <ListItem
         testID={`earn-desktop-row-${row.key}`}
@@ -513,13 +515,6 @@ function TokenRow({
               >
                 {earnUtils.getDisplaySymbol(asset)}
               </SizableText>
-              {row.isFixedRate ? (
-                <Badge badgeType="default" badgeSize="sm">
-                  <Badge.Text>
-                    {intl.formatMessage({ id: ETranslations.defi_fixed_rate })}
-                  </Badge.Text>
-                </Badge>
-              ) : null}
               {asset.badges?.map((badge) => (
                 <Badge
                   key={badge.tag}
@@ -530,6 +525,14 @@ function TokenRow({
                 </Badge>
               ))}
             </XStack>
+            {/* Fixed rate reads as the token's second line rather than a
+                pill after its name, so the names keep one straight edge.
+                Fixed-rate rows never show a deposit, so the line is free */}
+            {row.isFixedRate ? (
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({ id: ETranslations.defi_fixed_rate })}
+              </SizableText>
+            ) : null}
             {row.depositedFiatValue > 0 && !row.isFixedRate ? (
               <XStack ai="center" gap="$1">
                 <SizableText size="$bodySm" color="$textSubdued">
@@ -556,7 +559,8 @@ function TokenRow({
           />
         </Stack>
         <Stack {...COLUMNS.balance}>
-          {/* Nothing to deposit reads the same whether the balance is 0 or unknown */}
+          {/* Empty when there's nothing to deposit, whether the balance is 0
+              or unknown: a dash on most rows would say nothing */}
           {new BigNumber(row.balance ?? 0).gt(0) ? (
             <NumberSizeableTextWrapper
               hideValue
@@ -565,11 +569,7 @@ function TokenRow({
             >
               {row.balance}
             </NumberSizeableTextWrapper>
-          ) : (
-            <SizableText size="$bodyLgMedium" color="$textDisabled">
-              -
-            </SizableText>
-          )}
+          ) : null}
         </Stack>
         <Stack {...COLUMNS.apr}>
           <AprText asset={asset} hideSuffix />

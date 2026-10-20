@@ -30,8 +30,10 @@ import { EARN_DESKTOP_DEMO_COPY } from './earnDesktopHomeCopy';
 
 import type { IEarnDesktopShares } from './earnDesktopHome.utils';
 
-// Step 11 reads as text on both themes, and the legend reuses these colors
-const SHARE_COLORS = ['$lime11', '$blue11', '$orange11'] as const;
+// Lightness steps, the biggest share brightest. Color on this page means
+// status (earnings, risk), so the protocols' logos tell them apart instead
+const SHARE_COLORS = ['$neutral11', '$neutral9', '$neutral7'] as const;
+const REST_SHARE_COLOR = '$neutral5';
 const SECONDS_PER_DAY = 24 * 60 * 60;
 // Past this the value formatter abbreviates, and extra digits read as noise
 const TICKING_MAX_TOTAL = 1_000_000;
@@ -141,10 +143,10 @@ function ProtocolSplit({ shares }: { shares: IEarnDesktopShares }) {
         {shares.top.map((item, index) => (
           <YStack key={item.key} flex={item.value} bg={SHARE_COLORS[index]} />
         ))}
-        {shares.rest ? <YStack flex={restValue} bg="$neutral6" /> : null}
+        {shares.rest ? <YStack flex={restValue} bg={REST_SHARE_COLOR} /> : null}
       </XStack>
       <XStack gap="$8" flexWrap="wrap">
-        {shares.top.map((item, index) => (
+        {shares.top.map((item) => (
           <YStack key={item.key} gap="$1">
             <XStack gap="$1.5" ai="center">
               <Token size="xs" tokenImageUri={item.logoURI} />
@@ -152,9 +154,7 @@ function ProtocolSplit({ shares }: { shares: IEarnDesktopShares }) {
                 {item.name}
               </SizableText>
             </XStack>
-            <SizableText size="$headingLg" color={SHARE_COLORS[index]}>
-              {`${item.percent}%`}
-            </SizableText>
+            <SizableText size="$bodyLgMedium">{`${item.percent}%`}</SizableText>
           </YStack>
         ))}
         {shares.rest ? (
@@ -162,7 +162,7 @@ function ProtocolSplit({ shares }: { shares: IEarnDesktopShares }) {
             <SizableText size="$bodyMd" color="$textSubdued">
               {EARN_DESKTOP_DEMO_COPY.more(shares.rest.count)}
             </SizableText>
-            <SizableText size="$headingLg" color="$textSubdued">
+            <SizableText size="$bodyLgMedium">
               {`${shares.rest.percent}%`}
             </SizableText>
           </YStack>

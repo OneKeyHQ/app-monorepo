@@ -46,6 +46,7 @@ import {
 } from './earnDesktopHome.utils';
 import { EARN_DESKTOP_DEMO_COPY } from './earnDesktopHomeCopy';
 import { extractAvailableAmount } from './useEarnDesktopHomeData';
+import { useEarnDesktopSurfaces } from './useEarnDesktopSurfaces';
 
 import type {
   IEarnDesktopMarketReserves,
@@ -75,6 +76,28 @@ function getAssetMaxApr(asset: {
   );
 }
 
+// The color AprText gives an asset's rate: the server's highlight or range
+// color (a bonus, say), else plain text. Rates are offers, so this code never
+// paints them green on its own; green is for money already earned
+function getAssetRateColor(asset: {
+  aprInfo?: IEarnAvailableAsset['aprInfo'];
+  minAprInfo?: IEarnAvailableAsset['minAprInfo'];
+  maxAprInfo?: IEarnAvailableAsset['maxAprInfo'];
+}): ComponentProps<typeof SizableText>['color'] {
+  if (asset.minAprInfo?.normal?.text && asset.maxAprInfo?.normal?.text) {
+    return (
+      asset.minAprInfo.normal.color ||
+      asset.maxAprInfo.normal.color ||
+      asset.aprInfo?.normal?.color ||
+      '$text'
+    );
+  }
+  if (asset.aprInfo?.highlight) {
+    return asset.aprInfo.highlight.color || '$textSuccess';
+  }
+  return asset.aprInfo?.normal?.color || '$text';
+}
+
 const formatPercent = (value: number | string) =>
   `${new BigNumber(value).toFixed(2)}%`;
 
@@ -90,10 +113,11 @@ function TileSlot({ children }: { children: ReactNode }) {
 }
 
 function TileFrame({ children }: { children: ReactNode }) {
+  const surfaces = useEarnDesktopSurfaces();
   return (
     <YStack
       flexGrow={1}
-      bg="$bgSubdued"
+      bg={surfaces.rest}
       borderRadius="$5"
       borderCurve="continuous"
       px="$4"
@@ -147,7 +171,8 @@ function TileFiatValue({ value }: { value: number | string }) {
   return (
     <NumberSizeableTextWrapper
       hideValue
-      size="$heading2xl"
+      size="$headingXl"
+      fontWeight={500}
       formatter="value"
       formatterOptions={{ currency: settings.currencyInfo.symbol }}
       numberOfLines={1}
@@ -157,25 +182,13 @@ function TileFiatValue({ value }: { value: number | string }) {
   );
 }
 
-function TileRateValue({
-  prefix,
-  value,
-  positive,
-}: {
-  prefix: string;
-  value: number;
-  positive?: boolean;
-}) {
+function TileRateValue({ prefix, value }: { prefix: string; value: number }) {
   return (
     <XStack ai="baseline" gap="$1.5">
       <SizableText size="$bodyLg" color="$textSubdued">
         {prefix}
       </SizableText>
-      <SizableText
-        size="$heading2xl"
-        color={positive ? '$textSuccess' : '$text'}
-        numberOfLines={1}
-      >
+      <SizableText size="$headingXl" fontWeight={500} numberOfLines={1}>
         {formatPercent(value)}
       </SizableText>
     </XStack>
@@ -285,7 +298,7 @@ function RowText({
 
 function RowUpTo({
   value,
-  color = '$textSuccess',
+  color = '$text',
 }: {
   value: number;
   color?: ComponentProps<typeof SizableText>['color'];
@@ -327,8 +340,8 @@ function MoreLink({ count, onPress }: { count: number; onPress: () => void }) {
 function TileSkeleton() {
   return (
     <TileFrame>
-      <Skeleton w={88} h={18} borderRadius="$2" />
-      <Skeleton w={120} h={30} mt="$1.5" borderRadius="$2" />
+      <Skeleton w={88} h={14} my={3} borderRadius="$2" />
+      <Skeleton w={96} h={20} my={4} borderRadius="$2" />
       <YStack mt="$3">
         {Array.from({ length: ROW_LIMIT }).map((_, index) => (
           <XStack key={index} ai="center" gap="$2.5" h={ROW_HEIGHT}>
@@ -500,6 +513,7 @@ function LoansTile({
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const surfaces = useEarnDesktopSurfaces();
   const totalBorrowed = useMemo(() => sumBorrowedFiat(loans), [loans]);
   const title = intl.formatMessage({ id: ETranslations.earn_loans__action });
 
@@ -580,7 +594,7 @@ function LoansTile({
                   ml={index ? -14 : 0}
                   borderRadius="$full"
                   borderWidth={2}
-                  borderColor="$bgSubdued"
+                  borderColor={surfaces.rest}
                 >
                   <Token size="sm" tokenImageUri={asset.token.logoURI} />
                 </YStack>
@@ -620,7 +634,12 @@ function LoansTile({
 
 // ---------- In your wallet ----------
 
-type IHeldToken = { token: IRecommendAsset; amount: string; maxApr: number };
+type IHeldToken = {
+  token: IRecommendAsset;
+  amount: string;
+  maxApr: number;
+  rateColor: ComponentProps<typeof SizableText>['color'];
+};
 
 function WalletTile({
   heldTokens,
@@ -640,27 +659,25 @@ function WalletTile({
       />
       {/* The recommend list has no fiat value per token (backend ask 3), so
           the tile leads with the best rate instead of a dollar total */}
-      <TileRateValue
-        prefix={EARN_DESKTOP_DEMO_COPY.upTo}
-        value={bestApr}
-        positive
-      />
+      <TileRateValue prefix={EARN_DESKTOP_DEMO_COPY.upTo} value={bestApr} />
       <YStack mt="$3">
-        {heldTokens.slice(0, ROW_LIMIT).map(({ token, amount, maxApr }) => (
-          <TileRow
-            key={token.symbol}
-            onPress={() => onOpenToken(token.symbol)}
-            icon={<Token size="md" tokenImageUri={token.logoURI} />}
-            primary={
-              <RowAmount
-                amount={amount}
-                symbol={earnUtils.getDisplaySymbol(token)}
-              />
-            }
-            secondary={<RowText subdued>{token.name}</RowText>}
-            right={<RowUpTo value={maxApr} />}
-          />
-        ))}
+        {heldTokens
+          .slice(0, ROW_LIMIT)
+          .map(({ token, amount, maxApr, rateColor }) => (
+            <TileRow
+              key={token.symbol}
+              onPress={() => onOpenToken(token.symbol)}
+              icon={<Token size="md" tokenImageUri={token.logoURI} />}
+              primary={
+                <RowAmount
+                  amount={amount}
+                  symbol={earnUtils.getDisplaySymbol(token)}
+                />
+              }
+              secondary={<RowText subdued>{token.name}</RowText>}
+              right={<RowUpTo value={maxApr} color={rateColor} />}
+            />
+          ))}
       </YStack>
       <MoreLink count={heldTokens.length - ROW_LIMIT} onPress={onOpenTokens} />
     </TileFrame>
@@ -700,11 +717,7 @@ function AssetOfferRow({
         asset.minAprInfo?.normal?.text && asset.maxAprInfo?.normal?.text ? (
           <RowUpTo
             value={getAssetMaxApr(asset)}
-            color={
-              asset.maxAprInfo.normal.color ||
-              asset.aprInfo?.normal?.color ||
-              '$text'
-            }
+            color={getAssetRateColor(asset)}
           />
         ) : (
           <AprText asset={asset} size="$bodyMdMedium" hideSuffix />
@@ -764,7 +777,6 @@ function OfferTile({
         <TileRateValue
           prefix={EARN_DESKTOP_DEMO_COPY.upTo}
           value={Math.max(...trending.map(getAssetMaxApr))}
-          positive
         />
         <YStack mt="$3">
           {trending.map((asset) => (
@@ -794,7 +806,6 @@ function OfferTile({
         <TileRateValue
           prefix={EARN_DESKTOP_DEMO_COPY.upTo}
           value={getAssetMaxApr(fixed[0])}
-          positive
         />
         <YStack mt="$3">
           {fixed.map((asset) => (
@@ -894,17 +905,23 @@ export function EarnDesktopTiles({
     () => collectTileRows(investments),
     [investments],
   );
-  const heldTokens = useMemo<IHeldToken[]>(
-    () =>
-      walletTokens
-        .map((token) => ({
-          token,
-          amount: extractAvailableAmount(token.available?.text) ?? '0',
-          maxApr: getAssetMaxApr(token),
-        }))
-        .filter((item) => new BigNumber(item.amount).gt(0)),
-    [walletTokens],
-  );
+  const heldTokens = useMemo<IHeldToken[]>(() => {
+    // The wallet list carries no rate colors, so a token takes its Earn
+    // entry's, the one its row in the table below shows
+    const earnAssetBySymbol = new Map(
+      trendingAssets.map((asset) => [asset.symbol, asset]),
+    );
+    return walletTokens
+      .map((token) => ({
+        token,
+        amount: extractAvailableAmount(token.available?.text) ?? '0',
+        maxApr: getAssetMaxApr(token),
+        rateColor: getAssetRateColor(
+          earnAssetBySymbol.get(token.symbol) ?? token,
+        ),
+      }))
+      .filter((item) => new BigNumber(item.amount).gt(0));
+  }, [trendingAssets, walletTokens]);
 
   const offers = pickTileOffers({
     rewardsEmpty: !rewards.rows.length,

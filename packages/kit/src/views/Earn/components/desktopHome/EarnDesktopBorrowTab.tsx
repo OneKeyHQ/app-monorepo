@@ -17,37 +17,22 @@ import type { IBorrowMarketItem } from '@onekeyhq/shared/types/staking';
 
 import { buildMarketCard } from './earnDesktopHome.utils';
 import { EARN_DESKTOP_DEMO_COPY } from './earnDesktopHomeCopy';
+import { useEarnDesktopSurfaces } from './useEarnDesktopSurfaces';
 
 import type {
   IEarnDesktopMarketCard,
   IEarnDesktopMarketReserves,
 } from './earnDesktopHome.utils';
+import type { IEarnDesktopSurface } from './useEarnDesktopSurfaces';
 
 const COLLATERAL_ICON_LIMIT = 6;
-
-type ICardSurface = '$bgSubdued' | '$gray3' | '$gray4';
-
-// Opaque steps up from the card color, so the rings that separate the
-// collateral icons can change with the card
-function getCardSurface({
-  isHovered,
-  isPressed,
-}: {
-  isHovered: boolean;
-  isPressed: boolean;
-}): ICardSurface {
-  if (isPressed) {
-    return '$gray4';
-  }
-  return isHovered ? '$gray3' : '$bgSubdued';
-}
 
 function CollateralStack({
   card,
   ringColor,
 }: {
   card: IEarnDesktopMarketCard;
-  ringColor: ICardSurface;
+  ringColor: IEarnDesktopSurface;
 }) {
   const visible = card.collateral.slice(0, COLLATERAL_ICON_LIMIT);
   const moreCount = card.collateral.length - visible.length;
@@ -85,9 +70,16 @@ function MarketCard({
 }) {
   const intl = useIntl();
   const { market } = card;
+  const surfaces = useEarnDesktopSurfaces();
   const [isHovered, setIsHovered] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
-  const surface = getCardSurface({ isHovered, isPressed });
+  // The collateral rings take the same color, so they follow the card
+  let surface = surfaces.rest;
+  if (isPressed) {
+    surface = surfaces.press;
+  } else if (isHovered) {
+    surface = surfaces.hover;
+  }
   return (
     // The tiles' padding, so both kinds of card hold their content alike
     <YStack
