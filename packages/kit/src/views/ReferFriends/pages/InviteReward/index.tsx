@@ -50,6 +50,7 @@ import {
   resolveReferralPageTab,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralPageTab';
 import { useReferralTabCopy } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralTabCopy';
+import { useReferralTabSwitch } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/useReferralTabSwitch';
 import {
   getInviteCodeStepImageHeight,
   getInviteCodeStepImageWidth,
@@ -74,6 +75,10 @@ import { useNavigateToRewardHistory } from '../RewardDistributionHistory/hooks/u
 
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
+// Short tabs fill the viewport, so the cross-link at their end rests at the
+// bottom.
+const SCROLL_FILL_STYLE = { flexGrow: 1 } as const;
+
 const ReferralPageHeader = memo(function ReferralPageHeader({
   activeTab,
   onChangeTab,
@@ -88,7 +93,7 @@ const ReferralPageHeader = memo(function ReferralPageHeader({
   const renderHeaderTitle = useCallback(
     () => (
       <ReferralJobTabs
-        variant="header"
+        variant="compact"
         value={activeTab}
         onChange={onChangeTab}
       />
@@ -405,32 +410,8 @@ function InviteRewardPage() {
   const isCompactHeader = platformEnv.isNative || md;
   const activeTab = resolveReferralPageTab(route.params?.tab);
   const isInviteTab = activeTab === EReferralPageTab.invite;
-  const switchTab = useCallback(
-    (tab: IReferralPageTab, source: 'tabs' | 'cross_link') => {
-      if (tab === activeTab) {
-        return;
-      }
-      defaultLogger.referral.page.referralTabSwitched({
-        from: activeTab,
-        to: tab,
-        source,
-      });
-      navigation.setParams({ tab });
-    },
-    [activeTab, navigation],
-  );
-  const setActiveTab = useCallback(
-    (tab: IReferralPageTab) => switchTab(tab, 'tabs'),
-    [switchTab],
-  );
-  const openPerks = useCallback(
-    () => switchTab(EReferralPageTab.benefits, 'cross_link'),
-    [switchTab],
-  );
-  const openInvite = useCallback(
-    () => switchTab(EReferralPageTab.invite, 'cross_link'),
-    [switchTab],
-  );
+  const { setActiveTab, openPerks, openInvite } =
+    useReferralTabSwitch(activeTab);
 
   useFocusEffect(
     useCallback(() => {
@@ -585,9 +566,7 @@ function InviteRewardPage() {
         }
         onScroll={isCompactHeader ? handleScroll : undefined}
         scrollEventThrottle={16}
-        // Short tabs fill the viewport, so the cross-link at their end
-        // rests at the bottom.
-        contentContainerStyle={{ flexGrow: 1 }}
+        contentContainerStyle={SCROLL_FILL_STYLE}
       >
         <Page.Container padded={false} flex={1}>
           {summaryInfo ? (

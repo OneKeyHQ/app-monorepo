@@ -17,9 +17,7 @@ import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationCo
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { LazyPageContainer } from '@onekeyhq/kit/src/components/LazyPageContainer';
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
 import {
@@ -37,6 +35,7 @@ import {
   resolveReferralPageTab,
 } from '../InviteReward/referralPageTab';
 import { useReferralTabCopy } from '../InviteReward/referralTabCopy';
+import { useReferralTabSwitch } from '../InviteReward/useReferralTabSwitch';
 import { MyRewardsContent } from '../MyRewards';
 
 import { InviteCodeStepImage } from './components/InviteCodeStepImage';
@@ -136,56 +135,30 @@ function ReferAFriendPageWrapper() {
     name: string;
     params?: { tab?: IReferralPageTab };
   }>();
-  const navigation = useAppNavigation();
   const { md } = useMedia();
   const { postConfig } = useReferAFriendData();
   const [phaseState, setPhaseState] = useState<EPhaseState>(EPhaseState.next);
   const activeTab = resolveReferralPageTab(route.params?.tab);
   const isInviteTab = activeTab === EReferralPageTab.invite;
-  const switchTab = useCallback(
-    (tab: IReferralPageTab, source: 'tabs' | 'cross_link') => {
-      if (tab === activeTab) {
-        return;
-      }
-      defaultLogger.referral.page.referralTabSwitched({
-        from: activeTab,
-        to: tab,
-        source,
-      });
-      navigation.setParams({ tab });
-    },
-    [activeTab, navigation],
-  );
-  const setActiveTab = useCallback(
-    (tab: IReferralPageTab) => switchTab(tab, 'tabs'),
-    [switchTab],
-  );
-  const openPerks = useCallback(
-    () => switchTab(EReferralPageTab.benefits, 'cross_link'),
-    [switchTab],
-  );
-  const openInvite = useCallback(
-    () => switchTab(EReferralPageTab.invite, 'cross_link'),
-    [switchTab],
-  );
+  const { setActiveTab, openPerks, openInvite } =
+    useReferralTabSwitch(activeTab);
   // The invite intro is a one-way, step-by-step pitch, so it gets no tabs
   // to branch off from; Perks is a quiet link under its actions instead.
   // Once on Perks (that link, or a deep link), the tabs lead back.
   const showTabs = IS_BENEFITS_TAB_ENABLED && !isInviteTab;
-  const renderPerksLink = (pt: '$3') =>
-    IS_BENEFITS_TAB_ENABLED ? (
-      <ReferralTabCrossLink
-        pt={pt}
-        testID="refer-friends-intro-to-perks-link"
-        prompt={tabCopy.toPerksPrompt}
-        action={tabCopy.toPerksAction}
-        onPress={openPerks}
-      />
-    ) : null;
+  const perksLink = IS_BENEFITS_TAB_ENABLED ? (
+    <ReferralTabCrossLink
+      pt="$3"
+      testID="refer-friends-intro-to-perks-link"
+      prompt={tabCopy.toPerksPrompt}
+      action={tabCopy.toPerksAction}
+      onPress={openPerks}
+    />
+  ) : null;
   const renderHeaderTitle = useCallback(
     () => (
       <ReferralJobTabs
-        variant="header"
+        variant="compact"
         value={activeTab}
         onChange={setActiveTab}
       />
@@ -253,7 +226,7 @@ function ReferAFriendPageWrapper() {
                 onChange={setActiveTab}
                 // Mobile web keeps the tabs in the content; it gets the same
                 // compact switch as the navigation bar elsewhere.
-                variant={md ? 'header' : 'tabs'}
+                variant={md ? 'compact' : 'tabs'}
               />
               {/* Same intro at the right of the tabs as the signed-in page;
                   compact layouts show it atop the Perks content. */}
@@ -281,7 +254,7 @@ function ReferAFriendPageWrapper() {
             ) : null}
             {postConfig && showInlineActions ? (
               // Pinned to the bottom with the same 24px below as the tabs' links.
-              <Stack pb="$6">{renderPerksLink('$3')}</Stack>
+              <Stack pb="$6">{perksLink}</Stack>
             ) : null}
           </Page.Container>
         ) : (
@@ -295,7 +268,7 @@ function ReferAFriendPageWrapper() {
         <Page.Footer>
           <Stack px="$4" py="$4" bg="$bgApp">
             {actions}
-            {renderPerksLink('$3')}
+            {perksLink}
           </Stack>
         </Page.Footer>
       ) : null}

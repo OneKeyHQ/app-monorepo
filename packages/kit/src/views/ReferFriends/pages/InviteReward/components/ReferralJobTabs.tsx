@@ -111,13 +111,13 @@ export function ReferralJobTabs({
 }: {
   value: IReferralPageTab;
   onChange: (value: IReferralPageTab) => void;
-  // `header`: compact layouts show only the current tab, as a title with a
+  // `compact`: compact layouts show only the current tab, as a title with a
   // chevron that opens the switch; Perks is the minor side of referrals.
-  variant?: 'tabs' | 'header';
+  variant?: 'tabs' | 'compact';
 }) {
   const tabs = useReferralTabs();
 
-  if (variant === 'header') {
+  if (variant === 'compact') {
     return (
       <ReferralTabSwitcher tabs={tabs} value={value} onChange={onChange} />
     );

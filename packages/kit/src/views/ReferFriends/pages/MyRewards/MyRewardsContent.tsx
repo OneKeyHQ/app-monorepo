@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useCallback, useMemo } from 'react';
+import { createContext, useCallback, useContext, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -10,7 +10,6 @@ import {
   Divider,
   Icon,
   IconButton,
-  Image,
   NATIVE_HIT_SLOP,
   Popover,
   SizableText,
@@ -26,6 +25,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EarnInviteeRewardContent } from '@onekeyhq/kit/src/views/Earn/components/InviteeReward/EarnInviteeRewardContent';
@@ -34,6 +34,7 @@ import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDet
 import { SwapInviteeRewardContent } from '@onekeyhq/kit/src/views/Swap/components/InviteeReward/SwapInviteeRewardContent';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteeRewardsOverview } from '@onekeyhq/shared/src/referralCode/type';
@@ -46,6 +47,7 @@ import { ReferralCardEmpty } from '../../components/ReferralCardEmpty';
 import { BenefitsTabPlaceholder } from '../InviteReward/components/BenefitsTabPlaceholder';
 import { INVITE_REWARD_SUBJECT_ICON } from '../InviteReward/components/getInviteRewardRows';
 import { InviteStatCell } from '../InviteReward/components/InviteStatCell';
+import { PartDot } from '../InviteReward/components/PartDot';
 import { ReferralTabCrossLink } from '../InviteReward/components/ReferralTabCrossLink';
 import { REFERRAL_USD_SOURCE_PROPS } from '../InviteReward/components/shared/getRewardSummary';
 import {
@@ -69,7 +71,7 @@ type IRewardModule = keyof IInviteeRewardsOverview;
 
 // Perks copy. Perks speaks of rewards, like its "My Rewards" entry in the
 // activity hub; the invite tab speaks of commission.
-function useMyRewardsCopy() {
+function useBuildMyRewardsCopy() {
   const intl = useIntl();
   return useMemo(() => {
     const t = (id: ETranslations, values?: Record<string, string | number>) =>
@@ -96,6 +98,19 @@ function useMyRewardsCopy() {
         t(ETranslations.referral_perks_more_tokens__desc, { count }),
     };
   }, [intl]);
+}
+
+type IMyRewardsCopy = ReturnType<typeof useBuildMyRewardsCopy>;
+
+// Built once per tab by MyRewardsContent; its parts read it from here.
+const MyRewardsCopyContext = createContext<IMyRewardsCopy | null>(null);
+
+function useMyRewardsCopy() {
+  const copy = useContext(MyRewardsCopyContext);
+  if (!copy) {
+    throw new OneKeyLocalError('useMyRewardsCopy is used outside MyRewards');
+  }
+  return copy;
 }
 
 const MODULE_ICON: Record<IRewardModule, IKeyOfIcons> = {
@@ -303,39 +318,13 @@ function getPayoutToken(
   };
 }
 
-function PayoutTokenLogo({
-  payout,
-  size,
-}: {
-  payout?: IPayoutToken;
-  size: '$4' | '$5';
-}) {
-  if (!payout?.logoURI) {
-    return null;
-  }
-  return (
-    <Image
-      w={size}
-      h={size}
-      borderRadius="$full"
-      flexShrink={0}
-      source={{ uri: payout.logoURI }}
-    />
-  );
-}
-
-// The payout details behind an info icon: the token and network, and the
-// rules. With `withDestination` (compact layouts, where the row has no room)
-// it also holds the address; pointer layouts show that on the account row.
+// The token and network rewards are paid in, and the payout rules, behind an
+// info icon beside the address.
 function PayoutInfo({
   payout,
-  address,
-  withDestination,
   iconSize = '$4',
 }: {
   payout?: IPayoutToken;
-  address?: string;
-  withDestination: boolean;
   // Matches the copy icon beside it: 20px in compact cards, 16px elsewhere.
   iconSize?: '$4' | '$5';
 }) {
@@ -357,25 +346,16 @@ function PayoutInfo({
       }
       renderContent={
         <YStack p="$4" gap="$3">
-          <YStack gap="$1.5">
-            <XStack ai="center" gap="$2">
-              <PayoutTokenLogo payout={payout} size="$5" />
-              <SizableText size="$bodyMdMedium" flexShrink={1}>
-                {payout
-                  ? copy.payoutIn(payout.symbol, payout.networkName)
-                  : copy.payoutGeneric}
-              </SizableText>
-            </XStack>
-            {withDestination ? (
-              <XStack>
-                <RewardsAddressValue
-                  address={address}
-                  unsupported={false}
-                  compact={false}
-                />
-              </XStack>
+          <XStack ai="center" gap="$2">
+            {payout?.logoURI ? (
+              <Token size="xs" tokenImageUri={payout.logoURI} />
             ) : null}
-          </YStack>
+            <SizableText size="$bodyMdMedium" flexShrink={1}>
+              {payout
+                ? copy.payoutIn(payout.symbol, payout.networkName)
+                : copy.payoutGeneric}
+            </SizableText>
+          </XStack>
           <SizableText size="$bodyMd" color="$textSubdued">
             {copy.addressRule}
           </SizableText>
@@ -388,7 +368,7 @@ function PayoutInfo({
   );
 }
 
-// Pointer layouts: where the rebates land, on the right of the account row.
+// Pointer layouts: where the rewards land, on the right of the account row.
 // Kept to the address alone; the token and network sit behind the info icon
 // next to it, so the row stays short.
 function PayoutDestination({ address }: { address?: string }) {
@@ -398,7 +378,7 @@ function PayoutDestination({ address }: { address?: string }) {
       <SizableText size="$bodyMd" color="$textSubdued">
         {copy.paidTo}
       </SizableText>
-      <RewardsAddressValue address={address} unsupported={false} compact />
+      <RewardsAddressValue address={address} />
     </XStack>
   );
 }
@@ -453,17 +433,12 @@ function SubduedNote({ children }: { children: string }) {
 // full address, and the icon is only the cue, like the invite tab's code.
 function RewardsAddressValue({
   address,
-  unsupported,
-  compact,
   asValue = false,
 }: {
   address?: string;
-  unsupported: boolean;
-  compact: boolean;
   // As a row's value it reads like the figures beside it, not a note.
   asValue?: boolean;
 }) {
-  const copy = useMyRewardsCopy();
   const { copyText } = useClipboard();
   const copyAddress = useCallback(() => {
     if (address) {
@@ -471,9 +446,6 @@ function RewardsAddressValue({
     }
   }, [address, copyText]);
 
-  if (unsupported) {
-    return <SubduedNote>{copy.noEvmAddress}</SubduedNote>;
-  }
   if (!address) {
     return <Skeleton width={120} height={16} />;
   }
@@ -498,7 +470,8 @@ function RewardsAddressValue({
       >
         {accountUtils.shortenAddress({
           address,
-          ...(compact ? { leadingLength: 6, trailingLength: 4 } : null),
+          leadingLength: 6,
+          trailingLength: 4,
         })}
       </SizableText>
       {/* 20px in compact cards, like the invite tab's copy cues. */}
@@ -511,59 +484,31 @@ function RewardsAddressValue({
   );
 }
 
-// Whose rewards these are: the account switch and the counted address sit
-// together, with where they are paid behind the info icon.
-function RewardsAddressCard({
-  address,
+// Whose rewards these are: the account switch, with what the card puts
+// beside it, or why there is nothing to show.
+function RewardsAccountRow({
   unsupported,
-  payout,
-  showDestination = false,
+  trailing,
 }: {
-  address?: string;
   unsupported: boolean;
-  payout?: IPayoutToken;
-  // Pointer layouts have room to show where rewards land on the row.
-  showDestination?: boolean;
+  trailing?: ReactNode;
 }) {
   const copy = useMyRewardsCopy();
-  const renderTrailing = () => {
-    if (unsupported) {
-      return <SubduedNote>{copy.noEvmAddress}</SubduedNote>;
-    }
-    if (showDestination) {
-      return (
-        <XStack ai="center" gap="$1" flexShrink={0}>
-          <PayoutDestination address={address} />
-          <PayoutInfo
-            payout={payout}
-            address={address}
-            withDestination={false}
-          />
-        </XStack>
-      );
-    }
-    return <PayoutInfo payout={payout} address={address} withDestination />;
-  };
   return (
-    <YStack testID="my-rewards-address-card">
-      <XStack
-        ai="center"
-        jc={showDestination ? 'space-between' : undefined}
-        gap="$2"
-        minWidth={0}
-      >
-        {/* A long account name truncates first, so the payout stays. */}
-        <Stack flexShrink={1} minWidth={0}>
-          <AccountSelectorTriggerHome num={0} hideAddress />
-        </Stack>
-        {renderTrailing()}
-      </XStack>
-    </YStack>
+    <XStack
+      testID="my-rewards-address-card"
+      ai="center"
+      jc="space-between"
+      gap="$2"
+      minWidth={0}
+    >
+      {/* A long account name truncates first, so the trailing part stays. */}
+      <Stack flexShrink={1} minWidth={0}>
+        <AccountSelectorTriggerHome num={0} hideAddress />
+      </Stack>
+      {unsupported ? <SubduedNote>{copy.noEvmAddress}</SubduedNote> : trailing}
+    </XStack>
   );
-}
-
-function PartDot({ color }: { color: '$iconSuccess' | '$iconCaution' }) {
-  return <YStack w="$2" h="$2" borderRadius="$full" bg={color} />;
 }
 
 const TOTAL_FIGURE_SKELETON = {
@@ -631,14 +576,9 @@ function CompactPerksSummaryCard({
       pb="$1"
       {...cardStyle}
     >
-      {/* Whose rewards these are. The payout details sit on the Paid to
-          row below, where they apply. */}
-      <XStack testID="my-rewards-address-card" ai="center" gap="$2">
-        <Stack flexShrink={1} minWidth={0}>
-          <AccountSelectorTriggerHome num={0} hideAddress />
-        </Stack>
-        {unsupported ? <SubduedNote>{copy.noEvmAddress}</SubduedNote> : null}
-      </XStack>
+      {/* The payout details sit on the Paid to row below, where they
+          apply. */}
+      <RewardsAccountRow unsupported={unsupported} />
       <YStack pt="$3" pb="$2" gap="$1">
         <SizableText size="$bodyMd" color="$textSubdued">
           {labels.total}
@@ -663,18 +603,8 @@ function CompactPerksSummaryCard({
         <>
           <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
           <CompactFieldRow label={copy.paidTo}>
-            <RewardsAddressValue
-              address={address}
-              unsupported={false}
-              compact
-              asValue
-            />
-            <PayoutInfo
-              payout={payout}
-              address={address}
-              withDestination={false}
-              iconSize="$5"
-            />
+            <RewardsAddressValue address={address} asValue />
+            <PayoutInfo payout={payout} iconSize="$5" />
           </CompactFieldRow>
         </>
       )}
@@ -709,11 +639,14 @@ function PerksSummaryCard({
       gap="$4"
       {...cardStyle}
     >
-      <RewardsAddressCard
-        address={address}
+      <RewardsAccountRow
         unsupported={unsupported}
-        payout={payout}
-        showDestination
+        trailing={
+          <XStack ai="center" gap="$1" flexShrink={0}>
+            <PayoutDestination address={address} />
+            <PayoutInfo payout={payout} />
+          </XStack>
+        }
       />
       {/* Equal columns across the card, so the figures fill its width
           instead of bunching at the left. */}
@@ -1004,12 +937,21 @@ function useShowModuleDetail({
   );
 }
 
-export function MyRewardsContent({
-  onOpenInvite,
-}: {
+interface IMyRewardsContentProps {
   // Absent where there is no invite tab to switch to.
   onOpenInvite?: () => void;
-} = {}) {
+}
+
+export function MyRewardsContent(props: IMyRewardsContentProps = {}) {
+  const copy = useBuildMyRewardsCopy();
+  return (
+    <MyRewardsCopyContext.Provider value={copy}>
+      <MyRewardsContentBody {...props} />
+    </MyRewardsCopyContext.Provider>
+  );
+}
+
+function MyRewardsContentBody({ onOpenInvite }: IMyRewardsContentProps) {
   const tabCopy = useReferralTabCopy();
   const copy = useMyRewardsCopy();
   const intl = useIntl();

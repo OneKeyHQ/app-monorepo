@@ -118,6 +118,10 @@ jest.mock('@onekeyhq/kit/src/components/Currency', () => {
   };
 });
 
+jest.mock('@onekeyhq/kit/src/components/Token', () => ({
+  Token: () => null,
+}));
+
 jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({
   ListItem: () => null,
 }));

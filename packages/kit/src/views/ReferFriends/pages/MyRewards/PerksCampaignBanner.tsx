@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -180,7 +180,9 @@ function PerksBannerSlide({
 
 // Swipeable campaign slides that lead the Perks tab. Renders nothing while
 // the slot has no slides, so the content below moves up.
-export function PerksCampaignBanner({
+// Memoized: its props are stable, so the tab's loading steps do not
+// re-render the carousel.
+export const PerksCampaignBanner = memo(function PerksCampaignBanner({
   items,
   compact,
   loading = false,
@@ -264,4 +266,4 @@ export function PerksCampaignBanner({
       </YStack>
     </YStack>
   );
-}
+});

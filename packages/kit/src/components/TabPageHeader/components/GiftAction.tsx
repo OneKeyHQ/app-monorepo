@@ -1,9 +1,7 @@
-import { useCallback } from 'react';
-
 import type { IButtonProps } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ActivityHubAction } from '@onekeyhq/kit/src/components/ActivityHub/ActivityHubAction';
-import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
+import { useOpenPerksTab } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -17,10 +15,7 @@ function EarnActivityHubAction({
   const isTravelMode =
     travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
     'travel-mode';
-  const { toReferFriendsPage } = useReferFriends();
-  const handleOpenInviteeReward = useCallback(() => {
-    void toReferFriendsPage({ tab: 'benefits' });
-  }, [toReferFriendsPage]);
+  const handleOpenInviteeReward = useOpenPerksTab();
 
   return (
     <ActivityHubAction
