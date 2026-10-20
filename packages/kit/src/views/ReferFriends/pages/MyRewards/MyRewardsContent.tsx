@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -46,6 +46,7 @@ import { ReferralCardEmpty } from '../../components/ReferralCardEmpty';
 import { BenefitsTabPlaceholder } from '../InviteReward/components/BenefitsTabPlaceholder';
 import { INVITE_REWARD_SUBJECT_ICON } from '../InviteReward/components/getInviteRewardRows';
 import { InviteStatCell } from '../InviteReward/components/InviteStatCell';
+import { ReferralTabCrossLink } from '../InviteReward/components/ReferralTabCrossLink';
 import { REFERRAL_USD_SOURCE_PROPS } from '../InviteReward/components/shared/getRewardSummary';
 import {
   COMPACT_ENTRY_TITLE_PROPS,
@@ -57,9 +58,7 @@ import {
   PRESSABLE_SURFACE_PROPS,
   useInviteHomeCardStyle,
 } from '../InviteReward/components/useInviteCardStyle';
-
-import { ReferralTabCrossLink } from '../InviteReward/components/ReferralTabCrossLink';
-import { REFERRAL_TAB_COPY } from '../InviteReward/referralTabCopy';
+import { useReferralTabCopy } from '../InviteReward/referralTabCopy';
 
 import {
   PerksCampaignBanner,
@@ -68,33 +67,35 @@ import {
 
 type IRewardModule = keyof IInviteeRewardsOverview;
 
-// Hardcoded English until i18n keys are added in Lokalise. Perks speaks of
-// rewards, like its "My Rewards" entry in the activity hub; the invite tab
-// speaks of commission.
-const MY_REWARDS_COPY = {
-  payoutTitle: 'Payout',
-  paidTo: 'Paid to',
-  addressRule: 'Rewards are tracked and paid per address.',
-  payoutSchedule: "Last month's rewards are paid by the 10th of each month.",
-  payoutGeneric: 'Paid to this address',
-  payoutInNetwork: 'Paid in {token} on {network}',
-  payoutIn: 'Paid in {token}',
-  totalRewards: 'Total rewards',
-  noEvmAddress: 'No EVM address',
-  noWalletTitle: 'Connect a wallet to view rewards',
-  unsupportedDescription: 'To view rewards, switch to an EVM account',
-  loadFailed: 'Unable to load',
-  moreTokens: '+{count} more',
-};
-
-// Stand-in for formatMessage placeholders until the copy moves to i18n.
-function fillCopy(
-  template: string,
-  values: Record<string, string | number | undefined>,
-) {
-  return template.replace(/\{(\w+)\}/g, (_, name: string) =>
-    String(values[name] ?? ''),
-  );
+// Perks copy. Perks speaks of rewards, like its "My Rewards" entry in the
+// activity hub; the invite tab speaks of commission.
+function useMyRewardsCopy() {
+  const intl = useIntl();
+  return useMemo(() => {
+    const t = (id: ETranslations, values?: Record<string, string | number>) =>
+      intl.formatMessage({ id }, values);
+    return {
+      payoutTitle: t(ETranslations.referral_perks_payout__title),
+      paidTo: t(ETranslations.referral_perks_paid_to__title),
+      addressRule: t(ETranslations.referral_perks_per_address__desc),
+      payoutSchedule: t(ETranslations.referral_perks_payout_schedule__desc),
+      payoutGeneric: t(ETranslations.referral_perks_paid_to_address__desc),
+      payoutIn: (token: string, network?: string) =>
+        network
+          ? t(ETranslations.referral_perks_paid_in_network__desc, {
+              token,
+              network,
+            })
+          : t(ETranslations.referral_perks_paid_in__desc, { token }),
+      totalRewards: t(ETranslations.referral_perks_total__title),
+      noEvmAddress: t(ETranslations.referral_perks_no_evm__title),
+      noWalletTitle: t(ETranslations.referral_perks_connect_wallet__title),
+      unsupportedDescription: t(ETranslations.referral_perks_switch_evm__desc),
+      loadFailed: t(ETranslations.referral_perks_load_failed__msg),
+      moreTokens: (count: number) =>
+        t(ETranslations.referral_perks_more_tokens__desc, { count }),
+    };
+  }, [intl]);
 }
 
 const MODULE_ICON: Record<IRewardModule, IKeyOfIcons> = {
@@ -338,9 +339,10 @@ function PayoutInfo({
   // Matches the copy icon beside it: 20px in compact cards, 16px elsewhere.
   iconSize?: '$4' | '$5';
 }) {
+  const copy = useMyRewardsCopy();
   return (
     <Popover
-      title={MY_REWARDS_COPY.payoutTitle}
+      title={copy.payoutTitle}
       hoverable
       placement="bottom-end"
       floatingPanelProps={INVITE_POPOVER_PANEL_PROPS}
@@ -360,13 +362,8 @@ function PayoutInfo({
               <PayoutTokenLogo payout={payout} size="$5" />
               <SizableText size="$bodyMdMedium" flexShrink={1}>
                 {payout
-                  ? fillCopy(
-                      payout.networkName
-                        ? MY_REWARDS_COPY.payoutInNetwork
-                        : MY_REWARDS_COPY.payoutIn,
-                      { token: payout.symbol, network: payout.networkName },
-                    )
-                  : MY_REWARDS_COPY.payoutGeneric}
+                  ? copy.payoutIn(payout.symbol, payout.networkName)
+                  : copy.payoutGeneric}
               </SizableText>
             </XStack>
             {withDestination ? (
@@ -380,10 +377,10 @@ function PayoutInfo({
             ) : null}
           </YStack>
           <SizableText size="$bodyMd" color="$textSubdued">
-            {MY_REWARDS_COPY.addressRule}
+            {copy.addressRule}
           </SizableText>
           <SizableText size="$bodyMd" color="$textSubdued">
-            {MY_REWARDS_COPY.payoutSchedule}
+            {copy.payoutSchedule}
           </SizableText>
         </YStack>
       }
@@ -395,10 +392,11 @@ function PayoutInfo({
 // Kept to the address alone; the token and network sit behind the info icon
 // next to it, so the row stays short.
 function PayoutDestination({ address }: { address?: string }) {
+  const copy = useMyRewardsCopy();
   return (
     <XStack testID="my-rewards-payout-destination" ai="center" gap="$2">
       <SizableText size="$bodyMd" color="$textSubdued">
-        {MY_REWARDS_COPY.paidTo}
+        {copy.paidTo}
       </SizableText>
       <RewardsAddressValue address={address} unsupported={false} compact />
     </XStack>
@@ -414,6 +412,7 @@ function RewardValue({
   size: '$bodyLgMedium' | '$bodyMdMedium' | '$bodySm';
   color?: '$textSubdued';
 }) {
+  const copy = useMyRewardsCopy();
   if (value.kind === 'amount') {
     return (
       <Currency
@@ -435,7 +434,7 @@ function RewardValue({
       />
       {value.extraCount ? (
         <SizableText size="$bodySm" color="$textSubdued" flexShrink={0}>
-          {fillCopy(MY_REWARDS_COPY.moreTokens, { count: value.extraCount })}
+          {copy.moreTokens(value.extraCount)}
         </SizableText>
       ) : null}
     </XStack>
@@ -464,6 +463,7 @@ function RewardsAddressValue({
   // As a row's value it reads like the figures beside it, not a note.
   asValue?: boolean;
 }) {
+  const copy = useMyRewardsCopy();
   const { copyText } = useClipboard();
   const copyAddress = useCallback(() => {
     if (address) {
@@ -472,7 +472,7 @@ function RewardsAddressValue({
   }, [address, copyText]);
 
   if (unsupported) {
-    return <SubduedNote>{MY_REWARDS_COPY.noEvmAddress}</SubduedNote>;
+    return <SubduedNote>{copy.noEvmAddress}</SubduedNote>;
   }
   if (!address) {
     return <Skeleton width={120} height={16} />;
@@ -525,9 +525,10 @@ function RewardsAddressCard({
   // Pointer layouts have room to show where rewards land on the row.
   showDestination?: boolean;
 }) {
+  const copy = useMyRewardsCopy();
   const renderTrailing = () => {
     if (unsupported) {
-      return <SubduedNote>{MY_REWARDS_COPY.noEvmAddress}</SubduedNote>;
+      return <SubduedNote>{copy.noEvmAddress}</SubduedNote>;
     }
     if (showDestination) {
       return (
@@ -620,6 +621,7 @@ function CompactPerksSummaryCard({
   payout?: IPayoutToken;
   labels: { total: string; paid: string; unpaid: string };
 }) {
+  const copy = useMyRewardsCopy();
   const cardStyle = useInviteHomeCardStyle();
   return (
     <YStack
@@ -635,9 +637,7 @@ function CompactPerksSummaryCard({
         <Stack flexShrink={1} minWidth={0}>
           <AccountSelectorTriggerHome num={0} hideAddress />
         </Stack>
-        {unsupported ? (
-          <SubduedNote>{MY_REWARDS_COPY.noEvmAddress}</SubduedNote>
-        ) : null}
+        {unsupported ? <SubduedNote>{copy.noEvmAddress}</SubduedNote> : null}
       </XStack>
       <YStack pt="$3" pb="$2" gap="$1">
         <SizableText size="$bodyMd" color="$textSubdued">
@@ -662,7 +662,7 @@ function CompactPerksSummaryCard({
       {unsupported ? null : (
         <>
           <Divider borderColor={INVITE_CARD_BORDER_COLOR} />
-          <CompactFieldRow label={MY_REWARDS_COPY.paidTo}>
+          <CompactFieldRow label={copy.paidTo}>
             <RewardsAddressValue
               address={address}
               unsupported={false}
@@ -800,6 +800,7 @@ function DesktopRow({
   noRewardLabel: string;
   onPress: () => void;
 }) {
+  const copy = useMyRewardsCopy();
   const hasReward = Boolean(row.paid || row.unpaid);
   const renderValues = () => {
     if (row.status === 'loading') {
@@ -822,9 +823,7 @@ function DesktopRow({
         <>
           <DesktopCell>
             <SubduedNote>
-              {row.status === 'error'
-                ? MY_REWARDS_COPY.loadFailed
-                : noRewardLabel}
+              {row.status === 'error' ? copy.loadFailed : noRewardLabel}
             </SubduedNote>
           </DesktopCell>
           <DesktopCell />
@@ -891,12 +890,13 @@ function CompactRow({
   labels: { unpaid: string; noReward: string };
   onPress: () => void;
 }) {
+  const copy = useMyRewardsCopy();
   const renderValue = () => {
     if (row.status === 'loading') {
       return <Skeleton width={72} height={16} />;
     }
     if (row.status === 'error') {
-      return <SubduedNote>{MY_REWARDS_COPY.loadFailed}</SubduedNote>;
+      return <SubduedNote>{copy.loadFailed}</SubduedNote>;
     }
     if (!row.paid && !row.unpaid) {
       return <SubduedNote>{labels.noReward}</SubduedNote>;
@@ -1010,6 +1010,8 @@ export function MyRewardsContent({
   // Absent where there is no invite tab to switch to.
   onOpenInvite?: () => void;
 } = {}) {
+  const tabCopy = useReferralTabCopy();
+  const copy = useMyRewardsCopy();
   const intl = useIntl();
   const { md } = useMedia();
   const cardStyle = useInviteHomeCardStyle();
@@ -1078,7 +1080,7 @@ export function MyRewardsContent({
       <InviteeRewardNoWallet
         testID="my-rewards-onboarding"
         illustration="WalletAdd"
-        title={MY_REWARDS_COPY.noWalletTitle}
+        title={copy.noWalletTitle}
       />
     );
   }
@@ -1116,8 +1118,8 @@ export function MyRewardsContent({
       return (
         <ReferralCardEmpty
           {...cardStyle}
-          title={MY_REWARDS_COPY.noEvmAddress}
-          description={MY_REWARDS_COPY.unsupportedDescription}
+          title={copy.noEvmAddress}
+          description={copy.unsupportedDescription}
         />
       );
     }
@@ -1171,7 +1173,7 @@ export function MyRewardsContent({
     ? { status: 'unavailable' }
     : getRewardTotals(rows);
   const summaryLabels = {
-    total: MY_REWARDS_COPY.totalRewards,
+    total: copy.totalRewards,
     paid: labels.paid,
     unpaid: labels.unpaid,
   };
@@ -1179,8 +1181,8 @@ export function MyRewardsContent({
   const crossLink = onOpenInvite ? (
     <ReferralTabCrossLink
       testID="refer-friends-to-invite-link"
-      prompt={REFERRAL_TAB_COPY.toInvitePrompt}
-      action={REFERRAL_TAB_COPY.toInviteAction}
+      prompt={tabCopy.toInvitePrompt}
+      action={tabCopy.toInviteAction}
       onPress={onOpenInvite}
     />
   ) : null;

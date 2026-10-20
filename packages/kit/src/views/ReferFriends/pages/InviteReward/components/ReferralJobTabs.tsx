@@ -14,7 +14,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ReferFriendsTestIDs } from '../../../testIDs';
 import { EReferralPageTab, type IReferralPageTab } from '../referralPageTab';
-import { REFERRAL_TAB_COPY } from '../referralTabCopy';
+import { useReferralTabCopy } from '../referralTabCopy';
 
 // Same floating thumb as the DeFi earn/borrow switch. The item itself stays
 // flat so it does not stack a second shadow on the thumb.
@@ -32,22 +32,23 @@ const REFERRAL_TAB_SEGMENT_ITEM_PROPS = {
 
 function useReferralTabs() {
   const intl = useIntl();
+  const tabCopy = useReferralTabCopy();
   return useMemo(
     () => [
       {
         value: EReferralPageTab.invite,
         label: intl.formatMessage({ id: ETranslations.sidebar_refer_a_friend }),
-        description: REFERRAL_TAB_COPY.inviteRole,
+        description: tabCopy.inviteRole,
         testID: ReferFriendsTestIDs.inviteTab,
       },
       {
         value: EReferralPageTab.benefits,
         label: intl.formatMessage({ id: ETranslations.referral_perks__title }),
-        description: REFERRAL_TAB_COPY.perksIntro,
+        description: tabCopy.perksIntro,
         testID: ReferFriendsTestIDs.benefitsTab,
       },
     ],
-    [intl],
+    [intl, tabCopy],
   );
 }
 

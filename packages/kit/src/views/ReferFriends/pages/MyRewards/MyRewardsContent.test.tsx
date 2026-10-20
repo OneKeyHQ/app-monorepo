@@ -238,11 +238,11 @@ describe('MyRewardsContent', () => {
     mockEarnAccountResult = { result: null, isLoading: false };
     render(<MyRewardsContent />);
     const header = screen.getByTestId('my-rewards-summary-card');
-    expect(header.textContent).toContain('No EVM address');
+    expect(header.textContent).toContain('referral_perks_no_evm__title');
     // No address to count means no total either.
     expect(header.textContent).toContain('--');
     // The row note and the empty state's title.
-    expect(screen.getAllByText('No EVM address')).toHaveLength(2);
+    expect(screen.getAllByText('referral_perks_no_evm__title')).toHaveLength(2);
     expect(screen.queryByTestId('my-rewards-copy-address')).toBeNull();
   });
 
@@ -310,7 +310,7 @@ describe('MyRewardsContent', () => {
     expect(
       summary.querySelectorAll('[data-testid="my-rewards-copy-address"]'),
     ).toHaveLength(1);
-    expect(summary.textContent).toContain('Paid to');
+    expect(summary.textContent).toContain('referral_perks_paid_to__title');
   });
 
   it('splits each product into paid and unpaid and isolates a failure', () => {
@@ -328,7 +328,7 @@ describe('MyRewardsContent', () => {
       2,
     );
     expect(screen.getByTestId('my-rewards-module-earn').textContent).toContain(
-      'Unable to load',
+      'referral_perks_load_failed__msg',
     );
 
     fireEvent.click(screen.getByTestId('my-rewards-module-swap'));

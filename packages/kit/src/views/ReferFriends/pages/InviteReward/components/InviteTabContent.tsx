@@ -13,14 +13,14 @@ import type {
 } from '@onekeyhq/shared/src/referralCode/type';
 
 import { ReferFriendsTestIDs } from '../../../testIDs';
-import { REFERRAL_TAB_COPY } from '../referralTabCopy';
+import { useReferralTabCopy } from '../referralTabCopy';
 
 import { InviteCompactHero } from './InviteCompactHero';
 import { InviteEarningsCard } from './InviteEarningsCard';
 import { InviteCompactCard, InviteLinkHero } from './InviteLinkHero';
 import { InviteRewardRows } from './InviteRewardRows';
-import { ReferralTabCrossLink } from './ReferralTabCrossLink';
 import { useInviteValueSummary } from './InviteValueLine';
+import { ReferralTabCrossLink } from './ReferralTabCrossLink';
 import { SuspensionAlert } from './SuspensionAlert';
 import {
   COMPACT_ENTRY_TITLE_PROPS,
@@ -89,6 +89,7 @@ export const InviteTabContent = memo(function InviteTabContent({
   // Absent while the Perks tab is turned off.
   onOpenPerks?: () => void;
 }) {
+  const tabCopy = useReferralTabCopy();
   const { md } = useMedia();
   const cardStyle = useInviteHomeCardStyle();
   const valueSummary = useInviteValueSummary({
@@ -175,8 +176,8 @@ export const InviteTabContent = memo(function InviteTabContent({
       {onOpenPerks ? (
         <ReferralTabCrossLink
           testID="refer-friends-to-perks-link"
-          prompt={REFERRAL_TAB_COPY.toPerksPrompt}
-          action={REFERRAL_TAB_COPY.toPerksAction}
+          prompt={tabCopy.toPerksPrompt}
+          action={tabCopy.toPerksAction}
           onPress={onOpenPerks}
         />
       ) : null}

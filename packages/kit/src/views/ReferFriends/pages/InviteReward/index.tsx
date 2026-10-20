@@ -49,7 +49,7 @@ import {
   IS_BENEFITS_TAB_ENABLED,
   resolveReferralPageTab,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralPageTab';
-import { REFERRAL_TAB_COPY } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralTabCopy';
+import { useReferralTabCopy } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralTabCopy';
 import {
   getInviteCodeStepImageHeight,
   getInviteCodeStepImageWidth,
@@ -391,6 +391,7 @@ const InviteShareFooter = memo(function InviteShareFooter({
 });
 
 function InviteRewardPage() {
+  const tabCopy = useReferralTabCopy();
   const intl = useIntl();
   const { md } = useMedia();
   const pageCanvas = useInvitePageCanvas();
@@ -659,7 +660,7 @@ function InviteRewardPage() {
                   numberOfLines={1}
                   flexShrink={1}
                 >
-                  {REFERRAL_TAB_COPY.perksIntro}
+                  {tabCopy.perksIntro}
                 </SizableText>
               )}
             </XStack>

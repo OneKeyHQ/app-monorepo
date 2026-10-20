@@ -36,7 +36,7 @@ import {
   IS_BENEFITS_TAB_ENABLED,
   resolveReferralPageTab,
 } from '../InviteReward/referralPageTab';
-import { REFERRAL_TAB_COPY } from '../InviteReward/referralTabCopy';
+import { useReferralTabCopy } from '../InviteReward/referralTabCopy';
 import { MyRewardsContent } from '../MyRewards';
 
 import { InviteCodeStepImage } from './components/InviteCodeStepImage';
@@ -129,6 +129,7 @@ function ReferAFriendPage({
 }
 
 function ReferAFriendPageWrapper() {
+  const tabCopy = useReferralTabCopy();
   const intl = useIntl();
   const route = useRoute<{
     key: string;
@@ -176,8 +177,8 @@ function ReferAFriendPageWrapper() {
       <ReferralTabCrossLink
         pt={pt}
         testID="refer-friends-intro-to-perks-link"
-        prompt={REFERRAL_TAB_COPY.toPerksPrompt}
-        action={REFERRAL_TAB_COPY.toPerksAction}
+        prompt={tabCopy.toPerksPrompt}
+        action={tabCopy.toPerksAction}
         onPress={openPerks}
       />
     ) : null;
@@ -217,10 +218,14 @@ function ReferAFriendPageWrapper() {
           title={intl.formatMessage({
             id: ETranslations.sidebar_refer_a_friend,
           })}
-          // Pass headerTitle only when used: an explicit undefined makes
-          // mobile web render the title over the global header actions.
-          {...(showTabs && showTabsInHeader
-            ? { headerTitle: renderHeaderTitle }
+          // Where the switch lives in the navigation bar, headerTitle is
+          // always passed: the header keeps options it is not given, so
+          // dropping it on the way back to the intro left "Perks" showing.
+          // An explicit undefined restores the plain title. Mobile web never
+          // gets it, as there undefined renders the title over the global
+          // header actions.
+          {...(IS_BENEFITS_TAB_ENABLED && showTabsInHeader
+            ? { headerTitle: showTabs ? renderHeaderTitle : undefined }
             : undefined)}
         />
       ) : (
@@ -259,7 +264,7 @@ function ReferAFriendPageWrapper() {
                   numberOfLines={1}
                   flexShrink={1}
                 >
-                  {REFERRAL_TAB_COPY.perksIntro}
+                  {tabCopy.perksIntro}
                 </SizableText>
               )}
             </XStack>
