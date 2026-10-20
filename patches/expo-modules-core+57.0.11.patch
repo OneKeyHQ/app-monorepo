@@ -49,43 +49,68 @@ index 3dc4a6b..bd4672f 100644
  react::ComponentDescriptor::Unique concreteExpoComponentDescriptorConstructor(
    const react::ComponentDescriptorParameters &parameters
 diff --git a/node_modules/expo-modules-core/android/src/main/cpp/fabric/FabricComponentsRegistry.cpp b/node_modules/expo-modules-core/android/src/main/cpp/fabric/FabricComponentsRegistry.cpp
-index db66d16..89d71ba 100644
+index db66d16..e359d6f 100644
 --- a/node_modules/expo-modules-core/android/src/main/cpp/fabric/FabricComponentsRegistry.cpp
 +++ b/node_modules/expo-modules-core/android/src/main/cpp/fabric/FabricComponentsRegistry.cpp
-@@ -41,8 +41,24 @@ void FabricComponentsRegistry::registerComponentsRegistry(
+@@ -41,34 +41,54 @@ void FabricComponentsRegistry::registerComponentsRegistry(
  
    auto frontendConverterProvider = FrontendConverterProvider::instance();
  
 +  // OneKey patch: synchronize process-wide statePropMap and deduplicate component flavor registration
 +  // across concurrent main + bg ReactHost initialization on Android.
-+  std::lock_guard<std::recursive_mutex> lock(statePropMapMutex);
 +  static std::unordered_map<std::string, std::shared_ptr<std::string const>> registeredFlavors;
 +
    for (size_t i = 0; i < size; ++i) {
 -    auto flavor = std::make_shared<std::string const>(componentNames->getElement(i)->toStdString());
+-    auto componentName = react::ComponentName{flavor->c_str()};
 +    // auto flavor = std::make_shared<std::string const>(componentNames->getElement(i)->toStdString());
 +    auto componentNameStr = componentNames->getElement(i)->toStdString();
-+    auto existingFlavorIt = registeredFlavors.find(componentNameStr);
 +    std::shared_ptr<std::string const> flavor;
 +    bool isNewFlavor = false;
-+    if (existingFlavorIt != registeredFlavors.end()) {
-+      flavor = existingFlavorIt->second;
-+    } else {
-+      flavor = std::make_shared<std::string const>(componentNameStr);
-+      registeredFlavors.emplace(componentNameStr, flavor);
-+      isNewFlavor = true;
-+    }
-     auto componentName = react::ComponentName{flavor->c_str()};
++    {
++      std::lock_guard<std::recursive_mutex> lock(statePropMapMutex);
++      auto existingFlavorIt = registeredFlavors.find(componentNameStr);
++      if (existingFlavorIt != registeredFlavors.end()) {
++        flavor = existingFlavorIt->second;
++      } else {
++        flavor = std::make_shared<std::string const>(componentNameStr);
++        registeredFlavors.emplace(componentNameStr, flavor);
++        isNewFlavor = true;
++      }
++
++      std::unordered_map<std::string, std::shared_ptr<FrontendConverter>> propMap;
  
-     std::unordered_map<std::string, std::shared_ptr<FrontendConverter>> propMap;
-@@ -60,15 +76,17 @@ void FabricComponentsRegistry::registerComponentsRegistry(
+-    std::unordered_map<std::string, std::shared_ptr<FrontendConverter>> propMap;
++      auto propNames = statePropNames->getElement(i);
++      auto propTypes = statePropTypes->getElement(i);
++      assert(propNames->size() == propTypes->size());
  
-     statePropMap.insert_or_assign(
-       flavor,
+-    auto propNames = statePropNames->getElement(i);
+-    auto propTypes = statePropTypes->getElement(i);
+-    assert(propNames->size() == propTypes->size());
++      for (size_t j = 0; j < propNames->size(); ++j) {
++        auto propName = propNames->getElement(j)->toStdString();
++        auto propType = propTypes->getElement(j);
++        auto converter = frontendConverterProvider->obtainConverter(propType);
++        propMap.emplace(propName, converter);
++      }
+ 
+-    for (size_t j = 0; j < propNames->size(); ++j) {
+-      auto propName = propNames->getElement(j)->toStdString();
+-      auto propType = propTypes->getElement(j);
+-      auto converter = frontendConverterProvider->obtainConverter(propType);
+-      propMap.emplace(propName, converter);
++      statePropMap.insert_or_assign(
++        flavor,
++        std::move(propMap)
++      );
+     }
+ 
+-    statePropMap.insert_or_assign(
+-      flavor,
 -      propMap
-+      std::move(propMap)
-     );
- 
+-    );
+-
 -    providerRegistry->add(react::ComponentDescriptorProvider{
 -      reinterpret_cast<react::ComponentHandle>(componentName),
 -      componentName,
@@ -93,6 +118,7 @@ index db66d16..89d71ba 100644
 -      &concreteExpoComponentDescriptorConstructor
 -    });
 +    if (isNewFlavor) {
++      auto componentName = react::ComponentName{flavor->c_str()};
 +      providerRegistry->add(react::ComponentDescriptorProvider{
 +        reinterpret_cast<react::ComponentHandle>(componentName),
 +        componentName,
