@@ -103,7 +103,7 @@ export const InviteTabContent = memo(function InviteTabContent({
   }, [inviteUrl, navigateToInviteCodes]);
 
   return (
-    <YStack pb="$6">
+    <YStack flex={1} pb="$6">
       <SuspensionAlert
         suspensionNotice={summaryInfo.suspensionNotice}
         suspensionContactLabel={summaryInfo.suspensionContactLabel}

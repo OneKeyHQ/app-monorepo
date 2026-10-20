@@ -254,7 +254,7 @@ function ReferAFriendPageWrapper() {
             ) : null}
           </Page.Container>
         ) : (
-          <Page.Container padded={false}>
+          <Page.Container padded={false} flex={1}>
             <MyRewardsContent onOpenInvite={openInvite} />
           </Page.Container>
         )}

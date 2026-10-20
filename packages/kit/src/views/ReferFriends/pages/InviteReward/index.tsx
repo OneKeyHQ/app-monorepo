@@ -584,12 +584,15 @@ function InviteRewardPage() {
         }
         onScroll={isCompactHeader ? handleScroll : undefined}
         scrollEventThrottle={16}
+        // Short tabs fill the viewport, so the cross-link at their end
+        // rests at the bottom.
+        contentContainerStyle={{ flexGrow: 1 }}
       >
-        <Page.Container padded={false}>
+        <Page.Container padded={false} flex={1}>
           {summaryInfo ? (
             // Keep the invite tab mounted so switching tabs does not
             // refetch its data.
-            <YStack display={isInviteTab ? 'flex' : 'none'}>
+            <YStack display={isInviteTab ? 'flex' : 'none'} flex={1}>
               <InviteTabContent
                 summaryInfo={summaryInfo}
                 fetchSummaryInfo={fetchSummaryInfo}

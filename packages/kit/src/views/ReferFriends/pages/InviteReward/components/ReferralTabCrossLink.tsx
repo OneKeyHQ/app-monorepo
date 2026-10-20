@@ -22,6 +22,9 @@ export function ReferralTabCrossLink({
     <XStack
       px="$pagePadding"
       pt={pt}
+      // In a page-filling column this pushes the line to the bottom; it
+      // stays right after the content once the page scrolls.
+      mt="auto"
       jc="center"
       ai="center"
       gap="$1.5"

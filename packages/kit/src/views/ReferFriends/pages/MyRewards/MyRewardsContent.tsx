@@ -986,7 +986,7 @@ export function MyRewardsContent({
     // Compact: the campaign slides lead, then the address card scoping the
     // breakdown under a quiet caption inset like the cards' text.
     return (
-      <YStack pt="$2" pb="$6">
+      <YStack flex={1} pt="$2" pb="$6">
         <YStack px="$pagePadding" gap="$5">
           {/* The tab names sit in the navigation bar here, so one line says
             whose money this tab is about. */}
@@ -1015,7 +1015,7 @@ export function MyRewardsContent({
   // the slides stretched to the card's height. Without slides the card
   // takes the row.
   return (
-    <YStack pb="$6">
+    <YStack flex={1} pb="$6">
       <XStack px="$pagePadding" gap="$5" ai="stretch">
         {/* Padding stays inside the flex items, so the split holds. */}
         <XStack flex={2} flexBasis={0} minWidth={0}>
