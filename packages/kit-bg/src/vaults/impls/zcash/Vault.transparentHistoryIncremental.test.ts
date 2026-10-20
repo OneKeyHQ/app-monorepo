@@ -185,7 +185,8 @@ describe('Zcash transparent history polling', () => {
     const full = await fetchTransparent();
     expect(post).toHaveBeenCalledTimes(3);
     expect(full.snapshotComplete).toBe(true);
-    expect(full.tipHeight).toBe(tip);
+    // The highest indexed block; confirmations do not move the tip.
+    expect(full.tipHeight).toBe(1200);
 
     post.mockClear();
     const poll = await fetchTransparent();
