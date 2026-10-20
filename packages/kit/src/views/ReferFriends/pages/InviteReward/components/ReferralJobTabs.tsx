@@ -2,7 +2,12 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SegmentControl, SizableText, XStack } from '@onekeyhq/components';
+import {
+  NATIVE_HIT_SLOP,
+  SegmentControl,
+  SizableText,
+  XStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ReferFriendsTestIDs } from '../../../testIDs';
@@ -69,6 +74,9 @@ export function ReferralJobTabs({
               color={isActive ? '$text' : '$textDisabled'}
               numberOfLines={1}
               cursor="default"
+              // Title-size text alone is under 44px; the slop makes each
+              // tab name a full touch target in the navigation bar.
+              hitSlop={NATIVE_HIT_SLOP}
               onPress={() => {
                 onChange(tab.value);
               }}

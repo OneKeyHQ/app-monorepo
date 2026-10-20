@@ -440,10 +440,13 @@ function RewardsAddressValue({
   address,
   unsupported,
   compact,
+  asValue = false,
 }: {
   address?: string;
   unsupported: boolean;
   compact: boolean;
+  // As a row's value it reads like the figures beside it, not a note.
+  asValue?: boolean;
 }) {
   const { copyText } = useClipboard();
   const copyAddress = useCallback(() => {
@@ -472,7 +475,11 @@ function RewardsAddressValue({
       hitSlop={NATIVE_HIT_SLOP}
       onPress={copyAddress}
     >
-      <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+      <SizableText
+        size={asValue ? '$bodyMdMedium' : '$bodyMd'}
+        color={asValue ? '$text' : '$textSubdued'}
+        numberOfLines={1}
+      >
         {accountUtils.shortenAddress({
           address,
           ...(compact ? { leadingLength: 6, trailingLength: 4 } : null),
@@ -490,15 +497,12 @@ function RewardsAddressCard({
   unsupported,
   payout,
   showDestination = false,
-  addressInPopover = !showDestination,
 }: {
   address?: string;
   unsupported: boolean;
   payout?: IPayoutToken;
   // Pointer layouts have room to show where rewards land on the row.
   showDestination?: boolean;
-  // Off where the card shows the address on a row of its own.
-  addressInPopover?: boolean;
 }) {
   const renderTrailing = () => {
     if (unsupported) {
@@ -516,13 +520,7 @@ function RewardsAddressCard({
         </XStack>
       );
     }
-    return (
-      <PayoutInfo
-        payout={payout}
-        address={address}
-        withDestination={addressInPopover}
-      />
-    );
+    return <PayoutInfo payout={payout} address={address} withDestination />;
   };
   return (
     <YStack testID="my-rewards-address-card">
@@ -610,12 +608,16 @@ function CompactPerksSummaryCard({
       pb="$1"
       {...cardStyle}
     >
-      <RewardsAddressCard
-        address={address}
-        unsupported={unsupported}
-        payout={payout}
-        addressInPopover={false}
-      />
+      {/* Whose rewards these are. The payout details sit on the Paid to
+          row below, where they apply. */}
+      <XStack testID="my-rewards-address-card" ai="center" gap="$2">
+        <Stack flexShrink={1} minWidth={0}>
+          <AccountSelectorTriggerHome num={0} hideAddress />
+        </Stack>
+        {unsupported ? (
+          <SubduedNote>{MY_REWARDS_COPY.noEvmAddress}</SubduedNote>
+        ) : null}
+      </XStack>
       <YStack pt="$3" pb="$2" gap="$1">
         <SizableText size="$bodyMd" color="$textSubdued">
           {labels.total}
@@ -644,6 +646,12 @@ function CompactPerksSummaryCard({
               address={address}
               unsupported={false}
               compact
+              asValue
+            />
+            <PayoutInfo
+              payout={payout}
+              address={address}
+              withDestination={false}
             />
           </CompactFieldRow>
         </>

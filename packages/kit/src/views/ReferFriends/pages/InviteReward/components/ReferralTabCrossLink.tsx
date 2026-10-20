@@ -42,6 +42,9 @@ export function ReferralTabCrossLink({
         gap="$1"
         px="$1"
         mx="$-1"
+        // 44px tall to the touch while the text line keeps its place.
+        py="$3"
+        my="$-3"
         borderRadius="$2"
         {...PRESSABLE_SURFACE_PROPS}
         onPress={onPress}
