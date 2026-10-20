@@ -2,7 +2,7 @@ import type { ISwapNetwork, ISwapToken } from './types';
 
 export const DUST_SWEEP_PROVIDER = 'SwapOKX';
 
-export type IDustSweepEntry = 'walletMore' | 'lowValueRow';
+export type IDustSweepEntry = 'lowValueRow' | 'tokenListHeader';
 export type IDustSweepRouteParams = {
   accountId?: string;
   indexedAccountId?: string;
@@ -35,7 +35,8 @@ export type IDustSweepNetwork = {
   deriveAddressEncoding?: string;
   tokens: IDustSweepToken[];
   nativeToken: ISwapToken;
-  valueUsd: string;
+  /** Total USD value of the account's tokens on this network (risk tokens excluded). */
+  balanceUsd: string;
   denySingleSwapProvider?: string;
 };
 export type IDustSweepItemStatus =
