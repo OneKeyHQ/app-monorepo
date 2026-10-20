@@ -2191,10 +2191,15 @@ export function useTradingViewNativeKLine({
 
   const currentSeriesChartData =
     chartData?.seriesKey === seriesKey ? chartData : null;
+  const hasCurrentHistoryError =
+    historyState.seriesKey === seriesKey &&
+    historyState.interval === activeInterval &&
+    historyState.status === 'error';
   const visibleChartData =
     currentSeriesChartData?.interval === activeInterval
       ? currentSeriesChartData
-      : (recentChartData ?? currentSeriesChartData);
+      : ((hasCurrentHistoryError ? null : recentChartData) ??
+        currentSeriesChartData);
   const isShowingRecentChartData = Boolean(
     recentChartData && visibleChartData === recentChartData,
   );
@@ -4193,6 +4198,8 @@ export function useTradingViewNativeKLine({
       if (isCancelled || latestRequestIdRef.current !== requestId) {
         return;
       }
+      // Failed refreshes must not leave a cached placeholder hiding the retry path.
+      recentPerpsCharts.delete(`${seriesKey}:${requestedInterval.value}`);
       const currentChartData = chartDataRef.current;
       if (
         currentChartData?.seriesKey === seriesKey &&
@@ -4478,11 +4485,8 @@ export function useTradingViewNativeKLine({
               'Failed to load native TradingView indicator warmup history',
               error,
             );
-            setHistoryState((current) => ({
-              ...current,
-              error,
-              status: 'error',
-            }));
+            // Optional older history must not change current-candle health.
+            // Pagination stays retryable after the loading lock is released.
           }
         } finally {
           if (

@@ -736,6 +736,102 @@ describe('TradingViewNative K-line data state machine', () => {
     await waitFor(() => expect(result.current.points[0]?.c).toBe(110));
   });
 
+  it.each(['remount', 'coin switch'])(
+    'restores the error/retry path when a cached Perps refresh fails after %s',
+    async (scenario) => {
+      jest.useFakeTimers();
+      const coin = `RECENT_FAILURE_${scenario}`;
+      mockFetchHistory.mockResolvedValueOnce(buildResponse(100, 100_000));
+      const renderChart = () =>
+        renderHook(
+          ({ selectedCoin }: { selectedCoin: string }) =>
+            useTradingViewNativeKLine({
+              source: buildPerpsSource(selectedCoin),
+              storageNamespace: 'perps',
+            }),
+          { initialProps: { selectedCoin: coin } },
+        );
+      let chart = renderChart();
+      await waitFor(() => expect(chart.result.current.points[0]?.c).toBe(100));
+      mockFetchHistory.mockRejectedValue(new Error('snapshot refresh failed'));
+      if (scenario === 'remount') {
+        chart.unmount();
+        chart = renderChart();
+      } else {
+        mockFetchHistory.mockResolvedValueOnce(buildResponse(200, 100_000));
+        chart.rerender({ selectedCoin: `${coin}_OTHER` });
+        await waitFor(() =>
+          expect(chart.result.current.points[0]?.c).toBe(200),
+        );
+        chart.rerender({ selectedCoin: coin });
+      }
+      expect(chart.result.current.points[0]?.c).toBe(100);
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(4001);
+      });
+      expect(chart.result.current.points).toEqual([]);
+      expect(chart.result.current.dataState.status).toBe('error');
+
+      chart.unmount();
+      chart = renderChart();
+      expect(chart.result.current.points).toEqual([]);
+      mockFetchHistory.mockResolvedValue(buildResponse(110, 100_000));
+      act(() => chart.result.current.handleRetry());
+      await waitFor(() => expect(chart.result.current.points[0]?.c).toBe(110));
+      expect(chart.result.current.dataState.status).toBe('live');
+    },
+  );
+
+  it('keeps live candles and allows older-history retry after indicator warmup fails', async () => {
+    jest.useFakeTimers();
+    mockHistoryRequestCandleCount = 5000;
+    mockInitialHistoryRequestCandleCount = 500;
+    const now = Math.floor(Date.now() / 1000);
+    mockFetchHistory
+      .mockResolvedValueOnce(buildResponse(100, now - 3600))
+      .mockRejectedValue(new Error('indicator warmup failed'));
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({
+        source: buildPerpsSource('WARMUP_FAILURE'),
+        storageNamespace: 'perps',
+      }),
+    );
+    await waitFor(() => expect(result.current.dataState.status).toBe('live'));
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(4001);
+    });
+    expect(mockFetchHistory).toHaveBeenCalledTimes(4);
+    expect(result.current.dataState.status).toBe('live');
+    pushRealtimePoint(buildResponse(105, now - 3600).points[0]);
+    expect(result.current.points.map(({ c }) => c)).toEqual([105]);
+
+    mockFetchHistory.mockResolvedValueOnce(buildResponse(90, now - 7200));
+    act(() => result.current.handleVisiblePointRangeChange({ startIndex: 0 }));
+    await waitFor(() =>
+      expect(result.current.points.map(({ c }) => c)).toEqual([90, 105]),
+    );
+    expect(result.current.dataState.status).toBe('live');
+  });
+
+  it('still reports a failed current-history refresh as stale when live chart data exists', async () => {
+    jest.useFakeTimers();
+    mockFetchHistory.mockResolvedValueOnce(buildResponse(100, 100_000));
+    const { result } = renderHook(() =>
+      useTradingViewNativeKLine({
+        source: buildPerpsSource('CURRENT_REFRESH_FAILURE'),
+        storageNamespace: 'perps',
+      }),
+    );
+    await waitFor(() => expect(result.current.dataState.status).toBe('live'));
+    mockFetchHistory.mockRejectedValue(new Error('current history failed'));
+    act(() => result.current.handleRetry());
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(4001);
+    });
+    expect(result.current.points[0]?.c).toBe(100);
+    expect(result.current.dataState.status).toBe('stale');
+  });
+
   it('bounds recently viewed candle snapshots and expires them after one minute', async () => {
     const source = buildPerpsSource('RECENT_LIMIT');
     const response = buildResponse(100, 100_000);
