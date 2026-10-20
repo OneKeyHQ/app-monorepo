@@ -106,7 +106,19 @@ it('keeps portalled overlay controls clickable and restores header dragging on c
   const close = layer.querySelector('button');
   assert(close, 'Close did not mount');
   const animation = new EventTarget();
-  Object.defineProperty(animation, 'playState', { value: 'running' });
+  Object.defineProperty(animation, 'playState', {
+    value: 'running',
+    configurable: true,
+  });
+  Object.defineProperty(animation, 'effect', {
+    value: {
+      target: layer.firstElementChild,
+      getKeyframes: () => [
+        { transform: 'translateY(-20px)' },
+        { transform: 'none' },
+      ],
+    },
+  });
   const entry = layer.firstElementChild;
   assert(entry, 'Overlay entry did not mount');
   Object.defineProperty(entry, 'getAnimations', { value: () => [animation] });
@@ -121,6 +133,10 @@ it('keeps portalled overlay controls clickable and restores header dragging on c
     ),
   ]);
 
+  setRect(close, 735, 26, 58, 30);
+  jest.advanceTimersByTime(20);
+  expect(regions('no-drag')[1]).toContain('top: 26px');
+  Object.defineProperty(animation, 'playState', { value: 'finished' });
   setRect(close, 735, 32, 58, 30);
   animation.dispatchEvent(new Event('finish'));
   await settleRegions();

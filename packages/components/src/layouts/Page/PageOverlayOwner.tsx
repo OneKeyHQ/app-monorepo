@@ -10,14 +10,16 @@ import {
   NavigationRouteContext,
 } from '@react-navigation/native';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import type { NavigationProp, ParamListBase } from '@react-navigation/native';
 
 type INavigation = NavigationProp<ParamListBase>;
 
 /**
  * True while the owner route is the active route of every navigator between
- * it and its root route. The root stack itself is not checked: a root modal
- * opened over Main covers Main's page overlays but does not hide them.
+ * it and its root route. Web also checks the root stack so covered page
+ * overlays cannot make a newly pushed root modal inert.
  */
 function isOwnerActiveWithinHost(navigation: INavigation, ownerKey: string) {
   let current: INavigation | undefined = navigation;
@@ -28,7 +30,7 @@ function isOwnerActiveWithinHost(navigation: INavigation, ownerKey: string) {
       return false;
     }
     const parent: INavigation | undefined = current.getParent();
-    if (!parent?.getParent()) {
+    if (!parent || (platformEnv.isNative && !parent.getParent())) {
       return true;
     }
     const holder = parent
@@ -63,11 +65,19 @@ export function PageOverlayOwner({ children }: PropsWithChildren) {
         ownerKey,
         isOwnerActiveWithinHost(navigation, ownerKey),
       );
-    const unsubscribeFocus = navigation.addListener('focus', update);
-    const unsubscribeBlur = navigation.addListener('blur', update);
+    const unsubscribeListeners: Array<() => void> = [];
+    let current: INavigation | undefined = navigation;
+    while (current) {
+      unsubscribeListeners.push(
+        current.addListener('focus', update),
+        current.addListener('blur', update),
+        current.addListener('state', update),
+      );
+      current = current.getParent();
+    }
+    update();
     return () => {
-      unsubscribeFocus();
-      unsubscribeBlur();
+      unsubscribeListeners.forEach((unsubscribe) => unsubscribe());
       overlayStore.removePage(ownerKey);
     };
   }, [navigation, ownerKey]);

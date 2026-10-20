@@ -1,0 +1,294 @@
+/**
+ * @jest-environment jsdom
+ * @jest-environment-options {"customExportConditions": ["node", "node-addons"]}
+ */
+// Test fixtures intentionally construct fresh props to exercise updates.
+/* oxlint-disable react-perf/jsx-no-new-object-as-prop, react-perf/jsx-no-jsx-as-prop */
+
+import type { ReactNode } from 'react';
+import { useState } from 'react';
+
+import { Popover } from '.';
+
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from '@testing-library/react';
+
+import { useIsDeferredGuideBlocked } from '../../hooks/useDeferredGuideBlocker';
+import { ShowCustom } from '../Toast/ShowCustom';
+
+import { Popover as NativePopover } from './index.native';
+
+let mockNarrow = false;
+jest.mock('../../utils/getFontSize', () => ({ NATIVE_HIT_SLOP: {} }));
+jest.mock('@onekeyhq/components/src/shared/tamagui', () => ({
+  withStaticProperties: Object.assign,
+  useMedia: () => ({ md: mockNarrow, gtMd: !mockNarrow }),
+  useTheme: () => ({ bgBackdrop: { val: '#00000044' } }),
+}));
+jest.mock('@tamagui/core', () => ({
+  useIsomorphicLayoutEffect:
+    jest.requireActual<typeof import('react')>('react').useLayoutEffect,
+}));
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: { isNativeIOS: true, isNative: true },
+}));
+jest.mock('../../hooks', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    useSafeAreaInsets: () => ({ bottom: 20 }),
+    useModalNavigatorContext: () => ({}),
+    ModalNavigatorContext: React.createContext({}),
+  };
+});
+jest.mock('../../hooks/useLayout', () => ({
+  useSafeAreaInsets: () => ({ top: 20 }),
+}));
+jest.mock('../../hooks/usePage', () => ({ usePageWidth: () => 400 }));
+jest.mock('../../layouts/Page/PageContext', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return { usePageContext: () => ({}), PageContext: React.createContext({}) };
+});
+jest.mock('react-native', () => ({
+  ...jest.requireActual<typeof import('react-native')>('react-native'),
+  useWindowDimensions: () => ({ height: 1000, width: 400 }),
+}));
+jest.mock('../../primitives', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  const Box = React.forwardRef<
+    HTMLDivElement,
+    {
+      children?: ReactNode;
+      onLayout?: (event: object) => void;
+      testID?: string;
+      height?: number;
+    }
+  >(function Box({ children, onLayout, testID, height }, ref) {
+    React.useEffect(() => {
+      onLayout?.({ nativeEvent: { layout: { height: 40 } } });
+    }, [onLayout]);
+    return (
+      <div ref={ref} data-testid={testID} data-height={height}>
+        {children}
+      </div>
+    );
+  });
+  return {
+    Stack: Box,
+    XStack: Box,
+    YStack: Box,
+    SizableText: Box,
+    ThemeableStack: Box,
+  };
+});
+jest.mock('../../layouts/ScrollView', () => ({
+  ScrollView: ({
+    children,
+    onContentSizeChange,
+  }: {
+    children?: ReactNode;
+    onContentSizeChange?: (w: number, h: number) => void;
+  }) => {
+    const React = jest.requireActual<typeof import('react')>('react');
+    React.useEffect(() => {
+      onContentSizeChange?.(300, 100);
+    }, [onContentSizeChange]);
+    return <div>{children}</div>;
+  },
+}));
+jest.mock('../../hocs/NativeSheetPresentation', () => ({
+  NativeSheetPresentation: ({
+    children,
+    open,
+    height,
+  }: {
+    children?: ReactNode;
+    open: boolean;
+    height?: number;
+  }) => (
+    <div
+      data-testid="native-sheet"
+      data-open={String(open)}
+      data-height={height}
+    >
+      {children}
+    </div>
+  ),
+}));
+jest.mock('./useNativePortalLifecycle', () => ({
+  useNativePortalLifecycle: ({
+    isOpen,
+    sheetProps,
+  }: {
+    isOpen: boolean;
+    sheetProps?: object;
+  }) => ({
+    popoverOpen: isOpen,
+    isNativePortalMounted: isOpen,
+    shouldUseNativePortalLifecycle: true,
+    resolvedSheetProps: sheetProps,
+  }),
+}));
+jest.mock('../../content/Keyboard', () => ({
+  Keyboard: { dismissWithDelay: jest.fn() },
+}));
+jest.mock('../../content/GlassButtonCapsule', () => ({
+  GlassButtonCapsule: ({ children }: { children?: ReactNode }) => children,
+}));
+jest.mock('../IconButton', () => ({ IconButton: () => null }));
+jest.mock('../Trigger', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    Trigger: React.forwardRef<
+      HTMLButtonElement,
+      { children?: ReactNode; onPress?: () => void }
+    >(function Trigger({ children, onPress }, ref) {
+      return (
+        <button ref={ref} type="button" onClick={onPress}>
+          {children}
+        </button>
+      );
+    }),
+  };
+});
+jest.mock('./popoverSideEffects', () => ({
+  runPopoverOpenSideEffects: jest.fn(),
+  runPopoverCloseSideEffects: jest.fn(),
+}));
+jest.mock('./anchoredPopover', () => ({
+  useAnchoredPosition: () => () => {},
+  useHoverOpen: jest.fn(),
+}));
+jest.mock('@onekeyfe/react-native-native-overlay', () => ({
+  useNestedOverlayLevel: () => 'modal',
+  OverlayView: ({
+    children,
+    visible,
+    presentation,
+    sheet,
+  }: {
+    children?: ReactNode;
+    visible: boolean;
+    presentation: string;
+    sheet?: { height?: number };
+  }) =>
+    visible ? (
+      <div
+        data-testid="overlay"
+        data-presentation={presentation}
+        data-height={sheet?.height}
+      >
+        {children}
+      </div>
+    ) : null,
+}));
+
+beforeEach(() => {
+  mockNarrow = false;
+});
+it('uses the requested percentage for a narrow web sheet', () => {
+  mockNarrow = true;
+  render(
+    <Popover
+      title="List"
+      open
+      renderTrigger={null}
+      sheetProps={{ snapPointsMode: 'percent', snapPoints: [70] }}
+      renderContent={<button type="button">Item</button>}
+    />,
+  );
+  expect(screen.getByTestId('overlay').dataset.height).toBe('700');
+});
+it('keeps native controls and a sheet when usingSheet is false', async () => {
+  function Example() {
+    const [open, setOpen] = useState(false);
+    return (
+      <NativePopover
+        title="Indicators"
+        usingSheet={false}
+        open={open}
+        onOpenChange={setOpen}
+        renderTrigger="Indicators"
+        renderContent={<input aria-label="Search indicator" />}
+      />
+    );
+  }
+  render(<Example />);
+  fireEvent.click(screen.getByRole('button', { name: 'Indicators' }));
+  await waitFor(() =>
+    expect(screen.getByTestId('native-sheet').dataset.open).toBe('true'),
+  );
+  expect(screen.getByLabelText('Search indicator')).toBeTruthy();
+});
+it('keeps percentage height and guide blocking for native sheets', () => {
+  const blocked = renderHook(() => useIsDeferredGuideBlocked());
+  const view = render(
+    <NativePopover
+      title="Accounts"
+      open
+      renderTrigger={null}
+      sheetProps={{ snapPointsMode: 'percent', snapPoints: [70] }}
+      renderContent={<input aria-label="Search account" />}
+    />,
+  );
+  expect(screen.getByTestId('native-sheet').dataset.height).toBe('680');
+  expect(blocked.result.current).toBe(true);
+  view.unmount();
+  expect(blocked.result.current).toBe(false);
+});
+it('blocks deferred guides only while the custom toast is open', () => {
+  const blocked = renderHook(() => useIsDeferredGuideBlocked());
+  const view = render(<ShowCustom open>Custom toast</ShowCustom>);
+  expect(blocked.result.current).toBe(true);
+  view.rerender(<ShowCustom open={false}>Custom toast</ShowCustom>);
+  expect(blocked.result.current).toBe(false);
+});
+it('focuses actions and forwards both autofocus callbacks', async () => {
+  const onOpenAutoFocus = jest.fn();
+  const onCloseAutoFocus = jest.fn();
+  const props = {
+    title: 'Actions',
+    renderTrigger: null,
+    renderContent: <button type="button">First action</button>,
+    floatingPanelProps: { onOpenAutoFocus, onCloseAutoFocus },
+  };
+  const view = render(<Popover {...props} open={false} />);
+  view.rerender(<Popover {...props} open />);
+  await waitFor(() =>
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: 'First action' }),
+    ),
+  );
+  expect(onOpenAutoFocus).toHaveBeenCalledTimes(1);
+  view.rerender(<Popover {...props} open={false} />);
+  await waitFor(() => expect(onCloseAutoFocus).toHaveBeenCalledTimes(1));
+});
+it('leaves focus alone for hover panels', async () => {
+  const outside = document.createElement('button');
+  document.body.appendChild(outside);
+  outside.focus();
+  const onOpenAutoFocus = jest.fn();
+  const view = render(
+    <Popover
+      title="Hover"
+      open
+      hoverable
+      renderTrigger={null}
+      floatingPanelProps={{ onOpenAutoFocus }}
+      renderContent={<button type="button">Hover action</button>}
+    />,
+  );
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 30));
+  });
+  expect(document.activeElement).toBe(outside);
+  expect(onOpenAutoFocus).not.toHaveBeenCalled();
+  view.unmount();
+  outside.remove();
+});

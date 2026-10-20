@@ -16,7 +16,7 @@ export interface IPopoverProps {
   title: string | ReactElement;
   description?: string;
   showHeader?: boolean;
-  /** Narrow windows (and native) present a sheet; `false` keeps the panel. */
+  /** Narrow web windows use a sheet by default; native always uses a sheet. */
   usingSheet?: boolean;
   renderTrigger: ReactNode;
   renderContent:

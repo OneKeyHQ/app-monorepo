@@ -72,8 +72,15 @@ export function Tooltip({
   } = useTooltipOpenState({ hovering, closeOnScroll });
 
   // A controlled `open` wins, and `onOpenChange` then receives the requests.
-  const isOpen = openProp ?? isOpenState;
-  const requestOpenChange = onOpenChangeProp ?? handleOpenChange;
+  const isOpen = !disabled && (openProp ?? isOpenState);
+  const requestOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (disabled && nextOpen) return;
+      onOpenChangeProp?.(nextOpen);
+      if (openProp === undefined) handleOpenChange(nextOpen);
+    },
+    [disabled, handleOpenChange, onOpenChangeProp, openProp],
+  );
   const requestOpenChangeRef = useRef(requestOpenChange);
   requestOpenChangeRef.current = requestOpenChange;
 
@@ -110,6 +117,7 @@ export function Tooltip({
   // Trigger interactions, bound on the DOM node so `triggerAsChild` keeps the
   // caller's element as the trigger.
   const handlersRef = useRef({
+    disabled,
     hovering,
     isOpen,
     handleTriggerPointerDown,
@@ -117,6 +125,7 @@ export function Tooltip({
     handleTriggerMouseLeave,
   });
   handlersRef.current = {
+    disabled,
     hovering,
     isOpen,
     handleTriggerPointerDown,
@@ -129,7 +138,7 @@ export function Tooltip({
       return;
     }
     const onPointerEnter = (event: PointerEvent) => {
-      if (event.pointerType === 'touch') {
+      if (handlersRef.current.disabled || event.pointerType === 'touch') {
         return;
       }
       handlersRef.current.handleTriggerMouseEnter();
@@ -147,6 +156,7 @@ export function Tooltip({
       }
     };
     const onPointerDown = (event: PointerEvent) => {
+      if (handlersRef.current.disabled) return;
       handlersRef.current.handleTriggerPointerDown(event);
       // Touch has no hover: a tap toggles the tooltip.
       if (event.pointerType === 'touch') {
@@ -155,7 +165,10 @@ export function Tooltip({
     };
     // Keyboard focus only; a pointer press focuses the trigger too.
     const onFocusIn = () => {
-      if (trigger.matches(':focus-visible, :has(:focus-visible)')) {
+      if (
+        !handlersRef.current.disabled &&
+        trigger.matches(':focus-visible, :has(:focus-visible)')
+      ) {
         requestOpenChangeRef.current(true);
       }
     };
@@ -204,20 +217,28 @@ export function Tooltip({
     return renderContent;
   }, [renderContent, setIsDisabled, setIsShow, shortcutKey]);
 
+  const requestCloseTooltip = useCallback(() => {
+    requestOpenChangeRef.current(false);
+    return closeTooltip();
+  }, [closeTooltip]);
+  const requestOpenTooltip = useCallback(() => {
+    requestOpenChangeRef.current(true);
+    return openTooltip();
+  }, [openTooltip]);
   useImperativeHandle(
     ref,
     () => ({
-      closeTooltip,
-      openTooltip,
+      closeTooltip: requestCloseTooltip,
+      openTooltip: requestOpenTooltip,
     }),
-    [closeTooltip, openTooltip],
+    [requestCloseTooltip, requestOpenTooltip],
   );
 
   const contextValue = useMemo(
     () => ({
-      closeTooltip,
+      closeTooltip: requestCloseTooltip,
     }),
-    [closeTooltip],
+    [requestCloseTooltip],
   );
 
   const panelStyle = useMemo(

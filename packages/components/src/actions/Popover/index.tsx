@@ -6,6 +6,7 @@ import {
   OverlayView,
   useNestedOverlayLevel,
 } from '@onekeyfe/react-native-native-overlay';
+import { FocusScope } from '@tamagui/focus-scope';
 import { useWindowDimensions } from 'react-native';
 
 import { useMedia, useTheme } from '@onekeyhq/components/src/hooks/useStyle';
@@ -176,14 +177,23 @@ function RawPopover({
   }, []);
   const isFitSheet =
     !sheetProps?.snapPointsMode || sheetProps.snapPointsMode === 'fit';
-  const sheetScrollViewMaxHeight = isFitSheet
-    ? Math.max(
-        0,
-        Math.floor(viewportHeight * FIT_SHEET_MAX_HEIGHT_RATIO) -
-          sheetHeaderHeight -
-          (bottom || SHEET_BOTTOM_MARGIN),
+  const percentSheetHeight = !isFitSheet
+    ? Math.min(
+        viewportHeight * FIT_SHEET_MAX_HEIGHT_RATIO,
+        Math.max(
+          1,
+          (viewportHeight * (sheetProps?.snapPoints?.[0] ?? 80)) / 100,
+        ),
       )
     : undefined;
+  const sheetScrollViewMaxHeight = Math.max(
+    0,
+    Math.floor(
+      percentSheetHeight ?? viewportHeight * FIT_SHEET_MAX_HEIGHT_RATIO,
+    ) -
+      sheetHeaderHeight -
+      (bottom || SHEET_BOTTOM_MARGIN),
+  );
 
   const reposition = useAnchoredPosition({
     open: isOpen && !isSheet,
@@ -227,13 +237,18 @@ function RawPopover({
   );
   const sheetOptions = useMemo<IOverlaySheetOptions>(
     () => ({
+      height: percentSheetHeight,
       cornerRadius: 0,
       showHandle: false,
       backgroundColor: 'transparent',
       dismissOnPanDown:
         !sheetProps?.disableDrag && (sheetProps?.dismissOnSnapToBottom ?? true),
     }),
-    [sheetProps?.disableDrag, sheetProps?.dismissOnSnapToBottom],
+    [
+      percentSheetHeight,
+      sheetProps?.disableDrag,
+      sheetProps?.dismissOnSnapToBottom,
+    ],
   );
   const {
     zIndex: _panelZIndex,
@@ -274,7 +289,7 @@ function RawPopover({
           onRequestDismiss={requestClose}
           onClose={flushCloseResolvers}
         >
-          <YStack>
+          <YStack height={percentSheetHeight}>
             {showHeader ? (
               <XStack
                 onLayout={handleSheetHeaderLayout}
@@ -315,6 +330,7 @@ function RawPopover({
               </XStack>
             ) : null}
             <ScrollView
+              flex={isFitSheet ? undefined : 1}
               marginTop="$-0.5"
               borderTopLeftRadius={showHeader ? undefined : '$6'}
               borderTopRightRadius={showHeader ? undefined : '$6'}
@@ -346,25 +362,36 @@ function RawPopover({
           onPresented={reposition}
           onClose={flushCloseResolvers}
         >
-          <div ref={handlePanelRef} style={ANCHORED_PANEL_STYLE}>
-            <YStack
-              testID="popover-panel"
-              w="$96"
-              bg="$bg"
-              borderRadius="$3"
-              maxHeight="100%"
-              overflow="hidden"
-              outlineColor="$neutral3"
-              outlineStyle="solid"
-              outlineWidth="$px"
-              style={POPOVER_PANEL_WEB_STYLE}
-              {...panelProps}
-            >
-              <ScrollView testID="TMPopover-ScrollView" flexShrink={1}>
-                {content}
-              </ScrollView>
-            </YStack>
-          </div>
+          <FocusScope
+            enabled={isOpen && !hoverable}
+            loop
+            trapped={
+              isOpen && !hoverable && Boolean(floatingPanelProps?.trapFocus)
+            }
+            forceUnmount={!isOpen}
+            onMountAutoFocus={floatingPanelProps?.onOpenAutoFocus}
+            onUnmountAutoFocus={floatingPanelProps?.onCloseAutoFocus}
+          >
+            <div ref={handlePanelRef} style={ANCHORED_PANEL_STYLE}>
+              <YStack
+                testID="popover-panel"
+                w="$96"
+                bg="$bg"
+                borderRadius="$3"
+                maxHeight="100%"
+                overflow="hidden"
+                outlineColor="$neutral3"
+                outlineStyle="solid"
+                outlineWidth="$px"
+                style={POPOVER_PANEL_WEB_STYLE}
+                {...panelProps}
+              >
+                <ScrollView testID="TMPopover-ScrollView" flexShrink={1}>
+                  {content}
+                </ScrollView>
+              </YStack>
+            </div>
+          </FocusScope>
         </OverlayView>
       )}
     </>

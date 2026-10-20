@@ -17,6 +17,7 @@ import {
   useModalNavigatorContext,
   useSafeAreaInsets,
 } from '../../hooks';
+import { useDeferredGuideBlocker } from '../../hooks/useDeferredGuideBlocker';
 import { PageContext, usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
 import { SizableText, XStack, YStack } from '../../primitives';
@@ -146,19 +147,20 @@ function RawPopover({
   openPopover,
   closePopover,
   placement: placementProp,
-  usingSheet = true,
+  usingSheet: _usingSheet = true,
   allowFlip = true,
   showHeader = true,
   mountNativePortalBeforeOpen,
   // Tamagui floating-panel props do not apply to the native sheet.
   ..._props
 }: IPopoverProps) {
+  useDeferredGuideBlocker(Boolean(isOpen));
   const { bottom } = useSafeAreaInsets();
   const { height: viewportHeight } = useWindowDimensions();
   const { gtMd } = useMedia();
-  // Every native popover is a native overlay sheet. `usingSheet={false}`
-  // renders no panel on native (those callers are web / desktop panels).
-  const useNativeSheet = usingSheet;
+  // Native callers always keep a sheet presentation, including controls
+  // that opt out of sheets only for their web anchored panel.
+  const useNativeSheet = true;
   const isWideSheet = Boolean(gtMd) || Boolean(platformEnv.isNativeIOSPad);
   const [sheetHeaderHeight, setSheetHeaderHeight] = useState<
     number | undefined
@@ -211,6 +213,15 @@ function RawPopover({
   const nativeSheetMaxHeight = Math.floor(
     viewportHeight * FIT_SHEET_MAX_HEIGHT_RATIO,
   );
+  const percentSheetHeight = !isFitSheet
+    ? Math.min(
+        nativeSheetMaxHeight,
+        Math.max(
+          1,
+          (viewportHeight * (sheetProps?.snapPoints?.[0] ?? 80)) / 100,
+        ),
+      )
+    : undefined;
   const nativeSheetBottomSpacing = bottom || SHEET_BOTTOM_MARGIN;
   // UISheetPresentationController adds the window bottom safe area below a
   // custom detent. Exclude that inset from the requested detent height while
@@ -226,10 +237,10 @@ function RawPopover({
   );
   const resolvedSheetHeaderHeight = showHeader ? sheetHeaderHeight : 0;
   const sheetScrollViewMaxHeight =
-    isFitSheet && resolvedSheetHeaderHeight !== undefined
+    resolvedSheetHeaderHeight !== undefined
       ? Math.max(
           0,
-          nativeSheetMaxHeight -
+          (percentSheetHeight ?? nativeSheetMaxHeight) -
             resolvedSheetHeaderHeight -
             nativeSheetBottomSpacing +
             (showHeader ? SHEET_HEADER_CONTENT_OVERLAP : 0),
@@ -340,13 +351,14 @@ function RawPopover({
     </ModalPortalProvider>
   );
 
-  if (!useNativeSheet) {
-    return null;
-  }
   return (
     <NativeSheetPresentation
       open={nativeSheetOpen}
-      height={nativeFitSheetHeight}
+      height={
+        percentSheetHeight !== undefined
+          ? Math.max(1, percentSheetHeight - nativeSheetSystemBottomInset)
+          : nativeFitSheetHeight
+      }
       onOpenChange={handleNativeSheetOpenChange}
       dismissOnOverlayPress={sheetProps?.dismissOnOverlayPress ?? true}
       dismissOnSnapToBottom={sheetProps?.dismissOnSnapToBottom ?? true}
@@ -357,7 +369,10 @@ function RawPopover({
       maxHeight={nativeSheetDetentMaxHeight}
       onAnimationComplete={handleSheetAnimationComplete}
     >
-      <YStack {...(isWideSheet ? gtMdShFrameStyle : undefined)}>
+      <YStack
+        height={percentSheetHeight}
+        {...(isWideSheet ? gtMdShFrameStyle : undefined)}
+      >
         {/* header */}
         {showHeader ? (
           <XStack
@@ -402,6 +417,7 @@ function RawPopover({
           </XStack>
         ) : null}
         <ScrollView
+          flex={isFitSheet ? undefined : 1}
           nestedScrollEnabled
           flexShrink={1}
           minHeight={0}

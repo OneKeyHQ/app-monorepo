@@ -77,6 +77,7 @@ const NO_DRAG_SELECTOR = [
 let started = false;
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingSince = 0;
+let animationFrame: number | undefined;
 let sizeObserver: ResizeObserver | null = null;
 let contentObserver: MutationObserver | null = null;
 // observe() also reports the initial size, which must not reschedule.
@@ -184,10 +185,34 @@ function recompute() {
   const overlayEntries = Array.from(
     document.querySelectorAll(OVERLAY_ENTRY_SELECTOR),
   ).filter(isZoneShown);
+  let movingControls = false;
   // Web Animations move controls without DOM mutations or resize events.
   for (const entry of overlayEntries) {
     for (const animation of entry.getAnimations?.({ subtree: true }) ?? []) {
       if (animation.playState === 'running') {
+        const effect = animation.effect as KeyframeEffect | null;
+        const target = effect?.target;
+        const movesGeometry = effect
+          ?.getKeyframes?.()
+          .some((frame) =>
+            [
+              'transform',
+              'translate',
+              'scale',
+              'left',
+              'top',
+              'width',
+              'height',
+            ].some((property) => property in frame),
+          );
+        if (
+          target instanceof Element &&
+          movesGeometry &&
+          (target.matches(NO_DRAG_SELECTOR) ||
+            target.querySelector(NO_DRAG_SELECTOR))
+        ) {
+          movingControls = true;
+        }
         animation.addEventListener('finish', scheduleRecompute, { once: true });
         animation.addEventListener('cancel', scheduleRecompute, { once: true });
       }
@@ -217,6 +242,12 @@ function recompute() {
   holes.forEach((h) => document.body.appendChild(h));
   observeSizes(measured);
   observeContent(controlRoots);
+  if (movingControls && animationFrame === undefined) {
+    animationFrame = requestAnimationFrame(() => {
+      animationFrame = undefined;
+      recompute();
+    });
+  }
 }
 
 // Watch visible headers and overlay entries. Child/attribute/text mutations catch controls
@@ -324,18 +355,18 @@ function startManager() {
   // Track inactive screens and page/global overlay entries outside the headers.
   // Ignore unrelated child-list changes, including our synthesized regions.
   const mo = new MutationObserver((records) => {
-    if (
-      records.some(
-        (record) =>
-          record.type === 'attributes' ||
-          [...record.addedNodes, ...record.removedNodes].some(
-            (node) =>
-              node instanceof Element &&
-              (node.matches(OVERLAY_ENTRY_SELECTOR) ||
-                node.querySelector(OVERLAY_ENTRY_SELECTOR)),
-          ),
-      )
-    ) {
+    const entriesChanged = records.some((record) =>
+      [...record.addedNodes, ...record.removedNodes].some(
+        (node) =>
+          node instanceof Element &&
+          (node.matches(OVERLAY_ENTRY_SELECTOR) ||
+            node.querySelector(OVERLAY_ENTRY_SELECTOR)),
+      ),
+    );
+    if (entriesChanged) {
+      // Start tracking before a short enter animation can finish.
+      runRecompute();
+    } else if (records.some((record) => record.type === 'attributes')) {
       scheduleRecompute();
     }
   });

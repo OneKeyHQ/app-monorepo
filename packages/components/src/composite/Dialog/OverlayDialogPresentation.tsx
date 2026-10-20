@@ -43,6 +43,7 @@ export interface IOverlayDialogPresentationProps extends PropsWithChildren {
   onRequestClose: () => void;
   /** The exit animation finished; `Dialog.show` unmounts its portal here. */
   onExited?: () => void;
+  onAnimationComplete?: (info: { open: boolean }) => void;
   /** Page scope: the page's root-route host and the owning page. */
   page?: { hostKey: string; ownerKey: string };
   /** Centered card only: the former floating panel styling (width, bg…). */
@@ -64,6 +65,7 @@ export function OverlayDialogPresentation({
   disableDrag,
   onRequestClose,
   onExited,
+  onAnimationComplete,
   page,
   cardProps,
   testID,
@@ -105,10 +107,15 @@ export function OverlayDialogPresentation({
       if (reason === 'replaced' || reason === 'page-removed') {
         onRequestClose();
       }
+      if (isSheet) onAnimationComplete?.({ open: false });
       onExited?.();
     },
-    [onExited, onRequestClose],
+    [isSheet, onAnimationComplete, onExited, onRequestClose],
   );
+
+  const handlePresented = useCallback(() => {
+    if (isSheet) onAnimationComplete?.({ open: true });
+  }, [isSheet, onAnimationComplete]);
 
   return (
     <OverlayView
@@ -123,6 +130,7 @@ export function OverlayDialogPresentation({
       dismissOnBackPress={platformEnv.isNative ? dismissOnBackPress : false}
       onRequestDismiss={handleRequestDismiss}
       onClose={handleClose}
+      onPresented={handlePresented}
       testID={testID}
     >
       {isSheet ? (

@@ -344,8 +344,12 @@ function DialogFrame({
   // so a scrollable body scrolls natively with no hand-off to the sheet, and
   // the grabber + title row (HeaderDragZone) carry a pan of their own that
   // moves the sheet body and lets go of it past its thresholds.
+  const isSheetDragDisabled =
+    disableDrag ||
+    Boolean(sheetProps?.disableDrag) ||
+    sheetProps?.dismissOnSnapToBottom === false;
   const isHeaderDragOnly =
-    useSheetPresentation && sheetDragArea === 'header' && !disableDrag;
+    useSheetPresentation && sheetDragArea === 'header' && !isSheetDragDisabled;
   const headerDragY = useSharedValue(0);
   useEffect(() => {
     if (open) {
@@ -554,11 +558,10 @@ function DialogFrame({
       bg={(contentContainerProps as { bg?: IColorTokens })?.bg}
       dismissOnOverlayPress={dismissOnOverlayPress}
       dismissOnBackPress={!disableSystemClose}
-      disableDrag={
-        disableDrag || Boolean(sheetProps?.disableDrag) || isHeaderDragOnly
-      }
+      disableDrag={isSheetDragDisabled || isHeaderDragOnly}
       onRequestClose={dismissFromHeaderDrag}
       onExited={onExited}
+      onAnimationComplete={sheetProps?.onAnimationComplete}
       page={overlayPage}
       cardProps={cardProps}
       testID={testID}

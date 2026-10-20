@@ -16,6 +16,7 @@ import { Animated, PanResponder, StyleSheet } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useDeferredGuideBlocker } from '../../hooks/useDeferredGuideBlocker';
 import { useSafeAreaInsets } from '../../hooks/useLayout';
 import { usePageWidth } from '../../hooks/usePage';
 import { Stack, ThemeableStack } from '../../primitives';
@@ -123,6 +124,7 @@ function BasicShowToaster({
   const [isOpenState, setIsOpenState] = useState(true);
   const isControlled = !isNil(open);
   const isOpen = isControlled ? open : isOpenState;
+  useDeferredGuideBlocker(Boolean(isOpen));
   const setIsOpen = useCallback(
     (value: boolean) => {
       if (isControlled) {

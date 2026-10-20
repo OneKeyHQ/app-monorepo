@@ -2,6 +2,8 @@
  * @jest-environment jsdom
  * @jest-environment-options {"customExportConditions": ["node", "node-addons"]}
  */
+// Tests drive host callbacks with fresh fixture props.
+/* oxlint-disable react-perf/jsx-no-new-object-as-prop, react-perf/jsx-no-new-function-as-prop */
 
 import type { ReactNode } from 'react';
 
@@ -72,6 +74,8 @@ jest.mock('./OverlayDialogPresentation', () => ({
     dismissOnOverlayPress,
     dismissOnBackPress,
     onRequestClose,
+    disableDrag,
+    onAnimationComplete,
   }: {
     children?: ReactNode;
     open: boolean;
@@ -80,11 +84,14 @@ jest.mock('./OverlayDialogPresentation', () => ({
     dismissOnOverlayPress: boolean;
     dismissOnBackPress: boolean;
     onRequestClose: () => void;
+    disableDrag: boolean;
+    onAnimationComplete?: (info: { open: boolean }) => void;
   }) => (
     <div
       data-testid="overlay-dialog"
       data-sheet={isSheet ? 'true' : 'false'}
       data-max-width={cardProps?.maxWidth}
+      data-disable-drag={String(disableDrag)}
     >
       <button
         type="button"
@@ -101,6 +108,13 @@ jest.mock('./OverlayDialogPresentation', () => ({
         onClick={onRequestClose}
       >
         Back
+      </button>
+      <button
+        type="button"
+        data-testid="sheet-presented"
+        onClick={() => onAnimationComplete?.({ open: true })}
+      >
+        Presented
       </button>
       {open ? children : null}
     </div>
@@ -632,4 +646,19 @@ describe('Dialog bounded sheet layout opt-in', () => {
     expect(screen.queryByTestId('plain-scroll-view')).toBeNull();
     expect(screen.getByTestId('dialog-bounded-close')).toBeTruthy();
   });
+});
+
+it('honors sheet pan dismissal and forwards its presentation callback', () => {
+  const onAnimationComplete = jest.fn();
+  render(
+    <DialogContainer
+      {...dialogProps}
+      sheetDragArea="header"
+      sheetProps={{ dismissOnSnapToBottom: false, onAnimationComplete }}
+    />,
+  );
+  expect(screen.getByTestId('overlay-dialog').dataset.disableDrag).toBe('true');
+  expect(screen.queryByTestId('header-drag-zone')).toBeNull();
+  fireEvent.click(screen.getByTestId('sheet-presented'));
+  expect(onAnimationComplete).toHaveBeenCalledWith({ open: true });
 });
