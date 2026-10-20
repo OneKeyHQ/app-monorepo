@@ -19,11 +19,7 @@ import { assertOverlayProps } from '../../shared/assertOverlayProps';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
 
-import {
-  useAnchoredPosition,
-  useHoverOpen,
-  useOutsidePress,
-} from './anchoredPopover';
+import { useAnchoredPosition, useHoverOpen } from './anchoredPopover';
 import { PopoverContext, usePopoverContext } from './context';
 import {
   runPopoverCloseSideEffects,
@@ -60,6 +56,10 @@ const ANCHORED_PANEL_STYLE = {
   left: 0,
   display: 'flex',
   flexDirection: 'column',
+} as const;
+const ANCHORED_BACKDROP = {
+  color: 'transparent',
+  dismissOnPress: true,
 } as const;
 const WORD_BREAK_ALL_STYLE = { wordBreak: 'break-all' } as const;
 // Longest overlay exit plus slack; only a safety net for `closePopover()`.
@@ -192,12 +192,6 @@ function RawPopover({
     placement: placement as Placement,
     offset,
     allowFlip,
-  });
-  useOutsidePress({
-    enabled: isOpen && !isSheet && !hoverable,
-    panelRef,
-    triggerRef,
-    onOutsidePress: requestClose,
   });
   useHoverOpen({
     hoverable: isSheet ? undefined : (hoverable as IPopoverHoverable),
@@ -342,10 +336,10 @@ function RawPopover({
           visible={isOpen}
           level={level}
           presentation="anchored"
-          // Non-modal like the Tamagui popover: focus and typing stay where
-          // they are; an outside press or Escape closes it.
+          // A transparent backdrop intercepts outside clicks without taking
+          // modal focus. Hover panels keep their pointer passthrough.
           blocking={false}
-          backdrop={false}
+          backdrop={hoverable ? false : ANCHORED_BACKDROP}
           dismissOnBackPress={!hoverable}
           keepContentMounted={keepChildrenMounted}
           onRequestDismiss={requestClose}

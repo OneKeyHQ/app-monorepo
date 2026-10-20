@@ -470,7 +470,7 @@ const SELECT_ITEMS = [
   { label: 'Gamma', value: 'gamma' },
 ];
 
-function SelectDemo() {
+function SelectDemo({ testID = 'native-overlay-select' }: { testID?: string }) {
   const [value, setValue] = useState('alpha');
   return (
     <Stack width={160}>
@@ -479,7 +479,7 @@ function SelectDemo() {
         items={SELECT_ITEMS}
         value={value}
         onChange={setValue}
-        testID="native-overlay-select"
+        testID={testID}
       />
     </Stack>
   );
@@ -771,6 +771,7 @@ function NativeOverlayDemo() {
               {Array.from({ length: 6 }, (_, i) => (
                 <SizableText key={i}>{`Popover row ${i + 1}`}</SizableText>
               ))}
+              <SelectDemo testID="native-overlay-nested-select" />
             </YStack>
           }
         />
@@ -798,7 +799,11 @@ function NativeOverlayDemo() {
           hoverable
           usingSheet={false}
           placement="top-start"
-          renderTrigger={<Button>Hover popover</Button>}
+          renderTrigger={
+            <Button testID="native-overlay-hover-popover-open">
+              Hover popover
+            </Button>
+          }
           renderContent={
             <YStack p="$5">
               <SizableText>Opened by hover</SizableText>
