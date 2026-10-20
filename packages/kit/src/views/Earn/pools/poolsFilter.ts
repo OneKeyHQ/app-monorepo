@@ -48,6 +48,14 @@ export function countExtraFilters(filter: IPoolsFilter) {
   return filter.versions.length + filter.feeTiers.length;
 }
 
+/** What the Filters button counts; the category only where it lives there */
+export function countPanelFilters(
+  filter: IPoolsFilter,
+  { withCategory }: { withCategory: boolean },
+) {
+  return countExtraFilters(filter) + (withCategory && filter.category ? 1 : 0);
+}
+
 function matchesTerm(pool: IPoolListItem, term: string) {
   return (
     (term.startsWith('0x') && pool.poolKey.toLowerCase() === term) ||

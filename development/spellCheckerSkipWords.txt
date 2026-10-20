@@ -914,6 +914,7 @@ undelegate
 Undelegate
 unencoded
 Unencoded
+unichain
 unicode
 unintercept
 uniswap

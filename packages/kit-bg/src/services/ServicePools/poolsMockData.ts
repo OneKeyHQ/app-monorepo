@@ -9,17 +9,25 @@ import type {
 // Demo snapshot for the Pools prototype; no indexer behind it yet. Token
 // addresses and logos are real. Prices were taken on 2026-10-19: stocks from
 // Robinhood's /rhj/prices mid quote times the token's current multiplier
-// (on-chain tokens price the multiplier in), crypto from CoinGecko. Pool
-// metrics are invented but sized like real pools of the same pair.
+// (on-chain tokens price the multiplier in), crypto from CoinGecko (BNB and
+// ARB on 2026-10-20). Pool metrics are invented but sized like real pools of
+// the same pair.
 
 export const POOLS_ETHEREUM_NETWORK_ID = getNetworkIdsMap().eth;
 export const POOLS_BASE_NETWORK_ID = getNetworkIdsMap().base;
 export const POOLS_ROBINHOOD_NETWORK_ID = ROBINHOOD_NETWORK_ID;
+export const POOLS_BSC_NETWORK_ID = getNetworkIdsMap().bsc;
+export const POOLS_ARBITRUM_NETWORK_ID = getNetworkIdsMap().arbitrum;
+// A preset network the short-code map does not name
+export const POOLS_UNICHAIN_NETWORK_ID = 'evm--130';
 
 export const POOLS_NETWORK_IDS = [
   POOLS_ROBINHOOD_NETWORK_ID,
   POOLS_ETHEREUM_NETWORK_ID,
   POOLS_BASE_NETWORK_ID,
+  POOLS_BSC_NETWORK_ID,
+  POOLS_ARBITRUM_NETWORK_ID,
+  POOLS_UNICHAIN_NETWORK_ID,
 ];
 
 export type IPoolsAssetSeed = {
@@ -40,6 +48,8 @@ const ETH_LOGO = 'https://uni.onekey-asset.com/static/chain/eth.png';
 const WETH_LOGO = 'https://uni.onekey-asset.com/static/logo/WETH.png';
 const ETH_PRICE = 2430.83;
 const BTC_PRICE = 82_783;
+const BNB_PRICE = 728.16;
+const BNB_LOGO = 'https://uni.onekey-asset.com/static/chain/bsc.png';
 
 function onchainLogo(networkId: string, address: string) {
   return `https://uni.onekey-asset.com/server-service-onchain/${networkId}/tokens/${address.toLowerCase()}.png`;
@@ -258,6 +268,130 @@ export const POOLS_ASSET_SEEDS: Record<string, IPoolsAssetSeed[]> = {
       quote: 768.36,
       multiplier: 1.001_717,
     }),
+  ],
+  [POOLS_BSC_NETWORK_ID]: [
+    {
+      symbol: 'BNB',
+      name: 'BNB',
+      address: '',
+      decimals: 18,
+      priceUsd: BNB_PRICE,
+      logoURI: BNB_LOGO,
+      canonical: 'BNB',
+    },
+    {
+      symbol: 'WBNB',
+      name: 'Wrapped BNB',
+      address: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c',
+      decimals: 18,
+      priceUsd: BNB_PRICE,
+      logoURI: onchainLogo(
+        POOLS_BSC_NETWORK_ID,
+        '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c',
+      ),
+      canonical: 'BNB',
+    },
+    {
+      symbol: 'USDT',
+      name: 'Tether USD',
+      address: '0x55d398326f99059fF775485246999027B3197955',
+      decimals: 18,
+      priceUsd: 1,
+      logoURI: onchainLogo(
+        POOLS_BSC_NETWORK_ID,
+        '0x55d398326f99059fF775485246999027B3197955',
+      ),
+      category: 'stablecoin',
+    },
+    {
+      symbol: 'USDC',
+      name: 'USD Coin',
+      address: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
+      decimals: 18,
+      priceUsd: 1,
+      logoURI: onchainLogo(
+        POOLS_BSC_NETWORK_ID,
+        '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
+      ),
+      category: 'stablecoin',
+    },
+    {
+      symbol: 'BTCB',
+      name: 'Binance-Peg BTCB',
+      address: '0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c',
+      decimals: 18,
+      priceUsd: BTC_PRICE,
+      logoURI: onchainLogo(
+        POOLS_BSC_NETWORK_ID,
+        '0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c',
+      ),
+    },
+  ],
+  [POOLS_ARBITRUM_NETWORK_ID]: [
+    {
+      symbol: 'ETH',
+      name: 'Ether',
+      address: '',
+      decimals: 18,
+      priceUsd: ETH_PRICE,
+      logoURI: ETH_LOGO,
+      canonical: 'ETH',
+    },
+    {
+      symbol: 'WETH',
+      name: 'Wrapped Ether',
+      address: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
+      decimals: 18,
+      priceUsd: ETH_PRICE,
+      logoURI: WETH_LOGO,
+      canonical: 'ETH',
+    },
+    {
+      symbol: 'USDC',
+      name: 'USD Coin',
+      address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+      decimals: 6,
+      priceUsd: 1,
+      logoURI: onchainLogo(
+        POOLS_ARBITRUM_NETWORK_ID,
+        '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+      ),
+      category: 'stablecoin',
+    },
+    {
+      symbol: 'ARB',
+      name: 'Arbitrum',
+      address: '0x912CE59144191C1204E64559FE8253a0e49E6548',
+      decimals: 18,
+      priceUsd: 0.1894,
+      logoURI: onchainLogo(
+        POOLS_ARBITRUM_NETWORK_ID,
+        '0x912CE59144191C1204E64559FE8253a0e49E6548',
+      ),
+    },
+  ],
+  [POOLS_UNICHAIN_NETWORK_ID]: [
+    {
+      symbol: 'ETH',
+      name: 'Ether',
+      address: '',
+      decimals: 18,
+      priceUsd: ETH_PRICE,
+      logoURI: ETH_LOGO,
+      canonical: 'ETH',
+    },
+    {
+      symbol: 'USDC',
+      name: 'USD Coin',
+      address: '0x078D782b760474a361dDA0AF3839290b0EF57AD6',
+      decimals: 6,
+      priceUsd: 1,
+      logoURI: onchainLogo(
+        POOLS_UNICHAIN_NETWORK_ID,
+        '0x078D782b760474a361dDA0AF3839290b0EF57AD6',
+      ),
+      category: 'stablecoin',
+    },
   ],
 };
 
@@ -531,6 +665,79 @@ export const POOLS_POOL_SEEDS: IPoolsPoolSeed[] = [
     fees24hUsd: 1903.2,
     shape: 'volatile',
   },
+  // BNB Chain
+  {
+    key: 'bsc-v3-wbnb-usdt-500',
+    networkId: POOLS_BSC_NETWORK_ID,
+    version: 'v3',
+    symbols: ['WBNB', 'USDT'],
+    feeTier: 500,
+    tvlUsd: 41_822_600,
+    volume24hUsd: 25_934_100,
+    shape: 'volatile',
+  },
+  {
+    key: 'bsc-v3-usdt-usdc-100',
+    networkId: POOLS_BSC_NETWORK_ID,
+    version: 'v3',
+    symbols: ['USDT', 'USDC'],
+    feeTier: 100,
+    tvlUsd: 22_641_300,
+    volume24hUsd: 37_208_500,
+    shape: 'stable',
+  },
+  {
+    key: 'bsc-v3-btcb-wbnb-500',
+    networkId: POOLS_BSC_NETWORK_ID,
+    version: 'v3',
+    symbols: ['BTCB', 'WBNB'],
+    feeTier: 500,
+    tvlUsd: 18_352_700,
+    volume24hUsd: 11_402_900,
+    shape: 'volatile',
+  },
+  {
+    key: 'bsc-v4-bnb-usdt-500',
+    networkId: POOLS_BSC_NETWORK_ID,
+    version: 'v4',
+    symbols: ['BNB', 'USDT'],
+    feeTier: 500,
+    tvlUsd: 9_708_400,
+    volume24hUsd: 14_583_600,
+    shape: 'volatile',
+  },
+  // Arbitrum
+  {
+    key: 'arb-v3-weth-usdc-500',
+    networkId: POOLS_ARBITRUM_NETWORK_ID,
+    version: 'v3',
+    symbols: ['WETH', 'USDC'],
+    feeTier: 500,
+    tvlUsd: 47_304_800,
+    volume24hUsd: 29_331_200,
+    shape: 'volatile',
+  },
+  {
+    key: 'arb-v3-arb-weth-3000',
+    networkId: POOLS_ARBITRUM_NETWORK_ID,
+    version: 'v3',
+    symbols: ['ARB', 'WETH'],
+    feeTier: 3000,
+    tvlUsd: 7_921_500,
+    volume24hUsd: 1_395_200,
+    shape: 'volatile',
+  },
+  // Unichain
+  {
+    key: 'uni-v4-eth-usdc-500',
+    networkId: POOLS_UNICHAIN_NETWORK_ID,
+    version: 'v4',
+    symbols: ['ETH', 'USDC'],
+    feeTier: 500,
+    tvlUsd: 11_263_900,
+    volume24hUsd: 19_254_700,
+    shape: 'volatile',
+  },
 ];
 
 export type IPoolsPositionSeed = {
@@ -625,5 +832,19 @@ export const POOLS_BALANCE_SEEDS: Record<string, Record<string, number>> = {
     WETH: 0.15,
     USDC: 4820.55,
     cbBTC: 0.0213,
+  },
+  [POOLS_BSC_NETWORK_ID]: {
+    BNB: 1.24,
+    USDT: 2560.8,
+    BTCB: 0.012,
+  },
+  [POOLS_ARBITRUM_NETWORK_ID]: {
+    ETH: 0.35,
+    USDC: 1804.2,
+    ARB: 950,
+  },
+  [POOLS_UNICHAIN_NETWORK_ID]: {
+    ETH: 0.21,
+    USDC: 512.4,
   },
 };

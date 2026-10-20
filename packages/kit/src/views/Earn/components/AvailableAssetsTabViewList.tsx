@@ -36,10 +36,15 @@ import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
 import { parseFormattedLiquidityValue } from '../earnUtils';
 import { useNavigateToEarnAsset } from '../hooks/useNavigateToEarnAsset';
+import { PoolsChainSelector } from '../pools/components/PoolsChainSelector';
 import { PoolsDemoMenuButton } from '../pools/components/PoolsDemoMenuButton';
 import { PoolsFilterButton } from '../pools/components/PoolsFilterButton';
 import { PoolsHomeTab } from '../pools/components/PoolsHomeTab';
-import { EMPTY_POOLS_FILTER, getPoolNetworkCounts } from '../pools/poolsFilter';
+import {
+  EMPTY_POOLS_FILTER,
+  countPanelFilters,
+  getPoolNetworkCounts,
+} from '../pools/poolsFilter';
 import { PoolsNavigation } from '../pools/poolsNavigation';
 import { PoolsQueries, usePoolsQuery } from '../pools/poolsQueries';
 import { EarnTestIDs } from '../testIDs';
@@ -96,6 +101,8 @@ export function AvailableAssetsTabViewList({
   const isPoolsTab = selectedTabIndex === tabData.length;
   const [poolsFilter, setPoolsFilter] =
     useState<IPoolsFilter>(EMPTY_POOLS_FILTER);
+  // Pools pick one chain at a time, as Market does, on every screen size
+  const [poolsChainId, setPoolsChainId] = useState<string>();
   const selectedTabType = tabData[selectedTabIndex]?.type;
   const isFixedRateTab = selectedTabType === EAvailableAssetsTypeEnum.FixedRate;
   const showMobileSortControl =
@@ -181,11 +188,6 @@ export function AvailableAssetsTabViewList({
   const { result: poolList } = usePoolsQuery(
     isPoolsTab && isActive ? PoolsQueries.list() : undefined,
   );
-  const poolNetworkIds = useMemo(
-    () => (shouldApplyNetworkFilter ? selectedNetworkIds : []),
-    [selectedNetworkIds, shouldApplyNetworkFilter],
-  );
-
   // Compute available network IDs for the current tab
   const { availableNetworkIds, networkAssetCounts } = useMemo(() => {
     if (isPoolsTab) {
@@ -223,6 +225,18 @@ export function AvailableAssetsTabViewList({
       setSelectedNetworkIds([]);
     }
   }, [media.gtMd, selectedNetworkIds.length]);
+
+  // A chain the list no longer has pools on falls back to every chain
+  useEffect(() => {
+    if (
+      isPoolsTab &&
+      poolList &&
+      poolsChainId &&
+      !networkAssetCounts[poolsChainId]
+    ) {
+      setPoolsChainId(undefined);
+    }
+  }, [isPoolsTab, networkAssetCounts, poolList, poolsChainId]);
 
   // Use ref to track component mount status to prevent state updates after unmount
   const isMountedRef = useRef(true);
@@ -518,8 +532,10 @@ export function AvailableAssetsTabViewList({
   const listEmptyComponent = useMemo(
     () =>
       searchText ||
-      shouldApplyNetworkFilter ||
-      (isPoolsTab && poolsFilter !== EMPTY_POOLS_FILTER) ? (
+      (isPoolsTab
+        ? Boolean(poolsChainId) ||
+          countPanelFilters(poolsFilter, { withCategory: !media.gtMd }) > 0
+        : shouldApplyNetworkFilter) ? (
         <Empty
           icon="SearchOutline"
           title={intl.formatMessage({
@@ -527,7 +543,15 @@ export function AvailableAssetsTabViewList({
           })}
         />
       ) : null,
-    [searchText, shouldApplyNetworkFilter, isPoolsTab, poolsFilter, intl],
+    [
+      searchText,
+      shouldApplyNetworkFilter,
+      isPoolsTab,
+      poolsChainId,
+      poolsFilter,
+      media.gtMd,
+      intl,
+    ],
   );
 
   // Pre-fetch all categories and open search dialog
@@ -655,12 +679,20 @@ export function AvailableAssetsTabViewList({
             {isPoolsTab ? (
               <PoolsDemoMenuButton testID="earn-pools-demo-menu-list" />
             ) : null}
-            <NetworkFilterControl
-              availableNetworkIds={availableNetworkIds}
-              selectedNetworkIds={selectedNetworkIds}
-              networkAssetCounts={networkAssetCounts}
-              onSelectionChange={handleNetworkFilterChange}
-            />
+            {isPoolsTab ? (
+              <PoolsChainSelector
+                value={poolsChainId}
+                onChange={setPoolsChainId}
+                networkCounts={networkAssetCounts}
+              />
+            ) : (
+              <NetworkFilterControl
+                availableNetworkIds={availableNetworkIds}
+                selectedNetworkIds={selectedNetworkIds}
+                networkAssetCounts={networkAssetCounts}
+                onSelectionChange={handleNetworkFilterChange}
+              />
+            )}
             <SearchBar
               testID={EarnTestIDs.assetSearchInput}
               size="small"
@@ -688,7 +720,10 @@ export function AvailableAssetsTabViewList({
           <PoolsHomeTab
             pools={poolList}
             filter={poolsFilter}
-            networkIds={poolNetworkIds}
+            onFilterChange={setPoolsFilter}
+            chainId={poolsChainId}
+            onChainChange={setPoolsChainId}
+            networkCounts={networkAssetCounts}
             search={searchText}
             emptyComponent={listEmptyComponent}
           />

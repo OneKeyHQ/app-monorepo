@@ -4,7 +4,6 @@ import type { ReactNode } from 'react';
 import {
   Button,
   Icon,
-  ScrollView,
   SizableText,
   Stack,
   XStack,
@@ -50,21 +49,15 @@ const CATEGORY_CHIPS: { scope: IPoolsCategory; label: string }[] = [
   { scope: 'stablecoins', label: POOLS_COPY.stablecoins },
 ];
 
-/** All, the starred pools, then Revert's asset categories */
+/** All, the starred pools, then Revert's asset categories (wide screens) */
 export function PoolsScopeChips({
   scope,
   onChange,
-  scrollable = false,
 }: {
   scope: IPoolsScope;
   onChange: (scope: IPoolsScope) => void;
-  /**
-   * Phones: the chips scroll sideways from the screen edge once they
-   * outgrow the row, so the caller leaves out its side padding
-   */
-  scrollable?: boolean;
 }) {
-  const chips = (
+  return (
     <XStack gap="$2" ai="center">
       <PoolsChip
         testID="earn-pools-scope-all"
@@ -95,19 +88,6 @@ export function PoolsScopeChips({
         />
       ))}
     </XStack>
-  );
-  if (!scrollable) {
-    return chips;
-  }
-  return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      flex={1}
-      contentContainerStyle={{ px: '$pagePadding' }}
-    >
-      {chips}
-    </ScrollView>
   );
 }
 

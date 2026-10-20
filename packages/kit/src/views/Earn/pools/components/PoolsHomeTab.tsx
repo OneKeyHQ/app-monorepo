@@ -31,9 +31,11 @@ import {
   getScopeCategory,
   useExpandedPool,
 } from './PoolsDiscoverList';
+import { PoolsPhoneFilterBar } from './PoolsPhoneFilterBar';
 
 import type { IPoolsScope } from './PoolsDiscoverList';
-import type { IPoolsFilter, IPoolsSortKey } from '../poolsFilter';
+import type { IPoolsListSort } from './PoolsFilterButton';
+import type { IPoolsFilter } from '../poolsFilter';
 
 export function PoolsListSkeleton({ rows = 6 }: { rows?: number }) {
   return (
@@ -57,18 +59,26 @@ export function PoolsListSkeleton({ rows = 6 }: { rows?: number }) {
 
 /**
  * The Pools pill on the Earn home. Wide screens get the table with its
- * period; phones get rows that open into tabs.
+ * period; phones get rows under one filter row.
  */
 export function PoolsHomeTab({
   pools,
   filter,
-  networkIds,
+  onFilterChange,
+  chainId,
+  onChainChange,
+  networkCounts,
   search,
   emptyComponent,
 }: {
   pools: IPoolListItem[] | undefined;
   filter: IPoolsFilter;
-  networkIds: string[];
+  onFilterChange: (filter: IPoolsFilter) => void;
+  /** The chain the list shows; absent for every chain */
+  chainId?: string;
+  onChainChange: (networkId: string | undefined) => void;
+  /** Pools per chain, for the chain pill on phones */
+  networkCounts: Record<string, number>;
   search: string;
   /** Shown when search or filters leave nothing */
   emptyComponent?: ReactNode;
@@ -76,10 +86,10 @@ export function PoolsHomeTab({
   const { gtMd } = useMedia();
   const [scope, setScope] = useState<IPoolsScope>('all');
   const [period, setPeriod] = useState<IPoolStatsWindow>('1D');
-  const [sort, setSort] = useState<{
-    key: IPoolsSortKey;
-    direction: 'asc' | 'desc';
-  }>({ key: 'tvl', direction: 'desc' });
+  const [sort, setSort] = useState<IPoolsListSort>({
+    key: 'tvl',
+    direction: 'desc',
+  });
   const { favoriteIds } = usePoolFavorites();
   const { expandedId, toggle } = useExpandedPool();
   // An exact pool address also finds a pool that is not on the list
@@ -96,9 +106,11 @@ export function PoolsHomeTab({
           pools: withSearchedPools(pools, searchedPools) ?? [],
           filter: {
             ...filter,
-            category: getScopeCategory(scope) ?? filter.category,
+            // Each width filters by the asset types it shows: the row's
+            // chips on wide screens, the Filters sheet on phones
+            category: gtMd ? getScopeCategory(scope) : filter.category,
           },
-          networkIds,
+          networkIds: chainId ? [chainId] : [],
           search,
           onlyIds: scope === 'favorites' ? favoriteIds : undefined,
         }),
@@ -107,9 +119,10 @@ export function PoolsHomeTab({
         shownPeriod,
       ),
     [
+      chainId,
       favoriteIds,
       filter,
-      networkIds,
+      gtMd,
       pools,
       scope,
       search,
@@ -133,18 +146,25 @@ export function PoolsHomeTab({
 
   return (
     <YStack gap="$2">
-      <XStack
-        px={gtMd ? '$5' : undefined}
-        pb="$1"
-        ai="center"
-        jc="space-between"
-        gap="$3"
-      >
-        <PoolsScopeChips scope={scope} onChange={setScope} scrollable={!gtMd} />
-        {gtMd ? (
+      {gtMd ? (
+        <XStack px="$5" pb="$1" ai="center" jc="space-between" gap="$3">
+          <PoolsScopeChips scope={scope} onChange={setScope} />
           <PoolsPeriodPills period={period} onChange={setPeriod} />
-        ) : null}
-      </XStack>
+        </XStack>
+      ) : (
+        <PoolsPhoneFilterBar
+          chainId={chainId}
+          onChainChange={onChainChange}
+          networkCounts={networkCounts}
+          favoritesOnly={scope === 'favorites'}
+          onFavoritesOnlyChange={(on) => setScope(on ? 'favorites' : 'all')}
+          filter={filter}
+          onFilterChange={onFilterChange}
+          sort={sort}
+          onSortChange={setSort}
+          resultCount={shown.length}
+        />
+      )}
       {gtMd ? (
         <PoolsDiscoverTable
           pools={shown}

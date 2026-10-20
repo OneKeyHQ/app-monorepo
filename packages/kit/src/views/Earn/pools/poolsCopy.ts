@@ -30,14 +30,14 @@ export const POOLS_COPY = {
   version: 'Version',
   feeTier: 'Fee tier',
   clearFilters: 'Clear',
-  apply: 'Apply',
+  sortBy: 'Sort by',
+  showPools: (count: number) =>
+    count === 1 ? 'Show 1 pool' : `Show ${count} pools`,
   noPools: 'No pools match',
   poolNotFound: 'Pool not found',
   positionNotFound: 'Position not found',
   sortTvl: 'TVL',
   sortApr: 'APR',
-  sortVolume: '24h volume',
-  sortFees: '24h fees',
   // List columns; the period pills say which window they cover
   volume: 'Volume',
   favorites: 'Favorites',
