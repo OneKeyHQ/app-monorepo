@@ -78,6 +78,7 @@ export function MDHeader({
   customHeaderRightItems,
   renderCustomHeaderRightItems,
   headerPx = '$5',
+  headerHeight = 44,
   disableHomeHeaderGlass = false,
   pageScrollPosition,
 }: {
@@ -93,6 +94,7 @@ export function MDHeader({
     fixedItems: ReactNode;
   }) => ReactNode;
   headerPx?: string;
+  headerHeight?: number;
   disableHomeHeaderGlass?: boolean;
   pageScrollPosition?: SharedValue<number>;
 }) {
@@ -203,7 +205,7 @@ export function MDHeader({
                 alignItems="center"
                 justifyContent="space-between"
                 px={headerPx}
-                h={44}
+                h={headerHeight}
                 {...(top || platformEnv.isNativeAndroid
                   ? { mt: top || '$2' }
                   : {})}
