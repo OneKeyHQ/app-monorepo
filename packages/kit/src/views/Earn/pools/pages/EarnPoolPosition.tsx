@@ -7,13 +7,11 @@ import BigNumber from 'bignumber.js';
 import {
   Alert,
   Button,
-  Page,
   SizableText,
   Skeleton,
   XStack,
   YStack,
   useMedia,
-  useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -38,6 +36,10 @@ import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { PoolHeader } from '../components/PoolHeader';
 import { PoolLiquidityChart } from '../components/PoolLiquidityChart';
+import {
+  PoolPositionActionsFooter,
+  usePoolPositionActions,
+} from '../components/PoolPositionActions';
 import { PoolPositionStatus } from '../components/PoolPositionCard';
 import { getRangeDisplay } from '../components/PoolRangeBar';
 import { PoolsCard } from '../components/PoolsCard';
@@ -327,23 +329,11 @@ function PositionView({
 }) {
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
-  const tabBarHeight = useScrollContentTabBarOffset();
   const [isCollecting, setIsCollecting] = useState(false);
   const { pool, position } = view;
   const isListed = pool.listingStatus === EPoolListingStatus.Listed;
   const isOpen = view.status !== EPoolPositionStatus.Closed;
-  const canAdd = isListed;
-  const canRemove = isOpen;
-
-  const openAdd = () =>
-    navigation.push(ETabEarnRoutes.EarnPoolAddLiquidity, {
-      poolId: pool.id,
-      positionId: position.id,
-    });
-  const openRemove = () =>
-    navigation.push(ETabEarnRoutes.EarnPoolRemoveLiquidity, {
-      positionId: position.id,
-    });
+  const actions = usePoolPositionActions(view, 'earn-pool-position');
   // Every open position on the network starts selected
   const openExit = () =>
     navigation.push(ETabEarnRoutes.EarnPoolsExit, {
@@ -372,29 +362,6 @@ function PositionView({
     },
     { label: POOLS_COPY.position },
   ]);
-
-  const actions: Array<{
-    label: string;
-    onPress: () => void;
-    primary: boolean;
-    testID: string;
-  }> = [];
-  if (canRemove) {
-    actions.push({
-      label: POOLS_COPY.remove,
-      onPress: openRemove,
-      primary: !canAdd,
-      testID: 'earn-pool-position-remove',
-    });
-  }
-  if (canAdd) {
-    actions.push({
-      label: POOLS_COPY.add,
-      onPress: openAdd,
-      primary: true,
-      testID: 'earn-pool-position-add',
-    });
-  }
 
   // With one position, Remove's "one token" option is the same exit
   const exitRow =
@@ -429,31 +396,9 @@ function PositionView({
     />
   );
 
-  const primaryAction = actions.find((action) => action.primary);
-  const secondaryAction = actions.find((action) => !action.primary);
   const footer =
-    gtMd || !primaryAction ? null : (
-      <Page.Footer
-        onConfirmText={primaryAction.label}
-        confirmButtonProps={{
-          variant: 'primary',
-          onPress: primaryAction.onPress,
-          testID: primaryAction.testID,
-          // Both buttons carry the offset, as on the protocol page; one alone
-          // stretches the other to the row's height
-          mb: tabBarHeight,
-        }}
-        {...(secondaryAction
-          ? {
-              onCancelText: secondaryAction.label,
-              cancelButtonProps: {
-                onPress: secondaryAction.onPress,
-                testID: secondaryAction.testID,
-                mb: tabBarHeight,
-              },
-            }
-          : {})}
-      />
+    gtMd || !actions.length ? null : (
+      <PoolPositionActionsFooter actions={actions} />
     );
 
   let body: ReactNode;

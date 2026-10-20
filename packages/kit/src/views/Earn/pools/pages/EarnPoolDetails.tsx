@@ -46,6 +46,10 @@ import {
   usePoolOverview,
   usePoolShare,
 } from '../components/PoolOverview';
+import {
+  PoolPositionActionsFooter,
+  usePoolPositionActions,
+} from '../components/PoolPositionActions';
 import { PoolPositionCard } from '../components/PoolPositionCard';
 import { PoolsCard } from '../components/PoolsCard';
 import { PoolStatsStrip } from '../components/PoolStats';
@@ -200,21 +204,19 @@ function PoolDetailsLoaded({ listPool }: { listPool: IPoolListItem }) {
     </XStack>
   );
 
+  // With exactly one position the data tab's footer acts on it, as an Earn
+  // asset page's Redeem + Deposit do; with several, which one to remove is
+  // a choice the cards make, so the footer stays Create position
+  const positionActions = usePoolPositionActions(
+    myPositions.length === 1 ? myPositions[0] : undefined,
+    'earn-pool-footer',
+  );
+
   // On the data tab the footer leads to the form; on the form it submits
   let footer = null;
-  if (!gtMd && canCreate) {
-    footer =
-      tab === 'data' ? (
-        <Page.Footer
-          onConfirmText={POOLS_COPY.createPosition}
-          confirmButtonProps={{
-            variant: 'primary',
-            onPress: showCreate,
-            mb: tabBarHeight,
-            testID: 'earn-pool-footer-create',
-          }}
-        />
-      ) : (
+  if (!gtMd) {
+    if (tab === 'create' && canCreate) {
+      footer = (
         <Page.Footer
           onConfirmText={form.buttonLabel}
           confirmButtonProps={{
@@ -227,6 +229,21 @@ function PoolDetailsLoaded({ listPool }: { listPool: IPoolListItem }) {
           }}
         />
       );
+    } else if (positionActions.length) {
+      footer = <PoolPositionActionsFooter actions={positionActions} />;
+    } else if (canCreate) {
+      footer = (
+        <Page.Footer
+          onConfirmText={POOLS_COPY.createPosition}
+          confirmButtonProps={{
+            variant: 'primary',
+            onPress: showCreate,
+            mb: tabBarHeight,
+            testID: 'earn-pool-footer-create',
+          }}
+        />
+      );
+    }
   }
 
   const data = (
@@ -238,7 +255,8 @@ function PoolDetailsLoaded({ listPool }: { listPool: IPoolListItem }) {
       chartHeight={gtMd ? 300 : 220}
       rangeOnChart={rangeOnChart && canCreate}
       onCopyRange={copyRange}
-      afterChart={
+      // Like the Portfolio tab on an Earn asset page: what you hold comes first
+      beforeChart={
         <MyPositionsCard positions={myPositions} onOpen={openPosition} />
       }
     >

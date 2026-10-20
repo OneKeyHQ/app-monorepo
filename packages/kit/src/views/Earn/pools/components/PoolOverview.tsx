@@ -188,7 +188,7 @@ export function PoolDataSection({
   chartHeight,
   rangeOnChart = false,
   onCopyRange,
-  afterChart,
+  beforeChart,
   children,
 }: {
   pool: IPoolListItem;
@@ -199,13 +199,14 @@ export function PoolDataSection({
   /** The range is set on the chart: drag its band, or the controls under it */
   rangeOnChart?: boolean;
   onCopyRange: (range: IPoolTickRange) => void;
-  /** The page's own cards: after the chart, and after top positions */
-  afterChart?: ReactNode;
+  /** The page's own cards: above the chart, and after top positions */
+  beforeChart?: ReactNode;
   children?: ReactNode;
 }) {
   const editRange = rangeOnChart && form.isRange;
   return (
     <YStack gap="$4">
+      {beforeChart}
       <PoolOverviewChart
         pool={pool}
         ticks={detail?.ticks}
@@ -231,7 +232,6 @@ export function PoolDataSection({
         height={chartHeight}
         stripWidth={layout === 'table' ? 72 : 52}
       />
-      {afterChart}
       {pool.capabilities.priceRange ? (
         <PoolTopPositions
           pool={pool}
