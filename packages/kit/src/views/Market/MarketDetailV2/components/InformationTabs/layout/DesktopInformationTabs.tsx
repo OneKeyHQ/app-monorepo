@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -194,20 +194,21 @@ export function DesktopInformationTabs({
   const transactionsTabName = intl.formatMessage({
     id: ETranslations.dexmarket_details_transactions,
   });
-  const {
-    tabsRef,
-    initialTabName,
-    handleTabChange: handlePositionTabChange,
-    isPositionPending,
-  } = useMarketDetailPositionTabContainer({
-    // Keyed by account too: switching accounts decides the tab again.
-    assetKey: `${networkId}:${tokenAddress}:${activeAccountId}`,
-    isPortfolioSettled,
-    hasPosition: portfolioData.length > 0,
-    positionTabName,
-    // The first tab below: BTC has no transactions tab.
-    defaultTabName: isBTCNetwork ? positionTabName : transactionsTabName,
-  });
+  const trackUserTabChangeRef = useRef<
+    ((data: { index: number; tabName: string }) => void) | undefined
+  >(undefined);
+  const { tabsRef, initialTabName, handleTabChange, isPositionPending } =
+    useMarketDetailPositionTabContainer({
+      // Analytics count user tab changes only, not the jumps made here.
+      onUserTabChange: (data) => trackUserTabChangeRef.current?.(data),
+      // Keyed by account too: switching accounts decides the tab again.
+      assetKey: `${networkId}:${tokenAddress}:${activeAccountId}`,
+      isPortfolioSettled,
+      hasPosition: portfolioData.length > 0,
+      positionTabName,
+      // The first tab below: BTC has no transactions tab.
+      defaultTabName: isBTCNetwork ? positionTabName : transactionsTabName,
+    });
 
   const tabs = useMemo(() => {
     // Check if current network supports holders tab (not available for native tokens)
@@ -278,13 +279,7 @@ export function DesktopInformationTabs({
 
   const tabKeys = useMemo(() => tabs.map((tab) => String(tab.key)), [tabs]);
   const { handleTabChange: trackTabChange } = useBottomTabAnalytics(tabKeys);
-  const handleTabChange = useCallback(
-    (data: { index: number; tabName: string }) => {
-      trackTabChange(data);
-      handlePositionTabChange(data);
-    },
-    [handlePositionTabChange, trackTabChange],
-  );
+  trackUserTabChangeRef.current = trackTabChange;
 
   const renderTabBar = useCallback(
     ({ ...props }: any) => (

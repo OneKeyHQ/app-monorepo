@@ -154,4 +154,34 @@ describe('useStockPortfolioData scope', () => {
       accountAResult?.accountScopeKey,
     );
   });
+
+  it('keeps rows and the tab scope when switching the selected variant chain', async () => {
+    mockStockDetail = { ...mockStockDetail, portfolioNetworkId: 'evm--1' };
+    const { result, rerender } = renderHook(() => useStockPortfolioData());
+    const firstResult = await runCapturedRequest();
+    mockResult = firstResult && {
+      ...firstResult,
+      items: [
+        {
+          accountAddress: '0xa',
+          tokenAddress: '0xAAPL',
+          symbol: 'AAPLon',
+          amount: '1',
+          tokenPrice: '100',
+          totalPrice: '100',
+          networkId: 'evm--1',
+          tokenId: 'aapl-ondo-ethereum',
+          issuer: 'Ondo',
+        },
+      ],
+    };
+    rerender();
+    const scopeKey = result.current.accountScopeKey;
+
+    mockStockDetail = { ...mockStockDetail, portfolioNetworkId: 'evm--56' };
+    rerender();
+
+    expect(result.current.accountScopeKey).toBe(scopeKey);
+    expect(result.current.portfolioData).toHaveLength(1);
+  });
 });

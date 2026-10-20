@@ -35,6 +35,7 @@ let mockCapturedOptions:
   | {
       pollingInterval?: number;
       undefinedResultIfReRun?: boolean;
+      keepResultIfError?: boolean;
       watchLoading?: boolean;
     }
   | undefined;
@@ -56,6 +57,7 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
     options?: {
       pollingInterval?: number;
       undefinedResultIfReRun?: boolean;
+      keepResultIfError?: boolean;
       watchLoading?: boolean;
     },
   ) => {
@@ -161,6 +163,7 @@ describe('usePortfolioData', () => {
     expect(result.current.portfolioData).toEqual([portfolioItem]);
     expect(mockCapturedOptions).toEqual({
       watchLoading: true,
+      keepResultIfError: true,
       pollingInterval: 5000,
     });
   });

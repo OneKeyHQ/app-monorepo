@@ -228,18 +228,23 @@ export function useStockPortfolioData() {
   const tokenVariantsRef = useRef(tokenVariants);
   tokenVariantsRef.current = tokenVariants;
   // Whose holdings a result describes: this stock under this account and
-  // derivation. Rows from another scope are never shown.
+  // derivation. Rows from another scope are never shown. The selected
+  // variant's chain is left out: holdings cover every variant, so switching
+  // variants keeps the rows on screen and the opening tab as it is.
   const accountScopeKey = [
     stockId ?? '',
     account?.id ?? '',
     indexedAccount?.id ?? '',
     deriveType ?? '',
-    portfolioNetworkId ?? '',
     JSON.stringify(selectedDeriveType ?? null),
   ].join('|');
-  // The scope plus the variants it was asked about. Settlement needs both, so
+  // Everything the request depended on. Settlement needs the current one, so
   // a run over a variant list that has not loaded yet does not count.
-  const requestScopeKey = `${accountScopeKey}|${tokenVariantsKey}`;
+  const requestScopeKey = [
+    accountScopeKey,
+    portfolioNetworkId ?? '',
+    tokenVariantsKey,
+  ].join('|');
 
   const resolveNetworkAccount = useCallback(
     async (networkId: string) => {

@@ -262,11 +262,13 @@ describe('useMarketDetailPositionTabContainer', () => {
 
   function renderContainerHook(initialProps: IContainerProps) {
     const jumpToTab = jest.fn();
+    const onUserTabChange = jest.fn();
     const view = renderHook(
       (props: IContainerProps) => {
         const container = useMarketDetailPositionTabContainer({
           ...props,
           positionTabName,
+          onUserTabChange,
         });
         container.tabsRef.current = {
           jumpToTab,
@@ -275,7 +277,7 @@ describe('useMarketDetailPositionTabContainer', () => {
       },
       { initialProps },
     );
-    return { ...view, jumpToTab };
+    return { ...view, jumpToTab, onUserTabChange };
   }
 
   beforeEach(() => {
@@ -315,7 +317,9 @@ describe('useMarketDetailPositionTabContainer', () => {
     expect(result.current.initialTabName).toBeUndefined();
 
     // The container reports the jump back; it is not the user's choice.
-    act(() => result.current.handleTabChange({ tabName: 'Overview' }));
+    act(() =>
+      result.current.handleTabChange({ index: 0, tabName: 'Overview' }),
+    );
     expect(mockSetPreference).not.toHaveBeenCalled();
   });
 
@@ -346,13 +350,94 @@ describe('useMarketDetailPositionTabContainer', () => {
       defaultTabName: 'Overview',
     });
 
-    act(() => result.current.handleTabChange({ tabName: positionTabName }));
-    act(() => result.current.handleTabChange({ tabName: 'Overview' }));
+    act(() =>
+      result.current.handleTabChange({ index: 0, tabName: positionTabName }),
+    );
+    act(() =>
+      result.current.handleTabChange({ index: 0, tabName: 'Overview' }),
+    );
 
     expect(mockSetPreference).toHaveBeenCalledTimes(1);
     expect(mockSetPreference).toHaveBeenLastCalledWith({
       preferPosition: true,
     });
+  });
+
+  it('reports analytics for user tab changes only, not for its own jumps', () => {
+    mockPreferPosition = true;
+    const { result, rerender, onUserTabChange } = renderContainerHook({
+      assetKey: 'evm--1:0xabc',
+      isPortfolioSettled: false,
+      hasPosition: false,
+      defaultTabName: 'Overview',
+    });
+    rerender({
+      assetKey: 'evm--1:0xabc',
+      isPortfolioSettled: true,
+      hasPosition: false,
+      defaultTabName: 'Overview',
+    });
+
+    // The fallback jump comes back through onTabChange.
+    act(() =>
+      result.current.handleTabChange({ index: 0, tabName: 'Overview' }),
+    );
+    expect(onUserTabChange).not.toHaveBeenCalled();
+
+    act(() => result.current.handleTabChange({ index: 2, tabName: 'Holders' }));
+    expect(onUserTabChange).toHaveBeenCalledWith({
+      index: 2,
+      tabName: 'Holders',
+    });
+  });
+
+  it('keeps one stable handler that acts on the current visit', () => {
+    const { result, rerender } = renderContainerHook({
+      assetKey: 'evm--1:0xabc:',
+      isPortfolioSettled: true,
+      hasPosition: true,
+      defaultTabName: 'Overview',
+    });
+    const mountedHandler = result.current.handleTabChange;
+
+    // The account loads after mount; native containers keep the old handler.
+    rerender({
+      assetKey: 'evm--1:0xabc:wallet-a',
+      isPortfolioSettled: true,
+      hasPosition: true,
+      defaultTabName: 'Overview',
+    });
+    expect(result.current.handleTabChange).toBe(mountedHandler);
+
+    act(() => mountedHandler({ index: 1, tabName: positionTabName }));
+    rerender({
+      assetKey: 'evm--1:0xabc:wallet-a',
+      isPortfolioSettled: true,
+      hasPosition: true,
+      defaultTabName: 'Overview',
+    });
+    expect(result.current.initialTabName).toBe(positionTabName);
+    expect(mockSetPreference).toHaveBeenLastCalledWith({
+      preferPosition: true,
+    });
+  });
+
+  it('opens a new visit on its default tab in a reused container', () => {
+    const { rerender, jumpToTab } = renderContainerHook({
+      assetKey: 'evm--1:0xabc',
+      isPortfolioSettled: true,
+      hasPosition: true,
+      defaultTabName: 'Overview',
+    });
+
+    rerender({
+      assetKey: 'evm--1:0xdef',
+      isPortfolioSettled: true,
+      hasPosition: true,
+      defaultTabName: 'Overview',
+    });
+
+    expect(jumpToTab).toHaveBeenCalledWith('Overview');
   });
 
   it('records the tabs the user picks without jumping', () => {
@@ -363,12 +448,14 @@ describe('useMarketDetailPositionTabContainer', () => {
       defaultTabName: 'Overview',
     });
 
-    act(() => result.current.handleTabChange({ tabName: positionTabName }));
+    act(() =>
+      result.current.handleTabChange({ index: 0, tabName: positionTabName }),
+    );
     expect(mockSetPreference).toHaveBeenLastCalledWith({
       preferPosition: true,
     });
 
-    act(() => result.current.handleTabChange({ tabName: 'Holders' }));
+    act(() => result.current.handleTabChange({ index: 0, tabName: 'Holders' }));
     expect(mockSetPreference).toHaveBeenLastCalledWith({
       preferPosition: false,
     });

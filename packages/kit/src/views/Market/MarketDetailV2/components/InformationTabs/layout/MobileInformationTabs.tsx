@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -193,20 +193,21 @@ export function MobileInformationTabs({
   const positionTabName = intl.formatMessage({
     id: ETranslations.dexmarket_details_myposition,
   });
-  const {
-    tabsRef,
-    initialTabName,
-    handleTabChange: handlePositionTabChange,
-    isPositionPending,
-  } = useMarketDetailPositionTabContainer({
-    // Keyed by account too: switching accounts decides the tab again.
-    assetKey: `${networkId}:${tokenAddress}:${activeAccountId}`,
-    isPortfolioSettled,
-    hasPosition: portfolioData.length > 0,
-    positionTabName,
-    // Every mobile detail kind opens with the overview tab.
-    defaultTabName: overviewName,
-  });
+  const trackUserTabChangeRef = useRef<
+    ((data: { index: number; tabName: string }) => void) | undefined
+  >(undefined);
+  const { tabsRef, initialTabName, handleTabChange, isPositionPending } =
+    useMarketDetailPositionTabContainer({
+      // Analytics count user tab changes only, not the jumps made here.
+      onUserTabChange: (data) => trackUserTabChangeRef.current?.(data),
+      // Keyed by account too: switching accounts decides the tab again.
+      assetKey: `${networkId}:${tokenAddress}:${activeAccountId}`,
+      isPortfolioSettled,
+      hasPosition: portfolioData.length > 0,
+      positionTabName,
+      // Every mobile detail kind opens with the overview tab.
+      defaultTabName: overviewName,
+    });
 
   const tabs = useMemo(() => {
     const portfolioTab = (
@@ -350,13 +351,7 @@ export function MobileInformationTabs({
 
   const tabKeys = useMemo(() => tabs.map((tab) => String(tab.key)), [tabs]);
   const { handleTabChange: trackTabChange } = useBottomTabAnalytics(tabKeys);
-  const handleTabChange = useCallback(
-    (data: { index: number; tabName: string }) => {
-      trackTabChange(data);
-      handlePositionTabChange(data);
-    },
-    [handlePositionTabChange, trackTabChange],
-  );
+  trackUserTabChangeRef.current = trackTabChange;
 
   const renderTabBar = useCallback(
     (props: TabBarProps<string>) => (

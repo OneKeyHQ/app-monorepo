@@ -86,6 +86,9 @@ export function usePortfolioData({
     [tokenAddress, networkId, accountAddress, xpub],
     {
       watchLoading: true,
+      // A failed poll keeps the last good rows and is not rethrown, since the
+      // polling and revalidation runs have no one to catch it.
+      keepResultIfError: true,
       pollingInterval: accountAddress
         ? timerUtils.getTimeDurationMs({ seconds: 5 })
         : undefined,

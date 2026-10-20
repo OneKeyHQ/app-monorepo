@@ -109,8 +109,9 @@ export function useMarketDetailPositionTab({
 
 /**
  * Drives a Tabs.Container from useMarketDetailPositionTab: opens on the
- * position tab, jumps away when the asset has no position, and records the
- * tabs the user picks.
+ * position tab, moves to the tab each new visit should open on, and records
+ * only the tabs the user picks. Programmatic jumps reach onTabChange too, so
+ * `onUserTabChange` (analytics) is called for user changes alone.
  */
 export function useMarketDetailPositionTabContainer({
   assetKey,
@@ -118,12 +119,14 @@ export function useMarketDetailPositionTabContainer({
   hasPosition,
   positionTabName,
   defaultTabName,
+  onUserTabChange,
 }: {
   assetKey: string | undefined;
   isPortfolioSettled: boolean;
   hasPosition: boolean;
   positionTabName: string;
   defaultTabName: string | undefined;
+  onUserTabChange?: (data: { index: number; tabName: string }) => void;
 }) {
   const { showPosition, selectTab, isPositionPending } =
     useMarketDetailPositionTab({
@@ -133,19 +136,32 @@ export function useMarketDetailPositionTabContainer({
     });
   const tabsRef = useRef<ITabContainerRef | null>(null);
   const showPositionRef = useRef(showPosition);
+  showPositionRef.current = showPosition;
+  const shownRef = useRef({ assetKey, showPosition });
   const isUserChangeRef = useRef(false);
   const programmaticTabRef = useRef<
     { tabName: string; expiresAt: number } | undefined
   >(undefined);
+  // Native tab containers keep the onTabChange they mounted with, so the
+  // handler stays stable and reads the latest values from here.
+  const latestRef = useRef({ selectTab, positionTabName, onUserTabChange });
+  latestRef.current = { selectTab, positionTabName, onUserTabChange };
 
   useEffect(() => {
-    if (showPositionRef.current === showPosition) return;
-    showPositionRef.current = showPosition;
-    if (isUserChangeRef.current) {
+    const shown = shownRef.current;
+    if (shown.assetKey === assetKey && shown.showPosition === showPosition) {
+      return;
+    }
+    shownRef.current = { assetKey, showPosition };
+    const isSameVisit = shown.assetKey === assetKey;
+    if (isSameVisit && isUserChangeRef.current) {
       // The container already shows the tab the user picked.
       isUserChangeRef.current = false;
       return;
     }
+    isUserChangeRef.current = false;
+    // A fallback, or a new visit in a reused container: other tabs are not
+    // remembered, so the new visit opens on its own target tab.
     const targetTabName = showPosition ? positionTabName : defaultTabName;
     if (!targetTabName) return;
     programmaticTabRef.current = {
@@ -153,10 +169,11 @@ export function useMarketDetailPositionTabContainer({
       expiresAt: Date.now() + PROGRAMMATIC_TAB_CHANGE_WINDOW_MS,
     };
     tabsRef.current?.jumpToTab(targetTabName);
-  }, [defaultTabName, positionTabName, showPosition]);
+  }, [assetKey, defaultTabName, positionTabName, showPosition]);
 
   const handleTabChange = useCallback(
-    ({ tabName }: { tabName: string }) => {
+    (data: { index: number; tabName: string }) => {
+      const { tabName } = data;
       const programmaticTab = programmaticTabRef.current;
       if (programmaticTab && Date.now() >= programmaticTab.expiresAt) {
         programmaticTabRef.current = undefined;
@@ -166,13 +183,15 @@ export function useMarketDetailPositionTabContainer({
         programmaticTabRef.current = undefined;
         return;
       }
-      const isPositionTab = tabName === positionTabName;
+      const latest = latestRef.current;
+      const isPositionTab = tabName === latest.positionTabName;
       if (isPositionTab !== showPositionRef.current) {
         isUserChangeRef.current = true;
       }
-      selectTab(isPositionTab);
+      latest.selectTab(isPositionTab);
+      latest.onUserTabChange?.(data);
     },
-    [positionTabName, selectTab],
+    [],
   );
 
   return {
