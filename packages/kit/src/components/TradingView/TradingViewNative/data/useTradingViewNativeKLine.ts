@@ -1967,15 +1967,15 @@ export function useTradingViewNativeKLine({
     supportedIntervals.find((interval) => interval.value === selectedInterval)
       ?.value ?? DEFAULT_TRADING_VIEW_NATIVE_KLINE_INTERVAL;
   const recentChartKey = `${seriesKey}:${activeInterval}`;
-  const recentChartData = useMemo(() => {
-    if (storageNamespace !== 'perps' || sourceKind !== 'hyperliquid') {
-      return null;
-    }
-    const cached = recentPerpsCharts.get(recentChartKey);
-    return cached && Date.now() - cached.updatedAt < RECENT_PERPS_CHART_TTL
-      ? cached.data
+  // Recheck eviction and TTL on every render, including retries of the same series.
+  const recentChart =
+    storageNamespace === 'perps' && sourceKind === 'hyperliquid'
+      ? recentPerpsCharts.get(recentChartKey)
+      : undefined;
+  const recentChartData =
+    recentChart && Date.now() - recentChart.updatedAt < RECENT_PERPS_CHART_TTL
+      ? recentChart.data
       : null;
-  }, [recentChartKey, sourceKind, storageNamespace]);
   useEffect(() => {
     if (
       storageNamespace !== 'perps' ||

@@ -772,11 +772,21 @@ describe('TradingViewNative K-line data state machine', () => {
       expect(chart.result.current.points).toEqual([]);
       expect(chart.result.current.dataState.status).toBe('error');
 
-      chart.unmount();
-      chart = renderChart();
-      expect(chart.result.current.points).toEqual([]);
-      mockFetchHistory.mockResolvedValue(buildResponse(110, 100_000));
+      const nextMount = renderChart();
+      expect(nextMount.result.current.points).toEqual([]);
+      nextMount.unmount();
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(60_001);
+      });
+      const retry = createDeferred<IMarketTokenKLineResponse | null>();
+      mockFetchHistory.mockReturnValue(retry.promise);
       act(() => chart.result.current.handleRetry());
+      expect(chart.result.current.points).toEqual([]);
+      expect(chart.result.current.dataState.status).toBe('loading');
+      await act(async () => {
+        retry.resolve(buildResponse(110, 100_000));
+        await retry.promise;
+      });
       await waitFor(() => expect(chart.result.current.points[0]?.c).toBe(110));
       expect(chart.result.current.dataState.status).toBe('live');
     },
