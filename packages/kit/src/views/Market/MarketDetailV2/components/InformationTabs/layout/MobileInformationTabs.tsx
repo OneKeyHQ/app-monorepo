@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -12,7 +12,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { isHoldersTabSupported } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -25,7 +24,7 @@ import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
 
 import { useStockDetail } from '../../../hooks/StockDetailContext';
-import { useMarketDetailPositionTabContainer } from '../../../hooks/useMarketDetailPositionTab';
+import { useMarketDetailPositionTab } from '../../../hooks/useMarketDetailPositionTab';
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { TokenLiquidityPools } from '../../TokenLiquidityPools';
 import { Holders } from '../components/Holders';
@@ -135,7 +134,7 @@ export function MobileInformationTabs({
   onScrollEnd,
   portfolioData,
   isRefreshing,
-  isPortfolioSettled,
+  isPortfolioPending,
   tokenLogoUrl,
   scrollEnabled = true,
   freezeContent = false,
@@ -150,7 +149,8 @@ export function MobileInformationTabs({
   onScrollEnd: () => void;
   portfolioData: IMarketAccountPortfolioItem[];
   isRefreshing?: boolean;
-  isPortfolioSettled: boolean;
+  // The first holdings result for this token is not back yet.
+  isPortfolioPending?: boolean;
   tokenLogoUrl?: string;
   scrollEnabled?: boolean;
   freezeContent?: boolean;
@@ -163,9 +163,6 @@ export function MobileInformationTabs({
     useTokenDetail();
   const { stockId } = useStockDetail();
   const { accountAddress } = useNetworkAccountAddress(networkId);
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  const activeAccountId =
-    activeAccount?.indexedAccount?.id ?? activeAccount?.account?.id ?? '';
 
   const holdersTabName = intl.formatMessage({
     id: ETranslations.dexmarket_holders,
@@ -187,36 +184,22 @@ export function MobileInformationTabs({
   const resolvedContainerWidth =
     containerWidth ?? (tabContainerWidth as number);
 
-  const overviewName = intl.formatMessage({
-    id: ETranslations.global_overview,
-  });
-  const positionTabName = intl.formatMessage({
-    id: ETranslations.dexmarket_details_myposition,
-  });
-  const trackUserTabChangeRef = useRef<
-    ((data: { index: number; tabName: string }) => void) | undefined
-  >(undefined);
-  const { tabsRef, initialTabName, handleTabChange, isPositionPending } =
-    useMarketDetailPositionTabContainer({
-      // Analytics count user tab changes only, not the jumps made here.
-      onUserTabChange: (data) => trackUserTabChangeRef.current?.(data),
-      // Keyed by account too: switching accounts decides the tab again.
-      assetKey: `${networkId}:${tokenAddress}:${activeAccountId}`,
-      isPortfolioSettled,
-      hasPosition: portfolioData.length > 0,
-      positionTabName,
-      // Every mobile detail kind opens with the overview tab.
-      defaultTabName: overviewName,
-    });
-
   const tabs = useMemo(() => {
+    const overviewName = intl.formatMessage({
+      id: ETranslations.global_overview,
+    });
     const portfolioTab = (
-      <Tabs.Tab key="portfolio" name={positionTabName}>
+      <Tabs.Tab
+        key="portfolio"
+        name={intl.formatMessage({
+          id: ETranslations.dexmarket_details_myposition,
+        })}
+      >
         <DelayedFreeze freeze={freezeContent}>
           <Portfolio
             portfolioData={portfolioData}
             isRefreshing={!!isRefreshing}
-            isPending={isPositionPending}
+            isPending={isPortfolioPending}
             accountAddress={accountAddress}
             tokenLogoUrl={tokenLogoUrl}
             scrollEnabled={scrollEnabled}
@@ -334,9 +317,7 @@ export function MobileInformationTabs({
     accountAddress,
     portfolioData,
     isRefreshing,
-    isPositionPending,
-    overviewName,
-    positionTabName,
+    isPortfolioPending,
     isNative,
     isBTCNetwork,
     tokenLogoUrl,
@@ -351,7 +332,17 @@ export function MobileInformationTabs({
 
   const tabKeys = useMemo(() => tabs.map((tab) => String(tab.key)), [tabs]);
   const { handleTabChange: trackTabChange } = useBottomTabAnalytics(tabKeys);
-  trackUserTabChangeRef.current = trackTabChange;
+  const { preferPosition, recordTabChange } = useMarketDetailPositionTab();
+  const positionTabName = intl.formatMessage({
+    id: ETranslations.dexmarket_details_myposition,
+  });
+  const handleTabChange = useCallback(
+    (data: { index: number; tabName: string }) => {
+      recordTabChange(data.tabName === positionTabName);
+      trackTabChange(data);
+    },
+    [positionTabName, recordTabChange, trackTabChange],
+  );
 
   const renderTabBar = useCallback(
     (props: TabBarProps<string>) => (
@@ -382,8 +373,6 @@ export function MobileInformationTabs({
   return (
     <Tabs.Container
       key={tabsKey}
-      ref={tabsRef as any}
-      initialTabName={initialTabName}
       width={platformEnv.isNative ? resolvedContainerWidth : undefined}
       headerContainerStyle={{
         width: '100%',
@@ -391,6 +380,9 @@ export function MobileInformationTabs({
       }}
       renderHeader={renderHeader}
       renderTabBar={renderTabBar}
+      // Opens on My position when that was the last tab picked on any detail
+      // page; read once when the tabs mount.
+      initialTabName={preferPosition ? positionTabName : undefined}
       onTabChange={handleTabChange}
     >
       {tabs}

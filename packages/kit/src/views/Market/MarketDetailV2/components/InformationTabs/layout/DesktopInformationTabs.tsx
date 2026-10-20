@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,7 +10,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useMarketTransactionsRealtimePauseAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { isHoldersTabSupported } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -21,7 +20,7 @@ import {
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
 
-import { useMarketDetailPositionTabContainer } from '../../../hooks/useMarketDetailPositionTab';
+import { useMarketDetailPositionTab } from '../../../hooks/useMarketDetailPositionTab';
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { TokenLiquidityPools } from '../../TokenLiquidityPools';
 import { Holders } from '../components/Holders';
@@ -153,7 +152,8 @@ function DesktopInformationTabsHeader({
 interface IDesktopInformationTabsProps {
   portfolioData: IMarketAccountPortfolioItem[];
   isRefreshing?: boolean;
-  isPortfolioSettled: boolean;
+  // The first holdings result for this token is not back yet.
+  isPortfolioPending?: boolean;
   isBTCNetwork?: boolean;
   tokenLogoUrl?: string;
 }
@@ -161,7 +161,7 @@ interface IDesktopInformationTabsProps {
 export function DesktopInformationTabs({
   portfolioData,
   isRefreshing,
-  isPortfolioSettled,
+  isPortfolioPending,
   isBTCNetwork,
   tokenLogoUrl,
 }: IDesktopInformationTabsProps) {
@@ -169,9 +169,6 @@ export function DesktopInformationTabs({
   const { tokenAddress, networkId, tokenDetail, isNative, isStockToken } =
     useTokenDetail();
   const { accountAddress } = useNetworkAccountAddress(networkId);
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  const activeAccountId =
-    activeAccount?.indexedAccount?.id ?? activeAccount?.account?.id ?? '';
 
   const holdersTabName = intl.formatMessage({
     id: ETranslations.dexmarket_holders,
@@ -188,28 +185,6 @@ export function DesktopInformationTabs({
     return baseTitle;
   }, [holdersTabName, tokenDetail?.holders]);
 
-  const positionTabName = intl.formatMessage({
-    id: ETranslations.dexmarket_details_myposition,
-  });
-  const transactionsTabName = intl.formatMessage({
-    id: ETranslations.dexmarket_details_transactions,
-  });
-  const trackUserTabChangeRef = useRef<
-    ((data: { index: number; tabName: string }) => void) | undefined
-  >(undefined);
-  const { tabsRef, initialTabName, handleTabChange, isPositionPending } =
-    useMarketDetailPositionTabContainer({
-      // Analytics count user tab changes only, not the jumps made here.
-      onUserTabChange: (data) => trackUserTabChangeRef.current?.(data),
-      // Keyed by account too: switching accounts decides the tab again.
-      assetKey: `${networkId}:${tokenAddress}:${activeAccountId}`,
-      isPortfolioSettled,
-      hasPosition: portfolioData.length > 0,
-      positionTabName,
-      // The first tab below: BTC has no transactions tab.
-      defaultTabName: isBTCNetwork ? positionTabName : transactionsTabName,
-    });
-
   const tabs = useMemo(() => {
     // Check if current network supports holders tab (not available for native tokens)
     const shouldShowHoldersTab = !isNative && isHoldersTabSupported(networkId);
@@ -219,18 +194,28 @@ export function DesktopInformationTabs({
 
     const items = [
       shouldShowTransactionsTab && (
-        <Tabs.Tab key="transactions" name={transactionsTabName}>
+        <Tabs.Tab
+          key="transactions"
+          name={intl.formatMessage({
+            id: ETranslations.dexmarket_details_transactions,
+          })}
+        >
           <TransactionsHistory
             tokenAddress={tokenAddress}
             networkId={networkId}
           />
         </Tabs.Tab>
       ),
-      <Tabs.Tab key="portfolio" name={positionTabName}>
+      <Tabs.Tab
+        key="portfolio"
+        name={intl.formatMessage({
+          id: ETranslations.dexmarket_details_myposition,
+        })}
+      >
         <Portfolio
           portfolioData={portfolioData}
           isRefreshing={isRefreshing}
-          isPending={isPositionPending}
+          isPending={isPortfolioPending}
           accountAddress={accountAddress}
           tokenLogoUrl={tokenLogoUrl}
         />
@@ -267,9 +252,7 @@ export function DesktopInformationTabs({
     tokenAddress,
     portfolioData,
     isRefreshing,
-    isPositionPending,
-    positionTabName,
-    transactionsTabName,
+    isPortfolioPending,
     holdersTabName,
     isNative,
     tokenLogoUrl,
@@ -279,7 +262,17 @@ export function DesktopInformationTabs({
 
   const tabKeys = useMemo(() => tabs.map((tab) => String(tab.key)), [tabs]);
   const { handleTabChange: trackTabChange } = useBottomTabAnalytics(tabKeys);
-  trackUserTabChangeRef.current = trackTabChange;
+  const { preferPosition, recordTabChange } = useMarketDetailPositionTab();
+  const positionTabName = intl.formatMessage({
+    id: ETranslations.dexmarket_details_myposition,
+  });
+  const handleTabChange = useCallback(
+    (data: { index: number; tabName: string }) => {
+      recordTabChange(data.tabName === positionTabName);
+      trackTabChange(data);
+    },
+    [positionTabName, recordTabChange, trackTabChange],
+  );
 
   const renderTabBar = useCallback(
     ({ ...props }: any) => (
@@ -303,9 +296,10 @@ export function DesktopInformationTabs({
   return (
     <Tabs.Container
       key={tabsKey}
-      ref={tabsRef as any}
-      initialTabName={initialTabName}
       renderTabBar={renderTabBar}
+      // Opens on My position when that was the last tab picked on any detail
+      // page; read once when the tabs mount.
+      initialTabName={preferPosition ? positionTabName : undefined}
       onTabChange={handleTabChange}
       disableScroll={!platformEnv.isNative}
     >

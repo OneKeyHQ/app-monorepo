@@ -168,78 +168,6 @@ describe('usePortfolioData', () => {
     });
   });
 
-  it('settles once the result for the current token and account is back', () => {
-    const props = {
-      tokenAddress: '0xsame',
-      networkId: 'evm--8453',
-      accountAddress: '0xaccount',
-      isAccountResolved: true,
-    };
-    const { result, rerender } = renderHook(() => usePortfolioData(props));
-    expect(result.current.isPortfolioSettled).toBe(false);
-
-    mockPortfolioResult = {
-      list: [portfolioItem],
-      networkId: 'evm--8453',
-      tokenAddress: '0xSAME',
-      accountAddress: '0xaccount',
-    };
-    rerender();
-    expect(result.current.isPortfolioSettled).toBe(true);
-  });
-
-  it('does not settle on a result from another account or before the account resolves', () => {
-    mockPortfolioResult = {
-      list: [portfolioItem],
-      networkId: 'evm--8453',
-      tokenAddress: '0xSAME',
-      accountAddress: '0xother',
-    };
-    const { result: otherAccount } = renderHook(() =>
-      usePortfolioData({
-        tokenAddress: '0xsame',
-        networkId: 'evm--8453',
-        accountAddress: '0xaccount',
-        isAccountResolved: true,
-      }),
-    );
-    expect(otherAccount.current.isPortfolioSettled).toBe(false);
-
-    mockPortfolioResult = {
-      ...mockPortfolioResult,
-      accountAddress: '0xaccount',
-    };
-    const { result: accountPending } = renderHook(() =>
-      usePortfolioData({
-        tokenAddress: '0xsame',
-        networkId: 'evm--8453',
-        accountAddress: '0xaccount',
-        isAccountResolved: false,
-      }),
-    );
-    expect(accountPending.current.isPortfolioSettled).toBe(false);
-  });
-
-  it('settles when the request fails, so the page does not wait forever', async () => {
-    mockFetchMarketAccountPortfolio.mockRejectedValue(new Error('offline'));
-    const { result } = renderHook(() =>
-      usePortfolioData({
-        tokenAddress: '0xsame',
-        networkId: 'evm--8453',
-        accountAddress: '0xaccount',
-        isAccountResolved: true,
-      }),
-    );
-    expect(result.current.isPortfolioSettled).toBe(false);
-
-    await act(async () => {
-      await expect(mockCapturedMethod?.()).rejects.toThrow('offline');
-    });
-
-    expect(result.current.isPortfolioSettled).toBe(true);
-    expect(result.current.portfolioData).toEqual([]);
-  });
-
   it('hides rows from the previous account while the new one loads', () => {
     mockPortfolioResult = {
       list: [portfolioItem],
@@ -252,35 +180,48 @@ describe('usePortfolioData', () => {
         tokenAddress: '0xsame',
         networkId: 'evm--8453',
         accountAddress: '0xaccount',
-        isAccountResolved: true,
       }),
     );
 
     expect(result.current.portfolioData).toEqual([]);
-    expect(result.current.isPortfolioSettled).toBe(false);
+    expect(result.current.isPortfolioPending).toBe(true);
   });
 
-  it('does not let a failure from an earlier visit settle a fresh request', async () => {
-    mockFetchMarketAccountPortfolio.mockRejectedValue(new Error('offline'));
-    const tokenA = {
-      tokenAddress: '0xaaa',
+  it('shows a skeleton until the first result for this token is back', () => {
+    const props = {
+      tokenAddress: '0xsame',
       networkId: 'evm--8453',
       accountAddress: '0xaccount',
-      isAccountResolved: true,
     };
-    const tokenB = { ...tokenA, tokenAddress: '0xbbb' };
-    const { result, rerender } = renderHook(
-      (props: typeof tokenA) => usePortfolioData(props),
-      { initialProps: tokenA },
+    const { result, rerender } = renderHook(() => usePortfolioData(props));
+    expect(result.current.isPortfolioPending).toBe(true);
+
+    mockPortfolioResult = {
+      list: [],
+      networkId: 'evm--8453',
+      tokenAddress: '0xSAME',
+      accountAddress: '0xaccount',
+    };
+    rerender();
+    expect(result.current.isPortfolioPending).toBe(false);
+  });
+
+  it('stops the skeleton when the first request fails', async () => {
+    mockFetchMarketAccountPortfolio.mockRejectedValue(new Error('offline'));
+    const { result } = renderHook(() =>
+      usePortfolioData({
+        tokenAddress: '0xsame',
+        networkId: 'evm--8453',
+        accountAddress: '0xaccount',
+      }),
     );
+    expect(result.current.isPortfolioPending).toBe(true);
+
     await act(async () => {
       await expect(mockCapturedMethod?.()).rejects.toThrow('offline');
     });
-    expect(result.current.isPortfolioSettled).toBe(true);
 
-    rerender(tokenB);
-    rerender(tokenA);
-
-    expect(result.current.isPortfolioSettled).toBe(false);
+    expect(result.current.isPortfolioPending).toBe(false);
+    expect(result.current.portfolioData).toEqual([]);
   });
 });

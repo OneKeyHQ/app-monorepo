@@ -142,7 +142,7 @@ function TokenDesktopLayoutBase({
   swapInputDraftKey,
   portfolioData,
   isRefreshing,
-  isPortfolioSettled,
+  isPortfolioPending,
   isBTCNetwork,
   isBTCMainnet,
   tokenLogoUrl,
@@ -162,7 +162,7 @@ function TokenDesktopLayoutBase({
   swapInputDraftKey: string;
   portfolioData: IMarketAccountPortfolioItem[];
   isRefreshing?: boolean;
-  isPortfolioSettled: boolean;
+  isPortfolioPending?: boolean;
   isBTCNetwork: boolean;
   isBTCMainnet: boolean;
   tokenLogoUrl?: string;
@@ -247,7 +247,7 @@ function TokenDesktopLayoutBase({
             <InformationTabsComponent
               portfolioData={portfolioData}
               isRefreshing={isRefreshing}
-              isPortfolioSettled={isPortfolioSettled}
+              isPortfolioPending={isPortfolioPending}
               isBTCNetwork={isBTCNetwork}
               tokenLogoUrl={tokenLogoUrl}
             />

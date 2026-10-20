@@ -202,13 +202,7 @@ export function useStockPortfolioData() {
     activeAccount: { account, indexedAccount, deriveType, ready },
   } = useActiveAccount({ num: 0 });
   const [selectedDeriveType] = useSelectedDeriveTypeAtom();
-  const {
-    portfolioNetworkId,
-    stockId,
-    tokenVariants,
-    isTokenVariantPending,
-    isTokenVariantsError,
-  } = useStockDetail();
+  const { portfolioNetworkId, stockId, tokenVariants } = useStockDetail();
   const successfulPortfolioCacheRef = useRef(
     new Map<string, IMarketAccountPortfolioDisplayItem[]>(),
   );
@@ -227,64 +221,6 @@ export function useStockPortfolioData() {
   );
   const tokenVariantsRef = useRef(tokenVariants);
   tokenVariantsRef.current = tokenVariants;
-  // A picked address type applies only to the selected variant's chain (see
-  // resolveStockPortfolioDeriveType); every other chain uses its network
-  // default. It only changes an address when it differs from that default.
-  const pickedDeriveType = getSelectedDeriveTypeForNetwork(
-    selectedDeriveType,
-    portfolioNetworkId,
-  );
-  const { result: portfolioNetworkDefaultResult } =
-    usePromiseResult(async () => {
-      if (!portfolioNetworkId || !pickedDeriveType) return undefined;
-      const networkDefaultDeriveType =
-        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-          networkId: portfolioNetworkId,
-        });
-      return { networkId: portfolioNetworkId, networkDefaultDeriveType };
-    }, [pickedDeriveType, portfolioNetworkId]);
-  const portfolioNetworkDefaultDeriveType =
-    portfolioNetworkDefaultResult?.networkId === portfolioNetworkId
-      ? portfolioNetworkDefaultResult?.networkDefaultDeriveType
-      : undefined;
-  let addressOverride: string | undefined;
-  if (!pickedDeriveType) {
-    addressOverride = '';
-  } else if (portfolioNetworkDefaultDeriveType) {
-    addressOverride =
-      pickedDeriveType === portfolioNetworkDefaultDeriveType
-        ? ''
-        : `${portfolioNetworkId ?? ''}:${pickedDeriveType}`;
-  }
-  // Until the network default is known, keep the last answer instead of
-  // flashing the rows on every variant switch.
-  const lastAddressOverrideRef = useRef('');
-  if (addressOverride !== undefined) {
-    lastAddressOverrideRef.current = addressOverride;
-  }
-  // Whose holdings a result describes: this stock and the addresses actually
-  // queried, built only from what decides those addresses. Holdings cover
-  // every variant, so the selected chain itself is left out, and so are
-  // fields the request ignores (the network account when a wallet-level
-  // account is used, and the active derivation, which the always-present
-  // network default overrides). Rows from another scope are never shown.
-  const accountScopeKey = [
-    stockId ?? '',
-    indexedAccount?.id
-      ? `indexed:${indexedAccount.id}`
-      : `account:${account?.id ?? ''}`,
-    addressOverride ?? lastAddressOverrideRef.current,
-  ].join('|');
-  // Everything the request depended on. Settlement needs the current one, so
-  // a run over a variant list that has not loaded yet does not count.
-  const requestScopeKey = [
-    accountScopeKey,
-    account?.id ?? '',
-    deriveType ?? '',
-    JSON.stringify(selectedDeriveType ?? null),
-    portfolioNetworkId ?? '',
-    tokenVariantsKey,
-  ].join('|');
 
   const resolveNetworkAccount = useCallback(
     async (networkId: string) => {
@@ -333,9 +269,7 @@ export function useStockPortfolioData() {
       // nothing to read a balance from, and an empty list would claim every
       // variant was checked and found empty.
       if (!stockId || !hasAccount) return undefined;
-      const requestAccountScopeKey = accountScopeKey;
-      const requestKey = requestScopeKey;
-      const result = await fetchStockPortfolioData({
+      return fetchStockPortfolioData({
         stockId,
         tokenVariants: tokenVariantsRef.current,
         successfulPortfolioCache: successfulPortfolioCacheRef.current,
@@ -346,13 +280,6 @@ export function useStockPortfolioData() {
             throwOnError: true,
           }),
       });
-      // Tagged so a result still held from the previous stock or account is
-      // not read as the current answer while the new request is in flight.
-      return {
-        ...result,
-        accountScopeKey: requestAccountScopeKey,
-        requestScopeKey: requestKey,
-      };
     },
     // The request reads the latest variants from a ref so 6-second metadata
     // refreshes only restart this query when their asset identities change.
@@ -368,41 +295,18 @@ export function useStockPortfolioData() {
     },
   );
 
-  const isCurrentAccountScope =
-    portfolioResult?.accountScopeKey === accountScopeKey;
-  const portfolioData = useMemo(
-    () => (isCurrentAccountScope ? (portfolioResult?.items ?? []) : []),
-    [isCurrentAccountScope, portfolioResult?.items],
-  );
+  const portfolioData = portfolioResult?.items ?? [];
   // Empty until a run settles, so nothing counts as established before then.
   const resolvedVariantKeys = useMemo(
-    () =>
-      isCurrentAccountScope ? (portfolioResult?.resolvedVariantKeys ?? []) : [],
-    [isCurrentAccountScope, portfolioResult],
+    () => portfolioResult?.resolvedVariantKeys ?? [],
+    [portfolioResult],
   );
-
-  // True once the page knows whether this stock has a position: the account
-  // has loaded and, when there is one, a request for this stock, account and
-  // its loaded variant list has settled. A failed variant lookup with nothing
-  // cached settles too, so the page never waits on it; cached variants are
-  // still asked about first.
-  const hasNoVariantsToCheck =
-    isTokenVariantsError && tokenVariants.length === 0;
-  const isPortfolioSettled =
-    Boolean(ready) &&
-    (!stockId ||
-      !hasAccount ||
-      hasNoVariantsToCheck ||
-      (!isTokenVariantPending &&
-        portfolioResult?.requestScopeKey === requestScopeKey));
 
   return {
     portfolioData,
     resolvedVariantKeys,
     isRefreshing: Boolean(isRefreshing),
     hasAccount,
-    isPortfolioSettled,
-    accountScopeKey,
     fetchPortfolio,
   };
 }

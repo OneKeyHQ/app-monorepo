@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -11,8 +11,6 @@ interface IUsePortfolioDataProps {
   networkId: string;
   accountAddress?: string;
   xpub?: string;
-  // Whether accountAddress is final for this network; see useNetworkAccount.
-  isAccountResolved?: boolean;
 }
 
 type IScopedPortfolioData = IMarketAccountPortfolioResponse & {
@@ -38,23 +36,10 @@ export function usePortfolioData({
   networkId,
   accountAddress,
   xpub,
-  isAccountResolved = false,
 }: IUsePortfolioDataProps) {
-  const scopeKey = getPortfolioScopeKey({
-    networkId,
-    tokenAddress,
-    accountAddress,
-  });
-  // Each change of scope starts a new visit, so a failure recorded on an
-  // earlier visit to the same token never settles a fresh request.
-  const visitRef = useRef({ scopeKey, id: 0 });
-  if (visitRef.current.scopeKey !== scopeKey) {
-    visitRef.current = { scopeKey, id: visitRef.current.id + 1 };
-  }
-  const visitId = visitRef.current.id;
-  // The visit whose request failed. A failure keeps the previous result on
-  // screen, so it is tracked apart from the result to still settle.
-  const [failedVisitId, setFailedVisitId] = useState<number | undefined>();
+  // The scope whose last request failed, so its first load stops showing a
+  // skeleton. Cleared by the next successful request.
+  const [failedScopeKey, setFailedScopeKey] = useState<string | undefined>();
   const {
     result: portfolioResult,
     isLoading: isRefreshing,
@@ -65,7 +50,6 @@ export function usePortfolioData({
         return { list: [], networkId, tokenAddress, accountAddress };
       }
 
-      const requestVisitId = visitRef.current.id;
       try {
         const result =
           await backgroundApiProxy.serviceMarketV2.fetchMarketAccountPortfolio({
@@ -77,9 +61,12 @@ export function usePortfolioData({
             // reads as "no position" and wipes rows already on screen.
             throwOnError: true,
           });
+        setFailedScopeKey(undefined);
         return { ...result, networkId, tokenAddress, accountAddress };
       } catch (error) {
-        setFailedVisitId(requestVisitId);
+        setFailedScopeKey(
+          getPortfolioScopeKey({ networkId, tokenAddress, accountAddress }),
+        );
         throw error;
       }
     },
@@ -95,8 +82,8 @@ export function usePortfolioData({
     },
   );
 
-  // A result left from another token or another account is not this one's
-  // answer: neither its rows nor its settlement carry over.
+  // A result left from another token or another account is not this one's:
+  // its rows are never shown here.
   const isCurrentPortfolioScope =
     equalTokenNoCaseSensitive({
       token1: portfolioResult
@@ -112,14 +99,16 @@ export function usePortfolioData({
     await fetchPortfolio();
   }, [fetchPortfolio]);
 
-  // True once the page knows whether this token has a position for the
-  // current account.
-  const isPortfolioSettled =
-    isAccountResolved && (isCurrentPortfolioScope || failedVisitId === visitId);
+  // The first result for this token and account is not back yet. The
+  // position list shows a skeleton then instead of a brief "No data".
+  const isPortfolioPending =
+    !isCurrentPortfolioScope &&
+    failedScopeKey !==
+      getPortfolioScopeKey({ networkId, tokenAddress, accountAddress });
 
   return {
     portfolioData: isCurrentPortfolioScope ? portfolioResult?.list || [] : [],
-    isPortfolioSettled,
+    isPortfolioPending,
     fetchPortfolio,
     isRefreshing,
     onRefresh,

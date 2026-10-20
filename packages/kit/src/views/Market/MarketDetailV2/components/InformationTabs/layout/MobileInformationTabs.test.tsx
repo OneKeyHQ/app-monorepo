@@ -58,9 +58,10 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
 jest.mock('@onekeyhq/kit/src/hooks/useTabContainerWidth', () => ({
   useTabContainerWidth: () => 390,
 }));
-jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
-  useActiveAccount: () => ({
-    activeAccount: { indexedAccount: { id: 'indexed-account' } },
+jest.mock('../../../hooks/useMarketDetailPositionTab', () => ({
+  useMarketDetailPositionTab: () => ({
+    preferPosition: false,
+    recordTabChange: jest.fn(),
   }),
 }));
 jest.mock('../../../hooks/useTokenDetail', () => ({
@@ -111,7 +112,6 @@ describe('MobileInformationTabs chart fullscreen', () => {
         renderHeader={() => <Chart />}
         onScrollEnd={jest.fn()}
         portfolioData={[]}
-        isPortfolioSettled={false}
       />
     );
     const { rerender } = render(renderTabs(false));

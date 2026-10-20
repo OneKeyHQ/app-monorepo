@@ -10,7 +10,6 @@ type ITestAccount = { id: string; address: string; xpub?: string };
 let mockActiveAccount: {
   account?: { id: string };
   indexedAccount?: { id: string };
-  ready?: boolean;
 } = {};
 let mockSelectedDeriveType: IMarketSelectedDeriveType | undefined;
 const mockGetNetworkAccount = jest.fn<
@@ -117,7 +116,6 @@ describe('useNetworkAccount identity isolation', () => {
         networkAccount: undefined,
         accountAddress: undefined,
         xpub: undefined,
-        isAccountResolved: false,
       });
       expect(result.current.accountAddress).toBeUndefined();
 
@@ -145,25 +143,5 @@ describe('useNetworkAccount identity isolation', () => {
     expect(result.current.accountAddress).toBeUndefined();
     await act(async () => newLookup.resolve(accountB));
     expect(result.current.accountAddress).toBe('address-b');
-  });
-
-  it('resolves once the account lookup settles, even when it fails', async () => {
-    mockActiveAccount = { account: { id: accountA.id }, ready: true };
-    const lookup = buildDeferredPromise<ITestAccount>();
-    mockGetNetworkAccount.mockReturnValueOnce(lookup.promise);
-    const { result } = renderHook(() => useNetworkAccount('sol--101'));
-
-    expect(result.current.isAccountResolved).toBe(false);
-
-    await act(async () => lookup.reject(new Error('no account on network')));
-    await waitFor(() => expect(result.current.isAccountResolved).toBe(true));
-    expect(result.current.accountAddress).toBeUndefined();
-  });
-
-  it('resolves right away when the wallet has no account to look up', () => {
-    mockActiveAccount = { ready: true };
-    const { result } = renderHook(() => useNetworkAccount('sol--101'));
-
-    expect(result.current.isAccountResolved).toBe(true);
   });
 });

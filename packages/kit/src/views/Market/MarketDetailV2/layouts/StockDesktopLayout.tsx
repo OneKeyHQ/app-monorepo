@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -96,6 +96,8 @@ import {
   STOCK_DETAIL_COLUMN_GAP,
   STOCK_DETAIL_HORIZONTAL_GUTTER,
 } from './stockDesktopLayoutConstants';
+
+type IStockDetailTab = 'overview' | 'position';
 
 function StockPageHeader({
   showFavoriteButton,
@@ -846,12 +848,10 @@ function StockPosition({
   portfolioData,
   isRefreshing,
   hasAccount,
-  isPending,
 }: {
   portfolioData: IMarketAccountPortfolioDisplayItem[];
   isRefreshing: boolean;
   hasAccount: boolean;
-  isPending: boolean;
 }) {
   return (
     <Portfolio
@@ -859,7 +859,6 @@ function StockPosition({
       hasAccount={hasAccount}
       portfolioData={portfolioData}
       isRefreshing={isRefreshing}
-      isPending={isPending}
     />
   );
 }
@@ -1172,26 +1171,26 @@ function StockOverview({
   portfolioData,
   isRefreshing,
   hasAccount,
-  isPortfolioSettled,
-  portfolioScopeKey,
 }: {
   portfolioData: IMarketAccountPortfolioDisplayItem[];
   isRefreshing: boolean;
   hasAccount: boolean;
-  isPortfolioSettled: boolean;
-  // The stock and account the holdings belong to; the opening tab is decided
-  // again whenever either changes.
-  portfolioScopeKey: string;
 }) {
   const intl = useIntl();
+  const { preferPosition, recordTabChange } = useMarketDetailPositionTab();
+  // Opens on My position when that was the last tab picked on any detail
+  // page; switching stocks in place keeps the tab on screen.
+  const [activeTab, setActiveTab] = useState<IStockDetailTab>(() =>
+    preferPosition ? 'position' : 'overview',
+  );
+  const selectTab = useCallback(
+    (tab: IStockDetailTab) => {
+      setActiveTab(tab);
+      recordTabChange(tab === 'position');
+    },
+    [recordTabChange],
+  );
   const { stockId } = useStockDetail();
-  const { showPosition, selectTab, isPositionPending } =
-    useMarketDetailPositionTab({
-      assetKey: portfolioScopeKey,
-      isPortfolioSettled,
-      hasPosition: portfolioData.length > 0,
-    });
-  const activeTab = showPosition ? 'position' : 'overview';
 
   return (
     <YStack>
@@ -1215,7 +1214,7 @@ function StockOverview({
           height={44}
           m="$0"
           px="$0"
-          onPress={() => selectTab(false)}
+          onPress={() => selectTab('overview')}
         >
           {intl.formatMessage({ id: ETranslations.global_overview })}
         </Button>
@@ -1233,7 +1232,7 @@ function StockOverview({
           height={44}
           m="$0"
           px="$0"
-          onPress={() => selectTab(true)}
+          onPress={() => selectTab('position')}
         >
           {intl.formatMessage({
             id: ETranslations.dexmarket_details_myposition,
@@ -1261,7 +1260,6 @@ function StockOverview({
           portfolioData={portfolioData}
           isRefreshing={isRefreshing}
           hasAccount={hasAccount}
-          isPending={isPositionPending}
         />
       )}
     </YStack>
@@ -1305,8 +1303,6 @@ export function StockDesktopLayout({
     resolvedVariantKeys,
     isRefreshing: isStockPortfolioRefreshing,
     hasAccount: hasStockPortfolioAccount,
-    isPortfolioSettled,
-    accountScopeKey: stockPortfolioScopeKey,
   } = useStockPortfolioData();
   const { priceMode, handlePriceModeChange, sharePriceAvailable } =
     useStockPriceSource();
@@ -1366,8 +1362,6 @@ export function StockDesktopLayout({
             portfolioData={stockPortfolioData}
             isRefreshing={isStockPortfolioRefreshing}
             hasAccount={hasStockPortfolioAccount}
-            isPortfolioSettled={isPortfolioSettled}
-            portfolioScopeKey={stockPortfolioScopeKey}
           />
         </YStack>
 
