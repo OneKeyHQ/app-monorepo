@@ -11,6 +11,7 @@ import { TradingViewNativePresentationRotationContext } from '../../TradingViewN
 import {
   TradingViewIndicatorLineRow,
   TradingViewIndicatorOpacitySlider,
+  TradingViewIndicatorParameterRow,
 } from './TradingViewIndicatorFields';
 import { createTradingViewIndicatorSettingsValue } from './TradingViewSettingsMockState';
 
@@ -259,6 +260,9 @@ describe('TradingViewIndicatorLineRow', () => {
 
     expect(container.querySelector('input')).toBeNull();
     fireEvent.click(screen.getByTestId('trading-view-indicator-number-input'));
+    expect(
+      screen.queryByTestId('trading-view-indicator-keypad-sign'),
+    ).toBeNull();
     for (const key of ['2', '.', '6']) {
       fireEvent.click(screen.getByTestId(`keypad-${key}`));
     }
@@ -305,6 +309,93 @@ describe('TradingViewIndicatorLineRow', () => {
       screen.getByTestId('trading-view-indicator-keypad-confirm'),
     );
     expect(handlePeriodChange).not.toHaveBeenCalled();
+  });
+});
+
+describe('rotated indicator band parameters', () => {
+  function renderBand(value = 30, step = 1) {
+    const onChange = jest.fn();
+    render(
+      <TradingViewNativePresentationRotationContext.Provider value>
+        <TradingViewIndicatorParameterRow
+          parameters={[
+            {
+              id: 'band:lower',
+              label: 'Lower Band',
+              value,
+              min: Number.NEGATIVE_INFINITY,
+              step,
+            },
+          ]}
+          onChange={onChange}
+        />
+      </TradingViewNativePresentationRotationContext.Provider>,
+    );
+    fireEvent.click(screen.getByTestId('trading-view-indicator-number-input'));
+    return onChange;
+  }
+
+  it('commits a negative band value only after confirmation', () => {
+    const onChange = renderBand();
+    fireEvent.click(screen.getByTestId('keypad-2'));
+    fireEvent.click(screen.getByTestId('keypad-6'));
+    fireEvent.click(screen.getByTestId('trading-view-indicator-keypad-sign'));
+    expect(
+      screen.getByTestId('trading-view-indicator-keypad-value').textContent,
+    ).toBe('-26');
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByTestId('trading-view-indicator-keypad-confirm'),
+    );
+    expect(onChange).toHaveBeenCalledWith('band:lower', -26);
+  });
+
+  it('edits negative decimals and backspaces through the sign', () => {
+    const onChange = renderBand(30, 0.1);
+    fireEvent.click(screen.getByTestId('keypad-clear'));
+    fireEvent.click(screen.getByTestId('trading-view-indicator-keypad-sign'));
+    for (const key of ['0', '2', '.', '.', '6']) {
+      fireEvent.click(screen.getByTestId(`keypad-${key}`));
+    }
+    expect(
+      screen.getByTestId('trading-view-indicator-keypad-value').textContent,
+    ).toBe('-2.6');
+    for (let index = 0; index < 4; index += 1) {
+      fireEvent.click(screen.getByTestId('keypad-backspace'));
+    }
+    expect(
+      screen.getByTestId('trading-view-indicator-keypad-value').textContent,
+    ).toBe('0');
+    fireEvent.click(screen.getByTestId('trading-view-indicator-keypad-sign'));
+    for (const key of ['.', '6']) {
+      fireEvent.click(screen.getByTestId(`keypad-${key}`));
+    }
+    expect(
+      screen.getByTestId('trading-view-indicator-keypad-value').textContent,
+    ).toBe('-0.6');
+    fireEvent.click(
+      screen.getByTestId('trading-view-indicator-keypad-confirm'),
+    );
+    expect(onChange).toHaveBeenCalledWith('band:lower', -0.6);
+  });
+
+  it('discards a sign change on dismissal and rejects an incomplete sign', () => {
+    const onChange = renderBand(-26);
+    fireEvent.click(screen.getByTestId('trading-view-indicator-keypad-sign'));
+    expect(
+      screen.getByTestId('trading-view-indicator-keypad-value').textContent,
+    ).toBe('26');
+    fireEvent.click(screen.getByTestId('keypad-close'));
+    fireEvent.click(screen.getByTestId('trading-view-indicator-number-input'));
+    expect(
+      screen.getByTestId('trading-view-indicator-keypad-value').textContent,
+    ).toBe('-26');
+    fireEvent.click(screen.getByTestId('keypad-clear'));
+    fireEvent.click(screen.getByTestId('trading-view-indicator-keypad-sign'));
+    fireEvent.click(
+      screen.getByTestId('trading-view-indicator-keypad-confirm'),
+    );
+    expect(onChange).not.toHaveBeenCalled();
   });
 });
 

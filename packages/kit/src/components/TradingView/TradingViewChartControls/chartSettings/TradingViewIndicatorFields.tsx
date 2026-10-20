@@ -314,8 +314,21 @@ function TradingViewIndicatorNumberInput({
   const handleKeyPress = useCallback((key: string) => {
     const replace = replaceNextKey.current;
     replaceNextKey.current = false;
+    setInputValue((previous) => {
+      const draft = replace ? '' : previous;
+      if (!draft.startsWith('-')) {
+        return applyAmountKeypadKey(draft, key);
+      }
+      if (draft === '-' && key === 'backspace') {
+        return '';
+      }
+      return `-${applyAmountKeypadKey(draft.slice(1), key)}`;
+    });
+  }, []);
+  const handleToggleSign = useCallback(() => {
+    replaceNextKey.current = false;
     setInputValue((previous) =>
-      applyAmountKeypadKey(replace ? '' : previous, key),
+      previous.startsWith('-') ? previous.slice(1) : `-${previous}`,
     );
   }, []);
   const handleClear = useCallback(() => {
@@ -358,14 +371,27 @@ function TradingViewIndicatorNumberInput({
           }
           renderContent={
             <YStack px="$5" pb="$4" gap="$2">
-              <SizableText
-                testID="trading-view-indicator-keypad-value"
-                size="$headingXl"
-                textAlign="center"
-                numberOfLines={1}
-              >
-                {inputValue || '0'}
-              </SizableText>
+              <XStack alignItems="center" gap="$2">
+                <SizableText
+                  testID="trading-view-indicator-keypad-value"
+                  flex={1}
+                  size="$headingXl"
+                  textAlign="center"
+                  numberOfLines={1}
+                >
+                  {inputValue || '0'}
+                </SizableText>
+                {min < 0 ? (
+                  <Button
+                    testID="trading-view-indicator-keypad-sign"
+                    size="small"
+                    variant="secondary"
+                    onPress={handleToggleSign}
+                  >
+                    ±
+                  </Button>
+                ) : null}
+              </XStack>
               <NativeAmountKeypad
                 compact
                 testID="trading-view-indicator-keypad"

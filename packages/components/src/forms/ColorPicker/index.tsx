@@ -1,9 +1,17 @@
 import type { ReactElement } from 'react';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Popover, Trigger } from '../../actions';
+import { NativePopoverPresentationContext } from '../../actions/Popover/context';
 import { DialogContainer } from '../../composite/Dialog';
 import { Portal } from '../../hocs';
 import { useMedia } from '../../hooks';
@@ -526,6 +534,7 @@ export function ColorPicker({
   ...paletteProps
 }: IColorPickerProps) {
   const { md } = useMedia();
+  const presentation = useContext(NativePopoverPresentationContext);
   const [innerValue, setInnerValue] = useState(defaultValue);
   const [innerOpen, setInnerOpen] = useState(false);
   const [shouldRenderMobileDialog, setShouldRenderMobileDialog] =
@@ -690,11 +699,17 @@ export function ColorPicker({
 
   const mobileDialog = useMemo(
     () => (
-      <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
+      <Portal.Body
+        container={
+          presentation?.portalContainer ??
+          Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL
+        }
+      >
         <DialogContainer
           title="Color"
-          showHeader={false}
+          showHeader={!!presentation?.nativeDrawer}
           showFooter={false}
+          nativeDrawer={presentation?.nativeDrawer}
           open={effectiveOpen}
           onClose={handleDialogClose}
           renderContent={dialogContent}
@@ -710,6 +725,7 @@ export function ColorPicker({
       effectiveOpen,
       handleDialogClose,
       dialogFloatingPanelProps,
+      presentation,
       sheetProps,
       testID,
     ],
