@@ -170,7 +170,7 @@ function ReferAFriendPageWrapper() {
   // to branch off from; Perks is a quiet link under its actions instead.
   // Once on Perks (that link, or a deep link), the tabs lead back.
   const showTabs = IS_BENEFITS_TAB_ENABLED && !isInviteTab;
-  const renderPerksLink = (pt: '$8' | '$3') =>
+  const renderPerksLink = (pt: '$3') =>
     IS_BENEFITS_TAB_ENABLED ? (
       <ReferralTabCrossLink
         pt={pt}
@@ -245,10 +245,18 @@ function ReferAFriendPageWrapper() {
               <ReferAFriendPage
                 postConfig={postConfig}
                 phaseState={phaseState}
-                actions={showInlineActions ? actions : undefined}
+                actions={
+                  showInlineActions ? (
+                    // The Perks link rides under the buttons, inside the
+                    // centred block, not at the bottom of the page.
+                    <>
+                      {actions}
+                      {renderPerksLink('$3')}
+                    </>
+                  ) : undefined
+                }
               />
             ) : null}
-            {postConfig && showInlineActions ? renderPerksLink('$8') : null}
           </Page.Container>
         ) : (
           <Page.Container padded={false}>
