@@ -321,10 +321,13 @@ function PayoutInfo({
   payout,
   address,
   withDestination,
+  iconSize = '$4',
 }: {
   payout?: IPayoutToken;
   address?: string;
   withDestination: boolean;
+  // Matches the copy icon beside it: 20px in compact cards, 16px elsewhere.
+  iconSize?: '$4' | '$5';
 }) {
   return (
     <Popover
@@ -338,8 +341,7 @@ function PayoutInfo({
           icon="InfoCircleOutline"
           variant="tertiary"
           size="small"
-          // Same 16px as the copy icon beside it.
-          iconProps={{ color: '$iconSubdued', size: '$4' }}
+          iconProps={{ color: '$iconSubdued', size: iconSize }}
         />
       }
       renderContent={
@@ -485,7 +487,12 @@ function RewardsAddressValue({
           ...(compact ? { leadingLength: 6, trailingLength: 4 } : null),
         })}
       </SizableText>
-      <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
+      {/* 20px in compact cards, like the invite tab's copy cues. */}
+      <Icon
+        name="Copy3Outline"
+        size={asValue ? '$5' : '$4'}
+        color="$iconSubdued"
+      />
     </XStack>
   );
 }
@@ -652,6 +659,7 @@ function CompactPerksSummaryCard({
               payout={payout}
               address={address}
               withDestination={false}
+              iconSize="$5"
             />
           </CompactFieldRow>
         </>
