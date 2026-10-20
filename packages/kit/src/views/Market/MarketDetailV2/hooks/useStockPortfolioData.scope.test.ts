@@ -22,6 +22,9 @@ let mockStockDetail: {
   isTokenVariantPending: boolean;
   isTokenVariantsError: boolean;
 };
+let mockSelectedDeriveType:
+  | { networkId: string; deriveType: string }
+  | undefined;
 let mockResult: IHookResult | undefined;
 let mockCapturedMethod: (() => Promise<IHookResult | undefined>) | undefined;
 
@@ -39,7 +42,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/accountSelector', () => ({
   useActiveAccount: () => ({ activeAccount: mockActiveAccount }),
 }));
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms', () => ({
-  useSelectedDeriveTypeAtom: () => [undefined],
+  useSelectedDeriveTypeAtom: () => [mockSelectedDeriveType],
 }));
 jest.mock('./StockDetailContext', () => ({
   useStockDetail: () => mockStockDetail,
@@ -75,6 +78,7 @@ describe('useStockPortfolioData scope', () => {
     };
     mockResult = undefined;
     mockCapturedMethod = undefined;
+    mockSelectedDeriveType = undefined;
   });
 
   it('does not settle on a run made before the variants loaded', async () => {
@@ -183,5 +187,36 @@ describe('useStockPortfolioData scope', () => {
 
     expect(result.current.accountScopeKey).toBe(scopeKey);
     expect(result.current.portfolioData).toHaveLength(1);
+  });
+
+  it('hides rows when a variant switch changes the address a chain is queried with', async () => {
+    mockSelectedDeriveType = { networkId: 'evm--1', deriveType: 'ledgerLive' };
+    mockStockDetail = { ...mockStockDetail, portfolioNetworkId: 'evm--1' };
+    const { result, rerender } = renderHook(() => useStockPortfolioData());
+    const firstResult = await runCapturedRequest();
+    mockResult = firstResult && {
+      ...firstResult,
+      items: [
+        {
+          accountAddress: '0xledger',
+          tokenAddress: '0xAAPL',
+          symbol: 'AAPLon',
+          amount: '1',
+          tokenPrice: '100',
+          totalPrice: '100',
+          networkId: 'evm--1',
+          tokenId: 'aapl-ondo-ethereum',
+          issuer: 'Ondo',
+        },
+      ],
+    };
+    rerender();
+    expect(result.current.portfolioData).toHaveLength(1);
+
+    // evm--1 falls back to its default address once another chain is picked.
+    mockStockDetail = { ...mockStockDetail, portfolioNetworkId: 'evm--56' };
+    rerender();
+
+    expect(result.current.portfolioData).toEqual([]);
   });
 });

@@ -262,6 +262,7 @@ describe('useMarketDetailPositionTabContainer', () => {
 
   function renderContainerHook(initialProps: IContainerProps) {
     const jumpToTab = jest.fn();
+    const focused = { tabName: '' };
     const onUserTabChange = jest.fn();
     const view = renderHook(
       (props: IContainerProps) => {
@@ -272,12 +273,13 @@ describe('useMarketDetailPositionTabContainer', () => {
         });
         container.tabsRef.current = {
           jumpToTab,
+          getFocusedTab: () => focused.tabName,
         } as unknown as ITabContainerRef;
         return container;
       },
       { initialProps },
     );
-    return { ...view, jumpToTab, onUserTabChange };
+    return { ...view, jumpToTab, onUserTabChange, focused };
   }
 
   beforeEach(() => {
@@ -420,6 +422,27 @@ describe('useMarketDetailPositionTabContainer', () => {
     expect(mockSetPreference).toHaveBeenLastCalledWith({
       preferPosition: true,
     });
+  });
+
+  it('does not jump to the tab the container is already on', () => {
+    const { rerender, jumpToTab, focused } = renderContainerHook({
+      assetKey: 'evm--1:0xabc:',
+      isPortfolioSettled: true,
+      hasPosition: true,
+      defaultTabName: 'Overview',
+    });
+    focused.tabName = 'Overview';
+
+    // The account loads after mount: a new visit whose target is the tab on
+    // screen. Native would treat the jump as a reselect and scroll the tab.
+    rerender({
+      assetKey: 'evm--1:0xabc:wallet-a',
+      isPortfolioSettled: true,
+      hasPosition: true,
+      defaultTabName: 'Overview',
+    });
+
+    expect(jumpToTab).not.toHaveBeenCalled();
   });
 
   it('opens a new visit on its default tab in a reused container', () => {
