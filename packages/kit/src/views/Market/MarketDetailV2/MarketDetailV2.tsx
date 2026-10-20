@@ -311,9 +311,7 @@ function MarketDetail({
   const headerHeightCacheKey = useHeaderHeightCacheKey();
   const inlineHeaderHeightRef = useRef(headerHeight);
   const preserveInlineHeader =
-    platformEnv.isNativeIOS &&
-    !platformEnv.isNativeIOSPad &&
-    isChartFullscreen;
+    platformEnv.isNativeIOS && !platformEnv.isNativeIOSPad && isChartFullscreen;
   if (!preserveInlineHeader) {
     inlineHeaderHeightRef.current = headerHeight;
   }
