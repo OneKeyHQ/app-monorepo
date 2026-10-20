@@ -16,6 +16,10 @@ function initBackgroundBridgeEarly() {
   const bridge = bridgeSetup.background.createHostBridge({
     receiveHandler: backgroundApiProxy.bridgeReceiveHandler,
   });
+  const { guardOffscreenPort } =
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('../background/offscreenPortGuard') as typeof import('../background/offscreenPortGuard');
+  guardOffscreenPort(bridge);
   backgroundApiProxy.connectBridge(bridge as unknown as JsBridgeBase);
   // backgroundApiProxy.serviceNotification.init().catch((e) => {
   //   debugLogger.notification.error(

@@ -1,3 +1,4 @@
+import type { IPrivacyChainRelayTargetSource } from '@onekeyhq/kit-bg/src/utils/privacyChainRelayTargets';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { FETCH_STREAM_MESSAGE } from '@onekeyhq/shared/types/fetchStream';
 import type {
@@ -6,6 +7,16 @@ import type {
 } from '@onekeyhq/shared/types/fetchStream';
 
 import { installFetchStreamListener } from './fetchStream';
+
+jest.mock('@onekeyhq/kit-bg/src/vaults/settings', () => ({
+  getVaultSettings: jest.fn(),
+}));
+
+const NODE = 'https://zcash-mainnet.chainsafe.dev';
+const targets: IPrivacyChainRelayTargetSource = {
+  getLocalWalletNetworkIds: async () => ['zcash--mainnet'],
+  getNodeUrls: async () => [NODE],
+};
 
 type IListener = (
   message: { type?: string; request?: IFetchStreamRequest },
@@ -28,7 +39,7 @@ beforeEach(() => {
   globals.chrome = {
     runtime: { id: 'own-extension', onMessage: { addListener } },
   };
-  installFetchStreamListener();
+  installFetchStreamListener(targets);
   [listener] = addListener.mock.calls[0];
 });
 
@@ -38,12 +49,15 @@ afterEach(() => {
   globalThis.fetch = savedFetch;
 });
 
+const NODE_URL = `${NODE}/cash.z.wallet.sdk.rpc.CompactTxStreamer/GetLatestBlock`;
 const message = {
   type: FETCH_STREAM_MESSAGE,
   request: {
     action: 'open',
-    url: 'https://example.test/download',
+    url: NODE_URL,
+    method: 'POST',
     headers: [],
+    b64: '',
   } as IFetchStreamRequest,
 };
 
@@ -92,8 +106,12 @@ it('keeps the reply channel open and releases the trusted host stream on cancel'
     throw new OneKeyLocalError('open failed');
   expect(opened.response.status).toBe(200);
   expect(fetchImpl).toHaveBeenCalledWith(
-    'https://example.test/download',
-    expect.objectContaining({ method: 'GET' }),
+    NODE_URL,
+    expect.objectContaining({
+      method: 'POST',
+      credentials: 'omit',
+      redirect: 'error',
+    }),
   );
   const cancelled = await new Promise<IFetchStreamResult>((resolve) => {
     expect(
@@ -109,3 +127,27 @@ it('keeps the reply channel open and releases the trusted host stream on cancel'
   });
   expect(cancelled).toEqual({ ok: true, cancelled: true });
 });
+
+it.each([
+  ['an arbitrary URL', 'https://example.test/download', 'POST'],
+  ['a GET to the configured node', NODE_URL, 'GET'],
+])(
+  'refuses %s from a trusted sender before any network request',
+  async (_label, url, method) => {
+    const fetchImpl = jest.spyOn(globalThis, 'fetch');
+    const result = await new Promise<IFetchStreamResult>((resolve) => {
+      expect(
+        listener(
+          {
+            type: FETCH_STREAM_MESSAGE,
+            request: { action: 'open', url, method, headers: [] },
+          },
+          { id: 'own-extension' },
+          resolve,
+        ),
+      ).toBe(true);
+    });
+    expect(result).toEqual(expect.objectContaining({ ok: false }));
+    expect(fetchImpl).not.toHaveBeenCalled();
+  },
+);

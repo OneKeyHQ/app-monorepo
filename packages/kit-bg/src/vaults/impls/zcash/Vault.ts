@@ -63,6 +63,7 @@ import type {
 } from '@onekeyhq/shared/types/serverToken';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
+import { allowPrivacyChainRelayProbe } from '../../../utils/privacyChainRelayTargets';
 import { getLocalWalletHistoryAddressGate } from '../../localWallet/historyAddressGate';
 import { localWalletText } from '../../localWallet/messages';
 import VaultBtc from '../btc/Vault';
@@ -175,6 +176,9 @@ export default class Vault extends VaultBtc {
     } catch {
       return { ok: false, reason: 'invalid-url' };
     }
+    // The runtime reaches the node through the host relay, which serves only
+    // configured nodes; this one is not saved yet.
+    const releaseProbe = allowPrivacyChainRelayProbe(normalized);
     try {
       const api = await this.zcashGetApi();
       const tip = await api.getChainTip({
@@ -207,6 +211,8 @@ export default class Vault extends VaultBtc {
         ...zcashDescribeError(e),
       });
       return { ok: false, reason: 'unreachable' };
+    } finally {
+      releaseProbe();
     }
   }
 

@@ -1,11 +1,20 @@
 import { describeRoute } from '@onekeyhq/core/src/utils/privacyChainWorkerClient';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { createFetchStreamHandler } from '@onekeyhq/shared/src/utils/fetchStream';
 import { fetchBytesWithIdleTimeout } from '@onekeyhq/shared/src/utils/fetchWithIdleTimeout';
 import { privacyChainPerfLog } from '@onekeyhq/shared/src/utils/privacyChainPerfLog';
+import { streamingFetch } from '@onekeyhq/shared/src/utils/streamingFetch';
+import type { IFetchStreamRequester } from '@onekeyhq/shared/types/fetchStream';
+
+import { isPrivacyChainRelayTargetAllowed } from './privacyChainRelayTargets';
+
+import type { IPrivacyChainRelayTargetSource } from './privacyChainRelayTargets';
 
 export type IPrivacyChainNodeRelayResult =
   | { ok: true; b64: string }
   | { ok: false; error: string };
+
+const NOT_A_CONFIGURED_NODE = 'not a configured privacy-chain node';
 
 /**
  * A privacy-chain node request made on behalf of a browser context (the
@@ -19,10 +28,15 @@ export async function relayPrivacyChainNodeRequest({
   url,
   contentType,
   body,
+  targets,
+  fetchImpl = streamingFetch,
 }: {
   url: string;
   contentType: string;
   body: Uint8Array;
+  targets: IPrivacyChainRelayTargetSource;
+  // Native `streamingFetch` is expo/fetch: RN's own fetch ignores `redirect`.
+  fetchImpl?: typeof fetch;
 }): Promise<IPrivacyChainNodeRelayResult> {
   try {
     // Only http(s): the caller must not reach other schemes through us.
@@ -30,16 +44,31 @@ export async function relayPrivacyChainNodeRequest({
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
       return { ok: false, error: `unsupported protocol ${parsed.protocol}` };
     }
+    if (parsed.username || parsed.password) {
+      return { ok: false, error: 'URL credentials are not supported' };
+    }
+    if (!(await isPrivacyChainRelayTargetAllowed(url, targets))) {
+      return { ok: false, error: NOT_A_CONFIGURED_NODE };
+    }
     const fetchStartedAt = Date.now();
     // Fails only on silence, never on a slow-but-steady transfer: a
     // wallet2-sized batch over a proxy can take minutes and be fine.
-    const response = await fetchBytesWithIdleTimeout(url, {
-      method: 'POST',
-      headers: { 'Content-Type': contentType || 'application/json' },
-      // A zero-length body is a GET-shaped call in monerod's binary API; some
-      // proxies reject an explicit empty buffer.
-      body: body.length > 0 ? new Uint8Array(body) : undefined,
-    });
+    const response = await fetchBytesWithIdleTimeout(
+      url,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': contentType || 'application/json' },
+        // Same limits as desktop: no session cookies, no hop to a host the
+        // user did not configure.
+        credentials: 'omit',
+        redirect: 'error',
+        // A zero-length body is a GET-shaped call in monerod's binary API; some
+        // proxies reject an explicit empty buffer.
+        body: body.length > 0 ? new Uint8Array(body) : undefined,
+      },
+      undefined,
+      fetchImpl,
+    );
     if (!response.ok) {
       return {
         ok: false,
@@ -65,4 +94,27 @@ export async function relayPrivacyChainNodeRequest({
       error: error instanceof Error ? error.message : String(error),
     };
   }
+}
+
+/**
+ * The chunked counterpart for the same callers. Node calls are POSTs to a
+ * configured node; the shared handler adds the credential, redirect and size
+ * limits.
+ */
+export function createPrivacyChainFetchStreamRelay(
+  targets: IPrivacyChainRelayTargetSource,
+  fetchImpl?: typeof fetch,
+): IFetchStreamRequester {
+  const handler = createFetchStreamHandler(fetchImpl);
+  return async (request) => {
+    if (request.action === 'open') {
+      if ((request.method ?? 'GET').toUpperCase() !== 'POST') {
+        return { ok: false, error: 'unsupported fetch method' };
+      }
+      if (!(await isPrivacyChainRelayTargetAllowed(request.url, targets))) {
+        return { ok: false, error: NOT_A_CONFIGURED_NODE };
+      }
+    }
+    return handler(request);
+  };
 }
