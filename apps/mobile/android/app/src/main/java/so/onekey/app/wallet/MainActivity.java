@@ -10,6 +10,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.KeyEvent;
 
+import androidx.activity.EdgeToEdge;
 import androidx.annotation.NonNull;
 
 import com.backgroundthread.BackgroundThreadManager;
@@ -20,6 +21,7 @@ import com.facebook.react.ReactActivityDelegate;
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint;
 import com.facebook.react.defaults.DefaultReactActivityDelegate;
 import com.facebook.react.modules.i18nmanager.I18nUtil;
+import com.facebook.react.views.view.WindowUtilKt;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -129,6 +131,11 @@ public class MainActivity extends ReactActivity {
         // Add custom exit animation listener to catch and handle SurfaceControl crashes
         // This prevents NullPointerException during splash screen transition on OPPO/MIUI devices
         splashScreen.setOnExitAnimationListener(splashScreenView -> {
+          // The AndroidX splash restores the window's pre-launch decor fitting on
+          // exit, which turns edge-to-edge back off on Android 12-14.
+          if (WindowUtilKt.isEdgeToEdgeFeatureFlagOn()) {
+            EdgeToEdge.enable(this);
+          }
           try {
             // Immediately remove the splash screen without animation to avoid SurfaceControl issues
             if (splashScreenView != null && splashScreenView.getView() != null) {
