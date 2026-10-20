@@ -182,7 +182,13 @@ function getStockEventDescription(
     const label = intl.formatMessage({
       id: ETranslations.market_stock_event_eps_estimate,
     });
-    return `${label}: $${epsEstimate}`;
+    const value = formatStockEventMetadataValue(
+      'epsEstimated',
+      epsEstimate,
+      formatDate,
+      intl,
+    );
+    return `${label}: ${value}`;
   }
   // The backend's English "Eligibility cutoff: <date>" always carries the
   // ex-dividend date, so it is rebuilt from that field in the reader's locale.

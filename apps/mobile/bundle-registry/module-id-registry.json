@@ -24197,6 +24197,7 @@
     "packages/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/components/InlineActionBar.tsx": 2523,
     "packages/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/components/TokenIdentityItem/TokenIdentityItem.tsx": 4605,
     "packages/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/components/TokenIdentityItem/index.ts": 8972,
+    "packages/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/components/TokenIdentityItem/useCopyButtonKeyboardFocus.native.ts": 23351,
     "packages/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/components/TokenListItem.tsx": 9647,
     "packages/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/components/TokenListSkeleton.tsx": 267,
     "packages/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/components/Txns.tsx": 4694,
