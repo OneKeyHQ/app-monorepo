@@ -389,8 +389,8 @@ export function useMarketTokenList({
     platformEnv.isWeb &&
     hasNetworkId &&
     apiNetworkId === '' &&
-    sortBy === 'v24hUSD' &&
-    sortType === 'desc' &&
+    sortBy === undefined &&
+    sortType === undefined &&
     pageSize === 20 &&
     minLiquidity === 5000 &&
     type === 'trending' &&

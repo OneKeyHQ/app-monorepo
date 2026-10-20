@@ -217,15 +217,15 @@ jobs:
           const tokens = Array.from({ length: 20 }, (_, index) => {
             const rank = index + 1;
             return {
-              address: '',
-              chainId: '0',
+              address: `0x${rank.toString(16).padStart(40, '0')}`,
+              chainId: '1',
               communityRecognized: true,
-              decimals: 8,
-              isNative: true,
+              decimals: 18,
+              isNative: false,
               liquidity: String(100_000_000 - index * 1_000_000),
               marketCap: String(2_000_000_000_000 - index * 10_000_000_000),
               name: `Cold Seed ${rank}`,
-              networkId: 'btc--0',
+              networkId: 'evm--1',
               price: String(100_000 - index * 100),
               price24hAgo: String(99_000 - index * 100),
               priceChange24hPercent: '1.23',

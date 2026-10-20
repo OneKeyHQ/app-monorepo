@@ -2,6 +2,7 @@
 
 import { act, render, renderHook, waitFor } from '@testing-library/react';
 
+import { getMarketHomeTokenListSeedForInit } from '@onekeyhq/kit/src/views/Market/utils/marketHomeTokenListSeed';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -77,7 +78,10 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 
 jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
   __esModule: true,
-  default: { isAllNetwork: () => false },
+  default: {
+    isAllNetwork: ({ networkId }: { networkId: string }) =>
+      networkId === 'onekeyall--0',
+  },
 }));
 
 jest.mock('../utils/tokenListHelpers', () => {
@@ -222,6 +226,7 @@ describe('useMarketTokenList initial data', () => {
     mockNetworkList = [];
     swrCacheUtils.clearAll();
     swrCacheUtils.flushNow();
+    jest.mocked(getMarketHomeTokenListSeedForInit).mockReturnValue(undefined);
     mockFetchMarketTokenList.mockReset();
     mockTransformApiItemToToken.mockClear();
     mockTrackNetworkLoading.mockReset();
@@ -818,6 +823,37 @@ describe('useMarketTokenList initial data', () => {
       ).toBe(true);
     });
   });
+
+  it.each([
+    { useApiDefaultSort: true, expectedSymbols: ['SEED'] },
+    { useApiDefaultSort: false, expectedSymbols: [] },
+  ])(
+    'uses bootstrap rows only for the matching default-order query ($useApiDefaultSort)',
+    ({ useApiDefaultSort, expectedSymbols }) => {
+      const seed = {
+        ...createResponse('0xseed', 'Seed Token', 'SEED'),
+        __fromSeed: true,
+      };
+      jest.mocked(getMarketHomeTokenListSeedForInit).mockReturnValue(seed);
+      mockFetchMarketTokenList.mockReturnValue(
+        new Promise<IMarketTokenListResponse>(() => undefined),
+      );
+
+      const { result } = renderHook(() =>
+        useMarketTokenList({
+          networkId: 'onekeyall--0',
+          pollingInterval: 0,
+          type: 'trending',
+          timeRange: '1h',
+          useApiDefaultSort,
+        }),
+      );
+
+      expect(result.current.data.map((token) => token.symbol)).toEqual(
+        expectedSymbols,
+      );
+    },
+  );
 
   it('omits sorting when the caller requests the API default order', async () => {
     mockFetchMarketTokenList.mockResolvedValue(
