@@ -359,26 +359,72 @@ describe('normalizeZcashBackendHistoryTx', () => {
     expect(normalizeZcashBackendHistoryTx(input)).toBe(input);
   });
 
-  // Like BTC: the backend's net debit is shown as is, with no shielded side.
-  it('leaves a transparent self-transfer as the backend reports it', () => {
+  // Change returns to the sending t1, so the indexer row reads t1 -> t1.
+  it.each([
+    ['a shielded payment with change', '0.50015'],
+    ['a true transfer to the same t1', '0.00015'],
+  ])(
+    'names the shielded counterparty of %s with the backend value',
+    (_, value) => {
+      const input = {
+        ...base,
+        type: EOnChainHistoryTxType.Send,
+        from: 't1own',
+        to: 't1own',
+        value,
+        sends: [
+          {
+            type: EOnChainHistoryTransferType.Transfer,
+            from: 't1own',
+            to: '',
+            amount: value,
+            token: '',
+            key: 'zec--0_',
+            label: '',
+            isOwn: true,
+          },
+        ],
+        receives: [],
+      };
+      const tx = normalizeZcashBackendHistoryTx(input);
+      expect(tx).toMatchObject({
+        from: 't1own',
+        to: '',
+        value,
+        shieldedCounterparty: 'to',
+      });
+      expect(tx.receives).toEqual([
+        expect.objectContaining({
+          type: EOnChainHistoryTransferType.Shielded,
+          to: '',
+          amount: value,
+          isOwn: false,
+        }),
+      ]);
+      // Applied again on the same row, nothing more is added.
+      expect(normalizeZcashBackendHistoryTx(tx)).toBe(tx);
+    },
+  );
+
+  it('keeps a payment to itself that this device signed', () => {
     const input = {
       ...base,
       type: EOnChainHistoryTxType.Send,
       from: 't1own',
-      value: '0.00015',
-      sends: [
+      to: 't1own',
+      sends: [],
+      receives: [
         {
           type: EOnChainHistoryTransferType.Transfer,
           from: 't1own',
-          to: '',
-          amount: '0.00015',
+          to: 't1own',
+          amount: '0.5',
           token: '',
           key: 'zec--0_',
           label: '',
           isOwn: true,
         },
       ],
-      receives: [],
     };
     expect(normalizeZcashBackendHistoryTx(input)).toBe(input);
   });
