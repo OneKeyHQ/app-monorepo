@@ -482,8 +482,7 @@ function BaseMarketTokenSelectorContent({
   );
 }
 
-// The Popover host unmounts content after its exit animation, resetting state
-// on reopen without clearing the panel while it is still visible.
+// Retain closing content until exit completes; each open gets fresh state.
 function MarketTokenSelectorContent({
   defaultCategory,
 }: {
@@ -509,6 +508,16 @@ function BaseMarketTokenSelector({
 }) {
   const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);
+  const [contentGeneration, setContentGeneration] = useState(0);
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (open && !isOpen) {
+        setContentGeneration((generation) => generation + 1);
+      }
+      setIsOpen(open);
+    },
+    [isOpen],
+  );
   const { tokenDetail, networkId } = useMarketDetailHeaderDisplayData();
 
   const effectiveNetworkLogoUri = useNetworkLogoUri({
@@ -572,8 +581,13 @@ function BaseMarketTokenSelector({
   const stableLogoUrls = stableLogoUrlsRef.current;
 
   const renderSelectorContent = useCallback(
-    () => <MarketTokenSelectorContentMemo defaultCategory={defaultCategory} />,
-    [defaultCategory],
+    () => (
+      <MarketTokenSelectorContentMemo
+        key={contentGeneration}
+        defaultCategory={defaultCategory}
+      />
+    ),
+    [contentGeneration, defaultCategory],
   );
 
   // Keep the popover element stable during token detail polling.
@@ -586,7 +600,7 @@ function BaseMarketTokenSelector({
         title={intl.formatMessage({ id: ETranslations.global_search })}
         floatingPanelProps={{ width: 800 }}
         open={isOpen}
-        onOpenChange={setIsOpen}
+        onOpenChange={handleOpenChange}
         placement="bottom-start"
         renderTrigger={
           renderTrigger ?? (
@@ -719,6 +733,7 @@ function BaseMarketTokenSelector({
       effectiveNetworkLogoUri,
       intl,
       isOpen,
+      handleOpenChange,
       isCompact,
       isLargeWithName,
       logoUrl,

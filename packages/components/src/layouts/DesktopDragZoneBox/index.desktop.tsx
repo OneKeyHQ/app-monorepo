@@ -82,6 +82,7 @@ let sizeObserver: ResizeObserver | null = null;
 let contentObserver: MutationObserver | null = null;
 // observe() also reports the initial size, which must not reschedule.
 const observedSizes = new WeakMap<Element, string>();
+const observedAnimations = new WeakSet<Animation>();
 
 function toSizeKey(rect: DOMRect) {
   return `${Math.round(rect.width)}x${Math.round(rect.height)}`;
@@ -213,8 +214,17 @@ function recompute() {
         ) {
           movingControls = true;
         }
-        animation.addEventListener('finish', scheduleRecompute, { once: true });
-        animation.addEventListener('cancel', scheduleRecompute, { once: true });
+        if (!observedAnimations.has(animation)) {
+          observedAnimations.add(animation);
+          const handleAnimationEnd = () => {
+            animation.removeEventListener('finish', handleAnimationEnd);
+            animation.removeEventListener('cancel', handleAnimationEnd);
+            observedAnimations.delete(animation);
+            scheduleRecompute();
+          };
+          animation.addEventListener('finish', handleAnimationEnd);
+          animation.addEventListener('cancel', handleAnimationEnd);
+        }
       }
     }
   }

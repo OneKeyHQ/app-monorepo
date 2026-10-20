@@ -106,6 +106,8 @@ it('keeps portalled overlay controls clickable and restores header dragging on c
   const close = layer.querySelector('button');
   assert(close, 'Close did not mount');
   const animation = new EventTarget();
+  const addAnimationListener = jest.spyOn(animation, 'addEventListener');
+  const removeAnimationListener = jest.spyOn(animation, 'removeEventListener');
   Object.defineProperty(animation, 'playState', {
     value: 'running',
     configurable: true,
@@ -136,13 +138,29 @@ it('keeps portalled overlay controls clickable and restores header dragging on c
   setRect(close, 735, 26, 58, 30);
   jest.advanceTimersByTime(20);
   expect(regions('no-drag')[1]).toContain('top: 26px');
+  expect(addAnimationListener.mock.calls.map(([event]) => event)).toEqual([
+    'finish',
+    'cancel',
+  ]);
   Object.defineProperty(animation, 'playState', { value: 'finished' });
   setRect(close, 735, 32, 58, 30);
   animation.dispatchEvent(new Event('finish'));
+  expect(removeAnimationListener.mock.calls.map(([event]) => event)).toEqual([
+    'finish',
+    'cancel',
+  ]);
   await settleRegions();
   expect(regions('no-drag')[1]).toContain(
     'left: 735px; top: 32px; width: 58px; height: 30px;',
   );
+  Object.defineProperty(animation, 'playState', { value: 'running' });
+  globalThis.dispatchEvent(new Event('resize'));
+  await settleRegions();
+  expect(addAnimationListener).toHaveBeenCalledTimes(4);
+  Object.defineProperty(animation, 'playState', { value: 'idle' });
+  animation.dispatchEvent(new Event('cancel'));
+  expect(removeAnimationListener).toHaveBeenCalledTimes(4);
+  await settleRegions();
   setRect(close, 800, 20, 90, 30);
   close.textContent = 'Dismiss';
   await settleRegions();

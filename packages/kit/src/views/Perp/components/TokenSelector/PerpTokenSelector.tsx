@@ -1303,6 +1303,7 @@ function BasePerpTokenSelector() {
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
   const actions = useHyperliquidActions();
   const [isOpen, setIsOpen] = useState(false);
+  const [contentGeneration, setContentGeneration] = useState(0);
   const isOpeningRef = useRef(false);
   const {
     displayName,
@@ -1370,6 +1371,7 @@ function BasePerpTokenSelector() {
             tradeMode: mode === 'spot' ? 'spot' : 'perp',
             walletType: activePerpsAccount.walletType ?? 'unknown',
           });
+          setContentGeneration((generation) => generation + 1);
           setIsOpen(true);
         }}
         placement="bottom-start"
@@ -1438,11 +1440,12 @@ function BasePerpTokenSelector() {
             <Icon name="ChevronBottomOutline" size="$4" />
           </Badge>
         }
-        renderContent={<PerpTokenSelectorContentMemo />}
+        renderContent={<PerpTokenSelectorContentMemo key={contentGeneration} />}
       />
     ),
     [
       activePerpsAccount.walletType,
+      contentGeneration,
       isOpen,
       triggerLabel,
       activeCoin,

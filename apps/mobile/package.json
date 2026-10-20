@@ -178,6 +178,7 @@
     "react-native-keyboard-controller": "1.21.9",
     "react-native-level-fs": "3.0.1",
     "react-native-mmkv": "4.3.2",
+    "react-native-modal": "^13.0.1",
     "react-native-network-info": "npm:@onekeyfe/react-native-network-info@6.7.0-alpha.337",
     "react-native-network-logger": "2.0.1",
     "react-native-nitro-modules": "0.37.0",

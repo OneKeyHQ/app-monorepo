@@ -353,6 +353,22 @@ describe('MarketTokenSelector stock default category', () => {
     expect(screen.getByTestId('stock-list')).toBeTruthy();
   });
 
+  it('resets search on reopen before exit completes without clearing closing content', () => {
+    renderOpenStockSelector();
+    const search = screen.getByTestId('market-token-selector-search');
+    fireEvent.change(search, { target: { value: 'AAPL' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Close selector' }));
+
+    expect(screen.getByTestId('market-token-selector-search')).toBe(search);
+    expect((search as HTMLInputElement).value).toBe('AAPL');
+
+    fireEvent.click(screen.getByTestId('market-token-selector-trigger'));
+    const reopenedSearch = screen.getByTestId('market-token-selector-search');
+    expect(reopenedSearch).not.toBe(search);
+    expect((reopenedSearch as HTMLInputElement).value).toBe('');
+    expect(screen.getByTestId('stock-list')).toBeTruthy();
+  });
+
   it('adds Top Coins after Stocks and renders its selector data', async () => {
     renderOpenStockSelector();
 
