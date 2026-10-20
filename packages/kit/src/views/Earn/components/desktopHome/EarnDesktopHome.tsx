@@ -41,7 +41,7 @@ import {
 import type { IEarnDesktopFocusRequest } from './EarnDesktopEarnTab';
 import type { IUseEarnPortfolioReturn } from '../../hooks/useEarnPortfolio';
 
-type IHomeTab = 'earn' | 'borrow';
+type IHomeTab = 'earn' | 'loans';
 
 const BROWSE_ANCHOR_ID = 'earn-desktop-browse';
 const BANNER_WIDTH = 460;
@@ -63,8 +63,9 @@ function HomeTabs({
       label: intl.formatMessage({ id: ETranslations.earn_title }),
     },
     {
-      value: 'borrow',
-      label: intl.formatMessage({ id: ETranslations.global_borrow }),
+      // Same words as the Loans button above
+      value: 'loans',
+      label: intl.formatMessage({ id: ETranslations.earn_loans__action }),
     },
   ];
   return (
@@ -240,12 +241,14 @@ export function EarnDesktopHome({
           />
           {hasBanner ? (
             // As tall as the card only: the dots under it (several banners)
-            // hang into the gap above the tiles instead of pushing them down
+            // hang into the gap above the tiles instead of pushing them down.
+            // The wider right margin puts the card's edge on the tiles' edge
             <YStack
               w={BANNER_WIDTH}
               h={bannerCardHeight}
               flexShrink={0}
-              mx="$-3"
+              ml="$-3"
+              mr="$-5"
               overflow="visible"
             >
               <EarnHomeBanner
