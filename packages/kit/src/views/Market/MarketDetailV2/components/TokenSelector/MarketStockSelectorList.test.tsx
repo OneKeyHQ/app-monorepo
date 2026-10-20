@@ -171,14 +171,13 @@ describe('MarketStockSelectorList', () => {
     expect(mockTableProps).toHaveBeenCalledWith({
       columns: mockColumns,
       dataSource: [mockStock],
-      estimatedItemSize: 56,
-      headerRowProps: { height: 40, minHeight: 40 },
+      estimatedItemSize: 64,
+      headerRowProps: { height: 36, minHeight: 36 },
       rowProps: {
         bg: '$bg',
         width: '100%',
-        height: 56,
-        minHeight: 56,
-        borderRadius: '$0',
+        height: 64,
+        minHeight: 64,
       },
       onEndReached: expect.any(Function),
       onEndReachedThreshold: 0.2,
