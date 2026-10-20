@@ -265,11 +265,20 @@ export const AppUpdate: IAppUpdate = {
 let bundleInstallPromise: Promise<void> | undefined;
 let bundleInstallTarget: string | undefined;
 let bundleRestartPromise: Promise<void> | undefined;
+let bundleRestartFailed = false;
+
+const restartBundle = async (reason: string) => {
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, 2500);
+  });
+  await appRestart({ mode: EAppRestartMode.All, reason });
+};
 
 export function resetBundleInstallLockForTest() {
   bundleInstallPromise = undefined;
   bundleInstallTarget = undefined;
   bundleRestartPromise = undefined;
+  bundleRestartFailed = false;
 }
 
 export const BundleUpdate: IBundleUpdate = {
@@ -313,11 +322,16 @@ export const BundleUpdate: IBundleUpdate = {
   installBundle: (params) => {
     const target = `${params?.latestVersion ?? ''}:${params?.bundleVersion ?? ''}`;
     if (bundleInstallPromise && bundleInstallTarget !== target) {
-      return Promise.reject(
-        new OneKeyLocalError('BUNDLE_INSTALL_TARGET_CONFLICT'),
-      );
+      if (!bundleRestartFailed) {
+        return Promise.reject(
+          new OneKeyLocalError('BUNDLE_INSTALL_TARGET_CONFLICT'),
+        );
+      }
+      // Only replace an installed target after restart has failed.
+      bundleInstallPromise = undefined;
     }
     if (!bundleInstallPromise) {
+      bundleRestartFailed = false;
       bundleInstallTarget = target;
       bundleInstallPromise = (async () => {
         await ReactNativeBundleUpdate.installBundle({
@@ -334,19 +348,14 @@ export const BundleUpdate: IBundleUpdate = {
     }
     return bundleInstallPromise.then(() => {
       if (!bundleRestartPromise) {
-        // Keep a successful installation cached even if restart fails: retrying
-        // installation would rewrite fallback history for the same bundle.
+        bundleRestartFailed = false;
+        // Same-target retries must not rewrite fallback history.
         bundleRestartPromise = (async () => {
           defaultLogger.app.appUpdate.restartRNApp();
-          await new Promise<void>((resolve) => {
-            setTimeout(resolve, 2500);
-          });
-          await appRestart({
-            mode: EAppRestartMode.All,
-            reason: 'ota.installBundle',
-          });
+          await restartBundle('ota.installBundle');
         })().catch(() => {
           bundleRestartPromise = undefined;
+          bundleRestartFailed = true;
           defaultLogger.app.appUpdate.log(
             'BundleUpdate.installBundle: restart failed',
           );
@@ -364,15 +373,7 @@ export const BundleUpdate: IBundleUpdate = {
   resetToBuiltInBundle: async () => {
     await ReactNativeBundleUpdate.resetToBuiltInBundle();
   },
-  restart: () => {
-    // Generic OTA-driven restart (retry path, dialog-confirmed restart).
-    // Treated as all-mode because callers expect the same semantics as a
-    // freshly-installed bundle. BootRecovery.markBootSuccess() runs inside
-    // appRestart, so no explicit call is needed here.
-    setTimeout(() => {
-      void appRestart({ mode: EAppRestartMode.All, reason: 'ota.restart' });
-    }, 2500);
-  },
+  restart: () => restartBundle('ota.restart'),
   isSkipGpgVerificationAllowed: () =>
     Promise.resolve(ReactNativeBundleUpdate.isSkipGpgVerificationAllowed()),
   pruneStaleAppVersionBundles: () =>
@@ -403,15 +404,7 @@ export const BundleUpdate: IBundleUpdate = {
   switchBundle: async (params) => {
     await ReactNativeBundleUpdate.setCurrentUpdateBundleData(params);
     if (params.appVersion && params.bundleVersion) {
-      // Switching bundles changes what's on disk for both main and bg;
-      // mode=All to avoid moduleId drift after the swap. BootRecovery is
-      // marked inside appRestart, so no explicit call is needed here.
-      setTimeout(() => {
-        void appRestart({
-          mode: EAppRestartMode.All,
-          reason: 'ota.switchBundle',
-        });
-      }, 2500);
+      await restartBundle('ota.switchBundle');
     }
   },
   getNativeAppVersion: () => ReactNativeBundleUpdate.getNativeAppVersion(),

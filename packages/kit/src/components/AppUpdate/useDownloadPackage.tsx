@@ -62,8 +62,7 @@ enum EInstallPackageState {
 
 let installPackageState: EInstallPackageState | undefined;
 
-// The lock outlives its initiating screen, so restart failure must release it
-// even when no useDownloadPackage hook remains mounted.
+// Release the lock even if its initiating screen has unmounted.
 appEventBus.on(EAppEventBusNames.BundleUpdateRestartFailed, () => {
   if (installPackageState === EInstallPackageState.awaitingBundleRestart) {
     installPackageState = undefined;
@@ -150,16 +149,13 @@ export const useDownloadPackage = () => {
   const installPackage = useCallback(
     async (onSuccess: () => void, onFail: () => void) => {
       if (installPackageState) {
-        defaultLogger.app.appUpdate.log(
-          'installPackage: skipped — install already in progress or awaiting restart',
-        );
         return;
       }
       installPackageState = EInstallPackageState.installing;
       let lockUntilRestart = false;
       try {
         const data = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
-        const fileType = await getFileTypeFromUpdateInfo();
+        const fileType = getUpdateFileType(data);
         const showToastError = isShowToastError(data.updateStrategy);
         ensureUpdateAttemptId();
         try {
@@ -209,7 +205,7 @@ export const useDownloadPackage = () => {
         }
       }
     },
-    [getFileTypeFromUpdateInfo, intl, recoverUpdatePackage],
+    [intl, recoverUpdatePackage],
   );
 
   const verifyPackage = useCallback(async () => {
@@ -594,9 +590,6 @@ export const useDownloadPackage = () => {
 
   const manualInstallPackage = useCallback(async () => {
     if (installPackageState) {
-      defaultLogger.app.appUpdate.log(
-        'manualInstallPackage: skipped — install already in progress or awaiting restart',
-      );
       return;
     }
     installPackageState = EInstallPackageState.installing;

@@ -492,13 +492,14 @@ export function useAppUpdateForegroundEffects(enabled = true) {
       }
 
       const forceUpdate = isForceUpdateStrategy(info.updateStrategy);
-      const isDesktopAppShellRecovery =
-        platformEnv.isDesktop &&
-        getUpdateFileType(info) === EUpdateFileType.appShell;
+      const shouldShowIncompleteRecovery =
+        getUpdateFileType(info) === EUpdateFileType.jsBundle
+          ? !isAutoUpdateStrategy(info.updateStrategy)
+          : platformEnv.isDesktop;
       if (
         info.status === EAppUpdateStatus.updateIncomplete &&
         !forceUpdate &&
-        isDesktopAppShellRecovery
+        shouldShowIncompleteRecovery
       ) {
         showUpdateInCompleteDialogWhenUnlocked();
         return;
@@ -531,22 +532,22 @@ export function useAppUpdateForegroundEffects(enabled = true) {
               info.downloadedEvent?.signature &&
               info.downloadedEvent?.sha256
             ) {
-              void Promise.resolve(
-                BundleUpdate.installBundle(info.downloadedEvent),
-              ).catch(async (error: unknown) => {
-                defaultLogger.app.appUpdate.endInstallPackage(
-                  false,
-                  error as Error,
-                );
-                if (
-                  extractUpdateErrorCode(error) ===
-                  EAppUpdatePackageErrorCode.packageMissing
-                ) {
-                  await backgroundApiProxy.serviceAppUpdate
-                    .reconcileUpdatePackage()
-                    .catch(() => undefined);
-                }
-              });
+              void BundleUpdate.installBundle(info.downloadedEvent).catch(
+                async (error: unknown) => {
+                  defaultLogger.app.appUpdate.endInstallPackage(
+                    false,
+                    error as Error,
+                  );
+                  if (
+                    extractUpdateErrorCode(error) ===
+                    EAppUpdatePackageErrorCode.packageMissing
+                  ) {
+                    await backgroundApiProxy.serviceAppUpdate
+                      .reconcileUpdatePackage()
+                      .catch(() => undefined);
+                  }
+                },
+              );
             } else {
               defaultLogger.app.appUpdate.endInstallPackage(
                 false,
@@ -699,21 +700,18 @@ export function useAppUpdateForegroundEffects(enabled = true) {
       });
     };
     appEventBus.on(EAppEventBusNames.BundleUpdateRestartFailed, handler);
+    appEventBus.on(
+      EAppEventBusNames.ShowAppUpdateIncompleteDialog,
+      showUpdateInCompleteDialogWhenUnlocked,
+    );
     return () => {
       appEventBus.off(EAppEventBusNames.BundleUpdateRestartFailed, handler);
+      appEventBus.off(
+        EAppEventBusNames.ShowAppUpdateIncompleteDialog,
+        showUpdateInCompleteDialogWhenUnlocked,
+      );
     };
-  }, [enabled, intl]);
-
-  useEffect(() => {
-    if (!enabled) return undefined;
-    const handler = () => {
-      showUpdateInCompleteDialogWhenUnlocked();
-    };
-    appEventBus.on(EAppEventBusNames.ShowAppUpdateIncompleteDialog, handler);
-    return () => {
-      appEventBus.off(EAppEventBusNames.ShowAppUpdateIncompleteDialog, handler);
-    };
-  }, [enabled, showUpdateInCompleteDialogWhenUnlocked]);
+  }, [enabled, intl, showUpdateInCompleteDialogWhenUnlocked]);
 
   // Single AppState listener for the whole app — replaces the per-mount
   // listeners that previously lived in `useAppUpdateInfo`. The service-

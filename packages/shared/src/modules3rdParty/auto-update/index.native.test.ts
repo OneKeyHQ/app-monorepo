@@ -10,7 +10,10 @@ import { appRestart } from '../appRestart';
 import { BundleUpdate, resetBundleInstallLockForTest } from './index.native';
 
 jest.mock('@onekeyfe/react-native-bundle-update', () => ({
-  ReactNativeBundleUpdate: { installBundle: jest.fn() },
+  ReactNativeBundleUpdate: {
+    installBundle: jest.fn(),
+    setCurrentUpdateBundleData: jest.fn(),
+  },
 }));
 
 jest.mock('../appRestart', () => ({ appRestart: jest.fn() }));
@@ -23,6 +26,10 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 
 const installBundle = jest.spyOn(ReactNativeBundleUpdate, 'installBundle');
 const restart = jest.mocked(appRestart);
+const setCurrentBundle = jest.spyOn(
+  ReactNativeBundleUpdate,
+  'setCurrentUpdateBundleData',
+);
 const emitToSelf = jest.spyOn(appEventBus, 'emitToSelf');
 const broadcast = jest.spyOn(appEventBus, 'emit');
 
@@ -34,11 +41,61 @@ describe('native bundle install concurrency', () => {
     resetBundleInstallLockForTest();
     installBundle.mockReset().mockResolvedValue(undefined);
     restart.mockReset().mockResolvedValue(undefined);
+    setCurrentBundle.mockReset().mockResolvedValue(undefined);
   });
 
   afterEach(() => {
     jest.clearAllTimers();
     jest.useRealTimers();
+  });
+
+  test.each(['restart', 'switchBundle'] as const)(
+    '%s exposes delayed restart failure and allows retry',
+    async (action) => {
+      const target = {
+        appVersion: '6.6.1',
+        bundleVersion: '24910529',
+        signature: 'signature',
+      };
+      const run = () =>
+        action === 'restart'
+          ? BundleUpdate.restart()
+          : BundleUpdate.switchBundle(target);
+      const error = new Error('BG_RESTART_ERROR');
+      restart.mockRejectedValueOnce(error);
+      const result = Promise.allSettled([run()]);
+      await jest.advanceTimersByTimeAsync(2499);
+      expect(restart).not.toHaveBeenCalled();
+      await jest.advanceTimersByTimeAsync(1);
+      await expect(result).resolves.toEqual([
+        { status: 'rejected', reason: error },
+      ]);
+      expect(restart).toHaveBeenCalledWith({
+        mode: 'all',
+        reason: `ota.${action}`,
+      });
+      expect(emitToSelf).not.toHaveBeenCalled();
+
+      const retry = run();
+      await jest.runAllTimersAsync();
+      await retry;
+      expect(restart).toHaveBeenCalledTimes(2);
+      expect(installBundle).not.toHaveBeenCalled();
+    },
+  );
+
+  test('does not restart when switching bundle metadata fails', async () => {
+    const error = new Error('Bundle directory not found');
+    setCurrentBundle.mockRejectedValueOnce(error);
+    await expect(
+      BundleUpdate.switchBundle({
+        appVersion: '6.6.1',
+        bundleVersion: '24910529',
+        signature: 'signature',
+      }),
+    ).rejects.toBe(error);
+    await jest.runAllTimersAsync();
+    expect(restart).not.toHaveBeenCalled();
   });
 
   test('overlapping callers receive the native failure and can retry', async () => {
@@ -140,18 +197,36 @@ describe('native bundle install concurrency', () => {
     });
     expect(broadcast).not.toHaveBeenCalled();
 
-    await expect(
-      BundleUpdate.installBundle({
-        latestVersion: '6.6.2',
-        bundleVersion: '25000000',
-      }),
-    ).rejects.toThrow('BUNDLE_INSTALL_TARGET_CONFLICT');
     expect(restart).toHaveBeenCalledTimes(1);
 
     const retry = BundleUpdate.installBundle({});
     await jest.runAllTimersAsync();
     await retry;
     expect(installBundle).toHaveBeenCalledTimes(1);
+    expect(restart).toHaveBeenCalledTimes(2);
+  });
+
+  test('accepts a new target after restart failure without reinstalling the previous target', async () => {
+    restart.mockRejectedValueOnce(new Error('Restart failed'));
+    const firstTarget = { latestVersion: '6.6.1', bundleVersion: '24910529' };
+    await BundleUpdate.installBundle(firstTarget);
+    await jest.runAllTimersAsync();
+
+    const nextTarget = { latestVersion: '6.6.1', bundleVersion: '24910530' };
+    await Promise.all([
+      BundleUpdate.installBundle(nextTarget),
+      BundleUpdate.installBundle({ ...nextTarget }),
+    ]);
+    await expect(BundleUpdate.installBundle(firstTarget)).rejects.toThrow(
+      'BUNDLE_INSTALL_TARGET_CONFLICT',
+    );
+    await jest.runAllTimersAsync();
+
+    expect(installBundle).toHaveBeenCalledTimes(2);
+    expect(installBundle).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining(nextTarget),
+    );
     expect(restart).toHaveBeenCalledTimes(2);
   });
 });

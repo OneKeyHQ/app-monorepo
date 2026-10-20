@@ -26,14 +26,44 @@ jest.mock('./electronUpdateListeners', () => {
 
 describe('desktop bundle install concurrency', () => {
   const installBundle = jest.fn<Promise<void>, []>();
+  const restart = jest.fn<Promise<void>, []>();
+  const switchBundle = jest.fn<Promise<void>, []>();
 
   beforeEach(() => {
     resetBundleInstallLockForTest();
     installBundle.mockReset().mockResolvedValue(undefined);
+    restart.mockReset().mockResolvedValue(undefined);
+    switchBundle.mockReset().mockResolvedValue(undefined);
     globalThis.desktopApiProxy = {
-      bundleUpdate: { installBundle },
+      bundleUpdate: {
+        installBundle,
+        restart,
+        setCurrentUpdateBundleData: switchBundle,
+      },
     } as unknown as typeof globalThis.desktopApiProxy;
   });
+
+  test.each(['restart', 'switchBundle'] as const)(
+    '%s propagates the main-process failure and permits retry',
+    async (action) => {
+      const target = {
+        appVersion: '6.6.1',
+        bundleVersion: '24910529',
+        signature: 'signature',
+      };
+      const api = action === 'restart' ? restart : switchBundle;
+      const run = () =>
+        action === 'restart'
+          ? BundleUpdate.restart()
+          : BundleUpdate.switchBundle(target);
+      const error = new Error('Restart failed');
+      api.mockRejectedValueOnce(error);
+      await expect(run()).rejects.toBe(error);
+      await expect(run()).resolves.toBeUndefined();
+      expect(api).toHaveBeenCalledTimes(2);
+      expect(installBundle).not.toHaveBeenCalled();
+    },
+  );
 
   test('overlapping callers wait for the same failure and can retry', async () => {
     let rejectInstall: (error: Error) => void = () => {};

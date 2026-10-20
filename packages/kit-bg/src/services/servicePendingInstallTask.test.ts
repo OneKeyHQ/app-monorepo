@@ -242,6 +242,70 @@ describe('servicePendingInstallTask', () => {
     );
   });
 
+  test('delayed restart failure returns an applied task to retry and releases the foreground', async () => {
+    jest.useFakeTimers();
+    try {
+      const service = createService();
+      const {
+        BundleUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      pendingTaskValue = makeSwitchTask();
+      BundleUpdate.switchBundle.mockImplementationOnce(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            setTimeout(() => reject(new Error('BG_RESTART_ERROR')), 2500);
+          }),
+      );
+      const processing = service.processPendingInstallTask();
+      await jest.advanceTimersByTimeAsync(0);
+      expect(pendingTaskValue.status).toBe('applied_waiting_verify');
+
+      await jest.advanceTimersByTimeAsync(2500);
+      await processing;
+      expect(pendingTaskValue).toMatchObject({
+        status: 'pending',
+        retryCount: 1,
+        lastError: 'BG_RESTART_ERROR',
+      });
+      expect(appEventBus.emit).toHaveBeenCalledWith(
+        EAppEventBusNames.PendingInstallTaskProcessFinished,
+        undefined,
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('builtin fallback restart failure is retried instead of discarded', async () => {
+    const service = createService();
+    const {
+      BundleUpdate,
+    } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+    pendingTaskValue = makeSwitchTask({
+      targetBundleVersion: '0',
+      payload: {
+        appVersion: '1.0.0',
+        bundleVersion: '0',
+        signature: 'signature',
+      },
+    });
+    BundleUpdate.isBundleExists.mockResolvedValueOnce(false);
+    BundleUpdate.restart.mockRejectedValueOnce(new Error('BG_RESTART_ERROR'));
+
+    await service.processPendingInstallTask();
+
+    expect(pendingTaskValue).toMatchObject({
+      status: 'pending',
+      retryCount: 1,
+      lastError: 'BG_RESTART_ERROR',
+    });
+    expect(BundleUpdate.resetToBuiltInBundle).toHaveBeenCalledTimes(1);
+    expect(appEventBus.emit).toHaveBeenCalledWith(
+      EAppEventBusNames.PendingInstallTaskProcessFinished,
+      undefined,
+    );
+  });
+
   test('fetch stage does not create pending task before resources are ready', async () => {
     const service = createService();
     await service.syncPendingInstallTaskWithReleaseInfo({

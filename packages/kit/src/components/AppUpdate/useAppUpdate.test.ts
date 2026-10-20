@@ -2059,6 +2059,7 @@ describe('useDownloadPackage', () => {
       });
 
       expect(bundleUpd.installBundle).toHaveBeenCalled();
+      expect(svc.getUpdateInfo).toHaveBeenCalledTimes(1);
       expect(svc.processPendingInstallTask).not.toHaveBeenCalled();
       expect(onSuccess).toHaveBeenCalled();
     });
@@ -2836,28 +2837,56 @@ describe('useAppUpdateInfo useEffect', () => {
       expect(mockDialogShow).not.toHaveBeenCalled();
     });
 
-    test('desktop JS Bundle status=updateIncomplete → does not add a startup dialog', async () => {
-      mockPlatformEnv.isDesktop = true;
-      setAtom({
-        status: EAppUpdateStatus.updateIncomplete,
-        latestVersion: '1.0.0',
-        jsBundleVersion: '5',
-      });
+    test.each([true, false])(
+      'manual JS Bundle recovery shows a startup dialog (desktop=%s)',
+      async (isDesktop) => {
+        mockPlatformEnv.isDesktop = isDesktop;
+        setAtom({
+          status: EAppUpdateStatus.updateIncomplete,
+          latestVersion: '1.0.0',
+          jsBundleVersion: '5',
+          updateStrategy: EUpdateStrategy.manual,
+        });
 
-      const hooks = requireFreshHooks();
-      renderHook(() => hooks.useAppUpdateInfo(false, true));
+        const hooks = requireFreshHooks();
+        renderHook(() => hooks.useAppUpdateInfo(false, true));
 
-      await act(async () => {
-        await jest.runAllTimersAsync();
-      });
+        await act(async () => {
+          await jest.runAllTimersAsync();
+        });
 
-      expect(mockDialogShow).not.toHaveBeenCalled();
-    });
+        expect(mockDialogShow).toHaveBeenCalledWith(
+          expect.objectContaining({
+            description:
+              ETranslations.update_update_incomplete_package_missing_desc,
+          }),
+        );
+      },
+    );
+
+    test.each([EUpdateStrategy.silent, EUpdateStrategy.seamless])(
+      'auto JS Bundle recovery stays quiet (strategy=%s)',
+      async (updateStrategy) => {
+        setAtom({
+          status: EAppUpdateStatus.updateIncomplete,
+          latestVersion: '1.0.0',
+          jsBundleVersion: '5',
+          updateStrategy,
+        });
+        const hooks = requireFreshHooks();
+        renderHook(() => hooks.useAppUpdateInfo(false, true));
+        await act(async () => {
+          await jest.runAllTimersAsync();
+        });
+        expect(mockDialogShow).not.toHaveBeenCalled();
+      },
+    );
   });
 
   // ----- C4. ready status handling -----
   describe('ready status handling', () => {
     test('ready + jsBundle + seamless + valid signature → auto-installs', async () => {
+      bundleUpd.installBundle.mockResolvedValueOnce(undefined);
       setAtom({
         status: EAppUpdateStatus.ready,
         updateStrategy: EUpdateStrategy.seamless,

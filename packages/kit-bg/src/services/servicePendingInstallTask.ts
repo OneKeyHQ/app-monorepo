@@ -1165,7 +1165,7 @@ class ServicePendingInstallTask {
         // re-persist the task as appliedWaitingVerify) is skipped.
         await clearPendingInstallTask();
         await BundleUpdate.resetToBuiltInBundle();
-        BundleUpdate.restart();
+        await BundleUpdate.restart();
         // restart schedules app relaunch after 2.5s on native / app.exit(0)
         // on desktop, so the throw below is a safety net for unexpected
         // survival.
