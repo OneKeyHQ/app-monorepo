@@ -97,6 +97,16 @@ export type ILocalWalletSendPool = {
 
 export type ILocalWalletPoolKind = 'public' | 'private';
 
+// Where a pool's data comes from; generic code dispatches on this, while
+// `kind` only drives display and privacy semantics.
+// - backend: OneKey backend only, handled like BTC. Readable without the
+//   account opting in, may join All Networks and the shared history cache,
+//   details come from the backend, custom nodes never apply.
+// - localScan: the local runtime only. Never read before the account opts
+//   in, kept out of All Networks and the shared history cache, details are
+//   answered locally, and only these pools follow custom nodes.
+export type ILocalWalletPoolSource = 'backend' | 'localScan';
+
 // Declared once per chain in its vault settings; generic UI builds pool
 // tabs, pickers and history filters from this list.
 export type ILocalWalletPoolDescriptor = {
@@ -104,6 +114,7 @@ export type ILocalWalletPoolDescriptor = {
   id: number;
   key: string;
   kind: ILocalWalletPoolKind;
+  source: ILocalWalletPoolSource;
   label: string;
   // The private pool new value lands in and that sends draw from by default.
   isDefaultPrivate?: boolean;

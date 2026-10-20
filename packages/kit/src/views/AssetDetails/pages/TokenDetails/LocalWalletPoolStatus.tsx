@@ -158,7 +158,7 @@ export function LocalWalletPoolStatus({
   }
 
   if (!lw.enabled) {
-    if (!settingsMode && lw.pool?.kind !== 'private') {
+    if (!settingsMode && lw.pool?.source !== 'localScan') {
       return null;
     }
     return (
