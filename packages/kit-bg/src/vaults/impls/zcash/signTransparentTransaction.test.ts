@@ -85,6 +85,49 @@ it('retains reservations for signed transactions until broadcast resolution', as
   expect(journal.releaseTransparentReservation).not.toHaveBeenCalled();
 });
 
+it.each([false, true])(
+  'verifies change returned to the receive address (self-payment: %s)',
+  async (selfPayment) => {
+    const { journal, sign, parseOutputs } = setup();
+    const address = selfPayment ? RECIPIENT : CHANGE;
+    parseOutputs.mockResolvedValue([
+      reviewedOutputs[0],
+      {
+        valueZat: '40000',
+        scriptPubKey: zcashTransparentScriptForAddress(address),
+      },
+    ]);
+    const receiveChangeRequest: IZcashTransparentTxRequest = {
+      ...request,
+      change: { address, derivationPath: "m/44'/133'/0'/0/0" },
+    };
+    await expect(
+      signTransparentTransaction({
+        journal,
+        sign,
+        parseOutputs,
+        accountId: 'account',
+        encodedTx,
+        request: receiveChangeRequest,
+      }),
+    ).resolves.toMatchObject({ txid: result.txid });
+
+    parseOutputs.mockResolvedValue([
+      { valueZat: '90000', scriptPubKey: recipientScript },
+    ]);
+    await expect(
+      signTransparentTransaction({
+        journal,
+        sign,
+        parseOutputs,
+        accountId: 'account',
+        encodedTx,
+        request: receiveChangeRequest,
+      }),
+    ).rejects.toThrow('did not match');
+  },
+);
+
 it.each([
   { feeZat: '1' },
   { expiryHeight: 121 },
