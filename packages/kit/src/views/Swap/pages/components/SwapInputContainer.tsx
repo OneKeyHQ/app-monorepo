@@ -45,7 +45,6 @@ import {
   ESwapDirectionType,
   ESwapQuoteKind,
   ESwapTabSwitchType,
-  SwapAmountInputAccessoryViewID,
   SwapPercentageInputStageForNative,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -139,6 +138,7 @@ export function PercentageStageOnKeyboard({
 }
 
 interface ISwapInputContainerProps {
+  inputAccessoryViewID: string;
   direction: ESwapDirectionType;
   token?: ISwapToken;
   onAmountChange?: (value: string) => void;
@@ -154,6 +154,7 @@ interface ISwapInputContainerProps {
 }
 
 const SwapInputContainer = ({
+  inputAccessoryViewID,
   onAmountChange,
   direction,
   token,
@@ -527,7 +528,7 @@ const SwapInputContainer = ({
                 } as unknown as StyleProp<TextStyle>)
               : undefined,
           inputAccessoryViewID: platformEnv.isNativeIOS
-            ? SwapAmountInputAccessoryViewID
+            ? inputAccessoryViewID
             : undefined,
           autoCorrect: false,
           spellCheck: false,
@@ -543,7 +544,7 @@ const SwapInputContainer = ({
         enableMaxAmount={!!(direction === ESwapDirectionType.FROM)}
       />
       {platformEnv.isNativeIOS && direction === ESwapDirectionType.FROM ? (
-        <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
+        <InputAccessoryView nativeID={inputAccessoryViewID}>
           <PercentageStageOnKeyboard
             onSelectPercentageStage={onSelectPercentageStage}
           />

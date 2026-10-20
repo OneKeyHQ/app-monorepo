@@ -24,6 +24,7 @@ import { useThrottledCallback } from 'use-debounce';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Divider } from '../../content';
+import { BRAND_FONT_NATIVE_FAMILY } from '../../hocs/Provider/fonts/brandFont';
 import { ListView, ScrollView } from '../../layouts';
 import { GradientMask, SizableText, XStack, YStack } from '../../primitives';
 import { getConfig, useTheme } from '../../shared/tamagui';
@@ -77,7 +78,7 @@ const animatedTextStyles = StyleSheet.create({
     fontSize: fs(16),
     fontWeight: '500',
     lineHeight: fs(24),
-    fontFamily: 'Roobert-Medium',
+    fontFamily: BRAND_FONT_NATIVE_FAMILY.medium,
   },
 });
 
@@ -114,7 +115,7 @@ function AnimatedTabBarItemText({
   // face from the weight keeps this animated path in sync with the
   // SizableText fallback path rendering the same tab.
   const baseTextStyle = useMemo(() => {
-    // Native maps weights to explicit faces (e.g. Roobert-SemiBold); web has
+    // Native maps weights to explicit faces (e.g. the brand SemiBold face); web has
     // no face map and uses the family stack with a CSS font-weight.
     const faceMap = getConfig().fontsParsed.$body?.face as
       | Partial<Record<number, { normal?: string }>>

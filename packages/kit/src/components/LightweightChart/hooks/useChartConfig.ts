@@ -104,7 +104,7 @@ interface IUseChartConfigProps {
   priceTickFormatter?: (prices: number[]) => string[];
   priceFormatBase?: number;
   compactPriceMaxCharacters?: number;
-  priceScaleFormat?: 'stock';
+  priceScaleFormat?: 'stock' | 'full';
   priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
   fontSize?: number;

@@ -40,10 +40,22 @@ import {
   useSwapTypeSwitchAtom,
 } from './atoms';
 import {
-  prepareMarketSwapEntry,
+  prepareMarketSwapEntry as prepareMarketSwapEntryWithTokens,
   prepareStockSwapEntry,
   prepareSwapProEntry,
 } from './prepareSwapProEntry';
+
+function prepareMarketSwapEntry(
+  params: Omit<
+    Parameters<typeof prepareMarketSwapEntryWithTokens>[0],
+    'defaultTokens'
+  >,
+) {
+  return prepareMarketSwapEntryWithTokens({
+    ...params,
+    defaultTokens: [swapDefaultSetTokens['evm--1'].toToken as ISwapToken],
+  });
+}
 
 type IGlobalColdStartSnapshot = typeof globalThis & {
   __ONEKEY_CTX_ATOM_SNAPSHOT__?: Record<string, unknown>;
