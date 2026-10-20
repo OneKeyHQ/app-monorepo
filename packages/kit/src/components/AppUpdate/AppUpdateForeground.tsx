@@ -429,7 +429,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     // following cold launch instead of the one right after the install.
     void (async () => {
       const info =
-        await backgroundApiProxy.serviceAppUpdate.reconcileAppShellPackage();
+        await backgroundApiProxy.serviceAppUpdate.reconcileUpdatePackage();
       if (cancelled) return;
 
       if (isFirstLaunchAfterUpdated(info)) {
@@ -542,7 +542,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
                   EAppUpdatePackageErrorCode.packageMissing
                 ) {
                   await backgroundApiProxy.serviceAppUpdate
-                    .reconcileAppShellPackage({ includeJsBundle: true })
+                    .reconcileUpdatePackage()
                     .catch(() => undefined);
                 }
               });

@@ -397,7 +397,7 @@ describe('ServiceAppUpdate state transitions', () => {
     });
   });
 
-  describe('app shell package reconciliation', () => {
+  describe('update package reconciliation', () => {
     test('first launch after app update preserves the completed package state', async () => {
       const {
         AppUpdate,
@@ -412,7 +412,7 @@ describe('ServiceAppUpdate state transitions', () => {
         },
       });
 
-      const result = await service.reconcileAppShellPackage();
+      const result = await service.reconcileUpdatePackage();
 
       expect(result.status).toBe(EAppUpdateStatus.ready);
       expect(result.downloadedEvent?.downloadedFile).toBe('/tmp/app-1.0.0.zip');
@@ -444,7 +444,7 @@ describe('ServiceAppUpdate state transitions', () => {
         targetAppVersion: '2.0.0',
       });
 
-      const result = await service.reconcileAppShellPackage();
+      const result = await service.reconcileUpdatePackage();
 
       expect(result.status).toBe(EAppUpdateStatus.updateIncomplete);
       expect(result.downloadedEvent).toBeUndefined();
@@ -469,7 +469,7 @@ describe('ServiceAppUpdate state transitions', () => {
         },
       });
 
-      const result = await service.reconcileAppShellPackage();
+      const result = await service.reconcileUpdatePackage();
 
       expect(result.status).toBe(EAppUpdateStatus.notify);
       expect(result.downloadedEvent).toBeUndefined();
@@ -506,7 +506,7 @@ describe('ServiceAppUpdate state transitions', () => {
         },
       });
 
-      const result = await service.reconcileAppShellPackage();
+      const result = await service.reconcileUpdatePackage();
 
       expect(result.status).toBe(EAppUpdateStatus.notify);
       expect(result.fullFlowRetryByTarget?.['recovery:2.0.0:1']?.count).toBe(1);
@@ -537,7 +537,7 @@ describe('ServiceAppUpdate state transitions', () => {
       const emitSpy = jest.spyOn(appEventBus, 'emit');
 
       for (let retry = 1; retry <= 3; retry += 1) {
-        const result = await service.reconcileAppShellPackage();
+        const result = await service.reconcileUpdatePackage();
         expect(result.fullFlowRetryByTarget?.['recovery:2.0.0:1']?.count).toBe(
           retry,
         );
@@ -590,7 +590,7 @@ describe('ServiceAppUpdate state transitions', () => {
         },
       });
 
-      const result = await service.reconcileAppShellPackage();
+      const result = await service.reconcileUpdatePackage();
 
       expect(result.status).toBe(EAppUpdateStatus.updateIncomplete);
       expect(result.downloadedEvent).toBeUndefined();
@@ -614,7 +614,7 @@ describe('ServiceAppUpdate state transitions', () => {
         },
       });
 
-      const result = await service.reconcileAppShellPackage();
+      const result = await service.reconcileUpdatePackage();
 
       expect(result.status).toBe(EAppUpdateStatus.notify);
       expect(result.downloadedEvent).toBeUndefined();
@@ -648,7 +648,7 @@ describe('ServiceAppUpdate state transitions', () => {
           },
         });
 
-        const result = await service.reconcileAppShellPackage();
+        const result = await service.reconcileUpdatePackage();
 
         expect(result.status).toBe(EAppUpdateStatus.downloadPackage);
         expect(result.downloadedEvent).toBeUndefined();
@@ -680,7 +680,7 @@ describe('ServiceAppUpdate state transitions', () => {
         },
       });
 
-      const result = await service.reconcileAppShellPackage();
+      const result = await service.reconcileUpdatePackage();
 
       expect(result.status).toBe(EAppUpdateStatus.updateIncomplete);
       expect(result.downloadedEvent).toBeUndefined();
@@ -706,77 +706,87 @@ describe('ServiceAppUpdate state transitions', () => {
         return { status: 'missing' };
       });
 
-      const result = await service.reconcileAppShellPackage();
+      const result = await service.reconcileUpdatePackage();
 
       expect(result.status).toBe(EAppUpdateStatus.ready);
       expect(result.updateStrategy).toBe(EUpdateStrategy.seamless);
       expect(result.downloadedEvent?.downloadedFile).toBe('/tmp/app-2.0.0.zip');
     });
 
-    test('JS bundle ready state is not inspected by app shell reconciliation', async () => {
-      const {
-        AppUpdate,
-      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
-      resetAtom({
-        latestVersion: '1.0.0',
-        jsBundleVersion: '2',
-        status: EAppUpdateStatus.ready,
-        updateStrategy: EUpdateStrategy.seamless,
-        downloadedEvent: {
-          downloadedFile: '/tmp/bundle-2.zip',
-        },
-      });
+    test.each([EAppUpdateStatus.ready, EAppUpdateStatus.manualInstall])(
+      'available JS bundle preserves %s without checking the app shell',
+      async (status) => {
+        const {
+          AppUpdate,
+          BundleUpdate,
+        } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+        BundleUpdate.isBundleExists.mockResolvedValueOnce(true);
+        resetAtom({
+          latestVersion: '1.0.0',
+          jsBundleVersion: '2',
+          status,
+          updateStrategy: EUpdateStrategy.seamless,
+          downloadedEvent: {
+            downloadedFile: '/tmp/bundle-2.zip',
+          },
+        });
 
-      const result = await service.reconcileAppShellPackage();
+        const result = await service.reconcileUpdatePackage();
 
-      expect(result.status).toBe(EAppUpdateStatus.ready);
-      expect(AppUpdate.checkPackageAvailability).not.toHaveBeenCalled();
-    });
+        expect(result.status).toBe(status);
+        expect(BundleUpdate.isBundleExists).toHaveBeenCalledWith('1.0.0', '2');
+        expect(result.downloadedEvent?.downloadedFile).toBe(
+          '/tmp/bundle-2.zip',
+        );
+        expect(AppUpdate.checkPackageAvailability).not.toHaveBeenCalled();
+      },
+    );
 
-    test('missing JS bundle with includeJsBundle restarts auto download for silent strategy and clears pending task', async () => {
-      const {
-        BundleUpdate,
-      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
-      BundleUpdate.isBundleExists.mockResolvedValueOnce(false);
-      resetAtom({
-        latestVersion: '1.0.0',
-        jsBundleVersion: '24910529',
-        status: EAppUpdateStatus.ready,
-        updateStrategy: EUpdateStrategy.silent,
-        downloadedEvent: {
-          downloadedFile: '/tmp/bundle-24910529.zip',
-        },
-      });
-      resetPendingTask({
-        taskId: 'jsBundle:1.0.0:24910529',
-        revision: 1,
-        action: EPendingInstallTaskAction.switchBundle,
-        type: EPendingInstallTaskType.jsBundleSwitch,
-        targetAppVersion: '1.0.0',
-        targetBundleVersion: '24910529',
-      });
+    test.each([EUpdateStrategy.silent, EUpdateStrategy.seamless])(
+      'missing JS bundle restarts auto download for strategy %s and clears pending task',
+      async (updateStrategy) => {
+        const {
+          BundleUpdate,
+        } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+        BundleUpdate.isBundleExists.mockResolvedValueOnce(false);
+        resetAtom({
+          latestVersion: '1.0.0',
+          jsBundleVersion: '24910529',
+          status: EAppUpdateStatus.ready,
+          updateStrategy,
+          downloadedEvent: {
+            downloadedFile: '/tmp/bundle-24910529.zip',
+          },
+        });
+        resetPendingTask({
+          taskId: 'jsBundle:1.0.0:24910529',
+          revision: 1,
+          action: EPendingInstallTaskAction.switchBundle,
+          type: EPendingInstallTaskType.jsBundleSwitch,
+          targetAppVersion: '1.0.0',
+          targetBundleVersion: '24910529',
+        });
 
-      const result = await service.reconcileAppShellPackage({
-        includeJsBundle: true,
-      });
+        const result = await service.reconcileUpdatePackage();
 
-      expect(BundleUpdate.isBundleExists).toHaveBeenCalledWith(
-        '1.0.0',
-        '24910529',
-      );
-      expect(result.status).toBe(EAppUpdateStatus.notify);
-      expect(result.downloadedEvent).toBeUndefined();
-      expect(pendingInstallTaskValue).toBeUndefined();
+        expect(BundleUpdate.isBundleExists).toHaveBeenCalledWith(
+          '1.0.0',
+          '24910529',
+        );
+        expect(result.status).toBe(EAppUpdateStatus.notify);
+        expect(result.downloadedEvent).toBeUndefined();
+        expect(pendingInstallTaskValue).toBeUndefined();
 
-      const emitSpy = jest.spyOn(appEventBus, 'emit');
-      await jest.runAllTimersAsync();
-      expect(emitSpy).toHaveBeenCalledWith(
-        EAppEventBusNames.StartAutoDownloadUpdate,
-        { decision: 'jsBundlePackageRecovery' },
-      );
-    });
+        const emitSpy = jest.spyOn(appEventBus, 'emit');
+        await jest.runAllTimersAsync();
+        expect(emitSpy).toHaveBeenCalledWith(
+          EAppEventBusNames.StartAutoDownloadUpdate,
+          { decision: 'jsBundlePackageRecovery' },
+        );
+      },
+    );
 
-    test('missing JS bundle with includeJsBundle transitions manual strategy to updateIncomplete', async () => {
+    test('missing JS bundle transitions manual strategy to updateIncomplete', async () => {
       const {
         BundleUpdate,
       } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
@@ -791,12 +801,91 @@ describe('ServiceAppUpdate state transitions', () => {
         },
       });
 
-      const result = await service.reconcileAppShellPackage({
-        includeJsBundle: true,
-      });
+      const result = await service.reconcileUpdatePackage();
 
       expect(result.status).toBe(EAppUpdateStatus.updateIncomplete);
       expect(result.downloadedEvent).toBeUndefined();
+    });
+
+    test.each([
+      EAppUpdateStatus.downloadPackage,
+      EAppUpdateStatus.downloadPackageFailed,
+      EAppUpdateStatus.downloadASC,
+      EAppUpdateStatus.downloadASCFailed,
+      EAppUpdateStatus.verifyASC,
+      EAppUpdateStatus.verifyASCFailed,
+      EAppUpdateStatus.verifyPackage,
+      EAppUpdateStatus.verifyPackageFailed,
+    ])(
+      'JS bundle in %s is not invalidated before it is installable',
+      async (status) => {
+        const {
+          AppUpdate,
+          BundleUpdate,
+        } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+        resetAtom({
+          latestVersion: '1.0.0',
+          jsBundleVersion: '24910529',
+          status,
+          updateStrategy: EUpdateStrategy.seamless,
+          downloadedEvent: { downloadedFile: '/tmp/bundle.zip' },
+        });
+        const snapshot = atomValue;
+
+        const result = await service.reconcileUpdatePackage();
+
+        expect(result).toMatchObject(snapshot);
+        expect(BundleUpdate.isBundleExists).not.toHaveBeenCalled();
+        expect(AppUpdate.checkPackageAvailability).not.toHaveBeenCalled();
+      },
+    );
+
+    test('JS bundle existence check failure preserves the ready state', async () => {
+      const {
+        BundleUpdate,
+      } = require('@onekeyhq/shared/src/modules3rdParty/auto-update');
+      BundleUpdate.isBundleExists.mockRejectedValueOnce(
+        new Error('Bridge unavailable'),
+      );
+      resetAtom({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '24910529',
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.seamless,
+        downloadedEvent: { downloadedFile: '/tmp/bundle.zip' },
+      });
+      const snapshot = atomValue;
+
+      expect(await service.reconcileUpdatePackage()).toMatchObject(snapshot);
+    });
+
+    test('repeated missing JS bundles stop auto recovery after the persisted retry budget', async () => {
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
+      resetAtom({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '24910529',
+        updateStrategy: EUpdateStrategy.seamless,
+      });
+
+      for (let retry = 1; retry <= 3; retry += 1) {
+        atomValue = {
+          ...atomValue,
+          status: EAppUpdateStatus.ready,
+          downloadedEvent: { downloadedFile: '/tmp/bundle.zip' },
+        };
+        const result = await service.reconcileUpdatePackage();
+        expect(
+          result.fullFlowRetryByTarget?.['recovery:1.0.0:24910529']?.count,
+        ).toBe(retry);
+        expect(result.status).toBe(
+          retry < 3
+            ? EAppUpdateStatus.notify
+            : EAppUpdateStatus.updateIncomplete,
+        );
+        await jest.runAllTimersAsync();
+      }
+
+      expect(emitSpy).toHaveBeenCalledTimes(2);
     });
 
     test('availability check failure preserves the ready package state', async () => {
@@ -816,7 +905,7 @@ describe('ServiceAppUpdate state transitions', () => {
         },
       });
 
-      const result = await service.reconcileAppShellPackage();
+      const result = await service.reconcileUpdatePackage();
 
       expect(result.status).toBe(EAppUpdateStatus.ready);
       expect(result.downloadedEvent?.downloadedFile).toBe('/tmp/app-2.0.0.zip');

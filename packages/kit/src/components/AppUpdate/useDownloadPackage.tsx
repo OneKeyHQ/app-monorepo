@@ -61,7 +61,7 @@ export function resetInstallPackageLockForTest() {
   isInstallingPackage = false;
 }
 
-function isAppShellPackageInvalidError(errorCode?: string) {
+function isUpdatePackageInvalidError(errorCode?: string) {
   return (
     errorCode === EAppUpdatePackageErrorCode.packageMissing ||
     errorCode === EAppUpdatePackageErrorCode.packageUnavailable ||
@@ -94,35 +94,20 @@ export const useDownloadPackage = () => {
     [],
   );
 
-  const recoverAppShellPackage = useCallback(
+  const recoverUpdatePackage = useCallback(
     async ({
-      fileType,
       errorCode,
       showIncompleteDialog,
-      allowJsBundleRecovery = false,
     }: {
-      fileType: EUpdateFileType;
       errorCode?: string;
       showIncompleteDialog: boolean;
-      allowJsBundleRecovery?: boolean;
     }): Promise<EAppUpdateStatus | undefined> => {
-      const isDesktopAppShellInvalid =
-        platformEnv.isDesktop &&
-        fileType === EUpdateFileType.appShell &&
-        isAppShellPackageInvalidError(errorCode);
-      const isJsBundlePackageMissing =
-        allowJsBundleRecovery &&
-        fileType === EUpdateFileType.jsBundle &&
-        errorCode === EAppUpdatePackageErrorCode.packageMissing;
-      if (!isDesktopAppShellInvalid && !isJsBundlePackageMissing) {
+      if (!isUpdatePackageInvalidError(errorCode)) {
         return undefined;
       }
       try {
-        const info = isJsBundlePackageMissing
-          ? await backgroundApiProxy.serviceAppUpdate.reconcileAppShellPackage({
-              includeJsBundle: true,
-            })
-          : await backgroundApiProxy.serviceAppUpdate.reconcileAppShellPackage();
+        const info =
+          await backgroundApiProxy.serviceAppUpdate.reconcileUpdatePackage();
         const recoveredStatus =
           info.status === EAppUpdateStatus.updateIncomplete ||
           info.status === EAppUpdateStatus.notify ||
@@ -141,7 +126,7 @@ export const useDownloadPackage = () => {
         return recoveredStatus;
       } catch {
         defaultLogger.app.appUpdate.log(
-          'recoverAppShellPackage: reconciliation failed',
+          'recoverUpdatePackage: reconciliation failed',
         );
         return undefined;
       }
@@ -190,11 +175,9 @@ export const useDownloadPackage = () => {
             errorMessage: sanitizeUpdateErrorMessage(e),
             errorCode,
           });
-          const recoveredStatus = await recoverAppShellPackage({
-            fileType,
+          const recoveredStatus = await recoverUpdatePackage({
             errorCode,
             showIncompleteDialog: false,
-            allowJsBundleRecovery: true,
           });
           if (recoveredStatus) {
             if (recoveredStatus === EAppUpdateStatus.updateIncomplete) {
@@ -212,7 +195,7 @@ export const useDownloadPackage = () => {
         }
       }
     },
-    [getFileTypeFromUpdateInfo, intl, recoverAppShellPackage],
+    [getFileTypeFromUpdateInfo, intl, recoverUpdatePackage],
   );
 
   const verifyPackage = useCallback(async () => {
@@ -228,8 +211,7 @@ export const useDownloadPackage = () => {
         if (platformEnv.isDesktop && fileType === EUpdateFileType.appShell) {
           await backgroundApiProxy.serviceAppUpdate.verifyPackage();
         }
-        const recoveredStatus = await recoverAppShellPackage({
-          fileType,
+        const recoveredStatus = await recoverUpdatePackage({
           errorCode: EAppUpdatePackageErrorCode.packageMissing,
           showIncompleteDialog: true,
         });
@@ -269,8 +251,7 @@ export const useDownloadPackage = () => {
         errorMessage: sanitizeUpdateErrorMessage(e),
         errorCode,
       });
-      const recoveredStatus = await recoverAppShellPackage({
-        fileType,
+      const recoveredStatus = await recoverUpdatePackage({
         errorCode,
         showIncompleteDialog: true,
       });
@@ -279,7 +260,7 @@ export const useDownloadPackage = () => {
       }
       await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed(e as Error);
     }
-  }, [getSkipGPGVerification, recoverAppShellPackage]);
+  }, [getSkipGPGVerification, recoverUpdatePackage]);
 
   const verifyASC = useCallback(async () => {
     const fileType = await getFileTypeFromUpdateInfo();
@@ -291,8 +272,7 @@ export const useDownloadPackage = () => {
         if (platformEnv.isDesktop && fileType === EUpdateFileType.appShell) {
           await backgroundApiProxy.serviceAppUpdate.verifyASC();
         }
-        const recoveredStatus = await recoverAppShellPackage({
-          fileType,
+        const recoveredStatus = await recoverUpdatePackage({
           errorCode: EAppUpdatePackageErrorCode.packageMissing,
           showIncompleteDialog: true,
         });
@@ -334,8 +314,7 @@ export const useDownloadPackage = () => {
         errorMessage: sanitizeUpdateErrorMessage(e),
         errorCode,
       });
-      const recoveredStatus = await recoverAppShellPackage({
-        fileType,
+      const recoveredStatus = await recoverUpdatePackage({
         errorCode,
         showIncompleteDialog: true,
       });
@@ -347,7 +326,7 @@ export const useDownloadPackage = () => {
   }, [
     getFileTypeFromUpdateInfo,
     getSkipGPGVerification,
-    recoverAppShellPackage,
+    recoverUpdatePackage,
     verifyPackage,
   ]);
 
@@ -361,8 +340,7 @@ export const useDownloadPackage = () => {
         if (platformEnv.isDesktop && fileType === EUpdateFileType.appShell) {
           await backgroundApiProxy.serviceAppUpdate.downloadASC();
         }
-        const recoveredStatus = await recoverAppShellPackage({
-          fileType,
+        const recoveredStatus = await recoverUpdatePackage({
           errorCode: EAppUpdatePackageErrorCode.packageMissing,
           showIncompleteDialog: true,
         });
@@ -404,8 +382,7 @@ export const useDownloadPackage = () => {
         errorMessage: sanitizeUpdateErrorMessage(e),
         errorCode,
       });
-      const recoveredStatus = await recoverAppShellPackage({
-        fileType,
+      const recoveredStatus = await recoverUpdatePackage({
         errorCode,
         showIncompleteDialog: true,
       });
@@ -417,7 +394,7 @@ export const useDownloadPackage = () => {
   }, [
     getFileTypeFromUpdateInfo,
     getSkipGPGVerification,
-    recoverAppShellPackage,
+    recoverUpdatePackage,
     verifyASC,
   ]);
 
@@ -632,11 +609,9 @@ export const useDownloadPackage = () => {
       } catch (e) {
         const errorCode = extractUpdateErrorCode(e);
         defaultLogger.app.appUpdate.endManualInstallPackage(false, e as Error);
-        const recoveredStatus = await recoverAppShellPackage({
-          fileType,
+        const recoveredStatus = await recoverUpdatePackage({
           errorCode,
           showIncompleteDialog: false,
-          allowJsBundleRecovery: true,
         });
         if (recoveredStatus) {
           if (recoveredStatus === EAppUpdateStatus.updateIncomplete) {
@@ -669,7 +644,7 @@ export const useDownloadPackage = () => {
     getFileTypeFromUpdateInfo,
     intl,
     navigation,
-    recoverAppShellPackage,
+    recoverUpdatePackage,
     showUpdateInCompleteDialog,
   ]);
 

@@ -23,7 +23,7 @@
 jest.mock('../../background/instance/backgroundApiProxy', () => {
   const svc = {
     getUpdateInfo: jest.fn(),
-    reconcileAppShellPackage: jest.fn(),
+    reconcileUpdatePackage: jest.fn(),
     getDownloadEvent: jest.fn(),
     downloadPackage: jest.fn(),
     downloadPackageFailed: jest.fn(),
@@ -463,7 +463,7 @@ function resetAllMocks() {
   svc.getUpdateInfo.mockImplementation(() =>
     Promise.resolve(mockAtomHolder.value),
   );
-  svc.reconcileAppShellPackage.mockImplementation(() => svc.getUpdateInfo());
+  svc.reconcileUpdatePackage.mockImplementation(() => svc.getUpdateInfo());
   svc.getDownloadEvent.mockResolvedValue(null);
   svc.downloadPackage.mockResolvedValue(undefined);
   svc.downloadPackageFailed.mockResolvedValue(undefined);
@@ -1663,7 +1663,7 @@ describe('useDownloadPackage', () => {
         status: EAppUpdateStatus.downloadASC,
       });
       svc.getDownloadEvent.mockResolvedValue({ downloadedFile: '/tmp/a.zip' });
-      svc.reconcileAppShellPackage.mockResolvedValue({
+      svc.reconcileUpdatePackage.mockResolvedValue({
         latestVersion: '2.0.0',
         status: EAppUpdateStatus.updateIncomplete,
       });
@@ -1675,7 +1675,7 @@ describe('useDownloadPackage', () => {
         await result.current.downloadASC();
       });
 
-      expect(svc.reconcileAppShellPackage).toHaveBeenCalled();
+      expect(svc.reconcileUpdatePackage).toHaveBeenCalled();
       expect(svc.downloadASCFailed).not.toHaveBeenCalled();
       expect(emitSpy).toHaveBeenCalledWith(
         EAppEventBusNames.ShowAppUpdateIncompleteDialog,
@@ -1690,7 +1690,7 @@ describe('useDownloadPackage', () => {
         status: EAppUpdateStatus.downloadPackage,
       });
       svc.getDownloadEvent.mockResolvedValue(null);
-      svc.reconcileAppShellPackage.mockResolvedValue({
+      svc.reconcileUpdatePackage.mockResolvedValue({
         latestVersion: '2.0.0',
         status: EAppUpdateStatus.updateIncomplete,
       });
@@ -1701,7 +1701,7 @@ describe('useDownloadPackage', () => {
       });
 
       expect(svc.downloadASC).toHaveBeenCalled();
-      expect(svc.reconcileAppShellPackage).toHaveBeenCalled();
+      expect(svc.reconcileUpdatePackage).toHaveBeenCalled();
       expect(svc.downloadASCFailed).not.toHaveBeenCalled();
     });
   });
@@ -1849,7 +1849,7 @@ describe('useDownloadPackage', () => {
         status: EAppUpdateStatus.verifyPackage,
       });
       svc.getDownloadEvent.mockResolvedValue({ downloadedFile: '/tmp/a.zip' });
-      svc.reconcileAppShellPackage.mockResolvedValue({
+      svc.reconcileUpdatePackage.mockResolvedValue({
         latestVersion: '2.0.0',
         status: EAppUpdateStatus.updateIncomplete,
       });
@@ -1863,7 +1863,7 @@ describe('useDownloadPackage', () => {
         await result.current.verifyPackage();
       });
 
-      expect(svc.reconcileAppShellPackage).toHaveBeenCalled();
+      expect(svc.reconcileUpdatePackage).toHaveBeenCalled();
       expect(svc.verifyPackageFailed).not.toHaveBeenCalled();
       expect(emitSpy).toHaveBeenCalledWith(
         EAppEventBusNames.ShowAppUpdateIncompleteDialog,
@@ -1878,7 +1878,7 @@ describe('useDownloadPackage', () => {
         status: EAppUpdateStatus.verifyASC,
       });
       svc.getDownloadEvent.mockResolvedValue(null);
-      svc.reconcileAppShellPackage.mockResolvedValue({
+      svc.reconcileUpdatePackage.mockResolvedValue({
         latestVersion: '2.0.0',
         status: EAppUpdateStatus.updateIncomplete,
       });
@@ -1889,7 +1889,7 @@ describe('useDownloadPackage', () => {
       });
 
       expect(svc.verifyPackage).toHaveBeenCalled();
-      expect(svc.reconcileAppShellPackage).toHaveBeenCalled();
+      expect(svc.reconcileUpdatePackage).toHaveBeenCalled();
       expect(svc.verifyPackageFailed).not.toHaveBeenCalled();
     });
   });
@@ -2112,7 +2112,7 @@ describe('useDownloadPackage', () => {
         latestVersion: '2.0.0',
         updateStrategy: EUpdateStrategy.manual,
       });
-      svc.reconcileAppShellPackage.mockResolvedValue({
+      svc.reconcileUpdatePackage.mockResolvedValue({
         latestVersion: '2.0.0',
         status: EAppUpdateStatus.updateIncomplete,
       });
@@ -2126,7 +2126,7 @@ describe('useDownloadPackage', () => {
 
       expect(onFail).toHaveBeenCalled();
       expect(onSuccess).not.toHaveBeenCalled();
-      expect(svc.reconcileAppShellPackage).toHaveBeenCalled();
+      expect(svc.reconcileUpdatePackage).toHaveBeenCalled();
     });
 
     test('install throws + silent → no Toast and no onFail', async () => {
@@ -2156,7 +2156,7 @@ describe('useDownloadPackage', () => {
         latestVersion: '2.0.0',
         updateStrategy: EUpdateStrategy.manual,
       });
-      svc.reconcileAppShellPackage.mockResolvedValue({
+      svc.reconcileUpdatePackage.mockResolvedValue({
         latestVersion: '2.0.0',
         status: EAppUpdateStatus.downloadPackage,
       });
@@ -2170,7 +2170,7 @@ describe('useDownloadPackage', () => {
         await result.current.installPackage(onSuccess, onFail);
       });
 
-      expect(svc.reconcileAppShellPackage).toHaveBeenCalled();
+      expect(svc.reconcileUpdatePackage).toHaveBeenCalled();
       expect(onFail).not.toHaveBeenCalled();
       expect(onSuccess).not.toHaveBeenCalled();
       expect(mockToastError).not.toHaveBeenCalled();
@@ -2208,7 +2208,7 @@ describe('useDownloadPackage', () => {
         updateStrategy: EUpdateStrategy.silent,
         downloadedEvent: { downloadedFile: '/tmp/bundle.zip' },
       });
-      svc.reconcileAppShellPackage.mockResolvedValue({
+      svc.reconcileUpdatePackage.mockResolvedValue({
         latestVersion: '1.0.0',
         jsBundleVersion: '24910529',
         status: EAppUpdateStatus.notify,
@@ -2230,9 +2230,7 @@ describe('useDownloadPackage', () => {
           new Error('Bundle directory not found: 1.0.0-24910529'),
         ),
       ).toBe('APP_PACKAGE_MISSING');
-      expect(svc.reconcileAppShellPackage).toHaveBeenCalledWith({
-        includeJsBundle: true,
-      });
+      expect(svc.reconcileUpdatePackage).toHaveBeenCalledWith();
       expect(onFail).not.toHaveBeenCalled();
       expect(mockToastError).not.toHaveBeenCalled();
 
@@ -2430,7 +2428,7 @@ describe('useAppUpdateInfo useEffect', () => {
       });
 
       expect(mockGuideBlockers.size).toBe(0);
-      expect(svc.reconcileAppShellPackage).not.toHaveBeenCalled();
+      expect(svc.reconcileUpdatePackage).not.toHaveBeenCalled();
     });
 
     test('holds guides while waiting for tokens and the first update response', async () => {
@@ -2557,7 +2555,7 @@ describe('useAppUpdateInfo useEffect', () => {
 
     test('releases a pending reconciliation hold on unmount without presenting late UI', async () => {
       let resolveReconciliation: ((value: unknown) => void) | undefined;
-      svc.reconcileAppShellPackage.mockImplementation(
+      svc.reconcileUpdatePackage.mockImplementation(
         () =>
           new Promise<unknown>((resolve) => {
             resolveReconciliation = resolve;
@@ -3148,6 +3146,42 @@ describe('useAppUpdateInfo useEffect', () => {
 
   // ----- C5. fetchUpdateInfo result handling -----
   describe('fetchUpdateInfo result handling', () => {
+    test('startup uses the reconciled JS bundle state instead of installing a stale ready snapshot', async () => {
+      setAtom({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '24910529',
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.seamless,
+        downloadedEvent: {
+          downloadedFile: '/tmp/missing-bundle.zip',
+          signature: 'signature',
+          sha256: 'sha256',
+        },
+      });
+      svc.reconcileUpdatePackage.mockImplementation(async () => {
+        setAtom({
+          latestVersion: '1.0.0',
+          jsBundleVersion: '24910529',
+          status: EAppUpdateStatus.notify,
+          updateStrategy: EUpdateStrategy.seamless,
+        });
+        return mockAtomHolder.value;
+      });
+      svc.fetchAppUpdateInfo.mockImplementation(() =>
+        Promise.resolve(mockAtomHolder.value),
+      );
+      const hooks = requireFreshHooks();
+      renderHook(() => hooks.useAppUpdateInfo(false, true));
+
+      await act(async () => {
+        await jest.runAllTimersAsync();
+      });
+
+      expect(svc.reconcileUpdatePackage).toHaveBeenCalledWith();
+      expect(bundleUpd.installBundle).not.toHaveBeenCalled();
+      expect(svc.downloadPackage).toHaveBeenCalled();
+    });
+
     test('status=done + needUpdate + auto strategy → auto downloads', async () => {
       setAtom({
         status: EAppUpdateStatus.done,

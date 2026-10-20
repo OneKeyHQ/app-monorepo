@@ -422,24 +422,26 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  async reconcileAppShellPackage(options?: { includeJsBundle?: boolean }) {
+  async reconcileUpdatePackage() {
     await this.cleanupUpdateControlState();
     const snapshot = await appUpdatePersistAtom.get();
     const fileType = getUpdateFileType(snapshot);
-    const isJsBundleReconcile =
-      Boolean(options?.includeJsBundle) &&
-      fileType === EUpdateFileType.jsBundle;
+    const isJsBundle = fileType === EUpdateFileType.jsBundle;
+    // Bundle directories are only required once verification has completed.
+    const canReconcile = isJsBundle
+      ? snapshot.status === EAppUpdateStatus.ready ||
+        snapshot.status === EAppUpdateStatus.manualInstall
+      : APP_SHELL_PACKAGE_RECONCILE_STATUSES.has(snapshot.status);
     if (
-      !APP_SHELL_PACKAGE_RECONCILE_STATUSES.has(snapshot.status) ||
+      !canReconcile ||
       isFirstLaunchAfterUpdated(snapshot) ||
-      (!isJsBundleReconcile &&
-        (snapshot.storeUrl || fileType !== EUpdateFileType.appShell))
+      (!isJsBundle && snapshot.storeUrl)
     ) {
       return snapshot;
     }
 
     let availability: IAppUpdatePackageAvailability;
-    if (isJsBundleReconcile) {
+    if (isJsBundle) {
       if (
         !snapshot.latestVersion ||
         !snapshot.jsBundleVersion ||
@@ -461,7 +463,7 @@ class ServiceAppUpdate extends ServiceBase {
           };
         } catch {
           defaultLogger.app.appUpdate.log(
-            'reconcileAppShellPackage: bundle existence check failed',
+            'reconcileUpdatePackage: bundle existence check failed',
           );
           return snapshot;
         }
@@ -471,7 +473,7 @@ class ServiceAppUpdate extends ServiceBase {
         availability = await AppUpdate.checkPackageAvailability(snapshot);
       } catch {
         defaultLogger.app.appUpdate.log(
-          'reconcileAppShellPackage: package availability check failed',
+          'reconcileUpdatePackage: package availability check failed',
         );
         return snapshot;
       }
@@ -562,7 +564,7 @@ class ServiceAppUpdate extends ServiceBase {
         }
       }
       defaultLogger.app.appUpdate.log(
-        `reconcileAppShellPackage: ${availability.status} package invalidated ${snapshot.status} state (${nextStatus})`,
+        `reconcileUpdatePackage: ${availability.status} package invalidated ${snapshot.status} state (${nextStatus})`,
       );
       if (
         nextStatus === EAppUpdateStatus.notify ||
@@ -580,7 +582,7 @@ class ServiceAppUpdate extends ServiceBase {
               !current.downloadedEvent
             ) {
               appEventBus.emit(EAppEventBusNames.StartAutoDownloadUpdate, {
-                decision: isJsBundleReconcile
+                decision: isJsBundle
                   ? 'jsBundlePackageRecovery'
                   : 'appShellPackageRecovery',
               });
