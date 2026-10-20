@@ -713,10 +713,21 @@ describe('TradingViewNative trading line labels', () => {
   };
   const paintId = 'chart.component.referenceLine.limit-order.label.trading';
 
-  function buildTradingLineScene(width: number, label = orderLabel) {
+  function buildTradingLineScene(
+    width: number,
+    label = orderLabel,
+    extraComponents: IBuildTradingViewNativeChartSceneOptions['chartComponents'] = [],
+    crosshair: IBuildTradingViewNativeChartSceneOptions['crosshair'] = {
+      visible: false,
+      x: 0,
+      y: 0,
+    },
+  ) {
     return buildPreviousCloseScene(101, {
       width,
+      crosshair,
       chartComponents: [
+        ...extraComponents,
         {
           id: 'limit-order',
           type: 'referenceLine',
@@ -749,6 +760,65 @@ describe('TradingViewNative trading line labels', () => {
     }
     return rect;
   }
+
+  it.each([
+    { name: 'order', variant: 'order' as const },
+    { name: 'position', variant: undefined },
+  ])(
+    'keeps $name labels above trade marks regardless of component order',
+    ({ variant }) => {
+      const components: IBuildTradingViewNativeChartSceneOptions['chartComponents'] =
+        [
+          {
+            id: 'trades',
+            type: 'tradeMarks',
+            props: {
+              marks: [
+                { id: 'buy', label: 'B', text: 'Buy', time: POINTS[1].t },
+              ],
+            },
+          },
+        ];
+      const scene = buildTradingLineScene(
+        700,
+        { ...orderLabel, variant },
+        components,
+      );
+      const markIndex = scene.commands.findIndex(
+        (command) => command.kind === 'tradeMarkLabel',
+      );
+      const labelIndex = scene.commands.indexOf(getLabelRect(scene, 'body'));
+
+      expect(markIndex).toBeGreaterThan(-1);
+      expect(labelIndex).toBeGreaterThan(markIndex);
+      expect(scene.referenceLineHitRegions).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: 'limit-order', action: 'cancel' }),
+          expect.objectContaining({ id: 'limit-order', action: 'drag' }),
+        ]),
+      );
+      const mark = scene.commands[markIndex];
+      if (mark.kind !== 'tradeMarkLabel')
+        throw new OneKeyLocalError('Expected trade mark');
+      const hovered = buildTradingLineScene(
+        700,
+        { ...orderLabel, variant },
+        components,
+        {
+          visible: true,
+          x: mark.cx,
+          y: mark.cy,
+        },
+      );
+      expect(
+        hovered.commands.findIndex(
+          (command) => command.kind === 'text' && command.text === 'Buy',
+        ),
+      ).toBeGreaterThan(
+        hovered.commands.indexOf(getLabelRect(hovered, 'body')),
+      );
+    },
+  );
 
   it.each([700, 1000])(
     'positions a compact order label at 70 percent of a %s px chart',

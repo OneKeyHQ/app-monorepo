@@ -179,6 +179,7 @@ export function appendTradingViewNativeTradeMarkCommands({
   priceChartHeight,
   priceScaleMode,
   priceSource,
+  tooltipCommands,
 }: {
   candleIntervalSeconds: number;
   candleTimeMode?: ITradingViewNativeCandleTimeMode;
@@ -198,6 +199,7 @@ export function appendTradingViewNativeTradeMarkCommands({
   priceChartHeight: number;
   priceScaleMode: ITradingViewNativePriceScaleMode;
   priceSource: ITradingViewNativePrimarySeriesPriceSource;
+  tooltipCommands?: ITradingViewNativeChartSceneCommand[];
 }): ITradingViewNativeTradeMarkLayout[] {
   'worklet';
 
@@ -299,7 +301,7 @@ export function appendTradingViewNativeTradeMarkCommands({
   });
   if (hoveredMark?.text) {
     appendTradeMarkTooltip({
-      commands,
+      commands: tooltipCommands ?? commands,
       mark: hoveredMark,
       measureTextWidth,
       priceAxisX,
