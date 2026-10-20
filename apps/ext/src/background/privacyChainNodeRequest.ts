@@ -1,5 +1,8 @@
 import { PRIVACY_CHAIN_NODE_REQUEST_MESSAGE } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/sdk/hostFetch.ext-pages-v3';
 import { relayPrivacyChainNodeRequest } from '@onekeyhq/kit-bg/src/utils/privacyChainNodeRelay';
+import type { IPrivacyChainRelayTargetSource } from '@onekeyhq/kit-bg/src/utils/privacyChainRelayTargets';
+
+import { backgroundPrivacyChainRelayTargets } from './privacyChainRelayTargets';
 
 /**
  * Perform privacy-chain node requests on behalf of the offscreen document.
@@ -14,7 +17,9 @@ import { relayPrivacyChainNodeRequest } from '@onekeyhq/kit-bg/src/utils/privacy
  * The background service worker is the context an extension's
  * `host_permissions` cover, so it is the one that can reach the rest.
  */
-export function installPrivacyChainNodeRequestListener() {
+export function installPrivacyChainNodeRequestListener(
+  targets: IPrivacyChainRelayTargetSource = backgroundPrivacyChainRelayTargets,
+) {
   chrome.runtime.onMessage.addListener(
     (
       message: {
@@ -41,6 +46,7 @@ export function installPrivacyChainNodeRequestListener() {
         url: message.url ?? '',
         contentType: message.contentType ?? 'application/json',
         body: new Uint8Array(message.body ?? []),
+        targets,
       }).then(sendResponse);
 
       // Keep the channel open for the async reply.

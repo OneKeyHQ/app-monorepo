@@ -40,7 +40,6 @@ import {
 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
-import { createFetchStreamHandler } from '@onekeyhq/shared/src/utils/fetchStream';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 import {
@@ -62,9 +61,14 @@ import type {
 import {
   isProviderApiPrivateAllowedKeylessOrigin,
   isWebEmbedApiAllowedOrigin,
+  isWebEmbedChannelRequest,
 } from '../apis/backgroundApiPermissions';
 import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
-import { relayPrivacyChainNodeRequest } from '../utils/privacyChainNodeRelay';
+import {
+  createPrivacyChainFetchStreamRelay,
+  relayPrivacyChainNodeRequest,
+} from '../utils/privacyChainNodeRelay';
+import { createPrivacyChainRelayTargetSource } from '../utils/privacyChainRelayTargets';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -631,15 +635,36 @@ class ProviderApiPrivate extends ProviderApiBase {
     });
   }
 
+  // Only the app's own web-embed page may use the methods below; on native any
+  // frame can claim its origin, so the host's channel mark is required too.
+  private assertWebEmbedChannel(
+    request: IJsBridgeMessagePayload,
+    name: string,
+  ) {
+    if (!isWebEmbedChannelRequest(request)) {
+      throw new OneKeyLocalError(`${name}: not allowed`);
+    }
+  }
+
   @providerApiMethod()
-  async getSensitiveEncodeKey(): Promise<string> {
+  async getSensitiveEncodeKey(
+    request: IJsBridgeMessagePayload,
+  ): Promise<string> {
+    if (platformEnv.isNative) {
+      this.assertWebEmbedChannel(request, 'getSensitiveEncodeKey');
+    }
     defaultLogger.app.webembed.getSensitiveEncodeKey();
     return getBgSensitiveTextEncodeKey();
   }
 
+  private relayTargets = createPrivacyChainRelayTargetSource(
+    this.backgroundApi,
+  );
+
   // The web-embed WebView relays its privacy-chain node requests here: its
   // own fetch obeys CORS and mixed content, native networking does not. Only
-  // the web-embed page may use it -- otherwise it is a POST-anywhere proxy.
+  // the web-embed page may use it, and only towards a configured node --
+  // otherwise it is a POST-anywhere proxy.
   @providerApiMethod()
   async privacyChainNodeRequest(
     request: IJsBridgeMessagePayload,
@@ -649,33 +674,41 @@ class ProviderApiPrivate extends ProviderApiBase {
       b64,
     }: { url: string; contentType: string; b64: string },
   ): Promise<{ ok: true; b64: string } | { ok: false; error: string }> {
-    if (!platformEnv.isNative || !isWebEmbedApiAllowedOrigin(request.origin)) {
+    if (!platformEnv.isNative) {
       throw new OneKeyLocalError('privacyChainNodeRequest: not allowed');
     }
+    this.assertWebEmbedChannel(request, 'privacyChainNodeRequest');
     return relayPrivacyChainNodeRequest({
       url,
       contentType,
       body: new Uint8Array(bufferUtils.base64ToBytes(b64)),
+      targets: this.relayTargets,
     });
   }
 
-  private fetchStreamRequest = createFetchStreamHandler();
+  private fetchStreamRequest = createPrivacyChainFetchStreamRelay(
+    this.relayTargets,
+  );
 
   @providerApiMethod()
   async fetchStream(
     request: IJsBridgeMessagePayload,
     params: IFetchStreamRequest,
   ): Promise<IFetchStreamResult> {
-    if (!platformEnv.isNative || !isWebEmbedApiAllowedOrigin(request.origin)) {
+    if (!platformEnv.isNative) {
       throw new OneKeyLocalError('fetchStream: not allowed');
     }
+    this.assertWebEmbedChannel(request, 'fetchStream');
     return this.fetchStreamRequest(params);
   }
 
   isWebEmbedApiReady = false;
 
   @providerApiMethod()
-  async webEmbedApiReady(): Promise<void> {
+  async webEmbedApiReady(request: IJsBridgeMessagePayload): Promise<void> {
+    if (platformEnv.isNative) {
+      this.assertWebEmbedChannel(request, 'webEmbedApiReady');
+    }
     defaultLogger.app.webembed.webembedApiReady();
     this.isWebEmbedApiReady = true;
     appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebViewComplete, undefined);
@@ -683,7 +716,15 @@ class ProviderApiPrivate extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  async webEmbedApiNotReady(): Promise<void> {
+  async webEmbedApiNotReady(request: IJsBridgeMessagePayload): Promise<void> {
+    if (platformEnv.isNative) {
+      this.assertWebEmbedChannel(request, 'webEmbedApiNotReady');
+    }
+    return this.setWebEmbedApiNotReady();
+  }
+
+  // The host's own teardown (ServiceDApp), not a page request.
+  async setWebEmbedApiNotReady(): Promise<void> {
     defaultLogger.app.webembed.webembedApiNotReady();
     this.isWebEmbedApiReady = false;
     return Promise.resolve();

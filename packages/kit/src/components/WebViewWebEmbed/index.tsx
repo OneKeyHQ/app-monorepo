@@ -348,6 +348,7 @@ export function WebViewWebEmbed({
         nativeWebviewSource={nativeWebviewSource}
         onWebViewRef={onWebViewRef}
         customReceiveHandler={customReceiveHandler}
+        isWebEmbedChannel={!!isSingleton}
         onMessage={handleMessage}
         onError={handleError}
         nativeInjectedJavaScriptBeforeContentLoaded={`
@@ -385,6 +386,7 @@ export function WebViewWebEmbed({
     nativeWebviewSource,
     onWebViewRef,
     customReceiveHandler,
+    isSingleton,
     handleMessage,
     handleError,
   ]);
@@ -411,6 +413,12 @@ export function WebViewWebEmbed({
       return;
     }
     jsBridge.globalOnMessageEnabled = true;
+    // Only the singleton carries webembedApi calls (keys included). Any other
+    // instance (the Prime purchase modal) talks to the app through its own
+    // customReceiveHandler and must neither take over nor drop that bridge.
+    if (!isSingleton) {
+      return;
+    }
     backgroundApiProxy.connectWebEmbedBridge(
       jsBridge as unknown as JsBridgeBase,
     );
@@ -421,7 +429,7 @@ export function WebViewWebEmbed({
       void backgroundApiProxy.serviceDApp.markWebEmbedApiNotReady();
       backgroundApiProxy.connectWebEmbedBridge(null);
     };
-  }, [webviewRef, webview, webEmbedAppSettings]);
+  }, [webviewRef, webview, webEmbedAppSettings, isSingleton]);
 
   const webviewUrlOrUri = useMemo(() => {
     if (remoteUrl) {
