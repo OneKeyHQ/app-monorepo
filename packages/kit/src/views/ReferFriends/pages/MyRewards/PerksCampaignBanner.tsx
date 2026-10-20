@@ -77,7 +77,7 @@ export function usePerksBannerItems() {
 // same frame, so the slides replace it without moving anything.
 function PerksBannerSkeleton({ compact }: { compact: boolean }) {
   const cardStyle = useInviteHomeCardStyle();
-  const imageSize = compact ? 88 : 72;
+  const imageSize = compact ? 96 : 88;
   return (
     <XStack
       testID="perks-banner-skeleton"
@@ -119,7 +119,7 @@ function PerksBannerSlide({
     }
     parseNotificationPayload(item.mode, item.payload, () => {});
   }, [item.mode, item.payload, shouldSuppressPress]);
-  const imageSize = compact ? 88 : 72;
+  const imageSize = compact ? 96 : 88;
 
   // Borderless: the frame around the pager draws the card, so a neighbor
   // slide peeking in at the pager's edge never shows a border of its own.
