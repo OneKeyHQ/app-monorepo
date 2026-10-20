@@ -24,6 +24,7 @@ import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
 
 import { useStockDetail } from '../../../hooks/StockDetailContext';
+import { useMarketDetailPositionTab } from '../../../hooks/useMarketDetailPositionTab';
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { TokenLiquidityPools } from '../../TokenLiquidityPools';
 import { Holders } from '../components/Holders';
@@ -133,6 +134,7 @@ export function MobileInformationTabs({
   onScrollEnd,
   portfolioData,
   isRefreshing,
+  isPortfolioPending,
   tokenLogoUrl,
   scrollEnabled = true,
   freezeContent = false,
@@ -147,6 +149,8 @@ export function MobileInformationTabs({
   onScrollEnd: () => void;
   portfolioData: IMarketAccountPortfolioItem[];
   isRefreshing?: boolean;
+  // The first holdings result for this token is not back yet.
+  isPortfolioPending?: boolean;
   tokenLogoUrl?: string;
   scrollEnabled?: boolean;
   freezeContent?: boolean;
@@ -195,6 +199,7 @@ export function MobileInformationTabs({
           <Portfolio
             portfolioData={portfolioData}
             isRefreshing={!!isRefreshing}
+            isPending={isPortfolioPending}
             accountAddress={accountAddress}
             tokenLogoUrl={tokenLogoUrl}
             scrollEnabled={scrollEnabled}
@@ -312,6 +317,7 @@ export function MobileInformationTabs({
     accountAddress,
     portfolioData,
     isRefreshing,
+    isPortfolioPending,
     isNative,
     isBTCNetwork,
     tokenLogoUrl,
@@ -325,7 +331,18 @@ export function MobileInformationTabs({
   ]);
 
   const tabKeys = useMemo(() => tabs.map((tab) => String(tab.key)), [tabs]);
-  const { handleTabChange } = useBottomTabAnalytics(tabKeys);
+  const { handleTabChange: trackTabChange } = useBottomTabAnalytics(tabKeys);
+  const { preferPosition, recordTabChange } = useMarketDetailPositionTab();
+  const positionTabName = intl.formatMessage({
+    id: ETranslations.dexmarket_details_myposition,
+  });
+  const handleTabChange = useCallback(
+    (data: { index: number; tabName: string }) => {
+      recordTabChange(data.tabName === positionTabName);
+      trackTabChange(data);
+    },
+    [positionTabName, recordTabChange, trackTabChange],
+  );
 
   const renderTabBar = useCallback(
     (props: TabBarProps<string>) => (
@@ -363,6 +380,9 @@ export function MobileInformationTabs({
       }}
       renderHeader={renderHeader}
       renderTabBar={renderTabBar}
+      // Opens on My position when that was the last tab picked on any detail
+      // page; read once when the tabs mount.
+      initialTabName={preferPosition ? positionTabName : undefined}
       onTabChange={handleTabChange}
     >
       {tabs}
