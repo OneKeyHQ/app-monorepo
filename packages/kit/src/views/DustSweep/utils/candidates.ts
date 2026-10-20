@@ -10,6 +10,11 @@ import type { IFetchAccountTokensResp } from '@onekeyhq/shared/types/token';
 
 import { isSwapTokenRisky } from '../../Swap/utils/swapTokenRiskUtils';
 
+// Amount presets of the threshold picker, smallest first.
+export const DUST_SWEEP_THRESHOLDS: readonly IDustSweepThreshold[] = [
+  1, 10, 100,
+];
+
 export function getDustSweepHiddenThreshold(networkId: string) {
   return networkId === 'evm--1' ? '0.1' : '0.01';
 }
