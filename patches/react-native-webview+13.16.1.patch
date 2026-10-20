@@ -186,7 +186,7 @@ index 07f73fd..709de64 100644
                  if (mAllowsProtectedMedia) {
                    grantedPermissions.add(requestedResource);
 diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
-index 80c6803..8958637 100644
+index 80c6803..14bcb1f 100644
 --- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
 +++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebView.java
 @@ -44,6 +44,8 @@ import com.reactnativecommunity.webview.events.TopMessageEvent;
@@ -198,16 +198,46 @@ index 80c6803..8958637 100644
  import java.util.List;
  import java.util.Map;
  import java.util.Set;
-@@ -78,6 +80,8 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
+@@ -78,6 +80,22 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
      protected boolean hasScrollEvent = false;
      protected boolean nestedScrollEnabled = false;
      protected ProgressChangedFilter progressChangedFilter;
 +    protected @Nullable Set<String> mediaPermissionWhitelist;
 +    protected @Nullable Set<String> mediaPermissionWhitelistDomainKeys;
++    // OneKey patch: deduplicate wrapped injected scripts and guard WebView lifecycle/onRenderProcessGone
++    private static @Nullable String sCachedInjectedJSRaw;
++    private static @Nullable String sCachedInjectedJSWrapped;
++    private static @Nullable String sCachedInjectedJSBeforeRaw;
++    private static @Nullable String sCachedInjectedJSBeforeWrapped;
++    protected boolean isRenderProcessGone = false;
++    protected boolean isDestroyed = false;
++
++    private static final WebViewClient sSafeNoOpWebViewClient = new WebViewClient() {
++        @Override
++        public boolean onRenderProcessGone(WebView view, android.webkit.RenderProcessGoneDetail detail) {
++            return true;
++        }
++    };
  
      /**
       * WebView must be created with an context of the current activity
-@@ -107,6 +111,34 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
+@@ -87,10 +105,15 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
+      */
+     public RNCWebView(ThemedReactContext reactContext) {
+         super(reactContext);
++        super.setWebViewClient(sSafeNoOpWebViewClient);
+         mMessagingJSModule = ((ThemedReactContext) this.getContext()).getReactApplicationContext().getJSModule(RNCWebViewMessagingModule.class);
+         progressChangedFilter = new ProgressChangedFilter();
+     }
+ 
++    public void onRenderProcessGone() {
++        this.isRenderProcessGone = true;
++    }
++
+     public void setBasicAuthCredential(RNCBasicAuthCredential credential) {
+         mRNCWebViewClient.setBasicAuthCredential(credential);
+     }
+@@ -107,6 +130,34 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
          this.nestedScrollEnabled = nestedScrollEnabled;
      }
  
@@ -242,6 +272,140 @@ index 80c6803..8958637 100644
      @Override
      public void onHostResume() {
          // do nothing
+@@ -296,14 +347,41 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
+     }
+ 
+     protected void evaluateJavascriptWithFallback(String script) {
+-        evaluateJavascript(script, null);
++        // OneKey patch: skip JS evaluation after destroy/renderer crash and guard against OOM
++        if (isDestroyed || isRenderProcessGone) {
++            return;
++        }
++        try {
++            evaluateJavascript(script, null);
++        } catch (OutOfMemoryError | IllegalStateException e) {
++            FLog.w("RNCWebView", "Failed to evaluateJavascript", e);
++        }
+     }
+ 
+     public void callInjectedJavaScript() {
+         if (getSettings().getJavaScriptEnabled() &&
+                 injectedJS != null &&
+                 !TextUtils.isEmpty(injectedJS)) {
+-            evaluateJavascriptWithFallback("(function() {\n" + injectedJS + ";\n})();");
++            // OneKey patch: reuse wrapped IIFE string across navigations and WebView instances
++            // evaluateJavascriptWithFallback("(function() {\n" + injectedJS + ";\n})();");
++            String wrapped = null;
++            try {
++                synchronized (RNCWebView.class) {
++                    if (injectedJS.equals(sCachedInjectedJSRaw) && sCachedInjectedJSWrapped != null) {
++                        injectedJS = sCachedInjectedJSRaw;
++                        wrapped = sCachedInjectedJSWrapped;
++                    } else {
++                        wrapped = "(function() {\n" + injectedJS + ";\n})();";
++                        sCachedInjectedJSRaw = injectedJS;
++                        sCachedInjectedJSWrapped = wrapped;
++                    }
++                }
++            } catch (OutOfMemoryError e) {
++                FLog.w("RNCWebView", "OOM wrapping injectedJS", e);
++            }
++            if (wrapped != null) {
++                evaluateJavascriptWithFallback(wrapped);
++            }
+             injectJavascriptObject(); // re-inject the Javascript object in case it has been overwritten.
+         }
+     }
+@@ -312,7 +390,26 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
+         if (getSettings().getJavaScriptEnabled() &&
+                 injectedJSBeforeContentLoaded != null &&
+                 !TextUtils.isEmpty(injectedJSBeforeContentLoaded)) {
+-            evaluateJavascriptWithFallback("(function() {\n" + injectedJSBeforeContentLoaded + ";\n})();");
++            // OneKey patch: reuse wrapped IIFE string across navigations and WebView instances
++            // evaluateJavascriptWithFallback("(function() {\n" + injectedJSBeforeContentLoaded + ";\n})();");
++            String wrapped = null;
++            try {
++                synchronized (RNCWebView.class) {
++                    if (injectedJSBeforeContentLoaded.equals(sCachedInjectedJSBeforeRaw) && sCachedInjectedJSBeforeWrapped != null) {
++                        injectedJSBeforeContentLoaded = sCachedInjectedJSBeforeRaw;
++                        wrapped = sCachedInjectedJSBeforeWrapped;
++                    } else {
++                        wrapped = "(function() {\n" + injectedJSBeforeContentLoaded + ";\n})();";
++                        sCachedInjectedJSBeforeRaw = injectedJSBeforeContentLoaded;
++                        sCachedInjectedJSBeforeWrapped = wrapped;
++                    }
++                }
++            } catch (OutOfMemoryError e) {
++                FLog.w("RNCWebView", "OOM wrapping injectedJSBeforeContentLoaded", e);
++            }
++            if (wrapped != null) {
++                evaluateJavascriptWithFallback(wrapped);
++            }
+             injectJavascriptObject();  // re-inject the Javascript object in case it has been overwritten.
+         }
+     }
+@@ -406,11 +503,26 @@ public class RNCWebView extends WebView implements LifecycleEventListener {
+     protected void dispatchEvent(WebView webView, Event event) {
+         ThemedReactContext reactContext = getThemedReactContext();
+         int reactTag = RNCWebViewWrapper.getReactTagFromWebView(webView);
+-        UIManagerHelper.getEventDispatcherForReactTag(reactContext, reactTag).dispatchEvent(event);
++        if (reactTag == -1) {
++            return;
++        }
++        com.facebook.react.uimanager.events.EventDispatcher dispatcher =
++                UIManagerHelper.getEventDispatcherForReactTag(reactContext, reactTag);
++        if (dispatcher != null) {
++            dispatcher.dispatchEvent(event);
++        }
+     }
+ 
+     protected void cleanupCallbacksAndDestroy() {
+-        setWebViewClient(null);
++        // OneKey patch: keep a safe WebViewClient that returns true from onRenderProcessGone
++        // instead of null (which resets to default WebViewClient and triggers Chromium SIGTRAP).
++        // setWebViewClient(null);
++        isDestroyed = true;
++        mRNCWebViewClient = null;
++        injectedJS = null;
++        injectedJSBeforeContentLoaded = null;
++        injectedJavaScriptObject = null;
++        super.setWebViewClient(sSafeNoOpWebViewClient);
+         destroy();
+     }
+ 
+diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java
+index 0287e1c..9d5465d 100644
+--- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java
++++ b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewClient.java
+@@ -297,10 +297,24 @@ public class RNCWebViewClient extends WebViewClient {
+             return true;
+         }
+ 
+-        WritableMap event = createWebViewEvent(webView, webView.getUrl());
+-        event.putBoolean("didCrash", detail.didCrash());
+-        int reactTag = RNCWebViewWrapper.getReactTagFromWebView(webView);
+-        UIManagerHelper.getEventDispatcherForReactTag((ReactContext) webView.getContext(), reactTag).dispatchEvent(new TopRenderProcessGoneEvent(reactTag, event));
++        // OneKey patch: mark RNCWebView as render-process-gone and guard event dispatch
++        if (webView instanceof RNCWebView) {
++            ((RNCWebView) webView).onRenderProcessGone();
++        }
++        try {
++            WritableMap event = createWebViewEvent(webView, webView.getUrl());
++            event.putBoolean("didCrash", detail.didCrash());
++            int reactTag = RNCWebViewWrapper.getReactTagFromWebView(webView);
++            if (reactTag != -1) {
++                com.facebook.react.uimanager.events.EventDispatcher dispatcher =
++                        UIManagerHelper.getEventDispatcherForReactTag((ReactContext) webView.getContext(), reactTag);
++                if (dispatcher != null) {
++                    dispatcher.dispatchEvent(new TopRenderProcessGoneEvent(reactTag, event));
++                }
++            }
++        } catch (Throwable t) {
++            Log.w(TAG, "Failed to dispatch TopRenderProcessGoneEvent", t);
++        }
+ 
+         // returning false would crash the app.
+         return true;
 diff --git a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt b/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt
 index f83033b..e0b3c40 100644
 --- a/node_modules/react-native-webview/android/src/main/java/com/reactnativecommunity/webview/RNCWebViewManagerImpl.kt

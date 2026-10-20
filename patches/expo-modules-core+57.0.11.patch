@@ -1,3 +1,192 @@
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/fabric/ExpoComponentDescriptorFactory.cpp b/node_modules/expo-modules-core/android/src/main/cpp/fabric/ExpoComponentDescriptorFactory.cpp
+index b7a5d55..34a0fc1 100644
+--- a/node_modules/expo-modules-core/android/src/main/cpp/fabric/ExpoComponentDescriptorFactory.cpp
++++ b/node_modules/expo-modules-core/android/src/main/cpp/fabric/ExpoComponentDescriptorFactory.cpp
+@@ -8,6 +8,8 @@ namespace react = facebook::react;
+ namespace expo {
+ 
+ StatePropMapType statePropMap = {};
++// OneKey patch: guard process-wide statePropMap against concurrent main + bg runtime access
++std::recursive_mutex statePropMapMutex;
+ 
+ react::ComponentDescriptor::Unique concreteExpoComponentDescriptorConstructor(
+   const react::ComponentDescriptorParameters &parameters
+@@ -17,11 +19,11 @@ react::ComponentDescriptor::Unique concreteExpoComponentDescriptorConstructor(
+     react::RawPropsParser(/*useRawPropsJsiValue=*/true)
+   );
+ 
+-  if (statePropMap.contains(std::static_pointer_cast<std::string const>(parameters.flavor))) {
++  std::lock_guard<std::recursive_mutex> lock(statePropMapMutex);
++  auto flavor = std::static_pointer_cast<std::string const>(parameters.flavor);
++  if (flavor && statePropMap.contains(flavor)) {
+     descriptor->setStateProps(
+-      statePropMap.at(
+-        std::static_pointer_cast<std::string const>(parameters.flavor)
+-      )
++      statePropMap.at(flavor)
+     );
+   }
+ 
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/fabric/ExpoComponentDescriptorFactory.h b/node_modules/expo-modules-core/android/src/main/cpp/fabric/ExpoComponentDescriptorFactory.h
+index 3dc4a6b..bd4672f 100644
+--- a/node_modules/expo-modules-core/android/src/main/cpp/fabric/ExpoComponentDescriptorFactory.h
++++ b/node_modules/expo-modules-core/android/src/main/cpp/fabric/ExpoComponentDescriptorFactory.h
+@@ -2,6 +2,7 @@
+ 
+ #pragma once
+ 
++#include <mutex>
+ #include <react/renderer/core/ComponentDescriptor.h>
+ #include "../types/FrontendConverter.h"
+ 
+@@ -15,6 +16,8 @@ using StatePropMapType = std::unordered_map<
+ >;
+ 
+ extern StatePropMapType statePropMap;
++// OneKey patch: guard process-wide statePropMap against concurrent main + bg runtime access
++extern std::recursive_mutex statePropMapMutex;
+ 
+ react::ComponentDescriptor::Unique concreteExpoComponentDescriptorConstructor(
+   const react::ComponentDescriptorParameters &parameters
+diff --git a/node_modules/expo-modules-core/android/src/main/cpp/fabric/FabricComponentsRegistry.cpp b/node_modules/expo-modules-core/android/src/main/cpp/fabric/FabricComponentsRegistry.cpp
+index db66d16..89d71ba 100644
+--- a/node_modules/expo-modules-core/android/src/main/cpp/fabric/FabricComponentsRegistry.cpp
++++ b/node_modules/expo-modules-core/android/src/main/cpp/fabric/FabricComponentsRegistry.cpp
+@@ -41,8 +41,24 @@ void FabricComponentsRegistry::registerComponentsRegistry(
+ 
+   auto frontendConverterProvider = FrontendConverterProvider::instance();
+ 
++  // OneKey patch: synchronize process-wide statePropMap and deduplicate component flavor registration
++  // across concurrent main + bg ReactHost initialization on Android.
++  std::lock_guard<std::recursive_mutex> lock(statePropMapMutex);
++  static std::unordered_map<std::string, std::shared_ptr<std::string const>> registeredFlavors;
++
+   for (size_t i = 0; i < size; ++i) {
+-    auto flavor = std::make_shared<std::string const>(componentNames->getElement(i)->toStdString());
++    // auto flavor = std::make_shared<std::string const>(componentNames->getElement(i)->toStdString());
++    auto componentNameStr = componentNames->getElement(i)->toStdString();
++    auto existingFlavorIt = registeredFlavors.find(componentNameStr);
++    std::shared_ptr<std::string const> flavor;
++    bool isNewFlavor = false;
++    if (existingFlavorIt != registeredFlavors.end()) {
++      flavor = existingFlavorIt->second;
++    } else {
++      flavor = std::make_shared<std::string const>(componentNameStr);
++      registeredFlavors.emplace(componentNameStr, flavor);
++      isNewFlavor = true;
++    }
+     auto componentName = react::ComponentName{flavor->c_str()};
+ 
+     std::unordered_map<std::string, std::shared_ptr<FrontendConverter>> propMap;
+@@ -60,15 +76,17 @@ void FabricComponentsRegistry::registerComponentsRegistry(
+ 
+     statePropMap.insert_or_assign(
+       flavor,
+-      propMap
++      std::move(propMap)
+     );
+ 
+-    providerRegistry->add(react::ComponentDescriptorProvider{
+-      reinterpret_cast<react::ComponentHandle>(componentName),
+-      componentName,
+-      flavor,
+-      &concreteExpoComponentDescriptorConstructor
+-    });
++    if (isNewFlavor) {
++      providerRegistry->add(react::ComponentDescriptorProvider{
++        reinterpret_cast<react::ComponentHandle>(componentName),
++        componentName,
++        flavor,
++        &concreteExpoComponentDescriptorConstructor
++      });
++    }
+   }
+ }
+ 
+diff --git a/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/ModuleRegistryAdapter.java b/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/ModuleRegistryAdapter.java
+index 10af42b..6e943ac 100644
+--- a/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/ModuleRegistryAdapter.java
++++ b/node_modules/expo-modules-core/android/src/main/java/expo/modules/adapters/react/ModuleRegistryAdapter.java
+@@ -62,20 +62,23 @@ public class ModuleRegistryAdapter implements ReactPackage {
+ 
+   @Override
+   public List<NativeModule> createNativeModules(ReactApplicationContext reactContext) {
+-    NativeModulesProxy proxy = getOrCreateNativeModulesProxy(reactContext, null);
+-    ModuleRegistry moduleRegistry = proxy.getModuleRegistry();
++    // OneKey patch: serialize native module and view manager creation across main + bg ReactHosts
++    synchronized (ModuleRegistryAdapter.class) {
++      NativeModulesProxy proxy = getOrCreateNativeModulesProxy(reactContext, null);
++      ModuleRegistry moduleRegistry = proxy.getModuleRegistry();
+ 
+-    for (InternalModule internalModule : mReactAdapterPackage.createInternalModules(reactContext)) {
+-      moduleRegistry.registerInternalModule(internalModule);
+-    }
++      for (InternalModule internalModule : mReactAdapterPackage.createInternalModules(reactContext)) {
++        moduleRegistry.registerInternalModule(internalModule);
++      }
+ 
+-    List<NativeModule> nativeModules = getNativeModulesFromModuleRegistry(reactContext, moduleRegistry, null);
+-    if (mWrapperDelegates != null) {
+-      KotlinInteropModuleRegistry kotlinInteropModuleRegistry = proxy.getKotlinInteropModuleRegistry();
+-      kotlinInteropModuleRegistry.updateModuleHoldersInViewDelegates(mWrapperDelegates);
+-    }
++      List<NativeModule> nativeModules = getNativeModulesFromModuleRegistry(reactContext, moduleRegistry, null);
++      if (mWrapperDelegates != null) {
++        KotlinInteropModuleRegistry kotlinInteropModuleRegistry = proxy.getKotlinInteropModuleRegistry();
++        kotlinInteropModuleRegistry.updateModuleHoldersInViewDelegates(mWrapperDelegates);
++      }
+ 
+-    return nativeModules;
++      return nativeModules;
++    }
+   }
+ 
+   protected List<NativeModule> getNativeModulesFromModuleRegistry(
+@@ -105,24 +108,27 @@ public class ModuleRegistryAdapter implements ReactPackage {
+   @Override
+   @SuppressWarnings("unchecked")
+   public List<ViewManager> createViewManagers(ReactApplicationContext reactContext) {
+-    List<ViewManager> viewManagerList = new ArrayList<>(mModuleRegistryProvider.getReactViewManagers(reactContext));
+-
+-    NativeModulesProxy modulesProxy = Objects.requireNonNull(getOrCreateNativeModulesProxy(reactContext, null));
+-    KotlinInteropModuleRegistry kotlinInteropModuleRegistry = modulesProxy.getKotlinInteropModuleRegistry();
+-    List<ViewManagerWrapperDelegate> kViewManagerDelegates = kotlinInteropModuleRegistry.exportViewManagerDelegates();
+-    // Saves all holders that needs to be in sync with module registry
+-    mWrapperDelegates = kViewManagerDelegates;
+-    List<? extends ViewManager<?, ?>> viewManagers = kViewManagerDelegates
+-      .stream()
+-      .map(ViewManagerWrapperDelegate::toRNViewManager)
+-      .collect(Collectors.toList());
+-    viewManagerList.addAll(viewManagers);
+-    if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
+-      // Intentionally to only add Sweet API view managers for Fabric support
+-      mFabricComponentsRegistry = new FabricComponentsRegistry(kViewManagerDelegates);
+-    }
++    // OneKey patch: serialize FabricComponentsRegistry and view manager creation across main + bg ReactHosts
++    synchronized (ModuleRegistryAdapter.class) {
++      List<ViewManager> viewManagerList = new ArrayList<>(mModuleRegistryProvider.getReactViewManagers(reactContext));
++
++      NativeModulesProxy modulesProxy = Objects.requireNonNull(getOrCreateNativeModulesProxy(reactContext, null));
++      KotlinInteropModuleRegistry kotlinInteropModuleRegistry = modulesProxy.getKotlinInteropModuleRegistry();
++      List<ViewManagerWrapperDelegate> kViewManagerDelegates = kotlinInteropModuleRegistry.exportViewManagerDelegates();
++      // Saves all holders that needs to be in sync with module registry
++      mWrapperDelegates = kViewManagerDelegates;
++      List<? extends ViewManager<?, ?>> viewManagers = kViewManagerDelegates
++        .stream()
++        .map(ViewManagerWrapperDelegate::toRNViewManager)
++        .collect(Collectors.toList());
++      viewManagerList.addAll(viewManagers);
++      if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
++        // Intentionally to only add Sweet API view managers for Fabric support
++        mFabricComponentsRegistry = new FabricComponentsRegistry(kViewManagerDelegates);
++      }
+ 
+-    return viewManagerList;
++      return viewManagerList;
++    }
+   }
+ 
+   private synchronized NativeModulesProxy getOrCreateNativeModulesProxy(
 diff --git a/node_modules/expo-modules-core/ios/Core/AppContext.swift b/node_modules/expo-modules-core/ios/Core/AppContext.swift
 index 6c5d6ee..89be0d5 100644
 --- a/node_modules/expo-modules-core/ios/Core/AppContext.swift
@@ -20,7 +209,7 @@ index 7af19c9..02a7ac8 100644
 @@ -12,6 +12,9 @@
  NS_SWIFT_NAME(ExpoHostWrapper)
  @interface EXHostWrapper : NSObject
-
+ 
 +// OneKey patch: namespace Fabric views by their owning RCTHost.
 +@property(nonatomic, readonly, nonnull) NSString *appIdentifier;
 +
@@ -32,20 +221,20 @@ index a460eb0..b660bda 100644
 --- a/node_modules/expo-modules-core/ios/Fabric/EXHostWrapper.mm
 +++ b/node_modules/expo-modules-core/ios/Fabric/EXHostWrapper.mm
 @@ -2,6 +2,7 @@
-
+ 
  #import <ExpoModulesCore/EXHostWrapper.h>
-
+ 
 +#import <stdint.h>
  #import <ReactCommon/RCTHost.h>
  #import <ReactCommon/RCTHost+Internal.h>
  #import <React/RCTSurfacePresenter.h>
 @@ -10,16 +11,25 @@
-
+ 
  @implementation EXHostWrapper {
    __weak RCTHost *_host;
 +  NSString *_appIdentifier;
  }
-
+ 
  - (instancetype)initWithHost:(RCTHost *)host
  {
    if (self = [super init]) {
@@ -56,7 +245,7 @@ index a460eb0..b660bda 100644
    }
    return self;
  }
-
+ 
 +- (NSString *)appIdentifier
 +{
 +  return _appIdentifier;
@@ -66,11 +255,11 @@ index a460eb0..b660bda 100644
  {
    RCTModuleRegistry *moduleRegistry = _host.moduleRegistry;
 diff --git a/node_modules/expo-modules-core/ios/Fabric/ExpoFabricView.swift b/node_modules/expo-modules-core/ios/Fabric/ExpoFabricView.swift
-index 5b15751..401e8b5 100644
+index 5b15751..8fa8149 100644
 --- a/node_modules/expo-modules-core/ios/Fabric/ExpoFabricView.swift
 +++ b/node_modules/expo-modules-core/ios/Fabric/ExpoFabricView.swift
 @@ -92,12 +92,18 @@ open class ExpoFabricView: ExpoFabricViewObjC, AnyExpoView {
-
+ 
        // only set the prop if the value has changed
        if !areValuesEqual(previousValue, convertedNewValue) {
 +        // OneKey patch: do not swallow failed conversions or mark them as applied.
@@ -91,15 +280,15 @@ index 5b15751..401e8b5 100644
        }
      }
    }
-@@ -171,6 +179,7 @@ open class ExpoFabricView: ExpoFabricViewObjC, AnyExpoView {
+@@ -171,6 +177,7 @@ open class ExpoFabricView: ExpoFabricViewObjC, AnyExpoView {
    }
-
+ 
    internal static var viewClassesRegistry = [String: AnyClass]()
 +  internal static var viewClassAppIdentifiersRegistry = [String: String]()
-
+ 
    /**
     Dynamically creates a subclass of the `ExpoFabricView` class with injected app context and name of the associated module.
-@@ -180,6 +189,11 @@ open class ExpoFabricView: ExpoFabricViewObjC, AnyExpoView {
+@@ -180,6 +187,11 @@ open class ExpoFabricView: ExpoFabricViewObjC, AnyExpoView {
     */
    @objc
    public static func makeViewClass(forAppContext appContext: AppContext, moduleName: String, viewName: String, className: String) -> AnyClass? {
@@ -111,11 +300,11 @@ index 5b15751..401e8b5 100644
      if let viewClass = viewClassesRegistry[className] {
        inject(appContext: appContext)
        injectInitializer(appContext: appContext, moduleName: moduleName, viewName: viewName, toViewClass: viewClass)
-@@ -193,6 +207,7 @@ open class ExpoFabricView: ExpoFabricViewObjC, AnyExpoView {
-
+@@ -193,6 +205,7 @@ open class ExpoFabricView: ExpoFabricViewObjC, AnyExpoView {
+ 
      // Save the allocated view class in the registry for the later use (e.g. when the app is reloaded).
      viewClassesRegistry[className] = viewClass
 +    viewClassAppIdentifiersRegistry[className] = appIdentifier
-
+ 
      return viewClass
    }

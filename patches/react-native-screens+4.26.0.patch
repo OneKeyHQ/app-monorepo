@@ -36,6 +36,33 @@ index 0fcccb3..99d9506 100644
          }
      }
  
+diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStack.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStack.kt
+index 9f9f864..bc6631b 100644
+--- a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStack.kt
++++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStack.kt
+@@ -3,6 +3,7 @@ package com.swmansion.rnscreens
+ import android.content.Context
+ import android.graphics.Canvas
+ import android.os.Build
++import android.util.Log
+ import android.view.View
+ import com.facebook.react.bridge.ReactContext
+ import com.facebook.react.uimanager.UIManagerHelper
+@@ -83,7 +84,13 @@ class ScreenStack(
+             return
+         }
+ 
+-        super.endViewTransition(view)
++        // OneKey patch: guard against RecyclerView ItemAnimator tmp-detach recycling crash during screen detach
++        // super.endViewTransition(view)
++        try {
++            super.endViewTransition(view)
++        } catch (e: IllegalArgumentException) {
++            Log.w(TAG, "Suppressed IllegalArgumentException during endViewTransition", e)
++        }
+ 
+         disappearingTransitioningChildren.remove(view)
+ 
 diff --git a/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm b/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm
 index 1a820b4..6f60b43 100644
 --- a/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm

@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { Platform } from 'react-native';
 import { WebView as NativeWebView } from 'react-native-webview';
@@ -23,6 +23,10 @@ export function WebView({
   onLoadEnd: () => void;
 }) {
   const webViewRef = useRef<NativeWebView>(null);
+  const [webViewKey, setWebViewKey] = useState(0);
+  const handleRenderProcessGone = useCallback(() => {
+    setWebViewKey((prev) => prev + 1);
+  }, []);
 
   const handleLoadedEnd = useCallback(() => {
     const isIOS16 =
@@ -69,6 +73,7 @@ export function WebView({
   return uri ? (
     <Stack style={style as any}>
       <NativeWebView
+        key={webViewKey}
         ref={webViewRef}
         originWhitelist={['*']}
         javaScriptEnabled
@@ -86,6 +91,8 @@ export function WebView({
           uri,
         }}
         onLoadEnd={handleLoadedEnd}
+        onRenderProcessGone={handleRenderProcessGone}
+        onContentProcessDidTerminate={handleRenderProcessGone}
         {...props}
       />
     </Stack>
