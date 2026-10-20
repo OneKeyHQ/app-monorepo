@@ -282,11 +282,19 @@ jobs:
         run: echo "dir=${{ github.workspace }}/.yarn" >> "$GITHUB_OUTPUT"
 
       - name: Install Dep
+        id: dependencies
+        if: hashFiles('.github/actions/install-dependencies/action.yml') != ''
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
-        run: |
-          yarn install --immutable
+        uses: ./.github/actions/install-dependencies
+
+      - name: Install dependencies for legacy refs
+        if: hashFiles('.github/actions/install-dependencies/action.yml') == ''
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn install --immutable
 
       - name: Build Bundle
         env:
@@ -473,6 +481,10 @@ jobs:
           artifact-build-source: '${{ inputs.build_source || ''daily-build'' }}'
           artifact-branch: '${{ env.BRANCH }}'
           artifact-commit: '${{ env.COMMIT }}'
+
+      - name: Unmount dependency image
+        if: always() && steps.dependencies.outcome != 'skipped'
+        run: python3 .github/scripts/ci-dependencies.py cleanup
 
   # Separate job so a transient QA server failure can be retried via
   # rerun-failed-jobs without triggering another full desktop bundle build.
