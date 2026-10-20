@@ -81,46 +81,8 @@ async function shouldDeferPostUpdateUi(): Promise<boolean> {
 }
 
 /**
- * Mount-once foreground container for app-update side effects.
- *
- * Two side effects live here, both naturally global and previously
- * scattered across multiple `useAppUpdateInfo` mounts in
- * `UpdateReminder/hooks.tsx`:
- *
- *   1. First-launch dispatch — on first render, decides what to do
- *      based on the persisted update status:
- *        - 'firstLaunchAfterUpdated' → mark whatsNew shown + report
- *          softwareUpdateResult({status:'success'})
- *        - status in {downloadPackage, downloadASC, verifyASC,
- *          verifyPackage} → resume the corresponding step
- *        - status === 'ready' → silent / seamless / manual dialog
- *        - default → fetchUpdateInfo and act on the response
- *      Previously this lived in `useAppUpdateInfo`'s autoCheck
- *      useEffect which N consumers all triggered, gated by a module
- *      `let isFirstLaunch = true`. Centralized here — no flag
- *      coordination, just one mount.
- *
- *   2. AppState 'active' resume — when the app returns to the
- *      foreground, ask the service whether a stalled download should
- *      resume (status===downloadPackageFailed/downloadASCFailed +
- *      30s cooldown gate; concurrent-safe via claim-before-await).
- *      If the service says yes, fire JS downloadPackage() to actually
- *      kick the byte transfer. Previously per-mount; now exactly one
- *      listener for the entire app.
- *
- * Renders nothing. Mount once at app boot via Bootstrap.tsx.
- */
-/**
- * Hook form of the AppUpdateForeground side effects. Used by:
- *   - <AppUpdateForeground /> component (always enabled)
- *   - useAppUpdateInfo(autoCheck=true) opt-in path (kept for the
- *     existing test suite which exercised side effects via the hook)
- *
- * `enabled=false` makes the hook a no-op while still calling all
- * underlying hooks at the top level (Rules of Hooks compliance).
- * Production callers of useAppUpdateInfo default autoCheck=false, so
- * exactly one site (the <AppUpdateForeground /> mount in Bootstrap)
- * runs the effects in production.
+ * Global update dispatch, recovery dialogs and foreground download resumption.
+ * Bootstrap enables this once; other hook consumers leave it disabled.
  */
 export function useAppUpdateForegroundEffects(enabled = true) {
   const intl = useIntl();
@@ -236,30 +198,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     [appUpdateInfo.updateStrategy, navigation, scheduleUpdateUi],
   );
 
-  // OK-55397: silent updates no longer show a "ready" dialog. The downloaded
-  // package is queued as a pending install task in
-  // ServiceAppUpdate.readyToInstall → syncPendingInstallTaskWithReleaseInfo
-  // (silent is now allowed past the strategy gate) and applied on the next
-  // restart; the header / reminder update button lets the user restart-install
-  // immediately. Dialog plumbing kept commented out for an easy revert.
-  // const showSilentUpdateDialog = useCallback(() => {
-  //   setTimeout(async () => {
-  //     const currentUpdateInfo =
-  //       await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
-  //     await whenAppUnlocked();
-  //     await showSilentUpdateDialogUI({
-  //       intl,
-  //       summary: currentUpdateInfo.summary || '',
-  //       themeVariant,
-  //       onConfirm: () => {
-  //         navigation.pushModal(EModalRoutes.AppUpdateModal, {
-  //           screen: EAppUpdateRoutes.DownloadVerify,
-  //         });
-  //       },
-  //     });
-  //   }, 0);
-  // }, [intl, navigation, themeVariant]);
-
+  // Silent packages stay queued for restart; the reminder also allows manual install.
   const showUpdateDialog = useCallback(
     (
       isFull = false,
@@ -621,14 +560,8 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-ready watcher — independent of didRunFirstLaunchDispatch.
-  // The first-launch dispatch effect above runs exactly once with an
-  // empty dep list, so it cannot react to status changes that arrive
-  // after the first run (e.g. an auto-download completes in-session, or
-  // the persist atom hydrates after the initial render on restart). This
-  // dedicated effect covers both cases. autoReadyInstallHandled (module-
-  // level) ensures only one dispatch per app session even when the hook
-  // is mounted twice (StrictMode / the legacy useAppUpdateInfo opt-in).
+  // Handle late hydration and in-session readiness separately from boot dispatch.
+  // The module guard also covers remounts and duplicate hook consumers.
   useEffect(() => {
     if (!enabled) return;
     if (autoReadyInstallHandled) return;
@@ -655,29 +588,8 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     processRehydratedAppInstall,
   ]);
 
-  // Mid-session auto-download bridge.
-  //
-  // When fetchAppUpdateInfo discovers an update mid-session whose strategy is
-  // auto (silent/seamless) or which is a rollback, the background keeps the
-  // persist atom at `notify` and only emits StartAutoDownloadUpdate — it
-  // cannot pull bytes. The native transfer (BundleUpdate.downloadBundle, with
-  // headers + retry/backoff) lives only in the foreground useDownloadPackage
-  // hook, and it is that hook's serviceAppUpdate.downloadPackage() call which
-  // actually flips `notify` → `downloadPackage` (notify ∈
-  // DOWNLOAD_ENTRY_STATUSES, so it is accepted) and starts the transfer.
-  //
-  // This listener is the only thing that drives a *mid-session* transition:
-  // the first-launch dispatch above also calls downloadPackage(), but it runs
-  // exactly once per app lifecycle so it cannot catch an in-session discovery.
-  // On the event we kick the real download now instead of waiting for the next
-  // cold start. (If the app is killed before this fires, status is still
-  // `notify`, and the next cold start's checkForUpdates re-detects and
-  // re-triggers downloadPackage() — no update is lost.)
-  //
-  // withDownloadMutex inside downloadPackage() collapses this with any
-  // concurrent foreground-initiated download (user click / cold-start dispatch
-  // / AppState resume) into a single in-flight transfer, so a redundant event
-  // never starts a second download.
+  // Background discovery emits this event because downloads run in the UI runtime.
+  // downloadPackage's mutex deduplicates events, clicks and AppState resumption.
   useEffect(() => {
     if (!enabled) return undefined;
     const handler = (payload: { decision: string }) => {
