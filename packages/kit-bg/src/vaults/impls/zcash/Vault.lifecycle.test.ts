@@ -54,7 +54,6 @@ describe('Zcash local lifecycle operations do not depend on pending history', ()
       },
       zcashGetAccountMeta: async () => account,
       zcashGetWalletAccount: async () => account,
-      zcashPruneTransparentSendHistory: jest.fn(async () => undefined),
       listLocalWalletAccounts: async () => ({ accounts: [{ accountId }] }),
       zcashGetApi: async () => ({
         purgeWallet,

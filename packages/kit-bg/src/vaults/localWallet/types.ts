@@ -294,6 +294,9 @@ export type ILocalWalletCapability = {
   // App reset: delete every client-side scan database for this network,
   // regardless of account state or safety gates.
   dropLocalData?: () => Promise<void>;
+  // Settings "Clear pending transactions": drop this chain's local send locks
+  // so their inputs can be spent again.
+  clearPendingSends?: () => Promise<void>;
   // Whether this device may hold scan data for the network. App reset skips
   // loading the runtime when this is false. Omitted means assume it does.
   hasLocalData?: () => Promise<boolean>;

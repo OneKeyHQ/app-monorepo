@@ -435,6 +435,7 @@ export async function fetchAccountHistoryFromLocal(
   let publicSideFailed = false;
   let publicSnapshotIsComplete = false;
   let publicTxs: IAccountHistoryTx[] = [];
+  let publicTipHeight: number | undefined;
   try {
     const publicResult = await privacyChainPerfSpan(
       'bg history transparent fetch',
@@ -443,6 +444,7 @@ export async function fetchAccountHistoryFromLocal(
     );
     publicTxs = publicResult.txs;
     publicSnapshotIsComplete = publicResult.snapshotComplete;
+    publicTipHeight = publicResult.tipHeight;
   } catch (e) {
     publicSideFailed = true;
     console.error('[zcash] transparent history fetch failed', {
@@ -454,11 +456,9 @@ export async function fetchAccountHistoryFromLocal(
     await vault.backgroundApi.simpleDb.zcash.listTransparentPendingTxs({
       accountId,
     });
+  const cachedRows = await loadCachedHistory();
   const cachedPendingMetadata = new Map(
-    (await loadCachedHistory()).map((tx) => [
-      tx.decodedTx.txid.toLowerCase(),
-      tx.decodedTx,
-    ]),
+    cachedRows.map((tx) => [tx.decodedTx.txid.toLowerCase(), tx.decodedTx]),
   );
   const observedTxs = new Map(
     publicTxs.map((tx) => [
@@ -505,6 +505,18 @@ export async function fetchAccountHistoryFromLocal(
     };
   };
   publicTxs = publicTxs.map(restorePendingJournal);
+  // A send this device marked Dropped stays Dropped while the backend still lists it as Pending.
+  const cachedDropped = cachedRows.filter(
+    (tx) => tx.decodedTx.status === EDecodedTxStatus.Dropped,
+  );
+  const cachedDroppedTxids = new Set(
+    cachedDropped.map((tx) => tx.decodedTx.txid.toLowerCase()),
+  );
+  publicTxs = publicTxs.filter(
+    (tx) =>
+      tx.decodedTx.status !== EDecodedTxStatus.Pending ||
+      !cachedDroppedTxids.has(tx.decodedTx.txid.toLowerCase()),
+  );
   if (!publicSideFailed) {
     await Promise.all(
       transparentPending.flatMap((tx) => {
@@ -546,37 +558,69 @@ export async function fetchAccountHistoryFromLocal(
           .map(restorePendingJournal),
       ];
     }
+    const journalTxids = new Set(
+      transparentPending.map((tx) => tx.txid.toLowerCase()),
+    );
+    const publicTxids = new Set(
+      publicTxs.map((tx) => tx.decodedTx.txid.toLowerCase()),
+    );
+    let cacheSaved = false;
     // Cache the transparent projection before merge promotes a cross-pool tx to `mixed`, which the generic cache rejects.
     try {
       await vault.backgroundApi.simpleDb.localHistory.saveLocalHistoryTxs({
         networkId: params.networkId,
         accountAddress: params.accountAddress,
         xpub: params.xpub,
+        // Only sends from this device; other backend Pending rows stay in the snapshot, as on BTC.
         pendingTxs: publicTxs.filter(
-          (tx) => tx.decodedTx.status === EDecodedTxStatus.Pending,
+          (tx) =>
+            tx.decodedTx.status === EDecodedTxStatus.Pending &&
+            (journalTxids.has(tx.decodedTx.txid.toLowerCase()) ||
+              !!(tx.decodedTx.encodedTx as IEncodedTxZcash | undefined)
+                ?.zcashMode),
         ),
-        confirmedTxs: publicTxs.filter(
-          (tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending,
-        ),
+        // Local-only Dropped rows go first so the 50-row cap keeps them.
+        confirmedTxs: [
+          ...cachedDropped.filter(
+            (tx) => !publicTxids.has(tx.decodedTx.txid.toLowerCase()),
+          ),
+          ...publicTxs.filter(
+            (tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending,
+          ),
+        ],
       });
+      cacheSaved = true;
     } catch (e) {
       console.error('[zcash] transparent history cache failed', {
         name: e instanceof Error ? e.name : typeof e,
         error: e instanceof Error ? e.message : String(e),
       });
     }
-  }
-
-  try {
-    await vault.zcashPruneTransparentSendHistory(
-      accountId,
-      await loadCachedHistory(),
-    );
-  } catch (error) {
-    console.error(
-      '[zcash] expired transparent history update failed',
-      zcashDescribeError(error),
-    );
+    // No backend tip or an incomplete snapshot is no evidence; keep the send pending.
+    if (
+      cacheSaved &&
+      publicSnapshotIsComplete &&
+      publicTipHeight !== undefined
+    ) {
+      try {
+        await vault.zcashDropExpiredTransparentSends({
+          accountId,
+          historyParams: {
+            networkId: params.networkId,
+            accountAddress: params.accountAddress,
+            xpub: params.xpub,
+          },
+          cachedHistory: await loadCachedHistory(),
+          backendTipHeight: publicTipHeight,
+          backendStatuses: observedTxs,
+        });
+      } catch (error) {
+        console.error(
+          '[zcash] expired transparent history update failed',
+          zcashDescribeError(error),
+        );
+      }
+    }
   }
   const settledCache = (await loadCachedHistory()).map(restorePendingJournal);
   const locallyDropped = new Set(
@@ -589,14 +633,16 @@ export async function fetchAccountHistoryFromLocal(
       tx.decodedTx.status !== EDecodedTxStatus.Pending ||
       !locallyDropped.has(tx.decodedTx.txid.toLowerCase()),
   );
-  publicTxs.push(
+  // Local-only rows lead: the display sorts by time, and the history cache keeps only the first 50 rows it is handed.
+  publicTxs = [
     ...settledCache.filter(
       (tx) =>
         (tx.decodedTx.status === EDecodedTxStatus.Dropped ||
           tx.decodedTx.status === EDecodedTxStatus.Pending) &&
         !publicTxs.some((row) => row.decodedTx.txid === tx.decodedTx.txid),
     ),
-  );
+    ...publicTxs,
+  ];
   const txs = mergePrivacyChainHistoryTxs({ privateTxs, publicTxs });
   if (
     isPrivacyChainHistoryComplete({
@@ -627,6 +673,7 @@ export async function zcashFetchTransparentHistory(
 ): Promise<{
   txs: IAccountHistoryTx[];
   snapshotComplete: boolean;
+  tipHeight?: number;
 }> {
   const accountId = params.accountId || vault.accountId;
   const meta = await vault.backgroundApi.simpleDb.zcash.getAccountMeta({
@@ -660,6 +707,8 @@ export async function zcashFetchTransparentHistory(
       : await vault.backgroundApi.serviceHistory.getOneKeyIdAuthHeaders()),
   };
   const dbAccountCache = {};
+  // Backend tip, from mined rows in this same snapshot (block + confirmations - 1).
+  let tipHeight: number | undefined;
   const cached = new Map(
     (
       await loadCachedLocalWalletHistory({
@@ -670,7 +719,7 @@ export async function zcashFetchTransparentHistory(
       })
     ).map((tx) => [tx.decodedTx.txid.toLowerCase(), tx]),
   );
-  return fetchCompleteZcashBackendHistory({
+  const result = await fetchCompleteZcashBackendHistory({
     fetchPage: async ({ limit, maxTimestampMs }) => {
       const response = await client.post<{
         data: IFetchAccountHistoryResp;
@@ -691,6 +740,15 @@ export async function zcashFetchTransparentHistory(
     buildPage: async ({ page, indexOffset }) =>
       Promise.all(
         page.data.map(async (onChainHistoryTx, index) => {
+          const { block = 0, confirmations = 0 } = onChainHistoryTx;
+          if (
+            Number.isSafeInteger(block) &&
+            Number.isSafeInteger(confirmations) &&
+            block > 0 &&
+            confirmations > 0
+          ) {
+            tipHeight = Math.max(tipHeight ?? 0, block + confirmations - 1);
+          }
           const localTx = cached.get(onChainHistoryTx.tx.toLowerCase());
           const normalized = normalizeZcashBackendHistoryTx(onChainHistoryTx);
           const restored = restoreZcashLocalTransparentPayment({
@@ -724,4 +782,5 @@ export async function zcashFetchTransparentHistory(
         }),
       ),
   });
+  return { ...result, tipHeight };
 }

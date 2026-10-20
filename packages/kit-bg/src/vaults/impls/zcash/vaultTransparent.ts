@@ -10,10 +10,6 @@ import {
 import { ZCASH_DECIMALS } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 import { toUserFacingZcashError } from '@onekeyhq/core/src/chains/zcash/sdkZcash/errorCopy';
 import {
-  fetchZcashChainTipDirect,
-  fetchZcashTransactionMissingDirect,
-} from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
-import {
   TRANSPARENT_TX_EXPIRY_DELTA,
   TRUSTED_CONFIRMATIONS,
   UNTRUSTED_CONFIRMATIONS,
@@ -30,8 +26,6 @@ import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
-
-import { loadCachedLocalWalletHistory } from '../../localWallet/cachedHistory';
 
 import {
   ZCASH_TRANSPARENT_P2PKH_SCRIPT_RE,
@@ -84,33 +78,37 @@ export async function zcashReplayUnknownTransparentBroadcast(
   }
 }
 
-export async function zcashPruneTransparentSendHistory(
+// Backend blocks past expiry before an unmined send is dropped; covers indexer lag and shallow reorgs.
+const ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS = 10;
+
+// Only OneKey backend data decides: its tip must pass the signed expiry by the
+// margin and its complete snapshot must not show the tx mined. Only then is the
+// send marked Dropped and its signed inputs released.
+export async function zcashDropExpiredTransparentSends(
   vault: Vault,
-  accountId: string,
-  cachedHistory?: IAccountHistoryTx[],
-  chainTip?: number,
+  {
+    accountId,
+    historyParams,
+    cachedHistory,
+    backendTipHeight,
+    backendStatuses,
+  }: {
+    accountId: string;
+    historyParams: { networkId: string; accountAddress: string; xpub?: string };
+    cachedHistory: IAccountHistoryTx[];
+    backendTipHeight: number;
+    // Statuses from this pass's complete backend snapshot, by lowercase txid.
+    backendStatuses: Map<string, EDecodedTxStatus>;
+  },
 ): Promise<void> {
   const pending =
     await vault.backgroundApi.simpleDb.zcash.listTransparentPendingTxs({
       accountId,
     });
-  // Builds with no signed journal need no extra history or network reads.
-  if (!pending.length && !cachedHistory?.length) return;
-  const account = (await vault.backgroundApi.serviceAccount.getDBAccount({
-    accountId,
-  })) as IDBUtxoAccount;
-  const cached =
-    cachedHistory ??
-    (await loadCachedLocalWalletHistory({
-      backgroundApi: vault.backgroundApi,
-      networkId: vault.networkId,
-      accountAddress: account.address,
-      xpub: account.xpub,
-    }));
   const expiryByTxid = new Map(
     pending.map((tx) => [tx.txid.toLowerCase(), tx.expiryHeight]),
   );
-  for (const tx of cached) {
+  for (const tx of cachedHistory) {
     const encoded = tx.decodedTx.encodedTx as IEncodedTxZcash | undefined;
     const expiry =
       encoded?.zcashTransparentBuild?.expiryHeight ?? encoded?.expiry;
@@ -122,26 +120,19 @@ export async function zcashPruneTransparentSendHistory(
       expiryByTxid.set(tx.decodedTx.txid.toLowerCase(), expiry);
     }
   }
-  if (!expiryByTxid.size) return;
-  const lightwalletdUrl = await vault.zcashResolveLightwalletdUrl();
-  const height =
-    chainTip ?? (await fetchZcashChainTipDirect({ lightwalletdUrl }));
-  if (height === null) return;
-  // Expiry alone can't distinguish an unmined send from a lagging indexer; require the node to explicitly report absence.
-  const candidates = [...expiryByTxid]
-    .filter(([, expiry]) => expiry < height)
-    .slice(0, 8);
-  const missing = await Promise.all(
-    candidates.map(async ([txid]) =>
-      (await fetchZcashTransactionMissingDirect({ lightwalletdUrl, txid }))
-        ? txid
-        : undefined,
-    ),
-  );
   const expired = new Set(
-    missing.filter((txid): txid is string => txid !== undefined),
+    [...expiryByTxid]
+      .filter(([txid, expiry]) => {
+        const status = backendStatuses.get(txid);
+        return (
+          backendTipHeight > expiry + ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS &&
+          (status === undefined || status === EDecodedTxStatus.Pending)
+        );
+      })
+      .map(([txid]) => txid),
   );
-  const rows = cached
+  if (!expired.size) return;
+  const rows = cachedHistory
     .filter(
       (tx) =>
         tx.decodedTx.status === EDecodedTxStatus.Pending &&
@@ -158,16 +149,14 @@ export async function zcashPruneTransparentSendHistory(
   if (rows.length) {
     await vault.backgroundApi.simpleDb.localHistory.batchUpdateLocalHistoryTxs([
       {
-        networkId: vault.networkId,
-        accountAddress: account.address,
-        xpub: account.xpub,
+        ...historyParams,
         confirmedTxs: rows,
         confirmedTxsToSave: rows,
       },
     ]);
   }
   // Persist the terminal row before releasing its journal, so storage
-  // failures are retryable; an HTTP failure never releases signed inputs.
+  // failures are retryable.
   await Promise.all(
     [...expired].map((txid) =>
       vault.backgroundApi.simpleDb.zcash.settleTransparentPendingTx({
@@ -176,11 +165,6 @@ export async function zcashPruneTransparentSendHistory(
       }),
     ),
   );
-  await vault.backgroundApi.simpleDb.zcash.pruneExpiredTransparentState({
-    accountId,
-    currentHeight: height,
-    retainPending: true,
-  });
 }
 
 export function zcashTransparentAccountIndex(

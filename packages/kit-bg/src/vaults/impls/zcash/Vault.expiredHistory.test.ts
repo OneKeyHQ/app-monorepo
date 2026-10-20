@@ -1,4 +1,5 @@
 /* eslint-disable import/first */
+// cspell:ignore lightd
 jest.mock('../../../dbs/local/localDbInstance', () => ({
   __esModule: true,
   default: {},
@@ -6,16 +7,32 @@ jest.mock('../../../dbs/local/localDbInstance', () => ({
 jest.mock(
   '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect',
   () => ({
-    fetchZcashChainTipDirect: jest.fn(async () => 101),
-    fetchZcashTransactionMissingDirect: jest.fn(async () => true),
+    ...jest.requireActual(
+      '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect',
+    ),
+    fetchZcashChainTipDirect: jest.fn(async () => 1_000_000),
+    fetchZcashLightdInfoDirect: jest.fn(async () => null),
   }),
 );
-import { fetchZcashTransactionMissingDirect } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
-import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import {
+  fetchZcashChainTipDirect,
+  fetchZcashLightdInfoDirect,
+} from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { getOnChainHistoryTxStatus } from '@onekeyhq/shared/src/utils/historyUtils';
+import {
+  EOnChainHistoryTxStatus,
+  EOnChainHistoryTxType,
+} from '@onekeyhq/shared/types/history';
+import type {
+  IAccountHistoryTx,
+  IOnChainHistoryTx,
+} from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { SimpleDbEntityLocalHistory } from '../../../dbs/simple/entity/SimpleDbEntityLocalHistory';
 import { SimpleDbEntityZcash } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
+import VaultBtc from '../btc/Vault';
 
 import Vault from './Vault';
 
@@ -32,152 +49,356 @@ function inMemory<T extends { appStorage: unknown }>(entity: T): T {
   return entity;
 }
 
+const accountId = 'account';
+const txid = 'aa'.repeat(32);
+const spentOutpoint = { txid: 'bb'.repeat(32), vout: 0 };
+const expiryHeight = 100;
+const historyParams = { networkId: 'zec--0', accountAddress: 't1-own' };
+
+function row(
+  id: string,
+  status: EDecodedTxStatus,
+  extra: Partial<IAccountHistoryTx['decodedTx']> = {},
+): IAccountHistoryTx {
+  return {
+    id: `zec--0_t1-own_${id}`,
+    privacyChainHistorySide: 'public',
+    privacyChainHistoryPoolIds: [0],
+    decodedTx: {
+      txid: id,
+      owner: 't1-own',
+      signer: 't1-own',
+      nonce: 0,
+      actions: [],
+      extraInfo: null,
+      accountId,
+      networkId: historyParams.networkId,
+      status,
+      createdAt: 1,
+      ...extra,
+    },
+  };
+}
+
+function localSend(): IAccountHistoryTx {
+  const encodedTx: IEncodedTxZcash = {
+    inputs: [],
+    outputs: [],
+    inputsForCoinSelect: [],
+    outputsForCoinSelect: [],
+    fee: '0',
+    txSize: 100,
+    zcashMode: 'transparent',
+    zcashTo: 't1-test',
+    zcashAmountValue: '1',
+    expiry: expiryHeight,
+  };
+  return {
+    ...row(txid, EDecodedTxStatus.Pending, { encodedTx }),
+    isLocalCreated: true,
+  };
+}
+
+// Mined backend rows newer than the send, enough to fill the 50-row cache.
+const fillers = Array.from({ length: 60 }, (_, index) =>
+  row(index.toString(16).padStart(64, '0'), EDecodedTxStatus.Confirmed, {
+    createdAt: 1000 + index,
+  }),
+);
+
 describe('expired transparent send reconciliation', () => {
-  const accountId = 'account';
-  const txid = 'aa'.repeat(32);
-  const historyParams = { networkId: 'zec--0', accountAddress: 't1-own' };
-  async function fixture(withJournal = true, onlySignedExpiry = false) {
+  const originalFetch = globalThis.fetch;
+  let networkFetch: jest.Mock;
+
+  async function fixture() {
     const zcash = inMemory(new SimpleDbEntityZcash());
     const localHistory = inMemory(new SimpleDbEntityLocalHistory());
-    const encodedTx: IEncodedTxZcash = {
-      inputs: [],
-      outputs: [],
-      inputsForCoinSelect: [],
-      outputsForCoinSelect: [],
-      fee: '0',
-      txSize: 100,
-      zcashMode: 'transparent',
-      zcashTo: 't1-test',
-      zcashAmountValue: '1',
-      zcashTransparentBuild: {
-        txid,
-        rawTx: 'synthetic-signed',
-        feeZat: '10000',
-        expiryHeight: 100,
-        spentOutpoints: [],
-      },
-    };
-    if (onlySignedExpiry) {
-      encodedTx.expiry = 100;
-      delete encodedTx.zcashTransparentBuild;
-    }
-    const row: IAccountHistoryTx = {
-      id: 'expired-send',
-      privacyChainHistorySide: 'public',
-      privacyChainHistoryPoolIds: [0],
-      decodedTx: {
-        txid,
-        owner: 't1-own',
-        signer: 't1-own',
-        nonce: 0,
-        actions: [],
-        extraInfo: null,
-        accountId,
-        networkId: historyParams.networkId,
-        status: EDecodedTxStatus.Pending,
-        broadcastOutcomeUnknown: true,
-        createdAt: 1,
-        encodedTx,
-      },
-    };
     await localHistory.saveLocalHistoryTxs({
       ...historyParams,
-      pendingTxs: [row],
+      pendingTxs: [localSend()],
     });
-    if (withJournal)
-      await zcash.saveTransparentPendingTx({
-        accountId,
-        tx: {
-          txid,
-          rawTx: 'synthetic-signed',
-          ownerId: 'reservation',
-          spentOutpoints: [],
-          expiryHeight: 100,
-          createdAt: 1,
-          broadcastState: 'unknown',
-          broadcastAuthorized: true,
-        },
-      });
+    await zcash.saveTransparentPendingTx({
+      accountId,
+      tx: {
+        txid,
+        rawTx: 'synthetic-signed',
+        ownerId: 'reservation',
+        spentOutpoints: [spentOutpoint],
+        expiryHeight,
+        createdAt: 1,
+        broadcastState: 'accepted',
+        broadcastAuthorized: true,
+      },
+    });
+    const backend: {
+      txs: IAccountHistoryTx[];
+      snapshotComplete: boolean;
+      tipHeight?: number;
+    } = { txs: [], snapshotComplete: true };
     const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
       networkId: historyParams.networkId,
       accountId,
       backgroundApi: {
         simpleDb: { zcash, localHistory },
-        serviceAccount: { getDBAccount: async () => ({ address: 't1-own' }) },
+        serviceToken: { getToken: async () => undefined },
       },
-      zcashResolveLightwalletdUrl: async () => 'https://example.invalid',
+      getAccount: async () => ({ address: 't1-own' }),
+      zcashReplayUnknownTransparentBroadcast: jest.fn(async () => undefined),
+      zcashFetchTransparentHistory: async () => ({
+        ...backend,
+        txs: backend.txs.map((tx) => ({
+          ...tx,
+          decodedTx: { ...tx.decodedTx },
+        })),
+      }),
     });
-    const reconcile = () =>
-      (
-        vault as unknown as {
-          zcashPruneTransparentSendHistory: (
-            id: string,
-            rows: IAccountHistoryTx[],
-          ) => Promise<void>;
-        }
-      ).zcashPruneTransparentSendHistory(accountId, [row]);
-    return { zcash, localHistory, reconcile };
+    const read = async () => {
+      const rows = await vault.fetchAccountHistoryFromLocal({
+        accountId,
+        ...historyParams,
+      });
+      expectNoNodeQuery();
+      return rows?.filter((tx) => tx.decodedTx.txid === txid) ?? [];
+    };
+    const inUse = async () =>
+      zcash.listTransparentOutpointsInUse({ accountId });
+    return { zcash, localHistory, backend, read, inUse };
   }
+
   beforeEach(() => {
-    jest.mocked(fetchZcashTransactionMissingDirect).mockResolvedValue(true);
+    networkFetch = jest.fn(async () => {
+      throw new OneKeyLocalError('no network in this test');
+    });
+    globalThis.fetch = networkFetch as unknown as typeof fetch;
   });
+  // Expiry is decided from backend data only; the user's lightwalletd is never asked.
+  function expectNoNodeQuery() {
+    expect(networkFetch).not.toHaveBeenCalled();
+    expect(fetchZcashChainTipDirect).not.toHaveBeenCalled();
+    expect(fetchZcashLightdInfoDirect).not.toHaveBeenCalled();
+  }
+
+  beforeEach(() => {
+    jest.mocked(fetchZcashChainTipDirect).mockClear();
+    jest.mocked(fetchZcashLightdInfoDirect).mockClear();
+  });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    jest.restoreAllMocks();
+  });
+
+  it.each([
+    ['the backend tip is within the margin', expiryHeight + 10, true],
+    ['no backend tip is available', undefined, true],
+    ['the backend snapshot is incomplete', expiryHeight + 50, false],
+  ])(
+    'keeps the send pending and its inputs locked when %s',
+    async (_case, tipHeight, snapshotComplete) => {
+      const { zcash, localHistory, backend, read, inUse } = await fixture();
+      Object.assign(backend, { tipHeight, snapshotComplete });
+      const rows = await read();
+      expect(rows.map((tx) => tx.decodedTx.status)).toEqual([
+        EDecodedTxStatus.Pending,
+      ]);
+      expect(await zcash.listTransparentPendingTxs({ accountId })).toHaveLength(
+        1,
+      );
+      expect(await inUse()).toEqual(
+        new Set([`${spentOutpoint.txid}:${spentOutpoint.vout}`]),
+      );
+      expect(
+        await localHistory.getAccountLocalHistoryPendingTxs(historyParams),
+      ).toHaveLength(1);
+    },
+  );
+
+  it.each([
+    ['does not list it', [] as IAccountHistoryTx[]],
+    ['still lists it as pending', [row(txid, EDecodedTxStatus.Pending)]],
+  ])(
+    'drops an expired send when the backend %s and releases its inputs',
+    async (_case, txs) => {
+      const { zcash, localHistory, backend, read, inUse } = await fixture();
+      Object.assign(backend, { txs, tipHeight: expiryHeight + 11 });
+      const rows = await read();
+      expect(rows.map((tx) => tx.decodedTx)).toEqual([
+        expect.objectContaining({
+          status: EDecodedTxStatus.Dropped,
+          broadcastOutcomeUnknown: false,
+          createdAt: 1,
+        }),
+      ]);
+      expect(await zcash.listTransparentPendingTxs({ accountId })).toEqual([]);
+      expect(await inUse()).toEqual(new Set());
+      expect(
+        await localHistory.getAccountLocalHistoryPendingTxs(historyParams),
+      ).toEqual([]);
+      expect(
+        (await localHistory.getAccountLocalHistoryConfirmedTxs(historyParams))
+          .filter((tx) => tx.decodedTx.txid === txid)
+          .map((tx) => tx.decodedTx.status),
+      ).toEqual([EDecodedTxStatus.Dropped]);
+    },
+  );
+
+  it('never drops a send the backend reports mined', async () => {
+    const { localHistory, backend, read } = await fixture();
+    Object.assign(backend, {
+      txs: [row(txid, EDecodedTxStatus.Confirmed)],
+      tipHeight: expiryHeight + 500,
+    });
+    const rows = await read();
+    expect(rows.map((tx) => tx.decodedTx.status)).toEqual([
+      EDecodedTxStatus.Confirmed,
+    ]);
+    expect(
+      (await localHistory.getAccountLocalHistoryConfirmedTxs(historyParams))
+        .filter((tx) => tx.decodedTx.txid === txid)
+        .map((tx) => tx.decodedTx.status),
+    ).toEqual([EDecodedTxStatus.Confirmed]);
+  });
+
+  it('keeps a dropped send dropped on later polls past the 50-row cache', async () => {
+    const { localHistory, backend, read } = await fixture();
+    backend.tipHeight = expiryHeight + 11;
+    await read();
+    for (const txs of [
+      [row(txid, EDecodedTxStatus.Pending), ...fillers],
+      fillers,
+      fillers,
+    ]) {
+      backend.txs = txs;
+      // eslint-disable-next-line no-await-in-loop
+      const rows = await read();
+      expect(rows.map((tx) => tx.decodedTx.status)).toEqual([
+        EDecodedTxStatus.Dropped,
+      ]);
+    }
+    expect(
+      await localHistory.getAccountLocalHistoryPendingTxs(historyParams),
+    ).toEqual([]);
+  });
+
+  it('persists the dropped row before releasing the journal', async () => {
+    const { zcash, localHistory, backend, read } = await fixture();
+    backend.tipHeight = expiryHeight + 11;
+    jest
+      .spyOn(localHistory, 'batchUpdateLocalHistoryTxs')
+      .mockRejectedValueOnce(new Error('storage unavailable'));
+    await read();
+    expect(await zcash.listTransparentPendingTxs({ accountId })).toHaveLength(
+      1,
+    );
+    await read();
+    expect(await zcash.listTransparentPendingTxs({ accountId })).toEqual([]);
+  });
+
+  it('releases every journal and reservation when pending transactions are cleared', async () => {
+    const { zcash, inUse } = await fixture();
+    await zcash.reserveTransparentOutpoints({
+      accountId,
+      ownerId: 'unsigned',
+      outpoints: [{ txid: 'cc'.repeat(32), vout: 1 }],
+      currentHeight: 1,
+      expiryHeight: 1000,
+    });
+    expect((await inUse()).size).toBe(2);
+    await zcash.clearTransparentPendingState();
+    expect(await zcash.listTransparentPendingTxs({ accountId })).toEqual([]);
+    expect(await inUse()).toEqual(new Set());
+  });
+});
+
+describe('backend tip from the transparent history snapshot', () => {
+  function onChainRow(
+    tx: string,
+    status: EOnChainHistoryTxStatus,
+    block?: number,
+    confirmations?: number,
+  ): IOnChainHistoryTx {
+    return {
+      tx,
+      networkId: historyParams.networkId,
+      key: `${historyParams.networkId}_`,
+      riskLevel: 0,
+      type: EOnChainHistoryTxType.Receive,
+      sends: [],
+      receives: [],
+      from: 't1-other',
+      to: 't1-own',
+      value: '0.001',
+      gasFee: '',
+      gasFeeFiatValue: '',
+      label: '',
+      status,
+      timestamp: 2,
+      block,
+      confirmations,
+      nonce: 0,
+      functionCode: '',
+      params: [],
+    };
+  }
+
+  async function fetchTip(rows: IOnChainHistoryTx[]) {
+    jest
+      .spyOn(VaultBtc.prototype, 'buildOnChainHistoryTx')
+      .mockImplementation(async ({ onChainHistoryTx: tx }) =>
+        row(tx.tx, getOnChainHistoryTxStatus(tx.status)),
+      );
+    const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
+      accountId,
+      networkId: historyParams.networkId,
+      backgroundApi: {
+        simpleDb: {
+          zcash: { getAccountMeta: async () => null },
+          localHistory: {
+            getAccountLocalHistoryConfirmedTxs: async () => [],
+            getAccountLocalHistoryPendingTxs: async () => [],
+          },
+        },
+        serviceAccount: {
+          getDBAccountSafe: async () => ({ address: 't1-own', xpub: 'xpub' }),
+        },
+        serviceAccountProfile: { _getWalletTypeHeader: async () => ({}) },
+        serviceHistory: {
+          getOneKeyIdAuthHeaders: async () => ({}),
+          getClient: async () => ({
+            post: async () => ({
+              data: {
+                data: { data: rows, tokens: {}, nfts: {}, hasMore: false },
+              },
+            }),
+          }),
+        },
+      },
+    });
+    return (
+      await vault.zcashFetchTransparentHistory({
+        accountId,
+        ...historyParams,
+        xpub: 'xpub',
+      })
+    ).tipHeight;
+  }
+
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  it('moves an expired absent send to terminal history and releases its journal', async () => {
-    const { zcash, localHistory, reconcile } = await fixture();
-    await reconcile();
-    expect(
-      await localHistory.getAccountLocalHistoryPendingTxs(historyParams),
-    ).toEqual([]);
-    expect(
-      (await localHistory.getAccountLocalHistoryConfirmedTxs(historyParams))[0]
-        .decodedTx,
-    ).toMatchObject({
-      status: EDecodedTxStatus.Dropped,
-      broadcastOutcomeUnknown: false,
-      createdAt: 1,
-    });
-    expect(await zcash.listTransparentPendingTxs({ accountId })).toEqual([]);
+  it('reads the tip from mined rows only', async () => {
+    await expect(
+      fetchTip([
+        onChainRow('01', EOnChainHistoryTxStatus.Success, 90, 12),
+        onChainRow('02', EOnChainHistoryTxStatus.Success, 95, 3),
+        onChainRow('03', EOnChainHistoryTxStatus.Pending, 0, 0),
+      ]),
+    ).resolves.toBe(101);
   });
-  it('repairs legacy pending history whose expired journal was already removed', async () => {
-    const { localHistory, reconcile } = await fixture(false);
-    await reconcile();
-    expect(
-      (await localHistory.getAccountLocalHistoryConfirmedTxs(historyParams))[0]
-        .decodedTx.status,
-    ).toBe(EDecodedTxStatus.Dropped);
-  });
-  it('uses the signed expiry preserved in history after the journal is lost', async () => {
-    const { localHistory, reconcile } = await fixture(false, true);
-    await reconcile();
-    expect(
-      (await localHistory.getAccountLocalHistoryConfirmedTxs(historyParams))[0]
-        .decodedTx.status,
-    ).toBe(EDecodedTxStatus.Dropped);
-  });
-  it('retains the journal and pending row when node absence is not proven', async () => {
-    const { zcash, localHistory, reconcile } = await fixture();
-    jest.mocked(fetchZcashTransactionMissingDirect).mockResolvedValue(false);
-    await reconcile();
-    expect(await zcash.listTransparentPendingTxs({ accountId })).toHaveLength(
-      1,
-    );
-    expect(
-      await localHistory.getAccountLocalHistoryPendingTxs(historyParams),
-    ).toHaveLength(1);
-  });
-  it('retries history persistence before releasing a signed journal', async () => {
-    const { zcash, localHistory, reconcile } = await fixture();
-    jest
-      .spyOn(localHistory, 'batchUpdateLocalHistoryTxs')
-      .mockRejectedValueOnce(new Error('storage unavailable'));
-    await expect(reconcile()).rejects.toThrow('storage unavailable');
-    expect(await zcash.listTransparentPendingTxs({ accountId })).toHaveLength(
-      1,
-    );
-    await reconcile();
-    expect(await zcash.listTransparentPendingTxs({ accountId })).toEqual([]);
+
+  it('reports no tip when no row carries a height', async () => {
+    await expect(
+      fetchTip([onChainRow('03', EOnChainHistoryTxStatus.Pending)]),
+    ).resolves.toBeUndefined();
   });
 });

@@ -132,6 +132,8 @@ export function getLocalWalletCapability(vault: Vault): ILocalWalletCapability {
       );
       await vault.backgroundApi.simpleDb.zcash.clearRawData();
     },
+    clearPendingSends: () =>
+      vault.backgroundApi.simpleDb.zcash.clearTransparentPendingState(),
     setDiagnosticsEnabled: (params) => vault.zcashSetPerfTrace(params),
     getSyncProgress: (params) => vault.getLocalWalletSyncProgress(params),
     rescan: (params) => vault.rescanLocalWallet(params),

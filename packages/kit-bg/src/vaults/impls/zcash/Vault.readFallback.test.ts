@@ -152,6 +152,7 @@ describe('Zcash transparent send the backend has not seen yet', () => {
       },
     };
     const settle = jest.fn();
+    const save = jest.fn(async () => undefined);
     const vault = Object.assign(Object.create(Vault.prototype) as object, {
       accountId: 'acc',
       networkId: 'zec--0',
@@ -174,13 +175,12 @@ describe('Zcash transparent send the backend has not seen yet', () => {
           localHistory: {
             getAccountLocalHistoryConfirmedTxs: async () => [],
             getAccountLocalHistoryPendingTxs: async () => [pendingRow],
-            saveLocalHistoryTxs: async () => undefined,
+            saveLocalHistoryTxs: save,
           },
         },
         serviceToken: { getToken: async () => undefined },
       },
       getAccount: async () => ({ address: 't1-own' }),
-      zcashPruneTransparentSendHistory: async () => undefined,
       zcashReplayUnknownTransparentBroadcast: async () => undefined,
       zcashFetchTransparentHistory: async () => ({
         txs: observed
@@ -206,7 +206,7 @@ describe('Zcash transparent send the backend has not seen yet', () => {
         networkId: 'zec--0',
         accountAddress: 't1-own',
       });
-    return { read, settle };
+    return { read, settle, save };
   }
   it('keeps the row saved at send time as pending', async () => {
     const { read } = fixture();
@@ -249,6 +249,25 @@ describe('Zcash transparent send the backend has not seen yet', () => {
       expect(rows?.[0].decodedTx.status).toBe('Pending');
       expect(rows?.[0].decodedTx.broadcastOutcomeUnknown).not.toBe(true);
       expect(rows?.[0].decodedTx.createdAt).toBe(10);
+    },
+  );
+  it.each([true, false])(
+    'stores only sends from this device in local pending history (incoming=%s)',
+    async (incoming) => {
+      const { read, save } = fixture({
+        observed: true,
+        withJournal: !incoming,
+        locallyCreated: !incoming,
+        incoming,
+      });
+      await read();
+      expect(save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pendingTxs: incoming
+            ? []
+            : [expect.objectContaining({ id: 'row-ab' })],
+        }),
+      );
     },
   );
 });
