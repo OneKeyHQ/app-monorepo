@@ -1,11 +1,11 @@
 /*
 yarn jest packages/kit-bg/src/services/ServiceSend.batchRetry.test.ts
 
-Covers the background-side record of already-broadcast transactions
-(OK-65147). The UI's `successfullySentTxs` array is serialized across the
-bridge on extension and native dual-runtime builds, so a retry after a
-mid-batch failure used to restart from index 0 and, since the pre-sign
-blockhash refresh, re-broadcast chunks that had already landed.
+Covers the persisted record of transactions the background has already
+broadcast (OK-65147). The UI's `successfullySentTxs` array is serialized
+across the bridge on extension and native dual-runtime builds, so a retry
+after a mid-batch failure used to restart from index 0 and, since the
+pre-sign blockhash refresh, re-broadcast chunks that had already landed.
 */
 
 jest.mock('p-limit', () => ({
@@ -74,7 +74,11 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 // eslint-disable-next-line import-js/order, import/first
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 // eslint-disable-next-line import-js/order, import/first
+import type { IBroadcastRecord } from '../dbs/simple/entity/SimpleDbEntityBroadcastRecords';
+// eslint-disable-next-line import-js/order, import/first
 import { vaultFactory } from '../vaults/factory';
+// eslint-disable-next-line import-js/order, import/first
+import { ESignedTxBroadcastStatus } from '../vaults/types';
 // eslint-disable-next-line import-js/order, import/first
 import ServiceSend from './ServiceSend';
 
@@ -93,7 +97,34 @@ function signatureOf(uuid: string) {
   return `sig-${uuid}`;
 }
 
-function makeService() {
+// Stands in for the simpleDb entity: a plain map that outlives a ServiceSend
+// instance, the way persisted storage outlives a background runtime restart.
+function createBroadcastRecordsStore() {
+  const records = new Map<string, IBroadcastRecord>();
+  return {
+    records,
+    getRecord: jest.fn(async (uuid: string) => records.get(uuid)),
+    upsertRecord: jest.fn(async (record: IBroadcastRecord) => {
+      records.set(record.uuid, record);
+    }),
+    updateRecord: jest.fn(
+      async (uuid: string, patch: Partial<IBroadcastRecord>) => {
+        const record = records.get(uuid);
+        if (record) {
+          records.set(uuid, { ...record, ...patch });
+        }
+      },
+    ),
+    deleteRecord: jest.fn(async (uuid: string) => {
+      records.delete(uuid);
+    }),
+  };
+}
+
+function makeService(
+  broadcastRecords = createBroadcastRecordsStore(),
+  vaultOverrides: Record<string, unknown> = {},
+) {
   const vault = {
     signTransaction: jest.fn(
       async ({ unsignedTx }: { unsignedTx: IUnsignedTxPro }) =>
@@ -109,7 +140,10 @@ function makeService() {
       }),
     ),
     checkShouldRetryBroadcastTx: jest.fn().mockResolvedValue(false),
-    checkIsSignedTxBroadcasted: jest.fn().mockResolvedValue(false),
+    checkSignedTxBroadcastStatus: jest
+      .fn()
+      .mockResolvedValue(ESignedTxBroadcastStatus.Unknown),
+    isSignedTxRejectedByBroadcast: jest.fn().mockResolvedValue(false),
     refreshUnsignedTxBeforeBatchSign: jest.fn((tx: IUnsignedTxPro) =>
       Promise.resolve(tx),
     ),
@@ -125,12 +159,17 @@ function makeService() {
           encodedTx: unsignedTx.encodedTx,
         }) as unknown as IDecodedTx,
     ),
+    ...vaultOverrides,
   };
   (vaultFactory.getVault as unknown as jest.Mock).mockResolvedValue(vault);
 
   const backgroundApi = {
     serviceAccount: {
       getAccountAddressForApi: jest.fn().mockResolvedValue('sender'),
+      getAccount: jest.fn().mockResolvedValue({
+        address: 'sender',
+        indexedAccountId: undefined,
+      }),
     },
     servicePassword: {
       promptPasswordVerifyByAccount: jest.fn().mockResolvedValue({
@@ -150,6 +189,7 @@ function makeService() {
       getVaultSettings: jest.fn().mockResolvedValue({
         maxRetryBroadcastTxCount: 0,
         minRetryBroadcastTxInterval: 0,
+        nonceRequired: false,
       }),
     },
     serviceSignature: {
@@ -157,6 +197,9 @@ function makeService() {
     },
     serviceHistory: {
       saveSendConfirmHistoryTxs: jest.fn().mockResolvedValue(undefined),
+    },
+    simpleDb: {
+      broadcastRecords,
     },
   };
   const Ctor = ServiceSend as unknown as new (args: {
@@ -166,6 +209,7 @@ function makeService() {
     service: new Ctor({ backgroundApi }),
     vault,
     backgroundApi,
+    broadcastRecords,
   };
 }
 
@@ -199,25 +243,52 @@ function broadcastTxids(vault: ReturnType<typeof makeService>['vault']) {
   );
 }
 
+function savedHistoryTxids(
+  backgroundApi: ReturnType<typeof makeService>['backgroundApi'],
+) {
+  return backgroundApi.serviceHistory.saveSendConfirmHistoryTxs.mock.calls.map(
+    ([{ data }]: [{ data: { signedTx: ISignedTxPro } }]) => data.signedTx.txid,
+  );
+}
+
+function answerStatusByTxid(
+  vault: ReturnType<typeof makeService>['vault'],
+  landedTxids: string[],
+) {
+  vault.checkSignedTxBroadcastStatus.mockImplementation(
+    async ({ signedTx }: { signedTx: ISignedTxPro }) =>
+      landedTxids.includes(signedTx.txid)
+        ? ESignedTxBroadcastStatus.Broadcast
+        : ESignedTxBroadcastStatus.NotBroadcast,
+  );
+}
+
+function failBroadcastOnce(
+  vault: ReturnType<typeof makeService>['vault'],
+  message: string,
+) {
+  vault.broadcastTransaction.mockImplementationOnce(async () => {
+    throw new OneKeyLocalError(message);
+  });
+}
+
 describe('ServiceSend.batchSignAndSendTransaction retry after partial failure', () => {
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  it('does not sign or broadcast chunks that already landed when the batch is retried', async () => {
+  it('replays a landed chunk instead of signing it again when the batch is retried', async () => {
     const { service, vault } = makeService();
     const unsignedTxs = [buildUnsignedTx('u0'), buildUnsignedTx('u1')];
     vault.broadcastTransaction.mockImplementationOnce(async ({ signedTx }) => ({
       txid: signedTx.txid,
     }));
-    vault.broadcastTransaction.mockImplementationOnce(async () => {
-      throw new OneKeyLocalError('network down');
-    });
+    failBroadcastOnce(vault, 'network down');
+    answerStatusByTxid(vault, [signatureOf('u0')]);
 
     await expect(batchSend(service, unsignedTxs)).rejects.toThrow(
       'network down',
     );
-
     const result = await batchSend(service, unsignedTxs);
 
     expect(signedUuids(vault)).toEqual(['u0', 'u1', 'u1']);
@@ -232,42 +303,58 @@ describe('ServiceSend.batchSignAndSendTransaction retry after partial failure', 
     ]);
   });
 
-  it('still records the landed chunk in local history on the retry', async () => {
+  it('does not repeat the bookkeeping of a chunk whose first attempt completed it', async () => {
     const { service, vault, backgroundApi } = makeService();
     const unsignedTxs = [buildUnsignedTx('u0'), buildUnsignedTx('u1')];
     vault.broadcastTransaction.mockImplementationOnce(async ({ signedTx }) => ({
       txid: signedTx.txid,
     }));
-    vault.broadcastTransaction.mockImplementationOnce(async () => {
-      throw new OneKeyLocalError('network down');
-    });
-    await expect(batchSend(service, unsignedTxs)).rejects.toThrow();
-    backgroundApi.serviceHistory.saveSendConfirmHistoryTxs.mockClear();
+    failBroadcastOnce(vault, 'network down');
+    answerStatusByTxid(vault, [signatureOf('u0')]);
 
+    await expect(batchSend(service, unsignedTxs)).rejects.toThrow();
     await batchSend(service, unsignedTxs);
 
-    const savedTxids =
-      backgroundApi.serviceHistory.saveSendConfirmHistoryTxs.mock.calls.map(
-        ([{ data }]: [{ data: { signedTx: ISignedTxPro } }]) =>
-          data.signedTx.txid,
-      );
-    expect(savedTxids).toEqual([signatureOf('u0'), signatureOf('u1')]);
+    expect(savedHistoryTxids(backgroundApi)).toEqual([
+      signatureOf('u0'),
+      signatureOf('u1'),
+    ]);
+    expect(
+      backgroundApi.serviceSignature.addItemFromSendProcess,
+    ).toHaveBeenCalledTimes(2);
+  });
+
+  it('runs the bookkeeping once for a tx whose first attempt died inside the broadcast', async () => {
+    const { service, vault, backgroundApi } = makeService();
+    const unsignedTxs = [buildUnsignedTx('u0')];
+    failBroadcastOnce(vault, 'timeout of 10000ms exceeded');
+    vault.checkSignedTxBroadcastStatus.mockResolvedValue(
+      ESignedTxBroadcastStatus.Broadcast,
+    );
+
+    await expect(batchSend(service, unsignedTxs)).rejects.toThrow('timeout');
+    await batchSend(service, unsignedTxs);
+
+    expect(savedHistoryTxids(backgroundApi)).toEqual([signatureOf('u0')]);
+    expect(
+      backgroundApi.serviceSignature.addItemFromSendProcess,
+    ).toHaveBeenCalledTimes(1);
   });
 
   it('reuses the signed tx when an ambiguous broadcast failure turns out to have landed', async () => {
     const { service, vault } = makeService();
     const unsignedTxs = [buildUnsignedTx('u0')];
-    vault.broadcastTransaction.mockImplementationOnce(async () => {
-      throw new OneKeyLocalError('timeout of 10000ms exceeded');
-    });
-    vault.checkIsSignedTxBroadcasted.mockResolvedValue(true);
+    failBroadcastOnce(vault, 'timeout of 10000ms exceeded');
+    vault.checkSignedTxBroadcastStatus.mockResolvedValue(
+      ESignedTxBroadcastStatus.Broadcast,
+    );
 
     await expect(batchSend(service, unsignedTxs)).rejects.toThrow('timeout');
-
     const result = await batchSend(service, unsignedTxs);
 
-    expect(vault.checkIsSignedTxBroadcasted).toHaveBeenCalledWith({
-      txid: signatureOf('u0'),
+    expect(vault.checkSignedTxBroadcastStatus).toHaveBeenCalledWith({
+      signedTx: expect.objectContaining({ txid: signatureOf('u0') }),
+      attemptedAt: expect.any(Number),
     });
     expect(signedUuids(vault)).toEqual(['u0']);
     expect(broadcastTxids(vault)).toEqual([signatureOf('u0')]);
@@ -275,16 +362,15 @@ describe('ServiceSend.batchSignAndSendTransaction retry after partial failure', 
     expect(result[0].signedTx.txid).toBe(signatureOf('u0'));
   });
 
-  it('signs a fresh tx when the chain has never seen the failed broadcast', async () => {
-    const { service, vault } = makeService();
+  it('signs a fresh tx when the chain reports the failed broadcast can never land', async () => {
+    const { service, vault, broadcastRecords } = makeService();
     const unsignedTxs = [buildUnsignedTx('u0')];
-    vault.broadcastTransaction.mockImplementationOnce(async () => {
-      throw new OneKeyLocalError('Transaction expired');
-    });
-    vault.checkIsSignedTxBroadcasted.mockResolvedValue(false);
+    failBroadcastOnce(vault, 'timeout of 10000ms exceeded');
+    vault.checkSignedTxBroadcastStatus.mockResolvedValue(
+      ESignedTxBroadcastStatus.NotBroadcast,
+    );
 
-    await expect(batchSend(service, unsignedTxs)).rejects.toThrow('expired');
-
+    await expect(batchSend(service, unsignedTxs)).rejects.toThrow('timeout');
     const result = await batchSend(service, unsignedTxs);
 
     expect(signedUuids(vault)).toEqual(['u0', 'u0']);
@@ -293,15 +379,63 @@ describe('ServiceSend.batchSignAndSendTransaction retry after partial failure', 
       signatureOf('u0'),
     ]);
     expect(result).toHaveLength(1);
+    expect(broadcastRecords.deleteRecord).toHaveBeenCalledWith('u0');
+  });
+
+  it('signs a fresh tx after an ambiguous failure on a chain that cannot tell', async () => {
+    const { service, vault } = makeService();
+    const unsignedTxs = [buildUnsignedTx('u0')];
+    failBroadcastOnce(vault, 'timeout of 10000ms exceeded');
+    vault.checkSignedTxBroadcastStatus.mockResolvedValue(
+      ESignedTxBroadcastStatus.Unknown,
+    );
+
+    await expect(batchSend(service, unsignedTxs)).rejects.toThrow('timeout');
+    await batchSend(service, unsignedTxs);
+
+    expect(signedUuids(vault)).toEqual(['u0', 'u0']);
+  });
+
+  it('re-signs a tx that got a txid but was later dropped by the chain', async () => {
+    const { service, vault } = makeService();
+    const unsignedTxs = [buildUnsignedTx('u0'), buildUnsignedTx('u1')];
+    vault.broadcastTransaction.mockImplementationOnce(async ({ signedTx }) => ({
+      txid: signedTx.txid,
+    }));
+    failBroadcastOnce(vault, 'network down');
+    vault.checkSignedTxBroadcastStatus.mockResolvedValue(
+      ESignedTxBroadcastStatus.NotBroadcast,
+    );
+
+    await expect(batchSend(service, unsignedTxs)).rejects.toThrow();
+    await batchSend(service, unsignedTxs);
+
+    expect(signedUuids(vault)).toEqual(['u0', 'u1', 'u0', 'u1']);
+  });
+
+  it('replays a tx that got a txid when the chain cannot tell', async () => {
+    const { service, vault } = makeService();
+    const unsignedTxs = [buildUnsignedTx('u0'), buildUnsignedTx('u1')];
+    vault.broadcastTransaction.mockImplementationOnce(async ({ signedTx }) => ({
+      txid: signedTx.txid,
+    }));
+    failBroadcastOnce(vault, 'network down');
+    vault.checkSignedTxBroadcastStatus.mockResolvedValue(
+      ESignedTxBroadcastStatus.Unknown,
+    );
+
+    await expect(batchSend(service, unsignedTxs)).rejects.toThrow();
+    const result = await batchSend(service, unsignedTxs);
+
+    expect(signedUuids(vault)).toEqual(['u0', 'u1', 'u1']);
+    expect(result).toHaveLength(2);
   });
 
   it('surfaces the status lookup error instead of signing again', async () => {
     const { service, vault } = makeService();
     const unsignedTxs = [buildUnsignedTx('u0')];
-    vault.broadcastTransaction.mockImplementationOnce(async () => {
-      throw new OneKeyLocalError('timeout of 10000ms exceeded');
-    });
-    vault.checkIsSignedTxBroadcasted.mockRejectedValue(
+    failBroadcastOnce(vault, 'timeout of 10000ms exceeded');
+    vault.checkSignedTxBroadcastStatus.mockRejectedValue(
       new OneKeyLocalError('rpc unreachable'),
     );
 
@@ -314,8 +448,22 @@ describe('ServiceSend.batchSignAndSendTransaction retry after partial failure', 
     expect(broadcastTxids(vault)).toEqual([signatureOf('u0')]);
   });
 
+  it('forgets a signed tx the node rejected outright so the retry signs immediately', async () => {
+    const { service, vault, broadcastRecords } = makeService();
+    const unsignedTxs = [buildUnsignedTx('u0')];
+    failBroadcastOnce(vault, 'Transaction expired');
+    vault.isSignedTxRejectedByBroadcast.mockResolvedValue(true);
+
+    await expect(batchSend(service, unsignedTxs)).rejects.toThrow('expired');
+    await batchSend(service, unsignedTxs);
+
+    expect(broadcastRecords.deleteRecord).toHaveBeenCalledWith('u0');
+    expect(vault.checkSignedTxBroadcastStatus).not.toHaveBeenCalled();
+    expect(signedUuids(vault)).toEqual(['u0', 'u0']);
+  });
+
   it('never treats a sign-only request as broadcast', async () => {
-    const { service, vault } = makeService();
+    const { service, vault, broadcastRecords } = makeService();
     const unsignedTxs = [buildUnsignedTx('u0')];
 
     await batchSend(service, unsignedTxs, { signOnly: true });
@@ -323,25 +471,84 @@ describe('ServiceSend.batchSignAndSendTransaction retry after partial failure', 
 
     expect(signedUuids(vault)).toEqual(['u0', 'u0']);
     expect(vault.broadcastTransaction).not.toHaveBeenCalled();
-    expect(vault.checkIsSignedTxBroadcasted).not.toHaveBeenCalled();
+    expect(broadcastRecords.upsertRecord).not.toHaveBeenCalled();
+    expect(vault.checkSignedTxBroadcastStatus).not.toHaveBeenCalled();
+  });
+
+  it('honors a caller-supplied successfullySentTxs list before consulting the record', async () => {
+    const { service, vault, backgroundApi } = makeService();
+    const unsignedTxs = [buildUnsignedTx('u0'), buildUnsignedTx('u1')];
+    vault.broadcastTransaction.mockImplementationOnce(async ({ signedTx }) => ({
+      txid: signedTx.txid,
+    }));
+    failBroadcastOnce(vault, 'network down');
+    await expect(batchSend(service, unsignedTxs)).rejects.toThrow();
+    jest.clearAllMocks();
+
+    const result = await batchSend(service, unsignedTxs, {
+      successfullySentTxs: ['u0'],
+    });
+
+    expect(
+      vault.checkSignedTxBroadcastStatus.mock.calls.map(
+        ([{ signedTx }]: [{ signedTx: ISignedTxPro }]) => signedTx.txid,
+      ),
+    ).not.toContain(signatureOf('u0'));
+    expect(signedUuids(vault)).toEqual(['u1']);
+    expect(result.map((item) => item.signedTx.txid)).toEqual([
+      signatureOf('u1'),
+    ]);
+    expect(savedHistoryTxids(backgroundApi)).toEqual([signatureOf('u1')]);
+  });
+
+  it('replays an already broadcast tx for callers that sign and send directly', async () => {
+    const { service, vault } = makeService();
+    const unsignedTx = buildUnsignedTx('u0');
+    failBroadcastOnce(vault, 'timeout of 10000ms exceeded');
+    vault.checkSignedTxBroadcastStatus.mockResolvedValue(
+      ESignedTxBroadcastStatus.Broadcast,
+    );
+    const send = () =>
+      service.signAndSendTransaction({
+        accountId,
+        networkId,
+        unsignedTx: cloneDeep(unsignedTx),
+        signOnly: false,
+      });
+
+    await expect(send()).rejects.toThrow('timeout');
+    const signedTx = await send();
+
+    expect(signedTx.txid).toBe(signatureOf('u0'));
+    expect(signedUuids(vault)).toEqual(['u0']);
+    expect(broadcastTxids(vault)).toEqual([signatureOf('u0')]);
+  });
+
+  it('keeps the record across a background runtime restart', async () => {
+    const store = createBroadcastRecordsStore();
+    const first = makeService(store);
+    const unsignedTxs = [buildUnsignedTx('u0'), buildUnsignedTx('u1')];
+    first.vault.broadcastTransaction.mockImplementationOnce(
+      async ({ signedTx }) => ({ txid: signedTx.txid }),
+    );
+    failBroadcastOnce(first.vault, 'network down');
+    await expect(batchSend(first.service, unsignedTxs)).rejects.toThrow();
+
+    const second = makeService(store);
+    answerStatusByTxid(second.vault, [signatureOf('u0')]);
+    const result = await batchSend(second.service, unsignedTxs);
+
+    expect(signedUuids(second.vault)).toEqual(['u1']);
+    expect(result.map((item) => item.signedTx.txid)).toEqual([
+      signatureOf('u0'),
+      signatureOf('u1'),
+    ]);
   });
 
   it('attaches a uuid to every prepared tx so a retry can be matched', async () => {
-    const { service, vault, backgroundApi } = makeService();
-    (vault as Record<string, unknown>).buildUnsignedTx = jest.fn(async () => ({
-      encodedTx: 'encoded',
-    }));
-    (backgroundApi as Record<string, unknown>).serviceAccount = {
-      ...backgroundApi.serviceAccount,
-      getAccount: jest.fn().mockResolvedValue({
-        address: 'sender',
-        indexedAccountId: undefined,
-      }),
-    };
-    (backgroundApi as Record<string, unknown>).serviceNetwork = {
-      ...backgroundApi.serviceNetwork,
-      getVaultSettings: jest.fn().mockResolvedValue({ nonceRequired: false }),
-    };
+    const { service } = makeService(createBroadcastRecordsStore(), {
+      buildUnsignedTx: jest.fn(async () => ({ encodedTx: 'encoded' })),
+    });
 
     const first = await service.prepareSendConfirmUnsignedTx({
       accountId,
@@ -356,19 +563,5 @@ describe('ServiceSend.batchSignAndSendTransaction retry after partial failure', 
 
     expect(first.uuid).toEqual(expect.any(String));
     expect(first.uuid).not.toBe(second.uuid);
-  });
-
-  it('keeps honoring a caller-supplied successfullySentTxs list', async () => {
-    const { service, vault } = makeService();
-    const unsignedTxs = [buildUnsignedTx('u0'), buildUnsignedTx('u1')];
-
-    const result = await batchSend(service, unsignedTxs, {
-      successfullySentTxs: ['u0'],
-    });
-
-    expect(signedUuids(vault)).toEqual(['u1']);
-    expect(result.map((item) => item.signedTx.txid)).toEqual([
-      signatureOf('u1'),
-    ]);
   });
 });

@@ -99,6 +99,7 @@ import type {
 } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
+import { ESignedTxBroadcastStatus } from '../../types';
 
 import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
@@ -116,6 +117,7 @@ import {
   CREATE_TOKEN_ACCOUNT_RENT,
   TOKEN_AUTH_RULES_ID,
   canRefreshSolTxBlockhash,
+  getSolTxRecentBlockhash,
   isCustomProgram,
   isDurableNonceSolTx,
   masterEditionAddress,
@@ -167,6 +169,16 @@ const SOL_BLOCKHASH_NOT_FOUND_MESSAGE = 'Blockhash not found';
 const SOL_BLOCKHASH_NOT_FOUND_MAX_RETRY_ATTEMPTS = 2;
 // getSignatureStatuses accepts at most 256 signatures per request.
 const SOL_SIGNATURE_STATUSES_MAX_PER_CALL = 256;
+// Upper bound on how long a signed payload can still be accepted after it
+// left this runtime: its blockhash was fetched before signing and lives 150
+// blocks (~30-60 s), so an unseen signature older than this can never land.
+// Ends the status wait when the node cannot answer isBlockhashValid.
+const SOL_SIGNED_TX_MAX_VALIDITY_MS = timerUtils.getTimeDurationMs({
+  minute: 2,
+});
+const SOL_BROADCAST_STATUS_POLL_INTERVAL_MS = timerUtils.getTimeDurationMs({
+  seconds: 2,
+});
 
 function isSolBlockhashNotFoundError(error: unknown): boolean {
   return (
@@ -769,17 +781,67 @@ export default class Vault extends VaultBase {
     };
   }
 
-  override async checkIsSignedTxBroadcasted({
-    txid,
+  override async checkSignedTxBroadcastStatus({
+    signedTx,
+    attemptedAt,
   }: {
-    txid: string;
-  }): Promise<boolean> {
-    // The lookup searches transaction history, so `null` is the RPC's
-    // explicit "never seen" answer; any status object means the signature
-    // reached the ledger and must not be signed again.
-    const statuses = await this.getSignatureStatuses([txid]);
-    const status = statuses?.[0];
-    return status !== null && status !== undefined;
+    signedTx: ISignedTxPro;
+    attemptedAt: number;
+  }): Promise<ESignedTxBroadcastStatus> {
+    const { txid } = signedTx;
+    if (!txid) {
+      return ESignedTxBroadcastStatus.Unknown;
+    }
+    const nativeTx =
+      typeof signedTx.encodedTx === 'string'
+        ? parseToNativeTx(signedTx.encodedTx)
+        : undefined;
+    // A durable-nonce tx never expires, and a re-sign of it is
+    // byte-identical anyway, so there is no verdict to wait for.
+    if (nativeTx && isDurableNonceSolTx(nativeTx)) {
+      return ESignedTxBroadcastStatus.Unknown;
+    }
+    const blockhash = nativeTx ? getSolTxRecentBlockhash(nativeTx) : undefined;
+    const client = await this.getClient();
+    for (;;) {
+      // The lookup searches transaction history, so `null` only means the
+      // signature has not reached the ledger yet: it may still be in flight
+      // on a node ahead of this one, so keep asking until its blockhash is
+      // gone.
+      const [status] = (await this.getSignatureStatuses([txid])) ?? [];
+      if (status) {
+        // A tx that executed with an error consumed its signature; a fresh
+        // one cannot pay twice.
+        return isNil(status.err)
+          ? ESignedTxBroadcastStatus.Broadcast
+          : ESignedTxBroadcastStatus.NotBroadcast;
+      }
+      if (Date.now() - attemptedAt >= SOL_SIGNED_TX_MAX_VALIDITY_MS) {
+        return ESignedTxBroadcastStatus.NotBroadcast;
+      }
+      if (blockhash) {
+        try {
+          if (!(await client.isBlockhashValid(blockhash))) {
+            return ESignedTxBroadcastStatus.NotBroadcast;
+          }
+        } catch (error) {
+          // Not every node exposes isBlockhashValid; the wall-clock bound
+          // above still ends the wait.
+          console.error(
+            'SOL checkSignedTxBroadcastStatus: isBlockhashValid failed',
+            error,
+          );
+        }
+      }
+      await timerUtils.wait(SOL_BROADCAST_STATUS_POLL_INTERVAL_MS);
+    }
+  }
+
+  override async isSignedTxRejectedByBroadcast(
+    error: unknown,
+  ): Promise<boolean> {
+    // Preflight refused the payload, so no node ever held it.
+    return isSolBlockhashNotFoundError(error);
   }
 
   override async getDroppedPendingTxs({
