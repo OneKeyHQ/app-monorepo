@@ -30,8 +30,6 @@ export type IXmrRuntimeApi = {
     major: number,
     minor: number,
   ) => Promise<string>;
-  /** Bare hex, not JSON. */
-  spendScalar: (bip32PrivateKeyHex: string) => Promise<string>;
   validateAddress: (network: IXmrNetwork, address: string) => Promise<boolean>;
 
   addAccount: (
@@ -64,9 +62,10 @@ export type IXmrRuntimeApi = {
   ) => Promise<string>;
   transactionDetails: (accountId: string, txidHex: string) => Promise<string>;
 
-  importKeyImages: (
+  /** Takes the account's BIP-32 key; the spend key is reduced inside the runtime. */
+  importKeyImagesWithBip32Key: (
     accountId: string,
-    spendPrivateKeyHex: string,
+    bip32PrivateKeyHex: string,
   ) => Promise<string>;
   verifyTransaction: (signableHex: string, reviewJson: string) => Promise<void>;
   verifySignedTransaction: (
@@ -87,10 +86,13 @@ export type IXmrRuntimeApi = {
     chainTip: string,
     priority: IXmrFeePriority,
   ) => Promise<string>;
-  /** Sign a prepared transaction. Touches neither the node nor the database. */
-  signTransaction: (
+  /**
+   * Sign a prepared transaction. Touches neither the node nor the database.
+   * Takes the account's BIP-32 key; the spend key is reduced inside the runtime.
+   */
+  signTransactionWithBip32Key: (
     signableHex: string,
-    spendPrivateKeyHex: string,
+    bip32PrivateKeyHex: string,
     reviewJson: string,
   ) => Promise<string>;
   /** Broadcast and record. Irreversible. */

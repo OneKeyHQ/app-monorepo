@@ -20,9 +20,8 @@ function runtime() {
     deriveAccount: async () => '',
     deriveSubaddress: async () => '',
     validateAddress: async () => true,
-    spendScalar: jest.fn(async () => '01'.repeat(32)),
     verifyTransaction: jest.fn(async () => undefined),
-    signTransaction: jest.fn(async () =>
+    signTransactionWithBip32Key: jest.fn(async () =>
       JSON.stringify({ txid: '11'.repeat(32), rawHex: 'aabb', sizeBytes: 2 }),
     ),
   };
@@ -41,17 +40,15 @@ describe('Monero signing capability and review boundary', () => {
     const api = runtime();
     Reflect.deleteProperty(api, 'verifyTransaction');
     await expect(sign()).rejects.toThrow();
-    expect(api.spendScalar).not.toHaveBeenCalled();
-    expect(api.signTransaction).not.toHaveBeenCalled();
+    expect(api.signTransactionWithBip32Key).not.toHaveBeenCalled();
   });
-  it('fails before deriving a spend key when the transaction differs from the review', async () => {
+  it('sends no key when the transaction differs from the review', async () => {
     const api = runtime();
     jest
       .spyOn(api, 'verifyTransaction')
       .mockRejectedValue(new Error('review mismatch'));
     await expect(sign()).rejects.toThrow('review mismatch');
-    expect(api.spendScalar).not.toHaveBeenCalled();
-    expect(api.signTransaction).not.toHaveBeenCalled();
+    expect(api.signTransactionWithBip32Key).not.toHaveBeenCalled();
   });
   it('forwards the same canonical approval to verification and signing', async () => {
     const api = runtime();
@@ -61,16 +58,19 @@ describe('Monero signing capability and review boundary', () => {
     });
     const json = stringUtils.stableStringify(review);
     expect(api.verifyTransaction).toHaveBeenCalledWith('aabb', json);
-    expect(api.signTransaction).toHaveBeenCalledWith(
+    // The BIP-32 key crosses once and the runtime reduces it; no spend key
+    // round trip.
+    expect(api.signTransactionWithBip32Key).toHaveBeenCalledTimes(1);
+    expect(api.signTransactionWithBip32Key).toHaveBeenCalledWith(
       'aabb',
-      '01'.repeat(32),
+      'synthetic-test-key',
       json,
     );
   });
   it('rejects an inconsistent signed response', async () => {
     const api = runtime();
     jest
-      .spyOn(api, 'signTransaction')
+      .spyOn(api, 'signTransactionWithBip32Key')
       .mockResolvedValue(
         JSON.stringify({ txid: '11'.repeat(32), rawHex: 'aabb', sizeBytes: 3 }),
       );

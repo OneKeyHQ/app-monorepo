@@ -61,8 +61,8 @@ export class KeyringHd extends KeyringHdBase {
     });
   }
 
-  /** See CoreChainSoftware.getSpendPrivateKeyHex. */
-  async xmrGetSpendPrivateKeyHex({
+  /** See CoreChainSoftware.getKeyImageBip32PrivateKeyHex. */
+  async xmrGetKeyImageBip32PrivateKeyHex({
     password,
   }: {
     password: string;
@@ -72,7 +72,7 @@ export class KeyringHd extends KeyringHdBase {
       this.baseGetCredentialsInfo({ password }),
       this.getCoreApiNetworkInfo(),
     ]);
-    return this.coreApi.getSpendPrivateKeyHex({
+    return this.coreApi.getKeyImageBip32PrivateKeyHex({
       networkInfo,
       account,
       password,

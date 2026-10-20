@@ -53,17 +53,16 @@ function fakeRuntime(): IXmrPureRuntimeApi & {
       calls.push({ method: 'validateAddress', args: [network, address] });
       return address.startsWith(network === 'mainnet' ? '4' : '9');
     },
-    async spendScalar(key: string) {
-      calls.push({ method: 'spendScalar', args: [key] });
-      return `scalar-${key.slice(0, 4)}`;
-    },
     async verifyTransaction() {
       calls.push({ method: 'verifyTransaction', args: [] });
     },
-    async signTransaction(signableHex: string, spendPrivateKeyHex: string) {
+    async signTransactionWithBip32Key(
+      signableHex: string,
+      bip32PrivateKeyHex: string,
+    ) {
       calls.push({
-        method: 'signTransaction',
-        args: [signableHex, spendPrivateKeyHex],
+        method: 'signTransactionWithBip32Key',
+        args: [signableHex, bip32PrivateKeyHex],
       });
       return JSON.stringify({
         txid: `txid-${signableHex.slice(0, 4)}`,
