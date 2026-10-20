@@ -1,8 +1,12 @@
-// cspell:ignore Zashi
+// cspell:ignore Zashi lightd
 /* cspell:ignore Ufvks */
 import { validateZcashTransparentAddress } from '@onekeyhq/core/src/chains/zcash/sdkZcash';
 import { ZCASH_NETWORK_MAIN } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
-import { fetchZcashChainTipDirect } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
+import {
+  ZCASH_LIGHTD_CHAIN_NAMES,
+  fetchZcashChainTipDirect,
+  fetchZcashLightdInfoDirect,
+} from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
 import type {
   IZcashBalance,
   IZcashCreatedPczt,
@@ -152,6 +156,7 @@ export default class Vault extends VaultBtc {
   // Probes via the scanner's transport; the node still needs gRPC-web, not just CORS-friendly networking.
   async zcashTestLightwalletdUrl(
     url: string,
+    options?: { validateChain?: boolean },
   ): Promise<{ ok: boolean; chainTip?: number; reason?: string }> {
     let normalized: string;
     try {
@@ -175,9 +180,22 @@ export default class Vault extends VaultBtc {
       if (tip === null) {
         return { ok: false, reason: 'unreachable' };
       }
-      // A height below our activation point means a different chain (testnet/fork/stale mirror); reject it.
+      // Only catches a stale or very young chain: testnet is already past this height.
       if (tip < ZCASH_ORCHARD_ACTIVATION_HEIGHT_MAINNET) {
         return { ok: false, chainTip: tip, reason: 'wrong-chain' };
+      }
+      if (options?.validateChain) {
+        // Lenient: only a known, different chain name rejects; no answer keeps the pass.
+        const info = await fetchZcashLightdInfoDirect({
+          lightwalletdUrl: normalized,
+        });
+        if (
+          info &&
+          ZCASH_LIGHTD_CHAIN_NAMES.includes(info.chainName) &&
+          info.chainName !== ZCASH_NETWORK_MAIN
+        ) {
+          return { ok: false, chainTip: tip, reason: 'wrong-chain' };
+        }
       }
       return { ok: true, chainTip: tip };
     } catch (e) {
@@ -193,7 +211,9 @@ export default class Vault extends VaultBtc {
     params: IMeasureRpcStatusParams,
   ): Promise<IMeasureRpcStatusResult> {
     const start = performance.now();
-    const result = await this.zcashTestLightwalletdUrl(params.rpcUrl);
+    const result = await this.zcashTestLightwalletdUrl(params.rpcUrl, {
+      validateChain: params.validateChainId,
+    });
     if (!result.ok || result.chainTip === undefined) {
       throw new OneKeyInternalError(
         `Zcash node cannot serve this wallet: ${result.reason ?? 'unreachable'}`,

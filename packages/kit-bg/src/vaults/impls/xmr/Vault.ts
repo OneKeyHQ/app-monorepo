@@ -97,6 +97,47 @@ import type {
   IValidateGeneralInputParams,
 } from '../../types';
 
+async function postXmrNodeRequest(url: string): Promise<string> {
+  if (xmrHostFetch) {
+    return bufferUtils.bytesToUtf8(
+      await xmrHostFetch(url, 'application/json', new Uint8Array()),
+    );
+  }
+  const response = await fetch(url, { method: 'POST' });
+  if (!response.ok) {
+    throw new OneKeyLocalError(
+      localWalletText(ETranslations.privacy_error_node_unreachable__msg),
+    );
+  }
+  return response.text();
+}
+
+const XMR_NODE_NETWORKS: readonly string[] = [
+  'mainnet',
+  'stagenet',
+  'testnet',
+  'fakechain',
+];
+
+// Undefined when the node does not say: partial proxies may not serve /get_info.
+async function readXmrNodeNetwork(url: string): Promise<string | undefined> {
+  try {
+    const info = JSON.parse(await postXmrNodeRequest(url)) as Record<
+      string,
+      unknown
+    >;
+    if (
+      typeof info.nettype === 'string' &&
+      XMR_NODE_NETWORKS.includes(info.nettype)
+    ) {
+      return info.nettype;
+    }
+    return XMR_NODE_NETWORKS.find((name) => info[name] === true);
+  } catch {
+    return undefined;
+  }
+}
+
 /** Maps runtime errors to actionable messages; anything not ours passes through. */
 function toXmrUserFacingError(error: unknown): unknown {
   const runtime = readXmrRuntimeError(error);
@@ -1017,19 +1058,7 @@ export default class Vault extends VaultBase {
     const start = Date.now();
     let text: string;
     try {
-      if (xmrHostFetch) {
-        text = bufferUtils.bytesToUtf8(
-          await xmrHostFetch(url, 'application/json', new Uint8Array()),
-        );
-      } else {
-        const response = await fetch(url, { method: 'POST' });
-        if (!response.ok) {
-          throw new OneKeyLocalError(
-            localWalletText(ETranslations.privacy_error_node_unreachable__msg),
-          );
-        }
-        text = await response.text();
-      }
+      text = await postXmrNodeRequest(url);
     } catch (error) {
       // The app's transport policy blocks cleartext on phones (iOS allows only
       // the local network), which surfaces as a bare network error.
@@ -1044,8 +1073,16 @@ export default class Vault extends VaultBase {
         localWalletText(ETranslations.privacy_error_node_unreachable__msg),
       );
     }
+    const responseTime = Date.now() - start;
+    if (params.validateChainId) {
+      // Lenient: only a node that names a different network is rejected.
+      const nodeNetwork = await readXmrNodeNetwork(`${base}/get_info`);
+      if (nodeNetwork && nodeNetwork !== (await this.getXmrNetwork())) {
+        throw new OneKeyLocalError('xmr: the node is on a different network');
+      }
+    }
     return {
-      responseTime: Date.now() - start,
+      responseTime,
       bestBlockNumber: body.height,
     };
   }
