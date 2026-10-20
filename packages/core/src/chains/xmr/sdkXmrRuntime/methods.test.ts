@@ -1,3 +1,6 @@
+import fs from 'fs';
+import path from 'path';
+
 import {
   XMR_RUNTIME_METHODS,
   XMR_RUNTIME_U64_ARGS,
@@ -15,6 +18,30 @@ import type { IXmrRuntimeMethod } from './methods';
  * function` — on one platform, at runtime, in whichever feature happened to
  * use it. These checks turn that into a compile failure instead.
  */
+
+// Export names of the installed `onekey-monero-runtime` glue, or `undefined`
+// when the package is not installed.
+function readInstalledRuntimeExports(): string[] | undefined {
+  let packageJsonPath: string;
+  try {
+    packageJsonPath = require.resolve('onekey-monero-runtime/package.json');
+  } catch {
+    return undefined;
+  }
+  const { main } = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as {
+    main?: string;
+  };
+  const glue = fs.readFileSync(
+    path.join(
+      path.dirname(packageJsonPath),
+      main ?? 'onekey_monero_runtime.js',
+    ),
+    'utf8',
+  );
+  return [...glue.matchAll(/^export function (\w+)\(/gmu)].map(
+    (match) => match[1],
+  );
+}
 
 type IMissingFromList = Exclude<keyof IXmrRuntimeApi, IXmrRuntimeMethod>;
 type IExtraInList = Exclude<IXmrRuntimeMethod, keyof IXmrRuntimeApi>;
@@ -57,17 +84,16 @@ describe('xmr runtime method list', () => {
    * The wasm package is a build artifact, not something `yarn install`
    * produces. When it is stale, every missing method fails the same way at
    * runtime; naming them here says which rebuild is owed.
+   *
+   * Jest does not transform this ESM package, so it is read as text rather
+   * than required; a require that threw used to skip the check silently.
    */
-  it('matches what the built wasm package actually exports', () => {
-    let exported: string[];
-    try {
-      // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
-      exported = Object.keys(require('onekey-monero-runtime') as object);
-    } catch {
-      // The package is only present once the runtime has been built. Skipping
-      // is honest here: a missing artifact is not a contract violation.
-      return;
-    }
+  it('matches what the installed wasm package actually exports', () => {
+    const exported = readInstalledRuntimeExports();
+    // Only an absent package skips: a missing artifact is not a contract
+    // violation, but a present one must be checkable.
+    if (!exported) return;
+    expect(exported.length).toBeGreaterThan(0);
     const missing = XMR_RUNTIME_METHODS.filter(
       (method) => !exported.includes(method),
     );
