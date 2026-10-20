@@ -263,10 +263,12 @@ export const AppUpdate: IAppUpdate = {
 };
 
 let bundleInstallPromise: Promise<void> | undefined;
+let bundleInstallTarget: string | undefined;
 let bundleRestartPromise: Promise<void> | undefined;
 
 export function resetBundleInstallLockForTest() {
   bundleInstallPromise = undefined;
+  bundleInstallTarget = undefined;
   bundleRestartPromise = undefined;
 }
 
@@ -309,7 +311,14 @@ export const BundleUpdate: IBundleUpdate = {
       sha256: toNativeString(params?.sha256),
     }),
   installBundle: (params) => {
+    const target = `${params?.latestVersion ?? ''}:${params?.bundleVersion ?? ''}`;
+    if (bundleInstallPromise && bundleInstallTarget !== target) {
+      return Promise.reject(
+        new OneKeyLocalError('BUNDLE_INSTALL_TARGET_CONFLICT'),
+      );
+    }
     if (!bundleInstallPromise) {
+      bundleInstallTarget = target;
       bundleInstallPromise = (async () => {
         await ReactNativeBundleUpdate.installBundle({
           downloadedFile: toNativeString(params?.downloadedFile),
@@ -319,6 +328,7 @@ export const BundleUpdate: IBundleUpdate = {
         });
       })().catch((error: unknown) => {
         bundleInstallPromise = undefined;
+        bundleInstallTarget = undefined;
         throw error;
       });
     }

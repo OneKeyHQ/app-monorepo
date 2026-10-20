@@ -226,9 +226,11 @@ export const AppUpdate: IAppUpdate = {
 };
 
 let bundleInstallPromise: Promise<void> | undefined;
+let bundleInstallTarget: string | undefined;
 
 export function resetBundleInstallLockForTest() {
   bundleInstallPromise = undefined;
+  bundleInstallTarget = undefined;
 }
 
 export const BundleUpdate: IBundleUpdate = {
@@ -243,12 +245,20 @@ export const BundleUpdate: IBundleUpdate = {
   downloadBundleASC: (params) =>
     globalThis.desktopApiProxy.bundleUpdate.downloadBundleASC(params),
   installBundle: (params) => {
+    const target = `${params?.latestVersion ?? ''}:${params?.bundleVersion ?? ''}`;
+    if (bundleInstallPromise && bundleInstallTarget !== target) {
+      return Promise.reject(
+        new OneKeyLocalError('BUNDLE_INSTALL_TARGET_CONFLICT'),
+      );
+    }
     if (!bundleInstallPromise) {
+      bundleInstallTarget = target;
       // Keep the successful operation until restart; share failures with all callers.
       bundleInstallPromise = (async () => {
         await globalThis.desktopApiProxy.bundleUpdate.installBundle(params);
       })().catch((error: unknown) => {
         bundleInstallPromise = undefined;
+        bundleInstallTarget = undefined;
         throw error;
       });
     }

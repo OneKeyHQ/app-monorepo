@@ -62,11 +62,44 @@ describe('native bundle install concurrency', () => {
     expect(installBundle).toHaveBeenCalledTimes(1);
     expect(restart).not.toHaveBeenCalled();
 
-    const retry = BundleUpdate.installBundle({});
+    const retry = BundleUpdate.installBundle({
+      latestVersion: '6.6.2',
+      bundleVersion: '25000000',
+    });
     await jest.runAllTimersAsync();
     await retry;
     expect(installBundle).toHaveBeenCalledTimes(2);
   });
+
+  test.each([
+    { latestVersion: '6.6.2', bundleVersion: '24910529' },
+    { latestVersion: '6.6.1', bundleVersion: '24910530' },
+  ])(
+    'rejects a different target during and after installation: %j',
+    async (conflictingTarget) => {
+      let completeInstall = () => {};
+      installBundle.mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            completeInstall = resolve;
+          }),
+      );
+      const target = { latestVersion: '6.6.1', bundleVersion: '24910529' };
+      const first = BundleUpdate.installBundle(target);
+      await expect(
+        BundleUpdate.installBundle(conflictingTarget),
+      ).rejects.toThrow('BUNDLE_INSTALL_TARGET_CONFLICT');
+      expect(installBundle).toHaveBeenCalledTimes(1);
+
+      completeInstall();
+      await first;
+      await expect(
+        BundleUpdate.installBundle(conflictingTarget),
+      ).rejects.toThrow('BUNDLE_INSTALL_TARGET_CONFLICT');
+      await BundleUpdate.installBundle({ ...target });
+      expect(installBundle).toHaveBeenCalledTimes(1);
+    },
+  );
 
   test('resolves installation before a non-returning restart and keeps it one-shot', async () => {
     restart.mockImplementationOnce(() => new Promise<void>(() => {}));
@@ -106,6 +139,14 @@ describe('native bundle install concurrency', () => {
       payload: undefined,
     });
     expect(broadcast).not.toHaveBeenCalled();
+
+    await expect(
+      BundleUpdate.installBundle({
+        latestVersion: '6.6.2',
+        bundleVersion: '25000000',
+      }),
+    ).rejects.toThrow('BUNDLE_INSTALL_TARGET_CONFLICT');
+    expect(restart).toHaveBeenCalledTimes(1);
 
     const retry = BundleUpdate.installBundle({});
     await jest.runAllTimersAsync();
