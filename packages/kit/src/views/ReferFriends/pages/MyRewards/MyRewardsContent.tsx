@@ -313,9 +313,9 @@ function PayoutTokenLogo({
   );
 }
 
-// The rules behind the payout, behind an info icon. With `withDestination`
-// (compact layouts, where the row has no room) it also says where the
-// rebates land; pointer layouts show that on the account row instead.
+// The payout details behind an info icon: the token and network, and the
+// rules. With `withDestination` (compact layouts, where the row has no room)
+// it also holds the address; pointer layouts show that on the account row.
 function PayoutInfo({
   payout,
   address,
@@ -342,19 +342,16 @@ function PayoutInfo({
       }
       renderContent={
         <YStack p="$4" gap="$3">
-          {withDestination ? (
-            <YStack gap="$1.5">
-              <XStack ai="center" gap="$2">
-                <PayoutTokenLogo payout={payout} size="$5" />
-                <SizableText size="$bodyMdMedium" flexShrink={1}>
-                  {payout
-                    ? MY_REWARDS_COPY.payoutIn(
-                        payout.symbol,
-                        payout.networkName,
-                      )
-                    : MY_REWARDS_COPY.payoutGeneric}
-                </SizableText>
-              </XStack>
+          <YStack gap="$1.5">
+            <XStack ai="center" gap="$2">
+              <PayoutTokenLogo payout={payout} size="$5" />
+              <SizableText size="$bodyMdMedium" flexShrink={1}>
+                {payout
+                  ? MY_REWARDS_COPY.payoutIn(payout.symbol, payout.networkName)
+                  : MY_REWARDS_COPY.payoutGeneric}
+              </SizableText>
+            </XStack>
+            {withDestination ? (
               <XStack>
                 <RewardsAddressValue
                   address={address}
@@ -362,8 +359,8 @@ function PayoutInfo({
                   compact={false}
                 />
               </XStack>
-            </YStack>
-          ) : null}
+            ) : null}
+          </YStack>
           <SizableText size="$bodyMd" color="$textSubdued">
             {MY_REWARDS_COPY.addressRule}
           </SizableText>
@@ -376,35 +373,16 @@ function PayoutInfo({
   );
 }
 
-// Pointer layouts: where the rebates land, on the right of the account row
-// — the token and network, then the address to copy.
-function PayoutDestination({
-  payout,
-  address,
-}: {
-  payout?: IPayoutToken;
-  address?: string;
-}) {
+// Pointer layouts: where the rebates land, on the right of the account row.
+// Kept to the address alone; the token and network sit behind the info icon
+// next to it, so the row stays short.
+function PayoutDestination({ address }: { address?: string }) {
   return (
     <XStack testID="my-rewards-payout-destination" ai="center" gap="$2">
       <SizableText size="$bodyMd" color="$textSubdued">
         {MY_REWARDS_COPY.paidTo}
       </SizableText>
-      {payout ? (
-        <XStack ai="center" gap="$1.5">
-          <PayoutTokenLogo payout={payout} size="$4" />
-          <SizableText size="$bodyMdMedium" numberOfLines={1}>
-            {payout.networkName
-              ? `${payout.symbol} · ${payout.networkName}`
-              : payout.symbol}
-          </SizableText>
-        </XStack>
-      ) : null}
-      <RewardsAddressValue
-        address={address}
-        unsupported={false}
-        compact={false}
-      />
+      <RewardsAddressValue address={address} unsupported={false} compact />
     </XStack>
   );
 }
@@ -524,7 +502,7 @@ function RewardsAddressCard({
     if (showDestination) {
       return (
         <XStack ai="center" gap="$1" flexShrink={0}>
-          <PayoutDestination payout={payout} address={address} />
+          <PayoutDestination address={address} />
           <PayoutInfo
             payout={payout}
             address={address}

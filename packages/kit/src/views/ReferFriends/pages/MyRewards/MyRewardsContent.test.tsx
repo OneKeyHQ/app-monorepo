@@ -247,7 +247,7 @@ describe('MyRewardsContent', () => {
     };
     render(<MyRewardsContent />);
     const copyCell = screen.getByTestId('my-rewards-copy-address');
-    expect(copyCell.textContent).toBe('0x4EF880...0A296e');
+    expect(copyCell.textContent).toBe('0x4EF8...296e');
     expect(screen.getByTestId('my-rewards-payout-info')).toBeTruthy();
 
     fireEvent.click(copyCell);
