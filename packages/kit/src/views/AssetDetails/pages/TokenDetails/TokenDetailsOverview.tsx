@@ -387,7 +387,7 @@ function TokenDetailsOverview(props: IProps) {
         networkId: member.networkId,
       }),
     ]);
-    await pushSwapFromTokenDetails({
+    pushSwapFromTokenDetails({
       navigation,
       token: {
         address: member.address,

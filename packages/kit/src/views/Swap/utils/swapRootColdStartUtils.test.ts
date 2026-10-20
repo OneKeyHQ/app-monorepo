@@ -175,55 +175,35 @@ describe('hydrateSwapDefaultTokensFromGlobalHomeSnapshot', () => {
     ).toBeUndefined();
   });
 
-  it('waits for configuration before seeding a concrete Swap network', () => {
+  it('displays known local defaults before configuration returns', () => {
     setHomeColdStartSnapshot('evm--1');
     const store = createStore();
-
-    expect(hydrateSwapDefaultTokensFromGlobalHomeSnapshot(store)).toBe(false);
-    expect(store.get(swapSelectFromTokenAtom())).toBeUndefined();
-    expect(store.get(swapSelectToTokenAtom())).toBeUndefined();
-    expect(store.get(swapInitialSelectedTokensSyncedAtom())).toBe(false);
-
-    const fromToken: ISwapToken = {
-      networkId: 'evm--1',
-      contractAddress: '0xusdc',
-      symbol: 'USDC',
-      decimals: 6,
-    };
-    const toToken: ISwapToken = {
-      networkId: 'evm--1',
-      contractAddress: '0xdai',
-      symbol: 'DAI',
-      decimals: 18,
-    };
-    store.set(swapNetworks(), [
-      {
-        networkId: 'evm--1',
-        name: 'Ethereum',
-        symbol: 'ETH',
-        defaultSelectTokenDetail: { from: fromToken, to: toToken },
-      },
-    ]);
-    store.set(swapDefaultConfigStatusAtom(), 'success');
-
+    expect(store.get(swapDefaultConfigStatusAtom())).toBe('pending');
     expect(hydrateSwapDefaultTokensFromGlobalHomeSnapshot(store)).toBe(true);
-    expect(store.get(swapSelectFromTokenAtom())).toBe(fromToken);
-    expect(store.get(swapSelectToTokenAtom())).toBe(toToken);
+    expect(store.get(swapSelectFromTokenAtom())?.symbol).toBe('ETH');
+    expect(store.get(swapSelectToTokenAtom())?.symbol).toBe('USDC');
+    expect(
+      store.get(swapSelectedTokensColdStartContextAtom())?.defaultTokenSeed,
+    ).toBeDefined();
+    expect(store.get(swapInitialSelectedTokensSyncedAtom())).toBe(false);
   });
 
-  it('discards a previous automatic pair while fresh configuration is pending', () => {
+  it('keeps a previous automatic pair while fresh configuration is pending', () => {
     setHomeColdStartSnapshot('evm--1');
     const store = createStore();
     store.set(swapDefaultConfigStatusAtom(), 'failed');
     expect(hydrateSwapDefaultTokensFromGlobalHomeSnapshot(store)).toBe(true);
+    const fromToken = store.get(swapSelectFromTokenAtom());
+    const toToken = store.get(swapSelectToTokenAtom());
+    const context = store.get(swapSelectedTokensColdStartContextAtom());
     store.set(swapInitialSelectedTokensSyncedAtom(), true);
     store.set(swapDefaultConfigStatusAtom(), 'pending');
 
     expect(hydrateSwapDefaultTokensFromGlobalHomeSnapshot(store)).toBe(false);
-    expect(store.get(swapSelectFromTokenAtom())).toBeUndefined();
-    expect(store.get(swapSelectToTokenAtom())).toBeUndefined();
-    expect(store.get(swapSelectedTokensColdStartContextAtom())).toBeUndefined();
-    expect(store.get(swapInitialSelectedTokensSyncedAtom())).toBe(false);
+    expect(store.get(swapSelectFromTokenAtom())).toBe(fromToken);
+    expect(store.get(swapSelectToTokenAtom())).toBe(toToken);
+    expect(store.get(swapSelectedTokensColdStartContextAtom())).toBe(context);
+    expect(store.get(swapInitialSelectedTokensSyncedAtom())).toBe(true);
   });
 
   it('keeps an existing pair once the user has entered an amount', () => {
