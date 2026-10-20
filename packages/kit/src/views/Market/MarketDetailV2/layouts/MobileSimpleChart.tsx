@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -30,7 +31,8 @@ import { resolveDisplayedStockPriceMode } from '../hooks/useStockPriceSource';
 
 import { MARKET_SIMPLE_CHART_RANGE_LABEL_IDS } from './components/marketSimpleChartConstants';
 
-// Keep Simple compact and independent of Pro's indicator panes.
+// Fallback when the host has no measured Pro height (web). Native hosts pass
+// the Pro block height so switching modes does not move the content below.
 const MOBILE_SIMPLE_CHART_HEIGHT = 280;
 // The range row mirrors the Pro interval bar (TradingViewChartControls on a
 // non-compact mobile layout): 8pt padding, 30pt pills, at least 42pt wide.
@@ -42,7 +44,7 @@ const RANGE_ROW_STYLE = {
   alignItems: 'center',
 } as const;
 
-function ChartModeButton({
+export function ChartModeButton({
   icon,
   label,
   testID,
@@ -102,10 +104,12 @@ export function MobileChartModeControl() {
 
 export function MobileSimpleChart({
   marketAssetId,
+  height,
 }: {
   marketAssetId?: string;
+  // Total height of the block, range row included. Matches the Pro block.
+  height?: number;
 }) {
-  const intl = useIntl();
   const [selectedRange, setRange] = useState<IStockSimpleChartRange>('1D');
   const { stockId, isStockDetailError } = useStockDetail();
   const [{ source: priceSource }] = useMarketPriceSourceAtom();
@@ -124,12 +128,58 @@ export function MobileSimpleChart({
     priceMode === 'share'
       ? STOCK_SHARE_SIMPLE_CHART_RANGES
       : TOKEN_SIMPLE_CHART_RANGES;
+  return (
+    <MobileSimpleChartFrame
+      range={range}
+      chartRanges={chartRanges}
+      onRangeChange={setRange}
+      height={height}
+      modeControl={<MobileChartModeControl />}
+    >
+      <StockSimpleChart
+        marketAssetId={marketAssetId}
+        range={range}
+        priceMode={priceMode}
+        priceScaleFormat={stockId ? 'stock' : 'full'}
+      />
+    </MobileSimpleChartFrame>
+  );
+}
+
+export type IMobileSimpleChartRange =
+  (typeof TOKEN_SIMPLE_CHART_RANGES)[number];
+
+export function MobileSimpleChartFrame<TRange extends IStockSimpleChartRange>({
+  range,
+  onRangeChange,
+  chartRanges,
+  height,
+  modeControl,
+  children,
+  testID = 'market-mobile-simple-chart',
+  controlsPaddingHorizontal = 8,
+}: {
+  range: TRange;
+  onRangeChange: (range: TRange) => void;
+  chartRanges: readonly TRange[];
+  height?: number;
+  modeControl: ReactNode;
+  children: ReactNode;
+  testID?: string;
+  controlsPaddingHorizontal?: number;
+}) {
+  const intl = useIntl();
+
+  const chartHeight =
+    height === undefined
+      ? MOBILE_SIMPLE_CHART_HEIGHT
+      : Math.max(0, height - TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT);
 
   return (
-    <YStack width="100%" testID="market-mobile-simple-chart">
+    <YStack width="100%" testID={testID}>
       <XStack
         h={TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT}
-        px="$2"
+        px={controlsPaddingHorizontal}
         gap="$2"
         alignItems="center"
         width="100%"
@@ -143,7 +193,7 @@ export function MobileSimpleChart({
           {chartRanges.map((item) => (
             <Button
               key={item}
-              testID={`market-mobile-chart-range-${item}`}
+              testID={`${testID === 'market-mobile-simple-chart' ? 'market-mobile-chart' : testID}-range-${item}`}
               minWidth={RANGE_BUTTON_MIN_WIDTH}
               height={RANGE_BUTTON_HEIGHT}
               m="$0"
@@ -152,7 +202,7 @@ export function MobileSimpleChart({
               size="small"
               variant={range === item ? 'secondary' : 'tertiary'}
               borderRadius="$full"
-              onPress={() => setRange(item)}
+              onPress={() => onRangeChange(item)}
             >
               {intl.formatMessage({
                 id: MARKET_SIMPLE_CHART_RANGE_LABEL_IDS[item],
@@ -160,15 +210,10 @@ export function MobileSimpleChart({
             </Button>
           ))}
         </ScrollView>
-        <MobileChartModeControl />
+        {modeControl}
       </XStack>
-      <Stack height={MOBILE_SIMPLE_CHART_HEIGHT} width="100%">
-        <StockSimpleChart
-          marketAssetId={marketAssetId}
-          range={range}
-          priceMode={priceMode}
-          priceScaleFormat={stockId ? 'stock' : 'full'}
-        />
+      <Stack height={chartHeight} width="100%">
+        {children}
       </Stack>
     </YStack>
   );
