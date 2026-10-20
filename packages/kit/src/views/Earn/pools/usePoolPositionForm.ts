@@ -170,10 +170,12 @@ export function usePoolPositionForm({
     [balances],
   );
   const nativeAsset = wallet?.assets.find((asset) => asset.isNative);
+  // The chain's wrapped coin (WETH, WBNB) can be paid in the coin itself
   const wrapSide = ([0, 1] as const).find(
     (side) =>
       pool.capabilities.nativeToken === 'WRAP' &&
-      tokens[side].canonicalId.endsWith(':ETH') &&
+      nativeAsset !== undefined &&
+      tokens[side].canonicalId === nativeAsset.canonicalId &&
       !tokens[side].isNative,
   );
   const [payWithNativeChoice, setPayWithNative] = useState<boolean>();

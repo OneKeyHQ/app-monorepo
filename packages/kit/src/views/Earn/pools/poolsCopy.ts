@@ -158,7 +158,7 @@ export const POOLS_COPY = {
   // Remove and Exit pick a share with a slider, so nothing is typed
   chooseAmount: 'Choose an amount',
   selectPosition: 'Select a position',
-  payWithEth: 'Pay with ETH',
+  payWithNative: (symbol: string) => `Pay with ${symbol}`,
   rangeInverted: 'Min must be below max',
   expectedInRange: 'Expected in range',
   stay: {

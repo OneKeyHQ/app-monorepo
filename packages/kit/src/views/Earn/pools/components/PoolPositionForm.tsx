@@ -93,7 +93,7 @@ function SideInput({ form, side }: { form: IPoolPositionForm; side: 0 | 1 }) {
       {side === form.wrapSide && form.nativeAsset ? (
         <XStack ai="center" jc="space-between">
           <SizableText size="$bodyMd" color="$textSubdued">
-            {POOLS_COPY.payWithEth}
+            {POOLS_COPY.payWithNative(form.nativeAsset.symbol)}
           </SizableText>
           <Switch
             testID="earn-pool-add-pay-with-eth"

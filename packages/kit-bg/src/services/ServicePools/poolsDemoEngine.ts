@@ -1031,13 +1031,16 @@ function getPayAsset(
   payWithNative: boolean,
 ) {
   const token = side === 0 ? pool.token0 : pool.token1;
+  const native = getNativeAsset(catalog, pool.networkId);
   if (
     payWithNative &&
+    native &&
     !token.isNative &&
     pool.capabilities.nativeToken === 'WRAP' &&
-    token.canonicalId.endsWith(':ETH')
+    // The chain's wrapped coin (WETH, WBNB) is paid in the coin itself
+    token.canonicalId === native.canonicalId
   ) {
-    return getNativeAsset(catalog, pool.networkId) ?? token;
+    return native;
   }
   return token;
 }
