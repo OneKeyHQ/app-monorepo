@@ -372,7 +372,7 @@ export async function zcashTransparentChange(
     accountIndex: number;
   },
 ): Promise<{ address: string; derivationPath: string }> {
-  const relativePath = '1/0';
+  const relativePath = '0/0';
   const result = await getAddressFromXpub({
     curve: 'secp256k1',
     network: await vault.getBtcForkNetwork(),

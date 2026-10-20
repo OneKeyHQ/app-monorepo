@@ -123,6 +123,18 @@ it('fetches duplicate transactions only once', async () => {
   );
 });
 
+it('keeps previously received change at the internal address spendable', async () => {
+  const legacyPath = "m/44'/133'/0'/1/0";
+  const { vault } = createVault({ utxos: [{ ...utxo, path: legacyPath }] });
+  const result = await vault.zcashFetchFreshTransparentUtxos();
+  expect(result.utxos).toEqual([
+    expect.objectContaining({
+      derivationPath: legacyPath,
+      valueZat: utxo.value,
+    }),
+  ]);
+});
+
 // A pending or signing send still spends it until it settles or expires.
 it('skips an outpoint another send is spending', async () => {
   const { vault } = createVault({ inUse: [`${txid.toUpperCase()}:0`] });
