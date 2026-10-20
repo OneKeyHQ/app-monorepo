@@ -59,7 +59,7 @@ const PREVIEW_ITEMS: ILinkConfigItem[] = [
 
 // Compact cards keep one height, so paging never moves the content below.
 const COMPACT_BANNER_HEIGHT = 136;
-const POINTER_BANNER_HEIGHT = 184;
+const POINTER_BANNER_HEIGHT = 128;
 const AUTO_PLAY_INTERVAL_MS = 5000;
 
 // Last list this session saw, so returning to the tab paints the final
@@ -112,7 +112,7 @@ function PerksBannerSlide({
     }
     parseNotificationPayload(item.mode, item.payload, () => {});
   }, [item.mode, item.payload, shouldSuppressPress]);
-  const imageSize = compact ? 88 : 128;
+  const imageSize = compact ? 88 : 96;
 
   // Borderless: the frame around the pager draws the card, so a neighbor
   // slide peeking in at the pager's edge never shows a border of its own.
@@ -120,7 +120,8 @@ function PerksBannerSlide({
     <XStack
       testID={`perks-banner-${item.linkId}`}
       flex={1}
-      p={compact ? '$4' : '$6'}
+      px={compact ? '$4' : '$5'}
+      py="$4"
       gap="$4"
       ai="center"
       role="button"
@@ -142,7 +143,7 @@ function PerksBannerSlide({
           ) : null}
           {item.title ? (
             <SizableText
-              size={compact ? '$headingMd' : '$heading2xl'}
+              size={compact ? '$headingMd' : '$headingLg'}
               numberOfLines={2}
             >
               {item.title}
@@ -203,8 +204,8 @@ export function PerksCampaignBanner({
         // Dots sit inside the card, bottom right, across from Learn more.
         paginationContainerStyle={{
           position: 'absolute',
-          bottom: compact ? '$3' : '$4',
-          right: compact ? '$4' : '$6',
+          bottom: '$3',
+          right: compact ? '$4' : '$5',
         }}
         renderPaginationItem={({ activeDotStyle, onPress }, index) => (
           <YStack

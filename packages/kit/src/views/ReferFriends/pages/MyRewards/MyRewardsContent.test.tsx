@@ -58,8 +58,7 @@ jest.mock('@onekeyhq/components', () => {
     NumberSizeableText: Primitive,
     SizableText: Primitive,
     Skeleton: Object.assign(() => null, {
-      HeadingXl: () => null,
-      HeadingLg: () => null,
+      HeadingMd: () => null,
     }),
     Stack: Primitive,
     XStack: Primitive,

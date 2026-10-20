@@ -364,18 +364,13 @@ function PartDot({ color }: { color: '$iconSuccess' | '$iconCaution' }) {
 function TotalFigure({
   totals,
   pick,
-  size,
 }: {
   totals: IRewardTotals;
   pick: 'total' | 'paid' | 'unpaid';
-  size: '$headingXl' | '$headingLg';
 }) {
+  const size = '$headingMd';
   if (totals.status === 'loading') {
-    return size === '$headingXl' ? (
-      <Skeleton.HeadingXl w={120} />
-    ) : (
-      <Skeleton.HeadingLg w={88} />
-    );
+    return <Skeleton.HeadingMd w={88} />;
   }
   if (totals.status === 'unavailable') {
     return (
@@ -393,8 +388,8 @@ function TotalFigure({
 
 // Desktop: one slim row for whose rebates these are and how much they came
 // to. Kept deliberately unlike the invite tab's earnings card (no lead
-// figure, no coin art, a gift mark instead), so the two tabs do not read as
-// the same page.
+// figure, no coin art, one quiet figure size), so the two tabs do not read
+// as the same page.
 function PerksRebateStrip({
   totals,
   address,
@@ -412,44 +407,43 @@ function PerksRebateStrip({
       testID="my-rewards-summary-card"
       px="$5"
       py="$4"
-      gap="$5"
+      gap="$6"
       ai="center"
       {...cardStyle}
     >
-      <Stack
-        w="$12"
-        h="$12"
-        borderRadius="$full"
-        bg="$bgSuccessSubdued"
-        ai="center"
-        jc="center"
-        flexShrink={0}
-      >
-        <Icon name="GiftSolid" size="$6" color="$iconSuccess" />
-      </Stack>
       <YStack flex={1} minWidth={0}>
         <RewardsAddressCard address={address} unsupported={unsupported} />
       </YStack>
-      <XStack gap="$8" flexShrink={0} ai="flex-start">
+      <XStack gap="$6" flexShrink={0} ai="flex-start">
         <InviteStatCell share="content" label={labels.total}>
-          <TotalFigure totals={totals} pick="total" size="$headingXl" />
+          <TotalFigure totals={totals} pick="total" />
         </InviteStatCell>
         <InviteStatCell
           share="content"
           leading={<PartDot color="$iconSuccess" />}
           label={labels.paid}
         >
-          <TotalFigure totals={totals} pick="paid" size="$headingLg" />
+          <TotalFigure totals={totals} pick="paid" />
         </InviteStatCell>
         <InviteStatCell
           share="content"
           leading={<PartDot color="$iconCaution" />}
           label={labels.unpaid}
         >
-          <TotalFigure totals={totals} pick="unpaid" size="$headingLg" />
+          <TotalFigure totals={totals} pick="unpaid" />
         </InviteStatCell>
       </XStack>
     </XStack>
+  );
+}
+
+// A product with nothing in one column: a dash keeps the row from looking
+// unfinished.
+function EmptyCell() {
+  return (
+    <SizableText size="$bodyLgMedium" color="$textDisabled">
+      --
+    </SizableText>
   );
 }
 
@@ -536,12 +530,16 @@ function DesktopRow({
         <DesktopCell>
           {row.paid ? (
             <RewardValue value={row.paid} size="$bodyLgMedium" />
-          ) : null}
+          ) : (
+            <EmptyCell />
+          )}
         </DesktopCell>
         <DesktopCell>
           {row.unpaid ? (
             <RewardValue value={row.unpaid} size="$bodyLgMedium" />
-          ) : null}
+          ) : (
+            <EmptyCell />
+          )}
         </DesktopCell>
       </>
     );
