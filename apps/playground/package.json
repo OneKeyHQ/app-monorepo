@@ -8,7 +8,7 @@
     "clean": "rimraf ./dist && rimraf ./node_modules/.cache"
   },
   "dependencies": {
-    "@onekeyfe/react-native-native-overlay": "3.0.162-alpha.272",
+    "@onekeyfe/react-native-native-overlay": "6.7.0-alpha.335",
     "@onekeyhq/components": "*",
     "@onekeyhq/shared": "*"
   },
