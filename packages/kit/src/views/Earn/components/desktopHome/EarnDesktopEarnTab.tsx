@@ -59,6 +59,9 @@ const TOKEN_CATEGORIES: { value: ITokenCategory; labelId: ETranslations }[] = [
 // The header, the token rows and the offers under an open row share one
 // column layout, so an offer's TVL and APR sit under the token's numbers
 const ROW_GAP = '$3';
+// Every row is as tall as one with a "Deposited" line, so the list keeps one
+// rhythm whichever tokens hold deposits
+const ROW_HEIGHT = 56;
 const column = (
   flex: number,
   align: 'flex-start' | 'flex-end' = 'flex-start',
@@ -126,12 +129,14 @@ function CategoryPills({
           <XStack
             key={category.value}
             role="button"
-            px="$2.5"
+            px="$3"
             py="$1.5"
             bg={isFocused ? '$bgActive' : '$bgSubdued'}
             borderRadius="$full"
             cursor="pointer"
             userSelect="none"
+            hoverStyle={isFocused ? undefined : { bg: '$bgHover' }}
+            pressStyle={{ bg: '$bgActive' }}
             onPress={() => onChange(category.value)}
           >
             <SizableText
@@ -190,7 +195,7 @@ function OfferRowFrame({
       role="button"
       ai="center"
       gap={ROW_GAP}
-      minHeight={56}
+      minHeight={ROW_HEIGHT}
       px="$3"
       mx="$-3"
       borderRadius="$3"
@@ -320,7 +325,7 @@ function TokenOffers({
     return (
       <YStack>
         {Array.from({ length: 2 }).map((_, index) => (
-          <XStack key={index} ai="center" gap="$3" h={56}>
+          <XStack key={index} ai="center" gap="$3" h={ROW_HEIGHT}>
             <Skeleton w="$8" h="$8" radius="round" />
             <Skeleton w={160} h={16} borderRadius="$2" />
           </XStack>
@@ -492,6 +497,7 @@ function TokenRow({
       <ListItem
         testID={`earn-desktop-row-${row.key}`}
         mx="$0"
+        minHeight={ROW_HEIGHT}
         gap={ROW_GAP}
         userSelect="none"
         onPress={() => onToggle(row.key)}
@@ -823,9 +829,9 @@ export function EarnDesktopEarnTab({
         </ListItem>
         {isAssetsLoading && !rows.length
           ? Array.from({ length: 6 }).map((_, index) => (
-              <ListItem key={index} gap={ROW_GAP}>
+              <ListItem key={index} minHeight={ROW_HEIGHT} gap={ROW_GAP}>
                 <XStack {...COLUMNS.asset} ai="center" gap="$3">
-                  <Skeleton w="$10" h="$10" radius="round" />
+                  <Skeleton w="$8" h="$8" radius="round" />
                   <Skeleton w={96} h={18} borderRadius="$2" />
                 </XStack>
                 <Stack {...COLUMNS.network}>

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -25,7 +25,30 @@ import type {
 
 const COLLATERAL_ICON_LIMIT = 6;
 
-function CollateralStack({ card }: { card: IEarnDesktopMarketCard }) {
+type ICardSurface = '$bgSubdued' | '$gray3' | '$gray4';
+
+// Opaque steps up from the card color, so the rings that separate the
+// collateral icons can change with the card
+function getCardSurface({
+  isHovered,
+  isPressed,
+}: {
+  isHovered: boolean;
+  isPressed: boolean;
+}): ICardSurface {
+  if (isPressed) {
+    return '$gray4';
+  }
+  return isHovered ? '$gray3' : '$bgSubdued';
+}
+
+function CollateralStack({
+  card,
+  ringColor,
+}: {
+  card: IEarnDesktopMarketCard;
+  ringColor: ICardSurface;
+}) {
   const visible = card.collateral.slice(0, COLLATERAL_ICON_LIMIT);
   const moreCount = card.collateral.length - visible.length;
   return (
@@ -36,8 +59,8 @@ function CollateralStack({ card }: { card: IEarnDesktopMarketCard }) {
           ml={index ? -6 : 0}
           borderRadius="$full"
           borderWidth={2}
-          borderColor="$bgSubdued"
-          bg="$bgSubdued"
+          borderColor={ringColor}
+          bg={ringColor}
         >
           <Token size="xs" tokenImageUri={token.logoURI} />
         </YStack>
@@ -62,21 +85,28 @@ function MarketCard({
 }) {
   const intl = useIntl();
   const { market } = card;
+  const [isHovered, setIsHovered] = useState(false);
+  const [isPressed, setIsPressed] = useState(false);
+  const surface = getCardSurface({ isHovered, isPressed });
   return (
+    // The tiles' padding, so both kinds of card hold their content alike
     <YStack
       testID={`earn-desktop-market-${card.key}`}
       role="button"
       flexGrow={1}
-      bg="$bgSubdued"
+      bg={surface}
       borderRadius="$5"
       borderCurve="continuous"
-      px="$5"
-      pt="$4"
-      pb="$4"
+      p="$4"
       cursor="pointer"
       userSelect="none"
-      hoverStyle={{ bg: '$bgHover' }}
-      pressStyle={{ bg: '$bgActive' }}
+      onHoverIn={() => setIsHovered(true)}
+      onHoverOut={() => {
+        setIsHovered(false);
+        setIsPressed(false);
+      }}
+      onPressIn={() => setIsPressed(true)}
+      onPressOut={() => setIsPressed(false)}
       onPress={onPress}
     >
       <XStack ai="center" gap="$3">
@@ -146,7 +176,7 @@ function MarketCard({
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.defi_collateral })}
         </SizableText>
-        <CollateralStack card={card} />
+        <CollateralStack card={card} ringColor={surface} />
       </XStack>
     </YStack>
   );
@@ -166,9 +196,10 @@ export function EarnDesktopBorrowTab({
     () => markets.map((entry) => buildMarketCard(entry)),
     [markets],
   );
+  // Cards sit as far apart as the tiles above the tabs
   if (!cards.length) {
     return (
-      <XStack gap="$5">
+      <XStack gap="$4">
         {Array.from({ length: 3 }).map((_, index) => (
           <Skeleton key={index} flex={1} h={320} borderRadius="$5" />
         ))}
@@ -181,9 +212,9 @@ export function EarnDesktopBorrowTab({
     rows.push(cards.slice(index, index + perRow));
   }
   return (
-    <YStack gap="$5">
+    <YStack gap="$4">
       {rows.map((rowCards, rowIndex) => (
-        <XStack key={rowIndex} gap="$5">
+        <XStack key={rowIndex} gap="$4">
           {/* Unpadded slots split the row evenly, spacers included, so the
               last row's cards keep the others' width */}
           {rowCards.map((card) => (

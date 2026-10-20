@@ -1,5 +1,5 @@
 import type { ComponentProps, ReactNode } from 'react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -106,6 +106,8 @@ function TileFrame({ children }: { children: ReactNode }) {
 }
 
 function TileHead({ title, onPress }: { title: string; onPress?: () => void }) {
+  // Subdued until hovered, the way the tabs below brighten
+  const [isHovered, setIsHovered] = useState(false);
   return (
     <XStack
       ai="center"
@@ -116,17 +118,25 @@ function TileHead({ title, onPress }: { title: string; onPress?: () => void }) {
             role: 'button' as const,
             cursor: 'pointer' as const,
             userSelect: 'none' as const,
-            hoverStyle: { opacity: 0.8 },
             pressStyle: { opacity: 0.6 },
+            onHoverIn: () => setIsHovered(true),
+            onHoverOut: () => setIsHovered(false),
             onPress,
           }
         : undefined)}
     >
-      <SizableText size="$bodyMdMedium" color="$textSubdued">
+      <SizableText
+        size="$bodyMdMedium"
+        color={isHovered ? '$text' : '$textSubdued'}
+      >
         {title}
       </SizableText>
       {onPress ? (
-        <Icon name="ChevronRightSmallOutline" size="$4" color="$iconSubdued" />
+        <Icon
+          name="ChevronRightSmallOutline"
+          size="$4"
+          color={isHovered ? '$icon' : '$iconSubdued'}
+        />
       ) : null}
     </XStack>
   );
@@ -195,11 +205,18 @@ function TileRow({
       minHeight={ROW_HEIGHT}
       {...(onPress
         ? {
+            // Highlights like the table rows. The negative margin lets the
+            // highlight reach into the tile's padding while the content stays
+            // in line with the tile's title
             role: 'button' as const,
+            px: '$2',
+            mx: '$-2',
+            borderRadius: '$3',
+            borderCurve: 'continuous' as const,
             cursor: 'pointer' as const,
             userSelect: 'none' as const,
-            hoverStyle: { opacity: 0.8 },
-            pressStyle: { opacity: 0.6 },
+            hoverStyle: { bg: '$bgHover' },
+            pressStyle: { bg: '$bgActive' },
             onPress,
           }
         : undefined)}
@@ -450,7 +467,14 @@ function HealthFactorRow({
   return (
     <TileRow
       onPress={onPress}
-      icon={<Token size="md" tokenImageUri={entry.market.logoURI} />}
+      icon={
+        <Token
+          size="md"
+          tokenImageUri={entry.market.logoURI}
+          networkId={entry.market.networkId}
+          showNetworkIcon
+        />
+      }
       primary={<RowText>{getBorrowMarketLabel(entry.market)}</RowText>}
       secondary={
         <RowText subdued>

@@ -51,6 +51,44 @@ const BANNER_WIDTH = 460;
 const BANNER_CARD_HEIGHT = 232;
 const EMPTY_ASSETS: IEarnAvailableAsset[] = [];
 
+function HomeTab({
+  value,
+  label,
+  isActive,
+  onPress,
+}: {
+  value: IHomeTab;
+  label: string;
+  isActive: boolean;
+  onPress: () => void;
+}) {
+  // The shared TabBar's colors: subdued until hovered or selected
+  const [isHovered, setIsHovered] = useState(false);
+  return (
+    <YStack
+      testID={`earn-desktop-tab-${value}`}
+      role="tab"
+      aria-selected={isActive}
+      h={44}
+      jc="center"
+      borderBottomWidth={2}
+      borderBottomColor={isActive ? '$text' : '$transparent'}
+      cursor="pointer"
+      userSelect="none"
+      onHoverIn={() => setIsHovered(true)}
+      onHoverOut={() => setIsHovered(false)}
+      onPress={onPress}
+    >
+      <SizableText
+        size="$headingXl"
+        color={isActive || isHovered ? '$text' : '$textSubdued'}
+      >
+        {label}
+      </SizableText>
+    </YStack>
+  );
+}
+
 function HomeTabs({
   value,
   onChange,
@@ -72,32 +110,15 @@ function HomeTabs({
   ];
   return (
     <XStack gap="$8" role="tablist">
-      {tabs.map((tab) => {
-        const isActive = tab.value === value;
-        return (
-          <YStack
-            key={tab.value}
-            testID={`earn-desktop-tab-${tab.value}`}
-            role="tab"
-            aria-selected={isActive}
-            h={44}
-            jc="center"
-            borderBottomWidth={2}
-            borderBottomColor={isActive ? '$text' : '$transparent'}
-            cursor="pointer"
-            userSelect="none"
-            hoverStyle={isActive ? undefined : { opacity: 0.8 }}
-            onPress={() => onChange(tab.value)}
-          >
-            <SizableText
-              size="$headingXl"
-              color={isActive ? '$text' : '$textDisabled'}
-            >
-              {tab.label}
-            </SizableText>
-          </YStack>
-        );
-      })}
+      {tabs.map((tab) => (
+        <HomeTab
+          key={tab.value}
+          value={tab.value}
+          label={tab.label}
+          isActive={tab.value === value}
+          onPress={() => onChange(tab.value)}
+        />
+      ))}
     </XStack>
   );
 }

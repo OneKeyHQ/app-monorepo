@@ -238,15 +238,19 @@ export function EarnDesktopHero({
             />
           </YStack>
         </XStack>
-        {/* As on the phone, the total and its chevron open Positions */}
+        {/* As on the phone, the total and its chevron open Positions. The
+            highlight pads the number evenly: the chevron's own margin is its
+            right side, and the negative margins keep the number in place */}
         <XStack
           testID={EarnTestIDs.portfolioEntry}
           role="button"
           ai="center"
           gap="$1"
           alignSelf="flex-start"
-          pl="$1"
-          ml="$-1"
+          pl="$2.5"
+          ml="$-2.5"
+          py="$1"
+          my="$-1"
           borderRadius="$3"
           cursor="pointer"
           userSelect="none"
