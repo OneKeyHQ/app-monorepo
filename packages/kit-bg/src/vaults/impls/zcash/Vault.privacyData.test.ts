@@ -35,15 +35,9 @@ import type {
 // The endpoint resolver reads the app-wide custom-RPC store; these fixtures
 // only care about the zcash entity, so the default node is enough.
 const defaultCustomRpcStub = {
-  // The chain's own node, seeded as an ordinary record; the resolver reads
-  // only this, so a fixture that leaves it out gets no endpoint at all.
-  ensureBuiltInRpc: async () => ({
-    rpc: 'https://zcash.example',
-    networkId: 'zec--0',
-    enabled: true,
-    updatedAt: undefined,
-    isCustomNetwork: undefined,
-  }),
+  // The vault reads its node only through this resolver, so a fixture that
+  // leaves it out gets no endpoint at all.
+  resolveRpcUrlWithBuiltIn: async () => 'https://zcash.example',
 };
 
 describe('Zcash local privacy data deletion', () => {

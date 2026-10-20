@@ -267,38 +267,20 @@ class ServiceCustomRpc extends ServiceBase {
     );
   }
 
-  // A chain that scans client-side has no backend to fall back to, so the node
-  // it ships with is not a "default behind an override" -- it IS the record.
-  // Seeding it as an ordinary row keeps one read path: everything asks this
-  // store, nothing consults a build constant at runtime. The constant stays
-  // the seed source, and a release that has to change it ships a migration.
-  //
-  // Self-healing on purpose: a user who deletes the only node of a chain that
-  // cannot work without one gets it back, because they never added it.
-  @backgroundMethod()
-  public async ensureBuiltInRpc({
+  // Read-only: a chain that ships its own node uses it whenever no enabled row
+  // overrides it. The built-in node is never written as a row, so it is not
+  // cloud-synced and a deleted or disabled row falls back instead of failing.
+  public async resolveRpcUrlWithBuiltIn({
     networkId,
   }: {
     networkId: string;
-  }): Promise<IDBCustomRpc | undefined> {
-    const existing = await this.getCustomRpcForNetwork(networkId);
-    if (existing?.rpc) {
-      return existing;
+  }): Promise<string | undefined> {
+    const record = await this.getCustomRpcForNetwork(networkId);
+    if (record?.rpc && record.enabled) {
+      return record.rpc;
     }
     const settings = await getVaultSettings({ networkId });
-    const [builtIn] = settings.builtInRpcUrls ?? [];
-    if (!builtIn) {
-      return undefined;
-    }
-    const seeded: IDBCustomRpc = {
-      rpc: builtIn,
-      networkId,
-      enabled: true,
-      updatedAt: undefined,
-      isCustomNetwork: undefined,
-    };
-    await this.addCustomRpc({ customRpc: seeded });
-    return seeded;
+    return settings.builtInRpcUrls?.[0];
   }
 
   @backgroundMethod()

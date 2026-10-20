@@ -373,10 +373,9 @@ export type IVaultSettings = {
   // visible default to override. A chain that scans client-side must ship its
   // own, because there is no backend behind it.
   //
-  // [0] seeds the chain's custom-RPC record on first use, so from then on it
-  // is an ordinary record like any the user adds -- same store, same list,
-  // same edit and delete. The rest are what the transport rotates to when the
-  // one in use stops answering.
+  // [0] is used whenever no enabled custom-RPC record overrides it; it is
+  // never written as a record. The rest are what the transport rotates to
+  // when the one in use stops answering.
   builtInRpcUrls?: string[];
   mergeDeriveAssetsEnabled?: boolean;
   sendZeroWithZeroTokenBalanceDisabled?: boolean;

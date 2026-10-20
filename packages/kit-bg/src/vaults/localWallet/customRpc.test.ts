@@ -18,11 +18,19 @@ jest.mock(
 );
 
 import { xmrHostFetch } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/sdk/hostFetch';
+import { ZCASH_LIGHTWALLETD_MAINNET } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 import { fetchZcashLightdInfoDirect } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
+import { XMR_BUILT_IN_NODE_URLS } from '@onekeyhq/shared/src/config/xmr';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
 
+import ServiceCustomRpc from '../../services/ServiceCustomRpc';
 import XmrVault from '../impls/xmr/Vault';
 import ZcashVault from '../impls/zcash/Vault';
 
@@ -36,6 +44,159 @@ afterEach(() => {
   jest.restoreAllMocks();
   hostFetch.mockReset();
   lightdInfo.mockReset();
+});
+
+// The real resolver over an in-memory custom RPC store; every write path is a
+// spy so a test can prove resolving never writes, syncs, or emits.
+function createNodeStore(rows: Record<string, IDBCustomRpc | undefined>) {
+  const store = { ...rows };
+  const writes = {
+    addCustomRpc: jest.fn(),
+    deleteCustomRpc: jest.fn(),
+    updateCustomRpcEnabledStatus: jest.fn(),
+    addAndUpdateFreshSyncItems: jest.fn(),
+  };
+  const service = Object.create(ServiceCustomRpc.prototype) as ServiceCustomRpc;
+  Object.assign(service, {
+    backgroundApi: {
+      simpleDb: {
+        customRpc: {
+          getCustomRpcForNetwork: async (networkId: string) => store[networkId],
+          addCustomRpc: writes.addCustomRpc,
+          deleteCustomRpc: writes.deleteCustomRpc,
+          updateCustomRpcEnabledStatus: writes.updateCustomRpcEnabledStatus,
+        },
+      },
+      localDb: {
+        addAndUpdateFreshSyncItems: writes.addAndUpdateFreshSyncItems,
+      },
+    },
+  });
+  return { service, store, writes };
+}
+
+function customRpcRow(
+  networkId: string,
+  rpc: string,
+  enabled: boolean,
+): IDBCustomRpc {
+  return {
+    rpc,
+    networkId,
+    enabled,
+    updatedAt: undefined,
+    isCustomNetwork: undefined,
+  };
+}
+
+describe('privacy chain node resolution', () => {
+  function vaultWith<T extends XmrVault | ZcashVault>(
+    vault: T,
+    networkId: string,
+    service: ServiceCustomRpc,
+  ): T {
+    return Object.assign(vault, {
+      networkId,
+      backgroundApi: { serviceCustomRpc: service },
+    });
+  }
+
+  const cases = [
+    {
+      name: 'XMR',
+      networkId: 'xmr--0',
+      builtIn: XMR_BUILT_IN_NODE_URLS[0],
+      resolve: (service: ServiceCustomRpc) =>
+        vaultWith(
+          Object.create(XmrVault.prototype) as XmrVault,
+          'xmr--0',
+          service,
+        ).resolveXmrNodeUrl(),
+    },
+    {
+      name: 'Zcash',
+      networkId: 'zec--0',
+      builtIn: ZCASH_LIGHTWALLETD_MAINNET,
+      resolve: (service: ServiceCustomRpc) =>
+        vaultWith(
+          Object.create(ZcashVault.prototype) as ZcashVault,
+          'zec--0',
+          service,
+        ).zcashResolveLightwalletdUrl(),
+    },
+  ];
+
+  describe.each(cases)('$name', ({ networkId, builtIn, resolve }) => {
+    it('uses the built-in node without writing, syncing, or emitting', async () => {
+      const emit = jest.spyOn(appEventBus, 'emit');
+      const { service, writes } = createNodeStore({});
+      await expect(resolve(service)).resolves.toBe(builtIn);
+      Object.values(writes).forEach((write) =>
+        expect(write).not.toHaveBeenCalled(),
+      );
+      expect(emit).not.toHaveBeenCalledWith(
+        EAppEventBusNames.CustomRpcChanged,
+        expect.anything(),
+      );
+    });
+
+    it('uses an enabled custom node', async () => {
+      const { service } = createNodeStore({
+        [networkId]: customRpcRow(networkId, 'https://custom.example', true),
+      });
+      await expect(resolve(service)).resolves.toBe('https://custom.example');
+    });
+
+    it('falls back to the built-in node when the custom node is off', async () => {
+      const { service } = createNodeStore({
+        [networkId]: customRpcRow(networkId, 'https://custom.example', false),
+      });
+      await expect(resolve(service)).resolves.toBe(builtIn);
+    });
+
+    it('keeps an already seeded built-in row working unchanged', async () => {
+      const { service, writes } = createNodeStore({
+        [networkId]: customRpcRow(networkId, builtIn, true),
+      });
+      await expect(resolve(service)).resolves.toBe(builtIn);
+      expect(writes.addCustomRpc).not.toHaveBeenCalled();
+    });
+
+    it('reads a node switch or deletion on the next call', async () => {
+      const { service, store } = createNodeStore({
+        [networkId]: customRpcRow(networkId, 'https://first.example', true),
+      });
+      await expect(resolve(service)).resolves.toBe('https://first.example');
+      store[networkId] = customRpcRow(
+        networkId,
+        'https://second.example',
+        true,
+      );
+      await expect(resolve(service)).resolves.toBe('https://second.example');
+      delete store[networkId];
+      await expect(resolve(service)).resolves.toBe(builtIn);
+    });
+  });
+
+  it('gives no node to a chain without a built-in one', async () => {
+    const { service } = createNodeStore({});
+    await expect(
+      service.resolveRpcUrlWithBuiltIn({ networkId: 'evm--1' }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('reports no node only when nothing resolves', async () => {
+    const vault = vaultWith(
+      Object.create(XmrVault.prototype) as XmrVault,
+      'xmr--0',
+      {
+        resolveRpcUrlWithBuiltIn: async () => undefined,
+      } as unknown as ServiceCustomRpc,
+    );
+    await expect(vault.resolveXmrNodeUrl()).rejects.toThrow(
+      localWalletText(ETranslations.privacy_error_no_node__msg),
+    );
+  });
 });
 
 describe('XMR custom RPC', () => {
@@ -183,43 +344,6 @@ describe('XMR custom RPC', () => {
       expect(hostFetch).toHaveBeenCalledTimes(1);
     });
   });
-
-  it('reads a node switch from the existing store on the next call', async () => {
-    const ensureBuiltInRpc = jest
-      .fn()
-      .mockResolvedValueOnce({ rpc: 'https://first.example', enabled: true })
-      .mockResolvedValueOnce({ rpc: 'https://second.example', enabled: true });
-    const vault = Object.assign(createVault(), {
-      networkId: 'xmr--0',
-      backgroundApi: { serviceCustomRpc: { ensureBuiltInRpc } },
-    });
-    await expect(vault.resolveXmrNodeUrl()).resolves.toBe(
-      'https://first.example',
-    );
-    await expect(vault.resolveXmrNodeUrl()).resolves.toBe(
-      'https://second.example',
-    );
-    expect(ensureBuiltInRpc).toHaveBeenNthCalledWith(2, {
-      networkId: 'xmr--0',
-    });
-  });
-
-  it('honors a disabled node instead of using an implicit fallback', async () => {
-    const vault = Object.assign(createVault(), {
-      networkId: 'xmr--0',
-      backgroundApi: {
-        serviceCustomRpc: {
-          ensureBuiltInRpc: async () => ({
-            rpc: 'https://node.example',
-            enabled: false,
-          }),
-        },
-      },
-    });
-    await expect(vault.resolveXmrNodeUrl()).rejects.toThrow(
-      localWalletText(ETranslations.privacy_error_no_node__msg),
-    );
-  });
 });
 
 describe('Zcash custom RPC', () => {
@@ -342,22 +466,5 @@ describe('Zcash custom RPC', () => {
       vault.getCustomRpcEndpointStatus({ rpcUrl: 'https://node.example' }),
     ).resolves.toMatchObject({ bestBlockNumber: HEIGHT });
     expect(lightdInfo).not.toHaveBeenCalled();
-  });
-
-  it('honors the disabled sync node in the existing store', async () => {
-    const vault = Object.assign(createVault(), {
-      networkId: 'zec--0',
-      backgroundApi: {
-        serviceCustomRpc: {
-          ensureBuiltInRpc: async () => ({
-            rpc: 'https://node.example',
-            enabled: false,
-          }),
-        },
-      },
-    });
-    await expect(vault.zcashResolveLightwalletdUrl()).rejects.toThrow(
-      localWalletText(ETranslations.privacy_error_no_node__msg),
-    );
   });
 });

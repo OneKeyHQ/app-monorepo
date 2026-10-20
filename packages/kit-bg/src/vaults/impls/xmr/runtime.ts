@@ -295,7 +295,7 @@ export async function getXmrRuntime(vault: Vault): Promise<IXmrRuntimeApi> {
     );
   }
   const network = await vault.getXmrNetwork();
-  // No node (disabled, not set) still leaves the database usable.
+  // An unresolvable node still leaves the database usable.
   const nodeUrl = await vault.resolveXmrNodeUrl().catch(() => '');
   const dbName = xmrDbNameForNetwork(network);
 
@@ -303,7 +303,7 @@ export async function getXmrRuntime(vault: Vault): Promise<IXmrRuntimeApi> {
     session?.dbName === dbName
       ? session
       : await openSessionSingleFlight({ network, nodeUrl });
-  // An empty url disconnects: a disabled node must stop receiving requests.
+  // A changed url reconnects; an empty one disconnects.
   if (current.nodeUrl !== nodeUrl) {
     await connectNode(current, nodeUrl);
   }
