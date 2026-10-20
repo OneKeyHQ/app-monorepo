@@ -188,6 +188,11 @@ export function createDesktopConfig({
           devtool: 'cheap-module-source-map',
           devServer: {
             open: false,
+            historyApiFallback: {
+              rewrites: [
+                { from: /^\/market\/stock\/[^/]+\/?$/, to: '/index.html' },
+              ],
+            },
           },
         },
       );
