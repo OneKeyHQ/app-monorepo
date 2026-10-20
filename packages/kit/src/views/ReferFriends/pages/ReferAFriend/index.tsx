@@ -243,7 +243,13 @@ function ReferAFriendPageWrapper() {
               jc="space-between"
               gap="$3"
             >
-              <ReferralJobTabs value={activeTab} onChange={setActiveTab} />
+              <ReferralJobTabs
+                value={activeTab}
+                onChange={setActiveTab}
+                // Mobile web keeps the tabs in the content; it gets the same
+                // compact switch as the navigation bar elsewhere.
+                variant={md ? 'header' : 'tabs'}
+              />
               {/* Same intro at the right of the tabs as the signed-in page;
                   compact layouts show it atop the Perks content. */}
               {md ? null : (
