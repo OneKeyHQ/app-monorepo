@@ -144,55 +144,35 @@ function TabPage({
   );
 }
 
-export function MobileDetailTabs({
-  hasPortfolio,
-  portfolioContent,
-  infoContent,
-  protocolContent,
+/**
+ * The swipeable tabs themselves, for any set of tabs: the asset page's three,
+ * or a pool page's, which adds Top positions. `visibleKeys` is in display
+ * order and must be memoized; a new array puts the pager back on its slot.
+ */
+export function DetailTabsPager<K extends string>({
+  visibleKeys,
+  defaultKey,
+  labels,
+  contents,
 }: {
-  hasPortfolio: boolean;
-  portfolioContent?: React.ReactNode;
-  infoContent: React.ReactNode;
-  protocolContent?: React.ReactNode;
+  visibleKeys: K[];
+  defaultKey: K;
+  labels: Record<K, string>;
+  contents: Partial<Record<K, React.ReactNode>>;
 }) {
-  const intl = useIntl();
-  const [selectedKey, setSelectedKey] = useState<
-    IMobileDetailTabKey | undefined
-  >(undefined);
-
-  // The portfolio tab only exists once the account response says there is a
-  // position, so visibility is data-driven and can change under a mounted page.
-  const showPortfolio = hasPortfolio && Boolean(portfolioContent);
-  // Likewise the protocol tab: a provider without intro data (Lista) gets no
-  // tab rather than an empty page (OK-62925).
-  const showProtocol = Boolean(protocolContent);
-
-  const visibleKeys = useMemo(
-    () =>
-      resolveVisibleTabKeys({
-        hasPortfolio: showPortfolio,
-        hasProtocol: showProtocol,
-      }),
-    [showPortfolio, showProtocol],
-  );
+  const [selectedKey, setSelectedKey] = useState<K | undefined>(undefined);
 
   const activeKey = useMemo(
     () =>
       resolveActiveTabKey({
         selectedKey,
         visibleKeys,
-        defaultKey: resolveDefaultTabKey({ hasPortfolio: showPortfolio }),
+        defaultKey,
       }),
-    [selectedKey, visibleKeys, showPortfolio],
+    [selectedKey, visibleKeys, defaultKey],
   );
   const activeKeyRef = useRef(activeKey);
   activeKeyRef.current = activeKey;
-
-  const contents: Record<IMobileDetailTabKey, React.ReactNode> = {
-    portfolio: portfolioContent ?? null,
-    info: infoContent,
-    protocol: protocolContent ?? null,
-  };
 
   // Continuous page index: 1 is Info sitting in place, 1.4 is Info dragged
   // forty percent of the way towards Protocol. Everything animated below reads
@@ -210,18 +190,10 @@ export function MobileDetailTabs({
   // mirror them. The three pages report their layout in the same tick, and a
   // merge that reads the shared value back on the JS thread sees a stale copy,
   // so each write would drop the previous page's measurement.
-  const pageHeightsRef = useRef<Partial<Record<IMobileDetailTabKey, number>>>(
-    {},
-  );
-  const pageHeights = useSharedValue<
-    Partial<Record<IMobileDetailTabKey, number>>
-  >({});
-  const tabLayoutsRef = useRef<
-    Partial<Record<IMobileDetailTabKey, ITabLayout>>
-  >({});
-  const tabLayouts = useSharedValue<
-    Partial<Record<IMobileDetailTabKey, ITabLayout>>
-  >({});
+  const pageHeightsRef = useRef<Partial<Record<K, number>>>({});
+  const pageHeights = useSharedValue<Partial<Record<K, number>>>({});
+  const tabLayoutsRef = useRef<Partial<Record<K, ITabLayout>>>({});
+  const tabLayouts = useSharedValue<Partial<Record<K, ITabLayout>>>({});
   const [pageWidth, setPageWidth] = useState(0);
 
   const commitIndex = useCallback(
@@ -245,7 +217,7 @@ export function MobileDetailTabs({
   }, [visibleKeys, progress]);
 
   const jumpTo = useCallback(
-    (key: IMobileDetailTabKey) => {
+    (key: K) => {
       const index = visibleKeys.indexOf(key);
       if (index < 0) {
         return;
@@ -332,7 +304,7 @@ export function MobileDetailTabs({
   }, []);
 
   const handlePageLayout = useCallback(
-    (key: IMobileDetailTabKey, height: number) => {
+    (key: K, height: number) => {
       if (pageHeightsRef.current[key] === height) {
         return;
       }
@@ -343,7 +315,7 @@ export function MobileDetailTabs({
   );
 
   const handleTabLayout = useCallback(
-    (key: IMobileDetailTabKey, event: LayoutChangeEvent) => {
+    (key: K, event: LayoutChangeEvent) => {
       const { x, width } = event.nativeEvent.layout;
       const current = tabLayoutsRef.current[key];
       if (current && current.x === x && current.width === width) {
@@ -396,7 +368,7 @@ export function MobileDetailTabs({
         {visibleKeys.map((key) => (
           <TabBarItem
             key={key}
-            label={intl.formatMessage({ id: TAB_LABEL_IDS[key] })}
+            label={labels[key]}
             focused={activeKey === key}
             onPress={() => jumpTo(key)}
             onLayout={(event) => handleTabLayout(key, event)}
@@ -433,12 +405,63 @@ export function MobileDetailTabs({
                   pageWidth={pageWidth}
                   onContentLayout={(height) => handlePageLayout(key, height)}
                 >
-                  {contents[key]}
+                  {contents[key] ?? null}
                 </TabPage>
               ))
             : null}
         </Animated.View>
       </GestureDetector>
     </YStack>
+  );
+}
+
+export function MobileDetailTabs({
+  hasPortfolio,
+  portfolioContent,
+  infoContent,
+  protocolContent,
+}: {
+  hasPortfolio: boolean;
+  portfolioContent?: React.ReactNode;
+  infoContent: React.ReactNode;
+  protocolContent?: React.ReactNode;
+}) {
+  const intl = useIntl();
+
+  // The portfolio tab only exists once the account response says there is a
+  // position, so visibility is data-driven and can change under a mounted page.
+  const showPortfolio = hasPortfolio && Boolean(portfolioContent);
+  // Likewise the protocol tab: a provider without intro data (Lista) gets no
+  // tab rather than an empty page (OK-62925).
+  const showProtocol = Boolean(protocolContent);
+
+  const visibleKeys = useMemo(
+    () =>
+      resolveVisibleTabKeys({
+        hasPortfolio: showPortfolio,
+        hasProtocol: showProtocol,
+      }),
+    [showPortfolio, showProtocol],
+  );
+  const labels = useMemo(
+    () => ({
+      portfolio: intl.formatMessage({ id: TAB_LABEL_IDS.portfolio }),
+      info: intl.formatMessage({ id: TAB_LABEL_IDS.info }),
+      protocol: intl.formatMessage({ id: TAB_LABEL_IDS.protocol }),
+    }),
+    [intl],
+  );
+
+  return (
+    <DetailTabsPager
+      visibleKeys={visibleKeys}
+      defaultKey={resolveDefaultTabKey({ hasPortfolio: showPortfolio })}
+      labels={labels}
+      contents={{
+        portfolio: portfolioContent,
+        info: infoContent,
+        protocol: protocolContent,
+      }}
+    />
   );
 }

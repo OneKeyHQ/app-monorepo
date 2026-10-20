@@ -333,6 +333,24 @@ describe('pools demo top positions', () => {
     expect(Number(next.items[0].apr)).toBeLessThanOrEqual(aprValues[9]);
   });
 
+  it('ranks by value or by fees earned on request, across pages', () => {
+    const all = getPoolTopPositions(catalog, pool.id, { limit: 1000 });
+    for (const [sortBy, field] of [
+      ['value', 'valueUsd'],
+      ['earned', 'feesEarnedUsd'],
+    ] as const) {
+      const page = getPoolTopPositions(catalog, pool.id, {
+        limit: 5,
+        sortBy,
+      });
+      const highest = Math.max(...all.items.map((item) => Number(item[field])));
+      expect(Number(page.items[0][field])).toBe(highest);
+      const values = page.items.map((item) => Number(item[field]));
+      expect(values).toEqual(values.toSorted((a, b) => b - a));
+      expect(page.total).toBe(all.total);
+    }
+  });
+
   it('has none for a pool without ranges', () => {
     const v2 = poolBySeed(catalog, 'eth-v2-usdc-weth');
     expect(getPoolTopPositions(catalog, v2.id).total).toBe(0);

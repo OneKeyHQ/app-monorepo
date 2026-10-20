@@ -41,7 +41,9 @@ import type {
   IPoolTaskPreview,
   IPoolTaskRequest,
   IPoolTaskStep,
+  IPoolTopPosition,
   IPoolTopPositionsPage,
+  IPoolTopPositionsSortKey,
   IPoolZapInLeg,
   IPoolZapInPlan,
   IPoolZapInPlanParams,
@@ -316,10 +318,27 @@ export function getPoolPriceHistory(
 
 const TOP_POSITION_MIN_VALUE_USD = 500;
 
+const TOP_POSITION_SORT_FIELDS: Record<
+  IPoolTopPositionsSortKey,
+  'apr' | 'valueUsd' | 'feesEarnedUsd'
+> = {
+  apr: 'apr',
+  value: 'valueUsd',
+  earned: 'feesEarnedUsd',
+};
+
 export function getPoolTopPositions(
   catalog: IPoolsMockCatalog,
   poolId: string,
-  { offset = 0, limit = 5 }: { offset?: number; limit?: number } = {},
+  {
+    offset = 0,
+    limit = 5,
+    sortBy = 'apr',
+  }: {
+    offset?: number;
+    limit?: number;
+    sortBy?: IPoolTopPositionsSortKey;
+  } = {},
 ): IPoolTopPositionsPage {
   const pool = getPool(catalog, poolId);
   const book = catalog.bookByPoolId[pool.id] ?? [];
@@ -336,7 +355,7 @@ export function getPoolTopPositions(
   };
   const ranked = book
     .filter((entry) => entry.valueUsd >= TOP_POSITION_MIN_VALUE_USD)
-    .map((entry, index) => {
+    .map((entry, index): IPoolTopPosition => {
       const inRange =
         entry.tickLower <= currentTick && currentTick < entry.tickUpper;
       const liquidity = new BigNumber(entry.liquidity.toString());
@@ -379,7 +398,10 @@ export function getPoolTopPositions(
         createdAt,
       };
     })
-    .toSorted((a, b) => Number(b.apr) - Number(a.apr));
+    .toSorted((a, b) => {
+      const field = TOP_POSITION_SORT_FIELDS[sortBy];
+      return Number(b[field]) - Number(a[field]);
+    });
   return {
     items: ranked.slice(offset, offset + limit),
     total: ranked.length,

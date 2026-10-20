@@ -168,6 +168,9 @@ export type IPoolTopPosition = {
   createdAt: number;
 };
 
+/** What top positions rank by, highest first */
+export type IPoolTopPositionsSortKey = 'apr' | 'value' | 'earned';
+
 export type IPoolTopPositionsPage = {
   items: IPoolTopPosition[];
   /** Positions above the value floor, all pages */

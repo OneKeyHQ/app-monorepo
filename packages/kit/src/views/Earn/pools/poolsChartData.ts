@@ -12,7 +12,10 @@ import {
   tickToPrice,
   toDisplayPrice,
 } from '@onekeyhq/shared/src/utils/poolsMath';
-import type { IPoolTickRange } from '@onekeyhq/shared/src/utils/poolsMath';
+import type {
+  ILiquiditySegment,
+  IPoolTickRange,
+} from '@onekeyhq/shared/src/utils/poolsMath';
 import type {
   IPool,
   IPoolTickLiquidityNet,
@@ -22,6 +25,43 @@ import { getPoolPair } from './poolsFormat';
 
 // What the combined chart draws besides the price line, in the prices it
 // shows: the liquidity strip and the range band.
+
+const HALF_WIDTH_STEPS = [8, 20, 50, 120, 300, 700, 1500, 3000, 6000];
+const MASS_WINDOW = 8000;
+// Share of the nearby liquidity the default window holds: the bulk of it,
+// not the long tails, so the bars near the price are wide enough to read
+const MASS_SHARE = 0.8;
+
+/**
+ * Ticks either side of the price that hold the bulk of the liquidity near
+ * it: where a liquidity chart opens.
+ */
+export function getLiquidityPileHalfWidth(
+  segments: ILiquiditySegment[],
+  currentTick: number,
+) {
+  const massWithin = (halfWidth: number) => {
+    const from = currentTick - halfWidth;
+    const to = currentTick + halfWidth;
+    let mass = 0;
+    for (const segment of segments) {
+      const overlap =
+        Math.min(segment.tickUpper, to) - Math.max(segment.tickLower, from);
+      if (overlap > 0) {
+        mass += Number(segment.liquidity) * overlap;
+      }
+    }
+    return mass;
+  };
+  const total = massWithin(MASS_WINDOW);
+  if (total <= 0) {
+    return 1500;
+  }
+  const found = HALF_WIDTH_STEPS.find(
+    (halfWidth) => massWithin(halfWidth) >= total * MASS_SHARE,
+  );
+  return Math.round((found ?? MASS_WINDOW) * 1.1);
+}
 
 /** Display prices are flipped when the user flips the chart */
 function getShownInversion(pool: IPool, flipped: boolean) {

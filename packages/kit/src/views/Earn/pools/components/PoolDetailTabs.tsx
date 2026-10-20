@@ -6,59 +6,84 @@ import { useIntl } from 'react-intl';
 import { SizableText, XStack, YStack, useMedia } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { MobileDetailTabs } from '../../pages/EarnProtocolDetails/mobile/MobileDetailTabs';
+import { DetailTabsPager } from '../../pages/EarnProtocolDetails/mobile/MobileDetailTabs';
 import {
   resolveActiveTabKey,
   resolveDefaultTabKey,
   resolveVisibleTabKeys,
 } from '../../pages/EarnProtocolDetails/mobile/mobileDetailTabs.utils';
+import { POOLS_COPY } from '../poolsCopy';
 
 import type { IMobileDetailTabKey } from '../../pages/EarnProtocolDetails/mobile/mobileDetailTabs.utils';
 
-const TAB_LABEL_IDS: Record<IMobileDetailTabKey, ETranslations> = {
-  portfolio: ETranslations.global_portfolio,
-  info: ETranslations.global_info,
-  protocol: ETranslations.global_protocol,
-};
+type IPoolDetailTabKey = IMobileDetailTabKey | 'topPositions';
 
 type IPoolDetailTabsProps = {
   /** None until the user holds a position here, and then no tab either */
   portfolioContent?: ReactNode;
   infoContent: ReactNode;
+  /** Range pools only: in a share pool every LP holds the same range */
+  topPositionsContent?: ReactNode;
   /** None while the pool's detail loads */
   protocolContent?: ReactNode;
 };
 
 /**
- * Wide screens: the same tabs and rules with a plain tab bar, and only the
- * open tab mounted.
+ * The asset page's tab rules, with Top positions after Info: Portfolio
+ * first and open by default once the user holds a position here.
  */
-function PoolDetailTabBar({
+function usePoolDetailTabs({
   portfolioContent,
   infoContent,
+  topPositionsContent,
   protocolContent,
 }: IPoolDetailTabsProps) {
   const intl = useIntl();
-  const [selectedKey, setSelectedKey] = useState<IMobileDetailTabKey>();
   const hasPortfolio = Boolean(portfolioContent);
-  const visibleKeys = useMemo(
-    () =>
-      resolveVisibleTabKeys({
-        hasPortfolio,
-        hasProtocol: Boolean(protocolContent),
-      }),
-    [hasPortfolio, protocolContent],
+  const hasTopPositions = Boolean(topPositionsContent);
+  const hasProtocol = Boolean(protocolContent);
+  const visibleKeys = useMemo(() => {
+    const keys: IPoolDetailTabKey[] = resolveVisibleTabKeys({
+      hasPortfolio,
+      hasProtocol,
+    });
+    if (hasTopPositions) {
+      keys.splice(keys.indexOf('info') + 1, 0, 'topPositions');
+    }
+    return keys;
+  }, [hasPortfolio, hasProtocol, hasTopPositions]);
+  const labels = useMemo<Record<IPoolDetailTabKey, string>>(
+    () => ({
+      portfolio: intl.formatMessage({ id: ETranslations.global_portfolio }),
+      info: intl.formatMessage({ id: ETranslations.global_info }),
+      topPositions: POOLS_COPY.topPositions,
+      protocol: intl.formatMessage({ id: ETranslations.global_protocol }),
+    }),
+    [intl],
   );
+  const defaultKey: IPoolDetailTabKey = resolveDefaultTabKey({ hasPortfolio });
+  const contents: Partial<Record<IPoolDetailTabKey, ReactNode>> = {
+    portfolio: portfolioContent,
+    info: infoContent,
+    topPositions: topPositionsContent,
+    protocol: protocolContent,
+  };
+  return { visibleKeys, defaultKey, labels, contents };
+}
+
+/** Wide screens: a plain tab bar, and only the open tab mounted */
+function PoolDetailTabBar({
+  visibleKeys,
+  defaultKey,
+  labels,
+  contents,
+}: ReturnType<typeof usePoolDetailTabs>) {
+  const [selectedKey, setSelectedKey] = useState<IPoolDetailTabKey>();
   const activeKey = resolveActiveTabKey({
     selectedKey,
     visibleKeys,
-    defaultKey: resolveDefaultTabKey({ hasPortfolio }),
+    defaultKey,
   });
-  const contents: Record<IMobileDetailTabKey, ReactNode> = {
-    portfolio: portfolioContent,
-    info: infoContent,
-    protocol: protocolContent,
-  };
 
   return (
     <YStack gap="$6">
@@ -88,7 +113,7 @@ function PoolDetailTabBar({
                 hoverStyle={{ color: '$text' }}
                 numberOfLines={1}
               >
-                {intl.formatMessage({ id: TAB_LABEL_IDS[key] })}
+                {labels[key]}
               </SizableText>
             </YStack>
           );
@@ -100,21 +125,14 @@ function PoolDetailTabBar({
 }
 
 /**
- * A pool page's Portfolio, Info and Protocol, split as an Earn asset page
- * splits them: Portfolio first and open by default once the user holds a
- * position here. Phones get that page's swipeable tabs.
+ * A pool page's Portfolio, Info, Top positions and Protocol, split as an
+ * Earn asset page splits its tabs. Phones get that page's swipeable tabs.
  */
 export function PoolDetailTabs(props: IPoolDetailTabsProps) {
   const { gtMd } = useMedia();
+  const tabs = usePoolDetailTabs(props);
   if (gtMd) {
-    return <PoolDetailTabBar {...props} />;
+    return <PoolDetailTabBar {...tabs} />;
   }
-  return (
-    <MobileDetailTabs
-      hasPortfolio={Boolean(props.portfolioContent)}
-      portfolioContent={props.portfolioContent}
-      infoContent={props.infoContent}
-      protocolContent={props.protocolContent}
-    />
-  );
+  return <DetailTabsPager {...tabs} />;
 }

@@ -27,15 +27,15 @@ export function resolveDefaultTabKey({
 // The detail page stays mounted across account switches, so a tab the user
 // picked can disappear under them (A has a position, B does not). Fall back to
 // the default rather than rendering an empty body.
-export function resolveActiveTabKey({
+export function resolveActiveTabKey<K extends string = IMobileDetailTabKey>({
   selectedKey,
   visibleKeys,
   defaultKey,
 }: {
-  selectedKey: IMobileDetailTabKey | undefined;
-  visibleKeys: IMobileDetailTabKey[];
-  defaultKey: IMobileDetailTabKey;
-}): IMobileDetailTabKey {
+  selectedKey: K | undefined;
+  visibleKeys: K[];
+  defaultKey: K;
+}): K {
   if (selectedKey && visibleKeys.includes(selectedKey)) {
     return selectedKey;
   }

@@ -17,12 +17,12 @@ import {
   getMinUsableTick,
   isFullRange,
 } from '@onekeyhq/shared/src/utils/poolsMath';
-import type { ILiquiditySegment } from '@onekeyhq/shared/src/utils/poolsMath';
 import type {
   IPool,
   IPoolTickLiquidityNet,
 } from '@onekeyhq/shared/types/pools';
 
+import { getLiquidityPileHalfWidth } from '../poolsChartData';
 import { POOLS_COPY } from '../poolsCopy';
 import {
   formatTokenPrice,
@@ -34,11 +34,6 @@ import {
 
 import type { LayoutChangeEvent } from 'react-native';
 
-const HALF_WIDTH_STEPS = [8, 20, 50, 120, 300, 700, 1500, 3000, 6000];
-const MASS_WINDOW = 8000;
-// Share of the nearby liquidity the default window holds: the bulk of it,
-// not the long tails, so the bars near the price are wide enough to read
-const MASS_SHARE = 0.8;
 // A chosen range fills the middle ~60% of the window, liquidity either side
 const RANGE_FIT = 1.6;
 const ZOOM_FACTOR = 1.6;
@@ -51,30 +46,6 @@ const MOVE_HIT_HEIGHT = 36;
 // A dragged band this close to the chart's side refits on release
 const REFIT_MARGIN = 0.02;
 const EDGE_LABEL_WIDTH = 96;
-
-function pickHalfWidth(segments: ILiquiditySegment[], currentTick: number) {
-  const massWithin = (halfWidth: number) => {
-    const from = currentTick - halfWidth;
-    const to = currentTick + halfWidth;
-    let mass = 0;
-    for (const segment of segments) {
-      const overlap =
-        Math.min(segment.tickUpper, to) - Math.max(segment.tickLower, from);
-      if (overlap > 0) {
-        mass += Number(segment.liquidity) * overlap;
-      }
-    }
-    return mass;
-  };
-  const total = massWithin(MASS_WINDOW);
-  if (total <= 0) {
-    return 1500;
-  }
-  const found = HALF_WIDTH_STEPS.find(
-    (halfWidth) => massWithin(halfWidth) >= total * MASS_SHARE,
-  );
-  return Math.round((found ?? MASS_WINDOW) * 1.1);
-}
 
 export type IPoolChartRange = { tickLower: number; tickUpper: number };
 
@@ -182,7 +153,7 @@ export function PoolLiquidityChart({
     [currentTick, pool.activeLiquidity, ticks],
   );
   const baseHalfWidth = useMemo(
-    () => pickHalfWidth(segments, currentTick),
+    () => getLiquidityPileHalfWidth(segments, currentTick),
     [currentTick, segments],
   );
 

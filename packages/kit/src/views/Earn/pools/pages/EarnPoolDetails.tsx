@@ -24,7 +24,6 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import type { ITabEarnParamList } from '@onekeyhq/shared/src/routes';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IPoolTickRange } from '@onekeyhq/shared/src/utils/poolsMath';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
@@ -35,6 +34,7 @@ import type {
   IPool,
   IPoolListItem,
   IPoolPositionView,
+  IPoolTickLiquidityNet,
 } from '@onekeyhq/shared/types/pools';
 
 import { EarnPageContainer } from '../../components/EarnPageContainer';
@@ -45,21 +45,20 @@ import {
 } from '../../pages/EarnProtocolDetails/components/ProtocolIntroSection';
 import { PoolDetailTabs } from '../components/PoolDetailTabs';
 import { PoolHeader } from '../components/PoolHeader';
+import { PoolInfoTab } from '../components/PoolInfoTab';
 import {
   CAN_SET_RANGE_ON_CHART,
   POOL_CREATE_COLUMN_STICKY,
   PoolChartSection,
   PoolCreateSection,
-  PoolInfoSection,
   PoolStarButton,
   useCopyRange,
   usePoolOverview,
   usePoolShare,
 } from '../components/PoolOverview';
 import { PoolPositionCard } from '../components/PoolPositionCard';
-import { PoolsCard } from '../components/PoolsCard';
 import { PoolStatsStrip } from '../components/PoolStats';
-import { PoolTokenSplit } from '../components/PoolTokenSplit';
+import { PoolTopPositions } from '../components/PoolTopPositions';
 import { POOLS_COPY } from '../poolsCopy';
 import { getPoolPairTitle } from '../poolsFormat';
 import { parsePoolShareParams } from '../poolsNavigation';
@@ -68,46 +67,14 @@ import { usePoolsBreadcrumb } from '../usePoolsBreadcrumb';
 
 import type { RouteProp } from '@react-navigation/core';
 
-function PoolHookCard({ pool }: { pool: IPool }) {
-  if (!pool.hook) {
-    return null;
-  }
-  return (
-    <PoolsCard title={`${POOLS_COPY.hook}: ${pool.hook.name}`}>
-      <SizableText size="$bodyMd" color="$textSubdued">
-        {pool.hook.description}
-      </SizableText>
-      <XStack jc="space-between" ai="center">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {POOLS_COPY.hookAddress}
-        </SizableText>
-        <SizableText size="$bodyMdMedium">
-          {accountUtils.shortenAddress({ address: pool.hook.address })}
-        </SizableText>
-      </XStack>
-    </PoolsCard>
-  );
-}
-
-function PoolCompositionCard({ pool }: { pool: IPool }) {
-  return (
-    <PoolsCard title={POOLS_COPY.inPool}>
-      <PoolTokenSplit
-        pool={pool}
-        amount0={pool.reserve0}
-        amount1={pool.reserve1}
-        compact
-      />
-    </PoolsCard>
-  );
-}
-
 /** The Portfolio tab: the user's open positions here, each to its page */
 function MyPositionsList({
   positions,
+  ticks,
   onOpen,
 }: {
   positions: IPoolPositionView[];
+  ticks: IPoolTickLiquidityNet[] | undefined;
   onOpen: (view: IPoolPositionView) => void;
 }) {
   return (
@@ -116,6 +83,7 @@ function MyPositionsList({
         <PoolPositionCard
           key={view.position.id}
           view={view}
+          ticks={ticks}
           testID={`earn-pool-position-${view.position.id}`}
           onPress={() => onOpen(view)}
         />
@@ -150,9 +118,9 @@ function PoolPageTitle({ pool }: { pool?: IPool }) {
 
 /**
  * A pool's page, laid out like an Earn asset page: the pool and its chart,
- * then Portfolio, Info and Protocol tabs. Wide screens keep the create form
- * beside them; phones open it in a modal from the footer, as the asset page
- * opens Deposit.
+ * then Portfolio, Info, Top positions and Protocol tabs. Wide screens keep
+ * the create form beside them; phones open it in a modal from the footer, as
+ * the asset page opens Deposit.
  */
 function PoolDetailsLoaded({ listPool }: { listPool: IPoolListItem }) {
   const navigation = useAppNavigation();
@@ -246,19 +214,23 @@ function PoolDetailsLoaded({ listPool }: { listPool: IPoolListItem }) {
     <PoolDetailTabs
       portfolioContent={
         myPositions.length ? (
-          <MyPositionsList positions={myPositions} onOpen={openPosition} />
+          <MyPositionsList
+            positions={myPositions}
+            ticks={detail?.ticks}
+            onOpen={openPosition}
+          />
         ) : undefined
       }
-      infoContent={
-        <PoolInfoSection
-          pool={pool}
-          detail={detail}
-          layout={layout}
-          onCopyRange={copyRange}
-        >
-          <PoolHookCard pool={pool} />
-          <PoolCompositionCard pool={pool} />
-        </PoolInfoSection>
+      infoContent={<PoolInfoTab pool={pool} detail={detail} />}
+      topPositionsContent={
+        pool.capabilities.priceRange ? (
+          <PoolTopPositions
+            pool={pool}
+            layout={layout}
+            onCopyRange={copyRange}
+            variant="tab"
+          />
+        ) : undefined
       }
       protocolContent={
         hasProtocolIntroContent(detail?.protocolInfo) ? (
@@ -340,7 +312,8 @@ function EarnPoolDetailsContent({ poolId }: { poolId: string | undefined }) {
   const notFound = !poolId || isError;
 
   // Distinct keys: the loaded page mounts with its footer, since a footer
-  // added to a mounted page updates the page while rendering
+  // added to a mounted page updates the page while rendering. A route reused
+  // for another pool starts over, as the form holds the last pool's range
   if (!pool) {
     return (
       <EarnPageContainer
@@ -358,7 +331,7 @@ function EarnPoolDetailsContent({ poolId }: { poolId: string | undefined }) {
       </EarnPageContainer>
     );
   }
-  return <PoolDetailsLoaded key="loaded" listPool={pool} />;
+  return <PoolDetailsLoaded key={`loaded:${pool.id}`} listPool={pool} />;
 }
 
 type IRouteProps = RouteProp<

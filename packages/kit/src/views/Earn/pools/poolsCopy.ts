@@ -59,18 +59,33 @@ export const POOLS_COPY = {
     '1Y': 'past year',
   },
   liquidity: 'Liquidity',
+  thisPosition: 'This position',
+  allPositions: 'All positions',
   yourRange: 'Your range',
-  currentPrice: 'Current price',
   now: 'Now',
   inPool: 'In the pool',
   samePair: 'Same pair, other pools',
+  poolInfo: 'Pool info',
+  tokenInfo: 'Token info',
+  poolCreated: 'Created',
+  poolAddress: 'Pool address',
+  poolIdLabel: 'Pool ID',
+  token: 'Token',
+  contract: 'Contract',
+  nativeToken: 'Native',
+  copyAddress: 'Copy address',
   topPositions: 'Top positions',
   topPositionsHint: (minValue: string) =>
-    `Open positions over ${minValue}, by APR since opening`,
+    `Open positions over ${minValue}, APR since opening`,
   noTopPositions: (minValue: string) => `No open positions over ${minValue}`,
   earned: 'Earned',
-  age: 'Age',
-  ageDays: (days: string) => `${days}d`,
+  openFor: 'Open for',
+  openDays: (days: number) => {
+    if (days < 1) {
+      return 'Under a day';
+    }
+    return days === 1 ? '1 day' : `${days} days`;
+  },
   copyRange: 'Copy range',
   rangeCopied: 'Range copied',
   showMore: 'Show more',

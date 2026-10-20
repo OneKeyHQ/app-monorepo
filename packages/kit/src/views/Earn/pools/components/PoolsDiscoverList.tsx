@@ -9,7 +9,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { IKeyOfIcons } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type {
   IPoolListItem,
@@ -28,6 +27,7 @@ import { prefetchPoolOverview } from '../poolsQueries';
 import { PoolExpandedPanel, PoolStarButton } from './PoolOverview';
 import { PoolPairIcon } from './PoolPairIcon';
 import { PoolsChip } from './PoolsFilterButton';
+import { PoolsSortHeader } from './PoolsSortHeader';
 import { PoolChangeText } from './PoolStats';
 import { PoolBadgeRow } from './PoolTags';
 
@@ -123,51 +123,6 @@ function ValueCell({
       </SizableText>
       <PoolChangeText change={change} />
     </YStack>
-  );
-}
-
-function SortHeader({
-  label,
-  sortKey,
-  activeKey,
-  direction,
-  onSort,
-}: {
-  label: string;
-  sortKey: IPoolsSortKey;
-  activeKey: IPoolsSortKey;
-  direction: 'asc' | 'desc';
-  onSort: (key: IPoolsSortKey, direction: 'asc' | 'desc') => void;
-}) {
-  const active = sortKey === activeKey;
-  const icon: IKeyOfIcons =
-    active && direction === 'asc'
-      ? 'ChevronTopSmallOutline'
-      : 'ChevronDownSmallOutline';
-  return (
-    <XStack
-      testID={`earn-pools-sort-${sortKey}`}
-      flex={1}
-      flexBasis={0}
-      role="button"
-      ai="center"
-      jc="flex-end"
-      gap="$1"
-      cursor="pointer"
-      userSelect="none"
-      hoverStyle={{ opacity: 0.7 }}
-      onPress={() =>
-        onSort(sortKey, active && direction === 'desc' ? 'asc' : 'desc')
-      }
-    >
-      <Icon name={icon} size="$4.5" color={active ? '$icon' : '$iconSubdued'} />
-      <SizableText
-        size="$bodySmMedium"
-        color={active ? '$text' : '$textSubdued'}
-      >
-        {label}
-      </SizableText>
-    </XStack>
   );
 }
 
@@ -290,33 +245,41 @@ export function PoolsDiscoverTable({
       >
         {POOLS_COPY.pool}
       </SizableText>
-      <SortHeader
+      <PoolsSortHeader
         label={POOLS_COPY.tvl}
         sortKey="tvl"
         activeKey={sortKey}
         direction={sortDirection}
         onSort={onSortChange}
+        testID="earn-pools-sort-tvl"
+        flex={1}
       />
-      <SortHeader
+      <PoolsSortHeader
         label={POOLS_COPY.volume}
         sortKey="volume"
         activeKey={sortKey}
         direction={sortDirection}
         onSort={onSortChange}
+        testID="earn-pools-sort-volume"
+        flex={1}
       />
-      <SortHeader
+      <PoolsSortHeader
         label={POOLS_COPY.fees}
         sortKey="fees"
         activeKey={sortKey}
         direction={sortDirection}
         onSort={onSortChange}
+        testID="earn-pools-sort-fees"
+        flex={1}
       />
-      <SortHeader
+      <PoolsSortHeader
         label={POOLS_COPY.apr}
         sortKey="apr"
         activeKey={sortKey}
         direction={sortDirection}
         onSort={onSortChange}
+        testID="earn-pools-sort-apr"
+        flex={1}
       />
       <Stack width={CHEVRON_WIDTH} />
     </ListItem>

@@ -1,5 +1,4 @@
 import { useCallback, useState } from 'react';
-import type { ReactNode } from 'react';
 
 import {
   Alert,
@@ -112,42 +111,49 @@ export function usePoolShare(pool: IPoolListItem) {
   );
 }
 
+/** The pair's other pools, one row each, each opening its page */
+export function PoolSamePairList({ pools }: { pools: IPoolListItem[] }) {
+  const navigation = useAppNavigation();
+  return (
+    <YStack>
+      {pools.map((pool, index) => (
+        <XStack
+          key={pool.id}
+          testID={`earn-pool-same-pair-${pool.id}`}
+          role="button"
+          ai="center"
+          gap="$3"
+          py="$2.5"
+          borderTopWidth={index ? 1 : 0}
+          borderTopColor="$borderSubdued"
+          cursor="pointer"
+          hoverStyle={{ opacity: 0.8 }}
+          pressStyle={{ opacity: 0.6 }}
+          onPress={() => PoolsNavigation.pushPoolDetails(navigation, pool.id)}
+        >
+          <PoolTags pool={pool} flex={1} />
+          <YStack ai="flex-end" gap="$0.5">
+            <SizableText size="$bodyMdMedium">
+              {`${formatPercent(pool.windows['1D'].apr)} ${POOLS_COPY.apr}`}
+            </SizableText>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {`${formatCompactUsd(pool.tvlUsd)} ${POOLS_COPY.tvl}`}
+            </SizableText>
+          </YStack>
+        </XStack>
+      ))}
+    </YStack>
+  );
+}
+
 /** Other fee tiers and versions of the pair, to compare before opening */
 export function PoolSamePairCard({ pools }: { pools: IPoolListItem[] }) {
-  const navigation = useAppNavigation();
   if (!pools.length) {
     return null;
   }
   return (
     <PoolsCard title={POOLS_COPY.samePair} testID="earn-pool-same-pair">
-      <YStack>
-        {pools.map((pool, index) => (
-          <XStack
-            key={pool.id}
-            testID={`earn-pool-same-pair-${pool.id}`}
-            role="button"
-            ai="center"
-            gap="$3"
-            py="$2.5"
-            borderTopWidth={index ? 1 : 0}
-            borderTopColor="$borderSubdued"
-            cursor="pointer"
-            hoverStyle={{ opacity: 0.8 }}
-            pressStyle={{ opacity: 0.6 }}
-            onPress={() => PoolsNavigation.pushPoolDetails(navigation, pool.id)}
-          >
-            <PoolTags pool={pool} flex={1} />
-            <YStack ai="flex-end" gap="$0.5">
-              <SizableText size="$bodyMdMedium">
-                {`${formatPercent(pool.windows['1D'].apr)} ${POOLS_COPY.apr}`}
-              </SizableText>
-              <SizableText size="$bodySm" color="$textSubdued">
-                {`${formatCompactUsd(pool.tvlUsd)} ${POOLS_COPY.tvl}`}
-              </SizableText>
-            </YStack>
-          </XStack>
-        ))}
-      </YStack>
+      <PoolSamePairList pools={pools} />
     </PoolsCard>
   );
 }
@@ -232,21 +238,19 @@ export function PoolChartSection({
 }
 
 /**
- * The pool's info under its chart: top positions to copy a range from, the
- * page's own cards, then the pair's other pools.
+ * An opened row's info under its chart: top positions to copy a range from,
+ * then the pair's other pools.
  */
 export function PoolInfoSection({
   pool,
   detail,
   layout,
   onCopyRange,
-  children,
 }: {
   pool: IPoolListItem;
   detail: IPoolDetail | undefined;
   layout: 'table' | 'list';
   onCopyRange: (range: IPoolTickRange) => void;
-  children?: ReactNode;
 }) {
   return (
     <YStack gap="$4">
@@ -257,7 +261,6 @@ export function PoolInfoSection({
           onCopyRange={onCopyRange}
         />
       ) : null}
-      {children}
       <PoolSamePairCard pools={detail?.pairPools ?? []} />
     </YStack>
   );

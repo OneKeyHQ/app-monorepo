@@ -35,12 +35,12 @@ import type {
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { PoolHeader } from '../components/PoolHeader';
-import { PoolLiquidityChart } from '../components/PoolLiquidityChart';
 import {
   PoolPositionActionsFooter,
   usePoolPositionActions,
 } from '../components/PoolPositionActions';
 import { PoolPositionStatus } from '../components/PoolPositionCard';
+import { PoolStrataPlot } from '../components/PoolPositionStrata';
 import { getRangeDisplay } from '../components/PoolRangeBar';
 import { PoolsCard } from '../components/PoolsCard';
 import { PoolsDemoMenuButton } from '../components/PoolsDemoMenuButton';
@@ -167,19 +167,48 @@ function FeesCard({
   );
 }
 
-function RangeValue({ label, value }: { label: string; value: string }) {
+/** One of Min, Now and Max, on a well a step below the card */
+function RangeFigure({
+  label,
+  value,
+  caution = false,
+  large,
+}: {
+  label: string;
+  value: string;
+  /** Now, once the price has left the range */
+  caution?: boolean;
+  large: boolean;
+}) {
   return (
-    <YStack flex={1} gap="$1">
+    <YStack
+      flex={1}
+      flexBasis={0}
+      minWidth={0}
+      gap="$1"
+      px="$3"
+      py="$2.5"
+      borderRadius="$3"
+      bg="$bgApp"
+    >
       <SizableText size="$bodySm" color="$textSubdued">
         {label}
       </SizableText>
-      <SizableText size="$headingMd" numberOfLines={1}>
+      <SizableText
+        size={large ? '$headingLg' : '$bodyLgMedium'}
+        color={caution ? '$textCaution' : '$text'}
+        numberOfLines={1}
+      >
         {value}
       </SizableText>
     </YStack>
   );
 }
 
+/**
+ * The range: Min, Now and Max, Now turning amber when the price has left
+ * the range, then the position against the pool's liquidity.
+ */
 function RangeCard({
   view,
   ticks,
@@ -187,6 +216,7 @@ function RangeCard({
   view: IPoolPositionView;
   ticks: IPoolTickLiquidityNet[];
 }) {
+  const { gtMd } = useMedia();
   const { pool, position } = view;
   if (
     !pool.capabilities.priceRange ||
@@ -201,6 +231,7 @@ function RangeCard({
     tickUpper: position.tickUpper,
   };
   const display = getRangeDisplay(pool, range);
+  const outOfRange = view.status === EPoolPositionStatus.OutOfRange;
   const { inverted } = getPoolPair(pool);
   let notice: string | undefined;
   if (view.outOfRangeSide) {
@@ -215,32 +246,31 @@ function RangeCard({
       : POOLS_COPY.outOfRangeBelow(held);
   }
   return (
-    <PoolsCard title={POOLS_COPY.range}>
-      {display.isFull ? (
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {POOLS_COPY.fullRange}
+    <PoolsCard testID="earn-pool-position-range">
+      <XStack ai="baseline" gap="$2" flexWrap="wrap">
+        <SizableText size="$headingMd">{POOLS_COPY.range}</SizableText>
+        <SizableText size="$bodySm" color="$textSubdued">
+          {getPriceUnitLabel(pool)}
         </SizableText>
-      ) : (
-        <YStack gap="$4">
-          <XStack gap="$4">
-            <RangeValue
-              label={POOLS_COPY.minPrice}
-              value={formatTokenPrice(display.min)}
-            />
-            <RangeValue
-              label={POOLS_COPY.currentPrice}
-              value={formatTokenPrice(display.current)}
-            />
-            <RangeValue
-              label={POOLS_COPY.maxPrice}
-              value={formatTokenPrice(display.max)}
-            />
-          </XStack>
-          <SizableText size="$bodySm" color="$textSubdued">
-            {getPriceUnitLabel(pool)}
-          </SizableText>
-        </YStack>
-      )}
+      </XStack>
+      <XStack gap={gtMd ? '$3' : '$2'}>
+        <RangeFigure
+          label={POOLS_COPY.rangeMin}
+          value={display.isFull ? '0' : formatTokenPrice(display.min)}
+          large={gtMd}
+        />
+        <RangeFigure
+          label={POOLS_COPY.now}
+          value={formatTokenPrice(display.current)}
+          caution={outOfRange}
+          large={gtMd}
+        />
+        <RangeFigure
+          label={POOLS_COPY.rangeMax}
+          value={display.isFull ? '∞' : formatTokenPrice(display.max)}
+          large={gtMd}
+        />
+      </XStack>
       {notice ? (
         <Alert
           type="warning"
@@ -248,14 +278,11 @@ function RangeCard({
           description={notice}
         />
       ) : null}
-      <PoolLiquidityChart
+      <PoolStrataPlot
         pool={pool}
         ticks={ticks}
-        range={range}
-        tone={
-          view.status === EPoolPositionStatus.OutOfRange ? 'caution' : 'success'
-        }
-        height={120}
+        position={{ ...range, liquidity: BigInt(position.liquidity ?? '0') }}
+        inRange={!outOfRange}
       />
     </PoolsCard>
   );

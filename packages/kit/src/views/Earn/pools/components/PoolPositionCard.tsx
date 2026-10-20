@@ -1,6 +1,9 @@
 import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
 import { EPoolPositionStatus } from '@onekeyhq/shared/types/pools';
-import type { IPoolPositionView } from '@onekeyhq/shared/types/pools';
+import type {
+  IPoolPositionView,
+  IPoolTickLiquidityNet,
+} from '@onekeyhq/shared/types/pools';
 
 import { POOLS_COPY } from '../poolsCopy';
 import {
@@ -71,15 +74,18 @@ export function PoolPositionAmounts({ view }: { view: IPoolPositionView }) {
 
 /**
  * A position as a card (doc §2.6): pair, version and fee, value, both
- * amounts, status; range positions add the range against the current price
- * and unclaimed fees.
+ * amounts, status; range positions add their range against the pool's
+ * liquidity and unclaimed fees.
  */
 export function PoolPositionCard({
   view,
+  ticks,
   onPress,
   testID,
 }: {
   view: IPoolPositionView;
+  /** The pool's liquidity its range is drawn against; undefined while loading */
+  ticks: IPoolTickLiquidityNet[] | undefined;
   onPress?: () => void;
   testID?: string;
 }) {
@@ -129,8 +135,13 @@ export function PoolPositionCard({
       {hasRange ? (
         <PoolRangeBar
           pool={pool}
-          tickLower={position.tickLower ?? 0}
-          tickUpper={position.tickUpper ?? 0}
+          ticks={ticks}
+          position={{
+            tickLower: position.tickLower ?? 0,
+            tickUpper: position.tickUpper ?? 0,
+            liquidity: BigInt(position.liquidity ?? '0'),
+          }}
+          inRange={view.status === EPoolPositionStatus.Active}
         />
       ) : null}
       {hasFees ? (

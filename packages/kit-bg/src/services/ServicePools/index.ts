@@ -15,6 +15,7 @@ import type {
   IPoolTask,
   IPoolTaskRequest,
   IPoolTopPositionsPage,
+  IPoolTopPositionsSortKey,
   IPoolZapInPlan,
   IPoolZapInPlanParams,
   IPoolsDemoSettings,
@@ -137,12 +138,18 @@ class ServicePools extends ServiceBase {
     poolId,
     offset,
     limit,
+    sortBy,
   }: {
     poolId: string;
     offset?: number;
     limit?: number;
+    sortBy?: IPoolTopPositionsSortKey;
   }): Promise<IPoolTopPositionsPage> {
-    return getPoolTopPositions(this.getCatalog(), poolId, { offset, limit });
+    return getPoolTopPositions(this.getCatalog(), poolId, {
+      offset,
+      limit,
+      sortBy,
+    });
   }
 
   @backgroundMethod()

@@ -10,6 +10,7 @@ import type {
   IPoolPricePoint,
   IPoolPriceRange,
   IPoolTopPositionsPage,
+  IPoolTopPositionsSortKey,
   IPoolsPortfolio,
   IPoolsWallet,
 } from '@onekeyhq/shared/types/pools';
@@ -226,10 +227,15 @@ export const PoolsQueries = {
   topPositions: (
     poolId: string,
     limit: number,
+    sortBy: IPoolTopPositionsSortKey = 'apr',
   ): IPoolsQuery<IPoolTopPositionsPage> => ({
-    key: `top:${poolId}:${limit}`,
+    key: `top:${poolId}:${sortBy}:${limit}`,
     fetch: () =>
-      backgroundApiProxy.servicePools.getPoolTopPositions({ poolId, limit }),
+      backgroundApiProxy.servicePools.getPoolTopPositions({
+        poolId,
+        limit,
+        sortBy,
+      }),
   }),
   // Change with every transaction, so they go stale fast
   wallet: (networkId: string): IPoolsQuery<IPoolsWallet> => ({

@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import {
   Button,
+  IconButton,
   SizableText,
   Skeleton,
   Stack,
@@ -13,7 +15,11 @@ import {
   isFullRange,
 } from '@onekeyhq/shared/src/utils/poolsMath';
 import type { IPoolTickRange } from '@onekeyhq/shared/src/utils/poolsMath';
-import type { IPool, IPoolTopPosition } from '@onekeyhq/shared/types/pools';
+import type {
+  IPool,
+  IPoolTopPosition,
+  IPoolTopPositionsSortKey,
+} from '@onekeyhq/shared/types/pools';
 
 import { getRangeBarPosition } from '../poolsChartData';
 import { POOLS_COPY } from '../poolsCopy';
@@ -31,11 +37,17 @@ import {
 } from '../poolsQueries';
 
 import { PoolsCard } from './PoolsCard';
+import { PoolsSortHeader } from './PoolsSortHeader';
 
 // Log distance shown on each side of the current price, at least and at most
 const MIN_BAR_SPAN = Math.log(1.01);
 const MAX_BAR_SPAN = Math.log(3);
 const DAY_MS = 24 * 60 * 60 * 1000;
+const BAR_WIDTH = 96;
+// The copy button's column, so the header's columns line up with the rows'
+const COPY_COLUMN_WIDTH = 32;
+// Column widths, as flex shares
+const COLUMN_FLEX = { apr: 1, value: 1, earned: 1.2, openFor: 1, range: 2.6 };
 
 function getShownRange(pool: IPool, position: IPoolTopPosition) {
   const display = getDisplayRange({
@@ -68,11 +80,9 @@ function formatRangeText(range: { min: number; max: number; full: boolean }) {
   return `${min} – ${max}`;
 }
 
-function formatAge(createdAt: number) {
+function formatOpenFor(createdAt: number) {
   const days = Math.max(0, (Date.now() - createdAt) / DAY_MS);
-  return POOLS_COPY.ageDays(
-    days < 10 ? days.toFixed(1) : String(Math.round(days)),
-  );
+  return POOLS_COPY.openDays(days < 1 ? 0 : Math.round(days));
 }
 
 /**
@@ -85,33 +95,31 @@ function RangeMiniBar({
   current,
   span,
   inRange,
-  width,
 }: {
   min: number;
   max: number;
   current: number;
   span: number;
   inRange: boolean;
-  width: number;
 }) {
   const left = getRangeBarPosition(min, current, span);
   const right = Number.isFinite(max)
     ? getRangeBarPosition(max, current, span)
     : 1;
   return (
-    <Stack w={width} h="$3" jc="center" flexShrink={0}>
+    <Stack w={BAR_WIDTH} h="$3" jc="center" flexShrink={0}>
       <Stack h="$1" borderRadius="$full" bg="$neutral4" />
       <Stack
         position="absolute"
-        left={left * width}
-        w={Math.max(3, (right - left) * width)}
+        left={left * BAR_WIDTH}
+        w={Math.max(3, (right - left) * BAR_WIDTH)}
         h="$1"
         borderRadius="$full"
         bg={inRange ? '$iconSuccess' : '$iconCaution'}
       />
       <Stack
         position="absolute"
-        left={width / 2 - 1}
+        left={BAR_WIDTH / 2 - 1}
         w={2}
         h="$3"
         borderRadius="$full"
@@ -121,248 +129,287 @@ function RangeMiniBar({
   );
 }
 
-function CopyRangeButton({
-  onPress,
-  testID,
-}: {
-  onPress: () => void;
-  testID: string;
-}) {
-  return (
-    <Button
-      testID={testID}
-      size="small"
-      variant="secondary"
-      icon="Copy3Outline"
-      onPress={onPress}
-    >
-      {POOLS_COPY.copyRange}
-    </Button>
-  );
-}
-
 type IShownTopPosition = IPoolTopPosition & {
   shown: { min: number; max: number; full: boolean };
 };
 
-/** The range in numbers over its bar; a range the price has left says so */
-function RangeCell({
+/** The range's bar, and the range's state when it has stopped earning */
+function RangeLine({
   row,
   current,
   span,
-  barWidth,
+  children,
 }: {
   row: IShownTopPosition;
   current: number;
   span: number;
-  barWidth: number;
+  children?: ReactNode;
 }) {
   return (
-    <YStack gap="$1.5" minWidth={0}>
-      <SizableText size="$bodyMdMedium" numberOfLines={1}>
-        {formatRangeText(row.shown)}
-      </SizableText>
-      <XStack ai="center" gap="$2">
-        <RangeMiniBar
-          min={row.shown.min}
-          max={row.shown.max}
-          current={current}
-          span={span}
-          inRange={row.inRange}
-          width={barWidth}
-        />
-        {row.inRange ? null : (
-          <SizableText size="$bodySm" color="$textCaution" flexShrink={0}>
-            {POOLS_COPY.outOfRange}
-          </SizableText>
-        )}
-      </XStack>
-    </YStack>
+    <XStack ai="center" gap="$2" minWidth={0}>
+      <RangeMiniBar
+        min={row.shown.min}
+        max={row.shown.max}
+        current={current}
+        span={span}
+        inRange={row.inRange}
+      />
+      {row.inRange ? null : (
+        <SizableText
+          size="$bodySm"
+          color="$textCaution"
+          flexShrink={1}
+          numberOfLines={1}
+        >
+          {POOLS_COPY.outOfRange}
+        </SizableText>
+      )}
+      {children}
+    </XStack>
   );
 }
 
+function CopyRangeButton({
+  row,
+  onCopy,
+}: {
+  row: IShownTopPosition;
+  onCopy: (row: IShownTopPosition) => void;
+}) {
+  // A fixed column: a tertiary button's negative margins would otherwise
+  // give the row's figures more room than the header's
+  return (
+    <XStack w={COPY_COLUMN_WIDTH} jc="flex-end" flexShrink={0}>
+      <IconButton
+        testID={`earn-pool-copy-range-${row.tokenId}`}
+        size="small"
+        variant="tertiary"
+        icon="Copy3Outline"
+        title={POOLS_COPY.copyRange}
+        aria-label={POOLS_COPY.copyRange}
+        onPress={() => onCopy(row)}
+      />
+    </XStack>
+  );
+}
+
+function SortHeaders({
+  sortKey,
+  onSort,
+}: {
+  sortKey: IPoolTopPositionsSortKey;
+  onSort: (key: IPoolTopPositionsSortKey) => void;
+}) {
+  const header = (
+    key: IPoolTopPositionsSortKey,
+    label: string,
+    align: 'left' | 'right',
+  ) => (
+    <PoolsSortHeader
+      label={label}
+      sortKey={key}
+      activeKey={sortKey}
+      direction="desc"
+      descendingOnly
+      align={align}
+      onSort={(next) => onSort(next)}
+      testID={`earn-pool-top-positions-sort-${key}`}
+      flex={COLUMN_FLEX[key]}
+    />
+  );
+  return (
+    <>
+      {header('apr', POOLS_COPY.apr, 'left')}
+      {header('value', POOLS_COPY.positionValue, 'right')}
+      {header('earned', POOLS_COPY.earned, 'right')}
+    </>
+  );
+}
+
+/** APR, value and what it earned lead each row; its range is secondary */
+function RowFigures({ row }: { row: IShownTopPosition }) {
+  return (
+    <>
+      <SizableText
+        flex={COLUMN_FLEX.apr}
+        flexBasis={0}
+        size="$bodyLgMedium"
+        numberOfLines={1}
+      >
+        {formatPercent(row.apr, 1)}
+      </SizableText>
+      <SizableText
+        flex={COLUMN_FLEX.value}
+        flexBasis={0}
+        size="$bodyLgMedium"
+        textAlign="right"
+        numberOfLines={1}
+      >
+        {formatCompactUsd(row.valueUsd)}
+      </SizableText>
+      <SizableText
+        flex={COLUMN_FLEX.earned}
+        flexBasis={0}
+        size="$bodyLgMedium"
+        color="$textSuccess"
+        textAlign="right"
+        numberOfLines={1}
+      >
+        {`+${formatCompactUsd(row.feesEarnedUsd)}`}
+      </SizableText>
+    </>
+  );
+}
+
+type IRowsProps = {
+  rows: IShownTopPosition[];
+  current: number;
+  span: number;
+  sortKey: IPoolTopPositionsSortKey;
+  onSort: (key: IPoolTopPositionsSortKey) => void;
+  onCopy: (row: IShownTopPosition) => void;
+};
+
+/** Wide: how long each has been open, and its range in numbers over its bar */
 function TableRows({
   rows,
   current,
   span,
+  sortKey,
+  onSort,
   onCopy,
-}: {
-  rows: IShownTopPosition[];
-  current: number;
-  span: number;
-  onCopy: (row: IShownTopPosition) => void;
-}) {
+}: IRowsProps) {
   return (
     <YStack>
-      <XStack gap="$3" pb="$2" ai="center">
-        <SizableText flex={3} size="$bodySmMedium" color="$textSubdued">
+      <XStack gap="$4" pb="$2" ai="center">
+        <SortHeaders sortKey={sortKey} onSort={onSort} />
+        <SizableText
+          flex={COLUMN_FLEX.openFor}
+          flexBasis={0}
+          size="$bodySmMedium"
+          color="$textSubdued"
+          textAlign="right"
+          numberOfLines={1}
+        >
+          {POOLS_COPY.openFor}
+        </SizableText>
+        <SizableText
+          flex={COLUMN_FLEX.range}
+          flexBasis={0}
+          pl="$4"
+          size="$bodySmMedium"
+          color="$textSubdued"
+          numberOfLines={1}
+        >
           {POOLS_COPY.range}
         </SizableText>
-        <SizableText
-          flex={1.2}
-          size="$bodySmMedium"
-          color="$textSubdued"
-          textAlign="right"
-        >
-          {POOLS_COPY.positionValue}
-        </SizableText>
-        <SizableText
-          flex={1}
-          size="$bodySmMedium"
-          color="$textSubdued"
-          textAlign="right"
-        >
-          {POOLS_COPY.apr}
-        </SizableText>
-        <SizableText
-          flex={1.2}
-          size="$bodySmMedium"
-          color="$textSubdued"
-          textAlign="right"
-        >
-          {POOLS_COPY.earned}
-        </SizableText>
-        <SizableText
-          flex={0.8}
-          size="$bodySmMedium"
-          color="$textSubdued"
-          textAlign="right"
-        >
-          {POOLS_COPY.age}
-        </SizableText>
-        <Stack w={128} />
+        <Stack w={COPY_COLUMN_WIDTH} />
       </XStack>
       {rows.map((row) => (
         <XStack
           key={row.id}
           testID={`earn-pool-top-position-${row.tokenId}`}
-          gap="$3"
-          py="$2.5"
+          gap="$4"
+          py="$3"
           ai="center"
           borderTopWidth={1}
           borderTopColor="$borderSubdued"
         >
-          <YStack flex={3} minWidth={0}>
-            <RangeCell row={row} current={current} span={span} barWidth={96} />
-          </YStack>
+          <RowFigures row={row} />
           <SizableText
-            flex={1.2}
-            size="$bodyMd"
-            textAlign="right"
-            numberOfLines={1}
-          >
-            {formatCompactUsd(row.valueUsd)}
-          </SizableText>
-          <SizableText flex={1} size="$bodyMdMedium" textAlign="right">
-            {formatPercent(row.apr, 1)}
-          </SizableText>
-          <SizableText
-            flex={1.2}
-            size="$bodyMd"
-            color="$textSuccess"
-            textAlign="right"
-            numberOfLines={1}
-          >
-            {`+${formatCompactUsd(row.feesEarnedUsd)}`}
-          </SizableText>
-          <SizableText
-            flex={0.8}
+            flex={COLUMN_FLEX.openFor}
+            flexBasis={0}
             size="$bodyMd"
             color="$textSubdued"
             textAlign="right"
+            numberOfLines={1}
           >
-            {formatAge(row.createdAt)}
+            {formatOpenFor(row.createdAt)}
           </SizableText>
-          <XStack w={128} jc="flex-end">
-            <CopyRangeButton
-              testID={`earn-pool-copy-range-${row.tokenId}`}
-              onPress={() => onCopy(row)}
-            />
-          </XStack>
+          <YStack flex={COLUMN_FLEX.range} flexBasis={0} pl="$4" gap="$1">
+            <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+              {formatRangeText(row.shown)}
+            </SizableText>
+            <RangeLine row={row} current={current} span={span} />
+          </YStack>
+          <CopyRangeButton row={row} onCopy={onCopy} />
         </XStack>
       ))}
     </YStack>
   );
 }
 
+/** Narrow: the three figures, with the range's bar and age under them */
 function ListRows({
   rows,
   current,
   span,
+  sortKey,
+  onSort,
   onCopy,
-}: {
-  rows: IShownTopPosition[];
-  current: number;
-  span: number;
-  onCopy: (row: IShownTopPosition) => void;
-}) {
+}: IRowsProps) {
   return (
     <YStack>
-      {rows.map((row, index) => (
-        <YStack
+      <XStack gap="$3" pb="$2" ai="center">
+        <XStack flex={1} gap="$3" ai="center">
+          <SortHeaders sortKey={sortKey} onSort={onSort} />
+        </XStack>
+        <Stack w={COPY_COLUMN_WIDTH} />
+      </XStack>
+      {rows.map((row) => (
+        <XStack
           key={row.id}
           testID={`earn-pool-top-position-${row.tokenId}`}
-          gap="$2"
+          gap="$3"
           py="$3"
-          borderTopWidth={index ? 1 : 0}
+          ai="center"
+          borderTopWidth={1}
           borderTopColor="$borderSubdued"
         >
-          <XStack ai="center" jc="space-between" gap="$3">
-            <YStack flex={1} minWidth={0}>
-              <RangeCell
-                row={row}
-                current={current}
-                span={span}
-                barWidth={96}
-              />
-            </YStack>
-            <CopyRangeButton
-              testID={`earn-pool-copy-range-${row.tokenId}`}
-              onPress={() => onCopy(row)}
-            />
-          </XStack>
-          <XStack gap="$4" flexWrap="wrap">
-            <SizableText size="$bodySm" color="$textSubdued">
-              {`${POOLS_COPY.apr} `}
-              <SizableText size="$bodySmMedium" color="$text">
-                {formatPercent(row.apr, 1)}
+          <YStack flex={1} minWidth={0} gap="$1.5">
+            <XStack gap="$3" ai="center">
+              <RowFigures row={row} />
+            </XStack>
+            <RangeLine row={row} current={current} span={span}>
+              <SizableText
+                flex={1}
+                size="$bodySm"
+                color="$textSubdued"
+                textAlign="right"
+                numberOfLines={1}
+              >
+                {formatOpenFor(row.createdAt)}
               </SizableText>
-            </SizableText>
-            <SizableText size="$bodySm" color="$textSubdued">
-              {`${POOLS_COPY.positionValue} `}
-              <SizableText size="$bodySmMedium" color="$text">
-                {formatCompactUsd(row.valueUsd)}
-              </SizableText>
-            </SizableText>
-            <SizableText size="$bodySm" color="$textSubdued">
-              {`${POOLS_COPY.earned} `}
-              <SizableText size="$bodySmMedium" color="$textSuccess">
-                {`+${formatCompactUsd(row.feesEarnedUsd)}`}
-              </SizableText>
-            </SizableText>
-          </XStack>
-        </YStack>
+            </RangeLine>
+          </YStack>
+          <CopyRangeButton row={row} onCopy={onCopy} />
+        </XStack>
       ))}
     </YStack>
   );
 }
 
 /**
- * Other LPs' ranges in this pool, best earners first (Revert's Top
- * positions). Each can be copied into the create form.
+ * Other LPs' open positions in this pool, ranked by APR, value or what they
+ * earned (Revert's Top positions); any one's range can be copied into the
+ * create form. `tab` is a pool page's tab, which names it already; `card`
+ * is an opened row's block.
  */
 export function PoolTopPositions({
   pool,
   layout,
   onCopyRange,
+  variant = 'card',
 }: {
   pool: IPool;
   layout: 'table' | 'list';
   onCopyRange: (range: IPoolTickRange) => void;
+  variant?: 'card' | 'tab';
 }) {
   const [limit, setLimit] = useState(TOP_POSITIONS_PAGE_SIZE);
+  const [sortKey, setSortKey] = useState<IPoolTopPositionsSortKey>('apr');
   const { result: page } = usePoolsQuery(
-    PoolsQueries.topPositions(pool.id, limit),
+    PoolsQueries.topPositions(pool.id, limit, sortKey),
   );
   const current = getPoolDisplayPrice(pool).toNumber();
 
@@ -400,7 +447,7 @@ export function PoolTopPositions({
     body = (
       <YStack gap="$3">
         {Array.from({ length: 3 }).map((_, index) => (
-          <Skeleton key={index} w="100%" h="$8" borderRadius="$2" />
+          <Skeleton key={index} w="100%" h="$10" borderRadius="$2" />
         ))}
       </YStack>
     );
@@ -410,19 +457,50 @@ export function PoolTopPositions({
         {POOLS_COPY.noTopPositions(formatCompactUsd(page.minValueUsd))}
       </SizableText>
     );
-  } else if (layout === 'table') {
-    body = (
-      <TableRows rows={rows} current={current} span={span} onCopy={copy} />
-    );
   } else {
-    body = <ListRows rows={rows} current={current} span={span} onCopy={copy} />;
+    const Rows = layout === 'table' ? TableRows : ListRows;
+    body = (
+      <Rows
+        rows={rows}
+        current={current}
+        span={span}
+        sortKey={sortKey}
+        onSort={setSortKey}
+        onCopy={copy}
+      />
+    );
   }
 
   const hint = page ? (
-    <SizableText size="$bodySm" color="$textSubdued">
+    <SizableText
+      size={variant === 'tab' ? '$bodyMd' : '$bodySm'}
+      color="$textSubdued"
+    >
       {POOLS_COPY.topPositionsHint(formatCompactUsd(page.minValueUsd))}
     </SizableText>
   ) : null;
+  const more =
+    page && page.total > rows.length ? (
+      <Button
+        testID="earn-pool-top-positions-more"
+        size="small"
+        variant="tertiary"
+        alignSelf="center"
+        onPress={() => setLimit((value) => value + TOP_POSITIONS_PAGE_SIZE)}
+      >
+        {POOLS_COPY.showMore}
+      </Button>
+    ) : null;
+
+  if (variant === 'tab') {
+    return (
+      <YStack testID="earn-pool-top-positions" gap="$4">
+        {hint}
+        {body}
+        {more}
+      </YStack>
+    );
+  }
   // Wide cards put the hint beside the title; narrow ones under it
   return (
     <PoolsCard
@@ -437,17 +515,7 @@ export function PoolTopPositions({
         </YStack>
       )}
       {body}
-      {page && page.total > rows.length ? (
-        <Button
-          testID="earn-pool-top-positions-more"
-          size="small"
-          variant="tertiary"
-          alignSelf="center"
-          onPress={() => setLimit((value) => value + TOP_POSITIONS_PAGE_SIZE)}
-        >
-          {POOLS_COPY.showMore}
-        </Button>
-      ) : null}
+      {more}
     </PoolsCard>
   );
 }

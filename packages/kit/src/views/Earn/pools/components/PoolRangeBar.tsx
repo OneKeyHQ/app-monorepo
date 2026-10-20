@@ -1,9 +1,12 @@
-import { SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import {
   getDisplayRange,
   isFullRange,
 } from '@onekeyhq/shared/src/utils/poolsMath';
-import type { IPool } from '@onekeyhq/shared/types/pools';
+import type {
+  IPool,
+  IPoolTickLiquidityNet,
+} from '@onekeyhq/shared/types/pools';
 
 import { POOLS_COPY } from '../poolsCopy';
 import {
@@ -11,6 +14,10 @@ import {
   getPoolDisplayPrice,
   getPoolPair,
 } from '../poolsFormat';
+
+import { PoolStrataPreview } from './PoolPositionStrata';
+
+import type { IStrataPosition } from '../poolsStrata';
 
 /** Display min, max and current price of a range, in the pair's direction */
 export function getRangeDisplay(
@@ -33,72 +40,50 @@ export function getRangeDisplay(
 }
 
 /**
- * Where the price sits against the range: a track, the range on it and a dot
- * for the current price (doc §2.6). Log scale, so ±10% looks symmetric.
+ * A position's range against its pool's liquidity: the pool's bars with the
+ * position's piece on top, the price as a line. Its bounds read under it.
  */
 export function PoolRangeBar({
   pool,
-  tickLower,
-  tickUpper,
+  ticks,
+  position,
+  inRange,
   showLabels = true,
 }: {
   pool: IPool;
-  tickLower: number;
-  tickUpper: number;
+  /** Undefined while the pool's detail loads */
+  ticks: IPoolTickLiquidityNet[] | undefined;
+  position: IStrataPosition;
+  inRange: boolean;
   showLabels?: boolean;
 }) {
-  const range = getRangeDisplay(pool, { tickLower, tickUpper });
-  if (range.isFull) {
-    return (
-      <SizableText size="$bodyMd" color="$textSubdued">
+  const range = getRangeDisplay(pool, position);
+  let labels = null;
+  if (showLabels) {
+    labels = range.isFull ? (
+      <SizableText size="$bodySm" color="$textSubdued">
         {POOLS_COPY.fullRange}
       </SizableText>
+    ) : (
+      <XStack jc="space-between">
+        <SizableText size="$bodySm" color="$textSubdued">
+          {`${POOLS_COPY.rangeMin} ${formatTokenPrice(range.min)}`}
+        </SizableText>
+        <SizableText size="$bodySm" color="$textSubdued">
+          {`${POOLS_COPY.rangeMax} ${formatTokenPrice(range.max)}`}
+        </SizableText>
+      </XStack>
     );
   }
-  const min = Math.log(range.min.toNumber());
-  const max = Math.log(range.max.toNumber());
-  const now = Math.log(range.current.toNumber());
-  const lo = Math.min(min, now);
-  const hi = Math.max(max, now);
-  const pad = (hi - lo) * 0.18 || 0.01;
-  const toPct = (value: number) =>
-    ((value - (lo - pad)) / (hi - lo + pad * 2)) * 100;
-  const inRange = now >= min && now <= max;
-
   return (
     <YStack gap="$1.5">
-      <Stack h={8} justifyContent="center">
-        <Stack h={4} borderRadius="$full" bg="$bgStrong" />
-        <Stack
-          position="absolute"
-          h={4}
-          left={`${toPct(min)}%`}
-          w={`${toPct(max) - toPct(min)}%`}
-          borderRadius="$full"
-          bg={inRange ? '$iconSuccess' : '$iconCaution'}
-        />
-        <Stack
-          position="absolute"
-          left={`${toPct(now)}%`}
-          ml={-4}
-          w={8}
-          h={8}
-          borderRadius="$full"
-          bg="$icon"
-          borderWidth={1.5}
-          borderColor="$bgApp"
-        />
-      </Stack>
-      {showLabels ? (
-        <XStack jc="space-between">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {`${POOLS_COPY.rangeMin} ${formatTokenPrice(range.min)}`}
-          </SizableText>
-          <SizableText size="$bodySm" color="$textSubdued">
-            {`${POOLS_COPY.rangeMax} ${formatTokenPrice(range.max)}`}
-          </SizableText>
-        </XStack>
-      ) : null}
+      <PoolStrataPreview
+        pool={pool}
+        ticks={ticks}
+        position={position}
+        inRange={inRange}
+      />
+      {labels}
     </YStack>
   );
 }
