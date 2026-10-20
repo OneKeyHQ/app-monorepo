@@ -169,12 +169,18 @@ const SOL_BLOCKHASH_NOT_FOUND_MESSAGE = 'Blockhash not found';
 const SOL_BLOCKHASH_NOT_FOUND_MAX_RETRY_ATTEMPTS = 2;
 // getSignatureStatuses accepts at most 256 signatures per request.
 const SOL_SIGNATURE_STATUSES_MAX_PER_CALL = 256;
-// Upper bound on how long a signed payload can still be accepted after it
-// left this runtime: its blockhash was fetched before signing and lives 150
-// blocks (~30-60 s), so an unseen signature older than this can never land.
-// Ends the status wait when the node cannot answer isBlockhashValid.
+// Wall-clock fallback for the broadcast status check when the node cannot
+// answer isBlockhashValid: a blockhash lives 150 blocks (~30-60 s at any
+// cadence the cluster has run at), so an unseen signature this much older
+// than its broadcast attempt can never land unless the chain has halted.
 const SOL_SIGNED_TX_MAX_VALIDITY_MS = timerUtils.getTimeDurationMs({
-  minute: 2,
+  minute: 10,
+});
+// Hard cap on one status check, measured from its start. A node that keeps
+// reporting the blockhash valid for this long is broken; give up with an
+// error rather than guess either way.
+const SOL_BROADCAST_STATUS_MAX_WAIT_MS = timerUtils.getTimeDurationMs({
+  minute: 10,
 });
 const SOL_BROADCAST_STATUS_POLL_INTERVAL_MS = timerUtils.getTimeDurationMs({
   seconds: 2,
@@ -803,6 +809,7 @@ export default class Vault extends VaultBase {
     }
     const blockhash = nativeTx ? getSolTxRecentBlockhash(nativeTx) : undefined;
     const client = await this.getClient();
+    const startedAt = Date.now();
     for (;;) {
       // The lookup searches transaction history, so `null` only means the
       // signature has not reached the ledger yet: it may still be in flight
@@ -816,22 +823,33 @@ export default class Vault extends VaultBase {
           ? ESignedTxBroadcastStatus.Broadcast
           : ESignedTxBroadcastStatus.NotBroadcast;
       }
-      if (Date.now() - attemptedAt >= SOL_SIGNED_TX_MAX_VALIDITY_MS) {
-        return ESignedTxBroadcastStatus.NotBroadcast;
-      }
+      // The node's own view of the blockhash is the verdict; the wall clock
+      // only decides when the node cannot answer, because block time, not
+      // elapsed time, is what expires a blockhash.
+      let isBlockhashStillValid: boolean | undefined;
       if (blockhash) {
         try {
-          if (!(await client.isBlockhashValid(blockhash))) {
-            return ESignedTxBroadcastStatus.NotBroadcast;
-          }
+          isBlockhashStillValid = await client.isBlockhashValid(blockhash);
         } catch (error) {
-          // Not every node exposes isBlockhashValid; the wall-clock bound
-          // above still ends the wait.
           console.error(
             'SOL checkSignedTxBroadcastStatus: isBlockhashValid failed',
             error,
           );
         }
+      }
+      if (isBlockhashStillValid === false) {
+        return ESignedTxBroadcastStatus.NotBroadcast;
+      }
+      if (
+        isBlockhashStillValid === undefined &&
+        Date.now() - attemptedAt >= SOL_SIGNED_TX_MAX_VALIDITY_MS
+      ) {
+        return ESignedTxBroadcastStatus.NotBroadcast;
+      }
+      if (Date.now() - startedAt >= SOL_BROADCAST_STATUS_MAX_WAIT_MS) {
+        throw new OneKeyLocalError(
+          'Solana broadcast status is still unknown; try again later',
+        );
       }
       await timerUtils.wait(SOL_BROADCAST_STATUS_POLL_INTERVAL_MS);
     }

@@ -880,9 +880,46 @@ describe('SolVault.checkSignedTxBroadcastStatus', () => {
     await expect(
       vault.checkSignedTxBroadcastStatus({
         signedTx,
-        attemptedAt: now - timerUtils.getTimeDurationMs({ minute: 3 }),
+        attemptedAt: now - timerUtils.getTimeDurationMs({ minute: 11 }),
       }),
     ).resolves.toBe(ESignedTxBroadcastStatus.NotBroadcast);
+  });
+
+  it('trusts a still-valid blockhash over the wall clock', async () => {
+    const { vault } = buildVault();
+    const getSignatureStatuses = jest
+      .fn()
+      .mockResolvedValueOnce([null])
+      .mockResolvedValueOnce([{ confirmationStatus: 'confirmed', err: null }]);
+    mockClient(vault, {
+      getSignatureStatuses,
+      isBlockhashValid: jest.fn(async () => true),
+    } as unknown as Partial<ClientSol>);
+
+    await expect(
+      vault.checkSignedTxBroadcastStatus({
+        signedTx,
+        attemptedAt: now - timerUtils.getTimeDurationMs({ minute: 30 }),
+      }),
+    ).resolves.toBe(ESignedTxBroadcastStatus.Broadcast);
+    expect(getSignatureStatuses).toHaveBeenCalledTimes(2);
+  });
+
+  it('gives up with an error when the node keeps calling the blockhash valid', async () => {
+    const { vault } = buildVault();
+    let current = now;
+    jest.spyOn(Date, 'now').mockImplementation(() => current);
+    jest.spyOn(timerUtils, 'wait').mockImplementation(async () => {
+      current += timerUtils.getTimeDurationMs({ minute: 6 });
+    });
+    mockClient(vault, {
+      getSignatureStatuses: jest.fn(async () => [null]),
+      isBlockhashValid: jest.fn(async () => true),
+    } as unknown as Partial<ClientSol>);
+
+    await expect(
+      vault.checkSignedTxBroadcastStatus({ signedTx, attemptedAt: now }),
+    ).rejects.toThrow('still unknown');
   });
 
   it('cannot judge a durable-nonce tx and says so without touching the RPC', async () => {

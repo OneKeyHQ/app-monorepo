@@ -15,7 +15,26 @@ jest.mock('p-limit', () => ({
 
 jest.mock('p-retry', () => ({
   __esModule: true,
-  default: async (fn: () => Promise<unknown>) => fn(),
+  default: async (
+    fn: () => Promise<unknown>,
+    options: {
+      retries?: number;
+      shouldRetry?: (error: unknown) => boolean | Promise<boolean>;
+    },
+  ) => {
+    let retryCount = 0;
+    for (;;) {
+      try {
+        return await fn();
+      } catch (error) {
+        const shouldRetry = await options.shouldRetry?.(error);
+        if (!shouldRetry || retryCount >= (options.retries ?? 0)) {
+          throw error;
+        }
+        retryCount += 1;
+      }
+    }
+  },
 }));
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
@@ -460,6 +479,34 @@ describe('ServiceSend.batchSignAndSendTransaction retry after partial failure', 
     expect(broadcastRecords.deleteRecord).toHaveBeenCalledWith('u0');
     expect(vault.checkSignedTxBroadcastStatus).not.toHaveBeenCalled();
     expect(signedUuids(vault)).toEqual(['u0', 'u0']);
+  });
+
+  it('keeps the record when a later attempt of the same payload is rejected after an ambiguous one', async () => {
+    const { service, vault, backgroundApi, broadcastRecords } = makeService();
+    const unsignedTxs = [buildUnsignedTx('u0')];
+    backgroundApi.serviceNetwork.getVaultSettings.mockResolvedValue({
+      maxRetryBroadcastTxCount: 1,
+      minRetryBroadcastTxInterval: 0,
+      nonceRequired: false,
+    });
+    vault.checkShouldRetryBroadcastTx.mockResolvedValue(true);
+    failBroadcastOnce(vault, 'timeout of 10000ms exceeded');
+    failBroadcastOnce(vault, 'Transaction expired');
+    vault.isSignedTxRejectedByBroadcast.mockImplementation(
+      async (error: Error) => error.message === 'Transaction expired',
+    );
+    vault.checkSignedTxBroadcastStatus.mockResolvedValue(
+      ESignedTxBroadcastStatus.Broadcast,
+    );
+
+    await expect(batchSend(service, unsignedTxs)).rejects.toThrow('expired');
+    expect(broadcastRecords.deleteRecord).not.toHaveBeenCalled();
+
+    const result = await batchSend(service, unsignedTxs);
+
+    expect(vault.checkSignedTxBroadcastStatus).toHaveBeenCalledTimes(1);
+    expect(signedUuids(vault)).toEqual(['u0']);
+    expect(result[0].signedTx.txid).toBe(signatureOf('u0'));
   });
 
   it('never treats a sign-only request as broadcast', async () => {

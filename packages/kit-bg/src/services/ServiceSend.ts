@@ -911,6 +911,10 @@ class ServiceSend extends ServiceBase {
       }
 
       let hasAttemptedBroadcast = false;
+      // Set when an attempt failed without the node positively rejecting
+      // the payload (timeout, reset): it may have been accepted, so a later
+      // rejection of the same payload must not erase the record.
+      let hadAmbiguousBroadcastAttempt = false;
       const broadcastOnce = async () => {
         ensureBroadcastDeadline();
         if (!hasAttemptedBroadcast && primeBroadcastDiagnosticContext) {
@@ -925,17 +929,27 @@ class ServiceSend extends ServiceBase {
           });
         }
         hasAttemptedBroadcast = true;
-        return vault.broadcastTransaction({
-          accountId,
-          networkId,
-          accountAddress,
-          signedTx,
-          rawTxType,
-          tronResourceRentalInfo,
-          gasAccountUiState,
-          isPrivateSend,
-          useDefaultRpc,
-        });
+        try {
+          return await vault.broadcastTransaction({
+            accountId,
+            networkId,
+            accountAddress,
+            signedTx,
+            rawTxType,
+            tronResourceRentalInfo,
+            gasAccountUiState,
+            isPrivateSend,
+            useDefaultRpc,
+          });
+        } catch (error) {
+          if (
+            unsignedTx.uuid &&
+            !(await vault.isSignedTxRejectedByBroadcast(error))
+          ) {
+            hadAmbiguousBroadcastAttempt = true;
+          }
+          throw error;
+        }
       };
 
       // 90212 GasAccountAdmissionOverloaded is a transient, idempotent retry
@@ -1071,8 +1085,12 @@ class ServiceSend extends ServiceBase {
       const { txid } = await runBroadcast().catch(async (error) => {
         // A node that evaluated and refused the payload never held it, so
         // the retry may sign at once instead of waiting for a chain verdict.
+        // Only when every attempt was refused: an earlier ambiguous attempt
+        // may have been accepted even if the last one hit an expired
+        // blockhash.
         if (
           unsignedTx.uuid &&
+          !hadAmbiguousBroadcastAttempt &&
           (await vault.isSignedTxRejectedByBroadcast(error))
         ) {
           await this.forgetBroadcastAttempt({ unsignedTx });
