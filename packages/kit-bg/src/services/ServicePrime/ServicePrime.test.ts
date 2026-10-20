@@ -4,6 +4,10 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 import type { IPrimeGiftVerifyV2Result } from '@onekeyhq/shared/types/prime/primeGiftTypes';
+import type {
+  IOneKeyIdOAuthLoginResponse,
+  IPrimeServerUserInfo,
+} from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
 
@@ -7817,5 +7821,196 @@ describe('ServicePrime hardware Prime gift orchestration', () => {
     expect(legacyRead).not.toHaveBeenCalled();
     expect(legacyWrite).not.toHaveBeenCalled();
     expect(giftEventSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ServicePrime inviteProfilePublic', () => {
+  const originalPrimeAtomGet = mockPrimePersistAtom.get.getMockImplementation();
+  const originalPrimeAtomSet = mockPrimePersistAtom.set.getMockImplementation();
+  const restoreSpies: Array<{ mockRestore: () => void }> = [];
+
+  function installPrimeAtom(initial: Record<string, unknown>) {
+    let stored = initial;
+    mockPrimePersistAtom.get.mockImplementation(async () => stored);
+    mockPrimePersistAtom.set.mockImplementation(async (update?: unknown) => {
+      if (typeof update === 'function') {
+        stored = (
+          update as (value: Record<string, unknown>) => Record<string, unknown>
+        )(stored);
+        return undefined;
+      }
+      stored = update as Record<string, unknown>;
+      return undefined;
+    });
+    return {
+      read: () => stored,
+    };
+  }
+
+  afterEach(() => {
+    for (const spy of restoreSpies) {
+      spy.mockRestore();
+    }
+    restoreSpies.length = 0;
+    mockPrimePersistAtom.get.mockImplementation(
+      originalPrimeAtomGet ?? (async () => ({})),
+    );
+    mockPrimePersistAtom.set.mockImplementation(
+      originalPrimeAtomSet ?? (async () => undefined),
+    );
+    jest.useRealTimers();
+  });
+
+  it('updates only the invite consent flag and keeps it on the same user', async () => {
+    jest.useFakeTimers();
+    const { service } = createService();
+    const put = jest.fn(async () => ({ data: { code: 0 } }));
+    service.getPrimeClient = jest.fn(async () => ({ put }));
+    const atom = installPrimeAtom({
+      onekeyUserId: 'user-a',
+      inviteProfilePublic: false,
+    });
+    restoreSpies.push(
+      jest
+        .spyOn(service, 'apiFetchPrimeUserInfo')
+        .mockResolvedValue({} as never),
+    );
+
+    await expect(
+      service.updateInviteProfilePublic({ enabled: true }),
+    ).resolves.toBe(true);
+
+    expect(put).toHaveBeenCalledWith('/prime/v1/user/info', {
+      inviteProfilePublic: true,
+    });
+    expect(atom.read().inviteProfilePublic).toBe(true);
+    jest.runOnlyPendingTimers();
+  });
+
+  it('does not write the flag when the account changes during the request', async () => {
+    const { service } = createService();
+    const atom = installPrimeAtom({
+      onekeyUserId: 'user-a',
+      inviteProfilePublic: false,
+    });
+    const put = jest.fn(async () => {
+      atom.read().onekeyUserId = 'user-b';
+      return { data: { code: 0 } };
+    });
+    service.getPrimeClient = jest.fn(async () => ({ put }));
+
+    await expect(
+      service.updateInviteProfilePublic({ enabled: true }),
+    ).resolves.toBe(true);
+    expect(atom.read().onekeyUserId).toBe('user-b');
+    expect(atom.read().inviteProfilePublic).toBe(false);
+  });
+
+  it('stores the server consent flag and clears it when the field is absent', async () => {
+    const { service } = createService();
+    const atom = installPrimeAtom({
+      onekeyUserId: 'user-a',
+      inviteProfilePublic: true,
+    });
+
+    await service.updatePrimeAtomByServerUserInfo({
+      serverUserInfo: {
+        userId: 'user-a',
+        avatar: 'https://example.com/cat.png',
+        nickname: 'eric',
+        isPrime: false,
+        emails: ['eric@example.com'],
+        inviteProfilePublic: true,
+      } as IPrimeServerUserInfo,
+    });
+    expect(atom.read().inviteProfilePublic).toBe(true);
+
+    await service.updatePrimeAtomByServerUserInfo({
+      serverUserInfo: {
+        userId: 'user-a',
+        avatar: 'https://example.com/cat.png',
+        nickname: 'eric',
+        isPrime: false,
+        emails: ['eric@example.com'],
+        inviteProfilePublic: false,
+      } as IPrimeServerUserInfo,
+    });
+    expect(atom.read().inviteProfilePublic).toBe(false);
+
+    await service.updatePrimeAtomByServerUserInfo({
+      serverUserInfo: {
+        userId: 'user-a',
+        avatar: 'https://example.com/cat.png',
+        nickname: 'eric',
+        isPrime: false,
+        emails: ['eric@example.com'],
+      } as IPrimeServerUserInfo,
+    });
+    expect(atom.read().inviteProfilePublic).toBeUndefined();
+  });
+
+  it('does not carry invite consent across an account switch', async () => {
+    const { service } = createService();
+    const atom = installPrimeAtom({
+      onekeyUserId: 'user-a',
+      inviteProfilePublic: true,
+    });
+    const loginResponse = {
+      userId: 'user-b',
+      emails: [],
+      onekeyAccount: {
+        onekeyUserId: 'user-b',
+        status: EOneKeyIdAccountStatus.Active,
+        identities: [],
+      },
+    } as unknown as IOneKeyIdOAuthLoginResponse;
+
+    await service.updatePrimeAtomByOAuthLoginResponse({ loginResponse });
+
+    expect(atom.read().inviteProfilePublic).toBeUndefined();
+    expect(atom.read().onekeyUserId).toBe('user-b');
+  });
+
+  it('keeps the same user consent when the login payload omits the field', async () => {
+    const { service } = createService();
+    const atom = installPrimeAtom({
+      onekeyUserId: 'user-a',
+      inviteProfilePublic: true,
+    });
+    const loginResponse = {
+      userId: 'user-a',
+      emails: [],
+      onekeyAccount: {
+        onekeyUserId: 'user-a',
+        status: EOneKeyIdAccountStatus.Active,
+        identities: [],
+      },
+    } as unknown as IOneKeyIdOAuthLoginResponse;
+
+    await service.updatePrimeAtomByOAuthLoginResponse({ loginResponse });
+
+    expect(atom.read().inviteProfilePublic).toBe(true);
+  });
+
+  it('uses an explicit false from the login payload', async () => {
+    const { service } = createService();
+    const atom = installPrimeAtom({
+      onekeyUserId: 'user-a',
+      inviteProfilePublic: true,
+    });
+    const loginResponse = {
+      userId: 'user-a',
+      emails: [],
+      inviteProfilePublic: false,
+      onekeyAccount: {
+        onekeyUserId: 'user-a',
+        status: EOneKeyIdAccountStatus.Active,
+        identities: [],
+      },
+    } as unknown as IOneKeyIdOAuthLoginResponse;
+
+    await service.updatePrimeAtomByOAuthLoginResponse({ loginResponse });
+
+    expect(atom.read().inviteProfilePublic).toBe(false);
   });
 });

@@ -4647,6 +4647,9 @@ class ServicePrime extends ServiceBase {
         ...v,
         avatar: serverUserInfo?.avatar,
         nickname: serverUserInfo?.nickname,
+        // GET /user/info is the source of truth. An omitted field means the
+        // user has not authorized public display, so do not keep a stale true.
+        inviteProfilePublic: serverUserInfo?.inviteProfilePublic,
         email: userEmail,
         displayEmail,
         onekeyUserId: serverUserId,
@@ -4734,6 +4737,9 @@ class ServicePrime extends ServiceBase {
         avatar: loginResponse.avatar ?? (isSameUser ? v.avatar : undefined),
         nickname:
           loginResponse.nickname ?? (isSameUser ? v.nickname : undefined),
+        inviteProfilePublic:
+          loginResponse.inviteProfilePublic ??
+          (isSameUser ? v.inviteProfilePublic : undefined),
         email: userEmail,
         displayEmail,
         onekeyUserId: onekeyAccount.onekeyUserId,
@@ -6249,6 +6255,39 @@ class ServicePrime extends ServiceBase {
       void this.apiFetchPrimeUserInfo();
     });
     return result.data.code === 0;
+  }
+
+  @backgroundMethod()
+  async updateInviteProfilePublic({ enabled }: { enabled: boolean }) {
+    // Send only this field. Omitted avatar and nickname stay unchanged.
+    const beforeUserId = (await primePersistAtom.get()).onekeyUserId;
+    const client = await this.getPrimeClient();
+    const result = await client.put<IApiClientResponse<{ success: boolean }>>(
+      `/prime/v1/user/info`,
+      {
+        inviteProfilePublic: enabled,
+      },
+    );
+    const success = result.data.code === 0;
+    if (!success) {
+      return false;
+    }
+    if (beforeUserId) {
+      await primePersistAtom.set((current) => {
+        if (current.onekeyUserId !== beforeUserId) {
+          return current;
+        }
+        return {
+          ...current,
+          inviteProfilePublic: enabled,
+        };
+      });
+    }
+    this.clearPrimeUserInfoCache();
+    setTimeout(() => {
+      void this.apiFetchPrimeUserInfo();
+    });
+    return true;
   }
 }
 
