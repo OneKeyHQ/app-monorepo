@@ -54,6 +54,7 @@ jest.mock('@onekeyhq/components', () => {
     Dialog: { show: showDialog },
     Icon: () => null,
     Illustration: () => null,
+    Image: () => null,
     NATIVE_HIT_SLOP: undefined,
     NumberSizeableText: Primitive,
     SizableText: Primitive,
@@ -239,7 +240,7 @@ describe('MyRewardsContent', () => {
     const copyCell = screen.getByTestId('my-rewards-copy-address');
     expect(copyCell.textContent).toBe('0x4EF880...0A296e');
     expect(screen.getByTestId('my-rewards-summary-card').textContent).toContain(
-      'Rewards are counted per address',
+      'Paid in USDC to this address',
     );
 
     fireEvent.click(copyCell);

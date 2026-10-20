@@ -8,6 +8,7 @@ import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Dialog,
   Icon,
+  Image,
   NATIVE_HIT_SLOP,
   SizableText,
   Skeleton,
@@ -29,6 +30,7 @@ import { InviteeRewardContent as PerpsInviteeRewardContent } from '@onekeyhq/kit
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
 import { SwapInviteeRewardContent } from '@onekeyhq/kit/src/views/Swap/components/InviteeReward/SwapInviteeRewardContent';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteeRewardsOverview } from '@onekeyhq/shared/src/referralCode/type';
@@ -60,6 +62,11 @@ type IRewardModule = keyof IInviteeRewardsOverview;
 // Hardcoded English until i18n keys are added in Lokalise.
 const MY_REWARDS_COPY = {
   addressScope: 'Rewards are counted per address',
+  payoutGeneric: 'Rewards are paid to this address',
+  payoutIn: (token: string, network?: string) =>
+    network
+      ? `Paid in ${token} on ${network} to this address`
+      : `Paid in ${token} to this address`,
   rebatesReceived: 'Rebates received',
   noEvmAddress: 'No EVM address',
   noWalletTitle: 'Connect a wallet to view rewards',
@@ -235,6 +242,77 @@ function getRewardTotals(rows: IModuleRow[]): IRewardTotals {
   };
 }
 
+interface IPayoutToken {
+  symbol: string;
+  networkName?: string;
+  logoURI?: string;
+}
+
+// Perps and Swap pay out in a token the overview names; when both name the
+// same token on the same network, the address note can say so. Earn's
+// summary carries no token, so it does not take part.
+function getPayoutToken(
+  overview?: IInviteeRewardsOverview,
+): IPayoutToken | undefined {
+  if (!overview) {
+    return undefined;
+  }
+  const tokens = [overview.perps, overview.swap].flatMap((result) =>
+    result.status === 'success' && result.data.token?.symbol
+      ? [result.data.token]
+      : [],
+  );
+  const [first] = tokens;
+  if (
+    !first ||
+    tokens.some(
+      (token) =>
+        token.symbol !== first.symbol || token.networkId !== first.networkId,
+    )
+  ) {
+    return undefined;
+  }
+  return {
+    symbol: first.symbol,
+    networkName: getPresetNetworks().find(
+      (network) => network.id === first.networkId,
+    )?.name,
+    logoURI: first.logoURI || undefined,
+  };
+}
+
+// Where the rewards land: this address, in which token on which network.
+function PayoutNote({
+  payout,
+  unsupported,
+}: {
+  payout?: IPayoutToken;
+  unsupported: boolean;
+}) {
+  if (unsupported) {
+    return <SubduedNote>{MY_REWARDS_COPY.addressScope}</SubduedNote>;
+  }
+  if (!payout) {
+    return <SubduedNote>{MY_REWARDS_COPY.payoutGeneric}</SubduedNote>;
+  }
+  return (
+    <XStack ai="center" gap="$1.5" minWidth={0}>
+      {payout.logoURI ? (
+        <Image
+          w="$4"
+          h="$4"
+          borderRadius="$full"
+          flexShrink={0}
+          source={{ uri: payout.logoURI }}
+        />
+      ) : null}
+      <SubduedNote>
+        {MY_REWARDS_COPY.payoutIn(payout.symbol, payout.networkName)}
+      </SubduedNote>
+    </XStack>
+  );
+}
+
 function RewardValue({
   value,
   size,
@@ -334,9 +412,11 @@ function RewardsAddressValue({
 function RewardsAddressCard({
   address,
   unsupported,
+  payout,
 }: {
   address?: string;
   unsupported: boolean;
+  payout?: IPayoutToken;
 }) {
   const { md } = useMedia();
   return (
@@ -352,7 +432,7 @@ function RewardsAddressCard({
           compact={md}
         />
       </XStack>
-      <SubduedNote>{MY_REWARDS_COPY.addressScope}</SubduedNote>
+      <PayoutNote payout={payout} unsupported={unsupported} />
     </YStack>
   );
 }
@@ -394,11 +474,13 @@ function PerksRebateStrip({
   totals,
   address,
   unsupported,
+  payout,
   labels,
 }: {
   totals: IRewardTotals;
   address?: string;
   unsupported: boolean;
+  payout?: IPayoutToken;
   labels: { total: string; paid: string; unpaid: string };
 }) {
   const cardStyle = useInviteHomeCardStyle();
@@ -412,7 +494,11 @@ function PerksRebateStrip({
       {...cardStyle}
     >
       <YStack flex={1} minWidth={0}>
-        <RewardsAddressCard address={address} unsupported={unsupported} />
+        <RewardsAddressCard
+          address={address}
+          unsupported={unsupported}
+          payout={payout}
+        />
       </YStack>
       <XStack gap="$6" flexShrink={0} ai="flex-start">
         <InviteStatCell share="content" label={labels.total}>
@@ -774,6 +860,7 @@ export function MyRewardsContent() {
   const isResolving = isResolvingAccount !== false && earnAccount === undefined;
   const isUnsupported = !isResolving && !earnAccount;
   const isLoading = isResolving || Boolean(isLoadingOverview || !overview);
+  const payout = isLoading ? undefined : getPayoutToken(overview);
   const rows = MODULES.map((module) =>
     getModuleRow(module, isLoading, overview),
   );
@@ -863,6 +950,7 @@ export function MyRewardsContent() {
         <RewardsAddressCard
           address={walletAddress}
           unsupported={isUnsupported}
+          payout={payout}
         />
         <YStack gap="$2">
           <SizableText size="$bodyMdMedium" color="$textSubdued" px="$4">
@@ -887,6 +975,7 @@ export function MyRewardsContent() {
           }
           address={walletAddress}
           unsupported={isUnsupported}
+          payout={payout}
           labels={{
             total: MY_REWARDS_COPY.rebatesReceived,
             paid: labels.paid,
