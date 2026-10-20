@@ -778,6 +778,9 @@ describe('HomePageView complete header authority', () => {
         '../../../hooks/useRunAfterTokensDone': {
           runAfterTokensDone: () => noop,
         },
+        '../../../hooks/useTabDoublePress': {
+          useTabDoublePress: noop,
+        },
         '../../../hooks/useShortcutsOnRouteFocused': {
           useShortcutsOnRouteFocused: noop,
         },
@@ -865,6 +868,7 @@ describe('HomePageView complete header authority', () => {
         '../../../hooks/useAppNavigation',
         '../../../hooks/usePromiseResult',
         '../../../hooks/useRunAfterTokensDone',
+        '../../../hooks/useTabDoublePress',
         '../../../hooks/useShortcutsOnRouteFocused',
         '../../../states/jotai/contexts/accountOverview',
         '../../../states/jotai/contexts/accountSelector',
