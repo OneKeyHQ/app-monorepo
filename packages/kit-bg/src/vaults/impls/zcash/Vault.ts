@@ -90,7 +90,6 @@ import type {
   IZcashAccountMeta,
   IZcashBirthdaySource,
   IZcashPendingRescan,
-  IZcashTransparentPendingTx,
 } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
@@ -302,16 +301,6 @@ export default class Vault extends VaultBtc {
       hdIndex: meta.hdIndex,
       birthdayHeight: meta.birthdayHeight,
     };
-  }
-
-  async zcashReplayUnknownTransparentBroadcast(params: {
-    accountId: string;
-    tx: IZcashTransparentPendingTx;
-  }): Promise<void> {
-    return zcashTransparent.zcashReplayUnknownTransparentBroadcast(
-      this,
-      params,
-    );
   }
 
   async zcashDropExpiredTransparentSends(

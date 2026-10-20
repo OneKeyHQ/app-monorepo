@@ -69,37 +69,13 @@ async function createVault(broadcastAuthorized?: boolean) {
       },
     },
   });
-  const replay = (pending: IZcashTransparentPendingTx) =>
-    (
-      vault as unknown as {
-        zcashReplayUnknownTransparentBroadcast: (args: {
-          accountId: string;
-          tx: IZcashTransparentPendingTx;
-        }) => Promise<void>;
-      }
-    ).zcashReplayUnknownTransparentBroadcast({ accountId, tx: pending });
-  return { vault, zcash, tx, replay };
+  return { vault, zcash, tx };
 }
 
 describe('Zcash transparent broadcast authorization', () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
-
-  it.each([false, undefined])(
-    'does not recover a signed or legacy record without authorization (%s)',
-    async (authorized) => {
-      const { replay, tx, zcash } = await createVault(authorized);
-      const transport = jest.spyOn(VaultBtc.prototype, 'broadcastTransaction');
-
-      await replay(tx);
-
-      expect(transport).not.toHaveBeenCalled();
-      await expect(
-        zcash.listTransparentPendingTxs({ accountId }),
-      ).resolves.toEqual([tx]);
-    },
-  );
 
   it('persists authorization before transport and retains it with acceptance', async () => {
     const { vault, zcash } = await createVault(false);
@@ -121,55 +97,39 @@ describe('Zcash transparent broadcast authorization', () => {
     });
   });
 
-  it('recovers the identical authorized transaction after a transport timeout', async () => {
-    const { vault, zcash, replay } = await createVault(false);
+  it('keeps a timed-out broadcast pending with an unknown outcome and never resubmits it', async () => {
+    const { vault, zcash } = await createVault(false);
     const transport = jest
       .spyOn(VaultBtc.prototype, 'broadcastTransaction')
       .mockRejectedValueOnce(new Error('transport timeout'))
       .mockResolvedValue(signedTx);
 
-    // Reported as submitted: the journal keeps it pending and rebroadcasts.
+    // Reported as submitted: the journal keeps it pending until the backend reports it or it expires.
     await expect(vault.broadcastTransaction(params)).resolves.toMatchObject({
       txid: signedTx.txid,
+      broadcastOutcomeUnknown: true,
     });
     const [pending] = await zcash.listTransparentPendingTxs({ accountId });
     expect(pending).toMatchObject({
       broadcastAuthorized: true,
       broadcastState: 'unknown',
     });
-    await replay(pending);
-
-    expect(transport).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        signedTx: { txid, rawTx, encodedTx: null },
-      }),
-    );
-    expect(
-      (await zcash.listTransparentPendingTxs({ accountId }))[0].broadcastState,
-    ).toBe('accepted');
+    expect(transport).toHaveBeenCalledTimes(1);
   });
 
   // Regression: ServiceSend routes any broadcast to the custom-RPC branch
   // unless told otherwise, and a Zcash sync node can be an enabled custom
   // RPC -- that branch called back into broadcastTransaction forever.
-  it('sends fresh and replayed transparent broadcasts to the default backend', async () => {
-    const { vault, replay, zcash } = await createVault(false);
+  it('sends transparent broadcasts to the default backend', async () => {
+    const { vault } = await createVault(false);
     const transport = jest
       .spyOn(VaultBtc.prototype, 'broadcastTransaction')
-      .mockRejectedValueOnce(new Error('transport timeout'))
       .mockResolvedValue(signedTx);
 
-    // Reported as submitted: the journal keeps it pending and rebroadcasts.
-    await expect(vault.broadcastTransaction(params)).resolves.toMatchObject({
-      txid: signedTx.txid,
-    });
-    const [pending] = await zcash.listTransparentPendingTxs({ accountId });
-    await replay(pending);
+    await vault.broadcastTransaction(params);
 
-    expect(transport).toHaveBeenCalledTimes(2);
-    for (const [call] of transport.mock.calls) {
-      expect(call).toMatchObject({ useDefaultRpc: true });
-    }
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(transport.mock.calls[0][0]).toMatchObject({ useDefaultRpc: true });
   });
 
   it('does not submit bytes that differ from the durable signed record', async () => {

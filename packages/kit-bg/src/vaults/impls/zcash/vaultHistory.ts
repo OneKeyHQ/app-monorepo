@@ -525,12 +525,8 @@ export async function fetchAccountHistoryFromLocal(
     await Promise.all(
       transparentPending.flatMap((tx) => {
         const status = observedTxs.get(tx.txid.toLowerCase());
-        if (status === undefined) {
-          // Not seen by the backend yet: an unknown-outcome tx is resubmitted since the same signed bytes are idempotent.
-          return tx.broadcastState === 'unknown'
-            ? [vault.zcashReplayUnknownTransparentBroadcast({ accountId, tx })]
-            : [];
-        }
+        // Not seen by the backend yet: stays pending until it shows up or expires; never resubmitted.
+        if (status === undefined) return [];
         if (isTerminalTransparentHistoryStatus(status)) {
           return [
             vault.backgroundApi.simpleDb.zcash.settleTransparentPendingTx({
