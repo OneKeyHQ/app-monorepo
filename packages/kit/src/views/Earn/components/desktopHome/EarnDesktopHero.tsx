@@ -203,7 +203,7 @@ export function EarnDesktopHero({
     await settingsValuePersistAtom.set({ hideValue: !current.hideValue });
   }, []);
   const label = intl.formatMessage({
-    id: ETranslations.earn_total_staked_value,
+    id: ETranslations.earn_defi_assets__title,
   });
 
   return (
