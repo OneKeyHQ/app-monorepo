@@ -339,6 +339,23 @@ function TxConfirmAlert(props: IProps) {
   }, [intl, customRpcStatus, handleSwitchToOneKeyRpc]);
 
   const renderChainSpecialAlert = useCallback(() => {
+    // Solana mainnet runs 200 ms slots since 2026-10-09, so a blockhash stays
+    // valid for only ~30 s; a hardware or QR signing round trip that takes
+    // longer is rejected at broadcast ("Blockhash not found").
+    if (
+      networkUtils.isSolanaNetworkByNetworkId(networkId) &&
+      accountUtils.isHwOrQrAccount({ accountId })
+    ) {
+      return (
+        <Alert
+          type="warning"
+          title={intl.formatMessage({
+            id: ETranslations.wallet_sol_hw_sign_time_limit__desc,
+          })}
+        />
+      );
+    }
+
     if (
       networkId === getNetworkIdsMap().kaspa &&
       accountUtils.isHwAccount({ accountId }) &&
