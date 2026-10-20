@@ -144,3 +144,53 @@ it('does not resurrect a code if only storage removal fails', () => {
   expect(storage.removeItem).toHaveBeenCalled();
   expect(referral.readWebReferralCode()).toBeUndefined();
 });
+
+it('normalizes an ordinary Web path while preserving other query and hash', () => {
+  const { storage } = createStorage();
+  useStorage(storage);
+  const referral = loadModule();
+  expect(
+    referral.normalizeWebReferralPath('/?ref_code=ABC123&utm_source=site#top'),
+  ).toBe('/?utm_source=site#top');
+  expect(referral.readWebReferralCode()?.code).toBe('ABC123');
+  expect(referral.normalizeWebReferralPath('/market?ref_code=ABC123')).toBe(
+    '/market',
+  );
+  expect(referral.readWebReferralCode()?.code).toBe('ABC123');
+});
+
+it('preserves legacy referral routes and paths without a Web referral code', () => {
+  const { storage } = createStorage();
+  useStorage(storage);
+  const referral = loadModule();
+  expect(
+    referral.normalizeWebReferralPath('/r/OLD/app?ref_code=NEW#landing'),
+  ).toBe('/r/OLD/app?ref_code=NEW#landing');
+  expect(referral.normalizeWebReferralPath('/market?utm_source=site#top')).toBe(
+    '/market?utm_source=site#top',
+  );
+  expect(referral.readWebReferralCode()).toBeUndefined();
+});
+
+it('keeps native referral methods inert without touching session storage', () => {
+  const storageGetter = jest.fn(() => {
+    throw new OneKeyLocalError('Native must not access sessionStorage');
+  });
+  Object.defineProperty(globalThis, 'sessionStorage', {
+    configurable: true,
+    get: storageGetter,
+  });
+  const native = require('./webReferralCode.native') as typeof WebReferralCode;
+  const record = { code: 'ABC123', capturedAt: Date.now() };
+  const listener = jest.fn();
+  const unsubscribe = native.subscribeWebReferralCode(listener);
+  native.captureWebReferralCode('ABC123');
+  expect(native.readWebReferralCode()).toBeUndefined();
+  expect(native.clearWebReferralCodeIfMatch(record)).toBe(false);
+  expect(native.normalizeWebReferralPath('/?ref_code=ABC123')).toBe(
+    '/?ref_code=ABC123',
+  );
+  unsubscribe();
+  expect(listener).not.toHaveBeenCalled();
+  expect(storageGetter).not.toHaveBeenCalled();
+});

@@ -123,3 +123,24 @@ export function clearWebReferralCodeIfMatch(
   notify();
   return true;
 }
+
+export function normalizeWebReferralPath(path: string): string {
+  const hashIndex = path.indexOf('#');
+  const pathAndQuery = hashIndex >= 0 ? path.slice(0, hashIndex) : path;
+  const hash = hashIndex >= 0 ? path.slice(hashIndex) : '';
+  const queryIndex = pathAndQuery.indexOf('?');
+  const pathPart =
+    queryIndex >= 0 ? pathAndQuery.slice(0, queryIndex) : pathAndQuery;
+  const queryPart = queryIndex >= 0 ? pathAndQuery.slice(queryIndex + 1) : '';
+  if (!/^\/?r(?:\/|$)/u.test(pathPart) && queryPart) {
+    const searchParams = new URLSearchParams(queryPart);
+    const rawCode = searchParams.get('ref_code');
+    if (rawCode !== null) {
+      captureWebReferralCode(rawCode);
+      searchParams.delete('ref_code');
+      const remainingQuery = searchParams.toString();
+      return `${pathPart}${remainingQuery ? `?${remainingQuery}` : ''}${hash}`;
+    }
+  }
+  return path;
+}

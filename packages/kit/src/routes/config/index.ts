@@ -26,7 +26,7 @@ import type { IScreenPathConfig } from '@onekeyhq/shared/src/utils/routeUtils';
 import { buildAllowList } from '@onekeyhq/shared/src/utils/routeUtils';
 
 import { usePerpTabConfig } from '../../hooks/usePerpTabConfig';
-import { captureWebReferralCode } from '../../utils/webReferralCode';
+import { normalizeWebReferralPath } from '../../utils/webReferralCode';
 import { rootRouter, useRootRouter } from '../router';
 
 import { registerDeepLinking } from './deeplink';
@@ -127,23 +127,7 @@ const onGetStateFromPath = (path: string, options?: any) => {
     }
   }
   if (platformEnv.isWebDappMode) {
-    const hashIndex = path.indexOf('#');
-    const pathAndQuery = hashIndex >= 0 ? path.slice(0, hashIndex) : path;
-    const hash = hashIndex >= 0 ? path.slice(hashIndex) : '';
-    const queryIndex = pathAndQuery.indexOf('?');
-    const pathPart =
-      queryIndex >= 0 ? pathAndQuery.slice(0, queryIndex) : pathAndQuery;
-    const queryPart = queryIndex >= 0 ? pathAndQuery.slice(queryIndex + 1) : '';
-    if (!/^\/?r(?:\/|$)/u.test(pathPart) && queryPart) {
-      const searchParams = new URLSearchParams(queryPart);
-      const rawCode = searchParams.get('ref_code');
-      if (rawCode !== null) {
-        captureWebReferralCode(rawCode);
-        searchParams.delete('ref_code');
-        const remainingQuery = searchParams.toString();
-        referralPath = `${pathPart}${remainingQuery ? `?${remainingQuery}` : ''}${hash}`;
-      }
-    }
+    referralPath = normalizeWebReferralPath(path);
   }
   // WebDappMode: rewrite "/" to "/market" so Market tab is the landing page
   if (

@@ -20855,6 +20855,7 @@
     "packages/kit/src/utils/tokenSelectorAccountCompatibility.ts": 852,
     "packages/kit/src/utils/validateAmountInput.ts": 20023,
     "packages/kit/src/utils/waitForTxFinalStatus.ts": 14975,
+    "packages/kit/src/utils/webReferralCode.native.ts": 17733,
     "packages/kit/src/utils/webReferralCode.ts": 638,
     "packages/kit/src/views/AccountManagerStacks/components/AccountEdit/AccountCopyButton.tsx": 8756,
     "packages/kit/src/views/AccountManagerStacks/components/AccountEdit/AccountEditButton.tsx": 18598,
