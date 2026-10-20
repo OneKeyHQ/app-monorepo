@@ -1,5 +1,3 @@
-import { useContext } from 'react';
-
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
@@ -7,7 +5,6 @@ import {
   Button,
   Divider,
   IconButton,
-  NativePopoverPresentationContext,
   ScrollView,
   SizableText,
   Stack,
@@ -227,31 +224,25 @@ export function TradingViewIndicatorSettingsDialog({
 }) {
   const intl = useIntl();
   const isFocused = displayMode === 'focused';
-  const drawer = useContext(NativePopoverPresentationContext)?.nativeDrawer;
   const { height: windowHeight } = useWindowDimensions();
   const { bottom: safeAreaBottom, top: safeAreaTop } = useSafeAreaInsets();
   const focusedMaxHeight = Math.max(
-    (drawer?.height ?? windowHeight) -
+    windowHeight -
       safeAreaTop -
       safeAreaBottom -
       TRADING_VIEW_INDICATOR_FOCUSED_SETTINGS_VERTICAL_MARGIN,
     0,
   );
-  const defaultDialogHeight = isFocused
+  const dialogHeight = isFocused
     ? Math.min(
         TRADING_VIEW_INDICATOR_FOCUSED_SETTINGS_PREFERRED_HEIGHT,
         focusedMaxHeight,
       )
     : getIndicatorDialogHeight(windowHeight);
-  const dialogHeight = drawer
-    ? Math.max(0, drawer.height - safeAreaTop - safeAreaBottom)
-    : defaultDialogHeight;
   const cancelLabel = intl.formatMessage({ id: ETranslations.global_cancel });
 
   if (mobileLayout) {
-    const mobileMaxHeight = drawer
-      ? Math.max(0, focusedMaxHeight - 80)
-      : Math.max(focusedMaxHeight - 160, 160);
+    const mobileMaxHeight = Math.max(focusedMaxHeight - 160, 160);
     return (
       <YStack
         testID="trading-view-mobile-indicator-settings"
@@ -322,7 +313,7 @@ export function TradingViewIndicatorSettingsDialog({
       overflow="hidden"
       borderWidth={isFocused ? 0 : '$px'}
       borderColor="$borderSubdued"
-      borderRadius={isFocused || drawer ? 0 : '$5'}
+      borderRadius={isFocused ? 0 : '$5'}
       borderCurve="continuous"
       bg="$bgApp"
     >
@@ -366,7 +357,7 @@ export function TradingViewIndicatorSettingsDialog({
         >
           {isFocused ? null : (
             <YStack
-              width={drawer ? 144 : TRADING_VIEW_INDICATOR_SIDEBAR_WIDTH}
+              width={TRADING_VIEW_INDICATOR_SIDEBAR_WIDTH}
               flexShrink={0}
               minHeight={0}
               borderRightWidth="$px"

@@ -18,7 +18,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { Dialog } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalMarketRoutes } from '@onekeyhq/kit/src/views/Market/router/types';
 import {
@@ -26,7 +25,6 @@ import {
   useSwapTradingViewIndicatorSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
@@ -42,7 +40,6 @@ import {
   TradingViewIndicatorQuickBar,
 } from '../TradingViewChartControls/indicatorSelector/NativeIndicatorQuickBar';
 import { resolveTradingViewNativeIndicatorQuickBarState } from '../TradingViewChartControls/indicatorSelector/nativeIndicatorQuickBarState';
-import { TradingViewChartDialogContext } from '../TradingViewChartControls/TradingViewChartDialogContext';
 import { TradingViewChartLoadingMask } from '../TradingViewChartLoadingMask';
 
 import {
@@ -247,7 +244,6 @@ const TradingViewNativeContent = memo(
     onNativeSubIndicatorCountChange,
     onNativeIndicatorQuickBarChange,
     onNativeChartFullscreenChange,
-    onNativeChartPresentationReady,
     onPriceUpdate,
   }: ITradingViewNativeContentProps) => {
     const intl = useIntl();
@@ -778,21 +774,7 @@ const TradingViewNativeContent = memo(
       storageNamespace,
     ]);
     const handleIndicatorSettingsPress = useCallback(
-      (
-        indicator?: ITradingViewNativeAnyIndicator,
-        showDialog?: typeof Dialog.show,
-      ) => {
-        if (showDialog) {
-          showTradingViewNativeIndicatorSettingsDialog({
-            showDialog,
-            displayMode: indicator ? 'focused' : 'full',
-            initialIndicatorId: indicator,
-            intl,
-            onConfirm: (nextValue) => setIndicatorSettings(nextValue),
-            value: indicatorSettingsValue,
-          });
-          return;
-        }
+      (indicator?: ITradingViewNativeAnyIndicator) => {
         if (nativeControlsLayoutMode !== 'desktop') {
           pendingIndicatorSettingsRef.current = undefined;
           if (isNativeChartFullscreen) {
@@ -922,25 +904,19 @@ const TradingViewNativeContent = memo(
             canToggleIndicatorOn={canToggleIndicatorOn}
             onIndicatorPress={handleQuickBarIndicatorPress}
             settingsControl={
-              <TradingViewChartDialogContext.Consumer>
-                {(showDialog) => (
-                  <IconButton
-                    testID="trading-view-native-indicator-settings-trigger"
-                    size="small"
-                    variant="tertiary"
-                    icon="ChartTrending2Outline"
-                    iconSize="$5"
-                    width="$10"
-                    height={TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT}
-                    accessibilityLabel={intl.formatMessage({
-                      id: ETranslations.market_indicators,
-                    })}
-                    onPress={() =>
-                      handleIndicatorSettingsPress(undefined, showDialog)
-                    }
-                  />
-                )}
-              </TradingViewChartDialogContext.Consumer>
+              <IconButton
+                testID="trading-view-native-indicator-settings-trigger"
+                size="small"
+                variant="tertiary"
+                icon="ChartTrending2Outline"
+                iconSize="$5"
+                width="$10"
+                height={TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT}
+                accessibilityLabel={intl.formatMessage({
+                  id: ETranslations.market_indicators,
+                })}
+                onPress={() => handleIndicatorSettingsPress()}
+              />
             }
           />
         ) : null,
@@ -961,11 +937,7 @@ const TradingViewNativeContent = memo(
       onNativeIndicatorQuickBarChange?.(
         resolveTradingViewNativeIndicatorQuickBarState({
           isAvailabilityResolved: true,
-          // iOS keeps the detail page laid out beneath the fullscreen chart.
-          quickBar:
-            isNativeChartFullscreen && !platformEnv.isNativeIOS
-              ? null
-              : nativeIndicatorQuickBar,
+          quickBar: isNativeChartFullscreen ? null : nativeIndicatorQuickBar,
         }),
       );
     }, [
@@ -1146,7 +1118,6 @@ const TradingViewNativeContent = memo(
               timeAxisHeight={timeAxisHeight}
               timeAxisBorderWidth={isCompactDisplayMode ? 0.5 : undefined}
               onChartWidthChange={setChartWidth}
-              onPresentationReady={onNativeChartPresentationReady}
               onSubIndicatorSettingsPress={handleIndicatorSettingsPress}
               onViewportRequestApplied={handleViewportRequestApplied}
               onVisiblePointRangeChange={handleVisiblePointRangeChange}

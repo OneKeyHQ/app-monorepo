@@ -54,30 +54,15 @@ jest.mock('@onekeyhq/components', () => {
           children,
           width,
           maxWidth,
-          height,
-          top,
-          right,
-          enterStyle,
-          exitStyle,
         }: {
           children?: ReactNode;
           width?: number;
           maxWidth?: string;
-          height?: number;
-          top?: number;
-          right?: number;
-          enterStyle?: { x?: number };
-          exitStyle?: { x?: number };
         }) => (
           <div
             data-testid="floating-content"
             data-width={width}
             data-max-width={maxWidth}
-            data-height={height}
-            data-top={top}
-            data-right={right}
-            data-enter-x={enterStyle?.x}
-            data-exit-x={exitStyle?.x}
           >
             {children}
           </div>
@@ -320,7 +305,6 @@ const boundedDialogProps = {
   onClose: noopOnClose,
   renderContent: loginContent,
 };
-const nativeDrawer = { width: 422, height: 390 };
 
 beforeEach(() => {
   platformEnv.isNative = true;
@@ -364,33 +348,6 @@ describe('Dialog sheet scroll view presentation', () => {
 });
 
 describe('Dialog native centered opt-in', () => {
-  it('slides a native drawer from the right and bounds scrolling to the local viewport', () => {
-    mockSafeAreaInsets.current = { top: 0, bottom: 0, left: 47, right: 34 };
-    render(
-      <DialogContainer
-        {...boundedDialogProps}
-        nativeSheet
-        nativeDrawer={nativeDrawer}
-      />,
-    );
-    expect(screen.queryByTestId('phone-sheet')).toBeNull();
-    expect(screen.queryByTestId('native-sheet-presentation')).toBeNull();
-    expect(screen.getByTestId('dialog-bounded-close')).toBeTruthy();
-    const content = screen.getByTestId('floating-content');
-    expect(content.getAttribute('data-width')).toBe('422');
-    expect(content.getAttribute('data-height')).toBe('390');
-    expect(content.getAttribute('data-top')).toBe('0');
-    expect(content.getAttribute('data-right')).toBe('0');
-    expect(content.getAttribute('data-enter-x')).toBe('422');
-    expect(content.getAttribute('data-exit-x')).toBe('422');
-    expect(content.parentElement?.getAttribute('data-padding-top')).toBeNull();
-    expect(
-      screen
-        .getByTestId('dialog-bounded-scroll')
-        .getAttribute('data-max-height'),
-    ).toBe('390');
-  });
-
   it.each([
     ['iOS', false, 450, 347],
     ['Android', true, 416, 381],

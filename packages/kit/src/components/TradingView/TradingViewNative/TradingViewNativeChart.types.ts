@@ -1,6 +1,5 @@
 import type { RefObject } from 'react';
 
-import type { Dialog } from '@onekeyhq/components';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 import type { ITradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
@@ -64,10 +63,8 @@ export interface ITradingViewNativeChartProps {
   timeAxisHeight?: number;
   timeAxisBorderWidth?: number;
   onChartWidthChange?: (width: number) => void;
-  onPresentationReady?: (size: { width: number; height: number }) => void;
   onSubIndicatorSettingsPress: (
     indicator: ITradingViewNativeSubIndicator,
-    showDialog?: typeof Dialog.show,
   ) => void;
   onViewportRequestApplied?: (requestId: number) => void;
   onVisiblePointRangeChange?: (

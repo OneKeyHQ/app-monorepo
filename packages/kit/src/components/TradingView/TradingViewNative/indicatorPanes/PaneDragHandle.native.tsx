@@ -1,17 +1,12 @@
-import { useContext, useMemo, useRef } from 'react';
+import { useMemo, useRef } from 'react';
 
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { SizableText, Stack } from '@onekeyhq/components';
 
-import { TradingViewNativePresentationRotationContext } from '../native/TradingViewNativePresentationContext';
-
 import type { IPaneDragHandleProps } from './PaneDragHandle.types';
 
 export function PaneDragHandle(props: IPaneDragHandleProps) {
-  const isPresentationRotated = useContext(
-    TradingViewNativePresentationRotationContext,
-  );
   const current = useRef(props);
   current.current = props;
   const gesture = useMemo(
@@ -23,20 +18,12 @@ export function PaneDragHandle(props: IPaneDragHandleProps) {
         .runOnJS(true)
         .onStart(() => current.current.onStart())
         .onUpdate((event) =>
-          current.current.onDrag(
-            isPresentationRotated ? -event.translationX : event.translationY,
-            false,
-            false,
-          ),
+          current.current.onDrag(event.translationY, false, false),
         )
         .onFinalize((event, success) =>
-          current.current.onDrag(
-            isPresentationRotated ? -event.translationX : event.translationY,
-            true,
-            !success,
-          ),
+          current.current.onDrag(event.translationY, true, !success),
         ),
-    [isPresentationRotated],
+    [],
   );
   const { top, label, testID, mode, title } = props;
   return (

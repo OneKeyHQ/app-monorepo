@@ -1,7 +1,6 @@
 import {
   memo,
   useCallback,
-  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -13,7 +12,6 @@ import {
   Canvas,
   FontWeight,
   Picture,
-  useCanvasRef,
   useSVG,
   useTypeface,
 } from '@shopify/react-native-skia';
@@ -31,7 +29,6 @@ import { scheduleOnRN, scheduleOnUI } from 'react-native-worklets';
 import { Stack, useTheme, useThemeName } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { TradingViewChartDialogContext } from '../../TradingViewChartControls/TradingViewChartDialogContext';
 import {
   TRADING_VIEW_NATIVE_SWITCHING_INTERVAL_OPACITY as SWITCHING_INTERVAL_OPACITY,
   TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
@@ -100,11 +97,9 @@ import {
   getTradingViewNativeSkiaLegendText,
 } from './chartSkiaRenderer';
 import { NativeDrawingToolbar } from './NativeDrawingToolbar';
-import { TradingViewNativePresentationRotationContext } from './TradingViewNativePresentationContext';
 import { TradingViewNativePriceScaleControls } from './TradingViewNativePriceScaleControls';
 import { useNativeChartDrawings } from './useNativeChartDrawings';
 import { useTradingViewNativeChartGestures } from './useTradingViewNativeChartGestures';
-import { useTradingViewNativePresentationReady } from './useTradingViewNativePresentationReady';
 import { useTradingViewNativePriceScale } from './useTradingViewNativePriceScale';
 
 import type { ITradingViewNativeChartProps } from '../TradingViewNativeChart.types';
@@ -155,7 +150,6 @@ export const TradingViewNativeChart = memo(
     timeAxisHeight = TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
     timeAxisBorderWidth,
     onChartWidthChange,
-    onPresentationReady,
     onSubIndicatorSettingsPress,
     onViewportRequestApplied,
     onVisiblePointRangeChange,
@@ -175,20 +169,7 @@ export const TradingViewNativeChart = memo(
       height: 0,
       width: 0,
     });
-    const isPresentationRotated = useContext(
-      TradingViewNativePresentationRotationContext,
-    );
-    const canvasRef = useCanvasRef();
-    const measuredCanvasSize = useSharedValue({ width: 0, height: 0 });
-    // Skia measures the transformed native bounds; drawing uses local coordinates.
-    const canvasSize = useDerivedValue(() =>
-      isPresentationRotated
-        ? {
-            width: measuredCanvasSize.value.height,
-            height: measuredCanvasSize.value.width,
-          }
-        : measuredCanvasSize.value,
-    );
+    const canvasSize = useSharedValue({ width: 0, height: 0 });
     const [chartWidth, setChartWidth] = useState(0);
     const subIndicatorPanesStructureKey =
       getTradingViewNativeSubIndicatorPanesStructureKey(subIndicatorPanes);
@@ -982,13 +963,6 @@ export const TradingViewNativeChart = memo(
       timeAxisHeight,
     });
 
-    const showChartDialog = useContext(TradingViewChartDialogContext);
-    const handleSubIndicatorSettingsPress = useCallback<
-      ITradingViewNativeChartProps['onSubIndicatorSettingsPress']
-    >(
-      (indicator) => onSubIndicatorSettingsPress(indicator, showChartDialog),
-      [onSubIndicatorSettingsPress, showChartDialog],
-    );
     const chartGestures = useTradingViewNativeChartGestures({
       prioritizePageScroll,
       chartRuntime,
@@ -998,7 +972,7 @@ export const TradingViewNativeChart = memo(
       onInteractionChange: onInteractionChange
         ? handleGestureInteraction
         : undefined,
-      onSubIndicatorSettingsPress: handleSubIndicatorSettingsPress,
+      onSubIndicatorSettingsPress,
       priceAxisResetGesture,
       priceAxisScaleGesture,
       priceAxisWidth,
@@ -1031,39 +1005,6 @@ export const TradingViewNativeChart = memo(
         }
       },
     );
-    const handlePresentationReady = useTradingViewNativePresentationReady(
-      canvasRef,
-      onPresentationReady,
-    );
-    useAnimatedReaction(
-      () => ({
-        width: Math.round(canvasSize.value.width),
-        height: Math.round(canvasSize.value.height),
-      }),
-      (size, previousSize) => {
-        if (
-          !onPresentationReady ||
-          size.width <= 0 ||
-          size.height <= 0 ||
-          (size.width === previousSize?.width &&
-            size.height === previousSize?.height)
-        ) {
-          return;
-        }
-        // Let Skia draw the resized picture before revealing this presentation.
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            if (
-              Math.round(canvasSize.value.width) === size.width &&
-              Math.round(canvasSize.value.height) === size.height
-            ) {
-              scheduleOnRN(handlePresentationReady, size);
-            }
-          });
-        });
-      },
-      [handlePresentationReady, onPresentationReady],
-    );
     const handleChartLayout = useCallback((event: LayoutChangeEvent) => {
       const { height, width } = event.nativeEvent.layout;
       const nextSize = {
@@ -1095,9 +1036,8 @@ export const TradingViewNativeChart = memo(
         >
           <GestureDetector gesture={combinedGestures}>
             <Canvas
-              ref={canvasRef}
               testID={testID}
-              onSize={measuredCanvasSize}
+              onSize={canvasSize}
               style={{ flex: 1 }}
               onPointerMove={handleChartPointerMove}
               onTouchStart={handleChartTouchStart}

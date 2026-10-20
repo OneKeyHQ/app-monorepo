@@ -28,7 +28,6 @@ import {
   getTradingViewNativeSubIndicatorLegendIndicatorAtPoint,
 } from '../utils/subIndicatorRender';
 
-import { TradingViewNativePresentationRotationContext } from './TradingViewNativePresentationContext';
 import { useTradingViewNativeChartGestures } from './useTradingViewNativeChartGestures';
 
 import type { ITradingViewNativePriceRange } from '../utils/chartViewport';
@@ -41,8 +40,6 @@ interface IMockGestureBuilder {
   handlers: Record<string, IMockGestureHandler>;
   maxDistance: jest.Mock;
   activeOffsetX: jest.Mock;
-  activeOffsetY: jest.Mock;
-  failOffsetX: jest.Mock;
   failOffsetY: jest.Mock;
   requireExternalGestureToFail: jest.Mock;
 }
@@ -73,10 +70,8 @@ function mockCreateGestureBuilder(): IMockGestureBuilder {
   const methods = [
     'activateAfterLongPress',
     'activeOffsetX',
-    'activeOffsetY',
     'enabled',
     'failOffsetY',
-    'failOffsetX',
     'maxDistance',
     'minDistance',
     'maxPointers',
@@ -184,11 +179,9 @@ function renderSettingsGesture(
 function renderChartGestures({
   headerScrollGestures = [],
   prioritizePageScroll = false,
-  rotated = false,
 }: {
   headerScrollGestures?: GestureType[];
   prioritizePageScroll?: boolean;
-  rotated?: boolean;
 } = {}) {
   const chartRuntime = {
     value: {
@@ -258,11 +251,7 @@ function renderChartGestures({
       createElement(
         HeaderScrollGestureContext.Provider,
         { value: headerScrollGestures },
-        createElement(
-          TradingViewNativePresentationRotationContext.Provider,
-          { value: rotated },
-          children,
-        ),
+        children,
       ),
   });
   return {
@@ -555,42 +544,6 @@ describe('horizontal chart panning', () => {
   beforeEach(() => {
     mockPanGestures.length = 0;
     mockTapGestures.length = 0;
-  });
-  it('pans and flings a rotated chart along the physical vertical axis', () => {
-    const { chartRuntime, contentPanGesture } = renderChartGestures({
-      rotated: true,
-    });
-    expect(contentPanGesture.activeOffsetY).toHaveBeenCalledWith([-4, 4]);
-    expect(contentPanGesture.failOffsetX).toHaveBeenCalledWith([-12, 12]);
-    contentPanGesture.handlers.onStart?.();
-    contentPanGesture.handlers.onUpdate?.({
-      translationX: 5,
-      translationY: -100,
-    });
-    expect(chartRuntime.value.viewport.offset).toBeCloseTo(
-      -100 * TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
-    );
-    contentPanGesture.handlers.onEnd?.({ velocityX: 5, velocityY: -400 });
-    expect(withDecay).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        velocity: -400 * TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
-      }),
-    );
-  });
-
-  it('scales the rotated time axis using chart-local touch positions', () => {
-    const { chartRuntime, timeAxisScaleGesture } = renderChartGestures({
-      rotated: true,
-    });
-    expect(timeAxisScaleGesture.activeOffsetY).toHaveBeenCalledWith([-4, 4]);
-    expect(timeAxisScaleGesture.failOffsetX).toHaveBeenCalledWith([-12, 12]);
-    timeAxisScaleGesture.handlers.onTouchesDown?.(
-      { changedTouches: [{ x: 100, y: 280 }] },
-      { fail: jest.fn() },
-    );
-    timeAxisScaleGesture.handlers.onStart?.({ x: 100 });
-    timeAxisScaleGesture.handlers.onUpdate?.({ x: 150 });
-    expect(chartRuntime.value.viewport.zoomScale).toBeLessThan(1);
   });
   it('keeps other embedded charts independent of parent scroll thresholds', () => {
     const headerScrollGesture = Gesture.Pan();

@@ -35,9 +35,6 @@ const mockStack = jest.fn(({ children }: IMockLayoutProps) => children ?? null);
 let mockWindowHeight = 390;
 
 jest.mock('@onekeyhq/components', () => ({
-  NativePopoverPresentationContext: jest
-    .requireActual<typeof import('react')>('react')
-    .createContext(undefined),
   Button: (props: IMockLayoutProps) => mockButton(props),
   Divider: () => null,
   IconButton: () => null,

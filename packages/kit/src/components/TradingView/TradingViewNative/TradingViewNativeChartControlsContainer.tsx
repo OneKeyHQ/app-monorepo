@@ -1,4 +1,4 @@
-import { type ReactNode, memo, useCallback, useContext, useMemo } from 'react';
+import { type ReactNode, memo, useCallback, useMemo } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -16,8 +16,6 @@ import type {
 import { getTradingViewTimezone } from '@onekeyhq/kit/src/components/TradingView/utils/tradingViewTimezone';
 import { showMarketChartSettingsDialog } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/MarketChartSettingsModal';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-
-import { TradingViewChartDialogContext } from '../TradingViewChartControls/TradingViewChartDialogContext';
 
 import {
   type ITradingViewNativeAnyIndicator,
@@ -60,10 +58,7 @@ interface ITradingViewNativeChartControlsContainerProps {
     indicator: ITradingViewNativeAnyIndicator,
     desiredActive: boolean,
   ) => void;
-  onIndicatorSettingsPress: (
-    indicator?: ITradingViewNativeAnyIndicator,
-    showDialog?: typeof Dialog.show,
-  ) => void;
+  onIndicatorSettingsPress: () => void;
   onIndicatorSelectionConfirm: (
     selection: ITradingViewNativeIndicatorSelection,
   ) => void | Promise<void>;
@@ -102,8 +97,6 @@ export const TradingViewNativeChartControlsContainer = memo(
     onFullscreenChange,
   }: ITradingViewNativeChartControlsContainerProps) => {
     const intl = useIntl();
-    const showChartDialog = useContext(TradingViewChartDialogContext);
-    const showDialog = showChartDialog ?? Dialog.show;
     const chartStyleTitle = intl.formatMessage({
       id: ETranslations.market_chart_style,
     });
@@ -164,20 +157,13 @@ export const TradingViewNativeChartControlsContainer = memo(
       },
       [onIndicatorChange],
     );
-    const openIndicatorSettings = useCallback(() => {
-      if (showChartDialog) {
-        onIndicatorSettingsPress(undefined, showChartDialog);
-      } else {
-        onIndicatorSettingsPress();
-      }
-    }, [onIndicatorSettingsPress, showChartDialog]);
     const showIndicatorsDialog = useCallback(() => {
       if (layoutMode === 'desktop') {
-        openIndicatorSettings();
+        onIndicatorSettingsPress();
         return;
       }
 
-      showDialog({
+      Dialog.show({
         title: indicatorsTitle,
         showFooter: false,
         testID: 'trading-view-native-indicators-dialog',
@@ -188,7 +174,7 @@ export const TradingViewNativeChartControlsContainer = memo(
             onSelect={handleIndicatorSelect}
             onSelectionConfirm={onIndicatorSelectionConfirm}
             onResetLayout={noop}
-            onSettingsPress={openIndicatorSettings}
+            onSettingsPress={onIndicatorSettingsPress}
           />
         ),
       });
@@ -198,9 +184,8 @@ export const TradingViewNativeChartControlsContainer = memo(
       indicatorsTitle,
       layoutMode,
       maxSelectableSubIndicatorCount,
-      openIndicatorSettings,
+      onIndicatorSettingsPress,
       onIndicatorSelectionConfirm,
-      showDialog,
     ]);
     const shouldShowChartCloseControl =
       Boolean(onChartClose) && showChartCloseControl;

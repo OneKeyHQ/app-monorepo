@@ -13,7 +13,6 @@ import { isSpanning } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { TradingViewNativeContainer } from './TradingViewNativeContainer';
-import { useTradingViewNativeFullscreenTransition } from './useTradingViewNativeFullscreenTransition.native';
 import { shouldHideTradingViewNativeStatusBar } from './utils/fullscreenLayout';
 
 import type { ITradingViewNativeProps } from './types';
@@ -45,11 +44,6 @@ function lockScreenOrientation(
 export function TradingViewNative(props: ITradingViewNativeProps) {
   const isFullscreen = Boolean(props.isNativeChartFullscreen);
   const { onNativeChartFullscreenChange } = props;
-  const { changeFullscreen, onPresentationReady } =
-    useTradingViewNativeFullscreenTransition({
-      isFullscreen,
-      onFullscreenChange: onNativeChartFullscreenChange,
-    });
   const onFullscreenChangeRef = useRef(onNativeChartFullscreenChange);
   useLayoutEffect(() => {
     onFullscreenChangeRef.current = onNativeChartFullscreenChange;
@@ -72,8 +66,10 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
     }
 
     let isActive = true;
-    // iOS presents fullscreen within the current window; only the iPhone chart rotates.
-    const shouldManageOrientation = platformEnv.isNativeAndroid;
+    // Rotate phones through the system while preserving iPad's window policy.
+    const shouldManageOrientation =
+      platformEnv.isNativeAndroid ||
+      (platformEnv.isNativeIOS && !platformEnv.isNativeIOSPad);
     const shouldUseCurrentAndroidWindow =
       shouldUseCurrentAndroidWindowForFullscreen();
     if (shouldManageOrientation && !shouldUseCurrentAndroidWindow) {
@@ -109,13 +105,7 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
   return (
     <>
       {shouldHideStatusBar ? <StatusBar hidden /> : null}
-      <TradingViewNativeContainer
-        {...props}
-        onNativeChartFullscreenChange={
-          onNativeChartFullscreenChange ? changeFullscreen : undefined
-        }
-        onNativeChartPresentationReady={onPresentationReady}
-      />
+      <TradingViewNativeContainer {...props} />
     </>
   );
 }

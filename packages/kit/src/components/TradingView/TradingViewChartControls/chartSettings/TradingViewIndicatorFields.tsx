@@ -1,28 +1,18 @@
-import { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import type { IStackProps } from '@onekeyhq/components';
 import {
-  Button,
   ColorPicker,
-  IconButton,
   Input,
-  Popover,
   SegmentSlider,
   SizableText,
   Stack,
   XStack,
-  YStack,
   useThemeName,
 } from '@onekeyhq/components';
-import {
-  NativeAmountKeypad,
-  applyAmountKeypadKey,
-} from '@onekeyhq/kit/src/components/NativeAmountKeypad';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-
-import { TradingViewNativePresentationRotationContext } from '../../TradingViewNative/native/TradingViewNativePresentationContext';
 
 import {
   SettingsCheckboxRow,
@@ -207,26 +197,20 @@ function TradingViewIndicatorColorPicker({
 }
 
 function TradingViewIndicatorNumberInput({
-  label,
   value,
   min = 0,
   max = Number.POSITIVE_INFINITY,
   step = 1,
   onChange,
 }: {
-  label: string;
   value: number;
   min?: number;
   max?: number;
   step?: number;
   onChange: (value: number) => void;
 }) {
-  const intl = useIntl();
-  const isRotated = useContext(TradingViewNativePresentationRotationContext);
   const valueRef = useRef(value);
   const [inputValue, setInputValue] = useState(() => String(value));
-  const [keypadOpen, setKeypadOpen] = useState(false);
-  const replaceNextKey = useRef(true);
 
   useEffect(() => {
     valueRef.current = value;
@@ -306,134 +290,6 @@ function TradingViewIndicatorNumberInput({
     [inputValue, normalizeValue, onChange, step],
   );
 
-  const handleKeypadOpenChange = useCallback((open: boolean) => {
-    setInputValue(String(valueRef.current));
-    replaceNextKey.current = true;
-    setKeypadOpen(open);
-  }, []);
-  const handleKeyPress = useCallback((key: string) => {
-    const replace = replaceNextKey.current;
-    replaceNextKey.current = false;
-    setInputValue((previous) => {
-      const draft = replace ? '' : previous;
-      if (!draft.startsWith('-')) {
-        return applyAmountKeypadKey(draft, key);
-      }
-      if (draft === '-' && key === 'backspace') {
-        return '';
-      }
-      return `-${applyAmountKeypadKey(draft.slice(1), key)}`;
-    });
-  }, []);
-  const handleToggleSign = useCallback(() => {
-    replaceNextKey.current = false;
-    setInputValue((previous) =>
-      previous.startsWith('-') ? previous.slice(1) : `-${previous}`,
-    );
-  }, []);
-  const handleClear = useCallback(() => {
-    replaceNextKey.current = false;
-    setInputValue('');
-  }, []);
-  const handleKeypadConfirm = useCallback(() => {
-    commitInputValue();
-    setKeypadOpen(false);
-  }, [commitInputValue]);
-
-  if (isRotated) {
-    // The iPhone window remains portrait; its system keyboard cannot follow
-    // the chart's local rotation. Keep numeric editing in the same portal.
-    return (
-      <XStack
-        width={TRADING_VIEW_INDICATOR_NUMBER_INPUT_WIDTH}
-        alignItems="center"
-        borderWidth="$px"
-        borderColor="$borderSubdued"
-        borderRadius="$2"
-      >
-        <Popover
-          title={label}
-          open={keypadOpen}
-          onOpenChange={handleKeypadOpenChange}
-          renderTrigger={
-            <Button
-              testID="trading-view-indicator-number-input"
-              width={62}
-              height={32}
-              minWidth={0}
-              m="$0"
-              px="$1"
-              size="small"
-              variant="tertiary"
-            >
-              {value}
-            </Button>
-          }
-          renderContent={
-            <YStack px="$5" pb="$4" gap="$2">
-              <XStack alignItems="center" gap="$2">
-                <SizableText
-                  testID="trading-view-indicator-keypad-value"
-                  flex={1}
-                  size="$headingXl"
-                  textAlign="center"
-                  numberOfLines={1}
-                >
-                  {inputValue || '0'}
-                </SizableText>
-                {min < 0 ? (
-                  <Button
-                    testID="trading-view-indicator-keypad-sign"
-                    size="small"
-                    variant="secondary"
-                    onPress={handleToggleSign}
-                  >
-                    ±
-                  </Button>
-                ) : null}
-              </XStack>
-              <NativeAmountKeypad
-                compact
-                testID="trading-view-indicator-keypad"
-                onKeyPress={handleKeyPress}
-                onBackspaceLongPress={handleClear}
-              />
-              <Button
-                testID="trading-view-indicator-keypad-confirm"
-                variant="primary"
-                onPress={handleKeypadConfirm}
-              >
-                {intl.formatMessage({ id: ETranslations.global_done })}
-              </Button>
-            </YStack>
-          }
-        />
-        <IconButton
-          testID="trading-view-indicator-number-input-increment"
-          icon="ChevronTopSmallOutline"
-          size="small"
-          variant="tertiary"
-          m="$0"
-          width={32}
-          height={32}
-          hitSlop={0}
-          onPress={() => stepInputValue(1)}
-        />
-        <IconButton
-          testID="trading-view-indicator-number-input-decrement"
-          icon="ChevronDownSmallOutline"
-          size="small"
-          variant="tertiary"
-          m="$0"
-          width={32}
-          height={32}
-          hitSlop={0}
-          onPress={() => stepInputValue(-1)}
-        />
-      </XStack>
-    );
-  }
-
   return (
     <Input
       testID="trading-view-indicator-number-input"
@@ -484,7 +340,6 @@ export function TradingViewIndicatorParameterRow({
         {parameters.map((parameter) => (
           <TradingViewIndicatorNumberInput
             key={parameter.id}
-            label={parameter.label}
             value={parameter.value}
             min={parameter.min}
             max={parameter.max}
@@ -553,7 +408,6 @@ export function TradingViewIndicatorLineRow({
     <XStack gap="$3" alignItems="center" flexWrap="wrap" flexShrink={1}>
       {showPeriod ? (
         <TradingViewIndicatorNumberInput
-          label={line.label}
           value={line.period}
           min={1}
           onChange={(period) => onPeriodChange(line.id, period)}

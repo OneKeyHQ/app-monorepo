@@ -1,11 +1,5 @@
 import { createContext, useContext } from 'react';
 
-import type { IDialogShowProps } from '../../composite/Dialog/type';
-
-export const NativePopoverPresentationContext = createContext<
-  Pick<IDialogShowProps, 'portalContainer' | 'nativeDrawer'> | undefined
->(undefined);
-
 interface IPopoverContext {
   open?: boolean;
   closePopover?: () => Promise<void>;

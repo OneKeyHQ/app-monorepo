@@ -33,7 +33,6 @@ export function BoundedDialogScrollLayout({
   keyboardPaddingBottom,
   isCentered = false,
   centeredInset,
-  viewportHeight,
 }: {
   chrome?: ReactNode;
   closeButton?: ReactNode;
@@ -41,7 +40,6 @@ export function BoundedDialogScrollLayout({
   keyboardPaddingBottom: number;
   isCentered?: boolean;
   centeredInset?: number;
-  viewportHeight?: number;
 }) {
   const { height: windowHeight } = useWindowDimensions();
   const { top: topInset } = useSafeAreaInsets();
@@ -54,7 +52,7 @@ export function BoundedDialogScrollLayout({
     };
   }, []);
   const scrollMaxHeight = getBoundedDialogScrollMaxHeight({
-    windowHeight: viewportHeight ?? windowHeight,
+    windowHeight,
     topInset: isCentered ? (centeredInset ?? topInset) : topInset,
     keyboardPaddingBottom,
     isCentered,

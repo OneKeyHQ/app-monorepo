@@ -1300,15 +1300,16 @@ export function MobileLayout({
     );
   }
 
+  // Keep the iOS chart owner's layout intact while its canvas is in the
+  // fullscreen host. display:none collapses it and causes extra layout work.
   return (
     <YStack
       flex={1}
       display={
-        isChartFullscreen && (!platformEnv.isNativeIOS || !isTradingViewNative)
-          ? 'none'
-          : undefined
+        isChartFullscreen && !platformEnv.isNativeIOS ? 'none' : undefined
       }
-      pointerEvents={isChartFullscreen ? 'none' : undefined}
+      opacity={isChartFullscreen && platformEnv.isNativeIOS ? 0 : 1}
+      pointerEvents={isChartFullscreen ? 'none' : 'auto'}
       accessibilityElementsHidden={isChartFullscreen}
       overflow="hidden"
       bg="$bgApp"

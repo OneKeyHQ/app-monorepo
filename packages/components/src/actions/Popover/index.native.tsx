@@ -5,14 +5,7 @@ import type {
   ReactElement,
   ReactNode,
 } from 'react';
-import {
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIsomorphicLayoutEffect } from '@tamagui/core';
 import { Dimensions, useWindowDimensions } from 'react-native';
@@ -28,7 +21,7 @@ import type {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { SHEET_POPOVER_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
-import { DialogContainer, FIX_SHEET_PROPS } from '../../composite/Dialog';
+import { FIX_SHEET_PROPS } from '../../composite/Dialog';
 import { Keyboard } from '../../content/Keyboard';
 import { Portal } from '../../hocs';
 import { NativeSheetPresentation } from '../../hocs/NativeSheetPresentation';
@@ -51,11 +44,7 @@ import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
 
-import {
-  NativePopoverPresentationContext,
-  PopoverContext,
-  usePopoverContext,
-} from './context';
+import { PopoverContext, usePopoverContext } from './context';
 import { PopoverContent } from './PopoverContent';
 import {
   runPopoverCloseSideEffects,
@@ -103,7 +92,6 @@ const POPOVER_PLATFORM_NATIVE = { elevation: 20 } as const;
 const OVERLAY_ENTER_STYLE = { opacity: 0 } as const;
 const OVERLAY_EXIT_STYLE = { opacity: 0 } as const;
 const WORD_BREAK_ALL_STYLE = { wordBreak: 'break-all' } as const;
-const DRAWER_CONTENT_PROPS = { p: '$0' } as const;
 const WEB_KEEP_MOUNTED_TRANSITION =
   'opacity 150ms cubic-bezier(0.215, 0.61, 0.355, 1), transform 150ms cubic-bezier(0.215, 0.61, 0.355, 1)';
 export interface IPopoverProps extends TMPopoverProps {
@@ -860,7 +848,6 @@ function BasicPopover({
   mountNativePortalBeforeOpen,
   ...rest
 }: IPopoverProps) {
-  const presentation = useContext(NativePopoverPresentationContext);
   const { isOpen, onOpenChange, openPopover, closePopover } = usePopoverValue(
     open,
     onOpenChangeFunc,
@@ -874,43 +861,11 @@ function BasicPopover({
   } = useNativePortalLifecycle({
     isOpen,
     sheetProps,
-    mountNativePortalBeforeOpen:
-      Boolean(presentation) || mountNativePortalBeforeOpen,
+    mountNativePortalBeforeOpen,
   });
-  const closeDialog = useCallback(async () => closePopover(), [closePopover]);
-  const dialogContext = useMemo(
-    () => ({ open: isOpen, closePopover: closeDialog }),
-    [closeDialog, isOpen],
-  );
   const { md } = useMedia();
-  const memoPopover = useMemo(() => {
-    if (presentation) {
-      const Content = rest.renderContent;
-      return (
-        <PopoverContext.Provider value={dialogContext}>
-          <DialogContainer
-            open={Boolean(popoverOpen)}
-            onClose={closeDialog}
-            nativeDrawer={presentation.nativeDrawer}
-            title={typeof rest.title === 'string' ? rest.title : undefined}
-            showHeader={rest.showHeader}
-            showFooter={false}
-            contentContainerProps={DRAWER_CONTENT_PROPS}
-            renderContent={
-              <>
-                {typeof rest.title === 'string' ? null : rest.title}
-                {typeof Content === 'function' ? (
-                  <Content isOpen={popoverOpen} closePopover={closePopover} />
-                ) : (
-                  Content
-                )}
-              </>
-            }
-          />
-        </PopoverContext.Provider>
-      );
-    }
-    return (
+  const memoPopover = useMemo(
+    () => (
       <RawPopover
         open={popoverOpen}
         onOpenChange={onOpenChange}
@@ -922,20 +877,18 @@ function BasicPopover({
         {...rest}
         sheetProps={resolvedSheetProps}
       />
-    );
-  }, [
-    closeDialog,
-    closePopover,
-    dialogContext,
-    keepChildrenMounted,
-    mountNativePortalBeforeOpen,
-    onOpenChange,
-    openPopover,
-    popoverOpen,
-    presentation,
-    resolvedSheetProps,
-    rest,
-  ]);
+    ),
+    [
+      closePopover,
+      keepChildrenMounted,
+      mountNativePortalBeforeOpen,
+      onOpenChange,
+      openPopover,
+      popoverOpen,
+      resolvedSheetProps,
+      rest,
+    ],
+  );
   const modalNavigatorContext = useModalNavigatorContext();
   const pageContextValue = usePageContext();
 
@@ -955,12 +908,7 @@ function BasicPopover({
         ) : null}
         {keepChildrenMounted ||
         (shouldUseNativePortalLifecycle ? isNativePortalMounted : isOpen) ? (
-          <Portal.Body
-            container={
-              presentation?.portalContainer ??
-              Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL
-            }
-          >
+          <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
             <ModalNavigatorContext.Provider value={modalNavigatorContext}>
               <PageContext.Provider value={pageContextValue}>
                 {memoPopover}
@@ -1043,4 +991,3 @@ export const Popover = withStaticProperties(BasicPopover, {
 
 export * from './type';
 export { usePopoverContext };
-export { NativePopoverPresentationContext } from './context';

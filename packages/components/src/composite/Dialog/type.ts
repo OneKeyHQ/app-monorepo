@@ -81,8 +81,6 @@ interface IBasicDialogProps extends TMDialogProps {
   nativeSheet?: boolean;
   /** Centers and bounds native dialogs on phone screens, overriding nativeSheet. */
   nativeCentered?: boolean;
-  /** Shows a right drawer within a native portal's viewport. */
-  nativeDrawer?: { width: number; height: number };
   onOpen?: () => void;
   /** Controls initial focus for both the floating panel and sheet on web. */
   onOpenAutoFocus?: TMDialogContentProps['onOpenAutoFocus'];
