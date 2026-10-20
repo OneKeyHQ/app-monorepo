@@ -1414,7 +1414,7 @@ async function main() {
     const recordFailures = network.recorder?.failures() || [];
     if (recordFailures.length) {
       for (const failure of recordFailures) {
-        log(`record failed: ${failure.key} (${failure.reason})`);
+        log(`record failed: ${failure.request} (${failure.reason})`);
       }
       log(`recording failed; ${fixturePath} was not changed`);
       process.exitCode = 1;

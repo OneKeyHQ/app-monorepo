@@ -22,7 +22,10 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { DEFAULT_FIXTURE_PATH } = require('./lib/webColdNetwork');
+const {
+  DEFAULT_FIXTURE_PATH,
+  writeFileAtomic,
+} = require('./lib/webColdNetwork');
 
 const harness = path.join(__dirname, 'run-web-cold.js');
 const fixturePath =
@@ -80,7 +83,8 @@ function main() {
         return result.status ?? 1;
       }
     }
-    fs.copyFileSync(tempPath, fixturePath);
+    // Creates a missing parent folder and replaces the file in one rename.
+    writeFileAtomic(fixturePath, fs.readFileSync(tempPath));
     // eslint-disable-next-line no-console
     console.log(`[perf:web:cold:record] updated ${fixturePath}`);
     return 0;

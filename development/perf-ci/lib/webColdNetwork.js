@@ -36,23 +36,89 @@ const FIXTURE_FILE_COMMENT =
 const API_HOST_PATTERNS = [/\.onekeycn\.com$/, /^api\.hyperliquid\.xyz$/];
 
 // Endpoints reviewed as returning public data only (no account, wallet or
-// device data), matched against the request key. The fixture file is
-// committed to a public repository, so record mode refuses any other API call:
-// review a new endpoint and add it here before recording it.
+// device data). The fixture file is committed to a public repository, so
+// record mode refuses any other API call, any query parameter not listed for
+// its endpoint and any POST body that does not match: review a new endpoint or
+// parameter and add it here before recording it. `route` is "<METHOD>
+// <host><path>"; listed parameters carry public values (networks, tokens,
+// setting keys, paging).
 const RECORDABLE_ENDPOINTS = [
-  /^GET earn\.onekeycn\.com\/earn\/v1\/(available-assets|block-region|faq\/list)(\?|$)/,
-  /^POST earn\.onekeycn\.com\/earn\/v2\/recommend \{"accounts":\[\]\}$/,
-  /^GET rebate\.onekeycn\.com\/rebate\/v1\/invite\/post-config(\?|$)/,
-  /^GET swap\.onekeycn\.com\/swap\/v1\/(native-token-config|networks|providers\/list|speed-config|swap-config|token\/detail)(\?|$)/,
-  /^GET utility\.onekeycn\.com\/utility\/v1\/(app-update|currency\/exchange-rates\/map|market\/tokens|perp-config|setting|swap-tips)(\?|$)/,
-  /^GET utility\.onekeycn\.com\/utility\/v2\/market\/(basic-config|token\/list|banner\/list|banner\/(stock-)?token-list\/[0-9a-f]+)(\?|$)/,
-  /^GET wallet\.onekeycn\.com\/wallet\/v1\/(health|network\/list|portfolio\/chains)(\?|$)/,
-  /^POST api\.hyperliquid\.xyz\/info \{("dex":"[a-z]*",)?"type":"(allMids|allPerpMetas|meta|metaAndAssetCtxs|spotMeta|spotMetaAndAssetCtxs)"\}$/,
+  {
+    route: 'GET earn.onekeycn.com/earn/v1/available-assets',
+    query: ['type'],
+  },
+  { route: 'GET earn.onekeycn.com/earn/v1/block-region' },
+  { route: 'GET earn.onekeycn.com/earn/v1/faq/list' },
+  {
+    route: 'POST earn.onekeycn.com/earn/v2/recommend',
+    body: /^\{"accounts":\[\]\}$/,
+  },
+  { route: 'GET rebate.onekeycn.com/rebate/v1/invite/post-config' },
+  {
+    route: 'GET swap.onekeycn.com/swap/v1/native-token-config',
+    query: ['networkId'],
+  },
+  { route: 'GET swap.onekeycn.com/swap/v1/networks', query: ['protocol'] },
+  { route: 'GET swap.onekeycn.com/swap/v1/providers/list' },
+  { route: 'GET swap.onekeycn.com/swap/v1/speed-config', query: ['networkId'] },
+  { route: 'GET swap.onekeycn.com/swap/v1/swap-config' },
+  {
+    route: 'GET swap.onekeycn.com/swap/v1/token/detail',
+    query: ['contractAddress', 'currency', 'networkId', 'protocol'],
+  },
+  { route: 'GET utility.onekeycn.com/utility/v1/app-update' },
+  { route: 'GET utility.onekeycn.com/utility/v1/currency/exchange-rates/map' },
+  {
+    route: 'GET utility.onekeycn.com/utility/v1/market/tokens',
+    query: ['category', 'ids', 'sparkline'],
+  },
+  {
+    route: 'GET utility.onekeycn.com/utility/v1/perp-config',
+    query: ['assetTypeVersion'],
+  },
+  { route: 'GET utility.onekeycn.com/utility/v1/setting', query: ['key'] },
+  { route: 'GET utility.onekeycn.com/utility/v1/swap-tips' },
+  { route: 'GET utility.onekeycn.com/utility/v2/market/banner/list' },
+  {
+    route:
+      /^GET utility\.onekeycn\.com\/utility\/v2\/market\/banner\/(stock-)?token-list\/[0-9a-f]{24}$/,
+    query: ['currency'],
+  },
+  {
+    route: 'GET utility.onekeycn.com/utility/v2/market/basic-config',
+    query: ['configVersion'],
+  },
+  {
+    route: 'GET utility.onekeycn.com/utility/v2/market/token/list',
+    query: [
+      'currency',
+      'limit',
+      'minLiquidity',
+      'networkId',
+      'page',
+      'timeFrame',
+      'type',
+    ],
+  },
+  { route: 'GET wallet.onekeycn.com/wallet/v1/health', query: ['_'] },
+  {
+    route: 'GET wallet.onekeycn.com/wallet/v1/network/list',
+    query: ['onlyEvmNetworks'],
+  },
+  { route: 'GET wallet.onekeycn.com/wallet/v1/portfolio/chains' },
+  {
+    route: 'POST api.hyperliquid.xyz/info',
+    body: /^\{("dex":"[a-z]*",)?"type":"(allMids|allPerpMetas|meta|metaAndAssetCtxs|spotMeta|spotMetaAndAssetCtxs)"\}$/,
+  },
 ];
 
-// A request that carries one of these belongs to a signed-in user; its
-// response must never be recorded.
-const CREDENTIAL_HEADERS = ['authorization', 'x-onekey-request-token'];
+// A request that carries one of these belongs to a signed-in user or browser
+// session; its response must never be recorded.
+const CREDENTIAL_HEADERS = [
+  'authorization',
+  'cookie',
+  'x-onekey-request-token',
+];
 
 // Upstream origins for record mode. `test` keeps the production URL in the
 // fixture key and only changes where the response is fetched from.
@@ -146,6 +212,10 @@ function canonicalJson(value) {
   return JSON.stringify(value);
 }
 
+function shortHash(text) {
+  return crypto.createHash('sha256').update(text).digest('hex').slice(0, 16);
+}
+
 function bodyKey(postData) {
   if (!postData) return '';
   let normalized = postData;
@@ -155,11 +225,7 @@ function bodyKey(postData) {
     // Not JSON: key on the raw body.
   }
   if (normalized.length <= MAX_INLINE_BODY_KEY_LENGTH) return normalized;
-  return `sha256:${crypto
-    .createHash('sha256')
-    .update(normalized)
-    .digest('hex')
-    .slice(0, 16)}`;
+  return `sha256:${shortHash(normalized)}`;
 }
 
 function routeKey({ method, url }) {
@@ -192,13 +258,57 @@ function isApiUrl(url) {
 /**
  * Why a request to an API host may not be recorded, or null when it may.
  */
-function recordRefusal({ key, headers }) {
+function recordRefusal({ method, url, postData, headers }) {
   const credential = CREDENTIAL_HEADERS.find((name) => headers?.[name]);
   if (credential) return `carries ${credential}`;
-  if (!RECORDABLE_ENDPOINTS.some((pattern) => pattern.test(key))) {
-    return 'endpoint not in RECORDABLE_ENDPOINTS';
+  const route = routeKey({ method, url });
+  const endpoint = RECORDABLE_ENDPOINTS.find((item) =>
+    typeof item.route === 'string'
+      ? item.route === route
+      : item.route.test(route),
+  );
+  if (!endpoint) return 'endpoint not in RECORDABLE_ENDPOINTS';
+  const unexpected = [...new URL(url).searchParams.keys()].find(
+    (name) =>
+      !VOLATILE_QUERY_KEYS.has(name) && !(endpoint.query || []).includes(name),
+  );
+  if (unexpected !== undefined) {
+    return `query parameter "${unexpected}" not allowed for this endpoint`;
+  }
+  if (endpoint.body && !endpoint.body.test(bodyKey(postData))) {
+    return 'request body not allowed for this endpoint';
   }
   return null;
+}
+
+// For logs and reports: keeps the parameter names but drops their values and
+// hashes the body, because a refused or blocked request may carry data that
+// must not be published.
+function redactUrl(url) {
+  const parsed = new URL(url);
+  const names = [...new Set(parsed.searchParams.keys())].toSorted();
+  return `${parsed.origin}${parsed.pathname}${names.length ? `?${names.join('&')}` : ''}`;
+}
+
+function redactRequest({ method, url, postData }) {
+  const body =
+    method.toUpperCase() !== 'GET' && postData
+      ? ` body sha256:${shortHash(postData)}`
+      : '';
+  return `${method.toUpperCase()} ${redactUrl(url).replace(/^[a-z]+:\/\//, '')}${body}`;
+}
+
+// Writes next to the target and renames, so a failed or interrupted write
+// never leaves a truncated file behind.
+function writeFileAtomic(filePath, content) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const stagedPath = `${filePath}.${process.pid}.tmp`;
+  try {
+    fs.writeFileSync(stagedPath, content);
+    fs.renameSync(stagedPath, filePath);
+  } finally {
+    fs.rmSync(stagedPath, { force: true });
+  }
 }
 
 function isSinkUrl(url) {
@@ -269,7 +379,8 @@ function fixtureBody(entry) {
  * device profile) only adds to the file; `fresh` starts from an empty file.
  * An API call that could not be recorded is a failure, and `write` refuses to
  * touch the file while there is one, so a failed refresh can neither drop an
- * endpoint nor keep a stale answer for it.
+ * endpoint nor keep a stale answer for it. Failures are kept under a redacted
+ * label (see redactRequest) because they end up in logs.
  */
 function createRecorder({ fixturePath, source, fresh, log }) {
   const existing = fresh ? emptyFixtureFile() : readFixtureFile(fixturePath);
@@ -278,13 +389,13 @@ function createRecorder({ fixturePath, source, fresh, log }) {
 
   return {
     source,
-    fail(key, reason) {
-      failures.set(key, reason);
+    fail(label, reason) {
+      failures.set(label, reason);
     },
     failures() {
-      return [...failures].map(([key, reason]) => ({ key, reason }));
+      return [...failures].map(([request, reason]) => ({ request, reason }));
     },
-    add({ key, status, contentType, body, scenario }) {
+    add({ key, label, status, contentType, body, scenario }) {
       const text = body.toString('utf8');
       let json;
       try {
@@ -292,9 +403,18 @@ function createRecorder({ fixturePath, source, fresh, log }) {
       } catch {
         json = undefined;
       }
-      if (status >= 400 || (text && json === undefined)) {
-        // Block pages and other non-JSON answers are not API responses.
-        failures.set(key, `upstream answered ${status} without JSON`);
+      // Only a 2xx JSON answer (or an empty 204) can be replayed: redirects
+      // were not followed, and block pages are not API responses.
+      let problem = null;
+      if (status < 200 || status >= 300) {
+        problem = `upstream answered ${status}`;
+      } else if (!text && status !== 204) {
+        problem = `upstream answered ${status} with an empty body`;
+      } else if (text && json === undefined) {
+        problem = `upstream answered ${status} without JSON`;
+      }
+      if (problem) {
+        failures.set(label, problem);
         return false;
       }
       const entry = recorded.get(key) || {
@@ -333,8 +453,7 @@ function createRecorder({ fixturePath, source, fresh, log }) {
         source,
         entries: [...kept, ...recorded.values()],
       };
-      fs.mkdirSync(path.dirname(fixturePath), { recursive: true });
-      fs.writeFileSync(fixturePath, serializeFixtureFile(file));
+      writeFileAtomic(fixturePath, serializeFixtureFile(file));
       log(
         `recorded ${recorded.size} API fixture(s) from ${source}, kept ${kept.length}, wrote ${fixturePath}`,
       );
@@ -387,7 +506,7 @@ async function installNetworkIsolation({
   const block = (route, request, reason) => {
     stats.blocked.push({
       method: request.method(),
-      url: truncateUrl(request.url()),
+      url: truncateUrl(redactUrl(request.url())),
       resourceType: request.resourceType(),
       reason,
     });
@@ -396,7 +515,7 @@ async function installNetworkIsolation({
 
   await context.routeWebSocket(isExternal, (ws) => {
     // Not connecting to the server leaves the socket open and silent.
-    stats.websockets.push(truncateUrl(ws.url()));
+    stats.websockets.push(truncateUrl(redactUrl(ws.url())));
   });
 
   const handleRoute = async (route) => {
@@ -438,14 +557,22 @@ async function installNetworkIsolation({
     };
 
     if (mode === 'record') {
-      if (!isApiUrl(url)) return block(route, request, 'not-recordable');
+      const label = redactRequest(keyInput);
+      if (!isApiUrl(url)) {
+        // Data calls to a host nobody reviewed must not pass silently; scripts,
+        // styles and fonts from third parties are only blocked.
+        if (resourceType === 'xhr' || resourceType === 'fetch') {
+          recorder.fail(label, 'host not in API_HOST_PATTERNS');
+        }
+        return block(route, request, 'not-recordable');
+      }
       const key = requestKey(keyInput);
       const refusal = recordRefusal({
-        key,
+        ...keyInput,
         headers: await request.allHeaders(),
       });
       if (refusal) {
-        recorder.fail(key, refusal);
+        recorder.fail(label, refusal);
         return block(route, request, `record-refused: ${refusal}`);
       }
       const headers = { ...request.headers() };
@@ -468,13 +595,14 @@ async function installNetworkIsolation({
         // Only the first line: Playwright appends a call log with the
         // request headers and cookies.
         const reason = String(error?.message || error).split('\n')[0];
-        recorder.fail(key, `fetch failed: ${reason}`);
+        recorder.fail(label, `fetch failed: ${reason}`);
         return block(route, request, `record-fetch-failed: ${reason}`);
       }
       const body = await response.body();
       if (
         recorder.add({
           key,
+          label,
           status: response.status(),
           contentType: response.headers()['content-type'],
           body,
@@ -516,7 +644,7 @@ async function installNetworkIsolation({
     if (!isExternal(parsed)) return;
     stats.blocked.push({
       method: request.method(),
-      url: truncateUrl(request.url()),
+      url: truncateUrl(redactUrl(request.url())),
       resourceType: request.resourceType(),
       reason: `not-routed: ${request.failure()?.errorText || 'failed'}`,
     });
@@ -548,9 +676,12 @@ module.exports = {
   isolatedChromiumArgs,
   readFixtureFile,
   recordRefusal,
+  redactRequest,
+  redactUrl,
   requestKey,
   resolveNetworkMode,
   resolveRecordSource,
   serializeFixtureFile,
   summarizeNetworkStats,
+  writeFileAtomic,
 };

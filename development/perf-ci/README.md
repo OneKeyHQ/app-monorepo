@@ -164,9 +164,10 @@ they fail the job (health check `blockedRequests`): a page that ran without
 data it asked for may only have measured its shell. Set
 `PERF_WEB_COLD_FAIL_ON_BLOCKED_REQUESTS=0` to only report them while
 investigating locally. A new entry usually means a page gained an API
-dependency or changed a query: re-record (below). A new endpoint has to be
-reviewed and added to `RECORDABLE_ENDPOINTS` first, and a new host to
-`API_HOST_PATTERNS`.
+dependency or changed a query: re-record (below). A new endpoint or query
+parameter has to be reviewed and added to `RECORDABLE_ENDPOINTS` first, and a
+new host to `API_HOST_PATTERNS`. Blocked URLs in the report keep their query
+parameter names but not the values.
 
 Options:
 
@@ -201,12 +202,17 @@ fetches the same paths from `*.onekeytest.com` but keeps the production URL in
 the key.
 
 The fixture file is committed to a public repository, so record mode only
-forwards endpoints listed in `RECORDABLE_ENDPOINTS` (reviewed as public data)
-and refuses requests that carry `Authorization` or `X-Onekey-Request-Token`.
-Any API call that cannot be recorded (refused, upstream error, non-JSON answer,
-redirect) fails the command and leaves the fixture file unchanged; both passes
-write to a temporary copy that replaces the file only when everything was
-recorded. Still review the diff before committing.
+forwards endpoints listed in `RECORDABLE_ENDPOINTS` (reviewed as public data),
+with only the query parameters and POST bodies listed there, and refuses
+requests that carry `Authorization`, `Cookie` or `X-Onekey-Request-Token`.
+Any API call that cannot be recorded fails the command and leaves the fixture
+file unchanged: a refused request, a data call (XHR/fetch) to a host outside
+`API_HOST_PATTERNS`, a non-2xx answer (including an unfollowed redirect), or a
+2xx answer that is not JSON (an empty body is accepted only with 204). The
+failure log names each request by method, host, path and query parameter
+names, without values or bodies. Both passes write to a temporary copy that
+replaces the file in one rename only when everything was recorded. Still
+review the diff before committing.
 
 Budget CI also writes AI-oriented diagnostic artifacts next to the raw reports:
 

@@ -8,9 +8,12 @@ const {
   isolatedChromiumArgs,
   readFixtureFile,
   recordRefusal,
+  redactRequest,
+  redactUrl,
   requestKey,
   resolveNetworkMode,
   serializeFixtureFile,
+  writeFileAtomic,
 } = require('./webColdNetwork');
 
 function tempFixturePath() {
@@ -183,59 +186,130 @@ describe('web cold network fixtures', () => {
     });
     recorder.add({
       key: 'GET a.onekeycn.com/a',
+      label: 'GET a.onekeycn.com/a',
       status: 200,
       body: Buffer.from('{"code":0}'),
       scenario: 'root',
     });
-    expect(
-      recorder.add({
-        key: 'GET a.onekeycn.com/blocked',
-        status: 403,
-        body: Buffer.from('<html>blocked</html>'),
-        scenario: 'root',
-      }),
-    ).toBe(false);
-    recorder.fail('GET a.onekeycn.com/moved', 'fetch failed: redirect');
+    const rejected = [
+      [403, '<html>blocked</html>', 'upstream answered 403'],
+      [302, '', 'upstream answered 302'],
+      [301, '{"moved":true}', 'upstream answered 301'],
+      [200, '', 'upstream answered 200 with an empty body'],
+      [200, 'ok', 'upstream answered 200 without JSON'],
+    ];
+    for (const [status, text, reason] of rejected) {
+      expect(
+        recorder.add({
+          key: `GET a.onekeycn.com/${status}-${text}`,
+          label: `GET a.onekeycn.com/${status}-${text.length}`,
+          status,
+          body: Buffer.from(text),
+          scenario: 'root',
+        }),
+      ).toBe(false);
+      expect(recorder.failures()).toContainEqual({
+        request: `GET a.onekeycn.com/${status}-${text.length}`,
+        reason,
+      });
+    }
+    recorder.fail('GET a.onekeycn.com/b?token', 'fetch failed: timeout');
+    expect(recorder.failures()).toHaveLength(rejected.length + 1);
 
-    expect(recorder.failures()).toEqual([
-      {
-        key: 'GET a.onekeycn.com/blocked',
-        reason: 'upstream answered 403 without JSON',
-      },
-      { key: 'GET a.onekeycn.com/moved', reason: 'fetch failed: redirect' },
-    ]);
     expect(() => recorder.write()).toThrow(/refusing to write/);
     expect(fs.readFileSync(fixturePath, 'utf8')).toBe('{"entries":[]}\n');
   });
 
-  test('records only reviewed public endpoints without credentials', () => {
-    const publicKey =
-      'GET utility.onekeycn.com/utility/v2/market/token/list?limit=20&page=1';
-    expect(recordRefusal({ key: publicKey, headers: {} })).toBeNull();
+  test('records only reviewed public endpoints and parameters without credentials', () => {
+    const publicRequest = {
+      method: 'GET',
+      url: 'https://utility.onekeycn.com/utility/v2/market/token/list?limit=20&page=1',
+    };
+    expect(recordRefusal({ ...publicRequest, headers: {} })).toBeNull();
     expect(
       recordRefusal({
-        key: 'POST api.hyperliquid.xyz/info {"dex":"xyz","type":"metaAndAssetCtxs"}',
+        method: 'GET',
+        url: 'https://wallet.onekeycn.com/wallet/v1/health?_=system_time_utils&timestamp=1',
         headers: {},
       }),
     ).toBeNull();
     expect(
-      recordRefusal({ key: publicKey, headers: { authorization: 'Bearer x' } }),
-    ).toBe('carries authorization');
+      recordRefusal({
+        method: 'GET',
+        url: 'https://utility.onekeycn.com/utility/v2/market/banner/token-list/6aaa5bf8185583c1679c37dc?currency=usd',
+        headers: {},
+      }),
+    ).toBeNull();
     expect(
       recordRefusal({
-        key: publicKey,
-        headers: { 'x-onekey-request-token': 'token' },
+        method: 'POST',
+        url: 'https://api.hyperliquid.xyz/info',
+        postData: '{"type":"metaAndAssetCtxs","dex":"xyz"}',
+        headers: {},
       }),
-    ).toBe('carries x-onekey-request-token');
-    for (const key of [
-      'GET wallet.onekeycn.com/wallet/v1/account/list?address=0x1',
-      'POST earn.onekeycn.com/earn/v2/recommend {"accounts":[{"accountAddress":"0x1"}]}',
-      'POST api.hyperliquid.xyz/info {"type":"clearinghouseState","user":"0x1"}',
+    ).toBeNull();
+
+    for (const header of [
+      'authorization',
+      'cookie',
+      'x-onekey-request-token',
     ]) {
-      expect(recordRefusal({ key, headers: {} })).toBe(
-        'endpoint not in RECORDABLE_ENDPOINTS',
-      );
+      expect(
+        recordRefusal({ ...publicRequest, headers: { [header]: 'secret' } }),
+      ).toBe(`carries ${header}`);
     }
+    expect(
+      recordRefusal({
+        method: 'GET',
+        url: 'https://wallet.onekeycn.com/wallet/v1/network/list?onlyEvmNetworks=true&accountAddress=0x1',
+        headers: {},
+      }),
+    ).toBe('query parameter "accountAddress" not allowed for this endpoint');
+    expect(
+      recordRefusal({
+        method: 'GET',
+        url: 'https://wallet.onekeycn.com/wallet/v1/account/list?address=0x1',
+        headers: {},
+      }),
+    ).toBe('endpoint not in RECORDABLE_ENDPOINTS');
+    for (const postData of [
+      '{"accounts":[{"accountAddress":"0x1"}]}',
+      '{"type":"clearinghouseState","user":"0x1"}',
+    ]) {
+      const url = postData.includes('accounts')
+        ? 'https://earn.onekeycn.com/earn/v2/recommend'
+        : 'https://api.hyperliquid.xyz/info';
+      expect(
+        recordRefusal({ method: 'POST', url, postData, headers: {} }),
+      ).toBe('request body not allowed for this endpoint');
+    }
+  });
+
+  test('redacts query values and bodies for logs', () => {
+    expect(
+      redactUrl(
+        'https://wallet.onekeycn.com/wallet/v1/x?address=0xabc&b=1&address=0xdef',
+      ),
+    ).toBe('https://wallet.onekeycn.com/wallet/v1/x?address&b');
+    const label = redactRequest({
+      method: 'POST',
+      url: 'https://earn.onekeycn.com/earn/v2/recommend?wallet=w1',
+      postData: '{"accounts":["0xabc"]}',
+    });
+    expect(label).toMatch(
+      /^POST earn\.onekeycn\.com\/earn\/v2\/recommend\?wallet body sha256:[0-9a-f]{16}$/,
+    );
+    expect(label).not.toContain('0xabc');
+    expect(label).not.toContain('w1');
+  });
+
+  test('writes files atomically into new folders', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'web-cold-atomic-'));
+    const target = path.join(dir, 'nested', 'fixtures.json');
+    writeFileAtomic(target, 'one');
+    writeFileAtomic(target, 'two');
+    expect(fs.readFileSync(target, 'utf8')).toBe('two');
+    expect(fs.readdirSync(path.dirname(target))).toEqual(['fixtures.json']);
   });
 
   test('serializes one sorted entry per line', () => {
