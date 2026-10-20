@@ -74,19 +74,28 @@ type IRewardModule = keyof IInviteeRewardsOverview;
 const MY_REWARDS_COPY = {
   payoutTitle: 'Payout',
   paidTo: 'Paid to',
-  addressRule: 'Counted and paid per address.',
-  payoutSchedule: "Last month's rewards are paid by the 10th.",
+  addressRule: 'Rewards are tracked and paid per address.',
+  payoutSchedule: "Last month's rewards are paid by the 10th of each month.",
   payoutGeneric: 'Paid to this address',
-  payoutIn: (token: string, network?: string) =>
-    network ? `Paid in ${token} on ${network}` : `Paid in ${token}`,
+  payoutInNetwork: 'Paid in {token} on {network}',
+  payoutIn: 'Paid in {token}',
   totalRewards: 'Total rewards',
   noEvmAddress: 'No EVM address',
   noWalletTitle: 'Connect a wallet to view rewards',
-  unsupportedTitle: 'No EVM address',
   unsupportedDescription: 'To view rewards, switch to an EVM account',
   loadFailed: 'Unable to load',
-  moreTokens: (count: number) => `+${count} more`,
+  moreTokens: '+{count} more',
 };
+
+// Stand-in for formatMessage placeholders until the copy moves to i18n.
+function fillCopy(
+  template: string,
+  values: Record<string, string | number | undefined>,
+) {
+  return template.replace(/\{(\w+)\}/g, (_, name: string) =>
+    String(values[name] ?? ''),
+  );
+}
 
 const MODULE_ICON: Record<IRewardModule, IKeyOfIcons> = {
   perps: INVITE_REWARD_SUBJECT_ICON.perps,
@@ -351,7 +360,12 @@ function PayoutInfo({
               <PayoutTokenLogo payout={payout} size="$5" />
               <SizableText size="$bodyMdMedium" flexShrink={1}>
                 {payout
-                  ? MY_REWARDS_COPY.payoutIn(payout.symbol, payout.networkName)
+                  ? fillCopy(
+                      payout.networkName
+                        ? MY_REWARDS_COPY.payoutInNetwork
+                        : MY_REWARDS_COPY.payoutIn,
+                      { token: payout.symbol, network: payout.networkName },
+                    )
                   : MY_REWARDS_COPY.payoutGeneric}
               </SizableText>
             </XStack>
@@ -421,7 +435,7 @@ function RewardValue({
       />
       {value.extraCount ? (
         <SizableText size="$bodySm" color="$textSubdued" flexShrink={0}>
-          {MY_REWARDS_COPY.moreTokens(value.extraCount)}
+          {fillCopy(MY_REWARDS_COPY.moreTokens, { count: value.extraCount })}
         </SizableText>
       ) : null}
     </XStack>
@@ -1102,7 +1116,7 @@ export function MyRewardsContent({
       return (
         <ReferralCardEmpty
           {...cardStyle}
-          title={MY_REWARDS_COPY.unsupportedTitle}
+          title={MY_REWARDS_COPY.noEvmAddress}
           description={MY_REWARDS_COPY.unsupportedDescription}
         />
       );
