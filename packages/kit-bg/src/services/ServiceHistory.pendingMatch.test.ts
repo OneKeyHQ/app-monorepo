@@ -14,6 +14,7 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
   };
 });
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
@@ -30,6 +31,15 @@ function tx(status: EDecodedTxStatus): IAccountHistoryTx {
       status,
       actions: [],
     },
+  } as unknown as IAccountHistoryTx;
+}
+
+function localTx(): IAccountHistoryTx {
+  const pending = tx(EDecodedTxStatus.Pending);
+  return {
+    ...pending,
+    isLocalCreated: true,
+    decodedTx: { ...pending.decodedTx, encodedTx: {} },
   } as unknown as IAccountHistoryTx;
 }
 
@@ -61,6 +71,7 @@ describe('ServiceHistory local pending reconciliation', () => {
   async function reconcile(
     onChainStatus: EDecodedTxStatus,
     authoritative = false,
+    pendingTx = localTx(),
   ) {
     const { service } = createService(authoritative);
     return service.batchUpdateLocalHistoryTxs([
@@ -69,7 +80,7 @@ describe('ServiceHistory local pending reconciliation', () => {
         networkId: 'btc--0',
         onChainHistoryTxs: [tx(onChainStatus)],
         confirmedTxs: [],
-        pendingTxs: [tx(EDecodedTxStatus.Pending)],
+        pendingTxs: [pendingTx],
         pendingTxsToModify: [],
       },
     ]);
@@ -84,6 +95,27 @@ describe('ServiceHistory local pending reconciliation', () => {
     const result = await reconcile(EDecodedTxStatus.Pending, true);
     expect(result.allFinalPendingTxs).toHaveLength(1);
   });
+
+  it('hands a pending row this device did not send to the authoritative snapshot', async () => {
+    const result = await reconcile(
+      EDecodedTxStatus.Pending,
+      true,
+      tx(EDecodedTxStatus.Pending),
+    );
+    expect(result.allFinalPendingTxs).toHaveLength(0);
+  });
+
+  it.each([localTx(), tx(EDecodedTxStatus.Pending)])(
+    'leaves indexer-backed chains unchanged for any pending row',
+    async (pendingTx) => {
+      const result = await reconcile(
+        EDecodedTxStatus.Pending,
+        false,
+        pendingTx,
+      );
+      expect(result.allFinalPendingTxs).toHaveLength(0);
+    },
+  );
 
   it('settles the local row once the indexer confirms it', async () => {
     const result = await reconcile(EDecodedTxStatus.Confirmed);
@@ -101,7 +133,7 @@ describe('ServiceHistory local pending reconciliation', () => {
         networkId: 'btc--0',
         onChainHistoryTxs: [refined],
         confirmedTxs: [],
-        pendingTxs: [tx(EDecodedTxStatus.Pending)],
+        pendingTxs: [localTx()],
         pendingTxsToModify: [],
       },
     ]);
@@ -146,4 +178,49 @@ describe('ServiceHistory local pending reconciliation', () => {
       ]);
     },
   );
+});
+
+describe('ServiceHistory clear pending transactions', () => {
+  function createService(clearPendingSends: () => Promise<void>) {
+    const clearLocalHistoryPendingTxs = jest.fn(async () => undefined);
+    const service = Object.assign(
+      Object.create(ServiceHistory.prototype) as InstanceType<
+        typeof ServiceHistory
+      >,
+      {
+        backgroundApi: {
+          simpleDb: { localHistory: { clearLocalHistoryPendingTxs } },
+          servicePrivacyChain: {
+            forEachLocalWalletCapability: async (
+              fn: (capability: object) => Promise<void>,
+            ) => {
+              await fn({ clearPendingSends });
+              await fn({});
+            },
+          },
+        },
+      },
+    );
+    return { service, clearLocalHistoryPendingTxs };
+  }
+
+  it('also releases local wallet send locks', async () => {
+    const clearPendingSends = jest.fn(async () => undefined);
+    const { service, clearLocalHistoryPendingTxs } =
+      createService(clearPendingSends);
+    await service.clearLocalHistoryPendingTxs();
+    expect(clearLocalHistoryPendingTxs).toHaveBeenCalled();
+    expect(clearPendingSends).toHaveBeenCalled();
+  });
+
+  it('keeps the general clear when a local wallet fails', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { service, clearLocalHistoryPendingTxs } = createService(async () => {
+      throw new OneKeyLocalError('zcash storage unavailable');
+    });
+    await expect(
+      service.clearLocalHistoryPendingTxs(),
+    ).resolves.toBeUndefined();
+    expect(clearLocalHistoryPendingTxs).toHaveBeenCalled();
+  });
 });

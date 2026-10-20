@@ -8,18 +8,15 @@ jest.mock(
   '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect',
   () => ({
     fetchZcashChainTipDirect: jest.fn(async () => null),
-    fetchZcashTransactionMissingDirect: jest.fn(async () => true),
   }),
 );
 
 import { ZCASH_ADDRESS_SCHEME_VERSION } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
-import { fetchZcashChainTipDirect } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SimpleDbEntityZcash } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
-import VaultBtc from '../btc/Vault';
 
 import { getZcashLifecycleMutex } from './lifecycle';
 import { ZcashPrivacyMode } from './privacyMode';
@@ -27,7 +24,6 @@ import Vault from './Vault';
 
 import type {
   IZcashAccountMeta,
-  IZcashDB,
   IZcashPendingRescan,
   IZcashPrivacyModeStateView,
 } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
@@ -184,165 +180,6 @@ describe('Zcash local privacy data deletion', () => {
     expect(purgeWallet).toHaveBeenCalledTimes(1);
     expect(purgeWallet).toHaveBeenCalledWith(expect.objectContaining({ ufvk }));
     expect(removeAccountMeta).toHaveBeenCalledWith({ accountId });
-  });
-});
-
-describe('Zcash transparent pending history expiry', () => {
-  const accountId = "hd-1--m/44'/133'/0'";
-  const txid = '11'.repeat(32);
-
-  function createVault() {
-    const initial: IZcashDB = {
-      accounts: {},
-      transparentPendingTxs: {
-        [accountId]: {
-          [txid]: {
-            txid,
-            rawTx: 'synthetic-transaction',
-            ownerId: 'owner',
-            spentOutpoints: [],
-            expiryHeight: 100,
-            createdAt: 1,
-            broadcastState: 'unknown',
-          },
-        },
-      },
-    };
-    let saved: unknown = { data: initial, updatedAt: 1 };
-    const zcash = new SimpleDbEntityZcash();
-    (zcash as { appStorage: unknown }).appStorage = {
-      getItem: jest.fn(async () => saved),
-      setItem: jest.fn(async (_key: string, value: unknown) => {
-        saved = value;
-      }),
-    };
-    const getDBAccount = jest.fn(async () => ({
-      id: accountId,
-      address: 'synthetic-address',
-      xpub: 'synthetic-xpub',
-      path: "m/44'/133'/0'",
-    }));
-    const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
-      accountId: '',
-      networkId: 'zec--0',
-      backgroundApi: {
-        simpleDb: {
-          zcash,
-          localHistory: {
-            getAccountLocalHistoryConfirmedTxs: async () => [],
-            getAccountLocalHistoryPendingTxs: async () => [],
-          },
-        },
-        serviceAccount: { getDBAccount },
-        serviceCustomRpc: defaultCustomRpcStub,
-      },
-    });
-    return { vault, zcash, getDBAccount };
-  }
-
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
-  // Expiry cleanup requires a tip beyond expiry and explicit node absence.
-  it.each([99, 101])(
-    'uses the named account and consensus tip %s to decide expiry',
-    async (height) => {
-      const { vault, zcash, getDBAccount } = createVault();
-      jest.mocked(fetchZcashChainTipDirect).mockResolvedValueOnce(height);
-      const backend = jest
-        .spyOn(VaultBtc.prototype, 'fetchAccountDetails')
-        .mockResolvedValue({
-          data: {
-            data: {
-              address: 'synthetic-transparent-address',
-              allUtxoList: [
-                {
-                  txid: '22'.repeat(32),
-                  vout: 0,
-                  height: 1,
-                  confirmations: height,
-                  value: '100000',
-                  address: 'synthetic-transparent-address',
-                  path: '0/0',
-                  globalIndex: 0,
-                  txPubkey: '',
-                  prevOutPubkey: `76a914${'33'.repeat(20)}88ac`,
-                },
-              ],
-            },
-          },
-        });
-      Object.assign(vault.backgroundApi, {
-        serviceSend: {
-          getRawTransactions: async () => ({
-            ['22'.repeat(32)]: { rawTx: 'raw-transaction' },
-          }),
-        },
-      });
-      Object.assign(vault, {
-        zcashGetApi: async () => ({
-          parseTransparentTransactions: async () => [
-            {
-              txid: '22'.repeat(32),
-              isCoinbase: false,
-              outputs: [
-                {
-                  valueZat: '100000',
-                  scriptPubKey: `76a914${'33'.repeat(20)}88ac`,
-                },
-              ],
-            },
-          ],
-        }),
-      });
-      await vault.zcashPruneTransparentSendHistory(accountId);
-      if (height > 100) {
-        await expect(
-          zcash.listTransparentPendingTxs({ accountId }),
-        ).resolves.toEqual([]);
-      } else {
-        await expect(
-          zcash.listTransparentPendingTxs({ accountId }),
-        ).resolves.toHaveLength(1);
-      }
-      expect(getDBAccount).toHaveBeenCalledWith({ accountId });
-      expect(backend).not.toHaveBeenCalled();
-    },
-  );
-
-  it('expires pending state of an account left without any UTXO', async () => {
-    const { vault, zcash } = createVault();
-    jest.spyOn(VaultBtc.prototype, 'fetchAccountDetails').mockResolvedValue({
-      data: {
-        data: { address: 'synthetic-transparent-address', allUtxoList: [] },
-      },
-    } as unknown as Awaited<ReturnType<VaultBtc['fetchAccountDetails']>>);
-    const fetchTip = jest
-      .mocked(fetchZcashChainTipDirect)
-      .mockResolvedValueOnce(101);
-
-    await expect(
-      vault.zcashPruneTransparentSendHistory(accountId),
-    ).resolves.toBeUndefined();
-    expect(fetchTip).toHaveBeenCalled();
-    await expect(
-      zcash.listTransparentPendingTxs({ accountId }),
-    ).resolves.toEqual([]);
-  });
-
-  it('retains pending state when the indexer cannot establish expiry', async () => {
-    const { vault, zcash } = createVault();
-    jest
-      .spyOn(VaultBtc.prototype, 'fetchAccountDetails')
-      .mockRejectedValue(new Error('indexer unavailable'));
-
-    await expect(
-      vault.zcashPruneTransparentSendHistory(accountId),
-    ).resolves.toBeUndefined();
-    await expect(
-      zcash.listTransparentPendingTxs({ accountId }),
-    ).resolves.toHaveLength(1);
   });
 });
 

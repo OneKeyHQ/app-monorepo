@@ -2456,10 +2456,12 @@ class ServiceHistory extends ServiceBase {
       const onChainMatchedPendingTxs: IAccountHistoryTx[] = [];
       finalPendingTxs = finalPendingTxs.filter((tx) => {
         const matched = onChainHistoryTxs.find((onChainTx) => {
-          // A vault-authoritative source keeps the local row until it resolves.
+          // A vault-authoritative source keeps a row this device sent until
+          // it resolves; other pending rows belong to its snapshot.
           const keepLocalPending =
             historySourceIsAuthoritative &&
-            onChainTx.decodedTx.status === EDecodedTxStatus.Pending;
+            onChainTx.decodedTx.status === EDecodedTxStatus.Pending &&
+            (tx.isLocalCreated === true || !!tx.decodedTx.encodedTx);
           return !keepLocalPending && this.isSameScopedHistoryTx(onChainTx, tx);
         });
         if (matched) {
@@ -3384,7 +3386,18 @@ class ServiceHistory extends ServiceBase {
 
   @backgroundMethod()
   public async clearLocalHistoryPendingTxs() {
-    return this.backgroundApi.simpleDb.localHistory.clearLocalHistoryPendingTxs();
+    await this.backgroundApi.simpleDb.localHistory.clearLocalHistoryPendingTxs();
+    // Privacy chains also hold local input locks; a failure there must not
+    // undo the general clear above.
+    try {
+      await this.backgroundApi.servicePrivacyChain.forEachLocalWalletCapability(
+        async (capability) => {
+          await capability.clearPendingSends?.();
+        },
+      );
+    } catch (error) {
+      console.error('Failed to clear local wallet pending sends:', error);
+    }
   }
 
   @backgroundMethod()

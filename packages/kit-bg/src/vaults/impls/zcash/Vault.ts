@@ -313,17 +313,12 @@ export default class Vault extends VaultBtc {
     );
   }
 
-  async zcashPruneTransparentSendHistory(
-    accountId: string,
-    cachedHistory?: IAccountHistoryTx[],
-    chainTip?: number,
+  async zcashDropExpiredTransparentSends(
+    params: Parameters<
+      typeof zcashTransparent.zcashDropExpiredTransparentSends
+    >[1],
   ): Promise<void> {
-    return zcashTransparent.zcashPruneTransparentSendHistory(
-      this,
-      accountId,
-      cachedHistory,
-      chainTip,
-    );
+    return zcashTransparent.zcashDropExpiredTransparentSends(this, params);
   }
 
   async zcashCreatePczt(params: {
@@ -672,6 +667,7 @@ export default class Vault extends VaultBtc {
   }): Promise<{
     txs: IAccountHistoryTx[];
     snapshotComplete: boolean;
+    tipHeight?: number;
   }> {
     return zcashHistory.zcashFetchTransparentHistory(this, params);
   }

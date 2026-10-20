@@ -38,8 +38,8 @@ it.each([1, 3])(
     });
     const vault = Object.create(Vault.prototype) as Vault;
     const prune = jest
-      .spyOn(vault, 'zcashPruneTransparentSendHistory')
-      .mockRejectedValue(new OneKeyLocalError('old history node unavailable'));
+      .spyOn(vault, 'zcashDropExpiredTransparentSends')
+      .mockRejectedValue(new OneKeyLocalError('history expiry unavailable'));
     Object.assign(vault, {
       accountId: 'a',
       backgroundApi: {
