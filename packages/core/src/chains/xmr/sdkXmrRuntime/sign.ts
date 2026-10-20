@@ -1,6 +1,7 @@
 /**
- * The spend key is never stored; it's derived from the account's BIP-32 key
- * for the duration of one signature, by the runtime's single implementation of sc_reduce32.
+ * The spend key never exists outside the runtime: signing hands over the
+ * account's BIP-32 key and the runtime reduces it with the same sc_reduce32
+ * that produced the address.
  */
 
 import { z } from 'zod';
@@ -23,19 +24,10 @@ export type IXmrSignedTransaction = {
   sizeBytes: number;
 };
 
-/** The spend scalar for an account's BIP-32 private key, reduced in-runtime. */
-export async function deriveXmrSpendPrivateKey(
-  bip32PrivateKeyHex: string,
-): Promise<string> {
-  const api = await getXmrPureRuntime();
-  // A bare hex string, not JSON -- the runtime returns the scalar itself.
-  return api.spendScalar(bip32PrivateKeyHex);
-}
-
 export async function signXmrTransaction(params: {
   /** The constructed transaction, as `prepareTransaction` returned it. */
   signableHex: string;
-  /** The account's BIP-32 private key. Reduced to a spend scalar in-runtime. */
+  /** The account's BIP-32 private key. Reduced to the spend key in-runtime. */
   bip32PrivateKeyHex: string;
   review: IXmrTransactionReviewRequest;
 }): Promise<IXmrSignedTransaction> {
@@ -44,9 +36,12 @@ export async function signXmrTransaction(params: {
   const reviewJson = stringUtils.stableStringify(params.review);
   // An older WASM signer silently ignores extra arguments. Require its verifier.
   await api.verifyTransaction(signableHex, reviewJson);
-  const spendPrivateKeyHex = await deriveXmrSpendPrivateKey(bip32PrivateKeyHex);
   const value: unknown = JSON.parse(
-    await api.signTransaction(signableHex, spendPrivateKeyHex, reviewJson),
+    await api.signTransactionWithBip32Key(
+      signableHex,
+      bip32PrivateKeyHex,
+      reviewJson,
+    ),
   );
   const result = z
     .object({

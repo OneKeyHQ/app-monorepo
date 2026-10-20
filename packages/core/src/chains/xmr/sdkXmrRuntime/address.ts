@@ -32,14 +32,10 @@ export type IXmrPureRuntimeApi = {
     minor: number,
   ) => Promise<string>;
   validateAddress: (network: IXmrNetwork, address: string) => Promise<boolean>;
-  /**
-   * The V4 reduction: BIP-32 key in, Monero spend scalar out. Returns bare
-   * hex, not JSON.
-   */
-  spendScalar: (bip32PrivateKeyHex: string) => Promise<string>;
-  signTransaction: (
+  /** Reduces the BIP-32 key to the spend key inside the runtime; neither comes back. */
+  signTransactionWithBip32Key: (
     signableHex: string,
-    spendPrivateKeyHex: string,
+    bip32PrivateKeyHex: string,
     reviewJson: string,
   ) => Promise<string>;
   verifyTransaction: (signableHex: string, reviewJson: string) => Promise<void>;
@@ -68,8 +64,7 @@ export async function getXmrPureRuntime(): Promise<IXmrPureRuntimeApi> {
     deriveAccount: api.deriveAccount,
     deriveSubaddress: api.deriveSubaddress,
     validateAddress: api.validateAddress,
-    spendScalar: api.spendScalar,
-    signTransaction: api.signTransaction,
+    signTransactionWithBip32Key: api.signTransactionWithBip32Key,
     verifyTransaction: api.verifyTransaction,
   };
 }

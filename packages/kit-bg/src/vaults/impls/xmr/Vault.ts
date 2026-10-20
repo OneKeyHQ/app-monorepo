@@ -463,7 +463,8 @@ export default class Vault extends VaultBase {
 
   /**
    * Confirms real spends via key images (watch-only scanning can't detect
-   * outside spends). Spend key is derived for this call only, never kept.
+   * outside spends). The runtime reduces the spend key from the BIP-32 key
+   * for this call only; it never exists on this side.
    */
   async xmrImportKeyImages({ password }: { password: string }): Promise<{
     imported: number;
@@ -472,16 +473,15 @@ export default class Vault extends VaultBase {
     if (!(this.keyring instanceof KeyringHd)) {
       throw new NotImplemented();
     }
-    const spendPrivateKeyHex = await this.keyring.xmrGetSpendPrivateKeyHex({
-      password,
-    });
+    const bip32PrivateKeyHex =
+      await this.keyring.xmrGetKeyImageBip32PrivateKeyHex({ password });
     const api = await this.getXmrRuntimeApi();
     const identityId = await getXmrIdentityId({
       api,
       accountId: this.accountId,
     });
     return JSON.parse(
-      await api.importKeyImages(identityId, spendPrivateKeyHex),
+      await api.importKeyImagesWithBip32Key(identityId, bip32PrivateKeyHex),
     ) as { imported: number; spendsFound: number };
   }
 

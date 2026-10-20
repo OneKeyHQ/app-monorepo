@@ -3,10 +3,7 @@ import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 
 import { deriveXmrAccount } from './sdkXmrRuntime/address';
-import {
-  deriveXmrSpendPrivateKey,
-  signXmrTransaction,
-} from './sdkXmrRuntime/sign';
+import { signXmrTransaction } from './sdkXmrRuntime/sign';
 import { getXmrReviewRequest, parseXmrTransaction } from './transactionReview';
 import { serializeXmrViewingKeyPair } from './viewingKeys';
 
@@ -58,8 +55,8 @@ export function getXmrCurveForPath(path: string): ICurveName {
  * viewing pair, which is what scanning needs and the direct analogue of a
  * Zcash UFVK. The keyring moves it into the privacy-chain viewing key store
  * and leaves only the spend public key on the account record. The spend key
- * is **never** persisted; it is re-derived from the seed at signing time and
- * discarded.
+ * is **never** persisted and never exists outside the runtime: signing and
+ * key-image import hand it the BIP-32 key, which it reduces per call.
  */
 export default class CoreChainSoftware extends CoreChainApiBase {
   override getExportedSecretKey(
@@ -88,8 +85,8 @@ export default class CoreChainSoftware extends CoreChainApiBase {
    * number shown has to be the number paid. What arrives here is the finished
    * transaction, so signing is pure: no wallet database, no node.
    *
-   * The spend key never leaves this call. It is reduced from the account's
-   * BIP-32 key by the runtime, using the same `sc_reduce32` that produced the
+   * The spend key never exists on this side. The runtime reduces it from the
+   * account's BIP-32 key, using the same `sc_reduce32` that produced the
    * address, so the two can never disagree.
    */
   override async signTransaction(
@@ -123,18 +120,18 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }
 
   /**
-   * The account's private spend key, for computing key images before a send.
-   * Taken the way signing takes it; the caller hands it to the runtime and
-   * keeps nothing.
+   * The account's BIP-32 key, taken the way signing takes it, for the
+   * runtime's key-image import. The caller hands it to the runtime as is and
+   * keeps nothing; the spend key is reduced there.
    */
-  async getSpendPrivateKeyHex(
+  async getKeyImageBip32PrivateKeyHex(
     payload: ICoreApiSignBasePayload,
   ): Promise<string> {
     const signer = await this.baseGetSingleSigner({
       payload,
       curve: getXmrCurveForPath(payload.account.path),
     });
-    return deriveXmrSpendPrivateKey(await signer.getPrvkeyHex());
+    return signer.getPrvkeyHex();
   }
 
   /**
