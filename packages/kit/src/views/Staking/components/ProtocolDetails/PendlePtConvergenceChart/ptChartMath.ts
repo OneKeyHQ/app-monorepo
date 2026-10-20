@@ -9,9 +9,16 @@ const MAX_PIN_DEVIATION = 0.02;
 
 export type IPtChartApyPoint = {
   timestamp: number;
-  /** Implied APY in percent, e.g. "5.09". */
-  apy?: string;
+  /** Implied APY in percent, e.g. "5.09". Missing or empty on a gap. */
+  apy?: string | null;
 };
+
+// Number(null) and Number('') are 0, which would read a gap as a 0% rate.
+function parseApyPercent(apy: IPtChartApyPoint['apy']): number {
+  return typeof apy === 'string' && apy.trim() !== ''
+    ? Number(apy)
+    : Number.NaN;
+}
 
 export type IPtPricePoint = { time: number; price: number };
 
@@ -117,7 +124,10 @@ export function buildPastPrices({
 }): IPtPastPrices {
   const none: IPtPastPrices = { points: [], stepMs: DAY_MS };
   const points = (history ?? [])
-    .map((item) => ({ time: Number(item.timestamp), apy: Number(item.apy) }))
+    .map((item) => ({
+      time: Number(item.timestamp),
+      apy: parseApyPercent(item.apy),
+    }))
     .filter(
       (item) =>
         Number.isFinite(item.time) &&

@@ -153,6 +153,26 @@ describe('buildPastPrices', () => {
     ]);
   });
 
+  it('skips a missing APY instead of reading it as 0%', () => {
+    const withMissing = [
+      { timestamp: NOW_MS - 3 * DAY_MS, apy: '5' },
+      { timestamp: NOW_MS - 2 * DAY_MS, apy: null },
+      { timestamp: NOW_MS - DAY_MS, apy: '' },
+      { timestamp: NOW_MS, apy: '5' },
+    ];
+    const { points } = buildPastPrices({
+      history: withMissing,
+      maturityTime: MATURITY_MS,
+      currentRate: 0.995,
+      now: NOW_MS,
+    });
+
+    expect(points.map((point) => point.time)).toEqual([
+      NOW_MS - 3 * DAY_MS,
+      NOW_MS,
+    ]);
+  });
+
   it('draws no history that is stale, too short or off today’s price', () => {
     const base = { maturityTime: MATURITY_MS, now: NOW_MS };
     expect(
