@@ -2,13 +2,15 @@
 
 import type { ComponentProps, PropsWithChildren } from 'react';
 
-import { act, render } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import {
   prepareMarketSwapEntry,
   prepareStockSwapEntry,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/prepareSwapProEntry';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import {
   ESwapSource,
@@ -23,15 +25,51 @@ import type SwapPanelFooterButtons from './SwapPanelFooterButtons';
 const mockPushModal = jest.fn();
 const mockSwitchTab = jest.fn();
 const mockDismissDetail = jest.fn();
+const mockShowAccountSelector = jest.fn();
+let mockActiveAccount: {
+  account?: { id: string };
+  indexedAccount?: { id: string };
+} = {};
+let mockSpeedConfigReady = true;
 const mockFooter = jest.fn(
   (_props: ComponentProps<typeof SwapPanelFooterButtons>) => null,
 );
 
+const payToken: ISwapToken = {
+  networkId: 'evm--1',
+  contractAddress: '',
+  symbol: 'ETH',
+  decimals: 18,
+  isNative: true,
+};
+
 jest.mock('@onekeyhq/components', () => {
   const Container = ({ children }: PropsWithChildren) => <>{children}</>;
   return {
-    Button: Container,
+    Button: ({
+      children,
+      disabled,
+      onPress,
+      testID,
+      accessibilityLabel,
+    }: PropsWithChildren<{
+      disabled?: boolean;
+      onPress?: () => void;
+      testID?: string;
+      accessibilityLabel?: string;
+    }>) => (
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={onPress}
+        data-testid={testID}
+        aria-label={accessibilityLabel}
+      >
+        {children}
+      </button>
+    ),
     Divider: Container,
+    Icon: Container,
     SizableText: Container,
     Spinner: Container,
     Stack: Container,
@@ -52,7 +90,12 @@ jest.mock('@onekeyhq/kit/src/components/AccountSelector', () => ({
 }));
 jest.mock(
   '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger',
-  () => ({ useAccountSelectorTrigger: () => ({}) }),
+  () => ({
+    useAccountSelectorTrigger: () => ({
+      activeAccount: mockActiveAccount,
+      showAccountSelector: mockShowAccountSelector,
+    }),
+  }),
 );
 jest.mock('@onekeyhq/kit/src/components/Currency', () => ({
   Currency: ({ children }: PropsWithChildren) => <>{children}</>,
@@ -74,12 +117,24 @@ jest.mock(
 );
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isNative: true },
+  default: { isNative: true, isWeb: false },
+}));
+jest.mock('./hooks/useSpeedSwapInit', () => ({
+  ESpeedSwapConfigScope: { DEFAULT: 'default', MARKET: 'market' },
+  useSpeedSwapInit: () => ({
+    defaultTokens: [payToken],
+    speedConfigReady: mockSpeedConfigReady,
+  }),
 }));
 jest.mock('./SwapPanelFooterButtons', () => ({
   __esModule: true,
-  default: (props: ComponentProps<typeof SwapPanelFooterButtons>) =>
-    mockFooter(props),
+  default: (props: ComponentProps<typeof SwapPanelFooterButtons>) => {
+    mockFooter(props);
+    const { default: FooterButtons } = jest.requireActual<
+      typeof import('./SwapPanelFooterButtons')
+    >('./SwapPanelFooterButtons');
+    return <FooterButtons {...props} />;
+  },
 }));
 
 const token: ISwapToken = {
@@ -88,17 +143,139 @@ const token: ISwapToken = {
   symbol: 'TARGET',
   decimals: 18,
 };
-const payToken: ISwapToken = {
-  networkId: 'evm--1',
-  contractAddress: '',
-  symbol: 'ETH',
-  decimals: 18,
-  isNative: true,
-};
 
 describe('Market mobile Buy / Sell modal entry', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.replaceProperty(platformEnv, 'isNative', true);
+    jest.replaceProperty(platformEnv, 'isWeb', false);
+    mockActiveAccount = {};
+    mockSpeedConfigReady = true;
+  });
+
+  it.each([
+    { account: { id: 'account' } },
+    { indexedAccount: { id: 'indexed-account' } },
+  ])(
+    'exposes Buy and Sell for connected narrow web accounts: %p',
+    (account) => {
+      jest.replaceProperty(platformEnv, 'isNative', false);
+      jest.replaceProperty(platformEnv, 'isWeb', true);
+      mockActiveAccount = account;
+      render(<SwapPanel swapToken={token} mobileLayout />);
+      expect(mockFooter).toHaveBeenCalledWith(
+        expect.objectContaining({ mode: 'buy-sell', tradeDisabled: false }),
+      );
+    },
+  );
+
+  it('connects a narrow web guest and switches to Buy/Sell after connection', () => {
+    jest.replaceProperty(platformEnv, 'isNative', false);
+    jest.replaceProperty(platformEnv, 'isWeb', true);
+    const { rerender } = render(<SwapPanel swapToken={token} mobileLayout />);
+    fireEvent.click(
+      screen.getByRole('button', { name: ETranslations.global_connect }),
+    );
+    expect(mockShowAccountSelector).toHaveBeenCalledTimes(1);
+    expect(mockPushModal).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole('button', { name: ETranslations.global_buy }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: ETranslations.global_sell }),
+    ).toBeNull();
+
+    mockActiveAccount = { account: { id: 'connected' } };
+    rerender(<SwapPanel swapToken={token} mobileLayout />);
+    expect(
+      screen.queryByRole('button', { name: ETranslations.global_connect }),
+    ).toBeNull();
+    expect(mockFooter).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: 'buy-sell', tradeDisabled: false }),
+    );
+  });
+
+  it('keeps narrow web Connect disabled until execution is ready', () => {
+    jest.replaceProperty(platformEnv, 'isNative', false);
+    jest.replaceProperty(platformEnv, 'isWeb', true);
+    render(<SwapPanel swapToken={token} mobileLayout executionReady={false} />);
+    const button = screen.getByRole('button', {
+      name: ETranslations.global_connect,
+    });
+    expect(button.hasAttribute('disabled')).toBe(true);
+    fireEvent.click(button);
+    expect(mockShowAccountSelector).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])(
+    'waits for speed configuration only for connected narrow web trades (connected=%s)',
+    (connected) => {
+      jest.replaceProperty(platformEnv, 'isNative', false);
+      jest.replaceProperty(platformEnv, 'isWeb', true);
+      mockSpeedConfigReady = false;
+      mockActiveAccount = connected ? { account: { id: 'connected' } } : {};
+      render(<SwapPanel swapToken={token} mobileLayout />);
+      if (connected) {
+        const buy = screen.getByRole('button', {
+          name: ETranslations.global_buy,
+        });
+        const sell = screen.getByRole('button', {
+          name: ETranslations.global_sell,
+        });
+        expect(buy.hasAttribute('disabled')).toBe(true);
+        expect(sell.hasAttribute('disabled')).toBe(true);
+        fireEvent.click(buy);
+        fireEvent.click(sell);
+        expect(prepareMarketSwapEntry).not.toHaveBeenCalled();
+      } else {
+        const connect = screen.getByRole('button', {
+          name: ETranslations.global_connect,
+        });
+        expect(connect.hasAttribute('disabled')).toBe(false);
+        fireEvent.click(connect);
+        expect(mockShowAccountSelector).toHaveBeenCalledTimes(1);
+      }
+    },
+  );
+
+  it.each([false, true])(
+    'retains the independent Perps entry for narrow web guests (disabled=%s)',
+    (perpsDisabled) => {
+      jest.replaceProperty(platformEnv, 'isNative', false);
+      jest.replaceProperty(platformEnv, 'isWeb', true);
+      const onPerps = jest.fn();
+      render(
+        <SwapPanel
+          swapToken={token}
+          mobileLayout
+          footerMode="perps-buy-sell"
+          onPerps={onPerps}
+          perpsDisabled={perpsDisabled}
+        />,
+      );
+      expect(
+        screen.getByRole('button', { name: ETranslations.global_connect }),
+      ).toBeTruthy();
+      const perps = screen.getByRole('button', {
+        name: ETranslations.perps_perps,
+      });
+      expect(perps.hasAttribute('disabled')).toBe(perpsDisabled);
+      fireEvent.click(perps);
+      expect(onPerps).toHaveBeenCalledTimes(perpsDisabled ? 0 : 1);
+      expect(mockShowAccountSelector).not.toHaveBeenCalled();
+      expect(mockPushModal).not.toHaveBeenCalled();
+    },
+  );
+
+  it('preserves Connect for wide web guests', () => {
+    jest.replaceProperty(platformEnv, 'isNative', false);
+    jest.replaceProperty(platformEnv, 'isWeb', true);
+    render(<SwapPanel swapToken={token} />);
+    fireEvent.click(
+      screen.getByRole('button', { name: ETranslations.global_connect }),
+    );
+    expect(mockShowAccountSelector).toHaveBeenCalledTimes(1);
+    expect(mockFooter).not.toHaveBeenCalled();
   });
 
   it.each(['to', 'from'] as const)(
@@ -115,6 +292,7 @@ describe('Market mobile Buy / Sell modal entry', () => {
       act(direction === 'to' ? footer.onBuy : footer.onSell);
 
       expect(prepareMarketSwapEntry).toHaveBeenCalledWith({
+        defaultTokens: [payToken],
         token,
         direction,
         storeName: EJotaiContextStoreNames.swapModal,

@@ -1,4 +1,5 @@
 import {
+  memo,
   useCallback,
   useContext,
   useEffect,
@@ -14,6 +15,8 @@ import { isEmpty, isNil, uniqBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
+  IconButton,
   Skeleton,
   Stack,
   onVisibilityStateChange,
@@ -72,6 +75,7 @@ import {
 import { buildTapTimeHomeTokenMap } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells/tapTimeHomeMap';
 import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
 import { useTokenManagement } from '@onekeyhq/kit/src/views/AssetList/hooks/useTokenManagement';
+import { useActiveAccountDustSweep } from '@onekeyhq/kit/src/views/DustSweep/hooks/useNavigateToDustSweep';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ISimpleDBAggregateToken } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAggregateToken';
 import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityCustomTokens';
@@ -261,6 +265,46 @@ function isSameActiveAccountTokenListRequestContext(
     a.tokenSelectorFilterMode === b.tokenSelectorFilterMode
   );
 }
+
+const TokenListDustSweepAction = memo(function TokenListDustSweepAction({
+  showLabel,
+}: {
+  showLabel?: boolean;
+}) {
+  const intl = useIntl();
+  const { canDustSweep, openDustSweep } = useActiveAccountDustSweep();
+  const handlePress = useCallback(() => {
+    void openDustSweep('tokenListHeader');
+  }, [openDustSweep]);
+
+  if (!canDustSweep) {
+    return null;
+  }
+
+  if (showLabel) {
+    return (
+      <Button
+        testID="token-list-header-dust-sweep"
+        size="small"
+        variant="secondary"
+        icon="BroomOutline"
+        onPress={handlePress}
+      >
+        {intl.formatMessage({ id: ETranslations.out_title_dust_sweep })}
+      </Button>
+    );
+  }
+
+  return (
+    <IconButton
+      testID="token-list-header-dust-sweep"
+      variant="tertiary"
+      icon="BroomOutline"
+      title={intl.formatMessage({ id: ETranslations.title_dust_sweep })}
+      onPress={handlePress}
+    />
+  );
+});
 
 function TokenListBlock({
   tableLayout,
@@ -4186,6 +4230,7 @@ function TokenListBlock({
         id: ETranslations.global_universal_search_tabs_tokens,
       })}
       subTitle={renderSubTitle()}
+      headerActions={<TokenListDustSweepAction showLabel={tableLayout} />}
       headerContainerProps={{ px: '$pagePadding' }}
       content={renderContent()}
       plainContentContainer

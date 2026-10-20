@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
@@ -51,6 +59,7 @@ import {
   isSwapNetworkCacheCompatible,
   isSwapNetworkCacheReadyForBasicList,
 } from '../utils/swapNetworkCacheUtils';
+import { buildSwapProPositionsNetworkIdsKey } from '../utils/swapProPositionsKeyUtils';
 import {
   getSwapAnalyticsTokenListType,
   getSwapAnalyticsTokenRole,
@@ -78,10 +87,21 @@ const swapSupportAllAccountsCache = new LRUCache<
   IAllNetworkAccountInfo[]
 >({ max: 20 });
 let swapSupportAllAccountsCacheGeneration = 0;
+const swapSupportAllAccountsListeners = new Set<() => void>();
+function subscribeSwapSupportAllAccounts(listener: () => void) {
+  swapSupportAllAccountsListeners.add(listener);
+  return () => {
+    swapSupportAllAccountsListeners.delete(listener);
+  };
+}
+function getSwapSupportAllAccountsGeneration() {
+  return swapSupportAllAccountsCacheGeneration;
+}
 
 appEventBus.on(EAppEventBusNames.GlobalDeriveTypeUpdate, () => {
   swapSupportAllAccountsCacheGeneration += 1;
   swapSupportAllAccountsCache.clear();
+  swapSupportAllAccountsListeners.forEach((listener) => listener());
 });
 
 export function useSwapTokenList(
@@ -118,26 +138,30 @@ export function useSwapTokenList(
     ? (swapAddressInfo?.accountInfo?.account?.id ??
       swapAddressInfo?.accountInfo?.dbAccount?.id)
     : undefined;
+  const supportAccountsGeneration = useSyncExternalStore(
+    subscribeSwapSupportAllAccounts,
+    getSwapSupportAllAccountsGeneration,
+    getSwapSupportAllAccountsGeneration,
+  );
+  const swapSupportAllNetworksRef = useRef(swapSupportAllNetworks);
+  useLayoutEffect(() => {
+    swapSupportAllNetworksRef.current = swapSupportAllNetworks;
+  }, [swapSupportAllNetworks]);
   const swapSupportAllAccountsCacheKey = useMemo(
     () =>
       [
         indexedAccountId ?? '',
         otherWalletTypeAccountId ?? '',
-        swapSupportAllNetworks.map((network) => network.networkId).join(','),
+        buildSwapProPositionsNetworkIdsKey(
+          swapSupportAllNetworks.map((network) => network.networkId),
+        ),
       ].join('__'),
     [indexedAccountId, otherWalletTypeAccountId, swapSupportAllNetworks],
   );
-  const swapSupportAllAccountsRequestKey = useMemo(
-    () =>
-      [swapSupportAllAccountsCacheKey, swapAddressInfo.deriveType ?? ''].join(
-        '__',
-      ),
-    [swapAddressInfo.deriveType, swapSupportAllAccountsCacheKey],
-  );
-  const swapSupportAllAccountsReadCacheKey =
-    swapAddressInfo.deriveType === undefined
-      ? swapSupportAllAccountsCacheKey
-      : swapSupportAllAccountsRequestKey;
+  // Discovery covers the whole wallet; selecting or reordering a chain does
+  // not change its accounts. Global derive changes invalidate that scope.
+  const swapSupportAllAccountsRequestKey = `${swapSupportAllAccountsCacheKey}__${supportAccountsGeneration}`;
+  const swapSupportAllAccountsReadCacheKey = swapSupportAllAccountsCacheKey;
   const cachedSwapSupportAllAccounts = swapSupportAllAccountsCache.get(
     swapSupportAllAccountsReadCacheKey,
   );
@@ -174,7 +198,7 @@ export function useSwapTokenList(
           await backgroundApiProxy.serviceSwap.getSupportSwapAllAccounts({
             indexedAccountId,
             otherWalletTypeAccountId,
-            swapSupportNetworks: swapSupportAllNetworks,
+            swapSupportNetworks: swapSupportAllNetworksRef.current,
           });
         if (
           isSwapSupportAllAccountsRequestCurrent({
@@ -184,10 +208,6 @@ export function useSwapTokenList(
           })
         ) {
           if (!supportAccountsFetchFailed) {
-            swapSupportAllAccountsCache.set(
-              swapSupportAllAccountsRequestKey,
-              swapSupportAccounts,
-            );
             swapSupportAllAccountsCache.set(
               swapSupportAllAccountsCacheKey,
               swapSupportAccounts,
@@ -226,11 +246,9 @@ export function useSwapTokenList(
   }, [
     indexedAccountId,
     otherWalletTypeAccountId,
-    swapAddressInfo.deriveType,
     swapSupportAllAccountsCacheKey,
     swapSupportAllAccountsReadCacheKey,
     swapSupportAllAccountsRequestKey,
-    swapSupportAllNetworks,
   ]);
 
   const searchNetworkId = resolveSwapTokenSearchNetworkId({
@@ -742,15 +760,25 @@ export function useSwapTokenList(
     if (cachedTokens !== undefined) {
       return cachedTokens;
     }
+    const networkLogoURI = swapNetworks.find(
+      (network) => network.networkId === tokenFetchParams.networkId,
+    )?.logoURI;
+    // Account-only cached tokens may omit metadata supplied by the full list.
+    // Use the already loaded network logo for their first paint as well.
     return (
       swapAllNetworkTokenList?.filter(
         (token) => token.networkId === tokenFetchParams.networkId,
       ) ?? []
+    ).map((token) =>
+      token.networkLogoURI || !networkLogoURI
+        ? token
+        : { ...token, networkLogoURI },
     );
   }, [
     keywords,
     mergedAllNetworkTokenList,
     swapAllNetworkTokenList,
+    swapNetworks,
     tokenListCacheEntry,
     tokenFetchParams.networkId,
     isSwapSupportAllAccountsReady,

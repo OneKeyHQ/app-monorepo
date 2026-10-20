@@ -1,4 +1,3 @@
-import BigNumber from 'bignumber.js';
 import pLimit from 'p-limit';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -9,6 +8,7 @@ import {
   buildUnifiedSwapProviderManagers,
   getDenySwapProviderString,
 } from '@onekeyhq/shared/src/utils/swapProviderManagerUtils';
+import { sumTokenGroupsFiatValueIgnoringUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type {
   IDustSweepNetwork,
   IDustSweepRouteParams,
@@ -200,9 +200,8 @@ async function loadDustSweepNetworksInternal(
             price: nativeFiat?.price?.toString(),
             balanceParsed: nativeFiat?.balanceParsed,
           },
-          valueUsd: tokens
-            .reduce((sum, token) => sum.plus(token.valueUsd), new BigNumber(0))
-            .toFixed(),
+          // Same rule as the Home network value: regular + small-balance tokens.
+          balanceUsd: sumTokenGroupsFiatValueIgnoringUnavailable(response),
           denySingleSwapProvider,
         };
       }),

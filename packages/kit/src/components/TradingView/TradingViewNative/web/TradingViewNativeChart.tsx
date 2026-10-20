@@ -9,7 +9,9 @@ import {
 } from 'react';
 import type { PointerEvent as ReactPointerEvent, Ref } from 'react';
 
-import { Stack, useTheme, useThemeName } from '@onekeyhq/components';
+import { isEqual } from 'lodash';
+
+import { Spinner, Stack, useTheme, useThemeName } from '@onekeyhq/components';
 import type { IElement } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -212,6 +214,9 @@ export const TradingViewNativeChart = memo(
     const referenceLineHitRegionsRef = useRef<
       ITradingViewNativeReferenceLineHitRegion[]
     >([]);
+    const [cancelLoadingRegions, setCancelLoadingRegions] = useState<
+      ITradingViewNativeReferenceLineHitRegion[]
+    >([]);
     const referenceLineInteraction = useReferenceLineInteraction({
       components: chartComponents,
       enabled: Boolean(onReferenceLineAction) && !isSwitchingInterval,
@@ -243,6 +248,7 @@ export const TradingViewNativeChart = memo(
       }),
     );
     const priceSelection = useChartPriceSelection({
+      canvasRef,
       enabled:
         !isSwitchingInterval &&
         drawingController.state.tool === 'cursor' &&
@@ -251,7 +257,13 @@ export const TradingViewNativeChart = memo(
       label: priceSelectionLabel,
       onSelect: onPriceSelect,
       projectionRef: drawingProjectionRef,
+      redrawRef: drawingRedrawRef,
+      scopeKey: drawingStorageKey,
     });
+    const {
+      getCrosshair: getPriceSelectionCrosshair,
+      updateControl: updatePriceSelectionControl,
+    } = priceSelection;
     const drawingInteraction =
       drawingsEnabled &&
       (drawingController.state.tool !== 'cursor' ||
@@ -549,7 +561,11 @@ export const TradingViewNativeChart = memo(
           priceScaleMode:
             referenceLinePriceRange?.priceScaleMode ??
             priceScaleModelRef.current.mode,
-          runtimeState: nextRuntimeState,
+          runtimeState: {
+            ...nextRuntimeState,
+            crosshair:
+              getPriceSelectionCrosshair() ?? nextRuntimeState.crosshair,
+          },
           showLegend,
           subIndicatorPanes: scaledSubIndicatorPanes,
           timeAxisFontSize,
@@ -562,6 +578,12 @@ export const TradingViewNativeChart = memo(
           scene?.subIndicatorLegendHitRegions ?? [];
         referenceLineHitRegionsRef.current =
           scene?.referenceLineHitRegions ?? [];
+        const loadingRegions = referenceLineHitRegionsRef.current.filter(
+          (region) => region.loadingColor !== undefined,
+        );
+        setCancelLoadingRegions((current) =>
+          isEqual(current, loadingRegions) ? current : loadingRegions,
+        );
         drawingProjectionRef.current =
           scene?.layout && points.length
             ? {
@@ -571,6 +593,7 @@ export const TradingViewNativeChart = memo(
                 interval: candleIntervalSeconds,
               }
             : null;
+        updatePriceSelectionControl();
         if (drawingsEnabled)
           updateData(
             getDataWindowSnapshot({
@@ -621,6 +644,8 @@ export const TradingViewNativeChart = memo(
         line,
         candleLabels,
         points,
+        getPriceSelectionCrosshair,
+        updatePriceSelectionControl,
         priceAxisFontSize,
         priceAxisLabels,
         priceAxisTickCount,
@@ -1575,6 +1600,22 @@ export const TradingViewNativeChart = memo(
             }}
           />
           {priceSelection.control}
+          {cancelLoadingRegions.map(({ id, rect, loadingColor }) => (
+            <Spinner
+              key={id}
+              testID="trading-view-native-cancel-loading"
+              size="small"
+              color={loadingColor}
+              position="absolute"
+              left={rect.x}
+              top={rect.y}
+              width={rect.width}
+              height={rect.height}
+              alignItems="center"
+              justifyContent="center"
+              pointerEvents="none"
+            />
+          ))}
           {measuredChartWidth > 0 ? (
             <div
               data-testid={

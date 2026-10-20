@@ -8,6 +8,13 @@ import type {
 import { ETokenRiskLevel } from '@onekeyhq/shared/types/swap/types';
 import type { IFetchAccountTokensResp } from '@onekeyhq/shared/types/token';
 
+import { isSwapTokenRisky } from '../../Swap/utils/swapTokenRiskUtils';
+
+// Amount presets of the threshold picker, smallest first.
+export const DUST_SWEEP_THRESHOLDS: readonly IDustSweepThreshold[] = [
+  1, 10, 100,
+];
+
 export function getDustSweepHiddenThreshold(networkId: string) {
   return networkId === 'evm--1' ? '0.1' : '0.01';
 }
@@ -67,10 +74,12 @@ export function buildDustSweepCandidates(
           price: value.price?.toString(),
           fiatValue: usd.toFixed(),
           valueUsd: usd.toFixed(),
-          suspicious:
-            token.riskLevel === ETokenRiskLevel.WARNING ||
-            (token.riskLevel ?? ETokenRiskLevel.UNKNOWN) ===
-              ETokenRiskLevel.UNKNOWN,
+          suspicious: isSwapTokenRisky({
+            ...token,
+            networkId,
+            contractAddress: token.address,
+            price: value.price?.toString(),
+          }),
         },
       ];
     })

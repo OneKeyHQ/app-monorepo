@@ -12,6 +12,7 @@ import { WalletPortfolioSpotlight } from './WalletPortfolioSpotlight';
 
 let mockIsFocused = true;
 let mockIsAppVisible = true;
+let mockIsNative = false;
 const mockVisibilityListeners = new Set<(visible: boolean) => void>();
 let mockPortfolioSyncUiState = { visible: true, disabled: false };
 let mockDeviceStage = { step: 'off' };
@@ -58,6 +59,15 @@ jest.mock('@onekeyhq/shared/src/utils/appVisibility', () => ({
   getCurrentVisibilityState: () => mockIsAppVisible,
 }));
 
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: {
+    get isNative() {
+      return mockIsNative;
+    },
+  },
+}));
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     locale: 'en-US',
@@ -93,6 +103,7 @@ jest.mock('@onekeyhq/kit/src/components/Spotlight', () => {
       cardPaddingBottom,
       cardGap,
       cardMaxWidth,
+      alignCardToAnchorEnd,
       cardBorderRadius,
       highlightBorderRadius,
       confirmButtonBorderRadius,
@@ -113,6 +124,7 @@ jest.mock('@onekeyhq/kit/src/components/Spotlight', () => {
       cardPaddingBottom?: number;
       cardGap?: number;
       cardMaxWidth?: number;
+      alignCardToAnchorEnd?: boolean;
       cardBorderRadius?: number;
       highlightBorderRadius?: number;
       confirmButtonBorderRadius?: number | string;
@@ -140,6 +152,7 @@ jest.mock('@onekeyhq/kit/src/components/Spotlight', () => {
               data-card-padding-bottom={cardPaddingBottom}
               data-card-gap={cardGap}
               data-card-max-width={cardMaxWidth}
+              data-align-card-to-anchor-end={alignCardToAnchorEnd}
               data-card-border-radius={cardBorderRadius}
               data-highlight-border-radius={highlightBorderRadius}
               data-confirm-button-border-radius={confirmButtonBorderRadius}
@@ -183,6 +196,7 @@ describe('WalletPortfolioSpotlight eligibility', () => {
   beforeEach(() => {
     mockIsFocused = true;
     mockIsAppVisible = true;
+    mockIsNative = false;
     mockPortfolioSyncUiState = { visible: true, disabled: false };
     mockDeviceStage = { step: 'off' };
     mockRootState = { index: 0, routes: [{ name: ERootRoutes.Main }] };
@@ -191,6 +205,20 @@ describe('WalletPortfolioSpotlight eligibility', () => {
   });
 
   afterEach(cleanup);
+
+  it.each([true, false])(
+    'opts into anchor-end alignment only on native platforms: native=%s',
+    (isNative) => {
+      mockIsNative = isNative;
+      renderSpotlight();
+
+      expect(
+        screen
+          .getByTestId('portfolio-spotlight')
+          .getAttribute('data-align-card-to-anchor-end'),
+      ).toBe(String(isNative));
+    },
+  );
 
   it('guides an eligible account with an available Portfolio action', () => {
     renderSpotlight();

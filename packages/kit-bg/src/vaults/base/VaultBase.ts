@@ -155,6 +155,7 @@ export type IKeyringMap = Record<
 > & {
   hwLedger?: typeof KeyringBase | undefined;
   hwTrezor?: typeof KeyringBase | undefined;
+  hwKeystone?: typeof KeyringBase | undefined;
 };
 
 if (platformEnv.isExtensionUi) {
