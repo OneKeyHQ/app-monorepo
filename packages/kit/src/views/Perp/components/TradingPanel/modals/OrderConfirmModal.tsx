@@ -40,6 +40,7 @@ import {
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderConfirm, useTradingCalculationsForSide } from '../../../hooks';
+import { getCurrentPerpsMarketDataFreshness } from '../../../hooks/usePerpsMarketDataFreshness';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import { PerpsAccountSelectorProviderMirror } from '../../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
@@ -96,6 +97,8 @@ interface IOrderConfirmContentProps {
   aggressiveLimitPriceWarning?: IAggressiveLimitPriceWarning;
   // Fired only after a successful override submit (chart popover closes itself).
   onConfirmSuccess?: () => void;
+  liquidationPriceOverride?: string;
+  allowSkipConfirmation?: boolean;
 }
 
 type IOrderConfirmAccountForKey = {
@@ -127,6 +130,8 @@ function OrderConfirmContent({
   expectedCoin,
   aggressiveLimitPriceWarning,
   onConfirmSuccess,
+  liquidationPriceOverride,
+  allowSkipConfirmation = true,
 }: IOrderConfirmContentProps) {
   const [isPreparingEnableTrading, setIsPreparingEnableTrading] =
     useState(false);
@@ -162,6 +167,7 @@ function OrderConfirmContent({
 
   const hyperliquidActions = useHyperliquidActions();
   const [isOverrideSubmitting, setIsOverrideSubmitting] = useState(false);
+  const overrideSubmitLock = useRef(false);
   const { isSubmitting: atomIsSubmitting, handleConfirm: confirmOrder } =
     useOrderConfirm({
       onSuccess: () => {
@@ -226,7 +232,7 @@ function OrderConfirmContent({
         setOnekeyFee(fee ?? 0);
       });
   }, []);
-  const buttonStyleProps = getTradingButtonStyleProps(effectiveSide, false);
+  const buttonStyleProps = getTradingButtonStyleProps(effectiveSide);
   const intl = useIntl();
 
   const isTriggerMode = formData.orderMode === 'trigger';
@@ -434,8 +440,8 @@ function OrderConfirmContent({
 
   const isConfirmLoading = isSubmitting || isPreparingEnableTrading;
 
-  const submitOverrideOrder = useCallback(async () => {
-    if (!formDataOverride) {
+  const submitReviewedOrder = useCallback(async () => {
+    if (!formDataOverride || overrideSubmitLock.current) {
       return;
     }
     if (activeInstrument.assetId === undefined) {
@@ -456,6 +462,14 @@ function OrderConfirmContent({
       closeDialog();
       return;
     }
+    if (!getCurrentPerpsMarketDataFreshness().isReady) {
+      Toast.error({
+        title: intl.formatMessage({ id: ETranslations.perp_offline }),
+        message: intl.formatMessage({ id: ETranslations.perps_offline_moblie }),
+      });
+      return;
+    }
+    overrideSubmitLock.current = true;
     setIsOverrideSubmitting(true);
     try {
       await hyperliquidActions.current.submitOrder({
@@ -469,6 +483,7 @@ function OrderConfirmContent({
       // Errors are surfaced via withToast inside submitOrder.
       closeDialog();
     } finally {
+      overrideSubmitLock.current = false;
       setIsOverrideSubmitting(false);
     }
   }, [
@@ -489,7 +504,7 @@ function OrderConfirmContent({
     }
 
     if (formDataOverride) {
-      await submitOverrideOrder();
+      await submitReviewedOrder();
       return;
     }
 
@@ -535,7 +550,7 @@ function OrderConfirmContent({
     isConfirmLoading,
     overrideSide,
     shouldIgnoreEnableTradingResult,
-    submitOverrideOrder,
+    submitReviewedOrder,
   ]);
 
   const savedFeeDisplay = useMemo(() => {
@@ -823,12 +838,18 @@ function OrderConfirmContent({
               })}
             </SizableText>
             <SizableText size="$bodyMd">
-              <LiquidationPriceDisplay
-                textSize="$bodyMdMedium"
-                side={effectiveSide}
-                size={computedSizeForSide}
-                formDataOverride={formDataOverride ? formData : undefined}
-              />
+              {liquidationPriceOverride !== undefined ? (
+                <SizableText size="$bodyMdMedium">
+                  {liquidationPriceOverride}
+                </SizableText>
+              ) : (
+                <LiquidationPriceDisplay
+                  textSize="$bodyMdMedium"
+                  side={effectiveSide}
+                  size={computedSizeForSide}
+                  formDataOverride={formDataOverride ? formData : undefined}
+                />
+              )}
             </SizableText>
           </XStack>
         )}
@@ -867,7 +888,7 @@ function OrderConfirmContent({
         gap={platformEnv.isNative ? '$3' : '$2'}
       >
         {/* skip order confirm checkbox */}
-        {!aggressiveLimitPriceWarning ? (
+        {allowSkipConfirmation && !aggressiveLimitPriceWarning ? (
           <XStack justifyContent="space-between" alignItems="center" gap="$2">
             <Checkbox
               testID="perp-checkbox"
@@ -916,6 +937,9 @@ export function showOrderConfirmDialog({
   expectedCoin,
   aggressiveLimitPriceWarning,
   onConfirmSuccess,
+  onDismiss,
+  liquidationPriceOverride,
+  allowSkipConfirmation = true,
 }: {
   overrideSide?: 'long' | 'short';
   intl: IntlShape;
@@ -932,6 +956,9 @@ export function showOrderConfirmDialog({
   aggressiveLimitPriceWarning?: IAggressiveLimitPriceWarning;
   // Fired only after a successful override submit (chart popover closes itself).
   onConfirmSuccess?: () => void;
+  onDismiss?: () => void;
+  liquidationPriceOverride?: string;
+  allowSkipConfirmation?: boolean;
 }) {
   const dialogInstance = Dialog.show({
     title: intl.formatMessage({
@@ -952,6 +979,8 @@ export function showOrderConfirmDialog({
             expectedCoin={expectedCoin}
             aggressiveLimitPriceWarning={aggressiveLimitPriceWarning}
             onConfirmSuccess={onConfirmSuccess}
+            liquidationPriceOverride={liquidationPriceOverride}
+            allowSkipConfirmation={allowSkipConfirmation}
           />
         </PerpsProviderMirror>
       </PerpsAccountSelectorProviderMirror>
@@ -959,6 +988,7 @@ export function showOrderConfirmDialog({
     contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,
     onClose: () => {
+      onDismiss?.();
       void dialogInstance.close();
     },
   });
