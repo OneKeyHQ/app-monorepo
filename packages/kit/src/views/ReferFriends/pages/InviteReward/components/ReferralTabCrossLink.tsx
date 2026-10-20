@@ -1,7 +1,5 @@
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
 
-import { PRESSABLE_SURFACE_PROPS } from './useInviteCardStyle';
-
 // A quiet line at the end of each tab pointing to the other one, so the two
 // read as the two sides of referrals rather than two versions of one page.
 export function ReferralTabCrossLink({
@@ -40,13 +38,13 @@ export function ReferralTabCrossLink({
         testID={testID}
         ai="center"
         gap="$1"
-        px="$1"
-        mx="$-1"
-        // 44px tall to the touch while the text line keeps its place.
-        py="$3"
-        my="$-3"
-        borderRadius="$2"
-        {...PRESSABLE_SURFACE_PROPS}
+        role="button"
+        cursor="default"
+        // A text link: feedback dims the text instead of filling a surface
+        // around it, and the slop gives it a 44px touch target.
+        hoverStyle={{ opacity: 0.8 }}
+        pressStyle={{ opacity: 0.6 }}
+        hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
         onPress={onPress}
       >
         <SizableText size="$bodyMdMedium" color="$textInteractive">
