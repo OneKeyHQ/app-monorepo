@@ -85,10 +85,20 @@ jest.mock('@onekeyhq/components', () => {
 // The account resolver depends on account ids; the overview only on the
 // resolved address, so the dependency count tells the two calls apart.
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: (_fn: unknown, deps: unknown[]) =>
-    deps.length === 1
-      ? { ...mockOverviewResult, run: mockReloadOverview }
-      : mockEarnAccountResult,
+  usePromiseResult: (_fn: unknown, deps: unknown[]) => {
+    if (deps.length !== 1) {
+      return mockEarnAccountResult;
+    }
+    const address = mockEarnAccountResult.result?.accountAddress;
+    return {
+      isLoading: mockOverviewResult.isLoading,
+      run: mockReloadOverview,
+      result:
+        mockOverviewResult.result && address
+          ? { address, overview: mockOverviewResult.result }
+          : undefined,
+    };
+  },
 }));
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
@@ -190,6 +200,27 @@ jest.mock('../InviteReward/components/useInviteCardStyle', () => ({
   useInviteHomeCardStyle: () => ({}),
 }));
 
+const mockPerksHomeShown = jest.fn();
+const mockPerksProductOpened = jest.fn();
+const mockPerksAddressCopied = jest.fn();
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    referral: {
+      page: {
+        perksHomeShown: (params: unknown) => {
+          mockPerksHomeShown(params);
+        },
+        perksProductOpened: (params: unknown) => {
+          mockPerksProductOpened(params);
+        },
+        perksAddressCopied: () => {
+          mockPerksAddressCopied();
+        },
+      },
+    },
+  },
+}));
+
 import { MyRewardsContent } from './MyRewardsContent';
 
 describe('MyRewardsContent', () => {
@@ -197,6 +228,9 @@ describe('MyRewardsContent', () => {
     mockReloadOverview.mockReset();
     mockShowDialog.mockReset();
     mockCopyText.mockReset();
+    mockPerksHomeShown.mockReset();
+    mockPerksProductOpened.mockReset();
+    mockPerksAddressCopied.mockReset();
     mockIsCompact = false;
     mockActiveAccount = {
       account: { id: 'hd-1--account' },
@@ -236,6 +270,10 @@ describe('MyRewardsContent', () => {
     mockActiveAccount = {};
     render(<MyRewardsContent />);
     expect(screen.getByTestId('no-wallet')).toBeTruthy();
+    expect(mockPerksHomeShown).toHaveBeenCalledWith({
+      status: 'no_wallet',
+      entry: 'route',
+    });
   });
 
   it('shows the unsupported state when the account has no EVM address', () => {
@@ -248,6 +286,10 @@ describe('MyRewardsContent', () => {
     // The row note and the empty state's title.
     expect(screen.getAllByText('referral_perks_no_evm__title')).toHaveLength(2);
     expect(screen.queryByTestId('my-rewards-copy-address')).toBeNull();
+    expect(mockPerksHomeShown).toHaveBeenCalledWith({
+      status: 'no_evm',
+      entry: 'route',
+    });
   });
 
   it('shows the counted address shortened and copies it in full', () => {
@@ -263,6 +305,11 @@ describe('MyRewardsContent', () => {
 
     fireEvent.click(copyCell);
     expect(mockCopyText).toHaveBeenCalledWith(address);
+    expect(mockPerksAddressCopied).toHaveBeenCalledTimes(1);
+    expect(mockPerksHomeShown).toHaveBeenCalledWith({
+      status: 'partial',
+      entry: 'route',
+    });
   });
 
   it('leaves the desktop total unknown while a product failed', () => {
@@ -336,12 +383,18 @@ describe('MyRewardsContent', () => {
     );
 
     fireEvent.click(screen.getByTestId('my-rewards-module-swap'));
+    expect(mockPerksProductOpened).toHaveBeenCalledWith({ product: 'swap' });
     expect(mockShowDialog).toHaveBeenCalledWith(
       expect.objectContaining({ title: 'global.swap' }),
     );
 
     fireEvent.click(screen.getByTestId('my-rewards-module-earn'));
+    expect(mockPerksProductOpened).toHaveBeenCalledTimes(1);
     expect(mockReloadOverview).toHaveBeenCalledTimes(1);
+    expect(mockPerksHomeShown).toHaveBeenCalledWith({
+      status: 'partial',
+      entry: 'route',
+    });
   });
 
   it('shows DeFi token amounts as wallet currency', () => {
@@ -400,5 +453,9 @@ describe('MyRewardsContent', () => {
     render(<MyRewardsContent />);
     expect(screen.getByTestId('perks-placeholder')).toBeTruthy();
     expect(screen.queryByTestId('my-rewards-module-perps')).toBeNull();
+    expect(mockPerksHomeShown).toHaveBeenCalledWith({
+      status: 'empty',
+      entry: 'route',
+    });
   });
 });

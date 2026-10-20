@@ -31,7 +31,9 @@ export type IReferralBindSource =
   | 'onboarding_dialog'
   | 'home_block'
   | 'settings'
-  | 'invite_home';
+  | 'invite_home'
+  // The empty Perks breakdown, not the invite home.
+  | 'perks_empty';
 
 export type IReferralBindErrorType =
   | 'invalid_format'
@@ -185,6 +187,49 @@ export class PageScene extends BaseScene {
   @LogToLocal({ level: 'info' })
   public inviteHomeShown(params: { hasEarnings: boolean }) {
     return params;
+  }
+
+  // One Perks visit, after the page knows which state it is in. `entry` is
+  // how this visit was opened; tab switches are also on referralTabSwitched.
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public perksHomeShown(params: {
+    status:
+      | 'no_wallet'
+      | 'no_evm'
+      | 'empty'
+      | 'has_rewards'
+      | 'partial'
+      | 'error';
+    entry: 'tabs' | 'cross_link' | 'activity_hub' | 'route';
+  }) {
+    return params;
+  }
+
+  // Error rows reload and do not emit this.
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public perksProductOpened(params: { product: 'perps' | 'swap' | 'earn' }) {
+    return params;
+  }
+
+  // Once per banner per session. Autoplay would otherwise emit on every loop.
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public perksBannerShown(params: { linkId: string }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public perksBannerPressed(params: { linkId: string }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public perksAddressCopied() {
+    return {};
   }
 
   @LogToServer()

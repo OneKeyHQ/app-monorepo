@@ -1,5 +1,12 @@
 import type { ReactNode } from 'react';
-import { createContext, useCallback, useContext, useMemo } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -36,6 +43,7 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteeRewardsOverview } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -171,6 +179,31 @@ function hasNoRewards(overview?: IInviteeRewardsOverview) {
   return (
     isZero(perps.data) && isZero(swap.data) && !getEarnTokens(earn.data).length
   );
+}
+
+type IPerksHomeStatus =
+  | 'no_wallet'
+  | 'no_evm'
+  | 'empty'
+  | 'has_rewards'
+  | 'partial'
+  | 'error';
+
+// Settled overview only. Callers wait out loading before asking.
+function getPerksHomeStatus(
+  overview: IInviteeRewardsOverview,
+): Exclude<IPerksHomeStatus, 'no_wallet' | 'no_evm'> {
+  const modules = [overview.perps, overview.swap, overview.earn];
+  if (modules.every((module) => module.status === 'error')) {
+    return 'error';
+  }
+  if (hasNoRewards(overview)) {
+    return 'empty';
+  }
+  if (modules.some((module) => module.status === 'error')) {
+    return 'partial';
+  }
+  return 'has_rewards';
 }
 
 // Earn list titles arrive as token amounts, like "0.3976 USDC".
@@ -443,6 +476,7 @@ function RewardsAddressValue({
   const copyAddress = useCallback(() => {
     if (address) {
       copyText(address);
+      defaultLogger.referral.page.perksAddressCopied();
     }
   }, [address, copyText]);
 
@@ -940,6 +974,8 @@ function useShowModuleDetail({
 interface IMyRewardsContentProps {
   // Absent where there is no invite tab to switch to.
   onOpenInvite?: () => void;
+  // How this visit was opened. Route opens leave it unset.
+  entry?: 'tabs' | 'cross_link' | 'activity_hub' | 'route';
 }
 
 export function MyRewardsContent(props: IMyRewardsContentProps = {}) {
@@ -951,14 +987,17 @@ export function MyRewardsContent(props: IMyRewardsContentProps = {}) {
   );
 }
 
-function MyRewardsContentBody({ onOpenInvite }: IMyRewardsContentProps) {
+function MyRewardsContentBody({
+  onOpenInvite,
+  entry = 'route',
+}: IMyRewardsContentProps) {
   const tabCopy = useReferralTabCopy();
   const copy = useMyRewardsCopy();
   const intl = useIntl();
   const { md } = useMedia();
   const cardStyle = useInviteHomeCardStyle();
   const {
-    activeAccount: { account, indexedAccount },
+    activeAccount: { account, indexedAccount, ready: accountReady },
   } = useActiveAccount({ num: 0 });
   const accountId = account?.id;
   const indexedAccountId = indexedAccount?.id;
@@ -992,7 +1031,7 @@ function MyRewardsContentBody({ onOpenInvite }: IMyRewardsContentProps) {
   const walletAddress = earnAccount?.accountAddress;
 
   const {
-    result: overview,
+    result: overviewResult,
     isLoading: isLoadingOverview,
     run: reloadOverview,
   } = usePromiseResult(
@@ -1000,13 +1039,23 @@ function MyRewardsContentBody({ onOpenInvite }: IMyRewardsContentProps) {
       if (!walletAddress) {
         return undefined;
       }
-      return backgroundApiProxy.serviceReferralCode.getInviteeRewardsOverview({
-        walletAddress,
-      });
+      const address = walletAddress;
+      const overview =
+        await backgroundApiProxy.serviceReferralCode.getInviteeRewardsOverview(
+          {
+            walletAddress: address,
+          },
+        );
+      return { address, overview };
     },
     [walletAddress],
     { watchLoading: true, undefinedResultIfReRun: true },
   );
+  // A just-switched account still has the previous overview for one render.
+  const overview =
+    overviewResult && overviewResult.address === walletAddress
+      ? overviewResult.overview
+      : undefined;
 
   const showModuleDetail = useShowModuleDetail({
     walletAddress,
@@ -1016,6 +1065,49 @@ function MyRewardsContentBody({ onOpenInvite }: IMyRewardsContentProps) {
   });
   const { items: bannerItems, isLoading: isBannerLoading } =
     usePerksBannerItems();
+  const perksHomeReportedRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    // Saved accounts can arrive after the first paint. Reporting then would
+    // lock the visit as no_wallet.
+    if (accountReady === false) {
+      return;
+    }
+    const isResolving =
+      isResolvingAccount !== false && earnAccount === undefined;
+    const isUnsupported = Boolean(hasAccount) && !isResolving && !earnAccount;
+    let status: IPerksHomeStatus | undefined;
+    if (!hasAccount) {
+      status = 'no_wallet';
+    } else if (isResolving) {
+      return;
+    } else if (isUnsupported) {
+      status = 'no_evm';
+    } else if (isLoadingOverview || !overview) {
+      return;
+    } else {
+      status = getPerksHomeStatus(overview);
+    }
+    // One event per visit and address. A retry that changes status does not
+    // count as another visit. The address is the dedupe key only.
+    const reportKey = walletAddress ?? status;
+    if (perksHomeReportedRef.current === reportKey) {
+      return;
+    }
+    perksHomeReportedRef.current = reportKey;
+    defaultLogger.referral.page.perksHomeShown({
+      status,
+      entry,
+    });
+  }, [
+    accountReady,
+    earnAccount,
+    entry,
+    hasAccount,
+    isLoadingOverview,
+    isResolvingAccount,
+    overview,
+    walletAddress,
+  ]);
 
   if (!hasAccount) {
     return (
@@ -1040,6 +1132,9 @@ function MyRewardsContentBody({ onOpenInvite }: IMyRewardsContentProps) {
       return;
     }
     if (row.status === 'ready') {
+      defaultLogger.referral.page.perksProductOpened({
+        product: row.module,
+      });
       showModuleDetail(row.module);
     }
   };

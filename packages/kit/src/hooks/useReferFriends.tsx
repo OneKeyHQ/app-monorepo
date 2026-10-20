@@ -33,6 +33,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import type {
   IInviteRewardRouteParams,
+  IPerksOpenEntry,
   IReferralPageTab,
 } from '@onekeyhq/shared/src/routes';
 import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
@@ -242,7 +243,7 @@ export const useReferFriends = () => {
   );
 
   const toReferFriendsPage = useCallback(
-    async (params?: { tab?: IReferralPageTab }) => {
+    async (params?: { tab?: IReferralPageTab; perksEntry?: IPerksOpenEntry }) => {
       // ReferAFriend always redirects logged-in users to InviteReward, so route
       // them there directly to avoid flashing the intro poster first.
       const shouldShowInviteReward =
@@ -544,6 +545,6 @@ export const useReferFriends = () => {
 export function useOpenPerksTab() {
   const { toReferFriendsPage } = useReferFriends();
   return useCallback(() => {
-    void toReferFriendsPage({ tab: 'benefits' });
+    void toReferFriendsPage({ tab: 'benefits', perksEntry: 'activity_hub' });
   }, [toReferFriendsPage]);
 }

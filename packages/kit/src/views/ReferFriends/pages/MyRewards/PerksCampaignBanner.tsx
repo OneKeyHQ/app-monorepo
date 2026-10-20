@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -16,6 +16,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { parseNotificationPayload } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import {
   type ILinkConfigItem,
@@ -27,6 +28,15 @@ import { useInviteHomeCardStyle } from '../InviteReward/components/useInviteCard
 import type { LayoutChangeEvent } from 'react-native';
 
 const EMPTY_ITEMS: ILinkConfigItem[] = [];
+const shownBannerIds = new Set<string>();
+
+function trackPerksBannerShown(linkId: string | undefined) {
+  if (!linkId || shownBannerIds.has(linkId)) {
+    return;
+  }
+  shownBannerIds.add(linkId);
+  defaultLogger.referral.page.perksBannerShown({ linkId });
+}
 
 // Compact cards keep one height, so paging never moves the content below.
 const COMPACT_BANNER_HEIGHT = 136;
@@ -117,8 +127,9 @@ function PerksBannerSlide({
     if (shouldSuppressPress()) {
       return;
     }
+    defaultLogger.referral.page.perksBannerPressed({ linkId: item.linkId });
     parseNotificationPayload(item.mode, item.payload, () => {});
-  }, [item.mode, item.payload, shouldSuppressPress]);
+  }, [item.linkId, item.mode, item.payload, shouldSuppressPress]);
   const imageSize = compact ? 96 : 88;
 
   // Borderless: the frame around the pager draws the card, so a neighbor
@@ -197,6 +208,15 @@ export const PerksCampaignBanner = memo(function PerksCampaignBanner({
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     setPointerHeight(Math.round(event.nativeEvent.layout.height));
   }, []);
+  const handlePageChanged = useCallback(
+    (index: number) => {
+      trackPerksBannerShown(items[index]?.linkId);
+    },
+    [items],
+  );
+  useEffect(() => {
+    trackPerksBannerShown(items[0]?.linkId);
+  }, [items]);
   const renderItem = useCallback(
     ({ item }: { item: ILinkConfigItem }) => (
       <PerksBannerSlide item={item} compact={compact} />
@@ -214,6 +234,7 @@ export const PerksCampaignBanner = memo(function PerksCampaignBanner({
       loop={isMulti}
       infinite
       showPagination={isMulti}
+      onPageChanged={handlePageChanged}
       containerStyle={{ height }}
       // Dots sit inside the card, bottom right, across from Learn more.
       paginationContainerStyle={{

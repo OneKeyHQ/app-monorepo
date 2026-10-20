@@ -19,7 +19,10 @@ export function useReferralTabSwitch(activeTab: IReferralPageTab) {
         to: tab,
         source,
       });
-      navigation.setParams({ tab });
+      navigation.setParams({
+        tab,
+        perksEntry: tab === EReferralPageTab.benefits ? source : undefined,
+      });
     },
     [activeTab, navigation],
   );

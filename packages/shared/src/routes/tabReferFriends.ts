@@ -1,5 +1,6 @@
 import type {
   IInviteRewardRouteParams,
+  IPerksOpenEntry,
   IReferralPageTab,
 } from './referFriends';
 
@@ -20,6 +21,7 @@ export type ITabReferFriendsParamList = {
     utmSource?: string;
     code?: string;
     tab?: IReferralPageTab;
+    perksEntry?: IPerksOpenEntry;
   };
   TabInviteReward: IInviteRewardRouteParams | undefined;
   TabYourReferred: undefined;

@@ -24,7 +24,10 @@ import {
   EModalReferFriendsRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
-import type { IReferralPageTab } from '@onekeyhq/shared/src/routes';
+import type {
+  IPerksOpenEntry,
+  IReferralPageTab,
+} from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { ReferralJobTabs } from '../InviteReward/components/ReferralJobTabs';
@@ -133,7 +136,7 @@ function ReferAFriendPageWrapper() {
   const route = useRoute<{
     key: string;
     name: string;
-    params?: { tab?: IReferralPageTab };
+    params?: { tab?: IReferralPageTab; perksEntry?: IPerksOpenEntry };
   }>();
   const { md } = useMedia();
   const { postConfig } = useReferAFriendData();
@@ -259,7 +262,10 @@ function ReferAFriendPageWrapper() {
           </Page.Container>
         ) : (
           <Page.Container padded={false} flex={1}>
-            <MyRewardsContent onOpenInvite={openInvite} />
+            <MyRewardsContent
+              entry={route.params?.perksEntry ?? 'route'}
+              onOpenInvite={openInvite}
+            />
           </Page.Container>
         )}
       </Page.Body>

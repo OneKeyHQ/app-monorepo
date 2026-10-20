@@ -581,7 +581,12 @@ function InviteRewardPage() {
               />
             </YStack>
           ) : null}
-          {isInviteTab ? null : <MyRewardsContent onOpenInvite={openInvite} />}
+          {isInviteTab ? null : (
+            <MyRewardsContent
+              entry={route.params?.perksEntry ?? 'route'}
+              onOpenInvite={openInvite}
+            />
+          )}
         </Page.Container>
       </ScrollView>
     );

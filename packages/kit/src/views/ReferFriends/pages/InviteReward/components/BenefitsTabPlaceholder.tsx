@@ -41,7 +41,7 @@ export function BenefitsTabPlaceholder() {
         }),
         onPress: () => {
           bindWalletInviteCode({
-            source: 'invite_home',
+            source: 'perks_empty',
             preferredWalletId: activeAccount?.wallet?.id,
           });
         },
