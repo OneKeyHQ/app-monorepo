@@ -70,28 +70,28 @@ function TokenDetailsHistoryContent({
     privacyHistoryPoolId,
   } = props;
   const { vaultSettings } = useAccountData({ networkId });
-  const isPrivateZcashPool =
+  const isLocalScanPool =
     privacyHistoryPoolId !== undefined &&
     vaultSettings?.localWallet?.pools.find(
       (pool) => pool.id === privacyHistoryPoolId,
-    )?.kind === 'private';
+    )?.source === 'localScan';
 
   const { result: privacyModeState, run: refreshPrivacyModeState } =
     usePromiseResult(
       async () => {
-        if (!isPrivateZcashPool) return undefined;
+        if (!isLocalScanPool) return undefined;
         return backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountState(
           { networkId, accountId },
         );
       },
-      [accountId, networkId, isPrivateZcashPool],
+      [accountId, networkId, isLocalScanPool],
       {
         overrideIsFocused: (isPageFocused) =>
           isPageFocused && (isTabView ? focusParam : true),
       },
     );
   const isPrivateHistoryEnabled =
-    !isPrivateZcashPool || privacyModeState?.enabled === true;
+    !isLocalScanPool || privacyModeState?.enabled === true;
 
   const ListComponentRef = useRef<typeof SectionList>(null);
   const isRouteFocused = useRouteIsFocused();
@@ -304,7 +304,7 @@ function TokenDetailsHistoryContent({
   // Derive initialized synchronously to avoid one-frame flash of empty history
   // when historyCacheKey changes and cachedHistory becomes undefined
   const effectiveInit =
-    (isPrivateZcashPool && privacyModeState !== undefined
+    (isLocalScanPool && privacyModeState !== undefined
       ? !isPrivateHistoryEnabled
       : false) ||
     historyInit ||
@@ -386,7 +386,7 @@ function TokenDetailsHistoryContent({
       resetLoadMore();
       setResult(undefined);
       setHistoryInit(false);
-      if (isPrivateZcashPool) {
+      if (isLocalScanPool) {
         void refreshPrivacyModeState();
       }
       void run({ alwaysSetState: true });
@@ -397,7 +397,7 @@ function TokenDetailsHistoryContent({
     };
   }, [
     isLocalWalletToken,
-    isPrivateZcashPool,
+    isLocalScanPool,
     refreshPrivacyModeState,
     resetLoadMore,
     run,
@@ -430,7 +430,7 @@ function TokenDetailsHistoryContent({
         isLoadingMore={isLoadingMore}
         hasMore={loadMoreHasMore}
         emptyComponent={
-          isPrivateZcashPool &&
+          isLocalScanPool &&
           privacyModeState !== undefined &&
           !isPrivateHistoryEnabled
             ? null

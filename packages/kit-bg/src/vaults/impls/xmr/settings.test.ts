@@ -21,6 +21,7 @@ describe('xmr vault settings', () => {
   it('exposes no public pool and therefore no public receive form', () => {
     expect(localWallet?.pools).toHaveLength(1);
     expect(localWallet?.pools[0].kind).toBe('private');
+    expect(localWallet?.pools[0].source).toBe('localScan');
     expect(localWallet?.pools.some((pool) => pool.kind === 'public')).toBe(
       false,
     );
@@ -54,6 +55,14 @@ describe('xmr vault settings', () => {
    */
   it('treats the runtime as the only source of history', () => {
     expect(localWallet?.historySource).toBe('vault-authoritative');
+  });
+
+  // Withholding the address from the backend only holds with no backend pool.
+  it('reads no pool from the backend', () => {
+    expect(localWallet?.withholdAddressFromBackend).toBe(true);
+    expect(localWallet?.pools.some((pool) => pool.source === 'backend')).toBe(
+      false,
+    );
   });
 
   /**
