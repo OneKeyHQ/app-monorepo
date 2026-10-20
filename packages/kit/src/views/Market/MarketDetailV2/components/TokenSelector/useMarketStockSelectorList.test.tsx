@@ -431,6 +431,40 @@ it('queues end-reached during first-page revalidation', async () => {
   );
 });
 
+it('loads the next page when revalidation preserves all 20 cached rows', async () => {
+  const cachedPage: IMarketStockPublicListResponse = {
+    items: Array.from({ length: 20 }, (_, index) => createStock(`S${index}`)),
+    total: 21,
+    nextCursor: 'cached-next',
+  };
+  const remotePage = { ...cachedPage, nextCursor: 'remote-next' };
+  seedHomeStockList(cachedPage);
+  const pending = deferred<IMarketStockPublicListResponse>();
+  fetchList.mockImplementation(async (params) =>
+    params?.cursor
+      ? { items: [createStock('LAST')], total: 21 }
+      : pending.promise,
+  );
+  const { result } = renderHook(() =>
+    useMarketStockSelectorList({ query: '' }),
+  );
+  expect(result.current.items).toHaveLength(20);
+  expect(result.current.canLoadMore).toBe(false);
+  expect(result.current.isRevalidatingFirstPage).toBe(true);
+  await act(async () => result.current.loadMore());
+  expect(fetchList).toHaveBeenCalledTimes(1);
+
+  await act(async () => pending.resolve(remotePage));
+
+  await waitFor(() => expect(result.current.items).toHaveLength(21));
+  expect(fetchList).toHaveBeenCalledTimes(2);
+  expect(fetchList).toHaveBeenLastCalledWith({
+    cursor: 'remote-next',
+    limit: 20,
+  });
+  expect(result.current.items[20]?.stockId).toBe('LAST');
+});
+
 it('uses the remote first-page cursor when a queued load-more flushes', async () => {
   const cachedPage: IMarketStockPublicListResponse = {
     items: [createStock('AAPL')],
@@ -516,4 +550,29 @@ it('keeps the same table during pagination with the real selector hook', async (
   });
   await waitFor(() => expect(table.textContent).toContain('MSFT'));
   expect(screen.getByTestId('stock-table')).toBe(table);
+});
+
+it('keeps home category cache rows when the selector first request fails', async () => {
+  const queryKey = buildMarketStockListQueryKey({
+    locale: 'en-US',
+    category: 'ai-tech',
+  });
+  swrCacheUtils.set(swrKeys.marketHomeStocks(queryKey), {
+    queryKey,
+    response: firstPage,
+  });
+  fetchList.mockRejectedValue(new Error('offline'));
+
+  const { result } = renderHook(() =>
+    useMarketStockSelectorList({ category: 'ai-tech' }),
+  );
+  expect(result.current.items).toEqual(firstPage.items);
+  await waitFor(() =>
+    expect(fetchList).toHaveBeenCalledWith({ limit: 20, category: 'ai-tech' }),
+  );
+  await waitFor(() =>
+    expect(result.current.isRevalidatingFirstPage).toBe(false),
+  );
+  expect(result.current.items).toEqual(firstPage.items);
+  expect(result.current.isError).toBe(false);
 });

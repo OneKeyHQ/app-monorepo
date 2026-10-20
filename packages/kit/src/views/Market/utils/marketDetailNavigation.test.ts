@@ -413,6 +413,7 @@ describe('marketDetailNavigation', () => {
         }),
       },
       source: 'detail-1',
+      target: 'market-stack',
     });
   });
 
@@ -490,6 +491,7 @@ describe('marketDetailNavigation', () => {
         }),
       },
       source: 'detail-1',
+      target: 'market-stack',
     });
   });
 

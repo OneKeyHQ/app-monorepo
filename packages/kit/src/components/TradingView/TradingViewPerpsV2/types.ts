@@ -21,11 +21,13 @@ export interface IGetMarksRequest {
   to: number;
   resolution?: string;
   requestId?: string;
+  accountRevision?: number;
 }
 
 export interface IGetMarksResponse {
   marks: ITradingMark[];
   requestId?: string;
+  accountRevision?: number;
 }
 
 export enum EMarksUpdateOperationEnum {
@@ -40,6 +42,7 @@ export interface IMarksUpdateMessage {
     marks: ITradingMark[];
     symbol: string;
     operation: EMarksUpdateOperationEnum;
+    accountRevision?: number;
   };
 }
 
@@ -112,6 +115,7 @@ export interface ITVLineEditResultPayload {
 export interface ITVChartReadyPayload {
   symbol?: string;
   containerId?: string;
+  capabilities?: { perpsAccountMarksReset?: boolean };
 }
 
 export interface ITVLineReadyPayload {
