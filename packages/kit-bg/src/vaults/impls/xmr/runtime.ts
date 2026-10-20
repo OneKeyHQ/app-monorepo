@@ -189,10 +189,38 @@ export function isXmrRuntimeBusy(): boolean {
 }
 
 const staleFirstCache = new Map<string, unknown>();
+const staleFirstQueued = new Set<string>();
+// Bumped whenever remembered results are dropped, so a queued read finishing later cannot restore them.
+let staleFirstEpoch = 0;
 
 /** Drop remembered read results. Tests only. */
 export function resetXmrStaleFirstCache() {
   staleFirstCache.clear();
+  staleFirstQueued.clear();
+  staleFirstEpoch += 1;
+}
+
+// Cold start: with nothing remembered every read during a step answers the fallback.
+// One read per key waits behind the current step and fills the cache for the next poll.
+function queueXmrStaleFirstRead<T>(key: string, read: () => Promise<T>) {
+  if (staleFirstQueued.has(key)) return;
+  staleFirstQueued.add(key);
+  const epoch = staleFirstEpoch;
+  void runtimeCallLock
+    .runExclusive(() => undefined)
+    .then(read)
+    .then((value) => {
+      // A live read may have answered first; it is at least as fresh.
+      if (epoch === staleFirstEpoch && !staleFirstCache.has(key)) {
+        staleFirstCache.set(key, value);
+      }
+    })
+    .catch((error) => {
+      console.warn('[xmr] queued read failed', { key, error });
+    })
+    .finally(() => {
+      staleFirstQueued.delete(key);
+    });
 }
 
 // Read without waiting on a scan step: busy returns the last-seen value (or fallback) instead of queueing.
@@ -201,15 +229,22 @@ export async function readXmrStaleFirst<T>({
   key,
   read,
   fallback,
+  queueWhenUncached = false,
 }: {
   key: string;
   read: () => Promise<T>;
   fallback: T;
+  /** Busy with nothing remembered: also queue one read behind the step. */
+  queueWhenUncached?: boolean;
 }): Promise<T> {
   if (isXmrRuntimeBusy()) {
-    return staleFirstCache.has(key)
-      ? (staleFirstCache.get(key) as T)
-      : fallback;
+    if (staleFirstCache.has(key)) {
+      return staleFirstCache.get(key) as T;
+    }
+    if (queueWhenUncached) {
+      queueXmrStaleFirstRead(key, read);
+    }
+    return fallback;
   }
   const value = await read();
   staleFirstCache.set(key, value);
@@ -221,6 +256,7 @@ export function forgetXmrStaleFirstAccount(accountId: string) {
   for (const kind of ['history', 'progress']) {
     staleFirstCache.delete(`${kind}:${accountId}`);
   }
+  staleFirstEpoch += 1;
 }
 
 // Deletes the database without opening it: a database that cannot be opened must still be removable.
@@ -230,6 +266,7 @@ export async function deleteXmrDatabase(network: IXmrNetwork): Promise<void> {
     await api.deleteWallet(xmrDbNameForNetwork(network));
     session = undefined;
     staleFirstCache.clear();
+    staleFirstEpoch += 1;
   });
 }
 

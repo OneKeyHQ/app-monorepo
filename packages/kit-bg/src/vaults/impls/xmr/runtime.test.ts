@@ -295,6 +295,121 @@ describe('xmr stale-first reads', () => {
 });
 
 /**
+ * Cold start: a scan step usually holds the lock when the first poll arrives,
+ * and with nothing remembered the read would answer the placeholder until a
+ * poll happened to land between two steps.
+ */
+describe('xmr stale-first cold start', () => {
+  async function holdStep() {
+    let releaseStep: () => void = () => {};
+    raw.syncStep.mockImplementation(
+      () =>
+        new Promise<string>((resolve) => {
+          releaseStep = () => resolve('{}');
+        }),
+    );
+    const api = await getXmrRuntime(vault);
+    const step = api.syncStep('3', '10');
+    await Promise.resolve();
+    expect(isXmrRuntimeBusy()).toBe(true);
+    return async () => {
+      releaseStep();
+      await step;
+      // Let the queued read run after the step.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    };
+  }
+
+  it('queues one read behind the step and remembers its answer', async () => {
+    const release = await holdStep();
+    const read = jest.fn(async () => 'rows');
+    for (let i = 0; i < 3; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await expect(
+        readXmrStaleFirst({
+          key: 'history:a',
+          read,
+          fallback: '?',
+          queueWhenUncached: true,
+        }),
+      ).resolves.toBe('?');
+    }
+    expect(read).not.toHaveBeenCalled();
+
+    await release();
+    expect(read).toHaveBeenCalledTimes(1);
+
+    // Still busy for the next poll: answered from what the queued read saw.
+    const releaseAgain = await holdStep();
+    const next = jest.fn(async () => 'newer');
+    await expect(
+      readXmrStaleFirst({
+        key: 'history:a',
+        read: next,
+        fallback: '?',
+        queueWhenUncached: true,
+      }),
+    ).resolves.toBe('rows');
+    await releaseAgain();
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('does not queue unless the caller asks', async () => {
+    const release = await holdStep();
+    const read = jest.fn(async () => 'value');
+    await expect(
+      readXmrStaleFirst({ key: 'storage', read, fallback: '?' }),
+    ).resolves.toBe('?');
+    await release();
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it('drops a queued answer when the account data was forgotten meanwhile', async () => {
+    const release = await holdStep();
+    const read = jest.fn(async () => 'old rows');
+    await readXmrStaleFirst({
+      key: 'history:a',
+      read,
+      fallback: '?',
+      queueWhenUncached: true,
+    });
+    forgetXmrStaleFirstAccount('a');
+    await release();
+    expect(read).toHaveBeenCalledTimes(1);
+
+    const releaseAgain = await holdStep();
+    await expect(
+      readXmrStaleFirst({ key: 'history:a', read, fallback: '?' }),
+    ).resolves.toBe('?');
+    await releaseAgain();
+  });
+
+  it('swallows a failed queued read and retries on a later poll', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const release = await holdStep();
+    const read = jest
+      .fn<Promise<string>, []>()
+      .mockRejectedValueOnce(new OneKeyLocalError('not registered'))
+      .mockResolvedValueOnce('rows');
+    const params = {
+      key: 'history:a',
+      read,
+      fallback: '?',
+      queueWhenUncached: true,
+    };
+    await expect(readXmrStaleFirst(params)).resolves.toBe('?');
+    await release();
+    expect(read).toHaveBeenCalledTimes(1);
+
+    const releaseAgain = await holdStep();
+    await expect(readXmrStaleFirst(params)).resolves.toBe('?');
+    await releaseAgain();
+    expect(read).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
+  });
+});
+
+/**
  * Progress is published after every scan step. A fresh tip each time put a
  * node round trip between every pair of steps; display reads reuse the last
  * tip anyone fetched instead.
