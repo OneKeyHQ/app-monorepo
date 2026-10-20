@@ -1,9 +1,16 @@
+import type { IPrimeWebCheckoutPendingSession } from '@onekeyhq/shared/types/prime/primeTypes';
+
 import { startPrimeDebugCardCheckout } from './primeDebugCardCheckout';
 
 import type { IUsePrimePayment } from '../../hooks/usePrimePaymentTypes';
 import type { IPrimeEmbeddedCheckoutFallbackTrigger } from '../../purchasesSdk/primeEmbeddedCheckoutFallback';
 
-const mockPlatformEnv = { isDev: true, isNative: false, isMas: false };
+const mockPlatformEnv = {
+  isDev: true,
+  isNative: false,
+  isMas: false,
+  isWeb: false,
+};
 const mockFetchUserInfo = jest.fn(async () => ({
   userInfo: {
     isLoggedIn: true,
@@ -19,7 +26,12 @@ const mockCardMode = jest.fn<Promise<'embedded' | 'hostedLink'>, []>(
   async () => 'embedded',
 );
 const mockOpenExternal = jest.fn<void, [string]>();
+const mockAssignLocation = jest.fn<void, [string]>();
 const mockRefresh = jest.fn(async () => undefined);
+const mockGetPendingSession = jest.fn<
+  Promise<IPrimeWebCheckoutPendingSession | undefined>,
+  [unknown]
+>(async () => undefined);
 const mockResolvePackage = jest.fn(async () => ({
   packageId: '$rc_annual',
   currency: 'USD',
@@ -49,12 +61,21 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     get isMas() {
       return mockPlatformEnv.isMas;
     },
+    get isWeb() {
+      return mockPlatformEnv.isWeb;
+    },
   },
 }));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     servicePrime: { apiFetchPrimeUserInfo: () => mockFetchUserInfo() },
+    simpleDb: {
+      prime: {
+        getWebCheckoutPendingSession: (params: unknown) =>
+          mockGetPendingSession(params),
+      },
+    },
   },
 }));
 jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
@@ -75,7 +96,8 @@ jest.mock('../../hooks/primePaymentUtils', () => ({
 }));
 jest.mock('../../hooks/primeWebCheckout', () => ({
   assertPrimeWebCheckoutUserCurrent: (id: string) => mockAssertCurrent(id),
-  getPrimeWebCheckoutPlatform: () => 'extension',
+  getPrimeWebCheckoutPlatform: () =>
+    mockPlatformEnv.isWeb ? 'web' : 'extension',
   resolvePrimeWebCheckoutPackage: () => mockResolvePackage(),
 }));
 jest.mock('../../primeSubscriptionPurchaseSuccess', () => ({
@@ -105,6 +127,11 @@ describe('Prime debug card checkout', () => {
     mockPlatformEnv.isDev = true;
     mockPlatformEnv.isNative = false;
     mockPlatformEnv.isMas = false;
+    mockPlatformEnv.isWeb = false;
+    Object.defineProperty(globalThis, 'location', {
+      configurable: true,
+      value: { assign: mockAssignLocation },
+    });
     mockFetchUserInfo.mockResolvedValue({
       userInfo: {
         isLoggedIn: true,
@@ -117,6 +144,7 @@ describe('Prime debug card checkout', () => {
     mockCardMode.mockResolvedValue('embedded');
     mockFallbackTrigger.mockReturnValue(undefined);
     mockClassifyError.mockReturnValue({ reason: 'paymentFailed' });
+    mockGetPendingSession.mockResolvedValue(undefined);
     mockPurchase.mockResolvedValue({
       customerInfo: {
         entitlements: { active: {}, all: {} },
@@ -133,6 +161,10 @@ describe('Prime debug card checkout', () => {
     });
   });
 
+  afterEach(() => {
+    Reflect.deleteProperty(globalThis, 'location');
+  });
+
   it('opens the annual card form for an already-active Prime account', async () => {
     await startCheckout();
 
@@ -144,6 +176,47 @@ describe('Prime debug card checkout', () => {
     });
     expect(mockAssertCurrent).toHaveBeenCalledTimes(2);
     expect(mockRefresh).toHaveBeenCalledTimes(1);
+    expect(mockOpenExternal).not.toHaveBeenCalled();
+  });
+
+  it.each(['embedded', 'hostedLink'] as const)(
+    'blocks %s debug purchases while a hosted checkout remains payable',
+    async (mode) => {
+      mockCardMode.mockResolvedValue(mode);
+      mockGetPendingSession.mockResolvedValue({
+        checkoutId: 'pending-checkout',
+        onekeyUserId: 'test-user',
+        subscriptionPeriod: 'P1Y',
+        packageId: '$rc_annual',
+        offeringId: 'Sandbox_testing',
+        amount: 99,
+        currency: 'USD',
+        isSandbox: true,
+        platform: 'extension',
+        checkoutUrl:
+          'https://pay.rev.cat/test-link/test-user?package_id=annual',
+        startedAt: Date.now(),
+      });
+
+      await expect(startCheckout()).rejects.toThrow('pending hosted checkout');
+
+      expect(mockGetPendingSession).toHaveBeenCalledWith({
+        onekeyUserId: 'test-user',
+      });
+      expect(mockPurchase).not.toHaveBeenCalled();
+      expect(mockOpenExternal).not.toHaveBeenCalled();
+      expect(mockRefresh).not.toHaveBeenCalled();
+    },
+  );
+
+  it('fails closed if the pending hosted checkout cannot be read', async () => {
+    mockGetPendingSession.mockRejectedValueOnce(
+      new Error('Pending state unavailable'),
+    );
+
+    await expect(startCheckout()).rejects.toThrow('Pending state unavailable');
+
+    expect(mockPurchase).not.toHaveBeenCalled();
     expect(mockOpenExternal).not.toHaveBeenCalled();
   });
 
@@ -207,6 +280,38 @@ describe('Prime debug card checkout', () => {
     expect(url.searchParams.get('email')).toBe('test@example.com');
     expect(mockRefresh).not.toHaveBeenCalled();
   });
+
+  it('navigates Web to hosted checkout in the same tab after async account/package requests', async () => {
+    mockPlatformEnv.isWeb = true;
+    mockCardMode.mockResolvedValueOnce('hostedLink');
+
+    await startCheckout();
+
+    expect(mockAssignLocation).toHaveBeenCalledTimes(1);
+    const url = new URL(mockAssignLocation.mock.calls[0][0]);
+    expect(url.pathname).toContain('test-user');
+    expect(url.searchParams.get('package_id')).toBe('$rc_annual');
+    expect(mockOpenExternal).not.toHaveBeenCalled();
+  });
+
+  it.each(['checkoutError', 'userRequestedHostedCheckout'] as const)(
+    'uses same-tab Web navigation for %s fallback',
+    async (trigger) => {
+      mockPlatformEnv.isWeb = true;
+      mockPurchase.mockRejectedValueOnce(new Error('Embedded checkout closed'));
+      mockFallbackTrigger.mockReturnValueOnce(trigger);
+
+      await startCheckout();
+
+      expect(mockAssignLocation).toHaveBeenCalledTimes(1);
+      expect(
+        new URL(mockAssignLocation.mock.calls[0][0]).searchParams.get(
+          'utm_source',
+        ),
+      ).toBe('onekey_web');
+      expect(mockOpenExternal).not.toHaveBeenCalled();
+    },
+  );
 
   it('switches to the hosted card page after acknowledged browser switching', async () => {
     mockPurchase.mockRejectedValueOnce(new Error('Switch to browser'));

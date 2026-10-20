@@ -123,6 +123,72 @@ it('focuses a visible hosted form without reloading or resetting its payment fie
   expect(mockOpenUrlInTab).not.toHaveBeenCalled();
 });
 
+it.each([
+  'https://pay.rev.cat/test-link/user-1?package_id=monthly',
+  'https://pay.rev.cat/test-link/other-user?package_id=annual',
+  'https://pay.rev.cat/other-link/user-1?package_id=annual',
+  'https://pay.rev.cat/test-link/user-1?package_id=annual&currency=EUR',
+  'https://pay.rev.cat/test-link/user-1?package_id=annual&package_id=monthly',
+])(
+  'does not focus or overwrite a different checkout on the hosted origin: %s',
+  async (url) => {
+    mockTabs.set(12, tab(12, url));
+
+    await openPrimeWebCheckoutPage(session);
+
+    expect(mockFocusTab).not.toHaveBeenCalled();
+    expect(mockOpenUrlInTab).toHaveBeenCalledWith(session.checkoutUrl, {
+      tabId: undefined,
+    });
+  },
+);
+
+it('ignores email prefill and attribution when identifying the same payment', async () => {
+  mockTabs.set(
+    12,
+    tab(
+      12,
+      `${session.checkoutUrl}&email=test%40example.com&utm_campaign=test`,
+    ),
+  );
+
+  await openPrimeWebCheckoutPage(session);
+
+  expect(mockFocusTab).toHaveBeenCalledWith(12);
+  expect(mockOpenUrlInTab).not.toHaveBeenCalled();
+});
+
+it('does not focus a tab navigating to a different pending payment URL', async () => {
+  mockTabs.set(12, {
+    ...tab(12, session.checkoutUrl),
+    pendingUrl: 'https://pay.rev.cat/test-link/other-user?package_id=annual',
+  });
+
+  await openPrimeWebCheckoutPage(session);
+
+  expect(mockFocusTab).not.toHaveBeenCalled();
+  expect(mockOpenUrlInTab).toHaveBeenCalledWith(session.checkoutUrl, {
+    tabId: undefined,
+  });
+});
+
+it('does not take over a replaced session tab displaying another customer payment', async () => {
+  mockTabs.set(
+    12,
+    tab(12, 'https://pay.rev.cat/test-link/other-user?package_id=annual'),
+  );
+
+  await openPrimeWebCheckoutPage(
+    { ...session, extension: undefined },
+    { replacedSession: session },
+  );
+
+  expect(mockFocusTab).not.toHaveBeenCalled();
+  expect(mockOpenUrlInTab).toHaveBeenCalledWith(session.checkoutUrl, {
+    tabId: undefined,
+  });
+});
+
 it('opens a new checkout without overwriting a tab visibly navigated elsewhere', async () => {
   mockTabs.set(12, tab(12, 'https://example.com/'));
 

@@ -168,14 +168,46 @@ function getExtensionTab(tabId: number) {
   });
 }
 
-// A recorded checkout tab is reused only while it still shows the hosted
-// checkout, never after the user navigated it elsewhere.
-async function isReusableCheckoutTab(tabId: number | undefined) {
-  if (tabId === undefined) {
+function isMatchingCheckoutPageUrl(
+  url: string | undefined,
+  checkoutUrl: string,
+) {
+  if (!url || !isPrimeWebPurchaseLinkPageUrl(url)) {
     return false;
   }
+  try {
+    const current = new URL(url);
+    const expected = new URL(checkoutUrl);
+    // Preserve the link, OneKey ID and payment parameters, including duplicate
+    // query values. Email prefill and attribution do not identify the payment.
+    for (const candidate of [current, expected]) {
+      for (const key of Array.from(candidate.searchParams.keys())) {
+        if (key === 'email' || key.startsWith('utm_')) {
+          candidate.searchParams.delete(key);
+        }
+      }
+      candidate.searchParams.sort();
+    }
+    return (
+      !current.username &&
+      !current.password &&
+      current.origin === expected.origin &&
+      current.pathname === expected.pathname &&
+      current.searchParams.toString() === expected.searchParams.toString()
+    );
+  } catch {
+    return false;
+  }
+}
+
+// Only replace a tab that still belongs to the recorded checkout.
+async function isReusableCheckoutTab(
+  tabId: number | undefined,
+  checkoutUrl: string | undefined,
+) {
+  if (tabId === undefined || !checkoutUrl) return false;
   const tab = await getExtensionTab(tabId);
-  return isPrimeWebPurchaseLinkPageUrl(tab?.pendingUrl || tab?.url);
+  return isMatchingCheckoutPageUrl(tab?.pendingUrl || tab?.url, checkoutUrl);
 }
 
 async function openExtensionCheckoutTab({
@@ -200,7 +232,8 @@ async function openExtensionCheckoutTab({
     // Never rewrite an unknown URL or a tab visibly navigated elsewhere.
     if (
       currentTab &&
-      (!currentUrl || isPrimeWebPurchaseLinkPageUrl(currentUrl)) &&
+      (!currentUrl ||
+        isMatchingCheckoutPageUrl(currentUrl, session.checkoutUrl)) &&
       (await extUtils.focusTab(currentTabId))
     ) {
       return;
@@ -213,7 +246,9 @@ async function openExtensionCheckoutTab({
         ?.checkoutTabId
     : undefined;
   let reusableTabId: number | undefined;
-  if (await isReusableCheckoutTab(replacedTabId)) {
+  if (
+    await isReusableCheckoutTab(replacedTabId, replacedSession?.checkoutUrl)
+  ) {
     reusableTabId = replacedTabId;
   }
   const checkoutTab = await extUtils.openUrlInTab(url, {

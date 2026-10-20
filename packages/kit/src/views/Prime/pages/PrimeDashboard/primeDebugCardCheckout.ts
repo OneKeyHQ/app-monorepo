@@ -57,6 +57,15 @@ export async function startPrimeDebugCardCheckout({
   ) {
     throw new OneKeyLocalError('Prime purchase user changed');
   }
+  const pendingSession =
+    await backgroundApiProxy.simpleDb.prime.getWebCheckoutPendingSession({
+      onekeyUserId,
+    });
+  if (pendingSession) {
+    throw new OneKeyLocalError(
+      'Complete the pending hosted checkout before starting a debug payment',
+    );
+  }
   await assertPrimeWebCheckoutUserCurrent(onekeyUserId);
 
   const openHostedCheckout = async () => {
@@ -78,9 +87,13 @@ export async function startPrimeDebugCardCheckout({
     });
     // Existing Prime must not settle a test checkout as a successful payment.
     // Open the real card page without creating a monitored pending session.
-    openUrlUtils.openUrlExternal(
-      withPrimeWebPurchaseLinkEmail(checkoutUrl, email),
-    );
+    const url = withPrimeWebPurchaseLinkEmail(checkoutUrl, email);
+    if (platformEnv.isWeb) {
+      // Account/package requests can outlive the browser's popup activation.
+      globalThis.location.assign(url);
+    } else {
+      openUrlUtils.openUrlExternal(url);
+    }
   };
 
   if ((await getPrimeCardCheckoutMode()) === 'hostedLink') {
