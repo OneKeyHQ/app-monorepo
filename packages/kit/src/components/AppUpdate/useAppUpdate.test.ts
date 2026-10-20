@@ -2440,7 +2440,9 @@ describe('useDownloadPackage', () => {
       expect(svc.resetToInComplete).not.toHaveBeenCalled();
       expect(bundleUpd.installBundle).not.toHaveBeenCalled();
 
-      svc.getDownloadEvent.mockResolvedValue({ downloadedFile: '/tmp/bundle.zip' });
+      svc.getDownloadEvent.mockResolvedValue({
+        downloadedFile: '/tmp/bundle.zip',
+      });
       await act(async () => {
         await result.current.manualInstallPackage();
       });
