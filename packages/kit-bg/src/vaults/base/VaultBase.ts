@@ -472,6 +472,17 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return unsignedTx;
   }
 
+  // Override in chain vaults that can tell whether a signed tx reached the
+  // network. A retry after an ambiguous broadcast failure (request timeout,
+  // custom RPC accepted but the server record failed) asks this before
+  // signing again; a yes reuses the landed tx instead of producing a second,
+  // independently valid one (OK-65147).
+  async checkIsSignedTxBroadcasted(_params: {
+    txid: string;
+  }): Promise<boolean> {
+    return false;
+  }
+
   async buildBulkSendEncodedTxs(_params: {
     transfersInfo: ITransferInfo[];
   }): Promise<{

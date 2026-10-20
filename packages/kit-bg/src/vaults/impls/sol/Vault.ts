@@ -769,6 +769,19 @@ export default class Vault extends VaultBase {
     };
   }
 
+  override async checkIsSignedTxBroadcasted({
+    txid,
+  }: {
+    txid: string;
+  }): Promise<boolean> {
+    // The lookup searches transaction history, so `null` is the RPC's
+    // explicit "never seen" answer; any status object means the signature
+    // reached the ledger and must not be signed again.
+    const statuses = await this.getSignatureStatuses([txid]);
+    const status = statuses?.[0];
+    return status !== null && status !== undefined;
+  }
+
   override async getDroppedPendingTxs({
     pendingTxs,
   }: {

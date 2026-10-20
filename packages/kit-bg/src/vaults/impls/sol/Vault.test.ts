@@ -21,6 +21,7 @@ import bs58 from 'bs58';
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 import type { IEncodedTxSol } from '@onekeyhq/core/src/chains/sol/types';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -775,5 +776,51 @@ describe('SolVault dApp transaction fee handling (OK-64196)', () => {
         estimateFeeParams?.estimateFeeParamsSol?.computeUnitPriceInTx,
       ).toBe('0');
     });
+  });
+});
+
+describe('SolVault.checkIsSignedTxBroadcasted', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('reports a signature the RPC has seen as broadcast', async () => {
+    const { vault } = buildVault();
+    const clientLookup = jest.fn(async () => [
+      { confirmationStatus: 'confirmed' },
+    ]);
+    vault.getClient = async () =>
+      ({ getSignatureStatuses: clientLookup }) as unknown as ClientSol;
+
+    await expect(
+      vault.checkIsSignedTxBroadcasted({ txid: 'sig-1' }),
+    ).resolves.toBe(true);
+    expect(clientLookup).toHaveBeenCalledWith(['sig-1']);
+  });
+
+  it('reports a signature the RPC has never seen as not broadcast', async () => {
+    const { vault } = buildVault();
+    vault.getClient = async () =>
+      ({
+        getSignatureStatuses: jest.fn(async () => [null]),
+      }) as unknown as ClientSol;
+
+    await expect(
+      vault.checkIsSignedTxBroadcasted({ txid: 'sig-1' }),
+    ).resolves.toBe(false);
+  });
+
+  it('propagates an RPC failure so the caller does not re-sign blindly', async () => {
+    const { vault } = buildVault();
+    vault.getClient = async () =>
+      ({
+        getSignatureStatuses: jest.fn(async () => {
+          throw new OneKeyLocalError('rpc unreachable');
+        }),
+      }) as unknown as ClientSol;
+
+    await expect(
+      vault.checkIsSignedTxBroadcasted({ txid: 'sig-1' }),
+    ).rejects.toThrow('rpc unreachable');
   });
 });
