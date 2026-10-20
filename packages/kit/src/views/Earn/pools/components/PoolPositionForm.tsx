@@ -107,13 +107,16 @@ function ZapPlanView({
           </SizableText>
         </PlanRow>
       ) : null}
-      <PlanRow label={POOLS_COPY.goesIn}>
-        {goesIn.map(({ token, amount }) => (
-          <SizableText key={token.id} size="$bodyMdMedium">
-            {formatTokenAmount(amount, token.symbol)}
-          </SizableText>
-        ))}
-      </PlanRow>
+      {/* An amount too small to add puts nothing in */}
+      {goesIn.length ? (
+        <PlanRow label={POOLS_COPY.goesIn}>
+          {goesIn.map(({ token, amount }) => (
+            <SizableText key={token.id} size="$bodyMdMedium">
+              {formatTokenAmount(amount, token.symbol)}
+            </SizableText>
+          ))}
+        </PlanRow>
+      ) : null}
       {leftovers.length ? (
         <PlanRow label={POOLS_COPY.leftover}>
           {leftovers.map(({ token, amount }) => (
