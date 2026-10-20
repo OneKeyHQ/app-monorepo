@@ -7,6 +7,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
 import { EAtomNames } from './atomNames';
+import { initializePreferences } from './initializePreferences';
 import {
   buildJotaiStorageKey,
   getTravelModeCurrencyReferenceState,
@@ -138,6 +139,10 @@ async function jotaiInitImpl() {
 
   if (process.env.NODE_ENV !== 'production') {
     debugLandingLog('jotaiInit atoms imported & storage preloaded');
+  }
+
+  if (!isTravelModeActive) {
+    await initializePreferences(preloadedStorage);
   }
 
   const atoms: { [key: string]: JotaiCrossAtom<any> } = {};

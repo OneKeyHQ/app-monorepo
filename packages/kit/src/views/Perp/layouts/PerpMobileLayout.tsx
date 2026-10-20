@@ -81,6 +81,12 @@ export enum ETabName {
   SwapOrderHistory = 'SwapOrderHistory',
 }
 
+function getMobileInfoPanelTab(tab: string): ETabName {
+  if (tab === 'Balances') return ETabName.Balances;
+  if (tab === 'OpenOrders') return ETabName.OpenOrders;
+  return ETabName.Positions;
+}
+
 const tabNameToTranslationKey: Record<
   ETabName,
   | ETranslations.perp_position_title
@@ -186,9 +192,7 @@ export function PerpMobileLayout() {
   const [pendingInfoPanelTab, setPendingInfoPanelTab] =
     usePerpsPendingInfoPanelTabAtom();
   const [activeTab, setActiveTab] = useState<ETabName>(
-    tradeRouteViewState.infoPanelTab === 'Balances'
-      ? ETabName.Balances
-      : ETabName.Positions,
+    getMobileInfoPanelTab(tradeRouteViewState.infoPanelTab),
   );
   const [refreshing, setRefreshing] = useState(false);
   const layoutRectsRef = useRef<
@@ -201,11 +205,7 @@ export function PerpMobileLayout() {
   const actions = useHyperliquidActions();
 
   useEffect(() => {
-    setActiveTab(
-      tradeRouteViewState.infoPanelTab === 'Balances'
-        ? ETabName.Balances
-        : ETabName.Positions,
-    );
+    setActiveTab(getMobileInfoPanelTab(tradeRouteViewState.infoPanelTab));
   }, [tradeRouteViewState.infoPanelTab]);
 
   useEffect(() => {

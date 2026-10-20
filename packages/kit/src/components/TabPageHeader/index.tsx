@@ -190,6 +190,7 @@ export function TabPageHeader({
   hideHeaderLeft = false,
   disableHomeHeaderGlass = false,
   headerPx,
+  headerHeight,
   pageScrollPosition,
 }: ITabPageHeaderProp) {
   const media = useMedia();
@@ -221,6 +222,7 @@ export function TabPageHeader({
         customHeaderRightItems={customHeaderRightItems}
         renderCustomHeaderRightItems={renderCustomHeaderRightItems}
         headerPx={headerPx}
+        headerHeight={headerHeight}
         disableHomeHeaderGlass={disableHomeHeaderGlass}
         pageScrollPosition={pageScrollPosition}
       />
