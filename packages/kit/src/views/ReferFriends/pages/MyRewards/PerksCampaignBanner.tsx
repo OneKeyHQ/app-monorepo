@@ -15,7 +15,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { parseNotificationPayload } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import {
   type ILinkConfigItem,
@@ -27,37 +26,6 @@ import { useInviteHomeCardStyle } from '../InviteReward/components/useInviteCard
 import type { LayoutChangeEvent } from 'react-native';
 
 const EMPTY_ITEMS: ILinkConfigItem[] = [];
-
-// TODO: remove before merge. Dev builds show these slides while the
-// referral_perks_banner slot has nothing configured, for design review.
-const SHOW_PREVIEW_ITEMS = platformEnv.isDev;
-const PREVIEW_ITEMS: ILinkConfigItem[] = [
-  {
-    linkId: 'preview-1',
-    description: 'Exclusive trading perk',
-    title: 'Hit the trading goal, get BTC + KeyTag',
-    mode: 3,
-    payload: 'https://onekey.so',
-    image:
-      'https://uni.onekey-asset.com/server-service-indexer/btc--0/tokens/address-.png',
-  },
-  {
-    linkId: 'preview-2',
-    description: 'Limited time',
-    title: '$70,000 in USDT rewards, only on OneKey',
-    mode: 3,
-    payload: 'https://onekey.so',
-    image: 'https://uni.onekey-asset.com/icons/eth.png',
-  },
-  {
-    linkId: 'preview-3',
-    description: 'Perps',
-    title: 'Zero fees on your first Perps trade',
-    mode: 3,
-    payload: 'https://onekey.so',
-    image: null,
-  },
-];
 
 // Compact cards keep one height, so paging never moves the content below.
 const COMPACT_BANNER_HEIGHT = 136;
@@ -96,8 +64,7 @@ export function usePerksBannerItems() {
     [locale],
     { initResult: lastBannerItems ?? EMPTY_ITEMS },
   );
-  const items = result ?? EMPTY_ITEMS;
-  return SHOW_PREVIEW_ITEMS && !items.length ? PREVIEW_ITEMS : items;
+  return result ?? EMPTY_ITEMS;
 }
 
 function PerksBannerSlide({
