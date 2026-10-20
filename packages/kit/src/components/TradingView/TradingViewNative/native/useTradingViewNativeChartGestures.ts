@@ -74,7 +74,9 @@ export function useTradingViewNativeChartGestures({
   resources: SharedValue<ITradingViewNativeSkiaResources>;
   timeAxisHeight: number;
 }) {
-  const headerScrollGestures = useContext(HeaderScrollGestureContext);
+  const { gestures: headerScrollGestures, excludeLeftEdgeWidth } = useContext(
+    HeaderScrollGestureContext,
+  );
   const shouldWaitForPageScroll =
     prioritizePageScroll && headerScrollGestures.length > 0;
   const pressedSubIndicatorSettingsTarget =
@@ -90,6 +92,11 @@ export function useTradingViewNativeChartGestures({
       activeGestures.value = next;
       if (onInteractionChange && Boolean(previous) !== Boolean(next))
         scheduleOnRN(onInteractionChange, Boolean(next));
+    };
+    const isNavigationEdgeTouch = (absoluteX: number) => {
+      'worklet';
+
+      return excludeLeftEdgeWidth > 0 && absoluteX < excludeLeftEdgeWidth;
     };
     const isPriceAxisTouch = (x: number, y: number) => {
       'worklet';
@@ -192,7 +199,8 @@ export function useTradingViewNativeChartGestures({
         const touch = event.changedTouches[0];
         if (
           touch &&
-          (isPriceAxisTouch(touch.x, touch.y) ||
+          (isNavigationEdgeTouch(touch.absoluteX) ||
+            isPriceAxisTouch(touch.x, touch.y) ||
             isTimeAxisTouch(touch.x, touch.y))
         ) {
           stateManager.fail();
@@ -235,7 +243,8 @@ export function useTradingViewNativeChartGestures({
         const touch = event.changedTouches[0];
         if (
           touch &&
-          (isPriceAxisTouch(touch.x, touch.y) ||
+          (isNavigationEdgeTouch(touch.absoluteX) ||
+            isPriceAxisTouch(touch.x, touch.y) ||
             isTimeAxisTouch(touch.x, touch.y))
         ) {
           stateManager.fail();
@@ -256,9 +265,10 @@ export function useTradingViewNativeChartGestures({
         'worklet';
 
         const touch = event.changedTouches[0];
-        pressedSubIndicatorSettingsTarget.value = touch
-          ? getSubIndicatorSettingsTarget(touch.x, touch.y)
-          : null;
+        pressedSubIndicatorSettingsTarget.value =
+          touch && !isNavigationEdgeTouch(touch.absoluteX)
+            ? getSubIndicatorSettingsTarget(touch.x, touch.y)
+            : null;
         if (pressedSubIndicatorSettingsTarget.value === null) {
           stateManager.fail();
         }
@@ -287,7 +297,8 @@ export function useTradingViewNativeChartGestures({
         const touch = event.changedTouches[0];
         if (
           touch &&
-          (isPriceAxisTouch(touch.x, touch.y) ||
+          (isNavigationEdgeTouch(touch.absoluteX) ||
+            isPriceAxisTouch(touch.x, touch.y) ||
             isTimeAxisTouch(touch.x, touch.y))
         ) {
           stateManager.fail();
@@ -413,7 +424,11 @@ export function useTradingViewNativeChartGestures({
         'worklet';
 
         const touch = event.changedTouches[0];
-        if (!touch || !isTimeAxisTouch(touch.x, touch.y)) {
+        if (
+          !touch ||
+          isNavigationEdgeTouch(touch.absoluteX) ||
+          !isTimeAxisTouch(touch.x, touch.y)
+        ) {
           stateManager.fail();
         }
       })
@@ -607,6 +622,7 @@ export function useTradingViewNativeChartGestures({
     chartRuntime,
     decayOffset,
     headerScrollGestures,
+    excludeLeftEdgeWidth,
     shouldWaitForPageScroll,
     isClickInteractionEnabled,
     isCrosshairEnabled,

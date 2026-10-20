@@ -320,6 +320,7 @@ function MobileMarketTradingView({
       intervalStorageNamespace={intervalStorageNamespace}
       pageWidth={pageWidth}
       nativeControlsLayoutMode="mobile"
+      mobileToolbarExtra={<MobileChartModeControl />}
       onChartSwitch={onChartSwitch}
       onNativeIndicatorQuickBarChange={onNativeIndicatorQuickBarChange}
       onNativeSubIndicatorCountChange={onNativeSubIndicatorCountChange}
@@ -912,14 +913,7 @@ export function MobileLayout({
               simultaneousWithNativeGesture
               cancelChildTouches={false}
             >
-              <MobileSimpleChart
-                marketAssetId={marketTokenId}
-                height={
-                  typeof tradingViewHeight === 'number'
-                    ? tradingViewHeight
-                    : undefined
-                }
-              />
+              <MobileSimpleChart marketAssetId={marketTokenId} />
             </HeaderScrollGestureWrapper>
           ) : null}
           {isSimpleChart ? null : (
@@ -1072,15 +1066,11 @@ export function MobileLayout({
                       decimal={marketTradingViewParams.decimal}
                       dataSource={marketTradingViewParams.dataSource}
                       pageWidth={layoutPageWidth}
+                      mobileToolbarExtra={<MobileChartModeControl />}
                       onChartSwitch={onChartSwitch}
                     />
                   );
                 })()}
-                {isTradingViewNative ? null : (
-                  <Stack position="absolute" top={8} right={48} zIndex={4}>
-                    <MobileChartModeControl />
-                  </Stack>
-                )}
               </Stack>
             </HeaderScrollGestureWrapper>
           )}
@@ -1135,7 +1125,6 @@ export function MobileLayout({
     priceMode,
     tradingViewNativeSource,
     tradingViewChartHeight,
-    tradingViewHeight,
   ]);
 
   const renderInformationHeader = useCallback(

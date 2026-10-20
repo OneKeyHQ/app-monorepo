@@ -28,7 +28,6 @@ import {
   formatSegmentLocalRange,
   getDeviceUtcOffsetLabel,
   getUSMarketTradingHours,
-  isOndoUSMarketStock,
   resolveUSTradingHoursActiveRow,
 } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
 import type { IUSTradingHoursRow } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
@@ -699,12 +698,6 @@ export function TradingHoursTrigger({
 }) {
   const media = useMedia();
   const useSheetDialog = platformEnv.isNative || media.md;
-
-  // Trading hours only apply to Ondo's US-session model — other issuers
-  // (xStocks etc.) run 7×24, so their badge stays a plain, non-tappable one.
-  if (!isOndoUSMarketStock(stock.source)) {
-    return <>{renderTrigger}</>;
-  }
 
   if (useSheetDialog) {
     return (

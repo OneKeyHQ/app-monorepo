@@ -40,6 +40,7 @@ export function HeaderScrollGestureWrapper({
   onGestureActiveChange,
   excludeBottomEdgeHeight = 0,
 }: PropsWithChildren<IHeaderScrollGestureWrapperProps>) {
+  const { excludeLeftEdgeWidth } = useContext(HeaderScrollGestureContext);
   const tabsContext = useContext(CollapsibleTabContext);
   const refMap = tabsContext?.refMap;
   const focusedTab = tabsContext?.focusedTab;
@@ -96,8 +97,13 @@ export function HeaderScrollGestureWrapper({
         : 0;
     const safeExcludeBottomEdgeHeight = Math.max(0, excludeBottomEdgeHeight);
     const gestureHitSlop =
-      excludedRightEdgeWidth > 0 || safeExcludeBottomEdgeHeight > 0
+      excludeLeftEdgeWidth > 0 ||
+      excludedRightEdgeWidth > 0 ||
+      safeExcludeBottomEdgeHeight > 0
         ? {
+            ...(excludeLeftEdgeWidth > 0
+              ? { left: -excludeLeftEdgeWidth }
+              : {}),
             ...(excludedRightEdgeWidth > 0
               ? { right: -excludedRightEdgeWidth }
               : {}),
@@ -291,6 +297,7 @@ export function HeaderScrollGestureWrapper({
     panFailOffsetX,
     verticalPanMaxPointers,
     excludeRightEdgeRatio,
+    excludeLeftEdgeWidth,
     excludeBottomEdgeHeight,
     scrollScale,
     onHorizontalSwipe,
@@ -311,8 +318,13 @@ export function HeaderScrollGestureWrapper({
     triggerRefreshHaptic,
   ]);
 
+  const scrollGestureContext = useMemo(
+    () => ({ gestures: scrollGestures, excludeLeftEdgeWidth }),
+    [scrollGestures, excludeLeftEdgeWidth],
+  );
+
   return (
-    <HeaderScrollGestureContext.Provider value={scrollGestures}>
+    <HeaderScrollGestureContext.Provider value={scrollGestureContext}>
       <GestureDetector gesture={panGesture}>
         <Animated.View onLayout={handleLayout}>{children}</Animated.View>
       </GestureDetector>

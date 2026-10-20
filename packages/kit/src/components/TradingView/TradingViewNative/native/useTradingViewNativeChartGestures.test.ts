@@ -60,7 +60,12 @@ jest.mock(
   () => ({
     HeaderScrollGestureContext: jest
       .requireActual<typeof import('react')>('react')
-      .createContext<GestureType[]>([]),
+      .createContext<{ gestures: GestureType[]; excludeLeftEdgeWidth: number }>(
+        {
+          gestures: [],
+          excludeLeftEdgeWidth: 0,
+        },
+      ),
   }),
 );
 
@@ -179,9 +184,11 @@ function renderSettingsGesture(
 function renderChartGestures({
   headerScrollGestures = [],
   prioritizePageScroll = false,
+  excludeLeftEdgeWidth = 0,
 }: {
   headerScrollGestures?: GestureType[];
   prioritizePageScroll?: boolean;
+  excludeLeftEdgeWidth?: number;
 } = {}) {
   const chartRuntime = {
     value: {
@@ -250,13 +257,17 @@ function renderChartGestures({
     wrapper: ({ children }: PropsWithChildren) =>
       createElement(
         HeaderScrollGestureContext.Provider,
-        { value: headerScrollGestures },
+        { value: { gestures: headerScrollGestures, excludeLeftEdgeWidth } },
         children,
       ),
   });
   return {
     chartRuntime,
     decayOffset,
+    crosshairGesture: mockPanGestures[initialPanGestureCount],
+    tapCrosshairGesture: mockTapGestures.find(
+      (gesture) => gesture.maxDistance.mock.calls.length === 0,
+    ),
     contentPanGesture: mockPanGestures[initialPanGestureCount + 1],
     pinchGesture: mockPinchGestures[mockPinchGestures.length - 1],
     timeAxisScaleGesture: mockPanGestures[initialPanGestureCount + 2],
@@ -272,6 +283,62 @@ describe('useTradingViewNativeChartGestures', () => {
       ({ y }: { y: number }): 'RSI' | null => (y === 100 ? 'RSI' : null),
     );
   });
+
+  it.each([0, 16, 31])(
+    'leaves a touch at screen X=%i to navigation when the page reserves its left edge',
+    (absoluteX) => {
+      const gestures = renderChartGestures({ excludeLeftEdgeWidth: 32 });
+      for (const gesture of [
+        gestures.contentPanGesture,
+        gestures.crosshairGesture,
+        gestures.tapCrosshairGesture,
+      ]) {
+        const fail = jest.fn();
+        gesture?.handlers.onTouchesDown?.(
+          { changedTouches: [{ absoluteX, x: 24, y: 120 }] },
+          { fail },
+        );
+        expect(fail).toHaveBeenCalledTimes(1);
+      }
+
+      const failTimeAxis = jest.fn();
+      gestures.timeAxisScaleGesture.handlers.onTouchesDown?.(
+        { changedTouches: [{ absoluteX, x: 24, y: 290 }] },
+        { fail: failTimeAxis },
+      );
+      expect(failTimeAxis).toHaveBeenCalledTimes(1);
+
+      const settingsGesture = mockTapGestures.find(
+        (gesture) => gesture.maxDistance.mock.calls.length > 0,
+      );
+      const failSettings = jest.fn();
+      settingsGesture?.handlers.onTouchesDown?.(
+        { changedTouches: [{ absoluteX, x: 24, y: 100 }] },
+        { fail: failSettings },
+      );
+      expect(failSettings).toHaveBeenCalledTimes(1);
+      expect(mockGetSubIndicatorLegendHitRegions).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    { excludeLeftEdgeWidth: 0, absoluteX: 0 },
+    { excludeLeftEdgeWidth: 32, absoluteX: 32 },
+    { excludeLeftEdgeWidth: 32, absoluteX: 64 },
+  ])(
+    'keeps chart panning available outside the reserved screen edge (%j)',
+    ({ excludeLeftEdgeWidth, absoluteX }) => {
+      const { contentPanGesture } = renderChartGestures({
+        excludeLeftEdgeWidth,
+      });
+      const fail = jest.fn();
+      contentPanGesture.handlers.onTouchesDown?.(
+        { changedTouches: [{ absoluteX, x: 24, y: 120 }] },
+        { fail },
+      );
+      expect(fail).not.toHaveBeenCalled();
+    },
+  );
 
   it('opens the indicator pressed at touch-down after an allowed drift', () => {
     const onSubIndicatorSettingsPress = jest.fn();

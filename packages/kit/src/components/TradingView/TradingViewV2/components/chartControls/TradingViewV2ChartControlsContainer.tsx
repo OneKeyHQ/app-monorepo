@@ -65,6 +65,7 @@ interface ITradingViewV2ChartControlsContainerProps {
   intervalControlMode?: ITradingViewNativeIntervalControlMode;
   priceMarketCapControlMode?: ITradingViewNativePriceMarketCapControlMode;
   layoutMode?: ITradingViewNativeControlsLayoutMode;
+  mobileToolbarExtra?: ReactNode;
   chartTimezone: string;
   isFullscreen?: boolean;
   fullscreenHeader?: ReactNode;
@@ -96,6 +97,7 @@ export const TradingViewV2ChartControlsContainer = memo(
     intervalControlMode = 'dialog',
     priceMarketCapControlMode = 'settings',
     layoutMode = 'mobile',
+    mobileToolbarExtra,
     chartTimezone,
     isFullscreen = false,
     fullscreenHeader,
@@ -355,6 +357,7 @@ export const TradingViewV2ChartControlsContainer = memo(
         isControlsReady={isControlsReady}
         intervalControlMode={intervalControlMode}
         layoutMode={layoutMode}
+        rightControl={layoutMode === 'mobile' ? mobileToolbarExtra : undefined}
         chartTimezone={chartTimezone}
         isFullscreen={isFullscreen}
         fullscreenHeader={fullscreenHeader}
