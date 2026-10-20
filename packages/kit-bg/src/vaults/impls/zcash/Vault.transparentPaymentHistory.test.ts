@@ -196,7 +196,6 @@ function createVault(initial = localPayment()) {
     ) => ({
       data: { data: { data: raw, tokens: {}, nfts: {} } },
     }),
-    zcashPruneTransparentSendHistory: async () => undefined,
   });
   const runtime = jest
     .spyOn(vault, 'zcashGetApi')

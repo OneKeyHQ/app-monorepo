@@ -5,7 +5,6 @@ import {
   extractGrpcWebDataFrame,
   fetchZcashChainTipDirect,
   fetchZcashLightdInfoDirect,
-  fetchZcashTransactionMissingDirect,
   parseZcashBlockIdHeight,
   parseZcashLightdInfoChainName,
 } from './chainTipDirect';
@@ -98,61 +97,6 @@ describe('chainTipDirect', () => {
     } finally {
       globalThis.fetch = originalFetch;
     }
-  });
-});
-
-describe('expired transaction absence evidence', () => {
-  const originalFetch = globalThis.fetch;
-  afterEach(() => {
-    globalThis.fetch = originalFetch;
-  });
-
-  it.each(['5', '0', '14'])(
-    'requires explicit NOT_FOUND, status %s',
-    async (status) => {
-      const trailer = frame(
-        0x80,
-        new TextEncoder().encode(`grpc-status:${status}\r\n`),
-      );
-      globalThis.fetch = jest.fn(async (_url: string, init: RequestInit) => {
-        const request = new Uint8Array(init.body as Uint8Array);
-        expect([...request.subarray(5, 7)]).toEqual([0x1a, 32]);
-        expect(request[7]).toBe(0x22);
-        expect(request[38]).toBe(0x11);
-        return {
-          ok: true,
-          headers: { get: () => null },
-          arrayBuffer: async () => trailer.buffer,
-        } as unknown as Response;
-      }) as unknown as typeof fetch;
-      await expect(
-        fetchZcashTransactionMissingDirect({
-          lightwalletdUrl: 'https://example.test',
-          txid: `11${'00'.repeat(30)}22`,
-        }),
-      ).resolves.toBe(status === '5');
-    },
-  );
-
-  it('does not infer absence from a timeout or malformed response', async () => {
-    globalThis.fetch = jest.fn(async () => {
-      throw new OneKeyLocalError('timeout');
-    }) as unknown as typeof fetch;
-    const params = {
-      lightwalletdUrl: 'https://example.test',
-      txid: 'aa'.repeat(32),
-    };
-    await expect(fetchZcashTransactionMissingDirect(params)).resolves.toBe(
-      false,
-    );
-    globalThis.fetch = jest.fn(async () => ({
-      ok: true,
-      headers: { get: () => null },
-      arrayBuffer: async () => new Uint8Array([0x80]).buffer,
-    })) as unknown as typeof fetch;
-    await expect(fetchZcashTransactionMissingDirect(params)).resolves.toBe(
-      false,
-    );
   });
 });
 

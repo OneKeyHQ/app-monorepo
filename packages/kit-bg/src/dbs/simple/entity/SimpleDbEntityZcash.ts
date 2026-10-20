@@ -1128,6 +1128,17 @@ export class SimpleDbEntityZcash extends SimpleDbEntityBase<IZcashDB> {
     return expiredTxids;
   }
 
+  // Settings "Clear pending transactions": release every signed or reserved
+  // input, as BTC keeps no local input locks.
+  async clearTransparentPendingState(): Promise<void> {
+    await this.setRawData((rawData) => ({
+      ...rawData,
+      accounts: rawData?.accounts ?? {},
+      transparentPendingTxs: {},
+      transparentReservations: {},
+    }));
+  }
+
   async settleTransparentPendingTx({
     accountId,
     txid,
