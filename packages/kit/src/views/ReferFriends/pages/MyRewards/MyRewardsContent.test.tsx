@@ -53,13 +53,15 @@ jest.mock('@onekeyhq/components', () => {
   return {
     Dialog: { show: showDialog },
     Icon: () => null,
+    IconButton: Primitive,
+    Popover: ({ renderTrigger }: { renderTrigger: ReactNode }) => renderTrigger,
     Illustration: () => null,
     Image: () => null,
     NATIVE_HIT_SLOP: undefined,
     NumberSizeableText: Primitive,
     SizableText: Primitive,
     Skeleton: Object.assign(() => null, {
-      HeadingMd: () => null,
+      HeadingLg: () => null,
     }),
     Stack: Primitive,
     XStack: Primitive,
@@ -167,6 +169,7 @@ jest.mock('../InviteReward/components/useInviteCardStyle', () => ({
   COMPACT_ENTRY_TITLE_PROPS: {},
   COMPACT_ROW_BLEED_PROPS: {},
   COMPACT_ROW_ICON_PROPS: {},
+  INVITE_POPOVER_PANEL_PROPS: {},
   POINTER_ROW_BLEED_PROPS: {},
   PRESSABLE_SURFACE_PROPS: {},
   useInviteHomeCardStyle: () => ({}),
@@ -239,9 +242,7 @@ describe('MyRewardsContent', () => {
     render(<MyRewardsContent />);
     const copyCell = screen.getByTestId('my-rewards-copy-address');
     expect(copyCell.textContent).toBe('0x4EF880...0A296e');
-    expect(screen.getByTestId('my-rewards-summary-card').textContent).toContain(
-      'Paid in USDC to this address',
-    );
+    expect(screen.getByTestId('my-rewards-payout-info')).toBeTruthy();
 
     fireEvent.click(copyCell);
     expect(mockCopyText).toHaveBeenCalledWith(address);

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -23,6 +23,8 @@ import {
 } from '@onekeyhq/shared/types/linkConfig';
 
 import { useInviteHomeCardStyle } from '../InviteReward/components/useInviteCardStyle';
+
+import type { LayoutChangeEvent } from 'react-native';
 
 const EMPTY_ITEMS: ILinkConfigItem[] = [];
 
@@ -59,7 +61,9 @@ const PREVIEW_ITEMS: ILinkConfigItem[] = [
 
 // Compact cards keep one height, so paging never moves the content below.
 const COMPACT_BANNER_HEIGHT = 136;
-const POINTER_BANNER_HEIGHT = 128;
+// Pointer layouts stretch the banner to the summary card beside it; this is
+// only the floor.
+const POINTER_BANNER_MIN_HEIGHT = 140;
 const AUTO_PLAY_INTERVAL_MS = 5000;
 
 // Last list this session saw, so returning to the tab paints the final
@@ -112,7 +116,7 @@ function PerksBannerSlide({
     }
     parseNotificationPayload(item.mode, item.payload, () => {});
   }, [item.mode, item.payload, shouldSuppressPress]);
-  const imageSize = compact ? 88 : 96;
+  const imageSize = compact ? 88 : 80;
 
   // Borderless: the frame around the pager draws the card, so a neighbor
   // slide peeking in at the pager's edge never shows a border of its own.
@@ -142,10 +146,7 @@ function PerksBannerSlide({
             </SizableText>
           ) : null}
           {item.title ? (
-            <SizableText
-              size={compact ? '$headingMd' : '$headingLg'}
-              numberOfLines={2}
-            >
+            <SizableText size="$headingMd" numberOfLines={2}>
               {item.title}
             </SizableText>
           ) : null}
@@ -181,6 +182,10 @@ export function PerksCampaignBanner({
 }) {
   const cardStyle = useInviteHomeCardStyle();
   const isMulti = items.length > 1;
+  const [pointerHeight, setPointerHeight] = useState(0);
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    setPointerHeight(Math.round(event.nativeEvent.layout.height));
+  }, []);
   const renderItem = useCallback(
     ({ item }: { item: ILinkConfigItem }) => (
       <PerksBannerSlide item={item} compact={compact} />
@@ -190,35 +195,62 @@ export function PerksCampaignBanner({
   if (!items.length) {
     return null;
   }
-  const height = compact ? COMPACT_BANNER_HEIGHT : POINTER_BANNER_HEIGHT;
+  const renderCarousel = (height: number) => (
+    <Carousel
+      data={items}
+      renderItem={renderItem}
+      autoPlayInterval={AUTO_PLAY_INTERVAL_MS}
+      loop={isMulti}
+      infinite
+      showPagination={isMulti}
+      containerStyle={{ height }}
+      // Dots sit inside the card, bottom right, across from Learn more.
+      paginationContainerStyle={{
+        position: 'absolute',
+        bottom: '$3',
+        right: compact ? '$4' : '$5',
+      }}
+      renderPaginationItem={({ activeDotStyle, onPress }, index) => (
+        <YStack
+          key={items[index]?.linkId ?? index}
+          w={activeDotStyle ? '$3' : '$1.5'}
+          h="$1.5"
+          ml={index === 0 ? '$0' : '$1.5'}
+          borderRadius="$full"
+          bg={activeDotStyle ? '$bgPrimary' : '$neutral5'}
+          onPress={onPress}
+        />
+      )}
+    />
+  );
+  if (compact) {
+    return (
+      <YStack testID="perks-banner" {...cardStyle} overflow="hidden">
+        {renderCarousel(COMPACT_BANNER_HEIGHT)}
+      </YStack>
+    );
+  }
+  // The pager needs a fixed height, so it is measured from an overlay that
+  // fills the stretched column; the overlay never feeds back into the
+  // column's own height.
   return (
-    <YStack testID="perks-banner" {...cardStyle} overflow="hidden">
-      <Carousel
-        data={items}
-        renderItem={renderItem}
-        autoPlayInterval={AUTO_PLAY_INTERVAL_MS}
-        loop={isMulti}
-        infinite
-        showPagination={isMulti}
-        containerStyle={{ height }}
-        // Dots sit inside the card, bottom right, across from Learn more.
-        paginationContainerStyle={{
-          position: 'absolute',
-          bottom: '$3',
-          right: compact ? '$4' : '$5',
-        }}
-        renderPaginationItem={({ activeDotStyle, onPress }, index) => (
-          <YStack
-            key={items[index]?.linkId ?? index}
-            w={activeDotStyle ? '$3' : '$1.5'}
-            h="$1.5"
-            ml={index === 0 ? '$0' : '$1.5'}
-            borderRadius="$full"
-            bg={activeDotStyle ? '$bgPrimary' : '$neutral5'}
-            onPress={onPress}
-          />
-        )}
-      />
+    <YStack
+      testID="perks-banner"
+      flex={1}
+      minHeight={POINTER_BANNER_MIN_HEIGHT}
+      {...cardStyle}
+      overflow="hidden"
+    >
+      <YStack
+        position="absolute"
+        top={0}
+        right={0}
+        bottom={0}
+        left={0}
+        onLayout={handleLayout}
+      >
+        {pointerHeight > 0 ? renderCarousel(pointerHeight) : null}
+      </YStack>
     </YStack>
   );
 }
