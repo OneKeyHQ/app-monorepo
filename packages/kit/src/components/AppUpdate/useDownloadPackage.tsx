@@ -55,10 +55,18 @@ import { isShowToastError } from './updateStrategy';
 
 const MIN_EXECUTION_DURATION = 3000; // 3 seconds minimum execution time
 
-let isInstallingPackage = false;
+let installPackageState: 'installing' | 'awaitingBundleRestart' | undefined;
+
+// The lock outlives its initiating screen, so restart failure must release it
+// even when no useDownloadPackage hook remains mounted.
+appEventBus.on(EAppEventBusNames.BundleUpdateRestartFailed, () => {
+  if (installPackageState === 'awaitingBundleRestart') {
+    installPackageState = undefined;
+  }
+});
 
 export function resetInstallPackageLockForTest() {
-  isInstallingPackage = false;
+  installPackageState = undefined;
 }
 
 function isUpdatePackageInvalidError(errorCode?: string) {
@@ -136,13 +144,13 @@ export const useDownloadPackage = () => {
 
   const installPackage = useCallback(
     async (onSuccess: () => void, onFail: () => void) => {
-      if (isInstallingPackage) {
+      if (installPackageState) {
         defaultLogger.app.appUpdate.log(
           'installPackage: skipped — install already in progress or awaiting restart',
         );
         return;
       }
-      isInstallingPackage = true;
+      installPackageState = 'installing';
       let lockUntilRestart = false;
       try {
         const data = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
@@ -156,6 +164,7 @@ export const useDownloadPackage = () => {
               throw new OneKeyError('NOT_FOUND_PACKAGE');
             }
             await BundleUpdate.installBundle(data.downloadedEvent);
+            installPackageState = 'awaitingBundleRestart';
             lockUntilRestart = true;
           } else {
             const installStarted = await AppUpdate.installPackage(data);
@@ -191,7 +200,7 @@ export const useDownloadPackage = () => {
         }
       } finally {
         if (!lockUntilRestart) {
-          isInstallingPackage = false;
+          installPackageState = undefined;
         }
       }
     },
@@ -579,13 +588,13 @@ export const useDownloadPackage = () => {
   );
 
   const manualInstallPackage = useCallback(async () => {
-    if (isInstallingPackage) {
+    if (installPackageState) {
       defaultLogger.app.appUpdate.log(
         'manualInstallPackage: skipped — install already in progress or awaiting restart',
       );
       return;
     }
-    isInstallingPackage = true;
+    installPackageState = 'installing';
     let lockUntilRestart = false;
     try {
       const params =
@@ -598,6 +607,7 @@ export const useDownloadPackage = () => {
         }
         if (fileType === EUpdateFileType.jsBundle) {
           await BundleUpdate.installBundle(params);
+          installPackageState = 'awaitingBundleRestart';
           lockUntilRestart = true;
         } else {
           await AppUpdate.manualInstallPackage({
@@ -637,7 +647,7 @@ export const useDownloadPackage = () => {
       }
     } finally {
       if (!lockUntilRestart) {
-        isInstallingPackage = false;
+        installPackageState = undefined;
       }
     }
   }, [

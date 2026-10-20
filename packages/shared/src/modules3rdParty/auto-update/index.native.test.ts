@@ -1,5 +1,10 @@
 import { ReactNativeBundleUpdate } from '@onekeyfe/react-native-bundle-update';
 
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+
 import { appRestart } from '../appRestart';
 
 import { BundleUpdate, resetBundleInstallLockForTest } from './index.native';
@@ -18,10 +23,14 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 
 const installBundle = jest.spyOn(ReactNativeBundleUpdate, 'installBundle');
 const restart = jest.mocked(appRestart);
+const emitToSelf = jest.spyOn(appEventBus, 'emitToSelf');
+const broadcast = jest.spyOn(appEventBus, 'emit');
 
 describe('native bundle install concurrency', () => {
   beforeEach(() => {
     jest.useFakeTimers();
+    emitToSelf.mockClear();
+    broadcast.mockClear();
     resetBundleInstallLockForTest();
     installBundle.mockReset().mockResolvedValue(undefined);
     restart.mockReset().mockResolvedValue(undefined);
@@ -59,14 +68,8 @@ describe('native bundle install concurrency', () => {
     expect(installBundle).toHaveBeenCalledTimes(2);
   });
 
-  test('keeps callers pending through the grace period and restart', async () => {
-    let finishRestart: () => void = () => {};
-    restart.mockImplementationOnce(
-      () =>
-        new Promise<void>((resolve) => {
-          finishRestart = resolve;
-        }),
-    );
+  test('resolves installation before a non-returning restart and keeps it one-shot', async () => {
+    restart.mockImplementationOnce(() => new Promise<void>(() => {}));
     let settled = false;
     const first = BundleUpdate.installBundle({}).then(() => {
       settled = true;
@@ -74,19 +77,18 @@ describe('native bundle install concurrency', () => {
     const second = BundleUpdate.installBundle({});
     await jest.advanceTimersByTimeAsync(2499);
     expect(restart).not.toHaveBeenCalled();
-    expect(settled).toBe(false);
+    expect(settled).toBe(true);
 
     await jest.advanceTimersByTimeAsync(1);
     expect(restart).toHaveBeenCalledTimes(1);
-    expect(settled).toBe(false);
-    finishRestart();
+    expect(settled).toBe(true);
     await Promise.all([first, second]);
     await BundleUpdate.installBundle({});
     expect(installBundle).toHaveBeenCalledTimes(1);
     expect(restart).toHaveBeenCalledTimes(1);
   });
 
-  test('propagates a delayed restart failure to all callers and releases the lock', async () => {
+  test('notifies only this runtime and releases the lock after delayed restart failure', async () => {
     const error = new Error('Restart failed');
     restart.mockRejectedValueOnce(error);
     const outcome = Promise.allSettled([
@@ -96,9 +98,14 @@ describe('native bundle install concurrency', () => {
     await jest.runAllTimersAsync();
 
     await expect(outcome).resolves.toEqual([
-      { status: 'rejected', reason: error },
-      { status: 'rejected', reason: error },
+      { status: 'fulfilled', value: undefined },
+      { status: 'fulfilled', value: undefined },
     ]);
+    expect(emitToSelf).toHaveBeenCalledWith({
+      type: EAppEventBusNames.BundleUpdateRestartFailed,
+      payload: undefined,
+    });
+    expect(broadcast).not.toHaveBeenCalled();
 
     const retry = BundleUpdate.installBundle({});
     await jest.runAllTimersAsync();

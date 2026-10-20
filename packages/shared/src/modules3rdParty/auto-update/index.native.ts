@@ -4,6 +4,10 @@ import { ReactNativeBundleUpdate } from '@onekeyfe/react-native-bundle-update';
 import { useThrottledCallback } from 'use-debounce';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import platformEnv from '../../platformEnv';
@@ -312,16 +316,24 @@ export const BundleUpdate: IBundleUpdate = {
           signature: toNativeString(params?.signature),
         });
         defaultLogger.app.appUpdate.restartRNApp();
-        // OTA rewrote the bundle on disk, so restart both runtimes after the
-        // existing grace period. Await restart so failure releases both the
-        // shared operation and any caller's install lock.
-        await new Promise<void>((resolve) => {
-          setTimeout(resolve, 2500);
-        });
-        await appRestart({
-          mode: EAppRestartMode.All,
-          reason: 'ota.installBundle',
-        });
+        // Report installation before restarting: a successful all-runtime
+        // restart can terminate this runtime without resolving its Promise.
+        setTimeout(() => {
+          void appRestart({
+            mode: EAppRestartMode.All,
+            reason: 'ota.installBundle',
+          }).catch(() => {
+            bundleInstallPromise = undefined;
+            defaultLogger.app.appUpdate.log(
+              'BundleUpdate.installBundle: restart failed',
+            );
+            // Both locks belong to this runtime; do not broadcast a release.
+            appEventBus.emitToSelf({
+              type: EAppEventBusNames.BundleUpdateRestartFailed,
+              payload: undefined,
+            });
+          });
+        }, 2500);
       })().catch((error: unknown) => {
         bundleInstallPromise = undefined;
         throw error;

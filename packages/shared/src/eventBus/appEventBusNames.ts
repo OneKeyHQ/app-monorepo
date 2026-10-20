@@ -172,6 +172,7 @@ export enum EAppEventBusNames {
   // hook, whose serviceAppUpdate.downloadPackage() flips `notify` →
   // `downloadPackage`. This event bridges the two runtimes.
   StartAutoDownloadUpdate = 'StartAutoDownloadUpdate',
+  BundleUpdateRestartFailed = 'BundleUpdateRestartFailed',
   ShowAppUpdateIncompleteDialog = 'ShowAppUpdateIncompleteDialog',
   PendingInstallTaskProcessFinished = 'PendingInstallTaskProcessFinished',
   HomePageReady = 'HomePageReady',
