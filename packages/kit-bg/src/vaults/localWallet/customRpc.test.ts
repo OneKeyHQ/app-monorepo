@@ -1,4 +1,5 @@
 /* eslint-disable import/first */
+// cspell:ignore lightd stagenet
 jest.mock('../../dbs/local/localDbInstance', () => ({
   __esModule: true,
   default: {},
@@ -6,8 +7,19 @@ jest.mock('../../dbs/local/localDbInstance', () => ({
 jest.mock('@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/sdk/hostFetch', () => ({
   xmrHostFetch: jest.fn(),
 }));
+jest.mock(
+  '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect',
+  () => ({
+    ...jest.requireActual(
+      '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect',
+    ),
+    fetchZcashLightdInfoDirect: jest.fn(),
+  }),
+);
 
 import { xmrHostFetch } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/sdk/hostFetch';
+import { fetchZcashLightdInfoDirect } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -17,11 +29,13 @@ import ZcashVault from '../impls/zcash/Vault';
 import { localWalletText } from './messages';
 
 const hostFetch = jest.mocked(xmrHostFetch!);
+const lightdInfo = jest.mocked(fetchZcashLightdInfoDirect);
 const HEIGHT = 3_512_327;
 
 afterEach(() => {
   jest.restoreAllMocks();
   hostFetch.mockReset();
+  lightdInfo.mockReset();
 });
 
 describe('XMR custom RPC', () => {
@@ -87,6 +101,87 @@ describe('XMR custom RPC', () => {
       }),
     ).rejects.toBe(failure);
     expect(rendererFetch).not.toHaveBeenCalled();
+  });
+
+  describe('network check', () => {
+    function mockNode(info: (() => Uint8Array) | Record<string, unknown>) {
+      hostFetch.mockImplementation(async (url) => {
+        if (url.endsWith('/get_height')) {
+          return bufferUtils.utf8ToBytes(JSON.stringify({ height: HEIGHT }));
+        }
+        if (typeof info === 'function') return info();
+        return bufferUtils.utf8ToBytes(JSON.stringify(info));
+      });
+    }
+
+    function createMainnetVault() {
+      const vault = createVault();
+      jest.spyOn(vault, 'getXmrNetwork').mockResolvedValue('mainnet');
+      return vault;
+    }
+
+    it.each([
+      { nettype: 'stagenet' },
+      { nettype: 'testnet' },
+      { mainnet: false, stagenet: true },
+    ])('rejects a node on another network: %j', async (info) => {
+      mockNode(info);
+      await expect(
+        createMainnetVault().getCustomRpcEndpointStatus({
+          rpcUrl: 'https://node.example/',
+          validateChainId: true,
+        }),
+      ).rejects.toThrow('different network');
+      expect(hostFetch).toHaveBeenLastCalledWith(
+        'https://node.example/get_info',
+        'application/json',
+        new Uint8Array(),
+      );
+    });
+
+    it.each([
+      { nettype: 'mainnet', mainnet: true },
+      { mainnet: true },
+      {},
+      { nettype: 'Mainnet' },
+    ])('accepts a mainnet or silent node: %j', async (info) => {
+      mockNode(info);
+      await expect(
+        createMainnetVault().getCustomRpcEndpointStatus({
+          rpcUrl: 'https://node.example',
+          validateChainId: true,
+        }),
+      ).resolves.toMatchObject({ bestBlockNumber: HEIGHT });
+    });
+
+    it('accepts a node whose /get_info is unavailable or not JSON', async () => {
+      for (const info of [
+        () => {
+          throw new OneKeyLocalError('404');
+        },
+        () => bufferUtils.utf8ToBytes('<html>not found</html>'),
+        () => bufferUtils.utf8ToBytes('null'),
+      ]) {
+        mockNode(info);
+        // eslint-disable-next-line no-await-in-loop
+        await expect(
+          createMainnetVault().getCustomRpcEndpointStatus({
+            rpcUrl: 'https://node.example',
+            validateChainId: true,
+          }),
+        ).resolves.toMatchObject({ bestBlockNumber: HEIGHT });
+      }
+    });
+
+    it('skips the check when chain validation is not requested', async () => {
+      mockNode({ nettype: 'stagenet' });
+      await expect(
+        createMainnetVault().getCustomRpcEndpointStatus({
+          rpcUrl: 'https://node.example',
+        }),
+      ).resolves.toMatchObject({ bestBlockNumber: HEIGHT });
+      expect(hostFetch).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('reads a node switch from the existing store on the next call', async () => {
@@ -204,6 +299,49 @@ describe('Zcash custom RPC', () => {
       chainTip: 100,
       reason: 'wrong-chain',
     });
+  });
+
+  it.each(['test', 'regtest'])(
+    'rejects a lightwalletd reporting chain %s',
+    async (chainName) => {
+      const vault = createVault();
+      withTip(vault, HEIGHT);
+      lightdInfo.mockResolvedValue({ chainName });
+      await expect(
+        vault.getCustomRpcEndpointStatus({
+          rpcUrl: 'https://node.example/proxy/',
+          validateChainId: true,
+        }),
+      ).rejects.toThrow('wrong-chain');
+      expect(lightdInfo).toHaveBeenCalledWith({
+        lightwalletdUrl: 'https://node.example/proxy',
+      });
+    },
+  );
+
+  it.each([{ chainName: 'main' }, { chainName: 'mainnet' }, null])(
+    'accepts main, an unknown name, or no answer: %j',
+    async (info) => {
+      const vault = createVault();
+      withTip(vault, HEIGHT);
+      lightdInfo.mockResolvedValue(info);
+      await expect(
+        vault.getCustomRpcEndpointStatus({
+          rpcUrl: 'https://node.example',
+          validateChainId: true,
+        }),
+      ).resolves.toMatchObject({ bestBlockNumber: HEIGHT });
+    },
+  );
+
+  it('skips the chain name check when validation is not requested', async () => {
+    const vault = createVault();
+    withTip(vault, HEIGHT);
+    lightdInfo.mockResolvedValue({ chainName: 'test' });
+    await expect(
+      vault.getCustomRpcEndpointStatus({ rpcUrl: 'https://node.example' }),
+    ).resolves.toMatchObject({ bestBlockNumber: HEIGHT });
+    expect(lightdInfo).not.toHaveBeenCalled();
   });
 
   it('honors the disabled sync node in the existing store', async () => {
