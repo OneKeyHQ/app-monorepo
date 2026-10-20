@@ -129,6 +129,7 @@ export function EarnDesktopHero({
   onOpenTokens,
   onOpenLoans,
   onOpenProtocols,
+  onHeightChange,
 }: {
   totalFiatValue: string;
   earnings24h: string;
@@ -137,6 +138,7 @@ export function EarnDesktopHero({
   onOpenTokens: () => void;
   onOpenLoans: () => void;
   onOpenProtocols: () => void;
+  onHeightChange?: (height: number) => void;
 }) {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
@@ -146,7 +148,14 @@ export function EarnDesktopHero({
   const { value, extraDigits } = useTickingTotal(total, earnings);
 
   return (
-    <YStack flex={1} minWidth={0} gap="$6" jc="space-between">
+    <YStack
+      flex={1}
+      minWidth={0}
+      gap="$6"
+      onLayout={(event) =>
+        onHeightChange?.(Math.round(event.nativeEvent.layout.height))
+      }
+    >
       <YStack gap="$2">
         <XStack
           testID={EarnTestIDs.portfolioEntry}

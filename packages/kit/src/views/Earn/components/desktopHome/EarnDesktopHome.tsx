@@ -3,7 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import { SizableText, XStack, YStack, useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useEarnAtom,
@@ -45,7 +45,7 @@ type IHomeTab = 'earn' | 'borrow';
 
 const BROWSE_ANCHOR_ID = 'earn-desktop-browse';
 const BANNER_WIDTH = 460;
-// The banner block (card plus its dots) matches the hero beside it
+// Until the hero has been measured
 const BANNER_CARD_HEIGHT = 232;
 const EMPTY_ASSETS: IEarnAvailableAsset[] = [];
 
@@ -125,6 +125,7 @@ export function EarnDesktopHome({
   onOpenProtocols: () => void;
 }) {
   const intl = useIntl();
+  const media = useMedia();
   const navigation = useAppNavigation();
   const [{ availableAssetsByType = {} }] = useEarnAtom();
   const [loadingStates] = useEarnLoadingStatesAtom();
@@ -180,6 +181,7 @@ export function EarnDesktopHome({
   );
 
   const [tab, setTab] = useState<IHomeTab>('earn');
+  const [heroHeight, setHeroHeight] = useState<number>();
   const [focusRequest, setFocusRequest] = useState<IEarnDesktopFocusRequest>();
 
   const scrollToBrowse = useCallback(() => {
@@ -208,18 +210,24 @@ export function EarnDesktopHome({
     [navigation],
   );
 
+  // Beside the hero from 1024 up; narrower, the hero needs the whole row
   const hasBanner =
-    isBannerLoading ||
-    bannerList.some(
-      (banner) =>
-        Boolean(banner.bannerId) && Boolean(banner.backgroundImage?.trim()),
-    );
+    media.gtLg &&
+    (isBannerLoading ||
+      bannerList.some(
+        (banner) =>
+          Boolean(banner.bannerId) && Boolean(banner.backgroundImage?.trim()),
+      ));
+  const bannerCardHeight = heroHeight ?? BANNER_CARD_HEIGHT;
   const pendingTxsValue = useMemo(() => ({ onRefresh: refresh }), [refresh]);
 
   return (
     <PortfolioPendingTxsProvider value={pendingTxsValue}>
       <YStack px="$pagePadding" pt="$2" pb="$10" gap="$10">
-        <XStack gap="$5" ai="stretch">
+        {/* The banner card is as tall as the hero beside it; its dots, when
+            there are several banners, sit below. The row must not stretch the
+            hero, or its height would follow the banner's */}
+        <XStack gap="$5" ai="flex-start">
           <EarnDesktopHero
             totalFiatValue={totalFiatValue}
             earnings24h={displayEarnings24h ?? '0'}
@@ -228,13 +236,22 @@ export function EarnDesktopHome({
             onOpenTokens={handleOpenTokens}
             onOpenLoans={onOpenLoans}
             onOpenProtocols={onOpenProtocols}
+            onHeightChange={setHeroHeight}
           />
           {hasBanner ? (
-            <YStack w={BANNER_WIDTH} flexShrink={0} mx="$-3">
+            // As tall as the card only: the dots under it (several banners)
+            // hang into the gap above the tiles instead of pushing them down
+            <YStack
+              w={BANNER_WIDTH}
+              h={bannerCardHeight}
+              flexShrink={0}
+              mx="$-3"
+              overflow="visible"
+            >
               <EarnHomeBanner
                 banners={bannerList}
                 isLoading={isBannerLoading}
-                cardHeight={BANNER_CARD_HEIGHT}
+                cardHeight={bannerCardHeight}
               />
             </YStack>
           ) : null}
