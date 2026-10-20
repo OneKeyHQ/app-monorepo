@@ -38,9 +38,9 @@ import {
   useDecodedTxsAtom,
   useEffectiveFeePayerAtom,
   useExtraFeeInfoAtom,
-  useGasAccountSubmitResultUnknownAtom,
   useGasAccountTemporarilyDisabledAtom,
   useGasAccountUiStateAtom,
+  useIsGasAccountSubmitResultUnknown,
   useIsSinglePresetAtom,
   useMegafuelEligibleAtom,
   useNativeTokenInfoAtom,
@@ -192,17 +192,21 @@ function TxFeeInfo(props: IProps) {
   const [gasAccountTemporarilyDisabled] =
     useGasAccountTemporarilyDisabledAtom();
   const [gasAccountUiState] = useGasAccountUiStateAtom();
+  const [txFeeInfoInit] = useTxFeeInfoInitAtom();
+  const currentTxUuid = unsignedTxs[0]?.uuid;
   // OK-64746: set by TxConfirmActions after a result-unknown Gas Account
-  // send. The attempted quote / nonce must stay as they are from then on, so
-  // every path that would re-estimate below is held while this is true.
-  const [gasAccountSubmitResultUnknown] =
-    useGasAccountSubmitResultUnknownAtom();
+  // send of this tx. The attempted quote / nonce must stay as they are from
+  // then on, so every path that would re-estimate below is held while this
+  // is true.
+  const gasAccountSubmitResultUnknown =
+    useIsGasAccountSubmitResultUnknown(currentTxUuid);
   const gasAccountSubmitResultUnknownRef = useRef(
     gasAccountSubmitResultUnknown,
   );
   gasAccountSubmitResultUnknownRef.current = gasAccountSubmitResultUnknown;
-  const [txFeeInfoInit] = useTxFeeInfoInitAtom();
-  const currentTxUuid = unsignedTxs[0]?.uuid;
+  // Last applied estimate; an estimate still in flight when the latch is set
+  // hands this back so nothing on screen changes.
+  const lastEstimateResultRef = useRef<unknown>(undefined);
   const feeRequestIdRef = useRef(0);
   const currentTxUuidRef = useRef<string | undefined>(currentTxUuid);
   currentTxUuidRef.current = currentTxUuid;
@@ -615,6 +619,12 @@ function TxFeeInfo(props: IProps) {
             ? undefined
             : gasAccountScenario,
         });
+        // An estimate that was already in flight when the send failed with a
+        // result-unknown code must not replace the attempted quote / locked
+        // nonce (or anything else on screen).
+        if (gasAccountSubmitResultUnknownRef.current) {
+          return lastEstimateResultRef.current as typeof staleResult;
+        }
         // L3 scenario gate telemetry: surface frontend contract bugs. Both
         // reasons indicate a client-side mismatch with the backend enum; log
         // to console so it shows up in dev/staging. Backend already records
@@ -1056,6 +1066,7 @@ function TxFeeInfo(props: IProps) {
   );
 
   const { r: txFee, e: estimateFeeParams, m: multiTxsFee } = result ?? {};
+  lastEstimateResultRef.current = result;
 
   const txFeeCommon = txFee?.common ?? multiTxsFee?.common;
   const gasAccountFeeNative = useMemo(() => {

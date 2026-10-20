@@ -3,11 +3,11 @@
 yarn jest packages/kit/src/states/jotai/contexts/signatureConfirm/actions.gasAccountSubmitResultUnknown.test.tsx
 
 OK-64746: when a Gas Account send fails with a result-unknown code the tx
-may already be on chain. The confirm page latches that outcome for the rest
-of the page so neither the estimate poll nor a second confirm tap can move
-on to a new nonce / quote and send a second tx. The latch therefore lives
-outside the quote state that every estimate round resets; only a new tx on
-the page clears it.
+may already be on chain. The confirm page latches that outcome per tx so
+neither the estimate poll nor a second confirm tap can move on to a new
+nonce / quote and send a second tx. The latch lives outside the quote state
+that every estimate round resets, and it is keyed by the tx uuid so queue
+navigation to another tx and back cannot unlock the attempted one.
 */
 import type { ReactNode } from 'react';
 
@@ -17,8 +17,8 @@ import { createStore } from 'jotai';
 import { useSignatureConfirmActions } from './actions';
 import {
   ProviderJotaiContextSignatureConfirm,
-  useGasAccountSubmitResultUnknownAtom,
   useGasAccountUiStateAtom,
+  useIsGasAccountSubmitResultUnknown,
 } from './atoms';
 
 function createWrapper() {
@@ -32,32 +32,34 @@ function createWrapper() {
   };
 }
 
-function renderConfirmState() {
+function renderConfirmState(initialTxUuid: string | undefined) {
   return renderHook(
-    () => {
+    (txUuid: string | undefined) => {
       const actions = useSignatureConfirmActions().current;
-      const [submitResultUnknown] = useGasAccountSubmitResultUnknownAtom();
+      const latched = useIsGasAccountSubmitResultUnknown(txUuid);
       const [gasAccountUiState] = useGasAccountUiStateAtom();
-      return { actions, submitResultUnknown, gasAccountUiState };
+      return { actions, latched, gasAccountUiState };
     },
-    { wrapper: createWrapper() },
+    { wrapper: createWrapper(), initialProps: initialTxUuid },
   );
 }
 
 describe('gas account submit result-unknown latch', () => {
-  it('is off until a result-unknown send failure sets it', () => {
-    const { result } = renderConfirmState();
-    expect(result.current.submitResultUnknown).toBe(false);
+  it('is off until a result-unknown send failure marks the tx', () => {
+    const { result, rerender } = renderConfirmState('tx-a');
+    expect(result.current.latched).toBe(false);
 
     act(() => {
-      result.current.actions.updateGasAccountSubmitResultUnknown(true);
+      result.current.actions.markGasAccountSubmitResultUnknown('tx-a');
     });
 
-    expect(result.current.submitResultUnknown).toBe(true);
+    expect(result.current.latched).toBe(true);
+    rerender('tx-b');
+    expect(result.current.latched).toBe(false);
   });
 
   it('survives the quote-state reset an estimate round performs', () => {
-    const { result } = renderConfirmState();
+    const { result } = renderConfirmState('tx-a');
     act(() => {
       result.current.actions.updateGasAccountUiState({
         payer: 'gasAccount',
@@ -65,7 +67,7 @@ describe('gas account submit result-unknown latch', () => {
         lockedUserNonce: 7,
         idempotencyKey: 'ga:quote-1',
       });
-      result.current.actions.updateGasAccountSubmitResultUnknown(true);
+      result.current.actions.markGasAccountSubmitResultUnknown('tx-a');
     });
 
     act(() => {
@@ -73,19 +75,35 @@ describe('gas account submit result-unknown latch', () => {
     });
 
     expect(result.current.gasAccountUiState.lockedUserNonce).toBeUndefined();
-    expect(result.current.submitResultUnknown).toBe(true);
+    expect(result.current.latched).toBe(true);
   });
 
-  it('clears when the page moves on to a new tx', () => {
-    const { result } = renderConfirmState();
+  it('keeps the latch for a tx while the page shows another queued tx', () => {
+    const { result, rerender } = renderConfirmState('tx-a');
     act(() => {
-      result.current.actions.updateGasAccountSubmitResultUnknown(true);
+      result.current.actions.markGasAccountSubmitResultUnknown('tx-a');
     });
 
+    // Queue navigation switches the page to tx-b, which resets the fee
+    // state, then comes back to tx-a.
+    rerender('tx-b');
     act(() => {
       result.current.actions.resetTxFeeState();
     });
+    expect(result.current.latched).toBe(false);
 
-    expect(result.current.submitResultUnknown).toBe(false);
+    rerender('tx-a');
+    expect(result.current.latched).toBe(true);
+  });
+
+  it('falls back to a page-wide key for a tx without uuid', () => {
+    const { result, rerender } = renderConfirmState(undefined);
+    act(() => {
+      result.current.actions.markGasAccountSubmitResultUnknown(undefined);
+    });
+
+    expect(result.current.latched).toBe(true);
+    rerender('tx-a');
+    expect(result.current.latched).toBe(false);
   });
 });

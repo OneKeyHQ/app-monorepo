@@ -38,6 +38,7 @@ import {
   gasAccountSubmitResultUnknownAtom,
   gasAccountTemporarilyDisabledAtom,
   gasAccountUiStateAtom,
+  getGasAccountSubmitResultUnknownKey,
   isSinglePresetAtom,
   megafuelEligibleAtom,
   nativeTokenInfoAtom,
@@ -375,9 +376,14 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
     set(gasAccountTemporarilyDisabledAtom(), false);
   });
 
-  updateGasAccountSubmitResultUnknown = contextAtomMethod(
-    (_, set, resultUnknown: boolean) => {
-      set(gasAccountSubmitResultUnknownAtom(), resultUnknown);
+  markGasAccountSubmitResultUnknown = contextAtomMethod(
+    (get, set, txUuid: string | undefined) => {
+      const key = getGasAccountSubmitResultUnknownKey(txUuid);
+      const latched = get(gasAccountSubmitResultUnknownAtom());
+      if (latched[key]) {
+        return;
+      }
+      set(gasAccountSubmitResultUnknownAtom(), { ...latched, [key]: true });
     },
   );
 
@@ -407,7 +413,6 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
     set(effectiveFeePayerAtom(), defaultEffectiveFeePayer);
     set(gasAccountUiStateAtom(), { ...defaultGasAccountUiState });
     set(gasAccountTemporarilyDisabledAtom(), false);
-    set(gasAccountSubmitResultUnknownAtom(), false);
     set(txFeeInfoInitAtom(), false);
   });
 
@@ -465,8 +470,8 @@ export function useSignatureConfirmActions() {
     actions.updateGasAccountTemporarilyDisabled.use();
   const resetGasAccountTemporarilyDisabled =
     actions.resetGasAccountTemporarilyDisabled.use();
-  const updateGasAccountSubmitResultUnknown =
-    actions.updateGasAccountSubmitResultUnknown.use();
+  const markGasAccountSubmitResultUnknown =
+    actions.markGasAccountSubmitResultUnknown.use();
   const updateDecodedTxsInit = actions.updateDecodedTxsInit.use();
   const updateTxFeeInfoInit = actions.updateTxFeeInfoInit.use();
   const resetTxFeeState = actions.resetTxFeeState.use();
@@ -504,7 +509,7 @@ export function useSignatureConfirmActions() {
     resetGasAccountUiState,
     updateGasAccountTemporarilyDisabled,
     resetGasAccountTemporarilyDisabled,
-    updateGasAccountSubmitResultUnknown,
+    markGasAccountSubmitResultUnknown,
     updateDecodedTxsInit,
     updateTxFeeInfoInit,
     resetTxFeeState,

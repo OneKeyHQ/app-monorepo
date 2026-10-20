@@ -259,15 +259,31 @@ export const {
   use: useGasAccountTemporarilyDisabledAtom,
 } = contextAtom<boolean>(false);
 
-// OK-64746: set once a Gas Account send failed with a result-unknown code
-// (the tx may already be on chain). Kept outside `gasAccountUiStateAtom`
-// because every estimate round resets that state. While set, the confirm
-// page must neither re-estimate (a new nonce / quote) nor submit again;
-// only a new tx on the page clears it.
+// OK-64746: tx uuids whose Gas Account send failed with a result-unknown
+// code (the tx may already be on chain). Kept outside `gasAccountUiStateAtom`
+// because every estimate round resets that state, and keyed by tx uuid so
+// queue navigation to another tx and back cannot unlock the attempted one.
+// While a tx is latched the confirm page must neither re-estimate it (a new
+// nonce / quote) nor submit it again. Never cleared for the store's lifetime.
 export const {
   atom: gasAccountSubmitResultUnknownAtom,
   use: useGasAccountSubmitResultUnknownAtom,
-} = contextAtom<boolean>(false);
+} = contextAtom<Record<string, true>>({});
+
+// Every unsigned tx built by VaultBase carries a uuid; a tx without one
+// falls back to a single page-wide key.
+export function getGasAccountSubmitResultUnknownKey(
+  txUuid: string | undefined,
+): string {
+  return txUuid ?? '';
+}
+
+export function useIsGasAccountSubmitResultUnknown(
+  txUuid: string | undefined,
+): boolean {
+  const [latched] = useGasAccountSubmitResultUnknownAtom();
+  return Boolean(latched[getGasAccountSubmitResultUnknownKey(txUuid)]);
+}
 
 export const defaultPayWithTokenInfo = {
   enabled: false,

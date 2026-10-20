@@ -29,8 +29,8 @@ import {
   useDecodedTxsAtom,
   useDecodedTxsInitAtom,
   useEffectiveFeePayerAtom,
-  useGasAccountSubmitResultUnknownAtom,
   useGasAccountUiStateAtom,
+  useIsGasAccountSubmitResultUnknown,
   useMegafuelEligibleAtom,
   useNativeTokenInfoAtom,
   useNativeTokenTransferAmountToUpdateAtom,
@@ -174,10 +174,11 @@ function TxConfirmActions(props: IProps) {
   const [sendTxStatus] = useSendTxStatusAtom();
   const [effectiveFeePayer] = useEffectiveFeePayerAtom();
   const [gasAccountUiState] = useGasAccountUiStateAtom();
-  const [gasAccountSubmitResultUnknown] =
-    useGasAccountSubmitResultUnknownAtom();
   const [megafuelEligible] = useMegafuelEligibleAtom();
   const [unsignedTxs] = useUnsignedTxsAtom();
+  const gasAccountSubmitResultUnknown = useIsGasAccountSubmitResultUnknown(
+    unsignedTxs[0]?.uuid,
+  );
   const { isAccepted: continueOperate, setAccepted: setSecurityCheckAccepted } =
     useScopedAcknowledgement(securityCheckAcknowledgementKey);
   const [nativeTokenInfo] = useNativeTokenInfoAtom();
@@ -190,7 +191,7 @@ function TxConfirmActions(props: IProps) {
     updateEffectiveFeePayer,
     updateGasAccountTemporarilyDisabled,
     resetGasAccountTemporarilyDisabled,
-    updateGasAccountSubmitResultUnknown,
+    markGasAccountSubmitResultUnknown,
     updateGasAccountUiState,
     resetGasAccountUiState,
     updateSendFeeStatus,
@@ -384,12 +385,12 @@ function TxConfirmActions(props: IProps) {
       // is terminal and the dApp needs to know. Entries flagged suppressToast
       // skip the user-facing copy entirely while preserving the reject path.
       if (entry.resultUnknown) {
-        // The tx may already be on chain (OK-64746). Latch for the rest of
-        // this page: the confirm button stays disabled and TxFeeInfo stops
-        // re-estimating, so neither a poll tick nor a second tap can move on
-        // to a new nonce / quote and send a second tx. Only closing the page
-        // (or a new tx on it) clears the latch.
-        updateGasAccountSubmitResultUnknown(true);
+        // The tx may already be on chain (OK-64746). Latch this tx for the
+        // rest of the page: the confirm button stays disabled and TxFeeInfo
+        // stops re-estimating it, so neither a poll tick nor a second tap can
+        // move on to a new nonce / quote and send a second tx. Queue
+        // navigation to another tx and back keeps the latch.
+        markGasAccountSubmitResultUnknown(unsignedTx?.uuid);
       }
       muteHandledErrorToast(error);
       if (!entry.suppressToast) {
@@ -404,7 +405,8 @@ function TxConfirmActions(props: IProps) {
       resetGasAccountTemporarilyDisabled,
       resetGasAccountUiState,
       updateEffectiveFeePayer,
-      updateGasAccountSubmitResultUnknown,
+      markGasAccountSubmitResultUnknown,
+      unsignedTx?.uuid,
       updateGasAccountTemporarilyDisabled,
       updateGasAccountUiState,
       updateSendFeeStatus,
