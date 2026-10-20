@@ -36,6 +36,7 @@ import {
   snapToStep,
 } from './ptChartMath';
 import { PtChartScrubArea } from './PtChartScrubArea';
+import { useArrivalTime } from './useArrivalTime';
 
 import type { IPendlePtConvergenceChartProps } from './shared';
 import type { LayoutChangeEvent } from 'react-native';
@@ -149,7 +150,9 @@ export function PendlePtConvergenceChart({
   const [cardSize, setCardSize] = useState(DEFAULT_CARD_SIZE);
   const [selectedTime, setSelectedTime] = useState<number>();
 
-  const now = useMemo(() => Date.now(), []);
+  // Taken again each time the page reloads its data, such as after a deposit,
+  // so Today and the day count keep up with the prices.
+  const now = useArrivalTime(chart);
   const maturityTime = useMemo(
     () => resolveMaturityTime({ maturityDate, remainingDays, now }),
     [maturityDate, remainingDays, now],
