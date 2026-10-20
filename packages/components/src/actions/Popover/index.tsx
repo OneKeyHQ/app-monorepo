@@ -363,6 +363,7 @@ function RawPopover({
           onClose={flushCloseResolvers}
         >
           <FocusScope
+            ref={handlePanelRef}
             enabled={isOpen && !hoverable}
             loop
             trapped={
@@ -372,7 +373,7 @@ function RawPopover({
             onMountAutoFocus={floatingPanelProps?.onOpenAutoFocus}
             onUnmountAutoFocus={floatingPanelProps?.onCloseAutoFocus}
           >
-            <div ref={handlePanelRef} style={ANCHORED_PANEL_STYLE}>
+            <div style={ANCHORED_PANEL_STYLE}>
               <YStack
                 testID="popover-panel"
                 w="$96"

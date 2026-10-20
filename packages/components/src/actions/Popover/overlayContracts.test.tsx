@@ -2,6 +2,7 @@
  * @jest-environment jsdom
  * @jest-environment-options {"customExportConditions": ["node", "node-addons"]}
  */
+/* cspell:ignore hoverable */
 // Test fixtures intentionally construct fresh props to exercise updates.
 /* oxlint-disable react-perf/jsx-no-new-object-as-prop, react-perf/jsx-no-jsx-as-prop */
 
@@ -162,8 +163,20 @@ jest.mock('./popoverSideEffects', () => ({
   runPopoverCloseSideEffects: jest.fn(),
 }));
 jest.mock('./anchoredPopover', () => ({
-  useAnchoredPosition: () => () => {},
+  ...jest.requireActual<typeof import('./anchoredPopover')>(
+    './anchoredPopover',
+  ),
   useHoverOpen: jest.fn(),
+}));
+jest.mock('@floating-ui/dom', () => ({
+  ...jest.requireActual<typeof import('@floating-ui/dom')>('@floating-ui/dom'),
+  computePosition: jest.fn().mockResolvedValue({ x: 240, y: 132 }),
+  autoUpdate: jest.fn(
+    (_reference: Element, _floating: HTMLElement, update: () => void) => {
+      update();
+      return () => {};
+    },
+  ),
 }));
 jest.mock('@onekeyfe/react-native-native-overlay', () => ({
   useNestedOverlayLevel: () => 'modal',
@@ -249,6 +262,25 @@ it('blocks deferred guides only while the custom toast is open', () => {
   view.rerender(<ShowCustom open={false}>Custom toast</ShowCustom>);
   expect(blocked.result.current).toBe(false);
 });
+it.each([false, true])(
+  'positions the mounted panel with a focus scope (hoverable=%s)',
+  async (hoverable) => {
+    render(
+      <Popover
+        title="Assets"
+        open
+        hoverable={hoverable}
+        renderTrigger="Choose asset"
+        renderContent={<button type="button">Asset</button>}
+      />,
+    );
+    const panel = screen.getByTestId('popover-panel').parentElement;
+    await waitFor(() => {
+      expect(panel?.style.left).toBe('240px');
+      expect(panel?.style.top).toBe('132px');
+    });
+  },
+);
 it('focuses actions and forwards both autofocus callbacks', async () => {
   const onOpenAutoFocus = jest.fn();
   const onCloseAutoFocus = jest.fn();
