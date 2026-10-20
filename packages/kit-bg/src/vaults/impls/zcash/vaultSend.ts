@@ -362,16 +362,26 @@ export async function buildHistoryTx(
     | IEncodedTxZcash
     | undefined;
   if (encodedTx?.zcashMode === 'transparent') {
-    const signedExpiry = (
-      params.signedTx?.encodedTx as IEncodedTxZcash | undefined
-    )?.zcashTransparentBuild?.expiryHeight;
+    const signedEncoded = params.signedTx?.encodedTx as
+      | IEncodedTxZcash
+      | undefined;
+    const signedExpiry = signedEncoded?.zcashTransparentBuild?.expiryHeight;
+    const hasSignedResult =
+      signedEncoded?.zcashMode === 'transparent' &&
+      signedEncoded?.zcashTransparentBuild?.txid === historyTx.decodedTx.txid &&
+      signedEncoded?.zcashTransparentBuild?.rawTx === params.signedTx?.rawTx &&
+      !!params.signedTx?.rawTx;
     const publicEncodedTx: IEncodedTxZcash = {
-      ...encodedTx,
+      ...(hasSignedResult && signedEncoded?.zcashMode === 'transparent'
+        ? signedEncoded
+        : encodedTx),
       zcashMemoHex: undefined,
+      zcashTransparentBuild: undefined,
       expiry: signedExpiry ?? encodedTx.expiry,
     };
     return {
       ...historyTx,
+      isLocalCreated: historyTx.isLocalCreated && hasSignedResult,
       decodedTx: {
         ...historyTx.decodedTx,
         // Shielded memo plaintext must never enter the generic public history cache; confirmed memos are decrypted by the runtime.

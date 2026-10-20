@@ -10,6 +10,7 @@ import { buildXmrLocalHistoryTx } from '@onekeyhq/kit-bg/src/vaults/impls/xmr/lo
 import type { IXmrHistoryItem } from '@onekeyhq/kit-bg/src/vaults/impls/xmr/types';
 import XmrVault from '@onekeyhq/kit-bg/src/vaults/impls/xmr/Vault';
 import ZcashVault from '@onekeyhq/kit-bg/src/vaults/impls/zcash/Vault';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
 const own = 'synthetic-own';
@@ -40,7 +41,7 @@ it.each([null, 100])(
     const api = {
       listAccounts: async () =>
         JSON.stringify({ items: [{ accountId: 7, uuid: accountId }] }),
-      verifySignedTransaction: async () => 'synthetic-tx',
+      verifySignedTransaction: jest.fn(async () => 'synthetic-tx'),
       broadcastTransaction: jest.fn(
         async (
           _identity: string,
@@ -77,7 +78,7 @@ it.each([null, 100])(
       accountId,
       networkId: 'xmr--0',
       getXmrRuntimeApi: async () => api,
-      getXmrNetwork: async () => 'mainnet',
+      getXmrNetwork: async () => 'mainnet' as const,
       backgroundApi: { simpleDb: { xmr: entity } },
     });
     // The runtime fixture records the same field that the Rust wire history returns.
@@ -88,6 +89,7 @@ it.each([null, 100])(
       signedTx: { txid: 'synthetic-tx', rawTx: 'aabb', encodedTx },
     });
     expect(api.broadcastTransaction).toHaveBeenCalledTimes(1);
+    expect(api.verifySignedTransaction).toHaveBeenCalledTimes(1);
     expect(recordedOutgoing).toBe('1000030000000');
     const row = await decodeXmrHistory(
       {
@@ -149,6 +151,14 @@ function createZcashRawDetailFixture() {
       }),
       backgroundApi: {
         simpleDb: {
+          localHistory: {
+            getAccountLocalHistoryConfirmedTxs: async (): Promise<
+              IAccountHistoryTx[]
+            > => [],
+            getAccountLocalHistoryPendingTxs: async (): Promise<
+              IAccountHistoryTx[]
+            > => [],
+          },
           zcash: {
             getPrivacyModeState: async () => ({ intent: 'off' }),
             getAccountMeta: async () => undefined,

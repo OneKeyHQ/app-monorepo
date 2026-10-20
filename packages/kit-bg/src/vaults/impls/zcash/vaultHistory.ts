@@ -34,6 +34,8 @@ import { loadCachedLocalWalletHistory } from '../../localWallet/cachedHistory';
 import {
   fetchCompleteZcashBackendHistory,
   normalizeZcashBackendHistoryTx,
+  restoreZcashBackendSelfTransfer,
+  restoreZcashLocalTransparentPayment,
 } from './backendHistory';
 import {
   buildZcashLocalHistoryTx,
@@ -61,18 +63,17 @@ export async function zcashFetchBackendHistoryDetail(
     accountAddress: params.accountAddress ?? '',
     xpub: params.xpub,
   });
-  if (
-    !publicHistory.txs.some(
-      ({ decodedTx }) =>
-        decodedTx.txid.toLowerCase() === params.txid.toLowerCase(),
-    )
-  ) {
+  const publicTx = publicHistory.txs.find(
+    ({ decodedTx }) =>
+      decodedTx.txid.toLowerCase() === params.txid.toLowerCase(),
+  );
+  if (!publicTx) {
     throw new OneKeyLocalError('zcash: transaction not found');
   }
   const response = await vault.baseFetchAccountHistoryDetail(params);
   const detail = response.data.data.data;
   if (detail) {
-    response.data.data.data = params.withUTXOs
+    const publicDetail: IOnChainHistoryTx = params.withUTXOs
       ? {
           ...detail,
           sends:
@@ -87,6 +88,14 @@ export async function zcashFetchBackendHistoryDetail(
           inputOutputSource: 'public',
         }
       : normalizeZcashBackendHistoryTx(detail);
+    const restored = restoreZcashLocalTransparentPayment({
+      tx: publicDetail,
+      localTx: publicTx,
+      withUTXOs: params.withUTXOs,
+    });
+    response.data.data.data = params.withUTXOs
+      ? restored
+      : await restoreZcashBackendSelfTransfer(vault, restored);
   }
   return response;
 }
@@ -651,6 +660,16 @@ export async function zcashFetchTransparentHistory(
       : await vault.backgroundApi.serviceHistory.getOneKeyIdAuthHeaders()),
   };
   const dbAccountCache = {};
+  const cached = new Map(
+    (
+      await loadCachedLocalWalletHistory({
+        backgroundApi: vault.backgroundApi,
+        networkId: params.networkId,
+        accountAddress: params.accountAddress || transparentAddress,
+        xpub: params.xpub ?? xpub,
+      })
+    ).map((tx) => [tx.decodedTx.txid.toLowerCase(), tx]),
+  );
   return fetchCompleteZcashBackendHistory({
     fetchPage: async ({ limit, maxTimestampMs }) => {
       const response = await client.post<{
@@ -671,19 +690,38 @@ export async function zcashFetchTransparentHistory(
     },
     buildPage: async ({ page, indexOffset }) =>
       Promise.all(
-        page.data.map((onChainHistoryTx, index) =>
-          vault.buildOnChainHistoryTx({
+        page.data.map(async (onChainHistoryTx, index) => {
+          const localTx = cached.get(onChainHistoryTx.tx.toLowerCase());
+          const normalized = normalizeZcashBackendHistoryTx(onChainHistoryTx);
+          const restored = restoreZcashLocalTransparentPayment({
+            tx: normalized,
+            localTx,
+          });
+          const built = await vault.buildOnChainHistoryTx({
             dbAccountCache,
             accountId,
             networkId: params.networkId,
             accountAddress: params.accountAddress,
             xpub: params.xpub,
-            onChainHistoryTx: normalizeZcashBackendHistoryTx(onChainHistoryTx),
+            onChainHistoryTx: restored,
             tokens: page.tokens,
             nfts: page.nfts,
             index: indexOffset + index,
-          }),
-        ),
+          });
+          if (!built || restored === normalized) return built;
+          return {
+            ...built,
+            isLocalCreated: localTx?.isLocalCreated,
+            decodedTx: {
+              ...built.decodedTx,
+              encodedTx: {
+                ...(localTx?.decodedTx.encodedTx as IEncodedTxZcash),
+                zcashMemoHex: undefined,
+                zcashTransparentBuild: undefined,
+              },
+            },
+          };
+        }),
       ),
   });
 }
