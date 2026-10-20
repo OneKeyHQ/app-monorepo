@@ -1239,15 +1239,28 @@ export function HomePageView({
           // Native page offsets have no reset command; reset only for a new owner.
           key={homeScrollOwnerKey}
           ref={tabsRef}
-          tabs={pagerTabConfigs.map((tab) => ({
-            ...tab,
-            component:
-              tab.id === EHomeWalletTab.Portfolio ||
-              activeTabId === tab.id ||
-              mountedHomeTabIds.has(tab.id)
-                ? tab.component
-                : null,
-          }))}
+          tabs={pagerTabConfigs.map((tab) => {
+            if (tab.id === EHomeWalletTab.Portfolio) {
+              return {
+                ...tab,
+                component: (
+                  <>
+                    <HomeTabsScrollToTopBridge
+                      scrollToTopRef={homeTabsScrollToTopRef}
+                    />
+                    {tab.component}
+                  </>
+                ),
+              };
+            }
+            return {
+              ...tab,
+              component:
+                activeTabId === tab.id || mountedHomeTabIds.has(tab.id)
+                  ? tab.component
+                  : null,
+            };
+          })}
           initialTabName={seedTabName}
           headerHeightHint={nativeHeaderHeightHint}
           topOverlayHeightHint={tabPageHeight}
