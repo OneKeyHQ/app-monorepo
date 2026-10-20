@@ -7,6 +7,7 @@ import {
   formatCompactTokenAmount,
   formatPriceChange,
   formatTokenAmountShort,
+  formatTokenPrice,
   getPoolPair,
   sortByPair,
 } from './poolsFormat';
@@ -51,6 +52,14 @@ describe('pools format', () => {
     expect(formatTokenAmountShort('44965168.601', 'PEPE')).toBe('44.97M PEPE');
     expect(formatTokenAmountShort('233.2388', 'USDC')).toBe('233.2388 USDC');
     expect(formatCompactTokenAmount('26376.6471', 'WETH')).toBe('26.38K WETH');
+  });
+
+  it('counts the zeros of a tiny price, as Market does', () => {
+    expect(formatTokenPrice('0.000000001683')).toBe('0.0₈1683');
+    expect(formatTokenPrice('0.000000000012')).toBe('0.0₁₀12');
+    // Up to four zeros stay written out
+    expect(formatTokenPrice('0.00004518')).toBe('0.00004518');
+    expect(formatTokenPrice('3000')).toBe('3,000.00');
   });
 
   it('gives a price against today’s', () => {

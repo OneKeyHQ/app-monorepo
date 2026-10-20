@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Empty,
   Skeleton,
@@ -8,6 +10,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IPoolListItem,
   IPoolStatsWindow,
@@ -15,6 +18,8 @@ import type {
 
 import { POOLS_COPY } from '../poolsCopy';
 import {
+  EMPTY_POOLS_FILTER,
+  countPanelFilters,
   filterPools,
   getPoolKeySearch,
   getPoolsOptionCounts,
@@ -71,7 +76,6 @@ export function PoolsHomeTab({
   onChainChange,
   networkCounts,
   search,
-  emptyComponent,
   onOptionCountsChange,
 }: {
   pools: IPoolListItem[] | undefined;
@@ -83,11 +87,10 @@ export function PoolsHomeTab({
   /** Pools per chain, for the chain pill on phones */
   networkCounts: Record<string, number>;
   search: string;
-  /** Shown when search or filters leave nothing */
-  emptyComponent?: ReactNode;
   /** For the Filters button in the toolbar above, on wide screens */
   onOptionCountsChange?: (counts: IPoolsOptionCounts) => void;
 }) {
+  const intl = useIntl();
   const { gtMd } = useMedia();
   const [scope, setScope] = useState<IPoolsScope>('all');
   const [period, setPeriod] = useState<IPoolStatsWindow>('1D');
@@ -178,14 +181,47 @@ export function PoolsHomeTab({
     onOptionCountsChange?.(optionCounts);
   }, [onOptionCountsChange, optionCounts]);
 
+  // Everything that narrows the list but the search, which stays as typed.
+  // Favorites is where the user is looking, not a filter, so it stays too.
+  const canClearFilters =
+    Boolean(chainId) ||
+    countPanelFilters(filter, { withCategory: !gtMd }) > 0 ||
+    Boolean(category && gtMd);
+  const clearFilters = () => {
+    onFilterChange({ ...EMPTY_POOLS_FILTER });
+    onChainChange(undefined);
+    setScope((current) => (current === 'favorites' ? current : 'all'));
+  };
+
   let empty: ReactNode = null;
   if (!pools) {
     empty = <PoolsListSkeleton />;
   } else if (scope === 'favorites' && !favoriteIds.size) {
     empty = <Empty icon="StarOutline" title={POOLS_COPY.noFavorites} />;
   } else {
-    empty = emptyComponent ?? (
-      <Empty icon="SearchOutline" title={POOLS_COPY.noPools} />
+    empty = (
+      <Empty
+        testID="earn-pools-empty"
+        icon="SearchOutline"
+        title={
+          search || canClearFilters
+            ? intl.formatMessage({
+                id: ETranslations.global_search_no_results_title,
+              })
+            : POOLS_COPY.noPools
+        }
+        buttonProps={
+          canClearFilters
+            ? {
+                testID: 'earn-pools-empty-clear',
+                // The Filters sheet's Clear is secondary too
+                variant: 'secondary',
+                children: POOLS_COPY.clearAllFilters,
+                onPress: clearFilters,
+              }
+            : undefined
+        }
+      />
     );
   }
 
@@ -202,6 +238,8 @@ export function PoolsHomeTab({
         </XStack>
       ) : (
         <PoolsPhoneFilterBar
+          // Under the Earn tabs where Fixed Income has its sort row
+          pt="$0"
           chainId={chainId}
           onChainChange={onChainChange}
           networkCounts={networkCounts}

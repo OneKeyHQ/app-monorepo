@@ -131,6 +131,8 @@ export function PoolsChainSelector({
       p="$0.5"
       gap="$1"
       ai="center"
+      // On wide screens, the height of the search beside it
+      height={large ? undefined : 30}
       flexShrink={0}
     >
       <Stack

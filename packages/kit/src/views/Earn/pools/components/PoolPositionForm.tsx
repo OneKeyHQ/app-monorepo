@@ -166,6 +166,7 @@ function ZapInput({ form }: { form: IPoolPositionForm }) {
               key={percent}
               testID={`earn-pool-add-percent-${percent * 100}`}
               label={`${percent * 100}%`}
+              raised
               active={Boolean(value) && amountIn === value}
               onPress={() => form.setAmountIn(value)}
             />

@@ -1,6 +1,9 @@
 import BigNumber from 'bignumber.js';
 
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  numberFormat,
+  numberFormatAsRaw,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   getDisplayRange,
   isPoolPriceInverted,
@@ -129,8 +132,32 @@ export function formatPriceChange(value: BigNumber, now: BigNumber) {
   return `${change.gt(0) ? '+' : ''}${change.toFixed(2)}%`;
 }
 
+const SUBSCRIPT_DIGITS = '₀₁₂₃₄₅₆₇₈₉';
+
+/**
+ * A price as plain text. Past four zeros after the point, the zeros become a
+ * count, as Market and the charts show them: 0.0₈1683, not 0.000000001683.
+ */
 export function formatTokenPrice(value: BigNumber.Value) {
-  return numberFormat(new BigNumber(value).toFixed(), { formatter: 'price' });
+  const parts = numberFormatAsRaw(new BigNumber(value).toFixed(), {
+    formatter: 'price',
+  });
+  if (typeof parts === 'string') {
+    return parts;
+  }
+  return parts
+    .map((part) => {
+      if (typeof part === 'string') {
+        return part;
+      }
+      if (part.type === 'sub') {
+        return String(part.value).replace(/[0-9]/g, (digit) =>
+          SUBSCRIPT_DIGITS.charAt(Number(digit)),
+        );
+      }
+      return part.value;
+    })
+    .join('');
 }
 
 /** Pool price in pool order: token1 per token0 */

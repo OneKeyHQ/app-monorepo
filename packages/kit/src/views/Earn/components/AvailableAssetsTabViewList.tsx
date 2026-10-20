@@ -40,11 +40,7 @@ import { PoolsChainSelector } from '../pools/components/PoolsChainSelector';
 import { PoolsDemoMenuButton } from '../pools/components/PoolsDemoMenuButton';
 import { PoolsFilterButton } from '../pools/components/PoolsFilterButton';
 import { PoolsHomeTab } from '../pools/components/PoolsHomeTab';
-import {
-  EMPTY_POOLS_FILTER,
-  countPanelFilters,
-  getPoolNetworkCounts,
-} from '../pools/poolsFilter';
+import { EMPTY_POOLS_FILTER, getPoolNetworkCounts } from '../pools/poolsFilter';
 import { PoolsNavigation } from '../pools/poolsNavigation';
 import { PoolsQueries, usePoolsQuery } from '../pools/poolsQueries';
 import { EarnTestIDs } from '../testIDs';
@@ -534,11 +530,7 @@ export function AvailableAssetsTabViewList({
   // Memoize ListEmptyComponent
   const listEmptyComponent = useMemo(
     () =>
-      searchText ||
-      (isPoolsTab
-        ? Boolean(poolsChainId) ||
-          countPanelFilters(poolsFilter, { withCategory: !media.gtMd }) > 0
-        : shouldApplyNetworkFilter) ? (
+      searchText || shouldApplyNetworkFilter ? (
         <Empty
           icon="SearchOutline"
           title={intl.formatMessage({
@@ -546,15 +538,7 @@ export function AvailableAssetsTabViewList({
           })}
         />
       ) : null,
-    [
-      searchText,
-      shouldApplyNetworkFilter,
-      isPoolsTab,
-      poolsChainId,
-      poolsFilter,
-      media.gtMd,
-      intl,
-    ],
+    [searchText, shouldApplyNetworkFilter, intl],
   );
 
   // Pre-fetch all categories and open search dialog
@@ -679,10 +663,6 @@ export function AvailableAssetsTabViewList({
                 optionCounts={poolsOptionCounts}
               />
             ) : null}
-            {/* Demo controls; on phones they sit in the Pools page header */}
-            {isPoolsTab ? (
-              <PoolsDemoMenuButton testID="earn-pools-demo-menu-list" />
-            ) : null}
             {isPoolsTab ? (
               <PoolsChainSelector
                 value={poolsChainId}
@@ -706,6 +686,13 @@ export function AvailableAssetsTabViewList({
               onSearchTextChange={setSearchText}
               containerProps={searchBarContainerProps}
             />
+            {/* Demo controls, last; on phones they sit in the Pools page header */}
+            {isPoolsTab ? (
+              <PoolsDemoMenuButton
+                testID="earn-pools-demo-menu-list"
+                size="small"
+              />
+            ) : null}
           </XStack>
         ) : null}
       </XStack>
@@ -729,7 +716,6 @@ export function AvailableAssetsTabViewList({
             onChainChange={setPoolsChainId}
             networkCounts={networkAssetCounts}
             search={searchText}
-            emptyComponent={listEmptyComponent}
             onOptionCountsChange={setPoolsOptionCounts}
           />
         ) : (

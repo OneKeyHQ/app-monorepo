@@ -123,19 +123,15 @@ function EarnPoolsContent() {
 
   const keyExtractor = useCallback((item: IPoolListItem) => item.id, []);
 
-  const isFiltered =
-    searchText.trim().length > 0 ||
-    Boolean(chainId) ||
-    countPanelFilters(filter, { withCategory: true }) > 0;
-
-  let emptyTitle: string = POOLS_COPY.noPools;
-  if (favoritesOnly && !favoriteIds.size) {
-    emptyTitle = POOLS_COPY.noFavorites;
-  } else if (isFiltered) {
-    emptyTitle = intl.formatMessage({
-      id: ETranslations.global_search_no_results_title,
-    });
-  }
+  // Clears what the sheet and the chain pill set; the search and Favorites
+  // stay as they are
+  const canClearFilters =
+    Boolean(chainId) || countPanelFilters(filter, { withCategory: true }) > 0;
+  const noFavorites = favoritesOnly && !favoriteIds.size;
+  const emptyTitle =
+    searchText.trim().length > 0 || canClearFilters
+      ? intl.formatMessage({ id: ETranslations.global_search_no_results_title })
+      : POOLS_COPY.noPools;
 
   const listHeader = (
     <>
@@ -188,12 +184,22 @@ function EarnPoolsContent() {
         ListEmptyComponent={
           pools ? (
             <Empty
-              icon={
-                favoritesOnly && !favoriteIds.size
-                  ? 'StarOutline'
-                  : 'SearchOutline'
+              testID="earn-pools-empty"
+              icon={noFavorites ? 'StarOutline' : 'SearchOutline'}
+              title={noFavorites ? POOLS_COPY.noFavorites : emptyTitle}
+              buttonProps={
+                !noFavorites && canClearFilters
+                  ? {
+                      testID: 'earn-pools-empty-clear',
+                      variant: 'secondary',
+                      children: POOLS_COPY.clearAllFilters,
+                      onPress: () => {
+                        setFilter({ ...EMPTY_POOLS_FILTER });
+                        setChainId(undefined);
+                      },
+                    }
+                  : undefined
               }
-              title={emptyTitle}
             />
           ) : (
             <PoolsListSkeleton rows={8} />

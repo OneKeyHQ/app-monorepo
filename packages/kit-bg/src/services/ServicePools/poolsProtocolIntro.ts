@@ -3,6 +3,7 @@ import type { IPoolProtocolVersion } from '@onekeyhq/shared/types/pools';
 import type {
   IEarnProtocolIntroAudit,
   IEarnProtocolIntroInfo,
+  IEarnProtocolIntroInvestorRound,
 } from '@onekeyhq/shared/types/staking';
 
 // The DEX behind a pool, in the shape an Earn asset page's Protocol tab reads.
@@ -21,11 +22,30 @@ const VERSION_NOTES: Record<IPoolProtocolVersion, string> = {
   v4: 'v4 keeps every pool in one contract and adds hooks: contracts that can change how a pool works, such as its fee.',
 };
 
+// Shown as written, so these are labels rather than keys
 const VERSION_TAGS: Record<IPoolProtocolVersion, string[]> = {
-  v2: ['dex', 'amm'],
-  v3: ['dex', 'amm', 'concentrated-liquidity'],
-  v4: ['dex', 'amm', 'hooks'],
+  v2: ['DEX', 'AMM'],
+  v3: ['DEX', 'AMM', 'Concentrated liquidity'],
+  v4: ['DEX', 'AMM', 'Hooks'],
 };
+
+const FUNDING_ROUNDS: IEarnProtocolIntroInvestorRound[] = [
+  {
+    round: 'Series B',
+    date: 'Oct 2022',
+    amount: '$165M',
+    investors:
+      'Polychain Capital (lead), a16z crypto, Paradigm, SV Angel, Variant',
+  },
+  {
+    round: 'Series A',
+    date: 'Aug 2020',
+    amount: '$11M',
+    investors:
+      'Andreessen Horowitz (lead), USV, Paradigm, Version One, Variant, Parafi Capital, SV Angel, A.Capital',
+  },
+  { round: 'Seed', date: '2019', investors: 'Paradigm' },
+];
 
 const V3_CORE = 'https://github.com/Uniswap/v3-core/blob/main/audits';
 const V4_CORE =
@@ -143,23 +163,13 @@ export function getPoolProtocolIntro(
         },
         investors: {
           title: 'Investors',
-          items: [
-            {
-              round: 'Series B',
-              date: 'Oct 2022',
-              amount: '$165M',
-              investors:
-                'Polychain Capital (lead), a16z crypto, Paradigm, SV Angel, Variant',
-            },
-            {
-              round: 'Series A',
-              date: 'Aug 2020',
-              amount: '$11M',
-              investors:
-                'Andreessen Horowitz (lead), USV, Paradigm, Version One, Variant, Parafi Capital, SV Angel, A.Capital',
-            },
-            { round: 'Seed', date: '2019', investors: 'Paradigm' },
-          ],
+          // The facts grid shows one short name, the latest round's lead;
+          // the rounds open from it
+          items: [{ title: 'Polychain Capital' }],
+          button: {
+            type: 'popup',
+            data: { title: 'Investors', fundingRounds: FUNDING_ROUNDS },
+          },
         },
         audits: {
           title: 'Audits',

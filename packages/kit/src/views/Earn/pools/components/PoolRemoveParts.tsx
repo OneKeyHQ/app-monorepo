@@ -52,6 +52,7 @@ export function PoolPercentPicker({
             key={percent}
             testID={`earn-pool-percent-${percent * 100}`}
             label={percent === 1 ? POOLS_COPY.maxAmount : `${percent * 100}%`}
+            raised
             active={Math.round(value * 100) === percent * 100}
             onPress={() => onChange(percent)}
           />

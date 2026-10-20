@@ -111,7 +111,8 @@ export function PoolsPeriodPills({
           size="small"
           variant={period === item ? 'secondary' : 'tertiary'}
           minWidth={42}
-          height={30}
+          // The type chips' height, on the same line
+          height={28}
           m="$0"
           px="$2.5"
           borderWidth={0}

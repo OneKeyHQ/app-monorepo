@@ -1,4 +1,5 @@
 import { Icon, Stack, XStack } from '@onekeyhq/components';
+import type { IXStackProps } from '@onekeyhq/components';
 
 import { POOLS_COPY } from '../poolsCopy';
 
@@ -27,11 +28,12 @@ function PoolsFavoritesToggle({
       ai="center"
       jc="center"
       borderRadius="$full"
-      bg={on ? '$bgActive' : '$bgSubdued'}
+      // The surface of the chain pill and Filters beside it
+      bg={on ? '$bgActive' : '$bgStrong'}
       cursor="pointer"
       userSelect="none"
-      hoverStyle={{ bg: on ? '$bgActive' : '$bgHover' }}
-      pressStyle={{ opacity: 0.7 }}
+      hoverStyle={{ bg: on ? '$bgStrongActive' : '$bgStrongHover' }}
+      pressStyle={{ bg: '$bgStrongActive' }}
       onPress={() => onChange(!on)}
     >
       <Icon
@@ -59,6 +61,7 @@ export function PoolsPhoneFilterBar({
   onSortChange,
   resultCount,
   optionCounts,
+  pt = '$2',
 }: {
   chainId?: string;
   onChainChange: (networkId: string | undefined) => void;
@@ -72,9 +75,10 @@ export function PoolsPhoneFilterBar({
   resultCount: number;
   /** Pools each Filters option would leave */
   optionCounts?: IPoolsOptionCounts;
+  pt?: IXStackProps['pt'];
 }) {
   return (
-    <XStack px="$pagePadding" py="$2" gap="$2" ai="center">
+    <XStack px="$pagePadding" pt={pt} pb="$2" gap="$2" ai="center">
       <PoolsChainSelector
         value={chainId}
         onChange={onChainChange}

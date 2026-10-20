@@ -35,6 +35,8 @@ export const POOLS_COPY = {
   // A fee tier option: the hook sets the fee
   dynamic: 'Dynamic',
   clearFilters: 'Clear',
+  // An empty list's way back to every pool
+  clearAllFilters: 'Clear filters',
   sortBy: 'Sort by',
   showPools: (count: number) =>
     count === 1 ? 'Show 1 pool' : `Show ${count} pools`,

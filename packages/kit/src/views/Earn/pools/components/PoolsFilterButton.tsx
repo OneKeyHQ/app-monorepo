@@ -1,15 +1,19 @@
 import type { ReactNode } from 'react';
 
+import { useWindowDimensions } from 'react-native';
+
 import {
   Button,
   Icon,
   Popover,
+  ScrollView,
   SizableText,
   Stack,
   XStack,
   YStack,
   useMedia,
   usePopoverContext,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -40,6 +44,18 @@ function chipTextColor(active: boolean, disabled: boolean) {
   return active ? '$text' : '$textSubdued';
 }
 
+// The Earn tabs' colors on the page. Cards, sheets and panels are already a
+// step lighter than the page, where the page's tint would vanish, so chips
+// on them start a step stronger.
+const CHIP_TONES = {
+  page: { idle: '$bgSubdued', hover: '$bgHover', on: '$bgActive' },
+  raised: {
+    idle: '$bgStrong',
+    hover: '$bgStrongHover',
+    on: '$bgStrongActive',
+  },
+} as const;
+
 export function PoolsChip({
   label,
   active,
@@ -47,6 +63,7 @@ export function PoolsChip({
   testID,
   icon,
   large = false,
+  raised = false,
   disabled = false,
 }: {
   label: string;
@@ -57,9 +74,12 @@ export function PoolsChip({
   icon?: ReactNode;
   /** Touch size, for sheets */
   large?: boolean;
+  /** On a card, sheet or panel rather than on the page */
+  raised?: boolean;
   /** Greyed out and not tappable: picking it would leave no pools */
   disabled?: boolean;
 }) {
+  const tone = raised ? CHIP_TONES.raised : CHIP_TONES.page;
   return (
     <XStack
       testID={testID}
@@ -70,13 +90,12 @@ export function PoolsChip({
       px={large ? '$3.5' : '$3'}
       py={large ? '$2' : '$1'}
       borderRadius="$full"
-      bg={active ? '$bgStrong' : '$bgSubdued'}
+      bg={active ? tone.on : tone.idle}
       cursor={disabled ? 'default' : 'pointer'}
       userSelect="none"
-      hoverStyle={
-        disabled ? undefined : { bg: active ? '$bgStrong' : '$bgHover' }
-      }
-      pressStyle={disabled ? undefined : { opacity: 0.7 }}
+      // A hovered chip must not look picked
+      hoverStyle={disabled || active ? undefined : { bg: tone.hover }}
+      pressStyle={disabled ? undefined : { bg: tone.on }}
       onPress={disabled ? undefined : onPress}
     >
       {icon ? <Stack opacity={disabled ? 0.4 : 1}>{icon}</Stack> : null}
@@ -143,6 +162,14 @@ function checkIcon(on: boolean) {
   return on ? <Icon name="CheckLargeOutline" size="$4" color="$icon" /> : null;
 }
 
+// Popover's sheet: at most 92% of the screen, less its title row (20 + 28 +
+// 20) and the margin under it
+const SHEET_HEIGHT_RATIO = 0.92;
+const SHEET_HEADER_HEIGHT = 68;
+const SHEET_BOTTOM_MARGIN = 20;
+// Keeps the buttons in view if the title row comes out a little taller
+const SHEET_SPARE_HEIGHT = 12;
+
 function PoolsFilterPanel({
   value,
   onChange,
@@ -163,26 +190,13 @@ function PoolsFilterPanel({
   isSheet: boolean;
 }) {
   const { closePopover } = usePopoverContext();
+  const { height: windowHeight } = useWindowDimensions();
+  const { bottom } = useSafeAreaInsets();
   const count = countPanelFilters(value, { withCategory: showCategory });
   const clear = () => onChange({ ...EMPTY_POOLS_FILTER });
-  return (
-    <YStack gap="$5" px="$5" pt={isSheet ? undefined : '$5'} pb="$5">
-      {/* The sheet brings its own title and close button */}
-      {isSheet ? null : (
-        <XStack ai="center" jc="space-between" minHeight="$8">
-          <SizableText size="$headingMd">{POOLS_COPY.filters}</SizableText>
-          {count ? (
-            <Button
-              testID="earn-pools-filter-clear"
-              size="small"
-              variant="tertiary"
-              onPress={clear}
-            >
-              {POOLS_COPY.clearFilters}
-            </Button>
-          ) : null}
-        </XStack>
-      )}
+
+  const groups = (
+    <>
       {sort && onSortChange ? (
         <FilterGroup title={POOLS_COPY.sortBy}>
           {SORT_OPTIONS.map((option) => {
@@ -193,6 +207,7 @@ function PoolsFilterPanel({
                 testID={`earn-pools-sort-${option.key}`}
                 label={option.label}
                 large={isSheet}
+                raised
                 active={active}
                 icon={
                   active ? (
@@ -226,6 +241,7 @@ function PoolsFilterPanel({
             testID="earn-pools-filter-category-all"
             label={POOLS_COPY.allPools}
             large={isSheet}
+            raised
             active={!value.category}
             onPress={() => onChange({ ...value, category: undefined })}
           />
@@ -237,6 +253,7 @@ function PoolsFilterPanel({
                 testID={`earn-pools-filter-category-${category}`}
                 label={POOLS_CATEGORY_LABELS[category]}
                 large={isSheet}
+                raised
                 active={on}
                 disabled={!on && optionCounts?.category[category] === 0}
                 onPress={() => onChange({ ...value, category })}
@@ -254,6 +271,7 @@ function PoolsFilterPanel({
               testID={`earn-pools-filter-protocol-${option.key}`}
               label={getPoolProtocolLabel(option)}
               large={isSheet}
+              raised
               active={on}
               disabled={!on && optionCounts?.protocols[option.key] === 0}
               // The check takes the logo's place, so the chip keeps its width
@@ -285,6 +303,7 @@ function PoolsFilterPanel({
               testID={`earn-pools-filter-fee-${option}`}
               label={feeOptionLabel(option)}
               large={isSheet}
+              raised
               active={on}
               disabled={!on && optionCounts?.feeTiers[String(option)] === 0}
               icon={checkIcon(on)}
@@ -298,36 +317,79 @@ function PoolsFilterPanel({
           );
         })}
       </FilterGroup>
-      {/* The sheet covers the list, so its button says what is behind it */}
-      {isSheet ? (
-        <XStack gap="$3" pt="$1">
-          <Button
-            testID="earn-pools-filter-clear"
-            flex={1}
-            size="large"
-            variant="secondary"
-            disabled={!count}
-            onPress={clear}
-          >
-            {POOLS_COPY.clearFilters}
-          </Button>
-          <Button
-            testID="earn-pools-filter-show"
-            flex={2}
-            size="large"
-            variant="primary"
-            disabled={!resultCount}
-            onPress={() => void closePopover?.()}
-          >
-            {resultCount
-              ? POOLS_COPY.showPools(resultCount)
-              : POOLS_COPY.noPools}
-          </Button>
+    </>
+  );
+
+  if (!isSheet) {
+    return (
+      <YStack gap="$5" p="$5">
+        <XStack ai="center" jc="space-between" minHeight="$8">
+          <SizableText size="$headingMd">{POOLS_COPY.filters}</SizableText>
+          {count ? (
+            <Button
+              testID="earn-pools-filter-clear"
+              size="small"
+              variant="tertiary"
+              onPress={clear}
+            >
+              {POOLS_COPY.clearFilters}
+            </Button>
+          ) : null}
         </XStack>
-      ) : null}
+        {groups}
+      </YStack>
+    );
+  }
+
+  // The sheet brings its own title and close button. On a short screen the
+  // options scroll and the buttons stay in view.
+  const maxHeight =
+    Math.floor(windowHeight * SHEET_HEIGHT_RATIO) -
+    SHEET_HEADER_HEIGHT -
+    (bottom || SHEET_BOTTOM_MARGIN) -
+    SHEET_SPARE_HEIGHT;
+  return (
+    <YStack maxHeight={maxHeight}>
+      <ScrollView
+        flexGrow={0}
+        flexShrink={1}
+        nestedScrollEnabled
+        showsVerticalScrollIndicator={false}
+      >
+        <YStack gap="$5" px="$5">
+          {groups}
+        </YStack>
+      </ScrollView>
+      {/* The sheet covers the list, so its button says what is behind it */}
+      <XStack gap="$3" px="$5" pt="$6" pb="$5">
+        <Button
+          testID="earn-pools-filter-clear"
+          flex={1}
+          size="large"
+          variant="secondary"
+          disabled={!count}
+          onPress={clear}
+        >
+          {POOLS_COPY.clearFilters}
+        </Button>
+        <Button
+          testID="earn-pools-filter-show"
+          flex={2}
+          size="large"
+          variant="primary"
+          disabled={!resultCount}
+          onPress={() => void closePopover?.()}
+        >
+          {resultCount ? POOLS_COPY.showPools(resultCount) : POOLS_COPY.noPools}
+        </Button>
+      </XStack>
     </YStack>
   );
 }
+
+const TRIGGER_HOVER = { bg: '$bgStrongHover' } as const;
+const TRIGGER_HOVER_ON = { bg: '$bgStrongActive' } as const;
+const TRIGGER_PRESS = { bg: '$bgStrongActive' } as const;
 
 /**
  * Protocol and fee tier behind one button; phones add the types and the
@@ -385,7 +447,8 @@ export function PoolsFilterButton({
       // The count widens the button leftward; its right edge stays put, so
       // the panel does not move under the pointer while you tap
       placement="bottom-end"
-      floatingPanelProps={{ w: 340 }}
+      // Wide enough for the three protocols, and the fee tiers, on one line
+      floatingPanelProps={{ w: 420 }}
       renderTrigger={
         iconOnly ? (
           // eslint-disable-next-line props-checker/validator -- Popover's trigger wrapper handles the press
@@ -401,8 +464,8 @@ export function PoolsFilterButton({
             bg={count ? '$bgActive' : '$bgStrong'}
             cursor="pointer"
             userSelect="none"
-            hoverStyle={{ opacity: 0.8 }}
-            pressStyle={{ opacity: 0.7 }}
+            hoverStyle={count ? TRIGGER_HOVER_ON : TRIGGER_HOVER}
+            pressStyle={TRIGGER_PRESS}
           >
             <Icon
               name="SliderHorOutline"
@@ -423,13 +486,14 @@ export function PoolsFilterButton({
             ai="center"
             gap="$1.5"
             px="$3"
-            py="$1.5"
+            // The toolbar's height: the chain pill and the search beside it
+            height={30}
             borderRadius="$full"
             bg={count ? '$bgActive' : '$bgStrong'}
             cursor="pointer"
             userSelect="none"
-            hoverStyle={{ opacity: 0.8 }}
-            pressStyle={{ opacity: 0.7 }}
+            hoverStyle={count ? TRIGGER_HOVER_ON : TRIGGER_HOVER}
+            pressStyle={TRIGGER_PRESS}
           >
             <Icon
               name="SliderHorOutline"

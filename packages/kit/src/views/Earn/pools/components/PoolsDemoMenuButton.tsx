@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { ActionList, Icon, IconButton, Toast } from '@onekeyhq/components';
+import type { IIconButtonProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import { POOLS_COPY } from '../poolsCopy';
@@ -13,9 +14,12 @@ import { emitPoolsDataChanged } from '../poolsDemoEvents';
 export function PoolsDemoMenuButton({
   onReset,
   testID = 'earn-pools-demo-menu',
+  size,
 }: {
   onReset?: () => void;
   testID?: string;
+  /** Small beside a row of small controls */
+  size?: IIconButtonProps['size'];
 }) {
   const open = useCallback(async () => {
     const settings = await backgroundApiProxy.servicePools.getDemoSettings();
@@ -54,6 +58,7 @@ export function PoolsDemoMenuButton({
     <IconButton
       testID={testID}
       variant="tertiary"
+      size={size}
       icon="DotHorOutline"
       onPress={() => void open()}
     />
