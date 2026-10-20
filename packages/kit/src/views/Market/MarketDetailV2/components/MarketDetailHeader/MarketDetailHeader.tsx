@@ -53,6 +53,19 @@ import { TabPageHeaderContainer } from './TabPageHeaderContainer';
 
 import type { NativeStackHeaderItem } from '@react-navigation/native-stack';
 
+function getMobileSelectorDefaultCategory(listingIdentity: {
+  stockId?: string;
+  assetId?: string;
+}): 'stocks' | 'top_coins' | 'trending' {
+  if (listingIdentity.stockId) {
+    return 'stocks';
+  }
+  if (listingIdentity.assetId) {
+    return 'top_coins';
+  }
+  return 'trending';
+}
+
 // Holds the address line while a stock route resolves its token, so the
 // title does not re-center when the address arrives.
 function AddressLineSkeleton() {
@@ -69,6 +82,7 @@ export function MarketDetailHeader({
   const { width: windowWidth } = useWindowDimensions();
   const { left: safeAreaLeft, right: safeAreaRight } = useSafeAreaInsets();
   const listingIdentity = useMarketDetailWatchlistIdentity();
+  const { stockId: listingStockId, assetId: listingAssetId } = listingIdentity;
   const { handleBackPress } = useMarketDetailBackNavigation();
   const navigation = useAppNavigation();
   const { tokenDetail, networkId, isNative } =
@@ -83,9 +97,13 @@ export function MarketDetailHeader({
       screen: EModalMarketRoutes.MobileTokenSelector,
       params: {
         showFavoriteButton,
+        defaultCategory: getMobileSelectorDefaultCategory({
+          stockId: listingStockId,
+          assetId: listingAssetId,
+        }),
       },
     });
-  }, [navigation, showFavoriteButton]);
+  }, [listingAssetId, listingStockId, navigation, showFavoriteButton]);
 
   const handleCopyAddress = useCallback(() => {
     const address = tokenDetail?.address;
