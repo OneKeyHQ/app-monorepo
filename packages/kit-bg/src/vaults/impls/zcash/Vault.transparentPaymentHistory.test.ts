@@ -314,14 +314,15 @@ function createLegacySelfTransfer() {
   return { ...context, detail, fetchDetail };
 }
 
-// Like BTC: a self-transfer this device did not sign shows the backend's value.
-it('shows an unsigned transparent self-transfer with the backend value', async () => {
+// t1 -> same t1 that this device did not sign: change back to t1 with the
+// payment shielded. Shown as a payment to a hidden shielded counterparty.
+it('shows an unsigned t1 -> t1 row as a shielded payment with the backend value', async () => {
   const { vault, fetchDetail, runtime } = createLegacySelfTransfer();
   const rows = await vault.fetchAccountHistoryFromLocal(params);
   expect(rows?.[0].decodedTx).toMatchObject({
     nativeAmount: '0.00015',
     totalFeeInNative: '0.00015',
-    to: sender,
+    to: '',
     status: EDecodedTxStatus.Confirmed,
   });
   expect(rows?.[0].decodedTx.nativeAmountIsUnknown).not.toBe(true);
@@ -330,14 +331,15 @@ it('shows an unsigned transparent self-transfer with the backend value', async (
   expect(runtime).not.toHaveBeenCalled();
 });
 
-it('keeps the public I/O of an unsigned self-transfer as the backend reports it', async () => {
+it('keeps the public I/O of an unsigned t1 -> t1 row as the backend reports it', async () => {
   const { vault, detail } = createLegacySelfTransfer();
   const summary = (await vault.fetchAccountHistoryDetail({ ...params, txid }))
     .data.data.data;
   expect(summary).toMatchObject({
     value: '0.00015',
     gasFee: '0.00015',
-    to: sender,
+    to: '',
+    shieldedCounterparty: 'to',
   });
   const io = (
     await vault.fetchAccountHistoryDetail({
