@@ -164,6 +164,7 @@ import {
   swapSelectToTokenAtom,
   swapSelectTokenDetailFetchingAtom,
   swapSelectTokenDetailRequestIdAtom,
+  swapSelectTokenPriceRevisionAtom,
   swapSelectedFromTokenBalanceAtom,
   swapSelectedToTokenBalanceAtom,
   swapSelectedTokenBalanceMetaAtom,
@@ -1243,6 +1244,93 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     },
   );
 
+  private refreshQuotedTokenPrices = contextAtomMethod(
+    async (get, set, event: ISwapQuoteEventPayload) => {
+      const swapType = get(swapTypeSwitchAtom());
+      if (
+        !isSwapOrBridgeQuoteType(swapType) ||
+        event.params.source === ESwapQuoteSource.MARKET
+      ) {
+        return;
+      }
+      const isCurrentPriceRequest = () =>
+        get(swapQuoteActionLockAtom()).quoteRequestId ===
+          event.quoteRequestId &&
+        get(swapQuoteEventCompletedAtom()) &&
+        get(swapTypeSwitchAtom()) === swapType &&
+        equalTokenNoCaseSensitive({
+          token1: get(swapSelectFromTokenAtom()),
+          token2: event.tokenPairs.fromToken,
+        }) &&
+        equalTokenNoCaseSensitive({
+          token1: get(swapSelectToTokenAtom()),
+          token2: event.tokenPairs.toToken,
+        });
+      if (!isCurrentPriceRequest()) {
+        return;
+      }
+
+      await Promise.allSettled(
+        (
+          [
+            [
+              swapSelectFromTokenAtom(),
+              event.tokenPairs.fromToken,
+              ESwapDirectionType.FROM,
+            ],
+            [
+              swapSelectToTokenAtom(),
+              event.tokenPairs.toToken,
+              ESwapDirectionType.TO,
+            ],
+          ] as const
+        ).map(async ([selectedTokenAtom, token, direction]) => {
+          const contractAddress =
+            await getSwapTokenBalanceContractAddress(token);
+          if (!isCurrentPriceRequest()) {
+            return;
+          }
+          // Price-only requests must not cancel account-scoped balance requests.
+          const details =
+            await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+              networkId: token.networkId,
+              contractAddress,
+              currency: USD_CURRENCY_ID,
+            });
+          const detail = details?.find(
+            (item) =>
+              equalTokenNoCaseSensitive({ token1: item, token2: token }) ||
+              equalTokenNoCaseSensitive({
+                token1: item,
+                token2: { networkId: token.networkId, contractAddress },
+              }),
+          );
+          const price = detail?.price;
+          const priceBN = new BigNumber(price ?? '');
+          if (
+            !price ||
+            !priceBN.isFinite() ||
+            !priceBN.gt(0) ||
+            !isCurrentPriceRequest()
+          ) {
+            return;
+          }
+          // A same-value response still supersedes older balance prices.
+          set(swapSelectTokenPriceRevisionAtom(), (previous) => ({
+            ...previous,
+            [direction]: previous[direction] + 1,
+          }));
+          set(selectedTokenAtom, (previous) =>
+            !previous ||
+            (previous.price === price && previous.currency === USD_CURRENCY_ID)
+              ? previous
+              : { ...previous, price, currency: USD_CURRENCY_ID },
+          );
+        }),
+      );
+    },
+  );
+
   quoteEventHandler = contextAtomMethod(
     (get, set, event: ISwapQuoteEventPayload) => {
       const quoteActionLock = get(swapQuoteActionLockAtom());
@@ -1328,6 +1416,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               } else {
                 this.requireManualQuoteRefresh.call(set);
               }
+              void this.refreshQuotedTokenPrices.call(set, event);
               break;
             }
             const autoSlippageData = dataJson as ISwapQuoteEventAutoSlippage;
@@ -1424,6 +1513,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   event,
                   shouldScheduleAutoRefresh,
                 );
+                void this.refreshQuotedTokenPrices.call(set, event);
                 break;
               }
               set(swapQuoteEventCompletedAtom(), false);
@@ -1592,6 +1682,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           set(swapQuoteFetchingAtom(), false);
           this.closeQuoteEvent(event.quoteRequestId);
           this.settleQuoteRefresh.call(set, event, shouldScheduleAutoRefresh);
+          void this.refreshQuotedTokenPrices.call(set, event);
           break;
         }
         case 'error': {
@@ -1602,6 +1693,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
           this.closeQuoteEvent(event.quoteRequestId);
           this.settleQuoteRefresh.call(set, event, shouldScheduleAutoRefresh);
+          void this.refreshQuotedTokenPrices.call(set, event);
           break;
         }
         case 'close': {
@@ -1610,6 +1702,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           set(swapQuoteFetchingAtom(), false);
           set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
           this.settleQuoteRefresh.call(set, event, shouldScheduleAutoRefresh);
+          void this.refreshQuotedTokenPrices.call(set, event);
           break;
         }
         default:
@@ -2727,6 +2820,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           ? get(swapSelectFromTokenAtom())
           : get(swapSelectToTokenAtom());
       const requestId = get(swapSelectTokenDetailRequestIdAtom())[type] + 1;
+      const priceRevision = get(swapSelectTokenPriceRevisionAtom())[type];
       // Replacing a refresh must not fall back to its previously cached balance.
       const shouldFetchBalance =
         fetchBalance || get(swapSelectTokenDetailFetchingAtom())[type];
@@ -2897,14 +2991,26 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 logoURI?: string;
                 currency?: string;
               } = {};
-              if (detailInfo[0].price) {
-                condition.price = detailInfo[0].price;
-              }
-              if (detailInfo[0].fiatValue) {
-                condition.fiatValue = detailInfo[0].fiatValue;
-              }
-              if (condition.price || condition.fiatValue) {
-                condition.currency = USD_CURRENCY_ID;
+              const newToken =
+                type === ESwapDirectionType.FROM
+                  ? get(swapSelectFromTokenAtom())
+                  : get(swapSelectToTokenAtom());
+              // A balance request may finish after a quote refreshed the price.
+              if (
+                get(swapSelectTokenPriceRevisionAtom())[type] ===
+                  priceRevision &&
+                newToken?.price === token.price &&
+                newToken?.currency === token.currency
+              ) {
+                if (detailInfo[0].price) {
+                  condition.price = detailInfo[0].price;
+                }
+                if (detailInfo[0].fiatValue) {
+                  condition.fiatValue = detailInfo[0].fiatValue;
+                }
+                if (condition.price || condition.fiatValue) {
+                  condition.currency = USD_CURRENCY_ID;
+                }
               }
               if (detailInfo[0].balanceParsed) {
                 condition.balanceParsed = detailInfo[0].balanceParsed;
@@ -2915,10 +3021,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               if (detailInfo[0].logoURI) {
                 condition.logoURI = detailInfo[0].logoURI;
               }
-              const newToken =
-                type === ESwapDirectionType.FROM
-                  ? get(swapSelectFromTokenAtom())
-                  : get(swapSelectToTokenAtom());
               if (
                 equalTokenNoCaseSensitive({
                   token1: newToken,

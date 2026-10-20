@@ -1,6 +1,12 @@
 import { useCallback, useMemo } from 'react';
 
-import { NumberSizeableText, SizableText, XStack } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  SizableText,
+  Stack,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -11,6 +17,10 @@ import {
   LeverageBadge,
   PerpDexBadge,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
+import {
+  TOKEN_SELECTOR_NAME_GAP,
+  TOKEN_SELECTOR_STAR_COLUMN_WIDTH,
+} from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/constants';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -32,6 +42,11 @@ import { MarketPerpsStarV2 } from '../../../Market/components/MarketStarV2';
 const shouldShowFavoriteButton =
   !platformEnv.isExtensionUiPopup && !platformEnv.isExtensionUiSidePanel;
 
+const STAR_GLYPH_SIZE = '$4';
+// The mobile selector rows pull their 24px star slot left by the 16px glyph's
+// 4px inset, so the glyph itself sits on the 20px gutter.
+const MOBILE_STAR_SLOT_GUTTER_OFFSET = -4;
+
 interface IUniversalSearchPerpItemProps {
   item: IUniversalSearchPerp;
   getSearchInput: () => string;
@@ -44,6 +59,7 @@ export function UniversalSearchPerpItem({
   source,
 }: IUniversalSearchPerpItemProps) {
   const [{ isMounted }] = useMarketWatchListV2Atom();
+  const { gtMd } = useMedia();
   const navigation = useAppNavigation();
   const universalSearchActions = useUniversalSearchActions();
   const { assetType, logoUrl, name, maxLeverage, midPx, subtitle } =
@@ -134,9 +150,22 @@ export function UniversalSearchPerpItem({
       jc="space-between"
       onPress={handlePress}
       renderAvatar={
-        <XStack alignItems="center" gap="$2">
+        // The star and its spacing match the Market selector rows in the
+        // stock and token sections, so this row's logo lines up with theirs.
+        <XStack alignItems="center" gap={TOKEN_SELECTOR_NAME_GAP}>
           {shouldShowFavoriteButton && isMounted ? (
-            <MarketPerpsStarV2 perpsCoin={coin} size="small" />
+            <Stack
+              width={TOKEN_SELECTOR_STAR_COLUMN_WIDTH}
+              ml={gtMd ? 0 : MOBILE_STAR_SLOT_GUTTER_OFFSET}
+              alignItems="center"
+              justifyContent="center"
+            >
+              <MarketPerpsStarV2
+                perpsCoin={coin}
+                size="small"
+                customIconSize={STAR_GLYPH_SIZE}
+              />
+            </Stack>
           ) : null}
           <Token
             size="lg"
