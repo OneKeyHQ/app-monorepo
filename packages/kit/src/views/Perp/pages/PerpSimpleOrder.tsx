@@ -285,10 +285,11 @@ function SimpleOrderContent() {
   const amountDecimals =
     inputUnit === 'token' ? (asset.universe?.szDecimals ?? 0) : 2;
   const leverage = assetData?.leverage.value ?? 0;
+  const sizingMarkPriceBN = new BigNumber(assetData?.markPx ?? 0);
   const maxSize = computeMaxTradeSize({
     side,
     price: orderPrice,
-    markPrice: assetCtx?.ctx?.markPrice,
+    markPrice: assetData?.markPx,
     maxTradeSzs: assetData?.maxTradeSzs,
     leverageValue: leverage,
     szDecimals: asset.universe?.szDecimals,
@@ -442,6 +443,8 @@ function SimpleOrderContent() {
     summary?.accountAddress?.toLowerCase() === accountAddress?.toLowerCase() &&
     !accountLoading.selectAccountLoading &&
     leverage > 0 &&
+    sizingMarkPriceBN.isFinite() &&
+    sizingMarkPriceBN.gt(0) &&
     Boolean(mode) &&
     Boolean(feeRate) &&
     midPriceBN.gt(0);

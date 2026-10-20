@@ -1,8 +1,16 @@
 /** @jest-environment jsdom */
 
-import { fireEvent, render, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  waitFor,
+} from '@testing-library/react';
 
 import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid';
+
+import { useTradeHistoryFilters } from '../../hooks/useTradeHistoryFilters';
 
 import { SimpleMarketPortfolio } from './SimpleMarketPortfolio';
 import { SimpleOrderSummary } from './SimpleOrderSummary';
@@ -14,6 +22,7 @@ import {
 import { SimpleTwapEntry } from './SimpleTwapEntry';
 
 let mockHideValue = false;
+let mockAccountAddress = 'account-a';
 let mockSubmitting = false;
 const mockSetSettings = jest.fn();
 const mockSetFilter = jest.fn();
@@ -93,12 +102,34 @@ jest.mock('@onekeyhq/kit/src/views/Market/components/PerpsBadges', () => ({
   ),
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  usePerpsActiveAccountAtom: () => [{ accountAddress: mockAccountAddress }],
   useSettingsValuePersistAtom: () => [{ hideValue: mockHideValue }],
   usePerpsCustomSettingsAtom: () => [
     { mobileTradingMode: 'simple' },
     mockSetSettings,
   ],
 }));
+
+it('preserves the requested history market across account resets and allows changing filters', () => {
+  const initialProps: { coin?: string } = { coin: 'xyz:TSLA' };
+  const { result, rerender } = renderHook(
+    ({ coin }: { coin?: string }) => useTradeHistoryFilters(coin),
+    { initialProps },
+  );
+  expect(result.current.filters).toEqual({
+    type: 'all',
+    side: 'all',
+    market: 'xyz:TSLA',
+  });
+  act(() => result.current.setFilters({ type: 'all', side: 'all' }));
+  expect(result.current.filters.market).toBeUndefined();
+  mockAccountAddress = 'account-b';
+  rerender({ coin: 'xyz:TSLA' });
+  expect(result.current.filters.market).toBe('xyz:TSLA');
+  rerender({ coin: undefined });
+  expect(result.current.filters.market).toBeUndefined();
+  mockAccountAddress = 'account-a';
+});
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
   default: () => ({}),
