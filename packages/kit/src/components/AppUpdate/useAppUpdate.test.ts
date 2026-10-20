@@ -2363,7 +2363,7 @@ describe('useDownloadPackage', () => {
           ).toHaveBeenCalledTimes(1);
           return;
         }
-        expect(nativeInstall).toHaveBeenCalledTimes(2);
+        expect(nativeInstall).toHaveBeenCalledTimes(1);
         expect(restart).toHaveBeenCalledTimes(1);
         if (method === 'installPackage') {
           expect(onSuccess).toHaveBeenCalledTimes(2);
@@ -2414,6 +2414,37 @@ describe('useDownloadPackage', () => {
 
       expect(bundleUpd.installBundle).toHaveBeenCalled();
       expect(appUpd.manualInstallPackage).not.toHaveBeenCalled();
+    });
+
+    test('missing JS bundle download event uses package recovery and releases the install lock', async () => {
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '24910529',
+        status: EAppUpdateStatus.ready,
+        updateStrategy: EUpdateStrategy.silent,
+      });
+      svc.getDownloadEvent.mockResolvedValueOnce(undefined);
+      svc.reconcileUpdatePackage.mockResolvedValue({
+        latestVersion: '1.0.0',
+        jsBundleVersion: '24910529',
+        status: EAppUpdateStatus.notify,
+      });
+      const { result } = renderHook(() => useDownloadPackage());
+
+      await act(async () => {
+        await result.current.manualInstallPackage();
+      });
+
+      expect(svc.reconcileUpdatePackage).toHaveBeenCalledWith();
+      expect(mockToastError).not.toHaveBeenCalled();
+      expect(svc.resetToInComplete).not.toHaveBeenCalled();
+      expect(bundleUpd.installBundle).not.toHaveBeenCalled();
+
+      svc.getDownloadEvent.mockResolvedValue({ downloadedFile: '/tmp/bundle.zip' });
+      await act(async () => {
+        await result.current.manualInstallPackage();
+      });
+      expect(bundleUpd.installBundle).toHaveBeenCalledTimes(1);
     });
 
     test('no downloadEvent → Toast + resetToInComplete', async () => {

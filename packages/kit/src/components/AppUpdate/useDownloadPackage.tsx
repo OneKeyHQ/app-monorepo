@@ -603,7 +603,7 @@ export const useDownloadPackage = () => {
       try {
         defaultLogger.app.appUpdate.startManualInstallPackage(params);
         if (!params) {
-          throw new OneKeyError('No download event found');
+          throw new OneKeyError('NOT_FOUND_PACKAGE');
         }
         if (fileType === EUpdateFileType.jsBundle) {
           await BundleUpdate.installBundle(params);

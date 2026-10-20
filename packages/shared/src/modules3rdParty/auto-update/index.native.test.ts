@@ -88,7 +88,7 @@ describe('native bundle install concurrency', () => {
     expect(restart).toHaveBeenCalledTimes(1);
   });
 
-  test('notifies only this runtime and releases the lock after delayed restart failure', async () => {
+  test('notifies only this runtime and retries only restart after delayed restart failure', async () => {
     const error = new Error('Restart failed');
     restart.mockRejectedValueOnce(error);
     const outcome = Promise.allSettled([
@@ -110,7 +110,7 @@ describe('native bundle install concurrency', () => {
     const retry = BundleUpdate.installBundle({});
     await jest.runAllTimersAsync();
     await retry;
-    expect(installBundle).toHaveBeenCalledTimes(2);
+    expect(installBundle).toHaveBeenCalledTimes(1);
     expect(restart).toHaveBeenCalledTimes(2);
   });
 });

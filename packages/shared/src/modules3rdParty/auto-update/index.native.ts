@@ -263,9 +263,11 @@ export const AppUpdate: IAppUpdate = {
 };
 
 let bundleInstallPromise: Promise<void> | undefined;
+let bundleRestartPromise: Promise<void> | undefined;
 
 export function resetBundleInstallLockForTest() {
   bundleInstallPromise = undefined;
+  bundleRestartPromise = undefined;
 }
 
 export const BundleUpdate: IBundleUpdate = {
@@ -315,31 +317,37 @@ export const BundleUpdate: IBundleUpdate = {
           bundleVersion: toNativeString(params?.bundleVersion),
           signature: toNativeString(params?.signature),
         });
-        defaultLogger.app.appUpdate.restartRNApp();
-        // Report installation before restarting: a successful all-runtime
-        // restart can terminate this runtime without resolving its Promise.
-        setTimeout(() => {
-          void appRestart({
-            mode: EAppRestartMode.All,
-            reason: 'ota.installBundle',
-          }).catch(() => {
-            bundleInstallPromise = undefined;
-            defaultLogger.app.appUpdate.log(
-              'BundleUpdate.installBundle: restart failed',
-            );
-            // Both locks belong to this runtime; do not broadcast a release.
-            appEventBus.emitToSelf({
-              type: EAppEventBusNames.BundleUpdateRestartFailed,
-              payload: undefined,
-            });
-          });
-        }, 2500);
       })().catch((error: unknown) => {
         bundleInstallPromise = undefined;
         throw error;
       });
     }
-    return bundleInstallPromise;
+    return bundleInstallPromise.then(() => {
+      if (!bundleRestartPromise) {
+        // Keep a successful installation cached even if restart fails: retrying
+        // installation would rewrite fallback history for the same bundle.
+        bundleRestartPromise = (async () => {
+          defaultLogger.app.appUpdate.restartRNApp();
+          await new Promise<void>((resolve) => {
+            setTimeout(resolve, 2500);
+          });
+          await appRestart({
+            mode: EAppRestartMode.All,
+            reason: 'ota.installBundle',
+          });
+        })().catch(() => {
+          bundleRestartPromise = undefined;
+          defaultLogger.app.appUpdate.log(
+            'BundleUpdate.installBundle: restart failed',
+          );
+          appEventBus.emitToSelf({
+            type: EAppEventBusNames.BundleUpdateRestartFailed,
+            payload: undefined,
+          });
+        });
+      }
+      // Do not await restart: it can terminate this runtime without resolving.
+    });
   },
   clearBundle: () => ReactNativeBundleUpdate.clearBundle(),
   clearDownload: () => ReactNativeBundleUpdate.clearDownload(),
