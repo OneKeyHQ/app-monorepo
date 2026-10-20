@@ -1,6 +1,6 @@
 const mockGet = jest.fn<
   Promise<{
-    headers: { date?: string; Date?: string; age?: string };
+    headers: { date?: string | number; Date?: string; age?: string };
     status?: number;
     request?: { responseURL: string };
   }>,
@@ -592,8 +592,16 @@ describe('hardware verification time', () => {
     },
   );
 
-  it.each([undefined, '', 'invalid', '0', 'Thu, 01 Jan 1970 00:00:00 GMT'])(
-    'rejects unavailable or invalid Date %s without a local fallback',
+  it.each([
+    undefined,
+    '',
+    'invalid',
+    '123',
+    123,
+    '0',
+    'Thu, 01 Jan 1970 00:00:00 GMT',
+  ])(
+    'returns no server time for unavailable or invalid Date %s',
     async (date) => {
       systemTimeUtils.updateServerTime({ serverTime: BASE_TIME });
       mockGet.mockResolvedValue({ status: 200, headers: { date } });

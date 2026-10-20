@@ -248,18 +248,21 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     if (oneKeyOperationLease?.signal?.aborted) {
       throw new UserCancelFromOutside();
     }
-    const timestamp = await systemTimeUtils.getHardwareVerificationTime();
-    if (timestamp === undefined) {
-      throw new OneKeyLocalError({
-        key: ETranslations.global_connet_error_try_again,
-      });
-    }
+    const serverTime = await systemTimeUtils
+      .getHardwareVerificationTime()
+      .catch(() => undefined);
     if (oneKeyOperationLease?.signal?.aborted) {
       throw new UserCancelFromOutside();
     }
+    if (serverTime === undefined) {
+      defaultLogger.hardware.sdkLog.log(
+        'Hardware verification server time unavailable; using local time',
+      );
+    }
     const { data, dataHex } = getFirmwareVerifyPayload({
       instanceId,
-      timestamp,
+      // The server still enforces expiry when local time is used as a fallback.
+      timestamp: serverTime ?? Date.now(),
     });
     const { cert, signature } = await this.getDeviceCertWithSig({
       connectId,
