@@ -18283,10 +18283,13 @@
     "packages/components/src/hocs/Provider/TamaguiProvider.tsx": 16887,
     "packages/components/src/hocs/Provider/fonts/GeistMono-Medium.ttf": 19020,
     "packages/components/src/hocs/Provider/fonts/GeistMono-Regular.ttf": 9430,
-    "packages/components/src/hocs/Provider/fonts/Roobert-Bold.ttf": 18353,
-    "packages/components/src/hocs/Provider/fonts/Roobert-Medium.ttf": 13925,
-    "packages/components/src/hocs/Provider/fonts/Roobert-Regular.ttf": 6611,
-    "packages/components/src/hocs/Provider/fonts/Roobert-SemiBold.ttf": 2670,
+    "packages/components/src/hocs/Provider/fonts/brand/BrandSans-Bold.ttf": 15412,
+    "packages/components/src/hocs/Provider/fonts/brand/BrandSans-Medium.ttf": 16047,
+    "packages/components/src/hocs/Provider/fonts/brand/BrandSans-Regular.ttf": 12494,
+    "packages/components/src/hocs/Provider/fonts/brand/BrandSans-SemiBold.ttf": 6046,
+    "packages/components/src/hocs/Provider/fonts/brand/manifest.ts": 23699,
+    "packages/components/src/hocs/Provider/fonts/brandFont.ts": 14100,
+    "packages/components/src/hocs/Provider/fonts/reportBrandFontFallback.ts": 15916,
     "packages/components/src/hocs/Provider/hooks/useAppearanceTheme/index.native.ts": 5203,
     "packages/components/src/hocs/Provider/hooks/useIsMounted.ts": 14274,
     "packages/components/src/hocs/Provider/hooks/useLoadCustomFonts.ts": 19074,
@@ -24075,6 +24078,7 @@
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketChartPriceUpdate.ts": 16639,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketDetailBackNavigation.ts": 7361,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketDetailDisplayData.ts": 13685,
+    "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketDetailPositionTab.ts": 13049,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketDetailWatchlistIdentity.ts": 12053,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketHolders.ts": 921,
     "packages/kit/src/views/Market/MarketDetailV2/hooks/useMarketHolders.utils.ts": 8392,
@@ -26898,7 +26902,12 @@
     "packages/shared/types/wallet.ts": 1105
   },
   "tombstones": {
+    "packages/components/src/hocs/Provider/fonts/Roobert-Bold.ttf": 18353,
+    "packages/components/src/hocs/Provider/fonts/Roobert-Medium.ttf": 13925,
+    "packages/components/src/hocs/Provider/fonts/Roobert-Regular.ttf": 6611,
+    "packages/components/src/hocs/Provider/fonts/Roobert-SemiBold.ttf": 2670,
     "packages/kit/src/views/Home/components/TokenListBlock/buildMergedAllNetworkSnapshot.ts": 7735,
+    "packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useMarketSwapPayTokens.ts": 4476,
     "packages/kit/src/views/Market/hooks/useRecommendListingResolution.ts": 2969
   }
 }

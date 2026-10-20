@@ -1,3 +1,4 @@
+// cspell:ignore tickmarks
 import formatChartPriceSource from './formatChartPriceSource';
 import { getLightweightChartsRuntimeScriptTag } from './lightweightChartsRuntime';
 
@@ -24,6 +25,17 @@ function getChartInitScript(): string {
   return `
       window.__onekeyFormatChartPrice = ${formatChartPriceSource};
       function getPriceFormatter(nextConfig) {
+        if (nextConfig.priceScaleFormat === 'full') {
+          return function(price) {
+            var formatChartPrice = window.__onekeyFormatChartPrice;
+            return formatChartPrice(
+              price,
+              nextConfig.compactPriceMaxCharacters || 10,
+              false,
+              'cents',
+            );
+          };
+        }
         if (nextConfig.priceScaleFormat === 'stock') {
           return function(price) {
             var formatChartPrice = window.__onekeyFormatChartPrice;
@@ -50,10 +62,39 @@ function getChartInitScript(): string {
           return pctPriceFormatter(price, nextConfig);
         };
       }
+      // Mirrors formatChartPriceFullTicks: whole-dollar steps drop the decimals
+      // on every tick, any fractional step keeps two on every tick.
+      function getTickPriceFormatter(nextConfig) {
+        if (nextConfig.priceScaleFormat !== 'full') return undefined;
+        return function(prices) {
+          var formatChartPrice = window.__onekeyFormatChartPrice;
+          var maxCharacters = nextConfig.compactPriceMaxCharacters || 10;
+          var values = prices.map(function(price) {
+            return Number.isFinite(price) ? Number(price.toPrecision(15)) : price;
+          });
+          var wholeDollarTicks =
+            values.some(function(value) { return Math.abs(value) >= 1; }) &&
+            values.every(function(value) {
+              return Number.isInteger(value) && Math.abs(value) < 1e6;
+            });
+          return values.map(function(value) {
+            return formatChartPrice(
+              value,
+              maxCharacters,
+              false,
+              wholeDollarTicks ? 'whole' : 'cents',
+            );
+          });
+        };
+      }
       // Without a base the axis never steps below 0.01, which leaves a
       // sub-cent token with a single $0 tick.
       function getCustomPriceFormat(nextConfig, priceFormatter) {
         var priceFormat = { type: 'custom', formatter: priceFormatter };
+        var tickmarksFormatter = getTickPriceFormatter(nextConfig);
+        if (tickmarksFormatter) {
+          priceFormat.tickmarksFormatter = tickmarksFormatter;
+        }
         if (Number.isFinite(nextConfig.priceFormatBase) && nextConfig.priceFormatBase > 0) {
           priceFormat.base = nextConfig.priceFormatBase;
         }
@@ -172,6 +213,7 @@ function getChartInitScript(): string {
         if (nextConfig.compactPriceMaxCharacters) {
           options.localization = {
             priceFormatter: getPriceFormatter(nextConfig),
+            tickmarksPriceFormatter: getTickPriceFormatter(nextConfig),
           };
         }
         return options;
