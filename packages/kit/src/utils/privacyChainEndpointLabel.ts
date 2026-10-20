@@ -3,10 +3,8 @@ import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   getPrivacyChainDisplayPools,
   getPrivacyChainTargetItem,
-  isLocalWalletDisplayedAddress,
 } from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
 import type {
-  IPrivacyChainAccountAddresses,
   IPrivacyChainDisplayPool,
   IPrivacyChainEndpointItem,
   IPrivacyChainShieldedEndpointLabel,
@@ -22,9 +20,6 @@ export type IPrivacyChainLocalWalletSettings = {
   hiddenEndpointLabelId?: ETranslations | ETranslationsMock;
   publicAddressPattern?: string;
   privateAddressPattern?: string;
-  // Receive's address forms; without a public one (Monero) Receive never shows
-  // the public address.
-  addressForms?: { publicLabel?: ETranslations; privateLabel?: ETranslations };
 };
 
 export type IPrivacyChainLocalWalletDisplay = Omit<
@@ -85,12 +80,10 @@ export type IPrivacyChainEndpointDisplay =
 export function resolvePrivacyChainEndpointDisplay({
   intl,
   localWallet,
-  addresses,
   item,
 }: {
   intl: IntlShape;
   localWallet?: IPrivacyChainLocalWalletDisplay;
-  addresses?: IPrivacyChainAccountAddresses | null;
   item: IPrivacyChainEndpointItem;
 }): IPrivacyChainEndpointDisplay {
   if (item.kind === 'address') return { address: item.address };
@@ -101,18 +94,9 @@ export function resolvePrivacyChainEndpointDisplay({
   });
   if (item.kind !== 'own') return { poolLabel };
   if (item.address) {
-    // An own address the data names is shown only when it is exactly one the
-    // Receive / token details pages display.
-    const displayed =
-      localWallet?.addressForms && !localWallet.addressForms.publicLabel
-        ? { privateAddress: addresses?.privateAddress }
-        : addresses;
-    return isLocalWalletDisplayedAddress({
-      addresses: displayed,
-      address: item.address,
-    })
-      ? { address: item.address, poolLabel, isOwn: true }
-      : { poolLabel, isOwn: true };
+    // The background leaves an own address on a row only when Receive / token
+    // details display exactly that string.
+    return { address: item.address, poolLabel, isOwn: true };
   }
   // No address in the data (e.g. a shielded spend): never fill one in.
   return { poolLabel, isOwn: true };
@@ -122,7 +106,6 @@ export function resolvePrivacyChainEndpointDisplay({
 export function resolvePrivacyChainTargetDisplay({
   intl,
   localWallet,
-  addresses,
   address,
   shielded,
   side,
@@ -130,12 +113,10 @@ export function resolvePrivacyChainTargetDisplay({
 }: {
   intl: IntlShape;
   localWallet: IPrivacyChainLocalWalletDisplay;
-  addresses?: IPrivacyChainAccountAddresses | null;
   address: string;
   shielded?: IDecodedTxShieldedEndpoint;
   side: 'from' | 'to';
-  // Addresses the row says are ours (collectPrivacyChainOwnAddresses); they
-  // must pass the displayed-address check too.
+  // Addresses the row says are ours (collectPrivacyChainOwnAddresses).
   ownAddresses: Set<string>;
 }): IPrivacyChainEndpointDisplay | undefined {
   const item = getPrivacyChainTargetItem({
@@ -148,20 +129,6 @@ export function resolvePrivacyChainTargetDisplay({
     ownAddresses,
   });
   return item
-    ? resolvePrivacyChainEndpointDisplay({ intl, localWallet, addresses, item })
+    ? resolvePrivacyChainEndpointDisplay({ intl, localWallet, item })
     : undefined;
-}
-
-// Whether a list row's target is this account's, so it needs the account's
-// displayed addresses to be checked against.
-export function isPrivacyChainOwnTarget({
-  address,
-  shielded,
-  ownAddresses,
-}: {
-  address: string;
-  shielded?: IDecodedTxShieldedEndpoint;
-  ownAddresses: Set<string>;
-}): boolean {
-  return !!shielded?.isOwn || (!!address && ownAddresses.has(address));
 }

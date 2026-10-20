@@ -28,6 +28,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { gateLocalWalletHistoryTx } from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
 import { getPrivacyChainBlocksLeft } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type {
@@ -69,6 +70,7 @@ import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
 import { loadCachedLocalWalletHistory } from '../../localWallet/cachedHistory';
+import { getLocalWalletHistoryAddressGate } from '../../localWallet/historyAddressGate';
 import { localWalletText } from '../../localWallet/messages';
 import { buildLocalWalletNativeTokenList } from '../../localWallet/tokenList';
 
@@ -939,6 +941,23 @@ export default class Vault extends VaultBase {
    * rows instead of sending the account's address to the server API.
    */
   override async fetchAccountHistoryFromLocal(params: {
+    accountId: string;
+    networkId: string;
+    accountAddress: string;
+    xpub?: string;
+  }): Promise<IAccountHistoryTx[] | undefined> {
+    const txs = await this.xmrBuildHistoryTxs(params);
+    if (!txs?.length) return txs;
+    // Cached rows too: pausing hides the primary address on Receive.
+    const gate = await getLocalWalletHistoryAddressGate({
+      backgroundApi: this.backgroundApi,
+      networkId: params.networkId,
+      accountId: params.accountId || this.accountId,
+    });
+    return txs.map((tx) => gateLocalWalletHistoryTx(gate, tx));
+  }
+
+  private async xmrBuildHistoryTxs(params: {
     accountId: string;
     networkId: string;
     accountAddress: string;

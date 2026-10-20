@@ -2,6 +2,10 @@ import { createIntl, createIntlCache } from 'react-intl';
 
 import { getTxActionTransferInfo } from '@onekeyhq/kit/src/components/TxAction/TxActionTransfer';
 import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import {
+  buildLocalWalletHistoryAddressGate,
+  gateLocalWalletHistoryTx,
+} from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import {
@@ -367,6 +371,36 @@ describe('Home native history financial display parity', () => {
 });
 
 describe('Home history shielded endpoints', () => {
+  // Rows reach Home after the background gate checked them against what
+  // Receive displays (`localWalletAddresses`).
+  const gatedRow = ({
+    localWalletAddresses,
+    ...params
+  }: Parameters<typeof buildHistoryActivityRow>[0] & {
+    localWalletAddresses?: { publicAddress?: string; privateAddress?: string };
+  }) => {
+    const settings = params.localWallet as
+      | (NonNullable<typeof params.localWallet> & {
+          addressForms?: { publicLabel?: string };
+        })
+      | undefined;
+    const gated = settings
+      ? gateLocalWalletHistoryTx(
+          buildLocalWalletHistoryAddressGate({
+            localWallet: {
+              ...settings,
+              addressForms:
+                'addressForms' in settings
+                  ? settings.addressForms
+                  : { publicLabel: 'transparent' },
+            },
+            addresses: localWalletAddresses,
+          }),
+          params.history,
+        )
+      : params.history;
+    return buildHistoryActivityRow({ ...params, history: gated });
+  };
   const T1 = `t1${'A'.repeat(33)}`;
   const U1 = `u1${'q'.repeat(90)}`;
   const localWallet = {
@@ -401,7 +435,7 @@ describe('Home history shielded endpoints', () => {
       side === 'to' ? [entry] : [],
       side === 'from' ? [entry] : [],
     );
-    return buildHistoryActivityRow({
+    return gatedRow({
       history: tx,
       tableLayout: false,
       isUTXO: false,
@@ -468,7 +502,7 @@ describe('Home history shielded endpoints', () => {
     const own = (addresses: { publicAddress?: string }) => {
       const tx = history([{ ...transfer('1'), from: T1, to: T1 }], []);
       tx.decodedTx.owner = T1;
-      return buildHistoryActivityRow({
+      return gatedRow({
         history: tx,
         tableLayout: false,
         isUTXO: false,
@@ -492,7 +526,7 @@ describe('Home history shielded endpoints', () => {
       [{ ...transfer('1'), from: '', to: change, isOwn: true }],
     );
     tx.decodedTx.owner = T1;
-    const result = buildHistoryActivityRow({
+    const result = gatedRow({
       history: tx,
       tableLayout: false,
       isUTXO: true,
@@ -524,7 +558,7 @@ describe('Home history shielded endpoints', () => {
       label: '',
     };
     const build = (settings?: typeof localWallet) =>
-      buildHistoryActivityRow({
+      gatedRow({
         history: tx,
         tableLayout: false,
         isUTXO: true,
@@ -569,7 +603,7 @@ describe('Home history shielded endpoints', () => {
         [],
       );
       tx.decodedTx.owner = primary;
-      return buildHistoryActivityRow({
+      return gatedRow({
         history: tx,
         tableLayout: false,
         isUTXO: false,
@@ -595,7 +629,7 @@ describe('Home history shielded endpoints', () => {
 
   it('keeps an ordinary address description unchanged', () => {
     const tx = history([transfer('1')], []);
-    const plain = buildHistoryActivityRow({
+    const plain = gatedRow({
       history: tx,
       tableLayout: false,
       isUTXO: true,
