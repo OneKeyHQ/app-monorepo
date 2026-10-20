@@ -30,6 +30,8 @@ import {
   INVITE_REWARD_SUBJECT_ICON,
   getInviteRewardRows,
 } from './getInviteRewardRows';
+import { REFERRAL_TAB_COPY } from '../referralTabCopy';
+
 import { InviteRewardAmount } from './InviteRewardAmount';
 import { useReferralCodeCard } from './ReferralCodeCard/hooks/useReferralCodeCard';
 import {
@@ -460,9 +462,7 @@ export function InviteRewardRows({
       // breakdown; the section title matches the app's other section titles.
       <YStack px="$pagePadding" pt="$10" gap="$3">
         <SizableText size="$headingLg">
-          {intl.formatMessage({
-            id: ETranslations.referral_earnings_by_product__title,
-          })}
+          {REFERRAL_TAB_COPY.commissionByProduct}
         </SizableText>
         {hasAnyData ? (
           <YStack>
@@ -510,9 +510,7 @@ export function InviteRewardRows({
   // is inset like the cards' text, so the page keeps one left edge.
   const compactTitle = (
     <SizableText size="$bodyMdMedium" color="$textSubdued" px="$4">
-      {intl.formatMessage({
-        id: ETranslations.referral_earnings_by_product__title,
-      })}
+      {REFERRAL_TAB_COPY.commissionByProduct}
     </SizableText>
   );
 

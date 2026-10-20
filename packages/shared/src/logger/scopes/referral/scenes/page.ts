@@ -169,6 +169,18 @@ export class PageScene extends BaseScene {
     return params;
   }
 
+  // How often people move between the invite and Perks tabs, and whether
+  // through the tabs or the cross-link at the end of each tab.
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public referralTabSwitched(params: {
+    from: string;
+    to: string;
+    source: 'tabs' | 'cross_link';
+  }) {
+    return params;
+  }
+
   @LogToServer()
   @LogToLocal({ level: 'info' })
   public inviteHomeShown(params: { hasEarnings: boolean }) {

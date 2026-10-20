@@ -28,6 +28,8 @@ import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import { CompactFieldRow } from '../../../components/CompactFieldRow';
 import { ReferFriendsTestIDs } from '../../../testIDs';
 
+import { REFERRAL_TAB_COPY } from '../referralTabCopy';
+
 import { CardTextAction } from './CardTextAction';
 import { getInviteEarningsState } from './getInviteEarningsState';
 import { InviteStatCell as StatCell } from './InviteStatCell';
@@ -402,9 +404,7 @@ export function InviteEarningsCard({
       id: ETranslations.referral_undistributed,
     }),
     distributed: intl.formatMessage({ id: ETranslations.referral_distributed }),
-    cumulative: intl.formatMessage({
-      id: ETranslations.referral_cumulative_rewards,
-    }),
+    cumulative: REFERRAL_TAB_COPY.commissionEarned,
     history: intl.formatMessage({
       id: ETranslations.referral_payout_history__title,
     }),

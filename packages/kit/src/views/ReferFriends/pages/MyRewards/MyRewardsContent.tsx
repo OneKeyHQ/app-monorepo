@@ -55,6 +55,9 @@ import {
   useInviteHomeCardStyle,
 } from '../InviteReward/components/useInviteCardStyle';
 
+import { ReferralTabCrossLink } from '../InviteReward/components/ReferralTabCrossLink';
+import { REFERRAL_TAB_COPY } from '../InviteReward/referralTabCopy';
+
 import {
   PerksCampaignBanner,
   usePerksBannerItems,
@@ -64,18 +67,19 @@ type IRewardModule = keyof IInviteeRewardsOverview;
 
 // Hardcoded English until i18n keys are added in Lokalise.
 const MY_REWARDS_COPY = {
-  addressScope: 'Rewards are counted per address',
+  addressScope: 'Rebates are counted per address',
   payoutTitle: 'Payout',
-  payoutGeneric: 'Rewards are paid to this address',
+  payoutGeneric: 'Rebates are paid to this address',
   payoutIn: (token: string, network?: string) =>
     network
       ? `Paid in ${token} on ${network} to this address`
       : `Paid in ${token} to this address`,
   rebatesReceived: 'Rebates received',
   noEvmAddress: 'No EVM address',
-  noWalletTitle: 'Connect a wallet to view rewards',
+  noWalletTitle: 'Connect a wallet to view rebates',
   unsupportedTitle: 'This account has no EVM address',
-  unsupportedDescription: 'Switch to an EVM account to view rewards',
+  unsupportedDescription: 'Switch to an EVM account to view rebates',
+  rebatesByProduct: 'Rebates by product',
   loadFailed: 'Unable to load',
   moreTokens: (count: number) => `+${count} more`,
 };
@@ -809,7 +813,12 @@ function useShowModuleDetail({
   );
 }
 
-export function MyRewardsContent() {
+export function MyRewardsContent({
+  onOpenInvite,
+}: {
+  // Absent where there is no invite tab to switch to.
+  onOpenInvite?: () => void;
+} = {}) {
   const intl = useIntl();
   const { md } = useMedia();
   const cardStyle = useInviteHomeCardStyle();
@@ -900,9 +909,7 @@ export function MyRewardsContent() {
   };
   const titleFor = (module: IRewardModule) =>
     intl.formatMessage({ id: MODULE_TITLE[module] });
-  const sectionTitle = intl.formatMessage({
-    id: ETranslations.referral_earnings_by_product__title,
-  });
+  const sectionTitle = MY_REWARDS_COPY.rebatesByProduct;
   const labels = {
     product: intl.formatMessage({ id: ETranslations.referral_product__title }),
     paid: intl.formatMessage({ id: ETranslations.referral_distributed }),
@@ -966,23 +973,40 @@ export function MyRewardsContent() {
     );
   };
 
+  const crossLink = onOpenInvite ? (
+    <ReferralTabCrossLink
+      testID="refer-friends-to-invite-link"
+      prompt={REFERRAL_TAB_COPY.toInvitePrompt}
+      action={REFERRAL_TAB_COPY.toInviteAction}
+      onPress={onOpenInvite}
+    />
+  ) : null;
+
   if (md) {
     // Compact: the campaign slides lead, then the address card scoping the
     // breakdown under a quiet caption inset like the cards' text.
     return (
-      <YStack px="$pagePadding" pt="$2" pb="$6" gap="$5">
-        <PerksCampaignBanner items={bannerItems} compact />
-        <RewardsAddressCard
-          address={walletAddress}
-          unsupported={isUnsupported}
-          payout={payout}
-        />
-        <YStack gap="$2">
-          <SizableText size="$bodyMdMedium" color="$textSubdued" px="$4">
-            {sectionTitle}
+      <YStack pt="$2" pb="$6">
+        <YStack px="$pagePadding" gap="$5">
+          {/* The tab names sit in the navigation bar here, so one line says
+            whose money this tab is about. */}
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {REFERRAL_TAB_COPY.perksIntro}
           </SizableText>
-          {renderBreakdown()}
+          <PerksCampaignBanner items={bannerItems} compact />
+          <RewardsAddressCard
+            address={walletAddress}
+            unsupported={isUnsupported}
+            payout={payout}
+          />
+          <YStack gap="$2">
+            <SizableText size="$bodyMdMedium" color="$textSubdued" px="$4">
+              {sectionTitle}
+            </SizableText>
+            {renderBreakdown()}
+          </YStack>
         </YStack>
+        {crossLink}
       </YStack>
     );
   }
@@ -1020,6 +1044,7 @@ export function MyRewardsContent() {
         <SizableText size="$headingLg">{sectionTitle}</SizableText>
         {renderBreakdown()}
       </YStack>
+      {crossLink}
     </YStack>
   );
 }

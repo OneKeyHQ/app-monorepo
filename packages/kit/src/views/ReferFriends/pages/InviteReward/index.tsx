@@ -49,6 +49,7 @@ import {
   IS_BENEFITS_TAB_ENABLED,
   resolveReferralPageTab,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralPageTab';
+import { REFERRAL_TAB_COPY } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralTabCopy';
 import {
   getInviteCodeStepImageHeight,
   getInviteCodeStepImageWidth,
@@ -403,11 +404,31 @@ function InviteRewardPage() {
   const isCompactHeader = platformEnv.isNative || md;
   const activeTab = resolveReferralPageTab(route.params?.tab);
   const isInviteTab = activeTab === EReferralPageTab.invite;
-  const setActiveTab = useCallback(
-    (tab: IReferralPageTab) => {
+  const switchTab = useCallback(
+    (tab: IReferralPageTab, source: 'tabs' | 'cross_link') => {
+      if (tab === activeTab) {
+        return;
+      }
+      defaultLogger.referral.page.referralTabSwitched({
+        from: activeTab,
+        to: tab,
+        source,
+      });
       navigation.setParams({ tab });
     },
-    [navigation],
+    [activeTab, navigation],
+  );
+  const setActiveTab = useCallback(
+    (tab: IReferralPageTab) => switchTab(tab, 'tabs'),
+    [switchTab],
+  );
+  const openPerks = useCallback(
+    () => switchTab(EReferralPageTab.benefits, 'cross_link'),
+    [switchTab],
+  );
+  const openInvite = useCallback(
+    () => switchTab(EReferralPageTab.invite, 'cross_link'),
+    [switchTab],
   );
 
   useFocusEffect(
@@ -573,10 +594,11 @@ function InviteRewardPage() {
                 summaryInfo={summaryInfo}
                 fetchSummaryInfo={fetchSummaryInfo}
                 levelDetail={levelDetail}
+                onOpenPerks={IS_BENEFITS_TAB_ENABLED ? openPerks : undefined}
               />
             </YStack>
           ) : null}
-          {isInviteTab ? null : <MyRewardsContent />}
+          {isInviteTab ? null : <MyRewardsContent onOpenInvite={openInvite} />}
         </Page.Container>
       </ScrollView>
     );
@@ -603,7 +625,21 @@ function InviteRewardPage() {
               gap="$3"
             >
               {IS_BENEFITS_TAB_ENABLED ? (
-                <ReferralJobTabs value={activeTab} onChange={setActiveTab} />
+                // One line beside the tabs says whose money each tab is
+                // about: commission you earn, or rebates you get.
+                <XStack ai="center" gap="$4" flexShrink={1} minWidth={0}>
+                  <ReferralJobTabs value={activeTab} onChange={setActiveTab} />
+                  <SizableText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    numberOfLines={1}
+                    flexShrink={1}
+                  >
+                    {isInviteTab
+                      ? REFERRAL_TAB_COPY.inviteIntro
+                      : REFERRAL_TAB_COPY.perksIntro}
+                  </SizableText>
+                </XStack>
               ) : (
                 <SizableText size="$headingXl">
                   {intl.formatMessage({
