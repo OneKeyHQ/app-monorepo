@@ -487,19 +487,14 @@ function InviteRewardPage() {
     await Promise.allSettled([fetchSummaryInfo(), refreshLevelDetail()]);
   }, [fetchSummaryInfo, refreshLevelDetail]);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  // Both tabs take the pull gesture so pull-down behaves the same everywhere
-  // on the sheet; the benefits tab gets its own data with the Benefits PR.
   const handleRefresh = useCallback(async () => {
-    if (!isInviteTab) {
-      return;
-    }
     setIsRefreshing(true);
     try {
       await refreshAll();
     } finally {
       setIsRefreshing(false);
     }
-  }, [isInviteTab, refreshAll]);
+  }, [refreshAll]);
 
   // Exposure fires on first load and on every return to the invite tab, not
   // on the one-minute summary polling.
@@ -562,7 +557,12 @@ function InviteRewardPage() {
     body = (
       <ScrollView
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+          isInviteTab ? (
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+            />
+          ) : undefined
         }
         onScroll={isCompactHeader ? handleScroll : undefined}
         scrollEventThrottle={16}

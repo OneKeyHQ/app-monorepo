@@ -17,6 +17,9 @@ let mockEarnAccountResult: {
   result?: { accountId: string; accountAddress: string } | null;
   isLoading: boolean;
 };
+let mockEarnAccountIdentity:
+  | { accountId?: string; indexedAccountId?: string }
+  | undefined;
 let mockOverviewResult: {
   result?: Record<
     'perps' | 'swap' | 'earn',
@@ -87,7 +90,25 @@ jest.mock('@onekeyhq/components', () => {
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   usePromiseResult: (_fn: unknown, deps: unknown[]) => {
     if (deps.length !== 1) {
-      return mockEarnAccountResult;
+      const raw = mockEarnAccountResult.isLoading
+        ? undefined
+        : mockEarnAccountResult.result;
+      return {
+        isLoading: mockEarnAccountResult.isLoading,
+        run: jest.fn(),
+        result:
+          raw === undefined
+            ? undefined
+            : {
+                accountId:
+                  mockEarnAccountIdentity?.accountId ??
+                  mockActiveAccount.account?.id,
+                indexedAccountId:
+                  mockEarnAccountIdentity?.indexedAccountId ??
+                  mockActiveAccount.indexedAccount?.id,
+                earnAccount: raw,
+              },
+      };
     }
     const address = mockEarnAccountResult.result?.accountAddress;
     return {
@@ -236,6 +257,7 @@ describe('MyRewardsContent', () => {
       account: { id: 'hd-1--account' },
       indexedAccount: { id: 'hd-1--0' },
     };
+    mockEarnAccountIdentity = undefined;
     mockEarnAccountResult = {
       result: { accountId: 'evm-account', accountAddress: '0xabc' },
       isLoading: false,
@@ -411,10 +433,21 @@ describe('MyRewardsContent', () => {
         earn: {
           status: 'success',
           data: {
-            distributed: [{ title: { text: '0.3976 USDC' } }],
+            distributed: [
+              {
+                title: { text: '0.3976 USDC' },
+                token: { symbol: 'USDC' },
+              },
+            ],
             undistributed: [
-              { title: { text: '0.02 USDC' } },
-              { title: { text: '0.01 USDC' } },
+              {
+                title: { text: '0.02 USDC' },
+                token: { symbol: 'USDC' },
+              },
+              {
+                title: { text: '0.01 USDC' },
+                token: { symbol: 'USDC' },
+              },
             ],
           },
         },
@@ -430,6 +463,123 @@ describe('MyRewardsContent', () => {
     expect(earn.querySelectorAll('[data-source-currency="usd"]')).toHaveLength(
       2,
     );
+  });
+
+  it('keeps a non-USDC Earn amount in token units and leaves the total unknown', () => {
+    const empty = {
+      totalBonus: '0',
+      undistributed: '0',
+      token: { symbol: 'USDC', logoURI: '' },
+      history: [],
+    };
+    mockOverviewResult = {
+      result: {
+        perps: { status: 'success', data: empty },
+        swap: { status: 'success', data: empty },
+        earn: {
+          status: 'success',
+          data: {
+            distributed: [
+              { title: { text: '0.5 ETH' }, token: { symbol: 'ETH' } },
+            ],
+            undistributed: [],
+          },
+        },
+      },
+      isLoading: false,
+    };
+    render(<MyRewardsContent />);
+    const earn = screen.getByTestId('my-rewards-module-earn');
+    expect(earn.textContent).toContain('0.5 ETH');
+    expect(earn.querySelectorAll('[data-source-currency="usd"]')).toHaveLength(
+      0,
+    );
+    expect(screen.getByTestId('my-rewards-summary-card').textContent).toContain(
+      '--',
+    );
+  });
+
+  it('does not add mixed Earn tokens together', () => {
+    const empty = {
+      totalBonus: '0',
+      undistributed: '0',
+      token: { symbol: 'USDC', logoURI: '' },
+      history: [],
+    };
+    mockOverviewResult = {
+      result: {
+        perps: { status: 'success', data: empty },
+        swap: { status: 'success', data: empty },
+        earn: {
+          status: 'success',
+          data: {
+            distributed: [
+              { title: { text: '0.02 USDC' }, token: { symbol: 'USDC' } },
+              { title: { text: '0.5 ETH' }, token: { symbol: 'ETH' } },
+            ],
+            undistributed: [],
+          },
+        },
+      },
+      isLoading: false,
+    };
+    render(<MyRewardsContent />);
+    const earn = screen.getByTestId('my-rewards-module-earn');
+    expect(earn.textContent).toContain('0.02 USDC');
+    expect(earn.textContent).toContain('referral_perks_more_tokens__desc');
+    expect(earn.querySelectorAll('[data-source-currency="usd"]')).toHaveLength(
+      0,
+    );
+    expect(screen.getByTestId('my-rewards-summary-card').textContent).toContain(
+      '--',
+    );
+  });
+
+  it('counts each address once when the wallet switches away and back', () => {
+    const { rerender } = render(<MyRewardsContent />);
+    expect(mockPerksHomeShown).toHaveBeenCalledTimes(1);
+
+    mockActiveAccount = {
+      account: { id: 'hd-2' },
+      indexedAccount: { id: 'hd-2--0' },
+    };
+    mockEarnAccountResult = {
+      result: { accountId: 'evm-2', accountAddress: '0xbbb' },
+      isLoading: false,
+    };
+    rerender(<MyRewardsContent />);
+    expect(mockPerksHomeShown).toHaveBeenCalledTimes(2);
+
+    mockActiveAccount = {
+      account: { id: 'hd-1--account' },
+      indexedAccount: { id: 'hd-1--0' },
+    };
+    mockEarnAccountResult = {
+      result: { accountId: 'evm-account', accountAddress: '0xabc' },
+      isLoading: false,
+    };
+    rerender(<MyRewardsContent />);
+    expect(mockPerksHomeShown).toHaveBeenCalledTimes(2);
+  });
+
+  it('hides the previous account while the next one is still resolving', () => {
+    const { rerender } = render(<MyRewardsContent />);
+    expect(screen.getByTestId('my-rewards-copy-address')).toBeTruthy();
+
+    mockActiveAccount = {
+      account: { id: 'hd-2' },
+      indexedAccount: { id: 'hd-2--0' },
+    };
+    mockEarnAccountIdentity = {
+      accountId: 'hd-1--account',
+      indexedAccountId: 'hd-1--0',
+    };
+    rerender(<MyRewardsContent />);
+    expect(screen.queryByTestId('my-rewards-copy-address')).toBeNull();
+    expect(
+      screen.getByTestId('my-rewards-module-perps').textContent,
+    ).not.toContain('4');
+    expect(mockPerksHomeShown).toHaveBeenCalledTimes(1);
   });
 
   it('falls back to the perks placeholder when no module has rewards', () => {

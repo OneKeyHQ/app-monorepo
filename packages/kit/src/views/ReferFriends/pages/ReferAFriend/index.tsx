@@ -139,7 +139,10 @@ function ReferAFriendPageWrapper() {
     params?: { tab?: IReferralPageTab; perksEntry?: IPerksOpenEntry };
   }>();
   const { md } = useMedia();
-  const { postConfig } = useReferAFriendData();
+  const { postConfig } = useReferAFriendData({
+    tab: route.params?.tab,
+    perksEntry: route.params?.perksEntry,
+  });
   const [phaseState, setPhaseState] = useState<EPhaseState>(EPhaseState.next);
   const activeTab = resolveReferralPageTab(route.params?.tab);
   const isInviteTab = activeTab === EReferralPageTab.invite;

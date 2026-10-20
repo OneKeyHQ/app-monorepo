@@ -134,6 +134,7 @@ export function useReplaceToReferFriends() {
       utmSource?: string;
       code?: string;
       tab?: IReferralPageTab;
+      perksEntry?: IPerksOpenEntry;
       /** Skip isLoggedIn check when caller already knows login state */
       isLoggedIn?: boolean;
     }) => {
@@ -243,7 +244,10 @@ export const useReferFriends = () => {
   );
 
   const toReferFriendsPage = useCallback(
-    async (params?: { tab?: IReferralPageTab; perksEntry?: IPerksOpenEntry }) => {
+    async (params?: {
+      tab?: IReferralPageTab;
+      perksEntry?: IPerksOpenEntry;
+    }) => {
       // ReferAFriend always redirects logged-in users to InviteReward, so route
       // them there directly to avoid flashing the intro poster first.
       const shouldShowInviteReward =

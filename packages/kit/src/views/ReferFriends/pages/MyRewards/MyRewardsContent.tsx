@@ -216,13 +216,23 @@ function readUsdAmount(text: string | undefined) {
   return amount.isFinite() ? amount : undefined;
 }
 
+function isUsdcSymbol(symbol: string | undefined) {
+  return symbol?.toUpperCase() === 'USDC';
+}
+
 function getEarnValue(
   items: IEarnSummaryV2['distributed'] | IEarnSummaryV2['undistributed'],
 ): IRewardValue | undefined {
   if (!items.length) {
     return undefined;
   }
-  const amounts = items.map((item) => readUsdAmount(item.title.text));
+  // Only USDC titles are USD. "0.5 ETH" must stay in token units, and mixed
+  // tokens must not be added together.
+  const amounts = items.map((item) =>
+    isUsdcSymbol(item.token?.symbol)
+      ? readUsdAmount(item.title.text)
+      : undefined,
+  );
   if (amounts.every((amount): amount is BigNumber => amount !== undefined)) {
     const total = amounts.reduce(
       (sum, amount) => sum.plus(amount),
@@ -232,7 +242,6 @@ function getEarnValue(
       ? { kind: 'amount', amount: total.toFixed() }
       : undefined;
   }
-  // A label that is not an amount stays as the server wrote it.
   return { kind: 'text', text: items[0].title, extraCount: items.length - 1 };
 }
 
@@ -1005,28 +1014,44 @@ function MyRewardsContentBody({
 
   // Perps, Swap and Earn rewards are all keyed by the account's EVM address
   // (Perps uses the master address, not the agent wallet).
-  const { result: earnAccount, isLoading: isResolvingAccount } =
-    usePromiseResult(
-      async () => {
-        if (!hasAccount) {
-          return null;
-        }
-        try {
-          const resolved =
-            await backgroundApiProxy.serviceStaking.getEarnAccount({
-              accountId: accountId ?? '',
-              indexedAccountId,
-              networkId: getNetworkIdsMap().eth,
-              btcOnlyTaproot: true,
-            });
-          return resolved?.accountAddress ? resolved : null;
-        } catch {
-          return null;
-        }
-      },
-      [accountId, hasAccount, indexedAccountId],
-      { watchLoading: true, undefinedResultIfReRun: true },
-    );
+  const { result: earnAccountResult } = usePromiseResult(
+    async () => {
+      if (!hasAccount) {
+        return null;
+      }
+      try {
+        const resolved = await backgroundApiProxy.serviceStaking.getEarnAccount(
+          {
+            accountId: accountId ?? '',
+            indexedAccountId,
+            networkId: getNetworkIdsMap().eth,
+            btcOnlyTaproot: true,
+          },
+        );
+        return {
+          accountId,
+          indexedAccountId,
+          earnAccount: resolved?.accountAddress ? resolved : null,
+        };
+      } catch {
+        return {
+          accountId,
+          indexedAccountId,
+          earnAccount: null,
+        };
+      }
+    },
+    [accountId, hasAccount, indexedAccountId],
+    { watchLoading: true, undefinedResultIfReRun: true },
+  );
+  // The previous account's result can still be in state on the first render
+  // after a switch. Treat that as loading, not as this account's address.
+  const earnAccount =
+    earnAccountResult &&
+    earnAccountResult.accountId === accountId &&
+    earnAccountResult.indexedAccountId === indexedAccountId
+      ? earnAccountResult.earnAccount
+      : undefined;
 
   const walletAddress = earnAccount?.accountAddress;
 
@@ -1041,11 +1066,9 @@ function MyRewardsContentBody({
       }
       const address = walletAddress;
       const overview =
-        await backgroundApiProxy.serviceReferralCode.getInviteeRewardsOverview(
-          {
-            walletAddress: address,
-          },
-        );
+        await backgroundApiProxy.serviceReferralCode.getInviteeRewardsOverview({
+          walletAddress: address,
+        });
       return { address, overview };
     },
     [walletAddress],
@@ -1065,16 +1088,15 @@ function MyRewardsContentBody({
   });
   const { items: bannerItems, isLoading: isBannerLoading } =
     usePerksBannerItems();
-  const perksHomeReportedRef = useRef<string | undefined>(undefined);
+  const perksHomeReportedRef = useRef(new Set<string>());
   useEffect(() => {
     // Saved accounts can arrive after the first paint. Reporting then would
     // lock the visit as no_wallet.
     if (accountReady === false) {
       return;
     }
-    const isResolving =
-      isResolvingAccount !== false && earnAccount === undefined;
-    const isUnsupported = Boolean(hasAccount) && !isResolving && !earnAccount;
+    const isResolving = hasAccount && earnAccount === undefined;
+    const isUnsupported = hasAccount && !isResolving && !earnAccount;
     let status: IPerksHomeStatus | undefined;
     if (!hasAccount) {
       status = 'no_wallet';
@@ -1087,13 +1109,13 @@ function MyRewardsContentBody({
     } else {
       status = getPerksHomeStatus(overview);
     }
-    // One event per visit and address. A retry that changes status does not
-    // count as another visit. The address is the dedupe key only.
+    // Remember every address in this visit. A→B→A must not count A twice.
+    // The address is the dedupe key only and is not sent.
     const reportKey = walletAddress ?? status;
-    if (perksHomeReportedRef.current === reportKey) {
+    if (perksHomeReportedRef.current.has(reportKey)) {
       return;
     }
-    perksHomeReportedRef.current = reportKey;
+    perksHomeReportedRef.current.add(reportKey);
     defaultLogger.referral.page.perksHomeShown({
       status,
       entry,
@@ -1104,7 +1126,6 @@ function MyRewardsContentBody({
     entry,
     hasAccount,
     isLoadingOverview,
-    isResolvingAccount,
     overview,
     walletAddress,
   ]);
@@ -1119,8 +1140,8 @@ function MyRewardsContentBody({
     );
   }
 
-  const isResolving = isResolvingAccount !== false && earnAccount === undefined;
-  const isUnsupported = !isResolving && !earnAccount;
+  const isResolving = hasAccount && earnAccount === undefined;
+  const isUnsupported = hasAccount && !isResolving && !earnAccount;
   const isLoading = isResolving || Boolean(isLoadingOverview || !overview);
   const payout = isLoading ? undefined : getPayoutToken(overview);
   const rows = MODULES.map((module) =>
