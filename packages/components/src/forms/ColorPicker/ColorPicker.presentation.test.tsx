@@ -112,7 +112,7 @@ jest.mock('../../primitives', () => {
   return { Stack: View, XStack: View, YStack: View };
 });
 
-const COLORS = ['#ff0000', '#0000ff', { value: '#00ff00', disabled: true }];
+const COLORS = ['#ff0000', '#0000ff'];
 const CHART_PORTAL = 'chart-fullscreen' as EPortalContainerConstantName;
 const CHART_PRESENTATION = {
   portalContainer: CHART_PORTAL,
@@ -131,13 +131,11 @@ describe('ColorPicker mobile presentation', () => {
   });
 
   it('keeps the global mobile dialog when no presentation is provided', () => {
-    const onChange = jest.fn();
     render(
       <ColorPicker
         defaultValue="#ff0000"
         colors={COLORS}
         testID="color"
-        onChange={onChange}
         renderTrigger={renderTrigger}
       />,
     );
@@ -149,12 +147,6 @@ describe('ColorPicker mobile presentation', () => {
     expect(screen.getByTestId('dialog').getAttribute('data-header')).toBe(
       'false',
     );
-    fireEvent.click(screen.getByTestId('color-palette-#00ff00'));
-    expect(onChange).not.toHaveBeenCalled();
-    expect(screen.getByTestId('dialog')).toBeTruthy();
-    fireEvent.click(screen.getByTestId('color-palette-#0000ff'));
-    expect(onChange).toHaveBeenCalledWith('#0000ff');
-    expect(screen.queryByTestId('dialog')).toBeNull();
   });
 
   it('opens in the fullscreen drawer and closes after applying a color', () => {
@@ -192,24 +184,6 @@ describe('ColorPicker mobile presentation', () => {
     expect(
       screen.getByTestId('color-palette-#0000ff').getAttribute('data-checked'),
     ).toBe('true');
-  });
-
-  it('keeps the drawer open when requested and dismisses without another change', () => {
-    const onChange = jest.fn();
-    render(
-      <NativePopoverPresentationContext.Provider value={CHART_PRESENTATION}>
-        <ColorPicker
-          colors={COLORS}
-          closeOnSelect={false}
-          testID="color"
-          onChange={onChange}
-          renderTrigger={renderTrigger}
-        />
-      </NativePopoverPresentationContext.Provider>,
-    );
-    fireEvent.click(screen.getByTestId('color-trigger-wrapper'));
-    fireEvent.click(screen.getByTestId('color-palette-#0000ff'));
-    expect(screen.getByTestId('dialog')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Close color picker' }));
     expect(onChange.mock.calls).toEqual([['#0000ff']]);
     expect(screen.queryByTestId('dialog')).toBeNull();

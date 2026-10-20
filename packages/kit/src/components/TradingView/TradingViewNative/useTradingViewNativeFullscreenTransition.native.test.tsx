@@ -73,10 +73,15 @@ describe('native fullscreen presentation transitions', () => {
       { initialProps: { isFullscreen: false } },
     );
     expect(result.current.onPresentationReady).toBeUndefined();
-    await act(async () => result.current.changeFullscreen(true));
+    await act(async () => {
+      result.current.changeFullscreen(true);
+      result.current.changeFullscreen(true);
+    });
+    expect(mockCaptureScreen).toHaveBeenCalledTimes(1);
     expect(result.current.onPresentationReady).toEqual(expect.any(Function));
     expect(onFullscreenChange).not.toHaveBeenCalled();
     paintCover();
+    expect(onFullscreenChange).toHaveBeenCalledTimes(1);
     expect(onFullscreenChange).toHaveBeenCalledWith(true);
     rerender({ isFullscreen: true });
     act(() =>
@@ -130,23 +135,6 @@ describe('native fullscreen presentation transitions', () => {
       jest.advanceTimersByTime(50);
     });
     expect(mockReleaseCapture).toHaveBeenCalledTimes(1);
-  });
-
-  it('coalesces repeated presses while a transition is pending', async () => {
-    const onFullscreenChange = jest.fn();
-    const { result } = renderHook(() =>
-      useTradingViewNativeFullscreenTransition({
-        isFullscreen: false,
-        onFullscreenChange,
-      }),
-    );
-    await act(async () => {
-      result.current.changeFullscreen(true);
-      result.current.changeFullscreen(true);
-    });
-    paintCover();
-    expect(mockCaptureScreen).toHaveBeenCalledTimes(1);
-    expect(onFullscreenChange).toHaveBeenCalledTimes(1);
   });
 
   it.each(['capture', 'image', 'timeout'])(

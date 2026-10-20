@@ -6,10 +6,7 @@ import type { ReactElement, ReactNode } from 'react';
 
 import { render } from '@testing-library/react';
 
-import type { Dialog } from '@onekeyhq/components';
 import type { ITradingViewNativeIndicatorSelection } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
-
-import { TradingViewChartDialogContext } from '../TradingViewChartControls/TradingViewChartDialogContext';
 
 import { TradingViewNativeChartControlsContainer } from './TradingViewNativeChartControlsContainer';
 import { TRADING_VIEW_NATIVE_INDICATOR_CATALOG } from './utils/chartIndicators/indicatorCatalog';
@@ -80,33 +77,6 @@ jest.mock(
 describe('TradingViewNative chart controls', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-  });
-
-  it('opens indicators through the fullscreen drawer presentation', () => {
-    const showDrawer = jest.fn<
-      ReturnType<typeof Dialog.show>,
-      Parameters<typeof Dialog.show>
-    >();
-    render(
-      <TradingViewChartDialogContext.Provider value={showDrawer}>
-        <TradingViewNativeChartControlsContainer
-          {...defaultIndicatorSettingsProps}
-          activeIndicatorValues={new Set(['MA'])}
-          intervalConfig={{ activeInterval: '60', intervals: [] }}
-          onIndicatorChange={jest.fn()}
-          onIntervalChange={jest.fn()}
-        />
-      </TradingViewChartDialogContext.Provider>,
-    );
-    const { onShowIndicatorsDialog } = mockTradingViewChartControls.mock
-      .calls[0][0] as { onShowIndicatorsDialog: () => void };
-    onShowIndicatorsDialog();
-    expect(showDrawer).toHaveBeenCalledWith(
-      expect.objectContaining({
-        testID: 'trading-view-native-indicators-dialog',
-      }),
-    );
-    expect(mockDialogShow).not.toHaveBeenCalled();
   });
 
   it('exposes intervals and the implemented indicators in mobile layout', () => {

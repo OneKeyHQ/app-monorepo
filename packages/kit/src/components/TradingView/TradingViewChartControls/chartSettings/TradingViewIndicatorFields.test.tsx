@@ -278,38 +278,6 @@ describe('TradingViewIndicatorLineRow', () => {
       screen.queryByTestId('trading-view-indicator-keypad-value'),
     ).toBeNull();
   });
-
-  it('discards a dismissed keypad draft and keeps an empty draft valid', () => {
-    const line = getFirstLine();
-    const handlePeriodChange = jest.fn();
-    render(
-      <TradingViewNativePresentationRotationContext.Provider value>
-        <TradingViewIndicatorLineRow
-          line={line}
-          onToggleLine={jest.fn()}
-          onPeriodChange={handlePeriodChange}
-          onStyleChange={jest.fn()}
-          onSecondaryStyleChange={jest.fn()}
-          onColorChange={jest.fn()}
-        />
-      </TradingViewNativePresentationRotationContext.Provider>,
-    );
-
-    const trigger = screen.getByTestId('trading-view-indicator-number-input');
-    fireEvent.click(trigger);
-    fireEvent.click(screen.getByTestId('keypad-6'));
-    fireEvent.click(screen.getByTestId('keypad-close'));
-    expect(handlePeriodChange).not.toHaveBeenCalled();
-    fireEvent.click(trigger);
-    expect(
-      screen.getByTestId('trading-view-indicator-keypad-value').textContent,
-    ).toBe(String(line.period));
-    fireEvent.click(screen.getByTestId('keypad-clear'));
-    fireEvent.click(
-      screen.getByTestId('trading-view-indicator-keypad-confirm'),
-    );
-    expect(handlePeriodChange).not.toHaveBeenCalled();
-  });
 });
 
 describe('rotated indicator band parameters', () => {
@@ -379,17 +347,24 @@ describe('rotated indicator band parameters', () => {
     expect(onChange).toHaveBeenCalledWith('band:lower', -0.6);
   });
 
-  it('discards a sign change on dismissal and rejects an incomplete sign', () => {
+  it('discards a dismissed draft and rejects empty or incomplete signed values', () => {
     const onChange = renderBand(-26);
     fireEvent.click(screen.getByTestId('trading-view-indicator-keypad-sign'));
     expect(
       screen.getByTestId('trading-view-indicator-keypad-value').textContent,
     ).toBe('26');
     fireEvent.click(screen.getByTestId('keypad-close'));
+    expect(onChange).not.toHaveBeenCalled();
     fireEvent.click(screen.getByTestId('trading-view-indicator-number-input'));
     expect(
       screen.getByTestId('trading-view-indicator-keypad-value').textContent,
     ).toBe('-26');
+    fireEvent.click(screen.getByTestId('keypad-clear'));
+    fireEvent.click(
+      screen.getByTestId('trading-view-indicator-keypad-confirm'),
+    );
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('trading-view-indicator-number-input'));
     fireEvent.click(screen.getByTestId('keypad-clear'));
     fireEvent.click(screen.getByTestId('trading-view-indicator-keypad-sign'));
     fireEvent.click(

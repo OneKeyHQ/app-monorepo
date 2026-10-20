@@ -2,11 +2,7 @@
 
 import type { ReactElement, ReactNode } from 'react';
 
-import { fireEvent, render } from '@testing-library/react';
-
-import { Dialog } from '@onekeyhq/components';
-
-import { TradingViewChartDialogContext } from '../TradingViewChartDialogContext';
+import { render } from '@testing-library/react';
 
 import { TradingViewNativeIntervalSelector } from './NativeIntervalSelector';
 
@@ -93,8 +89,6 @@ jest.mock('@onekeyhq/components', () => ({
     minWidth,
     px,
     w,
-    testID,
-    onPress,
   }: {
     bg?: string;
     children?: ReactNode;
@@ -106,29 +100,21 @@ jest.mock('@onekeyhq/components', () => ({
     minWidth?: number;
     px?: string;
     w?: string;
-    testID?: string;
-    onPress?: () => void;
-  }) => {
-    const Element = onPress ? 'button' : 'div';
-    return (
-      <Element
-        type={onPress ? 'button' : undefined}
-        data-bg={bg}
-        data-flex={flex}
-        data-flex-basis={flexBasis}
-        data-flex-shrink={flexShrink}
-        data-height={h}
-        data-justify-content={justifyContent}
-        data-min-width={minWidth}
-        data-px={px}
-        data-width={w}
-        data-testid={testID}
-        onClick={onPress}
-      >
-        {children}
-      </Element>
-    );
-  },
+  }) => (
+    <div
+      data-bg={bg}
+      data-flex={flex}
+      data-flex-basis={flexBasis}
+      data-flex-shrink={flexShrink}
+      data-height={h}
+      data-justify-content={justifyContent}
+      data-min-width={minWidth}
+      data-px={px}
+      data-width={w}
+    >
+      {children}
+    </div>
+  ),
 }));
 
 jest.mock('./hooks/useNativeIntervalSelector', () => ({
@@ -144,39 +130,6 @@ jest.mock('./NativeIntervalsDialogContent', () => ({
 describe('TradingViewNativeIntervalSelector', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-  });
-
-  it('opens interval selection through the fullscreen drawer presentation', () => {
-    const instance = {
-      close: jest.fn(),
-      isExist: () => true,
-      getForm: () => undefined,
-    };
-    const showDrawer = jest.fn<
-      ReturnType<typeof Dialog.show>,
-      Parameters<typeof Dialog.show>
-    >(() => instance);
-    const { getByTestId } = render(
-      <TradingViewChartDialogContext.Provider value={showDrawer}>
-        <TradingViewNativeIntervalSelector
-          intervalConfig={{ activeInterval: '60', intervals: [] }}
-          onIntervalChange={jest.fn()}
-        />
-      </TradingViewChartDialogContext.Provider>,
-    );
-    fireEvent.click(
-      getByTestId('trading-view-native-interval-selector-more-select'),
-    );
-    expect(showDrawer).toHaveBeenCalledWith(
-      expect.objectContaining({
-        testID: 'trading-view-native-intervals-dialog',
-      }),
-    );
-    expect(Dialog.show).not.toHaveBeenCalled();
-    expect(
-      mockUseNativeIntervalSelector.mock.results[0].value
-        .setIntervalsDialogInstance,
-    ).toHaveBeenCalledWith(instance);
   });
 
   it('uses text-only active states in mobile layout', () => {

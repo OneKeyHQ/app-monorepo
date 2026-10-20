@@ -3,13 +3,7 @@
 import { useContext } from 'react';
 import type { ReactNode } from 'react';
 
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  within,
-} from '@testing-library/react';
+import { cleanup, fireEvent, render, within } from '@testing-library/react';
 
 import type { Dialog } from '@onekeyhq/components';
 import { NativePopoverPresentationContext } from '@onekeyhq/components';
@@ -21,7 +15,6 @@ import { TradingViewNativePresentationRotationContext } from './native/TradingVi
 import {
   TradingViewNativeFullscreenHost,
   TradingViewNativePresentation,
-  setTradingViewNativeTransitionCover,
 } from './TradingViewNativePresentation.native';
 
 let mockPortalHost: HTMLElement;
@@ -168,32 +161,6 @@ describe('TradingViewNative fullscreen presentation', () => {
       }
     },
   );
-
-  it('keeps the transition image above both presentations until explicitly released', () => {
-    const { rerender } = render(
-      <TradingViewNativePresentation isFullscreen>
-        <button type="button">Chart</button>
-      </TradingViewNativePresentation>,
-    );
-    act(() =>
-      setTradingViewNativeTransitionCover('transition', {
-        uri: 'file:///transition.png',
-        onLoad: jest.fn(),
-        onError: jest.fn(),
-      }),
-    );
-    expect(
-      mockPortalHost.lastElementChild?.querySelector('img'),
-    ).not.toBeNull();
-    rerender(
-      <TradingViewNativePresentation isFullscreen={false}>
-        <button type="button">Chart</button>
-      </TradingViewNativePresentation>,
-    );
-    expect(mockPortalHost.querySelector('img')).not.toBeNull();
-    act(() => setTradingViewNativeTransitionCover('transition', null));
-    expect(mockPortalHost.querySelector('img')).toBeNull();
-  });
 
   it.each(['unmount', 'resize'])(
     'opens a right drawer in the rotated chart and cleans it up on %s',

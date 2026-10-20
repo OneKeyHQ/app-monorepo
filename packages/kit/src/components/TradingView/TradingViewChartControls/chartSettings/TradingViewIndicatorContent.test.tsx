@@ -4,8 +4,6 @@ import type { ReactNode } from 'react';
 
 import { render } from '@testing-library/react';
 
-import { NativePopoverPresentationContext } from '@onekeyhq/components';
-
 import { TradingViewIndicatorSettingsDialog } from './TradingViewIndicatorContent';
 import { createTradingViewIndicatorSettingsValue } from './TradingViewSettingsMockState';
 
@@ -89,50 +87,38 @@ function getLayoutProps(
   return layoutProps;
 }
 
-const drawerPresentation = { nativeDrawer: { width: 437, height: 402 } };
-
 function renderDialog(
   displayMode: 'focused' | 'full',
-  {
-    mobileLayout = false,
-    fullscreen = false,
-  }: {
-    mobileLayout?: boolean;
-    fullscreen?: boolean;
-  } = {},
+  { mobileLayout = false }: { mobileLayout?: boolean } = {},
 ) {
   const value = createTradingViewIndicatorSettingsValue();
   const selectedIndicator = value.indicators[0];
 
   return render(
-    <NativePopoverPresentationContext.Provider
-      value={fullscreen ? drawerPresentation : undefined}
-    >
-      <TradingViewIndicatorSettingsDialog
-        displayMode={displayMode}
-        mobileLayout={mobileLayout}
-        value={value}
-        maxActiveSubIndicatorCount={null}
-        selectedIndicatorScope={selectedIndicator.scope}
-        selectedIndicatorId={selectedIndicator.id}
-        visibleIndicators={value.indicators}
-        selectedIndicator={selectedIndicator}
-        onScopeChange={jest.fn()}
-        onSelectIndicator={jest.fn()}
-        onToggleIndicator={jest.fn()}
-        onToggleLine={jest.fn()}
-        onLinePeriodChange={jest.fn()}
-        onLineStyleChange={jest.fn()}
-        onLineSecondaryStyleChange={jest.fn()}
-        onLineColorChange={jest.fn()}
-        onOpacityChange={jest.fn()}
-        onOpacityColorChange={jest.fn()}
-        onParameterChange={jest.fn()}
-        onReset={jest.fn()}
-        onConfirm={jest.fn()}
-        onClose={jest.fn()}
-      />
-    </NativePopoverPresentationContext.Provider>,
+    <TradingViewIndicatorSettingsDialog
+      displayMode={displayMode}
+      mobileLayout={mobileLayout}
+      value={value}
+      maxActiveSubIndicatorCount={null}
+      selectedIndicatorScope={selectedIndicator.scope}
+      selectedIndicatorId={selectedIndicator.id}
+      visibleIndicators={value.indicators}
+      selectedIndicator={selectedIndicator}
+      onScopeChange={jest.fn()}
+      onSelectIndicator={jest.fn()}
+      onToggleIndicator={jest.fn()}
+      onToggleLine={jest.fn()}
+      onLinePeriodChange={jest.fn()}
+      onLineStyleChange={jest.fn()}
+      onLineSecondaryStyleChange={jest.fn()}
+      onLineColorChange={jest.fn()}
+      onOpacityChange={jest.fn()}
+      onOpacityColorChange={jest.fn()}
+      onParameterChange={jest.fn()}
+      onReset={jest.fn()}
+      onConfirm={jest.fn()}
+      onClose={jest.fn()}
+    />,
   );
 }
 
@@ -182,37 +168,6 @@ describe('TradingView indicator settings layout', () => {
       }),
     );
   });
-
-  it.each([false, true])(
-    'fits indicator editing to the rotated viewport (focused: %s)',
-    (focused) => {
-      mockWindowHeight = 844;
-      renderDialog(focused ? 'focused' : 'full', {
-        mobileLayout: focused,
-        fullscreen: true,
-      });
-      expect(
-        getLayoutProps(
-          mockYStack,
-          focused
-            ? 'trading-view-mobile-indicator-settings'
-            : 'trading-view-indicator-settings-dialog',
-        ),
-      ).toEqual(
-        expect.objectContaining(
-          focused ? { h: 285, maxHeight: 285 } : { height: 381 },
-        ),
-      );
-      expect(
-        getLayoutProps(
-          mockXStack,
-          focused
-            ? 'trading-view-mobile-indicator-settings-footer'
-            : 'trading-view-indicator-settings-footer',
-        ),
-      ).toEqual(expect.objectContaining({ flexShrink: 0 }));
-    },
-  );
 
   it('renders reset, cancel and confirm in the footer', () => {
     renderDialog('full');

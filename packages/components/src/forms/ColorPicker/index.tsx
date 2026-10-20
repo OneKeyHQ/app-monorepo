@@ -706,7 +706,6 @@ export function ColorPicker({
         }
       >
         <DialogContainer
-          title="Color"
           showHeader={!!presentation?.nativeDrawer}
           showFooter={false}
           nativeDrawer={presentation?.nativeDrawer}
