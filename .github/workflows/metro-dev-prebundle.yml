@@ -40,8 +40,13 @@ on:
       - 'development/env.js'
       - 'development/envExposedToClient.js'
       - 'development/platformEnvDefine.js'
+      - 'development/scripts/font-file-utils.js'
+      - 'development/scripts/fonts-sync.js'
       - 'package.json'
       - 'packages/components/colors/**'
+      - 'packages/components/src/hocs/Provider/fonts/fallback/**'
+      - 'packages/components/src/hocs/Provider/fonts/brand/manifest.ts'
+      - 'packages/components/src/hocs/Provider/fonts/brandFont.ts'
       - 'packages/components/src/utils/scale.ts'
       - 'packages/components/src/utils/webFontFamily.ts'
       - 'packages/components/tamagui.animations.ts'
@@ -66,6 +71,9 @@ concurrency:
 permissions: {}
 
 env:
+  # These prebundles are published as public GHCR packages, so they must never
+  # contain the licensed brand font: always build with the open-source fallback.
+  ONEKEY_FONTS_FORCE_FALLBACK: '1'
   OCI_ARTIFACT_TYPE: application/vnd.onekey.metro-dev-prebundle.v2
   OCI_REGISTRY: ghcr.io
   OCI_REPOSITORY: onekeyhq/metro-dev-prebundle
@@ -88,6 +96,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
 
       - name: Use Node.js 24
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
@@ -213,6 +222,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           lfs: true
+
 
       - name: Use Node.js 24
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0

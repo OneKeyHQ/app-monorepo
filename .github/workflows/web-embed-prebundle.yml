@@ -29,6 +29,9 @@ concurrency:
 permissions: {}
 
 env:
+  # These prebundles are published as public GHCR packages, so they must never
+  # contain the licensed brand font: always build with the open-source fallback.
+  ONEKEY_FONTS_FORCE_FALLBACK: '1'
   OCI_ARTIFACT_TYPE: application/vnd.onekey.web-embed-prebundle.v1
   OCI_REGISTRY: ghcr.io
   OCI_REPOSITORY: onekeyhq/web-embed-prebundle
@@ -93,6 +96,11 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: yarn install --immutable --mode=skip-build
 
+      # skip-build skips postinstall; the tag tracer reads the generated
+      # brand font manifest, so generate it (forced fallback, see env).
+      - name: Generate brand font slot
+        run: node development/scripts/fonts-sync.js
+
       - name: Verify OCI configuration
         run: |
           node <<'NODE'
@@ -154,6 +162,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           lfs: true
+
 
       - name: Use Node.js 24
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
