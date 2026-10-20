@@ -35,6 +35,17 @@ import serviceHardwareUtils from './serviceHardwareUtils';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IOneKeyHardwareOperationLease } from '../ServiceHardwareUI/HardwareProcessingManager';
 
+const mockHardwareVerificationTime = Date.UTC(2030, 0, 1);
+
+jest.mock('@onekeyhq/shared/src/utils/systemTimeUtils', () => ({
+  __esModule: true,
+  default: {
+    getHardwareVerificationTime: jest.fn(
+      async () => mockHardwareVerificationTime,
+    ),
+  },
+}));
+
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
   backgroundMethod:
@@ -558,7 +569,7 @@ describe('ServiceHardware wallet session compatibility', () => {
       expect(uuid).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu,
       );
-      expect(Number.isNaN(Number(timestamp))).toBe(false);
+      expect(Number(timestamp)).toBe(mockHardwareVerificationTime);
       expect(random).toMatch(/^[0-9A-Za-z]+$/);
       expect(random).toHaveLength(12);
       expect(deviceVerifyArg?.dataHex).toBe(
