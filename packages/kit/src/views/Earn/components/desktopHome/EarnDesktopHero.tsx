@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -8,14 +8,19 @@ import {
   Button,
   Icon,
   IconButton,
-  NumberSizeableText,
+  PROPORTIONAL_NUMS,
   Popover,
   SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  settingsValuePersistAtom,
+  useSettingsPersistAtom,
+  useSettingsValuePersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EarnTestIDs } from '../../testIDs';
@@ -30,6 +35,9 @@ const SHARE_COLORS = ['$lime11', '$blue11', '$orange11'] as const;
 const SECONDS_PER_DAY = 24 * 60 * 60;
 // Past this the value formatter abbreviates, and extra digits read as noise
 const TICKING_MAX_TOTAL = 1_000_000;
+// The wallet home's balance size, with the same line height
+const TOTAL_FONT_SIZE = 48;
+const TICKING_FONT_SIZE = 28;
 
 // The total keeps earning between refreshes: the five digits after the cents
 // advance at the 24h estimate's per-second rate.
@@ -78,6 +86,49 @@ function HeroButton({
     >
       {label}
     </Button>
+  );
+}
+
+function TotalValue({
+  value,
+  extraDigits,
+  currency,
+  isHidden,
+}: {
+  value: number;
+  extraDigits?: string;
+  currency: string;
+  isHidden: boolean;
+}) {
+  return (
+    // One text run, so the ticking digits sit on the total's baseline
+    <SizableText
+      numberOfLines={1}
+      fontSize={TOTAL_FONT_SIZE}
+      lineHeight={TOTAL_FONT_SIZE}
+    >
+      <NumberSizeableTextWrapper
+        hideValue
+        splitDecimal
+        fontSize={TOTAL_FONT_SIZE}
+        lineHeight={TOTAL_FONT_SIZE}
+        fontWeight={500}
+        fontVariant={PROPORTIONAL_NUMS}
+        formatter="value"
+        formatterOptions={{ currency }}
+      >
+        {String(value)}
+      </NumberSizeableTextWrapper>
+      {extraDigits && !isHidden ? (
+        <SizableText
+          fontSize={TICKING_FONT_SIZE}
+          fontWeight={500}
+          color="$textDisabled"
+        >
+          {extraDigits}
+        </SizableText>
+      ) : null}
+    </SizableText>
   );
 }
 
@@ -146,6 +197,14 @@ export function EarnDesktopHero({
   const total = new BigNumber(totalFiatValue).toNumber() || 0;
   const earnings = new BigNumber(earnings24h).toNumber() || 0;
   const { value, extraDigits } = useTickingTotal(total, earnings);
+  const [{ hideValue: isHidden }] = useSettingsValuePersistAtom();
+  const handleToggleHideValue = useCallback(async () => {
+    const current = await settingsValuePersistAtom.get();
+    await settingsValuePersistAtom.set({ hideValue: !current.hideValue });
+  }, []);
+  const label = intl.formatMessage({
+    id: ETranslations.earn_total_staked_value,
+  });
 
   return (
     <YStack
@@ -157,60 +216,63 @@ export function EarnDesktopHero({
       }
     >
       <YStack gap="$2">
+        {/* The eye hides and shows values the way pressing the wallet home
+            balance does */}
+        <XStack ai="center" gap="$1">
+          <SizableText size="$bodyLgMedium" color="$textSubdued">
+            {label}
+          </SizableText>
+          <YStack my="$-1">
+            <IconButton
+              testID="earn-desktop-hide-value"
+              variant="tertiary"
+              size="small"
+              icon={isHidden ? 'EyeOffOutline' : 'EyeOutline'}
+              onPress={handleToggleHideValue}
+            />
+          </YStack>
+        </XStack>
+        {/* As on the phone, the total and its chevron open Positions */}
         <XStack
           testID={EarnTestIDs.portfolioEntry}
           role="button"
           ai="center"
-          gap="$0.5"
+          gap="$1"
           alignSelf="flex-start"
+          pl="$1"
+          ml="$-1"
+          borderRadius="$3"
           cursor="pointer"
           userSelect="none"
-          hoverStyle={{ opacity: 0.8 }}
-          pressStyle={{ opacity: 0.6 }}
+          hoverStyle={{ bg: '$bgHover' }}
+          pressStyle={{ bg: '$bgActive' }}
           onPress={onOpenPortfolio}
         >
-          <SizableText size="$bodyLgMedium" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.earn_total_staked_value })}
-          </SizableText>
+          <TotalValue
+            value={value}
+            extraDigits={extraDigits}
+            currency={currency}
+            isHidden={isHidden}
+          />
           <Icon
             name="ChevronRightSmallOutline"
-            size="$5"
+            size="$8"
             color="$iconSubdued"
           />
         </XStack>
-        <XStack ai="flex-end" gap="$1">
-          <NumberSizeableText
-            size="$heading5xl"
-            fontWeight={600}
-            formatter="value"
-            formatterOptions={{ currency }}
-            numberOfLines={1}
-          >
-            {String(value)}
-          </NumberSizeableText>
-          {extraDigits ? (
-            <SizableText
-              size="$heading3xl"
-              fontWeight={500}
-              color="$textDisabled"
-              mb="$0.5"
-            >
-              {extraDigits}
-            </SizableText>
-          ) : null}
-        </XStack>
         <XStack ai="center" gap="$1.5">
-          <NumberSizeableText
+          <NumberSizeableTextWrapper
+            hideValue
             size="$bodyMdMedium"
             formatter="value"
             formatterOptions={{
               currency,
               showPlusMinusSigns: earnings !== 0,
             }}
-            color={getNumberColor(earnings24h)}
+            color={isHidden ? '$textSubdued' : getNumberColor(earnings24h)}
           >
             {earnings24h}
-          </NumberSizeableText>
+          </NumberSizeableTextWrapper>
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.earn_24h_earnings })}
           </SizableText>

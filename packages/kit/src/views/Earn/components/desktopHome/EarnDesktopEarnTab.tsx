@@ -7,7 +7,6 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   Icon,
-  NumberSizeableText,
   SearchBar,
   SizableText,
   Skeleton,
@@ -18,6 +17,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarGroup } from '@onekeyhq/kit/src/components/NetworkAvatar/NetworkAvatar';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -529,13 +529,14 @@ function TokenRow({
                 <SizableText size="$bodySm" color="$textSubdued">
                   {intl.formatMessage({ id: ETranslations.earn_deposited })}
                 </SizableText>
-                <NumberSizeableText
+                <NumberSizeableTextWrapper
+                  hideValue
                   size="$bodySmMedium"
                   formatter="value"
                   formatterOptions={{ currency: settings.currencyInfo.symbol }}
                 >
                   {row.depositedFiatValue}
-                </NumberSizeableText>
+                </NumberSizeableTextWrapper>
               </XStack>
             ) : null}
           </YStack>
@@ -551,9 +552,13 @@ function TokenRow({
         <Stack {...COLUMNS.balance}>
           {/* Nothing to deposit reads the same whether the balance is 0 or unknown */}
           {new BigNumber(row.balance ?? 0).gt(0) ? (
-            <NumberSizeableText size="$bodyLgMedium" formatter="balance">
+            <NumberSizeableTextWrapper
+              hideValue
+              size="$bodyLgMedium"
+              formatter="balance"
+            >
               {row.balance}
-            </NumberSizeableText>
+            </NumberSizeableTextWrapper>
           ) : (
             <SizableText size="$bodyLgMedium" color="$textDisabled">
               -

@@ -8,13 +8,13 @@ import {
   Badge,
   Button,
   Icon,
-  NumberSizeableText,
   SizableText,
   Skeleton,
   XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -134,14 +134,15 @@ function TileHead({ title, onPress }: { title: string; onPress?: () => void }) {
 function TileFiatValue({ value }: { value: number | string }) {
   const [settings] = useSettingsPersistAtom();
   return (
-    <NumberSizeableText
+    <NumberSizeableTextWrapper
+      hideValue
       size="$heading2xl"
       formatter="value"
       formatterOptions={{ currency: settings.currencyInfo.symbol }}
       numberOfLines={1}
     >
       {String(value)}
-    </NumberSizeableText>
+    </NumberSizeableTextWrapper>
   );
 }
 
@@ -218,21 +219,23 @@ function TileRow({
 
 function RowAmount({ amount, symbol }: { amount: string; symbol: string }) {
   return (
-    <NumberSizeableText
+    <NumberSizeableTextWrapper
+      hideValue
       size="$bodyMdMedium"
       formatter="balance"
       formatterOptions={{ tokenSymbol: symbol }}
       numberOfLines={1}
     >
       {amount}
-    </NumberSizeableText>
+    </NumberSizeableTextWrapper>
   );
 }
 
 function RowFiat({ value }: { value: string }) {
   const [settings] = useSettingsPersistAtom();
   return (
-    <NumberSizeableText
+    <NumberSizeableTextWrapper
+      hideValue
       size="$bodySm"
       color="$textSubdued"
       formatter="value"
@@ -240,7 +243,7 @@ function RowFiat({ value }: { value: string }) {
       numberOfLines={1}
     >
       {value}
-    </NumberSizeableText>
+    </NumberSizeableTextWrapper>
   );
 }
 
