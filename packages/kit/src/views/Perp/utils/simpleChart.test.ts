@@ -1,0 +1,53 @@
+import { getSimpleChartPoints, getSimpleChartRequest } from './simpleChart';
+
+describe('simple Perps chart data', () => {
+  it.each([
+    ['1H', '1m', 3600],
+    ['1D', '5m', 86_400],
+    ['1W', '1h', 7 * 86_400],
+    ['1M', '4h', 30 * 86_400],
+    ['1Y', '1d', 365 * 86_400],
+  ] as const)(
+    'requests the full %s window in seconds',
+    (range, interval, seconds) => {
+      const now = 1_800_000_000;
+      expect(getSimpleChartRequest(range, now)).toEqual({
+        interval,
+        intervalSeconds: expect.any(Number),
+        timeFrom: now - seconds,
+        timeTo: now,
+      });
+    },
+  );
+
+  it('requests all available daily history for All', () => {
+    expect(getSimpleChartRequest('All', 1_800_000_000)).toEqual({
+      interval: '1d',
+      intervalSeconds: 86_400,
+      timeFrom: 0,
+      timeTo: 1_800_000_000,
+    });
+  });
+
+  it('sorts and deduplicates prices while rejecting invalid and out-of-range candles', () => {
+    const candle = { o: 1, h: 3, l: 1, v: 1 };
+    expect(
+      getSimpleChartPoints({
+        timeFrom: 100,
+        timeTo: 400,
+        points: [
+          { ...candle, t: 300, c: 2 },
+          { ...candle, t: 100, c: 1 },
+          { ...candle, t: 300, c: 3 },
+          { ...candle, t: 50, c: 1 },
+          { ...candle, t: 401, c: 1 },
+          { ...candle, t: 200, c: Number.NaN },
+          { ...candle, t: 250, c: 0 },
+        ],
+      }),
+    ).toEqual([
+      [100, 1],
+      [300, 3],
+    ]);
+  });
+});
