@@ -14,6 +14,7 @@ import {
   fetchCompleteZcashBackendHistory,
   markZcashBackendShieldedCounterparty,
   normalizeZcashBackendHistoryTx,
+  restoreZcashLocalTransparentPayment,
 } from './backendHistory';
 
 function page(
@@ -406,26 +407,79 @@ describe('normalizeZcashBackendHistoryTx', () => {
     },
   );
 
-  it('keeps a payment to itself that this device signed', () => {
-    const input = {
+  const ownChange = {
+    type: EOnChainHistoryTransferType.Transfer,
+    from: 't1own',
+    to: 't1own',
+    amount: '0.4',
+    token: '',
+    key: 'zec--0_',
+    label: '',
+    isOwn: true,
+  };
+
+  // An xpub row from another device lists our change back to t1 as ours.
+  it('names the shielded counterparty when the row lists our change', () => {
+    const tx = normalizeZcashBackendHistoryTx({
       ...base,
       type: EOnChainHistoryTxType.Send,
       from: 't1own',
       to: 't1own',
+      value: '0.50015',
       sends: [],
-      receives: [
-        {
-          type: EOnChainHistoryTransferType.Transfer,
-          from: 't1own',
-          to: 't1own',
-          amount: '0.5',
-          token: '',
-          key: 'zec--0_',
-          label: '',
-          isOwn: true,
-        },
-      ],
+      receives: [ownChange],
+    });
+    expect(tx).toMatchObject({
+      to: '',
+      value: '0.50015',
+      shieldedCounterparty: 'to',
+    });
+    expect(tx.receives).toEqual([
+      ownChange,
+      expect.objectContaining({
+        type: EOnChainHistoryTransferType.Shielded,
+        amount: '0.50015',
+        isOwn: false,
+      }),
+    ]);
+  });
+
+  it('keeps a payment to itself that this device signed', () => {
+    const backendRow = {
+      ...base,
+      type: EOnChainHistoryTxType.Send,
+      from: 't1own',
+      to: 't1own',
+      value: '0.00015',
+      gasFee: '0.00015',
+      sends: [],
+      receives: [ownChange],
     };
-    expect(normalizeZcashBackendHistoryTx(input)).toBe(input);
+    const localTx = {
+      id: 'local',
+      isLocalCreated: true,
+      privacyChainHistorySide: 'public',
+      decodedTx: {
+        txid: base.tx,
+        networkId: 'zec--0',
+        owner: 't1own',
+        signer: 't1own',
+        encodedTx: {
+          zcashMode: 'transparent',
+          zcashTo: 't1own',
+          zcashAmountValue: '50000000',
+          fee: '15000',
+        },
+      },
+    } as unknown as IAccountHistoryTx;
+    const restored = restoreZcashLocalTransparentPayment({
+      tx: normalizeZcashBackendHistoryTx(backendRow),
+      localTx,
+    });
+    expect(normalizeZcashBackendHistoryTx(restored)).toBe(restored);
+    expect(restored).toMatchObject({ to: 't1own', value: '0.5' });
+    expect(restored.receives).toEqual([
+      expect.objectContaining({ to: 't1own', amount: '0.5', isOwn: true }),
+    ]);
   });
 });
