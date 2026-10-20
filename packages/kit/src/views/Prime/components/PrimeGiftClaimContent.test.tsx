@@ -7,7 +7,7 @@ import { IntlProvider } from 'react-intl';
 
 import enMessages from '@onekeyhq/shared/src/locale/json/en_US.json';
 
-import { PrimeGiftClaimContent } from './PrimeGiftViews';
+import { PrimeGiftClaimContent, PrimeGiftClaimView } from './PrimeGiftViews';
 
 const mockCopyText = jest.fn();
 const messages: Record<string, string> = enMessages;
@@ -36,11 +36,13 @@ jest.mock('@onekeyhq/components', () => {
       React.createElement('div', { 'data-testid': testID }, title, description),
     Button: ({
       children,
+      disabled,
       onPress,
       testID,
       'aria-expanded': ariaExpanded,
     }: {
       children?: ReactNode;
+      disabled?: boolean;
       onPress?: () => void;
       testID?: string;
       'aria-expanded'?: boolean;
@@ -49,7 +51,8 @@ jest.mock('@onekeyhq/components', () => {
         'button',
         {
           'data-testid': testID,
-          onClick: onPress,
+          disabled,
+          onClick: disabled ? undefined : onPress,
           type: 'button',
           'aria-expanded': ariaExpanded,
         },
@@ -198,5 +201,53 @@ describe('PrimeGiftClaimContent redemption code', () => {
       screen.getByTestId('prime-gift-view-code').getAttribute('aria-expanded'),
     ).toBe('false');
     expect(onViewCode).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('PrimeGiftClaimContent account logout', () => {
+  const claimProps = {
+    deviceModelName: 'OneKey Pro 2',
+    eligibilityStatus: 'Redemption code received',
+    isEligible: true,
+    isAccountReady: true,
+    accountName: 'ada@example.com',
+  };
+
+  it('logs out a signed-in account', () => {
+    const onLogout = jest.fn();
+    renderContent({ onLogout });
+    fireEvent.click(screen.getByTestId('prime-gift-logout'));
+    expect(onLogout).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('prime-gift-logout').textContent).toBe(
+      messages['prime.log_out'],
+    );
+  });
+
+  it('hides logout until an account is ready', () => {
+    renderContent({
+      onLogout: jest.fn(),
+      isAccountReady: false,
+      accountName: undefined,
+    });
+    expect(screen.queryByTestId('prime-gift-logout')).toBeNull();
+  });
+
+  it('keeps logout unavailable while the claim view is processing', () => {
+    const onLogout = jest.fn();
+    render(
+      <IntlProvider locale="en" messages={messages}>
+        <PrimeGiftClaimView
+          {...claimProps}
+          onLogout={onLogout}
+          primaryLabel="Claim"
+          isProcessing
+          onSubmit={() => undefined}
+        />
+      </IntlProvider>,
+    );
+    const logout = screen.getByTestId('prime-gift-logout');
+    expect((logout as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(logout);
+    expect(onLogout).not.toHaveBeenCalled();
   });
 });

@@ -51,16 +51,16 @@ export const ShareImageGenerator = memo(
       const prevContentKeyRef = useRef<string | null>(null);
       const lastBase64Ref = useRef<string | null>(null);
 
+      // the title logo is the only image whose presence or source varies
+      const imagesKey = data.titleLogo?.uri ?? '';
       const contentKey = [
         data.title,
         data.subtitle,
         data.networkName,
         data.address,
-        data.tokenLogoURI,
-        data.networkLogoURI,
+        imagesKey,
       ].join('\u0000');
 
-      const imagesKey = `${data.tokenLogoURI ?? ''}|${data.networkLogoURI ?? ''}`;
       if (
         imagesReadyDeferredRef.current === null ||
         prevImagesKeyRef.current !== imagesKey
@@ -114,10 +114,10 @@ export const ShareImageGenerator = memo(
               width: SHARE_CARD_CONFIG.width,
             }}
           >
-            {/* keyed remount: the renderer's load counter and reveal state
-                must reset in lockstep with the deferred above when the logo
-                URIs change, or a stale count resolves the new deferred before
-                the images actually rendered (OK-58189) */}
+            {/* keyed remount: the renderer's load counter and its title
+                logo reveal must reset in lockstep with the deferred above
+                when the title logo changes, or a stale count resolves the new
+                deferred before the image actually rendered (OK-58189) */}
             <ShareContentRenderer
               key={imagesKey}
               data={data}

@@ -42,11 +42,13 @@ export function TokenActivityOverview({
   pr,
   px = '$5',
   desktopRedesign = false,
+  summaryLayout = 'inline',
 }: {
   pl?: string;
   pr?: string;
   px?: string;
   desktopRedesign?: boolean;
+  summaryLayout?: 'inline' | 'stacked';
 }) {
   const intl = useIntl();
   const [selectedTimeRange, setSelectedTimeRange] = useState('1h');
@@ -101,6 +103,7 @@ export function TokenActivityOverview({
         sellVolume={sellVolume}
         totalVolume={totalVolume}
         isLoading={needShowLoading}
+        stacked={summaryLayout === 'stacked'}
       />
     ) : (
       <>

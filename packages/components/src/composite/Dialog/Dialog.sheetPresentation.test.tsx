@@ -7,7 +7,7 @@ import type { ReactNode } from 'react';
 
 import { Dialog, DialogContainer } from '.';
 
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import {
   AndroidSoftInputModes,
   KeyboardController,
@@ -96,12 +96,40 @@ jest.mock('./OverlayDialogPresentation', () => ({
     children,
     open,
     isSheet,
+    cardProps,
+    dismissOnOverlayPress,
+    dismissOnBackPress,
+    onRequestClose,
   }: {
     children?: ReactNode;
     open: boolean;
     isSheet: boolean;
+    cardProps?: { maxWidth?: string };
+    dismissOnOverlayPress: boolean;
+    dismissOnBackPress: boolean;
+    onRequestClose: () => void;
   }) => (
-    <div data-testid="overlay-dialog" data-sheet={isSheet ? 'true' : 'false'}>
+    <div
+      data-testid="overlay-dialog"
+      data-sheet={isSheet ? 'true' : 'false'}
+      data-max-width={cardProps?.maxWidth}
+    >
+      <button
+        type="button"
+        data-testid="overlay-backdrop"
+        disabled={!dismissOnOverlayPress}
+        onClick={onRequestClose}
+      >
+        Backdrop
+      </button>
+      <button
+        type="button"
+        data-testid="overlay-back"
+        disabled={!dismissOnBackPress}
+        onClick={onRequestClose}
+      >
+        Back
+      </button>
       {open ? children : null}
     </div>
   ),
@@ -116,7 +144,11 @@ jest.mock('react-intl', () => ({
 }));
 jest.mock('react-native-reanimated', () => ({
   __esModule: true,
-  default: { View: ({ children }: { children?: ReactNode }) => children },
+  default: {
+    View: ({ children, style }: { children?: ReactNode; style?: unknown }) => (
+      <div data-animated-style={style ? 'applied' : 'none'}>{children}</div>
+    ),
+  },
   useSharedValue: (value: number) => ({ value }),
   useAnimatedStyle: () => ({}),
 }));
@@ -188,8 +220,24 @@ jest.mock('../../layouts/Page/PageContext', () => ({
 jest.mock('../../primitives', () => ({
   SizableText: () => null,
   Spinner: () => null,
-  Stack: ({ children, testID }: { children?: ReactNode; testID?: string }) => (
-    <div data-testid={testID}>{children}</div>
+  Stack: ({
+    children,
+    testID,
+    paddingTop,
+    paddingBottom,
+  }: {
+    children?: ReactNode;
+    testID?: string;
+    paddingTop?: number;
+    paddingBottom?: number;
+  }) => (
+    <div
+      data-testid={testID}
+      data-padding-top={paddingTop}
+      data-padding-bottom={paddingBottom}
+    >
+      {children}
+    </div>
   ),
 }));
 jest.mock('./Content', () => ({
@@ -210,11 +258,18 @@ jest.mock('./Header', () => {
         data-hide-close={hideCloseButton ? 'true' : 'false'}
       />
     ),
-    DialogHeaderCloseButton: ({ testID }: { testID?: string }) => (
+    DialogHeaderCloseButton: ({
+      testID,
+      onClose,
+    }: {
+      testID?: string;
+      onClose?: () => void;
+    }) => (
       <button
         type="button"
         aria-label="Close"
         data-testid={testID || 'dialog-header-close'}
+        onClick={onClose}
       >
         Close
       </button>
@@ -279,6 +334,160 @@ describe('Dialog sheet scroll view presentation', () => {
     ).toBe('true');
     expect(screen.getByTestId('plain-scroll-view')).toBeTruthy();
     expect(screen.queryByTestId('sheet-scroll-view')).toBeNull();
+  });
+});
+
+describe('Dialog native centered opt-in', () => {
+  it.each([
+    ['iOS', false, 450],
+    ['Android', true, 416],
+  ] as const)(
+    'centers without sheet chrome and bounds scroll content for the keyboard on %s',
+    (_name, isAndroid, expectedMaxHeight) => {
+      platformEnv.isNativeAndroid = isAndroid;
+      platformEnv.isNativeIOS = !isAndroid;
+      render(
+        <DialogContainer
+          {...boundedDialogProps}
+          boundedSheetLayout={false}
+          nativeCentered
+          sheetDragArea="header"
+        />,
+      );
+
+      expect(
+        screen.getByTestId('overlay-dialog').getAttribute('data-sheet'),
+      ).toBe('false');
+      expect(screen.queryByTestId('phone-sheet')).toBeNull();
+      expect(screen.queryByTestId('native-sheet-presentation')).toBeNull();
+      expect(screen.queryByTestId('header-drag-zone')).toBeNull();
+      expect(screen.queryByTestId('sheet-grabber')).toBeNull();
+      expect(screen.getByTestId('dialog-bounded-close')).toBeTruthy();
+      const content = screen.getByTestId('overlay-dialog');
+      const scroll = screen.getByTestId('dialog-bounded-scroll');
+      expect(scroll.getAttribute('data-scroll-kind')).toBe('plain');
+      expect(scroll.getAttribute('data-height')).toBe('');
+      expect(content.getAttribute('data-max-width')).toBe('90%');
+
+      expect(
+        content
+          .querySelector('[data-animated-style]')
+          ?.getAttribute('data-animated-style'),
+      ).toBe('none');
+      expect(scroll.getAttribute('data-max-height')).toBe('750');
+      const keyboardHandlers = jest
+        .mocked(useKeyboardEventWithoutNavigation)
+        .mock.calls.at(-1)?.[0];
+
+      act(() => {
+        keyboardHandlers?.keyboardWillShow?.({
+          endCoordinates: { height: 300 },
+        } as KeyboardEvent);
+      });
+
+      expect(scroll.getAttribute('data-max-height')).toBe(
+        String(expectedMaxHeight),
+      );
+      expect(
+        content
+          .querySelector('[data-animated-style]')
+          ?.getAttribute('data-animated-style'),
+      ).toBe('none');
+
+      act(() => {
+        keyboardHandlers?.keyboardWillHide?.({
+          endCoordinates: { height: 0 },
+        } as KeyboardEvent);
+      });
+
+      expect(scroll.getAttribute('data-max-height')).toBe('750');
+    },
+  );
+
+  it('keeps equal safe-area clearance when the bottom inset is larger in landscape', () => {
+    mockSafeAreaInsets.current = { top: 0, bottom: 34, left: 47, right: 47 };
+    mockWindowDimensions.current = {
+      height: 390,
+      width: 844,
+      scale: 1,
+      fontScale: 1,
+    };
+    render(<DialogContainer {...boundedDialogProps} nativeCentered />);
+
+    expect(
+      screen.getByTestId('overlay-dialog').getAttribute('data-sheet'),
+    ).toBe('false');
+    expect(
+      screen
+        .getByTestId('dialog-bounded-scroll')
+        .getAttribute('data-max-height'),
+    ).toBe('322');
+  });
+
+  it('keeps a web phone sheet when only nativeCentered is enabled', () => {
+    platformEnv.isNative = false;
+    platformEnv.isNativeIOS = false;
+    render(<DialogContainer {...dialogProps} nativeCentered />);
+
+    expect(
+      screen.getByTestId('overlay-dialog').getAttribute('data-sheet'),
+    ).toBe('true');
+    expect(screen.queryByTestId('floating-dialog')).toBeNull();
+    expect(screen.queryByTestId('dialog-bounded-scroll')).toBeNull();
+  });
+
+  it('keeps the header close available when backdrop and system dismissal are disabled', async () => {
+    platformEnv.isNativeAndroid = true;
+    platformEnv.isNativeIOS = false;
+    const onClose = jest.fn().mockResolvedValue(undefined);
+    render(
+      <DialogContainer
+        {...boundedDialogProps}
+        nativeCentered
+        onClose={onClose}
+        dismissOnOverlayPress={false}
+        disableSystemClose
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('overlay-backdrop'));
+      fireEvent.click(screen.getByTestId('overlay-back'));
+    });
+    expect(onClose).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('dialog-bounded-close'));
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('honors the close guard for backdrop and Android back dismissal', async () => {
+    platformEnv.isNativeAndroid = true;
+    platformEnv.isNativeIOS = false;
+    const onClose = jest.fn().mockResolvedValue(undefined);
+    const onBeforeClose = jest.fn().mockResolvedValue(false);
+    render(
+      <DialogContainer
+        {...boundedDialogProps}
+        nativeCentered
+        onClose={onClose}
+        onBeforeClose={onBeforeClose}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('overlay-backdrop'));
+    });
+    expect(onBeforeClose).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+
+    onBeforeClose.mockResolvedValue(true);
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('overlay-back'));
+    });
+    expect(onBeforeClose).toHaveBeenCalledTimes(2);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
 

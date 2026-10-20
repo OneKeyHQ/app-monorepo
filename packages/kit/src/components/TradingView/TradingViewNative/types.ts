@@ -12,8 +12,9 @@ export type { ITradingViewNativeChartType } from '@onekeyhq/shared/types/trading
 
 export type ITradingViewNativeHyperliquidEnvironment = 'mainnet' | 'testnet';
 export type ITradingViewNativeChartDisplayMode = 'default' | 'compact';
-export type ITradingViewNativeStorageNamespace = 'market' | 'swap';
+export type ITradingViewNativeStorageNamespace = 'market' | 'perps' | 'swap';
 export type ITradingViewNativePriceScaleMode = 'linear' | 'logarithmic';
+export type ITradingViewNativeCandleTimeMode = 'calendar' | 'fixed';
 
 export interface ITradingViewNativeCandleLabels {
   close: string;
@@ -72,7 +73,10 @@ export interface ITradingViewNativeIntervalChangeData {
   toInterval: ITradingViewNativeChartInterval;
 }
 
-export type ITradingViewNativeInitialRightOffset =
+export type ITradingViewNativeInitialRightOffset = {
+  // Keep padding and pan limits stable when a sidebar changes the visible width.
+  referenceWidth?: number;
+} & (
   | {
       type: 'chartWidthPercentage';
       value: number;
@@ -80,7 +84,8 @@ export type ITradingViewNativeInitialRightOffset =
   | {
       type: 'pointCount';
       value: number;
-    };
+    }
+);
 
 export interface ITradingViewNativePriceChartAnchor {
   type: 'price';
@@ -93,9 +98,25 @@ export interface ITradingViewNativeReferenceLineComponent {
   props: {
     anchor: ITradingViewNativePriceChartAnchor;
     color: string;
-    interactive: false;
-    style: ITradingViewNativeChartLineStyle;
+    interactive: boolean;
+    cancelable?: boolean;
+    draggable?: boolean;
+    pending?: ITradingViewNativeReferenceLineAction['type'];
+    style: ITradingViewNativeChartLineStyle | 'dotted';
     title: string;
+    /** Opt into an outlined label with an optional quantity segment. */
+    label?: {
+      variant?: 'order';
+      /** Offset from the chart's left edge; numbers are pixels. */
+      offset: number | { type: 'chartWidthPercentage'; value: number };
+      backgroundColor: string;
+      color: string;
+      quantity?: {
+        text: string;
+        backgroundColor: string;
+        color: string;
+      };
+    };
   };
 }
 
@@ -104,6 +125,11 @@ export interface ITradingViewNativeChartComponentGroup {
   type: 'group';
   children: readonly ITradingViewNativeChartComponentNode[];
 }
+
+export type ITradingViewNativeReferenceLineAction = {
+  id: string;
+  originalPrice: number;
+} & ({ type: 'cancel' } | { type: 'priceChange'; price: number });
 
 export interface ITradingViewNativeTradeMark {
   id: string;
@@ -137,19 +163,21 @@ export interface ITradingViewNativeAccountMarksContext {
 export interface ITradingViewNativeProps {
   testID?: string;
   source: ITradingViewNativeSource;
+  priceDecimalPlaces?: number;
+  onPriceSelect?: (selection: ITradingViewNativePriceSelection) => void;
+  priceSelectionLabel?: string;
+  onInteractionChange?: (isInteracting: boolean) => void;
+  useFullscreenOverlay?: boolean;
   storageNamespace?: ITradingViewNativeStorageNamespace;
-  enableMultiChart?: boolean;
   /** Opt-in for drawing tools on full Market charts across all platforms. */
   enableDrawings?: boolean;
-  /** Stable workspace panel identity; omitted for the original chart. */
-  panelId?: string;
-  onNativeMultiChartCountChange?: (count: number) => void;
-  onNativeMultiChartResizingChange?: (isResizing: boolean) => void;
-  /** The workspace owns fullscreen presentation for all its panels. */
-  isPresentationManaged?: boolean;
-  onPresentationContentChange?: (content: ReactNode) => void;
+  /** Let the enclosing page claim vertical drags on an embedded native chart. */
+  prioritizePageScroll?: boolean;
   forcedChartType?: ITradingViewNativeChartType;
   chartComponents?: readonly ITradingViewNativeChartComponentNode[];
+  onReferenceLineAction?: (
+    action: ITradingViewNativeReferenceLineAction,
+  ) => Promise<void>;
   accountMarksContext?: ITradingViewNativeAccountMarksContext;
   /**
    * Opt-in for stock detail charts, which can anchor the Prev close line on the
@@ -161,12 +189,13 @@ export interface ITradingViewNativeProps {
   previousClose?: number;
   enableNativeChartSettings?: boolean;
   nativeChartSettingsInToolbar?: boolean;
+  /** Extra controls rendered in the mobile toolbar, to the left of settings. */
+  mobileToolbarExtra?: ReactNode;
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
   nativeChartDisplayMode?: ITradingViewNativeChartDisplayMode;
   /** Limits new selections without hiding sub-indicators that are already active. */
   maxSelectableSubIndicatorCount?: number;
   nativeControlsLayoutMode?: 'mobile' | 'desktop';
-  nativeChartWorkspaceControls?: ReactNode;
   /**
    * Drops the desktop controls row's own horizontal inset so its first control
    * lines up with the leading edge of the plot below it. For assemblies that
@@ -188,4 +217,11 @@ export interface ITradingViewNativeProps {
   ) => void;
   onNativeChartFullscreenChange?: (isFullscreen: boolean) => void;
   onPriceUpdate?: (data: ITradingViewNativePriceUpdateData) => void;
+}
+
+export interface ITradingViewNativePriceSelection {
+  price: number;
+  screenX: number;
+  screenY: number;
+  onClose?: () => void;
 }

@@ -73,7 +73,6 @@ import type { FuseResult } from 'fuse.js';
 // Supported hardware error types for dialog display
 export const HARDWARE_ERROR_DIALOG_TYPES = {
   DEVICE_NOT_FOUND: 'DeviceNotFound',
-  BLE_DEVICE_BOND_ERROR: 'BleDeviceBondError',
   NEED_ONEKEY_BRIDGE: 'NeedOneKeyBridge',
   DEVICE_NOT_OPENED_PASSPHRASE: 'DeviceNotOpenedPassphrase',
 } as const;
@@ -185,7 +184,11 @@ export interface IAppEventBusPayload {
     fromAmount: string;
     toAmount: string;
   };
-  [EAppEventBusNames.SwapStockTokenSelected]: ISwapToken;
+  [EAppEventBusNames.SwapStockTokenSelected]: {
+    token: ISwapToken;
+    /** Identifies the Swap provider instance that opened the selector. */
+    storeName: string;
+  };
   [EAppEventBusNames.WalletRemove]: {
     walletId: string;
   };
@@ -327,8 +330,9 @@ export interface IAppEventBusPayload {
   };
   // The stage left — by any route, the person's close included. A flow
   // awaiting a card's answer ends its wait on this: a card that is gone
-  // can never be answered (OK-59934).
-  [EAppEventBusNames.DeviceStageOff]: undefined;
+  // can never be answered (OK-59934). `burstId` names the burst whose
+  // stage left (OK-64696).
+  [EAppEventBusNames.DeviceStageOff]: { burstId?: number } | undefined;
   [EAppEventBusNames.SwitchMarketHomeTab]: {
     tabIndex: number;
   };
@@ -376,6 +380,11 @@ export interface IAppEventBusPayload {
     scheduledAt: number;
   };
   [EAppEventBusNames.GasAccountSubmitRetryCleared]: undefined;
+  [EAppEventBusNames.BatchSignTxProgress]: {
+    progressEventId: string;
+    // 1-based index of the tx in the batch
+    current: number;
+  };
   // TokenList cells Phase-2 BG frame transport (D2=A). The structure event
   // carries the FULL idempotent structure snapshot for an owner (generation is
   // monotonic); the valuation event carries the FULL current fiat map for an

@@ -79,7 +79,6 @@ import {
   ESwapDirectionType,
   ESwapSelectTokenSource,
   ESwapTabSwitchType,
-  ETokenRiskLevel,
   type ISwapNetwork,
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
@@ -92,10 +91,10 @@ import {
   buildSwapTokenSelectorAssetNetworks,
 } from '../../components/SwapTokenSelectorDesktop';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import { useSwapTokenRiskCheck } from '../../hooks/useSwapTokenRiskCheck';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
 import {
   buildSwapNetworkReadyKey,
-  isSwapNetworkCacheCompatible,
   isSwapNetworkCacheReadyForBasicList,
 } from '../../utils/swapNetworkCacheUtils';
 import {
@@ -112,6 +111,7 @@ import {
   buildSwapTokenSelectorDisableNetworks,
   buildSwapTokenSelectorNetworkView,
   getSwapStockTokenDisplayName,
+  groupSwapSearchTokensBySelectedNetwork,
   isSwapStockMetadataPending,
   isSwapStockTokenSearchMatch,
   isSwapTokenSelectorFromNetworkBridgeOnly,
@@ -404,6 +404,7 @@ const SwapTokenSelectPage = ({
     ? (desktopAddressInfo.accountInfo?.account?.id ??
       desktopAddressInfo.accountInfo?.dbAccount?.id)
     : undefined;
+  // The sidebar summarizes wallet holdings independently of the token filter.
   const desktopAllNetworkTokenListCacheKey = useMemo(
     () =>
       buildSwapAllNetworkTokenListCacheKey({
@@ -411,26 +412,23 @@ const SwapTokenSelectPage = ({
           desktopIndexedAccountId ??
           desktopOtherWalletTypeAccountId ??
           'noAccountId',
-        lpToken: requestLpToken,
+        lpToken: false,
         currency: settingsPersistAtom.currencyInfo.id,
         protocol: swapTypeSwitch,
       }),
     [
       desktopIndexedAccountId,
       desktopOtherWalletTypeAccountId,
-      requestLpToken,
       settingsPersistAtom.currencyInfo.id,
       swapTypeSwitch,
     ],
   );
   const desktopAllNetworkTokens =
     swapAllNetworkTokenListMap[desktopAllNetworkTokenListCacheKey];
-  const desktopAllNetworkTokenListReady = useMemo(() => {
-    if (requestLpToken) {
-      return isSwapNetworkCacheCompatible(rawSwapNetworks);
-    }
-    return isSwapNetworkCacheReadyForBasicList(rawSwapNetworks);
-  }, [rawSwapNetworks, requestLpToken]);
+  const desktopAllNetworkTokenListReady = useMemo(
+    () => isSwapNetworkCacheReadyForBasicList(rawSwapNetworks),
+    [rawSwapNetworks],
+  );
   const desktopAllNetworkSwapNetworksReadyKey = useMemo(
     () =>
       desktopAllNetworkTokenListReady
@@ -452,14 +450,14 @@ const SwapTokenSelectPage = ({
     void swapLoadAllNetworkTokenList(
       desktopIndexedAccountId,
       desktopOtherWalletTypeAccountId,
-      requestLpToken,
+      false,
       settingsPersistAtom.currencyInfo.id,
     ).catch(() => undefined);
   }, [
     desktopIndexedAccountId,
     desktopOtherWalletTypeAccountId,
-    requestLpToken,
     settingsPersistAtom.currencyInfo.id,
+    swapTypeSwitch,
     swapLoadAllNetworkTokenList,
     useDesktopTokenSelector,
     desktopAllNetworkTokenListReady,
@@ -637,7 +635,7 @@ const SwapTokenSelectPage = ({
         : undefined,
     [isSwapStockSelectTarget],
   );
-  const { fetchLoading, currentTokens } = useSwapTokenList(
+  const { fetchLoading, currentTokens, searchNetworkId } = useSwapTokenList(
     type,
     currentSelectNetwork?.networkId,
     requestedSearchKeyword,
@@ -770,9 +768,48 @@ const SwapTokenSelectPage = ({
     stockSearchFallbackTokens.length > 0
       ? stockSearchFallbackTokens
       : currentTokens;
-  const displayTokens = stockMetadataPending
-    ? EMPTY_SWAP_TOKEN_LIST
-    : tokensForDisplay;
+  // useSwapTokenList widens pasted-address searches to all networks; group
+  // those results so the selected network's matches stay on top.
+  const groupedSearchNetworkId =
+    searchNetworkId !== currentSelectNetwork?.networkId
+      ? currentSelectNetwork?.networkId
+      : undefined;
+  // Search results on a concrete network are titled by scope.
+  const searchSectionTitles = useMemo(() => {
+    const networkName = currentSelectNetwork?.name;
+    if (
+      !requestedSearchKeyword ||
+      isSwapStockSelectTarget ||
+      currentSelectNetwork?.isAllNetworks ||
+      !networkName
+    ) {
+      return undefined;
+    }
+    return {
+      selectedNetwork: intl.formatMessage(
+        { id: ETranslations.title_tokens_on_network },
+        { network: networkName },
+      ),
+      otherNetworks: intl.formatMessage({
+        id: ETranslations.title_tokens_on_other,
+      }),
+    };
+  }, [
+    currentSelectNetwork?.isAllNetworks,
+    currentSelectNetwork?.name,
+    intl,
+    isSwapStockSelectTarget,
+    requestedSearchKeyword,
+  ]);
+  const { tokens: displayTokens, otherNetworkStartIndex } = useMemo(
+    () =>
+      groupSwapSearchTokensBySelectedNetwork({
+        tokens: stockMetadataPending ? EMPTY_SWAP_TOKEN_LIST : tokensForDisplay,
+        selectedNetworkId: groupedSearchNetworkId,
+        getNetworkId: (item) => getRawSwapToken(item).networkId,
+      }),
+    [groupedSearchNetworkId, stockMetadataPending, tokensForDisplay],
+  );
   const tokenListLoading =
     fetchLoading || stockMetadataPending || isSearchKeywordSettling;
   const alertIndex = useMemo(
@@ -784,31 +821,15 @@ const SwapTokenSelectPage = ({
     [displayTokens],
   );
 
-  const checkRiskToken = useCallback(
-    async (token: ISwapToken) => {
-      const isRiskLevel =
-        !token.isPopular &&
-        (!token.price ||
-          new BigNumber(token.price).isZero() ||
-          token.riskLevel === ETokenRiskLevel.SPAM ||
-          token.riskLevel === ETokenRiskLevel.MALICIOUS);
-      if (isRiskLevel) {
-        if (!settingsPersistAtom.tokenRiskReminder) return false;
-        const checkConfirmRiskToken =
-          await backgroundApiProxy.serviceSetting.checkConfirmedRiskToken(
-            `${token.networkId}_${token.contractAddress}`,
-          );
-        return !checkConfirmRiskToken;
-      }
-      return isRiskLevel;
-    },
-    [settingsPersistAtom.tokenRiskReminder],
-  );
+  const checkRiskToken = useSwapTokenRiskCheck();
 
   const selectTokenHandler = useCallback(
     (token: ISwapToken) => {
       if (isSwapStockSelectTarget) {
-        appEventBus.emit(EAppEventBusNames.SwapStockTokenSelected, token);
+        appEventBus.emit(EAppEventBusNames.SwapStockTokenSelected, {
+          token,
+          storeName: route.params.storeName,
+        });
         navigation.popStack();
         return;
       }
@@ -843,6 +864,7 @@ const SwapTokenSelectPage = ({
       setSwapSelectToToken,
       isSwapStockSelectTarget,
       type,
+      route.params.storeName,
     ],
   );
 
@@ -1032,8 +1054,25 @@ const SwapTokenSelectPage = ({
         ),
         badgeText,
       };
+      let sectionTitle: string | undefined;
+      if (searchSectionTitles && index === otherNetworkStartIndex) {
+        sectionTitle = searchSectionTitles.otherNetworks;
+      } else if (searchSectionTitles && index === 0) {
+        sectionTitle = searchSectionTitles.selectedNetwork;
+      }
       return (
         <>
+          {sectionTitle ? (
+            <SizableText
+              size={useDesktopTokenSelector ? '$bodyMdMedium' : '$bodyMd'}
+              color="$textSubdued"
+              px="$5"
+              pt="$3"
+              pb="$1"
+            >
+              {sectionTitle}
+            </SizableText>
+          ) : null}
           {alertIndex === index ? (
             <Stack
               pt={useDesktopTokenSelector ? '$0' : '$3'}
@@ -1103,6 +1142,8 @@ const SwapTokenSelectPage = ({
     },
     [
       alertIndex,
+      otherNetworkStartIndex,
+      searchSectionTitles,
       copyText,
       disableNetworks,
       intl,

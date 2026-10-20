@@ -33,6 +33,7 @@ import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import type { IDeriveContextHashKeyringParams } from '@onekeyhq/shared/types/ProviderApis/ProviderApiBtc.type';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
@@ -50,6 +51,28 @@ import type { HDNodeType, PROTO, RefTransaction } from '@onekeyfe/hd-core';
 
 export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
   abstract override coreApi: CoreChainSoftwareBtc | undefined;
+
+  override async deriveContextHash(
+    params: IDeriveContextHashKeyringParams,
+  ): Promise<string> {
+    const account = await this.vault.getAccount();
+    const { dbDevice, deviceCommonParams } = checkIsDefined(
+      params.deviceParams,
+    );
+    const { connectId, deviceId } = dbDevice;
+    const sdk = await this.getHardwareSDKInstance({ connectId });
+    const response = await sdk.btcDeriveContextHash(connectId, deviceId, {
+      ...deviceCommonParams,
+      path: `${account.path}/${account.relPath ?? '0/0'}`,
+      appName: params.appName,
+      context: params.context,
+      network: params.canonicalNetworkName,
+    });
+    if (!response.success) {
+      throw convertDeviceError(response.payload);
+    }
+    return response.payload.secret;
+  }
 
   override buildPrepareAccountsPrefixedPath(
     params: IBuildPrepareAccountsPrefixedPathParams,

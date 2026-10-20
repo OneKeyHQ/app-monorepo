@@ -3,12 +3,20 @@ import { memo, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import {
+  formatDate,
+  formatDateFns,
+} from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { Input } from '../../forms/Input';
 
 import type { IDatePickerTriggerProps, IDateRange } from './type';
 import type { IntlShape } from 'react-intl';
+
+// Localized medium date of the app language (date-fns `PP`): "Jul 1, 2026",
+// "2026年7月1日". The numeric `LL/dd/yyyy` form reads
+// ambiguously outside en-US.
+const formatDay = (date: Date) => formatDateFns(date, 'PP');
 
 const formatTriggerValue = (
   value: Date | Date[] | IDateRange | null | undefined,
@@ -29,11 +37,11 @@ const formatTriggerValue = (
         placeholder ||
         intl.formatMessage({ id: ETranslations.global_select_date_range })
       );
-    const fmt = { hideTimeForever: true };
-    const startStr = range.start ? formatDate(range.start, fmt) : '';
-    const endStr = range.end ? formatDate(range.end, fmt) : '';
+    const startStr = range.start ? formatDay(range.start) : '';
+    const endStr = range.end ? formatDay(range.end) : '';
     if (startStr && endStr) {
-      return `${startStr}  —  ${endStr}`;
+      // En dash with spaces: the typographic range separator.
+      return `${startStr} – ${endStr}`;
     }
     return (
       startStr ||
@@ -69,8 +77,7 @@ const formatTriggerValue = (
     });
   }
 
-  const date = value as Date;
-  return formatDate(date, { hideTimeForever: true });
+  return formatDay(value as Date);
 };
 
 export const DatePickerTrigger = memo(

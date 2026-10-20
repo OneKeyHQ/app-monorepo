@@ -2,6 +2,80 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { loggerConfig } from '@onekeyhq/shared/src/logger/loggerConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+const BLE_MTU_READY_LOG_EVENT = '[ReactNativeBleTransport] BLE MTU ready';
+
+type IBleMtuReadyTelemetry = {
+  connectionId?: number;
+  transportType: 'ble';
+  blePlatform: 'ios' | 'android';
+  requestedMtu: number;
+  actualMtu?: number;
+  isDefaultMtu?: boolean;
+};
+
+function parsePositiveNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? value
+    : undefined;
+}
+
+function parseBleMtuReadyLogPayload(
+  payload: readonly unknown[],
+): IBleMtuReadyTelemetry | undefined {
+  const eventIndex = payload.indexOf(BLE_MTU_READY_LOG_EVENT);
+  if (eventIndex < 0) {
+    return undefined;
+  }
+  const serializedParams = payload[eventIndex + 1];
+  if (typeof serializedParams !== 'string') {
+    return undefined;
+  }
+
+  try {
+    const params = JSON.parse(serializedParams) as Record<string, unknown>;
+    const requestedMtu = parsePositiveNumber(params.requested);
+    const actualMtu = parsePositiveNumber(params.actual);
+    const connectionId = parsePositiveNumber(params.connectionId);
+    if (
+      (params.platform !== 'ios' && params.platform !== 'android') ||
+      requestedMtu === undefined
+    ) {
+      return undefined;
+    }
+
+    return {
+      connectionId: Number.isSafeInteger(connectionId)
+        ? connectionId
+        : undefined,
+      transportType: 'ble',
+      blePlatform: params.platform,
+      requestedMtu,
+      actualMtu,
+      isDefaultMtu: actualMtu === undefined ? undefined : actualMtu <= 23,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+function shouldReportBleMtuReadyTelemetry(
+  reportedSignatures: Set<string>,
+  telemetry: IBleMtuReadyTelemetry,
+): boolean {
+  // Matching MTUs alone cannot identify a connection.
+  if (telemetry.connectionId === undefined) {
+    return true;
+  }
+  const signature = `${telemetry.blePlatform}:${telemetry.connectionId}:${telemetry.requestedMtu}:${
+    telemetry.actualMtu ?? 'unknown'
+  }`;
+  if (reportedSignatures.has(signature)) {
+    return false;
+  }
+  reportedSignatures.add(signature);
+  return true;
+}
+
 function hardwareLog(name: string, ...args: any[]) {
   try {
     defaultLogger.hardware.sdkLog.serviceEvent(
@@ -33,4 +107,6 @@ function maskLogIdentifier(value?: string | null): string | undefined {
 export default {
   hardwareLog,
   maskLogIdentifier,
+  parseBleMtuReadyLogPayload,
+  shouldReportBleMtuReadyTelemetry,
 };

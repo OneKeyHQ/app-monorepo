@@ -127,6 +127,7 @@ function createFixture({
   const deleteOneKeyIdAccountOnServer = jest
     .fn()
     .mockResolvedValue({ ok: true });
+  const clearPrimeFreeTrialUserData = jest.fn().mockResolvedValue(undefined);
   const clearAllIdentityAuthForExplicitOperation = jest
     .fn()
     .mockResolvedValue({ status: 'committed', revision: 11 });
@@ -418,6 +419,9 @@ function createFixture({
         .fn()
         .mockResolvedValue({ recovered: false, abandoned: false }),
     },
+    servicePrimeFreeTrial: {
+      clearUserData: clearPrimeFreeTrialUserData,
+    },
   };
   const service = new ServiceIdentityExit({ backgroundApi });
   return {
@@ -433,6 +437,7 @@ function createFixture({
     commitExplicitLocalOneKeyIdLogout,
     logoutPrimeServerSessionBestEffort,
     deleteOneKeyIdAccountOnServer,
+    clearPrimeFreeTrialUserData,
     clearAllIdentityAuthForExplicitOperation,
     setPrimePersistAtomNotLoggedIn,
     setIdentityExitJournalEntry,
@@ -712,6 +717,104 @@ describe('ServiceIdentityExit', () => {
       }),
     );
   });
+
+  test.each([
+    EPrimeAuthSessionSource.LegacyEmailSupabase,
+    EPrimeAuthSessionSource.KeylessOAuth,
+  ])(
+    'environment switching exits both identities after acknowledgement: %s',
+    async (source) => {
+      const fixture = createFixture({ source });
+      const plan = await fixture.service.prepareIdentityExit({
+        type: 'switchEnvironment',
+        scene: 'devSettings',
+      });
+      expectReadyPlan(plan);
+      expect(plan.presentation).toEqual({ type: 'switchEnvironment' });
+
+      await expect(
+        fixture.service.executeIdentityExit({
+          planId: plan.planId,
+          acknowledgement: 'oneKeyIdLogout',
+        }),
+      ).rejects.toThrow('Keyless wallet removal acknowledgement is required.');
+      expect(fixture.removeKeylessWalletWithCapability).not.toHaveBeenCalled();
+      expect(fixture.commitIdentityExitLocalState).not.toHaveBeenCalled();
+
+      await expect(
+        fixture.service.executeIdentityExit({
+          planId: plan.planId,
+          acknowledgement: 'keylessWalletRemoval',
+        }),
+      ).resolves.toMatchObject({
+        status: 'completed',
+        oneKeyIdLoggedOut: true,
+        removedWalletId: keylessWallet.id,
+      });
+      expect(fixture.promptPasswordVerify).toHaveBeenCalledTimes(1);
+      expect(fixture.removeKeylessWalletWithCapability).toHaveBeenCalledTimes(
+        1,
+      );
+      expect(fixture.commitIdentityExitLocalState).toHaveBeenCalledWith(
+        expect.objectContaining({
+          oneKeyId: expect.objectContaining({ source }),
+          keylessSession:
+            source === EPrimeAuthSessionSource.KeylessOAuth
+              ? {
+                  sessionCommitId: 'keyless-session',
+                  sessionTokenSub: 'keyless-sub',
+                }
+              : undefined,
+        }),
+      );
+    },
+  );
+
+  test.each([null, keylessWallet])(
+    'environment switching still requires confirmation without OneKey ID: wallet=%s',
+    async (wallet) => {
+      jest
+        .mocked(primePersistAtom.get)
+        .mockResolvedValue(primePersistAtomInitialValue);
+      const fixture = createFixture({ wallet });
+      fixture.backgroundApi.simpleDb.prime.getAuthSessionSource.mockResolvedValue(
+        undefined,
+      );
+      fixture.backgroundApi.simpleDb.prime.getEffectiveAuthSessionSource.mockResolvedValue(
+        undefined,
+      );
+      fixture.backgroundApi.simpleDb.prime.getOneKeyIdAuthState.mockResolvedValue(
+        'loggedOut',
+      );
+      const plan = await fixture.service.prepareIdentityExit({
+        type: 'switchEnvironment',
+        scene: 'devSettings',
+      });
+      expectReadyPlan(plan);
+      expect(plan.presentation).toEqual({ type: 'switchEnvironment' });
+      expect(plan.confirmation).toEqual({
+        type: 'keylessRemovalAcknowledgement',
+      });
+      expect(fixture.commitIdentityExitLocalState).not.toHaveBeenCalled();
+
+      await expect(
+        fixture.service.executeIdentityExit({
+          planId: plan.planId,
+          acknowledgement: 'keylessWalletRemoval',
+        }),
+      ).resolves.toMatchObject({
+        status: 'completed',
+        oneKeyIdLoggedOut: false,
+        removedWalletId: wallet?.id,
+      });
+      expect(fixture.promptPasswordVerify).toHaveBeenCalledTimes(
+        wallet ? 1 : 0,
+      );
+      expect(fixture.removeKeylessWalletWithCapability).toHaveBeenCalledTimes(
+        wallet ? 1 : 0,
+      );
+    },
+  );
 
   test('requires explicit user acknowledgement before OneKey ID logout', async () => {
     const fixture = createFixture();
@@ -1775,6 +1878,7 @@ describe('ServiceIdentityExit', () => {
       uuid: 'delete-request-1',
       emailOTP: '123456',
     });
+    expect(fixture.clearPrimeFreeTrialUserData).toHaveBeenCalledTimes(1);
     expect(
       fixture.clearAllIdentityAuthForExplicitOperation,
     ).toHaveBeenCalledWith({

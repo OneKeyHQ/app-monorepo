@@ -12,6 +12,7 @@ import { useMedia, useTheme } from '@onekeyhq/components/src/hooks/useStyle';
 import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 
 import { useSafeAreaInsets } from '../../hooks';
+import { useDeferredGuideBlocker } from '../../hooks/useDeferredGuideBlocker';
 import { ScrollView } from '../../layouts/ScrollView';
 import { SizableText, XStack, YStack } from '../../primitives';
 import { assertOverlayProps } from '../../shared/assertOverlayProps';
@@ -131,6 +132,7 @@ function RawPopover({
   keepChildrenMounted: keepChildrenMountedProp,
 }: IPopoverProps) {
   const isOpen = Boolean(isOpenProp);
+  useDeferredGuideBlocker(isOpen);
   const offset = offsetProp ?? 8;
   // 'lazy' keeps the content once opened; mounting it up front is equivalent.
   const keepChildrenMounted = Boolean(keepChildrenMountedProp);

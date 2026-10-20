@@ -237,6 +237,9 @@ function makeService() {
     refreshUnsignedTxBeforeBatchSign: jest.fn((tx: IUnsignedTxPro) =>
       Promise.resolve(tx),
     ),
+    refreshUnsignedTxBeforeSign: jest.fn((tx: IUnsignedTxPro) =>
+      Promise.resolve(tx),
+    ),
   };
   (vaultFactory.getVault as unknown as jest.Mock).mockResolvedValue(vault);
 
@@ -475,6 +478,91 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
     expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
   });
 
+  test('signs the vault-refreshed tx when the wallet broadcasts', async () => {
+    const { service, vault } = makeService();
+    const refreshedUnsignedTx = {
+      ...unsignedTx,
+      encodedTx: { refreshed: true },
+    } as IUnsignedTxPro;
+    vault.refreshUnsignedTxBeforeSign.mockResolvedValue(refreshedUnsignedTx);
+
+    await signAndSend(service);
+
+    expect(vault.refreshUnsignedTxBeforeSign).toHaveBeenCalledWith(unsignedTx);
+    expect(vault.signTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ unsignedTx: refreshedUnsignedTx }),
+    );
+  });
+
+  test('leaves a sign-only tx untouched before signing', async () => {
+    const { service, vault } = makeService();
+
+    await service.signTransaction({
+      accountId,
+      networkId,
+      unsignedTx,
+      signOnly: true,
+    });
+
+    expect(vault.refreshUnsignedTxBeforeSign).not.toHaveBeenCalled();
+    expect(vault.signTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ unsignedTx, signOnly: true }),
+    );
+  });
+
+  test.each([
+    [{ code: 'ETIMEDOUT' }, 'failed'],
+    [{ className: 'PasswordPromptDialogCancel' }, 'cancelled'],
+  ])(
+    'finishes with the refreshed Solana context when signing fails: %j',
+    async (error, status) => {
+      const { service, vault } = makeService();
+      Object.assign(vault, {
+        getTxDiagnosticContext: (tx: IUnsignedTxPro) => tx.solanaTxDiagnostic,
+      });
+      const logSpy = jest
+        .spyOn(defaultLogger.transaction.send, 'solanaTxDiagnostic')
+        .mockImplementation((event) => event);
+      vault.refreshUnsignedTxBeforeSign.mockImplementation(
+        async (tx: IUnsignedTxPro) => {
+          if (!tx.solanaTxDiagnostic)
+            throw new OneKeyLocalError('Missing diagnostic context');
+          return {
+            ...tx,
+            solanaTxDiagnostic: {
+              ...tx.solanaTxDiagnostic,
+              recentBlockhash: '11111111111111111111111111111111',
+              lastValidBlockHeight: 999,
+              blockhashFetchedAt: 2000,
+            },
+          };
+        },
+      );
+      vault.signTransaction.mockRejectedValue(error);
+      await expect(
+        service.signAndSendTransaction({
+          accountId,
+          networkId: 'sol--101',
+          unsignedTx,
+          signOnly: false,
+        }),
+      ).rejects.toBe(error);
+      const summaries = logSpy.mock.calls
+        .map(([event]) => event)
+        .filter((event) => event.stage === 'finished');
+      expect(summaries).toEqual([
+        expect.objectContaining({
+          status,
+          recentBlockhash: '11111111111111111111111111111111',
+          lastValidBlockHeight: 999,
+          blockhashFetchedAt: 2000,
+          attempts: 0,
+        }),
+      ]);
+      expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+    },
+  );
+
   test('rejects and logs when dev sign-only would skip a Prime broadcast', async () => {
     const logSpy = jest
       .spyOn(defaultLogger.prime.subscription, 'primeCryptoPaymentFlow')
@@ -511,6 +599,47 @@ describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
     expect(vault.signTransaction.mock.invocationCallOrder[0]).toBeLessThan(
       backgroundApi.serviceDevSetting.getDevSetting.mock.invocationCallOrder[0],
     );
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+  });
+
+  test('rejects when dev sign-only would skip a WalletConnect Pay broadcast', async () => {
+    // a skipped broadcast would hand WalletConnect Pay a txid that was
+    // neither recorded at the pre-broadcast boundary nor sent
+    const { service, vault, backgroundApi } = makeService();
+    const recordPreBroadcastTxid = jest.fn().mockResolvedValue(undefined);
+    (
+      backgroundApi as unknown as {
+        serviceWalletConnectPay: { recordPreBroadcastTxid: jest.Mock };
+      }
+    ).serviceWalletConnectPay = { recordPreBroadcastTxid };
+    backgroundApi.serviceDevSetting.getDevSetting.mockResolvedValueOnce({
+      enabled: true,
+      settings: { alwaysSignOnlySendTx: true },
+    });
+
+    await expect(
+      service.signAndSendTransaction({
+        accountId,
+        networkId,
+        unsignedTx,
+        signOnly: false,
+        wcPayPreBroadcastRecord: {
+          paymentId: 'pay-1',
+          optionId: 'opt-1',
+          accountKey: accountId,
+          action: {
+            walletRpc: {
+              chainId: 'eip155:1',
+              method: 'eth_sendTransaction',
+              params: '[{}]',
+            },
+          } as never,
+          index: 0,
+        },
+      }),
+    ).rejects.toThrow('WalletConnect Pay requires a real broadcast');
+
+    expect(recordPreBroadcastTxid).not.toHaveBeenCalled();
     expect(vault.broadcastTransaction).not.toHaveBeenCalled();
   });
 

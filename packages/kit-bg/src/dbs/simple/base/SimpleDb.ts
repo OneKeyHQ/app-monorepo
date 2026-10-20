@@ -34,6 +34,19 @@ export class SimpleDb {
     return value;
   }
 
+  get primeFreeTrial() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@primeFreeTrial',
+      loader: () =>
+        import('../entity/SimpleDbEntityPrimeFreeTrial').then(
+          ({ SimpleDbEntityPrimeFreeTrial }) =>
+            new SimpleDbEntityPrimeFreeTrial(),
+        ),
+    });
+    Object.defineProperty(this, 'primeFreeTrial', { value });
+    return value;
+  }
+
   get cloudBackupPasswordCache() {
     const value = createLazyServiceProxy({
       serviceName: 'simpleDb@cloudBackupPasswordCache',
@@ -866,6 +879,19 @@ export class SimpleDb {
         ),
     });
     Object.defineProperty(this, 'rookieGuide', { value });
+    return value;
+  }
+
+  get walletConnectPay() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@walletConnectPay',
+      loader: () =>
+        import('../entity/SimpleDbEntityWalletConnectPay').then(
+          ({ SimpleDbEntityWalletConnectPay }) =>
+            new SimpleDbEntityWalletConnectPay(),
+        ),
+    });
+    Object.defineProperty(this, 'walletConnectPay', { value });
     return value;
   }
 }

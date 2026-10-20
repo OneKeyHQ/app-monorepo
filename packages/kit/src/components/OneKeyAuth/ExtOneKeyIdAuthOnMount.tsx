@@ -1,13 +1,16 @@
-import { memo, useEffect } from 'react';
+import { memo, useEffect, useRef } from 'react';
 
 import {
   getSanitizedAuthErrorText,
   logOneKeyIdLoginFailureReason,
 } from '@onekeyhq/kit/src/views/Prime/components/oneKeyIdLoginToastUtils';
+import { usePrimeFreeTrialPendingActionRunner } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeFreeTrialPendingAction';
 import { EExtOneKeyIdAuthFlow } from '@onekeyhq/shared/src/consts/authConsts';
 import { PrimeLoginDialogCancelError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 import { consumeExtOneKeyIdAuthFlowFromUrl } from './extOneKeyIdAuthExpandTab';
 import { useOneKeyAuth } from './useOneKeyAuth';
@@ -33,6 +36,13 @@ let isFlowRunning = false;
 //   useExtensionMarketTokenDetailHashNavigation works around).
 function ExtOneKeyIdAuthOnMountCmp() {
   const { loginOneKeyId } = useOneKeyAuth();
+  const runPrimeFreeTrialPendingAction = usePrimeFreeTrialPendingActionRunner();
+  // Ref keeps the hashchange subscription stable while the runner identity
+  // follows free-trial state changes.
+  const runPrimeFreeTrialPendingActionRef = useRef(
+    runPrimeFreeTrialPendingAction,
+  );
+  runPrimeFreeTrialPendingActionRef.current = runPrimeFreeTrialPendingAction;
 
   useEffect(() => {
     if (!platformEnv.isExtensionUiExpandTab) {
@@ -55,12 +65,27 @@ function ExtOneKeyIdAuthOnMountCmp() {
       void (async () => {
         // Let the app finish mounting so the dialog overlay renders reliably.
         await timerUtils.wait(600);
+        const loginStartedAt = Date.now();
         try {
           if (flowInfo.flow === EExtOneKeyIdAuthFlow.Login) {
-            await loginOneKeyId({
-              toOneKeyIdPageOnLoginSuccess:
-                flowInfo.toOneKeyIdPageOnLoginSuccess,
-            });
+            try {
+              await loginOneKeyId({
+                toOneKeyIdPageOnLoginSuccess:
+                  flowInfo.toOneKeyIdPageOnLoginSuccess,
+              });
+            } catch (loginError) {
+              if (loginError instanceof PrimeLoginDialogCancelError) {
+                // Only drop the free-trial action this login was started
+                // for; one saved by the popup meanwhile is kept.
+                await backgroundApiProxy.servicePrimeFreeTrial.clearPendingActionCreatedBefore(
+                  { timestamp: loginStartedAt },
+                );
+              }
+              throw loginError;
+            }
+            // Continue the free-trial action the popup saved before the
+            // hand-off, if any. LegacyOAuthBind never consumes the slot.
+            await runPrimeFreeTrialPendingActionRef.current();
           } else if (flowInfo.flow === EExtOneKeyIdAuthFlow.LegacyOAuthBind) {
             // Lazy import keeps the Prime bind dialog out of the home bundle
             // on platforms that never run this flow.
@@ -80,6 +105,7 @@ function ExtOneKeyIdAuthOnMountCmp() {
               error,
             )}`,
             error,
+            { trigger: 'interactive' },
           );
         } finally {
           isFlowRunning = false;

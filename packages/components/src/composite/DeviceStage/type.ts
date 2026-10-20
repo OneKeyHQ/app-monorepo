@@ -108,7 +108,7 @@ export type IDeviceStageStep =
 
 /** The third-party vendors the stage can dress for. Values match
  * EHardwareVendor in @onekeyhq/shared/types/device. */
-export type IDeviceStageVendor = 'ledger' | 'trezor';
+export type IDeviceStageVendor = 'ledger' | 'trezor' | 'keystone';
 
 /** The transport a burst rides. Desktop runs USB and Bluetooth side by
  * side, so the connecting wait tells them apart; which one is the
@@ -278,6 +278,22 @@ export interface IDeviceStageProps {
    */
   onClose?: () => void;
   /**
+   * The error notice's own exit, requested after its readable hold. Kept
+   * apart from `onClose` on purpose: the notice leaves the app live
+   * (OK-64696), so the hold can run out just as the person starts the
+   * next attempt from the page, and a close would end that attempt's
+   * call. Called with the `errorNoticeKey` the hold was armed for: the
+   * driver retires that outcome only, never one that has replaced it.
+   * Absent, the notice stays until closed or replaced.
+   */
+  onErrorNoticeExpire?: (noticeKey: string | undefined) => void;
+  /**
+   * Which error outcome is on stage. A new one landing in place of the
+   * last, with no other step between, restarts the notice's readable hold
+   * — it is a different failure, owed its own read.
+   */
+  errorNoticeKey?: string;
+  /**
    * The confirm card's payload — parked: confirm rests as the capsule,
    * which has no seat for it, so none of these render today (see
    * CONFIRM_PAYLOAD_HIDDEN in kit-bg's DeviceStageBurst).
@@ -334,6 +350,8 @@ export interface IDeviceStageProps {
    * integration layer hands over the UR json and owns nothing else.
    */
   qrValueUr?: IAirGapUrJson;
+  qrSessionId?: number;
+  qrRenderKey?: string;
   /**
    * The live camera preview for scanQr's viewfinder window — the stage
    * fixes where the window sits and how it is framed, the integration
@@ -350,6 +368,7 @@ export interface IDeviceStageProps {
    * with nothing to scan back), the step renders no button.
    */
   onQrNext?: () => void;
+  onQrRenderReady?: () => void;
   /**
    * Steps scanQr back to presenting the code — the escape hatch for a
    * premature handoff: if the device never got the task, nothing will ever
@@ -398,9 +417,8 @@ export interface IDeviceStageProps {
    * ask card. Without it the step plays as the notice, for the many
    * failures that have no honest retry: the stage rests as the capsule —
    * the failure ✗ beside the reason's title, no second line, no button —
-   * and after a readable hold requests its own exit through `onClose`, so
-   * a driver that means the error to leave by itself grants close along
-   * with it.
+   * and after a readable hold requests its own exit through
+   * `onErrorNoticeExpire`.
    */
   onErrorAction?: () => void;
   /** The pinOnApp entry, confirmed. The driver decides what follows. */

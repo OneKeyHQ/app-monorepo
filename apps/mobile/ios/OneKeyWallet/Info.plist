@@ -102,16 +102,14 @@
 	<string>Use biometrics to authenticate and unlock your wallet.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Use photo library to save images.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Use photo library to read QR images.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UIAppFonts</key>
 	<array>
-		<string>Roobert-Regular.ttf</string>
-		<string>Roobert-Medium.ttf</string>
-		<string>Roobert-SemiBold.ttf</string>
-		<string>Roobert-Bold.ttf</string>
+		<string>BrandSans-Regular.ttf</string>
+		<string>BrandSans-Medium.ttf</string>
+		<string>BrandSans-SemiBold.ttf</string>
+		<string>BrandSans-Bold.ttf</string>
 		<string>GeistMono-Regular.ttf</string>
 		<string>GeistMono-Medium.ttf</string>
 	</array>

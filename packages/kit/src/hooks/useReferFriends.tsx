@@ -31,7 +31,7 @@ import {
   ETabReferFriendsRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
-import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+import type { IInviteRewardRouteParams } from '@onekeyhq/shared/src/routes';
 import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
 import {
   openUrlExternal,
@@ -170,7 +170,7 @@ export const useReferFriends = () => {
   }, [devSettings.enabled, devSettings.settings?.enableTestEndpoint]);
 
   const toInviteRewardPage = useCallback(
-    async (params?: { showRewardDistributionHistory?: boolean }) => {
+    async (params?: IInviteRewardRouteParams) => {
       const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
       if (isLogin) {
         if (shouldOpenReferralInExtensionExpandTab) {
@@ -238,12 +238,10 @@ export const useReferFriends = () => {
   );
 
   const toReferFriendsPage = useCallback(async () => {
-    const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
-    const isVisited = await backgroundApiProxy.serviceSpotlight.isVisited(
-      ESpotlightTour.referAFriend,
-    );
-
-    const shouldShowInviteReward = isLogin && isVisited;
+    // ReferAFriend always redirects logged-in users to InviteReward, so route
+    // them there directly to avoid flashing the intro poster first.
+    const shouldShowInviteReward =
+      await backgroundApiProxy.servicePrime.isLoggedIn();
 
     if (shouldOpenReferralInExtensionExpandTab) {
       await openExtensionReferralInExpandTab(

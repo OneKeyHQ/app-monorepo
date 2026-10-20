@@ -8,12 +8,12 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { Popover } from '../../actions/Popover';
 import { useMedia } from '../../hooks';
-import { XStack, YStack } from '../../primitives';
+import { Button, XStack, YStack } from '../../primitives';
 import { withStaticProperties } from '../../shared/tamagui';
 
 import { Calendar } from './Calendar';
 import { DatePickerTrigger } from './DatePickerTrigger';
-import { PresetsSidebar } from './PresetsSidebar';
+import { PRESETS_SIDEBAR_WIDTH, PresetsSidebar } from './PresetsSidebar';
 import {
   SWIPE_PAGER_OFFSETS,
   useSwipeMonthNavEnabled,
@@ -179,8 +179,61 @@ function renderPickerTrigger({
   );
 }
 
-const SINGLE_PANEL_PROPS = { w: 300, minWidth: 300 } as const;
+function getToday() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+}
+
+function isDayWithinBounds(day: Date, minDate?: Date, maxDate?: Date) {
+  const dayTime = day.getTime();
+  if (minDate) {
+    const min = new Date(minDate);
+    min.setHours(0, 0, 0, 0);
+    if (dayTime < min.getTime()) return false;
+  }
+  if (maxDate) {
+    const max = new Date(maxDate);
+    max.setHours(0, 0, 0, 0);
+    if (dayTime > max.getTime()) return false;
+  }
+  return true;
+}
+
+function TodayShortcut({ onPress }: { onPress: () => void }) {
+  const intl = useIntl();
+  return (
+    <XStack
+      justifyContent="center"
+      marginTop="$3"
+      paddingTop="$3"
+      borderTopWidth={1}
+      borderTopColor="$borderSubdued"
+    >
+      {/* Internal calendar shortcut; QA targets the wrapping date picker. */}
+      {/* oxlint-disable-next-line onekey/require-testid */}
+      <Button size="small" variant="tertiary" onPress={onPress}>
+        {intl.formatMessage({ id: ETranslations.global_date_today })}
+      </Button>
+    </XStack>
+  );
+}
+
+// 7 x 40px day columns + 2 x $3 padding: whole-pixel columns, no overlap.
+const SINGLE_PANEL_CONTENT_WIDTH = 280;
+const SINGLE_PANEL_WIDTH = SINGLE_PANEL_CONTENT_WIDTH + 2 * 12;
+const SINGLE_PANEL_PROPS = {
+  w: SINGLE_PANEL_WIDTH,
+  minWidth: SINGLE_PANEL_WIDTH,
+} as const;
 const GT_MD_PADDING_4 = { padding: '$4' } as const;
+// Mobile sheet card (24px radius, like other popover sheets' $5 content
+// padding): $5 top/bottom, $4 sides so 7 x 40px columns still fit a 360pt
+// screen inside the sheet's $5 side margins.
+const MD_SHEET_PADDING = {
+  paddingHorizontal: '$4',
+  paddingVertical: '$5',
+} as const;
 
 function BasicDatePicker({
   value,
@@ -242,15 +295,29 @@ function BasicDatePicker({
     [floatingPanelProps],
   );
 
+  const handleSelectToday = useCallback(() => {
+    onChange?.(getToday());
+    close();
+  }, [onChange, close]);
+
+  // Re-evaluated every render (opening re-renders), so a picker left mounted
+  // past midnight still offers the right day.
+  const canSelectToday = isDayWithinBounds(getToday(), minDate, maxDate);
+
   const pickerContent = useMemo(
     () => (
-      <YStack padding="$3" minWidth={280}>
+      <YStack
+        padding="$3"
+        minWidth={SINGLE_PANEL_CONTENT_WIDTH}
+        $md={MD_SHEET_PADDING}
+      >
         <DatePickerProvider config={config}>
           <Calendar mode="date" minDate={minDate} maxDate={maxDate} />
         </DatePickerProvider>
+        {canSelectToday ? <TodayShortcut onPress={handleSelectToday} /> : null}
       </YStack>
     ),
-    [config, minDate, maxDate],
+    [config, minDate, maxDate, canSelectToday, handleSelectToday],
   );
 
   return (
@@ -274,26 +341,61 @@ function BasicDatePicker({
 }
 
 function RangePickerContent({
-  config,
   minDate,
   maxDate,
+  locale,
   showPreviousMonth,
   presets,
+  hasPresets,
   value,
   onChange,
   close,
 }: {
-  config: React.ComponentProps<typeof DatePickerProvider>['config'];
   minDate?: Date;
   maxDate?: Date;
+  locale: string;
   showPreviousMonth?: boolean;
   presets?: IDateRangePreset[];
+  hasPresets: boolean;
   value?: IDateRange;
   onChange?: (range: IDateRange) => void;
   close: () => void;
 }) {
-  const media = useMedia();
-  const hasPresets = presets && presets.length > 0 && media.gtMd;
+  // A half-picked range is a draft owned by the open picker: onChange fires
+  // only once both ends are chosen. The popover unmounts its content on
+  // close, so dismissing mid-pick drops the draft and the committed value
+  // stays untouched (no `{ start, end: null }` leaks to consumers).
+  const [draftDates, setDraftDates] = useState<Date[] | null>(null);
+
+  // A value pushed from outside while the picker is open supersedes the draft.
+  // Compared by timestamps: consumers often rebuild the range object on every
+  // render, which must not wipe an in-progress pick.
+  const valueKey = `${value?.start?.getTime() ?? ''}-${
+    value?.end?.getTime() ?? ''
+  }`;
+  const [draftValueKey, setDraftValueKey] = useState(valueKey);
+  if (draftValueKey !== valueKey) {
+    setDraftValueKey(valueKey);
+    setDraftDates(null);
+  }
+
+  const committedDates = useMemo(
+    () =>
+      [value?.start, value?.end].filter((d): d is Date => d instanceof Date),
+    [value],
+  );
+
+  const handleDatesChange = useCallback(
+    (dates: Date[]) => {
+      if (dates.length < 2) {
+        setDraftDates(dates);
+        return;
+      }
+      onChange?.({ start: dates[0], end: dates[1] });
+      close();
+    },
+    [onChange, close],
+  );
 
   const handlePresetSelect = useCallback(
     (range: IDateRange) => {
@@ -303,16 +405,48 @@ function RangePickerContent({
     [onChange, close],
   );
 
+  const enableSwipeMonthNav = useSwipeMonthNavEnabled();
+
+  const config = useMemo(
+    () =>
+      createPickerConfig({
+        selectedDates: draftDates ?? committedDates,
+        onDatesChange: handleDatesChange,
+        minDate,
+        maxDate,
+        mode: 'range',
+        locale,
+        showPreviousMonth,
+        enableSwipeMonthNav,
+      }),
+    [
+      draftDates,
+      committedDates,
+      handleDatesChange,
+      minDate,
+      maxDate,
+      locale,
+      showPreviousMonth,
+      enableSwipeMonthNav,
+    ],
+  );
+
   return (
     <XStack>
-      {hasPresets ? (
+      {hasPresets && presets ? (
         <PresetsSidebar
           presets={presets}
           value={value}
           onSelect={handlePresetSelect}
         />
       ) : null}
-      <YStack padding="$3" minWidth={280} flex={1} $gtMd={GT_MD_PADDING_4}>
+      <YStack
+        padding="$3"
+        minWidth={SINGLE_PANEL_CONTENT_WIDTH}
+        flex={1}
+        $md={MD_SHEET_PADDING}
+        $gtMd={GT_MD_PADDING_4}
+      >
         <DatePickerProvider config={config}>
           <Calendar
             mode="range"
@@ -325,6 +459,10 @@ function RangePickerContent({
     </XStack>
   );
 }
+
+// Dual-panel range: 2 x (7 x 40px day columns) + 2 x $4 gap + 1px divider
+// + 2 x $4 panel padding, so day columns are exactly 40px wide.
+const RANGE_PANEL_WIDTH = 2 * 280 + 2 * 16 + 1 + 2 * 16;
 
 function RangePicker({
   value,
@@ -351,54 +489,11 @@ function RangePicker({
     onOpenChange,
   });
   const media = useMedia();
-  const hasPresets = presets && presets.length > 0 && media.gtMd;
+  const hasPresets = !!presets && presets.length > 0 && media.gtMd;
 
-  const selectedDates = useMemo(
-    () =>
-      [value?.start, value?.end].filter((d): d is Date => d instanceof Date),
-    [value],
-  );
-
-  const handleDatesChange = useCallback(
-    (dates: Date[]) => {
-      const range: IDateRange = {
-        start: dates[0] || null,
-        end: dates[1] || null,
-      };
-      onChange?.(range);
-      if (dates.length === 2) {
-        close();
-      }
-    },
-    [onChange, close],
-  );
-
-  const enableSwipeMonthNav = useSwipeMonthNavEnabled();
-
-  const config = useMemo(
-    () =>
-      createPickerConfig({
-        selectedDates,
-        onDatesChange: handleDatesChange,
-        minDate,
-        maxDate,
-        mode: 'range',
-        locale,
-        showPreviousMonth,
-        enableSwipeMonthNav,
-      }),
-    [
-      selectedDates,
-      handleDatesChange,
-      minDate,
-      maxDate,
-      locale,
-      showPreviousMonth,
-      enableSwipeMonthNav,
-    ],
-  );
-
-  const panelWidth = hasPresets ? 780 : 624;
+  const panelWidth = hasPresets
+    ? RANGE_PANEL_WIDTH + PRESETS_SIDEBAR_WIDTH
+    : RANGE_PANEL_WIDTH;
 
   const rangeFloatingPanelProps = useMemo(
     () => ({
@@ -412,22 +507,24 @@ function RangePicker({
   const rangeContent = useMemo(
     () => (
       <RangePickerContent
-        config={config}
         minDate={minDate}
         maxDate={maxDate}
+        locale={locale}
         showPreviousMonth={showPreviousMonth}
         presets={presets}
+        hasPresets={hasPresets}
         value={value}
         onChange={onChange}
         close={close}
       />
     ),
     [
-      config,
       minDate,
       maxDate,
+      locale,
       showPreviousMonth,
       presets,
+      hasPresets,
       value,
       onChange,
       close,
@@ -515,13 +612,22 @@ function YearPicker({
 
   const yearContent = useMemo(
     () => (
-      <YStack padding="$3" minWidth={280}>
+      <YStack
+        padding="$3"
+        minWidth={SINGLE_PANEL_CONTENT_WIDTH}
+        $md={MD_SHEET_PADDING}
+      >
         <DatePickerProvider config={config}>
-          <Calendar mode="year" onYearSelect={handleYearSelect} />
+          <Calendar
+            mode="year"
+            minDate={minDate}
+            maxDate={maxDate}
+            onYearSelect={handleYearSelect}
+          />
         </DatePickerProvider>
       </YStack>
     ),
-    [config, handleYearSelect],
+    [config, minDate, maxDate, handleYearSelect],
   );
 
   return (
@@ -605,13 +711,22 @@ function MonthPicker({
 
   const monthContent = useMemo(
     () => (
-      <YStack padding="$3" minWidth={280}>
+      <YStack
+        padding="$3"
+        minWidth={SINGLE_PANEL_CONTENT_WIDTH}
+        $md={MD_SHEET_PADDING}
+      >
         <DatePickerProvider config={config}>
-          <Calendar mode="month" onMonthSelect={handleMonthSelect} />
+          <Calendar
+            mode="month"
+            minDate={minDate}
+            maxDate={maxDate}
+            onMonthSelect={handleMonthSelect}
+          />
         </DatePickerProvider>
       </YStack>
     ),
-    [config, handleMonthSelect],
+    [config, minDate, maxDate, handleMonthSelect],
   );
 
   return (
@@ -685,7 +800,11 @@ function MultiSelectPicker({
 
   const multiContent = useMemo(
     () => (
-      <YStack padding="$3" minWidth={280}>
+      <YStack
+        padding="$3"
+        minWidth={SINGLE_PANEL_CONTENT_WIDTH}
+        $md={MD_SHEET_PADDING}
+      >
         <DatePickerProvider config={config}>
           <Calendar mode="multiple" minDate={minDate} maxDate={maxDate} />
         </DatePickerProvider>

@@ -9,10 +9,12 @@ import { createStore } from 'jotai';
 
 import { Toast } from '@onekeyhq/components';
 import { prepareSwapSelectedAccountSyncedFromHome } from '@onekeyhq/kit/src/views/Swap/utils/swapColdStartTokenCacheUtils';
+import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import type {
   IDBAccount,
   IDBCreateHwWalletParamsBase,
   IDBCreateQRWalletParams,
+  IDBDevice,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -34,6 +36,7 @@ import {
   EAccountSelectorAutoSelectTriggerBy,
   EAccountSelectorSceneName,
 } from '@onekeyhq/shared/types';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import {
   getAccountSelectorActions,
@@ -126,6 +129,8 @@ type IWallet = NonNullable<
 >;
 type IWriteContextAtomColdStartCacheValues =
   typeof import('@onekeyhq/kit-bg/src/states/jotai/utils').writeContextAtomColdStartCacheValues;
+type IEnsureLedgerCoreAppsReady =
+  typeof import('@onekeyhq/kit/src/provider/Container/ThirdPartyHardwareUiStateContainer/LedgerInstallCoreAppsDialog').ensureLedgerCoreAppsReady;
 
 function createDeferred<T>(): IDeferred<T> {
   let resolve: ((value: T) => void) | undefined;
@@ -320,7 +325,14 @@ const mockCreateQrWalletService = jest.fn<
 const mockCreateHWWalletService = jest.fn();
 const mockCreateHWHiddenWalletService = jest.fn();
 const mockRestoreTempCreatedWallet = jest.fn();
-const mockGetWalletDevice = jest.fn();
+const mockCreateKeystoneWalletWithDefaultAccounts = jest.fn<
+  ReturnType<
+    IBackgroundApi['serviceThirdPartyHardware']['createKeystoneWalletWithDefaultAccounts']
+  >,
+  Parameters<
+    IBackgroundApi['serviceThirdPartyHardware']['createKeystoneWalletWithDefaultAccounts']
+  >
+>();
 const mockGetAllHwQrWalletWithDevice = jest.fn();
 const mockUpdateWalletsDeprecatedState = jest.fn();
 const mockShowQrHiddenCreateGuideDialogIfErrorMatched = jest.fn();
@@ -336,6 +348,17 @@ const mockAddDefaultNetworkAccountsService = jest.fn<
   }>,
   [unknown]
 >();
+const mockBuildRequiredLedgerAppsForDefaultNetworkAccounts: jest.MockedFunction<
+  IBackgroundApi['serviceBatchCreateAccount']['buildRequiredLedgerAppsForDefaultNetworkAccounts']
+> = jest.fn();
+const mockEnsureLedgerCoreAppsReady: jest.MockedFunction<IEnsureLedgerCoreAppsReady> =
+  jest.fn();
+const mockGetWalletDevice: jest.MockedFunction<
+  IBackgroundApi['serviceAccount']['getWalletDevice']
+> = jest.fn();
+const mockIsThirdPartyHwByWalletId: jest.MockedFunction<
+  IBackgroundApi['serviceAccount']['isThirdPartyHwByWalletId']
+> = jest.fn();
 const mockGetEnabledNetworksCompatibleWithWalletId = jest.fn<
   Promise<IServerNetwork[]>,
   [{ walletId: string }]
@@ -381,7 +404,9 @@ jest.mock(
 jest.mock(
   '@onekeyhq/kit/src/provider/Container/ThirdPartyHardwareUiStateContainer/LedgerInstallCoreAppsDialog',
   () => ({
-    ensureLedgerCoreAppsReady: jest.fn(),
+    ensureLedgerCoreAppsReady: (
+      ...args: Parameters<IEnsureLedgerCoreAppsReady>
+    ) => mockEnsureLedgerCoreAppsReady(...args),
   }),
 );
 
@@ -437,8 +462,12 @@ jest.mock(
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    serviceThirdPartyHardware: {
+      createKeystoneWalletWithDefaultAccounts: (
+        ...args: Parameters<typeof mockCreateKeystoneWalletWithDefaultAccounts>
+      ) => mockCreateKeystoneWalletWithDefaultAccounts(...args),
+    },
     serviceAccount: {
-      isThirdPartyHwByWalletId: jest.fn().mockResolvedValue(true),
       addTonImportedAccountByMnemonic: (
         ...args: Parameters<typeof mockAddTonImportedAccountByMnemonic>
       ) => mockAddTonImportedAccountByMnemonic(...args),
@@ -450,8 +479,6 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockCreateHWHiddenWalletService(...args) as Promise<unknown>,
       restoreTempCreatedWallet: (...args: unknown[]): Promise<unknown> =>
         mockRestoreTempCreatedWallet(...args) as Promise<unknown>,
-      getWalletDevice: (...args: unknown[]): Promise<unknown> =>
-        mockGetWalletDevice(...args) as Promise<unknown>,
       getAllHwQrWalletWithDevice: (...args: unknown[]) =>
         mockGetAllHwQrWalletWithDevice(...args) as Promise<unknown>,
       updateWalletsDeprecatedState: (...args: unknown[]) =>
@@ -475,6 +502,11 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockGetDBAccountSafe({ accountId }),
       getWalletSafe: ({ walletId }: { walletId: string }) =>
         mockGetWalletSafe({ walletId }),
+      getWalletDevice: (...args: Parameters<typeof mockGetWalletDevice>) =>
+        mockGetWalletDevice(...args),
+      isThirdPartyHwByWalletId: (
+        ...args: Parameters<typeof mockIsThirdPartyHwByWalletId>
+      ) => mockIsThirdPartyHwByWalletId(...args),
       isWalletHasIndexedAccounts: ({ walletId }: { walletId: string }) =>
         mockIsWalletHasIndexedAccounts({ walletId }),
       isTempWalletRemoved: ({ wallet }: { wallet: IWallet }) =>
@@ -517,6 +549,11 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       addDefaultNetworkAccounts: (
         ...args: Parameters<typeof mockAddDefaultNetworkAccountsService>
       ) => mockAddDefaultNetworkAccountsService(...args),
+      buildRequiredLedgerAppsForDefaultNetworkAccounts: (
+        ...args: Parameters<
+          typeof mockBuildRequiredLedgerAppsForDefaultNetworkAccounts
+        >
+      ) => mockBuildRequiredLedgerAppsForDefaultNetworkAccounts(...args),
     },
     serviceDApp: {
       recordConnectionSelectionIntent: (params: {
@@ -694,7 +731,7 @@ describe('useAccountSelectorActions', () => {
     mockAbortFetchAccountTokens.mockResolvedValue(undefined);
     mockGetAllHdHwQrWallets.mockResolvedValue({ wallets: [] });
     mockGetAllHwQrWalletWithDevice.mockResolvedValue({});
-    mockGetWalletDevice.mockResolvedValue(undefined);
+    mockGetWalletDevice.mockResolvedValue(undefined as unknown as IDBDevice);
     mockUpdateWalletsDeprecatedState.mockResolvedValue(true);
     mockRestoreTempCreatedWallet.mockResolvedValue(undefined);
     mockIsSoftwareWalletOnlyUser.mockResolvedValue(false);
@@ -722,6 +759,125 @@ describe('useAccountSelectorActions', () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
+
+  describe('Keystone wallet list refresh', () => {
+    it('notifies the open selector only after the wallet is restored', async () => {
+      const restored = createDeferred<void>();
+      const restoreStarted = createDeferred<void>();
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
+      mockCreateKeystoneWalletWithDefaultAccounts.mockResolvedValueOnce({
+        wallet: { id: 'hw-keystone', isTemp: true } as IWallet,
+        indexedAccount: undefined,
+        isOverrideWallet: false,
+      });
+      mockRestoreTempCreatedWallet.mockImplementationOnce(() => {
+        restoreStarted.resolve();
+        return restored.promise;
+      });
+      const { Wrapper } = createWrapper();
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        const creating = result.current.createKeystoneWalletWithDefaultAccounts(
+          {},
+        );
+        await restoreStarted.promise;
+        expect(emitSpy).not.toHaveBeenCalledWith(
+          EAppEventBusNames.WalletUpdate,
+          undefined,
+        );
+        restored.resolve();
+        await creating;
+      });
+
+      expect(
+        emitSpy.mock.calls.filter(
+          ([event]) => event === EAppEventBusNames.WalletUpdate,
+        ),
+      ).toEqual([[EAppEventBusNames.WalletUpdate, undefined]]);
+    });
+
+    it('does not announce a wallet when restoration fails', async () => {
+      const error = new Error('restore failed');
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
+      mockCreateKeystoneWalletWithDefaultAccounts.mockResolvedValueOnce({
+        wallet: { id: 'hw-keystone', isTemp: true } as IWallet,
+        indexedAccount: undefined,
+        isOverrideWallet: false,
+      });
+      mockRestoreTempCreatedWallet.mockRejectedValueOnce(error);
+      const { Wrapper } = createWrapper();
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+
+      await act(async () => {
+        await expect(
+          result.current.createKeystoneWalletWithDefaultAccounts({}),
+        ).rejects.toBe(error);
+      });
+      expect(emitSpy).not.toHaveBeenCalledWith(
+        EAppEventBusNames.WalletUpdate,
+        undefined,
+      );
+      expect(emitSpy).not.toHaveBeenCalledWith(
+        EAppEventBusNames.FinalizeWalletSetupStep,
+        { step: EFinalizeWalletSetupSteps.Ready },
+      );
+    });
+  });
+
+  it.each(['usbConnectId', 'bleConnectId', 'connectId'] as const)(
+    'updates only Trezor wallets matching %s, including rows without a legacy locator',
+    async (locatorField) => {
+      const device = {
+        vendor: EHardwareVendor.trezor,
+        connectId: '',
+        [locatorField]: 'same-transport',
+      };
+      mockGetAllHwQrWalletWithDevice.mockResolvedValue({
+        stale: {
+          wallet: { id: 'hw-stale' },
+          device: { ...device, deviceId: 'old-device' },
+        },
+        current: {
+          wallet: { id: 'hw-current' },
+          device: { ...device, deviceId: 'new-device' },
+        },
+        otherVendor: {
+          wallet: { id: 'hw-onekey' },
+          device: {
+            ...device,
+            vendor: EHardwareVendor.onekey,
+            deviceId: 'other-device',
+          },
+        },
+        otherDevice: {
+          wallet: { id: 'hw-other' },
+          device: {
+            ...device,
+            [locatorField]: 'other-transport',
+            deviceId: 'other-device',
+          },
+        },
+      });
+      const { Wrapper } = createWrapper();
+      const { result } = renderHook(() => useAccountSelectorActions().current, {
+        wrapper: Wrapper,
+      });
+      await act(async () => {
+        await result.current.updateTrezorWalletsDeprecatedStatus({
+          connectId: 'same-transport',
+          deviceId: 'new-device',
+        });
+      });
+      expect(mockUpdateWalletsDeprecatedState).toHaveBeenCalledWith({
+        willUpdateDeprecateMap: { 'hw-stale': true, 'hw-current': false },
+      });
+    },
+  );
 
   it('selects deprecated wallets but rejects unavailable wallets', async () => {
     const { store, Wrapper } = createWrapper();
@@ -860,6 +1016,27 @@ describe('useAccountSelectorActions', () => {
 
     expect(num0RenderCount).toBe(initialNum0RenderCount + 2);
     expect(num1RenderCount).toBe(initialNum1RenderCount);
+  });
+
+  it('drops a superseded singleton selection at the commit boundary', async () => {
+    const { store, Wrapper } = createWrapper();
+    const previous = store.get(selectedAccountsAtom())[0];
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+    let ownsSelection = true;
+    await act(async () => {
+      const updating = result.current.updateSelectedAccountForSingletonAccount({
+        num: 0,
+        walletId: WALLET_TYPE_IMPORTED,
+        networkId: 'evm--1',
+        othersWalletAccountId: 'imported--old-account',
+        shouldCommit: () => ownsSelection,
+      });
+      ownsSelection = false;
+      await updating;
+    });
+    expect(store.get(selectedAccountsAtom())[0]).toBe(previous);
   });
 
   it('drops a selection update when its final commit guard is stale', async () => {
@@ -1709,6 +1886,125 @@ describe('useAccountSelectorActions', () => {
       deriveType: 'default',
     });
     expect(atomUpdates).toHaveLength(1);
+  });
+
+  it('resolves a BTC dApp derive type from the global Taproot default when home is on All Networks', async () => {
+    // OK-64269: the home selection cannot be inherited (All Networks is not a
+    // dApp network), and the user never saved an explicit BTC derive type, so
+    // the persisted map has no 'btc' entry. Every other global reader treats
+    // that as Taproot; the dApp sync must not fall through to Nested SegWit.
+    const sceneUrl = 'https://staking.babylonlabs.io';
+    const sourceSelectedAccount: ISelectedAccount = {
+      ...defaultSelectedAccount(),
+      walletId: 'hd-1',
+      indexedAccountId: 'hd-1--0',
+      networkId: getNetworkIdsMap().onekeyall,
+      deriveType: undefined,
+      focusedWallet: 'hd-1',
+    };
+    mockGetSelectedAccount.mockResolvedValue(sourceSelectedAccount);
+    mockGetAccountSelectorRawData.mockResolvedValue({
+      globalDeriveTypesMap: {
+        global: {},
+      },
+    });
+    mockShouldUseGlobalDeriveType.mockResolvedValue(false);
+
+    const { store, Wrapper } = createWrapper({
+      sceneName: EAccountSelectorSceneName.discover,
+      sceneUrl,
+    });
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.syncFromScene({
+        from: {
+          sceneName: EAccountSelectorSceneName.home,
+          sceneNum: 0,
+        },
+        num: 0,
+        targetSceneName: EAccountSelectorSceneName.discover,
+        withNetworkSync: true,
+        availableNetworks: {
+          networkIds: [
+            getNetworkIdsMap().btc,
+            getNetworkIdsMap().tbtc,
+            getNetworkIdsMap().sbtc,
+          ],
+        },
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toEqual({
+      ...sourceSelectedAccount,
+      networkId: getNetworkIdsMap().btc,
+      deriveType: 'BIP86',
+    });
+  });
+
+  it('prefers the global derive type over a stale dApp selection when home cannot be synced', async () => {
+    // A disconnected dApp keeps its last discover selection in storage. Syncing
+    // from home must still apply the derive type the user chose as default,
+    // exactly as it would if home were on that network itself.
+    const sceneUrl = 'https://staking.babylonlabs.io';
+    const sourceSelectedAccount: ISelectedAccount = {
+      ...defaultSelectedAccount(),
+      walletId: 'hd-1',
+      indexedAccountId: 'hd-1--0',
+      networkId: getNetworkIdsMap().onekeyall,
+      deriveType: undefined,
+      focusedWallet: 'hd-1',
+    };
+    mockGetSelectedAccount.mockResolvedValue(sourceSelectedAccount);
+    mockGetAccountSelectorRawData.mockResolvedValue({
+      globalDeriveTypesMap: {
+        global: {
+          btc: 'BIP44',
+        },
+      },
+    });
+    mockShouldUseGlobalDeriveType.mockResolvedValue(false);
+
+    const { store, Wrapper } = createWrapper({
+      sceneName: EAccountSelectorSceneName.discover,
+      sceneUrl,
+    });
+    store.set(selectedAccountsAtom(), {
+      0: {
+        ...defaultSelectedAccount(),
+        walletId: 'hd-2',
+        indexedAccountId: 'hd-2--0',
+        focusedWallet: 'hd-2',
+        networkId: getNetworkIdsMap().btc,
+        deriveType: 'default',
+      },
+    });
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.syncFromScene({
+        from: {
+          sceneName: EAccountSelectorSceneName.home,
+          sceneNum: 0,
+        },
+        num: 0,
+        targetSceneName: EAccountSelectorSceneName.discover,
+        withNetworkSync: true,
+        availableNetworks: {
+          networkIds: [getNetworkIdsMap().btc, getNetworkIdsMap().tbtc],
+        },
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toEqual({
+      ...sourceSelectedAccount,
+      networkId: getNetworkIdsMap().btc,
+      deriveType: 'BIP44',
+    });
   });
 
   it('preserves the target network and derive type when network sync is disabled', async () => {
@@ -3256,6 +3552,59 @@ describe('useAccountSelectorActions', () => {
     expect(mockAddDefaultNetworkAccountsService).not.toHaveBeenCalled();
   });
 
+  it('propagates a post-batch Ledger probe failure while an interaction is active', async () => {
+    const interactionError = Object.assign(new Error('interaction ended'), {
+      code: 10_113,
+    });
+    mockGetWalletDevice.mockResolvedValue({
+      vendor: EHardwareVendor.ledger,
+    } as IDBDevice);
+    mockBuildRequiredLedgerAppsForDefaultNetworkAccounts.mockResolvedValue([]);
+    mockIsThirdPartyHwByWalletId.mockResolvedValue(true);
+    mockAddDefaultNetworkAccountsService.mockResolvedValue({
+      addedAccounts: [],
+      failedAccounts: [
+        {
+          networkId: 'evm--1',
+          deriveType: 'default',
+          error: {
+            code: ThirdPartyHardwareErrorCode.AppNotInstalled,
+            message: 'Ledger app is not installed',
+          },
+        },
+      ],
+    });
+    mockEnsureLedgerCoreAppsReady.mockResolvedValue({
+      ok: false,
+      reason: 'probeFailed',
+      error: interactionError,
+    });
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await expect(
+      result.current.addDefaultNetworkAccounts({
+        wallet: { id: 'hw-ledger' } as IWallet,
+        indexedAccount: {
+          id: 'hw-ledger--0',
+          walletId: 'hw-ledger',
+        } as IIndexedAccount,
+        isCreateWallet: true,
+        hardwareOperationContext: {
+          operationId: 'hwk-ledger-interaction',
+        },
+      }),
+    ).rejects.toBe(interactionError);
+    expect(mockEnsureLedgerCoreAppsReady).toHaveBeenCalledWith({
+      walletId: 'hw-ledger',
+      connectId: 'hwk-ledger-interaction',
+      requiredApps: undefined,
+    });
+  });
+
   describe('createQrWallet onboarding network selection', () => {
     const qrWallet = { id: 'qr-1' } as IWallet;
     const qrIndexedAccount = {
@@ -3431,7 +3780,7 @@ describe('useAccountSelectorActions', () => {
         addedAccounts: [],
         failedAccounts: [],
       });
-      mockGetWalletDevice.mockResolvedValue(currentDevice);
+      mockGetWalletDevice.mockResolvedValue(currentDevice as IDBDevice);
     });
 
     it('selects the new hidden wallet before committing reset isolation', async () => {

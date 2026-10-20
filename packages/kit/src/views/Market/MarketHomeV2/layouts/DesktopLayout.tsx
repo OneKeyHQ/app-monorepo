@@ -8,17 +8,17 @@ import {
   useState,
 } from 'react';
 
-import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import {
-  SizableText,
-  Tabs,
-  Tooltip,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
-import type { ITabBarItemProps } from '@onekeyhq/components';
+import { SizableText, Tooltip, XStack, YStack } from '@onekeyhq/components';
+import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/TabBar';
+import { TabBar, TabBarItem } from '@onekeyhq/components/src/composite/TabBar';
+import { AppPager } from '@onekeyhq/kit/src/components/AppPager';
+import type {
+  IAppPagerPage,
+  IAppPagerTabBarProps,
+} from '@onekeyhq/kit/src/components/AppPager/types';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -54,7 +54,6 @@ import { useMarketSubCategorySelection } from './useMarketSubCategorySelection';
 
 import type { IDesktopLayoutProps } from './DesktopLayout.types';
 import type { IMarketCategoryItem } from '../types';
-import type { TabBarProps } from 'react-native-collapsible-tab-view';
 
 const EMPTY_MARKET_STOCK_CATEGORIES: IMarketCategoryItem[] = [];
 const EMPTY_MARKET_TOP_COINS_CATEGORIES: IMarketCategoryItem[] = [];
@@ -126,7 +125,6 @@ export function DesktopLayout({
 
   const containerProps = useMemo(
     () => ({
-      allowHeaderOverscroll: true,
       renderHeader: () => (
         <YStack bg="$bgApp" pointerEvents="box-none">
           <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS}>
@@ -147,48 +145,25 @@ export function DesktopLayout({
 
   const { activeTabName, setActiveTabName, tabsRef } =
     useSyncedMarketTab(selectedTabName);
-  useFocusEffect(
-    useCallback(() => {
-      const frameIds: number[] = [];
-      const timeoutIds: ReturnType<typeof setTimeout>[] = [];
-      let restored = false;
-      const scheduleRestore = (delay: number) => {
-        timeoutIds.push(
-          setTimeout(() => {
-            if (restored) return;
-            frameIds.push(
-              requestAnimationFrame(() => {
-                if (tabsRef.current?.restoreScrollPosition?.()) {
-                  restored = true;
-                  timeoutIds.forEach((timeoutId) => clearTimeout(timeoutId));
-                }
-              }),
-            );
-          }, delay),
-        );
-      };
-      scheduleRestore(0);
-      scheduleRestore(100);
-      scheduleRestore(300);
-      scheduleRestore(800);
-      scheduleRestore(1500);
-      return () => {
-        frameIds.forEach((frameId) => cancelAnimationFrame(frameId));
-        timeoutIds.forEach((timeoutId) => clearTimeout(timeoutId));
-      };
-    }, [tabsRef]),
-  );
   const [stockDataCategoryMap, setStockDataCategoryMap] = useState<
     Record<string, boolean>
   >({});
   const stockCategories =
     filterBarProps.stockCategories ?? EMPTY_MARKET_STOCK_CATEGORIES;
   const [selectedStockCategoryId, setSelectedStockCategoryId] =
-    useMarketSubCategorySelection(stockCategories);
+    useMarketSubCategorySelection(
+      stockCategories,
+      'selectedStockCategory',
+      filterBarProps.isCategoryConfigLoading,
+    );
   const topCoinsCategories =
     filterBarProps.topCoinsCategories ?? EMPTY_MARKET_TOP_COINS_CATEGORIES;
   const [selectedTopCoinsCategoryId, setSelectedTopCoinsCategoryId] =
-    useMarketSubCategorySelection(topCoinsCategories);
+    useMarketSubCategorySelection(
+      topCoinsCategories,
+      'selectedTopCoinsCategory',
+      filterBarProps.isCategoryConfigLoading,
+    );
   const handleStockDataChange = useCallback(
     (categoryId: string, isStockData: boolean) => {
       setStockDataCategoryMap((prev) => {
@@ -225,6 +200,8 @@ export function DesktopLayout({
   // without recreating the callback (which would break collapsible tab memoisation).
   const setActiveTabNameRef = useRef(setActiveTabName);
   setActiveTabNameRef.current = setActiveTabName;
+  const handleTabChangeRef = useRef(handleTabChange);
+  handleTabChangeRef.current = handleTabChange;
 
   // Use refs for filterBarProps and activeTabName to keep renderTabBar stable
   const filterBarPropsRef = useRef(filterBarProps);
@@ -259,7 +236,7 @@ export function DesktopLayout({
   // prop, and a new identity each render would remount every tab item.
   const renderTabBarItem = useCallback((itemProps: ITabBarItemProps) => {
     const tooltip = tabTooltipsRef.current[itemProps.name];
-    const tabItem = <Tabs.TabBarItem {...itemProps} />;
+    const tabItem = <TabBarItem {...itemProps} />;
     if (!tooltip) {
       return tabItem;
     }
@@ -275,12 +252,13 @@ export function DesktopLayout({
   }, []);
 
   const renderTabBar = useCallback(
-    (tabBarProps: TabBarProps<string>) => {
+    (tabBarProps: IAppPagerTabBarProps) => {
       const handleTabPress = (name: string) => {
         // Update immediately on press so the portal clears before the
         // tab-switch animation completes (onTabChange fires after animation).
         ensureTabActivated(name);
         setActiveTabNameRef.current(name);
+        handleTabChangeRef.current(name);
         tabBarProps.onTabPress?.(name);
       };
       const currentFilterBarProps = filterBarPropsRef.current;
@@ -318,7 +296,7 @@ export function DesktopLayout({
             testID={MarketTestIDs.marketTabs}
           >
             <XStack flexShrink={1} minWidth={0}>
-              <Tabs.TabBar
+              <TabBar
                 {...tabBarProps}
                 onTabPress={handleTabPress}
                 divider={false}
@@ -369,11 +347,16 @@ export function DesktopLayout({
 
   const onTabChangeHandler = useCallback(
     ({ tabName }: { tabName: string }) => {
+      // The web container emits this callback after the press. A newer press
+      // or an unmount must not let an old callback overwrite the saved tab.
+      if (tabsRef.current?.getFocusedTab() !== tabName) {
+        return;
+      }
       ensureTabActivated(tabName);
       setActiveTabName(tabName);
-      handleTabChange(tabName);
+      handleTabChangeRef.current(tabName);
     },
-    [ensureTabActivated, handleTabChange, setActiveTabName],
+    [ensureTabActivated, setActiveTabName, tabsRef],
   );
 
   const listContainerProps = useMemo(() => {
@@ -404,24 +387,28 @@ export function DesktopLayout({
     return null;
   }
 
-  const tabElements = [
+  const pages: IAppPagerPage[] = [
     ...(showWatchlistTab
       ? [
-          <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
-            <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} px="$3" flex={1}>
-              {hasActivated(watchlistTabName) ? (
-                <Suspense fallback={<MarketDesktopTableLoadingFallback />}>
-                  <LazyMarketWatchlistTokenList
-                    tabIntegrated
-                    tabName={watchlistTabName}
-                    listContainerProps={listContainerProps}
-                    enableWebSocket={activeTabName === watchlistTabName}
-                    centerDesktopPortalContent
-                  />
-                </Suspense>
-              ) : null}
-            </YStack>
-          </Tabs.Tab>,
+          {
+            key: 'watchlist',
+            name: watchlistTabName,
+            children: (
+              <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} px="$3" flex={1}>
+                {hasActivated(watchlistTabName) ? (
+                  <Suspense fallback={<MarketDesktopTableLoadingFallback />}>
+                    <LazyMarketWatchlistTokenList
+                      tabIntegrated
+                      tabName={watchlistTabName}
+                      listContainerProps={listContainerProps}
+                      enableWebSocket={activeTabName === watchlistTabName}
+                      centerDesktopPortalContent
+                    />
+                  </Suspense>
+                ) : null}
+              </YStack>
+            ),
+          },
         ]
       : []),
     ...spotTabItems.map((item) => {
@@ -479,8 +466,10 @@ export function DesktopLayout({
           );
         }
       }
-      return (
-        <Tabs.Tab key={item.categoryId} name={item.tabName}>
+      return {
+        key: item.categoryId,
+        name: item.tabName,
+        children: (
           <YStack
             // The stock list owns its own centered frame (it has to keep the
             // horizontal scroller full-bleed), so it opts out of this one.
@@ -492,24 +481,28 @@ export function DesktopLayout({
           >
             {tabContent}
           </YStack>
-        </Tabs.Tab>
-      );
+        ),
+      };
     }),
     ...(showPerpsTab
       ? [
-          <Tabs.Tab key={perpsTabName} name={perpsTabName}>
-            <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} px="$3" flex={1}>
-              {hasActivated(perpsTabName) ? (
-                <Suspense fallback={null}>
-                  <LazyMarketPerpsTokenList
-                    tabIntegrated
-                    tabName={perpsTabName}
-                    listContainerProps={listContainerProps}
-                  />
-                </Suspense>
-              ) : null}
-            </YStack>
-          </Tabs.Tab>,
+          {
+            key: 'perps',
+            name: perpsTabName,
+            children: (
+              <YStack {...MARKET_DESKTOP_CONTENT_FRAME_PROPS} px="$3" flex={1}>
+                {hasActivated(perpsTabName) ? (
+                  <Suspense fallback={null}>
+                    <LazyMarketPerpsTokenList
+                      tabIntegrated
+                      tabName={perpsTabName}
+                      listContainerProps={listContainerProps}
+                    />
+                  </Suspense>
+                ) : null}
+              </YStack>
+            ),
+          },
         ]
       : []),
   ];
@@ -517,17 +510,15 @@ export function DesktopLayout({
   return (
     <DesktopStickyHeaderContext.Provider value={stickyHeaderCtx}>
       <YStack flex={1}>
-        <Tabs.Container
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ref={tabsRef as any}
+        <AppPager
+          ref={tabsRef}
           renderTabBar={renderTabBar}
           initialTabName={selectedTabName}
           isRouteFocused={isRouteFocused}
           onTabChange={onTabChangeHandler}
           {...containerProps}
-        >
-          {tabElements}
-        </Tabs.Container>
+          pages={pages}
+        />
       </YStack>
     </DesktopStickyHeaderContext.Provider>
   );

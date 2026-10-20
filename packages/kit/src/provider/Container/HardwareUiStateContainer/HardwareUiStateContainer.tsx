@@ -35,11 +35,11 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
-  HARDWARE_ERROR_DIALOG_TYPES,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IHardwareErrorDialogPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
+  isDeviceStageCarryingFailures,
   isDeviceStageOwnedHardwareUiAction,
   isLegacyHardwareUiActive,
   shouldLegacyContainerRaiseHardwareErrorDialog,
@@ -69,7 +69,6 @@ import {
   OpenBleNotifyChangeErrorDialog,
   OpenBleSettingsDialog,
   RequireBlePermissionDialog,
-  buildBleBondError,
   buildBleNotifyChangeError,
   buildBlePermissionDialogProps,
   buildBleSettingsDialogProps,
@@ -83,7 +82,6 @@ import {
 import {
   createHardwareErrorDialogEventHandler,
   isTrezorHardwareErrorDialogPayload,
-  shouldReplaceHardwareErrorDialog,
 } from './hardwareErrorDialogUtils';
 import { shouldSkipHardwareDeviceCancel } from './hardwareUiCancelPolicy';
 import { hardwareUiStateDialogLifecycle } from './hardwareUiStateDialogLifecycle';
@@ -490,10 +488,10 @@ function HardwareUiStateContainerCmpControlled() {
   // OK-62087), and the permission popups below (whose listeners always
   // stay live). One shared table decides, so an action is never shown
   // twice or by nobody.
-  // Whether the stage is on stage right now — the failure it is mid-flow
-  // on is the failure it will land.
+  // Whether the stage is mid-flow right now — the failure it is mid-flow
+  // on is the failure it will land (isDeviceStageCarryingFailures).
   const [deviceStage] = useDeviceStageAtom();
-  const stageIsShowing = Boolean(deviceStage && deviceStage.step !== 'off');
+  const stageIsShowing = isDeviceStageCarryingFailures(deviceStage?.step);
   const stageIsShowingRef = useRef(stageIsShowing);
   stageIsShowingRef.current = stageIsShowing;
   const stageOwnsAction =
@@ -736,7 +734,6 @@ function HardwareUiStateContainerCmpControlled() {
   const dialogInstanceRef = useRef<IDialogInstance | null>(null);
   const toastInstanceRef = useRef<IShowToasterInstance | null>(null);
   const hardwareErrorDialogInstanceRef = useRef<IDialogInstance | null>(null);
-  const hardwareErrorDialogTypeRef = useRef<string | null>(null);
   if (process.env.NODE_ENV !== 'production') {
     // @ts-ignore
     globalThis.$$hardwareUiStateDialogInstanceRef = dialogInstanceRef;
@@ -826,29 +823,14 @@ function HardwareUiStateContainerCmpControlled() {
 
   // Handle hardware error dialog
   useEffect(() => {
-    let isDisposed = false;
-    let isReplacingWithBleBondError = false;
-    const showBleBondErrorDialog = () => {
-      hardwareErrorDialogTypeRef.current =
-        HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR;
-      hardwareErrorDialogInstanceRef.current = Dialog.show({
-        ...buildBleBondError(intl),
-        overlayLevel: 'hardware',
-      });
-    };
     const callback = createHardwareErrorDialogEventHandler(
       (errorDialogPayload: IHardwareErrorDialogPayload) => {
         const { errorType } = errorDialogPayload;
-        const isDeviceNotFound =
-          errorType === HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND;
-        const isBleDeviceBondError =
-          errorType === HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR;
         // OK-59934: one failure, one surface — the stage lands the failure
         // itself while it is on, and this dialog speaks for everything the
         // stage is not carrying (device search, the firmware update
         // workflow, any call that never opened a burst).
         if (
-          !isBleDeviceBondError &&
           !shouldLegacyContainerRaiseHardwareErrorDialog({
             errorType,
             stageIsShowing: stageIsShowingRef.current,
@@ -856,48 +838,15 @@ function HardwareUiStateContainerCmpControlled() {
         ) {
           return;
         }
-        if (isDeviceNotFound && isReplacingWithBleBondError) {
-          return;
-        }
-        const existingDialog = hardwareErrorDialogInstanceRef.current;
-        if (existingDialog?.isExist()) {
-          if (
-            shouldReplaceHardwareErrorDialog({
-              currentErrorType: hardwareErrorDialogTypeRef.current,
-              nextErrorType: errorType,
-            })
-          ) {
-            void serviceHardwareUI.cleanHardwareUiState();
-            hardwareErrorDialogTypeRef.current =
-              HARDWARE_ERROR_DIALOG_TYPES.BLE_DEVICE_BOND_ERROR;
-            isReplacingWithBleBondError = true;
-            void (async () => {
-              try {
-                await existingDialog.close();
-              } catch {
-                // Keep the repair guidance visible even if closing fails.
-              }
-              if (!isDisposed) {
-                showBleBondErrorDialog();
-              }
-              isReplacingWithBleBondError = false;
-            })();
-          }
+        if (hardwareErrorDialogInstanceRef.current?.isExist()) {
           return;
         }
 
         void serviceHardwareUI.cleanHardwareUiState();
 
-        if (isBleDeviceBondError) {
-          showBleBondErrorDialog();
-          return;
-        }
-
         const isTrezorError =
           isTrezorHardwareErrorDialogPayload(errorDialogPayload);
 
-        hardwareErrorDialogTypeRef.current =
-          HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND;
         hardwareErrorDialogInstanceRef.current = Dialog.show({
           overlayLevel: 'hardware',
           title: intl.formatMessage({
@@ -923,11 +872,9 @@ function HardwareUiStateContainerCmpControlled() {
 
     appEventBus.on(EAppEventBusNames.ShowHardwareErrorDialog, callback);
     return () => {
-      isDisposed = true;
       appEventBus.off(EAppEventBusNames.ShowHardwareErrorDialog, callback);
       callback.cancel();
       hardwareErrorDialogInstanceRef.current = null;
-      hardwareErrorDialogTypeRef.current = null;
     };
   }, [intl, serviceHardwareUI]);
 

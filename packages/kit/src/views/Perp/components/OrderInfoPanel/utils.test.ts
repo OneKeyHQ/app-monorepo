@@ -20,6 +20,10 @@ import {
 describe('fill direction translations', () => {
   const messages: Record<string, string> = {
     [ETranslations.perp_trade_settlement__title]: '结算',
+    [ETranslations.perp_long]: '做多',
+    [ETranslations.perp_short]: '做空',
+    [ETranslations.perp_order_close_long]: '平多',
+    [ETranslations.perp_order_close_short]: '平空',
   };
   const intl = createIntl(
     {
@@ -48,6 +52,32 @@ describe('fill direction translations', () => {
         intl,
       }),
     ).toEqual({ text: 'Unknown event', color: '$green11' });
+  });
+
+  it.each([
+    ['Open Long', 'B', '做多', '$green11'],
+    ['Open Short', 'A', '做空', '$red11'],
+    ['Close Long', 'A', '平多', '$red11'],
+    ['Close Short', 'B', '平空', '$green11'],
+    [' open LONG ', 'B', '做多', '$green11'],
+  ])('localizes the standard direction %s', (dir, side, text, color) => {
+    expect(
+      getFillDirectionDisplayInfo({ fill: { coin: 'SOL', dir, side }, intl }),
+    ).toEqual({ text, color });
+  });
+
+  it.each([
+    ['Long > Short', 'A', '$red11'],
+    ['Short > Long', 'B', '$green11'],
+    ['Liquidated Cross Long', 'A', '$red11'],
+    ['Liquidated Isolated Long', 'A', '$red11'],
+    ['Liquidated Cross Short', 'B', '$green11'],
+    ['Liquidated Isolated Short', 'B', '$green11'],
+    ['Unknown close long event', 'A', '$red11'],
+  ])('preserves the complete nonstandard direction %s', (dir, side, color) => {
+    expect(
+      getFillDirectionDisplayInfo({ fill: { coin: 'SOL', dir, side }, intl }),
+    ).toEqual({ text: dir, color });
   });
 });
 

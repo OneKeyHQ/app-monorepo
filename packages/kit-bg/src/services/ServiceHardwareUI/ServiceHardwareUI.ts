@@ -9,6 +9,7 @@ import {
   UserCancelFromOutside,
 } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   isHardwareError,
   isHardwareErrorByCode,
@@ -18,12 +19,12 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import {
   isLegacyHardwareUiActive,
   shouldCancelDeviceOnStageClose,
 } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -134,14 +135,13 @@ const HARDWARE_CONNECTION_CANCEL_SKIP_CODES = [
   HardwareErrorCode.BleLocationServicesDisabled,
   HardwareErrorCode.BleTimeoutError,
   HardwareErrorCode.BleForceCleanRunPromise,
-  HardwareErrorCode.BleDeviceBondError,
-  HardwareErrorCode.BlePeerRemovedPairingInformation,
-  HardwareErrorCode.BleBondInvalid,
   HardwareErrorCode.BleUnavailableWhileUsbConnected,
   HardwareErrorCode.BleCharacteristicNotifyChangeFailure,
   HardwareErrorCode.BleDeviceDisconnected,
   HardwareErrorCode.BlePoweredOff,
   HardwareErrorCode.BleUnsupported,
+  HardwareErrorCode.BridgeNeedsPermission,
+  ONEKEY_WEBUSB_DEVICE_ACCESS_ERROR_CODE,
 ];
 
 /** How long after the stage's off write its exit is still on screen —
@@ -588,7 +588,18 @@ class ServiceHardwareUI extends ServiceBase {
   }: {
     hardClose?: boolean; // hard close dialog by event bus
   } = {}) {
+    const state = await hardwareUiStateAtom.get();
     await hardwareUiStateAtom.set(undefined);
+    if (
+      state?.payload?.eventType ===
+        EHardwareUiStateAction.DESKTOP_REQUEST_BLUETOOTH_PERMISSION &&
+      state.payload.promiseId
+    ) {
+      await this.backgroundApi.servicePromise.resolveCallback({
+        id: state.payload.promiseId,
+        data: false,
+      });
+    }
     if (hardClose) {
       // atom some times not work, emit event to hard close dialog
       appEventBus.emit(
@@ -796,13 +807,15 @@ class ServiceHardwareUI extends ServiceBase {
    * Opens a UI-held burst for a whole flow (onboarding above all): every
    * wrapper that runs inside it joins by depth, so the stage stays put
    * across the seams instead of closing and reopening. The returned token
-   * closes it — see deviceStageEndBurst.
+   * closes it — see deviceStageEndBurst. `burstId` names the burst the hold
+   * stands in, the one DeviceStageOff reports when that stage leaves.
    */
   @backgroundMethod()
   async deviceStageBeginBurst(
     params: IDeviceStageBurstBeginParams & { reuseToken?: number } = {},
-  ) {
-    return this.deviceStageBurst.beginExplicit(params);
+  ): Promise<{ token: number; burstId: number | undefined }> {
+    const token = await this.deviceStageBurst.beginExplicit(params);
+    return { token, burstId: this.deviceStageBurst.getExplicitBurstId(token) };
   }
 
   @backgroundMethod()
@@ -860,6 +873,16 @@ class ServiceHardwareUI extends ServiceBase {
     content: IDeviceStageConfirmContent | undefined;
   }) {
     await this.deviceStageBurst.registerConfirmContent(content);
+  }
+
+  /** Not a close; see DeviceStageBurstScope.retireErrorOutcome. */
+  @backgroundMethod()
+  async deviceStageRetireErrorOutcome({
+    outcomeKey,
+  }: {
+    outcomeKey: string | undefined;
+  }) {
+    await this.deviceStageBurst.retireErrorOutcome(outcomeKey);
   }
 
   @backgroundMethod()
@@ -1504,7 +1527,7 @@ class ServiceHardwareUI extends ServiceBase {
     // Third-party vendors (Ledger) don't use OneKey SDK
     // Skip all OneKey-specific flows: DeviceChecking dialog, mutex, cancel, resetToHome
     const isThirdPartyVendor = getVendorProfile(
-      device?.vendor ?? EHardwareVendor.onekey,
+      device?.vendor ?? device?.settings?.vendor ?? EHardwareVendor.onekey,
     ).isThirdParty;
     let deviceResetToHome = true;
     let isBusy = false;
@@ -1568,19 +1591,28 @@ class ServiceHardwareUI extends ServiceBase {
       }
 
       if (this.isOuterProcessing()) {
-        if (connectId && !hideCheckingDeviceLoading && !isThirdPartyVendor) {
+        if (
+          connectId &&
+          !isThirdPartyVendor &&
+          (!hideCheckingDeviceLoading ||
+            (platformEnv.isSupportDesktopBle &&
+              !params.allowDuringFirmwareUpdate))
+        ) {
           assertActive();
-          // 先在统一连接管理器中确定本次实际传输，再显示动画，避免 BLE
-          // 通讯使用上一次持久化的 USB 弹窗。这里只选择传输，不发起设备通讯。
+          // Hidden firmware workflows own USB selection, validation and transport locking.
+          // Other desktop calls still pin their transport even when the checking UI is hidden.
           await this.backgroundApi.serviceHardware.prepareHardwareTransport({
             connectId,
             connectProtocol: device?.connectProtocol,
             hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+            oneKeyOperationLease: params.oneKeyOperationLease,
           });
           assertActive();
-          await this.showCheckingDeviceDialog({
-            connectId,
-          });
+          if (!hideCheckingDeviceLoading) {
+            await this.showCheckingDeviceDialog({
+              connectId,
+            });
+          }
         }
         // Third-party searching UI is driven by SDK ui-events.
 
@@ -1682,6 +1714,31 @@ class ServiceHardwareUI extends ServiceBase {
           appEventBus.emit(
             EAppEventBusNames.ShowFirmwareUpdateFromBootloaderMode,
             { connectId },
+          );
+        }
+      }
+      if (
+        isOuterCall &&
+        !isThirdPartyVendor &&
+        isHardwareErrorByCode({
+          error: error as IOneKeyError,
+          code: HardwareErrorCode.BlePoweredOff,
+        })
+      ) {
+        appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
+          uiRequestType: EHardwareUiStateAction.BLUETOOTH_PERMISSION,
+        });
+      }
+      if (isOuterCall && !isThirdPartyVendor && platformEnv.isDesktopLinux) {
+        try {
+          // Prepare USB permissions for the user's next attempt; never replay the operation.
+          await this.backgroundApi.serviceHardware.handleLinuxWebUsbAccessDeniedError(
+            { error },
+          );
+        } catch (permissionError) {
+          console.error(
+            'Failed to recover Linux USB permissions:',
+            permissionError,
           );
         }
       }

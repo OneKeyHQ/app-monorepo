@@ -9,7 +9,6 @@ import {
 
 import {
   Stack,
-  Tabs,
   YStack,
   useMedia,
   useScrollContentTabBarOffset,
@@ -27,6 +26,7 @@ import useActiveTabDAppInfo from '../../DAppConnection/hooks/useActiveTabDAppInf
 import { EarnProviderMirror } from '../../Earn/EarnProviderMirror';
 import { DeFiListBlock } from '../components/DeFiListBlock';
 import { EarnListView } from '../components/EarnListView';
+import { HomeScrollView } from '../components/HomeScrollView';
 import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { PopularTrading } from '../components/PopularTrading';
@@ -280,7 +280,7 @@ function PortfolioContainerWithProvider() {
       <ProviderJotaiContextHistoryList>
         <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
           <ProviderJotaiContextDeFiList>
-            <Tabs.ScrollView
+            <HomeScrollView
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: tabBarHeight }}
               nestedScrollEnabled={platformEnv.isNativeAndroid}
@@ -291,7 +291,7 @@ function PortfolioContainerWithProvider() {
               }
             >
               <PortfolioContainer />
-            </Tabs.ScrollView>
+            </HomeScrollView>
           </ProviderJotaiContextDeFiList>
         </EarnProviderMirror>
       </ProviderJotaiContextHistoryList>

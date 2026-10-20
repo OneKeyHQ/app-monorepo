@@ -55,6 +55,7 @@ jest.mock('@onekeyhq/components', () => ({
   ),
   getCurrentVisibilityState: () => true,
   onVisibilityStateChange: () => () => undefined,
+  s: (value: number) => value,
   useDeferredPromise: () => ({
     promise: Promise.resolve(null),
     reset: jest.fn(),

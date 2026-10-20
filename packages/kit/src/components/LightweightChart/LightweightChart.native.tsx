@@ -1,11 +1,21 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
-import { View } from 'react-native';
+import { AppState, View } from 'react-native';
+import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
 import WebView from 'react-native-webview';
 
 import { Stack } from '@onekeyhq/components';
+import { CollapsibleTabContext } from '@onekeyhq/components/src/composite/Tabs/CollapsibleTabContext';
 
 import { useChartConfig } from './hooks/useChartConfig';
+import formatChartPriceSource from './utils/formatChartPriceSource';
 import { generateChartHTML } from './utils/htmlTemplate';
 
 import type {
@@ -19,6 +29,16 @@ function buildStaticWebViewSource(config: ILightweightChartConfig) {
   return {
     html: generateChartHTML(config),
   };
+}
+
+// The price formatter is baked into the WebView document. Data updates only
+// inject JSON, so a formatter change has to remount the page.
+function chartFormatterKey(source: string) {
+  let hash = 0;
+  for (let index = 0; index < source.length; index += 1) {
+    hash = (Math.imul(31, hash) + source.charCodeAt(index)) | 0;
+  }
+  return String(hash);
 }
 
 export function LightweightChart({
@@ -42,9 +62,12 @@ export function LightweightChart({
   crosshairVertLineColor,
   crosshairVertLineStyle,
   patternColor,
+  pulseLastPointColor,
   priceScaleMinimumWidth,
   priceFormatter,
+  priceFormatBase,
   compactPriceMaxCharacters,
+  priceScaleFormat,
   priceFormatterPrecision,
   priceFormatterTickStep,
   fontSize,
@@ -63,6 +86,7 @@ export function LightweightChart({
   timeZone,
   locale,
   hideCrosshairPriceLabel,
+  pulseLastPoint,
   onHover,
 }: ILightweightChartProps) {
   const webViewRef = useRef<WebView>(null);
@@ -88,9 +112,12 @@ export function LightweightChart({
     crosshairVertLineColor,
     crosshairVertLineStyle,
     patternColor,
+    pulseLastPointColor,
     priceScaleMinimumWidth,
     priceFormatter,
+    priceFormatBase,
     compactPriceMaxCharacters,
+    priceScaleFormat,
     priceFormatterPrecision,
     priceFormatterTickStep,
     fontSize,
@@ -114,11 +141,9 @@ export function LightweightChart({
       ...chartConfig,
       showLastValue: !!showLastValue,
       hideCrosshairPriceLabel,
+      pulseLastPoint: !!pulseLastPoint,
     }),
-    [chartConfig, hideCrosshairPriceLabel, showLastValue],
-  );
-  const [webViewSource, setWebViewSource] = useState(() =>
-    buildStaticWebViewSource(nativeConfig),
+    [chartConfig, hideCrosshairPriceLabel, pulseLastPoint, showLastValue],
   );
   const latestConfigRef = useRef(nativeConfig);
   latestConfigRef.current = nativeConfig;
@@ -127,6 +152,18 @@ export function LightweightChart({
   // source on the old instance can stay blank; a fresh instance is the only
   // reliable path there, and it serves iOS just as well.
   const [webViewGeneration, setWebViewGeneration] = useState(0);
+  const formatterKey = chartFormatterKey(formatChartPriceSource);
+  // Rebuild the document when the embedded formatter changes. Data updates
+  // still go through injectJavaScript and must not reload the page.
+  const webViewSource = useMemo(() => {
+    const source = buildStaticWebViewSource(latestConfigRef.current);
+    return {
+      html: source.html.replace(
+        '<head>',
+        `<head><meta name="chart-price-formatter" content="${formatterKey}-${webViewGeneration}" />`,
+      ),
+    };
+  }, [formatterKey, webViewGeneration]);
 
   // The OS can kill the WebView's content process while the page sits idle
   // (memory pressure on the phone), and react-native-webview does nothing
@@ -136,7 +173,6 @@ export function LightweightChart({
   // current data straight away; the ready handshake then resumes updates.
   const handleContentProcessGone = useCallback(() => {
     setWebViewReady(false);
-    setWebViewSource(buildStaticWebViewSource(latestConfigRef.current));
     setWebViewGeneration((generation) => generation + 1);
   }, []);
 
@@ -170,11 +206,47 @@ export function LightweightChart({
     [onHover],
   );
 
+  const repaintChart = useCallback(() => {
+    webViewRef.current?.injectJavaScript(`
+      (function() {
+        if (typeof window.repaintChart === 'function') {
+          window.repaintChart();
+        }
+      })();
+      true;
+    `);
+  }, []);
+
+  // Collapsing the header moves the WebView offscreen without a DOM resize.
+  // Repaint the existing canvas when it returns, without resetting the range.
+  const tabsContext = useContext(CollapsibleTabContext);
+  const scrollYCurrent = tabsContext?.scrollYCurrent;
+  const headerHeight = tabsContext?.headerHeight ?? 0;
+  useAnimatedReaction(
+    () => !scrollYCurrent || scrollYCurrent.value < headerHeight,
+    (isVisible, wasVisible) => {
+      if (isVisible && wasVisible === false) {
+        runOnJS(repaintChart)();
+      }
+    },
+    [scrollYCurrent, headerHeight, repaintChart],
+  );
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        repaintChart();
+      }
+    });
+    return () => subscription.remove();
+  }, [repaintChart]);
+
   // Update chart when data changes
   useEffect(() => {
     if (webViewReady && webViewRef.current) {
       const updateScript = `
         (function() {
+          window.__onekeyFormatChartPrice = ${formatChartPriceSource};
           const newConfig = ${JSON.stringify(nativeConfig)};
           if (typeof window.applyChartConfig === 'function') {
             window.applyChartConfig(newConfig);
@@ -190,7 +262,7 @@ export function LightweightChart({
     <Stack position="relative" height={height} width="100%">
       <View style={{ flex: 1 }}>
         <WebView
-          key={webViewGeneration}
+          key={`${webViewGeneration}-${formatterKey}`}
           ref={webViewRef}
           source={webViewSource}
           onLoadStart={() => {

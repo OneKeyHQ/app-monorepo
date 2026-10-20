@@ -18,8 +18,65 @@ import type {
   ILightweightChartReferenceLine,
   ILightweightChartSeriesType,
   ILightweightChartTime,
+  ILightweightSecondaryLineChart,
+  ILightweightSecondaryLineData,
 } from '../types';
-import type { BaselineSeriesPartialOptions } from 'lightweight-charts';
+import type {
+  BaselineSeriesPartialOptions,
+  LineData,
+} from 'lightweight-charts';
+
+// Stroke color of a segment that only bridges a gap.
+const GAP_SEGMENT_COLOR = 'transparent';
+
+/**
+ * The overlay line's series data and the points it cannot draw, for a line
+ * that stops and resumes (a campaign that ran in August and again in October
+ * is two runs, not one line across September).
+ *
+ * lightweight-charts joins the valued points on either side of a whitespace
+ * point, and strokes each segment in the color of the point it starts from.
+ * So a null value becomes a whitespace point (no value, no hover readout),
+ * and the last point before a gap gets a transparent color: the segment
+ * bridging the gap is invisible while each run keeps the series color. A
+ * point with no valued neighbour, such as the first hour of a new run, then
+ * has no visible segment at all and is returned separately to be drawn as a
+ * dot.
+ */
+export function buildSecondaryLineSeries(
+  points: ILightweightSecondaryLineChart | undefined,
+): {
+  line: ILightweightSecondaryLineData[] | undefined;
+  isolatedPoints: LineData[] | undefined;
+} {
+  if (!points) {
+    return { line: undefined, isolatedPoints: undefined };
+  }
+  const hasValue = (index: number) =>
+    index >= 0 && index < points.length && points[index][1] !== null;
+  const line: ILightweightSecondaryLineData[] = points.map(
+    ([time, value], index) => {
+      if (value === null) {
+        return { time: time as ILightweightChartTime };
+      }
+      const endsBeforeGap = index + 1 < points.length && !hasValue(index + 1);
+      return endsBeforeGap
+        ? {
+            time: time as ILightweightChartTime,
+            value,
+            color: GAP_SEGMENT_COLOR,
+          }
+        : { time: time as ILightweightChartTime, value };
+    },
+  );
+  const isolatedPoints: LineData[] = [];
+  points.forEach(([time, value], index) => {
+    if (value !== null && !hasValue(index - 1) && !hasValue(index + 1)) {
+      isolatedPoints.push({ time: time as ILightweightChartTime, value });
+    }
+  });
+  return { line, isolatedPoints };
+}
 
 interface IUseChartConfigProps {
   data: IMarketTokenChart;
@@ -27,7 +84,7 @@ interface IUseChartConfigProps {
   topColor?: string;
   bottomColor?: string;
   textSubduedColor?: string;
-  secondaryLineData?: IMarketTokenChart;
+  secondaryLineData?: ILightweightSecondaryLineChart;
   secondaryLineColor?: string;
   secondaryLineWidth?: number;
   lineWidth?: number;
@@ -44,7 +101,10 @@ interface IUseChartConfigProps {
   pulseLastPointColor?: string;
   priceScaleMinimumWidth?: number;
   priceFormatter?: (price: number) => string;
+  priceTickFormatter?: (prices: number[]) => string[];
+  priceFormatBase?: number;
   compactPriceMaxCharacters?: number;
+  priceScaleFormat?: 'stock';
   priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
   fontSize?: number;
@@ -87,7 +147,10 @@ export function useChartConfig({
   pulseLastPointColor,
   priceScaleMinimumWidth,
   priceFormatter,
+  priceTickFormatter,
+  priceFormatBase,
   compactPriceMaxCharacters,
+  priceScaleFormat,
   priceFormatterPrecision,
   priceFormatterTickStep: priceFormatterTickStepProp,
   fontSize,
@@ -136,12 +199,11 @@ export function useChartConfig({
       })),
     [data, histogramOptions, lineColor, resolvedSeriesType],
   );
-  const chartSecondaryLineData = useMemo(
-    () =>
-      secondaryLineData?.map(([time, value]: [number, number]) => ({
-        time: time as ILightweightChartTime,
-        value,
-      })),
+  const {
+    line: chartSecondaryLineData,
+    isolatedPoints: chartSecondaryPointData,
+  } = useMemo(
+    () => buildSecondaryLineSeries(secondaryLineData),
     [secondaryLineData],
   );
 
@@ -169,12 +231,16 @@ export function useChartConfig({
       pulseLastPointColor,
       data: chartData,
       secondaryLineData: chartSecondaryLineData,
+      secondaryPointData: chartSecondaryPointData,
       secondaryLineColor,
       secondaryLineWidth,
       priceScaleMinimumWidth,
       priceFormatter,
+      priceTickFormatter,
+      priceFormatBase,
       priceFormatterType,
       compactPriceMaxCharacters,
+      priceScaleFormat,
       priceFormatterPrecision,
       priceFormatterTickStep,
       fontSize,
@@ -196,6 +262,7 @@ export function useChartConfig({
     [
       chartData,
       chartSecondaryLineData,
+      chartSecondaryPointData,
       theme.textSubdued?.val,
       theme.borderSubdued?.val,
       lineColor,
@@ -218,8 +285,11 @@ export function useChartConfig({
       pulseLastPointColor,
       priceScaleMinimumWidth,
       priceFormatter,
+      priceTickFormatter,
+      priceFormatBase,
       priceFormatterType,
       compactPriceMaxCharacters,
+      priceScaleFormat,
       priceFormatterPrecision,
       priceFormatterTickStep,
       fontSize,

@@ -314,6 +314,7 @@ function TokenDetailsHeaderContent({
     networkId,
     walletId,
     indexedAccountId: indexedAccountId ?? '',
+    isAllNetworks,
   });
 
   const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
@@ -653,6 +654,9 @@ function TokenDetailsHeaderContent({
                 });
                 void handleOnReceive({
                   token: tokenInfo,
+                  switchEntry: 'token',
+                  allowAddressTypeMenu: true,
+                  source: 'tokenDetails',
                 });
               }}
               trackID="wallet-token-details-receive"

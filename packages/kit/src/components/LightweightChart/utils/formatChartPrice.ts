@@ -1,6 +1,27 @@
 // Keep this function self-contained: native charts embed it in the WebView.
-export function formatChartPrice(price: number, maxCharacters = 8): string {
+export function formatChartPrice(
+  price: number,
+  maxCharacters = 8,
+  stockPrice = false,
+): string {
   if (!Number.isFinite(price)) return '--';
+  if (stockPrice && Math.abs(price) >= 1) {
+    // Round the decimal digits half-up, avoiding binary midpoint errors.
+    const [mantissa, exponentText] = Math.abs(price).toExponential().split('e');
+    const decimalPosition = Number(exponentText) + 1;
+    const digits = mantissa.replace('.', '').padEnd(decimalPosition + 3, '0');
+    const cents = digits.slice(0, decimalPosition + 2).split('');
+    if (digits.charAt(decimalPosition + 2) >= '5') {
+      let index = cents.length - 1;
+      while (index >= 0 && cents[index] === '9') {
+        cents[index] = '0';
+        index -= 1;
+      }
+      if (index < 0) cents.unshift('1');
+      else cents[index] = String(Number(cents[index]) + 1);
+    }
+    return `${price < 0 ? '-' : ''}$${cents.slice(0, -2).join('')}.${cents.slice(-2).join('')}`;
+  }
   const limit = Number.isFinite(maxCharacters)
     ? Math.max(4, Math.floor(maxCharacters))
     : 8;
@@ -89,4 +110,55 @@ export function formatChartPrice(price: number, maxCharacters = 8): string {
     if (body.length <= limit) return `${prefix}${body}${unit}`;
   }
   return `${prefix}${body.slice(0, limit)}${unit}...`;
+}
+
+// Stock quotes on the mobile detail chart keep two decimals, matching the
+// headline (`$341.70`, not `$341.7`). Amounts under $1 stay on the shared
+// compact formatter.
+export function formatStockChartPrice(price: number): string {
+  return formatChartPrice(price, 10, true);
+}
+
+// Desktop axis prints the quote in full up to this size, then falls back to
+// the compact M / B form.
+const FULL_PRICE_COMPACT_FROM = 1e6;
+const FULL_PRICE_SUB_DOLLAR_MAX_CHARACTERS = 10;
+
+function groupThousands(integerDigits: string): string {
+  return integerDigits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+// Desktop price labels (last price, previous close): `$2,377.04` instead of
+// `$2.38K`. Sub-dollar quotes keep the shared compact form.
+export function formatChartPriceFull(price: number): string {
+  if (!Number.isFinite(price)) return '--';
+  if (Math.abs(price) < 1) {
+    return formatChartPrice(price, FULL_PRICE_SUB_DOLLAR_MAX_CHARACTERS);
+  }
+  const match = /^(-?\$)(\d+)\.(\d{2})$/.exec(
+    formatChartPrice(price, FULL_PRICE_SUB_DOLLAR_MAX_CHARACTERS, true),
+  );
+  if (!match || Number(match[2]) >= FULL_PRICE_COMPACT_FROM) {
+    return formatChartPrice(price, FULL_PRICE_SUB_DOLLAR_MAX_CHARACTERS);
+  }
+  return `${match[1]}${groupThousands(match[2])}.${match[3]}`;
+}
+
+// Desktop axis ticks. Whole-dollar steps drop the decimals (`$2,540`); any
+// fractional step keeps two on every tick so the column stays aligned.
+export function formatChartPriceFullTicks(prices: number[]): string[] {
+  const values = prices.map((price) =>
+    Number.isFinite(price) ? Number(price.toPrecision(15)) : price,
+  );
+  const wholeDollarTicks =
+    values.some((value) => Math.abs(value) >= 1) &&
+    values.every(
+      (value) =>
+        Number.isInteger(value) && Math.abs(value) < FULL_PRICE_COMPACT_FROM,
+    );
+  return values.map((value) =>
+    wholeDollarTicks
+      ? `${value < 0 ? '-' : ''}$${groupThousands(String(Math.abs(value)))}`
+      : formatChartPriceFull(value),
+  );
 }

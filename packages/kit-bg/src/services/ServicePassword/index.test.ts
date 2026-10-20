@@ -2,15 +2,21 @@ import ServicePassword, { shouldUseV4MigrationPasswordForPrompt } from '.';
 
 import { encodeSensitiveTextAsync } from '@onekeyhq/core/src/secret';
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
+import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
+import { biologyAuthNativeError } from '@onekeyhq/shared/src/biologyAuth/error';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
-import { WrongPassword } from '@onekeyhq/shared/src/errors';
+import { BiologyAuthFailed, WrongPassword } from '@onekeyhq/shared/src/errors';
+import { checkBiometricAuthChanged } from '@onekeyhq/shared/src/modules3rdParty/check-biometric-auth-changed';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import {
   RuntimeEnvironment,
   getTravelModeRuntimeProfile,
   travelModeManager,
 } from '@onekeyhq/shared/src/travelMode';
+import { ENCODE_TEXT_PREFIX } from '@onekeyhq/shared/src/utils/sensitiveTextUtils';
 import {
+  BIOLOGY_AUTH_ABORTED_ERROR,
   EPasswordMode,
   EPasswordVerifyStatus,
 } from '@onekeyhq/shared/types/password';
@@ -19,6 +25,7 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import localDb from '../../dbs/local/localDb';
 import { runtimePersistenceAdapter } from '../../runtime/RuntimeEnvironmentAdapter';
 import { firmwareUpdateWorkflowRunningAtom } from '../../states/jotai/atoms/hardware';
+import { passwordBiologyAuthInfoAtom } from '../../states/jotai/atoms/password';
 import {
   appIsLocked,
   hyperLiquidAgentPasswordStatusAtom,
@@ -27,12 +34,24 @@ import {
   passwordPersistAtom,
   passwordPersistManualLockStateAtom,
 } from '../../states/jotai/atoms/passwordLock';
-import { settingsLastActivityAtom } from '../../states/jotai/atoms/settings';
+import {
+  settingsLastActivityAtom,
+  settingsPersistAtom,
+} from '../../states/jotai/atoms/settings';
 import { v4migrationAtom } from '../../states/jotai/atoms/v4migration';
 import { jotaiDefaultStore } from '../../states/jotai/utils/jotaiDefaultStore';
 
+import { biologyAuthUtils } from './biologyAuthUtils';
+
+import type { LocalAuthenticationError } from 'expo-local-authentication';
+
 const PASSWORD_VALIDATION_PROBE_ID =
   'password-validation-explicit-webcrypto-test';
+
+jest.mock(
+  '@onekeyhq/shared/src/modules3rdParty/check-biometric-auth-changed',
+  () => ({ checkBiometricAuthChanged: jest.fn() }),
+);
 
 jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
@@ -116,6 +135,118 @@ describe('ServicePassword', () => {
         );
       });
   });
+
+  it('preserves an interrupted Windows challenge without reading the stored password', async () => {
+    const originalPlatform = {
+      isDesktopWin: platformEnv.isDesktopWin,
+      isDesktopMac: platformEnv.isDesktopMac,
+      isNativeIOS: platformEnv.isNativeIOS,
+    };
+    Object.assign(platformEnv, {
+      isDesktopWin: true,
+      isDesktopMac: false,
+      isNativeIOS: false,
+    });
+    try {
+      const service = Object.create(
+        ServicePassword.prototype,
+      ) as ServicePassword;
+      jest
+        .spyOn(passwordBiologyAuthInfoAtom, 'get')
+        .mockResolvedValue(Promise.resolve({ authType: [], isSupport: true }));
+      jest.spyOn(biologyAuthUtils, 'biologyAuthenticate').mockResolvedValue({
+        success: false,
+        error: BIOLOGY_AUTH_ABORTED_ERROR,
+        warning: BIOLOGY_AUTH_ABORTED_ERROR,
+      });
+      const getPassword = jest.spyOn(biologyAuthUtils, 'getPassword');
+      await expect(service.getBiologyAuthPassword()).rejects.toMatchObject({
+        name: BIOLOGY_AUTH_ABORTED_ERROR,
+        message: '',
+        cause: biologyAuthNativeError,
+      });
+      expect(getPassword).not.toHaveBeenCalled();
+    } finally {
+      Object.assign(platformEnv, originalPlatform);
+    }
+  });
+
+  it('marks a real Windows verification failure for attempt protection', async () => {
+    const originalPlatform = {
+      isDesktopWin: platformEnv.isDesktopWin,
+      isDesktopMac: platformEnv.isDesktopMac,
+      isNativeIOS: platformEnv.isNativeIOS,
+    };
+    Object.assign(platformEnv, {
+      isDesktopWin: true,
+      isDesktopMac: false,
+      isNativeIOS: false,
+    });
+    try {
+      const service = Object.create(
+        ServicePassword.prototype,
+      ) as ServicePassword;
+      jest
+        .spyOn(passwordBiologyAuthInfoAtom, 'get')
+        .mockResolvedValue(Promise.resolve({ authType: [], isSupport: true }));
+      jest.spyOn(biologyAuthUtils, 'biologyAuthenticate').mockResolvedValue({
+        success: false,
+        error: 'biologyAuthenticate failed' as LocalAuthenticationError,
+      });
+      const getPassword = jest.spyOn(biologyAuthUtils, 'getPassword');
+      const verification = service.getBiologyAuthPassword();
+      await expect(verification).rejects.toBeInstanceOf(BiologyAuthFailed);
+      await expect(verification).rejects.toMatchObject({
+        cause: biologyAuthNativeError,
+      });
+      expect(getPassword).not.toHaveBeenCalled();
+    } finally {
+      Object.assign(platformEnv, originalPlatform);
+    }
+  });
+
+  it.each(['not_available', 'biologyAuthenticate no supported', 'IPC failure'])(
+    'does not count the Windows pre-challenge error %s as a native failure',
+    async (error) => {
+      const originalPlatform = {
+        isDesktopWin: platformEnv.isDesktopWin,
+        isDesktopMac: platformEnv.isDesktopMac,
+        isNativeIOS: platformEnv.isNativeIOS,
+      };
+      Object.assign(platformEnv, {
+        isDesktopWin: true,
+        isDesktopMac: false,
+        isNativeIOS: false,
+      });
+      try {
+        const service = Object.create(
+          ServicePassword.prototype,
+        ) as ServicePassword;
+        jest
+          .spyOn(passwordBiologyAuthInfoAtom, 'get')
+          .mockResolvedValue(
+            Promise.resolve({ authType: [], isSupport: true }),
+          );
+        const authenticate = jest
+          .spyOn(biologyAuthUtils, 'biologyAuthenticate')
+          .mockResolvedValue({
+            success: false,
+            error: error as LocalAuthenticationError,
+          });
+        const getPassword = jest.spyOn(biologyAuthUtils, 'getPassword');
+        const verification = service.getBiologyAuthPassword();
+        await expect(verification).rejects.toBeInstanceOf(BiologyAuthFailed);
+        await expect(verification).rejects.not.toHaveProperty(
+          'cause',
+          biologyAuthNativeError,
+        );
+        expect(authenticate).toHaveBeenCalledTimes(1);
+        expect(getPassword).not.toHaveBeenCalled();
+      } finally {
+        Object.assign(platformEnv, originalPlatform);
+      }
+    },
+  );
 
   it('never substitutes a migration password for a manual prompt', () => {
     expect(
@@ -778,4 +909,492 @@ describe('ServicePassword', () => {
       expect(lockApp).not.toHaveBeenCalled();
     },
   );
+});
+
+describe('ServicePassword biometric check recovery', () => {
+  const markerKey = 'biometricAuthCheckPending';
+  let persisted: string | null;
+  let switchOn = true;
+  const originalIOS = Object.getOwnPropertyDescriptor(
+    platformEnv,
+    'isNativeIOS',
+  );
+  const setting = jest.fn<Promise<void>, [boolean]>();
+  const makeService = () =>
+    Object.assign(Object.create(ServicePassword.prototype) as ServicePassword, {
+      backgroundApi: { serviceSetting: { setBiologyAuthSwitchOn: setting } },
+    });
+
+  beforeEach(() => {
+    jest.restoreAllMocks();
+    switchOn = true;
+    setting.mockReset().mockImplementation(async (value) => {
+      switchOn = value;
+    });
+    persisted = null;
+    jest.mocked(checkBiometricAuthChanged).mockReset();
+    Object.defineProperty(platformEnv, 'isNativeIOS', {
+      configurable: true,
+      value: true,
+    });
+    jest.spyOn(biologyAuth, 'isSupportBiologyAuth').mockResolvedValue(true);
+    jest.spyOn(settingsPersistAtom, 'get').mockImplementation(async () => ({
+      ...jotaiDefaultStore.get(settingsPersistAtom.atom()),
+      isBiologyAuthSwitchOn: switchOn,
+    }));
+    jest
+      .spyOn(appStorage, 'getItem')
+      .mockImplementation(async (key) =>
+        key === markerKey ? persisted : null,
+      );
+    jest.spyOn(appStorage, 'setItem').mockImplementation(async (key, value) => {
+      if (key === markerKey) persisted = value;
+    });
+    jest.spyOn(appStorage, 'removeItem').mockImplementation(async (key) => {
+      if (key === markerKey) persisted = null;
+    });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    if (originalIOS)
+      Object.defineProperty(platformEnv, 'isNativeIOS', originalIOS);
+  });
+
+  it('writes a durable checkpoint before the SDK and clears it on unchanged', async () => {
+    jest.mocked(checkBiometricAuthChanged).mockImplementation(async () => {
+      expect(persisted).toBe('checking');
+      return false;
+    });
+    await expect(makeService().checkBiometricAuthChanged()).resolves.toBe(
+      false,
+    );
+    expect(persisted).toBeNull();
+    expect(setting).not.toHaveBeenCalled();
+  });
+
+  it('recovers changed state after setting failure and a new service instance', async () => {
+    jest.mocked(checkBiometricAuthChanged).mockResolvedValue(true);
+    setting.mockRejectedValueOnce(new Error('write failed'));
+    await expect(makeService().checkBiometricAuthChanged()).rejects.toThrow(
+      'write failed',
+    );
+    expect(persisted).toBe('changed');
+    jest.mocked(checkBiometricAuthChanged).mockClear().mockResolvedValue(false);
+    await expect(makeService().checkBiometricAuthChanged()).resolves.toBe(true);
+    expect(checkBiometricAuthChanged).not.toHaveBeenCalled();
+    expect(setting).toHaveBeenLastCalledWith(false);
+    expect(persisted).toBeNull();
+  });
+
+  it('blocks an interrupted check after restart without consuming another baseline', async () => {
+    persisted = 'checking';
+    jest.mocked(checkBiometricAuthChanged).mockClear();
+    await expect(makeService().checkBiometricAuthChanged()).rejects.toThrow();
+    expect(checkBiometricAuthChanged).not.toHaveBeenCalled();
+    expect(setting).not.toHaveBeenCalled();
+  });
+
+  it('does not call native code if the checkpoint cannot be written', async () => {
+    jest
+      .spyOn(appStorage, 'setItem')
+      .mockRejectedValue(new Error('disk unavailable'));
+    jest.mocked(checkBiometricAuthChanged).mockClear();
+    await expect(makeService().checkBiometricAuthChanged()).rejects.toThrow(
+      'disk unavailable',
+    );
+    expect(checkBiometricAuthChanged).not.toHaveBeenCalled();
+  });
+
+  it('retains uncertainty after SDK failure without disabling biometrics', async () => {
+    jest
+      .mocked(checkBiometricAuthChanged)
+      .mockRejectedValue(new Error('Keychain unavailable'));
+    await expect(makeService().checkBiometricAuthChanged()).rejects.toThrow(
+      'Keychain unavailable',
+    );
+    expect(persisted).toBe('checking');
+    expect(setting).not.toHaveBeenCalled();
+  });
+  it('coalesces overlapping checks including the settings write', async () => {
+    let resolve!: (value: boolean) => void;
+    jest.mocked(checkBiometricAuthChanged).mockReturnValue(
+      new Promise<boolean>((done) => {
+        resolve = done;
+      }),
+    );
+    const service = makeService();
+    const first = service.checkBiometricAuthChanged();
+    const second = service.checkBiometricAuthChanged();
+    for (let i = 0; i < 10; i += 1) await Promise.resolve();
+    expect(checkBiometricAuthChanged).toHaveBeenCalledTimes(1);
+    resolve(true);
+    await expect(Promise.all([first, second])).resolves.toEqual([true, true]);
+    expect(setting).toHaveBeenCalledTimes(1);
+  });
+
+  it('recovers only after successful raw password input, not a reusable credential', async () => {
+    persisted = 'checking';
+    const service = makeService();
+    const verified = 'encoded-password';
+    const encode = jest
+      .spyOn(service, 'encodeSensitiveText')
+      .mockResolvedValue(verified);
+    const verify = jest.spyOn(
+      service as unknown as { verifyPasswordInner: () => Promise<string> },
+      'verifyPasswordInner',
+    );
+    verify.mockRejectedValueOnce(new Error('wrong password'));
+    const params = { password: verified, passwordMode: EPasswordMode.PASSWORD };
+    await expect(service.verifyPassword(params)).rejects.toThrow(
+      'wrong password',
+    );
+    expect(persisted).toBe('checking');
+    verify.mockResolvedValueOnce(verified);
+    await expect(service.verifyPassword(params)).resolves.toBe(verified);
+    expect(persisted).toBe('checking');
+    await expect(
+      service.verifyPasswordFromInput({
+        password: `${ENCODE_TEXT_PREFIX.aes}reused`,
+        passwordMode: EPasswordMode.PASSWORD,
+      }),
+    ).rejects.toThrow('Expected unencoded password input');
+    expect(encode).not.toHaveBeenCalled();
+    expect(persisted).toBe('checking');
+    verify.mockRejectedValueOnce(new WrongPassword());
+    await expect(
+      service.verifyPasswordFromInput({
+        password: 'wrong fresh input',
+        passwordMode: EPasswordMode.PASSWORD,
+      }),
+    ).rejects.toThrow();
+    expect(persisted).toBe('checking');
+    verify.mockResolvedValueOnce(verified);
+    await expect(
+      service.verifyPasswordFromInput({
+        password: 'fresh input',
+        passwordMode: EPasswordMode.PASSWORD,
+      }),
+    ).resolves.toBe(verified);
+    expect(encode).toHaveBeenCalledWith(
+      expect.objectContaining({ text: 'fresh input' }),
+    );
+    expect(setting).toHaveBeenLastCalledWith(false);
+    expect(switchOn).toBe(false);
+    expect(setting.mock.invocationCallOrder[0]).toBeLessThan(
+      jest.mocked(appStorage.removeItem).mock.invocationCallOrder[0],
+    );
+    expect(persisted).toBeNull();
+  });
+
+  it('keeps an uncertain check pending when switch shutdown fails during manual recovery', async () => {
+    persisted = 'checking';
+    const service = makeService();
+    jest
+      .spyOn(service, 'encodeSensitiveText')
+      .mockResolvedValue('encoded-password');
+    jest
+      .spyOn(
+        service as unknown as { verifyPasswordInner: () => Promise<string> },
+        'verifyPasswordInner',
+      )
+      .mockResolvedValue('encoded-password');
+    setting.mockRejectedValueOnce(new Error('settings write failed'));
+    const params = {
+      password: 'fresh input',
+      passwordMode: EPasswordMode.PASSWORD,
+    };
+    await expect(service.verifyPasswordFromInput(params)).resolves.toBe(
+      'encoded-password',
+    );
+    expect(persisted).toBe('checking');
+    expect(switchOn).toBe(true);
+    await expect(service.verifyPasswordFromInput(params)).resolves.toBe(
+      'encoded-password',
+    );
+    expect(setting).toHaveBeenLastCalledWith(false);
+    expect(persisted).toBeNull();
+    expect(switchOn).toBe(false);
+  });
+
+  it('preserves password access if recovery storage is unavailable', async () => {
+    persisted = 'checking';
+    const service = makeService();
+    jest
+      .spyOn(service, 'encodeSensitiveText')
+      .mockResolvedValue('encoded-password');
+    jest
+      .spyOn(
+        service as unknown as { verifyPasswordInner: () => Promise<string> },
+        'verifyPasswordInner',
+      )
+      .mockResolvedValue('encoded-password');
+    jest
+      .spyOn(appStorage, 'removeItem')
+      .mockRejectedValue(new Error('disk unavailable'));
+    await expect(
+      service.verifyPasswordFromInput({
+        password: 'fresh input',
+        passwordMode: EPasswordMode.PASSWORD,
+      }),
+    ).resolves.toBe('encoded-password');
+    expect(persisted).toBe('checking');
+  });
+
+  it('keeps changed pending until manual input successfully disables biometrics', async () => {
+    persisted = 'changed';
+    const service = makeService();
+    jest
+      .spyOn(service, 'encodeSensitiveText')
+      .mockResolvedValue('encoded-password');
+    jest
+      .spyOn(
+        service as unknown as { verifyPasswordInner: () => Promise<string> },
+        'verifyPasswordInner',
+      )
+      .mockResolvedValue('encoded-password');
+    setting.mockRejectedValueOnce(new Error('settings write failed'));
+    const params = {
+      password: 'fresh input',
+      passwordMode: EPasswordMode.PASSWORD,
+    };
+    await expect(service.verifyPasswordFromInput(params)).resolves.toBe(
+      'encoded-password',
+    );
+    expect(persisted).toBe('changed');
+    expect(switchOn).toBe(true);
+    await expect(service.verifyPasswordFromInput(params)).resolves.toBe(
+      'encoded-password',
+    );
+    expect(setting).toHaveBeenLastCalledWith(false);
+    expect(persisted).toBeNull();
+    expect(switchOn).toBe(false);
+  });
+  it('preserves a normal unchanged check and the single authentication challenge', async () => {
+    const service = makeService();
+    const encoded = `${ENCODE_TEXT_PREFIX.aes}test-payload`;
+    jest
+      .spyOn(passwordBiologyAuthInfoAtom, 'get')
+      .mockResolvedValue(Promise.resolve({ authType: [], isSupport: true }));
+    jest.mocked(checkBiometricAuthChanged).mockResolvedValue(false);
+    const authenticate = jest
+      .spyOn(biologyAuthUtils, 'biologyAuthenticate')
+      .mockResolvedValue({ success: true });
+    jest.spyOn(biologyAuthUtils, 'getPassword').mockResolvedValue(encoded);
+    await expect(service.checkBiometricAuthChanged()).resolves.toBe(false);
+    await expect(service.getBiologyAuthPassword()).resolves.toBe(encoded);
+    expect(authenticate).toHaveBeenCalledTimes(1);
+    expect(setting).not.toHaveBeenCalled();
+    expect(persisted).toBeNull();
+  });
+
+  it('blocks direct biometric password access while recovery is pending', async () => {
+    persisted = 'checking';
+    const authenticate = jest.spyOn(biologyAuthUtils, 'biologyAuthenticate');
+    await expect(makeService().getBiologyAuthPassword()).rejects.toThrow();
+    expect(authenticate).not.toHaveBeenCalled();
+  });
+
+  it('keeps the check waiting until an active biometric password read finishes', async () => {
+    const service = makeService();
+    const encoded = `${ENCODE_TEXT_PREFIX.aes}test-payload`;
+    let finishChallenge!: () => void;
+    jest
+      .spyOn(passwordBiologyAuthInfoAtom, 'get')
+      .mockResolvedValue(Promise.resolve({ authType: [], isSupport: true }));
+    const authenticate = jest
+      .spyOn(biologyAuthUtils, 'biologyAuthenticate')
+      .mockReturnValue(
+        new Promise((resolve) => {
+          finishChallenge = () => resolve({ success: true });
+        }),
+      );
+    jest.spyOn(biologyAuthUtils, 'getPassword').mockResolvedValue(encoded);
+    jest.mocked(checkBiometricAuthChanged).mockResolvedValue(false);
+    const access = service.getBiologyAuthPassword();
+    for (let i = 0; i < 10; i += 1) await Promise.resolve();
+    expect(authenticate).toHaveBeenCalledTimes(1);
+    const checking = service.checkBiometricAuthChanged();
+    await Promise.resolve();
+    expect(checkBiometricAuthChanged).not.toHaveBeenCalled();
+    finishChallenge();
+    await expect(access).resolves.toBe(encoded);
+    await expect(checking).resolves.toBe(false);
+  });
+
+  it('blocks a queued biometric read after a changed check disables the switch', async () => {
+    const service = makeService();
+    let finishCheck!: (changed: boolean) => void;
+    jest.mocked(checkBiometricAuthChanged).mockReturnValue(
+      new Promise((resolve) => {
+        finishCheck = resolve;
+      }),
+    );
+    const checking = service.checkBiometricAuthChanged();
+    for (let i = 0; i < 10; i += 1) await Promise.resolve();
+    const authenticate = jest.spyOn(biologyAuthUtils, 'biologyAuthenticate');
+    const access = service.getBiologyAuthPassword();
+    finishCheck(true);
+    await expect(checking).resolves.toBe(true);
+    await expect(access).rejects.toThrow();
+    expect(authenticate).not.toHaveBeenCalled();
+    expect(switchOn).toBe(false);
+  });
+
+  it('closes the switch after secure storage fails without recursively locking', async () => {
+    const service = makeService();
+    jest
+      .spyOn(passwordBiologyAuthInfoAtom, 'get')
+      .mockResolvedValue(Promise.resolve({ authType: [], isSupport: true }));
+    jest
+      .spyOn(biologyAuthUtils, 'biologyAuthenticate')
+      .mockResolvedValue({ success: true });
+    jest
+      .spyOn(biologyAuthUtils, 'getPassword')
+      .mockRejectedValue(new Error('secure storage failed'));
+    await expect(service.getBiologyAuthPassword()).rejects.toThrow();
+    expect(setting).toHaveBeenCalledWith(false);
+    expect(switchOn).toBe(false);
+  });
+
+  it('syncs the native baseline before explicitly enabling biometrics', async () => {
+    switchOn = false;
+    const service = makeService();
+    jest.spyOn(biologyAuth, 'biologyAuthenticate').mockResolvedValue({
+      success: true,
+    });
+    jest.spyOn(service, 'getCachedPassword').mockResolvedValue('encoded');
+    jest.spyOn(service, 'saveBiologyAuthPassword').mockResolvedValue();
+    jest.mocked(checkBiometricAuthChanged).mockImplementation(async () => {
+      expect(persisted).toBe('checking');
+      expect(setting).not.toHaveBeenCalled();
+      return true;
+    });
+    await service.setBiologyAuthEnable(true);
+    expect(setting).toHaveBeenCalledWith(true);
+    expect(persisted).toBeNull();
+    jest.mocked(checkBiometricAuthChanged).mockResolvedValue(false);
+    setting.mockClear();
+    await expect(service.checkBiometricAuthChanged()).resolves.toBe(false);
+    expect(setting).not.toHaveBeenCalled();
+  });
+
+  it('allows a fresh enable retry after baseline sync fails while the switch is off', async () => {
+    switchOn = false;
+    const service = makeService();
+    jest.spyOn(biologyAuth, 'biologyAuthenticate').mockResolvedValue({
+      success: true,
+    });
+    jest.spyOn(service, 'getCachedPassword').mockResolvedValue('encoded');
+    jest.spyOn(service, 'saveBiologyAuthPassword').mockResolvedValue();
+    jest
+      .mocked(checkBiometricAuthChanged)
+      .mockRejectedValue(new Error('native unavailable'));
+    await expect(service.setBiologyAuthEnable(true)).rejects.toThrow(
+      'native unavailable',
+    );
+    expect(setting).not.toHaveBeenCalled();
+    expect(persisted).toBeNull();
+    jest.mocked(checkBiometricAuthChanged).mockResolvedValue(false);
+    await expect(service.setBiologyAuthEnable(true)).resolves.toBeUndefined();
+    expect(checkBiometricAuthChanged).toHaveBeenCalledTimes(2);
+    expect(setting).toHaveBeenCalledWith(true);
+    expect(persisted).toBeNull();
+  });
+
+  it('retains the checkpoint if baseline sync fails while the switch was on', async () => {
+    const service = makeService();
+    jest.spyOn(biologyAuth, 'biologyAuthenticate').mockResolvedValue({
+      success: true,
+    });
+    jest.spyOn(service, 'getCachedPassword').mockResolvedValue('encoded');
+    jest.spyOn(service, 'saveBiologyAuthPassword').mockResolvedValue();
+    jest
+      .mocked(checkBiometricAuthChanged)
+      .mockRejectedValue(new Error('native unavailable'));
+    await expect(service.setBiologyAuthEnable(true)).rejects.toThrow(
+      'native unavailable',
+    );
+    expect(persisted).toBe('checking');
+    expect(setting).not.toHaveBeenCalled();
+  });
+
+  it('retains the checkpoint if the switch turns on during baseline sync', async () => {
+    switchOn = false;
+    const service = makeService();
+    jest.spyOn(biologyAuth, 'biologyAuthenticate').mockResolvedValue({
+      success: true,
+    });
+    jest.spyOn(service, 'getCachedPassword').mockResolvedValue('encoded');
+    jest.spyOn(service, 'saveBiologyAuthPassword').mockResolvedValue();
+    jest.mocked(checkBiometricAuthChanged).mockImplementation(() => {
+      switchOn = true;
+      return Promise.reject(new Error('native unavailable'));
+    });
+    await expect(service.setBiologyAuthEnable(true)).rejects.toThrow(
+      'native unavailable',
+    );
+    expect(persisted).toBe('checking');
+  });
+
+  it('preserves the original baseline error if checkpoint cleanup fails', async () => {
+    switchOn = false;
+    const service = makeService();
+    jest.spyOn(biologyAuth, 'biologyAuthenticate').mockResolvedValue({
+      success: true,
+    });
+    jest.spyOn(service, 'getCachedPassword').mockResolvedValue('encoded');
+    jest.spyOn(service, 'saveBiologyAuthPassword').mockResolvedValue();
+    jest
+      .mocked(checkBiometricAuthChanged)
+      .mockRejectedValue(new Error('native unavailable'));
+    jest
+      .spyOn(appStorage, 'removeItem')
+      .mockRejectedValue(new Error('storage unavailable'));
+    await expect(service.setBiologyAuthEnable(true)).rejects.toThrow(
+      'native unavailable',
+    );
+    expect(persisted).toBe('checking');
+  });
+
+  it('never clears a checkpoint inherited from an earlier check', async () => {
+    switchOn = false;
+    persisted = 'checking';
+    const service = makeService();
+    await expect(service.setBiologyAuthEnable(true)).rejects.toThrow();
+    expect(persisted).toBe('checking');
+    expect(checkBiometricAuthChanged).not.toHaveBeenCalled();
+    expect(setting).not.toHaveBeenCalled();
+  });
+
+  it('retains the checkpoint when enabling the switch fails after baseline sync', async () => {
+    switchOn = false;
+    const service = makeService();
+    jest.spyOn(biologyAuth, 'biologyAuthenticate').mockResolvedValue({
+      success: true,
+    });
+    jest.spyOn(service, 'getCachedPassword').mockResolvedValue('encoded');
+    jest.spyOn(service, 'saveBiologyAuthPassword').mockResolvedValue();
+    jest.mocked(checkBiometricAuthChanged).mockResolvedValue(false);
+    setting.mockRejectedValueOnce(new Error('settings write failed'));
+    await expect(service.setBiologyAuthEnable(true)).rejects.toThrow(
+      'settings write failed',
+    );
+    expect(persisted).toBe('checking');
+    expect(switchOn).toBe(false);
+  });
+
+  it('does not consume the SDK baseline if checkpoint storage silently fails', async () => {
+    switchOn = false;
+    const service = makeService();
+    jest.spyOn(biologyAuth, 'biologyAuthenticate').mockResolvedValue({
+      success: true,
+    });
+    jest.spyOn(service, 'getCachedPassword').mockResolvedValue('encoded');
+    jest.spyOn(service, 'saveBiologyAuthPassword').mockResolvedValue();
+    jest.spyOn(appStorage, 'setItem').mockResolvedValue();
+    await expect(service.setBiologyAuthEnable(true)).rejects.toThrow();
+    expect(checkBiometricAuthChanged).not.toHaveBeenCalled();
+    expect(setting).not.toHaveBeenCalled();
+  });
 });

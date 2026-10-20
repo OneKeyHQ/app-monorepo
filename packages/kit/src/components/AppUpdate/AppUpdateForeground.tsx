@@ -1,9 +1,10 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 import { AppState } from 'react-native';
 
 import { useInTabDialog } from '@onekeyhq/components';
+import { acquireDeferredGuideBlocker } from '@onekeyhq/components/src/hooks/useDeferredGuideBlocker';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -47,12 +48,6 @@ import { useDownloadPackage } from './useDownloadPackage';
 // awaits after unmount.
 let didRunFirstLaunchDispatch = false;
 const LOG_ARCHIVE_CLEANUP_CUTOFF_MS = Date.now();
-// Auto-ready install handling should fire at most once per app session even if
-// the persist atom hydrates after the first-launch dispatch useEffect has
-// already consumed didRunFirstLaunchDispatch. Tracked separately so the
-// watcher effect below can react to a late hydration / in-session status
-// transition without re-running the full first-launch dispatch.
-let autoReadyInstallHandled = false;
 
 /**
  * OK-58962: on the extension every UI surface is its own page load, so a window
@@ -124,6 +119,41 @@ export function useAppUpdateForegroundEffects(enabled = true) {
   const navigation = useAppNavigation();
   const dialog = useInTabDialog();
   const [appUpdateInfo] = useAppUpdatePersistAtom();
+  const guideBlockerReleases = useRef(new Set<() => void>());
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    const releases = guideBlockerReleases.current;
+    return () => {
+      mounted.current = false;
+      releases.forEach((release) => release());
+    };
+  }, []);
+  const holdDeferredGuides = useCallback(() => {
+    if (!mounted.current) return () => undefined;
+    const releaseBlocker = acquireDeferredGuideBlocker();
+    const release = () => {
+      releaseBlocker();
+      guideBlockerReleases.current.delete(release);
+    };
+    guideBlockerReleases.current.add(release);
+    return release;
+  }, []);
+  const scheduleUpdateUi = useCallback(
+    (task: () => void | Promise<void>, delayMs = 0) => {
+      // Keep guides deferred across the gap before the next dialog or route
+      // owns the screen. Unmount also releases every outstanding UI hold.
+      const release = holdDeferredGuides();
+      setTimeout(async () => {
+        try {
+          await task();
+        } finally {
+          release();
+        }
+      }, delayMs);
+    },
+    [holdDeferredGuides],
+  );
   const {
     downloadPackage,
     verifyPackage,
@@ -132,43 +162,34 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     installPackage,
     showUpdateInCompleteDialog,
   } = useDownloadPackage();
-  const processRehydratedAppInstall = useCallback(() => {
-    if (autoReadyInstallHandled) return;
-    autoReadyInstallHandled = true;
-    void backgroundApiProxy.serviceAppUpdate
-      .processPendingInstallTask()
-      .then((installStarted) => {
-        if (!installStarted) {
-          autoReadyInstallHandled = false;
-        }
-      })
-      .catch(() => {
-        autoReadyInstallHandled = false;
-      });
-  }, []);
   const showUpdateInCompleteDialogWhenUnlocked = useCallback(() => {
+    const release = holdDeferredGuides();
     void (async () => {
-      await whenAppUnlocked();
-      showUpdateInCompleteDialog({});
+      try {
+        await whenAppUnlocked();
+        showUpdateInCompleteDialog({});
+      } finally {
+        release();
+      }
     })();
-  }, [showUpdateInCompleteDialog]);
+  }, [holdDeferredGuides, showUpdateInCompleteDialog]);
 
   const onViewReleaseInfo = useCallback(() => {
     if (platformEnv.isE2E) return;
-    setTimeout(async () => {
+    scheduleUpdateUi(async () => {
       if (await tryShowFeaturedDialog(false)) return;
       navigation.pushModal(EModalRoutes.AppUpdateModal, {
         screen: EAppUpdateRoutes.WhatsNew,
       });
     });
-  }, [navigation]);
+  }, [navigation, scheduleUpdateUi]);
 
   const toUpdatePreviewPage = useCallback(
     (
       isFull = false,
       params?: { latestVersion?: string; isForceUpdate?: boolean },
     ) => {
-      setTimeout(async () => {
+      scheduleUpdateUi(async () => {
         if (await tryShowFeaturedDialog(true)) return;
         const currentAppUpdateInfo =
           await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
@@ -189,7 +210,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
         });
       }, 0);
     },
-    [appUpdateInfo.updateStrategy, navigation],
+    [appUpdateInfo.updateStrategy, navigation, scheduleUpdateUi],
   );
 
   // OK-55397: silent updates no longer show a "ready" dialog. The downloaded
@@ -227,7 +248,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
         storeUrl?: string;
       },
     ) => {
-      setTimeout(async () => {
+      scheduleUpdateUi(async () => {
         await whenAppUnlocked();
         const currentUpdateInfo =
           await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
@@ -253,7 +274,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
               // system browser; in-app browsers never trigger universal links.
               openUrlExternal(params.storeUrl, { useSystemBrowser: true });
             } else {
-              setTimeout(async () => {
+              scheduleUpdateUi(async () => {
                 const updateInfo =
                   await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
                 if (updateInfo.status === EAppUpdateStatus.ready) {
@@ -275,7 +296,14 @@ export function useAppUpdateForegroundEffects(enabled = true) {
         });
       }, 0);
     },
-    [dialog, intl, navigation, themeVariant, toUpdatePreviewPage],
+    [
+      dialog,
+      intl,
+      navigation,
+      scheduleUpdateUi,
+      themeVariant,
+      toUpdatePreviewPage,
+    ],
   );
 
   const checkForUpdates = useCallback(async () => {
@@ -302,54 +330,59 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     if (!enabled) return;
     if (didRunFirstLaunchDispatch) return;
     didRunFirstLaunchDispatch = true;
+    const releaseStartup = holdDeferredGuides();
 
     let isShowForceUpdatePreviewPage = false;
     let cancelled = false;
     let hasTriggeredUpdateCheck = false;
     let cleanupUpdateCheck: (() => void) | undefined;
     let cleanupPruneStaleArtifacts: (() => void) | undefined;
+    let awaitingUpdateCheck = false;
 
     const fetchUpdateInfo = (_trigger: string) => {
-      void checkForUpdates().then(
-        async ({
-          isNeedUpdate: needUpdate,
-          isForceUpdate,
-          isRollback,
-          response,
-        }) => {
-          if (isShowForceUpdatePreviewPage) return;
-          // Late-hydration race: persist atom may hydrate to `ready` after
-          // we queued this check, in which case the silent-ready watcher
-          // (or seamless install path) is already handling the same target.
-          // Re-downloading here would clobber the ready bundle on disk and
-          // hand the user a half-written file when they confirm install.
-          if (response?.status === EAppUpdateStatus.ready) return;
-          const updateStrategy =
-            response?.updateStrategy ?? EUpdateStrategy.manual;
-          if (needUpdate) {
-            if (isAutoUpdateStrategy(updateStrategy)) {
+      void checkForUpdates()
+        .then(
+          async ({
+            isNeedUpdate: needUpdate,
+            isForceUpdate,
+            isRollback,
+            response,
+          }) => {
+            if (isShowForceUpdatePreviewPage) return;
+            // Late-hydration race: persist atom may hydrate to `ready` after
+            // we queued this check, in which case the silent-ready watcher
+            // (or seamless install path) is already handling the same target.
+            // Re-downloading here would clobber the ready bundle on disk and
+            // hand the user a half-written file when they confirm install.
+            if (response?.status === EAppUpdateStatus.ready) return;
+            const updateStrategy =
+              response?.updateStrategy ?? EUpdateStrategy.manual;
+            if (needUpdate) {
+              if (isAutoUpdateStrategy(updateStrategy)) {
+                void downloadPackage();
+              } else if (isForceUpdate) {
+                toUpdatePreviewPage(true, response);
+              } else if (platformEnv.isNative || platformEnv.isDesktop) {
+                scheduleUpdateUi(() => {
+                  showUpdateDialog(false, response);
+                }, 200);
+              }
+            } else if (
+              isRollback &&
+              response?.status === EAppUpdateStatus.notify
+            ) {
+              // Rollback always auto-downloads regardless of server strategy —
+              // it is a corrective action, not a user-facing update.
               void downloadPackage();
-            } else if (isForceUpdate) {
-              toUpdatePreviewPage(true, response);
-            } else if (platformEnv.isNative || platformEnv.isDesktop) {
-              setTimeout(() => {
-                showUpdateDialog(false, response);
-              }, 200);
             }
-          } else if (
-            isRollback &&
-            response?.status === EAppUpdateStatus.notify
-          ) {
-            // Rollback always auto-downloads regardless of server strategy —
-            // it is a corrective action, not a user-facing update.
-            void downloadPackage();
-          }
-        },
-      );
+          },
+        )
+        .finally(releaseStartup);
     };
 
     const scheduleFetchUpdateInfo = () => {
       if (cancelled || hasTriggeredUpdateCheck || cleanupUpdateCheck) return;
+      awaitingUpdateCheck = true;
       const triggerFetch = (trigger: string) => {
         if (cancelled || hasTriggeredUpdateCheck) return;
         hasTriggeredUpdateCheck = true;
@@ -411,6 +444,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
         // on completion, same as seamless).
         if (
           !isAutoUpdateStrategy(info.updateStrategy) &&
+          !info.isRollbackTarget &&
           !whatsNewAlreadyShown
         ) {
           if (fileType === EUpdateFileType.appShell) {
@@ -422,9 +456,15 @@ export function useAppUpdateForegroundEffects(enabled = true) {
         } else {
           await markWhatsNewShown(Boolean(info.jsBundleVersion));
         }
+        awaitingUpdateCheck = true;
         setTimeout(async () => {
-          await backgroundApiProxy.serviceAppUpdate.refreshUpdateStatus();
-          scheduleFetchUpdateInfo();
+          try {
+            await backgroundApiProxy.serviceAppUpdate.refreshUpdateStatus();
+            scheduleFetchUpdateInfo();
+          } catch (error) {
+            releaseStartup();
+            throw error;
+          }
         }, 250);
         return;
       }
@@ -477,11 +517,6 @@ export function useAppUpdateForegroundEffects(enabled = true) {
               );
               void backgroundApiProxy.serviceAppUpdate.reset();
             }
-          } else if (
-            platformEnv.isDesktopMac &&
-            info.downloadedEvent?.isUpdaterRehydrated
-          ) {
-            processRehydratedAppInstall();
           } else {
             void installPackage(
               () => undefined,
@@ -496,13 +531,6 @@ export function useAppUpdateForegroundEffects(enabled = true) {
           // strategy gate), applied on the next restart; the update button
           // offers an immediate restart-install. Keep the guard set so the
           // silent-ready watcher below cannot process the same state twice.
-          const shouldProcessRehydratedPackage =
-            !autoReadyInstallHandled &&
-            platformEnv.isDesktopMac &&
-            info.downloadedEvent?.isUpdaterRehydrated;
-          if (shouldProcessRehydratedPackage) {
-            processRehydratedAppInstall();
-          }
           // showSilentUpdateDialog();
         } else {
           showUpdateDialog();
@@ -510,7 +538,9 @@ export function useAppUpdateForegroundEffects(enabled = true) {
       } else if (info.status !== EAppUpdateStatus.updateIncomplete) {
         scheduleFetchUpdateInfo();
       }
-    })();
+    })().finally(() => {
+      if (!awaitingUpdateCheck) releaseStartup();
+    });
 
     // Cold-start idle sweep of stale download artifacts (old-appVersion OTA
     // bundles + Android APK cache when no update is pending). Deferred to
@@ -532,6 +562,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
 
     return () => {
       cancelled = true;
+      releaseStartup();
       cleanupUpdateCheck?.();
       cleanupUpdateCheck = undefined;
       cleanupPruneStaleArtifacts?.();
@@ -539,40 +570,6 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Auto-ready watcher — independent of didRunFirstLaunchDispatch.
-  // The first-launch dispatch effect above runs exactly once with an
-  // empty dep list, so it cannot react to status changes that arrive
-  // after the first run (e.g. an auto-download completes in-session, or
-  // the persist atom hydrates after the initial render on restart). This
-  // dedicated effect covers both cases. autoReadyInstallHandled (module-
-  // level) ensures only one dispatch per app session even when the hook
-  // is mounted twice (StrictMode / the legacy useAppUpdateInfo opt-in).
-  useEffect(() => {
-    if (!enabled) return;
-    if (autoReadyInstallHandled) return;
-    if (!isAutoUpdateStrategy(appUpdateInfo.updateStrategy)) return;
-    if (appUpdateInfo.status !== EAppUpdateStatus.ready) return;
-    if (isFirstLaunchAfterUpdated(appUpdateInfo)) return;
-    if (!platformEnv.isDesktopMac) return;
-    if (!appUpdateInfo.downloadedEvent?.isUpdaterRehydrated) return;
-    processRehydratedAppInstall();
-    // OK-55397: regular silent packages remain queued for the next restart.
-    // A rehydrated macOS package must run now because MacUpdater preparation
-    // belongs to this process and is lost on another restart.
-    // showSilentUpdateDialog();
-    // deps: only re-run on status / strategy transitions.
-    // appUpdateInfo is omitted intentionally — including the object ref
-    // would re-fire on every unrelated field mutation.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    enabled,
-    appUpdateInfo.status,
-    appUpdateInfo.updateStrategy,
-    appUpdateInfo.downloadedEvent?.downloadedFile,
-    appUpdateInfo.downloadedEvent?.isUpdaterRehydrated,
-    processRehydratedAppInstall,
-  ]);
 
   // Mid-session auto-download bridge.
   //
@@ -662,5 +659,4 @@ export function AppUpdateForeground() {
 // API surface clean.
 export function __resetAppUpdateForegroundForTests() {
   didRunFirstLaunchDispatch = false;
-  autoReadyInstallHandled = false;
 }

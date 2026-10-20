@@ -106,6 +106,7 @@ class ServiceApp extends ServiceBase {
   }
 
   private async resetData() {
+    await this.backgroundApi.serviceLogger.stopPersistenceForReset();
     let appStorageClearError: unknown;
     let nativeJotaiResetError: unknown;
     // const v4migrationPersistData = await v4migrationPersistAtom.get();
@@ -312,9 +313,9 @@ class ServiceApp extends ServiceBase {
 
       if (platformEnv.isDesktop) {
         try {
-          await globalThis.desktopApiProxy?.storage.storeClear();
+          await globalThis.desktopApiProxy?.storage.resetAppConfiguration();
         } catch (error) {
-          console.error('desktopApi.storeClear() error', error);
+          console.error('desktopApi.resetAppConfiguration() error', error);
         }
       }
     }

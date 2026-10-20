@@ -278,3 +278,50 @@ describe('TxConfirmActions Gas Account failure exit', () => {
     expect(mockBatchSend).not.toHaveBeenCalled();
   });
 });
+
+describe('TxConfirmActions sent-txs tracking', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+  });
+  afterEach(() => {
+    cleanup();
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
+  });
+
+  it('keeps one tracking id across retries of the same screen', async () => {
+    mockBatchSend.mockRejectedValue(new Error('broadcast failed'));
+    const renderScreen = () =>
+      render(
+        <TxConfirmActions
+          accountId="hd-1--0"
+          networkId="evm--1"
+          securityCheckConfirmation="none"
+          securityCheckAcknowledgementKey="tx-1"
+        />,
+      );
+    const confirmAndFail = () =>
+      act(async () => {
+        await expect(getFooterActions().onConfirm?.()).rejects.toThrow(
+          'broadcast failed',
+        );
+      });
+
+    const screen = renderScreen();
+    await confirmAndFail();
+    await confirmAndFail();
+    screen.unmount();
+    renderScreen();
+    await confirmAndFail();
+
+    const trackingIds = mockBatchSend.mock.calls.map(
+      ([params]) =>
+        (params as { sentTxsTrackingId?: string }).sentTxsTrackingId,
+    );
+    expect(trackingIds[0]).toEqual(expect.any(String));
+    expect(trackingIds[1]).toBe(trackingIds[0]);
+    expect(trackingIds[2]).toEqual(expect.any(String));
+    expect(trackingIds[2]).not.toBe(trackingIds[0]);
+  });
+});

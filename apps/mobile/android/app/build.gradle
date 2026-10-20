@@ -192,7 +192,6 @@ android {
             (System.getenv('ONEKEY_STARTUP_PROFILE')?.toLowerCase() in ['1', 'true', 'yes', 'on']).toString()
         )
         missingDimensionStrategy 'abi', 'x86', 'x86_64'
-        missingDimensionStrategy 'react-native-capture-protection', 'fullMediaCapture'
         manifestPlaceholders = [
             JPUSH_APPKEY    : defEnvStr(appEnvConfig, 'JPUSH_KEY'),
             JPUSH_CHANNEL   : 'prod',

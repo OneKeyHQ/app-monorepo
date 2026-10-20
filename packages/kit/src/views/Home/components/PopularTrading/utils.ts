@@ -163,7 +163,7 @@ function mapMarketAssetToDisplay(
     contractAddress: '',
     isNative: false,
     symbol: item.symbol.toUpperCase(),
-    name: item.symbol,
+    name: item.name?.trim() || item.symbol,
     logoUrl: item.logoUrl,
     price: parseMarketValue(item.price) ?? 0,
     priceChange24h: parseMarketValue(item.priceChange24hPercent) ?? 0,

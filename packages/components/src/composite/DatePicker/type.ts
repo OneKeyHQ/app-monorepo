@@ -100,6 +100,14 @@ export interface IDayCellProps {
       | 'will-be-range-end';
   };
   onPress: (date: string) => void;
+  /** Web only: previews the pending range while picking its second date. */
+  onHoverIn?: (date: string) => void;
+  /**
+   * The range band ends on this side (week-row edge or month edge) and is
+   * rounded off there.
+   */
+  capLeft?: boolean;
+  capRight?: boolean;
 }
 
 export interface IDateRangePreset {

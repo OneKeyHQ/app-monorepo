@@ -32,9 +32,10 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
@@ -82,7 +83,7 @@ export function DeviceListItem({
     item.device?.vendor ?? EHardwareVendor.onekey,
   );
   const isThirdParty = vendorProfile.isThirdParty;
-  const canShowFirmwareVersion = vendorProfile.supportsFirmwareVersionDisplay;
+  const canShowFirmwareVersion = vendorProfile.firmware.showVersion;
   const canOpenDetails = canOpenDeviceManagementDetails(item.device?.vendor);
   const walletAvatarProps: IWalletAvatarProps = useMemo(
     () => ({
@@ -336,7 +337,7 @@ function DeviceManagementV2ListWeb() {
         const vendorProfile = getVendorProfile(
           item.device?.vendor ?? EHardwareVendor.onekey,
         );
-        return vendorProfile.supportsFirmwareUpdate && item.device?.connectId
+        return vendorProfile.firmware.update && item.device?.connectId
           ? [item.device.connectId]
           : [];
       });
@@ -354,7 +355,7 @@ function DeviceManagementV2ListWeb() {
         const vendorProfile = getVendorProfile(
           item.device?.vendor ?? EHardwareVendor.onekey,
         );
-        if (!vendorProfile.supportsFirmwareVersionDisplay) {
+        if (!vendorProfile.firmware.showVersion) {
           // eslint-disable-next-line no-continue
           continue;
         }
@@ -377,7 +378,7 @@ function DeviceManagementV2ListWeb() {
             });
         const deviceConnectId = item.device?.connectId;
         const detectStatusSnapshot =
-          vendorProfile.supportsFirmwareUpdate && deviceConnectId
+          vendorProfile.firmware.update && deviceConnectId
             ? detectStatusSnapshots[deviceConnectId]
             : undefined;
         const deviceDetectStatus = deviceConnectId
@@ -387,10 +388,10 @@ function DeviceManagementV2ListWeb() {
               snapshot: detectStatusSnapshot,
             })
           : undefined;
-        const shouldUpdate = vendorProfile.supportsFirmwareUpdate
+        const shouldUpdate = vendorProfile.firmware.update
           ? deviceDetectStatus?.hasUpgrade
           : false;
-        const updateVersionDisplay = vendorProfile.supportsFirmwareUpdate
+        const updateVersionDisplay = vendorProfile.firmware.update
           ? deviceDetectStatus?.toVersion
           : undefined;
         item.firmwareTypeBadge = firmwareTypeBadge;
@@ -542,7 +543,8 @@ function DeviceManagementV2ListWeb() {
               bg="$bgApp"
               $gtMd={{
                 px: '$pagePadding',
-                py: '$8',
+                pt: platformEnv.isExtensionUiSidePanel ? '$2' : '$8',
+                pb: '$8',
               }}
             >
               <SectionHeader />

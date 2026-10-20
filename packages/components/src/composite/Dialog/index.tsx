@@ -52,6 +52,7 @@ import {
   useModalNavigatorContextPortalId,
   useSafeAreaInsets,
 } from '../../hooks';
+import { useDeferredGuideBlocker } from '../../hooks/useDeferredGuideBlocker';
 import { useKeyboardAnimation } from '../../hooks/useKeyboardAnimation';
 import { usePageContext } from '../../layouts/Page/PageContext';
 import { ScrollView } from '../../layouts/ScrollView';
@@ -224,9 +225,14 @@ const useSafeKeyboardAnimationStyle = ({
     return {
       style: safeAreaBottom ? { paddingBottom: safeAreaBottom } : undefined,
       keyboardPaddingBottom: safeAreaBottom,
+      keyboardOffset: 0,
     };
   }
-  return { style: animatedStyles, keyboardPaddingBottom };
+  return {
+    style: animatedStyles,
+    keyboardPaddingBottom,
+    keyboardOffset: trackedKeyboardHeight > 0 ? keyboardPaddingBottom : 0,
+  };
 };
 
 // Without a title the header drag zone is only the grabber strip; keep it
@@ -270,6 +276,7 @@ function DialogFrame({
   showCancelButton = true,
   testID,
   isAsync,
+  nativeCentered = false,
   overlayLevel: overlayLevelProp,
   overlayPage,
   onExited,
@@ -323,16 +330,22 @@ function DialogFrame({
   }, [onClose, onHeaderCloseButtonPress]);
 
   const media = useMedia();
+  useDeferredGuideBlocker(Boolean(open));
+  const { top: safeAreaTop, bottom: safeAreaBottom } = useSafeAreaInsets();
+  const isNativeCentered = nativeCentered && platformEnv.isNative;
+  const useSheetPresentation = media.md && !isNativeCentered;
+  const centeredInset = Math.max(safeAreaTop, safeAreaBottom, 16);
 
   // Native OneKey login opt-in (OK-63232): cap + scroll inside the overlay
   // sheet.
-  const isBoundedDialogLayout = boundedSheetLayout && platformEnv.isNative;
+  const isBoundedDialogLayout =
+    (boundedSheetLayout || isNativeCentered) && platformEnv.isNative;
   // Header-only drag (OK-61140): the sheet's own frame drag is switched off,
   // so a scrollable body scrolls natively with no hand-off to the sheet, and
   // the grabber + title row (HeaderDragZone) carry a pan of their own that
   // moves the sheet body and lets go of it past its thresholds.
   const isHeaderDragOnly =
-    media.md && sheetDragArea === 'header' && !disableDrag;
+    useSheetPresentation && sheetDragArea === 'header' && !disableDrag;
   const headerDragY = useSharedValue(0);
   useEffect(() => {
     if (open) {
@@ -353,11 +366,14 @@ function DialogFrame({
     ],
   }));
 
-  const { style: safeKeyboardAnimationStyle, keyboardPaddingBottom } =
-    useSafeKeyboardAnimationStyle({
-      useInitialSafeAreaBottomInsetFallback,
-      trackKeyboardPadding: isBoundedDialogLayout,
-    });
+  const {
+    style: safeKeyboardAnimationStyle,
+    keyboardPaddingBottom,
+    keyboardOffset,
+  } = useSafeKeyboardAnimationStyle({
+    useInitialSafeAreaBottomInsetFallback,
+    trackKeyboardPadding: isBoundedDialogLayout,
+  });
   // The Tamagui floating panel's styling now lands on the centered card;
   // stacking and focus props are the overlay's business.
   const { cardProps, panelOpenAutoFocus } = useMemo(() => {
@@ -371,10 +387,12 @@ function DialogFrame({
       IDialogProps['floatingPanelProps']
     > & { trapFocus?: boolean };
     return {
-      cardProps: rest as IOverlayDialogCardProps,
+      cardProps: (isNativeCentered
+        ? { maxWidth: '90%', ...rest }
+        : rest) as IOverlayDialogCardProps,
       panelOpenAutoFocus: openFocus,
     };
-  }, [floatingPanelProps]);
+  }, [floatingPanelProps, isNativeCentered]);
   const openAutoFocus = onOpenAutoFocus ?? panelOpenAutoFocus;
   const dialogHeader = showHeader ? (
     <DialogHeader
@@ -458,8 +476,11 @@ function DialogFrame({
     >
       {isBoundedDialogLayout ? (
         <BoundedDialogScrollLayout
-          keyboardPaddingBottom={keyboardPaddingBottom}
-          isCentered={!media.md}
+          keyboardPaddingBottom={
+            isNativeCentered ? keyboardOffset : keyboardPaddingBottom
+          }
+          isCentered={!useSheetPresentation}
+          centeredInset={isNativeCentered ? centeredInset : undefined}
           chrome={boundedHeaderDragChrome}
           closeButton={boundedCloseButton}
         >
@@ -500,7 +521,9 @@ function DialogFrame({
       borderTopRightRadius={isHeaderDragOnly ? '$6' : undefined}
       borderCurve={isHeaderDragOnly ? 'continuous' : undefined}
     >
-      {media.md && !disableDrag && !isHeaderDragOnly ? <SheetGrabber /> : null}
+      {useSheetPresentation && !disableDrag && !isHeaderDragOnly ? (
+        <SheetGrabber />
+      ) : null}
       {renderDialogContent}
     </Stack>
   );
@@ -527,7 +550,7 @@ function DialogFrame({
     <OverlayDialogPresentation
       open={Boolean(open)}
       level={overlayLevel}
-      isSheet={media.md}
+      isSheet={useSheetPresentation}
       bg={(contentContainerProps as { bg?: IColorTokens })?.bg}
       dismissOnOverlayPress={dismissOnOverlayPress}
       dismissOnBackPress={!disableSystemClose}

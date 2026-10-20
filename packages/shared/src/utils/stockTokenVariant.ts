@@ -13,10 +13,22 @@ export function getDefaultStockTokenVariant(
   items: IMarketStockTokenVariant[],
   defaultTokenId?: string,
 ) {
+  const preferredItems = items.filter(isPreferredStockTokenVariant);
+  const candidates = preferredItems.length ? preferredItems : items;
   return (
-    items.find(
+    candidates.find(
       (item) =>
         item.tokenId === defaultTokenId && isStockTokenVariantTradable(item),
-    ) ?? items.find(isStockTokenVariantTradable)
+    ) ?? candidates.find(isStockTokenVariantTradable)
+  );
+}
+
+export function isPreferredStockTokenVariant(
+  variant: IMarketStockTokenVariant,
+) {
+  const issuer = variant.issuer.trim().toLowerCase();
+  return (
+    (issuer === 'bstock' || issuer === 'bstocks') &&
+    isStockTokenVariantTradable(variant)
   );
 }

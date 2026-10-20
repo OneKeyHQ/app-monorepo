@@ -95,7 +95,11 @@ const settings: IVaultSettings = {
   watchingAccountEnabled: true,
   qrAccountEnabled: true,
 
-  supportedThirdPartyVendors: [EHardwareVendor.ledger, EHardwareVendor.trezor],
+  supportedThirdPartyVendors: [
+    EHardwareVendor.ledger,
+    EHardwareVendor.trezor,
+    EHardwareVendor.keystone,
+  ],
 
   publicKeyExportEnabled: true,
 
@@ -158,6 +162,7 @@ const settings: IVaultSettings = {
   createAllDeriveTypeAccountsByDefault: true,
   enabledInternalSignAndVerify: true,
   nativeBatchTransferEnabled: true,
+  bulkSendMaxTransfersPerTx: 200,
 };
 
 export default Object.freeze(settings);

@@ -5,12 +5,19 @@ import { colord } from 'colord';
 import { useIntl } from 'react-intl';
 
 import { NumberSizeableText, SizableText, Stack } from '@onekeyhq/components';
-import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import { LightweightChart } from '../LightweightChart';
-import { formatChartPrice } from '../LightweightChart/utils/formatChartPrice';
+import {
+  formatChartPrice,
+  formatChartPriceFull,
+  formatChartPriceFullTicks,
+  formatStockChartPrice,
+} from '../LightweightChart/utils/formatChartPrice';
+import { getChartPriceFormatBase } from '../LightweightChart/utils/priceFormatBase';
 
 import type { ILightweightChartReferenceLine } from '../LightweightChart/types';
 
@@ -25,10 +32,14 @@ const PRICE_SCALE_MAX_CHARACTERS = 10;
 // Keeps the pulsing tail dot clear of the current price label on the axis.
 const LAST_POINT_RIGHT_GAP = 8;
 const HOVER_PRICE_FORMATTER_OPTIONS = { currency: '$' } as const;
+// All-numeric and fixed across locales, so the hover time reads the same
+// everywhere instead of switching to localized month names.
+const HOVER_TIME_FORMAT_TEMPLATE = 'yyyy/LL/dd, HH:mm';
 // The hover card follows the cursor on both axes. Fixed width so it can be
 // flipped and clamped before it is drawn, and so figures like "$123,456.78"
+// and the widest hover time ("2000/00/00, 00:00", ~99px at 11px brand sans)
 // still fit on one line.
-const HOVER_TOOLTIP_WIDTH = 112;
+const HOVER_TOOLTIP_WIDTH = 120;
 // Gap kept between the cursor and the card, and the smallest gap kept to the
 // chart edges so the card never hangs off the plot.
 const HOVER_TOOLTIP_CURSOR_OFFSET = 10;
@@ -100,6 +111,7 @@ export function StockPriceLineChart({
   pulseLastPoint,
   previousClose,
   showCurrentPriceLabel,
+  priceScaleFormat,
   testID,
   hoverLabelShowsPrice = true,
   hoverLabelLargePrice = false,
@@ -115,6 +127,10 @@ export function StockPriceLineChart({
   // Pins the latest price to the price axis on the line's full-strength color,
   // without the dashed price line lightweight-charts pairs it with.
   showCurrentPriceLabel?: boolean;
+  // `stock`: quotes keep two decimals on the axis and the last-price badge.
+  // `full`: desktop prints the whole figure up to $1M (`$2,377.04`, ticks
+  // `$2,540`) instead of the compact `$2.38K`.
+  priceScaleFormat?: 'stock' | 'full';
   testID?: string;
   // The hover card answers "when" and, by default, "how much". Hosts that must
   // not repeat the figure pass false to keep the card time-only.
@@ -126,12 +142,25 @@ export function StockPriceLineChart({
 }) {
   const theme = useTheme();
   const intl = useIntl();
-  const { format } = useFormatDate();
   const [hoverData, setHoverData] = useState<IChartHoverData | null>(null);
   const [chartWidth, setChartWidth] = useState(0);
   const priceFormatter = useCallback(
-    (price: number) => formatChartPrice(price, PRICE_SCALE_MAX_CHARACTERS),
-    [],
+    (price: number) => {
+      if (priceScaleFormat === 'full') return formatChartPriceFull(price);
+      if (priceScaleFormat === 'stock') return formatStockChartPrice(price);
+      return formatChartPrice(price, PRICE_SCALE_MAX_CHARACTERS);
+    },
+    [priceScaleFormat],
+  );
+  const priceTickFormatter =
+    priceScaleFormat === 'full' ? formatChartPriceFullTicks : undefined;
+  const priceFormatBase = useMemo(
+    () =>
+      getChartPriceFormatBase([
+        ...data.map(([, price]) => price),
+        ...(previousClose !== undefined ? [previousClose] : []),
+      ]),
+    [data, previousClose],
   );
   const handleHover = useCallback(
     ({
@@ -289,8 +318,12 @@ export function StockPriceLineChart({
   }, [chartWidth, hoverData]);
   const hoverTimeText = useMemo(
     () =>
-      hoverData ? format(new Date(hoverData.time * 1000), 'MMM d, HH:mm') : '',
-    [format, hoverData],
+      hoverData
+        ? formatDate(new Date(hoverData.time * 1000), {
+            formatTemplate: HOVER_TIME_FORMAT_TEMPLATE,
+          })
+        : '',
+    [hoverData],
   );
 
   return (
@@ -331,10 +364,16 @@ export function StockPriceLineChart({
         showTimeScale
         priceScaleMargins={PRICE_SCALE_MARGINS}
         priceScaleEntireTextOnly
-        priceScaleMinimumWidth={PRICE_SCALE_WIDTH}
+        // Let the native canvas measure its labels instead of reserving desktop space.
+        priceScaleMinimumWidth={platformEnv.isNative ? 0 : PRICE_SCALE_WIDTH}
         timeScaleRightOffsetPixels={LAST_POINT_RIGHT_GAP}
         priceFormatter={priceFormatter}
+        priceTickFormatter={priceTickFormatter}
+        priceFormatBase={priceFormatBase}
         compactPriceMaxCharacters={PRICE_SCALE_MAX_CHARACTERS}
+        // `full` relies on JS formatters, which only the web chart runs; the
+        // native WebView keeps its serializable compact form.
+        priceScaleFormat={priceScaleFormat === 'stock' ? 'stock' : undefined}
         fontSize={11}
         useTimeScaleTickMarkWithoutUnit
         onHover={handleHover}

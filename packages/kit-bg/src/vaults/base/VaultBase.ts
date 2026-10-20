@@ -97,6 +97,7 @@ import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type {
   IAccountToken,
   IFetchAccountTokensResp,
+  IFetchTokenDetailBatchResp,
   IFetchTokenDetailItem,
 } from '@onekeyhq/shared/types/token';
 import type {
@@ -154,6 +155,7 @@ export type IKeyringMap = Record<
 > & {
   hwLedger?: typeof KeyringBase | undefined;
   hwTrezor?: typeof KeyringBase | undefined;
+  hwKeystone?: typeof KeyringBase | undefined;
 };
 
 if (platformEnv.isExtensionUi) {
@@ -412,6 +414,20 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     throw new NotImplemented();
   }
 
+  /**
+   * Bulk send fetches sender balances through the search-batch endpoint, keyed
+   * by address rather than by this vault's account. Only address-agnostic
+   * adjustments (e.g. a chain-wide native reserve) belong here; account-bound
+   * logic in `fillTokensDetails` must not be applied to other senders.
+   */
+  async fillTokensDetailsBatch({
+    tokensDetailsBatch,
+  }: {
+    tokensDetailsBatch: IFetchTokenDetailBatchResp;
+  }) {
+    return Promise.resolve(tokensDetailsBatch);
+  }
+
   async verifyMessage(params: IVerifyMessageParams) {
     return Promise.resolve({
       valid: false,
@@ -457,6 +473,16 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   // Override in chain vaults that need to refresh transaction data (e.g. blockhash)
   // before signing each transaction in a batch send sequence.
   async refreshUnsignedTxBeforeBatchSign(
+    unsignedTx: IUnsignedTxPro,
+  ): Promise<IUnsignedTxPro> {
+    return unsignedTx;
+  }
+
+  // Override in chain vaults whose tx carries a short-lived field (e.g. the
+  // Solana blockhash) that must be re-stamped right before signing, after
+  // the user confirmed but before hardware PIN/passphrase/confirm can run
+  // the validity window out. Only called for txs the wallet broadcasts.
+  async refreshUnsignedTxBeforeSign(
     unsignedTx: IUnsignedTxPro,
   ): Promise<IUnsignedTxPro> {
     return unsignedTx;
@@ -1204,6 +1230,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return action;
   }
 
+  getTxDiagnosticContext(unsignedTx: IUnsignedTxPro) {
+    return unsignedTx.solanaTxDiagnostic;
+  }
+
   // DO NOT override this method
   async signTransaction(params: ISignTransactionParams): Promise<ISignedTxPro> {
     const { unsignedTx } = params;
@@ -1605,6 +1635,18 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   async getPendingTxsToUpdate({
+    pendingTxs,
+  }: {
+    pendingTxs: IAccountHistoryTx[];
+  }): Promise<IAccountHistoryTx[]> {
+    return Promise.resolve([]);
+  }
+
+  // Override in chain vaults where a broadcast tx can expire without ever
+  // landing (e.g. Solana blockhash expiry): return the pending txs that the
+  // chain will never confirm so history marks them dropped instead of
+  // keeping them in the pending bucket until the user clears them.
+  async getDroppedPendingTxs({
     pendingTxs,
   }: {
     pendingTxs: IAccountHistoryTx[];

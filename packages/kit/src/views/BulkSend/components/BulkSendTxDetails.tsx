@@ -807,15 +807,7 @@ function BulkSendTxDetails(props: IProps) {
           })}
           count={transfersInfo.length}
         >
-          <YStack gap="$2" pt="$2">
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage(
-                {
-                  id: ETranslations.wallet_bulk_send_split_txns_description,
-                },
-                { count: receiverGroupEntries.length },
-              )}
-            </SizableText>
+          <YStack pt="$2">
             <Accordion
               type="multiple"
               defaultValue={['tx-0']}
@@ -861,4 +853,5 @@ function BulkSendTxDetails(props: IProps) {
   );
 }
 
-export default BulkSendTxDetails;
+// Memoized: the review page re-renders on each signing progress tick
+export default memo(BulkSendTxDetails);

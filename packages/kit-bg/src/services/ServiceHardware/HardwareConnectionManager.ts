@@ -2,9 +2,15 @@ import {
   EDeviceType,
   type HardwareConnectProtocol,
   ONEKEY_WEBUSB_FILTER,
+  isKnownTrezorWebUsbDevice,
+  resolveOneKeyUsbDevicePath,
 } from '@onekeyfe/hd-shared';
 import axios from 'axios';
 
+import {
+  FirmwareUpdateLimitOneDevice,
+  NeedBluetoothPermissions,
+} from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
@@ -13,6 +19,7 @@ import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { IHardwareCallContext } from '@onekeyhq/shared/types/device';
 import {
   EHardwareCallContext,
+  EHardwareVendor,
   EOneKeyDeviceMode,
 } from '@onekeyhq/shared/types/device';
 
@@ -26,6 +33,12 @@ import {
 } from '../../states/jotai/atoms/hardware';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+import type { IOneKeyHardwareOperationLease } from '../ServiceHardwareUI/HardwareProcessingManager';
+
+type IBluetoothPermissionOptions = {
+  allowBluetoothPermissionPrompt?: boolean;
+  bluetoothPermissionResult?: boolean;
+};
 
 export class HardwareConnectionManager {
   private static instance: HardwareConnectionManager | null = null;
@@ -34,7 +47,7 @@ export class HardwareConnectionManager {
 
   private actualTransportType: EHardwareTransportType | null = null;
 
-  private isRequestingBluetoothPermission = false;
+  private bluetoothPermissionPromise: Promise<boolean> | undefined;
 
   private constructor({ backgroundApi }: { backgroundApi: IBackgroundApi }) {
     this.backgroundApi = backgroundApi;
@@ -140,7 +153,7 @@ export class HardwareConnectionManager {
   }
 
   // WebUSB detection
-  async detectWebUSBAvailability(_connectId?: string): Promise<boolean> {
+  async detectWebUSBAvailability(connectId?: string): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) return true;
     try {
       const usb = globalThis?.navigator?.usb;
@@ -150,12 +163,12 @@ export class HardwareConnectionManager {
         const isOneKey = ONEKEY_WEBUSB_FILTER?.some(
           (d) => dev?.vendorId === d.vendorId && dev?.productId === d.productId,
         );
-        // The SDK uses serialNumber as the WebUSB device path. Authorized
-        // devices without one cannot be acquired by the transport.
-        const hasSerialNumber =
-          typeof dev?.serialNumber === 'string' &&
-          dev.serialNumber.trim().length > 0;
-        return isOneKey && hasSerialNumber;
+        const path = resolveOneKeyUsbDevicePath(dev);
+        return Boolean(
+          isOneKey &&
+          path &&
+          (!connectId || path.toLowerCase() === connectId.trim().toLowerCase()),
+        );
       });
       return onekeyDevices.length > 0;
     } catch {
@@ -163,7 +176,7 @@ export class HardwareConnectionManager {
     }
   }
 
-  async detectBridgeAvailability(_connectId?: string): Promise<boolean> {
+  async detectBridgeAvailability(connectId?: string): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) {
       return true;
     }
@@ -181,7 +194,12 @@ export class HardwareConnectionManager {
       if (!Array.isArray(devices)) {
         return false;
       }
-      return devices.length > 0;
+      if (devices.length === 0) {
+        return false;
+      }
+      // Bridge paths are local IDs. Desktop USB enumeration can identify the
+      // selected serial without acquiring a device or switching SDK transports.
+      return connectId ? this.detectWebUSBAvailability(connectId) : true;
     } catch (_error) {
       return false;
     }
@@ -191,19 +209,115 @@ export class HardwareConnectionManager {
   async detectUSBDeviceAvailability(
     connectId?: string,
     connectProtocol?: HardwareConnectProtocol,
+    bootloaderRecoveryDeviceType?: EDeviceType,
+    expectedDeviceId?: string,
   ): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) return true;
     const mode = await this.getDesktopUsbSetting(connectProtocol);
-    if (mode === 'bridge') {
-      return this.detectBridgeAvailability(connectId);
+    const usbAvailable =
+      mode === 'bridge'
+        ? await this.detectBridgeAvailability(undefined)
+        : await this.detectWebUSBAvailability(undefined);
+    if (
+      !usbAvailable ||
+      (!connectId && !bootloaderRecoveryDeviceType && !expectedDeviceId)
+    ) {
+      return usbAvailable;
     }
-    return this.detectWebUSBAvailability(connectId);
+
+    // A selected target must be identified independently of descriptor paths
+    // and the active SDK, including when this is an upgrade-entry preflight.
+    try {
+      const device = connectId
+        ? await this.backgroundApi.serviceHardware.getDeviceByConnectId({
+            connectId,
+          })
+        : undefined;
+      const result =
+        await this.backgroundApi.serviceHardware.probeUsbDeviceIdentities({
+          commType: mode === 'bridge' ? 'bridge' : 'webusb',
+        });
+      const normalize = (id?: string | null) => {
+        const value = id?.trim().toLowerCase();
+        return value && !/^0+$/.test(value) ? value : undefined;
+      };
+      const candidates = result.filter(
+        (known) =>
+          known.commType === mode &&
+          (!connectProtocol || known.connectProtocol === connectProtocol),
+      );
+      // A loader's descriptor path can be all zeros. It routes an explicitly
+      // selected USB endpoint, but must never identify an arbitrary BLE target.
+      const loaderEndpoint = candidates.find(
+        (known) =>
+          mode === 'webusb' &&
+          known.mode === 'bootloader' &&
+          connectId?.trim().toLowerCase() === known.path.toLowerCase() &&
+          known.deviceType !== EDeviceType.Unknown &&
+          !normalize(known.serialNo) &&
+          !normalize(known.deviceId),
+      );
+      if (loaderEndpoint) {
+        const usbDevices = (await globalThis.navigator.usb.getDevices()).filter(
+          (usb) =>
+            ONEKEY_WEBUSB_FILTER.some(
+              (filter) =>
+                usb.vendorId === filter.vendorId &&
+                usb.productId === filter.productId,
+            ) && !isKnownTrezorWebUsbDevice(usb),
+        );
+        if (usbDevices.length > 1) throw new FirmwareUpdateLimitOneDevice();
+        return (
+          candidates.length === 1 &&
+          usbDevices.length === 1 &&
+          resolveOneKeyUsbDevicePath(usbDevices[0]) === loaderEndpoint.path
+        );
+      }
+      // Only an explicit loader recovery may continue without business identity.
+      // The workflow still reads live USB state and verifies the model and mode.
+      if (
+        bootloaderRecoveryDeviceType &&
+        bootloaderRecoveryDeviceType !== EDeviceType.Unknown &&
+        connectProtocol &&
+        !normalize(expectedDeviceId) &&
+        candidates.length === 1 &&
+        candidates[0].deviceType === bootloaderRecoveryDeviceType &&
+        !normalize(candidates[0].serialNo) &&
+        !normalize(candidates[0].deviceId)
+      ) {
+        return true;
+      }
+      if (!connectId && !expectedDeviceId) return false;
+      const serial =
+        normalize(deviceUtils.getDeviceSerialNoFromDbDevice(device)) ||
+        normalize(
+          deviceUtils.getDeviceSerialNoFromFeatures(device?.featuresInfo),
+        );
+      const walletId =
+        normalize(expectedDeviceId) ||
+        normalize(device?.deviceStateInfo?.identity.deviceId) ||
+        normalize(device?.deviceId);
+      const target = normalize(connectId);
+      if (!serial && !walletId && !target) return false;
+      return (
+        candidates.filter((known) => {
+          if (serial) return normalize(known.serialNo) === serial;
+          if (walletId) return normalize(known.deviceId) === walletId;
+          return (
+            normalize(known.serialNo) === target ||
+            normalize(known.deviceId) === target
+          );
+        }).length === 1
+      );
+    } catch (error) {
+      if (error instanceof FirmwareUpdateLimitOneDevice) throw error;
+      return false;
+    }
   }
 
-  // Trezor-scoped USB presence. detectUSBDeviceAvailability answers "is any
-  // OneKey USB device / Bridge device present", which can be true while a
-  // Trezor is BLE-only — routing its calls to the USB handle and burning a
-  // BLE connect timeout. Trezor never uses Bridge, so only WebUSB is checked.
+  // Trezor-scoped USB presence. The generic check uses OneKey USB filters and
+  // cannot identify a Trezor USB handle. Trezor never uses Bridge, so only
+  // WebUSB is checked.
   async detectTrezorUSBDeviceAvailability(): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) return true;
     try {
@@ -224,6 +338,7 @@ export class HardwareConnectionManager {
 
   async detectBluetoothAvailability(
     hardwareCallContext?: IHardwareCallContext,
+    permissionOptions: IBluetoothPermissionOptions = {},
   ): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) {
       return false;
@@ -243,31 +358,40 @@ export class HardwareConnectionManager {
     const desktopBluetoothSettings = await desktopBluetoothAtom.get();
 
     if (!desktopBluetoothSettings.isRequestedPermission) {
+      if (permissionOptions.allowBluetoothPermissionPrompt === false) {
+        if (permissionOptions.bluetoothPermissionResult !== undefined) {
+          return permissionOptions.bluetoothPermissionResult;
+        }
+        // The caller must release the SDK lock before requesting permission.
+        throw new NeedBluetoothPermissions({ payload: {}, autoToast: false });
+      }
       console.log(
         'HardwareConnectionManager detectBluetoothAvailability desktopBluetoothSettings.isRequestedPermission -> :',
         desktopBluetoothSettings.isRequestedPermission,
       );
 
-      if (this.isRequestingBluetoothPermission) {
-        console.log(
-          '❌ detectBluetoothAvailability isRequestingBluetoothPermission -> :',
-          this.isRequestingBluetoothPermission,
-        );
-        return false;
+      if (!this.bluetoothPermissionPromise) {
+        this.bluetoothPermissionPromise =
+          this.requestBluetoothPermission().finally(async () => {
+            try {
+              // A dismissed permission prompt must not reopen the checking UI.
+              const state = await hardwareUiStateAtom.get();
+              if (
+                state?.payload?.eventType ===
+                EHardwareUiStateAction.DESKTOP_REQUEST_BLUETOOTH_PERMISSION
+              ) {
+                void this.backgroundApi.serviceHardwareUI.showCheckingDeviceDialog(
+                  {
+                    connectId: '',
+                  },
+                );
+              }
+            } finally {
+              this.bluetoothPermissionPromise = undefined;
+            }
+          });
       }
-
-      this.isRequestingBluetoothPermission = true;
-
-      try {
-        const result = await this.requestBluetoothPermission();
-        return result;
-      } finally {
-        this.isRequestingBluetoothPermission = false;
-        // Update state to show checking device step instead of calling showCheckingDeviceDialog
-        void this.backgroundApi.serviceHardwareUI.showCheckingDeviceDialog({
-          connectId: '',
-        });
-      }
+      return this.bluetoothPermissionPromise;
     }
 
     console.log('🔍 detectBluetoothAvailability');
@@ -300,6 +424,15 @@ export class HardwareConnectionManager {
         hardwareCallContext !==
           EHardwareCallContext.USER_INTERACTION_NO_BLE_DIALOG
       ) {
+        if (permissionOptions.allowBluetoothPermissionPrompt === false) {
+          if (permissionOptions.bluetoothPermissionResult === undefined) {
+            throw new NeedBluetoothPermissions({
+              payload: {},
+              autoToast: false,
+            });
+          }
+          return Boolean(bleAvailableState?.available);
+        }
         // Show bluetooth permission unauthorized dialog
         await hardwareUiStateAtom.set({
           action: EHardwareUiStateAction.DeviceChecking,
@@ -320,6 +453,7 @@ export class HardwareConnectionManager {
 
       return Boolean(bleAvailableState?.available);
     } catch (error) {
+      if (error instanceof NeedBluetoothPermissions) throw error;
       console.log('❌ detectBluetoothAvailability error: ', error);
       return false;
     }
@@ -329,6 +463,8 @@ export class HardwareConnectionManager {
     hardwareCallContext?: IHardwareCallContext,
     connectId?: string,
     connectProtocol?: HardwareConnectProtocol,
+    vendor?: EHardwareVendor,
+    permissionOptions: IBluetoothPermissionOptions = {},
   ): Promise<EHardwareTransportType> {
     const currentSettingType =
       await this.backgroundApi.serviceSetting.getHardwareTransportType();
@@ -340,19 +476,29 @@ export class HardwareConnectionManager {
           ? EHardwareTransportType.Bridge
           : EHardwareTransportType.WEBUSB;
       }
-      const usbAvailable = await this.detectUSBDeviceAvailability(
-        connectId,
-        connectProtocol,
-      );
-      if (usbAvailable) {
+      let targetOnUSB: boolean;
+      if (vendor && vendor !== EHardwareVendor.onekey) {
+        targetOnUSB =
+          mode === 'bridge'
+            ? await this.detectBridgeAvailability(connectId)
+            : await this.detectWebUSBAvailability(connectId);
+      } else {
+        targetOnUSB = await this.detectUSBDeviceAvailability(
+          connectId,
+          connectProtocol,
+        );
+      }
+      if (targetOnUSB) {
         return mode === 'bridge'
           ? EHardwareTransportType.Bridge
           : EHardwareTransportType.WEBUSB;
       }
 
-      // No USB devices, check if Bluetooth is available before fallback
-      const bluetoothAvailable =
-        await this.detectBluetoothAvailability(hardwareCallContext);
+      // The selected device was not identified over USB; consider BLE.
+      const bluetoothAvailable = await this.detectBluetoothAvailability(
+        hardwareCallContext,
+        permissionOptions,
+      );
       if (bluetoothAvailable) {
         return EHardwareTransportType.DesktopWebBle;
       }
@@ -370,11 +516,15 @@ export class HardwareConnectionManager {
       connectId,
       connectProtocol,
       hardwareCallContext,
+      vendor,
+      allowBluetoothPermissionPrompt,
+      bluetoothPermissionResult,
     }: {
       connectId?: string;
       connectProtocol?: HardwareConnectProtocol;
       hardwareCallContext?: IHardwareCallContext;
-    }): Promise<{
+      vendor?: EHardwareVendor;
+    } & IBluetoothPermissionOptions): Promise<{
       shouldSwitch: boolean;
       targetType: EHardwareTransportType;
     }> => {
@@ -442,11 +592,20 @@ export class HardwareConnectionManager {
         };
       }
 
-      const optimalType = await this.determineOptimalTransportType(
-        hardwareCallContext,
-        connectId,
-        connectProtocol,
-      );
+      const pinnedTransport =
+        hardwareCallContext === EHardwareCallContext.UPDATE_FIRMWARE ||
+        (vendor && vendor !== EHardwareVendor.onekey)
+          ? undefined
+          : this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.getOneKeyOperationTransport();
+      const optimalType =
+        pinnedTransport ??
+        (await this.determineOptimalTransportType(
+          hardwareCallContext,
+          connectId,
+          connectProtocol,
+          vendor,
+          { allowBluetoothPermissionPrompt, bluetoothPermissionResult },
+        ));
       const shouldSwitch = this.actualTransportType !== optimalType;
 
       console.log(
@@ -469,7 +628,12 @@ export class HardwareConnectionManager {
         JSON.stringify([
           args[0].hardwareCallContext || 'default',
           args[0].connectProtocol || '',
-          args[0].connectId?.startsWith('MI') ? 'mini' : 'other',
+          args[0].connectId || '',
+          args[0].vendor || '',
+          args[0].allowBluetoothPermissionPrompt ?? true,
+          args[0].bluetoothPermissionResult ?? null,
+          this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.getOneKeyOperationGeneration(),
+          this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.getOneKeyOperationTransport(),
         ]),
     },
   );
@@ -478,12 +642,18 @@ export class HardwareConnectionManager {
     connectId?: string;
     connectProtocol?: HardwareConnectProtocol;
     hardwareCallContext?: IHardwareCallContext;
+    vendor?: EHardwareVendor;
+    oneKeyOperationLease?: IOneKeyHardwareOperationLease;
   }): Promise<{
     shouldSwitch: boolean;
     targetType: EHardwareTransportType;
   }> {
     const result = await this.shouldSwitchTransportType(params);
     await this.setCurrentTransportType(result.targetType);
+    this.backgroundApi.serviceHardwareUI?.hardwareProcessingManager?.rememberOneKeyOperationTransport(
+      result.targetType,
+      params.oneKeyOperationLease,
+    );
     return result;
   }
 

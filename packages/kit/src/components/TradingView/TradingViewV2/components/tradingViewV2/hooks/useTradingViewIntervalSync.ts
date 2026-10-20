@@ -1,22 +1,15 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 
-import { getTradingViewNativeKLineInterval } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervals';
 import {
-  readStoredTradingViewNativeActiveInterval,
-  saveTradingViewNativeActiveInterval,
+  normalizeTradingViewStoredInterval,
+  readStoredTradingViewActiveInterval,
+  saveTradingViewActiveInterval,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
 import type { ITradingViewNativeIntervalStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/tradingViewNativeIntervalStorage';
 
 import type { ITradingViewIntervalConfigData } from '../../../types';
 
 const INTERVAL_SYNC_TIMEOUT_MS = 5000;
-
-function getSharedInterval(interval: string) {
-  const hourMatch = interval.match(/^(\d+)H$/);
-  return getTradingViewNativeKLineInterval(
-    hourMatch ? String(Number(hourMatch[1]) * 60) : interval,
-  )?.value;
-}
 
 export function useTradingViewIntervalSync({
   namespace,
@@ -31,7 +24,7 @@ export function useTradingViewIntervalSync({
 }) {
   const syncState = useMemo(() => {
     const initialInterval = namespace
-      ? readStoredTradingViewNativeActiveInterval(namespace)
+      ? readStoredTradingViewActiveInterval(namespace)
       : undefined;
     return {
       initialInterval,
@@ -47,7 +40,7 @@ export function useTradingViewIntervalSync({
 
   const reset = useCallback(() => {
     syncState.pendingInterval = namespace
-      ? readStoredTradingViewNativeActiveInterval(namespace)
+      ? readStoredTradingViewActiveInterval(namespace)
       : undefined;
     syncState.lastSavedInterval = syncState.pendingInterval;
     syncState.requested = false;
@@ -57,14 +50,14 @@ export function useTradingViewIntervalSync({
 
   const saveInterval = useCallback(
     (interval: string) => {
-      const sharedInterval = getSharedInterval(interval);
+      const sharedInterval = normalizeTradingViewStoredInterval(interval);
       if (namespace && sharedInterval) {
         syncState.pendingInterval = sharedInterval;
         syncState.lastSavedInterval = sharedInterval;
         syncState.requested = isReady;
         syncState.requestId += 1;
         refresh();
-        void saveTradingViewNativeActiveInterval({
+        void saveTradingViewActiveInterval({
           interval: sharedInterval,
           namespace,
         });
@@ -77,12 +70,15 @@ export function useTradingViewIntervalSync({
     if (!namespace || !intervalConfig || !isReady) {
       return;
     }
-    const sharedInterval = getSharedInterval(intervalConfig.activeInterval);
+    const sharedInterval = normalizeTradingViewStoredInterval(
+      intervalConfig.activeInterval,
+    );
     if (syncState.pendingInterval) {
       const target = intervalConfig.intervals.find(
         (option) =>
           !option.disabled &&
-          getSharedInterval(option.value) === syncState.pendingInterval,
+          normalizeTradingViewStoredInterval(option.value) ===
+            syncState.pendingInterval,
       );
       // Wait for layout restoration and the requested interval's acknowledgement.
       // An older chart may not support every interval offered by Original.
@@ -108,7 +104,7 @@ export function useTradingViewIntervalSync({
       intervalConfig.persist !== false
     ) {
       syncState.lastSavedInterval = sharedInterval;
-      void saveTradingViewNativeActiveInterval({
+      void saveTradingViewActiveInterval({
         interval: sharedInterval,
         namespace,
       });
@@ -119,7 +115,8 @@ export function useTradingViewIntervalSync({
     ? intervalConfig?.intervals.find(
         (option) =>
           !option.disabled &&
-          getSharedInterval(option.value) === syncState.pendingInterval,
+          normalizeTradingViewStoredInterval(option.value) ===
+            syncState.pendingInterval,
       )
     : undefined;
   const pendingInterval = pendingOption?.value;
@@ -147,7 +144,7 @@ export function useTradingViewIntervalSync({
       (pendingOption &&
         (!isReady ||
           intervalConfig.persist === false ||
-          getSharedInterval(intervalConfig.activeInterval) !==
+          normalizeTradingViewStoredInterval(intervalConfig.activeInterval) !==
             syncState.pendingInterval))),
   );
 

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { useFocusEffect } from '@react-navigation/core';
@@ -78,6 +78,7 @@ import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EPrimeFreeTrialPendingActionType } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useOnLock } from '../../hooks/useOnLock';
@@ -92,6 +93,7 @@ import { useDeviceManagerNavigation } from '../../views/DeviceManagement/hooks/u
 import { useFirmwareUpdateDetectStatus } from '../../views/FirmwareUpdate/hooks/useFirmwareUpdateDetectStatus';
 import { WalletXfpStatusReminder } from '../../views/Home/components/WalletXfpStatusReminder/WalletXfpStatusReminder';
 import { usePrimeAvailable } from '../../views/Prime/hooks/usePrimeAvailable';
+import { usePrimeFeatureAccess } from '../../views/Prime/hooks/usePrimeFeatureAccess';
 import useScanQrCodeLazy from '../../views/ScanQrCode/hooks/useScanQrCodeLazy';
 import { logSettingCategoryOpened } from '../../views/Setting/pages/Tab/settingsAnalytics';
 import { AccountSelectorProviderMirror } from '../AccountSelector/AccountSelectorProvider';
@@ -1174,6 +1176,13 @@ function MoreActionGeneralGrid() {
   );
 }
 
+type IMoreActionActiveContext = {
+  walletId?: string;
+  networkId?: string;
+  accountId?: string;
+  indexedAccountId?: string;
+};
+
 const MoreActionWalletGrid = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -1201,31 +1210,35 @@ const MoreActionWalletGrid = () => {
     void onPressAddressBook(navigation);
   }, [onPressAddressBook, navigation]);
 
-  const { user, isPrimeActive } = useOneKeyAuth();
+  const { user, isPrimeActive, isPrimeSubscriptionActive } = useOneKeyAuth();
   const isPrimeUser = isPrimeActive && user?.onekeyUserId;
+  // Access without free-trial metering (E2E / Prime); free users go through
+  // the gate.
   const hasBulkSendAccess = canAccessBulkSend({
     isE2E: platformEnv.isE2E === true,
-    isPrimeActive,
+    isPrimeActive: Boolean(isPrimeSubscriptionActive),
     oneKeyUserId: user?.onekeyUserId,
   });
   const {
     activeAccount: { account, network, wallet, indexedAccount },
   } = useActiveAccount({ num: 0 });
-  const checkIsPrimeUser = useCallback(
-    (showFeature: EPrimeFeatures) => {
-      if (isPrimeActive && user?.onekeyUserId) {
-        return true;
-      }
-      navigation.pushFullModal(EModalRoutes.PrimeModal, {
-        screen: EPrimePages.PrimeDashboard,
-        params: {
-          fromFeature: showFeature,
-          networkId: network?.id,
-        },
-      });
-      return false;
-    },
-    [isPrimeActive, navigation, network?.id, user?.onekeyUserId],
+  const { ensureFeatureAccess } = usePrimeFeatureAccess();
+  // Latest selection, compared after the gate's async steps so a changed
+  // context does not continue the old action. Each entry passes the parts it
+  // acts on.
+  const activeContextRef = useRef<IMoreActionActiveContext>({});
+  activeContextRef.current = {
+    walletId: wallet?.id,
+    networkId: network?.id,
+    accountId: account?.id,
+    indexedAccountId: indexedAccount?.id,
+  };
+  const isSameActiveContext = useCallback(
+    (context: IMoreActionActiveContext) => () =>
+      (Object.keys(context) as (keyof IMoreActionActiveContext)[]).every(
+        (key) => activeContextRef.current[key] === context[key],
+      ),
+    [],
   );
   const openBulkCopyAddressesModule = useCallback(async () => {
     const networkId = networkUtils.toNetworkIdFallback({
@@ -1235,7 +1248,23 @@ const MoreActionWalletGrid = () => {
 
     if (!networkId) return;
 
-    if (!checkIsPrimeUser(EPrimeFeatures.BulkCopyAddresses)) return;
+    const access = await ensureFeatureAccess({
+      featureId: EPrimeFeatures.BulkCopyAddresses,
+      networkId: network?.id,
+      isContextValid: isSameActiveContext({
+        walletId: wallet?.id,
+        networkId: network?.id,
+      }),
+      extPopup: {
+        mode: 'pendingAction',
+        action: {
+          type: EPrimeFreeTrialPendingActionType.BulkCopyAddresses,
+          walletId: wallet?.id,
+          networkId,
+        },
+      },
+    });
+    if (!access.granted) return;
 
     navigation.pushModal(EModalRoutes.BulkCopyAddressesModal, {
       screen: EModalBulkCopyAddressesRoutes.BulkCopyAddressesModal,
@@ -1244,11 +1273,33 @@ const MoreActionWalletGrid = () => {
         networkId,
       },
     });
-  }, [network?.id, checkIsPrimeUser, navigation, wallet?.id]);
+  }, [
+    network?.id,
+    ensureFeatureAccess,
+    isSameActiveContext,
+    navigation,
+    wallet?.id,
+  ]);
 
   const openBulkSendModule = useCallback(async () => {
-    if (!hasBulkSendAccess && !checkIsPrimeUser(EPrimeFeatures.BulkSend)) {
-      return;
+    if (!hasBulkSendAccess) {
+      // The bulk send pages open in the extension expand tab, which runs the
+      // login and page-level gate itself.
+      const access = await ensureFeatureAccess({
+        featureId: EPrimeFeatures.BulkSend,
+        networkId: network?.id,
+        // Bulk send opens with this account as the sender.
+        isContextValid: isSameActiveContext({
+          walletId: wallet?.id,
+          networkId: network?.id,
+          accountId: account?.id,
+          indexedAccountId: indexedAccount?.id,
+        }),
+        extPopup: { mode: 'passThrough' },
+      });
+      if (!access.granted) {
+        return;
+      }
     }
 
     showBulkSendModeDialog({
@@ -1265,21 +1316,45 @@ const MoreActionWalletGrid = () => {
     network?.id,
     account?.id,
     indexedAccount?.id,
+    wallet?.id,
     navigateToBulkSend,
     showBulkSendModeDialog,
-    checkIsPrimeUser,
+    ensureFeatureAccess,
+    isSameActiveContext,
     hasBulkSendAccess,
   ]);
 
-  const openAddressRiskCheckModule = useCallback(() => {
-    if (!checkIsPrimeUser(EPrimeFeatures.AddressRiskCheck)) {
+  const openAddressRiskCheckModule = useCallback(async () => {
+    const access = await ensureFeatureAccess({
+      featureId: EPrimeFeatures.AddressRiskCheck,
+      networkId: network?.id,
+      loginOnly: true,
+      isContextValid: isSameActiveContext({
+        walletId: wallet?.id,
+        networkId: network?.id,
+      }),
+      extPopup: {
+        mode: 'pendingAction',
+        action: {
+          type: EPrimeFreeTrialPendingActionType.AddressRiskCheck,
+          networkId: network?.id,
+        },
+      },
+    });
+    if (!access.granted) {
       return;
     }
     navigation.pushModal(EModalRoutes.AddressRiskCheckModal, {
       screen: EModalAddressRiskCheckRoutes.AddressRiskCheckInput,
       params: { networkId: network?.id },
     });
-  }, [checkIsPrimeUser, navigation, network?.id]);
+  }, [
+    ensureFeatureAccess,
+    isSameActiveContext,
+    navigation,
+    network?.id,
+    wallet?.id,
+  ]);
 
   const items = useMemo(() => {
     return [
@@ -1378,7 +1453,7 @@ const MoreActionWalletGrid = () => {
                   isPrimeActive,
                 });
               }
-              openAddressRiskCheckModule();
+              void openAddressRiskCheckModule();
             },
             trackID: 'address-risk-check-in-more-action',
             isPrimeFeature: true,

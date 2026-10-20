@@ -111,19 +111,20 @@ export const getPerpFillDirectionType = (
 ): IPerpFillDirectionType => {
   const normalizedDirection = direction?.trim().toLowerCase() ?? '';
 
-  if (normalizedDirection.includes('close long')) {
+  // Reversals and liquidations contain "long" or "short" but are distinct fills.
+  if (normalizedDirection === 'close long') {
     return 'closeLong';
   }
 
-  if (normalizedDirection.includes('close short')) {
+  if (normalizedDirection === 'close short') {
     return 'closeShort';
   }
 
-  if (normalizedDirection.includes('long')) {
+  if (normalizedDirection === 'open long') {
     return 'openLong';
   }
 
-  if (normalizedDirection.includes('short')) {
+  if (normalizedDirection === 'open short') {
     return 'openShort';
   }
 

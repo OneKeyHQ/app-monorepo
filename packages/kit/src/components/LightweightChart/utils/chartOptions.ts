@@ -1,3 +1,5 @@
+import { BRAND_FONT_WEB_FAMILY } from '@onekeyhq/components/src/hocs/Provider/fonts/brandFont';
+
 import type {
   ILightweightChartPriceScalePosition,
   ILightweightChartTheme,
@@ -11,8 +13,8 @@ import type {
   TickMarkFormatter,
 } from 'lightweight-charts';
 
-const CHART_FONT_FAMILY =
-  'Roobert, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+// cspell:disable-next-line
+const CHART_FONT_FAMILY = `${BRAND_FONT_WEB_FAMILY}, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
 
 // Shared crosshair defaults. Every chart that does not opt into an override
 // keeps exactly these values.

@@ -11,6 +11,7 @@ import {
 import { getTradingViewNativeGestureStartOffsetAfterDataUpdate } from '../utils/chartViewport';
 
 import type {
+  ITradingViewNativeCandleTimeMode,
   ITradingViewNativeChartLeafComponent,
   ITradingViewNativeChartType,
   ITradingViewNativeInitialRightOffset,
@@ -18,6 +19,7 @@ import type {
 } from '../types';
 import type { ITradingViewNativeIndicatorSeries } from '../utils/chartIndicators';
 import type { ITradingViewNativePriceRange } from '../utils/chartViewport';
+import type { ITradingViewNativeSubIndicatorPriceScales } from '../utils/subIndicatorPriceScale';
 import type { ITradingViewNativeSubIndicatorRenderPane } from '../utils/subIndicatorRender';
 
 export interface ITradingViewNativeChartSize {
@@ -27,6 +29,7 @@ export interface ITradingViewNativeChartSize {
 
 export interface ITradingViewNativeChartRuntime extends ITradingViewNativeChartRuntimeState {
   candleIntervalSeconds: number;
+  candleTimeMode: ITradingViewNativeCandleTimeMode;
   chartComponents: readonly ITradingViewNativeChartLeafComponent[];
   chartSettings: ITradingViewNativeChartSettings;
   chartType: ITradingViewNativeChartType;
@@ -48,14 +51,17 @@ export interface ITradingViewNativeChartRuntime extends ITradingViewNativeChartR
   pinnedPriceRange: ITradingViewNativePriceRange | null;
   priceAxisScaleGesture: {
     chartHeight: number;
+    paneId: string | null;
     startScale: number;
     startY: number;
+    top: number;
   };
   priceRangeScale: number;
   priceScaleMode: ITradingViewNativePriceScaleMode;
   points: IMarketTokenKLineDataPoint[];
   size: ITradingViewNativeChartSize;
   subIndicatorPanes: readonly ITradingViewNativeSubIndicatorRenderPane[];
+  subIndicatorPriceScales: ITradingViewNativeSubIndicatorPriceScales;
   timeAxisScaleGesture: {
     chartWidth: number;
     currentX: number;
@@ -129,6 +135,7 @@ export function resizeTradingViewNativeChartRuntime(
 
 export function createTradingViewNativeChartRuntime({
   candleIntervalSeconds,
+  candleTimeMode = 'calendar',
   chartComponents,
   chartSettings,
   chartType,
@@ -140,6 +147,7 @@ export function createTradingViewNativeChartRuntime({
   subIndicatorPanes,
 }: {
   candleIntervalSeconds: number;
+  candleTimeMode?: ITradingViewNativeCandleTimeMode;
   chartComponents: readonly ITradingViewNativeChartLeafComponent[];
   chartSettings: ITradingViewNativeChartSettings;
   chartType: ITradingViewNativeChartType;
@@ -153,6 +161,7 @@ export function createTradingViewNativeChartRuntime({
   return {
     ...createTradingViewNativeChartRuntimeState({ initialRightOffset }),
     candleIntervalSeconds,
+    candleTimeMode,
     chartComponents,
     chartSettings,
     chartType,
@@ -174,14 +183,17 @@ export function createTradingViewNativeChartRuntime({
     pinnedPriceRange: null,
     priceAxisScaleGesture: {
       chartHeight: 0,
+      paneId: null,
       startScale: 1,
       startY: 0,
+      top: 0,
     },
     priceRangeScale: 1,
     priceScaleMode: 'linear',
     points,
     size: { height: 0, width: 0 },
     subIndicatorPanes,
+    subIndicatorPriceScales: {},
     timeAxisScaleGesture: {
       chartWidth: 0,
       currentX: 0,

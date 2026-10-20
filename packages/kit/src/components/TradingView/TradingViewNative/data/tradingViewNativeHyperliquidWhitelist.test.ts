@@ -64,6 +64,51 @@ describe('TradingViewNative Hyperliquid whitelist', () => {
     ]);
   });
 
+  describe.each(['market', 'swap', 'wallet'] as const)(
+    '%s SOL charts',
+    (branch) => {
+      it('maps native Solana to SOL candles', () => {
+        expect(
+          getTradingViewNativeWhitelistedHyperliquidSource({
+            branch,
+            token: {
+              isNative: true,
+              networkId: 'sol--101',
+              tokenAddress: '',
+            },
+          }),
+        ).toEqual({ coin: 'SOL', type: 'hyperliquid' });
+      });
+
+      it.each([
+        {
+          name: 'wrapped SOL',
+          isNative: false,
+          tokenAddress: 'So11111111111111111111111111111111111111112',
+        },
+        {
+          name: 'an SPL token without a native flag',
+          isNative: undefined,
+          tokenAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+        },
+      ])(
+        'does not map $name to native SOL candles',
+        ({ isNative, tokenAddress }) => {
+          expect(
+            getTradingViewNativeWhitelistedHyperliquidSource({
+              branch,
+              token: {
+                isNative,
+                networkId: 'sol--101',
+                tokenAddress,
+              },
+            }),
+          ).toBeUndefined();
+        },
+      );
+    },
+  );
+
   it('maps native HyperEVM HYPE to its preferred spot market', () => {
     expect(
       getTradingViewNativeWhitelistedHyperliquidSource({

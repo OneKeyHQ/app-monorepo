@@ -542,6 +542,52 @@ describe('ServiceToken native Home request lifetime', () => {
     }
   });
 
+  it('keeps a non-Home response that arrives while the previous batch is written', async () => {
+    jest.useFakeTimers();
+    try {
+      service._currentNetworkId = getNetworkIdsMap().onekeyall;
+      const nonHomeParams = {
+        accountId: 'fixture-account',
+        networkId: 'evm--1',
+        isAllNetworks: true,
+        saveToLocal: true,
+      };
+      const oldWrite = deferred<void>();
+      api.simpleDb.localTokens.updateAccountTokenListByCache.mockReturnValueOnce(
+        oldWrite.promise,
+      );
+      await service.fetchAccountTokens(nonHomeParams);
+      await jest.advanceTimersByTimeAsync(3000);
+      expect(
+        api.simpleDb.localTokens.updateAccountTokenListByCache,
+      ).toHaveBeenCalledTimes(1);
+
+      api.serviceAccount.getAccountAddressForApi.mockResolvedValue(
+        'later-address',
+      );
+      // Its cache write lands while the first batch is still being written;
+      // the request itself then waits for that write.
+      const later = service.fetchAccountTokens(nonHomeParams);
+      await jest.advanceTimersByTimeAsync(0);
+      oldWrite.resolve();
+      await later;
+      await jest.advanceTimersByTimeAsync(3000);
+
+      expect(
+        api.simpleDb.localTokens.updateAccountTokenListByCache,
+      ).toHaveBeenCalledTimes(2);
+      expect(
+        api.simpleDb.localTokens.updateAccountTokenListByCache.mock.calls[1][0],
+      ).toEqual(
+        expect.objectContaining({
+          tokenListValue: { 'evm--1_later-address': '0' },
+        }),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('observes trailing persistence failures and allows the next batch to flush', async () => {
     jest.useFakeTimers();
     const errorLog = jest.spyOn(defaultLogger.app.error, 'log');

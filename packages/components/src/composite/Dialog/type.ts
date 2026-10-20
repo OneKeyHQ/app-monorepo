@@ -90,6 +90,8 @@ interface IBasicDialogProps {
    * windows, centered card otherwise) instead of a Tamagui portal.
    */
   overlayLevel?: IOverlayLevel;
+  /** Centers and bounds native dialogs on phone screens. */
+  nativeCentered?: boolean;
   onOpen?: () => void;
   /** Controls initial focus for both the floating panel and sheet on web. */
   onOpenAutoFocus?: IDialogAutoFocusHandler;
