@@ -1164,26 +1164,21 @@ export function MyRewardsContent({
   ) : null;
 
   if (md) {
-    // Compact: the intro, the summary card, the campaign slides, then the
+    // Compact: the summary card, the campaign slides, then the
     // breakdown under a quiet caption inset like the cards' text. The money
     // leads; the slides sit between it and the details.
     return (
       <YStack flex={1} pt="$2" pb="$6">
         <YStack px="$pagePadding" gap="$5">
-          <YStack gap="$3">
-            {/* The tab names sit in the navigation bar here, so the intro
-                leads the content; pointer layouts show it beside the tabs. */}
-            <SizableText size="$bodyMd" color="$textSubdued" px="$4">
-              {REFERRAL_TAB_COPY.perksIntro}
-            </SizableText>
-            <CompactPerksSummaryCard
-              totals={totals}
-              address={walletAddress}
-              unsupported={isUnsupported}
-              payout={payout}
-              labels={summaryLabels}
-            />
-          </YStack>
+          {/* No intro line here: the tab switch in the navigation bar says
+              who each tab is for. */}
+          <CompactPerksSummaryCard
+            totals={totals}
+            address={walletAddress}
+            unsupported={isUnsupported}
+            payout={payout}
+            labels={summaryLabels}
+          />
           <PerksCampaignBanner
             items={bannerItems}
             loading={isBannerLoading}
