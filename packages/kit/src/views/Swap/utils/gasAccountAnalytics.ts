@@ -296,8 +296,14 @@ export async function sendDirectSwapWithGasAccountAnalytics<T>({
   } catch (error) {
     // Everything inside `send` is the sign-and-broadcast request. Tag the
     // error so an outer catch that also wraps the pre-send estimate (Market
-    // direct send) resolves the stage-specific entry and copy.
-    markGasAccountRequestStage(error, EGasAccountRequestStage.Send);
+    // direct send) resolves the stage-specific entry and copy. Only a send
+    // that carried a sponsored quote is a Gas Account request: a self-paid
+    // broadcast (no quote, `gasAccountUiState` undefined) stays untagged so
+    // its generic 400 keeps the ordinary error path instead of being read as
+    // "may already be submitted".
+    if (gasAccountUiState) {
+      markGasAccountRequestStage(error, EGasAccountRequestStage.Send);
+    }
     const errorCode = getGasAccountErrorCode(error);
     logDirectSwapGasAccountAction(context, {
       action: 'submitFailed',

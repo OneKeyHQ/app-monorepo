@@ -230,30 +230,64 @@ function TxFeeInfo(props: IProps) {
   // estimated for and Prime re-checks that identity at execute time. When the
   // user logs in / out or switches account while this page is open, drop the
   // old quote and re-estimate so the send carries a quote for the current
-  // session. Gated to flows that request sponsorship and to moments when the
-  // estimator can actually run: it is paused while a custom fee is selected
-  // or a submit is in flight (see `overrideIsFocused` on the estimate poll),
-  // and `run()` is a no-op then, so asking for a re-estimate would only leave
-  // `txFeeInfoInit` false and the confirm button disabled. The hook holds the
-  // change meanwhile and applies it as soon as estimation resumes, so a failed
-  // attempt never retries the previous identity's quote.
+  // session. Gated to flows that request sponsorship and held while a submit
+  // is in flight: the submit error handler classifies a Gas Account rejection
+  // through the quote's payer wiring, and the hook delivers the change as
+  // soon as the attempt ends, so a failed attempt never retries the previous
+  // identity's quote.
+  const reEstimateForIdentityChange = useCallback(() => {
+    resetGasAccountUiState();
+    updateTxFeeInfoInit(false);
+    updateSendFeeStatus({
+      status: ESendFeeStatus.Loading,
+      errMessage: '',
+      discountPercent: 0,
+    });
+    appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
+  }, [resetGasAccountUiState, updateSendFeeStatus, updateTxFeeInfoInit]);
+  const isCustomFeeSelected = sendSelectedFee.feeType === EFeeType.Custom;
+  const reEstimateOnCustomFeeExitRef = useRef(false);
   useOneKeyIdIdentityChange({
     enabled:
       !gasAccountDisabledByScenario &&
       !gasAccountTemporarilyDisabled &&
-      sendSelectedFee.feeType !== EFeeType.Custom &&
       !sendTxStatus.isSubmitting,
     onChange: () => {
+      if (!isCustomFeeSelected) {
+        reEstimateForIdentityChange();
+        return;
+      }
+      // The estimate poll is paused while a custom fee is selected (see
+      // `overrideIsFocused`), so `run()` is a no-op and asking for a
+      // re-estimate now would only leave `txFeeInfoInit` false and the
+      // confirm button disabled. A quote can still be active here: a
+      // dApp-supplied fee is applied as a custom fee after the first
+      // estimate, which may have returned one. Drop it right away so the
+      // send goes out user-paid with the custom fee instead of carrying the
+      // previous identity's quote, and re-estimate once a preset is selected.
+      if (effectiveFeePayer === 'gasAccount') {
+        updateEffectiveFeePayer('user');
+      }
       resetGasAccountUiState();
-      updateTxFeeInfoInit(false);
-      updateSendFeeStatus({
-        status: ESendFeeStatus.Loading,
-        errMessage: '',
-        discountPercent: 0,
-      });
-      appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
+      updateGasAccountUiState({ payer: 'user' });
+      reEstimateOnCustomFeeExitRef.current = true;
     },
   });
+  useEffect(() => {
+    if (
+      isCustomFeeSelected ||
+      sendTxStatus.isSubmitting ||
+      !reEstimateOnCustomFeeExitRef.current
+    ) {
+      return;
+    }
+    reEstimateOnCustomFeeExitRef.current = false;
+    reEstimateForIdentityChange();
+  }, [
+    isCustomFeeSelected,
+    reEstimateForIdentityChange,
+    sendTxStatus.isSubmitting,
+  ]);
 
   const isMultiTxs = unsignedTxs.length > 1;
   // External-wallet accounts sign and broadcast through the connected wallet,
@@ -707,6 +741,12 @@ function TxFeeInfo(props: IProps) {
           }
         } else if (r.gasAccountEligible && r.gasAccountQuote) {
           resetGasAccountTemporarilyDisabled();
+          // `updateGasAccountUiState` merges and drops undefined fields, so a
+          // quote that arrives without `gasAccountSkipReason` / scenario
+          // reason / locked nonce would otherwise keep the values written by
+          // an earlier self-paid estimate (e.g. the transient skip reason
+          // returned right after a login) and leak them into analytics.
+          resetGasAccountUiState();
           updateGasAccountUiState({
             payer: r.payer,
             gasAccountEligible: true,
