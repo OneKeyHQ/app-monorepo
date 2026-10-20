@@ -4,6 +4,8 @@
 
 import { act, render, waitFor } from '@testing-library/react';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { TradingViewNative } from './TradingViewNative.native';
 
 import type {
@@ -76,6 +78,8 @@ const source: ITradingViewNativeSource = {
 describe('TradingViewNative screen orientation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    platformEnv.isNativeAndroid = true;
+    platformEnv.isNativeIOSPad = false;
     mockIsSpanning.mockReturnValue(false);
     mockWindowDimensions.height = 844;
     mockWindowDimensions.width = 390;
@@ -104,37 +108,89 @@ describe('TradingViewNative screen orientation', () => {
     );
   });
 
-  it('locks landscape only while fullscreen and restores portrait on exit', async () => {
-    const handleFullscreenChange = jest.fn();
-    const { rerender } = render(
-      <TradingViewNative
-        source={source}
-        onNativeChartFullscreenChange={handleFullscreenChange}
-      />,
-    );
+  it.each([true, false])(
+    'locks phone fullscreen to landscape and restores portrait (Android: %s)',
+    async (isAndroid) => {
+      platformEnv.isNativeAndroid = isAndroid;
+      const handleFullscreenChange = jest.fn();
+      const { rerender } = render(
+        <TradingViewNative
+          source={source}
+          onNativeChartFullscreenChange={handleFullscreenChange}
+        />,
+      );
 
-    rerender(
-      <TradingViewNative
-        source={source}
-        isNativeChartFullscreen
-        onNativeChartFullscreenChange={handleFullscreenChange}
-      />,
-    );
+      rerender(
+        <TradingViewNative
+          source={source}
+          isNativeChartFullscreen
+          onNativeChartFullscreenChange={handleFullscreenChange}
+        />,
+      );
 
-    await waitFor(() => {
-      expect(mockLockAsync).toHaveBeenLastCalledWith('LANDSCAPE');
-    });
+      await waitFor(() => {
+        expect(mockLockAsync).toHaveBeenLastCalledWith('LANDSCAPE');
+      });
 
-    rerender(
-      <TradingViewNative
-        source={source}
-        onNativeChartFullscreenChange={handleFullscreenChange}
-      />,
-    );
+      rerender(
+        <TradingViewNative
+          source={source}
+          onNativeChartFullscreenChange={handleFullscreenChange}
+        />,
+      );
 
-    expect(mockAppStateSubscriptionRemove).toHaveBeenCalledTimes(1);
-    expect(mockLockAsync).toHaveBeenLastCalledWith('PORTRAIT_UP');
-  });
+      expect(mockAppStateSubscriptionRemove).toHaveBeenCalledTimes(1);
+      expect(mockLockAsync).toHaveBeenLastCalledWith('PORTRAIT_UP');
+    },
+  );
+
+  it.each([
+    { height: 1180, width: 820 },
+    { height: 820, width: 1180 },
+  ])(
+    'preserves the iPad window through fullscreen at $width × $height',
+    (dimensions) => {
+      platformEnv.isNativeAndroid = false;
+      platformEnv.isNativeIOSPad = true;
+      Object.assign(mockWindowDimensions, dimensions);
+      const handleFullscreenChange = jest.fn();
+      const { rerender, unmount } = render(
+        <TradingViewNative
+          source={source}
+          onNativeChartFullscreenChange={handleFullscreenChange}
+        />,
+      );
+
+      rerender(
+        <TradingViewNative
+          source={source}
+          isNativeChartFullscreen
+          onNativeChartFullscreenChange={handleFullscreenChange}
+        />,
+      );
+
+      expect(mockLockAsync).not.toHaveBeenCalled();
+      expect(mockStatusBar).not.toHaveBeenCalled();
+      act(() => mockAppStateChangeHandler?.('background'));
+      expect(handleFullscreenChange).toHaveBeenCalledWith(false);
+
+      rerender(
+        <TradingViewNative
+          source={source}
+          onNativeChartFullscreenChange={handleFullscreenChange}
+        />,
+      );
+
+      expect(mockAppStateSubscriptionRemove).toHaveBeenCalledTimes(1);
+      expect(mockLockAsync).not.toHaveBeenCalled();
+
+      rerender(<TradingViewNative source={source} isNativeChartFullscreen />);
+      unmount();
+
+      expect(mockAppStateSubscriptionRemove).toHaveBeenCalledTimes(2);
+      expect(mockLockAsync).not.toHaveBeenCalled();
+    },
+  );
 
   it('exits fullscreen when the app leaves the foreground', () => {
     const handleFullscreenChange = jest.fn();
