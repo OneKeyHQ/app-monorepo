@@ -43,6 +43,12 @@ describe('Zcash Transparent Mode runtime boundary', () => {
             getPrivacyModeState: jest.fn(async () => ({ intent: 'off' })),
           },
         },
+        // Our transparent output is the address Receive displays.
+        servicePrivacyChain: {
+          getLocalWalletAccountAddresses: async () => ({
+            publicAddress: 't1-public-output',
+          }),
+        },
       },
     });
     const runtime = jest

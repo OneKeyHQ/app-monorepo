@@ -22,7 +22,6 @@ import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { getHistoryTxDisplayStatus } from '@onekeyhq/shared/src/utils/historyUtils';
 import { numberFormatAsRenderText } from '@onekeyhq/shared/src/utils/numberUtils';
 import { collectPrivacyChainOwnAddresses } from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
-import type { IPrivacyChainAccountAddresses } from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
 import { getDisplayedActions } from '@onekeyhq/shared/src/utils/txActionUtils';
 import {
   TX_RISKY_LEVEL_MALICIOUS,
@@ -193,7 +192,6 @@ function buildHistoryActivityRowUnchecked({
   tableLayout,
   isUTXO,
   localWallet,
-  localWalletAddresses,
   hideValue,
   currency,
   isAllNetworks,
@@ -203,10 +201,8 @@ function buildHistoryActivityRowUnchecked({
   intl: IntlShape;
   tableLayout: boolean;
   isUTXO?: boolean;
-  // Privacy chains: how the row names its counterparty, and this account's
-  // displayed addresses for its own side.
+  // Privacy chains: how the row names its counterparty.
   localWallet?: IPrivacyChainLocalWalletSettings;
-  localWalletAddresses?: IPrivacyChainAccountAddresses | null;
   hideValue: boolean;
   currency: string;
   isAllNetworks?: boolean;
@@ -255,7 +251,6 @@ function buildHistoryActivityRowUnchecked({
       const target = resolvePrivacyChainTargetDisplay({
         intl,
         localWallet: toPrivacyChainLocalWalletDisplay(localWallet),
-        addresses: localWalletAddresses,
         address: info.transferTarget,
         shielded: info.transferTargetShielded,
         side: info.transferTargetSide,

@@ -6,6 +6,10 @@ import type { ReactNode } from 'react';
 import { render, waitFor } from '@testing-library/react';
 
 import {
+  buildLocalWalletHistoryAddressGate,
+  gateLocalWalletHistoryDetail,
+} from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
+import {
   EOnChainHistoryTransferType,
   type IOnChainHistoryTx,
   type IOnChainHistoryTxTransfer,
@@ -20,7 +24,22 @@ const RECIPIENT = `u1${'z'.repeat(90)}`;
 
 let mockNetworkId = 'zec--0';
 let mockDetails: Partial<IOnChainHistoryTx> = {};
+// What Receive displays; the background gate checks the detail against it.
 let mockAddresses: { publicAddress?: string; privateAddress?: string } = {};
+
+function mockGatedDetails() {
+  if (!mockNetworkId.startsWith('zec')) return mockDetails;
+  const gate = buildLocalWalletHistoryAddressGate({
+    localWallet: {
+      pools: [{ id: 0, kind: 'public' }],
+      publicAddressPattern: '^t[13][1-9A-HJ-NP-Za-km-z]{33}$',
+      addressForms: { publicLabel: 'transparent' },
+    },
+    addresses: mockAddresses,
+    ownerAddress: OWN_T,
+  });
+  return gateLocalWalletHistoryDetail(gate, mockDetails as IOnChainHistoryTx);
+}
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -67,12 +86,9 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceHistory: {
-      fetchHistoryTxDetails: async () => ({ data: mockDetails }),
+      fetchHistoryTxDetails: async () => ({ data: mockGatedDetails() }),
     },
   },
-}));
-jest.mock('../../../hooks/useLocalWalletAccountAddresses', () => ({
-  useLocalWalletAccountAddresses: () => mockAddresses,
 }));
 jest.mock('../../../hooks/usePromiseResult', () => ({
   usePromiseResult: (

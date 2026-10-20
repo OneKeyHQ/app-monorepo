@@ -7,6 +7,11 @@ import { render, within } from '@testing-library/react';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
+  buildLocalWalletHistoryAddressGate,
+  gateLocalWalletHistoryDetail,
+  gateLocalWalletHistoryTx,
+} from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
+import {
   EOnChainHistoryTransferType,
   type IAccountHistoryTx,
   type IOnChainHistoryTx,
@@ -21,9 +26,40 @@ import HistoryDetails from './HistoryDetails';
 
 let mockHistory: IAccountHistoryTx;
 let mockTxDetails: Partial<IOnChainHistoryTx> | undefined;
+// What Receive displays; the background gate checks rows against it.
 let mockAccountAddresses:
   | { publicAddress?: string; privateAddress?: string }
   | undefined;
+
+function mockGate() {
+  const isZcash = mockHistory.decodedTx.networkId === 'zec--0';
+  return buildLocalWalletHistoryAddressGate({
+    localWallet: {
+      pools: [{ id: 0, kind: 'public' }],
+      publicAddressPattern: isZcash
+        ? '^t[13][1-9A-HJ-NP-Za-km-z]{33}$'
+        : '(?!)',
+      addressForms: isZcash ? { publicLabel: 'transparent' } : undefined,
+    },
+    addresses: mockAccountAddresses,
+  });
+}
+
+// Rows and details reach the page after the background gate.
+function mockGatedHistory() {
+  return mockHistory.decodedTx.networkId.startsWith('btc')
+    ? mockHistory
+    : gateLocalWalletHistoryTx(mockGate(), mockHistory);
+}
+
+function mockGatedDetails() {
+  return mockTxDetails && !mockHistory.decodedTx.networkId.startsWith('btc')
+    ? gateLocalWalletHistoryDetail(
+        mockGate(),
+        mockTxDetails as IOnChainHistoryTx,
+      )
+    : mockTxDetails;
+}
 
 beforeEach(() => {
   mockTxDetails = undefined;
@@ -48,7 +84,7 @@ jest.mock('@react-navigation/core', () => ({
     params: {
       accountId: 'synthetic-account',
       networkId: mockHistory.decodedTx.networkId,
-      historyTx: mockHistory,
+      historyTx: mockGatedHistory(),
     },
   }),
 }));
@@ -121,9 +157,6 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
   default: () => ({}),
 }));
-jest.mock('@onekeyhq/kit/src/hooks/useLocalWalletAccountAddresses', () => ({
-  useLocalWalletAccountAddresses: () => mockAccountAddresses,
-}));
 jest.mock('@onekeyhq/kit/src/hooks/useReplaceTx', () => ({
   useReplaceTx: () => ({}),
 }));
@@ -177,7 +210,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useAccountData', () => ({
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   usePromiseResult: (_request: unknown, deps: unknown[]) => ({
     result:
-      deps.length === 2 ? { symbol: 'XMR' } : { txDetails: mockTxDetails },
+      deps.length === 2 ? { symbol: 'XMR' } : { txDetails: mockGatedDetails() },
     isLoading: false,
   }),
 }));

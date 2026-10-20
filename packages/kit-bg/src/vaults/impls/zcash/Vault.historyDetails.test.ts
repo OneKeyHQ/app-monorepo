@@ -33,6 +33,12 @@ it.each([
         simpleDb: {
           zcash: { getPrivacyModeState: async () => ({ intent: 'on' }) },
         },
+        // The self-payment reached the u1 that Receive displays.
+        servicePrivacyChain: {
+          getLocalWalletAccountAddresses: async () => ({
+            privateAddress: 'u1synthetic-recipient',
+          }),
+        },
       },
       zcashGetWalletAccount: async () => ({}),
       zcashGetApi: async () => ({

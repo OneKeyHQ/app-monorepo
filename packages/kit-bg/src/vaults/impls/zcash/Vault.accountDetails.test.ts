@@ -53,6 +53,10 @@ function createFixture(
           getPrivacyModeState: async () => ({ intent: 'on' }),
         },
       },
+      // Our transparent address is the one Receive displays.
+      servicePrivacyChain: {
+        getLocalWalletAccountAddresses: async () => ({ publicAddress: own }),
+      },
     },
     zcashGetWalletAccount: async () => ({
       network: 'main',

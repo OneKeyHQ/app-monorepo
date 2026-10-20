@@ -34,7 +34,6 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../../hooks/useAccountData';
-import { useLocalWalletAccountAddresses } from '../../../hooks/useLocalWalletAccountAddresses';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   resolvePrivacyChainEndpointDisplay,
@@ -88,11 +87,6 @@ function UTXODetails() {
     networkId,
   });
   const isLocalWalletHistory = !!vaultSettings?.localWallet;
-  const localWalletAddresses = useLocalWalletAccountAddresses({
-    accountId,
-    networkId,
-    enabled: isLocalWalletHistory,
-  });
   const localWalletDisplay = useMemo(
     () =>
       vaultSettings?.localWallet
@@ -100,9 +94,9 @@ function UTXODetails() {
         : undefined,
     [vaultSettings?.localWallet],
   );
-  // Public endpoints and shielded entries have separate display rules. An own
-  // address shows only when it is exactly one the account displays; a
-  // shielded entry otherwise shows a known counterparty address or its pool.
+  // Public endpoints and shielded entries have separate display rules. The
+  // background leaves an own address only when the account displays exactly
+  // that string; otherwise the entry is named by its pool.
   const showUtxoEndpoint = useCallback(
     (utxo: IUtxoListItem) =>
       !isLocalWalletHistory ||
@@ -124,7 +118,6 @@ function UTXODetails() {
         const display = resolvePrivacyChainEndpointDisplay({
           intl,
           localWallet: localWalletDisplay,
-          addresses: localWalletAddresses,
           item: getPrivacyChainEntryItem({
             pools: localWalletDisplay?.pools,
             entry: utxo,
@@ -155,22 +148,20 @@ function UTXODetails() {
           </XStack>
         );
       }
-      if (!showUtxoEndpoint(utxo)) return null;
+      const isOwn =
+        isLocalWalletHistory && (utxo.isOwn || ownAddresses.has(utxo.address));
+      if (!isOwn && !showUtxoEndpoint(utxo)) return null;
       let content = utxo.address;
-      if (
-        isLocalWalletHistory &&
-        (utxo.isOwn || ownAddresses.has(utxo.address))
-      ) {
+      if (isOwn) {
         const display = resolvePrivacyChainEndpointDisplay({
           intl,
           localWallet: localWalletDisplay,
-          addresses: localWalletAddresses,
           item: {
             kind: 'own',
             poolId: localWalletDisplay?.pools?.find(
               (pool) => pool.kind === 'public',
             )?.id,
-            address: utxo.address,
+            ...(utxo.address ? { address: utxo.address } : {}),
           },
         });
         content = display.address ?? display.poolLabel;
@@ -186,13 +177,7 @@ function UTXODetails() {
         </SizableText>
       );
     },
-    [
-      intl,
-      isLocalWalletHistory,
-      localWalletAddresses,
-      localWalletDisplay,
-      showUtxoEndpoint,
-    ],
+    [intl, isLocalWalletHistory, localWalletDisplay, showUtxoEndpoint],
   );
 
   const { result, isLoading } = usePromiseResult(

@@ -23,7 +23,10 @@ import type {
   IAccountHistoryTx,
   IFetchHistoryTxDetailsParams,
 } from '@onekeyhq/shared/types/history';
-import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+import {
+  EDecodedTxActionType,
+  EDecodedTxStatus,
+} from '@onekeyhq/shared/types/tx';
 
 import { getVaultSettings } from '../vaults/settings';
 
@@ -102,7 +105,10 @@ function createService() {
 }
 
 describe('ServiceHistory All Networks privacy chain rows', () => {
-  async function fetchAllNetworks(built: (IAccountHistoryTx | null)[]) {
+  async function fetchAllNetworks(
+    built: (IAccountHistoryTx | null)[],
+    displayed?: { publicAddress?: string },
+  ) {
     mockGetVault.mockResolvedValue({
       fetchAccountHistoryFromLocal: async () => undefined,
       buildFetchHistoryListParams: async () => ({ allNetworkAccounts: [] }),
@@ -110,6 +116,11 @@ describe('ServiceHistory All Networks privacy chain rows', () => {
         built[index],
     });
     const { service } = createService();
+    Object.assign(service.backgroundApi, {
+      servicePrivacyChain: {
+        getLocalWalletAccountAddresses: async () => displayed,
+      },
+    });
     jest.spyOn(service, 'getClient').mockResolvedValue({
       post: async () => ({
         data: {
@@ -145,6 +156,37 @@ describe('ServiceHistory All Networks privacy chain rows', () => {
       privacyChainHistorySide: 'public',
       privacyChainHistoryPoolIds: [0],
     });
+  });
+
+  it('names legacy Zcash change by pool and leaves BTC change as is', async () => {
+    const own = `t1${'A'.repeat(33)}`;
+    const change = `t1${'H'.repeat(33)}`;
+    const withChange = (networkId: string) =>
+      row(networkId, 'c1', {
+        decodedTx: {
+          ...row(networkId, 'c1').decodedTx,
+          owner: own,
+          actions: [
+            {
+              type: EDecodedTxActionType.ASSET_TRANSFER,
+              assetTransfer: {
+                from: own,
+                to: '',
+                sends: [],
+                receives: [{ from: own, to: change, isOwn: true }],
+              },
+            },
+          ],
+        },
+      } as unknown as Partial<IAccountHistoryTx>);
+    const btc = withChange('btc--0');
+    const { txs } = await fetchAllNetworks([btc, withChange(ZEC)], {
+      publicAddress: own,
+    });
+    expect(txs[0]).toBe(btc);
+    expect(
+      txs[1]?.decodedTx.actions[0].assetTransfer?.receives[0],
+    ).toMatchObject({ to: '', shieldedTo: { poolId: 0, isOwn: true } });
   });
 
   it('returns the same rows when no privacy chain row is present', async () => {

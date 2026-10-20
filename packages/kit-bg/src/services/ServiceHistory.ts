@@ -28,6 +28,8 @@ import {
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import { isHyperliquidDirectDepositTx } from '@onekeyhq/shared/src/utils/hyperliquidDepositUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { gateLocalWalletHistoryTx } from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
+import type { ILocalWalletHistoryAddressGate } from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
 import {
   PROMISE_CONCURRENCY_LIMIT,
   promiseAllSettledEnhanced,
@@ -87,6 +89,7 @@ import simpleDb from '../dbs/simple/simpleDb';
 import { perpsDepositOrderAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 import { mergeZcashLocalTransparentPayment } from '../vaults/impls/zcash/backendHistory';
+import { getLocalWalletHistoryAddressGate } from '../vaults/localWallet/historyAddressGate';
 
 import ServiceBase from './ServiceBase';
 import {
@@ -2898,13 +2901,37 @@ class ServiceHistory extends ServiceBase {
       }),
     );
     if (!backendPoolIds.size) return txs;
+    // Own addresses on these rows face the same check as the chain's own view.
+    const gates = new Map<string, ILocalWalletHistoryAddressGate>();
+    await Promise.all(
+      uniqBy(
+        txs.filter(
+          (tx): tx is NonNullable<T> =>
+            !!tx && backendPoolIds.get(tx.decodedTx.networkId) !== undefined,
+        ),
+        (tx) => `${tx.decodedTx.networkId}:${tx.decodedTx.accountId}`,
+      ).map(async (tx) => {
+        const { networkId, accountId } = tx.decodedTx;
+        gates.set(
+          `${networkId}:${accountId}`,
+          await getLocalWalletHistoryAddressGate({
+            backgroundApi: this.backgroundApi,
+            networkId,
+            accountId,
+          }),
+        );
+      }),
+    );
     return txs.flatMap((tx) => {
       if (!tx || !backendPoolIds.has(tx.decodedTx.networkId)) return [tx];
       const poolId = backendPoolIds.get(tx.decodedTx.networkId);
-      if (poolId === undefined) return [];
+      const gate = gates.get(
+        `${tx.decodedTx.networkId}:${tx.decodedTx.accountId}`,
+      );
+      if (poolId === undefined || !gate) return [];
       return [
         {
-          ...tx,
+          ...gateLocalWalletHistoryTx(gate, tx),
           privacyChainHistorySide: 'public' as const,
           privacyChainHistoryPoolIds: [poolId],
         },

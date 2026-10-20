@@ -33,6 +33,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IPrivacyChainComposedBalance } from '@onekeyhq/shared/src/utils/privacyChainBalanceUtils';
+import {
+  gateLocalWalletHistoryDetail,
+  gateLocalWalletHistoryTx,
+} from '@onekeyhq/shared/src/utils/privacyChainHistoryAddressGate';
 import type {
   IFetchServerAccountDetailsParams,
   IFetchServerAccountDetailsResponse,
@@ -59,6 +63,7 @@ import type {
 } from '@onekeyhq/shared/types/serverToken';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
+import { getLocalWalletHistoryAddressGate } from '../../localWallet/historyAddressGate';
 import { localWalletText } from '../../localWallet/messages';
 import VaultBtc from '../btc/Vault';
 
@@ -622,7 +627,17 @@ export default class Vault extends VaultBtc {
   override async fetchAccountHistoryDetail(
     params: IServerFetchAccountHistoryDetailParams,
   ): Promise<IServerFetchAccountHistoryDetailResp> {
-    return zcashHistory.fetchAccountHistoryDetail(this, params);
+    const response = await zcashHistory.fetchAccountHistoryDetail(this, params);
+    const detail = response.data.data.data;
+    if (detail) {
+      const gate = await getLocalWalletHistoryAddressGate({
+        backgroundApi: this.backgroundApi,
+        networkId: this.networkId,
+        accountId: params.accountId || this.accountId,
+      });
+      response.data.data.data = gateLocalWalletHistoryDetail(gate, detail);
+    }
+    return response;
   }
 
   override async fetchAccountHistoryFromLocal(params: {
@@ -632,7 +647,14 @@ export default class Vault extends VaultBtc {
     xpub?: string;
     isManualRefresh?: boolean;
   }): Promise<IAccountHistoryTx[] | undefined> {
-    return zcashHistory.fetchAccountHistoryFromLocal(this, params);
+    const txs = await zcashHistory.fetchAccountHistoryFromLocal(this, params);
+    if (!txs?.length) return txs;
+    const gate = await getLocalWalletHistoryAddressGate({
+      backgroundApi: this.backgroundApi,
+      networkId: params.networkId,
+      accountId: params.accountId || this.accountId,
+    });
+    return txs.map((tx) => gateLocalWalletHistoryTx(gate, tx));
   }
 
   // BTC's override asks F2pool about acceleration, which never applies to zec txids.

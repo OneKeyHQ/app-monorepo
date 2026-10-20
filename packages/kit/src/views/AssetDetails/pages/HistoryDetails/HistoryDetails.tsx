@@ -31,7 +31,6 @@ import { SpeedUpAction } from '@onekeyhq/kit/src/components/TxHistoryListView/Sp
 import { ZcashMemo } from '@onekeyhq/kit/src/components/ZcashMemo';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useLocalWalletAccountAddresses } from '@onekeyhq/kit/src/hooks/useLocalWalletAccountAddresses';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReplaceTx } from '@onekeyhq/kit/src/hooks/useReplaceTx';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
@@ -1221,14 +1220,9 @@ function HistoryDetails() {
   const isSentFromThisWallet =
     !!historyTx?.decodedTx.signer &&
     historyTx.decodedTx.signer === historyTx.decodedTx.owner;
-  const localWalletAddresses = useLocalWalletAccountAddresses({
-    accountId,
-    networkId,
-    enabled: isLocalWalletHistory,
-  });
   // Every endpoint a local-wallet row shows, in order: shielded and private
-  // ones, then public addresses. Own addresses pass the displayed-address
-  // check; anything else is named by its pool.
+  // ones, then public addresses. The background leaves an own address only
+  // when it is a displayed one; anything else is named by its pool.
   const localWalletEndpoints = useMemo(() => {
     if (!isLocalWalletHistory || !vaultSettings?.localWallet) return undefined;
     const localWallet = toPrivacyChainLocalWalletDisplay(
@@ -1272,7 +1266,6 @@ function HistoryDetails() {
         ...resolvePrivacyChainEndpointDisplay({
           intl,
           localWallet,
-          addresses: localWalletAddresses,
           item,
         }),
         poolId: item.kind === 'address' ? undefined : item.poolId,
@@ -1306,7 +1299,6 @@ function HistoryDetails() {
     intl,
     isLocalWalletHistory,
     isSentFromThisWallet,
-    localWalletAddresses,
     localWalletHistoryFlow,
     txDetails?.sends,
     txDetails?.receives,

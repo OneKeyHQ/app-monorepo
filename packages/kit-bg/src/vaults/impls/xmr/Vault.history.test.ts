@@ -5,12 +5,13 @@ jest.mock('../../../dbs/local/localDbInstance', () => ({
   default: {},
 }));
 jest.mock('./runtime', () => ({
-  ...jest.requireActual('./runtime'),
+  ...jest.requireActual<typeof import('./runtime')>('./runtime'),
   getXmrLocalRuntime: jest.fn(),
 }));
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
 import { getXmrLocalRuntime } from './runtime';
 import Vault from './Vault';
@@ -46,6 +47,68 @@ describe('xmr history when the runtime cannot answer', () => {
         accountAddress: ADDRESS,
       }),
     ).resolves.toEqual([...confirmed, ...pending]);
+  });
+});
+
+// Pausing hides the primary address on Receive, so cached rows lose it too.
+describe('xmr history shows our primary address only while Receive does', () => {
+  it.each([
+    ['scanning', ADDRESS, ADDRESS],
+    ['paused', undefined, ''],
+  ])('%s', async (_, privateAddress, shown) => {
+    const selfSend = {
+      id: 'self-send',
+      decodedTx: {
+        txid: 'self-send',
+        owner: ADDRESS,
+        actions: [
+          {
+            type: EDecodedTxActionType.ASSET_TRANSFER,
+            assetTransfer: {
+              from: '',
+              to: ADDRESS,
+              shieldedFrom: { poolId: 1, isOwn: true },
+              sends: [
+                {
+                  from: '',
+                  to: ADDRESS,
+                  shieldedFrom: { poolId: 1, isOwn: true },
+                },
+              ],
+              receives: [],
+            },
+          },
+        ],
+      },
+    } as unknown as IAccountHistoryTx;
+    const vault: Vault = Object.assign(Object.create(Vault.prototype), {
+      accountId: ACCOUNT_ID,
+      networkId: 'xmr--0',
+      xmrListHistoryItems: async () => undefined,
+      backgroundApi: {
+        servicePrivacyChain: {
+          getLocalWalletAccountAddresses: async () => ({
+            publicAddress: ADDRESS,
+            privateAddress,
+          }),
+        },
+        simpleDb: {
+          localHistory: {
+            getAccountLocalHistoryConfirmedTxs: jest.fn(async () => [selfSend]),
+            getAccountLocalHistoryPendingTxs: jest.fn(async () => []),
+          },
+        },
+      },
+    });
+    const [row] =
+      (await vault.fetchAccountHistoryFromLocal({
+        accountId: ACCOUNT_ID,
+        networkId: 'xmr--0',
+        accountAddress: ADDRESS,
+      })) ?? [];
+    const transfer = row.decodedTx.actions[0].assetTransfer;
+    expect(transfer?.to).toBe(shown);
+    expect(transfer?.sends[0].to).toBe(shown);
   });
 });
 

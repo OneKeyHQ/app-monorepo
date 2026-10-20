@@ -340,6 +340,11 @@ export function getPrivacyChainEndpointFlow({
   isSent: boolean;
   ownAddresses?: Set<string>;
 }): { from: IPrivacyChainEndpointItem[]; to: IPrivacyChainEndpointItem[] } {
+  // A send whose every payment output is ours recorded one of our addresses
+  // as its recipient; the background has already removed it if not displayed.
+  const payments = (outputTransfers ?? []).filter((entry) => !entry.isChange);
+  const paysOnlyOwn =
+    payments.length > 0 && payments.every((entry) => entry.isOwn);
   const side = (direction: 'from' | 'to') => {
     const endpoint = getPrivacyChainEndpointItem({
       pools,
@@ -350,7 +355,7 @@ export function getPrivacyChainEndpointFlow({
         direction === 'from' ? transfer?.shieldedFrom : transfer?.shieldedTo,
       side: direction,
       ownAddresses,
-      isRecordedRecipient: isSent && direction === 'to',
+      isRecordedRecipient: isSent && direction === 'to' && !paysOnlyOwn,
     });
     const rawItems = [
       ...(endpoint ? [endpoint] : []),
@@ -368,6 +373,16 @@ export function getPrivacyChainEndpointFlow({
             ownAddresses,
           }),
         ),
+      // Our side named by pool where the background removed its address.
+      ...[...(transfer?.sends ?? []), ...(transfer?.receives ?? [])].flatMap(
+        (entry): IPrivacyChainEndpointItem[] => {
+          const marker =
+            direction === 'from' ? entry.shieldedFrom : entry.shieldedTo;
+          return !entry[direction] && marker?.isOwn
+            ? [{ kind: 'own', poolId: marker.poolId }]
+            : [];
+        },
+      ),
     ];
     // An own address the row names gets its pool from the wallet I/O.
     const poolIdByOwnAddress = new Map(
