@@ -74,7 +74,6 @@ const nativeContractDependencies = {
   ],
   ios: [
     '@onramper/onramper-react-native',
-    'burnt',
     'expo-apple-authentication',
     'expo-glass-effect',
     'expo-modules-jsi',
@@ -102,7 +101,6 @@ const nativeContractDependencies = {
     '@onekeyfe/react-native-native-list',
     '@onekeyfe/react-native-native-logger',
     '@onekeyfe/react-native-native-overlay',
-    '@onekeyfe/react-native-native-sheet',
     '@onekeyfe/react-native-network-throttle',
     '@onekeyfe/react-native-perf-memory',
     '@onekeyfe/react-native-perf-stats',

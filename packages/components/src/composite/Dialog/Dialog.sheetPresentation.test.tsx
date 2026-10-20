@@ -37,34 +37,6 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
-jest.mock('../../shared/tamagui', () => ({
-  Sheet: {
-    ScrollView: ({
-      children,
-      maxHeight,
-      height,
-      keyboardShouldPersistTaps,
-      testID,
-    }: {
-      children?: ReactNode;
-      maxHeight?: number;
-      height?: number;
-      keyboardShouldPersistTaps?: string;
-      testID?: string;
-    }) => (
-      <div
-        data-testid={testID || 'sheet-scroll-view'}
-        data-scroll-kind="sheet"
-        data-max-height={maxHeight === undefined ? '' : String(maxHeight)}
-        data-height={height === undefined ? '' : String(height)}
-        data-keyboard-persist={keyboardShouldPersistTaps || ''}
-      >
-        {children}
-      </div>
-    ),
-  },
-}));
-
 jest.mock('../../layouts/ScrollView', () => ({
   ScrollView: ({
     children,

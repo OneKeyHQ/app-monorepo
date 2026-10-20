@@ -117,10 +117,6 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - Burnt (0.12.2):
-    - ExpoModulesCore
-    - SPAlert (~> 4.2)
-    - SPIndicator (~> 1.6)
   - ChartWebview (6.7.0-alpha.337):
     - hermes-engine
     - NitroModules
@@ -452,27 +448,6 @@ PODS:
   - MMKVCore (2.4.0)
   - MultiplatformBleAdapter (0.2.0)
   - NativeOverlay (6.7.0):
-    - hermes-engine
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-jsi
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-renderercss
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - ReactNativeDependencies
-    - Yoga
-  - NativeSheet (6.7.0-alpha.337):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -3815,8 +3790,6 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - SPAlert (4.2.0)
-  - SPIndicator (1.6.4)
   - SplitBundleLoader (6.7.0-alpha.337):
     - hermes-engine
     - RCTRequired
@@ -3875,7 +3848,6 @@ DEPENDENCIES:
   - "AutoSizeInput (from `../../../node_modules/@onekeyfe/react-native-auto-size-input`)"
   - "BackgroundThread (from `../../../node_modules/@onekeyfe/react-native-background-thread`)"
   - "BleUtils (from `../../../node_modules/@onekeyfe/react-native-ble-utils`)"
-  - Burnt (from `../../../node_modules/burnt/ios`)
   - "ChartWebview (from `../../../node_modules/@onekeyfe/react-native-chart-webview`)"
   - CloudFs (from `../../../node_modules/react-native-cloud-fs`)
   - "CloudKitModule (from `../../../node_modules/@onekeyfe/react-native-cloud-kit-module`)"
@@ -3923,7 +3895,6 @@ DEPENDENCIES:
   - "KeychainModule (from `../../../node_modules/@onekeyfe/react-native-keychain-module`)"
   - lottie-react-native (from `../../../node_modules/lottie-react-native`)
   - "NativeOverlay (from `../../../node_modules/@onekeyfe/react-native-native-overlay`)"
-  - "NativeSheet (from `../../../node_modules/@onekeyfe/react-native-native-sheet`)"
   - NetworkInfo (from `../../../node_modules/react-native-network-info`)
   - NitroMmkv (from `../../../node_modules/react-native-mmkv`)
   - NitroModules (from `../../../node_modules/react-native-nitro-modules`)
@@ -4092,8 +4063,6 @@ SPEC REPOS:
     - SDWebImageSVGCoder
     - SDWebImageWebPCoder
     - Sentry
-    - SPAlert
-    - SPIndicator
     - SSZipArchive
     - YttriumWrapper
     - ZXingObjC
@@ -4109,8 +4078,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@onekeyfe/react-native-background-thread"
   BleUtils:
     :path: "../../../node_modules/@onekeyfe/react-native-ble-utils"
-  Burnt:
-    :path: "../../../node_modules/burnt/ios"
   ChartWebview:
     :path: "../../../node_modules/@onekeyfe/react-native-chart-webview"
   CloudFs:
@@ -4204,8 +4171,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/lottie-react-native"
   NativeOverlay:
     :path: "../../../node_modules/@onekeyfe/react-native-native-overlay"
-  NativeSheet:
-    :path: "../../../node_modules/@onekeyfe/react-native-native-sheet"
   NetworkInfo:
     :path: "../../../node_modules/react-native-network-info"
   NitroMmkv:
@@ -4491,7 +4456,6 @@ SPEC CHECKSUMS:
   AutoSizeInput: f5096eb3aa4b1d06f440b717dfd3a331b4adac22
   BackgroundThread: 857b4212246a969384bf84f47516d903ba8e9105
   BleUtils: 4298cf76d7a3467d565338611656b99048a83e9b
-  Burnt: e3a3397e26172fca31a59bb27421475a58068836
   ChartWebview: 2e567c57a5f09f3ef24169f4be72785099b8af86
   CloudFs: f978014eb02d4821ba177160de3c24e54dd796a8
   CloudKitModule: 9ae18582bd928d7ff5fff327a65c1b43cfea8225
@@ -4550,7 +4514,6 @@ SPEC CHECKSUMS:
   MMKVCore: 3d16ce9f7d411e135020915fde98a056859a1efa
   MultiplatformBleAdapter: b1fddd0d499b96b607e00f0faa8e60648343dc1d
   NativeOverlay: 118afaaea145191861eb809a8a172fe8c27bcdf1
-  NativeSheet: 54513fa2a82ee90e7fb31163d4c316a2bb8edd67
   NetworkInfo: 3027c9b817e469e468eb95fc01d1f2d13f4e9d2b
   NitroMmkv: 437a1303946283cfefe556d74e989228874aa8c0
   NitroModules: d5be9f4559fc5178388ccf3ba2e152230b766d67
@@ -4694,8 +4657,6 @@ SPEC CHECKSUMS:
   Sentry: 7475eb7bf6a41d7505f46341706015ad2d1766b9
   Skeleton: 73297a7b8aca47d90408f1b9b9c75dca9db05519
   SniConnect: a4700bc4037bdd8d07c95b8672335d9c37b8ad59
-  SPAlert: 735da1f16a887e294719217572ce1f936d8c8782
-  SPIndicator: 93e0a4fb23de51294ac48e874c0f081a5e293e4f
   SplitBundleLoader: 5cea36f42591c0ca8479d3630a56fd0b6e2bbd15
   SSZipArchive: c69881e8ac5521f0e622291387add5f60f30f3c4
   TcpSocket: dd8c7d7dce8f86be6e31551f3e24cfd6bad74f7c

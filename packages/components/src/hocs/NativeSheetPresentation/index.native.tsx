@@ -13,8 +13,6 @@ import type {
   IOverlaySheetOptions,
 } from '@onekeyfe/react-native-native-overlay';
 
-export const NATIVE_SHEET_PRESENTATION_SUPPORTED = true;
-
 export function NativeSheetPresentation({
   open,
   onOpenChange,

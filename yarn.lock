@@ -9964,16 +9964,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-native-sheet@npm:6.7.0-alpha.337":
-  version: 6.7.0-alpha.337
-  resolution: "@onekeyfe/react-native-native-sheet@npm:6.7.0-alpha.337"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-  checksum: 10/7f9648016554cca8281082456921291355460960dd3115860b698020783e2b54b8b4f995ac9f7fba5523670e99e680ba73b49e6e1625c465ad82f151366272a2
-  languageName: node
-  linkType: hard
-
 "@onekeyfe/react-native-network-throttle@npm:6.7.0-alpha.337":
   version: 6.7.0-alpha.337
   resolution: "@onekeyfe/react-native-network-throttle@npm:6.7.0-alpha.337"
@@ -10234,7 +10224,6 @@ __metadata:
     "@tamagui/config": "npm:2.7.7"
     "@tamagui/static": "npm:2.7.7"
     "@tamagui/themes": "npm:2.7.7"
-    "@tamagui/toast": "npm:2.7.7"
     "@testing-library/dom": "npm:^10.4.1"
     "@testing-library/react": "npm:^16.3.2"
     "@testing-library/react-hooks": "npm:^8.0.1"
@@ -10565,7 +10554,6 @@ __metadata:
   resolution: "@onekeyhq/kit@workspace:packages/kit"
   dependencies:
     "@onekeyfe/react-native-native-list": "npm:6.7.0-alpha.337"
-    "@onekeyfe/react-native-native-sheet": "npm:6.7.0-alpha.337"
     "@onekeyfe/react-native-text": "npm:6.7.0-alpha.337"
     "@onekeyhq/components": "npm:*"
     "@types/d3-scale": "npm:^4.0.3"
@@ -10619,7 +10607,6 @@ __metadata:
     "@onekeyfe/react-native-native-list": "npm:6.7.0-alpha.337"
     "@onekeyfe/react-native-native-logger": "npm:6.7.0-alpha.337"
     "@onekeyfe/react-native-native-overlay": "npm:6.7.0-alpha.337"
-    "@onekeyfe/react-native-native-sheet": "npm:6.7.0-alpha.337"
     "@onekeyfe/react-native-network-throttle": "npm:6.7.0-alpha.337"
     "@onekeyfe/react-native-perf-memory": "npm:6.7.0-alpha.337"
     "@onekeyfe/react-native-perf-stats": "npm:6.7.0-alpha.337"
@@ -10662,7 +10649,6 @@ __metadata:
     "@types/react-native-canvas": "npm:^0.1.13"
     "@walletconnect/react-native-compat": "npm:2.23.10"
     bip39: "npm:^3.1.0"
-    burnt: "npm:0.12.2"
     detox: "npm:^20.46.3"
     expo: "npm:57.0.14"
     expo-apple-authentication: "npm:~57.0.1"
@@ -10715,7 +10701,6 @@ __metadata:
     react-native-keyboard-controller: "npm:1.21.9"
     react-native-level-fs: "npm:3.0.1"
     react-native-mmkv: "npm:4.3.2"
-    react-native-modal: "npm:^13.0.1"
     react-native-network-info: "npm:@onekeyfe/react-native-network-info@6.7.0-alpha.337"
     react-native-network-logger: "npm:2.0.1"
     react-native-nitro-modules: "npm:0.37.0"
@@ -25506,20 +25491,6 @@ __metadata:
   bin:
     bunyan: bin/bunyan
   checksum: 10/f6a8030dddf0c780b58eb0ab316054081714483ba9a56f7032c253009d589c7fa1f91d2dd26c5d740d6cc943cde7ac2803b805900375dd8442c1183d480dd51c
-  languageName: node
-  linkType: hard
-
-"burnt@npm:0.12.2":
-  version: 0.12.2
-  resolution: "burnt@npm:0.12.2"
-  dependencies:
-    sf-symbols-typescript: "npm:^1.0.0"
-    sonner: "npm:^0.3.5"
-  peerDependencies:
-    expo: "*"
-    react: "*"
-    react-native: "*"
-  checksum: 10/8ecaaa22f6e365640ba247aabfb56311eca4f7199cb07519dffd4fe9fd30d173b5cd9ab4e1ecede1e538d613c5eb9820eb752ba0ac220a468b046ed2d5c060f6
   languageName: node
   linkType: hard
 
@@ -42489,15 +42460,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-animatable@npm:1.3.3":
-  version: 1.3.3
-  resolution: "react-native-animatable@npm:1.3.3"
-  dependencies:
-    prop-types: "npm:^15.7.2"
-  checksum: 10/be7552f9eca8a881e64ce4650849da4a20d68023a445288d609e4dce0ad454ebccefbe52a0cd4ee412782731174b84cdd89acbb384107ad1ed2af05441593ed3
-  languageName: node
-  linkType: hard
-
 "react-native-awesome-slider@npm:^2.9.0":
   version: 2.9.0
   resolution: "react-native-awesome-slider@npm:2.9.0"
@@ -42813,19 +42775,6 @@ __metadata:
     "@react-native-community/datetimepicker": ">=6.7.0"
     react-native: ">=0.65.0"
   checksum: 10/8f065f4ee6572f7cd6731fb049b71653ce73dd7ce564a4cf4f310f6a25a659c388b46f8b51625ea8671c5f139439a0c1824ac0cec787832a36d799982d1e51d9
-  languageName: node
-  linkType: hard
-
-"react-native-modal@npm:^13.0.1":
-  version: 13.0.1
-  resolution: "react-native-modal@npm:13.0.1"
-  dependencies:
-    prop-types: "npm:^15.6.2"
-    react-native-animatable: "npm:1.3.3"
-  peerDependencies:
-    react: "*"
-    react-native: ">=0.65.0"
-  checksum: 10/7b9096127f5195e28bf8016bed5e8760e060e533358ba41f829605233b7f0e9e7e94941884c9fdb0d14d288c02a2944b516754477af24b0173c57777f2aa5018
   languageName: node
   linkType: hard
 
@@ -45167,13 +45116,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"sf-symbols-typescript@npm:^1.0.0":
-  version: 1.0.0
-  resolution: "sf-symbols-typescript@npm:1.0.0"
-  checksum: 10/008ddfcadceb33ec29fb182104516234cc3f771254619696918481744bc28be51070f226859e4dfc2faf5f094dd8ca13e0364b2bb3d22e8cf044ce37f749df0b
-  languageName: node
-  linkType: hard
-
 "sf-symbols-typescript@npm:^2.0.0, sf-symbols-typescript@npm:^2.1.0":
   version: 2.2.0
   resolution: "sf-symbols-typescript@npm:2.2.0"
@@ -45670,16 +45612,6 @@ __metadata:
   dependencies:
     atomic-sleep: "npm:^1.0.0"
   checksum: 10/161af46b3e6debc4ad3865b0db47f37289741a0b3005b8cf056f93a4e0e1a347e24ca1a2d8ccc864f7f19caa6185a766797f8382cdbfd2f3d046a0323d73a542
-  languageName: node
-  linkType: hard
-
-"sonner@npm:^0.3.5":
-  version: 0.3.5
-  resolution: "sonner@npm:0.3.5"
-  peerDependencies:
-    react: ^18.0.0
-    react-dom: ^18.0.0
-  checksum: 10/ad42c64bf372b5659c07ed0ce615487f6b8ccb5c4a0eb69d113dd00da34a43129c17bf7cbf9ab0e7354910282a0030064f42e7443013d3d9dc9b06b7f4c5af53
   languageName: node
   linkType: hard
 

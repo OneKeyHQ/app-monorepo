@@ -225,10 +225,6 @@ jest.mock('@onekeyhq/components', () => {
         },
         children,
       ),
-    EPortalContainerConstantName: {
-      SPOTLIGHT_OVERLAY_PORTAL: 'spotlight',
-      FULL_WINDOW_OVERLAY_PORTAL: 'full-window-overlay',
-    },
     Portal: {
       Body: ({
         children,

@@ -33,7 +33,6 @@ jest.mock('@tamagui/group', () => ({}));
 jest.mock('@tamagui/toggle-group', () => ({}));
 jest.mock('@tamagui/accordion', () => ({}));
 jest.mock('@tamagui/portal', () => ({}));
-jest.mock('@tamagui/toast', () => ({}));
 jest.mock('@tamagui/switch', () => ({}));
 jest.mock('@tamagui/slider', () => ({}));
 jest.mock('@tamagui/separator', () => ({}));

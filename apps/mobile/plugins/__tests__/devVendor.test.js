@@ -738,7 +738,7 @@ describe('devVendor', () => {
       );
 
       const changedPodResolution = podLock.replace(
-        /^(  SPAlert: )[0-9a-f]{40}$/mu,
+        /^(  AppAuth: )[0-9a-f]{40}$/mu,
         `$1${'f'.repeat(40)}`,
       );
       expect(changedPodResolution).not.toBe(podLock);

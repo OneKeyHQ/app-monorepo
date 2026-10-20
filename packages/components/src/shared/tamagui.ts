@@ -142,9 +142,6 @@ export type {
 // Portal
 export { PortalProvider } from '@tamagui/portal';
 
-// Toast
-export { Toast, ToastViewport, ToastProvider } from '@tamagui/toast';
-
 // Switch
 export { Switch as TMSwitch } from '@tamagui/switch';
 
