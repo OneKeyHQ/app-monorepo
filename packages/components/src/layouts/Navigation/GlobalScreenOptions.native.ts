@@ -79,9 +79,6 @@ export function makeModalStackNavigatorOptions({
     options = {
       headerShown: true,
       animation: 'ios_from_right',
-      gestureEnabled: true,
-      gestureDirection: 'horizontal',
-      fullScreenGestureEnabled: true,
       presentation: 'modal',
       headerShadowVisible: false,
       // Android Pad modal needs to be commented out
@@ -161,9 +158,6 @@ export function makeRootModalStackOptions(params?: {
 
   if (platformEnv.isNativeAndroid) {
     options.animation = 'ios_from_right';
-    options.gestureEnabled = true;
-    options.gestureDirection = 'horizontal';
-    options.fullScreenGestureEnabled = true;
   }
 
   if (params?.bgColor) {
@@ -194,8 +188,6 @@ export function makeTabScreenOptions({
 
   if (platformEnv.isNativeAndroid) {
     options.animation = 'ios_from_right';
-    options.gestureEnabled = true;
-    options.fullScreenGestureEnabled = true;
   }
 
   return options;
@@ -221,8 +213,6 @@ export function makeOnboardingScreenOptions(): IStackNavigationOptions {
   };
   if (platformEnv.isNativeAndroid) {
     options.animation = 'ios_from_right';
-    options.gestureEnabled = true;
-    options.fullScreenGestureEnabled = true;
   }
   return options;
 }
@@ -241,8 +231,6 @@ export function makeWebviewScreenOptions(): IStackNavigationOptions {
   };
   if (platformEnv.isNativeAndroid) {
     options.animation = 'ios_from_right';
-    options.gestureEnabled = true;
-    options.fullScreenGestureEnabled = true;
   }
   return options;
 }

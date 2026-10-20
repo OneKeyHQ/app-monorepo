@@ -1,5 +1,5 @@
 diff --git a/node_modules/@react-navigation/native-stack/lib/module/views/NativeStackView.native.js b/node_modules/@react-navigation/native-stack/lib/module/views/NativeStackView.native.js
-index a21f04f..24ad1ad 100644
+index a21f04f..e726bc9 100644
 --- a/node_modules/@react-navigation/native-stack/lib/module/views/NativeStackView.native.js
 +++ b/node_modules/@react-navigation/native-stack/lib/module/views/NativeStackView.native.js
 @@ -4,7 +4,7 @@ import { getDefaultHeaderHeight, getHeaderTitle, HeaderBackContext, HeaderHeight
@@ -27,7 +27,7 @@ index a21f04f..24ad1ad 100644
 -        // This prop enables handling of system back gestures on Android
 -        // Since we handle them in JS side, we disable this
 -        false : gestureEnabled,
-+        // OneKey patch: opt-in native gestures request the existing JS pop action.
++        // OneKey patch: opt-in vertical dismiss gestures are settled and removed natively.
 +        gestureEnabled ?? false : gestureEnabled,
          homeIndicatorHidden: autoHideHomeIndicator,
          hideKeyboardOnSwipe: keyboardHandlingEnabled,
@@ -68,7 +68,7 @@ index 492390b..a2da541 100644
  //# sourceMappingURL=useHeaderConfigProps.js.map
 \ No newline at end of file
 diff --git a/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx b/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
-index e694525..fdeb39a 100644
+index e694525..14ce2d7 100644
 --- a/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
 +++ b/node_modules/@react-navigation/native-stack/src/views/NativeStackView.native.tsx
 @@ -26,7 +26,7 @@ import {
@@ -106,7 +106,7 @@ index e694525..fdeb39a 100644
 -              ? // This prop enables handling of system back gestures on Android
 -                // Since we handle them in JS side, we disable this
 -                false
-+              ? // OneKey patch: opt-in native gestures request the existing JS pop action.
++              ? // OneKey patch: opt-in vertical dismiss gestures are settled and removed natively.
 +                (gestureEnabled ?? false)
                : gestureEnabled
            }
