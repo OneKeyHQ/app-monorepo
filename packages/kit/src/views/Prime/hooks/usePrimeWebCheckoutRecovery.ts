@@ -46,18 +46,25 @@ export function usePrimeWebCheckoutRecovery({
     }
     let cancelled = false;
     let isChecking = false;
+    let hasPendingReturn = false;
     let lastCheckedAt = 0;
 
     const recover = async ({
       fromReturnEvent = false,
     }: {
       fromReturnEvent?: boolean;
-    } = {}) => {
+    } = {}): Promise<void> => {
+      if (cancelled) {
+        return;
+      }
+      if (isChecking) {
+        if (fromReturnEvent) {
+          hasPendingReturn = true;
+        }
+        return;
+      }
       const now = Date.now();
-      if (
-        isChecking ||
-        (!fromReturnEvent && now - lastCheckedAt < RECOVERY_MIN_INTERVAL_MS)
-      ) {
+      if (!fromReturnEvent && now - lastCheckedAt < RECOVERY_MIN_INTERVAL_MS) {
         return;
       }
       isChecking = true;
@@ -82,6 +89,9 @@ export function usePrimeWebCheckoutRecovery({
         ) {
           return;
         }
+        if (cancelled) {
+          return;
+        }
         try {
           const result = await checkPrimeWebCheckout(session);
           if (cancelled || result.status === 'pending') {
@@ -92,7 +102,12 @@ export function usePrimeWebCheckoutRecovery({
             result,
             intl: intlRef.current,
           });
-          if (settlement?.outcome === 'succeeded') {
+          if (
+            !cancelled &&
+            settlement?.outcome === 'succeeded' &&
+            (await isPrimeWebCheckoutUserCurrent(onekeyUserId)) &&
+            !cancelled
+          ) {
             logPrimeWebCheckoutSessionFlow({
               session,
               stage: 'recovery',
@@ -112,6 +127,12 @@ export function usePrimeWebCheckoutRecovery({
         // Reading the pending checkout is best-effort; retry on next visibility.
       } finally {
         isChecking = false;
+        if (hasPendingReturn && !cancelled) {
+          // A return can arrive after this poll read pre-payment entitlement.
+          // Coalesce that signal into one fresh check, bypassing visibility throttling.
+          hasPendingReturn = false;
+          void recover({ fromReturnEvent: true });
+        }
       }
     };
 

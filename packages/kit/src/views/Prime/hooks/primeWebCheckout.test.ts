@@ -22,6 +22,7 @@ const mockFetchPrimeWebCheckoutEntitlement = jest.fn<
   Promise<unknown>,
   [unknown]
 >();
+const mockTrackSuccess = jest.fn<void, unknown[]>();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -47,7 +48,8 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
     prime: {
       subscription: {
         primeWebCheckoutFlow: jest.fn(),
-        primeSubscribeSuccess: jest.fn(),
+        primeSubscribeSuccess: (...params: unknown[]) =>
+          mockTrackSuccess(...params),
       },
     },
   },
@@ -142,5 +144,38 @@ describe('primeWebCheckout purchase user guard', () => {
       }),
     ).rejects.toThrow('Prime purchase user changed');
     expect(mockClearWebCheckoutPendingSession).not.toHaveBeenCalled();
+  });
+
+  it('reports success only for the recovery caller that clears the checkout', async () => {
+    mockGetLocalUserInfo.mockResolvedValue(loggedIn('user-1'));
+    mockClearWebCheckoutPendingSession
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
+    const result = {
+      status: 'succeeded' as const,
+      entitlement: {
+        isActive: true,
+        store: 'rc_billing',
+        latestPurchaseDate: new Date(),
+        isSandbox: true,
+        periodType: 'normal',
+        productIdentifier: 'prime_yearly',
+      },
+    };
+
+    const settlements = await Promise.all([
+      settlePrimeWebCheckout({ session, result, intl }),
+      settlePrimeWebCheckout({ session, result, intl }),
+    ]);
+
+    expect(settlements.filter((s) => s?.outcome === 'succeeded')).toHaveLength(
+      1,
+    );
+    expect(settlements).toContain(undefined);
+    expect(mockTrackSuccess).toHaveBeenCalledTimes(1);
+    expect(mockClearWebCheckoutPendingSession).toHaveBeenCalledWith({
+      onekeyUserId: session.onekeyUserId,
+      expectedCheckoutId: session.checkoutId,
+    });
   });
 });
