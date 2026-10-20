@@ -56,6 +56,7 @@ const mockUpdateTourTimes = jest
   .fn<Promise<void>, [unknown]>()
   .mockResolvedValue(undefined);
 const blockerReleases: (() => void)[] = [];
+const mockPortalBody = jest.fn();
 
 function blockGuides() {
   const release = acquireDeferredGuideBlocker();
@@ -224,20 +225,25 @@ jest.mock('@onekeyhq/components', () => {
         },
         children,
       ),
-    EPortalContainerConstantName: { SPOTLIGHT_OVERLAY_PORTAL: 'spotlight' },
+    EPortalContainerConstantName: {
+      SPOTLIGHT_OVERLAY_PORTAL: 'spotlight',
+      FULL_WINDOW_OVERLAY_PORTAL: 'full-window-overlay',
+    },
     Portal: {
       Body: ({
         children,
         destroyDelayMs,
-      }: IBoxProps & { destroyDelayMs?: number }) =>
-        React.createElement(
+      }: IBoxProps & { destroyDelayMs?: number }) => {
+        mockPortalBody({ children, destroyDelayMs });
+        return React.createElement(
           'div',
           {
             'data-testid': 'spotlight-portal',
             'data-destroy-delay': destroyDelayMs,
           },
           children,
-        ),
+        );
+      },
     },
     SizableText: Box,
     Stack: View,
@@ -1351,9 +1357,7 @@ describe('Spotlight dismissal', () => {
     await advanceTime(1);
     expect(screen.getByRole('button', { name: 'Got it' })).toBeTruthy();
     expect(mockUpdateTourTimes).not.toHaveBeenCalled();
-    expect(
-      screen.getByTestId('spotlight-portal').getAttribute('data-destroy-delay'),
-    ).toBe('0');
+    expect(mockPortalBody).not.toHaveBeenCalled();
   });
 
   it('restarts the entire idle delay when interrupted before appearing', async () => {
@@ -1426,9 +1430,7 @@ describe('Spotlight dismissal', () => {
 
     await advanceTime(600);
     expect(screen.getByTestId('spotlight-content')).toBeTruthy();
-    expect(
-      screen.getByTestId('spotlight-portal').getAttribute('data-destroy-delay'),
-    ).toBe('1200');
+    expect(mockPortalBody).not.toHaveBeenCalled();
 
     act(release);
     act(() => {

@@ -135,10 +135,10 @@ describe('WcPayDialogShell', () => {
     });
   });
 
-  it('renders in the full-window overlay as a bare dialog with the scene inset', () => {
+  it('renders inline as a bare dialog with the scene inset', () => {
     const shellProps = renderShell({ dismissible: true });
 
-    expect(mockPortalContainers).toEqual(['FULL_WINDOW_OVERLAY_PORTAL']);
+    expect(mockPortalContainers).toEqual([]);
     expect(shellProps).toMatchObject({
       showHeader: false,
       showFooter: false,

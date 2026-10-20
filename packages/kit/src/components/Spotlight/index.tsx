@@ -24,8 +24,6 @@ import { I18nManager, useWindowDimensions } from 'react-native';
 
 import {
   Button,
-  EPortalContainerConstantName,
-  Portal,
   SizableText,
   Stack,
   View,
@@ -592,40 +590,35 @@ export function SpotlightView({
         </View>
       )}
       {visible ? (
-        <Portal.Body
-          destroyDelayMs={deferUntilIdle ? 0 : 1200}
-          container={EPortalContainerConstantName.FULL_WINDOW_OVERLAY_PORTAL}
-        >
-          <SpotlightContent
-            level={level}
-            triggerPropsRef={triggerPropsRef}
-            initProps={{
-              visible,
-              children: replaceChildren || children,
-              content,
-              cardBorderRadius,
-              highlightBorderRadius,
-              confirmButtonBorderRadius,
-              confirmButtonPaddingHorizontal,
-              cardPadding,
-              cardPaddingBottom,
-              cardGap,
-              cardMaxWidth,
-              alignCardToAnchorEnd,
-              onConfirm,
-              confirmText,
-              closeOnBackdropPress,
-              matchTriggerSize,
-              deferUntilIdle,
-              floatingOffset,
-              childrenPaddingVertical,
-              childrenPaddingHorizontal,
-              showHighlightBackground,
-              highlightBackgroundOpacity,
-              triggerRef: triggerRef as RefObject<NativeView>,
-            }}
-          />
-        </Portal.Body>
+        <SpotlightContent
+          level={level}
+          triggerPropsRef={triggerPropsRef}
+          initProps={{
+            visible,
+            children: replaceChildren || children,
+            content,
+            cardBorderRadius,
+            highlightBorderRadius,
+            confirmButtonBorderRadius,
+            confirmButtonPaddingHorizontal,
+            cardPadding,
+            cardPaddingBottom,
+            cardGap,
+            cardMaxWidth,
+            alignCardToAnchorEnd,
+            onConfirm,
+            confirmText,
+            closeOnBackdropPress,
+            matchTriggerSize,
+            deferUntilIdle,
+            floatingOffset,
+            childrenPaddingVertical,
+            childrenPaddingHorizontal,
+            showHighlightBackground,
+            highlightBackgroundOpacity,
+            triggerRef: triggerRef as RefObject<NativeView>,
+          }}
+        />
       ) : null}
     </>
   );

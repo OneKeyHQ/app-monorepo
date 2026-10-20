@@ -10,7 +10,6 @@ import {
   DialogContainer,
   Icon,
   Image,
-  Portal,
   SizableText,
   Spinner,
   Stack,
@@ -62,12 +61,8 @@ const SHELL_CONTENT_CONTAINER_PROPS = {
 } as const;
 
 /**
- * The shared Dialog without its header and footer, in the full-window
- * overlay where every other global dialog lives: above the navigator (a pay
- * link opened over a modal page still shows) and ordered among the prompts
- * by z-index alone. The portal detaches the content from the caller's
- * context providers; the steps only need what the app root provides (intl,
- * theme).
+ * The shared Dialog owns its global modal overlay and preserves the caller's
+ * context. Later modal prompts and higher hardware/secure levels cover it.
  */
 export function WcPayDialogShell({
   open,
@@ -90,12 +85,8 @@ export function WcPayDialogShell({
   const handleClose = useCallback(async () => {
     onClose();
   }, [onClose]);
-  // iOS stacks the full-window overlay's views in the order they were
-  // mounted, whatever their z-index (RNSFullWindowOverlay appends every
-  // child it mounts). The sheet stays mounted while parked, so the backdrop
-  // a reveal mounts would land on top of it and dim the whole sheet.
-  // Remounting on every reveal mounts backdrop and sheet together, in order
-  // (the same fix DialogLoadingContainer applies, OK-42375).
+  // Preserve the existing iOS reveal remount while Dialog owns its native
+  // overlay and close lifecycle.
   const [revealCount, setRevealCount] = useState(0);
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
@@ -105,25 +96,23 @@ export function WcPayDialogShell({
     }
   }
   return (
-    <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
-      <DialogContainer
-        key={platformEnv.isNativeIOS ? revealCount : undefined}
-        open={open}
-        onBeforeClose={handleBeforeClose}
-        onClose={handleClose}
-        renderContent={children}
-        showHeader={false}
-        showFooter={false}
-        dismissOnOverlayPress={dismissible}
-        disableDrag={!dismissible}
-        disableSystemClose={!dismissible}
-        contentContainerProps={SHELL_CONTENT_CONTAINER_PROPS}
-        overlayLevel="modal"
-        // Same iOS-only first-frame inset fallback as the WalletConnect
-        // connection dialog (useWalletConnection).
-        useInitialSafeAreaBottomInsetFallback={Boolean(platformEnv.isNativeIOS)}
-      />
-    </Portal.Body>
+    <DialogContainer
+      key={platformEnv.isNativeIOS ? revealCount : undefined}
+      open={open}
+      onBeforeClose={handleBeforeClose}
+      onClose={handleClose}
+      renderContent={children}
+      showHeader={false}
+      showFooter={false}
+      dismissOnOverlayPress={dismissible}
+      disableDrag={!dismissible}
+      disableSystemClose={!dismissible}
+      contentContainerProps={SHELL_CONTENT_CONTAINER_PROPS}
+      overlayLevel="modal"
+      // Same iOS-only first-frame inset fallback as the WalletConnect
+      // connection dialog (useWalletConnection).
+      useInitialSafeAreaBottomInsetFallback={Boolean(platformEnv.isNativeIOS)}
+    />
   );
 }
 
