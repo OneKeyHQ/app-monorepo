@@ -124,8 +124,8 @@ function PerksBannerSlide({
     <XStack
       testID={`perks-banner-${item.linkId}`}
       flex={1}
-      px={compact ? '$4' : '$5'}
-      py="$4"
+      // Same inset as the summary card beside it.
+      p={compact ? '$4' : '$5'}
       gap="$4"
       ai="center"
       role="button"
@@ -207,8 +207,10 @@ export function PerksCampaignBanner({
       // Dots sit inside the card, bottom right, across from Learn more.
       paginationContainerStyle={{
         position: 'absolute',
-        bottom: '$3',
-        right: compact ? '$4' : '$5',
+        // Centered on the Learn more line: the card inset plus half of
+        // its 20px line height minus the 6px dot.
+        bottom: (compact ? 16 : 20) + 7,
+        right: compact ? 16 : 20,
       }}
       renderPaginationItem={({ activeDotStyle, onPress }, index) => (
         <YStack

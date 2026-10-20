@@ -522,19 +522,21 @@ function PerksSummaryCard({
         unsupported={unsupported}
         payout={payout}
       />
-      <XStack mt="auto" gap="$10" ai="flex-start">
-        <InviteStatCell share="content" label={labels.total}>
+      {/* Equal columns across the card, so the figures fill its width
+          instead of bunching at the left. */}
+      <XStack mt="auto" gap="$6" ai="flex-start">
+        <InviteStatCell share={1} label={labels.total}>
           <TotalFigure totals={totals} pick="total" />
         </InviteStatCell>
         <InviteStatCell
-          share="content"
+          share={1}
           leading={<PartDot color="$iconSuccess" />}
           label={labels.paid}
         >
           <TotalFigure totals={totals} pick="paid" />
         </InviteStatCell>
         <InviteStatCell
-          share="content"
+          share={1}
           leading={<PartDot color="$iconCaution" />}
           label={labels.unpaid}
         >
