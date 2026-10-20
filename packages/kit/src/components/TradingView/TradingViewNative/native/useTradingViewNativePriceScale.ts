@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { Gesture } from 'react-native-gesture-handler';
 import { cancelAnimation, useSharedValue } from 'react-native-reanimated';
@@ -23,6 +30,8 @@ import {
   getTradingViewNativeSubIndicatorValueRange,
   getTradingViewNativeVisibleSubIndicatorPaneCount,
 } from '../utils/subIndicatorRender';
+
+import { TradingViewNativePresentationRotationContext } from './TradingViewNativePresentationContext';
 
 import type {
   ITradingViewNativeChartRuntime,
@@ -126,6 +135,9 @@ export function useTradingViewNativePriceScale({
   subIndicatorPanes: readonly ITradingViewNativeSubIndicatorRenderPane[];
   timeAxisHeight: number;
 }) {
+  const isPresentationRotated = useContext(
+    TradingViewNativePresentationRotationContext,
+  );
   const [isAutoScale, setIsAutoScale] = useState(true);
   const [isHovered, setIsHovered] = useState(false);
   const [isTouchVisible, setIsTouchVisible] = useState(false);
@@ -463,7 +475,6 @@ export function useTradingViewNativePriceScale({
 
     const scaleGesture = Gesture.Pan()
       .enabled(isEnabled)
-      .activeOffsetY([-4, 4])
       .maxPointers(1)
       .onTouchesDown((event, stateManager) => {
         'worklet';
@@ -598,8 +609,14 @@ export function useTradingViewNativePriceScale({
         if (onInteractionChange) scheduleOnRN(onInteractionChange, false);
       });
 
+    if (isPresentationRotated) {
+      scaleGesture.activeOffsetX([-4, 4]);
+    } else {
+      scaleGesture.activeOffsetY([-4, 4]);
+    }
     return { resetGesture, scaleGesture };
   }, [
+    isPresentationRotated,
     chartRuntime,
     decayOffset,
     handleAutoScaleStateChange,

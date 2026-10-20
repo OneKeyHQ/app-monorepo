@@ -25,6 +25,7 @@ import {
   useSwapTradingViewIndicatorSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
@@ -244,6 +245,7 @@ const TradingViewNativeContent = memo(
     onNativeSubIndicatorCountChange,
     onNativeIndicatorQuickBarChange,
     onNativeChartFullscreenChange,
+    onNativeChartPresentationReady,
     onPriceUpdate,
   }: ITradingViewNativeContentProps) => {
     const intl = useIntl();
@@ -937,7 +939,11 @@ const TradingViewNativeContent = memo(
       onNativeIndicatorQuickBarChange?.(
         resolveTradingViewNativeIndicatorQuickBarState({
           isAvailabilityResolved: true,
-          quickBar: isNativeChartFullscreen ? null : nativeIndicatorQuickBar,
+          // iOS keeps the detail page laid out beneath the fullscreen chart.
+          quickBar:
+            isNativeChartFullscreen && !platformEnv.isNativeIOS
+              ? null
+              : nativeIndicatorQuickBar,
         }),
       );
     }, [
@@ -1118,6 +1124,7 @@ const TradingViewNativeContent = memo(
               timeAxisHeight={timeAxisHeight}
               timeAxisBorderWidth={isCompactDisplayMode ? 0.5 : undefined}
               onChartWidthChange={setChartWidth}
+              onPresentationReady={onNativeChartPresentationReady}
               onSubIndicatorSettingsPress={handleIndicatorSettingsPress}
               onViewportRequestApplied={handleViewportRequestApplied}
               onVisiblePointRangeChange={handleVisiblePointRangeChange}

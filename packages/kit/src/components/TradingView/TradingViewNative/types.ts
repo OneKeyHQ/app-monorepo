@@ -216,6 +216,10 @@ export interface ITradingViewNativeProps {
     state: ITradingViewNativeIndicatorQuickBarState,
   ) => void;
   onNativeChartFullscreenChange?: (isFullscreen: boolean) => void;
+  onNativeChartPresentationReady?: (size: {
+    width: number;
+    height: number;
+  }) => void;
   onPriceUpdate?: (data: ITradingViewNativePriceUpdateData) => void;
 }
 

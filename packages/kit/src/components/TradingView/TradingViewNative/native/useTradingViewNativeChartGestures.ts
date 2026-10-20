@@ -35,6 +35,7 @@ import {
 } from '../utils/timeAxisScale';
 
 import { getTradingViewNativeSkiaTextFont } from './chartSkiaText';
+import { TradingViewNativePresentationRotationContext } from './TradingViewNativePresentationContext';
 
 import type { ITradingViewNativeChartRuntime } from './chartRuntime';
 import type { ITradingViewNativeSkiaResources } from './chartSkiaRenderer';
@@ -75,6 +76,9 @@ export function useTradingViewNativeChartGestures({
   timeAxisHeight: number;
 }) {
   const headerScrollGestures = useContext(HeaderScrollGestureContext);
+  const isPresentationRotated = useContext(
+    TradingViewNativePresentationRotationContext,
+  );
   const shouldWaitForPageScroll =
     prioritizePageScroll && headerScrollGestures.length > 0;
   const pressedSubIndicatorSettingsTarget =
@@ -279,7 +283,6 @@ export function useTradingViewNativeChartGestures({
 
     // Leave vertical drags available to the enclosing page.
     const panGesture = Gesture.Pan()
-      .activeOffsetX([-4, 4])
       .maxPointers(1)
       .onTouchesDown((event, stateManager) => {
         'worklet';
@@ -303,9 +306,12 @@ export function useTradingViewNativeChartGestures({
         setInteraction(2, true);
 
         // Discard movement accumulated while the page decided the drag direction.
-        panStartTranslationX.value = shouldWaitForPageScroll
-          ? event.translationX
-          : 0;
+        panStartTranslationX.value = 0;
+        if (shouldWaitForPageScroll) {
+          panStartTranslationX.value = isPresentationRotated
+            ? event.translationY
+            : event.translationX;
+        }
         const runtime = chartRuntime.value;
         const nextChartWidth = getTradingViewNativeChartWidth(
           runtime.size.width,
@@ -333,7 +339,9 @@ export function useTradingViewNativeChartGestures({
         'worklet';
 
         const runtime = chartRuntime.value;
-        const translationX = event.translationX - panStartTranslationX.value;
+        const translationX =
+          (isPresentationRotated ? event.translationY : event.translationX) -
+          panStartTranslationX.value;
         const nextRuntimeState = reduceTradingViewNativeChartRuntime(runtime, {
           chartWidth: getTradingViewNativeChartWidth(
             runtime.size.width,
@@ -366,7 +374,10 @@ export function useTradingViewNativeChartGestures({
       .onEnd((event) => {
         'worklet';
 
-        if (Math.abs(event.velocityX) >= MIN_FLING_VELOCITY) {
+        const velocityX = isPresentationRotated
+          ? event.velocityY
+          : event.velocityX;
+        if (Math.abs(velocityX) >= MIN_FLING_VELOCITY) {
           const runtime = chartRuntime.value;
           const { minOffset, maxOffset } = getTradingViewNativePanOffsetBounds({
             ...runtime.viewport,
@@ -379,7 +390,7 @@ export function useTradingViewNativeChartGestures({
           decayOffset.value = withDecay({
             clamp: [minOffset, maxOffset],
             deceleration: PAN_DECELERATION,
-            velocity: event.velocityX * TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
+            velocity: velocityX * TRADING_VIEW_NATIVE_PAN_DRAG_RATIO,
           });
         }
       })
@@ -397,17 +408,24 @@ export function useTradingViewNativeChartGestures({
         };
       });
 
+    if (isPresentationRotated) {
+      panGesture.activeOffsetY([-4, 4]);
+    } else {
+      panGesture.activeOffsetX([-4, 4]);
+    }
     if (shouldWaitForPageScroll) {
       // The page already selects the direction. An independent Y failure could
       // reject the same diagonal move that failed the page's X threshold.
       panGesture.requireExternalGestureToFail(...headerScrollGestures);
     } else {
-      panGesture.failOffsetY([-12, 12]);
+      if (isPresentationRotated) {
+        panGesture.failOffsetX([-12, 12]);
+      } else {
+        panGesture.failOffsetY([-12, 12]);
+      }
     }
 
     const timeAxisScaleGesture = Gesture.Pan()
-      .activeOffsetX([-4, 4])
-      .failOffsetY([-12, 12])
       .maxPointers(1)
       .onTouchesDown((event, stateManager) => {
         'worklet';
@@ -503,6 +521,12 @@ export function useTradingViewNativeChartGestures({
           },
         };
       });
+
+    if (isPresentationRotated) {
+      timeAxisScaleGesture.activeOffsetY([-4, 4]).failOffsetX([-12, 12]);
+    } else {
+      timeAxisScaleGesture.activeOffsetX([-4, 4]).failOffsetY([-12, 12]);
+    }
 
     const pinchGesture = Gesture.Pinch()
       .onStart((event) => {
@@ -610,6 +634,7 @@ export function useTradingViewNativeChartGestures({
     shouldWaitForPageScroll,
     isClickInteractionEnabled,
     isCrosshairEnabled,
+    isPresentationRotated,
     onSubIndicatorSettingsPress,
     onInteractionChange,
     pressedSubIndicatorSettingsTarget,

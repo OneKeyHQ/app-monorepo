@@ -13,6 +13,7 @@ import { isSpanning } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { TradingViewNativeContainer } from './TradingViewNativeContainer';
+import { useTradingViewNativeFullscreenTransition } from './useTradingViewNativeFullscreenTransition.native';
 import { shouldHideTradingViewNativeStatusBar } from './utils/fullscreenLayout';
 
 import type { ITradingViewNativeProps } from './types';
@@ -44,19 +45,26 @@ function lockScreenOrientation(
 export function TradingViewNative(props: ITradingViewNativeProps) {
   const isFullscreen = Boolean(props.isNativeChartFullscreen);
   const { onNativeChartFullscreenChange } = props;
+  const { changeFullscreen, onPresentationReady } =
+    useTradingViewNativeFullscreenTransition({
+      isFullscreen,
+      onFullscreenChange: onNativeChartFullscreenChange,
+    });
   const onFullscreenChangeRef = useRef(onNativeChartFullscreenChange);
   useLayoutEffect(() => {
     onFullscreenChangeRef.current = onNativeChartFullscreenChange;
   }, [onNativeChartFullscreenChange]);
   const { height, width } = useWindowDimensions();
   const isAndroid = platformEnv.isNativeAndroid === true;
-  const shouldHideStatusBar = shouldHideTradingViewNativeStatusBar({
-    height,
-    isAndroid,
-    isFullscreen,
-    isSpanningWindow: isAndroid && isSpanning(),
-    width,
-  });
+  const shouldHideStatusBar =
+    (platformEnv.isNativeIOS && !platformEnv.isNativeIOSPad && isFullscreen) ||
+    shouldHideTradingViewNativeStatusBar({
+      height,
+      isAndroid,
+      isFullscreen,
+      isSpanningWindow: isAndroid && isSpanning(),
+      width,
+    });
 
   useLayoutEffect(() => {
     if (!isFullscreen) {
@@ -64,8 +72,8 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
     }
 
     let isActive = true;
-    // iPadOS can resize the app window instead of rotating it when locking orientation.
-    const shouldManageOrientation = !platformEnv.isNativeIOSPad;
+    // iOS presents fullscreen within the current window; only the iPhone chart rotates.
+    const shouldManageOrientation = platformEnv.isNativeAndroid;
     const shouldUseCurrentAndroidWindow =
       shouldUseCurrentAndroidWindowForFullscreen();
     if (shouldManageOrientation && !shouldUseCurrentAndroidWindow) {
@@ -101,7 +109,15 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
   return (
     <>
       {shouldHideStatusBar ? <StatusBar hidden /> : null}
-      <TradingViewNativeContainer {...props} />
+      <TradingViewNativeContainer
+        {...props}
+        onNativeChartFullscreenChange={
+          onNativeChartFullscreenChange ? changeFullscreen : undefined
+        }
+        onNativeChartPresentationReady={
+          platformEnv.isNativeIOS ? onPresentationReady : undefined
+        }
+      />
     </>
   );
 }

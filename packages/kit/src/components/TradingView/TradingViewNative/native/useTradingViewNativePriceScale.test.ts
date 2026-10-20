@@ -3,7 +3,11 @@
  */
 // cspell:ignore macd
 
+import { createElement } from 'react';
+import type { PropsWithChildren } from 'react';
+
 import { act, renderHook } from '@testing-library/react';
+import { Gesture } from 'react-native-gesture-handler';
 
 import { createTradingViewNativeChartSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
@@ -26,6 +30,7 @@ import {
 } from '../utils/subIndicatorRender';
 
 import { createTradingViewNativeChartRuntime } from './chartRuntime';
+import { TradingViewNativePresentationRotationContext } from './TradingViewNativePresentationContext';
 import { useTradingViewNativePriceScale } from './useTradingViewNativePriceScale';
 
 import type { GestureResponderEvent } from 'react-native';
@@ -53,6 +58,7 @@ function mockCreateGestureBuilder(
 ) {
   const builder: Record<string, jest.Mock> = {};
   const methods = [
+    'activeOffsetX',
     'activeOffsetY',
     'enabled',
     'maxDistance',
@@ -106,7 +112,11 @@ jest.mock('react-native-worklets', () => ({
   ),
 }));
 
-function renderPriceScaleAtOffset(offset: number, withIndicators = false) {
+function renderPriceScaleAtOffset(
+  offset: number,
+  withIndicators = false,
+  rotated = false,
+) {
   const runtime = createTradingViewNativeChartRuntime({
     candleIntervalSeconds: 60,
     chartComponents: [],
@@ -175,18 +185,27 @@ function renderPriceScaleAtOffset(offset: number, withIndicators = false) {
     visiblePointRange,
     width: runtime.size.width,
   });
-  const { result } = renderHook(() =>
-    useTradingViewNativePriceScale({
-      chartRuntime,
-      chartSize: runtime.size,
-      chartWidth,
-      decayOffset: createMockSharedValue(0),
-      isEnabled: true,
-      isLogScaleAvailable: true,
-      priceAxisWidth: createMockSharedValue(52),
-      subIndicatorPanes: runtime.subIndicatorPanes,
-      timeAxisHeight: 20,
-    }),
+  const { result } = renderHook(
+    () =>
+      useTradingViewNativePriceScale({
+        chartRuntime,
+        chartSize: runtime.size,
+        chartWidth,
+        decayOffset: createMockSharedValue(0),
+        isEnabled: true,
+        isLogScaleAvailable: true,
+        priceAxisWidth: createMockSharedValue(52),
+        subIndicatorPanes: runtime.subIndicatorPanes,
+        timeAxisHeight: 20,
+      }),
+    {
+      wrapper: ({ children }: PropsWithChildren) =>
+        createElement(
+          TradingViewNativePresentationRotationContext.Provider,
+          { value: rotated },
+          children,
+        ),
+    },
   );
   return { chartRuntime, layout, result };
 }
@@ -195,6 +214,24 @@ describe('useTradingViewNativePriceScale', () => {
   beforeEach(() => {
     mockPanGestureHandlers.length = 0;
     mockTapGestureHandlers.length = 0;
+  });
+
+  it('activates price scaling on the physical horizontal axis in a rotated presentation', () => {
+    const { chartRuntime } = renderPriceScaleAtOffset(1000, false, true);
+    const gesture = jest.mocked(Gesture.Pan).mock.results.at(-1)
+      ?.value as Record<string, jest.Mock>;
+    expect(gesture.activeOffsetX).toHaveBeenCalledWith([-4, 4]);
+    expect(gesture.activeOffsetY).not.toHaveBeenCalled();
+    act(() => {
+      mockPanGestureHandlers[0].onTouchesDown(
+        { changedTouches: [{ x: 340, y: 100 }] },
+        { fail: jest.fn() },
+      );
+      mockPanGestureHandlers[0].onStart({ y: 100 });
+      mockPanGestureHandlers[0].onUpdate({ y: 150 });
+    });
+    expect(chartRuntime.value.priceRangeScale).not.toBe(1);
+    expect(chartRuntime.value.pinnedPriceRange).not.toBeNull();
   });
 
   describe.each([

@@ -15,6 +15,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import { getMarketDetailTradingViewNativeSource } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/getMarketDetailTradingViewNativeSource';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 import {
   type ITradingViewNativeChartSettings,
@@ -612,73 +613,83 @@ describe('TradingViewNativeContainer', () => {
     expect(screen.queryByTestId(quickBarTestId)).toBeNull();
   });
 
-  it('moves the page quick bar into fullscreen and clears it on unmount', () => {
-    function ChartWithFooter({
-      fullscreen = false,
-      mounted = true,
-    }: {
-      fullscreen?: boolean;
-      mounted?: boolean;
-    }) {
-      const [quickBarState, setQuickBarState] =
-        useState<ITradingViewNativeIndicatorQuickBarState>({
-          status: 'loading',
-          quickBar: null,
-        });
-      return (
-        <>
-          {mounted ? (
-            <TradingViewNativeContainer
-              source={{
-                kind: 'hyperliquid',
-                coin: 'ETH',
-                environment: 'mainnet',
-              }}
-              nativeControlsLayoutMode="mobile"
-              showNativeIndicatorQuickBar
-              isNativeChartFullscreen={fullscreen}
-              onNativeIndicatorQuickBarChange={setQuickBarState}
-            />
-          ) : null}
-          <div data-testid="page-quick-bar">{quickBarState.quickBar}</div>
-        </>
+  it.each([false, true])(
+    'preserves the iOS page quick bar layout beneath fullscreen and clears it on unmount (iOS: %s)',
+    (isIOS) => {
+      jest.replaceProperty(platformEnv, 'isNativeIOS', isIOS);
+      function ChartWithFooter({
+        fullscreen = false,
+        mounted = true,
+      }: {
+        fullscreen?: boolean;
+        mounted?: boolean;
+      }) {
+        const [quickBarState, setQuickBarState] =
+          useState<ITradingViewNativeIndicatorQuickBarState>({
+            status: 'loading',
+            quickBar: null,
+          });
+        return (
+          <>
+            {mounted ? (
+              <TradingViewNativeContainer
+                source={{
+                  kind: 'hyperliquid',
+                  coin: 'ETH',
+                  environment: 'mainnet',
+                }}
+                nativeControlsLayoutMode="mobile"
+                showNativeIndicatorQuickBar
+                isNativeChartFullscreen={fullscreen}
+                onNativeIndicatorQuickBarChange={setQuickBarState}
+              />
+            ) : null}
+            <div data-testid="page-quick-bar">{quickBarState.quickBar}</div>
+          </>
+        );
+      }
+      const quickBarTestId = 'trading-view-native-indicator-quick-bar';
+      const { rerender } = render(<ChartWithFooter />);
+      expect(
+        screen
+          .getByTestId('page-quick-bar')
+          .contains(screen.getByTestId(quickBarTestId)),
+      ).toBe(true);
+      expect(mockTradingViewNativeChart.mock.calls.at(-1)?.[0]).toEqual(
+        expect.objectContaining({ resizesWithSubIndicatorPanes: true }),
       );
-    }
-    const quickBarTestId = 'trading-view-native-indicator-quick-bar';
-    const { rerender } = render(<ChartWithFooter />);
-    expect(
-      screen
-        .getByTestId('page-quick-bar')
-        .contains(screen.getByTestId(quickBarTestId)),
-    ).toBe(true);
-    expect(mockTradingViewNativeChart.mock.calls.at(-1)?.[0]).toEqual(
-      expect.objectContaining({ resizesWithSubIndicatorPanes: true }),
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'RSI' }));
+      fireEvent.click(screen.getByRole('button', { name: 'RSI' }));
 
-    rerender(<ChartWithFooter fullscreen />);
-    expect(screen.getByTestId('page-quick-bar').childElementCount).toBe(0);
-    expect(screen.getAllByTestId(quickBarTestId)).toHaveLength(1);
-    expect(mockTradingViewNativeChart.mock.calls.at(-1)?.[0]).toEqual(
-      expect.objectContaining({ resizesWithSubIndicatorPanes: false }),
-    );
-    expect(
-      screen.getByRole('button', { name: 'RSI' }).getAttribute('aria-pressed'),
-    ).toBe('true');
+      rerender(<ChartWithFooter fullscreen />);
+      expect(screen.getByTestId('page-quick-bar').childElementCount).toBe(
+        isIOS ? 1 : 0,
+      );
+      expect(screen.getAllByTestId(quickBarTestId)).toHaveLength(isIOS ? 2 : 1);
+      expect(mockTradingViewNativeChart.mock.calls.at(-1)?.[0]).toEqual(
+        expect.objectContaining({ resizesWithSubIndicatorPanes: false }),
+      );
+      expect(
+        screen
+          .getAllByRole('button', { name: 'RSI' })[0]
+          .getAttribute('aria-pressed'),
+      ).toBe('true');
 
-    rerender(<ChartWithFooter />);
-    expect(
-      screen
-        .getByTestId('page-quick-bar')
-        .contains(screen.getByTestId(quickBarTestId)),
-    ).toBe(true);
-    expect(
-      screen.getByRole('button', { name: 'RSI' }).getAttribute('aria-pressed'),
-    ).toBe('true');
+      rerender(<ChartWithFooter />);
+      expect(
+        screen
+          .getByTestId('page-quick-bar')
+          .contains(screen.getByTestId(quickBarTestId)),
+      ).toBe(true);
+      expect(
+        screen
+          .getByRole('button', { name: 'RSI' })
+          .getAttribute('aria-pressed'),
+      ).toBe('true');
 
-    rerender(<ChartWithFooter mounted={false} />);
-    expect(screen.queryByTestId(quickBarTestId)).toBeNull();
-  });
+      rerender(<ChartWithFooter mounted={false} />);
+      expect(screen.queryByTestId(quickBarTestId)).toBeNull();
+    },
+  );
 
   it.each([
     ['inline list', false, undefined],

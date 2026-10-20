@@ -1300,7 +1300,13 @@ export function MobileLayout({
   return (
     <YStack
       flex={1}
-      display={isChartFullscreen ? 'none' : undefined}
+      display={
+        isChartFullscreen && (!platformEnv.isNativeIOS || !isTradingViewNative)
+          ? 'none'
+          : undefined
+      }
+      pointerEvents={isChartFullscreen ? 'none' : undefined}
+      accessibilityElementsHidden={isChartFullscreen}
       overflow="hidden"
       bg="$bgApp"
       onLayout={handleContainerLayout}

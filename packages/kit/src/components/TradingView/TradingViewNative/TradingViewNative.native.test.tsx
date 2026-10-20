@@ -67,6 +67,17 @@ jest.mock('./TradingViewNativeContainer', () => ({
     mockContainer(props),
 }));
 
+jest.mock('./useTradingViewNativeFullscreenTransition.native', () => ({
+  useTradingViewNativeFullscreenTransition: ({
+    onFullscreenChange,
+  }: {
+    onFullscreenChange?: (fullscreen: boolean) => void;
+  }) => ({
+    changeFullscreen: onFullscreenChange,
+    onPresentationReady: undefined,
+  }),
+}));
+
 const source: ITradingViewNativeSource = {
   kind: 'market',
   networkId: 'evm--1',
@@ -79,6 +90,7 @@ describe('TradingViewNative screen orientation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     platformEnv.isNativeAndroid = true;
+    platformEnv.isNativeIOS = false;
     platformEnv.isNativeIOSPad = false;
     mockIsSpanning.mockReturnValue(false);
     mockWindowDimensions.height = 844;
@@ -108,41 +120,53 @@ describe('TradingViewNative screen orientation', () => {
     );
   });
 
-  it.each([true, false])(
-    'locks phone fullscreen to landscape and restores portrait (Android: %s)',
-    async (isAndroid) => {
-      platformEnv.isNativeAndroid = isAndroid;
-      const handleFullscreenChange = jest.fn();
-      const { rerender } = render(
-        <TradingViewNative
-          source={source}
-          onNativeChartFullscreenChange={handleFullscreenChange}
-        />,
-      );
+  it('locks Android phone fullscreen to landscape and restores portrait', async () => {
+    const handleFullscreenChange = jest.fn();
+    const { rerender } = render(
+      <TradingViewNative
+        source={source}
+        onNativeChartFullscreenChange={handleFullscreenChange}
+      />,
+    );
 
-      rerender(
-        <TradingViewNative
-          source={source}
-          isNativeChartFullscreen
-          onNativeChartFullscreenChange={handleFullscreenChange}
-        />,
-      );
+    rerender(
+      <TradingViewNative
+        source={source}
+        isNativeChartFullscreen
+        onNativeChartFullscreenChange={handleFullscreenChange}
+      />,
+    );
 
-      await waitFor(() => {
-        expect(mockLockAsync).toHaveBeenLastCalledWith('LANDSCAPE');
-      });
+    await waitFor(() => {
+      expect(mockLockAsync).toHaveBeenLastCalledWith('LANDSCAPE');
+    });
 
-      rerender(
-        <TradingViewNative
-          source={source}
-          onNativeChartFullscreenChange={handleFullscreenChange}
-        />,
-      );
+    rerender(
+      <TradingViewNative
+        source={source}
+        onNativeChartFullscreenChange={handleFullscreenChange}
+      />,
+    );
 
-      expect(mockAppStateSubscriptionRemove).toHaveBeenCalledTimes(1);
-      expect(mockLockAsync).toHaveBeenLastCalledWith('PORTRAIT_UP');
-    },
-  );
+    expect(mockAppStateSubscriptionRemove).toHaveBeenCalledTimes(1);
+    expect(mockLockAsync).toHaveBeenLastCalledWith('PORTRAIT_UP');
+  });
+
+  it('keeps the iPhone window in portrait and hides the status bar only while fullscreen', () => {
+    platformEnv.isNativeAndroid = false;
+    platformEnv.isNativeIOS = true;
+    const { rerender } = render(
+      <TradingViewNative source={source} isNativeChartFullscreen />,
+    );
+    expect(mockLockAsync).not.toHaveBeenCalled();
+    expect(mockStatusBar).toHaveBeenLastCalledWith(
+      expect.objectContaining({ hidden: true }),
+    );
+    mockStatusBar.mockClear();
+    rerender(<TradingViewNative source={source} />);
+    expect(mockLockAsync).not.toHaveBeenCalled();
+    expect(mockStatusBar).not.toHaveBeenCalled();
+  });
 
   it.each([
     { height: 1180, width: 820 },
@@ -151,6 +175,7 @@ describe('TradingViewNative screen orientation', () => {
     'preserves the iPad window through fullscreen at $width × $height',
     (dimensions) => {
       platformEnv.isNativeAndroid = false;
+      platformEnv.isNativeIOS = true;
       platformEnv.isNativeIOSPad = true;
       Object.assign(mockWindowDimensions, dimensions);
       const handleFullscreenChange = jest.fn();
