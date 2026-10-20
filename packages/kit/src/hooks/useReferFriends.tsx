@@ -538,3 +538,12 @@ export const useReferFriends = () => {
     ],
   );
 };
+
+// "My Rewards" in every activity hub lands on the Perks tab, so the rewards
+// from all products read in one place.
+export function useOpenPerksTab() {
+  const { toReferFriendsPage } = useReferFriends();
+  return useCallback(() => {
+    void toReferFriendsPage({ tab: 'benefits' });
+  }, [toReferFriendsPage]);
+}
