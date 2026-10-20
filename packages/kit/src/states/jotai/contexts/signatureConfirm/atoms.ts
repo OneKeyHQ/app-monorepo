@@ -259,6 +259,16 @@ export const {
   use: useGasAccountTemporarilyDisabledAtom,
 } = contextAtom<boolean>(false);
 
+// OK-64746: set once a Gas Account send failed with a result-unknown code
+// (the tx may already be on chain). Kept outside `gasAccountUiStateAtom`
+// because every estimate round resets that state. While set, the confirm
+// page must neither re-estimate (a new nonce / quote) nor submit again;
+// only a new tx on the page clears it.
+export const {
+  atom: gasAccountSubmitResultUnknownAtom,
+  use: useGasAccountSubmitResultUnknownAtom,
+} = contextAtom<boolean>(false);
+
 export const defaultPayWithTokenInfo = {
   enabled: false,
   address: '',

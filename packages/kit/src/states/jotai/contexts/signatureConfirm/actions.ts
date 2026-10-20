@@ -35,6 +35,7 @@ import {
   defaultTronResourceRentalInfo,
   effectiveFeePayerAtom,
   extraFeeInfoAtom,
+  gasAccountSubmitResultUnknownAtom,
   gasAccountTemporarilyDisabledAtom,
   gasAccountUiStateAtom,
   isSinglePresetAtom,
@@ -374,6 +375,12 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
     set(gasAccountTemporarilyDisabledAtom(), false);
   });
 
+  updateGasAccountSubmitResultUnknown = contextAtomMethod(
+    (_, set, resultUnknown: boolean) => {
+      set(gasAccountSubmitResultUnknownAtom(), resultUnknown);
+    },
+  );
+
   updateDecodedTxsInit = contextAtomMethod(
     (_, set, decodedTxsInit: boolean) => {
       set(decodedTxsInitAtom(), decodedTxsInit);
@@ -400,6 +407,7 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
     set(effectiveFeePayerAtom(), defaultEffectiveFeePayer);
     set(gasAccountUiStateAtom(), { ...defaultGasAccountUiState });
     set(gasAccountTemporarilyDisabledAtom(), false);
+    set(gasAccountSubmitResultUnknownAtom(), false);
     set(txFeeInfoInitAtom(), false);
   });
 
@@ -457,6 +465,8 @@ export function useSignatureConfirmActions() {
     actions.updateGasAccountTemporarilyDisabled.use();
   const resetGasAccountTemporarilyDisabled =
     actions.resetGasAccountTemporarilyDisabled.use();
+  const updateGasAccountSubmitResultUnknown =
+    actions.updateGasAccountSubmitResultUnknown.use();
   const updateDecodedTxsInit = actions.updateDecodedTxsInit.use();
   const updateTxFeeInfoInit = actions.updateTxFeeInfoInit.use();
   const resetTxFeeState = actions.resetTxFeeState.use();
@@ -494,6 +504,7 @@ export function useSignatureConfirmActions() {
     resetGasAccountUiState,
     updateGasAccountTemporarilyDisabled,
     resetGasAccountTemporarilyDisabled,
+    updateGasAccountSubmitResultUnknown,
     updateDecodedTxsInit,
     updateTxFeeInfoInit,
     resetTxFeeState,

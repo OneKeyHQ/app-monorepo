@@ -35,6 +35,10 @@ export type IGasAccountErrorEntry = {
   // When true, swallow the user-facing Toast for this code while still
   // running the strategy side-effects (Fallback re-estimate, Hint reject, etc).
   suppressToast?: boolean;
+  // When true, the failed send may already have reached the chain. The
+  // confirm page latches on it (see `gasAccountSubmitResultUnknownAtom`) so
+  // no later estimate round or confirm tap can send a second tx.
+  resultUnknown?: true;
 };
 
 // Result-unknown submit outcomes (OK-64746 backend contract, 2026-10-15): the
@@ -43,6 +47,7 @@ export type IGasAccountErrorEntry = {
 // the locked nonce — those paths double-send. Hint the user to check activity.
 const RESULT_UNKNOWN_ENTRY_BASE = {
   strategy: EGasAccountErrorStrategy.Hint,
+  resultUnknown: true,
   messageKey:
     ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,
   estimateMessageKey:
@@ -127,8 +132,10 @@ export const GAS_ACCOUNT_ERROR_TABLE: Record<number, IGasAccountErrorEntry> = {
   },
 
   // --- Hint only: terminal for this attempt, surface to user and dApp ---
+  // Another request may be executing this quote, so the tx may land.
   40_203: {
     strategy: EGasAccountErrorStrategy.Hint,
+    resultUnknown: true,
     alias: 'GAS_ACCOUNT_QUOTE_ALREADY_USED',
     messageKey:
       ETranslations.wallet_transaction_maybe_already_submitted_check_activity__msg,

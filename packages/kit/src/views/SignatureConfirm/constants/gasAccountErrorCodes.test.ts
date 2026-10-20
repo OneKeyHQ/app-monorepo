@@ -17,6 +17,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   EGasAccountErrorStrategy,
+  GAS_ACCOUNT_ERROR_TABLE,
   type IGasAccountErrorEntry,
   getGasAccountErrorEntry,
   getGasAccountErrorEntryForError,
@@ -177,5 +178,43 @@ describe('request stage marker', () => {
     ).toBe('oops');
     expect(getGasAccountRequestStage('oops')).toBeUndefined();
     expect(getGasAccountRequestStage(null)).toBeUndefined();
+  });
+});
+
+describe('result-unknown marker', () => {
+  // Entries that mean "the tx may already be on chain". The confirm page
+  // latches on them so a later estimate round or a second confirm tap can
+  // never move on to a new nonce / quote and send a second tx.
+  it.each([90_200, 90_205, 90_219, 40_203])(
+    '%s flags the attempt as result unknown',
+    (code) => {
+      expect(getGasAccountErrorEntry(code)?.resultUnknown).toBe(true);
+    },
+  );
+
+  it('flags the unclassified Prime 400 after a send', () => {
+    expect(
+      getGasAccountErrorEntryForError(
+        unclassified400,
+        EGasAccountRequestStage.Send,
+      )?.resultUnknown,
+    ).toBe(true);
+  });
+
+  it.each([40_214, 40_215, 40_217, 40_227, 90_207, 90_209])(
+    '%s is a hint that sent nothing and is not flagged',
+    (code) => {
+      const entry = getGasAccountErrorEntry(code);
+      expect(entry?.strategy).toBe(EGasAccountErrorStrategy.Hint);
+      expect(entry?.resultUnknown).toBeUndefined();
+    },
+  );
+
+  it('never flags a Refresh or Fallback entry', () => {
+    const flagged = Object.entries(GAS_ACCOUNT_ERROR_TABLE).filter(
+      ([, entry]) =>
+        entry.strategy !== EGasAccountErrorStrategy.Hint && entry.resultUnknown,
+    );
+    expect(flagged).toEqual([]);
   });
 });

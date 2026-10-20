@@ -29,6 +29,7 @@ import {
   useDecodedTxsAtom,
   useDecodedTxsInitAtom,
   useEffectiveFeePayerAtom,
+  useGasAccountSubmitResultUnknownAtom,
   useGasAccountUiStateAtom,
   useMegafuelEligibleAtom,
   useNativeTokenInfoAtom,
@@ -173,6 +174,8 @@ function TxConfirmActions(props: IProps) {
   const [sendTxStatus] = useSendTxStatusAtom();
   const [effectiveFeePayer] = useEffectiveFeePayerAtom();
   const [gasAccountUiState] = useGasAccountUiStateAtom();
+  const [gasAccountSubmitResultUnknown] =
+    useGasAccountSubmitResultUnknownAtom();
   const [megafuelEligible] = useMegafuelEligibleAtom();
   const [unsignedTxs] = useUnsignedTxsAtom();
   const { isAccepted: continueOperate, setAccepted: setSecurityCheckAccepted } =
@@ -187,6 +190,7 @@ function TxConfirmActions(props: IProps) {
     updateEffectiveFeePayer,
     updateGasAccountTemporarilyDisabled,
     resetGasAccountTemporarilyDisabled,
+    updateGasAccountSubmitResultUnknown,
     updateGasAccountUiState,
     resetGasAccountUiState,
     updateSendFeeStatus,
@@ -379,6 +383,14 @@ function TxConfirmActions(props: IProps) {
       // caller still invoke onFail / dappApprove.reject — the current attempt
       // is terminal and the dApp needs to know. Entries flagged suppressToast
       // skip the user-facing copy entirely while preserving the reject path.
+      if (entry.resultUnknown) {
+        // The tx may already be on chain (OK-64746). Latch for the rest of
+        // this page: the confirm button stays disabled and TxFeeInfo stops
+        // re-estimating, so neither a poll tick nor a second tap can move on
+        // to a new nonce / quote and send a second tx. Only closing the page
+        // (or a new tx on it) clears the latch.
+        updateGasAccountSubmitResultUnknown(true);
+      }
       muteHandledErrorToast(error);
       if (!entry.suppressToast) {
         Toast.warning({ title: message });
@@ -392,6 +404,7 @@ function TxConfirmActions(props: IProps) {
       resetGasAccountTemporarilyDisabled,
       resetGasAccountUiState,
       updateEffectiveFeePayer,
+      updateGasAccountSubmitResultUnknown,
       updateGasAccountTemporarilyDisabled,
       updateGasAccountUiState,
       updateSendFeeStatus,
@@ -1084,6 +1097,9 @@ function TxConfirmActions(props: IProps) {
   // indefinitely. The ref gates this to a single shot per expiry transition.
   const quoteExpiredHandledRef = useRef(false);
   useEffect(() => {
+    // After a result-unknown send the quote is the record of what was
+    // attempted; expiring it would re-estimate onto a new nonce / quote.
+    if (gasAccountSubmitResultUnknown) return;
     if (isGasAccountQuoteExpired) {
       if (quoteExpiredHandledRef.current) return;
       quoteExpiredHandledRef.current = true;
@@ -1101,6 +1117,7 @@ function TxConfirmActions(props: IProps) {
       quoteExpiredHandledRef.current = false;
     }
   }, [
+    gasAccountSubmitResultUnknown,
     isGasAccountQuoteExpired,
     logGasAccountAction,
     resetGasAccountUiState,
@@ -1120,6 +1137,9 @@ function TxConfirmActions(props: IProps) {
     if (showTakeRiskAlert && !continueOperate) return true;
 
     if (sendTxStatus.isSubmitting) return true;
+    // A result-unknown Gas Account send may already be on chain: never allow
+    // a second attempt from this page.
+    if (gasAccountSubmitResultUnknown) return true;
     if (
       nativeTokenInfo.isLoading ||
       sendTxStatus.isInsufficientNativeBalance ||
@@ -1146,6 +1166,7 @@ function TxConfirmActions(props: IProps) {
     showTakeRiskAlert,
     continueOperate,
     sendTxStatus.isSubmitting,
+    gasAccountSubmitResultUnknown,
     sendTxStatus.isInsufficientNativeBalance,
     sendTxStatus.isInsufficientTokenBalance,
     nativeTokenInfo.isLoading,

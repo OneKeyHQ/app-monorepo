@@ -38,6 +38,7 @@ import {
   useDecodedTxsAtom,
   useEffectiveFeePayerAtom,
   useExtraFeeInfoAtom,
+  useGasAccountSubmitResultUnknownAtom,
   useGasAccountTemporarilyDisabledAtom,
   useGasAccountUiStateAtom,
   useIsSinglePresetAtom,
@@ -191,6 +192,15 @@ function TxFeeInfo(props: IProps) {
   const [gasAccountTemporarilyDisabled] =
     useGasAccountTemporarilyDisabledAtom();
   const [gasAccountUiState] = useGasAccountUiStateAtom();
+  // OK-64746: set by TxConfirmActions after a result-unknown Gas Account
+  // send. The attempted quote / nonce must stay as they are from then on, so
+  // every path that would re-estimate below is held while this is true.
+  const [gasAccountSubmitResultUnknown] =
+    useGasAccountSubmitResultUnknownAtom();
+  const gasAccountSubmitResultUnknownRef = useRef(
+    gasAccountSubmitResultUnknown,
+  );
+  gasAccountSubmitResultUnknownRef.current = gasAccountSubmitResultUnknown;
   const [txFeeInfoInit] = useTxFeeInfoInitAtom();
   const currentTxUuid = unsignedTxs[0]?.uuid;
   const feeRequestIdRef = useRef(0);
@@ -251,6 +261,7 @@ function TxFeeInfo(props: IProps) {
     enabled:
       !gasAccountDisabledByScenario &&
       !gasAccountTemporarilyDisabled &&
+      !gasAccountSubmitResultUnknown &&
       !sendTxStatus.isSubmitting,
     onChange: () => {
       if (!isCustomFeeSelected) {
@@ -276,6 +287,7 @@ function TxFeeInfo(props: IProps) {
   useEffect(() => {
     if (
       isCustomFeeSelected ||
+      gasAccountSubmitResultUnknown ||
       sendTxStatus.isSubmitting ||
       !reEstimateOnCustomFeeExitRef.current
     ) {
@@ -284,6 +296,7 @@ function TxFeeInfo(props: IProps) {
     reEstimateOnCustomFeeExitRef.current = false;
     reEstimateForIdentityChange();
   }, [
+    gasAccountSubmitResultUnknown,
     isCustomFeeSelected,
     reEstimateForIdentityChange,
     sendTxStatus.isSubmitting,
@@ -1032,10 +1045,13 @@ function TxFeeInfo(props: IProps) {
             seconds: vaultSettings?.estimatedFeePollingInterval,
           })
         : undefined,
+      // Also paused after a result-unknown Gas Account send: a fresh
+      // estimate would replace the attempted quote / locked nonce.
       overrideIsFocused: (isPageFocused) =>
         isPageFocused &&
         sendSelectedFee.feeType !== EFeeType.Custom &&
-        !sendTxStatus.isSubmitting,
+        !sendTxStatus.isSubmitting &&
+        !gasAccountSubmitResultUnknown,
     },
   );
 
@@ -2017,6 +2033,8 @@ function TxFeeInfo(props: IProps) {
 
   useEffect(() => {
     const callback = () => {
+      // Nothing may re-estimate after a result-unknown Gas Account send.
+      if (gasAccountSubmitResultUnknownRef.current) return;
       // setStopPolling(false) clears any prior server-driven stop AND
       // resurrects the polling chain (the finally-block guard kills it once
       // stopPollingRef flips true). It returns true in that case, meaning a
