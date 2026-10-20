@@ -29,7 +29,6 @@ import {
   getPrimeWebCheckoutPlatform,
   isPrimeWebCheckoutUserCurrent,
   logPrimeWebCheckoutFlow,
-  logPrimeWebCheckoutSessionFlow,
   openPrimeWebCheckoutPage,
   resolvePrimeWebCheckoutPackage,
 } from './primeWebCheckout';
@@ -202,18 +201,15 @@ export async function startPrimeHostedCardCheckout({
     if (!(await isPrimeWebCheckoutUserCurrent(onekeyUserId))) {
       throw new OneKeyLocalError('Prime purchase user changed');
     }
-    // An earlier checkout page may still be open and payable. The same link
-    // keeps its session; another one replaces it and, on the extension,
-    // takes over its tab. Success is read per OneKey ID, so a payment on an
-    // earlier page is still picked up by the current session.
+    // An earlier checkout page may still be open and payable. Resume its
+    // original plan and attribution instead of replacing it with another link.
     const previousSession =
       await backgroundApiProxy.simpleDb.prime.getWebCheckoutPendingSession({
         onekeyUserId,
       });
     const reusedSession =
       previousSession?.platform === platform &&
-      previousSession.isSandbox === isSandboxKey &&
-      previousSession.checkoutUrl === checkoutUrl
+      previousSession.isSandbox === isSandboxKey
         ? previousSession
         : undefined;
     const session: IPrimeWebCheckoutPendingSession = reusedSession ?? {
@@ -330,37 +326,26 @@ export async function fallbackToPrimeHostedCardCheckout({
   await startPrimeHostedCardCheckout({ ...params, fallbackFrom: trigger });
 }
 
-// An embedded purchase replaces any earlier hosted checkout of this user.
-// Both are Web Billing purchases, so a leftover hosted session would match
-// the embedded purchase too and report it a second time.
-export async function discardPrimeHostedCardCheckout(
+// A hosted page may still accept payment after its waiting dialog closes.
+// Resume that checkout instead of losing its monitor or starting a second one.
+export async function resumePendingPrimeHostedCardCheckout(
   onekeyUserId: string | undefined,
-) {
+): Promise<boolean> {
   if (!onekeyUserId) {
-    return;
+    return false;
   }
-  try {
-    const session =
-      await backgroundApiProxy.simpleDb.prime.getWebCheckoutPendingSession({
-        onekeyUserId,
-      });
-    if (
-      session &&
-      (await backgroundApiProxy.simpleDb.prime.clearWebCheckoutPendingSession({
-        onekeyUserId,
-        expectedCheckoutId: session.checkoutId,
-      }))
-    ) {
-      logPrimeWebCheckoutSessionFlow({
-        session,
-        stage: 'settle',
-        status: 'cancelled',
-        reason: 'embeddedPurchase',
-      });
-    }
-  } catch {
-    // Best-effort: never block the embedded purchase.
+  const session =
+    await backgroundApiProxy.simpleDb.prime.getWebCheckoutPendingSession({
+      onekeyUserId,
+    });
+  if (!session) {
+    return false;
   }
+  if (!(await isPrimeWebCheckoutUserCurrent(onekeyUserId))) {
+    throw new OneKeyLocalError('Prime purchase user changed');
+  }
+  showPrimeWebCheckoutWaitingDialog({ session });
+  return true;
 }
 
 const FALLBACK_TRIGGERS = new Set<string>([

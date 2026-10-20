@@ -191,6 +191,21 @@ async function openExtensionCheckoutTab({
   const usableExtension =
     await getUsablePrimeWebCheckoutExtensionContext(session);
   const initiator = usableExtension ?? (await getExtensionCheckoutInitiator());
+  const currentTabId = usableExtension?.checkoutTabId;
+  if (currentTabId !== undefined) {
+    const currentTab = await getExtensionTab(currentTabId);
+    const currentUrl = currentTab?.pendingUrl || currentTab?.url;
+    // Chrome hides URL fields without tabs/host permission. Focusing our
+    // recorded tab is safe and preserves any in-flight card or 3DS form.
+    // Never rewrite an unknown URL or a tab visibly navigated elsewhere.
+    if (
+      currentTab &&
+      (!currentUrl || isPrimeWebPurchaseLinkPageUrl(currentUrl)) &&
+      (await extUtils.focusTab(currentTabId))
+    ) {
+      return;
+    }
+  }
   // Reuses the tab of this checkout, or of the checkout it replaces, so only
   // one hosted checkout stays open.
   const replacedTabId = replacedSession
@@ -198,9 +213,7 @@ async function openExtensionCheckoutTab({
         ?.checkoutTabId
     : undefined;
   let reusableTabId: number | undefined;
-  if (await isReusableCheckoutTab(usableExtension?.checkoutTabId)) {
-    reusableTabId = usableExtension?.checkoutTabId;
-  } else if (await isReusableCheckoutTab(replacedTabId)) {
+  if (await isReusableCheckoutTab(replacedTabId)) {
     reusableTabId = replacedTabId;
   }
   const checkoutTab = await extUtils.openUrlInTab(url, {

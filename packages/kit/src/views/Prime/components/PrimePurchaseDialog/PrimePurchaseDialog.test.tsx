@@ -353,14 +353,22 @@ jest.mock('./usePurchasePackageWebview', () => ({
 
 const mockPurchaseByHostedLink = jest.fn(async () => undefined);
 const mockFallbackToHostedLink = jest.fn(async () => undefined);
-const mockDiscardPendingHostedCheckout = jest.fn(async () => undefined);
+const mockResumePendingHostedCheckout = jest.fn(async () => false);
+const mockCardPaymentErrorToast = jest.fn<void, [unknown]>();
 let mockCardCheckoutMode: 'embedded' | 'hostedLink' = 'embedded';
+
+jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
+  __esModule: true,
+  default: {
+    toastIfError: (error: unknown) => mockCardPaymentErrorToast(error),
+  },
+}));
 
 jest.mock('../../hooks/usePrimeWebCheckoutPurchase', () => ({
   usePrimeWebCheckoutPurchase: () => ({
     purchaseByHostedLink: mockPurchaseByHostedLink,
     fallbackToHostedLink: mockFallbackToHostedLink,
-    discardPendingHostedCheckout: mockDiscardPendingHostedCheckout,
+    resumePendingHostedCheckout: mockResumePendingHostedCheckout,
   }),
 }));
 
@@ -1291,6 +1299,27 @@ describe('usePrimePurchaseCallback pending payment entry guard', () => {
         featureName: undefined,
       });
       expect(mockPurchaseByHostedLink).not.toHaveBeenCalled();
+    });
+
+    it('resumes a payable hosted checkout without starting another embedded payment', async () => {
+      mockResumePendingHostedCheckout.mockResolvedValueOnce(true);
+
+      await selectCard();
+
+      expect(mockResumePendingHostedCheckout).toHaveBeenCalledTimes(1);
+      expect(mockPurchasePackageWeb).not.toHaveBeenCalled();
+      expect(mockFallbackToHostedLink).not.toHaveBeenCalled();
+    });
+
+    it('does not start another payment when reading the hosted session fails', async () => {
+      const error = new Error('bg unavailable');
+      mockResumePendingHostedCheckout.mockRejectedValueOnce(error);
+
+      await selectCard();
+
+      expect(mockPurchasePackageWeb).not.toHaveBeenCalled();
+      expect(mockFallbackToHostedLink).not.toHaveBeenCalled();
+      expect(mockCardPaymentErrorToast).toHaveBeenCalledWith(error);
     });
   });
 });

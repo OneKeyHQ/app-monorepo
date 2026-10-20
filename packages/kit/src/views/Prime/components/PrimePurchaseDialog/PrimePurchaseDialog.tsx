@@ -20,6 +20,7 @@ import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickSt
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -276,7 +277,7 @@ export function usePrimePurchaseCallback({
   const {
     purchaseByHostedLink,
     fallbackToHostedLink,
-    discardPendingHostedCheckout,
+    resumePendingHostedCheckout,
   } = usePrimeWebCheckoutPurchase();
   const { purchaseByCrypto: purchaseByCryptoUnchecked } =
     usePrimeInfiniPurchase({ networkId });
@@ -315,7 +316,9 @@ export function usePrimePurchaseCallback({
         | undefined;
       try {
         const purchaseUserId = user?.onekeyUserId;
-        await discardPendingHostedCheckout();
+        if (await resumePendingHostedCheckout()) {
+          return;
+        }
         beginStripePaymentElementAttempt();
         let purchaseResult:
           | Awaited<ReturnType<NonNullable<typeof purchasePackageWeb>>>
@@ -363,7 +366,7 @@ export function usePrimePurchaseCallback({
       }
     },
     [
-      discardPendingHostedCheckout,
+      resumePendingHostedCheckout,
       fallbackToHostedLink,
       intl.locale,
       purchasePackageWeb,
@@ -691,7 +694,7 @@ export function usePrimePurchaseCallback({
                     selectedSubscriptionPeriod,
                     currency,
                     featureName,
-                  });
+                  }).catch(errorToastUtils.toastIfError);
                 } else if (method === 'webStripe') {
                   if (
                     forceHostedCardCheckout ||
@@ -710,7 +713,7 @@ export function usePrimePurchaseCallback({
                       selectedSubscriptionPeriod,
                       currency,
                       featureName,
-                    });
+                    }).catch(errorToastUtils.toastIfError);
                   }
                 } else {
                   logPrimeInfiniPaymentFlow({
