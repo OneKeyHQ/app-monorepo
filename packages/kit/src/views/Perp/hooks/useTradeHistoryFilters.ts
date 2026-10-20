@@ -11,15 +11,18 @@ import type { ITradeHistoryFilters } from '../components/OrderInfoPanel/Componen
 
 const DEFAULT_FILTERS: ITradeHistoryFilters = { type: 'all', side: 'all' };
 
-export function useTradeHistoryFilters() {
+export function useTradeHistoryFilters(initialMarket?: string) {
   const [account] = usePerpsActiveAccountAtom();
-  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<ITradeHistoryFilters>({
+    ...DEFAULT_FILTERS,
+    market: initialMarket,
+  });
   const [marketOptions, setMarketOptions] = useState<
     IFundingHistoryMarketOption[]
   >([]);
   useEffect(() => {
-    setFilters(DEFAULT_FILTERS);
-  }, [account?.accountAddress]);
+    setFilters({ ...DEFAULT_FILTERS, market: initialMarket });
+  }, [account?.accountAddress, initialMarket]);
   const onMarketOptionsChange = useCallback(
     (nextOptions: IFundingHistoryMarketOption[]) => {
       setMarketOptions((currentOptions) =>
