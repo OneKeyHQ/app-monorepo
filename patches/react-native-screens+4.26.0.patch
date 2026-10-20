@@ -37,10 +37,136 @@ index 0fcccb3..99d9506 100644
      }
  
 diff --git a/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm b/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm
-index 1a820b4..6f60b43 100644
+index 1a820b4..f8f9413 100644
 --- a/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm
 +++ b/node_modules/react-native-screens/ios/RNSFullWindowOverlay.mm
-@@ -218,9 +218,31 @@ - (void)updateProps:(const facebook::react::Props::Shared &)props
+@@ -69,6 +69,9 @@
+   RNSFullWindowOverlayContainer *_container;
+   CGRect _reactFrame;
+   RCTSurfaceTouchHandler *_touchHandler;
++  // OneKey patch: only the container moves; Fabric keeps owning the same children.
++  BOOL _inline;
++  BOOL _belowWindowOverlays;
+ }
+ 
+ - (instancetype)init
+@@ -85,6 +88,8 @@
+ {
+   // Default value used by container.
+   _accessibilityContainerViewIsModal = YES;
++  _inline = NO;
++  _belowWindowOverlays = NO;
+   _reactFrame = CGRectNull;
+   _container = self.container;
+ }
+@@ -120,16 +125,16 @@
+   if (self.superview == nil) {
+     if (_container != nil) {
+       [_container removeFromSuperview];
+-      [_touchHandler detachFromView:_container];
++      if (_touchHandler.view == _container) {
++        [_touchHandler detachFromView:_container];
++      }
+     }
+   } else {
+-    if (_container != nil) {
++    if (_container != nil && !_inline) {
+       UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, _container);
+     }
+-    if (_touchHandler == nil) {
+-      _touchHandler = [RCTSurfaceTouchHandler new];
+-    }
+-    [_touchHandler attachToView:_container];
++    // OneKey patch: only window-hosted content needs a separate touch handler.
++    // Inline content uses its existing React surface's handler.
+ 
+     // Called here in case the attempt to show the container failed
+     // in `didMoveToWindow`, as it happens e.g. in case where a `fullScreenModal`
+@@ -149,6 +154,23 @@
+ 
+ - (void)maybeShow
+ {
++  // OneKey patch: inline charts remain in the scrolling/native hierarchy.
++  // Promotion moves their existing container without a React unmount.
++  if (self.superview == nil) {
++    return;
++  }
++  if (_inline) {
++    if (_touchHandler.view == _container) {
++      [_touchHandler detachFromView:_container];
++    }
++    if (_container.superview != self) {
++      [super addSubview:_container];
++    }
++    _container.frame = self.bounds;
++    _container.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
++    return;
++  }
++
+   UIWindow *window = [self window];
+ 
+   if (window == nil) {
+@@ -158,7 +180,29 @@
+   }
+ 
+   if (![[window subviews] containsObject:_container]) {
+-    [window addSubview:_container];
++    // OneKey patch: charts stay below the app's dialog, hardware and lock layers.
++    UIView *firstOverlay = nil;
++    if (_belowWindowOverlays) {
++      for (UIView *view in window.subviews) {
++        if ([view isKindOfClass:[RNSFullWindowOverlayContainer class]] && view != _container) {
++          firstOverlay = view;
++          break;
++        }
++      }
++      _container.frame = window.bounds;
++      _container.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
++    }
++    if (firstOverlay != nil) {
++      [window insertSubview:_container belowSubview:firstOverlay];
++    } else {
++      [window addSubview:_container];
++    }
++  }
++  if (_touchHandler == nil) {
++    _touchHandler = [RCTSurfaceTouchHandler new];
++  }
++  if (_touchHandler.view == nil) {
++    [_touchHandler attachToView:_container];
+   }
+ }
+ 
+@@ -172,6 +216,13 @@
+ - (void)prepareForRecycle
+ {
+   [_container removeFromSuperview];
++  // OneKey patch: a recycled inline chart must not retain its old surface handler.
++  if (_touchHandler.view == _container) {
++    [_touchHandler detachFromView:_container];
++  }
++  _container.autoresizingMask = UIViewAutoresizingNone;
++  _inline = NO;
++  _belowWindowOverlays = NO;
+   // Due to view recycling we don't really want to set _container = nil
+   // as it won't be instantiated when the component appears for the second time.
+   // We could consider nulling in here & using container (lazy getter) everywhere else.
+@@ -196,6 +247,14 @@ RNS_IGNORE_SUPER_CALL_BEGIN
+ {
+   CGRect frame = RCTCGRectFromRect(layoutMetrics.frame);
+ 
++  // OneKey patch: the inline anchor participates in its owner's native layout.
++  if (_inline) {
++    [super updateLayoutMetrics:layoutMetrics oldLayoutMetrics:oldLayoutMetrics];
++    _reactFrame = frame;
++    _container.frame = self.bounds;
++    return;
++  }
++
+   // Due to view flattening there are situations
+   // when we receive frames with origin different from (0, 0).
+   // We account for this frame manipulation in shadow node by setting
+@@ -218,7 +277,37 @@ RNS_IGNORE_SUPER_CALL_END
      [self setAccessibilityContainerViewIsModal:newComponentProps.accessibilityContainerViewIsModal];
    }
  
@@ -53,9 +179,17 @@ index 1a820b4..6f60b43 100644
 +    [self bringContainerToFront];
 +  }
 +
++  // OneKey patch: update presentation in the same Fabric commit as its layout.
++  BOOL presentationChanged = _inline != newComponentProps.inlinePresentation ||
++      _belowWindowOverlays != newComponentProps.belowWindowOverlays;
++  _inline = newComponentProps.inlinePresentation;
++  _belowWindowOverlays = newComponentProps.belowWindowOverlays;
    [super updateProps:props oldProps:oldProps];
- }
- 
++  if (presentationChanged) {
++    [self maybeShow];
++  }
++}
++
 +// OneKey patch: see updateProps.
 +- (void)bringContainerToFront
 +{
@@ -67,11 +201,9 @@ index 1a820b4..6f60b43 100644
 +  if (superview != nil) {
 +    [superview bringSubviewToFront:_container];
 +  }
-+}
-+
- #pragma mark - Dynamic frameworks support
+ }
  
- // Needed because of this: https://github.com/facebook/react-native/pull/37274
+ #pragma mark - Dynamic frameworks support
 diff --git a/node_modules/react-native-screens/ios/RNSScreen.mm b/node_modules/react-native-screens/ios/RNSScreen.mm
 index 9b66012..09393b0 100644
 --- a/node_modules/react-native-screens/ios/RNSScreen.mm
@@ -84,7 +216,7 @@ index 9b66012..09393b0 100644
  #import <React/RCTRootComponentView.h>
  #import <React/RCTScrollViewComponentView.h>
  #import <React/RCTSurfaceTouchHandler.h>
-@@ -37,6 +38,20 @@
+@@ -37,6 +38,20 @@ namespace react = facebook::react;
  constexpr NSInteger SHEET_FIT_TO_CONTENTS = -1;
  constexpr NSInteger SHEET_LARGEST_UNDIMMED_DETENT_NONE = -1;
  
@@ -105,7 +237,7 @@ index 9b66012..09393b0 100644
  struct ContentWrapperBox {
    __weak RNSScreenContentWrapper *contentWrapper{nil};
    float contentHeightErrata{0.f};
-@@ -48,7 +63,12 @@ @interface RNSScreenView () <UIAdaptivePresentationControllerDelegate,
+@@ -48,7 +63,12 @@ struct ContentWrapperBox {
                               UISheetPresentationControllerDelegate,
  #endif
                               RCTRNSScreenViewProtocol,
@@ -119,7 +251,7 @@ index 9b66012..09393b0 100644
  @end
  
  @implementation RNSScreenView {
-@@ -59,6 +79,7 @@ @implementation RNSScreenView {
+@@ -59,6 +79,7 @@ struct ContentWrapperBox {
    ContentWrapperBox _contentWrapperBox;
    bool _sheetHasInitialDetentSet;
    BOOL _shouldUpdateScrollEdgeEffects;
@@ -127,7 +259,7 @@ index 9b66012..09393b0 100644
    UITapGestureRecognizer *_backdropTapGestureRecognizer;
    RCTSurfaceTouchHandler *_touchHandler;
    react::RNSScreenShadowNode::ConcreteState::Shared _state;
-@@ -95,6 +116,7 @@ - (void)initCommonProps
+@@ -95,6 +116,7 @@ struct ContentWrapperBox {
    _fullScreenSwipeEnabled = RNSOptionalBooleanUndefined;
    _fullScreenSwipeShadowEnabled = YES;
    _shouldUpdateScrollEdgeEffects = NO;
@@ -135,7 +267,7 @@ index 9b66012..09393b0 100644
  #if !TARGET_OS_TV
    _sheetExpandsWhenScrolledToEdge = YES;
  #endif // !TARGET_OS_TV
-@@ -599,6 +621,20 @@ - (void)didMoveToWindow
+@@ -599,6 +621,20 @@ RNS_IGNORE_SUPER_CALL_END
    } else {
      [_touchHandler detachFromView:self];
    }
@@ -156,7 +288,7 @@ index 9b66012..09393b0 100644
  }
  
  - (nullable RCTSurfaceTouchHandler *)touchHandler
-@@ -1105,10 +1141,46 @@ - (void)overrideScrollViewBehaviorInFirstDescendantChainIfNeeded
+@@ -1105,10 +1141,46 @@ RNS_IGNORE_SUPER_CALL_END
    }
  }
  
@@ -205,7 +337,7 @@ index 9b66012..09393b0 100644
  }
  
  #pragma mark - RNSSafeAreaProviding
-@@ -1385,6 +1457,14 @@ - (void)finalizeUpdates:(RNComponentViewUpdateMask)updateMask
+@@ -1385,6 +1457,14 @@ RNS_IGNORE_SUPER_CALL_END
  #endif // !TARGET_OS_TV && !TARGET_OS_VISION
  }
  
@@ -220,7 +352,7 @@ index 9b66012..09393b0 100644
  #pragma mark - Dynamic frameworks support
  
  // Needed because of this: https://github.com/facebook/react-native/pull/37274
-@@ -1437,6 +1517,28 @@ - (instancetype)initWithView:(UIView *)view
+@@ -1437,6 +1517,28 @@ Class<RCTComponentViewProtocol> RNSScreenCls(void)
  - (void)viewWillAppear:(BOOL)animated
  {
    [super viewWillAppear:animated];
@@ -309,7 +441,7 @@ index 192f5d2..19b411a 100644
  #import "UIView+RNSUtility.h"
  #import "integrations/RNSDismissibleModalProtocol.h"
  #import "utils/UINavigationBar+RNSUtility.h"
-@@ -175,6 +224,11 @@ @implementation RNSScreenStackView {
+@@ -175,6 +224,11 @@ namespace react = facebook::react;
    RNSPercentDrivenInteractiveTransition *_interactionController;
    __weak RNSScreenStackManager *_manager;
    BOOL _updateScheduled;
@@ -321,7 +453,7 @@ index 192f5d2..19b411a 100644
  }
  
  - (instancetype)initWithFrame:(CGRect)frame
-@@ -213,6 +267,24 @@ - (void)initCommonProps
+@@ -213,6 +267,24 @@ namespace react = facebook::react;
    // the header will render in collapsed state which is perhaps a bug
    // in UIKit but ¯\_(ツ)_/¯
    [_controller setViewControllers:@[ [UIViewController new] ]];
@@ -346,7 +478,7 @@ index 192f5d2..19b411a 100644
  }
  
  #pragma mark - helper methods
-@@ -240,6 +312,153 @@ - (void)emitOnFinishTransitioningEvent
+@@ -240,6 +312,153 @@ namespace react = facebook::react;
    }
  }
  
@@ -500,7 +632,7 @@ index 192f5d2..19b411a 100644
  - (void)navigationController:(UINavigationController *)navigationController
        willShowViewController:(UIViewController *)viewController
                      animated:(BOOL)animated
-@@ -278,21 +497,45 @@ - (void)presentationControllerDidDismiss:(UIPresentationController *)presentatio
+@@ -278,21 +497,45 @@ RNS_IGNORE_SUPER_CALL_END
  
  - (void)didMoveToWindow
  {
@@ -550,7 +682,7 @@ index 192f5d2..19b411a 100644
    [self updateContainer];
    if (!wasScreenMounted) {
      // when stack hasn't been added to parent VC yet we do two things:
-@@ -313,10 +556,43 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
+@@ -313,10 +556,43 @@ RNS_IGNORE_SUPER_CALL_END
  {
    if (!controller.parentViewController) {
      UIView *parentView = (UIView *)self.reactSuperview;
@@ -596,7 +728,7 @@ index 192f5d2..19b411a 100644
  #if !TARGET_OS_TV
          _controller.interactivePopGestureRecognizer.delegate = self;
  #if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
-@@ -325,7 +601,7 @@ - (void)reactAddControllerToClosestParent:(UIViewController *)controller
+@@ -325,7 +601,7 @@ RNS_IGNORE_SUPER_CALL_END
          }
  #endif // Check for iOS >= 26.0
  #endif
@@ -605,7 +737,7 @@ index 192f5d2..19b411a 100644
          // On iOS pre 12 we observed that `willShowViewController` delegate method does not always
          // get triggered when the navigation controller is instantiated. As the only thing we do in
          // that delegate method is ask nav header to update to the current state it does not hurt to
-@@ -375,6 +651,8 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -375,6 +651,8 @@ RNS_IGNORE_SUPER_CALL_END
  {
    // prevent re-entry
    if (_updatingModals) {
@@ -614,7 +746,7 @@ index 192f5d2..19b411a 100644
      _scheduleModalsUpdate = YES;
      return;
    }
-@@ -383,12 +661,22 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -383,12 +661,22 @@ RNS_IGNORE_SUPER_CALL_END
    // accidently trigger modal dismiss if we don't verify to run the below code only when an actual
    // change in the list of presented modal was made.
    if ([_presentedModals isEqualToArray:controllers]) {
@@ -637,7 +769,7 @@ index 192f5d2..19b411a 100644
      return;
    }
  
-@@ -429,6 +717,7 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -429,6 +717,7 @@ RNS_IGNORE_SUPER_CALL_END
    __weak RNSScreenStackView *weakSelf = self;
  
    void (^afterTransitions)(void) = ^{
@@ -645,7 +777,7 @@ index 192f5d2..19b411a 100644
      [weakSelf emitOnFinishTransitioningEvent];
      weakSelf.updatingModals = NO;
      if (weakSelf.scheduleModalsUpdate) {
-@@ -444,6 +733,7 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -444,6 +733,7 @@ RNS_IGNORE_SUPER_CALL_END
    };
  
    void (^finish)(void) = ^{
@@ -653,7 +785,7 @@ index 192f5d2..19b411a 100644
      NSUInteger oldCount = weakSelf.presentedModals.count;
      if (changeRootIndex < oldCount) {
        [weakSelf.presentedModals removeObjectsInRange:NSMakeRange(changeRootIndex, oldCount - changeRootIndex)];
-@@ -452,10 +742,13 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -452,10 +742,13 @@ RNS_IGNORE_SUPER_CALL_END
          changeRootController.parentViewController != nil || changeRootController.presentingViewController != nil;
  
      if (!isAttached || changeRootIndex >= controllers.count) {
@@ -671,7 +803,7 @@ index 192f5d2..19b411a 100644
        afterTransitions();
        return;
      }
-@@ -532,16 +825,23 @@ - (void)setModalViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -532,16 +825,23 @@ RNS_IGNORE_SUPER_CALL_END
                ? static_cast<RNSScreen *>(firstModalToBeDismissed).screenView.stackAnimation !=
                    RNSScreenStackAnimationNone
                : YES;
@@ -699,7 +831,7 @@ index 192f5d2..19b411a 100644
                                  finish();
                                }];
          }
-@@ -578,12 +878,61 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -578,12 +878,61 @@ RNS_IGNORE_SUPER_CALL_END
  {
    // when there is no change we return immediately
    if ([_controller.viewControllers isEqualToArray:controllers]) {
@@ -762,7 +894,7 @@ index 192f5d2..19b411a 100644
      return;
    }
    // when transition is ongoing, any updates made to the controller will not be reflected until the
-@@ -593,6 +942,7 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -593,6 +942,7 @@ RNS_IGNORE_SUPER_CALL_END
    // making any updated when transition is ongoing and schedule updates for when the transition
    // is complete.
    if (_controller.transitionCoordinator != nil) {
@@ -770,7 +902,7 @@ index 192f5d2..19b411a 100644
      if (!_updateScheduled) {
        _updateScheduled = YES;
        __weak RNSScreenStackView *weakSelf = self;
-@@ -659,8 +1009,15 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -659,8 +1009,15 @@ RNS_IGNORE_SUPER_CALL_END
        NSMutableArray *newControllers = [NSMutableArray arrayWithArray:controllers];
        [newControllers removeLastObject];
  
@@ -786,7 +918,7 @@ index 192f5d2..19b411a 100644
      } else {
        // don't really know what this case could be, but may need to handle it
        // somehow
-@@ -674,6 +1031,9 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -674,6 +1031,9 @@ RNS_IGNORE_SUPER_CALL_END
  
  - (void)updateContainer
  {
@@ -796,7 +928,7 @@ index 192f5d2..19b411a 100644
    NSMutableArray<UIViewController *> *pushControllers = [NSMutableArray new];
    NSMutableArray<UIViewController *> *modalControllers = [NSMutableArray new];
    for (RNSScreenView *screen in _reactSubviews) {
-@@ -743,6 +1103,10 @@ - (void)layoutSubviews
+@@ -743,6 +1103,10 @@ RNS_IGNORE_SUPER_CALL_END
        modal.view.frame = correctFrame;
      }
    }
@@ -811,7 +943,7 @@ diff --git a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
 index 1c84484..976b44f 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenStackHeaderConfig.mm
-@@ -381,7 +381,18 @@ + (UINavigationBarAppearance *)buildAppearance:(UIViewController *)vc withConfig
+@@ -381,7 +381,18 @@ RNS_IGNORE_SUPER_CALL_END
        appearance.shadowImage = shadowImage;
      }
    } else {
@@ -831,7 +963,7 @@ index 1c84484..976b44f 100644
    }
  
    // set background color if specified
-@@ -391,7 +402,16 @@ + (UINavigationBarAppearance *)buildAppearance:(UIViewController *)vc withConfig
+@@ -391,7 +402,16 @@ RNS_IGNORE_SUPER_CALL_END
  
    switch (config.blurEffect) {
      case RNSBlurEffectStyleNone:
@@ -849,7 +981,7 @@ index 1c84484..976b44f 100644
        break;
  
      case RNSBlurEffectStyleSystemDefault:
-@@ -513,6 +533,14 @@ + (void)updateViewController:(UIViewController *)vc
+@@ -513,6 +533,14 @@ RNS_IGNORE_SUPER_CALL_END
      return;
    }
  
@@ -878,7 +1010,7 @@ diff --git a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScroll
 index c0fb133..90d75f8 100644
 --- a/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.mm
 +++ b/node_modules/react-native-screens/ios/helpers/scroll-view/RNSScrollEdgeEffectApplicator.mm
-@@ -20,6 +20,22 @@ + (void)applyToScrollView:(nonnull UIScrollView *)scrollView
+@@ -20,6 +20,22 @@
  #endif
  }
  
@@ -901,7 +1033,7 @@ index c0fb133..90d75f8 100644
  #if RNS_IPHONE_OS_VERSION_AVAILABLE(26_0)
  + (void)configureEffect:(UIScrollEdgeEffect *)edgeEffect
                 withEnum:(RNSScrollEdgeEffect)effectEnum API_AVAILABLE(ios(26.0))
-@@ -27,20 +43,36 @@ + (void)configureEffect:(UIScrollEdgeEffect *)edgeEffect
+@@ -27,20 +43,36 @@
    if (@available(iOS 26, *)) {
      switch (effectEnum) {
        case RNSScrollEdgeEffectAutomatic:
@@ -993,7 +1125,7 @@ index 2434c61..e24018e 100644
  
  @implementation RNSScrollViewFinder
  
-@@ -41,4 +63,53 @@ + (nullable UIScrollView *)findContentScrollViewWithDelegatingToProvider:(nullab
+@@ -41,4 +63,53 @@
    return nil;
  }
  
@@ -1048,14 +1180,22 @@ index 2434c61..e24018e 100644
 +
  @end
 diff --git a/node_modules/react-native-screens/lib/module/components/FullWindowOverlay.js b/node_modules/react-native-screens/lib/module/components/FullWindowOverlay.js
-index ec3a4de..560ecee 100644
+index ec3a4de..d8e5fbe 100644
 --- a/node_modules/react-native-screens/lib/module/components/FullWindowOverlay.js
 +++ b/node_modules/react-native-screens/lib/module/components/FullWindowOverlay.js
-@@ -18,7 +18,9 @@ function FullWindowOverlay(props) {
-       width,
-       height
-     }],
+@@ -14,11 +14,13 @@ function FullWindowOverlay(props) {
+     return /*#__PURE__*/React.createElement(View, props);
+   }
+   return /*#__PURE__*/React.createElement(NativeFullWindowOverlay, {
+-    style: [StyleSheet.absoluteFill, {
+-      width,
+-      height
+-    }],
 -    accessibilityContainerViewIsModal: props.unstable_accessibilityContainerViewIsModal
++    // OneKey patch: see src/components/FullWindowOverlay.tsx.
++    style: props.inlinePresentation ? { flex: 1 } : [StyleSheet.absoluteFill, { width, height }],
++    inlinePresentation: props.inlinePresentation,
++    belowWindowOverlays: props.belowWindowOverlays,
 +    accessibilityContainerViewIsModal: props.unstable_accessibilityContainerViewIsModal,
 +    // OneKey patch: see src/components/FullWindowOverlay.tsx
 +    bringToFrontToken: props.bringToFrontToken
@@ -1063,24 +1203,45 @@ index ec3a4de..560ecee 100644
  }
  export default FullWindowOverlay;
 diff --git a/node_modules/react-native-screens/lib/typescript/components/FullWindowOverlay.d.ts b/node_modules/react-native-screens/lib/typescript/components/FullWindowOverlay.d.ts
-index 732ba7d..0210ef6 100644
+index 732ba7d..3bf0f30 100644
 --- a/node_modules/react-native-screens/lib/typescript/components/FullWindowOverlay.d.ts
 +++ b/node_modules/react-native-screens/lib/typescript/components/FullWindowOverlay.d.ts
-@@ -2,6 +2,7 @@ import React, { ReactNode } from 'react';
+@@ -1,7 +1,11 @@
+ import React, { ReactNode } from 'react';
  type FullWindowOverlayProps = {
      children: ReactNode;
++    // OneKey patch: retain the native subtree across presentation changes.
++    inlinePresentation?: boolean;
++    belowWindowOverlays?: boolean;
      unstable_accessibilityContainerViewIsModal?: boolean | undefined;
 +    bringToFrontToken?: number | undefined;
  };
  declare function FullWindowOverlay(props: FullWindowOverlayProps): React.JSX.Element;
  export default FullWindowOverlay;
+diff --git a/node_modules/react-native-screens/lib/typescript/fabric/FullWindowOverlayNativeComponent.d.ts b/node_modules/react-native-screens/lib/typescript/fabric/FullWindowOverlayNativeComponent.d.ts
+index 4235ee6..9e0bd22 100644
+--- a/node_modules/react-native-screens/lib/typescript/fabric/FullWindowOverlayNativeComponent.d.ts
++++ b/node_modules/react-native-screens/lib/typescript/fabric/FullWindowOverlayNativeComponent.d.ts
+@@ -1,5 +1,8 @@
+ import type { CodegenTypes as CT, ViewProps } from 'react-native';
+ export interface NativeProps extends ViewProps {
++    // OneKey patch: retain the native subtree across presentation changes.
++    inlinePresentation?: CT.WithDefault<boolean, false>;
++    belowWindowOverlays?: CT.WithDefault<boolean, false>;
+     accessibilityContainerViewIsModal?: CT.WithDefault<boolean, true>;
+ }
+ declare const _default: import("react-native").HostComponent<NativeProps>;
 diff --git a/node_modules/react-native-screens/src/components/FullWindowOverlay.tsx b/node_modules/react-native-screens/src/components/FullWindowOverlay.tsx
-index 711a012..c042779 100644
+index 711a012..702e3b8 100644
 --- a/node_modules/react-native-screens/src/components/FullWindowOverlay.tsx
 +++ b/node_modules/react-native-screens/src/components/FullWindowOverlay.tsx
-@@ -22,6 +22,9 @@ const NativeFullWindowOverlay: React.ComponentType<
+@@ -21,7 +21,13 @@ const NativeFullWindowOverlay: React.ComponentType<
+ 
  type FullWindowOverlayProps = {
    children: ReactNode;
++  // OneKey patch: moving the native container preserves its React/Skia tree.
++  inlinePresentation?: boolean;
++  belowWindowOverlays?: boolean;
    unstable_accessibilityContainerViewIsModal?: boolean | undefined;
 +  // OneKey patch: bump to bring this overlay's window container to the
 +  // front of every sibling container added since (see RNSFullWindowOverlay).
@@ -1088,8 +1249,14 @@ index 711a012..c042779 100644
  };
  
  function FullWindowOverlay(props: FullWindowOverlayProps) {
-@@ -35,7 +38,8 @@ function FullWindowOverlay(props: FullWindowOverlayProps) {
-       style={[StyleSheet.absoluteFill, { width, height }]}
+@@ -32,10 +38,13 @@ function FullWindowOverlay(props: FullWindowOverlayProps) {
+   }
+   return (
+     <NativeFullWindowOverlay
+-      style={[StyleSheet.absoluteFill, { width, height }]}
++      style={props.inlinePresentation ? { flex: 1 } : [StyleSheet.absoluteFill, { width, height }]}
++      inlinePresentation={props.inlinePresentation}
++      belowWindowOverlays={props.belowWindowOverlays}
        accessibilityContainerViewIsModal={
          props.unstable_accessibilityContainerViewIsModal
 -      }>
@@ -1099,12 +1266,16 @@ index 711a012..c042779 100644
      </NativeFullWindowOverlay>
    );
 diff --git a/node_modules/react-native-screens/src/fabric/FullWindowOverlayNativeComponent.ts b/node_modules/react-native-screens/src/fabric/FullWindowOverlayNativeComponent.ts
-index 4906480..df8afea 100644
+index 4906480..61fe8cc 100644
 --- a/node_modules/react-native-screens/src/fabric/FullWindowOverlayNativeComponent.ts
 +++ b/node_modules/react-native-screens/src/fabric/FullWindowOverlayNativeComponent.ts
-@@ -6,6 +6,10 @@ import type { CodegenTypes as CT, ViewProps } from 'react-native';
+@@ -5,7 +5,14 @@ import type { CodegenTypes as CT, ViewProps } from 'react-native';
+ 
  // Internal export, not part of stable library API.
  export interface NativeProps extends ViewProps {
++  // OneKey patch: retain a native subtree when promoting inline content.
++  inlinePresentation?: CT.WithDefault<boolean, false>;
++  belowWindowOverlays?: CT.WithDefault<boolean, false>;
    accessibilityContainerViewIsModal?: CT.WithDefault<boolean, true>;
 +  // OneKey patch: a change of this token re-fronts the overlay's window
 +  // container, so content raised later than another overlay (a modal

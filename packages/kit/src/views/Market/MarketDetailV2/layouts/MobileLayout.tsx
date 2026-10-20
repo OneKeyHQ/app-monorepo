@@ -12,16 +12,13 @@ import type { ComponentProps, ReactNode } from 'react';
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { View, useWindowDimensions } from 'react-native';
-import { useSharedValue } from 'react-native-reanimated';
 
-import type { IDialogInstance, IScrollViewRef } from '@onekeyhq/components';
+import type { IDialogInstance } from '@onekeyhq/components';
 import {
   DelayedFreeze,
   Divider,
   EInPageDialogType,
-  HeaderScrollGestureWrapper,
   IconButton,
-  ScrollView,
   SizableText,
   Skeleton,
   Spinner,
@@ -80,6 +77,7 @@ import { MarketTestIDs } from '../../testIDs';
 import { InformationPanel } from '../components/InformationPanel/InformationPanel';
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
 import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
+import { MarketDetailHeaderGesture } from '../components/InformationTabs/layout/MarketDetailScroll';
 import { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';
 import { resolveMarketDetailHeaderIdentity } from '../components/MarketDetailHeader/marketDetailHeaderIdentity';
 import { LazyMobileMarketTradingView } from '../components/MarketTradingView/LazyMarketTradingView';
@@ -596,10 +594,6 @@ export function MobileLayout({
     accountAddress,
     xpub,
   });
-  const tabNames = useMemo(
-    () => [intl.formatMessage({ id: ETranslations.market_chart })],
-    [intl],
-  );
   const isModalPage = useIsOverlayPage();
   const inPageDialog = useInPageDialog(
     isModalPage ? EInPageDialogType.inModalPage : EInPageDialogType.inTabPages,
@@ -655,8 +649,6 @@ export function MobileLayout({
       : height;
   const layoutPageWidth = effectivePageWidth;
 
-  const scrollViewRef = useRef<IScrollViewRef>(null);
-  const focusedTab = useSharedValue(tabNames[0]);
   const [
     isTradingViewIndicatorsDialogOpen,
     setIsTradingViewIndicatorsDialogOpen,
@@ -707,19 +699,11 @@ export function MobileLayout({
   const isTradingViewScrollLocked =
     isTradingViewIndicatorsDialogOpen || isTradingViewInteractionOverlayOpen;
 
-  const handleTabChange = useCallback(
-    (tabName: string) => {
-      focusedTab.value = tabName;
-      scrollViewRef.current?.scrollTo({
-        x: layoutPageWidth * tabNames.indexOf(tabName),
-        animated: true,
-      });
-    },
-    [focusedTab, layoutPageWidth, tabNames],
-  );
-
   const handleContainerLayout = useCallback(
     (event: { nativeEvent: { layout: { height: number; width: number } } }) => {
+      if (platformEnv.isNativeIOS && isChartFullscreen) {
+        return;
+      }
       const { width: nextWidth } = event.nativeEvent.layout;
       if (nextWidth > 0) {
         setContainerWidth((previousWidth) =>
@@ -727,12 +711,17 @@ export function MobileLayout({
         );
       }
     },
-    [],
+    [isChartFullscreen],
   );
 
   const handlePageViewportLayout = useCallback(
     (event: { nativeEvent: { layout: { height: number } } }) => {
-      if (!usesMeasuredPageViewport) {
+      // The fullscreen canvas measures its window independently. Keep the
+      // hidden page's portrait layout ready for the return transition.
+      if (
+        !usesMeasuredPageViewport ||
+        (platformEnv.isNativeIOS && isChartFullscreen)
+      ) {
         return;
       }
       const { height: nextHeight } = event.nativeEvent.layout;
@@ -745,29 +734,8 @@ export function MobileLayout({
         );
       }
     },
-    [pageViewportCacheKey, usesMeasuredPageViewport],
+    [isChartFullscreen, pageViewportCacheKey, usesMeasuredPageViewport],
   );
-
-  useEffect(() => {
-    const activeTabIndex = tabNames.indexOf(focusedTab.value);
-    if (
-      activeTabIndex < 0 ||
-      typeof layoutPageWidth !== 'number' ||
-      layoutPageWidth <= 0
-    ) {
-      return;
-    }
-
-    // Keep horizontal pages aligned after fold/unfold or split-width changes.
-    const alignTimer = setTimeout(() => {
-      scrollViewRef.current?.scrollTo({
-        x: layoutPageWidth * activeTabIndex,
-        animated: false,
-      });
-    }, 0);
-
-    return () => clearTimeout(alignTimer);
-  }, [focusedTab, layoutPageWidth, tabNames]);
 
   useEffect(() => {
     setIsTradingViewIndicatorsDialogOpen(false);
@@ -792,25 +760,6 @@ export function MobileLayout({
     },
     [],
   );
-  const handleHeaderHorizontalSwipe = useCallback(
-    (direction: 'left' | 'right') => {
-      const currentIndex = tabNames.indexOf(focusedTab.value);
-      if (currentIndex < 0) {
-        return;
-      }
-      const offset = direction === 'left' ? 1 : -1;
-      const nextIndex = Math.min(
-        tabNames.length - 1,
-        Math.max(0, currentIndex + offset),
-      );
-      if (nextIndex === currentIndex) {
-        return;
-      }
-      handleTabChange(tabNames[nextIndex]);
-    },
-    [focusedTab, handleTabChange, tabNames],
-  );
-
   const tradingViewHeight = useMemo(() => {
     if (platformEnv.isNative) {
       const baseChartHeight = Math.round(
@@ -875,10 +824,6 @@ export function MobileLayout({
   ]);
 
   const informationHeader = useMemo(() => {
-    const chartAreaHorizontalSwipeHandler =
-      isTradingViewNative || platformEnv.isNativeAndroid
-        ? undefined
-        : handleHeaderHorizontalSwipe;
     const chartAreaPanFailOffsetX: [number, number] =
       isTradingViewNative || platformEnv.isNativeAndroid
         ? [-12, 12]
@@ -889,11 +834,10 @@ export function MobileLayout({
 
     return (
       <YStack bg="$bgApp" pointerEvents="box-none">
-        <HeaderScrollGestureWrapper
+        <MarketDetailHeaderGesture
           disabled={isChartFullscreen}
           panActiveOffsetY={[-4, 4]}
           scrollScale={1}
-          onHorizontalSwipe={handleHeaderHorizontalSwipe}
           horizontalSwipeThreshold={36}
         >
           <YStack>
@@ -901,10 +845,10 @@ export function MobileLayout({
               <InformationPanel mobileDetailKind={detailKind} />
             </DelayedFreeze>
           </YStack>
-        </HeaderScrollGestureWrapper>
+        </MarketDetailHeaderGesture>
         <Stack position="relative">
           {isSimpleChart ? (
-            <HeaderScrollGestureWrapper
+            <MarketDetailHeaderGesture
               disabled={isChartFullscreen}
               panActiveOffsetY={[-4, 4]}
               panFailOffsetX={chartAreaPanFailOffsetX}
@@ -920,10 +864,10 @@ export function MobileLayout({
                     : undefined
                 }
               />
-            </HeaderScrollGestureWrapper>
+            </MarketDetailHeaderGesture>
           ) : null}
           {isSimpleChart ? null : (
-            <HeaderScrollGestureWrapper
+            <MarketDetailHeaderGesture
               disabled={isChartFullscreen || isTradingViewScrollLocked}
               panActiveOffsetY={isTradingViewNative ? [-12, 12] : [-4, 4]}
               panFailOffsetX={chartAreaPanFailOffsetX}
@@ -935,7 +879,6 @@ export function MobileLayout({
               }
               scrollScale={1.2}
               verticalPanMaxPointers={isTradingViewNative ? 1 : undefined}
-              onHorizontalSwipe={chartAreaHorizontalSwipeHandler}
               horizontalSwipeThreshold={24}
               horizontalSwipeVelocityThreshold={900}
               simultaneousWithNativeGesture
@@ -1082,7 +1025,7 @@ export function MobileLayout({
                   </Stack>
                 )}
               </Stack>
-            </HeaderScrollGestureWrapper>
+            </MarketDetailHeaderGesture>
           )}
           {/* Reserve the async quick bar until its availability is known. */}
           {isSimpleChart ? null : nativeIndicatorQuickBarContent}
@@ -1109,7 +1052,6 @@ export function MobileLayout({
     chartHeaderLogoUrl,
     chartHeaderSymbol,
     detailKind,
-    handleHeaderHorizontalSwipe,
     handleIndicatorsDialogOpenChange,
     handleInteractionOverlayOpenChange,
     handleNativeChartPriceUpdate,
@@ -1141,48 +1083,6 @@ export function MobileLayout({
   const renderInformationHeader = useCallback(
     () => informationHeader,
     [informationHeader],
-  );
-
-  const renderItem = useCallback(
-    ({ index }: { index: number }) => {
-      if (index === 0) {
-        return (
-          <YStack flex={1} height={layoutHeight}>
-            <MobileInformationTabs
-              containerWidth={layoutPageWidth}
-              freezeContent={isChartFullscreen}
-              onScrollEnd={noop}
-              renderHeader={renderInformationHeader}
-              pendingHeader={informationHeader}
-              scrollEnabled={!isChartFullscreen && !isTradingViewScrollLocked}
-              portfolioData={portfolioData}
-              isRefreshing={isRefreshing}
-              isPortfolioPending={isPortfolioPending}
-              tokenLogoUrl={tokenDetail?.logoUrl}
-              detailKind={detailKind}
-              marketAssetDetail={marketAssetDetail}
-              isMarketAssetDetailLoading={isMarketAssetDetailLoading}
-            />
-          </YStack>
-        );
-      }
-      return null;
-    },
-    [
-      layoutPageWidth,
-      isChartFullscreen,
-      layoutHeight,
-      renderInformationHeader,
-      informationHeader,
-      isTradingViewScrollLocked,
-      portfolioData,
-      isRefreshing,
-      isPortfolioPending,
-      tokenDetail?.logoUrl,
-      detailKind,
-      marketAssetDetail,
-      isMarketAssetDetailLoading,
-    ],
   );
 
   const hasSwapContract = hasMarketContractAddress(tokenDetail?.address);
@@ -1315,24 +1215,23 @@ export function MobileLayout({
       bg="$bgApp"
       onLayout={handleContainerLayout}
     >
-      <ScrollView
-        horizontal
-        ref={scrollViewRef}
-        flex={1}
-        scrollEnabled={false}
-        onLayout={handlePageViewportLayout}
-      >
-        {tabNames.map((_, index) => (
-          <YStack
-            key={index}
-            h={layoutHeight}
-            overflow="hidden"
-            w={layoutPageWidth}
-          >
-            {renderItem({ index })}
-          </YStack>
-        ))}
-      </ScrollView>
+      <YStack flex={1} overflow="hidden" onLayout={handlePageViewportLayout}>
+        <MobileInformationTabs
+          containerWidth={layoutPageWidth}
+          freezeContent={isChartFullscreen}
+          onScrollEnd={noop}
+          renderHeader={renderInformationHeader}
+          pendingHeader={informationHeader}
+          scrollEnabled={!isChartFullscreen && !isTradingViewScrollLocked}
+          portfolioData={portfolioData}
+          isRefreshing={isRefreshing}
+          isPortfolioPending={isPortfolioPending}
+          tokenLogoUrl={tokenDetail?.logoUrl}
+          detailKind={detailKind}
+          marketAssetDetail={marketAssetDetail}
+          isMarketAssetDetailLoading={isMarketAssetDetailLoading}
+        />
+      </YStack>
       <DelayedFreeze freeze={isChartFullscreen}>
         {swapPanelFooter}
       </DelayedFreeze>
