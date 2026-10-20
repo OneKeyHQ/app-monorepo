@@ -3589,6 +3589,7 @@
   "perp_simple_limit_price_accessibility__desc": "Giá giới hạn bằng USD: {price}",
   "perp_simple_minimum_order_value__msg": "Giá trị lệnh tối thiểu là {amount}",
   "perp_simple_mode__title": "Chế độ giao dịch",
+  "perp_simple_more_order_types__desc": "Để sử dụng thêm loại lệnh, hãy chuyển sang chế độ Pro",
   "perp_simple_order_book_volume__desc": "Khối lượng mua và bán tại các mức giá được hiển thị trong sổ lệnh.",
   "perp_simple_pro__desc": "Lệnh nâng cao, sổ lệnh và nhiều quyền kiểm soát hơn cho mỗi giao dịch.",
   "perp_simple_reopen_order__action": "Mở lại trang đặt lệnh",

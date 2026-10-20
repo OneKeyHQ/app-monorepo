@@ -3589,6 +3589,7 @@
   "perp_simple_limit_price_accessibility__desc": "Harga limit dalam USD: {price}",
   "perp_simple_minimum_order_value__msg": "Nilai minimum order adalah {amount}",
   "perp_simple_mode__title": "Mode trading",
+  "perp_simple_more_order_types__desc": "Untuk jenis order lainnya, beralih ke Pro",
   "perp_simple_order_book_volume__desc": "Volume beli dan jual pada tingkat buku order yang ditampilkan.",
   "perp_simple_pro__desc": "Order lanjutan, buku order, dan kontrol lebih besar atas setiap transaksi.",
   "perp_simple_reopen_order__action": "Buka kembali halaman order",

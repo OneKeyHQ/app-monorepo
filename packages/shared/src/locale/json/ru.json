@@ -3589,6 +3589,7 @@
   "perp_simple_limit_price_accessibility__desc": "Лимитная цена в USD: {price}",
   "perp_simple_minimum_order_value__msg": "Минимальная сумма ордера — {amount}",
   "perp_simple_mode__title": "Режим торговли",
+  "perp_simple_more_order_types__desc": "Больше типов ордеров доступно в режиме Pro",
   "perp_simple_order_book_volume__desc": "Объёмы покупки и продажи на отображаемых уровнях книги ордеров.",
   "perp_simple_pro__desc": "Расширенные ордера, книга ордеров и больше контроля над каждой сделкой.",
   "perp_simple_reopen_order__action": "Открыть страницу ордера заново",

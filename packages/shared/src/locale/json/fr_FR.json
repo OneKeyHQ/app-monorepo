@@ -3589,6 +3589,7 @@
   "perp_simple_limit_price_accessibility__desc": "Prix limite en USD : {price}",
   "perp_simple_minimum_order_value__msg": "Le montant minimum de l’ordre est de {amount}",
   "perp_simple_mode__title": "Mode de trading",
+  "perp_simple_more_order_types__desc": "Pour plus de types d’ordres, passez au mode Pro",
   "perp_simple_order_book_volume__desc": "Volumes d’achat et de vente sur les niveaux affichés du carnet d’ordres.",
   "perp_simple_pro__desc": "Ordres avancés, carnet d’ordres et davantage de contrôle sur chaque transaction.",
   "perp_simple_reopen_order__action": "Rouvrir la page d’ordre",

@@ -3589,6 +3589,7 @@
   "perp_simple_limit_price_accessibility__desc": "USD-তে লিমিট মূল্য: {price}",
   "perp_simple_minimum_order_value__msg": "ন্যূনতম অর্ডারের মূল্য {amount}",
   "perp_simple_mode__title": "ট্রেডিং মোড",
+  "perp_simple_more_order_types__desc": "আরও অর্ডারের ধরনের জন্য প্রো মোডে যান",
   "perp_simple_order_book_volume__desc": "প্রদর্শিত অর্ডার বুক স্তরগুলোর ক্রয় ও বিক্রয়ের পরিমাণ।",
   "perp_simple_pro__desc": "উন্নত অর্ডার, অর্ডার বুক এবং প্রতিটি ট্রেডের ওপর আরও নিয়ন্ত্রণ।",
   "perp_simple_reopen_order__action": "অর্ডার পৃষ্ঠা আবার খুলুন",

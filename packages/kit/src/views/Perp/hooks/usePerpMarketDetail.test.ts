@@ -2,11 +2,15 @@
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
+
+import { loadPerpsCachedData } from '../utils/perpsCachedData';
 
 import {
   resolvePerpMarketDetail,
   usePerpFundingHistory,
+  usePerpResolvedMarketDetail,
 } from './usePerpMarketDetail';
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
@@ -240,5 +244,94 @@ describe('resolvePerpMarketDetail', () => {
       assetMetaKey: 'STX',
       assetId: 'blockstack',
     });
+  });
+});
+
+jest.mock('react-intl', () => ({
+  useIntl: () => ({ locale: 'en-US' }),
+}));
+jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  useSettingsPersistAtom: () => [{ currencyInfo: { id: 'usd' } }],
+}));
+jest.mock('@onekeyhq/shared/src/utils/swrCacheUtils', () => ({
+  swrCacheUtils: { get: jest.fn() },
+}));
+
+describe('market detail cache', () => {
+  it('scopes the cached snapshot by instrument, locale and currency', () => {
+    usePerpResolvedMarketDetail({ coin: 'BTC', displayName: 'BTC' });
+    expect(mockUsePromiseResult).toHaveBeenLastCalledWith(
+      expect.any(Function),
+      ['BTC', 'BTC', 'perpsMarketDetail:v1:["BTC","BTC","en-US","usd"]'],
+      expect.objectContaining({
+        swrKey: 'perpsMarketDetail:v1:["BTC","BTC","en-US","usd"]',
+      }),
+    );
+  });
+
+  it('retains cached detail when refresh fails', async () => {
+    const cached = {
+      assetMetaKey: 'BTC',
+      assetId: 'bitcoin',
+      localizedMessage: 'Bitcoin',
+    };
+    jest.mocked(swrCacheUtils.get).mockReturnValueOnce(cached);
+    mockServiceHyperliquid.getPerpsAssetMetaMap.mockRejectedValueOnce(
+      new Error('offline'),
+    );
+    usePerpResolvedMarketDetail({ coin: 'BTC', displayName: 'BTC' });
+    const method = mockUsePromiseResult.mock.calls.at(-1)?.[0];
+    expect(method).toBeDefined();
+    await expect(method?.()).resolves.toEqual(cached);
+  });
+});
+
+describe('scoped Perps cache fallback', () => {
+  const cacheKey = 'perpsSimplePortfolio:v3:0xabc';
+  const failure = new Error('offline');
+
+  beforeEach(() => {
+    jest.mocked(swrCacheUtils.get).mockReset();
+  });
+
+  it('uses fresh data when refresh succeeds', async () => {
+    const fresh = { address: '0xabc', value: '12' };
+    await expect(
+      loadPerpsCachedData(cacheKey, async () => fresh),
+    ).resolves.toBe(fresh);
+    expect(swrCacheUtils.get).not.toHaveBeenCalled();
+  });
+
+  it('retains the same scoped snapshot after a failed refresh', async () => {
+    const cached = { address: '0xabc', value: '10' };
+    jest.mocked(swrCacheUtils.get).mockReturnValueOnce(cached);
+    await expect(
+      loadPerpsCachedData(cacheKey, async () => {
+        throw failure;
+      }),
+    ).resolves.toBe(cached);
+    expect(swrCacheUtils.get).toHaveBeenCalledWith(cacheKey);
+  });
+
+  it('does not substitute another account cache after switching accounts', async () => {
+    jest
+      .mocked(swrCacheUtils.get)
+      .mockImplementation((key) =>
+        key === cacheKey ? { address: '0xabc' } : undefined,
+      );
+    await expect(
+      loadPerpsCachedData('perpsSimplePortfolio:v3:0xdef', async () => {
+        throw failure;
+      }),
+    ).rejects.toBe(failure);
+  });
+
+  it('preserves the error without reading a cache when no scope exists', async () => {
+    await expect(
+      loadPerpsCachedData(undefined, async () => {
+        throw failure;
+      }),
+    ).rejects.toBe(failure);
+    expect(swrCacheUtils.get).not.toHaveBeenCalled();
   });
 });

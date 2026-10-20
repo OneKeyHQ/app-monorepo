@@ -3589,6 +3589,7 @@
   "perp_simple_limit_price_accessibility__desc": "ราคาลิมิตเป็น USD: {price}",
   "perp_simple_minimum_order_value__msg": "มูลค่าคำสั่งขั้นต่ำคือ {amount}",
   "perp_simple_mode__title": "โหมดการซื้อขาย",
+  "perp_simple_more_order_types__desc": "หากต้องการประเภทคำสั่งเพิ่มเติม ให้เปลี่ยนเป็นโหมด Pro",
   "perp_simple_order_book_volume__desc": "ปริมาณซื้อและขายในระดับราคาที่แสดงในสมุดคำสั่ง",
   "perp_simple_pro__desc": "คำสั่งขั้นสูง สมุดคำสั่ง และการควบคุมแต่ละการซื้อขายที่มากขึ้น",
   "perp_simple_reopen_order__action": "เปิดหน้าคำสั่งอีกครั้ง",

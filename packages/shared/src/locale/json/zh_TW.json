@@ -3589,6 +3589,7 @@
   "perp_simple_limit_price_accessibility__desc": "限價（美元）：{price}",
   "perp_simple_minimum_order_value__msg": "最低訂單金額為 {amount}",
   "perp_simple_mode__title": "交易模式",
+  "perp_simple_more_order_types__desc": "更多訂單類型，請前往專業版",
   "perp_simple_order_book_volume__desc": "目前顯示的訂單簿檔位中的買賣量。",
   "perp_simple_pro__desc": "使用進階訂單和訂單簿，更精細地控制每筆交易。",
   "perp_simple_reopen_order__action": "重新開啟下單頁",

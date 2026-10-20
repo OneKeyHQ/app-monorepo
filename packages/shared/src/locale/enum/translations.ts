@@ -3594,6 +3594,7 @@ export enum ETranslations {
   perp_simple_limit_price_accessibility__desc = 'perp_simple_limit_price_accessibility__desc',
   perp_simple_minimum_order_value__msg = 'perp_simple_minimum_order_value__msg',
   perp_simple_mode__title = 'perp_simple_mode__title',
+  perp_simple_more_order_types__desc = 'perp_simple_more_order_types__desc',
   perp_simple_order_book_volume__desc = 'perp_simple_order_book_volume__desc',
   perp_simple_pro__desc = 'perp_simple_pro__desc',
   perp_simple_reopen_order__action = 'perp_simple_reopen_order__action',

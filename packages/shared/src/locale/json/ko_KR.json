@@ -3589,6 +3589,7 @@
   "perp_simple_limit_price_accessibility__desc": "지정가(USD): {price}",
   "perp_simple_minimum_order_value__msg": "최소 주문 금액은 {amount}입니다",
   "perp_simple_mode__title": "거래 모드",
+  "perp_simple_more_order_types__desc": "더 많은 주문 유형을 이용하려면 Pro 모드로 전환하세요",
   "perp_simple_order_book_volume__desc": "표시된 호가창 가격대의 매수 및 매도 수량입니다.",
   "perp_simple_pro__desc": "고급 주문, 호가창 등으로 각 거래를 더 세밀하게 제어하세요.",
   "perp_simple_reopen_order__action": "주문 페이지 다시 열기",

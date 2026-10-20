@@ -3589,6 +3589,7 @@
   "perp_simple_limit_price_accessibility__desc": "Preço limite em USD: {price}",
   "perp_simple_minimum_order_value__msg": "O valor mínimo da ordem é {amount}",
   "perp_simple_mode__title": "Modo de negociação",
+  "perp_simple_more_order_types__desc": "Para mais tipos de ordens, mude para o modo Pro",
   "perp_simple_order_book_volume__desc": "Volumes de compra e venda nos níveis exibidos do livro de ordens.",
   "perp_simple_pro__desc": "Ordens avançadas, livro de ordens e mais controle sobre cada negociação.",
   "perp_simple_reopen_order__action": "Reabrir a página da ordem",
