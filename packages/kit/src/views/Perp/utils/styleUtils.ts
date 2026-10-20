@@ -1,52 +1,55 @@
 import type { ColorTokens } from 'tamagui';
 
 export type ITradeSide = 'long' | 'short';
+export type IPerpActionButtonVariant = 'accent' | 'destructive';
 
-interface ITradingButtonStyleProps {
+interface IPerpActionButtonStyleProps {
   bg: ColorTokens;
   hoverStyle: { bg: ColorTokens };
   pressStyle: { bg: ColorTokens };
   textColor: ColorTokens;
 }
 
-// Long = design-system "accent", short = "destructive". These semantic tokens
-// are theme-aware (same rationale as TradingButtonGroup's
-// PERP_SIDE_BUTTON_STYLES), so no light/dark branching is needed. Frozen
-// module-level constants keep the returned reference stable across renders, so
-// consumers that memoize on it (e.g. PerpMarketFooter.android) don't rebuild
-// their button subtrees on every render.
-const TRADING_BUTTON_STYLE_PROPS: Record<ITradeSide, ITradingButtonStyleProps> =
-  {
-    long: {
-      bg: '$bgAccent',
-      hoverStyle: { bg: '$bgAccentHover' },
-      pressStyle: { bg: '$bgAccentActive' },
-      textColor: '$textInverse',
-    },
-    short: {
-      bg: '$bgCriticalStrong',
-      hoverStyle: { bg: '$bgCriticalStrongHover' },
-      pressStyle: { bg: '$bgCriticalStrongActive' },
-      textColor: '$textOnColor',
-    },
-  };
+// Accent is shared by Long and Deposit; destructive is used for Short.
+// Keep references stable for memoized native button consumers.
+const ACTION_BUTTON_STYLE_PROPS: Record<
+  IPerpActionButtonVariant,
+  IPerpActionButtonStyleProps
+> = {
+  accent: {
+    bg: '$bgAccent',
+    hoverStyle: { bg: '$bgAccentHover' },
+    pressStyle: { bg: '$bgAccentActive' },
+    textColor: '$textInverse',
+  },
+  destructive: {
+    bg: '$bgCriticalStrong',
+    hoverStyle: { bg: '$bgCriticalStrongHover' },
+    pressStyle: { bg: '$bgCriticalStrongActive' },
+    textColor: '$textOnColor',
+  },
+};
 
 /**
- * Get trading button style props based on side and disabled state.
+ * Adapt trading sides to the shared action-button palette.
  */
 export function getTradingButtonStyleProps(
   side: ITradeSide,
-  disabled = false,
-): ITradingButtonStyleProps {
-  const styles = TRADING_BUTTON_STYLE_PROPS[side];
-  return disabled ? { ...styles, textColor: '$textDisabled' } : styles;
+): IPerpActionButtonStyleProps {
+  // Button owns disabled opacity; preserve the paired foreground color.
+  return getPerpActionButtonStyleProps(
+    side === 'long' ? 'accent' : 'destructive',
+  );
 }
 
-export function getTradingButtonStyleValues(
-  side: ITradeSide,
-  disabled = false,
-) {
-  const styles = getTradingButtonStyleProps(side, disabled);
+export function getPerpActionButtonStyleProps(
+  variant: IPerpActionButtonVariant,
+): IPerpActionButtonStyleProps {
+  return ACTION_BUTTON_STYLE_PROPS[variant];
+}
+
+export function getTradingButtonStyleValues(side: ITradeSide) {
+  const styles = getTradingButtonStyleProps(side);
   return {
     bg: styles.bg,
     hoverBg: styles.hoverStyle.bg,
@@ -55,8 +58,8 @@ export function getTradingButtonStyleValues(
   };
 }
 
-export function GetTradingButtonStyleProps(side: ITradeSide, disabled = false) {
-  return getTradingButtonStyleProps(side, disabled);
+export function GetTradingButtonStyleProps(side: ITradeSide) {
+  return getTradingButtonStyleProps(side);
 }
 
 export function getTradingSideTextColor(
