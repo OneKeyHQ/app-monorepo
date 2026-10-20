@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import {
   AnimatePresence,
   Page,
+  SizableText,
   Stack,
   XStack,
   YStack,
@@ -234,8 +235,27 @@ function ReferAFriendPageWrapper() {
           // Same container width as the logged-in page, so the tabs do not
           // move when the user signs in.
           <Page.Container padded={false}>
-            <XStack px="$pagePadding" pt="$5" pb="$4">
+            <XStack
+              px="$pagePadding"
+              pt="$5"
+              pb="$4"
+              ai="center"
+              jc="space-between"
+              gap="$3"
+            >
               <ReferralJobTabs value={activeTab} onChange={setActiveTab} />
+              {/* Same intro at the right of the tabs as the signed-in page;
+                  compact layouts show it atop the Perks content. */}
+              {md ? null : (
+                <SizableText
+                  size="$bodyMd"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                  flexShrink={1}
+                >
+                  {REFERRAL_TAB_COPY.perksIntro}
+                </SizableText>
+              )}
             </XStack>
           </Page.Container>
         ) : null}

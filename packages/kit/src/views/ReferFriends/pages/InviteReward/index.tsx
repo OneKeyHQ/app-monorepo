@@ -49,6 +49,7 @@ import {
   IS_BENEFITS_TAB_ENABLED,
   resolveReferralPageTab,
 } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralPageTab';
+import { REFERRAL_TAB_COPY } from '@onekeyhq/kit/src/views/ReferFriends/pages/InviteReward/referralTabCopy';
 import {
   getInviteCodeStepImageHeight,
   getInviteCodeStepImageWidth,
@@ -649,7 +650,18 @@ function InviteRewardPage() {
                     {platformEnv.isWeb ? <LogoutButton /> : null}
                   </XStack>
                 </XStack>
-              ) : null}
+              ) : (
+                // Perks says whose rewards these are where the invite tab
+                // keeps its level and rules.
+                <SizableText
+                  size="$bodyMd"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                  flexShrink={1}
+                >
+                  {REFERRAL_TAB_COPY.perksIntro}
+                </SizableText>
+              )}
             </XStack>
           </Page.Container>
         )}
