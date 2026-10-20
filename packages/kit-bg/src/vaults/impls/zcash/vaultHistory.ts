@@ -1,4 +1,5 @@
 import { zatoshiToZec } from '@onekeyhq/core/src/chains/zcash/sdkZcash/amount';
+import { ZCASH_POOL_IDS } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 import type {
   IZcashHistoryItem,
   IZcashTxDetails,
@@ -192,63 +193,64 @@ export async function fetchAccountHistoryDetail(
     }
   }
 
-  const poolLabel = (pool: string) =>
-    `${pool.charAt(0).toUpperCase()}${pool.slice(1)} pool`;
+  // Shielded entries carry no address of their own; they name their pool.
+  const poolIdOf = (pool: string): number | undefined =>
+    ZCASH_POOL_IDS[pool as keyof typeof ZCASH_POOL_IDS];
   const toZec = (value: string) => zatoshiToZec(value);
   const sends: IOnChainHistoryTx['sends'] = details.spent.map((s) => {
     const isShielded = s.pool !== 'transparent';
-    const label = isShielded ? poolLabel(s.pool) : '';
     return {
       type: isShielded
         ? EOnChainHistoryTransferType.Shielded
         : EOnChainHistoryTransferType.Transfer,
-      address: isShielded ? label : (s.address ?? ''),
+      address: isShielded ? '' : (s.address ?? ''),
       from: isShielded ? '' : (s.address ?? ''),
       to: '',
       token: '',
       key: '',
       amount: toZec(s.value),
-      label,
+      label: '',
+      ...(isShielded ? { poolId: poolIdOf(s.pool) } : {}),
       isNative: true,
       isOwn: true,
     };
   });
   const receives: IOnChainHistoryTx['receives'] = [
-    ...details.external.map((e) => ({
-      type:
-        e.pool === 'transparent'
-          ? EOnChainHistoryTransferType.Transfer
-          : EOnChainHistoryTransferType.Shielded,
-      address: e.address ?? '',
-      from: '',
-      to: e.address ?? '',
-      token: '',
-      key: '',
-      amount: toZec(e.value),
-      label: e.pool === 'transparent' ? '' : poolLabel(e.pool),
-      isNative: true,
-      isOwn: false,
-    })),
+    ...details.external.map((e) => {
+      const isShielded = e.pool !== 'transparent';
+      return {
+        type: isShielded
+          ? EOnChainHistoryTransferType.Shielded
+          : EOnChainHistoryTransferType.Transfer,
+        address: e.address ?? '',
+        from: '',
+        to: e.address ?? '',
+        token: '',
+        key: '',
+        amount: toZec(e.value),
+        label: '',
+        ...(isShielded ? { poolId: poolIdOf(e.pool) } : {}),
+        isNative: true,
+        isOwn: false,
+      };
+    }),
     // Payment details omit change; the wallet I/O view includes it explicitly.
     ...details.received
       .filter((r) => params.withUTXOs || !r.internal)
       .map((r) => {
         const isShielded = r.pool !== 'transparent';
-        const label = isShielded ? poolLabel(r.pool) : '';
         return {
           type: isShielded
             ? EOnChainHistoryTransferType.Shielded
             : EOnChainHistoryTransferType.Transfer,
-          address:
-            isShielded && (r.internal || !r.address)
-              ? label
-              : (r.address ?? ''),
+          address: isShielded && r.internal ? '' : (r.address ?? ''),
           from: '',
           to: isShielded && r.internal ? '' : (r.address ?? ''),
           token: '',
           key: '',
           amount: toZec(r.value),
-          label,
+          label: '',
+          ...(isShielded ? { poolId: poolIdOf(r.pool) } : {}),
           isNative: true,
           isOwn: true,
           isChange: r.internal,
@@ -312,11 +314,13 @@ export async function fetchAccountHistoryDetail(
                     // Public indexer doesn't identify wallet change; preserve a matching change output known locally.
                     ...(receives.filter(
                       (local) =>
+                        local.type !== EOnChainHistoryTransferType.Shielded &&
                         local.address === receive.address &&
                         local.amount === receive.amount,
                     ).length === 1 &&
                     receives.some(
                       (local) =>
+                        local.type !== EOnChainHistoryTransferType.Shielded &&
                         local.isChange &&
                         local.address === receive.address &&
                         local.amount === receive.amount,

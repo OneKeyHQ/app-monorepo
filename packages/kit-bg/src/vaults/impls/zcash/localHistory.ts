@@ -1,9 +1,6 @@
 import BigNumber from 'bignumber.js';
 
-import {
-  ZCASH_DECIMALS,
-  ZCASH_POOL_NAME_BY_ID,
-} from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
+import { ZCASH_DECIMALS } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 import type { IZcashHistoryItem } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
@@ -12,6 +9,8 @@ import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 import type {
   IDecodedTx,
   IDecodedTxAction,
+  IDecodedTxActionAssetTransfer,
+  IDecodedTxShieldedEndpoint,
   IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 
@@ -66,11 +65,37 @@ export function resolvePrivacyChainHistorySide({
   return undefined;
 }
 
-const SHIELDED_COUNTERPARTY = 'Shielded';
+// A shielded endpoint keeps an address only when it is exactly known; it
+// names its pool when known and whether it is this account's side.
+export type IZcashHistoryEndpoint = {
+  address: string;
+  shielded?: IDecodedTxShieldedEndpoint;
+};
 
-function zcashPoolLabel(poolId: string): string {
-  const name = ZCASH_POOL_NAME_BY_ID[poolId] ?? `pool ${poolId}`;
-  return `${name.charAt(0).toUpperCase()}${name.slice(1)} pool`;
+// The other party inside a shielded pool: the protocol hides its address.
+function shieldedCounterparty(poolId?: string): IZcashHistoryEndpoint {
+  return {
+    address: '',
+    shielded: poolId === undefined ? {} : { poolId: Number(poolId) },
+  };
+}
+
+// This account's side in one of its shielded pools.
+function zcashPoolEndpoint(poolId: string): IZcashHistoryEndpoint {
+  return { address: '', shielded: { poolId: Number(poolId), isOwn: true } };
+}
+
+function withZcashEndpoints<
+  T extends Pick<IDecodedTxTransferInfo, 'from' | 'to'> &
+    Pick<IDecodedTxActionAssetTransfer, 'shieldedFrom' | 'shieldedTo'>,
+>(target: T, from: IZcashHistoryEndpoint, to: IZcashHistoryEndpoint): T {
+  return {
+    ...target,
+    from: from.address,
+    to: to.address,
+    ...(from.shielded ? { shieldedFrom: from.shielded } : {}),
+    ...(to.shielded ? { shieldedTo: to.shielded } : {}),
+  };
 }
 
 // The shielded pool this account spent from (sent) or received into.
@@ -91,14 +116,14 @@ function resolveOwnShieldedPool({
 }
 
 // Where an internal move came from and went to, by pool. The transparent
-// side keeps the real address; shielded sides are labeled by pool.
+// side keeps the real address; shielded sides name their pool.
 export function resolveInternalMoveEndpoints({
   item,
   ownAddress,
 }: {
   item: Pick<IZcashHistoryItem, 'perPoolBalanceDeltaZat'>;
   ownAddress: string;
-}): { from: string; to: string } {
+}): { from: IZcashHistoryEndpoint; to: IZcashHistoryEndpoint } {
   const deltas = Object.entries(item.perPoolBalanceDeltaZat ?? {}).map(
     ([poolId, delta]) => [poolId, BigInt(delta)] as const,
   );
@@ -107,18 +132,19 @@ export function resolveInternalMoveEndpoints({
   const transparentDelta = deltas.find(([id]) => id === '0')?.[1] ?? 0n;
   const shieldedSpent = spentPools.find((id) => id !== '0');
   const shieldedReceived = receivedPools.find((id) => id !== '0');
+  const own: IZcashHistoryEndpoint = { address: ownAddress };
   if (transparentDelta > 0n) {
     // withdraw: shielded pool -> own transparent address
-    return { from: zcashPoolLabel(shieldedSpent ?? '0'), to: ownAddress };
+    return { from: zcashPoolEndpoint(shieldedSpent ?? '0'), to: own };
   }
   if (transparentDelta < 0n) {
     // shield: own transparent address -> shielded pool
-    return { from: ownAddress, to: zcashPoolLabel(shieldedReceived ?? '0') };
+    return { from: own, to: zcashPoolEndpoint(shieldedReceived ?? '0') };
   }
   const source = shieldedSpent ?? spentPools[0] ?? '0';
   return {
-    from: zcashPoolLabel(source),
-    to: zcashPoolLabel(shieldedReceived ?? receivedPools[0] ?? source),
+    from: zcashPoolEndpoint(source),
+    to: zcashPoolEndpoint(shieldedReceived ?? receivedPools[0] ?? source),
   };
 }
 
@@ -166,10 +192,15 @@ export async function buildZcashLocalHistoryTx({
   // Own address stands in for "this account" so buildTxActionDirection can
   // read direction from it. A shielded sender is unknowable; a shielded
   // recipient survives a rescan only if we recorded it.
-  let from = isSent || isInternal ? ownAddress : SHIELDED_COUNTERPARTY;
-  let to = ownAddress;
+  const ownPoolId = resolveOwnShieldedPool({ item, isSent }) ?? '0';
+  // An incoming note's sender is hidden; it paid into the receiving pool.
+  let from: IZcashHistoryEndpoint =
+    isSent || isInternal
+      ? { address: ownAddress }
+      : shieldedCounterparty(ownPoolId);
+  let to: IZcashHistoryEndpoint = { address: ownAddress };
   if (!isInternal && isSent) {
-    to = item.recipient || SHIELDED_COUNTERPARTY;
+    to = item.recipient ? { address: item.recipient } : shieldedCounterparty();
   }
   if (isInternal) {
     // Name the pools instead of reusing the own address on both ends (that
@@ -179,9 +210,9 @@ export async function buildZcashLocalHistoryTx({
     to = endpoints.to;
   }
   // Classify internal movements as our own send before replacing account
-  // identifiers with pool labels. Pool labels alone are not account addresses.
-  const actionFrom = isInternal ? ownAddress : from;
-  const actionTo = isInternal ? ownAddress : to;
+  // identifiers with pool endpoints, which carry no account address.
+  const actionFrom = isInternal ? ownAddress : from.address;
+  const actionTo = isInternal ? ownAddress : to.address;
   const action = await buildTransferAction({
     from: actionFrom,
     to: actionTo,
@@ -200,33 +231,28 @@ export async function buildZcashLocalHistoryTx({
     ],
   });
   if (action.assetTransfer && isInternal) {
-    action.assetTransfer.from = from;
-    action.assetTransfer.to = to;
+    action.assetTransfer = withZcashEndpoints(action.assetTransfer, from, to);
     action.assetTransfer.sends = action.assetTransfer.sends.map((send) => ({
-      ...send,
-      from,
-      to,
+      ...withZcashEndpoints(send, from, to),
       isOwn: true,
     }));
   }
   // Own transparent address only fixed direction above; a shielded leg has
-  // no address, so it's relabeled by pool + isOwn (never shown as the t-address).
+  // no address, so it names its pool + isOwn (never shown as the t-address).
   if (action.assetTransfer && !isInternal) {
-    const ownPoolLabel = zcashPoolLabel(
-      resolveOwnShieldedPool({ item, isSent }) ?? '0',
-    );
+    const ownPool = zcashPoolEndpoint(ownPoolId);
+    // Only a sent row has sends and only a received row has receives.
     action.assetTransfer.sends = action.assetTransfer.sends.map((s) => ({
-      ...s,
-      from: ownPoolLabel,
+      ...withZcashEndpoints(s, ownPool, to),
       isOwn: true,
     }));
     action.assetTransfer.receives = action.assetTransfer.receives.map((r) => ({
-      ...r,
-      to: ownPoolLabel,
+      ...withZcashEndpoints(r, from, ownPool),
       isOwn: true,
     }));
-    action.assetTransfer.from = isSent ? ownPoolLabel : from;
-    action.assetTransfer.to = isSent ? to : ownPoolLabel;
+    action.assetTransfer = isSent
+      ? withZcashEndpoints(action.assetTransfer, ownPool, to)
+      : withZcashEndpoints(action.assetTransfer, from, ownPool);
   }
   // unmined txs have no block time; without a stand-in they sort to the
   // BOTTOM of the history list (sort key falls back to 0)

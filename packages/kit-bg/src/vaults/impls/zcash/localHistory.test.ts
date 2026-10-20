@@ -119,7 +119,10 @@ describe('resolveInternalMoveEndpoints', () => {
         ownAddress,
         item: { perPoolBalanceDeltaZat: { '4': '-2821200', '0': '2811200' } },
       }),
-    ).toEqual({ from: 'Ironwood pool', to: ownAddress });
+    ).toEqual({
+      from: { address: '', shielded: { poolId: 4, isOwn: true } },
+      to: { address: ownAddress },
+    });
   });
 
   it('shows a shield as money leaving the transparent address', () => {
@@ -128,7 +131,10 @@ describe('resolveInternalMoveEndpoints', () => {
         ownAddress,
         item: { perPoolBalanceDeltaZat: { '0': '-500000', '4': '490000' } },
       }),
-    ).toEqual({ from: ownAddress, to: 'Ironwood pool' });
+    ).toEqual({
+      from: { address: ownAddress },
+      to: { address: '', shielded: { poolId: 4, isOwn: true } },
+    });
   });
 
   it('labels a pool-to-pool move by both pools', () => {
@@ -137,7 +143,10 @@ describe('resolveInternalMoveEndpoints', () => {
         ownAddress,
         item: { perPoolBalanceDeltaZat: { '3': '-110000', '4': '100000' } },
       }),
-    ).toEqual({ from: 'Orchard pool', to: 'Ironwood pool' });
+    ).toEqual({
+      from: { address: '', shielded: { poolId: 3, isOwn: true } },
+      to: { address: '', shielded: { poolId: 4, isOwn: true } },
+    });
   });
 });
 
@@ -173,12 +182,16 @@ describe('buildZcashLocalHistoryTx counterparties', () => {
     expect(tx.decodedTx.nativeAmount).toBe('1');
     expect(tx.decodedTx.totalFeeInNative).toBe('0.0001');
     expect(tx.decodedTx.actions[0].assetTransfer).toMatchObject({
-      from: 'Ironwood pool',
-      to: 'Ironwood pool',
+      from: '',
+      to: '',
+      shieldedFrom: { poolId: 4, isOwn: true },
+      shieldedTo: { poolId: 4, isOwn: true },
       sends: [
         {
-          from: 'Ironwood pool',
-          to: 'Ironwood pool',
+          from: '',
+          to: '',
+          shieldedFrom: { poolId: 4, isOwn: true },
+          shieldedTo: { poolId: 4, isOwn: true },
           amount: '1',
           isOwn: true,
         },
@@ -199,18 +212,29 @@ describe('buildZcashLocalHistoryTx counterparties', () => {
     expect(tx.decodedTx.totalFeeInNative).toBe('0.0001');
   });
 
-  it('labels an unknown shielded sender instead of leaving it blank', async () => {
+  it('marks a hidden shielded sender by the pool it paid into', async () => {
     const tx = await build({ ...historyItem('r'), txType: 'received' });
     const transfer = tx.decodedTx.actions[0].assetTransfer;
-    expect(transfer?.receives[0]).toMatchObject({
-      from: 'Shielded',
-      to: 'Ironwood pool',
-      isOwn: true,
+    expect(transfer).toMatchObject({
+      from: '',
+      to: '',
+      shieldedFrom: { poolId: 4 },
+      shieldedTo: { poolId: 4, isOwn: true },
     });
+    expect(transfer?.shieldedFrom?.isOwn).toBeUndefined();
+    expect(transfer?.receives[0]).toEqual(
+      expect.objectContaining({
+        from: '',
+        to: '',
+        shieldedFrom: { poolId: 4 },
+        shieldedTo: { poolId: 4, isOwn: true },
+        isOwn: true,
+      }),
+    );
     expect(transfer?.sends).toEqual([]);
   });
 
-  it('labels a shielded recipient lost to a rescan', async () => {
+  it('marks a shielded recipient lost to a rescan', async () => {
     const tx = await build({
       ...historyItem('s'),
       txType: 'sent',
@@ -221,9 +245,17 @@ describe('buildZcashLocalHistoryTx counterparties', () => {
     });
     const transfer = tx.decodedTx.actions[0].assetTransfer;
     expect(transfer?.sends[0]).toMatchObject({
-      from: 'Ironwood pool',
-      to: 'Shielded',
+      from: '',
+      to: '',
+      shieldedFrom: { poolId: 4, isOwn: true },
+      shieldedTo: {},
       isOwn: true,
+    });
+    expect(transfer).toMatchObject({
+      from: '',
+      to: '',
+      shieldedFrom: { poolId: 4, isOwn: true },
+      shieldedTo: {},
     });
   });
 
@@ -239,5 +271,32 @@ describe('buildZcashLocalHistoryTx counterparties', () => {
     expect(tx.decodedTx.actions[0].assetTransfer?.sends[0].to).toBe(
       'u1recipient',
     );
+    expect(
+      tx.decodedTx.actions[0].assetTransfer?.sends[0].shieldedTo,
+    ).toBeUndefined();
+  });
+
+  it('keeps the transparent side of a shield as a real address', async () => {
+    const tx = await build({
+      ...historyItem('shield'),
+      txType: 'shielded',
+      fee: '10000',
+      valueZat: '490000',
+      perPoolBalanceDeltaZat: { '0': '-500000', '4': '490000' },
+    });
+    const transfer = tx.decodedTx.actions[0].assetTransfer;
+    expect(transfer).toMatchObject({
+      from: 't1own',
+      to: '',
+      shieldedTo: { poolId: 4, isOwn: true },
+    });
+    expect(transfer?.shieldedFrom).toBeUndefined();
+    expect(transfer?.sends[0]).toMatchObject({
+      from: 't1own',
+      to: '',
+      shieldedTo: { poolId: 4, isOwn: true },
+      isOwn: true,
+    });
+    expect(transfer?.sends[0].shieldedFrom).toBeUndefined();
   });
 });

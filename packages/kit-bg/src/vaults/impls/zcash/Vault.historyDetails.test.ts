@@ -76,7 +76,8 @@ it.each([
       amount: '0.00012345',
       address: selfPayment ? payment.address : '',
       to: selfPayment ? payment.address : '',
-      label: 'Ironwood pool',
+      label: '',
+      poolId: 4,
       isOwn: selfPayment,
     });
     expect(detail.receives).toHaveLength(withUTXOs ? 2 : 1);

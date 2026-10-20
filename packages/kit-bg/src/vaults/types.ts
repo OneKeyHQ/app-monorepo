@@ -252,6 +252,8 @@ export type IVaultSettings = {
     tipLagWarningBlocks: number;
     // Display order is tab order. At most one backend pool.
     pools: ILocalWalletPoolDescriptor[];
+    // Pools history may name but that have no tab, balance or address.
+    historyOnlyPools?: { id: number; label: string }[];
     accountSetup: {
       // Enabling asks the user for a recovery month or height.
       requiresBirthday: boolean;
@@ -274,6 +276,9 @@ export type IVaultSettings = {
     publicAddressPattern?: string;
     // Formats of wallet-known private recipients; never a public-chain claim.
     privateAddressPattern?: string;
+    // Names a history endpoint the chain keeps private when its pool is not
+    // known (an unknown counterparty). Absent: a generic "Shielded".
+    hiddenEndpointLabelId?: ETranslations | ETranslationsMock;
     // A superset of every address validateAddress accepts, as a RegExp
     // source: lets callers skip a runtime-backed validator for input that
     // cannot match. Absent: always validate.

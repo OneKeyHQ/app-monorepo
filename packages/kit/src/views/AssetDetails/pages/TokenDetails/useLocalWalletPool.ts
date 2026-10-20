@@ -30,6 +30,7 @@ import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDistanceStrict } from '@onekeyhq/shared/src/utils/dateUtils';
+import { getLocalWalletPoolDisplayAddress } from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
 import {
   PRIVACY_CHAIN_SYNC_POLL_MS,
   isTipLagWorthMentioning,
@@ -454,12 +455,11 @@ export function useLocalWalletPool({
     () => balance?.pools.find((item) => item.key === pool?.key),
     [balance?.pools, pool?.key],
   );
-  const poolAddress = useMemo(() => {
-    if (!pool) return undefined;
-    if (pool.kind === 'public') return addresses?.publicAddress;
-    // A legacy pool has nowhere to receive; offering its address would invite value the chain no longer accepts.
-    return pool.receivesFunds === false ? undefined : addresses?.privateAddress;
-  }, [addresses, pool]);
+  // A legacy pool has nowhere to receive; offering its address would invite value the chain no longer accepts.
+  const poolAddress = useMemo(
+    () => getLocalWalletPoolDisplayAddress({ pool, addresses }),
+    [addresses, pool],
+  );
 
   useEffect(() => {
     if (!canReadBalance || !pool) return;

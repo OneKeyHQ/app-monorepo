@@ -1,9 +1,9 @@
-import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
-
 import {
-  XMR_UNKNOWN_COUNTERPARTY,
-  buildXmrLocalHistoryTx,
-} from './localHistory';
+  EDecodedTxActionType,
+  EDecodedTxStatus,
+} from '@onekeyhq/shared/types/tx';
+
+import { buildXmrLocalHistoryTx } from './localHistory';
 
 import type { IXmrHistoryItem } from './types';
 
@@ -88,30 +88,84 @@ describe('xmr history rows', () => {
 
   /**
    * Monero's whole design is that the payer is not derivable from the chain.
-   * An empty address renders as a missing value the user might read as a bug,
-   * or worse as their own address.
+   * The sender has no address; the endpoint is marked private instead of
+   * carrying a placeholder string the UI could mistake for an address.
    */
-  it('labels the unknowable sender instead of leaving it blank', async () => {
+  it('marks the unknowable sender as private without an address', async () => {
     const row = await build({ direction: 'in', receivedAtomic: '1' });
-    const action = row.decodedTx.actions[0] as unknown as { from: string };
-    expect(action.from).toBe(XMR_UNKNOWN_COUNTERPARTY);
-    expect(XMR_UNKNOWN_COUNTERPARTY).toBe('Private');
+    const action = row.decodedTx.actions[0] as unknown as {
+      from: string;
+      transfers: { from: string; shieldedFrom?: object; shieldedTo?: object }[];
+    };
+    expect(action.from).toBe('');
+    expect(action.transfers[0]).toMatchObject({
+      from: '',
+      shieldedFrom: { poolId: 1 },
+      shieldedTo: { poolId: 1, isOwn: true },
+    });
+  });
+
+  it('marks the private side on the built transfer action', async () => {
+    const row = await buildXmrLocalHistoryTx({
+      item: {
+        txid: 'bb',
+        height: 100,
+        direction: 'in',
+        receivedAtomic: '1',
+        spentAtomic: '0',
+        timestamp: 1_700_000_000,
+      },
+      ownAddress: OWN,
+      nativeToken,
+      networkId: 'xmr--0',
+      accountId: 'hd-1--x',
+      accountAddress: OWN,
+      buildTransferAction: async ({ from, to, transfers }) => ({
+        type: EDecodedTxActionType.ASSET_TRANSFER,
+        assetTransfer: { from, to, sends: [], receives: transfers },
+      }),
+    });
+    // Which of our addresses received it is unknown: our side names none.
+    expect(row.decodedTx.actions[0].assetTransfer).toMatchObject({
+      from: '',
+      to: '',
+      shieldedFrom: { poolId: 1 },
+      shieldedTo: { poolId: 1, isOwn: true },
+    });
+    expect(row.decodedTx.actions[0].assetTransfer?.receives[0].to).toBe('');
+    expect(row.decodedTx.owner).toBe(OWN);
   });
 
   it('shows the recipient we recorded at broadcast', async () => {
     const row = await build({ direction: 'out', spentAtomic: '1' }, PAID);
-    const action = row.decodedTx.actions[0] as unknown as { to: string };
+    const action = row.decodedTx.actions[0] as unknown as {
+      to: string;
+      transfers: { shieldedFrom?: object; shieldedTo?: object }[];
+    };
     expect(action.to).toBe(PAID);
+    expect(action.transfers[0].shieldedTo).toBeUndefined();
+    expect(action.transfers[0].shieldedFrom).toEqual({
+      poolId: 1,
+      isOwn: true,
+    });
   });
 
   /**
    * After a rescan the recording is gone -- nothing on chain carries it. The
-   * row must still render rather than showing an empty destination.
+   * destination is marked private rather than left as an unexplained blank.
    */
-  it('falls back to the label when the recipient was never recorded', async () => {
+  it('marks the recipient private when it was never recorded', async () => {
     const row = await build({ direction: 'out', spentAtomic: '1' });
-    const action = row.decodedTx.actions[0] as unknown as { to: string };
-    expect(action.to).toBe(XMR_UNKNOWN_COUNTERPARTY);
+    const action = row.decodedTx.actions[0] as unknown as {
+      to: string;
+      transfers: { to: string; shieldedFrom?: object; shieldedTo?: object }[];
+    };
+    expect(action.to).toBe('');
+    expect(action.transfers[0]).toMatchObject({
+      to: '',
+      shieldedFrom: { poolId: 1, isOwn: true },
+      shieldedTo: { poolId: 1 },
+    });
   });
 
   /**

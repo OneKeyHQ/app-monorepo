@@ -205,9 +205,20 @@ export type IDecodedTxActionUnknown = IDecodedTxActionBase & {
   label?: string;
 };
 
+// Privacy chains: an endpoint inside a shielded pool. The matching address
+// field holds an address only when it is exactly known. `poolId` is a
+// settings.localWallet.pools id, absent when not known; `isOwn` marks this
+// account's side, which the UI shows with the account's displayed address.
+export type IDecodedTxShieldedEndpoint = {
+  poolId?: number;
+  isOwn?: boolean;
+};
+
 export type IDecodedTxTransferInfo = {
   from: string;
   to: string;
+  shieldedFrom?: IDecodedTxShieldedEndpoint;
+  shieldedTo?: IDecodedTxShieldedEndpoint;
   amount: string;
   icon: string;
   name: string;
@@ -216,6 +227,7 @@ export type IDecodedTxTransferInfo = {
   isNative?: boolean;
   isNFT?: boolean;
   isOwn?: boolean; // for UTXO
+  // A shielded input/output from history I/O; see shieldedFrom/shieldedTo.
   isShielded?: boolean;
   label?: string;
   price?: string;
@@ -235,6 +247,8 @@ export type IDecodedTxActionFunctionCall = IDecodedTxActionBase & {
 };
 
 export type IDecodedTxActionAssetTransfer = IDecodedTxActionBase & {
+  shieldedFrom?: IDecodedTxShieldedEndpoint;
+  shieldedTo?: IDecodedTxShieldedEndpoint;
   sends: IDecodedTxTransferInfo[];
   receives: IDecodedTxTransferInfo[];
   utxoFrom?: IUtxoAddressInfo[];

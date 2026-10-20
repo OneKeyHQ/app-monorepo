@@ -293,6 +293,12 @@ export function NativeHistoryList(
         token: Awaited<
           ReturnType<typeof backgroundApiProxy.serviceToken.getNativeToken>
         >;
+        // Privacy chains: the addresses Receive shows, for this account's side.
+        localWalletAddresses?: Awaited<
+          ReturnType<
+            typeof backgroundApiProxy.servicePrivacyChain.getLocalWalletAccountAddresses
+          >
+        >;
       }
     >(),
   );
@@ -314,7 +320,12 @@ export function NativeHistoryList(
               }),
               backgroundApiProxy.serviceToken.getNativeToken(target),
             ]);
-            cache.set(key, { vault, token });
+            const localWalletAddresses = vault.localWallet
+              ? await backgroundApiProxy.servicePrivacyChain
+                  .getLocalWalletAccountAddresses(target)
+                  .catch(() => undefined)
+              : undefined;
+            cache.set(key, { vault, token, localWalletAddresses });
           }),
         { concurrency: 4, continueOnError: true },
       );
@@ -420,6 +431,20 @@ export function NativeHistoryList(
                   history.decodedTx.accountId,
                 ])
               ]?.vault?.isUtxo,
+            localWallet:
+              networkData?.[
+                JSON.stringify([
+                  history.decodedTx.networkId,
+                  history.decodedTx.accountId,
+                ])
+              ]?.vault?.localWallet,
+            localWalletAddresses:
+              networkData?.[
+                JSON.stringify([
+                  history.decodedTx.networkId,
+                  history.decodedTx.accountId,
+                ])
+              ]?.localWalletAddresses,
             hideValue: effectiveHideValue,
             currency: settings.currencyInfo.symbol,
             isAllNetworks: network?.isAllNetworks,

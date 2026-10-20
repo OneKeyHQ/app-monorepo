@@ -277,7 +277,9 @@ it('includes known change only in wallet I/O and preserves the selected private 
   expect(io.receives).toEqual([
     expect.objectContaining({
       amount: '0.4',
-      label: 'Ironwood pool',
+      address: '',
+      label: '',
+      poolId: 4,
       isChange: true,
       type: EOnChainHistoryTransferType.Shielded,
     }),
@@ -322,7 +324,9 @@ it('keeps an incoming shielded note without inventing its sender', async () => {
     to: '',
     isOwn: true,
     isChange: false,
-    label: 'Ironwood pool',
+    address: '',
+    label: '',
+    poolId: 4,
   });
   expect(io.memo).toBe('recipient memo');
   expect(io.binaryMemos).toEqual([

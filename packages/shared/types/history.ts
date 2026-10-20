@@ -60,6 +60,8 @@ export type IOnChainHistoryTxTransfer = {
   isNative?: boolean;
   isOwn?: boolean; // for UTXO
   isChange?: boolean; // Explicitly identified wallet change, not inferred from ownership.
+  // Shielded entries: settings.localWallet.pools id, when known.
+  poolId?: number;
   comment?: string; // TON
 };
 
@@ -159,6 +161,8 @@ export type IOnChainHistoryTx = {
   binaryMemos?: { hex: string; hash: string }[];
   // Shielded entries describe this account's decrypted notes, not full chain I/O.
   inputOutputSource?: 'account' | 'public';
+  // Zcash: the counterparty on this side is shielded, so it has no address.
+  shieldedCounterparty?: 'from' | 'to';
 
   // Dynex
   paymentId?: string;

@@ -517,3 +517,90 @@ describe('isPrivacyChainHistoryComplete', () => {
     ).toBe(false);
   });
 });
+
+describe('projectPrivacyChainHistoryTxToPool with shielded endpoints', () => {
+  const selfTransfer = (
+    shieldedFrom: { poolId?: number; isOwn?: boolean },
+    shieldedTo: { poolId?: number; isOwn?: boolean },
+  ) =>
+    ({
+      id: 'self-transfer',
+      privacyChainHistoryPoolIds: [4],
+      privacyChainHistoryPoolDeltas: { '4': '-0.0001' },
+      decodedTx: {
+        txid: 'self-transfer',
+        nativeAmount: '1',
+        totalFeeInNative: '0.0001',
+        actions: [
+          {
+            assetTransfer: {
+              from: '',
+              to: '',
+              shieldedFrom,
+              shieldedTo,
+              sends: [{ amount: '1', isNative: true }],
+              receives: [],
+            },
+          },
+        ],
+      },
+    }) as unknown as IAccountHistoryTx;
+
+  it('preserves a same-pool self-payment named by pool id', () => {
+    expect(
+      projectPrivacyChainHistoryTxToPool({
+        tx: selfTransfer(
+          { poolId: 4, isOwn: true },
+          { poolId: 4, isOwn: true },
+        ),
+        selectedPoolId: 4,
+      }).decodedTx.nativeAmount,
+    ).toBe('1');
+  });
+
+  it.each([
+    [
+      { poolId: 3, isOwn: true },
+      { poolId: 4, isOwn: true },
+    ],
+    // A received note: the hidden sender paid into our pool.
+    [{ poolId: 4 }, { poolId: 4, isOwn: true }],
+    [{}, {}],
+  ])('does not treat %j -> %j as a same-pool move', (from, to) => {
+    expect(
+      projectPrivacyChainHistoryTxToPool({
+        tx: selfTransfer(from, to),
+        selectedPoolId: 4,
+      }).decodedTx.nativeAmount,
+    ).toBe('0');
+  });
+
+  it('keeps a shielded destination empty instead of borrowing a template address', () => {
+    const row = {
+      id: 'mixed',
+      privacyChainHistoryPoolIds: [0, 4],
+      privacyChainHistorySide: 'mixed',
+      privacyChainHistoryPoolDeltas: { '0': '0.5', '4': '-0.6' },
+      decodedTx: {
+        txid: 'mixed',
+        owner: 't1own',
+        actions: [
+          {
+            assetTransfer: {
+              from: 't1own',
+              to: '',
+              shieldedTo: {},
+              sends: [{ from: 't1own', to: 't1change', amount: '0.6' }],
+              receives: [],
+            },
+          },
+        ],
+      },
+    } as unknown as IAccountHistoryTx;
+    const [send] =
+      projectPrivacyChainHistoryTxToPool({ tx: row, selectedPoolId: 4 })
+        .decodedTx.actions[0].assetTransfer?.sends ?? [];
+    expect(send).toMatchObject({ from: 't1own', to: '', shieldedTo: {} });
+    expect(send.shieldedFrom).toBeUndefined();
+  });
+});

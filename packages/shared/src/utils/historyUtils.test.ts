@@ -21,25 +21,47 @@ function transfer(
 }
 
 describe('getOnChainHistoryTransferDisplayAddress', () => {
-  it('uses the backend shielded label when the address is intentionally empty', () => {
+  it('never returns a shielded label as an address', () => {
+    for (const shielded of [
+      transfer({
+        type: EOnChainHistoryTransferType.Shielded,
+        address: '',
+        label: 'Shielded',
+      }),
+      // Written by older builds: the label doubled as the address.
+      transfer({
+        type: EOnChainHistoryTransferType.Shielded,
+        address: 'Ironwood pool',
+        label: 'Ironwood pool',
+      }),
+    ]) {
+      expect(
+        getOnChainHistoryTransferDisplayAddress({
+          transfer: shielded,
+          endpoint: 'from',
+        }),
+      ).toBe('');
+      expect(
+        getOnChainHistoryTransferDisplayAddress({
+          transfer: shielded,
+          endpoint: 'to',
+        }),
+      ).toBe('');
+    }
+  });
+
+  it('keeps the real address of a shielded output', () => {
     const shielded = transfer({
       type: EOnChainHistoryTransferType.Shielded,
-      address: '',
-      label: 'Shielded',
+      address: 'u1recipient',
+      label: '',
     });
-
-    expect(
-      getOnChainHistoryTransferDisplayAddress({
-        transfer: shielded,
-        endpoint: 'from',
-      }),
-    ).toBe('Shielded');
     expect(
       getOnChainHistoryTransferDisplayAddress({
         transfer: shielded,
         endpoint: 'to',
       }),
-    ).toBe('Shielded');
+    ).toBe('u1recipient');
   });
 
   it('keeps normal transparent endpoints unchanged', () => {

@@ -7,7 +7,7 @@ import type {
   IAccountHistoryTx,
   IPrivacyChainHistorySide,
 } from '../../types/history';
-import type { EDecodedTxStatus } from '../../types/tx';
+import type { EDecodedTxStatus, IDecodedTxTransferInfo } from '../../types/tx';
 
 // Pool id the indexer covers (transparent). Everything else is shielded.
 export const PRIVACY_CHAIN_PUBLIC_POOL_ID = 0;
@@ -101,9 +101,14 @@ export function projectPrivacyChainHistoryTxToPool({
   if (!action || !transfer) return tx;
   // A same-pool self-payment has only a fee delta. Its payment amount is
   // already known independently of that delta and must remain intact.
+  const shieldedFromPoolId = transfer.shieldedFrom?.poolId;
+  const isSamePoolMove =
+    !!transfer.shieldedFrom?.isOwn &&
+    !!transfer.shieldedTo?.isOwn &&
+    shieldedFromPoolId !== undefined &&
+    shieldedFromPoolId === transfer.shieldedTo.poolId;
   if (
-    transfer.from &&
-    transfer.from === transfer.to &&
+    (isSamePoolMove || (transfer.from && transfer.from === transfer.to)) &&
     Object.keys(tx.privacyChainHistoryPoolDeltas ?? {}).length === 1
   ) {
     return tx;
@@ -134,17 +139,24 @@ export function projectPrivacyChainHistoryTxToPool({
   if (!template) return tx;
   // Seen from a shielded pool, the indexer's public-leg row points the other way.
   const owner = tx.decodedTx.owner ?? '';
-  let endpoints: { from: string; to: string; isOwn: undefined } | undefined;
+  let endpoints: Partial<IDecodedTxTransferInfo> | undefined;
+  // A shielded side has no address; never fill it from the template.
   if (isPublicBackedRow && isSend) {
     endpoints = {
       from: owner,
-      to: transfer.to || template.to,
+      shieldedFrom: undefined,
+      ...(transfer.shieldedTo
+        ? { to: '', shieldedTo: transfer.shieldedTo }
+        : { to: transfer.to || template.to }),
       isOwn: undefined,
     };
   } else if (isPublicBackedRow) {
     endpoints = {
-      from: transfer.from || template.from,
+      ...(transfer.shieldedFrom
+        ? { from: '', shieldedFrom: transfer.shieldedFrom }
+        : { from: transfer.from || template.from }),
       to: owner,
+      shieldedTo: undefined,
       isOwn: undefined,
     };
   }

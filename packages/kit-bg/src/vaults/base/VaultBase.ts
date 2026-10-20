@@ -1027,6 +1027,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         nfts,
       });
 
+    const shielded =
+      transfer.poolId === undefined ? {} : { poolId: transfer.poolId };
     return {
       from: getOnChainHistoryTransferDisplayAddress({
         transfer,
@@ -1036,6 +1038,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         transfer,
         endpoint: 'to',
       }),
+      // Both ends of a shielded note lie in its pool.
+      ...(isShielded
+        ? { shieldedFrom: { ...shielded }, shieldedTo: { ...shielded } }
+        : {}),
       tokenIdOnNetwork: isShielded ? '' : transfer.token,
       amount: transfer.amount,
       label: transfer.label,
