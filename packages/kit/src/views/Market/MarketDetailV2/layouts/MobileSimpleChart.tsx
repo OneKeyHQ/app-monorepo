@@ -163,7 +163,7 @@ export function MobileSimpleChart({
           marketAssetId={marketAssetId}
           range={range}
           priceMode={priceMode}
-          priceScaleFormat={stockId ? 'stock' : undefined}
+          priceScaleFormat={stockId ? 'stock' : 'full'}
         />
       </Stack>
     </YStack>
