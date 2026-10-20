@@ -37,7 +37,6 @@ import {
   ZCASH_BACKEND_HISTORY_PAGE_SIZE,
   fetchCompleteZcashBackendHistory,
   normalizeZcashBackendHistoryTx,
-  restoreZcashBackendSelfTransfer,
   restoreZcashLocalTransparentPayment,
 } from './backendHistory';
 import {
@@ -96,9 +95,7 @@ export async function zcashFetchBackendHistoryDetail(
       localTx: publicTx,
       withUTXOs: params.withUTXOs,
     });
-    response.data.data.data = params.withUTXOs
-      ? restored
-      : await restoreZcashBackendSelfTransfer(vault, restored);
+    response.data.data.data = restored;
   }
   return response;
 }
