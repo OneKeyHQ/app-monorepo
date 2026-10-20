@@ -63,6 +63,7 @@ export function useSwapNetworks() {
           if (swapNetworksSortList?.data?.length) {
             const cachedSwapNetworks = swapNetworksSortList.data;
             if (
+              !swapNetworksRef.current.length &&
               defaultConfigStatusRef.current === 'pending' &&
               (isSwapNetworkCacheCompatible(cachedSwapNetworks) ||
                 isSwapNetworkCacheReadyForBasicList(cachedSwapNetworks))

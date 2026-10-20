@@ -84,6 +84,7 @@ describe.each(['native main', 'desktop single runtime'])(
     const originalDesktop = platformEnv.isDesktop;
 
     beforeEach(() => {
+      mockHomeSelectedAccount.networkId = 'evm--1';
       platformEnv.isNative = runtime === 'native main';
       platformEnv.isDesktop = runtime === 'desktop single runtime';
     });
@@ -130,6 +131,34 @@ describe.each(['native main', 'desktop single runtime'])(
       mirror.unmount();
       view.unmount();
     });
+
+    it.each([true, false])(
+      'uses the latest Home network only for automatic defaults=%s',
+      async (automatic) => {
+        mockHomeSelectedAccount.networkId = 'btc--0';
+        setSnapshot({
+          ...automaticContext,
+          defaultTokenSeed: automatic
+            ? automaticContext.defaultTokenSeed
+            : undefined,
+        });
+        const view = render(<SwapRootProvider />);
+        const store = jotaiContextStore.getOrCreateStore({
+          storeName: EJotaiContextStoreNames.swap,
+        });
+        expect(store.get(swapSelectFromTokenAtom())?.symbol).toBe('ETH');
+        await act(async () => {
+          await Promise.resolve();
+        });
+        expect(store.get(swapSelectFromTokenAtom())?.symbol).toBe(
+          automatic ? 'BTC' : 'ETH',
+        );
+        expect(store.get(swapSelectToTokenAtom())?.symbol).toBe(
+          automatic ? 'ETH' : 'USDC',
+        );
+        view.unmount();
+      },
+    );
 
     it('preserves a persisted manual selection while configuration is pending', async () => {
       const manualContext = {

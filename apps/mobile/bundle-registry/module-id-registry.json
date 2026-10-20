@@ -24005,7 +24005,6 @@
     "packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketSwapBuildUtils.ts": 11788,
     "packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketSwapReviewUtils.ts": 1728,
     "packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings.ts": 18334,
-    "packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useMarketSwapPayTokens.ts": 4476,
     "packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/usePaymentTokenPrice.ts": 23414,
     "packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useSpeedSwapActions.tsx": 7051,
     "packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useSpeedSwapInit.tsx": 10926,
@@ -26897,6 +26896,7 @@
   },
   "tombstones": {
     "packages/kit/src/views/Home/components/TokenListBlock/buildMergedAllNetworkSnapshot.ts": 7735,
+    "packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useMarketSwapPayTokens.ts": 4476,
     "packages/kit/src/views/Market/hooks/useRecommendListingResolution.ts": 2969
   }
 }

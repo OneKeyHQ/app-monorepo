@@ -38,6 +38,7 @@ const mockFetchNetworks = jest.fn<Promise<ISwapNetwork[]>, []>();
 const mockGetNetworkCache = jest.fn<Promise<{ data: ISwapNetwork[] }>, []>();
 let mockStore: ISwapStore;
 let mockIsFocused = true;
+const mockUpdateSelectedAccountNetwork = jest.fn<void, [unknown]>();
 const mockSwapActions = {
   current: {
     syncNetworksSort: jest.fn(),
@@ -78,7 +79,8 @@ jest.mock('../../../states/jotai/contexts/accountSelector/actions', () => {
   const actions = {
     current: {
       getSelectedAccount: jest.fn(),
-      updateSelectedAccountNetwork: jest.fn(),
+      updateSelectedAccountNetwork: (options: unknown) =>
+        mockUpdateSelectedAccountNetwork(options),
       updateSelectedAccount: jest.fn(),
     },
   };
@@ -725,5 +727,246 @@ describe('asset entry default counterpart ownership', () => {
     await waitFor(() =>
       expect(mockStore.get(swapSelectToTokenAtom())).toEqual(explicitTo),
     );
+  });
+
+  it.each([ESwapSource.WALLET_HOME_TOKEN_LIST, ESwapSource.TOKEN_DETAIL])(
+    'keeps manual To when the first active %s init starts with settled config',
+    async (swapSource) => {
+      mockIsFocused = false;
+      mockFetchNetworks.mockResolvedValue([solNetwork]);
+      const params: ISwapInitParams = {
+        importFromToken: sol,
+        importNetworkId: sol.networkId,
+        swapSource,
+      };
+      const { rerender } = renderMarket(params);
+      await waitFor(() =>
+        expect(mockStore.get(swapDefaultConfigStatusAtom())).toBe('success'),
+      );
+      const home =
+        deferred<
+          Awaited<ReturnType<typeof getLatestHomeSelectedAccountInfo>>
+        >();
+      jest
+        .mocked(getLatestHomeSelectedAccountInfo)
+        .mockReturnValue(home.promise);
+      mockIsFocused = true;
+      rerender(params);
+      await waitFor(() =>
+        expect(mockStore.get(swapSelectToTokenAtom())).toEqual(solUsdt),
+      );
+      const manualTo = { ...solUsdt, contractAddress: 'manual' };
+      act(() => {
+        mockStore.set(swapSelectToTokenAtom(), manualTo);
+        mockStore.set(swapFromTokenAmountAtom(), {
+          value: '0.25',
+          isInput: true,
+        });
+      });
+      await act(async () => home.resolve(emptyHomeAccountInfo));
+      expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(sol);
+      expect(mockStore.get(swapSelectToTokenAtom())).toEqual(manualTo);
+      expect(mockStore.get(swapFromTokenAmountAtom())).toEqual({
+        value: '0.25',
+        isInput: true,
+      });
+    },
+  );
+
+  it('keeps a consumed Market pair and amount when the configured counterpart refreshes', async () => {
+    mockFetchNetworks.mockResolvedValue([freshNetwork]);
+    const { rerender } = renderMarket();
+    await waitFor(() =>
+      expect(mockStore.get(swapDefaultConfigStatusAtom())).toBe('success'),
+    );
+    await waitFor(() =>
+      expect(mockStore.get(swapSelectToTokenAtom())).toEqual(marketToken),
+    );
+    const manualFrom = {
+      ...marketParams.importFromToken!,
+      contractAddress: 'manual',
+      symbol: 'MANUAL',
+    };
+    act(() => {
+      mockStore.set(swapSelectFromTokenAtom(), manualFrom);
+      mockStore.set(swapFromTokenAmountAtom(), { value: '8', isInput: true });
+    });
+    rerender({
+      ...marketParams,
+      importFromToken: { ...manualFrom, contractAddress: 'new-config' },
+    });
+    await act(async () => {});
+    expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(manualFrom);
+    expect(mockStore.get(swapFromTokenAmountAtom())).toEqual({
+      value: '8',
+      isInput: true,
+    });
+  });
+
+  it('shows ordinary local defaults without a snapshot or network cache', async () => {
+    mockStore.set(swapSelectToTokenAtom(), undefined);
+    mockStore.set(swapInitialSelectedTokensSyncedAtom(), false);
+    mockGetNetworkCache.mockResolvedValue({ data: [] });
+    const request = deferred<ISwapNetwork[]>();
+    mockFetchNetworks.mockReturnValue(request.promise);
+    renderMarket({});
+    await waitFor(() =>
+      expect(mockStore.get(swapSelectFromTokenAtom())?.symbol).toBe('ETH'),
+    );
+    expect(mockStore.get(swapSelectToTokenAtom())?.symbol).toBe('USDC');
+    expect(mockStore.get(swapDefaultConfigStatusAtom())).toBe('pending');
+    const usdt: ISwapToken = {
+      ...swapDefaultSetTokens['evm--1'].toToken!,
+      symbol: 'USDT',
+      contractAddress: 'usdt',
+    };
+    await act(async () =>
+      request.resolve([
+        {
+          ...freshNetwork,
+          defaultSelectTokenDetail: {
+            from: swapDefaultSetTokens['evm--1'].fromToken,
+            to: usdt,
+          },
+        },
+      ]),
+    );
+    expect(mockStore.get(swapDefaultConfigStatusAtom())).toBe('success');
+  });
+
+  it('does not change account network or mode after an automatic Market intent was consumed', async () => {
+    mockFetchNetworks.mockResolvedValue([freshNetwork]);
+    const { rerender } = renderMarket();
+    await waitFor(() =>
+      expect(mockStore.get(swapDefaultConfigStatusAtom())).toBe('success'),
+    );
+    await waitFor(() =>
+      expect(mockStore.get(swapSelectToTokenAtom())).toEqual(marketToken),
+    );
+    act(() => mockStore.set(swapTypeSwitchAtom(), ESwapTabSwitchType.LIMIT));
+    mockUpdateSelectedAccountNetwork.mockClear();
+    rerender({
+      ...marketParams,
+      importFromToken: solUsdt,
+      importNetworkId: solUsdt.networkId,
+      swapTabSwitchType: ESwapTabSwitchType.BRIDGE,
+    });
+    await act(async () => {});
+    expect(mockUpdateSelectedAccountNetwork).not.toHaveBeenCalled();
+    expect(mockStore.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.LIMIT);
+  });
+
+  it('does not resume an asset import after the user changes mode during Home await', async () => {
+    mockIsFocused = false;
+    mockFetchNetworks.mockResolvedValue([solNetwork]);
+    const params: ISwapInitParams = {
+      importFromToken: sol,
+      swapSource: ESwapSource.WALLET_HOME_TOKEN_LIST,
+    };
+    const { rerender } = renderMarket(params);
+    await waitFor(() =>
+      expect(mockStore.get(swapDefaultConfigStatusAtom())).toBe('success'),
+    );
+    const home =
+      deferred<Awaited<ReturnType<typeof getLatestHomeSelectedAccountInfo>>>();
+    jest.mocked(getLatestHomeSelectedAccountInfo).mockReturnValue(home.promise);
+    mockIsFocused = true;
+    rerender(params);
+    await waitFor(() =>
+      expect(mockStore.get(swapSelectToTokenAtom())).toEqual(solUsdt),
+    );
+    act(() => {
+      mockStore.set(swapTypeSwitchAtom(), ESwapTabSwitchType.LIMIT);
+      mockStore.set(swapToTokenAmountAtom(), { value: '7', isInput: true });
+    });
+    await act(async () => home.resolve(emptyHomeAccountInfo));
+    expect(mockStore.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.LIMIT);
+    expect(mockStore.get(swapSelectToTokenAtom())).toEqual(solUsdt);
+    expect(mockStore.get(swapToTokenAmountAtom())).toEqual({
+      value: '7',
+      isInput: true,
+    });
+  });
+
+  it.each([
+    ESwapTabSwitchType.SWAP,
+    ESwapTabSwitchType.LIMIT,
+    ESwapTabSwitchType.STOCK,
+  ])(
+    'preserves same-mode Details input without importing a previous %s draft',
+    async (oldType) => {
+      mockStore.set(swapSelectFromTokenAtom(), sol);
+      mockStore.set(swapSelectToTokenAtom(), solUsdt);
+      mockStore.set(swapFromTokenAmountAtom(), {
+        value: '0.25',
+        isInput: true,
+      });
+      mockStore.set(swapTypeSwitchAtom(), oldType);
+      mockFetchNetworks.mockResolvedValue([solNetwork]);
+      const switchMode = jest
+        .spyOn(mockSwapActions.current, 'swapTypeSwitchAction')
+        .mockImplementation((type) => {
+          mockStore.set(swapTypeSwitchAtom(), type);
+          // The actual action restores the destination mode's saved pair/amount.
+          mockStore.set(swapFromTokenAmountAtom(), {
+            value: '7',
+            isInput: true,
+          });
+        });
+      renderMarket({
+        importFromToken: sol,
+        importNetworkId: sol.networkId,
+        swapSource: ESwapSource.TOKEN_DETAIL,
+      });
+      await waitFor(() =>
+        expect(mockStore.get(swapDefaultConfigStatusAtom())).toBe('success'),
+      );
+      expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(sol);
+      expect(mockStore.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.SWAP);
+      expect(mockStore.get(swapFromTokenAmountAtom()).value).toBe(
+        oldType === ESwapTabSwitchType.SWAP ? '0.25' : '',
+      );
+      switchMode.mockRestore();
+    },
+  );
+
+  it('cancels the old Home continuation when the automatic Market counterpart changes', async () => {
+    mockIsFocused = false;
+    mockFetchNetworks.mockResolvedValue([
+      freshNetwork,
+      { ...solNetwork, supportCrossChainSwap: true },
+    ]);
+    const { rerender } = renderMarket();
+    await waitFor(() =>
+      expect(mockStore.get(swapDefaultConfigStatusAtom())).toBe('success'),
+    );
+    const oldHome =
+      deferred<Awaited<ReturnType<typeof getLatestHomeSelectedAccountInfo>>>();
+    const newHome =
+      deferred<Awaited<ReturnType<typeof getLatestHomeSelectedAccountInfo>>>();
+    jest
+      .mocked(getLatestHomeSelectedAccountInfo)
+      .mockReturnValue(oldHome.promise);
+    mockIsFocused = true;
+    rerender(marketParams);
+    await act(async () => {});
+    jest
+      .mocked(getLatestHomeSelectedAccountInfo)
+      .mockReturnValue(newHome.promise);
+    rerender({
+      ...marketParams,
+      importFromToken: solUsdt,
+      importNetworkId: solUsdt.networkId,
+      swapTabSwitchType: ESwapTabSwitchType.BRIDGE,
+    });
+    await act(async () => oldHome.resolve(emptyHomeAccountInfo));
+    expect(mockStore.get(swapSelectFromTokenAtom())).not.toEqual(
+      marketParams.importFromToken,
+    );
+    await act(async () => newHome.resolve(emptyHomeAccountInfo));
+    await waitFor(() =>
+      expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(solUsdt),
+    );
+    expect(mockStore.get(swapSelectToTokenAtom())).toEqual(marketToken);
   });
 });

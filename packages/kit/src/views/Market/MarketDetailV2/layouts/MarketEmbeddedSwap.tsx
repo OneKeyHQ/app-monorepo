@@ -21,8 +21,10 @@ import type {
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { useMarketSwapPayTokens } from '../components/SwapPanel/hooks/useMarketSwapPayTokens';
-import { useSpeedSwapInit } from '../components/SwapPanel/hooks/useSpeedSwapInit';
+import {
+  ESpeedSwapConfigScope,
+  useSpeedSwapInit,
+} from '../components/SwapPanel/hooks/useSpeedSwapInit';
 
 import { MarketStockTradeTarget } from './components/MarketStockTradeTarget';
 import { buildMarketEmbeddedSwapInitParams } from './marketEmbeddedSwapUtils';
@@ -191,32 +193,25 @@ function MarketEmbeddedSwapContent({
   if (initialDraft.key !== inputDraftKey) {
     setInitialDraft({ key: inputDraftKey, draft: undefined });
   }
-  const {
-    defaultTokens: configuredTokens,
-    speedConfigReady,
-    speedSwapConfig,
-  } = useSpeedSwapInit(swapTokenSeed.networkId, true);
-  const { payTokens: defaultTokens, ready: marketPayTokensReady } =
-    useMarketSwapPayTokens({
-      tokens: configuredTokens,
-      enabled: !swapTokenSeed.isStock,
-      configReady: speedConfigReady,
-    });
+  const { defaultTokens, speedConfigReady, speedSwapConfig } = useSpeedSwapInit(
+    swapTokenSeed.networkId,
+    true,
+    swapTokenSeed.isStock
+      ? ESpeedSwapConfigScope.DEFAULT
+      : ESpeedSwapConfigScope.MARKET,
+  );
   const swapInitParams = useMemo<ISwapInitParams | undefined>(
     () =>
-      marketPayTokensReady
+      swapTokenSeed.isStock ||
+      speedConfigReady ||
+      initialInputAmountDraft?.fromToken
         ? buildMarketEmbeddedSwapInitParams({
             defaultTokens,
             inputDraft: initialInputAmountDraft,
             swapToken: swapTokenSeed,
           })
         : undefined,
-    [
-      defaultTokens,
-      initialInputAmountDraft,
-      marketPayTokensReady,
-      swapTokenSeed,
-    ],
+    [defaultTokens, initialInputAmountDraft, speedConfigReady, swapTokenSeed],
   );
   const stockSpeedConfig = useMemo<ISwapStockSpeedConfig | undefined>(
     () =>
@@ -240,7 +235,8 @@ function MarketEmbeddedSwapContent({
     swapInitParams ?? lastValidSwapInitParamsRef.current;
   const hasRenderedSwapRef = useRef(false);
   if (
-    (!speedConfigReady || !marketPayTokensReady || !effectiveSwapInitParams) &&
+    (!effectiveSwapInitParams ||
+      (swapTokenSeed.isStock && !speedConfigReady)) &&
     !hasRenderedSwapRef.current
   ) {
     return <MarketEmbeddedSwapLoading />;

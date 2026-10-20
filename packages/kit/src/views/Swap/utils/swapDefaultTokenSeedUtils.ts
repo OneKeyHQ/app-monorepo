@@ -19,6 +19,7 @@ import {
   isSwapSelectedTokensColdStartContextMatchedWithSelectedAccount,
   isSwapSelectedTokensColdStartOwnerMatchedWithSelectedAccountIgnoringDeriveType,
   shouldResetSelectedTokensForAllNetworkHome,
+  shouldSyncSwapAutomaticDefaultNetwork,
 } from './swapColdStartTokenCacheUtils';
 
 import type { ISwapDefaultConfigStatus } from './swapColdStartTokenCacheUtils';
@@ -165,6 +166,7 @@ export function shouldClearSwapSelectedTokensBeforeHomeAccountSync({
   initialSelectedTokensSynced,
   preserveSelectedTokens,
   swapSelectedAccount,
+  swapType,
 }: {
   cachedContext?: ISwapSelectedTokensColdStartContext;
   hasSelectedTokens: boolean;
@@ -172,6 +174,7 @@ export function shouldClearSwapSelectedTokensBeforeHomeAccountSync({
   initialSelectedTokensSynced?: boolean;
   preserveSelectedTokens?: boolean;
   swapSelectedAccount?: IAccountSelectorSelectedAccount;
+  swapType?: ESwapTabSwitchType;
 }) {
   if (!hasSelectedTokens) {
     return false;
@@ -179,6 +182,16 @@ export function shouldClearSwapSelectedTokensBeforeHomeAccountSync({
 
   if (preserveSelectedTokens) {
     return false;
+  }
+
+  if (
+    shouldSyncSwapAutomaticDefaultNetwork({
+      cachedContext,
+      selectedAccount: homeSelectedAccount,
+      swapType,
+    })
+  ) {
+    return true;
   }
 
   if (
@@ -286,6 +299,7 @@ export function getSwapSelectedTokensHomeAccountSyncAction({
       initialSelectedTokensSynced,
       preserveSelectedTokens,
       swapSelectedAccount,
+      swapType,
     });
   if (!shouldClearSelectedTokens) {
     return { type: 'preserve' };

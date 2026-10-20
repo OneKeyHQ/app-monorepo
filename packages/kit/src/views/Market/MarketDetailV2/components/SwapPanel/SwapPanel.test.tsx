@@ -30,7 +30,7 @@ let mockActiveAccount: {
   account?: { id: string };
   indexedAccount?: { id: string };
 } = {};
-let mockMarketPayTokensReady = true;
+let mockSpeedConfigReady = true;
 const mockFooter = jest.fn(
   (_props: ComponentProps<typeof SwapPanelFooterButtons>) => null,
 );
@@ -120,15 +120,10 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: { isNative: true, isWeb: false },
 }));
 jest.mock('./hooks/useSpeedSwapInit', () => ({
+  ESpeedSwapConfigScope: { DEFAULT: 'default', MARKET: 'market' },
   useSpeedSwapInit: () => ({
     defaultTokens: [payToken],
-    speedConfigReady: true,
-  }),
-}));
-jest.mock('./hooks/useMarketSwapPayTokens', () => ({
-  useMarketSwapPayTokens: ({ tokens }: { tokens: ISwapToken[] }) => ({
-    payTokens: tokens,
-    ready: mockMarketPayTokensReady,
+    speedConfigReady: mockSpeedConfigReady,
   }),
 }));
 jest.mock('./SwapPanelFooterButtons', () => ({
@@ -155,7 +150,7 @@ describe('Market mobile Buy / Sell modal entry', () => {
     jest.replaceProperty(platformEnv, 'isNative', true);
     jest.replaceProperty(platformEnv, 'isWeb', false);
     mockActiveAccount = {};
-    mockMarketPayTokensReady = true;
+    mockSpeedConfigReady = true;
   });
 
   it.each([
@@ -213,11 +208,11 @@ describe('Market mobile Buy / Sell modal entry', () => {
   });
 
   it.each([false, true])(
-    'waits for default classification only for connected narrow web trades (connected=%s)',
+    'waits for speed configuration only for connected narrow web trades (connected=%s)',
     (connected) => {
       jest.replaceProperty(platformEnv, 'isNative', false);
       jest.replaceProperty(platformEnv, 'isWeb', true);
-      mockMarketPayTokensReady = false;
+      mockSpeedConfigReady = false;
       mockActiveAccount = connected ? { account: { id: 'connected' } } : {};
       render(<SwapPanel swapToken={token} mobileLayout />);
       if (connected) {

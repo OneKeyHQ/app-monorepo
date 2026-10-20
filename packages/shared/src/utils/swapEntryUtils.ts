@@ -91,20 +91,13 @@ export function getSwapDefaultCounterpartToken({
   fromToken: ISwapToken;
   swapNetworks?: ISwapNetwork[];
 }) {
-  const configuredToken = getSwapConfiguredDefaultToToken(
-    fromToken,
-    swapNetworks,
-  );
-  if (configuredToken) {
-    return configuredToken;
-  }
   const backend = getSwapNetworkDefaultTokenPair(
     swapNetworks.find((network) => network.networkId === fromToken.networkId),
   );
   const local = swapDefaultSetTokens[fromToken.networkId];
   // Changing the default source must preserve ordinary token-to-native behavior.
   const candidates = fromToken.isNative
-    ? [backend?.toToken, local?.toToken]
+    ? [backend?.toToken, backend?.fromToken, local?.toToken]
     : [backend?.fromToken, backend?.toToken, local?.fromToken];
   return candidates.find(
     (candidate) =>

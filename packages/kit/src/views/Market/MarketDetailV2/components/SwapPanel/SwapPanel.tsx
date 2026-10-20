@@ -42,8 +42,10 @@ import {
   resolveMarketMobileTradeDestination,
 } from '../../utils/marketMobileDetailKind';
 
-import { useMarketSwapPayTokens } from './hooks/useMarketSwapPayTokens';
-import { useSpeedSwapInit } from './hooks/useSpeedSwapInit';
+import {
+  ESpeedSwapConfigScope,
+  useSpeedSwapInit,
+} from './hooks/useSpeedSwapInit';
 import SwapPanelFooterButtons from './SwapPanelFooterButtons';
 
 function TradeButton({
@@ -186,18 +188,16 @@ export function SwapPanel({
   const { defaultTokens, speedConfigReady } = useSpeedSwapInit(
     swapToken.isStock ? '' : swapToken.networkId,
     true,
+    swapToken.isStock
+      ? ESpeedSwapConfigScope.DEFAULT
+      : ESpeedSwapConfigScope.MARKET,
   );
-  const { payTokens, ready: marketPayTokensReady } = useMarketSwapPayTokens({
-    tokens: defaultTokens,
-    enabled: !swapToken.isStock,
-    configReady: speedConfigReady,
-  });
 
   const handleTrade = useCallback(
     (direction: 'from' | 'to') => {
       // Swap needs the token's decimals; the buttons are disabled until then,
       // but Android's gesture layer can still deliver a tap.
-      if (!executionReady || !marketPayTokensReady) {
+      if (!executionReady || (!swapToken.isStock && !speedConfigReady)) {
         return;
       }
       const tradeDestination = swapToken.isStock
@@ -213,7 +213,7 @@ export function SwapPanel({
           ? prepareStockSwapEntry(entryParams)
           : prepareMarketSwapEntry({
               ...entryParams,
-              defaultTokens: payTokens,
+              defaultTokens,
             });
       navigation.pushModal(EModalRoutes.SwapModal, {
         screen: EModalSwapRoutes.SwapMainLand,
@@ -230,8 +230,8 @@ export function SwapPanel({
     [
       detailKind,
       executionReady,
-      marketPayTokensReady,
-      payTokens,
+      speedConfigReady,
+      defaultTokens,
       swapToken,
       navigation,
     ],
@@ -277,7 +277,8 @@ export function SwapPanel({
       onBuy: handleBuy,
       onSell: handleSell,
       onPerps,
-      tradeDisabled: !executionReady || !marketPayTokensReady,
+      tradeDisabled:
+        !executionReady || (!swapToken.isStock && !speedConfigReady),
       perpsDisabled,
     };
 

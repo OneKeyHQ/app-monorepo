@@ -142,7 +142,7 @@ describe('getSwapColdStartDisplayTokensFromGlobalSnapshot', () => {
     clearGlobalSnapshot();
   });
 
-  it('does not expose concrete Home defaults while configuration is pending', () => {
+  it('leaves display-only defaults deferred while execution can seed known Home defaults', () => {
     setGlobalSnapshot({
       [scopedKey(
         ACCOUNT_SELECTOR_HOME_SCOPE_KEY,
@@ -159,7 +159,7 @@ describe('getSwapColdStartDisplayTokensFromGlobalSnapshot', () => {
       getSwapDefaultSelectedTokensFromGlobalHomeSnapshot({
         defaultConfigStatus: 'pending',
       }),
-    ).toBeUndefined();
+    ).toBeDefined();
     expect(
       getSwapDefaultSelectedTokensFromGlobalHomeSnapshot({
         defaultConfigStatus: 'failed',

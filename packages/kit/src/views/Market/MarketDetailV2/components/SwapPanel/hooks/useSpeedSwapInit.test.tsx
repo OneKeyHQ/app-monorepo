@@ -30,7 +30,7 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
     mockUsePromiseResult(...args),
 }));
 
-const { useSpeedSwapInit } =
+const { ESpeedSwapConfigScope, useSpeedSwapInit } =
   jest.requireActual<typeof import('./useSpeedSwapInit')>('./useSpeedSwapInit');
 
 const cachedConfig: ISpeedSwapConfig = {
@@ -341,5 +341,51 @@ describe('useSpeedSwapInit cold display config', () => {
     );
     expect(disabledResult.scope).toBe('evm--1');
     expect(options.swrShouldPersist(disabledResult)).toBe(true);
+  });
+
+  it('filters only Market candidates without modifying the shared config', () => {
+    const native = { ...robinhoodEthToken, networkId: 'evm--1' };
+    const configured = cachedConfig.speedConfig.defaultTokens[0];
+    const config = {
+      ...cachedConfig,
+      speedConfig: {
+        ...cachedConfig.speedConfig,
+        defaultTokens: [native, configured],
+        defaultLimitTokens: [native],
+      },
+    };
+    mockUsePromiseResult.mockReturnValue({
+      result: { config, scope: 'evm--1' },
+      isLoading: false,
+    });
+    const { result, rerender } = renderHook(
+      (scopes) => useSpeedSwapInit('evm--1', true, scopes),
+      { initialProps: ESpeedSwapConfigScope.MARKET },
+    );
+    expect(result.current.defaultTokens).toEqual([configured]);
+    expect(result.current.defaultTokens).toBe(
+      result.current.speedConfig.defaultTokens,
+    );
+    expect(result.current.defaultTokens).toBe(
+      result.current.speedSwapConfig.speedConfig.defaultTokens,
+    );
+    expect(result.current.defaultLimitTokens).toBe(
+      config.speedConfig.defaultLimitTokens,
+    );
+    expect(config.speedConfig.defaultTokens).toEqual([native, configured]);
+    rerender(ESpeedSwapConfigScope.DEFAULT);
+    expect(result.current.defaultTokens).toBe(config.speedConfig.defaultTokens);
+  });
+
+  it('keeps a native-only Market pool empty after normalization', () => {
+    mockUsePromiseResult.mockReturnValue({
+      result: { config: robinhoodConfig, scope: 'evm--4663' },
+      isLoading: false,
+    });
+    const { result } = renderHook(() =>
+      useSpeedSwapInit('evm--4663', true, ESpeedSwapConfigScope.MARKET),
+    );
+    expect(result.current.defaultTokens).toEqual([]);
+    expect(result.current.speedDefaultSelectToken?.isNative).toBe(true);
   });
 });

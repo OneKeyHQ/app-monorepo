@@ -30,7 +30,7 @@ export function getMarketSwapDefaultPair({
     candidate && candidate.networkId !== token.networkId
       ? ESwapTabSwitchType.BRIDGE
       : ESwapTabSwitchType.SWAP;
-  // Candidates are classified as stable by the Market owner, in server order.
+  // Market candidates retain the configured server order.
   const counterpart = defaultTokens.find(
     (candidate) =>
       candidate &&

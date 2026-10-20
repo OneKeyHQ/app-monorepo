@@ -62,9 +62,11 @@ import {
   shouldShowMarketPresetReviewCustomNetworkFeeOption,
 } from './hooks/marketPresetSettings';
 import { useMarketPresetSettings } from './hooks/useMarketPresetSettings';
-import { useMarketSwapPayTokens } from './hooks/useMarketSwapPayTokens';
 import { useSpeedSwapActions } from './hooks/useSpeedSwapActions';
-import { useSpeedSwapInit } from './hooks/useSpeedSwapInit';
+import {
+  ESpeedSwapConfigScope,
+  useSpeedSwapInit,
+} from './hooks/useSpeedSwapInit';
 import { useSwapPanel } from './hooks/useSwapPanel';
 import { ESwapDirection } from './hooks/useTradeType';
 import { MarketSwapReviewDialog } from './MarketSwapReviewDialog';
@@ -80,6 +82,7 @@ import type { IToken } from './types';
 interface ISwapPanelWrapProps {
   onCloseDialog?: () => void;
   stockDetailDesktopLayout?: boolean;
+  isStock?: boolean;
   portfolioData?: IMarketAccountPortfolioItem[];
   resolvedVariantKeys?: string[];
 }
@@ -87,6 +90,7 @@ interface ISwapPanelWrapProps {
 function SwapPanelWrapContent({
   onCloseDialog,
   stockDetailDesktopLayout,
+  isStock,
   portfolioData,
   resolvedVariantKeys,
 }: ISwapPanelWrapProps) {
@@ -146,7 +150,13 @@ function SwapPanelWrapContent({
     onlySupportCrossChain,
     defaultTokens,
     swapMevNetConfig,
-  } = useSpeedSwapInit(networkId || '', true);
+  } = useSpeedSwapInit(
+    networkId || '',
+    true,
+    (isStock ?? isStockRoute)
+      ? ESpeedSwapConfigScope.DEFAULT
+      : ESpeedSwapConfigScope.MARKET,
+  );
   const marketPresetSettings = useMarketPresetSettings({
     networkId: networkId || '',
     defaultSlippage: speedConfig?.slippage,
@@ -401,19 +411,12 @@ function SwapPanelWrapContent({
     tokenDetail?.symbol,
   ]);
 
-  const { payTokens: marketDefaultTokens, ready: marketPayTokensReady } =
-    useMarketSwapPayTokens({
-      tokens: defaultTokens,
-      enabled: !isStockRoute,
-      configReady: speedConfigReady,
-    });
-
   const compatibleDefaultTokens = useMemo(
     () =>
       isStockRoute
         ? filterStockPayTokenCandidates(defaultTokens)
-        : marketDefaultTokens,
-    [defaultTokens, isStockRoute, marketDefaultTokens],
+        : defaultTokens,
+    [defaultTokens, isStockRoute],
   );
 
   const filterDefaultTokens = useMemo(() => {
@@ -495,7 +498,7 @@ function SwapPanelWrapContent({
       )
     : Boolean(
         decimalsReady &&
-        marketPayTokensReady &&
+        (isStockRoute || speedConfigReady) &&
         paymentToken &&
         paymentTokenCandidates.some((candidate) =>
           equalTokenNoCaseSensitive({
@@ -615,7 +618,7 @@ function SwapPanelWrapContent({
       return;
     }
     if (!paymentTokenDisplay) {
-      if (!isStockRoute && marketPayTokensReady && paymentToken) {
+      if (!isStockRoute && speedConfigReady && paymentToken) {
         setPaymentToken(undefined);
       }
       return;
@@ -631,7 +634,7 @@ function SwapPanelWrapContent({
     }
   }, [
     isStockRoute,
-    marketPayTokensReady,
+    speedConfigReady,
     paymentToken,
     paymentTokenDisplay,
     paymentTokenPreferenceReady,
@@ -946,9 +949,17 @@ function SwapPanelWrapContent({
       swapMevNetConfig={swapMevNetConfig}
       swapNativeTokenReserveGas={swapNativeTokenReserveGas}
       swapPanel={swapPanelWithPreference}
-      balance={executionReady ? balance : undefined}
+      balance={
+        (stockDetailDesktopLayout || isStockRoute) && !executionReady
+          ? undefined
+          : balance
+      }
       balanceToken={balanceToken as IToken}
-      balanceLoading={!executionReady || fetchBalanceLoading}
+      balanceLoading={
+        (stockDetailDesktopLayout || isStockRoute
+          ? !executionReady
+          : !decimalsReady) || fetchBalanceLoading
+      }
       paymentTokenPrice={executionReady ? paymentTokenPrice : undefined}
       paymentTokenDisplay={paymentTokenDisplay}
       paymentTokenDisplayLoading={
@@ -956,10 +967,14 @@ function SwapPanelWrapContent({
         (!isStockRoute &&
           !paymentTokenDisplay &&
           !paymentToken &&
-          (!marketPayTokensReady || !paymentTokenPreferenceReady))
+          (!speedConfigReady || !paymentTokenPreferenceReady))
       }
       isLoading={isActionLoading || isReviewOpening}
-      quoteLoading={!executionReady || quoteActionLoading}
+      quoteLoading={
+        (stockDetailDesktopLayout || isStockRoute
+          ? !executionReady
+          : !decimalsReady || !speedConfigReady) || quoteActionLoading
+      }
       isActionDisabled={
         !executionReady ||
         (isStockRoute && !selectedVariantTradable) ||

@@ -138,6 +138,25 @@ describe('useSwapNetworks configuration lifecycle', () => {
     },
   );
 
+  it.each(['failed', 'empty'] as const)(
+    'keeps newer memory when stale disk is read and refresh is %s',
+    async (outcome) => {
+      mockInitialNetworks = [freshNetwork];
+      mockInitialConfigStatus = 'success';
+      const request = deferred<ISwapNetwork[]>();
+      mockFetchNetworks.mockReturnValue(request.promise);
+      const { result } = renderHook(useSwapNetworks);
+      await waitFor(() => expect(mockFetchNetworks).toHaveBeenCalledTimes(1));
+      expect(result.current.swapNetworks).toEqual([freshNetwork]);
+      await act(async () => {
+        if (outcome === 'failed') request.reject(new Error('offline'));
+        else request.resolve([]);
+      });
+      expect(result.current.defaultConfigStatus).toBe('failed');
+      expect(result.current.swapNetworks).toEqual([freshNetwork]);
+    },
+  );
+
   it.each([true, false])(
     'retries repeated configuration failures with cache=%s until fresh configuration settles',
     async (hasCache) => {

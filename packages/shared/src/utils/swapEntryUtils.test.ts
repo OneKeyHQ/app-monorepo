@@ -259,3 +259,59 @@ describe('asset entry counterpart routing', () => {
     ).toBeUndefined();
   });
 });
+
+describe('default source preserves ordinary Swap semantics', () => {
+  it('keeps the Arc exception scoped to asset entries', () => {
+    expect(
+      getSwapDefaultCounterpartToken({ fromToken: buildArcToken() }),
+    ).toBeUndefined();
+    expect(
+      getSwapEntryDefaultToToken({
+        fromToken: buildArcToken(),
+        isSupportSwap: true,
+      })?.symbol,
+    ).toBe('EURC');
+  });
+
+  it.each([false, true])(
+    'uses the networks counterpart for native SOL with reversed pair=%s',
+    (reversed) => {
+      const sol: ISwapToken = {
+        networkId: 'sol--101',
+        contractAddress: '',
+        symbol: 'SOL',
+        decimals: 9,
+        isNative: true,
+      };
+      const usdt: ISwapToken = {
+        networkId: sol.networkId,
+        contractAddress: 'USDT',
+        symbol: 'USDT',
+        decimals: 6,
+        isNative: false,
+      };
+      const network: ISwapNetwork = {
+        networkId: sol.networkId,
+        name: 'Solana',
+        symbol: 'SOL',
+        defaultSelectTokenDetail: {
+          from: reversed ? usdt : sol,
+          to: reversed ? sol : usdt,
+        },
+      };
+      expect(
+        getSwapEntryDefaultToToken({
+          fromToken: sol,
+          swapNetworks: [network],
+          isSupportSwap: true,
+        }),
+      ).toBe(usdt);
+      expect(
+        getSwapDefaultCounterpartToken({
+          fromToken: usdt,
+          swapNetworks: [network],
+        }),
+      ).toBe(sol);
+    },
+  );
+});

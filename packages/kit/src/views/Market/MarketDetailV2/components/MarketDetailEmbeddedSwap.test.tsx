@@ -113,17 +113,8 @@ jest.mock('@onekeyhq/shared/types/swap/types', () => ({
   ESwapTabSwitchType: { SWAP: 'swap', STOCK: 'stock' },
 }));
 
-jest.mock('./SwapPanel/hooks/useMarketSwapPayTokens', () => ({
-  useMarketSwapPayTokens: ({
-    tokens,
-    configReady,
-  }: {
-    tokens: unknown[];
-    configReady: boolean;
-  }) => ({ payTokens: tokens, ready: configReady }),
-}));
-
 jest.mock('./SwapPanel/hooks/useSpeedSwapInit', () => ({
+  ESpeedSwapConfigScope: { DEFAULT: 'default', MARKET: 'market' },
   useSpeedSwapInit: jest.fn(() => ({
     defaultTokens: mockDefaultTokens,
     speedConfigReady: mockConfigReady,

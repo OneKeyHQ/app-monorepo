@@ -27,6 +27,7 @@ import {
   buildSwapDefaultLimitSelectedTokens,
   buildSwapDefaultSelectedTokensFromHomeAccount,
   shouldDeferSwapAutomaticDefaultTokens,
+  shouldWaitForSwapDefaultConfig,
 } from '../utils/swapColdStartTokenCacheUtils';
 
 const COLD_START_SCOPED_KEY_SEPARATOR = '::';
@@ -412,6 +413,16 @@ function getDefaultSwapSelectedTokensFromHomeSnapshot(
     snapshot,
     coldStartScopeKey: ACCOUNT_SELECTOR_HOME_SCOPE_KEY,
   });
+  // Root/Global seed the execution state; display snapshots must not replay it.
+  if (
+    shouldWaitForSwapDefaultConfig({
+      networkId: homeSelectedAccount?.networkId,
+      swapType,
+      defaultConfigStatus,
+    })
+  ) {
+    return {};
+  }
   const defaultTokens = buildSwapDefaultSelectedTokensFromHomeAccount({
     defaultConfigStatus,
     homeSelectedAccount,
