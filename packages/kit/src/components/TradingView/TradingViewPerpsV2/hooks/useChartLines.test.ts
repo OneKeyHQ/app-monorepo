@@ -26,6 +26,9 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useSpotActiveOpenOrdersAtom: () => [{ openOrders: [] }],
 }));
 
+const mockIntl = { formatMessage: ({ id }: { id: string }) => id };
+jest.mock('react-intl', () => ({ useIntl: () => mockIntl }));
+
 jest.mock('../utils/lineBuilder', () => ({
   buildAllLinesForSymbol: (
     _positions: unknown[],

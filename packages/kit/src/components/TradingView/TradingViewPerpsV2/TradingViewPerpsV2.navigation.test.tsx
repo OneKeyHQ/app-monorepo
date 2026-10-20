@@ -18,7 +18,14 @@ const mockMessageHandlerProps = jest.fn<
   void,
   Parameters<typeof usePerpsTradingViewMessageHandler>
 >();
-const mockChartLines = jest.fn<void, Parameters<typeof useChartLines>>();
+const mockChartLines = jest.fn<
+  ReturnType<typeof useChartLines>,
+  Parameters<typeof useChartLines>
+>(() => ({
+  hasAccountLinesRef: { current: false },
+  sendLinesSync: jest.fn(),
+  sendLinesClear: jest.fn(),
+}));
 const mockResetControls = jest.fn();
 const mockSetMounted = jest.fn();
 

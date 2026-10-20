@@ -33,6 +33,9 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   appEventBus: { on: () => {}, off: () => {} },
 }));
 
+const mockIntl = { formatMessage: ({ id }: { id: string }) => id };
+jest.mock('react-intl', () => ({ useIntl: () => mockIntl }));
+
 describe('getPerpsInteractionOverlayOpenState', () => {
   it('parses explicit TradingView overlay visibility state', () => {
     expect(getPerpsInteractionOverlayOpenState({ isOpen: true })).toBe(true);
