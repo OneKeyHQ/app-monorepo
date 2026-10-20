@@ -36,4 +36,8 @@ export enum ETranslationsMock {
   prime_gift_session_changed = 'Your account changed. Confirm the receiving account to continue.',
   prime_gift_result_unknown = 'Your previous claim is not yet confirmed. Retrying will use the same redemption code.',
   // ----------------------------------------------
+  privacy_history_pool__label = '{pool} pool',
+  privacy_history_shielded__label = 'Shielded',
+  privacy_history_private__label = 'Private',
+  // ----------------------------------------------
 }

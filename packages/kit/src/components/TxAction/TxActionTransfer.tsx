@@ -14,16 +14,26 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
+import { useLocalWalletAccountAddresses } from '@onekeyhq/kit/src/hooks/useLocalWalletAccountAddresses';
+import {
+  isPrivacyChainOwnTarget,
+  resolvePrivacyChainTargetDisplay,
+  toPrivacyChainLocalWalletDisplay,
+} from '@onekeyhq/kit/src/utils/privacyChainEndpointLabel';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { getPrivacyChainPublicDisplayAddress } from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
+import {
+  collectPrivacyChainOwnAddresses,
+  getPrivacyChainPublicDisplayAddress,
+} from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxDirection,
   EDecodedTxStatus,
   type IDecodedTx,
   type IDecodedTxActionAssetTransfer,
+  type IDecodedTxShieldedEndpoint,
   type IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 
@@ -167,6 +177,8 @@ function getTxActionTransferInfo(
   const {
     from,
     to,
+    shieldedFrom,
+    shieldedTo,
     sends,
     receives,
     label,
@@ -178,6 +190,10 @@ function getTxActionTransferInfo(
   const { type } = decodedTx.payload ?? {};
 
   let transferTarget = '';
+  // Privacy chains: the target is a shielded endpoint with no address.
+  let transferTargetShielded: IDecodedTxShieldedEndpoint | undefined;
+  // Which side of the transfer the target is.
+  let transferTargetSide: 'from' | 'to' = 'to';
 
   const sendsWithNFT = sends.filter((send) => send.isNFT);
   const sendsWithToken = sends.filter((send) => !send.isNFT);
@@ -205,8 +221,12 @@ function getTxActionTransferInfo(
     );
     if (targets.length === 1) {
       [transferTarget] = targets;
+      transferTargetShielded = sends.find(
+        (send) => send.to === transferTarget,
+      )?.shieldedTo;
     } else {
       transferTarget = to;
+      transferTargetShielded = shieldedTo;
     }
   } else if (isEmpty(sends) && !isEmpty(receives)) {
     const targets = uniq(
@@ -214,11 +234,17 @@ function getTxActionTransferInfo(
     );
     if (targets.length === 1) {
       [transferTarget] = targets;
+      transferTargetShielded = receives.find(
+        (receive) => receive.from === transferTarget,
+      )?.shieldedFrom;
+      transferTargetSide = 'from';
     } else {
       // Fall back to the contract being interacted with (e.g. Aave Pool).
       // `from` here is the user's own address and never the right
       // counterparty in a receive-only tx; only use it if `to` is empty.
       transferTarget = to || from;
+      transferTargetShielded = to ? undefined : shieldedFrom;
+      transferTargetSide = to ? 'to' : 'from';
     }
   } else if (isUTXO) {
     if (isSendLikeHistoryTxType(type)) {
@@ -232,6 +258,7 @@ function getTxActionTransferInfo(
           : filteredReceives[0]
             ? filteredReceives[0].to
             : receives[0].to;
+      transferTargetShielded = (filteredReceives[0] ?? receives[0])?.shieldedTo;
     } else if (type === EOnChainHistoryTxType.Receive) {
       const filteredSends = sends.filter((send) => !send.isOwn);
       transferTarget =
@@ -243,9 +270,16 @@ function getTxActionTransferInfo(
           : filteredSends[0]
             ? filteredSends[0].from
             : sends[0].from;
+      transferTargetShielded = (filteredSends[0] ?? sends[0])?.shieldedFrom;
+      transferTargetSide = 'from';
     }
   } else {
     transferTarget = to;
+    transferTargetShielded = shieldedTo;
+  }
+  // Only an endpoint without an address is described by its marker.
+  if (transferTarget) {
+    transferTargetShielded = undefined;
   }
 
   return {
@@ -255,6 +289,8 @@ function getTxActionTransferInfo(
     to,
     label: label ?? '',
     transferTarget,
+    transferTargetShielded,
+    transferTargetSide,
     sendNFTIcon: sendsWithNFT[0]?.icon,
     receiveNFTIcon: receivesWithNFT[0]?.icon,
     sendTokenIcon: sendsWithToken[0]?.icon,
@@ -560,8 +596,9 @@ function TxActionTransferListView(props: ITxActionProps) {
     });
 
   const { vaultSettings } = useAccountData({ networkId });
-  // Local-wallet history rows carry pool labels the public flow must hide,
-  // and their server label describes the wrong side of the transaction.
+  // Local-wallet history rows carry private addresses (and, from older
+  // builds, pool labels) the public flow must hide, and their server label
+  // describes the wrong side of the transaction.
   const isLocalWalletHistory = !!vaultSettings?.localWallet;
 
   const isUTXO = vaultSettings?.isUtxo;
@@ -571,6 +608,8 @@ function TxActionTransferListView(props: ITxActionProps) {
     receives,
     label,
     transferTarget,
+    transferTargetShielded,
+    transferTargetSide,
     sendNFTIcon,
     sendTokenIcon,
     receiveNFTIcon,
@@ -588,10 +627,43 @@ function TxActionTransferListView(props: ITxActionProps) {
       })
     : sends;
   const isSendLikeHistory = isSendLikeHistoryTxType(type);
+  // Every own address a row names, change included, is checked before it shows.
+  const localWalletOwnAddresses = isLocalWalletHistory
+    ? collectPrivacyChainOwnAddresses({
+        owner: decodedTx.owner,
+        transfer: props.action.assetTransfer,
+      })
+    : undefined;
+  const localWalletAddresses = useLocalWalletAccountAddresses({
+    accountId: decodedTx.accountId,
+    networkId,
+    enabled:
+      !!localWalletOwnAddresses &&
+      !isPrivateSend &&
+      isPrivacyChainOwnTarget({
+        address: transferTarget,
+        shielded: transferTargetShielded,
+        ownAddresses: localWalletOwnAddresses,
+      }),
+  });
   let descriptionTarget = isPrivateSend
     ? (payload?.privateSend?.originalRecipient ?? '')
     : transferTarget;
-  if (isLocalWalletHistory) {
+  let descriptionLabel = '';
+  if (isLocalWalletHistory && vaultSettings?.localWallet && !isPrivateSend) {
+    const target = resolvePrivacyChainTargetDisplay({
+      intl,
+      localWallet: toPrivacyChainLocalWalletDisplay(vaultSettings.localWallet),
+      addresses: localWalletAddresses,
+      address: descriptionTarget,
+      shielded: transferTargetShielded,
+      side: transferTargetSide,
+      ownAddresses: localWalletOwnAddresses ?? new Set(),
+    });
+    // A pool name is shown but never looked up as an address.
+    descriptionTarget = target?.address ?? '';
+    descriptionLabel = target?.address ? '' : (target?.poolLabel ?? '');
+  } else if (isLocalWalletHistory) {
     descriptionTarget = getPrivacyChainPublicDisplayAddress({
       publicAddressPattern: vaultSettings?.localWallet?.publicAddressPattern,
       address: descriptionTarget,
@@ -599,9 +671,10 @@ function TxActionTransferListView(props: ITxActionProps) {
   }
   const description = {
     prefix: '',
-    children: accountUtils.shortenAddress({
-      address: descriptionTarget,
-    }),
+    children:
+      accountUtils.shortenAddress({
+        address: descriptionTarget,
+      }) || descriptionLabel,
     originalAddress: descriptionTarget,
   };
 

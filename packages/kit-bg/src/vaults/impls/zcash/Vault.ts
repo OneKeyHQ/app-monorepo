@@ -65,6 +65,7 @@ import VaultBtc from '../btc/Vault';
 import { refreshZcashAccountAddressCache } from './accountMeta';
 import {
   isZcashBackendPaymentAmountUnknown,
+  markZcashBackendShieldedCounterparty,
   normalizeZcashBackendHistoryTx,
   restoreZcashBackendSelfTransfer,
 } from './backendHistory';
@@ -776,6 +777,12 @@ export default class Vault extends VaultBtc {
       ...params,
       onChainHistoryTx: normalized,
     });
+    if (tx) {
+      markZcashBackendShieldedCounterparty({
+        onChainHistoryTx: normalized,
+        historyTx: tx,
+      });
+    }
     if (tx && isZcashBackendPaymentAmountUnknown(normalized)) {
       tx.decodedTx.nativeAmountIsUnknown = true;
     }

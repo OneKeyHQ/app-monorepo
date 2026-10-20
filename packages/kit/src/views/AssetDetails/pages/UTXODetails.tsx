@@ -23,7 +23,10 @@ import type {
   IModalAssetDetailsParamList,
 } from '@onekeyhq/shared/src/routes/assetDetails';
 import { getOnChainHistoryTransferDisplayAddress } from '@onekeyhq/shared/src/utils/historyUtils';
-import { getPrivacyChainPublicDisplayAddress } from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
+import {
+  getPrivacyChainEntryItem,
+  getPrivacyChainPublicDisplayAddress,
+} from '@onekeyhq/shared/src/utils/privacyChainDisplayUtils';
 import {
   EOnChainHistoryTransferType,
   type IOnChainHistoryTxTransfer,
@@ -31,7 +34,12 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../../hooks/useAccountData';
+import { useLocalWalletAccountAddresses } from '../../../hooks/useLocalWalletAccountAddresses';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import {
+  resolvePrivacyChainEndpointDisplay,
+  toPrivacyChainLocalWalletDisplay,
+} from '../../../utils/privacyChainEndpointLabel';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -40,7 +48,9 @@ type IUtxoListItem = {
   balance: string;
   isShielded?: boolean;
   isChange?: boolean;
+  isOwn?: boolean;
   label?: string;
+  poolId?: number;
 };
 
 function buildHistoryUtxoListItem({
@@ -54,7 +64,9 @@ function buildHistoryUtxoListItem({
     address: getOnChainHistoryTransferDisplayAddress({ transfer, endpoint }),
     balance: transfer.amount,
     isChange: transfer.isChange,
+    isOwn: transfer.isOwn,
     label: transfer.label,
+    poolId: transfer.poolId,
     isShielded: transfer.type === EOnChainHistoryTransferType.Shielded,
   };
 }
@@ -76,8 +88,21 @@ function UTXODetails() {
     networkId,
   });
   const isLocalWalletHistory = !!vaultSettings?.localWallet;
-  // Public endpoints, wallet-known private recipients, and pool labels have
-  // separate display rules; a pool label is never an address.
+  const localWalletAddresses = useLocalWalletAccountAddresses({
+    accountId,
+    networkId,
+    enabled: isLocalWalletHistory,
+  });
+  const localWalletDisplay = useMemo(
+    () =>
+      vaultSettings?.localWallet
+        ? toPrivacyChainLocalWalletDisplay(vaultSettings.localWallet)
+        : undefined,
+    [vaultSettings?.localWallet],
+  );
+  // Public endpoints and shielded entries have separate display rules. An own
+  // address shows only when it is exactly one the account displays; a
+  // shielded entry otherwise shows a known counterparty address or its pool.
   const showUtxoEndpoint = useCallback(
     (utxo: IUtxoListItem) =>
       !isLocalWalletHistory ||
@@ -88,8 +113,25 @@ function UTXODetails() {
     [isLocalWalletHistory, vaultSettings?.localWallet?.publicAddressPattern],
   );
   const renderUtxoEndpoint = useCallback(
-    (utxo: IUtxoListItem) => {
+    (
+      utxo: IUtxoListItem,
+      {
+        isInput,
+        ownAddresses,
+      }: { isInput: boolean; ownAddresses: Set<string> },
+    ) => {
       if (utxo.isShielded) {
+        const display = resolvePrivacyChainEndpointDisplay({
+          intl,
+          localWallet: localWalletDisplay,
+          addresses: localWalletAddresses,
+          item: getPrivacyChainEntryItem({
+            pools: localWalletDisplay?.pools,
+            entry: utxo,
+            isInput,
+            ownAddresses,
+          }),
+        });
         return (
           <XStack
             testID="utxo-shielded-endpoint"
@@ -108,18 +150,31 @@ function UTXODetails() {
               $gtMd={{ size: '$bodySmMedium' }}
               $platform-web={{ wordBreak: 'break-all' }}
             >
-              {showUtxoEndpoint(utxo) ||
-              (vaultSettings?.localWallet?.privateAddressPattern &&
-                new RegExp(
-                  vaultSettings.localWallet.privateAddressPattern,
-                ).test(utxo.address))
-                ? utxo.address
-                : utxo.label || 'Shielded'}
+              {display.address ?? display.poolLabel}
             </SizableText>
           </XStack>
         );
       }
       if (!showUtxoEndpoint(utxo)) return null;
+      let content = utxo.address;
+      if (
+        isLocalWalletHistory &&
+        (utxo.isOwn || ownAddresses.has(utxo.address))
+      ) {
+        const display = resolvePrivacyChainEndpointDisplay({
+          intl,
+          localWallet: localWalletDisplay,
+          addresses: localWalletAddresses,
+          item: {
+            kind: 'own',
+            poolId: localWalletDisplay?.pools?.find(
+              (pool) => pool.kind === 'public',
+            )?.id,
+            address: utxo.address,
+          },
+        });
+        content = display.address ?? display.poolLabel;
+      }
       return (
         <SizableText
           size="$bodyMd"
@@ -127,11 +182,17 @@ function UTXODetails() {
             size: '$bodySm',
           }}
         >
-          {utxo.address}
+          {content}
         </SizableText>
       );
     },
-    [showUtxoEndpoint, vaultSettings?.localWallet?.privateAddressPattern],
+    [
+      intl,
+      isLocalWalletHistory,
+      localWalletAddresses,
+      localWalletDisplay,
+      showUtxoEndpoint,
+    ],
   );
 
   const { result, isLoading } = usePromiseResult(
@@ -244,8 +305,25 @@ function UTXODetails() {
     [changeAddressesSet],
   );
 
+  // Addresses the data says are this account's; they pass the
+  // displayed-address check before being shown.
+  const ownAddresses = useMemo(() => {
+    const own = new Set<string>();
+    if (!isLocalWalletHistory) return own;
+    if (account?.address) own.add(account.address);
+    [...(result?.inputs ?? []), ...(result?.outputs ?? [])].forEach(
+      (utxo: IUtxoListItem) => {
+        if (utxo.isOwn && utxo.address) own.add(utxo.address);
+      },
+    );
+    return own;
+  }, [account?.address, isLocalWalletHistory, result]);
+
   const renderUTXOList = useCallback(
-    (utxos: IUtxoListItem[], options?: { showChangeBadge?: boolean }) => (
+    (
+      utxos: IUtxoListItem[],
+      options: { showChangeBadge?: boolean; isInput: boolean },
+    ) => (
       <Stack>
         {utxos.map((utxo, index) => (
           // <XStack key={index} gap="$2">
@@ -260,8 +338,11 @@ function UTXODetails() {
               mt: '$2.5',
             })}
           >
-            {renderUtxoEndpoint(utxo)}
-            {options?.showChangeBadge &&
+            {renderUtxoEndpoint(utxo, {
+              isInput: options.isInput,
+              ownAddresses,
+            })}
+            {options.showChangeBadge &&
             (utxo.isChange || changeAddressSet.has(utxo.address)) ? (
               <Badge
                 badgeType="success"
@@ -297,6 +378,7 @@ function UTXODetails() {
       intl,
       isLocalWalletHistory,
       network?.symbol,
+      ownAddresses,
       renderUtxoEndpoint,
     ],
   );
@@ -352,7 +434,7 @@ function UTXODetails() {
               {intl.formatMessage({ id: ETranslations.global_inputs })} •{' '}
               {result?.inputs.length ?? 0}
             </Heading>
-            {renderUTXOList(result?.inputs ?? [])}
+            {renderUTXOList(result?.inputs ?? [], { isInput: true })}
           </Stack>
           <Icon
             flexShrink={0}
@@ -384,6 +466,7 @@ function UTXODetails() {
               {result?.outputs.length ?? 0}
             </Heading>
             {renderUTXOList(result?.outputs ?? [], {
+              isInput: false,
               showChangeBadge: true,
             })}
           </Stack>

@@ -15,11 +15,10 @@ import type {
   IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
 
+import { XMR_POOL_IDS } from './types';
+
 import type { IXmrHistoryItem } from './types';
 import type { IXmrSentAmount } from '../../../dbs/simple/entity/SimpleDbEntityXmr';
-
-// Labelled, not blank: Monero's design makes the counterparty generally undiscoverable, and an empty value could read as a bug or the user's own address.
-export const XMR_UNKNOWN_COUNTERPARTY = 'Private';
 
 function getXmrHistoryStatus(item: IXmrHistoryItem): EDecodedTxStatus {
   if (item.height !== null) {
@@ -112,9 +111,16 @@ export async function buildXmrLocalHistoryTx({
           .toFixed()
       : amount;
 
-  // Own address goes on the side that fixes direction (buildTxActionDirection compares against it); the other side is what the list shows.
-  const from = isSent ? ownAddress : XMR_UNKNOWN_COUNTERPARTY;
-  const to = isSent ? recipient || XMR_UNKNOWN_COUNTERPARTY : ownAddress;
+  // Own address goes on the side that fixes direction (buildTxActionDirection compares against it).
+  // Monero's design makes the counterparty generally undiscoverable: it has no address and is marked private.
+  const from = isSent ? ownAddress : '';
+  const to = isSent ? recipient || '' : ownAddress;
+  const own = { poolId: XMR_POOL_IDS.private, isOwn: true };
+  const counterparty = { poolId: XMR_POOL_IDS.private };
+  const shieldedSides = {
+    shieldedFrom: isSent ? own : counterparty,
+    ...(isSent && recipient ? {} : { shieldedTo: isSent ? counterparty : own }),
+  };
 
   const action = await buildTransferAction({
     from,
@@ -123,6 +129,7 @@ export async function buildXmrLocalHistoryTx({
       {
         from,
         to,
+        ...shieldedSides,
         amount: paymentAmount,
         tokenIdOnNetwork: nativeToken?.address ?? '',
         icon: nativeToken?.logoURI ?? '',
@@ -133,6 +140,24 @@ export async function buildXmrLocalHistoryTx({
       },
     ],
   });
+
+  // Own address only fixed direction above. Which of our addresses a payment
+  // reached is unknown (it may be a subaddress), so our side names no address.
+  const withoutOwnAddress = <T extends { from: string; to: string }>(
+    target: T,
+  ): T => ({
+    ...target,
+    ...shieldedSides,
+    from: isSent ? '' : target.from,
+    to: isSent ? target.to : '',
+  });
+  if (action.assetTransfer) {
+    action.assetTransfer = {
+      ...withoutOwnAddress(action.assetTransfer),
+      sends: action.assetTransfer.sends.map(withoutOwnAddress),
+      receives: action.assetTransfer.receives.map(withoutOwnAddress),
+    };
+  }
 
   // An unmined tx has no block time; without a stand-in it sorts to the bottom (sort key falls back to 0) and the newest transaction would appear oldest.
   const isPending = item.height === null;

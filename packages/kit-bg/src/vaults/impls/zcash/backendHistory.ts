@@ -18,8 +18,6 @@ import type {
 import type { IEncodedTxZcash } from './types';
 import type Vault from './Vault';
 
-const SHIELDED_COUNTERPARTY_LABEL = 'Shielded';
-
 // Public I/O of mined self-transfers, keyed by `${networkId}:${txid}`; every
 // history snapshot rebuilds these rows, and mined I/O never changes.
 export const zcashSelfTransferDetailCache = new LRUCache<
@@ -179,6 +177,7 @@ export function restoreZcashLocalTransparentPayment({
     type: EOnChainHistoryTxType.Send,
     from,
     to,
+    shieldedCounterparty: undefined,
     value: amount,
     gasFee: fee,
     gasFeeFiatValue: tx.gasFee === fee ? tx.gasFeeFiatValue : '',
@@ -265,13 +264,13 @@ export function mergeZcashLocalTransparentPayment({
 function shieldedCounterparty(amount: string): IOnChainHistoryTxTransfer {
   return {
     type: EOnChainHistoryTransferType.Shielded,
-    address: SHIELDED_COUNTERPARTY_LABEL,
+    address: '',
     from: '',
     to: '',
     token: '',
     key: '',
     amount,
-    label: SHIELDED_COUNTERPARTY_LABEL,
+    label: '',
     isNative: true,
     isOwn: false,
   };
@@ -281,8 +280,8 @@ function shieldedCounterparty(amount: string): IOnChainHistoryTxTransfer {
 // attribute (money arriving from a shielded pool) comes back with `sends: []`
 // and an empty `from`; a send whose outputs all went shielded comes back
 // with no external receive. The generic UTXO renderer then reads
-// `sends[0].from` / `receives[0].to` and shows "unknown". Name the other
-// side for what it is.
+// `sends[0].from` / `receives[0].to` and shows "unknown". Add the shielded
+// side as an entry; it has no address, so the tx marks that side instead.
 export function normalizeZcashBackendHistoryTx(
   tx: IOnChainHistoryTx,
 ): IOnChainHistoryTx {
@@ -291,7 +290,7 @@ export function normalizeZcashBackendHistoryTx(
   if (tx.type === EOnChainHistoryTxType.Receive && sends.length === 0) {
     return {
       ...tx,
-      from: tx.from || SHIELDED_COUNTERPARTY_LABEL,
+      ...(tx.from ? {} : { shieldedCounterparty: 'from' as const }),
       sends: [shieldedCounterparty(tx.value ?? '0')],
     };
   }
@@ -302,11 +301,28 @@ export function normalizeZcashBackendHistoryTx(
   ) {
     return {
       ...tx,
-      to: tx.to || SHIELDED_COUNTERPARTY_LABEL,
+      ...(tx.to ? {} : { shieldedCounterparty: 'to' as const }),
       receives: [...receives, shieldedCounterparty(tx.value ?? '0')],
     };
   }
   return tx;
+}
+
+// Carries the indexer row's shielded side onto the built history action.
+export function markZcashBackendShieldedCounterparty({
+  onChainHistoryTx,
+  historyTx,
+}: {
+  onChainHistoryTx: IOnChainHistoryTx;
+  historyTx: IAccountHistoryTx;
+}) {
+  const transfer = historyTx.decodedTx.actions[0]?.assetTransfer;
+  if (!transfer) return;
+  if (onChainHistoryTx.shieldedCounterparty === 'from') {
+    transfer.shieldedFrom = {};
+  } else if (onChainHistoryTx.shieldedCounterparty === 'to') {
+    transfer.shieldedTo = {};
+  }
 }
 
 export async function fetchCompleteZcashBackendHistory({

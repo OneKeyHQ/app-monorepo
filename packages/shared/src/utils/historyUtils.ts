@@ -36,7 +36,10 @@ export function getOnChainHistoryTransferDisplayAddress({
   endpoint: 'from' | 'to';
 }): string {
   if (transfer.type === EOnChainHistoryTransferType.Shielded) {
-    return transfer.address || transfer.label || 'Shielded';
+    // Only a real address; the indexer and older builds put the label there.
+    return transfer.address && transfer.address !== transfer.label
+      ? transfer.address
+      : '';
   }
   return transfer[endpoint];
 }
