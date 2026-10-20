@@ -102,6 +102,7 @@ import {
   useHomeTabFreeze,
   useHomeTabOwnerThaw,
 } from './homeTabFreeze';
+import { debugHomeVisual } from './homeVisualTrace';
 import { NFTListContainerWithProvider } from './NFTListContainer';
 import { debugPerpsChain } from './perpsChainTrace';
 import { PortfolioContainerWithProvider } from './PortfolioContainer';
@@ -1073,7 +1074,30 @@ export function HomePageView({
     platformEnv.isNativeIOS ? 162 : 92,
   );
   const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
-    setTabPageHeight(e.nativeEvent.layout.height - 20);
+    const measured = e.nativeEvent.layout.height - 20;
+    setTabPageHeight((current) => {
+      if (measured !== current) {
+        debugHomeVisual('overlay-layout', {
+          measuredHeight: measured,
+          previousHeight: current,
+        });
+      }
+      return measured;
+    });
+  }, []);
+  const handleOuterHeaderHostRef = useCallback((node: ViewInstance | null) => {
+    if (!__DEV__ || !platformEnv.isNativeIOS) return;
+    debugHomeVisual('fixed-header-host', {
+      slot: 'outer',
+      attached: Boolean(node),
+    });
+  }, []);
+  const handlePagerHeaderHostRef = useCallback((node: ViewInstance | null) => {
+    if (!__DEV__ || !platformEnv.isNativeIOS) return;
+    debugHomeVisual('fixed-header-host', {
+      slot: 'pager',
+      attached: Boolean(node),
+    });
   }, []);
   const { result: accountNetworkNotSupported } = usePromiseResult(
     async () => {
@@ -1139,6 +1163,23 @@ export function HomePageView({
     supportsIos26ScrollEdge &&
     topEdgeCapability.available &&
     topEdgeCapability.ownerKey === homeScrollOwnerKey;
+  useEffect(() => {
+    debugHomeVisual('home-edge-state', {
+      supportsIos26ScrollEdge,
+      available: topEdgeCapability.available,
+      topEdgeActive,
+      ready: Boolean(ready),
+      hasNativePager: Boolean(hasNativePager),
+      overlayHeight: tabPageHeight,
+    });
+  }, [
+    supportsIos26ScrollEdge,
+    topEdgeCapability.available,
+    topEdgeActive,
+    ready,
+    hasNativePager,
+    tabPageHeight,
+  ]);
 
   const tabs = useMemo(() => {
     if (isWalletNotBackedUp) {
@@ -1203,10 +1244,16 @@ export function HomePageView({
           }))}
           initialTabName={seedTabName}
           headerHeightHint={nativeHeaderHeightHint}
+          topOverlayHeightHint={tabPageHeight}
           renderHeader={renderHeader}
           topEdgeActive={topEdgeActive}
           onTopScrollEdgeCapability={(available) =>
             setTopEdgeCapability((current) => {
+              debugHomeVisual('capability-to-home', {
+                available,
+                currentAvailable: current.available,
+                sameOwner: current.ownerKey === homeScrollOwnerKey,
+              });
               if (available) {
                 return { ownerKey: homeScrollOwnerKey, available: true };
               }
@@ -1219,6 +1266,11 @@ export function HomePageView({
             topEdgeActive ? (
               <Stack h={tabPageHeight}>
                 <YStack
+                  ref={
+                    __DEV__ && platformEnv.isNativeIOS
+                      ? handlePagerHeaderHostRef
+                      : undefined
+                  }
                   position="absolute"
                   top={-20}
                   left={0}
@@ -1300,6 +1352,7 @@ export function HomePageView({
     topEdgeActive,
     tabPageHeight,
     handleTabPageLayout,
+    handlePagerHeaderHostRef,
     sceneName,
   ]);
 
@@ -1492,6 +1545,31 @@ export function HomePageView({
   const showIos26PagerOverlay =
     topEdgeActive && hasNativePager && !showNoWalletContent && ready;
 
+  useLayoutEffect(() => {
+    let mode = 'web';
+    if (!ready && !isTravelModeRuntime) {
+      mode = 'early';
+    } else if (showIos26PagerOverlay) {
+      mode = 'pager';
+    } else if (platformEnv.isNative) {
+      mode = 'outer';
+    }
+    debugHomeVisual('fixed-header-slot', {
+      mode,
+      ready: Boolean(ready),
+      travelMode: Boolean(isTravelModeRuntime),
+      hasNativePager: Boolean(hasNativePager),
+      topEdgeActive: Boolean(topEdgeActive),
+      pagerOverlay: Boolean(showIos26PagerOverlay),
+    });
+  }, [
+    ready,
+    isTravelModeRuntime,
+    hasNativePager,
+    topEdgeActive,
+    showIos26PagerOverlay,
+  ]);
+
   const homePage = useMemo(() => {
     if (!ready && !isTravelModeRuntime) {
       return <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />;
@@ -1529,6 +1607,11 @@ export function HomePageView({
             {content}
             {platformEnv.isNative && !showIos26PagerOverlay ? (
               <YStack
+                ref={
+                  __DEV__ && platformEnv.isNativeIOS
+                    ? handleOuterHeaderHostRef
+                    : undefined
+                }
                 position="absolute"
                 top={-20}
                 left={0}
@@ -1556,6 +1639,7 @@ export function HomePageView({
     showIos26PagerOverlay,
     sceneName,
     handleTabPageLayout,
+    handleOuterHeaderHostRef,
     walletPageContent,
     tabBarHeight,
   ]);

@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useEffect,
   useImperativeHandle,
   useLayoutEffect,
   useMemo,
@@ -20,6 +21,7 @@ import { useAppPagerController } from '@onekeyhq/kit/src/components/AppPager/use
 import { SpotlightScrollStateContext } from '../../../components/Spotlight/SpotlightScrollStateContext';
 import { HomeNativeTabContext } from '../hooks/useHomeTab.native';
 
+import { debugHomeVisual } from './homeVisualTrace';
 import { debugPerpsChain } from './perpsChainTrace';
 
 import type { IHomeNativePagerProps } from './HomeNativePager';
@@ -30,6 +32,7 @@ export function HomeNativePager({
   tabs,
   initialTabName,
   headerHeightHint,
+  topOverlayHeightHint,
   renderHeader,
   topOverlay,
   onTopScrollEdgeCapability,
@@ -55,6 +58,26 @@ export function HomeNativePager({
   const pagerRef = useRef<CollapsiblePagerView>(null);
   const theme = useTheme();
   const themeName = useThemeName();
+  const hasTopOverlay = Boolean(topOverlay);
+  useEffect(() => {
+    debugHomeVisual('pager-props', {
+      overlay: hasTopOverlay,
+      topEdgeActive: Boolean(topEdgeActive),
+      headerHint: headerHeightHint ?? -1,
+      overlayHint: topOverlayHeightHint ?? -1,
+      headerHeight: headerLayout.height,
+      stickyHeight,
+      theme: themeName,
+    });
+  }, [
+    hasTopOverlay,
+    topEdgeActive,
+    headerHeightHint,
+    topOverlayHeightHint,
+    headerLayout.height,
+    stickyHeight,
+    themeName,
+  ]);
   const capabilityCallbackRef = useRef(onTopScrollEdgeCapability);
   capabilityCallbackRef.current = onTopScrollEdgeCapability;
   const capabilitySessionRef = useRef<{
@@ -174,13 +197,23 @@ export function HomeNativePager({
         nativeSmoothHeaderScrollEnabled
         topScrollEdgeEffect={topOverlay ? ScrollEdgeEffect.Hard : undefined}
         topOverlayColorScheme={topOverlay ? themeName : undefined}
+        topOverlayHeightHint={topOverlayHeightHint}
         topOverlay={topOverlay}
         onScrollEdgeCapability={(event) => {
           const session = capabilitySessionRef.current;
           if (!session.active && session.mounted) return;
-          session.lastAvailable = event.nativeEvent.available;
+          const available = event.nativeEvent.available;
+          if (session.lastAvailable !== available) {
+            debugHomeVisual('native-capability', {
+              available,
+              active: session.active,
+              mounted: session.mounted,
+              overlay: hasTopOverlay,
+            });
+          }
+          session.lastAvailable = available;
           if (session.active) {
-            capabilityCallbackRef.current?.(event.nativeEvent.available);
+            capabilityCallbackRef.current?.(available);
           }
         }}
         headerHeight={headerLayout.height}
@@ -192,6 +225,13 @@ export function HomeNativePager({
           <View
             onLayout={(event) => {
               const height = Math.ceil(event.nativeEvent.layout.height);
+              if (height !== headerLayout.height) {
+                debugHomeVisual('header-layout', {
+                  measuredHeight: height,
+                  previousHeight: headerLayout.height,
+                  generation: headerLayout.generation,
+                });
+              }
               setHeaderLayout((current) =>
                 current.generation === headerLayout.generation
                   ? { ...current, height }
@@ -217,9 +257,18 @@ export function HomeNativePager({
             style={{
               backgroundColor: topEdgeActive ? 'transparent' : theme.bgApp.val,
             }}
-            onLayout={(event) =>
-              setStickyHeight(Math.ceil(event.nativeEvent.layout.height))
-            }
+            onLayout={(event) => {
+              const measured = Math.ceil(event.nativeEvent.layout.height);
+              setStickyHeight((current) => {
+                if (measured !== current) {
+                  debugHomeVisual('sticky-layout', {
+                    measuredHeight: measured,
+                    previousHeight: current,
+                  });
+                }
+                return measured;
+              });
+            }}
           >
             {renderTabBar({ ...tabBarProps, topEdgeActive })}
           </View>

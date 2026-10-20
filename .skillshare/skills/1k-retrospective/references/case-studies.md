@@ -861,6 +861,13 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Fix**: Map native Solana to Hyperliquid `SOL` OHLCV candles and realtime updates for Market, Swap, and Wallet. Keep wrapped SOL and other SPL tokens outside that native-token mapping. Add regression coverage for all three branches, SPL exclusion, and Market source resolution before and after transport metadata loads.
 **Catchable by**: Section 4: Data flow end-to-end â€” volume-based indicators need a feed with traded volume. Test native-token source selection and same-network contract-token exclusion whenever a shared chart whitelist changes.
 
+## Case: iOS Home header jumped or disappeared during cold-start overlay handoff
+**Date**: 2026-10-19 | **Platforms**: iOS (main UI runtime and its UIKit pager views)
+**Symptom**: During cold start, the Home header and list briefly jumped upward by 162 points. Reserving the height alone still left the fixed search/account header blank for two frames during the outer-to-local overlay handoff.
+**Root Cause**: Local overlay mode became active before the first `onLayout` and native slot installation, so the effective overlay height temporarily became zero. Separately, the old outer header could unmount before the local overlay was installed on the next main-queue turn. This was a UI/native mounting-order issue, independent of background runtime readiness or shared JS state.
+**Fix**: Pass the known `topOverlayHeightHint` from `HomePageView` and use it until the wrapper measures the overlay. The pager SDK reserves the committed local height and installs ready overlay slots synchronously during `didMount` only for smooth Hard mode with nonempty pages, positive local height, complete slots, and no drag, page transition, or recycling; other states retain the deferred fallback.
+**Catchable by**: Section 5: verify geometry and view ownership across async layout and mounting boundaries. NativeLogger height/phase traces and frame-by-frame light/dark cold starts must show a stable nonzero overlay height and an uninterrupted fixed header. A native regression must assert overlay attachment before `didMount` returns; final settled screenshots alone miss the gap.
+
 ## Case: Perps detail chart toolbar became a white strip in dark mode
 **Date**: 2026-10-19 | **Platforms**: iOS (main)
 **Symptom**: The native chart's interval and settings toolbar appeared as a blank white strip in dark mode, while the candles and the rest of the Perps detail page were dark.
