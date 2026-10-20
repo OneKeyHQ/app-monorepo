@@ -7,6 +7,7 @@ import {
   Badge,
   Button,
   Checkbox,
+  DashText,
   Dialog,
   SizableText,
   Toast,
@@ -27,6 +28,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  formatTwapEstimatedSliceSize,
+  formatTwapPriceForOrder,
+} from '@onekeyhq/shared/src/utils/hyperliquidTwapUtils';
+import {
   formatLocalizedNumberString,
   numberFormat,
 } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -40,6 +45,7 @@ import {
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderConfirm, useTradingCalculationsForSide } from '../../../hooks';
+import { useActiveTradeDisplay } from '../../../hooks/useActiveTradeDisplay';
 import { getCurrentPerpsMarketDataFreshness } from '../../../hooks/usePerpsMarketDataFreshness';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import { PerpsAccountSelectorProviderMirror } from '../../../PerpsAccountSelectorProviderMirror';
@@ -253,7 +259,10 @@ function OrderConfirmContent({
   const shouldShowStandardLimitTif =
     !isSpot && !isTriggerMode && !isAlgoOrderMode && formData.type === 'limit';
 
-  const { midPriceBN } = useTradingPrice();
+  const { baseName: activeBaseName } = useActiveTradeDisplay();
+  const { midPriceBN } = useTradingPrice({
+    allowSpotMarkPriceFallback: !isTwapMode,
+  });
 
   const triggerTypeLabel = useMemo(() => {
     if (!isTriggerMode) return null;
@@ -275,10 +284,54 @@ function OrderConfirmContent({
     if (!isTwapMode) {
       return null;
     }
+    // The user must confirm the exact wire prices the submit path sends.
+    const triggerPrice = formatTwapPriceForOrder({
+      price: formData.twapTriggerPrice,
+      szDecimals,
+      assetType: isSpot ? 'spot' : 'perp',
+    });
+    const stopPrice = formatTwapPriceForOrder({
+      price: formData.twapStopPrice,
+      szDecimals,
+      assetType: isSpot ? 'spot' : 'perp',
+    });
     return {
       minutes: Number(formData.twapDurationMinutes ?? 0),
+      triggerPrice: triggerPrice
+        ? `$${formatLocalizedNumberString(triggerPrice)}`
+        : undefined,
+      stopPrice: stopPrice
+        ? `$${formatLocalizedNumberString(stopPrice)}`
+        : undefined,
     };
-  }, [formData.twapDurationMinutes, isTwapMode]);
+  }, [
+    formData.twapDurationMinutes,
+    formData.twapStopPrice,
+    formData.twapTriggerPrice,
+    isSpot,
+    isTwapMode,
+    szDecimals,
+  ]);
+  const twapEstimatedSliceSizeDisplay = useMemo(
+    () =>
+      isTwapMode
+        ? formatTwapEstimatedSliceSize({
+            size: computedSizeForSide,
+            midPrice: midPriceBN,
+            symbol: activeBaseName,
+            szDecimals,
+            durationMinutes: Number(formData.twapDurationMinutes ?? ''),
+          })
+        : undefined,
+    [
+      computedSizeForSide,
+      formData.twapDurationMinutes,
+      isTwapMode,
+      szDecimals,
+      midPriceBN,
+      activeBaseName,
+    ],
+  );
 
   const _inferredTpslBadge = useMemo(() => {
     if (!isTriggerMode || !formData.triggerPrice) return null;
@@ -780,6 +833,33 @@ function OrderConfirmContent({
                 {twapPreview.minutes} {minuteUnit}
               </SizableText>
             </XStack>
+            {twapPreview.triggerPrice ? (
+              <XStack justifyContent="space-between" alignItems="center">
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.dexmarket_pro_trigger_price,
+                  })}
+                </SizableText>
+                <SizableText size="$bodyMdMedium">
+                  {twapPreview.triggerPrice}
+                </SizableText>
+              </XStack>
+            ) : null}
+            {twapPreview.stopPrice ? (
+              <XStack justifyContent="space-between" alignItems="center">
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage({
+                    id:
+                      effectiveSide === 'long'
+                        ? ETranslations.perp_scale_upper_price_label__title
+                        : ETranslations.perp_scale_lower_price_label__title,
+                  })}
+                </SizableText>
+                <SizableText size="$bodyMdMedium">
+                  {twapPreview.stopPrice}
+                </SizableText>
+              </XStack>
+            ) : null}
           </>
         ) : null}
 
@@ -821,6 +901,30 @@ function OrderConfirmContent({
             </SizableText>
             <SizableText size="$bodyMdMedium">
               {formData.twapRandomize ? yesText : noText}
+            </SizableText>
+          </XStack>
+        ) : null}
+
+        {twapEstimatedSliceSizeDisplay ? (
+          <XStack justifyContent="space-between" alignItems="center">
+            <DashText
+              size="$bodyMd"
+              color="$textSubdued"
+              dashColor="$textDisabled"
+              dashThickness={0.5}
+              tooltip={intl.formatMessage({
+                id: ETranslations.perp_twap_child_order_size__desc,
+              })}
+              tooltipTitle={intl.formatMessage({
+                id: ETranslations.perp_twap_child_order_size__title,
+              })}
+            >
+              {intl.formatMessage({
+                id: ETranslations.perp_twap_child_order_size__title,
+              })}
+            </DashText>
+            <SizableText size="$bodyMdMedium">
+              {twapEstimatedSliceSizeDisplay}
             </SizableText>
           </XStack>
         ) : null}

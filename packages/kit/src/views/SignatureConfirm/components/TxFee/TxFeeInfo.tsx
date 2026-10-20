@@ -56,6 +56,10 @@ import {
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { SignatureConfirmTestIDs } from '@onekeyhq/kit/src/views/SignatureConfirm/testIDs';
+import {
+  applyEvmThorSwapGasLimit,
+  getEvmThorSwapGasLimit,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapGasUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
@@ -980,6 +984,14 @@ function TxFeeInfo(props: IProps) {
     !isSecondApproveTxWithFeeInfo &&
     (!!vaultSettings?.editFeeEnabled || !!vaultSettings?.checkFeeDetailEnabled);
 
+  const minimumGasLimit = isMultiTxs
+    ? undefined
+    : getEvmThorSwapGasLimit({
+        networkId,
+        buildTx: unsignedTxs[0]?.swapInfo?.swapBuildResData,
+        isSponsored: isPayerManagedByService,
+      });
+
   const feeSelectorItems: IFeeSelectorItem[] = useMemo(() => {
     const items = [];
     const useDappFeeAndNotEditFee =
@@ -1391,7 +1403,17 @@ function TxFeeInfo(props: IProps) {
         });
       }
 
-      return items;
+      return isMultiTxs
+        ? items
+        : items.map((item) => ({
+            ...item,
+            feeInfo: applyEvmThorSwapGasLimit({
+              networkId,
+              buildTx: unsignedTxs[0]?.swapInfo?.swapBuildResData,
+              gasInfo: item.feeInfo,
+              isSponsored: isPayerManagedByService,
+            }),
+          }));
     }
 
     return [];
@@ -1401,6 +1423,8 @@ function TxFeeInfo(props: IProps) {
     vaultSettings?.editFeeEnabled,
     feeInfoEditable,
     isMultiTxs,
+    networkId,
+    isPayerManagedByService,
     useFeeInTx,
     network,
     intl,
@@ -1582,7 +1606,7 @@ function TxFeeInfo(props: IProps) {
 
       const baseSelectedFeeInfo = selectedFeeInfo ?? selectedFeeInfos[0];
 
-      const txFeeInfo = {
+      let txFeeInfo = {
         ...baseSelectedFeeInfo,
         gas: baseSelectedFeeInfo.gas
           ? {
@@ -1603,6 +1627,14 @@ function TxFeeInfo(props: IProps) {
             }
           : undefined,
       };
+      if (!isMultiTxs) {
+        txFeeInfo = applyEvmThorSwapGasLimit({
+          networkId,
+          buildTx: unsignedTx.swapInfo?.swapBuildResData,
+          gasInfo: txFeeInfo,
+          isSponsored: isPayerManagedByService,
+        });
+      }
 
       const feeResult = calculateFeeForSend({
         feeInfo: txFeeInfo,
@@ -1697,8 +1729,10 @@ function TxFeeInfo(props: IProps) {
     feeSelectorItems,
     isLastSwapTxWithFeeInfo,
     isMultiTxs,
+    isPayerManagedByService,
     isSecondApproveTxWithFeeInfo,
     multiTxsFeeSelectorItems,
+    networkId,
     sendSelectedFee.feeType,
     sendSelectedFee.presetIndex,
     txFeeCommon?.nativeTokenPrice,
@@ -2257,6 +2291,7 @@ function TxFeeInfo(props: IProps) {
       renderContent: (
         <TxFeeEditor
           networkId={networkId}
+          minimumGasLimit={minimumGasLimit}
           feeSelectorItems={
             isEmpty(feeSelectorItems)
               ? multiTxsFeeSelectorItems.map((item) => ({
@@ -2268,7 +2303,12 @@ function TxFeeInfo(props: IProps) {
           selectedFee={selectedFee?.feeInfos?.[0]}
           sendSelectedFee={sendSelectedFee}
           unsignedTxs={unsignedTxs}
-          originalCustomFee={customFee}
+          originalCustomFee={
+            minimumGasLimit && customFee
+              ? (feeSelectorItems.find((item) => item.type === EFeeType.Custom)
+                  ?.feeInfo ?? customFee)
+              : customFee
+          }
           onApplyFeeInfo={handleApplyFeeInfo}
           estimateFeeParams={estimateFeeParams}
         />
@@ -2281,6 +2321,7 @@ function TxFeeInfo(props: IProps) {
     handleApplyFeeInfo,
     intl,
     multiTxsFeeSelectorItems,
+    minimumGasLimit,
     networkId,
     selectedFee?.feeInfos,
     sendSelectedFee,

@@ -293,6 +293,11 @@ export interface IPlaceTwapOrderParams {
   reduceOnly: boolean;
   minutes: number;
   randomize: boolean;
+  triggerPrice?: string;
+  triggerAbove?: boolean;
+  stopPrice?: string;
+  referencePrice: string;
+  markPrice: string;
   szDecimals?: number;
 }
 

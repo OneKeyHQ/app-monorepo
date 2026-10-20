@@ -43,6 +43,7 @@ import {
   swapStepsAtom,
   swapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
+import { buildSwapReviewState } from '../utils/buildSwapReviewState';
 import { createSwapReviewAnalytics } from '../utils/swapReviewAnalytics';
 
 import { useSwapBuildTx } from './useSwapBuiltTx';
@@ -151,6 +152,7 @@ const quote: IFetchQuoteResult = {
   fee: { percentageFee: 0.3 },
   quoteResultCtx: {},
 };
+let mockSelectedQuote = quote;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -187,9 +189,9 @@ jest.mock('../../../hooks/useSignatureConfirm', () => ({
 }));
 jest.mock('./useSwapPro', () => ({
   useSwapBuildTxInfo: () => ({
-    currentQuoteRes: quote,
-    fromSelectToken: fromToken,
-    toSelectToken: toToken,
+    currentQuoteRes: mockSelectedQuote,
+    fromSelectToken: mockSelectedQuote.fromTokenInfo,
+    toSelectToken: mockSelectedQuote.toTokenInfo,
   }),
   useSwapProAccount: () => ({}),
 }));
@@ -207,7 +209,10 @@ jest.mock('./useSwapTxHistory', () => ({
 jest.mock('./useSwapAccount', () => ({
   useSwapAddressInfo: (direction: string) => ({
     address: '0x0000000000000000000000000000000000000002',
-    networkId: direction === 'from' ? 'evm--1' : 'evm--56',
+    networkId:
+      direction === 'from'
+        ? mockSelectedQuote.fromTokenInfo.networkId
+        : mockSelectedQuote.toTokenInfo.networkId,
     accountInfo: {
       account: { id: 'hd-repro--0' },
       indexedAccount: { id: 'hd-repro-index-0' },
@@ -1562,6 +1567,7 @@ function renderReview({
   stepType?: ESwapStepType;
   preSwapData?: Partial<ISwapPreSwapData>;
 } = {}) {
+  mockSelectedQuote = selectedQuote;
   const reviewAnalyticsRef = {
     current: createSwapReviewAnalytics({ reviewSessionId: 'review-session-1' }),
   };
@@ -1608,6 +1614,186 @@ function renderReview({
     },
   };
 }
+
+describe('Blast separate approval execution', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSelectedQuote = quote;
+    platformEnv.isNative = false;
+    globalJotaiStorageReadyHandler.resolveReady(true);
+    mockNotificationState = {};
+    mockFetchSwapTokenDetails
+      .mockReset()
+      .mockResolvedValue([{ balanceParsed: '100' }]);
+    mockUpdateUnsignedTx
+      .mockReset()
+      .mockImplementation(async ({ unsignedTx }) => unsignedTx);
+    mockPrecheckUnsignedTxs.mockReset().mockResolvedValue(undefined);
+    mockSignMessage.mockReset().mockResolvedValue('signature');
+    mockFetchBuildTx.mockReset().mockResolvedValue(buildResponse('98'));
+    mockPrepareUnsignedTx.mockReset().mockImplementation(async (params) => ({
+      ...params,
+      encodedTx: params.encodedTx ?? {
+        from: '0x0000000000000000000000000000000000000002',
+        to: params.approveInfo?.spender ?? params.transfersInfo?.[0]?.to ?? '',
+        value: params.approveInfo ? '0' : '100000000000000000',
+        data: params.approveInfo ? '0xapprove' : '0xswap',
+      },
+    }));
+    mockEstimateFee.mockReset().mockResolvedValue({
+      common: {
+        feeDecimals: 9,
+        feeSymbol: 'Gwei',
+        nativeDecimals: 18,
+        nativeSymbol: 'ETH',
+        nativeTokenPrice: 1000,
+      },
+      gas: [{ gasPrice: '1', gasLimit: '21000' }],
+    });
+    mockSignAndSendTransaction
+      .mockReset()
+      .mockImplementation(async (...args) => {
+        const { unsignedTx } = args[0] as { unsignedTx: IUnsignedTxPro };
+        return {
+          txid: unsignedTx.approveInfo ? 'approval-tx' : 'swap-tx',
+          rawTx: 'signed-test-tx',
+          encodedTx: unsignedTx.encodedTx,
+          swapInfo: unsignedTx.swapInfo,
+        };
+      });
+    mockNavigateTxConfirm.mockReset().mockResolvedValue(undefined);
+    mockGetVaultSettings.mockReset().mockResolvedValue({});
+    mockBatchEstimateFee.mockReset().mockResolvedValue({
+      common: {
+        feeDecimals: 9,
+        feeSymbol: 'Gwei',
+        nativeDecimals: 18,
+        nativeSymbol: 'ETH',
+        nativeTokenPrice: 1000,
+      },
+      txFees: [
+        { gas: [{ gasPrice: '1', gasLimit: '21000' }] },
+        { gas: [{ gasPrice: '1', gasLimit: '21000' }] },
+      ],
+    });
+  });
+
+  it.each([false, true])(
+    'independently estimates the swap after approval (estimate fails: %s)',
+    async (estimateFails) => {
+      const blastQuote: IFetchQuoteResult = {
+        ...quote,
+        fromTokenInfo: {
+          ...fromToken,
+          networkId: 'evm--81457',
+          isNative: false,
+          contractAddress: '0x0000000000000000000000000000000000000004',
+          symbol: 'USDB',
+        },
+        toTokenInfo: { ...fromToken, networkId: 'evm--81457' },
+        allowanceResult: {
+          allowanceTarget: '0x0000000000000000000000000000000000000005',
+          amount: '0',
+        },
+        gasLimit: 345_600,
+      };
+      const reviewState = buildSwapReviewState({
+        accountId: 'hd-repro--0',
+        networkId: blastQuote.fromTokenInfo.networkId,
+        batchApproveAndSwapEnabled: true,
+        fromToken: blastQuote.fromTokenInfo,
+        toToken: blastQuote.toTokenInfo,
+        fromTokenAmount: blastQuote.fromAmount,
+        toTokenAmount: blastQuote.toAmount,
+        quoteResult: blastQuote,
+        swapType: ESwapTabSwitchType.SWAP,
+        supportPreBuild: false,
+        slippage: 1,
+        texts: {
+          wrap: 'Wrap',
+          approveAndSwap: 'Approve and swap',
+          approveAndSign: 'Approve and sign',
+          revokeApprove: 'Revoke approval',
+          approveToken: 'Approve',
+          approveTokenWithTarget: 'Approve USDB',
+          signAndSubmit: 'Sign and submit',
+          sign: 'Sign',
+          confirmSwap: 'Confirm swap',
+          swap: 'Swap',
+        },
+      });
+      const review = renderReview({ selectedQuote: blastQuote });
+      act(() => review.store.set(swapStepsAtom(), reviewState));
+
+      await review.send();
+
+      expect(review.store.get(swapStepsAtom()).steps[0].status).toBe(
+        ESwapStepStatus.PENDING,
+      );
+      expect(mockFetchBuildTx).not.toHaveBeenCalled();
+      expect(mockEstimateFee).toHaveBeenCalledTimes(1);
+      expect(mockEstimateFee).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          networkId: 'evm--81457',
+          encodedTx: expect.objectContaining({ data: '0xapprove' }),
+        }),
+      );
+      expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
+      expect(
+        mockSignAndSendTransaction.mock.calls[0][0].unsignedTx.approveInfo,
+      ).toBeDefined();
+
+      // The review UI advances this step after the matching approval succeeds.
+      act(() => {
+        review.store.set(swapStepsAtom(), (state) => ({
+          ...state,
+          steps: state.steps.map((step, index) =>
+            index === 0 ? { ...step, status: ESwapStepStatus.SUCCESS } : step,
+          ),
+        }));
+      });
+      mockFetchBuildTx.mockResolvedValue({
+        ...buildResponse('98'),
+        result: { ...blastQuote, allowanceResult: undefined },
+      });
+      if (estimateFails) {
+        mockEstimateFee.mockRejectedValueOnce(
+          new Error('allowance not effective'),
+        );
+      } else {
+        mockEstimateFee.mockResolvedValueOnce({
+          common: { feeDecimals: 9, nativeDecimals: 18, nativeSymbol: 'ETH' },
+          gas: [{ gasPrice: '2', gasLimit: '500000' }],
+        });
+      }
+
+      await review.send();
+
+      expect(mockFetchBuildTx).toHaveBeenCalled();
+      expect(mockBatchEstimateFee).not.toHaveBeenCalled();
+      expect(mockEstimateFee).toHaveBeenCalledTimes(2);
+      expect(mockEstimateFee).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          networkId: 'evm--81457',
+          encodedTx: expect.objectContaining({ data: '0xswap' }),
+        }),
+      );
+      if (estimateFails) {
+        expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(1);
+        expect(mockNavigateTxConfirm).toHaveBeenCalledTimes(1);
+      } else {
+        expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(2);
+        expect(mockUpdateUnsignedTx).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            feeInfo: expect.objectContaining({
+              gas: { gasPrice: '2', gasLimit: '500000' },
+            }),
+          }),
+        );
+      }
+    },
+  );
+});
 
 describe('useSwapBuildTx Review analytics', () => {
   beforeEach(() => {

@@ -27,6 +27,23 @@ describe('getUniversalSearchTabIndex', () => {
   });
 });
 
+it.each([false, true])(
+  'has no reserved watchlist gap in tab ordering (web dapp=%s)',
+  (isWebDappMode) => {
+    const types = [
+      EUniversalSearchType.MarketStock,
+      EUniversalSearchType.V2MarketToken,
+      EUniversalSearchType.Perp,
+      ...(!isWebDappMode ? [EUniversalSearchType.AccountAssets] : []),
+      EUniversalSearchType.Dapp,
+      EUniversalSearchType.Settings,
+    ];
+    expect(
+      types.map((type) => getUniversalSearchTabIndex(type, { isWebDappMode })),
+    ).toEqual(isWebDappMode ? [2, 3, 4, 5, 6] : [2, 3, 4, 5, 6, 7]);
+  },
+);
+
 describe('shouldPrioritizeMarketSearchSections', () => {
   it('is true on the Market route', () => {
     expect(

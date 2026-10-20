@@ -323,6 +323,8 @@ export interface ITradingFormData {
   twapDurationMinutes?: string;
   twapRandomize?: boolean;
   twapReduceOnly?: boolean;
+  twapTriggerPrice?: string;
+  twapStopPrice?: string;
 }
 
 export const { atom: tradingFormAtom, use: useTradingFormAtom } =
@@ -361,6 +363,8 @@ export const { atom: tradingFormAtom, use: useTradingFormAtom } =
     twapDurationMinutes: '10',
     twapRandomize: true,
     twapReduceOnly: false,
+    twapTriggerPrice: '',
+    twapStopPrice: '',
   });
 
 export type ITradingFormOrderPriceParams = Pick<

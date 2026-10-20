@@ -19,13 +19,17 @@ import {
   perpsActiveAssetAtom,
   perpsActiveAssetCtxAtom,
   perpsActiveAssetDataAtom,
+  spotActiveAssetCtxAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IPerpsActiveAccountAtom,
   IPerpsActiveAccountStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { formatSpotAssetCtx } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { IPlaceTwapOrderParams } from '@onekeyhq/shared/types/hyperliquid';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
+import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useHyperliquidActions } from './actions';
 import {
@@ -33,6 +37,7 @@ import {
   activeTradeInstrumentAtom,
   perpsActiveTwapOrdersAtom,
   tradingFormAtom,
+  tradingFormEnvAtom,
 } from './atoms';
 
 type IDialogOptions = {
@@ -79,6 +84,7 @@ const mockGetTwapStates = jest.fn<
 >();
 const mockGetTwapHistory = jest.fn<Promise<HL.ITwapHistoryRecord[]>, []>();
 const mockGetTwapSliceFills = jest.fn<Promise<HL.ITwapSliceFill[]>, []>();
+const mockPlaceTwapOrder = jest.fn<Promise<unknown>, [IPlaceTwapOrderParams]>();
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -172,6 +178,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceHyperliquidExchange: {
       orderOpen: (...args: unknown[]) => mockOrderOpen(...args),
       updateLeverage: (...args: unknown[]) => mockUpdateLeverage(...args),
+      placeTwapOrder: (params: IPlaceTwapOrderParams) =>
+        mockPlaceTwapOrder(params),
     },
     serviceHyperliquid: {
       checkPerpsAccountStatus: () => mockCheckPerpsAccountStatus(),
@@ -365,6 +373,8 @@ describe('useHyperliquidActions.loadTwapData', () => {
   const state: HL.ITwapState = {
     coin: 'BTC',
     executedNtl: '0',
+    trigger: null,
+    stopPx: null,
     executedSz: '0',
     minutes: 5,
     randomize: false,
@@ -407,6 +417,117 @@ describe('useHyperliquidActions.loadTwapData', () => {
     });
     return { store, result, existingOrders };
   };
+
+  it.each([false, true])(
+    'forwards plain/advanced TWAP parameters to background: %s',
+    async (advanced) => {
+      jest.spyOn(perpsActiveAssetAtom, 'get').mockResolvedValue({
+        coin: 'BTC',
+        assetId: 0,
+        universe: undefined,
+        margin: undefined,
+      });
+      jest.spyOn(perpsActiveAssetCtxAtom, 'get').mockResolvedValue(undefined);
+      jest.spyOn(perpsActiveAssetDataAtom, 'get').mockResolvedValue(undefined);
+      mockGetTwapStates.mockResolvedValue(undefined);
+      const { store, result } = setup();
+      store.set(activeTradeInstrumentAtom(), {
+        mode: 'perp',
+        coin: 'BTC',
+        assetId: 0,
+        universe: undefined,
+      });
+      store.set(tradingFormEnvAtom(), { markPrice: '100', szDecimals: 3 });
+      const triggerPrice = advanced ? '110' : '';
+      const stopPrice = advanced ? '120' : '';
+      mockPlaceTwapOrder.mockClear().mockResolvedValue({ status: 'ok' });
+      await act(async () =>
+        result.current.current.placeTwapOrder({
+          assetId: 0,
+          triggerAbove: advanced ? true : undefined,
+          formData: {
+            ...store.get(tradingFormAtom()),
+            orderMode: 'twap',
+            size: '1',
+            twapDurationMinutes: '5',
+            twapTriggerPrice: triggerPrice,
+            twapStopPrice: stopPrice,
+          },
+        }),
+      );
+      expect(mockPlaceTwapOrder).toHaveBeenCalledWith({
+        assetId: 0,
+        isBuy: true,
+        size: '1',
+        reduceOnly: false,
+        minutes: 5,
+        randomize: true,
+        triggerPrice,
+        triggerAbove: advanced ? true : undefined,
+        stopPrice,
+        referencePrice: '100',
+        markPrice: '100',
+        szDecimals: 3,
+      });
+    },
+  );
+
+  it.each(['102', undefined])(
+    'keeps spot sizing at mid and forwards the current mark: %s',
+    async (markPrice) => {
+      jest.spyOn(perpsActiveAssetAtom, 'get').mockResolvedValue({
+        coin: 'BTC',
+        assetId: 0,
+        universe: undefined,
+        margin: undefined,
+      });
+      jest.spyOn(perpsActiveAssetCtxAtom, 'get').mockResolvedValue(undefined);
+      jest.spyOn(perpsActiveAssetDataAtom, 'get').mockResolvedValue(undefined);
+      jest.spyOn(spotActiveAssetCtxAtom, 'get').mockResolvedValue({
+        coin: '@1',
+        assetId: 10_001,
+        ctx: {
+          ...formatSpotAssetCtx(null),
+          midPrice: '100',
+          markPrice: markPrice ?? '0',
+        },
+      });
+      const { store, result } = setup();
+      store.set(activeTradeInstrumentAtom(), {
+        mode: 'spot',
+        coin: '@1',
+        assetId: 10_001,
+        universe: undefined,
+      });
+      store.set(tradingFormEnvAtom(), {
+        markPrice: '100',
+        szDecimals: 2,
+        maxTradeSzs: ['2', '2'],
+      });
+      mockGetTwapStates.mockResolvedValue(undefined);
+      mockPlaceTwapOrder.mockClear().mockResolvedValue({ status: 'ok' });
+      await act(async () =>
+        result.current.current.placeTwapOrder({
+          assetId: 10_001,
+          price: '100',
+          formData: {
+            ...store.get(tradingFormAtom()),
+            orderMode: 'twap',
+            sizeInputMode: EPerpsSizeInputMode.SLIDER,
+            sizePercent: 50,
+            twapDurationMinutes: '5',
+          },
+        }),
+      );
+      expect(mockPlaceTwapOrder).toHaveBeenCalledWith(
+        expect.objectContaining({
+          size: '1',
+          referencePrice: '100',
+          markPrice: markPrice ?? '0',
+        }),
+      );
+    },
+  );
 
   it('accepts checksum-cased identity and preserves other-dex orders', async () => {
     mockGetTwapStates.mockResolvedValue({

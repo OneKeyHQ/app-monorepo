@@ -6,16 +6,25 @@ import {
   type SegmentSliderProps,
   SegmentSliderView,
 } from '@onekeyfe/react-native-segment-slider';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import {
   type HybridRef,
   type NitroViewWrappedCallback,
   callback,
 } from 'react-native-nitro-modules';
 
+import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
+
 import { useTheme } from '../../hooks/useStyle';
 
-import { DottedSlider } from './DottedSlider.native';
+const DottedSlider = LazyLoad<ISegmentSliderProps>(
+  () =>
+    import('./DottedSlider.native').then((module) => ({
+      default: module.DottedSlider,
+    })),
+  undefined,
+  <View style={{ height: 40, width: '100%' }} />,
+);
 
 // Touch/hit area height, matching the web variant's HIT_AREA_HEIGHT.
 const HIT_AREA_HEIGHT = 24;
