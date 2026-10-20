@@ -3,6 +3,8 @@ jest.mock('@onekeyfe/react-native-native-list', () => ({
   configureNativeListFonts: jest.fn(),
 }));
 
+import { BRAND_FONT_NATIVE_FAMILY } from '@onekeyhq/components/src/hocs/Provider/fonts/brandFont';
+
 import type { configureNativeListFonts } from '@onekeyfe/react-native-native-list';
 
 it('configures native host faces once before the first list can mount', () => {
@@ -15,12 +17,7 @@ it('configures native host faces once before the first list can mount', () => {
       }
     ).configureNativeListFonts;
     expect(configure).toHaveBeenCalledTimes(1);
-    expect(configure).toHaveBeenCalledWith({
-      regular: 'Roobert-Regular',
-      medium: 'Roobert-Medium',
-      semibold: 'Roobert-SemiBold',
-      bold: 'Roobert-Bold',
-    });
+    expect(configure).toHaveBeenCalledWith(BRAND_FONT_NATIVE_FAMILY);
     expect(useNativeListFonts()).toBe(true);
     expect(useNativeListFonts()).toBe(true);
     expect(configure).toHaveBeenCalledTimes(1);
