@@ -43,8 +43,8 @@ export function getHoverDelays(hoverable: IPopoverHoverable | undefined) {
  * shift, and a max height from the available space) and follows scroll /
  * resize / layout changes of either.
  *
- * The enter animation scales the panel's ancestor, which Floating UI reads
- * as a smaller panel; call the returned `reposition` once it has settled.
+ * The panel animates inside an unscaled offset parent, so positioning uses
+ * the same coordinates throughout the enter animation and on completion.
  */
 export function useAnchoredPosition({
   open,
