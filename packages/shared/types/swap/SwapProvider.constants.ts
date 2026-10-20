@@ -218,12 +218,9 @@ export const swapDefaultSetTokens: Record<
     toToken?: ISwapToken;
     limitFromToken?: ISwapToken;
     limitToToken?: ISwapToken;
-    // Market uses toToken unless the chain explicitly selects the other side.
-    marketDefaultToken?: 'fromToken' | 'toToken';
   }
 > = {
   [ARC_NETWORK_ID]: {
-    marketDefaultToken: 'fromToken',
     fromToken: {
       'networkId': ARC_NETWORK_ID,
       'contractAddress': ARC_ERC20_USDC_CONTRACT_ADDRESS,
