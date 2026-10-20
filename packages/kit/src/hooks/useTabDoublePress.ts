@@ -4,10 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 
 import type { NativeBottomTabNavigationProp } from '@onekeyhq/components/src/layouts/Navigation/BottomTabs';
 
-import type {
-  NavigationProp,
-  ParamListBase,
-} from '@react-navigation/native';
+import type { NavigationProp, ParamListBase } from '@react-navigation/native';
 
 /**
  * Run `callback` when the native bottom tab hosting this screen is

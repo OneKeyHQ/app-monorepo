@@ -2,7 +2,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import TabView from '@onekeyfe/react-native-tab-view';
+import BottomTabs from '@onekeyfe/react-native-bottom-tabs';
 import {
   CommonActions,
   type ParamListBase,
@@ -311,7 +311,7 @@ export function NativeBottomTabView({
   );
 
   return (
-    <TabView
+    <BottomTabs
       {...rest}
       tabBarHidden={tabBarHidden}
       navigationState={state}

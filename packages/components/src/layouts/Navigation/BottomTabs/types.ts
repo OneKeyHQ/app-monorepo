@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import type TabView from '@onekeyfe/react-native-tab-view';
-import type { AppleIcon, TabRole } from '@onekeyfe/react-native-tab-view';
+import type BottomTabs from '@onekeyfe/react-native-bottom-tabs';
+import type { AppleIcon, TabRole } from '@onekeyfe/react-native-bottom-tabs';
 import type {
   Descriptor,
   NavigationHelpers,
@@ -146,7 +146,7 @@ export type BottomTabBarProps = {
 
 export type NativeBottomTabNavigationConfig = Partial<
   Omit<
-    React.ComponentProps<typeof TabView>,
+    React.ComponentProps<typeof BottomTabs>,
     | 'navigationState'
     | 'onIndexChange'
     | 'renderScene'
