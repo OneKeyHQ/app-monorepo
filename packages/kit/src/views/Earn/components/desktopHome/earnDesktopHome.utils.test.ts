@@ -3,6 +3,7 @@ import type {
   IBorrowReserveItem,
   IEarnPortfolioInvestment,
 } from '@onekeyhq/shared/types/staking';
+import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import {
   buildBorrowOffers,
@@ -15,11 +16,11 @@ import {
   estimateBorrowInterest24h,
   findPositionDeposit,
   formatSharePercent,
-  parseAvailableAmount,
   parseCompactFiatText,
   pickTileOffers,
   sumBorrowedFiat,
   sumPortfolioDeposits,
+  sumWalletHoldings,
 } from './earnDesktopHome.utils';
 
 const investment = (
@@ -176,18 +177,100 @@ describe('parseCompactFiatText', () => {
   });
 });
 
-describe('parseAvailableAmount', () => {
-  it.each([
-    ['Available: 4.03', { amount: '4.03', isBelow: false }],
-    ['Active 1,220.09', { amount: '1220.09', isBelow: false }],
-    ['Available: 0', { amount: '0', isBelow: false }],
-    // Dust: the server sends a bound, not the amount
-    ['Available: < 0.01', { amount: '0.01', isBelow: true }],
-    ['<0.0001', { amount: '0.0001', isBelow: true }],
-    ['Available', undefined],
-    [undefined, undefined],
-  ])('reads %s', (text, expected) => {
-    expect(parseAvailableAmount(text)).toEqual(expected);
+const walletToken = (
+  symbol: string,
+  key: string,
+  extra: Partial<IAccountToken> = {},
+): IAccountToken => ({
+  $key: key,
+  symbol,
+  name: symbol,
+  address: key,
+  decimals: 6,
+  isNative: false,
+  ...extra,
+});
+
+const walletFiat = (
+  balanceParsed: string,
+  fiatValue: string,
+  extra: Partial<ITokenFiat> = {},
+): ITokenFiat => ({
+  balance: balanceParsed,
+  balanceParsed,
+  fiatValue,
+  price: 1,
+  currency: 'usd',
+  ...extra,
+});
+
+describe('sumWalletHoldings', () => {
+  it('adds a token up across networks', () => {
+    // The 10-21 test wallet: USDC on Ethereum and on Arbitrum
+    const holdings = sumWalletHoldings([
+      {
+        tokens: [walletToken('USDC', 'eth_usdc'), walletToken('ETH', 'eth')],
+        map: {
+          eth_usdc: walletFiat('4.025784', '4.02489832752'),
+          eth: walletFiat('0.000723', '1.76'),
+        },
+      },
+      {
+        tokens: [walletToken('USDC', 'arb_usdc')],
+        map: { arb_usdc: walletFiat('385.739546', '385.655454778972') },
+      },
+    ]);
+    expect(holdings.get('usdc')).toEqual({
+      amount: '389.76533',
+      fiatValueUsd: '389.680353106492',
+    });
+    expect(holdings.get('eth')).toEqual({
+      amount: '0.000723',
+      fiatValueUsd: '1.76',
+    });
+  });
+
+  it('scales a rebase balance, whose value is already scaled', () => {
+    const holdings = sumWalletHoldings([
+      {
+        tokens: [walletToken('TSLAx', 'sol_x')],
+        map: { sol_x: walletFiat('2', '900', { balanceMultiplier: '1.5' }) },
+      },
+    ]);
+    expect(holdings.get('tslax')).toEqual({ amount: '3', fiatValueUsd: '900' });
+  });
+
+  it('leaves out DeFi positions, shared-balance twins and empty balances', () => {
+    const holdings = sumWalletHoldings([
+      {
+        tokens: [
+          walletToken('USDC', 'a', { defiMarked: true }),
+          walletToken('USDC', 'b'),
+          walletToken('USDC', 'c'),
+          walletToken('DAI', 'd'),
+          walletToken('USDT', 'missing'),
+        ],
+        map: {
+          a: walletFiat('10', '10'),
+          b: walletFiat('5', '5', { sharedBalanceExcludedFromTotal: true }),
+          c: walletFiat('1', '1'),
+          d: walletFiat('0', '0'),
+        },
+      },
+    ]);
+    expect(holdings.get('usdc')).toEqual({ amount: '1', fiatValueUsd: '1' });
+    expect(holdings.has('dai')).toBe(false);
+    expect(holdings.has('usdt')).toBe(false);
+  });
+
+  it('keeps the amount but not a value in another currency', () => {
+    const holdings = sumWalletHoldings([
+      {
+        tokens: [walletToken('EURC', 'e')],
+        map: { e: walletFiat('2', '1.8', { currency: 'eur' }) },
+      },
+    ]);
+    expect(holdings.get('eurc')).toEqual({ amount: '2', fiatValueUsd: '0' });
   });
 });
 

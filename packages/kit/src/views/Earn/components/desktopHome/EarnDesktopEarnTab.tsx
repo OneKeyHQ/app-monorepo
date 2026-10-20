@@ -15,6 +15,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarGroup } from '@onekeyhq/kit/src/components/NetworkAvatar/NetworkAvatar';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
@@ -22,20 +23,15 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import {
-  useSettingsPersistAtom,
-  useSettingsValuePersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import { normalizeToEarnProvider } from '@onekeyhq/shared/types/earn/earnProvider.constants';
-import type {
-  IRecommendAsset,
-  IStakeProtocolListItem,
-} from '@onekeyhq/shared/types/staking';
+import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
 import { BorrowNavigation } from '../../../Borrow/borrowUtils';
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
@@ -47,10 +43,7 @@ import { AprText } from '../AprText';
 import { EarnListEmptyState } from '../EarnListEmptyState';
 import { NetworkFilterControl } from '../NetworkFilterControl';
 
-import {
-  findPositionDeposit,
-  parseAvailableAmount,
-} from './earnDesktopHome.utils';
+import { findPositionDeposit } from './earnDesktopHome.utils';
 import {
   EarnDesktopSurfaceProvider,
   SurfaceToken,
@@ -62,6 +55,7 @@ import { useEarnDesktopSurfaces } from './useEarnDesktopSurfaces';
 import type {
   IEarnDesktopLendingOffer,
   IEarnDesktopPortfolioDeposits,
+  IEarnDesktopWalletHolding,
 } from './earnDesktopHome.utils';
 
 type ITokenCategory = 'all' | 'stable' | 'nonStable';
@@ -110,10 +104,10 @@ type IEarnTableRow = {
   isFixedRate: boolean;
   networkIds: string[];
   depositedFiatValue: number;
-  /** undefined when the recommend list does not carry this token */
+  /** What the wallet holds of the token over every network; undefined if none */
   balance?: string;
-  /** The balance is the server's "< 0.01" bound */
-  isBalanceBelow?: boolean;
+  /** That balance's value in USD, shown in the display currency */
+  balanceFiatValueUsd?: string;
   tvl: number;
 };
 
@@ -558,7 +552,6 @@ function TokenRow({
 }) {
   const intl = useIntl();
   const surfaces = useEarnDesktopSurfaces();
-  const [{ hideValue }] = useSettingsValuePersistAtom();
   const { asset } = row;
   const handleToggle = () => onToggle(row.key);
   return (
@@ -626,11 +619,9 @@ function TokenRow({
           {/* Empty when there's nothing to deposit, whether the balance is 0
               or unknown: a dash on most rows would say nothing */}
           {new BigNumber(row.balance ?? 0).gt(0) ? (
-            <XStack ai="center" gap="$1">
-              {/* Dust reads "< 0.01"; the sign hides with the amount */}
-              {row.isBalanceBelow && !hideValue ? (
-                <SizableText size="$bodyLgMedium">{'<'}</SizableText>
-              ) : null}
+            // The amount over its value, as the Borrow page's Assets to
+            // Supply shows a wallet balance
+            <YStack ai="flex-end">
               <NumberSizeableTextWrapper
                 hideValue
                 size="$bodyLgMedium"
@@ -638,7 +629,16 @@ function TokenRow({
               >
                 {row.balance}
               </NumberSizeableTextWrapper>
-            </XStack>
+              <Currency
+                hideValue
+                size="$bodySm"
+                color="$textSubdued"
+                formatter="value"
+                sourceCurrency={USD_CURRENCY_ID}
+              >
+                {row.balanceFiatValueUsd}
+              </Currency>
+            </YStack>
           ) : null}
         </Stack>
         <Stack {...COLUMNS.apr}>
@@ -670,7 +670,7 @@ export function EarnDesktopEarnTab({
   isAssetsLoading,
   deposits,
   lendingOffers,
-  walletTokens,
+  walletHoldings,
   focusRequest,
   onFocusRequestHandled,
 }: {
@@ -679,7 +679,7 @@ export function EarnDesktopEarnTab({
   isAssetsLoading: boolean;
   deposits: IEarnDesktopPortfolioDeposits;
   lendingOffers: Map<string, IEarnDesktopLendingOffer[]>;
-  walletTokens: IRecommendAsset[];
+  walletHoldings: Map<string, IEarnDesktopWalletHolding>;
   focusRequest?: IEarnDesktopFocusRequest;
   onFocusRequestHandled?: () => void;
 }) {
@@ -728,18 +728,6 @@ export function EarnDesktopEarnTab({
     return map;
   }, [deposits, lendingOffers]);
 
-  const balanceBySymbol = useMemo(() => {
-    const map = new Map<string, { amount: string; isBelow: boolean }>();
-    walletTokens.forEach((token) => {
-      const available = parseAvailableAmount(token.available?.text);
-      map.set(token.symbol.toLowerCase(), {
-        amount: available?.amount ?? '0',
-        isBelow: available?.isBelow ?? false,
-      });
-    });
-    return map;
-  }, [walletTokens]);
-
   const allRows = useMemo<IEarnTableRow[]>(() => {
     const build = (asset: IEarnAvailableAsset, isFixedRate: boolean) => {
       const symbolKey = asset.symbol.toLowerCase();
@@ -759,8 +747,8 @@ export function EarnDesktopEarnTab({
           ]),
         ),
         depositedFiatValue: depositedBySymbol.get(symbolKey) ?? 0,
-        balance: balanceBySymbol.get(symbolKey)?.amount,
-        isBalanceBelow: balanceBySymbol.get(symbolKey)?.isBelow,
+        balance: walletHoldings.get(symbolKey)?.amount,
+        balanceFiatValueUsd: walletHoldings.get(symbolKey)?.fiatValueUsd,
         tvl: symbolTvl.get(symbolKey) ?? 0,
       };
     };
@@ -783,12 +771,12 @@ export function EarnDesktopEarnTab({
       return b.tvl - a.tvl;
     });
   }, [
-    balanceBySymbol,
     depositedBySymbol,
     fixedRateAssets,
     lendingOffers,
     symbolTvl,
     trendingAssets,
+    walletHoldings,
   ]);
 
   const categoryRows = useMemo(() => {
@@ -896,7 +884,9 @@ export function EarnDesktopEarnTab({
             </Stack>
             <Stack {...COLUMNS.balance}>
               <HeaderLabel align="right">
-                {intl.formatMessage({ id: ETranslations.global_balance })}
+                {intl.formatMessage({
+                  id: ETranslations.global_wallet_balance,
+                })}
               </HeaderLabel>
             </Stack>
             <Stack {...COLUMNS.apr}>

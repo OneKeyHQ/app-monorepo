@@ -14,6 +14,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -21,6 +22,7 @@ import {
   useSettingsPersistAtom,
   useSettingsValuePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
@@ -28,7 +30,6 @@ import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import type {
   IEarnPortfolioInvestment,
   IEarnText,
-  IRecommendAsset,
 } from '@onekeyhq/shared/types/staking';
 import { EManagePositionType } from '@onekeyhq/shared/types/staking';
 
@@ -46,7 +47,6 @@ import { WrappedActionButton } from '../PortfolioTabContent';
 import {
   buildBorrowOffers,
   collectTileRows,
-  parseAvailableAmount,
   pickTileOffers,
   sumBorrowedFiat,
 } from './earnDesktopHome.utils';
@@ -65,6 +65,7 @@ import type {
   IEarnDesktopRowAction,
   IEarnDesktopTileRow,
   IEarnDesktopTileRows,
+  IEarnDesktopWalletHolding,
 } from './earnDesktopHome.utils';
 import type { IEarnDesktopAccountMarket } from './useEarnDesktopHomeData';
 
@@ -275,17 +276,8 @@ function TileRow({
   );
 }
 
-function RowAmount({
-  amount,
-  symbol,
-  isBelow,
-}: {
-  amount: string;
-  symbol: string;
-  isBelow?: boolean;
-}) {
-  const [{ hideValue }] = useSettingsValuePersistAtom();
-  const value = (
+function RowAmount({ amount, symbol }: { amount: string; symbol: string }) {
+  return (
     <NumberSizeableTextWrapper
       hideValue
       size="$bodyMdMedium"
@@ -296,15 +288,21 @@ function RowAmount({
       {amount}
     </NumberSizeableTextWrapper>
   );
-  // Dust reads "< 0.01 ETH"; the sign hides with the amount
-  if (!isBelow || hideValue) {
-    return value;
-  }
+}
+
+// Wallet values come in USD and show in the display currency
+function RowWalletFiat({ valueUsd }: { valueUsd: string }) {
   return (
-    <XStack ai="center" gap="$1" minWidth={0}>
-      <SizableText size="$bodyMdMedium">{'<'}</SizableText>
-      {value}
-    </XStack>
+    <Currency
+      hideValue
+      size="$bodySm"
+      color="$textSubdued"
+      formatter="value"
+      sourceCurrency={USD_CURRENCY_ID}
+      numberOfLines={1}
+    >
+      {valueUsd}
+    </Currency>
   );
 }
 
@@ -703,9 +701,9 @@ function LoansTile({
 // ---------- Earns on your holding ----------
 
 type IHeldToken = {
-  token: IRecommendAsset;
+  asset: IEarnAvailableAsset;
   amount: string;
-  isBelow: boolean;
+  fiatValueUsd: string;
   maxApr: number;
   rateColor: ComponentProps<typeof SizableText>['color'];
 };
@@ -730,29 +728,22 @@ function WalletTile({
         })}
         onPress={onOpenTokens}
       />
-      {/* The recommend list has no fiat value per token (backend ask 3), so
-          the tile leads with the best rate instead of a dollar total */}
       <TileRateValue prefix={EARN_DESKTOP_DEMO_COPY.upTo} value={bestApr} />
       <YStack mt="$3">
         {heldTokens
           .slice(0, ROW_LIMIT)
-          .map(({ token, amount, isBelow, maxApr, rateColor }) => (
+          .map(({ asset, amount, fiatValueUsd, maxApr, rateColor }) => (
             <TileRow
-              key={token.symbol}
-              onPress={() => onOpenToken(token.symbol)}
-              icon={<Token size="md" tokenImageUri={token.logoURI} />}
+              key={asset.symbol}
+              onPress={() => onOpenToken(asset.symbol)}
+              icon={<Token size="md" tokenImageUri={asset.logoURI} />}
               primary={
                 <RowAmount
                   amount={amount}
-                  isBelow={isBelow}
-                  symbol={earnUtils.getDisplaySymbol(token)}
+                  symbol={earnUtils.getDisplaySymbol(asset)}
                 />
               }
-              secondary={
-                distinctName(token.name, earnUtils.getDisplaySymbol(token)) ? (
-                  <RowText subdued>{token.name}</RowText>
-                ) : undefined
-              }
+              secondary={<RowWalletFiat valueUsd={fiatValueUsd} />}
               right={<RowUpTo value={maxApr} color={rateColor} />}
             />
           ))}
@@ -941,7 +932,7 @@ function OfferTile({
 export function EarnDesktopTiles({
   investments,
   loans,
-  walletTokens,
+  walletHoldings,
   isLoading,
   markets,
   isMarketsLoaded,
@@ -956,7 +947,7 @@ export function EarnDesktopTiles({
 }: {
   investments: IEarnPortfolioInvestment[];
   loans: IEarnDesktopAccountMarket[];
-  walletTokens: IRecommendAsset[];
+  walletHoldings: Map<string, IEarnDesktopWalletHolding>;
   /** Until the portfolio, the markets and the wallet have each answered */
   isLoading: boolean;
   markets: IEarnDesktopMarketReserves[];
@@ -977,26 +968,32 @@ export function EarnDesktopTiles({
     [investments],
   );
   const heldTokens = useMemo<IHeldToken[]>(() => {
-    // The wallet list carries no rate colors, so a token takes its Earn
-    // entry's, the one its row in the table below shows
-    const earnAssetBySymbol = new Map(
-      trendingAssets.map((asset) => [asset.symbol, asset]),
+    // Each held token Earn lists, the most valuable first, with the rate its
+    // row in the table below shows
+    const assetBySymbol = new Map<string, IEarnAvailableAsset>();
+    [...trendingAssets, ...fixedRateAssets].forEach((asset) => {
+      const key = asset.symbol.toLowerCase();
+      if (!assetBySymbol.has(key)) {
+        assetBySymbol.set(key, asset);
+      }
+    });
+    const items: IHeldToken[] = [];
+    walletHoldings.forEach((holding, key) => {
+      const asset = assetBySymbol.get(key);
+      if (asset) {
+        items.push({
+          asset,
+          amount: holding.amount,
+          fiatValueUsd: holding.fiatValueUsd,
+          maxApr: getAssetMaxApr(asset),
+          rateColor: getAssetRateColor(asset),
+        });
+      }
+    });
+    return items.toSorted(
+      (a, b) => Number(b.fiatValueUsd) - Number(a.fiatValueUsd),
     );
-    return walletTokens
-      .map((token) => {
-        const available = parseAvailableAmount(token.available?.text);
-        return {
-          token,
-          amount: available?.amount ?? '0',
-          isBelow: available?.isBelow ?? false,
-          maxApr: getAssetMaxApr(token),
-          rateColor: getAssetRateColor(
-            earnAssetBySymbol.get(token.symbol) ?? token,
-          ),
-        };
-      })
-      .filter((item) => new BigNumber(item.amount).gt(0));
-  }, [trendingAssets, walletTokens]);
+  }, [fixedRateAssets, trendingAssets, walletHoldings]);
 
   const offers = pickTileOffers({
     rewardsEmpty: !rewards.rows.length,

@@ -9,12 +9,12 @@ import {
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IBorrowHealthFactor,
   IBorrowMarketItem,
   IBorrowReserveItem,
-  IRecommendAsset,
 } from '@onekeyhq/shared/types/staking';
 
 import { buildBorrowMarketKey } from '../../../Borrow/borrowMarketKey';
@@ -22,7 +22,13 @@ import { hasPositiveBorrowBalance } from '../../../Borrow/components/borrowRepay
 import { useBorrowMarkets } from '../../../Borrow/hooks/useBorrowMarkets';
 import { isBorrowReservesPayloadUsable } from '../../../Borrow/hooks/useBorrowReserves';
 
-import type { IEarnDesktopMarketReserves } from './earnDesktopHome.utils';
+import { sumWalletHoldings } from './earnDesktopHome.utils';
+
+import type {
+  IEarnDesktopMarketReserves,
+  IEarnDesktopWalletHolding,
+  IEarnDesktopWalletTokenGroup,
+} from './earnDesktopHome.utils';
 
 const MARKET_POLLING_INTERVAL = timerUtils.getTimeDurationMs({ minute: 3 });
 const ACCOUNT_POLLING_INTERVAL = timerUtils.getTimeDurationMs({ minute: 1 });
@@ -237,55 +243,235 @@ export function useEarnDesktopAccountMarkets({
   };
 }
 
-const EMPTY_TOKENS: IRecommendAsset[] = [];
-const INITIAL_TOKENS_RESULT: { scope?: string; tokens: IRecommendAsset[] } = {
-  tokens: EMPTY_TOKENS,
+type IWalletAccount = { accountId: string; networkId: string };
+type IWalletCache = {
+  scope?: string;
+  accounts: IWalletAccount[];
+  groups: Map<string, IEarnDesktopWalletTokenGroup>;
+  hasTokens: boolean;
 };
+type IWalletFreshGroup = {
+  group: IEarnDesktopWalletTokenGroup;
+  fetchedAt: number;
+};
+type IWalletFresh = {
+  scope?: string;
+  groups: Map<string, IWalletFreshGroup>;
+};
+const INITIAL_WALLET_CACHE: IWalletCache = {
+  accounts: [],
+  groups: new Map(),
+  hasTokens: false,
+};
+const INITIAL_WALLET_FRESH: IWalletFresh = { groups: new Map() };
+const EMPTY_HOLDINGS = new Map<string, IEarnDesktopWalletHolding>();
+// Names these fetches for aborts and logs
+const WALLET_HOLDINGS_FLAG = 'earn-desktop-home-holdings';
+// A list this recent is kept when the page regains focus or another network
+// joins the Earn lists; a settled transaction fetches every list again
+const WALLET_LIST_MAX_AGE = timerUtils.getTimeDurationMs({ seconds: 30 });
 
-/** Held tokens Earn supports, with their balance text and best rate. */
-export function useEarnDesktopWalletTokens({
+const walletGroupKey = ({ accountId, networkId }: IWalletAccount) =>
+  `${accountId}|${networkId}`;
+
+/**
+ * What the wallet holds of each token across networks, with its value. The
+ * wallet home's cached lists answer at once; the networks Earn offers on are
+ * then fetched again, so the balances this page acts on are current.
+ */
+export function useEarnDesktopWalletHoldings({
   isActive,
+  refreshNetworkIds,
 }: {
   isActive: boolean;
+  /** Networks fetched again after the cache, sorted so the key holds still */
+  refreshNetworkIds: string[];
 }) {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const accountId = activeAccount?.account?.id;
   const indexedAccountId = activeAccount?.indexedAccount?.id;
   const scope = `${accountId ?? ''}|${indexedAccountId ?? ''}`;
-  const lastRef = useRef(INITIAL_TOKENS_RESULT);
-  const { result = INITIAL_TOKENS_RESULT } = usePromiseResult(
-    async () => {
-      // The list stays as it was while the page is in the background
-      if (!isActive) {
-        return lastRef.current;
-      }
-      let tokens = EMPTY_TOKENS;
-      if (accountId || indexedAccountId) {
-        try {
-          const response =
-            await backgroundApiProxy.serviceStaking.fetchAllNetworkAssetsV2({
-              accountId: accountId ?? '',
-              networkId: getNetworkIdsMap().onekeyall,
-              indexedAccountId,
-            });
-          tokens = response?.tokens ?? EMPTY_TOKENS;
-        } catch {
-          // Settles on the last good list, so the tile never shimmers forever
-          tokens =
-            lastRef.current.scope === scope
-              ? lastRef.current.tokens
-              : EMPTY_TOKENS;
+
+  const cacheRef = useRef(INITIAL_WALLET_CACHE);
+  const { result: cache = INITIAL_WALLET_CACHE, run: runCache } =
+    usePromiseResult(
+      async () => {
+        // The numbers stay as they were while the page is in the background
+        if (!isActive) {
+          return cacheRef.current;
         }
+        let next: IWalletCache = {
+          scope,
+          accounts: [],
+          groups: new Map(),
+          hasTokens: false,
+        };
+        if (accountId || indexedAccountId) {
+          try {
+            const { accountsInfo } =
+              await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
+                accountId: accountId ?? '',
+                indexedAccountId,
+                networkId: getNetworkIdsMap().onekeyall,
+                deriveType: undefined,
+                // The wallet home's rule: imported and watched accounts
+                // keep networks the user turned off
+                networksEnabledOnly: !accountUtils.isOthersAccount({
+                  accountId: accountId ?? '',
+                }),
+                excludeTestNetwork: true,
+              });
+            const locals =
+              await backgroundApiProxy.serviceToken.getAccountsLocalTokens({
+                accounts: accountsInfo.map((item) => ({
+                  accountId: item.accountId,
+                  networkId: item.networkId,
+                  accountAddress: item.apiAddress,
+                  xpub: item.accountXpub,
+                })),
+              });
+            const groups = new Map<string, IEarnDesktopWalletTokenGroup>();
+            locals.forEach((local) => {
+              if (local) {
+                groups.set(walletGroupKey(local), {
+                  tokens: [...local.tokenList, ...local.smallBalanceTokenList],
+                  map: local.tokenListMap,
+                });
+              }
+            });
+            next = {
+              scope,
+              accounts: accountsInfo.map((item) => ({
+                accountId: item.accountId,
+                networkId: item.networkId,
+              })),
+              groups,
+              hasTokens: Array.from(groups.values()).some(
+                (group) => group.tokens.length > 0,
+              ),
+            };
+          } catch {
+            // Settles on what it had, so the tiles never shimmer forever
+            if (cacheRef.current.scope === scope) {
+              next = cacheRef.current;
+            }
+          }
+        }
+        cacheRef.current = next;
+        return next;
+      },
+      [accountId, indexedAccountId, isActive, scope],
+      {
+        initResult: INITIAL_WALLET_CACHE,
+        revalidateOnFocus: true,
+      },
+    );
+
+  const refreshKey = refreshNetworkIds.join(',');
+  const freshRef = useRef(INITIAL_WALLET_FRESH);
+  const freshRunRef = useRef(0);
+  // Set by refresh(), so the next pass skips the age check
+  const isForcedRef = useRef(false);
+  const { result: fresh = INITIAL_WALLET_FRESH } = usePromiseResult(
+    async () => {
+      if (!isActive || cache.scope !== scope) {
+        return freshRef.current;
       }
-      lastRef.current = { scope, tokens };
-      return lastRef.current;
+      freshRunRef.current += 1;
+      const run = freshRunRef.current;
+      const isForced = isForcedRef.current;
+      isForcedRef.current = false;
+      const wanted = new Set(refreshKey ? refreshKey.split(',') : []);
+      const previous =
+        freshRef.current.scope === scope ? freshRef.current.groups : undefined;
+      const now = Date.now();
+      const groups = new Map<string, IWalletFreshGroup>();
+      const stale: IWalletAccount[] = [];
+      cache.accounts
+        .filter((item) => wanted.has(item.networkId))
+        .forEach((item) => {
+          const kept = previous?.get(walletGroupKey(item));
+          if (kept && !isForced && now - kept.fetchedAt < WALLET_LIST_MAX_AGE) {
+            groups.set(walletGroupKey(item), kept);
+          } else {
+            stale.push(item);
+          }
+        });
+      const limit = pLimit(REQUEST_CONCURRENCY);
+      await Promise.all(
+        stale.map((item) =>
+          limit(async () => {
+            const key = walletGroupKey(item);
+            try {
+              const response =
+                await backgroundApiProxy.serviceToken.fetchAccountTokens({
+                  accountId: item.accountId,
+                  networkId: item.networkId,
+                  indexedAccountId,
+                  flag: WALLET_HOLDINGS_FLAG,
+                  hideSmallBalanceTokens: false,
+                  hideRiskTokens: true,
+                  excludeDeFiMarkedTokens: true,
+                  saveToLocal: false,
+                  isManualRefresh: false,
+                });
+              groups.set(key, {
+                group: {
+                  tokens: [
+                    ...response.tokens.data,
+                    ...response.smallBalanceTokens.data,
+                  ],
+                  map: {
+                    ...response.tokens.map,
+                    ...response.smallBalanceTokens.map,
+                  },
+                },
+                fetchedAt: Date.now(),
+              });
+            } catch {
+              // A network that fails keeps its last list, else the cache's
+              const kept = previous?.get(key);
+              if (kept) {
+                groups.set(key, kept);
+              }
+            }
+          }),
+        ),
+      );
+      const next: IWalletFresh = { scope, groups };
+      // A slower, older pass must not replace a newer one's lists
+      if (run === freshRunRef.current) {
+        freshRef.current = next;
+      }
+      return next;
     },
-    [accountId, indexedAccountId, isActive, scope],
-    {
-      initResult: INITIAL_TOKENS_RESULT,
-      revalidateOnFocus: true,
-    },
+    [cache, indexedAccountId, isActive, refreshKey, scope],
+    { initResult: INITIAL_WALLET_FRESH },
   );
-  const isLoaded = result.scope === scope;
-  return { tokens: isLoaded ? result.tokens : EMPTY_TOKENS, isLoaded };
+
+  const holdings = useMemo(() => {
+    if (cache.scope !== scope) {
+      return EMPTY_HOLDINGS;
+    }
+    const groups = new Map(cache.groups);
+    if (fresh.scope === scope) {
+      fresh.groups.forEach((item, key) => groups.set(key, item.group));
+    }
+    return sumWalletHoldings(Array.from(groups.values()));
+  }, [cache, fresh, scope]);
+
+  // A settled transaction moves wallet balances too
+  const refresh = useCallback(() => {
+    isForcedRef.current = true;
+    return runCache({ alwaysSetState: true });
+  }, [runCache]);
+
+  // Cached numbers show at once and the fetch corrects them quietly. With no
+  // cache the page waits for the first fetch; networks the Earn lists add
+  // later update the numbers in place
+  const isLoaded =
+    cache.scope === scope &&
+    (cache.hasTokens || !refreshKey || fresh.scope === scope);
+
+  return { holdings, isLoaded, refresh };
 }

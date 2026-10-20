@@ -40,7 +40,7 @@ import { EarnDesktopTiles } from './EarnDesktopTiles';
 import {
   useEarnDesktopAccountMarkets,
   useEarnDesktopMarkets,
-  useEarnDesktopWalletTokens,
+  useEarnDesktopWalletHoldings,
 } from './useEarnDesktopHomeData';
 
 import type { IEarnDesktopFocusRequest } from './EarnDesktopEarnTab';
@@ -182,12 +182,43 @@ export function EarnDesktopHome({
     isListReady,
     isActive,
   });
-  const wallet = useEarnDesktopWalletTokens({ isActive });
+  const trendingAssets = useMemo(
+    () =>
+      mergeSimpleEarnWithStakingAssets(
+        availableAssetsByType[EAvailableAssetsTypeEnum.SimpleEarn] ??
+          EMPTY_ASSETS,
+        availableAssetsByType[EAvailableAssetsTypeEnum.Staking] ?? EMPTY_ASSETS,
+      ),
+    [availableAssetsByType],
+  );
+  const fixedRateAssets =
+    availableAssetsByType[EAvailableAssetsTypeEnum.FixedRate] ?? EMPTY_ASSETS;
+  // The networks Earn offers on, where the wallet's balances are fetched
+  // fresh rather than read from the wallet home's cache alone
+  const earnNetworkIds = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          ...[...trendingAssets, ...fixedRateAssets].flatMap((asset) =>
+            asset.protocols.map((protocol) => protocol.networkId),
+          ),
+          ...marketList.map((market) => market.networkId),
+        ]),
+      ).toSorted(),
+    [fixedRateAssets, marketList, trendingAssets],
+  );
+  const wallet = useEarnDesktopWalletHoldings({
+    isActive,
+    refreshNetworkIds: earnNetworkIds,
+  });
 
   const refreshAccountMarkets = accountMarkets.refresh;
+  const refreshWallet = wallet.refresh;
   useEffect(() => {
+    // A settled transaction moves the wallet's balances as well as the
+    // lending positions
     const handler = async () => {
-      await refreshAccountMarkets();
+      await Promise.all([refreshAccountMarkets(), refreshWallet()]);
     };
     onRegisterRefresh?.(handler);
     onRegisterBorrowRefresh?.(handler);
@@ -195,7 +226,12 @@ export function EarnDesktopHome({
       onRegisterRefresh?.(null);
       onRegisterBorrowRefresh?.(null);
     };
-  }, [onRegisterBorrowRefresh, onRegisterRefresh, refreshAccountMarkets]);
+  }, [
+    onRegisterBorrowRefresh,
+    onRegisterRefresh,
+    refreshAccountMarkets,
+    refreshWallet,
+  ]);
   const marketNetworksKey = Array.from(
     new Set(marketList.map((market) => market.networkId)),
   ).join(',');
@@ -251,17 +287,6 @@ export function EarnDesktopHome({
   const isHeroLoading = !isPortfolioSettled || !accountMarkets.isLoaded;
   const isTilesLoading = isHeroLoading || !wallet.isLoaded;
 
-  const trendingAssets = useMemo(
-    () =>
-      mergeSimpleEarnWithStakingAssets(
-        availableAssetsByType[EAvailableAssetsTypeEnum.SimpleEarn] ??
-          EMPTY_ASSETS,
-        availableAssetsByType[EAvailableAssetsTypeEnum.Staking] ?? EMPTY_ASSETS,
-      ),
-    [availableAssetsByType],
-  );
-  const fixedRateAssets =
-    availableAssetsByType[EAvailableAssetsTypeEnum.FixedRate] ?? EMPTY_ASSETS;
   // A list that has not been asked for yet counts as loading, so nothing
   // reads it as empty
   const isAssetsLoading =
@@ -369,7 +394,7 @@ export function EarnDesktopHome({
           <EarnDesktopTiles
             investments={investments}
             loans={accountMarkets.loans}
-            walletTokens={wallet.tokens}
+            walletHoldings={wallet.holdings}
             isLoading={isTilesLoading}
             markets={markets}
             isMarketsLoaded={isMarketsLoaded}
@@ -392,7 +417,7 @@ export function EarnDesktopHome({
               isAssetsLoading={isAssetsLoading}
               deposits={portfolioDeposits}
               lendingOffers={lendingOffers}
-              walletTokens={wallet.tokens}
+              walletHoldings={wallet.holdings}
               focusRequest={focusRequest}
               onFocusRequestHandled={handleFocusRequestHandled}
             />

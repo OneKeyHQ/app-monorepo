@@ -1,10 +1,13 @@
 import BigNumber from 'bignumber.js';
 
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import type {
   IBorrowMarketItem,
   IBorrowReserveItem,
   IEarnPortfolioInvestment,
 } from '@onekeyhq/shared/types/staking';
+import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { getBorrowMarketLabel } from '../../../Borrow/borrowMarketDisplayName';
 import { buildBorrowMarketKey } from '../../../Borrow/borrowMarketKey';
@@ -42,24 +45,74 @@ export function parseCompactFiatText(text?: string): number {
   return Number(match[1]) * (suffix ? COMPACT_SUFFIX[suffix] : 1);
 }
 
-export type IEarnDesktopAvailableAmount = {
+// ---------- Wallet holdings ----------
+
+export type IEarnDesktopWalletHolding = {
+  /** The token's balance added up over networks, in display units */
   amount: string;
-  /** The server sends dust as "< 0.01": the amount is a bound, not a balance */
-  isBelow: boolean;
+  /** Its value in USD, the basis the token cache keeps; shown converted */
+  fiatValueUsd: string;
 };
 
-// The recommend list's available.text is a label followed by the amount
-// ("Active 220.09", "Available: < 0.01"); the amount always uses '.' and ','
-// (see RecommendedSection)
-const AVAILABLE_AMOUNT_PATTERN = /(<\s*)?(\d[\d,]*(?:\.\d+)?)/;
-export function parseAvailableAmount(
-  text?: string,
-): IEarnDesktopAvailableAmount | undefined {
-  const match = text?.match(AVAILABLE_AMOUNT_PATTERN);
-  if (!match) {
-    return undefined;
-  }
-  return { amount: match[2].replace(/,/g, ''), isBelow: Boolean(match[1]) };
+/** One network's tokens for one account, with their balances and values */
+export type IEarnDesktopWalletTokenGroup = {
+  tokens: IAccountToken[];
+  map: Record<string, ITokenFiat>;
+};
+
+// What the wallet holds of each token across networks, keyed by lowercased
+// symbol as the Earn rows are. Risk tokens never come in; DeFi-marked tokens
+// are positions, not idle balance; a shared-balance twin is the same balance
+// read twice
+export function sumWalletHoldings(
+  groups: IEarnDesktopWalletTokenGroup[],
+): Map<string, IEarnDesktopWalletHolding> {
+  const totals = new Map<
+    string,
+    { amount: BigNumber; fiatValueUsd: BigNumber }
+  >();
+  groups.forEach(({ tokens, map }) => {
+    tokens.forEach((token) => {
+      const fiat = map[token.$key];
+      if (!fiat || token.defiMarked || fiat.sharedBalanceExcludedFromTotal) {
+        return;
+      }
+      const amount = new BigNumber(
+        tokenRebaseUtils.applyBalanceMultiplier({
+          amount: fiat.balanceParsed,
+          balanceMultiplier: fiat.balanceMultiplier ?? token.balanceMultiplier,
+        }),
+      );
+      if (!amount.isFinite() || amount.lte(0)) {
+        return;
+      }
+      const key = token.symbol.toLowerCase();
+      const total = totals.get(key) ?? {
+        amount: new BigNumber(0),
+        fiatValueUsd: new BigNumber(0),
+      };
+      total.amount = total.amount.plus(amount);
+      // The cache and the fetch both keep USD; a value in another basis is
+      // left out rather than added to dollars
+      const value = new BigNumber(fiat.fiatValue);
+      if (
+        value.isFinite() &&
+        (fiat.currency ?? USD_CURRENCY_ID) === USD_CURRENCY_ID
+      ) {
+        total.fiatValueUsd = total.fiatValueUsd.plus(value);
+      }
+      totals.set(key, total);
+    });
+  });
+  return new Map(
+    Array.from(totals, ([key, total]) => [
+      key,
+      {
+        amount: total.amount.toFixed(),
+        fiatValueUsd: total.fiatValueUsd.toFixed(),
+      },
+    ]),
+  );
 }
 
 // ---------- Hero split bar ----------
