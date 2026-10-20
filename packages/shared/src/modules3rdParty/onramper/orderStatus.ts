@@ -171,6 +171,11 @@ export function applyOnramperTransactionStatus(
   } else if (!order.timedOut) {
     next.status = EHeadlessBuyOrderStatus.Processing;
   }
+  if (next.status !== EHeadlessBuyOrderStatus.Failed) {
+    // The banner's "unseen failure" mark belongs to one failure, not to the
+    // record: once the order leaves Failed, a later failure must show again.
+    delete next.failureViewedAt;
+  }
   return next;
 }
 

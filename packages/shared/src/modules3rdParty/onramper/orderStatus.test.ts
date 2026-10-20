@@ -209,6 +209,48 @@ describe('applyOnramperTransactionStatus', () => {
     expect(next?.timedOut).toBe(false);
   });
 
+  it('forgets the viewed failure when a timed-out order recovers, so a later failure shows again', () => {
+    const recovered = applyOnramperTransactionStatus(
+      order({
+        submittedAt: T0,
+        status: EHeadlessBuyOrderStatus.Failed,
+        timedOut: true,
+        failureViewedAt: T0,
+      }),
+      { transactionId: '01M3', status: 'pending' },
+      T0,
+    );
+    expect(recovered?.status).toBe(EHeadlessBuyOrderStatus.Processing);
+    expect(recovered?.failureViewedAt).toBeUndefined();
+    const failedAgain =
+      recovered &&
+      applyOnramperTransactionStatus(
+        recovered,
+        {
+          transactionId: '01M3',
+          status: 'failed',
+          statusReason: 'Refund issued',
+        },
+        T0,
+      );
+    expect(failedAgain?.status).toBe(EHeadlessBuyOrderStatus.Failed);
+    expect(
+      selectHeadlessBuyOrders(failedAgain ? [failedAgain] : [])
+        .unseenFailedOrder?.transactionId,
+    ).toBe('01M3');
+    // A failure that stays failed keeps its mark.
+    const stillFailed = applyOnramperTransactionStatus(
+      order({
+        submittedAt: T0,
+        status: EHeadlessBuyOrderStatus.Failed,
+        failureViewedAt: T0,
+      }),
+      { transactionId: '01M3', status: 'failed' },
+      T0,
+    );
+    expect(stillFailed?.failureViewedAt).toBe(T0);
+  });
+
   it('keeps a timed-out order failed while the backend still says init', () => {
     const next = applyOnramperTransactionStatus(
       order({

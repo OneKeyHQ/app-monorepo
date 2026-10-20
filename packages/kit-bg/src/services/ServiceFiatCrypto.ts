@@ -51,11 +51,15 @@ const FAILED_RECHECK_INTERVAL_MS = 60_000;
 // crowd out the visible orders. Explicit ids (the detail page) are exempt.
 const LOW_PRIORITY_RECHECK_INTERVAL_MS = 10 * 60_000;
 // Device-wide lookup budget per rolling minute, under the 10/min/IP edge
-// limit so the detail page's poll still has room. One page entry can refresh
-// every order up to this count; beyond it the least recently checked orders
-// go first and the rest get their turn on the next entry.
+// limit. One page entry can refresh every order up to this count; beyond it
+// the least recently checked orders go first and the rest get their turn on
+// the next entry.
 const LOOKUP_BUDGET_PER_MINUTE = 8;
 const LOOKUP_BUDGET_WINDOW_MS = 60_000;
+// A general refresh leaves this many of those slots to explicit-id requests
+// (the detail page's poll), so a page entry that refreshes a long list cannot
+// lock the open order out of its next status for the rest of the window.
+const EXPLICIT_LOOKUP_RESERVED_SLOTS = 2;
 // One 429 pauses every lookup on this device for this long.
 const RATE_LIMITED_PAUSE_MS = 60_000;
 // Ids minted by the Simulator mock client / the no-id fallback never exist on
@@ -361,6 +365,11 @@ class ServiceFiatCrypto extends ServiceBase {
   // Start times of the lookups issued in the last budget window.
   private onramperLookupTimes: number[] = [];
 
+  // Ids whose Apple Pay sheet was authorized before their record landed: the
+  // `paymentAuthorized` event can overtake addHeadlessBuyOrder's metadata
+  // lookups. The insert that follows folds the flag into the record.
+  private paymentSeenBeforeRecord = new Set<string>();
+
   private emitHeadlessBuyOrdersChanged() {
     appEventBus.emit(EAppEventBusNames.HeadlessBuyOrdersChanged, undefined);
   }
@@ -382,9 +391,7 @@ class ServiceFiatCrypto extends ServiceBase {
     const order = await this.buildHeadlessBuyOrder(params);
     // The `completed` fallback may have written (and submitted) this id while
     // the metadata lookups above were in flight; never overwrite it.
-    const inserted = await simpleDb.headlessBuyOrders.insertOrderIfAbsent({
-      order,
-    });
+    const inserted = await this.insertHeadlessBuyOrder(order);
     if (!inserted) {
       return;
     }
@@ -429,6 +436,30 @@ class ServiceFiatCrypto extends ServiceBase {
     };
   }
 
+  // Inserts a record unless one exists, merging in a `paymentAuthorized` that
+  // arrived before it: one noted before the insert goes in with the row, one
+  // that lands while the insert is in flight is patched in afterwards. When
+  // another writer got there first, the flag is patched onto its record.
+  private async insertHeadlessBuyOrder(
+    order: IHeadlessBuyOrder,
+  ): Promise<boolean> {
+    const { simpleDb } = this.backgroundApi;
+    const { transactionId } = order;
+    const paymentSeen = this.paymentSeenBeforeRecord.delete(transactionId);
+    const inserted = await simpleDb.headlessBuyOrders.insertOrderIfAbsent({
+      order: paymentSeen ? { ...order, paymentSeen: true } : order,
+    });
+    const lateAuthorization =
+      this.paymentSeenBeforeRecord.delete(transactionId);
+    if ((paymentSeen && !inserted) || lateAuthorization) {
+      await simpleDb.headlessBuyOrders.patchOrder({
+        transactionId,
+        patch: { paymentSeen: true },
+      });
+    }
+    return inserted;
+  }
+
   @backgroundMethod()
   public async markHeadlessBuyOrderPaymentSeen({
     transactionId,
@@ -436,8 +467,16 @@ class ServiceFiatCrypto extends ServiceBase {
     transactionId: string;
   }): Promise<void> {
     const { simpleDb } = this.backgroundApi;
+    // Noted before the read so an insert racing with this call picks the
+    // flag up whichever side finishes first.
+    this.paymentSeenBeforeRecord.add(transactionId);
     const order = await simpleDb.headlessBuyOrders.getOrder({ transactionId });
-    if (!order || order.paymentSeen) {
+    if (!order) {
+      // No record yet: the pending insert folds the flag in.
+      return;
+    }
+    this.paymentSeenBeforeRecord.delete(transactionId);
+    if (order.paymentSeen) {
       return;
     }
     await simpleDb.headlessBuyOrders.patchOrder({
@@ -481,8 +520,9 @@ class ServiceFiatCrypto extends ServiceBase {
         transactionId,
       });
       recordedBeforePayment = false;
-      const inserted = await simpleDb.headlessBuyOrders.insertOrderIfAbsent({
-        order: { ...built, submittedAt },
+      const inserted = await this.insertHeadlessBuyOrder({
+        ...built,
+        submittedAt,
       });
       next = inserted
         ? { ...built, submittedAt }
@@ -627,11 +667,18 @@ class ServiceFiatCrypto extends ServiceBase {
     this.onramperLookupTimes = this.onramperLookupTimes.filter(
       (t) => now - t < LOOKUP_BUDGET_WINDOW_MS,
     );
+    const budget = transactionIds
+      ? LOOKUP_BUDGET_PER_MINUTE
+      : LOOKUP_BUDGET_PER_MINUTE - EXPLICIT_LOOKUP_RESERVED_SLOTS;
+    const limit = budget - this.onramperLookupTimes.length;
+    if (limit <= 0) {
+      return orders;
+    }
     const targets = selectLookupTargets({
       orders,
       wanted: transactionIds ? new Set(transactionIds) : undefined,
       now,
-      limit: LOOKUP_BUDGET_PER_MINUTE - this.onramperLookupTimes.length,
+      limit,
     });
     if (targets.length === 0) {
       return orders;

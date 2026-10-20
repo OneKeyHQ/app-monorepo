@@ -42,6 +42,12 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 
 const T0 = 1_700_000_000_000;
 const DAY_MS = 24 * 60 * 60 * 1000;
+// Lets every already-settled await in the service run before the test goes
+// on, so a second call can be interleaved at a known point.
+const flushPromises = () =>
+  new Promise((resolve) => {
+    setTimeout(resolve, 0);
+  });
 
 function baseOrder(
   overrides: Partial<IHeadlessBuyOrder> = {},
@@ -97,7 +103,7 @@ function createService(orders: IHeadlessBuyOrder[]) {
   };
   const service = new ServiceFiatCrypto({ backgroundApi });
   jest.spyOn(service as any, 'getClient').mockResolvedValue({ get });
-  return { service, store, get, simpleDb };
+  return { service, store, get, simpleDb, backgroundApi };
 }
 
 describe('ServiceFiatCrypto headless buy orders', () => {
@@ -179,6 +185,50 @@ describe('ServiceFiatCrypto headless buy orders', () => {
     await service.markHeadlessBuyOrderViewed({ transactionId: 'failed' });
     expect(store.get('failed')?.failureViewedAt).toBe(T0 + 1000);
     expect(simpleDb.headlessBuyOrders.setRawData).toHaveBeenCalledTimes(2);
+  });
+
+  test('addHeadlessBuyOrder keeps a payment authorization that overtook its metadata lookups', async () => {
+    const { service, store, backgroundApi } = createService([]);
+    let releaseAccount: (account: { name: string }) => void = () => undefined;
+    backgroundApi.serviceAccount.getAccount.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseAccount = resolve;
+        }),
+    );
+    const adding = service.addHeadlessBuyOrder(baseOrder());
+    await flushPromises();
+    // paymentAuthorized lands while the account name is still being read:
+    // there is no record to patch yet.
+    await service.markHeadlessBuyOrderPaymentSeen({ transactionId: '01M3' });
+    expect(store.has('01M3')).toBe(false);
+    releaseAccount({ name: 'Account 1' });
+    await adding;
+    expect(store.get('01M3')).toMatchObject({
+      paymentSeen: true,
+      accountName: 'Account 1',
+    });
+  });
+
+  test('addHeadlessBuyOrder patches in a payment authorization that landed during the insert', async () => {
+    const { service, store, simpleDb } = createService([]);
+    const entity = simpleDb.headlessBuyOrders;
+    const realInsert = entity.insertOrderIfAbsent.bind(entity);
+    let releaseInsert: () => void = () => undefined;
+    jest
+      .spyOn(entity, 'insertOrderIfAbsent')
+      .mockImplementationOnce(async (args) => {
+        await new Promise<void>((resolve) => {
+          releaseInsert = resolve;
+        });
+        return realInsert(args);
+      });
+    const adding = service.addHeadlessBuyOrder(baseOrder());
+    await flushPromises();
+    await service.markHeadlessBuyOrderPaymentSeen({ transactionId: '01M3' });
+    releaseInsert();
+    await adding;
+    expect(store.get('01M3')?.paymentSeen).toBe(true);
   });
 
   test('discardHeadlessBuyOrder removes only hidden orders that never saw a payment', async () => {
@@ -450,7 +500,7 @@ describe('ServiceFiatCrypto headless buy orders', () => {
     ]);
   });
 
-  test('refreshHeadlessBuyOrders spends at most eight lookups per minute, least recently checked first', async () => {
+  test('refreshHeadlessBuyOrders spends at most six lookups per minute on a general refresh and keeps two for explicit ids', async () => {
     const { service, get } = createService(
       Array.from({ length: 10 }, (_, i) =>
         baseOrder({ transactionId: `v${i + 1}`, submittedAt: T0 + i + 1 }),
@@ -472,38 +522,31 @@ describe('ServiceFiatCrypto headless buy orders', () => {
           (call[1] as { params: { transactionId: string } }).params
             .transactionId,
       );
-    // One page entry refreshes eight orders, newest first.
+    // One page entry refreshes six orders, newest first.
     await service.refreshHeadlessBuyOrders({});
-    expect(requested()).toEqual([
-      'v10',
-      'v9',
-      'v8',
-      'v7',
-      'v6',
-      'v5',
-      'v4',
-      'v3',
-    ]);
-    // Inside the same minute the budget is spent: nothing more goes out,
-    // not even for the two orders that were left out.
+    expect(requested()).toEqual(['v10', 'v9', 'v8', 'v7', 'v6', 'v5']);
+    // Inside the same minute a general refresh gets nothing more, not even
+    // for the orders that were left out...
     get.mockClear();
     (Date.now as jest.Mock).mockReturnValue(T0 + 1000 + 15_000);
     await service.refreshHeadlessBuyOrders({});
     expect(requested()).toEqual([]);
-    // Next minute: the never-checked orders go first, then the rest.
+    // ...while the detail page's poll still has the two reserved slots.
+    await service.refreshHeadlessBuyOrders({ transactionIds: ['v4'] });
+    await service.refreshHeadlessBuyOrders({ transactionIds: ['v3'] });
+    await service.refreshHeadlessBuyOrders({ transactionIds: ['v2'] });
+    expect(requested()).toEqual(['v4', 'v3']);
+    // The whole budget is spent now: a general refresh must not go negative
+    // and leak lookups.
     get.mockClear();
-    (Date.now as jest.Mock).mockReturnValue(T0 + 1000 + 61_000);
     await service.refreshHeadlessBuyOrders({});
-    expect(requested()).toEqual([
-      'v2',
-      'v1',
-      'v10',
-      'v9',
-      'v8',
-      'v7',
-      'v6',
-      'v5',
-    ]);
+    expect(requested()).toEqual([]);
+    // Once the window has cleared: the never-checked orders go first, then
+    // the least recently checked.
+    get.mockClear();
+    (Date.now as jest.Mock).mockReturnValue(T0 + 1000 + 80_000);
+    await service.refreshHeadlessBuyOrders({});
+    expect(requested()).toEqual(['v2', 'v1', 'v10', 'v9', 'v8', 'v7']);
   });
 
   test('refreshHeadlessBuyOrders shares one in-flight request per id', async () => {
