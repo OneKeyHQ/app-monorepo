@@ -48,6 +48,10 @@ function getLocalTransparentPayment({
   };
 }
 
+// Rows rebuilt from this device's signed payment; normalizing them again
+// would read our own output as change.
+const locallyRestoredRows = new WeakSet<IOnChainHistoryTx>();
+
 export function restoreZcashLocalTransparentPayment({
   tx,
   localTx,
@@ -78,7 +82,7 @@ export function restoreZcashLocalTransparentPayment({
   };
   // The indexer sees only the transparent debit, which can include the fee.
   // Keep the payment verified at signing; raw I/O remains the indexer's data.
-  return {
+  const restored: IOnChainHistoryTx = {
     ...tx,
     type: EOnChainHistoryTxType.Send,
     from,
@@ -94,6 +98,8 @@ export function restoreZcashLocalTransparentPayment({
           receives: [{ ...transfer, isOwn: from === to }],
         }),
   };
+  locallyRestoredRows.add(restored);
+  return restored;
 }
 
 export function mergeZcashLocalTransparentPayment({
@@ -191,6 +197,7 @@ function shieldedCounterparty(amount: string): IOnChainHistoryTxTransfer {
 export function normalizeZcashBackendHistoryTx(
   tx: IOnChainHistoryTx,
 ): IOnChainHistoryTx {
+  if (locallyRestoredRows.has(tx)) return tx;
   const sends = tx.sends ?? [];
   const receives = tx.receives ?? [];
   if (tx.type === EOnChainHistoryTxType.Receive && sends.length === 0) {
@@ -204,12 +211,9 @@ export function normalizeZcashBackendHistoryTx(
     tx.type === EOnChainHistoryTxType.Send &&
     receives.every((receive) => receive.isOwn)
   ) {
-    const toSelf = tx.to === tx.from;
-    // A payment to itself that this device signed already lists its output.
-    if (toSelf && receives.length) return tx;
     // Change returns to the sending t1, so an indexer row "to" itself paid a
     // shielded address (a true t1 -> same t1 transfer reads the same way).
-    const to = toSelf ? '' : tx.to;
+    const to = tx.to === tx.from ? '' : tx.to;
     return {
       ...tx,
       to,
