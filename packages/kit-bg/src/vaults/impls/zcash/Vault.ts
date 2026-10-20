@@ -59,6 +59,11 @@ import { localWalletText } from '../../localWallet/messages';
 import VaultBtc from '../btc/Vault';
 
 import { refreshZcashAccountAddressCache } from './accountMeta';
+import {
+  isZcashBackendPaymentAmountUnknown,
+  normalizeZcashBackendHistoryTx,
+  restoreZcashBackendSelfTransfer,
+} from './backendHistory';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
@@ -741,6 +746,26 @@ export default class Vault extends VaultBtc {
     params: IBuildEncodedTxParams,
   ): Promise<IEncodedTxZcash> {
     return zcashSend.buildEncodedTx(this, params);
+  }
+
+  override async buildOnChainHistoryTx(
+    params: Parameters<VaultBtc['buildOnChainHistoryTx']>[0],
+  ) {
+    const normalized = await restoreZcashBackendSelfTransfer(
+      this,
+      normalizeZcashBackendHistoryTx(params.onChainHistoryTx),
+    );
+    const tx = await super.buildOnChainHistoryTx({
+      ...params,
+      onChainHistoryTx: normalized,
+    });
+    if (tx && isZcashBackendPaymentAmountUnknown(normalized)) {
+      tx.decodedTx.nativeAmountIsUnknown = true;
+    }
+    if (tx?.decodedTx.totalFeeFiatValue === '') {
+      tx.decodedTx.totalFeeFiatValue = undefined;
+    }
+    return tx;
   }
 
   override async buildHistoryTx(

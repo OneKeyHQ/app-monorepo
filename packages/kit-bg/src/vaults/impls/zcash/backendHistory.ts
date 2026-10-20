@@ -1,3 +1,4 @@
+import { zatoshiToZec } from '@onekeyhq/core/src/chains/zcash/sdkZcash/amount';
 import { isHistoryCursorAdvanced } from '@onekeyhq/shared/src/utils/historyUtils';
 import {
   EOnChainHistoryTransferType,
@@ -10,7 +11,231 @@ import type {
   IOnChainHistoryTxTransfer,
 } from '@onekeyhq/shared/types/history';
 
+import type { IEncodedTxZcash } from './types';
+import type Vault from './Vault';
+
 const SHIELDED_COUNTERPARTY_LABEL = 'Shielded';
+
+function isTransparentSelfTransfer(tx: IOnChainHistoryTx) {
+  return (
+    tx.type === EOnChainHistoryTxType.Send &&
+    /^t[13]/.test(tx.from) &&
+    tx.from === tx.to
+  );
+}
+
+export async function restoreZcashBackendSelfTransfer(
+  vault: Vault,
+  tx: IOnChainHistoryTx,
+): Promise<IOnChainHistoryTx> {
+  if (!isTransparentSelfTransfer(tx) || tx.receives?.length) return tx;
+  try {
+    // Account-scoped history omits owned outputs and reports the net debit.
+    // The existing public I/O endpoint retains the actual self-payment.
+    const response = await vault.baseFetchAccountHistoryDetail({
+      accountId: vault.accountId,
+      networkId: vault.networkId,
+      txid: tx.tx,
+    });
+    const detail = response.data.data.data;
+    const payment = detail?.receives?.[0];
+    if (
+      detail?.tx !== tx.tx ||
+      detail.receives?.length !== 1 ||
+      !detail.sends?.length ||
+      detail.sends.some(
+        (input) =>
+          input.type === EOnChainHistoryTransferType.Shielded ||
+          input.from !== tx.from,
+      ) ||
+      payment?.type === EOnChainHistoryTransferType.Shielded ||
+      payment?.isChange === true ||
+      payment?.to !== tx.to ||
+      !/^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,8})?$/.test(payment.amount) ||
+      !/[1-9]/.test(payment.amount)
+    ) {
+      return tx;
+    }
+    const transfer: IOnChainHistoryTxTransfer = {
+      ...payment,
+      type: EOnChainHistoryTransferType.Transfer,
+      from: tx.from,
+      key: `${tx.networkId}_`,
+      isOwn: true,
+      isNative: true,
+    };
+    return {
+      ...tx,
+      value: payment.amount,
+      sends: [transfer],
+      receives: [transfer],
+    };
+  } catch {
+    // Unavailable or ambiguous I/O must not turn a net fee into a payment.
+    return tx;
+  }
+}
+
+export function isZcashBackendPaymentAmountUnknown(tx: IOnChainHistoryTx) {
+  return (
+    tx.type === EOnChainHistoryTxType.Send &&
+    isTransparentSelfTransfer(tx) &&
+    !tx.receives?.length
+  );
+}
+
+function getLocalTransparentPayment({
+  txid,
+  networkId,
+  localTx,
+}: {
+  txid: string;
+  networkId: string;
+  localTx?: IAccountHistoryTx;
+}) {
+  const local = localTx?.decodedTx;
+  const encoded = local?.encodedTx as IEncodedTxZcash | undefined;
+  const feeZat = String(encoded?.fee);
+  // The send path sets this existing marker after matching the signed result.
+  // Reuse its compact payment fields rather than retaining signed bytes here.
+  if (
+    localTx?.privacyChainHistorySide !== 'public' ||
+    localTx.isLocalCreated !== true ||
+    networkId !== 'zec--0' ||
+    local?.networkId !== networkId ||
+    local?.txid.toLowerCase() !== txid.toLowerCase() ||
+    encoded?.zcashMode !== 'transparent' ||
+    !encoded.zcashTo ||
+    !/^(0|[1-9][0-9]*)$/.test(encoded.zcashAmountValue) ||
+    !/^(0|[1-9][0-9]*)$/.test(feeZat)
+  ) {
+    return undefined;
+  }
+  return {
+    local,
+    encoded,
+    amount: zatoshiToZec(encoded.zcashAmountValue),
+    fee: zatoshiToZec(feeZat),
+  };
+}
+
+export function restoreZcashLocalTransparentPayment({
+  tx,
+  localTx,
+  withUTXOs = false,
+}: {
+  tx: IOnChainHistoryTx;
+  localTx?: IAccountHistoryTx;
+  withUTXOs?: boolean;
+}): IOnChainHistoryTx {
+  const payment = getLocalTransparentPayment({
+    txid: tx.tx,
+    networkId: tx.networkId,
+    localTx,
+  });
+  if (!payment) return tx;
+  const { local, encoded, amount, fee } = payment;
+  const from = tx.from || local.signer || local.owner;
+  const to = encoded.zcashTo;
+  const transfer = {
+    type: EOnChainHistoryTransferType.Transfer,
+    from,
+    to,
+    token: '',
+    key: `${tx.networkId}_`,
+    amount,
+    label: '',
+    isNative: true,
+  };
+  // The indexer sees only the transparent debit, which can include the fee.
+  // Keep the payment verified at signing; raw I/O remains the indexer's data.
+  return {
+    ...tx,
+    type: EOnChainHistoryTxType.Send,
+    from,
+    to,
+    value: amount,
+    gasFee: fee,
+    gasFeeFiatValue: tx.gasFee === fee ? tx.gasFeeFiatValue : '',
+    ...(withUTXOs
+      ? {}
+      : {
+          sends: [{ ...transfer, isOwn: true }],
+          receives: [{ ...transfer, isOwn: from === to }],
+        }),
+  };
+}
+
+export function mergeZcashLocalTransparentPayment({
+  localTx,
+  onChainHistoryTx,
+}: {
+  localTx: IAccountHistoryTx;
+  onChainHistoryTx: IAccountHistoryTx;
+}): IAccountHistoryTx {
+  const next = onChainHistoryTx.decodedTx;
+  if (
+    (onChainHistoryTx.privacyChainHistorySide !== undefined &&
+      onChainHistoryTx.privacyChainHistorySide !== 'public') ||
+    localTx.decodedTx.accountId !== next.accountId
+  ) {
+    return onChainHistoryTx;
+  }
+  const payment = getLocalTransparentPayment({
+    txid: next.txid,
+    networkId: next.networkId,
+    localTx,
+  });
+  if (!payment) return onChainHistoryTx;
+  const { local, encoded, amount, fee } = payment;
+  const publicEncoded: IEncodedTxZcash = {
+    ...encoded,
+    zcashMemoHex: undefined,
+    zcashTransparentBuild: undefined,
+  };
+  const price = next.actions
+    .flatMap((action) => [
+      ...(action.assetTransfer?.sends ?? []),
+      ...(action.assetTransfer?.receives ?? []),
+    ])
+    .find(
+      (transfer) => transfer.isNative && transfer.price !== undefined,
+    )?.price;
+  return {
+    ...onChainHistoryTx,
+    isLocalCreated: true,
+    privacyChainHistorySide: 'public',
+    privacyChainHistoryPoolIds: [0],
+    decodedTx: {
+      ...next,
+      to: encoded.zcashTo,
+      nativeAmount: amount,
+      nativeAmountValue: encoded.zcashAmountValue,
+      nativeAmountIsUnknown: false,
+      totalFeeInNative: fee,
+      totalFeeFiatValue:
+        next.totalFeeInNative === fee ? next.totalFeeFiatValue : undefined,
+      encodedTx: publicEncoded,
+      payload: next.payload ? { ...next.payload, value: amount } : next.payload,
+      actions: local.actions.map((action) =>
+        action.assetTransfer && price !== undefined
+          ? {
+              ...action,
+              assetTransfer: {
+                ...action.assetTransfer,
+                sends: action.assetTransfer.sends.map((transfer) =>
+                  transfer.isNative ? { ...transfer, price } : transfer,
+                ),
+                receives: action.assetTransfer.receives.map((transfer) =>
+                  transfer.isNative ? { ...transfer, price } : transfer,
+                ),
+              },
+            }
+          : action,
+      ),
+    },
+  };
+}
 
 function shieldedCounterparty(amount: string): IOnChainHistoryTxTransfer {
   return {
@@ -47,6 +272,7 @@ export function normalizeZcashBackendHistoryTx(
   }
   if (
     tx.type === EOnChainHistoryTxType.Send &&
+    !isTransparentSelfTransfer(tx) &&
     receives.every((receive) => receive.isOwn)
   ) {
     return {

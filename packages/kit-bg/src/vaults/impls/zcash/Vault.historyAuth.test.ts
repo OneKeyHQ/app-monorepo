@@ -22,6 +22,10 @@ describe('Zcash transparent history auth headers', () => {
           zcash: {
             getAccountMeta: async () => ({ transparentAddress: 't1-own' }),
           },
+          localHistory: {
+            getAccountLocalHistoryConfirmedTxs: async () => [],
+            getAccountLocalHistoryPendingTxs: async () => [],
+          },
         },
         serviceHistory: {
           getClient: async () => ({ post }),
