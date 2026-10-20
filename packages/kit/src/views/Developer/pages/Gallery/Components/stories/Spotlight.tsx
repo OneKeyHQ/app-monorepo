@@ -1,11 +1,14 @@
 import { useCallback, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Button, SizableText, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   Spotlight,
   SpotlightView,
 } from '@onekeyhq/kit/src/components/Spotlight';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
 import { Layout } from './utils/Layout';
@@ -35,6 +38,7 @@ function DefaultPage() {
 }
 
 function ExitLifecyclePage() {
+  const intl = useIntl();
   const [visible, setVisible] = useState(false);
   const [closeOnBackdropPress, setCloseOnBackdropPress] = useState(true);
   const [closeCount, setCloseCount] = useState(0);
@@ -49,23 +53,32 @@ function ExitLifecyclePage() {
   return (
     <YStack gap="$4">
       <Button testID="spotlight-exit-open" onPress={open}>
-        Show spotlight
+        {intl.formatMessage({ id: ETranslations.global_test })}
       </Button>
       <Button testID="spotlight-exit-toggle-backdrop" onPress={toggleBackdrop}>
-        {`Backdrop close: ${closeOnBackdropPress ? 'on' : 'off'}`}
+        {/* Keep the component API identifier literal in this developer control. */}
+        {`closeOnBackdropPress: ${intl.formatMessage({
+          id: closeOnBackdropPress
+            ? ETranslations.global_enabled
+            : ETranslations.global_disabled,
+        })}`}
       </Button>
       <SizableText testID="spotlight-exit-count">{closeCount}</SizableText>
       <SpotlightView
         visible={visible}
         onConfirm={close}
-        confirmText="Got it"
+        confirmText={intl.formatMessage({ id: ETranslations.global_got_it })}
         closeOnBackdropPress={closeOnBackdropPress}
         matchTriggerSize
         content={
-          <SizableText>Keep this card visible until exit ends.</SizableText>
+          <SizableText>
+            {intl.formatMessage({ id: ETranslations.global_description })}
+          </SizableText>
         }
       >
-        <SizableText>Spotlight anchor</SizableText>
+        <SizableText>
+          {intl.formatMessage({ id: ETranslations.global_test })}
+        </SizableText>
       </SpotlightView>
     </YStack>
   );
