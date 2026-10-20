@@ -30,7 +30,7 @@ import {
 import type {
   GestureResponderEvent,
   PointerEvent as NativePointerEvent,
-  View as RNView,
+  ViewInstance,
 } from 'react-native';
 
 const FUNDING_DISTRIBUTION_CARD_HEIGHT = 220;
@@ -266,7 +266,7 @@ function FundingDistributionCard({
   const theme = useTheme();
   const [hoveredCoin, setHoveredCoin] = useState<string | null>(null);
   const [selectedCoin, setSelectedCoin] = useState<string | null>(null);
-  const donutContainerRef = useRef<RNView>(null);
+  const donutContainerRef = useRef<ViewInstance>(null);
   const donutOriginRef = useRef<{ x: number; y: number } | null>(null);
   const total = rows.reduce((sum, row) => sum + row.amount, 0);
   const formattedTotal = formatPerpsUsd(total);

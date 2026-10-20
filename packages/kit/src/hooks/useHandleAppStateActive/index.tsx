@@ -5,7 +5,7 @@ import { AppState, type AppStateStatus } from 'react-native';
 import type { IUseHandleAppStateActive } from './types';
 
 export const isFromBackgroundToForeground = (
-  currentState: AppStateStatus,
+  currentState: typeof AppState.currentState,
   nextAppState: AppStateStatus,
 ) => currentState === 'background' && nextAppState === 'active';
 
@@ -13,7 +13,7 @@ export const useHandleAppStateActive: IUseHandleAppStateActive = (
   onHandler,
   handlers,
 ) => {
-  const appState = useRef<AppStateStatus>(AppState.currentState);
+  const appState = useRef<typeof AppState.currentState>(AppState.currentState);
   useEffect(() => {
     if (!onHandler) return;
     const handleAppStateChange = (nextState: AppStateStatus) => {

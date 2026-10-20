@@ -58,7 +58,11 @@ import {
 
 import { useSuggestion } from './hooks';
 
-import type { ReturnKeyTypeOptions, TextInput, ViewProps } from 'react-native';
+import type {
+  ReturnKeyTypeOptions,
+  TextInputInstance,
+  ViewProps,
+} from 'react-native';
 
 const KeyDownView = View as unknown as ComponentType<
   PropsWithChildren<
@@ -68,7 +72,7 @@ const KeyDownView = View as unknown as ComponentType<
         preventDefault: () => void;
         stopPropagation: () => void;
       }) => void;
-    } & ViewProps
+    } & Omit<ViewProps, 'onKeyDown'>
   >
 >;
 
@@ -238,7 +242,7 @@ function BasicPhaseInput(
   }>,
   ref: any,
 ) {
-  const inputRef: RefObject<TextInput | null> | null = useRef(null);
+  const inputRef: RefObject<TextInputInstance | null> | null = useRef(null);
   const media = useMedia();
   const firstButtonRef = useRef<IElement>(null);
   const [tabFocusable, setTabFocusable] = useState(false);
@@ -355,30 +359,31 @@ function BasicPhaseInput(
   const suggestions = suggestionsRef.current ?? [];
 
   const keyLabel = handleGetReturnKeyLabel();
-  const inputProps: IInputProps & { ref: RefObject<TextInput | null> } = {
-    value: displayValue,
-    ref: inputRef,
-    keyboardType: 'ascii-capable',
-    autoCapitalize: 'none',
-    autoCorrect: false,
-    spellCheck: false,
-    autoComplete: 'off',
-    size: media.md ? 'large' : 'medium',
-    leftAddOnProps: {
-      label: `${index + 1}`,
-      pr: '$0',
-      justifyContent: 'center',
-    },
-    onPaste: handlePaste,
-    error: isShowError,
-    onChangeText: handleChangeText,
-    onFocus: handleInputFocus,
-    onBlur: handleInputBlur,
-    returnKeyLabel: keyLabel.toUpperCase(),
-    returnKeyType: keyLabel,
-    // auto focus on the first input when entering the page.
-    autoFocus: index === 0,
-  };
+  const inputProps: IInputProps & { ref: RefObject<TextInputInstance | null> } =
+    {
+      value: displayValue,
+      ref: inputRef,
+      keyboardType: 'ascii-capable',
+      autoCapitalize: 'none',
+      autoCorrect: false,
+      spellCheck: false,
+      autoComplete: 'off',
+      size: media.md ? 'large' : 'medium',
+      leftAddOnProps: {
+        label: `${index + 1}`,
+        pr: '$0',
+        justifyContent: 'center',
+      },
+      onPaste: handlePaste,
+      error: isShowError,
+      onChangeText: handleChangeText,
+      onFocus: handleInputFocus,
+      onBlur: handleInputBlur,
+      returnKeyLabel: keyLabel.toUpperCase(),
+      returnKeyType: keyLabel,
+      // auto focus on the first input when entering the page.
+      autoFocus: index === 0,
+    };
   if (platformEnv.isNative) {
     return (
       <Input

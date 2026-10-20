@@ -8,7 +8,7 @@ import { Spinner, Stack, YStack } from '../../primitives';
 import { ANIMATE_ONLY_OPACITY } from '../../utils/animationConstants';
 
 import type { IDialogContentProps } from './type';
-import type { LayoutChangeEvent, View } from 'react-native';
+import type { LayoutChangeEvent, ViewInstance } from 'react-native';
 
 const exitStyleConst = { opacity: 0 } as const;
 const MAX_ANIMATION_DURATION = 550;
@@ -39,7 +39,7 @@ export function Content({
   );
 
   const checkMeasureY = useCallback(() => {
-    (ref.current as View)?.measure(
+    (ref.current as ViewInstance)?.measure(
       (
         x: number,
         y: number,

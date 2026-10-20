@@ -15,6 +15,7 @@ import {
   PixelRatio,
   Platform,
   Image as ReactNativeImage,
+  type StyleProp,
   StyleSheet,
   View,
   type ViewProps,
@@ -210,7 +211,10 @@ export function ImageV2({
 
   const style = useMemo(() => {
     return defaultStyle
-      ? (StyleSheet.flatten([defaultStyle, restStyle]) as typeof restStyle)
+      ? (StyleSheet.flatten([
+          defaultStyle,
+          restStyle,
+        ] as StyleProp<ImageStyle>) as typeof restStyle)
       : restStyle;
   }, [defaultStyle, restStyle]);
 

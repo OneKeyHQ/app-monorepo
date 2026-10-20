@@ -111,7 +111,7 @@ import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
 import type { IHomeNativePagerProps } from './HomeNativePager';
-import type { LayoutChangeEvent, View } from 'react-native';
+import type { LayoutChangeEvent, ViewInstance } from 'react-native';
 
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
@@ -585,7 +585,7 @@ export function HomePageView({
     NATIVE_HEADER_HEIGHT_SEED,
   );
   const nativeHeaderAlertsHeightRef = useRef(0);
-  const nativeHeaderRef = useRef<View>(null);
+  const nativeHeaderRef = useRef<ViewInstance>(null);
   const nativeHeaderMeasureGenerationRef = useRef(0);
   const handleFullHeaderLayout = useCallback((event: LayoutChangeEvent) => {
     nativeHeaderMeasureGenerationRef.current += 1;
@@ -1085,14 +1085,14 @@ export function HomePageView({
       return measured;
     });
   }, []);
-  const handleOuterHeaderHostRef = useCallback((node: View | null) => {
+  const handleOuterHeaderHostRef = useCallback((node: ViewInstance | null) => {
     if (!__DEV__ || !platformEnv.isNativeIOS) return;
     debugHomeVisual('fixed-header-host', {
       slot: 'outer',
       attached: Boolean(node),
     });
   }, []);
-  const handlePagerHeaderHostRef = useCallback((node: View | null) => {
+  const handlePagerHeaderHostRef = useCallback((node: ViewInstance | null) => {
     if (!__DEV__ || !platformEnv.isNativeIOS) return;
     debugHomeVisual('fixed-header-host', {
       slot: 'pager',

@@ -91,7 +91,7 @@ import { HomeTestIDs } from '../testIDs';
 import { debugPerpsChain } from './perpsChainTrace';
 import { usePerpsHomePortfolio } from './usePerpsHomePortfolio';
 
-import type { View } from 'react-native';
+import type { ViewInstance } from 'react-native';
 
 debugPerpsChain('module.evaluated');
 
@@ -560,7 +560,7 @@ function PerpsPositionSkeletonCard() {
 }
 
 function PerpsLoadingState() {
-  const skeletonRef = useRef<View>(null);
+  const skeletonRef = useRef<ViewInstance>(null);
   debugPerpsChain('skeleton.render');
   useLayoutEffect(() => {
     debugPerpsChain('skeleton.commit');

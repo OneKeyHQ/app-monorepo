@@ -95,7 +95,7 @@ function SearchModal() {
             pb="$5"
             keyboardDismissMode="none"
             keyboardShouldPersistTaps="handled"
-            onScrollBeginDrag={Keyboard.dismiss}
+            onScrollBeginDrag={() => Keyboard.dismiss()}
           >
             <SearchResultContent
               searchValue={searchValue}

@@ -88,8 +88,9 @@ export function useFixedColumnShadow({
     if (isNative) return null;
     const ref = scrollViewRef.current;
     if (!ref) return null;
+    // RN types it as a native tag; react-native-web returns the DOM node.
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- getScrollableNode is a web-only RN method not in types
-    const scrollableNode = ref.getScrollableNode?.();
+    const scrollableNode: unknown = ref.getScrollableNode?.();
     return scrollableNode instanceof HTMLElement ? scrollableNode : null;
   }, [isNative]);
 

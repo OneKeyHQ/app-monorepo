@@ -1233,10 +1233,39 @@ index 6d30ff2..fc4562e 100644
      setStateShallow: import("../types").ComponentSetStateShallow;
      noClass: boolean;
 diff --git a/node_modules/@tamagui/web/types/types.d.ts b/node_modules/@tamagui/web/types/types.d.ts
-index 28fb92c..8be72b6 100644
+index 28fb92c..c14fc21 100644
 --- a/node_modules/@tamagui/web/types/types.d.ts
 +++ b/node_modules/@tamagui/web/types/types.d.ts
-@@ -303,6 +303,7 @@ export type TamaguiComponentStateRef = {
+@@ -2,6 +2,8 @@ import type { StyleObject } from '@tamagui/helpers';
+ import type { Properties } from 'csstype';
+ import type { CSSProperties, ComponentType, Context, ForwardRefExoticComponent, ForwardRefRenderFunction, FunctionComponent, HTMLAttributes, ProviderExoticComponent, ReactNode, RefAttributes, RefObject } from 'react';
+ import type { PressableProps, Text as RNText, TextStyle as RNTextStyle, TextProps as ReactTextProps, View, ViewProps, ViewStyle } from 'react-native';
++// OneKey patch: RN 0.87+ strict API types `View`/`Text` as components; refs resolve to host instances.
++import type { TextInstance as RNTextInstance, ViewInstance as RNViewInstance } from 'react-native';
+ import type { CSSColorNames } from './interfaces/CSSColorNames';
+ import type { RNOnlyProps } from './interfaces/RNExclusiveTypes';
+ export type SizeKeys = 'width' | 'height' | 'minWidth' | 'minHeight' | 'maxWidth' | 'maxHeight' | 'shadowRadius';
+@@ -237,7 +239,7 @@ type MeasureLayoutOnSuccessCallback = (left: number, top: number, width: number,
+ export interface TamaguiElementMethods {
+     measure(callback: MeasureOnSuccessCallback): void;
+     measureInWindow(callback: MeasureInWindowOnSuccessCallback): void;
+-    measureLayout(relativeToNativeNode: View | HTMLElement, onSuccess: MeasureLayoutOnSuccessCallback, onFail?: () => void): void;
++    measureLayout(relativeToNativeNode: RNViewInstance | HTMLElement, onSuccess: MeasureLayoutOnSuccessCallback, onFail?: () => void): void;
+     focus(): void;
+     blur(): void;
+ }
+@@ -246,8 +248,8 @@ export interface TamaguiElementMethods {
+  * (measure, focus, blur) which Tamagui adds at runtime. On native, View
+  * already has these via NativeMethods.
+  */
+-export type TamaguiElement = (HTMLElement & TamaguiElementMethods) | View;
+-export type TamaguiTextElement = (HTMLElement & TamaguiElementMethods) | RNText;
++export type TamaguiElement = (HTMLElement & TamaguiElementMethods) | RNViewInstance;
++export type TamaguiTextElement = (HTMLElement & TamaguiElementMethods) | RNTextInstance;
+ /**
+  * Web-specific element type for platform-specific .tsx files.
+  * Use when you need HTMLElement subtype properties (e.g., selectionStart on HTMLInputElement)
+@@ -303,6 +305,7 @@ export type TamaguiComponentStateRef = {
      willHydrate?: boolean;
      hasMeasured?: boolean;
      hasAnimated?: boolean;
@@ -1244,7 +1273,16 @@ index 28fb92c..8be72b6 100644
      themeShallow?: boolean;
      hasEverThemed?: boolean | 'wrapped';
      hasEverResetPresence?: boolean;
-@@ -1782,6 +1783,7 @@ export type SplitStyleProps = {
+@@ -1500,7 +1503,7 @@ export interface TextStylePropsBase extends Omit<RNTextStyle, keyof ExtendedBase
+     textShadow?: string;
+ }
+ type LooseCombinedObjects<A extends object, B extends object> = A | B | (A & B);
+-export interface StackNonStyleProps extends Omit<ViewProps, 'hitSlop' | 'pointerEvents' | 'display' | 'children' | keyof TamaguiComponentPropsBaseBase | RNOnlyProps | keyof ExtendBaseStackProps | 'style' | 'onFocus' | 'onBlur' | 'onPointerCancel' | 'onPointerDown' | 'onPointerMove' | 'onPointerUp'>, ExtendBaseStackProps, TamaguiComponentPropsBase {
++export interface StackNonStyleProps extends Omit<ViewProps, 'hitSlop' | 'pointerEvents' | 'display' | 'children' | keyof TamaguiComponentPropsBaseBase | RNOnlyProps | keyof ExtendBaseStackProps | 'style' | 'onFocus' | 'onBlur' | 'onKeyDown' | 'onKeyUp' | 'onPointerCancel' | 'onPointerDown' | 'onPointerMove' | 'onPointerUp'>, ExtendBaseStackProps, TamaguiComponentPropsBase {
+     style?: StyleProp<LooseCombinedObjects<React.CSSProperties, ViewStyle>>;
+ }
+ export type StackStyle = WithThemeShorthandsPseudosMedia<StackStyleBase>;
+@@ -1782,6 +1785,7 @@ export type SplitStyleProps = {
      willBeAnimated?: boolean;
      isAnimated: boolean;
      isExiting?: boolean;

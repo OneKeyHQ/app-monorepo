@@ -102,7 +102,7 @@ export function BannerDetailStockFlatList({
           initialNumToRender={15}
           maxToRenderPerBatch={20}
           contentContainerStyle={{ paddingBottom: tabBarHeight }}
-          ListEmptyComponent={emptyComponent}
+          ListEmptyComponent={emptyComponent ?? undefined}
         />
       )}
     </Stack>

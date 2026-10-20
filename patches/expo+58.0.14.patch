@@ -1,5 +1,5 @@
 diff --git a/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt b/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt
-index c712e48..4288dfe 100644
+index 362274f..cb8acac 100644
 --- a/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt
 +++ b/node_modules/expo/android/src/main/java/expo/modules/ExpoReactHostFactory.kt
 @@ -8,6 +8,7 @@ import com.facebook.react.ReactInstanceEventListener
@@ -10,7 +10,7 @@ index c712e48..4288dfe 100644
  import com.facebook.react.bridge.ReactContext
  import com.facebook.react.common.annotations.UnstableReactNativeAPI
  import com.facebook.react.common.build.ReactBuildConfig
-@@ -20,11 +21,198 @@ import com.facebook.react.runtime.ReactHostDelegate
+@@ -21,11 +22,198 @@ import com.facebook.react.runtime.ReactHostDelegate
  import com.facebook.react.runtime.ReactHostImpl
  import com.facebook.react.runtime.hermes.HermesInstance
  import expo.modules.core.interfaces.ReactNativeHostHandler
@@ -209,7 +209,7 @@ index c712e48..4288dfe 100644
    @UnstableReactNativeAPI
    private class ExpoReactHostDelegate(
      private val weakContext: WeakReference<Context>,
-@@ -33,6 +221,7 @@ object ExpoReactHostFactory {
+@@ -34,6 +222,7 @@ object ExpoReactHostFactory {
      private val jsBundleAssetPath: String?,
      private val jsBundleFilePath: String? = null,
      private val useDevSupport: Boolean,
@@ -217,7 +217,7 @@ index c712e48..4288dfe 100644
      override val bindingsInstaller: BindingsInstaller? = null,
      override val turboModuleManagerDelegateBuilder: ReactPackageTurboModuleManagerDelegate.Builder =
        DefaultTurboModuleManagerDelegate.Builder(),
-@@ -67,13 +256,25 @@ object ExpoReactHostFactory {
+@@ -69,13 +258,25 @@ object ExpoReactHostFactory {
          }
          val context = weakContext.get()
            ?: throw IllegalStateException("Unable to get concrete Context")
@@ -243,7 +243,7 @@ index c712e48..4288dfe 100644
          return JSBundleLoader.createAssetLoader(context, "assets://$hostDelegateJSBundleAssetPath", true)
        }
  
-@@ -103,12 +304,30 @@ object ExpoReactHostFactory {
+@@ -102,7 +303,10 @@ object ExpoReactHostFactory {
      jsBundleFilePath: String? = null,
      jsRuntimeFactory: JSRuntimeFactory? = null,
      useDevSupport: Boolean = ReactBuildConfig.DEBUG,
@@ -255,7 +255,9 @@ index c712e48..4288dfe 100644
    ): ReactHost {
      if (reactHost == null) {
        val hostHandlers = ExpoModulesPackage.packageList
-         .flatMap { it.createReactNativeHostHandlers(context) }
+@@ -110,6 +314,21 @@ object ExpoReactHostFactory {
+ 
+       val devSupportManagerFactory = hostHandlers.firstNotNullOfOrNull { it.devSupportManagerFactory as? DevSupportManagerFactory }
  
 +      val devVendorConfig =
 +        if (
@@ -275,37 +277,63 @@ index c712e48..4288dfe 100644
        val reactHostDelegate = ExpoReactHostDelegate(
          WeakReference(context),
          packageList,
-@@ -116,7 +335,8 @@ object ExpoReactHostFactory {
+@@ -117,7 +336,8 @@ object ExpoReactHostFactory {
          jsBundleAssetPath,
          jsBundleFilePath,
          useDevSupport,
 -        bindingsInstaller,
 +        devVendorConfig = devVendorConfig,
 +        bindingsInstaller = bindingsInstaller,
-         hostHandlers = hostHandlers
+         hostHandlers = hostHandlers,
+         jsRuntimeFactory = jsRuntimeFactory ?: HermesInstance()
        )
-       val componentFactory = ComponentFactory()
-@@ -131,7 +351,9 @@ object ExpoReactHostFactory {
+@@ -133,7 +353,9 @@ object ExpoReactHostFactory {
            context,
-           delegate = reactHostDelegate,
+           reactHostDelegate = reactHostDelegate,
            componentFactory = componentFactory,
 -          allowPackagerServerAccess = true,
 +          // Keep DevSupportManager active. Its ReactContext listener performs
 +          // HMRClient.setup once for every new runtime; Fast Refresh reuses it.
 +          allowPackagerServerAccess = devVendorConfig == null,
-           useDevSupport = useDevSupport
+           useDevSupport = useDevSupport,
+           devSupportManagerFactory = devSupportManagerFactory
          )
- 
-diff --git a/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.mm b/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.mm
-index ed88404..380ff8b 100644
---- a/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.mm
-+++ b/node_modules/expo/ios/AppDelegates/ExpoReactNativeFactory.mm
-@@ -39,32 +39,40 @@ - (void)hostDidStart:(nonnull RCTHost *)host
+diff --git a/node_modules/expo/ios/ExpoObjC/AppDelegates/ExpoReactNativeFactory.mm b/node_modules/expo/ios/ExpoObjC/AppDelegates/ExpoReactNativeFactory.mm
+index 18364a8..44ac38c 100644
+--- a/node_modules/expo/ios/ExpoObjC/AppDelegates/ExpoReactNativeFactory.mm
++++ b/node_modules/expo/ios/ExpoObjC/AppDelegates/ExpoReactNativeFactory.mm
+@@ -39,40 +39,50 @@ - (void)hostDidStart:(nonnull RCTHost *)host
  // [JS thread]
  - (void)host:(nonnull RCTHost *)host didInitializeRuntime:(facebook::jsi::Runtime &)runtime
  {
--  _appContext = [[EXAppContext alloc] init];
--
+-  // Bind this callback to the context it creates. The factory is created once in
+-  // `application:didFinishLaunchingWithOptions:` and outlives any single `RCTHost`,
+-  // so a reload can run this callback for the incoming host while the outgoing
+-  // host's callback is still in flight on its own JS thread. Reading the shared ivar
+-  // back after that point can hand this callback the other callback's context, and
+-  // decorating objects created for one Hermes runtime against another runtime's
+-  // `AppContext.runtime` faults inside JSI.
+-  EXAppContext *appContext = [[EXAppContext alloc] init];
+-  _appContext = appContext;
++  // OneKey patch: a reload command is delivered to every RCTHost in the
++  // process. Apps with a foreground and background runtime can therefore
++  // initialize multiple Expo module registries at once, and rapid reload
++  // requests can add another overlapping foreground host. Expo module
++  // definitions and shared native managers are not safe to register
++  // concurrently, so serialize this short initialization phase across
++  // factories. Normal cold start is unaffected because the foreground host
++  // starts the background host only after its own initialization completes.
++  @synchronized ([EXReactNativeFactory class]) {
++    // Bind this callback to the context it creates. The factory is created once in
++    // `application:didFinishLaunchingWithOptions:` and outlives any single `RCTHost`,
++    // so a reload can run this callback for the incoming host while the outgoing
++    // host's callback is still in flight on its own JS thread. Reading the shared ivar
++    // back after that point can hand this callback the other callback's context, and
++    // decorating objects created for one Hermes runtime against another runtime's
++    // `AppContext.runtime` faults inside JSI.
++    EXAppContext *appContext = [[EXAppContext alloc] init];
++    _appContext = appContext;
+ 
 -  // Resolve the React runtime scheduler so ExpoModulesJSI can dispatch work onto
 -  // the JS thread. Doing it here (rather than inside the xcframework) keeps
 -  // React-runtimescheduler symbols out of the prebuilt ExpoModulesJSI.framework.
@@ -323,25 +351,6 @@ index ed88404..380ff8b 100644
 -  auto binding = facebook::react::RuntimeSchedulerBinding::getBinding(runtime);
 -  auto scheduler = binding ? binding->getRuntimeScheduler() : nullptr;
 -  void *schedulerHandle = expo::createReactSchedulerHandle(scheduler);
--
--  [_appContext setRuntime:&runtime
--                scheduler:schedulerHandle
--                 dispatch:schedulerHandle ? reinterpret_cast<const void *>(&expo::dispatchOnReactScheduler) : nullptr];
--  [_appContext setHostWrapper:[[EXHostWrapper alloc] initWithHost:host]];
--
--  [_appContext registerNativeModules];
-+  // A reload command is delivered to every RCTHost in the process. Apps with
-+  // a foreground and background runtime can therefore initialize multiple
-+  // Expo module registries at once, and rapid reload requests can add another
-+  // overlapping foreground host. Expo module definitions and shared native
-+  // managers are not safe to register concurrently, so serialize this short
-+  // initialization phase across factories. Normal cold start is unaffected
-+  // because the foreground host starts the background host only after its own
-+  // initialization completes.
-+  @synchronized ([EXReactNativeFactory class]) {
-+    _appContext = [[EXAppContext alloc] init];
-+    // OneKey patch: AppContext installs the host identifier into JS in setRuntime.
-+    [_appContext setHostWrapper:[[EXHostWrapper alloc] initWithHost:host]];
 +    // Resolve the React runtime scheduler so ExpoModulesJSI can dispatch work onto
 +    // the JS thread. Doing it here (rather than inside the xcframework) keeps
 +    // React-runtimescheduler symbols out of the prebuilt ExpoModulesJSI.framework.
@@ -359,10 +368,18 @@ index ed88404..380ff8b 100644
 +    auto binding = facebook::react::RuntimeSchedulerBinding::getBinding(runtime);
 +    auto scheduler = binding ? binding->getRuntimeScheduler() : nullptr;
 +    void *schedulerHandle = expo::createReactSchedulerHandle(scheduler);
-+    [_appContext setRuntime:&runtime
-+                  scheduler:schedulerHandle
-+                   dispatch:schedulerHandle ? reinterpret_cast<const void *>(&expo::dispatchOnReactScheduler) : nullptr];
-+    [_appContext registerNativeModules];
+ 
+-  [appContext setRuntime:&runtime
+-               scheduler:schedulerHandle
+-                dispatch:schedulerHandle ? reinterpret_cast<const void *>(&expo::dispatchOnReactScheduler) : nullptr];
+-  [appContext setHostWrapper:[[EXHostWrapper alloc] initWithHost:host]];
++    [appContext setRuntime:&runtime
++                 scheduler:schedulerHandle
++                  dispatch:schedulerHandle ? reinterpret_cast<const void *>(&expo::dispatchOnReactScheduler) : nullptr];
++    [appContext setHostWrapper:[[EXHostWrapper alloc] initWithHost:host]];
+ 
+-  [appContext registerNativeModules];
++    [appContext registerNativeModules];
 +  }
  }
  

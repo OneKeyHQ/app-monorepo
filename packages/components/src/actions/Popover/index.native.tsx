@@ -60,7 +60,7 @@ import { useNativePortalLifecycle } from './useNativePortalLifecycle';
 
 import type { IPopoverTooltip } from './type';
 import type { IIconButtonProps } from '../IconButton';
-import type { LayoutChangeEvent, View } from 'react-native';
+import type { LayoutChangeEvent, ViewInstance } from 'react-native';
 
 const gtMdShFrameStyle = {
   minWidth: 400,
@@ -195,7 +195,7 @@ const useDismissKeyboard = platformEnv.isNative
 
 const getPlacement = (
   placementProp: IPopoverProps['placement'],
-  triggerRef: React.RefObject<View | null>,
+  triggerRef: React.RefObject<ViewInstance | null>,
 ): NonNullable<IPopoverProps['placement']> => {
   if (platformEnv.isNative) {
     return placementProp || 'bottom-end';
@@ -412,8 +412,8 @@ function RawPopover({
       hasOpenedNativeSheetRef.current = true;
     }
   }, [isOpen, nativeSheetOpen]);
-  const triggerRef = useRef<View | null>(null);
-  const contentRef = useRef<View | null>(null);
+  const triggerRef = useRef<ViewInstance | null>(null);
+  const contentRef = useRef<ViewInstance | null>(null);
   const placement = getPlacement(placementProp, triggerRef);
   const transformOrigin = useMemo(() => {
     switch (placement) {

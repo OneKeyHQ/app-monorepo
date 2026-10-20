@@ -1,0 +1,15 @@
+diff --git a/node_modules/react-native-fs/android/src/main/java/com/drpogodin/reactnativefs/ReactNativeFsModule.kt b/node_modules/react-native-fs/android/src/main/java/com/drpogodin/reactnativefs/ReactNativeFsModule.kt
+index a8f7ddf..381783c 100644
+--- a/node_modules/react-native-fs/android/src/main/java/com/drpogodin/reactnativefs/ReactNativeFsModule.kt
++++ b/node_modules/react-native-fs/android/src/main/java/com/drpogodin/reactnativefs/ReactNativeFsModule.kt
+@@ -52,7 +52,9 @@ class ReactNativeFsModule(reactContext: ReactApplicationContext) :
+     private var pickFileLauncher: ActivityResultLauncher<Array<String>>? = null
+     private fun getPickFileLauncher(): ActivityResultLauncher<Array<String>> {
+         if (pickFileLauncher == null) {
+-            val registry = (currentActivity as ReactActivity).activityResultRegistry
++            // OneKey patch: RN 0.88 exposes the activity via getCurrentActivity().
++            // val registry = (currentActivity as ReactActivity).activityResultRegistry
++            val registry = (getCurrentActivity() as ReactActivity).activityResultRegistry
+             pickFileLauncher = registry.register<Array<String>, Uri?>(
+                     "RNFS_pickFile",
+                     OpenDocument()

@@ -281,15 +281,20 @@ function createTradingViewNativeTradeMarkLabelPath(
 ) {
   'worklet';
 
-  const path = Skia.Path.MakeFromSVGString(TRADE_MARK_LABEL_PATHS[label]);
-  if (path) {
-    const bounds = path.computeTightBounds();
-    path.offset(-bounds.x - bounds.width / 2, -bounds.y - bounds.height / 2);
-    const scale = fontSize / TRADE_MARK_LABEL_PATH_FONT_SIZE;
-    if (scale !== 1) {
-      path.transform(Skia.Matrix().scale(scale, scale));
-    }
+  const svgPath = Skia.Path.MakeFromSVGString(TRADE_MARK_LABEL_PATHS[label]);
+  if (!svgPath) {
+    return null;
   }
+  const bounds = svgPath.computeTightBounds();
+  const builder = Skia.PathBuilder.MakeFromPath(svgPath);
+  builder.offset(-bounds.x - bounds.width / 2, -bounds.y - bounds.height / 2);
+  const scale = fontSize / TRADE_MARK_LABEL_PATH_FONT_SIZE;
+  if (scale !== 1) {
+    builder.transform(Skia.Matrix().scale(scale, scale));
+  }
+  const path = builder.build();
+  builder.dispose();
+  svgPath.dispose();
   return path;
 }
 
@@ -512,15 +517,17 @@ function drawTradingViewNativeSkiaCommands({
         if (!firstPoint) {
           break;
         }
-        const path = Skia.Path.Make();
-        path.moveTo(firstPoint.x, firstPoint.y);
+        const builder = Skia.PathBuilder.Make();
+        builder.moveTo(firstPoint.x, firstPoint.y);
         for (let index = 1; index < command.points.length; index += 1) {
           const point = command.points[index];
-          path.lineTo(point.x, point.y);
+          builder.lineTo(point.x, point.y);
         }
         if (command.kind === 'polygon') {
-          path.close();
+          builder.close();
         }
+        const path = builder.build();
+        builder.dispose();
         canvas.drawPath(
           path,
           getTradingViewNativeSkiaCommandPaint({

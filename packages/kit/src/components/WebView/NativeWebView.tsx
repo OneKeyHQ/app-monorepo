@@ -30,7 +30,10 @@ import { WEBVIEW_LOAD_TIMEOUT_MS, createMessageInjectedScript } from './utils';
 import type { IInpageProviderWebViewProps, IWebViewRef } from './types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebViewMessageEvent, WebViewProps } from 'react-native-webview';
-import type { WebViewRenderProcessGoneEvent } from 'react-native-webview/lib/WebViewTypes';
+import type {
+  WebViewRenderProcessGoneEvent,
+  WebViewScrollEvent,
+} from 'react-native-webview/lib/WebViewTypes';
 
 export type INativeWebViewProps = WebViewProps & IInpageProviderWebViewProps;
 
@@ -255,8 +258,12 @@ const NativeWebView = forwardRef(
       [clearLoadTimeout, onLoadEnd],
     );
 
+    // WebViewProps is a union; one branch types onScroll from the package's
+    // native component spec, which type-aware lint cannot resolve.
+    const handleScroll: ((event: WebViewScrollEvent) => void) | undefined =
+      onScroll;
     const safeOnScroll = useCallback(
-      (e: any) => {
+      (e: WebViewScrollEvent) => {
         if (isUnmountingRef.current) return;
 
         if (platformEnv.isNativeAndroid && pullToRefreshEnabled) {
@@ -279,9 +286,9 @@ const NativeWebView = forwardRef(
                 ),
           });
         }
-        void onScroll?.(e);
+        handleScroll?.(e);
       },
-      [onScroll, pullToRefreshEnabled, refreshControlRef],
+      [handleScroll, pullToRefreshEnabled, refreshControlRef],
     );
 
     const handleRenderProcessGone = useCallback(

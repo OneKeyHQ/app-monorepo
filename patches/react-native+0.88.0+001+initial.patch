@@ -1,8 +1,187 @@
+diff --git a/node_modules/react-native/Libraries/Core/Devtools/getDevServer.js b/node_modules/react-native/Libraries/Core/Devtools/getDevServer.js
+index a158d98..bd961d9 100644
+--- a/node_modules/react-native/Libraries/Core/Devtools/getDevServer.js
++++ b/node_modules/react-native/Libraries/Core/Devtools/getDevServer.js
+@@ -12,6 +12,23 @@ import NativeSourceCode from '../../NativeModules/specs/NativeSourceCode';
+ 
+ let _cachedDevServerURL: ?string;
+ let _cachedFullBundleURL: ?string;
++
++function getDevVendorFullBundleURL(): ?string {
++  // OneKey patch: expose the live runtime graph after startup from local common HBC.
++  const fullBundleURL = global['__ONEKEY_DEV_VENDOR_FULL_BUNDLE_URL__'];
++  if (
++    typeof fullBundleURL !== 'string' ||
++    !/^https?:\/\/.*?\//.test(fullBundleURL) ||
++    !/[?&]resolver\.devVendorNative=true(?:&|$)/.test(fullBundleURL) ||
++    !/[?&]resolver\.runtimeTarget=(?:main|background)(?:&|$)/.test(
++      fullBundleURL,
++    )
++  ) {
++    return null;
++  }
++  return fullBundleURL;
++}
++
+ const FALLBACK = 'http://localhost:8081/';
+ 
+ type DevServerInfo = {
+@@ -26,7 +43,15 @@ type DevServerInfo = {
+  * @return URL to packager with trailing slash
+  */
+ export default function getDevServer(): DevServerInfo {
+-  if (_cachedDevServerURL === undefined) {
++  const devVendorFullBundleURL = getDevVendorFullBundleURL();
++  if (
++    devVendorFullBundleURL !== null &&
++    _cachedFullBundleURL !== devVendorFullBundleURL
++  ) {
++    const match = devVendorFullBundleURL.match(/^https?:\/\/.*?\//);
++    _cachedDevServerURL = match ? match[0] : null;
++    _cachedFullBundleURL = match ? devVendorFullBundleURL : null;
++  } else if (_cachedDevServerURL === undefined) {
+     const scriptUrl = NativeSourceCode.getConstants().scriptURL;
+     const match = scriptUrl.match(/^https?:\/\/.*?\//);
+     _cachedDevServerURL = match ? match[0] : null;
+diff --git a/node_modules/react-native/Libraries/Core/setUpReactRefresh.js b/node_modules/react-native/Libraries/Core/setUpReactRefresh.js
+index be8844d..3e79707 100644
+--- a/node_modules/react-native/Libraries/Core/setUpReactRefresh.js
++++ b/node_modules/react-native/Libraries/Core/setUpReactRefresh.js
+@@ -17,12 +17,37 @@ if (__DEV__) {
+     throw new Error('Could not find the reload() implementation.');
+   }
+ 
++  const restartBackgroundRuntime = (reason: string) => {
++    const generation = global['__ONEKEY_BACKGROUND_RUNTIME_GENERATION__'];
++    const TurboModuleRegistry = require('../TurboModule/TurboModuleRegistry');
++    const backgroundThread: any = TurboModuleRegistry.get('BackgroundThread');
++    if (
++      typeof generation !== 'number' ||
++      backgroundThread == null ||
++      typeof backgroundThread.restart !== 'function'
++    ) {
++      console.error(
++        '[BackgroundHMR] Background-only restart is unavailable; the main runtime was left running.',
++      );
++      return;
++    }
++    backgroundThread
++      .restart('background', `onekey-bg-hmr:${generation}:${reason}`)
++      .catch(error => {
++        console.error('[BackgroundHMR] Background-only restart failed.', error);
++      });
++  };
++
+   // This needs to run before the renderer initializes.
+   const ReactRefreshRuntime = require('react-refresh/runtime');
+   ReactRefreshRuntime.injectIntoGlobalHook(global);
+ 
+   const Refresh = {
+     performFullRefresh(reason: string) {
++      if (global['__ONEKEY_RUNTIME_TARGET__'] === 'background') {
++        restartBackgroundRuntime(reason);
++        return;
++      }
+       DevSettings.reload(reason);
+     },
+ 
+diff --git a/node_modules/react-native/Libraries/Image/resolveAssetSource.js b/node_modules/react-native/Libraries/Image/resolveAssetSource.js
+index 9da1b5f..276cb5b 100644
+--- a/node_modules/react-native/Libraries/Image/resolveAssetSource.js
++++ b/node_modules/react-native/Libraries/Image/resolveAssetSource.js
+@@ -14,6 +14,7 @@ import type {ResolvedAssetSource} from './AssetSourceResolver';
+ import typeof AssetSourceResolverT from './AssetSourceResolver';
+ import type {ImageSource} from './ImageSource';
+ 
++import getDevServer from '../Core/Devtools/getDevServer';
+ import SourceCode from '../NativeModules/specs/NativeSourceCode';
+ 
+ const {AssetRegistry} = require('../../src/private/assets/AssetRegistry');
+@@ -40,6 +41,12 @@ function getSourceCodeScriptURL(): ?string {
+ }
+ 
+ function getDevServerURL(): ?string {
++  // OneKey patch: resolve live dev-vendor assets from Metro after local common HBC startup.
++  const devServer = getDevServer();
++  if (devServer.bundleLoadedFromServer) {
++    return devServer.url;
++  }
++
+   if (_serverURL === undefined) {
+     const sourceCodeScriptURL = getSourceCodeScriptURL();
+     const match = sourceCodeScriptURL?.match(/^https?:\/\/.*?\//);
+diff --git a/node_modules/react-native/Libraries/Utilities/HMRClient.js b/node_modules/react-native/Libraries/Utilities/HMRClient.js
+index 5911eaa..2b3e8cf 100644
+--- a/node_modules/react-native/Libraries/Utilities/HMRClient.js
++++ b/node_modules/react-native/Libraries/Utilities/HMRClient.js
+@@ -51,6 +51,7 @@ export type HMRClientNativeInterface = {
+     port: number | string,
+     isEnabled: boolean,
+     scheme?: string,
++    fullBundleUrlOverride?: ?string,
+   ): void,
+ };
+ 
+@@ -156,6 +157,7 @@ const HMRClient: HMRClientNativeInterface = {
+     port: number | string,
+     isEnabled: boolean,
+     scheme?: string = 'http',
++    fullBundleUrlOverride?: ?string,
+   ) {
+     invariant(platform, 'Missing required parameter `platform`');
+     invariant(bundleEntry, 'Missing required parameter `bundleEntry`');
+@@ -182,7 +184,8 @@ const HMRClient: HMRClientNativeInterface = {
+       // HMRServer understands regular bundle URLs, so prefer that in case
+       // there are any important URL parameters we can't reconstruct from
+       // `setup()`'s arguments.
+-      fullBundleUrl ??
++      fullBundleUrlOverride ??
++        fullBundleUrl ??
+         `${serverScheme}://${serverHost}/hot?bundleEntry=${bundleEntry}&platform=${platform}`,
+     );
+ 
+@@ -322,7 +325,35 @@ function setHMRUnavailableReason(reason: string) {
+ 
+ function registerBundleEntryPoints(client: MetroHMRClient) {
+   if (hmrUnavailableReason != null) {
+-    DevSettings.reload('Bundle Splitting – Metro disconnected');
++    if (global['__ONEKEY_RUNTIME_TARGET__'] === 'background') {
++      const generation = global['__ONEKEY_BACKGROUND_RUNTIME_GENERATION__'];
++      const TurboModuleRegistry = require('../TurboModule/TurboModuleRegistry');
++      const backgroundThread: any =
++        TurboModuleRegistry.get('BackgroundThread');
++      if (
++        typeof generation === 'number' &&
++        backgroundThread != null &&
++        typeof backgroundThread.restart === 'function'
++      ) {
++        backgroundThread
++          .restart(
++            'background',
++            `onekey-bg-hmr:${generation}:Bundle Splitting – Metro disconnected`,
++          )
++          .catch(error => {
++            console.error(
++              '[BackgroundHMR] Background-only reconnect failed.',
++              error,
++            );
++          });
++      } else {
++        console.error(
++          '[BackgroundHMR] Background-only reconnect is unavailable; the main runtime was left running.',
++        );
++      }
++    } else {
++      DevSettings.reload('Bundle Splitting – Metro disconnected');
++    }
+     return;
+   }
+ 
 diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/LegacyViewManagerInterop/RCTLegacyViewManagerInteropComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/LegacyViewManagerInterop/RCTLegacyViewManagerInteropComponentView.mm
-index 226781f..82a9790 100644
+index cc08196..87bc3e6 100644
 --- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/LegacyViewManagerInterop/RCTLegacyViewManagerInteropComponentView.mm
 +++ b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/LegacyViewManagerInterop/RCTLegacyViewManagerInteropComponentView.mm
-@@ -103,46 +103,51 @@ - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
+@@ -105,46 +105,51 @@ - (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
  
  + (BOOL)isSupported:(NSString *)componentName
  {
@@ -86,10 +265,10 @@ index 226781f..82a9790 100644
  
  + (void)supportLegacyViewManagersWithPrefix:(NSString *)prefix
 diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/View/RCTViewComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/View/RCTViewComponentView.mm
-index b033b7c..eb0dfed 100644
+index 0912c50..fa85b4c 100644
 --- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/View/RCTViewComponentView.mm
 +++ b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/View/RCTViewComponentView.mm
-@@ -688,6 +688,10 @@ - (void)prepareForRecycle
+@@ -746,6 +746,10 @@ - (void)prepareForRecycle
  {
    [super prepareForRecycle];
  
@@ -100,7 +279,7 @@ index b033b7c..eb0dfed 100644
    // If view was managed by animated, its props need to align with UIView's properties.
    const auto &props = static_cast<const ViewProps &>(*_props);
    if ([_propKeysManagedByAnimated_DO_NOT_USE_THIS_IS_BROKEN containsObject:@"transform"]) {
-@@ -987,6 +991,19 @@ - (UIView *)currentContainerView
+@@ -1045,6 +1049,19 @@ - (UIView *)currentContainerView
  }
  
  - (void)invalidateLayer
@@ -151,26 +330,76 @@ index 36e5f64..2dd748a 100644
      }
    }
  
-diff --git a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/uimanager/ViewGroupDrawingOrderHelper.kt b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/uimanager/ViewGroupDrawingOrderHelper.kt
-index 8b43194..d2e084b 100644
---- a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/uimanager/ViewGroupDrawingOrderHelper.kt
-+++ b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/uimanager/ViewGroupDrawingOrderHelper.kt
-@@ -72,6 +72,10 @@ public class ViewGroupDrawingOrderHelper(private val viewGroup: ViewGroup) {
-           index,
-       )
-       update()
-+      // update() set this.drawingOrderIndices to null, so we must also null the
-+      // local variable; otherwise the rebuild branch below is skipped and we
-+      // return a stale, out-of-bounds index (Sentry REACT-NATIVE-48W / 4AM).
-+      currentDrawingOrderIndices = null
-     }
+diff --git a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/devsupport/DevSupportManagerBase.kt b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/devsupport/DevSupportManagerBase.kt
+index 788bb00..6fbb8c3 100644
+--- a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/devsupport/DevSupportManagerBase.kt
++++ b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/devsupport/DevSupportManagerBase.kt
+@@ -699,17 +699,34 @@ public abstract class DevSupportManagerBase(
  
-     if (currentDrawingOrderIndices == null) {
+     if (reactContext != null) {
+       try {
+-        val sourceUrl = URL(sourceUrl)
+-        var path = sourceUrl.path
++        val liveSourceUrl = reactContext.sourceURL?.let(::URL)
++        val isNativeDevVendorSource =
++            (liveSourceUrl?.protocol == "http" || liveSourceUrl?.protocol == "https") &&
++                liveSourceUrl
++                    ?.query
++                    ?.split('&')
++                    ?.contains("resolver.devVendorNative=true") == true
++        val hmrSourceUrl =
++            if (isNativeDevVendorSource) checkNotNull(liveSourceUrl) else URL(sourceUrl)
++        var path = hmrSourceUrl.path
+         if (path != null) {
+           path = path.substring(1) // strip initial slash in path
+         }
+-        val host = sourceUrl.host
+-        val scheme = sourceUrl.protocol
+-        val port = if (sourceUrl.port != -1) sourceUrl.port else sourceUrl.defaultPort
++        val host = hmrSourceUrl.host
++        val scheme = hmrSourceUrl.protocol
++        val port =
++            if (hmrSourceUrl.port != -1) hmrSourceUrl.port else hmrSourceUrl.defaultPort
+         reactContext
+             .getJSModule(HMRClient::class.java)
+-            .setup("android", path, host, port, devSettings.isHotModuleReplacementEnabled, scheme)
++            .setup(
++                "android",
++                path,
++                host,
++                port,
++                devSettings.isHotModuleReplacementEnabled,
++                scheme,
++                if (isNativeDevVendorSource) hmrSourceUrl.toString() else null,
++            )
+       } catch (e: MalformedURLException) {
+         showNewJavaError(e.message, e)
+       }
+diff --git a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/devsupport/HMRClient.kt b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/devsupport/HMRClient.kt
+index 286dcb6..04f3459 100644
+--- a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/devsupport/HMRClient.kt
++++ b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/devsupport/HMRClient.kt
+@@ -28,6 +28,7 @@ public interface HMRClient : JavaScriptModule {
+    * @param isEnabled Whether HMR is enabled initially.
+    * @param scheme The protocol that the HMRClient should communicate with on the host (defaults to
+    *   http).
++   * @param fullBundleUrlOverride The exact bundle request whose graph should receive HMR updates.
+    */
+   public fun setup(
+       platform: String?,
+@@ -36,6 +37,7 @@ public interface HMRClient : JavaScriptModule {
+       port: Int,
+       isEnabled: Boolean,
+       scheme: String?,
++      fullBundleUrlOverride: String?,
+   )
+ 
+   /** Registers an additional JS bundle with HMRClient. */
 diff --git a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt
-index 5977524..1b3f871 100644
+index ae2e36c..e0075b0 100644
 --- a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt
 +++ b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/views/view/ReactViewGroup.kt
-@@ -931,7 +931,13 @@ public open class ReactViewGroup public constructor(context: Context?) :
+@@ -912,7 +912,13 @@ public open class ReactViewGroup public constructor(context: Context?) :
      if (_overflow != Overflow.VISIBLE || getTag(R.id.filter) != null) {
        clipToPaddingBox(this, canvas)
      }
@@ -185,26 +414,11 @@ index 5977524..1b3f871 100644
    }
  
    override fun drawChild(canvas: Canvas, child: View, drawingTime: Long): Boolean {
-diff --git a/node_modules/react-native/ReactCommon/react/featureflags/ReactNativeFeatureFlagsOverridesOSSStable.h b/node_modules/react-native/ReactCommon/react/featureflags/ReactNativeFeatureFlagsOverridesOSSStable.h
-index fdabd7b..ef70011 100644
---- a/node_modules/react-native/ReactCommon/react/featureflags/ReactNativeFeatureFlagsOverridesOSSStable.h
-+++ b/node_modules/react-native/ReactCommon/react/featureflags/ReactNativeFeatureFlagsOverridesOSSStable.h
-@@ -21,6 +21,10 @@ class ReactNativeFeatureFlagsOverridesOSSStable : public ReactNativeFeatureFlags
-   {
-     return true;
-   }
-+  bool enableSchedulerDelegateInvalidation() override
-+  {
-+    return true;
-+  }
-   bool useTurboModules() override
-   {
-     return true;
 diff --git a/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm b/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm
-index 516ae35..cc2353c 100644
+index f3ec9bc..c9cb706 100644
 --- a/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm
 +++ b/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios/ReactCommon/RCTTurboModule.mm
-@@ -91,6 +91,9 @@ static int32_t getUniqueId()
+@@ -122,6 +122,9 @@ size_t size() const override
  
  jsi::Value convertObjCObjectToJSIValue(jsi::Runtime &runtime, id value)
  {
@@ -215,7 +429,7 @@ index 516ae35..cc2353c 100644
      return convertNSStringToJSIString(runtime, (NSString *)value);
    } else if ([value isKindOfClass:[NSNumber class]]) {
 diff --git a/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTHost.mm b/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTHost.mm
-index 0d5762d..85f2779 100644
+index 815e469..47c4f53 100644
 --- a/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTHost.mm
 +++ b/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTHost.mm
 @@ -10,6 +10,7 @@
@@ -267,7 +481,7 @@ index 0d5762d..85f2779 100644
    [_instance invalidate];
    if (_inspectorPageId.has_value()) {
      facebook::react::jsinspector_modern::getInspectorInstance().removePage(*_inspectorPageId);
-@@ -617,8 +631,53 @@ - (void)_setBundleURL:(NSURL *)bundleURL
+@@ -625,8 +639,53 @@ - (void)_setBundleURL:(NSURL *)bundleURL
    RCTReloadCommandSetBundleURL(_bundleURL);
  }
  
@@ -321,7 +535,7 @@ index 0d5762d..85f2779 100644
    [_instance invalidate];
    _instance = nil;
    if (_bundleURLProvider) {
-@@ -641,6 +700,36 @@ - (void)_reloadWithShouldRestartSurfaces:(BOOL)shouldRestartSurfaces
+@@ -649,6 +708,36 @@ - (void)_reloadWithShouldRestartSurfaces:(BOOL)shouldRestartSurfaces
        [_instance callFunctionOnBufferedRuntimeExecutor:[surface](facebook::jsi::Runtime &_) { [surface start]; }];
      }
    }
@@ -359,10 +573,10 @@ index 0d5762d..85f2779 100644
  
  #pragma mark - jsinspector_modern
 diff --git a/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTInstance.mm b/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTInstance.mm
-index d065b1b..cf02d45 100644
+index de522b0..b186399 100644
 --- a/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTInstance.mm
 +++ b/node_modules/react-native/ReactCommon/react/runtime/platform/ios/ReactCommon/RCTInstance.mm
-@@ -504,7 +504,16 @@ - (void)_attachBridgelessAPIsToModule:(id<RCTTurboModule>)module
+@@ -508,7 +508,16 @@ - (void)_attachBridgelessAPIsToModule:(id<RCTTurboModule>)module
  
  - (void)callFunctionOnBufferedRuntimeExecutor:(std::function<void(facebook::jsi::Runtime &)> &&)executor
  {
@@ -381,10 +595,10 @@ index d065b1b..cf02d45 100644
        executor(runtime);
      }
 diff --git a/node_modules/react-native/scripts/cocoapods/new_architecture.rb b/node_modules/react-native/scripts/cocoapods/new_architecture.rb
-index 3873632..6c0683f 100644
+index 98f9c74..53c6f90 100644
 --- a/node_modules/react-native/scripts/cocoapods/new_architecture.rb
 +++ b/node_modules/react-native/scripts/cocoapods/new_architecture.rb
-@@ -171,8 +171,7 @@ class NewArchitectureHelper
+@@ -176,8 +176,7 @@ class NewArchitectureHelper
          excluded_info_plist = ["/Pods", "Tests", "metainternal", ".bundle", "build/", "DerivedData/", ".xcframework", ".framework", "watchkitapp", "today-extention"]
          projectPaths.each do |projectPath|
              projectFolderPath = File.dirname(projectPath)
@@ -394,236 +608,3 @@ index 3873632..6c0683f 100644
  
              infoPlistFiles.each do |infoPlistFile|
                  # If infoPlistFile contains Pods or tests, skip it
-diff --git a/node_modules/react-native/Libraries/Utilities/HMRClient.js b/node_modules/react-native/Libraries/Utilities/HMRClient.js
-index 5911eaa..2b3e8cf 100644
---- a/node_modules/react-native/Libraries/Utilities/HMRClient.js
-+++ b/node_modules/react-native/Libraries/Utilities/HMRClient.js
-@@ -51,6 +51,7 @@ export type HMRClientNativeInterface = {
-     port: number | string,
-     isEnabled: boolean,
-     scheme?: string,
-+    fullBundleUrlOverride?: ?string,
-   ): void,
- };
-
-@@ -156,6 +157,7 @@ const HMRClient: HMRClientNativeInterface = {
-     port: number | string,
-     isEnabled: boolean,
-     scheme?: string = 'http',
-+    fullBundleUrlOverride?: ?string,
-   ) {
-     invariant(platform, 'Missing required parameter `platform`');
-     invariant(bundleEntry, 'Missing required parameter `bundleEntry`');
-@@ -182,7 +184,8 @@ const HMRClient: HMRClientNativeInterface = {
-       // HMRServer understands regular bundle URLs, so prefer that in case
-       // there are any important URL parameters we can't reconstruct from
-       // `setup()`'s arguments.
--      fullBundleUrl ??
-+      fullBundleUrlOverride ??
-+        fullBundleUrl ??
-         `${serverScheme}://${serverHost}/hot?bundleEntry=${bundleEntry}&platform=${platform}`,
-     );
-
-@@ -322,7 +325,35 @@ function setHMRUnavailableReason(reason: string) {
-
- function registerBundleEntryPoints(client: MetroHMRClient) {
-   if (hmrUnavailableReason != null) {
--    DevSettings.reload('Bundle Splitting – Metro disconnected');
-+    if (global['__ONEKEY_RUNTIME_TARGET__'] === 'background') {
-+      const generation = global['__ONEKEY_BACKGROUND_RUNTIME_GENERATION__'];
-+      const TurboModuleRegistry = require('../TurboModule/TurboModuleRegistry');
-+      const backgroundThread: any =
-+        TurboModuleRegistry.get('BackgroundThread');
-+      if (
-+        typeof generation === 'number' &&
-+        backgroundThread != null &&
-+        typeof backgroundThread.restart === 'function'
-+      ) {
-+        backgroundThread
-+          .restart(
-+            'background',
-+            `onekey-bg-hmr:${generation}:Bundle Splitting – Metro disconnected`,
-+          )
-+          .catch(error => {
-+            console.error(
-+              '[BackgroundHMR] Background-only reconnect failed.',
-+              error,
-+            );
-+          });
-+      } else {
-+        console.error(
-+          '[BackgroundHMR] Background-only reconnect is unavailable; the main runtime was left running.',
-+        );
-+      }
-+    } else {
-+      DevSettings.reload('Bundle Splitting – Metro disconnected');
-+    }
-     return;
-   }
-
-diff --git a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/devsupport/HMRClient.kt b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/devsupport/HMRClient.kt
-index 286dcb6..04f3459 100644
---- a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/devsupport/HMRClient.kt
-+++ b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/devsupport/HMRClient.kt
-@@ -30,2 +30,3 @@ public interface HMRClient : JavaScriptModule {
-    *   http).
-+   * @param fullBundleUrlOverride The exact bundle request whose graph should receive HMR updates.
-    */
-@@ -38,2 +39,3 @@ public interface HMRClient : JavaScriptModule {
-       scheme: String?,
-+      fullBundleUrlOverride: String?,
-   )
-diff --git a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/devsupport/DevSupportManagerBase.kt b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/devsupport/DevSupportManagerBase.kt
-index 0608c07..e17eff2 100644
---- a/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/devsupport/DevSupportManagerBase.kt
-+++ b/node_modules/react-native/ReactAndroid/src/main/java/com/facebook/react/devsupport/DevSupportManagerBase.kt
-@@ -702,4 +702,12 @@ public abstract class DevSupportManagerBase(
-       try {
--        val sourceUrl = URL(sourceUrl)
--        var path = sourceUrl.path
-+        val liveSourceUrl = reactContext.sourceURL?.let(::URL)
-+        val isNativeDevVendorSource =
-+            (liveSourceUrl?.protocol == "http" || liveSourceUrl?.protocol == "https") &&
-+                liveSourceUrl
-+                    ?.query
-+                    ?.split('&')
-+                    ?.contains("resolver.devVendorNative=true") == true
-+        val hmrSourceUrl =
-+            if (isNativeDevVendorSource) checkNotNull(liveSourceUrl) else URL(sourceUrl)
-+        var path = hmrSourceUrl.path
-         if (path != null) {
-@@ -707,8 +715,17 @@ public abstract class DevSupportManagerBase(
-         }
--        val host = sourceUrl.host
--        val scheme = sourceUrl.protocol
--        val port = if (sourceUrl.port != -1) sourceUrl.port else sourceUrl.defaultPort
-+        val host = hmrSourceUrl.host
-+        val scheme = hmrSourceUrl.protocol
-+        val port =
-+            if (hmrSourceUrl.port != -1) hmrSourceUrl.port else hmrSourceUrl.defaultPort
-         reactContext
-             .getJSModule(HMRClient::class.java)
--            .setup("android", path, host, port, devSettings.isHotModuleReplacementEnabled, scheme)
-+            .setup(
-+                "android",
-+                path,
-+                host,
-+                port,
-+                devSettings.isHotModuleReplacementEnabled,
-+                scheme,
-+                if (isNativeDevVendorSource) hmrSourceUrl.toString() else null,
-+            )
-       } catch (e: MalformedURLException) {
-diff --git a/node_modules/react-native/Libraries/Core/Devtools/getDevServer.js b/node_modules/react-native/Libraries/Core/Devtools/getDevServer.js
-index a158d98..bd961d9 100644
---- a/node_modules/react-native/Libraries/Core/Devtools/getDevServer.js
-+++ b/node_modules/react-native/Libraries/Core/Devtools/getDevServer.js
-@@ -14,2 +14,19 @@ let _cachedDevServerURL: ?string;
- let _cachedFullBundleURL: ?string;
-+
-+function getDevVendorFullBundleURL(): ?string {
-+  // OneKey patch: expose the live runtime graph after startup from local common HBC.
-+  const fullBundleURL = global['__ONEKEY_DEV_VENDOR_FULL_BUNDLE_URL__'];
-+  if (
-+    typeof fullBundleURL !== 'string' ||
-+    !/^https?:\/\/.*?\//.test(fullBundleURL) ||
-+    !/[?&]resolver\.devVendorNative=true(?:&|$)/.test(fullBundleURL) ||
-+    !/[?&]resolver\.runtimeTarget=(?:main|background)(?:&|$)/.test(
-+      fullBundleURL,
-+    )
-+  ) {
-+    return null;
-+  }
-+  return fullBundleURL;
-+}
-+
- const FALLBACK = 'http://localhost:8081/';
-@@ -28,3 +45,11 @@ type DevServerInfo = {
- export default function getDevServer(): DevServerInfo {
--  if (_cachedDevServerURL === undefined) {
-+  const devVendorFullBundleURL = getDevVendorFullBundleURL();
-+  if (
-+    devVendorFullBundleURL !== null &&
-+    _cachedFullBundleURL !== devVendorFullBundleURL
-+  ) {
-+    const match = devVendorFullBundleURL.match(/^https?:\/\/.*?\//);
-+    _cachedDevServerURL = match ? match[0] : null;
-+    _cachedFullBundleURL = match ? devVendorFullBundleURL : null;
-+  } else if (_cachedDevServerURL === undefined) {
-     const scriptUrl = NativeSourceCode.getConstants().scriptURL;
-diff --git a/node_modules/react-native/Libraries/Core/setUpReactRefresh.js b/node_modules/react-native/Libraries/Core/setUpReactRefresh.js
-index be8844d..3e79707 100644
---- a/node_modules/react-native/Libraries/Core/setUpReactRefresh.js
-+++ b/node_modules/react-native/Libraries/Core/setUpReactRefresh.js
-@@ -17,12 +17,37 @@ if (__DEV__) {
-     throw new Error('Could not find the reload() implementation.');
-   }
-
-+  const restartBackgroundRuntime = (reason: string) => {
-+    const generation = global['__ONEKEY_BACKGROUND_RUNTIME_GENERATION__'];
-+    const TurboModuleRegistry = require('../TurboModule/TurboModuleRegistry');
-+    const backgroundThread: any = TurboModuleRegistry.get('BackgroundThread');
-+    if (
-+      typeof generation !== 'number' ||
-+      backgroundThread == null ||
-+      typeof backgroundThread.restart !== 'function'
-+    ) {
-+      console.error(
-+        '[BackgroundHMR] Background-only restart is unavailable; the main runtime was left running.',
-+      );
-+      return;
-+    }
-+    backgroundThread
-+      .restart('background', `onekey-bg-hmr:${generation}:${reason}`)
-+      .catch(error => {
-+        console.error('[BackgroundHMR] Background-only restart failed.', error);
-+      });
-+  };
-+
-   // This needs to run before the renderer initializes.
-   const ReactRefreshRuntime = require('react-refresh/runtime');
-   ReactRefreshRuntime.injectIntoGlobalHook(global);
-
-   const Refresh = {
-     performFullRefresh(reason: string) {
-+      if (global['__ONEKEY_RUNTIME_TARGET__'] === 'background') {
-+        restartBackgroundRuntime(reason);
-+        return;
-+      }
-       DevSettings.reload(reason);
-     },
-
-diff --git a/node_modules/react-native/Libraries/Image/resolveAssetSource.js b/node_modules/react-native/Libraries/Image/resolveAssetSource.js
-index e08a6c8..de078a2 100644
---- a/node_modules/react-native/Libraries/Image/resolveAssetSource.js
-+++ b/node_modules/react-native/Libraries/Image/resolveAssetSource.js
-@@ -14,6 +14,7 @@ import type {ResolvedAssetSource} from './AssetSourceResolver';
- import typeof AssetSourceResolverT from './AssetSourceResolver';
- import type {ImageSource} from './ImageSource';
-
-+import getDevServer from '../Core/Devtools/getDevServer';
- import SourceCode from '../NativeModules/specs/NativeSourceCode';
-
- const AssetSourceResolver: AssetSourceResolverT =
-@@ -40,6 +41,12 @@ function getSourceCodeScriptURL(): ?string {
- }
-
- function getDevServerURL(): ?string {
-+  // OneKey patch: resolve live dev-vendor assets from Metro after local common HBC startup.
-+  const devServer = getDevServer();
-+  if (devServer.bundleLoadedFromServer) {
-+    return devServer.url;
-+  }
-+
-   if (_serverURL === undefined) {
-     const sourceCodeScriptURL = getSourceCodeScriptURL();
-     const match = sourceCodeScriptURL?.match(/^https?:\/\/.*?\//);
-diff --git a/node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec b/node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec
-index 50af7e3..8a88b30 100644
---- a/node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec
-+++ b/node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec
-@@ -6,0 +7 @@ require "json"
-+require "pathname"
-@@ -93,0 +95,2 @@ Pod::Spec.new do |spec|
-+      # OneKey patch: Keep the podspec checksum independent of the checkout path.
-+      hermes_compiler_path = "$(PODS_ROOT)/#{Pathname.new(hermes_compiler_path).relative_path_from(Pathname.new(Pod::Config.instance.project_pods_root))}"

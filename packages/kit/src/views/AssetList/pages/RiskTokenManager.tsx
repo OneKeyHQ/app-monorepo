@@ -41,11 +41,8 @@ import { withTokenListProvider } from '../../../states/jotai/contexts/tokenList'
 import { AssetListTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
-import type {
-  GestureResponderEvent,
-  NativeSyntheticEvent,
-  TextInputFocusEventData,
-} from 'react-native';
+import type { GestureResponderEvent, NativeSyntheticEvent } from 'react-native';
+import type { SearchBarTextEventData } from 'react-native-screens';
 
 function RiskTokenManager() {
   const intl = useIntl();
@@ -323,7 +320,7 @@ function RiskTokenManager() {
         headerRight={headerRight}
         headerSearchBarOptions={{
           onChangeText: debounce(
-            (e: NativeSyntheticEvent<TextInputFocusEventData>) =>
+            (e: NativeSyntheticEvent<SearchBarTextEventData>) =>
               setSearchKey(e.nativeEvent.text),
             SEARCH_DEBOUNCE_INTERVAL,
           ),

@@ -57,7 +57,7 @@ import { preloadNetworkImagesV2 } from './useNetworkListPresentationV2';
 import type { IServerNetworkMatch } from '../../types';
 import type { ITabType } from '../UnifiedNetworkSelector/TabSwitcher';
 import type { RouteProp } from '@react-navigation/core';
-import type { LayoutChangeEvent, View } from 'react-native';
+import type { LayoutChangeEvent, ViewInstance } from 'react-native';
 import type NativePagerView from 'react-native-pager-view';
 
 const TAB_TO_INDEX: Record<ITabType, number> = { portfolio: 0, network: 1 };
@@ -198,8 +198,8 @@ function UnifiedNetworkSelectorV2() {
   activeTabRef.current = activeTab;
 
   const pagerRef = useRef<NativePagerView>(null);
-  const portfolioWebSectionIndexContainerRef = useRef<View>(null);
-  const networkWebSectionIndexContainerRef = useRef<View>(null);
+  const portfolioWebSectionIndexContainerRef = useRef<ViewInstance>(null);
+  const networkWebSectionIndexContainerRef = useRef<ViewInstance>(null);
 
   const handleTabChange = useCallback((tab: ITabType) => {
     setActiveTab(tab);

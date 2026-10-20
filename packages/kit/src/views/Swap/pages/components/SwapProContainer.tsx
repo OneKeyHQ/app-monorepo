@@ -66,6 +66,7 @@ import type {
   IMarketPresetPriorityFeeFiatEstimateMap,
 } from '../../../Market/MarketDetailV2/components/SwapPanel/components/MarketPresetSelector';
 import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
+import type { ScrollViewInstance } from 'react-native';
 
 interface ISwapProContainerProps {
   storeName: EJotaiContextStoreNames;
@@ -129,7 +130,7 @@ const SwapProContainer = ({
     useSwapProInputAmountAtom();
   const [, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const tabBarHeight = useScrollContentTabBarOffset();
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<ScrollViewInstance>(null);
   const { fetchTokenMarketDetailInfo } = useSwapProTokenDetailInfo();
   const [swapProErrorAlert] = useSwapProErrorAlertAtom();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();

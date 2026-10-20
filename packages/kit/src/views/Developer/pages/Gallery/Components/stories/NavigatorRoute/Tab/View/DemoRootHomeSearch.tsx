@@ -15,11 +15,8 @@ import useDemoAppNavigation from '../../useDemoAppNavigation';
 import { EDemoHomeTabRoutes } from '../Routes';
 
 import type { IDemoHomeTabParamList } from '../RouteParamTypes';
-import type {
-  NativeSyntheticEvent,
-  TextInputChangeEventData,
-  TextInputSubmitEditingEventData,
-} from 'react-native';
+import type { NativeSyntheticEvent } from 'react-native';
+import type { SearchBarTextEventData } from 'react-native-screens';
 
 const DemoRootHomeSearch = () => {
   const intl = useIntl();
@@ -33,10 +30,10 @@ const DemoRootHomeSearch = () => {
           id: ETranslations.explore_search_dapps,
         }),
         inputType: 'text',
-        onChangeText: (event: NativeSyntheticEvent<TextInputChangeEventData>) =>
+        onChangeText: (event: NativeSyntheticEvent<SearchBarTextEventData>) =>
           console.log('onChangeText', event.nativeEvent.text),
         onSearchButtonPress: (
-          event: NativeSyntheticEvent<TextInputSubmitEditingEventData>,
+          event: NativeSyntheticEvent<SearchBarTextEventData>,
         ) => console.log('onSearchButtonPress', event.nativeEvent.text),
       },
     });
@@ -59,7 +56,7 @@ const DemoRootHomeSearch = () => {
                   headerSearchBarOptions: {
                     placeholder: '搜索',
                     inputType: 'text',
-                    onChangeText: (event: NativeSyntheticEvent<TextInputChangeEventData>) =>
+                    onChangeText: (event: NativeSyntheticEvent<SearchBarTextEventData>) =>
                       console.log(event.nativeEvent.text),
                   },
                 });

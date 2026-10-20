@@ -20,9 +20,13 @@ const mockPaint = {
   dispose: jest.fn(),
 };
 const mockPath = {
+  dispose: jest.fn(),
+};
+const mockPathBuilder = {
   moveTo: jest.fn(),
   lineTo: jest.fn(),
   close: jest.fn(),
+  build: jest.fn(() => mockPath),
   dispose: jest.fn(),
 };
 jest.mock('@shopify/react-native-skia', () => ({
@@ -33,7 +37,7 @@ jest.mock('@shopify/react-native-skia', () => ({
   Skia: {
     Paint: () => mockPaint,
     Color: (color: string) => color,
-    Path: { Make: () => mockPath },
+    PathBuilder: { Make: () => mockPathBuilder },
     PathEffect: { MakeDash: () => ({ dispose: jest.fn() }) },
     XYWHRect: (x: number, y: number, width: number, height: number) => ({
       x,
@@ -103,7 +107,7 @@ it('renders a live native brush as a path and exposes only four bounds handles a
     );
   render(null);
   expect(canvas.drawPath).toHaveBeenCalledTimes(1);
-  expect(mockPath.lineTo).toHaveBeenCalledTimes(119);
+  expect(mockPathBuilder.lineTo).toHaveBeenCalledTimes(119);
   expect(canvas.drawCircle).not.toHaveBeenCalled();
   expect(canvas.clipRect).toHaveBeenCalledWith(
     { x: 0, y: 0, width: layout.priceAxisX, height: layout.mainChartBottom },
@@ -116,6 +120,7 @@ it('renders a live native brush as a path and exposes only four bounds handles a
   render(null, true);
   expect(canvas.drawPath).toHaveBeenCalledTimes(2);
   expect(mockPath.dispose).toHaveBeenCalledTimes(2);
+  expect(mockPathBuilder.dispose).toHaveBeenCalledTimes(2);
   expect(mockPaint.dispose).toHaveBeenCalledTimes(3);
   expect(canvas.save).toHaveBeenCalledTimes(3);
   expect(canvas.restore).toHaveBeenCalledTimes(3);

@@ -19,7 +19,7 @@ import type {
   NativeListRef,
   RowActionEvent,
 } from '@onekeyfe/react-native-native-list';
-import type { View } from 'react-native';
+import type { ViewInstance } from 'react-native';
 
 type INetworkTooltipV2 = {
   anchor: NativeListActionAnchor;
@@ -31,7 +31,7 @@ type INetworkTooltipV2 = {
 
 export function useNetworkTooltipV2(listRef: RefObject<NativeListRef | null>) {
   const intl = useIntl();
-  const containerRef = useRef<View>(null);
+  const containerRef = useRef<ViewInstance>(null);
   const activeTokenRef = useRef<string | undefined>(undefined);
   const [tooltip, setTooltip] = useState<INetworkTooltipV2>();
 

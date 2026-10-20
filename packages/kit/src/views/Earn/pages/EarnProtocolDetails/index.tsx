@@ -138,6 +138,7 @@ import {
 import type { IEarnHoldingRedeem } from '../EarnPositions/mobile/EarnHoldingSections';
 import type { IEarnPositionView } from '../EarnPositions/mobile/earnPositionModel';
 import type { RouteProp } from '@react-navigation/core';
+import type { ViewInstance } from 'react-native';
 
 function ManagersSection({
   managers,
@@ -909,7 +910,7 @@ const DetailsPartComponent = ({
   // sits below it by the header's height.
   const { scrollViewRef, pageOffsetRef } = useScrollView();
   const headerHeight = useHeaderHeight();
-  const tabsAnchorRef = useRef<View>(null);
+  const tabsAnchorRef = useRef<ViewInstance>(null);
   const portfolioScrolledRef = useRef(false);
   const handleTabsLayout = useCallback(() => {
     if (

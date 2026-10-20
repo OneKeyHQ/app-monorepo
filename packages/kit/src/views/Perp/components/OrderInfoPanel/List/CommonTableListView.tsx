@@ -1003,8 +1003,8 @@ export function CommonTableListView<T>({
             scrollEnabled={shouldUseTabsList || !disableListScroll}
             data={paginatedData}
             keyExtractor={keyExtractor}
-            ListHeaderComponent={ListHeaderComponent}
-            ListFooterComponent={paginationFooter}
+            ListHeaderComponent={ListHeaderComponent ?? undefined}
+            ListFooterComponent={paginationFooter ?? undefined}
             renderItem={({ item, index }) => {
               return renderRow(item, index, 'full');
             }}

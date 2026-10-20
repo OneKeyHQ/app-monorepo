@@ -26,6 +26,7 @@ import type {
   NativeListSnapshot,
   RowModel,
 } from '@onekeyfe/react-native-native-list';
+import type { ViewInstance } from 'react-native';
 
 // Basic Tabs Demo
 const BasicTabsDemo = () => {
@@ -468,28 +469,30 @@ const TabsWithInfiniteScrollDemo = () => {
           )}
           keyExtractor={(item) => item.id.toString()}
           // eslint-disable-next-line react/no-unstable-nested-components
-          ListFooterComponent={(() => {
-            if (loading1) {
-              return (
-                <Stack p="$4" ai="center">
-                  <Spinner />
-                  <SizableText size="$bodySm" color="$textSubdued" mt="$2">
-                    Loading more transactions...
-                  </SizableText>
-                </Stack>
-              );
-            }
-            if (!hasMore1) {
-              return (
-                <Stack p="$4" ai="center">
-                  <SizableText size="$bodySm" color="$textSubdued">
-                    No more transactions
-                  </SizableText>
-                </Stack>
-              );
-            }
-            return null;
-          })()}
+          ListFooterComponent={
+            (() => {
+              if (loading1) {
+                return (
+                  <Stack p="$4" ai="center">
+                    <Spinner />
+                    <SizableText size="$bodySm" color="$textSubdued" mt="$2">
+                      Loading more transactions...
+                    </SizableText>
+                  </Stack>
+                );
+              }
+              if (!hasMore1) {
+                return (
+                  <Stack p="$4" ai="center">
+                    <SizableText size="$bodySm" color="$textSubdued">
+                      No more transactions
+                    </SizableText>
+                  </Stack>
+                );
+              }
+              return null;
+            })() ?? undefined
+          }
         />
       </Tabs.Tab>
       <Tabs.Tab name="Tokens">
@@ -513,28 +516,30 @@ const TabsWithInfiniteScrollDemo = () => {
           )}
           keyExtractor={(item) => item.id.toString()}
           // eslint-disable-next-line react/no-unstable-nested-components
-          ListFooterComponent={(() => {
-            if (loading2) {
-              return (
-                <Stack p="$4" ai="center">
-                  <Spinner />
-                  <SizableText size="$bodySm" color="$textSubdued" mt="$2">
-                    Loading more tokens...
-                  </SizableText>
-                </Stack>
-              );
-            }
-            if (!hasMore2) {
-              return (
-                <Stack p="$4" ai="center">
-                  <SizableText size="$bodySm" color="$textSubdued">
-                    No more tokens
-                  </SizableText>
-                </Stack>
-              );
-            }
-            return null;
-          })()}
+          ListFooterComponent={
+            (() => {
+              if (loading2) {
+                return (
+                  <Stack p="$4" ai="center">
+                    <Spinner />
+                    <SizableText size="$bodySm" color="$textSubdued" mt="$2">
+                      Loading more tokens...
+                    </SizableText>
+                  </Stack>
+                );
+              }
+              if (!hasMore2) {
+                return (
+                  <Stack p="$4" ai="center">
+                    <SizableText size="$bodySm" color="$textSubdued">
+                      No more tokens
+                    </SizableText>
+                  </Stack>
+                );
+              }
+              return null;
+            })() ?? undefined
+          }
         />
       </Tabs.Tab>
     </Tabs.Container>
@@ -554,7 +559,7 @@ const HOME_FIXTURE_IMAGE = {
 function HomeNativeListFixture({ onClose }: { onClose: () => void }) {
   const pagerRef = useRef<CollapsiblePagerView>(null);
   const scrollerRef = useRef<ComponentRef<typeof NativeScroller>>(null);
-  const scrollerMeasureRef = useRef<View>(null);
+  const scrollerMeasureRef = useRef<ViewInstance>(null);
   const headerHeight = useHeaderHeight();
   // This standalone fixture bypasses Layout's transparent navigation bar inset.
   const bodyPaddingTop = platformEnv.isNativeIOS26Plus ? headerHeight : 0;

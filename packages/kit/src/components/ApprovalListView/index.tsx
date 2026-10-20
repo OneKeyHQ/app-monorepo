@@ -209,7 +209,7 @@ function ApprovalListViewCmp(props: IProps) {
             tokenMap={tokenMap}
             contractMap={contractMap}
           />
-        ) : null
+        ) : undefined
       }
       renderItem={({ item }) => (
         <ApproveListItem
