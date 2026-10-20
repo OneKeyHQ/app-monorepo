@@ -6,6 +6,7 @@
 // update once the doc is published.
 
 import {
+  EGasAccountRequestStage,
   getGasAccountErrorCode,
   isGasAccountUnclassifiedServerError,
 } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
@@ -202,18 +203,38 @@ export function getGasAccountErrorEntry(
   return GAS_ACCOUNT_ERROR_TABLE[code];
 }
 
-// Prefer this over `getGasAccountErrorEntry(code)` at submit call sites: it
-// also recognizes the unclassified Prime 400 (see gasAccountErrorUtils) that
-// a numeric lookup cannot tell apart from an ordinary validation 400.
+// Prefer this over `getGasAccountErrorEntry(code)` at request call sites.
+// `stage` is the request the error came from. Only after send-transaction was
+// issued is the unclassified Prime 400 (see gasAccountErrorUtils) a
+// result-unknown outcome; at estimate time — or when the stage is unknown —
+// nothing is known to have been sent, so that 400 keeps its ordinary
+// handling instead of a "may already be submitted" hint.
 export function getGasAccountErrorEntryForError(
   error: unknown,
+  stage: EGasAccountRequestStage | undefined,
 ): IGasAccountErrorEntry | undefined {
   const entry = getGasAccountErrorEntry(getGasAccountErrorCode(error));
   if (entry) {
     return entry;
   }
-  if (isGasAccountUnclassifiedServerError(error)) {
+  if (
+    stage === EGasAccountRequestStage.Send &&
+    isGasAccountUnclassifiedServerError(error)
+  ) {
     return GAS_ACCOUNT_ERROR_TABLE[90_219];
   }
   return undefined;
+}
+
+// Copy for a mapped error. An estimate-time failure sent nothing, so it uses
+// `estimateMessageKey` where the table provides one; send-time and
+// unknown-stage failures keep the submit copy, which is the safe default.
+export function getGasAccountErrorMessageKey(
+  entry: IGasAccountErrorEntry,
+  stage: EGasAccountRequestStage | undefined,
+): ETranslations {
+  if (stage === EGasAccountRequestStage.Estimate) {
+    return entry.estimateMessageKey ?? entry.messageKey;
+  }
+  return entry.messageKey;
 }

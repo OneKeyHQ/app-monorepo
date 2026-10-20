@@ -127,6 +127,50 @@ export function isGasAccountUnclassifiedServerError(error: unknown): boolean {
   );
 }
 
+// Which Gas Account request an error came from. estimate-fee and
+// send-transaction share the strategy table, but the same code means
+// different things per stage: at estimate time nothing was signed or
+// broadcast, so result-unknown codes keep their estimate copy and the
+// unclassified 400 above is not narrowed to "may already be submitted".
+export enum EGasAccountRequestStage {
+  Estimate = 'estimate',
+  Send = 'send',
+}
+
+type IGasAccountStagedError = {
+  $$gasAccountRequestStage?: EGasAccountRequestStage;
+};
+
+// Tags an error with the request stage it was thrown from, so a catch block
+// that wraps both the pre-send estimate and the send (e.g. Market direct send)
+// can tell them apart. The innermost tag wins; the same error object is
+// returned, and non-object throwables pass through untouched.
+export function markGasAccountRequestStage<T>(
+  error: T,
+  stage: EGasAccountRequestStage,
+): T {
+  if (typeof error === 'object' && error !== null) {
+    const staged = error as IGasAccountStagedError;
+    if (!staged.$$gasAccountRequestStage) {
+      staged.$$gasAccountRequestStage = stage;
+    }
+  }
+  return error;
+}
+
+export function getGasAccountRequestStage(
+  error: unknown,
+): EGasAccountRequestStage | undefined {
+  if (typeof error !== 'object' || error === null) {
+    return undefined;
+  }
+  const stage = (error as IGasAccountStagedError).$$gasAccountRequestStage;
+  return stage === EGasAccountRequestStage.Estimate ||
+    stage === EGasAccountRequestStage.Send
+    ? stage
+    : undefined;
+}
+
 function toIntegerSecond(value: unknown): number | undefined {
   if (typeof value !== 'number') return undefined;
   if (!Number.isFinite(value)) return undefined;

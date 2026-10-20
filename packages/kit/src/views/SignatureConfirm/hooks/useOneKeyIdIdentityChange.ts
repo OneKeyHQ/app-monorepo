@@ -16,9 +16,11 @@ export function getOneKeyIdIdentityKey(prime: {
 }
 
 // Calls `onChange` when the OneKey ID identity changes while the caller is
-// mounted (never on mount). A change seen while disabled is consumed, not
-// deferred: the backend's identity check at send time (90221) remains the
-// safety net for anything the page could not re-estimate in time.
+// mounted (never on mount). A change seen while `enabled` is false — e.g.
+// during submission — is held, not dropped, and delivered once the caller
+// re-enables the hook, so a failed attempt can never retry a quote that was
+// estimated for the previous identity. Several changes while disabled
+// collapse into one delivery.
 export function useOneKeyIdIdentityChange({
   enabled,
   onChange,
@@ -29,17 +31,19 @@ export function useOneKeyIdIdentityChange({
   const [prime] = usePrimePersistAtom();
   const identityKey = getOneKeyIdIdentityKey(prime);
   const lastIdentityKeyRef = useRef(identityKey);
+  const pendingChangeRef = useRef(false);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
   useEffect(() => {
-    if (lastIdentityKeyRef.current === identityKey) {
+    if (lastIdentityKeyRef.current !== identityKey) {
+      lastIdentityKeyRef.current = identityKey;
+      pendingChangeRef.current = true;
+    }
+    if (!enabled || !pendingChangeRef.current) {
       return;
     }
-    lastIdentityKeyRef.current = identityKey;
-    if (!enabled) {
-      return;
-    }
+    pendingChangeRef.current = false;
     onChangeRef.current();
   }, [enabled, identityKey]);
 }

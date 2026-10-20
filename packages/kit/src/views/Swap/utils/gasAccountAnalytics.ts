@@ -1,7 +1,11 @@
 import BigNumber from 'bignumber.js';
 
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import { getGasAccountErrorCode } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
+import {
+  EGasAccountRequestStage,
+  getGasAccountErrorCode,
+  markGasAccountRequestStage,
+} from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   IGasAccountActionParams,
@@ -290,6 +294,10 @@ export async function sendDirectSwapWithGasAccountAnalytics<T>({
   try {
     result = await send(gasAccountUiState);
   } catch (error) {
+    // Everything inside `send` is the sign-and-broadcast request. Tag the
+    // error so an outer catch that also wraps the pre-send estimate (Market
+    // direct send) resolves the stage-specific entry and copy.
+    markGasAccountRequestStage(error, EGasAccountRequestStage.Send);
     const errorCode = getGasAccountErrorCode(error);
     logDirectSwapGasAccountAction(context, {
       action: 'submitFailed',
@@ -297,7 +305,7 @@ export async function sendDirectSwapWithGasAccountAnalytics<T>({
       errorCode,
     });
     const entry = gasAccountUiState
-      ? getGasAccountErrorEntryForError(error)
+      ? getGasAccountErrorEntryForError(error, EGasAccountRequestStage.Send)
       : undefined;
     if (!entry) {
       throw error;

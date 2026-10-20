@@ -6,7 +6,8 @@ OK-64746: a Gas Account quote is bound to the OneKey ID member it was
 estimated for, and Prime rejects the send when the identity changed in
 between. The confirm page therefore re-estimates when the login state or the
 member changes while it is open — but not on mount, and not when the same
-member merely refreshes its token.
+member merely refreshes its token. A change seen while the hook is disabled
+(submission in flight) is held and delivered once it is re-enabled.
 */
 import { renderHook } from '@testing-library/react';
 
@@ -61,8 +62,14 @@ describe('useOneKeyIdIdentityChange', () => {
 
   function renderChangeHook(enabled = true) {
     const onChange = jest.fn();
-    const rendered = renderHook(() =>
-      useOneKeyIdIdentityChange({ enabled, onChange }),
+    // `rerender()` without props re-renders with the initial `enabled`.
+    const rendered = renderHook(
+      (props?: { enabled: boolean }) =>
+        useOneKeyIdIdentityChange({
+          enabled: props?.enabled ?? enabled,
+          onChange,
+        }),
+      { initialProps: { enabled } },
     );
     return { onChange, rendered };
   }
@@ -103,7 +110,37 @@ describe('useOneKeyIdIdentityChange', () => {
   it('stays silent while disabled', () => {
     const { onChange, rendered } = renderChangeHook(false);
     mockState.prime = { isLoggedIn: true, onekeyUserId: 'user-a' };
-    rendered.rerender();
+    rendered.rerender({ enabled: false });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('delivers a change seen while disabled once re-enabled', () => {
+    // Submission in flight (disabled) when the user logs in; the stale quote
+    // must be dropped as soon as the attempt ends, not on the next poll.
+    const { onChange, rendered } = renderChangeHook(false);
+    mockState.prime = { isLoggedIn: true, onekeyUserId: 'user-a' };
+    rendered.rerender({ enabled: false });
+    expect(onChange).not.toHaveBeenCalled();
+    rendered.rerender({ enabled: true });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    rendered.rerender({ enabled: true });
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('collapses several changes while disabled into one delivery', () => {
+    mockState.prime = { isLoggedIn: true, onekeyUserId: 'user-a' };
+    const { onChange, rendered } = renderChangeHook(false);
+    mockState.prime = { isLoggedIn: false, onekeyUserId: undefined };
+    rendered.rerender({ enabled: false });
+    mockState.prime = { isLoggedIn: true, onekeyUserId: 'user-b' };
+    rendered.rerender({ enabled: false });
+    rendered.rerender({ enabled: true });
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not fire on re-enable without an identity change', () => {
+    const { onChange, rendered } = renderChangeHook(false);
+    rendered.rerender({ enabled: true });
     expect(onChange).not.toHaveBeenCalled();
   });
 });

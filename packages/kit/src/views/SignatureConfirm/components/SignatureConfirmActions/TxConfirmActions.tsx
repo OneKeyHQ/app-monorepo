@@ -48,6 +48,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
+  EGasAccountRequestStage,
   getGasAccountErrorCode,
   isGasAccountSubmitCancelledError,
 } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
@@ -313,7 +314,12 @@ function TxConfirmActions(props: IProps) {
       }
 
       const code = getGasAccountErrorCode(error);
-      const entry = getGasAccountErrorEntryForError(error);
+      // Only send-transaction runs under this handler: the estimate poll has
+      // its own classifier in TxFeeInfo.
+      const entry = getGasAccountErrorEntryForError(
+        error,
+        EGasAccountRequestStage.Send,
+      );
       if (!entry) {
         if (typeof code === 'number') {
           // Unknown-but-numeric code — surface in dev so contract drift

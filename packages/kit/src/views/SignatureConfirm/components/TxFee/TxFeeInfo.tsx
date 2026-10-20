@@ -73,6 +73,7 @@ import type {
   IOneKeyError,
   IOneKeyRpcError,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { EGasAccountRequestStage } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -109,6 +110,7 @@ import type {
 import {
   EGasAccountErrorStrategy,
   getGasAccountErrorEntryForError,
+  getGasAccountErrorMessageKey,
 } from '../../constants/gasAccountErrorCodes';
 import { useOneKeyIdIdentityChange } from '../../hooks/useOneKeyIdIdentityChange';
 import {
@@ -228,8 +230,9 @@ function TxFeeInfo(props: IProps) {
   // estimated for and Prime re-checks that identity at execute time. When the
   // user logs in / out or switches account while this page is open, drop the
   // old quote and re-estimate so the send carries a quote for the current
-  // session. Gated to flows that request sponsorship; a change during submit
-  // is left to the backend identity check (90221).
+  // session. Gated to flows that request sponsorship; a change seen during
+  // submit is held by the hook and applied once submission ends, so a failed
+  // attempt never retries the previous identity's quote.
   useOneKeyIdIdentityChange({
     enabled:
       !gasAccountDisabledByScenario &&
@@ -831,7 +834,10 @@ function TxFeeInfo(props: IProps) {
         // every tick re-asks for a sponsor and gets the same error. Classifying
         // the error and flipping `gasAccountTemporarilyDisabled` forces the
         // next tick onto the user-paid path.
-        const gasAccountEntry = getGasAccountErrorEntryForError(e);
+        const gasAccountEntry = getGasAccountErrorEntryForError(
+          e,
+          EGasAccountRequestStage.Estimate,
+        );
         if (
           gasAccountEntry &&
           !gasAccountTemporarilyDisabled &&
@@ -855,11 +861,10 @@ function TxFeeInfo(props: IProps) {
           if (!gasAccountEntry.suppressToast) {
             Toast.warning({
               title: intl.formatMessage({
-                // Nothing was sent at estimate time, so prefer the
-                // estimate-specific copy over a "may be submitted" hint.
-                id:
-                  gasAccountEntry.estimateMessageKey ??
-                  gasAccountEntry.messageKey,
+                id: getGasAccountErrorMessageKey(
+                  gasAccountEntry,
+                  EGasAccountRequestStage.Estimate,
+                ),
               }),
             });
           }
@@ -884,11 +889,10 @@ function TxFeeInfo(props: IProps) {
           if (!gasAccountEntry.suppressToast) {
             Toast.warning({
               title: intl.formatMessage({
-                // Nothing was sent at estimate time, so prefer the
-                // estimate-specific copy over a "may be submitted" hint.
-                id:
-                  gasAccountEntry.estimateMessageKey ??
-                  gasAccountEntry.messageKey,
+                id: getGasAccountErrorMessageKey(
+                  gasAccountEntry,
+                  EGasAccountRequestStage.Estimate,
+                ),
               }),
             });
           }

@@ -44,7 +44,10 @@ import {
   isSwapQuoteRequestForCurrentInput,
   isSwapZeroProviderQuoteCompleted,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
-import { getGasAccountErrorEntryForError } from '@onekeyhq/kit/src/views/SignatureConfirm/constants/gasAccountErrorCodes';
+import {
+  getGasAccountErrorEntryForError,
+  getGasAccountErrorMessageKey,
+} from '@onekeyhq/kit/src/views/SignatureConfirm/constants/gasAccountErrorCodes';
 import { useSwapStockSelectedBalanceSync } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapStockSelectedBalanceSync';
 import { type ISwapReviewStepTexts } from '@onekeyhq/kit/src/views/Swap/utils/buildSwapReviewState';
 import { logDirectSwapGasAccountDecision } from '@onekeyhq/kit/src/views/Swap/utils/gasAccountAnalytics';
@@ -89,6 +92,7 @@ import type {
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { getGasAccountRequestStage } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -3053,10 +3057,17 @@ export function useSpeedSwapActions(props: {
           onCancel?.();
           return;
         }
-        // Sponsored broadcast failed at the gas-account layer: show the mapped
-        // sponsor message (sponsor unavailable / quote expired …) before
-        // surfacing the failure. Plain errors fall through unchanged.
-        const gasAccountEntry = getGasAccountErrorEntryForError(error);
+        // A sponsor code at the gas-account layer: show the mapped sponsor
+        // message before surfacing the failure. sendMarketDirectUnsignedTxs
+        // tags which request failed — the pre-send estimate-fee or the
+        // broadcast — so a result-unknown code hit while estimating keeps its
+        // estimate copy and the unclassified 400 is only read as "may already
+        // be submitted" after a broadcast. Plain errors fall through unchanged.
+        const gasAccountStage = getGasAccountRequestStage(error);
+        const gasAccountEntry = getGasAccountErrorEntryForError(
+          error,
+          gasAccountStage,
+        );
         if (gasAccountEntry) {
           // Mute the rethrown bridge error so the global handler doesn't toast
           // again (would duplicate the mapped message).
@@ -3065,7 +3076,12 @@ export function useSpeedSwapActions(props: {
           // silent and fall back to user-paid without a quota toast).
           if (!gasAccountEntry.suppressToast) {
             Toast.error({
-              title: intl.formatMessage({ id: gasAccountEntry.messageKey }),
+              title: intl.formatMessage({
+                id: getGasAccountErrorMessageKey(
+                  gasAccountEntry,
+                  gasAccountStage,
+                ),
+              }),
             });
           }
         }
@@ -3166,13 +3182,23 @@ export function useSpeedSwapActions(props: {
         }
         // Same sponsor-error mapping as sendMarketSwapTx: Fallback codes were
         // already resent user-paid inside sendMarketDirectUnsignedTxs, so only
-        // Refresh/Hint reach here — surface the mapped message before failing.
-        const gasAccountEntry = getGasAccountErrorEntryForError(error);
+        // Refresh/Hint reach here — surface the stage-specific message before
+        // failing.
+        const gasAccountStage = getGasAccountRequestStage(error);
+        const gasAccountEntry = getGasAccountErrorEntryForError(
+          error,
+          gasAccountStage,
+        );
         if (gasAccountEntry) {
           (error as IOneKeyError).autoToast = false;
           if (!gasAccountEntry.suppressToast) {
             Toast.error({
-              title: intl.formatMessage({ id: gasAccountEntry.messageKey }),
+              title: intl.formatMessage({
+                id: getGasAccountErrorMessageKey(
+                  gasAccountEntry,
+                  gasAccountStage,
+                ),
+              }),
             });
           }
         }
