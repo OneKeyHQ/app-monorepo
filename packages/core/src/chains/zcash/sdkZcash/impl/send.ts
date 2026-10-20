@@ -181,8 +181,8 @@ export async function combinePczt(
   return { pcztHex: bytesToHex(combined) };
 }
 
-// Runtime stores the tx before broadcasting; an explicit rejection keeps
-// its notes held until expiry, while unknown outcomes get rebroadcast by the sync loop.
+// Runtime stores the tx before broadcasting; it holds its notes until mined or
+// expired, whether the node rejected it or the outcome is unknown. Never resubmitted.
 export async function submitPczt(
   account: IZcashWalletAccount,
   params: { pcztHex: string },

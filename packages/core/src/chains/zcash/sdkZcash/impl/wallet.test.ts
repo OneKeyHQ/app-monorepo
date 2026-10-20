@@ -11,7 +11,6 @@ import {
   readBalance,
   readHistory,
   readSyncProgress,
-  rebroadcastUnmined,
 } from './wallet';
 
 import type { IZcashWalletAccount } from '../types/sdk';
@@ -286,72 +285,6 @@ describe('readSyncProgress', () => {
     expect(progress.isBackfillComplete).toBe(true);
     expect(progress.backfillProgress).toBe(1);
     expect(progress.isSyncing).toBe(false);
-  });
-});
-
-describe('rebroadcastUnmined', () => {
-  it('uses only runtime-owned candidates across accounts and deduplicates txids', async () => {
-    const broadcastTransaction = jest.fn(async (txid: string) => {
-      if (txid === 'tx-rejected') {
-        throw Object.assign(new Error('BROADCAST_REJECTED'), {
-          code: 'BROADCAST_REJECTED',
-          params: { errorCode: -26 },
-        });
-      }
-    });
-    const rt = {
-      listAccounts: () => JSON.stringify(['account-a', 'account-b']),
-      pendingBroadcastTxids: (accountUuid: string) =>
-        JSON.stringify(
-          accountUuid === 'account-a'
-            ? ['tx-accepted']
-            : ['tx-accepted', 'tx-rejected'],
-        ),
-      broadcastTransaction,
-    } as unknown as Parameters<typeof rebroadcastUnmined>[0];
-
-    await expect(rebroadcastUnmined(rt)).resolves.toEqual({
-      accepted: ['tx-accepted'],
-      rejected: ['tx-rejected'],
-    });
-    expect(broadcastTransaction).toHaveBeenCalledTimes(2);
-  });
-
-  it('keeps unknown network outcomes eligible for a later runtime retry', async () => {
-    const broadcastTransaction = jest.fn(async () => {
-      throw Object.assign(new Error('NETWORK_ERROR'), {
-        code: 'NETWORK_ERROR',
-        params: { operation: 'sendTransaction' },
-      });
-    });
-    const rt = {
-      listAccounts: () => JSON.stringify(['account-a']),
-      pendingBroadcastTxids: () => JSON.stringify(['tx-network-unknown']),
-      broadcastTransaction,
-    } as unknown as Parameters<typeof rebroadcastUnmined>[0];
-
-    await expect(rebroadcastUnmined(rt)).resolves.toEqual({
-      accepted: [],
-      rejected: [],
-    });
-    expect(broadcastTransaction).toHaveBeenCalledWith('tx-network-unknown');
-  });
-
-  it('does not infer candidates from transaction history', async () => {
-    const broadcastTransaction = jest.fn(async () => {});
-    const rt = {
-      listAccounts: () => JSON.stringify(['account-a']),
-      pendingBroadcastTxids: () => JSON.stringify([]),
-      transactionHistory: () =>
-        JSON.stringify([{ txid: 'unowned-intent', minedHeight: null }]),
-      broadcastTransaction,
-    } as unknown as Parameters<typeof rebroadcastUnmined>[0];
-
-    await expect(rebroadcastUnmined(rt)).resolves.toEqual({
-      accepted: [],
-      rejected: [],
-    });
-    expect(broadcastTransaction).not.toHaveBeenCalled();
   });
 });
 

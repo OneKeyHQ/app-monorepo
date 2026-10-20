@@ -94,7 +94,8 @@ describe('Zcash endpoint outcomes through the leased API', () => {
     expect(getEndpointHealth()).toEqual(before);
   });
 
-  it('marks the endpoint unhealthy when a pending rebroadcast cannot reach it', async () => {
+  // A stored send is never resubmitted; it is mined or expires.
+  it('does not resubmit a pending send when a new block arrives', async () => {
     const api = await sdk.getZcashApi();
     let tip = 10;
     const broadcastTransaction = jest.fn().mockRejectedValue(networkError());
@@ -122,8 +123,7 @@ describe('Zcash endpoint outcomes through the leased API', () => {
     await expect(
       api.syncWallet(account, { activeUfvks: [account.ufvk] }),
     ).resolves.toMatchObject({ stateChanged: true });
-    expect(broadcastTransaction).toHaveBeenCalledWith('pending');
-    expect(getEndpointHealth()?.ok).toBe(false);
+    expect(broadcastTransaction).not.toHaveBeenCalled();
   });
 
   it('treats an unknown submit outcome as an endpoint failure, not success', async () => {

@@ -89,10 +89,10 @@ Hardware:  pcztCreate -> redact -> device signs -> pcztCombine -> pcztProve -> p
   finalized transaction before broadcasting, and the stored transaction holds
   its notes until mined or expired. Storing is refused if another live stored
   transaction already spends one of the same notes. Accepted or already-known =
-  pending. Unknown network outcome = pending, rebroadcast with the identical
-  stored bytes on sync. Only an explicit node rejection is recorded
-  (`ext_onekey_tx_state`); its notes stay held until expiry. A mined
-  observation always wins over a rejection marker.
+  pending. Unknown network outcome = pending; it is never resubmitted, and is
+  either mined or expires (notes released after expiry). Only an explicit node
+  rejection is recorded (`ext_onekey_tx_state`); its notes stay held until
+  expiry. A mined observation always wins over a rejection marker.
 - Submission always extracts and stores the current signed transaction. A
   shared nullifier indicates conflicting inputs, not an identical payment;
   it cannot substitute another stored transaction for the current one.

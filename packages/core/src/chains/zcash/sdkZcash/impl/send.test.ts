@@ -186,7 +186,7 @@ describe('Zcash PCZT send policy', () => {
     );
   });
 
-  it('reports an unknown outcome the runtime kept for rebroadcast', async () => {
+  it('reports an unknown outcome the runtime keeps pending until mined or expired', async () => {
     mockPcztSubmit.mockResolvedValue(
       JSON.stringify({
         txid: 'txid',
