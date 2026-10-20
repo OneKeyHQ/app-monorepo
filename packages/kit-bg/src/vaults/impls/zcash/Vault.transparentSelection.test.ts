@@ -46,7 +46,6 @@ it.each([1, 3])(
         simpleDb: {
           zcash: {
             listTransparentPendingTxs: async () => [],
-            pruneExpiredTransparentState: async () => undefined,
           },
         },
       },

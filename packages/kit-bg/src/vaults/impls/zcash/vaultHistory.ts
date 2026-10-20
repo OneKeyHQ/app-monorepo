@@ -800,6 +800,11 @@ export async function zcashFetchTransparentHistory(
     xpub ?? '',
   ].join(':');
   const snapshot = zcashTransparentHistorySnapshots.get(snapshotKey);
+  // Callers may edit returned rows in place; the snapshot keeps its own copies.
+  const copyRows = (txs: IAccountHistoryTx[]) =>
+    txs.map((tx) => ({ ...tx, decodedTx: { ...tx.decodedTx } }));
+  // The newest page, kept so a fallback to a full fetch doesn't request it again.
+  let newestPage: IFetchAccountHistoryResp | undefined;
   if (
     snapshot &&
     !params.isManualRefresh &&
@@ -807,11 +812,16 @@ export async function zcashFetchTransparentHistory(
   ) {
     const firstPage = await fetchCompleteZcashBackendHistory({
       ...backendPages,
+      fetchPage: async (args) => {
+        const page = await backendPages.fetchPage(args);
+        if (args.maxTimestampMs === undefined) newestPage = page;
+        return page;
+      },
       maxItems: ZCASH_BACKEND_HISTORY_PAGE_SIZE,
     });
     if (firstPage.snapshotComplete) {
       zcashTransparentHistorySnapshots.set(snapshotKey, {
-        txs: firstPage.txs,
+        txs: copyRows(firstPage.txs),
         fullAt: Date.now(),
       });
       return { ...firstPage, tipHeight };
@@ -839,16 +849,23 @@ export async function zcashFetchTransparentHistory(
       });
       // Not a full snapshot: callers may add or update rows but must not remove or drop any.
       return {
-        txs: txs.map((tx) => ({ ...tx, decodedTx: { ...tx.decodedTx } })),
+        txs: copyRows(txs),
         snapshotComplete: false,
       };
     }
   }
   tipHeight = undefined;
-  const result = await fetchCompleteZcashBackendHistory(backendPages);
+  const result = await fetchCompleteZcashBackendHistory({
+    ...backendPages,
+    fetchPage: async (args) => {
+      const page = args.maxTimestampMs === undefined ? newestPage : undefined;
+      newestPage = undefined;
+      return page ?? backendPages.fetchPage(args);
+    },
+  });
   if (result.snapshotComplete) {
     zcashTransparentHistorySnapshots.set(snapshotKey, {
-      txs: result.txs,
+      txs: copyRows(result.txs),
       fullAt: Date.now(),
     });
   }

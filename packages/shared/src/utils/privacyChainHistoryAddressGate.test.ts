@@ -251,6 +251,20 @@ describe('gateLocalWalletHistoryDetail', () => {
     expect(gated.receives[1]).toMatchObject({ to: '', isOwn: true });
   });
 
+  it("marks an entry ours only by its own side's address", () => {
+    const detail = {
+      sends: [io({ from: LEGACY_CHANGE, address: LEGACY_CHANGE, isOwn: true })],
+      receives: [io({ from: LEGACY_CHANGE, to: EXTERNAL, address: EXTERNAL })],
+    } as IOnChainHistoryTx;
+    const gated = gateLocalWalletHistoryDetail(zcashGate(UA), detail);
+    expect(gated.receives[0]).toMatchObject({
+      from: '',
+      to: EXTERNAL,
+      address: EXTERNAL,
+    });
+    expect(gated.receives[0].isOwn).toBeFalsy();
+  });
+
   it('returns the same detail when nothing of ours is hidden', () => {
     const detail = {
       sends: [shielded({ isOwn: true })],

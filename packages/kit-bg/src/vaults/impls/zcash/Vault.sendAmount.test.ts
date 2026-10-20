@@ -398,7 +398,6 @@ describe('Zcash transparent send amount intent', () => {
             zcash: {
               getPrivacyModeState: async () => ({ intent: 'off' }),
               listTransparentPendingTxs: async () => [],
-              pruneExpiredTransparentState: jest.fn(),
             },
           },
         },
