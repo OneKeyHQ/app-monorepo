@@ -35,11 +35,12 @@ import {
 import ServiceBase from './ServiceBase';
 
 // Wallet-side Onramper transaction lookup (OK-64602): one POST looks up to
-// LOOKUP_MAX_IDS_PER_REQUEST ids (the backend fans out to Onramper per id),
-// no auth, rate limited per IP at the edge (10 requests/min). Each entry's
-// `source` selects the Onramper key that created the transaction; native buy
-// always uses the headless key. An id the backend could not resolve (unknown
-// id, wrong key, upstream error) comes back with `transaction: null`.
+// LOOKUP_MAX_IDS_PER_REQUEST ids (the backend forwards them to Onramper's
+// list endpoint in one upstream call per `source`), no auth, rate limited per
+// IP at the edge (10 requests/min). Each entry's `source` selects the Onramper
+// key that created the transaction; native buy always uses the headless key.
+// An id the backend could not resolve (unknown id, wrong key, upstream error)
+// comes back with `transaction: null` and `failed: true`.
 const ONRAMPER_TRANSACTIONS_PATH = '/wallet/v1/fiat-pay/onramper-transactions';
 const ONRAMPER_TRANSACTION_SOURCE = 'headless';
 // Backend cap per request; more ids are rejected with code 10422.
