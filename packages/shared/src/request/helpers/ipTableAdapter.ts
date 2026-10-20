@@ -18,6 +18,7 @@ import {
   IP_TABLE_SNI_BYPASS_THRESHOLD,
   IP_TABLE_SNI_BYPASS_TTL_MS,
 } from '../constants/ipTableDefaults';
+import { withCustomUAHeaders } from '../customUA';
 import { getRequestHeaders } from '../Interceptor';
 import requestHelper from '../requestHelper';
 
@@ -1588,12 +1589,22 @@ export function createIpTableAdapter(
       requestHeaders['Content-Type'] = 'application/json';
     }
 
+    // The SNI transports (Electron main-process https, the native iOS and
+    // Android HTTP clients) run outside the browser networking stack, so
+    // nothing adds a User-Agent for them: desktop sent none and native sent
+    // the library default. Inject the OneKey UA the other non-axios call sites
+    // use; a caller-set UA wins.
+    const sniRequestHeaders = await withCustomUAHeaders(
+      `https://${hostname}${fullPath}`,
+      requestHeaders,
+    );
+
     debugLog(
       `[IpTableAdapter] Request details - URL: ${url}, BaseURL: ${
         config.baseURL || 'N/A'
       }, FullPath: ${fullPath}, Method: ${config.method || 'GET'}`,
     );
-    debugLog('[IpTableAdapter] Request headers:', requestHeaders);
+    debugLog('[IpTableAdapter] Request headers:', sniRequestHeaders);
     debugLog(
       '[IpTableAdapter] Request body:',
       requestBody ? requestBody.substring(0, 200) : 'null',
@@ -1632,7 +1643,7 @@ export function createIpTableAdapter(
           ip: selectedIp,
           hostname,
           path: fullPath,
-          headers: requestHeaders,
+          headers: sniRequestHeaders,
           method: (config.method || 'GET').toUpperCase(),
           body: requestBody,
           timeout: config.timeout || 60_000,

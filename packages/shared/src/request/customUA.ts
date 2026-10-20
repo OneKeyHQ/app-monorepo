@@ -48,8 +48,31 @@ async function isDisabledByDevSetting(): Promise<boolean> {
   }
 }
 
+function getDesktopPlatformLabel(): string {
+  if (platformEnv.isDesktopMac) return 'macOS';
+  if (platformEnv.isDesktopWin) return 'Windows';
+  if (platformEnv.isDesktopLinux) return 'Linux';
+  // The Electron main process has no desktopApi bridge, so platformEnv's
+  // desktop OS flags are all false there; Node's process.platform still is set.
+  const nodePlatform =
+    typeof process !== 'undefined' ? process.platform : undefined;
+  if (nodePlatform === 'darwin') return 'macOS';
+  if (nodePlatform === 'win32') return 'Windows';
+  if (nodePlatform === 'linux') return 'Linux';
+  return 'Desktop';
+}
+
+export function getCustomUAPlatformLabel(runtime: ICustomUARuntime): string {
+  if (runtime === 'ios-native') return 'iOS';
+  if (runtime === 'android-native') return 'Android';
+  if (runtime === 'cli-node') return 'CLI';
+  return getDesktopPlatformLabel();
+}
+
 export async function buildCustomUA(): Promise<string | null> {
-  // UA is product-token only; runtime is conveyed via X-Onekey-Request-Platform.
+  // Human-readable `OneKey <platform> <version>` (e.g. `OneKey macOS 6.6.1`),
+  // the same shape on every runtime so a log filter on the `OneKey ` prefix
+  // covers them all. Finer platform detail stays in X-Onekey-Request-Platform.
   const runtime = detectRuntime();
   if (!runtime) return null;
   if (await isDisabledByDevSetting()) return null;
@@ -57,7 +80,7 @@ export async function buildCustomUA(): Promise<string | null> {
   // substitute process.env.VERSION), so it naturally falls through to '1'.
   // App targets get the build-time substituted version.
   const version = platformEnv.version ?? '1';
-  return `OneKeyWallet/${version}`;
+  return `OneKey ${getCustomUAPlatformLabel(runtime)} ${version}`;
 }
 
 export async function shouldInjectUAForUrl(url: string): Promise<boolean> {

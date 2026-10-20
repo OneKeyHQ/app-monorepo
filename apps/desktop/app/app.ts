@@ -2563,8 +2563,9 @@ function startWebviewMemoryMonitoring() {
 // token from app.getName() verbatim, so the actual default UA contains
 // `OneKey Wallet/<electronVer>` (with the space from APP_NAME above) — and
 // some packaging paths can also surface the no-space `OneKeyWallet/` form.
-// Match both, and normalize to the canonical no-space `OneKeyWallet/<APP_VERSION>`
-// that buildCustomUA() emits, so chromium and our X-Onekey-* injection agree.
+// Match both, and normalize to the no-space `OneKeyWallet/<APP_VERSION>` so the
+// chromium UA carries the real app version. The non-browser call sites use
+// buildCustomUA()'s `OneKey <platform> <version>` form instead.
 // Run synchronously at module load (before `ready` fires) so the very first
 // webContents created in the ready handler already sees the patched UA —
 // `app.userAgentFallback` is readable/writable before `ready`.
