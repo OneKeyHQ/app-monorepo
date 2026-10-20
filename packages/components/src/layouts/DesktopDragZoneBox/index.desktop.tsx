@@ -49,6 +49,7 @@ const MARKER_CLASS = 'app-region-drag';
 const SYN_ATTR = 'data-onekey-syn-region';
 const NEUTRALIZE_STYLE_ID = 'onekey-drag-region-neutralize';
 const MODAL_SCREEN_SELECTOR = '.onekey-modal-screen';
+const OVERLAY_LAYER_SELECTOR = '[data-onekey-overlay-layer]';
 const RECOMPUTE_DEBOUNCE = 200;
 // Content can update every frame. The debounce coalesces a burst, while
 // MAX_WAIT still rebuilds periodically if updates never settle.
@@ -180,11 +181,31 @@ function recompute() {
   });
   const drags: HTMLDivElement[] = [];
   const holes: HTMLDivElement[] = [];
+  const overlayLayers = Array.from(
+    document.querySelectorAll(OVERLAY_LAYER_SELECTOR),
+  ).filter(isZoneShown);
+  // Web Animations move controls without DOM mutations or resize events.
+  for (const layer of overlayLayers) {
+    for (const animation of layer.getAnimations?.({ subtree: true }) ?? []) {
+      if (animation.playState === 'running') {
+        animation.addEventListener('finish', scheduleRecompute, { once: true });
+        animation.addEventListener('cancel', scheduleRecompute, { once: true });
+      }
+    }
+  }
   for (const zone of zones) {
     const zoneRect = zone.getBoundingClientRect();
     measured.push([zone, zoneRect]);
     drags.push(makeRegionEl(zoneRect, 'drag'));
-    zone.querySelectorAll(NO_DRAG_SELECTOR).forEach((nd) => {
+  }
+  // Portalled controls can overlap the title bar without belonging to a header.
+  // Append their holes after the synthesized drag regions as well.
+  const controlRoots = [...zones, ...overlayLayers];
+  for (const controlRoot of controlRoots) {
+    controlRoot.querySelectorAll(NO_DRAG_SELECTOR).forEach((nd) => {
+      if (!isZoneShown(nd)) {
+        return;
+      }
       const r = (nd as HTMLElement).getBoundingClientRect();
       measured.push([nd, r]);
       if (r.width > 0 && r.height > 0) {
@@ -195,10 +216,10 @@ function recompute() {
   drags.forEach((d) => document.body.appendChild(d));
   holes.forEach((h) => document.body.appendChild(h));
   observeSizes(measured);
-  observeContent(zones);
+  observeContent(controlRoots);
 }
 
-// Watch only visible drag zones. Child/attribute/text mutations catch controls
+// Watch visible headers and overlay layers. Child/attribute/text mutations catch controls
 // inserted after the last size-observer pass, or controls shifted by a sibling
 // without changing their own size. Rebind after every pass so an inactive tab
 // or removed control stops generating work. The synthesized overlays live under
@@ -300,12 +321,27 @@ function startManager() {
   // react-navigation keeps inactive tabs mounted and flips aria-hidden on an
   // ancestor outside the observed drag zone. Watch only this attribute across
   // the document to switch the active zone without observing unrelated churn.
-  const mo = new MutationObserver(scheduleRecompute);
+  const mo = new MutationObserver((records) => {
+    if (
+      records.some(
+        (record) =>
+          record.type === 'attributes' ||
+          [...record.addedNodes, ...record.removedNodes].some(
+            (node) =>
+              node instanceof Element && node.matches(OVERLAY_LAYER_SELECTOR),
+          ),
+      )
+    ) {
+      scheduleRecompute();
+    }
+  });
   mo.observe(document.documentElement, {
     attributes: true,
     attributeFilter: ['aria-hidden'],
     subtree: true,
   });
+  // Layers mount directly under body; ignore our own synthesized-region churn.
+  mo.observe(document.body, { childList: true });
 
   sizeObserver = new ResizeObserver((entries) => {
     const resized = entries.some(
