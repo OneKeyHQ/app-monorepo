@@ -225,12 +225,7 @@ function TxActionCommonTitle({
         </Badge>
       ) : null}
       {kytRiskLevel === EKytRiskLevel.High ? (
-        <Badge
-          badgeSize="sm"
-          badgeType="warning"
-          ml="$2"
-          bg="$orange3"
-        >
+        <Badge badgeSize="sm" badgeType="warning" ml="$2" bg="$orange3">
           <Badge.Text color="$orange11">
             {intl.formatMessage({ id: ETranslations.kyt_high_risk__title })}
           </Badge.Text>
