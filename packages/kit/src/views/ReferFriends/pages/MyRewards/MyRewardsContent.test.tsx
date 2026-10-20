@@ -235,7 +235,8 @@ describe('MyRewardsContent', () => {
     expect(header.textContent).toContain('No EVM address');
     // No address to count means no total either.
     expect(header.textContent).toContain('--');
-    expect(screen.getByText('This account has no EVM address')).toBeTruthy();
+    // The row note and the empty state's title.
+    expect(screen.getAllByText('No EVM address')).toHaveLength(2);
     expect(screen.queryByTestId('my-rewards-copy-address')).toBeNull();
   });
 

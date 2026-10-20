@@ -65,24 +65,22 @@ import {
 
 type IRewardModule = keyof IInviteeRewardsOverview;
 
-// Hardcoded English until i18n keys are added in Lokalise.
+// Hardcoded English until i18n keys are added in Lokalise. Perks speaks of
+// rewards, like its "My Rewards" entry in the activity hub; the invite tab
+// speaks of commission.
 const MY_REWARDS_COPY = {
-  addressScope: 'Rebates are counted per address',
   payoutTitle: 'Payout',
   paidTo: 'Paid to',
-  addressRule: 'Rebates are counted and paid per address.',
-  payoutSchedule: 'Rebates are paid by the 10th of the next month.',
-  payoutGeneric: 'Rebates are paid to this address',
+  addressRule: 'Counted and paid per address.',
+  payoutSchedule: "Last month's rewards are paid by the 10th.",
+  payoutGeneric: 'Paid to this address',
   payoutIn: (token: string, network?: string) =>
-    network
-      ? `Paid in ${token} on ${network} to this address`
-      : `Paid in ${token} to this address`,
-  rebatesReceived: 'Rebates received',
+    network ? `Paid in ${token} on ${network}` : `Paid in ${token}`,
+  totalRewards: 'Total rewards',
   noEvmAddress: 'No EVM address',
-  noWalletTitle: 'Connect a wallet to view rebates',
-  unsupportedTitle: 'This account has no EVM address',
-  unsupportedDescription: 'Switch to an EVM account to view rebates',
-  rebatesByProduct: 'Rebates by product',
+  noWalletTitle: 'Connect a wallet to view rewards',
+  unsupportedTitle: 'No EVM address',
+  unsupportedDescription: 'To view rewards, switch to an EVM account',
   loadFailed: 'Unable to load',
   moreTokens: (count: number) => `+${count} more`,
 };
@@ -493,7 +491,7 @@ function RewardsAddressCard({
   address?: string;
   unsupported: boolean;
   payout?: IPayoutToken;
-  // Pointer layouts have room to show where rebates land on the row.
+  // Pointer layouts have room to show where rewards land on the row.
   showDestination?: boolean;
 }) {
   const renderTrailing = () => {
@@ -986,7 +984,9 @@ export function MyRewardsContent({
   };
   const titleFor = (module: IRewardModule) =>
     intl.formatMessage({ id: MODULE_TITLE[module] });
-  const sectionTitle = MY_REWARDS_COPY.rebatesByProduct;
+  const sectionTitle = intl.formatMessage({
+    id: ETranslations.referral_earnings_by_product__title,
+  });
   const labels = {
     product: intl.formatMessage({ id: ETranslations.referral_product__title }),
     paid: intl.formatMessage({ id: ETranslations.referral_distributed }),
@@ -1053,7 +1053,6 @@ export function MyRewardsContent({
   const crossLink = onOpenInvite ? (
     <ReferralTabCrossLink
       testID="refer-friends-to-invite-link"
-      prompt={REFERRAL_TAB_COPY.toInvitePrompt}
       action={REFERRAL_TAB_COPY.toInviteAction}
       onPress={onOpenInvite}
     />
@@ -1104,7 +1103,7 @@ export function MyRewardsContent({
             unsupported={isUnsupported}
             payout={payout}
             labels={{
-              total: MY_REWARDS_COPY.rebatesReceived,
+              total: MY_REWARDS_COPY.totalRewards,
               paid: labels.paid,
               unpaid: labels.unpaid,
             }}

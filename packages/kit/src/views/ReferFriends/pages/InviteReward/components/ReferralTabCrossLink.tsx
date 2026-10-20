@@ -11,7 +11,8 @@ export function ReferralTabCrossLink({
   testID,
   pt = '$8',
 }: {
-  prompt: string;
+  // A qualifier before the link; leave it out when the link says it all.
+  prompt?: string;
   action: string;
   onPress: () => void;
   testID: string;
@@ -30,9 +31,11 @@ export function ReferralTabCrossLink({
       gap="$1.5"
       flexWrap="wrap"
     >
-      <SizableText size="$bodyMd" color="$textSubdued">
-        {prompt}
-      </SizableText>
+      {prompt ? (
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {prompt}
+        </SizableText>
+      ) : null}
       <XStack
         testID={testID}
         ai="center"

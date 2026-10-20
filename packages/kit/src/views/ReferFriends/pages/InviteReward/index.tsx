@@ -629,7 +629,7 @@ function InviteRewardPage() {
             >
               {IS_BENEFITS_TAB_ENABLED ? (
                 // One line beside the tabs says whose money each tab is
-                // about: commission you earn, or rebates you get.
+                // about: commission you earn, or rewards you get.
                 <XStack ai="center" gap="$4" flexShrink={1} minWidth={0}>
                   <ReferralJobTabs value={activeTab} onChange={setActiveTab} />
                   <SizableText
