@@ -1,5 +1,12 @@
 import type { ReactNode } from 'react';
-import { createContext, useCallback, useContext, useMemo } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -36,6 +43,7 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteeRewardsOverview } from '@onekeyhq/shared/src/referralCode/type';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -1017,6 +1025,41 @@ function MyRewardsContentBody({ onOpenInvite }: IMyRewardsContentProps) {
   const { items: bannerItems, isLoading: isBannerLoading } =
     usePerksBannerItems();
 
+  const isResolving = isResolvingAccount !== false && earnAccount === undefined;
+  const isUnsupported = !isResolving && !earnAccount;
+  const isLoading = isResolving || Boolean(isLoadingOverview || !overview);
+
+  // Exposure once per visit (the tab remounts on each return), after the
+  // state it reports has settled.
+  const hasLoggedShownRef = useRef(false);
+  useEffect(() => {
+    if (hasLoggedShownRef.current || isBannerLoading) {
+      return;
+    }
+    let state: 'no_wallet' | 'no_evm_address' | 'empty' | 'has_rewards';
+    if (!hasAccount) {
+      state = 'no_wallet';
+    } else if (isUnsupported) {
+      state = 'no_evm_address';
+    } else if (isLoading) {
+      return;
+    } else {
+      state = hasNoRewards(overview) ? 'empty' : 'has_rewards';
+    }
+    hasLoggedShownRef.current = true;
+    defaultLogger.referral.page.perksShown({
+      state,
+      bannerCount: bannerItems.length,
+    });
+  }, [
+    bannerItems.length,
+    hasAccount,
+    isBannerLoading,
+    isLoading,
+    isUnsupported,
+    overview,
+  ]);
+
   if (!hasAccount) {
     return (
       <InviteeRewardNoWallet
@@ -1027,19 +1070,24 @@ function MyRewardsContentBody({ onOpenInvite }: IMyRewardsContentProps) {
     );
   }
 
-  const isResolving = isResolvingAccount !== false && earnAccount === undefined;
-  const isUnsupported = !isResolving && !earnAccount;
-  const isLoading = isResolving || Boolean(isLoadingOverview || !overview);
   const payout = isLoading ? undefined : getPayoutToken(overview);
   const rows = MODULES.map((module) =>
     getModuleRow(module, isLoading, overview),
   );
   const handleRowPress = (row: IModuleRow) => {
     if (row.status === 'error') {
+      defaultLogger.referral.page.perksModuleClick({
+        module: row.module,
+        action: 'retry',
+      });
       void reloadOverview();
       return;
     }
     if (row.status === 'ready') {
+      defaultLogger.referral.page.perksModuleClick({
+        module: row.module,
+        action: 'detail',
+      });
       showModuleDetail(row.module);
     }
   };

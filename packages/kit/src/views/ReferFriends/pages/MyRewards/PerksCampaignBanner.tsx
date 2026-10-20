@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -16,6 +16,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { parseNotificationPayload } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import {
   type ILinkConfigItem,
@@ -105,9 +106,11 @@ function PerksBannerSkeleton({ compact }: { compact: boolean }) {
 
 function PerksBannerSlide({
   item,
+  index,
   compact,
 }: {
   item: ILinkConfigItem;
+  index: number;
   compact: boolean;
 }) {
   const intl = useIntl();
@@ -117,8 +120,12 @@ function PerksBannerSlide({
     if (shouldSuppressPress()) {
       return;
     }
+    defaultLogger.referral.page.perksBannerClick({
+      linkId: item.linkId,
+      position: index,
+    });
     parseNotificationPayload(item.mode, item.payload, () => {});
-  }, [item.mode, item.payload, shouldSuppressPress]);
+  }, [index, item.linkId, item.mode, item.payload, shouldSuppressPress]);
   const imageSize = compact ? 96 : 88;
 
   // Borderless: the frame around the pager draws the card, so a neighbor
@@ -198,11 +205,31 @@ export const PerksCampaignBanner = memo(function PerksCampaignBanner({
     setPointerHeight(Math.round(event.nativeEvent.layout.height));
   }, []);
   const renderItem = useCallback(
-    ({ item }: { item: ILinkConfigItem }) => (
-      <PerksBannerSlide item={item} compact={compact} />
+    ({ item, index }: { item: ILinkConfigItem; index: number }) => (
+      <PerksBannerSlide item={item} index={index} compact={compact} />
     ),
     [compact],
   );
+  // Each slide logs once per visit, when it becomes the current one; the
+  // first slide counts as soon as the slides render.
+  const shownLinkIdsRef = useRef(new Set<string>());
+  const logSlideShown = useCallback(
+    (index: number) => {
+      const item = items[index];
+      if (!item || shownLinkIdsRef.current.has(item.linkId)) {
+        return;
+      }
+      shownLinkIdsRef.current.add(item.linkId);
+      defaultLogger.referral.page.perksBannerShown({
+        linkId: item.linkId,
+        position: index,
+      });
+    },
+    [items],
+  );
+  useEffect(() => {
+    logSlideShown(0);
+  }, [logSlideShown]);
   if (!items.length) {
     return loading ? <PerksBannerSkeleton compact={compact} /> : null;
   }
@@ -214,6 +241,7 @@ export const PerksCampaignBanner = memo(function PerksCampaignBanner({
       loop={isMulti}
       infinite
       showPagination={isMulti}
+      onPageChanged={logSlideShown}
       containerStyle={{ height }}
       // Dots sit inside the card, bottom right, across from Learn more.
       paginationContainerStyle={{

@@ -31,7 +31,8 @@ export type IReferralBindSource =
   | 'onboarding_dialog'
   | 'home_block'
   | 'settings'
-  | 'invite_home';
+  | 'invite_home'
+  | 'perks';
 
 export type IReferralBindErrorType =
   | 'invalid_format'
@@ -184,6 +185,39 @@ export class PageScene extends BaseScene {
   @LogToServer()
   @LogToLocal({ level: 'info' })
   public inviteHomeShown(params: { hasEarnings: boolean }) {
+    return params;
+  }
+
+  // Once per visit to the Perks tab, after its data settles.
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public perksShown(params: {
+    state: 'no_wallet' | 'no_evm_address' | 'empty' | 'has_rewards';
+    bannerCount: number;
+  }) {
+    return params;
+  }
+
+  // A product row on the Perks tab: opens its detail, or retries a failed
+  // load.
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public perksModuleClick(params: {
+    module: string;
+    action: 'detail' | 'retry';
+  }) {
+    return params;
+  }
+
+  // Each campaign slide once per visit, when it becomes the current slide.
+  @LogToServer()
+  public perksBannerShown(params: { linkId: string; position: number }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public perksBannerClick(params: { linkId: string; position: number }) {
     return params;
   }
 

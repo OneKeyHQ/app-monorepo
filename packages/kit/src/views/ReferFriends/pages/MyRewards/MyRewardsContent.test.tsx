@@ -8,6 +8,8 @@ import { fireEvent, render, screen } from '@testing-library/react';
 const mockReloadOverview = jest.fn();
 const mockShowDialog = jest.fn();
 const mockCopyText = jest.fn();
+const mockPerksShown = jest.fn();
+const mockPerksModuleClick = jest.fn();
 let mockIsCompact = false;
 let mockActiveAccount: {
   account?: { id: string };
@@ -118,6 +120,17 @@ jest.mock('@onekeyhq/kit/src/components/Currency', () => {
   };
 });
 
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    referral: {
+      page: {
+        perksShown: (params: unknown) => mockPerksShown(params),
+        perksModuleClick: (params: unknown) => mockPerksModuleClick(params),
+      },
+    },
+  },
+}));
+
 jest.mock('@onekeyhq/kit/src/components/Token', () => ({
   Token: () => null,
 }));
@@ -197,6 +210,8 @@ describe('MyRewardsContent', () => {
     mockReloadOverview.mockReset();
     mockShowDialog.mockReset();
     mockCopyText.mockReset();
+    mockPerksShown.mockReset();
+    mockPerksModuleClick.mockReset();
     mockIsCompact = false;
     mockActiveAccount = {
       account: { id: 'hd-1--account' },
@@ -342,6 +357,25 @@ describe('MyRewardsContent', () => {
 
     fireEvent.click(screen.getByTestId('my-rewards-module-earn'));
     expect(mockReloadOverview).toHaveBeenCalledTimes(1);
+
+    expect(mockPerksModuleClick.mock.calls).toEqual([
+      [{ module: 'swap', action: 'detail' }],
+      [{ module: 'earn', action: 'retry' }],
+    ]);
+    expect(mockPerksShown).toHaveBeenCalledTimes(1);
+    expect(mockPerksShown).toHaveBeenCalledWith({
+      state: 'has_rewards',
+      bannerCount: 0,
+    });
+  });
+
+  it('reports the no-wallet state once', () => {
+    mockActiveAccount = {};
+    render(<MyRewardsContent />);
+    expect(mockPerksShown).toHaveBeenCalledWith({
+      state: 'no_wallet',
+      bannerCount: 0,
+    });
   });
 
   it('shows DeFi token amounts as wallet currency', () => {
