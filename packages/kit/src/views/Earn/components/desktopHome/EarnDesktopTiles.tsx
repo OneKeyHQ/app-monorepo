@@ -17,18 +17,23 @@ import {
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSettingsPersistAtom,
+  useSettingsValuePersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import type {
   IEarnPortfolioInvestment,
+  IEarnText,
   IRecommendAsset,
 } from '@onekeyhq/shared/types/staking';
 import { EManagePositionType } from '@onekeyhq/shared/types/staking';
 
 import { getBorrowMarketLabel } from '../../../Borrow/borrowMarketDisplayName';
+import { buildBorrowMarketKey } from '../../../Borrow/borrowMarketKey';
 import { BorrowNavigation } from '../../../Borrow/borrowUtils';
 import { hasPositiveBorrowBalance } from '../../../Borrow/components/borrowRepayPosition.utils';
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
@@ -45,6 +50,12 @@ import {
   sumBorrowedFiat,
 } from './earnDesktopHome.utils';
 import { EARN_DESKTOP_DEMO_COPY } from './earnDesktopHomeCopy';
+import {
+  EarnDesktopSurfaceProvider,
+  SurfaceToken,
+  buildKeyboardPressProps,
+  usePressableSurface,
+} from './earnDesktopPressable';
 import { extractAvailableAmount } from './useEarnDesktopHomeData';
 import { useEarnDesktopSurfaces } from './useEarnDesktopSurfaces';
 
@@ -101,6 +112,12 @@ function getAssetRateColor(asset: {
 const formatPercent = (value: number | string) =>
   `${new BigNumber(value).toFixed(2)}%`;
 
+// A second line that repeats the first ("sUSD3" under "sUSD3") says nothing
+const distinctName = (name: string | undefined, symbol: string) =>
+  name && name.trim().toLowerCase() !== symbol.trim().toLowerCase()
+    ? name
+    : undefined;
+
 // ---------- Tile parts ----------
 
 // One column of the tile row; the frame inside grows to the row's height
@@ -115,6 +132,8 @@ function TileSlot({ children }: { children: ReactNode }) {
 function TileFrame({ children }: { children: ReactNode }) {
   const surfaces = useEarnDesktopSurfaces();
   return (
+    // The last row's text sits as far from the bottom edge as the title does
+    // from the top
     <YStack
       flexGrow={1}
       bg={surfaces.rest}
@@ -122,7 +141,7 @@ function TileFrame({ children }: { children: ReactNode }) {
       borderCurve="continuous"
       px="$4"
       pt="$4"
-      pb="$3"
+      pb="$4"
     >
       {children}
     </YStack>
@@ -142,12 +161,14 @@ function TileHead({ title, onPress }: { title: string; onPress?: () => void }) {
             role: 'button' as const,
             cursor: 'pointer' as const,
             userSelect: 'none' as const,
+            borderRadius: '$1' as const,
             pressStyle: { opacity: 0.6 },
             onHoverIn: () => setIsHovered(true),
             onHoverOut: () => setIsHovered(false),
             onPress,
           }
         : undefined)}
+      {...buildKeyboardPressProps(onPress, 2)}
     >
       <SizableText
         size="$bodyMdMedium"
@@ -210,41 +231,47 @@ function TileRow({
   testID?: string;
   onPress?: () => void;
 }) {
+  // Opaque card steps rather than a translucent wash, so the network badges'
+  // rings take the row's color as it changes
+  const { surface, isActive, handlers } = usePressableSurface(!!onPress);
   return (
-    <XStack
-      testID={testID}
-      ai="center"
-      gap="$2.5"
-      minHeight={ROW_HEIGHT}
-      {...(onPress
-        ? {
-            // Highlights like the table rows. The negative margin lets the
-            // highlight reach into the tile's padding while the content stays
-            // in line with the tile's title
-            role: 'button' as const,
-            px: '$2',
-            mx: '$-2',
-            borderRadius: '$3',
-            borderCurve: 'continuous' as const,
-            cursor: 'pointer' as const,
-            userSelect: 'none' as const,
-            hoverStyle: { bg: '$bgHover' },
-            pressStyle: { bg: '$bgActive' },
-            onPress,
-          }
-        : undefined)}
-    >
-      {icon}
-      <YStack flex={1} minWidth={0}>
-        {primary}
-        {secondary}
-      </YStack>
-      {right ? (
-        <XStack flexShrink={0} ai="center">
-          {right}
-        </XStack>
-      ) : null}
-    </XStack>
+    <EarnDesktopSurfaceProvider value={surface}>
+      <XStack
+        testID={testID}
+        ai="center"
+        gap="$2.5"
+        minHeight={ROW_HEIGHT}
+        {...(onPress
+          ? {
+              // Highlights like the table rows. The negative margin lets the
+              // highlight reach into the tile's padding while the content
+              // stays in line with the tile's title
+              role: 'button' as const,
+              px: '$2',
+              mx: '$-2',
+              borderRadius: '$3',
+              borderCurve: 'continuous' as const,
+              bg: isActive ? surface : undefined,
+              cursor: 'pointer' as const,
+              userSelect: 'none' as const,
+              onPress,
+              ...handlers,
+            }
+          : undefined)}
+        {...buildKeyboardPressProps(onPress)}
+      >
+        {icon}
+        <YStack flex={1} minWidth={0}>
+          {primary}
+          {secondary}
+        </YStack>
+        {right ? (
+          <XStack flexShrink={0} ai="center">
+            {right}
+          </XStack>
+        ) : null}
+      </XStack>
+    </EarnDesktopSurfaceProvider>
   );
 }
 
@@ -315,15 +342,36 @@ function RowUpTo({
   );
 }
 
-function PendingBadge() {
+// Plain status text, like "3 days left": a badge read as a second kind of
+// button beside the Claim buttons
+function PendingText() {
   const intl = useIntl();
   return (
-    <Badge badgeType="info" badgeSize="lg">
-      <Badge.Text>
-        {intl.formatMessage({ id: ETranslations.global_pending })}
-      </Badge.Text>
-    </Badge>
+    <SizableText size="$bodyMd" color="$textSubdued">
+      {intl.formatMessage({ id: ETranslations.global_pending })}
+    </SizableText>
   );
+}
+
+// Server text that may carry an amount ("12.5 LISTA", "$3.21") hides with
+// the other values; labels without digits stay readable
+function RowEarnText({
+  text,
+  subdued,
+}: {
+  text?: IEarnText;
+  subdued?: boolean;
+}) {
+  const [{ hideValue }] = useSettingsValuePersistAtom();
+  const textProps = {
+    size: subdued ? ('$bodySm' as const) : ('$bodyMdMedium' as const),
+    color: subdued ? ('$textSubdued' as const) : undefined,
+    numberOfLines: 1,
+  };
+  if (hideValue && /\d/.test(text?.text ?? '')) {
+    return <SizableText {...textProps}>****</SizableText>;
+  }
+  return <EarnText {...textProps} text={text} />;
 }
 
 function MoreLink({ count, onPress }: { count: number; onPress: () => void }) {
@@ -337,6 +385,8 @@ function MoreLink({ count, onPress }: { count: number; onPress: () => void }) {
   );
 }
 
+// A loaded tile's boxes, its "N more" line included, so the row keeps its
+// height when the data lands
 function TileSkeleton() {
   return (
     <TileFrame>
@@ -353,6 +403,9 @@ function TileSkeleton() {
           </XStack>
         ))}
       </YStack>
+      <XStack mt="auto" pt="$2">
+        <Skeleton w={56} h={14} my={3} borderRadius="$2" />
+      </XStack>
     </TileFrame>
   );
 }
@@ -370,6 +423,7 @@ function RowActionButton({ action }: { action: IEarnDesktopRowAction }) {
         claimSourceIdentity={action.claimSourceIdentity}
         rewardSymbol={action.rewardSymbol}
         buttonProps={TILE_BUTTON_PROPS}
+        isAlwaysButton
       />
     );
   }
@@ -379,6 +433,7 @@ function RowActionButton({ action }: { action: IEarnDesktopRowAction }) {
       reward={action.reward}
       rewardSymbol={action.rewardSymbol}
       buttonProps={TILE_BUTTON_PROPS}
+      isAlwaysButton
     />
   );
 }
@@ -387,7 +442,7 @@ function PortfolioRow({ item }: { item: IEarnDesktopTileRow }) {
   const intl = useIntl();
   let right: ReactNode = null;
   if (item.isPending) {
-    right = <PendingBadge />;
+    right = <PendingText />;
   } else if (item.action) {
     right = <RowActionButton action={item.action} />;
   } else if (item.kind === 'unstaking') {
@@ -410,30 +465,24 @@ function PortfolioRow({ item }: { item: IEarnDesktopTileRow }) {
   return (
     <TileRow
       icon={
-        <Token
+        <SurfaceToken
           size="md"
           tokenImageUri={item.logoURI}
           networkId={item.networkId}
-          showNetworkIcon
         />
       }
       primary={
         item.amount ? (
           <RowAmount amount={item.amount} symbol={item.symbol} />
         ) : (
-          <EarnText size="$bodyMdMedium" numberOfLines={1} text={item.title} />
+          <RowEarnText text={item.title} />
         )
       }
       secondary={
         item.fiatValue > 0 || item.amount ? (
           <RowFiat value={String(item.fiatValue)} />
         ) : (
-          <EarnText
-            size="$bodySm"
-            color="$textSubdued"
-            numberOfLines={1}
-            text={item.description}
-          />
+          <RowEarnText subdued text={item.description} />
         )
       }
       right={right}
@@ -481,11 +530,10 @@ function HealthFactorRow({
     <TileRow
       onPress={onPress}
       icon={
-        <Token
+        <SurfaceToken
           size="md"
           tokenImageUri={entry.market.logoURI}
           networkId={entry.market.networkId}
-          showNetworkIcon
         />
       }
       primary={<RowText>{getBorrowMarketLabel(entry.market)}</RowText>}
@@ -526,7 +574,7 @@ function LoansTile({
       .slice(0, ROW_LIMIT)
       .map((entry) => (
         <HealthFactorRow
-          key={entry.market.marketAddress}
+          key={buildBorrowMarketKey(entry.market)}
           entry={entry}
           onPress={() => onOpenMarket(entry)}
         />
@@ -538,17 +586,24 @@ function LoansTile({
       hasPositiveBorrowBalance(asset.borrowedAmount),
     );
     const supplied = reserves?.supplied?.assets ?? [];
+    // Summed from the assets: the reserves' balance title is display text
+    // that would show through hidden values
+    const suppliedFiatValue = supplied
+      .reduce((sum, asset) => {
+        const value = new BigNumber(asset.suppliedAmount.fiatValue ?? 0);
+        return value.isFinite() ? sum.plus(value) : sum;
+      }, new BigNumber(0))
+      .toFixed();
     const all: ReactNode[] = [
       <HealthFactorRow key="health-factor" entry={firstLoan} />,
       ...borrowed.map((asset) => (
         <TileRow
           key={asset.reserveAddress}
           icon={
-            <Token
+            <SurfaceToken
               size="md"
               tokenImageUri={asset.token.logoURI}
               networkId={market.networkId}
-              showNetworkIcon
             />
           }
           primary={
@@ -608,13 +663,7 @@ function LoansTile({
               })}
             </RowText>
           }
-          secondary={
-            <EarnText
-              size="$bodySm"
-              color="$textSubdued"
-              text={reserves?.supplied?.suppliedBalance?.title}
-            />
-          }
+          secondary={<RowFiat value={suppliedFiatValue} />}
         />,
       );
     }
@@ -674,7 +723,11 @@ function WalletTile({
                   symbol={earnUtils.getDisplaySymbol(token)}
                 />
               }
-              secondary={<RowText subdued>{token.name}</RowText>}
+              secondary={
+                distinctName(token.name, earnUtils.getDisplaySymbol(token)) ? (
+                  <RowText subdued>{token.name}</RowText>
+                ) : undefined
+              }
               right={<RowUpTo value={maxApr} color={rateColor} />}
             />
           ))}
@@ -711,7 +764,11 @@ function AssetOfferRow({
           ))}
         </XStack>
       }
-      secondary={<RowText subdued>{asset.name}</RowText>}
+      secondary={
+        distinctName(asset.name, earnUtils.getDisplaySymbol(asset)) ? (
+          <RowText subdued>{asset.name}</RowText>
+        ) : undefined
+      }
       right={
         // A row has room for one number, so a range shows its top
         asset.minAprInfo?.normal?.text && asset.maxAprInfo?.normal?.text ? (
@@ -727,40 +784,27 @@ function AssetOfferRow({
   );
 }
 
+type IOfferLists = {
+  trending: IEarnAvailableAsset[];
+  fixed: IEarnAvailableAsset[];
+  borrowOffers: ReturnType<typeof buildBorrowOffers>;
+};
+
 function OfferTile({
   kind,
-  trendingAssets,
-  fixedRateAssets,
-  markets,
+  lists,
   onOpenTokens,
   onOpenBorrow,
 }: {
   kind: IEarnDesktopOfferKind;
-  trendingAssets: IEarnAvailableAsset[];
-  fixedRateAssets: IEarnAvailableAsset[];
-  markets: IEarnDesktopMarketReserves[];
+  lists: IOfferLists;
   onOpenTokens: () => void;
   onOpenBorrow: (market?: IEarnDesktopMarketReserves['market']) => void;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const navigateToAsset = useNavigateToEarnAsset();
-
-  const trending = useMemo(
-    () => trendingAssets.slice(0, ROW_LIMIT),
-    [trendingAssets],
-  );
-  const fixed = useMemo(
-    () =>
-      fixedRateAssets
-        .toSorted((a, b) => getAssetMaxApr(b) - getAssetMaxApr(a))
-        .slice(0, ROW_LIMIT),
-    [fixedRateAssets],
-  );
-  const borrowOffers = useMemo(
-    () => buildBorrowOffers(markets, ROW_LIMIT),
-    [markets],
-  );
+  const { trending, fixed, borrowOffers } = lists;
 
   if (kind === 'trending') {
     if (!trending.length) {
@@ -841,14 +885,13 @@ function OfferTile({
         <YStack mt="$3">
           {borrowOffers.map((offer) => (
             <TileRow
-              key={`${offer.market.marketAddress}-${offer.reserveAddress}`}
+              key={`${buildBorrowMarketKey(offer.market)}-${offer.reserveAddress}`}
               onPress={() => onOpenBorrow(offer.market)}
               icon={
-                <Token
+                <SurfaceToken
                   size="md"
                   tokenImageUri={offer.logoURI}
                   networkId={offer.market.networkId}
-                  showNetworkIcon
                 />
               }
               primary={<RowText>{offer.symbol}</RowText>}
@@ -872,28 +915,31 @@ function OfferTile({
 
 export function EarnDesktopTiles({
   investments,
-  isPortfolioLoading,
   loans,
-  isLoansLoading,
   walletTokens,
-  isWalletLoading,
+  isLoading,
   markets,
+  isMarketsLoaded,
   trendingAssets,
   fixedRateAssets,
+  isTrendingLoading,
+  isFixedRateLoading,
   onOpenPortfolio,
   onOpenBorrow,
   onOpenTokens,
   onOpenToken,
 }: {
   investments: IEarnPortfolioInvestment[];
-  isPortfolioLoading: boolean;
   loans: IEarnDesktopAccountMarket[];
-  isLoansLoading: boolean;
   walletTokens: IRecommendAsset[];
-  isWalletLoading: boolean;
+  /** Until the portfolio, the markets and the wallet have each answered */
+  isLoading: boolean;
   markets: IEarnDesktopMarketReserves[];
+  isMarketsLoaded: boolean;
   trendingAssets: IEarnAvailableAsset[];
   fixedRateAssets: IEarnAvailableAsset[];
+  isTrendingLoading: boolean;
+  isFixedRateLoading: boolean;
   onOpenPortfolio: () => void;
   onOpenBorrow: (market?: IEarnDesktopMarketReserves['market']) => void;
   onOpenTokens: () => void;
@@ -931,20 +977,41 @@ export function EarnDesktopTiles({
     poolsAvailable: false,
   });
 
+  const offerLists = useMemo<IOfferLists>(
+    () => ({
+      trending: trendingAssets.slice(0, ROW_LIMIT),
+      fixed: fixedRateAssets
+        .toSorted((a, b) => getAssetMaxApr(b) - getAssetMaxApr(a))
+        .slice(0, ROW_LIMIT),
+      borrowOffers: buildBorrowOffers(markets, ROW_LIMIT),
+    }),
+    [fixedRateAssets, markets, trendingAssets],
+  );
+  // An offer whose list loaded empty, or failed, drops its tile rather than
+  // shimmering forever
+  const isOfferUnavailable = (kind: IEarnDesktopOfferKind | undefined) => {
+    if (kind === 'trending') {
+      return !offerLists.trending.length && !isTrendingLoading;
+    }
+    if (kind === 'fixedIncome') {
+      return !offerLists.fixed.length && !isFixedRateLoading;
+    }
+    if (kind === 'borrow') {
+      return !offerLists.borrowOffers.length && isMarketsLoaded;
+    }
+    return false;
+  };
+
   const renderOffer = (kind: IEarnDesktopOfferKind | undefined) =>
     kind ? (
       <OfferTile
         kind={kind}
-        trendingAssets={trendingAssets}
-        fixedRateAssets={fixedRateAssets}
-        markets={markets}
+        lists={offerLists}
         onOpenTokens={onOpenTokens}
         onOpenBorrow={onOpenBorrow}
       />
     ) : null;
 
-  // Offers wait until the data says the tile is empty
-  const portfolioPending = isPortfolioLoading && !investments.length;
   const renderRewards = () =>
     offers.rewards ? (
       renderOffer(offers.rewards)
@@ -985,25 +1052,45 @@ export function EarnDesktopTiles({
       />
     );
   // An empty wallet has no offer of its own until Pools ships, so the tile
-  // drops out and the others share the row
-  const walletPending = isWalletLoading && !walletTokens.length;
-  const showWallet = walletPending || heldTokens.length > 0 || !!offers.wallet;
-  const tiles = [
-    <TileSlot key="rewards">
-      {portfolioPending ? <TileSkeleton /> : renderRewards()}
-    </TileSlot>,
-    <TileSlot key="withdrawals">
-      {portfolioPending ? <TileSkeleton /> : renderWithdrawals()}
-    </TileSlot>,
-    <TileSlot key="loans">
-      {isLoansLoading && !loans.length ? <TileSkeleton /> : renderLoans()}
-    </TileSlot>,
-    showWallet ? (
-      <TileSlot key="wallet">
-        {walletPending ? <TileSkeleton /> : renderWallet()}
+  // drops out and the others share the row. Until everything has answered
+  // every slot shimmers, so the tiles appear together
+  const slots: {
+    key: string;
+    offer?: IEarnDesktopOfferKind;
+    render: () => ReactNode;
+    isShown: boolean;
+  }[] = [
+    {
+      key: 'rewards',
+      offer: offers.rewards,
+      render: renderRewards,
+      isShown: true,
+    },
+    {
+      key: 'withdrawals',
+      offer: offers.withdrawals,
+      render: renderWithdrawals,
+      isShown: true,
+    },
+    { key: 'loans', offer: offers.loans, render: renderLoans, isShown: true },
+    {
+      key: 'wallet',
+      offer: offers.wallet,
+      render: renderWallet,
+      isShown: heldTokens.length > 0 || !!offers.wallet,
+    },
+  ];
+  const tiles = slots
+    .filter(
+      (slot) =>
+        isLoading ||
+        (slot.isShown && !(slot.offer && isOfferUnavailable(slot.offer))),
+    )
+    .map((slot) => (
+      <TileSlot key={slot.key}>
+        {isLoading ? <TileSkeleton /> : slot.render()}
       </TileSlot>
-    ) : null,
-  ].filter(Boolean);
+    ));
 
   // Four across needs about 260px a tile for "0.09557 USDT" next to its
   // button; three fit from 1024

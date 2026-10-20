@@ -30,7 +30,6 @@ import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import { normalizeToEarnProvider } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type {
-  IEarnPortfolioInvestment,
   IRecommendAsset,
   IStakeProtocolListItem,
 } from '@onekeyhq/shared/types/staking';
@@ -42,12 +41,23 @@ import { useEarnAllProtocols } from '../../hooks/useEarnAllProtocols';
 import { EarnTestIDs } from '../../testIDs';
 import { parseAprPercentValue } from '../../utils/availableAssetsUtils';
 import { AprText } from '../AprText';
+import { EarnListEmptyState } from '../EarnListEmptyState';
 import { NetworkFilterControl } from '../NetworkFilterControl';
 
+import { findPositionDeposit } from './earnDesktopHome.utils';
+import {
+  EarnDesktopSurfaceProvider,
+  SurfaceToken,
+  buildKeyboardPressProps,
+  usePressableSurface,
+} from './earnDesktopPressable';
 import { extractAvailableAmount } from './useEarnDesktopHomeData';
 import { useEarnDesktopSurfaces } from './useEarnDesktopSurfaces';
 
-import type { IEarnDesktopLendingOffer } from './earnDesktopHome.utils';
+import type {
+  IEarnDesktopLendingOffer,
+  IEarnDesktopPortfolioDeposits,
+} from './earnDesktopHome.utils';
 
 type ITokenCategory = 'all' | 'stable' | 'nonStable';
 
@@ -130,6 +140,7 @@ function CategoryPills({
           <XStack
             key={category.value}
             role="button"
+            aria-pressed={isFocused}
             px="$3"
             py="$1.5"
             bg={isFocused ? '$bgActive' : '$bgSubdued'}
@@ -139,6 +150,7 @@ function CategoryPills({
             hoverStyle={isFocused ? undefined : { bg: '$bgHover' }}
             pressStyle={{ bg: '$bgActive' }}
             onPress={() => onChange(category.value)}
+            {...buildKeyboardPressProps(() => onChange(category.value), 2)}
           >
             <SizableText
               size="$bodyMdMedium"
@@ -190,24 +202,51 @@ function OfferRowFrame({
   onPress: () => void;
   testID?: string;
 }) {
+  // Opaque card steps rather than a translucent wash, so the network badges'
+  // rings take the row's color as it changes
+  const { surface, isActive, handlers } = usePressableSurface(true);
   return (
-    <XStack
-      testID={testID}
-      role="button"
-      ai="center"
-      gap={ROW_GAP}
-      minHeight={ROW_HEIGHT}
-      px="$3"
-      mx="$-3"
-      borderRadius="$3"
-      borderCurve="continuous"
-      cursor="pointer"
-      userSelect="none"
-      hoverStyle={{ bg: '$bgHover' }}
-      pressStyle={{ bg: '$bgActive' }}
-      onPress={onPress}
-    >
-      {children}
+    <EarnDesktopSurfaceProvider value={surface}>
+      <XStack
+        testID={testID}
+        role="button"
+        ai="center"
+        gap={ROW_GAP}
+        minHeight={ROW_HEIGHT}
+        px="$3"
+        mx="$-3"
+        borderRadius="$3"
+        borderCurve="continuous"
+        bg={isActive ? surface : undefined}
+        cursor="pointer"
+        userSelect="none"
+        onPress={onPress}
+        {...handlers}
+        {...buildKeyboardPressProps(onPress)}
+      >
+        {children}
+      </XStack>
+    </EarnDesktopSurfaceProvider>
+  );
+}
+
+// The token row's deposit line, for an offer holding part of it
+function DepositedLine({ value }: { value: number }) {
+  const intl = useIntl();
+  const [settings] = useSettingsPersistAtom();
+  return (
+    <XStack ai="center" gap="$1">
+      <SizableText size="$bodySm" color="$textSubdued">
+        {intl.formatMessage({ id: ETranslations.earn_deposited })}
+      </SizableText>
+      <NumberSizeableTextWrapper
+        hideValue
+        size="$bodySmMedium"
+        formatter="value"
+        formatterOptions={{ currency: settings.currencyInfo.symbol }}
+      >
+        {value}
+      </NumberSizeableTextWrapper>
     </XStack>
   );
 }
@@ -215,9 +254,11 @@ function OfferRowFrame({
 function TokenOffers({
   row,
   lendingOffers,
+  deposits,
 }: {
   row: IEarnTableRow;
   lendingOffers?: IEarnDesktopLendingOffer[];
+  deposits: IEarnDesktopPortfolioDeposits;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -335,6 +376,17 @@ function TokenOffers({
     );
   }
 
+  // A list that failed or came back empty says so instead of a bare header
+  if (!offers.length) {
+    return (
+      <XStack h={ROW_HEIGHT} ai="center">
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.global_no_data })}
+        </SizableText>
+      </XStack>
+    );
+  }
+
   return (
     <YStack>
       <XStack h="$8" ai="center" gap={ROW_GAP}>
@@ -366,16 +418,20 @@ function TokenOffers({
               onPress={() => handleLendingPress(lending)}
             >
               <XStack {...COLUMNS.asset} ai="center" gap="$3">
-                <Token
+                <SurfaceToken
                   size="md"
                   borderRadius="$2"
                   tokenImageUri={lending.market.logoURI}
                   networkId={lending.market.networkId}
-                  showNetworkIcon
                 />
-                <SizableText size="$bodyLgMedium" numberOfLines={1}>
-                  {lending.marketLabel}
-                </SizableText>
+                <YStack flex={1} minWidth={0}>
+                  <SizableText size="$bodyLgMedium" numberOfLines={1}>
+                    {lending.marketLabel}
+                  </SizableText>
+                  {lending.depositedFiatValue ? (
+                    <DepositedLine value={lending.depositedFiatValue} />
+                  ) : null}
+                </YStack>
               </XStack>
               <Stack {...COLUMNS.network} />
               <Stack {...COLUMNS.balance}>
@@ -396,6 +452,13 @@ function TokenOffers({
         const providerName =
           normalizeToEarnProvider(item.provider.name) ?? item.provider.name;
         const isRedeem = item.aprInfo?.button?.type === 'redeem';
+        // Which offer holds the token's deposit
+        const deposited = findPositionDeposit(deposits, {
+          provider: item.provider.name,
+          networkId: item.network.networkId,
+          symbol: asset.symbol,
+          vault: item.provider.vault,
+        });
         return (
           <OfferRowFrame
             key={offer.key}
@@ -403,12 +466,11 @@ function TokenOffers({
             onPress={() => handleProtocolPress(item)}
           >
             <XStack {...COLUMNS.asset} ai="center" gap="$3">
-              <Token
+              <SurfaceToken
                 size="md"
                 borderRadius="$2"
                 tokenImageUri={item.provider.logoURI}
                 networkId={item.network.networkId}
-                showNetworkIcon
               />
               <YStack flex={1} minWidth={0}>
                 <XStack ai="center" gap="$2" minWidth={0}>
@@ -433,7 +495,8 @@ function TokenOffers({
                     </Badge>
                   ))}
                 </XStack>
-                {item.provider.vaultName && !isFixedRate ? (
+                {deposited ? <DepositedLine value={deposited} /> : null}
+                {!deposited && item.provider.vaultName && !isFixedRate ? (
                   <SizableText
                     size="$bodySm"
                     color="$textSubdued"
@@ -478,16 +541,18 @@ function TokenRow({
   isOpen,
   onToggle,
   lendingOffers,
+  deposits,
 }: {
   row: IEarnTableRow;
   isOpen: boolean;
   onToggle: (key: string) => void;
   lendingOffers?: IEarnDesktopLendingOffer[];
+  deposits: IEarnDesktopPortfolioDeposits;
 }) {
   const intl = useIntl();
-  const [settings] = useSettingsPersistAtom();
   const surfaces = useEarnDesktopSurfaces();
   const { asset } = row;
+  const handleToggle = () => onToggle(row.key);
   return (
     // An open token and its offers read as one card
     <YStack
@@ -498,11 +563,14 @@ function TokenRow({
     >
       <ListItem
         testID={`earn-desktop-row-${row.key}`}
+        role="button"
+        aria-expanded={isOpen}
         mx="$0"
         minHeight={ROW_HEIGHT}
         gap={ROW_GAP}
         userSelect="none"
-        onPress={() => onToggle(row.key)}
+        onPress={handleToggle}
+        {...buildKeyboardPressProps(handleToggle)}
       >
         <XStack {...COLUMNS.asset} ai="center" gap="$3">
           <Token size="md" tokenImageUri={asset.logoURI} borderRadius="$full" />
@@ -534,19 +602,7 @@ function TokenRow({
               </SizableText>
             ) : null}
             {row.depositedFiatValue > 0 && !row.isFixedRate ? (
-              <XStack ai="center" gap="$1">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {intl.formatMessage({ id: ETranslations.earn_deposited })}
-                </SizableText>
-                <NumberSizeableTextWrapper
-                  hideValue
-                  size="$bodySmMedium"
-                  formatter="value"
-                  formatterOptions={{ currency: settings.currencyInfo.symbol }}
-                >
-                  {row.depositedFiatValue}
-                </NumberSizeableTextWrapper>
-              </XStack>
+              <DepositedLine value={row.depositedFiatValue} />
             ) : null}
           </YStack>
         </XStack>
@@ -583,7 +639,11 @@ function TokenRow({
       </ListItem>
       {isOpen ? (
         <YStack px="$3" pb="$2">
-          <TokenOffers row={row} lendingOffers={lendingOffers} />
+          <TokenOffers
+            row={row}
+            lendingOffers={lendingOffers}
+            deposits={deposits}
+          />
         </YStack>
       ) : null}
     </YStack>
@@ -594,18 +654,20 @@ export function EarnDesktopEarnTab({
   trendingAssets,
   fixedRateAssets,
   isAssetsLoading,
-  investments,
+  deposits,
   lendingOffers,
   walletTokens,
   focusRequest,
+  onFocusRequestHandled,
 }: {
   trendingAssets: IEarnAvailableAsset[];
   fixedRateAssets: IEarnAvailableAsset[];
   isAssetsLoading: boolean;
-  investments: IEarnPortfolioInvestment[];
+  deposits: IEarnDesktopPortfolioDeposits;
   lendingOffers: Map<string, IEarnDesktopLendingOffer[]>;
   walletTokens: IRecommendAsset[];
   focusRequest?: IEarnDesktopFocusRequest;
+  onFocusRequestHandled?: () => void;
 }) {
   const intl = useIntl();
   const [category, setCategory] = useState<ITokenCategory>('all');
@@ -637,28 +699,20 @@ export function EarnDesktopEarnTab({
     return map;
   }, [aggregatedProviders]);
 
+  // Each token's portfolio principal, read per asset (a provider's positions
+  // arrive merged under its first token), plus its lending supply
   const depositedBySymbol = useMemo(() => {
-    const map = new Map<string, number>();
-    const add = (symbol: string, value: number) => {
-      if (value > 0) {
-        const key = symbol.toLowerCase();
-        map.set(key, (map.get(key) ?? 0) + value);
-      }
-    };
-    investments.forEach((investment) => {
-      const symbol =
-        investment.protocol.symbol ?? investment.assets?.[0]?.token.info.symbol;
-      if (symbol) {
-        add(symbol, new BigNumber(investment.totalFiatValue).toNumber() || 0);
-      }
-    });
+    const map = new Map(deposits.byToken);
     lendingOffers.forEach((offers) =>
-      offers.forEach((offer) =>
-        add(offer.symbol, offer.depositedFiatValue ?? 0),
-      ),
+      offers.forEach((offer) => {
+        if (offer.depositedFiatValue) {
+          const key = offer.symbol.toLowerCase();
+          map.set(key, (map.get(key) ?? 0) + offer.depositedFiatValue);
+        }
+      }),
     );
     return map;
-  }, [investments, lendingOffers]);
+  }, [deposits, lendingOffers]);
 
   const balanceBySymbol = useMemo(() => {
     const map = new Map<string, string>();
@@ -774,11 +828,17 @@ export function EarnDesktopEarnTab({
     setSearchText('');
     setSelectedNetworkIds([]);
     setOpenKey(`earn:${focusRequest.symbol}`);
-  }, [focusRequest]);
+    onFocusRequestHandled?.();
+  }, [focusRequest, onFocusRequestHandled]);
 
   const handleToggle = useCallback((key: string) => {
     setOpenKey((current) => (current === key ? undefined : key));
   }, []);
+
+  const isFiltered = Boolean(
+    searchText.trim() || selectedNetworkIds.length || category !== 'all',
+  );
+  const isEmpty = !isAssetsLoading && !rows.length;
 
   return (
     <YStack gap="$4">
@@ -803,58 +863,63 @@ export function EarnDesktopEarnTab({
           />
         </XStack>
       </XStack>
-      <YStack mx="$-5">
-        <ListItem gap={ROW_GAP} minHeight="$8">
-          <Stack {...COLUMNS.asset}>
-            <HeaderLabel>
-              {intl.formatMessage({ id: ETranslations.global_asset })}
-            </HeaderLabel>
-          </Stack>
-          <Stack {...COLUMNS.network}>
-            <HeaderLabel>
-              {intl.formatMessage({ id: ETranslations.global_network })}
-            </HeaderLabel>
-          </Stack>
-          <Stack {...COLUMNS.balance}>
-            <HeaderLabel align="right">
-              {intl.formatMessage({ id: ETranslations.global_balance })}
-            </HeaderLabel>
-          </Stack>
-          <Stack {...COLUMNS.apr}>
-            <HeaderLabel align="right">
-              {intl.formatMessage({ id: ETranslations.defi_apr_apy })}
-            </HeaderLabel>
-          </Stack>
-          <Stack w="$5" />
-        </ListItem>
-        {isAssetsLoading && !rows.length
-          ? Array.from({ length: 6 }).map((_, index) => (
-              <ListItem key={index} minHeight={ROW_HEIGHT} gap={ROW_GAP}>
-                <XStack {...COLUMNS.asset} ai="center" gap="$3">
-                  <Skeleton w="$8" h="$8" radius="round" />
-                  <Skeleton w={96} h={18} borderRadius="$2" />
-                </XStack>
-                <Stack {...COLUMNS.network}>
-                  <Skeleton w={64} h={18} borderRadius="$2" />
-                </Stack>
-                <Stack {...column(2.8, 'flex-end')}>
-                  <Skeleton w={96} h={18} borderRadius="$2" />
-                </Stack>
-                <Stack w="$5" />
-              </ListItem>
-            ))
-          : rows.map((row) => (
-              <TokenRow
-                key={row.key}
-                row={row}
-                isOpen={row.key === openKey}
-                onToggle={handleToggle}
-                lendingOffers={lendingOffers.get(
-                  row.asset.symbol.toLowerCase(),
-                )}
-              />
-            ))}
-      </YStack>
+      {isEmpty ? (
+        <EarnListEmptyState isFiltered={isFiltered} />
+      ) : (
+        <YStack mx="$-5">
+          <ListItem gap={ROW_GAP} minHeight="$8">
+            <Stack {...COLUMNS.asset}>
+              <HeaderLabel>
+                {intl.formatMessage({ id: ETranslations.global_asset })}
+              </HeaderLabel>
+            </Stack>
+            <Stack {...COLUMNS.network}>
+              <HeaderLabel>
+                {intl.formatMessage({ id: ETranslations.global_network })}
+              </HeaderLabel>
+            </Stack>
+            <Stack {...COLUMNS.balance}>
+              <HeaderLabel align="right">
+                {intl.formatMessage({ id: ETranslations.global_balance })}
+              </HeaderLabel>
+            </Stack>
+            <Stack {...COLUMNS.apr}>
+              <HeaderLabel align="right">
+                {intl.formatMessage({ id: ETranslations.defi_apr_apy })}
+              </HeaderLabel>
+            </Stack>
+            <Stack w="$5" />
+          </ListItem>
+          {isAssetsLoading && !rows.length
+            ? Array.from({ length: 6 }).map((_, index) => (
+                <ListItem key={index} minHeight={ROW_HEIGHT} gap={ROW_GAP}>
+                  <XStack {...COLUMNS.asset} ai="center" gap="$3">
+                    <Skeleton w="$8" h="$8" radius="round" />
+                    <Skeleton w={96} h={18} borderRadius="$2" />
+                  </XStack>
+                  <Stack {...COLUMNS.network}>
+                    <Skeleton w={64} h={18} borderRadius="$2" />
+                  </Stack>
+                  <Stack {...column(2.8, 'flex-end')}>
+                    <Skeleton w={96} h={18} borderRadius="$2" />
+                  </Stack>
+                  <Stack w="$5" />
+                </ListItem>
+              ))
+            : rows.map((row) => (
+                <TokenRow
+                  key={row.key}
+                  row={row}
+                  isOpen={row.key === openKey}
+                  onToggle={handleToggle}
+                  lendingOffers={lendingOffers.get(
+                    row.asset.symbol.toLowerCase(),
+                  )}
+                  deposits={deposits}
+                />
+              ))}
+        </YStack>
+      )}
     </YStack>
   );
 }

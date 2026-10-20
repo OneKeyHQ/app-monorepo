@@ -10,11 +10,15 @@ import {
   buildProtocolShares,
   collectLendingOffers,
   collectTileRows,
+  computeNetWorth,
   deriveLendingSupply,
   estimateBorrowInterest24h,
+  findPositionDeposit,
+  formatSharePercent,
   parseCompactFiatText,
   pickTileOffers,
   sumBorrowedFiat,
+  sumPortfolioDeposits,
 } from './earnDesktopHome.utils';
 
 const investment = (
@@ -29,6 +33,51 @@ const investment = (
     },
     network: { networkId, name: '', logoURI: '' },
     assets: [],
+    airdropAssets: [],
+  }) as unknown as IEarnPortfolioInvestment;
+
+// One provider's positions as the portfolio hands them over: merged into one
+// investment that keeps the first position's protocol, each asset carrying
+// its own request's total
+const mergedInvestment = (
+  code: string,
+  positions: {
+    symbol: string;
+    fiatValue: string;
+    networkId?: string;
+    vault?: string;
+  }[],
+) =>
+  ({
+    totalFiatValue: positions
+      .reduce((sum, item) => sum + Number(item.fiatValue), 0)
+      .toString(),
+    protocol: {
+      symbol: positions[0]?.symbol,
+      providerDetail: { code, name: code, logoURI: '' },
+    },
+    network: {
+      networkId: positions[0]?.networkId ?? 'evm--1',
+      name: '',
+      logoURI: '',
+    },
+    assets: positions.map((item) => ({
+      token: { info: { symbol: item.symbol, logoURI: '' } },
+      rewardAssets: [],
+      assetsStatus: [],
+      metadata: {
+        protocol: {
+          vault: item.vault,
+          providerDetail: { code, name: code, logoURI: '' },
+        },
+        network: {
+          networkId: item.networkId ?? 'evm--1',
+          name: '',
+          logoURI: '',
+        },
+        fiatValue: item.fiatValue,
+      },
+    })),
     airdropAssets: [],
   }) as unknown as IEarnPortfolioInvestment;
 
@@ -68,7 +117,7 @@ const reserves = ({
     canBeCollateral: boolean;
     liquidationLtv?: string;
   }[];
-  supplied?: { symbol: string; fiatValue: string }[];
+  supplied?: { symbol: string; fiatValue: string; apy?: string }[];
   borrowed?: { symbol: string; fiatValue: string; apy: string }[];
 }) =>
   ({
@@ -107,6 +156,7 @@ const reserves = ({
       assets: supplied.map((item) => ({
         reserveAddress: `Supply-${item.symbol}`,
         token: token(item.symbol),
+        apyDetail: { apy: item.apy ?? '0' },
         suppliedAmount: { fiatValue: item.fiatValue },
       })),
     },
@@ -165,6 +215,60 @@ describe('buildProtocolShares', () => {
       top: [],
       total: 0,
     });
+  });
+
+  it('keeps a rest that rounds to nothing', () => {
+    const shares = buildProtocolShares({
+      investments: [
+        investment('bitway', '600'),
+        investment('morpho', '300'),
+        investment('spark', '99.6'),
+        investment('lido', '0.4'),
+      ],
+    });
+    expect(shares.rest).toEqual({ count: 1, percent: 0 });
+    expect(formatSharePercent(shares.rest?.percent ?? 0)).toBe('<1%');
+    expect(formatSharePercent(shares.top[0].percent)).toBe('60%');
+  });
+});
+
+describe('portfolio deposits', () => {
+  // The test account on 20 Oct: Bitway's USDT and U arrive as one investment
+  // whose protocol names USDT only
+  const bitway = mergedInvestment('bitway', [
+    { symbol: 'USDT', fiatValue: '58.71', vault: '0xvault' },
+    { symbol: 'U', fiatValue: '7.07' },
+  ]);
+
+  it('credits each token its own deposit', () => {
+    const { byToken } = sumPortfolioDeposits([bitway]);
+    expect(byToken.get('usdt')).toBeCloseTo(58.71);
+    expect(byToken.get('u')).toBeCloseTo(7.07);
+  });
+
+  it('finds the offer that holds a deposit', () => {
+    const deposits = sumPortfolioDeposits([bitway]);
+    const usdt = { provider: 'Bitway', networkId: 'evm--1', symbol: 'USDT' };
+    expect(
+      findPositionDeposit(deposits, { ...usdt, vault: '0xVAULT' }),
+    ).toBeCloseTo(58.71);
+    // An offer without a vault takes the token's deposit at that provider
+    expect(findPositionDeposit(deposits, usdt)).toBeCloseTo(58.71);
+    // A position without a vault matches an offer that has one
+    expect(
+      findPositionDeposit(deposits, {
+        ...usdt,
+        symbol: 'U',
+        vault: '0xother',
+      }),
+    ).toBeCloseTo(7.07);
+    // Two different vaults never match
+    expect(
+      findPositionDeposit(deposits, { ...usdt, vault: '0xother' }),
+    ).toBeUndefined();
+    expect(
+      findPositionDeposit(deposits, { ...usdt, networkId: 'evm--56' }),
+    ).toBeUndefined();
   });
 });
 
@@ -338,6 +442,23 @@ describe('loan totals', () => {
     expect(sumBorrowedFiat([]).toNumber()).toBe(0);
     expect(estimateBorrowInterest24h([])).toBe(0);
   });
+
+  it('nets the loans out of net worth', () => {
+    expect(
+      computeNetWorth({
+        depositsFiatValue: '135.6',
+        lendingTotal: 10.9,
+        borrowedTotal: sumBorrowedFiat(entries),
+      }),
+    ).toBe('-948.5');
+    expect(
+      computeNetWorth({
+        depositsFiatValue: undefined,
+        lendingTotal: 0,
+        borrowedTotal: sumBorrowedFiat([]),
+      }),
+    ).toBe('0');
+  });
 });
 
 describe('deriveLendingSupply', () => {
@@ -350,7 +471,7 @@ describe('deriveLendingSupply', () => {
         borrow: [],
         supplied: [
           { symbol: 'cbBTC', fiatValue: '3.00' },
-          { symbol: 'USDC', fiatValue: '2.90' },
+          { symbol: 'USDC', fiatValue: '2.90', apy: '3.65' },
         ],
       }),
     },
@@ -358,14 +479,17 @@ describe('deriveLendingSupply', () => {
       market: kamino,
       reserves: reserves({
         borrow: [],
-        supplied: [{ symbol: 'USDC', fiatValue: '5' }],
+        supplied: [
+          { symbol: 'USDC', fiatValue: '5' },
+          { symbol: 'SOL', fiatValue: '4', apy: '7.3' },
+        ],
       }),
     },
   ];
 
   it('sums supply per market and keys it by reserve', () => {
     const result = deriveLendingSupply({ entries, investments: [] });
-    expect(result.lendingTotal).toBeCloseTo(10.9);
+    expect(result.lendingTotal).toBeCloseTo(14.9);
     expect(result.lendingSupplies.map((item) => item.name)).toEqual([
       'Aave',
       'Kamino',
@@ -375,13 +499,38 @@ describe('deriveLendingSupply', () => {
     ).toBe(2.9);
   });
 
-  it('skips a market the Earn portfolio already reports', () => {
+  it('estimates a day of what the supply earns', () => {
+    const result = deriveLendingSupply({ entries, investments: [] });
+    // 2.90 at 3.65% and 4 at 7.3%, for a day
+    expect(result.interest24h).toBeCloseTo(
+      (2.9 * 0.0365 + 4 * 0.073) / 365,
+      10,
+    );
+  });
+
+  it('skips only the token the Earn portfolio already reports', () => {
+    // Kamino USDC has a staking config, so the portfolio holds it; the SOL
+    // supplied in the same market still counts, as its loans would
     const result = deriveLendingSupply({
       entries,
-      investments: [investment('kamino', '5', 'sol--101')],
+      investments: [
+        mergedInvestment('kamino', [
+          { symbol: 'USDC', fiatValue: '5', networkId: 'sol--101' },
+        ]),
+      ],
     });
-    expect(result.lendingSupplies.map((item) => item.name)).toEqual(['Aave']);
-    expect(result.lendingTotal).toBeCloseTo(5.9);
+    expect(
+      result.lendingSupplies.map((item) => [item.name, item.fiatValue]),
+    ).toEqual([
+      ['Aave', 5.9],
+      ['Kamino', 4],
+    ]);
+    expect(result.lendingTotal).toBeCloseTo(9.9);
+    expect(
+      result.supplied.has(
+        `kamino:sol--101:${kamino.marketAddress}:supply-usdc`,
+      ),
+    ).toBe(false);
   });
 });
 

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -15,9 +15,16 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IBorrowMarketItem } from '@onekeyhq/shared/types/staking';
 
+import { EarnListEmptyState } from '../EarnListEmptyState';
+
 import { buildMarketCard } from './earnDesktopHome.utils';
 import { EARN_DESKTOP_DEMO_COPY } from './earnDesktopHomeCopy';
-import { useEarnDesktopSurfaces } from './useEarnDesktopSurfaces';
+import {
+  EarnDesktopSurfaceProvider,
+  SurfaceToken,
+  buildKeyboardPressProps,
+  usePressableSurface,
+} from './earnDesktopPressable';
 
 import type {
   IEarnDesktopMarketCard,
@@ -61,57 +68,73 @@ function CollateralStack({
 
 function MarketCard({
   card,
-  isLoading,
   onPress,
 }: {
   card: IEarnDesktopMarketCard;
-  isLoading: boolean;
   onPress: () => void;
 }) {
   const intl = useIntl();
   const { market } = card;
-  const surfaces = useEarnDesktopSurfaces();
-  const [isHovered, setIsHovered] = useState(false);
-  const [isPressed, setIsPressed] = useState(false);
-  // The collateral rings take the same color, so they follow the card
-  let surface = surfaces.rest;
-  if (isPressed) {
-    surface = surfaces.press;
-  } else if (isHovered) {
-    surface = surfaces.hover;
-  }
+  // The collateral rings and the network badge take the card's color, so they
+  // follow it through hover and press
+  const { surface, handlers } = usePressableSurface(true);
   return (
     // The tiles' padding, so both kinds of card hold their content alike
-    <YStack
-      testID={`earn-desktop-market-${card.key}`}
-      role="button"
-      flexGrow={1}
-      bg={surface}
-      borderRadius="$5"
-      borderCurve="continuous"
-      p="$4"
-      cursor="pointer"
-      userSelect="none"
-      onHoverIn={() => setIsHovered(true)}
-      onHoverOut={() => {
-        setIsHovered(false);
-        setIsPressed(false);
-      }}
-      onPressIn={() => setIsPressed(true)}
-      onPressOut={() => setIsPressed(false)}
-      onPress={onPress}
-    >
-      <XStack ai="center" gap="$3">
-        <Token
-          size="lg"
-          tokenImageUri={market.logoURI}
-          networkId={market.networkId}
-          showNetworkIcon
-        />
-        <YStack flex={1} minWidth={0}>
-          <XStack ai="center" gap="$0.5">
-            <SizableText size="$bodyLgMedium" numberOfLines={1}>
-              {card.label}
+    <EarnDesktopSurfaceProvider value={surface}>
+      <YStack
+        testID={`earn-desktop-market-${card.key}`}
+        role="button"
+        flexGrow={1}
+        bg={surface}
+        borderRadius="$5"
+        borderCurve="continuous"
+        p="$4"
+        cursor="pointer"
+        userSelect="none"
+        onPress={onPress}
+        {...handlers}
+        {...buildKeyboardPressProps(onPress, 2)}
+      >
+        <XStack ai="center" gap="$3">
+          <SurfaceToken
+            size="lg"
+            tokenImageUri={market.logoURI}
+            networkId={market.networkId}
+          />
+          <YStack flex={1} minWidth={0}>
+            <XStack ai="center" gap="$0.5">
+              <SizableText size="$bodyLgMedium" numberOfLines={1}>
+                {card.label}
+              </SizableText>
+              <Icon
+                name="ChevronRightSmallOutline"
+                size="$4"
+                color="$iconSubdued"
+              />
+            </XStack>
+            <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+              {market.network?.name}
+            </SizableText>
+          </YStack>
+        </XStack>
+        <SizableText mt="$4" mb="$1" size="$bodySm" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.defi_borrow_apy })}
+        </SizableText>
+        {card.topBorrow.map((row) => (
+          <XStack key={row.reserveAddress} ai="center" gap="$2.5" h={46}>
+            <Token size="sm" tokenImageUri={row.logoURI} />
+            <SizableText flex={1} size="$bodyLgMedium" numberOfLines={1}>
+              {row.symbol}
+            </SizableText>
+            <SizableText size="$bodyLgMedium">
+              {`${new BigNumber(row.apy).toFixed(2)}%`}
+            </SizableText>
+          </XStack>
+        ))}
+        {card.moreCount > 0 ? (
+          <XStack ai="center" gap="$0.5" h={30}>
+            <SizableText size="$bodyMdMedium" color="$textSubdued">
+              {EARN_DESKTOP_DEMO_COPY.more(card.moreCount)}
             </SizableText>
             <Icon
               name="ChevronRightSmallOutline"
@@ -119,78 +142,48 @@ function MarketCard({
               color="$iconSubdued"
             />
           </XStack>
-          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-            {market.network?.name}
+        ) : null}
+        <YStack flexGrow={1} minHeight="$2" />
+        <XStack
+          pt="$3.5"
+          ai="center"
+          jc="space-between"
+          borderTopWidth={1}
+          borderTopColor="$borderSubdued"
+        >
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.defi_collateral })}
           </SizableText>
-        </YStack>
-      </XStack>
-      <SizableText mt="$4" mb="$1" size="$bodySm" color="$textSubdued">
-        {intl.formatMessage({ id: ETranslations.defi_borrow_apy })}
-      </SizableText>
-      {isLoading && !card.topBorrow.length
-        ? Array.from({ length: 3 }).map((_, index) => (
-            <XStack key={index} ai="center" gap="$2.5" h={46}>
-              <Skeleton w="$7" h="$7" radius="round" />
-              <Skeleton w={64} h={16} borderRadius="$2" />
-            </XStack>
-          ))
-        : card.topBorrow.map((row) => (
-            <XStack key={row.reserveAddress} ai="center" gap="$2.5" h={46}>
-              <Token size="sm" tokenImageUri={row.logoURI} />
-              <SizableText flex={1} size="$bodyLgMedium" numberOfLines={1}>
-                {row.symbol}
-              </SizableText>
-              <SizableText size="$bodyLgMedium">
-                {`${new BigNumber(row.apy).toFixed(2)}%`}
-              </SizableText>
-            </XStack>
-          ))}
-      {card.moreCount > 0 ? (
-        <XStack ai="center" gap="$0.5" h={30}>
-          <SizableText size="$bodyMdMedium" color="$textSubdued">
-            {EARN_DESKTOP_DEMO_COPY.more(card.moreCount)}
-          </SizableText>
-          <Icon
-            name="ChevronRightSmallOutline"
-            size="$4"
-            color="$iconSubdued"
-          />
+          <CollateralStack card={card} ringColor={surface} />
         </XStack>
-      ) : null}
-      <YStack flexGrow={1} minHeight="$2" />
-      <XStack
-        pt="$3.5"
-        ai="center"
-        jc="space-between"
-        borderTopWidth={1}
-        borderTopColor="$borderSubdued"
-      >
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.defi_collateral })}
-        </SizableText>
-        <CollateralStack card={card} ringColor={surface} />
-      </XStack>
-    </YStack>
+      </YStack>
+    </EarnDesktopSurfaceProvider>
   );
 }
 
 export function EarnDesktopBorrowTab({
   markets,
-  isLoading,
+  isLoaded,
   onOpenMarket,
 }: {
   markets: IEarnDesktopMarketReserves[];
-  isLoading: boolean;
+  isLoaded: boolean;
   onOpenMarket: (market: IBorrowMarketItem) => void;
 }) {
   const media = useMedia();
+  // A market whose reserves never arrived has nothing to show
   const cards = useMemo(
-    () => markets.map((entry) => buildMarketCard(entry)),
+    () =>
+      markets
+        .filter((entry) => entry.reserves)
+        .map((entry) => buildMarketCard(entry)),
     [markets],
   );
-  // Cards sit as far apart as the tiles above the tabs
   if (!cards.length) {
-    return (
+    // Cards sit as far apart as the tiles above the tabs
+    return isLoaded ? (
+      <EarnListEmptyState isFiltered={false} />
+    ) : (
       <XStack gap="$4">
         {Array.from({ length: 3 }).map((_, index) => (
           <Skeleton key={index} flex={1} h={320} borderRadius="$5" />
@@ -213,7 +206,6 @@ export function EarnDesktopBorrowTab({
             <YStack key={card.key} flex={1} flexBasis={0} minWidth={0}>
               <MarketCard
                 card={card}
-                isLoading={isLoading}
                 onPress={() => onOpenMarket(card.market)}
               />
             </YStack>

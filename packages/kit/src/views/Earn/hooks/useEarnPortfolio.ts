@@ -483,6 +483,12 @@ export interface IUseEarnPortfolioReturn {
   cachedOverviewTotalFiatValue: string | undefined;
   cachedOverviewEarnings24h: string | undefined;
   isLoading: boolean;
+  /**
+   * A full fetch finished for the current account (or its cached list was
+   * shown). Unlike isLoading it stays true through polls, and it turns false
+   * in the same render an account switch lands.
+   */
+  isSettled: boolean;
   refresh: (options?: IRefreshOptions) => Promise<void>;
 }
 
@@ -517,6 +523,12 @@ export const useEarnPortfolio = ({
 
   const [isLoading, setIsLoading] = useState(
     () => !(cachedInvestments && cachedInvestments.length > 0),
+  );
+  const accountScope = `${accountIdValue}|${indexedAccountIdValue}`;
+  const [settledScope, setSettledScope] = useState(() =>
+    cachedInvestments && cachedInvestments.length > 0
+      ? accountScope
+      : undefined,
   );
 
   const {
@@ -580,6 +592,7 @@ export const useEarnPortfolio = ({
       if (!accountIdValue && !indexedAccountIdValue) {
         if (isMountedRef.current) {
           setIsLoading(false);
+          setSettledScope(accountScope);
         }
         return;
       }
@@ -921,6 +934,7 @@ export const useEarnPortfolio = ({
 
           if (!isPartialRefresh && isMountedRef.current) {
             setIsLoading(false);
+            setSettledScope(accountScope);
           }
         }
       } catch (error) {
@@ -931,6 +945,8 @@ export const useEarnPortfolio = ({
           isMountedRef.current
         ) {
           setIsLoading(false);
+          // Settled on what it has, so a failed fetch never shimmers forever
+          setSettledScope(accountScope);
         }
       }
     },
@@ -939,6 +955,7 @@ export const useEarnPortfolio = ({
       accountIdValue,
       indexedAccountIdValue,
       accountIndexedAccountIdValue,
+      accountScope,
       allNetworkId,
       hasAccountChanged,
       startNewRequest,
@@ -1096,6 +1113,7 @@ export const useEarnPortfolio = ({
     cachedOverviewTotalFiatValue: currentOverviewData?.totalFiatValue,
     cachedOverviewEarnings24h: currentOverviewData?.earnings24h,
     isLoading,
+    isSettled: settledScope === accountScope,
     refresh,
   };
 };

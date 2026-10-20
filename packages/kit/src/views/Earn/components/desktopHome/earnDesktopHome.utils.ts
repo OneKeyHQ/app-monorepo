@@ -65,10 +65,147 @@ export type IEarnDesktopLendingSupply = {
   fiatValue: number;
 };
 
-// The account's supply in the lending markets, which the Earn portfolio does
-// not report. A market whose provider the portfolio already reports on that
-// network (Kamino USDC has a staking config) is left out, so nothing counts twice.
 const DAYS_PER_YEAR = 365;
+
+// A share that rounds to 0% still holds money
+export const formatSharePercent = (percent: number) =>
+  percent < 1 ? '<1%' : `${percent}%`;
+
+const positionKey = ({
+  provider,
+  networkId,
+  symbol,
+  vault,
+}: {
+  provider: string;
+  networkId: string;
+  symbol: string;
+  vault?: string;
+}) =>
+  [provider, networkId, symbol, vault ?? '']
+    .map((part) => part.toLowerCase())
+    .join(':');
+
+type IPortfolioAssetIdentity = {
+  provider: string;
+  networkId: string;
+  symbol: string;
+  vault?: string;
+};
+
+// The portfolio merges a provider's positions into one investment that keeps
+// only its first token and network, so read each asset instead. Every asset
+// carries its own request's total, and a request's assets count once.
+function eachPortfolioPosition(
+  investments: IEarnPortfolioInvestment[],
+  visit: (position: IPortfolioAssetIdentity & { fiatValue: number }) => void,
+) {
+  const seen = new Set<string>();
+  investments.forEach((investment) =>
+    (investment.assets ?? []).forEach((asset) => {
+      const protocol = asset.metadata?.protocol;
+      const network = asset.metadata?.network;
+      if (!protocol || !network) {
+        return;
+      }
+      const position = {
+        provider: protocol.providerDetail.code,
+        networkId: network.networkId,
+        symbol: asset.token.info.symbol,
+        vault: protocol.vault,
+      };
+      const key = positionKey(position);
+      if (seen.has(key)) {
+        return;
+      }
+      seen.add(key);
+      const fiatValue = toNumber(asset.metadata.fiatValue);
+      if (fiatValue > 0) {
+        visit({ ...position, fiatValue });
+      }
+    }),
+  );
+}
+
+export type IEarnDesktopPortfolioDeposits = {
+  /** By token symbol: the Earn table's "Deposited" */
+  byToken: Map<string, number>;
+  /** By provider, network, token and vault: the offer that holds it */
+  byPosition: Map<string, number>;
+  /** By provider, network and token, with the vaults it spans */
+  byProtocolToken: Map<string, { fiatValue: number; vaults: Set<string> }>;
+};
+
+/** The portfolio's principal per token and per position. */
+export function sumPortfolioDeposits(
+  investments: IEarnPortfolioInvestment[],
+): IEarnDesktopPortfolioDeposits {
+  const byToken = new Map<string, number>();
+  const byPosition = new Map<string, number>();
+  const byProtocolToken = new Map<
+    string,
+    { fiatValue: number; vaults: Set<string> }
+  >();
+  eachPortfolioPosition(investments, (position) => {
+    const tokenKey = position.symbol.toLowerCase();
+    byToken.set(tokenKey, (byToken.get(tokenKey) ?? 0) + position.fiatValue);
+    const key = positionKey(position);
+    byPosition.set(key, (byPosition.get(key) ?? 0) + position.fiatValue);
+    const protocolTokenKey = positionKey({ ...position, vault: undefined });
+    const current = byProtocolToken.get(protocolTokenKey) ?? {
+      fiatValue: 0,
+      vaults: new Set<string>(),
+    };
+    current.fiatValue += position.fiatValue;
+    current.vaults.add((position.vault ?? '').toLowerCase());
+    byProtocolToken.set(protocolTokenKey, current);
+  });
+  return { byToken, byPosition, byProtocolToken };
+}
+
+/**
+ * What the portfolio holds at one offer. The protocol list and the portfolio
+ * don't always both carry the vault: an offer without one takes every vault
+ * of its provider, network and token, and a position without one matches an
+ * offer that has one. Two different vaults never match.
+ */
+export function findPositionDeposit(
+  deposits: IEarnDesktopPortfolioDeposits,
+  identity: IPortfolioAssetIdentity,
+) {
+  if (identity.vault) {
+    const exact = deposits.byPosition.get(positionKey(identity));
+    if (exact !== undefined) {
+      return exact;
+    }
+  }
+  const protocolToken = deposits.byProtocolToken.get(
+    positionKey({ ...identity, vault: undefined }),
+  );
+  if (!protocolToken) {
+    return undefined;
+  }
+  return !identity.vault ||
+    (protocolToken.vaults.size === 1 && protocolToken.vaults.has(''))
+    ? protocolToken.fiatValue
+    : undefined;
+}
+
+/** Every deposit, lending supply included, less what the loans owe. */
+export function computeNetWorth({
+  depositsFiatValue,
+  lendingTotal,
+  borrowedTotal,
+}: {
+  depositsFiatValue?: string;
+  lendingTotal: number;
+  borrowedTotal: BigNumber;
+}) {
+  return new BigNumber(toNumber(depositsFiatValue))
+    .plus(lendingTotal)
+    .minus(borrowedTotal)
+    .toFixed();
+}
 
 /** What every loan owes, in fiat; net worth subtracts it. */
 export function sumBorrowedFiat(entries: IEarnDesktopMarketReserves[]) {
@@ -102,6 +239,10 @@ export function estimateBorrowInterest24h(
   );
 }
 
+// The account's supply in the lending markets, which the Earn portfolio does
+// not report. A token the portfolio already holds for that provider on that
+// network (Kamino USDC has a staking config) is left out, so nothing counts
+// twice; the market's other reserves still count, as its loans do.
 export function deriveLendingSupply({
   entries,
   investments,
@@ -109,23 +250,36 @@ export function deriveLendingSupply({
   entries: IEarnDesktopMarketReserves[];
   investments: IEarnPortfolioInvestment[];
 }) {
-  const reported = new Set(
-    investments.map(
-      (investment) =>
-        `${investment.protocol.providerDetail.code.toLowerCase()}:${investment.network.networkId}`,
-    ),
+  const reported = new Set<string>();
+  eachPortfolioPosition(investments, (position) =>
+    reported.add(positionKey({ ...position, vault: undefined })),
   );
   const supplied = new Map<string, number>();
   const lendingSupplies: IEarnDesktopLendingSupply[] = [];
+  // What the counted supply earns in a day, for the ticking net worth and
+  // the 24h earnings, which the portfolio reports without it
+  let interest24h = 0;
   entries.forEach(({ market, reserves }) => {
-    if (reported.has(`${market.provider.toLowerCase()}:${market.networkId}`)) {
-      return;
-    }
     const marketKey = buildBorrowMarketKey(market);
     let marketTotal = 0;
     reserves?.supplied?.assets?.forEach((asset) => {
+      if (
+        reported.has(
+          positionKey({
+            provider: market.provider,
+            networkId: market.networkId,
+            symbol: asset.token.symbol,
+          }),
+        )
+      ) {
+        return;
+      }
       const fiatValue = toNumber(asset.suppliedAmount.fiatValue);
       marketTotal += fiatValue;
+      interest24h +=
+        (fiatValue * parseAprPercentValue(asset.apyDetail?.apy)) /
+        100 /
+        DAYS_PER_YEAR;
       supplied.set(
         `${marketKey}:${asset.reserveAddress.toLowerCase()}`,
         fiatValue,
@@ -145,7 +299,7 @@ export function deriveLendingSupply({
     (sum, item) => sum + item.fiatValue,
     0,
   );
-  return { supplied, lendingSupplies, lendingTotal };
+  return { supplied, lendingSupplies, lendingTotal, interest24h };
 }
 
 export function buildProtocolShares({
@@ -345,10 +499,25 @@ export function collectTileRows(investments: IEarnPortfolioInvestment[]): {
     (isReward ? rewards : withdrawals).push(item);
   };
 
-  investments.forEach((investment, investmentIndex) => {
-    (investment.assets ?? []).forEach((asset, assetIndex) => {
+  // Keys name the position, not its place: investments re-sort by value on
+  // every fetch, and a key that moved would hand a row's claim state to another
+  const identityOf = (asset: {
+    token: { info: { symbol: string } };
+    metadata: {
+      protocol: { providerDetail: { code: string }; vault?: string };
+      network: { networkId: string };
+    };
+  }) =>
+    positionKey({
+      provider: asset.metadata.protocol.providerDetail.code,
+      networkId: asset.metadata.network.networkId,
+      symbol: asset.token.info.symbol,
+      vault: asset.metadata.protocol.vault,
+    });
+  investments.forEach((investment) => {
+    (investment.assets ?? []).forEach((asset) => {
       const networkId = asset.metadata.network.networkId;
-      const keyPrefix = `${investmentIndex}-${assetIndex}`;
+      const keyPrefix = identityOf(asset);
       // The server omits empty row lists, whatever the type says
       (asset.rewardAssets ?? []).forEach((row, rowIndex) => {
         const token = getButtonTokenInfo(row.button);
@@ -394,7 +563,7 @@ export function collectTileRows(investments: IEarnPortfolioInvestment[]): {
       symbol: asset.token.info.symbol,
       vault: asset.metadata.protocol.vault,
     }));
-    (investment.airdropAssets ?? []).forEach((asset, assetIndex) => {
+    (investment.airdropAssets ?? []).forEach((asset) => {
       const items = asset.airdropAssets ?? [];
       const claimSourceIdentity = resolveUniquePortfolioClaimSourceIdentity({
         networkId: asset.metadata.network.networkId,
@@ -412,7 +581,7 @@ export function collectTileRows(investments: IEarnPortfolioInvestment[]): {
         }
         place({
           row,
-          key: `airdrop-${investmentIndex}-${assetIndex}-${rowIndex}`,
+          key: `airdrop-${identityOf(asset)}-${rowIndex}`,
           symbol: asset.token.info.symbol,
           logoURI: asset.token.info.logoURI,
           networkId: asset.metadata.network.networkId,

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -29,10 +29,13 @@ import { EarnDesktopHero } from './EarnDesktopHero';
 import {
   buildProtocolShares,
   collectLendingOffers,
+  computeNetWorth,
   deriveLendingSupply,
   estimateBorrowInterest24h,
   sumBorrowedFiat,
+  sumPortfolioDeposits,
 } from './earnDesktopHome.utils';
+import { buildKeyboardPressProps } from './earnDesktopPressable';
 import { EarnDesktopTiles } from './EarnDesktopTiles';
 import {
   useEarnDesktopAccountMarkets,
@@ -49,6 +52,9 @@ const BROWSE_ANCHOR_ID = 'earn-desktop-browse';
 const BANNER_WIDTH = 460;
 // Until the hero has been measured
 const BANNER_CARD_HEIGHT = 232;
+// The banner art's own height: a shorter hero (an account without positions)
+// must not crop it
+const BANNER_MIN_HEIGHT = 200;
 const EMPTY_ASSETS: IEarnAvailableAsset[] = [];
 
 function HomeTab({
@@ -78,6 +84,7 @@ function HomeTab({
       onHoverIn={() => setIsHovered(true)}
       onHoverOut={() => setIsHovered(false)}
       onPress={onPress}
+      {...buildKeyboardPressProps(onPress, 2)}
     >
       <SizableText
         size="$headingXl"
@@ -135,6 +142,9 @@ export function EarnDesktopHome({
   onOpenPortfolio,
   onOpenLoans,
   onOpenProtocols,
+  onRegisterRefresh,
+  onRegisterBorrowRefresh,
+  onBorrowNetworksChange,
 }: {
   portfolioData: IUseEarnPortfolioReturn;
   displayTotalFiatValue?: string;
@@ -147,26 +157,53 @@ export function EarnDesktopHome({
   onOpenPortfolio: () => void;
   onOpenLoans: () => void;
   onOpenProtocols: () => void;
+  /** The page's refresh (pull or a settled Earn transaction) asks this too */
+  onRegisterRefresh?: (handler: (() => Promise<void>) | null) => void;
+  /** Asked once a Borrow transaction on one of these networks settles */
+  onRegisterBorrowRefresh?: (handler: (() => Promise<void>) | null) => void;
+  onBorrowNetworksChange?: (networkIds: string[]) => void;
 }) {
   const intl = useIntl();
   const media = useMedia();
   const navigation = useAppNavigation();
   const [{ availableAssetsByType = {} }] = useEarnAtom();
   const [loadingStates] = useEarnLoadingStatesAtom();
-  const { investments, isLoading: isPortfolioLoading, refresh } = portfolioData;
+  const { investments, isSettled: isPortfolioSettled, refresh } = portfolioData;
 
-  const { markets, isLoading: isMarketsLoading } = useEarnDesktopMarkets({
-    isActive,
-  });
-  const marketItems = useMemo(
-    () => markets.map((entry) => entry.market),
-    [markets],
-  );
+  const {
+    marketList,
+    isListReady,
+    markets,
+    isLoaded: isMarketsLoaded,
+  } = useEarnDesktopMarkets({ isActive });
+  // Asked from the market list itself, not after the public reserves
   const accountMarkets = useEarnDesktopAccountMarkets({
-    markets: marketItems,
+    markets: marketList,
+    isListReady,
     isActive,
   });
   const wallet = useEarnDesktopWalletTokens({ isActive });
+
+  const refreshAccountMarkets = accountMarkets.refresh;
+  useEffect(() => {
+    const handler = async () => {
+      await refreshAccountMarkets();
+    };
+    onRegisterRefresh?.(handler);
+    onRegisterBorrowRefresh?.(handler);
+    return () => {
+      onRegisterRefresh?.(null);
+      onRegisterBorrowRefresh?.(null);
+    };
+  }, [onRegisterBorrowRefresh, onRegisterRefresh, refreshAccountMarkets]);
+  const marketNetworksKey = Array.from(
+    new Set(marketList.map((market) => market.networkId)),
+  ).join(',');
+  useEffect(() => {
+    onBorrowNetworksChange?.(
+      marketNetworksKey ? marketNetworksKey.split(',') : [],
+    );
+  }, [marketNetworksKey, onBorrowNetworksChange]);
 
   const lending = useMemo(
     () => deriveLendingSupply({ entries: accountMarkets.entries, investments }),
@@ -192,11 +229,27 @@ export function EarnDesktopHome({
     () => estimateBorrowInterest24h(accountMarkets.loans),
     [accountMarkets.loans],
   );
-  // Net worth: every deposit, lending supply included, less what loans owe
-  const totalFiatValue = new BigNumber(displayTotalFiatValue ?? 0)
-    .plus(lending.lendingTotal)
-    .minus(borrowedTotal)
+  const totalFiatValue = computeNetWorth({
+    depositsFiatValue: displayTotalFiatValue,
+    lendingTotal: lending.lendingTotal,
+    borrowedTotal,
+  });
+  // The supply counted in net worth earns too
+  const earnings24h = new BigNumber(displayEarnings24h ?? 0)
+    .plus(lending.interest24h)
     .toFixed();
+  const portfolioDeposits = useMemo(
+    () => sumPortfolioDeposits(investments),
+    [investments],
+  );
+  const hasPositions =
+    investments.length > 0 ||
+    lending.lendingTotal > 0 ||
+    accountMarkets.loans.length > 0;
+  // Partial sums are wrong numbers: the hero waits for the portfolio and the
+  // markets, the tiles for those and the wallet, and then each shows at once
+  const isHeroLoading = !isPortfolioSettled || !accountMarkets.isLoaded;
+  const isTilesLoading = isHeroLoading || !wallet.isLoaded;
 
   const trendingAssets = useMemo(
     () =>
@@ -209,13 +262,25 @@ export function EarnDesktopHome({
   );
   const fixedRateAssets =
     availableAssetsByType[EAvailableAssetsTypeEnum.FixedRate] ?? EMPTY_ASSETS;
-  const isAssetsLoading = Boolean(
-    loadingStates[`availableAssets-${EAvailableAssetsTypeEnum.SimpleEarn}`],
-  );
+  // A list that has not been asked for yet counts as loading, so nothing
+  // reads it as empty
+  const isAssetsLoading =
+    Boolean(
+      loadingStates[`availableAssets-${EAvailableAssetsTypeEnum.SimpleEarn}`],
+    ) || !availableAssetsByType[EAvailableAssetsTypeEnum.SimpleEarn];
+  const isFixedRateLoading =
+    Boolean(
+      loadingStates[`availableAssets-${EAvailableAssetsTypeEnum.FixedRate}`],
+    ) || !availableAssetsByType[EAvailableAssetsTypeEnum.FixedRate];
 
   const [tab, setTab] = useState<IHomeTab>('earn');
   const [heroHeight, setHeroHeight] = useState<number>();
   const [focusRequest, setFocusRequest] = useState<IEarnDesktopFocusRequest>();
+  // Consumed once, so the Earn tab coming back does not replay it
+  const handleFocusRequestHandled = useCallback(
+    () => setFocusRequest(undefined),
+    [],
+  );
 
   const scrollToBrowse = useCallback(() => {
     // This layout only renders on web and desktop, where the page's scroll
@@ -251,7 +316,10 @@ export function EarnDesktopHome({
         (banner) =>
           Boolean(banner.bannerId) && Boolean(banner.backgroundImage?.trim()),
       ));
-  const bannerCardHeight = heroHeight ?? BANNER_CARD_HEIGHT;
+  const bannerCardHeight = Math.max(
+    heroHeight ?? BANNER_CARD_HEIGHT,
+    BANNER_MIN_HEIGHT,
+  );
   const pendingTxsValue = useMemo(() => ({ onRefresh: refresh }), [refresh]);
 
   return (
@@ -266,9 +334,12 @@ export function EarnDesktopHome({
           <XStack gap="$5" ai="flex-start">
             <EarnDesktopHero
               totalFiatValue={totalFiatValue}
-              earnings24h={displayEarnings24h ?? '0'}
+              earnings24h={earnings24h}
               borrowInterest24h={borrowInterest24h}
               shares={shares}
+              isLoading={isHeroLoading}
+              hasPositions={hasPositions}
+              isActive={isActive}
               onOpenPortfolio={onOpenPortfolio}
               onOpenTokens={handleOpenTokens}
               onOpenLoans={onOpenLoans}
@@ -297,14 +368,15 @@ export function EarnDesktopHome({
           </XStack>
           <EarnDesktopTiles
             investments={investments}
-            isPortfolioLoading={Boolean(isPortfolioLoading)}
             loans={accountMarkets.loans}
-            isLoansLoading={accountMarkets.isLoading}
             walletTokens={wallet.tokens}
-            isWalletLoading={wallet.isLoading}
+            isLoading={isTilesLoading}
             markets={markets}
+            isMarketsLoaded={isMarketsLoaded}
             trendingAssets={trendingAssets}
             fixedRateAssets={fixedRateAssets}
+            isTrendingLoading={isAssetsLoading}
+            isFixedRateLoading={isFixedRateLoading}
             onOpenPortfolio={onOpenPortfolio}
             onOpenBorrow={handleOpenBorrow}
             onOpenTokens={handleOpenTokens}
@@ -318,20 +390,23 @@ export function EarnDesktopHome({
               trendingAssets={trendingAssets}
               fixedRateAssets={fixedRateAssets}
               isAssetsLoading={isAssetsLoading}
-              investments={investments}
+              deposits={portfolioDeposits}
               lendingOffers={lendingOffers}
               walletTokens={wallet.tokens}
               focusRequest={focusRequest}
+              onFocusRequestHandled={handleFocusRequestHandled}
             />
           ) : (
             <EarnDesktopBorrowTab
               markets={markets}
-              isLoading={isMarketsLoading}
+              isLoaded={isMarketsLoaded}
               onOpenMarket={handleOpenBorrow}
             />
           )}
         </YStack>
-        {faqList.length || isFaqLoading ? (
+        {/* The questions are about Earn; Borrow's are per reserve and live on
+            its pages */}
+        {tab === 'earn' && (faqList.length || isFaqLoading) ? (
           <YStack gap="$3" mt="$10">
             <SizableText size="$headingXl">
               {intl.formatMessage({ id: ETranslations.global_faqs })}

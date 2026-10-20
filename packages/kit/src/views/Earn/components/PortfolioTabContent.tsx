@@ -155,6 +155,7 @@ const WrappedActionButtonCmp = ({
   claimSourceIdentity,
   rewardSymbol,
   buttonProps,
+  isAlwaysButton,
   onBeforeAction,
 }: {
   asset:
@@ -163,11 +164,10 @@ const WrappedActionButtonCmp = ({
   reward: IWrappedActionReward;
   claimSourceIdentity?: IPortfolioClaimProtocolIdentity | null;
   rewardSymbol?: string;
-  /**
-   * phone positions page: its cards want a medium, full-width button. The
-   * desktop home's tiles pass it too, to get a button instead of a link.
-   */
+  /** phone positions page: its cards want a medium, full-width button */
   buttonProps?: Partial<React.ComponentProps<typeof Button>>;
+  /** desktop home tiles: a button, not the desktop layout's link */
+  isAlwaysButton?: boolean;
   /** phone positions page: the claim sheet closes itself as a claim starts */
   onBeforeAction?: () => void;
 }) => {
@@ -316,7 +316,7 @@ const WrappedActionButtonCmp = ({
   if (!buttonText) {
     return null;
   }
-  if (!isDesktopLayout || buttonProps) {
+  if (!isDesktopLayout || isAlwaysButton) {
     return (
       <Button
         testID="earn-button-text-btn"

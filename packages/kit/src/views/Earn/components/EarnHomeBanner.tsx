@@ -30,6 +30,8 @@ import {
 } from '../../../routes/config/deeplink';
 import { EarnTestIDs } from '../testIDs';
 
+import { buildKeyboardPressProps } from './desktopHome/earnDesktopPressable';
+
 const BANNER_HEIGHT = 200;
 // Card 200 + 8 gap + 6 dot + 16 to the next section. Kept fixed so a cold
 // start reserves the final height (OK-60299) and the header gesture wrapper
@@ -302,6 +304,9 @@ function EarnHomeBannerItem({
             cursor: 'pointer' as const,
             pressStyle: { scale: 0.98 },
             onPress: handlePress,
+            // Web only: a tab stop and Enter or Space, which a bare click
+            // handler lacks. The Join pill does the same, so it takes none
+            ...buildKeyboardPressProps(() => void handlePress(), 2),
           }
         : undefined)}
     >

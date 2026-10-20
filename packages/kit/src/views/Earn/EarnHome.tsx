@@ -409,6 +409,16 @@ function BasicEarnHome({
     );
   }, [actions]);
 
+  // The desktop home's lending supply and loans, which the portfolio refresh
+  // below does not cover
+  const desktopRefreshHandlerRef = useRef<(() => Promise<void>) | null>(null);
+  const handleRegisterDesktopRefresh = useCallback(
+    (handler: (() => Promise<void>) | null) => {
+      desktopRefreshHandlerRef.current = handler;
+    },
+    [],
+  );
+
   const refreshEarnData = useCallback(
     async ({ silent }: { silent?: boolean } = {}) => {
       if (!silent) {
@@ -421,6 +431,7 @@ function BasicEarnHome({
           prefetchEarnAvailableAssets(),
           refetchFAQ(),
           refetchEarnPageBannerList(),
+          desktopRefreshHandlerRef.current?.(),
         ]);
         actions.current.triggerRefresh();
         await refreshEarnDataRaw();
@@ -811,6 +822,9 @@ function BasicEarnHome({
             onOpenPortfolio={handleOpenPortfolio}
             onOpenLoans={handleOpenBorrowHome}
             onOpenProtocols={handleOpenAllProtocols}
+            onRegisterRefresh={handleRegisterDesktopRefresh}
+            onRegisterBorrowRefresh={handleRegisterBorrowRefresh}
+            onBorrowNetworksChange={handleBorrowNetworksChange}
           />
         </EarnPageContainer>
       </LazyPageContainer>
