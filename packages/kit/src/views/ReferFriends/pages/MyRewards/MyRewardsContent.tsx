@@ -69,6 +69,9 @@ type IRewardModule = keyof IInviteeRewardsOverview;
 const MY_REWARDS_COPY = {
   addressScope: 'Rebates are counted per address',
   payoutTitle: 'Payout',
+  paidTo: 'Paid to',
+  addressRule: 'Rebates are counted and paid per address.',
+  earnSchedule: 'DeFi rebates are paid by the 10th of the next month.',
   payoutGeneric: 'Rebates are paid to this address',
   payoutIn: (token: string, network?: string) =>
     network
@@ -289,21 +292,44 @@ function getPayoutToken(
   };
 }
 
-// Where the rewards land, behind an info icon beside the account: secondary
-// to the figures, so it does not take a line of its own.
+function PayoutTokenLogo({
+  payout,
+  size,
+}: {
+  payout?: IPayoutToken;
+  size: '$4' | '$5';
+}) {
+  if (!payout?.logoURI) {
+    return null;
+  }
+  return (
+    <Image
+      w={size}
+      h={size}
+      borderRadius="$full"
+      flexShrink={0}
+      source={{ uri: payout.logoURI }}
+    />
+  );
+}
+
+// The rules behind the payout, behind an info icon. With `withDestination`
+// (compact layouts, where the row has no room) it also says where the
+// rebates land; pointer layouts show that on the account row instead.
 function PayoutInfo({
   payout,
   address,
+  withDestination,
 }: {
   payout?: IPayoutToken;
   address?: string;
+  withDestination: boolean;
 }) {
-  const intl = useIntl();
   return (
     <Popover
       title={MY_REWARDS_COPY.payoutTitle}
       hoverable
-      placement="bottom-start"
+      placement="bottom-end"
       floatingPanelProps={INVITE_POPOVER_PANEL_PROPS}
       renderTrigger={
         <IconButton
@@ -316,42 +342,70 @@ function PayoutInfo({
       }
       renderContent={
         <YStack p="$4" gap="$3">
-          <XStack ai="center" gap="$2">
-            {payout?.logoURI ? (
-              <Image
-                w="$5"
-                h="$5"
-                borderRadius="$full"
-                flexShrink={0}
-                source={{ uri: payout.logoURI }}
-              />
-            ) : null}
-            <SizableText size="$bodyMdMedium" flexShrink={1}>
-              {payout
-                ? MY_REWARDS_COPY.payoutIn(payout.symbol, payout.networkName)
-                : MY_REWARDS_COPY.payoutGeneric}
-            </SizableText>
-          </XStack>
-          {/* The account switch already says whose rebates these are; the
-              address itself only matters here, as where they land. */}
-          <XStack>
-            <RewardsAddressValue
-              address={address}
-              unsupported={false}
-              compact={false}
-            />
-          </XStack>
+          {withDestination ? (
+            <YStack gap="$1.5">
+              <XStack ai="center" gap="$2">
+                <PayoutTokenLogo payout={payout} size="$5" />
+                <SizableText size="$bodyMdMedium" flexShrink={1}>
+                  {payout
+                    ? MY_REWARDS_COPY.payoutIn(
+                        payout.symbol,
+                        payout.networkName,
+                      )
+                    : MY_REWARDS_COPY.payoutGeneric}
+                </SizableText>
+              </XStack>
+              <XStack>
+                <RewardsAddressValue
+                  address={address}
+                  unsupported={false}
+                  compact={false}
+                />
+              </XStack>
+            </YStack>
+          ) : null}
           <SizableText size="$bodyMd" color="$textSubdued">
-            {MY_REWARDS_COPY.addressScope}
+            {MY_REWARDS_COPY.addressRule}
           </SizableText>
           <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.earn_reward_distribution_schedule,
-            })}
+            {MY_REWARDS_COPY.earnSchedule}
           </SizableText>
         </YStack>
       }
     />
+  );
+}
+
+// Pointer layouts: where the rebates land, on the right of the account row
+// — the token and network, then the address to copy.
+function PayoutDestination({
+  payout,
+  address,
+}: {
+  payout?: IPayoutToken;
+  address?: string;
+}) {
+  return (
+    <XStack testID="my-rewards-payout-destination" ai="center" gap="$2">
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {MY_REWARDS_COPY.paidTo}
+      </SizableText>
+      {payout ? (
+        <XStack ai="center" gap="$1.5">
+          <PayoutTokenLogo payout={payout} size="$4" />
+          <SizableText size="$bodyMdMedium" numberOfLines={1}>
+            {payout.networkName
+              ? `${payout.symbol} · ${payout.networkName}`
+              : payout.symbol}
+          </SizableText>
+        </XStack>
+      ) : null}
+      <RewardsAddressValue
+        address={address}
+        unsupported={false}
+        compact={false}
+      />
+    </XStack>
   );
 }
 
@@ -455,23 +509,45 @@ function RewardsAddressCard({
   address,
   unsupported,
   payout,
+  showDestination = false,
 }: {
   address?: string;
   unsupported: boolean;
   payout?: IPayoutToken;
+  // Pointer layouts have room to show where rebates land on the row.
+  showDestination?: boolean;
 }) {
+  const renderTrailing = () => {
+    if (unsupported) {
+      return <SubduedNote>{MY_REWARDS_COPY.noEvmAddress}</SubduedNote>;
+    }
+    if (showDestination) {
+      return (
+        <XStack ai="center" gap="$1" flexShrink={0}>
+          <PayoutDestination payout={payout} address={address} />
+          <PayoutInfo
+            payout={payout}
+            address={address}
+            withDestination={false}
+          />
+        </XStack>
+      );
+    }
+    return <PayoutInfo payout={payout} address={address} withDestination />;
+  };
   return (
     <YStack testID="my-rewards-address-card">
-      <XStack ai="center" gap="$2" minWidth={0}>
-        {/* A long account name truncates first, so the icon stays. */}
+      <XStack
+        ai="center"
+        jc={showDestination ? 'space-between' : undefined}
+        gap="$2"
+        minWidth={0}
+      >
+        {/* A long account name truncates first, so the payout stays. */}
         <Stack flexShrink={1} minWidth={0}>
           <AccountSelectorTriggerHome num={0} hideAddress />
         </Stack>
-        {unsupported ? (
-          <SubduedNote>{MY_REWARDS_COPY.noEvmAddress}</SubduedNote>
-        ) : (
-          <PayoutInfo payout={payout} address={address} />
-        )}
+        {renderTrailing()}
       </XStack>
     </YStack>
   );
@@ -544,6 +620,7 @@ function PerksSummaryCard({
         address={address}
         unsupported={unsupported}
         payout={payout}
+        showDestination
       />
       {/* Equal columns across the card, so the figures fill its width
           instead of bunching at the left. */}
