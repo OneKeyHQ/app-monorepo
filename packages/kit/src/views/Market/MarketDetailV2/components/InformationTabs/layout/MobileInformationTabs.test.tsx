@@ -1,4 +1,5 @@
 /** @jest-environment jsdom */
+// cspell:ignore Financials
 
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
@@ -38,7 +39,9 @@ jest.mock('@onekeyhq/components', () => {
           </div>
         );
       },
-      Tab: Box,
+      Tab: ({ name, children }: { name?: string; children?: ReactNode }) => (
+        <div data-testid={`information-tab-${name ?? ''}`}>{children}</div>
+      ),
       ScrollView: Box,
       TabBar: () => <div data-testid="information-tab-bar" />,
     },
@@ -54,6 +57,12 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useTabContainerWidth', () => ({
   useTabContainerWidth: () => 390,
+}));
+jest.mock('../../../hooks/useMarketDetailPositionTab', () => ({
+  useMarketDetailPositionTab: () => ({
+    preferPosition: false,
+    recordTabChange: jest.fn(),
+  }),
 }));
 jest.mock('../../../hooks/useTokenDetail', () => ({
   useTokenDetail: () => ({ networkId: 'evm--1', isNative: true }),
@@ -73,6 +82,15 @@ jest.mock('../components/TransactionsHistory', () => ({
   TransactionsHistory: () => null,
 }));
 jest.mock('./StickyHeader', () => ({ StickyHeader: () => null }));
+jest.mock('../../../hooks/StockDetailContext', () => ({
+  useStockDetail: () => ({ stockId: undefined }),
+}));
+jest.mock('./MobileDetailOverviewPanels', () => ({
+  MobileStockFinancialsPanel: () => null,
+  MobileStockOverviewPanel: () => null,
+  MobileTopCoinsOverviewPanel: () => null,
+  MobileTrendingOverviewPanel: () => null,
+}));
 
 function Chart() {
   useEffect(() => {
@@ -120,5 +138,8 @@ describe('MobileInformationTabs chart fullscreen', () => {
     expect((chart as HTMLInputElement).value).toBe('historical candles');
     expect(mockChartMount).toHaveBeenCalledTimes(1);
     expect(mockChartUnmount).not.toHaveBeenCalled();
+    expect(
+      screen.getByTestId('information-tab-dexmarket.details_myposition'),
+    ).toBeTruthy();
   });
 });

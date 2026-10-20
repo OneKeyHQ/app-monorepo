@@ -1,21 +1,34 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useIntl } from 'react-intl';
+import { useNavigation } from '@react-navigation/core';
 
-import { Toast } from '@onekeyhq/components';
+import { rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type { IPrimeAddressRiskCheckEntryPoint } from '@onekeyhq/shared/src/logger/scopes/prime/types';
-import { EModalAddressRiskCheckRoutes } from '@onekeyhq/shared/src/routes/addressRiskCheck';
+import type {
+  IPrimeAddressRiskCheckEntryPoint,
+  IPrimeEntitlementSource,
+} from '@onekeyhq/shared/src/logger/scopes/prime/types';
+import {
+  EModalAddressRiskCheckRoutes,
+  type IModalAddressRiskCheckParamList,
+} from '@onekeyhq/shared/src/routes/addressRiskCheck';
+import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
+import { getPrimeFreeTrialError } from '@onekeyhq/shared/src/utils/primeFreeTrialUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IAddressRiskCheckResult } from '@onekeyhq/shared/types/addressRiskCheck';
+
+import { usePrimeFeatureAccess } from '../../Prime/hooks/usePrimeFeatureAccess';
+import { getPrimeEntitlementSource } from '../../Prime/utils/primeFreeTrialAccess';
 
 type IAddressRiskCheckRequest = {
   networkId: string;
   address: string;
   entryPoint: IPrimeAddressRiskCheckEntryPoint;
+  // Analytics only
+  entitlementSource?: IPrimeEntitlementSource;
 };
 
 const addressRiskCheckRequests = new Map<
@@ -27,6 +40,7 @@ export function executeAddressRiskCheck({
   networkId,
   address,
   entryPoint,
+  entitlementSource,
 }: IAddressRiskCheckRequest): Promise<IAddressRiskCheckResult> {
   const requestKey = `${entryPoint}\n${networkId}\n${address}`;
   const pendingRequest = addressRiskCheckRequests.get(requestKey);
@@ -46,6 +60,8 @@ export function executeAddressRiskCheck({
       riskLevel: result.level,
       riskFactorsCount: result.reasons.length,
       cached: result.cached,
+      featureName: EPrimeFeatures.AddressRiskCheck,
+      entitlementSource,
     });
     // Best-effort local history write must never hide or delay a successful
     // risk result.
@@ -55,6 +71,7 @@ export function executeAddressRiskCheck({
         address: result.address,
         level: result.level,
         checkedAt: result.checkedAt,
+        result,
       })
       .catch(() => {
         // ignore local persistence failures
@@ -72,25 +89,68 @@ export function executeAddressRiskCheck({
   return request;
 }
 
-// Shared entry for running a check: calls the server, records the success into
-// local "Recent checks" (failures are never recorded), and navigates to the
-// result page. Used by the standalone input and history entry points.
-export function useCheckAddressRisk() {
-  const intl = useIntl();
-  const navigation = useAppNavigation();
-  const isRouteFocused = useRouteIsFocused();
-  const isRouteFocusedRef = useRef(isRouteFocused);
-  const isMountedRef = useRef(true);
-  const isCheckingRef = useRef(false);
-  const [isChecking, setIsChecking] = useState(false);
-  isRouteFocusedRef.current = isRouteFocused;
+async function getHistoryResult({
+  networkId,
+  address,
+}: {
+  networkId: string;
+  address: string;
+}): Promise<IAddressRiskCheckResult | undefined> {
+  try {
+    const item = await backgroundApiProxy.simpleDb.addressRiskCheck.getCheck({
+      networkId,
+      address,
+    });
+    return item?.result;
+  } catch {
+    return undefined;
+  }
+}
 
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
+// Runs a check; when the free trial rejects it (exhausted / not open), an
+// address in the local history falls back to the result of its last check.
+// The Send page check never does: its result gates a transfer.
+export async function executeAddressRiskCheckWithHistory(
+  request: IAddressRiskCheckRequest,
+): Promise<{ result: IAddressRiskCheckResult; isHistoryResult: boolean }> {
+  try {
+    return {
+      result: await executeAddressRiskCheck(request),
+      isHistoryResult: false,
     };
-  }, []);
+  } catch (error) {
+    if (
+      request.entryPoint !== 'sendAddressInput' &&
+      getPrimeFreeTrialError(error)
+    ) {
+      const historyResult = await getHistoryResult(request);
+      if (historyResult) {
+        return { result: historyResult, isHistoryResult: true };
+      }
+    }
+    throw error;
+  }
+}
+
+type IAddressRiskCheckResultRequest =
+  IModalAddressRiskCheckParamList[EModalAddressRiskCheckRoutes.AddressRiskCheckResult]['checkRequest'];
+
+// A double tap must not push the result page twice.
+const OPEN_RESULT_GUARD_MS = 1000;
+
+// Entry for running a check from the standalone input and history pages: opens
+// the result page right away, which shows the loading and runs the check. A
+// manually entered address of a free user whose local snapshot is used up or
+// not open gets the feedback on the press instead, unless it has a history
+// result to show. Addresses picked from the history or recent list always
+// have one.
+export function useCheckAddressRisk() {
+  const navigation = useAppNavigation();
+  // The input or history page the press came from.
+  const reactNavigation = useNavigation();
+  const { getCachedAccess, showActiveRejectedFeedback } =
+    usePrimeFeatureAccess();
+  const lastOpenedAtRef = useRef(0);
 
   const checkRisk = useCallback(
     async ({
@@ -101,51 +161,112 @@ export function useCheckAddressRisk() {
       networkId: string;
       address: string;
       entryPoint: Exclude<IPrimeAddressRiskCheckEntryPoint, 'sendAddressInput'>;
-    }): Promise<IAddressRiskCheckResult | undefined> => {
-      if (isCheckingRef.current) {
-        return undefined;
+    }) => {
+      const now = Date.now();
+      if (now - lastOpenedAtRef.current < OPEN_RESULT_GUARD_MS) {
+        return;
       }
-      isCheckingRef.current = true;
-      setIsChecking(true);
-      const shouldPresentFeedback = () =>
-        isMountedRef.current && isRouteFocusedRef.current;
-      try {
-        const result = await executeAddressRiskCheck({
-          networkId,
-          address,
-          entryPoint,
-        });
-        if (!shouldPresentFeedback()) {
-          return result;
+      lastOpenedAtRef.current = now;
+      const access = getCachedAccess(EPrimeFeatures.AddressRiskCheck);
+      if (
+        entryPoint === 'inputManual' &&
+        (access.status === 'exhausted' || access.status === 'notOpen')
+      ) {
+        const historyResult = await getHistoryResult({ networkId, address });
+        // The user may have left the page during the lookup.
+        if (!reactNavigation.isFocused()) {
+          return;
         }
-        navigation.push(EModalAddressRiskCheckRoutes.AddressRiskCheckResult, {
-          result,
-          showMoreAnalysis: true,
-        });
-        return result;
-      } catch {
-        // Network / rate-limit / server errors. Invalid-address is handled
-        // inline on the input form before this call.
-        if (shouldPresentFeedback()) {
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.address_risk_check_level_failed__title,
-            }),
-            message: intl.formatMessage({
-              id: ETranslations.address_risk_check_level_failed__desc,
-            }),
+        if (!historyResult) {
+          showActiveRejectedFeedback({
+            featureId: EPrimeFeatures.AddressRiskCheck,
+            reason: access.status,
+            resetAt: access.status === 'exhausted' ? access.resetAt : undefined,
+            networkId,
           });
+          return;
         }
-        return undefined;
-      } finally {
-        if (isMountedRef.current) {
-          setIsChecking(false);
-        }
-        isCheckingRef.current = false;
       }
+      navigation.push(EModalAddressRiskCheckRoutes.AddressRiskCheckResult, {
+        checkRequest: { networkId, address, entryPoint },
+        showMoreAnalysis: true,
+      });
     },
-    [intl, navigation],
+    [getCachedAccess, navigation, reactNavigation, showActiveRejectedFeedback],
   );
 
-  return { isChecking, checkRisk };
+  return { checkRisk };
+}
+
+// Runs the check of the result page. A success is recorded into local "Recent
+// checks" (failures are never recorded); a free-trial rejection without a
+// history result leaves the page and shows the unified feedback; other
+// failures show the failed state on the page.
+export function useAddressRiskCheckRequest(
+  checkRequest: IAddressRiskCheckResultRequest,
+) {
+  const [result, setResult] = useState<IAddressRiskCheckResult>();
+  const [isHistoryResult, setIsHistoryResult] = useState(false);
+  const [isFailed, setIsFailed] = useState(false);
+  const navigation = useAppNavigation();
+  const reactNavigation = useNavigation();
+  const { handleFreeTrialError } = usePrimeFeatureAccess();
+  const [primeUser] = usePrimePersistAtom();
+  const entitlementSource = getPrimeEntitlementSource(primeUser);
+  const { networkId, address, entryPoint } = checkRequest;
+
+  useEffect(() => {
+    let isActive = true;
+    setIsFailed(false);
+    void executeAddressRiskCheckWithHistory({
+      networkId,
+      address,
+      entryPoint,
+      entitlementSource,
+    }).then(
+      (outcome) => {
+        if (isActive) {
+          setResult(outcome.result);
+          setIsHistoryResult(outcome.isHistoryResult);
+        }
+      },
+      async (error: unknown) => {
+        if (!isActive) {
+          return;
+        }
+        // Only a page still on top handles a free-trial rejection; one the
+        // user already left keeps the failed state.
+        if (!getPrimeFreeTrialError(error) || !reactNavigation.isFocused()) {
+          setIsFailed(true);
+          return;
+        }
+        // Leave this page first so Prime does not close back onto a dead
+        // end: the Send page check closes its whole modal, a check inside
+        // the feature goes back to the input / history page. The dashboard
+        // waits for the close animation, and opens only if the user is still
+        // on the page this landed on.
+        if (entryPoint === 'sendAddressInput') {
+          navigation.popStack();
+        } else {
+          navigation.pop();
+        }
+        const landedRouteKey =
+          rootNavigationRef.current?.getCurrentRoute()?.key;
+        await timerUtils.wait(300);
+        if (
+          rootNavigationRef.current?.getCurrentRoute()?.key !== landedRouteKey
+        ) {
+          return;
+        }
+        handleFreeTrialError({ error, networkId, afterPageExit: true });
+      },
+    );
+    return () => {
+      isActive = false;
+    };
+    // Runs once per request; navigation / feedback helpers may change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address, entryPoint, networkId]);
+
+  return { result, isHistoryResult, isFailed };
 }

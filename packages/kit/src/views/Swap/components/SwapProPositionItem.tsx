@@ -25,6 +25,7 @@ interface ISwapProPositionItemProps {
   disabled?: boolean;
   props?: IStackProps;
   pnl?: IMarketAccountPortfolioPnl;
+  stockLayout?: boolean;
 }
 
 const SwapProPositionItem = ({
@@ -33,6 +34,7 @@ const SwapProPositionItem = ({
   disabled,
   props,
   pnl,
+  stockLayout = false,
 }: ISwapProPositionItemProps) => {
   const currencyInfo = useCurrency();
 
@@ -75,9 +77,10 @@ const SwapProPositionItem = ({
     <Stack
       flexDirection="row"
       alignItems="center"
-      minHeight="$11"
+      minHeight={stockLayout ? 56 : '$11'}
+      h={stockLayout ? 56 : undefined}
       gap="$3"
-      py="$2"
+      py={stockLayout ? '$0' : '$2'}
       px="$2"
       mx="$-2"
       borderRadius="$3"
@@ -88,16 +91,28 @@ const SwapProPositionItem = ({
       {...(!disabled && listItemPressStyle)}
       {...props}
     >
-      <XStack alignItems="center" gap="$2" flexGrow={1} flexBasis={0}>
+      <XStack
+        alignItems="center"
+        gap={stockLayout ? '$3' : '$2'}
+        flexGrow={1}
+        flexBasis={0}
+        alignSelf={stockLayout ? 'stretch' : undefined}
+      >
         <Token
           size="md"
           tokenImageUri={token.logoURI}
           networkImageUri={tokenNetworkImageUri}
         />
-        <YStack>
+        <YStack
+          pt={stockLayout ? '$2' : undefined}
+          gap={stockLayout ? 1 : undefined}
+          alignSelf={stockLayout ? 'stretch' : undefined}
+        >
           <XStack alignItems="center" gap="$0.5">
             <SizableText size="$bodyLgMedium">{token.symbol}</SizableText>
-            <Icon name="ChevronRightSmallOutline" size="$5" />
+            {stockLayout ? null : (
+              <Icon name="ChevronRightSmallOutline" size="$5" />
+            )}
           </XStack>
           <NumberSizeableText
             size="$bodyMd"
@@ -110,7 +125,13 @@ const SwapProPositionItem = ({
         </YStack>
       </XStack>
 
-      <YStack alignItems="flex-end" flexShrink={0}>
+      <YStack
+        alignItems="flex-end"
+        flexShrink={0}
+        pt={stockLayout ? '$2' : undefined}
+        gap={stockLayout ? '$1' : undefined}
+        alignSelf={stockLayout ? 'stretch' : undefined}
+      >
         <NumberSizeableText
           size="$bodyLgMedium"
           formatter="value"
@@ -119,7 +140,18 @@ const SwapProPositionItem = ({
         >
           {token.fiatValue}
         </NumberSizeableText>
-        {pnlDisplay ? (
+        {stockLayout && pnlDisplay ? (
+          <NumberSizeableText
+            size="$bodySm"
+            color={pnlDisplay.color}
+            formatter="priceChange"
+            formatterOptions={{ showPlusMinusSigns: true }}
+            numberOfLines={1}
+          >
+            {pnlDisplay.percent}
+          </NumberSizeableText>
+        ) : null}
+        {!stockLayout && pnlDisplay ? (
           <XStack alignItems="center" justifyContent="flex-end" gap="$0.5">
             <XStack alignItems="center" gap="$0">
               {pnlDisplay.prefix ? (

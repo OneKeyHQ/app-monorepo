@@ -316,12 +316,22 @@ function TokenDetailsOverview(props: IProps) {
             isAllNetworks &&
             !accountUtils.isOthersWallet({ walletId });
 
+          // The overview only holds the owned members; the QR page fills the
+          // global members (create-address rows) from the synced config.
           navigation.push(EModalReceiveRoutes.ReceiveToken, {
             networkId: token.networkId ?? '',
             accountId: useDeriveSelector ? '' : (token.accountId ?? ''),
             walletId,
             token,
             indexedAccountId,
+            // The switch exists only under All Networks (the overview tab
+            // itself only renders there).
+            switchEntry: isAllNetworks ? 'token' : undefined,
+            allowAddressTypeMenu: true,
+            source: 'tokenDetails',
+            isAllNetworksMode: isAllNetworks,
+            aggregateToken: tokenInfo,
+            aggregateSubTokenList: tokens,
           });
         },
       },
@@ -377,7 +387,7 @@ function TokenDetailsOverview(props: IProps) {
         networkId: member.networkId,
       }),
     ]);
-    await pushSwapFromTokenDetails({
+    pushSwapFromTokenDetails({
       navigation,
       token: {
         address: member.address,

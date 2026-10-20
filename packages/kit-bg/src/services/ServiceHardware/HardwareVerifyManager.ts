@@ -22,6 +22,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 import type {
@@ -76,13 +77,15 @@ type IHardwareVerifyV2Data = {
 
 function getFirmwareVerifyPayload({
   instanceId,
+  timestamp,
 }: {
   instanceId: string;
+  timestamp: number;
 }): FirmwareVerifyPayload {
   // Same challenge as Pro/Classic: wallet splits `data` on '_' and requires
   // a UUID v4 instanceId. Device gets the UTF-8 bytes; Pro2/Neo firmware
   // must accept this variable-length message the same way Pro does.
-  const data = `${instanceId}_${Date.now()}_${stringUtils.randomString(12)}`;
+  const data = `${instanceId}_${timestamp}_${stringUtils.randomString(12)}`;
   return {
     data,
     dataHex: bufferUtils.textToHex(data, 'utf-8'),
@@ -216,7 +219,6 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     unlockBeforeVerify?: boolean;
   }): Promise<IFirmwareVerifyResult['payload']> {
     const { instanceId } = await settingsPersistAtom.get();
-    const { data, dataHex } = getFirmwareVerifyPayload({ instanceId });
     if (
       unlockBeforeVerify &&
       (deviceType === EDeviceType.Pro2 || deviceType === EDeviceType.Neo)
@@ -226,7 +228,14 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
         params: { scope: 'runtime' },
         hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       });
-      if (state.status.unlocked === false) {
+      // An uninitialized device (fresh or just wiped) has no PIN to unlock: the
+      // firmware refuses DeviceSessionAskPin while onboarding and hd-core itself
+      // skips its pre-unlock for it, so go straight to the attestation call.
+      // Mirrors the SDK guard (`initialized !== false`).
+      if (
+        state.status.initialized !== false &&
+        state.status.unlocked === false
+      ) {
         await this.serviceHardware.getDeviceStateWithUnlock({
           connectId,
           params: { scope: 'runtime' },
@@ -239,6 +248,22 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     if (oneKeyOperationLease?.signal?.aborted) {
       throw new UserCancelFromOutside();
     }
+    const serverTime = await systemTimeUtils
+      .getHardwareVerificationTime()
+      .catch(() => undefined);
+    if (oneKeyOperationLease?.signal?.aborted) {
+      throw new UserCancelFromOutside();
+    }
+    if (serverTime === undefined) {
+      defaultLogger.hardware.sdkLog.log(
+        'Hardware verification server time unavailable; using local time',
+      );
+    }
+    const { data, dataHex } = getFirmwareVerifyPayload({
+      instanceId,
+      // The server still enforces expiry when local time is used as a fallback.
+      timestamp: serverTime ?? Date.now(),
+    });
     const { cert, signature } = await this.getDeviceCertWithSig({
       connectId,
       dataHex,

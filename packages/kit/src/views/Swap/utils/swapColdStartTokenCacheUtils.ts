@@ -1,4 +1,6 @@
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   buildSwapSelectedTokensColdStartAccountKey,
   buildSwapSelectedTokensColdStartContext,
@@ -6,6 +8,7 @@ import {
   isSwapSelectedTokensColdStartContextMatched,
 } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import type { ISwapSelectedTokensColdStartContext } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
+import { getSwapNetworkDefaultTokenPair } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
@@ -18,7 +21,10 @@ import type {
   ISwapNetwork,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
-import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapSource,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 export {
   buildSwapSelectedTokensColdStartAccountKey,
@@ -29,6 +35,25 @@ export {
 
 export const SWAP_COLD_START_HOME_SCENE_NAME =
   'home' as EAccountSelectorSceneName;
+
+export type ISwapDefaultConfigStatus = 'pending' | 'success' | 'failed';
+
+export function shouldWaitForSwapDefaultConfig({
+  networkId,
+  swapType,
+  defaultConfigStatus = 'success',
+}: {
+  networkId?: string;
+  swapType?: ESwapTabSwitchType;
+  defaultConfigStatus?: ISwapDefaultConfigStatus;
+}) {
+  return Boolean(
+    defaultConfigStatus === 'pending' &&
+    networkId &&
+    !isSwapColdStartAllNetworkContextNetworkId(networkId) &&
+    (!swapType || swapType === ESwapTabSwitchType.SWAP),
+  );
+}
 
 export function resolveSwapTokenNetworkLogoURI({
   swapNetworks,
@@ -84,6 +109,33 @@ export function shouldPreserveSwapUserInputAmountOnAccountSwitch({
   return Boolean(
     !hasImportParams &&
     hasSwapUserInputAmount({
+      fromTokenAmount,
+      toTokenAmount,
+    }),
+  );
+}
+
+export function shouldDeferSwapAutomaticDefaultTokens({
+  cachedContext,
+  defaultConfigStatus,
+  fromTokenAmount,
+  swapType,
+  toTokenAmount,
+}: {
+  cachedContext?: ISwapSelectedTokensColdStartContext | null;
+  defaultConfigStatus: ISwapDefaultConfigStatus;
+  fromTokenAmount?: ISwapAmountInputState;
+  swapType?: ESwapTabSwitchType;
+  toTokenAmount?: ISwapAmountInputState;
+}) {
+  return Boolean(
+    cachedContext?.defaultTokenSeed &&
+    shouldWaitForSwapDefaultConfig({
+      defaultConfigStatus,
+      networkId: cachedContext.networkId,
+      swapType: cachedContext.swapType ?? swapType,
+    }) &&
+    !shouldPreserveSwapUserInputAmountOnAccountSwitch({
       fromTokenAmount,
       toTokenAmount,
     }),
@@ -288,14 +340,42 @@ export function shouldClearSwapSelectedTokensOnHomeAccountUpdate({
   );
 }
 
+export function shouldSyncSwapAutomaticDefaultNetwork({
+  cachedContext,
+  selectedAccount,
+  swapType,
+}: {
+  cachedContext?: ISwapSelectedTokensColdStartContext;
+  selectedAccount?: IAccountSelectorSelectedAccount;
+  swapType?: ESwapTabSwitchType;
+}) {
+  return Boolean(
+    cachedContext?.defaultTokenSeed &&
+    (swapType ?? cachedContext.swapType) === ESwapTabSwitchType.SWAP &&
+    cachedContext.networkId &&
+    selectedAccount?.networkId &&
+    cachedContext.networkId !== selectedAccount.networkId &&
+    !isSwapColdStartAllNetworkContextNetworkId(cachedContext.networkId) &&
+    !isSwapColdStartAllNetworkContextNetworkId(selectedAccount.networkId) &&
+    isSwapSelectedTokensColdStartOwnerMatchedWithSelectedAccountIgnoringDeriveType(
+      {
+        cachedContext,
+        selectedAccount,
+      },
+    ),
+  );
+}
+
 export function shouldHandleSwapColdStartHomeAccountUpdate({
   cachedContext,
+  swapType,
   eventPayload,
   hasSelectedTokens,
   initialSelectedTokensSynced,
   preserveSelectedTokens,
 }: {
   cachedContext?: ISwapSelectedTokensColdStartContext;
+  swapType?: ESwapTabSwitchType;
   eventPayload: {
     selectedAccount?: IAccountSelectorSelectedAccount;
     sceneName: EAccountSelectorSceneName;
@@ -307,6 +387,16 @@ export function shouldHandleSwapColdStartHomeAccountUpdate({
 }) {
   if (preserveSelectedTokens) {
     return false;
+  }
+
+  if (
+    shouldSyncSwapAutomaticDefaultNetwork({
+      cachedContext,
+      selectedAccount: eventPayload.selectedAccount,
+      swapType,
+    })
+  ) {
+    return true;
   }
 
   if (initialSelectedTokensSynced) {
@@ -438,37 +528,16 @@ export function getSwapDefaultToTokenForSwapType({
   return toToken ?? getBridgeDefaultToTokenForFromToken(fromToken);
 }
 
-export function getSwapNetworkDefaultTokenPair(network?: ISwapNetwork) {
-  const fromToken = network?.defaultSelectTokenDetail?.from;
-  const toToken = network?.defaultSelectTokenDetail?.to;
-  if (
-    !network ||
-    !fromToken ||
-    !toToken ||
-    fromToken.networkId !== network.networkId ||
-    toToken.networkId !== network.networkId ||
-    !fromToken.symbol ||
-    !toToken.symbol ||
-    typeof fromToken.contractAddress !== 'string' ||
-    typeof toToken.contractAddress !== 'string' ||
-    !Number.isFinite(fromToken.decimals) ||
-    !Number.isFinite(toToken.decimals) ||
-    equalTokenNoCaseSensitive({ token1: fromToken, token2: toToken })
-  ) {
-    return undefined;
-  }
-
-  return { fromToken, toToken };
-}
-
 export function buildSwapDefaultSelectedTokensForNetwork({
   networkId,
   swapType: preferredSwapType,
   swapNetworks = [],
+  defaultConfigStatus = 'success',
 }: {
   networkId?: string;
   swapType?: ESwapTabSwitchType;
   swapNetworks?: ISwapNetwork[];
+  defaultConfigStatus?: ISwapDefaultConfigStatus;
 }) {
   if (!networkId || preferredSwapType === ESwapTabSwitchType.STOCK) {
     return undefined;
@@ -476,9 +545,12 @@ export function buildSwapDefaultSelectedTokensForNetwork({
 
   const defaultTokens = swapDefaultSetTokens[networkId];
   const useLimitDefaults = preferredSwapType === ESwapTabSwitchType.LIMIT;
-  const backendDefaultTokens = getSwapNetworkDefaultTokenPair(
-    swapNetworks.find((network) => network.networkId === networkId),
-  );
+  const backendDefaultTokens =
+    defaultConfigStatus === 'failed'
+      ? undefined
+      : getSwapNetworkDefaultTokenPair(
+          swapNetworks.find((network) => network.networkId === networkId),
+        );
   const fromToken = useLimitDefaults
     ? defaultTokens?.limitFromToken
     : (backendDefaultTokens?.fromToken ?? defaultTokens?.fromToken);
@@ -563,11 +635,13 @@ export function buildSwapDefaultSelectedTokensFromHomeAccount({
   homeSelectedAccount,
   swapType: preferredSwapType,
   swapNetworks,
+  defaultConfigStatus = 'success',
   now = Date.now(),
 }: {
   homeSelectedAccount?: ISwapHomeSelectedAccountForDefaults;
   swapType?: ESwapTabSwitchType;
   swapNetworks?: ISwapNetwork[];
+  defaultConfigStatus?: ISwapDefaultConfigStatus;
   now?: number;
 }) {
   const accountKey =
@@ -586,6 +660,7 @@ export function buildSwapDefaultSelectedTokensFromHomeAccount({
     networkId: homeNetworkId,
     swapType: preferredSwapType,
     swapNetworks,
+    defaultConfigStatus,
   });
   if (!selectedTokens) {
     return undefined;
@@ -724,6 +799,10 @@ export function isSelectedAccountOwnerMatched(
   return Boolean(accountKeyA && accountKeyA === accountKeyB);
 }
 
+export function isSwapAccountSelectionSyncAccepted(outcome: string) {
+  return outcome === 'commit' || outcome === 'noop';
+}
+
 export function shouldSkipSwapDefaultSelectedTokenSync({
   hasImportParams,
   hasSelectedTokens,
@@ -769,6 +848,30 @@ export function buildSwapInitParamsConsumptionKey(params?: ISwapInitParams) {
     return undefined;
   }
 
+  const isAutomaticMarketPair =
+    params.swapSource === ESwapSource.MARKET &&
+    (!params.swapTabSwitchType ||
+      params.swapTabSwitchType === ESwapTabSwitchType.SWAP ||
+      params.swapTabSwitchType === ESwapTabSwitchType.BRIDGE);
+  const marketToken = isAutomaticMarketPair ? params.importToToken : undefined;
+  const fixedMarketToken =
+    isAutomaticMarketPair && params.marketSwapDirection === 'from'
+      ? params.importFromToken
+      : marketToken;
+  if (
+    params.marketSwapDirection &&
+    fixedMarketToken &&
+    !fixedMarketToken.isStock
+  ) {
+    // A default counterpart refresh is not a new Market navigation intent.
+    return [
+      params.fromAmount ?? '',
+      params.swapSource,
+      params.marketSwapDirection,
+      buildSwapInitTokenConsumptionKey(fixedMarketToken),
+    ].join('|');
+  }
+
   return [
     params.fromAmount ?? '',
     buildSwapInitTokenConsumptionKey(params.importFromToken),
@@ -776,6 +879,7 @@ export function buildSwapInitParamsConsumptionKey(params?: ISwapInitParams) {
     params.importNetworkId ?? '',
     params.swapTabSwitchType ?? '',
     params.swapSource ?? '',
+    params.marketSwapDirection ?? '',
   ].join('|');
 }
 
@@ -839,19 +943,23 @@ export function isSwapSelectedTokensColdStartContextValidForAccountNetworkSync({
 
 export function shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
   cachedContext,
+  swapType,
   eventPayload,
   hasSelectedTokens,
+  importNetworkId,
   initialSelectedTokensSynced,
   swapActiveNetworkId,
   swapSelectedAccount,
 }: {
   cachedContext?: ISwapSelectedTokensColdStartContext;
+  swapType?: ESwapTabSwitchType;
   eventPayload: {
     selectedAccount?: IAccountSelectorSelectedAccount;
     sceneName: EAccountSelectorSceneName;
     num: number;
   };
   hasSelectedTokens: boolean;
+  importNetworkId?: string;
   initialSelectedTokensSynced?: boolean;
   swapActiveNetworkId?: string;
   swapSelectedAccount?: IAccountSelectorSelectedAccount;
@@ -862,6 +970,32 @@ export function shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
 
   if (!eventPayload.selectedAccount?.networkId) {
     return false;
+  }
+
+  // An explicit asset entry already on its owner's member network must not
+  // replay Home's older All Networks selection and cancel token initialization.
+  if (
+    importNetworkId &&
+    swapSelectedAccount?.networkId === importNetworkId &&
+    networkUtils.isAllNetwork({
+      networkId: eventPayload.selectedAccount.networkId,
+    }) &&
+    isSelectedAccountOwnerMatchedIgnoringDeriveType(
+      eventPayload.selectedAccount,
+      swapSelectedAccount,
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    shouldSyncSwapAutomaticDefaultNetwork({
+      cachedContext,
+      selectedAccount: eventPayload.selectedAccount,
+      swapType,
+    })
+  ) {
+    return true;
   }
 
   if (hasSelectedTokens) {
@@ -927,4 +1061,58 @@ export function buildSwapSelectedAccountSyncedFromHome({
     deriveType:
       homeSelectedAccount.deriveType ?? swapSelectedAccount.deriveType,
   };
+}
+
+/**
+ * Prepares the swap selection a home change should commit, running the same
+ * others-wallet account/network pair fix as the Effects-path delivery of that
+ * change (`syncHomeAndSwapSelectedAccount`, previously the only fixing path).
+ * Both deliveries carry one event revision, so producing an equal value here
+ * lets the compare-if-newer gate settle the later write on noop instead of
+ * SkipEqualEventConflict pinning an unfixed pair.
+ */
+export async function prepareSwapSelectedAccountSyncedFromHome({
+  fixOthersWalletAccountNetworkPair,
+  homeSelectedAccount,
+  swapSelectedAccount,
+}: {
+  /**
+   * Bridge to `serviceAccountSelector.fixOthersWalletAccountNetworkPair`,
+   * injected so this module stays free of runtime background imports.
+   */
+  fixOthersWalletAccountNetworkPair: (params: {
+    selectedAccount: IAccountSelectorSelectedAccount;
+    source: string;
+  }) => Promise<IAccountSelectorSelectedAccount>;
+  homeSelectedAccount: IAccountSelectorSelectedAccount;
+  swapSelectedAccount: IAccountSelectorSelectedAccount;
+}): Promise<IAccountSelectorSelectedAccount> {
+  const candidate = buildSwapSelectedAccountSyncedFromHome({
+    homeSelectedAccount,
+    swapSelectedAccount,
+  });
+  const { walletId, networkId, othersWalletAccountId } = candidate;
+  if (
+    // Local mirror of fixOthersWalletAccountNetworkPair's own early exits:
+    // the dominant inputs (HD wallets, incomplete pairs, all-network) resolve
+    // to "no fix" here without paying the RPC round-trip.
+    !walletId ||
+    !networkId ||
+    !othersWalletAccountId ||
+    !accountUtils.isOthersWallet({ walletId }) ||
+    networkUtils.isAllNetwork({ networkId })
+  ) {
+    return candidate;
+  }
+  try {
+    return await fixOthersWalletAccountNetworkPair({
+      selectedAccount: candidate,
+      source: 'syncSwapSelectedAccountFromHome',
+    });
+  } catch {
+    // The fix already returns its input on internal lookup failures; this
+    // catch covers the RPC layer itself (background unreachable), keeping the
+    // sync non-blocking with the unfixed candidate.
+    return candidate;
+  }
 }

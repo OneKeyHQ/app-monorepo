@@ -2,8 +2,34 @@
 
 import { act, renderHook } from '@testing-library/react-native';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import {
+  ESwapProTradeType,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+
+import { ESwapDirection } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
+
+type ISwapProTestState = {
+  initializeSwapProSelectToken: jest.Mock;
+  resetQuoteAction: jest.Mock;
+  setInputAmount: jest.Mock;
+  selectedToken: ISwapToken;
+  buyToken?: ISwapToken;
+  sellToken?: ISwapToken;
+  inputAmount: string;
+  direction: ESwapDirection;
+  tradeType: ESwapProTradeType;
+  tab: ESwapTabSwitchType;
+  defaultTokens: ISwapToken[];
+};
+
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: { isNative: false },
+}));
 
 jest.mock('../../../background/instance/backgroundApiProxy', () => {
   const getGlobalDeriveTypeOfNetwork = jest.fn();
@@ -112,11 +138,17 @@ jest.mock('../../../states/jotai/contexts/accountSelector/actions', () => ({
 }));
 
 jest.mock('../../../states/jotai/contexts/swap', () => {
-  const state: {
-    initializeSwapProSelectToken: jest.Mock;
-    selectedToken: ISwapToken;
-  } = {
+  const state: ISwapProTestState = {
     initializeSwapProSelectToken: jest.fn(),
+    resetQuoteAction: jest.fn(),
+    setInputAmount: jest.fn((value: string) => {
+      state.inputAmount = value;
+    }),
+    inputAmount: '',
+    direction: 'sell' as ESwapDirection,
+    tradeType: 'market' as ESwapProTradeType,
+    tab: 'limit' as ESwapTabSwitchType,
+    defaultTokens: [],
     selectedToken: {
       accountAddress: undefined,
       balanceParsed: '1',
@@ -132,6 +164,12 @@ jest.mock('../../../states/jotai/contexts/swap', () => {
     }
   ).__swapProAtomState = state;
   const setter = jest.fn();
+  const setBuyToken = jest.fn((token?: ISwapToken) => {
+    state.buyToken = token;
+  });
+  const setSellToken = jest.fn((token?: ISwapToken) => {
+    state.sellToken = token;
+  });
   return {
     useSwapActions: () => ({
       current: {
@@ -140,19 +178,19 @@ jest.mock('../../../states/jotai/contexts/swap', () => {
         initializeSwapProSelectToken: state.initializeSwapProSelectToken,
         invalidateSwapProTokenBalanceRequest: jest.fn(),
         isSwapProTokenBalanceRequestLatest: jest.fn(() => true),
-        resetQuoteAction: jest.fn(),
+        resetQuoteAction: state.resetQuoteAction,
       },
     }),
     useSwapFromTokenAmountAtom: () => [{ value: '', isInput: true }, setter],
-    useSwapProDirectionAtom: () => ['sell'],
-    useSwapProInputAmountAtom: () => ['', setter],
+    useSwapProDirectionAtom: () => [state.direction],
+    useSwapProInputAmountAtom: () => [state.inputAmount, state.setInputAmount],
     useSwapProSelectTokenAtom: () => [state.selectedToken, setter],
-    useSwapProSellToTokenAtom: () => [undefined, setter],
+    useSwapProSellToTokenAtom: () => [state.sellToken, setSellToken],
     useSwapProTokenBalanceLoadingAtom: () => [false],
     useSwapProTokenSupportLimitAtom: () => [true],
-    useSwapProTradeTypeAtom: () => ['market', setter],
-    useSwapProUseSelectBuyTokenAtom: () => [undefined, setter],
-    useSwapTypeSwitchAtom: () => ['limit'],
+    useSwapProTradeTypeAtom: () => [state.tradeType, setter],
+    useSwapProUseSelectBuyTokenAtom: () => [state.buyToken, setBuyToken],
+    useSwapTypeSwitchAtom: () => [state.tab],
   };
 });
 
@@ -180,8 +218,16 @@ jest.mock(
   '../../Market/MarketDetailV2/components/SwapPanel/hooks/useSpeedSwapInit',
   () => ({
     useSpeedSwapInit: () => ({
-      defaultLimitTokens: [],
-      defaultTokens: [],
+      defaultLimitTokens: (
+        globalThis as unknown as {
+          __swapProAtomState: ISwapProTestState;
+        }
+      ).__swapProAtomState.defaultTokens,
+      defaultTokens: (
+        globalThis as unknown as {
+          __swapProAtomState: ISwapProTestState;
+        }
+      ).__swapProAtomState.defaultTokens,
       isLoading: false,
       onlySupportCrossChain: false,
       speedConfig: undefined,
@@ -244,10 +290,7 @@ const selectedAccountState = (
 ).__swapProSelectedAccountState;
 const swapProAtomState = (
   globalThis as unknown as {
-    __swapProAtomState: {
-      initializeSwapProSelectToken: jest.Mock;
-      selectedToken: ISwapToken;
-    };
+    __swapProAtomState: ISwapProTestState;
   }
 ).__swapProAtomState;
 const swapProJumpTokenState = (
@@ -265,6 +308,16 @@ beforeEach(() => {
   promiseResultState.hasResult = false;
   promiseResultState.result = undefined;
   swapProJumpTokenState.token = undefined;
+  platformEnv.isNative = false;
+  swapProAtomState.buyToken = undefined;
+  swapProAtomState.sellToken = undefined;
+  swapProAtomState.inputAmount = '';
+  swapProAtomState.direction = ESwapDirection.SELL;
+  swapProAtomState.tradeType = ESwapProTradeType.MARKET;
+  swapProAtomState.tab = ESwapTabSwitchType.LIMIT;
+  swapProAtomState.defaultTokens = [];
+  swapProAtomState.setInputAmount.mockClear();
+  swapProAtomState.resetQuoteAction.mockClear();
 });
 
 describe('useSwapProAccount cache identity', () => {
@@ -413,5 +466,109 @@ describe('useSwapProTokenInit persistence authority', () => {
       undefined,
       undefined,
     );
+  });
+});
+
+describe('useSwapProTokenInit automatic payment token changes', () => {
+  const eth: ISwapToken = {
+    networkId: 'evm--1',
+    contractAddress: '',
+    symbol: 'ETH',
+    decimals: 18,
+    isNative: true,
+    balanceParsed: '1',
+    price: '1',
+  };
+  const usdc: ISwapToken = {
+    ...eth,
+    contractAddress: '0xusdc',
+    symbol: 'USDC',
+    isNative: false,
+  };
+  const pepe: ISwapToken = {
+    ...usdc,
+    contractAddress: '0xpepe',
+    symbol: 'PEPE',
+  };
+
+  beforeEach(() => {
+    platformEnv.isNative = true;
+    swapProAtomState.direction = ESwapDirection.BUY;
+    swapProAtomState.selectedToken = usdc;
+    swapProAtomState.buyToken = eth;
+    swapProAtomState.inputAmount = '0.1';
+    swapProAtomState.defaultTokens = [eth, usdc];
+  });
+
+  it('clears the old denomination and quote when the target excludes the native payment token', () => {
+    const { rerender } = renderHook(() => useSwapProTokenInit());
+    expect(swapProAtomState.inputAmount).toBe('0.1');
+
+    swapProAtomState.selectedToken = pepe;
+    swapProAtomState.defaultTokens = [usdc];
+    rerender({});
+
+    expect(swapProAtomState.buyToken).toEqual(usdc);
+    expect(swapProAtomState.inputAmount).toBe('');
+    expect(swapProAtomState.resetQuoteAction).toHaveBeenCalledTimes(1);
+    rerender({});
+    expect(swapProAtomState.setInputAmount).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears the amount when the new target is the previous payment token', () => {
+    const { rerender } = renderHook(() => useSwapProTokenInit());
+    swapProAtomState.selectedToken = eth;
+    rerender({});
+
+    expect(swapProAtomState.buyToken).toEqual(usdc);
+    expect(swapProAtomState.inputAmount).toBe('');
+    expect(swapProAtomState.resetQuoteAction).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves the amount when payment token metadata changes without changing identity', () => {
+    swapProAtomState.selectedToken = pepe;
+    swapProAtomState.buyToken = usdc;
+    swapProAtomState.defaultTokens = [usdc];
+    const { rerender } = renderHook(() => useSwapProTokenInit());
+    swapProAtomState.defaultTokens = [{ ...usdc, price: '1.01' }];
+    swapProAtomState.buyToken = {
+      ...usdc,
+      contractAddress: '0xUSDC',
+      price: '1.01',
+    };
+    rerender({});
+
+    expect(swapProAtomState.inputAmount).toBe('0.1');
+    expect(swapProAtomState.setInputAmount).not.toHaveBeenCalled();
+    expect(swapProAtomState.resetQuoteAction).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['SELL', { direction: ESwapDirection.SELL }],
+    ['Stock', { tab: ESwapTabSwitchType.STOCK }],
+    ['Swap', { tab: ESwapTabSwitchType.SWAP }],
+    ['Limit order', { tradeType: ESwapProTradeType.LIMIT }],
+  ] as const)('preserves amounts and quotes owned by %s', (_label, state) => {
+    Object.assign(swapProAtomState, state);
+    const { rerender } = renderHook(() => useSwapProTokenInit());
+    swapProAtomState.selectedToken = pepe;
+    swapProAtomState.defaultTokens = [usdc];
+    rerender({});
+
+    expect(swapProAtomState.buyToken).toEqual(usdc);
+    expect(swapProAtomState.inputAmount).toBe('0.1');
+    expect(swapProAtomState.resetQuoteAction).not.toHaveBeenCalled();
+  });
+
+  it('preserves the amount outside native Pro', () => {
+    platformEnv.isNative = false;
+    const { rerender } = renderHook(() => useSwapProTokenInit());
+    swapProAtomState.selectedToken = pepe;
+    swapProAtomState.defaultTokens = [usdc];
+    rerender({});
+
+    expect(swapProAtomState.buyToken).toEqual(usdc);
+    expect(swapProAtomState.inputAmount).toBe('0.1');
+    expect(swapProAtomState.resetQuoteAction).not.toHaveBeenCalled();
   });
 });

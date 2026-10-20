@@ -1044,7 +1044,7 @@ index 9b66012..09393b0 100644
      [self.screenView notifyWillAppear];
      if (self.transitionCoordinator.isInteractive) {
 diff --git a/node_modules/react-native-screens/ios/RNSScreenStack.mm b/node_modules/react-native-screens/ios/RNSScreenStack.mm
-index 192f5d2..2b6dcd1 100644
+index 192f5d2..19b411a 100644
 --- a/node_modules/react-native-screens/ios/RNSScreenStack.mm
 +++ b/node_modules/react-native-screens/ios/RNSScreenStack.mm
 @@ -20,6 +20,55 @@
@@ -1493,7 +1493,7 @@ index 192f5d2..2b6dcd1 100644
                                  finish();
                                }];
          }
-@@ -578,12 +878,30 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -578,12 +878,61 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
  {
    // when there is no change we return immediately
    if ([_controller.viewControllers isEqualToArray:controllers]) {
@@ -1513,6 +1513,37 @@ index 192f5d2..2b6dcd1 100644
 -  if (self.window == nil) {
 +  const BOOL containerReady = [self isContainerWindowReady];
 +  if (!containerReady) {
++    // OneKey patch: removing only the top screens of an already-mounted hidden
++    // stack is safe without animation. Deferring this pop replays it when a
++    // native tab becomes visible again, exposing the detail that JS removed.
++    NSArray<UIViewController *> *currentControllers = _controller.viewControllers;
++    const BOOL removesOnlyTopScreens =
++        controllers.count > 0 && controllers.count < currentControllers.count &&
++        [[currentControllers subarrayWithRange:NSMakeRange(0, controllers.count)] isEqualToArray:controllers];
++    if (!_invalidated && _controller.parentViewController != nil &&
++        _controller.presentedViewController == nil && _presentedModals.count == 0 &&
++        !_updatingModals && removesOnlyTopScreens) {
++      id<UIViewControllerTransitionCoordinator> coordinator = _controller.transitionCoordinator;
++      if (coordinator != nil) {
++        if (!_updateScheduled) {
++          _updateScheduled = YES;
++          __weak RNSScreenStackView *weakSelf = self;
++          [coordinator animateAlongsideTransition:nil
++                                     completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
++            RNSScreenStackView *strongSelf = weakSelf;
++            if (strongSelf == nil) {
++              return;
++            }
++            strongSelf->_updateScheduled = NO;
++            [strongSelf updateContainer];
++          }];
++        }
++        return;
++      }
++      RNSScreenStackLog(@"setPushViewControllers: applying detached pop without animation");
++      [_controller setViewControllers:controllers animated:NO];
++      return;
++    }
 +    UIViewController *parentVC = _controller.parentViewController;
 +    RNSScreenStackLog([NSString stringWithFormat:@"setPushViewControllers: SKIPPED - container window not ready! selfWindow=%@, superviewWindow=%@, parentWindow=%@, superview=%@, class=%@, setting _pendingContainerUpdate=YES",
 +          self.window ? @"YES" : @"NIL",
@@ -1525,7 +1556,7 @@ index 192f5d2..2b6dcd1 100644
      return;
    }
    // when transition is ongoing, any updates made to the controller will not be reflected until the
-@@ -593,6 +911,7 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -593,6 +942,7 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
    // making any updated when transition is ongoing and schedule updates for when the transition
    // is complete.
    if (_controller.transitionCoordinator != nil) {
@@ -1533,7 +1564,7 @@ index 192f5d2..2b6dcd1 100644
      if (!_updateScheduled) {
        _updateScheduled = YES;
        __weak RNSScreenStackView *weakSelf = self;
-@@ -659,8 +978,15 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -659,8 +1009,15 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
        NSMutableArray *newControllers = [NSMutableArray arrayWithArray:controllers];
        [newControllers removeLastObject];
  
@@ -1549,7 +1580,7 @@ index 192f5d2..2b6dcd1 100644
      } else {
        // don't really know what this case could be, but may need to handle it
        // somehow
-@@ -674,6 +1000,9 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
+@@ -674,6 +1031,9 @@ - (void)setPushViewControllers:(NSArray<UIViewController *> *)controllers
  
  - (void)updateContainer
  {
@@ -1559,7 +1590,7 @@ index 192f5d2..2b6dcd1 100644
    NSMutableArray<UIViewController *> *pushControllers = [NSMutableArray new];
    NSMutableArray<UIViewController *> *modalControllers = [NSMutableArray new];
    for (RNSScreenView *screen in _reactSubviews) {
-@@ -743,6 +1072,10 @@ - (void)layoutSubviews
+@@ -743,6 +1103,10 @@ - (void)layoutSubviews
        modal.view.frame = correctFrame;
      }
    }

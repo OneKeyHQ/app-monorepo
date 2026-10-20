@@ -25,6 +25,7 @@ export enum EAtomNames {
   hardwareUiStateCompletedAtom = 'hardwareUiStateCompletedAtom',
   deviceStageAtom = 'deviceStageAtom',
   thirdPartyHardwareUiStateAtom = 'thirdPartyHardwareUiStateAtom',
+  thirdPartyBleBindingAtom = 'thirdPartyBleBindingAtom',
   thirdPartyAppInstallAtom = 'thirdPartyAppInstallAtom',
   thirdPartyBatchInstallAtom = 'thirdPartyBatchInstallAtom',
   hardwareWalletXfpStatusAtom = 'hardwareWalletXfpStatusAtom',
@@ -42,6 +43,7 @@ export enum EAtomNames {
   onboardingCloudBackupListRefreshAtom = 'onboardingCloudBackupListRefreshAtom',
   isOnBoardingOpenAtom = 'isOnBoardingOpenAtom',
   inAppNotificationAtom = 'inAppNotificationAtom',
+  swapLimitOrdersLoadingAtom = 'swapLimitOrdersLoadingAtom',
   v4migrationAtom = 'v4migrationAtom',
   v4migrationPersistAtom = 'v4migrationPersistAtom',
   accountIsAutoCreatingAtom = 'accountIsAutoCreatingAtom',
@@ -66,6 +68,7 @@ export enum EAtomNames {
   primeInitAtom = 'primeInitAtom',
   primeLoginDialogAtom = 'primeLoginDialogAtom',
   primeTransferAtom = 'primeTransferAtom',
+  primeFreeTrialAtom = 'primeFreeTrialAtom',
   keylessPinConfirmStatusAtom = 'keylessPinConfirmStatusAtom',
   keylessLastCancelVerifyPinTimeAtom = 'keylessLastCancelVerifyPinTimeAtom',
   keylessBackendShareV2MigrationPersistAtom = 'keylessBackendShareV2MigrationPersistAtom',
@@ -132,6 +135,8 @@ export enum EAtomNames {
   spotPairDisplayNameMapAtom = 'spotPairDisplayNameMapAtom',
   spotExternalMarketCapsAtom = 'spotExternalMarketCapsAtom',
   perpsFavoritesOrderPersistAtom = 'perpsFavoritesOrderPersistAtom',
+  perpsTradingViewChartSettingsPersistAtom = 'perpsTradingViewChartSettingsPersistAtom',
+  perpsTradingViewIndicatorSettingsPersistAtom = 'perpsTradingViewIndicatorSettingsPersistAtom',
   // network doctor
   networkDoctorStateAtom = 'networkDoctorStateAtom',
 
@@ -139,6 +144,7 @@ export enum EAtomNames {
   translateSettingsPersistAtom = 'translateSettingsPersistAtom',
 
   // swap
+  dustSweepPreferencesPersistAtom = 'dustSweepPreferencesPersistAtom',
   swapProJumpTokenAtom = 'swapProJumpTokenAtom',
   swapFromMarketJumpTokenAtom = 'swapFromMarketJumpTokenAtom',
   swapTradingViewChartSettingsPersistAtom = 'swapTradingViewChartSettingsPersistAtom',
@@ -146,13 +152,14 @@ export enum EAtomNames {
   // market
   marketDesktopLayoutAtom = 'marketDesktopLayoutAtom',
   marketSelectedTabAtom = 'marketSelectedTabAtom',
+  marketHomePreferencesAtom = 'marketHomePreferencesAtom',
   marketBannerListSortAtom = 'marketBannerListSortAtom',
   marketTokenSelectorConfigAtom = 'marketTokenSelectorConfigAtom',
-  marketTradingViewLayoutPersistAtom = 'marketTradingViewLayoutPersistAtom',
   marketTradingViewChartSettingsPersistAtom = 'marketTradingViewChartSettingsPersistAtom',
   marketTradingViewIndicatorSettingsPersistAtom = 'marketTradingViewIndicatorSettingsPersistAtom',
   marketTradingViewSubIndicatorCountPersistAtom = 'marketTradingViewSubIndicatorCountPersistAtom',
   marketDetailChartDisplayModePersistAtom = 'marketDetailChartDisplayModePersistAtom',
+  marketDetailPositionTabPersistAtom = 'marketDetailPositionTabPersistAtom',
   marketPriceSourceAtom = 'marketPriceSourceAtom',
   marketCurrentTokenLiveDataAtom = 'marketCurrentTokenLiveDataAtom',
 
@@ -187,13 +194,13 @@ export const atomsConfig: Partial<
   [EAtomNames.marketTradingViewSubIndicatorCountPersistAtom]: {
     mergeInitialValue: false,
   },
-  [EAtomNames.marketTradingViewLayoutPersistAtom]: {
-    mergeInitialValue: false,
-  },
   [EAtomNames.marketTradingViewIndicatorSettingsPersistAtom]: {
     mergeInitialValue: false,
   },
   [EAtomNames.swapTradingViewIndicatorSettingsPersistAtom]: {
+    mergeInitialValue: false,
+  },
+  [EAtomNames.perpsTradingViewIndicatorSettingsPersistAtom]: {
     mergeInitialValue: false,
   },
   // These Perps states are written as complete snapshots. Lodash merge keeps

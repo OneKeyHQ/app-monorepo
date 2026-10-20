@@ -25,11 +25,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useLanguageSelectorWithoutAuto } from '../../Setting/hooks/useLanguageSelector';
 
-// Constants for performance optimization
-const DESKTOP_DRAGGABLE_STYLE = {
-  WebkitAppRegion: 'drag',
-} as any;
-
 const OnboardingLayoutBack = memo(({ exit }: { exit?: boolean }) => {
   const navigation = useAppNavigation();
 
@@ -319,18 +314,6 @@ const OnboardingLayoutRoot = memo(
           p: '$10',
         }}
       >
-        {/* Draggable area for desktop window */}
-        {platformEnv.isDesktop ? (
-          <YStack
-            position="absolute"
-            top={0}
-            left={0}
-            right={0}
-            h={80}
-            zIndex={9999}
-            style={DESKTOP_DRAGGABLE_STYLE}
-          />
-        ) : null}
         <YStack
           h="100%"
           w="100%"

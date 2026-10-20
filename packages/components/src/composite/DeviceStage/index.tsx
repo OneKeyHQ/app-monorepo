@@ -30,6 +30,7 @@ import {
   ThirdPartyWalletAvatarImages,
   getThirdPartyDeviceAvatarImage,
 } from '@onekeyhq/shared/src/utils/avatarUtils';
+import type { IThirdPartyWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { easeOutFn } from '../../content/deviceScene';
@@ -108,7 +109,11 @@ import {
 import { WalletTypeOptions } from './WalletTypeOptions';
 
 import type { ICardArrangement } from './arrangements';
-import type { IDeviceStageProps, IDeviceStageStep } from './type';
+import type {
+  IDeviceStageProps,
+  IDeviceStageStep,
+  IDeviceStageVendor,
+} from './type';
 import type { IMorphAimFacts } from '../MorphOverlay';
 import type { ImageSourcePropType, LayoutChangeEvent } from 'react-native';
 
@@ -144,10 +149,12 @@ import type { ImageSourcePropType, LayoutChangeEvent } from 'react-native';
  * The stage is modal, and undimmed for asks and waits: while it is there
  * the app behind takes no touch — the person stays with the device — and
  * nothing dims (the design leaves the overlay layer off here). The
- * terminal failure cards are the exception (OK-62072): a bright app
- * under an unnoticed error card read as "still tappable", so those
- * three arrangements wear the scrim. Dismissal is the
- * container's (close button, drag, tap outside) behind one grant —
+ * terminal failure cards add the scrim (OK-62072): a bright app under an
+ * unnoticed error card read as "still tappable", so those three
+ * arrangements dim it. The error notice is the one surface that leaves
+ * the app live (OK-64696): the device is off duty by then, and the
+ * page's own next step (retry, support) must answer the first tap.
+ * Dismissal is the container's (close button, drag) behind one grant —
  * `onClose` — that the driver times; see IDeviceStageProps.
  *
  * Still out of scope until ratified: presence in/out for real
@@ -159,6 +166,15 @@ import type { ImageSourcePropType, LayoutChangeEvent } from 'react-native';
  * device's name. The row is the capsule's content, inside the
  * container's own capsule padding (PILL.pad); the row plus that padding
  * is the capsule's measured size. */
+const STAGE_VENDOR_AVATAR: Record<
+  IDeviceStageVendor,
+  { vendor: EHardwareVendor; fallback: IThirdPartyWalletAvatarImageNames }
+> = {
+  ledger: { vendor: EHardwareVendor.ledger, fallback: 'LedgerNanoX' },
+  trezor: { vendor: EHardwareVendor.trezor, fallback: 'TrezorSafe7' },
+  keystone: { vendor: EHardwareVendor.keystone, fallback: 'keystone' },
+};
+
 const CAPSULE_ROW = {
   /** The content's own inset inside the capsule padding. */
   paddingX: 8,
@@ -204,10 +220,8 @@ const WORDS_ESTIMATED_HEIGHT = 72;
 const PANEL_WARM_MS = 475;
 
 /** The actionless error is a notice — it informs, holds long enough to
- * read, then leaves on its own. The exit is a request through the same
- * close grant the ✕ fires, so the driver keeps the last word (and
- * answers with `off`, as ever). Measured from the words landing on
- * show, not from the step change. */
+ * read, then leaves on its own through `onErrorNoticeExpire`. Measured
+ * from the words landing on show, not from the step change. */
 const ERROR_NOTICE_EXIT_MS = 3000;
 
 /** The replica's exit and return around the notice's capsule seat — its
@@ -285,19 +299,26 @@ const PIXEL_GRID = PixelRatio.get();
 const FOG_COLORS = [stageBgAlpha(0), stageBgAlpha(0.5), STAGE_BG];
 const FOG_LOCATIONS = [0, 0.58, 0.87] as const;
 /**
- * How far the fog runs on under the port's floor, where the window
- * clips it away. Android paints the gradient as an anti-aliased path
- * of exactly its own bounds (expo's LinearGradientView) while the
- * window's clip rounds to whole pixels, so a subtree resting on a
- * fractional pixel leaves the fog's last row half-covered and the
- * keypad underneath showing through as a hairline (OK-63384). Ending
- * the fog below the clip hands that edge to the clip instead; the
- * fade's stops are rescaled so they stay put over the port. Android
- * only: iOS's gradient layer has no edge anti-aliasing and the web
- * draws a CSS gradient, so elsewhere the fog keeps the port's own
- * height and the stops as authored.
+ * Whether the fog stands beside the port rather than inside it. Inside,
+ * the port's clip cuts the fog along with the device, and on Android
+ * that leaves the port's floor row bare of fog: the keypad under it
+ * shows through as a full-strength line one pixel tall (OK-63384, and
+ * OK-64010 once the bleed below alone proved not to cure it). Seated
+ * after the port as its sibling, the fog escapes the clip: its solid
+ * foot covers the floor row from outside, and the height it keeps past
+ * the floor lands on the face, which wears the same STAGE_BG. Android
+ * only — iOS and the web keep the fog inside the port, as verified.
  */
-const FOG_BLEED = platformEnv.isNativeAndroid ? 2 : 0;
+const FOG_OUTSIDE_PORT = platformEnv.isNativeAndroid;
+/**
+ * How far the fog runs on past the port's floor. Beside the port, the
+ * run-on keeps the fog's own anti-aliased edge (expo's Android
+ * LinearGradientView paints a path of exactly its bounds) off the
+ * floor row, down on the face where STAGE_BG meets STAGE_BG; the
+ * fade's stops are rescaled so they stay put over the port. Elsewhere
+ * the fog keeps the port's own height and the stops as authored.
+ */
+const FOG_BLEED = FOG_OUTSIDE_PORT ? 2 : 0;
 
 /**
  * Which arrangement a card step gives the standing replica: the full
@@ -386,7 +407,7 @@ const styles = StyleSheet.create({
     transformOrigin: 'top',
   },
   // Full-port geometry (sized per instance), so the fade stays put while
-  // the window above animates.
+  // the window animates — inside it, or on Android beside it.
   fog: {
     position: 'absolute',
     left: 0,
@@ -516,10 +537,13 @@ export function DeviceStage({
   step,
   deviceType,
   replicaWidth = REPLICA_WIDTH,
+  deviceColor,
   deviceName,
   connectionType,
   waitStalled,
   onClose,
+  onErrorNoticeExpire,
+  errorNoticeKey,
   confirmDetails,
   confirmMessage,
   confirmDescription,
@@ -527,8 +551,11 @@ export function DeviceStage({
   confirmCount,
   qrValue,
   qrValueUr,
+  qrSessionId,
+  qrRenderKey,
   qrScannerView,
   onQrNext,
+  onQrRenderReady,
   onQrBack,
   errorReason,
   errorMessage,
@@ -974,21 +1001,23 @@ export function DeviceStage({
   });
 
   // The notice's exit: after a readable hold — counted from the words
-  // landing on show — the stage requests close. Ref-called so a driver
-  // re-creating its handler never restarts the hold; gated on the grant
-  // existing at all — a driver that means the error to auto-leave grants
-  // close with it (the notice is terminal, nothing to protect).
+  // landing on show, and again for each new outcome (errorNoticeKey) —
+  // the stage asks the driver to retire the outcome the hold was armed
+  // for, never one that replaced it as the timer ran out. Ref-called so
+  // a driver re-creating its handler never restarts the hold.
   const errorNoticeShown = shownStep === 'error' && errorNoticeForm;
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-  const closeGranted = Boolean(onClose);
+  const onErrorNoticeExpireRef = useRef(onErrorNoticeExpire);
+  onErrorNoticeExpireRef.current = onErrorNoticeExpire;
   useEffect(() => {
-    if (!errorNoticeShown || !closeGranted) {
+    if (!errorNoticeShown) {
       return undefined;
     }
-    const id = setTimeout(() => onCloseRef.current?.(), ERROR_NOTICE_EXIT_MS);
+    const id = setTimeout(
+      () => onErrorNoticeExpireRef.current?.(errorNoticeKey),
+      ERROR_NOTICE_EXIT_MS,
+    );
     return () => clearTimeout(id);
-  }, [closeGranted, errorNoticeShown]);
+  }, [errorNoticeShown, errorNoticeKey]);
 
   // The capsule seat is the standing replica's — except under the
   // notice, whose seat is the failure glyph instead. The gate fades the
@@ -1349,11 +1378,10 @@ export function DeviceStage({
       return undefined;
     }
     const key = getThirdPartyDeviceAvatarImage({
-      vendor:
-        vendor === 'ledger' ? EHardwareVendor.ledger : EHardwareVendor.trezor,
+      vendor: STAGE_VENDOR_AVATAR[vendor].vendor,
       vendorModel,
       vendorModelName,
-      fallback: vendor === 'ledger' ? 'LedgerNanoX' : 'TrezorSafe7',
+      fallback: STAGE_VENDOR_AVATAR[vendor].fallback,
     });
     // The avatar table's values are bare require() results (untyped).
     return ThirdPartyWalletAvatarImages[key] as ImageSourcePropType;
@@ -1779,7 +1807,13 @@ export function DeviceStage({
           />
         </View>
         <View onLayout={panelMeasureHandlers.showQr.tail}>
-          <QrPresent value={qrValue} valueUr={qrValueUr} onNext={onQrNext} />
+          <QrPresent
+            key={qrRenderKey ?? qrSessionId}
+            value={qrValue}
+            valueUr={qrValueUr}
+            onNext={onQrNext}
+            onRenderReady={onQrRenderReady}
+          />
         </View>
       </YStack>
     ),
@@ -1787,9 +1821,12 @@ export function DeviceStage({
       appStepSub.showQr,
       intl,
       onQrNext,
+      onQrRenderReady,
       panelMeasureHandlers,
       qrValue,
       qrValueUr,
+      qrSessionId,
+      qrRenderKey,
     ],
   );
   const scanQrPanel = useMemo(
@@ -2133,6 +2170,7 @@ export function DeviceStage({
       <View onLayout={handleDeviceLayout}>
         <HardwareDevice
           deviceType={deviceType ?? 'unknown'}
+          color={deviceColor}
           animation={activeScene}
           warmScenes={builtScenes}
           width={replicaWidth}
@@ -2149,6 +2187,7 @@ export function DeviceStage({
     [
       activeScene,
       builtScenes,
+      deviceColor,
       deviceType,
       handleDeviceLayout,
       hidden,
@@ -2164,24 +2203,37 @@ export function DeviceStage({
   // on its one glass (the troupe grant): a crossing flips which is lit
   // and nothing ever builds; only the visible scene's clock runs, from
   // 0. The fog paints the port fade over the opaque face, and rests
-  // while the capsule wears the whole device.
-  const stageLayer = useMemo(
-    () => (
+  // while the capsule wears the whole device — inside the port, or on
+  // Android after it as its sibling, out of the port's clip (see
+  // FOG_OUTSIDE_PORT); the port sits at the layer's origin, so the
+  // fog's own geometry serves both seats.
+  const stageLayer = useMemo(() => {
+    const fog = (
+      <Animated.View style={fogStyle}>
+        <LinearGradient
+          colors={FOG_COLORS}
+          locations={fogLocations}
+          style={styles.fogFill}
+        />
+      </Animated.View>
+    );
+    return (
       <Animated.View style={replicaStyle} pointerEvents="none">
         <Animated.View style={portStyle}>
           <Animated.View style={deviceStyle}>{deviceLayer}</Animated.View>
-          <Animated.View style={fogStyle}>
-            <LinearGradient
-              colors={FOG_COLORS}
-              locations={fogLocations}
-              style={styles.fogFill}
-            />
-          </Animated.View>
+          {FOG_OUTSIDE_PORT ? null : fog}
         </Animated.View>
+        {FOG_OUTSIDE_PORT ? fog : null}
       </Animated.View>
-    ),
-    [deviceLayer, deviceStyle, fogLocations, fogStyle, portStyle, replicaStyle],
-  );
+    );
+  }, [
+    deviceLayer,
+    deviceStyle,
+    fogLocations,
+    fogStyle,
+    portStyle,
+    replicaStyle,
+  ]);
 
   // The ripple rests through pose flights too: the capsule pose stands
   // from a return flight's first frame, and an infinite loop has no
@@ -2275,7 +2327,7 @@ export function DeviceStage({
       onDismiss={onClose}
       dismissLabel={dismissLabel}
       onGeometrySettled={handleGeometrySettled}
-      modal
+      modal={!errorNotice}
       scrim={scrim}
       capsuleKey={capsuleText.title}
       capsule={capsule}

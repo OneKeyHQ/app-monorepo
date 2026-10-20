@@ -5,11 +5,13 @@ import { useIntl } from 'react-intl';
 import {
   AnimatePresence,
   Button,
+  Icon,
   Illustration,
   LottieView,
   SizableText,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { SUPPORT_URL } from '@onekeyhq/shared/src/config/appConfig';
@@ -28,6 +30,42 @@ interface IPreSwapConfirmResultProps {
   onConfirm?: () => void;
 }
 
+export function SwapTransactionResultStatus({
+  status,
+  size = 110,
+  animated = true,
+}: {
+  status: 'success' | 'failed' | 'pending';
+  size?: number;
+  animated?: boolean;
+}) {
+  if (status === 'failed') return <Illustration size={size} name="XMark" />;
+  if (!animated)
+    return (
+      <Icon
+        name={
+          status === 'success' ? 'CheckRadioSolid' : 'ClockTimeHistoryOutline'
+        }
+        color={status === 'success' ? '$iconSuccess' : '$iconSubdued'}
+        width={size}
+        height={size}
+      />
+    );
+  return (
+    <LottieView
+      source={
+        status === 'success'
+          ? require('@onekeyhq/kit/assets/animations/lottie-swap-done.json')
+          : require('@onekeyhq/kit/assets/animations/swap_order_pending.json')
+      }
+      width={size}
+      height={size}
+      autoPlay
+      loop={status === 'pending'}
+    />
+  );
+}
+
 const PreSwapConfirmResult = ({
   lastStep,
   fromToken,
@@ -36,6 +74,8 @@ const PreSwapConfirmResult = ({
 }: IPreSwapConfirmResultProps) => {
   const [explorerUrl, setExplorerUrl] = useState<string>('');
   const intl = useIntl();
+  const { md } = useMedia();
+  const buttonSize = md ? 'large' : 'medium';
   useEffect(() => {
     const fetchExplorerUrl = async () => {
       if (!lastStep.txHash || !fromToken?.networkId) {
@@ -85,13 +125,9 @@ const PreSwapConfirmResult = ({
       <YStack justifyContent="center" alignItems="center" gap="$4" flex={1}>
         <AnimatePresence>
           {lastStep.status === ESwapStepStatus.SUCCESS ? (
-            <LottieView
+            <SwapTransactionResultStatus
               key={lastStep.status}
-              source={require('@onekeyhq/kit/assets/animations/lottie-swap-done.json')}
-              width={110}
-              height={110}
-              autoPlay
-              loop={false}
+              status="success"
             />
           ) : null}
         </AnimatePresence>
@@ -99,16 +135,11 @@ const PreSwapConfirmResult = ({
           <>
             {lastStep.status === ESwapStepStatus.FAILED ? (
               <YStack key={lastStep.status}>
-                <Illustration key={lastStep.status} size={110} name="XMark" />
+                <SwapTransactionResultStatus status="failed" />
               </YStack>
             ) : (
               <YStack key={lastStep.status}>
-                <LottieView
-                  source={require('@onekeyhq/kit/assets/animations/swap_order_pending.json')}
-                  width={110}
-                  height={110}
-                  autoPlay
-                />
+                <SwapTransactionResultStatus status="pending" />
               </YStack>
             )}
           </>
@@ -154,6 +185,7 @@ const PreSwapConfirmResult = ({
             flexGrow={1}
             flexBasis={0}
             variant="secondary"
+            size={buttonSize}
             onPress={() => {
               if (supportUrl?.includes(SUPPORT_URL)) {
                 void showIntercom();
@@ -171,7 +203,7 @@ const PreSwapConfirmResult = ({
           flexBasis={0}
           variant="primary"
           onPress={onConfirm}
-          size="medium"
+          size={buttonSize}
         >
           {intl.formatMessage({
             id:

@@ -54,6 +54,7 @@ const AccountDerivationListItem: FC<IAccountDerivationListItemProps> = ({
     }}
     renderTrigger={({ label }) => (
       <ListItem
+        testID={`account-derivation-network-${networkId}`}
         userSelect="none"
         title={title}
         renderAvatar={<NetworkAvatarBase logoURI={icon ?? ''} size="$8" />}

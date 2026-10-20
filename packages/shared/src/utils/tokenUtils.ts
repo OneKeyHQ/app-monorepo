@@ -629,6 +629,23 @@ export function sortTokensByName({
   });
 }
 
+// Members of a multi-chain token: owned members first so their accountId /
+// balance win over the global config copy of the same network.
+export function mergeAggregateTokenMembers({
+  aggregateSubTokenList,
+  allAggregateTokenList,
+}: {
+  aggregateSubTokenList?: IAccountToken[];
+  allAggregateTokenList?: IAccountToken[];
+}): IAccountToken[] {
+  return uniqBy(
+    [...(aggregateSubTokenList ?? []), ...(allAggregateTokenList ?? [])].filter(
+      (token) => !!token.networkId,
+    ),
+    (token) => token.networkId,
+  );
+}
+
 export function sortTokensByOrder({ tokens }: { tokens: IAccountToken[] }) {
   return tokens.toSorted((a, b) => {
     if (!isNil(a.order) && !isNil(b.order)) {
@@ -659,14 +676,34 @@ export function mergeDeriveTokenListMap({
   mergeDeriveAssets?: boolean;
 }) {
   const newTargetMap = { ...targetMap };
-  const newSourceMap = { ...sourceMap };
+  mergeDeriveTokenListMapInto({
+    sourceMap,
+    targetMap: newTargetMap,
+    mergeDeriveAssets,
+  });
+  return newTargetMap;
+}
+
+/** Append into a caller-owned map without copying its accumulated keys. */
+export function mergeDeriveTokenListMapInto({
+  sourceMap,
+  targetMap,
+  mergeDeriveAssets,
+}: {
+  sourceMap: Record<string, ITokenFiat>;
+  targetMap: Record<string, ITokenFiat>;
+  mergeDeriveAssets?: boolean;
+}): void {
   if (mergeDeriveAssets) {
-    forEach(newSourceMap, (value, key) => {
+    forEach(sourceMap, (value, key) => {
       const keyArr = key.split('_');
       const groupDeriveKey = `${keyArr[0]}_${keyArr[keyArr.length - 1]}`;
-      const mergedToken = newTargetMap[groupDeriveKey];
+      const previousToken = targetMap[groupDeriveKey];
 
-      if (mergedToken && !newTargetMap[key]) {
+      if (previousToken && !targetMap[key]) {
+        // Raw entries can still alias a cache round; only the combined value
+        // belongs to this merge and may be changed.
+        const mergedToken = { ...previousToken };
         mergedToken.balance = new BigNumber(mergedToken.balance)
           .plus(value.balance)
           .toFixed();
@@ -723,21 +760,17 @@ export function mergeDeriveTokenListMap({
           .plus(value.totalBalanceFiatValue ?? 0)
           .toFixed();
 
-        newTargetMap[groupDeriveKey] = {
-          ...mergedToken,
-        };
+        targetMap[groupDeriveKey] = mergedToken;
       } else {
-        newTargetMap[groupDeriveKey] = {
+        targetMap[groupDeriveKey] = {
           ...value,
         };
       }
     });
   }
 
-  return {
-    ...newTargetMap,
-    ...newSourceMap,
-  };
+  // Raw keys override derived keys only after the whole source was folded.
+  Object.assign(targetMap, sourceMap);
 }
 
 export function mergeNestedAggregateTokenMap({
@@ -1886,6 +1919,31 @@ export function calculateAccountTokensValue({
 
   const key = accountUtils.buildAccountValueKey({ accountId, networkId });
   return tokensWorth.worth[key] ?? Object.values(tokensWorth.worth)[0] ?? '0';
+}
+
+/**
+ * The All Networks worth map restricted to the accounts of the current run.
+ *
+ * Per-network settles merge their key into the map and only an `updateAll`
+ * commit replaces it, so after an enabled-network change the disabled
+ * network's key survives until that commit — and for good when the run's
+ * cache probe misses and every request then fails. Returns `worth` itself
+ * when no key is dropped, so callers can skip the write.
+ */
+export function retainAccountsWorth({
+  worth,
+  accountValueKeys,
+}: {
+  worth: Record<string, string>;
+  accountValueKeys: ReadonlySet<string>;
+}): Record<string, string> {
+  const entries = Object.entries(worth);
+  if (entries.every(([key]) => accountValueKeys.has(key))) {
+    return worth;
+  }
+  return Object.fromEntries(
+    entries.filter(([key]) => accountValueKeys.has(key)),
+  );
 }
 
 export function validateTokenAmount({

@@ -89,6 +89,12 @@ jest.mock('@onekeyhq/components', () => {
     SizableText: Container,
     XStack: Container,
     YStack: Container,
+    HeightTransition: ({ children }: { children?: ReactNode }) =>
+      React.createElement(
+        'div',
+        { 'data-testid': 'prime-gift-offer-height-transition' },
+        children,
+      ),
     Dialog: { show: jest.fn() },
     resetOnboardingModal: jest.fn(),
     useMedia: () => ({ gtMd: mockGtMd }),
@@ -386,6 +392,9 @@ describe('onboarding Prime gift with a Pro discovery record without a serial', (
       await screen.findByTestId('prime-gift-offer-onboarding'),
     ).toBeTruthy();
     expect(
+      screen.getByTestId('prime-gift-offer-height-transition'),
+    ).toBeTruthy();
+    expect(
       screen.getByText(ETranslations.prime_gift_claim_duration__action),
     ).toBeTruthy();
     fireEvent.click(screen.getByTestId('prime-gift-offer-onboarding'));
@@ -499,6 +508,9 @@ describe('onboarding Prime gift with a Pro discovery record without a serial', (
       );
       await act(async () => finishCreation());
       expect(screen.queryByTestId('prime-gift-offer-onboarding')).toBeNull();
+      expect(
+        screen.queryByTestId('prime-gift-offer-height-transition'),
+      ).toBeNull();
       expect(
         screen.queryByText(ETranslations.failed_to_create_wallet),
       ).toBeNull();

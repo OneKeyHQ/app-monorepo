@@ -5,16 +5,20 @@ import { useReplaceToReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriend
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+
+import { useInvitePostConfig } from '../../../hooks/useInvitePostConfig';
 
 import { useLoginStatusChange } from './useLoginStatusChange';
 
 export function useReferAFriendData() {
   const replaceToReferFriends = useReplaceToReferFriends();
-  const [postConfig, setPostConfig] = useState<IInvitePostConfig | undefined>(
-    undefined,
-  );
+  // Logged-in users are redirected to InviteReward, so only load (and render)
+  // the poster once logout is confirmed; otherwise it flashes before navigation.
+  const [isLoggedOutConfirmed, setIsLoggedOutConfirmed] = useState(false);
+  const { postConfig } = useInvitePostConfig({
+    enabled: isLoggedOutConfirmed,
+  });
 
   // Monitor login status changes and auto-navigate when user logs in
   useLoginStatusChange(() => {
@@ -23,25 +27,18 @@ export function useReferAFriendData() {
   });
 
   useEffect(() => {
-    async function loadPostConfig() {
-      const cachedConfig =
-        await backgroundApiProxy.serviceReferralCode.getPostConfig();
-      if (cachedConfig) {
-        setPostConfig(cachedConfig);
-      }
-      const freshConfig =
-        await backgroundApiProxy.serviceReferralCode.fetchPostConfig();
-      if (freshConfig) {
-        setPostConfig(freshConfig);
-      }
-    }
-
     async function checkLoginAndRedirect() {
-      const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
+      let isLogin = false;
+      try {
+        isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
+      } catch {
+        // Fall back to the poster rather than leaving the page blank.
+      }
       if (isLogin) {
-        void replaceToReferFriends();
+        void replaceToReferFriends({ isLoggedIn: true });
         return;
       }
+      setIsLoggedOutConfirmed(true);
 
       // Handle web-specific URL parameters
       if (
@@ -64,7 +61,6 @@ export function useReferAFriendData() {
       }
     }
 
-    void loadPostConfig();
     void checkLoginAndRedirect();
   }, [replaceToReferFriends]);
 

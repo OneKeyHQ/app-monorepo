@@ -21,6 +21,7 @@ import {
   useThemeName,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IStockFinancialPeriod } from '@onekeyhq/shared/types/marketStockFinancials';
 
 import {
   getFinancialDomain,
@@ -90,11 +91,13 @@ export function FinancialChart({
   series,
   testID,
   currency,
+  period = 'annual',
 }: {
   rows: IFinancialChartRow[];
   series: IFinancialChartSeries[];
   testID: string;
   currency?: string;
+  period?: IStockFinancialPeriod;
 }) {
   const theme = useTheme();
   const themeName = useThemeName();
@@ -103,7 +106,11 @@ export function FinancialChart({
   const [selection, setSelection] = useState<{
     key: string;
     pinned: boolean;
+    period: IStockFinancialPeriod;
   }>();
+  if (selection && selection.period !== period) {
+    setSelection(undefined);
+  }
   const textColor = theme.textSubdued.val;
   const borderColor = theme.neutral3.val;
   const radius = getTokenValue('$1', 'radius') / 2;
@@ -111,7 +118,10 @@ export function FinancialChart({
   const left = lineIndex >= 0 ? 44 : 0;
   const plotWidth = Math.max(1, width - left - RIGHT);
   const columnWidth = plotWidth / Math.max(1, rows.length);
-  const selectedIndex = rows.findIndex((row) => row.key === selection?.key);
+  const selectedIndex =
+    selection?.period === period
+      ? rows.findIndex((row) => row.key === selection.key)
+      : -1;
   const selectedRow = rows[selectedIndex];
   const domain = (
     lineIndex >= 0 ? getFinancialPerformanceDomain : getFinancialDomain
@@ -352,16 +362,22 @@ export function FinancialChart({
             tabIndex={0}
             testID={`${testID}-point-${index}`}
             aria-label={`${row.label}: ${row.values.map((value, valueIndex) => `${series[valueIndex]?.label ?? ''} ${formatValue(value, valueIndex === lineIndex)}`).join(', ')}`}
-            onHoverIn={() => setSelection({ key: row.key, pinned: false })}
+            onHoverIn={() =>
+              setSelection({ key: row.key, pinned: false, period })
+            }
             onHoverOut={() => setSelection(undefined)}
             onPress={() =>
               setSelection((current) =>
-                current?.key === row.key && current.pinned
+                current?.period === period &&
+                current.key === row.key &&
+                current.pinned
                   ? undefined
-                  : { key: row.key, pinned: true },
+                  : { key: row.key, pinned: true, period },
               )
             }
-            onFocus={() => setSelection({ key: row.key, pinned: false })}
+            onFocus={() =>
+              setSelection({ key: row.key, pinned: false, period })
+            }
             onBlur={() => setSelection(undefined)}
             onKeyDown={
               platformEnv.isNative

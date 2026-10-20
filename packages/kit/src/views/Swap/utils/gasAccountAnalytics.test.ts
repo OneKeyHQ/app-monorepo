@@ -69,6 +69,71 @@ describe('buildDirectSwapGasAccountAnalyticsContext', () => {
     mockGasAccountAction.mockReset();
   });
 
+  it.each(['user', 'gasAccount', 'megafuel'] as const)(
+    'includes ATA rent in shortage telemetry when the payer is %s',
+    (payer) => {
+      const solanaUnsignedTx = {
+        ...unsignedTx,
+        solanaRent: '0.00148844',
+        swapInfo: {
+          ...unsignedTx.swapInfo,
+          sender: {
+            amount: '1',
+            token: { isNative: false, networkId: 'sol--101' },
+          },
+          swapBuildResData: {
+            result: {
+              fee: {
+                otherFeeInfos: [
+                  {
+                    token: { isNative: true, networkId: 'sol--101' },
+                    amount: '0.0001',
+                  },
+                ],
+              },
+            },
+          },
+        },
+      } as IUnsignedTxPro;
+      const solanaGasInfo = {
+        ...gasInfo,
+        gas: undefined,
+        common: {
+          baseFee: '0.000005',
+          feeDecimals: 9,
+          feeSymbol: 'SOL',
+          nativeDecimals: 9,
+          nativeSymbol: 'SOL',
+        },
+        feeSol: { computeUnitPrice: '0' },
+        payer,
+      } as ISwapGasInfo;
+      const buildContext = (nativeBalance: string) =>
+        buildDirectSwapGasAccountAnalyticsContext({
+          entryPoint: 'swapDirect',
+          networkId: 'sol--101',
+          unsignedTx: solanaUnsignedTx,
+          gasInfo: solanaGasInfo,
+          nativeBalance,
+          useGasAccountByDefault: true,
+          fiatCurrency: 'usd',
+        });
+
+      expect(buildContext('0.0015')).toMatchObject({
+        shortageType: 'extraFee',
+        selfPayGasSufficient: false,
+      });
+      expect(buildContext('0.00158844')).toMatchObject({
+        shortageType: 'networkFee',
+        selfPayGasSufficient: false,
+      });
+      expect(buildContext('0.00159344')).toMatchObject({
+        shortageType: 'none',
+        selfPayGasSufficient: true,
+      });
+    },
+  );
+
   it('classifies the direct swap self-pay gas shortfall', () => {
     const result = buildDirectSwapGasAccountAnalyticsContext({
       entryPoint: 'swapDirect',

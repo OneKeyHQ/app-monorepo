@@ -11,6 +11,7 @@ import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import {
   ProviderJotaiContextSwap,
+  useSwapDefaultConfigStatusAtom,
   useSwapFromTokenAmountAtom,
   useSwapInitialSelectedTokensSyncedAtom,
   useSwapNetworksAtom,
@@ -19,7 +20,8 @@ import {
   useSwapSelectedTokensColdStartContextAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
-} from '../../../states/jotai/contexts/swap';
+} from '../../../states/jotai/contexts/swap/atoms';
+import { jotaiContextStore } from '../../../states/jotai/utils/jotaiContextStore';
 import { useJotaiContextRootStore } from '../../../states/jotai/utils/useJotaiContextRootStore';
 import {
   SWAP_COLD_START_HOME_SCENE_NAME,
@@ -34,6 +36,7 @@ import { getVisibleSwapTabSwitchType } from '../utils/swapTypeUtils';
 export { hydrateSwapDefaultTokensFromGlobalHomeSnapshot } from '../utils/swapRootColdStartUtils';
 
 function SwapColdStartCacheSync() {
+  const [defaultConfigStatus] = useSwapDefaultConfigStatusAtom();
   const [swapNetworks] = useSwapNetworksAtom();
   const swapNetworksRef = useRef(swapNetworks);
   swapNetworksRef.current = swapNetworks;
@@ -83,6 +86,7 @@ function SwapColdStartCacheSync() {
       selectedAccount?: IAccountSelectorSelectedAccount,
     ) => {
       const defaultTokens = buildSwapDefaultSelectedTokensFromHomeAccount({
+        defaultConfigStatus,
         homeSelectedAccount: selectedAccount,
         swapType: swapTypeSwitchRef.current,
         swapNetworks: swapNetworksRef.current,
@@ -153,6 +157,7 @@ function SwapColdStartCacheSync() {
             swapFromTokenRef.current || swapToTokenRef.current,
           ),
           initialSelectedTokensSynced: initialSelectedTokensSyncedRef.current,
+          swapType: swapTypeSwitchRef.current,
         })
       ) {
         if (swapTypeSwitchRef.current === ESwapTabSwitchType.STOCK) {
@@ -162,6 +167,9 @@ function SwapColdStartCacheSync() {
         if (
           !setDefaultSelectedTokensFromHomeAccount(eventPayload.selectedAccount)
         ) {
+          if (defaultConfigStatus === 'pending') {
+            return;
+          }
           clearSelectedTokens();
         }
       }
@@ -171,13 +179,39 @@ function SwapColdStartCacheSync() {
       EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
       handleHomeSelectedAccountUpdate,
     );
+
+    // The event is not guaranteed to arrive. saveToStorage short circuits when
+    // the record on disk already matches, which is the normal case whenever
+    // another runtime or scene wrote it first - on extension the popup and the
+    // side panel are separate runtimes, and the popup dies without a
+    // beforeunload. Read Home again when configuration settles so a deferred
+    // default selection does not depend on receiving another account event.
+    let isActive = true;
+    void import('../utils/swapHomeSelectedAccountUtils')
+      .then(({ getLatestHomeSelectedAccount }) =>
+        getLatestHomeSelectedAccount(),
+      )
+      .then((homeSelectedAccount) => {
+        if (!isActive) {
+          return;
+        }
+        handleHomeSelectedAccountUpdate({
+          num: 0,
+          sceneName: SWAP_COLD_START_HOME_SCENE_NAME,
+          selectedAccount: homeSelectedAccount,
+        });
+      })
+      .catch(() => undefined);
+
     return () => {
+      isActive = false;
       appEventBus.off(
         EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
         handleHomeSelectedAccountUpdate,
       );
     };
   }, [
+    defaultConfigStatus,
     setInitialSelectedTokensSynced,
     setSelectedTokensColdStartContext,
     setSwapFromToken,
@@ -206,6 +240,7 @@ export const SwapRootProvider = memo(() => {
   const hasHydratedDefaultsRef = useRef(false);
   if (!hasHydratedDefaultsRef.current) {
     hasHydratedDefaultsRef.current = true;
+    jotaiContextStore.prepareStoreForImmediateUse(data);
     hydrateSwapDefaultTokensFromGlobalHomeSnapshot(store);
   }
   return (

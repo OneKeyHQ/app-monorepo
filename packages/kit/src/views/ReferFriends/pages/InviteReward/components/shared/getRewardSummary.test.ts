@@ -17,17 +17,15 @@ function createReward(amount: string) {
 }
 
 describe('getRewardSummary', () => {
-  it('adds reward amounts without losing precision and keeps token metadata', () => {
+  it('adds reward amounts without losing precision', () => {
     expect(
       getRewardSummary([
         createReward('9007199254740993.00000001'),
         createReward('0.00000009'),
       ]),
     ).toEqual({
-      kind: 'token',
-      amount: '9007199254740993.0000001',
+      fiatValue: '9007199254740993.0000001',
       hasReward: true,
-      token,
     });
   });
 
@@ -35,41 +33,28 @@ describe('getRewardSummary', () => {
     expect(
       getRewardSummary([createReward('invalid'), createReward('1')]),
     ).toEqual({
-      kind: 'token',
-      amount: '1',
+      fiatValue: '1',
       hasReward: true,
-      token,
     });
     expect(getRewardSummary([])).toEqual({
-      kind: 'token',
-      amount: '0',
+      fiatValue: '0',
+      usdValue: '0',
       hasReward: false,
-      token: undefined,
     });
   });
 
-  it.each([
-    ['address', { address: '0xother' }],
-    ['network', { networkId: 'evm--1' }],
-  ])('uses fiat value when the token %s differs', (_name, tokenOverride) => {
-    const otherToken = {
-      ...token,
-      ...tokenOverride,
-    };
-
+  it('uses a USD total only when every item has one', () => {
     expect(
       getRewardSummary([
-        createReward('10'),
-        {
-          ...createReward('20'),
-          fiatValue: '4.25',
-          token: otherToken,
-        },
-      ]),
-    ).toEqual({
-      kind: 'fiat',
-      fiatValue: '14.25',
-      hasReward: true,
-    });
+        { ...createReward('10'), usdValue: '10' },
+        { ...createReward('20'), usdValue: '2.5' },
+      ]).usdValue,
+    ).toBe('12.5');
+    expect(
+      getRewardSummary([
+        { ...createReward('10'), usdValue: '10' },
+        createReward('20'),
+      ]).usdValue,
+    ).toBeUndefined();
   });
 });

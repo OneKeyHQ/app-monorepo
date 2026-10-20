@@ -21,7 +21,10 @@ import type {
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { useSpeedSwapInit } from '../components/SwapPanel/hooks/useSpeedSwapInit';
+import {
+  ESpeedSwapConfigScope,
+  useSpeedSwapInit,
+} from '../components/SwapPanel/hooks/useSpeedSwapInit';
 
 import { MarketStockTradeTarget } from './components/MarketStockTradeTarget';
 import { buildMarketEmbeddedSwapInitParams } from './marketEmbeddedSwapUtils';
@@ -193,15 +196,22 @@ function MarketEmbeddedSwapContent({
   const { defaultTokens, speedConfigReady, speedSwapConfig } = useSpeedSwapInit(
     swapTokenSeed.networkId,
     true,
+    swapTokenSeed.isStock
+      ? ESpeedSwapConfigScope.DEFAULT
+      : ESpeedSwapConfigScope.MARKET,
   );
   const swapInitParams = useMemo<ISwapInitParams | undefined>(
     () =>
-      buildMarketEmbeddedSwapInitParams({
-        defaultTokens,
-        inputDraft: initialInputAmountDraft,
-        swapToken: swapTokenSeed,
-      }),
-    [defaultTokens, initialInputAmountDraft, swapTokenSeed],
+      swapTokenSeed.isStock ||
+      speedConfigReady ||
+      initialInputAmountDraft?.fromToken
+        ? buildMarketEmbeddedSwapInitParams({
+            defaultTokens,
+            inputDraft: initialInputAmountDraft,
+            swapToken: swapTokenSeed,
+          })
+        : undefined,
+    [defaultTokens, initialInputAmountDraft, speedConfigReady, swapTokenSeed],
   );
   const stockSpeedConfig = useMemo<ISwapStockSpeedConfig | undefined>(
     () =>
@@ -225,7 +235,8 @@ function MarketEmbeddedSwapContent({
     swapInitParams ?? lastValidSwapInitParamsRef.current;
   const hasRenderedSwapRef = useRef(false);
   if (
-    (!speedConfigReady || !effectiveSwapInitParams) &&
+    (!effectiveSwapInitParams ||
+      (swapTokenSeed.isStock && !speedConfigReady)) &&
     !hasRenderedSwapRef.current
   ) {
     return <MarketEmbeddedSwapLoading />;

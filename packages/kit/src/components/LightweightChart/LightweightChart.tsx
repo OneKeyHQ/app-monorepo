@@ -1,3 +1,4 @@
+// cspell:ignore tickmarks
 import { useEffect, useRef, useState } from 'react';
 import type { Ref } from 'react';
 
@@ -63,6 +64,27 @@ type IPrimarySeriesApi =
   | IHistogramSeriesApi
   | IDottedAreaSeriesApi;
 
+// Layered on top of whatever formatter each series type was created with, so
+// every type picks up the tick formatter and the price base the same way.
+function applyPriceFormatOverrides(
+  series: IPrimarySeriesApi,
+  {
+    priceFormatBase,
+    priceTickFormatter,
+  }: Pick<ILightweightChartProps, 'priceFormatBase' | 'priceTickFormatter'>,
+) {
+  if (priceFormatBase === undefined && !priceTickFormatter) return;
+  const currentPriceFormat = series.options().priceFormat;
+  if (currentPriceFormat.type !== 'custom') return;
+  series.applyOptions({
+    priceFormat: {
+      ...currentPriceFormat,
+      base: priceFormatBase,
+      tickmarksFormatter: priceTickFormatter,
+    },
+  });
+}
+
 function getSeriesValue(seriesData: unknown): number | undefined {
   if (seriesData && typeof seriesData === 'object' && 'value' in seriesData) {
     const value = seriesData.value;
@@ -95,6 +117,8 @@ export function LightweightChart({
   patternColor,
   pulseLastPointColor,
   priceFormatter,
+  priceTickFormatter,
+  priceFormatBase,
   fontSize,
   seriesType,
   lineType,
@@ -118,6 +142,7 @@ export function LightweightChart({
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<IPrimarySeriesApi | null>(null);
   const secondarySeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const secondaryPointSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   const heightRef = useRef(height);
   heightRef.current = height;
   // Pixel position of the last data point (relative to the chart container's
@@ -149,6 +174,8 @@ export function LightweightChart({
     patternColor,
     pulseLastPointColor,
     priceFormatter,
+    priceTickFormatter,
+    priceFormatBase,
     fontSize,
     seriesType,
     lineType,
@@ -319,6 +346,7 @@ export function LightweightChart({
             ...lastValueSeriesOptions,
           });
         }
+        applyPriceFormatOverrides(series, currentChartConfig);
         if (currentChartConfig.referenceLine?.includeInAutoscale) {
           series.applyOptions({
             autoscaleInfoProvider: createReferenceLineAutoscaleInfoProvider(
@@ -378,6 +406,23 @@ export function LightweightChart({
           });
           secondarySeries.setData(currentChartConfig.secondaryLineData);
           secondarySeriesRef.current = secondarySeries;
+
+          // Points cut off by gaps on both sides draw no segment; a dot-only
+          // series in the same color keeps them visible.
+          if (currentChartConfig.secondaryPointData?.length) {
+            const secondaryPointSeries = chart.addSeries(LineSeries, {
+              priceScaleId: currentChartConfig.priceScalePosition,
+              color: currentChartConfig.secondaryLineColor ?? '#0177E5',
+              lineVisible: false,
+              pointMarkersVisible: true,
+              pointMarkersRadius: normalizedSecondaryLineWidth + 1,
+              priceLineVisible: false,
+              lastValueVisible: false,
+              crosshairMarkerVisible: false,
+            });
+            secondaryPointSeries.setData(currentChartConfig.secondaryPointData);
+            secondaryPointSeriesRef.current = secondaryPointSeries;
+          }
         }
 
         chartRef.current = chart;
@@ -521,6 +566,7 @@ export function LightweightChart({
       chartRef.current = null;
       seriesRef.current = null;
       secondarySeriesRef.current = null;
+      secondaryPointSeriesRef.current = null;
       lastPointPositionUpdaterRef.current = undefined;
     };
   }, [
@@ -536,6 +582,7 @@ export function LightweightChart({
     chartConfig.lineType,
     chartConfig.patternColor,
     chartConfig.priceFormatter,
+    chartConfig.priceTickFormatter,
     chartConfig.priceScalePosition,
     chartConfig.priceScaleEntireTextOnly,
     chartConfig.priceScaleMargins,
@@ -583,6 +630,8 @@ export function LightweightChart({
     canPublishLastPointPositionRef.current = false;
     setLastPointPosition(null);
 
+    // A new range can sit at a different magnitude, so the tick step follows.
+    applyPriceFormatOverrides(currentSeries, chartConfigRef.current);
     currentSeries.setData(chartConfig.data);
     currentChart.timeScale().fitContent();
 
@@ -616,7 +665,14 @@ export function LightweightChart({
       return;
     }
     secondarySeriesRef.current?.setData(chartConfig.secondaryLineData ?? []);
-  }, [chartConfig.secondaryLineData, preserveChartInstanceOnDataChange]);
+    secondaryPointSeriesRef.current?.setData(
+      chartConfig.secondaryPointData ?? [],
+    );
+  }, [
+    chartConfig.secondaryLineData,
+    chartConfig.secondaryPointData,
+    preserveChartInstanceOnDataChange,
+  ]);
 
   return (
     <Stack position="relative" width="100%" height={height}>

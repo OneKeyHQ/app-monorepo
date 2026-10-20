@@ -10,12 +10,20 @@ import type { Ref } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, Input, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Icon,
+  Input,
+  SizableText,
+  Skeleton,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import type { IInputRef, IYStackProps } from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { MarketTestIDs } from '@onekeyhq/kit/src/views/Market/testIDs';
 import SwapInputActions from '@onekeyhq/kit/src/views/Swap/pages/components/SwapInputActions';
 import {
   EAppEventBusNames,
@@ -350,6 +358,7 @@ function TokenInputSectionComponent(
                   gap="$1"
                   px="$2"
                   {...(isTokenSelectorVisible && {
+                    testID: MarketTestIDs.swapPanelPaymentTokenTrigger,
                     onPress: () => setIsPopoverOpen(true),
                     userSelect: 'none',
                     hoverStyle: { bg: '$bgHover' },
@@ -357,9 +366,17 @@ function TokenInputSectionComponent(
                     borderCurve: 'continuous',
                   })}
                 >
-                  <SizableText size="$bodyMd" numberOfLines={1} maxWidth="$16">
-                    {selectedToken?.symbol}
-                  </SizableText>
+                  {selectedTokenLoading && !selectedToken?.symbol ? (
+                    <Skeleton width="$12" height="$4" />
+                  ) : (
+                    <SizableText
+                      size="$bodyMd"
+                      numberOfLines={1}
+                      maxWidth="$16"
+                    >
+                      {selectedToken?.symbol}
+                    </SizableText>
+                  )}
                   {isTokenSelectorVisible ? (
                     <Icon
                       name="ChevronDownSmallOutline"
@@ -389,6 +406,7 @@ function TokenInputSectionComponent(
           selectedTokenDecimals={selectedToken?.decimals}
           selectedTokenNetworkId={selectedToken?.networkId}
           selectedTokenIsNative={selectedToken?.isNative}
+          selectedTokenContractAddress={selectedToken?.contractAddress}
           onSelect={handlePresetAmountSelect}
           onPresetSelect={onAmountEnterTypeChange}
           tradeType={tradeType}

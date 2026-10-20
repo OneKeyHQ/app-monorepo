@@ -18,6 +18,7 @@ import type {
   IEventSourceTimeoutEvent,
 } from '@onekeyhq/shared/src/eventSource';
 
+import type { ISwapReviewAnalyticsContext } from './reviewAnalytics';
 import type {
   IEstimateGasResp,
   IFeeAlgo,
@@ -192,6 +193,8 @@ export interface IMarketPresetTokenContext {
 }
 
 export interface ISwapInitParams {
+  // The current Market token side; resolved using Swap's loaded capabilities.
+  marketSwapDirection?: 'from' | 'to';
   importFromToken?: ISwapToken;
   importToToken?: ISwapToken;
   importAccountKey?: string;
@@ -208,6 +211,10 @@ export interface ISwapInitParams {
 
 export interface ISwapNetworkBase {
   networkId: string;
+  /** Whether this network is an L2 chain. */
+  isL2?: boolean;
+  /** The parent L1 network id for an L2 chain. */
+  parentNetworkId?: string;
   defaultSelectToken?: { from?: string; to?: string };
   defaultSelectTokenDetail?: {
     from?: ISwapToken;
@@ -391,6 +398,8 @@ export interface ISwapOrderHash {
 
 export interface ISwapApproveTransaction {
   approvalRequestId?: string;
+  // Keep the originating Review for estimates after reset approval completes.
+  analyticsSwapInfo?: ISwapTxInfo;
   fromToken: ISwapToken;
   toToken: ISwapToken;
   marketSwapApprovalFlowId?: string;
@@ -660,6 +669,7 @@ export interface ISwapPreSwapData {
 
 export interface IFetchSwapQuoteParams {
   source?: ESwapQuoteSource;
+  denySingleSwapProvider?: string;
   fromToken: ISwapToken;
   toToken: ISwapToken;
   requestScopeKey?: string;
@@ -835,6 +845,9 @@ export interface ISwapState {
   isRefreshQuote?: boolean;
   isWaitingAutoSlippage?: boolean;
   shouldEnterRecipient?: boolean;
+  // From-token balance is a loaded zero: the action button becomes the
+  // deposit entry instead of a disabled "insufficient balance" label.
+  shouldDepositToTrade?: boolean;
 }
 
 export interface ISwapApproveAllowanceResponse {
@@ -886,6 +899,13 @@ export interface ISwapAlertState {
   alertLevel?: ESwapAlertLevel;
   inputShowError?: boolean;
   noConnectWallet?: boolean;
+  isAccountNetworkUnsupported?: boolean;
+  accountNetworkUnsupportedContext?: {
+    accountId?: string;
+    walletId?: IDBWalletId;
+    networkId?: string;
+    directionType?: ESwapDirectionType;
+  };
   action?: {
     actionType: ESwapAlertActionType;
     actionLabel?: string;
@@ -927,6 +947,7 @@ export type ISwapQuoteEventData =
 
 // build_tx
 export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
+  source?: ESwapQuoteSource;
   userAddress: string;
   receivingAddress: string;
   slippagePercentage: number;
@@ -937,7 +958,6 @@ export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
   kind: ESwapQuoteKind;
   walletType?: string;
   deviceType?: string;
-  source?: ESwapQuoteSource;
   bindedAccountAddress?: string;
   bindedNetworkId?: string;
   rebateAddress?: string;
@@ -1037,6 +1057,7 @@ export interface ISwapInfoSide {
   };
 }
 export interface ISwapTxInfo {
+  reviewAnalyticsContext?: ISwapReviewAnalyticsContext;
   protocol: EProtocolOfExchange;
   sender: ISwapInfoSide;
   receiver: ISwapInfoSide;

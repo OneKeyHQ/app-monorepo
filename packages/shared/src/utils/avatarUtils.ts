@@ -2,9 +2,11 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import { EHardwareVendor } from '../../types/device';
 
+import { getPro2DeviceColor } from './hardwareDeviceColors';
 import { NEO_DEVICE_TYPE } from './hardwareDeviceTypes';
 import thirdPartyDeviceUtils from './thirdPartyDeviceUtils';
 
+import type { IPro2DeviceColor } from './hardwareDeviceColors';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { ImageSourcePropType } from 'react-native';
 
@@ -30,21 +32,41 @@ export const HdWalletAvatarImageNames = Object.keys(
   HdWalletAvatarImages,
 ) as IHdWalletAvatarImageNames[];
 
+/**
+ * The device colors that ship with their own avatar art. The Pro's two
+ * are told apart by serial here; the Pro 2's vocabulary lives in
+ * ./hardwareDeviceColors, shared with the stage replicas.
+ */
+type IProColor = 'Black' | 'White';
+type IPro2Color = IPro2DeviceColor;
+
 export const HwWalletAvatarImages: Record<
-  IDeviceType | `${EDeviceType.Pro}Black` | `${EDeviceType.Pro}White`,
+  | IDeviceType
+  | `${EDeviceType.Classic1s | EDeviceType.ClassicPure}Transparent`
+  | `${EDeviceType.Pro}${IProColor}`
+  | `${EDeviceType.Pro2}${IPro2Color}`,
   ImageSourcePropType
 > = {
   [EDeviceType.Unknown]: { uri: undefined },
   [EDeviceType.Classic]: require('../assets/wallet/avatar/Classic.png'),
   [EDeviceType.Classic1s]: require('../assets/wallet/avatar/Classic.png'),
   [EDeviceType.ClassicPure]: require('../assets/wallet/avatar/ClassicPure.png'),
+  [`${EDeviceType.Classic1s}Transparent`]: require('../assets/wallet/avatar/Classic1sPureBTC.png'),
+  [`${EDeviceType.ClassicPure}Transparent`]: require('../assets/wallet/avatar/Classic1sPureBTC.png'),
   [EDeviceType.Mini]: require('../assets/wallet/avatar/Mini.png'),
   [EDeviceType.Touch]: require('../assets/wallet/avatar/Touch.png'),
   [EDeviceType.Pro]: require('../assets/wallet/avatar/ProBlack.png'),
-  [EDeviceType.Pro2]: require('../assets/wallet/avatar/ProBlack.png'),
+  // The bare model key is the model's default finish — the Pro 2 in
+  // black — worn wherever no serial is in hand (the onboarding device
+  // list, the setup stepper), the same default the stage replica wears.
+  [EDeviceType.Pro2]: require('../assets/wallet/avatar/Pro2Black.png'),
+  // No art of its own yet: wears the Pro's.
   [NEO_DEVICE_TYPE]: require('../assets/wallet/avatar/ProBlack.png'),
   [`${EDeviceType.Pro}Black`]: require('../assets/wallet/avatar/ProBlack.png'),
   [`${EDeviceType.Pro}White`]: require('../assets/wallet/avatar/ProWhite.png'),
+  [`${EDeviceType.Pro2}Black`]: require('../assets/wallet/avatar/Pro2Black.png'),
+  [`${EDeviceType.Pro2}Orange`]: require('../assets/wallet/avatar/Pro2Orange.png'),
+  [`${EDeviceType.Pro2}Silver`]: require('../assets/wallet/avatar/Pro2Silver.png'),
 };
 
 export const OthersWalletAvatarImages = {
@@ -59,6 +81,9 @@ export const ThirdPartyWalletAvatarImages = {
   // presents as a particular physical model.
   ledger: require('../assets/wallet/avatar/Ledger.png'),
   trezor: require('../assets/wallet/avatar/Trezor.png'),
+  // Neutral fallback until a licensed Keystone-specific avatar is available.
+  // It must not reuse another hardware vendor's product image.
+  keystone: require('../assets/wallet/avatar/others-external.png'),
   TrezorModelOne: require('../assets/wallet/avatar/TrezorModelOne.png'),
   TrezorModelT: require('../assets/wallet/avatar/TrezorModelT.png'),
   TrezorSafe3: require('../assets/wallet/avatar/TrezorSafe3.png'),
@@ -98,12 +123,26 @@ export type IAllWalletAvatarImageNames =
 export function getDeviceAvatarImage(
   deviceType: IDeviceType,
   serialNo?: string,
-): IDeviceType | `${EDeviceType.Pro}Black` | `${EDeviceType.Pro}White` {
+): IHwWalletAvatarImageNames {
+  if (
+    (deviceType === EDeviceType.Classic1s ||
+      deviceType === EDeviceType.ClassicPure) &&
+    serialNo?.length === 11 &&
+    serialNo.startsWith(deviceType === EDeviceType.Classic1s ? 'CL' : 'CP') &&
+    serialNo.endsWith('C')
+  ) {
+    return `${deviceType}Transparent`;
+  }
   if (deviceType === EDeviceType.Pro) {
     if (serialNo && serialNo?.startsWith('PR') && serialNo?.endsWith('B')) {
       return `${EDeviceType.Pro}White`;
     }
     return `${EDeviceType.Pro}Black`;
+  }
+  // A letter the model does not come in, and no serial at all, wear the
+  // model's default finish (see the table above).
+  if (deviceType === EDeviceType.Pro2) {
+    return `${EDeviceType.Pro2}${getPro2DeviceColor(serialNo) ?? 'Black'}`;
   }
   return deviceType;
 }

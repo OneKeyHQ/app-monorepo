@@ -145,9 +145,11 @@ export const { atom: allNetworksStateAtom, use: useAllNetworksStateStateAtom } =
 
 export const { atom: approvalsInfoAtom, use: useApprovalsInfoAtom } =
   contextAtom<{
+    ownerKey: string;
     // Risk approvals the user has not reviewed within the resurface window.
     showRiskApprovalsDot: boolean;
   }>({
+    ownerKey: '',
     showRiskApprovalsDot: false,
   });
 

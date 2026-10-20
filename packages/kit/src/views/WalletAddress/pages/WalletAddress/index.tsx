@@ -33,6 +33,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import type { IListItemTextProps } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
@@ -64,6 +65,7 @@ import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import networkUtils, {
+  buildPopularFirstNetworkSections,
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
 import {
@@ -108,7 +110,13 @@ function WalletAddressListItemIcon({
 }
 const WalletAddressListItemIconMemo = memo(WalletAddressListItemIcon);
 
-function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
+// Exported for tests only (render-prop identity guard in
+// SingleWalletAddressListItem.test.tsx).
+export function SingleWalletAddressListItem({
+  network,
+}: {
+  network: IServerNetwork;
+}) {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const {
@@ -306,48 +314,64 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
     ],
   );
 
+  // ListItem renders this prop as a component, so an inline arrow would be a
+  // new element type on every render and React would remount the whole text
+  // subtree instead of updating it in place.
+  const renderItemText = useCallback(
+    (textProps: IListItemTextProps) => (
+      <ListItem.Text
+        {...textProps}
+        primary={
+          <XStack alignItems="center" gap="$2">
+            <SizableText size="$bodyLgMedium">{network.name}</SizableText>
+            {!isBotWalletAddressBlocked &&
+            networkUtils
+              .getDefaultDeriveTypeVisibleNetworks()
+              .includes(network.id) ? (
+              <AddressTypeSelector
+                placement="bottom-start"
+                whenCollapsed="hide"
+                walletId={walletId ?? ''}
+                networkId={network.id}
+                indexedAccountId={indexedAccountId ?? ''}
+                onSelect={async () => {
+                  await refreshLocalData({
+                    alwaysSetState: true,
+                    skipAccountsCache: true,
+                  });
+                }}
+                onCreate={async ({ deriveType }) => {
+                  const defaultDeriveType =
+                    await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+                      {
+                        networkId: network.id,
+                      },
+                    );
+                  if (deriveType === defaultDeriveType) {
+                    await refreshLocalData();
+                  }
+                }}
+              />
+            ) : null}
+          </XStack>
+        }
+        flex={1}
+      />
+    ),
+    [
+      indexedAccountId,
+      isBotWalletAddressBlocked,
+      network.id,
+      network.name,
+      refreshLocalData,
+      walletId,
+    ],
+  );
+
   return useMemo(
     () => (
       <ListItem
-        renderItemText={(textProps) => (
-          <ListItem.Text
-            {...textProps}
-            primary={
-              <XStack alignItems="center" gap="$2">
-                <SizableText size="$bodyLgMedium">{network.name}</SizableText>
-                {!isBotWalletAddressBlocked &&
-                networkUtils
-                  .getDefaultDeriveTypeVisibleNetworks()
-                  .includes(network.id) ? (
-                  <AddressTypeSelector
-                    placement="bottom-start"
-                    walletId={walletId ?? ''}
-                    networkId={network.id}
-                    indexedAccountId={indexedAccountId ?? ''}
-                    onSelect={async () => {
-                      await refreshLocalData({
-                        alwaysSetState: true,
-                        skipAccountsCache: true,
-                      });
-                    }}
-                    onCreate={async ({ deriveType }) => {
-                      const defaultDeriveType =
-                        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
-                          {
-                            networkId: network.id,
-                          },
-                        );
-                      if (deriveType === defaultDeriveType) {
-                        await refreshLocalData();
-                      }
-                    }}
-                  />
-                ) : null}
-              </XStack>
-            }
-            flex={1}
-          />
-        )}
+        renderItemText={renderItemText}
         subtitle={subtitle}
         subtitleProps={{
           color:
@@ -372,15 +396,11 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
     [
       account,
       avatar,
-      indexedAccountId,
       isEnabledNetwork,
       loading,
-      network.id,
-      network.name,
       onPress,
-      refreshLocalData,
+      renderItemText,
       subtitle,
-      walletId,
       isBotWalletAddressBlocked,
     ],
   );
@@ -395,12 +415,10 @@ const WalletAddressListItemMemo = memo(WalletAddressListItem);
 function WalletAddressContent({
   mainnetItems: m,
   testnetItems: t,
-  frequentlyUsedNetworks: f,
   actionType,
 }: {
   mainnetItems: IServerNetwork[];
   testnetItems: IServerNetwork[];
-  frequentlyUsedNetworks: IServerNetwork[];
   actionType?: EWalletAddressActionType;
 }) {
   log('WalletAddressContentRender');
@@ -414,14 +432,10 @@ function WalletAddressContent({
 
   let mainnetItems = m;
   let testnetItems = t;
-  let frequentlyUsedNetworks = f;
 
   if (showEnabledNetworksOnlyInCopyAddressPanel) {
     mainnetItems = mainnetItems.filter((o) => isAllNetworksEnabled[o.id]);
     testnetItems = testnetItems.filter((o) => isAllNetworksEnabled[o.id]);
-    frequentlyUsedNetworks = frequentlyUsedNetworks.filter(
-      (o) => isAllNetworksEnabled[o.id],
-    );
   }
 
   if (actionType === EWalletAddressActionType.ViewInExplorer) {
@@ -429,9 +443,6 @@ function WalletAddressContent({
       (o) => !networkUtils.isViewInExplorerDisabled({ networkId: o.id }),
     );
     testnetItems = testnetItems.filter(
-      (o) => !networkUtils.isViewInExplorerDisabled({ networkId: o.id }),
-    );
-    frequentlyUsedNetworks = frequentlyUsedNetworks.filter(
       (o) => !networkUtils.isViewInExplorerDisabled({ networkId: o.id }),
     );
   }
@@ -456,48 +467,22 @@ function WalletAddressContent({
           ];
     }
 
-    const frequentlyUsedNetworksSet = new Set(
-      frequentlyUsedNetworks.map((o) => o.id),
-    );
-    const filterFrequentlyUsedNetworks = (inputs: IServerNetwork[]) =>
-      inputs.filter((o) => !frequentlyUsedNetworksSet.has(o.id));
-
-    const data = filterFrequentlyUsedNetworks(mainnetItems).reduce(
-      (result, item) => {
-        const char = item.name[0].toUpperCase();
-        if (!result[char]) {
-          result[char] = [];
-        }
-        result[char].push(item);
-
-        return result;
-      },
-      {} as Record<string, IServerNetwork[]>,
-    );
-    const sectionList = Object.entries(data)
-      .map(([key, value]) => ({ title: key, data: value }))
-      .toSorted((a, b) => a.title.charCodeAt(0) - b.title.charCodeAt(0));
-    const _sections: ISectionItem[] = [
-      { data: frequentlyUsedNetworks },
-      ...sectionList,
-    ];
+    // Same top block as the Receive network list: the fixed "Popular" set,
+    // then the rest by first letter.
+    const _sections: ISectionItem[] = buildPopularFirstNetworkSections({
+      networks: mainnetItems,
+      popularTitle: intl.formatMessage({ id: ETranslations.global_popular }),
+    });
     if (testnetItems.length > 0) {
       _sections.push({
         title: intl.formatMessage({
           id: ETranslations.global_testnet,
         }),
-        data: filterFrequentlyUsedNetworks(testnetItems),
+        data: testnetItems,
       });
     }
     return _sections;
-  }, [
-    mainnetItems,
-    frequentlyUsedNetworks,
-    searchText,
-    testnetItems,
-    intl,
-    networkFuseSearch,
-  ]);
+  }, [mainnetItems, searchText, testnetItems, intl, networkFuseSearch]);
 
   const renderSectionHeader = useCallback(
     (item: { section: { title: string } }) => {
@@ -590,7 +575,6 @@ function WalletAddress({
   indexedAccountId,
   mainnetItems,
   testnetItems,
-  frequentlyUsedNetworks,
   actionType,
 }: {
   accountId: string | undefined;
@@ -598,7 +582,6 @@ function WalletAddress({
   indexedAccountId: string | undefined;
   mainnetItems: IServerNetwork[];
   testnetItems: IServerNetwork[];
-  frequentlyUsedNetworks: IServerNetwork[];
   actionType?: EWalletAddressActionType;
 }) {
   const {
@@ -652,7 +635,6 @@ function WalletAddress({
       <WalletAddressContentMemo
         testnetItems={testnetItems}
         mainnetItems={mainnetItems}
-        frequentlyUsedNetworks={frequentlyUsedNetworks}
         actionType={actionType}
       />
     </WalletAddressPageView>
@@ -1024,7 +1006,6 @@ function WalletAddressPageMainView({
             indexedAccountId={indexedAccountId}
             testnetItems={result.networks.testnetItems}
             mainnetItems={result.networks.mainnetItems}
-            frequentlyUsedNetworks={result.networks.frequentlyUsedItems}
             actionType={actionType}
           />
         )}

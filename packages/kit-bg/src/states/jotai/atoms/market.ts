@@ -10,13 +10,34 @@ import { globalAtom } from '../utils';
 
 export type IMarketSelectedTab = 'watchlist' | 'trending' | 'perps';
 
-export interface IMarketSelectedTabAtom {
+export interface IMarketHomePreferences {
+  selectedNetworkId?: string;
+  timeRange?: '5m' | '1h' | '4h' | '24h';
+  selectedStockCategory?: string;
+  selectedTopCoinsCategory?: string;
+  watchlistFilter?: 'all' | 'spot' | 'stocks' | 'perps';
+}
+
+export interface IMarketHomePreferencesAtom extends IMarketHomePreferences {
+  revision?: number;
+}
+
+export interface IMarketSelectedTabAtom extends IMarketHomePreferences {
   tab: IMarketSelectedTab;
   selectedSpotCategory?: string;
   spotCategoryToSelect?: string;
   selectedPerpsCategory?: string;
   perpsCategoryToSelect?: string;
 }
+
+export const {
+  target: marketHomePreferencesAtom,
+  use: useMarketHomePreferencesAtom,
+} = globalAtom<IMarketHomePreferencesAtom>({
+  persist: true,
+  name: EAtomNames.marketHomePreferencesAtom,
+  initialValue: {},
+});
 
 export const { target: marketSelectedTabAtom, use: useMarketSelectedTabAtom } =
   globalAtom<IMarketSelectedTabAtom>({
@@ -131,19 +152,35 @@ export const {
   initialValue: { mode: 'simple' },
 });
 
+export interface IMarketDetailPositionTabPersistAtom {
+  preferPosition: boolean;
+}
+
+// Whether the last tab picked on any market detail page was My position. It is
+// a reading habit rather than a per-asset choice, so one value covers every
+// detail page; the other tabs are not remembered.
+export const {
+  target: marketDetailPositionTabPersistAtom,
+  use: useMarketDetailPositionTabPersistAtom,
+} = globalAtom<IMarketDetailPositionTabPersistAtom>({
+  persist: true,
+  name: EAtomNames.marketDetailPositionTabPersistAtom,
+  initialValue: { preferPosition: false },
+});
+
 export type IMarketPriceSource = 'share' | 'token';
 
 export interface IMarketPriceSourceAtom {
   source: IMarketPriceSource;
 }
 
-// Shared by the stock price header and chart. StockDesktopLayout resets this
-// non-persisted value to 'share' when the selected stock changes.
+// Shared by the stock price header and chart. Start on the token quote until
+// the selected stock's market status can choose the initial price source.
 export const { target: marketPriceSourceAtom, use: useMarketPriceSourceAtom } =
   globalAtom<IMarketPriceSourceAtom>({
     persist: false,
     name: EAtomNames.marketPriceSourceAtom,
-    initialValue: { source: 'share' },
+    initialValue: { source: 'token' },
   });
 
 export interface IMarketDesktopLayout {
@@ -158,34 +195,4 @@ export const {
   name: EAtomNames.marketDesktopLayoutAtom,
   persist: true,
   initialValue: {},
-});
-
-export interface IMarketTradingViewPanelSettings {
-  chartSettings: ITradingViewNativeChartSettings;
-  indicatorSettings: ITradingViewNativeIndicatorSettings;
-}
-
-export interface IMarketTradingViewPanelSizes {
-  columns: number[];
-  rows: number[];
-}
-
-export interface IMarketTradingViewLayout {
-  panelCount: 1 | 2 | 3 | 4;
-  panelOrder: string[];
-  panelSettings: Record<string, IMarketTradingViewPanelSettings>;
-  panelSizes?: Record<string, IMarketTradingViewPanelSizes>;
-}
-
-export const {
-  target: marketTradingViewLayoutPersistAtom,
-  use: useMarketTradingViewLayoutPersistAtom,
-} = globalAtom<IMarketTradingViewLayout>({
-  persist: true,
-  name: EAtomNames.marketTradingViewLayoutPersistAtom,
-  initialValue: {
-    panelCount: 1,
-    panelOrder: ['main', 'panel-2', 'panel-3', 'panel-4'],
-    panelSettings: {},
-  },
 });

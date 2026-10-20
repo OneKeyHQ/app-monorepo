@@ -1,8 +1,10 @@
 /* cspell:ignore Infini */
 /* eslint-disable import/first, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-var-requires */
 
+import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import type { IPrimeGiftVerifyV2Result } from '@onekeyhq/shared/types/prime/primeGiftTypes';
 
 import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
@@ -237,6 +239,9 @@ const mockPersistKeylessAuthSession = jest.fn(
 );
 const mockClearAllSupabaseAuthSessions = jest.fn(async () => undefined);
 const mockVerifyEmailOtp = jest.fn();
+const mockAllowEmailSessionWrites = jest.fn(
+  async (_source: unknown) => undefined,
+);
 
 jest.mock('@onekeyhq/shared/src/utils/supabaseClientUtils', () => ({
   getSupabaseClient: () => ({
@@ -251,7 +256,8 @@ jest.mock('@onekeyhq/shared/src/utils/supabaseClientUtils', () => ({
 // Real retryable-error semantics, driven by a `$$retryable` marker on the
 // rejection so tests can simulate a failed local session refresh.
 jest.mock('./primeAuthSessionAccess', () => ({
-  allowAuthSessionStorageWritesBySessionSource: jest.fn(),
+  allowAuthSessionStorageWritesBySessionSource: (source: unknown) =>
+    mockAllowEmailSessionWrites(source),
   clearAllSupabaseAuthSessions: () => mockClearAllSupabaseAuthSessions(),
   getAuthTokenBySessionSource: (source: unknown) =>
     mockGetAuthTokenBySessionSource(source),
@@ -446,6 +452,12 @@ function createService() {
       showAlertDialogIfServerPasswordNotSet: jest.fn(async () => undefined),
       showAlertDialogIfServerPasswordChanged: jest.fn(async () => undefined),
     },
+    servicePrimeFreeTrial: {
+      allocateQuotaRequestSeq: jest.fn(() => 1),
+      applyQuotaFromPrimeUserInfo: jest.fn(async () => undefined),
+      normalizeFreeTrialError: jest.fn(() => undefined),
+      handleFreeTrialErrorFromServer: jest.fn(async () => undefined),
+    },
     serviceAccount: {
       getKeylessWallet: jest.fn(async () => undefined),
     },
@@ -539,6 +551,106 @@ function createDeferred<T = void>() {
   });
   return { promise, resolve, reject };
 }
+
+describe('ServicePrime.sendEmailOTP', () => {
+  const serverTime = Date.parse('2026-10-15T12:00:00.000Z');
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test.each([-120_000, 0, 120_000])(
+    'uses the response clock with a %sms device clock offset',
+    async (clockOffset) => {
+      jest.spyOn(Date, 'now').mockReturnValue(serverTime + clockOffset);
+      const { service } = createService();
+      const post = jest.fn().mockResolvedValue({
+        data: {
+          data: {
+            canResendAt: serverTime + 60_001,
+            resendAt: 300,
+            uuid: 'otp-id',
+          },
+        },
+        headers: { date: new Date(serverTime).toUTCString() },
+      });
+      jest.spyOn(service, 'getOneKeyIdClient').mockResolvedValue({ post });
+
+      await expect(
+        service.sendEmailOTP(EPrimeEmailOTPScene.DeleteOneKeyId),
+      ).resolves.toMatchObject({
+        retryAfterSeconds: 61,
+        resendAt: 300,
+        uuid: 'otp-id',
+      });
+      expect(post).toHaveBeenCalledWith('/prime/v1/general/emailOTP', {
+        scene: EPrimeEmailOTPScene.DeleteOneKeyId,
+      });
+    },
+  );
+
+  test.each([26_500, 61_000, 300_000])(
+    'preserves and rounds up a %sms server interval',
+    async (delay) => {
+      const { service } = createService();
+      jest.spyOn(service, 'getOneKeyIdClient').mockResolvedValue({
+        post: jest.fn().mockResolvedValue({
+          data: { data: { canResendAt: serverTime + delay } },
+          headers: { date: new Date(serverTime).toUTCString() },
+        }),
+      });
+
+      await expect(
+        service.sendEmailOTP(EPrimeEmailOTPScene.DeleteOneKeyId),
+      ).resolves.toMatchObject({
+        retryAfterSeconds: Math.ceil(delay / 1000),
+      });
+    },
+  );
+
+  test.each([undefined, 'invalid date'])(
+    'uses the existing server time estimate when the response date is %s',
+    async (date) => {
+      jest
+        .spyOn(systemTimeUtils, 'getEstimatedServerTime')
+        .mockReturnValue(serverTime);
+      const { service } = createService();
+      jest.spyOn(service, 'getOneKeyIdClient').mockResolvedValue({
+        post: jest.fn().mockResolvedValue({
+          data: { data: { canResendAt: serverTime + 26_500 } },
+          headers: { date },
+        }),
+      });
+
+      await expect(
+        service.sendEmailOTP(EPrimeEmailOTPScene.DeleteOneKeyId),
+      ).resolves.toMatchObject({
+        retryAfterSeconds: 27,
+      });
+    },
+  );
+
+  test('leaves the delay unset when no reliable server time is available', async () => {
+    jest.spyOn(Date, 'now').mockReturnValue(serverTime + 120_000);
+    jest
+      .spyOn(systemTimeUtils, 'getEstimatedServerTime')
+      .mockReturnValue(undefined);
+    const { service } = createService();
+    jest.spyOn(service, 'getOneKeyIdClient').mockResolvedValue({
+      post: jest.fn().mockResolvedValue({
+        data: { data: { canResendAt: serverTime + 60_000, uuid: 'otp-id' } },
+        headers: {},
+      }),
+    });
+
+    await expect(
+      service.sendEmailOTP(EPrimeEmailOTPScene.DeleteOneKeyId),
+    ).resolves.toMatchObject({
+      retryAfterSeconds: undefined,
+      uuid: 'otp-id',
+    });
+  });
+});
 
 describe('ServicePrime.apiFetchPrimeUserInfo', () => {
   it('refreshes an expired legacy access token through the SDK before profile recovery', async () => {
@@ -4140,6 +4252,38 @@ describe('ServicePrime.apiEmailOtpLogin serialization', () => {
     jest.clearAllMocks();
   });
 
+  it('reopens the email storage slot before OTP verification can persist a new session', async () => {
+    const { service } = createService();
+    let allowWrites!: () => void;
+    let noteReopen!: () => void;
+    const reopening = new Promise<void>((resolve) => {
+      noteReopen = resolve;
+    });
+    mockAllowEmailSessionWrites.mockImplementationOnce(() => {
+      noteReopen();
+      return new Promise<undefined>((resolve) => {
+        allowWrites = () => resolve(undefined);
+      });
+    });
+    mockVerifyEmailOtp.mockResolvedValue({
+      data: { session: { access_token: 'next-email-token' } },
+      error: null,
+    });
+    service.apiLoginWithPersistedLegacySession = jest.fn(async () => undefined);
+    const login = service.apiEmailOtpLogin({
+      email: 'next@example.com',
+      otp: '111111',
+    });
+    await reopening;
+    expect(mockAllowEmailSessionWrites).toHaveBeenCalledWith(
+      EPrimeAuthSessionSource.LegacyEmailSupabase,
+    );
+    expect(mockVerifyEmailOtp).not.toHaveBeenCalled();
+    allowWrites();
+    await expect(login).resolves.toEqual({ success: true });
+    expect(mockVerifyEmailOtp).toHaveBeenCalledTimes(1);
+  });
+
   it('records an email OTP verification failure once in the background runtime', async () => {
     const { service } = createService();
     mockVerifyEmailOtp.mockResolvedValue({
@@ -4176,6 +4320,7 @@ describe('ServicePrime.apiEmailOtpLogin serialization', () => {
       reason: expect.stringContaining(
         'ServicePrime.apiEmailOtpLogin email OTP verification failed',
       ),
+      trigger: 'interactive',
     });
   });
 
@@ -4209,6 +4354,8 @@ describe('ServicePrime.apiEmailOtpLogin serialization', () => {
     expect(mockOneKeyIdLoginFailedReasonLog).toHaveBeenCalledTimes(1);
     expect(mockOneKeyIdLoginFailedReasonLog).toHaveBeenCalledWith({
       reason: expect.stringContaining('ServicePrime.apiEmailOtpLogin failed'),
+      trigger: 'interactive',
+      error: expect.objectContaining({ message: 'Prime login commit failed' }),
     });
   });
 
@@ -5408,6 +5555,7 @@ describe('ServicePrime.apiOAuthLogin keyless slot identity guard', () => {
     expect(mockToastIfErrorMethods).toContain('apiOAuthLogin');
     expect(mockOneKeyIdLoginFailedReasonLog).toHaveBeenCalledWith({
       reason: expect.stringContaining('OneKey ID is already logged in'),
+      trigger: 'interactive',
     });
     expect(
       simpleDbPrime.markOneKeyIdLoggedOutPreservingSessions,
@@ -7840,5 +7988,170 @@ describe('ServicePrime hardware Prime gift orchestration', () => {
     expect(legacyRead).not.toHaveBeenCalled();
     expect(legacyWrite).not.toHaveBeenCalled();
     expect(giftEventSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ServicePrime.apiTranslate free-trial batches', () => {
+  const ServicePrimeFreeTrial =
+    require('../ServicePrimeFreeTrial/ServicePrimeFreeTrial').default;
+
+  // 9 texts -> batches of 4, 4 and 1.
+  const texts = ['a1', 'a2', 'a3', 'a4', 'b1', 'b2', 'b3', 'b4', 'c1'];
+
+  function translated(batch: string[]) {
+    return batch.map((text) => `T(${text})`);
+  }
+
+  function createTranslateService(
+    replyOfBatch: (batch: string[]) => { code: number; data?: unknown },
+  ) {
+    const { service, backgroundApi } = createService();
+    // The real normalization (raw 90005 -> 90601, 90600 business data).
+    backgroundApi.servicePrimeFreeTrial.normalizeFreeTrialError = jest.fn(
+      (params: unknown) =>
+        ServicePrimeFreeTrial.prototype.normalizeFreeTrialError.call(
+          {},
+          params,
+        ),
+    );
+    const post = jest.fn(async (_url: string, body: { texts: string[] }) => {
+      const reply = replyOfBatch(body.texts);
+      return {
+        status: 200,
+        data: { message: `code ${reply.code}`, ...reply },
+      };
+    });
+    service.getPrimeClient = jest.fn(async () => ({ post }));
+    return { service, backgroundApi, post };
+  }
+
+  function translate(service: any) {
+    return service.apiTranslate({
+      texts,
+      sourceLang: 'auto',
+      targetLang: 'zh',
+      engine: 'ai',
+    });
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      primeSubscription: { isActive: false },
+    });
+  });
+
+  it('keeps the billed batches when another batch is exhausted', async () => {
+    const { service, backgroundApi, post } = createTranslateService((batch) =>
+      batch[0] === 'b1'
+        ? {
+            code: 90_600,
+            data: { featureId: 'DAppTranslate', resetAt: 2000 },
+          }
+        : { code: 0, data: { translations: translated(batch) } },
+    );
+
+    const result = await translate(service);
+
+    expect(post).toHaveBeenCalledTimes(3);
+    expect(result.translations).toEqual([
+      ...translated(['a1', 'a2', 'a3', 'a4']),
+      'b1',
+      'b2',
+      'b3',
+      'b4',
+      ...translated(['c1']),
+    ]);
+    expect(result.hasBilledBatch).toBe(true);
+    expect(result.freeTrialError).toMatchObject({
+      code: 90_600,
+      data: { featureId: 'DAppTranslate', remaining: 0, resetAt: 2000 },
+    });
+    expect(
+      backgroundApi.servicePrimeFreeTrial.handleFreeTrialErrorFromServer,
+    ).toHaveBeenCalledTimes(1);
+  });
+
+  it('hands a 90600 over for the user the requests were sent as', async () => {
+    const { service, backgroundApi } = createTranslateService(() => ({
+      code: 90_600,
+      data: { featureId: 'DAppTranslate', resetAt: 2000 },
+    }));
+    mockPrimePersistAtom.get
+      .mockResolvedValueOnce({
+        isLoggedIn: true,
+        onekeyUserId: 'user-a',
+        primeSubscription: { isActive: false },
+      })
+      // Another user is logged in by the time the replies arrive.
+      .mockResolvedValue({
+        isLoggedIn: true,
+        onekeyUserId: 'user-b',
+        primeSubscription: { isActive: false },
+      });
+
+    await translate(service);
+
+    expect(
+      backgroundApi.servicePrimeFreeTrial.handleFreeTrialErrorFromServer,
+    ).toHaveBeenCalledWith(expect.objectContaining({ code: 90_600 }), {
+      onekeyUserId: 'user-a',
+    });
+  });
+
+  it('normalizes a raw 90005 to the client not-open code', async () => {
+    const { service } = createTranslateService(() => ({ code: 90_005 }));
+
+    const result = await translate(service);
+
+    expect(result.translations).toEqual(texts);
+    expect(result.hasBilledBatch).toBe(false);
+    expect(result.freeTrialError).toMatchObject({
+      code: 90_601,
+      data: { featureId: 'DAppTranslate' },
+    });
+  });
+
+  it('lets 90104 win over 90600 and skips the quota update', async () => {
+    const { service, backgroundApi } = createTranslateService((batch) => ({
+      code: batch[0] === 'a1' ? 90_104 : 90_600,
+    }));
+
+    await expect(translate(service)).rejects.toMatchObject({ code: 90_104 });
+    expect(
+      backgroundApi.servicePrimeFreeTrial.handleFreeTrialErrorFromServer,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('keeps the original fallback for a locally active subscription', async () => {
+    mockPrimePersistAtom.get.mockResolvedValue({
+      isLoggedIn: true,
+      primeSubscription: { isActive: true },
+    });
+    const { service, backgroundApi } = createTranslateService(() => ({
+      code: 90_005,
+    }));
+
+    const result = await translate(service);
+
+    expect(result.translations).toEqual(texts);
+    expect(result.freeTrialError).toBeUndefined();
+    expect(
+      backgroundApi.servicePrimeFreeTrial.normalizeFreeTrialError,
+    ).not.toHaveBeenCalled();
+    expect(
+      backgroundApi.servicePrimeFreeTrial.handleFreeTrialErrorFromServer,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('reports no billed batch when every batch falls back', async () => {
+    const { service } = createTranslateService(() => ({ code: 500 }));
+
+    const result = await translate(service);
+
+    expect(result.translations).toEqual(texts);
+    expect(result.hasBilledBatch).toBe(false);
+    expect(result.freeTrialError).toBeUndefined();
   });
 });

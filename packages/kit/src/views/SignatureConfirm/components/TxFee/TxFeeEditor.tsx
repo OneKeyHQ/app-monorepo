@@ -942,9 +942,7 @@ function TxFeeEditor(props: IProps) {
                   {item.icon}
                 </SizableText> */}
                 <SizableText
-                  color={
-                    currentFeeIndex === index ? '$textInverse' : '$textSubdued'
-                  }
+                  color={currentFeeIndex === index ? '$text' : '$textSubdued'}
                   size="$bodyMdMedium"
                   textAlign="center"
                 >

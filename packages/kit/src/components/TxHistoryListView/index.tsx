@@ -151,7 +151,7 @@ type IProps = {
   plainMode?: boolean;
   emptyTitle?: string;
   emptyDescription?: string;
-  onEndReached?: () => void;
+  onEndReached?: () => void | Promise<void>;
   onEndReachedThreshold?: number;
   isLoadingMore?: boolean;
   hasMore?: boolean;
@@ -248,6 +248,7 @@ const ListFooterComponent = ({
           !accountUtils.isOthersWallet({ walletId: walletId ?? '' }) &&
           vaultSettings?.mergeDeriveAssetsEnabled ? (
             <AddressTypeSelector
+              whenCollapsed="skip"
               walletId={walletId ?? ''}
               networkId={networkId ?? ''}
               indexedAccountId={
@@ -656,4 +657,4 @@ function BaseTxHistoryListView(props: IProps) {
 
 const TxHistoryListView = withBrowserProvider<IProps>(BaseTxHistoryListView);
 
-export { TxHistoryListView };
+export { TxHistoryListView, ListFooterComponent };

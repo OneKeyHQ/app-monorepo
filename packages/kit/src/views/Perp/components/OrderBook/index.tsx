@@ -26,6 +26,7 @@ import {
   useTheme,
   useThemeName,
 } from '@onekeyhq/components';
+import { BRAND_FONT_NATIVE_FAMILY } from '@onekeyhq/components/src/hocs/Provider/fonts/brandFont';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { useSpotActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -269,7 +270,9 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   mobileHeaderText: {
-    fontFamily: platformEnv.isNative ? 'Roobert-Regular' : undefined,
+    fontFamily: platformEnv.isNative
+      ? BRAND_FONT_NATIVE_FAMILY.regular
+      : undefined,
     fontSize: 10,
     lineHeight: 16,
     fontWeight: '400',
@@ -283,18 +286,20 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   tabularText: {
-    // Not a mono face: the app font (Roobert) ships tabular figures via the
+    // Not a mono face: the brand sans font ships tabular figures via the
     // `tnum` OpenType feature, so digits stay column-aligned while letters keep
     // their natural proportional widths. Native raw <Text> can't pick a weight
     // from a custom family via fontWeight, so name the medium face explicitly.
-    fontFamily: platformEnv.isNative ? 'Roobert-Medium' : undefined,
+    fontFamily: platformEnv.isNative
+      ? BRAND_FONT_NATIVE_FAMILY.medium
+      : undefined,
     fontVariant: TABULAR_NUMS,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '500',
   },
   nativeMobileHorizontalTabularText: {
-    fontFamily: 'Roobert-Regular',
+    fontFamily: BRAND_FONT_NATIVE_FAMILY.regular,
     fontWeight: '400',
   },
   interactiveRow: {
@@ -483,7 +488,9 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 999,
   },
   sideRatioLabel: {
-    fontFamily: platformEnv.isNative ? 'Roobert-Medium' : undefined,
+    fontFamily: platformEnv.isNative
+      ? BRAND_FONT_NATIVE_FAMILY.medium
+      : undefined,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '500',
@@ -2406,7 +2413,7 @@ export function OrderBookMobile({
     [askDepth, reversedAsks],
   );
   const askPricesRaw = useMemo(
-    () => reversedAsks.map((itemData) => itemData.price),
+    () => reversedAsks.map((itemData) => itemData.displayPrice),
     [reversedAsks],
   );
   const askSizesRaw = useMemo(
@@ -2421,7 +2428,7 @@ export function OrderBookMobile({
     [aggregatedData.bids, bidDepth],
   );
   const bidPricesRaw = useMemo(
-    () => aggregatedData.bids.map((itemData) => itemData.price),
+    () => aggregatedData.bids.map((itemData) => itemData.displayPrice),
     [aggregatedData.bids],
   );
   const bidSizesRaw = useMemo(

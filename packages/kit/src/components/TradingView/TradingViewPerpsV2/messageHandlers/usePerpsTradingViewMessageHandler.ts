@@ -5,8 +5,10 @@ import {
   type IJsBridgeMessagePayload,
 } from '@onekeyfe/cross-inpage-provider-types';
 import { noop } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { getFillDirectionDisplayInfo } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/utils';
 import {
   usePerpsCustomSettingsAtom,
   usePerpsLayoutStateAtom,
@@ -27,6 +29,10 @@ import {
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
+  normalizeIntervalConfig,
+  normalizeNativeChartControlsConfig,
+} from '../../TradingViewV2/components/tradingViewV2/messageHandlers/nativeChartControlsConfigUtils';
+import {
   MESSAGE_TYPES,
   PERPS_TV_MESSAGE_METHODS,
 } from '../constants/messageTypes';
@@ -35,6 +41,10 @@ import { EMarksUpdateOperationEnum } from '../types';
 import { getPerpsInteractionOverlayOpenState } from './interactionOverlayState';
 
 import type { IWebViewRef } from '../../../WebView/types';
+import type {
+  ITradingViewIntervalConfigData,
+  ITradingViewNativeChartControlsConfigData,
+} from '../../TradingViewV2/types';
 import type {
   IGetMarksRequest,
   IGetMarksResponse,
@@ -61,6 +71,8 @@ export function usePerpsTradingViewMessageHandler({
   onChartOrderIntent,
   onTouchScroll,
   onInteractionOverlayOpenChange,
+  onIntervalConfigChange,
+  onNativeChartControlsConfigChange,
 }: {
   symbol: string;
   userAddress?: IHex | null;
@@ -73,7 +85,12 @@ export function usePerpsTradingViewMessageHandler({
   onChartOrderIntent?: (payload: ITVChartOrderIntentPayload) => void;
   onTouchScroll?: (deltaY: number) => void;
   onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
+  onIntervalConfigChange?: (config: ITradingViewIntervalConfigData) => void;
+  onNativeChartControlsConfigChange?: (
+    config: ITradingViewNativeChartControlsConfigData,
+  ) => void;
 }) {
+  const intl = useIntl();
   const previousUserAddressRef = useRef<IHex | null | undefined>(userAddress);
   const marksRequestIdRef = useRef(0);
   const [{ refreshHook }] = usePerpsTradesHistoryRefreshHookAtom();
@@ -94,36 +111,39 @@ export function usePerpsTradingViewMessageHandler({
   );
 
   // Shared utility to convert fill data to TradingView mark
-  const convertFillToMark = useCallback((fill: IFill): ITradingMark => {
-    const isLong = fill.side === 'B'; // B = Buy, A = Sell (Ask)
-    const isOpenPosition = fill.dir.includes('Open');
+  const convertFillToMark = useCallback(
+    (fill: IFill): ITradingMark => {
+      const isLong = fill.side === 'B'; // B = Buy, A = Sell (Ask)
+      const isOpenPosition = fill.dir.includes('Open');
 
-    const getTradeLabel = () => {
-      if (isOpenPosition) {
-        return isLong ? 'B' : 'S'; // Buy Long or Sell Short
-      }
-      return isLong ? 'B' : 'S'; // Close position
-    };
+      const getTradeLabel = () => {
+        if (isOpenPosition) {
+          return isLong ? 'B' : 'S'; // Buy Long or Sell Short
+        }
+        return isLong ? 'B' : 'S'; // Close position
+      };
 
-    const getTradeText = () => {
-      return `${fill.dir} at ${fill.px}`;
-    };
+      const getTradeText = () => {
+        return `${getFillDirectionDisplayInfo({ fill, intl }).text} @ ${fill.px}`;
+      };
 
-    const getTradeColor = () => {
-      if (isOpenPosition) {
-        return isLong ? '#00C853' : '#FF1744'; // Green for long open, red for short open
-      }
-      return isLong ? '#4CAF50' : '#F44336'; // Lighter colors for close positions
-    };
+      const getTradeColor = () => {
+        if (isOpenPosition) {
+          return isLong ? '#00C853' : '#FF1744'; // Green for long open, red for short open
+        }
+        return isLong ? '#4CAF50' : '#F44336'; // Lighter colors for close positions
+      };
 
-    return {
-      id: `trade_${fill.tid || fill.oid}`,
-      time: Math.floor(fill.time / 1000), // Convert milliseconds to seconds
-      text: getTradeText(),
-      label: getTradeLabel(),
-      color: getTradeColor(),
-    };
-  }, []);
+      return {
+        id: `trade_${fill.tid || fill.oid}`,
+        time: Math.floor(fill.time / 1000), // Convert milliseconds to seconds
+        text: getTradeText(),
+        label: getTradeLabel(),
+        color: getTradeColor(),
+      };
+    },
+    [intl],
+  );
 
   // Extract shared logic for fetching and formatting marks
   const fetchAndFormatMarks = useCallback(
@@ -323,6 +343,31 @@ export function usePerpsTradingViewMessageHandler({
       if (messageData.scope !== IInjectedProviderNames.$private) return;
 
       switch (messageData.method) {
+        case 'tradingview_intervalConfig': {
+          const config = normalizeIntervalConfig(messageData.data);
+          if (config) {
+            onIntervalConfigChange?.(config);
+          }
+          break;
+        }
+        case 'tradingview_nativeChartControlsConfig': {
+          if (!onNativeChartControlsConfigChange) {
+            break;
+          }
+          const normalized = normalizeNativeChartControlsConfig(
+            messageData.data,
+          );
+          if (normalized) {
+            if (normalized.chartTypeToSync !== undefined) {
+              webRef.current?.sendMessageViaInjectedScript({
+                type: 'TRADINGVIEW_CHART_TYPE_CHANGE',
+                payload: { chartType: normalized.chartTypeToSync },
+              });
+            }
+            onNativeChartControlsConfigChange(normalized.config);
+          }
+          break;
+        }
         case 'tradingview_getMarks':
           await handleGetMarks(messageData.data as IGetMarksRequest);
           break;
@@ -391,7 +436,10 @@ export function usePerpsTradingViewMessageHandler({
       onChartOrderIntent,
       onTouchScroll,
       onInteractionOverlayOpenChange,
+      onIntervalConfigChange,
+      onNativeChartControlsConfigChange,
       setLayoutState,
+      webRef,
     ],
   );
 

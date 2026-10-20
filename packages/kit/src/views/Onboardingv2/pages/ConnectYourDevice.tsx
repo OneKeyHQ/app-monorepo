@@ -33,7 +33,7 @@ import { HARDWARE_TROUBLESHOOTING_URL } from '@onekeyhq/shared/src/config/appCon
 import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
-import { BLE_ONBOARDING_ENSURE_CONNECTED_TIMEOUT_MS } from '@onekeyhq/shared/src/hardware/connectionTimeouts';
+import { BLE_ONBOARDING_ENSURE_CONNECTED_TIMEOUT_MS } from '@onekeyhq/shared/src/hardware/config/connectionTimeouts';
 import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -46,10 +46,7 @@ import {
   getDeviceAvatarImage,
 } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
-import {
-  isProtocolV2ProductType,
-  supportsHardwareQrWallet,
-} from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
+import { supportsHardwareQrWallet } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -77,7 +74,11 @@ import {
   useDesktopBluetoothStatusPolling,
 } from '../hooks/useDeviceConnect';
 import { OnboardingTestIDs } from '../testIDs';
-import { getForceTransportType, sortDevicesData } from '../utils';
+import {
+  getForceTransportType,
+  getThirdPartySearchTarget,
+  sortDevicesData,
+} from '../utils';
 
 import { ConnectionIndicator } from './ConnectionIndicator';
 
@@ -258,12 +259,18 @@ function useDeviceConnection({
 
   const devicesData = useMemo<IConnectYourDeviceItem[]>(
     () =>
-      searchedDevices.map((item: SearchDevice) => ({
-        title: item.name,
-        src: HwWalletAvatarImages[getDeviceAvatarImage(item.deviceType)],
-        device: item,
-        ...(vendor ? { vendor } : {}),
-      })),
+      searchedDevices.map((item: SearchDevice) => {
+        const searchTarget = vendor
+          ? getThirdPartySearchTarget(item)
+          : undefined;
+        return {
+          title: item.name,
+          src: HwWalletAvatarImages[getDeviceAvatarImage(item.deviceType)],
+          device: item,
+          ...(vendor ? { vendor } : {}),
+          ...(searchTarget ? { searchTarget } : {}),
+        };
+      }),
     [searchedDevices, vendor],
   );
 
@@ -462,8 +469,8 @@ function BluetoothCard({
 }
 
 function DeviceVideo({ deviceTypeItems }: { deviceTypeItems: EDeviceType[] }) {
-  const isProtocolV2Product = useMemo(
-    () => deviceTypeItems.some(isProtocolV2ProductType),
+  const isPro2 = useMemo(
+    () => deviceTypeItems.includes(EDeviceType.Pro2),
     [deviceTypeItems],
   );
 
@@ -491,8 +498,8 @@ function DeviceVideo({ deviceTypeItems }: { deviceTypeItems: EDeviceType[] }) {
   // The onboarding flow is force-dark, so every device uses its dark (-D) asset
   // and no theme branching is needed.
   const videoSource = useMemo<IVideoSource>(() => {
-    if (isProtocolV2Product) {
-      return require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as IVideoSource;
+    if (isPro2) {
+      return require('@onekeyhq/kit/assets/onboarding/Pro2-D.mp4') as IVideoSource;
     }
     if (isMini) {
       return require('@onekeyhq/kit/assets/onboarding/Mini-D.mp4') as IVideoSource;
@@ -504,7 +511,7 @@ function DeviceVideo({ deviceTypeItems }: { deviceTypeItems: EDeviceType[] }) {
       return require('@onekeyhq/kit/assets/onboarding/Touch-D.mp4') as IVideoSource;
     }
     return require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as IVideoSource;
-  }, [isClassic, isMini, isProtocolV2Product, isTouch]);
+  }, [isClassic, isMini, isPro2, isTouch]);
 
   return (
     <Video

@@ -20,6 +20,10 @@ import type {
   Unsuccessful,
 } from '@onekeyfe/hd-core';
 import type { EFirmwareType } from '@onekeyfe/hd-shared';
+import type {
+  SearchTargetReusePolicy,
+  WalletIdentity,
+} from '@onekeyfe/hwk-adapter-core';
 import type { ImageSourcePropType } from 'react-native';
 
 export type IOneKeyDeviceType = IDeviceType;
@@ -57,6 +61,7 @@ export type IFirmwareUpdatesDetectResult = {
     firmware?: IFirmwareUpdateInfo;
     ble?: IBleFirmwareUpdateInfo;
     targetsToUpdate?: IPro2FirmwareUpdateTarget[];
+    estimatedTransferBytes?: number;
   };
 };
 
@@ -70,6 +75,11 @@ export type IFirmwareUpdateDetectStatus = {
   toVersion: string | undefined;
   toFirmwareType: EFirmwareType | undefined;
   toVersionBle: string | undefined;
+  /**
+   * Bytes the detected update will transfer, summed over the artifacts of
+   * its update plan; absent when the plan or any artifact size is unknown.
+   */
+  estimatedTransferBytes?: number;
 };
 
 export type IFirmwareUpdatesDetectStatus = Partial<
@@ -168,6 +178,8 @@ export type ICheckAllFirmwareReleaseResult = {
   pro2TargetsToUpdate?: IPro2FirmwareUpdateTarget[];
   pro2ResourceArchive?: IProtocolV2ResourceArchive;
   protocolV2FirmwareVersionInfo?: IProtocolV2FirmwareVersionInfo;
+  /** See IFirmwareUpdateDetectStatus.estimatedTransferBytes. */
+  estimatedTransferBytes?: number;
 };
 
 export const PRO2_FIRMWARE_UPDATE_TARGETS = [
@@ -202,10 +214,23 @@ export type IDevicePreInitialize = {
   /** Pre-warm signal; whether it takes effect is decided by the SDK method's allowUsePreInitialize (sign methods only) */
   usePreInitialize?: boolean;
 };
+/**
+ * Serializable state shared by every hardware call in one business operation.
+ * Extend this object when a new operation-scoped value must cross UI/background layers.
+ */
+export type IHardwareOperationContext = {
+  /** Runtime-only third-party hardware binding returned by connectDevice. */
+  operationId?: string;
+  /** Expected stable identity for a reconnect-safe hardware operation. */
+  expectedDeviceIdentity?: WalletIdentity;
+  /** New-wallet creation may establish the first trusted device identity. */
+  allowDeviceIdentityBootstrap?: boolean;
+};
 export type IDeviceCommonParams = IDevicePassphraseParams &
   IDeviceWebUSBParams &
   IDevicePreInitialize &
-  Pick<CommonParams, 'connectProtocol'>;
+  Pick<CommonParams, 'connectProtocol'> &
+  IHardwareOperationContext;
 export type IDeviceCommonParamsFull = CommonParams;
 
 export type IGetDeviceAccountDataParams = {
@@ -333,7 +358,26 @@ export enum EHardwareVendor {
   onekey = 'onekey',
   ledger = 'ledger',
   trezor = 'trezor',
+  keystone = 'keystone',
 }
+
+/**
+ * Serializable result from third-party hardware discovery. It may be a
+ * physical endpoint or an interactive entry and does not claim a stable device
+ * or wallet identity.
+ */
+export type IThirdPartyHardwareSearchTarget = {
+  searchTargetId: string;
+  /** SDK-owned lifetime of this discovery handle; unrelated to wallet identity. */
+  searchTargetReusePolicy?: SearchTargetReusePolicy;
+  vendor: EHardwareVendor;
+  connectionType: 'usb' | 'ble' | 'qr';
+  kind: 'physical' | 'interactive';
+  label?: string;
+  model?: string;
+  modelName?: string;
+  serialNumber?: string;
+};
 
 export enum EOneKeyDeviceMode {
   bootloader = 'bootloader',
@@ -506,6 +550,8 @@ export interface IConnectYourDeviceItem {
   opacity?: number;
   device: SearchDevice | KnownDevice | undefined;
   vendor?: EHardwareVendor;
+  /** HWK search result kept separate from the legacy HD SearchDevice projection. */
+  searchTarget?: IThirdPartyHardwareSearchTarget;
   // Resolved per-model avatar key for third-party (Ledger/Trezor) scan rows.
   avatarImg?: IThirdPartyWalletAvatarImageNames;
 }

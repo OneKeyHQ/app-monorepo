@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { EFirmwareType } from '@onekeyfe/hd-shared';
+import { EFirmwareType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import type {
@@ -30,6 +30,8 @@ import {
   useFirmwareUpdateStepInfoAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -41,6 +43,7 @@ import type {
   IFirmwareUpdateInfo,
 } from '@onekeyhq/shared/types/device';
 
+import { shouldSuggestDesktopUsbFirmwareUpdate } from '../firmwareUpdateTransportUtils';
 import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
 import { useFirmwareVersionValid } from '../hooks/useFirmwareVersionValid';
 import { FirmwareUpdateTestIDs } from '../testIDs';
@@ -451,14 +454,21 @@ export function FirmwareChangeLogView({
   result,
   onConfirmClick,
   onRetryClick,
+  usbSuggestionAcknowledged,
 }: {
   result: ICheckAllFirmwareReleaseResult | undefined;
   onConfirmClick?: () => void;
   onRetryClick?: () => void | Promise<void>;
+  /** The entry that opened this page already showed the USB suggestion. */
+  usbSuggestionAcknowledged?: boolean;
 }) {
   const intl = useIntl();
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
-  const { showCheckList } = useFirmwareUpdateActions();
+  const { showCheckList, confirmUpdateViaBluetooth } =
+    useFirmwareUpdateActions();
+  // "Continue via Bluetooth" answers the suggestion for this page: closing
+  // the checklist and tapping "Update now" again does not ask a second time.
+  const continuedViaBluetoothRef = useRef(false);
 
   const handleConfirmClick = useCallback(async () => {
     if (onRetryClick) {
@@ -468,10 +478,36 @@ export function FirmwareChangeLogView({
     if (platformEnv.isDesktop) {
       const usbPreflightParams =
         await getFirmwareUpdateUSBPreflightParams(result);
-      const isUSBDeviceAvailable =
-        await backgroundApiProxy.serviceHardware.detectUSBDeviceAvailability(
-          usbPreflightParams,
-        );
+      let isUSBDeviceAvailable: boolean;
+      try {
+        isUSBDeviceAvailable =
+          await backgroundApiProxy.serviceHardware.detectUSBDeviceAvailability(
+            usbPreflightParams,
+          );
+      } catch (error) {
+        if (
+          !isHardwareErrorByCode({
+            error: error as IOneKeyError,
+            code: HardwareErrorCode.FirmwareUpdateLimitOneDevice,
+          })
+        ) {
+          throw error;
+        }
+        Dialog.show({
+          icon: 'TypeCoutline',
+          title: intl.formatMessage({
+            id: ETranslations.firmware_update_install_page__title,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.update_only_one_usb_device_supported_for_upgrade,
+          }),
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_got_it,
+          }),
+          showCancelButton: false,
+        });
+        return;
+      }
       if (!isUSBDeviceAvailable) {
         Dialog.show({
           icon: 'TypeCoutline',
@@ -488,6 +524,21 @@ export function FirmwareChangeLogView({
         });
         return;
       }
+    }
+    if (
+      !usbSuggestionAcknowledged &&
+      !continuedViaBluetoothRef.current &&
+      shouldSuggestDesktopUsbFirmwareUpdate({
+        isNative: platformEnv.isNative,
+        deviceType: result?.deviceType,
+        estimatedTransferBytes: result?.estimatedTransferBytes,
+      })
+    ) {
+      const shouldContinue = await confirmUpdateViaBluetooth();
+      if (!shouldContinue) {
+        return;
+      }
+      continuedViaBluetoothRef.current = true;
     }
     setStepInfo({
       step: EFirmwareUpdateSteps.showCheckList,
@@ -507,7 +558,16 @@ export function FirmwareChangeLogView({
     }
     showCheckList({ result });
     onConfirmClick?.();
-  }, [result, showCheckList, onConfirmClick, onRetryClick, setStepInfo, intl]);
+  }, [
+    result,
+    showCheckList,
+    onConfirmClick,
+    onRetryClick,
+    setStepInfo,
+    intl,
+    confirmUpdateViaBluetooth,
+    usbSuggestionAcknowledged,
+  ]);
 
   const updateFirmwareInfo = result?.updateInfos?.firmware;
 

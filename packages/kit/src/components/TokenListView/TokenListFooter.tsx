@@ -15,6 +15,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useActiveAccountDustSweep } from '@onekeyhq/kit/src/views/DustSweep/hooks/useNavigateToDustSweep';
 import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { isAgg } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
@@ -47,9 +48,10 @@ import {
   meta,
   subcell,
 } from '../../states/jotai/contexts/tokenList/cells/projection';
-import { Currency } from '../Currency';
 
 import { useTokenListViewContext } from './TokenListViewContext';
+
+import type { GestureResponderEvent } from 'react-native';
 
 type IProps = {
   tableLayout?: boolean;
@@ -71,6 +73,7 @@ function TokenListFooter(props: IProps) {
     plainMode,
   } = props;
   const navigation = useAppNavigation();
+  const { canDustSweep, openDustSweep } = useActiveAccountDustSweep();
   const {
     activeAccount: {
       account,
@@ -81,6 +84,15 @@ function TokenListFooter(props: IProps) {
       indexedAccount,
     },
   } = useActiveAccount({ num: 0 });
+
+  const handleOnPressDustSweep = useCallback(
+    (event: GestureResponderEvent) => {
+      // The row itself opens the low-value list.
+      event.stopPropagation();
+      void openDustSweep('lowValueRow');
+    },
+    [openDustSweep],
+  );
 
   const [{ hideValue }] = useSettingsValuePersistAtom();
 
@@ -109,7 +121,6 @@ function TokenListFooter(props: IProps) {
   const {
     smallBalanceIds,
     nonZeroIds,
-    smallBalanceFiatValue: smallBalanceTokensFiatValue,
     generation: listStructureGeneration,
   } = listStructure;
 
@@ -260,6 +271,7 @@ function TokenListFooter(props: IProps) {
         accountId: account.id,
         networkId: network.id,
         walletId: wallet.id,
+        indexedAccountId: indexedAccount?.id,
         tokenList: {
           tokens: filteredSmallBalanceTokens,
           keys: smallBalanceTokenKeys,
@@ -282,6 +294,7 @@ function TokenListFooter(props: IProps) {
     account,
     network,
     wallet,
+    indexedAccount?.id,
     smallBalanceTokens.length,
     smallBalanceIds,
     store,
@@ -419,7 +432,13 @@ function TokenListFooter(props: IProps) {
                 mx: 0,
               })}
         >
-          <XStack flexGrow={1} flexBasis={0} alignItems="center" gap="$3">
+          <XStack
+            flexGrow={1}
+            flexBasis={0}
+            minWidth={0}
+            alignItems="center"
+            gap="$3"
+          >
             <Stack p="$2" borderRadius="$full" bg="$bgStrong">
               <Icon
                 name="ControllerRoundUpSolid"
@@ -428,14 +447,17 @@ function TokenListFooter(props: IProps) {
               />
             </Stack>
             <ListItem.Text
+              flexShrink={1}
+              minWidth={0}
               primary={`${
                 filteredSmallBalanceTokens.length
               } ${intl.formatMessage({
                 id: ETranslations.low_value_assets,
               })}`}
-              {...(tableLayout && {
-                primaryTextProps: { size: '$bodyMdMedium' },
-              })}
+              primaryTextProps={{
+                numberOfLines: 1,
+                ...(tableLayout && { size: '$bodyMdMedium' }),
+              }}
             />
             {tableLayout ? (
               <Popover
@@ -470,21 +492,22 @@ function TokenListFooter(props: IProps) {
               />
             ) : null}
           </XStack>
-          <Stack
-            flexGrow={1}
-            flexBasis={0}
-            justifyContent="center"
-            alignItems="flex-end"
-          >
-            <Currency
-              size={tableLayout ? '$bodyMdMedium' : '$bodyLgMedium'}
-              formatter="value"
-              sourceCurrency="usd"
-              textAlign="right"
+          {canDustSweep ? (
+            // Sized to its content so the label on the left truncates instead of overlapping.
+            <Button
+              testID="token-list-footer-dust-sweep"
+              size="small"
+              variant="secondary"
+              icon="BroomOutline"
+              flexShrink={0}
+              accessibilityLabel={intl.formatMessage({
+                id: ETranslations.title_dust_sweep,
+              })}
+              onPress={handleOnPressDustSweep}
             >
-              {smallBalanceTokensFiatValue}
-            </Currency>
-          </Stack>
+              {intl.formatMessage({ id: ETranslations.out_title_dust_sweep })}
+            </Button>
+          ) : null}
         </ListItem>
       ) : null}
       {!isSearchMode && filteredRiskyTokens.length > 0 ? (

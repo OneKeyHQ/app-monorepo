@@ -19,6 +19,7 @@ import {
   useMedia,
   useTheme,
 } from '@onekeyhq/components';
+import { BRAND_FONT_NATIVE_FAMILY } from '@onekeyhq/components/src/hocs/Provider/fonts/brandFont';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -49,11 +50,7 @@ export function HeaderLeftCloseButton() {
   );
 }
 const discoveryTabs = platformEnv.isNative
-  ? [
-      ETranslations.global_market,
-      ETranslations.global_earn,
-      ETranslations.global_browser,
-    ]
+  ? [ETranslations.global_earn, ETranslations.global_browser]
   : [ETranslations.global_market, ETranslations.global_earn];
 
 // Static styles for animated text to match $headingXl token
@@ -62,9 +59,13 @@ const animatedTextStyles = StyleSheet.create({
     fontSize: fs(20),
     fontWeight: '600',
     lineHeight: fs(28),
-    fontFamily: 'Roobert-SemiBold',
+    fontFamily: BRAND_FONT_NATIVE_FAMILY.semibold,
   },
 });
+
+function getDiscoveryHeaderTabTestID(translationId: ETranslations) {
+  return `discovery-header-tab-${translationId.split('.').at(-1)}`;
+}
 
 function SegmentText({
   translationId,
@@ -84,7 +85,11 @@ function SegmentText({
     });
   }, [translationId]);
   return (
-    <TouchableOpacity onPress={handlePress} activeOpacity={1}>
+    <TouchableOpacity
+      testID={getDiscoveryHeaderTabTestID(translationId)}
+      onPress={handlePress}
+      activeOpacity={1}
+    >
       <SizableText
         size="$headingXl"
         color={selected ? '$text' : '$textSubdued'}
@@ -130,7 +135,11 @@ function AnimatedSegmentText({
   });
 
   return (
-    <TouchableOpacity onPress={handlePress} activeOpacity={1}>
+    <TouchableOpacity
+      testID={getDiscoveryHeaderTabTestID(translationId)}
+      onPress={handlePress}
+      activeOpacity={1}
+    >
       <Animated.Text
         style={[animatedTextStyles.text, animatedColorStyle]}
         numberOfLines={1}

@@ -416,6 +416,7 @@ export type IIdentityExitJournalEntry = {
   planId: string;
   intentType:
     | 'logoutOneKeyId'
+    | 'switchEnvironment'
     | 'switchOneKeyIdAccount'
     | 'removeKeyless'
     | 'switchOAuth'

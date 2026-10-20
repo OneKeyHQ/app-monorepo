@@ -96,7 +96,7 @@ import {
   getEnableTradingDialogConfirmDecision,
   shouldShowPerpsFirstDepositPrompt,
 } from '../../../utils/enableTradingDialogConfirm';
-import { shouldApplyMinimumOrderGuard } from '../../../utils/minimumOrderGuard';
+import { isBelowMinimumOrderValue } from '../../../utils/minimumOrderGuard';
 import { shouldBlockPerpsTradingForMarketData } from '../../../utils/perpsMarketDataFreshness';
 import { shouldDisablePerpsOrderPanelTradingButtonForAccountLoading } from '../../../utils/perpsOrderPanelEnableTrading';
 import { resolveTpSlTriggerPx } from '../../../utils/resolveTpSlTriggerPx';
@@ -939,16 +939,7 @@ export function LimitOrderForm({
       }
 
       const orderValueBN = computedSizeBN.multipliedBy(resolvedPriceBN);
-      if (
-        shouldApplyMinimumOrderGuard({
-          isSpot,
-          orderMode: 'standard',
-          orderType: 'limit',
-          hasBboPriceMode: Boolean(bboPriceMode),
-        }) &&
-        orderValueBN.gt(0) &&
-        orderValueBN.lt(10)
-      ) {
+      if (isBelowMinimumOrderValue(orderValueBN)) {
         showMinimumOrderToast();
         return;
       }
@@ -1348,7 +1339,7 @@ export function LimitOrderForm({
         min={0}
         max={100}
         value={sliderValue}
-        showBubble={false}
+        showBubble
         onChange={handleSliderPercentChange}
         disabled={!sliderEnabled}
         segments={4}
@@ -1497,7 +1488,7 @@ export function LimitOrderForm({
               numberOfLines={1}
             >
               {intl.formatMessage({
-                id: ETranslations.global_top_up,
+                id: ETranslations.perp_trade_deposit,
               })}
             </SizableText>
           </Button>

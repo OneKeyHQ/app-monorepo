@@ -35,6 +35,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
+import { requireMarketAssetVariant } from '@onekeyhq/shared/src/utils/marketAssetVariant';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketTokenDetailPreview } from '@onekeyhq/shared/types/marketV2';
 
@@ -141,19 +142,27 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       const navigationGeneration = navigationGenerationRef.current + 1;
       navigationGenerationRef.current = navigationGeneration;
       if (item.assetId) {
+        let assetDetailFetched = false;
         try {
           const { default: backgroundApiProxy } =
             await import('@onekeyhq/kit/src/background/instance/backgroundApiProxy');
           if (navigationGenerationRef.current !== navigationGeneration) return;
-          const { selectedVariant } =
+          const detail =
             await backgroundApiProxy.serviceMarket.fetchMarketAssetDetail({
               assetId: item.assetId,
               currency: 'usd',
               autoHandleError: false,
             });
+          assetDetailFetched = true;
           if (navigationGenerationRef.current !== navigationGeneration) {
             return;
           }
+          const selectedVariant = requireMarketAssetVariant({
+            detail,
+            networkId: item.networkId,
+            tokenAddress: item.tokenAddress,
+            isNative: item.isNative,
+          });
           item = {
             ...item,
             marketTokenId: item.assetId,
@@ -167,12 +176,18 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           if (navigationGenerationRef.current !== navigationGeneration) {
             return;
           }
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.global_an_error_occurred,
-            }),
-          });
-          return;
+          if (!assetDetailFetched && item.networkId) {
+            // Search rows retain a usable chain identity if asset lookup fails.
+            // A successful response with a missing variant must still fail.
+            item = { ...item, assetId: undefined };
+          } else {
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.global_an_error_occurred,
+              }),
+            });
+            return;
+          }
         }
       }
       const shouldResolveMarketAsset = Boolean(
@@ -184,6 +199,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         : options?.marketTokenCategory;
       const stockId = resolveMarketStockId({
         stockId: resolvedItem.stockId,
+        stock: resolvedItem.stock,
       });
       const marketDetailShellPreloadPromise = preloadMarketDetailV2Page({
         includeBodyModules: true,
@@ -335,9 +351,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           }
         }
 
-        const targetTab = platformEnv.isNative
-          ? ETabRoutes.Discovery
-          : ETabRoutes.Market;
+        const targetTab = ETabRoutes.Market;
 
         await marketDetailShellPreloadPromise;
         if (navigationGenerationRef.current !== navigationGeneration) {
@@ -375,7 +389,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           splitViewType !== ESplitViewType.UNKNOWN &&
           !options?.replaceCurrentDetail
         ) {
-          navigation.switchTab(ETabRoutes.Discovery);
+          navigation.switchTab(ETabRoutes.Market);
           appEventBus.emit(
             EAppEventBusNames.CleanTokenDetailInTabletDetailView,
             undefined,

@@ -5,7 +5,13 @@ import BigNumber from 'bignumber.js';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
+import { getSwapAccountNetworkWarningAccountId } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount.utils';
 import { updateSwapBalanceDisplayCache } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceDisplayCacheUtils';
+import {
+  buildSwapBalanceAccountIdentity,
+  buildSwapBalanceOwner,
+  isSameSwapBalanceOwner,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceOwnerUtils';
 import { getSwapTokenBalanceContractAddress } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
 import {
   buildSwapDefaultSelectedTokensForNetwork,
@@ -13,6 +19,7 @@ import {
 } from '@onekeyhq/kit/src/views/Swap/utils/swapColdStartTokenCacheUtils';
 import { buildSwapNetworkReadyKey } from '@onekeyhq/kit/src/views/Swap/utils/swapNetworkCacheUtils';
 import {
+  isCurrentSwapAccountNetworkUnsupportedAlert,
   removeSwapNoConnectWalletAlerts,
   shouldShowSwapAccountUnsupportedAlert,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapNoWalletWarningGuard';
@@ -47,6 +54,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import { buildSwapSelectedTokensColdStartAccountKey } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
+import { getSwapDefaultCounterpartToken } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 import { getVisibleSwapTabSwitchType } from '@onekeyhq/shared/src/utils/swapTypeUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
@@ -100,8 +108,10 @@ import {
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
+  EMPTY_SWAP_SELECTED_TOKEN_BALANCE_META,
   type ISwapInputAmountDraft,
   type ISwapQuoteEventErrorState,
+  type ISwapSelectedTokenBalanceMeta,
   type ISwapTokenAmountState,
   contextAtomMethod,
   limitOrderMarketPriceAtom,
@@ -113,6 +123,7 @@ import {
   swapAutoSlippageSuggestedValueAtom,
   swapBalanceDisplayCacheAtom,
   swapBuildTxFetchingAtom,
+  swapDefaultConfigStatusAtom,
   swapFromTokenAmountAtom,
   swapInitialSelectedTokensSyncedAtom,
   swapInputAmountDraftsAtom,
@@ -155,6 +166,7 @@ import {
   swapSelectTokenDetailRequestIdAtom,
   swapSelectedFromTokenBalanceAtom,
   swapSelectedToTokenBalanceAtom,
+  swapSelectedTokenBalanceMetaAtom,
   swapSelectedTokensColdStartContextAtom,
   swapShouldRefreshQuoteAtom,
   swapSilenceQuoteLoading,
@@ -905,11 +917,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   needChangeToken = ({
     token,
     toToken,
+    swapNetworks: configuredNetworks,
     swapTypeSwitchValue,
   }: {
     token: ISwapToken;
     swapTypeSwitchValue: ESwapTabSwitchType;
     toToken?: ISwapToken;
+    swapNetworks?: ISwapNetwork[];
   }) => {
     if (
       token.networkId !== toToken?.networkId &&
@@ -938,21 +952,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       swapTypeSwitchValue === ESwapTabSwitchType.SWAP
     ) {
       if (!toToken) {
-        const defaultTokenSet = swapDefaultSetTokens[token.networkId];
-        if (
-          token.isNative &&
-          defaultTokenSet?.toToken &&
-          !defaultTokenSet?.toToken?.isNative
-        ) {
-          return defaultTokenSet?.toToken;
-        }
-        if (
-          !token.isNative &&
-          defaultTokenSet?.fromToken &&
-          defaultTokenSet?.fromToken?.isNative
-        ) {
-          return defaultTokenSet?.fromToken;
-        }
+        return getSwapDefaultCounterpartToken({
+          fromToken: token,
+          swapNetworks: configuredNetworks,
+        });
       }
       return null;
     }
@@ -966,18 +969,24 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     return null;
   };
 
-  resetSwapTokenData = contextAtomMethod(async (get, set, type) => {
-    if (type === ESwapDirectionType.FROM) {
-      set(swapSelectFromTokenAtom(), undefined);
-      set(swapSelectedFromTokenBalanceAtom(), '');
-    } else {
-      set(swapSelectToTokenAtom(), undefined);
-      set(swapSelectedToTokenBalanceAtom(), '');
-    }
-    set(swapStockExecutionTokensAtom(), undefined);
-    set(swapQuoteListAtom(), []);
-    set(rateDifferenceAtom(), undefined);
-  });
+  resetSwapTokenData = contextAtomMethod(
+    async (get, set, type: ESwapDirectionType) => {
+      if (type === ESwapDirectionType.FROM) {
+        set(swapSelectFromTokenAtom(), undefined);
+        set(swapSelectedFromTokenBalanceAtom(), '');
+      } else {
+        set(swapSelectToTokenAtom(), undefined);
+        set(swapSelectedToTokenBalanceAtom(), '');
+      }
+      set(swapSelectedTokenBalanceMetaAtom(), (previous) => ({
+        ...previous,
+        [type]: EMPTY_SWAP_SELECTED_TOKEN_BALANCE_META,
+      }));
+      set(swapStockExecutionTokensAtom(), undefined);
+      set(swapQuoteListAtom(), []);
+      set(rateDifferenceAtom(), undefined);
+    },
+  );
 
   selectFromToken = contextAtomMethod(
     async (
@@ -1021,6 +1030,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           : context,
       );
       const needChangeToToken = this.needChangeToken({
+        swapNetworks:
+          get(swapDefaultConfigStatusAtom()) === 'failed'
+            ? []
+            : get(swapNetworks()),
         token,
         swapTypeSwitchValue,
         toToken,
@@ -1190,6 +1203,19 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     );
     set(swapSelectFromTokenAtom(), toToken);
     set(swapSelectToTokenAtom(), fromToken);
+    // Carry the balances (and their bookkeeping) across with the tokens. The
+    // To balance is fetched for the same wallet, so it is exactly the From
+    // balance now; without this the From row, Top up chip and action button
+    // keep the old token's verdict until the debounced detail reload lands.
+    const fromBalance = get(swapSelectedFromTokenBalanceAtom());
+    const toBalance = get(swapSelectedToTokenBalanceAtom());
+    set(swapSelectedFromTokenBalanceAtom(), toBalance);
+    set(swapSelectedToTokenBalanceAtom(), fromBalance);
+    const balanceMeta = get(swapSelectedTokenBalanceMetaAtom());
+    set(swapSelectedTokenBalanceMetaAtom(), {
+      from: balanceMeta.to,
+      to: balanceMeta.from,
+    });
     this.cleanManualSelectQuoteProviders.call(set);
   });
 
@@ -1202,14 +1228,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         const result = await backgroundApiProxy.serviceSwap.fetchSwapTokens({
           ...params,
           protocol,
+          // An empty response is a valid snapshot. Keep failures distinguishable
+          // so a silent refresh can preserve the previous scoped result.
+          throwOnError: true,
         });
-        if (result.length > 0) {
-          await this.catchSwapTokensMap.call(
-            set,
-            JSON.stringify(params),
-            result,
-          );
-        }
+        await this.catchSwapTokensMap.call(set, JSON.stringify(params), result);
         set(swapTokenFetchingAtom(), false);
       } catch (e: any) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -1286,7 +1309,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 eventId: errorData.eventId,
               });
               set(swapAlertsAtom(), {
-                states: isStockQuoteEventError ? [] : [errorAlert],
+                states: isStockQuoteEventError
+                  ? get(swapAlertsAtom()).states.filter(
+                      (item) => item.isAccountNetworkUnsupported,
+                    )
+                  : [errorAlert],
                 quoteId: '',
               });
               this.reconcileManualSelectQuoteProviders.call(set);
@@ -1734,9 +1761,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     set(rateDifferenceAtom(), undefined);
     set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
     if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
+      const currentAlerts = get(swapAlertsAtom());
       set(swapAlertsAtom(), {
         quoteId: '',
-        states: [],
+        states: currentAlerts.states.filter(
+          (item) => item.isAccountNetworkUnsupported,
+        ),
       });
     }
     if (!fromToken) {
@@ -2032,10 +2062,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   checkAccountNetworkNotSupportedAlert = async ({
     addressInfo,
     activeNetworkId,
+    directionType,
     message,
   }: {
     addressInfo?: ReturnType<typeof useSwapAddressInfo>;
     activeNetworkId: string;
+    directionType: ESwapDirectionType;
     message?: string;
   }) => {
     if (!addressInfo) {
@@ -2062,6 +2094,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       return {
         message: unsupportedMessage,
         alertLevel: ESwapAlertLevel.ERROR,
+        isAccountNetworkUnsupported: true,
+        accountNetworkUnsupportedContext: {
+          accountId,
+          walletId,
+          networkId: activeNetworkId,
+          directionType,
+        },
       };
     }
     return undefined;
@@ -2196,9 +2235,18 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       };
       let rateDifferenceRes: ISwapPreSwapData['rateDifference'];
       // current quote result  current token  not match
+      // Keep the account/network warning stable while Stock rebuilds its quote
+      // pair during a Buy/Sell switch. The next warning check owns removal.
       if (quoteResult && fromToken && toToken && !isCurrentQuoteResult) {
+        const currentAlerts = get(swapAlertsAtom());
+        const accountNetworkAlerts =
+          swapTypeSwitch === ESwapTabSwitchType.STOCK
+            ? currentAlerts.states.filter(
+                (item) => item.isAccountNetworkUnsupported,
+              )
+            : [];
         set(swapAlertsAtom(), {
-          states: alertsRes,
+          states: [...alertsRes, ...accountNetworkAlerts],
           quoteId: '',
         });
         set(rateDifferenceAtom(), rateDifferenceRes);
@@ -2217,7 +2265,30 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           });
         } else {
           const alerts = get(swapAlertsAtom());
-          const nextAlerts = removeSwapNoConnectWalletAlerts(alerts.states);
+          const currentAccountId = getSwapAccountNetworkWarningAccountId({
+            accountInfo: swapFromAddressInfo.accountInfo,
+            activeAccount: swapFromAddressInfo.activeAccount,
+          });
+          const currentWalletId =
+            swapFromAddressInfo.accountInfo?.wallet?.id ??
+            swapFromAddressInfo.activeAccount?.wallet?.id;
+          const nextAlerts = removeSwapNoConnectWalletAlerts(
+            alerts.states,
+          ).filter((item) => {
+            if (swapTypeSwitch !== ESwapTabSwitchType.STOCK) {
+              return true;
+            }
+            return (
+              item.isAccountNetworkUnsupported &&
+              isCurrentSwapAccountNetworkUnsupportedAlert({
+                alert: item,
+                accountId: currentAccountId,
+                walletId: currentWalletId,
+                networkId: fromToken?.networkId,
+                directionType: ESwapDirectionType.FROM,
+              })
+            );
+          });
           if (nextAlerts.length !== alerts.states.length) {
             set(swapAlertsAtom(), {
               states: nextAlerts,
@@ -2272,6 +2343,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           {
             message: notSupportSwapMessage,
             alertLevel: ESwapAlertLevel.ERROR,
+            isAccountNetworkUnsupported: true,
+            accountNetworkUnsupportedContext: {
+              accountId: swapFromAddressInfo.accountInfo?.account?.id,
+              walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+              networkId: fromToken?.networkId,
+              directionType: ESwapDirectionType.FROM,
+            },
           },
         ];
       }
@@ -2293,6 +2371,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             await this.checkAccountNetworkNotSupportedAlert({
               addressInfo: swapFromAddressInfo,
               activeNetworkId: fromToken.networkId,
+              directionType: ESwapDirectionType.FROM,
             });
           if (!isLatestSwapWarningCheck()) {
             return;
@@ -2328,6 +2407,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           await this.checkAccountNetworkNotSupportedAlert({
             addressInfo: swapToAddressInfo,
             activeNetworkId: toToken.networkId,
+            directionType: ESwapDirectionType.TO,
             // eslint-disable-next-line onekey/no-app-locale-main-thread
             message: appLocale.intl.formatMessage(
               { id: ETranslations.wallet_unsupported_network_title },
@@ -2654,6 +2734,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         ...previous,
         [type]: requestId,
       }));
+      // Resolved together with the result below, so a refresh keeps the
+      // previous verdict on screen instead of briefly clearing a stale error.
+      let balanceFetchFailed = false;
       if (shouldFetchBalance) {
         set(swapSelectTokenDetailFetchingAtom(), (previous) => ({
           ...previous,
@@ -2716,6 +2799,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
       let balanceDisplay: string | undefined;
       let hasAuthoritativeBalance = false;
+      // Network-agnostic identity of the account this request belongs to. The
+      // stored figure is tagged with it so another account can never read it
+      // while its own cross-network lookup is still pending.
+      const accountIdentity = buildSwapBalanceAccountIdentity(
+        swapAddressInfo.activeAccount,
+      );
       if (!isCurrentRequest()) {
         if (get(swapSelectTokenDetailRequestIdAtom())[type] === requestId) {
           set(swapSelectTokenDetailFetchingAtom(), (previous) => ({
@@ -2753,11 +2842,25 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               ...pre,
               [type]: true,
             }));
-            // reset balance
-            if (type === ESwapDirectionType.FROM) {
-              set(swapSelectedFromTokenBalanceAtom(), '');
-            } else {
-              set(swapSelectedToTokenBalanceAtom(), '');
+            // A reload for the token + account the stored balance belongs to
+            // is a refresh (forced, focus, or one replacing an in-flight
+            // fetch): keep the figure while the fetching flag reports
+            // progress. Anything else is a new selection and clears it so a
+            // stale figure never shows.
+            const isSameBalanceOwner = isSameSwapBalanceOwner(
+              get(swapSelectedTokenBalanceMetaAtom())[type],
+              buildSwapBalanceOwner({
+                token,
+                accountAddress,
+                accountIdentity,
+              }),
+            );
+            if (!isSameBalanceOwner) {
+              if (type === ESwapDirectionType.FROM) {
+                set(swapSelectedFromTokenBalanceAtom(), '');
+              } else {
+                set(swapSelectedToTokenBalanceAtom(), '');
+              }
             }
             const contractAddress =
               await getSwapTokenBalanceContractAddress(token);
@@ -2849,6 +2952,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             if (e?.cause !== ESwapFetchCancelCause.SWAP_TOKENS_CANCEL) {
               balanceDisplay = '0.0';
+              balanceFetchFailed = true;
             }
           } finally {
             if (get(swapSelectTokenDetailRequestIdAtom())[type] === requestId) {
@@ -2861,10 +2965,61 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
       }
       if (isCurrentRequest()) {
-        if (type === ESwapDirectionType.FROM) {
-          set(swapSelectedFromTokenBalanceAtom(), balanceDisplay ?? '');
-        } else {
-          set(swapSelectedToTokenBalanceAtom(), balanceDisplay ?? '');
+        // A failed refresh (or a response without an authoritative balance) for
+        // the token + account the stored figure already belongs to must not
+        // replace a verified balance with the '0.0' fallback: that would drop
+        // the deposit entry, the Top up chip and the balance refresh control
+        // together and leave a zero-balance user on a disabled "Enter amount"
+        // with no way to retry (OK-63470). Keep the last verified figure and
+        // its verdict; the refresh control stays available for another attempt.
+        const storedBalanceMeta = get(swapSelectedTokenBalanceMetaAtom())[type];
+        const keepsPreviousVerifiedBalance =
+          isSameSwapBalanceOwner(
+            storedBalanceMeta,
+            buildSwapBalanceOwner({
+              token,
+              accountAddress,
+              accountIdentity,
+            }),
+          ) &&
+          !storedBalanceMeta.unverified &&
+          !hasAuthoritativeBalance;
+        if (!keepsPreviousVerifiedBalance) {
+          if (type === ESwapDirectionType.FROM) {
+            set(swapSelectedFromTokenBalanceAtom(), balanceDisplay ?? '');
+          } else {
+            set(swapSelectedToTokenBalanceAtom(), balanceDisplay ?? '');
+          }
+          const balanceOwner =
+            balanceDisplay === undefined
+              ? undefined
+              : buildSwapBalanceOwner({
+                  token,
+                  accountAddress,
+                  accountIdentity,
+                });
+          const nextBalanceMeta: ISwapSelectedTokenBalanceMeta = {
+            tokenKey: balanceOwner?.tokenKey,
+            accountAddress: balanceOwner?.accountAddress,
+            accountIdentity: balanceOwner?.accountIdentity,
+            // A failed fetch and a response without balanceParsed both leave a
+            // '0' fallback in the balance atom; neither is an authoritative
+            // zero, so the deposit verdict must not act on it.
+            unverified:
+              balanceFetchFailed ||
+              (balanceDisplay !== undefined && !hasAuthoritativeBalance),
+          };
+          // Same-value refreshes keep the previous object so subscribers of the
+          // verdict do not re-render for nothing.
+          set(swapSelectedTokenBalanceMetaAtom(), (previous) =>
+            previous[type].tokenKey === nextBalanceMeta.tokenKey &&
+            previous[type].accountAddress === nextBalanceMeta.accountAddress &&
+            previous[type].accountIdentity ===
+              nextBalanceMeta.accountIdentity &&
+            previous[type].unverified === nextBalanceMeta.unverified
+              ? previous
+              : { ...previous, [type]: nextBalanceMeta },
+          );
         }
         if (
           token &&
@@ -2913,6 +3068,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         protocol,
         lpToken,
         currency,
+        // The service defaults failures to [], which would look like a valid
+        // empty network during a stale-while-revalidate refresh.
+        throwOnError: true,
         ...(isStockProtocol(protocol)
           ? { limit: swapStockTokenListMaxCount }
           : {}),
@@ -2975,6 +3133,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       otherWalletTypeAccountId?: string,
       lpToken?: boolean,
       currency?: string,
+      forceRefresh?: boolean,
     ) => {
       const swapTypeSwitchValue = get(swapTypeSwitchAtom());
       const tokenListCacheKey = buildSwapAllNetworkTokenListCacheKey({
@@ -3014,8 +3173,19 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         tokenListCacheKey
       ];
       if (currentLock) {
-        if (currentLock.activeRequestKey === requestContext.requestKey) {
-          if (currentLock.pendingRequestKey) {
+        // A forced refresh (balance-changing event) must not reuse an
+        // in-flight request that may predate the event: it falls through and
+        // queues one more run of the same scope after the active one.
+        if (
+          !forceRefresh &&
+          currentLock.activeRequestKey === requestContext.requestKey
+        ) {
+          // Drop a pending request for another scope, but keep a same-scope
+          // pending key: that is a forced rerun and must survive.
+          if (
+            currentLock.pendingRequestKey &&
+            currentLock.pendingRequestKey !== currentLock.activeRequestKey
+          ) {
             set(swapAllNetworkActionLockAtom(), (value) => ({
               ...value,
               [tokenListCacheKey]: {
@@ -3057,13 +3227,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         for (;;) {
           let requestError: unknown;
           try {
-            const { swapSupportAccounts } =
+            const { swapSupportAccounts, supportAccountsFetchFailed } =
               await backgroundApiProxy.serviceSwap.getSupportSwapAllAccounts({
                 indexedAccountId,
                 otherWalletTypeAccountId,
                 swapSupportNetworks: requestContext.tokenListSupportNetworks,
               });
-            if (swapSupportAccounts.length > 0) {
+            if (supportAccountsFetchFailed) {
+              // An account-discovery failure is not an empty account set. Keep
+              // the last-good snapshot and let the next invocation retry.
+            } else if (swapSupportAccounts.length > 0) {
               const currentSwapAllNetworkTokenList = get(
                 swapAllNetworkTokenListMapAtom(),
               )[tokenListCacheKey];
@@ -3082,8 +3255,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                     networkId: accountNetworkId,
                     accountId,
                   } = networkDataString;
-                  return async () =>
-                    (await this.updateAllNetworkTokenList.call(
+                  return () =>
+                    this.updateAllNetworkTokenList.call(
                       set,
                       accountNetworkId,
                       swapTypeSwitchValue,
@@ -3093,7 +3266,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                       tokenListCacheKey,
                       lpToken,
                       currency,
-                    )) as ISwapToken[] | undefined;
+                    );
                 });
 
               // Execute requests in batches of 3 to prevent UI thread blocking
@@ -3111,15 +3284,40 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 });
               } else {
                 // Subsequent fetches: collect results and update atom
-                const allTokensResult = results.flatMap((result) =>
-                  result.status === 'fulfilled' ? (result.value ?? []) : [],
+                const failedNetworkIds = new Set(
+                  accountAddressList.flatMap((account, index) =>
+                    results[index]?.status === 'rejected'
+                      ? [account.networkId]
+                      : [],
+                  ),
                 );
-                set(swapAllNetworkTokenListMapAtom(), (value) => ({
-                  ...value,
-                  [tokenListCacheKey]: allTokensResult,
-                }));
+                if (
+                  results.length === 0 ||
+                  results.some((result) => result.status === 'fulfilled')
+                ) {
+                  // A network can have multiple account tasks. If any fails,
+                  // retain its old slice once instead of mixing account snapshots.
+                  const refreshedTokens = results.flatMap((result, index) =>
+                    result.status === 'fulfilled' &&
+                    !failedNetworkIds.has(accountAddressList[index].networkId)
+                      ? (result.value ?? [])
+                      : [],
+                  );
+                  const allTokensResult = [
+                    ...currentSwapAllNetworkTokenList.filter((token) =>
+                      failedNetworkIds.has(token.networkId),
+                    ),
+                    ...refreshedTokens,
+                  ];
+                  set(swapAllNetworkTokenListMapAtom(), (value) => ({
+                    ...value,
+                    [tokenListCacheKey]: allTokensResult,
+                  }));
+                }
               }
             } else {
+              // A successful empty account discovery is authoritative and must
+              // clear assets from accounts that no longer exist.
               set(swapAllNetworkTokenListMapAtom(), (value) => ({
                 ...value,
                 [tokenListCacheKey]: [],
@@ -3406,6 +3604,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         normalizedType === ESwapTabSwitchType.LIMIT
       ) {
         set(swapSelectedFromTokenBalanceAtom(), '');
+        set(swapSelectedTokenBalanceMetaAtom(), (previous) => ({
+          ...previous,
+          from: EMPTY_SWAP_SELECTED_TOKEN_BALANCE_META,
+        }));
       }
       if (
         oldType !== ESwapTabSwitchType.STOCK &&
@@ -3651,6 +3853,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           }
           if (fromToken && !toToken) {
             const needChangeToToken = this.needChangeToken({
+              swapNetworks:
+                get(swapDefaultConfigStatusAtom()) === 'failed'
+                  ? []
+                  : get(swapNetworks()),
               token: fromToken,
               toToken,
               swapTypeSwitchValue: normalizedType,

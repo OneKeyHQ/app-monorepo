@@ -25,6 +25,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
 
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => true,
+  useRouteIsFocusedWhenEnabled: () => true,
 }));
 
 jest.mock('@onekeyhq/components', () => {

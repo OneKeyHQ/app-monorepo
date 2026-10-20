@@ -14,7 +14,7 @@ import {
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
-import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSwapLimitOrdersLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   clampLimitRateDecimals,
   countSignificantRateDecimals,
@@ -45,7 +45,7 @@ export const useSwapLimitRate = () => {
   const [toSelectTokenSwap] = useSwapSelectToTokenAtom();
   const fromSelectTokenPro = useSwapProInputToken();
   const toSelectTokenPro = useSwapProToToken();
-  const [, setInAppNotification] = useInAppNotificationAtom();
+  const [, setSwapLimitOrdersLoading] = useSwapLimitOrdersLoadingAtom();
   const {
     limitOrderMarketPriceIntervalAction,
     cleanLimitOrderMarketPriceInterval,
@@ -391,13 +391,14 @@ export const useSwapLimitRate = () => {
       cleanLimitOrderMarketPriceInterval();
       setLimitPriceUseRate({});
       setLimitPriceSetReverse(false);
-      setInAppNotification((v) => ({ ...v, swapLimitOrdersLoading: false }));
+      // Always send the reset: main may not have received bg's loading update yet.
+      setSwapLimitOrdersLoading(false);
     },
     [
       setLimitPriceSetReverse,
       setLimitPriceUseRate,
       cleanLimitOrderMarketPriceInterval,
-      setInAppNotification,
+      setSwapLimitOrdersLoading,
     ],
   );
 

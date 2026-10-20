@@ -23,6 +23,10 @@ import {
   logGasAccountReviewExit,
   markGasAccountReviewSubmitted,
 } from '@onekeyhq/kit/src/views/Swap/utils/gasAccountAnalytics';
+import {
+  type ISwapReviewAnalytics,
+  createSwapReviewAnalytics,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapReviewAnalytics';
 import type { ISwapReviewAdapter } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
 import { resolveStockTokenToAssetRatio } from '@onekeyhq/kit/src/views/Swap/utils/swapStockReviewUtils';
 import {
@@ -59,7 +63,10 @@ import {
 } from './hooks/marketPresetSettings';
 import { useMarketPresetSettings } from './hooks/useMarketPresetSettings';
 import { useSpeedSwapActions } from './hooks/useSpeedSwapActions';
-import { useSpeedSwapInit } from './hooks/useSpeedSwapInit';
+import {
+  ESpeedSwapConfigScope,
+  useSpeedSwapInit,
+} from './hooks/useSpeedSwapInit';
 import { useSwapPanel } from './hooks/useSwapPanel';
 import { ESwapDirection } from './hooks/useTradeType';
 import { MarketSwapReviewDialog } from './MarketSwapReviewDialog';
@@ -75,6 +82,7 @@ import type { IToken } from './types';
 interface ISwapPanelWrapProps {
   onCloseDialog?: () => void;
   stockDetailDesktopLayout?: boolean;
+  isStock?: boolean;
   portfolioData?: IMarketAccountPortfolioItem[];
   resolvedVariantKeys?: string[];
 }
@@ -82,6 +90,7 @@ interface ISwapPanelWrapProps {
 function SwapPanelWrapContent({
   onCloseDialog,
   stockDetailDesktopLayout,
+  isStock,
   portfolioData,
   resolvedVariantKeys,
 }: ISwapPanelWrapProps) {
@@ -107,6 +116,15 @@ function SwapPanelWrapContent({
   const [isReviewOpening, setIsReviewOpening] = useState(false);
   const reviewDialogRef = useRef<IDialogInstance | null>(null);
   const reviewDialogRequestIdRef = useRef(0);
+  const reviewAnalyticsRef = useRef<ISwapReviewAnalytics | undefined>(
+    undefined,
+  );
+  useEffect(
+    () => () => {
+      reviewAnalyticsRef.current?.close('reviewChanged');
+    },
+    [],
+  );
   const closeReviewDialog = useCallback(async () => {
     await reviewDialogRef.current?.close();
   }, []);
@@ -132,7 +150,13 @@ function SwapPanelWrapContent({
     onlySupportCrossChain,
     defaultTokens,
     swapMevNetConfig,
-  } = useSpeedSwapInit(networkId || '', true);
+  } = useSpeedSwapInit(
+    networkId || '',
+    true,
+    (isStock ?? isStockRoute)
+      ? ESpeedSwapConfigScope.DEFAULT
+      : ESpeedSwapConfigScope.MARKET,
+  );
   const marketPresetSettings = useMarketPresetSettings({
     networkId: networkId || '',
     defaultSlippage: speedConfig?.slippage,
@@ -396,7 +420,7 @@ function SwapPanelWrapContent({
   );
 
   const filterDefaultTokens = useMemo(() => {
-    if (compatibleDefaultTokens.length === 1) {
+    if (isStockRoute && compatibleDefaultTokens.length === 1) {
       return [...compatibleDefaultTokens];
     }
 
@@ -411,7 +435,7 @@ function SwapPanelWrapContent({
           token2: currentMarketTokenForFilter,
         }),
     );
-  }, [compatibleDefaultTokens, currentMarketTokenForFilter]);
+  }, [compatibleDefaultTokens, currentMarketTokenForFilter, isStockRoute]);
 
   // --- Token preference persistence (simpledb) ---
   const { result: savedPreferenceState, isLoading: savedPreferenceLoading } =
@@ -472,7 +496,17 @@ function SwapPanelWrapContent({
           equalTokenNoCaseSensitive({ token1: token, token2: paymentToken }),
         ),
       )
-    : decimalsReady;
+    : Boolean(
+        decimalsReady &&
+        (isStockRoute || speedConfigReady) &&
+        paymentToken &&
+        paymentTokenCandidates.some((candidate) =>
+          equalTokenNoCaseSensitive({
+            token1: candidate,
+            token2: paymentToken,
+          }),
+        ),
+      );
   const currentFromTokenAmount =
     tradeType === ESwapDirection.BUY
       ? paymentAmount.toFixed()
@@ -580,7 +614,13 @@ function SwapPanelWrapContent({
   // Initialize paymentToken: prefer saved preference, fallback to first default
   // Exclude native tokens when the current BUY flow requires it
   useEffect(() => {
-    if (!paymentTokenPreferenceReady || !paymentTokenDisplay) {
+    if (!paymentTokenPreferenceReady) {
+      return;
+    }
+    if (!paymentTokenDisplay) {
+      if (!isStockRoute && speedConfigReady && paymentToken) {
+        setPaymentToken(undefined);
+      }
       return;
     }
     if (
@@ -593,6 +633,8 @@ function SwapPanelWrapContent({
       setPaymentToken(paymentTokenDisplay);
     }
   }, [
+    isStockRoute,
+    speedConfigReady,
     paymentToken,
     paymentTokenDisplay,
     paymentTokenPreferenceReady,
@@ -721,6 +763,7 @@ function SwapPanelWrapContent({
         return;
       }
 
+      const reviewAnalytics = createSwapReviewAnalytics();
       const requestId = reviewDialogRequestIdRef.current + 1;
       reviewDialogRequestIdRef.current = requestId;
       setIsReviewOpening(true);
@@ -732,6 +775,7 @@ function SwapPanelWrapContent({
 
       try {
         const nextReviewState = await prepareMarketSwapReview({
+          reviewAnalytics,
           isWrap,
           networkFeeLevel: effectiveNetworkFeeLevel,
           customPriorityFee: effectiveCustomPriorityFee,
@@ -741,9 +785,11 @@ function SwapPanelWrapContent({
         }
         const previousDialog = reviewDialogRef.current;
         if (previousDialog) {
+          reviewAnalyticsRef.current?.close('reviewChanged');
           reviewDialogRef.current = null;
           void previousDialog.close();
         }
+        reviewAnalyticsRef.current = reviewAnalytics;
         setIsReviewDialogOpen(true);
         const gasAccountReviewSession = createGasAccountReviewSession();
         let dialog: IDialogInstance | null = null;
@@ -755,6 +801,7 @@ function SwapPanelWrapContent({
           showCancelButton: false,
           showConfirmButton: false,
           onClose: () => {
+            reviewAnalytics.close('user');
             if (reviewDialogRef.current !== dialog) {
               return;
             }
@@ -764,6 +811,7 @@ function SwapPanelWrapContent({
           },
           renderContent: (
             <MarketSwapReviewDialog
+              reviewAnalytics={reviewAnalytics}
               adapter={reviewAdapter}
               disableSaveSlippageForFutureOrders={
                 marketPresetEnabled &&
@@ -901,16 +949,32 @@ function SwapPanelWrapContent({
       swapMevNetConfig={swapMevNetConfig}
       swapNativeTokenReserveGas={swapNativeTokenReserveGas}
       swapPanel={swapPanelWithPreference}
-      balance={executionReady ? balance : undefined}
+      balance={
+        (stockDetailDesktopLayout || isStockRoute) && !executionReady
+          ? undefined
+          : balance
+      }
       balanceToken={balanceToken as IToken}
-      balanceLoading={!executionReady || fetchBalanceLoading}
+      balanceLoading={
+        (stockDetailDesktopLayout || isStockRoute
+          ? !executionReady
+          : !decimalsReady) || fetchBalanceLoading
+      }
       paymentTokenPrice={executionReady ? paymentTokenPrice : undefined}
       paymentTokenDisplay={paymentTokenDisplay}
       paymentTokenDisplayLoading={
-        Boolean(stockDetailDesktopLayout) && !paymentTokenDisplay
+        (Boolean(stockDetailDesktopLayout) && !paymentTokenDisplay) ||
+        (!isStockRoute &&
+          !paymentTokenDisplay &&
+          !paymentToken &&
+          (!speedConfigReady || !paymentTokenPreferenceReady))
       }
       isLoading={isActionLoading || isReviewOpening}
-      quoteLoading={!executionReady || quoteActionLoading}
+      quoteLoading={
+        (stockDetailDesktopLayout || isStockRoute
+          ? !executionReady
+          : !decimalsReady || !speedConfigReady) || quoteActionLoading
+      }
       isActionDisabled={
         !executionReady ||
         (isStockRoute && !selectedVariantTradable) ||

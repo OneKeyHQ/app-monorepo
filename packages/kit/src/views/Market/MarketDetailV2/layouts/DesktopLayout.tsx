@@ -34,6 +34,7 @@ import { useStockDetail } from '../hooks/StockDetailContext';
 import { useMarketDetailDisplayData } from '../hooks/useMarketDetailDisplayData';
 import { useMarketKlineLivePrice } from '../hooks/useMarketKlineLivePrice';
 import { useMarketNativeChartPriceUpdate } from '../hooks/useMarketNativeChartPriceUpdate';
+import { resolveDisplayedStockPriceMode } from '../hooks/useStockPriceSource';
 import {
   useMarketTradingViewParams,
   useTokenDetail,
@@ -46,6 +47,7 @@ import {
   isMarketTokenDecimalsReady,
   isMatchingMarketTokenIdentity,
 } from '../utils/marketTokenIdentity';
+import { buildMarketStockTokenMetadata } from '../utils/resolveIsStockToken';
 
 import { StockDesktopLayout } from './StockDesktopLayout';
 import { TokenDesktopLayout } from './TokenDesktopLayout';
@@ -189,14 +191,20 @@ export function DesktopLayout({
     selectedTokenVariant,
     stockDetail,
     stockId,
+    isStockDetailError,
   } = useStockDetail();
   const shouldUseStockDesktopLayout = isStockRoute && Boolean(stockId);
   const shouldUseTopCoinsDesktopLayout =
     !shouldUseStockDesktopLayout &&
     marketTokenCategory === MARKET_TOP_COINS_CATEGORY_ID;
   const [{ source: stockPriceSource }] = useMarketPriceSourceAtom();
+  const displayedStockPriceSource = resolveDisplayedStockPriceMode({
+    stockId,
+    isStockDetailError,
+    storedPriceMode: stockPriceSource,
+  });
   const isStockSharePrice =
-    shouldUseStockDesktopLayout && stockPriceSource === 'share';
+    shouldUseStockDesktopLayout && displayedStockPriceSource === 'share';
   // Stock detail charts offer Prev close in both price modes.
   const stockPreviousClose = shouldUseStockDesktopLayout
     ? getMarketStockChartPreviousClose({
@@ -246,7 +254,7 @@ export function DesktopLayout({
   );
   const chartFullscreenZIndex = useOverlayZIndex(isChartFullscreen);
 
-  const { portfolioData, isRefreshing } = usePortfolioData({
+  const { portfolioData, isRefreshing, isPortfolioPending } = usePortfolioData({
     tokenAddress,
     networkId,
     accountAddress: shouldUseStockDesktopLayout ? undefined : accountAddress,
@@ -295,6 +303,10 @@ export function DesktopLayout({
           isNative ||
           !genericHasSwapContract,
       isStock: shouldUseStockDesktopLayout,
+      stock: buildMarketStockTokenMetadata(
+        stockDisplayMatchesVariant ? displayTokenDetail?.stock : undefined,
+        shouldUseStockDesktopLayout ? stockId : undefined,
+      ),
     }),
     [
       networkId,
@@ -311,6 +323,8 @@ export function DesktopLayout({
       shouldUseStockDesktopLayout,
       stockDisplayMatchesVariant,
       stockSwapDecimals,
+      stockId,
+      displayTokenDetail?.stock,
     ],
   );
   // Keep the embedded Swap mounted while switching token variants of the
@@ -503,11 +517,7 @@ export function DesktopLayout({
           enablePreviousClose={shouldUseStockDesktopLayout}
           previousClose={stockPreviousClose}
           onPriceUpdate={handleNativeChartPriceUpdate}
-          forcedChartType={
-            shouldUseStockDesktopLayout ? 'candlestick' : undefined
-          }
           enableNativeChartSettings
-          enableMultiChart
           enableDrawings
           nativeControlsLayoutMode="desktop"
           isNativeChartFullscreen={isChartFullscreen}
@@ -674,6 +684,7 @@ export function DesktopLayout({
         swapInputDraftKey={swapInputDraftKey}
         portfolioData={portfolioData}
         isRefreshing={isRefreshing}
+        isPortfolioPending={isPortfolioPending}
         isBTCNetwork={isBTCNetwork}
         isBTCMainnet={isBTCMainnet}
         tokenLogoUrl={tokenDetail?.logoUrl}

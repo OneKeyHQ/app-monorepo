@@ -249,9 +249,14 @@ const useSafeKeyboardAnimationStyle = ({
     return {
       style: safeAreaBottom ? { paddingBottom: safeAreaBottom } : undefined,
       keyboardPaddingBottom: safeAreaBottom,
+      keyboardOffset: 0,
     };
   }
-  return { style: animatedStyles, keyboardPaddingBottom };
+  return {
+    style: animatedStyles,
+    keyboardPaddingBottom,
+    keyboardOffset: trackedKeyboardHeight > 0 ? keyboardPaddingBottom : 0,
+  };
 };
 
 // Without a title the header drag zone is only the grabber strip; keep it
@@ -299,6 +304,7 @@ function DialogFrame({
   testID,
   isAsync,
   nativeSheet = false,
+  nativeCentered = false,
   trackID,
   forceMount,
   useInitialSafeAreaBottomInsetFallback = false,
@@ -373,16 +379,21 @@ function DialogFrame({
   }, [onClose, onHeaderCloseButtonPress]);
 
   const media = useMedia();
+  const { top: safeAreaTop, bottom: safeAreaBottom } = useSafeAreaInsets();
+  const isNativeCentered = nativeCentered && platformEnv.isNative;
+  const useSheetPresentation = media.md && !isNativeCentered;
+  const centeredInset = Math.max(safeAreaTop, safeAreaBottom, 16);
 
-  // Native OneKey login opt-in (OK-63232): cap + scroll inside the existing
-  // Tamagui sheet. Never enable nativeSheet from this flag.
-  const isBoundedDialogLayout = boundedSheetLayout && platformEnv.isNative;
+  // Bound native centered dialogs as well as opt-in sheets so translated
+  // content remains reachable on short screens and with larger text.
+  const isBoundedDialogLayout =
+    (boundedSheetLayout || isNativeCentered) && platformEnv.isNative;
   // Header-only drag (OK-61140): the sheet's own frame drag is switched off,
   // so a scrollable body scrolls natively with no hand-off to the sheet, and
   // the grabber + title row (HeaderDragZone) carry a pan of their own that
   // moves the sheet body and lets go of it past its thresholds.
   const isHeaderDragOnly =
-    media.md && sheetDragArea === 'header' && !disableDrag;
+    useSheetPresentation && sheetDragArea === 'header' && !disableDrag;
   const headerDragY = useSharedValue(0);
   useEffect(() => {
     if (open) {
@@ -404,13 +415,16 @@ function DialogFrame({
   }));
 
   const zIndex = useOverlayZIndex(open, title);
-  const { style: safeKeyboardAnimationStyle, keyboardPaddingBottom } =
-    useSafeKeyboardAnimationStyle({
-      useInitialSafeAreaBottomInsetFallback,
-      trackKeyboardPadding: isBoundedDialogLayout,
-    });
+  const {
+    style: safeKeyboardAnimationStyle,
+    keyboardPaddingBottom,
+    keyboardOffset,
+  } = useSafeKeyboardAnimationStyle({
+    useInitialSafeAreaBottomInsetFallback,
+    trackKeyboardPadding: isBoundedDialogLayout,
+  });
   const useNativeSheetPresentation =
-    nativeSheet && media.md && NATIVE_SHEET_PRESENTATION_SUPPORTED;
+    nativeSheet && useSheetPresentation && NATIVE_SHEET_PRESENTATION_SUPPORTED;
   const dialogHeader = showHeader ? (
     <DialogHeader
       trackID={trackID}
@@ -487,13 +501,18 @@ function DialogFrame({
   const renderDialogContent = (
     <Animated.View
       style={
-        useNativeSheetPresentation ? undefined : safeKeyboardAnimationStyle
+        useNativeSheetPresentation || isNativeCentered
+          ? undefined
+          : safeKeyboardAnimationStyle
       }
     >
       {isBoundedDialogLayout ? (
         <BoundedDialogScrollLayout
-          keyboardPaddingBottom={keyboardPaddingBottom}
-          isCentered={!media.md}
+          keyboardPaddingBottom={
+            isNativeCentered ? keyboardOffset : keyboardPaddingBottom
+          }
+          isCentered={!useSheetPresentation}
+          centeredInset={isNativeCentered ? centeredInset : undefined}
           chrome={boundedHeaderDragChrome}
           closeButton={boundedCloseButton}
         >
@@ -582,7 +601,7 @@ function DialogFrame({
     );
   }
 
-  if (media.md) {
+  if (useSheetPresentation) {
     return (
       <Sheet
         disableDrag={disableDrag || isHeaderDragOnly}
@@ -664,6 +683,10 @@ function DialogFrame({
             left={0}
             right={0}
             bottom={0}
+            paddingTop={isNativeCentered ? centeredInset : undefined}
+            paddingBottom={
+              isNativeCentered ? centeredInset + keyboardOffset : undefined
+            }
             alignItems="center"
             justifyContent="center"
             zIndex={floatingPanelProps?.zIndex || zIndex}
@@ -709,6 +732,7 @@ function DialogFrame({
               }
               bg="$bg"
               width={MAX_CONTENT_WIDTH}
+              maxWidth={isNativeCentered ? '90%' : undefined}
               p="$0"
               {...floatingPanelProps}
               onOpenAutoFocus={

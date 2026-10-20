@@ -21,11 +21,13 @@ import { CoreSDKLoader } from '../hardware/instance';
 import platformEnv from '../platformEnv';
 
 import { DeviceScannerUtils } from './DeviceScannerUtils';
+import { getHardwareDeviceColor } from './hardwareDeviceColors';
 import {
   NEO_DEVICE_TYPE,
   isProtocolV2ProductType,
 } from './hardwareDeviceTypes';
 
+import type { IHardwareDeviceColor } from './hardwareDeviceColors';
 import type {
   IAllDeviceVerifyVersions,
   IDeviceVerifyRawVersions,
@@ -138,7 +140,10 @@ function getDeviceSerialNoFromFeatures(
     compatibleFeatures.onekey_serial,
     compatibleFeatures.serial_no,
   ].find(
-    (value): value is string => typeof value === 'string' && value.length > 0,
+    (value): value is string =>
+      typeof value === 'string' &&
+      value.trim().length > 0 &&
+      !/^0+$/.test(value.trim()),
   );
 }
 
@@ -179,6 +184,20 @@ function isSamePhysicalDevice(
   return [other.connectId, other.usbConnectId, other.bleConnectId].some(
     (value) => Boolean(value && connectIds.has(value.toLowerCase())),
   );
+}
+
+/** The finish the serial number names. */
+function getDeviceColorFromFeatures({
+  deviceType,
+  features,
+}: {
+  deviceType: IDeviceType | undefined;
+  features: IOneKeyDeviceFeatures | undefined;
+}): IHardwareDeviceColor | undefined {
+  return getHardwareDeviceColor({
+    deviceType,
+    serialNo: getDeviceSerialNoFromFeatures(features),
+  });
 }
 
 function getDeviceBleNameFromFeatures(
@@ -1096,6 +1115,7 @@ export default {
   getDeviceVersion,
   getDeviceSerialNoFromFeatures,
   getDeviceSerialNoFromDbDevice,
+  getDeviceColorFromFeatures,
   getDeviceVersionStr,
   getDeviceTypeFromFeatures,
   getDeviceModeFromFeatures,

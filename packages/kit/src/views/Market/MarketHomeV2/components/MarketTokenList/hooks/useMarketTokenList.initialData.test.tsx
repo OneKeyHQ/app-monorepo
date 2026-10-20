@@ -35,6 +35,7 @@ jest.mock('@onekeyhq/components', () => ({
 
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => true,
+  useRouteIsFocusedWhenEnabled: () => true,
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
@@ -1003,50 +1004,56 @@ describe('useMarketTokenList initial data', () => {
     ]);
   });
 
-  it('holds a failed native page until an explicit load-more retry', async () => {
-    mutablePlatformEnv.isNative = true;
-    mutablePlatformEnv.isWeb = false;
-    let latestResult: ReturnType<typeof useMarketTokenList> | undefined;
-    let loadMoreAttempt = 0;
-    mockFetchMarketTokenList.mockImplementation(async ({ page }) => {
-      if (page === 1) {
+  it.each([false, true])(
+    'holds a failed page until an explicit load-more retry (native=%s)',
+    async (isNative) => {
+      mutablePlatformEnv.isNative = isNative;
+      mutablePlatformEnv.isWeb = !isNative;
+      let latestResult: ReturnType<typeof useMarketTokenList> | undefined;
+      let loadMoreAttempt = 0;
+      mockFetchMarketTokenList.mockImplementation(async ({ page }) => {
+        if (page === 1) {
+          return {
+            ...createResponse('first', 'First', 'FIRST'),
+            total: 2,
+          };
+        }
+        loadMoreAttempt += 1;
+        if (loadMoreAttempt === 1) {
+          throw new OneKeyLocalError('offline');
+        }
         return {
-          ...createResponse('first', 'First', 'FIRST'),
+          ...createResponse('second', 'Second', 'SECOND'),
           total: 2,
         };
-      }
-      loadMoreAttempt += 1;
-      if (loadMoreAttempt === 1) {
-        throw new OneKeyLocalError('offline');
-      }
-      return {
-        ...createResponse('second', 'Second', 'SECOND'),
-        total: 2,
-      };
-    });
-    function Probe() {
-      latestResult = useMarketTokenList({
-        networkId: 'evm--1',
-        pollingInterval: 0,
-        pageSize: 1,
-        type: 'trending',
       });
-      return null;
-    }
-    render(<Probe />);
-    await waitFor(() => expect(latestResult?.canLoadMore).toBe(true));
+      function Probe() {
+        latestResult = useMarketTokenList({
+          networkId: 'evm--1',
+          pollingInterval: 0,
+          pageSize: 1,
+          type: 'trending',
+        });
+        return null;
+      }
+      render(<Probe />);
+      await waitFor(() => expect(latestResult?.canLoadMore).toBe(true));
 
-    await act(async () => latestResult?.loadMore());
-    expect(latestResult?.isLoadMoreError).toBe(true);
-    expect(latestResult?.canLoadMore).toBe(true);
+      const beforeFailure = latestResult?.data;
+      await act(async () => latestResult?.loadMore());
+      expect(latestResult?.data).toEqual(beforeFailure);
+      expect(loadMoreAttempt).toBe(1);
+      expect(latestResult?.isLoadMoreError).toBe(true);
+      expect(latestResult?.canLoadMore).toBe(true);
 
-    await act(async () => latestResult?.loadMore());
-    expect(latestResult?.isLoadMoreError).toBe(false);
-    expect(latestResult?.data.map((item) => item.id)).toEqual([
-      'first',
-      'second',
-    ]);
-  });
+      await act(async () => latestResult?.loadMore());
+      expect(latestResult?.isLoadMoreError).toBe(false);
+      expect(latestResult?.data.map((item) => item.id)).toEqual([
+        'first',
+        'second',
+      ]);
+    },
+  );
 
   it('does not append an old native page after a refreshed first page', async () => {
     mutablePlatformEnv.isNative = true;

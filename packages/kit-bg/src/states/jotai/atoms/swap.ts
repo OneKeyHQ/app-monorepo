@@ -14,6 +14,17 @@ import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
 
 export const {
+  target: dustSweepPreferencesPersistAtom,
+  use: useDustSweepPreferencesPersistAtom,
+} = globalAtom<{
+  threshold: 1 | 10 | 100;
+}>({
+  persist: true,
+  name: EAtomNames.dustSweepPreferencesPersistAtom,
+  initialValue: { threshold: 10 },
+});
+
+export const {
   target: swapTradingViewChartSettingsPersistAtom,
   use: useSwapTradingViewChartSettingsPersistAtom,
 } = globalAtom<ITradingViewNativeChartSettings>({

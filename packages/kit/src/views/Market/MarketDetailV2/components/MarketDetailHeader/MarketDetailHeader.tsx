@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
 import {
+  Divider,
   HeaderIconButton,
   Icon,
   InteractiveIcon,
@@ -42,13 +43,18 @@ import {
   useStarV2Checked,
 } from '../../../components/MarketStarV2';
 import { TokenTagsPopover } from '../../../components/TokenTagsPopover';
+import { getTokenAgeLabel } from '../../../MarketHomeV2/components/MarketTokenList/hooks/useMarketTokenColumns/tokenAgeLabel';
 import { buildMarketFullUrlV2 } from '../../../marketUtils';
 import { EModalMarketRoutes } from '../../../router/types';
+import { useStockDetail } from '../../hooks/StockDetailContext';
 import { useMarketDetailBackNavigation } from '../../hooks/useMarketDetailBackNavigation';
 import { useMarketDetailHeaderDisplayData } from '../../hooks/useMarketDetailDisplayData';
 import { useMarketDetailWatchlistIdentity } from '../../hooks/useMarketDetailWatchlistIdentity';
+import { resolveMarketMobileDetailKind } from '../../utils/marketMobileDetailKind';
 import { ShareButton } from '../TokenDetailHeader/ShareButton';
+import { TokenLaunchpad } from '../TokenDetailHeader/TokenLaunchpad';
 
+import { resolveMarketDetailHeaderIdentity } from './marketDetailHeaderIdentity';
 import { TabPageHeaderContainer } from './TabPageHeaderContainer';
 
 import type { NativeStackHeaderItem } from '@react-navigation/native-stack';
@@ -61,8 +67,10 @@ function AddressLineSkeleton() {
 
 export function MarketDetailHeader({
   showFavoriteButton = true,
+  marketTokenCategory,
 }: {
   showFavoriteButton?: boolean;
+  marketTokenCategory?: string;
 }) {
   const media = useMedia();
   const intl = useIntl();
@@ -71,12 +79,41 @@ export function MarketDetailHeader({
   const listingIdentity = useMarketDetailWatchlistIdentity();
   const { handleBackPress } = useMarketDetailBackNavigation();
   const navigation = useAppNavigation();
-  const { tokenDetail, networkId, isNative } =
+  const { tokenDetail, tokenDetailPreview, networkId, isNative, isStockToken } =
     useMarketDetailHeaderDisplayData();
+  const { stockDetail, stockPreview } = useStockDetail();
   const { copyText } = useClipboard();
   const isOverlayPage = useIsOverlayPage();
+  const isMobileWebLayout = platformEnv.isWeb && !media.gtLg;
+  // DApp mode hides the sidebar above md, so this header owns global navigation.
+  const showDappHeaderAboveDetail =
+    platformEnv.isWebDappMode && media.gtMd && isMobileWebLayout;
 
   const networkLogoUri = useNetworkLogoUri({ networkId });
+  const useListingStockHeader = Boolean(
+    (platformEnv.isNative || isMobileWebLayout) && isStockToken,
+  );
+  const detailKind = resolveMarketMobileDetailKind({
+    isStockToken,
+    marketTokenCategory,
+  });
+  let headerSubtitle: string | undefined;
+  if (detailKind === 'stock') {
+    headerSubtitle =
+      stockDetail?.name || stockPreview?.name || tokenDetail?.stock?.subtitle;
+  } else if (detailKind === 'topCoin') {
+    headerSubtitle = tokenDetail?.name;
+  }
+  const firstTradeTime =
+    tokenDetail?.firstTradeTime ?? tokenDetailPreview?.firstTradeTime;
+  const tokenAgeLabel =
+    detailKind === 'trending' &&
+    (typeof firstTradeTime === 'string' || typeof firstTradeTime === 'number')
+      ? getTokenAgeLabel(intl, Number(firstTradeTime))
+      : undefined;
+  const headerNetworkLogoUri = useListingStockHeader
+    ? undefined
+    : networkLogoUri;
 
   const onPressTokenSelector = useCallback(() => {
     navigation.pushModal(EModalRoutes.MarketModal, {
@@ -109,6 +146,14 @@ export function MarketDetailHeader({
     stableLogoUrlsKeyRef.current = logoUrlsCacheKey;
   }
   const stableLogoUrls = stableLogoUrlsRef.current;
+  const headerIdentity = resolveMarketDetailHeaderIdentity({
+    isStockToken: useListingStockHeader,
+    stockSymbol: stockDetail?.symbol || stockPreview?.symbol,
+    stockLogoUrl: stockDetail?.logoUrl || stockPreview?.logoUrl,
+    tokenSymbol: tokenDetail?.symbol,
+    tokenLogoUrl: tokenDetail?.logoUrl,
+    tokenLogoUrls: stableLogoUrls,
+  });
 
   const customHeaderLeft = useMemo(
     () => (
@@ -146,14 +191,20 @@ export function MarketDetailHeader({
         gap="$2"
         flexShrink={1}
         minWidth={0}
-        width={nativeHeaderTitleMaxWidth}
-        maxWidth={nativeHeaderTitleMaxWidth}
+        // Android's custom row must fill the space between the back and action
+        // buttons instead of distributing it around an iOS-sized title.
+        {...(!platformEnv.isNative || platformEnv.isNativeAndroid
+          ? { flex: 1 }
+          : {
+              width: nativeHeaderTitleMaxWidth,
+              maxWidth: nativeHeaderTitleMaxWidth,
+            })}
       >
         <Token
-          size="sm"
-          tokenImageUri={tokenDetail?.logoUrl}
-          tokenImageUris={stableLogoUrls}
-          networkImageUri={networkLogoUri}
+          size={platformEnv.isNativeIOS26Plus ? 'sm' : 'md'}
+          tokenImageUri={headerIdentity.logoUrl}
+          tokenImageUris={headerIdentity.logoUrls}
+          networkImageUri={headerNetworkLogoUri}
           fallbackIcon="CryptoCoinOutline"
         />
         <YStack flexShrink={1} minWidth={0}>
@@ -169,8 +220,23 @@ export function MarketDetailHeader({
             })}
           >
             <SizableText size="$headingLg" numberOfLines={1} flexShrink={1}>
-              {tokenDetail?.symbol || ''}
+              {headerIdentity.symbol}
             </SizableText>
+            {detailKind === 'trending' && tokenDetail?.communityRecognized ? (
+              <TokenTagsPopover
+                communityRecognized
+                customTrigger={
+                  <Icon
+                    name="BadgeRecognizedSolid"
+                    size="$4"
+                    color="$iconSuccess"
+                  />
+                }
+              />
+            ) : null}
+            {detailKind === 'trending' ? (
+              <TokenLaunchpad launchpad={tokenDetail?.launchpad} iconOnly />
+            ) : null}
             {!isOverlayPage ? (
               <Icon
                 name="ChevronDownSmallOutline"
@@ -180,22 +246,36 @@ export function MarketDetailHeader({
             ) : null}
           </XStack>
 
-          {tokenDetail?.communityRecognized ||
-          tokenDetail?.address ||
-          !isNative ? (
+          {detailKind !== 'trending' ? (
+            <SizableText
+              testID="market-detail-native-header-subtitle"
+              size="$bodySm"
+              color="$textSubdued"
+              numberOfLines={1}
+            >
+              {headerSubtitle || '--'}
+            </SizableText>
+          ) : null}
+          {detailKind === 'trending' && (tokenDetail?.address || !isNative) ? (
             <XStack ai="center" gap="$1" minWidth={0}>
-              {tokenDetail?.communityRecognized ? (
-                <TokenTagsPopover
-                  communityRecognized={tokenDetail.communityRecognized}
-                  stock={tokenDetail.stock}
-                  customTrigger={
-                    <Icon
-                      name="BadgeRecognizedSolid"
-                      size="$4"
-                      color="$iconSuccess"
+              {tokenAgeLabel ? (
+                <>
+                  <SizableText
+                    testID="market-detail-native-header-age"
+                    size="$bodySm"
+                    color="$textSubdued"
+                  >
+                    {tokenAgeLabel}
+                  </SizableText>
+                  {tokenDetail?.address ? (
+                    <Divider
+                      vertical
+                      backgroundColor="$borderSubdued"
+                      h="$3"
+                      mx="$1"
                     />
-                  }
-                />
+                  ) : null}
+                </>
               ) : null}
               {tokenDetail?.address ? (
                 <XStack ai="center" gap="$1" flexShrink={1} minWidth={0}>
@@ -232,14 +312,17 @@ export function MarketDetailHeader({
       </XStack>
     ),
     [
-      tokenDetail?.logoUrl,
-      tokenDetail?.symbol,
+      headerIdentity.logoUrl,
+      headerIdentity.logoUrls,
+      headerIdentity.symbol,
+      detailKind,
+      headerSubtitle,
+      tokenAgeLabel,
       tokenDetail?.communityRecognized,
-      tokenDetail?.stock,
+      tokenDetail?.launchpad,
       tokenDetail?.address,
       isNative,
-      stableLogoUrls,
-      networkLogoUri,
+      headerNetworkLogoUri,
       isOverlayPage,
       onPressTokenSelector,
       handleCopyAddress,
@@ -338,88 +421,105 @@ export function MarketDetailHeader({
     );
   }
 
+  const tabPageHeader = (
+    <TabPageHeader
+      sceneName={EAccountSelectorSceneName.home}
+      tabRoute={ETabRoutes.Market}
+      customHeaderLeftItems={customHeaderLeft}
+      customHeaderRightItems={platformEnv.isNative ? customHeaderRight : null}
+      hideSearch={!media.gtMd}
+    />
+  );
+
   return (
     <>
-      {media.md ? (
-        <TabPageHeaderContainer>
+      {showDappHeaderAboveDetail ? tabPageHeader : null}
+      {media.md || isMobileWebLayout ? (
+        <TabPageHeaderContainer
+          hideNavigationHeader={!showDappHeaderAboveDetail}
+        >
           <NavBackButton onPress={handleBackPress} />
 
-          <XStack flex={1} ai="center" gap="$2">
-            <Token
-              size="md"
-              tokenImageUri={tokenDetail?.logoUrl}
-              tokenImageUris={stableLogoUrls}
-              networkImageUri={networkLogoUri}
-              fallbackIcon="CryptoCoinOutline"
-            />
-            <YStack>
-              <XStack
-                alignItems="center"
-                gap="$2"
-                {...(!isOverlayPage && {
-                  onPress: onPressTokenSelector,
-                  hoverStyle: { opacity: 0.8 },
-                  pressStyle: { opacity: 0.6 },
-                  cursor: 'pointer',
-                })}
-              >
-                <SizableText size="$headingLg" numberOfLines={1}>
-                  {tokenDetail?.symbol || ''}
-                </SizableText>
-                {!isOverlayPage ? (
-                  <Icon
-                    name="ChevronDownSmallOutline"
-                    size="$4"
-                    color="$iconSubdued"
-                  />
-                ) : null}
-              </XStack>
-
-              <XStack ai="center" gap="$1">
-                {tokenDetail?.communityRecognized ? (
-                  <TokenTagsPopover
-                    communityRecognized={tokenDetail.communityRecognized}
-                    stock={tokenDetail.stock}
-                    customTrigger={
-                      <Icon
-                        name="BadgeRecognizedSolid"
-                        size="$4"
-                        color="$iconSuccess"
-                      />
-                    }
-                  />
-                ) : null}
-                {tokenDetail?.address ? (
-                  <XStack ai="center" gap="$1">
-                    <SizableText
-                      size="$bodySm"
-                      color="$textSubdued"
-                      numberOfLines={1}
-                      cursor="pointer"
-                      hoverStyle={{ opacity: 0.8 }}
-                      pressStyle={{ opacity: 0.6 }}
-                      onPress={handleCopyAddress}
-                    >
-                      {accountUtils.shortenAddress({
-                        address: tokenDetail.address,
-                        leadingLength: 6,
-                        trailingLength: 4,
-                      })}
-                    </SizableText>
-                    <InteractiveIcon
-                      testID="market-icon"
-                      icon="Copy3Outline"
+          {platformEnv.isNative || isMobileWebLayout ? (
+            renderNativeHeaderTitle()
+          ) : (
+            <XStack flex={1} ai="center" gap="$2">
+              <Token
+                size="md"
+                tokenImageUri={headerIdentity.logoUrl}
+                tokenImageUris={headerIdentity.logoUrls}
+                networkImageUri={headerNetworkLogoUri}
+                fallbackIcon="CryptoCoinOutline"
+              />
+              <YStack>
+                <XStack
+                  alignItems="center"
+                  gap="$2"
+                  {...(!isOverlayPage && {
+                    onPress: onPressTokenSelector,
+                    hoverStyle: { opacity: 0.8 },
+                    pressStyle: { opacity: 0.6 },
+                    cursor: 'pointer',
+                  })}
+                >
+                  <SizableText size="$headingLg" numberOfLines={1}>
+                    {headerIdentity.symbol}
+                  </SizableText>
+                  {!isOverlayPage ? (
+                    <Icon
+                      name="ChevronDownSmallOutline"
                       size="$4"
-                      onPress={handleCopyAddress}
+                      color="$iconSubdued"
                     />
-                  </XStack>
-                ) : null}
-                {!tokenDetail?.address && !isNative ? (
-                  <AddressLineSkeleton />
-                ) : null}
-              </XStack>
-            </YStack>
-          </XStack>
+                  ) : null}
+                </XStack>
+
+                <XStack ai="center" gap="$1">
+                  {tokenDetail?.communityRecognized ? (
+                    <TokenTagsPopover
+                      communityRecognized={tokenDetail.communityRecognized}
+                      stock={tokenDetail.stock}
+                      customTrigger={
+                        <Icon
+                          name="BadgeRecognizedSolid"
+                          size="$4"
+                          color="$iconSuccess"
+                        />
+                      }
+                    />
+                  ) : null}
+                  {tokenDetail?.address ? (
+                    <XStack ai="center" gap="$1">
+                      <SizableText
+                        size="$bodySm"
+                        color="$textSubdued"
+                        numberOfLines={1}
+                        cursor="pointer"
+                        hoverStyle={{ opacity: 0.8 }}
+                        pressStyle={{ opacity: 0.6 }}
+                        onPress={handleCopyAddress}
+                      >
+                        {accountUtils.shortenAddress({
+                          address: tokenDetail.address,
+                          leadingLength: 6,
+                          trailingLength: 4,
+                        })}
+                      </SizableText>
+                      <InteractiveIcon
+                        testID="market-icon"
+                        icon="Copy3Outline"
+                        size="$4"
+                        onPress={handleCopyAddress}
+                      />
+                    </XStack>
+                  ) : null}
+                  {!tokenDetail?.address && !isNative ? (
+                    <AddressLineSkeleton />
+                  ) : null}
+                </XStack>
+              </YStack>
+            </XStack>
+          )}
 
           {networkId || listingIdentity.assetId || listingIdentity.stockId ? (
             <XStack gap="$3" ai="center">
@@ -445,15 +545,7 @@ export function MarketDetailHeader({
           ) : null}
         </TabPageHeaderContainer>
       ) : (
-        <TabPageHeader
-          sceneName={EAccountSelectorSceneName.home}
-          tabRoute={ETabRoutes.Market}
-          customHeaderLeftItems={customHeaderLeft}
-          customHeaderRightItems={
-            platformEnv.isNative ? customHeaderRight : null
-          }
-          hideSearch={!media.gtMd}
-        />
+        tabPageHeader
       )}
     </>
   );

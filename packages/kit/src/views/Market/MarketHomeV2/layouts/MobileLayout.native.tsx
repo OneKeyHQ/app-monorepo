@@ -13,19 +13,24 @@ import type { RefObject } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
-import { CollapsiblePagerView } from 'react-native-pager-view';
-import { useSharedValue } from 'react-native-reanimated';
+import {
+  CollapsiblePagerView,
+  ScrollEdgeEffect,
+} from 'react-native-pager-view';
 
 import {
   IconButton,
-  Tabs,
   XStack,
   YStack,
   useScrollContentTabBarOffset,
   useTheme,
+  useThemeName,
 } from '@onekeyhq/components';
-import type { ITabContainerRef } from '@onekeyhq/components';
+import { TabBar } from '@onekeyhq/components/src/composite/TabBar';
+import { BRAND_FONT_NATIVE_FAMILY } from '@onekeyhq/components/src/hocs/Provider/fonts/brandFont';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
+import type { IAppPagerRef } from '@onekeyhq/kit/src/components/AppPager/types';
+import { useAppPagerController } from '@onekeyhq/kit/src/components/AppPager/useAppPagerController';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -58,6 +63,7 @@ import {
   MarketWatchlistCategorySelector,
 } from '../components/MarketTokenList/MarketWatchlistCategorySelector';
 import { useOpenMarketWatchlistEditDialog } from '../components/MarketTokenList/useOpenMarketWatchlistEditDialog';
+import { useMarketHomeSelection } from '../hooks/useMarketHomeSelection';
 import {
   isMarketStockCategoryById,
   shouldShowSpotNetworkSelector,
@@ -98,9 +104,11 @@ interface IMobileLayoutProps {
   selectedNetworkId: string;
   liquidityFilter?: ILiquidityFilter;
   onTabChange: (tabId: IMarketHomeTabValue) => void;
-  tabsRef?: RefObject<ITabContainerRef | null>;
+  tabsRef?: RefObject<IAppPagerRef | null>;
   isFocused?: boolean;
   nestedPager?: boolean;
+  externalTopOverlayTag?: number;
+  externalTopOverlayHeight?: number;
 }
 
 interface ITabBarDynamicContext {
@@ -143,6 +151,7 @@ interface IMarketHomeTabBarProps {
   onTabPress: (name: string) => void;
   useNativeTabBar: boolean;
   useNativeCategorySubHeader: boolean;
+  scrollEdgeEnabled: boolean;
 }
 
 function MarketHomeTabBar({
@@ -153,6 +162,7 @@ function MarketHomeTabBar({
   onTabPress,
   useNativeTabBar,
   useNativeCategorySubHeader,
+  scrollEdgeEnabled,
 }: IMarketHomeTabBarProps) {
   const ctx = useContext(TabBarDynamicContext)!;
   const currentFocusedTabName = ctx.activeTabName || tabNames[0] || '';
@@ -300,10 +310,16 @@ function MarketHomeTabBar({
   );
 
   return (
-    <YStack pointerEvents="box-none" bg="$bgApp">
-      <YStack bg="$bgApp" height={MARKET_TAB_BAR_HEIGHT}>
+    <YStack
+      pointerEvents="box-none"
+      bg={scrollEdgeEnabled ? undefined : '$bgApp'}
+    >
+      <YStack
+        bg={scrollEdgeEnabled ? undefined : '$bgApp'}
+        height={MARKET_TAB_BAR_HEIGHT}
+      >
         {useNativeTabBar ? null : (
-          <Tabs.TabBar
+          <TabBar
             focusedTab={focusedTab}
             tabNames={tabNames}
             onTabPress={onTabPress}
@@ -322,17 +338,29 @@ function MarketHomeTabBar({
           position="relative"
         >
           {showWatchlistSubHeader ? (
-            <YStack height="100%" bg="$bgApp" justifyContent="flex-end">
+            <YStack
+              height="100%"
+              bg={scrollEdgeEnabled ? undefined : '$bgApp'}
+              justifyContent="flex-end"
+            >
               {renderWatchlistSubHeaderContent()}
             </YStack>
           ) : null}
           {showSpotSubHeader ? (
-            <YStack height="100%" bg="$bgApp" justifyContent="flex-end">
+            <YStack
+              height="100%"
+              bg={scrollEdgeEnabled ? undefined : '$bgApp'}
+              justifyContent="flex-end"
+            >
               {renderSpotSubHeaderContent()}
             </YStack>
           ) : null}
           {showPerpsSubHeader ? (
-            <YStack height="100%" bg="$bgApp" justifyContent="flex-end">
+            <YStack
+              height="100%"
+              bg={scrollEdgeEnabled ? undefined : '$bgApp'}
+              justifyContent="flex-end"
+            >
               {renderPerpsSubHeaderContent()}
             </YStack>
           ) : null}
@@ -349,6 +377,8 @@ function MobileLayoutComponent({
   tabsRef,
   isFocused = true,
   nestedPager = false,
+  externalTopOverlayTag,
+  externalTopOverlayHeight,
 }: IMobileLayoutProps) {
   const intl = useIntl();
   const openMarketWatchlistEditDialog = useOpenMarketWatchlistEditDialog();
@@ -382,9 +412,6 @@ function MobileLayoutComponent({
       watchlistTabName,
     ],
   );
-  const initialIndex = useRef(
-    Math.max(0, tabNames.indexOf(selectedTabName)),
-  ).current;
   const pagerRef = useRef<CollapsiblePagerView>(null);
   // Keep successful data when the pager unmounts a distant page.
   const watchlistDataCacheRef = useRef<IMarketWatchlistDataCache | undefined>(
@@ -396,17 +423,62 @@ function MobileLayoutComponent({
   const perpsDataCacheRef = useRef<IMarketPerpsDataCache | undefined>(
     undefined,
   );
-  const internalTabsRef = useRef<ITabContainerRef | null>(null);
+  const internalTabsRef = useRef<IAppPagerRef | null>(null);
   const resolvedTabsRef = tabsRef ?? internalTabsRef;
-  const activeIndexRef = useRef(initialIndex);
-  const activeTabNameRef = useRef(
-    tabNames[initialIndex] ?? selectedTabName ?? tabNames[0] ?? '',
-  );
   const selectedTabNameRef = useRef(selectedTabName);
   selectedTabNameRef.current = selectedTabName;
-  const [activeTabName, setActiveTabName] = useState(activeTabNameRef.current);
-  const focusedTab = useSharedValue(activeTabNameRef.current);
+  const pages = useMemo(
+    () => [
+      ...(showWatchlistTab
+        ? [{ key: 'watchlist', name: watchlistTabName }]
+        : []),
+      ...spotTabItems.map((item) => ({
+        key: item.categoryId,
+        name: item.tabName,
+      })),
+      ...(showPerpsTab ? [{ key: 'perps', name: perpsTabName }] : []),
+    ],
+    [
+      showWatchlistTab,
+      watchlistTabName,
+      spotTabItems,
+      showPerpsTab,
+      perpsTabName,
+    ],
+  );
+  const handleSelectionChange = useCallback(
+    ({ tabName }: { tabName: string }) => handleTabChange(tabName),
+    [handleTabChange],
+  );
+  const controller = useAppPagerController({
+    pages,
+    initialTabName: selectedTabName,
+    removedPageFallback: {
+      tabName: selectedTabName,
+      notifySelectionChange: false,
+    },
+    pagerRef,
+    commitOnCommand: true,
+    onSelectionChange: handleSelectionChange,
+  });
+  const {
+    initialIndex,
+    selectedIndexRef: activeIndexRef,
+    focusedTab,
+    focusedName: activeTabName,
+    selectIndex: updateActivePage,
+    jumpToTab,
+    getFocusedTab,
+    getCurrentIndex,
+    syncCurrentPage,
+    setIndex: setPagerIndex,
+  } = controller;
   const theme = useTheme();
+  const themeName = useThemeName();
+  const [scrollEdgeAvailable, setScrollEdgeAvailable] = useState(false);
+  const scrollEdgeEnabled = Boolean(
+    platformEnv.isNativeIOS && scrollEdgeAvailable,
+  );
   const nativeTabBar = useMemo<CollapsiblePagerNativeTabBarConfig | undefined>(
     () =>
       platformEnv.isNative
@@ -425,8 +497,10 @@ function MobileLayoutComponent({
               contentPaddingHorizontal: 12,
               itemSpacing: 8,
               fontSize: 16,
-              fontFamily: 'Roobert-Medium',
-              backgroundColor: theme.bgApp.val,
+              fontFamily: BRAND_FONT_NATIVE_FAMILY.medium,
+              backgroundColor: scrollEdgeEnabled
+                ? 'transparent'
+                : theme.bgApp.val,
               activeTextColor: theme.text.val,
               inactiveTextColor: theme.textSubdued.val,
               indicatorColor: theme.text.val,
@@ -435,7 +509,13 @@ function MobileLayoutComponent({
             },
           }
         : undefined,
-    [tabNames, theme.bgApp.val, theme.text.val, theme.textSubdued.val],
+    [
+      scrollEdgeEnabled,
+      tabNames,
+      theme.bgApp.val,
+      theme.text.val,
+      theme.textSubdued.val,
+    ],
   );
   const {
     bannerList,
@@ -474,17 +554,26 @@ function MobileLayoutComponent({
   const [watchlistState] = useMarketWatchListV2Atom();
   const isWatchlistEmpty =
     !watchlistState.data || watchlistState.data.length === 0;
-  const [watchlistFilter, setWatchlistFilter] = useState<IWatchlistFilterType>(
+  const [watchlistFilter, setWatchlistFilter] = useMarketHomeSelection(
+    'watchlistFilter',
     DEFAULT_WATCHLIST_FILTER,
   );
   const stockCategories =
     filterBarProps.stockCategories ?? EMPTY_MARKET_STOCK_CATEGORIES;
   const [selectedStockCategoryId, setSelectedStockCategoryId] =
-    useMarketSubCategorySelection(stockCategories);
+    useMarketSubCategorySelection(
+      stockCategories,
+      'selectedStockCategory',
+      filterBarProps.isCategoryConfigLoading,
+    );
   const topCoinsCategories =
     filterBarProps.topCoinsCategories ?? EMPTY_MARKET_TOP_COINS_CATEGORIES;
   const [selectedTopCoinsCategoryId, setSelectedTopCoinsCategoryId] =
-    useMarketSubCategorySelection(topCoinsCategories);
+    useMarketSubCategorySelection(
+      topCoinsCategories,
+      'selectedTopCoinsCategory',
+      filterBarProps.isCategoryConfigLoading,
+    );
   const activeSpotCategoryId = getSpotCategoryIdByTabName(activeTabName);
   // The Stocks and Top coins tabs share one chip row; this is whichever one
   // the active page owns.
@@ -585,52 +674,32 @@ function MobileLayoutComponent({
   const lastPagerUserDragEndedAtRef = useRef(0);
   const isPagerUserDraggingRef = useRef(false);
 
-  const updateActivePage = useCallback(
-    (index: number) => {
-      const tabName = tabNames[index];
-      if (!tabName) return;
-      activeIndexRef.current = index;
-      activeTabNameRef.current = tabName;
-      focusedTab.value = tabName;
-      setActiveTabName(tabName);
-    },
-    [focusedTab, tabNames],
-  );
-
-  const setPagerIndex = useCallback(
-    (index: number, animated: boolean) => {
-      if (!tabNames[index]) return;
-      updateActivePage(index);
-      if (animated) {
-        pagerRef.current?.setPage(index);
-      } else {
-        pagerRef.current?.setPageWithoutAnimation(index);
-      }
-    },
-    [tabNames, updateActivePage],
-  );
-
   useImperativeHandle(
     resolvedTabsRef,
     () => ({
-      jumpToTab: (tabName: string) => {
-        const index = tabNames.indexOf(tabName);
-        if (index >= 0) setPagerIndex(index, true);
-      },
+      jumpToTab: (tabName: string) => jumpToTab(tabName, true),
       setIndex: (index: number) => setPagerIndex(index, true),
-      getFocusedTab: () => activeTabNameRef.current,
-      getCurrentIndex: () => activeIndexRef.current,
+      getFocusedTab: getFocusedTab,
+      getCurrentIndex: getCurrentIndex,
       syncCurrentPage: () => {
         const selectedIndex = tabNames.indexOf(selectedTabNameRef.current);
         const targetIndex =
           !isTabSelectionInFlight() && selectedIndex >= 0
             ? selectedIndex
             : activeIndexRef.current;
-        updateActivePage(targetIndex);
-        pagerRef.current?.setPageWithoutAnimation(targetIndex);
+        syncCurrentPage(targetIndex);
       },
     }),
-    [isTabSelectionInFlight, setPagerIndex, tabNames, updateActivePage],
+    [
+      jumpToTab,
+      getFocusedTab,
+      getCurrentIndex,
+      syncCurrentPage,
+      isTabSelectionInFlight,
+      setPagerIndex,
+      tabNames,
+      activeIndexRef,
+    ],
   );
 
   useEffect(() => {
@@ -639,7 +708,7 @@ function MobileLayoutComponent({
     const logResult = (result: 'jumped' | 'tabNotFound') => {
       defaultLogger.market.navigation.marketHomePagerSync({
         selectedTabName,
-        activeTabName: activeTabNameRef.current,
+        activeTabName: getFocusedTab(),
         result,
         tabCount: tabNames.length,
       });
@@ -651,10 +720,12 @@ function MobileLayoutComponent({
     if (targetIndex !== activeIndexRef.current) {
       logResult('jumped');
       setPagerIndex(targetIndex, false);
-    } else if (activeTabNameRef.current !== selectedTabName) {
-      updateActivePage(targetIndex);
+    } else if (getFocusedTab() !== selectedTabName) {
+      updateActivePage(targetIndex, false);
     }
   }, [
+    getFocusedTab,
+    activeIndexRef,
     isFocused,
     isTabSelectionInFlight,
     selectedTabName,
@@ -674,7 +745,7 @@ function MobileLayoutComponent({
         setPagerIndex(index, false);
       }
     },
-    [handleTabChange, setPagerIndex, tabNames],
+    [handleTabChange, setPagerIndex, tabNames, activeIndexRef],
   );
 
   const handleNativeTabPress = useCallback(
@@ -708,9 +779,8 @@ function MobileLayoutComponent({
       const tabName = tabNames[index];
       if (!tabName) return;
       updateActivePage(index);
-      handleTabChange(tabName);
     },
-    [handleTabChange, tabNames, updateActivePage],
+    [tabNames, updateActivePage],
   );
 
   const handlePagerScrollStateChanged = useCallback(
@@ -746,6 +816,10 @@ function MobileLayoutComponent({
     ? (scrollContentTabBarOffset ?? 0)
     : tabBarHeight + 40;
 
+  const externalOverlayInset =
+    scrollEdgeEnabled && (externalTopOverlayTag ?? 0) > 0
+      ? (externalTopOverlayHeight ?? 0)
+      : 0;
   const listContainerProps = useMemo(
     () => ({
       emptyContentPaddingTop:
@@ -754,7 +828,10 @@ function MobileLayoutComponent({
       paddingBottom: contentPaddingBottom,
       emptyContentHeight: Math.max(
         0,
-        pagerHeight - stickyHeaderHeight - contentPaddingBottom,
+        pagerHeight -
+          externalOverlayInset -
+          stickyHeaderHeight -
+          contentPaddingBottom,
       ),
       // Android ScrollView only intercepts drags when its content exceeds the
       // viewport. The native pager extends that viewport by the header height.
@@ -762,7 +839,13 @@ function MobileLayoutComponent({
         ? pagerHeight + headerHeight + 1
         : undefined,
     }),
-    [contentPaddingBottom, headerHeight, pagerHeight, stickyHeaderHeight],
+    [
+      contentPaddingBottom,
+      externalOverlayInset,
+      headerHeight,
+      pagerHeight,
+      stickyHeaderHeight,
+    ],
   );
   const dynamicCtx = useMemo<ITabBarDynamicContext>(
     () => ({
@@ -799,6 +882,7 @@ function MobileLayoutComponent({
       selectedTopCoinsCategoryId,
       setSelectedStockCategoryId,
       setSelectedTopCoinsCategoryId,
+      setWatchlistFilter,
       stockCategories,
       stockDataCategoryMap,
       topCoinsCategories,
@@ -814,118 +898,134 @@ function MobileLayoutComponent({
 
   return (
     <TabBarDynamicContext.Provider value={dynamicCtx}>
-      <CollapsiblePagerView
-        ref={pagerRef}
-        style={STYLES.pager}
-        onLayout={(event) => {
-          const height = event.nativeEvent.layout.height;
-          if (height > 0) setPagerHeight(height);
-        }}
-        initialPage={initialIndex}
-        headerHeight={headerHeight}
-        stickyHeaderHeight={stickyHeaderHeight}
-        pageRetentionDistance={1}
-        offscreenPageLimit={1}
-        scrollEnabled
-        nestedScrollEnabled={nestedPager}
-        nativeSmoothHeaderScrollEnabled={platformEnv.isNative}
-        testID="market-native-collapsible-pager"
-        nativeTabBar={nativeTabBar}
-        nativeTabPressAnimationEnabled={false}
-        nativeSubHeader={nativeSubHeader}
-        onNativeTabPress={handleNativeTabPress}
-        onNativeSubHeaderPress={handleNativeSubHeaderPress}
-        onPageSelected={handlePageSelected}
-        onPageScrollStateChanged={handlePagerScrollStateChanged}
-        header={
-          <YStack bg="$bgApp" pointerEvents="box-none" minHeight={1}>
-            <MarketBannerList />
-          </YStack>
-        }
-        stickyHeader={
-          <YStack
-            bg="$bgApp"
-            pointerEvents="box-none"
-            onLayout={(event) =>
-              handleStickyHeaderLayout(
-                Math.round(event.nativeEvent.layout.height),
-              )
-            }
-          >
-            <MarketHomeTabBar
-              watchlistTabName={watchlistTabName}
-              perpsTabName={perpsTabName}
-              tabNames={tabNames}
-              focusedTab={focusedTab}
-              onTabPress={handleTabPress}
-              useNativeTabBar={Boolean(nativeTabBar)}
-              useNativeCategorySubHeader={Boolean(nativeSubHeader)}
-            />
-          </YStack>
-        }
+      <YStack
+        flex={1}
+        pt={scrollEdgeEnabled ? 0 : (externalTopOverlayHeight ?? 0)}
       >
-        {showWatchlistTab ? (
-          <YStack key={watchlistTabName} flex={1} bg="$bgApp">
-            <MobileMarketNativeWatchlist
-              dataCacheRef={watchlistDataCacheRef}
-              selectedFilter={watchlistFilter}
-              listContainerProps={listContainerProps}
-              shouldSuppressItemPress={shouldSuppressItemPress}
-            />
-          </YStack>
-        ) : null}
-        {spotTabItems.map((item) => {
-          const isStockCategory = isMarketStockCategoryById(
-            filterBarProps.categories,
-            item.categoryId,
-          );
-          let content;
-          if (item.categoryId === MARKET_TOP_COINS_CATEGORY_ID) {
-            content = (
-              <MobileMarketNativeTopCoinsList
-                dataCacheRef={topCoinsDataCacheRef}
-                selectedCategoryId={selectedTopCoinsCategoryId}
-                listContainerProps={listContainerProps}
-                shouldSuppressItemPress={shouldSuppressItemPress}
-              />
-            );
-          } else if (isStockCategory) {
-            content = (
-              <MobileMarketNativeStockList
-                selectedCategoryId={selectedStockCategoryId}
-                listContainerProps={listContainerProps}
-                shouldSuppressItemPress={shouldSuppressItemPress}
-              />
-            );
-          } else {
-            content = (
-              <MobileMarketNativeTokenList
-                networkId={selectedNetworkId}
-                selectedCategory={item.categoryId}
-                timeRange={filterBarProps.timeRange}
-                listContainerProps={listContainerProps}
-                onStockDataChange={handleStockDataChange}
-                shouldSuppressItemPress={shouldSuppressItemPress}
-              />
-            );
+        <CollapsiblePagerView
+          ref={pagerRef}
+          style={STYLES.pager}
+          onLayout={(event) => {
+            const height = event.nativeEvent.layout.height;
+            if (height > 0) setPagerHeight(height);
+          }}
+          initialPage={initialIndex}
+          headerHeight={headerHeight}
+          stickyHeaderHeight={stickyHeaderHeight}
+          pageRetentionDistance={1}
+          offscreenPageLimit={1}
+          scrollEnabled
+          nestedScrollEnabled={nestedPager}
+          nativeSmoothHeaderScrollEnabled={platformEnv.isNative}
+          topScrollEdgeEffect={
+            scrollEdgeEnabled ? ScrollEdgeEffect.Hard : undefined
           }
-          return (
-            <YStack key={item.tabName} flex={1} bg="$bgApp">
-              {content}
+          topOverlayColorScheme={scrollEdgeEnabled ? themeName : undefined}
+          externalTopOverlayTag={
+            scrollEdgeEnabled ? externalTopOverlayTag : undefined
+          }
+          onScrollEdgeCapability={(event) =>
+            setScrollEdgeAvailable(event.nativeEvent.available)
+          }
+          testID="market-native-collapsible-pager"
+          nativeTabBar={nativeTabBar}
+          nativeTabPressAnimationEnabled={false}
+          nativeSubHeader={nativeSubHeader}
+          onNativeTabPress={handleNativeTabPress}
+          onNativeSubHeaderPress={handleNativeSubHeaderPress}
+          onPageSelected={handlePageSelected}
+          onPageScrollStateChanged={handlePagerScrollStateChanged}
+          header={
+            <YStack bg="$bgApp" pointerEvents="box-none" minHeight={1}>
+              <MarketBannerList />
             </YStack>
-          );
-        })}
-        {showPerpsTab ? (
-          <YStack key={perpsTabName} flex={1} bg="$bgApp">
-            <MobileMarketNativePerpsList
-              dataCacheRef={perpsDataCacheRef}
-              selectedCategoryId={selectedCategoryId}
-              listContainerProps={listContainerProps}
-              shouldSuppressItemPress={shouldSuppressItemPress}
-            />
-          </YStack>
-        ) : null}
-      </CollapsiblePagerView>
+          }
+          stickyHeader={
+            <YStack
+              bg={scrollEdgeEnabled ? undefined : '$bgApp'}
+              pointerEvents="box-none"
+              onLayout={(event) =>
+                handleStickyHeaderLayout(
+                  Math.round(event.nativeEvent.layout.height),
+                )
+              }
+            >
+              <MarketHomeTabBar
+                watchlistTabName={watchlistTabName}
+                perpsTabName={perpsTabName}
+                tabNames={tabNames}
+                focusedTab={focusedTab}
+                onTabPress={handleTabPress}
+                useNativeTabBar={Boolean(nativeTabBar)}
+                useNativeCategorySubHeader={Boolean(nativeSubHeader)}
+                scrollEdgeEnabled={scrollEdgeEnabled}
+              />
+            </YStack>
+          }
+        >
+          {showWatchlistTab ? (
+            <YStack key="watchlist" flex={1} bg="$bgApp">
+              <MobileMarketNativeWatchlist
+                dataCacheRef={watchlistDataCacheRef}
+                selectedFilter={watchlistFilter}
+                listContainerProps={listContainerProps}
+                shouldSuppressItemPress={shouldSuppressItemPress}
+              />
+            </YStack>
+          ) : null}
+          {spotTabItems.map((item) => {
+            const isStockCategory = isMarketStockCategoryById(
+              filterBarProps.categories,
+              item.categoryId,
+            );
+            let content;
+            if (item.categoryId === MARKET_TOP_COINS_CATEGORY_ID) {
+              content = (
+                <MobileMarketNativeTopCoinsList
+                  dataCacheRef={topCoinsDataCacheRef}
+                  selectedCategoryId={selectedTopCoinsCategoryId}
+                  listContainerProps={listContainerProps}
+                  shouldSuppressItemPress={shouldSuppressItemPress}
+                />
+              );
+            } else if (isStockCategory) {
+              content = (
+                <MobileMarketNativeStockList
+                  selectedCategoryId={selectedStockCategoryId}
+                  listContainerProps={listContainerProps}
+                  shouldSuppressItemPress={shouldSuppressItemPress}
+                />
+              );
+            } else {
+              content = (
+                <MobileMarketNativeTokenList
+                  networkId={selectedNetworkId}
+                  selectedCategory={item.categoryId}
+                  timeRange={filterBarProps.timeRange}
+                  listContainerProps={listContainerProps}
+                  onStockDataChange={handleStockDataChange}
+                  shouldSuppressItemPress={shouldSuppressItemPress}
+                />
+              );
+            }
+            return (
+              <YStack key={item.categoryId} flex={1} bg="$bgApp">
+                {content}
+              </YStack>
+            );
+          })}
+          {showPerpsTab ? (
+            <YStack key="perps" flex={1} bg="$bgApp">
+              <MobileMarketNativePerpsList
+                dataCacheRef={perpsDataCacheRef}
+                selectedCategoryId={selectedCategoryId}
+                listContainerProps={listContainerProps}
+                shouldSuppressItemPress={shouldSuppressItemPress}
+              />
+            </YStack>
+          ) : null}
+        </CollapsiblePagerView>
+      </YStack>
     </TabBarDynamicContext.Provider>
   );
 }

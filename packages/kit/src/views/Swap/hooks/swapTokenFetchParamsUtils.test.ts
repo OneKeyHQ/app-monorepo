@@ -1,7 +1,10 @@
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
-import { buildSwapTokenFetchParams } from './swapTokenFetchParamsUtils';
+import {
+  buildSwapTokenFetchParams,
+  resolveSwapTokenSearchNetworkId,
+} from './swapTokenFetchParamsUtils';
 
 function createAllNetworkAccountInfo(
   overrides: Partial<IAllNetworkAccountInfo> = {},
@@ -42,6 +45,7 @@ describe('buildSwapTokenFetchParams', () => {
       protocol: ESwapTabSwitchType.STOCK,
       networkId: 'evm--56',
       keywords: '',
+      limit: 200,
       accountAddress: '0xabc',
       accountNetworkId: 'evm--56',
       accountId: 'account-1',
@@ -66,6 +70,7 @@ describe('buildSwapTokenFetchParams', () => {
     ).toMatchObject({
       protocol: ESwapTabSwitchType.STOCK,
       networkId: 'evm--56',
+      limit: 200,
       accountAddress: '0xdef',
       accountNetworkId: 'evm--56',
       accountId: 'account-2',
@@ -133,5 +138,70 @@ describe('buildSwapTokenFetchParams', () => {
         shouldUseCurrentAccountAddress: false,
       }),
     ).not.toHaveProperty('onlySwapTokens');
+  });
+});
+
+describe('resolveSwapTokenSearchNetworkId', () => {
+  const allNetworksId = 'onekeyall--0';
+
+  it('searches all networks for a pasted contract address', () => {
+    expect(
+      resolveSwapTokenSearchNetworkId({
+        selectedNetworkId: 'evm--42161',
+        keywords: 'So11111111111111111111111111111111111111112',
+        swapType: ESwapTabSwitchType.SWAP,
+        allNetworksId,
+      }),
+    ).toBe(allNetworksId);
+  });
+
+  it('keeps the selected network for symbol searches and empty keywords', () => {
+    expect(
+      resolveSwapTokenSearchNetworkId({
+        selectedNetworkId: 'evm--42161',
+        keywords: 'USDC',
+        swapType: ESwapTabSwitchType.SWAP,
+        allNetworksId,
+      }),
+    ).toBe('evm--42161');
+    expect(
+      resolveSwapTokenSearchNetworkId({
+        selectedNetworkId: 'evm--42161',
+        keywords: '',
+        swapType: ESwapTabSwitchType.SWAP,
+        allNetworksId,
+      }),
+    ).toBe('evm--42161');
+  });
+
+  it('keeps the selected network for long single-word token names', () => {
+    expect(
+      resolveSwapTokenSearchNetworkId({
+        selectedNetworkId: 'evm--42161',
+        keywords: 'WrappedStakedEthereumToken',
+        swapType: ESwapTabSwitchType.SWAP,
+        allNetworksId,
+      }),
+    ).toBe('evm--42161');
+  });
+
+  it('keeps the selected network for Stock and when All Networks is unavailable', () => {
+    const keywords = '0xaf88d065e77c8cC2239327C5EDb3A432268e5831';
+    expect(
+      resolveSwapTokenSearchNetworkId({
+        selectedNetworkId: 'evm--1',
+        keywords,
+        swapType: ESwapTabSwitchType.STOCK,
+        allNetworksId,
+      }),
+    ).toBe('evm--1');
+    expect(
+      resolveSwapTokenSearchNetworkId({
+        selectedNetworkId: 'evm--1',
+        keywords,
+        swapType: ESwapTabSwitchType.SWAP,
+        allNetworksId: undefined,
+      }),
+    ).toBe('evm--1');
   });
 });

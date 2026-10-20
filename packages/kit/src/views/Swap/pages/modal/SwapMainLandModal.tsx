@@ -35,6 +35,7 @@ const SwapMainLandModalPage = () => {
     importDeriveType,
     swapSource,
     marketPresetToken,
+    marketSwapDirection,
     closeModalAfterSwapBroadcast,
     onSwapBroadcast,
   } = route.params ?? {};
@@ -84,6 +85,7 @@ const SwapMainLandModalPage = () => {
           swapTabSwitchType,
           fromAmount,
           marketPresetToken,
+          marketSwapDirection,
           swapSource,
           closeModalAfterSwapBroadcast,
           onSwapBroadcast,
@@ -99,6 +101,7 @@ export default function SwapMainLandModal() {
       config={{
         sceneName: EAccountSelectorSceneName.swap,
       }}
+      e2eContextProbeName="swap-main-modal"
       enabledNum={[0, 1]}
     >
       <SwapMainLandModalPage />

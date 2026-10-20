@@ -11,6 +11,7 @@ export enum EAppSyncStorageKeys {
   onekey_db_perf_monitor = 'onekey_db_perf_monitor',
   onekey_developer_mode_enabled = 'onekey_developer_mode_enabled',
   onekey_pending_install_task = 'onekey_pending_install_task',
+  onekey_failed_ota_bundle = 'onekey_failed_ota_bundle',
   last_onekey_id_login_email = 'last_onekey_id_login_email',
   last_scan_qr_code_text = 'last_scan_qr_code_text',
   onekey_whats_new_shown = 'onekey_whats_new_shown',
@@ -20,6 +21,7 @@ export enum EAppSyncStorageKeys {
   onekey_device_cpu_tier_override_v2 = 'onekey_device_cpu_tier_override_v2',
   onekey_trading_view_native_active_intervals_v1 = 'onekey_trading_view_native_active_intervals_v1',
   onekey_swap_trading_view_native_active_intervals_v1 = 'onekey_swap_trading_view_native_active_intervals_v1',
+  onekey_perps_trading_view_native_active_intervals_v1 = 'onekey_perps_trading_view_native_active_intervals_v1',
   onekey_travel_mode_control_v1 = 'onekey_travel_mode_control_v1',
 }
 

@@ -21,6 +21,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import type { ICheckedState, IInputRef } from '@onekeyhq/components';
+import { BRAND_FONT_NATIVE_FAMILY } from '@onekeyhq/components/src/hocs/Provider/fonts/brandFont';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
@@ -2409,7 +2410,7 @@ function PerpTradingForm({
             ...(isMobile
               ? {
                   fontFamily: platformEnv.isNative
-                    ? 'Roobert-Medium'
+                    ? BRAND_FONT_NATIVE_FAMILY.medium
                     : undefined,
                   fontSize: 14,
                   fontWeight: '500' as const,
@@ -3196,7 +3197,7 @@ function PerpTradingForm({
           min={0}
           max={100}
           value={sliderValue}
-          showBubble={false}
+          showBubble
           onChange={handleSliderPercentChange}
           disabled={sliderDisabled}
           segments={4}

@@ -25,10 +25,8 @@ import {
 } from '@onekeyhq/components';
 import { useForm } from '@onekeyhq/components/src/hooks/useForm';
 import { usePasswordPersistManualLockStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
-import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { checkBiometricAuthChanged } from '@onekeyhq/shared/src/modules3rdParty/check-biometric-auth-changed';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EPasswordMode,
@@ -46,13 +44,15 @@ import PassCodeInput from './PassCodeInput';
 
 import type { AuthenticationType } from 'expo-local-authentication';
 
+type IBiometricCheckResult = 'unchanged' | 'changed' | 'unavailable';
+
 interface IPasswordVerifyProps {
   authType: AuthenticationType[];
   isEnable: boolean;
   disableInput?: boolean;
   passwordMode: EPasswordMode;
   onPasswordChange: (e: any) => void;
-  onBiologyAuth: () => void;
+  onBiologyAuth: () => void | Promise<void>;
   onInputPasswordAuth: (data: IPasswordVerifyForm) => void;
   status: {
     value: EPasswordVerifyStatus;
@@ -112,6 +112,9 @@ function PasswordVerify({
     isEnableRef.current = isEnable;
   }
 
+  const statusRef = useRef(status.value);
+  statusRef.current = status.value;
+
   const disableInputRef = useRef(disableInput);
   if (disableInputRef.current !== disableInput) {
     disableInputRef.current = disableInput;
@@ -133,6 +136,31 @@ function PasswordVerify({
   }, [form, passwordMode]);
   const [secureEntry, setSecureEntry] = useState(true);
   const lastTime = useRef(0);
+  const biometricCheckRef = useRef<IBiometricCheckResult | undefined>(
+    undefined,
+  );
+  const biometricCheckPromiseRef =
+    useRef<Promise<IBiometricCheckResult> | null>(null);
+  const biometricCheckGenerationRef = useRef(0);
+  const biometricAuthPromiseRef = useRef<Promise<void> | null>(null);
+  const [biometricCheckResult, setBiometricCheckResult] =
+    useState<IBiometricCheckResult>();
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (status.value === EPasswordVerifyStatus.VERIFIED) {
+      biometricCheckGenerationRef.current += 1;
+      biometricCheckRef.current = undefined;
+      biometricCheckPromiseRef.current = null;
+      biometricAuthPromiseRef.current = null;
+      setBiometricCheckResult(undefined);
+    }
+  }, [status.value]);
   const passwordInput = form.watch(
     passwordMode === EPasswordMode.PASSWORD ? 'password' : 'passCode',
   );
@@ -140,52 +168,10 @@ function PasswordVerify({
   const { icon: biologyAuthIconName, title: authTitle } =
     useBiometricAuthInfo();
 
-  const rightActions = useMemo(() => {
-    const actions: IPropsWithTestId<{
-      iconName?: IKeyOfIcons;
-      onPress?: () => void;
-      loading?: boolean;
-      disabled?: boolean;
-      tabIndex?: number;
-    }>[] = [];
-    if (isEnable && !passwordInput) {
-      actions.push({
-        iconName: biologyAuthIconName,
-        onPress: onBiologyAuth,
-        loading: status.value === EPasswordVerifyStatus.VERIFYING,
-      });
-    } else {
-      actions.push({
-        iconName: secureEntry ? 'EyeOutline' : 'EyeOffOutline',
-        onPress: () => {
-          setSecureEntry(!secureEntry);
-        },
-      });
-      actions.push({
-        iconName: 'ArrowRightOutline',
-        onPress: form.handleSubmit(onInputPasswordAuth),
-        loading: status.value === EPasswordVerifyStatus.VERIFYING,
-        disabled: confirmBtnDisabled,
-        testID: 'verifying-password',
-        tabIndex: 0,
-      });
-    }
-
-    return actions;
-  }, [
-    isEnable,
-    passwordInput,
-    biologyAuthIconName,
-    onBiologyAuth,
-    status.value,
-    secureEntry,
-    form,
-    onInputPasswordAuth,
-    confirmBtnDisabled,
-  ]);
   const formContainerRef = useClearInputValueAfterVerified(status.value);
 
   const [passCodeClear, setPassCodeClear] = useState(false);
+
   useEffect(() => {
     const fieldName =
       passwordMode === EPasswordMode.PASSWORD ? 'password' : 'passCode';
@@ -204,74 +190,122 @@ function PasswordVerify({
     }
   }, [form, passwordMode, status]);
 
-  const checkAuthChanged = useCallback(async () => {
-    const isSupport = await biologyAuth.isSupportBiologyAuth();
-    // TODO(biologyAuth-debug): temporary log to diagnose iOS biometric disappearing
-    defaultLogger.setting.page.biologyAuthDebug('checkAuthChanged:start', {
-      platform: platformEnv.symbol,
-      isSupport,
-    });
-    if (!isSupport) {
-      return false;
+  const checkAuthChanged = useCallback((): Promise<IBiometricCheckResult> => {
+    if (
+      biometricCheckRef.current === 'changed' ||
+      biometricCheckRef.current === 'unavailable'
+    ) {
+      return Promise.resolve(biometricCheckRef.current);
     }
-    try {
-      const changed = await checkBiometricAuthChanged();
-      // TODO(biologyAuth-debug): temporary log — `changed: true` silently turns off
-      // isBiologyAuthSwitchOn, hiding the biometric button on lock screen.
-      defaultLogger.setting.page.biologyAuthDebug('checkAuthChanged:result', {
-        platform: platformEnv.symbol,
-        changed,
-      });
-      if (changed) {
-        await backgroundApiProxy.servicePassword.setBiologyAuthEnable(false);
-        setTimeout(() => {
-          Dialog.confirm({
-            icon: 'ErrorOutline',
-            tone: 'warning',
-            // Off the lock screen this takes the default portal, which is
-            // where the passcode prompt that raises it already lives
-            // (PasswordVerifyPromptMount passes no container on native), so
-            // the warning stacks above it as the later child. Only the lock
-            // screen needs a container of its own.
-            ...(inAppStateLock ? inAppStateLockDialogProps : undefined),
-            title: intl.formatMessage(
-              {
-                id: ETranslations.global_biometric_disabled,
-              },
-              {
-                authentication: authTitle,
-              },
-            ),
-            description: intl.formatMessage(
-              {
-                id: ETranslations.global_biometric_disabled_desc,
-              },
-              {
-                authentication: authTitle,
-              },
-            ),
-            onConfirmText: intl.formatMessage({
-              id: ETranslations.global_i_got_it,
-            }),
-          });
-        }, 50);
+    if (biometricCheckPromiseRef.current)
+      return biometricCheckPromiseRef.current;
+    const generation = biometricCheckGenerationRef.current;
+    const checking = (async (): Promise<IBiometricCheckResult> => {
+      try {
+        const changed =
+          await backgroundApiProxy.servicePassword.checkBiometricAuthChanged();
+        if (generation !== biometricCheckGenerationRef.current)
+          return 'unavailable';
+        defaultLogger.setting.page.biologyAuthDebug('checkAuthChanged:result', {
+          platform: platformEnv.symbol,
+          changed,
+        });
+        if (changed) {
+          // Latch before persistent settings work, so other entry points cannot race it.
+          biometricCheckRef.current = 'changed';
+          if (mountedRef.current) setBiometricCheckResult('changed');
+          setTimeout(() => {
+            if (!mountedRef.current) return;
+            Dialog.confirm({
+              icon: 'ErrorOutline',
+              tone: 'warning',
+              // Off the lock screen this takes the default portal, which is
+              // where the passcode prompt that raises it already lives
+              // (PasswordVerifyPromptMount passes no container on native), so
+              // the warning stacks above it as the later child. Only the lock
+              // screen needs a container of its own.
+              ...(inAppStateLock ? inAppStateLockDialogProps : undefined),
+              title: intl.formatMessage(
+                {
+                  id: ETranslations.global_biometric_disabled,
+                },
+                {
+                  authentication: authTitle,
+                },
+              ),
+              description: intl.formatMessage(
+                {
+                  id: ETranslations.global_biometric_disabled_desc,
+                },
+                {
+                  authentication: authTitle,
+                },
+              ),
+              onConfirmText: intl.formatMessage({
+                id: ETranslations.global_i_got_it,
+              }),
+            });
+          }, 50);
+          return 'changed';
+        }
+        biometricCheckRef.current = 'unchanged';
+        if (mountedRef.current) setBiometricCheckResult('unchanged');
+        return 'unchanged';
+      } catch {
+        if (generation !== biometricCheckGenerationRef.current)
+          return 'unavailable';
+        defaultLogger.setting.page.biologyAuthDebug(
+          'checkAuthChanged:unavailable',
+          { platform: platformEnv.symbol },
+        );
+        if (biometricCheckRef.current !== 'changed')
+          biometricCheckRef.current = 'unavailable';
+        if (mountedRef.current) setBiometricCheckResult('unavailable');
+        return biometricCheckRef.current;
       }
-      return changed;
-    } catch (error) {
-      console.error(error);
-    }
-    return false;
+    })();
+    const tracked = checking.finally(() => {
+      if (biometricCheckPromiseRef.current === tracked)
+        biometricCheckPromiseRef.current = null;
+    });
+    biometricCheckPromiseRef.current = tracked;
+    return tracked;
   }, [authTitle, inAppStateLock, intl]);
+
+  const guardedBiologyAuth = useCallback((): Promise<void> => {
+    if (biometricAuthPromiseRef.current) return biometricAuthPromiseRef.current;
+    const field =
+      passwordMode === EPasswordMode.PASSWORD ? 'password' : 'passCode';
+    const inputBeforeCheck = form.getValues(field);
+    const statusBeforeCheck = statusRef.current;
+    const generation = biometricCheckGenerationRef.current;
+    const attempting = (async () => {
+      const result =
+        platformEnv.isNativeIOS || platformEnv.isDesktopMac
+          ? await checkAuthChanged()
+          : 'unchanged';
+      if (
+        result === 'unchanged' &&
+        generation === biometricCheckGenerationRef.current &&
+        mountedRef.current &&
+        isEnableRef.current &&
+        form.getValues(field) === inputBeforeCheck &&
+        statusRef.current !== EPasswordVerifyStatus.VERIFYING &&
+        (statusRef.current !== EPasswordVerifyStatus.VERIFIED ||
+          (pageMode && statusBeforeCheck === EPasswordVerifyStatus.VERIFIED))
+      )
+        await onBiologyAuth();
+    })();
+    const tracked = attempting.finally(() => {
+      if (biometricAuthPromiseRef.current === tracked)
+        biometricAuthPromiseRef.current = null;
+    });
+    biometricAuthPromiseRef.current = tracked;
+    return tracked;
+  }, [checkAuthChanged, onBiologyAuth, form, passwordMode, pageMode]);
 
   useLayoutEffect(() => {
     void (async () => {
-      const changed =
-        platformEnv.isNativeIOS || platformEnv.isDesktopMac
-          ? await checkAuthChanged()
-          : false;
-      if (changed) {
-        return;
-      }
       // Skip auto-trigger in MV3 sidepanel: WebAuthn modal can deadlock when
       // bound to Google Password Manager, and sidepanel lacks the popup
       // focus-loss escape that lets users recover. See PR #11125.
@@ -282,13 +316,13 @@ function PasswordVerify({
         status.value === EPasswordVerifyStatus.DEFAULT &&
         !manualLocking
       ) {
-        void onBiologyAuth();
+        void guardedBiologyAuth();
       }
     })();
 
     if (platformEnv.isNativeIOS || platformEnv.isDesktopMac) {
       const handleVisibilityStateChange = (visible: boolean) => {
-        if (visible) {
+        if (visible && isEnableRef.current) {
           void checkAuthChanged();
         }
       };
@@ -313,12 +347,72 @@ function PasswordVerify({
         status.value === EPasswordVerifyStatus.DEFAULT &&
         !manualLocking
       ) {
-        void onBiologyAuth();
+        void guardedBiologyAuth();
       }
     }
-  }, [isEnable, passwordInput, status.value, manualLocking, onBiologyAuth]);
+  }, [
+    isEnable,
+    passwordInput,
+    status.value,
+    manualLocking,
+    guardedBiologyAuth,
+  ]);
 
-  useHandleAppStateActive(isEnable ? onActive : undefined);
+  useHandleAppStateActive(
+    isEnable && !platformEnv.isDesktopWin ? onActive : undefined,
+  );
+
+  const rightActions = useMemo(() => {
+    const actions: IPropsWithTestId<{
+      iconName?: IKeyOfIcons;
+      onPress?: () => void;
+      loading?: boolean;
+      disabled?: boolean;
+      tabIndex?: number;
+    }>[] = [];
+    if (
+      isEnable &&
+      !passwordInput &&
+      biometricCheckResult !== 'changed' &&
+      biometricCheckResult !== 'unavailable'
+    ) {
+      actions.push({
+        iconName: biologyAuthIconName,
+        onPress: () => {
+          void guardedBiologyAuth();
+        },
+        loading: status.value === EPasswordVerifyStatus.VERIFYING,
+      });
+    } else {
+      actions.push({
+        iconName: secureEntry ? 'EyeOutline' : 'EyeOffOutline',
+        onPress: () => {
+          setSecureEntry(!secureEntry);
+        },
+      });
+      actions.push({
+        iconName: 'ArrowRightOutline',
+        onPress: form.handleSubmit(onInputPasswordAuth),
+        loading: status.value === EPasswordVerifyStatus.VERIFYING,
+        disabled: confirmBtnDisabled,
+        testID: 'verifying-password',
+        tabIndex: 0,
+      });
+    }
+
+    return actions;
+  }, [
+    isEnable,
+    passwordInput,
+    biologyAuthIconName,
+    guardedBiologyAuth,
+    biometricCheckResult,
+    status.value,
+    secureEntry,
+    form,
+    onInputPasswordAuth,
+    confirmBtnDisabled,
+  ]);
 
   const onPassCodeComplete = useCallback(() => {
     setTimeout(() => {
@@ -409,14 +503,18 @@ function PasswordVerify({
                 </SizableText>
               </XStack>
             ) : null}
-            {isEnable ? (
+            {isEnable &&
+            biometricCheckResult !== 'changed' &&
+            biometricCheckResult !== 'unavailable' ? (
               <YStack alignSelf="center" pt="$6" scale={1.5}>
                 <IconButton
                   testID="password-icon-btn"
                   size="large"
                   variant="tertiary"
                   icon={biologyAuthIconName}
-                  onPress={onBiologyAuth}
+                  onPress={() => {
+                    void guardedBiologyAuth();
+                  }}
                   loading={status.value === EPasswordVerifyStatus.VERIFYING}
                 />
               </YStack>
@@ -424,6 +522,14 @@ function PasswordVerify({
           </>
         )}
       </Form>
+      {isEnable && biometricCheckResult === 'unavailable' ? (
+        <SizableText size="$bodyMd" color="$textCritical">
+          {intl.formatMessage(
+            { id: ETranslations.auth_biometric_failed },
+            { biometric: authTitle },
+          )}
+        </SizableText>
+      ) : null}
     </Stack>
   );
 }

@@ -3,12 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import * as ExpoDevice from 'expo-device';
 import { Freeze } from 'react-freeze';
-import {
-  BackHandler,
-  type LayoutChangeEvent,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { BackHandler, StyleSheet, View } from 'react-native';
 import Animated, { useSharedValue } from 'react-native-reanimated';
 
 import {
@@ -61,7 +56,6 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { EarnHomeWithProvider } from '../../../Earn/EarnHome';
-import { MarketHomeWithProvider } from '../../../Market/MarketHomeV2/MarketHomeV2';
 import CustomHeaderTitle from '../../components/CustomHeaderTitle';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import HeaderRightToolBar from '../../components/HeaderRightToolBar';
@@ -226,8 +220,12 @@ function MobileBrowser() {
   const isLandscape = useIsSplitView();
   const { defaultTab, earnTab } = route?.params || {};
   const [settings] = useSettingsPersistAtom();
-  const selectedHeaderTab =
+  const rawSelectedHeaderTab =
     settings.selectedBrowserTab || ETranslations.global_browser;
+  const selectedHeaderTab =
+    rawSelectedHeaderTab === ETranslations.global_earn
+      ? ETranslations.global_earn
+      : ETranslations.global_browser;
   // Pages the outer pager is actually painting. Tracked separately from
   // selectedHeaderTab, which only commits after the swipe finishes — the
   // gap between the two is what showed a blank page mid-swipe (OK-60300).
@@ -241,16 +239,15 @@ function MobileBrowser() {
   }, []);
   const isEarnPageVisible =
     selectedHeaderTab === ETranslations.global_earn ||
-    visibleOuterPages.includes(1);
+    visibleOuterPages.includes(0);
   const exploreTabSwitchTypeRef = useRef<IExploreTabSwitchType>('default');
   const hasLoggedExploreTabViewRef = useRef(false);
 
   // Shared value for swipe-following header tab animation.
-  // Maps tab enum to pager index: market=0, earn=1, browser=2.
+  // Maps tab enum to pager index: earn=0, browser=1.
   const initialPageIndex = useMemo(() => {
-    if (selectedHeaderTab === ETranslations.global_market) return 0;
-    if (selectedHeaderTab === ETranslations.global_earn) return 1;
-    return 2;
+    if (selectedHeaderTab === ETranslations.global_earn) return 0;
+    return 1;
   }, [selectedHeaderTab]);
   const outerPageScrollPosition = useSharedValue(initialPageIndex);
 
@@ -259,9 +256,6 @@ function MobileBrowser() {
   // Market/Perp/Wallet tabs are still available to switch to (OK-56756). Do NOT
   // narrow the search scope here — that would drop those tabs entirely.
   const searchInitialTab = useMemo(() => {
-    if (selectedHeaderTab === ETranslations.global_market) {
-      return 'market' as const;
-    }
     if (selectedHeaderTab === ETranslations.global_browser) {
       return 'dapp' as const;
     }
@@ -300,7 +294,7 @@ function MobileBrowser() {
     isBrowserHeaderTabSelected && !showDiscoveryPage && !displayHomePage;
   const isBrowserDashboardActive =
     showDiscoveryPage &&
-    (isBrowserHeaderTabSelected || visibleOuterPages.includes(2));
+    (isBrowserHeaderTabSelected || visibleOuterPages.includes(1));
   const shouldKeepBrowserTabLayerAttached =
     platformEnv.isNativeIOSPad && isTabletDetailView;
   const shouldDismissKeyboardOnTabSwitch =
@@ -312,6 +306,14 @@ function MobileBrowser() {
     }
   }, [tabs?.length]);
 
+  useEffect(() => {
+    if (rawSelectedHeaderTab === ETranslations.global_market) {
+      void backgroundApiProxy.serviceSetting.setSelectedBrowserTab(
+        ETranslations.global_browser,
+      );
+    }
+  }, [rawSelectedHeaderTab]);
+
   const previousDefaultTab = useRef<ETranslations | undefined>(undefined);
   useEffect(() => {
     if (previousDefaultTab.current !== defaultTab) {
@@ -320,13 +322,15 @@ function MobileBrowser() {
         previousDefaultTab: previousDefaultTab.current,
       });
       previousDefaultTab.current = defaultTab;
-      if (defaultTab) {
+      if (defaultTab === ETranslations.global_market) {
+        navigation.switchTab(ETabRoutes.Market);
+      } else if (defaultTab) {
         void backgroundApiProxy.serviceSetting.setSelectedBrowserTab(
           defaultTab,
         );
       }
     }
-  }, [defaultTab]);
+  }, [defaultTab, navigation]);
 
   useEffect(() => {
     if (!showDiscoveryPage) {
@@ -383,6 +387,10 @@ function MobileBrowser() {
         openUrl: event.openUrl,
         showWebPage: event.showWebPage,
       });
+      if (event.tab === ETranslations.global_market) {
+        navigation.switchTab(ETabRoutes.Market);
+        return;
+      }
       exploreTabSwitchTypeRef.current = event.switchType ?? 'default';
 
       // State machine: when WebView is open (displayHomePage === false) and
@@ -416,6 +424,7 @@ function MobileBrowser() {
   }, [
     activeTabId,
     displayHomePage,
+    navigation,
     setDisplayHomePage,
     shouldDismissKeyboardOnTabSwitch,
   ]);
@@ -466,6 +475,9 @@ function MobileBrowser() {
     [tabs, navigation, activeTabId],
   );
 
+  // Only the legacy tablet layout requires display:none gating across panes;
+  // phone layouts keep Market, Earn, and Browser in the outer pager.
+  const useOuterPager = !isTabletMainView && !isTabletDetailView;
   const { top } = useSafeAreaInsets();
   // iOS 26: the Discover search bar opts into the Liquid Glass capsule (so it
   // matches the Wallet header's glass search bar) and is nudged down so its
@@ -501,35 +513,12 @@ function MobileBrowser() {
     handleGoBackHome,
   });
 
-  // Refs for inner tab containers (Market/Earn) to sync after freeze/unfreeze
-  const marketTabsRef = useRef<ITabContainerRef>(null);
+  // Refs for inner tab containers (Earn) to sync after freeze/unfreeze
   const earnTabsRef = useRef<ITabContainerRef>(null);
   const earnBorrowPagerRef = useRef<IEarnBorrowPagerViewRef>(null);
 
-  // Determine if outer PagerView should be used (phone-style layout).
-  // Only the legacy tablet layout requires display:none gating across panes;
-  // that layout is only meaningful when SplitView is actually active (the
-  // SplitViewContext provider wraps the routers). When the user disables
-  // enableSplitView on a foldable / dual-screen device, neither main nor sub
-  // view is set — fall back to the phone-style pager so Market/Earn/Browser
-  // can still render. Without this, dual-screen Android with split-screen
-  // off renders a blank Market/DeFi page.
-  const useOuterPager = !isTabletMainView && !isTabletDetailView;
   const handleExploreTabSwipe = useCallback(() => {
     exploreTabSwitchTypeRef.current = 'swipe';
-  }, []);
-
-  const INITIAL_TAB_PAGE_HEIGHT_IOS = 153;
-  const INITIAL_TAB_PAGE_HEIGHT_ANDROID = 100;
-  const [tabPageHeight, setTabPageHeight] = useState(
-    platformEnv.isNativeIOS
-      ? INITIAL_TAB_PAGE_HEIGHT_IOS
-      : INITIAL_TAB_PAGE_HEIGHT_ANDROID,
-  );
-  const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
-    // Use the actual measured height without arbitrary adjustments
-    const height = e.nativeEvent.layout.height;
-    setTabPageHeight(height);
   }, []);
 
   const isShowContent = useMemo(() => {
@@ -579,7 +568,37 @@ function MobileBrowser() {
       {/* custom header */}
 
       {showDiscoveryPage ? (
-        <Stack h={tabPageHeight} />
+        <YStack
+          bg="$bgApp"
+          // Keep the visible header and the space above the pager in the same
+          // layout tree, so async native measurement cannot move the page body.
+          // iOS 26 needs 58pt for the lower 44pt glass search bar and its gap.
+          pt={searchGlassActive ? 58 : '$12'}
+          width="100%"
+        >
+          <Stack
+            position="absolute"
+            top={discoverSearchTop}
+            px="$5"
+            {...(searchGlassActive && { left: 0, right: 0 })}
+          >
+            <LegacyUniversalSearchInput
+              size="medium"
+              glass
+              initialTab={searchInitialTab}
+              tabRoute={universalSearchTabRoute}
+            />
+          </Stack>
+          <TabPageHeader
+            sceneName={EAccountSelectorSceneName.home}
+            tabRoute={ETabRoutes.Discovery}
+            selectedHeaderTab={selectedHeaderTab}
+            // Tablet has no outer pager updates, so omit its shared position.
+            pageScrollPosition={
+              useOuterPager ? outerPageScrollPosition : undefined
+            }
+          />
+        </YStack>
       ) : (
         <XStack
           pt={top}
@@ -606,17 +625,9 @@ function MobileBrowser() {
               showDiscoveryPage={showDiscoveryPage}
               onPageSelectedBySwipe={handleExploreTabSwipe}
               pageScrollPosition={outerPageScrollPosition}
-              marketTabsRef={marketTabsRef}
               earnTabsRef={earnTabsRef}
               earnBorrowPagerRef={earnBorrowPagerRef}
               onVisiblePagesChange={handleVisiblePagesChange}
-              marketContent={
-                <MarketHomeWithProvider
-                  isFocused={selectedHeaderTab === ETranslations.global_market}
-                  nestedPager={useOuterPager}
-                  tabsRef={marketTabsRef}
-                />
-              }
               earnContent={
                 <EarnHomeWithProvider
                   showHeader={false}
@@ -697,21 +708,6 @@ function MobileBrowser() {
         ) : (
           <>
             {/* Keep iPad browser layers attached; Android retains legacy display switching. */}
-            {isShowContent ? (
-              <View
-                style={{
-                  flex: 1,
-                  display:
-                    selectedHeaderTab === ETranslations.global_market
-                      ? 'flex'
-                      : 'none',
-                }}
-              >
-                <MarketHomeWithProvider
-                  isFocused={selectedHeaderTab === ETranslations.global_market}
-                />
-              </View>
-            ) : null}
             <Stack
               flex={1}
               zIndex={shouldKeepBrowserTabLayerAttached ? undefined : 3}
@@ -722,7 +718,9 @@ function MobileBrowser() {
                   : 'auto'
               }
               accessibilityElementsHidden={
-                shouldKeepBrowserTabLayerAttached && !isBrowserHeaderTabSelected
+                shouldKeepBrowserTabLayerAttached
+                  ? !isBrowserHeaderTabSelected
+                  : undefined
               }
               importantForAccessibility={
                 shouldKeepBrowserTabLayerAttached && !isBrowserHeaderTabSelected
@@ -815,50 +813,6 @@ function MobileBrowser() {
           </>
         )}
       </Page.Body>
-      {showDiscoveryPage ? (
-        <YStack
-          position="absolute"
-          top={0}
-          left={0}
-          bg="$bgApp"
-          // iOS 26: the search bar grew (40->44) and shifted down +6 for Wallet
-          // alignment, which ate the gap to the segment row (Market/DeFi/Browser)
-          // below it. Push that row down so the gap matches the original ~8pt
-          // (6 shift + 44 bar + 8 gap = 58). Off iOS 26 keep the original $12.
-          pt={searchGlassActive ? 58 : '$12'}
-          width="100%"
-          onLayout={handleTabPageLayout}
-        >
-          <Stack
-            position="absolute"
-            top={discoverSearchTop}
-            px="$5"
-            // iOS 26: the glass search bar fills its width via flex, which
-            // collapses to 0 inside this shrink-to-fit absolute container — pin
-            // left/right so it spans the header width. Off iOS 26 the Stack
-            // keeps its original content width (unchanged).
-            {...(searchGlassActive && { left: 0, right: 0 })}
-          >
-            <LegacyUniversalSearchInput
-              size="medium"
-              glass
-              initialTab={searchInitialTab}
-              tabRoute={universalSearchTabRoute}
-            />
-          </Stack>
-          <TabPageHeader
-            sceneName={EAccountSelectorSceneName.home}
-            tabRoute={ETabRoutes.Discovery}
-            selectedHeaderTab={selectedHeaderTab}
-            // Only pass pageScrollPosition when OuterTabPagerView is active (phone).
-            // On tablet/dual-screen, useOuterPager is false so no onPageScroll
-            // events fire — passing the stale shared value would freeze tab colors.
-            pageScrollPosition={
-              useOuterPager ? outerPageScrollPosition : undefined
-            }
-          />
-        </YStack>
-      ) : null}
       {shouldShowTabletHomeContainer ? (
         <Stack
           position="absolute"

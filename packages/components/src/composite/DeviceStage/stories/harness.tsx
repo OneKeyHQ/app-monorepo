@@ -241,6 +241,7 @@ export function useStageDriver(
     stageProps: {
       step,
       onClose: closable ? close : undefined,
+      onErrorNoticeExpire: () => go('off'),
       waitStalled: stalled,
       inputError,
       authChecklist: authRows,
@@ -378,6 +379,11 @@ export const ARG_TYPES = {
   deviceType: {
     control: 'inline-radio',
     options: ['classic', 'mini', 'pro', 'touch', 'pro2'],
+  },
+  // Only pro2 listens; unset is the model's default finish.
+  deviceColor: {
+    control: 'inline-radio',
+    options: ['Black', 'Silver', 'Orange'],
   },
   // 'usb' is the original look — the replica in the capsule seat; only
   // 'bluetooth' wears the badge.

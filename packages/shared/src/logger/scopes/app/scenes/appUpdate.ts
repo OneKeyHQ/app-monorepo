@@ -36,7 +36,7 @@ export type IAppUpdateAuditPayload = Record<string, unknown>;
  *   - platform: 'ios' | 'android' | 'desktop' | 'extension' | 'web'
  *   - status: 'success' | 'failed' (result only)
  *   - failedStep: 'download' | 'downloadASC' | 'verifyASC' | 'verifyPackage' | 'install' (failed only)
- *   - errorMessage: string (failed only)
+ *   - errorCode / httpStatus: controlled update failure fields (failed only)
  *
  * Retry handling:
  *   Each call to downloadPackage() generates a new attemptId. If a user retries,
@@ -100,15 +100,8 @@ export class AppUpdateScene extends BaseScene {
     params: ISoftwareUpdateParams & {
       status: 'success' | 'failed';
       failedStep?: string;
-      errorMessage?: string;
-      // Stable, low-cardinality classification of the failure parsed from
-      // errorMessage by extractUpdateErrorCode. Lets Mixpanel split the
-      // previously opaque "errorMessage" funnel into actionable buckets —
-      // SHA256_FILE_TRUNCATED / SHA256_OOM / SHA256_MISMATCH /
-      // HTTP_416 / NSURL_-1005 / IO_<errno> / … — that match the
-      // SHA256_<reason> payloads emitted by the iOS/Android/Desktop
-      // bundle-update native modules.
       errorCode?: string;
+      httpStatus?: number;
     },
   ) {
     return params;
@@ -141,9 +134,8 @@ export class AppUpdateScene extends BaseScene {
   }
 
   // Server-side payloads on the per-step funnel events drop free-text
-  // error.message and any local file paths — softwareUpdateResult is the
-  // single sink for failure detail, with sanitized errorMessage +
-  // errorCode at the call site. Per-step events here only need the
+  // error.message and any local file paths — softwareUpdateResult receives
+  // only a controlled errorCode and optional httpStatus. Per-step events need the
   // success flag + the version coordinates the funnel groups by, so the
   // payload can never reflect /Users/<name>/, signed CDN URLs, or
   // OkHttp / NSError messages back to the analytics ingest.

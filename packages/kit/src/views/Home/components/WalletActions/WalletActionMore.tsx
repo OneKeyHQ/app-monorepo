@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useContext, useMemo } from 'react';
 
 import { Divider } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -8,6 +8,7 @@ import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { getRewardCenterConfig } from '@onekeyhq/kit/src/components/RewardCenter';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import {
+  buildOverviewOwnerKey,
   useAccountOverviewActions,
   useApprovalsInfoAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview';
@@ -26,15 +27,17 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import { HomeTestIDs } from '../../testIDs';
+import { HomeStickyHeaderContext } from '../HomeStickyHeaderContext';
 import { HomeTokenListProviderMirrorWrapper } from '../HomeTokenListProvider';
 
+import { LazyWalletActionBulkSend } from './LazyWalletActionBulkSend';
 import { RawActions } from './RawActions';
 import { useWalletActionConfig } from './useWalletActionConfig';
 import { WalletActionAddressList } from './WalletActionAddressList';
 import { WalletActionApprovals } from './WalletActionApprovals';
-import { WalletActionBulkSend } from './WalletActionBulkSend';
 import { WalletActionBuy } from './WalletActionBuy';
 import { WalletActionCoins } from './WalletActionCoins';
 import { WalletActionCopy } from './WalletActionCopy';
@@ -45,6 +48,7 @@ import { WalletActionSignAndVerify } from './WalletActionSignAndVerify';
 import { WalletActionSwap } from './WalletActionSwap';
 import { WalletActionViewInExplorer } from './WalletActionViewInExplorer';
 import { WalletActionVote } from './WalletActionVote';
+import { WalletPortfolioSpotlight } from './WalletPortfolioSpotlight';
 
 type IRenderMoreItemsParams = {
   handleActionListClose: () => void;
@@ -55,10 +59,16 @@ type IRenderMoreItemsParams = {
 export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
   const [devSettings] = useDevSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const activeTabId = useContext(HomeStickyHeaderContext)?.activeTabId;
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
   const { account, network } = activeAccount;
   // Read here, not in the item: menu items render outside this context.
-  const [{ showRiskApprovalsDot }] = useApprovalsInfoAtom();
+  const [{ ownerKey: approvalsOwnerKey, showRiskApprovalsDot: ownerDot }] =
+    useApprovalsInfoAtom();
+  // A dot computed for the previous account must not show on the next one.
+  const showRiskApprovalsDot =
+    ownerDot &&
+    approvalsOwnerKey === buildOverviewOwnerKey(account?.id, network?.id);
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
   const markRiskApprovalsSeen = useCallback(() => {
     updateApprovalsInfo({ showRiskApprovalsDot: false });
@@ -243,7 +253,7 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
               );
             case 'bulkSend':
               return (
-                <WalletActionBulkSend
+                <LazyWalletActionBulkSend
                   key="bulkSend"
                   onClose={handleActionListClose}
                 />
@@ -426,12 +436,19 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
   );
 
   return (
-    <RawActions.More
-      renderItems={platformEnv.isNative ? renderItems : undefined}
-      renderItemsAsync={renderItemsAsync}
-      testID={HomeTestIDs.moreButton}
-      iconOnly={iconOnly}
-      showDot={showRiskApprovalsDot && isApprovalEnabled}
-    />
+    <HomeTokenListProviderMirrorWrapper accountId={account?.id ?? ''}>
+      <WalletPortfolioSpotlight
+        enabled={activeTabId === EHomeWalletTab.Portfolio}
+        iconOnly={iconOnly}
+      >
+        <RawActions.More
+          renderItems={platformEnv.isNative ? renderItems : undefined}
+          renderItemsAsync={renderItemsAsync}
+          testID={HomeTestIDs.moreButton}
+          iconOnly={iconOnly}
+          showDot={showRiskApprovalsDot && isApprovalEnabled}
+        />
+      </WalletPortfolioSpotlight>
+    </HomeTokenListProviderMirrorWrapper>
   );
 }

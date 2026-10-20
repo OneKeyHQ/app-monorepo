@@ -19,8 +19,10 @@ import { getTotalSecurityDisplayInfo } from './utils/utils';
 
 function TokenSecurityAlert({
   showLeadingDivider = false,
+  variant = 'default',
 }: {
   showLeadingDivider?: boolean;
+  variant?: 'default' | 'overview';
 }) {
   const intl = useIntl();
   const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
@@ -35,6 +37,8 @@ function TokenSecurityAlert({
     Dialog.show({
       title: intl.formatMessage({ id: ETranslations.dexmarket_audit }),
       showFooter: false,
+      sheetDragArea: 'header',
+      testID: 'market-token-security-dialog',
       renderContent: (
         <TokenSecurityAlertDialogContent
           securityData={securityData}
@@ -63,6 +67,30 @@ function TokenSecurityAlert({
     riskCount,
     cautionCount,
   );
+
+  if (variant === 'overview') {
+    return (
+      <XStack
+        testID="market-token-security-overview"
+        onPress={handlePress}
+        cursor="pointer"
+        ai="center"
+        gap="$1"
+        px="$2"
+        py="$2"
+        bg="$bgStrong"
+        borderRadius="$full"
+      >
+        <Icon name="BugOutline" size="$4" color={color} />
+        <SizableText size="$bodySmMedium" color="$text">
+          {intl.formatMessage({ id: ETranslations.dexmarket_audit })}
+        </SizableText>
+        <SizableText size="$bodySmMedium" color="$text">
+          {count}
+        </SizableText>
+      </XStack>
+    );
+  }
 
   return (
     <>

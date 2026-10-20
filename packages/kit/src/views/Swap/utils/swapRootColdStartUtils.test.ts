@@ -6,6 +6,9 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  swapDefaultConfigStatusAtom,
+  swapFromTokenAmountAtom,
+  swapInitialSelectedTokensSyncedAtom,
   swapNetworks,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
@@ -97,6 +100,7 @@ describe('hydrateSwapDefaultTokensFromGlobalHomeSnapshot', () => {
         defaultSelectTokenDetail: { from: fromToken, to: toToken },
       },
     ]);
+    store.set(swapDefaultConfigStatusAtom(), 'success');
     expect(hydrateSwapDefaultTokensFromGlobalHomeSnapshot(store)).toBe(true);
     expect(store.get(swapSelectToTokenAtom())?.symbol).toBe('USDT');
     expect(
@@ -110,6 +114,7 @@ describe('hydrateSwapDefaultTokensFromGlobalHomeSnapshot', () => {
   it('can reconcile an automatic fallback when backend networks arrive later', () => {
     setHomeColdStartSnapshot('evm--1');
     const store = createStore();
+    store.set(swapDefaultConfigStatusAtom(), 'failed');
     expect(hydrateSwapDefaultTokensFromGlobalHomeSnapshot(store)).toBe(true);
     expect(store.get(swapSelectToTokenAtom())?.symbol).toBe('USDC');
     const context = store.get(swapSelectedTokensColdStartContextAtom());
@@ -169,4 +174,84 @@ describe('hydrateSwapDefaultTokensFromGlobalHomeSnapshot', () => {
       }),
     ).toBeUndefined();
   });
+
+  it('displays known local defaults before configuration returns', () => {
+    setHomeColdStartSnapshot('evm--1');
+    const store = createStore();
+    expect(store.get(swapDefaultConfigStatusAtom())).toBe('pending');
+    expect(hydrateSwapDefaultTokensFromGlobalHomeSnapshot(store)).toBe(true);
+    expect(store.get(swapSelectFromTokenAtom())?.symbol).toBe('ETH');
+    expect(store.get(swapSelectToTokenAtom())?.symbol).toBe('USDC');
+    expect(
+      store.get(swapSelectedTokensColdStartContextAtom())?.defaultTokenSeed,
+    ).toBeDefined();
+    expect(store.get(swapInitialSelectedTokensSyncedAtom())).toBe(false);
+  });
+
+  it('keeps a previous automatic pair while fresh configuration is pending', () => {
+    setHomeColdStartSnapshot('evm--1');
+    const store = createStore();
+    store.set(swapDefaultConfigStatusAtom(), 'failed');
+    expect(hydrateSwapDefaultTokensFromGlobalHomeSnapshot(store)).toBe(true);
+    const fromToken = store.get(swapSelectFromTokenAtom());
+    const toToken = store.get(swapSelectToTokenAtom());
+    const context = store.get(swapSelectedTokensColdStartContextAtom());
+    store.set(swapInitialSelectedTokensSyncedAtom(), true);
+    store.set(swapDefaultConfigStatusAtom(), 'pending');
+
+    expect(hydrateSwapDefaultTokensFromGlobalHomeSnapshot(store)).toBe(false);
+    expect(store.get(swapSelectFromTokenAtom())).toBe(fromToken);
+    expect(store.get(swapSelectToTokenAtom())).toBe(toToken);
+    expect(store.get(swapSelectedTokensColdStartContextAtom())).toBe(context);
+    expect(store.get(swapInitialSelectedTokensSyncedAtom())).toBe(true);
+  });
+
+  it('keeps an existing pair once the user has entered an amount', () => {
+    setHomeColdStartSnapshot('evm--1');
+    const store = createStore();
+    store.set(swapDefaultConfigStatusAtom(), 'failed');
+    expect(hydrateSwapDefaultTokensFromGlobalHomeSnapshot(store)).toBe(true);
+    const fromToken = store.get(swapSelectFromTokenAtom());
+    const toToken = store.get(swapSelectToTokenAtom());
+    store.set(swapFromTokenAmountAtom(), { value: '0.12', isInput: true });
+    store.set(swapDefaultConfigStatusAtom(), 'pending');
+
+    expect(hydrateSwapDefaultTokensFromGlobalHomeSnapshot(store)).toBe(false);
+    expect(store.get(swapSelectFromTokenAtom())).toBe(fromToken);
+    expect(store.get(swapSelectToTokenAtom())).toBe(toToken);
+    expect(store.get(swapFromTokenAmountAtom()).value).toBe('0.12');
+  });
+
+  it('keeps a manual cached pair while configuration is pending', () => {
+    setHomeColdStartSnapshot('evm--1');
+    const store = createStore();
+    const token: ISwapToken = {
+      networkId: 'evm--1',
+      contractAddress: '0xusdt',
+      symbol: 'USDT',
+      decimals: 6,
+    };
+    store.set(swapSelectFromTokenAtom(), token);
+    store.set(swapSelectedTokensColdStartContextAtom(), {
+      accountKey: 'wallet-1|indexed-account-1|default',
+      networkId: 'evm--1',
+      swapType: ESwapTabSwitchType.SWAP,
+      updatedAt: 1,
+    });
+
+    expect(hydrateSwapDefaultTokensFromGlobalHomeSnapshot(store)).toBe(false);
+    expect(store.get(swapSelectFromTokenAtom())).toBe(token);
+  });
+
+  it.each([ESwapTabSwitchType.BRIDGE, ESwapTabSwitchType.LIMIT])(
+    'keeps %s defaults independent of ordinary Swap configuration readiness',
+    (swapType) => {
+      setHomeColdStartSnapshot('evm--1');
+      const store = createStore();
+      store.set(swapTypeSwitchAtom(), swapType);
+
+      expect(hydrateSwapDefaultTokensFromGlobalHomeSnapshot(store)).toBe(true);
+      expect(store.get(swapSelectFromTokenAtom())?.symbol).toBeDefined();
+    },
+  );
 });

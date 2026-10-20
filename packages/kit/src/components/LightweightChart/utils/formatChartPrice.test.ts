@@ -3,7 +3,12 @@ import { runInNewContext } from 'vm';
 
 import { numberFormatAsRaw } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import { formatChartPrice } from './formatChartPrice';
+import {
+  formatChartPrice,
+  formatChartPriceFull,
+  formatChartPriceFullTicks,
+  formatStockChartPrice,
+} from './formatChartPrice';
 
 const SUBSCRIPT_DIGITS = '₀₁₂₃₄₅₆₇₈₉';
 
@@ -27,6 +32,40 @@ function formatHeaderPrice(price: string): string {
     )
     .join('');
 }
+
+describe('formatStockChartPrice', () => {
+  it('keeps two decimals for stock quotes at or above one dollar', () => {
+    expect(formatStockChartPrice(341.7)).toBe('$341.70');
+    expect(formatStockChartPrice(342.5)).toBe('$342.50');
+    expect(formatStockChartPrice(342)).toBe('$342.00');
+    expect(formatStockChartPrice(-9.4)).toBe('-$9.40');
+  });
+
+  it.each([
+    [1.005, '$1.01'],
+    [2.675, '$2.68'],
+    [9.995, '$10.00'],
+    [999.995, '$1000.00'],
+    [-1.005, '-$1.01'],
+    [-9.995, '-$10.00'],
+    [1.0049, '$1.00'],
+    [1e21, '$1000000000000000000000.00'],
+  ])(
+    'rounds the stock quote %s half-up in both runtimes',
+    (price, expected) => {
+      const nativeFormatter = runInNewContext(
+        `(${readFileSync('packages/kit/src/components/LightweightChart/utils/formatChartPrice.text-js', 'utf8')})`,
+      ) as typeof formatChartPrice;
+      expect(formatStockChartPrice(price)).toBe(expected);
+      expect(nativeFormatter(price, 10, true)).toBe(expected);
+    },
+  );
+
+  it('keeps the compact form for sub-dollar quotes', () => {
+    expect(formatStockChartPrice(0.142_991)).toBe('$0.143');
+    expect(formatStockChartPrice(Number.NaN)).toBe('--');
+  });
+});
 
 describe('chart axis prices', () => {
   it('compresses deep decimals and prevents truncating all significant digits', () => {
@@ -104,6 +143,7 @@ describe('chart axis prices', () => {
     '0.0012345',
     '0.000000123456',
     '0.123456789',
+    '0.184056',
     '0.7',
     '0.700001',
     '12.34567',
@@ -155,5 +195,108 @@ describe('chart axis prices', () => {
       ).toBe(formatChartPrice(price, 7));
       expect(nativeFormatChartPrice(price, 7)).toBe(formatChartPrice(price, 7));
     }
+  });
+});
+
+describe('formatChartPriceFull', () => {
+  it.each([
+    [2377.04, '$2,377.04'],
+    [341.7, '$341.70'],
+    [999.995, '$1,000.00'],
+    [123_456.78, '$123,456.78'],
+    [-2377.04, '-$2,377.04'],
+    [1, '$1.00'],
+    [999_999.99, '$999,999.99'],
+    [999_999.995, '$1M'],
+    [1_234_567.8, '$1.23M'],
+    [2.5e9, '$2.5B'],
+    [0.000_411_4, '$0.0004114'],
+    [0.000_001_23, '$0.0₅123'],
+    [Number.NaN, '--'],
+  ])('prints %s as %s', (price, expected) => {
+    expect(formatChartPriceFull(price)).toBe(expected);
+  });
+});
+
+describe('formatChartPriceFullTicks', () => {
+  it('drops decimals when every tick is a whole dollar', () => {
+    expect(formatChartPriceFullTicks([2340, 2360, 2540])).toEqual([
+      '$2,340',
+      '$2,360',
+      '$2,540',
+    ]);
+  });
+
+  it('keeps two decimals on every tick once the step is fractional', () => {
+    expect(formatChartPriceFullTicks([2540, 2540.5, 2541])).toEqual([
+      '$2,540.00',
+      '$2,540.50',
+      '$2,541.00',
+    ]);
+  });
+
+  it('removes floating-point tick noise before deciding', () => {
+    expect(formatChartPriceFullTicks([0.1 * 3 * 1000, 400])).toEqual([
+      '$300',
+      '$400',
+    ]);
+  });
+
+  it('keeps sub-dollar ticks on the compact form', () => {
+    expect(formatChartPriceFullTicks([0, 0.0001, 0.0002])).toEqual([
+      '$0',
+      '$0.0001',
+      '$0.0002',
+    ]);
+  });
+
+  it('falls back to compact units from $1M', () => {
+    expect(formatChartPriceFullTicks([1_000_000, 2_000_000])).toEqual([
+      '$1M',
+      '$2M',
+    ]);
+  });
+});
+
+describe('full price mode in the native WebView', () => {
+  const nativeFormatChartPrice = runInNewContext(
+    `(${readFileSync(
+      'packages/kit/src/components/LightweightChart/utils/formatChartPrice.text-js',
+      'utf8',
+    )})`,
+  ) as typeof formatChartPrice;
+
+  it.each([
+    0, 0.000_411_4, 0.9999, 1, 341.7, 999.995, 2377.04, 2540, 108_432.17,
+    -2377.04, 999_999.99, 999_999.995, 1_234_567.8, 2.5e9,
+  ])('prints %s the same way as the TS formatter', (price) => {
+    for (const mode of ['cents', 'whole'] as const) {
+      expect(nativeFormatChartPrice(price, 10, false, mode)).toBe(
+        formatChartPrice(price, 10, false, mode),
+      );
+    }
+  });
+
+  it('prints ETH and BTC quotes in full', () => {
+    expect(nativeFormatChartPrice(2377.04, 10, false, 'cents')).toBe(
+      '$2,377.04',
+    );
+    expect(nativeFormatChartPrice(2540, 10, false, 'whole')).toBe('$2,540');
+    expect(nativeFormatChartPrice(108_432.17, 10, false, 'cents')).toBe(
+      '$108,432.17',
+    );
+    expect(nativeFormatChartPrice(108_500, 10, false, 'whole')).toBe(
+      '$108,500',
+    );
+  });
+
+  it('keeps distinct labels for a narrow ETH range', () => {
+    // A $5 step used to print $2.54K twice in the compact form.
+    expect(formatChartPriceFullTicks([2535, 2540, 2545, 2550])).toEqual([
+      '$2,535',
+      '$2,540',
+      '$2,545',
+      '$2,550',
+    ]);
   });
 });

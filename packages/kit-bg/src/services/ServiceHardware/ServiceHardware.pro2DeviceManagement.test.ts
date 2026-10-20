@@ -35,6 +35,17 @@ import serviceHardwareUtils from './serviceHardwareUtils';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IOneKeyHardwareOperationLease } from '../ServiceHardwareUI/HardwareProcessingManager';
 
+const mockHardwareVerificationTime = Date.UTC(2030, 0, 1);
+
+jest.mock('@onekeyhq/shared/src/utils/systemTimeUtils', () => ({
+  __esModule: true,
+  default: {
+    getHardwareVerificationTime: jest.fn(
+      async () => mockHardwareVerificationTime,
+    ),
+  },
+}));
+
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
   backgroundMethod:
@@ -558,7 +569,7 @@ describe('ServiceHardware wallet session compatibility', () => {
       expect(uuid).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu,
       );
-      expect(Number.isNaN(Number(timestamp))).toBe(false);
+      expect(Number(timestamp)).toBe(mockHardwareVerificationTime);
       expect(random).toMatch(/^[0-9A-Za-z]+$/);
       expect(random).toHaveLength(12);
       expect(deviceVerifyArg?.dataHex).toBe(
@@ -574,6 +585,85 @@ describe('ServiceHardware wallet session compatibility', () => {
         }),
       );
       expect(closeHardwareUiStateDialog).toHaveBeenCalled();
+      waitSpy.mockRestore();
+    },
+  );
+
+  it.each([EDeviceType.Pro2, EDeviceType.Neo])(
+    'skips the pre-verify unlock for an uninitialized %s and still attests',
+    async (deviceType) => {
+      const connectId = 'PRO2_BLE';
+      jest.mocked(settingsPersistAtom.get).mockResolvedValue({
+        instanceId: '94537ae5-32e9-4417-860a-1d37c8decb3e',
+      } as never);
+      const oneKeyOperationLease: IOneKeyHardwareOperationLease = {
+        deviceKey: connectId,
+        owner: Symbol('test-hardware-operation'),
+        signal: new AbortController().signal,
+      };
+      const withHardwareProcessing = jest
+        .fn()
+        .mockImplementation(
+          async (
+            callback: (
+              lease: IOneKeyHardwareOperationLease,
+            ) => Promise<unknown>,
+          ) => callback(oneKeyOperationLease),
+        );
+      const backgroundApi = {
+        serviceHardwareUI: {
+          withHardwareProcessing,
+          closeHardwareUiStateDialog: jest.fn(async () => undefined),
+        },
+        serviceHardware: undefined as never as ServiceHardware,
+      };
+      const service = new ServiceHardware({
+        backgroundApi: backgroundApi as never as IBackgroundApi,
+      });
+      backgroundApi.serviceHardware = service;
+      const deviceVerifySpy = jest.fn().mockResolvedValue({
+        success: true,
+        payload: { cert: 'cert', signature: 'signature' },
+      });
+      const waitSpy = jest
+        .spyOn(timerUtils, 'wait')
+        .mockResolvedValue(undefined);
+      jest.spyOn(service, 'getClient').mockResolvedValue({
+        post: jest.fn().mockResolvedValue({
+          data: { code: 0, message: 'RESULT', data: { sno: 'SERIAL' } },
+        }),
+      } as never);
+      jest.spyOn(service, 'getSDKInstance').mockResolvedValue({
+        deviceVerify: deviceVerifySpy,
+      } as never);
+      // A wiped or brand-new Protocol V2 device reports both flags false; the
+      // unlock path would throw "Device is not initialized" for it.
+      const getDeviceStateSpy = jest
+        .spyOn(service, 'getDeviceState')
+        .mockResolvedValue({
+          status: { initialized: false, unlocked: false },
+        } as never);
+      const getDeviceStateWithUnlockSpy = jest
+        .spyOn(service, 'getDeviceStateWithUnlock')
+        .mockRejectedValue(new Error('Device is not initialized'));
+      service.getCompatibleConnectId = jest.fn().mockResolvedValue(connectId);
+
+      const result = await service.firmwareAuthenticate({
+        device: {
+          connectId,
+          deviceType,
+          deviceId: 'DEVICE_ID',
+          uuid: 'DEVICE_SERIAL',
+          name: 'OneKey',
+          commType: 'webusb',
+        },
+      });
+
+      expect(result.verified).toBe(true);
+      expect(getDeviceStateSpy).toHaveBeenCalledTimes(1);
+      expect(getDeviceStateWithUnlockSpy).not.toHaveBeenCalled();
+      expect(waitSpy).not.toHaveBeenCalled();
+      expect(deviceVerifySpy).toHaveBeenCalledTimes(1);
       waitSpy.mockRestore();
     },
   );
@@ -1104,6 +1194,92 @@ describe('ServiceHardware.getDeviceManagementSnapshot', () => {
 });
 
 describe('ServiceHardware SDK DeviceState synchronization', () => {
+  it.each(['ble-disconnect', 'sdk-replacement', 'usb-disconnect'])(
+    'scopes BLE MTU telemetry deduplication across %s',
+    async (boundary) => {
+      const trackMtu = jest
+        .spyOn(defaultLogger.hardware.connection, 'bleMtuReady')
+        .mockClear()
+        .mockImplementation((params) => params);
+      const listeners = new Map<string, (payload: unknown) => void>();
+      const service = new ServiceHardware({
+        backgroundApi: {} as unknown as IBackgroundApi,
+      });
+      const createInstance = () => ({
+        on: jest.fn((event: string, listener: (payload: unknown) => void) =>
+          listeners.set(event, listener),
+        ),
+      });
+      const instance = createInstance();
+      await service.registerSdkEvents(
+        instance as unknown as Parameters<
+          ServiceHardware['registerSdkEvents']
+        >[0],
+      );
+      const log = {
+        event: LOG_EVENT,
+        type: 'log',
+        payload: [
+          '@onekey/hd-ble-transport',
+          '[ReactNativeBleTransport] BLE MTU ready',
+          JSON.stringify({
+            platform: 'android',
+            requested: 512,
+            actual: 23,
+            connectionId: 1,
+          }),
+        ],
+      };
+      listeners.get(LOG_EVENT)?.(log);
+      listeners.get(LOG_EVENT)?.(log);
+      expect(trackMtu).toHaveBeenCalledTimes(1);
+      const secondConnectionLog = {
+        ...log,
+        payload: [
+          ...log.payload.slice(0, -1),
+          JSON.stringify({
+            platform: 'android',
+            requested: 512,
+            actual: 23,
+            connectionId: 2,
+          }),
+        ],
+      };
+      listeners.get(LOG_EVENT)?.(secondConnectionLog);
+      listeners.get(LOG_EVENT)?.(secondConnectionLog);
+      expect(trackMtu).toHaveBeenCalledTimes(2);
+      expect(trackMtu).toHaveBeenLastCalledWith({
+        transportType: 'ble',
+        blePlatform: 'android',
+        requestedMtu: 512,
+        actualMtu: 23,
+        isDefaultMtu: true,
+      });
+
+      if (boundary === 'sdk-replacement') {
+        await service.registerSdkEvents(
+          createInstance() as unknown as Parameters<
+            ServiceHardware['registerSdkEvents']
+          >[0],
+        );
+      } else {
+        listeners.get(DEVICE.DISCONNECT)?.({
+          device: {
+            connectId: 'TEST_CONNECTION',
+            commType: boundary === 'ble-disconnect' ? 'ble' : 'webusb',
+          },
+        });
+      }
+
+      listeners.get(LOG_EVENT)?.(log);
+      listeners.get(LOG_EVENT)?.(log);
+      expect(trackMtu).toHaveBeenCalledTimes(
+        boundary === 'usb-disconnect' ? 2 : 3,
+      );
+      trackMtu.mockRestore();
+    },
+  );
+
   it('enriches connection analytics once for concurrent connect events', async () => {
     const trackConnection = jest
       .spyOn(defaultLogger.hardware.connection, 'hwDeviceConnected')

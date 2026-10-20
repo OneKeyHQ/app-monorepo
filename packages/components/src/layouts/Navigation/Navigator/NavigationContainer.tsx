@@ -21,7 +21,10 @@ import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type {
+  ETabRoutes,
+  ITabStackParamList,
+} from '@onekeyhq/shared/src/routes';
 import {
   EFullScreenPushRoutes,
   EModalRoutes,
@@ -32,7 +35,11 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { updateAppRootViewBackground } from '../../../hocs/Provider/hooks/useAppearanceTheme';
 import { useSettingConfig } from '../../../hocs/Provider/hooks/useProviderValue';
 
-import type { NavigationContainerRef } from '@react-navigation/native';
+import type {
+  NavigationContainerRef,
+  NavigatorScreenParams,
+  ParamListBase,
+} from '@react-navigation/native';
 
 type IBasicNavigationContainerProps = GetProps<typeof RNNavigationContainer>;
 export type INavigationContainerProps = Partial<IBasicNavigationContainerProps>;
@@ -165,7 +172,12 @@ export const willTabFocusTransition = (
  * modal dismiss + tab switch + Main re-attach into one UIKit tick and can
  * create orphan RNSScreenStack instances on iOS (causing UI freeze).
  */
-export const switchTab = (route: ETabRoutes) => {
+export const switchTab = <T extends ETabRoutes>(
+  route: T,
+  params?: ITabStackParamList[T] extends ParamListBase
+    ? NavigatorScreenParams<ITabStackParamList[T]>
+    : undefined,
+) => {
   const rootActiveTab = getActiveTabFromRef(rootNavigationRef);
   const rootHasOverlay = hasOverlayAboveMain(rootNavigationRef);
 
@@ -176,12 +188,13 @@ export const switchTab = (route: ETabRoutes) => {
     const tabletHasOverlay = hasOverlayAboveMain(tabletMainViewNavigationRef);
     if (
       tabletActiveTab !== undefined &&
-      (tabletHasOverlay || tabletActiveTab !== route)
+      (tabletHasOverlay || tabletActiveTab !== route || params !== undefined)
     ) {
       tabletMainViewNavigationRef.current?.navigate(
         ERootRoutes.Main,
         {
           screen: route,
+          ...(params !== undefined ? { params } : {}),
         },
         {
           pop: true,
@@ -189,11 +202,12 @@ export const switchTab = (route: ETabRoutes) => {
       );
     }
   });
-  if (rootHasOverlay || rootActiveTab !== route) {
+  if (rootHasOverlay || rootActiveTab !== route || params !== undefined) {
     rootNavigationRef.current?.navigate(
       ERootRoutes.Main,
       {
         screen: route,
+        ...(params !== undefined ? { params } : {}),
       },
       {
         pop: true,

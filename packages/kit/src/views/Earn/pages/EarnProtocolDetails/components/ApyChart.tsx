@@ -22,7 +22,11 @@ import {
 import { useDeviceTimeZone } from '@onekeyhq/kit/src/hooks/useDeviceTimeZone';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { buildChartHistory, getLatestTimestamp } from './ApyChart.utils';
+import {
+  buildChartHistory,
+  buildChartHistoryWithGaps,
+  getLatestTimestamp,
+} from './ApyChart.utils';
 
 import type {
   IApyChartHistoryItem,
@@ -176,9 +180,11 @@ const ApyChartComponent = ({
     [apyHistory],
   );
 
+  // Gaps are kept so a campaign that stopped and resumed breaks the line
+  // instead of being joined straight across the weeks without it (OK-64549).
   const filteredUnderlyingApyHistory = useMemo(
     () =>
-      buildChartHistory(
+      buildChartHistoryWithGaps(
         underlyingApyHistory,
         timePeriod,
         primaryLatestTimestamp,
@@ -195,7 +201,7 @@ const ApyChartComponent = ({
       (item) => [Math.floor(item.timestamp / 1000) as UTCTimestamp, item.apy],
     );
 
-    const secondaryLineData: [UTCTimestamp, number][] =
+    const secondaryLineData: [UTCTimestamp, number | null][] =
       filteredUnderlyingApyHistory.map((item) => [
         Math.floor(item.timestamp / 1000) as UTCTimestamp,
         item.apy,
@@ -209,8 +215,10 @@ const ApyChartComponent = ({
 
   // Pendle puts the second line behind a checkbox; every other provider draws
   // it whenever the server sent one, so the campaign / reward line needs no
-  // extra interaction.
-  const hasSecondaryData = Boolean(chartData?.secondaryLineData.length);
+  // extra interaction. A window holding only gaps has nothing to draw.
+  const hasSecondaryData = Boolean(
+    chartData?.secondaryLineData.some(([, apy]) => apy !== null),
+  );
   const isSecondaryVisible = showUnderlyingApyToggle
     ? showUnderlyingApy && hasSecondaryData
     : hasSecondaryData;

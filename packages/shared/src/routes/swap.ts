@@ -1,11 +1,13 @@
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import type { IDustSweepRouteParams } from '@onekeyhq/shared/types/swap/dustSweep';
 import type {
   EProtocolOfExchange,
   ESwapDirectionType,
   ESwapSource,
   ESwapTabSwitchType,
   IFetchLimitOrderRes,
+  IFetchQuoteResult,
   IMarketPresetTokenContext,
   ISwapNetwork,
   ISwapToken,
@@ -29,10 +31,13 @@ export enum EModalSwapRoutes {
   SwapInviteeReward = 'SwapInviteeReward',
   LimitOrderDetail = 'LimitOrderDetail',
   SwapProMarketDetail = 'SwapProMarketDetail',
+  DustSweep = 'DustSweep',
 }
 
 export type IModalSwapParamList = {
+  [EModalSwapRoutes.DustSweep]: IDustSweepRouteParams | undefined;
   [EModalSwapRoutes.SwapMainLand]: {
+    marketSwapDirection?: 'from' | 'to';
     importFromToken?: ISwapToken;
     importToToken?: ISwapToken;
     importAccountKey?: string;
@@ -56,7 +61,18 @@ export type IModalSwapParamList = {
     setCurrentSelectNetwork: (network: ISwapNetwork) => void;
     storeName: EJotaiContextStoreNames;
   };
-  [EModalSwapRoutes.SwapProviderSelect]: { storeName: EJotaiContextStoreNames };
+  [EModalSwapRoutes.SwapProviderSelect]: {
+    storeName: EJotaiContextStoreNames;
+    providerSelect?: {
+      quotes: IFetchQuoteResult[];
+      fromToken?: ISwapToken;
+      toToken?: ISwapToken;
+      fromTokenAmount?: string;
+      selectedQuote?: IFetchQuoteResult;
+      currencySymbol: string;
+      onSelectQuote: (quote: IFetchQuoteResult) => void;
+    };
+  };
   [EModalSwapRoutes.SwapHistoryList]: {
     type?: EProtocolOfExchange;
     storeName: EJotaiContextStoreNames;
@@ -77,7 +93,7 @@ export type IModalSwapParamList = {
   [EModalSwapRoutes.TokenRiskReminder]: {
     storeName: EJotaiContextStoreNames;
     token: ISwapToken;
-    onConfirm: () => void;
+    onConfirm: (close: () => void) => void;
   };
   [EModalSwapRoutes.SwapLazyMarketModal]: {
     coinGeckoId: string;
@@ -96,6 +112,7 @@ export type IModalSwapParamList = {
   [EModalSwapRoutes.SwapProMarketDetail]: {
     tokenAddress: string;
     network: string;
+    stockId?: string;
     isNative?: boolean;
     from?: EEnterWay;
     disableTrade?: boolean;

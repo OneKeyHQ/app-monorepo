@@ -26,6 +26,7 @@ const meta = {
   argTypes: {
     step: ARG_TYPES.step,
     deviceType: ARG_TYPES.deviceType,
+    deviceColor: ARG_TYPES.deviceColor,
     connectionType: ARG_TYPES.connectionType,
     errorReason: ARG_TYPES.errorReason,
   },
