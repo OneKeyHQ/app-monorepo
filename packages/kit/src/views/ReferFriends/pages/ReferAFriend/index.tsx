@@ -18,6 +18,7 @@ import { LazyPageContainer } from '@onekeyhq/kit/src/components/LazyPageContaine
 import { TabPageHeader } from '@onekeyhq/kit/src/components/TabPageHeader';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInvitePostConfig } from '@onekeyhq/shared/src/referralCode/type';
 import {
@@ -28,11 +29,13 @@ import type { IReferralPageTab } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { ReferralJobTabs } from '../InviteReward/components/ReferralJobTabs';
+import { ReferralTabCrossLink } from '../InviteReward/components/ReferralTabCrossLink';
 import {
   EReferralPageTab,
   IS_BENEFITS_TAB_ENABLED,
   resolveReferralPageTab,
 } from '../InviteReward/referralPageTab';
+import { REFERRAL_TAB_COPY } from '../InviteReward/referralTabCopy';
 import { MyRewardsContent } from '../MyRewards';
 
 import { InviteCodeStepImage } from './components/InviteCodeStepImage';
@@ -137,12 +140,46 @@ function ReferAFriendPageWrapper() {
   const [phaseState, setPhaseState] = useState<EPhaseState>(EPhaseState.next);
   const activeTab = resolveReferralPageTab(route.params?.tab);
   const isInviteTab = activeTab === EReferralPageTab.invite;
-  const setActiveTab = useCallback(
-    (tab: IReferralPageTab) => {
+  const switchTab = useCallback(
+    (tab: IReferralPageTab, source: 'tabs' | 'cross_link') => {
+      if (tab === activeTab) {
+        return;
+      }
+      defaultLogger.referral.page.referralTabSwitched({
+        from: activeTab,
+        to: tab,
+        source,
+      });
       navigation.setParams({ tab });
     },
-    [navigation],
+    [activeTab, navigation],
   );
+  const setActiveTab = useCallback(
+    (tab: IReferralPageTab) => switchTab(tab, 'tabs'),
+    [switchTab],
+  );
+  const openPerks = useCallback(
+    () => switchTab(EReferralPageTab.benefits, 'cross_link'),
+    [switchTab],
+  );
+  const openInvite = useCallback(
+    () => switchTab(EReferralPageTab.invite, 'cross_link'),
+    [switchTab],
+  );
+  // The invite intro is a one-way, step-by-step pitch, so it gets no tabs
+  // to branch off from; Perks is a quiet link under its actions instead.
+  // Once on Perks (that link, or a deep link), the tabs lead back.
+  const showTabs = IS_BENEFITS_TAB_ENABLED && !isInviteTab;
+  const renderPerksLink = (pt: '$8' | '$3') =>
+    IS_BENEFITS_TAB_ENABLED ? (
+      <ReferralTabCrossLink
+        pt={pt}
+        testID="refer-friends-intro-to-perks-link"
+        prompt={REFERRAL_TAB_COPY.toPerksPrompt}
+        action={REFERRAL_TAB_COPY.toPerksAction}
+        onPress={openPerks}
+      />
+    ) : null;
   const renderHeaderTitle = useCallback(
     () => (
       <ReferralJobTabs
@@ -181,7 +218,7 @@ function ReferAFriendPageWrapper() {
           })}
           // Pass headerTitle only when used: an explicit undefined makes
           // mobile web render the title over the global header actions.
-          {...(IS_BENEFITS_TAB_ENABLED && showTabsInHeader
+          {...(showTabs && showTabsInHeader
             ? { headerTitle: renderHeaderTitle }
             : undefined)}
         />
@@ -193,7 +230,7 @@ function ReferAFriendPageWrapper() {
         />
       )}
       <Page.Body>
-        {IS_BENEFITS_TAB_ENABLED && !showTabsInHeader ? (
+        {showTabs && !showTabsInHeader ? (
           // Same container width as the logged-in page, so the tabs do not
           // move when the user signs in.
           <Page.Container padded={false}>
@@ -211,10 +248,11 @@ function ReferAFriendPageWrapper() {
                 actions={showInlineActions ? actions : undefined}
               />
             ) : null}
+            {postConfig && showInlineActions ? renderPerksLink('$8') : null}
           </Page.Container>
         ) : (
           <Page.Container padded={false}>
-            <MyRewardsContent />
+            <MyRewardsContent onOpenInvite={openInvite} />
           </Page.Container>
         )}
       </Page.Body>
@@ -223,6 +261,7 @@ function ReferAFriendPageWrapper() {
         <Page.Footer>
           <Stack px="$4" py="$4" bg="$bgApp">
             {actions}
+            {renderPerksLink('$3')}
           </Stack>
         </Page.Footer>
       ) : null}

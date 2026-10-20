@@ -9,16 +9,19 @@ export function ReferralTabCrossLink({
   action,
   onPress,
   testID,
+  pt = '$8',
 }: {
   prompt: string;
   action: string;
   onPress: () => void;
   testID: string;
+  // Space above the line; the default separates it from a tab's content.
+  pt?: '$8' | '$3';
 }) {
   return (
     <XStack
       px="$pagePadding"
-      pt="$8"
+      pt={pt}
       jc="center"
       ai="center"
       gap="$1.5"
