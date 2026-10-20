@@ -590,7 +590,7 @@ export function MobileLayout({
     [accountAddress, networkId, tokenAddress],
   );
 
-  const { portfolioData, isRefreshing } = usePortfolioData({
+  const { portfolioData, isRefreshing, isPortfolioPending } = usePortfolioData({
     tokenAddress,
     networkId,
     accountAddress,
@@ -1157,6 +1157,7 @@ export function MobileLayout({
               scrollEnabled={!isChartFullscreen && !isTradingViewScrollLocked}
               portfolioData={portfolioData}
               isRefreshing={isRefreshing}
+              isPortfolioPending={isPortfolioPending}
               tokenLogoUrl={tokenDetail?.logoUrl}
               detailKind={detailKind}
               marketAssetDetail={marketAssetDetail}
@@ -1176,6 +1177,7 @@ export function MobileLayout({
       isTradingViewScrollLocked,
       portfolioData,
       isRefreshing,
+      isPortfolioPending,
       tokenDetail?.logoUrl,
       detailKind,
       marketAssetDetail,
