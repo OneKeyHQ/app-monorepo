@@ -23,6 +23,8 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 jest.mock('../vaults/localWallet/isLocalWalletNetwork', () => ({
   isLocalWalletNetwork: async ({ networkId }: { networkId: string }) =>
     networkId === 'zec--0',
+  mayBeLocalWalletAddress: async ({ address }: { address: string }) =>
+    address !== 'not-an-address-shape',
 }));
 
 function deferred<T>() {
@@ -161,6 +163,26 @@ describe('batch address validation', () => {
       });
     },
   );
+
+  it('skips the local validator for input that cannot be the chain address', async () => {
+    const context = {
+      serverBatchValidateAddress: jest.fn(async () => ({
+        isValid: true,
+        networkIds: ['evm--1'],
+      })),
+      localValidateAddress: jest.fn(async () => ({ isValid: true })),
+    };
+    await expect(
+      ServiceValidator.prototype.validateAddressBatch.call(
+        context as unknown as ServiceValidator,
+        {
+          networkIdList: ['evm--1', 'zec--0'],
+          accountAddress: 'not-an-address-shape',
+        },
+      ),
+    ).resolves.toEqual({ isValid: true, networkIds: ['evm--1'] });
+    expect(context.localValidateAddress).not.toHaveBeenCalled();
+  });
 
   it('discovers a supported Zcash address despite server rejection', async () => {
     const context = {

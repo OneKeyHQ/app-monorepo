@@ -636,6 +636,31 @@ describe('xmr send: broadcast', () => {
     });
   });
 
+  // customRpcEnabled routes a saved node's sends here; the base class would
+  // throw NotImplemented.
+  it('broadcasts through the runtime when a custom node is set', async () => {
+    const broadcast = jest.fn(async () =>
+      JSON.stringify({ txid: 'deadbeef', sizeBytes: 1500 }),
+    );
+    const { vault } = createVault({ broadcast });
+    await expect(
+      vault.broadcastTransactionFromCustomRpc({
+        customRpcInfo: { rpc: 'https://node.example' },
+        signedTx: {
+          txid: 'deadbeef',
+          rawTx: '00ff',
+          encodedTx: {
+            ...broadcastEncodedTx,
+            to: RECIPIENT,
+            signableHex: 'aabb',
+            chainTip: 3_767_827,
+          } as IEncodedTxXmr,
+        },
+      } as never),
+    ).resolves.toMatchObject({ txid: 'deadbeef' });
+    expect(broadcast).toHaveBeenCalledTimes(1);
+  });
+
   it('refuses to broadcast something that was never prepared', async () => {
     const { vault } = createVault();
     await expect(

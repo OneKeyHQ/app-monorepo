@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useAtomValue } from 'jotai';
+import { selectAtom } from 'jotai/utils';
 import { isEqual } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -16,7 +18,7 @@ import {
   getPrivacyChainScanRegionLabelId,
   getPrivacyChainSyncLabel,
 } from '@onekeyhq/kit/src/utils/privacyChainSyncDisplay';
-import { usePrivacyChainAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { privacyChainAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   ILocalWalletAccountAddresses,
   ILocalWalletAccountState,
@@ -32,6 +34,7 @@ import {
   PRIVACY_CHAIN_SYNC_POLL_MS,
   isTipLagWorthMentioning,
 } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import type { IntlShape } from 'react-intl';
 
@@ -174,11 +177,18 @@ export function useLocalWalletPool({
   accountId,
   poolId,
   isActive = true,
+  accountData,
 }: {
   networkId: string;
   accountId: string;
   poolId?: number;
   isActive?: boolean;
+  // Already loaded by the caller for this account and network; skips a
+  // second useAccountData round of background calls per mounted tab.
+  accountData?: {
+    account: INetworkAccount | undefined;
+    vaultSettings: IVaultSettings | undefined;
+  };
 }) {
   const intl = useIntl();
   const [, setPoolDisplay] = usePrivacyChainPoolDisplayAtom();
@@ -191,10 +201,11 @@ export function useLocalWalletPool({
     [networkId, accountId, revision],
   );
 
-  const { account, wallet, vaultSettings } = useAccountData({
-    networkId,
-    accountId,
-  });
+  const ownAccountData = useAccountData(
+    accountData ? {} : { networkId, accountId },
+  );
+  const { wallet } = ownAccountData;
+  const { account, vaultSettings } = accountData ?? ownAccountData;
   const settings = vaultSettings?.localWallet;
   // Whether this chain has a local wallet at all. Deliberately NOT `balanceShape === 'pooled'`:
   // that only means "distinct balances to move between", which drives the per-pool tabs and nothing else.
@@ -506,8 +517,16 @@ export function useLocalWalletPool({
     return clearDisplay;
   }, [accountId, canReadBalance, networkId, poolId, setPoolDisplay]);
 
-  const [{ storageUnsupportedNetworkIds }] = usePrivacyChainAtom();
-  const syncStatusText = storageUnsupportedNetworkIds.includes(networkId)
+  // Only this network's flag: the whole atom changes on every scan pass.
+  const isStorageUnsupportedAtom = useMemo(
+    () =>
+      selectAtom(privacyChainAtom.atom(), (value) =>
+        value.storageUnsupportedNetworkIds.includes(networkId),
+      ),
+    [networkId],
+  );
+  const isStorageUnsupported = useAtomValue(isStorageUnsupportedAtom);
+  const syncStatusText = isStorageUnsupported
     ? intl.formatMessage({
         id: ETranslations.privacy_error_webview_outdated__msg,
       })

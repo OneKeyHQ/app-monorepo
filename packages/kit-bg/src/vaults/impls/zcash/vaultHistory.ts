@@ -4,6 +4,7 @@ import type {
   IZcashTxDetails,
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   PRIVACY_CHAIN_PUBLIC_POOL_ID,
   appendMissingPrivacyChainHistoryTxs,
@@ -641,7 +642,10 @@ export async function zcashFetchTransparentHistory(
     ...(await vault.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
       accountId,
     })),
-    ...(await vault.backgroundApi.serviceHistory.getOneKeyIdAuthHeaders()),
+    // Watch-only accounts are excluded from KYT, as in the standard history request.
+    ...(accountUtils.isWatchingAccount({ accountId })
+      ? {}
+      : await vault.backgroundApi.serviceHistory.getOneKeyIdAuthHeaders()),
   };
   const dbAccountCache = {};
   return fetchCompleteZcashBackendHistory({

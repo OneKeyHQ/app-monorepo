@@ -297,6 +297,7 @@ function TokenDetailsHeaderContent({
     accountId,
     poolId: privacyHistoryPoolId,
     isActive: focusParam,
+    accountData: { account, vaultSettings },
   });
   // One gate for every private-UI decision below. Reacting to each of the four
   // reads as it landed made the balance swap source mid-load and the page

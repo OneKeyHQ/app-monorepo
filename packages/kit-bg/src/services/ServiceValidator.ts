@@ -14,7 +14,10 @@ import type {
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { vaultFactory } from '../vaults/factory';
-import { isLocalWalletNetwork } from '../vaults/localWallet/isLocalWalletNetwork';
+import {
+  isLocalWalletNetwork,
+  mayBeLocalWalletAddress,
+} from '../vaults/localWallet/isLocalWalletNetwork';
 
 import ServiceBase from './ServiceBase';
 
@@ -168,6 +171,16 @@ class ServiceValidator extends ServiceBase {
     const [server, ...local] = await Promise.allSettled([
       serverRequest,
       ...localNetworkIds.map(async (networkId) => {
+        // Search runs this per keystroke; don't load a chain runtime for
+        // input that cannot be its address.
+        if (
+          !(await mayBeLocalWalletAddress({
+            networkId,
+            address: params.accountAddress,
+          }))
+        ) {
+          return undefined;
+        }
         const validation = await this.localValidateAddress({
           networkId,
           address: params.accountAddress,
