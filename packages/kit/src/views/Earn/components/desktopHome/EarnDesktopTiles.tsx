@@ -702,7 +702,6 @@ function LoansTile({
 
 type IHeldToken = {
   asset: IEarnAvailableAsset;
-  amount: string;
   fiatValueUsd: string;
   maxApr: number;
   rateColor: ComponentProps<typeof SizableText>['color'];
@@ -718,7 +717,10 @@ function WalletTile({
   onOpenTokens: () => void;
 }) {
   const intl = useIntl();
-  const bestApr = Math.max(0, ...heldTokens.map((item) => item.maxApr));
+  const shownTokens = heldTokens.slice(0, ROW_LIMIT);
+  // The headline names a rate one of the rows below shows, not one hidden
+  // in "N more"
+  const bestApr = Math.max(0, ...shownTokens.map((item) => item.maxApr));
   return (
     <TileFrame>
       {/* The phone's title for the same list of held tokens */}
@@ -729,24 +731,19 @@ function WalletTile({
         onPress={onOpenTokens}
       />
       <TileRateValue prefix={EARN_DESKTOP_DEMO_COPY.upTo} value={bestApr} />
+      {/* Symbol over value: beside the rate, a 263 px tile cut amounts like
+          "391.4121 USDC"; the amount shows in the table's Wallet balance */}
       <YStack mt="$3">
-        {heldTokens
-          .slice(0, ROW_LIMIT)
-          .map(({ asset, amount, fiatValueUsd, maxApr, rateColor }) => (
-            <TileRow
-              key={asset.symbol}
-              onPress={() => onOpenToken(asset.symbol)}
-              icon={<Token size="md" tokenImageUri={asset.logoURI} />}
-              primary={
-                <RowAmount
-                  amount={amount}
-                  symbol={earnUtils.getDisplaySymbol(asset)}
-                />
-              }
-              secondary={<RowWalletFiat valueUsd={fiatValueUsd} />}
-              right={<RowUpTo value={maxApr} color={rateColor} />}
-            />
-          ))}
+        {shownTokens.map(({ asset, fiatValueUsd, maxApr, rateColor }) => (
+          <TileRow
+            key={asset.symbol}
+            onPress={() => onOpenToken(asset.symbol)}
+            icon={<Token size="md" tokenImageUri={asset.logoURI} />}
+            primary={<RowText>{earnUtils.getDisplaySymbol(asset)}</RowText>}
+            secondary={<RowWalletFiat valueUsd={fiatValueUsd} />}
+            right={<RowUpTo value={maxApr} color={rateColor} />}
+          />
+        ))}
       </YStack>
       <MoreLink count={heldTokens.length - ROW_LIMIT} onPress={onOpenTokens} />
     </TileFrame>
@@ -983,7 +980,6 @@ export function EarnDesktopTiles({
       if (asset) {
         items.push({
           asset,
-          amount: holding.amount,
           fiatValueUsd: holding.fiatValueUsd,
           maxApr: getAssetMaxApr(asset),
           rateColor: getAssetRateColor(asset),
