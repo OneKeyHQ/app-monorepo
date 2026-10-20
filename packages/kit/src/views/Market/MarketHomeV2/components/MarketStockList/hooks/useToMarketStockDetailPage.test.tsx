@@ -662,11 +662,11 @@ describe('useToMarketStockDetailPage', () => {
         currency: 'USD',
       }),
     );
-    expect(mockSwitchTabAsync).toHaveBeenCalledWith(ETabRoutes.Discovery);
+    expect(mockSwitchTabAsync).toHaveBeenCalledWith(ETabRoutes.Market);
     expect(mockNavigate).toHaveBeenCalledWith(
       ERootRoutes.Main,
       expect.objectContaining({
-        screen: ETabRoutes.Discovery,
+        screen: ETabRoutes.Market,
         params: expect.objectContaining({
           screen: ETabMarketRoutes.MarketStockDetail,
         }),
@@ -713,7 +713,7 @@ describe('useToMarketStockDetailPage', () => {
       expect(mockNavigate).toHaveBeenCalledWith(
         ERootRoutes.Main,
         expect.objectContaining({
-          screen: ETabRoutes.Discovery,
+          screen: ETabRoutes.Market,
           params: expect.objectContaining({
             screen: ETabMarketRoutes.MarketDetailV2,
           }),
