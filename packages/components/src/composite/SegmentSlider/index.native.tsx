@@ -15,6 +15,8 @@ import {
 
 import { useTheme } from '../../hooks/useStyle';
 
+import { DottedSlider } from './DottedSlider.native';
+
 // Touch/hit area height, matching the web variant's HIT_AREA_HEIGHT.
 const HIT_AREA_HEIGHT = 24;
 const DEFAULT_TRACK_HEIGHT = 4;
@@ -52,6 +54,8 @@ const styles = StyleSheet.create({
 export interface ISegmentSliderProps {
   value: number;
   sliderHeight?: number;
+  activeColor?: string;
+  appearance?: 'default' | 'dotted';
   onChange: (value: number) => void;
   segments: number;
   /**
@@ -109,6 +113,7 @@ export interface ISegmentSliderProps {
 function SegmentSliderComponent({
   value,
   sliderHeight = DEFAULT_TRACK_HEIGHT,
+  activeColor,
   onChange,
   segments,
   onSlideStart,
@@ -123,7 +128,7 @@ function SegmentSliderComponent({
   const theme = useTheme();
   // `.val` re-reads on theme change (useTheme re-runs the component), so the
   // native view repaints with fresh colors on light/dark switches.
-  const bgPrimary = theme.bgPrimary.val;
+  const bgPrimary = activeColor ?? theme.bgPrimary.val;
   const neutral5 = theme.neutral5.val;
   const bg = theme.bg.val;
   const borderStrong = theme.borderStrong.val;
@@ -243,5 +248,13 @@ function SegmentSliderComponent({
   );
 }
 
-export const SegmentSlider = memo(SegmentSliderComponent);
+function PlatformSegmentSlider(props: ISegmentSliderProps) {
+  return props.appearance === 'dotted' ? (
+    <DottedSlider {...props} />
+  ) : (
+    <SegmentSliderComponent {...props} />
+  );
+}
+
+export const SegmentSlider = memo(PlatformSegmentSlider);
 SegmentSlider.displayName = 'SegmentSlider';
