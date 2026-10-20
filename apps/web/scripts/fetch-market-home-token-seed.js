@@ -14,9 +14,10 @@ const MARKET_HOME_TOKEN_SEED_ENV_ORIGINS = {
   production: 'https://utility.onekeycn.com',
   test: 'https://utility.onekeytest.com',
 };
-// Match the first Trending page's server-default ordering.
 const MARKET_HOME_TOKEN_SEED_QUERY = {
   networkId: '',
+  sortBy: 'v24hUSD',
+  sortType: 'desc',
   page: '1',
   limit: '20',
   minLiquidity: '5000',
@@ -451,7 +452,6 @@ if (require.main === module) {
 }
 
 module.exports = {
-  createSeedUrl,
   fetchJson,
   readAppVersion,
 };

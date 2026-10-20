@@ -1,11 +1,9 @@
 import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 
-import { fetchMarketHomeTokenListSeed } from './marketHomeTokenListSeed';
 import {
   fetchMarketAssetListLight,
   fetchMarketBasicConfigLight,
   fetchMarketTokenListBatchLight,
-  fetchMarketTokenListLight,
 } from './marketLightApi';
 
 const mockGet = jest.fn();
@@ -33,11 +31,6 @@ jest.mock('@onekeyhq/shared/src/locale/getDefaultLocale', () => ({
   getDefaultLocale: jest.fn(() => 'fr-FR'),
 }));
 
-jest.mock('./marketHomeTokenListSeed', () => ({
-  fetchMarketHomeTokenListSeed: jest.fn(),
-  shouldUseMarketHomeTokenListBootstrapSeed: () => true,
-}));
-
 jest.mock('./marketPerf', () => ({
   markMarketPerf: jest.fn(),
 }));
@@ -50,55 +43,6 @@ describe('marketLightApi', () => {
       post: mockPost,
     } as unknown as Awaited<ReturnType<typeof appApiClient.getClient>>);
   });
-
-  it.each([
-    { sortBy: undefined, sortType: undefined, expectedSymbol: 'SEED' },
-    { sortBy: 'v24hUSD', sortType: 'desc' as const, expectedSymbol: 'REMOTE' },
-  ])(
-    'uses the default-order seed only for matching sorting ($expectedSymbol)',
-    async ({ sortBy, sortType, expectedSymbol }) => {
-      jest.mocked(fetchMarketHomeTokenListSeed).mockResolvedValue({
-        list: [
-          {
-            address: '0xseed',
-            name: 'Seed Token',
-            symbol: 'SEED',
-            decimals: 18,
-          },
-        ],
-        total: 1,
-        __fromSeed: true,
-      });
-      mockGet.mockResolvedValueOnce({
-        data: {
-          data: {
-            list: [
-              {
-                address: '0xremote',
-                name: 'Remote Token',
-                symbol: 'REMOTE',
-                decimals: 18,
-              },
-            ],
-            total: 1,
-          },
-        },
-      });
-
-      const result = await fetchMarketTokenListLight({
-        networkId: '',
-        sortBy,
-        sortType,
-        minLiquidity: 5000,
-        type: 'trending',
-        timeFrame: '2',
-      });
-
-      expect(result.list.map((token) => token.symbol)).toEqual([
-        expectedSymbol,
-      ]);
-    },
-  );
 
   it('fetches Top Coins without the background API', async () => {
     const data = { list: [], total: 0 };

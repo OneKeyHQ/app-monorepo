@@ -1,32 +1,13 @@
 const fs = require('fs');
 const path = require('path');
 
-const {
-  createSeedUrl,
-  fetchJson,
-  readAppVersion,
-} = require('./fetch-market-home-token-seed');
+const { fetchJson, readAppVersion } = require('./fetch-market-home-token-seed');
 
 describe('fetch-market-home-token-seed', () => {
   const originalFetch = globalThis.fetch;
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
-  });
-
-  test('builds the default Trending query without overriding server sorting', () => {
-    const url = new URL(createSeedUrl('https://utility.example.test'));
-
-    expect(url.pathname).toBe('/utility/v2/market/token/list');
-    expect(Object.fromEntries(url.searchParams)).toEqual({
-      networkId: '',
-      page: '1',
-      limit: '20',
-      minLiquidity: '5000',
-      type: 'trending',
-      timeFrame: '2',
-      currency: 'usd',
-    });
   });
 
   test('reads the app version from .env.version', () => {

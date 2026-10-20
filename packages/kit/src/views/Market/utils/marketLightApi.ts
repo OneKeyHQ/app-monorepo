@@ -89,8 +89,8 @@ const shouldUseMarketHomeTokenListSeed = ({
 }: INormalizedMarketTokenListRequestParams) =>
   shouldUseMarketHomeTokenListBootstrapSeed() &&
   networkId === '' &&
-  sortBy === undefined &&
-  sortType === undefined &&
+  sortBy === 'v24hUSD' &&
+  sortType === 'desc' &&
   page === 1 &&
   limit === 20 &&
   minLiquidity === 5000 &&
