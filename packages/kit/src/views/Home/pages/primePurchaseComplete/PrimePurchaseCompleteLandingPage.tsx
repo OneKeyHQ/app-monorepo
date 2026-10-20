@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { DESKTOP_BROWSER_COMPLETION_URL } from '@onekeyhq/shared/src/consts/authConsts';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -110,6 +111,14 @@ function PrimePurchaseCompleteLandingPage() {
         // The extension focuses the checkout initiator and closes this tab.
         return;
       }
+      if (!platformEnv.isWebMobile) {
+        // The same completion page as desktop OAuth already launches the app.
+        // Do not forward RevenueCat's app_user_id or other return parameters.
+        globalThis.location.replace(
+          `${DESKTOP_BROWSER_COMPLETION_URL}?scene=success&locale=${encodeURIComponent(intl.locale)}`,
+        );
+        return;
+      }
       fallbackCleanup = scheduleDeepLinkFallbackHint({
         delay: PRIME_PURCHASE_COMPLETE_DEEP_LINK_FALLBACK_DELAY_MS,
         onFallback: () => setIsFallbackVisible(true),
@@ -122,7 +131,7 @@ function PrimePurchaseCompleteLandingPage() {
       clearTimeout(autoOpenTimerId);
       fallbackCleanup?.();
     };
-  }, []);
+  }, [intl.locale]);
 
   return (
     <DeepLinkLanding

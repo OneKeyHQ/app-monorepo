@@ -667,6 +667,7 @@ async function resetPrimeFreeTrialUsage(
 
 const BaseDevSettingsSection = () => {
   const [settings] = useSettingsPersistAtom();
+  const [primeUserInfo] = usePrimePersistAtom();
   const [devSettings, setDevSettings] = useDevSettingsPersistAtom();
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -921,6 +922,28 @@ const BaseDevSettingsSection = () => {
     });
   }, []);
 
+  const handleRemovePrimeForTest = useCallback(() => {
+    const expectedOneKeyUserId = primeUserInfo.onekeyUserId;
+    if (!primeUserInfo.isLoggedIn || !expectedOneKeyUserId) {
+      Toast.error({ title: '请先登录 OneKey ID' });
+      return;
+    }
+    showDevOnlyPasswordDialog({
+      title: '移除 Prime 权益',
+      description:
+        '确认移除当前 OneKey ID 的 Prime 权益，以便重新测试付款？仅测试环境的 onekey.so 邮箱和白名单邮箱有效，账号资格由服务端校验。',
+      confirmButtonProps: {
+        testID: 'dev-settings-remove-prime-confirm',
+      },
+      onConfirm: async (params) => {
+        await backgroundApiProxy.servicePrime.apiRemovePrimeForTest(params, {
+          expectedOneKeyUserId,
+        });
+        Toast.success({ title: 'Prime 权益已移除，可重新测试付款' });
+      },
+    });
+  }, [primeUserInfo.isLoggedIn, primeUserInfo.onekeyUserId]);
+
   const forceIntoRTL = useCallback(() => {
     I18nManager.forceRTL(!I18nManager.isRTL);
     void backgroundApiProxy.serviceApp.restartApp();
@@ -1135,7 +1158,7 @@ const BaseDevSettingsSection = () => {
         title: 'Account & Wallet & Prime & Network',
         description: '账户 钱包 Prime 链和网络',
         keywords:
-          '允许添加相同助记词HD钱包 启用Keyless调试信息 启用Keyless云端同步 允许重置Keyless钱包 Referral Bind Guard 10s Test Add ServerNetwork Test Data Create 1000 Wallets Accounts Large Data NativeList 性能 压力测试 开启Prime 开启Prime Sandbox付款 Prime信用卡外链支付 RevenueCat Purchase Link hosted checkout 外部链接 切换到故障版本的Stripe.js 旧版 fallback iframe 加载失败 重置Prime免费试用次数 In-App-Purchase Mac 内购 首页导出私钥临时入口 Export Accounts Data',
+          '允许添加相同助记词HD钱包 启用Keyless调试信息 启用Keyless云端同步 允许重置Keyless钱包 Referral Bind Guard 10s Test Add ServerNetwork Test Data Create 1000 Wallets Accounts Large Data NativeList 性能 压力测试 开启Prime 开启Prime Sandbox付款 Prime信用卡外链支付 RevenueCat Purchase Link hosted checkout 外部链接 切换到故障版本的Stripe.js 旧版 fallback iframe 加载失败 重置Prime免费试用次数 移除Prime权益 remove entitlement subscription In-App-Purchase Mac 内购 首页导出私钥临时入口 Export Accounts Data',
       },
       {
         key: 'transaction',
@@ -2802,6 +2825,14 @@ const BaseDevSettingsSection = () => {
                           />
                         </SectionFieldItem>
                       ) : null}
+                      <SectionPressItem
+                        icon="RefreshCcwOutline"
+                        title="移除 Prime 权益"
+                        subtitle="移除当前 OneKey ID 的权益并刷新状态，方便反复测试付款；仅测试环境的 onekey.so 邮箱和白名单邮箱有效"
+                        searchKeywords="Prime remove entitlement subscription reset 删除 移除 权益 订阅 重置 付款 测试"
+                        testID="dev-settings-remove-prime"
+                        onPress={handleRemovePrimeForTest}
+                      />
                       <SectionPressItem
                         icon="RefreshCcwOutline"
                         title="重置 Prime 免费试用次数"
