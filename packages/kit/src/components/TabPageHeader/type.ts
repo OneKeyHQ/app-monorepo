@@ -23,6 +23,7 @@ export interface ITabPageHeaderProp {
   hideHeaderLeft?: boolean;
   disableHomeHeaderGlass?: boolean;
   headerPx?: string;
+  headerHeight?: number;
   pageScrollPosition?: SharedValue<number>;
 }
 
