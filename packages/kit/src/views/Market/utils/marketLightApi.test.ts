@@ -1,9 +1,11 @@
 import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 
+import { fetchMarketHomeTokenListSeed } from './marketHomeTokenListSeed';
 import {
   fetchMarketAssetListLight,
   fetchMarketBasicConfigLight,
   fetchMarketTokenListBatchLight,
+  fetchMarketTokenListLight,
 } from './marketLightApi';
 
 const mockGet = jest.fn();
@@ -31,6 +33,11 @@ jest.mock('@onekeyhq/shared/src/locale/getDefaultLocale', () => ({
   getDefaultLocale: jest.fn(() => 'fr-FR'),
 }));
 
+jest.mock('./marketHomeTokenListSeed', () => ({
+  fetchMarketHomeTokenListSeed: jest.fn(),
+  shouldUseMarketHomeTokenListBootstrapSeed: () => true,
+}));
+
 jest.mock('./marketPerf', () => ({
   markMarketPerf: jest.fn(),
 }));
@@ -38,10 +45,58 @@ jest.mock('./marketPerf', () => ({
 describe('marketLightApi', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(fetchMarketHomeTokenListSeed).mockReset();
     jest.mocked(appApiClient.getClient).mockResolvedValue({
       get: mockGet,
       post: mockPost,
     } as unknown as Awaited<ReturnType<typeof appApiClient.getClient>>);
+  });
+
+  it('returns the default Trending seed when the remote request fails', async () => {
+    const seed = {
+      list: [
+        { address: '0xseed', symbol: 'SEED', name: 'Seed Token', decimals: 18 },
+      ],
+      total: 1,
+      __fromSeed: true,
+    };
+    jest.mocked(fetchMarketHomeTokenListSeed).mockResolvedValueOnce(seed);
+    mockGet.mockRejectedValueOnce(new Error('network unavailable'));
+
+    await expect(
+      fetchMarketTokenListLight({
+        networkId: '',
+        minLiquidity: 5000,
+        type: 'trending',
+        timeFrame: '2',
+      }),
+    ).resolves.toEqual(seed);
+  });
+
+  it('fetches explicitly sorted Trending rows without using the default seed', async () => {
+    const data = {
+      list: [{ address: '0xremote', symbol: 'REMOTE' }],
+      total: 1,
+    };
+    jest.mocked(fetchMarketHomeTokenListSeed).mockResolvedValueOnce({
+      list: [
+        { address: '0xseed', symbol: 'SEED', name: 'Seed Token', decimals: 18 },
+      ],
+      total: 1,
+      __fromSeed: true,
+    });
+    mockGet.mockResolvedValueOnce({ data: { data } });
+
+    await expect(
+      fetchMarketTokenListLight({
+        networkId: '',
+        sortBy: 'v24hUSD',
+        sortType: 'desc',
+        minLiquidity: 5000,
+        type: 'trending',
+        timeFrame: '2',
+      }),
+    ).resolves.toEqual(data);
   });
 
   it('fetches Top Coins without the background API', async () => {
