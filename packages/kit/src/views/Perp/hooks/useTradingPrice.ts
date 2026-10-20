@@ -23,6 +23,7 @@ export interface IUseTradingPriceReturn {
 
 interface IUseTradingPriceOptions {
   source?: IPerpsActiveAssetCtxMidPriceSource;
+  allowSpotMarkPriceFallback?: boolean;
 }
 
 function buildTradingPriceResult(
@@ -48,6 +49,7 @@ function buildTradingPriceResult(
 
 export function useTradingPrice({
   source = 'live',
+  allowSpotMarkPriceFallback = true,
 }: IUseTradingPriceOptions = {}): IUseTradingPriceReturn {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const shouldSubscribeLiveMids = source === 'live';
@@ -79,12 +81,15 @@ export function useTradingPrice({
     const midPrice =
       activeTradeInstrument.mode === 'spot'
         ? activeSpotAssetCtxMidPrice ||
-          activeSpotAssetCtxMarkPrice ||
+          (allowSpotMarkPriceFallback
+            ? activeSpotAssetCtxMarkPrice
+            : undefined) ||
           activeMidPrice
         : activeAssetCtxMidPrice || activeMidPrice;
 
     return buildTradingPriceResult(midPrice);
   }, [
+    allowSpotMarkPriceFallback,
     activeAssetCtxMidPrice,
     activeSpotAssetCtxMarkPrice,
     activeSpotAssetCtxMidPrice,
