@@ -54,6 +54,7 @@ export async function zcashDropExpiredTransparentSends(
     cachedHistory,
     backendTipHeight,
     backendStatuses,
+    backendMinedTxids,
   }: {
     accountId: string;
     historyParams: { networkId: string; accountAddress: string; xpub?: string };
@@ -61,6 +62,8 @@ export async function zcashDropExpiredTransparentSends(
     backendTipHeight: number;
     // Statuses from this pass's complete backend snapshot, by lowercase txid.
     backendStatuses: Map<string, EDecodedTxStatus>;
+    // Rows the backend reports in a block, whatever their status says.
+    backendMinedTxids: Set<string>;
   },
 ): Promise<void> {
   const pending =
@@ -88,6 +91,7 @@ export async function zcashDropExpiredTransparentSends(
         const status = backendStatuses.get(txid);
         return (
           backendTipHeight > expiry + ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS &&
+          !backendMinedTxids.has(txid) &&
           (status === undefined || status === EDecodedTxStatus.Pending)
         );
       })
