@@ -268,9 +268,27 @@ describe('useLocalWalletSendPool', () => {
 
 describe('getEntryLocalWalletSendPools', () => {
   const descriptors: ILocalWalletPoolDescriptor[] = [
-    { id: 4, key: 'ironwood', kind: 'private', label: 'Ironwood' },
-    { id: 3, key: 'orchard', kind: 'private', label: 'Orchard' },
-    { id: 0, key: 'transparent', kind: 'public', label: 'Transparent' },
+    {
+      id: 4,
+      key: 'ironwood',
+      kind: 'private',
+      source: 'localScan',
+      label: 'Ironwood',
+    },
+    {
+      id: 3,
+      key: 'orchard',
+      kind: 'private',
+      source: 'localScan',
+      label: 'Orchard',
+    },
+    {
+      id: 0,
+      key: 'transparent',
+      kind: 'public',
+      source: 'backend',
+      label: 'Transparent',
+    },
   ];
   const keys = (entryPool?: string) =>
     getEntryLocalWalletSendPools({ pools, entryPool, descriptors }).map(

@@ -250,7 +250,7 @@ export type IVaultSettings = {
     // fixed block count represents the same amount of elapsed time on every
     // client-scanned chain.
     tipLagWarningBlocks: number;
-    // Display order is tab order. Exactly one public pool is expected.
+    // Display order is tab order. At most one backend pool.
     pools: ILocalWalletPoolDescriptor[];
     accountSetup: {
       // Enabling asks the user for a recovery month or height.

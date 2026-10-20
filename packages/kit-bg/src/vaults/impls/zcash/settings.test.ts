@@ -10,6 +10,7 @@ import {
   ZCASH_ORCHARD_ACTIVATION_HEIGHT_MAINNET,
   ZCASH_ORCHARD_ACTIVATION_TIMESTAMP_MS,
 } from '@onekeyhq/shared/src/config/zcash';
+import { PRIVACY_CHAIN_PUBLIC_POOL_ID } from '@onekeyhq/shared/src/utils/privacyChainHistoryUtils';
 
 import { getVaultSettings } from '../../settings';
 
@@ -93,5 +94,23 @@ describe('zcash vault settings invariants', () => {
     // The vault composition hook owns local + backend history; this flag must
     // not come back and shadow it.
     expect(settings.onChainHistoryDisabled).toBeFalsy();
+  });
+
+  it('declares one backend pool and local-scan shielded pools', () => {
+    const localWallet = settings.localWallet;
+    const pools = localWallet?.pools ?? [];
+    expect(
+      pools.map(({ key, kind, source }) => ({ key, kind, source })),
+    ).toEqual([
+      { key: 'transparent', kind: 'public', source: 'backend' },
+      { key: 'ironwood', kind: 'private', source: 'localScan' },
+      { key: 'orchard', kind: 'private', source: 'localScan' },
+    ]);
+    const backendPools = pools.filter((pool) => pool.source === 'backend');
+    expect(backendPools.map((pool) => pool.id)).toEqual([
+      PRIVACY_CHAIN_PUBLIC_POOL_ID,
+    ]);
+    expect(localWallet?.withholdAddressFromBackend).toBeFalsy();
+    expect(localWallet?.historySource).toBe('vault-authoritative');
   });
 });

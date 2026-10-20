@@ -128,9 +128,9 @@ jest.mock('@onekeyhq/kit/src/hooks/useAccountData', () => ({
             : '(?!)',
         privateAddressPattern: '^u1[02-9ac-hj-np-z]+$',
         pools: [
-          { id: 0, label: 'Transparent', kind: 'public' },
-          { id: 3, label: 'Orchard', kind: 'private' },
-          { id: 4, label: 'Ironwood', kind: 'private' },
+          { id: 0, label: 'Transparent', kind: 'public', source: 'backend' },
+          { id: 3, label: 'Orchard', kind: 'private', source: 'localScan' },
+          { id: 4, label: 'Ironwood', kind: 'private', source: 'localScan' },
         ],
       },
     },

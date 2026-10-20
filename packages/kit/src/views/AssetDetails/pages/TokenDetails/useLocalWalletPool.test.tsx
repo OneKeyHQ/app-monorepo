@@ -102,7 +102,15 @@ var mockWalletSupported = true;
 // eslint-disable-next-line no-var, vars-on-top
 var mockLocalWalletSettings: Record<string, unknown> = {
   balanceShape: 'pooled',
-  pools: [{ id: 4, key: 'ironwood', kind: 'private', label: 'Ironwood' }],
+  pools: [
+    {
+      id: 4,
+      key: 'ironwood',
+      kind: 'private',
+      source: 'localScan',
+      label: 'Ironwood',
+    },
+  ],
 };
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/privacyChainPool', () => ({
@@ -510,11 +518,27 @@ describe('useLocalWalletPool retained-page lifecycle', () => {
 describe('a chain with one kind of balance still gets its local wallet UI', () => {
   const POOLED = {
     balanceShape: 'pooled',
-    pools: [{ id: 4, key: 'ironwood', kind: 'private', label: 'Ironwood' }],
+    pools: [
+      {
+        id: 4,
+        key: 'ironwood',
+        kind: 'private',
+        source: 'localScan',
+        label: 'Ironwood',
+      },
+    ],
   };
   const SINGLE = {
     balanceShape: 'single',
-    pools: [{ id: 1, key: 'private', kind: 'private', label: 'Monero' }],
+    pools: [
+      {
+        id: 1,
+        key: 'private',
+        kind: 'private',
+        source: 'localScan',
+        label: 'Monero',
+      },
+    ],
   };
 
   afterEach(() => {
@@ -637,11 +661,18 @@ describe('resolveSelectedPoolId', () => {
   const POOLED = {
     balanceShape: 'pooled',
     pools: [
-      { id: 0, key: 'transparent', kind: 'public', label: 'Transparent' },
+      {
+        id: 0,
+        key: 'transparent',
+        kind: 'public',
+        source: 'backend',
+        label: 'Transparent',
+      },
       {
         id: 4,
         key: 'ironwood',
         kind: 'private',
+        source: 'localScan',
         label: 'Ironwood',
         isDefaultPrivate: true,
       },
@@ -654,6 +685,7 @@ describe('resolveSelectedPoolId', () => {
         id: 1,
         key: 'private',
         kind: 'private',
+        source: 'localScan',
         label: 'Monero',
         isDefaultPrivate: true,
       },
@@ -695,8 +727,20 @@ it.each([true, false])(
     mockLocalWalletSettings = {
       balanceShape: 'pooled',
       pools: [
-        { id: 0, key: 'transparent', kind: 'public', label: 'Transparent' },
-        { id: 4, key: 'ironwood', kind: 'private', label: 'Ironwood' },
+        {
+          id: 0,
+          key: 'transparent',
+          kind: 'public',
+          source: 'backend',
+          label: 'Transparent',
+        },
+        {
+          id: 4,
+          key: 'ironwood',
+          kind: 'private',
+          source: 'localScan',
+          label: 'Ironwood',
+        },
       ],
     };
     mockGetBalance.mockResolvedValue({

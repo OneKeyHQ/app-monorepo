@@ -121,6 +121,7 @@ const settings: IVaultSettings = {
         id: XMR_POOL_IDS.private,
         key: 'private',
         kind: 'private',
+        source: 'localScan',
         label: 'Monero',
         isDefaultPrivate: true,
       },

@@ -296,7 +296,7 @@ export function useLocalWalletPool({
     isActive &&
     hasPooledBalance &&
     !!accountId &&
-    (enabled || pool?.kind === 'public');
+    (enabled || pool?.source === 'backend');
   // Scope follows accountScope only; tying it to `canRead` made every tab switch a new scope
   // and discarded the balance/addresses/progress already on screen.
   const readScope = useMemo(() => ({ accountScope }), [accountScope]);
