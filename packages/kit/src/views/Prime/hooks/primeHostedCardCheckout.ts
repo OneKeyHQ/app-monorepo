@@ -107,35 +107,35 @@ export async function startPrimeHostedCardCheckout({
   purchasePackage: providedPurchasePackage,
   fallbackFrom,
 }: IPrimeHostedCardCheckoutParams) {
-  if (platformEnv.isExtensionUiPopup) {
-    await handOffCardCheckoutToExpandTab({
-      selectedSubscriptionPeriod,
-      currency,
-      featureName,
-      fallbackFrom,
-    });
-    return;
-  }
-
-  if (fallbackFrom) {
-    // The embedded attempt already logged its intent.
-    logPrimeWebCheckoutFlow({
-      stage: 'fallback',
-      status: 'started',
-      reason: fallbackFrom,
-      subscriptionPeriod: selectedSubscriptionPeriod,
-      featureName,
-    });
-  } else {
-    defaultLogger.prime.subscription.primeSubscribeIntent({
-      subscriptionPeriod: selectedSubscriptionPeriod,
-      featureName,
-      currency,
-      paymentMethod: 'stripe',
-      cardCheckoutFlow: 'hostedLink',
-    });
-  }
   try {
+    if (platformEnv.isExtensionUiPopup) {
+      await handOffCardCheckoutToExpandTab({
+        selectedSubscriptionPeriod,
+        currency,
+        featureName,
+        fallbackFrom,
+      });
+      return;
+    }
+
+    if (fallbackFrom) {
+      // The embedded attempt already logged its intent.
+      logPrimeWebCheckoutFlow({
+        stage: 'fallback',
+        status: 'started',
+        reason: fallbackFrom,
+        subscriptionPeriod: selectedSubscriptionPeriod,
+        featureName,
+      });
+    } else {
+      defaultLogger.prime.subscription.primeSubscribeIntent({
+        subscriptionPeriod: selectedSubscriptionPeriod,
+        featureName,
+        currency,
+        paymentMethod: 'stripe',
+        cardCheckoutFlow: 'hostedLink',
+      });
+    }
     if (!onekeyUserId) {
       throw new OneKeyLocalError('User not logged in');
     }
