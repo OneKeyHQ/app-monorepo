@@ -8,7 +8,9 @@ import type {
   IDustSweepToken,
 } from '@onekeyhq/shared/types/swap/dustSweep';
 import {
+  EProtocolOfExchange,
   EQuoteShowTipType,
+  ESwapQuoteKind,
   ESwapQuoteSource,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
@@ -72,9 +74,25 @@ const quote: IFetchQuoteResult = {
 };
 
 describe('Dust Sweep quote execution guards', () => {
-  it('accepts the exact positive quote identity', () => {
+  it.each([
+    { protocol: EProtocolOfExchange.LIMIT },
+    { protocol: EProtocolOfExchange.STOCK },
+    { protocol: EProtocolOfExchange.PRIVATE_SEND },
+    { kind: ESwapQuoteKind.BUY },
+  ])('rejects a mismatched trade contract: %j', (contract) => {
+    expect(
+      getDustSweepQuoteRisk({ ...quote, ...contract }, token, snapshot),
+    ).toBe('unknown');
+  });
+
+  it.each([
+    {},
+    { protocol: EProtocolOfExchange.SWAP, kind: ESwapQuoteKind.SELL },
+  ])('accepts the exact positive quote identity: %j', (contract) => {
     expect(quote.info.provider).toBe('SwapOKX');
-    expect(getDustSweepQuoteRisk(quote, token, snapshot)).toBeUndefined();
+    expect(
+      getDustSweepQuoteRisk({ ...quote, ...contract }, token, snapshot),
+    ).toBeUndefined();
   });
 
   it.each([
