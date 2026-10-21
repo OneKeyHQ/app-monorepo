@@ -12,6 +12,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
@@ -222,6 +223,12 @@ class ServicePrivacyChain extends ServiceBase {
         // default, the first Sync after launch asked for consent already given.
         await this.isPrivacySyncOnCellularAllowed().catch(() => false);
         await this.gcRemovedAccounts();
+        // Not awaited: a runtime that is slow to load must not hold up init.
+        this.pendingLocalDataDropRetry = this.retryPendingLocalDataDrop()
+          .catch(() => undefined)
+          .finally(() => {
+            this.pendingLocalDataDropRetry = undefined;
+          });
         // Delay comes from the quiet-window clamp, not from this call site.
         console.log('[privacy-chain:sched] startup quiet until', {
           inMs: Math.max(0, this.earliestTickAt - Date.now()),
@@ -797,30 +804,97 @@ class ServicePrivacyChain extends ServiceBase {
     }
     const failedNetworkIds: string[] = [];
     for (const networkId of networkIds) {
-      let timer: ReturnType<typeof setTimeout> | undefined;
       try {
-        const vault = await vaultFactory.getChainOnlyVault({ networkId });
-        const drop = vault.getLocalWalletCapability()?.dropLocalData?.();
-        await Promise.race([
-          drop,
-          new Promise((_resolve, reject) => {
-            timer = setTimeout(
-              () => reject(new OneKeyLocalError('dropLocalData timed out')),
-              PRIVACY_CHAIN_DROP_LOCAL_DATA_TIMEOUT_MS,
-            );
-          }),
-        ]);
+        // eslint-disable-next-line no-await-in-loop
+        await this.dropNetworkLocalData(networkId);
       } catch (e) {
         failedNetworkIds.push(networkId);
         console.error('[privacy-chain] could not wipe local scan data', {
           networkId,
           error: e instanceof Error ? e.message : String(e),
         });
-      } finally {
-        clearTimeout(timer);
       }
     }
     return failedNetworkIds;
+  }
+
+  private async dropNetworkLocalData(networkId: string): Promise<void> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const vault = await vaultFactory.getChainOnlyVault({ networkId });
+      const drop = vault.getLocalWalletCapability()?.dropLocalData?.();
+      await Promise.race([
+        drop,
+        new Promise((_resolve, reject) => {
+          timer = setTimeout(
+            () => reject(new OneKeyLocalError('dropLocalData timed out')),
+            PRIVACY_CHAIN_DROP_LOCAL_DATA_TIMEOUT_MS,
+          );
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  // Set while init retries the wipes a failed App Reset left behind; sync
+  // ticks and enables wait on it so they never open a database mid-delete.
+  pendingLocalDataDropRetry: Promise<void> | undefined;
+
+  // Once per launch. A network that has local-wallet state again belongs to
+  // wallets added after the reset, which the wipe would take too; it stays
+  // marked for the next App Reset instead.
+  async retryPendingLocalDataDrop(): Promise<void> {
+    let pending: string[];
+    try {
+      pending =
+        await this.backgroundApi.simpleDb.privacyChain.getPendingLocalDataDrop();
+    } catch (e) {
+      console.error('[privacy-chain] could not read pending wipes', {
+        error: e instanceof Error ? e.message : String(e),
+      });
+      return;
+    }
+    const droppedNetworkIds: string[] = [];
+    for (const networkId of pending) {
+      if (resetUtils.getIsResetting()) {
+        return;
+      }
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const vault = await vaultFactory.getChainOnlyVault({ networkId });
+        const capability = requireLocalWalletCapability(vault);
+        // eslint-disable-next-line no-await-in-loop
+        const { cleanupAccountIds } = await capability.listAccounts();
+        if (cleanupAccountIds.length > 0) {
+          console.log('[privacy-chain] pending wipe skipped: network in use', {
+            networkId,
+          });
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+        // eslint-disable-next-line no-await-in-loop
+        await this.dropNetworkLocalData(networkId);
+        droppedNetworkIds.push(networkId);
+      } catch (e) {
+        console.error('[privacy-chain] pending wipe retry failed', {
+          networkId,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
+    if (droppedNetworkIds.length === 0 || resetUtils.getIsResetting()) {
+      return;
+    }
+    try {
+      await this.backgroundApi.simpleDb.privacyChain.removePendingLocalDataDrop(
+        { networkIds: droppedNetworkIds },
+      );
+    } catch (e) {
+      console.error('[privacy-chain] could not clear pending wipes', {
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
   }
 
   private async getLocalWalletNetworkIdsForReset(): Promise<string[]> {
@@ -939,6 +1013,12 @@ class ServicePrivacyChain extends ServiceBase {
   async backgroundSyncTick() {
     if (resetUtils.getIsResetting()) {
       return;
+    }
+    if (this.pendingLocalDataDropRetry) {
+      await this.pendingLocalDataDropRetry;
+      if (resetUtils.getIsResetting()) {
+        return;
+      }
     }
     if (this.syncTickRunning) {
       this.syncTickRequested = true;
@@ -1390,6 +1470,26 @@ class ServicePrivacyChain extends ServiceBase {
   // A removal while a pass runs may land after that pass listed accounts.
   gcRequested = false;
 
+  // Every account row on disk, hidden and locked passphrase wallets included.
+  // Undefined when that is not known for certain: a failed read, or Travel
+  // Mode, whose masked database reads as empty.
+  private async readStoredAccountIds(): Promise<Set<string> | undefined> {
+    try {
+      const environment = await travelModeManager.getRuntimeEnvironment();
+      if (environment.persistence.kind === 'masked') {
+        return undefined;
+      }
+      const { accounts } =
+        await this.backgroundApi.serviceAccount.getAllAccounts();
+      return new Set(accounts.map((account) => account.id));
+    } catch (e) {
+      console.error('[privacy-chain] gc could not read accounts', {
+        error: e instanceof Error ? e.message : String(e),
+      });
+      return undefined;
+    }
+  }
+
   async gcRemovedAccounts() {
     if (this.gcRunning) {
       this.gcRequested = true;
@@ -1397,6 +1497,12 @@ class ServicePrivacyChain extends ServiceBase {
     }
     this.gcRunning = true;
     try {
+      // Purging is irreversible, so only a definite "not on disk" counts as
+      // removed; without that answer the whole pass waits for the next one.
+      const storedAccountIds = await this.readStoredAccountIds();
+      if (!storedAccountIds) {
+        return;
+      }
       for (const networkId of await this.getLocalWalletNetworkIds()) {
         let capability: ILocalWalletCapability;
         let cleanupAccountIds: string[];
@@ -1414,11 +1520,7 @@ class ServicePrivacyChain extends ServiceBase {
           continue;
         }
         for (const accountId of cleanupAccountIds) {
-          const dbAccount =
-            await this.backgroundApi.serviceAccount.getDBAccountSafe({
-              accountId,
-            });
-          if (dbAccount) {
+          if (storedAccountIds.has(accountId)) {
             // eslint-disable-next-line no-continue
             continue;
           }
@@ -1444,36 +1546,20 @@ class ServicePrivacyChain extends ServiceBase {
           }
         }
       }
-      const orphanViewingKeys: string[] = [];
-      for (const accountId of await listLocalWalletViewingKeyAccountIds({
-        backgroundApi: this.backgroundApi,
-      })) {
-        if (
-          // eslint-disable-next-line no-await-in-loop
-          !(await this.backgroundApi.serviceAccount.getDBAccountSafe({
-            accountId,
-          }))
-        ) {
-          orphanViewingKeys.push(accountId);
-        }
-      }
+      const orphanViewingKeys = (
+        await listLocalWalletViewingKeyAccountIds({
+          backgroundApi: this.backgroundApi,
+        })
+      ).filter((accountId) => !storedAccountIds.has(accountId));
       await removeLocalWalletViewingKeys({
         backgroundApi: this.backgroundApi,
         accountIds: orphanViewingKeys,
       });
-      const orphanLastBalances: string[] = [];
-      for (const accountId of await listLastLocalWalletBalanceAccountIds({
-        backgroundApi: this.backgroundApi,
-      })) {
-        if (
-          // eslint-disable-next-line no-await-in-loop
-          !(await this.backgroundApi.serviceAccount.getDBAccountSafe({
-            accountId,
-          }))
-        ) {
-          orphanLastBalances.push(accountId);
-        }
-      }
+      const orphanLastBalances = (
+        await listLastLocalWalletBalanceAccountIds({
+          backgroundApi: this.backgroundApi,
+        })
+      ).filter((accountId) => !storedAccountIds.has(accountId));
       await removeLastLocalWalletBalances({
         backgroundApi: this.backgroundApi,
         accountIds: orphanLastBalances,
@@ -1811,6 +1897,15 @@ class ServicePrivacyChain extends ServiceBase {
 
   enableMutexByNetwork = new Map<string, Mutex>();
 
+  private getEnableMutex(networkId: string): Mutex {
+    let mutex = this.enableMutexByNetwork.get(networkId);
+    if (!mutex) {
+      mutex = new Mutex();
+      this.enableMutexByNetwork.set(networkId, mutex);
+    }
+    return mutex;
+  }
+
   @backgroundMethod()
   async enableLocalWalletAccount({
     networkId,
@@ -1823,12 +1918,8 @@ class ServicePrivacyChain extends ServiceBase {
     birthdayHeight?: number;
     birthdayTimestamp?: number;
   }): Promise<void> {
-    let mutex = this.enableMutexByNetwork.get(networkId);
-    if (!mutex) {
-      mutex = new Mutex();
-      this.enableMutexByNetwork.set(networkId, mutex);
-    }
-    await mutex.runExclusive(async () => {
+    await this.getEnableMutex(networkId).runExclusive(async () => {
+      await this.pendingLocalDataDropRetry;
       const capability = await this.requireAccountCapability(networkId);
       await this.assertEnabledAccountLimit({
         networkId,
@@ -2082,7 +2173,16 @@ class ServicePrivacyChain extends ServiceBase {
     accountId: string;
   }): Promise<void> {
     const capability = await this.requireAccountCapability(networkId);
-    await capability.deleteAccountData({ accountId });
+    // Shares the enable lock so an enable cannot land between the two steps.
+    await this.getEnableMutex(networkId).runExclusive(async () => {
+      // Turned off the way the switch does it first: a sync still scanning
+      // the account would otherwise register it again behind the delete.
+      const state = await capability.getAccountState({ accountId });
+      if (state.enabled || state.pendingOperation !== undefined) {
+        await capability.disableAccount({ accountId });
+      }
+      await capability.deleteAccountData({ accountId });
+    });
     await this.forgetCachedLocalWalletBalance({ networkId, accountId });
     const settings = await getVaultSettings({ networkId });
     if (settings.localWallet?.viewingKeyRetention === 'with-local-data') {

@@ -581,6 +581,61 @@ describe('xmr storage reset', () => {
   });
 });
 
+// The settings page deletes an enabled account by turning it off first; a
+// sync that still lists it must then fail instead of registering it again.
+describe('xmr delete after turning the account off', () => {
+  it('leaves nothing for a later sync to register', async () => {
+    let state: Record<string, unknown> = {
+      intent: 'on',
+      birthdayHeight: 3_600_000,
+    };
+    const getXmrViewingKeys = jest.fn(async () => ({
+      primaryAddress: '4-primary',
+      spendPublicKeyHex: 'spend-pub',
+      viewPrivateKeyHex: 'view-priv',
+    }));
+    const cap = buildXmrLocalWalletCapability({
+      networkId: 'xmr--0',
+      getXmrNetwork: async () => 'mainnet',
+      getXmrViewingKeys,
+      backgroundApi: {
+        servicePrivacyChain: {
+          publishLocalWalletSyncProgress: mockPublish,
+          onLocalWalletAccountsChanged: jest.fn(async () => undefined),
+        },
+        simpleDb: {
+          privacyChainCache,
+          xmr: {
+            getAccountState: async () => state,
+            beginDisable: async () => {
+              state = { ...state, operation: { type: 'disable' } };
+            },
+            completeDisable: async () => {
+              state = { ...state, intent: 'off', operation: undefined };
+            },
+            removeAccount: async () => {
+              state = { intent: 'off', birthdayHeight: 3_600_000 };
+            },
+          },
+        },
+      },
+    } as unknown as Vault);
+    runtime.addAccount.mockClear();
+    runtime.removeAccount.mockClear();
+
+    await cap.disableAccount({ accountId: 'acc' });
+    await cap.deleteAccountData({ accountId: 'acc' });
+    expect(runtime.removeAccount).toHaveBeenCalledWith('acc');
+
+    mockGetIdentityId.mockRejectedValueOnce(new Error('not registered'));
+    await expect(
+      cap.syncGroup({ accountIds: ['acc'], chainTip: 3_767_827 }),
+    ).rejects.toThrow('not registered');
+    expect(getXmrViewingKeys).not.toHaveBeenCalled();
+    expect(runtime.addAccount).not.toHaveBeenCalled();
+  });
+});
+
 // A Resync that could not reach the node leaves the account enabled but
 // unknown to the runtime; the next sync registers it from its saved birthday.
 describe('xmr sync registers an enabled account the runtime lost', () => {

@@ -96,12 +96,19 @@ describe('removed-account gc', () => {
         getLocalWalletNetworkIds,
         forEachLocalWalletCapability: jest.fn(async () => undefined),
         backgroundApi: {
-          serviceAccount: { getAllWallets: async () => ({ wallets: [] }) },
+          serviceAccount: {
+            getAllAccounts: async () => ({ accounts: [] }),
+            getAllWallets: async () => ({ wallets: [] }),
+          },
         },
       },
     );
 
     const first = service.gcRemovedAccounts();
+    while (getLocalWalletNetworkIds.mock.calls.length === 0) {
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
     // The second wallet is removed after the first pass listed accounts.
     await service.gcRemovedAccounts();
     releaseFirstPass();
@@ -132,6 +139,7 @@ describe('init', () => {
         earliestTickAt: Date.now() + 60_000,
         isPrivacySyncOnCellularAllowed: async () => false,
         gcRemovedAccounts: jest.fn(async () => undefined),
+        retryPendingLocalDataDrop: jest.fn(async () => undefined),
         scheduleBackgroundSync: jest.fn(),
         publishBoostingNetworks: jest.fn(async () => undefined),
       },
@@ -164,7 +172,9 @@ describe('init', () => {
       await service.init();
       expect(service.initialized).toBe(true);
       await resumeDone;
-      expect(service.forEachLocalWalletCapability).toHaveBeenCalledTimes(1);
+      expect(
+        jest.mocked(service).forEachLocalWalletCapability.mock.calls,
+      ).toHaveLength(1);
       expect(service.foregroundBoostRequestedByNetwork['xmr--0']).toBe(true);
     } finally {
       clearInterval(service.periodicSyncTimer);
