@@ -65,7 +65,7 @@
     "@types/electron-localshortcut": "^3.1.0",
     "concurrently": "9.2.1",
     "cross-env": "7.0.3",
-    "electron": "44.5.1",
+    "electron": "44.9.3",
     "electron-builder": "26.4.0",
     "esbuild": "0.27.2",
     "glob": "^7.2.0",
