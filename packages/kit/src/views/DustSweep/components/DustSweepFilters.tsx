@@ -2,7 +2,10 @@ import { useIntl } from 'react-intl';
 
 import { Button, ScrollView, Skeleton, XStack } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
-import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import {
+  NetworkAvatar,
+  NetworkAvatarBase,
+} from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { NetworksFilterItem } from '@onekeyhq/kit/src/components/NetworksFilterItem';
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -11,12 +14,12 @@ import { useDustSweep } from '../DustSweepProvider';
 import { DUST_SWEEP_THRESHOLDS } from '../utils/candidates';
 
 export function DustSweepNetworks({ desktop = false }: { desktop?: boolean }) {
-  const { networks, current, selecting, selectNetwork, loadStatus } =
+  const { networks, current, canSelectNetwork, selectNetwork, loadStatus } =
     useDustSweep();
   const intl = useIntl();
   const openChainSelector = useConfigurableChainSelector();
   const title = intl.formatMessage({ id: ETranslations.global_select_network });
-  const networkSelectionDisabled = !selecting || !networks.length;
+  const networkSelectionDisabled = !canSelectNetwork || !networks.length;
   if (desktop)
     return (
       <ScrollView
@@ -26,13 +29,13 @@ export function DustSweepNetworks({ desktop = false }: { desktop?: boolean }) {
         height={36}
         minHeight={36}
         // While sweeping the chips keep their look but can't be changed.
-        cursor={selecting ? undefined : 'not-allowed'}
+        cursor={canSelectNetwork ? undefined : 'not-allowed'}
       >
         <XStack
           height={36}
           alignItems="center"
           gap="$2"
-          pointerEvents={selecting ? 'auto' : 'none'}
+          pointerEvents={canSelectNetwork ? 'auto' : 'none'}
         >
           {loadStatus === 'loading' && !networks.length
             ? [0, 1, 2, 3].map((key) => (
@@ -56,7 +59,19 @@ export function DustSweepNetworks({ desktop = false }: { desktop?: boolean }) {
               onPress={() => selectNetwork(entry.network.networkId)}
             >
               <XStack gap="$1.5" alignItems="center">
-                <NetworkAvatar networkId={entry.network.networkId} size="$6" />
+                {/* The execution route remounts these chips; keep their loaded
+                    logos instead of waiting for another network lookup. */}
+                {entry.network.logoURI ? (
+                  <NetworkAvatarBase
+                    logoURI={entry.network.logoURI}
+                    size="$6"
+                  />
+                ) : (
+                  <NetworkAvatar
+                    networkId={entry.network.networkId}
+                    size="$6"
+                  />
+                )}
                 <Currency
                   size="$bodyMdMedium"
                   sourceCurrency="usd"
@@ -93,6 +108,7 @@ export function DustSweepNetworks({ desktop = false }: { desktop?: boolean }) {
       bg="$bgStrong"
       disabled={!networks.length}
       focusable={!networkSelectionDisabled}
+      cursor={networkSelectionDisabled ? 'not-allowed' : 'pointer'}
       onPress={
         networkSelectionDisabled
           ? undefined
@@ -118,9 +134,12 @@ export function DustSweepFilters({ desktop }: { desktop: boolean }) {
       px="$5"
       alignItems="center"
       justifyContent="space-between"
-      cursor={selecting ? undefined : 'not-allowed'}
     >
-      <XStack gap="$1" pointerEvents={selecting ? 'auto' : 'none'}>
+      <XStack
+        gap="$1"
+        cursor={selecting ? undefined : 'not-allowed'}
+        pointerEvents={selecting ? 'auto' : 'none'}
+      >
         {DUST_SWEEP_THRESHOLDS.map((amount) => (
           <Button
             mx={0}

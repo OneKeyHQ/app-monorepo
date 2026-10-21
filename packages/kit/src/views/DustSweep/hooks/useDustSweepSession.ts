@@ -127,6 +127,8 @@ export function useDustSweepSession(
               }),
             onBroadcast: (txId) =>
               send({ ...identity, status: 'broadcasted', txId }),
+            onSubmissionError: (message) =>
+              send({ ...identity, type: 'submissionError', message }),
             generateSwapHistoryItem: (params) =>
               generateSwapHistoryItemForContext(params, {
                 swapNetworks: networks.map((entry) => entry.network),
@@ -156,7 +158,12 @@ export function useDustSweepSession(
           });
         } catch (error) {
           if (error instanceof DustSweepUnknownSubmission) {
-            send({ ...identity, status: 'unknown', reason: 'unknown' });
+            send({
+              ...identity,
+              status: 'unknown',
+              reason: 'unknown',
+              submissionErrorMessage: error.submissionErrorMessage,
+            });
             break;
           }
           if (signal.aborted) break;

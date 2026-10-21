@@ -54,6 +54,8 @@ export type IDustSweepItem = {
   receiptUnavailable?: boolean;
   reason?: IDustSweepReason;
   message?: string;
+  /** User-facing send API error while the transaction outcome is unresolved. */
+  submissionErrorMessage?: string;
   providerErrorMessage?: string;
 };
 export type IDustSweepSnapshot = {

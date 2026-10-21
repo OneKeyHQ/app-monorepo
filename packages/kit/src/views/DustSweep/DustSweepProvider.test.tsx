@@ -358,6 +358,64 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     expect(result.current.canStart).toBe(true);
   });
 
+  it.each(['resolve', 'reject'] as const)(
+    'switches from completed while the previous network refresh later %ss',
+    async (outcome) => {
+      const source = network('evm--1', ['8', '2']);
+      mockLoadNetworks.mockResolvedValue({
+        networks: [source, base],
+        partialError: false,
+      });
+      let resolve!: (entry: IDustSweepNetwork) => void;
+      let reject!: (error: Error) => void;
+      mockRefreshNetwork.mockReturnValueOnce(
+        new Promise((done, fail) => {
+          resolve = done;
+          reject = fail;
+        }),
+      );
+      const { result } = renderController();
+      await waitFor(() => expect(result.current.canStart).toBe(true));
+      act(() => result.current.toggle(source.tokens[0].key));
+      expect(result.current.selected).toEqual([source.tokens[1]]);
+      act(() => {
+        result.current.start();
+      });
+      act(() => mockComplete());
+      expect(result.current.session.state.phase).toBe('completed');
+      expect(result.current.canSelectNetwork).toBe(true);
+      expect(result.current.assetStatus).toBe('refreshing');
+      const refreshSignal = mockRefreshNetwork.mock.calls[0][1];
+
+      act(() => result.current.selectNetwork(base.network.networkId));
+      expect(result.current.session.state).toEqual(initialDustSweepState);
+      expect(result.current.current).toBe(base);
+      expect(result.current.selected).toEqual([base.tokens[0]]);
+      expect(result.current.canStart).toBe(true);
+      expect(refreshSignal.aborted).toBe(false);
+
+      await act(async () => {
+        if (outcome === 'resolve') {
+          resolve({ ...source, tokens: [source.tokens[0]], balanceUsd: '8' });
+        } else {
+          reject(new Error('Previous network refresh failed'));
+        }
+      });
+      expect(result.current.current).toBe(base);
+      expect(result.current.selected).toEqual([base.tokens[0]]);
+      expect(result.current.assetStatus).toBe('ready');
+      expect(result.current.canStart).toBe(true);
+      expect(mockLoadNetworks).toHaveBeenCalledTimes(1);
+      expect(mockRefreshNetwork).toHaveBeenCalledTimes(1);
+
+      act(() => result.current.selectNetwork(source.network.networkId));
+      expect(result.current.assetStatus).toBe(
+        outcome === 'resolve' ? 'ready' : 'error',
+      );
+      expect(result.current.selected).toEqual([source.tokens[0]]);
+    },
+  );
+
   it.each([
     { item: { status: 'skipped', txId: undefined }, refreshes: 0 },
     {
@@ -837,7 +895,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     expect(result.current.selected).toEqual([base.tokens[0]]);
   });
 
-  it.each(['running', 'paused', 'completed'] as const)(
+  it.each(['running', 'paused', 'blocked', 'leaving', 'left'] as const)(
     'retains the %s execution snapshot when its network is unavailable',
     async (phase) => {
       const snapshot: IDustSweepSnapshot = {
@@ -870,6 +928,7 @@ describe('Dust Sweep Provider request and selection ownership', () => {
       });
       await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
 
+      expect(result.current.canSelectNetwork).toBe(false);
       act(() => result.current.selectNetwork(base.network.networkId));
       expect(result.current.current).toBeUndefined();
       expect(result.current.selecting).toBe(false);

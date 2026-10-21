@@ -78,6 +78,7 @@ export type IMarketGasInfoEntry = {
 export class MarketDirectFeeOverflowError extends OneKeyError {}
 
 type IMarketDirectSendParams = {
+  preserveBroadcastTxIdOnError?: boolean;
   rejectFeeInfoOverflow?: boolean;
   onBeforeSignAndSend?: () => void | Promise<void>;
   onBroadcast?: (signedTx: ISendTxOnSuccessData['signedTx']) => void;
@@ -1213,6 +1214,7 @@ async function updateUnsignedTxAndSendTx({
   gasAccountAnalytics,
   onBeforeSignAndSend,
   onBroadcast,
+  preserveBroadcastTxIdOnError,
   rejectFeeInfoOverflow,
 }: {
   shouldReportSendError?: IMarketDirectSendParams['shouldReportSendError'];
@@ -1227,6 +1229,7 @@ async function updateUnsignedTxAndSendTx({
   gasAccountAnalytics?: IMarketDirectSendParams['gasAccountAnalytics'];
   onBeforeSignAndSend?: IMarketDirectSendParams['onBeforeSignAndSend'];
   onBroadcast?: IMarketDirectSendParams['onBroadcast'];
+  preserveBroadcastTxIdOnError?: boolean;
   rejectFeeInfoOverflow?: boolean;
 }): Promise<ISendTxOnSuccessData> {
   const feeInfo = buildMarketGasInfoFeeInfo(gasInfo);
@@ -1343,6 +1346,7 @@ async function updateUnsignedTxAndSendTx({
           await onBeforeSignAndSend?.();
           return backgroundApiProxy.serviceSend.signAndSendTransaction({
             ...sendTxParams,
+            preserveBroadcastTxIdOnError,
             gasAccountUiState: uiState,
           });
         },
@@ -1425,6 +1429,7 @@ export async function sendMarketDirectUnsignedTxs({
   gasAccountAnalytics,
   onBeforeSignAndSend,
   onBroadcast,
+  preserveBroadcastTxIdOnError,
   rejectFeeInfoOverflow,
 }: IMarketDirectSendParams): Promise<ISendTxOnSuccessData[]> {
   if (!accountId || !networkId || !accountAddress) {
@@ -1496,6 +1501,7 @@ export async function sendMarketDirectUnsignedTxs({
         rejectFeeInfoOverflow,
         onBeforeSignAndSend,
         onBroadcast,
+        preserveBroadcastTxIdOnError,
         shouldReportSendError,
         accountId,
         networkId,

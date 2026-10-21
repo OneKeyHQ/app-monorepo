@@ -45,6 +45,12 @@ type IDustSweepAction =
       approvalTxIds: string[];
     }
   | {
+      type: 'submissionError';
+      sessionId: string;
+      key: string;
+      message: string;
+    }
+  | {
       type: 'item';
       sessionId: string;
       key: string;
@@ -55,6 +61,7 @@ type IDustSweepAction =
       receiptUnavailable?: boolean;
       reason?: IDustSweepReason;
       message?: string;
+      submissionErrorMessage?: string;
       providerErrorMessage?: string;
     };
 
@@ -123,6 +130,17 @@ export function dustSweepReducer(
         ),
       };
     }
+    case 'submissionError': {
+      if (state.snapshot?.id !== action.sessionId) return state;
+      return {
+        ...state,
+        items: state.items.map((item) =>
+          item.token.key === action.key && !isDustSweepItemTerminal(item)
+            ? { ...item, submissionErrorMessage: action.message }
+            : item,
+        ),
+      };
+    }
     case 'item': {
       if (state.snapshot?.id !== action.sessionId) return state;
       const current = state.items.find((item) => item.token.key === action.key);
@@ -150,6 +168,7 @@ export function dustSweepReducer(
               receiptUnavailable: action.receiptUnavailable,
               reason: action.reason,
               message: action.message,
+              submissionErrorMessage: action.submissionErrorMessage,
               providerErrorMessage: action.providerErrorMessage,
             }
           : item,

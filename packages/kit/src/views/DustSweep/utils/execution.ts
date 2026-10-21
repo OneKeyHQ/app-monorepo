@@ -22,6 +22,7 @@ import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { getBroadcastTxContext } from '@onekeyhq/shared/src/errors/utils/broadcastTxErrorUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
@@ -62,6 +63,7 @@ type IExecutionOptions = {
   onPrepared: () => void;
   onApprovalBroadcast?: (txIds: string[]) => void;
   onBroadcast: (txId: string) => void;
+  onSubmissionError?: (message: string) => void;
   pendingApprovalTxIds?: string[];
   shouldContinue?: () => boolean;
   generateSwapHistoryItem: Parameters<
@@ -69,7 +71,22 @@ type IExecutionOptions = {
   >[0]['generateSwapHistoryItem'];
 };
 
-export class DustSweepUnknownSubmission extends OneKeyLocalError {}
+export class DustSweepUnknownSubmission extends OneKeyLocalError {
+  constructor(readonly submissionErrorMessage?: string) {
+    super();
+  }
+}
+
+function getSubmissionErrorMessage(error: unknown) {
+  if (!error || typeof error !== 'object') return undefined;
+  const candidate = error as { className?: unknown; message?: unknown };
+  // API messages are already translated for display. Internal signing and
+  // transport diagnostics must not be exposed as user-facing copy.
+  return candidate.className === EOneKeyErrorClassNames.OneKeyServerApiError &&
+    typeof candidate.message === 'string'
+    ? candidate.message.trim() || undefined
+    : undefined;
+}
 
 function isUserCancellationError(error: unknown) {
   if (!error || typeof error !== 'object') return false;
@@ -100,7 +117,9 @@ function getSubmissionError(error: unknown, signing: boolean) {
   if (isUserCancellationError(error)) {
     return new DustSweepUserCanceled();
   }
-  return signing ? new DustSweepUnknownSubmission() : error;
+  return signing
+    ? new DustSweepUnknownSubmission(getSubmissionErrorMessage(error))
+    : error;
 }
 
 function assertActive(signal: AbortSignal) {
@@ -571,33 +590,48 @@ export async function executeDustSweepItem(
   ) => {
     assertCanSubmit(options);
     let approvalTxId: string | undefined;
-    await sendMarketDirectUnsignedTxs({
-      rejectFeeInfoOverflow: true,
-      accountId: snapshot.accountId,
-      accountAddress: snapshot.address,
-      networkId: snapshot.networkId,
-      buildUnsignedParams: {
+    const retainApproval = (id: string) => {
+      signing = false;
+      approvalTxId = id;
+      broadcastedApprovalTxIds.push(id);
+      onApprovalBroadcast?.([...broadcastedApprovalTxIds]);
+      options.onPrepared();
+    };
+    try {
+      await sendMarketDirectUnsignedTxs({
+        rejectFeeInfoOverflow: true,
+        preserveBroadcastTxIdOnError: true,
         accountId: snapshot.accountId,
+        accountAddress: snapshot.address,
         networkId: snapshot.networkId,
-        approveInfo,
-      },
-      validateFinalGasInfos: async (gasInfos) => {
-        await checkNativeGasBalance(
-          [...gasInfos, ...remainingGasInfos],
-          options,
-          prepared.buildRes.result,
-        );
-        await checkInputAndOtherFeeBalances(prepared.buildRes.result, options);
-      },
-      onBeforeSignAndSend,
-      onBroadcast: (signed) => {
-        signing = false;
-        approvalTxId = signed.txid;
-        broadcastedApprovalTxIds.push(signed.txid);
-        onApprovalBroadcast?.([...broadcastedApprovalTxIds]);
-        options.onPrepared();
-      },
-    });
+        buildUnsignedParams: {
+          accountId: snapshot.accountId,
+          networkId: snapshot.networkId,
+          approveInfo,
+        },
+        validateFinalGasInfos: async (gasInfos) => {
+          await checkNativeGasBalance(
+            [...gasInfos, ...remainingGasInfos],
+            options,
+            prepared.buildRes.result,
+          );
+          await checkInputAndOtherFeeBalances(
+            prepared.buildRes.result,
+            options,
+          );
+        },
+        onBeforeSignAndSend,
+        onBroadcast: (signed) => retainApproval(signed.txid),
+      });
+    } catch (error) {
+      // An approval hash must never be interpreted as the swap hash. A failed
+      // response can follow a successful broadcast; track that exact signature.
+      const context = getBroadcastTxContext(error, snapshot.networkId);
+      if (approvalTxId || !context) throw error;
+      retainApproval(context.txId);
+      const message = getSubmissionErrorMessage(error);
+      if (message) options.onSubmissionError?.(message);
+    }
     if (!approvalTxId) throw new DustSweepUnknownSubmission();
     await waitForBroadcastedApprovals({
       approvalTxIds: [approvalTxId],
@@ -626,30 +660,42 @@ export async function executeDustSweepItem(
       if (prepared.approvalInfos.length) throw new DustSweepRetryableError();
     }
     const { execution, buildRes } = prepared;
-    await sendMarketDirectUnsignedTxs({
-      rejectFeeInfoOverflow: true,
-      accountId: snapshot.accountId,
-      accountAddress: snapshot.address,
-      networkId: snapshot.networkId,
-      buildUnsignedParams: {
+    try {
+      await sendMarketDirectUnsignedTxs({
+        rejectFeeInfoOverflow: true,
+        preserveBroadcastTxIdOnError: true,
         accountId: snapshot.accountId,
+        accountAddress: snapshot.address,
         networkId: snapshot.networkId,
-        encodedTx: execution.encodedTx,
-        transfersInfo: execution.transferInfo
-          ? [execution.transferInfo]
-          : undefined,
-        swapInfo: execution.swapInfo,
-      },
-      validateFinalGasInfos: async (gasInfos) => {
-        await checkNativeGasBalance(gasInfos, options, buildRes.result);
-        await checkInputAndOtherFeeBalances(buildRes.result, options);
-      },
-      onBeforeSignAndSend,
-      onBroadcast: (signed) => {
-        txId = signed.txid;
-        onBroadcast(signed.txid);
-      },
-    });
+        buildUnsignedParams: {
+          accountId: snapshot.accountId,
+          networkId: snapshot.networkId,
+          encodedTx: execution.encodedTx,
+          transfersInfo: execution.transferInfo
+            ? [execution.transferInfo]
+            : undefined,
+          swapInfo: execution.swapInfo,
+        },
+        validateFinalGasInfos: async (gasInfos) => {
+          await checkNativeGasBalance(gasInfos, options, buildRes.result);
+          await checkInputAndOtherFeeBalances(buildRes.result, options);
+        },
+        onBeforeSignAndSend,
+        onBroadcast: (signed) => {
+          txId = signed.txid;
+          onBroadcast(signed.txid);
+        },
+      });
+    } catch (error) {
+      const context = getBroadcastTxContext(error, snapshot.networkId);
+      if (txId || !context) throw error;
+      txId = context.txId;
+      // This is a polling identity, not proof of success. Never reconstruct or
+      // resend a transaction just because its broadcast response was an error.
+      onBroadcast(txId);
+      const message = getSubmissionErrorMessage(error);
+      if (message) options.onSubmissionError?.(message);
+    }
   } catch (error) {
     if (!txId) {
       if (error instanceof MarketDirectFeeOverflowError)

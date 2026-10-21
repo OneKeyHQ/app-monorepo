@@ -97,9 +97,10 @@ const DustSweepTokenRowBase = ({
   let reasonDescription: string | undefined;
   if (item)
     reasonDescription =
-      item.status === 'unknown'
+      item.submissionErrorMessage ||
+      (item.status === 'unknown'
         ? intl.formatMessage({ id: ETranslations.swap_review_tx_pending })
-        : getDustSweepItemReasonMessage(intl, item, nativeTokenSymbol);
+        : getDustSweepItemReasonMessage(intl, item, nativeTokenSymbol));
   // Errors only surface once the sweep starts, as the leading status icon.
   const unverified = !!token?.suspicious && !item;
   let statusLabel = token?.name;
@@ -115,7 +116,10 @@ const DustSweepTokenRowBase = ({
     statusLabel = intl.formatMessage({ id: ETranslations.global_pending });
   let statusIcon;
   if (item) {
-    if (['preparing', 'signing', 'broadcasted'].includes(item.status))
+    if (
+      ['preparing', 'signing', 'broadcasted'].includes(item.status) &&
+      !item.submissionErrorMessage
+    )
       statusIcon = (
         <SwapStepStatusIcon isLoading success={false} failed={false} />
       );
@@ -123,20 +127,25 @@ const DustSweepTokenRowBase = ({
       statusIcon = (
         <SwapStepStatusIcon isLoading={false} success failed={false} />
       );
-    else if (['failed', 'skipped', 'unknown'].includes(item.status))
+    else if (
+      ['failed', 'skipped', 'unknown'].includes(item.status) ||
+      item.submissionErrorMessage
+    )
       statusIcon = (
         <Tooltip
           renderTrigger={
             <IconButton
               testID={`dust-sweep-reason-${token?.key}`}
               icon={
-                item.status === 'unknown'
+                item.status === 'unknown' && !item.submissionErrorMessage
                   ? 'ClockTimeHistoryOutline'
                   : 'InfoCircleSolid'
               }
               iconProps={{
                 color:
-                  item.status === 'unknown' ? '$iconSubdued' : '$iconCritical',
+                  item.status === 'unknown' && !item.submissionErrorMessage
+                    ? '$iconSubdued'
+                    : '$iconCritical',
               }}
               size="small"
               variant="tertiary"
@@ -144,7 +153,8 @@ const DustSweepTokenRowBase = ({
               my={0}
               p={0}
               width={20}
-              height={32}
+              height={20}
+              minHeight={20}
               hitSlop={12}
               accessibilityLabel={reasonDescription}
               onPress={

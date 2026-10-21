@@ -70,6 +70,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     stop: stopSession,
   } = session;
   const selecting = session.state.phase === 'selecting';
+  const canSelectNetwork = selecting || session.state.phase === 'completed';
   const loadParams = useMemo(
     () => ({
       walletId: params.walletId,
@@ -264,11 +265,12 @@ function useDustSweepController(params: IDustSweepRouteParams) {
   }, [loadStatus, params.entry, visible.length, hidden.length]);
   const selectNetwork = useCallback(
     (id: string) => {
-      if (!selecting) return;
+      if (!canSelectNetwork) return;
+      if (!selecting) resetSession();
       setNetworkId(id);
       setSelection(undefined);
     },
-    [selecting],
+    [canSelectNetwork, resetSession, selecting],
   );
   const selectThreshold = useCallback(
     (threshold: IDustSweepThreshold) => {
@@ -391,6 +393,7 @@ function useDustSweepController(params: IDustSweepRouteParams) {
     setSlippage,
     session,
     selecting,
+    canSelectNetwork,
     toggle,
     toggleAll,
     addHidden,

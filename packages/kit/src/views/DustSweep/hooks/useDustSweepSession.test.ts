@@ -290,6 +290,31 @@ it('reports leaving separately from stopping after a paused session', async () =
     expect.objectContaining({ endReason: 'left' }),
   );
 });
+it('shows a broadcast error until the exact transaction settles, then clears it', async () => {
+  const pending = deferred<IResult>();
+  execute.mockImplementationOnce(
+    async ({ onSigning, onBroadcast, onSubmissionError }) => {
+      onSigning();
+      onBroadcast('signed-hash');
+      onSubmissionError?.('Nonce already used');
+      return pending.promise;
+    },
+  );
+  const { result } = renderHook(() => useDustSweepSession([], { minRunMs: 0 }));
+  await act(async () =>
+    result.current.start({ ...snapshot, tokens: [snapshot.tokens[0]] }),
+  );
+  expect(result.current.state.items[0]).toMatchObject({
+    status: 'broadcasted',
+    txId: 'signed-hash',
+    submissionErrorMessage: 'Nonce already used',
+  });
+  await act(async () => pending.resolve(success));
+  expect(result.current.state.phase).toBe('completed');
+  expect(result.current.state.items[0].submissionErrorMessage).toBeUndefined();
+  expect(execute).toHaveBeenCalledTimes(1);
+});
+
 it('never retries a submission whose broadcast status is unknown', async () => {
   execute.mockImplementationOnce(async ({ onSigning }) => {
     onSigning();

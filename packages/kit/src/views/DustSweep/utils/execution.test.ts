@@ -11,6 +11,7 @@ import type {
 import type { getSwapRequiredNativeBalanceAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { withBroadcastTxContext } from '@onekeyhq/shared/src/errors/utils/broadcastTxErrorUtils';
 import type {
   IDustSweepSnapshot,
   IDustSweepToken,
@@ -152,6 +153,7 @@ function createOptions() {
     onPrepared: jest.fn(),
     onApprovalBroadcast: jest.fn(),
     onBroadcast: jest.fn(),
+    onSubmissionError: jest.fn(),
     generateSwapHistoryItem: jest.fn(),
   };
 }
@@ -1445,6 +1447,110 @@ describe('Dust Sweep serial execution boundaries', () => {
     await expect(executeDustSweepItem(createOptions())).rejects.toBeInstanceOf(
       DustSweepUserCanceled,
     );
+  });
+
+  it.each([ESwapTxHistoryStatus.SUCCESS, ESwapTxHistoryStatus.FAILED])(
+    'resolves a nonce API error from the exact signed hash to %s without resending',
+    async (state) => {
+      const txId = `0x${'12'.repeat(32)}`;
+      const message = 'Nonce (265) has already been used; next nonce is 266';
+      mockSend.mockImplementationOnce(async (params) => {
+        await params.onBeforeSignAndSend?.();
+        expect(params.preserveBroadcastTxIdOnError).toBe(true);
+        throw withBroadcastTxContext(
+          Object.assign(new Error(message), {
+            className: EOneKeyErrorClassNames.OneKeyServerApiError,
+            code: 40_024,
+          }),
+          { networkId: snapshot.networkId, txId },
+        );
+      });
+      mockTxState.mockResolvedValueOnce({ state });
+      const options = createOptions();
+      await expect(executeDustSweepItem(options)).resolves.toMatchObject({
+        status: state === ESwapTxHistoryStatus.SUCCESS ? 'success' : 'failed',
+      });
+      expect(options.onSubmissionError).toHaveBeenCalledWith(message);
+      expect(options.onBroadcast).toHaveBeenCalledWith(txId);
+      expect(mockTxState).toHaveBeenCalledWith(
+        expect.objectContaining({ txId }),
+      );
+      expect(mockSend).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('keeps the API error and polls an unconfirmed signed hash without resending', async () => {
+    jest.useFakeTimers();
+    const controller = new AbortController();
+    const options = { ...createOptions(), signal: controller.signal };
+    const txId = `0x${'34'.repeat(32)}`;
+    mockSend.mockImplementationOnce(async (params) => {
+      await params.onBeforeSignAndSend?.();
+      throw withBroadcastTxContext(
+        Object.assign(new Error('Broadcast response unavailable'), {
+          className: EOneKeyErrorClassNames.OneKeyServerApiError,
+        }),
+        { networkId: snapshot.networkId, txId },
+      );
+    });
+    mockTxState.mockRejectedValue(new Error('RPC unavailable'));
+    const completion = executeDustSweepItem(options).catch(
+      (error: unknown) => error,
+    );
+    try {
+      await jest.advanceTimersByTimeAsync(90_000);
+      expect(mockSend).toHaveBeenCalledTimes(1);
+      expect(options.onSubmissionError).toHaveBeenCalledWith(
+        'Broadcast response unavailable',
+      );
+      expect(mockTxState.mock.calls.length).toBeGreaterThan(20);
+    } finally {
+      controller.abort();
+      await completion;
+      jest.useRealTimers();
+    }
+  });
+
+  it('retains an approval response error as an approval and confirms it before signing the swap', async () => {
+    const txId = `0x${'56'.repeat(32)}`;
+    mockAllowance.mockResolvedValueOnce(
+      createAllowance({ isApproved: false, approveAmounted: '0' }),
+    );
+    mockSend.mockImplementationOnce(async (params) => {
+      await params.onBeforeSignAndSend?.();
+      throw withBroadcastTxContext(new Error('timeout'), {
+        networkId: snapshot.networkId,
+        txId,
+      });
+    });
+    const options = createOptions();
+    await expect(executeDustSweepItem(options)).resolves.toMatchObject({
+      status: 'success',
+    });
+    expect(options.onApprovalBroadcast).toHaveBeenCalledWith([txId]);
+    expect(options.onBroadcast).toHaveBeenCalledWith('swap');
+    expect(options.onBroadcast).not.toHaveBeenCalledWith(txId);
+    expect(mockTxState).toHaveBeenNthCalledWith(1, {
+      networkId: snapshot.networkId,
+      txId,
+    });
+    expect(mockSend).toHaveBeenCalledTimes(2);
+  });
+
+  it('preserves the API message but blocks a submission with no usable signed hash', async () => {
+    const message = 'Nonce (265) has already been used';
+    mockSend.mockImplementationOnce(async (params) => {
+      await params.onBeforeSignAndSend?.();
+      throw Object.assign(new Error(message), {
+        className: EOneKeyErrorClassNames.OneKeyServerApiError,
+        code: 40_024,
+      });
+    });
+    await expect(executeDustSweepItem(createOptions())).rejects.toMatchObject({
+      submissionErrorMessage: message,
+    });
+    expect(mockTxState).not.toHaveBeenCalled();
+    expect(mockSend).toHaveBeenCalledTimes(1);
   });
 
   it('keeps a broadcast successful when the send history write fails', async () => {

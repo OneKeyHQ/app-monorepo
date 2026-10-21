@@ -101,7 +101,10 @@ import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   InvoiceExpiredError,
   OneKeyLocalError,
+  OneKeyServerApiError,
 } from '@onekeyhq/shared/src/errors';
+// eslint-disable-next-line import-js/order, import/first
+import { getBroadcastTxContext } from '@onekeyhq/shared/src/errors/utils/broadcastTxErrorUtils';
 // eslint-disable-next-line import-js/order, import/first
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 // eslint-disable-next-line import-js/order, import/first
@@ -313,6 +316,7 @@ function signAndSend(
     beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
     gasAccountUiState?: IGasAccountUiState;
     transferPayload?: ITransferPayload;
+    preserveBroadcastTxIdOnError?: boolean;
   } = {},
 ) {
   return service.signAndSendTransaction({
@@ -337,6 +341,109 @@ function createDeferred<T>() {
 describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  test('preserves a locally signed hash on an opted-in broadcast rejection', async () => {
+    const { service, vault } = makeService();
+    const txId = `0x${'a'.repeat(64)}`;
+    const rejection = new OneKeyServerApiError({
+      code: 40_024,
+      message: 'Nonce already used',
+      requestId: 'request-1',
+    });
+    vault.signTransaction.mockResolvedValue({ ...signedTx, txid: txId });
+    vault.broadcastTransaction.mockRejectedValue(rejection);
+
+    const error = await signAndSend(service, {
+      preserveBroadcastTxIdOnError: true,
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toMatchObject({
+      code: rejection.code,
+      className: rejection.className,
+      message: rejection.message,
+      requestId: rejection.requestId,
+    });
+    expect(getBroadcastTxContext(error, networkId)).toEqual({
+      networkId,
+      txId,
+    });
+    expect(vault.signTransaction).toHaveBeenCalledTimes(1);
+    expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  test('leaves a default caller broadcast rejection unchanged', async () => {
+    const { service, vault } = makeService();
+    const rejection = new OneKeyServerApiError('Nonce already used');
+    vault.signTransaction.mockResolvedValue({
+      ...signedTx,
+      txid: `0x${'a'.repeat(64)}`,
+    });
+    vault.broadcastTransaction.mockRejectedValue(rejection);
+
+    await expect(signAndSend(service)).rejects.toBe(rejection);
+    expect(getBroadcastTxContext(rejection, networkId)).toBeUndefined();
+  });
+
+  test.each([
+    { sendNetworkId: networkId, txid: '' },
+    { sendNetworkId: 'tron--0x2b6653dc', txid: `0x${'a'.repeat(64)}` },
+  ])(
+    'does not recover an ineligible signed identity: $sendNetworkId / $txid',
+    async ({ sendNetworkId, txid }) => {
+      const { service, vault } = makeService();
+      const rejection = new OneKeyServerApiError('Broadcast rejected');
+      vault.signTransaction.mockResolvedValue({ ...signedTx, txid });
+      vault.broadcastTransaction.mockRejectedValue(rejection);
+
+      await expect(
+        service.signAndSendTransaction({
+          accountId,
+          networkId: sendNetworkId,
+          unsignedTx,
+          signOnly: false,
+          preserveBroadcastTxIdOnError: true,
+        }),
+      ).rejects.toBe(rejection);
+    },
+  );
+
+  test('does not attach a hash when the deadline prevents the first broadcast', async () => {
+    const { service, vault } = makeService();
+    vault.signTransaction.mockResolvedValue({
+      ...signedTx,
+      txid: `0x${'a'.repeat(64)}`,
+    });
+
+    const error = await signAndSend(service, {
+      preserveBroadcastTxIdOnError: true,
+      broadcastDeadline: Date.now() - 1,
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(InvoiceExpiredError);
+    expect(getBroadcastTxContext(error, networkId)).toBeUndefined();
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+  });
+
+  test('does not recover a local hash for a Gas Account relay rejection', async () => {
+    const { service, vault } = makeService();
+    const rejection = new OneKeyServerApiError('Relay rejected');
+    vault.signTransaction.mockResolvedValue({
+      ...signedTx,
+      txid: `0x${'a'.repeat(64)}`,
+    });
+    vault.broadcastTransaction.mockRejectedValue(rejection);
+
+    await expect(
+      signAndSend(service, {
+        preserveBroadcastTxIdOnError: true,
+        gasAccountUiState: {
+          selectedPayer: 'gasAccount',
+          gasAccountQuote: { quoteId: 'quote-1' },
+        } as IGasAccountUiState,
+      }),
+    ).rejects.toBe(rejection);
+    expect(getBroadcastTxContext(rejection, networkId)).toBeUndefined();
   });
 
   test('verifies and durably claims a native ETH payment before broadcasting', async () => {

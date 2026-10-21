@@ -31,6 +31,7 @@ import {
   ReplaceTxNonceConsumedError,
 } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { withBroadcastTxContext } from '@onekeyhq/shared/src/errors/utils/broadcastTxErrorUtils';
 import {
   GasAccountSubmitCancelledError,
   MAX_GAS_ACCOUNT_RETRY_ATTEMPTS,
@@ -943,6 +944,7 @@ class ServiceSend extends ServiceBase {
         replaceTxInfo?: IReplaceTxInfo;
         isPrivateSend?: boolean;
         stageFeeInfo?: ISendSelectedFeeInfo;
+        preserveBroadcastTxIdOnError?: boolean;
       },
   ): Promise<
     ISignedTxPro & { primeInfiniPayment?: IPrimeInfiniBeforeBroadcastAction }
@@ -1000,6 +1002,7 @@ class ServiceSend extends ServiceBase {
       isPrivateSend,
       useDefaultRpc,
       stageFeeInfo,
+      preserveBroadcastTxIdOnError,
     } = params;
 
     const diagnostic = diagnosticState.context;
@@ -1452,6 +1455,18 @@ class ServiceSend extends ServiceBase {
             isWithoutBroadcastTxIdAllowed: Boolean(
               vaultSettings.withoutBroadcastTxId,
             ),
+          });
+        }
+        if (
+          preserveBroadcastTxIdOnError &&
+          hasAttemptedBroadcast &&
+          !isGasAccountSubmit &&
+          networkUtils.isEvmNetwork({ networkId }) &&
+          /^0x[\da-f]{64}$/i.test(signedTx.txid)
+        ) {
+          throw withBroadcastTxContext(error, {
+            networkId,
+            txId: signedTx.txid,
           });
         }
         throw error;
