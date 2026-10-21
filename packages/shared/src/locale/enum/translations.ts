@@ -1031,6 +1031,7 @@ export enum ETranslations {
   dust_no_tokens_converted = 'dust_no_tokens_converted',
   dust_swap_amount_too_small = 'dust_swap_amount_too_small',
   dust_sweep_failed = 'dust_sweep_failed',
+  dust_sweep_token_count__desc = 'dust_sweep_token_count__desc',
   dust_tap_token_info_for_failure_reason = 'dust_tap_token_info_for_failure_reason',
   earn_24h_earnings = 'earn.24h_earnings',
   earn_24h_earnings_tooltip = 'earn.24h_earnings_tooltip',
