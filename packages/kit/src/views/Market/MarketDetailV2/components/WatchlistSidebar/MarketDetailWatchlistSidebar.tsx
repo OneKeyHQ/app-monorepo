@@ -56,8 +56,8 @@ import {
 import type { IMarketToken } from '../../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import type { IWatchlistFilterType } from '../../../MarketHomeV2/components/MarketTokenList/MarketWatchlistCategorySelector';
 
-// A 320px column whose 1px right divider is part of it.
-export const MARKET_DETAIL_WATCHLIST_SIDEBAR_WIDTH = 320;
+// A 304px column whose 1px right divider is part of it.
+export const MARKET_DETAIL_WATCHLIST_SIDEBAR_WIDTH = 304;
 
 // The divider stops 24px short of the top and bottom edges.
 const SIDEBAR_DIVIDER_INSET = 24;
