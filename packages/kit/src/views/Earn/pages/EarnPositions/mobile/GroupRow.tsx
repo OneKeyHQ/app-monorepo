@@ -73,6 +73,9 @@ function GroupCard({
   testID,
   children,
 }: IGroupRowProps) {
+  // The header keeps its surface on hover, as the wallet's card header does;
+  // the chevron answers instead
+  const [isHovered, setIsHovered] = useState(false);
   return (
     <YStack
       ref={(node) => anchorRef?.(node as unknown as HTMLElement | null)}
@@ -96,6 +99,8 @@ function GroupCard({
         role="button"
         aria-expanded={expanded}
         onPress={onToggle}
+        onHoverIn={() => setIsHovered(true)}
+        onHoverOut={() => setIsHovered(false)}
         testID={testID}
       >
         <XStack ai="center" gap="$3" flex={1} minWidth={0}>
@@ -132,7 +137,11 @@ function GroupCard({
             rotate={expanded ? '180deg' : '0deg'}
             transformOrigin="center"
           >
-            <Icon name="ChevronDownSmallSolid" color="$iconSubdued" size="$6" />
+            <Icon
+              name="ChevronDownSmallSolid"
+              color={isHovered ? '$icon' : '$iconSubdued'}
+              size="$6"
+            />
           </View>
         </XStack>
       </XStack>

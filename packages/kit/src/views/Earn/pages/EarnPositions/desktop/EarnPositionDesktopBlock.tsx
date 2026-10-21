@@ -1,4 +1,4 @@
-import { Fragment, memo } from 'react';
+import { Fragment, memo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -260,6 +260,9 @@ function EarnPositionDesktopBlockCmp({
   const openDetail =
     canOpen && action ? () => onManage?.(action.target) : undefined;
   const redeem = useHoldingRedeem(position, onRedeem);
+  // The name and chevron brighten on hover, as the DeFi home's tile titles do
+  const [isHovered, setIsHovered] = useState(false);
+  const isLit = Boolean(openDetail) && isHovered;
 
   return (
     <YStack gap="$2" testID={EarnTestIDs.portfolioItem(source.protocolName)}>
@@ -270,6 +273,8 @@ function EarnPositionDesktopBlockCmp({
         {...(openDetail
           ? {
               onPress: openDetail,
+              onHoverIn: () => setIsHovered(true),
+              onHoverOut: () => setIsHovered(false),
               cursor: 'pointer',
               pressStyle: { opacity: 0.6 },
             }
@@ -282,7 +287,9 @@ function EarnPositionDesktopBlockCmp({
           {position.name ? (
             <SizableText
               size="$bodyMdMedium"
-              color={DEFI_PORTFOLIO_DETAIL_POSITION_NAME_COLOR}
+              color={
+                isLit ? '$text' : DEFI_PORTFOLIO_DETAIL_POSITION_NAME_COLOR
+              }
               numberOfLines={1}
               flexShrink={1}
             >
@@ -315,7 +322,7 @@ function EarnPositionDesktopBlockCmp({
               <Icon
                 name="ChevronRightSmallOutline"
                 size="$5"
-                color="$iconSubdued"
+                color={isLit ? '$icon' : '$iconSubdued'}
               />
             ) : null}
           </XStack>

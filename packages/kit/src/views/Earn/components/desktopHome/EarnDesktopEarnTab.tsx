@@ -11,6 +11,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  View,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -557,6 +558,7 @@ function TokenRow({
 }) {
   const intl = useIntl();
   const surfaces = useEarnDesktopSurfaces();
+  const [isHovered, setIsHovered] = useState(false);
   const { asset } = row;
   const handleToggle = () => onToggle(row.key);
   return (
@@ -576,6 +578,16 @@ function TokenRow({
         gap={ROW_GAP}
         userSelect="none"
         onPress={handleToggle}
+        onHoverIn={() => setIsHovered(true)}
+        onHoverOut={() => setIsHovered(false)}
+        // The row's own hover wash would lift an open token off the card its
+        // offers share, so an open row answers with its chevron only
+        {...(isOpen
+          ? {
+              hoverStyle: { bg: '$transparent' },
+              pressStyle: { bg: '$transparent' },
+            }
+          : undefined)}
         {...buildKeyboardPressProps(handleToggle)}
       >
         <XStack {...COLUMNS.asset} ai="center" gap="$3">
@@ -649,12 +661,18 @@ function TokenRow({
         <Stack {...COLUMNS.apr}>
           <AprText asset={asset} hideSuffix />
         </Stack>
-        <Icon
-          name={isOpen ? 'ChevronTopSmallOutline' : 'ChevronDownSmallOutline'}
-          size="$5"
-          color="$iconSubdued"
+        <View
           flexShrink={0}
-        />
+          transition="quick"
+          rotate={isOpen ? '180deg' : '0deg'}
+          transformOrigin="center"
+        >
+          <Icon
+            name="ChevronDownSmallOutline"
+            size="$5"
+            color={isHovered ? '$icon' : '$iconSubdued'}
+          />
+        </View>
       </ListItem>
       {isOpen ? (
         <YStack px="$3" pb="$2">

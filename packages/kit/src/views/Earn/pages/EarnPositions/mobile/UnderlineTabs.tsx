@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
 
 /**
@@ -19,6 +21,8 @@ export function UnderlineTabs<T extends string>({
   testID?: string;
   bare?: boolean;
 }) {
+  // Subdued until hovered or focused, as the DeFi home's tabs read
+  const [hoveredKey, setHoveredKey] = useState<T | undefined>();
   return (
     <XStack
       gap="$5"
@@ -43,11 +47,17 @@ export function UnderlineTabs<T extends string>({
             cursor="pointer"
             userSelect="none"
             onPress={() => onChange(tab.key)}
+            onHoverIn={() => setHoveredKey(tab.key)}
+            onHoverOut={() =>
+              setHoveredKey((key) => (key === tab.key ? undefined : key))
+            }
             testID={testID ? `${testID}-${tab.key}` : undefined}
           >
             <SizableText
               size="$bodyLgMedium"
-              color={focused ? '$text' : '$textSubdued'}
+              color={
+                focused || hoveredKey === tab.key ? '$text' : '$textSubdued'
+              }
               numberOfLines={1}
             >
               {tab.label}
