@@ -12,6 +12,7 @@ import type { IXmrNetwork } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/ty
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { getLastLocalWalletChainTip } from '../../localWallet/privacyChainCacheStore';
+import { getLocalWalletViewingKey } from '../../localWallet/viewingKeyStore';
 
 import type Vault from './Vault';
 
@@ -329,16 +330,39 @@ export async function getXmrLocalRuntime(
   return current.api;
 }
 
-// App account id -> the runtime's integer row id, via the stored uuid.
+// The runtime names an identity by its viewing key fingerprint (vkFp), so
+// accounts sharing a key share one identity. Only a stored key names it: a
+// lookup never derives one.
+export async function getXmrRuntimeUuid({
+  vault,
+  accountId,
+}: {
+  vault: Vault;
+  accountId: string;
+}): Promise<string | undefined> {
+  const key = await getLocalWalletViewingKey({
+    backgroundApi: vault.backgroundApi,
+    networkId: vault.networkId,
+    accountId,
+  });
+  return key?.vkFp;
+}
+
+// App account id -> the runtime's integer row id, via its vkFp.
 export async function getXmrIdentityId(params: {
   api: IXmrRuntimeApi;
+  vault: Vault;
   accountId: string;
 }): Promise<string> {
-  const { api, accountId } = params;
+  const { api, vault, accountId } = params;
+  const uuid = await getXmrRuntimeUuid({ vault, accountId });
   const listed = JSON.parse(await api.listAccounts()) as {
     items: { accountId: number; uuid: string }[];
   };
-  const row = listed.items.find((item) => item.uuid === accountId);
+  const row =
+    uuid === undefined
+      ? undefined
+      : listed.items.find((item) => item.uuid === uuid);
   if (!row) {
     throw new OneKeyLocalError(
       `xmr: account ${accountId} is not registered in the runtime; turn scanning on for it first`,

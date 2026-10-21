@@ -403,6 +403,7 @@ describe('Privacy enable scan visibility', () => {
         {
           backfillActiveByAccount: {},
           syncFailureBackoff: new Map(),
+          orphanCleanupGeneration: new Map(),
           boostPausedByNetwork: { 'zec--0': paused },
           foregroundBoostRequestedByNetwork: {},
           init: jest.fn(),

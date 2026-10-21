@@ -149,7 +149,7 @@ async function purgeAccountsUnknownToHost(
       // eslint-disable-next-line no-await-in-loop
       await rt.removeAccount(uuid);
     } catch (e) {
-      // Failed storage cleanup is retried on the next prepare.
+      // Failed storage cleanup is retried on the next orphan cleanup pass.
       console.error('[zcash] purge of unknown runtime account failed', {
         uuid,
         error: e instanceof Error ? e.message : String(e),

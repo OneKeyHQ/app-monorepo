@@ -10,6 +10,8 @@ import type { IXmrRuntimeApi } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
+import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprint';
+
 import Vault from './Vault';
 
 import type { IEncodedTxXmr } from './types';
@@ -18,6 +20,19 @@ import type { IEncodedTxXmr } from './types';
 // the cryptography is tested in the Rust runtime.
 
 const ACCOUNT_ID = "hd-1--m/44'/128'/0'";
+const VIEWING_KEY = 'aa:bb';
+// The runtime names the identity by the stored key's fingerprint.
+const VK_FP = getViewingKeyFingerprint({
+  networkId: 'xmr--0',
+  viewingKey: VIEWING_KEY,
+});
+const privacyChainKeys = {
+  getKey: async () => ({
+    networkId: 'xmr--0',
+    vkFp: VK_FP,
+    sealed: { format: 'plain', value: VIEWING_KEY },
+  }),
+};
 const PRIMARY =
   '468bCTr2Sa9AR2hJ4aBuQu4JkQtLWx6qe6NZWxW7wkcCVG7rLxNagUPdcsB4DJZi3t5TY8grqUfmaW38vHxQimo9SV2g7TZ';
 const RECIPIENT =
@@ -42,7 +57,7 @@ function createVault(options?: {
   const runtime = {
     prepared,
     listAccounts: () =>
-      JSON.stringify({ items: [{ accountId: 7, uuid: ACCOUNT_ID }] }),
+      JSON.stringify({ items: [{ accountId: 7, uuid: VK_FP }] }),
     chainTip: async () => JSON.stringify({ height: 3_767_827 }),
     prepareTransaction: async (
       _accountId: string,
@@ -76,6 +91,7 @@ function createVault(options?: {
     networkId: 'xmr--0',
     backgroundApi: {
       simpleDb: {
+        privacyChainKeys,
         privacyChainJournal: {
           recordXmrSent: jest.fn(
             options?.recordXmrSent ?? (async () => undefined),
