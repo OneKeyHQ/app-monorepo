@@ -44,6 +44,17 @@ type IParams = {
   // Surface that launched the buy page — rides on every funnel event.
   entryFrom?: string;
   onCompleted: (event: IOnramperEvent) => void;
+  // Fired once per transaction id, on the FIRST SDK event that carries one
+  // (checkoutFinalized on 1.2.x) — i.e. before Apple Pay. The page records
+  // the order here so a kill mid-payment cannot lose it.
+  onTransactionCreated?: (transactionId: string) => void;
+  // paymentAuthorized: the user approved the Apple Pay sheet.
+  onPaymentAuthorized?: (transactionId: string) => void;
+  // cancelled / failed without a completed: the (hidden) order is dead.
+  onCheckoutAbandoned?: (
+    transactionId: string,
+    reason: 'cancelled' | 'failed',
+  ) => void;
 };
 
 type IResult = {
@@ -85,6 +96,9 @@ export function useOnramperCheckout({
   buttonStyle,
   entryFrom,
   onCompleted,
+  onTransactionCreated,
+  onPaymentAuthorized,
+  onCheckoutAbandoned,
 }: IParams): IResult {
   const [actionState, setActionState] = useState<EBuyActionState>(
     EBuyActionState.Preparing,
@@ -182,6 +196,22 @@ export function useOnramperCheckout({
   // Keep callbacks fresh without re-subscribing the event listeners.
   const onCompletedRef = useRef(onCompleted);
   onCompletedRef.current = onCompleted;
+  const onTransactionCreatedRef = useRef(onTransactionCreated);
+  onTransactionCreatedRef.current = onTransactionCreated;
+  const onPaymentAuthorizedRef = useRef(onPaymentAuthorized);
+  onPaymentAuthorizedRef.current = onPaymentAuthorized;
+  const onCheckoutAbandonedRef = useRef(onCheckoutAbandoned);
+  onCheckoutAbandonedRef.current = onCheckoutAbandoned;
+  // Last transaction id announced through onTransactionCreated. Checked on
+  // EVERY event rather than only checkoutFinalized so the order is recorded
+  // even if a future SDK publishes the id on a different event.
+  const createdTransactionIdRef = useRef<string | undefined>(undefined);
+  const noteTransactionId = useCallback((transactionId: string | undefined) => {
+    if (transactionId && createdTransactionIdRef.current !== transactionId) {
+      createdTransactionIdRef.current = transactionId;
+      onTransactionCreatedRef.current?.(transactionId);
+    }
+  }, []);
 
   const goWebFallback = useCallback(
     (error?: { code?: string; message?: string }) => {
@@ -224,6 +254,12 @@ export function useOnramperCheckout({
 
   const handleCheckoutFailed = useCallback(
     (event: IOnramperEvent) => {
+      noteTransactionId(event.transactionId);
+      if (event.transactionId) {
+        // Regardless of `stale` below: a failed checkout's hidden order is
+        // dead either way (the service ignores already-submitted orders).
+        onCheckoutAbandonedRef.current?.(event.transactionId, 'failed');
+      }
       // The failure belongs to the checkout mounted by quote #quoteSeq. Once a
       // newer quote request exists (amount / address edit, review exit) that
       // checkout is abandoned: log the event, but don't let it replace the
@@ -247,13 +283,14 @@ export function useOnramperCheckout({
       }
       applyFailure(event);
     },
-    [applyFailure, getLogContext],
+    [applyFailure, getLogContext, noteTransactionId],
   );
   const handleCheckoutFailedRef = useRef(handleCheckoutFailed);
   handleCheckoutFailedRef.current = handleCheckoutFailed;
 
   const handleCheckoutCompleted = useCallback(
     (event: IOnramperEvent) => {
+      noteTransactionId(event.transactionId);
       defaultLogger.fiatCrypto.onramper.checkoutCompleted({
         ...getLogContext(),
         amount: amountRef.current,
@@ -263,7 +300,7 @@ export function useOnramperCheckout({
       });
       onCompletedRef.current(event);
     },
-    [getLogContext],
+    [getLogContext, noteTransactionId],
   );
   const handleCheckoutCompletedRef = useRef(handleCheckoutCompleted);
   handleCheckoutCompletedRef.current = handleCheckoutCompleted;
@@ -273,6 +310,14 @@ export function useOnramperCheckout({
     (event: IOnramperEvent) => {
       if (!event.type) {
         return;
+      }
+      noteTransactionId(event.transactionId);
+      if (event.transactionId) {
+        if (event.type === 'paymentAuthorized') {
+          onPaymentAuthorizedRef.current?.(event.transactionId);
+        } else if (event.type === 'cancelled') {
+          onCheckoutAbandonedRef.current?.(event.transactionId, 'cancelled');
+        }
       }
       defaultLogger.fiatCrypto.onramper.sdkCheckoutEvent({
         ...getLogContext(),
@@ -288,7 +333,7 @@ export function useOnramperCheckout({
         reason: event.reason,
       });
     },
-    [getLogContext],
+    [getLogContext, noteTransactionId],
   );
   const handleSdkEventRef = useRef(handleSdkEvent);
   handleSdkEventRef.current = handleSdkEvent;
@@ -545,6 +590,16 @@ export function useOnramperCheckout({
             amount,
             provider,
           });
+          // The retained quote answered an EARLIER request (previous amount /
+          // provider / address); this failure means no quote answers the
+          // current one. Drop it so every quote-derived figure — hero
+          // estimate, payout, fees, provider-rate pricing — disappears instead
+          // of being re-priced against the new inputs (a $100 payout priced at
+          // a $500 amount reads as a 5x rate). The mounted native button is
+          // left alone: the zone covers it with Retry / web fallback, and
+          // refreshQuote swaps it on the next attempt.
+          quoteRef.current = undefined;
+          setQuote(undefined);
           // Same classification policy as the SDK's `failed` event —
           // structural → web fallback, everything else retryable.
           applyFailure({
@@ -577,12 +632,16 @@ export function useOnramperCheckout({
   ]);
 
   const payMock = useCallback(() => {
+    // Mirror the real event order: the id is known before "payment". The
+    // `mock-` prefix tells the order service never to look it up.
+    const transactionId = `mock-${Date.now()}`;
+    noteTransactionId(transactionId);
     handleCheckoutCompletedRef.current({
       type: 'completed',
       checkoutId: 'mock-checkout',
-      transactionId: 'mock-transaction',
+      transactionId,
     });
-  }, []);
+  }, [noteTransactionId]);
 
   // Re-quote after a failure or a review exit. `reason` only feeds the log:
   // a user-pressed Retry is a funnel signal, an exit-driven re-quote is not.
