@@ -359,14 +359,15 @@ function RowUpTo({
   );
 }
 
-// Plain status text, like "3 days left": a badge read as a second kind of
-// button beside the Claim buttons
-function PendingText() {
+// The blue badge My portfolio shows for the same status
+function PendingBadge() {
   const intl = useIntl();
   return (
-    <SizableText size="$bodyMd" color="$textSubdued">
-      {intl.formatMessage({ id: ETranslations.global_pending })}
-    </SizableText>
+    <Badge badgeType="info" badgeSize="sm">
+      <Badge.Text>
+        {intl.formatMessage({ id: ETranslations.global_pending })}
+      </Badge.Text>
+    </Badge>
   );
 }
 
@@ -459,7 +460,7 @@ function PortfolioRow({ item }: { item: IEarnDesktopTileRow }) {
   const intl = useIntl();
   let right: ReactNode = null;
   if (item.isPending) {
-    right = <PendingText />;
+    right = <PendingBadge />;
   } else if (item.action) {
     right = <RowActionButton action={item.action} />;
   } else if (item.kind === 'unstaking') {
