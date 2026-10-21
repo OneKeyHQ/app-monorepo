@@ -48,19 +48,23 @@ index a3c84b0..d109b49 100644
  
    fun getConstants(): MutableMap<String, Any>? = original.getConstants()
 diff --git a/node_modules/react-native-keyboard-controller/src/module.ts b/node_modules/react-native-keyboard-controller/src/module.ts
-index b666df1..3a68806 100644
+index b666df1..d3cb5ee 100644
 --- a/node_modules/react-native-keyboard-controller/src/module.ts
 +++ b/node_modules/react-native-keyboard-controller/src/module.ts
 @@ -1,3 +1,5 @@
-+import { Platform } from "react-native";
++import { Keyboard, Platform, TextInput } from "react-native";
 +
  import { KeyboardControllerNative, KeyboardEvents } from "./bindings";
  
  import type {
-@@ -32,17 +34,41 @@ const dismiss = async (options?: Partial<DismissOptions>): Promise<void> => {
+@@ -31,18 +33,49 @@ const dismiss = async (options?: Partial<DismissOptions>): Promise<void> => {
+   const animated = options?.animated ?? true;
  
    return new Promise((resolve) => {
-     if (isClosed) {
+-    if (isClosed) {
++    const hasFocusedAndroidInput =
++      Platform.OS === "android" && Boolean(TextInput.State.currentlyFocusedInput());
++    if (isClosed && !hasFocusedAndroidInput) {
 +      // Android keyboards can live in a separate window (for example a
 +      // BottomSheetDialog). The activity listener does not observe that
 +      // window, so its cached visibility can be stale even while an input is
@@ -74,10 +78,9 @@ index b666df1..3a68806 100644
      }
  
 -    const subscription = KeyboardEvents.addListener("keyboardDidHide", () => {
--      resolve(undefined);
 +    let settled = false;
 +    let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
-+    let subscription: ReturnType<typeof KeyboardEvents.addListener>;
++    let subscription: ReturnType<typeof KeyboardEvents.addListener> | undefined;
 +    const finish = () => {
 +      if (settled) {
 +        return;
@@ -86,18 +89,24 @@ index b666df1..3a68806 100644
 +      if (fallbackTimer) {
 +        clearTimeout(fallbackTimer);
 +      }
-       subscription.remove();
++      subscription?.remove();
+       resolve(undefined);
+-      subscription.remove();
 -    });
-+      resolve(undefined);
 +    };
 +    subscription = KeyboardEvents.addListener("keyboardDidHide", finish);
- 
-     KeyboardControllerNative.dismiss(keepFocus, animated);
 +    if (Platform.OS === "android") {
 +      // WindowInsets events from custom Dialog windows are not delivered to
 +      // the controller attached to the activity root. Do not leave callers
 +      // and this event subscription pending forever when that happens.
 +      fallbackTimer = setTimeout(finish, 500);
++    }
+ 
+     KeyboardControllerNative.dismiss(keepFocus, animated);
++    if (Platform.OS === "android" && !keepFocus) {
++      // React Native tracks focus inside Dialog windows separately from the
++      // activity's native keyboard controller.
++      Keyboard.dismiss();
 +    }
    });
  };
