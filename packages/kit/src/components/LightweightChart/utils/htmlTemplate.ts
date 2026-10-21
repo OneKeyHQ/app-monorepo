@@ -613,6 +613,18 @@ function getChartInitScript(): string {
                 started = true;
               }
               ctx.stroke();
+              ctx.fillStyle = nextConfig.secondaryLineColor;
+              var isolatedPoints = nextConfig.secondaryPointData || [];
+              for (var j = 0; j < isolatedPoints.length; j += 1) {
+                var isolated = isolatedPoints[j];
+                if (time !== undefined && isolated.time > Number(time)) break;
+                var pointX = window.chart.timeScale().timeToCoordinate(isolated.time);
+                var pointY = window.series.priceToCoordinate(isolated.value);
+                if (pointX === null || pointY === null) continue;
+                ctx.beginPath();
+                ctx.arc(pointX, pointY, getNormalizedLineWidth(nextConfig.secondaryLineWidth, 2) + 1, 0, Math.PI * 2);
+                ctx.fill();
+              }
               ctx.restore();
             });
           },
@@ -802,14 +814,18 @@ function getChartInitScript(): string {
       window.secondaryPointSeries = null;
       window.applyChartConfig = function(nextConfig) {
         if (!nextConfig || !window.chart) return;
-        window.nativeScrubTime = undefined;
-        var tooltip = document.getElementById('scrub-tooltip');
-        if (tooltip) tooltip.style.display = 'none';
+        if (!nextConfig.nativeScrubOptions || !nextConfig.nativeScrubOptions.labels[window.nativeScrubTime]) {
+          window.nativeScrubTime = undefined;
+          var tooltip = document.getElementById('scrub-tooltip');
+          if (tooltip) tooltip.style.display = 'none';
+        }
+        window.applyingChartConfig = true;
         window.latestChartConfig = nextConfig;
         window.chart.applyOptions(getChartOptions(nextConfig));
         rebuildSeries(nextConfig);
         window.chart.timeScale().fitContent();
         window.updatePulseDot();
+        window.applyingChartConfig = false;
       };
       window.applyChartConfig(config);
   `.trim();
@@ -851,7 +867,9 @@ function getEventHandlers(): string {
       chart.subscribeCrosshairMove((param) => {
         // Series updates recalculate the crosshair without a touch. Sending
         // those back to React creates a second round trip for every step.
-        if (window.latestChartConfig.nativeScrubOptions && param.time !== undefined && !param.sourceEvent) return;
+        var nativeScrub = window.latestChartConfig.nativeScrubOptions;
+        var syntheticHover = nativeScrub && param.time !== undefined && !param.sourceEvent;
+        if (syntheticHover && window.nativeScrubTime === undefined) return;
         let message;
         var primarySeries = window.series;
         var extraSeries = window.secondarySeries;
@@ -873,11 +891,13 @@ function getEventHandlers(): string {
             y: param.point.y,
           };
         } else {
-          if (_isTouch && (Date.now() - _lastDataTime < 300)) { return; }
+          // Removing series during a refresh is not an exit from tracking.
+          if (nativeScrub && window.applyingChartConfig) return;
+          if (_isTouch && !nativeScrub && (Date.now() - _lastDataTime < 300)) { return; }
           message = { type: 'hover', time: undefined, price: undefined, secondaryPrice: undefined, x: undefined, y: undefined };
         }
         updateNativeScrub(message);
-        if (window.latestChartConfig.notifyOnHover !== false) {
+        if (!syntheticHover && window.latestChartConfig.notifyOnHover !== false) {
           window.ReactNativeWebView.postMessage(JSON.stringify(message));
         }
       });

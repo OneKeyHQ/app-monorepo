@@ -36,7 +36,9 @@ const { resolveSerializablePriceFormatterTickStep } = jest.requireActual<
   typeof import('./priceFormatterType')
 >('./priceFormatterType');
 
-it('mounts the cursor layer and scrubs locally, then restores the full line on exit', () => {
+function createNativeChartPage(
+  overrides: Partial<ILightweightChartConfig> = {},
+) {
   const config: ILightweightChartConfig = {
     data: [1, 2, 3].map((time) => ({
       time: time as UTCTimestamp,
@@ -64,6 +66,7 @@ it('mounts the cursor layer and scrubs locally, then restores the full line on e
       timeColor: '#999',
       largePrice: true,
     },
+    ...overrides,
   };
   const context = {
     save: jest.fn(),
@@ -72,6 +75,8 @@ it('mounts the cursor layer and scrubs locally, then restores the full line on e
     moveTo: jest.fn(),
     lineTo: jest.fn(),
     stroke: jest.fn(),
+    arc: jest.fn(),
+    fill: jest.fn(),
   };
   const target = {
     useMediaCoordinateSpace: (
@@ -111,13 +116,17 @@ it('mounts the cursor layer and scrubs locally, then restores the full line on e
   Object.defineProperty(document.getElementById('chart'), 'clientWidth', {
     value: 400,
   });
+  const pageWindow = {
+    ReactNativeWebView: { postMessage },
+    addEventListener: jest.fn(),
+    ontouchstart: null,
+    applyChartConfig: (_config: ILightweightChartConfig) => {},
+  };
   // Execute the page entry point; only the chart engine and native bridge are stubbed.
   runInNewContext(document.scripts[1].textContent ?? '', {
     document,
-    window: {
-      ReactNativeWebView: { postMessage },
-      addEventListener: jest.fn(),
-    },
+    window: pageWindow,
+    Date: { now: () => 1000 },
     LightweightCharts: {
       createChart: () => chart,
       CrosshairMode: { Normal: 0 },
@@ -126,11 +135,38 @@ it('mounts the cursor layer and scrubs locally, then restores the full line on e
     ResizeObserver: jest.fn(() => ({ observe: jest.fn() })),
   });
   expect(postMessage).toHaveBeenCalledWith(JSON.stringify({ type: 'ready' }));
-  const view = primary.attachPrimitive.mock.calls[0]?.[0].paneViews?.()[0];
+  postMessage.mockClear();
+  const getView = () =>
+    primary.attachPrimitive.mock.calls.at(-1)?.[0].paneViews?.()[0];
+  return {
+    config,
+    context,
+    target,
+    primary,
+    chart,
+    fitContent,
+    postMessage,
+    pageWindow,
+    hover,
+    getView,
+  };
+}
+
+it('scrubs locally on the cursor layer and clears immediately when touch tracking exits', () => {
+  const {
+    context,
+    target,
+    primary,
+    chart,
+    fitContent,
+    postMessage,
+    hover,
+    getView,
+  } = createNativeChartPage();
+  const view = getView();
   expect(view?.zOrder?.()).toBe('top');
   const renderer = view?.renderer();
   expect(renderer).toBeDefined();
-  postMessage.mockClear();
 
   for (const x of [100, 150, 200]) {
     hover({
@@ -149,6 +185,11 @@ it('mounts the cursor layer and scrubs locally, then restores the full line on e
   expect(context.lineTo.mock.calls).toEqual([[40, 20]]);
 
   hover({});
+  hover({
+    time: 2,
+    point: { x: 200, y: 100 },
+    seriesData: new Map([[primary, { value: 2 }]]),
+  });
   expect(document.getElementById('scrub-tooltip')?.style.display).toBe('none');
   context.lineTo.mockClear();
   renderer?.draw(target);
@@ -161,6 +202,49 @@ it('mounts the cursor layer and scrubs locally, then restores the full line on e
   expect(chart.removeSeries).not.toHaveBeenCalled();
   expect(chart.addSeries).not.toHaveBeenCalled();
   expect(postMessage).not.toHaveBeenCalled();
+});
+
+it.each([false, true])(
+  'restores local hover after a config refresh without echoing synthetic events (notify=%s)',
+  (notifyOnHover) => {
+    const page = createNativeChartPage({ notifyOnHover });
+    const event = {
+      time: 2,
+      point: { x: 150, y: 100 },
+      seriesData: new Map([[page.primary, { value: 2 }]]),
+    };
+    page.hover({ ...event, sourceEvent: {} });
+    page.postMessage.mockClear();
+    page.chart.removeSeries.mockImplementation(() => page.hover({}));
+    const refreshed = {
+      ...page.config,
+      nativeScrubOptions: {
+        ...page.config.nativeScrubOptions!,
+        labels: { '2': { time: '2026/10/21, 09:30', price: '$20' } },
+      },
+    };
+    page.pageWindow.applyChartConfig(refreshed);
+    page.hover(event);
+    expect(document.getElementById('scrub-tooltip')?.style.display).toBe(
+      'block',
+    );
+    expect(document.getElementById('scrub-price')?.textContent).toBe('$20');
+    page.getView()?.renderer()?.draw(page.target);
+    expect(page.context.lineTo.mock.calls).toEqual([[40, 20]]);
+    expect(page.postMessage).not.toHaveBeenCalled();
+  },
+);
+
+it('draws an isolated price point on the native cursor layer', () => {
+  const point = { time: 1 as UTCTimestamp, value: 3 };
+  const page = createNativeChartPage({
+    data: [point],
+    secondaryLineData: [point],
+    secondaryPointData: [point],
+  });
+  page.getView()?.renderer()?.draw(page.target);
+  expect(page.context.arc).toHaveBeenCalledWith(20, 30, 3, 0, Math.PI * 2);
+  expect(page.context.fill).toHaveBeenCalledTimes(1);
 });
 
 describe('getLightweightChartsRuntimeScriptTag', () => {

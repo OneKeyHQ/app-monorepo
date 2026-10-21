@@ -191,10 +191,14 @@ export function StockPriceLineChart({
     },
     [],
   );
-  // A fresh series (range switch, refetch) invalidates whatever the crosshair
-  // was pointing at.
+  // Android keeps tracking locally across refreshes. Keep an optional price
+  // header on that point too, until it leaves the refreshed range.
   useEffect(() => {
-    setHoverData(null);
+    setHoverData((current) => {
+      if (!platformEnv.isNativeAndroid || !current) return null;
+      const point = data.find(([time]) => time === current.time);
+      return point ? { ...current, price: point[1] } : null;
+    });
   }, [data]);
 
   const hoverPoint = useMemo<IStockPriceLineChartHoverPoint | undefined>(() => {
