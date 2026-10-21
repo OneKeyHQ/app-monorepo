@@ -7,6 +7,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -29,6 +30,8 @@ const HISTORY_LIMIT = 6;
 export function SimpleTradeHistory({ coin }: { coin?: string }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const [{ hideValue }] = useSettingsValuePersistAtom();
+  const hidePnl = !coin && hideValue;
   const { trades } = usePerpTradesHistory();
   const { result: builderFeeRate } = usePromiseResult(
     () => backgroundApiProxy.simpleDb.perp.getExpectMaxBuilderFee(),
@@ -87,11 +90,14 @@ export function SimpleTradeHistory({ coin }: { coin?: string }) {
                 })}: ${direction.text}`
               : direction.text;
             const pnl = getTradeFillClosePnlBN(trade);
-            const pnlColor = pnl.lt(0) ? '$red11' : '$green11';
-            const pnlText = `${pnl.lt(0) ? '-' : ''}${numberFormat(
-              pnl.abs().toFixed(),
-              { formatter: 'value', formatterOptions: { currency: '$' } },
-            )}`;
+            const visiblePnlColor = pnl.lt(0) ? '$red11' : '$green11';
+            const pnlColor = hidePnl ? '$textSubdued' : visiblePnlColor;
+            const pnlText = hidePnl
+              ? '****'
+              : `${pnl.lt(0) ? '-' : ''}${numberFormat(pnl.abs().toFixed(), {
+                  formatter: 'value',
+                  formatterOptions: { currency: '$' },
+                })}`;
             const timeText = formatTime(new Date(trade.time), {
               formatTemplate: 'yyyy-LL-dd HH:mm:ss',
             });

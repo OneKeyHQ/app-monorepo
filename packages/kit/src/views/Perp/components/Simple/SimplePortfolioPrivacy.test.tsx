@@ -9,6 +9,7 @@ import {
 } from '@testing-library/react';
 
 import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid';
+import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { useTradeHistoryFilters } from '../../hooks/useTradeHistoryFilters';
 
@@ -19,6 +20,7 @@ import {
   SimplePositionCard,
   SimplePositionSummary,
 } from './SimplePositionCard';
+import { SimpleTradeHistory } from './SimpleTradeHistory';
 import { SimpleTwapEntry } from './SimpleTwapEntry';
 
 let mockHideValue = false;
@@ -33,6 +35,25 @@ let mockCanMutateOrders = true;
 let mockChasingOrderIds = new Set<number>();
 const mockEditTpsl = jest.fn();
 const mockAdjustMargin = jest.fn();
+const mockTrades: IFill[] = [
+  {
+    coin: 'BTC',
+    px: '50000',
+    sz: '0.1',
+    side: 'A',
+    time: 1_790_730_000_000,
+    startPosition: '0.1',
+    dir: 'Close Long',
+    closedPnl: '123.45',
+    hash: '0x1234',
+    oid: 1,
+    tid: 1,
+    crossed: false,
+    fee: '0',
+    feeToken: 'USDC',
+    twapId: null,
+  },
+];
 let mockOrders: {
   oid: number;
   coin: string;
@@ -60,6 +81,8 @@ jest.mock('@onekeyhq/components', () => {
     onPress,
     disabled,
     accessibilityState,
+    accessibilityLabel,
+    color,
   }: {
     children?: React.ReactNode;
     testID?: string;
@@ -67,6 +90,8 @@ jest.mock('@onekeyhq/components', () => {
     onPress?: () => void;
     disabled?: boolean;
     accessibilityState?: { selected?: boolean };
+    accessibilityLabel?: string;
+    color?: string;
   }) =>
     onPress ? (
       <button
@@ -76,11 +101,12 @@ jest.mock('@onekeyhq/components', () => {
         onClick={onPress}
         disabled={disabled}
         data-selected={accessibilityState?.selected}
+        aria-label={accessibilityLabel}
       >
         {children}
       </button>
     ) : (
-      <div data-testid={testID} style={{ display }}>
+      <div data-testid={testID} style={{ display }} data-color={color}>
         {children}
       </div>
     );
@@ -134,6 +160,16 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
   default: () => ({}),
 }));
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: {},
+}));
+jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
+  usePromiseResult: () => ({ result: undefined }),
+}));
+jest.mock('../../hooks/usePerpOrderInfoPanel', () => ({
+  usePerpTradesHistory: () => ({ trades: mockTrades }),
+}));
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
   useHyperliquidActions: () => ({
     current: {
@@ -173,8 +209,41 @@ jest.mock('../OrderInfoPanel/SetTpslModal', () => ({
   showSetTpslDialog: jest.fn(),
 }));
 jest.mock('react-intl', () => ({
-  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+  useIntl: () => ({
+    formatMessage: ({ id }: { id: string }) => id,
+    formatDate: () => '2026-10-20',
+  }),
 }));
+
+it.each(['123.45', '-123.45'])(
+  'masks home trade PnL %s in text and accessibility labels',
+  (closedPnl) => {
+    mockTrades[0].closedPnl = closedPnl;
+    mockHideValue = false;
+    const { getByTestId, rerender } = render(<SimpleTradeHistory />);
+    const row = () => getByTestId('perps-simple-trade-BTC-1');
+    const visibleText = row().textContent;
+    const visibleLabel = row().getAttribute('aria-label');
+    expect(visibleText).toContain('123.45');
+    expect(visibleLabel).toContain('123.45');
+    mockHideValue = true;
+    rerender(<SimpleTradeHistory />);
+    expect(row().textContent).not.toContain('123.45');
+    expect(row().getAttribute('aria-label')).not.toContain('123.45');
+    expect(row().textContent).toContain('****');
+    expect(row().getAttribute('aria-label')).toContain('****');
+    expect(
+      row().querySelector('[data-color="$textSubdued"]')?.textContent,
+    ).toBe('****');
+    rerender(<SimpleTradeHistory coin="BTC" />);
+    expect(row().textContent).toContain('123.45');
+    expect(row().getAttribute('aria-label')).toContain('123.45');
+    mockHideValue = false;
+    rerender(<SimpleTradeHistory />);
+    expect(row().textContent).toBe(visibleText);
+    expect(row().getAttribute('aria-label')).toBe(visibleLabel);
+  },
+);
 
 it('keeps TWAP accessible inside the orders tab when no basic orders exist', async () => {
   const { queryByTestId, getByTestId, rerender } = render(
