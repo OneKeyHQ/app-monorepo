@@ -7,13 +7,10 @@ import {
   initialWindowMetrics,
 } from 'react-native-safe-area-context';
 
-import {
-  ShowToastProvider,
-  Toaster,
-} from '@onekeyhq/components/src/actions/Toast';
-import { Portal } from '@onekeyhq/components/src/hocs/Portal';
+import { Toaster } from '@onekeyhq/components/src/actions/Toast';
 import { ConfigProvider } from '@onekeyhq/components/src/hocs/Provider';
 import { Stack } from '@onekeyhq/components/src/primitives/Stack';
+import { ImperativeOverlayMountHost } from '@onekeyhq/components/src/shared/imperativeOverlayMount';
 
 import { HyperlinkTextStub } from './HyperlinkTextStub';
 
@@ -72,15 +69,10 @@ const preview: Preview = {
         <Stack bg="$bgApp" p="$5" flex={1}>
           <Story />
         </Stack>
-        {/* Overlay mount points for portal-based components — the minimal
-            slice of the app's FullWindowOverlayContainer, in the same order:
-            the FULL_WINDOW_OVERLAY portal (Dialog.show mount root), the
-            hardware stage host (native `hardware` overlay level, as the
-            app's HardwareStageOverlayContainer), ShowToastProvider
-            (Toast.show) and Toaster (Toast.success/error/… via backpackapp;
-            it needs the GestureHandlerRootView the shell root mounts). Each
-            overlay hosts itself in its native overlay level. */}
-        <Portal.Container name={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL} />
+        {/* Match the app's unfrozen imperative hosts while each overlay keeps
+            its own SDK level. Toaster uses the shell's gesture root. */}
+        <ImperativeOverlayMountHost target="global" />
+        <ImperativeOverlayMountHost target="page" />
         <OverlayView
           visible
           level="hardware"
@@ -90,9 +82,8 @@ const preview: Preview = {
           backdrop={false}
           dismissOnBackPress={false}
         >
-          <Portal.Container name={Portal.Constant.HARDWARE_UI_STATE_DIALOG} />
+          <ImperativeOverlayMountHost target="hardware-stage" />
         </OverlayView>
-        <ShowToastProvider />
         <OverlayView
           visible
           level="toast"

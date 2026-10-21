@@ -244,6 +244,59 @@ it('keeps a wrapped custom dialog page-scoped and forwards both close callbacks'
   mounted.unmount();
 });
 
+it('starts a wrapped custom close before its own asynchronous callback settles', async () => {
+  let finishOwnClose: () => void = () => undefined;
+  const ownClose = jest.fn(
+    () =>
+      new Promise<void>((resolve) => {
+        finishOwnClose = resolve;
+      }),
+  );
+  const onCloseStart = jest.fn();
+  const onClose = jest.fn();
+  const dialog = Dialog.show({
+    dialogContainer: ({ ref }) => (
+      <div>
+        <DialogContainer
+          ref={ref}
+          showHeader={false}
+          showFooter={false}
+          onClose={ownClose}
+        />
+      </div>
+    ),
+    onCloseStart,
+    onClose,
+  });
+  const element = jest
+    .mocked(renderToContainer)
+    .mock.calls.at(-1)?.[1] as ReactElement;
+  const mounted = render(element);
+  let closing!: Promise<void>;
+  act(() => {
+    closing = Promise.resolve(dialog.close({ flag: 'confirm' }));
+  });
+  await waitFor(() => expect(ownClose).toHaveBeenCalledTimes(1));
+  expect(onCloseStart).toHaveBeenCalledTimes(1);
+  act(() => mockPresentation?.onExited?.());
+  await waitFor(() =>
+    expect(onClose).toHaveBeenCalledWith({ flag: 'confirm' }),
+  );
+  let settled = false;
+  void closing.then(() => {
+    settled = true;
+  });
+  await Promise.resolve();
+  expect(settled).toBe(false);
+  await act(async () => {
+    finishOwnClose();
+    await closing;
+  });
+  expect(onCloseStart).toHaveBeenCalledTimes(1);
+  expect(onClose).toHaveBeenCalledTimes(1);
+  mounted.unmount();
+});
+
 it('notifies dismissal before waiting for the close animation', async () => {
   const dialogRef = createRef<IDialogInstance>();
   const closeOrder: string[] = [];

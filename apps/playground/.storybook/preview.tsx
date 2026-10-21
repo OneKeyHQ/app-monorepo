@@ -9,16 +9,13 @@ import '@onekeyhq/shared/src/web/index.css';
 
 import { useEffect } from 'react';
 
-import {
-  ShowToastProvider,
-  Toaster,
-} from '@onekeyhq/components/src/actions/Toast';
+import { Toaster } from '@onekeyhq/components/src/actions/Toast';
 import { OverlayView } from '@onekeyfe/react-native-native-overlay';
 
-import { Portal } from '@onekeyhq/components/src/hocs/Portal';
 import { ConfigProvider } from '@onekeyhq/components/src/hocs/Provider';
 import { useTheme } from '@onekeyhq/components/src/hooks/useStyle';
 import { Stack } from '@onekeyhq/components/src/primitives/Stack';
+import { ImperativeOverlayMountHost } from '@onekeyhq/components/src/shared/imperativeOverlayMount';
 
 import { HyperlinkTextStub } from './HyperlinkTextStub';
 
@@ -128,22 +125,15 @@ const preview: Preview = {
           <Stack bg="$bgApp" p="$5" minHeight="100%">
             <Story />
           </Stack>
-          {/* Overlay mount points for portal-based components — the minimal
-              slice of the app's FullWindowOverlayContainer, in the same
-              order: the FULL_WINDOW_OVERLAY portal (Dialog.show, ActionList,
-              native-mode Popover), ShowToastProvider (Toast.show custom
-              toasts), and Toaster (Toast.success/error/… via sonner). They
-              must live inside ConfigProvider so portaled content keeps
-              theme/intl context. */}
-          <Portal.Container name={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL} />
-          <ShowToastProvider />
-          {/* As the app: the toaster in the `toast` overlay level, the
-              hardware stage's mount point in the `hardware` level. */}
+          {/* Imperative content inherits the canvas theme and locale. The
+              hardware stage remains inside its SDK overlay level. */}
+          <ImperativeOverlayMountHost target="global" />
+          <ImperativeOverlayMountHost target="page" />
           <OverlayView {...TOAST_HOST_PROPS}>
             <Toaster />
           </OverlayView>
           <OverlayView {...HARDWARE_HOST_PROPS}>
-            <Portal.Container name={Portal.Constant.HARDWARE_UI_STATE_DIALOG} />
+            <ImperativeOverlayMountHost target="hardware-stage" />
           </OverlayView>
         </ConfigProvider>
       );

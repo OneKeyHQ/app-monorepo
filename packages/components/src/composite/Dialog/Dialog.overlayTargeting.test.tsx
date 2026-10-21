@@ -214,6 +214,37 @@ describe('Dialog.show closing lifecycle', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(onCloseStart).not.toHaveBeenCalled();
   });
+
+  it('honors and coalesces an explicit close before the dialog mounts', async () => {
+    let resolveGuard: (allowed: boolean) => void = () => undefined;
+    const onBeforeClose = jest.fn(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveGuard = resolve;
+        }),
+    );
+    const onCloseStart = jest.fn();
+    const onClose = jest.fn();
+    const instance = Dialog.show({ onBeforeClose, onCloseStart, onClose });
+    const manager = jest.mocked(renderToContainer).mock.results.at(-1)
+      ?.value as { destroy: jest.Mock };
+
+    const first = instance.close();
+    const second = instance.close();
+    expect(first).toBe(second);
+    expect(onBeforeClose).toHaveBeenCalledTimes(1);
+    resolveGuard(false);
+    await first;
+    expect(manager.destroy).not.toHaveBeenCalled();
+    expect(onCloseStart).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+
+    onBeforeClose.mockResolvedValue(true);
+    await instance.close({ flag: 'confirm' });
+    expect(manager.destroy).toHaveBeenCalledTimes(1);
+    expect(onCloseStart).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledWith({ flag: 'confirm' });
+  });
 });
 
 it('rejects a page dialog without a source page instead of opening globally', () => {

@@ -614,10 +614,11 @@ function BaseDialogContainer(
   const forwardOnClose = useCallback(
     async (extra?: { flag?: string }) => {
       if (customMount && onClose !== customMount.onClose) {
+        const mountClose = customMount.onClose(extra);
         try {
           await onClose(extra);
         } finally {
-          await customMount.onClose(extra);
+          await mountClose;
         }
       } else {
         await onClose(extra);
@@ -848,6 +849,7 @@ function dialogShow({
   let dialogInstance: IDialogInstance | undefined;
   let closeStarted = false;
   let finalized = false;
+  let pendingBeforeMountClose: Promise<void> | undefined;
 
   const overlayPage =
     portalContainer ===
@@ -899,8 +901,10 @@ function dialogShow({
     if (finalized) {
       return;
     }
-    closeStarted = true;
-    onCloseStart?.();
+    if (!closeStarted) {
+      closeStarted = true;
+      onCloseStart?.();
+    }
     await waitForExit();
     finalize(extra);
   };
@@ -970,15 +974,29 @@ function dialogShow({
       },
     ),
   };
-  const close = async (extra?: { flag?: string }) => {
+  const close = (extra?: { flag?: string }) => {
     if (finalized) {
-      return;
+      return Promise.resolve();
     }
     if (!instanceRef?.current) {
-      closeStarted = true;
-      onCloseStart?.();
-      finalize(extra);
-      return;
+      if (pendingBeforeMountClose) {
+        return pendingBeforeMountClose;
+      }
+      const closeBeforeMount = async () => {
+        if (props.onBeforeClose && !(await props.onBeforeClose(extra))) {
+          return;
+        }
+        if (finalized) {
+          return;
+        }
+        closeStarted = true;
+        onCloseStart?.();
+        finalize(extra);
+      };
+      pendingBeforeMountClose = closeBeforeMount().finally(() => {
+        pendingBeforeMountClose = undefined;
+      });
+      return pendingBeforeMountClose;
     }
     return instanceRef?.current?.close(extra);
   };

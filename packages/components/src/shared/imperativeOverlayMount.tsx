@@ -1,10 +1,4 @@
-import {
-  Fragment,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useSyncExternalStore,
-} from 'react';
+import { Fragment, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
@@ -41,8 +35,10 @@ const entries = new Map<number, IOverlayMountEntry>();
 const pageBindings = new Map<string, { token: symbol; wrap: IWrapOverlay }>();
 const removedPages = new Set<string>();
 const listeners = new Set<() => void>();
+const hostTokens = new Map<IImperativeOverlayTarget, Set<symbol>>();
 let snapshot: IOverlayMountEntry[] = [];
 let nextId = 0;
+let lockHostWasMounted = false;
 
 function pageId(page: IImperativeOverlayPageKey) {
   return `${page.hostKey}\0${page.ownerKey}`;
@@ -152,6 +148,23 @@ export function mountImperativeOverlay({
     onHostUnavailable,
   });
   publish();
+  if (
+    target === 'lock' &&
+    lockHostWasMounted &&
+    !hostTokens.get('lock')?.size
+  ) {
+    void Promise.resolve().then(() => {
+      if (hostTokens.get('lock')?.size) {
+        return;
+      }
+      const entry = entries.get(id);
+      if (entry?.target === 'lock') {
+        entries.delete(id);
+        publish();
+        entry.onHostUnavailable?.();
+      }
+    });
+  }
   return {
     update: (updatedNode, callback) => {
       const entry = entries.get(id);
@@ -175,21 +188,47 @@ export function ImperativeOverlayMountHost({
 }: {
   target: IImperativeOverlayTarget;
 }) {
+  const token = useRef(Symbol('imperative-overlay-host')).current;
   const current = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-  useEffect(() => {
-    if (target !== 'lock') {
-      return;
+  useLayoutEffect(() => {
+    let tokens = hostTokens.get(target);
+    if (!tokens) {
+      tokens = new Set();
+      hostTokens.set(target, tokens);
     }
+    tokens.add(token);
+    if (target === 'lock') {
+      lockHostWasMounted = true;
+    }
+    publish();
     return () => {
-      for (const entry of entries.values()) {
-        if (entry.target === 'lock') {
-          entry.onHostUnavailable?.();
-          entries.delete(entry.id);
-        }
+      tokens.delete(token);
+      if (!tokens.size) {
+        hostTokens.delete(target);
       }
       publish();
+      if (target === 'lock' && !tokens.size) {
+        void Promise.resolve().then(() => {
+          if (hostTokens.get('lock')?.size) {
+            return;
+          }
+          const unavailable = [...entries.values()].filter(
+            (entry) => entry.target === 'lock',
+          );
+          for (const entry of unavailable) {
+            entries.delete(entry.id);
+          }
+          if (unavailable.length) {
+            publish();
+          }
+          unavailable.forEach((entry) => entry.onHostUnavailable?.());
+        });
+      }
     };
-  }, [target]);
+  }, [target, token]);
+  if (hostTokens.get(target)?.values().next().value !== token) {
+    return null;
+  }
   return (
     <>
       {current.map((entry) =>
