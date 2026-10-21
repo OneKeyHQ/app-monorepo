@@ -1,3 +1,6 @@
+/* eslint-disable import-js/order */
+// Must stay first: release builds read version globals at module load.
+import '@onekeyhq/core/src/utils/privacyChainWorkerReleaseEnv';
 import {
   createWorkerHostStreamRequester,
   servePrivacyChainWorker,

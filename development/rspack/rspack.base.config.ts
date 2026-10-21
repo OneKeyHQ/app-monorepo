@@ -549,9 +549,10 @@ export function createBaseConfig({
         },
         {
           test: CHAIN_RUNTIME_WASM_TEST,
-          // web-embed can run from file:// (iOS), where fetch() cannot load file
-          // URLs, so inline it as a data: URI there.
-          ...(platform === 'web-embed'
+          // web-embed (iOS) and desktop release builds run from file://, where
+          // the Blob Worker has no base URL to resolve a wasm file against, so
+          // inline it as a data: URI there.
+          ...(platform === 'web-embed' || platform === 'desktop'
             ? { type: 'asset/inline' as const }
             : {
                 type: 'asset/resource' as const,
@@ -903,15 +904,8 @@ export function createBaseConfig({
           },
         },
         {
-          // Desktop's chain Worker entries: a standalone same-origin file. Its
-          // own child compilation keeps the Worker out of the SRI chunk graph,
-          // and the CSP rules out a Blob.
-          test: /SdkDesktop\.worker\.js$/,
-          use: { loader: 'worker-rspack-loader' },
-        },
-        {
           test: /\.worker\.(js|ts)$/,
-          exclude: /Sdk(Inline|Desktop)\.worker\.js$/,
+          exclude: /SdkInline\.worker\.js$/,
           use: {
             loader: 'worker-rspack-loader',
             options: {
