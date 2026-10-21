@@ -427,7 +427,6 @@ export function resetCarrierState(): void {
   runtimePromise = undefined;
   // Must be cleared with runtimePromise: the read fast path reaches this synchronously.
   loadedRuntime = undefined;
-  console.log('[zcash] carrier state reset');
 }
 
 // Health signal comes from the scan's own requests, not a dedicated probe.

@@ -670,7 +670,6 @@ export async function syncLocalWalletGroup(
 export async function zcashRebuildRuntimeDatabase(vault: Vault): Promise<void> {
   const api = await vault.zcashGetApi();
   await api.dropWalletDatabase(ZCASH_NETWORK_MAIN);
-  console.log('[zcash] runtime database dropped for rebuild');
 }
 
 export async function zcashPreparePrivacyModeAccount(
@@ -874,10 +873,6 @@ export async function syncLocalWalletGroupImpl(
         expectedFromHeight: excluded.fromHeight,
       });
     }
-    console.log('[zcash] syncLocalWalletGroup result', {
-      accountIds,
-      ...result,
-    });
     return {
       synced: true,
       stateChanged: result.stateChanged,
@@ -905,7 +900,6 @@ export async function resetLocalWallet(
       const api = await vault.zcashGetApi();
       await api.purgeWallet(account);
     });
-    console.log('[zcash] local wallet cache reset', { accountId });
     return;
   }
   const targetMeta = await vault.backgroundApi.simpleDb.zcash.getAccountMeta({
@@ -1250,7 +1244,6 @@ export async function zcashRescanFromHeight(
     repair,
   });
   await vault.applyPendingRescan({ accountId, repair });
-  console.log('[zcash] rescanFromHeight', { accountId, birthdayHeight });
 }
 
 // Resolves the scan start from whichever form the caller gives, then clamps/persists/applies it.

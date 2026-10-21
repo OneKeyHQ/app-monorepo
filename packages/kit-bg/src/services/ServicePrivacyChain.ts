@@ -231,9 +231,6 @@ class ServicePrivacyChain extends ServiceBase {
             this.pendingLocalDataDropRetry = undefined;
           });
         // Delay comes from the quiet-window clamp, not from this call site.
-        console.log('[privacy-chain:sched] startup quiet until', {
-          inMs: Math.max(0, this.earliestTickAt - Date.now()),
-        });
         this.scheduleBackgroundSync(0);
         this.periodicSyncTimer = setInterval(() => {
           this.scheduleBackgroundSync(0);
@@ -548,7 +545,6 @@ class ServicePrivacyChain extends ServiceBase {
       return;
     }
     delete this.foregroundBoostRequestedByNetwork[networkId];
-    console.log('[privacy-chain:sched] foreground pace OFF', { networkId });
     await this.publishBoostingNetworks();
   }
 
@@ -562,7 +558,6 @@ class ServicePrivacyChain extends ServiceBase {
   }): Promise<void> {
     // In memory only: a restart returns to default scanning.
     this.boostPausedByNetwork[networkId] = true;
-    console.log('[privacy-chain:sched] scanning PAUSED by user', { networkId });
     await this.publishBoostingNetworks();
   }
 
@@ -860,9 +855,6 @@ class ServicePrivacyChain extends ServiceBase {
           // eslint-disable-next-line no-await-in-loop
           await capability.listAccounts();
         if (storedAccountIds.length > 0) {
-          console.log('[privacy-chain] pending wipe skipped: network in use', {
-            networkId,
-          });
           // eslint-disable-next-line no-continue
           continue;
         }
@@ -1031,9 +1023,6 @@ class ServicePrivacyChain extends ServiceBase {
     this.syncTickRunning = true;
     const tickStartedAt = Date.now();
     this.syncTickStartedAt = tickStartedAt;
-    // Why each network did not become a candidate this tick. Logged below
-    // with the pick, so "the chain is not scanning" always has a stated cause.
-    const notCandidate: Record<string, string> = {};
     let continueDelayMs: number | undefined;
     try {
       if (!(await this.isLocalWalletScanAllowed())) {
@@ -1058,7 +1047,6 @@ class ServicePrivacyChain extends ServiceBase {
           const accounts = await this.listScannableAccounts(capability);
           if (accounts.length === 0) {
             prunableNetworkIds.add(networkId);
-            notCandidate[networkId] = 'no-enabled-accounts';
             // eslint-disable-next-line no-continue
             continue;
           }
@@ -1086,14 +1074,12 @@ class ServicePrivacyChain extends ServiceBase {
           // of old UI state safe; a later tip failure must not wipe it.
           prunableNetworkIds.add(networkId);
           if (groups.size === 0) {
-            notCandidate[networkId] = 'no-live-accounts';
             // eslint-disable-next-line no-continue
             continue;
           }
           // A paused chain does no work at all, not even the tip request; every
           // scan trigger funnels through this one check.
           if (this.boostPausedByNetwork[networkId]) {
-            notCandidate[networkId] = 'paused-by-user';
             // eslint-disable-next-line no-continue
             continue;
           }
@@ -1129,10 +1115,6 @@ class ServicePrivacyChain extends ServiceBase {
               chainTip,
               hasBackfill,
             });
-            if (!reason) {
-              notCandidate[runtimeStateKey] =
-                `up-to-date(tip=${String(chainTip)})`;
-            }
             if (reason) {
               candidates.push({
                 networkId,
@@ -1147,9 +1129,6 @@ class ServicePrivacyChain extends ServiceBase {
           }
         } catch (e) {
           retryNeeded = true;
-          notCandidate[networkId] = `enumeration-failed: ${
-            e instanceof Error ? e.message : String(e)
-          }`;
           console.error('[privacy-chain] network enumeration failed', {
             networkId,
             ...describePrivacyChainError(e),
@@ -1173,19 +1152,6 @@ class ServicePrivacyChain extends ServiceBase {
         runnableCandidates,
         this.lastBackfillRuntimeStateKey,
       );
-      // One line per tick: who wanted a turn, who got it, and why every other
-      // network did not. `tip` outranks `backfill`.
-      console.log('[privacy-chain:sched] pick', {
-        picked: candidate
-          ? `${candidate.runtimeStateKey}:${candidate.reason}`
-          : null,
-        candidates: candidates.map((c) => `${c.runtimeStateKey}:${c.reason}`),
-        backedOff: backedOff.map((c) => c.runtimeStateKey),
-        quarantined: candidates
-          .filter((c) => this.quarantinedSyncs.has(c.runtimeStateKey))
-          .map((c) => c.runtimeStateKey),
-        notCandidate,
-      });
       if (candidate) {
         let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
         let syncPromise: ReturnType<
@@ -1280,21 +1246,7 @@ class ServicePrivacyChain extends ServiceBase {
                 candidate.capability.syncPolicy.backgroundBackfillDelayMs
                   .default;
             }
-            console.log('[privacy-chain:sched] next pass', {
-              networkId: candidate.networkId,
-              pace: isHot ? 'foreground' : 'background',
-              delayMs: continueDelayMs,
-              blockedByData: this.isNetworkBoostBlockedByData(
-                candidate.networkId,
-              ),
-            });
           }
-          console.log('[privacy-chain] bounded sync completed', {
-            networkId: candidate.networkId,
-            accountIds: candidate.accountIds,
-            reason: candidate.reason,
-            ...result,
-          });
         } catch (e) {
           retryNeeded = true;
           // The watchdog abandons the await, not the operation; quarantine
@@ -1749,12 +1701,6 @@ class ServicePrivacyChain extends ServiceBase {
       }),
       { ...this.backfillActiveByAccount },
     );
-    console.log('[privacy-chain] local chain data repair started', {
-      networkId,
-      accountId,
-      mode,
-      reuseActiveScan,
-    });
     this.scheduleBackgroundSync(0);
     appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
     appEventBus.emit(EAppEventBusNames.RefreshHistoryList, undefined);
@@ -2758,11 +2704,6 @@ class ServicePrivacyChain extends ServiceBase {
     } else {
       delete this.foregroundBoostRequestedByNetwork[networkId];
     }
-    console.log('[privacy-chain:sched] auto foreground pace', {
-      networkId,
-      on: wanted,
-      remainingBlocks: mostRemaining,
-    });
     await this.publishBoostingNetworks();
   }
 
