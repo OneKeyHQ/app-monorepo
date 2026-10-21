@@ -63,6 +63,10 @@ const mockSetAccountState = jest.fn(async () => undefined);
 const mockDeleteXmrDatabase = jest.fn(async (_network: string) => undefined);
 const mockForgetStaleFirst = jest.fn<void, [string]>();
 const mockRemoveAccount = jest.fn(async () => undefined);
+const mockJournal = {
+  removeXmrSentAccount: jest.fn(async () => undefined),
+  clearXmrSent: jest.fn(async () => undefined),
+};
 const mockOnlineRuntime = jest.fn(async () => runtime);
 const mockLiveTip = jest.fn(async () => 3_767_827);
 let mockCachedTip: number | undefined = 3_767_827;
@@ -119,6 +123,7 @@ function capability(intent: 'on' | 'off' = 'on', birthdayHeight?: number) {
       },
       simpleDb: {
         privacyChainCache,
+        privacyChainJournal: mockJournal,
         xmr: {
           getAccountState: async () => ({
             intent,
@@ -536,6 +541,7 @@ describe('xmr storage reset', () => {
       }),
       backgroundApi: {
         simpleDb: {
+          privacyChainJournal: mockJournal,
           xmr: {
             listEnabledAccountIds: async () => ['acc-1', 'acc-2'],
             getAccountState: async () => ({
@@ -582,6 +588,7 @@ describe('xmr delete after turning the account off', () => {
         },
         simpleDb: {
           privacyChainCache,
+          privacyChainJournal: mockJournal,
           xmr: {
             getAccountState: async () => state,
             beginDisable: async () => {
@@ -632,6 +639,7 @@ describe('xmr sync registers an enabled account the runtime lost', () => {
       backgroundApi: {
         servicePrivacyChain: { publishLocalWalletSyncProgress: mockPublish },
         simpleDb: {
+          privacyChainJournal: mockJournal,
           xmr: {
             getAccountState: async () => ({
               intent: 'on',
@@ -722,6 +730,7 @@ describe('xmr user lifecycle operations do not depend on pending history', () =>
 describe('xmr local data delete keeps the birthday', () => {
   beforeEach(() => {
     mockRemoveAccount.mockClear();
+    mockJournal.removeXmrSentAccount.mockClear();
   });
 
   it('keeps it when the user deletes local data', async () => {
@@ -730,6 +739,10 @@ describe('xmr local data delete keeps the birthday', () => {
     expect(mockRemoveAccount).toHaveBeenCalledWith({
       accountId: 'acc',
       keepBirthday: true,
+    });
+    // Recorded recipients go with the data, as before the journal split.
+    expect(mockJournal.removeXmrSentAccount).toHaveBeenCalledWith({
+      accountId: 'acc',
     });
   });
 
@@ -741,6 +754,9 @@ describe('xmr local data delete keeps the birthday', () => {
     expect(mockRemoveAccount).toHaveBeenCalledWith({
       accountId: 'acc',
       keepBirthday: false,
+    });
+    expect(mockJournal.removeXmrSentAccount).toHaveBeenCalledWith({
+      accountId: 'acc',
     });
   });
 });
@@ -842,5 +858,28 @@ describe('xmr sync endpoint', () => {
     };
     const endpoint = await capability().getSyncEndpoint?.();
     expect(endpoint?.health).toBeUndefined();
+  });
+});
+
+describe('xmr app reset wipe', () => {
+  it('clears the scan state and recorded recipients with the database', async () => {
+    const clearRawData = jest.fn(async () => undefined);
+    mockJournal.clearXmrSent.mockClear();
+    const cap = buildXmrLocalWalletCapability({
+      networkId: 'xmr--0',
+      getXmrNetwork: async () => 'mainnet',
+      backgroundApi: {
+        simpleDb: {
+          privacyChainJournal: mockJournal,
+          xmr: { clearRawData },
+        },
+      },
+    } as unknown as Vault);
+
+    await cap.dropLocalData?.();
+
+    expect(mockDeleteXmrDatabase).toHaveBeenCalledWith('mainnet');
+    expect(clearRawData).toHaveBeenCalledTimes(1);
+    expect(mockJournal.clearXmrSent).toHaveBeenCalledTimes(1);
   });
 });

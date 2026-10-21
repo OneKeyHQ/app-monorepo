@@ -38,6 +38,9 @@ function createVault({
           ],
           listCleanupAccountIds: async () => [],
         },
+        privacyChainJournal: {
+          listZcashTransparentAccountIds: async () => [],
+        },
       },
     },
     zcashGetWalletAccount: async ({ accountId }: { accountId: string }) => ({

@@ -78,6 +78,7 @@ import { KeyringHd } from './KeyringHd';
 import {
   buildXmrLocalHistoryDetail,
   buildXmrLocalHistoryTx,
+  toXmrSentAmount,
 } from './localHistory';
 import { buildXmrLocalWalletCapability } from './localWallet';
 import {
@@ -756,13 +757,13 @@ export default class Vault extends VaultBase {
     // Only chance to record the recipient (chain carries none); never let
     // this failure make an already-successful broadcast look like it failed.
     try {
-      await this.backgroundApi.simpleDb.xmr.recordSentRecipient({
+      await this.backgroundApi.simpleDb.privacyChainJournal.recordXmrSent({
         accountId: this.accountId,
         txid,
         recipient: encodedTx.to,
         amountAtomic: encodedTx.amountAtomic,
         feeAtomic: encodedTx.feeAtomic,
-        ...(broadcast === 'unknown' ? { broadcastOutcomeUnknown: true } : {}),
+        ...(broadcast === 'unknown' ? { outcomeUnknown: true } : {}),
       });
     } catch (error) {
       console.error(
@@ -974,19 +975,19 @@ export default class Vault extends VaultBase {
       });
     }
 
-    const [account, nativeToken, recipients, sentAmounts, progress] =
-      await Promise.all([
-        this.getAccount(),
-        this.backgroundApi.serviceToken.getNativeToken({
-          networkId: this.networkId,
-          accountId,
-        }),
-        this.backgroundApi.simpleDb.xmr.getSentRecipients({ accountId }),
-        this.backgroundApi.simpleDb.xmr.getSentAmounts({ accountId }),
-        this.backgroundApi.servicePrivacyChain
-          .getLocalWalletSyncProgress({ networkId: this.networkId, accountId })
-          .catch(() => undefined),
-      ]);
+    const [account, nativeToken, sentRecords, progress] = await Promise.all([
+      this.getAccount(),
+      this.backgroundApi.serviceToken.getNativeToken({
+        networkId: this.networkId,
+        accountId,
+      }),
+      this.backgroundApi.simpleDb.privacyChainJournal.listXmrSent({
+        accountId,
+      }),
+      this.backgroundApi.servicePrivacyChain
+        .getLocalWalletSyncProgress({ networkId: this.networkId, accountId })
+        .catch(() => undefined),
+    ]);
 
     return Promise.all(
       items.map((item) =>
@@ -994,8 +995,8 @@ export default class Vault extends VaultBase {
           item,
           chainTip: progress?.chainTip,
           ownAddress: account.address,
-          recipient: recipients[item.txid],
-          sentAmount: sentAmounts[item.txid],
+          recipient: sentRecords[item.txid]?.recipient,
+          sentAmount: toXmrSentAmount(sentRecords[item.txid]),
           nativeToken,
           networkId: this.networkId,
           accountId,

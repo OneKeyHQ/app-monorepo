@@ -5,8 +5,11 @@ jest.mock('@onekeyhq/kit-bg/src/dbs/local/localDbInstance', () => ({
 }));
 
 import type { IEncodedTxXmr } from '@onekeyhq/core/src/chains/xmr/types';
-import { SimpleDbEntityXmr } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityXmr';
-import { buildXmrLocalHistoryTx } from '@onekeyhq/kit-bg/src/vaults/impls/xmr/localHistory';
+import { SimpleDbEntityPrivacyChainJournal } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityPrivacyChainJournal';
+import {
+  buildXmrLocalHistoryTx,
+  toXmrSentAmount,
+} from '@onekeyhq/kit-bg/src/vaults/impls/xmr/localHistory';
 import type { IXmrHistoryItem } from '@onekeyhq/kit-bg/src/vaults/impls/xmr/types';
 import XmrVault from '@onekeyhq/kit-bg/src/vaults/impls/xmr/Vault';
 import ZcashVault from '@onekeyhq/kit-bg/src/vaults/impls/zcash/Vault';
@@ -67,7 +70,7 @@ it.each([null, 100])(
       signableHex: 'aabb',
     };
     let stored: unknown;
-    const entity = new SimpleDbEntityXmr();
+    const entity = new SimpleDbEntityPrivacyChainJournal();
     Reflect.set(entity, 'appStorage', {
       getItem: async () => stored,
       setItem: async (_key: string, value: unknown) => {
@@ -79,7 +82,7 @@ it.each([null, 100])(
       networkId: 'xmr--0',
       getXmrRuntimeApi: async () => api,
       getXmrNetwork: async () => 'mainnet' as const,
-      backgroundApi: { simpleDb: { xmr: entity } },
+      backgroundApi: { simpleDb: { privacyChainJournal: entity } },
     });
     // The runtime fixture records the same field that the Rust wire history returns.
     await vault.broadcastTransaction({
@@ -101,7 +104,9 @@ it.each([null, 100])(
         receivedAtomic: '0',
         outgoingAtomic: recordedOutgoing,
       },
-      (await entity.getSentAmounts({ accountId }))['synthetic-tx'],
+      toXmrSentAmount(
+        (await entity.listXmrSent({ accountId }))['synthetic-tx'],
+      ),
     );
     expect(row.decodedTx.totalFeeInNative).toBe('0.00003');
     expect(row.decodedTx.nativeAmountIsUnknown).toBe(false);

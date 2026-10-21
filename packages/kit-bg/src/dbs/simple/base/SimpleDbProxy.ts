@@ -57,6 +57,7 @@ import type { SimpleDbEntityPrimeFreeTrial } from '../entity/SimpleDbEntityPrime
 import type { SimpleDbEntityPrimeTransfer } from '../entity/SimpleDbEntityPrimeTransfer';
 import type { SimpleDbEntityPrivacyChain } from '../entity/SimpleDbEntityPrivacyChain';
 import type { SimpleDbEntityPrivacyChainCache } from '../entity/SimpleDbEntityPrivacyChainCache';
+import type { SimpleDbEntityPrivacyChainJournal } from '../entity/SimpleDbEntityPrivacyChainJournal';
 import type { SimpleDbEntityReceiveArrivalConfig } from '../entity/SimpleDbEntityReceiveArrivalConfig';
 import type { SimpleDbEntityRecentNetworks } from '../entity/SimpleDbEntityRecentNetworks';
 import type { SimpleDbEntityReferralCode } from '../entity/SimpleDbEntityReferralCode';
@@ -185,6 +186,10 @@ export class SimpleDbProxy
   privacyChainCache = this._createProxyService(
     'privacyChainCache',
   ) as SimpleDbEntityPrivacyChainCache;
+
+  privacyChainJournal = this._createProxyService(
+    'privacyChainJournal',
+  ) as SimpleDbEntityPrivacyChainJournal;
 
   zcash = this._createProxyService('zcash') as SimpleDbEntityZcash;
 

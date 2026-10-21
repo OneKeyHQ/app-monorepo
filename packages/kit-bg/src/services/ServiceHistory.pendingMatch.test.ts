@@ -14,7 +14,6 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
   };
 });
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
@@ -181,8 +180,11 @@ describe('ServiceHistory local pending reconciliation', () => {
 });
 
 describe('ServiceHistory clear pending transactions', () => {
-  function createService(clearPendingSends: () => Promise<void>) {
+  // Privacy-chain send locks are per account; an app-wide clear (settings,
+  // or any chain's "pending queue too long" toast) must not reach them.
+  it('never touches local wallet send locks', async () => {
     const clearLocalHistoryPendingTxs = jest.fn(async () => undefined);
+    const forEachLocalWalletCapability = jest.fn();
     const service = Object.assign(
       Object.create(ServiceHistory.prototype) as InstanceType<
         typeof ServiceHistory
@@ -190,37 +192,12 @@ describe('ServiceHistory clear pending transactions', () => {
       {
         backgroundApi: {
           simpleDb: { localHistory: { clearLocalHistoryPendingTxs } },
-          servicePrivacyChain: {
-            forEachLocalWalletCapability: async (
-              fn: (capability: object) => Promise<void>,
-            ) => {
-              await fn({ clearPendingSends });
-              await fn({});
-            },
-          },
+          servicePrivacyChain: { forEachLocalWalletCapability },
         },
       },
     );
-    return { service, clearLocalHistoryPendingTxs };
-  }
-
-  it('also releases local wallet send locks', async () => {
-    const clearPendingSends = jest.fn(async () => undefined);
-    const { service, clearLocalHistoryPendingTxs } =
-      createService(clearPendingSends);
     await service.clearLocalHistoryPendingTxs();
     expect(clearLocalHistoryPendingTxs).toHaveBeenCalled();
-    expect(clearPendingSends).toHaveBeenCalled();
-  });
-
-  it('keeps the general clear when a local wallet fails', async () => {
-    jest.spyOn(console, 'error').mockImplementation(() => undefined);
-    const { service, clearLocalHistoryPendingTxs } = createService(async () => {
-      throw new OneKeyLocalError('zcash storage unavailable');
-    });
-    await expect(
-      service.clearLocalHistoryPendingTxs(),
-    ).resolves.toBeUndefined();
-    expect(clearLocalHistoryPendingTxs).toHaveBeenCalled();
+    expect(forEachLocalWalletCapability).not.toHaveBeenCalled();
   });
 });

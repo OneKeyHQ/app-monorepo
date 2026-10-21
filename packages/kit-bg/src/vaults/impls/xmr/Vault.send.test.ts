@@ -35,7 +35,7 @@ const LIVE_TIP = 3_767_827;
 function createVault(options?: {
   prepare?: (args: { maxSend: boolean }) => Record<string, unknown>;
   broadcast?: () => Promise<string>;
-  recordSentRecipient?: () => Promise<void>;
+  recordXmrSent?: () => Promise<void>;
 }) {
   const prepared: IFakeRuntime['prepared'] = [];
 
@@ -76,9 +76,9 @@ function createVault(options?: {
     networkId: 'xmr--0',
     backgroundApi: {
       simpleDb: {
-        xmr: {
-          recordSentRecipient: jest.fn(
-            options?.recordSentRecipient ?? (async () => undefined),
+        privacyChainJournal: {
+          recordXmrSent: jest.fn(
+            options?.recordXmrSent ?? (async () => undefined),
           ),
         },
       },
@@ -559,7 +559,7 @@ describe('xmr send: broadcast', () => {
   // The broadcast already happened; a failed bookkeeping write must not report failure.
   it('still reports success when recording the recipient fails', async () => {
     const { vault } = createVault({
-      recordSentRecipient: () => Promise.reject(new Error('disk full')),
+      recordXmrSent: () => Promise.reject(new Error('disk full')),
     });
     await expect(
       vault.broadcastTransaction({
@@ -593,7 +593,7 @@ describe('xmr send: broadcast', () => {
       },
     } as never);
     expect(
-      vault.backgroundApi.simpleDb.xmr.recordSentRecipient,
+      vault.backgroundApi.simpleDb.privacyChainJournal.recordXmrSent,
     ).toHaveBeenCalledWith({
       accountId: ACCOUNT_ID,
       txid: 'deadbeef',

@@ -174,7 +174,7 @@ export class KeyringHd extends KeyringHdBtc {
       encodedTx,
     });
     return signTransparentTransaction({
-      journal: this.backgroundApi.simpleDb.zcash,
+      journal: this.backgroundApi.simpleDb.privacyChainJournal,
       accountId: this.vault.accountId,
       encodedTx,
       request,

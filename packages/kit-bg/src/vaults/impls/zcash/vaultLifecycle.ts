@@ -39,6 +39,7 @@ import {
   getZcashSyncMutex,
 } from './lifecycle';
 import { parseZcashTransaction } from './transactionReview';
+import { ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS } from './vaultTransparent';
 import {
   ZCASH_WORKER_RESET_TIMEOUT_MS,
   createZcashSetupIncompleteError,
@@ -58,6 +59,50 @@ import type {
 } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
 import type { ILocalWalletCapability } from '../../localWallet/types';
 import type { IRescanLocalWalletFrom } from '../../types';
+
+async function listZcashCleanupAccountIds(vault: Vault): Promise<string[]> {
+  const [stateAccountIds, journalAccountIds] = await Promise.all([
+    vault.backgroundApi.simpleDb.zcash.listCleanupAccountIds(),
+    vault.backgroundApi.simpleDb.privacyChainJournal.listZcashTransparentAccountIds(),
+  ]);
+  return uniq([...stateAccountIds, ...journalAccountIds]);
+}
+
+async function removeZcashAccountState(
+  vault: Vault,
+  accountId: string,
+): Promise<void> {
+  await vault.backgroundApi.simpleDb.zcash.removeAccountState({ accountId });
+  await vault.backgroundApi.simpleDb.privacyChainJournal.removeZcashTransparentAccount(
+    { accountId },
+  );
+}
+
+// Uses the last saved tip: an older tip only keeps more sends, and the
+// clear must not wait on loading the runtime.
+async function clearZcashPendingSends(
+  vault: Vault,
+  { networkId, accountId }: { networkId: string; accountId: string },
+): Promise<void> {
+  if (networkId !== vault.networkId) {
+    throw new OneKeyLocalError(
+      'zcash: pending sends belong to another network',
+    );
+  }
+  const tip = await getLastLocalWalletChainTip({
+    backgroundApi: vault.backgroundApi,
+    networkId,
+  }).catch(() => undefined);
+  await vault.backgroundApi.simpleDb.privacyChainJournal.clearTransparentPendingSends(
+    {
+      accountId,
+      expiredBeforeHeight:
+        tip === undefined
+          ? undefined
+          : tip - ZCASH_TRANSPARENT_DROP_MARGIN_BLOCKS,
+    },
+  );
+}
 
 export function getLocalWalletCapability(vault: Vault): ILocalWalletCapability {
   return {
@@ -129,16 +174,15 @@ export function getLocalWalletCapability(vault: Vault): ILocalWalletCapability {
     // Runtime state is removed before its host journal entry, so an empty
     // journal means there is nothing to delete.
     hasLocalData: async () =>
-      (await vault.backgroundApi.simpleDb.zcash.listCleanupAccountIds())
-        .length > 0,
+      (await listZcashCleanupAccountIds(vault)).length > 0,
     dropLocalData: async () => {
       const api = await vault.zcashGetApi();
       await api.dropWalletDatabase(ZCASH_NETWORK_MAIN);
       // Host journals describe the database just deleted; clear them too or they drift out of sync.
       await vault.backgroundApi.simpleDb.zcash.clearRawData();
+      await vault.backgroundApi.simpleDb.privacyChainJournal.clearZcashTransparent();
     },
-    clearPendingSends: () =>
-      vault.backgroundApi.simpleDb.zcash.clearTransparentPendingState(),
+    clearPendingSends: (params) => clearZcashPendingSends(vault, params),
     setDiagnosticsEnabled: (params) => vault.zcashSetPerfTrace(params),
     getSyncProgress: (params) => vault.getLocalWalletSyncProgress(params),
     rescan: (params) => vault.rescanLocalWallet(params),
@@ -334,8 +378,7 @@ export async function listLocalWalletAccounts(vault: Vault): Promise<{
   }
   return {
     accounts,
-    cleanupAccountIds:
-      await vault.backgroundApi.simpleDb.zcash.listCleanupAccountIds(),
+    cleanupAccountIds: await listZcashCleanupAccountIds(vault),
     // Every new account records privacy mode 'off', which holds no data.
     storedAccountIds: uniq([...accountIds, ...enabledAccountIds]),
   };
@@ -931,23 +974,19 @@ export async function resetLocalWallet(
         );
         if (owner) {
           // Still referenced by another alias; runtime state keys by the shared UFVK, so removing this alias doesn't touch history.
-          await vault.backgroundApi.simpleDb.zcash.removeAccountState({
-            accountId,
-          });
+          await removeZcashAccountState(vault, accountId);
           return;
         }
       }
       const account = await vault.zcashGetWalletAccount({ accountId });
       const api = await vault.zcashGetApi();
       await api.purgeWallet(account);
-      await vault.backgroundApi.simpleDb.zcash.removeAccountState({
-        accountId,
-      });
+      await removeZcashAccountState(vault, accountId);
     });
     return;
   }
   // Nothing can locate a runtime account anymore; drop any orphaned host-only records found during cleanup.
-  await vault.backgroundApi.simpleDb.zcash.removeAccountState({ accountId });
+  await removeZcashAccountState(vault, accountId);
 }
 
 export async function deleteLocalPrivacyData(

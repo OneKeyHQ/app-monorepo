@@ -3461,17 +3461,6 @@ class ServiceHistory extends ServiceBase {
   @backgroundMethod()
   public async clearLocalHistoryPendingTxs() {
     await this.backgroundApi.simpleDb.localHistory.clearLocalHistoryPendingTxs();
-    // Privacy chains also hold local input locks; a failure there must not
-    // undo the general clear above.
-    try {
-      await this.backgroundApi.servicePrivacyChain.forEachLocalWalletCapability(
-        async (capability) => {
-          await capability.clearPendingSends?.();
-        },
-      );
-    } catch (error) {
-      console.error('Failed to clear local wallet pending sends:', error);
-    }
   }
 
   @backgroundMethod()

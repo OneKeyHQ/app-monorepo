@@ -463,9 +463,11 @@ export async function fetchAccountHistoryFromLocal(
     });
   }
   const transparentPending =
-    await vault.backgroundApi.simpleDb.zcash.listTransparentPendingTxs({
-      accountId,
-    });
+    await vault.backgroundApi.simpleDb.privacyChainJournal.listTransparentPendingTxs(
+      {
+        accountId,
+      },
+    );
   const cachedRows = await loadCachedHistory();
   const cachedPendingMetadata = new Map(
     cachedRows.map((tx) => [tx.decodedTx.txid.toLowerCase(), tx.decodedTx]),
@@ -540,10 +542,12 @@ export async function fetchAccountHistoryFromLocal(
         if (status === undefined) return [];
         if (isTerminalTransparentHistoryStatus(status)) {
           return [
-            vault.backgroundApi.simpleDb.zcash.settleTransparentPendingTx({
-              accountId,
-              txid: tx.txid,
-            }),
+            vault.backgroundApi.simpleDb.privacyChainJournal.settleTransparentPendingTx(
+              {
+                accountId,
+                txid: tx.txid,
+              },
+            ),
           ];
         }
         // A Pending indexer row may be a server-side submission; it's not proof a node accepted the signed transaction.

@@ -21080,6 +21080,7 @@
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityPrimeTransfer.ts": 16233,
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityPrivacyChain.ts": 15917,
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityPrivacyChainCache.ts": 19121,
+    "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityPrivacyChainJournal.ts": 12847,
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityReceiveArrivalConfig.ts": 3561,
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityRecentNetworks.ts": 10542,
     "packages/kit-bg/src/dbs/simple/entity/SimpleDbEntityRecentRecipients.ts": 8712,

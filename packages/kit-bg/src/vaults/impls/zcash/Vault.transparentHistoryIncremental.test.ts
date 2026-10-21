@@ -16,6 +16,7 @@ import type {
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { SimpleDbEntityLocalHistory } from '../../../dbs/simple/entity/SimpleDbEntityLocalHistory';
+import { SimpleDbEntityPrivacyChainJournal } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainJournal';
 import { SimpleDbEntityZcash } from '../../../dbs/simple/entity/SimpleDbEntityZcash';
 import VaultBtc from '../btc/Vault';
 
@@ -128,13 +129,17 @@ function createVault(post: jest.Mock) {
         block: tx.block,
       },
     }));
-  const zcash = inMemory(new SimpleDbEntityZcash());
+  const journalDb = inMemory(new SimpleDbEntityPrivacyChainJournal());
   const localHistory = inMemory(new SimpleDbEntityLocalHistory());
   const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
     accountId,
     networkId: historyParams.networkId,
     backgroundApi: {
-      simpleDb: { zcash, localHistory },
+      simpleDb: {
+        zcash: inMemory(new SimpleDbEntityZcash()),
+        privacyChainJournal: journalDb,
+        localHistory,
+      },
       serviceToken: { getToken: async () => undefined },
       serviceAccount: {
         getDBAccountSafe: async () => ({ address: 't1-own', xpub: 'xpub' }),
@@ -159,7 +164,7 @@ function createVault(post: jest.Mock) {
       ...historyParams,
       isManualRefresh,
     });
-  return { vault, zcash, localHistory, fetchTransparent, readHistory };
+  return { vault, journalDb, localHistory, fetchTransparent, readHistory };
 }
 
 function statuses(txs: IAccountHistoryTx[]) {
@@ -304,7 +309,7 @@ describe('Zcash transparent history polling', () => {
 
   it('removes rows and drops expired sends only on full passes', async () => {
     const { backend, post } = createBackend(minedRows(1, 1200));
-    const { zcash, localHistory, readHistory } = createVault(post);
+    const { journalDb, localHistory, readHistory } = createVault(post);
     await readHistory();
 
     const sendTxid = 'aa'.repeat(32);
@@ -344,7 +349,7 @@ describe('Zcash transparent history polling', () => {
         },
       ],
     });
-    await zcash.saveTransparentPendingTx({
+    await journalDb.saveTransparentPendingTx({
       accountId,
       tx: {
         txid: sendTxid,
@@ -366,15 +371,17 @@ describe('Zcash transparent history polling', () => {
     expect(post).toHaveBeenCalledTimes(1);
     expect(incremental.get(removed)).toBe(EDecodedTxStatus.Confirmed);
     expect(incremental.get(sendTxid)).toBe(EDecodedTxStatus.Pending);
-    expect(await zcash.listTransparentPendingTxs({ accountId })).toHaveLength(
-      1,
-    );
+    expect(
+      await journalDb.listTransparentPendingTxs({ accountId }),
+    ).toHaveLength(1);
 
     post.mockClear();
     const full = statuses((await readHistory(true)) ?? []);
     expect(post).toHaveBeenCalledTimes(3);
     expect(full.has(removed)).toBe(false);
     expect(full.get(sendTxid)).toBe(EDecodedTxStatus.Dropped);
-    expect(await zcash.listTransparentPendingTxs({ accountId })).toEqual([]);
+    expect(await journalDb.listTransparentPendingTxs({ accountId })).toEqual(
+      [],
+    );
   });
 });

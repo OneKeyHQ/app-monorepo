@@ -77,6 +77,10 @@ function createService({
             removeLastBalances,
             listLastBalanceAccountIds: async () => lastBalanceAccountIds,
           },
+          privacyChainJournal: {
+            listAccountIds: async () => [],
+            removeAccounts: jest.fn(async () => undefined),
+          },
         },
         servicePassword: {
           hasCachedPassword: jest.fn(async () => !!cachedPassword),
