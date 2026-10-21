@@ -19,6 +19,8 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { buildSwapNetworkReadyKey } from '../utils/swapNetworkCacheUtils';
+
 import { useSwapTokenList } from './useSwapTokens';
 
 const network: ISwapNetwork = {
@@ -40,6 +42,7 @@ const token: ISwapToken = {
   price: '1',
 };
 let mockNetworks = [network];
+let mockDeriveType: string | undefined;
 let mockFocused = true;
 let mockTokenCatch: Record<string, { data: ISwapToken[] }> = {};
 let mockAllNetworkLists: Record<string, ISwapToken[]> = {};
@@ -72,7 +75,10 @@ jest.mock('../../../hooks/useListenTabFocusState', () => ({
   default: jest.fn(),
 }));
 jest.mock('./useSwapAccount', () => ({
-  useSwapAddressInfo: () => ({ accountInfo: mockAccountInfo }),
+  useSwapAddressInfo: () => ({
+    accountInfo: mockAccountInfo,
+    deriveType: mockDeriveType,
+  }),
 }));
 jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -141,6 +147,7 @@ describe('useSwapTokenList loading lifecycle', () => {
     });
     jest.clearAllMocks();
     mockNetworks = [network];
+    mockDeriveType = undefined;
     mockFocused = true;
     mockTokenCatch = {};
     mockAllNetworkLists = {};
@@ -358,6 +365,47 @@ describe('useSwapTokenList loading lifecycle', () => {
     rerender();
     await waitFor(() => expect(mockLoadAllNetworks).toHaveBeenCalled());
     await waitFor(() => expect(result.current.fetchLoading).toBe(false));
+    unmount();
+  });
+  it('preserves cached rows when network order and the selected chain derive resolve', async () => {
+    const solana = {
+      ...network,
+      networkId: 'sol--101',
+      name: 'Solana',
+      symbol: 'SOL',
+    };
+    mockNetworks = [network, solana];
+    cacheAllNetworks([token]);
+    const { result, rerender, unmount } = renderList();
+    await waitFor(() => expect(result.current.currentTokens).toEqual([token]));
+    const discoveryCalls = mockGetSupportAccounts.mock.calls.length;
+    const request = deferred();
+    mockGetSupportAccounts.mockImplementation(async () => {
+      await request.promise;
+      return { supportAccountsFetchFailed: false, swapSupportAccounts: [] };
+    });
+    mockNetworks = [solana, network];
+    mockDeriveType = 'default';
+    rerender();
+    expect(result.current.currentTokens).toEqual([token]);
+    expect(result.current.fetchLoading).toBe(false);
+    expect(mockGetSupportAccounts).toHaveBeenCalledTimes(discoveryCalls);
+    expect(buildSwapNetworkReadyKey([network, solana])).toBe(
+      buildSwapNetworkReadyKey([solana, network]),
+    );
+
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.GlobalDeriveTypeUpdate, {
+        networkImpl: 'btc',
+      });
+    });
+    expect(result.current.currentTokens).toEqual([]);
+    expect(result.current.fetchLoading).toBe(true);
+    expect(mockGetSupportAccounts).toHaveBeenCalledTimes(discoveryCalls + 1);
+    await act(async () => {
+      request.resolve();
+    });
+    expect(result.current.currentTokens).toEqual([token]);
     unmount();
   });
 });

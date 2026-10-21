@@ -1,5 +1,6 @@
+import { DEV_UNKNOWN_AVATAR_DEVICE_ID } from '@onekeyhq/shared/src/consts/dbConsts';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/config/vendorProfile';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
   ICloudSyncPayloadWallet,
@@ -24,6 +25,14 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
     target: ICloudSyncTargetWallet,
   ): Promise<boolean> {
     const { wallet, dbDevice } = target;
+
+    // The reserved QA device must stay local, including during full sync.
+    if (
+      accountUtils.isQrWallet({ walletId: wallet.id }) &&
+      dbDevice?.deviceId === DEV_UNKNOWN_AVATAR_DEVICE_ID
+    ) {
+      return false;
+    }
 
     // Third-party HW vendors (Ledger, ...) don't participate in cloud sync.
     // Without this gate, buildSyncRawKey falls through to '' and every

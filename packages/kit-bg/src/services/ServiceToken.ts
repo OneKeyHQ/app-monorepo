@@ -1146,7 +1146,7 @@ class ServiceToken extends ServiceBase {
 
     const result = resp.data.data ?? [];
 
-    return result.map((item) => {
+    const normalized = result.map((item) => {
       const tokens = item.tokens.map((token) => ({
         ...token,
         info: {
@@ -1157,6 +1157,11 @@ class ServiceToken extends ServiceBase {
       tokenRebaseUtils.normalizeTokenDetailItemsBalanceMultiplier(tokens);
       return { ...item, tokens };
     });
+
+    // Mirror the single-account path: chains with a native reserve (OK-64709)
+    // must split it here too, or bulk send treats the reserve as spendable.
+    const vault = await vaultFactory.getChainOnlyVault({ networkId });
+    return vault.fillTokensDetailsBatch({ tokensDetailsBatch: normalized });
   }
 
   @backgroundMethod()

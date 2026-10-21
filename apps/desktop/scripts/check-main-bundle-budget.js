@@ -49,7 +49,6 @@ const DEFAULT_BUDGETS = {
   largestInputBytes: 3 * MB,
   forbiddenBundledInputs: [
     'node_modules/@sentry/electron',
-    'node_modules/electron-updater',
     'node_modules/adm-zip',
     'node_modules/systeminformation',
     'node_modules/iconv-lite',

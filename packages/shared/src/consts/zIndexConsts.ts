@@ -7,6 +7,12 @@ export const DEV_OVERLAY_FLOAT_BUTTON_Z_INDEX = APP_STATE_LOCK_Z_INDEX + 5;
 // in Tamagui:
 //  the z-index of the Sheet is 1e5 - 1.
 export const SHEET_AND_DIALOG_Z_INDEX = 100_000 - 1;
+// The WalletConnect Pay dialog is the surface every prompt of a payment
+// (password, hardware, fee confirm) opens over, so it sits one step below the
+// Dialog/Sheet stack instead of taking a place in it. The stack orders by
+// opening time: a parked dialog revealed later would land above a prompt that
+// is already open (and the stack also drops a re-opened dialog's entry).
+export const WC_PAY_DIALOG_Z_INDEX = SHEET_AND_DIALOG_Z_INDEX - 1;
 //  the z-index of the Dialog is 1e5.
 //  the z-index of the Toast is 1e5.
 //  the z-index of the Popover 15e4.

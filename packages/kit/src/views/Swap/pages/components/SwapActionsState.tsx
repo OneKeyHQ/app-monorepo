@@ -1088,17 +1088,6 @@ const SwapActionsState = ({
     [],
   );
 
-  const desktopActionWidthProps = useMemo(
-    () =>
-      desktopActionWidth
-        ? {
-            width: desktopActionWidth,
-            minWidth: desktopActionWidth,
-          }
-        : undefined,
-    [desktopActionWidth],
-  );
-
   const actionButtonChildren = useMemo(
     () =>
       shouldShowQuoteActionLoading ? (
@@ -1255,11 +1244,7 @@ const SwapActionsState = ({
             gapSide="bottom"
           >
             <XStack width="100%" justifyContent="flex-end">
-              <Stack
-                flexShrink={0}
-                alignItems="stretch"
-                {...desktopActionWidthProps}
-              >
+              <Stack flexShrink={0} alignItems="stretch">
                 <Stack alignItems="center" onLayout={onDesktopActionTagLayout}>
                   {costSavingsComponent}
                 </Stack>
@@ -1280,7 +1265,7 @@ const SwapActionsState = ({
               flexShrink={0}
               alignItems="stretch"
               gap="$2"
-              {...desktopActionWidthProps}
+              minWidth={desktopActionWidth}
             >
               <Button
                 testID={SwapTestIDs.actionPrimaryButton}
@@ -1289,7 +1274,7 @@ const SwapActionsState = ({
                 variant="primary"
                 disabled={isActionDisabled}
                 borderRadius="$full"
-                {...(desktopActionWidth ? { width: '100%' } : {})}
+                childrenAsText={false}
               >
                 {actionButtonChildren}
               </Button>
@@ -1307,7 +1292,6 @@ const SwapActionsState = ({
       actionButtonChildren,
       costSavingsComponent,
       desktopActionWidth,
-      desktopActionWidthProps,
       isActionDisabled,
       onActionHandlerBefore,
       onDesktopActionTagLayout,

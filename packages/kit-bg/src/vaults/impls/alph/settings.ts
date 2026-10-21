@@ -48,6 +48,10 @@ const settings: IVaultSettings = {
   replaceTxEnabled: false,
   estimatedFeePollingInterval: 30,
 
+  // The node keeps 0.001 ALPH back for the change output of every transfer;
+  // see `fillTokensDetails` in ./Vault.ts.
+  hasFrozenBalance: true,
+
   customRpcEnabled: true,
 
   accountDeriveInfo,

@@ -21,6 +21,7 @@ import type {
   ITradingViewNativeProps,
   ITradingViewNativeSource,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
+import { TradingViewNativeTokenHeader } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/TradingViewNativeTokenHeader';
 import { TradingViewPerpsV2 } from '@onekeyhq/kit/src/components/TradingView/TradingViewPerpsV2/TradingViewPerpsV2';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -32,9 +33,12 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   formatSpotPairDisplayName,
+  getHyperliquidTokenImageUris,
+  getHyperliquidTokenImageUrl,
   getSpotTokenDisplayName,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
+import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { usePerpsChartOrderMenu } from '../hooks/usePerpsChartOrderMenu';
 import { usePerpsNativeChartLines } from '../hooks/usePerpsNativeChartLines';
 import { usePerpsNativeChartMarks } from '../hooks/usePerpsNativeChartMarks';
@@ -50,11 +54,25 @@ function PerpNativeCandles({
   const metadata = usePerpsNativeChartMetadata();
   const orderMenu = usePerpsChartOrderMenu(enableTradingUi);
   const chartComponents = useMemo(() => [...lines, ...marks], [lines, marks]);
+  const { baseName, coin, mode } = useActiveTradeDisplay();
+  const fullscreenHeader = useMemo(
+    () =>
+      platformEnv.isNative ? (
+        <TradingViewNativeTokenHeader
+          name={baseName}
+          {...(mode === 'spot'
+            ? { tokenImageUri: getHyperliquidTokenImageUrl(baseName) }
+            : { tokenImageUris: getHyperliquidTokenImageUris(coin) })}
+        />
+      ) : undefined,
+    [baseName, coin, mode],
+  );
   return (
     <TradingViewNative
       {...props}
       {...metadata}
       {...orderMenu}
+      nativeChartFullscreenHeader={fullscreenHeader}
       chartComponents={chartComponents}
       onReferenceLineAction={
         enableTradingUi ? onReferenceLineAction : undefined
@@ -77,18 +95,6 @@ export function PerpCandles({
 }) {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [currentAccount] = usePerpsActiveAccountAtom();
-  const accountAddress = currentAccount?.accountAddress?.toLowerCase();
-  const [chartAccount, setChartAccount] = useState({
-    address: accountAddress,
-    revision: 0,
-  });
-  if (chartAccount.address !== accountAddress) {
-    // An anonymous chart has no account marks to discard on first resolution.
-    setChartAccount({
-      address: accountAddress,
-      revision: chartAccount.revision + (chartAccount.address ? 1 : 0),
-    });
-  }
   const [{ reloadHook }] = usePerpsCandlesWebviewReloadHookAtom();
   const [{ chartExpanded = false }, setLayoutState] = usePerpsLayoutStateAtom();
   const [
@@ -229,9 +235,6 @@ export function PerpCandles({
       ) : null}
       {!isTradingViewNative && reloadHook > 0 && activeTradeInstrument.coin ? (
         <TradingViewPerpsV2
-          // The embedded chart caches marks by symbol, so accounts must not
-          // share its instance even after the current symbol's marks are cleared.
-          key={chartAccount.revision}
           webviewKey={reloadHook.toString()}
           userAddress={currentAccount?.accountAddress}
           enablePerpsTradingUi={enablePerpsTradingUi}

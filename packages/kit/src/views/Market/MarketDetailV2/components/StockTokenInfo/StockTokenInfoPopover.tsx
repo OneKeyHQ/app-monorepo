@@ -301,12 +301,12 @@ export function StockTokenInfoPopover({ label }: { label: ReactNode }) {
           }
         />
       }
-      renderContent={() => (
+      renderContent={
         <StockTokenInfoContent
           variant={selectedTokenVariant}
           stockId={stockId}
         />
-      )}
+      }
     />
   );
 }

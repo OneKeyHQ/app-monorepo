@@ -21,6 +21,8 @@ import bs58 from 'bs58';
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 import type { IEncodedTxSol } from '@onekeyhq/core/src/chains/sol/types';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { logSolanaTxDiagnostic } from '@onekeyhq/shared/src/logger/solanaTxDiagnostics';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
@@ -339,6 +341,31 @@ describe('SolVault.refreshUnsignedTxBeforeSign', () => {
   });
 });
 
+describe('SolVault.getSignatureStatuses', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('splits the lookup into batches of 256 and keeps the result order', async () => {
+    const { vault } = buildVault();
+    const clientLookup = jest.fn(async (batch: string[]) =>
+      batch.map((signature) => ({ confirmationStatus: signature })),
+    );
+    vault.getClient = async () =>
+      ({ getSignatureStatuses: clientLookup }) as unknown as ClientSol;
+    const signatures = Array.from({ length: 300 }, (_, i) => `sig-${i}`);
+
+    const statuses = await vault.getSignatureStatuses(signatures);
+
+    expect(clientLookup).toHaveBeenCalledTimes(2);
+    expect(clientLookup.mock.calls[0][0]).toHaveLength(256);
+    expect(clientLookup.mock.calls[1][0]).toHaveLength(44);
+    expect(statuses?.map((status) => status?.confirmationStatus)).toEqual(
+      signatures,
+    );
+  });
+});
+
 describe('SolVault.getDroppedPendingTxs', () => {
   const now = 1_700_000_000_000;
   const oldEnough = now - timerUtils.getTimeDurationMs({ minute: 3 });
@@ -559,6 +586,16 @@ describe('SolVault.checkShouldRetryBroadcastTx', () => {
     ).toBe(false);
     expect(wait).not.toHaveBeenCalled();
   });
+
+  it('stops retrying a blockhash-not-found rejection after the second attempt', async () => {
+    const { vault } = buildVault();
+    const wait = jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+
+    expect(
+      await vault.checkShouldRetryBroadcastTx(buildError({ code: 40_028 }, 3)),
+    ).toBe(false);
+    expect(wait).not.toHaveBeenCalled();
+  });
 });
 
 describe('SolVault broadcast error copy', () => {
@@ -577,6 +614,12 @@ describe('SolVault broadcast error copy', () => {
     'Error JSON RPC response: Transaction simulation failed: Blockhash not found',
   );
 
+  beforeEach(() => {
+    jest
+      .spyOn(appLocale.intl, 'formatMessage')
+      .mockImplementation((descriptor) => `t:${String(descriptor.id)}`);
+  });
+
   afterEach(() => {
     jest.restoreAllMocks();
   });
@@ -593,7 +636,7 @@ describe('SolVault broadcast error copy', () => {
     });
 
     await expect(promise).rejects.toMatchObject({
-      message: 'Transaction expired, please try again.',
+      message: `t:${ETranslations.wallet_sol_tx_expired__msg}`,
       code: 40_028,
     });
   });
@@ -609,7 +652,7 @@ describe('SolVault broadcast error copy', () => {
     await expect(
       vault.broadcastTransaction(broadcastParams),
     ).rejects.toMatchObject({
-      message: 'Transaction expired, please try again.',
+      message: `t:${ETranslations.wallet_sol_tx_expired__msg}`,
       code: 40_028,
     });
   });

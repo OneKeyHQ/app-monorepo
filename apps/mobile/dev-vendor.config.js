@@ -54,6 +54,10 @@ const fingerprintFiles = [
   'development/envExposedToClient.js',
   'development/platformEnvDefine.js',
   'package.json',
+  // Native font family names are baked into the vendor bundle; the generated
+  // manifest keeps private-font vendor bundles apart from fallback ones.
+  'packages/components/src/hocs/Provider/fonts/brand/manifest.ts',
+  'packages/components/src/hocs/Provider/fonts/brandFont.ts',
   'packages/components/src/utils/scale.ts',
   'packages/components/src/utils/webFontFamily.ts',
   'packages/components/tamagui.animations.ts',
@@ -78,12 +82,12 @@ const nativeContractDependencies = {
   shared: [
     '@expo/dom-webview',
     '@expo/log-box',
-    '@expo/ui',
     '@notifee/react-native',
     '@onekeyfe/react-native-app-update',
     '@onekeyfe/react-native-auto-size-input',
     '@onekeyfe/react-native-background-thread',
     '@onekeyfe/react-native-ble-utils',
+    '@onekeyfe/react-native-bottom-tabs',
     '@onekeyfe/react-native-bundle-crypto',
     '@onekeyfe/react-native-bundle-update',
     '@onekeyfe/react-native-chart-webview',
@@ -110,7 +114,6 @@ const nativeContractDependencies = {
     '@onekeyfe/react-native-sni-connect',
     '@onekeyfe/react-native-splash-screen',
     '@onekeyfe/react-native-split-bundle-loader',
-    '@onekeyfe/react-native-tab-view',
     '@onekeyfe/react-native-text-input',
     '@phantom/react-native-juicebox-sdk',
     '@react-native-async-storage/async-storage',

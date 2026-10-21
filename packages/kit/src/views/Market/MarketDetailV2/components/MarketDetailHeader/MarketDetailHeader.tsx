@@ -59,6 +59,19 @@ import { TabPageHeaderContainer } from './TabPageHeaderContainer';
 
 import type { NativeStackHeaderItem } from '@react-navigation/native-stack';
 
+function getMobileSelectorDefaultCategory(listingIdentity: {
+  stockId?: string;
+  assetId?: string;
+}): 'stocks' | 'top_coins' | 'trending' {
+  if (listingIdentity.stockId) {
+    return 'stocks';
+  }
+  if (listingIdentity.assetId) {
+    return 'top_coins';
+  }
+  return 'trending';
+}
+
 // Holds the address line while a stock route resolves its token, so the
 // title does not re-center when the address arrives.
 function AddressLineSkeleton() {
@@ -77,6 +90,7 @@ export function MarketDetailHeader({
   const { width: windowWidth } = useWindowDimensions();
   const { left: safeAreaLeft, right: safeAreaRight } = useSafeAreaInsets();
   const listingIdentity = useMarketDetailWatchlistIdentity();
+  const { stockId: listingStockId, assetId: listingAssetId } = listingIdentity;
   const { handleBackPress } = useMarketDetailBackNavigation();
   const navigation = useAppNavigation();
   const { tokenDetail, tokenDetailPreview, networkId, isNative, isStockToken } =
@@ -84,11 +98,15 @@ export function MarketDetailHeader({
   const { stockDetail, stockPreview } = useStockDetail();
   const { copyText } = useClipboard();
   const isOverlayPage = useIsOverlayPage();
+  const isMobileWebLayout = platformEnv.isWeb && !media.gtLg;
+  // DApp mode hides the sidebar above md, so this header owns global navigation.
+  const showDappHeaderAboveDetail =
+    platformEnv.isWebDappMode && media.gtMd && isMobileWebLayout;
 
   const networkLogoUri = useNetworkLogoUri({ networkId });
-  // The mobile stock header matches the stock list: circular company mark,
-  // no chain badge. Desktop and web keep the wrapped-token header.
-  const useListingStockHeader = Boolean(platformEnv.isNative && isStockToken);
+  const useListingStockHeader = Boolean(
+    (platformEnv.isNative || isMobileWebLayout) && isStockToken,
+  );
   const detailKind = resolveMarketMobileDetailKind({
     isStockToken,
     marketTokenCategory,
@@ -116,9 +134,13 @@ export function MarketDetailHeader({
       screen: EModalMarketRoutes.MobileTokenSelector,
       params: {
         showFavoriteButton,
+        defaultCategory: getMobileSelectorDefaultCategory({
+          stockId: listingStockId,
+          assetId: listingAssetId,
+        }),
       },
     });
-  }, [navigation, showFavoriteButton]);
+  }, [listingAssetId, listingStockId, navigation, showFavoriteButton]);
 
   const handleCopyAddress = useCallback(() => {
     const address = tokenDetail?.address;
@@ -189,7 +211,7 @@ export function MarketDetailHeader({
         minWidth={0}
         // Android's custom row must fill the space between the back and action
         // buttons instead of distributing it around an iOS-sized title.
-        {...(platformEnv.isNativeAndroid
+        {...(!platformEnv.isNative || platformEnv.isNativeAndroid
           ? { flex: 1 }
           : {
               width: nativeHeaderTitleMaxWidth,
@@ -417,13 +439,26 @@ export function MarketDetailHeader({
     );
   }
 
+  const tabPageHeader = (
+    <TabPageHeader
+      sceneName={EAccountSelectorSceneName.home}
+      tabRoute={ETabRoutes.Market}
+      customHeaderLeftItems={customHeaderLeft}
+      customHeaderRightItems={platformEnv.isNative ? customHeaderRight : null}
+      hideSearch={!media.gtMd}
+    />
+  );
+
   return (
     <>
-      {media.md ? (
-        <TabPageHeaderContainer>
+      {showDappHeaderAboveDetail ? tabPageHeader : null}
+      {media.md || isMobileWebLayout ? (
+        <TabPageHeaderContainer
+          hideNavigationHeader={!showDappHeaderAboveDetail}
+        >
           <NavBackButton onPress={handleBackPress} />
 
-          {platformEnv.isNative ? (
+          {platformEnv.isNative || isMobileWebLayout ? (
             renderNativeHeaderTitle()
           ) : (
             <XStack flex={1} ai="center" gap="$2">
@@ -528,15 +563,7 @@ export function MarketDetailHeader({
           ) : null}
         </TabPageHeaderContainer>
       ) : (
-        <TabPageHeader
-          sceneName={EAccountSelectorSceneName.home}
-          tabRoute={ETabRoutes.Market}
-          customHeaderLeftItems={customHeaderLeft}
-          customHeaderRightItems={
-            platformEnv.isNative ? customHeaderRight : null
-          }
-          hideSearch={!media.gtMd}
-        />
+        tabPageHeader
       )}
     </>
   );

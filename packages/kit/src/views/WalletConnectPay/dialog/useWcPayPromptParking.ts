@@ -13,8 +13,8 @@ import { useIsTxFeeOverflowConfirmOpen } from '../../SignatureConfirm/hooks/txFe
  * HardwareUiStateContainer.tsx (private callbacks there): every other action
  * either opens the hardware dialog (PIN / passphrase / checking / loading /
  * permission prompts) or the "confirm on device" toast (REQUEST_BUTTON), both
- * RN-layer surfaces the system sheet would cover. Firmware actions cannot
- * occur mid-payment; they are listed so the two lists stay recognizably equal.
+ * surfaces the pay sheet steps aside for. Firmware actions cannot occur
+ * mid-payment; they are listed so the two lists stay recognizably equal.
  *
  * Deliberate divergences from `hasDialogAction` / `hasToastAction`:
  * - CLOSE_UI_PIN_WINDOW is a close, not a surface. The container does not
@@ -64,15 +64,14 @@ export type IWcPayPromptParkingPhaseName = 'idle' | 'paying' | 'result';
  * When the prompt parking applies at all. Split out from the flow so the rule
  * is testable on its own — every term below is load-bearing.
  *
- * NATIVE ONLY. The problem it solves is native-specific: there the sheet is a
- * system presentation (@expo/ui BottomSheet / Android M3 ModalBottomSheet)
- * that covers every RN-layer surface. On web/desktop the ordering is already
- * correct — the password prompt renders at z-index 160000
- * (PASSWORD_VERIFY_CONTAINER_Z_INDEX) and the hardware dialogs above the
- * DialogV2 web popup at z-index 50 (dialog.css) — so parking there would fix
- * nothing and cost something: hiding the dialog unmounts and remounts it
- * through its exit/entry animation and races base-ui's focus restore against
- * the password input the user is typing into.
+ * NATIVE ONLY. On a phone both the pay sheet and the prompt are bottom
+ * sheets: the pay sheet steps aside so the payer answers one sheet at a time,
+ * and so the prompt's keyboard does not lift the pay sheet behind it. On
+ * desktop the dialog simply stays behind the prompt — its fixed z-index
+ * (WC_PAY_DIALOG_Z_INDEX) sits below every prompt — so parking there would
+ * only cost something: hiding the dialog runs it through its exit/entry
+ * animation and races the focus restore against the password input the user
+ * is typing into.
  */
 export function isWcPayPromptParkingEnabled({
   isNative,
@@ -87,12 +86,11 @@ export function isWcPayPromptParkingEnabled({
 }
 
 /**
- * The pay sheet is a system-level presentation that covers the RN-layer
- * password and hardware dialogs. While a prompt is on screen the sheet must
- * park (hide) so the user can answer it, and come back once it is gone.
- * Cached-password and biometric paths never set these atoms, so they keep the
- * sheet up. Native only — see isWcPayPromptParkingEnabled for why the hook is
- * left disabled on web/desktop rather than made harmless there.
+ * While the password prompt or a hardware dialog is on screen the pay sheet
+ * parks (hides) so the user answers the prompt on its own, and comes back
+ * once it is gone. Cached-password and biometric paths never set these atoms,
+ * so they keep the sheet up. Native only — see isWcPayPromptParkingEnabled
+ * for why the hook is left disabled on desktop.
  *
  * The fee-overflow double confirm is the third prompt in this lifecycle. The
  * background's verifyTransactionFeeInfo (doubleConfirm) raises it — through
@@ -100,20 +98,15 @@ export function isWcPayPromptParkingEnabled({
  * plain Dialog.show() — when the fee overflows OR the fee precheck itself
  * fails, and then blocks on the answer. The inline send runs that check
  * BEFORE signing (wcPayInlineSendTx), so neither the password nor the
- * hardware atom has parked the sheet yet; without its own signal the dialog
- * would sit under the non-dismissible paying sheet with the background
- * waiting forever (reported on Android, where the sheet is a separate
- * window). The dialog publishes its presence (txFeeOverflowConfirmPresence)
- * and parks the sheet like the other two.
+ * hardware atom has parked the sheet yet; without its own signal the sheet
+ * would stay up under the dialog. The dialog publishes its presence
+ * (txFeeOverflowConfirmPresence) and parks the sheet like the other two.
  *
- * The parking is REACTIVE, and that is a known timing caveat: the pipelines
- * emit `onPhase('signingMessage')` fire-and-forget and there is no awaited
- * hook at the prompt boundary, so the prompt mounts UNDER the sheet first and
- * becomes reachable only once this park has dismissed it. Device QA on iOS and
- * Android must confirm the prompt does become reachable; if it gets stuck, the
- * fallback design is an awaited `onBeforePrompt` hook on the controller (park
- * plus a WC_PAY_SHEET_DISMISS_MS wait, exactly like
- * `onBeforePushConfirmModal`), which this hook cannot substitute for.
+ * The parking is REACTIVE: the pipelines emit `onPhase('signingMessage')`
+ * fire-and-forget and there is no awaited hook at the prompt boundary, so the
+ * prompt mounts while the sheet is still up and the sheet steps aside a
+ * moment later. The prompt is reachable throughout — the sheet's fixed
+ * z-index (WC_PAY_DIALOG_Z_INDEX) keeps it below every prompt.
  *
  * Reveal ownership: this hook only ever reveals what it parked, and only while
  * `enabled`. The terminal reveal on every exit path stays with the flow

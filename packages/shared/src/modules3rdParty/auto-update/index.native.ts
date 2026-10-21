@@ -11,6 +11,11 @@ import { appRestart } from '../appRestart';
 import { EAppRestartMode } from '../appRestart/types';
 
 import {
+  EUpdateErrorCode,
+  createUpdateError,
+  runUpdateOperation,
+} from './error';
+import {
   EAppUpdatePackageAvailabilityStatus,
   type IAppUpdate,
   type IBundleUpdate,
@@ -95,7 +100,9 @@ const clearPackage: IClearPackage = async () => {
   if (!isAppUpdateAvailable) {
     return;
   }
-  await getReactNativeAppUpdate().clearCache();
+  await runUpdateOperation('cleanup', () =>
+    getReactNativeAppUpdate().clearCache(),
+  );
 };
 
 // Android: wipe the standalone APK cache (cacheDir/apks). iOS exposes a
@@ -105,7 +112,9 @@ const clearApkCache = async (): Promise<void> => {
   if (!isAppUpdateAvailable) {
     return;
   }
-  await getReactNativeAppUpdate().clearApkCache();
+  await runUpdateOperation('cleanup', () =>
+    getReactNativeAppUpdate().clearApkCache(),
+  );
 };
 
 const downloadPackage: IDownloadPackage = async ({
@@ -116,15 +125,21 @@ const downloadPackage: IDownloadPackage = async ({
   const nativeDownloadUrl = toNativeString(downloadUrl).trim();
   const nativeLatestVersion = toNativeString(latestVersion).trim();
   if (!nativeDownloadUrl || !nativeLatestVersion) {
-    throw new OneKeyLocalError('Invalid version or downloadUrl');
+    throw createUpdateError({
+      code: EUpdateErrorCode.invalidArgument,
+      step: 'download',
+    });
   }
-  await getReactNativeAppUpdate().downloadAPK({
-    downloadUrl: nativeDownloadUrl,
-    notificationTitle: 'Downloading',
-    fileSize: toNativeNumber(fileSize),
-  });
+  await runUpdateOperation('download', () =>
+    getReactNativeAppUpdate().downloadAPK({
+      downloadUrl: nativeDownloadUrl,
+      notificationTitle: 'Downloading',
+      fileSize: toNativeNumber(fileSize),
+    }),
+  );
   return {
-    downloadedFile: nativeDownloadUrl,
+    downloadUrl: nativeDownloadUrl,
+    latestVersion: nativeLatestVersion,
   };
 };
 
@@ -133,9 +148,11 @@ const downloadASC: IDownloadASC = async (params) => {
   if (!nativeDownloadUrl) {
     return;
   }
-  await getReactNativeAppUpdate().downloadASC({
-    downloadUrl: nativeDownloadUrl,
-  });
+  await runUpdateOperation('downloadASC', () =>
+    getReactNativeAppUpdate().downloadASC({
+      downloadUrl: nativeDownloadUrl,
+    }),
+  );
 };
 
 const verifyASC: IVerifyASC = async (params) => {
@@ -143,9 +160,24 @@ const verifyASC: IVerifyASC = async (params) => {
   if (!nativeDownloadUrl) {
     return;
   }
-  await getReactNativeAppUpdate().verifyASC({
-    downloadUrl: nativeDownloadUrl,
-  });
+  await runUpdateOperation('verifyASC', () =>
+    getReactNativeAppUpdate().verifyASC({
+      downloadUrl: nativeDownloadUrl,
+    }),
+  );
+};
+
+const verifyNativeApk = async (
+  nativeUpdate: IReactNativeAppUpdateNative,
+  fileParams: { downloadUrl: string },
+): Promise<void> => {
+  // A fresh native instance has no in-memory ASC or package proof.
+  await runUpdateOperation('verifyASC', () =>
+    nativeUpdate.verifyASC(fileParams),
+  );
+  await runUpdateOperation('verifyPackage', () =>
+    nativeUpdate.verifyAPK(fileParams),
+  );
 };
 
 const verifyPackage: IVerifyPackage = async (params) => {
@@ -153,8 +185,10 @@ const verifyPackage: IVerifyPackage = async (params) => {
   if (!nativeDownloadUrl) {
     return;
   }
-  await getReactNativeAppUpdate().verifyAPK({
-    downloadUrl: nativeDownloadUrl,
+  await runUpdateOperation('verifyPackage', async () => {
+    const nativeUpdate = getReactNativeAppUpdate();
+    const fileParams = { downloadUrl: nativeDownloadUrl };
+    await verifyNativeApk(nativeUpdate, fileParams);
   });
 };
 
@@ -174,8 +208,11 @@ const installPackage: IInstallPackage = async ({
   if (!nativeLatestVersion) {
     return false;
   }
-  await getReactNativeAppUpdate().installAPK({
-    downloadUrl: toNativeString(downloadUrl),
+  await runUpdateOperation('install', async () => {
+    const nativeUpdate = getReactNativeAppUpdate();
+    const fileParams = { downloadUrl: toNativeString(downloadUrl) };
+    await verifyNativeApk(nativeUpdate, fileParams);
+    await nativeUpdate.installAPK(fileParams);
   });
   return true;
 };
@@ -260,44 +297,58 @@ export const AppUpdate: IAppUpdate = {
 
 export const BundleUpdate: IBundleUpdate = {
   downloadBundle: async (params) => {
-    await ReactNativeBundleUpdate.downloadBundle({
-      downloadUrl: toNativeString(params.downloadUrl),
-      latestVersion: toNativeString(params.latestVersion),
-      bundleVersion: toNativeString(params.bundleVersion),
-      fileSize: toNativeNumber(params.fileSize),
-      sha256: toNativeString(params.sha256),
-    });
+    const result = await runUpdateOperation('download', () =>
+      ReactNativeBundleUpdate.downloadBundle({
+        downloadUrl: toNativeString(params.downloadUrl),
+        latestVersion: toNativeString(params.latestVersion),
+        bundleVersion: toNativeString(params.bundleVersion),
+        fileSize: toNativeNumber(params.fileSize),
+        sha256: toNativeString(params.sha256),
+      }),
+    );
     return {
-      ...params,
+      downloadUrl: result.downloadUrl,
+      latestVersion: result.latestVersion,
+      bundleVersion: result.bundleVersion,
+      sha256: result.sha256,
+      signature: params.signature,
     };
   },
   verifyBundle: (params) =>
-    ReactNativeBundleUpdate.verifyBundle({
-      sha256: toNativeString(params?.sha256),
-      latestVersion: toNativeString(params?.latestVersion),
-      bundleVersion: toNativeString(params?.bundleVersion),
-    }),
+    runUpdateOperation('verifyPackage', () =>
+      ReactNativeBundleUpdate.verifyBundle({
+        sha256: toNativeString(params?.sha256),
+        latestVersion: toNativeString(params?.latestVersion),
+        bundleVersion: toNativeString(params?.bundleVersion),
+      }),
+    ),
   verifyBundleASC: (params) =>
-    ReactNativeBundleUpdate.verifyBundleASC({
-      sha256: toNativeString(params?.sha256),
-      latestVersion: toNativeString(params?.latestVersion),
-      bundleVersion: toNativeString(params?.bundleVersion),
-      signature: toNativeString(params?.signature),
-    }),
+    runUpdateOperation('verifyASC', () =>
+      ReactNativeBundleUpdate.verifyBundleASC({
+        sha256: toNativeString(params?.sha256),
+        latestVersion: toNativeString(params?.latestVersion),
+        bundleVersion: toNativeString(params?.bundleVersion),
+        signature: toNativeString(params?.signature),
+      }),
+    ),
   downloadBundleASC: (params) =>
-    ReactNativeBundleUpdate.downloadBundleASC({
-      downloadUrl: toNativeString(params?.downloadUrl),
-      signature: toNativeString(params?.signature),
-      latestVersion: toNativeString(params?.latestVersion),
-      bundleVersion: toNativeString(params?.bundleVersion),
-      sha256: toNativeString(params?.sha256),
-    }),
+    runUpdateOperation('downloadASC', () =>
+      ReactNativeBundleUpdate.downloadBundleASC({
+        downloadUrl: toNativeString(params?.downloadUrl),
+        signature: toNativeString(params?.signature),
+        latestVersion: toNativeString(params?.latestVersion),
+        bundleVersion: toNativeString(params?.bundleVersion),
+        sha256: toNativeString(params?.sha256),
+      }),
+    ),
   installBundle: async (params) => {
-    await ReactNativeBundleUpdate.installBundle({
-      latestVersion: toNativeString(params?.latestVersion),
-      bundleVersion: toNativeString(params?.bundleVersion),
-      signature: toNativeString(params?.signature),
-    });
+    await runUpdateOperation('install', () =>
+      ReactNativeBundleUpdate.installBundle({
+        latestVersion: toNativeString(params?.latestVersion),
+        bundleVersion: toNativeString(params?.bundleVersion),
+        signature: toNativeString(params?.signature),
+      }),
+    );
     defaultLogger.app.appUpdate.restartRNApp();
     // mode=All — OTA install rewrote bundle on disk; both main and bg
     // runtimes need to come up against the new bundle so moduleId tables
@@ -311,10 +362,16 @@ export const BundleUpdate: IBundleUpdate = {
       });
     }, 2500);
   },
-  clearBundle: () => ReactNativeBundleUpdate.clearBundle(),
-  clearDownload: () => ReactNativeBundleUpdate.clearDownload(),
+  clearBundle: () =>
+    runUpdateOperation('cleanup', () => ReactNativeBundleUpdate.clearBundle()),
+  clearDownload: () =>
+    runUpdateOperation('cleanup', () =>
+      ReactNativeBundleUpdate.clearDownload(),
+    ),
   resetToBuiltInBundle: async () => {
-    await ReactNativeBundleUpdate.resetToBuiltInBundle();
+    await runUpdateOperation('cleanup', () =>
+      ReactNativeBundleUpdate.resetToBuiltInBundle(),
+    );
   },
   restart: () => {
     // Generic OTA-driven restart (retry path, dialog-confirmed restart).
@@ -329,7 +386,10 @@ export const BundleUpdate: IBundleUpdate = {
     Promise.resolve(ReactNativeBundleUpdate.isSkipGpgVerificationAllowed()),
   pruneStaleAppVersionBundles: () =>
     ReactNativeBundleUpdateWithPrune.pruneStaleAppVersionBundles(),
-  clearAllJSBundleData: () => ReactNativeBundleUpdate.clearAllJSBundleData(),
+  clearAllJSBundleData: () =>
+    runUpdateOperation('cleanup', () =>
+      ReactNativeBundleUpdate.clearAllJSBundleData(),
+    ),
   testVerification: () => ReactNativeBundleUpdate.testVerification(),
   testSkipVerification: () => ReactNativeBundleUpdate.testSkipVerification(),
   testDeleteJsBundle: (appVersion, bundleVersion) =>
@@ -350,10 +410,14 @@ export const BundleUpdate: IBundleUpdate = {
   isBundleExists: (appVersion, bundleVersion) =>
     ReactNativeBundleUpdate.isBundleExists(appVersion, bundleVersion),
   verifyExtractedBundle: (appVersion, bundleVersion) =>
-    ReactNativeBundleUpdate.verifyExtractedBundle(appVersion, bundleVersion),
+    runUpdateOperation('verifyPackage', () =>
+      ReactNativeBundleUpdate.verifyExtractedBundle(appVersion, bundleVersion),
+    ),
   listLocalBundles: () => ReactNativeBundleUpdate.listLocalBundles(),
   switchBundle: async (params) => {
-    await ReactNativeBundleUpdate.setCurrentUpdateBundleData(params);
+    await runUpdateOperation('install', () =>
+      ReactNativeBundleUpdate.setCurrentUpdateBundleData(params),
+    );
     if (params.appVersion && params.bundleVersion) {
       // Switching bundles changes what's on disk for both main and bg;
       // mode=All to avoid moduleId drift after the swap. BootRecovery is

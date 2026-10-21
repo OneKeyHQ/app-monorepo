@@ -96,7 +96,7 @@ const params = {
   walletId: 'hd-test',
   accountId: 'hd-test--0',
   indexedAccountId: 'hd-test--0',
-  entry: 'walletMore' as const,
+  entry: 'lowValueRow' as const,
 };
 
 describe('loadDustSweepNetworks request ownership', () => {
@@ -144,6 +144,43 @@ describe('loadDustSweepNetworks request ownership', () => {
       expect(serviceToken.fetchAccountTokens.mock.calls).toHaveLength(0);
     },
   );
+
+  it('reports the network balance from regular and small-balance tokens, skipping unavailable values', async () => {
+    const fiat = (fiatValue: string) => ({
+      balance: '1',
+      balanceParsed: '1',
+      fiatValue,
+      price: 1,
+      currency: 'usd',
+    });
+    serviceToken.fetchAccountTokens.mockResolvedValueOnce({
+      tokens: {
+        data: [],
+        map: { eth: fiat('12.5'), unpriced: fiat('') },
+        keys: '',
+        currency: 'usd',
+      },
+      smallBalanceTokens: {
+        data: [],
+        map: { a: fiat('0.3'), b: fiat('0.1') },
+        keys: '',
+        currency: 'usd',
+      },
+      riskTokens: {
+        data: [],
+        map: { scam: fiat('99') },
+        keys: '',
+        currency: 'usd',
+      },
+    });
+
+    const result = await loadDustSweepNetworks(
+      params,
+      new AbortController().signal,
+    );
+
+    expect(result.networks[0].balanceUsd).toBe('12.9');
+  });
 
   it('retains server provider metadata when supported accounts have no tokens', async () => {
     const provider = okxProvider();

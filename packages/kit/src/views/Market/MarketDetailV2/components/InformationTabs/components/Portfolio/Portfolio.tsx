@@ -25,9 +25,13 @@ interface IPortfolioProps {
   hasAccount?: boolean;
   portfolioData: IMarketAccountPortfolioDisplayItem[];
   isRefreshing?: boolean;
+  // True until the page knows whether the asset has a position (account still
+  // loading, or the first request for it not back yet).
+  isPending?: boolean;
   tokenLogoUrl?: string;
   scrollEnabled?: boolean;
   standalone?: boolean;
+  onItemPress?: (item: IMarketAccountPortfolioDisplayItem) => void;
 }
 
 function PortfolioBase({
@@ -35,9 +39,11 @@ function PortfolioBase({
   hasAccount,
   portfolioData,
   isRefreshing,
+  isPending = false,
   tokenLogoUrl,
   scrollEnabled = true,
   standalone = false,
+  onItemPress,
 }: IPortfolioProps) {
   const intl = useIntl();
   const { gtLg } = useMedia();
@@ -46,12 +52,16 @@ function PortfolioBase({
   const renderPortfolioItem = useCallback(
     (item: IMarketAccountPortfolioDisplayItem) => {
       return gtLg ? (
-        <PortfolioItemNormal item={item} tokenLogoUrl={tokenLogoUrl} />
+        <PortfolioItemNormal
+          item={item}
+          tokenLogoUrl={tokenLogoUrl}
+          onPress={onItemPress}
+        />
       ) : (
-        <PortfolioItemSmall item={item} />
+        <PortfolioItemSmall item={item} onPress={onItemPress} />
       );
     },
-    [gtLg, tokenLogoUrl],
+    [gtLg, onItemPress, tokenLogoUrl],
   );
 
   const renderItem: FlatListProps<IMarketAccountPortfolioDisplayItem>['renderItem'] =
@@ -66,7 +76,7 @@ function PortfolioBase({
   );
 
   const emptyContent =
-    canShowPortfolio && isRefreshing ? (
+    isPending || (canShowPortfolio && isRefreshing) ? (
       <PortfolioSkeleton />
     ) : (
       <Empty

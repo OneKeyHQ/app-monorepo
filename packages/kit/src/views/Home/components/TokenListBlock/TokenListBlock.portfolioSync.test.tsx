@@ -113,6 +113,8 @@ jest.mock('@onekeyhq/components', () => ({
   Skeleton: { HeadingLg: () => null },
   onVisibilityStateChange: () => () => undefined,
   useOnRouterChange: () => undefined,
+}));
+jest.mock('../../hooks/useHomeTab', () => ({
   useTabIsRefreshingFocused: () => ({
     isFocused: true,
     isHeaderRefreshing: false,

@@ -1,2 +1,5 @@
 export { default } from './SlippageSettingDialog';
-export { SlippageInput } from './SlippageInput';
+export {
+  SLIPPAGE_INPUT_FOCUS_BORDER_COLOR,
+  SlippageInput,
+} from './SlippageInput';

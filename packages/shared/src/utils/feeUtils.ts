@@ -502,7 +502,17 @@ export function getFeePriceNumber({ feeInfo }: { feeInfo: IFeeInfoUnit }) {
   }
 }
 
-export function calculateTxExtraFee({ decodedTx }: { decodedTx: IDecodedTx }) {
+export function calculateTxExtraFee({
+  decodedTx,
+  solanaRent,
+}: {
+  decodedTx: IDecodedTx;
+  solanaRent?: string;
+}) {
+  if (solanaRent !== undefined) {
+    return solanaRent;
+  }
+
   let extraFeeNative = new BigNumber(0);
 
   if (

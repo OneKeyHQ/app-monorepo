@@ -75,6 +75,52 @@ describe('Market detail TradingViewNative source', () => {
     });
   });
 
+  it.each([undefined, 'polling', 'websocket'] as const)(
+    'uses SOL candles with %s Market transport and no Hyperliquid ticker metadata',
+    (marketDataSource) => {
+      const source = getMarketDetailTradingViewNativeSource({
+        hyperliquidCoin: '',
+        isNative: true,
+        marketDataSource,
+        networkId: 'sol--101',
+        symbol: 'SOL',
+        tokenAddress: '',
+      });
+
+      expect(source).toEqual({
+        kind: 'hyperliquid',
+        coin: 'SOL',
+        environment: 'mainnet',
+      });
+      expect(getTradingViewNativeSourceKey(source)).toBe(
+        'hyperliquid:mainnet:SOL',
+      );
+    },
+  );
+
+  it('keeps wrapped SOL on Market even when its symbol is SOL', () => {
+    const tokenAddress = 'So11111111111111111111111111111111111111112';
+    const source = getMarketDetailTradingViewNativeSource({
+      hyperliquidCoin: '',
+      isNative: false,
+      marketDataSource: 'websocket',
+      networkId: 'sol--101',
+      symbol: 'SOL',
+      tokenAddress,
+    });
+
+    expect(source).toEqual({
+      kind: 'market',
+      networkId: 'sol--101',
+      tokenAddress,
+      symbol: 'SOL',
+      realtime: 'websocket',
+    });
+    expect(getTradingViewNativeSourceKey(source)).toBe(
+      `market:sol--101:${tokenAddress}`,
+    );
+  });
+
   it('keeps non-whitelisted sources on Market', () => {
     expect(
       getMarketDetailTradingViewNativeSource({

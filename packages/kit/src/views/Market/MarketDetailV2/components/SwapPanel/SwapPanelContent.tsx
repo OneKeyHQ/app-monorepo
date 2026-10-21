@@ -30,6 +30,7 @@ import { getValidStockTokenToAssetRatio } from '@onekeyhq/kit/src/views/Swap/uti
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { shouldReserveSwapGas } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 import type { IMarketAccountPortfolioItem } from '@onekeyhq/shared/types/marketV2';
 import type {
   IFetchQuoteResult,
@@ -237,6 +238,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     return tradeType === ESwapDirection.BUY ? paymentAmount : sellAmount;
   }, [tradeType, paymentAmount, sellAmount]);
 
+  const shouldReserveBalanceGas = shouldReserveSwapGas(balanceToken);
   const handleBalanceClick = useCallback(() => {
     if (!balance) {
       return;
@@ -245,7 +247,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     const reserveGas = swapNativeTokenReserveGas.find(
       (item) => item.networkId === balanceToken?.networkId,
     )?.reserveGas;
-    if (balanceToken?.isNative && reserveGas) {
+    if (shouldReserveBalanceGas && reserveGas) {
       const maxAmount = BigNumber.max(
         0,
         balance.minus(new BigNumber(reserveGas)),
@@ -290,7 +292,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     }
   }, [
     swapNativeTokenReserveGas,
-    balanceToken?.isNative,
+    shouldReserveBalanceGas,
     balanceToken?.networkId,
     balanceToken?.decimals,
     balanceToken?.symbol,
@@ -314,7 +316,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         (item) => item.networkId === balanceToken.networkId,
       )?.reserveGas;
       let amount = balance.multipliedBy(new BigNumber(stage).dividedBy(100));
-      if (balanceToken.isNative && reserveGas) {
+      if (shouldReserveSwapGas(balanceToken) && reserveGas) {
         amount = BigNumber.max(0, amount.minus(new BigNumber(reserveGas)));
       }
       if (balanceToken.decimals !== undefined) {
@@ -719,7 +721,8 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           tradeType={ESwapDirection.BUY}
           swapNativeTokenReserveGas={swapNativeTokenReserveGas}
           onChange={(amount) => setPaymentAmount(new BigNumber(amount))}
-          selectedToken={paymentToken}
+          selectedToken={paymentTokenDisplay ?? paymentToken}
+          selectedTokenLoading={paymentTokenDisplayLoading}
           selectableTokens={defaultTokens}
           onTokenChange={(token) => setPaymentToken(token)}
           balance={balance}
@@ -779,8 +782,10 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
               defaultTokens={defaultTokens}
               currentSelectToken={balanceToken as ISwapTokenBase}
               onTokenSelect={(token) => setPaymentToken(token as IToken)}
-              symbol={paymentToken?.symbol ?? '-'}
-              isLoading={!hasInitialReady}
+              symbol={
+                paymentTokenDisplay?.symbol ?? paymentToken?.symbol ?? '-'
+              }
+              isLoading={Boolean(paymentTokenDisplayLoading)}
             />
           </YStack>
         ) : null}
