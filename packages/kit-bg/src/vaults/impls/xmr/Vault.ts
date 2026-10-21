@@ -72,6 +72,10 @@ import { VaultBase } from '../../base/VaultBase';
 import { loadCachedLocalWalletHistory } from '../../localWallet/cachedHistory';
 import { getLocalWalletHistoryAddressGate } from '../../localWallet/historyAddressGate';
 import { localWalletText } from '../../localWallet/messages';
+import {
+  isLocalWalletCacheEpochCurrent,
+  readLocalWalletCacheEpoch,
+} from '../../localWallet/privacyChainCacheStore';
 import { buildLocalWalletNativeTokenList } from '../../localWallet/tokenList';
 import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprint';
 
@@ -767,7 +771,7 @@ export default class Vault extends VaultBase {
     // Only chance to record the recipient (chain carries none); never let
     // this failure make an already-successful broadcast look like it failed.
     try {
-      await this.backgroundApi.simpleDb.privacyChainJournal.recordXmrSent({
+      await this.backgroundApi.simpleDb.privacyChainXmrSent.recordXmrSent({
         accountId: this.accountId,
         txid,
         recipient: encodedTx.to,
@@ -991,7 +995,7 @@ export default class Vault extends VaultBase {
         networkId: this.networkId,
         accountId,
       }),
-      this.backgroundApi.simpleDb.privacyChainJournal.listXmrSent({
+      this.backgroundApi.simpleDb.privacyChainXmrSent.listXmrSent({
         accountId,
       }),
       this.backgroundApi.servicePrivacyChain
@@ -1041,12 +1045,25 @@ export default class Vault extends VaultBase {
     accountId: string;
   }): Promise<IXmrHistoryItem[] | undefined> {
     try {
+      const epoch = await readLocalWalletCacheEpoch({
+        backgroundApi: this.backgroundApi,
+        accountId,
+      });
       // UI read: answers with rows last seen (or `undefined`) while a scan
       // step holds the runtime, never queued behind it.
       return await readXmrStaleFirst({
         key: `history:${accountId}`,
         fallback: undefined,
         queueWhenUncached: true,
+        owner: {
+          epoch,
+          isCurrent: () =>
+            isLocalWalletCacheEpochCurrent({
+              backgroundApi: this.backgroundApi,
+              accountId,
+              epoch,
+            }),
+        },
         read: async () => {
           const api = await getXmrLocalRuntime(this);
           const identityId = await getXmrIdentityId({

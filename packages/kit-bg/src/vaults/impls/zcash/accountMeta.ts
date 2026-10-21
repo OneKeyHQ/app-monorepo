@@ -14,7 +14,11 @@ import {
   clampZcashBirthdayHeight,
   estimateZcashBirthdayHeight,
 } from './birthday';
-import { createZcashSetupIncompleteError } from './vaultUtils';
+import {
+  createZcashIdentityMismatchError,
+  createZcashSetupIncompleteError,
+  zcashIdentityMismatchAccountIds,
+} from './vaultUtils';
 
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
 import type { IDBAccount } from '../../../dbs/local/types';
@@ -78,7 +82,8 @@ export async function hasZcashAccountViewingKey({
 
 // The UFVK goes to the viewing key store before the meta naming it, so a meta
 // on disk always has its key unless the store lost it. A key that differs
-// from the one already named stops setup: the identity never switches.
+// from the one already named stops setup: the identity never switches, and
+// background repair stops deriving it again on every balance poll.
 async function saveZcashViewingKey({
   backgroundApi,
   networkId,
@@ -96,7 +101,8 @@ async function saveZcashViewingKey({
     expectedVkFp !== undefined &&
     getViewingKeyFingerprint({ networkId, viewingKey: ufvk }) !== expectedVkFp
   ) {
-    throw createZcashSetupIncompleteError();
+    zcashIdentityMismatchAccountIds.add(accountId);
+    throw createZcashIdentityMismatchError();
   }
   try {
     const { vkFp } = await saveLocalWalletViewingKey({
@@ -105,10 +111,12 @@ async function saveZcashViewingKey({
       accountId,
       value: ufvk,
     });
+    zcashIdentityMismatchAccountIds.delete(accountId);
     return vkFp;
   } catch (error) {
     if (isLocalWalletViewingKeyMismatchError(error)) {
-      throw createZcashSetupIncompleteError();
+      zcashIdentityMismatchAccountIds.add(accountId);
+      throw createZcashIdentityMismatchError();
     }
     throw error;
   }

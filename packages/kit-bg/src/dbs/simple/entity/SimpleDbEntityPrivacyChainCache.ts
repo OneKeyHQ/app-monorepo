@@ -2,8 +2,9 @@ import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 // Results of a privacy chain's local scan (plus the last public-side balance),
 // kept so a cold start can show them before a live read answers. Unlike
-// privacyChain, anything here may be dropped at any time: the scan rebuilds it.
-// Read and written only through vaults/localWallet/privacyChainCacheStore.ts.
+// privacyChainState, anything here may be dropped at any time: the scan
+// rebuilds it. Read and written only through
+// vaults/localWallet/privacyChainCacheStore.ts.
 
 export interface IPrivacyChainCacheDB {
   // accountId -> the last private balance read from the scanner.
@@ -16,6 +17,9 @@ export interface IPrivacyChainCacheDB {
 
 export type IPrivacyChainLastBalanceRecord = {
   networkId: string;
+  // The account's epoch when the value was read (see privacyChainState);
+  // absent when the account had no record yet.
+  epoch?: string;
   // Opaque here; the chain owns the format.
   value: string;
   savedAt: number;
@@ -23,11 +27,14 @@ export type IPrivacyChainLastBalanceRecord = {
 
 export type IPrivacyChainLastPublicBalanceRecord = {
   networkId: string;
+  epoch?: string;
   // Base units, both from the same read.
   total: string;
   spendable: string;
   savedAt: number;
 };
+
+type ICacheKind = 'lastBalances' | 'lastPublicBalances';
 
 export class SimpleDbEntityPrivacyChainCache extends SimpleDbEntityBase<IPrivacyChainCacheDB> {
   entityName = 'privacyChainCache';
@@ -43,17 +50,26 @@ export class SimpleDbEntityPrivacyChainCache extends SimpleDbEntityBase<IPrivacy
     return rawData?.lastBalances?.[accountId];
   }
 
+  // `isCurrent` runs under this entity's lock, right before the write: a
+  // value read before its scanned data was destroyed is dropped there, and
+  // one that passes is deleted by that destruction, which deletes caches
+  // after it rotates the epoch.
   async setLastBalance({
     accountId,
     record,
+    isCurrent,
   }: {
     accountId: string;
     record: IPrivacyChainLastBalanceRecord;
+    isCurrent: () => Promise<boolean>;
   }): Promise<void> {
-    await this.setRawData((rawData) => ({
-      ...rawData,
-      lastBalances: { ...rawData?.lastBalances, [accountId]: record },
-    }));
+    await this.setRawData(async (rawData) => {
+      if (!(await isCurrent())) return rawData ?? {};
+      return {
+        ...rawData,
+        lastBalances: { ...rawData?.lastBalances, [accountId]: record },
+      };
+    });
   }
 
   async getLastPublicBalance({
@@ -68,17 +84,43 @@ export class SimpleDbEntityPrivacyChainCache extends SimpleDbEntityBase<IPrivacy
   async setLastPublicBalance({
     accountId,
     record,
+    isCurrent,
   }: {
     accountId: string;
     record: IPrivacyChainLastPublicBalanceRecord;
+    isCurrent: () => Promise<boolean>;
   }): Promise<void> {
-    await this.setRawData((rawData) => ({
-      ...rawData,
-      lastPublicBalances: {
-        ...rawData?.lastPublicBalances,
-        [accountId]: record,
-      },
-    }));
+    await this.setRawData(async (rawData) => {
+      if (!(await isCurrent())) return rawData ?? {};
+      return {
+        ...rawData,
+        lastPublicBalances: {
+          ...rawData?.lastPublicBalances,
+          [accountId]: record,
+        },
+      };
+    });
+  }
+
+  // A read found this entry stale; one written since is left alone.
+  async removeStaleBalance({
+    kind,
+    accountId,
+    epoch,
+  }: {
+    kind: ICacheKind;
+    accountId: string;
+    epoch: string | undefined;
+  }): Promise<void> {
+    await this.setRawData((rawData) => {
+      const records = rawData?.[kind];
+      if (!records?.[accountId] || records[accountId].epoch !== epoch) {
+        return rawData ?? {};
+      }
+      const next = { ...records };
+      delete next[accountId];
+      return { ...rawData, [kind]: next };
+    });
   }
 
   // Removes both halves: a saved public balance never outlives the private one.
@@ -133,6 +175,12 @@ export class SimpleDbEntityPrivacyChainCache extends SimpleDbEntityBase<IPrivacy
     });
   }
 
+  async clearBalances(): Promise<void> {
+    await this.setRawData((rawData) => ({
+      chainTips: rawData?.chainTips,
+    }));
+  }
+
   async getChainTip({
     networkId,
   }: {
@@ -153,6 +201,18 @@ export class SimpleDbEntityPrivacyChainCache extends SimpleDbEntityBase<IPrivacy
       ...rawData,
       chainTips: { ...rawData?.chainTips, [networkId]: height },
     }));
+  }
+
+  // One network's tip, or every network's.
+  async removeChainTips({ networkId }: { networkId?: string }): Promise<void> {
+    await this.setRawData((rawData) => {
+      if (networkId === undefined) {
+        return { ...rawData, chainTips: {} };
+      }
+      const chainTips = { ...rawData?.chainTips };
+      delete chainTips[networkId];
+      return { ...rawData, chainTips };
+    });
   }
 
   async listLastBalanceAccountIds(): Promise<string[]> {

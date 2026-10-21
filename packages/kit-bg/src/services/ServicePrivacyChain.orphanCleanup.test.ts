@@ -108,6 +108,7 @@ function createHarness({
   const getAllAccounts = jest.fn(async () => ({
     accounts: [accountRow(liveAccountId), accountRow(hiddenAccountId)],
   }));
+  const clearRuntimeOrphans = jest.fn(async () => undefined);
   const service = Object.assign(
     Object.create(ServicePrivacyChain.prototype) as IService,
     {
@@ -124,7 +125,10 @@ function createHarness({
             })),
           })),
         },
-        simpleDb: { privacyChainKeys: createKeysDb(keyAccountIds) },
+        simpleDb: {
+          privacyChainKeys: createKeysDb(keyAccountIds),
+          privacyChainState: { clearRuntimeOrphans },
+        },
       },
     },
   );
@@ -145,6 +149,7 @@ function createHarness({
     purgeRuntimeOrphans,
     listScanDataAccountIds,
     getAllAccounts,
+    clearRuntimeOrphans,
     identities: () => identities,
     pass,
     runIfDue,
@@ -338,6 +343,53 @@ describe('privacy chain runtime orphan cleanup schedule', () => {
     await runIfDue();
     await runIfDue();
     expect(purgeRuntimeOrphans).toHaveBeenCalledTimes(2);
+  });
+
+  // A network marked as holding unnamed runtime accounts reads as holding
+  // data for App Reset until a full purge has run.
+  it('clears the orphan marker only after a full purge', async () => {
+    const { pass, purgeRuntimeOrphans, clearRuntimeOrphans } = createHarness();
+    purgeRuntimeOrphans.mockResolvedValueOnce(false);
+    await expect(pass()).resolves.toBe(false);
+    expect(clearRuntimeOrphans).not.toHaveBeenCalled();
+
+    await expect(pass()).resolves.toBe(true);
+    expect(clearRuntimeOrphans).toHaveBeenCalledWith({ networkId });
+  });
+
+  it('leaves the marker when a pass is skipped', async () => {
+    const { pass, listScanDataAccountIds, clearRuntimeOrphans } =
+      createHarness();
+    listScanDataAccountIds.mockResolvedValueOnce(undefined);
+    await expect(pass()).resolves.toBe(false);
+    expect(clearRuntimeOrphans).not.toHaveBeenCalled();
+  });
+
+  // Bounded well inside the turn, whatever the chain's own watchdog is.
+  it('gives up after 30 s and stays due', async () => {
+    jest.useFakeTimers();
+    try {
+      const { runIfDue, purgeRuntimeOrphans, capability } = createHarness();
+      capability.syncPolicy.maxSyncDurationMs = 5 * 60_000;
+      let finishStuck: (ran: boolean) => void = () => undefined;
+      purgeRuntimeOrphans.mockImplementationOnce(
+        () =>
+          new Promise<boolean>((resolve) => {
+            finishStuck = resolve;
+          }),
+      );
+      const first = runIfDue();
+      await jest.advanceTimersByTimeAsync(30_000);
+      await expect(first).resolves.toBeUndefined();
+
+      // The abandoned pass still holds the enable lock until it settles.
+      finishStuck(true);
+      await jest.advanceTimersByTimeAsync(0);
+      await runIfDue();
+      expect(purgeRuntimeOrphans).toHaveBeenCalledTimes(2);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('never fails the scan turn', async () => {

@@ -190,33 +190,75 @@ export function isXmrRuntimeBusy(): boolean {
   return runtimeCallLock.isLocked();
 }
 
-const staleFirstCache = new Map<string, unknown>();
+// An entry remembers the account epoch it was read under (see
+// privacyChainState); one from another epoch describes destroyed data.
+type IXmrStaleFirstEntry = { value: unknown; epoch?: string };
+const staleFirstCache = new Map<string, IXmrStaleFirstEntry>();
 const staleFirstQueued = new Set<string>();
-// Bumped on every drop, so a queued read finishing later cannot restore stale results.
-let staleFirstEpoch = 0;
+// Bumped when the whole database goes, so a queued read finishing later
+// cannot restore results for keys no epoch covers (storage size).
+let staleFirstGeneration = 0;
 
 /** Drop remembered read results. Tests only. */
 export function resetXmrStaleFirstCache() {
   staleFirstCache.clear();
   staleFirstQueued.clear();
-  staleFirstEpoch += 1;
+  staleFirstGeneration += 1;
+}
+
+type IXmrStaleFirstEpoch = {
+  // The account's epoch when this read started.
+  epoch: string | undefined;
+  // Asked right before a value is stored: is that still the epoch?
+  isCurrent: () => Promise<boolean>;
+};
+
+async function storeXmrStaleFirst({
+  key,
+  value,
+  generation,
+  owner,
+  onlyIfEmpty = false,
+}: {
+  key: string;
+  value: unknown;
+  generation: number;
+  owner?: IXmrStaleFirstEpoch;
+  onlyIfEmpty?: boolean;
+}) {
+  if (owner && !(await owner.isCurrent())) return;
+  // A live read may have answered first; it is at least as fresh.
+  if (
+    generation !== staleFirstGeneration ||
+    (onlyIfEmpty && staleFirstCache.has(key))
+  ) {
+    return;
+  }
+  staleFirstCache.set(key, { value, epoch: owner?.epoch });
 }
 
 // Cold start: one read per key waits behind the current step and fills the
 // cache for the next poll.
-function queueXmrStaleFirstRead<T>(key: string, read: () => Promise<T>) {
+function queueXmrStaleFirstRead<T>(
+  key: string,
+  read: () => Promise<T>,
+  owner: IXmrStaleFirstEpoch | undefined,
+) {
   if (staleFirstQueued.has(key)) return;
   staleFirstQueued.add(key);
-  const epoch = staleFirstEpoch;
+  const generation = staleFirstGeneration;
   void runtimeCallLock
     .runExclusive(() => undefined)
     .then(read)
-    .then((value) => {
-      // A live read may have answered first; it is at least as fresh.
-      if (epoch === staleFirstEpoch && !staleFirstCache.has(key)) {
-        staleFirstCache.set(key, value);
-      }
-    })
+    .then((value) =>
+      storeXmrStaleFirst({
+        key,
+        value,
+        generation,
+        owner,
+        onlyIfEmpty: true,
+      }),
+    )
     .catch((error) => {
       console.warn('[xmr] queued read failed', { key, error });
     })
@@ -232,33 +274,48 @@ export async function readXmrStaleFirst<T>({
   read,
   fallback,
   queueWhenUncached = false,
+  owner,
 }: {
   key: string;
   read: () => Promise<T>;
   fallback: T;
   /** Busy with nothing remembered: also queue one read behind the step. */
   queueWhenUncached?: boolean;
+  /** For a value describing one account's scanned data. */
+  owner?: IXmrStaleFirstEpoch;
 }): Promise<T> {
   if (isXmrRuntimeBusy()) {
-    if (staleFirstCache.has(key)) {
-      return staleFirstCache.get(key) as T;
+    const entry = staleFirstCache.get(key);
+    if (entry && entry.epoch === owner?.epoch) {
+      return entry.value as T;
+    }
+    if (entry) {
+      staleFirstCache.delete(key);
     }
     if (queueWhenUncached) {
-      queueXmrStaleFirstRead(key, read);
+      queueXmrStaleFirstRead(key, read, owner);
     }
     return fallback;
   }
+  const generation = staleFirstGeneration;
   const value = await read();
-  staleFirstCache.set(key, value);
+  await storeXmrStaleFirst({ key, value, generation, owner });
   return value;
 }
 
-// After scanned data is removed or rewound, remembered answers are wrong, not just old.
-export function forgetXmrStaleFirstAccount(accountId: string) {
-  for (const kind of ['history', 'progress']) {
-    staleFirstCache.delete(`${kind}:${accountId}`);
+// After scanned data is removed or rewound, remembered answers are wrong,
+// not just old. Every account when none is named.
+export function forgetXmrStaleFirst(accountIds?: string[]) {
+  if (!accountIds) {
+    staleFirstCache.clear();
+  } else {
+    for (const accountId of accountIds) {
+      for (const kind of ['history', 'progress']) {
+        staleFirstCache.delete(`${kind}:${accountId}`);
+      }
+    }
   }
-  staleFirstEpoch += 1;
+  staleFirstGeneration += 1;
 }
 
 // Deletes the database without opening it: a database that cannot be opened must still be removable.
@@ -267,8 +324,7 @@ export async function deleteXmrDatabase(network: IXmrNetwork): Promise<void> {
     const api = await getXmrRuntimeApi();
     await api.deleteWallet(xmrDbNameForNetwork(network));
     session = undefined;
-    staleFirstCache.clear();
-    staleFirstEpoch += 1;
+    forgetXmrStaleFirst();
   });
 }
 

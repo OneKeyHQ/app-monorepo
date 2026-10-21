@@ -145,10 +145,10 @@ describe('temp wallets cannot turn on privacy', () => {
   it('refuses setup retries and rescans for a temp-wallet account', async () => {
     const retryAccountSetup = jest.fn(async () => undefined);
     const rescan = jest.fn(async () => ({ fromHeight: 0 }));
-    const reset = jest.fn(async () => undefined);
+    const rewindAccount = jest.fn(async () => undefined);
     const { service } = createService({
       tempWalletIds: new Set([tempWalletId]),
-      capability: { retryAccountSetup, rescan, reset },
+      capability: { retryAccountSetup, rescan, rewindAccount },
     });
 
     await expect(
@@ -178,11 +178,13 @@ describe('temp wallets cannot turn on privacy', () => {
 
     expect(retryAccountSetup).not.toHaveBeenCalled();
     expect(rescan).not.toHaveBeenCalled();
-    expect(reset).not.toHaveBeenCalled();
+    expect(rewindAccount).not.toHaveBeenCalled();
   });
 
   it('skips temp-wallet accounts when clearing every history cache', async () => {
-    const repairLocalChainDataImpl = jest.fn(async () => undefined);
+    const runLocalWalletLifecycle = jest.fn(async () => ({
+      failedNetworkIds: [],
+    }));
     const accounts: ILocalWalletAccount[] = [tempAccountId, savedAccountId].map(
       (accountId) => ({
         accountId,
@@ -195,16 +197,24 @@ describe('temp wallets cannot turn on privacy', () => {
       tempWalletIds: new Set([tempWalletId]),
       capability: {
         listAccounts: async () => ({ accounts, cleanupAccountIds: [] }),
+        getAccountAliases: async ({ accountId }) => [accountId],
       },
-      overrides: { repairLocalChainDataImpl },
+      overrides: { runLocalWalletLifecycle },
     });
 
     await service.clearTransactionHistoryCache({ networkId });
 
-    expect(repairLocalChainDataImpl).toHaveBeenCalledTimes(1);
-    expect(repairLocalChainDataImpl).toHaveBeenCalledWith(
-      expect.objectContaining({ accountId: savedAccountId }),
-    );
+    expect(runLocalWalletLifecycle).toHaveBeenCalledTimes(1);
+    expect(runLocalWalletLifecycle).toHaveBeenCalledWith({
+      event: 'resetSyncStorage',
+      targets: [
+        expect.objectContaining({
+          networkId,
+          accountIds: [savedAccountId],
+          runtimeAccountIds: [savedAccountId],
+        }),
+      ],
+    });
   });
 });
 
