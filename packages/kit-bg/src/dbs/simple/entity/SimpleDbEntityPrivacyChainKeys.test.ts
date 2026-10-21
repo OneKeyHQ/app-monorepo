@@ -1,7 +1,6 @@
-import {
-  SimpleDbEntityPrivacyChainKeys,
-  isPrivacyChainViewingKeyMismatchError,
-} from './SimpleDbEntityPrivacyChainKeys';
+import { isPrivacyChainViewingKeyMismatchError } from '../../../vaults/localWallet/viewingKeyMismatch';
+
+import { SimpleDbEntityPrivacyChainKeys } from './SimpleDbEntityPrivacyChainKeys';
 
 import type { IPrivacyChainKeyRecord } from './SimpleDbEntityPrivacyChainKeys';
 
