@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import { readBalance } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/wallet';
 import type { IZcashBalance } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
@@ -250,6 +251,168 @@ describe('Zcash independent transparent balance availability', () => {
       frozen: '',
       balanceStatus: 'complete',
     });
+  });
+});
+
+// Change at or below the marginal fee: the runtime's totals leave it out,
+// readBalance adds it back to what is shown without increasing spendable.
+describe('Zcash dust change', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  const dustBalance: IZcashBalance = {
+    ...balance,
+    shielded: '105000',
+    spendable: '100000',
+    shieldedSpendable: '100000',
+    orchardBalance: '0',
+    ironwoodBalance: '105000',
+    poolsDetail: {
+      orchard: pool('0'),
+      ironwood: { ...pool('100000'), total: '105000', uneconomic: '5000' },
+    },
+  };
+
+  function dustVault(localBalance: IZcashBalance = dustBalance) {
+    const vault = Object.create(Vault.prototype) as Vault;
+    Object.assign(vault, {
+      accountId: 'account',
+      networkId: 'zec--0',
+      backgroundApi: {
+        simpleDb: {
+          privacyChainCache: memoryCache(),
+          privacyChainState: {
+            getAccountEpoch: jest.fn().mockResolvedValue(undefined),
+            getZcashPrivacyModeState: jest
+              .fn()
+              .mockResolvedValue({ intent: 'on' }),
+          },
+        },
+        serviceAccount: {
+          getDBAccount: jest.fn().mockResolvedValue({ id: 'account' }),
+        },
+      },
+      getLocalWalletBalance: jest.fn().mockResolvedValue(localBalance),
+      getAccount: jest.fn().mockResolvedValue({ id: 'account' }),
+      zcashGetBalanceSafe: jest.fn().mockResolvedValue(localBalance),
+      zcashGetIndexerTransparentBalance: jest.fn().mockResolvedValue({
+        total: new BigNumber(0),
+        spendable: new BigNumber(0),
+      }),
+      zcashFetchFreshTransparentUtxos: jest
+        .fn()
+        .mockResolvedValue({ utxos: [] }),
+    });
+    return vault;
+  }
+
+  describe.each(['orchard', 'ironwood'] as const)('%s change', (poolKey) => {
+    it.each([
+      { change: 1, amountParsed: '0.00000001' },
+      { change: 4999, amountParsed: '0.00004999' },
+      { change: 5000, amountParsed: '0.00005' },
+    ])(
+      'preserves $change zat after subtracting payment and fee',
+      async ({ change, amountParsed }) => {
+        const amount = 10_000;
+        const fee = 10_000;
+        const runtimeBalance = (spendable: number, uneconomic = 0) => {
+          const runtimePool = (key: typeof poolKey) => ({
+            spendable: key === poolKey ? spendable : 0,
+            pendingChange: 0,
+            pendingSpendable: 0,
+            locked: 0,
+            total: key === poolKey ? spendable : 0,
+            uneconomic: key === poolKey ? uneconomic : 0,
+          });
+          return readBalance(
+            {
+              accountBalance: () =>
+                JSON.stringify({
+                  orchard: runtimePool('orchard'),
+                  ironwood: runtimePool('ironwood'),
+                }),
+              accountSyncStatus: () => JSON.stringify({ isComplete: true }),
+            } as unknown as Parameters<typeof readBalance>[0],
+            'account',
+          );
+        };
+
+        const before = await dustVault(
+          runtimeBalance(amount + fee + change),
+        ).getLocalWalletAccountBalance({ accountId: 'account' });
+        const afterVault = dustVault(runtimeBalance(0, change));
+        const after = await afterVault.getLocalWalletAccountBalance({
+          accountId: 'account',
+        });
+
+        expect(before?.total).toBe(String(amount + fee + change));
+        expect(after).toMatchObject({
+          total: String(change),
+          spendable: '0',
+          frozen: [{ reason: 'smallChange', amountParsed }],
+        });
+        expect(
+          new BigNumber(before?.total ?? '0')
+            .minus(after?.total ?? '0')
+            .toFixed(),
+        ).toBe(String(amount + fee));
+        expect(after?.pools.find((item) => item.key === poolKey)).toMatchObject(
+          {
+            total: String(change),
+            spendable: '0',
+            move: { enabled: false },
+          },
+        );
+        const sendPools = await afterVault.listLocalWalletSendPools({
+          accountId: 'account',
+        });
+        expect(sendPools?.find((item) => item.key === poolKey)?.spendable).toBe(
+          '0',
+        );
+      },
+    );
+  });
+
+  it('counts toward the pool and account totals, not spendable', async () => {
+    const result = await dustVault().getLocalWalletAccountBalance({
+      accountId: 'account',
+    });
+    expect(result).toMatchObject({ total: '105000', spendable: '100000' });
+    const ironwood = result?.pools.find((item) => item.key === 'ironwood');
+    expect(ironwood).toMatchObject({
+      total: '105000',
+      spendable: '100000',
+      frozen: [{ reason: 'smallChange', amountParsed: '0.00005' }],
+    });
+    expect(ironwood?.move?.amountParsed).toBe('0.001');
+    expect(result?.frozen).toEqual([
+      { reason: 'smallChange', amountParsed: '0.00005' },
+    ]);
+  });
+
+  it('is in the token total and frozen figure, never in Max', async () => {
+    const vault = dustVault();
+    expect(await vault.zcashGetComposedBalanceSafe('0')).toMatchObject({
+      total: '105000',
+      spendable: '100000',
+      frozen: '5000',
+    });
+    const pools = await vault.listLocalWalletSendPools({
+      accountId: 'account',
+    });
+    expect(pools?.find((item) => item.key === 'ironwood')?.spendable).toBe(
+      '100000',
+    );
+  });
+
+  it('adds no line when the balance predates the field', async () => {
+    const vault = Object.assign(dustVault(), {
+      getLocalWalletBalance: jest.fn().mockResolvedValue(balance),
+    });
+    const result = await vault.getLocalWalletAccountBalance({
+      accountId: 'account',
+    });
+    expect(result?.frozen).toEqual([]);
   });
 });
 

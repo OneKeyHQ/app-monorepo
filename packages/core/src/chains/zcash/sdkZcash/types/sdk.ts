@@ -315,14 +315,18 @@ export type IZcashPoolDetail = {
   pendingChange: string;
   pendingSpendable: string;
   locked: string;
+  // Includes `uneconomic`.
   total: string;
+  // Notes worth <= the ZIP-317 marginal fee: shown, never spendable. Absent
+  // in a balance saved before this field existed.
+  uneconomic?: string;
 };
 
 export type IZcashBalance = {
   // True only when this account's backfill is complete.
   isComplete: boolean;
   // zatoshi strings (1 ZEC = 1e8 zatoshi); bigint-safe across the bridge
-  shielded: string; // orchard + ironwood pools, summed
+  shielded: string; // orchard + ironwood pools, summed, dust included
   // What a send can draw on now (spend policy + confirmation thresholds); a "max" button must use this, not `shielded`.
   spendable: string;
   pendingChange: string;
