@@ -945,6 +945,60 @@ describe('ServicePrimeFreeTrial', () => {
     }
 
     it.each(['success', 'failed', 'cancelled'] as const)(
+      'settles a pre-upgrade usage as %s without an orphan analytics result',
+      async (result) => {
+        mockTrialResult.mockClear();
+        const { service, simpleDb } = createService();
+        seedStartedUsage(simpleDb, { usageId: 'usage-before-upgrade' });
+        mockOneKeyIdClient.post.mockResolvedValue({
+          data: { data: { unlimited: false } },
+        });
+        const usage = {
+          featureId: EPrimeFeatures.BulkSend as const,
+          usageId: 'usage-before-upgrade',
+        };
+        if (result === 'success') await service.markUsageSuccess(usage);
+        else await service.settleUsage({ ...usage, result });
+        await flushPromises();
+        expect(mockTrialResult).not.toHaveBeenCalled();
+        expect(finishCalls()).toHaveLength(1);
+        expect(finishCalls()[0][1]).toMatchObject({ ...usage, result });
+        expect(
+          simpleDb.records.get('user-a__BulkSend__usage-before-upgrade'),
+        ).toMatchObject({ result, reportedAt: expect.any(Number) });
+        expect(
+          simpleDb.records.get('user-a__BulkSend__usage-before-upgrade')
+            ?.analyticsResult,
+        ).toBeUndefined();
+      },
+    );
+
+    it.each(['failed', 'cancelled'] as const)(
+      'does not create an analytics correction for a pre-upgrade %s finish',
+      async (result) => {
+        mockTrialResult.mockClear();
+        const { service, simpleDb } = createService();
+        seedStartedUsage(simpleDb, { usageId: 'usage-legacy-late-broadcast' });
+        const key = 'user-a__BulkSend__usage-legacy-late-broadcast';
+        const record = simpleDb.records.get(key);
+        expect(record).toBeDefined();
+        if (!record) return;
+        record.result = result;
+        record.reportedAt = Date.now();
+        const usage = {
+          featureId: EPrimeFeatures.BulkSend as const,
+          usageId: record.usageId,
+        };
+        await service.markBroadcastSuccess(usage);
+        await service.markBroadcastSuccess(usage);
+        expect(mockTrialResult).not.toHaveBeenCalled();
+        expect(simpleDb.records.get(key)).toEqual(record);
+        expect(simpleDb.records.get(key)?.analyticsResult).toBeUndefined();
+        expect(mockOneKeyIdClient.post).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each(['success', 'failed', 'cancelled'] as const)(
       'tracks the real %s once with the original client attempt id',
       async (result) => {
         mockTrialResult.mockClear();
@@ -1065,6 +1119,12 @@ describe('ServicePrimeFreeTrial', () => {
       mockTrialResult.mockClear();
       const { service, simpleDb } = createService();
       seedStartedUsage(simpleDb, { usageId: 'usage-late-broadcast' });
+      const record = simpleDb.records.get(
+        'user-a__BulkSend__usage-late-broadcast',
+      );
+      expect(record).toBeDefined();
+      if (!record) return;
+      record.analyticsAttemptId = 'attempt-late-broadcast';
       mockOneKeyIdClient.post.mockReturnValue(new Promise(() => {}));
       await service.settleUsage({
         featureId: EPrimeFeatures.BulkSend,

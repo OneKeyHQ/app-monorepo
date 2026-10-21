@@ -1114,7 +1114,7 @@ class ServicePrimeFreeTrial extends ServiceBase {
     startedAt?: number;
   }) {
     let changed = false;
-    let wasGranted = false;
+    let hasAnalyticsAttempt = false;
     let previousResult: IPrimeFreeTrialUsageResult | undefined;
     const now = Date.now();
     const record =
@@ -1135,9 +1135,7 @@ class ServicePrimeFreeTrial extends ServiceBase {
           ) {
             return base;
           }
-          wasGranted =
-            current?.analyticsAttemptId !== undefined ||
-            current?.expiresAt !== undefined;
+          hasAnalyticsAttempt = Boolean(current?.analyticsAttemptId);
           previousResult = current?.analyticsResult ?? current?.result;
           changed = true;
           return {
@@ -1148,7 +1146,9 @@ class ServicePrimeFreeTrial extends ServiceBase {
               base.expiresAt ??
               base.startedAt + PRIME_FREE_TRIAL_RESERVATION_TTL_MS[featureId],
             result,
-            analyticsResult: wasGranted ? result : base.analyticsResult,
+            analyticsResult: hasAnalyticsAttempt
+              ? result
+              : base.analyticsResult,
             resultAt: now,
             nextReportAt: undefined,
           };
@@ -1157,10 +1157,10 @@ class ServicePrimeFreeTrial extends ServiceBase {
     if (!changed) {
       return;
     }
-    if (wasGranted) {
+    if (hasAnalyticsAttempt && record?.analyticsAttemptId) {
       logPrimeFreeTrialResult({
         featureId,
-        attemptId: record?.analyticsAttemptId ?? usageId,
+        attemptId: record.analyticsAttemptId,
         stage: 'execution',
         source: 'client',
         result,
@@ -1209,6 +1209,7 @@ class ServicePrimeFreeTrial extends ServiceBase {
     ) {
       if (
         result === 'success' &&
+        existing.analyticsAttemptId &&
         existing.reportedAt &&
         existing.result !== 'success' &&
         existing.analyticsResult !== 'success'
@@ -1223,7 +1224,8 @@ class ServicePrimeFreeTrial extends ServiceBase {
               { onekeyUserId: existing.onekeyUserId, featureId, usageId },
               (current) => {
                 if (
-                  !current?.reportedAt ||
+                  !current?.analyticsAttemptId ||
+                  !current.reportedAt ||
                   current.result === 'success' ||
                   current.analyticsResult === 'success'
                 )
@@ -1233,10 +1235,10 @@ class ServicePrimeFreeTrial extends ServiceBase {
                 return { ...current, analyticsResult: 'success' };
               },
             );
-          if (corrected)
+          if (corrected && record?.analyticsAttemptId)
             logPrimeFreeTrialResult({
               featureId,
-              attemptId: record?.analyticsAttemptId ?? usageId,
+              attemptId: record.analyticsAttemptId,
               stage: 'execution',
               source: 'client',
               result: 'success',
