@@ -1,4 +1,35 @@
+diff --git a/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/modules/statusbar/StatusBarManagerCompatModuleImpl.kt b/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/modules/statusbar/StatusBarManagerCompatModuleImpl.kt
+index a3c84b0..e34ffa2 100644
+--- a/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/modules/statusbar/StatusBarManagerCompatModuleImpl.kt
++++ b/node_modules/react-native-keyboard-controller/android/src/main/java/com/reactnativekeyboardcontroller/modules/statusbar/StatusBarManagerCompatModuleImpl.kt
+@@ -97,13 +97,18 @@ class StatusBarManagerCompatModuleImpl(
+   }
+ 
+   fun setStyle(style: String) {
+-    if (!isEnabled()) {
+-      return original.setStyle(style)
+-    }
+-
+-    UiThreadUtil.runOnUiThread {
+-      getController()?.isAppearanceLightStatusBars = style == "dark-content"
+-    }
++    // OneKey patch: React Native's StatusBarModule already supports edge-to-edge.
++    // The compat controller below leaves dark icons on Android 12-14 once the
++    // window is edge-to-edge, so always let React Native apply the style.
++    return original.setStyle(style)
++
++    // if (!isEnabled()) {
++    //   return original.setStyle(style)
++    // }
++    //
++    // UiThreadUtil.runOnUiThread {
++    //   getController()?.isAppearanceLightStatusBars = style == "dark-content"
++    // }
+   }
+ 
+   fun getConstants(): MutableMap<String, Any>? = original.getConstants()
 diff --git a/node_modules/react-native-keyboard-controller/src/module.ts b/node_modules/react-native-keyboard-controller/src/module.ts
+index b666df1..3a68806 100644
 --- a/node_modules/react-native-keyboard-controller/src/module.ts
 +++ b/node_modules/react-native-keyboard-controller/src/module.ts
 @@ -1,3 +1,5 @@
