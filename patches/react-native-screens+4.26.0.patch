@@ -1,9 +1,9 @@
 diff --git a/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/NativeStackGestureController.kt b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/NativeStackGestureController.kt
 new file mode 100644
-index 0000000..39e3304
+index 0000000..d44c03d
 --- /dev/null
 +++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/NativeStackGestureController.kt
-@@ -0,0 +1,444 @@
+@@ -0,0 +1,456 @@
 +package com.swmansion.rnscreens
 +
 +import android.animation.Animator
@@ -286,6 +286,12 @@ index 0000000..39e3304
 +        }
 +        if (newTop === top && stack.hasScreen(top?.fragmentWrapper)) return false
 +        val completedPop = awaitingPop && newTop !== top && !stack.hasScreen(top?.fragmentWrapper)
++        // If an external pop removes this screen mid-gesture, let its normal exit animation
++        // continue from the current drag position instead of replaying from the top.
++        val handoffExit = !completedPop && below != null && newTop === below &&
++            !stack.hasScreen(top?.fragmentWrapper) &&
++            top?.stackAnimation == Screen.StackAnimation.SLIDE_FROM_BOTTOM &&
++            (topView?.translationY ?: 0f) > 0f
 +        if (completedPop) {
 +            top?.fragmentWrapper?.let { it.dispatchLifecycleEvent(ScreenLifecycleEvent.DID_DISAPPEAR, it) }
 +            if (belowAppearing) below?.fragmentWrapper?.let { it.dispatchLifecycleEvent(ScreenLifecycleEvent.DID_APPEAR, it) }
@@ -293,16 +299,16 @@ index 0000000..39e3304
 +            below?.let { restoreDisappearance(it) }
 +        }
 +        if (newTop === top) top?.let { restoreAppearance(it) }
-+        reset(preserveCompletedForeground = completedPop)
++        reset(preserveCompletedForeground = completedPop || handoffExit, preserveScrim = handoffExit)
 +        return completedPop
 +    }
 +
-+    fun reset(preserveCompletedForeground: Boolean = false) {
++    fun reset(preserveCompletedForeground: Boolean = false, preserveScrim: Boolean = false) {
 +        val running = animator
 +        animator = null
 +        running?.cancel()
-+        stack.scrim.update(topView, 0f)
-+        // Keep a completed foreground offscreen until FragmentManager removes its view.
++        if (!preserveScrim) stack.scrim.update(topView, 0f)
++        // Preserve the removed foreground's position until its exit finishes.
 +        if (!preserveCompletedForeground) {
 +            topView?.translationY = 0f
 +        }
@@ -372,20 +378,24 @@ index 0000000..39e3304
 +            )
 +        }
 +
-+    private fun modalSlide(stack: ScreenStack?, view: View, appearing: Boolean): Animation =
-+        AnimationSet(false).apply {
++    private fun modalSlide(stack: ScreenStack?, view: View, appearing: Boolean): Animation {
++        val offset = if (appearing) 0f else (view.translationY / max(1, view.height)).coerceIn(0f, 1f)
++        val remaining = 1f - offset
++        val durationMs = if (offset > 0f) max(120L, (DURATION_MS * remaining).toLong()) else DURATION_MS
++        return AnimationSet(false).apply {
 +            addAnimation(
 +                TranslateAnimation(
 +                    Animation.RELATIVE_TO_SELF, 0f, Animation.RELATIVE_TO_SELF, 0f,
 +                    Animation.RELATIVE_TO_SELF, if (appearing) 1f else 0f,
-+                    Animation.RELATIVE_TO_SELF, if (appearing) 0f else 1f,
++                    Animation.RELATIVE_TO_SELF, if (appearing) 0f else remaining,
 +                ).apply {
-+                    duration = DURATION_MS
++                    duration = durationMs
 +                    interpolator = standardCurve()
 +                },
 +            )
-+            if (stack != null) addAnimation(ScrimAnimation(stack, view, appearing))
++            if (stack != null) addAnimation(ScrimAnimation(stack, view, appearing, remaining, durationMs))
 +        }
++    }
 +
 +    private val LinearOutSlowIn = PathInterpolator(0f, 0f, 0.2f, 1f)
 +    private val FastOutLinearIn = PathInterpolator(0.4f, 0f, 1f, 1f)
@@ -395,14 +405,16 @@ index 0000000..39e3304
 +        private val stack: ScreenStack,
 +        private val target: View,
 +        private val appearing: Boolean,
++        private val remaining: Float,
++        durationMs: Long,
 +    ) : Animation() {
 +        init {
-+            duration = DURATION_MS
++            duration = durationMs
 +            interpolator = standardCurve()
 +        }
 +
 +        override fun applyTransformation(interpolatedTime: Float, t: Transformation) {
-+            val visible = if (appearing) interpolatedTime else 1f - interpolatedTime
++            val visible = if (appearing) interpolatedTime else remaining * (1f - interpolatedTime)
 +            // A fully presented modal covers the screen, so the scrim is no longer needed.
 +            stack.scrim.update(target, if (interpolatedTime >= 1f) 0f else visible)
 +        }
