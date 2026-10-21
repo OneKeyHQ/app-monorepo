@@ -931,3 +931,24 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: Edge reservation checked platform and fullscreen state without checking history in the current stack; parent modal dismissal can make `canGoBack()` true even at the inner stack root.
 **Fix**: Subscribe to the current stack index and reserve the edge only when it has a previous screen, while retaining the fullscreen exemption.
 **Catchable by**: Section 8: compare a modal root with a pushed detail, including a parent that can go back; verify edge interactions, swipe-back and fullscreen separately.
+
+## Case: Dust Sweep default network disagreed with displayed order (OK-65143)
+**Date**: 2026-10-21 | **Platforms**: Shared Dust Sweep UI
+**Symptom**: Dust Sweep opened on a network below the first displayed network, and a provisional cached choice could remain after fresh data changed the order.
+**Root Cause**: The list used total balances for ordering, while automatic selection separately ranked balances below the current dust threshold. A cached automatic choice could also become sticky.
+**Fix**: Derive the default from the first displayed network and let provisional defaults follow fresh ordering. Preserve explicit route choices, manual selection, and the executing snapshot.
+**Catchable by**: Section 4: use the displayed order as the default-selection source; Section 5: distinguish provisional defaults from user-owned state; Section 8: verify entry, re-entry, cache-to-fresh refresh, and threshold changes.
+
+## Case: Dust Sweep approval handling diverged from ordinary Swap (OK-65087)
+**Date**: 2026-10-21 | **Platforms**: Shared EVM/Tron execution and gas adapter; Desktop pre-sign runtime checks
+**Symptom**: Valid EVM/Tron quotes without approval metadata stopped with an unknown error before estimation. Review also found that the shared gas adapter dropped the legacy MegaFuel eligibility marker.
+**Root Cause**: Dust Sweep treated absent approval instructions as malformed instead of following ordinary Swap's estimation path. The gas adapter preserved newer payer fields but omitted `megafuelEligible`.
+**Fix**: Continue quotes with absent approval instructions through actual estimation and prechecks, retain rejection of explicitly malformed instructions, and preserve the legacy sponsorship marker in the shared gas result.
+**Catchable by**: Section 4: compare approval and sponsorship contracts across consumers; Section 6: cover absent, valid, malformed and contradictory approval fields plus marker-only sponsorship responses; Section 8: verify real quote/build and prechecks with an explicit stop before signing. These checks do not establish broadcast success or native runtime acceptance.
+
+## Case: Dust Sweep notification suppression waited for post-broadcast work (OK-65087)
+**Date**: 2026-10-21 | **Platforms**: Shared Dust Sweep execution
+**Symptom**: A same-chain transfer notification could arrive while decoding or history persistence was still running after a successful swap broadcast.
+**Root Cause**: Notification suppression started after the shared sender returned, although its broadcast callback already provided the transaction ID before awaited post-processing.
+**Fix**: Request suppression from the swap broadcast callback without waiting for the notification service. Use the same path for a recovered hash only after its broadcast is confirmed; keep approval hashes separate.
+**Catchable by**: Section 6: defer or reject post-broadcast processing and leave notification suppression pending; assert suppression starts before sender completion, settlement still completes, and recovery does not suppress unconfirmed or approval hashes.
