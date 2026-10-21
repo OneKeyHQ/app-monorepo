@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import StakingFormWrapper from '@onekeyhq/kit/src/views/Staking/components/StakingFormWrapper';
 
@@ -105,6 +105,23 @@ export function ManagePosition(props: IManagePositionProps) {
     setAmountValue('');
   }, [action, borrowReserveAddress, setAmountValue]);
 
+  // Entered once, as soon as both it and the decimals are in. After the clear
+  // above, which also runs on mount (effects run in order). The loading form
+  // StakeSection shows first is this same instance, without either
+  const { initialAmount } = props;
+  const isInitialAmountAppliedRef = useRef(false);
+  useEffect(() => {
+    if (
+      isInitialAmountAppliedRef.current ||
+      !initialAmount ||
+      decimals === undefined
+    ) {
+      return;
+    }
+    isInitialAmountAppliedRef.current = true;
+    onChangeAmountValue(initialAmount);
+  }, [decimals, initialAmount, onChangeAmountValue]);
+
   // Submit handler
   const submitBorrowAction = useCallback(async () => {
     if (!onConfirm) return;
@@ -141,17 +158,30 @@ export function ManagePosition(props: IManagePositionProps) {
     onApprovedSubmit: submitBorrowAction,
   });
 
+  const { onTokenSelectorPress } = props;
   const effectiveTokenSelectorTriggerProps = useMemo(() => {
-    if (!approval.isFormInteractionLocked) {
-      return tokenSelectorTriggerProps;
+    if (approval.isFormInteractionLocked) {
+      return {
+        ...tokenSelectorTriggerProps,
+        disabled: true,
+        onPress: undefined,
+        popover: undefined,
+      };
     }
-    return {
-      ...tokenSelectorTriggerProps,
-      disabled: true,
-      onPress: undefined,
-      popover: undefined,
-    };
-  }, [approval.isFormInteractionLocked, tokenSelectorTriggerProps]);
+    if (onTokenSelectorPress) {
+      return {
+        ...tokenSelectorTriggerProps,
+        disabled: false,
+        onPress: onTokenSelectorPress,
+        popover: undefined,
+      };
+    }
+    return tokenSelectorTriggerProps;
+  }, [
+    approval.isFormInteractionLocked,
+    onTokenSelectorPress,
+    tokenSelectorTriggerProps,
+  ]);
 
   // Build complete state
   const state: IManagePositionState = useMemo(

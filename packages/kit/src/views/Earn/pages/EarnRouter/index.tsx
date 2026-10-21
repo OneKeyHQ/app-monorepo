@@ -1,10 +1,10 @@
-import { useCallback, useMemo, useState } from 'react';
+import type { RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import type { IElement } from '@onekeyhq/components';
 import {
-  Badge,
   Icon,
   Popover,
   SizableText,
@@ -32,179 +32,52 @@ import type {
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
-import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
-import {
-  ProtocolImage,
-  formatTvl,
-} from '../../../Staking/components/ProtocolDisplayShared';
 import { useEarnAccount } from '../../../Staking/hooks/useEarnAccount';
 import { ManagePositionContent } from '../../../Staking/pages/ManagePosition/components/ManagePositionContent';
 import { EManagePositionType } from '../../../Staking/pages/ManagePosition/hooks/useManagePage';
-import {
-  collectLendingOffers,
-  collectNetworkOffers,
-} from '../../components/desktopHome/earnDesktopHome.utils';
 import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
-import { useEarnDesktopMarkets } from '../../components/desktopHome/useEarnDesktopHomeData';
-import { EarnAprSuffixText } from '../../components/EarnAprSuffixText';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
-import { getProtocolAprText } from '../../components/showProtocolListDialog';
-import { getProtocolAprColor } from '../../components/showProtocolListDialog.utils';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation } from '../../earnUtils';
 
+import { OfferSummary, useEarnRouterOffers } from './EarnRouterOffer';
+
+import type { IManagePositionPayWith } from '../../../Staking/pages/ManagePosition/components/ManagePositionContent';
 import type { IEarnDesktopHoldOffer } from '../../components/desktopHome/earnDesktopHome.utils';
 import type { RouteProp } from '@react-navigation/core';
 
 // The deposit form keeps the width the protocol details page gives it
 const FORM_WIDTH = 440;
-const EMPTY_OFFERS: IEarnDesktopHoldOffer[] = [];
+// and the gap between its title line and body there, which its loading
+// shell copies
+const FORM_GAP = '$1.5';
 
 type IRouteProps = RouteProp<ITabEarnParamList, ETabEarnRoutes.EarnRouter>;
-
-// What the token earns on this network: the protocol list and the lending
-// markets' supply, the best rate first, as the home's row counted them
-function useEarnRouterOffers({
-  symbol,
-  networkId,
-}: {
-  symbol: string;
-  networkId: string;
-}) {
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  const accountId = activeAccount.account?.id;
-  const accountNetworkId = activeAccount.network?.id;
-  const { result: protocols } = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceStaking
-        .getProtocolList({ symbol, accountId, networkId: accountNetworkId })
-        .catch(() => [] as IStakeProtocolListItem[]),
-    [accountId, accountNetworkId, symbol],
-  );
-  const { markets, isLoaded: isMarketsLoaded } = useEarnDesktopMarkets({
-    isActive: true,
-  });
-  const offers = useMemo(() => {
-    if (!protocols) {
-      return EMPTY_OFFERS;
-    }
-    return collectNetworkOffers({
-      networkId,
-      protocols,
-      lendingOffers:
-        collectLendingOffers({ markets }).get(symbol.toLowerCase()) ?? [],
-    });
-  }, [markets, networkId, protocols, symbol]);
-  return { offers, isLoaded: Boolean(protocols) && isMarketsLoaded };
-}
-
-const getOfferName = (offer: IEarnDesktopHoldOffer) =>
-  offer.kind === 'lending'
-    ? offer.offer.marketLabel
-    : getEarnProviderDisplayName(offer.item.provider.name);
-
-const getOfferLogo = (offer: IEarnDesktopHoldOffer) =>
-  offer.kind === 'lending'
-    ? offer.offer.market.logoURI
-    : offer.item.provider.logoURI;
-
-// A vault names itself; a fixed rate says when it matures
-const getOfferSubtitle = (offer: IEarnDesktopHoldOffer) => {
-  if (offer.kind === 'lending') {
-    return undefined;
-  }
-  return offer.isFixedRate
-    ? offer.item.provider.maturity
-    : offer.item.provider.vaultName;
-};
-
-const getOfferTvl = (offer: IEarnDesktopHoldOffer) =>
-  offer.kind === 'lending'
-    ? offer.offer.tvlText
-    : formatTvl(offer.item.provider.tvl);
-
-function OfferRate({ offer }: { offer: IEarnDesktopHoldOffer }) {
-  if (offer.kind === 'lending') {
-    return (
-      <EarnAprSuffixText
-        text={`${new BigNumber(offer.offer.apy).toFixed(2)}%`}
-      />
-    );
-  }
-  return (
-    <EarnAprSuffixText
-      text={getProtocolAprText(offer.item)}
-      color={getProtocolAprColor(offer.item.aprInfo)}
-    />
-  );
-}
-
-// The protocol switcher's item, so the list reads like the one the deposit
-// modal opens
-function OfferSummary({ offer }: { offer: IEarnDesktopHoldOffer }) {
-  const intl = useIntl();
-  const subtitle = getOfferSubtitle(offer);
-  const tvl = getOfferTvl(offer);
-  return (
-    <>
-      <ProtocolImage logoURI={getOfferLogo(offer)} />
-      <YStack flex={1} minWidth={0} gap="$0.5">
-        <XStack ai="center" gap="$1.5" minWidth={0}>
-          <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
-            {getOfferName(offer)}
-          </SizableText>
-          {offer.isFixedRate ? (
-            <Badge badgeType="default" badgeSize="sm">
-              <Badge.Text>
-                {intl.formatMessage({ id: ETranslations.defi_fixed_rate })}
-              </Badge.Text>
-            </Badge>
-          ) : null}
-          {offer.kind === 'protocol'
-            ? offer.item.provider.badges?.map((badge) => (
-                <Badge
-                  key={badge.tag}
-                  badgeType={badge.badgeType}
-                  badgeSize="sm"
-                >
-                  <Badge.Text>{badge.tag}</Badge.Text>
-                </Badge>
-              ))
-            : null}
-        </XStack>
-        {subtitle ? (
-          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-            {subtitle}
-          </SizableText>
-        ) : null}
-      </YStack>
-      <YStack ai="flex-end" gap="$0.5" flexShrink={0}>
-        <OfferRate offer={offer} />
-        {tvl ? (
-          <SizableText size="$bodySm" color="$textSubdued">
-            {`TVL ${tvl}`}
-          </SizableText>
-        ) : null}
-      </YStack>
-    </>
-  );
-}
 
 function OfferRow({
   offer,
   isSelected,
   onSelect,
+  focusSelectedRef,
 }: {
   offer: IEarnDesktopHoldOffer;
   isSelected: boolean;
   onSelect: (offer: IEarnDesktopHoldOffer) => void;
+  focusSelectedRef?: RefObject<boolean>;
 }) {
   const handlePress = useCallback(() => onSelect(offer), [offer, onSelect]);
+  const rowRef = useRef<IElement>(null);
+  useEffect(() => {
+    if (isSelected && focusSelectedRef?.current) {
+      focusSelectedRef.current = false;
+      rowRef.current?.focus();
+    }
+  }, [focusSelectedRef, isSelected]);
   return (
     <XStack
+      ref={rowRef}
       testID={`earn-router-offer-${offer.key}`}
       role="button"
       aria-pressed={isSelected}
@@ -248,11 +121,13 @@ function OfferList({
   isLoaded,
   selectedKey,
   onSelect,
+  focusSelectedRef,
 }: {
   offers: IEarnDesktopHoldOffer[];
   isLoaded: boolean;
   selectedKey?: string;
   onSelect: (offer: IEarnDesktopHoldOffer) => void;
+  focusSelectedRef?: RefObject<boolean>;
 }) {
   if (!isLoaded) {
     return <OfferListSkeleton />;
@@ -265,6 +140,7 @@ function OfferList({
           offer={offer}
           isSelected={offer.key === selectedKey}
           onSelect={onSelect}
+          focusSelectedRef={focusSelectedRef}
         />
       ))}
     </YStack>
@@ -286,6 +162,9 @@ function OfferSwitch({
 }) {
   const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);
+  // The sheet leaves focus on the page under it, so opened from the keyboard
+  // the chosen offer in it takes focus
+  const focusSelectedRef = useRef(false);
   if (!isLoaded || !selected) {
     return <Skeleton h={60} w="100%" borderRadius="$2" />;
   }
@@ -305,6 +184,15 @@ function OfferSwitch({
       userSelect="none"
       hoverStyle={canSwitch ? { bg: '$bgHover' } : undefined}
       pressStyle={canSwitch ? { bg: '$bgActive' } : undefined}
+      // The Popover opens on a click only: a tab stop, and Enter and Space
+      {...buildKeyboardPressProps(
+        canSwitch
+          ? () => {
+              focusSelectedRef.current = true;
+              setIsOpen(true);
+            }
+          : undefined,
+      )}
     >
       <OfferSummary offer={selected} />
       {canSwitch ? (
@@ -333,6 +221,7 @@ function OfferSwitch({
               onSelect(offer);
               closePopover();
             }}
+            focusSelectedRef={focusSelectedRef}
           />
         </YStack>
       )}
@@ -340,69 +229,101 @@ function OfferSwitch({
   );
 }
 
-// The deposit side of the manage form, for whichever offer is chosen
+type IOfferFormParams = {
+  networkId: string;
+  symbol: string;
+  provider: string;
+  vault?: string;
+  type?: EManagePositionType;
+  marketAddress?: string;
+  reserveAddress?: string;
+  accountId: string;
+  indexedAccountId?: string;
+  fallbackTokenImageUri?: string;
+};
+
+// The deposit side of the manage form, for whichever offer is chosen, with
+// Pay with
 function OfferDepositForm({
   offer,
   symbol,
   networkId,
   logoURI,
+  initialAmount,
+  payWith,
 }: {
   offer: IEarnDesktopHoldOffer;
   symbol: string;
   networkId: string;
   logoURI?: string;
+  initialAmount?: string;
+  payWith: IManagePositionPayWith;
 }) {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { selectedAccount } = useSelectedAccount({ num: 0 });
   const indexedAccountId =
     selectedAccount.indexedAccountId || activeAccount.indexedAccount?.id;
-  // Lending supply goes through the market's own account on this network,
-  // as the Borrow pages pass it
   const { earnAccount } = useEarnAccount({
     networkId,
     accountId: activeAccount.account?.id,
     indexedAccountId,
   });
 
-  if (offer.kind === 'lending') {
-    const { offer: lending } = offer;
-    return (
-      <ManagePositionContent
-        depositOnly
-        type={EManagePositionType.Supply}
-        networkId={networkId}
-        symbol={lending.symbol}
-        provider={lending.market.provider}
-        marketAddress={lending.market.marketAddress}
-        reserveAddress={lending.reserveAddress}
-        accountId={earnAccount?.account?.id || activeAccount.account?.id || ''}
-        indexedAccountId={
-          earnAccount?.account?.indexedAccountId ?? indexedAccountId
-        }
-        fallbackTokenImageUri={logoURI ?? lending.logoURI}
-        providerDisplayName={lending.marketLabel}
-        providerLogoUri={lending.market.logoURI}
-      />
-    );
-  }
-  const { item } = offer;
+  const params = useMemo<IOfferFormParams>(() => {
+    if (offer.kind === 'lending') {
+      const { offer: lending } = offer;
+      return {
+        networkId,
+        symbol: lending.symbol,
+        provider: lending.market.provider,
+        type: EManagePositionType.Supply,
+        marketAddress: lending.market.marketAddress,
+        reserveAddress: lending.reserveAddress,
+        // Lending supply goes through the market's own account on this
+        // network, as the Borrow pages pass it
+        accountId: earnAccount?.account?.id || activeAccount.account?.id || '',
+        indexedAccountId:
+          earnAccount?.account?.indexedAccountId ?? indexedAccountId,
+        fallbackTokenImageUri: logoURI ?? lending.logoURI,
+      };
+    }
+    const providerName = offer.item.provider.name;
+    return {
+      networkId,
+      symbol,
+      provider: providerName,
+      vault: earnUtils.shouldSendEarnProtocolVault({ providerName })
+        ? offer.item.provider.vault
+        : undefined,
+      // Cross-network, the form takes the external wallet's account only
+      accountId: selectedAccount.othersWalletAccountId || '',
+      indexedAccountId,
+      fallbackTokenImageUri: logoURI,
+    };
+  }, [
+    activeAccount.account?.id,
+    earnAccount?.account?.id,
+    earnAccount?.account?.indexedAccountId,
+    indexedAccountId,
+    logoURI,
+    networkId,
+    offer,
+    selectedAccount.othersWalletAccountId,
+    symbol,
+  ]);
+
   return (
     <ManagePositionContent
       depositOnly
-      networkId={networkId}
-      symbol={symbol}
-      provider={item.provider.name}
-      vault={
-        earnUtils.shouldSendEarnProtocolVault({
-          providerName: item.provider.name,
-        })
-          ? item.provider.vault
-          : undefined
+      {...params}
+      initialAmount={initialAmount}
+      providerDisplayName={
+        offer.kind === 'lending' ? offer.offer.marketLabel : undefined
       }
-      // Cross-network, the form takes the external wallet's account only
-      accountId={selectedAccount.othersWalletAccountId || ''}
-      indexedAccountId={indexedAccountId}
-      fallbackTokenImageUri={logoURI}
+      providerLogoUri={
+        offer.kind === 'lending' ? offer.offer.market.logoURI : undefined
+      }
+      payWith={payWith}
     />
   );
 }
@@ -411,15 +332,39 @@ function EarnRouterPage({ route }: { route: IRouteProps }) {
   const intl = useIntl();
   const media = useMedia();
   const navigation = useAppNavigation();
-  const { symbol, networkId, logoURI, offerKey } = route.params;
+  const { symbol, networkId, logoURI, offerKey, amount } = route.params;
 
   const { offers, isLoaded } = useEarnRouterOffers({ symbol, networkId });
-  const [pickedKey, setPickedKey] = useState(offerKey);
-  // The offer asked for, else the best rate
-  const selected = useMemo(
-    () => offers.find((offer) => offer.key === pickedKey) ?? offers[0],
-    [offers, pickedKey],
+  // Pay with's pick stays across offers. Sent here with an amount of the
+  // token itself (a withdrawal's), it starts on that token even before the
+  // withdrawal lands in the wallet
+  const [payKey, setPayKey] = useState<string>();
+  const payWith = useMemo<IManagePositionPayWith>(
+    () => ({
+      preferDepositToken: Boolean(amount),
+      selectedKey: payKey,
+      onSelectedKeyChange: setPayKey,
+    }),
+    [amount, payKey],
   );
+  const [pickedKey, setPickedKey] = useState(offerKey);
+  // The offer asked for, else the best rate, once both the protocol list and
+  // the lending markets are in: a market paying more would otherwise take the
+  // form over after it opened
+  const selected = useMemo(
+    () =>
+      isLoaded
+        ? (offers.find((offer) => offer.key === pickedKey) ?? offers[0])
+        : undefined,
+    [isLoaded, offers, pickedKey],
+  );
+  // Kept from then on, so a refresh that reorders close rates doesn't swap
+  // the form while it is being filled
+  useEffect(() => {
+    if (selected && selected.key !== pickedKey) {
+      setPickedKey(selected.key);
+    }
+  }, [pickedKey, selected]);
   const handleSelect = useCallback((offer: IEarnDesktopHoldOffer) => {
     setPickedKey(offer.key);
   }, []);
@@ -466,10 +411,15 @@ function EarnRouterPage({ route }: { route: IRouteProps }) {
 
   const form = selected ? (
     <OfferDepositForm
+      // Each offer starts the form over, so nothing of the last one (its
+      // title, history, balance) shows while the next one loads
+      key={selected.key}
       offer={selected}
       symbol={symbol}
       networkId={networkId}
       logoURI={logoURI}
+      initialAmount={amount}
+      payWith={payWith}
     />
   ) : null;
 
@@ -485,8 +435,12 @@ function EarnRouterPage({ route }: { route: IRouteProps }) {
   } else if (media.gtMd) {
     body = (
       <XStack ai="flex-start">
-        <YStack w={FORM_WIDTH} flexShrink={0}>
-          {form ?? <Skeleton mx="$5" h={320} borderRadius="$3" />}
+        <YStack w={FORM_WIDTH} flexShrink={0} gap={FORM_GAP}>
+          {form ?? (
+            <YStack px="$5">
+              <Skeleton h={320} borderRadius="$3" />
+            </YStack>
+          )}
         </YStack>
         <YStack flex={1} minWidth={0} px="$5" gap="$1.5">
           {/* Sits on the form's Deposit title line */}
@@ -513,7 +467,7 @@ function EarnRouterPage({ route }: { route: IRouteProps }) {
             onSelect={handleSelect}
           />
         </YStack>
-        {form}
+        {form ? <YStack gap={FORM_GAP}>{form}</YStack> : null}
       </YStack>
     );
   }

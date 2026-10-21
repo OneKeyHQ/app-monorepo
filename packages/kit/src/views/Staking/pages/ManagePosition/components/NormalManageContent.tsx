@@ -35,8 +35,10 @@ import { WithdrawSection } from './WithdrawSection';
 
 import type {
   IManagePositionFooterAction,
+  IManagePositionPayWith,
   IManagePositionProtocolSwitchConfig,
 } from './ManagePositionContent';
+import type { IWithdrawSuccessInfo } from './WithdrawSection';
 
 type IBorrowAction = 'supply' | 'withdraw' | 'borrow' | 'repay';
 type IManageActionData = IEarnManagePageActionData | undefined;
@@ -64,7 +66,7 @@ interface INormalManageContentProps {
   stakeTag?: IStakeTag;
   onIndicatorRefresh?: () => void;
   onRefreshPendingRef?: React.MutableRefObject<(() => Promise<void>) | null>;
-  onSuccess?: () => void;
+  onSuccess?: (info?: IWithdrawSuccessInfo) => void;
   defaultTab?: 'deposit' | 'withdraw';
   onTabChange?: (tab: 'deposit' | 'withdraw') => void;
   isInModalContext: boolean;
@@ -79,6 +81,10 @@ interface INormalManageContentProps {
   preferManagePageActionText?: boolean;
   // The Earn Router page deposits only; withdrawing has an entry of its own
   depositOnly?: boolean;
+  // A position's Withdraw, the other way round
+  withdrawOnly?: boolean;
+  payWith?: IManagePositionPayWith;
+  initialAmount?: string;
 }
 
 export function NormalManageContent({
@@ -116,6 +122,9 @@ export function NormalManageContent({
   type = EManagePositionType.Staking,
   preferManagePageActionText = false,
   depositOnly,
+  withdrawOnly,
+  payWith,
+  initialAmount,
 }: INormalManageContentProps) {
   const intl = useIntl();
   const useBorrowApi = useMemo(
@@ -376,7 +385,7 @@ export function NormalManageContent({
   );
 
   const [selectedTabIndex, setSelectedTabIndex] = useState(() => {
-    if (defaultTab === 'withdraw') return 1;
+    if (defaultTab === 'withdraw' || withdrawOnly) return 1;
     return 0;
   });
   const [
@@ -568,15 +577,16 @@ export function NormalManageContent({
   ]);
 
   const tabNames = useMemo(() => tabData.map((item) => item.title), [tabData]);
-  const visibleTabNames = useMemo(
-    () => (depositOnly ? tabNames.slice(0, 1) : tabNames),
-    [depositOnly, tabNames],
-  );
+  const visibleTabNames = useMemo(() => {
+    if (depositOnly) return tabNames.slice(0, 1);
+    if (withdrawOnly) return tabNames.slice(1, 2);
+    return tabNames;
+  }, [depositOnly, withdrawOnly, tabNames]);
 
   const initialTabName = useMemo(() => {
-    if (defaultTab === 'withdraw') return tabNames[1];
+    if (defaultTab === 'withdraw' || withdrawOnly) return tabNames[1];
     return tabNames[0];
-  }, [defaultTab, tabNames]);
+  }, [defaultTab, withdrawOnly, tabNames]);
 
   const focusedTab = useSharedValue(initialTabName);
 
@@ -685,7 +695,8 @@ export function NormalManageContent({
       return;
     }
     withdrawOrderHandoffRef.current = true;
-    if (!depositDisabled) {
+    // With the withdraw side alone there is no Deposit to leave behind it
+    if (!depositDisabled && !withdrawOnly) {
       focusedTab.value = tabNames[0];
       setSelectedTabIndex(0);
       onTabChange?.('deposit');
@@ -696,6 +707,7 @@ export function NormalManageContent({
     isWithdrawOrder,
     earnAccount?.accountId,
     depositDisabled,
+    withdrawOnly,
     focusedTab,
     tabNames,
     onTabChange,
@@ -774,7 +786,7 @@ export function NormalManageContent({
           onOpenSlippage={handleOpenSlippage}
         />
       </XStack>
-      {selectedTabIndex === 0 ? (
+      {selectedTabIndex === 0 && !withdrawOnly ? (
         <StakeSection
           accountId={earnAccount?.accountId || ''}
           networkId={networkId}
@@ -789,6 +801,8 @@ export function NormalManageContent({
           isInModalContext={isInModalContext}
           fallbackTokenImageUri={fallbackTokenImageUri}
           protocolSwitchConfig={stakeProtocolSwitchConfig}
+          payWith={payWith}
+          initialAmount={initialAmount}
           ongoingValidator={ongoingValidator}
           useBorrowApi={useBorrowApi}
           borrowMarketAddress={marketAddress}

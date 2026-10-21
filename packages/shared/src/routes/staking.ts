@@ -112,6 +112,8 @@ export type IModalStakingParamList = {
     provider: string;
     details?: IStakeProtocolDetails;
     vault?: string;
+    // The side the modal shows, alone: every entry is a Deposit/Buy or a
+    // Withdraw/Redeem. Without one (USDe's Manage) both sides show
     tab?: 'deposit' | 'withdraw';
     tokenImageUri?: string;
     enableProtocolSwitch?: boolean;

@@ -85,6 +85,9 @@ export type ITabEarnParamList = {
     logoURI?: string;
     // The offer to start on; the best rate otherwise
     offerKey?: string;
+    // An amount of the token to start the form on (what a withdrawal just
+    // took out)
+    amount?: string;
   };
   [ETabEarnRoutes.BorrowReserveDetailsShare]: {
     networkId: string;

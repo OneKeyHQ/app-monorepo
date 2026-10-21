@@ -99,7 +99,10 @@ import { ProtectionSection } from '../../../Staking/components/ProtocolDetails/P
 import { OverviewSkeleton } from '../../../Staking/components/StakingSkeleton';
 import { useCheckEthenaKycStatus } from '../../../Staking/hooks/useCheckEthenaKycStatus';
 import { useUnsupportedProtocol } from '../../../Staking/hooks/useUnsupportedProtocol';
-import { ManagePositionContent } from '../../../Staking/pages/ManagePosition/components/ManagePositionContent';
+import {
+  type IManagePositionPayWith,
+  ManagePositionContent,
+} from '../../../Staking/pages/ManagePosition/components/ManagePositionContent';
 import { FAQSection } from '../../../Staking/pages/ProtocolDetailsV2/FAQSection';
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
@@ -1168,6 +1171,13 @@ const ManagePositionPart = ({
   onCreateAddress?: () => Promise<void>;
   onStakeWithdrawSuccess?: () => void;
 }) => {
+  // The deposit side can be paid with another token the wallet holds. The
+  // pick is kept here, so it survives a look at the Withdraw tab
+  const [payKey, setPayKey] = useState<string>();
+  const payWith = useMemo<IManagePositionPayWith>(
+    () => ({ selectedKey: payKey, onSelectedKeyChange: setPayKey }),
+    [payKey],
+  );
   return (
     <YStack flex={4}>
       <YStack gap="$1.5" flex={1}>
@@ -1183,6 +1193,7 @@ const ManagePositionPart = ({
           suppressPlatformBonus={suppressPlatformBonus}
           onCreateAddress={onCreateAddress}
           onStakeWithdrawSuccess={onStakeWithdrawSuccess}
+          payWith={payWith}
         />
       </YStack>
     </YStack>

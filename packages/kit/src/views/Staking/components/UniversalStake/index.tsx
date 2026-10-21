@@ -296,7 +296,7 @@ function ProtocolSwitchTriggerRow({
   );
 }
 
-function ProtocolSwitcher({
+export function ProtocolSwitcher({
   tokenSymbol,
   accountId,
   fallbackProviderName,
@@ -434,6 +434,9 @@ type IUniversalStakeProps = {
   tokenSymbol?: string;
 
   decimals?: number;
+  // An amount to start on, entered once as if typed (the Earn Router page
+  // after a withdrawal: what it took out)
+  initialAmount?: string;
 
   providerName?: string;
   providerLogo?: string;
@@ -495,6 +498,7 @@ export function UniversalStake({
   networkId,
   balance,
   decimals,
+  initialAmount,
   minTransactionFee = '0',
   tokenImageUri,
   tokenImageLoading,
@@ -1151,6 +1155,21 @@ export function UniversalStake({
     },
     [decimals, debouncedFetchEstimateFeeResp],
   );
+
+  // Entered once, as soon as both it and the decimals are in: the loading
+  // form StakeSection shows first is this same instance, without either
+  const isInitialAmountAppliedRef = useRef(false);
+  useEffect(() => {
+    if (
+      isInitialAmountAppliedRef.current ||
+      !initialAmount ||
+      decimals === undefined
+    ) {
+      return;
+    }
+    isInitialAmountAppliedRef.current = true;
+    onChangeAmountValue(initialAmount);
+  }, [decimals, initialAmount, onChangeAmountValue]);
 
   const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
   const [stakeProgressStep, setStakeProgressStep] = useState(

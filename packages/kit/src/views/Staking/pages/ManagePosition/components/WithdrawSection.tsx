@@ -73,6 +73,14 @@ import {
 import type { IManagePositionFooterAction } from './ManagePositionContent';
 import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
 
+// What a withdrawal took, for whoever opened the form
+export type IWithdrawSuccessInfo = {
+  amount?: string;
+  logoURI?: string;
+  // It waits out a cooldown or a queue, so the tokens are not in the wallet yet
+  isQueued?: boolean;
+};
+
 type IBorrowSelectedAssetState = {
   asset: IBorrowAsset;
   scopeKey: string;
@@ -110,7 +118,8 @@ export const WithdrawSection = ({
   tokenInfo?: IEarnTokenInfo;
   protocolInfo?: IProtocolInfo;
   isDisabled?: boolean;
-  onSuccess?: () => void;
+  // Carries the amount, and the token's logo, when the withdrawal took one
+  onSuccess?: (info?: IWithdrawSuccessInfo) => void;
   beforeFooter?: ReactElement | null;
   footerActionOverride?: IManagePositionFooterAction;
   showApyDetail?: boolean;
@@ -1069,7 +1078,12 @@ export const WithdrawSection = ({
         },
         withdrawAll,
         onSuccess: () => {
-          onSuccess?.();
+          onSuccess?.({
+            amount,
+            logoURI: token?.logoURI,
+            // A cooldown or a withdrawal queue: the tokens come later
+            isQueued: Boolean(useEthenaCooldown) || withdrawType === 'queued',
+          });
           defaultLogger.staking.page.unstaking({
             token,
             stakingProtocol: providerName,
@@ -1186,7 +1200,10 @@ export const WithdrawSection = ({
             }
           : undefined,
         onSuccess: () => {
-          onSuccess?.();
+          onSuccess?.({
+            amount,
+            logoURI: (receiveToken ?? effectiveToken)?.logoURI,
+          });
         },
       });
     },

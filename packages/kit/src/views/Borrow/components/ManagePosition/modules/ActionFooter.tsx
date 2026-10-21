@@ -166,6 +166,11 @@ export function ActionFooter({
         alignItems: 'center',
         flex: 1,
       }}
+      // Inline (the Earn Router page) the button spans the form, as the
+      // staking form's inline footer does
+      {...(isInModalContext
+        ? undefined
+        : { p: 0, buttonContainerProps: { $gtMd: { ml: '0' }, w: '100%' } })}
       onConfirmText={confirmText}
       confirmButtonProps={{
         testID: BorrowTestIDs.actionConfirmBtn,
@@ -176,6 +181,7 @@ export function ActionFooter({
           loadingAllowance ||
           isFormInteractionLocked,
         disabled: isButtonDisabled,
+        ...(isInModalContext ? undefined : { w: '100%' }),
       }}
     />
   );

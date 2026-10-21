@@ -22,6 +22,16 @@ import {
   useUniversalBorrowBorrow,
   useUniversalBorrowSupply,
 } from '@onekeyhq/kit/src/views/Borrow/hooks/useUniversalBorrowHooks';
+import {
+  findOffer,
+  resolvePayMode,
+} from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/earnRouter.utils';
+import { useEarnRouterOffers } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/EarnRouterOffer';
+import {
+  showPayWithPicker,
+  usePayTokens,
+} from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/EarnRouterPayWith';
+import { EarnRouterSwapDepositForm } from '@onekeyhq/kit/src/views/Earn/pages/EarnRouter/EarnRouterSwapDepositForm';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
@@ -39,7 +49,10 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
-import { UniversalStake } from '../../../components/UniversalStake';
+import {
+  ProtocolSwitcher,
+  UniversalStake,
+} from '../../../components/UniversalStake';
 import { useBorrowApiParams } from '../../../hooks/useBorrowApiParams';
 import { useIsPendleProvider } from '../../../hooks/useIsPendleProvider';
 import { useUniversalStake } from '../../../hooks/useUniversalHooks';
@@ -57,6 +70,7 @@ import { resolveStakeInitialAllowanceTarget } from './StakeSection.utils';
 
 import type {
   IManagePositionFooterAction,
+  IManagePositionPayWith,
   IManagePositionProtocolSwitchConfig,
 } from './ManagePositionContent';
 import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
@@ -75,6 +89,8 @@ export const StakeSection = ({
   isInModalContext,
   fallbackTokenImageUri,
   protocolSwitchConfig,
+  payWith,
+  initialAmount,
   ongoingValidator,
   useBorrowApi,
   borrowMarketAddress,
@@ -101,6 +117,8 @@ export const StakeSection = ({
   isInModalContext?: boolean;
   fallbackTokenImageUri?: string;
   protocolSwitchConfig?: IManagePositionProtocolSwitchConfig;
+  payWith?: IManagePositionPayWith;
+  initialAmount?: string;
   ongoingValidator?: IEarnSelectField;
   useBorrowApi?: boolean;
   borrowMarketAddress?: string;
@@ -222,6 +240,82 @@ export const StakeSection = ({
     return stakeAssetsList?.assets ?? [];
   }, [stakeAssetsList?.assets]);
 
+  // Pay with, for deposits and supplies (not borrowing)
+  const canPayWith =
+    Boolean(payWith) &&
+    !(
+      borrowApiCtx.isBorrow && borrowApiCtx.borrowApiParams.action === 'borrow'
+    );
+  // The page's token: Pendle's form token is the one its buy side starts on
+  // (USDC for PT-sUSD3), which isn't the token the page is for
+  const depositSymbol = protocolInfo?.symbol || tokenInfo?.token.symbol || '';
+  const pay = usePayTokens({
+    networkId,
+    depositSymbol,
+    enabled: canPayWith && Boolean(depositSymbol),
+  });
+  const [ownPayKey, setOwnPayKey] = useState<string>();
+  const payKey = payWith?.onSelectedKeyChange ? payWith.selectedKey : ownPayKey;
+  const setPayKey = payWith?.onSelectedKeyChange ?? setOwnPayKey;
+  const payToken = useMemo(() => {
+    if (!canPayWith) {
+      return undefined;
+    }
+    const picked = pay.tokens.find((item) => item.key === payKey);
+    if (picked) {
+      return picked;
+    }
+    return payWith?.preferDepositToken
+      ? pay.tokens.find((item) => item.isDepositToken)
+      : pay.defaultToken;
+  }, [
+    canPayWith,
+    pay.defaultToken,
+    pay.tokens,
+    payKey,
+    payWith?.preferDepositToken,
+  ]);
+  // Nothing held on the network leaves nothing to pick
+  const hasPayTokens = canPayWith && pay.tokens.length > 0;
+  const handleOpenPayWith = useCallback(() => {
+    showPayWithPicker({
+      tokens: pay.tokens,
+      selectedKey: payToken?.key,
+      onSelect: (item) => setPayKey(item.key),
+    });
+  }, [pay.tokens, payToken?.key, setPayKey]);
+  const payMode = resolvePayMode({
+    payToken,
+    takesOtherTokens: isPendleProvider || isNativeProvider,
+    zapInputs: selectableStakeAssets.map((asset) => ({
+      address: asset.info.address,
+      isNative: asset.info.isNative,
+    })),
+  });
+  // The rate the swap path estimates with: this provider's among the
+  // token's offers on the network
+  const { offers: payOffers } = useEarnRouterOffers({
+    symbol: depositSymbol,
+    networkId,
+    enabled: payMode === 'swapThenDeposit',
+  });
+  const payOfferApr = useMemo(
+    () =>
+      findOffer({
+        offers: payOffers,
+        provider: providerName,
+        vault: protocolInfo?.vault || undefined,
+        marketAddress: borrowMarketAddress,
+      })?.apr,
+    [borrowMarketAddress, payOffers, protocolInfo?.vault, providerName],
+  );
+
+  const payWithAddress = payToken
+    ? normalizeStakeTokenAddress({
+        address: payToken.token.address,
+        isNative: payToken.token.isNative,
+      })
+    : undefined;
   useEffect(() => {
     if (!selectableStakeAssets.length) {
       setSelectedStakeAsset(undefined);
@@ -229,6 +323,19 @@ export const StakeSection = ({
     }
 
     setSelectedStakeAsset((prev) => {
+      // The token Pay with is on goes first
+      if (payWithAddress !== undefined) {
+        const picked = selectableStakeAssets.find(
+          (asset) =>
+            normalizeStakeTokenAddress({
+              address: asset.info.address,
+              isNative: asset.info.isNative,
+            }) === payWithAddress,
+        );
+        if (picked) {
+          return picked;
+        }
+      }
       if (prev) {
         const prevAddress = normalizeStakeTokenAddress({
           address: prev.info.address,
@@ -251,7 +358,7 @@ export const StakeSection = ({
 
       return selectableStakeAssets[0];
     });
-  }, [selectableStakeAssets]);
+  }, [payWithAddress, selectableStakeAssets]);
 
   const effectiveStakeTokenInfo = useMemo(() => {
     if (!tokenInfo || !selectedStakeAsset) {
@@ -407,6 +514,9 @@ export const StakeSection = ({
   ]);
 
   const stakeTokenSelectorTriggerProps = useMemo(() => {
+    if (hasPayTokens) {
+      return { disabled: false, onPress: handleOpenPayWith };
+    }
     if (
       !(isPendleProvider || isNativeProvider) ||
       !selectableStakeAssets.length
@@ -422,6 +532,8 @@ export const StakeSection = ({
           : undefined,
     };
   }, [
+    hasPayTokens,
+    handleOpenPayWith,
     isPendleProvider,
     isNativeProvider,
     selectableStakeAssets.length,
@@ -784,8 +896,13 @@ export const StakeSection = ({
     ],
   );
 
-  // If no required data, render placeholder to maintain layout
-  if (!hasRequiredData) {
+  // If no required data, render placeholder to maintain layout. With Pay
+  // with it also waits for the wallet, so the form doesn't change kind once
+  // the token it starts on is known
+  if (
+    !hasRequiredData ||
+    (canPayWith && Boolean(depositSymbol) && !pay.isLoaded)
+  ) {
     if (
       useBorrowApi &&
       borrowMarketAddress &&
@@ -833,6 +950,51 @@ export const StakeSection = ({
     );
   }
 
+  if (payMode === 'swapThenDeposit' && payToken) {
+    const heldDepositToken = pay.tokens.find((item) => item.isDepositToken);
+    return (
+      <EarnRouterSwapDepositForm
+        // Another provider or token starts the form over
+        key={`${providerName}|${protocolInfo?.vault ?? ''}|${payToken.key}`}
+        networkId={networkId}
+        // The deposit form's own word for it: Supply on a lending market
+        actionLabel={
+          isBorrowStake
+            ? (borrowActionLabel ??
+              intl.formatMessage({ id: ETranslations.defi_supply }))
+            : intl.formatMessage({ id: ETranslations.earn_deposit })
+        }
+        isDisabled={isDisabled}
+        offerName={borrowProviderDisplayName}
+        offerLogo={protocolInfo?.providerDetail.logoURI}
+        apr={payOfferApr}
+        payToken={payToken}
+        depositToken={{
+          symbol: depositSymbol,
+          logoURI: tokenInfo?.token.logoURI || fallbackTokenImageUri,
+          priceUsd:
+            heldDepositToken && Number(heldDepositToken.priceUsd) > 0
+              ? heldDepositToken.priceUsd
+              : String(tokenInfo?.price ?? '0'),
+        }}
+        onOpenPayWith={handleOpenPayWith}
+        onDone={onSuccess}
+        isInModalContext={isInModalContext}
+        protocolSwitch={
+          protocolSwitchConfig ? (
+            <ProtocolSwitcher
+              tokenSymbol={depositSymbol}
+              accountId={accountId}
+              fallbackProviderName={providerName}
+              fallbackProviderLogoUri={protocolInfo?.providerDetail.logoURI}
+              protocolSwitchConfig={protocolSwitchConfig}
+            />
+          ) : undefined
+        }
+      />
+    );
+  }
+
   return (
     <>
       {isBorrowStake ? (
@@ -846,6 +1008,8 @@ export const StakeSection = ({
           }
           balance={tokenInfo?.balanceParsed ?? ''}
           maxBalance={effectiveMaxBalance}
+          initialAmount={initialAmount}
+          onTokenSelectorPress={hasPayTokens ? handleOpenPayWith : undefined}
           tokenImageUri={tokenInfo?.token.logoURI || fallbackTokenImageUri}
           tokenSymbol={tokenInfo?.token.symbol}
           price={tokenInfo?.price ? String(tokenInfo.price) : '0'}
@@ -891,6 +1055,7 @@ export const StakeSection = ({
             effectiveStakeTokenInfo?.token?.decimals
           }
           balance={effectiveStakeTokenInfo?.balanceParsed ?? ''}
+          initialAmount={initialAmount}
           tokenImageUri={
             effectiveStakeTokenInfo?.token.logoURI || fallbackTokenImageUri
           }

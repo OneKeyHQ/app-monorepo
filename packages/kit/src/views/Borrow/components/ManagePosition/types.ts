@@ -75,6 +75,11 @@ export interface IManagePositionProps {
   // Token info
   balance: string;
   maxBalance?: string;
+  // An amount to start on, entered once as if typed (the Earn Router page
+  // after a withdrawal: what it took out)
+  initialAmount?: string;
+  // The caller's own token picker (Pay with) in place of the reserve picker
+  onTokenSelectorPress?: () => void;
   repayAllBalance?: string;
   debtBalance?: string;
   tokenSymbol?: string;

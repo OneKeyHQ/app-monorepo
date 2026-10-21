@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import { Page } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -21,8 +24,14 @@ import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
+import { EarnNavigation } from '../../../Earn/earnUtils';
+import {
+  EarnWithdrawDone,
+  useWithdrawBetterOffer,
+} from '../../../Earn/pages/EarnRouter/EarnWithdrawDone';
 
 import {
+  type IManagePositionPayWith,
   type IManagePositionProtocolSwitchConfig,
   ManagePositionContent,
 } from './components/ManagePositionContent';
@@ -32,6 +41,9 @@ type ISelectedProtocol = {
   provider: string;
   vault?: string;
 };
+
+// Every deposit here can be paid with another token the wallet holds
+const PAY_WITH: IManagePositionPayWith = {};
 
 function getProtocolKey(protocol: ISelectedProtocol) {
   return `${protocol.provider.toLowerCase()}-${protocol.networkId}-${protocol.vault ?? ''}`;
@@ -71,6 +83,8 @@ const ManagePositionPage = () => {
     enableProtocolSwitch: boolean;
     initialProtocol: ISelectedProtocol;
     initialTab: 'deposit' | 'withdraw';
+    // The one side shown, when the entry named it
+    side: 'deposit' | 'withdraw' | undefined;
     onStakeWithdrawSuccess: (() => void) | undefined;
   }>(() => {
     const {
@@ -97,6 +111,7 @@ const ManagePositionPage = () => {
         vault,
       },
       initialTab: tab ?? 'deposit',
+      side: tab,
       onStakeWithdrawSuccess,
     };
   }, [activeAccount, route.params, selectedAccount]);
@@ -130,8 +145,55 @@ const ManagePositionPage = () => {
     symbol,
     tokenImageUri,
     enableProtocolSwitch,
+    side,
     onStakeWithdrawSuccess,
   } = resolvedParams;
+
+  const navigation = useAppNavigation();
+  // A withdrawal leaves the token in the wallet: if the same token earns
+  // more elsewhere on this network, that offer shows once it is out
+  const { from, better } = useWithdrawBetterOffer({
+    enabled: side === 'withdraw',
+    symbol,
+    networkId: selectedProtocol.networkId,
+    provider: selectedProtocol.provider,
+    vault: selectedProtocol.vault,
+  });
+  const [withdrawn, setWithdrawn] = useState<{
+    amount: string;
+    tokenImageUri?: string;
+    offer: NonNullable<typeof better>;
+    fromOffer?: typeof from;
+  }>();
+  const handleWithdrawn = useCallback(
+    (info: { amount: string; tokenImageUri?: string }) => {
+      if (!better || !new BigNumber(info.amount).gt(0)) {
+        navigation.popStack();
+        return;
+      }
+      setWithdrawn({ ...info, offer: better, fromOffer: from });
+    },
+    [better, from, navigation],
+  );
+  const handleDepositBetter = useCallback(() => {
+    if (!withdrawn) {
+      return;
+    }
+    navigation.popStack();
+    void EarnNavigation.pushToEarnRouter(navigation, {
+      symbol,
+      networkId: selectedProtocol.networkId,
+      logoURI: withdrawn.tokenImageUri ?? tokenImageUri,
+      offerKey: withdrawn.offer.key,
+      amount: withdrawn.amount,
+    });
+  }, [
+    navigation,
+    selectedProtocol.networkId,
+    symbol,
+    tokenImageUri,
+    withdrawn,
+  ]);
 
   const { result: protocols, isLoading: isProtocolListLoading } =
     usePromiseResult(
@@ -207,24 +269,41 @@ const ManagePositionPage = () => {
     <Page scrollEnabled scrollProps={{ keyboardShouldPersistTaps: 'handled' }}>
       <Page.Header title={symbol} />
       <Page.Body>
-        {/* No key remount on protocol switch: useManagePage keeps stale data
-            while refetching, so the switcher / trade-or-buy / input stay put and
-            only the changed values update — no full skeleton flash on switch. */}
-        <ManagePositionContent
-          showApyDetail
-          isInModalContext
-          networkId={selectedProtocol.networkId}
-          symbol={symbol}
-          provider={selectedProtocol.provider}
-          vault={selectedProtocol.vault}
-          accountId={accountId}
-          indexedAccountId={indexedAccountId}
-          fallbackTokenImageUri={tokenImageUri}
-          defaultTab={selectedTab}
-          onTabChange={setSelectedTab}
-          stakeProtocolSwitchConfig={stakeProtocolSwitchConfig}
-          onStakeWithdrawSuccess={onStakeWithdrawSuccess}
-        />
+        {withdrawn ? (
+          <EarnWithdrawDone
+            symbol={symbol}
+            tokenImageUri={withdrawn.tokenImageUri ?? tokenImageUri}
+            amount={withdrawn.amount}
+            offer={withdrawn.offer}
+            fromOffer={withdrawn.fromOffer}
+            onDone={() => navigation.popStack()}
+            onDeposit={handleDepositBetter}
+          />
+        ) : (
+          // No key remount on protocol switch: useManagePage keeps stale data
+          // while refetching, so the switcher / trade-or-buy / input stay put
+          // and only the changed values update — no full skeleton flash on
+          // switch.
+          <ManagePositionContent
+            showApyDetail
+            isInModalContext
+            networkId={selectedProtocol.networkId}
+            symbol={symbol}
+            provider={selectedProtocol.provider}
+            vault={selectedProtocol.vault}
+            accountId={accountId}
+            indexedAccountId={indexedAccountId}
+            fallbackTokenImageUri={tokenImageUri}
+            defaultTab={selectedTab}
+            onTabChange={setSelectedTab}
+            depositOnly={side === 'deposit'}
+            withdrawOnly={side === 'withdraw'}
+            payWith={side === 'withdraw' ? undefined : PAY_WITH}
+            stakeProtocolSwitchConfig={stakeProtocolSwitchConfig}
+            onStakeWithdrawSuccess={onStakeWithdrawSuccess}
+            onWithdrawn={better ? handleWithdrawn : undefined}
+          />
+        )}
       </Page.Body>
     </Page>
   );

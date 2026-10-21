@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -36,6 +37,8 @@ import { ManagePageV2Content } from './ManagePageV2Content';
 import { NormalManageContent } from './NormalManageContent';
 import { USDEManageContent } from './USDEManageContent';
 
+import type { IWithdrawSuccessInfo } from './WithdrawSection';
+
 export type IManagePositionSelectedProtocol = {
   networkId: string;
   provider: string;
@@ -49,6 +52,21 @@ export type IManagePositionProtocolSwitchConfig = {
   selectedProtocol: IManagePositionSelectedProtocol;
   indexedAccountId?: string;
   onProtocolSelect: (protocol: IStakeProtocolListItem) => void | Promise<void>;
+};
+
+// Pay with: the amount's token opens a picker of what the wallet holds on
+// the network, starting on the deposit token, else the most valuable one. A
+// token the provider takes itself (Pendle, native staking) goes in one
+// transaction; any other is swapped first and then deposited, which this
+// demo simulates
+export type IManagePositionPayWith = {
+  // Start on the deposit token even before the wallet shows it (sent here
+  // with a withdrawal's amount)
+  preferDepositToken?: boolean;
+  // The pick, held by a caller that outlives the form (the Earn Router page
+  // keeps it across offers)
+  selectedKey?: string;
+  onSelectedKeyChange?: (key: string) => void;
 };
 
 export type IManagePositionFooterAction = {
@@ -85,10 +103,18 @@ export interface IManagePositionContentProps {
   suppressPlatformBonus?: boolean;
   // Only the deposit side: no Withdraw tab (the Earn Router page)
   depositOnly?: boolean;
+  // Only the withdraw side: no Deposit tab (a position's Withdraw)
+  withdrawOnly?: boolean;
+  payWith?: IManagePositionPayWith;
+  // An amount to start the deposit on
+  initialAmount?: string;
 
   // Optional callbacks
   onCreateAddress?: () => Promise<void>;
   onStakeWithdrawSuccess?: () => void;
+  // With the withdraw side alone: called with what was withdrawn once the
+  // withdrawal is out, in place of closing the modal
+  onWithdrawn?: (info: { amount: string; tokenImageUri?: string }) => void;
 }
 
 // Loading shell for the manage panel. Instead of masking the whole panel with
@@ -106,11 +132,13 @@ const ManageSectionShell = ({
   hasProtocolSwitch,
   isInModalContext,
   depositOnly,
+  withdrawOnly,
 }: {
   type: EManagePositionType;
   symbol: string;
   defaultTab?: 'deposit' | 'withdraw';
   depositOnly?: boolean;
+  withdrawOnly?: boolean;
   fallbackTokenImageUri?: string;
   isPendleProvider: boolean;
   // Trending entry (with a protocol switcher) renders a different card stack
@@ -146,10 +174,13 @@ const ManageSectionShell = ({
     };
   }, [intl, type]);
 
-  const activeIndex = defaultTab === 'withdraw' ? 1 : 0;
-  const tabLabels = depositOnly
-    ? [primaryLabel]
-    : [primaryLabel, secondaryLabel];
+  const activeIndex = defaultTab === 'withdraw' || withdrawOnly ? 1 : 0;
+  let tabLabels = [primaryLabel, secondaryLabel];
+  if (depositOnly) {
+    tabLabels = [primaryLabel];
+  } else if (withdrawOnly) {
+    tabLabels = [secondaryLabel];
+  }
   let activeLabel = activeIndex === 1 ? secondaryLabel : primaryLabel;
   if (isPendleProvider) {
     activeLabel = intl.formatMessage({ id: ETranslations.content__amount });
@@ -181,7 +212,8 @@ const ManageSectionShell = ({
     <YStack gap={isInModalContext ? undefined : '$1.5'}>
       <XStack px="$5">
         {tabLabels.map((label, index) => {
-          const isFocused = index === activeIndex;
+          // A lone tab is the one in use
+          const isFocused = tabLabels.length === 1 || index === activeIndex;
           let tabBackground: '$bg' | '$bgActive' | 'transparent' = '$bg';
           if (isPendleProvider) {
             tabBackground = 'transparent';
@@ -487,8 +519,12 @@ export function ManagePositionContent({
   stakeProtocolSwitchConfig,
   suppressPlatformBonus,
   depositOnly,
+  withdrawOnly,
+  payWith,
+  initialAmount,
   onCreateAddress,
   onStakeWithdrawSuccess,
+  onWithdrawn,
   isInModalContext = false,
 }: IManagePositionContentProps) {
   const intl = useIntl();
@@ -692,6 +728,13 @@ export function ManagePositionContent({
   const resolvedTokenImageUri =
     tokenInfo?.token?.logoURI || fallbackTokenImageUri;
 
+  // With Pay with, a deposit the server turns off only because the wallet
+  // holds none of the token stays open: another token can pay. A deposit off
+  // for any other reason (a paused or capped protocol) stays off
+  const isDepositDisabled =
+    depositDisabled &&
+    !(payWith && !new BigNumber(tokenInfo?.balanceParsed ?? '0').gt(0));
+
   const resolvedTokenInfo = useMemo(() => {
     if (tokenInfo?.token) {
       return tokenInfo;
@@ -839,20 +882,36 @@ export function ManagePositionContent({
   // Ref to store refreshPending function from useStakingPendingTxs hook
   const refreshPendingRef = useRef<(() => Promise<void>) | null>(null);
 
-  const handleOperationSuccess = useCallback(() => {
-    void refreshManageData();
-    // Immediately refresh pending transactions after operation
-    void refreshPendingRef.current?.();
-    onStakeWithdrawSuccess?.();
-    if (isInModalContext) {
-      appNavigation.popStack();
-    }
-  }, [
-    refreshManageData,
-    onStakeWithdrawSuccess,
-    isInModalContext,
-    appNavigation,
-  ]);
+  const handleOperationSuccess = useCallback(
+    (info?: IWithdrawSuccessInfo) => {
+      void refreshManageData();
+      // Immediately refresh pending transactions after operation
+      void refreshPendingRef.current?.();
+      onStakeWithdrawSuccess?.();
+      // A withdrawal that took an amount hands over to the caller, which may
+      // have a better rate to show before closing. One that waits leaves
+      // nothing to deposit yet
+      if (withdrawOnly && onWithdrawn && info?.amount && !info.isQueued) {
+        onWithdrawn({
+          amount: info.amount,
+          tokenImageUri: info.logoURI || resolvedTokenImageUri,
+        });
+        return;
+      }
+      if (isInModalContext) {
+        appNavigation.popStack();
+      }
+    },
+    [
+      refreshManageData,
+      onStakeWithdrawSuccess,
+      withdrawOnly,
+      onWithdrawn,
+      resolvedTokenImageUri,
+      isInModalContext,
+      appNavigation,
+    ],
+  );
 
   // Create beforeFooter content for stake section
   const stakeBeforeFooter = useMemo(() => {
@@ -926,6 +985,7 @@ export function ManagePositionContent({
         hasProtocolSwitch={Boolean(stakeProtocolSwitchConfig)}
         isInModalContext={isInModalContext}
         depositOnly={depositOnly}
+        withdrawOnly={withdrawOnly}
       />
     );
   }
@@ -949,7 +1009,7 @@ export function ManagePositionContent({
         fallbackTokenImageUri={resolvedTokenImageUri}
         protocolInfo={resolvedProtocolInfo}
         earnAccount={earnAccount ?? undefined}
-        depositDisabled={depositDisabled}
+        depositDisabled={isDepositDisabled}
         withdrawDisabled={withdrawDisabled}
         stakeBeforeFooter={stakeBeforeFooter}
         withdrawBeforeFooter={withdrawBeforeFooter}
@@ -969,6 +1029,9 @@ export function ManagePositionContent({
         ongoingValidator={ongoingValidator}
         managePageData={managePageData}
         depositOnly={depositOnly}
+        withdrawOnly={withdrawOnly}
+        payWith={payWith}
+        initialAmount={initialAmount}
       />
     );
   }
@@ -1048,7 +1111,7 @@ export function ManagePositionContent({
       fallbackTokenImageUri={resolvedTokenImageUri}
       protocolInfo={resolvedProtocolInfo}
       earnAccount={earnAccount ?? undefined}
-      depositDisabled={depositDisabled}
+      depositDisabled={isDepositDisabled}
       withdrawDisabled={withdrawDisabled}
       stakeBeforeFooter={stakeBeforeFooter}
       withdrawBeforeFooter={withdrawBeforeFooter}
@@ -1070,6 +1133,9 @@ export function ManagePositionContent({
       ongoingValidator={ongoingValidator}
       managePageData={managePageData}
       depositOnly={depositOnly}
+      withdrawOnly={withdrawOnly}
+      payWith={payWith}
+      initialAmount={initialAmount}
     />
   );
 }
