@@ -1,4 +1,4 @@
-import { Suspense, useCallback } from 'react';
+import { Suspense, useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -28,6 +28,11 @@ import { OnboardingTestIDs } from '../testIDs';
 function PasscodeFormView() {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  // The numeric passcode setup runs two steps inside one page, so the heading
+  // has to follow along instead of reading "Set passcode" on both.
+  const [passcodeStep, setPasscodeStep] = useState<'create' | 'confirm'>(
+    'create',
+  );
   const { result: isPasswordSet } = usePromiseResult(async () => {
     return backgroundApiProxy.servicePassword.checkPasswordSet();
   }, []);
@@ -72,20 +77,25 @@ function PasscodeFormView() {
   } else {
     formView = (
       <Suspense fallback={<Spinner size="large" />}>
-        <PasswordSetupContainer pageMode onSetupRes={handlePasscodeConfirm} />
+        <PasswordSetupContainer
+          pageMode
+          onSetupRes={handlePasscodeConfirm}
+          onStepChange={setPasscodeStep}
+        />
       </Suspense>
     );
   }
+  const isConfirmStep = isPasswordSet || passcodeStep === 'confirm';
   return (
     <>
       <YStack gap="$2">
         <OnboardingHeading>
-          {!isPasswordSet
+          {isConfirmStep
             ? intl.formatMessage({
-                id: ETranslations.global_set_passcode,
+                id: ETranslations.confirm_unlock_passcode__title,
               })
             : intl.formatMessage({
-                id: ETranslations.auth_confirm_passcode_form_label,
+                id: ETranslations.set_unlock_passcode__title,
               })}
         </OnboardingHeading>
         {!isPasswordSet ? (
