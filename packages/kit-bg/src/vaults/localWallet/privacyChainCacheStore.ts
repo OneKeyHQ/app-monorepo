@@ -6,11 +6,9 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
-// What a privacy chain's scan last produced, kept on disk so a cold start or
-// a busy scanner shows it (as not yet current) instead of a blank: each
-// account's private balance (the chain owns its shape) and each network's
-// chain tip. Balance lifecycle (delete, rescan, reset) is ServicePrivacyChain's
-// job; pausing keeps it, like the scan data.
+// The last scanned private balance per account and chain tip per network, so a
+// cold start or busy scanner shows it (as not current) instead of a blank.
+// ServicePrivacyChain owns the balance lifecycle; pausing keeps it.
 
 // How long a balance shown on a page waits for the scanner before the saved
 // value is shown instead.

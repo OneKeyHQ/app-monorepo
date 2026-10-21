@@ -109,8 +109,7 @@ function ListEmptyComponent({
 }
 
 // Exported so a chain-specific settings page can open the editor for its own
-// network directly, instead of sending the user through the cross-chain list
-// and a network picker they already answered by being on that page.
+// network directly.
 export function CustomRpcEditDialogContent({
   network,
   rpcInfo,
@@ -402,8 +401,7 @@ function CustomRPC() {
     [showChainSelector, customRpcData?.supportNetworks, onAddOrEditRpc],
   );
 
-  // Scoped entry skips the chain selector: the page was opened from that
-  // chain's own settings, so asking again is a question already answered.
+  // Scoped entry (opened from a chain's own settings) skips the chain selector.
   const onAddCustomRpc = useCallback(() => {
     const scopedNetwork = customRpcData?.supportNetworks?.find(
       (item) => item.id === scopedNetworkId,

@@ -477,12 +477,6 @@ const desktopApi = {
       };
     },
   } as ThirdPartyBleApi,
-  /**
-   * Perform a privacy-chain node request from the main process.
-   *
-   * The renderer's own fetch cannot reach nodes that do not serve browsers,
-   * which for Monero is all but one of them.
-   */
   privacyChainNodeRequest: (params: {
     url: string;
     contentType: string;

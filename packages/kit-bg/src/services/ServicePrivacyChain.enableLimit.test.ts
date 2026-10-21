@@ -341,9 +341,8 @@ describe('Privacy Mode slot usage reporting', () => {
     expect(occupants.find((o) => o.accountId === 'a')?.aliasCount).toBe(2);
   });
 
-  // A locked passphrase wallet still holds its slot, and this page cannot
-  // offer to free it -- saying "3 of 5" while the service refuses the fourth
-  // is exactly the confusion this count exists to prevent.
+  // A locked passphrase wallet still holds its slot: the page count must match
+  // what the service enforces.
   it('counts a slot it cannot show when no visible wallet owns it', async () => {
     const service = createService({
       maxEnabledAccounts: 5,

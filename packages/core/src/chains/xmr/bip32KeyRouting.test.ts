@@ -14,12 +14,8 @@ import type { IXmrPureRuntimeApi } from './sdkXmrRuntime/address';
 import type { IEncodedTxXmr } from './types';
 import type { ICoreApiNetworkInfo } from '../../types';
 
-/**
- * Signing and key-image import hand the runtime the account's BIP-32 key, the
- * same key address derivation hands it, once per call. The runtime reduces
- * it to the spend key; no spend key crosses back. Checked for both derive
- * types against the published vectors in `derivation.vectors.test.ts`.
- */
+// Signing and key-image import hand the runtime the same BIP-32 key address
+// derivation does; no spend key crosses back. Checked for both derive types.
 
 // ed25519 group order.
 const L = 2n ** 252n + 27_742_317_777_372_353_535_851_937_790_883_648_493n;
@@ -70,8 +66,7 @@ const PURE_METHODS = new Set<string>([
   'signTransactionWithBip32Key',
 ]);
 
-// Records every call; touching any other method (an old spend-key export)
-// fails the test.
+// Records every call; touching any other method fails the test.
 function recordingRuntime(calls: ICall[]): IXmrPureRuntimeApi {
   const api: IXmrPureRuntimeApi = {
     async deriveAccount(network, bip32PrivateKeyHex) {

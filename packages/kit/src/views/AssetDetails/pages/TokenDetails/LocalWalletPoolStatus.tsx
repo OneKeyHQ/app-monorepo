@@ -47,7 +47,7 @@ export function LocalWalletPoolStatus({
   settingsMode?: boolean;
 }) {
   const intl = useIntl();
-  // A wallet type with no keyring for this chain can never scan (e.g. Monero has no hardware keyring); the toggle is withheld rather than offered and refused.
+  // No keyring for this wallet type (e.g. Monero hardware): withhold the toggle.
   const canEnable =
     !lw.isUnsupportedWallet &&
     (accountUtils.isHdAccount({ accountId }) ||
@@ -260,14 +260,14 @@ export function LocalWalletPoolStatus({
     );
   }
 
-  // A problem outranks a breakdown: balanceNote explains why the number may be wrong; hints are ordered most-specific-first, so [0] is the one worth showing.
+  // A balance problem outranks a breakdown; hints are ordered most-specific-first.
   const hintText = lw.poolBalance?.hints[0];
   const hintLine = hintText ? (
     <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
       {hintText}
     </SizableText>
   ) : null;
-  // Why funds can't be spent outranks a pool note; password-only causes get the full alert since only the user can act.
+  // Unspendable reasons outrank a pool note; password-only causes get the full alert.
   const needsPassword = lw.poolBalance?.frozen?.some(
     ({ reason }) => reason === 'needsPassword',
   );
@@ -321,7 +321,7 @@ export function LocalWalletPoolStatus({
 
   return (
     <YStack pt="$3" gap="$2">
-      {/* Height is reserved: this line appears/disappears as polling updates the balance, and unreserved would make everything below jump. */}
+      {/* Reserved height: polling toggles this line and would shift the page. */}
       <XStack minHeight="$5" alignItems="center" gap="$2">
         <Stack flexShrink={1}>{statusLine}</Stack>
         {inlineSetupRetry}
@@ -392,7 +392,7 @@ export function LocalWalletPoolStatus({
   );
 }
 
-// Scan progress for the chain; sits under the ADDRESS (not the balance) and keeps its height whether or not there's text, so the history list below doesn't jump on every poll.
+// Scan progress under the address; keeps its height when empty so the history below does not jump.
 export function LocalWalletSyncRow({
   networkId,
   accountId,

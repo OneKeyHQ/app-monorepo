@@ -161,10 +161,8 @@ describe('Zcash PCZT send policy', () => {
       spendSource: 'ironwood',
     });
 
-    // The two exports take the policy positionally, so any field that reaches
-    // only one of them prices a transaction that never happens --
-    // padOrchardBundle was exactly that, hardcoded false on the quote side
-    // while it changes the fee.
+    // Both exports take the policy positionally; a field reaching only one of
+    // them would quote a fee that is never paid.
     const quoted = mockPcztQuote.mock.calls[0] as unknown[];
     const created = mockPcztCreate.mock.calls[0] as unknown[];
     expect(quoted).toEqual(created);

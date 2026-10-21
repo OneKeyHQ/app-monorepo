@@ -21,11 +21,10 @@ import type {
 } from '../../types';
 
 // Two derivations from one BIP-39 seed, picked by the account's path:
-// - Trezor (and OneKey Pro firmware, default): SLIP-10 ed25519 at m/44'/128'/a'.
+// - Trezor (default): SLIP-10 ed25519 at m/44'/128'/a'.
 // - Cake Wallet: secp256k1 BIP-32 at m/44'/128'/a'/0/0.
-// Both then take the 32-byte key mod l as the spend key; neither hashes it.
 // ed25519 cannot derive a non-hardened segment, so a path with one is the
-// secp256k1 derivation -- the rule cannot be ambiguous.
+// secp256k1 derivation.
 export function getXmrCurveForPath(path: string): ICurveName {
   return path
     .split('/')
@@ -36,35 +35,20 @@ export function getXmrCurveForPath(path: string): ICurveName {
 }
 
 /**
- * Monero key derivation.
+ * Monero keys from a BIP-39 seed: `spend = sc_reduce32(bip32_key)` and
+ * `view = keccak256(spend)`. The reduction lives only in the Rust runtime so
+ * there is a single implementation.
  *
- * ## From a BIP-39 seed
- *
- * Monero natively uses its own 25-word seed; OneKey standardizes on BIP-39.
- * The account's path picks the BIP-32 curve (see `getXmrCurveForPath`); after
- * that, `spend = sc_reduce32(bip32_key)` and `view = keccak256(spend)`, which
- * is what Trezor (default) and Cake Wallet (the second derive type) both do.
- *
- * The reduction itself lives in the Rust runtime (`keys::derive_from_bip32_key`)
- * rather than being reimplemented here. Two implementations of the same
- * derivation is exactly how two derivations drift apart.
- *
- * ## What leaves derivation
- *
- * `publicKey` carries `${spendPublicKeyHex}:${viewPrivateKeyHex}` — the
- * viewing pair, which is what scanning needs and the direct analogue of a
- * Zcash UFVK. The keyring moves it into the privacy-chain viewing key store
- * and leaves only the spend public key on the account record. The spend key
- * is **never** persisted and never exists outside the runtime: signing and
- * key-image import hand it the BIP-32 key, which it reduces per call.
+ * `publicKey` carries the viewing pair (`spendPub:viewPriv`). The spend key is
+ * never persisted and never leaves the runtime: signing and key-image import
+ * hand it the BIP-32 key, which it reduces per call.
  */
 export default class CoreChainSoftware extends CoreChainApiBase {
   override getExportedSecretKey(
     _query: ICoreApiGetExportedSecretKey,
   ): Promise<string> {
-    // Exporting a Monero spend key would hand over full control of the
-    // account, and there is no Monero-native format the ecosystem imports
-    // from that we could round-trip safely.
+    // A spend key grants full control, and there is no Monero-native import
+    // format to round-trip.
     throw new NotImplemented();
   }
 
@@ -78,16 +62,8 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }
 
   /**
-   * Sign the transaction the user reviewed.
-   *
-   * Input selection, decoy draw, fee and change were all settled in the vault
-   * at review time — the fee cannot be known without doing them, and the
-   * number shown has to be the number paid. What arrives here is the finished
-   * transaction, so signing is pure: no wallet database, no node.
-   *
-   * The spend key never exists on this side. The runtime reduces it from the
-   * account's BIP-32 key, using the same `sc_reduce32` that produced the
-   * address, so the two can never disagree.
+   * Inputs, decoys, fee and change were fixed at review time, so signing
+   * needs no wallet database or node.
    */
   override async signTransaction(
     payload: ICoreApiSignTxPayload,
@@ -120,9 +96,8 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }
 
   /**
-   * The account's BIP-32 key, taken the way signing takes it, for the
-   * runtime's key-image import. The caller hands it to the runtime as is and
-   * keeps nothing; the spend key is reduced there.
+   * The account's BIP-32 key for the runtime's key-image import; the caller
+   * keeps nothing and the runtime reduces it to the spend key.
    */
   async getKeyImageBip32PrivateKeyHex(
     payload: ICoreApiSignBasePayload,
@@ -134,11 +109,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     return signer.getPrvkeyHex();
   }
 
-  /**
-   * The account's viewing pair (`spendPub:viewPriv`), re-derived from the
-   * seed for an account whose stored copy is missing. Same derivation as the
-   * address, so the two can never disagree.
-   */
+  /** Re-derives the viewing pair (`spendPub:viewPriv`) when the stored copy is missing. */
   async getViewingKeyPair(payload: ICoreApiSignBasePayload): Promise<string> {
     const signer = await this.baseGetSingleSigner({
       payload,
@@ -166,8 +137,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     });
 
     return {
-      // The viewing pair, not the spend key. Scanning needs both halves and
-      // neither one grants spending authority.
+      // The viewing pair, not the spend key; neither half grants spending.
       publicKey: serializeXmrViewingKeyPair(derived),
       address: derived.primaryAddress,
       addresses: {

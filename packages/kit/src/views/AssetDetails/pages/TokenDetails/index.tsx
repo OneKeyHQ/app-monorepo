@@ -940,16 +940,8 @@ function TokenDetailsView() {
         />
       );
     }
-    // Who gets the top tab bar. Three independent reasons, and they do NOT
-    // share conditions:
-    //
-    // - BTC-style derive types: HD wallets only. An imported or watched
-    //   account has one address, so there is nothing to switch between.
-    // - Aggregate tokens: more than one member network.
-    // - Pooled privacy chains: ALWAYS. Pools belong to the account's balance,
-    //   not to how the account was created, so `isOthersWallet` must not gate
-    //   them -- an imported zcash account has the same protocol pools as an HD
-    //   one.
+    // Pooled privacy chains get tabs for every wallet type: pools belong to
+    // the balance, so `isOthersWallet` must not gate them.
     if (
       (!accountUtils.isOthersWallet({ walletId }) &&
         vaultSettings?.mergeDeriveAssetsEnabled) ||

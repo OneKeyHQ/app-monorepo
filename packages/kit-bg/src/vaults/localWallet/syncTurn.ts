@@ -1,5 +1,5 @@
-// Composes a scheduler turn from a chain's step primitive, for chains that don't bound their own turn.
-// A step only starts if it would still finish inside budget -- an overrun gets the chain quarantined.
+// Composes a scheduler turn from a chain's step primitive. A step only starts
+// if it would finish inside budget: an overrun gets the chain quarantined.
 export type ILocalWalletSyncStepResult = {
   done: boolean;
   stateChanged?: boolean;
@@ -25,7 +25,7 @@ export async function runBoundedSyncTurn({
   /** How long a step is assumed to take before one has been measured. */
   expectedStepMs: number;
   step: () => Promise<ILocalWalletSyncStepResult>;
-  /** Runs after every step to publish progress; its failure is logged but must never end the turn. */
+  /** Publishes progress after every step; a failure is logged, never ends the turn. */
   onStep?: () => Promise<void>;
   now?: () => number;
 }): Promise<ILocalWalletSyncTurnResult> {
@@ -36,7 +36,7 @@ export async function runBoundedSyncTurn({
   let done = false;
   while (!done) {
     const elapsed = now() - startedAt;
-    // A step expected to overrun the budget is not started; the first step always runs regardless.
+    // The first step always runs.
     if (steps > 0 && elapsed + lastStepMs > budgetMs) {
       break;
     }

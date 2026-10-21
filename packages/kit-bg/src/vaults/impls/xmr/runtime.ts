@@ -16,11 +16,11 @@ import { getLastLocalWalletChainTip } from '../../localWallet/privacyChainCacheS
 import type Vault from './Vault';
 
 /**
- * Single place that opens the Monero runtime's database and node URL exactly once.
- * Opening the database twice fails as something that looks like corruption, not loudly.
+ * The only place that opens the Monero runtime's database and node. Opening
+ * the database twice fails like corruption, not loudly.
  */
 
-// Installed as a side effect of importing this module, so the chain cannot end up half-wired.
+// Installed on import so the chain cannot end up half-wired.
 installXmrCarrier();
 
 /** One database per network. Every identity on that network shares it. */
@@ -44,7 +44,8 @@ type ISession = {
 // How long an unreachable node is left alone before the next attempt.
 const NODE_RETRY_MS = 30_000;
 
-// Codes meaning the Worker's database/node client was torn down while this module's cached session survived.
+// The Worker's database/node client was torn down while this cached session
+// survived (e.g. the extension offscreen document was recreated).
 const LOST_STATE_CODES = new Set([
   'WALLET_NOT_OPEN',
   'NODE_NOT_CONFIGURED',
@@ -82,11 +83,11 @@ export type IXmrNodeHealth = {
 let nodeHealth: IXmrNodeHealth | undefined;
 let opening: Promise<ISession> | undefined;
 
-// One runtime call at a time: a read landing mid-step would otherwise fail as "not open",
-// indistinguishable from the real error. Queueing bounds the wait to at most one step.
+// One runtime call at a time: a read landing mid-step would otherwise fail as
+// "not open", indistinguishable from the real error.
 const runtimeCallLock = new Mutex();
 
-// Tests and carrier teardown only; calling this during a live scan reopens a database the previous call still holds.
+// Tests and carrier teardown only; during a live scan it would reopen a held database.
 export function resetXmrRuntimeSession() {
   session = undefined;
   opening = undefined;
@@ -102,7 +103,7 @@ async function openSession(params: {
   const api = await getXmrRuntimeApi();
   const dbName = xmrDbNameForNetwork(network);
   await api.openWallet(dbName, network);
-  // The database alone serves every local operation; an unreachable or disabled node must not take those down with it.
+  // Local operations need only the database; a bad node must not block them.
   let connectedUrl = '';
   let nodeAttempt: ISession['nodeAttempt'];
   if (nodeUrl) {
@@ -145,7 +146,7 @@ function openSessionSingleFlight(params: {
   return opening;
 }
 
-// Retries once on a fresh session after a lost-state error; a second one surfaces instead of looping.
+// Retries once on a fresh session after a lost-state error.
 function healingMethod(
   current: ISession,
   method: (typeof XMR_RUNTIME_METHODS)[number],
@@ -183,14 +184,14 @@ function withSelfHealing(current: ISession): IXmrRuntimeApi {
   return api as unknown as IXmrRuntimeApi;
 }
 
-// Whether a scan step holds the lock; a UI read must not join that queue and should answer from its last snapshot.
+// Whether a scan step holds the lock; UI reads then answer from their last snapshot.
 export function isXmrRuntimeBusy(): boolean {
   return runtimeCallLock.isLocked();
 }
 
 const staleFirstCache = new Map<string, unknown>();
 const staleFirstQueued = new Set<string>();
-// Bumped whenever remembered results are dropped, so a queued read finishing later cannot restore them.
+// Bumped on every drop, so a queued read finishing later cannot restore stale results.
 let staleFirstEpoch = 0;
 
 /** Drop remembered read results. Tests only. */
@@ -200,8 +201,8 @@ export function resetXmrStaleFirstCache() {
   staleFirstEpoch += 1;
 }
 
-// Cold start: with nothing remembered every read during a step answers the fallback.
-// One read per key waits behind the current step and fills the cache for the next poll.
+// Cold start: one read per key waits behind the current step and fills the
+// cache for the next poll.
 function queueXmrStaleFirstRead<T>(key: string, read: () => Promise<T>) {
   if (staleFirstQueued.has(key)) return;
   staleFirstQueued.add(key);
@@ -223,8 +224,8 @@ function queueXmrStaleFirstRead<T>(key: string, read: () => Promise<T>) {
     });
 }
 
-// Read without waiting on a scan step: busy returns the last-seen value (or fallback) instead of queueing.
-// The busy check is a snapshot, not a reservation -- a step can still start between it and the read.
+// Busy returns the last-seen value (or fallback) instead of queueing. The busy
+// check is a snapshot: a step can still start between it and the read.
 export async function readXmrStaleFirst<T>({
   key,
   read,
@@ -251,7 +252,7 @@ export async function readXmrStaleFirst<T>({
   return value;
 }
 
-// After the account's scanned data is removed or rewound, its last answers are wrong, not just old.
+// After scanned data is removed or rewound, remembered answers are wrong, not just old.
 export function forgetXmrStaleFirstAccount(accountId: string) {
   for (const kind of ['history', 'progress']) {
     staleFirstCache.delete(`${kind}:${accountId}`);
@@ -270,13 +271,13 @@ export async function deleteXmrDatabase(network: IXmrNetwork): Promise<void> {
   });
 }
 
-// Goes through the session's API, so it queues behind a running step instead of reopening the database under it.
+// Queues behind a running step instead of reopening the database under it.
 async function connectNode(target: ISession, url: string) {
   const { nodeAttempt } = target;
   if (nodeAttempt?.url === url && Date.now() - nodeAttempt.at < NODE_RETRY_MS) {
     return;
   }
-  // The runtime drops the previous node first, so a switch never falls back to the one the user moved away from.
+  // The runtime drops the previous node first, so a switch never falls back to it.
   target.nodeUrl = '';
   try {
     await target.api.setNodeUrl(url);
@@ -310,9 +311,8 @@ export async function getXmrRuntime(vault: Vault): Promise<IXmrRuntimeApi> {
   return current.api;
 }
 
-// Local reads and data management need only the database; waiting
-// for a node to connect put up to three network round trips before them.
-// Scanning and sending go through getXmrRuntime, which connects.
+// Local reads and data management need only the database. Scanning and
+// sending go through getXmrRuntime, which connects.
 export async function getXmrLocalRuntime(
   vault: Vault,
 ): Promise<IXmrRuntimeApi> {
@@ -329,7 +329,7 @@ export async function getXmrLocalRuntime(
   return current.api;
 }
 
-// Translates an app account id (string) into the runtime's own row id (integer) via the stored uuid.
+// App account id -> the runtime's integer row id, via the stored uuid.
 export async function getXmrIdentityId(params: {
   api: IXmrRuntimeApi;
   accountId: string;

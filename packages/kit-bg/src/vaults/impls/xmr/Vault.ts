@@ -151,8 +151,7 @@ async function readXmrNodeNetwork(url: string): Promise<string | undefined> {
 function toXmrUserFacingError(error: unknown): unknown {
   const runtime = readXmrRuntimeError(error);
   if (!runtime) return error;
-  // `detail` is log-only by contract (not translated), but it's the only clue
-  // to whether the node is down, lacks CORS, or was mistyped - log it, don't drop it.
+  // `detail` is untranslated, log-only, but the only clue to why a node failed.
   if (runtime.detail) {
     console.error('[xmr] runtime error', {
       code: runtime.code,
@@ -190,9 +189,8 @@ function toXmrUserFacingError(error: unknown): unknown {
 }
 
 /**
- * Monero vault. Extends `VaultBase`, not `VaultBtc`: Monero has no UTXO/xpub
- * side. Send path is prepare -> sign -> broadcast (like Zcash's PCZT) because
- * the fee depends on the built transaction's weight, not a flat rate.
+ * Send path is prepare -> sign -> broadcast because the fee depends on the
+ * built transaction's weight, not a flat rate.
  */
 export default class Vault extends VaultBase {
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
@@ -271,8 +269,7 @@ export default class Vault extends VaultBase {
     params: IBuildAccountAddressDetailParams,
   ): Promise<INetworkAccountAddressDetail> {
     const { account, networkId } = params;
-    // Address is stored on the account record at creation time (KeyringHd);
-    // no runtime/DB/node needed.
+    // Stored on the account record at creation (KeyringHd).
     const address = account.address ?? '';
     return {
       networkId,
@@ -286,8 +283,7 @@ export default class Vault extends VaultBase {
   }
 
   override async validateAddress(address: string): Promise<IAddressValidation> {
-    // Network-scoped: a mainnet address sent to from testnet is not merely
-    // "wrong network", it's unspendable. Validated via the runtime parser.
+    // Network-scoped: a cross-network address is unspendable, not just wrong.
     const { validateXmrAddress } =
       await import('@onekeyhq/core/src/chains/xmr/sdkXmrRuntime/address');
     const network = await this.getXmrNetwork();
@@ -656,7 +652,7 @@ export default class Vault extends VaultBase {
     };
   }
 
-  // The runtime always broadcasts through the configured node, so a custom node needs no separate path.
+  // The runtime always broadcasts through the configured node.
   override async broadcastTransactionFromCustomRpc(
     params: IBroadcastTransactionByCustomRpcParams,
   ): Promise<ISignedTxPro> {
@@ -665,8 +661,8 @@ export default class Vault extends VaultBase {
   }
 
   /**
-   * Irreversible. Marking outputs spent and recording the tx happen
-   * together, so a network error is recorded "pending" rather than letting a resend pay twice.
+   * Irreversible. Outputs are marked spent and the tx recorded together, so a
+   * network error is recorded as pending rather than letting a resend pay twice.
    */
   override async broadcastTransaction(
     params: IBroadcastTransactionParams,

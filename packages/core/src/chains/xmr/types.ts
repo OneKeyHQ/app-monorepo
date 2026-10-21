@@ -4,18 +4,9 @@ type IXmrDestination = {
 };
 
 /**
- * A Monero send, as it travels from the amount screen to the broadcast.
- *
- * ## Why the fee is on here rather than quoted separately
- *
- * Monero's fee is not a rate the user picks — it is the node's published rate
- * multiplied by the transaction's weight, and the weight depends on how many
- * inputs the wallet had to gather. There is no way to know it without doing
- * the selection. So the transaction is *constructed* at review time and the
- * fee shown is read off the constructed transaction. What the confirm screen
- * displays is what the transaction will actually pay.
- *
- * The same seam is what Zcash uses with a PCZT, for the same reason.
+ * A Monero send. The fee is the node's rate times the transaction's weight,
+ * which depends on input selection, so the transaction is built at review
+ * time and the displayed fee is read off it.
  */
 export type IEncodedTxXmr = {
   from: string;
@@ -26,33 +17,20 @@ export type IEncodedTxXmr = {
   amount: string;
   priority: IXmrFeePriority;
   /**
-   * True when the user asked to send everything.
-   *
-   * The amount cannot be computed on this side: it is
-   * `spendable − fee`, and the fee is not known until the transaction is
-   * built. The runtime solves it and writes the result back into
-   * `amountAtomic`.
+   * Send everything. The amount is `spendable - fee`, solved by the runtime
+   * and written back into `amountAtomic`.
    */
   isMaxSend?: boolean;
 
   // ---- filled in by the runtime at review time (see `prepareTransaction`)
 
   /**
-   * The constructed, unsigned transaction. Signing takes this and nothing
-   * else, which is what keeps the reviewed transaction and the signed one
-   * the same object.
+   * The constructed, unsigned transaction; signing takes only this, so the
+   * reviewed and signed transactions are the same.
    *
-   * **This is not a harmless unsigned blob: it contains the account's private
-   * view key.** Upstream writes the whole viewing pair into the change output
-   * (`ChangeEnum::Standard`), because Monero's wallet protocol optimizes the
-   * change output on the assumption that the sender can view it. The
-   * view-key-free alternative (`Change::fingerprintable`) carries an explicit
-   * upstream warning that it harms privacy, so avoiding it is not the answer.
-   *
-   * The consequence for any offline- or air-gapped-signing design: handing
-   * this artifact to another machine hands over the ability to see every
-   * payment the account has ever received. It may cross a trust boundary only
-   * where the view key already may.
+   * Contains the account's private view key (upstream `ChangeEnum::Standard`
+   * embeds the viewing pair for the change output), so it may only cross a
+   * trust boundary the view key may cross.
    */
   signableHex?: string;
   /** Piconero. Exact once `signableHex` is set. */

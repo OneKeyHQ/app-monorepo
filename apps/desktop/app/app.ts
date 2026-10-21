@@ -1289,14 +1289,8 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     });
   }
 
-  // Privacy-chain node requests.
-  //
-  // The chain runtime is wasm in the renderer, so its own fetch obeys CORS and
-  // mixed content. A Monero node sends no CORS headers unless it was proxied,
-  // which left exactly one of twelve public nodes reachable -- forcing every
-  // user of a privacy chain through one operator who then sees their IP, the
-  // ranges they sync and when they broadcast. The main process has neither
-  // rule, so this is what makes "use any node" real.
+  // Privacy-chain node requests: renderer fetch obeys CORS and mixed content,
+  // and most Monero nodes send no CORS headers. The main process has neither.
   ipcMain.removeHandler(ipcMessageKeys.PRIVACY_CHAIN_NODE_REQUEST);
   ipcMain.handle(
     ipcMessageKeys.PRIVACY_CHAIN_NODE_REQUEST,
@@ -1313,9 +1307,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
       }
       try {
         const { url, contentType, body } = params;
-        // Only http(s). Without this the renderer could reach file:// and
-        // other schemes through us, which is a hole the browser would never
-        // have allowed it.
+        // Only http(s): never let the renderer reach file:// etc. through us.
         const parsed = new URL(url);
         if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
           return {
@@ -1329,11 +1321,9 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
           return { ok: false, error: 'URL credentials are not supported' };
         }
         const fetchStartedAt = Date.now();
-        // Fails only on silence, never on a slow-but-steady transfer: a
-        // wallet2-sized batch over a proxy can take minutes and be fine.
-        // `net.fetch` is Chromium's stack: it follows the system proxy like
-        // every other request the app makes. Node's fetch would not, and
-        // would expose the user's IP to the node behind their back.
+        // Idle timeout only: a large batch over a proxy can take minutes.
+        // `net.fetch` follows the system proxy; Node's fetch would bypass it
+        // and expose the user's IP to the node.
         const response = await fetchBytesWithIdleTimeout(
           url,
           {
@@ -1356,8 +1346,8 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         }
         const { bytes } = response;
         if (process.env.NODE_ENV !== 'production') {
-          // The node's own time, with no relay in it. Compare with the
-          // renderer Worker's `host fetch` line for the same route.
+          // Node time without relay overhead; compare with the Worker's
+          // `host fetch` line for the same route.
           // eslint-disable-next-line no-console
           console.log(
             `[PRIV-PERF] node fetch (desktop main) ${JSON.stringify({
@@ -1371,8 +1361,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
         }
         return { ok: true, bytes };
       } catch (error) {
-        // Carry the cause. "request failed" with no reason is what made a
-        // node outage, a wrong address and a TLS failure look identical.
+        // Carry the cause so outage, bad address and TLS failure differ.
         return {
           ok: false,
           error: error instanceof Error ? error.message : String(error),

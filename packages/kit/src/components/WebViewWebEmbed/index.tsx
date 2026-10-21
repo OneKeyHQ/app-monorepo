@@ -292,7 +292,7 @@ export function WebViewWebEmbed({
   }, []);
 
   const allowFileAccessByUrl = useMemo(() => {
-    // Android no longer loads from file://, so it needs no file access.
+    // Android loads from the https origin, so it needs no file access.
     if (platformEnv.isNativeAndroid) {
       return undefined;
     }

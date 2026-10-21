@@ -1,10 +1,7 @@
-// The extension's background relays privacy-chain node requests (the
-// offscreen runtime's own fetch obeys CORS, and monerod sends none). It can
-// reach a node only with host permission for that origin, which the manifest
-// declares as optional so the prompt comes when the user picks the node.
-//
-// Must be called from the click handler, before any other await: the browser
-// grants the prompt only inside a user gesture.
+// The background relays node requests (offscreen fetch obeys CORS, and
+// monerod sends no CORS headers), which needs optional host permission.
+// Call from the click handler before any other await: the prompt needs the
+// user gesture.
 export async function requestNodeHostPermission(
   nodeUrl: string,
 ): Promise<boolean> {
@@ -14,8 +11,7 @@ export async function requestNodeHostPermission(
   } catch {
     return false;
   }
-  // Resolves true without prompting when already granted; awaiting anything
-  // first would spend the gesture.
+  // Resolves true without prompting when already granted.
   return chrome.permissions.request({ origins: [`${origin}/*`] });
 }
 

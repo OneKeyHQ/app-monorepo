@@ -5,12 +5,8 @@ import type {
   IZcashTransparentTxBuildResult,
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/types/sdk';
 
-// PCZT-based Zcash transaction. Structurally extends IEncodedTxBtc so the
-// BTC-vault inheritance and the IEncodedTx union stay type-compatible
-// (inputs/outputs carry the display intent; coin-select fields stay empty —
-// note selection happens inside the wasm wallet, not in the app). The PCZT is
-// created/proved by the watch-only wallet in the carrier and signed by the
-// keys wasm.
+// Extends IEncodedTxBtc for BTC-vault type compatibility; inputs/outputs carry
+// display intent only, since note selection happens inside the wasm wallet.
 export type IEncodedTxZcash = IEncodedTxBtc & {
   zcashMode: 'transparent' | 'privacy';
   zcashIsMaxSend?: boolean;

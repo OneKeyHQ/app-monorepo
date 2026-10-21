@@ -24,11 +24,7 @@ const IMPORTED = "imported--128--m/44'/128'/0'";
 const WATCHING = "watching--128--m/44'/128'/0'";
 
 describe('keyringMapSupportsAccount', () => {
-  /**
-   * Monero's shape: software wallets only. `hd-core` exposes no Monero
-   * methods, so the chain declares no hardware keyring -- and the UI must
-   * withhold the scan toggle rather than offer it and be refused on press.
-   */
+  // Monero's shape: no hardware keyring, so no scan toggle for hardware.
   it('reports a chain with only an hd keyring as software-only', () => {
     const keyringMap = buildMap({ hd: SOME_KEYRING });
     expect(keyringMapSupportsAccount({ keyringMap, accountId: HD })).toBe(true);
@@ -53,8 +49,6 @@ describe('keyringMapSupportsAccount', () => {
         accountId: HW,
       }),
     ).toBe(true);
-    // A chain that only implements a third-party vendor still serves
-    // hardware; which vendor is decided later, from the device row.
     expect(
       keyringMapSupportsAccount({
         keyringMap: buildMap({ hwLedger: SOME_KEYRING }),

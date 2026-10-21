@@ -59,11 +59,8 @@ beforeEach(() => {
 });
 
 /**
- * The runtime's open database and node client live in Worker memory. On the
- * extension that Worker sits in the offscreen document, which can be torn
- * down and recreated under the background's feet -- and the background's
- * cached session then says "open, node set" over a runtime that has neither.
- * Every call failed with NODE_NOT_CONFIGURED until the app was restarted.
+ * The runtime's state lives in Worker memory. On the extension the offscreen
+ * document can be recreated, leaving a cached session over an empty runtime.
  */
 describe('xmr runtime session', () => {
   it('opens the wallet and points it at the node once', async () => {
@@ -96,7 +93,7 @@ describe('xmr runtime session', () => {
     expect(raw.setNodeUrl).not.toHaveBeenCalled();
   });
 
-  // A node switch used to reopen the database under a running step.
+  // A node switch must not reopen the database under a running step.
   it('switches node on the open session instead of reopening', async () => {
     await getXmrRuntime(vault);
     const other = {
@@ -175,12 +172,8 @@ describe('xmr runtime session', () => {
   });
 });
 
-/**
- * The runtime checks its database and node out for a whole async step, so a
- * read arriving mid-step fails as "not open" -- and the self-heal above would
- * then reopen a wallet that is merely busy. Calls queue instead: a read waits
- * for the step, never races it.
- */
+// A mid-step read would fail as "not open" and trigger self-heal on a merely
+// busy wallet, so calls queue.
 describe('xmr runtime call serialisation', () => {
   it('runs one call at a time, in order', async () => {
     const order: string[] = [];
@@ -209,11 +202,7 @@ describe('xmr runtime call serialisation', () => {
   });
 });
 
-/**
- * The rule: a UI read never waits on a scan step. While a step holds the
- * lock, reads answer from what they last saw (or a placeholder) and the next
- * read after the step returns the fresh value.
- */
+// A UI read never waits on a scan step: it answers from what it last saw.
 describe('xmr stale-first reads', () => {
   it('reads live and remembers the result while the runtime is free', async () => {
     const read = jest.fn(async () => 'fresh');
@@ -294,11 +283,7 @@ describe('xmr stale-first reads', () => {
   });
 });
 
-/**
- * Cold start: a scan step usually holds the lock when the first poll arrives,
- * and with nothing remembered the read would answer the placeholder until a
- * poll happened to land between two steps.
- */
+// Cold start: the first poll usually arrives while a step holds the lock.
 describe('xmr stale-first cold start', () => {
   async function holdStep() {
     let releaseStep: () => void = () => {};
@@ -409,11 +394,7 @@ describe('xmr stale-first cold start', () => {
   });
 });
 
-/**
- * Progress is published after every scan step. A fresh tip each time put a
- * node round trip between every pair of steps; display reads reuse the last
- * tip anyone fetched instead.
- */
+// Display reads reuse the last fetched tip instead of a node round trip per step.
 describe('xmr display chain tip', () => {
   afterEach(() => {
     mockSavedTip = undefined;

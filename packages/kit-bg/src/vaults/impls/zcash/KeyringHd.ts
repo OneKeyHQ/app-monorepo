@@ -83,11 +83,9 @@ export class KeyringHd extends KeyringHdBtc {
     throw new NotImplemented();
   }
 
-  // PCZT signing path. The vault built the PCZT at review time
-  // (Vault.zcashAttachPczt) without locking notes. This keyring proves it,
-  // verifies the review, signs with account keys re-derived from the seed,
-  // then combines so the sighash checks run before submit. Never routes
-  // through the BTC sighash path (core signTransaction throws).
+  // Proves the review-time PCZT, verifies it against the review, signs with
+  // seed-derived keys, then combines so sighash checks run before submit.
+  // Never routes through the BTC sighash path.
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {

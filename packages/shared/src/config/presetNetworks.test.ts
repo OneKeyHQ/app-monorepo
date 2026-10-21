@@ -32,8 +32,6 @@ describe('Monero preset network', () => {
       shortcode: 'xmr',
       shortname: 'XMR',
       symbol: 'XMR',
-      // No third-party indexer covers Monero: the runtime is the only source
-      // of balances and history.
       backendIndex: false,
     });
     expect(getNetworkIdsMap().xmr).toBe('xmr--0');
@@ -42,15 +40,8 @@ describe('Monero preset network', () => {
     ).toBe(presetNetworksMap.xmr.impl);
   });
 
-  /**
-   * **Regression.** `presetNetworksMap` and the array `getPresetNetworks()`
-   * returns are two hand-maintained lists of the same thing, and only the
-   * second one feeds the network list the user searches.
-   *
-   * Monero shipped in the map but not the array: every id-keyed lookup worked,
-   * the vault loaded, the tests passed -- and the chain simply did not exist
-   * in the UI. Nothing else in the codebase notices that gap.
-   */
+  // presetNetworksMap and getPresetNetworks() are separate hand-maintained
+  // lists; only the array feeds the network selector.
   it('is in the list the network selector is built from, not only the id map', () => {
     const listed = getPresetNetworks().map((network) => network.id);
     expect(listed).toContain('xmr--0');

@@ -293,9 +293,8 @@ describe('ServiceApp privacy database reset ordering', () => {
     jest.restoreAllMocks();
   });
 
-  // Supersedes the earlier rule that aborted reset here: per-network failures
-  // are now retried through the pending-drop marker, and App Reset must stay
-  // available when storage is broken.
+  // Per-network failures are retried through the pending-drop marker; App
+  // Reset must stay available when storage is broken.
   it('still clears host storage when the privacy wipe throws', async () => {
     const clear = jest.spyOn(appStorage, 'clear').mockResolvedValue(undefined);
     jest.spyOn(appStorage.syncStorage, 'clearAll').mockResolvedValue(undefined);

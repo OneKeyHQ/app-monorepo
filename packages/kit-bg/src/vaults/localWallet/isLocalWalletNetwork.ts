@@ -10,8 +10,7 @@ export async function isLocalWalletNetwork({
   try {
     return !!(await getVaultSettings({ networkId })).localWallet;
   } catch {
-    // Generic callers must keep their existing path for networks without
-    // vault settings; every local-wallet chain registers settings.
+    // Every local-wallet chain registers settings.
     return false;
   }
 }

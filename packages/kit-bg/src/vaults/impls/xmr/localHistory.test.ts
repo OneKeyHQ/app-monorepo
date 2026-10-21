@@ -43,12 +43,7 @@ function build(item: Partial<IXmrHistoryItem>, recipient?: string) {
 }
 
 describe('xmr history rows', () => {
-  /**
-   * An outgoing transaction's own outputs include the change coming back. The
-   * amount that left is what was spent minus what returned -- reporting the
-   * gross spend would show a send of the whole input, which for a wallet with
-   * one large output reads as "I just sent my entire balance".
-   */
+  // Reporting the gross spend would show the whole input as sent.
   it('nets the change out of an outgoing amount', async () => {
     const row = await build({
       direction: 'out',
@@ -86,11 +81,7 @@ describe('xmr history rows', () => {
     expect(row.decodedTx.nativeAmount).toBe('0.25');
   });
 
-  /**
-   * Monero's whole design is that the payer is not derivable from the chain.
-   * The sender has no address; the endpoint is marked private instead of
-   * carrying a placeholder string the UI could mistake for an address.
-   */
+  // The payer is not derivable on Monero; a placeholder could pass as an address.
   it('marks the unknowable sender as private without an address', async () => {
     const row = await build({ direction: 'in', receivedAtomic: '1' });
     const action = row.decodedTx.actions[0] as unknown as {
@@ -150,10 +141,7 @@ describe('xmr history rows', () => {
     });
   });
 
-  /**
-   * After a rescan the recording is gone -- nothing on chain carries it. The
-   * destination is marked private rather than left as an unexplained blank.
-   */
+  // After a rescan the recorded recipient is gone; nothing on chain carries it.
   it('marks the recipient private when it was never recorded', async () => {
     const row = await build({ direction: 'out', spentAtomic: '1' });
     const action = row.decodedTx.actions[0] as unknown as {
@@ -168,11 +156,7 @@ describe('xmr history rows', () => {
     });
   });
 
-  /**
-   * An unmined transaction has no block time. Without a stand-in it sorts to
-   * the bottom of the list, because the sort key falls back to 0 -- the newest
-   * transaction would appear oldest.
-   */
+  // The sort key would fall back to 0 and show the newest tx as oldest.
   it('gives a pending transaction a timestamp so it sorts to the top', async () => {
     const before = Date.now();
     const row = await build({ height: null, timestamp: null });

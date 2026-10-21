@@ -36,10 +36,8 @@ function pool(spendable: string): IZcashPoolDetail {
   };
 }
 
-// The scanner snapshot is shielded-only now. `transparent` still describes
-// the account, so it rides along on a test-only field that the indexer mock
-// below reads -- keeping every case's "this account has N transparent"
-// readable at the call site.
+// The scanner snapshot is shielded-only; `transparentForTest` feeds the
+// indexer mock so each case states its transparent funds at the call site.
 type ITestBalance = IZcashBalance & { transparentForTest: string };
 
 function balance(
@@ -87,9 +85,7 @@ describe('Zcash send amount intent', () => {
         zcashGetWalletAccount: async () => account,
         zcashGetBalanceSafe: async () => snapshot,
         getLocalWalletBalance: async () => snapshot,
-        // The public half is indexer-owned; the scanner snapshot no longer
-        // carries it. Drive it from the same fixture so a case that says
-        // "this account has N transparent" still means that.
+        // The public half is indexer-owned; drive it from the same fixture.
         zcashGetIndexerTransparentBalance: async () => {
           const transparent = new BigNumber(
             (snapshot as ITestBalance | null)?.transparentForTest ??

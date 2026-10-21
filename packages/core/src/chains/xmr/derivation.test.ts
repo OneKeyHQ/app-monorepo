@@ -7,16 +7,9 @@ import {
 import type { IXmrPureRuntimeApi } from './sdkXmrRuntime/address';
 import type { IXmrNetwork } from './sdkXmrRuntime/types';
 
-/**
- * These tests pin the **wiring**, not the cryptography.
- *
- * The reduction itself (`spend = sc_reduce32(key)`, `view = keccak256(spend)`)
- * lives in the Rust runtime and is tested there against its own vectors. What
- * can go wrong on this side is plumbing: the wrong network reaching the
- * runtime, the halves of the viewing pair being swapped, or a JSON shape
- * drifting — and all three are silent failures that produce a plausible
- * address for the wrong wallet.
- */
+// Pins the wiring, not the cryptography (the runtime tests its own vectors):
+// a wrong network, swapped viewing-pair halves or a drifted JSON shape all
+// silently produce a plausible address for the wrong wallet.
 
 function fakeRuntime(): IXmrPureRuntimeApi & {
   calls: { method: string; args: unknown[] }[];
@@ -74,21 +67,8 @@ function fakeRuntime(): IXmrPureRuntimeApi & {
 }
 
 describe('xmr derivation plumbing', () => {
-  /**
-   * With no carrier registered, derivation falls back to loading the wasm
-   * module in-process — address derivation is microseconds of pure
-   * computation and should not require the Worker that scanning does.
-   *
-   * That fallback only reaches a working module in a browser-like environment:
-   * the shipped package is a wasm-pack `web` build, whose initializer fetches
-   * its `.wasm` by relative URL. Under jest (plain Node, no document base URL)
-   * that fetch cannot resolve.
-   *
-   * What this test pins is the part that matters either way: **the failure
-   * surfaces**. A silent fallback would let an account record be written with
-   * an empty address, and an empty address is a receive form that quietly
-   * loses money.
-   */
+  // The in-process fallback cannot load the wasm under jest; the failure must
+  // surface, since an empty address would be a receive form that loses money.
   it('surfaces a failure rather than deriving nothing when no carrier is registered', async () => {
     setXmrRuntimeLoader(undefined as never);
     await expect(
@@ -111,11 +91,7 @@ describe('xmr derivation plumbing', () => {
     });
   });
 
-  /**
-   * The spend key is public material here and the view key is private. Swap
-   * them and scanning quietly finds nothing while the address still looks
-   * correct — the worst shape of bug, because everything renders fine.
-   */
+  // Swapped halves scan nothing while the address still looks correct.
   it('keeps the viewing pair halves in their own fields', async () => {
     const runtime = fakeRuntime();
     setXmrRuntimeLoader(async () => runtime);
@@ -137,8 +113,6 @@ describe('xmr derivation plumbing', () => {
     await expect(
       validateXmrAddress({ address: '4abc', network: 'mainnet' }),
     ).resolves.toBe(true);
-    // A mainnet address on testnet is not "wrong network" -- it is a
-    // well-formed destination nobody holds the keys to.
     await expect(
       validateXmrAddress({ address: '4abc', network: 'testnet' }),
     ).resolves.toBe(false);

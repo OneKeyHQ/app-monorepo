@@ -1,12 +1,8 @@
 import { OneKeyLocalError } from '../errors';
 
 /**
- * How long a node response may go without delivering a single byte.
- *
- * A total-duration limit kills a large response that is arriving slowly but
- * steadily: through a proxy or on a congested link, a batch of Monero blocks
- * (up to ~15 MB, wallet2's batch size) can take minutes and still be fine.
- * Only silence means the connection is gone.
+ * How long a node response may go without delivering a single byte. Not a
+ * total limit: a large block batch over a proxy can take minutes and be fine.
  */
 export const FETCH_REQUEST_IDLE_TIMEOUT_MS = 30_000;
 

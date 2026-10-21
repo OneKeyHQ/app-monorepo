@@ -117,9 +117,9 @@ describe('Zcash transparent broadcast authorization', () => {
     expect(transport).toHaveBeenCalledTimes(1);
   });
 
-  // Regression: ServiceSend routes any broadcast to the custom-RPC branch
-  // unless told otherwise, and a Zcash sync node can be an enabled custom
-  // RPC -- that branch called back into broadcastTransaction forever.
+  // ServiceSend routes broadcasts to the custom-RPC branch unless told
+  // otherwise, and a Zcash sync node is a custom RPC; that branch must not
+  // recurse into broadcastTransaction.
   it('sends transparent broadcasts to the default backend', async () => {
     const { vault } = await createVault(false);
     const transport = jest

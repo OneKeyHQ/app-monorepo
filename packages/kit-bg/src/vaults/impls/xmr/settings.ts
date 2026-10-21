@@ -55,8 +55,7 @@ const settings: IVaultSettings = {
   impl: IMPL_XMR,
   coinTypeDefault: COINTYPE_XMR,
   accountDeriveInfo,
-  // One account = one primary address; subaddresses are runtime-tracked, not
-  // account records. SIMPLE, not UTXO (cf. DNX, which indexes each address).
+  // One account = one primary address; subaddresses are runtime-tracked.
   accountType: EDBAccountType.SIMPLE,
 
   importedAccountEnabled: false,
@@ -66,7 +65,6 @@ const settings: IVaultSettings = {
   qrAccountEnabled: false,
   dappInteractionEnabled: false,
 
-  // One native coin, no tokens or contracts to hold.
   isUtxo: false,
   isSingleToken: true,
   NFTEnabled: false,
@@ -89,8 +87,7 @@ const settings: IVaultSettings = {
   enabledInternalSignAndVerify: false,
   replaceTxEnabled: false,
 
-  // Fee follows the node's recommended rate x priority tier; no
-  // user-editable per-byte knob.
+  // Fee is the node's recommended rate x priority tier.
   editFeeEnabled: false,
   withTxMessage: false,
   defaultFeePresetIndex: 0,
@@ -103,12 +100,11 @@ const settings: IVaultSettings = {
   localWallet: {
     // Scanning costs real bandwidth/CPU, so it's opt-in per account.
     activation: 'account-opt-in',
-    // Single pool: keeps the generic pool tabs off the token page.
+    // Keeps the generic pool tabs off the token page.
     balanceShape: 'single',
     // Monero has no public address endpoints in transaction history.
     publicAddressPattern: '^$',
-    // No third-party indexer covers Monero (unlike blockbook for transparent
-    // Zcash): the runtime is the only source of truth here.
+    // No indexer covers Monero; the runtime is the only source of truth.
     privateAddressPattern:
       '^(?:[1-9A-HJ-NP-Za-km-z]{95}|[1-9A-HJ-NP-Za-km-z]{106})$',
     hiddenEndpointLabelId: ETranslationsMock.privacy_history_private__label,
@@ -146,12 +142,12 @@ const settings: IVaultSettings = {
     withholdAddressFromBackend: true,
   },
 
-  // Watch-only wallets can't detect spent outputs (needs key images from the
-  // spend key), so the balance reads high until imported; surfaced, not hidden.
+  // Watch-only scans cannot prove outputs unspent without key images; that
+  // part is surfaced as frozen until the password confirms it.
   hasFrozenBalance: true,
   showAddressType: false,
 
-  // One piconero, the smallest representable amount.
+  // One piconero.
   minTransferAmount: '0.000000000001',
 
   // Payment IDs are legacy; the modern flow is a subaddress per counterparty.
@@ -161,8 +157,7 @@ const settings: IVaultSettings = {
   // reconciliation depends on that identity.
   withoutBroadcastTxId: false,
 
-  // No backend index for this chain; the node is the sole source of truth.
-  // Custom RPC is the privacy story: whoever serves blocks sees what we ask for.
+  // Whoever serves blocks sees what we ask for, so users can pick their node.
   customRpcEnabled: true,
   builtInRpcUrls: XMR_BUILT_IN_NODE_URLS,
 

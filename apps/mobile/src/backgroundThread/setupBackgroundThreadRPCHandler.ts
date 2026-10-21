@@ -790,11 +790,8 @@ export function reportBackgroundThreadInitializationFailure(error: unknown) {
 
 const WEBEMBED_BRIDGE_CALL_TIMEOUT_MS = 30_000;
 
-// Per-module timeouts for long-running webembed modules. A local-wallet
-// runtime serializes every call behind one carrier lease, so any method can
-// wait out a whole sync turn (ServicePrivacyChain's 5-minute watchdog); proofs
-// additionally run after that lease. Registered here per module, never
-// derived from the chain at call time.
+// Local-wallet runtimes serialize every call behind one carrier lease, so any
+// method can wait out a whole sync turn (5-minute watchdog); proofs run after.
 const WEBEMBED_MODULE_TIMEOUTS_MS: Record<
   string,
   { default: number; methods?: Record<string, number> }

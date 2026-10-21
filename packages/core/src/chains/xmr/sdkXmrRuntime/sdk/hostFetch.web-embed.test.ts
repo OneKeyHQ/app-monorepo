@@ -38,7 +38,6 @@ describe('xmr web-embed node relay', () => {
     });
   });
 
-  // An older app without the relay must keep working as it did.
   it("falls back to the page's fetch when the channel is unavailable", async () => {
     withChannel(jest.fn().mockRejectedValue(new Error('method not found')));
     g.fetch = jest.fn(

@@ -10,26 +10,10 @@ import type {
 } from '@onekeyhq/shared/types/token';
 
 /**
- * A native-token list synthesized from a locally scanned balance.
- *
- * ## Why this exists
- *
- * The token list normally comes from the backend index. A client-scanned
- * privacy chain either has no backend at all (Monero: `backendIndex: false`)
- * or has one that cannot see the shielded half (Zcash). Without a synthesized
- * response the account page has no native token row — which reads to the user
- * as "this wallet holds nothing", not as "we could not ask".
- *
- * Shared rather than written per chain because the shape is a backend contract,
- * not a chain fact: `$key` has to match how the rest of the app keys token
- * fiat, and `keys` has to change whenever the content does or the UI caches a
- * stale row forever. Both are easy to get subtly wrong once, let alone twice.
- *
- * ## No price
- *
- * `price: 0` is not a claim that the coin is worthless — it is the absence of a
- * quote. The fiat value is left blank rather than computed as zero, because a
- * confident "$0.00" next to a real balance is worse than no number.
+ * A native-token list synthesized from a locally scanned balance, for chains
+ * the backend index cannot fully see. `$key` must match how the app keys token
+ * fiat, and `keys` must change with the content or the UI caches a stale row.
+ * `price: 0` means no quote: fiat is left blank, not shown as $0.00.
  */
 export function buildLocalWalletNativeTokenList(params: {
   network: IServerNetwork;

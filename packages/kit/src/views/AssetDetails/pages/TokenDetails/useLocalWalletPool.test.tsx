@@ -94,10 +94,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useAccountData', () => ({
     },
   }),
 }));
-// Mutable so one test can describe a single-balance chain. Declared with
-// `var` because jest hoists the factory above `const` initialization.
-// Whether the chain has a keyring for this wallet type; a chain with no
-// hardware keyring (Monero) answers 'unsupported' for a hardware account.
+// `var`: jest hoists the mock factory above `const` initialization.
 // eslint-disable-next-line no-var, vars-on-top
 var mockWalletSupport: ILocalWalletAccountSupport = 'supported';
 // eslint-disable-next-line no-var, vars-on-top
@@ -237,10 +234,6 @@ describe('useLocalWalletPool address shows quickly', () => {
   });
 });
 
-// An outdated WebView never produces progress; without this the row would
-// read "— / —" forever.
-// The reads become possible only once the state lands; they used to wait a
-// whole poll interval after that before their first run.
 describe('useLocalWalletPool first balance read', () => {
   async function flushMicrotasks() {
     for (let index = 0; index < 5; index += 1) {
@@ -365,8 +358,6 @@ describe('useLocalWalletPool retained-page lifecycle', () => {
     },
   );
 
-  // Returning to the page used to clear the state while it revalidated, and
-  // the whole private UI collapsed until the answer came back.
   it('stays ready while revalidating on return to the page', async () => {
     const { result, rerender } = renderHook(useLocalWalletPool, {
       initialProps: props,
@@ -396,8 +387,6 @@ describe('useLocalWalletPool retained-page lifecycle', () => {
     });
   });
 
-  // Switching tabs toggles `isActive`; the reads already on screen must
-  // survive it.
   it('keeps what it read across a tab switch', async () => {
     const { result, rerender } = renderHook(useLocalWalletPool, {
       initialProps: props,
@@ -546,17 +535,7 @@ describe('a chain with one kind of balance still gets its local wallet UI', () =
     mockLocalWalletSettings = POOLED;
   });
 
-  /**
-   * **Regression.** `hasPooledBalance` gates the whole private UI -- scan
-   * toggle, sync progress, pool status, repair controls -- but it used to be
-   * `balanceShape === 'pooled'`.
-   *
-   * `balanceShape` means "distinct balances the user can move between", which
-   * is what drives the per-pool tabs and nothing else. Monero has one kind of
-   * output and nothing to move between, so it correctly declares `single` --
-   * and every piece of its local-wallet UI silently vanished. The chain looked
-   * like it had no local wallet at all, with nothing in the logs.
-   */
+  // `balanceShape` only drives the pool tabs; it must not gate the private UI.
   it('shows the private UI for a single-balance chain', () => {
     mockLocalWalletSettings = SINGLE;
     const { result } = renderHook(() =>
@@ -594,12 +573,7 @@ describe('a chain with one kind of balance still gets its local wallet UI', () =
   });
 });
 
-/**
- * A wallet the chain has no keyring for must not be offered the scan toggle.
- * Monero declares no hardware keyring at all, so a hardware account there can
- * never scan -- offering the toggle and failing on press is the shape this
- * prevents.
- */
+// No keyring for the wallet type (Monero hardware): no scan toggle offered.
 describe('a wallet the chain cannot serve', () => {
   afterEach(() => {
     mockWalletSupport = 'supported';
@@ -616,8 +590,7 @@ describe('a wallet the chain cannot serve', () => {
     );
     await flushReads();
     expect(result.current.isUnsupportedWallet).toBe(true);
-    // Settled without waiting on the four account reads, so the UI renders
-    // its one line instead of sitting on a spinner forever.
+    // Settles without waiting on the account reads.
     expect(result.current.isReady).toBe(true);
   });
 
@@ -633,11 +606,7 @@ describe('a wallet the chain cannot serve', () => {
     expect(result.current.isUnsupportedWallet).toBe(false);
   });
 
-  /**
-   * The support answer has to land before `isReady`, or the toggle renders
-   * for a beat and then disappears -- which reads as a bug and, worse, is
-   * long enough to press.
-   */
+  // Otherwise the toggle flashes and disappears.
   it('is not ready until the support answer lands', () => {
     mockWalletSupport = 'unsupported';
     const { result } = renderHook(() =>
@@ -651,9 +620,7 @@ describe('a wallet the chain cannot serve', () => {
     expect(result.current.isReady).toBe(false);
   });
 
-  // A wallet the user chose not to keep is refused by the background; the
-  // page shows why instead of an Enable button that cannot work. The token
-  // page passes its own account data, so the answer must not depend on it.
+  // The token page passes its own account data; the answer must not depend on it.
   it('reports a temp wallet as unsupported, with its own reason', async () => {
     mockWalletSupport = 'tempWallet';
     const { result } = renderHook(() =>
@@ -690,12 +657,7 @@ describe('a wallet the chain cannot serve', () => {
   });
 });
 
-/**
- * **Regression.** The scan toggle, sync line and pool status all key off a
- * selected pool, and only the pool tabs select one. Monero declares `single`
- * and so renders no tabs: nothing selected its pool, and the token page never
- * showed the toggle. The only way to start scanning was Settings.
- */
+// A single-balance chain renders no tabs, so its pool must be selected here.
 describe('resolveSelectedPoolId', () => {
   const POOLED = {
     balanceShape: 'pooled',

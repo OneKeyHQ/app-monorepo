@@ -14,16 +14,8 @@ import Vault from './Vault';
 
 import type { IEncodedTxXmr } from './types';
 
-/**
- * The Monero send path, pinned at its three seams.
- *
- * What is worth testing here is not the cryptography — that lives in the Rust
- * runtime and is tested there. It is the *handoff*: which object carries the
- * fee, what reaches the runtime at broadcast, and whether the amount the user
- * confirmed is the amount that gets signed. Every bug in that list is silent:
- * the screen still renders, the transaction still goes out, and the number is
- * wrong.
- */
+// The send path's handoffs (fee carrier, broadcast payload, confirmed amount);
+// the cryptography is tested in the Rust runtime.
 
 const ACCOUNT_ID = "hd-1--m/44'/128'/0'";
 const PRIMARY =
@@ -181,11 +173,7 @@ describe('xmr send: building', () => {
     ).rejects.toThrow(/Batch transfer/);
   });
 
-  /**
-   * Piconero, not a float. Monero's supply is six orders of magnitude past
-   * `Number.MAX_SAFE_INTEGER`, so a number here loses precision without
-   * throwing.
-   */
+  // Piconero amounts exceed Number.MAX_SAFE_INTEGER.
   it('carries the amount as an integer string of piconero', async () => {
     const { vault } = createVault();
     const encodedTx = await vault.buildEncodedTx({
@@ -307,10 +295,6 @@ describe('xmr send: the fee comes from the built transaction', () => {
     expect(fee.data.data.feeUTXO?.[0].feeValue).toBe('0.00003');
   });
 
-  /**
-   * A fee shown for a transaction that has not been built is a guess, and a
-   * guess the user then confirms is worse than an error.
-   */
   it('refuses to report a fee before the transaction exists', async () => {
     const { vault } = createVault();
     await expect(
@@ -346,12 +330,7 @@ describe('xmr send: the fee comes from the built transaction', () => {
 });
 
 describe('xmr send: max', () => {
-  /**
-   * The amount the user typed for a max send is only a ceiling: the real
-   * figure is `spendable - fee`, and the fee is not known until the
-   * transaction is built. Keeping the typed value would show one number and
-   * send another.
-   */
+  // For max send the real amount is `spendable - fee`, known only after build.
   it('takes the resolved amount back from the runtime', async () => {
     const { vault, runtime } = createVault();
     const unsignedTx = await vault.buildUnsignedTx({
@@ -462,11 +441,7 @@ describe('xmr send: broadcast', () => {
     expect(runtime.prepared).toHaveLength(2);
   });
 
-  /**
-   * A network error cannot tell "the node never got it" from "the node got it
-   * and the reply was lost". Releasing on the second case lets the next send
-   * pick the same inputs and double spend.
-   */
+  // A lost reply may mean the node has it; releasing inputs could double spend.
   it('reports an unknown outcome when the broadcast call itself is lost', async () => {
     const { vault } = createVault({
       broadcast: () => Promise.reject(new Error('socket closed')),
@@ -581,12 +556,7 @@ describe('xmr send: broadcast', () => {
     ).rejects.toThrow(/unexpected transaction id/);
   });
 
-  /**
-   * The broadcast already happened and cannot be taken back. If the
-   * bookkeeping write fails afterwards, reporting an error would tell the user
-   * their send failed while the money is on its way -- the one message that is
-   * worse than no message.
-   */
+  // The broadcast already happened; a failed bookkeeping write must not report failure.
   it('still reports success when recording the recipient fails', async () => {
     const { vault } = createVault({
       recordSentRecipient: () => Promise.reject(new Error('disk full')),
@@ -607,10 +577,7 @@ describe('xmr send: broadcast', () => {
     ).resolves.toMatchObject({ txid: 'deadbeef' });
   });
 
-  /**
-   * Nothing on chain links a Monero transaction to the address it paid, so
-   * broadcast is the last moment this can be written down.
-   */
+  // Nothing on chain links a Monero tx to its recipient.
   it('records who was paid, so the history row is not "sent to Monero"', async () => {
     const { vault } = createVault();
     await vault.broadcastTransaction({
@@ -672,11 +639,7 @@ describe('xmr send: broadcast', () => {
 });
 
 describe('xmr send: nothing is adjustable after review', () => {
-  /**
-   * `signableHex` is the transaction. Editing the fee or the amount after it
-   * exists would leave the two describing different transactions, and the
-   * signed one always wins.
-   */
+  // `signableHex` is the transaction; a later fee/amount edit would diverge from it.
   it('returns the reviewed transaction unchanged', async () => {
     const { vault } = createVault();
     const unsignedTx = await vault.buildUnsignedTx({

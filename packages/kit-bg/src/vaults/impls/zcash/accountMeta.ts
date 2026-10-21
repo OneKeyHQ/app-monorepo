@@ -25,9 +25,8 @@ export type IZcashDerivedViewingMeta = {
   seedFingerprintHex: string;
 };
 
-// Shared by the software and hardware keyrings: the signer only differs in
-// where the viewing material comes from (seed vs device). Birthday resolution
-// and the persisted record are identical.
+// Shared by the software and hardware keyrings, which differ only in where the
+// viewing material comes from (seed vs device).
 export async function resolveAndSaveZcashAccountMeta({
   backgroundApi,
   account,

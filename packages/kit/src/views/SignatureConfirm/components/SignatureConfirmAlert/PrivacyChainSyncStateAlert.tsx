@@ -8,14 +8,8 @@ import { formatPrivacyChainPercent } from '@onekeyhq/kit/src/utils/privacyChainS
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { PRIVACY_CHAIN_SYNC_POLL_MS } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
 
-// Ledger-style sync-state banner inside the send confirm flow: the pool block
-// on TokenDetails shows the same facts, but the user composing a send is on
-// THIS page when "why can't I spend yet" matters. Never blocks anything --
-// the form's own validation does the blocking; this explains it.
-//
-// Which chains get it is a capability question (`localWallet`), not a
-// chain-name one: any wallet whose balance is scanned client-side can be
-// mid-scan while its owner is trying to spend.
+// Explains a capped spendable balance while a local wallet is still scanning;
+// it never blocks, the form's own validation does.
 function LocalWalletSyncStateAlert({
   networkId,
   accountId,
@@ -33,10 +27,7 @@ function LocalWalletSyncStateAlert({
   }, [networkId, accountId]);
   const isScanning = accountState?.enabled === true;
 
-  // The one place where waiting on the scan has a cost the user can feel: the
-  // spendable balance caps what this form will let them send. Catching up at
-  // full speed while they are composing is the difference between "I can't
-  // send my own money" and a wait with a number on it. Ends with the page.
+  // The spendable balance caps this send, so catch up at full speed meanwhile.
   usePrivacyChainBoost({
     networkId,
     accountId,
@@ -88,10 +79,7 @@ function PrivacyChainSyncStateAlert({
   networkId: string;
   accountId: string;
 }) {
-  // Resolved once, outside the poll: awaiting the settings inside it put a
-  // round trip in FRONT of the progress read, on every poll, which is
-  // precisely the wait this alert is meant to explain. Other chains mount
-  // nothing past this check.
+  // Resolved once, outside the poll, so no round trip precedes each progress read.
   const { result: vaultSettings } = usePromiseResult(
     () => backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
     [networkId],

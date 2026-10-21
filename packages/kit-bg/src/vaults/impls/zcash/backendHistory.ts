@@ -188,12 +188,9 @@ function shieldedCounterparty(amount: string): IOnChainHistoryTxTransfer {
   };
 }
 
-// The indexer only sees the transparent leg. A receive with no inputs it can
-// attribute (money arriving from a shielded pool) comes back with `sends: []`
-// and an empty `from`; a send whose outputs all went shielded comes back
-// with no external receive. The generic UTXO renderer then reads
-// `sends[0].from` / `receives[0].to` and shows "unknown". Add the shielded
-// side as an entry; it has no address, so the tx marks that side instead.
+// The indexer only sees the transparent leg, so a shielded counterparty comes
+// back as an empty `from` or missing receive and renders as "unknown". Add the
+// shielded side as an address-less entry and mark it on the tx.
 export function normalizeZcashBackendHistoryTx(
   tx: IOnChainHistoryTx,
 ): IOnChainHistoryTx {

@@ -54,7 +54,7 @@ it.each([false, true])(
             txid: 'aa'.repeat(32),
             vout: 0,
             valueZat: '100000',
-            // Change from before this release still sits on 1/0 and is spent like any other coin.
+            // Older change on 1/0 is spent like any other coin.
             derivationPath: "m/44'/133'/0'/1/0",
           },
         ],

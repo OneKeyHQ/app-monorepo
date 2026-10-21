@@ -194,8 +194,8 @@ describe('Privacy sync failure backoff', () => {
     jest.restoreAllMocks();
   });
 
-  // Regression: a failed turn never records the chain tip, so the failing
-  // group stays `tip` and outranked the other chain's backfill every tick.
+  // A failed turn never records the chain tip, so without backoff the failing
+  // group stays `tip` and outranks the other chain's backfill every tick.
   function createTwoChainScheduler(zcashSync: jest.Mock, xmrSync: jest.Mock) {
     const capability = (networkId: string) => ({
       listAccounts: async () => ({
@@ -481,8 +481,8 @@ describe('Privacy database erasure', () => {
     }
   });
 
-  // Queued behind a running scan, the delete timed out and the database with
-  // its view keys stayed on disk.
+  // Queued behind a running scan, the delete would time out and leave the
+  // database (with its view keys) on disk.
   it('stops a running scan before deleting', async () => {
     const order: string[] = [];
     const service = Object.assign(

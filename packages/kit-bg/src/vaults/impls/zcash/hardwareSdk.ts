@@ -85,8 +85,8 @@ function parseAddress(value: unknown): IZcashHardwareAddress {
   return result.data;
 }
 
-// New SDKs expose these methods. Older SDKs must fail before any device operation.
-// Every response is validated here; this adapter does not invent missing API exports.
+// SDKs without these methods must fail before any device operation; every
+// response is validated here.
 export function getZcashHardwareSdk(sdk: unknown) {
   if (!supportsZcash(sdk)) {
     throw new OneKeyLocalError(

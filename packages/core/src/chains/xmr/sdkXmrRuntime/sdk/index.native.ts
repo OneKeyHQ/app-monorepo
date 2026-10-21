@@ -4,13 +4,9 @@ import { createXmrRuntimeProxy } from './proxy';
 
 import type { IXmrRuntimeApi } from '..';
 
-// iOS and Android: the background is Hermes and cannot run wasm at all, so
-// calls go to the web-embed WebView, which hosts the same Worker as every
-// other carrier.
-//
-// The runtime is single-threaded, so unlike Zcash this does not need
-// cross-origin isolation -- which Android's system WebView structurally
-// cannot provide.
+// iOS and Android: the Hermes background cannot run wasm, so calls go to the
+// web-embed WebView, which hosts the shared Worker. The single-threaded
+// runtime needs no cross-origin isolation.
 const api = createXmrRuntimeProxy(
   () => ensureWebembedApiProxyAvailable().chainXmr,
 );

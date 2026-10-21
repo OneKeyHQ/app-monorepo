@@ -78,9 +78,8 @@ function toParsed(atomic: string | undefined): string | undefined {
   return `${whole.toString()}.${frac}`.replace(/\.?0+$/, '') || '0';
 }
 
-// networkId:accountId -> a page asked for the balance while a scan step held
-// the runtime. Module-level: the page and the scan may hold different
-// capability objects.
+// networkId:accountId of pages turned away mid-step. Module-level: the page
+// and the scan may hold different capability objects.
 const xmrBalanceWanted = new Set<string>();
 
 export function buildXmrLocalWalletCapability(
@@ -224,8 +223,7 @@ export function buildXmrLocalWalletCapability(
     const chainTip =
       (await getXmrLastKnownChainTip(vault).catch(() => undefined)) ?? null;
 
-    // Prefer the runtime's birthday: re-enabling keeps the runtime identity's
-    // birthday but rewrites the stored value.
+    // Prefer the runtime's birthday; re-enabling rewrites the stored value.
     const birthday = peek.birthdayHeight ?? state.birthdayHeight ?? null;
     const scanned = peek.scannedToHeight;
     const remaining = peek.ranges.reduce(
@@ -256,8 +254,6 @@ export function buildXmrLocalWalletCapability(
       tipScannedHeight: scanned,
       chainTip,
       tipLag,
-      // Measured in time, not blocks: a block count means different things
-      // on different chains.
       isTipCaughtUp:
         tipLag !== null &&
         tipLag * XMR_TARGET_BLOCK_SECONDS <= XMR_TARGET_BLOCK_SECONDS * 2,
@@ -265,9 +261,8 @@ export function buildXmrLocalWalletCapability(
     };
   };
 
-  // A scan turn holds the runtime for most of its budget, so a page's balance
-  // read almost never lands in between. A page that was turned away asks the
-  // scan to save one after its current step; nobody asking, no work.
+  // A page turned away by a busy runtime asks the scan to save a balance
+  // after its current step; nobody asking, no work.
   const saveScannedBalance = async (accountId: string) => {
     try {
       const value = await readBalance(accountId);
@@ -284,8 +279,6 @@ export function buildXmrLocalWalletCapability(
     }
   };
 
-  // Lets the scheduler/UI react immediately instead of waiting for their
-  // next pass/focus.
   const notifyAccountsChanged = async (params: {
     accountId: string;
     backfillActive: boolean;
@@ -304,8 +297,7 @@ export function buildXmrLocalWalletCapability(
   };
 
   const syncPolicy: ILocalWalletSyncPolicy = {
-    // Turn is composed from shared/config/xmr.ts step numbers; watchdog is
-    // sized to match.
+    // Watchdog is sized to the shared/config/xmr.ts step numbers.
     maxSyncDurationMs: XMR_SYNC_WATCHDOG_MS,
     turn: {
       stepBlocks: XMR_SYNC_STEP_BLOCKS,
@@ -342,8 +334,6 @@ export function buildXmrLocalWalletCapability(
 
     async enableAccount({ accountId, birthdayHeight, birthdayTimestamp }) {
       const api = await requireRuntime();
-      // Needed on every path below: converting a month to height, defaulting
-      // the birthday, and queuing the first scan range.
       const chainTip = await getXmrChainTip(api);
       const previous = await simpleDb().getAccountState({ accountId });
       // The enable dialog collects a month, never a height.
@@ -360,9 +350,7 @@ export function buildXmrLocalWalletCapability(
       // funds; a fresh enable starts at tip (zero would scan from genesis).
       height ??= previous.birthdayHeight ?? chainTip;
 
-      // Journal intent before doing work: a crash here is resumed by
-      // resumePendingOperations(), else the account would claim 'off' with a
-      // database that already exists.
+      // Journal intent first so resumePendingOperations() can finish a crash.
       await simpleDb().beginEnable({
         accountId,
         birthdayHeight: height,
@@ -386,9 +374,8 @@ export function buildXmrLocalWalletCapability(
       // tip; addAccount alone queues nothing.
       await api.updateChainTip(runtimeId, String(chainTip));
 
-      // If the chosen start predates the existing birthday, rewind: blocks
-      // after the old birthday were scanned without the older outputs, so
-      // spends of them were never checked.
+      // An earlier start rewinds: later blocks were scanned without the older
+      // outputs, so their spends were never checked.
       let runtimeBirthday = added.birthdayHeight;
       if (chosen && runtimeBirthday !== undefined && height < runtimeBirthday) {
         await api.rewindTo(
@@ -405,15 +392,12 @@ export function buildXmrLocalWalletCapability(
         birthdayHeight: runtimeBirthday,
       });
 
-      // Account is enabled and journal closed already; a failed notification
-      // here must not look like a failed enable.
+      // Already enabled; a failed notification must not look like a failed enable.
       await notifyAccountsChanged({ accountId, backfillActive: true });
     },
 
     async disableAccount({ accountId }) {
-      // Record resume position before disabling; losing it means a full
-      // rescan from birthday. Falls back to birthdayHeight if progress has
-      // no height yet (mid-step placeholder).
+      // Record the resume position first; losing it means a full rescan.
       const progress = await this.getSyncProgress({ accountId });
       const state = await simpleDb().getAccountState({ accountId });
       await simpleDb().beginDisable({
@@ -451,8 +435,8 @@ export function buildXmrLocalWalletCapability(
       const enabled = state.intent === 'on' && !state.operation;
       return {
         publicAddress: account.address,
-        // Same address, exposed as private only while scanning: otherwise
-        // we'd promise visibility we don't have.
+        // Exposed as private only while scanning, or we'd promise visibility
+        // we don't have.
         privateAddress: enabled ? account.address : undefined,
       };
     },
@@ -555,8 +539,7 @@ export function buildXmrLocalWalletCapability(
     },
 
     async onWalletCreated() {
-      // Nothing to do: scanning is opted into per account, never implied by
-      // a wallet existing.
+      // Scanning is opt-in per account, never implied by a wallet existing.
     },
 
     async resumePendingOperations() {
@@ -637,8 +620,6 @@ export function buildXmrLocalWalletCapability(
                 );
                 return { done: false, stateChanged: true };
               }
-              // Scheduler only logs a generic failure; this records which
-              // stage broke and why.
               const plainMessage =
                 error instanceof Error ? error.message : String(error);
               console.error('[xmr] step failed', {
@@ -663,8 +644,7 @@ export function buildXmrLocalWalletCapability(
               fetchNote?: string | null;
               prefetchHit?: boolean;
             };
-            // msDownload is measured inside wasm, so it includes every
-            // host-relay hop; the node's own time is the host's 'node fetch' log.
+            // msDownload is measured inside wasm, so it includes host-relay hops.
             privacyChainPerfLog('xmr step', {
               blocks: progress.blocksScanned,
               msDownload: progress.msDownload,
@@ -711,9 +691,8 @@ export function buildXmrLocalWalletCapability(
       }
     },
 
-    // Safe because every runtime call is serialized by the lock in
-    // runtime.ts, and the Rust runtime refuses a second writer (WALLET_BUSY);
-    // once an abandoned turn settles, nothing of it is still writing.
+    // Runtime calls are serialized in runtime.ts and the Rust runtime refuses
+    // a second writer (WALLET_BUSY).
     syncCompletionIsAuthoritative: true,
 
     async recoverFromTimeout() {
@@ -724,8 +703,7 @@ export function buildXmrLocalWalletCapability(
       if (!hasXmrRuntimeApiLoader()) return { bytes: null };
       // Opening the runtime creates its database; measuring must not.
       if (!(await simpleDb().hasAnyAccountState())) return { bytes: 0 };
-      // Logical SQLite size (pages x page size). UI read: shows last known
-      // figure mid-step, or unknown before any.
+      // Logical SQLite size; mid-step reads show the last known figure.
       return readXmrStaleFirst({
         key: 'storage',
         fallback: { bytes: null },
@@ -741,11 +719,10 @@ export function buildXmrLocalWalletCapability(
 
     // Deletes the DB without opening it (so an unopenable DB is still
     // recoverable), then re-registers each enabled account from its saved
-    // birthday; no password needed since view keys live on the account record.
+    // birthday; no password needed since view keys are in viewingKeyStore.
     async resetStorage() {
       if (!hasXmrRuntimeApiLoader()) return;
       await deleteXmrDatabase(await vault.getXmrNetwork());
-      // Registration is local; the next normal sync fetches a tip and queues blocks.
       // A failed registration keeps its enabled intent for retry.
       let firstError: Error | undefined;
       for (const accountId of await simpleDb().listEnabledAccountIds()) {
@@ -767,8 +744,7 @@ export function buildXmrLocalWalletCapability(
     },
 
     // Runtime accounts are removed before their journal entry, so an empty
-    // journal means there is nothing to delete. A half-failed reset is
-    // retried through the service's pending-drop list.
+    // journal means there is nothing to delete.
     async hasLocalData() {
       return (await simpleDb().listAccountIds()).length > 0;
     },
@@ -801,8 +777,7 @@ export function buildXmrLocalWalletCapability(
       const state = await simpleDb().getAccountState({ accountId });
       if (state.intent !== 'on') return undefined;
 
-      // UI read: returns the last known progress while a step is in flight,
-      // or 'syncing, heights unknown' as an honest placeholder.
+      // Mid-step reads return the last known progress or a placeholder.
       return readXmrStaleFirst({
         key: `progress:${accountId}`,
         fallback: {
@@ -846,9 +821,8 @@ export function buildXmrLocalWalletCapability(
 
       if (hasXmrRuntimeApiLoader()) {
         await rewindLocalAccount(accountId, fromHeight);
-        // The runtime only moves its birthday earlier and keeps what it
-        // scanned before a later start, so the stored birthday does too:
-        // rebuilding from a later one would drop the funds in between.
+        // Like the runtime, only ever move the stored birthday earlier: a later
+        // one would drop the funds in between on rebuild.
         const current = await simpleDb().getAccountState({ accountId });
         const movesEarlier =
           current.birthdayHeight === undefined ||

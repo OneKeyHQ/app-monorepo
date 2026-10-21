@@ -132,7 +132,7 @@ known pitfalls: `packages/core/src/chains/zcash/ARCHITECTURE.md`.
 | Broadcast returns a txid | set `withoutBroadcastTxId: true` if the protocol yields none pre-broadcast |
 | BTC-style precheck (blockbook UTXO list) | override `precheckUnsignedTx` when inheriting a UTXO vault |
 | UI needs chain-specific data (sync state, pools, receive forms) | no per-chain service: return an `ILocalWalletCapability` from `vault.getLocalWalletCapability()` and declare `settings.localWallet`; `ServicePrivacyChain` owns scheduling, GC and UI entry points. Identifiers and scan state go in a per-chain SimpleDb entity; viewing keys go through `vaults/localWallet/viewingKeyStore.ts` (see below) |
-| Heavy crypto (wasm/proving) | platform carrier pattern: `sdkXxx/sdk/index.{web,ext-bg-v3,native}.ts` + offscreen/webembed delegates (kaspa/zcash precedent) |
+| Heavy crypto (wasm/proving) | platform carrier pattern: `sdkXxx/sdk/index.ts` plus platform files (`.web`/`.desktop`, `.ext-bg-v3`, `.native`) and offscreen/webembed delegates (kaspa/zcash precedent) |
 
 ### Settings inheritance is a trap
 
@@ -161,7 +161,7 @@ Three tiers, decided by what a leak exposes:
 | Tier | Examples | Where | Encrypted |
 |---|---|---|---|
 | Identifier | seed fingerprint, addresses, birthday | the chain's own SimpleDb entity; per wallet when it derives from the seed (one per seed), per account otherwise | no |
-| Viewing key | Zcash UFVK, Monero view key pair, future privacy-pool viewing keys | `vaults/localWallet/viewingKeyStore.ts` only — never the account record, never read raw from storage | the store is the single place to add it (LSE) |
+| Viewing key | Monero view key pair, future privacy-pool viewing keys | `vaults/localWallet/viewingKeyStore.ts` only — never the account record, never read raw from storage | the store is the single place to add it (LSE) |
 | Spending key | mnemonic, private keys | Credential table (password + LSE) | yes |
 
 - Viewing keys stay off `IDBAccount` (`pub`, `xpub`, ...): the account record
@@ -175,8 +175,8 @@ Three tiers, decided by what a leak exposes:
   (`until-account-removed`, when receive needs it).
 - SimpleDb fields need no `LOCAL_DB_VERSION` bump; keep each entity's zod
   schema in step.
-- Not yet migrated: the Zcash UFVK still lives in `simpleDb.zcash.accounts`
-  (`IZcashAccountMeta.ufvk`).
+- Exception: the Zcash UFVK is stored in `simpleDb.zcash.accounts`
+  (`IZcashAccountMeta.ufvk`), not in the viewing-key store.
 
 ### Structurally impossible (set product expectations, not bugs)
 

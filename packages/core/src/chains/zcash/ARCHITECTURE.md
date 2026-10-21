@@ -42,9 +42,9 @@ per receiving heap; they never copy the database or share JS mutexes.
   `zcash-test.db`) shared by every registered account, on an OPFS SAH-pool VFS
   (`.onekey-zcash-opfs`). Exclusive handles prevent a second Worker from
   becoming owner. `journal_mode=DELETE` + `synchronous=FULL`, so a commit is
-  durable when it returns.
-- Scan state is rebuildable from UFVK + birthday. Pending broadcast state in
-  the same database is not: never treat it as disposable cache.
+  durable when it returns; `secure_delete=ON` overwrites freed pages.
+- Scan state is rebuildable from UFVK + birthday. Stored shielded sends in the
+  same database are not; user-requested deletion still removes them.
 
 ### Data ownership
 
@@ -82,9 +82,9 @@ Hardware:  pcztCreate -> redact -> device signs -> pcztCombine -> pcztProve -> p
   combining them into the local original restores what proving needs.
 - Transparent-source sends use a stateless path: the keys package builds and
   signs from backend UTXOs; a UA recipient may load the proof computation
-  module, but never opens the wallet database or starts scanning.
-  Old pending history is reconciled during normal history refresh, without
-  adding its node lookups to building or signing another payment.
+  module, but never opens the wallet database or starts scanning. Change goes
+  to the account's receive t1 at `m/44'/133'/a'/0/0`. Pending transparent sends
+  are reconciled by normal history refresh, not while building another payment.
 - Broadcast lifecycle: building locks no notes; the runtime stores the
   finalized transaction before broadcasting, and the stored transaction holds
   its notes until mined or expired. Storing is refused if another live stored
@@ -96,8 +96,8 @@ Hardware:  pcztCreate -> redact -> device signs -> pcztCombine -> pcztProve -> p
 - Submission always extracts and stores the current signed transaction. A
   shared nullifier indicates conflicting inputs, not an identical payment;
   it cannot substitute another stored transaction for the current one.
-- Retry never rebuilds or re-signs: that could select different notes and pay
-  twice.
+- An unclear outcome is never rebuilt or re-signed: that could select
+  different notes and pay twice.
 
 ### Scheduling
 
@@ -111,15 +111,15 @@ scan.
 ## Key decisions
 
 - **One WASM implementation for keys/signing on every platform.** One
-  audited signing surface instead of per-platform reimplementations; mobile
-  SDKs that require the raw seed were rejected for the same reason.
+  audited signing surface instead of per-platform reimplementations, and no
+  SDK that requires the raw seed.
 - **The seed never leaves the background.** ZIP-32 Orchard and BIP-32
   transparent account keys are derived in background TS, like other chains;
   WASM only gets one account's keys, so a compromised runtime cannot reach
   other chains. The networked runtime only ever sees viewing keys.
 - **Official `zcash_client_sqlite`, no hand-maintained wallet store.** A
-  hand-patched store drifted from upstream and produced consensus-adjacent
-  bugs; upstream owns note selection, fees, anchors and witnesses.
+  hand-patched store drifts from upstream; upstream owns note selection, fees,
+  anchors and witnesses.
 - **Policy in TypeScript, primitives in Rust.** Change pool, confirmations,
   dust, padding and spend source come from the host; the runtime hides no
   defaults. Every Rust change costs a rebuild and release, and policy changes

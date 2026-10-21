@@ -141,11 +141,8 @@ function getAsyncStorageWriteArgSummary(
 }
 
 const OBSERVER_RETRY_MS = 50;
-// Superseded the branch's dev-only READY_TIMEOUT_MS: a slow cold Metro build
-// no longer kills the background runtime at all, it only warns. Same problem
-// (in dev the background bundle compiles on demand and can take minutes, and
-// every background service lives there, so declaring it dead brings the app
-// up with no networks), solved without a deadline to tune.
+// Only warn: in dev the background bundle compiles on demand and can take
+// minutes; declaring it dead would bring the app up with no networks.
 const READY_OBSERVATION_WARN_MS = 10_000;
 const ASYNC_STORAGE_FORWARDER_RETRY_MS = 100;
 const ASYNC_STORAGE_FORWARDER_REQUEST_TIMEOUT_MS = 15_000;

@@ -20,11 +20,9 @@ import type {
 } from '../../types';
 import type { IBtcForkNetwork } from '../btc/types';
 
-// Transparent-only Zcash. Address derivation reuses the BTC pipeline; the
-// 2-byte t-address prefix is bridged in encode/decodeAddress. Transaction
-// signing is intentionally NOT the BTC path: Zcash uses v4/v5 serialization
-// with ZIP-243/244 sighashes, produced later via the PCZT/WASM signer. Until
-// then signing throws rather than emitting an invalid BTC-sighash transaction.
+// Transparent address derivation reuses the BTC pipeline; the 2-byte t-address
+// prefix is bridged in encode/decodeAddress. Signing never takes the BTC path:
+// Zcash uses ZIP-244 sighashes, produced by the keys WASM.
 export default class CoreChainSoftware extends CoreChainSoftwareBtc {
   override async getCoinName() {
     return Promise.resolve('ZEC');

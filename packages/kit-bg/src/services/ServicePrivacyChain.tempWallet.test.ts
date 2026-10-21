@@ -251,7 +251,6 @@ describe('temp wallets read as privacy unavailable', () => {
     ).resolves.toBe('unsupported');
   });
 
-  // Dev devices enabled privacy on such wallets before this rule existed.
   it('reports an already-enabled temp-wallet account as off', async () => {
     const { service } = createService({
       tempWalletIds: new Set([tempWalletId]),

@@ -123,9 +123,7 @@ describe('isTipLagWorthMentioning', () => {
     expect(isTipLagWorthMentioning(TIP_LAG_NOTICEABLE_BLOCKS + 1)).toBe(true);
   });
 
-  // getLocalWalletSyncProgress reports null when it could not read a tip.
-  // "Unknown" is not "behind" -- claiming a lag we never measured is worse
-  // than saying nothing.
+  // A null lag (tip unreadable) is unknown, not behind.
   it('treats an unknown lag as nothing to say', () => {
     expect(isTipLagWorthMentioning(null)).toBe(false);
     expect(isTipLagWorthMentioning(undefined)).toBe(false);
@@ -137,18 +135,15 @@ describe('PRIVACY_CHAIN_TIP_POLL_MS', () => {
     expect(PRIVACY_CHAIN_TIP_POLL_MS).toBeGreaterThanOrEqual(60 * 1000);
   });
 
-  // The other direction: a wallet nobody is looking at should still notice an
-  // incoming payment in minutes, not on the next app launch. Anyone wanting a
-  // longer interval than this should be adding a push/event path instead.
+  // An unwatched wallet must still notice an incoming payment within minutes.
   it('still notices an incoming payment within a few minutes', () => {
     expect(PRIVACY_CHAIN_TIP_POLL_MS).toBeLessThanOrEqual(5 * 60 * 1000);
   });
 });
 
 describe('shouldStartBoost — user pause', () => {
-  // The point of the pause flag: the surfaces that auto-trigger a boost watch
-  // for "nothing is boosting" and re-ask on the next published progress.
-  // Without this the pause button would undo itself within one scan pass.
+  // Auto-trigger surfaces re-ask on every published progress; without the
+  // pause flag a pause would undo itself within one scan pass.
   it('refuses automatic triggers while paused', () => {
     for (const trigger of ['chain-selected', 'compose-send'] as const) {
       expect(
@@ -162,8 +157,7 @@ describe('shouldStartBoost — user pause', () => {
     }
   });
 
-  // Pressing Sync IS the resume; there is no separate un-pause control, so a
-  // pause that outranked it would be a dead end.
+  // Sync is the only resume control, so it must outrank a pause.
   it('lets an explicit manual sync through a pause', () => {
     expect(
       shouldStartBoost({

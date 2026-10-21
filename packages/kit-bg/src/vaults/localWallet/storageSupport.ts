@@ -1,6 +1,5 @@
-// Both runtimes report a browser that cannot hold their database (an outdated
-// WebView, or a page with no usable origin) with this code. Retrying cannot
-// help; only updating the WebView can.
+// A browser that cannot hold the runtime database (outdated WebView, or no
+// usable origin). Retrying cannot help; only updating the WebView can.
 export const LOCAL_WALLET_STORAGE_UNSUPPORTED_CODE = 'STORAGE_UNSUPPORTED';
 
 // Zcash errors carry `code` (or `payload.code` after a carrier hop); Monero

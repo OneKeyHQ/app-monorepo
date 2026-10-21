@@ -1,6 +1,6 @@
-// Temporary performance tracing for client-scanned (privacy) chains. One
-// prefix across UI, background, carrier and wasm so a single console filter
-// shows the whole path of a user action. No-op in production.
+// Performance tracing for client-scanned chains. One prefix across UI,
+// background, carrier and wasm, so one console filter shows a whole user
+// action. No-op in production.
 const LOG_PREFIX = '[PRIV-PERF]';
 
 function stringifyLogValue(value: unknown) {

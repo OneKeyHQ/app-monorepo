@@ -30,11 +30,7 @@ describe('runBoundedSyncTurn', () => {
     expect(result.lastStepMs).toBe(500);
   });
 
-  /**
-   * The failure this guards: a step that outlives the watchdog. With 12 s
-   * steps and a 30 s budget the third step would end at 36 s, so it is not
-   * started -- the turn ends at 24 s with work remaining.
-   */
+  // 12 s steps in a 30 s budget: the third would end at 36 s, so it never starts.
   it('does not start a step expected to end past the budget', async () => {
     const c = clock();
     const result = await runBoundedSyncTurn({

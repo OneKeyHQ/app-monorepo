@@ -217,8 +217,7 @@ export async function syncWallet(
 
   const before = readScanMark(rt, account);
 
-  // Idle fast path: cheap local syncPeek + one chainTip call decide there's nothing to do,
-  // avoiding the heavier synchronous syncPrepare/syncStep work that would otherwise block the UI thread.
+  // Idle fast path: a local syncPeek plus one chainTip call skip the synchronous prepare/step work that blocks the UI thread.
   const queued = JSON.parse(rt.syncPeek()) as { totalBlocks: number };
   let liveTip: number | null = options?.chainTip ?? null;
   if (liveTip === null) {
@@ -287,8 +286,7 @@ export async function syncWallet(
 
   for (const lane of LANES) {
     if (reorgRewoundTo !== null) break;
-    // Every lane gets at least one step per pass; the deadline only caps ADDITIONAL steps.
-    // Without this, historic (last in order) can starve indefinitely while earlier lanes eat the budget.
+    // Every lane gets at least one step per pass, so historic (last in order) can't starve; the deadline caps only additional steps.
     let laneSteps = 0;
     while (budget > 0 && (laneSteps === 0 || Date.now() < deadline)) {
       let r: IRuntimeSyncStep;
@@ -720,9 +718,8 @@ export async function purgeWallet(account: IZcashWalletAccount): Promise<void> {
   const remaining = JSON.parse(rt.listAccounts()) as string[];
   if (remaining.length > 0) return;
 
-  // Last one out deletes the file: must close first and clear the carrier's cached handle, or the
-  // next call reuses a handle to bytes that no longer exist. Throws WALLET_BUSY if another operation
-  // still holds the database — shouldn't happen under the lease, but propagating it beats deleting an open database.
+  // Last one out deletes the file: close and clear the carrier's cached handle first, or the next call
+  // reuses a handle to deleted bytes. WALLET_BUSY propagates rather than deleting an open database.
   rt.closeWallet();
   forgetOpenWallet();
   // A re-created database starts without subtree roots; the freshness mark must be cleared with the file.

@@ -1,4 +1,5 @@
-// Single source of truth for the runtime's method names; `methods.test.ts` checks it stays in step with `IXmrRuntimeApi`.
+// Single source of truth for the runtime's method names; checked against
+// `IXmrRuntimeApi` in `methods.test.ts`.
 export const XMR_RUNTIME_METHODS = [
   // lifecycle
   'init',
@@ -43,7 +44,8 @@ export const XMR_RUNTIME_METHODS = [
 
 export type IXmrRuntimeMethod = (typeof XMR_RUNTIME_METHODS)[number];
 
-// Which args the wasm declares as `u64`, by position: `bigint` can't cross the extension/mobile JSON bridge, so the API carries these as decimal strings.
+// Positions of the args the wasm declares as `u64`. `bigint` cannot cross the
+// extension/mobile JSON bridge, so the API carries them as decimal strings.
 export const XMR_RUNTIME_U64_ARGS: Partial<
   Record<IXmrRuntimeMethod, readonly number[]>
 > = {
@@ -63,7 +65,6 @@ export const XMR_RUNTIME_U64_ARGS: Partial<
 
 const DECIMAL_U64 = /^(0|[1-9][0-9]*)$/;
 
-/** Turn the decimal-string arguments the app passes into the `bigint` wasm wants. */
 export function coerceXmrU64Args(
   method: IXmrRuntimeMethod,
   args: readonly unknown[],

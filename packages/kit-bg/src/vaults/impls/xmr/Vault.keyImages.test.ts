@@ -10,9 +10,8 @@ import Vault from './Vault';
 
 const ACCOUNT_ID = "hd-1--m/44'/128'/0'";
 
-// The scan is watch-only; key images (which need the spend key) are what let
-// it find spends made outside this app. They are computed from the password
-// only when some output still lacks one.
+// Key images (spend key) reveal spends made elsewhere; computed from the
+// password only when some output still lacks one.
 function createVault(outputsWithoutKeyImage: number, spendsFound = 0) {
   const api = {
     listAccounts: async () =>

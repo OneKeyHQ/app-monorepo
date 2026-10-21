@@ -207,8 +207,7 @@ export function useLocalWalletPool({
   );
   const { account, vaultSettings } = accountData ?? ownAccountData;
   const settings = vaultSettings?.localWallet;
-  // Whether this chain has a local wallet at all. Deliberately NOT `balanceShape === 'pooled'`:
-  // that only means "distinct balances to move between", which drives the per-pool tabs and nothing else.
+  // Whether this chain has a local wallet at all; `balanceShape` only drives the pool tabs.
   const hasPooledBalance = Boolean(settings);
   const pool = useMemo(
     () => settings?.pools.find((item) => item.id === poolId),
@@ -280,8 +279,7 @@ export function useLocalWalletPool({
     },
     [isActive, hasPooledBalance, accountScope, accountId, networkId],
     {
-      // Keep the last state while revalidating on focus: clearing it collapsed the whole
-      // private UI to nothing on every return to the page.
+      // Keep the last state while revalidating so the private UI does not collapse on return.
       revalidateOnFocus: true,
       undefinedResultIfError: true,
       overrideIsFocused: (isPageFocused) => isPageFocused && isActive,
@@ -299,8 +297,7 @@ export function useLocalWalletPool({
     hasPooledBalance &&
     !!accountId &&
     (enabled || pool?.source === 'backend');
-  // Scope follows accountScope only; tying it to `canRead` made every tab switch a new scope
-  // and discarded the balance/addresses/progress already on screen.
+  // Scope follows accountScope only, so a tab switch keeps what is already on screen.
   const readScope = useMemo(() => ({ accountScope }), [accountScope]);
   const readScopeRef = useRef(readScope);
   readScopeRef.current = readScope;

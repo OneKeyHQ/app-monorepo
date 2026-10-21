@@ -22,10 +22,7 @@ const CANVASKIT_WASM_TEST =
   /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
 const ZXING_READER_WASM_TEST =
   /zxing-wasm[\\/]dist[\\/]reader[\\/]zxing_reader\.wasm$/;
-// The client-scanning chain runtimes ship wasm-pack `-t web` output whose wasm
-// imports (`wbg`) are supplied by the JS glue at runtime, so they must NOT be
-// parsed as webpack wasm modules. Emit them as URL assets — same treatment as
-// canvaskit / kaspa.
+// Chain runtime wasm gets its `wbg` imports from the JS glue; emit as an asset.
 const ZCASH_WASM_TEST = /onekey_zcash_(runtime|keys)_bg\.wasm$/;
 const MONERO_WASM_TEST = /onekey_monero_runtime_bg\.wasm$/;
 const CHAIN_RUNTIME_WASM_TEST = [ZCASH_WASM_TEST, MONERO_WASM_TEST];

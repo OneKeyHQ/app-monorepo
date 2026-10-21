@@ -35,7 +35,6 @@ function createXmrVault() {
   });
 }
 
-// These assertions express the cross-layer behavior required by a live review.
 describe('privacy wallet review boundary regressions', () => {
   it('XMR built transaction tells confirmation not to recount the balance', async () => {
     const vault = createXmrVault();

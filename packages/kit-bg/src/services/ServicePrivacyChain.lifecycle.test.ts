@@ -154,7 +154,7 @@ describe('init', () => {
   });
 
   // A resume (XMR enable retry) notifies accounts changed, which awaits
-  // init(); awaiting the resume inside init deadlocked startup.
+  // init(); awaiting the resume inside init would deadlock startup.
   it('resolves when a resumed operation re-enters init', async () => {
     let resumed: () => void = () => {};
     const resumeDone = new Promise<void>((resolve) => {

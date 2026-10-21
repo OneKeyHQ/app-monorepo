@@ -2,14 +2,8 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import type { IKeyringMap } from './VaultBase';
 
-/**
- * Whether a chain has a keyring for the wallet that owns `accountId`.
- *
- * The keyring factory resolves against this same map, so asking it is the
- * only answer that cannot drift from what actually works. Inferring from the
- * account id instead is what let Monero offer a scan toggle to hardware
- * wallets it has no keyring for.
- */
+// Uses the same map the keyring factory resolves, so it cannot drift from
+// what actually works.
 export function keyringMapSupportsAccount({
   keyringMap,
   accountId,
@@ -24,9 +18,7 @@ export function keyringMapSupportsAccount({
     return Boolean(keyringMap.qr);
   }
   if (accountUtils.isHwAccount({ accountId })) {
-    // Which vendor this is can only be read from the device row, which is not
-    // available here. A chain with none of the three cannot serve a hardware
-    // wallet of any vendor, which is the case this exists for.
+    // The vendor is only known from the device row, not available here.
     return Boolean(keyringMap.hw || keyringMap.hwLedger || keyringMap.hwTrezor);
   }
   if (accountUtils.isImportedAccount({ accountId })) {

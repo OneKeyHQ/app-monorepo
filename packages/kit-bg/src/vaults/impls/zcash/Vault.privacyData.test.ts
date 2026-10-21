@@ -141,8 +141,8 @@ describe('Zcash local privacy data deletion', () => {
     },
   );
 
-  // Pausing promises the cache stays. Treating a paused alias as gone let one
-  // account's delete throw away what another account meant to resume from.
+  // Pausing promises the cache stays; one account's delete must not discard
+  // what another alias resumes from.
   it('retains the shared cache while an alias is paused', async () => {
     const { purgeWallet, removeAccountMeta, vault } = createVault({
       intent: 'off',

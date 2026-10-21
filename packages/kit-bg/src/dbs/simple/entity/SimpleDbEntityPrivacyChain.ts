@@ -1,26 +1,15 @@
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
-// Settings that belong to the PRIVACY-CHAIN CATEGORY, not to any one chain.
-//
-// ServicePrivacyChain is documented as chain-agnostic, so anything it reads or
-// writes has to live somewhere a second privacy chain can share. State that is
-// genuinely per-chain (Zcash birthdays, unified addresses) stays in that
-// chain's own entity.
-//
-// The test for what belongs here: would Monero need the same field, with the
-// same meaning? "May I sync over mobile data" passes. "Which block did this
-// account start at" does not -- that is per-chain, even though every scanning
-// chain has some version of it.
+// Settings shared by every privacy chain: a field belongs here only if each
+// chain would need it with the same meaning. Per-chain state (birthdays,
+// addresses) stays in that chain's own entity.
 
 export interface IPrivacyChainDB {
   // accountId -> the one-time "where should scanning start?" prompt has been
-  // shown. Every client-scanning chain has this question; only the ANSWER
-  // (a block height, a restore date) is chain-shaped, and that stays with the
-  // chain. Losing this flag costs one repeated prompt, nothing more.
+  // shown. The answer itself is chain-shaped and stays with the chain.
   scanStartPrompted?: Record<string, boolean>;
-  // Device-wide, not per network: it is a statement about this phone's data
-  // plan, and a scan that is not allowed to spend mobile data is not allowed
-  // to spend it for any chain. Absent means not allowed.
+  // Device-wide, not per network: it is about this device's data plan.
+  // Absent means not allowed.
   allowCellularSync?: boolean;
   // Networks whose scan database an app reset failed to delete. Rewritten
   // after the reset clears this store; the next launch and the next reset

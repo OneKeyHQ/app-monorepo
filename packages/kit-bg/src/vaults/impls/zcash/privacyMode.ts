@@ -129,21 +129,15 @@ export class ZcashPrivacyMode {
         'zcash: select a privacy recovery month before enabling',
       );
     }
-    // Before anything is derived, stored or registered. This path is also
-    // reached directly (debug gallery, repair panel), bypassing the generic
-    // pre-check -- and a refusal after registration would leave the viewing
-    // key in the shared scanner with a requeued range: the slot denied, its
-    // cost already paid. Cheap to repeat when the generic door ran it too.
+    // Checked before anything is registered: direct callers (debug gallery,
+    // repair panel) bypass the generic pre-check.
     await this.backgroundApi.servicePrivacyChain.assertEnabledAccountLimit({
       networkId,
       accountId,
     });
 
-    // Software accounts derive viewing keys from the seed (password); hardware
-    // accounts ask the device for them. Neither is needed when the metadata is
-    // already on disk: resuming a paused account reuses it, and the derivation
-    // step below returns without touching the seed. Asking anyway made resume
-    // cost a password prompt -- or a connected device -- for nothing.
+    // Viewing keys need the seed (password) or the device; metadata already on
+    // disk (e.g. resuming a paused account) needs neither prompt.
     const existingMeta = await this.backgroundApi.simpleDb.zcash.getAccountMeta(
       { accountId },
     );
@@ -252,9 +246,8 @@ export class ZcashPrivacyMode {
       });
       throw error;
     }
-    // The account is on, and the rollback above can no longer reach it: the
-    // pending operation it keys on is already cleared. Letting a notification
-    // throw reported "enable failed" over an account the database turned on.
+    // The account is already on and past rollback; a notification failure
+    // must not report the enable as failed.
     try {
       await this.backgroundApi.servicePrivacyChain.onLocalWalletAccountsChanged(
         {

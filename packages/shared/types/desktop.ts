@@ -113,15 +113,7 @@ export type IDesktopApiLegacy = IDesktopApiGlobal & {
   setSystemIdleTime: (idleTime: number, cb?: () => void) => void;
   testCrash: () => void;
   nobleBle: INobleBleApi;
-  /**
-   * Perform a privacy-chain node request from the main process.
-   *
-   * The chain runtimes are wasm in the renderer, so their own fetch obeys CORS
-   * and mixed content -- and a Monero node serves neither unless it was
-   * proxied. The main process has no such rules, which is what lets the user
-   * point the wallet at any node instead of the one that happens to serve
-   * browsers.
-   */
+  /** Privacy-chain node request from the main process (no renderer CORS). */
   privacyChainNodeRequest: (params: {
     url: string;
     contentType: string;

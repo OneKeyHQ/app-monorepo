@@ -299,20 +299,14 @@ function TokenDetailsHeaderContent({
     isActive: focusParam,
     accountData: { account, vaultSettings },
   });
-  // One gate for every private-UI decision below. Reacting to each of the four
-  // reads as it landed made the balance swap source mid-load and the page
-  // change height three or four times per open.
+  // One gate for every private-UI decision below, so the page settles once.
   const isLocalWalletReady = localWalletPool.isReady;
   const isLocalWalletEnabled = localWalletPool.enabled;
   const isPrivatePoolDisabled =
     isPrivatePool && isLocalWalletReady && !isLocalWalletEnabled;
 
-  // Published by useLocalWalletPool above, which owns the
-  // balance and account-meta reads. The provider wrapping this component
-  // scopes the store per tab, so the two mounted pools never see each other's
-  // numbers; ownerKey covers the remaining case, an account switch inside one
-  // mounted tab, where the store still holds the previous account's values
-  // until the next read lands.
+  // Published by useLocalWalletPool above. The store is scoped per tab;
+  // ownerKey guards an account switch inside one mounted tab.
   const [privacyChainPoolDisplay] = usePrivacyChainPoolDisplayAtom();
   const poolDisplayKey = privacyChainPoolOwnerKey({
     accountId,
@@ -520,9 +514,7 @@ function TokenDetailsHeaderContent({
   if (shouldShowPoolBalance) {
     isBalanceLoading = !poolDisplay?.balanceSettled;
   } else if (isPrivatePool) {
-    // Stay in the loading state until the gate opens rather than render an
-    // empty balance first: a private pool has nothing else to show, and the
-    // blank-then-skeleton-then-number sequence read as three flashes.
+    // Stay loading until the gate opens rather than flash an empty balance.
     isBalanceLoading = !isLocalWalletReady;
   }
   const tokenLogoURI = tokenDetails?.info?.logoURI ?? tokenInfo.logoURI;
@@ -858,10 +850,8 @@ function TokenDetailsHeaderContent({
                 })}
               </SizableText>
             ) : null}
-            {/* Orchard is a legacy pool that can no longer receive. Its only
-              move is the pool-pinned withdraw, so that is the only action
-              shown; account-level Send, Swap, and Buy would otherwise look
-              like they operate on the selected Orchard balance. */}
+            {/* A legacy pool can only withdraw; account-level actions would
+              look like they operate on its balance. */}
             {isLegacyPoolTab ? (
               legacyPoolActionRow
             ) : (

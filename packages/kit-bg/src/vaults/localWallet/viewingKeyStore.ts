@@ -4,9 +4,8 @@ import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
 // The only way in and out of a privacy chain's viewing material (Zcash UFVK,
 // Monero view key pair). It stays out of the account record so it never rides
-// along with cloud backup, Prime transfer or account listings. Encryption at
-// rest, when added, belongs here alone, so callers must already treat a read
-// as async and possibly empty.
+// along with cloud backup, Prime transfer or account listings. Reads are async
+// and may be empty.
 
 export async function getLocalWalletViewingKey({
   backgroundApi,

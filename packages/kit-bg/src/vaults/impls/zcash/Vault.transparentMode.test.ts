@@ -692,9 +692,8 @@ describe('Zcash transparent history address resolution', () => {
     return { fetchHistory, getClient };
   }
 
-  // Detail requests for the raw input/output breakdown carry no account
-  // address, and Transparent Mode never writes viewing metadata -- without the
-  // fallback the association check answered "not found" for every such tx.
+  // Raw I/O detail requests carry no account address and Transparent Mode
+  // writes no viewing metadata, so the account t-address must answer.
   it('uses the account t-address when metadata and params have none', async () => {
     const { fetchHistory, getClient } = createVault({ address: 't1-self' });
 

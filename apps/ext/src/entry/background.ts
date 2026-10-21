@@ -42,8 +42,7 @@ function installOffscreenApiProxyEarly() {
 }
 
 function installPrivacyChainNodeRequestLate() {
-  // Lets the offscreen document reach nodes that do not serve browsers --
-  // see the module for why that is most of them.
+  // Lets the offscreen document reach nodes that send no CORS headers.
   void import('../background/privacyChainNodeRequest').then((m) =>
     m.installPrivacyChainNodeRequestListener(),
   );

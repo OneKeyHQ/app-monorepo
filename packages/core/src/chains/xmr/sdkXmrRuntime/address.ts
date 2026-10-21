@@ -1,24 +1,13 @@
-/**
- * Pure derivation only (no DB/node/scanning); math is delegated to the
- * runtime to keep this bit-identical to V4, or V4 mnemonics see an empty wallet.
- */
-
 import type { IXmrNetwork } from './types';
 
 export type IXmrDerivedAccount = {
   primaryAddress: string;
   spendPublicKeyHex: string;
-  /**
-   * Persisted view key for scanning (same trust boundary as a Zcash UFVK).
-   * Spend key is deliberately excluded to avoid widening key exposure.
-   */
+  /** Persisted for scanning; the spend key is deliberately never returned. */
   viewPrivateKeyHex: string;
 };
 
-/**
- * Derivation, validation, and signing only (no DB/node/scanning) - signing
- * here consumes an already-built review object, so it needs no network.
- */
+/** Derivation, validation and signing only: no database, node or scanning. */
 export type IXmrPureRuntimeApi = {
   deriveAccount: (
     network: IXmrNetwork,
@@ -48,16 +37,12 @@ export function setXmrRuntimeLoader(loader: () => Promise<IXmrPureRuntimeApi>) {
   runtimeLoader = loader;
 }
 
-/**
- * The pure runtime, loading it in-process if no carrier registered one.
- * Exported so the signing path shares this exact accessor.
- */
+/** The pure runtime, loaded in-process if no carrier registered one. */
 export async function getXmrPureRuntime(): Promise<IXmrPureRuntimeApi> {
   if (runtimeLoader) {
     return runtimeLoader();
   }
-  // Fallback when no carrier registered a loader: derivation is cheap pure
-  // compute, so it doesn't need the Worker that scanning requires.
+  // Derivation is cheap pure compute and does not need the scanning Worker.
   const { loadXmrRuntime } = await import('./carrier/loadRuntime');
   const api = await loadXmrRuntime();
   return {
@@ -99,8 +84,8 @@ export async function deriveXmrSubaddress(params: {
 }
 
 /**
- * Network scoping matters: a mainnet address on testnet is not "wrong
- * network" - it's a well-formed destination nobody holds the keys to.
+ * A mainnet address on testnet is not "wrong network": it is a well-formed
+ * destination nobody holds the keys to.
  */
 export async function validateXmrAddress(params: {
   address: string;

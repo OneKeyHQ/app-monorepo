@@ -15,7 +15,7 @@ jest.mock('onekey-monero-runtime', () => {
   return mod;
 });
 
-// An old Worker still holding the storage handles makes the first install
+// A stale Worker still holding the storage handles makes the first install
 // fail; that must not leave the chain on NOT_INITIALIZED until restart.
 describe('xmr runtime storage install', () => {
   it('retries the install when a wallet is opened', async () => {

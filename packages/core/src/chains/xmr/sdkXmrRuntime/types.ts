@@ -1,11 +1,7 @@
 // cspell:ignore piconero monerod
 /**
- * Shared types for the Monero runtime SDK.
- *
- * Amounts are decimal strings of piconero everywhere. Monero's supply is
- * 1.8e19 piconero, six orders of magnitude past `Number.MAX_SAFE_INTEGER`;
- * a number would lose precision silently, which is the worst failure mode
- * because nothing throws.
+ * Amounts are decimal strings of piconero everywhere: Monero's supply exceeds
+ * `Number.MAX_SAFE_INTEGER`, so a number would silently lose precision.
  */
 
 export type IXmrNetwork = 'mainnet' | 'stagenet' | 'testnet';
@@ -29,11 +25,8 @@ export type IXmrFeePriority =
   | 'priority';
 
 /**
- * Error shape the runtime returns across the wasm boundary.
- *
- * Errors are JSON too, not `Error` objects — so the host has one parse path
- * instead of two. `code` is a stable contract; `detail` is log-only and not
- * translated.
+ * Error JSON the runtime returns across the wasm boundary. `code` is a stable
+ * contract; `detail` is log-only and not translated.
  */
 export type IXmrRuntimeError = {
   code: string;

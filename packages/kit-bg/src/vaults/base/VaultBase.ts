@@ -440,16 +440,14 @@ export abstract class VaultBaseChainOnly extends VaultContext {
     });
   }
 
-  // Client-scanned chains expose one capability object instead of adding
-  // inert hooks to every vault. The capability is the complete scheduler and
-  // UI contract; server-indexed chains simply return undefined.
+  // Client-scanned chains return their scheduler/UI contract here;
+  // server-indexed chains return undefined.
   getLocalWalletCapability(): ILocalWalletCapability | undefined {
     return undefined;
   }
 
-  // Whether this chain has a keyring for the wallet that owns `accountId`.
-  // Overridden in VaultBase against the same keyringMap the keyring factory
-  // resolves, so the UI cannot offer a control the chain has nothing behind.
+  // Whether this chain has a keyring for the wallet that owns `accountId`,
+  // so the UI never offers a control the chain cannot back.
   supportsAccountWalletType(_params: { accountId: string }): boolean {
     return true;
   }
@@ -629,10 +627,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     });
   }
 
-  // Local-wallet chains whose scan is watch-only can finish work that needs
-  // the spend key while the app is unlocked (Monero: key images, which reveal
-  // spends made elsewhere). The scheduler asks after each sync turn and, only
-  // then, passes the unlocked session's password. Default: nothing to do.
+  // Watch-only local-wallet scans may need the spend key for follow-up work
+  // (Monero key images); the scheduler asks after each sync turn while unlocked.
   async localWalletHasPasswordWork(): Promise<boolean> {
     return false;
   }
@@ -644,10 +640,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return false;
   }
 
-  // Client-computed history source. Chains whose history the backend cannot
-  // index return their transactions here; a defined result
-  // replaces the server query in ServiceHistory entirely. Default: undefined
-  // = server-indexed chain, no behavior change.
+  // A defined result replaces the server history query entirely; undefined
+  // means a server-indexed chain.
   async fetchAccountHistoryFromLocal(_params: {
     accountId: string;
     networkId: string;
@@ -1663,7 +1657,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async fetchAccountHistoryDetailByApi(
     params: IServerFetchAccountHistoryDetailParams,
   ): Promise<IServerFetchAccountHistoryDetailResp> {
-    // Pool ids pick the client-side answerer; the backend never needs them.
+    // Client-side-only fields; the backend never needs them.
     const {
       accountId,
       withUTXOs: _withUTXOs,

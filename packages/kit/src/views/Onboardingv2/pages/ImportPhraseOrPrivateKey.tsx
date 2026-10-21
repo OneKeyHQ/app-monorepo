@@ -277,9 +277,8 @@ export default function ImportPhraseOrPrivateKey() {
             });
             return;
           }
-          // No zcash birthday interruption: import flows straight through.
-          // The zcash scan-start question is asked once on the token details
-          // page instead (first visit, LocalWalletPoolStatus).
+          // The privacy-chain scan-start question is asked later on the token
+          // details page (LocalWalletPoolStatus), not during import.
           navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
             mnemonic,
             mnemonicType,

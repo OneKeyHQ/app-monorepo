@@ -58,8 +58,6 @@ describe('Monero signing capability and review boundary', () => {
     });
     const json = stringUtils.stableStringify(review);
     expect(api.verifyTransaction).toHaveBeenCalledWith('aabb', json);
-    // The BIP-32 key crosses once and the runtime reduces it; no spend key
-    // round trip.
     expect(api.signTransactionWithBip32Key).toHaveBeenCalledTimes(1);
     expect(api.signTransactionWithBip32Key).toHaveBeenCalledWith(
       'aabb',

@@ -69,18 +69,15 @@ describe('zcashUserMessage', () => {
   });
 
   it('explains a broken local cache instead of showing its code', () => {
-    // DATABASE_ERROR used to be treated as internal. It is reachable in normal
-    // use (corrupt or full storage) and it HAS a recovery action -- the wallet
-    // db is a rebuildable cache and Resync rebuilds it -- so the
-    // user gets the action. The machine-readable `code` still rides along on
-    // the error object for diagnostics.
+    // Reachable in normal use (corrupt or full storage), and Resync rebuilds
+    // the cache, so the user gets the recovery action.
     const message = zcashUserMessage(
       runtimeError('DATABASE_ERROR', { operation: 'x' }),
     );
     expect(message).toBe(ETranslations.privacy_error_sync_data__msg);
   });
 
-  // Was reported as NOT_INITIALIZED, which reads "still syncing" forever.
+  // NOT_INITIALIZED copy would read "still syncing" forever.
   it('tells an outdated WebView apart from a runtime still starting', () => {
     expect(
       zcashUserMessage(
@@ -139,7 +136,6 @@ describe('toUserFacingZcashError', () => {
   });
 });
 
-// A rejection now records nothing: say why, and that the funds are free.
 it('names the node reason for a rejected broadcast', () => {
   expect(
     zcashUserMessage({

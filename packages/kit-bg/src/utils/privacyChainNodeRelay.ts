@@ -51,8 +51,7 @@ export async function relayPrivacyChainNodeRequest({
       return { ok: false, error: NOT_A_CONFIGURED_NODE };
     }
     const fetchStartedAt = Date.now();
-    // Fails only on silence, never on a slow-but-steady transfer: a
-    // wallet2-sized batch over a proxy can take minutes and be fine.
+    // Fails only on silence: a large batch over a proxy can take minutes.
     // Fetch the URL that was checked, not a raw string another parser may
     // read differently.
     const response = await fetchBytesWithIdleTimeout(

@@ -41,8 +41,7 @@ function createService({
     },
     servicePrivacyChain: {
       onLocalWalletAccountsChanged: jest.fn(),
-      // Enable now runs the slot ceiling itself, before anything is derived
-      // or registered -- the generic door is not the only way in.
+      // Enable checks the slot ceiling itself; direct callers skip the generic pre-check.
       assertEnabledAccountLimit: jest.fn(async () => undefined),
     },
     simpleDb: {
@@ -322,8 +321,6 @@ describe('Zcash Privacy Mode delete after turning the account off', () => {
 describe('Zcash Privacy Mode enable failure cleanup', () => {
   it('clears only the failed enable operation when viewing setup rejects', async () => {
     const { backgroundApi, service } = createService();
-    // First enable: no viewing metadata yet, so derivation must run. The
-    // second read is the post-derivation check inside the service.
     backgroundApi.simpleDb.zcash.getAccountMeta
       .mockResolvedValueOnce(undefined)
       .mockResolvedValue({ ufvk: 'synthetic-ufvk', birthdayHeight: 2_000_000 });
@@ -351,10 +348,8 @@ describe('Zcash Privacy Mode enable failure cleanup', () => {
 
   it('resumes a paused account without asking for the password again', async () => {
     const { backgroundApi, service } = createService();
-    // What a pause actually leaves behind: mode off, but birthday, resume
-    // cursor and viewing metadata all retained. Derivation therefore has
-    // nothing to do -- and the seed it would need is exactly what the prompt
-    // exists to unlock.
+    // A pause keeps birthday, resume cursor and viewing metadata, so there is
+    // nothing to derive and no seed to unlock.
     backgroundApi.simpleDb.zcash.getPrivacyModeState.mockResolvedValue({
       intent: 'off',
       birthdayHeight: 2_000_000,
@@ -402,9 +397,8 @@ describe('Zcash Privacy Mode enable failure cleanup', () => {
       }),
     ).resolves.toBeUndefined();
 
-    // The rollback keys on a pending operation that completing the enable has
-    // already cleared, so running it here would leave the account on while
-    // telling the user it failed.
+    // Completing the enable already cleared the pending operation the
+    // rollback keys on.
     expect(
       backgroundApi.simpleDb.zcash.completePrivacyModeEnable,
     ).toHaveBeenCalledTimes(1);

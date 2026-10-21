@@ -6,10 +6,8 @@
 // since this wallet cannot spend Sapling.
 export const ZCASH_MIN_BIRTHDAY_HEIGHT_MAINNET = 419_201;
 
-// NU5 / Orchard activation, mainnet (zcash_protocol consensus.rs). The
-// deepest product scan worth offering -- this wallet cannot spend Sapling
-// (no proving parameters shipped), so scanning below here only costs hours
-// to surface a number nothing can act on.
+// NU5 / Orchard activation, mainnet (zcash_protocol consensus.rs). Deepest
+// product scan: this wallet cannot spend Sapling (no proving parameters).
 export const ZCASH_ORCHARD_ACTIVATION_HEIGHT_MAINNET = 1_687_104;
 // Wall-clock time of that activation block; paired with the block interval
 // to estimate a chain tip when the network is unreachable.

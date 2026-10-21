@@ -67,10 +67,8 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
         const { worth, worthStatus, createAtNetworkWorth } = current;
         const nextWorthStatus = { ...worthStatus };
         for (const key of Object.keys(payload.worth)) {
-          // Defaulting to 'complete' would let a caller that simply forgot the
-          // field assert, on a privacy chain's behalf, that its scan has
-          // finished -- the one claim this value exists to qualify. Keep what
-          // was already known instead; only an explicit status overwrites.
+          // Only an explicit status overwrites; a missing one must not claim
+          // a privacy chain's scan is complete.
           const status = payload.worthStatus?.[key];
           if (status !== undefined) {
             nextWorthStatus[key] = status;

@@ -20,7 +20,6 @@ it('does not label ordinary scanning as data-blocked', () => {
   );
 });
 
-// Nothing else can change until the WebView is updated.
 it('puts an unsupported device above every other state', () => {
   expect(
     getPrivacyChainSyncLabel({
@@ -108,8 +107,6 @@ it('selects unknown progress before known progress and filters other networks', 
   ).toBeUndefined();
 });
 
-// One light for every chain catching up: it speaks for the one furthest from
-// done, by fraction, since block counts differ per chain.
 describe('pickSlowestPrivacyChainNetwork', () => {
   const entry = (backfillProgress: number | null) =>
     ({

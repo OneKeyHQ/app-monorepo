@@ -7,21 +7,17 @@ export const XMR_TARGET_BLOCK_SECONDS = 120;
 export const XMR_EARLIEST_SCAN_HEIGHT = 1;
 export const XMR_EARLIEST_SCAN_TIMESTAMP_MS = Date.UTC(2014, 3, 18);
 
-/**
- * Consensus lock on every output: ten confirmations. Not our policy -- the
- * network rejects a transaction using a younger output as a ring member.
- */
+/** Consensus lock: the network rejects a younger output as a ring member. */
 export const XMR_OUTPUT_LOCK_BLOCKS = 10;
 
 export const XMR_DECIMALS = 12;
 
-/** How far behind the tip we start warning the user; block count is not portable between chains, only elapsed time is. */
+/** How far behind the tip we start warning the user. */
 export const XMR_TIP_LAG_WARNING_BLOCKS = 30;
 
 /**
  * Ceiling on concurrently scanning accounts; trial decryption runs
- * single-threaded per viewing key per block. Raise only with a real
- * on-device measurement, never an estimate.
+ * single-threaded per viewing key per block.
  */
 export const XMR_MAX_ENABLED_ACCOUNTS = 2;
 
@@ -39,9 +35,8 @@ export const XMR_SEND_MAX_BLOCKS_LEFT = 100;
 export const XMR_RING_SIZE = 16;
 
 /**
- * The node this build ships with. Must be HTTPS and send CORS headers: every
- * carrier is a browser context, and the extension declares no host permission
- * for it.
+ * Built-in node. Must be HTTPS and send CORS headers: carriers without a host
+ * relay fetch it from a browser context.
  */
 export const XMR_BUILT_IN_NODE_URLS: string[] = [
   'https://xmr-node.cakewallet.com:18081',

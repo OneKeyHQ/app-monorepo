@@ -131,7 +131,7 @@ describe('Zcash private balance when the runtime read fails', () => {
 });
 
 // A transparent send whose broadcast outcome is unknown is not in the
-// backend's list yet; it stays visible as pending so nobody repeated sends it.
+// backend's list yet; it stays visible as pending so nobody sends it again.
 describe('Zcash transparent send the backend has not seen yet', () => {
   function fixture({
     observed = false,
