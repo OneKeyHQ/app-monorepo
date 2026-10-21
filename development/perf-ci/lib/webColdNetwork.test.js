@@ -229,7 +229,7 @@ describe('web cold network fixtures', () => {
     expect(
       recordRefusal({
         method: 'GET',
-        url: 'https://wallet.onekeycn.com/wallet/v1/health?_=system_time_utils&timestamp=1',
+        url: 'https://wallet.onekeycn.com/wallet/v1/health?_=system_time_utils&timestamp=1792507483129',
         headers: {},
       }),
     ).toBeNull();
@@ -264,7 +264,28 @@ describe('web cold network fixtures', () => {
         url: 'https://wallet.onekeycn.com/wallet/v1/network/list?onlyEvmNetworks=true&accountAddress=0x1',
         headers: {},
       }),
-    ).toBe('query parameter "accountAddress" not allowed for this endpoint');
+    ).toBe('query parameter not allowed for this endpoint');
+    // Volatile parameters are only accepted where a route lists them, with a
+    // value that matches its pattern.
+    expect(
+      recordRefusal({
+        method: 'GET',
+        url: 'https://swap.onekeycn.com/swap/v1/networks?protocol=All&timestamp=1792507483129',
+        headers: {},
+      }),
+    ).toBe('query parameter not allowed for this endpoint');
+    for (const query of [
+      '_=system_time_utils&timestamp=0xabc',
+      '_=other&timestamp=1792507483129',
+    ]) {
+      expect(
+        recordRefusal({
+          method: 'GET',
+          url: `https://wallet.onekeycn.com/wallet/v1/health?${query}`,
+          headers: {},
+        }),
+      ).toBe('query parameter value not allowed for this endpoint');
+    }
     expect(
       recordRefusal({
         method: 'GET',
@@ -291,6 +312,20 @@ describe('web cold network fixtures', () => {
         'https://wallet.onekeycn.com/wallet/v1/x?address=0xabc&b=1&address=0xdef',
       ),
     ).toBe('https://wallet.onekeycn.com/wallet/v1/x?address&b');
+    expect(
+      redactUrl(
+        'https://wallet.onekeycn.com/wallet/v1/account/0x52908400098527886E0F7030069857D2E4169EE7/token/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/history?0xabc=1&page=2',
+      ),
+    ).toBe(
+      'https://wallet.onekeycn.com/wallet/v1/account/:id/token/:id/history?:param&page',
+    );
+    expect(
+      redactUrl(
+        'https://utility.onekeycn.com/utility/v2/market/banner/token-list/6aaa5bf8185583c1679c37dc',
+      ),
+    ).toBe(
+      'https://utility.onekeycn.com/utility/v2/market/banner/token-list/:id',
+    );
     const label = redactRequest({
       method: 'POST',
       url: 'https://earn.onekeycn.com/earn/v2/recommend?wallet=w1',

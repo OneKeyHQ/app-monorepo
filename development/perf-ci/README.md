@@ -166,8 +166,9 @@ data it asked for may only have measured its shell. Set
 investigating locally. A new entry usually means a page gained an API
 dependency or changed a query: re-record (below). A new endpoint or query
 parameter has to be reviewed and added to `RECORDABLE_ENDPOINTS` first, and a
-new host to `API_HOST_PATTERNS`. Blocked URLs in the report keep their query
-parameter names but not the values.
+new host to `API_HOST_PATTERNS`. Blocked URLs in the report drop query values
+and show id-like path segments and query names (addresses, hashes, tokens) as
+`:id` / `:param`.
 
 Options:
 
@@ -203,14 +204,15 @@ the key.
 
 The fixture file is committed to a public repository, so record mode only
 forwards endpoints listed in `RECORDABLE_ENDPOINTS` (reviewed as public data),
-with only the query parameters and POST bodies listed there, and refuses
+with only the query parameters and POST bodies listed there (a per-call value
+such as the health check's `timestamp` also needs a value pattern), and refuses
 requests that carry `Authorization`, `Cookie` or `X-Onekey-Request-Token`.
 Any API call that cannot be recorded fails the command and leaves the fixture
 file unchanged: a refused request, a data call (XHR/fetch) to a host outside
 `API_HOST_PATTERNS`, a non-2xx answer (including an unfollowed redirect), or a
 2xx answer that is not JSON (an empty body is accepted only with 204). The
-failure log names each request by method, host, path and query parameter
-names, without values or bodies. Both passes write to a temporary copy that
+failure log names each request by method, host and path, with the same
+placeholders as above and without query values or bodies. Both passes write to a temporary copy that
 replaces the file in one rename only when everything was recorded. Still
 review the diff before committing.
 

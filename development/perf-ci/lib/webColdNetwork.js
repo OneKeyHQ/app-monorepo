@@ -41,7 +41,7 @@ const API_HOST_PATTERNS = [/\.onekeycn\.com$/, /^api\.hyperliquid\.xyz$/];
 // its endpoint and any POST body that does not match: review a new endpoint or
 // parameter and add it here before recording it. `route` is "<METHOD>
 // <host><path>"; listed parameters carry public values (networks, tokens,
-// setting keys, paging).
+// setting keys, paging), and `values` pins a parameter's value to a pattern.
 const RECORDABLE_ENDPOINTS = [
   {
     route: 'GET earn.onekeycn.com/earn/v1/available-assets',
@@ -100,7 +100,11 @@ const RECORDABLE_ENDPOINTS = [
       'type',
     ],
   },
-  { route: 'GET wallet.onekeycn.com/wallet/v1/health', query: ['_'] },
+  {
+    route: 'GET wallet.onekeycn.com/wallet/v1/health',
+    query: ['_', 'timestamp'],
+    values: { _: /^system_time_utils$/, timestamp: /^\d{13}$/ },
+  },
   {
     route: 'GET wallet.onekeycn.com/wallet/v1/network/list',
     query: ['onlyEvmNetworks'],
@@ -163,7 +167,9 @@ const STUB_DOCUMENT =
   '<!doctype html><html><head><meta charset="utf-8"><title>perf stub</title></head><body></body></html>';
 
 // Query params that change on every call (e.g. the server-time probe on
-// wallet/v1/health) and must not take part in fixture keys.
+// wallet/v1/health) and must not take part in fixture keys. This only affects
+// matching; record mode accepts them only on routes whose RECORDABLE_ENDPOINTS
+// entry lists them with a value pattern.
 const VOLATILE_QUERY_KEYS = new Set(['timestamp']);
 
 const MAX_INLINE_BODY_KEY_LENGTH = 256;
@@ -268,12 +274,15 @@ function recordRefusal({ method, url, postData, headers }) {
       : item.route.test(route),
   );
   if (!endpoint) return 'endpoint not in RECORDABLE_ENDPOINTS';
-  const unexpected = [...new URL(url).searchParams.keys()].find(
-    (name) =>
-      !VOLATILE_QUERY_KEYS.has(name) && !(endpoint.query || []).includes(name),
-  );
-  if (unexpected !== undefined) {
-    return `query parameter "${unexpected}" not allowed for this endpoint`;
+  // Volatile parameters get no exemption here: a route must list them, and
+  // the reasons never quote a parameter name, which could itself be data.
+  for (const [name, value] of new URL(url).searchParams) {
+    if (!(endpoint.query || []).includes(name)) {
+      return 'query parameter not allowed for this endpoint';
+    }
+    if (endpoint.values?.[name] && !endpoint.values[name].test(value)) {
+      return 'query parameter value not allowed for this endpoint';
+    }
   }
   if (endpoint.body && !endpoint.body.test(bodyKey(postData))) {
     return 'request body not allowed for this endpoint';
@@ -281,13 +290,33 @@ function recordRefusal({ method, url, postData, headers }) {
   return null;
 }
 
-// For logs and reports: keeps the parameter names but drops their values and
-// hashes the body, because a refused or blocked request may carry data that
-// must not be published.
+// A path segment or query name is shown in logs and reports only when it
+// looks like a plain word; ids, addresses, hashes and tokens become a
+// placeholder.
+function redactToken(token, placeholder) {
+  const digits = token.replace(/\D/g, '').length;
+  return /^[A-Za-z_][\w.-]{0,31}$/.test(token) && digits < 6
+    ? token
+    : placeholder;
+}
+
+// For logs and reports: drops query values, keeps only word-like path
+// segments and query names, and (in redactRequest) hashes the body, because a
+// refused or blocked request may carry data that must not be published.
 function redactUrl(url) {
   const parsed = new URL(url);
-  const names = [...new Set(parsed.searchParams.keys())].toSorted();
-  return `${parsed.origin}${parsed.pathname}${names.length ? `?${names.join('&')}` : ''}`;
+  const pathname = parsed.pathname
+    .split('/')
+    .map((segment) => (segment ? redactToken(segment, ':id') : segment))
+    .join('/');
+  const names = [
+    ...new Set(
+      [...parsed.searchParams.keys()].map((name) =>
+        redactToken(name, ':param'),
+      ),
+    ),
+  ].toSorted();
+  return `${parsed.origin}${pathname}${names.length ? `?${names.join('&')}` : ''}`;
 }
 
 function redactRequest({ method, url, postData }) {
