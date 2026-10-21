@@ -1966,6 +1966,13 @@ export function useTradingViewNativeKLine({
   const activeInterval =
     supportedIntervals.find((interval) => interval.value === selectedInterval)
       ?.value ?? DEFAULT_TRADING_VIEW_NATIVE_KLINE_INTERVAL;
+  const historyPaginationRef = useRef<IHistoryPaginationState>({
+    hasMore: true,
+    hasMoreAfter: false,
+    interval: activeInterval,
+    isLoading: false,
+    seriesKey,
+  });
   const recentChartKey = `${seriesKey}:${activeInterval}`;
   // Recheck eviction and TTL on every render, including retries of the same series.
   const recentChart =
@@ -1983,6 +1990,15 @@ export function useTradingViewNativeKLine({
       chartData?.seriesKey !== seriesKey ||
       chartData.interval !== activeInterval ||
       !chartData.points.length
+    ) {
+      return;
+    }
+    const pagination = historyPaginationRef.current;
+    // Historical navigation windows must not become latest-candle placeholders.
+    if (
+      pagination.seriesKey !== seriesKey ||
+      pagination.interval !== activeInterval ||
+      pagination.hasMoreAfter
     ) {
       return;
     }
@@ -2062,13 +2078,6 @@ export function useTradingViewNativeKLine({
     new Map<number, IMarketTokenKLineDataPoint>(),
   );
   const realtimeScopeRef = useRef({ interval: activeInterval, seriesKey });
-  const historyPaginationRef = useRef<IHistoryPaginationState>({
-    hasMore: true,
-    hasMoreAfter: false,
-    interval: activeInterval,
-    isLoading: false,
-    seriesKey,
-  });
   const historyCoverageRef = useRef<IHistoryCoverageState>({
     interval: activeInterval,
     ranges: [],
