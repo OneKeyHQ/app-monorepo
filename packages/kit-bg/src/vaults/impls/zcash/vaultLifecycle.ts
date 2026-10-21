@@ -1,4 +1,4 @@
-import { isEqual } from 'lodash';
+import { isEqual, uniq } from 'lodash';
 
 import {
   ZCASH_LIGHTWALLETD_MAINNET,
@@ -290,6 +290,7 @@ export async function listLocalWalletAccounts(vault: Vault): Promise<{
     slotEnabled: boolean;
   }[];
   cleanupAccountIds: string[];
+  storedAccountIds: string[];
 }> {
   const [accountIds, enabledAccountIds, { wallets }] = await Promise.all([
     vault.backgroundApi.simpleDb.zcash.listAccountIds(),
@@ -330,6 +331,8 @@ export async function listLocalWalletAccounts(vault: Vault): Promise<{
     accounts,
     cleanupAccountIds:
       await vault.backgroundApi.simpleDb.zcash.listCleanupAccountIds(),
+    // Every new account records privacy mode 'off', which holds no data.
+    storedAccountIds: uniq([...accountIds, ...enabledAccountIds]),
   };
 }
 

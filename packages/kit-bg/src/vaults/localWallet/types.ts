@@ -248,6 +248,9 @@ export type ILocalWalletCapability = {
   listAccounts: () => Promise<{
     accounts: ILocalWalletAccount[];
     cleanupAccountIds: string[];
+    // Accounts with data in the network's shared local database; defaults to
+    // cleanupAccountIds. A pending App Reset wipe skips a network with any.
+    storedAccountIds?: string[];
   }>;
   getAccountAliases: (params: { accountId: string }) => Promise<string[]>;
   getChainTip: () => Promise<number | null>;
