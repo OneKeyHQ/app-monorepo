@@ -371,6 +371,7 @@ export function EarnDesktopHome({
               isRefreshing={isRefreshing}
               hasPositions={hasPositions}
               isActive={isActive}
+              minHeight={hasBanner ? BANNER_MIN_HEIGHT : undefined}
               onOpenPortfolio={onOpenPortfolio}
               onRefresh={onRefresh}
               onOpenTokens={handleOpenTokens}

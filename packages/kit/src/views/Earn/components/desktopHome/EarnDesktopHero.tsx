@@ -252,6 +252,7 @@ export function EarnDesktopHero({
   isRefreshing,
   hasPositions,
   isActive,
+  minHeight,
   onOpenPortfolio,
   onRefresh,
   onOpenTokens,
@@ -269,6 +270,8 @@ export function EarnDesktopHero({
   /** Without positions there are no earnings to state */
   hasPositions: boolean;
   isActive: boolean;
+  /** The banner card's shortest height, when the banner sits beside */
+  minHeight?: number;
   onOpenPortfolio: () => void;
   /** The page's refresh, the one pulling down runs on the phone */
   onRefresh?: () => void;
@@ -371,9 +374,13 @@ export function EarnDesktopHero({
   }
 
   return (
+    // Never shorter than the banner beside it: without positions the buttons
+    // then sit on the banner's bottom edge instead of above an empty gap
     <YStack
       flex={1}
       minWidth={0}
+      minHeight={minHeight}
+      jc="space-between"
       gap="$6"
       onLayout={(event) => {
         const { height, width } = event.nativeEvent.layout;
