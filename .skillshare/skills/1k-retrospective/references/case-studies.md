@@ -931,3 +931,10 @@ Cases are appended by AI after each bug fix. Do NOT reorder or delete entries â€
 **Root Cause**: Edge reservation checked platform and fullscreen state without checking history in the current stack; parent modal dismissal can make `canGoBack()` true even at the inner stack root.
 **Fix**: Subscribe to the current stack index and reserve the edge only when it has a previous screen, while retaining the fullscreen exemption.
 **Catchable by**: Section 8: compare a modal root with a pushed detail, including a parent that can go back; verify edge interactions, swipe-back and fullscreen separately.
+
+## Case: Hardware rebate empty state had no copy link (OK-64959)
+**Date**: 2026-10-21 | **Platforms**: desktop, web, extension, iOS, Android
+**Symptom**: After filtering hardware sales by date, the empty state asked users to share an invite code but showed no copy button.
+**Root Cause**: HardwareSales empty UI rendered title and description only. Swap and Perps already copy a subject-specific link; hardware's share URL is the summary invite URL plus `/shop`.
+**Fix**: Show a copy-link button on the empty list and copy that shop invite URL once summary info is ready. Keep the button disabled when the URL is missing.
+**Catchable by**: Section 4: shared empty-state copy must include the action it describes; Section 6: cover loading and missing-URL states.
