@@ -2381,19 +2381,15 @@ class ServiceHardware extends ServiceBase {
         JSON.stringify(response),
       );
       if (response?.success) {
-        const bleDevices = response.payload.filter(
-          (device) =>
-            device.commType === 'ble' || device.commType === 'electron-ble',
-        );
-        if (bleDevices.length) {
-          defaultLogger.hardware.sdkLog.bleSearchDevicesColor({
-            devices: bleDevices.map((device) => ({
+        for (const device of response.payload) {
+          if (deviceUtils.isBluetoothSearchDevice(device)) {
+            defaultLogger.hardware.sdkLog.bleSearchDevicesColor({
               connectId: device.connectId,
               name: device.name,
               deviceType: device.deviceType,
               bleColorCode: device.bleColorCode,
-            })),
-          });
+            });
+          }
         }
       }
 
