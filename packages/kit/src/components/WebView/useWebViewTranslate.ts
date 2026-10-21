@@ -327,7 +327,11 @@ export function useWebViewTranslate({
           state.error && !state.billed ? 'server' : undefined,
         );
         state.result = result;
-      } else if (state.result !== 'success' && result === 'success') {
+      } else if (
+        state.result !== 'success' &&
+        state.result !== result &&
+        (result === 'success' || result === 'exhausted' || result === 'notOpen')
+      ) {
         logPrimeFreeTrialResult({
           featureId: EPrimeFeatures.DAppTranslate,
           attemptId: sessionId,
@@ -335,6 +339,9 @@ export function useWebViewTranslate({
           source: 'client',
           result,
           previousResult: state.result,
+          ...(state.error && !state.billed
+            ? { rejectionSource: 'server' as const }
+            : {}),
         });
         state.result = result;
       }

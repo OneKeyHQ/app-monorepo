@@ -360,6 +360,65 @@ describe('useWebViewTranslate free-trial stop', () => {
     expect(mockTrialResult).toHaveBeenCalledTimes(2);
   });
 
+  it.each([
+    { platform: 'Native', code: 90_600 },
+    { platform: 'Native', code: 90_601 },
+    { platform: 'Desktop', code: 90_600 },
+    { platform: 'Desktop', code: 90_601 },
+  ])(
+    'corrects an earlier fallback when a later request returns $code on $platform',
+    async ({ platform, code }) => {
+      mockedPlatformEnv.isNative = platform === 'Native';
+      mockedPlatformEnv.isDesktop = platform === 'Desktop';
+      try {
+        mockApiTranslate
+          .mockResolvedValueOnce({
+            translations: ['original'],
+            hasBilledBatch: false,
+          })
+          .mockResolvedValueOnce({
+            translations: ['later'],
+            freeTrialError: {
+              code,
+              data: { featureId: EPrimeFeatures.DAppTranslate },
+            },
+          });
+        const { sessionId, unmount } = await startSession(jest.fn(), {
+          entitlementSource: 'freeTrial',
+        });
+        const dispatch = platform === 'Desktop' ? desktopRequest : request;
+        await act(async () => {
+          dispatch(sessionId, 'tr_early_fallback', ['original']);
+          await flush();
+        });
+        expect(mockTrialResult).toHaveBeenCalledTimes(1);
+        expect(mockTrialResult).toHaveBeenLastCalledWith(
+          expect.objectContaining({ result: 'failed', attemptId: sessionId }),
+        );
+        await act(async () => {
+          dispatch(sessionId, 'tr_later_rejection', ['later']);
+          await flush();
+        });
+        expect(mockTrialAttempt).toHaveBeenCalledTimes(1);
+        expect(mockTrialResult).toHaveBeenCalledTimes(2);
+        expect(mockTrialResult).toHaveBeenLastCalledWith({
+          featureId: EPrimeFeatures.DAppTranslate,
+          attemptId: sessionId,
+          stage: 'execution',
+          source: 'client',
+          result: code === 90_600 ? 'exhausted' : 'notOpen',
+          rejectionSource: 'server',
+          previousResult: 'failed',
+        });
+        unmount();
+        expect(mockTrialResult).toHaveBeenCalledTimes(2);
+      } finally {
+        mockedPlatformEnv.isNative = true;
+        mockedPlatformEnv.isDesktop = false;
+      }
+    },
+  );
+
   it('writes billed translations back, then stops without restoring', async () => {
     const onFreeTrialUnavailable = jest.fn();
     mockApiTranslate.mockResolvedValueOnce({
