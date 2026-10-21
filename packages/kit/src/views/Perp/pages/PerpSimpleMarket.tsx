@@ -26,7 +26,6 @@ import {
 import { usePerpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
 import {
@@ -46,6 +45,7 @@ import { SimpleTradeHistory } from '../components/Simple/SimpleTradeHistory';
 import { FavoriteButton } from '../components/TokenSelector/PerpTokenSelectorRow';
 import { usePerpsAccountScopedActivePositions } from '../hooks/usePerpsAccountScopedActivePositions';
 import { usePerpsAssetCtx } from '../hooks/usePerpsAssetCtx';
+import { useSimpleMarketFocus } from '../hooks/useSimpleMarketFocus';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 import { simplePrice, simpleUsd } from '../utils/simpleDisplay';
@@ -80,6 +80,12 @@ function SimpleMarketContent() {
   const [instrument] = useActiveTradeInstrumentAtom();
   const [settings] = usePerpsCustomSettingsAtom();
   const [submitting] = useTradingLoadingAtom();
+  useSimpleMarketFocus(
+    route.params.coin,
+    focused &&
+      settings.mobileTradingMode === 'simple' &&
+      (platformEnv.isNative || !gtMd),
+  );
   const positions = usePerpsAccountScopedActivePositions();
   const currentPosition = positions.find(
     (item) => item.position.coin === route.params.coin,
@@ -128,24 +134,13 @@ function SimpleMarketContent() {
   const directionColor = (change ?? 0) >= 0 ? '$textSuccess' : '$textCritical';
   const changeColor = changeKnown ? directionColor : '$textSubdued';
   const headerPrice = valid ? simplePrice(assetCtx?.markPrice) : '--';
-  const tokenSelectorOpened = useRef(false);
   const openTokenSelector = useCallback(() => {
     if (submitting) return;
-    tokenSelectorOpened.current = true;
-    navigation.pushModal(EModalRoutes.PerpModal, {
-      screen: EModalPerpRoutes.MobileTokenSelector,
-    });
+    navigation.push(EModalPerpRoutes.MobileTokenSelector);
   }, [navigation, submitting]);
   useEffect(() => {
-    if (
-      tokenSelectorOpened.current &&
-      instrument.mode === 'perp' &&
-      instrument.coin !== route.params.coin
-    ) {
-      navigation.setParams({ coin: instrument.coin });
-      setInfoExpanded(false);
-    }
-  }, [instrument.coin, instrument.mode, navigation, route.params.coin]);
+    setInfoExpanded(false);
+  }, [route.params.coin]);
   const renderHeaderTitle = useCallback(
     () => (
       <SimpleMarketHeader
@@ -348,7 +343,9 @@ function SimpleMarketContent() {
             position={currentPosition}
             initialTab={route.params.initialPortfolioTab}
           />
-          <SimpleOrderBook coin={route.params.coin} />
+          {focused && valid ? (
+            <SimpleOrderBook coin={route.params.coin} />
+          ) : null}
           <PerpMarketIntroContent
             key={`info-${route.params.coin}`}
             coin={route.params.coin}

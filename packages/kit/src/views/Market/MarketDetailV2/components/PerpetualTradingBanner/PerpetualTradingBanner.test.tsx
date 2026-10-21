@@ -5,7 +5,7 @@ import { act, render, screen } from '@testing-library/react';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { EModalMarketRoutes } from '../../../router/types';
 
@@ -184,6 +184,17 @@ beforeEach(() => {
   mockRouteName = undefined;
   mockDismissDiscoveryDetail.mockReturnValue('ready');
   mockGetRootState.mockReturnValue(undefined);
+  mockSwitchTab.mockImplementation((tab: ETabRoutes) => {
+    mockGetRootState.mockReturnValue({
+      index: 0,
+      routes: [
+        {
+          name: ERootRoutes.Main,
+          state: { index: 0, routes: [{ name: tab }] },
+        },
+      ],
+    });
+  });
   mockNavigationListeners.clear();
   mockPendingInstrument.mockResolvedValue(undefined);
   mockWebTarget.mockResolvedValue(undefined);

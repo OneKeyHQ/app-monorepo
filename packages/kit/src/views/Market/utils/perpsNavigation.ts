@@ -14,7 +14,11 @@ import {
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  ERootRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import type { IWebviewPerpTradeParamList } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 
@@ -204,10 +208,18 @@ export async function navigateToPerps({
       }
       navigation.switchTab(targetTab);
       navigationCommitted = true;
-      const targetRouteKey = rootNavigationRef.current?.getCurrentRoute()?.key;
-      const isCurrentTarget = () =>
-        isCurrentRequest() &&
-        rootNavigationRef.current?.getCurrentRoute()?.key === targetRouteKey;
+      const isCurrentTarget = () => {
+        const root = rootNavigationRef.current?.getRootState();
+        const top = root?.routes[root.index ?? 0];
+        const tabs = top?.state;
+        // Lazy tab mounting replaces the focused leaf key, but preserves the
+        // selected tab. A different tab or an overlay cancels this entry.
+        return (
+          isCurrentRequest() &&
+          top?.name === ERootRoutes.Main &&
+          tabs?.routes[tabs.index ?? 0]?.name === targetTab
+        );
+      };
       if (!proxy) return;
       try {
         await proxy.serviceHyperliquid.changeActiveAsset({ coin });
