@@ -48,7 +48,11 @@ export type IEarnPositionCardHandlers = {
  * only sends the styled texts (before 6.6.1) still gets them; a provider
  * that reports "Total earned" instead keeps that line, subdued.
  */
-function PositionPnlLine({ position }: { position: IEarnPortfolioPosition }) {
+export function PositionPnlLine({
+  position,
+}: {
+  position: IEarnPortfolioPosition;
+}) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
   const [{ hideValue }] = useSettingsValuePersistAtom();
@@ -125,6 +129,36 @@ function PositionPnlLine({ position }: { position: IEarnPortfolioPosition }) {
 }
 
 /**
+ * The holding's Redeem, or Sell early for a Pendle PT before maturity, as
+ * the detail page's footer reads; the manage page sells the PT on its
+ * withdraw tab. Off, not gone, when the server says the page's own Redeem
+ * would be (withdrawals switched off, nothing withdrawable), as the page
+ * keeps it. The phone card and the wide layout's holding share it.
+ */
+export function useHoldingRedeem(
+  position: IEarnPositionView,
+  onRedeem: IEarnPositionCardHandlers['onRedeem'],
+): IEarnHoldingRedeem | undefined {
+  const intl = useIntl();
+  const { source } = position;
+  if (!onRedeem || !canRedeemFromCard(position)) {
+    return undefined;
+  }
+  return {
+    label: intl.formatMessage({
+      id: sellsEarly(source)
+        ? ETranslations.defi_sell_early
+        : ETranslations.earn_redeem,
+    }),
+    disabled: source.earn.redeem?.disabled,
+    onPress: () =>
+      onRedeem(source.earn.manage, {
+        byOrder: Boolean(source.earn.redeem?.byOrder),
+      }),
+  };
+}
+
+/**
  * One holding (product 10-14): badge, name, value and a chevron on the
  * header line, which opens the detail page, the PnL under it, an optional
  * health factor line, then the panels, each row with its own action. No
@@ -142,25 +176,7 @@ function EarnPositionCardCmp({
     Boolean(action) && Boolean(onManage) && hasPositionDetailPage(source);
   const openDetail =
     canOpen && action ? () => onManage?.(action.target) : undefined;
-  // Redeem, or Sell early for a Pendle PT before maturity, as the detail
-  // page's footer reads; the manage page sells the PT on its withdraw tab.
-  // Off, not gone, when the server says the page's own Redeem would be
-  // (withdrawals switched off, nothing withdrawable), as the page keeps it.
-  const redeem: IEarnHoldingRedeem | undefined =
-    onRedeem && canRedeemFromCard(position)
-      ? {
-          label: intl.formatMessage({
-            id: sellsEarly(source)
-              ? ETranslations.defi_sell_early
-              : ETranslations.earn_redeem,
-          }),
-          disabled: source.earn.redeem?.disabled,
-          onPress: () =>
-            onRedeem(source.earn.manage, {
-              byOrder: Boolean(source.earn.redeem?.byOrder),
-            }),
-        }
-      : undefined;
+  const redeem = useHoldingRedeem(position, onRedeem);
 
   return (
     <YStack gap="$3" testID={EarnTestIDs.portfolioItem(source.protocolName)}>

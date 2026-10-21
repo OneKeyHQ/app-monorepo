@@ -9,6 +9,7 @@ import {
   RefreshControl,
   ScrollView,
   YStack,
+  useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -138,9 +139,12 @@ function EarnPositionsContent() {
 }
 
 export default function EarnPositions() {
-  // Phones get the revamped "My portfolio" page; every other layout keeps the
-  // existing page and its shared PortfolioTabContent exactly as before.
+  // Phones get the revamped "My portfolio" page, and wide layouts get it laid
+  // out for desktop, the way the wallet DeFi Portfolio switches on gtMd. The
+  // layouts between (a narrow extension or desktop window) keep the existing
+  // page and its shared PortfolioTabContent exactly as before.
   const isMyPortfolioLayout = useMyPortfolioLayout();
+  const { gtMd } = useMedia();
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -150,7 +154,11 @@ export default function EarnPositions() {
       enabledNum={[0]}
     >
       <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
-        {isMyPortfolioLayout ? <MyPortfolioPage /> : <EarnPositionsContent />}
+        {isMyPortfolioLayout || gtMd ? (
+          <MyPortfolioPage tableLayout={gtMd} />
+        ) : (
+          <EarnPositionsContent />
+        )}
       </EarnProviderMirror>
     </AccountSelectorProviderMirror>
   );

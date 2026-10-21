@@ -3,25 +3,32 @@ import { SizableText, XStack, YStack } from '@onekeyhq/components';
 /**
  * The page's primary tabs (figma 29180-108096): two labels on one baseline,
  * the focused one carrying a 2px underline. Kept deliberately plain — the
- * detail page's swipeable pager is more than this page needs.
+ * detail page's swipeable pager is more than this page needs. `bare` leaves
+ * the inset and the rule to a row that holds more, the wide layout's.
  */
 export function UnderlineTabs<T extends string>({
   tabs,
   value,
   onChange,
   testID,
+  bare = false,
 }: {
   tabs: { key: T; label: string }[];
   value: T;
   onChange: (key: T) => void;
   testID?: string;
+  bare?: boolean;
 }) {
   return (
     <XStack
-      px="$5"
       gap="$5"
-      borderBottomWidth="$px"
-      borderBottomColor="$borderSubdued"
+      {...(bare
+        ? {}
+        : {
+            px: '$5',
+            borderBottomWidth: '$px',
+            borderBottomColor: '$borderSubdued',
+          })}
       testID={testID}
     >
       {tabs.map((tab) => {

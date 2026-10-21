@@ -6,7 +6,12 @@ import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeab
 import type { IEarnRewardsPortfolioGroup } from '@onekeyhq/shared/types/staking';
 
 import { GroupRow } from './GroupRow';
-import { LedgerRewardCard } from './LedgerRewardCard';
+import {
+  LedgerRewardCard,
+  LedgerRewardTableHeader,
+  ledgerTimeOf,
+} from './LedgerRewardCard';
+import { usePortfolioTableLayout } from './portfolioTableLayout';
 
 import type { IGroupExpansion } from './GroupRow';
 
@@ -16,12 +21,14 @@ import type { IGroupExpansion } from './GroupRow';
  */
 function LedgerGroupTotal({ group }: { group: IEarnRewardsPortfolioGroup }) {
   const currencyInfo = useCurrency();
+  // The wide layout's card header reads its figure at the name's size
+  const size = usePortfolioTableLayout() ? '$headingLg' : '$bodyLgMedium';
   const hasFiat = new BigNumber(group.total.fiatValue || '0').gt(0);
   if (!hasFiat && group.total.amount && group.total.symbol) {
     return (
       <NumberSizeableTextWrapper
         hideValue
-        size="$bodyLgMedium"
+        size={size}
         formatter="balance"
         formatterOptions={{ tokenSymbol: group.total.symbol }}
         numberOfLines={1}
@@ -33,7 +40,7 @@ function LedgerGroupTotal({ group }: { group: IEarnRewardsPortfolioGroup }) {
   return (
     <NumberSizeableTextWrapper
       hideValue
-      size="$bodyLgMedium"
+      size={size}
       formatter="value"
       formatterOptions={{ currency: currencyInfo.symbol }}
       numberOfLines={1}
@@ -56,6 +63,7 @@ export function RewardsLedgerList({
   groups: IEarnRewardsPortfolioGroup[];
   expansion: IGroupExpansion;
 }) {
+  const isTableLayout = usePortfolioTableLayout();
   return (
     <YStack gap="$4">
       {groups.map((group) => (
@@ -72,13 +80,31 @@ export function RewardsLedgerList({
           }
           total={<LedgerGroupTotal group={group} />}
         >
-          {group.items.map((item, itemIndex) => (
-            <LedgerRewardCard
-              key={`${item.token.info.symbol}-${item.vault ?? ''}-${item.txHash ?? itemIndex}`}
-              item={item}
-              group={group}
-            />
-          ))}
+          {isTableLayout && group.items[0] ? (
+            <YStack>
+              <LedgerRewardTableHeader
+                stage={group.items[0].stage}
+                hasTime={group.items.some((item) =>
+                  Boolean(ledgerTimeOf(item)),
+                )}
+              />
+              {group.items.map((item, itemIndex) => (
+                <LedgerRewardCard
+                  key={`${item.token.info.symbol}-${item.vault ?? ''}-${item.txHash ?? itemIndex}`}
+                  item={item}
+                  group={group}
+                />
+              ))}
+            </YStack>
+          ) : (
+            group.items.map((item, itemIndex) => (
+              <LedgerRewardCard
+                key={`${item.token.info.symbol}-${item.vault ?? ''}-${item.txHash ?? itemIndex}`}
+                item={item}
+                group={group}
+              />
+            ))
+          )}
         </GroupRow>
       ))}
     </YStack>

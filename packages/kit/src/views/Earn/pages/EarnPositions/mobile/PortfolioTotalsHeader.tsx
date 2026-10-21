@@ -10,6 +10,8 @@ import { EarnTooltip } from '@onekeyhq/kit/src/views/Staking/components/Protocol
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnTextTooltip } from '@onekeyhq/shared/types/staking';
 
+import { usePortfolioTableLayout } from './portfolioTableLayout';
+
 /**
  * One figure with its label. A label that carries an explanation is marked
  * the way every explained figure in Earn is, a dotted rule, and opens it in
@@ -20,14 +22,17 @@ function TotalCell({
   label,
   value,
   tooltip,
+  fill,
 }: {
   label: string;
   value: string;
   tooltip?: IEarnTextTooltip;
+  /** the phone splits the row in half; the wide layout keeps the pair together */
+  fill: boolean;
 }) {
   const currencyInfo = useCurrency();
   return (
-    <YStack flex={1} gap="$1" minWidth={0}>
+    <YStack flex={fill ? 1 : undefined} gap="$1" minWidth={0}>
       {tooltip ? (
         <EarnTooltip
           title={label}
@@ -74,6 +79,7 @@ export function PortfolioTotalsHeader({
   rewardsFiatValue: string;
 }) {
   const intl = useIntl();
+  const isTableLayout = usePortfolioTableLayout();
   // Product (OK-64463): Rewards alone explains what it counts; DeFi Assets
   // has the footnote below and no tooltip.
   const rewardsTooltip = useMemo<IEarnTextTooltip>(
@@ -91,17 +97,19 @@ export function PortfolioTotalsHeader({
   );
   return (
     <YStack px="$5" pt="$2" pb="$4" gap="$3">
-      <XStack gap="$4">
+      <XStack gap={isTableLayout ? '$16' : '$4'}>
         <TotalCell
           label={intl.formatMessage({
             id: ETranslations.earn_defi_assets__title,
           })}
           value={defiAssetsFiatValue}
+          fill={!isTableLayout}
         />
         <TotalCell
           label={intl.formatMessage({ id: ETranslations.earn_rewards })}
           value={rewardsFiatValue}
           tooltip={rewardsTooltip}
+          fill={!isTableLayout}
         />
       </XStack>
       <SizableText size="$bodySm" color="$textSubdued">

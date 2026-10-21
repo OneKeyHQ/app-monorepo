@@ -6,11 +6,19 @@ import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeab
 import { EarnTooltip } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnTooltip';
 import type { IEarnRewardsPortfolioGroup } from '@onekeyhq/shared/types/staking';
 
-import { ClaimableRewardRow } from './ClaimableRewardRow';
+import { ClaimableRewardRow, RewardTableHeader } from './ClaimableRewardRow';
 import { GroupRow } from './GroupRow';
-import { LedgerRewardCard } from './LedgerRewardCard';
+import {
+  LedgerRewardCard,
+  LedgerRewardTableHeader,
+  ledgerTimeOf,
+} from './LedgerRewardCard';
 import { mergeRewardGroups } from './myPortfolio.utils';
-import { RewardsGroupTotal } from './RewardsClaimableList';
+import { usePortfolioTableLayout } from './portfolioTableLayout';
+import {
+  REWARD_ROWS_BOX_PROPS,
+  RewardsGroupTotal,
+} from './RewardsClaimableList';
 
 import type { IEarnPositionRewardGroup } from './earnPositionModel';
 import type { IGroupExpansion } from './GroupRow';
@@ -40,6 +48,7 @@ export function RewardsPendingList({
   emptyTitle: string;
   expansion: IGroupExpansion;
 }) {
+  const isTableLayout = usePortfolioTableLayout();
   const groups = useMemo(
     () => mergeRewardGroups({ positionGroups, ledgerGroups }),
     [positionGroups, ledgerGroups],
@@ -69,14 +78,8 @@ export function RewardsPendingList({
           total={<RewardsGroupTotal group={group} />}
         >
           {group.positionRows.length > 0 ? (
-            <YStack
-              px="$3"
-              py="$1"
-              borderRadius="$3"
-              borderWidth="$px"
-              borderColor="$borderSubdued"
-              bg="$bg"
-            >
+            <YStack {...(isTableLayout ? {} : REWARD_ROWS_BOX_PROPS)}>
+              {isTableLayout ? <RewardTableHeader /> : null}
               {group.positionRows.map((row) => (
                 <ClaimableRewardRow
                   key={row.key}
@@ -108,13 +111,31 @@ export function RewardsPendingList({
               ))}
             </YStack>
           ) : null}
-          {group.ledgerItems.map(({ group: ledgerGroup, item }, index) => (
-            <LedgerRewardCard
-              key={`${item.token.info.symbol}-${item.vault ?? ''}-${item.txHash ?? index}`}
-              item={item}
-              group={ledgerGroup}
-            />
-          ))}
+          {isTableLayout && group.ledgerItems.length > 0 ? (
+            <YStack>
+              <LedgerRewardTableHeader
+                stage="pending"
+                hasTime={group.ledgerItems.some(({ item }) =>
+                  Boolean(ledgerTimeOf(item)),
+                )}
+              />
+              {group.ledgerItems.map(({ group: ledgerGroup, item }, index) => (
+                <LedgerRewardCard
+                  key={`${item.token.info.symbol}-${item.vault ?? ''}-${item.txHash ?? index}`}
+                  item={item}
+                  group={ledgerGroup}
+                />
+              ))}
+            </YStack>
+          ) : (
+            group.ledgerItems.map(({ group: ledgerGroup, item }, index) => (
+              <LedgerRewardCard
+                key={`${item.token.info.symbol}-${item.vault ?? ''}-${item.txHash ?? index}`}
+                item={item}
+                group={ledgerGroup}
+              />
+            ))
+          )}
         </GroupRow>
       ))}
     </YStack>

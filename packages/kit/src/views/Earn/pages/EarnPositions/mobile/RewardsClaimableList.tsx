@@ -25,7 +25,7 @@ import { WrappedActionButton } from '../../../components/PortfolioTabContent';
 import { EarnTestIDs } from '../../../testIDs';
 import { resolveUniquePortfolioClaimSourceIdentity } from '../../../utils/portfolioClaimUtils';
 
-import { ClaimableRewardRow } from './ClaimableRewardRow';
+import { ClaimableRewardRow, RewardTableHeader } from './ClaimableRewardRow';
 import { GroupRow, useGroupExpansion } from './GroupRow';
 import {
   buildClaimSourceCandidates,
@@ -35,6 +35,7 @@ import {
   toLedgerClaimAsset,
   toPositionRewardClaim,
 } from './myPortfolio.utils';
+import { usePortfolioTableLayout } from './portfolioTableLayout';
 
 import type { IEarnPositionCardHandlers } from './EarnPositionCard';
 import type {
@@ -43,14 +44,26 @@ import type {
 } from './earnPositionModel';
 import type { IRewardsStageGroup } from './myPortfolio.utils';
 
+/** The phone's box around a group's reward rows; the wide layout's card is that frame already. */
+export const REWARD_ROWS_BOX_PROPS = {
+  px: '$3',
+  py: '$1',
+  borderRadius: '$3',
+  borderWidth: '$px',
+  borderColor: '$borderSubdued',
+  bg: '$bg',
+} as const;
+
 /** The group's figure: fiat the way the protocol rows read, the token amount only when nothing priced it. */
 export function RewardsGroupTotal({ group }: { group: IRewardsStageGroup }) {
   const intl = useIntl();
   const currencyInfo = useCurrency();
+  // The wide layout's card header reads its figure at the name's size
+  const size = usePortfolioTableLayout() ? '$headingLg' : '$bodyLgMedium';
   if (group.amountOnly) {
     return (
       <NumberSizeableText
-        size="$bodyLgMedium"
+        size={size}
         formatter="balance"
         formatterOptions={{ tokenSymbol: group.amountOnly.symbol }}
         numberOfLines={1}
@@ -67,7 +80,7 @@ export function RewardsGroupTotal({ group }: { group: IRewardsStageGroup }) {
         id: ETranslations.wallet_price_unavailable,
       })}
       isUnavailable={!group.value.hasAvailableValue}
-      size="$bodyLgMedium"
+      size={size}
       textAlign="right"
       numberOfLines={1}
     />
@@ -98,6 +111,8 @@ function PositionRewardAction({
         asset={claim.asset}
         reward={claim.reward}
         rewardSymbol={claim.rewardSymbol}
+        // A button in the wide layout too: every row action reads the same
+        isAlwaysButton
       />
     );
   }
@@ -145,6 +160,7 @@ export function RewardsClaimableList({
   emptyTitle: string;
 } & IEarnPositionCardHandlers) {
   const expansion = useGroupExpansion();
+  const isTableLayout = usePortfolioTableLayout();
   // A ledger amount comes formatted from the server: hidden as a whole.
   const [{ hideValue }] = useSettingsValuePersistAtom();
   const candidates = useMemo(
@@ -183,14 +199,8 @@ export function RewardsClaimableList({
           onToggle={() => expansion.toggle(group.key)}
           total={<RewardsGroupTotal group={group} />}
         >
-          <YStack
-            px="$3"
-            py="$1"
-            borderRadius="$3"
-            borderWidth="$px"
-            borderColor="$borderSubdued"
-            bg="$bg"
-          >
+          <YStack {...(isTableLayout ? {} : REWARD_ROWS_BOX_PROPS)}>
+            {isTableLayout ? <RewardTableHeader /> : null}
             {group.positionRows.map((row) => (
               <ClaimableRewardRow
                 key={row.key}
@@ -242,7 +252,7 @@ export function RewardsClaimableList({
                     item.description ? (
                       <EarnText
                         text={item.description}
-                        size="$bodySm"
+                        size={isTableLayout ? '$bodyMd' : '$bodySm'}
                         color="$textSubdued"
                         numberOfLines={1}
                       />
@@ -263,6 +273,7 @@ export function RewardsClaimableList({
                           },
                         )}
                         rewardSymbol={item.token.info.symbol}
+                        isAlwaysButton
                       />
                     ) : null
                   }

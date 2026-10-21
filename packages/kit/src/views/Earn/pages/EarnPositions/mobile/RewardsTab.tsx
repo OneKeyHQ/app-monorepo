@@ -100,7 +100,7 @@ export function RewardsTab({
   pendingGroups: IEarnPositionRewardGroup[];
   /** every position the page holds; names networks and vaults for the ledger rows */
   positions: IEarnPortfolioPosition[];
-  /** the page's network chip; sits under the stage pills on this tab */
+  /** the page's network chip; sits under the stage pills on this tab, unless the wide layout's tab row holds it */
   networkFilter: React.ReactNode;
 } & IEarnPositionCardHandlers) {
   const intl = useIntl();
@@ -160,9 +160,11 @@ export function RewardsTab({
     <YStack gap="$4" pb="$2">
       <YStack gap="$3">
         <StagePills value={stage} labels={labels} onChange={onStageChange} />
-        <Stack px="$5" ai="flex-start">
-          {networkFilter}
-        </Stack>
+        {networkFilter ? (
+          <Stack px="$5" ai="flex-start">
+            {networkFilter}
+          </Stack>
+        ) : null}
       </YStack>
       {content}
       {isLoadingMore ? (

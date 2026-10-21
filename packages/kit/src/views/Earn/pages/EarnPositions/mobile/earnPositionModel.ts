@@ -478,14 +478,24 @@ export function sumEarnDefiAssets(protocols: IEarnProtocolView[]): number {
   ).value;
 }
 
-/** DeFi Assets tab: protocol rows (one per protocol per network) and the header total. */
+/**
+ * DeFi Assets tab: protocol rows (one per protocol per network) and the
+ * header total. The wallet protocols behind the rows, in the rows' order,
+ * and their summaries come along for the wide layout's allocation overview,
+ * the wallet DeFi Portfolio's own.
+ */
 export function buildEarnPortfolioView({
   response,
   translate,
 }: {
   response: IEarnPortfolioPositionsResponse;
   translate: ITranslate;
-}): { protocols: IEarnProtocolView[]; totalValue: number } {
+}): {
+  protocols: IEarnProtocolView[];
+  totalValue: number;
+  deFiProtocols: IDeFiProtocol[];
+  protocolMap: Record<string, IProtocolSummary>;
+} {
   // One holding is one card: the server's per-state positions take the
   // holding as their groupId, and the wallet grouping folds them together.
   const sourcesByHolding: ISourcesByHolding = new Map();
@@ -508,9 +518,10 @@ export function buildEarnPortfolioView({
     positions,
     protocolSummaries: response.protocolSummaries,
   });
-  const views = protocols
-    .map((protocol) =>
-      buildProtocolView({
+  const rows = protocols
+    .map((protocol) => ({
+      protocol,
+      view: buildProtocolView({
         protocol,
         summary:
           protocolMap[
@@ -522,10 +533,16 @@ export function buildEarnPortfolioView({
         sourcesByHolding,
         translate,
       }),
-    )
-    .filter((view) => view.positions.length > 0)
-    .toSorted(byValueDesc);
-  return { protocols: views, totalValue: sumEarnDefiAssets(views) };
+    }))
+    .filter(({ view }) => view.positions.length > 0)
+    .toSorted((a, b) => byValueDesc(a.view, b.view));
+  const views = rows.map(({ view }) => view);
+  return {
+    protocols: views,
+    totalValue: sumEarnDefiAssets(views),
+    deFiProtocols: rows.map(({ protocol }) => protocol),
+    protocolMap,
+  };
 }
 
 /**

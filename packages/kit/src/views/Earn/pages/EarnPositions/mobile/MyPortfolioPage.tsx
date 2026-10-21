@@ -8,6 +8,7 @@ import {
   Page,
   RefreshControl,
   ScrollView,
+  XStack,
   YStack,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
@@ -23,6 +24,7 @@ import {
 } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import type { IEarnPositionManageTarget } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type { IEarnRewardsPortfolioStage } from '@onekeyhq/shared/types/staking';
@@ -37,6 +39,7 @@ import {
   STAKING_TX_SETTLE_DELAY_MS,
   useStakingPendingTxsByInfo,
 } from '../../../hooks/useStakingPendingTxs';
+import { DeFiAssetsDesktopTab } from '../desktop/DeFiAssetsDesktopTab';
 
 import { DeFiAssetsTab } from './DeFiAssetsTab';
 import {
@@ -49,6 +52,7 @@ import {
   sumEarnPendingRewards,
 } from './earnPositionModel';
 import { positionPendingTag, sumRewardsHeaderFiat } from './myPortfolio.utils';
+import { PortfolioTableLayoutContext } from './portfolioTableLayout';
 import { PortfolioTotalsHeader } from './PortfolioTotalsHeader';
 import { RewardsTab } from './RewardsTab';
 import { UnderlineTabs } from './UnderlineTabs';
@@ -63,6 +67,8 @@ type IPrimaryTab = 'assets' | 'rewards';
 
 // One stable empty selection: the rewards request keys on the array.
 const ALL_NETWORKS: string[] = [];
+// The wide layout's column, the wallet DeFi Portfolio's desktop width
+const TABLE_LAYOUT_MAX_WIDTH = 1140;
 
 /**
  * The phone "My portfolio" page (OK-61377, figma 29180-108096).
@@ -78,7 +84,17 @@ const ALL_NETWORKS: string[] = [];
  * shared setting still exists for the wide layout; this page never applies
  * it) and the asset status rows (the detail page carries them).
  */
-export function MyPortfolioPage() {
+export function MyPortfolioPage({
+  tableLayout = false,
+}: {
+  /**
+   * The wide layout (media.gtMd), the way the wallet DeFi Portfolio lays
+   * out on desktop: a centered column, the network filter on the tab row,
+   * the allocation overview and open protocol cards with their holdings as
+   * tables. The data, the actions and the phone layout stay as they are.
+   */
+  tableLayout?: boolean;
+} = {}) {
   const intl = useIntl();
   const isFocused = useIsFocused();
   const navigation = useAppNavigation();
@@ -400,9 +416,43 @@ export function MyPortfolioPage() {
       selectedNetworkIds={selectedNetworkIds}
       networkAssetCounts={networkAssetCounts}
       onSelectionChange={setSelectedNetworkIds}
-      variant="compact"
+      variant={tableLayout ? 'default' : 'compact'}
     />
   );
+  const tabs = (
+    <UnderlineTabs<IPrimaryTab>
+      tabs={[
+        {
+          key: 'assets',
+          label: intl.formatMessage({
+            id: ETranslations.earn_defi_assets__title,
+          }),
+        },
+        {
+          key: 'rewards',
+          label: intl.formatMessage({
+            id: ETranslations.earn_rewards,
+          }),
+        },
+      ]}
+      value={primaryTab}
+      onChange={setPrimaryTab}
+      testID="earn-my-portfolio-tabs"
+      bare={tableLayout}
+    />
+  );
+  // The wallet protocols behind the cards the filter leaves, for the overview
+  const visibleDeFiProtocols = useMemo(() => {
+    const keys = new Set(visibleProtocols.map((protocol) => protocol.key));
+    return view.deFiProtocols.filter((protocol) =>
+      keys.has(
+        defiUtils.buildProtocolMapKey({
+          protocol: protocol.protocol,
+          networkId: protocol.networkId,
+        }),
+      ),
+    );
+  }, [view.deFiProtocols, visibleProtocols]);
 
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
@@ -439,55 +489,76 @@ export function MyPortfolioPage() {
           }
         >
           <PortfolioPendingTxsProvider value={{ onRefresh: refreshAll }}>
-            <YStack py="$2">
-              {/* DeFi Assets leaves the positions' rewards out; Rewards counts them */}
-              <PortfolioTotalsHeader
-                defiAssetsFiatValue={String(view.totalValue)}
-                rewardsFiatValue={rewardsHeaderFiat}
-              />
-              <UnderlineTabs<IPrimaryTab>
-                tabs={[
-                  {
-                    key: 'assets',
-                    label: intl.formatMessage({
-                      id: ETranslations.earn_defi_assets__title,
-                    }),
-                  },
-                  {
-                    key: 'rewards',
-                    label: intl.formatMessage({
-                      id: ETranslations.earn_rewards,
-                    }),
-                  },
-                ]}
-                value={primaryTab}
-                onChange={setPrimaryTab}
-                testID="earn-my-portfolio-tabs"
-              />
-              {primaryTab === 'assets' ? (
-                <DeFiAssetsTab
-                  protocols={visibleProtocols}
-                  isLoading={isPositionsLoading}
-                  pendingCountByProvider={pendingCountByProvider}
-                  networkFilter={networkFilter}
-                  onManage={handleManage}
-                  onRedeem={handleRedeem}
+            <PortfolioTableLayoutContext.Provider value={tableLayout}>
+              <YStack
+                {...(tableLayout
+                  ? {
+                      width: '100%',
+                      maxWidth: TABLE_LAYOUT_MAX_WIDTH,
+                      alignSelf: 'center',
+                      py: '$6',
+                    }
+                  : { py: '$2' })}
+              >
+                {/* DeFi Assets leaves the positions' rewards out; Rewards counts them */}
+                <PortfolioTotalsHeader
+                  defiAssetsFiatValue={String(view.totalValue)}
+                  rewardsFiatValue={rewardsHeaderFiat}
                 />
-              ) : (
-                <RewardsTab
-                  stage={stage}
-                  onStageChange={setStage}
-                  rewards={rewards}
-                  isLoading={isRewardsLoading}
-                  isLoadingMore={isRewardsLoadingMore}
-                  claimableGroups={claimableGroups}
-                  pendingGroups={pendingGroups}
-                  positions={positions}
-                  networkFilter={networkFilter}
-                  onManage={handleManage}
-                />
-              )}
-            </YStack>
+                {tableLayout ? (
+                  // One row for the tabs and the filter both tabs share
+                  <XStack
+                    mx="$5"
+                    mb="$5"
+                    ai="center"
+                    jc="space-between"
+                    gap="$4"
+                    borderBottomWidth="$px"
+                    borderBottomColor="$borderSubdued"
+                  >
+                    {tabs}
+                    {networkFilter}
+                  </XStack>
+                ) : (
+                  tabs
+                )}
+                {primaryTab === 'assets' && tableLayout ? (
+                  <DeFiAssetsDesktopTab
+                    protocols={visibleProtocols}
+                    deFiProtocols={visibleDeFiProtocols}
+                    protocolMap={view.protocolMap}
+                    isLoading={isPositionsLoading}
+                    pendingCountByProvider={pendingCountByProvider}
+                    onManage={handleManage}
+                    onRedeem={handleRedeem}
+                  />
+                ) : null}
+                {primaryTab === 'assets' && !tableLayout ? (
+                  <DeFiAssetsTab
+                    protocols={visibleProtocols}
+                    isLoading={isPositionsLoading}
+                    pendingCountByProvider={pendingCountByProvider}
+                    networkFilter={networkFilter}
+                    onManage={handleManage}
+                    onRedeem={handleRedeem}
+                  />
+                ) : null}
+                {primaryTab === 'rewards' ? (
+                  <RewardsTab
+                    stage={stage}
+                    onStageChange={setStage}
+                    rewards={rewards}
+                    isLoading={isRewardsLoading}
+                    isLoadingMore={isRewardsLoadingMore}
+                    claimableGroups={claimableGroups}
+                    pendingGroups={pendingGroups}
+                    positions={positions}
+                    networkFilter={tableLayout ? null : networkFilter}
+                    onManage={handleManage}
+                  />
+                ) : null}
+              </YStack>
+            </PortfolioTableLayoutContext.Provider>
           </PortfolioPendingTxsProvider>
         </ScrollView>
       </Page.Body>

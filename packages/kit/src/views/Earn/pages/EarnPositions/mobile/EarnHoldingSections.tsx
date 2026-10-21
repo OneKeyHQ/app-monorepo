@@ -57,7 +57,7 @@ const ROW_ACTION_HIT_SLOP = { top: 7, bottom: 7, left: 8, right: 12 };
 const ROW_TEXT_INSET = '$10';
 
 /** Whole days until a withdrawal frees up, counted up; none once the date has passed. */
-function daysLeftOf(unlockAt: number | undefined): number | undefined {
+export function daysLeftOf(unlockAt: number | undefined): number | undefined {
   if (!unlockAt) {
     return undefined;
   }
@@ -65,7 +65,7 @@ function daysLeftOf(unlockAt: number | undefined): number | undefined {
   return days > 0 ? days : undefined;
 }
 
-function DaysLeftText({ days }: { days: number }) {
+export function DaysLeftText({ days }: { days: number }) {
   const intl = useIntl();
   return (
     <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
@@ -83,7 +83,7 @@ function DaysLeftText({ days }: { days: number }) {
  * badge is 20 pt tall; padding that the negative margins take back makes
  * its tap area 44 pt without moving it.
  */
-function PendingBadge({ asset }: { asset: IEarnPositionSectionAsset }) {
+export function PendingBadge({ asset }: { asset: IEarnPositionSectionAsset }) {
   const intl = useIntl();
   const badge = (
     <Badge badgeType="info" badgeSize="sm">
@@ -108,14 +108,17 @@ function PendingBadge({ asset }: { asset: IEarnPositionSectionAsset }) {
   );
 }
 
-type IRowButton = Extract<IEarnHoldingRowAction, { kind: 'redeem' | 'button' }>;
+export type IRowButton = Extract<
+  IEarnHoldingRowAction,
+  { kind: 'redeem' | 'button' }
+>;
 
 /**
  * A row's Redeem, Claim, Check or Cancel: the app's small secondary button,
  * the same for every action. Several rows of a panel can read "Claim", so a
  * screen reader hears the token as well.
  */
-function RowAction({
+export function RowAction({
   action,
   symbol,
   redeem,
@@ -172,6 +175,8 @@ function RowAction({
       asset={claim.asset}
       reward={claim.reward}
       rewardSymbol={claim.rewardSymbol}
+      // A button in the wide layout too: every row action reads the same
+      isAlwaysButton
       buttonProps={{
         hitSlop: ROW_ACTION_HIT_SLOP,
         'aria-label': label ? `${label} ${symbol}` : undefined,
@@ -181,28 +186,19 @@ function RowAction({
 }
 
 /**
- * The part of the deposit that came through OneKey (Spark): a line hung
- * under the deposit row, flush with its text the way a withdrawal's days
- * left are (the margin takes back the row's padding and the panel's gap;
- * the padding below gives a row's back). The label is the way to its
- * explanation, padded to a finger's height; the amount hides with the
- * balances.
+ * The part of the deposit that came through OneKey (Spark): the label, the
+ * way to its explanation padded to a finger's height, and the amount, which
+ * hides with the balances. The phone hangs it under the deposit row; the
+ * wide layout's table puts it under the deposit's balance.
  */
-function EffectiveDepositRow({
+export function EffectiveDepositText({
   effectiveDeposit,
 }: {
   effectiveDeposit: IEarnPositionEffectiveDeposit;
 }) {
   const { label, tooltip } = effectiveDeposit;
   return (
-    <XStack
-      pl={ROW_TEXT_INSET}
-      mt="$-2"
-      pb="$1"
-      ai="center"
-      columnGap="$2"
-      flexWrap="wrap"
-    >
+    <>
       {tooltip ? (
         <EarnTooltip
           title={label.text}
@@ -233,6 +229,30 @@ function EffectiveDepositRow({
       >
         {effectiveDeposit.amount}
       </NumberSizeableTextWrapper>
+    </>
+  );
+}
+
+/**
+ * The effective deposit hung under the deposit row, flush with its text the
+ * way a withdrawal's days left are (the margin takes back the row's padding
+ * and the panel's gap; the padding below gives a row's back).
+ */
+function EffectiveDepositRow({
+  effectiveDeposit,
+}: {
+  effectiveDeposit: IEarnPositionEffectiveDeposit;
+}) {
+  return (
+    <XStack
+      pl={ROW_TEXT_INSET}
+      mt="$-2"
+      pb="$1"
+      ai="center"
+      columnGap="$2"
+      flexWrap="wrap"
+    >
+      <EffectiveDepositText effectiveDeposit={effectiveDeposit} />
     </XStack>
   );
 }
