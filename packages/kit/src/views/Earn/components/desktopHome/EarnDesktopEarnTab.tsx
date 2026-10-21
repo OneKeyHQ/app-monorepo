@@ -58,12 +58,13 @@ import type {
   IEarnDesktopWalletHolding,
 } from './earnDesktopHome.utils';
 
-type ITokenCategory = 'all' | 'stable' | 'nonStable';
+type ITokenCategory = 'all' | 'stable' | 'nonStable' | 'fixedIncome';
 
 const TOKEN_CATEGORIES: { value: ITokenCategory; labelId: ETranslations }[] = [
   { value: 'all', labelId: ETranslations.global_all },
   { value: 'stable', labelId: ETranslations.earn_stable_tokens__action },
   { value: 'nonStable', labelId: ETranslations.earn_non_stable_tokens__action },
+  { value: 'fixedIncome', labelId: ETranslations.earn_fixed_income },
 ];
 
 // The header, the token rows and the offers under an open row share one
@@ -779,12 +780,21 @@ export function EarnDesktopEarnTab({
     walletHoldings,
   ]);
 
+  // Fixed-rate tokens have a category of their own, so Stable and Non-Stable
+  // keep to the flexible ones, as on the Tokens page
   const categoryRows = useMemo(() => {
     if (category === 'stable') {
-      return allRows.filter((row) => stableSymbols.has(row.asset.symbol));
+      return allRows.filter(
+        (row) => !row.isFixedRate && stableSymbols.has(row.asset.symbol),
+      );
     }
     if (category === 'nonStable') {
-      return allRows.filter((row) => !stableSymbols.has(row.asset.symbol));
+      return allRows.filter(
+        (row) => !row.isFixedRate && !stableSymbols.has(row.asset.symbol),
+      );
+    }
+    if (category === 'fixedIncome') {
+      return allRows.filter((row) => row.isFixedRate);
     }
     return allRows;
   }, [allRows, category, stableSymbols]);
