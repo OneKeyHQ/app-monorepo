@@ -297,6 +297,104 @@ it('starts a wrapped custom close before its own asynchronous callback settles',
   mounted.unmount();
 });
 
+it('keeps the exit animation when a dialog mounts during a pending close guard', async () => {
+  let allowClose: (allowed: boolean) => void = () => undefined;
+  const onBeforeClose = jest.fn(
+    () =>
+      new Promise<boolean>((resolve) => {
+        allowClose = resolve;
+      }),
+  );
+  const onCloseStart = jest.fn();
+  const onClose = jest.fn();
+  const dialog = Dialog.show({ onBeforeClose, onCloseStart, onClose });
+  const element = jest
+    .mocked(renderToContainer)
+    .mock.calls.at(-1)?.[1] as ReactElement;
+  const manager = jest.mocked(renderToContainer).mock.results.at(-1)?.value as {
+    destroy: jest.Mock;
+  };
+  const closing = Promise.resolve(dialog.close({ flag: 'confirm' }));
+  const mounted = render(element);
+
+  await act(async () => {
+    allowClose(true);
+    await Promise.resolve();
+  });
+  expect(onBeforeClose).toHaveBeenCalledTimes(1);
+  expect(onCloseStart).toHaveBeenCalledTimes(1);
+  expect(manager.destroy).not.toHaveBeenCalled();
+  expect(onClose).not.toHaveBeenCalled();
+
+  act(() => mockPresentation?.onExited?.());
+  await act(async () => {
+    await closing;
+  });
+  expect(manager.destroy).toHaveBeenCalledTimes(1);
+  expect(onClose).toHaveBeenCalledWith({ flag: 'confirm' });
+  mounted.unmount();
+});
+
+it.each(['direct', 'wrapped'] as const)(
+  'reuses the pending close guard for a %s custom dialog',
+  async (container) => {
+    let allowClose: (allowed: boolean) => void = () => undefined;
+    const onBeforeClose = jest.fn(
+      () =>
+        new Promise<boolean>((resolve) => {
+          allowClose = resolve;
+        }),
+    );
+    const onCloseStart = jest.fn();
+    const onClose = jest.fn();
+    const dialog = Dialog.show({
+      onBeforeClose,
+      onCloseStart,
+      onClose,
+      dialogContainer: ({ ref }) => {
+        const customDialog = (
+          <DialogContainer
+            ref={ref}
+            showHeader={false}
+            showFooter={false}
+            onBeforeClose={onBeforeClose}
+            onClose={mockNoopDialogClose}
+          />
+        );
+        return container === 'direct' ? (
+          customDialog
+        ) : (
+          <div>{customDialog}</div>
+        );
+      },
+    });
+    const element = jest
+      .mocked(renderToContainer)
+      .mock.calls.at(-1)?.[1] as ReactElement;
+    const manager = jest.mocked(renderToContainer).mock.results.at(-1)
+      ?.value as { destroy: jest.Mock };
+    const closing = Promise.resolve(dialog.close({ flag: 'confirm' }));
+    const mounted = render(element);
+
+    await act(async () => {
+      allowClose(true);
+      await Promise.resolve();
+    });
+    expect(onBeforeClose).toHaveBeenCalledTimes(1);
+    expect(onCloseStart).toHaveBeenCalledTimes(1);
+    expect(manager.destroy).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+
+    act(() => mockPresentation?.onExited?.());
+    await act(async () => {
+      await closing;
+    });
+    expect(manager.destroy).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledWith({ flag: 'confirm' });
+    mounted.unmount();
+  },
+);
+
 it('notifies dismissal before waiting for the close animation', async () => {
   const dialogRef = createRef<IDialogInstance>();
   const closeOrder: string[] = [];

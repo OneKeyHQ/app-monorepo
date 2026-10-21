@@ -581,7 +581,9 @@ type ICustomDialogMount = Pick<
   | 'onClose'
   | 'onBeforeClose'
   | 'isExist'
->;
+> & {
+  sourceBeforeClose?: IDialogContainerProps['onBeforeClose'];
+};
 
 const CustomDialogMountContext = createContext<ICustomDialogMount | undefined>(
   undefined,
@@ -609,7 +611,10 @@ function BaseDialogContainer(
 ) {
   const customMount = useContext(CustomDialogMountContext);
   const ownOnExited = props.onExited;
-  const effectiveOnBeforeClose = onBeforeClose ?? customMount?.onBeforeClose;
+  const effectiveOnBeforeClose =
+    customMount && onBeforeClose === customMount.sourceBeforeClose
+      ? customMount.onBeforeClose
+      : (onBeforeClose ?? customMount?.onBeforeClose);
   const effectiveIsExist = isExist ?? customMount?.isExist;
   const forwardOnClose = useCallback(
     async (extra?: { flag?: string }) => {
@@ -850,6 +855,13 @@ function dialogShow({
   let closeStarted = false;
   let finalized = false;
   let pendingBeforeMountClose: Promise<void> | undefined;
+  let pendingBeforeMountGuard: Promise<boolean> | undefined;
+  const sourceBeforeClose = props.onBeforeClose;
+  // eslint-disable-next-line react-perf/jsx-no-new-function-as-prop -- one stable guard per imperative dialog mount
+  const sharedBeforeClose = sourceBeforeClose
+    ? (extra?: { flag?: string }) =>
+        pendingBeforeMountGuard ?? sourceBeforeClose(extra)
+    : undefined;
 
   const overlayPage =
     portalContainer ===
@@ -922,7 +934,8 @@ function dialogShow({
         overlayPage,
         onExited: handleExited,
         onClose: newOnClose,
-        onBeforeClose: props.onBeforeClose,
+        onBeforeClose: sharedBeforeClose,
+        sourceBeforeClose,
         isExist,
       };
       const customDialog =
@@ -934,6 +947,7 @@ function dialogShow({
               overlayPage,
               onExited: e.props.onExited ?? handleExited,
               onClose: e.props.onClose ?? newOnClose,
+              onBeforeClose: e.props.onBeforeClose ?? sharedBeforeClose,
               isExist,
             })
           : e;
@@ -952,6 +966,7 @@ function dialogShow({
         overlayPage={overlayPage}
         onExited={handleExited}
         onClose={buildForwardOnClose()}
+        onBeforeClose={sharedBeforeClose}
         isExist={isExist}
       />
     );
@@ -975,18 +990,25 @@ function dialogShow({
     ),
   };
   const close = (extra?: { flag?: string }) => {
+    if (pendingBeforeMountClose) {
+      return pendingBeforeMountClose;
+    }
     if (finalized) {
       return Promise.resolve();
     }
     if (!instanceRef?.current) {
-      if (pendingBeforeMountClose) {
-        return pendingBeforeMountClose;
-      }
       const closeBeforeMount = async () => {
-        if (props.onBeforeClose && !(await props.onBeforeClose(extra))) {
-          return;
+        if (sharedBeforeClose) {
+          pendingBeforeMountGuard = Promise.resolve(sharedBeforeClose(extra));
+          if (!(await pendingBeforeMountGuard)) {
+            return;
+          }
         }
         if (finalized) {
+          return;
+        }
+        if (instanceRef?.current) {
+          await instanceRef.current.close(extra);
           return;
         }
         closeStarted = true;
@@ -994,6 +1016,7 @@ function dialogShow({
         finalize(extra);
       };
       pendingBeforeMountClose = closeBeforeMount().finally(() => {
+        pendingBeforeMountGuard = undefined;
         pendingBeforeMountClose = undefined;
       });
       return pendingBeforeMountClose;
