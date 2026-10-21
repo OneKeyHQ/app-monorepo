@@ -541,6 +541,9 @@ function FinalizeWalletSetupPage({
           connectId: deviceData.device?.connectId ?? undefined,
           deviceType: deviceData.device?.deviceType ?? undefined,
           deviceName: deviceData.device?.name ?? undefined,
+          deviceColor: deviceUtils.getDeviceColorFromSearchDevice(
+            deviceData.device,
+          ),
         });
         const { wallets: walletsBeforeCreate } =
           await backgroundApiProxy.serviceAccount.getWallets({

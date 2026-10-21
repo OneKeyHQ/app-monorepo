@@ -698,6 +698,56 @@ describe('DeviceStageBurstScope', () => {
     expect(stage?.deviceColor).toBe('Silver');
   });
 
+  it('opens in the finish a Bluetooth scan named and keeps it when features name none', async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({
+      connectId: CONNECT_ID,
+      deviceType: EDeviceType.Pro2,
+      deviceColor: 'Orange',
+    });
+    await paintOpeningBeat();
+    expect(stage?.deviceColor).toBe('Orange');
+
+    // A later beat for the same device that names no finish keeps it.
+    await scope.noteStep('connecting', {
+      connectId: CONNECT_ID,
+      deviceType: EDeviceType.Pro2,
+    });
+    expect(stage?.deviceColor).toBe('Orange');
+
+    // Features without a serial name no finish; the scan's stays.
+    await scope.onHardwareUiEvent({
+      action: EHardwareUiStateAction.REQUEST_PIN,
+      connectId: CONNECT_ID,
+      payload: {
+        rawPayload: { device: { features: { protocol: 'V2' } } },
+      } as IHardwareUiPayload,
+    });
+    expect(stage?.step).toBe('pinOnApp');
+    expect(stage?.deviceColor).toBe('Orange');
+  });
+
+  it('does not lend a finish to the next device when its scan names none', async () => {
+    const scope = new DeviceStageBurstScope();
+    await scope.begin({
+      connectId: CONNECT_ID,
+      deviceType: EDeviceType.Pro2,
+      deviceColor: 'Orange',
+    });
+    await paintOpeningBeat();
+    await scope.end();
+    await letTheExitRun();
+    expect(stage?.step).toBe('off');
+
+    // Checking beat outside any burst, as the legacy connect page sends it.
+    await scope.noteStep('connecting', {
+      connectId: 'OTHER_DEVICE',
+      deviceType: EDeviceType.Pro2,
+    });
+    expect(stage?.connectId).toBe('OTHER_DEVICE');
+    expect(stage?.deviceColor).toBeUndefined();
+  });
+
   it('refreshes a V2 auth narrative name without dismissing an unanswered PIN', async () => {
     const scope = new DeviceStageBurstScope();
     await scope.begin({ connectId: CONNECT_ID, deviceName: 'Pro2 Old' });

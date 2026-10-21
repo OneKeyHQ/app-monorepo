@@ -18,6 +18,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
+import { getDeviceAvatarImage } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EOneKeyDeviceMode } from '@onekeyhq/shared/types/device';
@@ -96,6 +97,9 @@ function DeviceSetupPage({
   const [currentDevice, setCurrentDevice] = useState<SearchDevice | undefined>(
     deviceData?.device as SearchDevice | undefined,
   );
+  // The connected device's own serial, so the step cards wear its finish
+  // even when the scan named none (BLE scans carry no serial).
+  const [connectedSerialNo, setConnectedSerialNo] = useState<string>();
   const [setupState, setSetupState] = useState<EDeviceSetupState>(
     EDeviceSetupState.Checking,
   );
@@ -328,6 +332,9 @@ function DeviceSetupPage({
         if (isDeviceCheckStale()) {
           return;
         }
+        setConnectedSerialNo(
+          deviceUtils.getDeviceSerialNoFromFeatures(features),
+        );
         const deviceMode = await deviceUtils.getDeviceModeFromFeatures({
           features,
         });
@@ -515,6 +522,17 @@ function DeviceSetupPage({
               <Pro2OnboardingStepper
                 status={onboardingStatus}
                 deviceType={currentDevice?.deviceType}
+                avatarImg={
+                  currentDevice
+                    ? getDeviceAvatarImage(
+                        currentDevice.deviceType,
+                        connectedSerialNo ??
+                          currentDevice.serialNo ??
+                          undefined,
+                        currentDevice.bleColorCode,
+                      )
+                    : undefined
+                }
               />
             ) : null}
             {setupState !== EDeviceSetupState.Error &&

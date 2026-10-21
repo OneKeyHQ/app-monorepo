@@ -850,6 +850,7 @@ function CheckAndUpdatePage({
         connectId: burstDevice?.connectId ?? undefined,
         deviceType: burstDevice?.deviceType,
         deviceName: burstDevice?.name ?? undefined,
+        deviceColor: deviceUtils.getDeviceColorFromSearchDevice(burstDevice),
       });
 
       setSteps((prev) => {

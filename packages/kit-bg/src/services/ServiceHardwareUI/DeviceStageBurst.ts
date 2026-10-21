@@ -2150,8 +2150,15 @@ export class DeviceStageBurstScope {
         connectId: pickIdentityText(mergedExtras.connectId, base?.connectId),
         deviceType: pickDeviceType(mergedExtras.deviceType, base?.deviceType),
         // Sticky like the model: a step that names no color keeps the one
-        // the device row gave, never blanks it.
-        deviceColor: mergedExtras.deviceColor ?? base?.deviceColor,
+        // the device row gave, never blanks it — but only for that device;
+        // a stage another device left must not lend the next one its finish.
+        deviceColor:
+          mergedExtras.deviceColor ??
+          (mergedExtras.connectId &&
+          base?.connectId &&
+          mergedExtras.connectId !== base.connectId
+            ? undefined
+            : base?.deviceColor),
         deviceName: pickIdentityText(mergedExtras.deviceName, base?.deviceName),
         // Device/vendor identity is sticky within the burst (base), never
         // across bursts; the per-step extras (install / btc / action)

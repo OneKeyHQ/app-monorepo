@@ -142,6 +142,7 @@ jest.mock('@onekeyhq/shared/src/utils/deviceUtils', () => ({
   default: {
     getDefaultDeviceLabel: () => 'OneKey Pro 2',
     getDeviceScanner: () => mockDeviceScanner,
+    getDeviceColorFromSearchDevice: () => undefined,
   },
 }));
 jest.mock('../../../background/instance/backgroundApiProxy', () => ({
