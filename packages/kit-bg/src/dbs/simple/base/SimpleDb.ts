@@ -438,6 +438,19 @@ export class SimpleDb {
     return value;
   }
 
+  get headlessBuyOrders() {
+    const value = createLazyServiceProxy({
+      serviceName: 'simpleDb@headlessBuyOrders',
+      loader: () =>
+        import('../entity/SimpleDbEntityHeadlessBuyOrders').then(
+          ({ SimpleDbEntityHeadlessBuyOrders }) =>
+            new SimpleDbEntityHeadlessBuyOrders(),
+        ),
+    });
+    Object.defineProperty(this, 'headlessBuyOrders', { value });
+    return value;
+  }
+
   get universalSearch() {
     const value = createLazyServiceProxy({
       serviceName: 'simpleDb@universalSearch',
