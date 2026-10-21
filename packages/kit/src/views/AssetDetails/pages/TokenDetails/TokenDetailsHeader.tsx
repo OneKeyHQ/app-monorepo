@@ -75,6 +75,7 @@ import { AssetDetailsTestIDs } from '../../testIDs';
 
 import ActionBuy from './ActionBuy';
 import { LocalWalletPoolStatus } from './LocalWalletPoolStatus';
+import StarknetPrivacyBlock from './StarknetPrivacyBlock';
 import TokenDetailsBalanceHero from './TokenDetailsBalanceHero';
 import { useTokenDetailsContext } from './TokenDetailsContext';
 import { TokenDetailsDeFiBlock } from './TokenDetailsDeFiBlock';
@@ -791,6 +792,15 @@ function TokenDetailsHeaderContent({
               pool={localWalletPool}
               presentation="tokenDetails"
             />
+            {/* Privacy pool split, chains that declare one (Starknet STRK20) */}
+            {vaultSettings?.privacyPool ? (
+              <StarknetPrivacyBlock
+                networkId={networkId}
+                accountId={accountId}
+                token={tokenInfo}
+                publicBalanceParsed={tokenDetails?.balanceParsed}
+              />
+            ) : null}
             {isLegacyPoolTab ? null : (
               <RawActions testID="token-details-primary-actions">
                 <RawActions.Send
