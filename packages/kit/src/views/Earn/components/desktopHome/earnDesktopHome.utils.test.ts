@@ -11,6 +11,7 @@ import {
   buildHoldRows,
   buildHoldingShares,
   buildLoanOffers,
+  buildLoanPairs,
   buildMarketCard,
   buildOfferRows,
   buildProtocolShares,
@@ -22,8 +23,11 @@ import {
   estimateBorrowInterest24h,
   findPositionDeposit,
   formatSharePercent,
+  getLoanAssetType,
+  getLoanNetApy,
   parseCompactFiatText,
   pickTileOffers,
+  sortLoanPairs,
   sumBorrowedFiat,
   sumHoldRows,
   sumPortfolioDeposits,
@@ -121,6 +125,7 @@ const reserves = ({
     apy: string;
     total: string;
     canBeBorrowed?: boolean;
+    borrowFactor?: string;
   }[];
   supply?: {
     symbol: string;
@@ -151,6 +156,7 @@ const reserves = ({
         apyDetail: { apy: item.apy },
         totalBorrowed: { text: item.total },
         canBeBorrowed: item.canBeBorrowed,
+        borrowFactor: item.borrowFactor,
       })),
     },
     supply: {
@@ -1276,5 +1282,184 @@ describe('ready to earn', () => {
     ]);
     expect(shares.rest).toEqual({ count: 1, percent: 7 });
     expect(shares.total).toBe(480);
+  });
+});
+
+describe('loan pairs', () => {
+  const stable = new Set(['USDC', 'USDT', 'PYUSD']);
+
+  it('groups tokens by the asset they stand for', () => {
+    expect(
+      ['WBTC', 'cbBTC', 'BTC.b', 'ETH', 'wstETH', 'JitoSOL', 'SOL', 'USDC'].map(
+        (symbol) => getLoanAssetType(symbol, stable),
+      ),
+    ).toEqual(['btc', 'btc', 'btc', 'eth', 'eth', 'sol', 'sol', 'stable']);
+    // Any USD token and the stable tokens the list may miss
+    expect(getLoanAssetType('sUSDe', stable)).toBe('stable');
+    expect(getLoanAssetType('GHO', stable)).toBe('stable');
+    expect(getLoanAssetType('LINK', stable)).toBe('other');
+  });
+
+  it('works out Net APY over what the position is worth after the loan', () => {
+    // Half the collateral borrowed: 2 x supply less borrow
+    expect(getLoanNetApy({ supplyApy: 1.3, borrowApy: 4.59 })).toBeCloseTo(
+      -1.99,
+    );
+    expect(getLoanNetApy({ supplyApy: 0, borrowApy: 3.21 })).toBeCloseTo(-3.21);
+    // Aave's own figure for 100 supplied at 10% and 60 borrowed at 8%
+    expect(
+      getLoanNetApy({ supplyApy: 10, borrowApy: 8, ltv: 0.6 }),
+    ).toBeCloseTo(13);
+  });
+
+  const aaveCore = {
+    market: market('aave', 'evm--1', 'Aave Core Instance'),
+    reserves: reserves({
+      borrow: [
+        { symbol: 'ETH', apy: '1.95', total: '$4.18B' },
+        { symbol: 'USDC', apy: '4.59', total: '$2.24B' },
+        { symbol: 'GHO', apy: '4.6', total: '$300M', canBeBorrowed: false },
+      ],
+      supply: [
+        {
+          symbol: 'ETH',
+          apy: '1.3',
+          canBeCollateral: true,
+          liquidationLtv: '83',
+        },
+        {
+          symbol: 'WETH',
+          apy: '1.3',
+          canBeCollateral: true,
+          liquidationLtv: '83',
+        },
+        {
+          symbol: 'WBTC',
+          apy: '0',
+          canBeCollateral: true,
+          liquidationLtv: '78',
+        },
+        {
+          symbol: 'cbBTC',
+          apy: '0',
+          canBeCollateral: true,
+          liquidationLtv: '73',
+        },
+        {
+          symbol: 'USDC',
+          apy: '3.87',
+          canBeCollateral: true,
+          liquidationLtv: '78',
+        },
+        {
+          symbol: 'syrupUSDT',
+          apy: '4',
+          canBeCollateral: true,
+          liquidationLtv: '10',
+        },
+        {
+          symbol: 'sUSDe',
+          apy: '0',
+          canBeCollateral: false,
+          liquidationLtv: '75',
+        },
+      ],
+    }),
+  };
+
+  it('pairs each collateral with each asset the market lends', () => {
+    const pairs = buildLoanPairs({
+      markets: [aaveCore],
+      stableSymbols: stable,
+    });
+    expect(
+      pairs.map((pair) => [
+        pair.collateral.symbol,
+        pair.moreCollateral.map((item) => item.symbol),
+        pair.borrow.symbol,
+        Number(pair.netApy.toFixed(2)),
+      ]),
+    ).toEqual([
+      // WETH is ETH's twin, GHO can't be borrowed, sUSDe isn't collateral,
+      // syrupUSDT can't back half its value, and ETH never borrows ETH
+      ['WBTC', ['cbBTC'], 'ETH', -1.95],
+      ['USDC', [], 'ETH', 5.79],
+      ['ETH', [], 'USDC', -1.99],
+      ['WBTC', ['cbBTC'], 'USDC', -4.59],
+    ]);
+    expect(pairs[0].marketLabel).toBe('Aave Core');
+    expect(pairs[0].collateral.type).toBe('btc');
+    expect(pairs[0].borrow.type).toBe('eth');
+  });
+
+  it('counts a loan at its borrow factor against the limit', () => {
+    const kamino = {
+      market: market('kamino', 'sol--101', 'Kamino Main Market'),
+      reserves: reserves({
+        borrow: [
+          { symbol: 'SOL', apy: '5.42', total: '$90M', borrowFactor: '1.25' },
+          { symbol: 'USDC', apy: '5.89', total: '$120M', borrowFactor: '1' },
+        ],
+        supply: [
+          {
+            symbol: 'JitoSOL',
+            apy: '0',
+            canBeCollateral: true,
+            liquidationLtv: '0.65',
+          },
+        ],
+      }),
+    };
+    // 50% x 1.25 is too close to a 65% limit; 50% of USDC is not
+    expect(
+      buildLoanPairs({ markets: [kamino], stableSymbols: stable }).map(
+        (pair) => pair.borrow.symbol,
+      ),
+    ).toEqual(['USDC']);
+  });
+
+  it('skips a market whose reserves never arrived', () => {
+    expect(
+      buildLoanPairs({
+        markets: [{ market: market('kamino', 'sol--101', 'Kamino') }],
+        stableSymbols: stable,
+      }),
+    ).toEqual([]);
+  });
+
+  it('sorts each rate with its better end first', () => {
+    const pairs = buildLoanPairs({
+      markets: [aaveCore],
+      stableSymbols: stable,
+    });
+    const order = (sort: 'net' | 'supply' | 'borrow', dir?: 'asc' | 'desc') =>
+      sortLoanPairs(pairs, sort, dir).map(
+        (pair) => `${pair.collateral.symbol}>${pair.borrow.symbol}`,
+      );
+    expect(order('net')).toEqual([
+      'USDC>ETH',
+      'WBTC>ETH',
+      'ETH>USDC',
+      'WBTC>USDC',
+    ]);
+    // The cheapest loan first, ties by Net APY
+    expect(order('borrow')).toEqual([
+      'USDC>ETH',
+      'WBTC>ETH',
+      'ETH>USDC',
+      'WBTC>USDC',
+    ]);
+    expect(order('supply')).toEqual([
+      'USDC>ETH',
+      'ETH>USDC',
+      'WBTC>ETH',
+      'WBTC>USDC',
+    ]);
+    expect(order('net', 'asc')).toEqual([
+      'WBTC>USDC',
+      'ETH>USDC',
+      'WBTC>ETH',
+      'USDC>ETH',
+    ]);
   });
 });

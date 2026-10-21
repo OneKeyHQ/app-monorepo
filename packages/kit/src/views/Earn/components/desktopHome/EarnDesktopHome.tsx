@@ -523,6 +523,7 @@ export function EarnDesktopHome({
             <EarnDesktopBorrowTab
               markets={markets}
               isLoaded={isMarketsLoaded}
+              walletNetworkGroups={wallet.networkGroups}
               onOpenMarket={handleOpenBorrow}
             />
           )}

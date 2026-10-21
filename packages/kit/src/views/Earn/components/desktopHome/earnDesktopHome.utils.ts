@@ -933,6 +933,310 @@ export function buildLoanOffers(
     .slice(0, count);
 }
 
+// ---------- Loans as collateral to borrow pairs ----------
+// Production expects the backend to group tokens and list the pairs; this
+// demo builds them from the Borrow data, as the Earn rows above.
+
+export type IEarnDesktopLoanAssetType =
+  | 'btc'
+  | 'eth'
+  | 'sol'
+  | 'stable'
+  | 'other';
+
+// Stable tokens the server's list may not name
+const STABLE_SYMBOLS = new Set(['DAI', 'GHO', 'EURC', 'FRAX', 'LUSD']);
+
+// The demo groups tokens by symbol, every variant in its group: wrapped,
+// bridged and staked. Stable tokens come from the server's list, as the Earn
+// tab's Stable Tokens filter; any USD token counts too
+export function getLoanAssetType(
+  symbol: string,
+  stableSymbols: Set<string>,
+): IEarnDesktopLoanAssetType {
+  const upper = symbol.toUpperCase();
+  if (
+    stableSymbols.has(upper) ||
+    STABLE_SYMBOLS.has(upper) ||
+    upper.includes('USD')
+  ) {
+    return 'stable';
+  }
+  if (upper.includes('BTC')) {
+    return 'btc';
+  }
+  if (upper.includes('ETH')) {
+    return 'eth';
+  }
+  if (upper.endsWith('SOL')) {
+    return 'sol';
+  }
+  return 'other';
+}
+
+export type IEarnDesktopLoanPairToken = {
+  symbol: string;
+  logoURI: string;
+  reserveAddress: string;
+  type: IEarnDesktopLoanAssetType;
+  /** Supply APY for the collateral, borrow APY for the loan, in % */
+  apy: number;
+};
+
+export type IEarnDesktopLoanPair = {
+  key: string;
+  market: IBorrowMarketItem;
+  marketLabel: string;
+  collateral: IEarnDesktopLoanPairToken;
+  /**
+   * Other forms of the same asset the market rates alike, such as cbBTC and
+   * tBTC beside WBTC, which the row stands for too
+   */
+  moreCollateral: IEarnDesktopLoanPairToken[];
+  borrow: IEarnDesktopLoanPairToken;
+  /** At the assumed loan, in %; see getLoanNetApy */
+  netApy: number;
+};
+
+/**
+ * The loan every pair's Net APY assumes: half of what the collateral is worth.
+ * One loan size for every row, so the rows compare the same loan
+ */
+export const EARN_DESKTOP_LOAN_LTV = 0.5;
+
+// The data has the liquidation LTV, not the Max LTV a market lends to, which
+// sits a few points under it. A loan that keeps the health factor at 1.1
+// stands for one the market takes
+const MIN_HEALTH_FACTOR = 1.1;
+
+/**
+ * What the collateral earns less what the loan costs, a year, over what the
+ * position is worth after the loan: (S - B x LTV) / (1 - LTV). Aave's Net APY,
+ * which the Borrow page shows for a position, works the same way
+ */
+export function getLoanNetApy({
+  supplyApy,
+  borrowApy,
+  ltv = EARN_DESKTOP_LOAN_LTV,
+}: {
+  supplyApy: number;
+  borrowApy: number;
+  ltv?: number;
+}) {
+  return (supplyApy - borrowApy * ltv) / (1 - ltv);
+}
+
+// Aave writes the liquidation LTV as a percent, Kamino as a fraction
+const toLtvFraction = (value?: string) => {
+  const ltv = toNumber(value);
+  return ltv > 1 ? ltv / 100 : ltv;
+};
+
+// ETH and WETH, BTC and WBTC: one asset, so never a pair
+const isSameLoanAsset = (a: string, b: string) => {
+  const upperA = a.toUpperCase();
+  const upperB = b.toUpperCase();
+  return (
+    upperA === upperB || upperA === `W${upperB}` || upperB === `W${upperA}`
+  );
+};
+
+// Aave lists ETH beside WETH, one reserve twice; the wallet holds ETH, so it
+// stands for both
+const dropWrappedTwins = <T extends { token: { symbol: string } }>(
+  assets: T[],
+) => {
+  const symbols = new Set(
+    assets.map((asset) => asset.token.symbol.toUpperCase()),
+  );
+  return assets.filter((asset) => {
+    const upper = asset.token.symbol.toUpperCase();
+    return !(upper.startsWith('W') && symbols.has(upper.slice(1)));
+  });
+};
+
+/**
+ * Every collateral of a market against every asset it lends, other than
+ * itself, where the market takes the assumed loan. Forms of one asset at the
+ * same supply rate (Aave's BTC tokens all earn 0%) read the same on every
+ * column, so they share a row, led by the first the market lists
+ */
+export function buildLoanPairs({
+  markets,
+  stableSymbols,
+}: {
+  markets: IEarnDesktopMarketReserves[];
+  stableSymbols: Set<string>;
+}): IEarnDesktopLoanPair[] {
+  const pairs: IEarnDesktopLoanPair[] = [];
+  markets.forEach(({ market, reserves }) => {
+    if (!reserves) {
+      return;
+    }
+    const marketKey = buildBorrowMarketKey(market);
+    const marketLabel = getBorrowMarketLabel(market);
+    const collateral = dropWrappedTwins(
+      filterUnsupportedAaveNativeReserveAssets({
+        assets: reserves.supply?.assets,
+        networkId: market.networkId,
+        providerName: market.provider,
+      }).filter(
+        (asset) =>
+          asset.canBeCollateral && toLtvFraction(asset.liquidationLtv) > 0,
+      ),
+    );
+    const borrow = dropWrappedTwins(
+      filterUnsupportedAaveNativeReserveAssets({
+        assets: reserves.borrow?.assets,
+        networkId: market.networkId,
+        providerName: market.provider,
+      }).filter(isBorrowAssetVisible),
+    );
+    borrow.forEach((lent) => {
+      // Kamino counts a loan at its borrow factor against the limit
+      const borrowFactor = toNumber(lent.borrowFactor) || 1;
+      const borrowApy = toNumber(lent.apyDetail.apy);
+      const borrowToken: IEarnDesktopLoanPairToken = {
+        symbol: lent.token.symbol,
+        logoURI: lent.token.logoURI,
+        reserveAddress: lent.reserveAddress,
+        type: getLoanAssetType(lent.token.symbol, stableSymbols),
+        apy: borrowApy,
+      };
+      const rows = new Map<string, IEarnDesktopLoanPair>();
+      collateral.forEach((supplied) => {
+        if (
+          isSameLoanAsset(lent.token.symbol, supplied.token.symbol) ||
+          (Boolean(lent.reserveAddress) &&
+            lent.reserveAddress === supplied.reserveAddress)
+        ) {
+          return;
+        }
+        if (
+          EARN_DESKTOP_LOAN_LTV * borrowFactor * MIN_HEALTH_FACTOR >
+          toLtvFraction(supplied.liquidationLtv)
+        ) {
+          return;
+        }
+        const supplyApy = toNumber(supplied.apyDetail.apy);
+        const token: IEarnDesktopLoanPairToken = {
+          symbol: supplied.token.symbol,
+          logoURI: supplied.token.logoURI,
+          reserveAddress: supplied.reserveAddress,
+          type: getLoanAssetType(supplied.token.symbol, stableSymbols),
+          apy: supplyApy,
+        };
+        // Tokens of no common asset never share a row
+        const rowKey =
+          token.type === 'other'
+            ? `other|${token.symbol}`
+            : `${token.type}|${supplyApy.toFixed(2)}`;
+        const row = rows.get(rowKey);
+        if (row) {
+          row.moreCollateral.push(token);
+          return;
+        }
+        rows.set(rowKey, {
+          key: `${marketKey}|${token.reserveAddress || token.symbol}|${
+            borrowToken.reserveAddress || borrowToken.symbol
+          }`,
+          market,
+          marketLabel,
+          collateral: token,
+          moreCollateral: [],
+          borrow: borrowToken,
+          netApy: getLoanNetApy({ supplyApy, borrowApy }),
+        });
+      });
+      pairs.push(...rows.values());
+    });
+  });
+  return pairs;
+}
+
+/** Each token the wallet holds, as `networkId|SYMBOL` */
+export function collectWalletTokenKeys(
+  groups: IEarnDesktopWalletNetworkGroup[],
+): Set<string> {
+  const keys = new Set<string>();
+  groups.forEach(({ networkId, tokens, map }) => {
+    tokens.forEach((token) => {
+      const fiat = map[token.$key];
+      if (!fiat || token.defiMarked || fiat.sharedBalanceExcludedFromTotal) {
+        return;
+      }
+      if (new BigNumber(fiat.balanceParsed).gt(0)) {
+        keys.add(`${networkId}|${token.symbol.toUpperCase()}`);
+      }
+    });
+  });
+  return keys;
+}
+
+/**
+ * The pairs whose collateral the wallet holds on the market's network. A row
+ * that stands for several forms of an asset is led by the one held
+ */
+export function pickWalletLoanPairs(
+  pairs: IEarnDesktopLoanPair[],
+  walletTokenKeys: Set<string>,
+): IEarnDesktopLoanPair[] {
+  return pairs.flatMap((pair) => {
+    const forms = [pair.collateral, ...pair.moreCollateral];
+    const held = forms.find((form) =>
+      walletTokenKeys.has(
+        `${pair.market.networkId}|${form.symbol.toUpperCase()}`,
+      ),
+    );
+    if (!held) {
+      return [];
+    }
+    return [
+      {
+        ...pair,
+        collateral: held,
+        moreCollateral: forms.filter((form) => form !== held),
+      },
+    ];
+  });
+}
+
+export type IEarnDesktopLoanSort = 'net' | 'supply' | 'borrow';
+
+/** Each rate's better end first: the most earned, the cheapest loan */
+export const LOAN_SORT_BEST_FIRST: Record<
+  IEarnDesktopLoanSort,
+  'asc' | 'desc'
+> = {
+  net: 'desc',
+  supply: 'desc',
+  borrow: 'asc',
+};
+
+// Ties keep the better Net APY first, then the pair's name
+export function sortLoanPairs(
+  pairs: IEarnDesktopLoanPair[],
+  sort: IEarnDesktopLoanSort,
+  direction: 'asc' | 'desc' = LOAN_SORT_BEST_FIRST[sort],
+): IEarnDesktopLoanPair[] {
+  const value = (pair: IEarnDesktopLoanPair) => {
+    if (sort === 'supply') {
+      return pair.collateral.apy;
+    }
+    if (sort === 'borrow') {
+      return pair.borrow.apy;
+    }
+    return pair.netApy;
+  };
+  const sign = direction === 'asc' ? 1 : -1;
+  return pairs.toSorted(
+    (a, b) =>
+      sign * (value(a) - value(b)) ||
+      b.netApy - a.netApy ||
+      (a.key < b.key ? -1 : 1),
+  );
+}
+
 // ---------- Lending supply as Earn offers ----------
 // Production expects the backend to add Aave and Kamino supply to the Earn
 // lists; this demo builds the rows from the Borrow data instead.
