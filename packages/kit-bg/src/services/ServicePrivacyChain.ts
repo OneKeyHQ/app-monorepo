@@ -1470,7 +1470,9 @@ class ServicePrivacyChain extends ServiceBase {
   // A removal while a pass runs may land after that pass listed accounts.
   gcRequested = false;
 
-  // Every account row on disk, hidden and locked passphrase wallets included.
+  // Every live account on disk, hidden and locked passphrase wallets included.
+  // Live means what getDBAccountSafe resolves: deleting an HD/HW/QR account or
+  // wallet removes only its indexed account and leaves the network rows behind.
   // Undefined when that is not known for certain: a failed read, or Travel
   // Mode, whose masked database reads as empty.
   private async readStoredAccountIds(): Promise<Set<string> | undefined> {
@@ -1479,9 +1481,20 @@ class ServicePrivacyChain extends ServiceBase {
       if (environment.persistence.kind === 'masked') {
         return undefined;
       }
-      const { accounts } =
-        await this.backgroundApi.serviceAccount.getAllAccounts();
-      return new Set(accounts.map((account) => account.id));
+      const [{ accounts }, { indexedAccounts }] = await Promise.all([
+        this.backgroundApi.serviceAccount.getAllAccounts(),
+        this.backgroundApi.serviceAccount.getAllIndexedAccounts(),
+      ]);
+      const indexedAccountIds = new Set(indexedAccounts.map(({ id }) => id));
+      const liveAccounts = accounts.filter(({ id, indexedAccountId }) => {
+        const needsIndexedAccount =
+          accountUtils.isHdAccount({ accountId: id }) ||
+          accountUtils.isQrAccount({ accountId: id }) ||
+          accountUtils.isHwAccount({ accountId: id });
+        if (!needsIndexedAccount) return true;
+        return !!indexedAccountId && indexedAccountIds.has(indexedAccountId);
+      });
+      return new Set(liveAccounts.map(({ id }) => id));
     } catch (e) {
       console.error('[privacy-chain] gc could not read accounts', {
         error: e instanceof Error ? e.message : String(e),

@@ -43,6 +43,10 @@ const removedAccountId = 'hd-1--1';
 // Locked passphrase wallets are hidden from getWallets() but stay on disk.
 const hiddenAccountId = 'hd-2--0';
 
+function accountRow(id: string) {
+  return { id, indexedAccountId: `${id}--indexed` };
+}
+
 function createPrivacyChainDb(initial?: unknown) {
   let saved: unknown = initial ?? null;
   const entity = new SimpleDbEntityPrivacyChain();
@@ -79,7 +83,14 @@ function createService(overrides: Record<string, unknown>): IService {
 
 describe('removed-account gc', () => {
   function createGcHarness(
-    getAllAccounts: () => Promise<{ accounts: { id: string }[] }>,
+    getAllAccounts: () => Promise<{
+      accounts: { id: string; indexedAccountId?: string }[];
+    }>,
+    indexedAccountIds: string[] = [
+      liveAccountId,
+      removedAccountId,
+      hiddenAccountId,
+    ].map((id) => accountRow(id).indexedAccountId),
   ) {
     const reset = jest.fn(async () => undefined);
     const gcWalletState = jest.fn(async () => undefined);
@@ -106,6 +117,9 @@ describe('removed-account gc', () => {
     });
     const serviceAccount = {
       getAllAccounts: jest.fn(getAllAccounts),
+      getAllIndexedAccounts: jest.fn(async () => ({
+        indexedAccounts: indexedAccountIds.map((id) => ({ id })),
+      })),
       // The old per-id read reported every one of these as missing.
       getDBAccountSafe: jest.fn(async () => undefined),
       getAllWallets: jest.fn(async () => ({ wallets: [] })),
@@ -172,7 +186,7 @@ describe('removed-account gc', () => {
   it('purges an account that is definitely gone', async () => {
     const { service, reset, privacyChain, removeLastBalances } =
       createGcHarness(async () => ({
-        accounts: [{ id: liveAccountId }, { id: hiddenAccountId }],
+        accounts: [accountRow(liveAccountId), accountRow(hiddenAccountId)],
       }));
 
     await service.gcRemovedAccounts();
@@ -194,9 +208,9 @@ describe('removed-account gc', () => {
   it('keeps a hidden or locked passphrase wallet account', async () => {
     const { service, serviceAccount, reset } = createGcHarness(async () => ({
       accounts: [
-        { id: liveAccountId },
-        { id: removedAccountId },
-        { id: hiddenAccountId },
+        accountRow(liveAccountId),
+        accountRow(removedAccountId),
+        accountRow(hiddenAccountId),
       ],
     }));
 
@@ -204,6 +218,59 @@ describe('removed-account gc', () => {
 
     // Unfiltered: filterRemoved would drop locked passphrase wallets.
     expect(serviceAccount.getAllAccounts).toHaveBeenCalledWith();
+    expect(reset).not.toHaveBeenCalled();
+  });
+
+  // Deleting an HD account removes its indexed account but leaves its rows.
+  it('purges an account whose HD account was deleted', async () => {
+    const { service, reset, privacyChain } = createGcHarness(
+      async () => ({
+        accounts: [
+          accountRow(liveAccountId),
+          accountRow(hiddenAccountId),
+          accountRow(removedAccountId),
+        ],
+      }),
+      [liveAccountId, hiddenAccountId].map(
+        (id) => accountRow(id).indexedAccountId,
+      ),
+    );
+
+    await service.gcRemovedAccounts();
+
+    expect(reset).toHaveBeenCalledTimes(1);
+    expect(reset).toHaveBeenCalledWith({
+      accountId: removedAccountId,
+      scope: 'all',
+    });
+    await expect(privacyChain.listViewingKeyAccountIds()).resolves.toEqual([
+      liveAccountId,
+      hiddenAccountId,
+    ]);
+  });
+
+  it('keeps an imported account, which has no indexed account', async () => {
+    const importedAccountId = 'imported--0';
+    const { service, reset } = createGcHarness(async () => ({
+      accounts: [
+        accountRow(liveAccountId),
+        accountRow(removedAccountId),
+        accountRow(hiddenAccountId),
+        { id: importedAccountId },
+      ],
+    }));
+    mockGetChainOnlyVault.mockResolvedValue({
+      getLocalWalletCapability: () => ({
+        listAccounts: async () => ({
+          accounts: [],
+          cleanupAccountIds: [importedAccountId],
+        }),
+        reset,
+      }),
+    });
+
+    await service.gcRemovedAccounts();
+
     expect(reset).not.toHaveBeenCalled();
   });
 
