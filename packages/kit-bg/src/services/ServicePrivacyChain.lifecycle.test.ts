@@ -98,6 +98,7 @@ describe('removed-account gc', () => {
         backgroundApi: {
           serviceAccount: {
             getAllAccounts: async () => ({ accounts: [] }),
+            getAllIndexedAccounts: async () => ({ indexedAccounts: [] }),
             getAllWallets: async () => ({ wallets: [] }),
           },
         },

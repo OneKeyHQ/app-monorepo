@@ -84,7 +84,15 @@ function createService({
         },
         serviceAccount: {
           getAllAccounts: jest.fn(async () => ({
-            accounts: liveAccountIds.map((id) => ({ id })),
+            accounts: liveAccountIds.map((id) => ({
+              id,
+              indexedAccountId: `${id}--indexed`,
+            })),
+          })),
+          getAllIndexedAccounts: jest.fn(async () => ({
+            indexedAccounts: liveAccountIds.map((id) => ({
+              id: `${id}--indexed`,
+            })),
           })),
           getAllWallets: jest.fn(async () => ({ wallets: [] })),
           getAccount: jest.fn(async () => ({ address: '4synthetic' })),
