@@ -137,6 +137,9 @@ export type ILocalWalletAccountState = {
   birthdaySource?: string;
   birthdayTimestamp?: number;
   birthdayHintTimestamp?: number;
+  // The viewing key derived now names another identity than the account's
+  // scan data; Retry can't fix it, deleting local data can.
+  identityMismatch?: boolean;
 };
 
 // Whether an account may use local scanning. 'unsupported': the network or

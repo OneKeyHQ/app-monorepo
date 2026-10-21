@@ -126,6 +126,8 @@ describe('Zcash identity mismatch recovery', () => {
     expect((mismatch as Error).message).toBe(
       ETranslationsMock.privacy_error_identity_mismatch__msg,
     );
+    // Retry and Enable only log what they catch; the toast is the message.
+    expect((mismatch as { autoToast?: boolean }).autoToast).toBe(true);
     expect(zcashIdentityMismatchAccountIds.has(account.id)).toBe(true);
 
     // Off, as the switch does it.
@@ -137,14 +139,20 @@ describe('Zcash identity mismatch recovery', () => {
       accountId: account.id,
     });
 
-    // Delete local data through the one executor and the real Zcash
-    // primitives.
     const vault = Object.assign(Object.create(Vault.prototype) as Vault, {
       networkId,
       backgroundApi,
       zcashResolveLightwalletdUrl: async () => 'https://zcash.example',
       zcashGetApi: async () => ({ purgeWallet }),
     });
+    const capability = vault.getLocalWalletCapability();
+    // The account row offers Delete instead of Retry.
+    await expect(
+      capability.getAccountState({ accountId: account.id }),
+    ).resolves.toMatchObject({ identityMismatch: true });
+
+    // Delete local data through the one executor and the real Zcash
+    // primitives.
     const service = Object.assign(
       Object.create(ServicePrivacyChain.prototype) as ServicePrivacyChain,
       {
@@ -163,7 +171,7 @@ describe('Zcash identity mismatch recovery', () => {
         {
           scope: 'accounts',
           networkId,
-          capability: vault.getLocalWalletCapability(),
+          capability,
           accountIds: [account.id],
         },
       ],
@@ -174,6 +182,9 @@ describe('Zcash identity mismatch recovery', () => {
       privacyChainState.hasRuntimeOrphans({ networkId }),
     ).resolves.toBe(true);
     expect(zcashIdentityMismatchAccountIds.has(account.id)).toBe(false);
+    await expect(
+      capability.getAccountState({ accountId: account.id }),
+    ).resolves.not.toHaveProperty('identityMismatch');
 
     // On again: the new key is adopted, and the month is kept.
     await privacyChainState.beginZcashPrivacyModeEnable({
