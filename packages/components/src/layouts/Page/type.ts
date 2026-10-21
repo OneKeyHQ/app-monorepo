@@ -29,12 +29,6 @@ export type IBasicPageProps = PropsWithChildren<
      *  @default false
      */
     safeAreaEnabled?: boolean;
-    /** @platform native
-     * @description Currently has no effect: native pages render their content
-     * immediately behind native page transitions. Kept for existing callers.
-     * @default false
-     */
-    lazyLoad?: boolean;
     /** @platform cross-platform
      * @description ScrollEnabled. When false, the view cannot be scrolled via interaction.
      * Note: If there are other scroll containers within the page, it may cause scroll conflicts on Native platforms.

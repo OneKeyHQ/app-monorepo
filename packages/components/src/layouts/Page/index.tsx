@@ -39,7 +39,6 @@ const DEFAULT_SCROLL_PROPS = { showsVerticalScrollIndicator: false };
 
 function PageProvider({
   children,
-  lazyLoad = false,
   scrollEnabled = false,
   scrollProps = DEFAULT_SCROLL_PROPS,
   safeAreaEnabled = true,
@@ -82,7 +81,6 @@ function PageProvider({
         <PageContext.Provider value={value}>
           <>
             <PageContainer
-              lazyLoad={lazyLoad}
               fullPage={fullPage}
               testID={testID}
               backgroundColor={backgroundColor}
