@@ -10,7 +10,6 @@ import {
   Divider,
   HeightTransition,
   IconButton,
-  Image,
   Page,
   SizableText,
   Stack,
@@ -49,6 +48,8 @@ import {
 import StakingFormWrapper from '../../../Staking/components/StakingFormWrapper';
 import {
   StakingApyHeader,
+  StakingDetailsAccordion,
+  StakingReceiveRow,
   StakingRewardsSummary,
   hasStakingRewardsSummary,
 } from '../../../Staking/components/UniversalStake/StakingConfirmationSummary';
@@ -219,8 +220,6 @@ export function EarnRouterSwapDepositForm({
   networkId,
   actionLabel,
   isDisabled,
-  offerName,
-  offerLogo,
   apr,
   payToken,
   depositToken,
@@ -228,6 +227,9 @@ export function EarnRouterSwapDepositForm({
   onDone,
   isInModalContext,
   protocolSwitch,
+  offerSwitch,
+  initialAmount,
+  onAmountChange,
   summaryRequest,
   showApyDetail,
 }: {
@@ -236,8 +238,6 @@ export function EarnRouterSwapDepositForm({
   actionLabel: string;
   /** The provider takes no deposits now (paused, capped) */
   isDisabled?: boolean;
-  offerName: string;
-  offerLogo?: string;
   /** The provider's rate, in percent, when known */
   apr?: number;
   payToken: IEarnRouterPayToken;
@@ -249,6 +249,12 @@ export function EarnRouterSwapDepositForm({
   isInModalContext?: boolean;
   // The deposit form's protocol switcher, where that form has one
   protocolSwitch?: ReactNode;
+  // The caller's own selector (the Earn deposit modal's offers) in the same
+  // place. Unlike the switcher it keeps the whole card under it
+  offerSwitch?: ReactNode;
+  // An amount of the pay token to start on (one carried from another offer)
+  initialAmount?: string;
+  onAmountChange?: (amount: string) => void;
   /**
    * Asked for the provider form's own card, for what reaches the provider.
    * Without it the card estimates the year at the provider's rate
@@ -264,7 +270,10 @@ export function EarnRouterSwapDepositForm({
     () => backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
     [networkId],
   );
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState(initialAmount ?? '');
+  useEffect(() => {
+    onAmountChange?.(amount);
+  }, [amount, onAmountChange]);
   const onBlurAmount = useOnBlurAmountValue(amount, setAmount);
   const [flow, dispatch] = useReducer(
     earnRouterFlowReducer,
@@ -445,6 +454,16 @@ export function EarnRouterSwapDepositForm({
     );
   }
 
+  // Details: what the deposit gives back, as the provider's form lists it;
+  // a form with a protocol switcher shows none, as that form does
+  const receive =
+    summaryRequest?.kind === 'staking' && !hasSwitch
+      ? stakingSummary?.receive
+      : undefined;
+  const detailItems = receive
+    ? [<StakingReceiveRow key="receive" receive={receive} />]
+    : [];
+
   // As the deposit forms: no card while the provider takes nothing
   let card: ReactNode = null;
   if (!isDisabled && summaryRequest?.kind === 'lending') {
@@ -462,10 +481,9 @@ export function EarnRouterSwapDepositForm({
         showSwapOrBridge={false}
       />
     );
-  } else if (!isDisabled && (!hasSwitch || apyDetail || summary)) {
+  } else if (!isDisabled && (apyDetail || summary || detailItems.length)) {
     // The staking form's card: the rate in a modal, the year's rewards,
-    // then the provider. With a protocol switcher only highlighted rewards
-    // stay, and no card when there are none
+    // then Details. With a protocol switcher only highlighted rewards stay
     card = (
       <YStack
         p="$3.5"
@@ -479,16 +497,13 @@ export function EarnRouterSwapDepositForm({
           {summary ? (
             <>
               {summary}
-              {hasSwitch ? null : <Divider my="$5" />}
+              {detailItems.length ? <Divider my="$5" /> : null}
             </>
           ) : null}
         </HeightTransition>
-        {hasSwitch ? null : (
-          <XStack gap="$1.5" ai="center">
-            <Image width="$5" height="$5" src={offerLogo} borderRadius="$2" />
-            <SizableText size="$bodyMd">{offerName}</SizableText>
-          </XStack>
-        )}
+        {detailItems.length ? (
+          <StakingDetailsAccordion items={detailItems} />
+        ) : null}
       </YStack>
     );
   }
@@ -526,7 +541,7 @@ export function EarnRouterSwapDepositForm({
           />
           {/* What reaches the provider, as the Pendle form's receive box */}
           <StakingAmountInput
-            title={actionLabel}
+            title={intl.formatMessage({ id: ETranslations.earn_est_receive })}
             disabled
             forceSubduedBackground
             value={depositAmount}
@@ -578,7 +593,7 @@ export function EarnRouterSwapDepositForm({
           })}
         />
       ) : null}
-      {protocolSwitch}
+      {protocolSwitch ?? offerSwitch}
       {card}
       {isInModalContext ? (
         <Page.Footer>

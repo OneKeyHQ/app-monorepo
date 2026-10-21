@@ -4,11 +4,7 @@ const preservedChildRoutes: Partial<
   Record<ETabEarnRoutes, ReadonlySet<ETabEarnRoutes>>
 > = {
   [ETabEarnRoutes.EarnProtocols]: new Set([ETabEarnRoutes.EarnProtocolDetails]),
-  // My portfolio → a withdrawal's better rate on the Earn Router page
-  [ETabEarnRoutes.EarnPositions]: new Set([
-    ETabEarnRoutes.EarnProtocolDetails,
-    ETabEarnRoutes.EarnRouter,
-  ]),
+  [ETabEarnRoutes.EarnPositions]: new Set([ETabEarnRoutes.EarnProtocolDetails]),
   [ETabEarnRoutes.BorrowHome]: new Set([ETabEarnRoutes.BorrowReserveDetails]),
   // Tokens home → token's protocol list / protocol detail (OK-58505)
   [ETabEarnRoutes.EarnTokens]: new Set([

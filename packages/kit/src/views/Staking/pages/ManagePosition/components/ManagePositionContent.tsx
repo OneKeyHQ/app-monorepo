@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useCallback, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -37,6 +38,7 @@ import { ManagePageV2Content } from './ManagePageV2Content';
 import { NormalManageContent } from './NormalManageContent';
 import { USDEManageContent } from './USDEManageContent';
 
+import type { IHeaderRightViewProps } from './HeaderRight';
 import type { IWithdrawSuccessInfo } from './WithdrawSection';
 
 export type IManagePositionSelectedProtocol = {
@@ -108,6 +110,14 @@ export interface IManagePositionContentProps {
   payWith?: IManagePositionPayWith;
   // An amount to start the deposit on
   initialAmount?: string;
+  // The caller's own protocol selector (the Earn deposit modal's offers),
+  // drawn where the form's protocol switcher goes
+  offerSwitch?: ReactNode;
+  // What is typed, so a caller that starts the form over can carry it
+  onAmountChange?: (amount: string) => void;
+  // A modal showing one side draws the History and quote controls in its
+  // own header
+  onHeaderRightChange?: (view: IHeaderRightViewProps | null) => void;
 
   // Optional callbacks
   onCreateAddress?: () => Promise<void>;
@@ -123,7 +133,7 @@ export interface IManagePositionContentProps {
 // only for the values that depend on the (slow) getManagePage response. This
 // keeps the layout stable (no jump when data lands) and makes the wait feel
 // smoother.
-const ManageSectionShell = ({
+export const ManageSectionShell = ({
   type,
   symbol,
   defaultTab,
@@ -133,10 +143,18 @@ const ManageSectionShell = ({
   isInModalContext,
   depositOnly,
   withdrawOnly,
+  hasPayWith,
+  offerSwitch,
+  liftsHeaderControls,
 }: {
   type: EManagePositionType;
   symbol: string;
   defaultTab?: 'deposit' | 'withdraw';
+  // As the loaded form: Pay with leaves out the "Not enough X?" row
+  hasPayWith?: boolean;
+  offerSwitch?: ReactNode;
+  // A one-side modal has its controls in its header and no tab line
+  liftsHeaderControls?: boolean;
   depositOnly?: boolean;
   withdrawOnly?: boolean;
   fallbackTokenImageUri?: string;
@@ -208,46 +226,57 @@ const ManageSectionShell = ({
   // exactly and doesn't jump on load.
   const reserveKeyboardAccessorySpace = type === EManagePositionType.Staking;
 
+  const showsTabLine = !(
+    isInModalContext &&
+    liftsHeaderControls &&
+    tabLabels.length === 1
+  );
+  // The loaded deposit form shows "Not enough X?" only without Pay with, and
+  // the withdraw form never; its Details row waits for an amount
+  const showsTradeOrBuy = !hasPayWith && activeIndex === 0;
+
   return (
     <YStack gap={isInModalContext ? undefined : '$1.5'}>
-      <XStack px="$5">
-        {tabLabels.map((label, index) => {
-          // A lone tab is the one in use
-          const isFocused = tabLabels.length === 1 || index === activeIndex;
-          let tabBackground: '$bg' | '$bgActive' | 'transparent' = '$bg';
-          if (isPendleProvider) {
-            tabBackground = 'transparent';
-          } else if (isFocused) {
-            tabBackground = '$bgActive';
-          }
-          return (
-            <XStack
-              key={label}
-              px="$2"
-              py="$1.5"
-              mr="$1"
-              bg={tabBackground}
-              borderRadius="$2"
-              borderCurve="continuous"
-            >
-              {isPendleProvider ? (
-                <Skeleton.HeadingMd
-                  w={index === 0 ? '$8' : '$12'}
-                  borderRadius="$2"
-                />
-              ) : (
-                <SizableText
-                  size="$headingMd"
-                  color={isFocused ? '$text' : '$textSubdued'}
-                  letterSpacing={-0.15}
-                >
-                  {label}
-                </SizableText>
-              )}
-            </XStack>
-          );
-        })}
-      </XStack>
+      {showsTabLine ? (
+        <XStack px="$5">
+          {tabLabels.map((label, index) => {
+            // A lone tab is the one in use
+            const isFocused = tabLabels.length === 1 || index === activeIndex;
+            let tabBackground: '$bg' | '$bgActive' | 'transparent' = '$bg';
+            if (isPendleProvider) {
+              tabBackground = 'transparent';
+            } else if (isFocused) {
+              tabBackground = '$bgActive';
+            }
+            return (
+              <XStack
+                key={label}
+                px="$2"
+                py="$1.5"
+                mr="$1"
+                bg={tabBackground}
+                borderRadius="$2"
+                borderCurve="continuous"
+              >
+                {isPendleProvider ? (
+                  <Skeleton.HeadingMd
+                    w={index === 0 ? '$8' : '$12'}
+                    borderRadius="$2"
+                  />
+                ) : (
+                  <SizableText
+                    size="$headingMd"
+                    color={isFocused ? '$text' : '$textSubdued'}
+                    letterSpacing={-0.15}
+                  >
+                    {label}
+                  </SizableText>
+                )}
+              </XStack>
+            );
+          })}
+        </XStack>
+      ) : null}
 
       {/* Form body — mirrors StakingFormWrapper (px $5 / py $2.5 / gap $4) so
           the layout is identical when real data lands. */}
@@ -290,113 +319,67 @@ const ManageSectionShell = ({
           </XStack>
         </YStack>
 
-        {hasProtocolSwitch ? (
-          <>
-            {/* Protocol switcher card — filled, mirrors ProtocolSwitchTriggerRow */}
-            <XStack
-              ai="center"
-              jc="space-between"
-              gap="$3"
-              px="$3"
-              py="$2"
-              bg="$bgSubdued"
-              borderRadius="$2"
-            >
-              <XStack flex={1} minWidth={0} gap="$3" ai="center">
-                <Skeleton w="$9" h="$9" borderRadius="$full" />
-                {/* Mirrors ProtocolSwitchTriggerRow text column: bodyLgMedium
-                    title + bodyMd subtitle with gap $0.5 (46px total). */}
-                <YStack flex={1} minWidth={0} gap="$0.5">
-                  <Skeleton.BodyLg w={80} />
-                  <Skeleton.BodyMd w={140} />
-                </YStack>
-              </XStack>
-              <XStack ai="center" gap="$1" flexShrink={0}>
-                <Skeleton h="$5" w={72} borderRadius="$2" />
-                <Skeleton w="$5" h="$5" borderRadius="$1" />
-              </XStack>
+        {/* The caller's own selector stands where the protocol switcher
+            card goes */}
+        {offerSwitch}
+        {!offerSwitch && hasProtocolSwitch ? (
+          // Protocol switcher card — filled, mirrors ProtocolSwitchTriggerRow
+          <XStack
+            ai="center"
+            jc="space-between"
+            gap="$3"
+            px="$3"
+            py="$2"
+            bg="$bgSubdued"
+            borderRadius="$2"
+          >
+            <XStack flex={1} minWidth={0} gap="$3" ai="center">
+              <Skeleton w="$9" h="$9" borderRadius="$full" />
+              {/* Mirrors ProtocolSwitchTriggerRow text column: bodyLgMedium
+                  title + bodyMd subtitle with gap $0.5 (46px total). */}
+              <YStack flex={1} minWidth={0} gap="$0.5">
+                <Skeleton.BodyLg w={80} />
+                <Skeleton.BodyMd w={140} />
+              </YStack>
             </XStack>
-
-            {/* Keep only content that is also present with an empty amount;
-                quote-only rows are rendered after manage data is available. */}
-            <YStack
-              p="$3.5"
-              borderRadius="$3"
-              borderWidth={StyleSheet.hairlineWidth}
-              borderColor="$borderSubdued"
-            >
-              <XStack jc="space-between" ai="center">
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage(
-                    { id: ETranslations.earn_not_enough_token },
-                    { token: symbol },
-                  )}
-                </SizableText>
-                <XStack gap="$2">
-                  <Button
-                    testID="earn-manage-shell-trade"
-                    size="small"
-                    disabled
-                  >
-                    {intl.formatMessage({ id: ETranslations.global_trade })}
-                  </Button>
-                  <Button testID="earn-manage-shell-buy" size="small" disabled>
-                    {intl.formatMessage({ id: ETranslations.global_buy })}
-                  </Button>
-                </XStack>
-              </XStack>
-            </YStack>
-          </>
+            <XStack ai="center" gap="$1" flexShrink={0}>
+              <Skeleton h="$5" w={72} borderRadius="$2" />
+              <Skeleton w="$5" h="$5" borderRadius="$1" />
+            </XStack>
+          </XStack>
         ) : null}
 
-        {!hasProtocolSwitch && borrowAction ? (
-          <BorrowInfoSectionSkeleton action={borrowAction} />
-        ) : null}
-
-        {!hasProtocolSwitch && !borrowAction ? (
-          /* Summary card — single bordered box (details entry): provider +
-             trade/buy. Quote-only content is unavailable in this shell and
-             must not create a one-frame height that disappears on load. */
+        {(hasProtocolSwitch || !borrowAction) && showsTradeOrBuy ? (
+          // Only what the loaded card shows with an empty amount: the
+          // trade-or-buy row. The Details row and quote-only content wait for
+          // an amount, so they must not take a height that disappears on load
           <YStack
             p="$3.5"
             borderRadius="$3"
             borderWidth={StyleSheet.hairlineWidth}
             borderColor="$borderSubdued"
           >
-            <YStack gap="$5">
-              {/* Provider accordion-trigger placeholder. minHeight matches the
-                  measured rendered height of the real Accordion.Trigger row
-                  (22px — the web button element renders slightly taller than
-                  its 20px content), so nothing shifts when it loads. */}
-              <XStack jc="space-between" ai="center" minHeight={22}>
-                <XStack ai="center" gap="$1.5">
-                  <Skeleton w="$5" h="$5" borderRadius="$2" />
-                  <Skeleton.BodyMd w={60} />
-                </XStack>
-                <Skeleton w="$5" h="$5" borderRadius="$1" />
+            <XStack jc="space-between" ai="center">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage(
+                  { id: ETranslations.earn_not_enough_token },
+                  { token: symbol },
+                )}
+              </SizableText>
+              <XStack gap="$2">
+                <Button testID="earn-manage-shell-trade" size="small" disabled>
+                  {intl.formatMessage({ id: ETranslations.global_trade })}
+                </Button>
+                <Button testID="earn-manage-shell-buy" size="small" disabled>
+                  {intl.formatMessage({ id: ETranslations.global_buy })}
+                </Button>
               </XStack>
-              <XStack jc="space-between" ai="center">
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage(
-                    { id: ETranslations.earn_not_enough_token },
-                    { token: symbol },
-                  )}
-                </SizableText>
-                <XStack gap="$2">
-                  <Button
-                    testID="earn-manage-shell-trade"
-                    size="small"
-                    disabled
-                  >
-                    {intl.formatMessage({ id: ETranslations.global_trade })}
-                  </Button>
-                  <Button testID="earn-manage-shell-buy" size="small" disabled>
-                    {intl.formatMessage({ id: ETranslations.global_buy })}
-                  </Button>
-                </XStack>
-              </XStack>
-            </YStack>
+            </XStack>
           </YStack>
+        ) : null}
+
+        {!hasProtocolSwitch && borrowAction ? (
+          <BorrowInfoSectionSkeleton action={borrowAction} />
         ) : null}
 
         {/* Inline action button only for the non-modal (details) layout. In the
@@ -522,6 +505,9 @@ export function ManagePositionContent({
   withdrawOnly,
   payWith,
   initialAmount,
+  offerSwitch,
+  onAmountChange,
+  onHeaderRightChange,
   onCreateAddress,
   onStakeWithdrawSuccess,
   onWithdrawn,
@@ -986,6 +972,9 @@ export function ManagePositionContent({
         isInModalContext={isInModalContext}
         depositOnly={depositOnly}
         withdrawOnly={withdrawOnly}
+        hasPayWith={Boolean(payWith)}
+        offerSwitch={offerSwitch}
+        liftsHeaderControls={Boolean(onHeaderRightChange)}
       />
     );
   }
@@ -1032,6 +1021,9 @@ export function ManagePositionContent({
         withdrawOnly={withdrawOnly}
         payWith={payWith}
         initialAmount={initialAmount}
+        offerSwitch={offerSwitch}
+        onAmountChange={onAmountChange}
+        onHeaderRightChange={onHeaderRightChange}
       />
     );
   }
@@ -1136,6 +1128,9 @@ export function ManagePositionContent({
       withdrawOnly={withdrawOnly}
       payWith={payWith}
       initialAmount={initialAmount}
+      offerSwitch={offerSwitch}
+      onAmountChange={onAmountChange}
+      onHeaderRightChange={onHeaderRightChange}
     />
   );
 }

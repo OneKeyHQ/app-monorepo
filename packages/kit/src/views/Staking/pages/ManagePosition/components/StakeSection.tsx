@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -22,6 +22,7 @@ import {
   useUniversalBorrowBorrow,
   useUniversalBorrowSupply,
 } from '@onekeyhq/kit/src/views/Borrow/hooks/useUniversalBorrowHooks';
+import { EARN_DESKTOP_DEMO_COPY } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopHomeCopy';
 import { buildKeyboardPressProps } from '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopPressable';
 import {
   findOffer,
@@ -93,6 +94,8 @@ export const StakeSection = ({
   protocolSwitchConfig,
   payWith,
   initialAmount,
+  offerSwitch,
+  onAmountChange,
   ongoingValidator,
   useBorrowApi,
   borrowMarketAddress,
@@ -121,6 +124,11 @@ export const StakeSection = ({
   protocolSwitchConfig?: IManagePositionProtocolSwitchConfig;
   payWith?: IManagePositionPayWith;
   initialAmount?: string;
+  // The caller's own protocol selector (the Earn deposit modal's offers),
+  // drawn where the form's protocol switcher goes
+  offerSwitch?: ReactNode;
+  // What is typed, so a caller that starts the form over can carry it
+  onAmountChange?: (amount: string) => void;
   ongoingValidator?: IEarnSelectField;
   useBorrowApi?: boolean;
   borrowMarketAddress?: string;
@@ -251,11 +259,19 @@ export const StakeSection = ({
   // The page's token: Pendle's form token is the one its buy side starts on
   // (USDC for PT-sUSD3), which isn't the token the page is for
   const depositSymbol = protocolInfo?.symbol || tokenInfo?.token.symbol || '';
+  // The amount box says what it takes (what the user pays with, when Pay with
+  // is on), so the action's name stays on the tab and the button
+  const payInputTitle = canPayWith
+    ? EARN_DESKTOP_DEMO_COPY.payWith
+    : intl.formatMessage({ id: ETranslations.content__amount });
   const pay = usePayTokens({
     networkId,
     depositSymbol,
     enabled: canPayWith && Boolean(depositSymbol),
   });
+  // The start amount goes to the first form shown. One opened by picking
+  // another token in Pay with starts empty, as before
+  const [startAmount, setStartAmount] = useState(initialAmount);
   const [ownPayKey, setOwnPayKey] = useState<string>();
   const payKey = payWith?.onSelectedKeyChange ? payWith.selectedKey : ownPayKey;
   const setPayKey = payWith?.onSelectedKeyChange ?? setOwnPayKey;
@@ -283,7 +299,10 @@ export const StakeSection = ({
     showPayWithPicker({
       tokens: pay.tokens,
       selectedKey: payToken?.key,
-      onSelect: (item) => setPayKey(item.key),
+      onSelect: (item) => {
+        setStartAmount(undefined);
+        setPayKey(item.key);
+      },
     });
   }, [pay.tokens, payToken?.key, setPayKey]);
   const payMode = resolvePayMode({
@@ -980,6 +999,9 @@ export const StakeSection = ({
           borrowReserveAddress={borrowReserveAddress}
           beforeFooter={beforeFooter}
           actionLabel={borrowActionLabel}
+          inputTitle={payInputTitle}
+          showSwapOrBridge={!canPayWith}
+          offerSwitch={offerSwitch}
           isInModalContext={isInModalContext}
         />
       );
@@ -993,6 +1015,9 @@ export const StakeSection = ({
         tokenImageLoading={!tokenInfo?.token && !fallbackTokenImageUri}
         tokenSymbol={tokenInfo?.token.symbol}
         isDisabled
+        inputTitle={payInputTitle}
+        hideTradeOrBuy={canPayWith}
+        offerSwitch={offerSwitch}
         approveTarget={{
           accountId,
           networkId,
@@ -1021,8 +1046,6 @@ export const StakeSection = ({
             : intl.formatMessage({ id: ETranslations.earn_deposit })
         }
         isDisabled={isDisabled}
-        offerName={borrowProviderDisplayName}
-        offerLogo={protocolInfo?.providerDetail.logoURI}
         apr={payOfferApr}
         payToken={payToken}
         depositToken={{
@@ -1038,6 +1061,8 @@ export const StakeSection = ({
         isInModalContext={isInModalContext}
         summaryRequest={paySummaryRequest}
         showApyDetail={showApyDetail}
+        initialAmount={startAmount}
+        onAmountChange={onAmountChange}
         protocolSwitch={
           protocolSwitchConfig ? (
             <ProtocolSwitcher
@@ -1049,6 +1074,7 @@ export const StakeSection = ({
             />
           ) : undefined
         }
+        offerSwitch={offerSwitch}
       />
     );
   }
@@ -1066,8 +1092,12 @@ export const StakeSection = ({
           }
           balance={tokenInfo?.balanceParsed ?? ''}
           maxBalance={effectiveMaxBalance}
-          initialAmount={initialAmount}
+          initialAmount={startAmount}
+          offerSwitch={offerSwitch}
+          onAmountChange={onAmountChange}
           onTokenSelectorPress={hasPayTokens ? handleOpenPayWith : undefined}
+          inputTitle={payInputTitle}
+          showSwapOrBridge={!canPayWith}
           tokenImageUri={tokenInfo?.token.logoURI || fallbackTokenImageUri}
           tokenSymbol={tokenInfo?.token.symbol}
           price={tokenInfo?.price ? String(tokenInfo.price) : '0'}
@@ -1113,7 +1143,9 @@ export const StakeSection = ({
             effectiveStakeTokenInfo?.token?.decimals
           }
           balance={effectiveStakeTokenInfo?.balanceParsed ?? ''}
-          initialAmount={initialAmount}
+          initialAmount={startAmount}
+          offerSwitch={offerSwitch}
+          onAmountChange={onAmountChange}
           tokenImageUri={
             effectiveStakeTokenInfo?.token.logoURI || fallbackTokenImageUri
           }
@@ -1159,11 +1191,8 @@ export const StakeSection = ({
           protocolSwitchConfig={protocolSwitchConfig}
           ongoingValidator={ongoingValidator}
           receiveInputConfig={receiveInputConfig}
-          inputTitle={
-            isPendleProvider
-              ? intl.formatMessage({ id: ETranslations.content__amount })
-              : undefined
-          }
+          inputTitle={payInputTitle}
+          hideTradeOrBuy={canPayWith}
           tokenSelectorTriggerProps={stakeTokenSelectorTriggerProps}
           requestSymbol={stakeRequestSymbol}
           transactionInputTokenAddress={selectedStakeTokenAddress}

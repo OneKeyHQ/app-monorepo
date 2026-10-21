@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -33,6 +34,7 @@ import { HeaderRight } from './HeaderRight';
 import { StakeSection } from './StakeSection';
 import { WithdrawSection } from './WithdrawSection';
 
+import type { IHeaderRightViewProps } from './HeaderRight';
 import type {
   IManagePositionFooterAction,
   IManagePositionPayWith,
@@ -85,6 +87,13 @@ interface INormalManageContentProps {
   withdrawOnly?: boolean;
   payWith?: IManagePositionPayWith;
   initialAmount?: string;
+  // The caller's own protocol selector, drawn where the form's switcher goes
+  // (on the withdraw side, the position's protocol as a row)
+  offerSwitch?: ReactNode;
+  onAmountChange?: (amount: string) => void;
+  // A modal showing one side takes the History and quote controls for its
+  // own header, as the tab line they sit on isn't there
+  onHeaderRightChange?: (view: IHeaderRightViewProps | null) => void;
 }
 
 export function NormalManageContent({
@@ -125,6 +134,9 @@ export function NormalManageContent({
   withdrawOnly,
   payWith,
   initialAmount,
+  offerSwitch,
+  onAmountChange,
+  onHeaderRightChange,
 }: INormalManageContentProps) {
   const intl = useIntl();
   const useBorrowApi = useMemo(
@@ -714,98 +726,113 @@ export function NormalManageContent({
     openWithdrawOptions,
   ]);
 
+  // A modal showing one side draws the controls in its header, so the line
+  // they share with the tabs goes
+  const liftsHeaderControls =
+    isInModalContext &&
+    visibleTabNames.length === 1 &&
+    Boolean(onHeaderRightChange);
+  const headerRight = (
+    <HeaderRight
+      accountId={indicatorAccountId || earnAccount?.accountId}
+      networkId={networkId}
+      stakeTag={stakeTag || protocolInfo?.stakeTag}
+      historyAction={historyAction}
+      onHistory={onHistory}
+      onRefresh={isInModalContext ? undefined : onIndicatorRefresh}
+      onRefreshPending={(refreshFn) => {
+        if (onRefreshPendingRef) {
+          onRefreshPendingRef.current = refreshFn;
+        }
+      }}
+      isPendleProvider={isPendleProvider}
+      onRefreshQuote={handleHeaderRefreshQuote}
+      refreshLoading={activeQuoteRefreshing}
+      refreshCooldownTrigger={refreshCooldownTrigger}
+      onOpenSlippage={handleOpenSlippage}
+      onLift={liftsHeaderControls ? onHeaderRightChange : undefined}
+    />
+  );
+
   return (
     <>
-      <XStack jc="space-between" px="$5">
-        {visibleTabNames.length === 1 ? (
-          // One side alone (the router, or a modal opened for one action)
-          // gets a title on the tab's line, in line with the amount box's
-          // label, instead of a tab with nothing beside it to switch to
-          <SizableText
-            size="$headingMd"
-            letterSpacing={-0.15}
-            py="$1.5"
-            px="$3.5"
-            color={
-              shouldDisablePrimaryTab && visibleTabNames[0] === tabNames[0]
-                ? '$textDisabled'
-                : '$text'
-            }
-          >
-            {visibleTabNames[0]}
-          </SizableText>
-        ) : (
-          <Tabs.TabBar
-            divider={false}
-            onTabPress={handleTabChange}
-            tabNames={visibleTabNames}
-            focusedTab={focusedTab}
-            renderItem={({ name, isFocused }) => {
-              const isDisabled =
-                shouldDisablePrimaryTab && name === tabNames[0];
-              let textColor: '$textDisabled' | '$text' | '$textSubdued' =
-                '$textSubdued';
-
-              if (isDisabled) {
-                textColor = '$textDisabled';
-              } else if (isFocused) {
-                textColor = '$text';
+      {liftsHeaderControls ? (
+        headerRight
+      ) : (
+        <XStack jc="space-between" px="$5">
+          {visibleTabNames.length === 1 ? (
+            // One side alone (the router, or a modal opened for one action)
+            // gets a title on the tab's line, in line with the amount box's
+            // label, instead of a tab with nothing beside it to switch to
+            <SizableText
+              size="$headingMd"
+              letterSpacing={-0.15}
+              py="$1.5"
+              px="$3.5"
+              color={
+                shouldDisablePrimaryTab && visibleTabNames[0] === tabNames[0]
+                  ? '$textDisabled'
+                  : '$text'
               }
+            >
+              {visibleTabNames[0]}
+            </SizableText>
+          ) : (
+            <Tabs.TabBar
+              divider={false}
+              onTabPress={handleTabChange}
+              tabNames={visibleTabNames}
+              focusedTab={focusedTab}
+              renderItem={({ name, isFocused }) => {
+                const isDisabled =
+                  shouldDisablePrimaryTab && name === tabNames[0];
+                let textColor: '$textDisabled' | '$text' | '$textSubdued' =
+                  '$textSubdued';
 
-              return (
-                <XStack
-                  px="$2"
-                  py="$1.5"
-                  mr="$1"
-                  bg={isFocused ? '$bgActive' : '$bg'}
-                  borderRadius="$2"
-                  borderCurve="continuous"
-                  opacity={isDisabled ? 0.4 : 1}
-                  hoverStyle={
-                    !isFocused && !isDisabled
-                      ? {
-                          bg: '$bgHover',
-                        }
-                      : null
-                  }
-                  onPress={() => {
-                    if (isDisabled) {
-                      return;
+                if (isDisabled) {
+                  textColor = '$textDisabled';
+                } else if (isFocused) {
+                  textColor = '$text';
+                }
+
+                return (
+                  <XStack
+                    px="$2"
+                    py="$1.5"
+                    mr="$1"
+                    bg={isFocused ? '$bgActive' : '$bg'}
+                    borderRadius="$2"
+                    borderCurve="continuous"
+                    opacity={isDisabled ? 0.4 : 1}
+                    hoverStyle={
+                      !isFocused && !isDisabled
+                        ? {
+                            bg: '$bgHover',
+                          }
+                        : null
                     }
-                    handleTabChange(name);
-                  }}
-                >
-                  <SizableText
-                    size="$headingMd"
-                    color={textColor}
-                    letterSpacing={-0.15}
+                    onPress={() => {
+                      if (isDisabled) {
+                        return;
+                      }
+                      handleTabChange(name);
+                    }}
                   >
-                    {name}
-                  </SizableText>
-                </XStack>
-              );
-            }}
-          />
-        )}
-        <HeaderRight
-          accountId={indicatorAccountId || earnAccount?.accountId}
-          networkId={networkId}
-          stakeTag={stakeTag || protocolInfo?.stakeTag}
-          historyAction={historyAction}
-          onHistory={onHistory}
-          onRefresh={isInModalContext ? undefined : onIndicatorRefresh}
-          onRefreshPending={(refreshFn) => {
-            if (onRefreshPendingRef) {
-              onRefreshPendingRef.current = refreshFn;
-            }
-          }}
-          isPendleProvider={isPendleProvider}
-          onRefreshQuote={handleHeaderRefreshQuote}
-          refreshLoading={activeQuoteRefreshing}
-          refreshCooldownTrigger={refreshCooldownTrigger}
-          onOpenSlippage={handleOpenSlippage}
-        />
-      </XStack>
+                    <SizableText
+                      size="$headingMd"
+                      color={textColor}
+                      letterSpacing={-0.15}
+                    >
+                      {name}
+                    </SizableText>
+                  </XStack>
+                );
+              }}
+            />
+          )}
+          {headerRight}
+        </XStack>
+      )}
       {selectedTabIndex === 0 && !withdrawOnly ? (
         <StakeSection
           accountId={earnAccount?.accountId || ''}
@@ -823,6 +850,8 @@ export function NormalManageContent({
           protocolSwitchConfig={stakeProtocolSwitchConfig}
           payWith={payWith}
           initialAmount={initialAmount}
+          offerSwitch={offerSwitch}
+          onAmountChange={onAmountChange}
           ongoingValidator={ongoingValidator}
           useBorrowApi={useBorrowApi}
           borrowMarketAddress={marketAddress}
@@ -870,6 +899,7 @@ export function NormalManageContent({
           onRepayWithCollateralSetupReadyProgressKeyChange={
             setRepayWithCollateralSetupReadyProgressKey
           }
+          offerSwitch={offerSwitch}
         />
       ) : null}
     </>

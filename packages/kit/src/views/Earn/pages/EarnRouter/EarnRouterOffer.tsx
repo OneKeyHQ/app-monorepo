@@ -111,13 +111,22 @@ export function OfferRate({ offer }: { offer: IEarnDesktopHoldOffer }) {
 
 // The protocol switcher's item, so the list reads like the one the deposit
 // modal opens
-export function OfferSummary({ offer }: { offer: IEarnDesktopHoldOffer }) {
+export function OfferSummary({
+  offer,
+  networkLogoURI,
+}: {
+  offer: IEarnDesktopHoldOffer;
+  networkLogoURI?: string;
+}) {
   const intl = useIntl();
   const subtitle = getOfferSubtitle(offer);
   const tvl = getOfferTvl(offer);
   return (
     <>
-      <ProtocolImage logoURI={getOfferLogo(offer)} />
+      <ProtocolImage
+        logoURI={getOfferLogo(offer)}
+        networkLogoURI={networkLogoURI}
+      />
       <YStack flex={1} minWidth={0} gap="$0.5">
         <XStack ai="center" gap="$1.5" minWidth={0}>
           <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>

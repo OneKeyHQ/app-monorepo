@@ -1,9 +1,17 @@
-import { XStack, YStack } from '@onekeyhq/components';
+import type { ReactElement } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import { Accordion, XStack, YStack } from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IStakeTransactionConfirmation } from '@onekeyhq/shared/types/staking';
 
+import { CalculationListItem } from '../CalculationList';
 import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
 import { EarnText } from '../ProtocolDetails/EarnText';
 import { EarnTooltip } from '../ProtocolDetails/EarnTooltip';
+import { PendleAccordionTriggerContent } from '../ProtocolDetails/PendleSharedComponents';
 
 import type { FontSizeTokens } from 'tamagui';
 
@@ -154,5 +162,87 @@ export function StakingApyHeader({
         actionIcon={apyDetail.button}
       />
     </XStack>
+  );
+}
+
+// What the deposit gives back, as the server words it for the amount
+export function StakingReceiveRow({
+  receive,
+}: {
+  receive: NonNullable<IStakeTransactionConfirmation['receive']>;
+}) {
+  return (
+    <CalculationListItem>
+      <CalculationListItem.Label
+        size={receive.title.size || '$bodyMd'}
+        color={receive.title.color}
+        tooltip={
+          receive.tooltip?.type === 'text'
+            ? receive.tooltip.data?.title?.text
+            : undefined
+        }
+      >
+        {receive.title.text}
+      </CalculationListItem.Label>
+      <EarnText text={receive.description} size="$bodyMdMedium" />
+    </CalculationListItem>
+  );
+}
+
+const DETAILS_ACCORDION_KEY = 'staking-details';
+
+// The summary card's "Details" row over the transaction's own rows, as the
+// deposit forms show it
+export function StakingDetailsAccordion({ items }: { items: ReactElement[] }) {
+  const intl = useIntl();
+  return (
+    <Accordion
+      overflow="hidden"
+      width="100%"
+      type="single"
+      collapsible
+      defaultValue=""
+    >
+      <Accordion.Item value={DETAILS_ACCORDION_KEY}>
+        <Accordion.Trigger
+          unstyled
+          flexDirection="row"
+          alignItems="center"
+          alignSelf="flex-start"
+          px="$1"
+          mx="$-1"
+          width="100%"
+          justifyContent="space-between"
+          borderWidth={0}
+          bg="$transparent"
+          userSelect="none"
+          borderRadius="$1"
+          cursor="pointer"
+        >
+          {({ open }: { open: boolean }) => (
+            <PendleAccordionTriggerContent
+              open={open}
+              triggerText={intl.formatMessage({
+                id: ETranslations.global_details,
+              })}
+              isDisabled={false}
+            />
+          )}
+        </Accordion.Trigger>
+        <Accordion.HeightAnimator transition="quick">
+          <Accordion.Content
+            transition="quick"
+            animateOnly={ANIMATE_ONLY_OPACITY}
+            exitStyle={{ opacity: 0 }}
+            px={0}
+            pb={0}
+            pt="$3.5"
+            gap="$2.5"
+          >
+            {items}
+          </Accordion.Content>
+        </Accordion.HeightAnimator>
+      </Accordion.Item>
+    </Accordion>
   );
 }

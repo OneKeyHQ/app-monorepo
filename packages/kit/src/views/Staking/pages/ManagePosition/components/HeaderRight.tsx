@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import { Button, IconButton, XStack } from '@onekeyhq/components';
 import { useStakingPendingTxs } from '@onekeyhq/kit/src/views/Earn/hooks/useStakingPendingTxs';
@@ -8,6 +8,72 @@ import type {
   IEarnHistoryActionIcon,
   IStakeTag,
 } from '@onekeyhq/shared/types/staking';
+
+// What the controls show. A modal showing one side has no tab line to hold
+// them, so it draws them in its own header from these
+export type IHeaderRightViewProps = {
+  pendingCount: number;
+  historyText?: string;
+  showHistory: boolean;
+  showPendleControls: boolean;
+  hasRefreshQuote: boolean;
+  refreshLoading?: boolean;
+  refreshCooldownTrigger?: number;
+  onHistory: () => void;
+  onOpenSlippage: () => void;
+  onRefreshQuote: () => void;
+};
+
+export function HeaderRightView({
+  pendingCount,
+  historyText,
+  showHistory,
+  showPendleControls,
+  hasRefreshQuote,
+  refreshLoading,
+  refreshCooldownTrigger,
+  onHistory,
+  onOpenSlippage,
+  onRefreshQuote,
+}: IHeaderRightViewProps) {
+  // Figma order: Slippage → History → Refresh
+  return (
+    <XStack ai="center" gap="$3.5">
+      {showPendleControls ? (
+        <IconButton
+          testID="staking-has-content-icon-btn"
+          icon="SliderHorOutline"
+          variant="tertiary"
+          size="small"
+          onPress={onOpenSlippage}
+        />
+      ) : null}
+      {pendingCount ? (
+        <PendingIndicator num={pendingCount} onPress={onHistory} />
+      ) : null}
+      {!pendingCount && showHistory ? (
+        <Button
+          testID="staking-has-content-btn"
+          h="$8"
+          mr="unset"
+          variant="tertiary"
+          icon="ClockTimeHistoryOutline"
+          size="small"
+          onPress={onHistory}
+        >
+          {historyText}
+        </Button>
+      ) : null}
+      {showPendleControls && hasRefreshQuote ? (
+        <RefreshCooldownButton
+          onPress={onRefreshQuote}
+          loading={refreshLoading}
+          triggerCooldown={refreshCooldownTrigger}
+        />
+      ) : null}
+    </XStack>
+  );
+}
 
 type IHeaderRightProps = {
   accountId?: string;
@@ -23,6 +89,9 @@ type IHeaderRightProps = {
   refreshLoading?: boolean;
   refreshCooldownTrigger?: number;
   onOpenSlippage?: () => void;
+  // Hands the controls to the caller to draw (null: none to show) instead of
+  // drawing them here
+  onLift?: (view: IHeaderRightViewProps | null) => void;
 };
 
 export const HeaderRight = ({
@@ -38,6 +107,7 @@ export const HeaderRight = ({
   refreshLoading,
   refreshCooldownTrigger,
   onOpenSlippage,
+  onLift,
 }: IHeaderRightProps) => {
   const { pendingCount, refreshPending } = useStakingPendingTxs({
     accountId,
@@ -49,50 +119,69 @@ export const HeaderRight = ({
     onRefreshPending?.(refreshPending);
   }, [onRefreshPending, refreshPending]);
 
-  const showHistory = historyAction && !historyAction.disabled;
-  const showPendleControls = isPendleProvider;
-  const hasContent = pendingCount || showHistory || showPendleControls;
+  const showHistory = Boolean(historyAction && !historyAction.disabled);
+  const showPendleControls = Boolean(isPendleProvider);
+  const hasContent = Boolean(pendingCount || showHistory || showPendleControls);
+  const historyText = historyAction?.text.text;
+  const hasRefreshQuote = Boolean(onRefreshQuote);
 
-  if (!hasContent) {
+  // Handlers that stay the same while calling the latest ones, so handing the
+  // controls out doesn't hand them out again on every render
+  const handlersRef = useRef({ onHistory, onOpenSlippage, onRefreshQuote });
+  useEffect(() => {
+    handlersRef.current = { onHistory, onOpenSlippage, onRefreshQuote };
+  }, [onHistory, onOpenSlippage, onRefreshQuote]);
+  const handlers = useMemo(
+    () => ({
+      onHistory: () => handlersRef.current.onHistory?.(),
+      onOpenSlippage: () => handlersRef.current.onOpenSlippage?.(),
+      onRefreshQuote: () => handlersRef.current.onRefreshQuote?.(),
+    }),
+    [],
+  );
+  useEffect(() => {
+    onLift?.(
+      hasContent
+        ? {
+            pendingCount,
+            historyText,
+            showHistory,
+            showPendleControls,
+            hasRefreshQuote,
+            refreshLoading,
+            refreshCooldownTrigger,
+            ...handlers,
+          }
+        : null,
+    );
+  }, [
+    handlers,
+    hasContent,
+    hasRefreshQuote,
+    historyText,
+    onLift,
+    pendingCount,
+    refreshCooldownTrigger,
+    refreshLoading,
+    showHistory,
+    showPendleControls,
+  ]);
+  useEffect(() => () => onLift?.(null), [onLift]);
+
+  if (!hasContent || onLift) {
     return null;
   }
 
-  // Figma order: Slippage → History → Refresh
   return (
-    <XStack ai="center" gap="$3.5">
-      {showPendleControls ? (
-        <IconButton
-          testID="staking-has-content-icon-btn"
-          icon="SliderHorOutline"
-          variant="tertiary"
-          size="small"
-          onPress={onOpenSlippage}
-        />
-      ) : null}
-      {pendingCount ? (
-        <PendingIndicator num={pendingCount} onPress={() => onHistory?.()} />
-      ) : null}
-      {!pendingCount && showHistory ? (
-        <Button
-          testID="staking-has-content-btn"
-          h="$8"
-          mr="unset"
-          variant="tertiary"
-          icon="ClockTimeHistoryOutline"
-          size="small"
-          disabled={historyAction?.disabled}
-          onPress={() => onHistory?.()}
-        >
-          {historyAction?.text.text}
-        </Button>
-      ) : null}
-      {showPendleControls && onRefreshQuote ? (
-        <RefreshCooldownButton
-          onPress={onRefreshQuote}
-          loading={refreshLoading}
-          triggerCooldown={refreshCooldownTrigger}
-        />
-      ) : null}
-    </XStack>
+    <HeaderRightView
+      pendingCount={pendingCount}
+      historyText={historyText}
+      showHistory={showHistory}
+      showPendleControls={showPendleControls}
+      hasRefreshQuote={hasRefreshQuote}
+      refreshLoading={refreshLoading}
+      refreshCooldownTrigger={refreshCooldownTrigger}
+      {...handlers}
+    />
   );
 };

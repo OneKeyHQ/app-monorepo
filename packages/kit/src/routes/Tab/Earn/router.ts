@@ -50,10 +50,6 @@ const EarnPositions = LazyLoadRootTabPage(
   () => import('../../../views/Earn/pages/EarnPositions'),
 );
 
-const EarnRouter = LazyLoadRootTabPage(
-  () => import('../../../views/Earn/pages/EarnRouter'),
-);
-
 export const earnRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     rewrite: '/',
@@ -74,11 +70,6 @@ export const earnRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     name: ETabEarnRoutes.EarnProtocols,
     component: EarnProtocols,
-    headerShown: !platformEnv.isNative,
-  },
-  {
-    name: ETabEarnRoutes.EarnRouter,
-    component: EarnRouter,
     headerShown: !platformEnv.isNative,
   },
   {

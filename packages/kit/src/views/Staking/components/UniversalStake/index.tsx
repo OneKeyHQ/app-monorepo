@@ -1,4 +1,4 @@
-import type { PropsWithChildren, ReactElement } from 'react';
+import type { PropsWithChildren, ReactElement, ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 import { Keyboard, StyleSheet } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
-import type { IDialogInstance } from '@onekeyhq/components';
+import type { IDialogInstance, IXStackProps } from '@onekeyhq/components';
 import {
   Accordion,
   Alert,
@@ -15,7 +15,6 @@ import {
   HeightTransition,
   Icon,
   IconButton,
-  Image,
   Page,
   Popover,
   SizableText,
@@ -25,10 +24,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import {
-  ANIMATE_ONLY_OPACITY,
-  ANIMATE_ONLY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAmountInputFormItemProps } from '@onekeyhq/kit/src/components/AmountInput';
 import {
@@ -84,7 +80,6 @@ import {
   shouldShowStakingSummaryCard,
 } from '../../utils/utils';
 import { BtcFeeRateInput } from '../BtcFeeRateInput';
-import { CalculationListItem } from '../CalculationList';
 import { showEarnRiskWarningDialog } from '../EarnRiskWarningDialog';
 import {
   EstimateNetworkFee,
@@ -117,6 +112,7 @@ import { formatStakingDistanceToNowStrict } from '../utils';
 
 import {
   StakingApyHeader,
+  StakingReceiveRow,
   StakingRewardsSummary,
   hasStakingRewardsSummary,
 } from './StakingConfirmationSummary';
@@ -130,7 +126,7 @@ function withRewardUnit(text: string, rewardUnit: string): string {
   return /\s*(APY|APR)\s*$/i.test(text) ? text : `${text} ${rewardUnit}`;
 }
 
-function getProtocolAprDisplay({
+export function getProtocolAprDisplay({
   protocol,
   fallbackText,
 }: {
@@ -244,7 +240,58 @@ function ProtocolSwitchTriggerRow({
   }
 
   return (
+    <ProtocolSwitchRow
+      logoURI={currentProtocol?.provider.logoURI || fallbackProviderLogoUri}
+      networkLogoURI={currentProtocol?.network.logoURI}
+      name={providerName}
+      subtitle={subtitle}
+      aprElement={aprElement}
+      tvlText={tvlText}
+      isLoading={isLoading}
+      isSwitchEnabled={isSwitchEnabled}
+      showChevron={Boolean(showChevron)}
+      onPress={onPress}
+    />
+  );
+}
+
+// The switcher row's look, for a selector whose items aren't protocol list
+// entries too (the Earn deposit modal's offers)
+export function ProtocolSwitchRow({
+  logoURI,
+  networkLogoURI,
+  name,
+  subtitle,
+  aprElement,
+  tvlText,
+  isLoading,
+  isSwitchEnabled,
+  showChevron,
+  onPress,
+  testID,
+  keyboardProps,
+}: {
+  logoURI?: string;
+  networkLogoURI?: string;
+  name: string;
+  subtitle?: string;
+  aprElement: ReactNode;
+  tvlText?: string;
+  isLoading?: boolean;
+  isSwitchEnabled: boolean;
+  showChevron: boolean;
+  onPress: () => void;
+  testID?: string;
+  // A tab stop with Enter and Space, where a Popover around it opens on a
+  // click only
+  keyboardProps?: Pick<
+    IXStackProps,
+    'tabIndex' | 'onKeyDown' | 'focusVisibleStyle'
+  >;
+}) {
+  return (
     <XStack
+      testID={testID}
       role={isSwitchEnabled ? 'button' : undefined}
       userSelect={isSwitchEnabled ? 'none' : undefined}
       alignItems="center"
@@ -257,18 +304,16 @@ function ProtocolSwitchTriggerRow({
       hoverStyle={isSwitchEnabled ? { bg: '$bgHover' } : undefined}
       pressStyle={isSwitchEnabled ? { bg: '$bgActive' } : undefined}
       onPress={isSwitchEnabled ? onPress : undefined}
+      {...keyboardProps}
     >
       <XStack flex={1} minWidth={0} gap="$3" alignItems="center">
-        <ProtocolImage
-          logoURI={currentProtocol?.provider.logoURI || fallbackProviderLogoUri}
-          networkLogoURI={currentProtocol?.network.logoURI}
-        />
+        <ProtocolImage logoURI={logoURI} networkLogoURI={networkLogoURI} />
         <YStack flex={1} minWidth={0} gap="$0.5">
-          {isLoading && !providerName ? (
+          {isLoading && !name ? (
             <Skeleton h="$5" w={96} borderRadius="$2" />
           ) : (
             <SizableText size="$bodyLgMedium" numberOfLines={1} flex={1}>
-              {providerName}
+              {name}
             </SizableText>
           )}
           {subtitle ? (
@@ -478,6 +523,14 @@ type IUniversalStakeProps = {
   protocolSwitchConfig?: IManagePositionProtocolSwitchConfig;
   showApyDetail?: boolean;
   suppressPlatformBonus?: boolean;
+  // Pay with already pays with another token, so the form shows no
+  // "Not enough X? Trade Buy" row
+  hideTradeOrBuy?: boolean;
+  // The caller's own protocol selector (the Earn deposit modal's offers),
+  // drawn where the protocol switcher goes
+  offerSwitch?: ReactNode;
+  // What is typed, so a caller that starts the form over can carry it
+  onAmountChange?: (amount: string) => void;
   isInModalContext?: boolean;
   ongoingValidator?: IEarnSelectField;
   receiveInputConfig?: IManagePageV2ReceiveInputConfig;
@@ -523,6 +576,9 @@ export function UniversalStake({
   protocolSwitchConfig,
   showApyDetail = false,
   suppressPlatformBonus = false,
+  hideTradeOrBuy = false,
+  offerSwitch,
+  onAmountChange,
   isInModalContext = false,
   ongoingValidator,
   receiveInputConfig,
@@ -1162,6 +1218,14 @@ export function UniversalStake({
   // Entered once, as soon as both it and the decimals are in: the loading
   // form StakeSection shows first is this same instance, without either
   const isInitialAmountAppliedRef = useRef(false);
+  // What is typed goes out as it changes; while the start amount is still
+  // to come the box is only empty for now
+  useEffect(() => {
+    if (initialAmount && !isInitialAmountAppliedRef.current) {
+      return;
+    }
+    onAmountChange?.(amountValue);
+  }, [amountValue, initialAmount, onAmountChange]);
   useEffect(() => {
     if (
       isInitialAmountAppliedRef.current ||
@@ -1959,23 +2023,10 @@ export function UniversalStake({
 
     if (transactionConfirmation?.receive) {
       items.push(
-        <CalculationListItem key="receive">
-          <CalculationListItem.Label
-            size={transactionConfirmation.receive.title.size || '$bodyMd'}
-            color={transactionConfirmation.receive.title.color}
-            tooltip={
-              transactionConfirmation.receive.tooltip?.type === 'text'
-                ? transactionConfirmation.receive.tooltip.data?.title?.text
-                : undefined
-            }
-          >
-            {transactionConfirmation.receive.title.text}
-          </CalculationListItem.Label>
-          <EarnText
-            text={transactionConfirmation.receive.description}
-            size="$bodyMdMedium"
-          />
-        </CalculationListItem>,
+        <StakingReceiveRow
+          key="receive"
+          receive={transactionConfirmation.receive}
+        />,
       );
     }
     if (estimateFeeResp) {
@@ -2178,24 +2229,17 @@ export function UniversalStake({
     protocolSwitchConfig,
   ]);
 
-  const shouldShowSummaryCard = shouldShowStakingSummaryCard({
-    isDisabled,
-    isPendleProvider,
-    amountValue,
-    hasSummarySection,
-    showPendleTransactionSection,
-  });
-
-  const tradeOrBuyContent = isPendleProvider ? null : (
-    <TradeOrBuy
-      token={tokenInfo?.token as IToken}
-      accountId={accountId}
-      networkId={networkId}
-      containerStyle={{
-        pt: '$0',
-      }}
-    />
-  );
+  const tradeOrBuyContent =
+    isPendleProvider || hideTradeOrBuy ? null : (
+      <TradeOrBuy
+        token={tokenInfo?.token as IToken}
+        accountId={accountId}
+        networkId={networkId}
+        containerStyle={{
+          pt: '$0',
+        }}
+      />
+    );
 
   const platformBonus = suppressPlatformBonus
     ? undefined
@@ -2259,6 +2303,30 @@ export function UniversalStake({
     ongoingValidator ||
     (!shouldShowPlatformBonus && tradeOrBuyContent),
   );
+
+  // Outside Pendle the section is a "Details" row over the receive and fee
+  // rows, so it shows once there are rows to open
+  const showDetailsSection =
+    showPendleTransactionSection &&
+    !protocolSwitchConfig &&
+    (isPendleLikeLayout || accordionContent.length > 0);
+  // What sits under the rewards, below their divider
+  const hasSummaryCardFooter = Boolean(
+    ongoingValidator ||
+    showDetailsSection ||
+    (!shouldShowPlatformBonus && tradeOrBuyContent),
+  );
+  // Outside Pendle the card waits for something to show: the rewards for an
+  // amount, or a row under them
+  const shouldShowSummaryCard = shouldShowStakingSummaryCard({
+    isDisabled,
+    isPendleProvider,
+    amountValue,
+    hasSummarySection,
+    showPendleTransactionSection: isPendleLikeLayout
+      ? showPendleTransactionSection
+      : hasSummaryCardFooter || Boolean(summaryLoadingContent),
+  });
 
   return (
     <StakingFormWrapper>
@@ -2391,7 +2459,9 @@ export function UniversalStake({
           protocolSwitchConfig={protocolSwitchConfig}
           disabled={approving || submitting}
         />
-      ) : null}
+      ) : (
+        offerSwitch
+      )}
 
       {shouldShowSummaryCard &&
       (!protocolSwitchConfig || summaryCardHasBodyContent) ? (
@@ -2420,7 +2490,7 @@ export function UniversalStake({
               <>
                 {summaryContent}
                 {summaryLoadingContent}
-                <Divider my="$5" />
+                {hasSummaryCardFooter ? <Divider my="$5" /> : null}
               </>
             ) : null}
           </HeightTransition>
@@ -2433,7 +2503,7 @@ export function UniversalStake({
                 disabled={amountInputDisabled}
               />
             ) : null}
-            {showPendleTransactionSection && !protocolSwitchConfig ? (
+            {showDetailsSection ? (
               <Accordion
                 overflow="hidden"
                 width="100%"
@@ -2469,39 +2539,14 @@ export function UniversalStake({
                             isDisabled={isAccordionTriggerDisabled}
                           />
                         ) : (
-                          <>
-                            <XStack gap="$1.5" alignItems="center">
-                              <Image
-                                width="$5"
-                                height="$5"
-                                src={providerLogo}
-                                borderRadius="$2"
-                              />
-                              <SizableText size="$bodyMd">
-                                {getEarnProviderDisplayName(providerName || '')}
-                              </SizableText>
-                            </XStack>
-                            <YStack
-                              transition="quick"
-                              animateOnly={ANIMATE_ONLY_TRANSFORM}
-                              rotate={
-                                open && !isAccordionTriggerDisabled
-                                  ? '180deg'
-                                  : '0deg'
-                              }
-                              left="$2"
-                            >
-                              <Icon
-                                name="ChevronDownSmallOutline"
-                                color={
-                                  isAccordionTriggerDisabled
-                                    ? '$iconDisabled'
-                                    : '$iconSubdued'
-                                }
-                                size="$5"
-                              />
-                            </YStack>
-                          </>
+                          // The protocol is named above the form already
+                          <PendleAccordionTriggerContent
+                            open={open}
+                            triggerText={intl.formatMessage({
+                              id: ETranslations.global_details,
+                            })}
+                            isDisabled={isAccordionTriggerDisabled}
+                          />
                         )}
                       </>
                     )}

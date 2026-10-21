@@ -11,7 +11,6 @@ export enum ETabEarnRoutes {
   EarnProtocolDetailsShare = 'EarnProtocolDetailsShare',
   BorrowReserveDetails = 'BorrowReserveDetails',
   BorrowReserveDetailsShare = 'BorrowReserveDetailsShare',
-  EarnRouter = 'EarnRouter',
 }
 
 export type ITabEarnParamList = {
@@ -76,18 +75,6 @@ export type ITabEarnParamList = {
     logoURI?: string;
     accountId?: string;
     indexedAccountId?: string;
-  };
-  // One token on one network: every way to earn on it beside the deposit
-  // form (desktop demo, 10-21)
-  [ETabEarnRoutes.EarnRouter]: {
-    symbol: string;
-    networkId: string;
-    logoURI?: string;
-    // The offer to start on; the best rate otherwise
-    offerKey?: string;
-    // An amount of the token to start the form on (what a withdrawal just
-    // took out)
-    amount?: string;
   };
   [ETabEarnRoutes.BorrowReserveDetailsShare]: {
     networkId: string;

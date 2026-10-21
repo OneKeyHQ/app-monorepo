@@ -10,6 +10,8 @@ import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusName
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EModalRoutes,
+  EModalStakingRoutes,
   ERootRoutes,
   ETabDiscoveryRoutes,
   ETabEarnRoutes,
@@ -143,8 +145,7 @@ export async function safePushToEarnRoute(
     route === ETabEarnRoutes.EarnProtocolTokens ||
     route === ETabEarnRoutes.EarnProtocols ||
     route === ETabEarnRoutes.EarnProtocolDetails ||
-    route === ETabEarnRoutes.EarnProtocolDetailsShare ||
-    route === ETabEarnRoutes.EarnRouter;
+    route === ETabEarnRoutes.EarnProtocolDetailsShare;
   if (shouldSwitchToEarnMode) {
     appEventBus.emit(EAppEventBusNames.SwitchEarnMode, { mode: 'earn' });
   }
@@ -499,11 +500,32 @@ export const EarnNavigation = {
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnProtocols, params);
   },
 
-  pushToEarnRouter(
+  // The deposit modal for a token on one network, choosing among its offers
+  // there (desktop demo, 10-22)
+  pushToEarnOffersDeposit(
     navigation: IAppNavigation,
-    params: ITabEarnParamList[ETabEarnRoutes.EarnRouter],
+    params: {
+      symbol: string;
+      networkId: string;
+      logoURI?: string;
+      // The offer to start on; the best rate otherwise
+      offerKey?: string;
+      // An amount of the token to start on (what a withdrawal took out)
+      amount?: string;
+    },
   ) {
-    void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnRouter, params);
+    navigation.pushModal(EModalRoutes.StakingModal, {
+      screen: EModalStakingRoutes.ManagePosition,
+      params: {
+        networkId: params.networkId,
+        symbol: params.symbol,
+        // Each offer names its own
+        provider: '',
+        tab: 'deposit',
+        tokenImageUri: params.logoURI,
+        earnOffers: { offerKey: params.offerKey, amount: params.amount },
+      },
+    });
   },
 
   // Tokens home (OK-58505/OK-58562/OK-58508)

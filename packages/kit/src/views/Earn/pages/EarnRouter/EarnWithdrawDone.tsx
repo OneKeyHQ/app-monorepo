@@ -1,5 +1,3 @@
-import { useMemo } from 'react';
-
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -10,42 +8,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EARN_DESKTOP_DEMO_COPY } from '../../components/desktopHome/earnDesktopHomeCopy';
 
-import { pickBetterOffer } from './earnRouter.utils';
-import {
-  OfferSummary,
-  getOfferName,
-  useEarnRouterOffers,
-} from './EarnRouterOffer';
+import { OfferSummary, getOfferName } from './EarnRouterOffer';
 
 import type { IEarnDesktopHoldOffer } from '../../components/desktopHome/earnDesktopHome.utils';
-
-// What the token earns elsewhere on its network, against the offer a
-// withdrawal is leaving; read while the withdraw form is open, so it is
-// there the moment the withdrawal goes out
-export function useWithdrawBetterOffer({
-  enabled,
-  symbol,
-  networkId,
-  provider,
-  vault,
-}: {
-  enabled: boolean;
-  symbol: string;
-  networkId: string;
-  provider: string;
-  vault?: string;
-}) {
-  const { offers, isLoaded } = useEarnRouterOffers({
-    symbol,
-    networkId,
-    enabled,
-  });
-  return useMemo(
-    () =>
-      enabled && isLoaded ? pickBetterOffer({ offers, provider, vault }) : {},
-    [enabled, isLoaded, offers, provider, vault],
-  );
-}
 
 // The withdraw modal once the withdrawal is out: what it took, and the same
 // token's better rate on the same network, one press from depositing it

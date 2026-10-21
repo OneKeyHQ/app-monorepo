@@ -346,11 +346,11 @@ export function EarnDesktopHome({
     setTab('earn');
     scrollToBrowse();
   }, [scrollToBrowse]);
-  // A held token opens every way to earn on it, on the network it sits on,
-  // with the offer whose rate the row showed already chosen
+  // A held token opens the deposit modal with every way to earn on it, on
+  // the network it sits on, and the offer whose rate the row showed chosen
   const handleOpenHoldRow = useCallback(
     (row: IEarnDesktopHoldRow) =>
-      EarnNavigation.pushToEarnRouter(navigation, {
+      EarnNavigation.pushToEarnOffersDeposit(navigation, {
         symbol: row.asset.symbol,
         networkId: row.networkId,
         logoURI: row.asset.logoURI || row.token.logoURI,

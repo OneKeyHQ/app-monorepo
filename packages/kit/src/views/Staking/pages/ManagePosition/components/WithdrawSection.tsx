@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -112,6 +112,7 @@ export const WithdrawSection = ({
   onQuoteRefreshingChange,
   repayWithCollateralSetupReadyProgressKey,
   onRepayWithCollateralSetupReadyProgressKeyChange,
+  offerSwitch,
 }: {
   accountId: string;
   networkId: string;
@@ -141,6 +142,9 @@ export const WithdrawSection = ({
   onRepayWithCollateralSetupReadyProgressKeyChange?: (
     progressKey: string,
   ) => void;
+  // The position's protocol, named in a row under the amount box (a modal
+  // for one side of a position)
+  offerSwitch?: ReactNode;
 }) => {
   const intl = useIntl();
   // Early return if no tokenInfo or protocolInfo
@@ -1371,6 +1375,7 @@ export const WithdrawSection = ({
     ) {
       return (
         <ManagePosition
+          offerSwitch={offerSwitch}
           accountId={accountId}
           networkId={networkId}
           providerName=""
@@ -1384,12 +1389,14 @@ export const WithdrawSection = ({
           tokenImageUri={fallbackTokenImageUri}
           tokenSymbol={tokenInfo?.token.symbol}
           actionLabel={borrowActionLabel}
+          inputTitle={intl.formatMessage({ id: ETranslations.content__amount })}
           isInModalContext={isInModalContext}
         />
       );
     }
     return (
       <UniversalWithdraw
+        offerSwitch={offerSwitch}
         accountAddress=""
         price="0"
         balance="0"
@@ -1404,6 +1411,7 @@ export const WithdrawSection = ({
         footerActionOverride={footerActionOverride}
         tokenImageUri={fallbackTokenImageUri}
         tokenSymbol={tokenInfo?.token.symbol}
+        inputTitle={intl.formatMessage({ id: ETranslations.content__amount })}
       />
     );
   }
@@ -1462,6 +1470,7 @@ export const WithdrawSection = ({
     } else {
       borrowWithdrawContent = (
         <ManagePosition
+          offerSwitch={offerSwitch}
           accountId={accountId}
           networkId={networkId}
           providerName={providerName}
@@ -1489,6 +1498,7 @@ export const WithdrawSection = ({
           beforeFooter={beforeFooter}
           showApyDetail={showApyDetail}
           actionLabel={borrowActionLabel}
+          inputTitle={intl.formatMessage({ id: ETranslations.content__amount })}
           selectableAssets={selectableBorrowAssets}
           selectableAssetsLoading={assetsListLoading}
           onTokenSelect={handleTokenSelect}
@@ -1504,6 +1514,7 @@ export const WithdrawSection = ({
         borrowWithdrawContent
       ) : (
         <UniversalWithdraw
+          offerSwitch={offerSwitch}
           accountAddress={protocolInfo?.earnAccount?.accountAddress || ''}
           price={tokenInfo?.price ? String(tokenInfo.price) : '0'}
           decimals={protocolInfo?.protocolInputDecimals ?? token?.decimals}
@@ -1513,16 +1524,13 @@ export const WithdrawSection = ({
           tokenSymbol={effectiveTokenSymbol}
           requestSymbol={withdrawRequestSymbol}
           tokenImageUri={token?.logoURI || fallbackTokenImageUri}
-          providerLogo={protocolInfo?.providerDetail.logoURI}
           providerName={providerName}
           protocolInfo={protocolInfo}
           tokenInfo={tokenInfo}
           onConfirm={onConfirm}
-          inputTitle={
-            isPendleProvider
-              ? intl.formatMessage({ id: ETranslations.content__amount })
-              : undefined
-          }
+          // The box says what it takes; the action's name is on the tab and
+          // the button
+          inputTitle={intl.formatMessage({ id: ETranslations.content__amount })}
           minAmount={
             Number(protocolInfo?.minUnstakeAmount) > 0
               ? String(protocolInfo?.minUnstakeAmount)

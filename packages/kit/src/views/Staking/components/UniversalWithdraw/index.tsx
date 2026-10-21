@@ -1,4 +1,4 @@
-import type { PropsWithChildren, ReactElement } from 'react';
+import type { PropsWithChildren, ReactElement, ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -14,7 +14,6 @@ import {
   HeightTransition,
   Icon,
   IconButton,
-  Image,
   Page,
   SizableText,
   Stack,
@@ -22,10 +21,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IAlertType } from '@onekeyhq/components';
-import {
-  ANIMATE_ONLY_OPACITY,
-  ANIMATE_ONLY_TRANSFORM,
-} from '@onekeyhq/components/src/utils/animationConstants';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   PercentageStageOnKeyboard,
@@ -43,7 +39,6 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
-import { getEarnProviderDisplayName } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import {
   EApproveType,
   ECheckAmountActionType,
@@ -72,7 +67,6 @@ import {
   isInvalidAmount,
   shouldShowStakingSummaryCard,
 } from '../../utils/utils';
-import { CalculationListItem } from '../CalculationList';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
 import {
   type IManagePageV2ReceiveInputConfig,
@@ -99,6 +93,7 @@ import {
   useOnBlurAmountValue,
 } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
+import { StakingReceiveRow } from '../UniversalStake/StakingConfirmationSummary';
 
 import {
   getCheckAmountRequestKey,
@@ -126,7 +121,6 @@ type IUniversalWithdrawProps = {
   accountId?: string;
   networkId?: string;
 
-  providerLogo?: string;
   providerName?: string;
 
   decimals?: number;
@@ -147,6 +141,9 @@ type IUniversalWithdrawProps = {
   isDisabled?: boolean;
 
   inputTitle?: string;
+  // The position's protocol, named in a row under the amount box (a modal
+  // for one side of a position)
+  offerSwitch?: ReactNode;
 
   onConfirm?: ({
     amount,
@@ -371,7 +368,6 @@ export function UniversalWithdraw({
   tokenImageUri,
   tokenSymbol,
   requestSymbol,
-  providerLogo,
   providerName,
   initialAmount,
   minAmount = '0',
@@ -380,6 +376,7 @@ export function UniversalWithdraw({
   identity,
   isDisabled,
   inputTitle,
+  offerSwitch,
 
   onConfirm,
   beforeFooter,
@@ -1575,23 +1572,10 @@ export function UniversalWithdraw({
 
     if (transactionConfirmation?.receive) {
       items.push(
-        <CalculationListItem key="receive">
-          <CalculationListItem.Label
-            size={transactionConfirmation.receive.title.size || '$bodyMd'}
-            color={transactionConfirmation.receive.title.color}
-            tooltip={
-              transactionConfirmation.receive.tooltip?.type === 'text'
-                ? transactionConfirmation.receive.tooltip.data?.title?.text
-                : undefined
-            }
-          >
-            {transactionConfirmation.receive.title.text}
-          </CalculationListItem.Label>
-          <EarnText
-            text={transactionConfirmation.receive.description}
-            size="$bodyMdMedium"
-          />
-        </CalculationListItem>,
+        <StakingReceiveRow
+          key="receive"
+          receive={transactionConfirmation.receive}
+        />,
       );
     }
     if (estimateFeeResp) {
@@ -1734,12 +1718,17 @@ export function UniversalWithdraw({
     ? Boolean(footerActionOverride.disabled)
     : confirmDisabled;
 
+  // Outside Pendle the section is a "Details" row over the receive and fee
+  // rows, so it shows once there are rows to open
+  const showDetailsSection =
+    showPendleTransactionSection &&
+    (isPendleLikeLayout || accordionContent.length > 0);
   const shouldShowSummaryCard = shouldShowStakingSummaryCard({
     isDisabled,
     isPendleProvider,
     amountValue,
     hasSummarySection,
-    showPendleTransactionSection,
+    showPendleTransactionSection: showDetailsSection,
   });
 
   return (
@@ -1768,8 +1757,10 @@ export function UniversalWithdraw({
               }}
               balanceProps={{
                 value: balance,
+                // As the lending form says it, so the action's name stays on
+                // the button
                 iconText: intl.formatMessage({
-                  id: ETranslations.global_withdraw,
+                  id: ETranslations.global_available,
                 }),
                 onPress: onMax,
               }}
@@ -1942,6 +1933,7 @@ export function UniversalWithdraw({
           ))}
         </>
       ) : null}
+      {offerSwitch}
       {shouldShowSummaryCard ? (
         <YStack
           p="$3.5"
@@ -2074,11 +2066,11 @@ export function UniversalWithdraw({
                 ) : null}
               </YStack>
             ) : null}
-            {hasSummarySection && showPendleTransactionSection ? (
+            {hasSummarySection && showDetailsSection ? (
               <Divider my="$5" />
             ) : null}
           </HeightTransition>
-          {showPendleTransactionSection ? (
+          {showDetailsSection ? (
             <Accordion
               overflow="hidden"
               width="100%"
@@ -2114,39 +2106,14 @@ export function UniversalWithdraw({
                           isDisabled={isAccordionTriggerDisabled}
                         />
                       ) : (
-                        <>
-                          <XStack gap="$1.5" alignItems="center">
-                            <Image
-                              width="$5"
-                              height="$5"
-                              src={providerLogo}
-                              borderRadius="$2"
-                            />
-                            <SizableText size="$bodyMd">
-                              {getEarnProviderDisplayName(providerName || '')}
-                            </SizableText>
-                          </XStack>
-                          <YStack
-                            transition="quick"
-                            animateOnly={ANIMATE_ONLY_TRANSFORM}
-                            rotate={
-                              open && !isAccordionTriggerDisabled
-                                ? '180deg'
-                                : '0deg'
-                            }
-                            left="$2"
-                          >
-                            <Icon
-                              name="ChevronDownSmallOutline"
-                              color={
-                                isAccordionTriggerDisabled
-                                  ? '$iconDisabled'
-                                  : '$iconSubdued'
-                              }
-                              size="$5"
-                            />
-                          </YStack>
-                        </>
+                        // The protocol is named above the form already
+                        <PendleAccordionTriggerContent
+                          open={open}
+                          triggerText={intl.formatMessage({
+                            id: ETranslations.global_details,
+                          })}
+                          isDisabled={isAccordionTriggerDisabled}
+                        />
                       )}
                     </>
                   )}

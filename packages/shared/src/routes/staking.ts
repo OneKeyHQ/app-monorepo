@@ -117,6 +117,10 @@ export type IModalStakingParamList = {
     tab?: 'deposit' | 'withdraw';
     tokenImageUri?: string;
     enableProtocolSwitch?: boolean;
+    // Deposit only, choosing among the token's offers on this network (a row
+    // of the desktop Earn home, demo 10-22): the offer to start on, the best
+    // rate otherwise, and an amount of the token to start on
+    earnOffers?: { offerKey?: string; amount?: string };
     // Fires after a deposit/withdraw confirms, before this modal pops. The
     // inline wide-layout ManagePositionPart takes the same callback as a prop;
     // opened as a modal there is no other way back to the caller. Same shape as

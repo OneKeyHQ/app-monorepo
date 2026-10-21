@@ -224,7 +224,6 @@ const WithdrawPage = () => {
           initialWithdrawType={withdrawType}
           tokenSymbol={tokenSymbol}
           tokenImageUri={token?.logoURI}
-          providerLogo={protocolInfo?.providerDetail.logoURI}
           providerName={providerName}
           protocolInfo={protocolInfo}
           tokenInfo={tokenInfo}

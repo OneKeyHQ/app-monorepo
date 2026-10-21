@@ -109,8 +109,16 @@ export function ManagePosition(props: IManagePositionProps) {
   // Entered once, as soon as both it and the decimals are in. After the clear
   // above, which also runs on mount (effects run in order). The loading form
   // StakeSection shows first is this same instance, without either
-  const { initialAmount } = props;
+  const { initialAmount, onAmountChange } = props;
   const isInitialAmountAppliedRef = useRef(false);
+  // What is typed goes out as it changes; while the start amount is still
+  // to come the box is only empty for now
+  useEffect(() => {
+    if (initialAmount && !isInitialAmountAppliedRef.current) {
+      return;
+    }
+    onAmountChange?.(amountValue);
+  }, [amountValue, initialAmount, onAmountChange]);
   useEffect(() => {
     if (
       isInitialAmountAppliedRef.current ||
@@ -244,8 +252,9 @@ export function ManagePosition(props: IManagePositionProps) {
   return (
     <ManagePositionContext.Provider value={contextValue}>
       <StakingFormWrapper>
-        <AmountInputSection />
-        <InfoDisplaySection />
+        <AmountInputSection title={props.inputTitle} />
+        {props.offerSwitch}
+        <InfoDisplaySection showSwapOrBridge={props.showSwapOrBridge} />
         <ActionFooter />
       </StakingFormWrapper>
     </ManagePositionContext.Provider>

@@ -81,6 +81,16 @@ export interface IManagePositionProps {
   initialAmount?: string;
   // The caller's own token picker (Pay with) in place of the reserve picker
   onTokenSelectorPress?: () => void;
+  // The amount box's label, in place of the action's name
+  inputTitle?: string;
+  // Off where the caller pays with another token itself (Pay with): no
+  // "Not enough X? Swap" row
+  showSwapOrBridge?: boolean;
+  // The caller's own protocol selector (the Earn deposit modal's offers),
+  // under the amount box
+  offerSwitch?: ReactNode;
+  // What is typed, so a caller that starts the form over can carry it
+  onAmountChange?: (amount: string) => void;
   repayAllBalance?: string;
   debtBalance?: string;
   tokenSymbol?: string;
