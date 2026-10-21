@@ -107,8 +107,13 @@ export default function PrimeDashboard({
   route: RouteProp<IPrimeParamList, EPrimePages.PrimeDashboard>;
 }) {
   const intl = useIntl();
-  const { fromFeature, networkId, freeTrialReason, fromDeepLink } =
-    route.params || {};
+  const {
+    fromFeature,
+    networkId,
+    freeTrialReason,
+    fromDeepLink,
+    selectedSubscriptionPeriod: routeSelectedSubscriptionPeriod,
+  } = route.params || {};
   const isTravelMode =
     travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
     'travel-mode';
@@ -126,7 +131,12 @@ export default function PrimeDashboard({
   } = useOneKeyAuth();
 
   const [selectedSubscriptionPeriod, setSelectedSubscriptionPeriod] =
-    useState<ISubscriptionPeriod>('P1Y');
+    useState<ISubscriptionPeriod>(routeSelectedSubscriptionPeriod ?? 'P1Y');
+  useEffect(() => {
+    if (routeSelectedSubscriptionPeriod) {
+      setSelectedSubscriptionPeriod(routeSelectedSubscriptionPeriod);
+    }
+  }, [routeSelectedSubscriptionPeriod]);
   const {
     activeAccount: { network },
   } = useActiveAccount({ num: 0 });
