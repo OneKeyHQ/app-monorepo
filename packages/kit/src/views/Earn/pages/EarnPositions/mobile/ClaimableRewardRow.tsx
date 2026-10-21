@@ -97,7 +97,7 @@ export function ClaimableRewardRow({
     typeof subtitle === 'string' ? (
       <SizableText
         size={isTableLayout ? '$bodyMd' : '$bodySm'}
-        color="$textSubdued"
+        color={isTableLayout ? '$text' : '$textSubdued'}
         numberOfLines={1}
       >
         {subtitle}

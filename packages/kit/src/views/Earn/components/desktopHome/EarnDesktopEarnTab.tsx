@@ -437,7 +437,7 @@ function TokenOffers({
               </XStack>
               <Stack {...COLUMNS.network} />
               <Stack {...COLUMNS.balance}>
-                <SizableText size="$bodyLg" numberOfLines={1}>
+                <SizableText size="$bodyLgMedium" numberOfLines={1}>
                   {lending.tvlText ?? '-'}
                 </SizableText>
               </Stack>
@@ -511,7 +511,11 @@ function TokenOffers({
             </XStack>
             <Stack {...COLUMNS.network} />
             <Stack {...COLUMNS.balance}>
-              <EarnText size="$bodyLg" numberOfLines={1} text={item.tvl} />
+              <EarnText
+                size="$bodyLgMedium"
+                numberOfLines={1}
+                text={item.tvl}
+              />
             </Stack>
             <Stack {...COLUMNS.apr}>
               {isRedeem ? (

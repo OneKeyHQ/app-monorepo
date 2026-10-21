@@ -117,7 +117,7 @@ function MarketCard({
             </SizableText>
           </YStack>
         </XStack>
-        <SizableText mt="$4" mb="$1" size="$bodySm" color="$textSubdued">
+        <SizableText mt="$4" mb="$1" size="$bodySmMedium" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.defi_borrow_apy })}
         </SizableText>
         {card.topBorrow.map((row) => (
