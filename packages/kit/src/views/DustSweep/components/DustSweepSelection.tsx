@@ -36,6 +36,7 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
     session,
     loadStatus,
     refreshStatus,
+    assetStatus,
     partialError,
     toggle,
     toggleAll,
@@ -56,7 +57,12 @@ export function DustSweepSelection({ desktop }: { desktop: boolean }) {
     selectedVisibleCount === selectableVisibleCount && !!selectableVisibleCount;
   if (selectedVisibleCount > 0 && selectedVisibleCount < selectableVisibleCount)
     selectAllValue = 'indeterminate';
-  const loading = selecting && loadStatus === 'loading';
+  const loading =
+    selecting &&
+    !rows.length &&
+    (loadStatus === 'loading' ||
+      refreshStatus === 'refreshing' ||
+      assetStatus === 'refreshing');
   const hiddenRow =
     selecting && !loading && hidden.length ? (
       <XStack
