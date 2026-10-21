@@ -48,6 +48,14 @@ mobile shell input keys, so native shell caches invalidate when they change.
 
 ## Verification
 
+The Android `mmkv` target explicitly links with 16 KB maximum and common page
+sizes, including on NDK r27. Library targets do not inherit React Native's
+application-only configuration. After `:mmkv:assembleRelease`, check each ABI's
+`libmmkv.so` with `llvm-readelf -lW`: every `LOAD` alignment must be at least
+`0x4000`, and each `GNU_RELRO` virtual address plus memory size must end on a
+16 KB boundary. Check the packaged APK separately with `zipalign -c -P 16 4`;
+ZIP alignment alone does not validate ELF segment alignment.
+
 From the repository root:
 
 ```sh
